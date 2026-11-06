@@ -1,9 +1,8 @@
-import { render, screen } from "@testing-library/react";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import { useContext, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ usePathname: vi.fn() }));
 vi.mock("@/components/providers/theme-provider", () => ({
   ThemeProvider: ({ children }: { children: ReactNode }) => (
     <div data-testid="theme-provider">{children}</div>
@@ -19,7 +18,9 @@ vi.mock("@/components/providers/toast-provider", () => ({
     <div data-testid="toast-provider">{children}</div>
   ),
 }));
+const context = vi.hoisted(() => ({user:{id:"actor"},effectiveOrganization:{id:"org"},effectiveMemberId:"member",permissions:[]}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({
+  useWorkbenchContext: () => context,
   WorkbenchContextProvider: ({ children }: { children: ReactNode }) => (
     <div data-testid="workbench-context-provider">{children}</div>
   ),
@@ -31,7 +32,7 @@ vi.mock("@/components/providers/zitadel-auth-gate", () => ({
 }));
 vi.mock("@/components/workbench/workspace-app-shell", () => ({
   WorkspaceAppShell: ({ children }: { children: ReactNode }) => (
-    <div data-testid="workspace-app-shell">{children}</div>
+    <div key={useContext(PathnameContext)} data-testid="workspace-app-shell">{children}</div>
   ),
 }));
 vi.mock("@/components/listingkit/shared/listingkit-app-shell", () => ({
@@ -79,10 +80,37 @@ describe("isWorkbenchRoute", () => {
   });
 });
 
+import WorkbenchLayout from "@/app/workbench/layout";
+import {researchHandoffScope,useResearchHandoff} from "@/components/workbench/project-center/research-handoff-provider";
+import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
+import type {DataJob} from "@/lib/contracts/data-services";
+
+function HandoffProbe() {
+  const {store,draft}=useResearchHandoff();
+  const scope=researchHandoffScope(useWorkbenchContext());
+  return <><button onClick={()=>store?.start(scope,"fixture-project",{} as DataJob)}>确认交接</button><span>{draft?.projectId??"空交接"}</span></>;
+}
+
+function atPath(path:string, children:ReactNode) {
+  return <PathnameContext.Provider value={path}><ApplicationFrame>{children}</ApplicationFrame></PathnameContext.Provider>;
+}
+
 describe("ApplicationFrame", () => {
+  it("keeps the same-tab handoff across a keyed shell remount and clears it on member change", () => {
+    const tree=(path:string)=>atPath(path,<WorkbenchLayout><HandoffProbe/></WorkbenchLayout>);
+    const selection="/workbench/supply/selection/fixture-project";
+    const {rerender}=render(tree("/workbench/data/research/fixture-project"));
+    fireEvent.click(screen.getByRole("button",{name:"确认交接"}));
+    expect(screen.getByText("fixture-project")).toBeInTheDocument();
+    rerender(tree(selection));
+    expect(screen.getByText("fixture-project")).toBeInTheDocument();
+    context.effectiveMemberId="changed";
+    rerender(tree(selection));
+    expect(screen.getByText("空交接")).toBeInTheDocument();
+    context.effectiveMemberId="member";
+  });
   it.each(["/capture/1688", "/capture/amazon"])("mounts the current provider/shell chain for %s", (path) => {
-    vi.mocked(usePathname).mockReturnValue(path);
-    render(<ApplicationFrame><p>capture child</p></ApplicationFrame>);
+    render(atPath(path,<p>capture child</p>));
     expect(screen.getByTestId("theme-provider")).toContainElement(screen.getByTestId("query-provider"));
     expect(screen.getByTestId("query-provider")).toContainElement(screen.getByTestId("toast-provider"));
     expect(screen.getByTestId("toast-provider")).toContainElement(screen.getByTestId("workbench-context-provider"));
@@ -92,13 +120,7 @@ describe("ApplicationFrame", () => {
     expect(screen.queryByTestId("legacy-listingkit-shell")).not.toBeInTheDocument();
   });
   it("routes Workbench pages through the isolated provider and shell chain", () => {
-    vi.mocked(usePathname).mockReturnValue("/workbench/no-organization");
-
-    render(
-      <ApplicationFrame>
-        <p>route child</p>
-      </ApplicationFrame>,
-    );
+    render(atPath("/workbench/no-organization",<p>route child</p>));
 
     expect(screen.getByTestId("theme-provider")).toContainElement(
       screen.getByTestId("query-provider"),
@@ -121,13 +143,7 @@ describe("ApplicationFrame", () => {
   });
 
   it("keeps authentication without mounting the retired navigation shell", () => {
-    vi.mocked(usePathname).mockReturnValue("/listing-kits/home");
-
-    render(
-      <ApplicationFrame>
-        <p>legacy child</p>
-      </ApplicationFrame>,
-    );
+    render(atPath("/listing-kits/home",<p>legacy child</p>));
 
     expect(screen.getByTestId("legacy-auth-gate")).toContainElement(screen.getByText("legacy child"));
     expect(screen.queryByTestId("legacy-listingkit-shell")).not.toBeInTheDocument();
@@ -139,13 +155,7 @@ describe("ApplicationFrame", () => {
   });
 
   it("keeps public routes shell-free", () => {
-    vi.mocked(usePathname).mockReturnValue("/referrals/register");
-
-    render(
-      <ApplicationFrame>
-        <p>public child</p>
-      </ApplicationFrame>,
-    );
+    render(atPath("/referrals/register",<p>public child</p>));
 
     expect(screen.getByText("public child")).toBeInTheDocument();
     expect(screen.queryByTestId("theme-provider")).not.toBeInTheDocument();

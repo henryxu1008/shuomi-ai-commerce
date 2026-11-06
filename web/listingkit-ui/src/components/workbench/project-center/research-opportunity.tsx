@@ -103,16 +103,15 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
     const next={...base,confirmed:{requirements,choices:input.data.candidates,representative,after,confirmedAt:new Date().toISOString()}};
     try {
       const [{inspection:result},batch]=await Promise.all([
-        verifyResearchHandoff(scope,{...next,confirmed:{...next.confirmed,representative:representative||input.data.candidates[0].candidateId}},controller.signal),
+        verifyResearchHandoff(scope,{...next,confirmed:{...next.confirmed,requirements:confirm?requirements:{...requirements,specs:[]},representative:representative||input.data.candidates[0].candidateId}},controller.signal),
         readCollectionBatch(scope,base.job.batchId,AbortSignal.any([controller.signal,AbortSignal.timeout(10_000)])),
       ]);
       if (controller.signal.aborted || store.getSnapshot()!==base) return;
       if (batch.id!==base.job.batchId || batch.archivedAt) throw new Error("Batch changed");
       setInspected({signature,inspection:result});
       if (confirm) {
-        const evidenceIds=new Set(result.candidates.flatMap(specificationFacts).map(fact=>fact.id));
         if (!opportunityPriceRange(result.candidates,representative) || !requirements.use.trim() || !requirements.specs.length ||
-            requirements.specs.some(spec=>!spec.required.trim()||!evidenceIds.has(spec.factId))) throw new Error("Insufficient evidence");
+            requirements.specs.some(spec=>!spec.required.trim())) throw new Error("Insufficient evidence");
         if (store.replace(base,next)) router.push("/workbench/supply/selection/"+base.projectId+"?handoff="+handoffToken(next));
       }
     } catch {
@@ -139,7 +138,7 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
       {inspection.candidates.map(row=><div key={row.research.CandidateID}>
         <strong>{row.observation.asin}</strong> · {row.observation.price&&row.observation.currency?
           row.observation.currency+" "+row.observation.price:"缺可比售价"}
-        <ul>{specificationFacts(row).map(fact=><li key={fact.id}>{fact.name}：{fact.value}</li>)}</ul>
+        <ul>{specificationFacts(row).map(fact=><li key={fact.sourceKey}>{fact.name}：{fact.value}</li>)}</ul>
         {row.missing.length?<p>缺项：{row.missing.join("、")}</p>:null}
       </div>)}
       <label className="grid gap-1">代表候选<select className="rounded border bg-background p-2" value={representative} onChange={event=>{
@@ -151,19 +150,19 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
       {requirements.specs.map((spec,index)=>{
         const change=(next:typeof spec)=>edit({...requirements,specs:requirements.specs.map((item,i)=>i===index?next:item)});
         return <div key={index} className="space-y-2 rounded border p-3">
-          <label className="grid gap-1">第 {index+1} 条规格依据<select className="rounded border bg-background p-2" value={spec.factId} onChange={event=>change({...spec,factId:event.target.value})}>
-            <option value="">选择样本规格</option>{facts.map(fact=><option key={fact.id} value={fact.id}>{fact.asin} · {fact.name}：{fact.value}</option>)}
+          <label className="grid gap-1">第 {index+1} 条规格依据<select className="rounded border bg-background p-2" value={spec.sourceKey} onChange={event=>change({...spec,sourceKey:event.target.value})}>
+            <option value="">选择样本规格</option>{facts.map(fact=><option key={fact.sourceKey} value={fact.sourceKey}>{fact.asin} · {fact.name}：{fact.value}</option>)}
           </select></label>
           <label className="grid gap-1">必要规格<Input maxLength={200} value={spec.required} onChange={event=>change({...spec,required:event.target.value})}/></label>
           <label className="grid gap-1">可接受差异<Input maxLength={200} value={spec.difference} onChange={event=>change({...spec,difference:event.target.value})}/></label>
           <Button variant="ghost" onClick={()=>edit({...requirements,specs:requirements.specs.filter((_,i)=>i!==index)})}>移除此条规格</Button>
         </div>;
       })}
-      <Button variant="outline" disabled={requirements.specs.length>=8 || !facts.length} onClick={()=>edit({...requirements,specs:[...requirements.specs,{factId:"",required:"",difference:""}]})}>添加必要规格</Button>
+      <Button variant="outline" disabled={requirements.specs.length>=8 || !facts.length} onClick={()=>edit({...requirements,specs:[...requirements.specs,{sourceKey:"",required:"",difference:""}]})}>添加必要规格</Button>
       <label className="grid gap-1">目标售价（USD，可留空）<Input inputMode="decimal" maxLength={12} value={requirements.targetPrice} onChange={event=>edit({...requirements,targetPrice:event.target.value})}/></label>
       <label className="grid gap-1">待核实事项<Input maxLength={300} value={requirements.missing} onChange={event=>edit({...requirements,missing:event.target.value})}/></label>
       <Button disabled={!range||!requirements.use.trim()||!requirements.specs.length||
-        requirements.specs.some(spec=>!spec.required.trim()||!facts.some(fact=>fact.id===spec.factId))||
+        requirements.specs.some(spec=>!spec.required.trim()||!facts.some(fact=>fact.sourceKey===spec.sourceKey))||
         (!!requirements.targetPrice&&(!/^\d+(\.\d{1,2})?$/.test(requirements.targetPrice)||Number(requirements.targetPrice)<=0))}
         onClick={()=>void check(true)}>确认并进入选品</Button>
     </fieldset>:null}
@@ -182,7 +181,7 @@ export function ConfirmedOpportunity({draft,inspection}:{draft:ResearchHandoff;i
     {range?<p>样本展示价 {range.currency} {range.minimum.toFixed(2)}–{range.maximum.toFixed(2)}</p>:null}
     {requirements.targetPrice?<p>人工目标售价 USD {requirements.targetPrice}</p>:null}
     <ul>{requirements.specs.map((spec,index)=>{
-      const fact=evidence.find(item=>item.id===spec.factId);
+      const fact=evidence.find(item=>item.sourceKey===spec.sourceKey);
       return <li key={index}>{spec.required}{spec.difference?" · 可接受："+spec.difference:""}
         {fact?" · 依据 "+fact.asin+" "+fact.name+"："+fact.value:""}</li>;
     })}</ul>

@@ -7,7 +7,7 @@ import {jobSchema} from "../contracts/data-services";
 import {researchPage} from "../contracts/market-research";
 import {project} from "../contracts/project-center";
 import {researchAnalysisInput,type ResearchInspection} from "../contracts/research-analysis";
-import {candidateMatchesJob,researchHandoffAllowed,researchScopeKey,sameResearchJob,type ResearchHandoff} from "../workbench/research-handoff";
+import {candidateMatchesJob,researchHandoffAllowed,researchScopeKey,sameResearchJob,specificationFacts,type ResearchHandoff} from "../workbench/research-handoff";
 import type {z} from "zod";
 
 type Input = z.infer<typeof researchAnalysisInput>;
@@ -40,6 +40,8 @@ export async function verifyResearchHandoff(scope:ProjectScope,draft:ResearchHan
         candidate.id===choice.candidateId && candidateMatchesJob(candidate,job) &&
         String(candidate.revision)===choice.expectedRevision && candidate.selectedLinkId===choice.linkId &&
         candidate.evidenceDigest===choice.evidenceDigest))) throw new Error("Research changed");
+  const sources=new Set(inspection.candidates.flatMap(specificationFacts).map(fact=>fact.sourceKey));
+  if (confirmed.requirements.specs.some(spec=>!sources.has(spec.sourceKey))) throw new Error("Specification source changed");
   const context=await fetchWorkbenchContext(deadline);
   const organization=context.organizations.find(org=>org.id===context.effectiveOrganizationId);
   const permissions=organization?.permissions??[];

@@ -7,7 +7,7 @@ import {CollectionPage} from "./collection-page";
 import {ResearchPanel} from "../project-center/research-panel";
 import {ResearchSelectionGate} from "../project-center/research-selection-gate";
 import {ResearchOpportunity} from "../project-center/research-opportunity";
-import {createResearchHandoff,handoffToken,researchScopeKey} from "@/lib/workbench/research-handoff";
+import {createResearchHandoff,handoffToken,researchScopeKey,specificationFacts} from "@/lib/workbench/research-handoff";
 import {loadSupplyIntent,saveSupplyIntent} from "@/lib/api/supply-intent";
 import {SupplyAPIError,type SupplyIntent} from "@/lib/api/supply-chain";
 import type {DataJob} from "@/lib/contracts/data-services";
@@ -58,10 +58,12 @@ const choices=[A,B].map(candidateId=>({candidateId,expectedRevision:"1",linkId:c
 const rows=choices.map((choice,index)=>({
   ref:{ItemID:choice.selection.itemId,ItemRevision:"2",ProductKey:choice.candidateId,PublicationID:choice.selection.originalPublicationId,CatalogVersion:choice.selection.originalVersion},
   research:{CandidateID:choice.candidateId,CandidateRevision:"1",SelectedLinkID:choice.linkId,EvidenceDigest:choice.evidenceDigest},
-  observation:{asin:index===0?"B000000001":"B000000002",price:index===0?29.99:24.99,currency:"USD",priceBasis:"displayed_listing_offer"},
-  facts:[{id:"fact:"+String(index+1).repeat(64),path:"attributes.0",value:{Name:"宽度",Value:index===0?"38–55 cm":"42 cm"}}],missing:[],
+  observation:{site:"us",asin:index===0?"B000000001":"B000000002",price:index===0?29.99:24.99,currency:"USD",priceBasis:"displayed_listing_offer",
+    capturedAt:job.createdAt,parserVersion:"amazon-v1",checksum:"fixture",query:{...job.query,asinCount:0}},
+  facts:[{id:"fact:"+String(index+1).repeat(64),path:"attributes.0",value:{Name:"宽度",Value:index===0?"38–55 cm":"42 cm"}}],missing:[],warnings:[],
 }));
 const inspection={projectId,candidates:rows};
+const sourceKey=specificationFacts(rows[0])[0].sourceKey;
 const candidates=choices.map((choice,index)=>({
   id:choice.candidateId,revision:1,selectedLinkId:choice.linkId,evidenceDigest:choice.evidenceDigest,evidence:[],history:[],
   state:index===0?"APPROVED_FOR_TEST":"TO_RESEARCH",
@@ -99,7 +101,7 @@ function approved() {
   const identity=researchScopeKey(context.user.id,context.effectiveOrganization.id,context.effectiveMemberId,context.permissions);
   const draft=store.start(identity,projectId,job);
   const active={...draft,confirmed:{representative:A,approvalRevision:1,choices,after:"",confirmedAt:"2026-11-06T12:00:00Z",
-    requirements:{use:"水槽下收纳",specs:[{factId:rows[0].facts[0].id,required:"可调宽",difference:"最小 40 cm"}],missing:"",targetPrice:""}},
+    requirements:{use:"水槽下收纳",specs:[{sourceKey,required:"可调宽",difference:"最小 40 cm"}],missing:"",targetPrice:""}},
     transfer:{key,revision:4}};
   store.replace(draft,active);
   return handoffToken(active);
@@ -125,13 +127,13 @@ it("W1 lets an operator without collection execution access read a saved job and
   expect(screen.getByText("样本展示价 USD 24.99–29.99")).toBeVisible();
   fireEvent.change(screen.getByLabelText("商品用途"),{target:{value:"水槽下收纳"}});
   fireEvent.click(screen.getByRole("button",{name:"添加必要规格"}));
-  fireEvent.change(screen.getByLabelText("第 1 条规格依据"),{target:{value:rows[0].facts[0].id}});
+  fireEvent.change(screen.getByLabelText("第 1 条规格依据"),{target:{value:sourceKey}});
   fireEvent.change(screen.getByLabelText("必要规格"),{target:{value:"可调宽"}});
   fireEvent.change(screen.getByLabelText("可接受差异"),{target:{value:"最小 40 cm"}});
   fireEvent.click(screen.getByRole("button",{name:"确认并进入选品"}));
   await waitFor(()=>expect(f.push).toHaveBeenCalledWith("/workbench/supply/selection/"+projectId+"?handoff="+handoffToken(store.getSnapshot()!)));
   expect(store.getSnapshot()?.confirmed).toMatchObject({representative:A,choices,
-    requirements:{specs:[{factId:rows[0].facts[0].id,required:"可调宽",difference:"最小 40 cm"}]}});
+    requirements:{specs:[{sourceKey,required:"可调宽",difference:"最小 40 cm"}]}});
   expect(screen.queryByRole("link",{name:"前往数据市场"})).toBeNull();
   expect(f.job.mock.calls.every(call=>call[3]===undefined)).toBe(true);
   research.unmount();

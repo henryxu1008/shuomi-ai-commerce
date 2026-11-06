@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { WorkbenchContextProvider } from "@/components/providers/workbench-context-provider";
 import { ZitadelAuthGate } from "@/components/providers/zitadel-auth-gate";
+import {ResearchHandoffProvider} from "@/components/workbench/project-center/research-handoff-provider";
 import { WorkspaceAppShell } from "@/components/workbench/workspace-app-shell";
 
 const publicRoutes = new Set([
@@ -53,7 +54,10 @@ export function ApplicationFrame({ children, dataServicesAvailable = false, repo
           <QueryProvider>
             <ToastProvider>
               <WorkbenchContextProvider>
-                <WorkspaceAppShell supportAvailable={supportAvailable} dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} supplyPreparationAvailable={supplyPreparationAvailable} supplyCompletionDraftsAvailable={supplyCompletionDraftsAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} nativeRunsAvailable={nativeRunsAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} notificationCenterAvailable={notificationCenterAvailable}>{children}</WorkspaceAppShell>
+                {/* The shell remounts its frame on route changes. Keep the tab handoff above it. */}
+                <ResearchHandoffProvider>
+                  <WorkspaceAppShell supportAvailable={supportAvailable} dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} supplyPreparationAvailable={supplyPreparationAvailable} supplyCompletionDraftsAvailable={supplyCompletionDraftsAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} nativeRunsAvailable={nativeRunsAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} notificationCenterAvailable={notificationCenterAvailable}>{children}</WorkspaceAppShell>
+                </ResearchHandoffProvider>
               </WorkbenchContextProvider>
             </ToastProvider>
           </QueryProvider>

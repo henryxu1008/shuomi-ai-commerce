@@ -9,7 +9,7 @@ type Query = NonNullable<ResearchCandidate["observation"]>["query"];
 
 export type ProductRequirements = {
   use: string;
-  specs: {factId:string; required:string; difference:string}[];
+  specs: {sourceKey:string; required:string; difference:string}[];
   targetPrice: string;
   missing: string;
 };
@@ -98,7 +98,11 @@ export function specificationFacts(row:Evidence) {
     const {Name,Value}=fact.value;
     if (typeof Name!=="string" || typeof Value!=="string" || !Name.trim() || !Value.trim() ||
         row.facts.some(other=>other.path===fact.path+".uncertainty")) return [];
-    return [{id:fact.id,name:Name,value:Value}];
+    // Inspect's fact ID also binds the mutable candidate revision. The
+    // handoff instead matches the exact selected original and fact value.
+    const sourceKey=JSON.stringify([row.research.CandidateID,row.research.SelectedLinkID,row.research.EvidenceDigest,
+      row.ref.ItemID,row.ref.ItemRevision,row.ref.PublicationID,row.ref.CatalogVersion,fact.path,Name,Value]);
+    return [{sourceKey,name:Name,value:Value}];
   });
 }
 export function opportunityPriceRange(rows:Evidence[], representative:string) {

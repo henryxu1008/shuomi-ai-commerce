@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {createResearchHandoff, draftMatchesJob, opportunityPriceRange, claimResearchTransfer, advanceHandoffRevision} from "./research-handoff";
+import {createResearchHandoff, draftMatchesJob, opportunityPriceRange, claimResearchTransfer, advanceHandoffRevision, specificationFacts} from "./research-handoff";
 import {parseSupplyIntent} from "../api/supply-intent";
 import type {DataJob} from "../contracts/data-services";
 import type {ResearchInspection} from "../contracts/research-analysis";
@@ -9,12 +9,21 @@ const B = "92000000-0000-4000-8000-000000000002";
 const batchId = "92000000-0000-4000-8000-000000000003";
 const job = {id:A,batchId,saved:2,state:"SUCCEEDED",query:{site:"us",mode:"keyword",keyword:"under sink organizer",limit:5,fields:["attributes","price","currency"]}} satisfies Partial<DataJob>;
 const nextJob = {...job,id:B,query:{...job.query,keyword:"under sink mat"}} satisfies Partial<DataJob>;
-const requirements = {use:"水槽下收纳", targetPrice:"", missing:"", specs:[{factId:"dimension",required:"可调宽",difference:"最小 40 cm"}]};
+const requirements = {use:"水槽下收纳", targetPrice:"", missing:"", specs:[{sourceKey:"dimension",required:"可调宽",difference:"最小 40 cm"}]};
 const choices = [A,B].map(candidateId=>({candidateId,expectedRevision:"1",linkId:candidateId,evidenceDigest:"a".repeat(64),selection:{itemId:candidateId,expectedRevision:"2",originalPublicationId:candidateId,originalVersion:"3"}}));
 const confirmed = {requirements, choices, representative:A, after:"", confirmedAt:"2026-11-06T12:00:00Z"};
-const price = (candidateId:string, amount:number) => ({research:{CandidateID:candidateId},observation:{price:amount,currency:"USD",priceBasis:"displayed_listing_offer"},facts:[{path:"attributes.0",id:"dimension",value:{Name:"宽度",Value:"40 cm"}}]}) as ResearchInspection["candidates"][number];
+const price = (candidateId:string, amount:number) => ({research:{CandidateID:candidateId,CandidateRevision:"1",SelectedLinkID:candidateId,EvidenceDigest:"a".repeat(64)},ref:{ItemID:candidateId,ItemRevision:"2",PublicationID:candidateId,CatalogVersion:"3",ProductKey:candidateId},observation:{price:amount,currency:"USD",priceBasis:"displayed_listing_offer"},facts:[{path:"attributes.0",id:"dimension",value:{Name:"宽度",Value:"40 cm"}}]}) as ResearchInspection["candidates"][number];
 
 describe("research opportunity handoff",()=>{
+  it("binds a specification to its unchanged evidence across a candidate revision",()=>{
+    const row = price(A,29.99);
+    const newer = {...row,research:{...row.research,CandidateRevision:"2"},facts:[{...row.facts[0],id:"new-fact-id"}]};
+    const key = specificationFacts(row)[0].sourceKey;
+    expect(key).toBeTruthy();
+    expect(specificationFacts(newer)[0].sourceKey).toBe(key);
+    expect(specificationFacts({...newer,ref:{...newer.ref,CatalogVersion:"4"}})[0].sourceKey).not.toBe(key);
+    expect(specificationFacts({...newer,facts:[{...newer.facts[0],value:{Name:"宽度",Value:"42 cm"}}]})[0].sourceKey).not.toBe(key);
+  });
   it("W1 requires two observed comparable samples and claims exactly the approved item once",()=>{
     const store=createResearchHandoff();
     const selected=store.start("member",A,job as DataJob);
