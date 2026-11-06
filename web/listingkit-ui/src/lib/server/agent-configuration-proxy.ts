@@ -41,9 +41,11 @@ function endpoint(url: URL, method: string) {
     input = method === "PUT" ? executionModeInputSchema : undefined;
   } else if (p.length === 1 && ["market", "mine"].includes(p[0]) && method === "GET")
     output = catalogPageSchema;
-  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(p[0])) {
+  else if (["product.title.agent","product.image.agent","product.content.agent","listing.materials.agent","pod.design.agent","product.research.agent","product.selection.agent","shop.operations-diagnosis.agent"].includes(p[0])) {
     const diagnosis=p[0]==="shop.operations-diagnosis.agent";
- const selection=p[0]==="product.selection.agent";
+ const research=p[0]==="product.research.agent";
+ const selection=research||p[0]==="product.selection.agent";
+ if(research&&p.length>1&&!["enable","disable"].includes(p[1]))return null;
     if((selection||diagnosis)&&p.length>1&&!["enable","disable","recent-runs"].includes(p[1]))return null;
     const artwork=p[0]==="pod.design.agent";
     const image=p[0]==="product.image.agent";

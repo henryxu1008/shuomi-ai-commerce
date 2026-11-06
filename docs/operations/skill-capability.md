@@ -62,43 +62,35 @@ go run ./cmd/product-agent-runtime-prepare --target run
 go run ./cmd/product-agent-runtime-prepare --target review
 ```
 
-标准后端镜像也包含 `/app/product-agent-runtime-prepare`。命令不创建角色或密码；固定普通 LOGIN runtime/writer 角色须由原安装负责人按单独批准预备。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_client_credentials` 全缺时按原定义创建；`ai_invocations` 按当前 owner 的 52 列精确形状只验证（含 `billable_usage_json` 和冻结官网价的 `official_tariff_json`），不 ALTER；缺列或仍有旧独立点价列的关系拒绝，不自动改造。Review 只验证已有六表。精确 SELECT/INSERT、可变列 UPDATE 和 credential id 序列 USAGE 从当前 owner 展开，参见[新安装计量合同](../architecture/enterprise-shared-model-configuration.md)及原设计权限清单；不授 DDL/删除/owner/grant option，不重置现共享 ACL。
+标准后端镜像也包含 `/app/product-agent-runtime-prepare`。当前入口沿[共享通道合同](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)，仅适用于另行获准的新空 Run DB，不用于保留旧库升级。命令不创建角色或密码；原安装负责人须预备合格的 product_agent_runtime、title_credential_writer、ai_channel_secret_reader。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_channel_connections`、`ai_channel_connection_receipts` 四表组全缺时按当前 owner 定义创建，并建立准确的去密投影；旧 ai_client_credentials 存在、部分组或漂移均拒绝。`ai_invocations` 由当前调用计量 owner 的新安装路径先准备，preparer 只验证完整合同，不创建或 ALTER。Review 只验证已有六表。精确权限由当前 owner 展开；不授 serving/writer DDL、删除、owner 或 grant option，不重置现共享 ACL。AI 全关时不打开 secret reader 池，但管理仍要求合法的通道元数据投影。
 
 既有数据库 owner `product_agent_owner` / `acquisition_owner` 沿正式 bootstrap 与原 schema 入口可为 LOGIN；原 native 同样接受合格的 NOLOGIN owner，通过固定 owner 或有权 SET ROLE 的管理员执行。它只拒绝这些 owner 的 superuser/createdb/createrole/replication/bypassrls 超额能力，不改其登录属性、密码、成员关系或原授权。不能为了运行工具将原 LOGIN owner 改为 NOLOGIN；serving/writer 的独立角色与限定权限检查继续保持。
 
-三表完整且结构/owner/权限均精确合格时只读 `ALREADY_READY`；部分表、漂移或危险权限均停止，不修补。Run 与 Review 分别提交；后者失败不删除前者的新表/记录，保持执行关闭。响应丢失/提交未知先只读核实，不盲重跑。配置、密钥、原事实、Skill、Chat 和持久任务均保留；实际 backend/同进程 worker 停启必须另列队列、优雅停止和四 poller 恢复边界，不能由准备命令代替。
+四表组完整且结构/owner/权限均精确合格时只读 `ALREADY_READY`；部分表、漂移或危险权限均停止，不修补。Run 与 Review 分别提交；后者失败不删除前者的新表/记录，保持执行关闭。响应丢失/提交未知先只读核实，不盲重跑。保留实例及其原库、配置、密钥和事实不变，不把新空安装解释成迁移/跨版本续跑；实际 backend/同进程 worker 停启须另列原启动范围，不能由准备命令代替。
 
 ## 商品内容模型凭据
 
 个人技能管理完成后，真实标题优化使用商品内容智能体的独立 `product.content.decision` 路由。
 部署者先保持执行关闭，在私密 manifest 的 `productAgent.contentTextPolicies` 中配置准确组织的
-profile：独立 client、供应商、模型、endpoint 准入、版本化计价/点数费率，以及 token/字节/deadline
+profile：用途 client、供应商、模型、endpoint 准入、版本化参考费用/预算，以及 token/字节/deadline
 和运行费用上限。固定 `PromptVersion: product-content-agent-v1`、
-`OutputSchemaVersion: product-content-action-v1`；首次凭据写入时
-`AdmittedCredentialVersion` 和 `AdmittedEndpointIdentityDigest` 留空，导入后用真实返回值绑定。
-凭据导入无需启用执行，也不借用 title/planning 策略。当前支持已准入的 OpenAI 兼容与 Claude
+`OutputSchemaVersion: product-content-action-v1`；未准入时不填旧凭据版本；准确 endpoint 仍按可信模型声明约束。
+模型定义通过 `modelRoutePricing.bindings.connectionId/connectionProvider` 引用连接，当前连接版本由公共 owner 准入绑定，不逐条复制 Key revision。
+维护连接不自动启用执行，也不借用 title/planning 策略。当前支持已准入的 OpenAI 兼容与 Claude
 原生 route；仅标题能力准入的 Google Interactions adapter 不适用于商品内容。
 
-复用 [受限凭据写入说明](product-agent-trial.md)：目标 ProductAgentDB 必须已具备合格的
-`ai_client_credentials` schema 和独立受限 writer，serving role 保持只读。命令不会创建表、角色
-或修补权限；缺少这些前置时先由原安装负责人提出独立安装方案，不能用 serving/管理员连接替代。
-私密输入沿原字段使用 `action: "upsert"`、`consumer: "content"`、`organizationId`、准确
-`clientName`、`apiKey`、`baseURL`、`model`、`apiStyle`、`timeoutSecond` 和 `writerDatabase`。
-writer 必须连接同一 host/port/database 并使用已准备的 `title_credential_writer`，不能替换为 owner、管理员、serving 或任意其它身份；upsert/disable 在开库前同样检查。timeout 不短于 profile 的 deadline。
+当前私密输入和前置以[共享通道维护入口](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)为准：新空 Run DB 的连接、回执及去密视图合格，独立受限 writer 已准备，配置读取角色不得读取 Key。
+命令不创建表、角色或修补权限；缺项时由原安装负责人提出独立安装方案，不替换成 serving/管理员身份。
+连接命令使用 organizationId、actorId、requestKey、connectionId、expectedRevision、provider、channel、account、region、受控 baseURL、enabled、apiKey 及 writerDatabase；首次 expectedRevision 为 0，轮换/停用必须携带准确当前版本。
+writer 必须连接同一 host/port/database 并使用已准备的 title_credential_writer，不得替换成 owner、管理员、serving 或配置 writer；原 action/consumer/clientName/model/apiStyle/timeoutSecond 输入已退休，不映射兼容。
 密钥和数据库密码只放在受限访问的本地私密文件中，不写入命令行、仓库或普通日志。
-同一组织的 content、title、planning、materials、selection、diagnosis 策略须使用各自的凭据
-client。原 owner 的键是组织/用户/client，不含消费者；命令在 upsert 和 disable 前按其
-去首尾空白、空名映射为 default 的语义检查全部已配置引用，拒绝跨能力重名，防止覆盖或停用
-另一能力的凭据。未启用策略仍参与检查；不同组织的同名 client 不冲突，不自动改名或迁移旧行。
+同一企业的多个准确模型/用途可以显式引用同一连接；用途 prompt/schema、型号准入和预算仍独立。连接的轮换/停用按当前 owner 同时影响其引用模型的新发送，不跨企业借用、不迁移旧行，也不自动恢复 UNKNOWN 或重发任务。
 
 ```powershell
 go run ./cmd/product-agent-credential-provision -config C:\private\current-application.json -input C:\private\content-credential.json
 ```
 
-命令只返回非敏感的组织、content 供应商、凭据版本及 endpoint 摘要。将后两项准确填回本组织
-content 策略；轮换后重新绑定，不自动启用 runtime。停用仍使用同一命令，私密输入仅保留
-`action: "disable"`、`consumer: "content"`、组织、client 和 writerDatabase，不携带 provider 值。
-它只停用该组织的准确 client 行，不回落成员或其他能力凭据。
+命令只返回去密连接回执；提交结果不明时保持原 requestKey 和完整请求找回，不换编号再轮换。停用沿同一连接命令设置 enabled=false，不提供 apiKey；不会自动启用 runtime，不回落旧 model-bound 或成员凭据。
 
 真实试用前还需合格的 Run/调用计量表及原 Review/Catalog 角色与权限、允许上述有界服务模式
 启用商品智能体、企业启用与成员额度、个人技能指定版本发布/启用及企业个人技能准入。用户须

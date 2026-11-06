@@ -16,7 +16,7 @@ export function useNativeRuns(scope:ConfigurationScope,authorizationKey:string,e
   getNextPageParam:(page,_pages,cursor)=>page.nextCursor&&page.nextCursor!==cursor?page.nextCursor:undefined,
  });
  // A failed/re-authorizing directory cannot keep advertising cached sources.
- const entries=enabled&&catalog.isSuccess&&!catalog.isFetching&&!catalog.isError?Array.from(new Map(catalog.data.pages.flatMap(p=>p.items).filter(e=>e.canReadRuns).map(e=>[e.agent.agentId,e])).values()):[];
+ const entries=enabled&&catalog.isSuccess&&!catalog.isFetching&&!catalog.isError?Array.from(new Map(catalog.data.pages.flatMap(p=>p.items).filter(e=>e.canReadRuns&&e.parameterSchema!=="market-research-config-v1").map(e=>[e.agent.agentId,e])).values()):[];
  const requests=entries.flatMap(entry=>(positions[entry.agent.agentId]??[""]).map(cursor=>({entry,cursor})));
  const queries=useQueries({queries:requests.map(({entry,cursor})=>({...policy,queryKey:["task-center-native-runs",scope.userId,scope.organizationId,authorizationKey,generation,entry.agent.agentId,cursor],queryFn:({signal}:{signal:AbortSignal})=>readNativeRunPage(scope,entry,cursor,signal)}))});
  const sources=entries.map(entry=>{

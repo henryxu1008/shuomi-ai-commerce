@@ -34,6 +34,7 @@ COPY cmd/agent-customization-schema-init ./cmd/agent-customization-schema-init
 COPY cmd/account-audit-ledger-schema-init ./cmd/account-audit-ledger-schema-init
 COPY cmd/notification-center-schema-init ./cmd/notification-center-schema-init
 COPY cmd/project-center-schema-init ./cmd/project-center-schema-init
+COPY cmd/market-research-schema-init ./cmd/market-research-schema-init
 COPY cmd/report-center-schema-init ./cmd/report-center-schema-init
 COPY cmd/referral-schema-init ./cmd/referral-schema-init
 COPY cmd/organization-membership-schema-init ./cmd/organization-membership-schema-init
@@ -57,6 +58,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/account-audit-ledger-schema-init ./cmd/account-audit-ledger-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/notification-center-schema-init ./cmd/notification-center-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/project-center-schema-init ./cmd/project-center-schema-init && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/market-research-schema-init ./cmd/market-research-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/report-center-schema-init ./cmd/report-center-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/referral-schema-init ./cmd/referral-schema-init && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/organization-membership-schema-init ./cmd/organization-membership-schema-init && \
@@ -93,6 +95,7 @@ COPY --from=go-builder /out/agent-customization-schema-init /usr/local/bin/agent
 COPY --from=go-builder /out/account-audit-ledger-schema-init /usr/local/bin/account-audit-ledger-schema-init
 COPY --from=go-builder /out/notification-center-schema-init /usr/local/bin/notification-center-schema-init
 COPY --from=go-builder /out/project-center-schema-init /usr/local/bin/project-center-schema-init
+COPY --from=go-builder /out/market-research-schema-init /usr/local/bin/market-research-schema-init
 COPY --from=go-builder /out/report-center-schema-init /usr/local/bin/report-center-schema-init
 COPY internal/integration/persistence/toolmarket/schema.sql /etc/tool-market-schema.sql
 COPY --chmod=0755 deployments/docker/account-compose/native-modules-init.sh /usr/local/bin/native-modules-init

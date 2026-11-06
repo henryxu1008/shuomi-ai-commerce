@@ -1,0 +1,179 @@
+{
+  "contract": "shein_us_data@v1",
+  "synthetic": true,
+  "publicSeed": {
+    "source": "https://www.zenrows.com/scrape/shein",
+    "nativeGoodsId": "568824474",
+    "sourceUrl": "https://us.shein.com/Halter-Cutout-Ribbed-Bodycon-Mini-Dress-Night-Out-Outfit-p-568824474.html",
+    "listingAmount": "38.88",
+    "currency": "USD"
+  },
+  "projectId": "00000000-0000-4000-8000-000000000501",
+  "publications": {
+    "P1": {
+      "selection": {
+        "itemId": "00000000-0000-4000-8000-000000000101",
+        "revision": 1,
+        "publicationId": "00000000-0000-4000-8000-000000000201",
+        "version": "1"
+      },
+      "job": {
+        "jobId": "00000000-0000-4000-8000-000000000301",
+        "queryRef": "00000000-0000-4000-8000-000000000401",
+        "scope": {
+          "organizationId": "fixture-org",
+          "actorId": "fixture-actor",
+          "memberId": "fixture-member"
+        },
+        "market": "US",
+        "sourceRegion": "US",
+        "query": {
+          "mode": "category",
+          "categoryRef": "1727"
+        }
+      },
+      "item": {
+        "itemId": "00000000-0000-4000-8000-000000000201",
+        "state": "SAVED"
+      },
+      "publication": {
+        "producer": {
+          "kind": "shein_us_data",
+          "version": "v1"
+        },
+        "source": {
+          "productKey": "shein-174649c0-b9f6-5d5c-b158-4adcfe8313f2",
+          "publicationId": "00000000-0000-4000-8000-000000000201",
+          "version": "1",
+          "operationId": "00000000-0000-4000-8000-000000000201",
+          "kind": "shein_us_data"
+        },
+        "organizationId": "fixture-org",
+        "actorId": "fixture-actor",
+        "sourceIdentity": {
+          "sourceType": "public_web",
+          "sourcePlatform": "shein",
+          "sourceId": "US:568824474",
+          "sourceUrl": "https://us.shein.com/Halter-Cutout-Ribbed-Bodycon-Mini-Dress-Night-Out-Outfit-p-568824474.html"
+        },
+        "rawReference": {
+          "referenceType": "captured_evidence",
+          "referenceId": "00000000-0000-4000-8000-000000000201",
+          "checksum": "sha256:ea2ed449b33fed4cc2ecc5f9293e51a50087164f597eed23df9107aa709397fd",
+          "metadata": {
+            "jobId": "00000000-0000-4000-8000-000000000301",
+            "queryRef": "00000000-0000-4000-8000-000000000401",
+            "observationVersion": "1",
+            "observationEncodingVersion": "shein-us-observation-json-v1"
+          }
+        }
+      },
+      "observationUtf8": "{\"platform\":\"shein\",\"market\":\"US\",\"nativeGoodsId\":\"568824474\",\"sourceUrl\":\"https://us.shein.com/Halter-Cutout-Ribbed-Bodycon-Mini-Dress-Night-Out-Outfit-p-568824474.html\",\"jobId\":\"00000000-0000-4000-8000-000000000301\",\"queryRef\":\"00000000-0000-4000-8000-000000000401\",\"observationVersion\":\"1\",\"parserVersion\":\"synthetic-listing-v1\",\"title\":\"Fixture US dress\",\"capturedAt\":null,\"variantId\":null,\"price\":{\"amount\":\"38.88\",\"currency\":\"USD\",\"basis\":\"listing_display\",\"promotionNote\":null,\"taxIncluded\":null,\"unit\":null},\"missing\":[\"capturedAt\",\"variantId\",\"price.promotionNote\",\"price.taxIncluded\",\"price.unit\"]}"
+    },
+    "P2": {
+      "selection": {
+        "itemId": "00000000-0000-4000-8000-000000000102",
+        "revision": 1,
+        "publicationId": "00000000-0000-4000-8000-000000000202",
+        "version": "2"
+      },
+      "job": {
+        "jobId": "00000000-0000-4000-8000-000000000302",
+        "queryRef": "00000000-0000-4000-8000-000000000402",
+        "scope": {
+          "organizationId": "fixture-org",
+          "actorId": "fixture-actor",
+          "memberId": "fixture-member"
+        },
+        "market": "US",
+        "sourceRegion": "US",
+        "query": {
+          "mode": "keyword",
+          "keyword": "dress"
+        }
+      },
+      "item": {
+        "itemId": "00000000-0000-4000-8000-000000000202",
+        "state": "SAVED"
+      },
+      "publication": {
+        "producer": {
+          "kind": "shein_us_data",
+          "version": "v1"
+        },
+        "source": {
+          "productKey": "shein-174649c0-b9f6-5d5c-b158-4adcfe8313f2",
+          "publicationId": "00000000-0000-4000-8000-000000000202",
+          "version": "2",
+          "operationId": "00000000-0000-4000-8000-000000000202",
+          "kind": "shein_us_data"
+        },
+        "organizationId": "fixture-org",
+        "actorId": "fixture-actor",
+        "sourceIdentity": {
+          "sourceType": "public_web",
+          "sourcePlatform": "shein",
+          "sourceId": "US:568824474",
+          "sourceUrl": "https://us.shein.com/Halter-Cutout-Ribbed-Bodycon-Mini-Dress-Night-Out-Outfit-p-568824474.html"
+        },
+        "rawReference": {
+          "referenceType": "captured_evidence",
+          "referenceId": "00000000-0000-4000-8000-000000000202",
+          "checksum": "sha256:2a046d6f1ba55605991a2747e457ad888463bfc785e2da192b22cbba96bd9e94",
+          "metadata": {
+            "jobId": "00000000-0000-4000-8000-000000000302",
+            "queryRef": "00000000-0000-4000-8000-000000000402",
+            "observationVersion": "1",
+            "observationEncodingVersion": "shein-us-observation-json-v1"
+          }
+        }
+      },
+      "observationUtf8": "{\"platform\":\"shein\",\"market\":\"US\",\"nativeGoodsId\":\"568824474\",\"sourceUrl\":\"https://us.shein.com/Halter-Cutout-Ribbed-Bodycon-Mini-Dress-Night-Out-Outfit-p-568824474.html\",\"jobId\":\"00000000-0000-4000-8000-000000000302\",\"queryRef\":\"00000000-0000-4000-8000-000000000402\",\"observationVersion\":\"1\",\"parserVersion\":\"synthetic-listing-v1\",\"title\":\"Fixture US dress\",\"capturedAt\":null,\"variantId\":null,\"price\":{\"amount\":\"36.50\",\"currency\":\"USD\",\"basis\":\"listing_display\",\"promotionNote\":null,\"taxIncluded\":null,\"unit\":null},\"missing\":[\"capturedAt\",\"variantId\",\"price.promotionNote\",\"price.taxIncluded\",\"price.unit\"]}"
+    }
+  },
+  "consumerCases": {
+    "linkP1ThenP2AndReplayP2": {
+      "candidateId": "91d67223-2793-549e-9989-991f0d2b7d03",
+      "candidateCount": 1,
+      "evidenceCount": 2,
+      "selected": "P1",
+      "replayAddsEvidence": false
+    },
+    "p1UnreadableP2Readable": {
+      "candidateCount": 1,
+      "selected": "P1",
+      "visibleEvidence": [
+        "P2"
+      ],
+      "hideCurrentReasonBoundTo": [
+        "P1"
+      ],
+      "hideHistoricalReasonsBoundTo": [
+        "P1"
+      ],
+      "hideCombinedResultDependingOn": [
+        "P1"
+      ],
+      "retainStoredRecords": true
+    },
+    "projectReadRevoked": {
+      "denyRead": true
+    }
+  },
+  "negativeReadCases": {
+    "p1ModifiedBytes": {
+      "publication": "P1",
+      "replaceInObservationUtf8": [
+        "38.88",
+        "39.88"
+      ],
+      "observationReturned": false,
+      "checksumMatches": false
+    },
+    "p1WrongCatalogVersion": {
+      "publication": "P1",
+      "requestedVersion": "2",
+      "observationReturned": false
+    }
+  }
+}

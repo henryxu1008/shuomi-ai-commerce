@@ -17,7 +17,7 @@ vi.mock("@/components/providers/workbench-context-provider", () => ({
   useWorkbenchContext: () => ({ registerOrganizationSwitchGuard: guard }),
 }));
 vi.mock("../pod/collection-picker", () => ({
-  CollectionPicker: ({ onSelect }: { onSelect: (i: unknown) => void }) => (
+  CollectionPicker: ({ onSelect, isEligible }: { onSelect: (i: unknown) => void; isEligible?: (i: unknown) => boolean }) => (
     <>
       <button
         onClick={() =>
@@ -51,6 +51,7 @@ vi.mock("../pod/collection-picker", () => ({
       >
         选择商品B
       </button>
+      {isEligible?.({source:{kind:"shein_us_data"}})!==false?<button>选择 SHEIN 资料</button>:null}
     </>
   ),
 }));
@@ -189,6 +190,12 @@ function show(value = entry) {
   );
   return {...mounted,refresh:(nonce:number)=>mounted.rerender(<QueryClientProvider client={client}><ProductSelectionFlow scope={scope} entry={value} nonce={nonce}/></QueryClientProvider>)};
 }
+it("excludes research-only SHEIN cards from standalone comparison", async () => {
+  show();
+  expect(await screen.findByRole("button", {name:"选择商品A"})).toBeEnabled();
+  expect(screen.getByRole("button", {name:"选择商品B"})).toBeEnabled();
+  expect(screen.queryByRole("button", {name:"选择 SHEIN 资料"})).not.toBeInTheDocument();
+});
 it("does not offer fact inspection when Agent-use authorization is missing", async () => {
   show({...entry, capabilities: entry.capabilities.map(c => c.id === "product.selection.inspect" ? {...c,readiness:"REQUIRES_AUTHORIZATION"} : c)});
   choose(); await act(async()=>{await new Promise(resolve=>setTimeout(resolve,50))});

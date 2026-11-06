@@ -7,6 +7,7 @@ import type { ConfigurationScope } from "@/lib/api/agent-configuration";
 import { catalogEntrySchema, type CatalogEntry } from "@/lib/contracts/agent-configuration";
 import { ResourceDialog } from "../resources/resource-dialog";
 import { AgentCapabilityPanel } from "./agent-capability-panel";
+import { SelectionOperationLinks } from "./selection-operation-links";
 import { configurationError, useConfigurationRead } from "./agent-configuration-hooks";
 import styles from "./agent-capabilities.module.css";
 
@@ -27,6 +28,7 @@ export function AgentCapabilityDialog({ scope, agentId, onClose }: {
         <Link href="/workbench/agents/mine/product.title.agent" prefetch={false}>标题优化配置与历史</Link>
         <Link href="/workbench/agents/mine/product.content.agent" prefetch={false}>内容本地化配置与历史</Link>
       </nav> : null}
+      {["product.research.agent", "product.selection.agent"].includes(agentId) ? <SelectionOperationLinks className={styles.operationLinks}/> : null}
       <AgentCapabilityPanel entry={entry}/>
     </> : failed ? <div role="alert" className={styles.error}>
       <p>{read.error ? configurationError(read.error) : "能力信息与当前智能体不一致，请重新读取。"}</p>

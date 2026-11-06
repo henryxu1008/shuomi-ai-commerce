@@ -1,0 +1,11 @@
+import {ProjectPage} from "@/components/workbench/project-center/project-page";
+import {sheinTrialTarget} from "@/lib/server/shein-us-trial-target";
+
+export default async function Page({params,searchParams}:{params:Promise<{projectId:string}>;searchParams:Promise<Record<string,string|string[]|undefined>>}){
+  const {projectId}=await params;
+  const q=await searchParams;
+  return <ProjectPage center="research" projectId={projectId} showSheinTrial={sheinTrialTarget()?.project===projectId}
+    workflowStep={typeof q.step==="string"?q.step:""} mode={q.mode==="archived"?"archived":"active"}
+    initialSearch={typeof q.search==="string"?q.search:""} sample={typeof q.sample==="string"?q.sample:""}
+    candidateAfter={typeof q.candidateAfter==="string"&&/^[0-9a-f-]{36}$/.test(q.candidateAfter)?q.candidateAfter:""}/>;
+}

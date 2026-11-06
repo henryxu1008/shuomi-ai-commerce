@@ -149,7 +149,7 @@ func productSelectionRoutes(app selectionHTTPService, bind func(context.Context,
 					if err != nil {
 						e = err
 					} else {
-						out = gin.H{"contextId": contextID, "requestKey": key, "configurationSnapshotRef": agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}, "modeSnapshotRef": snapshot.Request.ModeSnapshotRef, "modeRevision": snapshot.ExpectedModeRevision, "maximumTokens": snapshot.Request.Limits.Tokens, "maximumCostMicros": snapshot.Request.Limits.CostMicros, "currency": snapshot.Request.Limits.Currency, "maximumCallCostMicros": cost}
+						out = gin.H{"contextId": contextID, "requestKey": key, "configurationSnapshotRef": agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: snapshot.ID, Digest: snapshot.Digest}, "modeSnapshotRef": snapshot.Request.ModeSnapshotRef, "modeRevision": snapshot.ExpectedModeRevision, "maximumTokens": snapshot.Request.Limits.Tokens, "maximumCostMicros": snapshot.Request.Limits.CostMicros, "currency": snapshot.Request.Limits.Currency, "maximumCallCostMicros": cost, "referencePriceVersion": snapshot.ExecutionModelProfile.OfficialTariff.ReferencePriceVersion()}
 					}
 				}
 			case "start":

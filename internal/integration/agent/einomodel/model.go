@@ -45,6 +45,9 @@ type WorkbenchContextReader func(context.Context, agent.ExecutionIdentity, agent
 
 type AgentTextModel struct {
 	workbench          WorkbenchContextReader
+	research           bool
+	researchAdmission  ResearchModelAdmission
+	researchDispatch   func(context.Context, agent.ModelInput) error
 	diagnosis          bool
 	diagnosisAdmission DiagnosisModelAdmission
 	diagnosisDispatch  func(context.Context, agent.ModelInput) error
@@ -142,6 +145,10 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		if in.AgentID != agentconfig.DiagnosisAgentID || in.AgentVersion != agentconfig.DiagnosisAgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != agentconfig.DiagnosisPolicyVersion || in.PromptVersion != agentconfig.DiagnosisPromptVersion || in.Binding.ContextKind != agent.StoreDiagnosisContextKind || !in.ContextSnapshotRef.Absent() {
 			return p, agent.ErrInvalid
 		}
+	} else if m.research {
+		if in.AgentID != agentconfig.ResearchAgentID || in.AgentVersion != agentconfig.ResearchAgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != agentconfig.ResearchPolicyVersion || in.PromptVersion != agentconfig.ResearchPromptVersion || in.Binding.ContextKind != agent.ResearchSelectionContextKind || !in.ContextSnapshotRef.Absent() {
+			return p, agent.ErrInvalid
+		}
 	} else if m.selection {
 		if in.AgentID != agentconfig.SelectionAgentID || in.AgentVersion != agentconfig.SelectionAgentVersion || !in.ContentSelection.Absent() || in.PolicyVersion != agentconfig.SelectionPolicyVersion || in.PromptVersion != agentconfig.SelectionPromptVersion || in.Binding.ContextKind != agent.SelectionContextKind || !in.ContextSnapshotRef.Absent() {
 			return p, agent.ErrInvalid
@@ -154,7 +161,7 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		if in.AgentID != agentconfig.ContentAgentID || in.AgentVersion != agentconfig.ContentAgentVersion || !in.ContentSelection.Valid() || in.PolicyVersion != reviewproposal.ContentPolicyVersion || !agentconfig.ValidContentPrompt(in.PromptVersion, in.WorkbenchContextRef) {
 			return p, agent.ErrInvalid
 		}
-	} else if !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID || in.AgentID == agentconfig.MaterialsAgentID || in.AgentID == agentconfig.SelectionAgentID || in.Binding.ContextKind == agent.SelectionContextKind || in.AgentID == agentconfig.DiagnosisAgentID || in.Binding.ContextKind == agent.StoreDiagnosisContextKind {
+	} else if in.AgentID == agentconfig.ResearchAgentID || in.Binding.ContextKind == agent.ResearchSelectionContextKind || !in.ContentSelection.Absent() || in.AgentID == agentconfig.ContentAgentID || in.AgentID == agentconfig.MaterialsAgentID || in.AgentID == agentconfig.SelectionAgentID || in.Binding.ContextKind == agent.SelectionContextKind || in.AgentID == agentconfig.DiagnosisAgentID || in.Binding.ContextKind == agent.StoreDiagnosisContextKind {
 		return p, agent.ErrInvalid
 	}
 	identity, resolvedCtx, err := m.resolveIdentity(ctx)
@@ -179,11 +186,14 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if m.materials && snapshot.KnowledgeBaseID != "" {
 		return p, agent.ErrUnavailable
 	}
-	if (m.selection || m.diagnosis) && (snapshot.KnowledgeBaseID != "" || snapshot.Template != nil) {
+	if (m.selection || m.diagnosis || m.research) && (snapshot.KnowledgeBaseID != "" || snapshot.Template != nil) {
 		return p, agent.ErrUnavailable
 	}
 	p.profile = snapshot.ExecutionModelProfile
 	if m.diagnosis && (p.profile.PromptVersion != agentconfig.DiagnosisPromptVersion || p.profile.OutputSchemaVersion != agentconfig.DiagnosisActionVersion) {
+		return p, agent.ErrUnavailable
+	}
+	if m.research && (p.profile.PromptVersion != agentconfig.ResearchPromptVersion || p.profile.OutputSchemaVersion != agentconfig.ResearchActionVersion) {
 		return p, agent.ErrUnavailable
 	}
 	if p.profile.Validate() != nil || m.content && (!agentconfig.ValidContentPrompt(p.profile.PromptVersion, in.WorkbenchContextRef) || p.profile.OutputSchemaVersion != agentconfig.ContentActionVersion) || m.materials && (p.profile.PromptVersion != agentconfig.MaterialsPromptVersion || p.profile.OutputSchemaVersion != agentconfig.MaterialsActionVersion) || m.selection && (p.profile.PromptVersion != agentconfig.SelectionPromptVersion || p.profile.OutputSchemaVersion != agentconfig.SelectionActionVersion) {
@@ -205,6 +215,14 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		if m.diagnosis {
 			if in.History[i].Tool == agentconfig.DiagnosisInspectToolRef() {
 				in.History[i].Output, err = m.diagnosisAdmission.ProjectEvidence(in.History[i].Output)
+			} else if in.History[i].Tool != (commercetool.ToolRef{}) || len(in.History[i].Output) > agent.MaxModelOutputBytes || len(in.History[i].Output) > 0 && !json.Valid(in.History[i].Output) {
+				err = agent.ErrInvalid
+			} else {
+				in.History[i].Output = append(json.RawMessage(nil), in.History[i].Output...)
+			}
+		} else if m.research {
+			if in.History[i].Tool == agentconfig.ResearchInspectToolRef() {
+				in.History[i].Output, err = m.researchAdmission.ProjectEvidence(in.History[i].Output)
 			} else if in.History[i].Tool != (commercetool.ToolRef{}) || len(in.History[i].Output) > agent.MaxModelOutputBytes || len(in.History[i].Output) > 0 && !json.Valid(in.History[i].Output) {
 				err = agent.ErrInvalid
 			} else {
@@ -302,6 +320,9 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if m.selection {
 		system, operation = selectionTextSystem, aicapability.OperationProductSelectionDecision
 	}
+	if m.research {
+		system, operation = researchTextSystem, aicapability.OperationProductResearchDecision
+	}
 	if m.diagnosis {
 		system, operation = diagnosisTextSystem, aicapability.OperationShopDiagnosisDecision
 	}
@@ -362,6 +383,9 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		if m.selection && m.selectionAdmission.ValidateAction(action) != nil {
 			return reject("domain_action", "DomainProposal")
 		}
+		if m.research && m.researchAdmission.ValidateAction(action) != nil {
+			return reject("domain_action", "DomainProposal")
+		}
 		var valid bool
 		citations, valid = validatedKnowledgeCitations(p.knowledge, in.ContextSnapshotRef, action)
 		if !valid {
@@ -393,6 +417,11 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 		}
 		if m.selection {
 			if err = m.selectionDispatch(gateCtx, in); err != nil {
+				return nil, err
+			}
+		}
+		if m.research {
+			if err = m.researchDispatch(gateCtx, in); err != nil {
 				return nil, err
 			}
 		}

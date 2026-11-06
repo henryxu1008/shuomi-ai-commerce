@@ -72,6 +72,7 @@ Framework、Transport、Workflow、Persistence、Provider SDK、Marketplace Clie
     - `product-acquisition-init`
     - `product-agent-credential-provision`
     - `product-agent-runtime-prepare`
+    - `market-research-schema-init`
     - `project-center-schema-init`
     - `referral-schema-init`
     - `report-center-schema-init`

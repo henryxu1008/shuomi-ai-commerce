@@ -25,6 +25,7 @@ type Handler struct {
 	storeObservationsReadiness    func() bool
 	operationsCockpitAvailable    bool
 	aiWorkbenchAvailable          bool
+	marketResearchAvailable       bool
 	projectCenterAvailable        bool
 	storageCapacityAvailable      bool
 	aiWorkbenchAdmission          func(string) bool
@@ -40,6 +41,11 @@ func (h *Handler) SetStorageCapacityAvailable(v bool) {
 	}
 }
 
+func (h *Handler) SetMarketResearchAvailable(v bool) {
+	if h != nil {
+		h.marketResearchAvailable = v
+	}
+}
 func (h *Handler) SetProjectCenterAvailable(v bool) {
 	if h != nil {
 		h.projectCenterAvailable = v
@@ -259,6 +265,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 		Organizations:                organizations,
 		AIWorkbenchAvailable:         available,
 		ProjectCenterAvailable:       h.projectCenterAvailable,
+		MarketResearchAvailable:      h.marketResearchAvailable,
 		StorageCapacityAvailable:     h.storageCapacityAvailable && effectiveOrganizationID != nil,
 		AIWorkbenchPlanningReadiness: planningReadiness,
 		AIWorkbenchTitleReadiness:    titleReadiness,
@@ -287,6 +294,7 @@ type contextResponse struct {
 	SelectionRequired             bool                   `json:"selectionRequired"`
 	Organizations                 []organizationResponse `json:"organizations"`
 	ProjectCenterAvailable        bool                   `json:"projectCenterAvailable,omitempty"`
+	MarketResearchAvailable       bool                   `json:"marketResearchAvailable,omitempty"`
 	StorageCapacityAvailable      bool                   `json:"storageCapacityAvailable,omitempty"`
 	AIWorkbenchAvailable          bool                   `json:"aiWorkbenchAvailable,omitempty"`
 	AIWorkbenchPlanningReadiness  string                 `json:"aiWorkbenchPlanningReadiness,omitempty"`

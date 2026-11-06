@@ -121,15 +121,13 @@ func imageSetRunID(identity ExecutionIdentity, input PrepareImageSetInput) strin
 }
 
 func (s *Service) GetPreparedImageSet(ctx context.Context, kind ImageSourceContextKind, contextID, requestID string) (RunProjection, error) {
-	identity, err := s.executionIdentity(ctx)
-	if err != nil {
+	if _, err := s.executionIdentity(ctx); err != nil {
 		return RunProjection{}, err
 	}
-	if !s.organizationScope || !kind.Valid() || !agentconfig.UUID(contextID) || !agentconfig.UUID(requestID) {
+	if !s.organizationScope {
 		return RunProjection{}, ErrValidation
 	}
-	identity.BusinessTaskID = contextID
-	return s.Get(ctx, imageSetRunID(identity, PrepareImageSetInput{ContextKind: kind, ContextID: contextID, RequestID: requestID}))
+	return (&RunReader{repository: s.repository}).GetPreparedImageSet(ctx, kind, contextID, requestID)
 }
 
 func validPrepareImageSetInput(input PrepareImageSetInput) bool {

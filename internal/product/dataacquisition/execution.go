@@ -123,33 +123,14 @@ func (s *Service) Start(ctx context.Context, p Principal, command string, q Quer
 	return job, nil
 }
 func (s *Service) Read(ctx context.Context, p Principal, id string) (Job, error) {
-	if p.Scope.Validate() != nil || !collection.ValidID(id) {
-		return Job{}, ErrInvalid
-	}
-	if p.CredentialID != "" {
-		var job Job
-		err := s.repo.WithResultRead(ctx, p, func(ctx context.Context, repo ResultReadRepository, _ CapturedResultReader) error {
-			var err error
-			job, err = s.read(ctx, p, id, repo)
-			return err
-		})
-		if err != nil {
-			return Job{}, err
-		}
-		return job, nil
-	}
-	return s.read(ctx, p, id, s.repo)
+	r := Reader{repo: s.repo, live: s.live}
+	return r.readWith(ctx, p, id, s.read)
 }
 func (s *Service) read(ctx context.Context, p Principal, id string, repo ResultReadRepository) (Job, error) {
-	if err := s.live.CheckRead(ctx, p); err != nil {
-		return Job{}, err
-	}
-	job, err := repo.Read(ctx, p.Scope, id)
+	r := Reader{repo: s.repo, live: s.live}
+	job, err := r.read(ctx, p, id, repo)
 	if err != nil {
 		return Job{}, err
-	}
-	if p.CredentialID != "" && job.CredentialID != p.CredentialID {
-		return Job{}, ErrNotFound
 	}
 	if job.State == "ADMITTED" || job.State == "RUNNING" {
 		if err = s.starter.EnsureExecution(ctx, job); err != nil {
