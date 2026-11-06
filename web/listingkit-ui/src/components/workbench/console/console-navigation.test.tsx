@@ -65,24 +65,17 @@ it("shows task status navigation independently of Chat using the existing run re
  for(const name of ["进行中","待确认","已完成","异常任务"])expect(screen.getByRole("link",{name})).toBeVisible();
  expect(screen.queryByRole("link",{name:"硕米Chat"})).not.toBeInTheDocument();
 });
-it("keeps the selected platform context on the supply introduction parent",()=>{
+it("shows a single primary listing entry before Store Center and retains the selected context",()=>{
  const id="11111111-1111-4111-8111-111111111111";query.value=`preparation=${id}&store=${id}&operation=${id}&mode=platform`;
- render(<ConsoleNavigation pathname="/workbench/supply/mine/missing" ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);
- const href=new URL(screen.getByRole("link",{name:"我的供应链"}).getAttribute("href")!,"https://test.invalid");
- expect(Object.fromEntries(href.searchParams)).toEqual({preparation:id,store:id,operation:id});query.value="";
-});
-it("keeps canonical unbound draft navigation local with the full runtime enabled",()=>{
- const id="11111111-1111-4111-8111-111111111111";query.value=`preparation=${id}`;
- render(<ConsoleNavigation pathname={`/workbench/supply/mine/missing/${id}`} ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);
- const href=new URL(screen.getByRole("link",{name:"待补全"}).getAttribute("href")!,"https://test.invalid");
- expect(href.searchParams.has("mode")).toBe(false);query.value="";
-});
-it("preserves platform stage and operation in sidebar navigation",()=>{
- const id="11111111-1111-4111-8111-111111111111";
- query.value=`preparation=${id}&store=${id}&operation=${id}&plan=${id}`;
- render(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);
- const href=new URL(screen.getByRole("link",{name:"待补全"}).getAttribute("href")!,"https://test.invalid");
- expect(href.searchParams.get("plan")).toBe(id);expect(href.searchParams.get("mode")).toBe("platform");expect(href.searchParams.get("operation")).toBe(id);
+ render(<ConsoleNavigation pathname="/workbench/listing/missing" ariaLabel="主导航" supplyChainAvailable supplyCompletionDraftsAvailable/>);
+ const listing=screen.getByRole("link",{name:"商品刊登"});
+ const store=screen.getByRole("link",{name:"店铺中心"});
+ expect(listing.closest("li")).toHaveClass("console-nav-level-1");
+ expect(listing).toHaveAttribute("aria-current","page");
+ expect(listing.compareDocumentPosition(store)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(Object.fromEntries(new URL(listing.getAttribute("href")!,"https://test.invalid").searchParams)).toEqual({preparation:id,store:id,operation:id});
+ for(const name of ["待上传","待补全","待审核","已上传","我的供应链"])
+  expect(screen.queryByRole("link",{name})).not.toBeInTheDocument();
  query.value="";
 });
 it("opens the skill library categories under AI workbench", () => {
@@ -99,20 +92,6 @@ it("uses the installed tool capability for both customization children", () => {
   expect(screen.getByRole("link", {name:"定制进度"})).toHaveAttribute("title","定制进度");
   view.rerender(<ConsoleNavigation pathname="/workbench/tools/custom/new" ariaLabel="主导航" />);
   expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("title","提交定制需求：业务暂未启用");
-});
-it("opens native completion navigation while official adaptation and upload remain closed",()=>{
- render(<ConsoleNavigation pathname="/workbench/supply/mine/missing" ariaLabel="主导航" supplyPreparationAvailable supplyCompletionDraftsAvailable/>);
- for(const name of ["待上传","待补全"])expect(screen.getByRole("link",{name})).toHaveAttribute("title",name);
- for(const name of ["待审核","已上传"])expect(screen.getByRole("link",{name})).toHaveAttribute("title",`${name}：业务暂未启用`);
-});
-it("keeps all Figma supply stages visible but only opens the installed read path", () => {
- const view=render(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyPreparationAvailable />);
- expect(screen.getByRole("link",{name:"待上传"})).toHaveAttribute("title","待上传");
- for(const label of ["待补全","待审核","已上传"])
-   expect(screen.getByRole("link",{name:label})).toHaveAttribute("title",`${label}：业务暂未启用`);
- view.rerender(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyPreparationAvailable supplyChainAvailable />);
- for(const label of ["待上传","待补全","待审核","已上传"])
-   expect(screen.getByRole("link",{name:label})).toHaveAttribute("title",label);
 });
 it.each(["运营驾驶舱", "AI工作台", "智能市场", "工具市场", "数据服务", "店铺中心"])("keeps the %s primary homepage available independently of child services", label => {
   render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" />);
@@ -314,21 +293,18 @@ it("retains three-level route trails outside the plans module", () => {
   ]);
 });
 
-it("only opens supply stage navigation when the serving runtime enables it",async()=>{
- const view=render(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyChainAvailable={false}/>);
- expect(screen.getByRole("link",{name:"待上传"})).toHaveAttribute("title","待上传：业务暂未启用");
- view.rerender(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyChainAvailable/>);
- expect(screen.getByRole("link",{name:"待上传"})).toHaveAttribute("href","/workbench/supply/mine/waiting");expect(screen.getByRole("link",{name:"待上传"})).toHaveAttribute("aria-current","page");
- expect(screen.getByRole("link",{name:"待补全"})).toHaveAttribute("href","/workbench/supply/mine/missing?mode=platform");
+it("reflects installed capability on the primary listing entry",()=>{
+ const view=render(<ConsoleNavigation pathname="/workbench/listing/waiting" ariaLabel="主导航"/>);
+ expect(screen.getByRole("link",{name:"商品刊登"})).toHaveAttribute("title","商品刊登：业务暂未启用");
+ view.rerender(<ConsoleNavigation pathname="/workbench/listing/waiting" ariaLabel="主导航" supplyCompletionDraftsAvailable/>);
+ expect(screen.getByRole("link",{name:"商品刊登"})).toHaveAttribute("title","商品刊登");
 });
-
-it("retains only valid batch and store selection across supply stage links",()=>{
- query.value="preparation=11111111-1111-4111-8111-111111111111&store=22222222-2222-4222-8222-222222222222&operation=discard";
- const view=render(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyChainAvailable/>);
- expect(screen.getByRole("link",{name:"待审核"})).toHaveAttribute("href","/workbench/supply/mine/review?preparation=11111111-1111-4111-8111-111111111111&store=22222222-2222-4222-8222-222222222222");
- expect(screen.getByRole("link",{name:"待审核"})).toHaveAttribute("title","待审核");
- query.value="preparation=bad&store=bad";view.rerender(<ConsoleNavigation pathname="/workbench/supply/mine/waiting" ariaLabel="主导航" supplyChainAvailable/>);
- expect(screen.getByRole("link",{name:"待审核"})).toHaveAttribute("href","/workbench/supply/mine/review");
+it("preserves valid context and skips invalid or repeated listing parameters",()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ query.value="preparation="+id+"&store=bad&operation="+id+"&operation="+id;
+ render(<ConsoleNavigation pathname="/workbench/listing/waiting" ariaLabel="主导航" supplyChainAvailable/>);
+ expect(screen.getByRole("link",{name:"商品刊登"})).toHaveAttribute("href","/workbench/listing?preparation="+id);
+ query.value="";
 });
 it("opens official reading independently while retaining the enterprise knowledge gate", () => {
   const view = render(<ConsoleNavigation pathname="/workbench/ai/knowledge/mine" ariaLabel="主导航" knowledgeAvailable />);
@@ -389,4 +365,32 @@ it.each([
   }
   view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" />);
   expect(screen.getByRole("link", {name:label})).toHaveAttribute("title", `${label}：业务暂未启用`);
+});
+
+it("promotes research and selection to independent primary menus and keeps runtime availability",()=>{
+ const v=render(<ConsoleNavigation pathname="/workbench/data/research" ariaLabel="主导航" marketResearchAvailable/>);
+ expect(screen.getByRole("link",{name:"市场调研"})).toHaveAttribute("title","市场调研");
+ expect(screen.getByRole("link",{name:"市场调研"}).closest("li")).toHaveClass("console-nav-level-1");
+ expect(screen.getByRole("button",{name:"展开资料收集"}).closest("li")).toHaveClass("console-nav-level-2");
+ expect(screen.queryByRole("link",{name:"资料收集"})).not.toBeInTheDocument();
+ v.rerender(<ConsoleNavigation pathname="/workbench/supply/selection" ariaLabel="主导航" marketResearchAvailable/>);
+ expect(screen.getByRole("link",{name:"智能选品"})).toHaveAttribute("title","智能选品");
+ expect(screen.getByRole("link",{name:"智能选品"}).closest("li")).toHaveClass("console-nav-level-1");
+ expect(findConsoleRoute("/workbench/supply/selection/11111111-1111-4111-8111-111111111111")?.trail.map(n=>n.label)).toEqual(["智能选品","项目评审"]);
+ v.rerender(<ConsoleNavigation pathname="/workbench/supply/selection" ariaLabel="主导航"/>);
+ expect(screen.getByRole("link",{name:"智能选品"})).toHaveAttribute("title","智能选品：业务暂未启用");
+});
+
+it("opens the selected workflow phase and keeps third-level links in the current project",()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ query.value="step=evidence&mode=archived&search=收纳";
+ render(<ConsoleNavigation pathname={`/workbench/data/research/${id}`} ariaLabel="主导航" marketResearchAvailable/>);
+ expect(screen.getByRole("button",{name:"收起竞品研究"})).toHaveAttribute("aria-expanded","true");
+ const selected=screen.getByRole("link",{name:"查看商品资料"});
+ expect(selected).toHaveAttribute("aria-current","page");
+ expect(selected.closest("li")).toHaveClass("console-nav-level-3");
+ const target=new URL(screen.getByRole("link",{name:"比较重点商品"}).getAttribute("href")!,"https://test.invalid");
+ expect(target.pathname).toBe(`/workbench/data/research/${id}`);
+ expect(Object.fromEntries(target.searchParams)).toEqual({step:"summary",mode:"archived",search:"收纳"});
+ expect(screen.queryByRole("link",{name:"市场调研中心"})).not.toBeInTheDocument();
 });

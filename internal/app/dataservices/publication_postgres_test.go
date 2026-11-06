@@ -8,14 +8,19 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"os"
+	productsourcingapp "task-processor/internal/app/productsourcing"
+	"task-processor/internal/authidentity"
 	"task-processor/internal/dataservice"
 	"task-processor/internal/integration/acquisition/customdata"
 	keystore "task-processor/internal/integration/persistence/dataservice"
+	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
 	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 	"task-processor/internal/product/sourcing"
@@ -24,6 +29,21 @@ import (
 )
 
 type authorizedFixture struct{}
+
+type publicationCollectionAuth struct{ scope collection.Scope }
+type publicationCaptureAuth struct{ scope collection.Scope }
+
+func (a publicationCaptureAuth) Authorize(context.Context, bool) (collection.Scope, error) {
+	return a.scope, nil
+}
+
+func (a publicationCollectionAuth) Authorize(context.Context, string) (collection.Scope, error) {
+	return a.scope, nil
+}
+
+type noPublicationAcquisition struct {
+	sourcing.PublishedAcquisitionReader
+}
 
 func (authorizedFixture) Resolve(context.Context, string) (collection.Scope, error) {
 	return collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "member"}, nil
@@ -41,21 +61,7 @@ func (authorizedFixture) CheckRead(context.Context, dataacquisition.Principal) e
 func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	c, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("publication621"), tcpostgres.WithUsername("test_owner"), tcpostgres.WithPassword("isolated-data621"), tcpostgres.BasicWaitStrategies())
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, c.Terminate(context.Background())) })
-	dsn, err := c.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-	require.NoError(t, err)
-	pool, err := db.DB()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	require.NoError(t, keystore.InstallSchema(db))
-	require.NoError(t, catalogstore.AutoMigrate(db))
-	require.NoError(t, sourcestore.InstallSchema(db))
-	require.NoError(t, collectionstore.InstallSchema(db))
-	require.NoError(t, jobstore.InstallSchema(db))
+	db := publicationTestDB(t, ctx)
 	live := authorizedFixture{}
 	publisher, err := NewProductPublisher(live)
 	require.NoError(t, err)
@@ -103,6 +109,82 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 	again, err := repo.Publish(ctx, job, prepared)
 	require.NoError(t, err)
 	require.Equal(t, saved.Source, again.Source)
+	t.Run("original live provenance verifies SRC without execution", func(t *testing.T) {
+		reader, e := dataacquisition.NewReader(repo, live)
+		require.NoError(t, e)
+		module := &Module{reader: reader, results: capturedResultReader{sourceReader}}
+		require.Nil(t, module.Runner())
+		v, e := module.Provenance(ctx, dataacquisition.Principal{Scope: scope}, *saved.Source)
+		require.NoError(t, e)
+		require.Equal(t, evidence.CapturedAt, v.Evidence.CapturedAt)
+		require.Equal(t, evidence.ParserVersion, v.Evidence.ParserVersion)
+		require.Equal(t, persisted.Envelope.RawReference.Checksum, v.Checksum)
+		canonicalQuery, e := dataacquisition.NormalizeQuery(q)
+		require.NoError(t, e)
+		require.Equal(t, canonicalQuery, v.Query)
+		wrong := scope
+		wrong.ActorID = "other"
+		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: wrong}, *saved.Source)
+		require.Error(t, e)
+		wrong = scope
+		wrong.MemberID = "rebound"
+		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: wrong}, *saved.Source)
+		require.Error(t, e)
+	})
+	t.Run("plugin Amazon publication is not a Data Services origin", func(t *testing.T) {
+		capture, e := productsourcingapp.NewAmazonBrowserCapture(db, publicationCaptureAuth{scope})
+		require.NoError(t, e)
+		body, e := os.ReadFile("../../product/sourcing/testdata/amazon-capture-v2.json")
+		require.NoError(t, e)
+		plugin, e := capture.Capture(ctx, uuid.NewString(), body)
+		require.NoError(t, e)
+		// The original capture owner publishes the same Collection source kind.
+		cr, e := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
+		require.NoError(t, e)
+		page, e := cr.ListItems(ctx, scope, plugin.BatchID, collection.Query{Limit: 10})
+		require.NoError(t, e)
+		require.Len(t, page.Items, 1)
+		require.Equal(t, "amazon_data", page.Items[0].Source.Kind)
+		reader, e := dataacquisition.NewReader(repo, live)
+		require.NoError(t, e)
+		module := &Module{reader: reader, results: capturedResultReader{sourceReader}}
+		require.Nil(t, module.Runner())
+		_, e = module.Provenance(ctx, dataacquisition.Principal{Scope: scope}, page.Items[0].Source)
+		require.ErrorIs(t, e, dataacquisition.ErrNotFound)
+	})
+	t.Run("Amazon original source enters Preparation without changing fact owner", func(t *testing.T) {
+		require.NoError(t, preparationstore.InstallSchema(db))
+		cr, err := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
+		require.NoError(t, err)
+		auth := publicationCollectionAuth{scope}
+		cs, err := collection.NewService(cr, auth, noPublicationAcquisition{})
+		require.NoError(t, err)
+		batch, err := collection.NewPublicationBatch(scope, job.ID, "amazon_data", "Amazon")
+		require.NoError(t, err)
+		members, err := cr.ListItems(ctx, scope, batch.ID, collection.Query{Limit: 100})
+		require.NoError(t, err)
+		require.Len(t, members.Items, 1)
+		current, err := cr.ReadBatch(ctx, scope, batch.ID)
+		require.NoError(t, err)
+		require.True(t, current.SupplyTransferSupported, "Amazon evidence must be formally admitted to original transfer")
+		pr, err := preparationstore.NewRepository(ctx, db)
+		require.NoError(t, err)
+		ps, err := preparation.NewService(pr, cs, auth)
+		require.NoError(t, err)
+		actor := authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{UserID: scope.ActorID, TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID, EffectiveMemberID: scope.MemberID, TokenExpiresAt: time.Now().Add(time.Hour)})
+		key := uuid.NewString()
+		input := preparation.TransferInput{BatchID: batch.ID, ExpectedRevision: current.Revision, ItemIDs: []string{members.Items[0].ID}}
+		result, err := ps.Transfer(actor, key, input)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, result.Preparation.Count)
+		sources, err := ps.ListSources(actor, result.Preparation.ID, collection.Query{Limit: 100})
+		require.NoError(t, err)
+		require.Len(t, sources.Items, 1)
+		require.Equal(t, *saved.Source, sources.Items[0].Source)
+		replay, err := ps.ReadByKey(actor, key)
+		require.NoError(t, err)
+		require.Equal(t, result.Preparation, replay.Preparation)
+	})
 	t.Run("specialist declaration preserves original applicant and spec", func(t *testing.T) {
 		require.NoError(t, keystore.InstallCustomSchema(db))
 		customPublisher, err := NewCustomProductPublisher()
@@ -147,4 +229,24 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 			require.Nil(t, variant.Stock)
 		}
 	})
+}
+
+func publicationTestDB(t *testing.T, ctx context.Context) *gorm.DB {
+	t.Helper()
+	c, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("publication621"), tcpostgres.WithUsername("test_owner"), tcpostgres.WithPassword("isolated-data621"), tcpostgres.BasicWaitStrategies())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, c.Terminate(context.Background())) })
+	dsn, err := c.ConnectionString(ctx, "sslmode=disable")
+	require.NoError(t, err)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, pool.Close()) })
+	require.NoError(t, keystore.InstallSchema(db))
+	require.NoError(t, catalogstore.AutoMigrate(db))
+	require.NoError(t, sourcestore.InstallSchema(db))
+	require.NoError(t, collectionstore.InstallSchema(db))
+	require.NoError(t, jobstore.InstallSchema(db))
+	return db
 }

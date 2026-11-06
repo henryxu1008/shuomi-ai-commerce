@@ -37,7 +37,7 @@ func dataServicesRuntimeConfig(t *testing.T) *Config {
 	for _, path := range []string{filepath.Join(dir, node), filepath.Join(dir, "package", "cli.js"), filepath.Join(dir, "chrome")} {
 		require.NoError(t, os.WriteFile(path, []byte("unit readiness metadata fixture"), 0600))
 	}
-	c.DataServices = &DataServicesConfig{Database: d, TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default", BrowserExecutable: filepath.Join(dir, "chrome"), DriverDirectory: dir, EnabledSites: []string{"us"}}
+	c.DataServices = &DataServicesConfig{ExecutionEnabled: true, Database: d, TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default", BrowserExecutable: filepath.Join(dir, "chrome"), DriverDirectory: dir, EnabledSites: []string{"us"}}
 	return c
 }
 func TestDataServicesConfigRequiresCanonicalProductAndExplicitRuntime(t *testing.T) {

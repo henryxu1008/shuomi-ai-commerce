@@ -1,7 +1,7 @@
 import {connection} from "next/server";
 import {notFound} from "next/navigation";
 import {ObservationPage} from "@/components/workbench/store-observations/observation-page";
-import {StorePublicationDetail} from "@/components/workbench/supply/store-publication-detail";
+import {StorePublicationDetail} from "@/components/workbench/listing/store-publication-detail";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 export default async function StoreProductsPage({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}) {
  await connection();const query=await searchParams;

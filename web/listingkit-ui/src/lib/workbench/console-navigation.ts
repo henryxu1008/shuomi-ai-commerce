@@ -1,5 +1,14 @@
-// Visible Figma 31:463 navigation and explicitly approved local additions. A route is not a permission grant.
-export type ConsoleNavNode = { label: string; href: string; availability: "connected" | "unavailable"; children?: readonly ConsoleNavNode[] };
+// Console navigation and route breadcrumbs. A route is not a permission grant.
+import { researchWorkflows } from "./research-navigation";
+import { listingHome, listingStages } from "./listing-navigation";
+export type ConsoleNavNode = { label: string; href: string; availability: "connected" | "unavailable"; children?: readonly ConsoleNavNode[]; disclosureOnly?: boolean };
+const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow => ({
+  label: workflow.label, href: workflow.root, availability: "unavailable",
+  children: workflow.phases.map(phase => ({
+    label: phase.label, href: `${workflow.root}#${phase.id}`, availability: "unavailable", disclosureOnly: true,
+    children: phase.steps.map(step => ({ label: step.label, href: `${workflow.root}?step=${step.id}`, availability: "unavailable" })),
+  })),
+}));
 const pending = (label: string, href: string, children?: readonly ConsoleNavNode[]): ConsoleNavNode => ({ label, href: `/workbench/${href}`, availability: "unavailable", children });
 export const consoleNavigation: readonly ConsoleNavNode[] = [
   { label: "运营驾驶舱", href: "/workbench", availability: "unavailable", children: [pending("目标管理", "overview/goals"), pending("店铺矩阵", "overview/stores"), pending("经营预警", "overview/alerts"), pending("经营建议", "overview/advice")] },
@@ -8,14 +17,16 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
     { label: "任务中心", href: "/workbench/ai/tasks", availability: "connected", children: [{ label: "进行中", href: "/workbench/ai/tasks/running", availability: "connected" }, { label: "待确认", href: "/workbench/ai/tasks/pending", availability: "connected" }, { label: "已完成", href: "/workbench/ai/tasks/completed", availability: "connected" }, { label: "异常任务", href: "/workbench/ai/tasks/errors", availability: "connected" }] },
     {label:"项目中心",href:"/workbench/ai/projects",availability:"connected",children:[{label:"进行中项目",href:"/workbench/ai/projects/active",availability:"connected"},{label:"最近访问",href:"/workbench/ai/projects/recent",availability:"connected"},{label:"项目模板",href:"/workbench/ai/projects/templates",availability:"connected"},{label:"已归档",href:"/workbench/ai/projects/archived",availability:"connected"}]}, pending("知识库", "ai/knowledge", [pending("官方知识库", "ai/knowledge/official"), pending("我的知识库", "ai/knowledge/mine")]), {label:"技能库",href:"/workbench/agents/skills",availability:"connected",children:[{label:"官方模板",href:"/workbench/agents/skills/official",availability:"connected"},{label:"我的技能",href:"/workbench/agents/skills/mine",availability:"connected"},{label:"团队技能",href:"/workbench/agents/skills/team",availability:"connected"}]}, pending("我的报告", "ai/reports", [pending("最近报告", "ai/reports/recent"), pending("收藏报告", "ai/reports/favorites"), pending("全部报告", "ai/reports/all")]),
   ]),
+  ...researchMenus,
   pending("供应市场", "supply", [
     { label: "1688采集", href: "/workbench/supply/acquisition", availability: "connected" },
-    pending("硕米自营", "supply/official"), pending("硕米优选", "supply/selected"), pending("货盘集成", "supply/catalogs", [pending("货盘选品", "supply/catalogs/selection"), pending("申请对接", "supply/catalogs/apply")]), pending("我的供应链", "supply/mine", [pending("待上传", "supply/mine/waiting"), pending("待补全", "supply/mine/missing"), pending("待审核", "supply/mine/review"), pending("已上传", "supply/mine/uploaded")]), pending("优选申请", "supply/applications", [pending("发起申请", "supply/applications/new"), pending("申请进度", "supply/applications/progress"), pending("申请记录", "supply/applications/records")]),
+    pending("硕米自营", "supply/official"), pending("硕米优选", "supply/selected"), pending("货盘集成", "supply/catalogs", [pending("货盘选品", "supply/catalogs/selection"), pending("申请对接", "supply/catalogs/apply")]), pending("优选申请", "supply/applications", [pending("发起申请", "supply/applications/new"), pending("申请进度", "supply/applications/progress"), pending("申请记录", "supply/applications/records")]),
   ]),
   pending("智能市场", "agents", [{label:"智能体市场",href:"/workbench/agents/market",availability:"connected"},{label:"我的智能体",href:"/workbench/agents/mine",availability:"connected"},{label:"智能体定制",href:"/workbench/agents/custom",availability:"connected",children:[{label:"提交定制需求",href:"/workbench/agents/custom/new",availability:"connected"},{label:"定制进度",href:"/workbench/agents/custom/progress",availability:"connected"}]}]),
   pending("工具市场", "tools", [pending("官方工具", "tools/official"), pending("我的工具", "tools/mine"), pending("工具定制", "tools/custom", [pending("提交定制需求", "tools/custom/new"), pending("定制进度", "tools/custom/progress")])]),
   pending("生态服务", "services", [pending("服务市场", "services/market"), pending("我的服务", "services/mine"), pending("申请加入", "services/join")]),
   pending("数据服务", "data", [pending("数据市场", "data/market"), pending("API管理", "data/api"), pending("我的数据", "data/mine")]),
+  { label: "商品刊登", href: listingHome, availability: "unavailable" },
   pending("店铺中心", "store-center", [{ label: "我的店铺", href: "/workbench/stores", availability: "connected" }, pending("店铺商品", "store-products")]),
   pending("订单管理", "store-orders", [
     pending("订单处理", "store-orders/fulfill?step=source"),
@@ -59,10 +70,19 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
   }
   const exact = visit(consoleNavigation, []);
   if (exact) return exact;
-  if (pathname === "/workbench/store-orders/fulfill" || pathname === "/workbench/store-orders/records" || pathname === "/workbench/supply/mine/procurement") {
-    const procurement=pathname.endsWith("/procurement");
-    const parent=findConsoleRoute(procurement?"/workbench/supply/mine":"/workbench/store-orders")!;
-    const node:ConsoleNavNode={label:procurement?"采购管理":pathname.endsWith("/records")?"平台订单记录":"原单履约",href:pathname,availability:"connected"};
+  if (/^\/workbench\/(data\/research|supply\/selection)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pathname)) {
+    const research=pathname.startsWith("/workbench/data/"),parent=findConsoleRoute(research?"/workbench/data/research":"/workbench/supply/selection")!;
+    const node:ConsoleNavNode={label:research?"项目研究":"项目评审",href:pathname,availability:parent.node.availability};return {node,trail:[...parent.trail,node]};
+  }
+  const listingStage = listingStages.find(stage => pathname === listingHome + "/" + stage.id);
+  if (listingStage) {
+    const parent = findConsoleRoute(listingHome)!;
+    const node: ConsoleNavNode = {label:listingStage.label,href:pathname,availability:parent.node.availability};
+    return {node,trail:[...parent.trail,node]};
+  }
+  if (pathname === "/workbench/store-orders/fulfill" || pathname === "/workbench/store-orders/records") {
+    const parent=findConsoleRoute("/workbench/store-orders")!;
+    const node:ConsoleNavNode={label:pathname.endsWith("/records")?"平台订单记录":"原单履约",href:pathname,availability:"connected"};
     return {node,trail:[...parent.trail,node]};
   }
   if (pathname === "/workbench/agents/skills/official/use") {
@@ -80,8 +100,8 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node:ConsoleNavNode={label:"转入待补全",href:pathname,availability:parent.node.availability};
     return {node,trail:[...parent.trail,node]};
   }
-  if (/^\/workbench\/supply\/mine\/missing\/[0-9a-f-]{36}$/.test(pathname)) {
-    const parent=findConsoleRoute("/workbench/supply/mine/missing")!;
+  if (/^\/workbench\/listing\/missing\/[0-9a-f-]{36}$/.test(pathname)) {
+    const parent=findConsoleRoute("/workbench/listing/missing")!;
     const node:ConsoleNavNode={label:"待补全草稿",href:pathname,availability:parent.node.availability};
     return {node,trail:[...parent.trail,node]};
   }
@@ -150,8 +170,8 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node: ConsoleNavNode = { label: "采集结果", href: pathname, availability: "connected" };
     return { node, trail: [...parent.trail, node] };
   }
-  if (/^\/workbench\/supply\/materials\/[0-9a-f-]{36}$/.test(pathname)) {
-	const parent=findConsoleRoute("/workbench/supply/mine")!;
+  if (/^\/workbench\/listing\/materials\/[0-9a-f-]{36}$/.test(pathname)) {
+	const parent=findConsoleRoute("/workbench/listing")!;
 	const node:ConsoleNavNode={label:"平台上架资料",href:pathname,availability:"connected"};
 	return {node,trail:[...parent.trail,node]};
   }

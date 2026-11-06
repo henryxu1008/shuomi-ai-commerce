@@ -17,7 +17,7 @@ it("ignores a late prior enterprise list after remounting",async()=>{
 it("distinguishes Vn and Rn and continues the same source with item and preparation context",async()=>{
  render(<OwnProductDrafts scope={scope} itemId={item} canManage/>);
  expect(await screen.findByText("已保存候选标题")).toBeVisible();expect(screen.getByText("V1")).toBeVisible();expect(screen.getByText("R3")).toBeVisible();
- expect(screen.getByRole("link",{name:"继续编辑"})).toHaveAttribute("href",`/workbench/supply/mine/missing/${source}?preparation=${prep}&item=${item}`);
+ expect(screen.getByRole("link",{name:"继续编辑"})).toHaveAttribute("href",`/workbench/listing/missing/${source}?preparation=${prep}&item=${item}`);
  f.list.mockResolvedValue({collectionItemId:item,items:[],total:2});fireEvent.click(screen.getByRole("button",{name:"下一页草稿"}));await waitFor(()=>expect(f.list).toHaveBeenLastCalledWith(scope,item,{limit:20,after:source},expect.any(AbortSignal)));
 });
 it("keeps read-only discovery and reports errors without inventing zero drafts",async()=>{

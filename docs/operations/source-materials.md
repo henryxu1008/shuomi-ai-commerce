@@ -31,7 +31,7 @@ UI 同时显式设置 `LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED=true`、`LISTINGKI
 
 1. 在 `/workbench/supply/acquisition` 用已有模式采集新来源；公开获取不要求源账号登录。成功结果按原 SRC/Catalog/Collection 事务保存，失败/UNKNOWN 沿原操作核实。
 2. 到 `/workbench/data/mine` 查看已保存商品；刷新或重新打开仍读取该成员固定的 publication/version，来源、校验值、采集时间及警告来自已保存事实。查看原始商品保持只读。
-3. 显式加入我的供应链后，在 `/workbench/supply/mine/waiting` 的来源条目点击「来源素材」。选择本次采用的完整图片集合及用途，再点击「确认采用所选图片」。勾选本身不批准图片。
+3. 显式转入待上传后，在 `/workbench/listing/waiting` 的来源条目点击「来源素材」。选择本次采用的完整图片集合及用途，再点击「确认采用所选图片」。勾选本身不批准图片。
 4. 读到原确认回执后重读本版本 inventory 与 Product inputs；原来源 warning/review 仍显示。`本版本资料就绪` 仅表示商品资料输入检查通过，平台规则、店铺、图片远端字节、上传及发布未评估。
 
 结果待核实期间保留原身份/企业/来源、key 和完整选择；「核实原确认」沿原 key/载荷安全重放，不换新 key。关闭面板不取消已提交动作。重新选图是新的明确批准；旧回执重放不会把后来集合改回旧集合。权限拒绝、未配置和依赖不可用不会被解释为未批准或 ready；切换身份/企业移除旧资料并中止旧读取。

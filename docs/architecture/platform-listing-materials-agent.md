@@ -146,7 +146,7 @@ Legacy decision: **EXTRACT**。复用当前合法来源/规则/资产、Target�
 
 前端使用原 `web/listingkit-ui` 正常启动流程；服务端启用 `LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED=true`、`LISTINGKIT_SUPPLY_CHAIN_ENABLED=true`、`LISTINGKIT_PRODUCT_AGENT_ENABLED=true`，BFF/身份使用现有私有配置。已有运行实例、worker、命名 volumes 不因准备源码而重建。
 
-1. 从“我的智能体”查看独立“平台上架资料”配置与历史；在“我的供应链”原平台资料编辑器先保存当前草稿，再点“准备平台资料”。直接页为 `/workbench/supply/materials/<原 TargetRecord UUID>`，不能用未保存编辑值作为依据。
+1. 从“我的智能体”查看独立“平台上架资料”配置与历史；在“我的供应链”原平台资料编辑器先保存当前草稿，再点“准备平台资料”。直接页为 `/workbench/listing/materials/<原 TargetRecord UUID>`，不能用未保存编辑值作为依据。
 2. 核对当前企业、原草稿与标准商品版本、SHEIN 美国站、模板及四种权限，再确认生成。结果展示允许字段的原值/建议值和真实缺项。
 3. `read_only` 只读建议；`default` 明确人工确认后调用原 Target 保存。`auto_approve/full_access` 仅自动采用领域规则完整的本地建议；不确定、换类目或有缺项仍需人工核对。实际保存结果显示原 Target 记录和版本，不写成发布成功。
 4. 响应丢失后页面保留原编号、配置引用，以及继续/保存的精确请求内容；通过“核对原运行 / 原保存结果”恢复。未确认结果前阻止企业切换，不换键重做；刷新后可重试原继续/保存请求，不能修改原候选和反馈。

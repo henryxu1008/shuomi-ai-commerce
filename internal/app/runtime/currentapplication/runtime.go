@@ -49,6 +49,7 @@ type Dependencies struct {
 	NewMarketStorage              func(context.Context, *SupplyMarketConfig) (supplymarket.PrivateFileStorage, error)
 	PreparePOD                    func(context.Context, *PODConfig) (sds.CredentialSource, error)
 	OpenAgentCustomization        func(context.Context, DatabaseConfig) (*gorm.DB, error)
+	OpenMarketResearch            func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenProjectCenter             func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenToolMarket                func(context.Context, DatabaseConfig) (*gorm.DB, error)
 	OpenEcoservices               func(context.Context, DatabaseConfig) (*gorm.DB, error)
@@ -87,6 +88,9 @@ type Dependencies struct {
 // ApplicationFeatures keeps separately owned, opt-in current modules together
 // only at the serving composition boundary.
 type ApplicationFeatures struct {
+	TitlePilot                                           *TitlePilotConfig
+	RegisterTitlePilotOperator                           func(http.Handler)
+	VerifyTitlePilotIsolation                            func(context.Context) error
 	ChannelCredentials                                   channelcredential.SecretReader
 	ChannelCredentialManagement                          *channelcredential.Management
 	Fulfillment                                          *fulfillmentapp.Configuration
@@ -106,6 +110,7 @@ type ApplicationFeatures struct {
 	ReportCenterDB                                       *gorm.DB
 	SheinTargetReportSources                             bool
 	SheinOfflineRecords                                  bool
+	SHEINUSTrial                                         *SHEINUSTrialFiles
 	MarketStorage                                        supplymarket.PrivateFileStorage
 	POD                                                  *PODConfig
 	PODCredentials                                       sds.CredentialSource
@@ -113,6 +118,8 @@ type ApplicationFeatures struct {
 	PODWorkflow                                          client.Client
 	PODWorker                                            *podapp.Worker
 	AgentCustomizationDB                                 *gorm.DB
+	MarketResearchDB                                     *gorm.DB
+	MarketResearchSupplierReview                         bool
 	ProjectCenterDB                                      *gorm.DB
 	ToolMarketDB                                         *gorm.DB
 	ToolMarket                                           *ToolMarketConfig
@@ -146,6 +153,7 @@ type ApplicationFeatures struct {
 	ImageSetAssetDB                                      *gorm.DB
 	ImageSetWorkerDB                                     *gorm.DB
 	ImageSetWorkerConfig                                 *coreconfig.Config
+	FullImageSet                                         bool
 	ImageSetTemporal                                     client.Client
 	ImageSetWorker                                       *appruntime.ImageAgentWorker
 	AccountAuditImageDB, AccountAuditProductDB           *gorm.DB
@@ -178,7 +186,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		return err
 	}
 	core := cfg.CoreConfig()
-	if cfg.DataServices != nil && (dependencies.OpenDataServices == nil || dependencies.DialDataServicesWorkflow == nil || dependencies.NewApplicationWithFeatures == nil) {
+	if cfg.DataServices != nil && (dependencies.OpenDataServices == nil || cfg.DataServices.ExecutionEnabled && dependencies.DialDataServicesWorkflow == nil || dependencies.NewApplicationWithFeatures == nil) {
 		return errors.New("data services database, workflow and application lifecycle unavailable")
 	}
 	if cfg.SupplyMarket != nil && (dependencies.NewMarketStorage == nil || dependencies.NewApplicationWithFeatures == nil) {
@@ -208,6 +216,21 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	}
 	startupContext, cancelStartup := context.WithTimeout(ctx, 15*time.Second)
 	defer cancelStartup()
+	var sheinTrial *SHEINUSTrialFiles
+	if cfg.SheinUSTrialInputDir != nil {
+		if dependencies.NewApplicationWithFeatures == nil {
+			return errors.New("SHEIN US trial application composition is unavailable")
+		}
+		files, closeFiles, err := openSHEINUSTrialDirectory(*cfg.SheinUSTrialInputDir)
+		if err != nil {
+			return fmt.Errorf("open SHEIN US trial inputs: %w", err)
+		}
+		defer func() { resultErr = errors.Join(resultErr, closeFiles()) }()
+		sheinTrial, err = loadSHEINUSTrialFiles(files)
+		if err != nil {
+			return fmt.Errorf("load SHEIN US trial approval: %w", err)
+		}
+	}
 	if cfg.Referrals.Enabled {
 		if dependencies.OpenReferrals == nil || dependencies.NewReferralsApplication == nil {
 			return errors.New("current application referrals lifecycle unavailable")
@@ -240,6 +263,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	if cfg.Knowledge != nil && cfg.Knowledge.Enabled && (dependencies.OpenKnowledge == nil || dependencies.NewKnowledge == nil || dependencies.NewApplicationWithFeatures == nil) {
 		return errors.New("knowledge runtime lifecycle unavailable")
 	}
+	if cfg.MarketResearch != nil && (dependencies.OpenMarketResearch == nil || dependencies.NewApplicationWithFeatures == nil) {
+		return errors.New("market research lifecycle unavailable")
+	}
 	if cfg.ProjectCenter != nil && (dependencies.OpenProjectCenter == nil || dependencies.NewApplicationWithFeatures == nil) {
 		return errors.New("project center lifecycle unavailable")
 	}
@@ -258,7 +284,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	if cfg.ImageAgent != nil && (dependencies.OpenImageAgent == nil || dependencies.NewApplicationWithFeatures == nil || (cfg.ImageAgent.WorkerConfigFile == "" && dependencies.DialImageAgentWorkflow == nil)) {
 		return errors.New("current image agent owner and organization workflow lifecycle unavailable")
 	}
-	if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" && (dependencies.OpenImageSetWorker == nil || dependencies.DialImageSetWorkflow == nil || dependencies.OpenSupplyAssets == nil) {
+	if cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "" && (dependencies.OpenSupplyAssets == nil || cfg.ImageAgent.Generation.Enabled && (dependencies.OpenImageSetWorker == nil || dependencies.DialImageSetWorkflow == nil)) {
 		return errors.New("full image set worker lifecycle unavailable")
 	}
 	if cfg.SupplyChain != nil && (dependencies.OpenSupplyAssets == nil || dependencies.DialSupplyWorkflow == nil || dependencies.NewApplicationWithFeatures == nil) {
@@ -385,6 +411,14 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			defer func(db *gorm.DB) { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(db)) }(pool)
 		}
 	}
+	var titlePilotPools map[string]*gorm.DB
+	if cfg.TitlePilot != nil {
+		titlePilotPools = map[string]*gorm.DB{"identity": sourceAccountDB, "product": productDB, "review": agentReviewDB,
+			"asset": agentAssetDB, "run": agentDB, "commercial": commercialOwnerDB}
+		if err := cfg.verifyTitlePilotDatabases(startupContext, titlePilotPools); err != nil {
+			return err
+		}
+	}
 	var workbenchDB *gorm.DB
 	var notificationDB *gorm.DB
 	if cfg.NotificationCenterDatabase != nil {
@@ -421,14 +455,16 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(imageDB)) }()
 		var closeWorkflow func() error
 		if cfg.ImageAgent.WorkerConfigFile != "" {
-			imageWorkerConfig, imageWorkerDB, err = dependencies.OpenImageSetWorker(startupContext, cfg.ImageAgent.WorkerConfigFile, cfg.ImageAgent.Database)
-			if err != nil || imageWorkerConfig == nil || imageWorkerDB == nil || imageWorkerDB == imageDB {
-				return errors.New("open existing full image worker pool failed")
-			}
-			defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(imageWorkerDB)) }()
-			imageTemporal, closeWorkflow, err = dependencies.DialImageSetWorkflow(startupContext, cfg.ImageAgent.TemporalAddress, cfg.ImageAgent.TemporalNamespace)
-			if imageTemporal != nil {
-				imageWorkflow = imagetemporal.NewOrganizationClient(imageTemporal)
+			if cfg.ImageAgent.Generation.Enabled {
+				imageWorkerConfig, imageWorkerDB, err = dependencies.OpenImageSetWorker(startupContext, cfg.ImageAgent.WorkerConfigFile, cfg.ImageAgent.Database)
+				if err != nil || imageWorkerConfig == nil || imageWorkerDB == nil || imageWorkerDB == imageDB {
+					return errors.New("open existing full image worker pool failed")
+				}
+				defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(imageWorkerDB)) }()
+				imageTemporal, closeWorkflow, err = dependencies.DialImageSetWorkflow(startupContext, cfg.ImageAgent.TemporalAddress, cfg.ImageAgent.TemporalNamespace)
+				if imageTemporal != nil {
+					imageWorkflow = imagetemporal.NewOrganizationClient(imageTemporal)
+				}
 			}
 		} else {
 			imageWorkflow, closeWorkflow, err = dependencies.DialImageAgentWorkflow(startupContext, cfg.ImageAgent.TemporalAddress, cfg.ImageAgent.TemporalNamespace)
@@ -436,10 +472,12 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		if err != nil {
 			return fmt.Errorf("connect organization image agent workflow: %w", err)
 		}
-		if imageWorkflow == nil || closeWorkflow == nil {
+		if (cfg.ImageAgent.WorkerConfigFile == "" || cfg.ImageAgent.Generation.Enabled) && (imageWorkflow == nil || closeWorkflow == nil) {
 			return errors.New("organization image agent workflow unavailable")
 		}
-		defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
+		if closeWorkflow != nil {
+			defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
+		}
 	}
 	var auditImageDB, auditProductDB *gorm.DB
 	if cfg.AccountAuditUsage != nil {
@@ -816,25 +854,42 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		if err != nil || dataDB == nil {
 			return errors.New("data services Product database unavailable")
 		}
-		dataProvider, err = amazon.New(amazon.Options{ExecutablePath: d.BrowserExecutable, DriverDirectory: d.DriverDirectory, EnabledSites: d.EnabledSites})
-		if err != nil || dataProvider.Ready(startupContext) != nil {
-			return errors.New("data services browser runtime is not installed or mismatches its explicit configuration")
+		if d.ExecutionEnabled {
+			dataProvider, err = amazon.New(amazon.Options{ExecutablePath: d.BrowserExecutable, DriverDirectory: d.DriverDirectory, EnabledSites: d.EnabledSites})
+			if err != nil || dataProvider.Ready(startupContext) != nil {
+				return errors.New("data services browser runtime is not installed or mismatches its explicit configuration")
+			}
+			if cfg.SupplyChain != nil && d.TemporalAddress == cfg.SupplyChain.TemporalAddress && d.TemporalNamespace == cfg.SupplyChain.TemporalNamespace {
+				dataWorkflow = supplyWorkflow
+			} else if cfg.POD != nil && d.TemporalAddress == cfg.POD.TemporalAddress && d.TemporalNamespace == cfg.POD.TemporalNamespace {
+				dataWorkflow = podWorkflow
+			} else if cfg.ImageAgent != nil && imageTemporal != nil && d.TemporalAddress == cfg.ImageAgent.TemporalAddress && d.TemporalNamespace == cfg.ImageAgent.TemporalNamespace {
+				dataWorkflow = imageTemporal
+			} else {
+				var closeWorkflow func() error
+				dataWorkflow, closeWorkflow, err = dependencies.DialDataServicesWorkflow(startupContext, d.TemporalAddress, d.TemporalNamespace)
+				if closeWorkflow != nil {
+					defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
+				}
+				if err != nil || dataWorkflow == nil || closeWorkflow == nil {
+					return errors.New("data services workflow unavailable")
+				}
+			}
 		}
-		if cfg.SupplyChain != nil && d.TemporalAddress == cfg.SupplyChain.TemporalAddress && d.TemporalNamespace == cfg.SupplyChain.TemporalNamespace {
-			dataWorkflow = supplyWorkflow
-		} else if cfg.POD != nil && d.TemporalAddress == cfg.POD.TemporalAddress && d.TemporalNamespace == cfg.POD.TemporalNamespace {
-			dataWorkflow = podWorkflow
-		} else if cfg.ImageAgent != nil && imageTemporal != nil && d.TemporalAddress == cfg.ImageAgent.TemporalAddress && d.TemporalNamespace == cfg.ImageAgent.TemporalNamespace {
-			dataWorkflow = imageTemporal
-		} else {
-			var closeWorkflow func() error
-			dataWorkflow, closeWorkflow, err = dependencies.DialDataServicesWorkflow(startupContext, d.TemporalAddress, d.TemporalNamespace)
-			if closeWorkflow != nil {
-				defer func() { resultErr = errors.Join(resultErr, closeWorkflow()) }()
+	}
+	var researchDB *gorm.DB
+	if cfg.MarketResearch != nil {
+		researchDB, err = dependencies.OpenMarketResearch(startupContext, cfg.MarketResearch.Database)
+		if researchDB != nil {
+			for _, other := range []*gorm.DB{sourceAccountDB, productDB, projectDB, dataDB, commercialOwnerDB, moneyOwnerDB, storeDB, notificationDB, agentDB, agentReviewDB, agentAssetDB, imageDB, workbenchDB, toolMarketDB, customizationDB, reportDB, knowledgeDB, podAssetDB} {
+				if researchDB == other {
+					return errors.New("research requires its independent restricted pool")
+				}
 			}
-			if err != nil || dataWorkflow == nil || closeWorkflow == nil {
-				return errors.New("data services workflow unavailable")
-			}
+			defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(researchDB)) }()
+		}
+		if err != nil || researchDB == nil {
+			return errors.New("research database unavailable")
 		}
 	}
 	var sharedManager *d.SharedModelService
@@ -851,7 +906,13 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	if channelErr != nil {
 		return channelErr
 	}
+	if cfg.TitlePilot != nil {
+		if err := cfg.TitlePilot.verifyDatabase(startupContext, channelSecretDB, cfg.ChannelCredentials.Reader, "run"); err != nil {
+			return err
+		}
+	}
 	var priceManager *d.PlatformPricesService
+	var titlePilotRouteWriter *gorm.DB
 	var imageReader d.SharedCategoryReader
 	var textReader governed.RoutePolicyReader
 	if cfg.ModelRoutePricing != nil {
@@ -871,6 +932,12 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return errors.New("shared model writer unavailable")
 		}
 		defer func() { resultErr = errors.Join(resultErr, dependencies.CloseDatabase(writer)) }()
+		if cfg.TitlePilot != nil {
+			if err := cfg.TitlePilot.verifyDatabase(startupContext, writer, *writerConfig, "run"); err != nil {
+				return err
+			}
+			titlePilotRouteWriter = writer
+		}
 		read, manage, prices, e := prepareSharedModelServices(startupContext, agentDB, writer, defs)
 		if e != nil {
 			return e
@@ -901,6 +968,23 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return e
 		}
 	}
+	var operator *http.Server
+	var registerOperator func(http.Handler)
+	var verifyOperator func(context.Context) error
+	if p := cfg.TitlePilot; p != nil {
+		operator = &http.Server{Addr: p.Address(), ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout: 5 * time.Second, WriteTimeout: 66 * time.Minute, IdleTimeout: 20 * time.Second, MaxHeaderBytes: 16 << 10}
+		registerOperator = func(handler http.Handler) { operator.Handler = handler }
+		verifyOperator = func(ctx context.Context) error {
+			if err := cfg.verifyTitlePilotDatabases(ctx, titlePilotPools); err != nil {
+				return err
+			}
+			if err := p.verifyDatabase(ctx, channelSecretDB, cfg.ChannelCredentials.Reader, "run"); err != nil {
+				return err
+			}
+			return p.verifyDatabase(ctx, titlePilotRouteWriter, *cfg.ModelRoutePricing.Writer, "run")
+		}
+	}
 	var browserKernelDB *gorm.DB
 	if cfg.BrowserKernel != nil {
 		if dependencies.OpenBrowserKernel == nil || dependencies.NewApplicationWithFeatures == nil {
@@ -923,8 +1007,12 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return errors.New("open existing browser kernel owner failed")
 		}
 	}
+	var dataWorkerSlot *dataservicesruntime.Worker
+	if cfg.DataServices != nil && cfg.DataServices.ExecutionEnabled {
+		dataWorkerSlot = &dataWorker
+	}
 	if dependencies.NewApplicationWithFeatures != nil {
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{ChannelCredentialManagement: credentialManager, ChannelCredentials: channelSecrets, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, OfficialModelPrices: priceManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: &dataWorker, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelCredentials: channelSecrets, SHEINUSTrial: sheinTrial, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, OfficialModelPrices: priceManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, SourceMediaStorage: sourceMediaStorage, SupplyAssetDB: supplyAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, SupplyWorkflow: supplyWorkflow, SupplyWorker: &supplyWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {
@@ -937,6 +1025,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	}
 	if server == nil {
 		return errors.New("current application server unavailable")
+	}
+	if operator != nil && operator.Handler == nil {
+		return errors.New("title pilot operator was not assembled")
 	}
 	if knowledgeProcessor != nil {
 		processingContext, stopProcessing := context.WithCancel(ctx)
@@ -952,7 +1043,20 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		return fmt.Errorf("listen for current application: %w", err)
 	}
 	server.Addr = cfg.ListenAddress()
-	if cfg.DataServices != nil {
+	var local net.Listener
+	if operator != nil {
+		defer listener.Close()
+		local, err = dependencies.Listen("tcp4", operator.Addr)
+		if err != nil {
+			return errors.New("listen for title pilot operator failed")
+		}
+		defer local.Close()
+		bound, ok := local.Addr().(*net.TCPAddr)
+		if !ok || bound.String() != operator.Addr {
+			return errTitlePilotIsolation
+		}
+	}
+	if cfg.DataServices != nil && cfg.DataServices.ExecutionEnabled {
 		if dataWorker == nil {
 			_ = listener.Close()
 			return errors.New("data services worker was not assembled")
@@ -1010,6 +1114,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return errors.New("start Store observation worker failed")
 		}
 		defer observationLifecycle.Stop()
+	}
+	if operator != nil {
+		return serveWithTitlePilot(ctx, server, operator, listener, local, dependencies.ShutdownTimeout)
 	}
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- server.Serve(listener) }()

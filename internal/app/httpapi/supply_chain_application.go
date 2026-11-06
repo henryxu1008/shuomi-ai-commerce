@@ -167,7 +167,7 @@ func buildSupplyChainModule(ctx context.Context, productDB, storeDB *gorm.DB, d 
 	if err != nil {
 		return empty, err
 	}
-	app.UploadPlans, err = preparation.NewUploadPlanService(auth, plansRepo, supplyapp.UploadPlanInputs{Application: app, Operations: plansRepo})
+	app.UploadPlans, err = preparation.NewUploadPlanService(auth, plansRepo, supplyapp.UploadPlanInputs{Application: app, Operations: plansRepo, WalmartAttempts: effects})
 	if err != nil {
 		return empty, err
 	}

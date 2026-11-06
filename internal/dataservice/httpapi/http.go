@@ -146,6 +146,11 @@ func (m *handler) handle(c *gin.Context, action, permission string, special, ext
 			return
 		}
 	}
+	if !m.ExecutionEnabled && (action == "job-create" || action == "job-cancel") {
+		httproute.RejectUnreadRequestBody(c)
+		dataError(c, dataservice.ErrUnavailable)
+		return
+	}
 	var value any
 	switch action {
 	case "options":
@@ -232,12 +237,12 @@ func (m *handler) handle(c *gin.Context, action, permission string, special, ext
 		if !collection.ValidID(c.Param("command")) {
 			err = dataacquisition.ErrInvalid
 		} else {
-			value, err = m.Acquisition.Read(ctx, principal, collection.StableID(principal.Scope.OrganizationID, principal.Scope.ActorID, "amazon-job", c.Param("command")))
+			value, err = m.Reader.Read(ctx, principal, collection.StableID(principal.Scope.OrganizationID, principal.Scope.ActorID, "amazon-job", c.Param("command")))
 		}
 	case "job-read":
-		value, err = m.Acquisition.Read(ctx, principal, c.Param("id"))
+		value, err = m.Reader.Read(ctx, principal, c.Param("id"))
 	case "job-results":
-		value, err = m.Acquisition.Results(ctx, principal, c.Param("id"), cursor, limit, m.Results)
+		value, err = m.Reader.Results(ctx, principal, c.Param("id"), cursor, limit, m.Results)
 	case "job-cancel":
 		var input struct{}
 		err = readJSON(c.Request, &input)

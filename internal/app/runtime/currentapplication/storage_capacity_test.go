@@ -132,6 +132,35 @@ func TestStorageStartupAcceptsSameOwnerWithSeparateCredentials(t *testing.T) {
 	require.NoError(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, worker, nil))
 }
 
+func TestStorageClosedFullImageStillValidatesCapacityOwner(t *testing.T) {
+	c, db := storageStartupFixture(t)
+	c.ImageAgent = &ImageAgentConfig{WorkerConfigFile: "not-read-while-execution-is-closed.yaml"}
+	require.NoError(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, nil, nil))
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.Error(t, prepareStorageCapacity(cancelled, c, db, nil, nil, nil, nil))
+	require.NoError(t, db.Exec("DROP TABLE storage_capacity_namespaces").Error)
+	require.Error(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, nil, nil), "closing image execution must not bypass the capacity owner schema")
+}
+
+func TestStorageExecutingImagesStillRequireMeteredWorker(t *testing.T) {
+	for _, full := range []bool{false, true} {
+		t.Run(map[bool]string{false: "single image", true: "full image"}[full], func(t *testing.T) {
+			c, db := storageStartupFixture(t)
+			c.ImageAgent = &ImageAgentConfig{}
+			if full {
+				c.ImageAgent.WorkerConfigFile = "executing-worker.yaml"
+				c.ImageAgent.Generation.Enabled = true
+			}
+			for _, worker := range []*coreconfig.Config{nil, {}, {StorageCapacity: true, CommercialOwnerDatabase: &coreconfig.DatabaseConfig{Host: "another-owner", Port: 5432, Database: "commercial"}}} {
+				require.Error(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, worker, nil))
+			}
+			worker := &coreconfig.Config{StorageCapacity: true, CommercialOwnerDatabase: &coreconfig.DatabaseConfig{Host: "commercial", Port: 5432, Database: "commercial"}}
+			require.NoError(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, worker, nil))
+		})
+	}
+}
+
 func TestStorageNamespaceRechecksNewAccountButPreservesCredentialRotation(t *testing.T) {
 	for _, different := range []bool{false, true} {
 		t.Run(map[bool]string{false: "same_account_key_rotation", true: "account_switch"}[different], func(t *testing.T) {
@@ -159,6 +188,7 @@ func TestStorageNamespaceRechecksNewAccountButPreservesCredentialRotation(t *tes
 			}))
 			defer server.Close()
 			c, db := storageStartupFixture(t)
+			c.ImageAgent = &ImageAgentConfig{WorkerConfigFile: "not-read-while-execution-is-closed.yaml"}
 			c.SourceMedia = &coreconfig.ImageAgentArtifactStoreConfig{S3: coreconfig.ImageAgentArtifactStoreS3Config{Endpoint: server.URL, Region: "us-east-1", Bucket: "same-name", ArtifactMode: "aws", AccessKeyID: "key-a", SecretAccessKey: "synthetic", UsePathStyle: true}}
 			require.NoError(t, prepareStorageCapacity(context.Background(), c, db, nil, nil, nil, nil))
 			c.SourceMedia.S3.AccessKeyID = "key-b"

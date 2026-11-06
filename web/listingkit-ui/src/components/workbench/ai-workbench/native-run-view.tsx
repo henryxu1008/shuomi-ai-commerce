@@ -22,6 +22,7 @@ export function NativeRunReadStatus({runs,locked}:{runs:NativeRuns;locked:boolea
  if(!runs.enabled)return null;
  return <section className="space-y-3 p-4" aria-label="智能体运行来源">
   {runs.catalog.isPending?<p role="status">正在读取可用任务来源…</p>:runs.catalog.isError?<p role="alert">任务来源读取失败：{configurationError(runs.catalog.error)} <Button variant="outline" disabled={locked||runs.catalog.isFetching} onClick={()=>void runs.catalog.refetch()}>重试任务来源</Button></p>:null}
+  {runs.catalog.data?.pages.some(p=>p.items.some(e=>e.canReadRuns&&e.parameterSchema==="market-research-config-v1"))?<p>研究分析历史按项目查看：<Link href="/workbench/supply/selection" prefetch={false}>打开智能选品</Link>。</p>:null}
   {runs.catalog.isSuccess&&!runs.catalog.isFetching&&!runs.sources.length?<p>当前没有可读取的智能体运行</p>:null}
   {runs.sources.map(source=><div key={source.entry.agent.agentId}>
    {source.loading?<p role="status">正在读取{source.entry.name}记录…</p>:source.error?<p role="alert">{source.entry.name}：{configurationError(source.error)} <Button variant="outline" disabled={locked} onClick={()=>void source.retry()}>重试{source.entry.name}</Button></p>:source.repeated?<p role="alert">{source.entry.name}分页未能继续，请刷新来源后重试。</p>:source.next?<Button variant="outline" disabled={locked} onClick={source.more}>加载更多{source.entry.name}</Button>:null}

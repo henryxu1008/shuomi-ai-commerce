@@ -62,6 +62,7 @@ type ProductAgentDependencies struct {
 	ContentTextPolicies      map[string]governed.RoutePolicy
 	MaterialsTextPolicies    map[string]governed.RoutePolicy
 	DiagnosisTextPolicies    map[string]governed.RoutePolicy
+	ResearchTextPolicies     map[string]governed.RoutePolicy
 	SelectionTextPolicies    map[string]governed.RoutePolicy
 	ImageAnalysisPolicies    map[string]governed.RoutePolicy
 	Enabled                  bool
@@ -71,8 +72,9 @@ type ProductAgentDependencies struct {
 	Limits                   agent.Limits
 	// Code-owned transport injection for isolated protocol fixtures; never
 	// populated by the deployment manifest or browser input.
-	TextTransport      http.RoundTripper `json:"-"`
-	TextLogger         *logrus.Entry     `json:"-"`
+	TextTransport      http.RoundTripper   `json:"-"`
+	TextLogger         *logrus.Entry       `json:"-"`
+	TitlePilotOperator *TitlePilotOperator `json:"-"`
 	titlePilotApproval titlePilotApproval
 }
 
@@ -128,7 +130,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	if cfg.ContentTitleOnly && cfg.ContentOnly {
 		return nil, agent.ErrUnavailable
 	}
-	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0 || len(cfg.ImageAnalysisPolicies) != 0) {
+	if (cfg.ContentTitleOnly || cfg.ContentOnly) && (cfg.AssetDB != nil || len(cfg.ContentTextPolicies) == 0 || len(cfg.TextPolicies) != 0 || len(cfg.MaterialsTextPolicies) != 0 || len(cfg.ResearchTextPolicies) != 0 || len(cfg.SelectionTextPolicies) != 0 || len(cfg.DiagnosisTextPolicies) != 0 || len(cfg.ImageAnalysisPolicies) != 0) {
 		return nil, agent.ErrUnavailable
 	}
 	allowedOrganizations := make(map[string]bool, len(cfg.AllowedOrganizationIDs))
@@ -159,6 +161,17 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 			return nil, agent.ErrUnavailable
 		}
 	}
+	for org, policy := range cfg.ResearchTextPolicies {
+		if cfg.Limits.Steps < 4 || cfg.Limits.ModelCalls < 2 {
+			return nil, agent.ErrUnavailable
+		}
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !allowedOrganizations[org] || profile.PromptVersion != agentconfig.ResearchPromptVersion || profile.OutputSchemaVersion != agentconfig.ResearchActionVersion || !governed.ValidRouteShape(profile, aicapability.OperationProductResearchDecision) || profile.Currency != cfg.Limits.Currency || err != nil || profile.MaximumCompletionTokens > cfg.Limits.Tokens/2 || profile.MaximumPromptTokens > cfg.Limits.Tokens/2-profile.MaximumCompletionTokens || cost > cfg.Limits.CostMicros/2 {
+			return nil, agent.ErrUnavailable
+		}
+	}
+
 	for org, policy := range cfg.SelectionTextPolicies {
 		if cfg.Limits.Steps < 4 || cfg.Limits.ModelCalls < 2 {
 			return nil, agent.ErrUnavailable
@@ -200,6 +213,16 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 		return nil, agent.ErrUnavailable
 	}
 	a := &productAgentApplication{receipts: receipts, resolver: resolver, authorizer: auth, config: cfg}
+	if cfg.TitlePilotOperator != nil {
+		op := *cfg.TitlePilotOperator
+		a.config.TitlePilotOperator = &op
+		if !op.valid() || cfg.titlePilotApproval != (titlePilotApproval{}) || cfg.CurrentTextPolicies == nil ||
+			len(cfg.AllowedOrganizationIDs) != 1 || cfg.AllowedOrganizationIDs[0] != op.OrganizationID {
+			return nil, agent.ErrInvalid
+		}
+		cfg.titlePilotApproval = op.approval()
+		a.config.titlePilotApproval = cfg.titlePilotApproval
+	}
 	a.config.AllowedOrganizationIDs = append([]string(nil), cfg.AllowedOrganizationIDs...)
 	a.config.ImageAnalysisPolicies = make(map[string]governed.RoutePolicy, len(cfg.ImageAnalysisPolicies))
 	for org, policy := range cfg.ImageAnalysisPolicies {
@@ -217,6 +240,11 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	for org, policy := range cfg.MaterialsTextPolicies {
 		a.config.MaterialsTextPolicies[org] = policy
 	}
+	a.config.ResearchTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.ResearchTextPolicies))
+	for org, policy := range cfg.ResearchTextPolicies {
+		a.config.ResearchTextPolicies[org] = policy
+	}
+
 	a.config.SelectionTextPolicies = make(map[string]governed.RoutePolicy, len(cfg.SelectionTextPolicies))
 	for org, policy := range cfg.SelectionTextPolicies {
 		a.config.SelectionTextPolicies[org] = policy
@@ -265,7 +293,7 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 	}
 	if cfg.titlePilotApproval != (titlePilotApproval{}) {
 		approval := cfg.titlePilotApproval
-		if cfg.TextTransport == nil || cfg.ContentOnly || cfg.ContentTitleOnly ||
+		if (cfg.TextTransport == nil && cfg.TitlePilotOperator == nil) || cfg.ContentOnly || cfg.ContentTitleOnly ||
 			!approval.valid() ||
 			!allowedOrganizations[approval.identity.OrganizationID] {
 			return nil, agent.ErrInvalid

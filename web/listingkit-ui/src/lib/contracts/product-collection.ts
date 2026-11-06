@@ -63,9 +63,9 @@ export const collectionCommandSchema = z.discriminatedUnion("action", [
   }),
 ]);
 export type CollectionCommand = z.infer<typeof collectionCommandSchema>;
-export const collectionSourceKindSchema = z.enum(["acquisition", "own", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset"]);
+export const collectionSourceKindSchema = z.enum(["acquisition", "own", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset", "shein_us_data"]);
 export type CollectionSourceKind = z.infer<typeof collectionSourceKindSchema>;
-export const collectionBatchSchema = z.object({ id: collectionID, name, kind: z.enum(["acquisition", "own", "manual", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset"]),
+export const collectionBatchSchema = z.object({ id: collectionID, name, kind: z.enum(["acquisition", "own", "manual", "market", "sds_template", "sds_finished", "amazon_data", "custom_dataset", "shein_us_data"]),
   revision, count, supplyTransferSupported:z.boolean(), createdAt: timestamp, archivedAt: timestamp.optional() });
 export const collectionItemSchema = z.object({ id: collectionID, batchId: collectionID, revision, createdAt: timestamp, archivedAt: timestamp.optional(), title: bytes(2000).optional(), thumbnailUrl: bytes(2048).optional(),
   source: z.object({ productKey: bytes(128).min(1), publicationId: bytes(128).min(1), version,

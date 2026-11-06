@@ -49,9 +49,9 @@ func TestPostgresTransferReceivedProductsRetainsKindsAndRejectsBlankTemplates(t 
  ALTER TABLE listing_preparation_sources ADD CONSTRAINT listing_preparation_sources_source_kind_check CHECK(source_kind IN ('acquisition','own'))`).Error)
 	require.ErrorIs(t, VerifySchema(ctx, db), preparation.ErrUnavailable)
 	require.NoError(t, db.Exec(`ALTER TABLE listing_preparation_sources DROP CONSTRAINT listing_preparation_sources_source_kind_check;
- ALTER TABLE listing_preparation_sources ADD CONSTRAINT listing_preparation_sources_source_kind_check CHECK(source_kind IN ('acquisition','own','market','sds_finished'))`).Error)
+ ALTER TABLE listing_preparation_sources ADD CONSTRAINT listing_preparation_sources_source_kind_check CHECK(source_kind IN ('acquisition','own','market','sds_finished','amazon_data'))`).Error)
 	require.NoError(t, VerifySchema(ctx, db))
-	for _, kind := range []string{"market", "sds_finished", "sds_template"} {
+	for _, kind := range []string{"market", "sds_finished", "amazon_data", "sds_template", "custom_dataset"} {
 		t.Run(kind, func(t *testing.T) {
 			batch, item, product, publication, op, key := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
 			require.NoError(t, db.Exec(`INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,now())`, scope.OrganizationID, scope.ActorID, scope.MemberID, batch, "received").Error)
@@ -63,13 +63,13 @@ func TestPostgresTransferReceivedProductsRetainsKindsAndRejectsBlankTemplates(t 
 			for _, candidate := range visible.Items {
 				if candidate.ID == batch {
 					found = true
-					require.Equal(t, kind != "sds_template", candidate.SupplyTransferSupported, kind)
+					require.Equal(t, collection.SupplyTransferKind(kind), candidate.SupplyTransferSupported, kind)
 				}
 			}
 			require.True(t, found)
 			input := preparation.TransferInput{BatchID: batch, ExpectedRevision: 1}
 			r, e := service.Transfer(actor, key, input)
-			if kind == "sds_template" {
+			if !collection.SupplyTransferKind(kind) {
 				require.ErrorIs(t, e, preparation.ErrInvalid)
 				var n int64
 				require.NoError(t, db.Table("listing_preparations").Where("command_key=?", key).Count(&n).Error)

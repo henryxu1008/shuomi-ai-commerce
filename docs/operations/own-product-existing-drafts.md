@@ -6,7 +6,7 @@ Refs #699；合同见 [已有草稿设计](../architecture/own-product-existing-
 
 1. 以有当前企业数据查看与供应链查看权限的操作人登录，打开 `/workbench/data/mine?view=own`，进入一件自有商品详情 `/workbench/data/mine/own/:itemId`。
 2. 详情下方“已有待补全草稿”列出这件商品在不同转入批次中已保存的草稿。Vn 是固定来源商品版本；Rn 是该草稿当前保存版本。尚未保存的转入不会出现在这里。
-3. 点击“继续编辑”，进入 `/workbench/supply/mine/missing/:sourceId?preparation=:preparationId&item=:itemId`。页面重新读取该来源和最新保存版本，保存沿原版本冲突与结果核实流程；同商品其他草稿不受影响。
+3. 点击“继续编辑”，进入 `/workbench/listing/missing/:sourceId?preparation=:preparationId&item=:itemId`。页面重新读取该来源和最新保存版本，保存沿原版本冲突与结果核实流程；同商品其他草稿不受影响。
 4. “返回商品”回到原商品详情；“返回待补全列表”保留原转入批次。商品详情中的“创建待补全草稿”仍然是显式新建入口，不会自动选择或覆盖已有草稿。
 
 仅有查看权限时显示“查看草稿”，独立页保存按钮不可用。列表读取失败显示错误与刷新入口，不展示虚假数量。新查询要求商品自身仍可读且未归档；原供应链来源的直接读取沿既有保留来源权限。列表默认每页20条，可刷新、回首页、继续翻页；并发更新时刷新以查看最新事实。

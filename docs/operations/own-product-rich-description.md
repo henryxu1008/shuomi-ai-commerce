@@ -8,7 +8,7 @@ Refs #745；[格式、安全与版本合同](../architecture/own-product-rich-de
 
 - 自有商品库：/workbench/data/mine?view=own；原“添加自有商品”进入独立 /workbench/data/mine/own/new。
 - 已保存商品：/workbench/data/mine/own/:itemId；原编辑/历史入口继续独立页面。
-- 待补全草稿：/workbench/supply/mine/missing/:sourceId；历史、旧版、比较、恢复沿原 /history 路由，原 preparation/item 上下文继续保留。
+- 待补全草稿：/workbench/listing/missing/:sourceId；历史、旧版、比较、恢复沿原 /history 路由，原 preparation/item 上下文继续保留。
 
 描述使用 Tiptap 官方 Simple Editor 组件：正文、二/三级标题菜单、加粗、斜体、删除线、列表菜单、引用、撤销/重做，工具可键盘操作并跟随应用深浅色。选中文字后点击链接图标，在浮层填写 HTTPS 地址并应用；危险或其他协议不可应用。
 

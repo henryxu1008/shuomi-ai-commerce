@@ -40,7 +40,7 @@ export function reportEndpoint(url: URL, method: string) {
   if (parts.length === 2 && parts[1] === "favorite" && method === "POST") return { suffix, output: reportResultSchema, input: reportFavoriteBody, operation: "favorite" };
   return null;
 }
-export const sourceHref = (ref: ReportSource["ref"]) => ref.kind === "TITLE_REVIEW" ? `/workbench/ai/tasks/pending/other?proposal_id=${ref.id}` : ref.kind === "SHEIN_TARGET_RECORD" ? `/workbench/supply/mine/ready?record=${ref.id}` : `/workbench/shein-records/${ref.id}/diagnostic`;
+export const sourceHref = (ref: ReportSource["ref"]) => ref.kind === "TITLE_REVIEW" ? `/workbench/ai/tasks/pending/other?proposal_id=${ref.id}` : ref.kind === "SHEIN_TARGET_RECORD" ? `/workbench/listing/ready?record=${ref.id}` : `/workbench/shein-records/${ref.id}/diagnostic`;
 export const targetReportHref = (id: string) => `/workbench/ai/reports?sourceKind=SHEIN_TARGET_RECORD&sourceId=${reportID.parse(id)}`;
 export function reportTargetQuery(query: Record<string, string | string[] | undefined>): string | null | undefined {
   if (query.sourceKind === undefined && query.sourceId === undefined) return undefined;

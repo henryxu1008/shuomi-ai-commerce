@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"task-processor/internal/commercetool"
 	channelstore "task-processor/internal/integration/persistence/channelcredential"
+	"task-processor/internal/product/research/analysis"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/shopdiagnosis"
@@ -154,6 +155,10 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 }
 
 func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
+	zeroReferenceUsage := mode == "research zero"
+	if zeroReferenceUsage {
+		mode = "research"
+	}
 	frozenTitleOnly := mode == "content flow frozen-title-only"
 	frozenReviewTitleOnly := mode == "content flow frozen-review-title-only"
 	frozenExistingReviewTitleOnly := mode == "content flow frozen-existing-review-title-only"
@@ -229,6 +234,15 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			rehearsal.reply(w, r)
 			return
 		}
+		if mode == "research" || mode == "selection" {
+			raw, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			var request map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(raw, &request))
+			require.Equal(t, "false", string(request["enable_thinking"]))
+			require.JSONEq(t, `"deepseek-v4.1-flash"`, string(request["model"]))
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+		}
 		if withSkill {
 			raw, e := io.ReadAll(r.Body)
 			require.NoError(t, e)
@@ -296,6 +310,35 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			require.NotEmpty(t, disclosure.Facts)
 			proposal := shopdiagnosis.Proposal{Overview: "根据保存经营事实核对成本", Recommendations: []shopdiagnosis.Recommendation{{Advice: "核对本期人工录入成本", EvidenceIDs: []string{disclosure.Facts[0].ID}}}}
 			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.DiagnosisProposalKind, Payload: mustSelectionJSON(t, proposal)}})
+			require.NoError(t, err)
+			content = string(action)
+		case mode == "research" && step == 1:
+			content = `{"Kind":"tool","Tool":{"ID":"product.research.inspect","Version":"v1.0.0"}}`
+		case mode == "research":
+			var wire struct {
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+			}
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
+			var disclosure analysis.Inspection
+			for _, message := range wire.Messages {
+				var prompt struct {
+					Input struct {
+						History []struct{ Output json.RawMessage }
+					}
+				}
+				if json.Unmarshal([]byte(message.Content), &prompt) == nil {
+					for _, observed := range prompt.Input.History {
+						if got, err := analysis.ParseInspection(observed.Output); err == nil {
+							disclosure = got
+						}
+					}
+				}
+			}
+			require.Len(t, disclosure.Candidates, 2, "proposal must cite the actual tool disclosure")
+			proposal := analysis.Proposal{Overview: "核对所选观察并补充缺项", OverviewEvidenceIDs: []string{disclosure.Candidates[0].Facts[0].ID}, RecommendedCandidateID: disclosure.Candidates[0].Research.CandidateID, Assessments: []analysis.Assessment{{CandidateID: disclosure.Candidates[0].Research.CandidateID, Recommendation: "RESEARCH_MORE", Advice: "核对完整成本后再决定", EvidenceIDs: []string{disclosure.Candidates[0].Facts[0].ID}}}}
+			action, err := json.Marshal(agent.Action{Kind: "propose", DomainProposal: &agent.DomainProposal{Kind: agentconfig.ResearchProposalKind, Payload: mustSelectionJSON(t, proposal)}})
 			require.NoError(t, err)
 			content = string(action)
 		case mode == "selection" && step == 1:
@@ -468,11 +511,22 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		}
 		encoded, _ := json.Marshal(content)
 		w.Header().Set("Content-Type", "application/json")
+		if mode == "research" || mode == "selection" {
+			usage := `{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}`
+			if zeroReferenceUsage {
+				usage = `{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}`
+			}
+			_, _ = w.Write([]byte(`{"id":"offline-deepseek","model":"deepseek-v4.1-flash","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":` + usage + `}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
 	credentials := newHTTPChannelFixture(f.owner)
 	credential := httpModelFixture{TenantID: "B", ClientName: "default", APIKey: "isolated-fixture-key", BaseURL: provider.URL + "/v1", Model: "gemini-2.5-flash", APIStyle: "grsai", Enabled: true, TimeoutSecond: 3}
+	if mode == "research" || mode == "selection" {
+		credential.Model, credential.APIStyle = "deepseek-v4.1-flash", "openai-compatible"
+	}
 	if rehearsal != nil && rehearsal.pilot {
 		credential.BaseURL, credential.Model, credential.APIStyle = governed.TitlePilotOpenAIEndpoint, aicapability.SingleImageMiniModel, "openai-compatible"
 	}
@@ -554,6 +608,12 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		settings.TextPolicies = nil
 	}
 
+	if mode == "research" {
+		policy := settings.TextPolicies["B"]
+		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ResearchPromptVersion, agentconfig.ResearchActionVersion
+		settings.ResearchTextPolicies = map[string]governed.RoutePolicy{"B": policy}
+		settings.TextPolicies = nil
+	}
 	if mode == "selection" {
 		policy := settings.TextPolicies["B"]
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.SelectionPromptVersion, agentconfig.SelectionActionVersion
@@ -578,11 +638,32 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		}
 		settings.Ledger = agentReserveHook{ProductAgentInvocationLedger: settings.Ledger, afterReserve: func() { f.grants.revoked.Store(true) }}
 	}
+	if mode == "research" || mode == "selection" {
+		policies := settings.SelectionTextPolicies
+		if mode == "research" {
+			policies = settings.ResearchTextPolicies
+		}
+		p := policies["B"]
+		p.Profile.ProviderID, p.Profile.ModelID, p.Profile.AdapterPolicyVersion = "DASHSCOPE", "deepseek-v4.1-flash", governed.DashScopeDeepSeekV41FlashNonThinkingPolicy
+		p.Profile.OfficialTariff.Model, p.Profile.OfficialTariff.UsageVersion = p.Profile.ModelID, aicapability.ReferenceTextTotalsV1
+		p.Profile.MaximumPromptTokens, p.Profile.MaximumCompletionTokens = 32000, 4000
+		p.Profile.InputMicrosPerMillion, p.Profile.OutputMicrosPerMillion = 2000000, 8000000
+		p.Profile.OfficialTariff.Rates = aicapability.OfficialModelRates{InputText: 2000000, OutputText: 8000000}
+		policies["B"] = p
+		settings.CurrentTextPolicies = configuredSelectionSharedReader(t, &settings, f.owner)
+		retail, err := p.Profile.OfficialTariff.ReserveTextMicropoints(32000, 4000)
+		require.NoError(t, err)
+		require.EqualValues(t, 19200000, 2*retail)
+		require.LessOrEqual(t, 2*retail, int64(20000000), "two-call retail reservation stays below the approved 20 points")
+		cost, err := p.Profile.MaximumCost()
+		require.NoError(t, err)
+		require.LessOrEqual(t, 2*cost, int64(300000), "channel cost remains separately bounded by CNY 0.30")
+	}
 	var reviewIAM *contentReviewIAM
 	if strings.HasPrefix(mode, "content flow cross-admin ") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
-	if mode == "selection" || mode == "diagnosis" {
+	if mode == "research" || mode == "selection" || mode == "diagnosis" {
 		for _, limits := range [][2]int{{3, 2}, {4, 1}} {
 			invalid := settings
 			invalid.Limits.Steps, invalid.Limits.ModelCalls = limits[0], limits[1]
@@ -592,6 +673,9 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		}
 		settings.Limits.Steps, settings.Limits.ModelCalls = 4, 2
 		profile := settings.SelectionTextPolicies["B"].ShapeProfile()
+		if mode == "research" {
+			profile = settings.ResearchTextPolicies["B"].ShapeProfile()
+		}
 		if mode == "diagnosis" {
 			profile = settings.DiagnosisTextPolicies["B"].ShapeProfile()
 		}
@@ -616,7 +700,9 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	module, err := buildProductAgentModule(context.Background(), f.db, deps, auth, settings, reviewIAM.config())
 	require.NoError(t, err)
 	if rehearsal != nil {
-		if rehearsal.pilot {
+		if rehearsal.operator {
+			rehearsal.runPilotOperator(t, f.owner, module.(productAgentModule).application, deps)
+		} else if rehearsal.pilot {
 			rehearsal.runPilot(t, f.owner, module.(productAgentModule).application)
 		} else {
 			rehearsal.run(t, f.owner, module.(productAgentModule).application)
@@ -643,8 +729,14 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		testDiagnosisHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
 		return
 	}
+	if mode == "research" {
+		testResearchHTTPThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductResearchDecision, zeroReferenceUsage)
+		return
+	}
 	if mode == "selection" {
 		testSelectionHTTPThroughNativeOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+		assertSelectionMicropointAccounting(t, f.owner, aicapability.OperationProductSelectionDecision, zeroReferenceUsage)
 		return
 	}
 	if chatTasks {

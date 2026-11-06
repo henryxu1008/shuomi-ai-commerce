@@ -3,7 +3,7 @@ import {collectionID} from "./product-collection";
 export function completionDraftHref(sourceId:string,preparationId:string,itemId?:string){
  const query=new URLSearchParams({preparation:collectionID.parse(preparationId)});
  if(itemId)query.set("item",collectionID.parse(itemId));
- return `/workbench/supply/mine/missing/${collectionID.parse(sourceId)}?${query}`;
+ return `/workbench/listing/missing/${collectionID.parse(sourceId)}?${query}`;
 }
 
 export function completionStructuredHref(sourceId:string,preparationId:string,itemId?:string){
@@ -41,7 +41,7 @@ export function completionHistoryHref(sourceId:string,preparationId?:string,item
  let suffix="";
  if(view.revision!==undefined){if(completionRevision(String(view.revision))===null)throw new Error("Invalid saved revision");suffix=`/${view.revision}`}
  if(view.from!==undefined||view.to!==undefined){if(completionRevision(String(view.from))===null||completionRevision(String(view.to))===null||view.from!>=view.to!)throw new Error("Invalid comparison");suffix="/compare";query.set("from",String(view.from));query.set("to",String(view.to))}
- return `/workbench/supply/mine/missing/${collectionID.parse(sourceId)}/history${suffix}${query.size?`?${query}`:""}`;
+ return `/workbench/listing/missing/${collectionID.parse(sourceId)}/history${suffix}${query.size?`?${query}`:""}`;
 }
 
 export function completionRestoreHref(sourceId:string,revision:number,preparationId?:string,itemId?:string){

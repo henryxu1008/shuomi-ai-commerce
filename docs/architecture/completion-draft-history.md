@@ -50,9 +50,9 @@ HTTP/BFF沿原no-store、verified identity/live organization access、HTTP20s/do
 ## 比较与页面上下文
 
 路径：
-- `/workbench/supply/mine/missing/:sourceId/history`。
-- `/workbench/supply/mine/missing/:sourceId/history/:revision`。
-- `/workbench/supply/mine/missing/:sourceId/history/compare?from=Rn&to=Rm`，须`from < to`。
+- `/workbench/listing/missing/:sourceId/history`。
+- `/workbench/listing/missing/:sourceId/history/:revision`。
+- `/workbench/listing/missing/:sourceId/history/compare?from=Rn&to=Rm`，须`from < to`。
 
 三个页面可带原可选UUID preparation/item；沿原严格导航校验，必须与读取的实际Source匹配，item还要求own kind。上下文仅构造固定本地href，不接受任意URL。返回最新草稿沿原独立编辑页；返回商品和待补全列表沿原item/preparation。历史、旧版、比较之间完整携带已验证上下文，导航变化和scope变化remount/abort，迟到结果不能显示到新上下文。
 

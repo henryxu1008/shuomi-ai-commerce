@@ -1,7 +1,7 @@
 import {cleanup,render,screen,waitFor} from "@testing-library/react";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import SupplyPage from "@/app/workbench/supply/page";
+import ListingPage from "@/app/workbench/supply/page";
 
 const fixture=vi.hoisted(()=>({redirect:vi.fn(),read:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null}}));
 vi.mock("next/navigation",()=>({redirect:fixture.redirect}));
@@ -14,14 +14,14 @@ beforeEach(()=>{
  for(const flag of ["LISTINGKIT_PRODUCT_ACQUISITION_ENABLED","LISTINGKIT_SUPPLY_MARKET_ENABLED","LISTINGKIT_SUPPLY_CHAIN_ENABLED","LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","LISTINGKIT_ACQUISITION_PLANS_ENABLED"])vi.stubEnv(flag,"true");
 });
 afterEach(()=>{cleanup();vi.unstubAllEnvs()});
-function renderPage(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return {...render(<QueryClientProvider client={client}><SupplyPage/></QueryClientProvider>),client}}
+function renderPage(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return {...render(<QueryClientProvider client={client}><ListingPage/></QueryClientProvider>),client}}
 
 it("keeps Supply Market as its own Figma page instead of redirecting to capture",()=>{
  renderPage();
  expect(fixture.redirect).not.toHaveBeenCalled();
  expect(screen.getByRole("heading",{level:1,name:"让每一种货源，都能进入自己的供应链"})).toBeVisible();
  expect(screen.getByRole("list",{name:"从货源到店铺"}).children).toHaveLength(4);
- for(const title of ["硕米自营","硕米优选","货盘集成","我的供应链","优选申请"])expect(screen.getByRole("heading",{level:2,name:title})).toBeVisible();
+ for(const title of ["硕米自营","硕米优选","货盘集成","商品刊登","优选申请"])expect(screen.getByRole("heading",{level:2,name:title})).toBeVisible();
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it("uses only exact current summary facts and leaves unavailable counts as dashes",async()=>{
@@ -41,13 +41,13 @@ it("retains the introduction while disconnected cards expose no fake usable link
 it("hides the old enterprise summary as soon as an enterprise switch begins",async()=>{
  const view=renderPage();await waitFor(()=>expect(screen.getByLabelText("审核中数量")).toHaveTextContent("7"));
  fixture.context.isSwitching=true;
- view.rerender(<QueryClientProvider client={view.client}><SupplyPage/></QueryClientProvider>);
+ view.rerender(<QueryClientProvider client={view.client}><ListingPage/></QueryClientProvider>);
  expect(screen.getByLabelText("审核中数量")).toHaveTextContent("—");
  expect(screen.getByLabelText("已通过数量")).toHaveTextContent("—");
 });
 it("retains the existing Collections prerequisite for the Preparation link",()=>{
  vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","false");
  renderPage();
- expect(screen.queryByRole("link",{name:"进入功能：我的供应链"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:"进入功能：商品刊登"})).not.toBeInTheDocument();
  expect(screen.getByRole("link",{name:"进入功能：货盘集成"})).toBeVisible();
 });

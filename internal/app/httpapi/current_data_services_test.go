@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	datahttp "task-processor/internal/dataservice/httpapi"
@@ -11,6 +12,13 @@ import (
 	"testing"
 	"time"
 )
+
+func TestDataServicesDisabledAdmissionNeedsOnlyCurrentReadOwners(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.ListingKit.Zitadel.TenantDirectoryToken = "fixture-only"
+	opts := currentApplicationOptions{dataServicesConfigs: 1, dataServices: &DataServicesDependencies{ProductDB: &gorm.DB{}}, productAcquisitionDB: &gorm.DB{}, productCollections: 1, commercialOwnerDB: &gorm.DB{}}
+	require.NoError(t, validateDataServicesDependencies(opts, &gorm.DB{}, cfg))
+}
 
 func TestDataServicesRejectsMissingFormalOrganizationAuthority(t *testing.T) {
 	a, err := authz.NewListingKitAuthorizer(nil, nil)

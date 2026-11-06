@@ -43,7 +43,7 @@ it.each([
  const direct=nativeRunDestination(scope,agent,kind,id,id,"shein",{[capability]:true});
  expect(direct.direct).toBe(true);
  const url=new URL(direct.href,"https://test.invalid");
- expect(url.pathname).toBe(capability==="ownProduct"?`/workbench/data/mine/own/${id}/optimize`:capability==="materials"?`/workbench/supply/materials/${id}`:`/workbench/supply/acquisition/operation/${id}`);
+ expect(url.pathname).toBe(capability==="ownProduct"?`/workbench/data/mine/own/${id}/optimize`:capability==="materials"?`/workbench/listing/materials/${id}`:`/workbench/supply/acquisition/operation/${id}`);
  expect(url.searchParams.get("agent_actor")).toBe("actor");expect(url.searchParams.get("agent_org")).toBe("org");expect(url.searchParams.get("agent_key")).toBe(id);
  if(capability==="acquisition"){expect(url.searchParams.get("agent_platform")).toBe("shein");expect(url.searchParams.get("agent_kind")).toBe(agent==="product.content.agent"?"content":null);}
  expect(nativeRunDestination(scope,agent,kind,id,undefined,"shein",{[capability]:true})).toEqual(fallback);

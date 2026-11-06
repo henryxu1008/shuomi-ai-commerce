@@ -7,7 +7,7 @@
 1. 正常登录，选择企业，在 `/workbench/stores` 创建 **TikTok Shop / US** 店铺。外部店铺标识填写 Seller Center 的 **Shop Code**，不是内部 shop ID。
 2. 在该店铺的“官方 API 授权”选择已配置的 TikTok 应用，开始连接；在 TikTok 官方页面由实际店铺主体授权。回调路径为 `/workbench/stores/tiktokshop/callback`。应用未配置时显示不可用，不生成授权成功状态。
 3. 商品先沿“我的数据 → 转入供应链批次”保存。尚未绑定店铺时，可以在“待补全”保存独立候选标题和描述；参见[原 CompletionDraft 入口](supply-unbound-completion-drafts.md#入口和使用)。
-4. 打开 `/workbench/supply/mine`，选择批次和 TikTok 店铺，逐件点击“查看 / 补全”。选择官方允许的发布方式及 AVAILABLE 末级类目，填写英文资料、商家 SKU、价格、仓库和数量。可显式带入待补全草稿 Rn；所选 record/revision 随 Target 保存，手改文字后按手填内容保存。
+4. 打开 `/workbench/listing`，选择批次和 TikTok 店铺，逐件点击“查看 / 补全”。选择官方允许的发布方式及 AVAILABLE 末级类目，填写英文资料、商家 SKU、价格、仓库和数量。可显式带入待补全草稿 Rn；所选 record/revision 随 Target 保存，手改文字后按手填内容保存。
 5. 确认来源图片，选择批准素材，补齐当前类目属性、证明与尺码表。点击“保存并校验 TikTok 资料”。未满足规则的记录仍是本地待补全资料，不能刊登。
 6. 在列表单独确认上传。LOCAL_REPLICATION 可明确选择 **AS_DRAFT** 或 **LISTING**；GLOBAL_PUBLISHING 保存全球商品后只刊登 **US**。美国全球刊登每个 SKU 明确选择一个实际发货仓；美国数量不得超过批准的全球库存预算。美国最终售价 sale_price 与全球税前基准 amount 分别填写，币种均为 USD。
 7. 查看商品编号、SKU 关联及原操作结果。GLOBAL 的 SUCCESS 表示提交审核；DRAFT 保留实际美国草稿及关联；FAILED 保留全球商品和原失败结果。本地 LISTING 创建响应仅确认资产已创建，审核及在售状态仍待平台确认。点击“查询平台当前状态”，按原创建的商品 ID 在当前授权 Shop 查询最新商品和审核状态，显示查询时间及可公开的刊登前置原因。该查询不会改变原回执或解除 UNKNOWN 占用。

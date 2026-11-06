@@ -62,7 +62,7 @@ COMMIT 成功但响应丢失、deadline、未知结果：返回 UNKNOWN；前端
 ## 5. UI / later Store path
 
 - “待适配”在该能力开启时提供“创建待补全草稿”，保留查看原资料。
-- `/workbench/supply/mine/missing` 在未配置官方应用时仍显示真实草稿列表、来源/批次、保存版本和编辑入口；顶部明确“未绑定店铺，平台规则待配置”。原 Figma 目标站点/缺失字段/AI 状态只在有事实时显示；未绑定的官方缺失项数为未知，不能由两项通用文本计算。
+- `/workbench/listing/missing` 在未配置官方应用时仍显示真实草稿列表、来源/批次、保存版本和编辑入口；顶部明确“未绑定店铺，平台规则待配置”。原 Figma 目标站点/缺失字段/AI 状态只在有事实时显示；未绑定的官方缺失项数为未知，不能由两项通用文本计算。
 - 编辑器先读取原 source + latest saved record，未保存变化不冒充已保存。显示原始资料与独立候选字段；保存/响应不确定时按原命令恢复。组织切换取消请求、隔离 UI command state，迟到响应不得显示到新 scope。
 - 完整 SupplyChain 启用后，既有 TargetEditor 在用户显式选择“带入待补全草稿 Rn”时，仅将该保存版本的 title/description 作为用户输入带入；现有 target 不自动覆盖。Local draft 不生成 Store merchant/rules、Asset receipt、ApplyReceipt 或 ready 状态。
 - 正式 Target.Create 仍使用原 source/effective version、真实 Store、当前 official rule snapshot 和资产批准；所有必要字段由该店铺规则决定。TargetResult 创建失败不消费/删除本地草稿；创建成功保存独立正式 record，未绑定草稿历史继续可读。同源手动文本输入的合法性和来源产品 lineage 沿现有目标保存合同，不将本地 draft ID 当批准权限。

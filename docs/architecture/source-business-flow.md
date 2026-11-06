@@ -41,7 +41,7 @@ Out of Scope：1688 登录/账号池、其它来源或采集模式、AI/图片�
 | 插件公开页面输入 | Browser Capture payload → sourcing 当前 evidence mapping → 原 publication/UoW | 已有补充入口；不是账号/profile 读取，也不新建另一事实链 |
 | 商品与 lineage 保存 | `product/sourcing` InternalProducer/receipt → persistence sourcing + Catalog writer + Collection publication participant → Product DB 同一 UoW | 已有；operation 是恢复输入，SRC 拥有 evidence/receipt，Catalog 独占 ProductSnapshot，Collection 只保存成员/准确来源引用 |
 | `/workbench/data/mine` 批次/查看商品 | `/api/v1/workbench/collections/items/:item_id` → `collection.Service.ReadItem` → 当前 Collection + bounded Catalog reader → BFF `product-collection` / `CollectionPage` | 已有精确读，验证 org/key/version/publication；前端 contract 已含 sources/warnings，但当前 ProductFacts 未形成完整的来源说明及缺失项展示 |
-| 显式转入/待适配 | 原 Collection 选择 → Preparation transfer/source selector → `composePreparationCore` / `PreparationRoutes` → `/workbench/supply/mine` | 已有无 Store/Asset/Temporal 的窄装配；继续固定原 publication/version，不强制自动转入 |
+| 显式转入/待适配 | 原 Collection 选择 → Preparation transfer/source selector → `composePreparationCore` / `PreparationRoutes` → `/workbench/listing` | 已有无 Store/Asset/Temporal 的窄装配；继续固定原 publication/version，不强制自动转入 |
 | 人工确认来源图片 | `asset.SourceApprovalService` → 原 Asset DB receipt/assets/inventory heads；`supplyapp.SourceImageReader` 重新读取授权来源 | 合同已支持 human_source 和 target=`product`；目前 HTTP 接线在 `buildSupplyChainModule`，其构造同时要求 Store、官方应用、starter/worker 等；Preparation-only 不暴露 images approve/inventory。现有确认 UI 在平台 target editor，普通来源资料闭环缺独立消费位置 |
 | Product inputs readiness | `listing/readiness.ProductInputs` → `readinessinspect.Project` exact Product/inventory 投影 | 规则及有界 DTO 已有；生产调用主要由 Product Agent Tool 消费，没有同一普通来源页面的无 Agent 诊断入口。不能为读取诊断启动 Agent、收费或要求官方店铺 |
 

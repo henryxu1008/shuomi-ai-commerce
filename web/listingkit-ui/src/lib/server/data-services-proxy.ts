@@ -1,8 +1,20 @@
 import { dataRoute, DATA_MAX_BYTES } from "@/lib/contracts/data-services";
 import { hasTrustedSameOriginWrite, hasTrustedSameOriginRecovery } from "@/lib/server/same-origin-write";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
+import { parseWorkbenchErrorEnvelopePayload } from "@/lib/api/workbench-context";
 import { parseTree, type Node, type ParseError } from "jsonc-parser";
 const bounded = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const workbenchFailureStatuses: Readonly<Record<string, number>> = {
+    AUTHENTICATION_REQUIRED: 401,
+    PERMISSION_DENIED: 403,
+    ORGANIZATION_ACCESS_DENIED: 403,
+    ORGANIZATION_ACCESS_REVOKED: 403,
+    ORGANIZATION_SUSPENDED: 403,
+    ORGANIZATION_SELECTION_REQUIRED: 409,
+    DEPENDENCY_UNAVAILABLE: 503,
+    DEADLINE_EXCEEDED: 504,
+    INVALID_UPSTREAM_RESPONSE: 502,
+};
 export function dataFailure(code: string, status: number) { return Response.json({ error: { code, message: code } }, { status, headers: { "Cache-Control": "no-store" } }); }
 async function bodyWithinLimit(request: Request, limit: number) {
     const reader = request.body?.getReader();
@@ -153,6 +165,17 @@ export async function dataBrowserResponse(response: Response, route: NonNullable
     try {
         const raw = await readBoundedStrictJSON(response, DATA_MAX_BYTES, signal);
         if (!response.ok) {
+            if (raw !== null && typeof raw === "object" && Object.hasOwn(raw, "code")) {
+                const failure = parseWorkbenchErrorEnvelopePayload(raw);
+                if (!failure.success || workbenchFailureStatuses[failure.data.code] !== response.status)
+                    throw Error();
+                // Native auth/organization failures occur outside the data
+                // handler. Preserve their meaning without disclosing its body;
+                // a dispatched write with a server failure still needs recovery.
+                return mutation && response.status >= 500
+                    ? dataFailure("DATA_UNKNOWN", 503)
+                    : dataFailure(failure.data.code, response.status);
+            }
             const value = raw as {
                 error?: {
                     code?: string;

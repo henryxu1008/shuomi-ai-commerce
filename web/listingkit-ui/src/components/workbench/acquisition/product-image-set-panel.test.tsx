@@ -119,7 +119,16 @@ it.each(["prepare","regenerate"])("preserves restored %s bytes when the original
  const key=`product-image-set:actor:org:acquisition:${operation}:intent`;
  const raw=JSON.stringify({action,...action==="regenerate"?{runId}:{},requestKey:templateId,body:{expectedModeRevision:"0",target:{Platform:"product"},skill:{skillId:operation,version:2,digest:sha},text:{mode:"none"}}},null,2);
  localStorage.setItem(key,raw);const real=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>String(url).endsWith(`/${action}`)?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));
+ const modelResponseGate=Promise.withResolvers<void>();
+ let holdModel=false,modelReadStarted=false;
+ fetch.mockImplementation((url,init)=>{
+  if(holdModel&&String(url).endsWith("/model-options")){
+   modelReadStarted=true;
+   return modelResponseGate.promise.then(()=>real(url,init));
+  }
+  if(String(url).endsWith(`/${action}`))return Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409}));
+  return real(url,init);
+ });
  const view=render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  fireEvent.click(await screen.findByRole("button",{name:"继续原操作"}));
  await screen.findByText(/审核译文已变化/);
@@ -127,15 +136,24 @@ it.each(["prepare","regenerate"])("preserves restored %s bytes when the original
  expect(Object.keys(localStorage).some(k=>k.includes(":verified-intent:")&&localStorage.getItem(k)===raw)).toBe(true);
  const sent=fetch.mock.calls.find(([url])=>String(url).endsWith(`/${action}`))!;
  expect(new Headers(sent[1]!.headers).get("Idempotency-Key")).toBe(templateId);expect(JSON.parse(String(sent[1]!.body))).toEqual(JSON.parse(raw).body);
- view.unmount();render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ view.unmount();
+ holdModel=action==="prepare";
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
  const history=await screen.findByText("已核实的原请求");
- expect(history.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
  if(action==="prepare"){
+  await waitFor(()=>expect(modelReadStarted).toBe(true));
   fireEvent.click(screen.getByRole("checkbox",{name:"共用原始素材 素材 1"}));
-  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeDisabled();
-  fireEvent.change(screen.getByRole("combobox",{name:"图片文字方式"}),{target:{value:"none"}});
-  expect(screen.getByRole("button",{name:"准备整套图片计划（2 项）"})).toBeEnabled();
+  const prepareButton=screen.getByRole("button",{name:"准备整套图片计划（2 项）"});
+  const textMode=screen.getByRole("combobox",{name:"图片文字方式"});
+  expect(prepareButton).toBeDisabled();
+  fireEvent.change(textMode,{target:{value:"none"}});
+  expect(textMode).toHaveValue("none");
+  expect(prepareButton).toBeDisabled();
+  await act(async()=>modelResponseGate.resolve());
+  await waitFor(()=>expect(prepareButton).toBeEnabled());
+  expect(textMode).toHaveValue("none");
  }
+ expect(history.closest("section")!.querySelector("pre")!.textContent).toBe(raw);
  expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
 });
 
@@ -1586,9 +1604,10 @@ it(`retains an unresolved cancel intent for ${mismatch} without another mutation
 }
 
 
-it("restores a paid original through the existing recovery command and keeps unknown siblings",async()=>{
+it.each([false, true])("restores a paid original and keeps unknown siblings when new generation is blocked: %s",async modeChanged=>{
  state=projection("blocked","44444444-4444-4444-8444-444444444444");
  Object.assign(state,{unitVersion:"ai-micropoint-v1",resultDigest:"",approvalAvailable:false,candidateSelectionAvailable:false,regenerationAvailable:false,settledPoints:"10000000",outputRecoverySummary:{unitVersion:"ai-micropoint-v1",settledPoints:"10000000",slots:[{slotId:"main",attempt:1,points:"10000000",unavailable:false}]},recoverableEffects:[{SlotID:"main",Attempt:1,Code:"slot_provider_outcome_unknown"},{SlotID:"detail",Attempt:1,Code:"slot_provider_outcome_unknown"}],block:{Code:"slot_provider_outcome_unknown"}});
+ if(modeChanged)Object.assign(state,{generationAllowed:false,modeUnavailableReason:"EXECUTION_MODE_CHANGED"});
  for(const slot of state.slots)Object.assign(slot,{status:"blocked",candidates:[],closure:null,errorCode:"slot_provider_outcome_unknown"});
  localStorage.setItem(`product-image-set:actor:org:acquisition:${operation}:run`,runId);
  render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
@@ -1600,6 +1619,78 @@ it("restores a paid original through the existing recovery command and keeps unk
  const [,request]=fetch.mock.calls.find(([u,init])=>String(u).endsWith("/recover")&&init?.method==="POST")!;
  expect(JSON.parse(request!.body as string)).toMatchObject({planRevision:1,slotId:"main",attempt:1});
  expect(fetch.mock.calls.some(([u])=>/\/(prepare|confirm|regenerate|approve)$/.test(String(u)))).toBe(false);
+});
+
+it.each([false, true])("keeps closed image recovery read-only with a saved request: %s", async savedRequest => {
+ state = projection("blocked", operation);
+ Object.assign(state, {
+  generationAllowed: false,
+  modeUnavailableReason: "EXECUTION_DISABLED",
+  resultDigest: "",
+  approvalAvailable: false,
+  candidateSelectionAvailable: false,
+  regenerationAvailable: false,
+  settledPoints: "10000000",
+  outputRecoverySummary: {
+   unitVersion: "ai-micropoint-v1",
+   settledPoints: "10000000",
+   slots: [{slotId: "main", attempt: 1, points: "10000000", unavailable: false}],
+  },
+  recoverableEffects: [
+   {SlotID: "main", Attempt: 1, Code: "slot_provider_outcome_unknown"},
+   {SlotID: "detail", Attempt: 1, Code: "slot_provider_outcome_unknown"},
+  ],
+ });
+ for (const slot of state.slots) Object.assign(slot, {status: "blocked", candidates: [], closure: null});
+ const key = `product-image-set:actor:org:acquisition:${operation}`;
+ const original = JSON.stringify({action: "recover", runId, body: {actionId: operation, planRevision: 1, slotId: "main", attempt: 1}});
+ localStorage.setItem(key + ":run", runId);
+ if (savedRequest) localStorage.setItem(key + ":intent", original);
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByText(/已结算用量 10 点/)).toBeVisible();
+ expect(screen.queryByRole("button", {name: "恢复原结果"})).toBeNull();
+ expect(screen.queryByRole("button", {name: "核实原调用"})).toBeNull();
+ expect(screen.queryByRole("button", {name: "继续原操作"})).toBeNull();
+ expect(screen.queryByRole("button", {name: "取消剩余工作"})).toBeNull();
+ expect(screen.getByRole("heading", {name: "已生成，已结算"})).toBeVisible();
+ expect(screen.getByText(/图片执行已关闭，可查看原任务和结算记录/)).toBeVisible();
+ if (savedRequest) {
+  fireEvent.click(screen.getByRole("button", {name: "核实原请求"}));
+  await screen.findByText("原操作尚未得到明确回执，请继续核实同一编号。");
+  expect(localStorage.getItem(key + ":intent")).toBe(original);
+ }
+ expect(fetch.mock.calls.some(([url, init]) => String(url).endsWith("/recover") && init?.method === "POST")).toBe(false);
+});
+
+it.each([true, false])("waits for the saved task before allowing replay when history is readable: %s", async readable => {
+ state = projection("failed", operation);
+ Object.assign(state, {
+  generationAllowed: false,
+  modeUnavailableReason: "EXECUTION_DISABLED",
+  approvalAvailable: false,
+  candidateSelectionAvailable: false,
+  regenerationAvailable: false,
+ });
+ const key = `product-image-set:actor:org:acquisition:${operation}`;
+ const original = JSON.stringify({action: "resume", runId, body: {actionId: operation}});
+ localStorage.setItem(key + ":run", runId);
+ localStorage.setItem(key + ":intent", original);
+ let finishRead!: (response: Response) => void;
+ const history = new Promise<Response>(resolve => { finishRead = resolve; });
+ const real = fetch.getMockImplementation()!;
+ fetch.mockImplementation((url, init) => String(url).endsWith(`/runs/${runId}`) ? history : real(url, init));
+ render(<ProductImageSetPanel kind="acquisition" contextId={operation}/>);
+ expect(await screen.findByRole("button", {name: "核实原请求"})).toBeEnabled();
+ await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).endsWith(`/runs/${runId}`))).toBe(true));
+ expect(screen.queryByRole("button", {name: "继续原操作"})).toBeNull();
+
+ await act(async () => finishRead(readable ? Response.json(state) : Response.json({code: "IMAGE_UNAVAILABLE"}, {status: 503})));
+ if (readable) await screen.findByText("图片执行已关闭，可查看原任务和结算记录。");
+ else await screen.findByRole("alert");
+ expect(screen.queryByRole("button", {name: "继续原操作"})).toBeNull();
+ expect(screen.getByRole("button", {name: "核实原请求"})).toBeEnabled();
+ expect(localStorage.getItem(key + ":intent")).toBe(original);
+ expect(fetch.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
 });
 
 it("does not offer recovery of a proved unavailable paid original",async()=>{
