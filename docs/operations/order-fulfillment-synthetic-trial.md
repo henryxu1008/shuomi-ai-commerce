@@ -8,7 +8,7 @@
 - 账号：`local-bootstrap-operator@localhost`。
 - 密码：当前电脑私有文件 `C:\Users\Henry\AppData\Local\ListingKit\ordertrial-20261101-01\operator-password.txt`。密码、密钥和登录令牌不写入本文、Issue 或 PR。
 - 登录后选择 **Local Account Center**，进入一级菜单 **订单管理**，即可查看“托管备货：采购、分批收货与交仓”业务案例；点击 **打开采购与收货** 继续办理。
-- 履约工作页：`/workbench/store-orders/fulfill`。采购也可由 **供应市场 → 我的供应链 → 采购管理** 进入，两处使用同一需求和采购单。
+- 履约工作页：`/workbench/store-orders/fulfill`。采购从 **订单管理 → 采购与收货** 进入，使用同一原单的需求和采购单。
 
 此前 `https://localhost:47644` 曾遇到 HTTP 431；本次应用改用独立的 `127.0.0.37` Cookie 主机，登录服务使用当前应用已支持的 `https://127.0.0.1:47643`。不清理旧 Cookie、不修改其他实例的会话或系统根证书。建议在独立浏览器配置或隐私窗口试用。
 

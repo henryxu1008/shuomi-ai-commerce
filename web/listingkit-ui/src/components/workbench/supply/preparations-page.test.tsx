@@ -30,6 +30,8 @@ it("shows four configuration steps before selection without exposing unavailable
   await userEvent.click(await screen.findByRole("button", { name: /单件批次/ }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(await screen.findByRole("button", { name: "查看资料" })).toBeEnabled();
+  expect(screen.getByRole("link",{name:"待上传"})).toHaveAttribute("aria-current","page");
+  expect(screen.getByRole("link",{name:"待补全"})).toHaveAttribute("href","/workbench/supply/mine/missing?preparation="+preparation);
   expect(screen.getByRole("link", { name: "创建 / 编辑待补全草稿" })).toHaveAttribute("href", `/workbench/supply/mine/missing?preparation=${preparation}&source=${source}`);
   expect(screen.getByRole("button", { name: "预览本次任务" })).toBeDisabled();
 });

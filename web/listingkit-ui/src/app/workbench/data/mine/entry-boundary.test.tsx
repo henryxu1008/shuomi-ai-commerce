@@ -6,7 +6,7 @@ vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("@/components/workbench/collections/collection-page", () => ({
   CollectionPage: ({ supplyAvailable, initialBatchId, initialItemId }: { supplyAvailable: boolean; initialBatchId?: string; initialItemId?: string }) =>
-    <div><p>{initialBatchId}</p><p>{initialItemId}</p>{supplyAvailable ? <button>加入我的供应链</button> : null}</div>,
+    <div><p>{initialBatchId}</p><p>{initialItemId}</p>{supplyAvailable ? <button>转入待上传</button> : null}</div>,
 }));
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
@@ -24,8 +24,8 @@ it.each([
   render(await Page({ searchParams: Promise.resolve({ batchId, item }) }));
   expect(screen.getByText(batchId)).toBeVisible();
   expect(screen.getByText(item)).toBeVisible();
-  if (available) expect(screen.getByRole("button", { name: "加入我的供应链" })).toBeVisible();
-  else expect(screen.queryByRole("button", { name: "加入我的供应链" })).not.toBeInTheDocument();
+  if (available) expect(screen.getByRole("button", { name: "转入待上传" })).toBeVisible();
+  else expect(screen.queryByRole("button", { name: "转入待上传" })).not.toBeInTheDocument();
 });
 
 it("keeps the collection page closed when collections are disabled even with preparations enabled", async () => {

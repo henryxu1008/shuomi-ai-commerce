@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SupplyPage } from "./supply-page";
+import { CompletionDraftsPage } from "./completion-drafts-page";
 import StagePage from "@/app/workbench/supply/mine/[stage]/page";
 vi.mock("next/server",()=>({connection:vi.fn()}));
 const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),preparations:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),push:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn()}));
@@ -42,14 +43,22 @@ it("reads the exact historical record without loading a head, rules or execution
  view.rerender(<SupplyPage initialRecord={id} reportSourcesAvailable/>);
  expect(screen.queryByRole("link",{name:"保存报告"})).not.toBeInTheDocument();
 });
-it.each(["missing","all"] as const)("keeps platform context through the actual %s route",async(stage)=>{
- state.push.mockClear();
+it.each([["missing","待补全"],["uploaded","已上传"]] as const)("keeps platform context through the actual %s route",async(stage,label)=>{
  render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review"/>);
- await userEvent.click(await screen.findByRole("tab",{name:stage==="missing"?/待补全/:/全部/}));
- const url=new URL(state.push.mock.lastCall![0],"https://test.invalid");
+ const link=await screen.findByRole("link",{name:new RegExp(label)});
+ const url=new URL(link.getAttribute("href")!,"https://test.invalid");
  expect(url.pathname).toBe(`/workbench/supply/mine/${stage}`);
  const page=await StagePage({params:Promise.resolve({stage}),searchParams:Promise.resolve(Object.fromEntries(url.searchParams))});
  expect(page.type).toBe(SupplyPage);expect(page.props).toMatchObject({initialStage:stage,initialPreparation:prep,initialStore:store});
+});
+it("opens existing unbound drafts from the listing tabs before a store is selected",async()=>{
+ render(<SupplyPage initialPreparation={prep} initialStage="waiting" completionAvailable/>);
+ await screen.findByText("完整批次 205 件");
+ const link=screen.getByRole("link",{name:"待补全"});
+ const url=new URL(link.getAttribute("href")!,"https://test.invalid");
+ const page=await StagePage({params:Promise.resolve({stage:"missing"}),searchParams:Promise.resolve(Object.fromEntries(url.searchParams))});
+ expect(page.type).toBe(CompletionDraftsPage);
+ expect(page.props).toMatchObject({initialPreparation:prep,fullAvailable:true});
 });
 it("disables selected Walmart automatic adaptation and preserves manual editing",async()=>{
  state.stores.mockResolvedValue({items:[{id:store,name:"Walmart",platform:"walmart",recordStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
@@ -130,11 +139,14 @@ it("reopens a saved native TEMU record in its editor through the shared supply p
  expect(state.stores).toHaveBeenCalledWith(expect.not.objectContaining({platform:"shein"}),"org-a",expect.any(AbortSignal));
 });
 it("filters and counts the complete batch through the projection rather than the visible page",async()=>{
- render(<SupplyPage initialPreparation={prep}/>);await screen.findByText("完整批次");
+ const view=render(<SupplyPage initialPreparation={prep} initialStage="waiting"/>);await screen.findByText("完整批次");
  await userEvent.selectOptions(await screen.findByLabelText("目标店铺"),store);
- await screen.findByRole("tab",{name:"待上传 (205)"});
+ expect(await screen.findByRole("link",{name:"待上传 (205)"})).toHaveAttribute("aria-current","page");
  state.stages.mockResolvedValue({items:[],total:0,batchTotal:205,counts:{all:205,waiting:205,missing:0,ready:0,review:0,uploaded:0}});
- await userEvent.click(screen.getByRole("tab",{name:"待审核 (0)"}));
+ const href=screen.getByRole("link",{name:"待审核 (0)"}).getAttribute("href")!;
+ const url=new URL(href,"https://test.invalid");
+ expect(url.pathname).toBe("/workbench/supply/mine/review");
+ view.rerender(await StagePage({params:Promise.resolve({stage:"review"}),searchParams:Promise.resolve(Object.fromEntries(url.searchParams))}));
  await waitFor(()=>expect(state.stages).toHaveBeenLastCalledWith({userId:"actor-a",organizationId:"org-a"},prep,store,"review",expect.objectContaining({limit:20}),expect.any(AbortSignal)));
 });
 it("reads a retained batch and starts a whole-batch action without truncating it to the displayed page",async()=>{
@@ -181,27 +193,26 @@ it("does not dispatch title optimization for a TEMU store with no native review 
 it("opens the four-entry waiting stage with its required standard rule",async()=>{
  render(<SupplyPage initialPreparation={prep} initialStage="waiting"/>);await screen.findByText("完整批次");await userEvent.selectOptions(screen.getByLabelText("目标店铺"),store);
  await waitFor(()=>expect(state.stages).toHaveBeenLastCalledWith(expect.anything(),prep,store,"waiting",expect.anything(),expect.any(AbortSignal)));
- expect(screen.getByRole("heading",{name:"待上传"})).toBeInTheDocument();expect(screen.getByRole("button",{name:"预览整批上传"})).toBeEnabled();
+ expect(screen.getByRole("link",{name:/^待上传/})).toHaveAttribute("aria-current","page");expect(screen.getByRole("button",{name:"预览整批上传"})).toBeEnabled();
  expect(screen.queryByRole("switch",{name:"启用本次规则"})).not.toBeInTheDocument();expect(state.write).not.toHaveBeenCalled();
 });
 it("shows the requested review list without requiring the publishing configuration panel",async()=>{
  render(<SupplyPage initialPreparation={prep} initialStage="review"/>);await screen.findByText("完整批次");await userEvent.selectOptions(screen.getByLabelText("目标店铺"),store);
  await waitFor(()=>expect(state.stages).toHaveBeenLastCalledWith(expect.anything(),prep,store,"review",expect.anything(),expect.any(AbortSignal)));
- expect(screen.getByRole("heading",{name:"待审核"})).toBeInTheDocument();expect(screen.queryByText("发布配置流程")).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:/^待审核/})).toHaveAttribute("aria-current","page");expect(screen.queryByText("发布配置流程")).not.toBeInTheDocument();
 });
 
 it("navigates dedicated stage tabs with the current batch and store",async()=>{
- render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review"/>);await screen.findByText("完整批次");await userEvent.click(screen.getByRole("tab",{name:/待上传/}));expect(state.push).toHaveBeenCalledWith(`/workbench/supply/mine/waiting?preparation=${prep}&store=${store}`);
+ render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review"/>);await screen.findByText("完整批次");expect(screen.getByRole("link",{name:/待上传/})).toHaveAttribute("href",`/workbench/supply/mine/waiting?preparation=${prep}&store=${store}`);
 });
 
 it("keeps the selected saved operation when changing a dedicated stage",async()=>{
  const operation="44444444-4444-4444-8444-444444444444";
  state.operation.mockReset().mockResolvedValue({id:operation,input:{preparationId:prep,expectedRevision:1,storeId:store,action:"adapt"},count:205,completed:0,status:"pending",execution:"started",createdAt:"2026-10-08T00:00:00Z"});
- state.items.mockReset().mockResolvedValue({items:[],total:0});state.push.mockClear();
+ state.items.mockReset().mockResolvedValue({items:[],total:0});
  render(<SupplyPage initialPreparation={prep} initialStore={store} initialStage="review" initialOperation={operation}/>);
  await waitFor(()=>expect(state.operation).toHaveBeenCalledWith({userId:"actor-a",organizationId:"org-a"},operation,expect.any(AbortSignal)));
- await userEvent.click(screen.getByRole("tab",{name:/待上传/}));
- expect(state.push).toHaveBeenCalledWith(`/workbench/supply/mine/waiting?preparation=${prep}&store=${store}&operation=${operation}`);
+ expect(screen.getByRole("link",{name:/待上传/})).toHaveAttribute("href",`/workbench/supply/mine/waiting?preparation=${prep}&store=${store}&operation=${operation}`);
  expect(state.write).not.toHaveBeenCalled();
 });
 

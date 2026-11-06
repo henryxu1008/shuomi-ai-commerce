@@ -63,7 +63,7 @@ it("opens the saved case from the order menu using native facts and existing ste
   expect(commands).toEqual(["find_demand", "details"]);
   expect(screen.getByRole("heading", { name: "订单业务如何流转" })).toBeVisible();
   expect(screen.getByRole("link", { name: /查看订单与需求/ })).toHaveAttribute("href", "/workbench/store-orders/fulfill?step=source");
-  expect(screen.getByRole("link", { name: /进入采购与收货/ })).toHaveAttribute("href", "/workbench/supply/mine/procurement");
+  expect(screen.getByRole("link", { name: /进入采购与收货/ })).toHaveAttribute("href", "/workbench/store-orders/fulfill?step=purchase");
   expect(screen.getByRole("link", { name: /进入装箱与发货/ })).toHaveAttribute("href", "/workbench/store-orders/fulfill?step=stock");
   expect(screen.getByRole("link", { name: /查看交接与物流/ })).toHaveAttribute("href", "/workbench/store-orders/fulfill?step=logistics");
 });

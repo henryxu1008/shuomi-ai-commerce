@@ -66,7 +66,7 @@ function ScopedRestore({scope,sourceId,revision,preparationId,itemId}:Props&{sco
  const conflict=command.error==="REVISION_CONFLICT"&&!conflictReviewed;
  const disabled=loading||readError||receiptError||!current||!old||old.revision>=current.revision||sameContent(old.content,current.content)||current.revision>=Number.MAX_SAFE_INTEGER||!!saved||conflict||!!command.pending||command.busy||!command.ready;
  const refresh=()=>{setCompleted(undefined);setConflictReviewed(true);reloadPreview()};
- return <ConsolePage title="恢复草稿历史内容" description="预览旧版标题、完整描述及插图，确认后保存为新版本。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"我的供应链",href:"/workbench/supply/mine"},{label:"保存历史",href:source?completionHistoryHref(sourceId,source.preparationId,itemId):undefined},{label:`恢复 R${revision} 内容`}]} actions={source?<div className="flex flex-wrap gap-3">
+ return <ConsolePage title="恢复草稿历史内容" description="预览旧版标题、完整描述及插图，确认后保存为新版本。" breadcrumbs={[{label:"商品刊登",href:"/workbench/supply/mine"},{label:"保存历史",href:source?completionHistoryHref(sourceId,source.preparationId,itemId):undefined},{label:`恢复 R${revision} 内容`}]} actions={source?<div className="flex flex-wrap gap-3">
   <Button asChild variant="outline"><Link href={completionHistoryHref(sourceId,source.preparationId,itemId,{revision})}>返回旧版详情</Link></Button>
   <Button asChild variant="outline"><Link href={completionDraftHref(sourceId,source.preparationId,itemId)}>返回草稿</Link></Button>
   {itemId?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${itemId}`}>返回商品</Link></Button>:null}

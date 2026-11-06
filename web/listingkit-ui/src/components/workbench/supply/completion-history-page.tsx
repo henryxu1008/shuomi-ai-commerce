@@ -48,7 +48,7 @@ function ScopedHistory({scope,sourceId,preparationId,itemId,revision,from,to,can
  const batch=source?.preparationId,ownItem=itemId;
  const historyHref=completionHistoryHref(sourceId,batch,ownItem);
  const refresh=()=>{setLoading(true);setReload(value=>value+1)};
- return <ConsolePage title={comparing?"草稿差异对比":revision!==undefined?`草稿保存版本 R${revision}`:"草稿保存历史"} description="查看已保存的候选标题和描述，固定来源资料保持原版本。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"我的供应链",href:"/workbench/supply/mine"},{label:"待补全草稿",href:source?completionDraftHref(sourceId,source.preparationId,ownItem):undefined},{label:"保存历史",href:revision!==undefined||comparing?historyHref:undefined},...(revision!==undefined?[{label:`R${revision}`}]:comparing?[{label:"差异对比"}]:[])]} actions={source?<div className="flex flex-wrap gap-3">
+ return <ConsolePage title={comparing?"草稿差异对比":revision!==undefined?`草稿保存版本 R${revision}`:"草稿保存历史"} description="查看已保存的候选标题和描述，固定来源资料保持原版本。" breadcrumbs={[{label:"商品刊登",href:"/workbench/supply/mine"},{label:"待补全草稿",href:source?completionDraftHref(sourceId,source.preparationId,ownItem):undefined},{label:"保存历史",href:revision!==undefined||comparing?historyHref:undefined},...(revision!==undefined?[{label:`R${revision}`}]:comparing?[{label:"差异对比"}]:[])]} actions={source?<div className="flex flex-wrap gap-3">
   {revision!==undefined||comparing?<Button asChild variant="outline"><Link href={historyHref}>返回保存历史</Link></Button>:null}
   <Button asChild variant="outline"><Link href={completionDraftHref(sourceId,source.preparationId,ownItem)}>返回草稿</Link></Button>
   {ownItem?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${ownItem}`}>返回商品</Link></Button>:null}

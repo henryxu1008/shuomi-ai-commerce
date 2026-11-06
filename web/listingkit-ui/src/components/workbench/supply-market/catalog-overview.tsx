@@ -19,7 +19,7 @@ export function CatalogOverview() {
       <Card className={styles.entry}>
         <span className={styles.kicker}>官方货盘选品入口</span>
         <h2>货盘选品</h2>
-        <p>浏览当前可用的货盘能力，选择合适的商品加入我的供应链。</p>
+        <p>浏览当前可用的货盘能力，选择合适的商品转入待上传。</p>
         <Button asChild className={styles.entryButton}><Link href="/workbench/supply/catalogs/selection" prefetch={false}>进入货盘选品</Link></Button>
       </Card>
       <Card className={`${styles.entry} ${styles.connectionEntry}`}>
@@ -33,14 +33,14 @@ export function CatalogOverview() {
       <Card className={styles.process}>
         <section aria-labelledby="catalog-product-process">
           <h2 id="catalog-product-process">商品进入供应链流程</h2>
-          <p className={styles.processDescription}>选择货盘产品或使用采集工具，再沿现有流程加入供应链、优化与发布。</p>
+          <p className={styles.processDescription}>选择货盘产品或使用采集工具，再沿现有流程转入待上传、优化与发布。</p>
           <div className={styles.productFlow}>
             <ul className={styles.sources} aria-label="商品来源">
               <FlowStep number="A" title="选择货盘产品" detail="从官方货盘中选品"/>
               <FlowStep number="B" title="通过采集工具" detail="采集其他商品"/>
             </ul>
             <ol className={styles.productSteps} aria-label="商品进入供应链步骤">
-              <FlowStep number="01" title="加入我的供应链" detail="统一管理商品"/>
+              <FlowStep number="01" title="转入待上传" detail="统一管理商品"/>
               <FlowStep number="02" title="调用智能体或工具" detail="优化图片与资料"/>
               <FlowStep number="03" title="发布到关联店铺"/>
             </ol>

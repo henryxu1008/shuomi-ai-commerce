@@ -77,11 +77,7 @@ const initial = (params: ReturnType<typeof useSearchParams>, name: string) =>
   fulfillmentID.safeParse(params.get(name)).success
     ? params.get(name)!
     : "";
-export function FulfillmentPage({
-  procurement = false,
-}: {
-  procurement?: boolean;
-}) {
+export function FulfillmentPage() {
   const context = useWorkbenchContext(),
     params = useSearchParams();
   const org = context.effectiveOrganization?.id ?? "",
@@ -104,8 +100,7 @@ export function FulfillmentPage({
     return <ConsoleState kind="unavailable" title="请先选择可访问的企业" />;
   return (
     <ScopedPage
-      key={JSON.stringify([org, user, procurement, initial(params, "storeId"), initial(params, "sourceId"), params?.get("kind")])}
-      procurement={procurement}
+      key={JSON.stringify([org, user, initial(params, "storeId"), initial(params, "sourceId"), params?.get("kind")])}
       scope={scope}
       permissions={context.permissions}
       initialStep={initialStep}
@@ -123,7 +118,6 @@ function ScopedPage({
   scope,
   permissions,
   initialStep,
-  procurement,
   initialStore,
   initialSource,
   initialKind,
@@ -131,12 +125,11 @@ function ScopedPage({
   scope: FulfillmentScope;
   permissions: string[];
   initialStep?: FlowStep;
-  procurement: boolean;
   initialStore: string;
   initialSource: string;
   initialKind: FulfillmentInput["kind"];
 }) {
-  const step = initialStep ?? (procurement ? "purchase" : "source");
+  const step = initialStep ?? "source";
   const queries = useQueryClient(),
     prefix = useMemo(
       () => ["fulfillment", scope.organizationId, scope.userId],
@@ -435,20 +428,12 @@ function ScopedPage({
   };
   return (
     <ConsolePage
-      title={procurement ? "采购管理" : "订单履约"}
+      title="订单履约"
       description="SHEIN 原单、原生 ERPNext 采购和库存、平台回执在同一流程中核对。真实平台联调待完成。"
-      breadcrumbs={
-        procurement
-          ? [
-              { label: "供应市场" },
-              { label: "我的供应链", href: "/workbench/supply/mine" },
-              { label: "采购管理" },
-            ]
-          : [
-              { label: "订单管理", href: "/workbench/store-orders" },
-              { label: "原单履约" },
-            ]
-      }
+      breadcrumbs={[
+        { label: "订单管理", href: "/workbench/store-orders" },
+        { label: "原单履约" },
+      ]}
       actions={
         <Button
           variant="outline"
@@ -1182,11 +1167,7 @@ function ScopedPage({
   );
 }
 
-export function FulfillmentEntry({
-  procurement = false,
-}: {
-  procurement?: boolean;
-}) {
+export function FulfillmentEntry() {
   const context = useWorkbenchContext(),
     org = context.effectiveOrganization?.id ?? "",
     user = context.user?.id ?? "";
@@ -1204,18 +1185,15 @@ export function FulfillmentEntry({
       key={`${org}:${user}`}
       scope={{ organizationId: org, userId: user }}
       permissions={context.permissions}
-      procurement={procurement}
     />
   );
 }
 function ScopedEntry({
   scope,
   permissions,
-  procurement,
 }: {
   scope: FulfillmentScope;
   permissions: string[];
-  procurement: boolean;
 }) {
   const caps = useQuery({
     queryKey: [
@@ -1237,19 +1215,12 @@ function ScopedEntry({
   if (!caps.data?.available) return null;
   return (
     <Card className={styles.notice}>
-      <h2>{procurement ? "采购管理" : "订单履约"}</h2>
+      <h2>订单履约</h2>
       <p>
         关联原单后生成采购、登记实际收货、预留库存、装箱并核对平台回执。真实平台联调待完成。
       </p>
-      <Link
-        href={
-          procurement
-            ? "/workbench/supply/mine/procurement"
-            : "/workbench/store-orders/fulfill"
-        }
-        prefetch={false}
-      >
-        {procurement ? "进入采购管理" : "进入订单履约"}
+      <Link href="/workbench/store-orders/fulfill" prefetch={false}>
+        进入订单履约
       </Link>
     </Card>
   );

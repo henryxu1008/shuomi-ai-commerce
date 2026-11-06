@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import {supplyStageHref, type SupplyStageContext} from "@/lib/workbench/supply-navigation";
+import { ListingStageTabs } from "./listing-stage-tabs";
 import {completionDraftHref} from "@/lib/contracts/completion-draft-navigation";
 import Image from "next/image";
 import {useEffect,useMemo,useState} from "react";
@@ -40,9 +42,10 @@ function ScopedCompletionDrafts({scope,initialPreparation,fullAvailable}:{scope:
   if(selected)void listSupplyCompletionDrafts(scope,selected,{limit:20,after,keyword},c.signal).then(page=>{if(live){setItems(page.items);setTotal(page.total);setNext(page.nextCursor)}}).catch(()=>{if(live)setError(true)}).finally(()=>{if(live)setLoading(false)});
   return()=>{live=false;c.abort()};
  },[scope,selected,after,keyword,reload]);
- const waitingQuery=new URLSearchParams({...selected?{preparation:selected}:{},...fullAvailable?{mode:"local"}:{}});
- const waiting=`/workbench/supply/mine/waiting${waitingQuery.size?`?${waitingQuery}`:""}`;
- return <ConsolePage title="待补全" description="补充商品资料，保存后继续编辑；配置店铺后再按平台要求适配。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"我的供应链",href:"/workbench/supply/mine"},{label:"待补全"}]} actions={<><Button asChild variant="outline"><Link href={waiting}>从待上传创建草稿</Link></Button><Button variant="outline" disabled={loading||!selected} onClick={()=>{setLoading(true);setError(false);setReload(v=>v+1)}}>刷新</Button></>}>
+ const localStageContext:SupplyStageContext={preparation:selected,mode:fullAvailable?"local":undefined};
+ const waiting=supplyStageHref("waiting",localStageContext);
+ return <ConsolePage title="商品刊登" description="补充商品资料，保存后继续编辑；配置店铺后再按平台要求适配。" actions={<><Button asChild variant="outline"><Link href={waiting}>从待上传创建草稿</Link></Button><Button variant="outline" disabled={loading||!selected} onClick={()=>{setLoading(true);setError(false);setReload(v=>v+1)}}>刷新</Button></>}>
+    <ListingStageTabs current="missing" context={localStageContext}/>
   <div className="mb-5 flex items-start gap-3 rounded-lg border border-info-foreground bg-info p-4 text-sm text-info-foreground"><Image src="/supply-completion-document.svg" width={24} height={24} alt=""/><div><p className="font-medium">未绑定店铺，平台规则待配置</p><p className="mt-1">{selected?`当前批次已保存 ${total} 份待补全草稿。`:"选择已转入的商品批次查看草稿。"} 标题和描述独立保存，原始商品资料继续保留。</p></div></div>
   {fullAvailable?<p className="mb-4 text-sm"><Link href={`/workbench/supply/mine/missing?${new URLSearchParams({...selected?{preparation:selected}:{},mode:"platform"})}`} className="text-primary underline">查看已绑定店铺的待补全商品</Link></p>:null}
   <form className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4" onSubmit={e=>{e.preventDefault();setAfter(undefined);setKeyword(search);setError(false);setLoading(true);setReload(v=>v+1)}}>

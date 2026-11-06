@@ -103,7 +103,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
     </article>;
    })}</div>
  </Card>:null}
- {view!=="research"?<Card id="research-transfer" tabIndex={-1} className={styles.section}><h3>转入我的供应链</h3><p>勾选已批准测试的商品，再到“我的数据”核对。分批收集的资料需要分别确认；批准测试不代表已采购、已上架或已完成合规检查。</p>{groups.size===0?<p>请先选择已批准测试、且资料可以查看的商品。</p>:<div className={styles.actions}>{[...groups].map(([batch,values],i)=><Button key={batch} variant="outline" asChild><Link prefetch={false} href={"/workbench/data/mine?"+new URLSearchParams({batchId:batch,transfer:JSON.stringify(values.map(v=>v.observation!.ref.selection))})}>批次 {i+1} · 核对 {values.length} 件商品</Link></Button>)}</div>}<p className={styles.muted}>是否转入成功，请到“我的供应链”查看处理结果。</p></Card>:null}
+ {view!=="research"?<Card id="research-transfer" tabIndex={-1} className={styles.section}><h3>转入待上传</h3><p>勾选已批准测试的商品，再到“我的数据”核对。分批收集的资料需要分别确认；批准测试不代表已采购、已上架或已完成合规检查。</p>{groups.size===0?<p>请先选择已批准测试、且资料可以查看的商品。</p>:<div className={styles.actions}>{[...groups].map(([batch,values],i)=><Button key={batch} variant="outline" asChild><Link prefetch={false} href={"/workbench/data/mine?"+new URLSearchParams({batchId:batch,transfer:JSON.stringify(values.map(v=>v.observation!.ref.selection))})}>批次 {i+1} · 核对 {values.length} 件商品</Link></Button>)}</div>}<p className={styles.muted}>是否转入成功，请到“商品刊登”查看处理结果。</p></Card>:null}
  </section>;
 }
 function costBinding(candidate:ResearchCandidate):string|null{

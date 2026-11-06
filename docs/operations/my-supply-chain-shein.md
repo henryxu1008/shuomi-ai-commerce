@@ -1,11 +1,11 @@
-# 我的供应链 / SHEIN 美国站操作与启动
+# 商品刊登 / SHEIN 美国站操作与启动
 
-当前四步与继续合同见[供应链四步依据](../architecture/supply-four-step-continuation.md)及[PR #1080](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1080)。四个入口为待上传（waiting，合并ready投影）、待补全（missing）、待审核（review）、已上传（uploaded）。正式运行仍采用 cmd/current-application 与当前 Console，使用原 Target / Operation / Temporal / Review / Submission。此交付为源码与设计候选，不更新保留实例，不代表部署或用户验收。
+当前四步与继续合同见[供应链四步依据](../architecture/supply-four-step-continuation.md)及[PR #1080](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1080)。从一级导航「商品刊登」进入，默认打开「待上传」。页内四个页签为待上传（waiting，合并ready投影）、待补全（missing）、待审核（review）、已上传（uploaded）。正式运行仍采用 cmd/current-application 与当前 Console，使用原 Target / Operation / Temporal / Review / Submission。此交付为源码与设计候选，不更新保留实例，不代表部署或用户验收。
 
 ## 用户操作
 
 1. 正常 ZITADEL 登录并选择当前企业。在“我的数据”添加自有商品、实际 JPEG/PNG 图片或 Excel 商品。Excel 模板从页面下载，先预览再确认保存；有 SKU 时须填写实际 currency、price、stock。
-2. 将选定的完整批次加入“我的供应链”。该操作固定全部 membership，不受显示页限制；之后原批次移动不会改写已建立的供应链批次。
+2. 将选定的完整批次转入“待上传”。该操作固定全部 membership，不受显示页限制；之后原批次移动不会改写已建立的供应链批次。
 3. 从 `/workbench/supply/mine/waiting` 按四步配置：选择商品 → 选择目标店铺 → 配置标准规则与可选已准入标题智能体 → 确认提交。核对店铺平台/站点，店铺官方应用决定经营模式。预览按钮保存不可变计划配置，首次配置展示模板与预算上限；继续确认核对当前准确资料版本、原生提交方式/时间与完整数量，并沿原报价/模板资格重新核对。只有明确确认后才绑定后续原操作。
 4. “待补全”读取实际官方字段，补齐类目、属性、价格、库存、尺寸及图片，并明确批准当前商品版本的图片。要求库存证明时，每个 SKC 最多一个公开 HTTPS JPEG/PNG/PDF 文件，类型匹配实际内容，最多3MiB。服务器在保存和发送前重新核实。
 5. 补全保存后，点击原计划“检查进度并继续”，重新确认再推进；保存不会自动上传。原计划固定商品、店铺、规则、模板版本和提交方式，列表及导航保留 plan 编号。未配置或未授权的能力显示不可用原因；平台草稿只在 TikTok 真实 AS_DRAFT 路径开放，原生预约时间在对应商品资料中保存。系统到点发送未开放。完整图片智能体见[图片运行说明](product-image-agent.md)。
