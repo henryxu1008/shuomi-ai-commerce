@@ -47,6 +47,7 @@ func TestIssue132OfflineTitleRehearsal(t *testing.T) {
 type titleRehearsal struct {
 	samples   map[string]sharedCase
 	pilot     bool
+	operator  bool
 	batchID   uuid.UUID
 	unknownAt int
 	mu        sync.Mutex

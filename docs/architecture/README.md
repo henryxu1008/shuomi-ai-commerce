@@ -170,6 +170,7 @@
 - `official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge.md)
 - `official-skill-product-entry.md` — [官方技能直接处理已有商品](official-skill-product-entry.md)
 - `issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](issue132-title-evaluation-admission.md)
+- `issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](issue132-title-pilot-local-entry.md)
 - `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)
 - `platform-listing-materials-agent.md` — [平台上架资料智能体 v1](platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
