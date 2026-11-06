@@ -2,12 +2,16 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,7 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
+	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
+	"task-processor/internal/authidentity"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
@@ -39,6 +46,237 @@ func TestIssue132TitlePilotThroughOwners(t *testing.T) {
 		require.NoError(t, err)
 	}
 	testProductAgentOwnersWithTitleRehearsal(t, "", &titleRehearsal{pilot: true, batchID: batch})
+}
+
+func (r *titleRehearsal) runPilotOperator(t *testing.T, db *gorm.DB, app *productAgentApplication, deps routeAuthDependencies) {
+	t.Helper()
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+	op := app.config.TitlePilotOperator
+	op.Host = listener.Addr().String()
+	var expired, isolationDrift atomic.Bool
+	op.now = func() time.Time {
+		if expired.Load() {
+			return op.NotAfter
+		}
+		return time.Now()
+	}
+	op.VerifyIsolation = func(context.Context) error {
+		if isolationDrift.Load() {
+			return agent.ErrUnavailable
+		}
+		return nil
+	}
+	_, err = app.titlePilotOperatorHandler(context.Background(), routeAuthDependencies{})
+	require.ErrorIs(t, err, agent.ErrUnavailable)
+	handler, err := app.titlePilotOperatorHandler(context.Background(), deps)
+	require.NoError(t, err)
+	srv := &http.Server{Handler: handler}
+	t.Cleanup(func() { _ = srv.Close() })
+	go func() { _ = srv.Serve(listener) }()
+	client := &http.Client{Timeout: 2 * time.Minute, Transport: &http.Transport{}}
+	t.Cleanup(client.CloseIdleConnections)
+	type reply struct {
+		status int
+		raw    []byte
+		err    error
+	}
+	call := func(method, operation, token string) reply {
+		req, err := http.NewRequest(method, "http://"+op.Host+"/title-pilot/"+operation, nil)
+		if err != nil {
+			return reply{err: err}
+		}
+		req.Header.Set("X-Requested-Organization-ID", "B")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return reply{err: err}
+		}
+		defer resp.Body.Close()
+		raw, err := io.ReadAll(resp.Body)
+		return reply{status: resp.StatusCode, raw: raw, err: err}
+	}
+	fingerprint := func() []string {
+		t.Helper()
+		var facts []string
+		for _, table := range []string{"product_source_publications", "product_source_publication_receipts",
+			"product_snapshot_versions", "product_snapshot_heads", "product_agent_runs", "ai_invocations",
+			"saas_organization_resource_reservations", "saas_organization_resource_events",
+			"saas_organization_resource_buckets", "saas_member_ai_point_limits", "saas_member_ai_point_months",
+			"agent_configuration.start_snapshots", "agent_configuration.execution_mode_snapshots"} {
+			var fact string
+			require.NoError(t, db.Table(table).Select("count(*)::text || ':' || md5(coalesce(string_agg(xmin::text, ',' ORDER BY ctid), ''))").Scan(&fact).Error)
+			facts = append(facts, fact)
+		}
+		return facts
+	}
+	initial := fingerprint()
+	require.Equal(t, http.StatusUnauthorized, call("GET", "preflight", "").status)
+	require.Equal(t, http.StatusForbidden, call("GET", "preflight", "viewer").status)
+	require.Equal(t, http.StatusNotFound, call("GET", "start", "admin").status)
+	res := call("GET", "preflight", "admin")
+	require.NoError(t, res.err)
+	require.Equal(t, http.StatusOK, res.status, "%s", res.raw)
+	var preflight titlePilotPreflight
+	require.NoError(t, json.Unmarshal(res.raw, &preflight))
+	require.Equal(t, r.batchID.String(), preflight.BatchID)
+	require.Equal(t, 30, preflight.FirstPublications)
+	require.Equal(t, 0, preflight.ExistingSources)
+	require.Equal(t, 60, preflight.ExpectedRunSlots)
+	require.Positive(t, preflight.RequiredMicropoints)
+	require.Equal(t, initial, fingerprint())
+	require.Empty(t, r.captured(t))
+	require.Zero(t, app.config.ChannelCredentials.(*titlePilotCountingCredential).reads.Load(), "preflight and assembly must not resolve the Key")
+
+	ctx, err := candidateReviewFixtureContext(context.Background(), titleVerifier{}, app.resolver.(*workbenchcontext.Resolver), "admin", "B")
+	require.NoError(t, err)
+	plan, samples, err := app.inspectTitlePilot(ctx, r.batchID)
+	require.NoError(t, err)
+	for _, scenario := range []struct {
+		name, code   string
+		drift, reset func(*testing.T)
+	}{
+		{"disabled-title-agent", "AGENT_NOT_ENABLED", func(t *testing.T) {
+			result := db.Exec("UPDATE agent_configuration.organization_agents SET activation = 'DISABLED' WHERE organization_id = 'B' AND agent_id = ?", app.definition.ID)
+			require.NoError(t, result.Error)
+			require.EqualValues(t, 1, result.RowsAffected)
+		}, func(t *testing.T) {
+			require.NoError(t, db.Exec("UPDATE agent_configuration.organization_agents SET activation = 'ENABLED' WHERE organization_id = 'B' AND agent_id = ?", app.definition.ID).Error)
+		}},
+		{"mode-revision-changed", "EXECUTION_MODE_CHANGED", func(t *testing.T) {
+			receipt, err := app.configuration.ExecuteMode(ctx, agentconfig.ModeCommand{
+				Identity: plan.identity, Subject: app.modeSubject(), Key: uuid.NewString(), Mode: agent.ModeReadOnly,
+			})
+			require.NoError(t, err)
+			require.Equal(t, "1", receipt.Revision)
+		}, func(t *testing.T) {
+			require.NoError(t, db.Exec("DELETE FROM agent_configuration.execution_modes WHERE organization_id = 'B' AND subject_kind = ? AND subject_id = ?", agentconfig.RegisteredAgentSubject, app.definition.ID).Error)
+		}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			scenario.drift(t)
+			t.Cleanup(func() { scenario.reset(t) })
+			before := fingerprint()
+			for _, request := range [][2]string{{"GET", "preflight"}, {"POST", "start"}} {
+				res := call(request[0], request[1], "admin")
+				require.NoError(t, res.err)
+				require.Equal(t, http.StatusConflict, res.status, "%s %s: %s", request[0], request[1], res.raw)
+				require.JSONEq(t, `{"status":"`+scenario.code+`"}`, string(res.raw))
+			}
+			require.Equal(t, before, fingerprint())
+			require.Empty(t, r.captured(t))
+			require.Zero(t, app.config.ChannelCredentials.(*titlePilotCountingCredential).reads.Load())
+		})
+	}
+	expired.Store(true)
+	require.Equal(t, http.StatusForbidden, call("POST", "start", "admin").status)
+	_, err = app.prepareTitlePilot(ctx, r.batchID)
+	require.ErrorIs(t, err, errTitlePilotExpired, "an expired window cannot publish the first sample")
+	command := titlePilotPublication(plan.identity, samples[0])
+	// Use the exact same gate as the Run Store and final guarded transport.
+	slot := app.titlePilotSlotFor(plan, command, sourcing.PublicationReceipt{}, "fixed")
+	claimCtx := slot.context(ctx)
+	request := agent.Request{Binding: slot.binding, Key: slot.key}
+	_, _, err = (titlePilotClaimGate{app: app}).Claim(claimCtx, agent.Record{State: agent.State{Request: request}}, 0)
+	require.ErrorIs(t, err, errTitlePilotExpired, "an expired window must not reach the owner Claim")
+	err = app.authorizeTitlePilotDispatch(claimCtx, aicapability.TextInputIdentity{Operation: aicapability.OperationProductAgentDecision,
+		Profile: plan.profile, OrganizationID: plan.identity.OrganizationID, ActorID: plan.identity.ActorID, MemberID: plan.identity.MemberID})
+	require.ErrorIs(t, err, errTitlePilotExpired, "an expired window must not reach the provider")
+	expired.Store(false)
+	require.Equal(t, initial, fingerprint())
+
+	// Confirm a formerly eligible preflight cannot authorize later route drift.
+	reader := app.config.CurrentTextPolicies
+	app.config.CurrentTextPolicies = titlePilotPolicyDrift{reader}
+	require.Equal(t, http.StatusServiceUnavailable, call("POST", "start", "admin").status)
+	app.config.CurrentTextPolicies = reader
+	isolationDrift.Store(true)
+	require.Equal(t, http.StatusServiceUnavailable, call("POST", "start", "admin").status)
+	isolationDrift.Store(false)
+	require.Equal(t, initial, fingerprint())
+	require.NoError(t, db.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 1 WHERE organization_id = 'B'").Error)
+	res = call("POST", "start", "admin")
+	require.Equal(t, http.StatusConflict, res.status)
+	require.JSONEq(t, `{"status":"INSUFFICIENT_POINTS"}`, string(res.raw))
+	require.NoError(t, db.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 4000000000 WHERE organization_id = 'B'").Error)
+	require.Empty(t, r.captured(t))
+
+	// An already published exact SRC receipt is read and later reused by the
+	// same original key. The other 29 are still missing until Start.
+	identity, err := app.freshIdentity(ctx)
+	require.NoError(t, err)
+	_, err = app.titlePilotPublisher.Publish(authidentity.WithAuthenticatedIdentity(ctx, identity), command)
+	require.NoError(t, err)
+	beforeReuse := fingerprint()
+	res = call("GET", "preflight", "admin")
+	require.Equal(t, http.StatusOK, res.status, "%s", res.raw)
+	require.NoError(t, json.Unmarshal(res.raw, &preflight))
+	require.Equal(t, 1, preflight.ExistingSources)
+	require.Equal(t, 29, preflight.FirstPublications)
+	require.Equal(t, beforeReuse, fingerprint())
+	require.Zero(t, app.config.ChannelCredentials.(*titlePilotCountingCredential).reads.Load())
+
+	var actions []agent.Action
+	for _, sample := range samples {
+		title := strings.TrimSpace(strings.SplitN(sample.Source.ProductCandidate.Description, ".", 2)[0])
+		candidate := rehearsalTitle(title, sample.Source.RawReference.ReferenceID)
+		actions = append(actions, candidate,
+			agent.Action{Kind: "tool", Tool: canonicalinspect.Definition().Ref},
+			agent.Action{Kind: "tool", Tool: sourceevidenceinspect.Definition().Ref}, candidate)
+	}
+	r.script(actions...)
+	replies := make(chan reply, 2)
+	fire := make(chan struct{})
+	for range 2 {
+		go func() { <-fire; replies <- call("POST", "start", "admin") }()
+	}
+	close(fire)
+	left, right := <-replies, <-replies
+	if left.status != http.StatusOK {
+		left, right = right, left
+	}
+	require.NoError(t, left.err)
+	require.NoError(t, right.err)
+	require.Equal(t, http.StatusOK, left.status, "%s", left.raw)
+	require.Equal(t, http.StatusConflict, right.status, "%s", right.raw)
+	require.JSONEq(t, `{"status":"CONFLICT"}`, string(right.raw))
+	var finished struct{ CompletedRunSlots int }
+	require.NoError(t, json.Unmarshal(left.raw, &finished))
+	require.Equal(t, 60, finished.CompletedRunSlots)
+	require.Len(t, r.captured(t), 120)
+	require.Equal(t, http.StatusConflict, call("GET", "preflight", "admin").status)
+	t.Log("HTTP loopback: read-only preflight, one existing receipt reused, one concurrent winner, 60 slots and 120 synthetic sends")
+}
+
+type titlePilotPolicyDrift struct{ governed.RoutePolicyReader }
+
+func (r titlePilotPolicyDrift) ReadPolicy(ctx context.Context, key governed.RouteKey) (governed.RoutePolicy, error) {
+	policy, err := r.RoutePolicyReader.ReadPolicy(ctx, key)
+	policy.Profile.OfficialTariff.FXVersion = "changed-after-preflight"
+	return policy, err
+}
+
+type titlePilotCountingCredential struct {
+	credential.SecretReader
+	reads atomic.Int64
+}
+
+func (c *titlePilotCountingCredential) Resolve(ctx context.Context, organization, connection, revision string) (credential.Secret, error) {
+	c.reads.Add(1)
+	return c.SecretReader.Resolve(ctx, organization, connection, revision)
+}
+
+func TestIssue132TitlePilotOperatorThroughOwners(t *testing.T) {
+	dsn := os.Getenv("ISSUE132_TEST_DSN")
+	if dsn == "" {
+		t.Skip("requires a task-owned ISSUE132_TEST_DSN")
+	}
+	require.Contains(t, dsn, "dbname=issue132_rehearsal")
+	t.Setenv("ISSUE398_TEST_DSN", dsn)
+	testProductAgentOwnersWithTitleRehearsal(t, "", &titleRehearsal{pilot: true, operator: true, batchID: uuid.New()})
 }
 
 func configureTitlePilotFixture(t *testing.T, settings *ProductAgentDependencies, rehearsal *titleRehearsal) {
@@ -68,6 +306,17 @@ func configureTitlePilotFixture(t *testing.T, settings *ProductAgentDependencies
 	settings.titlePilotApproval = titlePilotApproval{
 		batchID: rehearsal.batchID, identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"},
 		profileDigest: digest,
+	}
+	if rehearsal.operator {
+		settings.ChannelCredentials = &titlePilotCountingCredential{SecretReader: settings.ChannelCredentials}
+		settings.TitlePilotOperator = &TitlePilotOperator{Host: "127.0.0.1:1", BatchID: rehearsal.batchID,
+			OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin",
+			SamplesDigest: titlePilotManifestHash, ProfileDigest: digest, CredentialRevision: p.AdmittedCredentialVersion,
+			PriceVersion: tariff.PriceVersion, FXVersion: tariff.FXVersion, Register: func(http.Handler) {},
+			VerifyIsolation:     func(context.Context) error { return nil },
+			ExecutionApprovalID: "synthetic-only-approval",
+			NotBefore:           time.Now().Add(-time.Minute), NotAfter: time.Now().Add(10 * time.Minute)}
+		settings.titlePilotApproval = titlePilotApproval{}
 	}
 }
 

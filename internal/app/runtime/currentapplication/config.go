@@ -35,6 +35,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	TitlePilot                           *TitlePilotConfig                         `json:"titlePilot,omitempty"`
 	ChannelCredentials                   *ChannelCredentialsConfig                 `json:"channelCredentials,omitempty"`
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
 	Fulfillment                          *FulfillmentConfig                        `json:"fulfillment,omitempty"`
@@ -617,6 +618,9 @@ func (cfg *Config) validate() error {
 		if err := cfg.ProductAgent.validate(cfg); err != nil {
 			return err
 		}
+	}
+	if err := cfg.validateTitlePilot(); err != nil {
+		return err
 	}
 	if cfg.AIWorkbench != nil {
 		if err := cfg.AIWorkbench.validate(cfg); err != nil {
