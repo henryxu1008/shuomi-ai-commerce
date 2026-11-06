@@ -42,6 +42,9 @@ try {
         $rawImage = & docker image inspect $image
         if ($LASTEXITCODE -ne 0) { throw "$item image inspection failed." }
         $inspection = @($rawImage | ConvertFrom-Json)[0]
+        if ($inspection.Id -isnot [string] -or $inspection.Id -cnotmatch '\Asha256:[0-9a-f]{64}\z') {
+            throw 'Image ID must be a full sha256 digest.'
+        }
         if ($inspection.Config.Labels.'org.opencontainers.image.revision' -ne $revision -or
             $inspection.Config.Labels.'org.opencontainers.image.tree' -ne $tree) { throw 'Image source labels do not match.' }
         if ($backend -and $inspection.Config.Labels.'io.shuomi.build.backend-target' -ne $BackendTarget) {
