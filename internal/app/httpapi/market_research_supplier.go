@@ -75,8 +75,10 @@ func (a researchSources) ReadSupplierOffer(ctx context.Context, scope collection
 	snapshot := published.Snapshot
 	channel := e.RawReference.Metadata["channel"]
 	canonical, err := sourcing.Canonical1688Source(e.Identity.SourceURL)
-	expectedProduct, expectedPublication, identityErr := sourcing.PublicationIdentity(e)
-	if err != nil || identityErr != nil || expectedProduct != r.ProductKey || expectedPublication != r.PublicationID || canonical != op.Source || canonical.OfferID != e.Identity.SourceID || e.Identity.SourcePlatform != "1688" ||
+	// The acquisition reader has verified the original command and receipt.
+	// Research consumes that identity without constructing a new publication.
+	if err != nil || op.Command.ProductKey != r.ProductKey || op.Command.PublicationID != r.PublicationID ||
+		canonical != op.Source || canonical.OfferID != e.Identity.SourceID || e.Identity.SourcePlatform != "1688" ||
 		e.Identity.SourceType != sourcing.SourceTypeCrawler || e.Trace.SourceRunID != "acquisition:"+op.ID ||
 		e.RawReference.ReferenceType != "acquisition_evidence_v1" || e.RawReference.ReferenceID != canonical.OfferID ||
 		(channel != sourcing.AcquisitionChannelPublicHTTP && channel != sourcing.AcquisitionChannelPublicBrowser) ||
