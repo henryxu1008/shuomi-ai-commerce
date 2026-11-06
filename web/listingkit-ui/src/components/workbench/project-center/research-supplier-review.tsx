@@ -45,6 +45,7 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
   const [reason, setReason] = useState("");
   const [comparisons, setComparisons] = useState<Comparison[]>([initialComparison]);
   const [busy, setBusy] = useState(false);
+  const [missingReceipt, setMissingReceipt] = useState("");
   const [message, setMessage] = useState("");
   const lifetime = useRef<AbortController|null>(null);
   const reading = useRef<AbortController|null>(null);
@@ -108,7 +109,11 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
       setPreview(result);
       if (result.offer.variants.length === 1) setSkuId(result.offer.variants[0].id);
     } catch (error) {
-      if (!read.signal.aborted) setMessage(statusMessage(error));
+      if (!read.signal.aborted) {
+        setPage(null);
+        setOperation(null);
+        setMessage(statusMessage(error));
+      }
     }
   }
 
@@ -116,13 +121,16 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     const controller = lifetime.current;
     if (!controller || controller.signal.aborted || writing.current || !canWrite) return;
     const pointer = {key:intent.key};
+    let recovering = false;
     try {
+      recovering = pending.read()?.key === pointer.key;
       pending.persist(pointer);
     } catch {
       setMessage("无法保存原请求编号，请检查浏览器设置。");
       return;
     }
     setOperation(intent);
+    setMissingReceipt("");
     reading.current?.abort();
     writing.current = true;
     setBusy(true);
@@ -140,9 +148,9 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
       clearDraft();
       setPage(null);
       if (error instanceof ResearchError && ["INVALID_REQUEST","REVISION_CONFLICT","PROJECT_ARCHIVED","SOURCE_NOT_SUPPORTED","FORBIDDEN","NOT_FOUND"].includes(error.code)) {
-        pending.clear(pointer);
         setOperation(null);
-        setMessage(statusMessage(error));
+        if (!recovering) pending.clear(pointer);
+        setMessage(recovering ? statusMessage(error) + "请查询原请求确认保存结果。" : statusMessage(error));
       } else {
         setMessage("保存结果暂未确认，请查询原请求。");
       }
@@ -160,6 +168,7 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     writing.current = true;
     setBusy(true);
     setMessage("");
+    setMissingReceipt("");
     try {
       await researchRequest(scope, projectId, researchReceipt, controller.signal, {lookup:pointer.key});
       if (controller.signal.aborted) return;
@@ -168,7 +177,9 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
       onSaved();
     } catch (error) {
       if (controller.signal.aborted) return;
-      setMessage(error instanceof ResearchError && error.code === "NOT_FOUND" ? "暂未查到原请求的结果。" : statusMessage(error));
+      const notFound = error instanceof ResearchError && error.code === "NOT_FOUND";
+      if (notFound) setMissingReceipt(pointer.key);
+      setMessage(notFound ? "暂未查到原请求的结果。" : statusMessage(error));
       if (error instanceof ResearchError && error.code === "FORBIDDEN") { setOperation(null); clearDraft(); setPage(null); }
     } finally {
       writing.current = false;
@@ -199,7 +210,7 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     {pending.error && <p role="alert">原请求编号暂时无法读取，请检查浏览器设置后刷新。</p>}
     {pending.command && <div className="flex flex-wrap gap-2">
       <Button type="button" variant="outline" disabled={busy} onClick={() => void lookup()}>查询货源核对原请求</Button>
-      {canWrite && operation?.key === pending.command.key &&
+      {canWrite && operation?.key === pending.command.key && missingReceipt === pending.command.key &&
         <Button type="button" variant="outline" disabled={busy} onClick={() => {if (operation) void submit(operation);}}>按原请求重试</Button>}
     </div>}
     {message && <p role="status">{message}</p>}

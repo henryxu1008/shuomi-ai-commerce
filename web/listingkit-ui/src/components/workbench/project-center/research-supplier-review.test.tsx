@@ -81,6 +81,51 @@ it("submits an exact SKU and original evidence, then masks a previously visible 
   expect(screen.queryByText(/蓝色 · blue · 20 件/)).not.toBeInTheDocument();
 });
 
+it("removes the open history when a new preview reports access loss", async () => {
+  request.mockImplementation(async (_scope,_project,schema) => {
+    if (schema === supplierReviewPreview) throw new ResearchError("FORBIDDEN",403);
+    return {items:[{current:true,detail}]};
+  });
+  render(panel());
+  expect(await screen.findByText("人工理由："+reason)).toBeVisible();
+  fireEvent.click(screen.getByRole("button",{name:"选择已收藏的 1688 货源"}));
+  fireEvent.click(screen.getByRole("button",{name:"选合成货源"}));
+  expect(await screen.findByText("原资料当前不可查看。")).toBeVisible();
+  expect(screen.queryByText("人工理由："+reason)).not.toBeInTheDocument();
+  expect(screen.queryByText(/蓝色 · blue · 20 件/)).not.toBeInTheDocument();
+});
+
+it("keeps the original receipt key if a retry is denied before the original outcome is known", async () => {
+  const posted:string[] = [];
+  request.mockImplementation(async (_scope,_project,schema,_signal,options) => {
+    if (schema === supplierReviewPreview) return offer;
+    if (schema === supplierReviewPage) return {items:[{current:true,detail}]};
+    if (options?.intent) {
+      posted.push(options.intent.key);
+      if (posted.length === 1) throw new ResearchError("OUTCOME_UNKNOWN",503);
+      throw new ResearchError("FORBIDDEN",403);
+    }
+    expect(options?.lookup).toBe(posted[0]);
+    if (posted.length === 1) throw new ResearchError("NOT_FOUND",404);
+    return {key:posted[0],candidateIds:[fixtures.candidate],revisions:{[fixtures.candidate]:8},replayed:true};
+  });
+  const onSaved = vi.fn();
+  render(panel(onSaved));
+  expect(await screen.findByText("人工理由："+reason)).toBeVisible();
+  await fill();
+  await screen.findByText("保存结果暂未确认，请查询原请求。");
+  expect(screen.queryByRole("button",{name:"按原请求重试"})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"查询货源核对原请求"}));
+  fireEvent.click(await screen.findByRole("button",{name:"按原请求重试"}));
+  await screen.findByText(/原资料当前不可查看/);
+  expect(posted).toEqual([posted[0],posted[0]]);
+  expect(JSON.parse(sessionStorage.getItem(sessionStorage.key(0) ?? "") ?? "null")).toEqual({key:posted[0]});
+  expect(screen.queryByText("人工理由："+reason)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"按原请求重试"})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"查询货源核对原请求"}));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+});
+
 it("recovers a lost response after reload using only the original request key", async () => {
   let key = "";
   request.mockImplementation(async (_scope,_project,schema,_signal,options) => {
