@@ -5,7 +5,7 @@ export type ConsoleNavNode = { label: string; href: string; availability: "conne
 export const onlineAcquisitionGroup = "/workbench/supply#acquisition";
 export const acquisition1688Href = "/workbench/supply/acquisition";
 export const amazonRealtimeAcquisitionAnchor = "amazon-realtime-acquisition";
-export const amazonRealtimeAcquisitionHref = `/workbench/data/market#${amazonRealtimeAcquisitionAnchor}`;
+export const amazonRealtimeAcquisitionHref = `/workbench/data/market?focus=${amazonRealtimeAcquisitionAnchor}`;
 const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow => ({
   label: workflow.label, href: workflow.root, availability: "unavailable",
   children: workflow.phases.map(phase => ({

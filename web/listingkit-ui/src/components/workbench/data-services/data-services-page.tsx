@@ -43,8 +43,9 @@ export function DataNotice({ error }: {
     error: string;
 }) { return error ? <p role="alert" className="rounded-lg border border-warning-foreground bg-warning p-3 text-sm text-warning-foreground">{workbenchFailureNames[error] ?? failureNames[error] ?? "请求未完成，请刷新或核实原请求。"}</p> : null; }
 function download(value: unknown, name: string) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); }
-export function DataServicesPage({ mode }: {
+export function DataServicesPage({ mode, focusRealtime = false }: {
     mode: "market" | "api";
+    focusRealtime?: boolean;
 }) {
     const context = useWorkbenchContext();
     const userId = context.user?.id, organizationId = context.effectiveOrganization?.id;
@@ -53,7 +54,7 @@ export function DataServicesPage({ mode }: {
         return <p className="p-8" role="status">正在确认当前企业…</p>;
     if (!scope || context.selectionRequired || context.error || context.blockingError)
         return <p className="p-8" role="alert">请先确认登录身份与当前企业。</p>;
-    return mode === "market" ? <Market key={`${userId}:${organizationId}`} scope={scope}/> : <APIManagement key={`${userId}:${organizationId}`} scope={scope}/>;
+    return mode === "market" ? <Market key={`${userId}:${organizationId}`} scope={scope} focusRealtime={focusRealtime}/> : <APIManagement key={`${userId}:${organizationId}`} scope={scope}/>;
 }
 function Frame({ title, subtitle, actions, children, className = "" }: {
     title: string;
@@ -73,8 +74,9 @@ function Recovery({ command, onRecovered }: {
                     onRecovered(value, path);
             }}>核实／继续原请求</Button></div> : null}</>;
 }
-function Market({ scope }: {
+function Market({ scope, focusRealtime }: {
     scope: DataScope;
+    focusRealtime: boolean;
 }) {
     const [options, setOptions] = useState<DataOptions | null>(null), [jobs, setJobs] = useState<DataJob[] | null>(null), [customs, setCustoms] = useState<z.infer<typeof customSummarySchema>[] | null>(null), [jobsError, setJobsError] = useState(""), [customsError, setCustomsError] = useState(""), [error, setError] = useState("");
     const [dialog, setDialog] = useState<"realtime" | "custom" | null>(null), [job, setJob] = useState<DataJob | null>(null), [custom, setCustom] = useState<CustomRequest | null>(null), [refresh, setRefresh] = useState(0);
@@ -82,11 +84,11 @@ function Market({ scope }: {
     const { registerOrganizationSwitchGuard } = useWorkbenchContext();
     useEffect(() => registerOrganizationSwitchGuard(() => !command.pending && !command.busy), [registerOrganizationSwitchGuard, command.pending, command.busy]);
     useEffect(() => {
-        if (window.location.hash !== `#${amazonRealtimeAcquisitionAnchor}`) return;
+        if (!focusRealtime) return;
         const target = document.getElementById(amazonRealtimeAcquisitionAnchor);
         target?.focus({ preventScroll: true });
         target?.scrollIntoView?.({ block: "start" });
-    }, []);
+    }, [focusRealtime]);
     useEffect(() => {
         const controller = new AbortController();
         dataRequest(scope, "options", optionsSchema, undefined, controller.signal).then(value => {
