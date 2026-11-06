@@ -14,6 +14,24 @@ const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B0
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 describe("data service product paths", () => {
+    it("focuses the existing Amazon realtime card from the online acquisition link without submitting", async () => {
+        const originalURL = window.location.href;
+        window.history.replaceState(null, "", "/workbench/data/market#amazon-realtime-acquisition");
+        try {
+            const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));
+            vi.stubGlobal("fetch", requests);
+            render(<DataServicesPage mode="market"/>);
+            const start = screen.getByRole("button", { name: "配置实时抓取" });
+            await waitFor(() => expect(start).toBeEnabled());
+            const target = document.getElementById("amazon-realtime-acquisition");
+            expect(target).toContainElement(start);
+            expect(target).toHaveFocus();
+            expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+            expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+        } finally {
+            window.history.replaceState(null, "", originalURL);
+        }
+    });
     it("explains missing data permissions and keeps all acquisition actions closed without creating a request", async () => {
         const requests = vi.fn(async () => json({ error: { code: "PERMISSION_DENIED" } }, 403));
         vi.stubGlobal("fetch", requests);

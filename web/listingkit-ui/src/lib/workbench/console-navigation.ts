@@ -2,6 +2,10 @@
 import { researchWorkflows } from "./research-navigation";
 import { listingHome, listingStages } from "./listing-navigation";
 export type ConsoleNavNode = { label: string; href: string; availability: "connected" | "unavailable"; children?: readonly ConsoleNavNode[]; disclosureOnly?: boolean };
+export const onlineAcquisitionGroup = "/workbench/supply#acquisition";
+export const acquisition1688Href = "/workbench/supply/acquisition";
+export const amazonRealtimeAcquisitionAnchor = "amazon-realtime-acquisition";
+export const amazonRealtimeAcquisitionHref = `/workbench/data/market#${amazonRealtimeAcquisitionAnchor}`;
 const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow => ({
   label: workflow.label, href: workflow.root, availability: "unavailable",
   children: workflow.phases.map(phase => ({
@@ -19,7 +23,10 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
   ]),
   ...researchMenus,
   pending("供应市场", "supply", [
-    { label: "1688采集", href: "/workbench/supply/acquisition", availability: "connected" },
+    { label: "在线采集", href: onlineAcquisitionGroup, availability: "connected", disclosureOnly: true, children: [
+      { label: "1688 在线采集", href: acquisition1688Href, availability: "connected" },
+      { label: "Amazon 在线采集", href: amazonRealtimeAcquisitionHref, availability: "connected" },
+    ] },
     pending("硕米自营", "supply/official"), pending("硕米优选", "supply/selected"), pending("货盘集成", "supply/catalogs", [pending("货盘选品", "supply/catalogs/selection"), pending("申请对接", "supply/catalogs/apply")]), pending("优选申请", "supply/applications", [pending("发起申请", "supply/applications/new"), pending("申请进度", "supply/applications/progress"), pending("申请记录", "supply/applications/records")]),
   ]),
   pending("智能市场", "agents", [{label:"智能体市场",href:"/workbench/agents/market",availability:"connected"},{label:"我的智能体",href:"/workbench/agents/mine",availability:"connected"},{label:"智能体定制",href:"/workbench/agents/custom",availability:"connected",children:[{label:"提交定制需求",href:"/workbench/agents/custom/new",availability:"connected"},{label:"定制进度",href:"/workbench/agents/custom/progress",availability:"connected"}]}]),
@@ -171,7 +178,7 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     return { node, trail: [...parent.trail, node] };
   }
   if (/^\/workbench\/supply\/acquisition\/operation\/[0-9a-f-]+$/.test(pathname)) {
-    const parent = findConsoleRoute("/workbench/supply/acquisition")!;
+    const parent = findConsoleRoute(acquisition1688Href)!;
     const node: ConsoleNavNode = { label: "采集结果", href: pathname, availability: "connected" };
     return { node, trail: [...parent.trail, node] };
   }
