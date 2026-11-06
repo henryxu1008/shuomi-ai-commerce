@@ -29,7 +29,7 @@ function statusMessage(error:unknown) {
 }
 
 export function ResearchSupplierReview({scope, projectId, candidateId, canWrite, onSaved}:{
-  scope:ProjectScope; projectId:string; candidateId:string; canWrite:boolean; onSaved:()=>void;
+  scope:ProjectScope; projectId:string; candidateId:string; canWrite:boolean; onSaved:(revision?:number,before?:number)=>void;
 }) {
   const pending = useResourcePending(
     {expectedUserId:scope.userId, expectedOrganizationId:scope.organizationId},
@@ -136,13 +136,13 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     setBusy(true);
     setMessage("");
     try {
-      await researchRequest(scope, projectId, researchReceipt, controller.signal, {intent});
+      const receipt=await researchRequest(scope, projectId, researchReceipt, controller.signal, {intent});
       if (controller.signal.aborted) return;
       pending.clear(pointer);
       setOperation(null);
       clearDraft();
       setMessage("已保存货源核对。");
-      onSaved();
+      onSaved(receipt.revisions[candidateId],intent.body.expectedRevision);
     } catch (error) {
       if (controller.signal.aborted) return;
       clearDraft();
@@ -170,11 +170,11 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     setMessage("");
     setMissingReceipt("");
     try {
-      await researchRequest(scope, projectId, researchReceipt, controller.signal, {lookup:pointer.key});
+      const receipt=await researchRequest(scope, projectId, researchReceipt, controller.signal, {lookup:pointer.key});
       if (controller.signal.aborted) return;
       pending.clear(pointer);
       setOperation(null);
-      onSaved();
+      onSaved(receipt.revisions[candidateId],operation?.key===pointer.key?operation.body.expectedRevision:undefined);
     } catch (error) {
       if (controller.signal.aborted) return;
       const notFound = error instanceof ResearchError && error.code === "NOT_FOUND";

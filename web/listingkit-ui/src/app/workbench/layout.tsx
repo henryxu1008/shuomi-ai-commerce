@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import {ResearchHandoffProvider} from "@/components/workbench/project-center/research-handoff-provider";
 
 export const metadata: Metadata = {
   title: "工作台 | 硕米智能引擎",
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function WorkbenchLayout({ children }: { children: ReactNode }) {
-  return children;
+  return <ResearchHandoffProvider>{children}</ResearchHandoffProvider>;
 }

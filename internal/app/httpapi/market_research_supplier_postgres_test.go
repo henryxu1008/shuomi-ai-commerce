@@ -22,12 +22,14 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	keystore "task-processor/internal/integration/persistence/dataservice"
+	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
 	researchstore "task-processor/internal/integration/persistence/product/research"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 	"task-processor/internal/product/research"
@@ -38,10 +40,10 @@ import (
 type fixture1688Provider struct{}
 
 func (fixture1688Provider) Acquire(_ context.Context, source sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error) {
-	title, sku := "Fixture supplier original", "sku-blue-01"
+	title, sku := "Fixture supplier original", "sku-adjustable-white-01"
 	return sourcing.AcquisitionEvidence{
 		SchemaVersion: 1, SourceURL: source.URL, OfferID: source.OfferID, Title: &title,
-		Variants:      []sourcing.AcquisitionVariant{{SourceID: &sku, Attributes: []sourcing.AcquisitionAttribute{{Name: "pack", Value: "2 pieces"}}}},
+		Variants:      []sourcing.AcquisitionVariant{{SourceID: &sku, Attributes: []sourcing.AcquisitionAttribute{{Name: "width", Value: "40–55 cm"}}}},
 		ContentSHA256: strings.Repeat("a", 64), CapturedAt: time.Now().UTC(), ParserVersion: "synthetic-v1",
 	}, nil
 }
@@ -74,7 +76,7 @@ func (fixture1688Charges) Reconcile(context.Context, orgresource.ConsumerChargeI
 	return orgresource.ConsumerChargeReceipt{}, nil
 }
 
-func publishResearchAmazonFixture(t *testing.T, ctx context.Context, db *gorm.DB, access *sheinResearchAccess) collection.Source {
+func publishResearchAmazonFixture(t *testing.T, ctx context.Context, db *gorm.DB, access *sheinResearchAccess, keyword string, samples ...dataacquisition.Evidence) map[string]collection.Source {
 	t.Helper()
 	publisher, err := dataservicesapp.NewProductPublisher(access)
 	require.NoError(t, err)
@@ -82,28 +84,35 @@ func publishResearchAmazonFixture(t *testing.T, ctx context.Context, db *gorm.DB
 		return nil, dataacquisition.ErrUnavailable
 	})
 	require.NoError(t, err)
-	q := dataacquisition.Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1}
+	q := dataacquisition.Query{Site: "us", Mode: "keyword", Keyword: keyword, Limit: 5, Fields: []string{"attributes", "price", "currency"}}
+	asins := make([]string, 0, len(samples))
+	evidenceByASIN := make(map[string]dataacquisition.Evidence, len(samples))
+	for _, sample := range samples {
+		asins = append(asins, sample.ASIN)
+		evidenceByASIN[sample.ASIN] = sample
+	}
 	job, err := repo.Admit(ctx, dataacquisition.Principal{Scope: access.scope}, uuid.NewString(), q, orgresource.FundingMember)
 	require.NoError(t, err)
-	job, err = repo.Discover(ctx, job, q.ASINs)
+	job, err = repo.Discover(ctx, job, asins)
 	require.NoError(t, err)
 	items, err := repo.Items(ctx, job)
 	require.NoError(t, err)
-	require.Len(t, items, 1)
-	item := items[0]
-	intent, err := repo.ChargeIntent(ctx, orgresource.ConsumerChargeIdentity{OrganizationID: access.scope.OrganizationID, Consumer: orgresource.ConsumerAmazonData, OperationID: item.ID})
-	require.NoError(t, err)
-	_, err = repo.BindReservation(ctx, job, item.ID, orgresource.ConsumerChargeReceipt{Intent: intent, ReservationID: uuid.NewString(), State: orgresource.ReservationReserved})
-	require.NoError(t, err)
-	item, err = repo.Claim(ctx, job, item.ID)
-	require.NoError(t, err)
-	item, err = repo.PrepareEvidence(ctx, job, item, dataacquisition.Evidence{Site: "us", ASIN: item.ASIN, Title: "Fixture Amazon original",
-		MainImage: "https://m.media-amazon.com/images/I/fixture.jpg", Availability: "available", Price: 10, Currency: "USD",
-		CapturedAt: time.Now().UTC().Format(time.RFC3339Nano), ParserVersion: "amazon-v1", Attributes: map[string]string{"pack": "1 piece"}})
-	require.NoError(t, err)
-	item, err = repo.Publish(ctx, job, item)
-	require.NoError(t, err)
-	return *item.Source
+	require.Len(t, items, len(samples))
+	sources := make(map[string]collection.Source, len(samples))
+	for _, item := range items {
+		intent, err := repo.ChargeIntent(ctx, orgresource.ConsumerChargeIdentity{OrganizationID: access.scope.OrganizationID, Consumer: orgresource.ConsumerAmazonData, OperationID: item.ID})
+		require.NoError(t, err)
+		_, err = repo.BindReservation(ctx, job, item.ID, orgresource.ConsumerChargeReceipt{Intent: intent, ReservationID: uuid.NewString(), State: orgresource.ReservationReserved})
+		require.NoError(t, err)
+		item, err = repo.Claim(ctx, job, item.ID)
+		require.NoError(t, err)
+		item, err = repo.PrepareEvidence(ctx, job, item, evidenceByASIN[item.ASIN])
+		require.NoError(t, err)
+		item, err = repo.Publish(ctx, job, item)
+		require.NoError(t, err)
+		sources[item.ASIN] = *item.Source
+	}
+	return sources
 }
 
 func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
@@ -119,7 +128,7 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	for _, install := range []func(*gorm.DB) error{productsourcing.InstallAcquisitionSchema, collectionstore.InstallSchema, keystore.InstallSchema, keystore.InstallCustomSchema, jobstore.InstallSchema, researchstore.InstallSchema} {
+	for _, install := range []func(*gorm.DB) error{productsourcing.InstallAcquisitionSchema, collectionstore.InstallSchema, keystore.InstallSchema, keystore.InstallCustomSchema, jobstore.InstallSchema, researchstore.InstallSchema, preparationstore.InstallSchema} {
 		require.NoError(t, install(db))
 	}
 	require.NoError(t, db.Exec("CREATE ROLE product_research_runtime LOGIN PASSWORD 'fixture-runtime'; REVOKE CREATE ON SCHEMA public FROM PUBLIC").Error)
@@ -139,7 +148,17 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	require.NoError(t, err)
 	acquired, err := producer.Acquire(ctx, uuid.NewString(), "https://detail.1688.com/offer/981645030344.html")
 	require.NoError(t, err)
-	amazon := publishResearchAmazonFixture(t, ctx, db, access)
+	sample := func(asin, title, width, installation string, price float64) dataacquisition.Evidence {
+		return dataacquisition.Evidence{Site: "us", ASIN: asin, Title: title,
+			MainImage: "https://m.media-amazon.com/images/I/fixture.jpg", Availability: "available", Price: price, Currency: "USD",
+			CapturedAt: time.Now().UTC().Format(time.RFC3339Nano), ParserVersion: "amazon-v1",
+			Attributes: map[string]string{"width": width, "installation": installation, "pack": "1 piece"}}
+	}
+	a := sample("B000123456", "Adjustable under sink organizer", "38–55 cm", "no drilling", 29.99)
+	b := sample("B000123457", "Fixed under sink organizer", "42 cm", "requires drilling", 24.99)
+	previous := publishResearchAmazonFixture(t, ctx, db, access, "under sink shelf", a)[a.ASIN]
+	publishResearchAmazonFixture(t, ctx, db, access, "under sink rack", a)
+	amazon := publishResearchAmazonFixture(t, ctx, db, access, "under sink organizer", a, b)
 	sourceReader, err := productsourcing.NewPublishedAcquisitionReader(ctx, db, roles, permissions)
 	require.NoError(t, err)
 	cr, err := collectionstore.NewRepository(ctx, db, func(*gorm.DB) (collectionstore.OwnPublisher, error) { return nil, collection.ErrUnavailable })
@@ -151,25 +170,33 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	cs.WithSnapshots(snapshots)
 	batches, err := cr.ListBatches(ctx, scope, collection.Query{Limit: 10})
 	require.NoError(t, err)
-	require.Len(t, batches.Items, 2)
+	require.Len(t, batches.Items, 4)
 	var saved []collection.Item
 	for _, batch := range batches.Items {
 		items, err := cr.ListItems(ctx, scope, batch.ID, collection.Query{Limit: 10})
 		require.NoError(t, err)
 		saved = append(saved, items.Items...)
 	}
-	require.Len(t, saved, 2)
-	var market, supplier research.Selection
+	require.Len(t, saved, 5)
+	var market, alternative, oldMarket, supplier research.Selection
+	var marketBatchID string
 	for _, item := range saved {
 		sel := research.Selection{ItemID: item.ID, Revision: item.Revision, PublicationID: item.Source.PublicationID, Version: item.Source.Version}
-		if item.Source == amazon {
-			market = sel
-		}
-		if item.Source.PublicationID == acquired.Publication.Receipt.PublicationID {
+		switch {
+		case item.Source == amazon[a.ASIN]:
+			market, marketBatchID = sel, item.BatchID
+		case item.Source == amazon[b.ASIN]:
+			alternative = sel
+		case item.Source == previous:
+			oldMarket = sel
+		case item.Source.PublicationID == acquired.Publication.Receipt.PublicationID:
 			supplier = sel
 		}
 	}
 	require.True(t, research.ValidSelection(market))
+	require.EqualValues(t, 3, market.Version)
+	require.EqualValues(t, 1, alternative.Version)
+	require.True(t, research.ValidSelection(oldMarket))
 	require.True(t, research.ValidSupplierSelection(supplier))
 	data, err := dataservicesapp.NewModule(ctx, dataservicesapp.Dependencies{ProductDB: db, Access: access, Live: access, Specialist: access})
 	require.NoError(t, err)
@@ -188,23 +215,116 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	svc := research.New(repo, sheinResearchProject{access}, sources)
 	svc.SupplierSources = sources
 	svc.SupplierExpiry = supplierEvidenceExpiry
-	linked, err := svc.Execute(ctx, scope, access.project, uuid.NewString(), research.Command{Action: "link", Selections: []research.Selection{market}})
+	link := func(selections ...research.Selection) research.Receipt {
+		t.Helper()
+		receipt, err := svc.Execute(ctx, scope, access.project, uuid.NewString(), research.Command{Action: "link", Selections: selections})
+		require.NoError(t, err)
+		return receipt
+	}
+	candidate := func(id string) research.CandidateView {
+		t.Helper()
+		page, err := svc.List(ctx, scope, access.project, "")
+		require.NoError(t, err)
+		for _, row := range page.Items {
+			if row.ID == id {
+				return row
+			}
+		}
+		t.Fatalf("missing candidate %s", id)
+		return research.CandidateView{}
+	}
+	approve := func(row research.CandidateView) {
+		t.Helper()
+		receipt, err := svc.Execute(ctx, scope, access.project, uuid.NewString(), research.Command{
+			Action: "review", CandidateID: row.ID, ExpectedRevision: row.Revision, EvidenceDigest: row.EvidenceDigest,
+		})
+		require.NoError(t, err)
+		_, err = svc.Execute(ctx, scope, access.project, uuid.NewString(), research.Command{
+			Action: "decide", CandidateID: row.ID, ExpectedRevision: receipt.Revisions[row.ID], EvidenceDigest: row.EvidenceDigest,
+			State: "APPROVED_FOR_TEST", Reason: "fixture evidence accepted",
+		})
+		require.NoError(t, err)
+	}
+	id := link(oldMarket).CandidateIDs[0]
+	approve(candidate(id))
+	oldDecision := candidate(id).History[0]
+	require.Equal(t, "APPROVED_FOR_TEST", oldDecision.State)
+	link(market, alternative)
+	current := candidate(id)
+	require.Equal(t, oldMarket.PublicationID, current.Observation.Ref.Selection.PublicationID)
+	require.Equal(t, "APPROVED_FOR_TEST", current.State)
+	var linkID string
+	for _, evidence := range current.Evidence {
+		if evidence.Observation != nil && evidence.Observation.Ref.Selection == market {
+			linkID = evidence.ID
+		}
+	}
+	require.NotEmpty(t, linkID)
+	_, err = svc.Execute(ctx, scope, access.project, uuid.NewString(), research.Command{
+		Action: "select", CandidateID: id, ExpectedRevision: current.Revision, LinkID: linkID,
+	})
 	require.NoError(t, err)
-	id := linked.CandidateIDs[0]
+	current = candidate(id)
+	require.Equal(t, "TO_RESEARCH", current.State)
+	require.Equal(t, "under sink organizer", current.Observation.Query.Keyword)
+	require.NotNil(t, current.Observation.Price)
+	require.Equal(t, 29.99, *current.Observation.Price)
+	require.Equal(t, market, current.Observation.Ref.Selection)
+	require.Contains(t, current.History, oldDecision)
 	preview, err := svc.SupplierPreview(ctx, scope, access.project, id, supplier)
 	require.NoError(t, err)
 	require.Len(t, preview.Offer.Variants, 1)
-	require.Equal(t, "1 piece", preview.Market.Attributes["pack"])
-	require.Equal(t, "sku-blue-01", preview.Offer.Variants[0].ID)
+	require.Equal(t, "38–55 cm", preview.Market.Attributes["width"])
+	require.Equal(t, "sku-adjustable-white-01", preview.Offer.Variants[0].ID)
 	cmd := research.Command{Action: research.RecordSupplierReview, CandidateID: id, ExpectedRevision: preview.Revision, LinkID: preview.LinkID, EvidenceDigest: preview.EvidenceDigest,
-		Supplier: &research.SupplierInput{Selection: supplier, SKUID: "sku-blue-01", Quantity: 20, Unit: "piece", Status: "CONFIRMED", Reason: "packaging differs",
-			Comparisons: []research.SupplierComparison{{MarketKey: "pack", SupplierKey: "pack", SupplierLevel: "sku", Result: "DIFFERENT"}}}}
+		Supplier: &research.SupplierInput{Selection: supplier, SKUID: "sku-adjustable-white-01", Quantity: 20, Unit: "piece", Status: "CONFIRMED", Reason: "minimum 40 cm accepted",
+			Comparisons: []research.SupplierComparison{{MarketKey: "width", SupplierKey: "width", SupplierLevel: "sku", Result: "DIFFERENT"}}}}
 	key := uuid.NewString()
 	_, err = svc.Execute(ctx, scope, access.project, key, cmd)
 	require.NoError(t, err)
 	replay, err := svc.Execute(ctx, scope, access.project, key, cmd)
 	require.NoError(t, err)
 	require.True(t, replay.Replayed)
+
+	approve(candidate(id))
+	require.Equal(t, "APPROVED_FOR_TEST", candidate(id).State)
+	page, err := svc.List(ctx, scope, access.project, "")
+	require.NoError(t, err)
+	require.Len(t, page.Items, 2)
+	for _, row := range page.Items {
+		if row.ID != id {
+			require.Equal(t, alternative, row.Observation.Ref.Selection)
+			require.NotNil(t, row.Observation.Price)
+			require.Equal(t, 24.99, *row.Observation.Price)
+			require.Equal(t, "TO_RESEARCH", row.State)
+		}
+	}
+	originalBatch, err := cs.ReadBatch(ctx, marketBatchID)
+	require.NoError(t, err)
+	preparationRepo, err := preparationstore.NewRepository(ctx, db)
+	require.NoError(t, err)
+	preparations, err := preparation.NewService(preparationRepo, cs, access)
+	require.NoError(t, err)
+	transferKey := uuid.NewString()
+	input := preparation.TransferInput{
+		BatchID: marketBatchID, ExpectedRevision: originalBatch.Revision, ItemIDs: []string{market.ItemID},
+	}
+	transfer, err := preparations.Transfer(ctx, transferKey, input)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, transfer.Preparation.Count)
+	found, err := preparations.ReadByKey(ctx, transferKey)
+	require.NoError(t, err)
+	require.Equal(t, transfer.Preparation, found.Preparation)
+	repeated, err := preparations.Transfer(ctx, transferKey, input)
+	require.NoError(t, err)
+	require.True(t, repeated.Replayed)
+	require.Equal(t, found.Preparation, repeated.Preparation)
+	originals, err := preparations.ListSources(ctx, found.Preparation.ID, collection.Query{Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, originals.Items, 1)
+	require.Equal(t, market.ItemID, originals.Items[0].CollectionItemID)
+	require.Equal(t, amazon[a.ASIN], originals.Items[0].Source)
+
 	batch, err := cs.Mutate(ctx, uuid.NewString(), collection.Mutation{Action: "create_batch", Name: "Moved originals"})
 	require.NoError(t, err)
 	for _, item := range []research.Selection{market, supplier} {
@@ -228,9 +348,9 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 		return rec.Body.String()
 	}
 	body := read()
-	require.Contains(t, body, "packaging differs")
-	require.Contains(t, body, "2 pieces")
-	require.Contains(t, body, "sku-blue-01")
+	require.Contains(t, body, "minimum 40 cm accepted")
+	require.Contains(t, body, "40–55 cm")
+	require.Contains(t, body, "sku-adjustable-white-01")
 	for _, denied := range []*bool{&roles.denied, &access.denied} {
 		*denied = true
 		require.JSONEq(t, `{"items":[{"current":true}]}`, read())

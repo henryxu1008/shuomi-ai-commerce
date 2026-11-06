@@ -10,7 +10,7 @@ import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecision
 import { SupplyAPIError } from "./supply-error";
 
 export type SupplyScope=CollectionScope;
-export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown }>;
+export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
  if(route==="cancel-upload-plan")return plans.uploadPlanCancelIntentSchema;
  if(route==="continue-upload-plan")return plans.uploadPlanContinueIntentSchema;
