@@ -175,16 +175,19 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	}
 	if !validTextFact(input.OrganizationID, 128) ||
 		!validTextFact(input.ActorID, 128) || !validTextFact(input.MemberID, 128) ||
-		(input.Operation != OperationAIWorkbenchChatPlan && input.Operation != OperationProductAgentDecision && input.Operation != OperationProductContentDecision && input.Operation != OperationListingMaterialsDecision && input.Operation != OperationProductResearchDecision && input.Operation != OperationProductSelectionDecision && input.Operation != OperationShopDiagnosisDecision && input.Operation != OperationProductImageAnalysis) ||
+		!SupportsObservedUsageFailure(input.Operation) ||
 		input.System == "" || input.Prompt == "" ||
 		!utf8.ValidString(input.System) || !utf8.ValidString(input.Prompt) {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	if input.Image != nil {
-		if input.Operation != OperationProductImageAnalysis || !input.Image.Valid() || !SingleImageProfile(input.Profile) {
+		if !VisionTextOperation(input.Operation) || !input.Image.Valid() || !SingleImageProfile(input.Profile) {
 			return TextQuote{}, ErrTextEnvelope
 		}
 	} else if input.Operation == OperationProductImageAnalysis || len(input.ImageContent) != 0 {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	if input.Operation == OperationOwnProductIntake && !SingleImageProfile(input.Profile) {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	if input.Operation == OperationAIWorkbenchChatPlan {

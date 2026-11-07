@@ -70,6 +70,9 @@ func (p TemplateInput) Valid() bool {
 }
 
 func ParameterSchemaForAgent(id string) string {
+	if id == OwnIntakeAgentID {
+		return OwnIntakeActionVersion
+	}
 	if id == DiagnosisAgentID {
 		return DiagnosisParameterSchema
 	}
@@ -97,7 +100,7 @@ func ParameterSchemaForAgent(id string) string {
 func (p TemplateInput) ValidForAgent(id string) bool {
 	// Selection v1 uses its explicit per-run objective; no other Agent's
 	// template schema or default may become its execution configuration.
-	if id == SelectionAgentID || id == DiagnosisAgentID || id == ResearchAgentID {
+	if id == SelectionAgentID || id == DiagnosisAgentID || id == ResearchAgentID || id == OwnIntakeAgentID {
 		return false
 	}
 	if id == MaterialsAgentID {

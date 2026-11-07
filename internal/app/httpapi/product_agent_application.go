@@ -87,6 +87,7 @@ type ProductAgentInvocationLedger interface {
 type productAgentApplication struct {
 	workbenchScopes         *aiWorkbenchApplication
 	ownProducts             ownProductReader
+	ownIntake               *ownIntakeApplication
 	skills                  *skillstore.Store
 	materials               *listingMaterialsApplication
 	content                 *productAgentApplication

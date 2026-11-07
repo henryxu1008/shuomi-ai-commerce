@@ -73,7 +73,7 @@ func NewOrganizationRouteResolver(credentials credential.SecretReader, policies 
 	frozen := make(map[RouteKey]RoutePolicy, len(policies))
 	for key, policy := range policies {
 		if key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
-			(key.Operation != aicapability.OperationAIWorkbenchChatPlan && key.Operation != aicapability.OperationProductAgentDecision && key.Operation != aicapability.OperationProductContentDecision && key.Operation != aicapability.OperationListingMaterialsDecision && key.Operation != aicapability.OperationProductResearchDecision && key.Operation != aicapability.OperationProductSelectionDecision && key.Operation != aicapability.OperationShopDiagnosisDecision && key.Operation != aicapability.OperationProductImageAnalysis) ||
+			!aicapability.SupportsObservedUsageFailure(key.Operation) ||
 			policy.AdmittedEndpointIdentityDigest == "" {
 			return nil, ErrInvalid
 		}
@@ -168,7 +168,7 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 			p.MaximumPromptTokens == TitlePilotPromptTokens && p.MaximumCompletionTokens == TitlePilotCompletionTokens &&
 			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint)
 	}
-	if operation == aicapability.OperationProductImageAnalysis {
+	if aicapability.VisionTextOperation(operation) {
 		return aicapability.SingleImageProfileShape(p)
 	}
 	if aicapability.SingleImagePurpose(p.AdapterPolicyVersion) || p.ImagePromptTokenEstimate != 0 {

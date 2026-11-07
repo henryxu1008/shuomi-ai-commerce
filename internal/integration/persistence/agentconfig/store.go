@@ -377,7 +377,7 @@ func (s *Store) Execute(ctx context.Context, c agentconfig.Command, eligibility 
 		return agentconfig.Receipt{}, agentconfig.ErrPrecondition
 	}
 	if c.Default != nil {
-		if c.AgentID == agentconfig.SelectionAgentID || c.AgentID == agentconfig.DiagnosisAgentID || c.AgentID == agentconfig.ResearchAgentID {
+		if c.AgentID == agentconfig.SelectionAgentID || c.AgentID == agentconfig.DiagnosisAgentID || c.AgentID == agentconfig.ResearchAgentID || c.AgentID == agentconfig.OwnIntakeAgentID {
 			return agentconfig.Receipt{}, agentconfig.ErrInvalid
 		}
 		if !agentconfig.UUID(c.Default.TemplateID) {

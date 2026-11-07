@@ -52,7 +52,7 @@ func New(config Config) (*Runtime, error) {
 		}
 		validator = config.DomainValidator
 	}
-	for _, port := range []any{config.Model, config.Gateway, validator, config.Authorizer, config.Store} {
+	for _, port := range []any{config.Model, validator, config.Authorizer, config.Store} {
 		if nilPort(port) {
 			return nil, agent.ErrUnavailable
 		}
@@ -67,7 +67,8 @@ func New(config Config) (*Runtime, error) {
 		}
 		refs[ref] = true
 	}
-	if len(refs) == 0 || len(refs) != len(config.Tools) {
+	toolFree := config.SingleCallReadOnly && config.DomainProposalKind != "" && len(refs) == 0
+	if len(refs) != len(config.Tools) || (!toolFree && (len(refs) == 0 || nilPort(config.Gateway))) {
 		return nil, agent.ErrInvalid
 	}
 	tools := make(map[commercetool.ToolRef]commercetool.Definition)
@@ -82,7 +83,7 @@ func New(config Config) (*Runtime, error) {
 		tools[def.Ref] = def
 	}
 	if config.SingleCallReadOnly {
-		if len(config.PreReadTools) < 1 || len(config.PreReadTools) > 2 {
+		if (!toolFree && len(config.PreReadTools) < 1) || len(config.PreReadTools) > 2 {
 			return nil, agent.ErrInvalid
 		}
 		seen := map[commercetool.ToolRef]bool{}

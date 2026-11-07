@@ -42,3 +42,7 @@ Collection owner 发布时逐行产生 Catalog 的可空库存及 `OwnStockDecla
 ## 独立验收
 
 隔离环境注入受控模型响应，走实际图库、表单、API、Collection/Catalog 保存与读取。输入黑 M、黑 L、白 M 和公共图、白色专属图，确认仅三行。补齐每行 SKU、币种和价格，黑 M 填库存 0，黑 L 或白 M 留空。保存前核对公共图、白 M 专属图与库存显示，保存一次后刷新、重新打开详情及编辑逐项核对。覆盖重生成保持人工值、缺省与 0 的请求指纹和发布投影、现有导入和平台未声明库存路径。录入绑定验证准备、确认、原键回读均不需要商品 ID，同键改说明/选图返回冲突，换企业或成员拒绝，调用未知时无第二次发送。正式模型及真实试用另行验证。
+
+当前配置沿共享多模态路由消费 `product.own.intake.generate`，发布配置在 `productAgent.ownIntakePolicies` 声明该操作的独立配置。企业需启用「自有商品资料整理智能体」。没有当前路由、权限或额度时停止相应操作，现有手工录入仍可使用。
+
+现有 PostgreSQL 隔离测试入口为 `TestOwnIntakeHTTPAndIsolatedBrowser`。使用任务自有的 `ISSUE398_TEST_DSN`，并在前端依赖与 Chromium 已准备时设置 `OWN_INTAKE_BROWSER=1`，可运行同一测试的浏览器路径。该路径通过 Next 转发和真实上传、生成、保存与读取接口，注入受控模型响应和临时媒体存储。

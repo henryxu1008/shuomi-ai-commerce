@@ -7,7 +7,7 @@ export type Specification={id:string;name:string;values:string};
 export type ProductAttributeRow={id:string;name:string;value:string};
 export type VariantRow={id:string;attributes:Record<string,string>;sku:string;currency:string;price:string;stock:string;image:string;title?:string;originalImages?:string[];existing?:boolean;packaging?:Partial<Record<PackagingField,string>>};
 export function newVariantRow(attributes:Record<string,string>={}):VariantRow{return {id:crypto.randomUUID(),attributes,sku:"",currency:"",price:"",stock:"",image:""}}
-const comboKey=(attributes:Record<string,string>)=>JSON.stringify(Object.entries(attributes).sort(([a],[b])=>a.localeCompare(b)));
+export const variantCombinationKey=(attributes:Record<string,string>)=>JSON.stringify(Object.entries(attributes).sort(([a],[b])=>a.localeCompare(b)));
 function parseSpecifications(specs:Specification[]){
  const active=specs.filter(s=>s.name.trim()||s.values.trim());
  if(!active.length)throw new Error("请填写规格名称和值，例如颜色：红色、蓝色。");
@@ -22,10 +22,10 @@ export function specificationSignature(specs:Specification[]){try{return JSON.st
 export function buildVariantRows(specs:Specification[],prior:VariantRow[],imageCount=0,attributeCount=0):VariantRow[]{
  const dimensions=parseSpecifications(specs),count=dimensions.reduce((n,s)=>n*s.values.length,1);
  if(!Number.isSafeInteger(count)||count>256||count*(1+dimensions.length)+imageCount+attributeCount>1024)throw new Error("规格组合超过当前保存限制，请减少规格值。");
- const existing=new Map(prior.map(row=>[comboKey(row.attributes),row]));
+ const existing=new Map(prior.map(row=>[variantCombinationKey(row.attributes),row]));
  let combinations:Record<string,string>[]=[{}];
  for(const dimension of dimensions)combinations=combinations.flatMap(attrs=>dimension.values.map(v=>({...attrs,[dimension.name]:v})));
- const rows=combinations.map(attrs=>existing.get(comboKey(attrs))??newVariantRow(attrs));
+ const rows=combinations.map(attrs=>existing.get(variantCombinationKey(attrs))??newVariantRow(attrs));
  if(count*(1+dimensions.length)+imageCount+attributeCount+rows.reduce((sum,row)=>sum+variantImages(row).length,0)>1024)throw new Error("规格与已有变体图片超过当前保存限制，请减少组合或图片。");
  return rows;
 }

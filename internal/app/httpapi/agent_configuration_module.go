@@ -6,6 +6,7 @@ import (
 	"sort"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	"task-processor/internal/aicapability"
 	confighttp "task-processor/internal/agentconfig/httpapi"
 	"task-processor/internal/agentcustomization"
 	"task-processor/internal/authidentity"
@@ -53,6 +54,7 @@ func (productAgentCatalog) ReadCatalog(context.Context) ([]agentconfig.CatalogEn
 	d, _ := productTitleRegistration()
 	content, _ := contentagent.Registration()
 	entries := []agentconfig.CatalogEntry{
+		{Definition: agentconfig.OwnIntakeDefinition(), Name: "自有商品资料整理智能体", Description: "整理新增商品的文字、SKU 和图片候选，由用户核对后保存。", ParameterSchema: agentconfig.OwnIntakeActionVersion},
 		{Definition: researchinspect.AgentDefinition(), Name: "研究证据分析智能体", Description: "对同一研究项目明确选中的2–5项原观察生成有依据的研究建议，人工决定独立保存。", ParameterSchema: agentconfig.ResearchParameterSchema},
 		{Definition: diagnosisinspect.AgentDefinition(), Name: "店铺经营诊断智能体", Description: "选择店铺与周期，分析已录入财务与保存的平台观察，给出有事实引用的建议和缺失信息。", ParameterSchema: agentconfig.DiagnosisParameterSchema},
 		{Definition: selectioninspect.AgentDefinition(), Name: "选品对比智能体", Description: "比较2–5个真实已保存商品，给出有事实引用的选品建议和缺失信息，不采购或修改商品。", ParameterSchema: agentconfig.SelectionParameterSchema},
@@ -131,6 +133,17 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return nil
 	}
 	h.Capabilities = func(ctx context.Context, entry agentconfig.CatalogEntry) []agentconfig.Capability {
+		if entry.Definition.ID == agentconfig.OwnIntakeAgentID {
+			capability := agentconfig.Capability{ID: string(aicapability.OperationOwnProductIntake), Support: "REQUIRED", Readiness: "NEEDS_CONFIGURATION", Reason: "需要配置自有商品整理模型", ObservedAt: time.Now().UTC()}
+			if runtime != nil && runtime.ownIntake != nil {
+				id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+				if ok {
+					route, err := runtime.ownIntake.resolve(ctx, aicapability.TextInputIdentity{OrganizationID: id.EffectiveOrganizationID, Operation: aicapability.OperationOwnProductIntake})
+					if err == nil && agentconfig.OwnIntakeProfile(route.Profile) { capability.Readiness, capability.Reason = "AVAILABLE", "" }
+				}
+			}
+			return []agentconfig.Capability{capability}
+		}
 		if entry.Definition.ID == agentconfig.ResearchAgentID {
 			return marketResearchCapabilities(ctx, research)
 		}
@@ -171,6 +184,7 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return productAgentCapabilities(ctx, resolver, h.Authorize, k, runtime)
 	}
 	h.RunsAvailable = func(_ context.Context, entry agentconfig.CatalogEntry) bool {
+		if entry.Definition.ID == agentconfig.OwnIntakeAgentID { return false }
 		if entry.Definition.ID == agentconfig.ResearchAgentID {
 			return research != nil && research.store != nil && research.configuration != nil
 		}
