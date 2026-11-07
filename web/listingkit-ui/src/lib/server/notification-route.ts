@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { serverAuth } from "@/auth";
-import { readZitadelIdentityFromSession, readZitadelSessionError } from "./zitadel-auth";
+import { readZitadelIdentityFromSession, readZitadelSessionError, readZitadelSessionIssuerURL } from "./zitadel-auth";
 import { readZitadelServerAccessToken } from "./zitadel-server-token";
 import { notificationFailure, proxyNotifications } from "./notification-proxy";
 import { hasEmptyBody } from "./members-proxy";
+import { isNotificationCenterAvailable } from "./notification-availability";
 
 export async function handleNotificationRoute(request: NextRequest): Promise<Response> {
   const dispatch = { forwarded: false }, controller = new AbortController();
@@ -17,7 +18,13 @@ export async function handleNotificationRoute(request: NextRequest): Promise<Res
     const authenticated = serverAuth(async (req: NextRequest & { auth?: unknown }) => {
       const identity = readZitadelIdentityFromSession(req.auth as never), token = readZitadelServerAccessToken(req.auth as never);
       if (!identity?.userId || !token || readZitadelSessionError(req.auth as never)) return notificationFailure(401, "AUTHENTICATION_REQUIRED");
-      if (new URL(req.url).pathname === "/api/notifications/identity") {
+      const pathname = new URL(req.url).pathname;
+      if (pathname.startsWith("/api/notifications/platform/")) {
+        if (!isNotificationCenterAvailable()) return notificationFailure(503, "NOTIFICATION_UNAVAILABLE");
+        const realm = readZitadelSessionIssuerURL(req.auth as never);
+        if (!realm || req.headers.get("X-Expected-Notification-Realm") !== realm) return notificationFailure(409, "IDENTITY_CONTEXT_CHANGED");
+      }
+      if (pathname === "/api/notifications/identity") {
         if (req.method !== "GET" || new URL(req.url).search || req.url.endsWith("?") || !(await hasEmptyBody(req, controller.signal))) return notificationFailure(400, "INVALID_REQUEST");
         return Response.json({ userId: String(identity.userId) }, { headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
       }

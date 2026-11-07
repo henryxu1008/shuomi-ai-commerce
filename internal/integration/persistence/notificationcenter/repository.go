@@ -251,6 +251,49 @@ func (s *Store) Withdraw(ctx context.Context, scope notificationcenter.Scope, c 
 	})
 }
 
+func (s *Store) ListAnnouncements(ctx context.Context, scope notificationcenter.Scope, after string, limit int) (notificationcenter.AnnouncementPage, error) {
+	page := notificationcenter.AnnouncementPage{Items: []notificationcenter.AnnouncementSummary{}}
+	if !notificationcenter.ValidScope(scope) || scope.Category != notificationcenter.Official || limit < 1 || limit > 20 || after != "" && !notificationcenter.ValidKey(after) {
+		return page, notificationcenter.ErrInvalid
+	}
+	table := s.db.WithContext(ctx).Table("notification_center.announcements")
+	query := table.Select("id, revision, state, published_at, withdrawn_at, content->>'category' AS category, content->>'title' AS title").
+		Where("realm=?", scope.Realm)
+	if after != "" {
+		anchor := s.db.WithContext(ctx).Table("notification_center.announcements").
+			Select("published_at, id").Where("realm=? AND id=?", scope.Realm, after)
+		query = query.Where("(published_at, id) < (?)", anchor)
+	}
+	if err := query.Order("published_at DESC, id DESC").Limit(limit + 1).Find(&page.Items).Error; err != nil {
+		return notificationcenter.AnnouncementPage{}, unavailable(err)
+	}
+	if len(page.Items) > limit {
+		page.Items = page.Items[:limit]
+		page.Next = page.Items[limit-1].ID
+	}
+	return page, nil
+}
+
+func (s *Store) ReadAnnouncement(ctx context.Context, scope notificationcenter.Scope, id string) (notificationcenter.AnnouncementInput, error) {
+	var input notificationcenter.AnnouncementInput
+	if !notificationcenter.ValidScope(scope) || scope.Category != notificationcenter.Official || !notificationcenter.ValidKey(id) {
+		return input, notificationcenter.ErrInvalid
+	}
+	var row announcementRow
+	err := s.db.WithContext(ctx).Table("notification_center.announcements").Select("content").
+		Where("realm=? AND id=?", scope.Realm, id).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return input, notificationcenter.ErrNotFound
+	}
+	if err != nil {
+		return input, unavailable(err)
+	}
+	if json.Unmarshal(row.Content, &input) != nil || !notificationcenter.ValidAnnouncement(input) {
+		return notificationcenter.AnnouncementInput{}, notificationcenter.ErrUnavailable
+	}
+	return input, nil
+}
+
 // Announcements is a source backed only by notification-owned content.
 type Announcements struct{ Store *Store }
 

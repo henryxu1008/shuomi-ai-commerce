@@ -75,7 +75,9 @@ pnpm.cmd dev
 - `POST /api/v1/platform/notifications/official`，JSON 字段为 `category`（`PRODUCT`、`SYSTEM`、`ACTIVITY`、`POLICY`）、`title`、`summary`、`paragraphs`（纯文本数组）、`target`（例如 `{"kind":"home","id":""}`）。响应 `resultId` 是公告 ID。
 - `POST /api/v1/platform/notifications/official/{id}/withdraw`，JSON 为 `{"revision":1}`。撤回后不再可见；正文不可原地修改，纠正内容使用撤回后新发公告。
 
-凭据仅在私有客户端或服务器环境使用，不写入文档、浏览器组件或日志。公告读者为同一配置 issuer/realm 下的正常登录用户。后台发布界面不在本批范围。
+平台管理员也可从右上角「通知」→「查看全部通知」→「官方公告管理」进入网页。选择「新建公告」并填写内容，核对发送范围后发布。已发记录可查看正文、发布时间及撤回状态。撤回会让公告从收件人的通知中心消失，管理记录仍可查看。公告读者为同一配置 issuer/realm 下的所有已登录用户。命令结果待确认时使用「核实原操作」，网页会沿用原幂等键和提交内容。
+
+凭据仅在私有客户端或服务器环境使用，不写入文档、浏览器组件或日志。
 
 ## 覆盖与限制
 
