@@ -103,7 +103,7 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
   const router=useRouter();
   const [inspected,setInspected]=useState<{signature:string;inspection:ResearchInspection}|null>(null);
   const [requirements,setRequirements]=useState<ProductRequirements>(emptyRequirements);
-  const [representative,setRepresentative]=useState("");
+  const [representativeChoice,setRepresentativeChoice]=useState<{signature:string;candidateId:string}|null>(null);
   const [busyFor,setBusyFor]=useState("");
   const busy=busyFor===draft.id;
   const [error,setError]=useState("");
@@ -113,6 +113,7 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
   const signature=input.success && selected.every(candidate=>candidateMatchesJob(candidate,draft.job))?
     JSON.stringify([draft.job.id,after,input.data]):"";
   const inspection=signature && inspected?.signature===signature?inspected.inspection:null;
+  const representative=representativeChoice?.signature===signature?representativeChoice.candidateId:"";
   const range=inspection && opportunityPriceRange(inspection.candidates,representative);
   const facts=inspection?.candidates.flatMap(row=>specificationFacts(row).map(spec=>({...spec,asin:row.observation.asin})))??[];
   const missing=selected.flatMap(candidate=>candidate.observation?.missing??[]);
@@ -121,7 +122,7 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
     setRequirements(next);
   }
   async function check(confirm:boolean) {
-    if (blocked || read.current || !signature || !input.success) return;
+    if (blocked || read.current || !signature || !input.success || (confirm && !representative)) return;
     const base=store.getSnapshot();
     if (!base || base!==draft || !base.job.batchId) return;
     const controller=new AbortController();
@@ -171,7 +172,7 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
       </div>)}
       <label className="grid gap-1">代表候选<select className="rounded border bg-background p-2" value={representative} onChange={event=>{
         if (draft.confirmed) store.start(draft.scope,draft.projectId,draft.job);
-        setRepresentative(event.target.value);
+        setRepresentativeChoice({signature,candidateId:event.target.value});
       }}><option value="">请选择</option>{inspection.candidates.map(row=><option key={row.research.CandidateID} value={row.research.CandidateID}>{row.observation.asin}</option>)}</select></label>
       <p>{range?((draft.job.state==="IMPORTED"?"合成样本价 ":"样本展示价 ")+range.currency+" "+range.minimum.toFixed(2)+"–"+range.maximum.toFixed(2)):"需要两件具有同类规格和可比售价的样本，才可继续。"}</p>
       <label className="grid gap-1">商品用途<Input maxLength={200} value={requirements.use} onChange={event=>edit({...requirements,use:event.target.value})}/></label>

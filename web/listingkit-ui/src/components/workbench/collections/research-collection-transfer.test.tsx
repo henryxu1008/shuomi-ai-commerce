@@ -11,7 +11,7 @@ import {createResearchHandoff,handoffToken,researchScopeKey,specificationFacts} 
 import {loadSupplyIntent,saveSupplyIntent} from "@/lib/api/supply-intent";
 import {SupplyAPIError,type SupplyIntent} from "@/lib/api/supply-chain";
 import type {DataJob} from "@/lib/contracts/data-services";
-import type {ResearchCandidate} from "@/lib/contracts/market-research";
+import type {ResearchCandidate,ResearchCommand} from "@/lib/contracts/market-research";
 
 const f=vi.hoisted(()=>({
   batch:vi.fn(),item:vi.fn(),job:vi.fn(),project:vi.fn(),research:vi.fn(),inspect:vi.fn(),authority:vi.fn(),
@@ -141,6 +141,103 @@ it("W1 lets an operator without collection execution access read a saved job and
     {()=> <p>当前项目已接收选品方向</p>}
   </ResearchSelectionGate>);
   expect(await screen.findByText("当前项目已接收选品方向")).toBeVisible();
+});
+
+it("rechecks page two, lets the user choose its representative, and transfers only that original",async()=>{
+  const cursor=id(60);
+  const paginatedJob={...job,saved:4};
+  const secondPage:ResearchCandidate[]=candidates.map((candidate,index)=>{
+    const candidateId=id(61+index);
+    const prior=candidate.observation!;
+    const selection={...prior.ref.selection,itemId:candidateId,publicationId:candidateId};
+    const source={kind:"amazon_data" as const,productKey:candidateId,publicationId:candidateId,version:selection.version};
+    return {...candidate,id:candidateId,selectedLinkId:candidateId,state:"TO_RESEARCH" as const,
+      observation:{...prior,asin:"B00000000"+(3+index),title:"合成第二页商品 "+(index+1),
+        item:{id:candidateId,batchId,revision:selection.revision,createdAt:job.createdAt,source},
+        ref:{...prior.ref,selection,source}}};
+  });
+  const representative=secondPage[0].id;
+  const secondRows=rows.map((row,index)=>({...row,
+    ref:{...row.ref,ItemID:secondPage[index].id,ProductKey:secondPage[index].id,PublicationID:secondPage[index].id},
+    research:{...row.research,CandidateID:secondPage[index].id,SelectedLinkID:secondPage[index].id},
+    observation:{...row.observation,asin:"B00000000"+(3+index)},
+  }));
+  f.job.mockImplementation(async(_scope,path:string)=>path==="amazon/jobs"?[paginatedJob]:paginatedJob);
+  f.research.mockImplementation(async(_scope,_project,_schema,_signal,options:{after?:string;intent?:{key:string;body:ResearchCommand}})=>{
+    if(options?.intent){
+      const {key,body}=options.intent;
+      if(body.action==="review"||body.action==="decide"){
+        expect(body.candidateId).toBe(representative);
+        expect(body.expectedRevision).toBe(secondPage[0].revision);
+        const revision=body.expectedRevision+1;
+        secondPage[0]={...secondPage[0],revision,state:body.action==="review"?"PENDING_CONFIRMATION":body.state};
+        return {key,revisions:{[representative]:revision},candidateIds:[representative],replayed:false};
+      }
+      throw new Error("Unexpected research command");
+    }
+    return options?.after===cursor?{items:secondPage,incomplete:false}:{items:candidates,nextCursor:cursor,incomplete:false};
+  });
+  f.inspect.mockImplementation(async(_scope,_project,input:{candidates:typeof choices})=>input.candidates[0].candidateId===representative?
+    {projectId,candidates:[{...secondRows[0],research:{...secondRows[0].research,CandidateRevision:String(secondPage[0].revision)}},secondRows[1]]}:inspection);
+  const secondOriginal={...originalItem,id:representative,title:secondPage[0].observation!.title,
+    source:{...originalItem.source,productKey:representative,publicationId:representative}};
+  f.batch.mockResolvedValue({...currentBatch,count:4});
+  f.item.mockResolvedValue({item:secondOriginal,product:{title:secondOriginal.title}});
+  f.send.mockResolvedValue(completed);
+
+  const research=render(<ResearchPanel scope={scope} projectId={projectId} archived={false} view="research"/>);
+  const jobs=await screen.findByLabelText("本次查询");
+  await waitFor(()=>expect(jobs).toBeEnabled());
+  fireEvent.change(jobs,{target:{value:jobId}});
+  fireEvent.click(await screen.findByRole("checkbox",{name:"Adjustable organizer"}));
+  fireEvent.click(screen.getByRole("checkbox",{name:"Fixed organizer"}));
+  fireEvent.click(screen.getByRole("button",{name:"核对所选原件"}));
+  fireEvent.change(await screen.findByLabelText("代表候选"),{target:{value:A}});
+
+  fireEvent.click(screen.getByRole("button",{name:"下一页商品"}));
+  fireEvent.click(await screen.findByRole("checkbox",{name:"合成第二页商品 1"}));
+  fireEvent.click(screen.getByRole("checkbox",{name:"合成第二页商品 2"}));
+  fireEvent.click(screen.getByRole("button",{name:"核对所选原件"}));
+  const secondChoice=await screen.findByLabelText("代表候选");
+  expect(secondChoice).toHaveValue("");
+  expect(screen.queryByRole("option",{name:"B000000001"})).toBeNull();
+  fireEvent.change(secondChoice,{target:{value:representative}});
+  fireEvent.change(screen.getByLabelText("商品用途"),{target:{value:"核对第二页的商品规格"}});
+  fireEvent.click(screen.getByRole("button",{name:"添加必要规格"}));
+  const secondSource=specificationFacts(secondRows[0])[0].sourceKey;
+  fireEvent.change(screen.getByLabelText("第 1 条规格依据"),{target:{value:secondSource}});
+  fireEvent.change(screen.getByLabelText("必要规格"),{target:{value:"可调宽"}});
+  fireEvent.click(screen.getByRole("button",{name:"确认并进入选品"}));
+  await waitFor(()=>expect(store.getSnapshot()?.confirmed).toMatchObject({representative,after:cursor,
+    requirements:{specs:[{sourceKey:secondSource}]}}));
+  const token=handoffToken(store.getSnapshot()!);
+  research.unmount();
+
+  const selection=render(<ResearchSelectionGate scope={scope} projectId={projectId} archived={false} token={token}>
+    {(inspection,after)=><ResearchPanel scope={scope} projectId={projectId} archived={false} view="selection"
+      initialAfter={after} researchToken={token} opportunityInspection={inspection}/>}
+  </ResearchSelectionGate>);
+  expect(await screen.findByText(/依据 B000000003 宽度：38–55 cm/)).toBeVisible();
+  const review=await screen.findByRole("button",{name:"开始评估"});
+  await waitFor(()=>expect(review).toBeEnabled());
+  fireEvent.click(review);
+  fireEvent.change(await screen.findByLabelText("选择理由"),{target:{value:"只批准第二页代表"}});
+  fireEvent.click(screen.getByRole("button",{name:"批准测试"}));
+  const prepare=await screen.findByRole("button",{name:"核对 1 件商品"});
+  await waitFor(()=>expect(prepare).toBeEnabled());
+  fireEvent.click(prepare);
+  await waitFor(()=>expect(store.getSnapshot()?.transfer).toBeDefined());
+  const ready=store.getSnapshot()!;
+  selection.unmount();
+
+  render(<ResearchCollectionTransfer scope={scope} token={handoffToken(ready)} supplyAvailable/>);
+  fireEvent.click(await confirmButton());
+  expect(await screen.findByRole("link",{name:"查看待上传商品"})).toHaveAttribute("href","/workbench/listing/waiting?preparation="+id(10));
+  expect(f.inspect).toHaveBeenLastCalledWith(scope,projectId,{candidates:ready.confirmed!.choices},expect.any(AbortSignal));
+  expect(f.research).toHaveBeenLastCalledWith(scope,projectId,expect.anything(),expect.any(AbortSignal),{after:cursor});
+  expect(f.send).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+    command:{batchId,expectedRevision:4,itemIds:[representative]},
+  }),expect.any(AbortSignal));
 });
 
 it("W1 sends only A after live validation, then keeps the original key lookup-only after lost response and refresh",async()=>{
