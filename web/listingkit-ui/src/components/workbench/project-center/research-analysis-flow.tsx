@@ -22,7 +22,7 @@ import styles from "./research-panel.module.css";
 export function analysisChoices(selected:ResearchCandidate[]){return selected.map(c=>({candidateId:c.id,expectedRevision:String(c.revision),linkId:c.selectedLinkId,evidenceDigest:c.evidenceDigest,selection:{itemId:c.observation?.ref.selection.itemId,expectedRevision:String(c.observation?.ref.selection.revision),originalPublicationId:c.observation?.ref.selection.publicationId,originalVersion:c.observation?.ref.selection.version}}));}
 function matches(out:ResearchInspection|undefined,input:unknown){const parsed=researchAnalysisInput.safeParse(input);return !!out&&parsed.success&&matchesResearchInspection(out,parsed.data);}
 const recommendationNames={TEST_CANDIDATE:"建议测试",RESEARCH_MORE:"建议进一步了解",NOT_RECOMMENDED:"建议暂不选择"};
-export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evidenceReadKey="",evidenceReadable=true}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";evidenceReadKey?:string;evidenceReadable?:boolean}){
+export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evidenceReadKey="",evidenceReadable=true,comparisonReadable=evidenceReadable}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";evidenceReadKey?:string;evidenceReadable?:boolean;comparisonReadable?:boolean}){
  const context=useWorkbenchContext(),queries=useQueryClient();
  const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
  const namespace=["research-analysis",projectId,context.effectiveMemberId??""];
@@ -36,7 +36,7 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  const register=context.registerOrganizationSwitchGuard;
  useEffect(()=>register(()=>!flight.current&&!pending.command&&!pending.error&&!preparation.error),[register,pending.command,pending.error,preparation.error]);
  const keys=[...namespace,scope.userId,scope.organizationId],input=researchAnalysisInput.safeParse({candidates:analysisChoices(selected)}),signature=JSON.stringify(input.success?input.data:null);
- const facts=useQuery({queryKey:[...keys,"facts",signature],queryFn:({signal})=>inspectResearch(scope,projectId,input.success?input.data:null,signal),enabled:false,retry:false});
+ const facts=useQuery({queryKey:[...keys,"facts",evidenceReadKey,signature],queryFn:({signal})=>inspectResearch(scope,projectId,input.success?input.data:null,signal),enabled:false,retry:false});
  const catalog=useQuery({queryKey:[...keys,"catalog"],queryFn:({signal})=>configurationRequest(scope,"product.research.agent",catalogEntrySchema,{signal}),enabled:view==="selection",retry:false});
  const entry=catalog.data;
  const mode=useQuery({queryKey:[...keys,"mode"],queryFn:({signal})=>configurationRequest(scope,"execution-modes/registered_agent/product.research.agent",executionModeViewSchema,{signal}),enabled:view==="selection"&&!!entry&&entry.agent.activation!=="NOT_ENABLED",retry:false});
@@ -47,15 +47,37 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  const denied=(e:unknown)=>e instanceof MarketAPIError&&[403,401].includes(e.status);
  const masked=denied(failure)||denied(facts.error)||denied(run.error)||!!run.error&&!(run.error instanceof MarketAPIError&&run.error.status===404);
  const evidencePending=!evidenceReadable||run.isFetching;
- const display=!evidencePending&&!masked&&!facts.error?(run.data&&!run.error?run.data.inspection:!pointer||pointer===saved?.key?facts.data:undefined):undefined;
- const locked=busy||!evidenceReadable||!!pending.command||pending.error||!pending.ready||preparation.error||!preparation.ready;
+ const operationLocked=busy||!!pending.command||pending.error||!pending.ready||preparation.error||!preparation.ready;
+ const locked=operationLocked||!evidenceReadable;
+ const comparisonLocked=operationLocked||!comparisonReadable;
  const textReady=!!entry?.canUse&&entry.agent.activation==="ENABLED"&&entry.capabilities.some(c=>c.id==="text.generate"&&c.readiness==="AVAILABLE");
  const goalCheck=researchPrepareSchema.shape.goalSummary.safeParse(goal.trim());
- const factsMatch=!facts.error&&input.success&&matches(facts.data,input.data);
+ const factsMatch=!facts.error&&facts.data?.projectId===projectId&&input.success&&matchesResearchInspection(facts.data,input.data);
+ const selectedComparison=comparisonReadable&&!facts.isFetching&&factsMatch?facts.data:undefined;
+ const display=masked||facts.error||run.isFetching?undefined
+   :!evidencePending&&run.data&&!run.error?run.data.inspection
+   :!pointer||pointer===saved?.key?selectedComparison:undefined;
  const preparedFactsMatch=!!saved&&!facts.error&&matches(facts.data,{candidates:saved.input.candidates});
  const modeMatch=!!saved&&!mode.error&&mode.data?.revision===saved.prepared.modeRevision;
  const showRun=run.data&&!run.error&&!masked&&!evidencePending?run.data:undefined;
- async function inspect(){if(flight.current||archived||!input.success)return;flight.current=true;setBusy(true);setFailure(undefined);try{await facts.refetch({throwOnError:true});if(active.current&&!saved&&!pending.command)setChosen(undefined);}catch(e){if(active.current)setFailure(e);}finally{flight.current=false;if(active.current)setBusy(false);}}
+ async function inspect(){
+  if(flight.current||comparisonLocked||archived||!input.success||facts.isFetching)return;
+  flight.current=true;
+  setBusy(true);
+  setFailure(undefined);
+  try{
+   const {data}=await facts.refetch({throwOnError:true});
+   if(data?.projectId!==projectId||!matchesResearchInspection(data,input.data)){
+    throw new Error("所选商品资料已变化，请刷新后重新选择。");
+   }
+   if(active.current&&!saved&&!pending.command)setChosen(undefined);
+  }catch(e){
+   if(active.current)setFailure(e);
+  }finally{
+   flight.current=false;
+   if(active.current)setBusy(false);
+  }
+ }
  async function send(intent:ResearchAnalysisIntent){
  if(flight.current||!active.current||!pending.ready||intent.projectId!==projectId||archived)return;
  if(intent.kind==="start"&&!pending.command&&(!preparedFactsMatch||!modeMatch)){setFailure(new Error("请重新核对本次准备的依据和权限版本。"));return;}
@@ -99,7 +121,7 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  const noRun=run.error instanceof MarketAPIError&&run.error.status===404;
  const canClear=!!saved&&!locked&&!masked&&!run.isFetching&&(!!showRun&&showRun.phase!=="running"&&showRun.usageStatus!=="unknown_reserved"||noRun);
  return <>
- <Card id="research-summary" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>{view==="research"?"重点商品比较":"价格与特点比较"}</h3><p>这里只比较你选中的2–5件商品。不同币种、不同价格条件分开查看；没有价格的信息保留为空，不当作0元。</p></div><Button variant="outline" disabled={locked||archived||!input.success||facts.isFetching} onClick={()=>void inspect()}>查看所选商品比较</Button></div>
+ <Card id="research-summary" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>{view==="research"?"重点商品比较":"价格与特点比较"}</h3><p>这里只比较你选中的2–5件商品。不同币种、不同价格条件分开查看；没有价格的信息保留为空，不当作0元。</p></div><Button variant="outline" disabled={comparisonLocked||archived||!input.success||facts.isFetching} onClick={()=>void inspect()}>查看所选商品比较</Button></div>
  {facts.isFetching?<p role="status">正在确认所选商品资料…</p>:null}{facts.error?<p role="alert">部分商品资料暂时无法确认，请刷新后重新选择。</p>:null}
  {!display?<p>先选择2–5件资料可以查看的商品，再比较价格和特点。销量、市场需求、趋势和完整利润尚未核实。</p>:<><div className={styles.summary}><strong>本次比较 {display.summary.selected} 件</strong><span>缺少可比价格的商品 {display.summary.unpriced} 件</span>{display.summary.prices.map(p=><p key={p.currency+"|"+p.basis}>{p.currency} 页面报价：{p.minimum}–{p.maximum} · {p.count} 件商品使用相同价格条件</p>)}</div><FactTable inspection={{products:display.candidates.map(c=>({ref:c.ref,sourceKind:"amazon_data",facts:c.facts,missing:c.missing}))}}/>{display.candidates.some(c=>c.warnings.length)?<p>这些资料供调研参考；请结合每件商品缺少的信息判断，不把资料不全当作已经了解清楚。</p>:null}</>}
  </Card>
