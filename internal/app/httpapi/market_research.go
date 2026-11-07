@@ -84,7 +84,11 @@ func (a researchProjects) authorize(ctx context.Context, s collection.Scope, pro
 	if !authz.AllowedOrganization(fresh, a.auth.policy, id.UserID, id.TenantID, id.Roles, collection.PermissionRead) {
 		return research.ErrForbidden
 	}
-	view, err := a.service.Get(fresh, scope, project)
+	return a.requireResearchProject(fresh, scope, project, active)
+}
+
+func (a researchProjects) requireResearchProject(ctx context.Context, scope pc.Scope, project string, active bool) error {
+	view, err := a.service.Get(ctx, scope, project)
 	if err != nil {
 		return research.ErrNotFound
 	}

@@ -3,6 +3,7 @@ package dataservicesapp
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,7 +124,13 @@ func TestResearchFixturePaginationPublishesOneSeparateBatch(t *testing.T) {
 	var pageItems int64
 	require.NoError(t, db.Table("product_collection_items").Where("batch_id = ?", page.BatchID).Count(&pageItems).Error)
 	require.EqualValues(t, 50, pageItems)
-	reader, repo, err := fixture.openReader(ctx, researchFixturePublicationAuthority{fixture, false})
+	var schemaChecks int
+	require.NoError(t, db.Callback().Raw().Before("gorm:raw").Register("count_fixture_schema_checks", func(tx *gorm.DB) {
+		if strings.Contains(tx.Statement.SQL.String(), "FROM product_collection_operations LIMIT 0") {
+			schemaChecks++
+		}
+	}))
+	reader, repo, err := fixture.openReader(researchFixturePublicationAuthority{fixture, false})
 	require.NoError(t, err)
 	entry, err := fixture.readSource(ctx, reader, repo, fixture.pagination.sources[0])
 	require.NoError(t, err)
@@ -131,6 +138,7 @@ func TestResearchFixturePaginationPublishesOneSeparateBatch(t *testing.T) {
 	_, original, err := fixture.ReadPaginationOriginal(ctx, scope, project, item)
 	require.NoError(t, err)
 	require.Equal(t, entry, original)
+	require.Zero(t, schemaChecks, "reading a published original must not repeat the Collection startup schema check")
 	item.Revision++
 	_, _, err = fixture.ReadPaginationOriginal(ctx, scope, project, item)
 	require.ErrorIs(t, err, collection.ErrConflict)

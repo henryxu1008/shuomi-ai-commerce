@@ -50,6 +50,10 @@ func (f *ResearchFixture) PaginationEnabled() bool {
 	return f != nil && f.pagination != nil
 }
 
+func (f *ResearchFixture) OwnsPagination(scope collection.Scope, project string) bool {
+	return f.PaginationEnabled() && f.scope == scope && f.project == project
+}
+
 func (f *ResearchFixture) IsPaginationPublication(id string) bool {
 	if !f.PaginationEnabled() {
 		return false
@@ -96,7 +100,7 @@ func (f *ResearchFixture) ReadPagination(ctx context.Context, scope collection.S
 	}
 	b := f.pagination.batch
 	authority := researchPaginationAuthority{sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}}
-	producer, collections, err := f.openReader(ctx, authority)
+	producer, collections, err := f.openReader(authority)
 	if err != nil {
 		return ResearchPaginationBatch{}, err
 	}
@@ -110,10 +114,10 @@ func (f *ResearchFixture) ReadPagination(ctx context.Context, scope collection.S
 }
 
 func (f *ResearchFixture) ReadPaginationOriginal(ctx context.Context, scope collection.Scope, project string, item collection.Item) (ResearchPaginationBatch, ResearchFixtureItem, error) {
-	if !f.IsPaginationPublication(item.Source.PublicationID) || f.scope != scope || f.project != project {
+	if !f.OwnsPagination(scope, project) || !f.IsPaginationPublication(item.Source.PublicationID) {
 		return ResearchPaginationBatch{}, ResearchFixtureItem{}, collection.ErrForbidden
 	}
-	producer, collections, err := f.openReader(ctx, researchFixturePublicationAuthority{f, false})
+	producer, collections, err := f.openReader(researchFixturePublicationAuthority{f, false})
 	if err != nil {
 		return ResearchPaginationBatch{}, ResearchFixtureItem{}, err
 	}

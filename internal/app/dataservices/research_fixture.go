@@ -45,18 +45,23 @@ type ResearchFixtureBatch struct {
 type ResearchFixtureAuthorizer func(context.Context, collection.Scope, string, bool) error
 
 type ResearchFixture struct {
-	db         *gorm.DB
-	scope      collection.Scope
-	project    string
-	authorize  ResearchFixtureAuthorizer
-	pagination *researchPaginationManifest
+	db          *gorm.DB
+	collections *collectionstore.Repository
+	scope       collection.Scope
+	project     string
+	authorize   ResearchFixtureAuthorizer
+	pagination  *researchPaginationManifest
 }
 
 func NewResearchFixture(ctx context.Context, db *gorm.DB, scope collection.Scope, project string, authorize ResearchFixtureAuthorizer, pagination bool) (*ResearchFixture, error) {
 	if ctx == nil || db == nil || scope.Validate() != nil || !collection.ValidID(project) || authorize == nil {
 		return nil, collection.ErrInvalid
 	}
-	fixture := &ResearchFixture{db: db, scope: scope, project: project, authorize: authorize}
+	collections, err := fixtureCollectionRepository(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	fixture := &ResearchFixture{db: db, collections: collections, scope: scope, project: project, authorize: authorize}
 	if pagination {
 		fixture.pagination = fixture.newPaginationManifest()
 	}
@@ -198,14 +203,14 @@ func (f *ResearchFixture) Read(ctx context.Context, scope collection.Scope, proj
 	if err := f.check(ctx, scope, project, false); err != nil {
 		return ResearchFixtureBatch{}, err
 	}
-	producer, collections, err := f.openReader(ctx, researchFixturePublicationAuthority{f, false})
+	producer, collections, err := f.openReader(researchFixturePublicationAuthority{f, false})
 	if err != nil {
 		return ResearchFixtureBatch{}, err
 	}
 	return f.read(ctx, producer, collections, f.bundleID(), researchFixtureKeyword, f.sources())
 }
 
-func (f *ResearchFixture) openReader(ctx context.Context, authority sourcing.PublicationAuthorizer) (*sourcing.InternalProducer, *collectionstore.Repository, error) {
+func (f *ResearchFixture) openReader(authority sourcing.PublicationAuthorizer) (*sourcing.InternalProducer, *collectionstore.Repository, error) {
 	store, err := sourcestore.NewRepository(f.db, newCatalogBridge)
 	if err != nil {
 		return nil, nil, err
@@ -214,8 +219,7 @@ func (f *ResearchFixture) openReader(ctx context.Context, authority sourcing.Pub
 	if err != nil {
 		return nil, nil, err
 	}
-	collections, err := fixtureCollectionRepository(ctx, f.db)
-	return producer, collections, err
+	return producer, f.collections, nil
 }
 
 func fixtureCollectionRepository(ctx context.Context, db *gorm.DB) (*collectionstore.Repository, error) {

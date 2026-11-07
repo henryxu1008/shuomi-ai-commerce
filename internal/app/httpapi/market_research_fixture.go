@@ -33,18 +33,7 @@ const researchPaginationFixturePath = researchFixturePath + "/pagination"
 
 func (m *researchModule) enableFixture(ctx context.Context, db *gorm.DB, binding ResearchFixtureBinding) error {
 	fixture, err := dataservicesapp.NewResearchFixture(ctx, db, binding.Scope, binding.Project,
-		func(ctx context.Context, scope collection.Scope, project string, write bool) error {
-			if err := m.projects.authorize(ctx, scope, project, write, true); err != nil {
-				return collection.ErrForbidden
-			}
-			fresh, id, err := m.projects.auth.fresh(ctx, pc.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID})
-			if err != nil || id.EffectiveMemberID != scope.MemberID ||
-				!authz.AllowedOrganization(fresh, m.projects.auth.policy, id.UserID, id.TenantID, id.Roles, authz.PermissionProductSourcingWrite) ||
-				write && !authz.AllowedOrganization(fresh, m.projects.auth.policy, id.UserID, id.TenantID, id.Roles, collection.PermissionManage) {
-				return collection.ErrForbidden
-			}
-			return nil
-		}, binding.PaginationEnabled)
+		m.projects.authorizeFixture, binding.PaginationEnabled)
 	if err != nil {
 		return err
 	}
@@ -54,6 +43,32 @@ func (m *researchModule) enableFixture(ctx context.Context, db *gorm.DB, binding
 	}
 	m.fixture = fixture
 	sources.fixture = fixture
+	return nil
+}
+
+func (a researchProjects) authorizeFixture(ctx context.Context, scope collection.Scope, project string, write bool) error {
+	projectScope := pc.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}
+	if write {
+		if err := a.authorize(ctx, scope, project, true, true); err != nil {
+			return collection.ErrForbidden
+		}
+	} else if err := a.requireResearchProject(ctx, projectScope, project, true); err != nil {
+		// ProjectCenter.Get already checks live ProjectCenter read permission.
+		return collection.ErrForbidden
+	}
+
+	fresh, id, err := a.auth.fresh(ctx, projectScope)
+	if err != nil || id.EffectiveMemberID != scope.MemberID {
+		return collection.ErrForbidden
+	}
+	permission := collection.PermissionRead
+	if write {
+		permission = collection.PermissionManage
+	}
+	if !authz.AllowedOrganization(fresh, a.auth.policy, id.UserID, id.TenantID, id.Roles, permission) ||
+		!authz.AllowedOrganization(fresh, a.auth.policy, id.UserID, id.TenantID, id.Roles, authz.PermissionProductSourcingWrite) {
+		return collection.ErrForbidden
+	}
 	return nil
 }
 
@@ -132,6 +147,10 @@ func (m researchModule) serveFixture(c *gin.Context, write, pagination bool) {
 	default:
 		c.JSON(http.StatusOK, gin.H{"ready": true, "batch": out})
 	}
+}
+
+func (a researchSources) CanReadPageEvidenceConcurrently(scope collection.Scope, project string, selection research.Selection) bool {
+	return a.fixture.OwnsPagination(scope, project) && a.fixture.IsPaginationPublication(selection.PublicationID)
 }
 
 func (a researchSources) observeFixture(ctx context.Context, scope collection.Scope, project string, selection research.Selection, item collection.Item) (research.Observation, error) {
