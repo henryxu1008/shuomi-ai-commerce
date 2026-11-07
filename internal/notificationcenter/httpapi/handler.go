@@ -1,11 +1,13 @@
 package notificationhttp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"mime"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +25,7 @@ const Module = "notification-center"
 
 type Handler struct {
 	Service        *n.Service
+	History        n.AnnouncementHistory
 	Realm          string
 	PrepareContext func(context.Context, string) (context.Context, error)
 }
@@ -43,9 +46,19 @@ func Routes(h *Handler) []httproute.Descriptor {
 			routes = append(routes, httproute.Descriptor{Method: entry.method, Path: base + entry.path, Module: Module, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: org, RequestTimeout: 10 * time.Second, RejectUnreadRequestBody: entry.method == "GET", Handler: handler})
 		}
 	}
-	for _, entry := range []struct{ path, action string }{{"/api/v1/platform/notifications/official", "publish"}, {"/api/v1/platform/notifications/official/:id/withdraw", "withdraw"}} {
+	const platform = "/api/v1/platform/notifications/official"
+	for _, entry := range []struct{ method, path, action string }{
+		{"GET", platform, "announcement-history"},
+		{"GET", platform + "/:id", "announcement-detail"},
+		{"POST", platform, "publish"},
+		{"POST", platform + "/:id/withdraw", "withdraw"},
+	} {
 		action := entry.action
-		routes = append(routes, httproute.Descriptor{Method: "POST", Path: entry.path, Module: Module, Permission: authz.PermissionListingKitPlatformAdm, AuthPolicy: httproute.AuthPolicyCurrentIdentityWithVerifiedRoles, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyNone, RequestTimeout: 10 * time.Second, Handler: httproute.WithRequestBodyReadTimeout(5*time.Second, func(c *gin.Context) { h.handle(c, "/api/v1/notifications/official", action) })})
+		handler := gin.HandlerFunc(func(c *gin.Context) { h.handle(c, "/api/v1/notifications/official", action) })
+		if entry.method == "POST" {
+			handler = httproute.WithRequestBodyReadTimeout(5*time.Second, handler)
+		}
+		routes = append(routes, httproute.Descriptor{Method: entry.method, Path: entry.path, Module: Module, Permission: authz.PermissionListingKitPlatformAdm, AuthPolicy: httproute.AuthPolicyCurrentIdentityWithVerifiedRoles, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyNone, RequestTimeout: 10 * time.Second, RejectUnreadRequestBody: entry.method == "GET", Handler: handler})
 	}
 	return routes
 }
@@ -104,6 +117,7 @@ func key(c *gin.Context) (string, error) {
 }
 func write(c *gin.Context, value any, e error) {
 	c.Header("Cache-Control", "no-store")
+	c.Header("X-Content-Type-Options", "nosniff")
 	if e != nil {
 		status, code := 503, "NOTIFICATION_UNAVAILABLE"
 		switch {
@@ -123,12 +137,14 @@ func write(c *gin.Context, value any, e error) {
 		c.JSON(status, gin.H{"code": code})
 		return
 	}
-	raw, e := json.Marshal(value)
-	if e != nil || len(raw) > 128<<10 {
+	var raw bytes.Buffer
+	encoder := json.NewEncoder(&raw)
+	encoder.SetEscapeHTML(false)
+	if e := encoder.Encode(value); e != nil || raw.Len() > 128<<10 {
 		write(c, nil, n.ErrCapacity)
 		return
 	}
-	c.Data(200, "application/json; charset=utf-8", raw)
+	c.Data(200, "application/json; charset=utf-8", raw.Bytes())
 }
 func (h *Handler) handle(c *gin.Context, base, action string) {
 	if h == nil || h.Service == nil {
@@ -169,12 +185,36 @@ func (h *Handler) handle(c *gin.Context, base, action string) {
 		write(c, v, e)
 		return
 	}
+	if action == "announcement-history" {
+		if h.History == nil {
+			write(c, nil, n.ErrUnavailable)
+			return
+		}
+		q, err := url.ParseQuery(c.Request.URL.RawQuery)
+		after := q.Get("after")
+		if err != nil || (c.Request.URL.ForceQuery || c.Request.URL.RawQuery != "") && (len(q) != 1 || len(q["after"]) != 1 || !n.ValidKey(after)) {
+			write(c, nil, n.ErrInvalid)
+			return
+		}
+		v, e := h.History.ListAnnouncements(ctx, scope, after, 20)
+		write(c, v, e)
+		return
+	}
 	if c.Request.URL.RawQuery != "" || c.Request.URL.ForceQuery {
 		write(c, nil, n.ErrInvalid)
 		return
 	}
 	if action == "detail" {
 		v, e := h.Service.Detail(ctx, scope, c.Param("notification_ref"))
+		write(c, v, e)
+		return
+	}
+	if action == "announcement-detail" {
+		if h.History == nil {
+			write(c, nil, n.ErrUnavailable)
+			return
+		}
+		v, e := h.History.ReadAnnouncement(ctx, scope, c.Param("id"))
 		write(c, v, e)
 		return
 	}

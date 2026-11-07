@@ -59,7 +59,7 @@ func buildNotificationModule(ctx context.Context, db *gorm.DB, cfg *config.Confi
 	for _, name := range []string{"inventory", "advertising", "opportunity", "report", "merchant-chat", "fulfillment"} {
 		sources = append(sources, n.ReaderSource{SourceName: name, Unopened: true})
 	}
-	return notificationModule{handler: &nh.Handler{Realm: cfg.ListingKit.Zitadel.IssuerURL, Service: &n.Service{Repository: repository, Sources: sources}, PrepareContext: func(ctx context.Context, authorization string) (context.Context, error) {
+	return notificationModule{handler: &nh.Handler{Realm: cfg.ListingKit.Zitadel.IssuerURL, History: repository, Service: &n.Service{Repository: repository, Sources: sources}, PrepareContext: func(ctx context.Context, authorization string) (context.Context, error) {
 		ctx = context.WithValue(ctx, notificationBearerContextKey{}, authorization)
 		identity, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
 		if identity.EffectiveOrganizationID == "" {

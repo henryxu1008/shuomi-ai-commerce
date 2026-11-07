@@ -124,6 +124,28 @@ type AnnouncementInput struct {
 	Target     Target   `json:"target"`
 }
 
+type AnnouncementSummary struct {
+	ID          string     `json:"id"`
+	Category    string     `json:"category"`
+	Title       string     `json:"title"`
+	Revision    int64      `json:"revision"`
+	State       string     `json:"state"`
+	PublishedAt time.Time  `json:"publishedAt"`
+	WithdrawnAt *time.Time `json:"withdrawnAt"`
+}
+
+type AnnouncementPage struct {
+	Items []AnnouncementSummary `json:"items"`
+	Next  string                `json:"next"`
+}
+
+// AnnouncementHistory reads existing publication facts for platform maintenance.
+// The caller must enforce the same verified platform permission as publication.
+type AnnouncementHistory interface {
+	ListAnnouncements(ctx context.Context, scope Scope, after string, limit int) (AnnouncementPage, error)
+	ReadAnnouncement(ctx context.Context, scope Scope, id string) (AnnouncementInput, error)
+}
+
 // Repository implementations commit receipts and their command atomically.
 // No business-owner transaction or external effect is part of these methods.
 type Repository interface {
