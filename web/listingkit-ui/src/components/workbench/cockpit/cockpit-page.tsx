@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
@@ -29,8 +30,8 @@ function naturalPeriod(day: string, frequency: CockpitGoalConfig["frequency"]): 
  const startDate = day.slice(0, 7) + "-01", next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).toISOString().slice(0, 10); return { startDate, endDate: addDays(next, -1) };
 }
 function periodQuery(p: Period) { return new URLSearchParams(p).toString(); }
-function linkedPeriod(today:string):Period {
- const query=typeof window==="undefined"?new URLSearchParams():new URLSearchParams(window.location.search),startDate=query.get("startDate")??"",endDate=query.get("endDate")??"";
+function linkedPeriod(today: string, query: URLSearchParams): Period {
+ const startDate = query.get("startDate") ?? "", endDate = query.get("endDate") ?? "";
  if(z.iso.date().safeParse(startDate).success && z.iso.date().safeParse(endDate).success && startDate<=endDate && endDate<today && (Date.parse(endDate)-Date.parse(startDate))/86400000<366)return {startDate,endDate};
  return lastPeriod(today);
 }
@@ -97,8 +98,21 @@ function ScopedCockpit({ mode, scope }: { mode: Mode; scope: CockpitScope }) {
   {commands.pending.command && <Panel title="保存结果待确认"><p>原操作及编号已保存在本浏览器当前身份、企业下。请重试确认原结果。</p><Button disabled={commands.busy} onClick={() => void commands.execute(commands.pending.command!)}>重试原操作</Button></Panel>}
   {commands.goalPending.error && <ConsoleState kind="error" title="当前目标维护操作无法读取，请保留本浏览器状态并联系管理员" />}
   {commands.goalPending.command && <Panel title="当前目标维护结果待确认"><p>此操作使用新范围与当时的目标版本，原未知操作仍单独保留。</p><Button disabled={commands.busy} onClick={()=>void commands.execute(commands.goalPending.command!,true)}>重试当前目标维护</Button></Panel>}
-  {mode === "goals" || mode === "settings" ? <Goals mode={mode} scope={scope} capabilities={capabilities.data} commands={commands} /> : mode === "stores" ? <Matrix scope={scope} capabilities={capabilities.data} commands={commands} /> : <Rules mode={mode} scope={scope} capabilities={capabilities.data} />}
+  {mode === "goals" || mode === "settings"
+   ? <Goals mode={mode} scope={scope} capabilities={capabilities.data} commands={commands} />
+   : <Suspense fallback={<ConsoleState kind="loading" title="正在读取经营范围" />}>
+      <LinkedCockpit mode={mode} scope={scope} capabilities={capabilities.data} commands={commands} />
+     </Suspense>}
  </ConsolePage>;
+}
+function LinkedCockpit({ mode, scope, capabilities, commands }: {
+ mode: "stores" | "alerts" | "advice"; scope: CockpitScope; capabilities: CockpitCapabilities; commands: Commands;
+}) {
+ const search = useSearchParams()?.toString() ?? "";
+ const linked = new URLSearchParams(search);
+ return mode === "stores"
+  ? <Matrix key={search} scope={scope} capabilities={capabilities} commands={commands} linked={linked} />
+  : <Rules key={search} mode={mode} scope={scope} capabilities={capabilities} linked={linked} />;
 }
 function Goals({ mode, scope, capabilities, commands }: { mode: "goals" | "settings"; scope: CockpitScope; capabilities: CockpitCapabilities; commands: Commands }) {
  const [before,setBefore]=useState("");
@@ -150,9 +164,9 @@ function PeriodToolbar({ period, setPeriod, today, children }: { period: Period;
   <div className={styles.filters}>{children}</div>
  </Card>;
 }
-function Matrix({ scope, capabilities, commands }: { scope: CockpitScope; capabilities: CockpitCapabilities; commands: Commands }) {
- const [period, setPeriod] = useState(()=>linkedPeriod(capabilities.today)), [page, setPage] = useState(1), [search, setSearch] = useState(""), [state, setState] = useState(""), [platform,setPlatform]=useState(""),[region,setRegion]=useState(""), [selected, setSelected] = useState<string[]>([]), [compare, setCompare] = useState(false);
- const [linkedStores,setLinkedStores]=useState(()=>typeof window==="undefined"?[]:new URLSearchParams(window.location.search).getAll("storeId"));
+function Matrix({ scope, capabilities, commands, linked }: { scope: CockpitScope; capabilities: CockpitCapabilities; commands: Commands; linked: URLSearchParams }) {
+ const [period, setPeriod] = useState(()=>linkedPeriod(capabilities.today, linked)), [page, setPage] = useState(1), [search, setSearch] = useState(""), [state, setState] = useState(""), [platform,setPlatform]=useState(""),[region,setRegion]=useState(""), [selected, setSelected] = useState<string[]>([]), [compare, setCompare] = useState(false);
+ const [linkedStores,setLinkedStores]=useState(()=>linked.getAll("storeId"));
  const [storeId,setStoreId]=useState(()=>linkedStores.length===1?linkedStores[0]:"");
  const query = new URLSearchParams({ ...period, page: String(page), search, state, platform, region, sort: "profit" });
  (compare ? selected : linkedStores).forEach(id => query.append("storeId", id));
@@ -195,9 +209,8 @@ function FactForm({ record, storeId, period, today, commands, close }: { record:
 function RuleDetail({ rule, name }: { rule: CockpitRule; name?: string }) {
  return <><div className={styles.inline}><Badge state={ruleState(rule.level)} /><span>{name ?? "企业目标"} · 人工经营规则</span></div><h2>{rule.title}</h2><p>{rule.reason}</p><div className={styles.stats}><div>依据区间<strong>{rule.period.startDate} 至 {rule.period.endDate}</strong></div><div>完整净利润<strong>{rule.profit != null ? moneyText(rule.profit) : "待完整数据"}</strong></div></div>{rule.goalBasis && <p>目标 V{rule.goalRevision}：{moneyText(rule.goalBasis.target)}；正常阈值 {rule.goalBasis.normalBps / 100}%，关注阈值 {rule.goalBasis.attentionBps / 100}%，截至 {rule.goalBasis.evaluation.through} 的利润进度 {ratioText(rule.goalBasis.evaluation.completion)}，净利润率 {ratioText(rule.goalBasis.evaluation.totals.margin)}。</p>}{!rule.goalBasis && <p>当前保存记录 {rule.recordCount ?? 0} 条；缺口 {rule.gapCount ?? 0} 个，跨界排除 {rule.excludedCount ?? 0} 条。</p>}<div className={styles.previewNotice}><h3>建议处理</h3><p>{rule.advice}</p><Link className={styles.primaryLink} href={rule.actionPath}>{rule.actionLabel} →</Link></div><p className={styles.note}>依据读取时间：{rule.capturedAt}。规则不保存处理状态；核查后刷新当前事实。</p></>;
 }
-function Rules({ mode, scope, capabilities }: { mode: "alerts" | "advice"; scope: CockpitScope; capabilities: CockpitCapabilities }) {
- const linked = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
- const [period, setPeriod] = useState(()=>linkedPeriod(capabilities.today)), [page, setPage] = useState(1), [level, setLevel] = useState(()=>["critical","attention","data"].includes(linked.get("level")??"")?linked.get("level")!:""), [kind, setKind] = useState(()=>["period_loss","goal_assessment","data_missing"].includes(linked.get("kind")??"")?linked.get("kind")!:""), [storeId, setStoreId] = useState(()=>linked.get("storeId")??""), [search,setSearch]=useState(""), [selected, setSelected] = useState(()=>linked.get("ruleId")?.slice(0,250)??"");
+function Rules({ mode, scope, capabilities, linked }: { mode: "alerts" | "advice"; scope: CockpitScope; capabilities: CockpitCapabilities; linked: URLSearchParams }) {
+ const [period, setPeriod] = useState(()=>linkedPeriod(capabilities.today, linked)), [page, setPage] = useState(1), [level, setLevel] = useState(()=>["critical","attention","data"].includes(linked.get("level")??"")?linked.get("level")!:""), [kind, setKind] = useState(()=>["period_loss","goal_assessment","data_missing"].includes(linked.get("kind")??"")?linked.get("kind")!:""), [storeId, setStoreId] = useState(()=>linked.get("storeId")??""), [search,setSearch]=useState(""), [selected, setSelected] = useState(()=>linked.get("ruleId")?.slice(0,250)??"");
  const query = new URLSearchParams({ ...period, page: String(page), level, kind, search }); if (storeId) query.append("storeId", storeId);
  const rules = useQuery({ queryKey: ["operations-cockpit", scope.userId, scope.organizationId, mode, query.toString()], queryFn: ({ signal }) => cockpitRequest(scope, mode + "?" + query, cockpitRules, { signal }), retry: false });
  const matchedRule = rules.data?.rules.find(rule => rule.id === selected);
