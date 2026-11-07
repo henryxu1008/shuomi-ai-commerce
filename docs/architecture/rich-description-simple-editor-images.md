@@ -8,7 +8,9 @@ Refs #745 / PR #746。Design Basis: **Independent Architecture**（本轮新增 
 
 本决定替代原富文本合同“草稿只用固定来源图片”的本轮范围限制，**不改变固定 Product 来源版本**。新图片仅为候选描述资源，不回写 Product，不改变 SKU 图片、Asset 批准或平台图片。
 
-Must：官方 UI 可实际编辑；商品与草稿描述直接选择文件、沿原上传确认后插入；安全保存/读回/历史/恢复；原权限、容量、固定来源、CAS/幂等/UNKNOWN 保留。Should：中文可访问名称，深/浅色、键盘和窄屏可用。
+2026-11-07 [#1092](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1092) 更新自有商品新建/编辑交互。用户在「商品图片」区选择并上传文件，确认后加入原商品图片池。从描述工具栏选图并点击「插入到正文」才写入正文。待补全草稿保留描述内直接上传并插入的交互。
+
+Must：官方 UI 可实际编辑；自有商品图片池上传与正文插入分别操作，待补全草稿可从描述直接上传并插入；安全保存/读回/历史/恢复；原权限、容量、固定来源、CAS/幂等/UNKNOWN 保留。Should：中文可访问名称，深/浅色、键盘和窄屏可用。
 
 Out of Scope：新增通用图库/上传服务/恢复器、图片替换原商品或 SKU、自动 Asset 批准/平台图片带入、真实平台/模型、发布、own675 更新、配置/表/授权变更、清理/迁移、颜色/下划线/对齐/待办/代码/表格/协作。已上传未保存的对象仍按原容量规则保留，不删除。
 
@@ -19,7 +21,7 @@ Product/Figma Authority：本轮用户决定；[最终 IA](../product/final-ui-i
 - 官方 MIT Simple Editor 源码固定 [799929bea4804c73767562b69f8acc2acdb8ac86](https://github.com/ueberdosis/tiptap-ui-components/tree/799929bea4804c73767562b69f8acc2acdb8ac86)。按实际依赖复用工具栏/菜单/链接控件、hooks、icons 和样式，保留许可证与适配记录。官方演示上传/内容/外部字体/独立主题不进入产品。编辑内核保持当前 Tiptap 3.32.0。
 - DescriptionEditor 提供当前 allowlist 对应的官方控件；应用 `.dark` / Console tokens 拥有主题，不产生第二主题状态。组件样式限定编辑器及其 portal，不修改 html/body/应用布局。
 - 图片字节、确定性 org/actor/hash object key、不可变存储、JPEG/PNG 检查、容量预占/确认仍归现有 SourceMedia/S3/storagecapacity；同页只有一个 SourceImageUploader 实例及 pending owner，避免两个组件同时消费同一个 localStorage 意图。
-- 新建/编辑商品：原 SourceImageUploader 成功 → 原表单图片池追加 → 编辑器插入原 URL → 原 Collection Save；原商品公共图片最多40、SKU图片/来源事实及版本能力不变。
+- 新建/编辑商品：图库内的 SourceImageUploader 确认上传 → 原表单图片池追加；用户可从描述工具栏选择池内图片并明确插入原 URL。保存沿原 Collection Save，原商品公共图片最多40、SKU图片/来源事实及版本能力不变。
 - 草稿：原上传成功 → 当前候选描述插入原 URL → 原 CompletionDraft Save 将描述及其新增图片引用一起保存；固定 SourceSelector/SourceItem 完全不变。无需新上传 API、数据库表、配置或 runtime 接线。
 
 ## 描述图片内容合同

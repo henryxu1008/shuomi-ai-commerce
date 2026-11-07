@@ -66,10 +66,10 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
  function patchRow(id:string,patch:Partial<VariantRow>){if(mode==="single")setSingle(row=>({...row,...patch}));else setRows(prior=>prior.map(row=>row.id===id?{...row,...patch}:row))}
  const addImages=useCallback((values:string[])=>{
   const next=[...new Set([...imagesRef.current,...values])];
-  if(next.length>40){setError("图片选择池最多保留40张图片。");return false}
-  const checked=prepareImageURLs(next);if(!checked){setError("请填写有效的HTTPS图片链接，每行一个。");return false}
+  if(next.length>40){setError("图片选择池最多保留40张图片。");return}
+  const checked=prepareImageURLs(next);if(!checked){setError("请填写有效的HTTPS图片链接，每行一个。");return}
   const added=next.filter(url=>!imagesRef.current.includes(url)&&!originalSKUImages.has(url));
-  imagesRef.current=next;setImages(next);setCommonImages(prior=>[...prior,...added]);setImageURL("");setError("");return true;
+  imagesRef.current=next;setImages(next);setCommonImages(prior=>[...prior,...added]);setImageURL("");setError("");
  },[originalSKUImages]);
  function removeImage(url:string){const next=imagesRef.current.filter(v=>v!==url);imagesRef.current=next;setImages(next);setCommonImages(prior=>prior.filter(v=>v!==url));setRows(prior=>prior.map(v=>removeVariantImage(v,url)));setSingle(v=>removeVariantImage(v,url))}
  function generate(){try{const attributeCount=Object.keys(prepareProductAttributes(attributes)).length;setRows(buildVariantRows(specs,rows,commonImages.length,attributeCount));setGenerated(specificationSignature(specs));setError("")}catch(failure){setError((failure as Error).message)}}
@@ -95,9 +95,10 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
      <Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">基本资料</h2><p className="mt-1 text-sm text-muted-foreground">所有变体共用商品名称、品牌和描述。</p></div>
       <label className="grid gap-2 text-sm">商品名称<Input required maxLength={2000} value={title} placeholder="输入商品名称" onChange={e=>setTitle(e.target.value)}/></label>
       <label className="grid gap-2 text-sm">品牌<Input value={brand} maxLength={2000} placeholder="选填" onChange={e=>setBrand(e.target.value)}/></label>
-      <DescriptionEditor label="商品描述" value={description} format={descriptionFormat} images={[...new Set([...images,...activeRows.flatMap(v=>v.originalImages??[])])]} disabled={disabled} maxBytes={8192} onChange={(value,format)=>{setDescription(value);setDescriptionFormat(format)}} uploadBlocked={mediaBlocked} renderUpload={insert=><SourceImageUploader scope={scope} allowNewUpload={images.length<40} disabled={disabled} onBlocked={setMediaBlocked} onImage={url=>{if(addImages([url]))insert(url)}}/>}/>
+      <DescriptionEditor label="商品描述" value={description} format={descriptionFormat} images={[...new Set([...images,...activeRows.flatMap(v=>v.originalImages??[])])]} disabled={disabled} maxBytes={8192} onChange={(value,format)=>{setDescription(value);setDescriptionFormat(format)}}/>
      </Card>
-     <Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">商品图片</h2><p className="mt-1 text-sm text-muted-foreground">勾选的公共图片供所有SKU共用，第一张公共图片作为主图。取消勾选后仅用于表格中绑定的SKU；绑定SKU不会自动取消公共归属。</p></div>
+     <Card role="region" aria-label="商品图片" className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">商品图片</h2><p className="mt-1 text-sm text-muted-foreground">勾选的公共图片供所有SKU共用，第一张公共图片作为主图。取消勾选后仅用于表格中绑定的SKU；绑定SKU不会自动取消公共归属。</p></div>
+      <SourceImageUploader scope={scope} allowNewUpload={images.length<40} disabled={disabled} onBlocked={setMediaBlocked} onImage={url=>addImages([url])} uploadLabel="上传图片"/>
       {images.length?<div className="grid grid-cols-3 gap-3">{images.map((url,index)=><div key={url} className="min-w-0 space-y-2 rounded-lg border border-border p-2">
        <Image unoptimized src={`/api/image-proxy?url=${encodeURIComponent(url)}`} alt={`商品图片 ${index+1}`} width={120} height={120} className="aspect-square w-full rounded-md object-contain"/>
        <div className="flex items-center justify-between text-xs"><span>{commonImages.includes(url)?commonImages[0]===url?"公共主图":"公共图片":"SKU专属"}</span><Button type="button" size="icon" variant="ghost" aria-label={`移除图片 ${index+1}`} disabled={mediaBlocked} onClick={()=>removeImage(url)}><Trash2 size={14}/></Button></div>
@@ -105,7 +106,7 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
       </div>)}</div>:<p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">尚未添加图片</p>}
       <label className="grid gap-2 text-sm">图片链接<Textarea rows={2} disabled={mediaBlocked} value={imageURL} placeholder="每行一个HTTPS图片链接" onChange={e=>setImageURL(e.target.value)}/></label>
       <Button type="button" variant="outline" disabled={!imageURL.trim()||mediaBlocked||images.length>=40} onClick={()=>addImages(imageURL.split(/\r?\n/).map(v=>v.trim()).filter(Boolean))}><Plus size={16}/>添加图片链接</Button>
-      <p className="text-xs text-muted-foreground">在描述工具栏点击“图片”可直接上传并插入，确认后的图片也会加入这里。</p>
+      <p className="text-xs text-muted-foreground">需要在描述中使用商品图片时，可从描述工具栏选择「插入图片」。</p>
      </Card>
     </div>
     <Card className="space-y-5 p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">商品属性</h2><p className="mt-1 text-sm text-muted-foreground">填写材质、产地、适用季节等同款通用信息。颜色、尺码等SKU差异请放在销售规格中。</p></div><Button type="button" variant="outline" disabled={attributes.length>=256} onClick={()=>setAttributes(prior=>[...prior,{id:crypto.randomUUID(),name:"",value:""}])}><Plus size={16}/>添加商品属性</Button></div>
