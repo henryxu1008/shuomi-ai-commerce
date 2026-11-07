@@ -2,10 +2,12 @@ import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {render,screen,fireEvent,waitFor,cleanup,act} from "@testing-library/react";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {ResearchAnalysisFlow} from "./research-analysis-flow";
+import {ResearchPanel} from "./research-panel";
 import {MarketAPIError} from "@/lib/api/supply-market";
 import type {ResearchCandidate} from "@/lib/contracts/market-research";
-const mock=vi.hoisted(()=>({inspect:vi.fn(),prepare:vi.fn(),execute:vi.fn(),preparation:vi.fn(),run:vi.fn(),recent:vi.fn(),config:vi.fn(),context:{effectiveMemberId:"member",registerOrganizationSwitchGuard:()=>()=>{}}}));
+const mock=vi.hoisted(()=>({page:vi.fn(),inspect:vi.fn(),prepare:vi.fn(),execute:vi.fn(),preparation:vi.fn(),run:vi.fn(),recent:vi.fn(),config:vi.fn(),context:{effectiveMemberId:"member",permissions:["workbench.collection.read","workbench.project.manage"],registerOrganizationSwitchGuard:()=>()=>{}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>mock.context}));
+vi.mock("@/lib/api/market-research",async original=>({...await original<object>(),researchRequest:mock.page}));
 vi.mock("@/lib/api/research-analysis",()=>({inspectResearch:mock.inspect,prepareResearch:mock.prepare,executeResearch:mock.execute,readResearchPreparation:mock.preparation,readResearchRun:mock.run,recentResearchRuns:mock.recent}));
 vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:mock.config}));
 const project="11111111-1111-4111-8111-111111111111",key="22222222-2222-4222-8222-222222222222",other="33333333-3333-4333-8333-333333333333",hash="a".repeat(64);
@@ -16,7 +18,7 @@ const result={runId:other,contextId:project,requestKey:key,phase:"human_review_r
 let queries:QueryClient;
 function open(){queries=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<QueryClientProvider client={queries}><ResearchAnalysisFlow scope={{userId:"user",organizationId:"org"}} projectId={project} selected={selected} archived={false} view="selection"/></QueryClientProvider>);}
 beforeEach(()=>{localStorage.clear();for(const f of [mock.inspect,mock.prepare,mock.execute,mock.preparation,mock.run,mock.recent,mock.config])f.mockReset();mock.config.mockImplementation(async(_s,path)=>path.startsWith("execution-modes")?{mode:"default",revision:"0"}:{agent:{activation:"ENABLED"},canUse:true,canReadRuns:true,capabilities:[{id:"text.generate",readiness:"AVAILABLE"}]});mock.inspect.mockResolvedValue(facts);mock.prepare.mockImplementation(async(_s,intent)=>({...prepared,requestKey:intent.key}));mock.preparation.mockResolvedValue(prepared);mock.run.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,true));mock.recent.mockResolvedValue({items:[],nextCursor:""});mock.execute.mockImplementation(async(_s,intent)=>({...result,requestKey:intent.key}));});
-afterEach(()=>{cleanup();queries?.clear();localStorage.clear();});
+afterEach(()=>{cleanup();queries?.clear();localStorage.clear();vi.unstubAllGlobals();});
 async function prepare(){fireEvent.click(screen.getByRole("button",{name:"查看所选商品比较"}));await waitFor(()=>expect(screen.getByRole("button",{name:"准备AI分析"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"准备AI分析"}));}
 it("requires a fact read, explicit preparation and separate cost confirmation before starting",async()=>{
  open();await screen.findByRole("button",{name:"准备AI分析"});expect(mock.inspect).not.toHaveBeenCalled();expect(mock.prepare).not.toHaveBeenCalled();expect(mock.execute).not.toHaveBeenCalled();
@@ -104,4 +106,109 @@ it("masks cached analysis during a parent evidence refresh and reauthorizes the 
  mock.run.mockResolvedValue({...result,requestKey:original});
  screenView.rerender(<QueryClientProvider client={queries}><ResearchAnalysisFlow {...props} selected={selected.map(c=>({...c,revision:2}))} evidenceReadKey="refresh-2" evidenceReadable/></QueryClientProvider>);
  await screen.findByText("Saved advisory overview");expect(mock.execute).toHaveBeenCalledOnce();
+});
+
+const firstPageSamples = [
+  {asin:"TPG0000006", price:24.99, checksum:"78d0044fc82e9ca70404418ef0f51e5849dec04b414df9cf22492f089686b44a"},
+  {asin:"TPG0000028", price:28.99, checksum:"92f259a00e1b11e7336d4483ac29fa8ece77c8577a46168c0c62e43939a58618"},
+];
+const readableSamples = selected.map((sample,index) => {
+  const original = firstPageSamples[index];
+  return {
+    ...sample,
+    evidenceDigest:String(index+1).repeat(64),
+    observation:{
+      ...sample.observation!,
+      ...original,
+      currency:"USD",
+      title:original.asin,
+      ref:{...sample.observation!.ref,checksum:original.checksum},
+    },
+  };
+});
+const sampleInspection = {
+  ...facts,
+  candidates:facts.candidates.map((candidate,index) => ({
+    ...candidate,
+    research:{...candidate.research,EvidenceDigest:readableSamples[index].evidenceDigest!},
+    observation:{...candidate.observation,...firstPageSamples[index],currency:"USD"},
+    facts:[{...candidate.facts[0],value:firstPageSamples[index].asin}],
+  })),
+  summary:{selected:2,unpriced:0,prices:[{
+    currency:"USD",basis:"synthetic_listing_offer",count:2,minimum:24.99,maximum:28.99,
+  }]},
+};
+
+async function openIncompletePage(view:"research"|"selection"="research") {
+  const unreadable = Array.from({length:48},(_,index) => ({
+    ...selected[0],
+    id:"44444444-4444-4444-8444-"+String(index).padStart(12,"0"),
+    observation:undefined,
+    evidenceDigest:undefined,
+  }));
+  mock.page.mockReset().mockResolvedValue({items:[...readableSamples,...unreadable],incomplete:true});
+  const real = await vi.importActual<typeof import("@/lib/api/research-analysis")>("@/lib/api/research-analysis");
+  mock.inspect.mockImplementation(real.inspectResearch);
+  queries = new QueryClient({defaultOptions:{queries:{retry:false}}});
+  render(<QueryClientProvider client={queries}>
+    <ResearchPanel scope={{userId:"user",organizationId:"org"}} projectId={project} archived={false} view={view}/>
+  </QueryClientProvider>);
+  fireEvent.click(await screen.findByRole("checkbox",{name:"TPG0000006"}));
+  fireEvent.click(screen.getByRole("checkbox",{name:"TPG0000028"}));
+  return screen.getByRole("button",{name:"查看所选商品比较"});
+}
+
+it("compares the two readable originals through the existing endpoint when the other 48 time out",async()=>{
+  const fetcher = vi.fn(async (_path:string,_init:RequestInit) => Response.json(sampleInspection));
+  vi.stubGlobal("fetch",fetcher);
+  const comparison = await openIncompletePage("selection");
+  expect(screen.getByText("部分商品资料暂时无法确认，请刷新后再查看。")).toBeVisible();
+  expect(screen.getAllByRole("checkbox",{name:"这份资料暂时无法查看"})).toHaveLength(48);
+  expect(comparison).toBeEnabled();
+  fireEvent.click(comparison);
+  expect(await screen.findByText("本次比较 2 件")).toBeVisible();
+  expect(screen.getByText(/USD 页面报价：24.99–28.99/)).toBeVisible();
+  expect(fetcher).toHaveBeenCalledOnce();
+  const [path,init] = fetcher.mock.calls[0];
+  expect(path).toBe("/api/workbench/research/projects/"+project+"/analysis/inspect");
+  expect(init.method).toBe("POST");
+  expect(JSON.parse(String(init.body)).candidates).toEqual(readableSamples.map(sample => ({
+    candidateId:sample.id,expectedRevision:"1",linkId:sample.selectedLinkId,evidenceDigest:sample.evidenceDigest,
+    selection:{itemId:sample.id,expectedRevision:"1",originalPublicationId:sample.id,originalVersion:"1"},
+  })));
+  expect(screen.getByRole("button",{name:"准备AI分析"})).toBeDisabled();
+  expect(mock.prepare).not.toHaveBeenCalled();
+  expect(mock.execute).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["version changed",409,"AGENT_CONFLICT"],
+  ["digest changed",409,"AGENT_CONFLICT"],
+  ["permission revoked",403,"PERMISSION_DENIED"],
+] as const)("hides the existing comparison when the endpoint reports %s for a selected original",async (_reason,status,code)=>{
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(Response.json(sampleInspection))
+    .mockResolvedValueOnce(Response.json({code},{status}));
+  vi.stubGlobal("fetch",fetcher);
+  const comparison = await openIncompletePage();
+  fireEvent.click(comparison);
+  await screen.findByText("本次比较 2 件");
+  fireEvent.click(comparison);
+  await screen.findByText("部分商品资料暂时无法确认，请刷新后重新选择。");
+  expect(screen.queryByText("本次比较 2 件")).not.toBeInTheDocument();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+it.each(["version","digest"] as const)("rejects a successful response with the wrong selected original %s",async changed=>{
+  const [first,second] = sampleInspection.candidates;
+  const inconsistent = changed==="version"
+    ? {...first,ref:{...first.ref,CatalogVersion:"2"}}
+    : {...first,research:{...first.research,EvidenceDigest:"f".repeat(64)}};
+  const fetcher = vi.fn().mockResolvedValue(Response.json({...sampleInspection,candidates:[inconsistent,second]}));
+  vi.stubGlobal("fetch",fetcher);
+  fireEvent.click(await openIncompletePage());
+  expect(await screen.findByText("所选商品资料已变化，请刷新后重新选择。")).toBeVisible();
+  expect(screen.queryByText("本次比较 2 件")).not.toBeInTheDocument();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(fetcher).toHaveBeenCalledOnce();
 });
