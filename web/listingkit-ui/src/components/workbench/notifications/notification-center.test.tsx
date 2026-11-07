@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NotificationCenterPage, NotificationDetailPage, NotificationPopover } from "./notification-center";
-const fixture = vi.hoisted(() => ({ context: { user: { id: "actor" } as { id: string } | null, effectiveOrganization: { id: "org-a" } as { id: string } | null, selectionRequired: false, isLoading: false, isSwitching: false, error: null as { code: string } | null, blockingError: null as { code: string } | null } }));
+const fixture = vi.hoisted(() => ({ context: { user: { id: "actor" } as { id: string } | null, effectiveOrganization: { id: "org-a" } as { id: string } | null, effectiveMemberId: "member-a", roles: ["operator"], permissions: ["workbench.task.read"], selectionRequired: false, isLoading: false, isSwitching: false, error: null as { code: string } | null, blockingError: null as { code: string } | null } }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 const id = "4841d296-ef14-4c16-8d25-a7667e534feb", snapshotID = "4f5e1184-83c7-45b0-9dd9-c61242c9fb25";
 function item(category: "official" | "business" = "official", organizationId = "") {
@@ -14,7 +14,7 @@ function list(category: "official" | "business" = "official", organization = "")
 function receipt(key: string, operation: string) { return Response.json({ key, operation, committedAt: "2026-10-09T00:00:00Z" }); }
 const clients: QueryClient[] = [];
 function mount(child: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); clients.push(client); return render(<QueryClientProvider client={client}>{child}</QueryClientProvider>); }
-beforeEach(() => { fixture.context = { user: { id: "actor" }, effectiveOrganization: { id: "org-a" }, selectionRequired: false, isLoading: false, isSwitching: false, error: null, blockingError: null }; });
+beforeEach(() => { fixture.context = { user: { id: "actor" }, effectiveOrganization: { id: "org-a" }, effectiveMemberId: "member-a", roles: ["operator"], permissions: ["workbench.task.read"], selectionRequired: false, isLoading: false, isSwitching: false, error: null, blockingError: null }; });
 it("keeps full and compact pagination separate in the same query client",async()=>{
  const fetch=vi.fn(async(url:unknown)=>{
   if(String(url).endsWith("/identity"))return Response.json({userId:"actor"});
@@ -69,6 +69,54 @@ it("shows a business unread dot only for the currently authorized company", asyn
   view.rerender(<QueryClientProvider client={clients[0]}><NotificationPopover /></QueryClientProvider>);
   await waitFor(() => expect(fetch.mock.calls.some(([, init]) => new Headers(init?.headers).get("X-Expected-Organization-ID") === "org-b")).toBe(true));
   expect(trigger).not.toHaveAccessibleDescription();
+});
+
+it("hides old unread counts and panel rows when permission changes within the same company", async () => {
+  let resolveRead!: (response: Response) => void;
+  const freshRead = new Promise<Response>(resolve => { resolveRead = resolve; });
+  const fetch = vi.fn(async (url: string) => {
+    if (url.endsWith("/identity")) return Response.json({ userId: "actor" });
+    if (url.includes("/official?")) return Response.json({ ...list(), unread: 0 });
+    if (fixture.context.permissions.length === 0) return freshRead;
+    return Response.json(list("business", "org-a"));
+  });
+  vi.stubGlobal("fetch", fetch);
+  const view = mount(<NotificationPopover />);
+  const trigger = screen.getByRole("button", { name: "通知" });
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription("有未读通知"));
+  fireEvent.click(trigger);
+  fireEvent.click(await screen.findByRole("tab", { name: /商家经营/ }));
+  await screen.findByText("任务需要确认");
+  const before = fetch.mock.calls.length;
+  fixture.context.permissions = [];
+  view.rerender(<QueryClientProvider client={clients[0]}><NotificationPopover /></QueryClientProvider>);
+  expect(trigger).not.toHaveAccessibleDescription();
+  expect(screen.queryByText("任务需要确认")).toBeNull();
+  await waitFor(() => expect(fetch.mock.calls.slice(before).some(([url]) => url.includes("/business?"))).toBe(true));
+  resolveRead(Response.json({ ...list("business", "org-a"), items: [], count: 0, pending: 0, unread: 0 }));
+  await screen.findByText("暂无业务提醒");
+  expect(trigger).not.toHaveAccessibleDescription();
+});
+
+it("hides the other channel's cached unread dot after an explicit identity rejection", async () => {
+  let identityChanged = false;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.endsWith("/identity")) return Response.json({ userId: "actor" });
+    if (url.includes("/business?")) return Response.json(list("business", "org-a"));
+    if (identityChanged) return Response.json({ code: "IDENTITY_CONTEXT_CHANGED" }, { status: 409 });
+    return Response.json({ ...list(), unread: 0 });
+  }));
+  mount(<NotificationPopover />);
+  const trigger = screen.getByRole("button", { name: "通知" });
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription("有未读通知"));
+  fireEvent.click(trigger);
+  await screen.findByText("产品能力更新");
+  const refresh = screen.getByRole("button", { name: "刷新通知" });
+  await waitFor(() => expect(refresh).toBeEnabled());
+  identityChanged = true;
+  fireEvent.click(refresh);
+  await waitFor(() => expect(trigger).not.toHaveAccessibleDescription());
+  expect(screen.queryByRole("tab", { name: /商家经营/ })).toBeNull();
 });
 
 it("keeps official and personal messages available when the organization read fails", async () => {
