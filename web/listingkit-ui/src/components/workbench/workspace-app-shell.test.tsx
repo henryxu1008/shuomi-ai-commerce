@@ -62,6 +62,21 @@ function renderShell(child = <p>organization child</p>) {
 }
 
 describe("WorkspaceAppShell", () => {
+  it("closes the account popover with Escape and restores the trigger focus", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(ACTIVE_CONTEXT)));
+    const user = userEvent.setup();
+    renderShell();
+
+    const trigger = await screen.findByText("我的账户 ⌄");
+    await user.click(trigger);
+    const profile = screen.getByRole("link", { name: /^账户资料$/ });
+    profile.focus();
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(profile).not.toBeVisible());
+    expect(trigger).toHaveFocus();
+  });
+
   it("narrows desktop navigation without remounting the page or losing draft input", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(ACTIVE_CONTEXT)));
     const user = userEvent.setup();
