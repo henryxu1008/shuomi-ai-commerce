@@ -150,6 +150,7 @@
 - `tiktok-pre-dispatch-no-send.md` — [TikTok 发送前未执行的终止与显式重试：冻结设计](tiktok-pre-dispatch-no-send.md)
 - `tiktok-shop-us-contract-evidence.md` — [TikTok Shop 美国跨境：官方合同证据](tiktok-shop-us-contract-evidence.md)
 - `tiktok-shop-us.md` — [TikTok Shop 美国跨境：店铺授权、商品草稿与受控刊登](tiktok-shop-us.md)
+- `walmart-feed-complete-recovery-v1.md` — [Walmart Feed：完整结果恢复设计候选（NOT_READY）](walmart-feed-complete-recovery-v1.md)
 - `walmart-feed-recovery.md` — [Walmart Feed：明确拒绝的修复重试与有界续读](walmart-feed-recovery.md)
 - `walmart-us-contract-evidence.md` — [Walmart 美国站官方合同证据与边界](walmart-us-contract-evidence.md)
 - `walmart-us.md` — [Walmart 美国站：多商家授权、商品草稿与受控刊登](walmart-us.md)
