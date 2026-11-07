@@ -1,6 +1,6 @@
 # 自有商品 AI 录入 V1
 
-执行 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)，关联 [#1092](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1092)。Design Basis 为 Independent Architecture。Admission Status 为 DESIGNING，独立评审后才能进入 IMPLEMENTATION_READY。
+执行 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)，关联 [#1092](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1092)。Design Basis 为 Independent Architecture。Admission Status 为 IMPLEMENTATION_READY。独立架构复核针对 `3cc20bb12` 完成且无剩余 finding，详见 [#1159 评审记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1159#issuecomment-6710219951)。
 
 ## 用户结果
 
