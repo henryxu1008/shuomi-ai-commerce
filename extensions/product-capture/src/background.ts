@@ -36,7 +36,10 @@ const newController = (restoreLatest=true) => new Controller(drafts, locate, APP
     await chrome.windows.update(tab.windowId, { focused: true });
   }, { prepare: source => location.prepare(source, revision), bind: id => location.bind(id, revision), tabID: () => location.tabID(),
     open: async (source, url) => {
-      const original = location.tabID(), target = new URL(url), key = new URLSearchParams(target.hash.slice(1)).get('idempotencyKey');
+      const original = location.tabID(), target = new URL(url);
+      const params = new URLSearchParams(target.hash.slice(1));
+      const key = params.get('idempotencyKey'), nonce = params.get('handoffId');
+      if (!nonce) throw Error('HANDOFF_UNAVAILABLE');
       let own: chrome.tabs.Tab | undefined;
       if (original !== undefined) try {
         const tab = await chrome.tabs.get(original), current = new URL(tab.url ?? '');
@@ -47,8 +50,13 @@ const newController = (restoreLatest=true) => new Controller(drafts, locate, APP
       if(location.state!=='none')await location.clear(); await location.prepare(source, revision);
       const tab = own ? await chrome.tabs.update(own.id!, {url,active:true}) : await chrome.tabs.create({url});
       if (!tab || tab.id === undefined) throw Error('HANDOFF_UNAVAILABLE');
-      await location.bind(tab.id, revision); if (tab.windowId !== undefined) await chrome.windows.update(tab.windowId,{focused:true}); return tab.id;
-    } },restoreLatest);
+      await location.bind(tab.id, revision, nonce); if (tab.windowId !== undefined) await chrome.windows.update(tab.windowId,{focused:true}); return tab.id;
+    },
+     handoffSession: {
+       load: async () => { await location.ready; return location.handoff; },
+       assertCurrent: (tab, nonce) => { location.assertHandoff(tab, nonce); },
+       remember: binding => location.rememberHandoff(binding),
+     } },restoreLatest);
 let controller = newController();
 const family = new FamilyBridge(() => controller, location, drafts, APP_AMAZON_CAPTURE_URL);
 let resetting: Promise<void> | undefined;
@@ -199,7 +207,20 @@ chrome.commands.onCommand.addListener((command, tab) => {
   })();
 });
 chrome.runtime.onMessageExternal.addListener((message, sender, respond) => {
-  void ready.then(() => {assertReady();return controller.message(message, sender);}).then(respond).catch(e => respond({version:2,code:entryError(e)}));
+  void (async () => {
+    await ready;
+    for (;;) {
+      await resetting?.catch(() => {});
+      const answered = await location.run(async () => {
+        // Never wait for a transition while holding its navigation queue.
+        if (resetting) return false;
+        assertReady();
+        respond(await controller.message(message, sender));
+        return true;
+      });
+      if (answered) return;
+    }
+  })().catch(e => respond({version:2,code:entryError(e)}));
   return true;
 });
 

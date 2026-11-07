@@ -6,7 +6,7 @@ import type { PlatformCapturePayload } from '../src/wire';
 
 const payload = JSON.parse(readFileSync('tests/fixtures/capture-v2.json', 'utf8')) as PlatformCapturePayload;
 const target = { id: 7, url: payload.evidence.sourceURL };
-function fixture(extract = vi.fn(async () => payload), create = vi.fn(async () => 42), focus = vi.fn<(id: number) => Promise<void>>(async () => {})) {
+function fixture(extract = vi.fn(async () => payload), create = vi.fn<(url: string) => Promise<number>>(async () => 42), focus = vi.fn<(id: number) => Promise<void>>(async () => {})) {
   return { extract, create, focus, control: new Controller(testDrafts(),async()=>target,'https://app.example.com/capture/1688', extract, create, () => 'a'.repeat(32), undefined, undefined, focus) };
 }
 afterEach(() => vi.restoreAllMocks());
@@ -34,16 +34,33 @@ it('coalesces the whole capture and delivery, retaining the first triggering tab
   expect(create).toHaveBeenCalledOnce();
 });
 
-it('returns to the original tab after handoff or expiry without extracting, creating or rekeying', async () => {
+it('returns to the original tab before expiry without extracting, creating or rekeying', async () => {
   const f = fixture();
   await f.control.captureAndHandoff(target);
   const key = f.control.recoveryURL();
-  vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 600_000);
   await f.control.captureAndHandoff({ id: 99, url: 'https://unrelated.example/' });
   expect(f.focus).toHaveBeenCalledExactlyOnceWith(42);
   expect(f.extract).toHaveBeenCalledOnce();
   expect(f.create).toHaveBeenCalledOnce();
   expect(f.control.recoveryURL()).toBe(key);
+});
+
+it('explicitly reissues an expired handoff with the original operation key and a new nonce', async () => {
+  const f = fixture();
+  const start = Date.now();
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
+  await f.control.captureAndHandoff(target);
+  const first = new URL(f.create.mock.calls[0][0]);
+  const key = f.control.recoveryURL();
+  clock.mockReturnValue(start + 300_000);
+  await f.control.returnToApplication();
+  const second = new URL(f.create.mock.calls[1][0]);
+  const original = new URLSearchParams(first.hash.slice(1)), restored = new URLSearchParams(second.hash.slice(1));
+  expect(restored.get('handoffId')).not.toBe(original.get('handoffId'));
+  expect(restored.get('idempotencyKey')).toBe(original.get('idempotencyKey'));
+  expect(f.control.recoveryURL()).toBe(key);
+  expect(f.extract).toHaveBeenCalledOnce();
+  expect(f.focus).not.toHaveBeenCalled();
 });
 
 it('coalesces return requests and stays busy until activation settles', async () => {

@@ -1,4 +1,5 @@
 import type { PlatformCapturePayload } from './wire';
+import type { BoundHandoff } from './return-session';
 import { Handoff } from './handoff';
 import { validateCapture } from './validation';
 import { capturePageSource } from './platforms';
@@ -10,6 +11,11 @@ export type ReturnNavigation = Readonly<{
   bind(tabId: number): Promise<void>;
   tabID(): number | undefined;
   open?(sourceURL: string, url: string): Promise<number>;
+  handoffSession?: {
+    load(): Promise<(BoundHandoff & { sourceURL: string }) | undefined>;
+    assertCurrent(tabId: number, nonce: string): void;
+    remember(binding: BoundHandoff): Promise<void>;
+  };
 }>;
 export class Controller {
   private draft?: Draft;
@@ -28,17 +34,34 @@ export class Controller {
     private readonly receiver: (sourceURL: string) => string = () => app,
     private readonly activateTab: (id: number) => Promise<void> = async () => { throw Error('ORIGINAL_TAB_UNAVAILABLE'); },
     private readonly navigation?: ReturnNavigation, restoreLatest = true) {
-    this.flow = new Handoff(app, drafts);
+    this.flow = this.newHandoff(app);
     this.ready = restoreLatest ? this.load() : Promise.resolve();
   }
+  private newHandoff(app: string) {
+    return new Handoff(app, this.drafts, () => Date.now(), this.navigation?.handoffSession);
+  }
   private async load() {
+    const binding = await this.navigation?.handoffSession?.load();
+    if (binding) {
+      const { sourceURL, ...capability } = binding;
+      const draft = await this.drafts.get(capability.draftId);
+      if (draft?.sourceURL === sourceURL && this.receiver(draft.sourceURL) === draft.app) {
+        const flow = this.newHandoff(draft.app);
+        if (flow.restore(draft, capability)) {
+          this.draft = draft;
+          this.flow = flow;
+          this.handed = true;
+          return;
+        }
+      }
+    }
     const d = await this.drafts.latest();
-    if (d?.payload && this.receiver(d.sourceURL) === d.app) { this.draft = d; this.flow = new Handoff(d.app, this.drafts); }
+    if (d?.payload && this.receiver(d.sourceURL) === d.app) { this.draft = d; this.flow = this.newHandoff(d.app); }
   }
   async restore(id: string) {
     await this.ready; const d = await this.drafts.get(id);
     if (!d?.payload || d.app !== this.receiver(d.sourceURL)) throw Error('DRAFT_CHANGED');
-    this.draft = d; this.flow = new Handoff(d.app, this.drafts); this.handed = false;
+    this.draft = d; this.flow = this.newHandoff(d.app); this.handed = false;
   }
   capture(tab?: CaptureTab): Promise<void> {
     if (this.capturing) return this.capturing;
@@ -52,7 +75,7 @@ export class Controller {
       try {
         const payload = this.validate(await this.extract(target));
         d = await this.drafts.complete(d.id, d.revision, d.generation, payload);
-        this.draft = d; this.flow = new Handoff(d.app, this.drafts);
+        this.draft = d; this.flow = this.newHandoff(d.app);
       } catch (e) {
         this.draft = await this.drafts.pause(d.id, d.revision, d.generation, 'CAPTURE_REJECTED');
         throw e;
@@ -72,7 +95,7 @@ export class Controller {
       let d = this.draft && await this.drafts.get(this.draft.id);
       if (!d?.payload) throw Error('CAPTURE_REQUIRED');
       if(needsSendRecovery(d))d=await this.drafts.interrupt(d.id,d.revision,d.generation);
-      this.flow = new Handoff(d.app, this.drafts);
+      this.flow = this.newHandoff(d.app);
       this.flow.prepare(d, crypto.randomUUID()); this.handed = true;
       try {
         const url = this.flow.handoffURL(this.extensionID());

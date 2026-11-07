@@ -78,7 +78,7 @@ it.each(['popup.return', 'popup.captureAndHandoff', 'shortcut'])('restores durab
   expect(api.scripting.executeScript.mock.calls.filter(([options]) => options.files)).toHaveLength(1);
 });
 
-it.each(['1688', 'amazon'])('retains the %s draft while rejecting its old expired capability after recreation', async platform => {
+it.each(['1688', 'amazon'])('retains the %s draft while rejecting an unclaimed capability after recreation', async platform => {
   let target = source;
   if (platform === 'amazon') {
     const url = 'https://www.amazon.com/dp/B0BDLGZCTY';
@@ -99,7 +99,81 @@ it.each(['1688', 'amazon'])('retains the %s draft while rejecting its old expire
   await vi.waitFor(()=>expect(reply).toHaveBeenCalledWith({ version: 2, code: 'CAPTURE_EXPIRED' }));
   expect((await send('popup.return')).ok).toBe(true);
   expect(api.tabs.create).toHaveBeenCalledOnce(); expect(api.tabs.create.mock.calls[0][0].url).toBe(originalURL);
-  expect(Object.values(storage.contents())).toEqual([{ version: 1, revision: recreated.state.revision, sourceURL: target.url, phase: 'bound', tabId: 42 }]);
+  expect(Object.values(storage.contents())).toEqual([{ version: 1, revision: recreated.state.revision, sourceURL: target.url, phase: 'bound', tabId: 42, nonce: expect.any(String) }]);
+});
+
+it('keeps the original confirmed document and operation after the background restarts', async () => {
+  const start = Date.now();
+  const now = vi.spyOn(Date, 'now').mockReturnValue(start);
+  await send('popup.captureAndHandoff');
+  const meta = envelope();
+  const from = { origin: new URL(app).origin, url: app, frameId: 0, documentId: 'app-document', tab: { id: 42 } as chrome.tabs.Tab };
+  const request = (type: string, changes: Partial<typeof from> = {}, fields = {}) =>
+    new Promise<unknown>(resolve => external({ ...meta, type, ...fields }, { ...from, ...changes }, resolve));
+  expect(await request('capture.meta')).toMatchObject({ type: 'capture.metadata', phase: 'ready' });
+  now.mockReturnValue(start + 120_000);
+  vi.resetModules(); await import('../src/background');
+  expect(await request('capture.read')).toMatchObject({ type: 'capture.draft', idempotencyKey: meta.idempotencyKey, payload });
+  expect(await request('capture.read', { documentId: 'replacement-document' })).not.toHaveProperty('payload');
+  expect(await request('capture.read', { tab: { id: 43 } as chrome.tabs.Tab })).not.toHaveProperty('payload');
+  expect(await request('capture.read')).toMatchObject({ idempotencyKey: meta.idempotencyKey });
+  now.mockReturnValue(start + 300_000);
+  expect(await request('capture.read')).toEqual({ version: 2, code: 'CAPTURE_EXPIRED' });
+});
+it('orders an admitted read before reset and rejects a queued request after revocation', async () => {
+  const captured = await send('popup.captureAndHandoff');
+  const meta = envelope();
+  const from = { origin: new URL(app).origin, url: app, frameId: 0, documentId: 'app-document', tab: { id: 42 } as chrome.tabs.Tab };
+  const request = (type: string) => new Promise<unknown>(resolve => external({ ...meta, type }, from, resolve));
+  expect(await request('capture.meta')).toMatchObject({ type: 'capture.metadata' });
+
+  const { DraftStore } = await import('../src/draft-store');
+  const get = DraftStore.prototype.get;
+  let release!: () => void;
+  vi.spyOn(DraftStore.prototype, 'get').mockImplementationOnce(async function(this: InstanceType<typeof DraftStore>, draftId) {
+    await new Promise<void>(resolve => { release = resolve; });
+    return get.call(this, draftId);
+  });
+  const admitted = request('capture.read');
+  await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+  const revoked = send('popup.new', captured.state.revision);
+  await vi.waitFor(async () => expect((await send('popup.new', captured.state.revision)).code).toBe('ACTION_IN_PROGRESS'));
+  const stale = request('capture.read');
+  expect(storage.session.remove).not.toHaveBeenCalled();
+  release();
+  expect(await admitted).toMatchObject({ type: 'capture.draft', idempotencyKey: meta.idempotencyKey });
+  expect((await revoked).ok).toBe(true);
+  expect(await stale).toEqual({ version: 2, code: 'CAPTURE_EXPIRED' });
+  expect(storage.contents()).toEqual({});
+});
+
+it('allows the new document to bind even when an explicit restore is still opening its tab', async () => {
+  await send('popup.captureAndHandoff');
+  const old = envelope();
+  const from = { origin: new URL(app).origin, url: app, frameId: 0, documentId: 'app-document', tab: { id: 42 } as chrome.tabs.Tab };
+  const read = (message: unknown, documentId: string) =>
+    new Promise<unknown>(resolve => external(message, { ...from, documentId }, resolve));
+  expect(await read(old, from.documentId)).toMatchObject({ type: 'capture.metadata' });
+  const listed = await new Promise<Reply & {drafts: {id:string;revision:number}[]}>(resolve =>
+    popup({type:'popup.drafts'},sender,value=>resolve(value as Reply & {drafts: {id:string;revision:number}[]})));
+  const draft = listed.drafts[0];
+  let release!: () => void;
+  api.windows.update.mockImplementationOnce(() => new Promise(resolve => { release = () => resolve({id:3}); }));
+  const restore = new Promise<Reply>(resolve => popup({type:'popup.restoreDraft',id:draft.id,expectedRevision:draft.revision},sender,resolve));
+  await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+  const changed = api.tabs.create.mock.calls.at(-1)?.[0].url;
+  // Restore may choose a new tab after clearing the old navigation record.
+  const url = new URL(changed!);
+  const params = new URLSearchParams(url.hash.slice(1));
+  const fresh = {...old,handoffId:params.get('handoffId'),idempotencyKey:params.get('idempotencyKey')};
+  expect(fresh.handoffId).not.toBe(old.handoffId);
+  expect(fresh.idempotencyKey).toBe(old.idempotencyKey);
+  const freshReply = read(fresh,'new-app-document');
+  const stale = read(old,from.documentId);
+  release();
+  expect((await restore).ok).toBe(true);
+  expect(await freshReply).toMatchObject({type:'capture.metadata',idempotencyKey:old.idempotencyKey});
+  expect(await stale).not.toHaveProperty('phase');
 });
 
 it('waits for one session hydration before page, shortcut and popup can return', async () => {
@@ -141,11 +215,14 @@ it('waits for the native locator binding before releasing the receiver capabilit
   await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
   const reply = vi.fn();
   external(envelope(), { origin: 'https://app.example.com', url: app, frameId: 0, documentId:'app-document',tab: { id: 42 } as chrome.tabs.Tab }, reply);
-  await vi.waitFor(()=>expect(reply).toHaveBeenCalledWith(expect.objectContaining({code:'ACTION_UNAVAILABLE'})));
+  expect(reply).not.toHaveBeenCalled();
   expect((await send('popup.new')).code).toBe('ACTION_IN_PROGRESS');
   command('capture-current-product', source);
   expect(api.tabs.create).toHaveBeenCalledOnce();
   finish(); expect((await capture).ok).toBe(true);
+  const afterBinding = vi.fn();
+  external(envelope(), { origin: 'https://app.example.com', url: app, frameId: 0, documentId:'app-document',tab: { id: 42 } as chrome.tabs.Tab }, afterBinding);
+  await vi.waitFor(()=>expect(afterBinding).toHaveBeenCalledWith(expect.objectContaining({type:'capture.metadata'})));
   expect(storage.contents()).toMatchObject({ 'product-capture:return-location:v1': { phase: 'bound', tabId: 42 } });
 });
 
