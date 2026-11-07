@@ -134,10 +134,14 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 	}
 	h.Capabilities = func(ctx context.Context, entry agentconfig.CatalogEntry) []agentconfig.Capability {
 		if entry.Definition.ID == agentconfig.OwnIntakeAgentID {
-			capability := agentconfig.Capability{ID: string(aicapability.OperationOwnProductIntake), Support: "REQUIRED", Readiness: "NEEDS_CONFIGURATION", Reason: "需要配置自有商品整理模型", ObservedAt: time.Now().UTC()}
+			capability := agentconfig.Capability{ID: "text.generate", Support: "REQUIRED", Readiness: "NEEDS_CONFIGURATION", Reason: "需要配置自有商品整理模型", ObservedAt: time.Now().UTC()}
 			if runtime != nil && runtime.ownIntake != nil {
 				id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 				if ok {
+					if !authz.AllowedOrganization(ctx, auth, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchCollectionManage) {
+						capability.Readiness, capability.Reason = "REQUIRES_AUTHORIZATION", "当前成员需要自有商品写入权限"
+						return []agentconfig.Capability{capability}
+					}
 					route, err := runtime.ownIntake.resolve(ctx, aicapability.TextInputIdentity{OrganizationID: id.EffectiveOrganizationID, Operation: aicapability.OperationOwnProductIntake})
 					if err == nil && agentconfig.OwnIntakeProfile(route.Profile) { capability.Readiness, capability.Reason = "AVAILABLE", "" }
 				}

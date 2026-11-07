@@ -36,4 +36,3 @@ export function applyIntakeVariants(candidate:IntakeCandidate, active:VariantRow
  }
  return {rows,assigned};
 }
-

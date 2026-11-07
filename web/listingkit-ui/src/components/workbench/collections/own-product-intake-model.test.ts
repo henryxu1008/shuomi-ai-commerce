@@ -22,4 +22,3 @@ it("preserves manual values and respects a previously removed row",()=>{
  expect(result.rows[0].id).toBe(first.id);
  expect(result.assigned.size).toBe(0);
 });
-

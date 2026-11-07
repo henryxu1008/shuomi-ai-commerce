@@ -38,4 +38,3 @@ export function ownIntakeEndpoint(url:URL,method:string){
  if(method==="POST"&&action==="confirm")return {path,input:intakeConfirm,output:intakeResult};
  return null;
 }
-

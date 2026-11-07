@@ -5,4 +5,3 @@ export const PUT=rejectPOD;
 export const DELETE=rejectPOD;
 export const PATCH=rejectPOD;
 export const dynamic="force-dynamic";
-

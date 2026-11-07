@@ -143,4 +143,3 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
   </div>:null}
  </Card>;
 }
-

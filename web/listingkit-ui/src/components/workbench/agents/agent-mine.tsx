@@ -20,6 +20,7 @@ const configurationHref = (entry: CatalogEntry) => `/workbench/agents/mine/${ent
 
 function usageHref(entry: CatalogEntry) {
   switch (entry.agent.agentId) {
+    case "product.own.intake.agent":return "/workbench/data/mine/own/new";
     case "product.research.agent":return "/workbench/supply/selection?step=analysis";
     case "product.title.agent": return "/workbench/supply/acquisition?agent_kind=title";
     case "product.image.agent":

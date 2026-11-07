@@ -35,6 +35,7 @@ import (
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	s3 "task-processor/internal/integration/s3"
+	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/collection"
 	collectionhttp "task-processor/internal/product/collection/httpapi"
 	"task-processor/internal/product/sourcing"
@@ -122,9 +123,15 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	app, err := buildOwnIntakeApplication(parent, media)
 	require.NoError(t, err)
 	require.NotNil(t, app)
+	parent.ownIntake = app
 	_, err = parent.configuration.Execute(ctx, agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, AgentID: agentconfig.OwnIntakeAgentID, Operation: "enable", Key: uuid.NewString(), Absent: true})
 	require.NoError(t, err)
 	routes := append(ownIntakeRoutes(app), collectionhttp.Routes(service, (productReviewCapabilityBinder{now: time.Now}).Bind)...)
+	configuration, err := buildAgentConfigurationModule(ctx, f.owner, deps.organizationResolver, permissions, nil, parent, nil, nil, nil, nil)
+	require.NoError(t, err)
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, configuration.Register(registry))
+	routes = append(routes, registry.Routes()...)
 	router := buildCurrentApplicationHTTPServer(routes, deps).Handler
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if key, ok := strings.CutPrefix(r.URL.Path, "/fixture-media/"); ok {
@@ -247,7 +254,7 @@ func runOwnIntakeBrowser(t *testing.T, backend string) {
 		"OWN_INTAKE_BROWSER_ORIGIN="+origin, "OWN_INTAKE_BROWSER_BACKEND="+backend, "LISTINGKIT_SERVICE_API_BASE="+backend+"/api/v1",
 		"AUTH_URL="+origin, "LISTINGKIT_PUBLIC_BASE_URL="+origin, "AUTH_SECRET=codex-own-intake-isolated-browser-only",
 		"ZITADEL_ISSUER_URL=https://own-intake-ui.invalid", "ZITADEL_CLIENT_ID=own-intake-fixture", "NEXT_TELEMETRY_DISABLED=1",
-		"LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED=true")
+		"LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED=true", "LISTINGKIT_AGENT_CONFIGURATION_ENABLED=true")
 	output, err := command.CombinedOutput()
 	t.Logf("%s", output)
 	require.NoError(t, err)

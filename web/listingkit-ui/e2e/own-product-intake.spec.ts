@@ -30,6 +30,9 @@ test("uploads, generates and adopts exactly three SKUs, saves, then refreshes th
  });
  await page.goto("/workbench/data/mine/own/new");
  await expect(page.getByRole("heading",{name:"添加自有商品",level:1})).toBeVisible();
+ const agent=await page.request.get("/api/workbench/agents/product.own.intake.agent",{headers:{"X-Expected-User-ID":"admin","X-Expected-Organization-ID":"B"}});
+ expect(agent.status(),await agent.text()).toBe(200);
+ expect((await agent.json()).canUse).toBe(true);
  const images=page.getByRole("region",{name:"商品图片"});
  const uploaded:string[]=[];
  for(const [name,fill] of [["common.png","#111111"],["white-m.png","#eeeeee"]]){
@@ -99,4 +102,3 @@ test("uploads, generates and adopts exactly three SKUs, saves, then refreshes th
  ]);
  await page.screenshot({path:info.outputPath("saved-refreshed-three-skus.png"),fullPage:true});
 });
-
