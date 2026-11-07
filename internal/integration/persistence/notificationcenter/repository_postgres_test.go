@@ -147,6 +147,17 @@ func TestPostgresReceiptsAndRuntimeRole(t *testing.T) {
 	if err != nil || list.Count != 0 {
 		t.Fatal("withdrawn announcement visible", list, err)
 	}
+	history, err := repo.ListAnnouncements(ctx, scope, "", 20)
+	if err != nil || len(history.Items) != 1 || history.Items[0].ID != published.ResultID || history.Items[0].Revision != 2 || history.Items[0].State != "WITHDRAWN" || history.Items[0].WithdrawnAt == nil {
+		t.Fatal("withdrawn announcement missing from management history", history, err)
+	}
+	withdrawn, err := repo.ReadAnnouncement(ctx, scope, published.ResultID)
+	if err != nil || withdrawn.Title != input.Title || len(withdrawn.Paragraphs) != 1 || withdrawn.Paragraphs[0] != input.Paragraphs[0] {
+		t.Fatal("management read lost the original content", withdrawn, err)
+	}
+	if _, err := repo.ReadAnnouncement(ctx, foreignRealm, published.ResultID); !errors.Is(err, n.ErrNotFound) {
+		t.Fatal("management detail crossed realms", err)
+	}
 	scope.Subject = "publisher"
 	long := input
 	long.Paragraphs = []string{strings.Repeat("a", 30000)}
@@ -154,6 +165,32 @@ func TestPostgresReceiptsAndRuntimeRole(t *testing.T) {
 		if _, err = svc.Publish(ctx, scope, uuid.NewString(), long); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err := svc.Publish(ctx, foreignRealm, uuid.NewString(), input); err != nil {
+		t.Fatal(err)
+	}
+	seen := make(map[string]bool)
+	for after := ""; ; {
+		page, err := repo.ListAnnouncements(ctx, scope, after, 2)
+		if err != nil || len(page.Items) != 2 {
+			t.Fatal("could not page management history", page, err)
+		}
+		for _, item := range page.Items {
+			if seen[item.ID] {
+				t.Fatal("duplicate announcement across pages", item.ID)
+			}
+			seen[item.ID] = true
+		}
+		if page.Next == "" {
+			break
+		}
+		after = page.Next
+	}
+	if len(seen) != 6 || !seen[published.ResultID] {
+		t.Fatal("history omitted an announcement or crossed realms", seen)
+	}
+	if page, err := repo.ListAnnouncements(ctx, foreignRealm, published.ResultID, 2); err != nil || len(page.Items) != 0 {
+		t.Fatal("history cursor crossed realms", page, err)
 	}
 	scope.Subject = "long-reader"
 	list, err = svc.List(ctx, scope, n.ListRequest{Limit: 20})

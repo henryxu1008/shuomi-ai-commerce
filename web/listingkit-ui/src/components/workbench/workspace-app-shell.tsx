@@ -40,6 +40,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
     "/workbench/account/referrals/withdrawals",
     "/workbench/account/profile/verification",
     "/workbench/notifications",
+    "/workbench/notifications/announcements",
     "/workbench/agents/skills",
     "/workbench/agents/skills/official",
     "/workbench/agents/skills/mine",

@@ -1,18 +1,22 @@
 import { redirect } from "next/navigation";
 
 import { serverAuth } from "@/auth";
-import { readZitadelIdentityFromSession, readZitadelSessionError } from "./zitadel-auth";
+import { readZitadelIdentityFromSession, readZitadelSessionError, readZitadelSessionIssuerURL } from "./zitadel-auth";
 import { readZitadelServerAccessToken } from "./zitadel-server-token";
 
 const AUTH_DEADLINE_MS = 15_000;
 
-export async function requireAuthenticatedUserId(returnTo: string) {
+export async function requireAuthenticatedSubject(returnTo: string) {
   const session = await boundedServerAuth();
   const identity = readZitadelIdentityFromSession(session);
   if (!identity || !readZitadelServerAccessToken(session) || readZitadelSessionError(session)) {
     redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   }
-  return String(identity.userId);
+  return { userId: String(identity.userId), realm: readZitadelSessionIssuerURL(session) };
+}
+
+export async function requireAuthenticatedUserId(returnTo: string) {
+  return (await requireAuthenticatedSubject(returnTo)).userId;
 }
 
 export function requireReferralUserId(returnTo: string) {

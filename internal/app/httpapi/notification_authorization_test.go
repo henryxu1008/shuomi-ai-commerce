@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -11,14 +12,63 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
 	"task-processor/internal/httproute"
 	memberstore "task-processor/internal/integration/persistence/organization/membership"
 	kernelmodule "task-processor/internal/kernel/module"
 	n "task-processor/internal/notificationcenter"
+	nh "task-processor/internal/notificationcenter/httpapi"
 	"task-processor/internal/organization/membership"
 	"task-processor/internal/workbenchcontext"
 )
+
+type announcementAuthorityVerifier struct{}
+
+func (announcementAuthorityVerifier) Verify(_ context.Context, token string) (authidentity.AuthenticatedIdentity, error) {
+	return authidentity.AuthenticatedIdentity{
+		UserID: "actor", TenantID: "enterprise", Roles: []string{token}, TokenExpiresAt: time.Now().Add(time.Hour),
+	}, nil
+}
+
+type announcementHistoryFixture struct {
+	n.AnnouncementHistory
+	scope n.Scope
+}
+
+func (f *announcementHistoryFixture) ListAnnouncements(_ context.Context, scope n.Scope, _ string, _ int) (n.AnnouncementPage, error) {
+	f.scope = scope
+	return n.AnnouncementPage{Items: []n.AnnouncementSummary{}}, nil
+}
+
+func TestPlatformAnnouncementHistoryUsesVerifiedRolesWithoutEnterpriseScope(t *testing.T) {
+	authorizer, err := authz.NewListingKitAuthorizer(nil, nil)
+	require.NoError(t, err)
+	history := &announcementHistoryFixture{}
+	handler := &nh.Handler{Realm: "https://issuer.example", Service: &n.Service{}, History: history}
+	server := buildCurrentApplicationHTTPServer(nh.Routes(handler), routeAuthDependencies{
+		workbenchVerifier: announcementAuthorityVerifier{}, authorizer: authorizer,
+	})
+	for _, tc := range []struct {
+		role   string
+		status int
+	}{{"listingkit_viewer", http.StatusForbidden}, {"listingkit_admin", http.StatusForbidden}, {"platform_admin", http.StatusOK}} {
+		t.Run(tc.role, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/platform/notifications/official", nil)
+			request.Header.Set("Authorization", "Bearer "+tc.role)
+			request.Header.Set("X-User-Roles", "platform_admin")
+			request.Header.Set("X-Requested-Organization-ID", "other-enterprise")
+			response := httptest.NewRecorder()
+			server.Handler.ServeHTTP(response, request)
+			require.Equal(t, tc.status, response.Code, response.Body.String())
+			if tc.status == http.StatusOK {
+				require.Equal(t, n.Scope{Realm: handler.Realm, Subject: "actor", Category: n.Official}, history.scope)
+			} else {
+				require.Empty(t, history.scope)
+			}
+		})
+	}
+}
 
 func TestNotificationAssemblyWithoutWorkbenchExecutionOwner(t *testing.T) {
 	sources, err := notificationBusinessSources([]kernelmodule.Module{aiWorkbenchModule{application: &aiWorkbenchApplication{conversationOnly: true}}}, currentApplicationOptions{}, nil)

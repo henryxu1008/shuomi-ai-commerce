@@ -1,14 +1,41 @@
 import { z } from "zod";
-import { notificationCommandSchema, notificationItemSchema, notificationListSchema, notificationRef, notificationSnapshotSchema, notificationUUID } from "@/lib/api/notifications";
+import { announcementContent, announcementPage, announcementPublish, announcementWithdraw, notificationCommandSchema, notificationItemSchema, notificationListSchema, notificationRef, notificationSnapshotSchema, notificationUUID } from "@/lib/api/notifications";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
 import { hasTrustedSameOriginWrite } from "./same-origin-write";
 import { WORKBENCH_COOKIE_NAME } from "./workbench-proxy";
 import { hasEmptyBody } from "./members-proxy";
 const safeHeaders = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
 export function notificationFailure(status: number, code: string) { return Response.json({ code }, { status, headers: safeHeaders }); }
+
+const platformPath = "/api/v1/platform/notifications/official";
+function announcementEndpoint(url: URL, method: string, parts: string[]) {
+  const [, , id, action] = parts;
+  if (url.toString().endsWith("?") || url.search.length > 64) return null;
+  if (method === "GET" && parts.length === 2) {
+    const after = url.searchParams.get("after");
+    if (url.search && (!notificationUUID.safeParse(after).success || [...url.searchParams].length !== 1)) return null;
+    return { path: platformPath, schema: announcementPage };
+  }
+  if (url.search) return null;
+  if (method === "GET" && parts.length === 3 && notificationUUID.safeParse(id).success) {
+    return { path: platformPath + "/" + id, schema: announcementContent };
+  }
+  if (method === "POST" && parts.length === 2) {
+    return { path: platformPath, schema: notificationCommandSchema, input: announcementPublish, operation: "publish" };
+  }
+  if (method === "POST" && parts.length === 4 && action === "withdraw" && notificationUUID.safeParse(id).success) {
+    return { path: platformPath + "/" + id + "/withdraw", schema: notificationCommandSchema, input: announcementWithdraw, operation: "withdraw", resultId: id };
+  }
+  return null;
+}
+
 function endpoint(url: URL, method: string) {
   const parts = url.pathname.slice("/api/notifications/".length).split("/");
   const [channel, action, id] = parts;
+  if (channel === "platform" && action === "official") {
+    const route = announcementEndpoint(url, method, parts);
+    return route && { ...route, channel };
+  }
   if (!["official", "business", "personal"].includes(channel) || !["GET", "POST"].includes(method) || url.toString().endsWith("?")) return null;
   let schema: z.ZodType, input: z.ZodType | undefined;
   if (parts.length === 1 && method === "GET") schema = notificationListSchema;
@@ -24,7 +51,7 @@ function endpoint(url: URL, method: string) {
     if (key === "filter" && !["all", "unread", "pending"].includes(value) || key === "after" && !/^[A-Za-z0-9_-]{1,4096}$/.test(value) || key === "limit" && (!/^[1-9][0-9]*$/.test(value) || Number(value) > 100)) return null;
     if (key === "filter" && value === "pending" && channel === "official") return null;
   }
-  return { channel, schema, input, path: (channel === "business" ? "/api/v1/workbench/notifications" : "/api/v1/notifications/" + channel) + (parts.length > 1 ? "/" + parts.slice(1).join("/") : "") };
+  return { channel, schema, input, operation: action, resultId: undefined, path: (channel === "business" ? "/api/v1/workbench/notifications" : "/api/v1/notifications/" + channel) + (parts.length > 1 ? "/" + parts.slice(1).join("/") : "") };
 }
 export async function proxyNotifications(request: Request, token: string, userId: string, dispatch = { forwarded: false }): Promise<Response> {
   if (!token || !userId) return notificationFailure(401, "AUTHENTICATION_REQUIRED");
@@ -50,12 +77,14 @@ export async function proxyNotifications(request: Request, token: string, userId
     if (route.input) {
       const key = request.headers.get("Idempotency-Key"); if (!notificationUUID.safeParse(key).success) return notificationFailure(400, "INVALID_REQUEST");
       const bodyTimer = setTimeout(abort, 5000);
-      try { const raw = await readBoundedStrictJSON(new Response(request.body, { headers: { "Content-Type": request.headers.get("Content-Type") ?? "" } }), 16384, controller.signal); body = JSON.stringify(route.input.parse(raw)); }
+      try { const raw = await readBoundedStrictJSON(new Response(request.body, { headers: { "Content-Type": request.headers.get("Content-Type") ?? "" } }), route.operation === "publish" ? 32768 : 16384, controller.signal); body = JSON.stringify(route.input.parse(raw)); }
       finally { clearTimeout(bodyTimer); }
       headers.set("Content-Type", "application/json"); headers.set("Idempotency-Key", key!);
     } else if (!(await hasEmptyBody(request, controller.signal))) return notificationFailure(400, "INVALID_REQUEST");
     controller.signal.throwIfAborted(); dispatch.forwarded = true;
     const response = await fetch(origin + route.path + url.search, { method: request.method, headers, body, signal: controller.signal, cache: "no-store", redirect: "manual" });
+    if (route.channel === "platform" && response.status === 401) return notificationFailure(401, "AUTHENTICATION_REQUIRED");
+    if (route.channel === "platform" && response.status === 403) return notificationFailure(403, "FORBIDDEN");
     const payload = await readBoundedStrictJSON(response, 128 * 1024, controller.signal); controller.signal.throwIfAborted();
     if (response.status !== 200) {
       if (route.input && response.status >= 500) return notificationFailure(response.status, "OUTCOME_UNKNOWN");
@@ -70,7 +99,8 @@ export async function proxyNotifications(request: Request, token: string, userId
     }
     if (route.schema === notificationCommandSchema) {
       const command = parsed as z.infer<typeof notificationCommandSchema>;
-      if (command.key !== (route.input ? request.headers.get("Idempotency-Key") : url.pathname.split("/").at(-1)) || route.input && command.operation !== url.pathname.split("/").at(-1)) throw new Error("wrong receipt");
+      if (command.key !== (route.input ? request.headers.get("Idempotency-Key") : url.pathname.split("/").at(-1)) || route.input && command.operation !== route.operation) throw new Error("wrong receipt");
+      if (route.channel === "platform" && (!command.resultId || route.resultId && command.resultId !== route.resultId)) throw new Error("wrong announcement");
     }
     return Response.json(parsed, { headers: safeHeaders });
   } catch { return notificationFailure(controller.signal.aborted ? 504 : dispatch.forwarded ? 502 : 400, dispatch.forwarded && route.input ? "OUTCOME_UNKNOWN" : dispatch.forwarded ? "NOTIFICATION_UNAVAILABLE" : "INVALID_REQUEST"); }

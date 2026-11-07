@@ -9,6 +9,7 @@ import { useWorkbenchContext } from "@/components/providers/workbench-context-pr
 import { NotificationError, notificationCommandSchema, notificationItemSchema, notificationListSchema, notificationRequest, notificationSnapshotSchema, type NotificationItem, type NotificationList, type NotificationScope } from "@/lib/api/notifications";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
 import styles from "./notifications.module.css";
+import { OfficialAnnouncementsEntry } from "./official-announcements";
 
 const policy = { staleTime: 0, gcTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false } as const;
 const labels: Record<string, string> = { official: "官方消息", "workbench-plan": "对话计划", "workbench-task": "AI 任务", "product-review": "标题审核", acquisition: "商品获取", store: "店铺状态", "org-resource": "企业资源", "member-resource": "个人分配资源", "member-limit": "月度用量", billing: "订单与账单", "invitation-admin": "企业邀请", "invitation-recipient": "收到的邀请", membership: "成员操作", knowledge: "知识文件", "organization-verification": "企业认证", "personal-verification": "个人认证", "referral-earnings": "推广收益", "referral-withdrawal": "提现", inventory: "库存", advertising: "广告", opportunity: "商机", report: "报告", "merchant-chat": "商家聊天", fulfillment: "履约" };
@@ -118,12 +119,15 @@ function ItemRow({ item, compact = false, onNavigate }: { item: NotificationItem
     <ChevronRight className={styles.chevron} size={16} aria-hidden="true" />
   </Link>;
 }
-export function NotificationCenterPage({ expectedUserId }: { expectedUserId: string }) {
+export function NotificationCenterPage({ expectedUserId, realm }: { expectedUserId: string; realm?: string }) {
   const [tab, setTab] = useState<NotificationTab>("official");
   const focusRequestRef = useRef<NotificationTab | null>(null);
   const { scope, available, companyUnavailable } = useScope(expectedUserId, tab);
   return <section className={styles.page}>
-    <div className={styles.heading}><h1>通知中心</h1><p>官方消息与业务提醒集中查看，重要事项及时掌握。</p></div>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className={styles.heading}><h1>通知中心</h1><p>官方消息与业务提醒集中查看，重要事项及时掌握。</p></div>
+      {available && realm ? <OfficialAnnouncementsEntry scope={{ userId: expectedUserId, realm, channel: "platform/official" }} /> : null}
+    </div>
     {available ? <NotificationFeed key={JSON.stringify(scope)} scope={scope} tab={tab} setTab={setTab} focusRequestRef={focusRequestRef} companyUnavailable={companyUnavailable} /> : <p role="status" className={styles.notice}>登录或企业上下文正在变化，消息已停止加载。</p>}
   </section>;
 }

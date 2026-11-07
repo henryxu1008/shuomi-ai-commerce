@@ -14,7 +14,7 @@ export const notificationRef = z.string().min(1).max(2048).regex(/^[A-Za-z0-9_-]
   } catch { return false; }
 });
 const targetSchema = z.object({ kind: text(32), id: boundedID.or(z.literal("")) }).strict();
-function notificationHref(target: z.infer<typeof targetSchema>): string | null {
+export function notificationHref(target: z.infer<typeof targetSchema>): string | null {
   const staticRoutes: Record<string, string> = { none: "", home: "/workbench", resources: "/workbench/plans/entitlements", "member-resources": "/workbench/account/organization/resources", members: "/workbench/account/organization/members", "personal-verification": "/workbench/account/profile/verification", "organization-verification": "/workbench/account/organization", earnings: "/workbench/account/referrals/earnings", withdrawals: "/workbench/account/referrals/withdrawals" };
   if (target.id === "" && Object.hasOwn(staticRoutes, target.kind)) return staticRoutes[target.kind];
   if (!boundedID.safeParse(target.id).success) return null;
@@ -40,14 +40,52 @@ export const notificationListSchema = z.object({ schemaVersion: z.literal("notif
 }).strict().refine(v => v.unread <= v.count && v.pending <= v.count && v.items.length <= v.count && v.exact === v.coverage.every(c => c.complete) && v.coverage.every(c => c.complete === (c.state !== "UNAVAILABLE")));
 export const notificationSnapshotSchema = z.object({ id: notificationUUID, fingerprint: z.string().regex(/^[0-9a-f]{64}$/), expiresAt: z.iso.datetime({ offset: true }), count }).strict();
 export const notificationCommandSchema = z.object({ key: notificationUUID, operation: z.enum(["read", "snapshot", "read-all", "publish", "withdraw"]), committedAt: z.iso.datetime({ offset: true }), resultId: notificationUUID.optional() }).strict();
+const announcementCategory = z.enum(["PRODUCT", "SYSTEM", "ACTIVITY", "POLICY"]);
+// Match the owner's strings.TrimSpace and unicode.IsControl, including U+FEFF.
+const announcementText = (max: number) => z.string().min(1).max(max).refine(value =>
+  !/^\p{White_Space}|\p{White_Space}$|\p{Cc}/u.test(value) && new TextEncoder().encode(value).length <= max,
+);
+export const announcementContent = z.object({
+  category: announcementCategory,
+  title: announcementText(256),
+  summary: announcementText(1024),
+  paragraphs: z.array(z.string().min(1).max(32768).refine(value => /\P{White_Space}/u.test(value))).min(1).max(32),
+  target: targetSchema.refine(target => notificationHref(target) !== null),
+}).strict();
+export const announcementPublish = announcementContent.refine(value =>
+  // PostgreSQL jsonb cannot represent NUL, even when JSON escapes it.
+  !value.paragraphs.some(paragraph => paragraph.includes("\u0000")) &&
+  new TextEncoder().encode(JSON.stringify(value)).length <= 32 * 1024,
+);
+export const announcementWithdraw = z.object({ revision: z.literal(1) }).strict();
+const announcementSummary = z.object({
+  id: notificationUUID, category: announcementCategory, title: announcementText(256),
+  publishedAt: z.iso.datetime({ offset: true }),
+}).strict();
+export const announcementPage = z.object({
+  items: z.array(z.discriminatedUnion("state", [
+    announcementSummary.extend({ state: z.literal("PUBLISHED"), revision: z.literal(1), withdrawnAt: z.null() }),
+    announcementSummary.extend({ state: z.literal("WITHDRAWN"), revision: z.literal(2), withdrawnAt: z.iso.datetime({ offset: true }) }),
+  ])).max(20),
+  next: notificationUUID.or(z.literal("")),
+}).strict().refine(page => !page.next || page.items.at(-1)?.id === page.next);
+export const announcementIntent = z.discriminatedUnion("operation", [
+  z.object({ operation: z.literal("publish"), key: notificationUUID, body: announcementPublish }).strict(),
+  z.object({ operation: z.literal("withdraw"), key: notificationUUID, id: notificationUUID, body: announcementWithdraw }).strict(),
+]);
+export type AnnouncementIntent = z.infer<typeof announcementIntent>;
+export type Announcement = z.infer<typeof announcementContent>;
+export type AnnouncementSummary = z.infer<typeof announcementPage>["items"][number];
 export type NotificationItem = z.infer<typeof notificationItemSchema>;
 export type NotificationList = z.infer<typeof notificationListSchema>;
 type NotificationChannel = "official" | "business" | "personal";
-export type NotificationScope = { userId: string; channel: NotificationChannel; organizationId?: string };
+export type PlatformAnnouncementScope = { userId: string; channel: "platform/official"; realm: string };
+export type NotificationScope = { userId: string; channel: NotificationChannel; organizationId?: string } | PlatformAnnouncementScope;
 export class NotificationError extends Error { constructor(public code: string, public status = 503) { super(code); } }
 export async function notificationRequest<T>(scope: NotificationScope, path: string, schema: z.ZodType<T>, options: { signal?: AbortSignal; key?: string; body?: unknown } = {}): Promise<T> {
   const headers = new Headers({ "X-Expected-User-ID": scope.userId });
   if (scope.channel === "business" && scope.organizationId) headers.set("X-Expected-Organization-ID", scope.organizationId);
+  if (scope.channel === "platform/official") headers.set("X-Expected-Notification-Realm", scope.realm);
   if (options.key) { headers.set("Idempotency-Key", options.key); headers.set("Content-Type", "application/json"); }
   let dispatched = false;
   try {
@@ -62,7 +100,8 @@ export async function notificationRequest<T>(scope: NotificationScope, path: str
     const wireSchema: z.ZodType = schema;
     if (wireSchema === notificationListSchema || wireSchema === notificationItemSchema) {
       const items = wireSchema === notificationListSchema ? (value as NotificationList).items : [value as NotificationItem];
-      if (items.some(v => v.category !== (scope.channel === "official" ? "official" : "business") || v.organizationId !== "" && v.organizationId !== scope.organizationId)) throw new Error("context mismatch");
+      const organization = scope.channel === "business" ? scope.organizationId : "";
+      if (items.some(v => v.category !== (scope.channel === "official" ? "official" : "business") || v.organizationId !== "" && v.organizationId !== organization)) throw new Error("context mismatch");
     }
     return value;
   } catch (error) {
