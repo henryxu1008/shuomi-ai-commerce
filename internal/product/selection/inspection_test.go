@@ -191,7 +191,7 @@ func TestFiveLegalRichProductsKeepWholeFactsWithinAggregateBudget(t *testing.T) 
 		}
 		for j := 0; j < 6; j++ {
 			sku := "sku-" + strconv.Itoa(j)
-			own.Variants = append(own.Variants, collection.OwnVariant{SourceID: sku, SKU: sku, Attributes: map[string]string{"material": strings.Repeat("m", 400)}, Price: 10, Currency: "CNY", Stock: 2})
+			own.Variants = append(own.Variants, collection.OwnVariant{SourceID: sku, SKU: sku, Attributes: map[string]string{"material": strings.Repeat("m", 400)}, Price: 10, Currency: "CNY", Stock: new(2)})
 			snapshot.Variants = append(snapshot.Variants, catalog.Variant{SKU: sku, Attributes: []catalog.Attribute{{Name: "material", Value: strings.Repeat("m", 400)}}, Price: &catalog.Price{Amount: 10, Currency: "CNY"}, Stock: new(2)})
 		}
 		_, err := collection.OwnEnvelope(uuid.NewString(), own)

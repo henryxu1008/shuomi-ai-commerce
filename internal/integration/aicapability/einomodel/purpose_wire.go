@@ -86,6 +86,9 @@ func validGeminiWire(raw []byte, cfg GuardConfig) bool {
 		return false
 	}
 	if cfg.SingleImage == nil {
+		if cfg.visionText != nil {
+			return len(parts) == 1 && parts[0].Text == cfg.visionText.Prompt && e.System.Parts[0].Text == cfg.visionText.System
+		}
 		return len(parts) == 1
 	}
 	if len(parts) != 2 || parts[0].Text != cfg.SingleImage.Prompt || e.System.Parts[0].Text != cfg.SingleImage.System ||
@@ -137,7 +140,10 @@ func validPurposeChatWire(raw []byte, cfg GuardConfig) bool {
 	}
 	if cfg.SingleImage == nil {
 		var prompt string
-		return json.Unmarshal(e.Messages[1].Content, &prompt) == nil && prompt != ""
+		if json.Unmarshal(e.Messages[1].Content, &prompt) != nil || prompt == "" {
+			return false
+		}
+		return cfg.visionText == nil || system == cfg.visionText.System && prompt == cfg.visionText.Prompt
 	}
 	var parts []struct {
 		Type  string `json:"type"`

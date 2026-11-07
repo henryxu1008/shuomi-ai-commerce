@@ -217,7 +217,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 				q.Reason = "CONSUMER_NOT_QUALIFIED"
 				return q, nil
 			}
-			if category == d.ModelCategoryMultimodal && (!aicapability.SingleImageProfile(p) || p.PromptVersion != agentconfig.ImageAnalysisPromptVersion || p.OutputSchemaVersion != agentconfig.ImageAnalysisResultVersion || p.MaximumPromptTokens <= aicapability.SingleImagePromptEstimate(p)+1024) {
+			if category == d.ModelCategoryMultimodal && (!validVisionConsumer(def.Scope.Capability, p) || p.MaximumPromptTokens <= aicapability.SingleImagePromptEstimate(p)+1024) {
 				q.Reason = "VISION_PROTOCOL_NOT_ADMITTED"
 				return q, nil
 			}
@@ -247,7 +247,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	}
 	if category == d.ModelCategoryText {
 		for _, scope := range scopes {
-			if scope.Capability != d.ImageCapability && scope.Capability != string(aicapability.OperationProductImageAnalysis) {
+			if scope.Capability != d.ImageCapability && !aicapability.VisionTextOperation(aicapability.Operation(scope.Capability)) {
 				if _, ok := q.TextProfiles[scope.Capability]; !ok {
 					q.Reason = "OPEN_CONSUMER_MISSING"
 					return q, nil
@@ -266,11 +266,18 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	return q, nil
 }
 
+func validVisionConsumer(capability string, p aicapability.ModelProfile) bool {
+	if capability == string(aicapability.OperationOwnProductIntake) {
+		return agentconfig.OwnIntakeProfile(p)
+	}
+	return capability == string(aicapability.OperationProductImageAnalysis) && aicapability.SingleImageProfile(p) && p.PromptVersion == agentconfig.ImageAnalysisPromptVersion && p.OutputSchemaVersion == agentconfig.ImageAnalysisResultVersion
+}
+
 func sharedDefinitionCategory(def Definition) d.ModelCategory {
 	if def.Image != nil {
 		return d.ModelCategoryImage
 	}
-	if def.Scope.Capability == string(aicapability.OperationProductImageAnalysis) {
+	if aicapability.VisionTextOperation(aicapability.Operation(def.Scope.Capability)) {
 		return d.ModelCategoryMultimodal
 	}
 	return d.ModelCategoryText
@@ -337,7 +344,7 @@ func (r SharedTextReader) ReadPolicy(ctx context.Context, key governed.RouteKey)
 		return governed.RoutePolicy{}, d.ErrUnavailable
 	}
 	category := d.ModelCategoryText
-	if key.Operation == aicapability.OperationProductImageAnalysis {
+	if aicapability.VisionTextOperation(key.Operation) {
 		category = d.ModelCategoryMultimodal
 	}
 	q, digest, err := r.Service.ReadCategory(ctx, key.OrganizationID, category)

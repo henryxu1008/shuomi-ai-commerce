@@ -533,7 +533,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	if googleTitle {
 		credential.BaseURL, credential.Model, credential.APIStyle = googleinteractions.Origin, googleinteractions.Model, "google-interactions"
 	}
-	if mode == "image analysis" {
+	if mode == "image analysis" || mode == "own intake" {
 		credential.BaseURL, credential.Model, credential.APIStyle = "https://api.openai.com/v1", aicapability.SingleImageMiniModel, "openai-compatible"
 		if len(imageProvider) > 0 {
 			credential.Model = "synthetic-eino-" + imageProvider[0]
@@ -574,8 +574,11 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			settings.TextTransport = titleRehearsalLoopback(t, provider.URL)
 		}
 	}
-	if mode == "image analysis" {
+	if mode == "image analysis" || mode == "own intake" {
 		configureImageAnalysisFixture(&settings, *row, &calls)
+		if mode == "own intake" {
+			configureOwnIntakeFixture(&settings, &calls)
+		}
 		if len(imageProvider) > 0 {
 			configureEinoImageAnalysisFixture(&settings, *row, &calls, imageProvider[0])
 		}
@@ -709,7 +712,11 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		}
 		return
 	}
-	if mode == "image analysis" {
+	if mode == "image analysis" || mode == "own intake" {
+		if mode == "own intake" {
+			testOwnIntakeThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+			return
+		}
 		expected := "31"
 		if len(imageProvider) > 0 {
 			expected = "40"

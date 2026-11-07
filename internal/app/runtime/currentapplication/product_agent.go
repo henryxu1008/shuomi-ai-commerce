@@ -27,6 +27,7 @@ type ProductAgentConfig struct {
 	ResearchTextPolicies   map[string]governed.RoutePolicy `json:"researchTextPolicies,omitempty"`
 	SelectionTextPolicies  map[string]governed.RoutePolicy `json:"selectionTextPolicies,omitempty"`
 	ImageAnalysisPolicies  map[string]governed.RoutePolicy `json:"imageAnalysisPolicies,omitempty"`
+	OwnIntakePolicies      map[string]governed.RoutePolicy `json:"ownIntakePolicies,omitempty"`
 	Currency               string                          `json:"currency"`
 	Steps                  int                             `json:"steps"`
 	ModelCalls             int                             `json:"modelCalls"`
@@ -61,7 +62,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 			return errors.New("content-title-only requires the prepared Run and Review runtime identities")
 		}
 		if p.AssetDatabase != (DatabaseConfig{}) || len(p.ContentTextPolicies) == 0 || len(p.TextPolicies) != 0 ||
-			len(p.MaterialsTextPolicies) != 0 || len(p.ResearchTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 || len(p.ImageAnalysisPolicies) != 0 ||
+			len(p.MaterialsTextPolicies) != 0 || len(p.ResearchTextPolicies) != 0 || len(p.SelectionTextPolicies) != 0 || len(p.DiagnosisTextPolicies) != 0 || len(p.ImageAnalysisPolicies) != 0 || len(p.OwnIntakePolicies) != 0 ||
 			p.ContentTitleOnly && cfg.AIWorkbench != nil && (len(cfg.AIWorkbench.PlanningTextPolicies) != 0 || cfg.AIWorkbench.Enabled && !cfg.AIWorkbench.ConversationOnly) {
 			return errors.New("content-title-only requires only content policies and no Asset or Chat execution")
 		}
@@ -87,7 +88,7 @@ func (p *ProductAgentConfig) validate(cfg *Config) error {
 }
 
 func (p *ProductAgentConfig) hasPolicies() bool {
-	return len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) > 0
+	return len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies)+len(p.OwnIntakePolicies) > 0
 }
 
 // Configuration metadata remains bounded even when no executor is assembled.
@@ -95,7 +96,7 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 	if p.ContentOnly && p.ContentTitleOnly {
 		return errors.New("contentOnly and contentTitleOnly are mutually exclusive")
 	}
-	if (p.ContentOnly || p.ContentTitleOnly) && (len(p.ContentTextPolicies) == 0 || len(p.TextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) != 0) {
+	if (p.ContentOnly || p.ContentTitleOnly) && (len(p.ContentTextPolicies) == 0 || len(p.TextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies)+len(p.OwnIntakePolicies) != 0) {
 		return errors.New("content-only metadata requires only content policies")
 	}
 	if !p.Limits().Valid() || p.RuntimeSeconds > 120 || p.RuntimeSeconds < 1 || p.Steps > 16 || p.ModelCalls > 8 {
@@ -111,7 +112,7 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 		}
 		seen[id] = true
 	}
-	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies) == 0 || len(p.TextPolicies) > len(seen) {
+	if len(p.TextPolicies)+len(p.ContentTextPolicies)+len(p.MaterialsTextPolicies)+len(p.ResearchTextPolicies)+len(p.SelectionTextPolicies)+len(p.DiagnosisTextPolicies)+len(p.ImageAnalysisPolicies)+len(p.OwnIntakePolicies) == 0 || len(p.TextPolicies) > len(seen) {
 		return errors.New("product agent text policies invalid")
 	}
 	for organizationID, policy := range p.TextPolicies {
@@ -184,6 +185,13 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 	}
 	if len(p.ImageAnalysisPolicies) > len(seen) {
 		return errors.New("image analysis policy outside current organization admission")
+	}
+		for org, policy := range p.OwnIntakePolicies {
+		profile := policy.ShapeProfile()
+		cost, err := profile.MaximumCost()
+		if !seen[org] || !agentconfig.OwnIntakeProfileShape(profile) || !governed.ValidRouteShape(profile, aicapability.OperationOwnProductIntake) || profile.Currency != p.Currency || err != nil || cost > p.CostMicros || profile.MaximumPromptTokens > p.Tokens-profile.MaximumCompletionTokens {
+			return errors.New("own product intake policy exceeds original consumer admission")
+		}
 	}
 	for org, policy := range p.ImageAnalysisPolicies {
 		if !seen[org] || !agentconfig.ImageAnalysisProfileAdmissible(policy.ShapeProfile(), p.Limits()) {

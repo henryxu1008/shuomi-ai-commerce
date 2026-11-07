@@ -16,6 +16,12 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if id == agentconfig.OwnIntakeAgentID {
+		return agentconfig.OwnIntakeRequest(request)
+	}
+	if request.Binding.ContextKind == agent.OwnProductIntakeContextKind {
+		return false
+	}
 	if id == agentconfig.ImageAgentID {
 		return agentconfig.ImageAnalysisBinding(request.Binding) && request.ContentSelection.Absent() && request.SkillVersionRef.Absent() &&
 			request.ValidContentSelection() && request.PolicyVersion == agentconfig.ImageAnalysisPolicyVersion && request.PromptVersion == agentconfig.ImageAnalysisPromptVersion
@@ -116,6 +122,9 @@ func validStoredTextConfiguration(v agentconfig.Snapshot) bool {
 	return validTextConfigurationRequest(v.AgentID, request)
 }
 func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentconfig.Snapshot, error) {
+	if c.AgentID == agentconfig.OwnIntakeAgentID && (c.ImageAnalysis != nil || c.Template != nil || !validOwnIntakeConfiguration(c.AgentVersion, c.KnowledgeBaseID, c.ExecutionModelProfile)) {
+		return agentconfig.Snapshot{}, agentconfig.ErrInvalid
+	}
 	if c.ImageAnalysis != nil {
 		frozen := *c.ImageAnalysis
 		c.ImageAnalysis = &frozen
@@ -233,6 +242,9 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		if err != nil {
 			return err
 		}
+		if c.AgentID == agentconfig.OwnIntakeAgentID && mode.Mode != agent.ModeDefault && mode.Mode != agent.ModeReadOnly {
+			return agentconfig.ErrInvalid
+		}
 		request := c.Request
 		request.ModeSnapshotRef = mode.Ref()
 		result = agentconfig.Snapshot{ID: uuid.NewString(), Scope: c.Scope, MemberID: c.MemberID, ExpectedModeRevision: c.ExpectedModeRevision, AgentID: c.AgentID, AgentVersion: c.AgentVersion, KnowledgeBaseID: c.KnowledgeBaseID, Epoch: decimal(a.ActivationEpoch), AgentRevision: decimal(a.Revision), Template: c.Template, Request: request, ExecutionModelProfile: c.ExecutionModelProfile, ImageAnalysis: c.ImageAnalysis}
@@ -256,6 +268,9 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 }
 
 func validMaterialsTextConfiguration(id, version, knowledge string, profile aicapability.ModelProfile) bool {
+	if id == agentconfig.OwnIntakeAgentID {
+		return validOwnIntakeConfiguration(version, knowledge, profile)
+	}
 	if id == agentconfig.DiagnosisAgentID {
 		return version == agentconfig.DiagnosisAgentVersion && knowledge == "" && validDiagnosisTextProfile(profile)
 	}
@@ -267,6 +282,10 @@ func validMaterialsTextConfiguration(id, version, knowledge string, profile aica
 		return version == agentconfig.SelectionAgentVersion && knowledge == "" && validSelectionTextProfile(profile)
 	}
 	return id != agentconfig.MaterialsAgentID || version == agentconfig.MaterialsAgentVersion && knowledge == "" && profile.PromptVersion == agentconfig.MaterialsPromptVersion && profile.OutputSchemaVersion == agentconfig.MaterialsActionVersion
+}
+
+func validOwnIntakeConfiguration(version, knowledge string, profile aicapability.ModelProfile) bool {
+	return version == agentconfig.OwnIntakeAgentVersion && knowledge == "" && agentconfig.OwnIntakeProfile(profile)
 }
 
 func validSelectionTextProfile(p aicapability.ModelProfile) bool {

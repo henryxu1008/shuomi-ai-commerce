@@ -26,7 +26,7 @@ func TestSpecialistSpreadsheetZeroDoesNotDeclareOperatorStock(t *testing.T) {
 			rows, err := ParseDelivery(context.Background(), format, raw)
 			require.NoError(t, err)
 			require.Len(t, rows[0].Variants, 1)
-			require.Zero(t, rows[0].Variants[0].Stock)
+			require.Equal(t, new(0), rows[0].Variants[0].Stock)
 			envelope, err := collection.OwnEnvelope(collection.StableID("custom", format), rows[0])
 			require.NoError(t, err)
 			snapshot, err := sourcing.ToSnapshot(envelope)

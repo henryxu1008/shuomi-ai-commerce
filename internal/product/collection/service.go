@@ -74,7 +74,7 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 		if err != nil {
 			return Receipt{}, err
 		}
-		declareVerifiedStock(&envelope, input.stockFieldsVerified)
+		declareVerifiedStock(&envelope, input.Product.Variants, input.stockFieldsVerified)
 		command.Envelope = &envelope
 	case "import_products":
 		if !validName(input.Name) || len(input.Products) < 1 || len(input.Products) > 200 {
@@ -85,7 +85,7 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 			if err != nil {
 				return Receipt{}, err
 			}
-			declareVerifiedStock(&envelope, input.stockFieldsVerified)
+			declareVerifiedStock(&envelope, product.Variants, input.stockFieldsVerified)
 			command.Envelopes = append(command.Envelopes, envelope)
 		}
 	case "create_batch":
@@ -125,7 +125,7 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 		if err != nil {
 			return Receipt{}, err
 		}
-		declareVerifiedStock(&envelope, input.stockFieldsVerified)
+		declareVerifiedStock(&envelope, input.Product.Variants, input.stockFieldsVerified)
 		command.Envelope = &envelope
 	default:
 		return Receipt{}, ErrInvalid
@@ -133,10 +133,10 @@ func (s *Service) Mutate(ctx context.Context, key string, input Mutation) (Recei
 	return s.store.Execute(ctx, command)
 }
 
-func declareVerifiedStock(envelope *sourcing.SourceEnvelope, verified bool) {
+func declareVerifiedStock(envelope *sourcing.SourceEnvelope, variants []OwnVariant, verified bool) {
 	if verified {
 		for i := range envelope.ProductCandidate.Variants {
-			envelope.ProductCandidate.Variants[i].OwnStockDeclared = true
+			envelope.ProductCandidate.Variants[i].OwnStockDeclared = variants[i].Stock != nil
 		}
 	}
 }

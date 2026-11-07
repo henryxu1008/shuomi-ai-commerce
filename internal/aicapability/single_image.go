@@ -26,6 +26,10 @@ type SingleImageInput struct {
 	Width, Height   int
 }
 
+func VisionTextOperation(operation Operation) bool {
+	return operation == OperationProductImageAnalysis || operation == OperationOwnProductIntake
+}
+
 func singleImageDigest(value string) bool {
 	if len(value) != 64 || strings.ToLower(value) != value {
 		return false

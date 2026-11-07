@@ -19,5 +19,6 @@ const (
 	OperationProductSelectionDecision Operation = "product.selection.decision"
 	OperationShopDiagnosisDecision    Operation = "shop.operations-diagnosis.decision"
 	OperationProductImageAnalysis     Operation = "product.image.analysis"
+	OperationOwnProductIntake          Operation = "product.own.intake.generate"
 	OperationAIWorkbenchChatPlan      Operation = "aiworkbench_chat_plan"
 )
