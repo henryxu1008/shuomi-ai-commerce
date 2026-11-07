@@ -45,6 +45,26 @@ it("never interprets plain HTML-looking data and safely renders an untrusted ric
  expect(view.container.querySelector("[onclick],[onerror],script")).toBeNull();expect(view.container.querySelector("img")).toHaveAttribute("src","/api/image-proxy?url="+encodeURIComponent(image));
 });
 
+it("lets Tab leave the description toolbar while arrow keys navigate its controls", async () => {
+  const keyboard = userEvent.setup();
+  render(<><input aria-label="品牌" /><DescriptionEditor label="商品描述" value="" images={[]} maxBytes={8192} onChange={vi.fn()} /></>);
+  const description = await screen.findByRole("textbox", { name: "商品描述" });
+  await keyboard.tab();
+  expect(screen.getByRole("textbox", { name: "品牌" })).toHaveFocus();
+  await keyboard.tab();
+  expect(screen.getByRole("toolbar", { name: "商品描述排版" })).toHaveFocus();
+  await keyboard.keyboard("{ArrowRight}");
+  expect(screen.getByRole("button", { name: "正文" })).toHaveFocus();
+  await keyboard.keyboard("{ArrowRight}");
+  expect(screen.getByRole("button", { name: "标题格式" })).toHaveFocus();
+  await keyboard.tab();
+  expect(description).toHaveFocus();
+  await keyboard.tab({ shift: true });
+  expect(screen.getByRole("toolbar", { name: "商品描述排版" })).toHaveFocus();
+  await keyboard.tab({ shift: true });
+  expect(screen.getByRole("textbox", { name: "品牌" })).toHaveFocus();
+});
+
 it("updates toolbar selection state without changing untouched description bytes",async()=>{
  const change=vi.fn();render(<DescriptionEditor label="描述" value="" images={[]} maxBytes={8192} onChange={change}/>);
  await screen.findByRole("textbox",{name:"描述"});
