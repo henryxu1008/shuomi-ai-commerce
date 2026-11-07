@@ -63,7 +63,7 @@ func (r *scopeRepository) List(_ context.Context, s collection.Scope, _, _ strin
 
 type noSources struct{}
 
-func (noSources) Observe(context.Context, collection.Scope, research.Selection) (research.Observation, error) {
+func (noSources) Observe(context.Context, collection.Scope, string, research.Selection) (research.Observation, error) {
 	return research.Observation{}, research.ErrNotFound
 }
 func TestResearchHTTPRejectsForgedAndDuplicateInputBeforeDomainAccess(t *testing.T) {

@@ -192,6 +192,9 @@ func prepareOperationTx(ctx context.Context, tx *gorm.DB, scope collection.Scope
 		}
 		items := make([]operationItemRow, 0, len(sources))
 		for _, source := range sources {
+			if collection.IsResearchFixtureProduct(source.ProductKey) {
+				return preparation.OperationReceipt{}, preparation.ErrForbidden
+			}
 			item := operationItemRow{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, OperationID: row.ID, SourceID: source.ID, Status: preparation.ItemPending}
 			if input.Action == preparation.OperationUpload || input.Action == preparation.OperationOptimize {
 				var target struct {

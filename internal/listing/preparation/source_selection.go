@@ -107,7 +107,14 @@ func (s *SourceSelector) SelectForExecution(ctx context.Context, scope Scope, id
 	if err != nil || current != scope {
 		return AuthorizedSource{}, ErrForbidden
 	}
-	return s.readSelected(ctx, scope, owner, id)
+	source, err := s.readSelected(ctx, scope, owner, id)
+	if err != nil {
+		return AuthorizedSource{}, err
+	}
+	if collection.IsResearchFixtureProduct(source.source.Source.ProductKey) {
+		return AuthorizedSource{}, ErrForbidden
+	}
+	return source, nil
 }
 
 func (s *SourceSelector) readSelected(ctx context.Context, scope Scope, owner collection.AuthorizedOwner, id string) (AuthorizedSource, error) {

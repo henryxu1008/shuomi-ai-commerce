@@ -31,6 +31,7 @@ type researchModule struct {
 	service  *research.Service
 	projects researchProjects
 	trial    *marketResearchSHEINTrial
+	fixture  *dataservicesapp.ResearchFixture
 }
 
 func (researchModule) Name() string                { return rh.ModuleName }
@@ -39,6 +40,12 @@ func (m researchModule) Register(r *kernel.Registry) error {
 	r.AddRoutes(rh.Routes(m.handler)...)
 	if m.trial != nil {
 		r.AddRoutes(marketResearchSHEINTrialRoutes(m.trial)...)
+	}
+	if m.fixture != nil {
+		r.AddRoutes(marketResearchFixtureRoutes(m, researchFixturePath)...)
+		if m.fixture.PaginationEnabled() {
+			r.AddRoutes(marketResearchFixtureRoutes(m, researchPaginationFixturePath)...)
+		}
 	}
 	return nil
 }
@@ -77,7 +84,11 @@ func (a researchProjects) authorize(ctx context.Context, s collection.Scope, pro
 	if !authz.AllowedOrganization(fresh, a.auth.policy, id.UserID, id.TenantID, id.Roles, collection.PermissionRead) {
 		return research.ErrForbidden
 	}
-	view, err := a.service.Get(fresh, scope, project)
+	return a.requireResearchProject(fresh, scope, project, active)
+}
+
+func (a researchProjects) requireResearchProject(ctx context.Context, scope pc.Scope, project string, active bool) error {
+	view, err := a.service.Get(ctx, scope, project)
 	if err != nil {
 		return research.ErrNotFound
 	}
@@ -93,9 +104,10 @@ func (a researchProjects) authorize(ctx context.Context, s collection.Scope, pro
 type researchSources struct {
 	collections *collection.Service
 	data        *dataservicesapp.Module
+	fixture     *dataservicesapp.ResearchFixture
 }
 
-func (a researchSources) Observe(ctx context.Context, scope collection.Scope, in research.Selection) (research.Observation, error) {
+func (a researchSources) Observe(ctx context.Context, scope collection.Scope, project string, in research.Selection) (research.Observation, error) {
 	selection := collection.SelectionInput{ItemID: in.ItemID, ExpectedRevision: in.Revision, OriginalPublicationID: in.PublicationID, OriginalVersion: in.Version}
 	proof, err := a.collections.Select(ctx, selection)
 	if err != nil {
@@ -111,10 +123,12 @@ func (a researchSources) Observe(ctx context.Context, scope collection.Scope, in
 	}
 	principal := dataacquisition.Principal{Scope: scope}
 	var observation research.Observation
-	switch detail.Item.Source.Kind {
-	case "amazon_data":
+	switch {
+	case collection.IsResearchFixtureProduct(detail.Item.Source.ProductKey):
+		observation, err = a.observeFixture(ctx, scope, project, in, detail.Item)
+	case detail.Item.Source.Kind == "amazon_data":
 		observation, err = a.observeAmazon(ctx, principal, in, detail.Item)
-	case collection.SourceSHEINUSData:
+	case detail.Item.Source.Kind == collection.SourceSHEINUSData:
 		observation, err = a.observeSHEINUS(ctx, principal, in, detail.Item)
 	default:
 		return research.Observation{}, research.ErrNotFound
@@ -189,7 +203,7 @@ func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModu
 		return nil, research.ErrUnavailable
 	}
 	projects := researchProjects{project.handler.Service, auth}
-	sources := researchSources{collections, data}
+	sources := &researchSources{collections: collections, data: data}
 	service := research.New(repo, projects, sources)
 	if supplierReview && store.VerifySupplierReviewSchema(ctx, db) == nil {
 		service.SupplierSources = sources

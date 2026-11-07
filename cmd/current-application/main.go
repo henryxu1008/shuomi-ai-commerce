@@ -184,6 +184,12 @@ func execute() error {
 					options = append(options, httpapi.WithMarketResearchSupplierReview())
 				}
 			}
+			if f := features.ResearchFixture; f != nil {
+				options = append(options, httpapi.WithResearchFixture(httpapi.ResearchFixtureBinding{
+					Scope: collection.Scope{OrganizationID: f.OrganizationID, ActorID: f.ActorID, MemberID: f.MemberID}, Project: f.ProjectID,
+					PaginationEnabled: f.PaginationEnabled,
+				}))
+			}
 			if trial := features.SHEINUSTrial; trial != nil {
 				option, err := httpapi.WithSHEINUSTrial(httpapi.SHEINUSTrialInputs{
 					Approval: trial.Approval, Reconciler: trial.Reconciler, Access: trial.Access, Budget: trial.Budget,

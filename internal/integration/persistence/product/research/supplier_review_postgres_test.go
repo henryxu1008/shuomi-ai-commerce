@@ -21,14 +21,14 @@ type supplierSourceFixture struct {
 	marketDenied, offerDenied bool
 }
 
-func (s *supplierSourceFixture) ReadSupplierMarket(_ context.Context, _ collection.Scope, ref research.EvidenceRef) (research.SupplierMarket, error) {
+func (s *supplierSourceFixture) ReadSupplierMarket(_ context.Context, _ collection.Scope, _ string, ref research.EvidenceRef) (research.SupplierMarket, error) {
 	if s.marketDenied || ref != s.amazon.Ref {
 		return research.SupplierMarket{}, research.ErrForbidden
 	}
 	return s.amazon, nil
 }
 
-func (s *supplierSourceFixture) ReadSupplierOffer(_ context.Context, _ collection.Scope, in research.Selection, original *research.SupplierOriginal) (research.SupplierOffer, error) {
+func (s *supplierSourceFixture) ReadSupplierOffer(_ context.Context, _ collection.Scope, _ string, in research.Selection, original *research.SupplierOriginal) (research.SupplierOffer, error) {
 	if s.offerDenied {
 		return research.SupplierOffer{}, research.ErrForbidden
 	}
@@ -56,6 +56,19 @@ func verifySupplierReview(t *testing.T, ctx context.Context, svc *research.Servi
 	require.ErrorIs(t, err, research.ErrUnsupported, "the feature defaults closed")
 	svc.SupplierSources = source
 	svc.SupplierExpiry = func(ctx context.Context) time.Time { return time.Now().Add(5 * time.Second) }
+
+	realOffer := source.offer
+	mixed := cmd
+	mixedInput := *cmd.Supplier
+	mixedInput.Selection.PublicationID = collection.ResearchFixtureSupplierPublicationPrefix + uuid.NewString()
+	mixed.Supplier = &mixedInput
+	source.offer.Original.Source.ProductKey = collection.ResearchFixtureProductPrefix + uuid.NewString()
+	source.offer.Original.Source.PublicationID = mixedInput.Selection.PublicationID
+	_, err = svc.SupplierPreview(ctx, scope, project, current.ID, mixedInput.Selection)
+	require.ErrorIs(t, err, research.ErrUnsupported)
+	_, err = svc.Execute(ctx, scope, project, uuid.NewString(), mixed)
+	require.ErrorIs(t, err, research.ErrUnsupported)
+	source.offer = realOffer
 
 	preview, err := svc.SupplierPreview(ctx, scope, project, current.ID, sel)
 	require.NoError(t, err)

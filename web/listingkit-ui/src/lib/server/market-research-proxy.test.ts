@@ -10,12 +10,12 @@ it("retains ambiguity after dispatch and rejects another key receipt",async()=>{
 
 it("preserves a definite unsupported-source rejection instead of manufacturing unknown",async()=>{fetcher.mockResolvedValue(Response.json({code:"SOURCE_NOT_SUPPORTED"},{status:400}));const r=await proxyMarketResearch(request(),"token","user-a");expect(r.status).toBe(400);expect(await r.json()).toEqual({code:"SOURCE_NOT_SUPPORTED"});});
 
-function supplierPreviewRequest() {
+function supplierPreviewRequest(publicationId = `source-run:acquisition:${id}`) {
   const url = new URL(`https://app.example/api/workbench/research/projects/${id}/candidates/${id}/supplier-review`);
   url.search = new URLSearchParams({
     itemId: id,
     revision: "1",
-    publicationId: `source-run:acquisition:${id}`,
+    publicationId,
     version: "1",
   }).toString();
   return new Request(url, {
@@ -26,6 +26,15 @@ function supplierPreviewRequest() {
     },
   });
 }
+
+it("forwards a synthetic 1688 reference for project authorization without treating it as acquisition", async () => {
+  const publicationId = `source-run:research-acceptance:${id}`;
+  fetcher.mockResolvedValue(Response.json(supplierPreview(1)));
+  expect((await proxyMarketResearch(supplierPreviewRequest(publicationId), "token", "user-a")).status).toBe(200);
+  expect(new URL(fetcher.mock.calls[0][0]).searchParams.get("publicationId")).toBe(publicationId);
+  expect((await proxyMarketResearch(supplierPreviewRequest(id), "token", "user-a")).status).toBe(400);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
 
 function supplierPreview(count: number) {
   return {

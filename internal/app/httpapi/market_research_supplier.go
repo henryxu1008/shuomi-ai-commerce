@@ -29,7 +29,7 @@ func supplierEvidenceExpiry(ctx context.Context) time.Time {
 	return expires
 }
 
-func (a researchSources) ReadSupplierMarket(ctx context.Context, scope collection.Scope, ref research.EvidenceRef) (research.SupplierMarket, error) {
+func (a researchSources) ReadSupplierMarket(ctx context.Context, scope collection.Scope, project string, ref research.EvidenceRef) (research.SupplierMarket, error) {
 	if ref.Source.Kind != "amazon_data" {
 		return research.SupplierMarket{}, research.ErrUnsupported
 	}
@@ -37,6 +37,9 @@ func (a researchSources) ReadSupplierMarket(ctx context.Context, scope collectio
 	item, err := a.collections.ReadResearchEvidenceItem(ctx, scope, in, &ref.Source)
 	if err != nil {
 		return research.SupplierMarket{}, supplierEvidenceFailure(err)
+	}
+	if collection.IsResearchFixtureProduct(item.Source.ProductKey) {
+		return a.fixtureMarket(ctx, scope, project, ref, item)
 	}
 	original, err := a.data.Provenance(ctx, dataacquisition.Principal{Scope: scope}, item.Source)
 	if err != nil {
@@ -52,7 +55,7 @@ func (a researchSources) ReadSupplierMarket(ctx context.Context, scope collectio
 	return research.SupplierMarket{Ref: ref, Revision: item.Revision, ASIN: original.Evidence.ASIN, Title: original.Evidence.Title, Attributes: supplierSpecAttributes(original.Evidence.Attributes)}, nil
 }
 
-func (a researchSources) ReadSupplierOffer(ctx context.Context, scope collection.Scope, sel research.Selection, bound *research.SupplierOriginal) (research.SupplierOffer, error) {
+func (a researchSources) ReadSupplierOffer(ctx context.Context, scope collection.Scope, project string, sel research.Selection, bound *research.SupplierOriginal) (research.SupplierOffer, error) {
 	in := collection.SelectionInput{ItemID: sel.ItemID, ExpectedRevision: sel.Revision, OriginalPublicationID: sel.PublicationID, OriginalVersion: sel.Version}
 	var original *collection.Source
 	if bound != nil {
@@ -61,6 +64,9 @@ func (a researchSources) ReadSupplierOffer(ctx context.Context, scope collection
 		}
 		in.ExpectedRevision = 0
 		original = &bound.Source
+	}
+	if _, fixture := collection.ResearchFixtureSupplierOperation(sel.PublicationID); fixture {
+		return a.fixtureOffer(ctx, scope, project, in, bound)
 	}
 	item, published, err := a.collections.ReadResearchSupplierAcquisition(ctx, scope, in, original)
 	if err != nil {

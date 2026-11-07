@@ -15,6 +15,29 @@ func AppendDataPublication(ctx context.Context, tx *gorm.DB, scope collection.Sc
 	if err != nil || verified != batch || source.Kind != batch.Kind || !collection.ValidID(source.OperationID) {
 		return "", collection.ErrInvalid
 	}
+	return appendDataPublication(ctx, tx, scope, batch, source, at)
+}
+
+// AppendResearchFixture joins the already-verified local fixture publication transaction.
+func AppendResearchFixture(ctx context.Context, tx *gorm.DB, scope collection.Scope, batch collection.PublicationBatch, source collection.Source, at time.Time) (string, error) {
+	if scope.Validate() != nil || !collection.IsResearchFixtureProduct(source.ProductKey) || source.Kind != batch.Kind {
+		return "", collection.ErrInvalid
+	}
+	if batch.Kind == "amazon_data" {
+		if source.OperationID != source.PublicationID {
+			return "", collection.ErrInvalid
+		}
+		return AppendDataPublication(ctx, tx, scope, batch, source, at)
+	}
+	operation, ok := collection.ResearchFixtureSupplierOperation(source.PublicationID)
+	if !ok || operation != source.OperationID || batch.Kind != "acquisition" || batch.Name != "合成 · 1688 货源" || batch.OperationID != operation ||
+		batch.ID != collection.StableID(scope.OrganizationID, scope.ActorID, "data-batch", batch.Kind, batch.OperationID) {
+		return "", collection.ErrInvalid
+	}
+	return appendDataPublication(ctx, tx, scope, batch, source, at)
+}
+
+func appendDataPublication(ctx context.Context, tx *gorm.DB, scope collection.Scope, batch collection.PublicationBatch, source collection.Source, at time.Time) (string, error) {
 	if tx == nil {
 		return "", collection.ErrUnavailable
 	}

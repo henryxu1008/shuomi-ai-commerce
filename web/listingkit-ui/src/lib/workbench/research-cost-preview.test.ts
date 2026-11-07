@@ -43,6 +43,14 @@ describe("manual cost estimate", () => {
     expect(evaluateCost({ ...draft, rule: "unsupported" })).toEqual({ status: "UNSUPPORTED_COST_RULE" });
   });
 
+  it("W4 leaves both procurement amounts missing when the only supplier price is a starting price", () => {
+    const draft = fixture();
+    draft.specification = "sku-adjustable-white-01，单件装";
+    draft.completed.costs.procurement = amount("");
+    draft.refunded.costs.procurement = amount("");
+    expect(evaluateCost(draft)).toEqual({status:"INSUFFICIENT_INPUT",fields:["completed.procurement","refunded.procurement"]});
+  });
+
   it("uses explicit directional FX and rejects wrong units, invalid amounts and dates", () => {
     const draft = fixture();
     draft.purchaseCurrency = "CNY";

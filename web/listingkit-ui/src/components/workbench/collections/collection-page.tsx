@@ -1,6 +1,8 @@
 "use client";
 
 import {TransferSelection} from "./transfer-selection";
+import {ResearchCollectionTransfer} from "./research-collection-transfer";
+import {researchHandoffScope} from "../project-center/research-handoff-provider";
 import type {ResearchSelection} from "@/lib/contracts/market-research";
 import {OfflineDiagnosticPanel} from "../shein-diagnostic/offline-panel";
 import {DescriptionView} from "../description-view";
@@ -29,13 +31,14 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 const kindLabels = { acquisition: "在线采集", own: "自有商品", manual: "手动分组", market: "供应市场", sds_template: "SDS 模板（未定制）", sds_finished: "SDS 定制成品", amazon_data: "Amazon数据", custom_dataset: "定制数据集", shein_us_data: "SHEIN 美国站卡片" };
 const failureText: Record<string, string> = { OUTCOME_UNKNOWN: "结果待核实", INTENT_STORAGE_UNAVAILABLE: "无法保存原请求，请恢复浏览器存储后重试。", REVISION_CONFLICT: "资料已发生变化，请刷新后重试。", PERMISSION_DENIED: "当前权限不足。", NOT_FOUND: "未找到当前身份下的记录。", ORGANIZATION_CONTEXT_CHANGED: "企业上下文已变化。", IDENTITY_CONTEXT_CHANGED: "登录身份已变化。", INVALID_REQUEST: "请检查填写内容。" };
 
-export function CollectionPage({offlineAvailable=false,agentAvailable=false,supplyAvailable=false,initialBatchId,initialItemId,initialTransferSelection,initialView="batches"}:{offlineAvailable?:boolean;agentAvailable?:boolean;supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string;initialTransferSelection?:ResearchSelection[];initialView?:"batches"|"own"}) {
+export function CollectionPage({offlineAvailable=false,agentAvailable=false,supplyAvailable=false,initialBatchId,initialItemId,initialTransferSelection,initialView="batches",researchToken}:{researchToken?:string;offlineAvailable?:boolean;agentAvailable?:boolean;supplyAvailable?:boolean;initialBatchId?:string;initialItemId?:string;initialTransferSelection?:ResearchSelection[];initialView?:"batches"|"own"}) {
   const context = useWorkbenchContext();
   const userId = context.user?.id;
   const organizationId = context.effectiveOrganization?.id;
   const scope = useMemo(() => userId && organizationId ? { userId, organizationId } : null, [userId, organizationId]);
   if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认当前企业" />;
   if (!scope || context.selectionRequired || context.error || context.blockingError) return <ConsoleState kind="error" title="请先确认登录身份与当前企业" />;
+  if (researchToken!==undefined) return <ResearchCollectionTransfer key={JSON.stringify([researchToken,researchHandoffScope(context)])} scope={scope} token={researchToken} supplyAvailable={supplyAvailable}/>;
   return <ScopedCollectionPage key={JSON.stringify([scope,context.effectiveMemberId,context.permissions,initialItemId,initialBatchId,initialTransferSelection])} scope={scope} offlineAvailable={offlineAvailable} agentAvailable={agentAvailable} supplyAvailable={supplyAvailable} initialBatchId={initialBatchId} initialTransferSelection={initialTransferSelection} initialItemId={initialItemId} initialView={initialView} />;
 }
 

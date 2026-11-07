@@ -199,7 +199,7 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 
 	wrong := selected["P1"]
 	wrong.Version = selected["P2"].Version
-	_, err = reader.Observe(ctx, scope, wrong)
+	_, err = reader.Observe(ctx, scope, "", wrong)
 	require.Error(t, err)
 	for _, action := range []string{"review", "decide", "reset"} {
 		intent := research.Command{Action: action, CandidateID: view.ID, ExpectedRevision: view.Revision, EvidenceDigest: view.EvidenceDigest}
@@ -247,7 +247,7 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 	tampered := strings.Replace(string(original), "38.88", "39.88", 1)
 	require.NotEqual(t, string(original), tampered)
 	require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE job_id=?", []byte(tampered), p1Job).Error)
-	_, err = reader.Observe(ctx, scope, p1)
+	_, err = reader.Observe(ctx, scope, "", p1)
 	require.ErrorIs(t, err, research.ErrUnavailable)
 	require.NoError(t, db.Exec("UPDATE data_acquisition_items SET evidence_json=? WHERE job_id=?", original, p1Job).Error)
 	require.NoError(t, db.Exec("UPDATE product_collection_items SET archived_at=now() WHERE id=?", p1.ItemID).Error)
@@ -291,7 +291,7 @@ func TestSHEINUSResearchConsumesExactPublishedCards(t *testing.T) {
 		verifySHEINTrialPublicationDenied(t, ctx, module, access, fixture.Publications["P1"])
 	})
 	access.denied = true
-	_, err = reader.Observe(ctx, scope, p2)
+	_, err = reader.Observe(ctx, scope, "", p2)
 	require.ErrorIs(t, err, research.ErrForbidden)
 	access.projectDenied = true
 	_, err = svc.List(ctx, scope, fixture.ProjectID, "")

@@ -6,13 +6,14 @@ import type { SupplyIntent } from "./supply-chain";
 
 const storageKey="listingkit.supply.intent";
 const identity=z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
-const envelope=z.object({userId:identity,organizationId:identity,key:collectionID,route:z.enum(["cancel-upload-plan","create-upload-plan","continue-upload-plan","shein-shelf-confirm","save-completion-draft","transfer","save-target","approve","create-operation","review-decision","review-apply","resolve-upload"]),command:z.unknown()}).strict();
+const envelope=z.object({userId:identity,organizationId:identity,key:collectionID,route:z.enum(["cancel-upload-plan","create-upload-plan","continue-upload-plan","shein-shelf-confirm","save-completion-draft","transfer","save-target","approve","create-operation","review-decision","review-apply","resolve-upload"]),command:z.unknown(),lookupOnly:z.literal(true).optional()}).strict();
 export function parseSupplyIntent(raw:string|null):SupplyIntent|null{
  if(!raw || new TextEncoder().encode(raw).length>SUPPLY_MAX_BYTES)return null;
  try{
   const value=envelope.safeParse(JSON.parse(raw));if(!value.success)return null;
   const schema=supplyIntentRequestSchema(value.data.route);const command=schema?.safeParse(value.data.command);if(!command?.success)return null;
   if(value.data.route==="approve" && "actionId" in command.data && command.data.actionId && command.data.actionId!==value.data.key)return null;
+  if(value.data.lookupOnly && (value.data.route!=="transfer" || !("itemIds" in command.data) || !Array.isArray(command.data.itemIds) || command.data.itemIds.length!==1))return null;
   return {...value.data,command:command.data};
  }catch{return null}
 }

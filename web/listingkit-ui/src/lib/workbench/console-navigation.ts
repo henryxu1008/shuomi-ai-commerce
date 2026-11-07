@@ -97,6 +97,11 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node: ConsoleNavNode = {label: "选择已有商品", href: pathname, availability: "connected"};
     return {node, trail: [...parent.trail, node]};
   }
+  if (pathname === "/workbench/data/mine/research-transfer") {
+    const parent=findConsoleRoute("/workbench/data/mine")!;
+    const node:ConsoleNavNode={label:"核对研究商品",href:pathname,availability:parent.node.availability};
+    return {node,trail:[...parent.trail,node]};
+  }
   if (/^\/workbench\/data\/mine\/own\/(?:new|[0-9a-f-]{36})$/.test(pathname)) {
     const parent=findConsoleRoute("/workbench/data/mine")!;
     const node:ConsoleNavNode={label:pathname.endsWith("/new")?"添加自有商品":"自有商品资料",href:pathname,availability:parent.node.availability};

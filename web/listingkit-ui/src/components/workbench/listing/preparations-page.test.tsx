@@ -17,6 +17,17 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("labels the synthetic original on the local waiting page and keeps it at that stage", async () => {
+  const productKey = "research-fixture-v1-sample";
+  state.sources.mockResolvedValue({ items: [{ id: source, preparationId: preparation, source: { productKey, version: "1" } }], total: 1 });
+  state.detail.mockResolvedValue({ source: { source: { productKey, version: "1" }, collectionItemId: source }, product: { title: "合成商品" } });
+  render(<PreparationsPage initialPreparation={preparation} completionAvailable />);
+  expect(await screen.findByText("合成原件 · 来源版本 1")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "创建 / 编辑待补全草稿" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "查看资料" }));
+  expect(await screen.findByText("来源：合成原件 · 版本 1")).toBeInTheDocument();
+});
+
 it("shows four configuration steps before selection without exposing unavailable upload actions", async () => {
   render(<PreparationsPage completionAvailable />);
   for (const name of ["1. 选择商品", "2. 选择目标店铺", "3. 配置规则与智能体", "4. 确认提交"]) {

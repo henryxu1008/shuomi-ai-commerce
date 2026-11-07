@@ -29,7 +29,7 @@ function statusMessage(error:unknown) {
 }
 
 export function ResearchSupplierReview({scope, projectId, candidateId, canWrite, onSaved}:{
-  scope:ProjectScope; projectId:string; candidateId:string; canWrite:boolean; onSaved:()=>void;
+  scope:ProjectScope; projectId:string; candidateId:string; canWrite:boolean; onSaved:(revision?:number,before?:number)=>void;
 }) {
   const pending = useResourcePending(
     {expectedUserId:scope.userId, expectedOrganizationId:scope.organizationId},
@@ -136,13 +136,13 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     setBusy(true);
     setMessage("");
     try {
-      await researchRequest(scope, projectId, researchReceipt, controller.signal, {intent});
+      const receipt=await researchRequest(scope, projectId, researchReceipt, controller.signal, {intent});
       if (controller.signal.aborted) return;
       pending.clear(pointer);
       setOperation(null);
       clearDraft();
       setMessage("已保存货源核对。");
-      onSaved();
+      onSaved(receipt.revisions[candidateId],intent.body.expectedRevision);
     } catch (error) {
       if (controller.signal.aborted) return;
       clearDraft();
@@ -170,11 +170,11 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     setMessage("");
     setMissingReceipt("");
     try {
-      await researchRequest(scope, projectId, researchReceipt, controller.signal, {lookup:pointer.key});
+      const receipt=await researchRequest(scope, projectId, researchReceipt, controller.signal, {lookup:pointer.key});
       if (controller.signal.aborted) return;
       pending.clear(pointer);
       setOperation(null);
-      onSaved();
+      onSaved(receipt.revisions[candidateId],operation?.key===pointer.key?operation.body.expectedRevision:undefined);
     } catch (error) {
       if (controller.signal.aborted) return;
       const notFound = error instanceof ResearchError && error.code === "NOT_FOUND";
@@ -217,8 +217,8 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     {picker && canWrite && <CollectionPicker scope={scope} kind="product" isEligible={item => item.source.kind === "acquisition"}
       authorizationKey={projectId + ":" + candidateId} emptyMessage="这页没有可选的已收藏货源。" onSelect={item => void selectOffer(selectionOf(item))}/>}
     {preview && selection && canWrite && <div className="grid min-w-0 gap-3 rounded-md border p-3">
-      <p>Amazon 美国站原版 · {preview.market.title} · {preview.market.asin}</p>
-      <p>1688 已收藏原版 · {preview.offer.title}</p>
+      <p>Amazon 美国站原版 · {preview.market.title} · {preview.market.asin}{preview.market.fixtureVersion && ` · 合成原件 v${preview.market.fixtureVersion}`}</p>
+      <p>1688 已收藏原版 · {preview.offer.title}{preview.offer.fixtureVersion && ` · 合成原件 v${preview.offer.fixtureVersion}`}</p>
       {preview.offer.variants.length === 0 ? <p role="status">原版没有可确认的 SKU，规格待核对。</p> : <>
         <label className="grid gap-1">1688 SKU
           <select value={skuId} onChange={e => {setSkuId(e.target.value);setComparisons([initialComparison]);}} className="rounded border bg-background p-2">
@@ -277,8 +277,8 @@ export function ResearchSupplierReview({scope, projectId, candidateId, canWrite,
     {page?.items.map((row,index) => <article key={index} className="grid gap-1 rounded border p-3">
       {row.detail ? <>
         <p>{row.current ? "当前货源核对" : "历史货源核对"} · {row.detail.status === "CONFIRMED" ? "已人工确认" : "待核对"}</p>
-        <p>Amazon {row.detail.marketTitle} · {row.detail.asin} · 原版 {row.detail.marketVersion}</p>
-        <p>1688 {row.detail.supplierTitle} · {row.detail.offerId} · 原版 {row.detail.supplierVersion}</p>
+        <p>Amazon {row.detail.marketTitle} · {row.detail.asin} · 原版 {row.detail.marketVersion}{row.detail.marketFixtureVersion && ` · 合成原件 v${row.detail.marketFixtureVersion}`}</p>
+        <p>1688 {row.detail.supplierTitle} · {row.detail.offerId} · 原版 {row.detail.supplierVersion}{row.detail.supplierFixtureVersion && ` · 合成原件 v${row.detail.supplierFixtureVersion}`}</p>
         <p>SKU {row.detail.skuLabel} · {row.detail.skuId} · {row.detail.quantity} 件</p>
         <ul>{row.detail.comparisons.map(c => <li key={JSON.stringify([c.marketKey,c.supplierLevel,c.supplierKey])}>
           {c.marketKey}（{c.marketValue ?? "未提供"}）／{c.supplierKey}（{c.supplierLevel === "sku" ? "SKU" : "商品级"}，{c.supplierValue ?? "未提供"}）· {comparisonLabels[c.result]}

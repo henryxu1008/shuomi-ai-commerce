@@ -9,6 +9,7 @@ import {useWorkbenchContext} from "@/components/providers/workbench-context-prov
 import {configurationRequest,type ConfigurationScope} from "@/lib/api/agent-configuration";
 import {MarketAPIError} from "@/lib/api/supply-market";
 import {inspectResearch,prepareResearch,executeResearch,readResearchPreparation,readResearchRun,recentResearchRuns} from "@/lib/api/research-analysis";
+import {matchesResearchInspection} from "@/lib/api/research-handoff";
 import {catalogEntrySchema} from "@/lib/contracts/agent-configuration";
 import {executionModeViewSchema} from "@/lib/contracts/execution-mode";
 import {researchAnalysisInput,researchAnalysisIntent,researchPrepareSchema,researchSavedPreparation,type ResearchAnalysisIntent,type ResearchInspection} from "@/lib/contracts/research-analysis";
@@ -19,7 +20,7 @@ import {configurationError} from "../agents/agent-configuration-hooks";
 import {useResourcePending} from "../resources/resource-pending";
 import styles from "./research-panel.module.css";
 export function analysisChoices(selected:ResearchCandidate[]){return selected.map(c=>({candidateId:c.id,expectedRevision:String(c.revision),linkId:c.selectedLinkId,evidenceDigest:c.evidenceDigest,selection:{itemId:c.observation?.ref.selection.itemId,expectedRevision:String(c.observation?.ref.selection.revision),originalPublicationId:c.observation?.ref.selection.publicationId,originalVersion:c.observation?.ref.selection.version}}));}
-function matches(out:ResearchInspection|undefined,input:unknown){const parsed=researchAnalysisInput.safeParse(input);if(!out||!parsed.success||out.candidates.length!==parsed.data.candidates.length)return false;return parsed.data.candidates.every(c=>out.candidates.some(p=>p.research.CandidateID===c.candidateId&&p.research.CandidateRevision===c.expectedRevision&&p.research.SelectedLinkID===c.linkId&&p.research.EvidenceDigest===c.evidenceDigest&&p.ref.ItemID===c.selection.itemId&&p.ref.ItemRevision===c.selection.expectedRevision&&p.ref.PublicationID===c.selection.originalPublicationId&&p.ref.CatalogVersion===c.selection.originalVersion));}
+function matches(out:ResearchInspection|undefined,input:unknown){const parsed=researchAnalysisInput.safeParse(input);return !!out&&parsed.success&&matchesResearchInspection(out,parsed.data);}
 const recommendationNames={TEST_CANDIDATE:"建议测试",RESEARCH_MORE:"建议进一步了解",NOT_RECOMMENDED:"建议暂不选择"};
 export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evidenceReadKey="",evidenceReadable=true}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";evidenceReadKey?:string;evidenceReadable?:boolean}){
  const context=useWorkbenchContext(),queries=useQueryClient();

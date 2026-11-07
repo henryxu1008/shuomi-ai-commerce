@@ -65,7 +65,7 @@ type analysisSources struct {
 	deny string
 }
 
-func (s *analysisSources) Observe(_ context.Context, _ collection.Scope, in Selection) (Observation, error) {
+func (s *analysisSources) Observe(_ context.Context, _ collection.Scope, _ string, in Selection) (Observation, error) {
 	if in.ItemID == s.deny {
 		return Observation{}, ErrForbidden
 	}

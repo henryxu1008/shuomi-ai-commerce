@@ -37,15 +37,16 @@ type Inspector struct {
 	Products ProductReader
 }
 type Metadata struct {
-	Site          string                `json:"site"`
-	ASIN          string                `json:"asin"`
-	CapturedAt    string                `json:"capturedAt"`
-	ParserVersion string                `json:"parserVersion"`
-	Checksum      string                `json:"checksum"`
-	Query         research.QuerySummary `json:"query"`
-	Currency      string                `json:"currency,omitempty"`
-	Price         *float64              `json:"price,omitempty"`
-	PriceBasis    string                `json:"priceBasis,omitempty"`
+	Site           string                `json:"site"`
+	ASIN           string                `json:"asin"`
+	CapturedAt     string                `json:"capturedAt"`
+	ParserVersion  string                `json:"parserVersion"`
+	Checksum       string                `json:"checksum"`
+	Query          research.QuerySummary `json:"query"`
+	Currency       string                `json:"currency,omitempty"`
+	Price          *float64              `json:"price,omitempty"`
+	PriceBasis     string                `json:"priceBasis,omitempty"`
+	FixtureVersion string                `json:"fixtureVersion,omitempty"`
 }
 type Candidate struct {
 	Ref         agent.SelectionProductRef  `json:"ref"`
@@ -119,7 +120,7 @@ func (i Inspector) Prepare(ctx context.Context, project string, choices []resear
 	out := Inspection{Scope: scope, Version: InspectionVersion, ProjectID: project, Candidates: []Candidate{}}
 	for _, row := range rows {
 		c, o := row.Choice, row.Observation
-		meta := Metadata{Site: o.Site, ASIN: o.ASIN, CapturedAt: o.CapturedAt, ParserVersion: o.ParserVersion, Checksum: o.Ref.Checksum, Query: o.Query, Currency: o.Currency, Price: o.Price, PriceBasis: o.PriceBasis}
+		meta := Metadata{Site: o.Site, ASIN: o.ASIN, CapturedAt: o.CapturedAt, ParserVersion: o.ParserVersion, Checksum: o.Ref.Checksum, Query: o.Query, Currency: o.Currency, Price: o.Price, PriceBasis: o.PriceBasis, FixtureVersion: o.FixtureVersion}
 		if !validMetadata(meta) || c.Selection != o.Ref.Selection || c.EvidenceDigest != o.Ref.Digest() {
 			return empty, Inspection{}, agent.ErrInvalid
 		}
@@ -290,7 +291,8 @@ func summarize(cs []Candidate) Summary {
 	for _, c := range cs {
 		m := c.Observation
 		_, currencyError := currency.ParseISO(m.Currency)
-		if m.Price == nil || currencyError != nil || len(m.Currency) != 3 || m.Currency != strings.ToUpper(m.Currency) || m.Currency == "XXX" || m.Currency == "XTS" || m.PriceBasis != "displayed_listing_offer" {
+		if m.Price == nil || currencyError != nil || len(m.Currency) != 3 || m.Currency != strings.ToUpper(m.Currency) || m.Currency == "XXX" || m.Currency == "XTS" ||
+			(m.PriceBasis != "displayed_listing_offer" && m.PriceBasis != "synthetic_listing_offer") {
 			out.Unpriced++
 			continue
 		}

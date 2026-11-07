@@ -8,3 +8,15 @@ const items=ids.map((id,i)=>({id,batchId:batch.id,revision:1,title:"商品"+(i+1
 beforeEach(()=>{m.list.mockReset().mockResolvedValue({items,total:3});m.read.mockReset().mockImplementation(async(_s,id)=>({item:items.find(v=>v.id===id)}));m.batch.mockReset().mockResolvedValue(batch);m.submit.mockReset();});afterEach(cleanup);
 it("requires nonempty subset and submits exactly two of three",async()=>{render(<TransferSelection scope={{userId:"u",organizationId:"o"}} batch={batch} blocked={false} submit={m.submit}/>);fireEvent.click(screen.getByLabelText("选择本批商品"));expect(await screen.findByLabelText("选择商品1")).toBeInTheDocument();expect(screen.getByRole("button",{name:"确认加入所选商品"})).toBeDisabled();fireEvent.click(screen.getByLabelText("选择商品1"));fireEvent.click(screen.getByLabelText("选择商品3"));fireEvent.click(screen.getByRole("button",{name:"确认加入所选商品"}));await waitFor(()=>expect(m.submit).toHaveBeenCalledWith({batchId:batch.id,expectedRevision:3,itemIds:[ids[0],ids[2]]}));});
 it("blocks stale research prefill without substituting current version",async()=>{render(<TransferSelection scope={{userId:"u",organizationId:"o"}} batch={batch} blocked={false} initialSelections={[{itemId:ids[0],revision:1,publicationId:ids[0],version:"2"}]} submit={m.submit}/>);expect(await screen.findByText(/研究预填的原始版本已变化/)).toBeInTheDocument();expect(screen.getByRole("button",{name:"确认加入所选商品"})).toBeDisabled();expect(m.submit).not.toHaveBeenCalled();});
+
+it("shows the verified original title, synthetic marker, and version when the collection detail has no item title",async()=>{
+ const item={...items[0],title:undefined,source:{...items[0].source,productKey:"research-fixture-v1-"+ids[0]}};
+ m.read.mockResolvedValue({item,product:{title:"合成 · Adjustable under sink organizer"}});
+ render(<TransferSelection scope={{userId:"u",organizationId:"o"}} batch={batch} blocked={false} fixedResearch
+  initialSelections={[{itemId:item.id,revision:item.revision,publicationId:item.source.publicationId,version:item.source.version}]} submit={m.submit}/>);
+ expect(await screen.findByText("已选：合成 · Adjustable under sink organizer")).toBeVisible();
+ expect(screen.getByText("合成原件 · 原件版本 1")).toBeVisible();
+ expect(screen.queryByText(new RegExp(item.source.productKey))).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"确认加入所选商品"}));
+ await waitFor(()=>expect(m.submit).toHaveBeenCalledExactlyOnceWith({batchId:batch.id,expectedRevision:batch.revision,itemIds:[item.id]}));
+});
