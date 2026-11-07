@@ -1447,6 +1447,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		MemberResources:      includeMemberResources,
 		Resources:            includeResources,
 		SubjectVerification:  factories.buildSubjectVerification != nil,
+
+		ResearchPaginationFixture: supplied.researchFixture != nil && supplied.researchFixture.PaginationEnabled,
 	}
 	if err := validateCurrentApplicationRoutesInternal(bundle.routes, factories.buildAccountAudit != nil, factories.buildAcquisition != nil, cfg.Referrals.Enabled, factories.buildMembership != nil, includeAccountProfile, includeAccountAllocation, factories.buildBrowserCapture != nil, routeFeatures); err != nil {
 		return nil, err
@@ -1555,9 +1557,14 @@ type currentApplicationOptionalRoutes struct {
 	SHEINTrial           bool
 	MemberPoints         bool
 	MemberResources      bool
+
+	ResearchPaginationFixture bool
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if optional.ResearchPaginationFixture && !optional.ResearchFixture {
+		return errors.New("pagination fixture requires the local research fixture")
+	}
 	if optional.SHEINTrial && !optional.MarketResearch {
 		return errors.New("SHEIN trial routes require market research")
 	}
@@ -1852,7 +1859,12 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: rh.SupplierReviewPath})
 	}
 	if optional.ResearchFixture {
-		for _, r := range marketResearchFixtureRoutes(researchModule{}) {
+		for _, r := range marketResearchFixtureRoutes(researchModule{}, researchFixturePath) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.ResearchPaginationFixture {
+		for _, r := range marketResearchFixtureRoutes(researchModule{}, researchPaginationFixturePath) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -2229,8 +2241,8 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			if descriptor.Path == rh.SupplierReviewPath && !optional.SupplierReview {
 				return errors.New("research supplier review route not admitted")
 			}
-			if descriptor.Path == researchFixturePath {
-				if !optional.ResearchFixture || !validMarketResearchFixtureDescriptor(descriptor) {
+			if descriptor.Path == researchFixturePath || descriptor.Path == researchPaginationFixturePath {
+				if !optional.ResearchFixture || descriptor.Path == researchPaginationFixturePath && !optional.ResearchPaginationFixture || !validMarketResearchFixtureDescriptor(descriptor) {
 					return errors.New("local research fixture route not admitted")
 				}
 			} else if descriptor.Module == sheinTrialModule {

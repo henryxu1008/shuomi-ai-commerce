@@ -3,10 +3,10 @@ import {researchEndpoint,researchReceipt,type researchIntent,type ResearchSelect
 import {readBoundedStrictJSON} from "./strict-json-response";
 import type {ProjectScope} from "./project-center";
 export class ResearchError extends Error{constructor(public code:string, public readonly status?:number){super(code);}}
-export async function researchRequest<T>(scope:ProjectScope,projectId:string,schema:z.ZodType<T>,signal:AbortSignal,options:{after?:string;intent?:z.infer<typeof researchIntent>;lookup?:string;supplier?:{candidate:string;selection?:ResearchSelection;before?:number};fixture?:"read"|"import"}={}):Promise<T>{
+export async function researchRequest<T>(scope:ProjectScope,projectId:string,schema:z.ZodType<T>,signal:AbortSignal,options:{after?:string;intent?:z.infer<typeof researchIntent>;lookup?:string;supplier?:{candidate:string;selection?:ResearchSelection;before?:number};fixture?:"read"|"import"|"readPagination"|"importPagination"}={}):Promise<T>{
   const {intent,lookup,after,supplier,fixture}=options;
  let tail=intent?"/commands":lookup?"/commands/"+lookup:after?"?after="+after:"";
- if(fixture)tail="/acceptance-fixture";
+ if(fixture)tail=fixture==="readPagination"||fixture==="importPagination"?"/acceptance-fixture/pagination":"/acceptance-fixture";
  if(supplier){
   const query=new URLSearchParams();
   if(supplier.selection)for(const [key,value] of Object.entries(supplier.selection))query.set(key,String(value));
@@ -14,7 +14,7 @@ export async function researchRequest<T>(scope:ProjectScope,projectId:string,sch
   tail="/candidates/"+supplier.candidate+"/supplier-review"+(query.size?"?"+query:"");
  }
  const url="/api/workbench/research/projects/"+projectId+tail;
- const write=!!intent||fixture==="import";
+ const write=!!intent||fixture==="import"||fixture==="importPagination";
  if(!researchEndpoint(new URL(url,window.location.origin),write?"POST":"GET"))throw new ResearchError("INVALID_REQUEST");
  const headers:Record<string,string>={Accept:"application/json","X-Expected-User-ID":scope.userId,"X-Expected-Organization-ID":scope.organizationId};if(write){headers["Content-Type"]="application/json";headers["Idempotency-Key"]=intent?.key??crypto.randomUUID();}
  let responseStatus:number|undefined;

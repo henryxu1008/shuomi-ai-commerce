@@ -56,6 +56,11 @@ export const researchFixtureStatus=z.discriminatedUnion("ready",[
  z.strictObject({ready:z.literal(false)}),z.strictObject({ready:z.literal(true),batch:fixtureBatch}),
 ]);
 export type ResearchFixtureBatch=z.infer<typeof fixtureBatch>;
+const paginationFixtureBatch=z.strictObject({id:collectionID,batchId:collectionID,keyword:z.literal("under sink organizer pagination")});
+export const researchPaginationFixtureStatus=z.discriminatedUnion("ready",[
+ z.strictObject({ready:z.literal(false)}),z.strictObject({ready:z.literal(true),batch:paginationFixtureBatch}),
+]);
+export type ResearchPaginationFixtureBatch=z.infer<typeof paginationFixtureBatch>;
 const researchState=z.enum(["TO_RESEARCH","PENDING_CONFIRMATION","APPROVED_FOR_TEST","REJECTED"]);
 const candidateSchema=z.strictObject({id:collectionID,supplierReview:z.literal(true).optional(),state:researchState,reason:text(4096).optional(),revision,selectedLinkId:collectionID.optional(),evidenceDigest:digest.optional(),observation:observation.optional(),evidence:z.array(z.strictObject({id:collectionID,observation:observation.optional()})).max(21),history:z.array(z.strictObject({state:researchState,reason:text(4096).optional(),evidenceDigest:digest.optional(),revision,at:z.iso.datetime({offset:true})})).max(20)});
 export type ResearchCandidate=z.infer<typeof candidateSchema>;
@@ -105,10 +110,11 @@ export const researchIntent=z.strictObject({key:collectionID,body:researchComman
 export const researchReceipt=z.strictObject({key:collectionID,revisions:z.record(collectionID,revision).refine(v=>Object.keys(v).length<=200),candidateIds:z.array(collectionID).max(200),replayed:z.boolean()});
 export const researchTransfer=z.array(researchSelection).min(1).max(5).refine(v=>new Set(v.map(s=>s.itemId)).size===v.length);
 export function researchEndpoint(url:URL,method:string){
- const fixturePath=url.pathname.match(/^\/api\/workbench\/research\/projects\/([0-9a-f-]{36})\/acceptance-fixture$/);
+ const fixturePath=url.pathname.match(/^\/api\/workbench\/research\/projects\/([0-9a-f-]{36})\/acceptance-fixture(\/pagination)?$/);
  if(fixturePath){
   if(url.search||url.hash||!collectionID.safeParse(fixturePath[1]).success||method!=="GET"&&method!=="POST")return null;
-  return {path:"/"+fixturePath[1]+"/acceptance-fixture",input:method==="POST"?z.strictObject({}):undefined,output:researchFixtureStatus,expected:false};
+  return {path:"/"+fixturePath[1]+"/acceptance-fixture"+(fixturePath[2]??""),input:method==="POST"?z.strictObject({}):undefined,
+    output:fixturePath[2]?researchPaginationFixtureStatus:researchFixtureStatus,expected:false};
  }
  const supplierPath=url.pathname.match(/^\/api\/workbench\/research\/projects\/([^/]+)\/candidates\/([^/]+)\/supplier-review$/);
  if(supplierPath){

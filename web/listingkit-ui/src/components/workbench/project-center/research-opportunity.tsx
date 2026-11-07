@@ -13,9 +13,9 @@ import {readCollectionBatch} from "@/lib/api/product-collection";
 import type {ProjectScope} from "@/lib/api/project-center";
 import {verifyResearchHandoff} from "@/lib/api/research-handoff";
 import {jobSchema} from "@/lib/contracts/data-services";
-import {researchFixtureStatus,type ResearchCandidate} from "@/lib/contracts/market-research";
+import {researchFixtureStatus,researchPaginationFixtureStatus,type ResearchCandidate} from "@/lib/contracts/market-research";
 import {researchAnalysisInput,type ResearchInspection} from "@/lib/contracts/research-analysis";
-import {candidateMatchesJob,eligibleResearchJob,handoffToken,opportunityPriceRange,researchFixtureJob,specificationFacts,type ProductRequirements,type ResearchHandoff,type ResearchHandoffStore,type ResearchJob} from "@/lib/workbench/research-handoff";
+import {candidateMatchesJob,eligibleResearchJob,handoffToken,opportunityPriceRange,researchFixtureJob,researchPaginationFixtureJob,specificationFacts,type ProductRequirements,type ResearchHandoff,type ResearchHandoffStore,type ResearchJob} from "@/lib/workbench/research-handoff";
 import {analysisChoices} from "./research-analysis-flow";
 
 const emptyRequirements:ProductRequirements={use:"",specs:[],targetPrice:"",missing:""};
@@ -26,12 +26,13 @@ function queryLabel(job:ResearchJob) {
   return "关键词 "+query.keyword+(query.categoryNode?" · 类目 "+query.categoryNode:"");
 }
 
-export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,selected,after,blocked,canStartQuery=false,showResearchFixture=false,onJobChange}:{
+export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,selected,after,blocked,canStartQuery=false,showResearchFixture=false,showResearchPaginationFixture=false,onJobChange}:{
   scope:ProjectScope; scopeKey:string; projectId:string; store:ResearchHandoffStore; draft:ResearchHandoff|null;
-  selected:ResearchCandidate[]; after:string; blocked:boolean; canStartQuery?:boolean; showResearchFixture?:boolean; onJobChange:()=>void;
+  selected:ResearchCandidate[]; after:string; blocked:boolean; canStartQuery?:boolean; showResearchFixture?:boolean; showResearchPaginationFixture?:boolean; onJobChange:()=>void;
 }) {
   const [jobs,setJobs]=useState<ResearchJob[]>([]);
   const [canImport,setCanImport]=useState(false);
+  const [canImportPagination,setCanImportPagination]=useState(false);
   const [importing,setImporting]=useState(false);
   const [importError,setImportError]=useState("");
   const importRequest=useRef<AbortController|null>(null);
@@ -40,26 +41,30 @@ export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,select
   useEffect(()=>{
     const controller=new AbortController();
     const fixture=showResearchFixture?researchRequest(scope,projectId,researchFixtureStatus,controller.signal,{fixture:"read"}):Promise.resolve(null);
-    Promise.all([dataRequest(scope,"amazon/jobs",z.array(jobSchema).max(100),undefined,controller.signal),fixture])
-      .then(([value,fixtureStatus])=>{
+    const pagination=showResearchPaginationFixture?researchRequest(scope,projectId,researchPaginationFixtureStatus,controller.signal,{fixture:"readPagination"}):Promise.resolve(null);
+    Promise.all([dataRequest(scope,"amazon/jobs",z.array(jobSchema).max(100),undefined,controller.signal),fixture,pagination])
+      .then(([value,fixtureStatus,paginationStatus])=>{
         if (controller.signal.aborted) return;
         const available:ResearchJob[]=value.filter(eligibleResearchJob);
+        if(paginationStatus?.ready)available.unshift(researchPaginationFixtureJob(paginationStatus.batch));
         if(fixtureStatus?.ready)available.unshift(researchFixtureJob(fixtureStatus.batch));
         setCanImport(fixtureStatus?.ready===false);
+        setCanImportPagination(paginationStatus?.ready===false);
         setJobs(available);
         setReadStatus("ready");
       }).catch(()=>{if (!controller.signal.aborted) setReadStatus("error");});
     return ()=>controller.abort();
-  },[scope,projectId,refresh,showResearchFixture]);
+  },[scope,projectId,refresh,showResearchFixture,showResearchPaginationFixture]);
   useEffect(()=>()=>importRequest.current?.abort(),[]);
-  async function importFixture(){
+  async function importFixture(pagination:boolean){
     if(importRequest.current||blocked)return;
     const controller=new AbortController();
     importRequest.current=controller;
     setImporting(true);
     setImportError("");
     try{
-      await researchRequest(scope,projectId,researchFixtureStatus,controller.signal,{fixture:"import"});
+      if(pagination)await researchRequest(scope,projectId,researchPaginationFixtureStatus,controller.signal,{fixture:"importPagination"});
+      else await researchRequest(scope,projectId,researchFixtureStatus,controller.signal,{fixture:"import"});
       if(!controller.signal.aborted)setRefresh(value=>value+1);
     }catch{
       if(!controller.signal.aborted)setImportError("暂时无法确认导入结果，请刷新查看。");
@@ -74,7 +79,8 @@ export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,select
     <p>选择一批 Amazon 美国站关键词或类目查询的结果，再在下方勾选同批的 2–5 件原版商品。这里由你整理方向。</p>
     <div className="flex flex-wrap gap-2">
       {canStartQuery?<Button asChild variant="outline"><Link href="/workbench/data/market" prefetch={false}>前往数据市场</Link></Button>:null}
-      {canImport?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture()}>导入合成验收资料</Button>:null}
+      {canImport?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(false)}>导入合成验收资料</Button>:null}
+      {canImportPagination?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(true)}>导入合成分页资料</Button>:null}
       <Button variant="outline" onClick={()=>{setReadStatus("loading");setRefresh(value=>value+1);}}>刷新查询结果</Button>
     </div>
     {importError?<p role="alert">{importError}</p>:null}

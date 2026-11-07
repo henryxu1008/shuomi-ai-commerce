@@ -19,8 +19,9 @@ import (
 )
 
 type ResearchFixtureBinding struct {
-	Scope   collection.Scope
-	Project string
+	Scope             collection.Scope
+	Project           string
+	PaginationEnabled bool
 }
 
 func WithResearchFixture(binding ResearchFixtureBinding) CurrentApplicationOption {
@@ -28,6 +29,7 @@ func WithResearchFixture(binding ResearchFixtureBinding) CurrentApplicationOptio
 }
 
 const researchFixturePath = "/api/v1/workbench/research/projects/:project_id/acceptance-fixture"
+const researchPaginationFixturePath = researchFixturePath + "/pagination"
 
 func (m *researchModule) enableFixture(ctx context.Context, db *gorm.DB, binding ResearchFixtureBinding) error {
 	fixture, err := dataservicesapp.NewResearchFixture(ctx, db, binding.Scope, binding.Project,
@@ -42,7 +44,7 @@ func (m *researchModule) enableFixture(ctx context.Context, db *gorm.DB, binding
 				return collection.ErrForbidden
 			}
 			return nil
-		})
+		}, binding.PaginationEnabled)
 	if err != nil {
 		return err
 	}
@@ -55,7 +57,7 @@ func (m *researchModule) enableFixture(ctx context.Context, db *gorm.DB, binding
 	return nil
 }
 
-func marketResearchFixtureRoutes(m researchModule) []httproute.Descriptor {
+func marketResearchFixtureRoutes(m researchModule, path string) []httproute.Descriptor {
 	routes := make([]httproute.Descriptor, 0, 2)
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
 		write := method == http.MethodPost
@@ -64,17 +66,17 @@ func marketResearchFixtureRoutes(m researchModule) []httproute.Descriptor {
 			permission = "workbench.project.manage"
 		}
 		routes = append(routes, httproute.Descriptor{
-			Method: method, Path: researchFixturePath, Module: m.Name(), Permission: permission,
+			Method: method, Path: path, Module: m.Name(), Permission: permission,
 			AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite,
 			RequestTimeout: 20 * time.Second, RejectUnreadRequestBody: true,
-			Handler: func(c *gin.Context) { m.serveFixture(c, write) },
+			Handler: func(c *gin.Context) { m.serveFixture(c, write, path == researchPaginationFixturePath) },
 		})
 	}
 	return routes
 }
 
 func validMarketResearchFixtureDescriptor(d httproute.Descriptor) bool {
-	for _, expected := range marketResearchFixtureRoutes(researchModule{}) {
+	for _, expected := range marketResearchFixtureRoutes(researchModule{}, d.Path) {
 		if d.Method == expected.Method && d.Path == expected.Path && d.Module == expected.Module &&
 			d.Permission == expected.Permission && d.AuthPolicy == expected.AuthPolicy &&
 			d.OrganizationAccessPolicy == expected.OrganizationAccessPolicy && d.OrganizationTargetResolver == nil &&
@@ -85,7 +87,7 @@ func validMarketResearchFixtureDescriptor(d httproute.Descriptor) bool {
 	return false
 }
 
-func (m researchModule) serveFixture(c *gin.Context, write bool) {
+func (m researchModule) serveFixture(c *gin.Context, write, pagination bool) {
 	c.Header("Cache-Control", "private, no-store")
 	req := c.Request
 	project := c.Param("project_id")
@@ -107,10 +109,15 @@ func (m researchModule) serveFixture(c *gin.Context, write bool) {
 		c.JSON(http.StatusForbidden, gin.H{"code": "FORBIDDEN"})
 		return
 	}
-	var out dataservicesapp.ResearchFixtureBatch
-	if write {
+	var out any
+	switch {
+	case pagination && write:
+		out, err = m.fixture.ImportPagination(ctx, scope, project)
+	case pagination:
+		out, err = m.fixture.ReadPagination(ctx, scope, project)
+	case write:
 		out, err = m.fixture.Import(ctx, scope, project)
-	} else {
+	default:
 		out, err = m.fixture.Read(ctx, scope, project)
 	}
 	switch {
@@ -128,6 +135,13 @@ func (m researchModule) serveFixture(c *gin.Context, write bool) {
 }
 
 func (a researchSources) observeFixture(ctx context.Context, scope collection.Scope, project string, selection research.Selection, item collection.Item) (research.Observation, error) {
+	if a.fixture.IsPaginationPublication(item.Source.PublicationID) {
+		batch, entry, err := a.fixture.ReadPaginationOriginal(ctx, scope, project, item)
+		if err != nil {
+			return research.Observation{}, supplierEvidenceFailure(err)
+		}
+		return fixtureAmazonObservation(batch.ID, batch.Keyword, dataservicesapp.ResearchPaginationCount, entry, selection), nil
+	}
 	batch, err := a.fixture.Read(ctx, scope, project)
 	if err != nil {
 		return research.Observation{}, supplierEvidenceFailure(err)
@@ -136,13 +150,17 @@ func (a researchSources) observeFixture(ctx context.Context, scope collection.Sc
 	if err != nil {
 		return research.Observation{}, err
 	}
+	return fixtureAmazonObservation(batch.ID, batch.Keyword, 5, entry, selection), nil
+}
+
+func fixtureAmazonObservation(bundleID, keyword string, limit int, entry dataservicesapp.ResearchFixtureItem, selection research.Selection) research.Observation {
 	original := entry.Original
 	return research.Observation{
-		Query: research.QuerySummary{Mode: "keyword", Keyword: batch.Keyword, Limit: 5, Fields: []string{"attributes", "price", "currency"}},
-		Item:  item, Ref: fixtureAmazonRef(batch, entry, selection),
-		BatchID: item.BatchID, Site: original.Site, ASIN: original.ID, Title: original.Title, Currency: original.Currency, Price: &original.Price,
+		Query: research.QuerySummary{Mode: "keyword", Keyword: keyword, Limit: limit, Fields: []string{"attributes", "price", "currency"}},
+		Item:  entry.Item, Ref: fixtureAmazonRef(bundleID, entry, selection),
+		BatchID: entry.Item.BatchID, Site: original.Site, ASIN: original.ID, Title: original.Title, Currency: original.Currency, Price: &original.Price,
 		PriceBasis: "synthetic_listing_offer", ParserVersion: "research_acceptance_fixture/v1", FixtureVersion: original.ReferenceVersion, Missing: []string{},
-	}, nil
+	}
 }
 
 func fixtureAmazonEntry(batch dataservicesapp.ResearchFixtureBatch, item collection.Item) (dataservicesapp.ResearchFixtureItem, error) {
@@ -154,8 +172,8 @@ func fixtureAmazonEntry(batch dataservicesapp.ResearchFixtureBatch, item collect
 	return dataservicesapp.ResearchFixtureItem{}, research.ErrConflict
 }
 
-func fixtureAmazonRef(batch dataservicesapp.ResearchFixtureBatch, entry dataservicesapp.ResearchFixtureItem, selection research.Selection) research.EvidenceRef {
-	return research.EvidenceRef{Selection: selection, Source: entry.Item.Source, JobID: batch.ID, Checksum: entry.Checksum}
+func fixtureAmazonRef(bundleID string, entry dataservicesapp.ResearchFixtureItem, selection research.Selection) research.EvidenceRef {
+	return research.EvidenceRef{Selection: selection, Source: entry.Item.Source, JobID: bundleID, Checksum: entry.Checksum}
 }
 
 func (a researchSources) fixtureMarket(ctx context.Context, scope collection.Scope, project string, ref research.EvidenceRef, item collection.Item) (research.SupplierMarket, error) {
@@ -164,7 +182,7 @@ func (a researchSources) fixtureMarket(ctx context.Context, scope collection.Sco
 		return research.SupplierMarket{}, supplierEvidenceFailure(err)
 	}
 	entry, err := fixtureAmazonEntry(batch, item)
-	if err != nil || fixtureAmazonRef(batch, entry, ref.Selection) != ref {
+	if err != nil || fixtureAmazonRef(batch.ID, entry, ref.Selection) != ref {
 		return research.SupplierMarket{}, research.ErrConflict
 	}
 	o := entry.Original

@@ -7,11 +7,12 @@ import (
 )
 
 type ResearchFixtureConfig struct {
-	Acknowledgment string `json:"acknowledgment"`
-	OrganizationID string `json:"organizationId"`
-	ActorID        string `json:"actorId"`
-	MemberID       string `json:"memberId"`
-	ProjectID      string `json:"projectId"`
+	Acknowledgment    string `json:"acknowledgment"`
+	OrganizationID    string `json:"organizationId"`
+	ActorID           string `json:"actorId"`
+	MemberID          string `json:"memberId"`
+	ProjectID         string `json:"projectId"`
+	PaginationEnabled bool   `json:"paginationEnabled,omitempty"`
 }
 
 func (c *Config) validateResearchFixture() error {

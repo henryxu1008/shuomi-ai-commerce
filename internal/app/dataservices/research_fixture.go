@@ -45,17 +45,22 @@ type ResearchFixtureBatch struct {
 type ResearchFixtureAuthorizer func(context.Context, collection.Scope, string, bool) error
 
 type ResearchFixture struct {
-	db        *gorm.DB
-	scope     collection.Scope
-	project   string
-	authorize ResearchFixtureAuthorizer
+	db         *gorm.DB
+	scope      collection.Scope
+	project    string
+	authorize  ResearchFixtureAuthorizer
+	pagination *researchPaginationManifest
 }
 
-func NewResearchFixture(ctx context.Context, db *gorm.DB, scope collection.Scope, project string, authorize ResearchFixtureAuthorizer) (*ResearchFixture, error) {
+func NewResearchFixture(ctx context.Context, db *gorm.DB, scope collection.Scope, project string, authorize ResearchFixtureAuthorizer, pagination bool) (*ResearchFixture, error) {
 	if ctx == nil || db == nil || scope.Validate() != nil || !collection.ValidID(project) || authorize == nil {
 		return nil, collection.ErrInvalid
 	}
-	return &ResearchFixture{db: db, scope: scope, project: project, authorize: authorize}, nil
+	fixture := &ResearchFixture{db: db, scope: scope, project: project, authorize: authorize}
+	if pagination {
+		fixture.pagination = fixture.newPaginationManifest()
+	}
+	return fixture, nil
 }
 
 func (f *ResearchFixture) check(ctx context.Context, scope collection.Scope, project string, write bool) error {
@@ -81,13 +86,16 @@ func (f *ResearchFixture) sources() []researchFixtureSource {
 		{ID: "B000123457", ReferenceVersion: "1", Title: "合成 · Fixed under sink organizer", Site: "us", Width: "42 cm", Installation: "requires drilling", Pack: "1 piece", Price: 24.99, Currency: "USD"},
 		{ID: "981645030344", ReferenceVersion: "2", Title: "合成 · Fixture supplier original", Site: "1688", Width: "40–55 cm", SKU: "sku-adjustable-white-01"},
 	}
-	bundle := f.bundleID()
+	return f.fixtureSources(f.bundleID(), researchFixtureKeyword, originals)
+}
+
+func (f *ResearchFixture) fixtureSources(bundle, keyword string, originals []ResearchFixtureOriginal) []researchFixtureSource {
 	zero := uint64(0)
 	out := make([]researchFixtureSource, 0, len(originals))
 	for _, original := range originals {
 		id := collection.StableID(bundle, original.ID)
 		publication := id
-		platform, kind, batchKey, batchTitle, variant := "amazon", "amazon_data", bundle, "合成 · Amazon US · "+researchFixtureKeyword, original.ID
+		platform, kind, batchKey, batchTitle, variant := "amazon", "amazon_data", bundle, "合成 · Amazon US · "+keyword, original.ID
 		attrs := map[string]string{"width": original.Width, "installation": original.Installation, "pack": original.Pack}
 		if original.Site == "1688" {
 			platform, kind, batchKey, batchTitle, variant = "1688", "acquisition", id, "合成 · 1688 货源", original.SKU
@@ -101,7 +109,7 @@ func (f *ResearchFixture) sources() []researchFixtureSource {
 			RawReference: sourcing.RawSourceReference{
 				ReferenceType: researchFixtureProducer.Kind, ReferenceID: id,
 				Checksum: "sha256:" + collection.Digest(original),
-				Metadata: map[string]string{"bundle": bundle, "member": f.scope.MemberID, "project": f.project, "keyword": researchFixtureKeyword},
+				Metadata: map[string]string{"bundle": bundle, "member": f.scope.MemberID, "project": f.project, "keyword": keyword},
 			},
 			ProductCandidate: sourcing.ProductCandidate{Title: original.Title, Attributes: attrs,
 				Variants: []sourcing.ProductVariantCandidate{{SourceID: variant, SKU: variant, Attributes: attrs, Currency: original.Currency, Price: original.Price}}},
@@ -133,16 +141,23 @@ func (f *ResearchFixture) Import(ctx context.Context, scope collection.Scope, pr
 	if err := f.check(ctx, scope, project, true); err != nil {
 		return ResearchFixtureBatch{}, err
 	}
+	return f.importBatch(ctx, scope, project, f.bundleID(), researchFixtureKeyword, f.sources(), researchFixturePublicationAuthority{f, true})
+}
+
+func (f *ResearchFixture) importBatch(ctx context.Context, scope collection.Scope, project, bundle, keyword string, sources []researchFixtureSource, authority sourcing.PublicationAuthorizer) (ResearchFixtureBatch, error) {
 	var batch ResearchFixtureBatch
 	err := f.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", f.bundleID()).Error; err != nil {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", bundle).Error; err != nil {
 			return collection.ErrUnavailable
+		}
+		if err := f.check(ctx, scope, project, true); err != nil {
+			return err
 		}
 		writer, err := sourcestore.NewTransactionWriter(tx, newCatalogBridge)
 		if err != nil {
 			return err
 		}
-		producer, err := sourcing.NewInternalProducer(researchFixturePublicationAuthority{f, true}, writer, researchFixtureProducer)
+		producer, err := sourcing.NewInternalProducer(authority, writer, researchFixtureProducer)
 		if err != nil {
 			return err
 		}
@@ -150,8 +165,10 @@ func (f *ResearchFixture) Import(ctx context.Context, scope collection.Scope, pr
 		if err != nil {
 			return err
 		}
-		sources := f.sources()
-		batch, err = f.read(ctx, producer, collections, sources)
+		batch, err = f.read(ctx, producer, collections, bundle, keyword, sources)
+		if err == nil {
+			return f.check(ctx, scope, project, true)
+		}
 		if !errors.Is(err, collection.ErrNotFound) {
 			return err
 		}
@@ -165,7 +182,7 @@ func (f *ResearchFixture) Import(ctx context.Context, scope collection.Scope, pr
 				return err
 			}
 		}
-		batch, err = f.read(ctx, producer, collections, sources)
+		batch, err = f.read(ctx, producer, collections, bundle, keyword, sources)
 		if err != nil {
 			return err
 		}
@@ -181,19 +198,24 @@ func (f *ResearchFixture) Read(ctx context.Context, scope collection.Scope, proj
 	if err := f.check(ctx, scope, project, false); err != nil {
 		return ResearchFixtureBatch{}, err
 	}
+	producer, collections, err := f.openReader(ctx, researchFixturePublicationAuthority{f, false})
+	if err != nil {
+		return ResearchFixtureBatch{}, err
+	}
+	return f.read(ctx, producer, collections, f.bundleID(), researchFixtureKeyword, f.sources())
+}
+
+func (f *ResearchFixture) openReader(ctx context.Context, authority sourcing.PublicationAuthorizer) (*sourcing.InternalProducer, *collectionstore.Repository, error) {
 	store, err := sourcestore.NewRepository(f.db, newCatalogBridge)
 	if err != nil {
-		return ResearchFixtureBatch{}, err
+		return nil, nil, err
 	}
-	producer, err := sourcing.NewInternalProducer(researchFixturePublicationAuthority{f, false}, store, researchFixtureProducer)
+	producer, err := sourcing.NewInternalProducer(authority, store, researchFixtureProducer)
 	if err != nil {
-		return ResearchFixtureBatch{}, err
+		return nil, nil, err
 	}
 	collections, err := fixtureCollectionRepository(ctx, f.db)
-	if err != nil {
-		return ResearchFixtureBatch{}, err
-	}
-	return f.read(ctx, producer, collections, f.sources())
+	return producer, collections, err
 }
 
 func fixtureCollectionRepository(ctx context.Context, db *gorm.DB) (*collectionstore.Repository, error) {
@@ -211,24 +233,18 @@ func (s researchFixtureSource) reference(receipt sourcing.PublicationReceipt) co
 		OperationID: operation, Version: receipt.CatalogVersion, Kind: s.batch.Kind}
 }
 
-func (f *ResearchFixture) read(ctx context.Context, producer *sourcing.InternalProducer, collections *collectionstore.Repository, sources []researchFixtureSource) (ResearchFixtureBatch, error) {
-	batch := ResearchFixtureBatch{ID: f.bundleID(), Keyword: researchFixtureKeyword}
+func (f *ResearchFixture) read(ctx context.Context, producer *sourcing.InternalProducer, collections *collectionstore.Repository, bundle, keyword string, sources []researchFixtureSource) (ResearchFixtureBatch, error) {
+	batch := ResearchFixtureBatch{ID: bundle, Keyword: keyword}
 	found := 0
 	for _, source := range sources {
-		itemID := collection.StableID(f.scope.OrganizationID, f.scope.ActorID, source.command.PublicationID, "item")
-		receipt, err := producer.Verify(ctx, source.command)
-		if errors.Is(err, collection.ErrForbidden) {
-			return ResearchFixtureBatch{}, err
-		}
-		item, itemErr := collections.ReadResearchEvidenceItem(ctx, f.scope, itemID)
-		if errors.Is(err, sourcing.ErrSourcePublicationNotFound) && errors.Is(itemErr, collection.ErrNotFound) {
+		entry, err := f.readSource(ctx, producer, collections, source)
+		if errors.Is(err, collection.ErrNotFound) {
 			continue
 		}
-		if err != nil || itemErr != nil || item.Source != source.reference(receipt) || item.BatchID != source.batch.ID {
-			return ResearchFixtureBatch{}, collection.ErrConflict
+		if err != nil {
+			return ResearchFixtureBatch{}, err
 		}
 		found++
-		entry := ResearchFixtureItem{Item: item, Original: source.original, Checksum: source.command.Envelope.RawReference.Checksum, Receipt: receipt}
 		if source.batch.Kind == "amazon_data" {
 			batch.Amazon = append(batch.Amazon, entry)
 		} else {
@@ -242,4 +258,20 @@ func (f *ResearchFixture) read(ctx context.Context, producer *sourcing.InternalP
 		return ResearchFixtureBatch{}, collection.ErrConflict
 	}
 	return batch, nil
+}
+
+func (f *ResearchFixture) readSource(ctx context.Context, producer *sourcing.InternalProducer, collections *collectionstore.Repository, source researchFixtureSource) (ResearchFixtureItem, error) {
+	itemID := collection.StableID(f.scope.OrganizationID, f.scope.ActorID, source.command.PublicationID, "item")
+	receipt, err := producer.Verify(ctx, source.command)
+	if errors.Is(err, collection.ErrForbidden) {
+		return ResearchFixtureItem{}, err
+	}
+	item, itemErr := collections.ReadResearchEvidenceItem(ctx, f.scope, itemID)
+	if errors.Is(err, sourcing.ErrSourcePublicationNotFound) && errors.Is(itemErr, collection.ErrNotFound) {
+		return ResearchFixtureItem{}, collection.ErrNotFound
+	}
+	if err != nil || itemErr != nil || item.Source != source.reference(receipt) || item.BatchID != source.batch.ID {
+		return ResearchFixtureItem{}, collection.ErrConflict
+	}
+	return ResearchFixtureItem{Item: item, Original: source.original, Checksum: source.command.Envelope.RawReference.Checksum, Receipt: receipt}, nil
 }

@@ -30,7 +30,7 @@ function ResearchTransferButton({disabled,prepare}:{disabled:boolean;prepare:()=
 }
 const states:Record<string,string>={TO_RESEARCH:"待研究",PENDING_CONFIRMATION:"待人工确认",APPROVED_FOR_TEST:"批准测试",REJECTED:"已否决"};
 const failures:Record<string,string>={REVISION_CONFLICT:"商品资料或选择已更新，请刷新后重新确认。",PROJECT_ARCHIVED:"项目已归档，只能查看。",NOT_FOUND:"记录不存在或当前不可访问。",FORBIDDEN:"权限已变化，请重新确认企业。",OUTCOME_UNKNOWN:"暂时还不能确认操作结果，请先查询这次操作。",SOURCE_NOT_SUPPORTED:"这份资料暂不能用于调研，本次未添加到项目。请选择已保存且支持调研的资料。"};
-export function ResearchPanel({scope,projectId,archived,view="embedded",sample="",initialAfter="",returnQuery="",workflowStep="",showSheinTrial=false,showResearchFixture=false,researchToken,opportunityInspection}:{researchToken?:string;opportunityInspection?:ResearchInspection;scope:ProjectScope;projectId:string;archived:boolean;view?:"embedded"|"research"|"selection";sample?:string;initialAfter?:string;returnQuery?:string;workflowStep?:string;showSheinTrial?:boolean;showResearchFixture?:boolean}){
+export function ResearchPanel({scope,projectId,archived,view="embedded",sample="",initialAfter="",returnQuery="",workflowStep="",showSheinTrial=false,showResearchFixture=false,showResearchPaginationFixture=false,researchToken,opportunityInspection}:{researchToken?:string;opportunityInspection?:ResearchInspection;scope:ProjectScope;projectId:string;archived:boolean;view?:"embedded"|"research"|"selection";sample?:string;initialAfter?:string;returnQuery?:string;workflowStep?:string;showSheinTrial?:boolean;showResearchFixture?:boolean;showResearchPaginationFixture?:boolean}){
  const context=useWorkbenchContext();
  const {store,draft}=useResearchHandoff();
  const scopeKey=researchHandoffScope(context);
@@ -145,7 +145,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  {archived?<p role="status">项目已归档，研究记录只读。</p>:null}
  {view==="research" && store && scopeKey && canWrite && researchHandoffAllowed(context.permissions)?
   <ResearchOpportunity scope={scope} scopeKey={scopeKey} projectId={projectId} store={store} draft={bound} selected={selected} after={after}
-   showResearchFixture={showResearchFixture} canStartQuery={!showResearchFixture&&context.permissions.includes("workbench.data-market.use")} blocked={locked||!!error||incomplete} onJobChange={()=>{setChosen([]);setCompare(false);}}/>:null}
+   showResearchFixture={showResearchFixture} showResearchPaginationFixture={showResearchPaginationFixture} canStartQuery={!showResearchFixture&&context.permissions.includes("workbench.data-market.use")} blocked={locked||!!error||incomplete} onJobChange={()=>{setChosen([]);setCompare(false);}}/>:null}
  {active && opportunityInspection?<ConfirmedOpportunity draft={active} inspection={opportunityInspection}/>:null}
  {pending.error?<p role="alert">本次操作记录暂时无法读取，请检查浏览器设置后刷新。</p>:null}
  {pending.command?<Card className={styles.section}><p>上一次操作还没有确认结果。</p><div className={styles.actions}><Button disabled={busy} onClick={()=>void lookup()}>查询操作结果</Button>{absent&&canWrite?<Button variant="outline" disabled={busy} onClick={()=>void submit(pending.command!.body,pending.command)}>按原内容重试</Button>:null}</div></Card>:null}

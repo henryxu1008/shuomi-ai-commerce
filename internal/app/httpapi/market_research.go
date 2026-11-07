@@ -42,7 +42,10 @@ func (m researchModule) Register(r *kernel.Registry) error {
 		r.AddRoutes(marketResearchSHEINTrialRoutes(m.trial)...)
 	}
 	if m.fixture != nil {
-		r.AddRoutes(marketResearchFixtureRoutes(m)...)
+		r.AddRoutes(marketResearchFixtureRoutes(m, researchFixturePath)...)
+		if m.fixture.PaginationEnabled() {
+			r.AddRoutes(marketResearchFixtureRoutes(m, researchPaginationFixturePath)...)
+		}
 	}
 	return nil
 }

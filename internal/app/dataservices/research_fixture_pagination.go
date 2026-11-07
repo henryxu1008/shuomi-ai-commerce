@@ -1,0 +1,128 @@
+package dataservicesapp
+
+import (
+	"context"
+	"fmt"
+
+	"task-processor/internal/product/collection"
+	"task-processor/internal/product/sourcing"
+)
+
+const (
+	ResearchPaginationKeyword = "under sink organizer pagination"
+	ResearchPaginationCount   = 50
+)
+
+type ResearchPaginationBatch struct {
+	ID      string `json:"id"`
+	BatchID string `json:"batchId"`
+	Keyword string `json:"keyword"`
+}
+
+type researchPaginationManifest struct {
+	batch         ResearchPaginationBatch
+	sources       []researchFixtureSource
+	byPublication map[string]researchFixtureSource
+}
+
+func (f *ResearchFixture) newPaginationManifest() *researchPaginationManifest {
+	bundle := collection.StableID(f.bundleID(), "pagination-v1")
+	originals := make([]ResearchFixtureOriginal, 0, ResearchPaginationCount)
+	for n := 1; n <= ResearchPaginationCount; n++ {
+		originals = append(originals, ResearchFixtureOriginal{
+			ID: fmt.Sprintf("TPG%07d", n), ReferenceVersion: "1", Title: fmt.Sprintf("合成 · 分页收纳架 %02d", n),
+			Site: "us", Width: fmt.Sprintf("%d–55 cm", 38+n%5), Installation: "no drilling", Pack: "1 piece",
+			Price: float64(24+n%6) + 0.99, Currency: "USD",
+		})
+	}
+	sources := f.fixtureSources(bundle, ResearchPaginationKeyword, originals)
+	byPublication := make(map[string]researchFixtureSource, len(sources))
+	for _, source := range sources {
+		byPublication[source.command.PublicationID] = source
+	}
+	return &researchPaginationManifest{
+		batch:   ResearchPaginationBatch{ID: bundle, BatchID: sources[0].batch.ID, Keyword: ResearchPaginationKeyword},
+		sources: sources, byPublication: byPublication,
+	}
+}
+
+func (f *ResearchFixture) PaginationEnabled() bool {
+	return f != nil && f.pagination != nil
+}
+
+func (f *ResearchFixture) IsPaginationPublication(id string) bool {
+	if !f.PaginationEnabled() {
+		return false
+	}
+	_, ok := f.pagination.byPublication[id]
+	return ok
+}
+
+// The fixed batch reader or writer owns this scope only for the operation
+// that checked it. That operation checks current project and member rights
+// again before returning a batch or committing a write.
+type researchPaginationAuthority struct {
+	scope sourcing.PublicationScope
+}
+
+func (a researchPaginationAuthority) Authorize(ctx context.Context) (sourcing.PublicationScope, error) {
+	if ctx.Err() != nil {
+		return sourcing.PublicationScope{}, collection.ErrForbidden
+	}
+	return a.scope, nil
+}
+
+func (f *ResearchFixture) ImportPagination(ctx context.Context, scope collection.Scope, project string) (ResearchPaginationBatch, error) {
+	if !f.PaginationEnabled() {
+		return ResearchPaginationBatch{}, collection.ErrForbidden
+	}
+	if err := f.check(ctx, scope, project, true); err != nil {
+		return ResearchPaginationBatch{}, err
+	}
+	b := f.pagination.batch
+	authority := researchPaginationAuthority{sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}}
+	if _, err := f.importBatch(ctx, scope, project, b.ID, b.Keyword, f.pagination.sources, authority); err != nil {
+		return ResearchPaginationBatch{}, err
+	}
+	return b, nil
+}
+
+func (f *ResearchFixture) ReadPagination(ctx context.Context, scope collection.Scope, project string) (ResearchPaginationBatch, error) {
+	if !f.PaginationEnabled() {
+		return ResearchPaginationBatch{}, collection.ErrForbidden
+	}
+	if err := f.check(ctx, scope, project, false); err != nil {
+		return ResearchPaginationBatch{}, err
+	}
+	b := f.pagination.batch
+	authority := researchPaginationAuthority{sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}}
+	producer, collections, err := f.openReader(ctx, authority)
+	if err != nil {
+		return ResearchPaginationBatch{}, err
+	}
+	if _, err := f.read(ctx, producer, collections, b.ID, b.Keyword, f.pagination.sources); err != nil {
+		return ResearchPaginationBatch{}, err
+	}
+	if err := f.check(ctx, scope, project, false); err != nil {
+		return ResearchPaginationBatch{}, err
+	}
+	return b, nil
+}
+
+func (f *ResearchFixture) ReadPaginationOriginal(ctx context.Context, scope collection.Scope, project string, item collection.Item) (ResearchPaginationBatch, ResearchFixtureItem, error) {
+	if !f.IsPaginationPublication(item.Source.PublicationID) || f.scope != scope || f.project != project {
+		return ResearchPaginationBatch{}, ResearchFixtureItem{}, collection.ErrForbidden
+	}
+	producer, collections, err := f.openReader(ctx, researchFixturePublicationAuthority{f, false})
+	if err != nil {
+		return ResearchPaginationBatch{}, ResearchFixtureItem{}, err
+	}
+	entry, err := f.readSource(ctx, producer, collections, f.pagination.byPublication[item.Source.PublicationID])
+	if err != nil {
+		return ResearchPaginationBatch{}, ResearchFixtureItem{}, err
+	}
+	if entry.Item.ID != item.ID || entry.Item.BatchID != item.BatchID || entry.Item.Source != item.Source || entry.Item.Revision != item.Revision {
+		return ResearchPaginationBatch{}, ResearchFixtureItem{}, collection.ErrConflict
+	}
+	return f.pagination.batch, entry, nil
+}

@@ -5,6 +5,7 @@ export default async function Page({params,searchParams}:{params:Promise<{projec
   const {projectId}=await params;
   const q=await searchParams;
   return <ProjectPage center="research" projectId={projectId} showSheinTrial={sheinTrialTarget()?.project===projectId} showResearchFixture={process.env.LISTINGKIT_RESEARCH_FIXTURE_PROJECT===projectId}
+    showResearchPaginationFixture={process.env.LISTINGKIT_RESEARCH_FIXTURE_PROJECT===projectId && process.env.LISTINGKIT_RESEARCH_PAGINATION_FIXTURE_PROJECT===projectId}
     workflowStep={typeof q.step==="string"?q.step:""} mode={q.mode==="archived"?"archived":"active"}
     initialSearch={typeof q.search==="string"?q.search:""} sample={typeof q.sample==="string"?q.sample:""}
     candidateAfter={typeof q.candidateAfter==="string"&&/^[0-9a-f-]{36}$/.test(q.candidateAfter)?q.candidateAfter:""}/>;

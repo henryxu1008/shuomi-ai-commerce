@@ -187,6 +187,7 @@ func execute() error {
 			if f := features.ResearchFixture; f != nil {
 				options = append(options, httpapi.WithResearchFixture(httpapi.ResearchFixtureBinding{
 					Scope: collection.Scope{OrganizationID: f.OrganizationID, ActorID: f.ActorID, MemberID: f.MemberID}, Project: f.ProjectID,
+					PaginationEnabled: f.PaginationEnabled,
 				}))
 			}
 			if trial := features.SHEINUSTrial; trial != nil {

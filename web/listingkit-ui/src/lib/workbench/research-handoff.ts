@@ -1,16 +1,21 @@
 import type {z} from "zod";
 import type {DataJob} from "../contracts/data-services";
-import type {ResearchCandidate,ResearchFixtureBatch} from "../contracts/market-research";
+import type {ResearchCandidate,ResearchFixtureBatch,ResearchPaginationFixtureBatch} from "../contracts/market-research";
 import type {ResearchInspection, researchAnalysisInput} from "../contracts/research-analysis";
 
 type Choice = z.infer<typeof researchAnalysisInput>["candidates"][number];
 type Evidence = ResearchInspection["candidates"][number];
 type Query = NonNullable<ResearchCandidate["observation"]>["query"];
-export type ResearchJob = DataJob | Pick<DataJob,"id"|"batchId"|"query"|"saved"> & {state:"IMPORTED"};
+export type ResearchJob = DataJob | Pick<DataJob,"id"|"batchId"|"query"|"saved"> & {state:"IMPORTED";fixture?:"pagination"};
 
 export function researchFixtureJob(batch:ResearchFixtureBatch):ResearchJob {
   return {id:batch.id,batchId:batch.amazon[0].item.batchId,saved:2,state:"IMPORTED",
     query:{site:"us",mode:"keyword",keyword:batch.keyword,limit:5,fields:["attributes","price","currency"]}};
+}
+
+export function researchPaginationFixtureJob(batch:ResearchPaginationFixtureBatch):ResearchJob {
+  return {id:batch.id,batchId:batch.batchId,saved:50,state:"IMPORTED",fixture:"pagination",
+    query:{site:"us",mode:"keyword",keyword:batch.keyword,limit:50,fields:["attributes","price","currency"]}};
 }
 
 export type ProductRequirements = {
