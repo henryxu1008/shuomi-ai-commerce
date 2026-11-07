@@ -41,15 +41,20 @@ export const notificationListSchema = z.object({ schemaVersion: z.literal("notif
 export const notificationSnapshotSchema = z.object({ id: notificationUUID, fingerprint: z.string().regex(/^[0-9a-f]{64}$/), expiresAt: z.iso.datetime({ offset: true }), count }).strict();
 export const notificationCommandSchema = z.object({ key: notificationUUID, operation: z.enum(["read", "snapshot", "read-all", "publish", "withdraw"]), committedAt: z.iso.datetime({ offset: true }), resultId: notificationUUID.optional() }).strict();
 const announcementCategory = z.enum(["PRODUCT", "SYSTEM", "ACTIVITY", "POLICY"]);
-const announcementText = (max: number) => text(max).refine(value => value.trim() === value && new TextEncoder().encode(value).length <= max);
+// Match the owner's strings.TrimSpace and unicode.IsControl, including U+FEFF.
+const announcementText = (max: number) => z.string().min(1).max(max).refine(value =>
+  !/^\p{White_Space}|\p{White_Space}$|\p{Cc}/u.test(value) && new TextEncoder().encode(value).length <= max,
+);
 export const announcementContent = z.object({
   category: announcementCategory,
   title: announcementText(256),
   summary: announcementText(1024),
-  paragraphs: z.array(z.string().min(1).max(32768).refine(value => value.trim().length > 0)).min(1).max(32),
+  paragraphs: z.array(z.string().min(1).max(32768).refine(value => /\P{White_Space}/u.test(value))).min(1).max(32),
   target: targetSchema.refine(target => notificationHref(target) !== null),
 }).strict();
 export const announcementPublish = announcementContent.refine(value =>
+  // PostgreSQL jsonb cannot represent NUL, even when JSON escapes it.
+  !value.paragraphs.some(paragraph => paragraph.includes("\u0000")) &&
   new TextEncoder().encode(JSON.stringify(value)).length <= 32 * 1024,
 );
 export const announcementWithdraw = z.object({ revision: z.literal(1) }).strict();

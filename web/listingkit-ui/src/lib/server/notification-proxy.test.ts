@@ -72,9 +72,26 @@ it("routes platform management to the existing publication commands and platform
   expect(crossSite.status).toBe(403);
   const injectedAudience = await proxyNotifications(new Request(endpoint, { method: "POST", headers: requestHeaders, body: JSON.stringify({ ...content, audience: "other" }) }), "server-token", "actor");
   expect(injectedAudience.status).toBe(400);
+  const unpersistable = await proxyNotifications(new Request(endpoint, { method: "POST", headers: requestHeaders, body: JSON.stringify({ ...content, paragraphs: ["含\u0000字符"] }) }), "server-token", "actor");
+  expect(unpersistable.status).toBe(400);
   expect(fetch).toHaveBeenCalledTimes(count);
   fetch.mockImplementationOnce(async () => Response.json({ error: "listingkit_permission_denied" }, { status: 403 }));
   const forbidden = await proxyNotifications(new Request(endpoint, { headers: requestHeaders }), "server-token", "actor");
   expect(forbidden.status).toBe(403);
   expect(await forbidden.json()).toEqual({ code: "FORBIDDEN" });
+});
+
+it("reads existing announcements containing Unicode characters that Go does not trim", async () => {
+  configure();
+  const id = "4f5e1184-83c7-45b0-9dd9-c61242c9fb25";
+  const content = { category: "SYSTEM", title: "\uFEFF维护", summary: "安排\uFEFF", paragraphs: ["\uFEFF"], target: { kind: "none", id: "" } };
+  const row = { id, category: content.category, title: content.title, revision: 1, state: "PUBLISHED", publishedAt: "2026-11-07T00:00:00Z", withdrawnAt: null };
+  const page = { items: [row], next: "" };
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith(id) ? content : page)));
+  const endpoint = "http://localhost:3000/api/notifications/platform/official";
+  const history = await proxyNotifications(new Request(endpoint, { headers }), "server-token", "actor");
+  const detail = await proxyNotifications(new Request(endpoint + "/" + id, { headers }), "server-token", "actor");
+  expect([history.status, detail.status]).toEqual([200, 200]);
+  expect(await history.json()).toEqual(page);
+  expect(await detail.json()).toEqual(content);
 });

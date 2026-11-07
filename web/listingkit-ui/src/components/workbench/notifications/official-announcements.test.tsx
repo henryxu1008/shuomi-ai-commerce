@@ -111,3 +111,28 @@ it("only displays management after the platform backend authorizes the current i
   mount(<OfficialAnnouncementsEntry scope={scope} />);
   await waitFor(() => expect(screen.getByRole("link", { name: "官方公告管理" })).toHaveAttribute("href", "/workbench/notifications/announcements"));
 });
+
+it.each(["detail", "withdraw"])("clears loaded history when a %s request reports revoked access", async action => {
+  const fetch = vi.fn(async (url: string) => {
+    if (url.endsWith(id) || url.endsWith("/withdraw")) return Response.json({ code: "FORBIDDEN" }, { status: 403 });
+    return Response.json({ items: [row], next: "" });
+  });
+  vi.stubGlobal("fetch", fetch);
+  mount();
+  await screen.findByRole("heading", { name: content.title });
+  if (action === "detail") {
+    fireEvent.click(screen.getByRole("button", { name: "查看公告 计划维护" }));
+  } else {
+    fireEvent.click(screen.getByRole("button", { name: "撤回公告 计划维护" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认撤回" }));
+  }
+  await screen.findByText("只有平台管理员可以管理官方公告。");
+  expect(screen.queryByRole("heading", { name: content.title })).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("button", { name: "新建公告" })).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "重新核对权限" }));
+  await screen.findByRole("heading", { name: content.title });
+  expect(fetch.mock.calls.filter(([url]) => url.endsWith("/platform/official"))).toHaveLength(2);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

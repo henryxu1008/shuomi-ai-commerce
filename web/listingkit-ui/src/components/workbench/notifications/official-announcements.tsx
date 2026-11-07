@@ -24,10 +24,25 @@ const audience = "当前登录域内的所有已登录用户";
 const dateTime = new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" });
 const historyKey = (scope: PlatformAnnouncementScope) => ["platform-announcements", scope.userId, scope.realm];
 
-function useAnnouncementHistory(scope: PlatformAnnouncementScope, after = "") {
+type AccessRejected = (error: NotificationError) => void;
+
+function isAccessRejection(error: unknown): error is NotificationError {
+  return error instanceof NotificationError &&
+    (error.status === 401 || error.status === 403 || error.code === "IDENTITY_CONTEXT_CHANGED");
+}
+
+function onReadRejection<T>(request: Promise<T>, signal: AbortSignal, onAccessRejected?: AccessRejected) {
+  return request.catch(error => {
+    if (!signal.aborted && isAccessRejection(error)) onAccessRejected?.(error);
+    throw error;
+  });
+}
+
+function useAnnouncementHistory(scope: PlatformAnnouncementScope, after = "", access?: { rejected: boolean; onRejected: AccessRejected }) {
   return useQuery({
     queryKey: [...historyKey(scope), after],
-    queryFn: ({ signal }) => notificationRequest(scope, after ? "?after=" + after : "", announcementPage, { signal }),
+    queryFn: ({ signal }) => onReadRejection(notificationRequest(scope, after ? "?after=" + after : "", announcementPage, { signal }), signal, access?.onRejected),
+    enabled: !access?.rejected,
     retry: false,
     gcTime: 0,
   });
@@ -55,6 +70,7 @@ function AnnouncementManager({ scope }: { scope: PlatformAnnouncementScope }) {
   const [detail, setDetail] = useState<AnnouncementSummary>();
   const [review, setReview] = useState<Review>();
   const [busy, setBusy] = useState(false);
+  const [accessFailure, setAccessFailure] = useState<NotificationError>();
   const [notice, setNotice] = useState<{ error: boolean; text: string }>();
   const flight = useRef<AbortController | null>(null);
   const newButton = useRef<HTMLButtonElement>(null);
@@ -64,9 +80,7 @@ function AnnouncementManager({ scope }: { scope: PlatformAnnouncementScope }) {
     { expectedUserId: scope.userId, expectedOrganizationId: "" },
     ["official-announcement", scope.realm], announcementIntent, { storage: "session", maxLength: 34 * 1024 },
   );
-  const history = useAnnouncementHistory(scope, pages.at(-1));
-  const accessRejected = history.error instanceof NotificationError &&
-    (history.error.status === 401 || history.error.status === 403 || history.error.code === "IDENTITY_CONTEXT_CHANGED");
+  const history = useAnnouncementHistory(scope, pages.at(-1), { rejected: !!accessFailure, onRejected: rejectAccess });
   const locked = busy || !pending.ready || pending.error || !!pending.command || history.isError;
   useEffect(() => () => flight.current?.abort(), []);
   useEffect(() => {
@@ -75,6 +89,19 @@ function AnnouncementManager({ scope }: { scope: PlatformAnnouncementScope }) {
       newButton.current?.focus();
     }
   }, [composing]);
+
+  function rejectAccess(error: NotificationError) {
+    setAccessFailure(error);
+    flight.current?.abort();
+    returnFocus.current = false;
+    setBusy(false);
+    setNotice(undefined);
+    setReview(undefined);
+    setDetail(undefined);
+    setComposing(false);
+    setPages([""]);
+    client.removeQueries({ queryKey: historyKey(scope) });
+  }
 
   async function send(intent: AnnouncementIntent, replay: boolean) {
     if (flight.current) return;
@@ -97,6 +124,11 @@ function AnnouncementManager({ scope }: { scope: PlatformAnnouncementScope }) {
         }
       } catch (error) {
         if (controller.signal.aborted) return;
+        if (isAccessRejection(error)) {
+          rejectAccess(error);
+          if (!replay) pending.clear(intent);
+          return;
+        }
         const rejected = error instanceof NotificationError && error.status >= 400 && error.status < 500 && error.code !== "OUTCOME_UNKNOWN";
         const conflict = error instanceof NotificationError && error.code === "IDEMPOTENCY_CONFLICT";
         if (rejected && (!replay || conflict)) pending.clear(intent);
@@ -128,8 +160,11 @@ function AnnouncementManager({ scope }: { scope: PlatformAnnouncementScope }) {
       : { operation: "withdraw", key, id: current.item.id, body: { revision: 1 } }, false);
   }
 
+  if (accessFailure) return <ConsoleState kind="error" title={errorMessage(accessFailure)}>
+    <Button variant="outline" onClick={() => setAccessFailure(undefined)}>重新核对权限</Button>
+  </ConsoleState>;
   if (history.isPending) return <ConsoleState kind="loading" title="正在读取公告记录" />;
-  if (!history.data || accessRejected) return <ConsoleState kind="error" title={errorMessage(history.error)}>
+  if (!history.data || isAccessRejection(history.error)) return <ConsoleState kind="error" title={errorMessage(history.error)}>
     <Button variant="outline" onClick={() => void history.refetch()}>重新读取</Button>
   </ConsoleState>;
 
@@ -168,7 +203,7 @@ function AnnouncementManager({ scope }: { scope: PlatformAnnouncementScope }) {
         {page.next ? <Button variant="outline" onClick={() => setPages(current => [...current, page.next])}>下一页</Button> : null}
       </div> : null}
     </>}
-    {detail ? <AccountDialog title="公告正文" onClose={() => setDetail(undefined)}><AnnouncementDetail scope={scope} id={detail.id} /></AccountDialog> : null}
+    {detail ? <AccountDialog title="公告正文" onClose={() => setDetail(undefined)}><AnnouncementDetail scope={scope} id={detail.id} onAccessRejected={rejectAccess} /></AccountDialog> : null}
     {review ? <AccountDialog title={review.operation === "publish" ? "确认发布官方公告" : "确认撤回官方公告"} onClose={() => setReview(undefined)}>
       {review.operation === "publish" ? <>
         <p className="mb-4">发送范围为<strong>{audience}</strong>。发布后内容即对收件人可见。</p>
@@ -221,10 +256,10 @@ function AnnouncementForm({ disabled, onBack, onReview }: { disabled: boolean; o
   </Card>;
 }
 
-function AnnouncementDetail({ scope, id }: { scope: PlatformAnnouncementScope; id: string }) {
+function AnnouncementDetail({ scope, id, onAccessRejected }: { scope: PlatformAnnouncementScope; id: string; onAccessRejected: AccessRejected }) {
   const detail = useQuery({
     queryKey: [...historyKey(scope), "detail", id],
-    queryFn: ({ signal }) => notificationRequest(scope, "/" + id, announcementContent, { signal }),
+    queryFn: ({ signal }) => onReadRejection(notificationRequest(scope, "/" + id, announcementContent, { signal }), signal, onAccessRejected),
     gcTime: 0, retry: false,
   });
   if (detail.isPending) return <p role="status">正在读取正文…</p>;
