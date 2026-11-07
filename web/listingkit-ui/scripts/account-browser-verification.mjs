@@ -67,7 +67,7 @@ try {
       try {
         await expect(page.getByRole("heading", { name: pageKind === "profile" ? "Fixture u1" : "Enterprise B", exact: true })).toBeVisible();
         await expect(page.getByRole("combobox", { name: "当前企业" })).toHaveValue("B");
-        await expect(page.getByRole("switch", { name: "浅色模式" })).toHaveAttribute("aria-checked", String(theme === "light"));
+        await expect(page.getByRole("combobox", { name: "显示主题" })).toHaveValue(theme);
         await expect(page.getByText("归属企业（Home）：A", { exact: true })).toBeVisible();
         if (pageKind === "profile") await expect(page.getByText(/@PHONE.INVALID/i)).toHaveCount(0);
         else await expect(page.getByText("当前有效企业：B", { exact: true })).toBeVisible();
@@ -81,12 +81,15 @@ try {
         await expect(page.getByText(/读取时间：/)).toBeVisible(); await page.keyboard.press("Enter");
         await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "刷新资料", exact: true })).toBeFocused();
         await page.keyboard.press("Shift+Tab"); await expect(provenance).toBeFocused();
-        await page.getByRole("switch", { name: "浅色模式" }).focus(); await page.keyboard.press("Tab");
-        const accountMenu = page.locator(".console-user > summary"); await expect(accountMenu).toBeFocused(); await page.keyboard.press("Enter");
-        await page.keyboard.press("Tab"); await expect(page.locator(".console-user").getByRole("link", { name: "账户资料", exact: true })).toBeFocused();
-        await page.keyboard.press("Tab"); await expect(page.getByRole("link", { name: "退出登录", exact: true })).toBeFocused();
-        await page.keyboard.press("Shift+Tab"); await expect(page.locator(".console-user").getByRole("link", { name: "账户资料", exact: true })).toBeFocused();
-        await page.keyboard.press("Shift+Tab"); await page.keyboard.press("Enter");
+        await page.getByRole("combobox", { name: "显示主题" }).focus(); await page.keyboard.press("Tab");
+        const accountMenu = page.getByRole("button", { name: "我的账户", exact: true });
+        const accountPopover = page.getByRole("dialog", { name: "账户快捷操作", exact: true });
+        const profileLink = accountPopover.getByRole("link", { name: "账户资料", exact: true });
+        await expect(accountMenu).toBeFocused(); await page.keyboard.press("Enter");
+        await page.keyboard.press("Tab"); await expect(profileLink).toBeFocused();
+        await page.keyboard.press("Tab"); await expect(accountPopover.getByRole("link", { name: "退出登录", exact: true })).toBeFocused();
+        await page.keyboard.press("Shift+Tab"); await expect(profileLink).toBeFocused();
+        await page.keyboard.press("Escape"); await expect(accountMenu).toBeFocused();
         await snapshot(page, `${pageKind}-${theme}-${width}`);
       } finally { await closeContext(context); }
     });

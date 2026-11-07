@@ -247,7 +247,7 @@ describe("WorkspaceAppShell", () => {
   it("hides stale identity, enterprise switcher and delegation metadata on grant failure", () => {
     navigation.pathname = "/workbench/account/profile"; injectProfileContext({ error: { code: "DEPENDENCY_UNAVAILABLE" }, effectiveOrganization: { id: "org-b", name: "旧企业", roles: [], permissions: [] } });
     render(<WorkspaceAppShell><p>personal profile</p></WorkspaceAppShell>);
-    expect(screen.getByText("personal profile")).toBeVisible(); expect(screen.queryByText("stale-user")).not.toBeInTheDocument(); expect(screen.queryByRole("combobox")).not.toBeInTheDocument(); expect(screen.queryByLabelText("企业代管状态")).not.toBeInTheDocument();
+    expect(screen.getByText("personal profile")).toBeVisible(); expect(screen.queryByText("stale-user")).not.toBeInTheDocument(); expect(screen.queryByRole("combobox", { name: "当前企业" })).not.toBeInTheDocument(); expect(screen.queryByLabelText("企业代管状态")).not.toBeInTheDocument();
   });
   afterEach(() => {
     navigation.pathname = "/workbench";
