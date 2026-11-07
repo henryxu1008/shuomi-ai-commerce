@@ -76,7 +76,7 @@ it("requires explicit confirmation and recovers an uncertain publication with th
 it("views stored content and withdraws with the expected version after confirmation", async () => {
   let withdrawn = false;
   const fetch = vi.fn(async (url: string, init: RequestInit) => {
-    if (url.endsWith(id)) return Response.json(content);
+    if (url.endsWith(id)) return Response.json({ ...content, target: { kind: "home", id: "" } });
     if (url.endsWith("/withdraw")) {
       withdrawn = true;
       return Response.json({ key: new Headers(init.headers).get("Idempotency-Key"), operation: "withdraw", committedAt: now, resultId: id });
@@ -87,6 +87,7 @@ it("views stored content and withdraws with the expected version after confirmat
   mount();
   fireEvent.click(await screen.findByRole("button", { name: "查看公告 计划维护" }));
   expect(await screen.findByText(content.paragraphs[0])).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "公告关联入口" })).toHaveAttribute("href", "/workbench");
   fireEvent.click(screen.getByRole("button", { name: "关闭公告正文" }));
   fireEvent.click(screen.getByRole("button", { name: "撤回公告 计划维护" }));
   expect(withdrawn).toBe(false);

@@ -14,7 +14,7 @@ export const notificationRef = z.string().min(1).max(2048).regex(/^[A-Za-z0-9_-]
   } catch { return false; }
 });
 const targetSchema = z.object({ kind: text(32), id: boundedID.or(z.literal("")) }).strict();
-function notificationHref(target: z.infer<typeof targetSchema>): string | null {
+export function notificationHref(target: z.infer<typeof targetSchema>): string | null {
   const staticRoutes: Record<string, string> = { none: "", home: "/workbench", resources: "/workbench/plans/entitlements", "member-resources": "/workbench/account/organization/resources", members: "/workbench/account/organization/members", "personal-verification": "/workbench/account/profile/verification", "organization-verification": "/workbench/account/organization", earnings: "/workbench/account/referrals/earnings", withdrawals: "/workbench/account/referrals/withdrawals" };
   if (target.id === "" && Object.hasOwn(staticRoutes, target.kind)) return staticRoutes[target.kind];
   if (!boundedID.safeParse(target.id).success) return null;
@@ -40,7 +40,7 @@ export const notificationListSchema = z.object({ schemaVersion: z.literal("notif
 }).strict().refine(v => v.unread <= v.count && v.pending <= v.count && v.items.length <= v.count && v.exact === v.coverage.every(c => c.complete) && v.coverage.every(c => c.complete === (c.state !== "UNAVAILABLE")));
 export const notificationSnapshotSchema = z.object({ id: notificationUUID, fingerprint: z.string().regex(/^[0-9a-f]{64}$/), expiresAt: z.iso.datetime({ offset: true }), count }).strict();
 export const notificationCommandSchema = z.object({ key: notificationUUID, operation: z.enum(["read", "snapshot", "read-all", "publish", "withdraw"]), committedAt: z.iso.datetime({ offset: true }), resultId: notificationUUID.optional() }).strict();
-export const announcementCategory = z.enum(["PRODUCT", "SYSTEM", "ACTIVITY", "POLICY"]);
+const announcementCategory = z.enum(["PRODUCT", "SYSTEM", "ACTIVITY", "POLICY"]);
 const announcementText = (max: number) => text(max).refine(value => value.trim() === value && new TextEncoder().encode(value).length <= max);
 export const announcementContent = z.object({
   category: announcementCategory,

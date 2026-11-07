@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   announcementContent, announcementIntent, announcementPage, announcementPublish,
-  notificationCommandSchema, NotificationError, notificationRequest,
+  notificationCommandSchema, NotificationError, notificationHref, notificationRequest,
   type Announcement, type AnnouncementIntent, type AnnouncementSummary, type PlatformAnnouncementScope,
 } from "@/lib/api/notifications";
 import { AccountDialog } from "../account/account-dialog";
@@ -233,11 +233,13 @@ function AnnouncementDetail({ scope, id }: { scope: PlatformAnnouncementScope; i
 }
 
 function AnnouncementText({ content }: { content: Announcement }) {
+  const href = notificationHref(content.target);
   return <div className="grid gap-2 break-words">
     <p className="text-sm text-muted-foreground">{categories[content.category]}</p>
     <p className="font-semibold">{content.title}</p>
     <p className="text-sm text-muted-foreground">{content.summary}</p>
     {content.paragraphs.map((paragraph, index) => <p className="whitespace-pre-wrap" key={index}>{paragraph}</p>)}
+    {href ? <Link className="underline" href={href} prefetch={false}>公告关联入口</Link> : null}
   </div>;
 }
 
