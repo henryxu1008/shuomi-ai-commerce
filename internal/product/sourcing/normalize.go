@@ -21,6 +21,9 @@ func Normalize(in SourceEnvelope) (SourceEnvelope, error) {
 		images = append(images, image.URL)
 	}
 	for _, v := range out.ProductCandidate.Variants {
+		if !v.Packaging.Valid() {
+			return SourceEnvelope{}, ErrInvalidSourcePublication
+		}
 		for _, image := range v.Images {
 			images = append(images, image.URL)
 		}

@@ -124,6 +124,7 @@ type OwnVariant struct {
 	Price      float64           `json:"price"`
 	Stock      int               `json:"stock"`
 	Images     []string          `json:"images,omitempty"`
+	Packaging  *catalog.SKUPackaging `json:"packaging,omitempty"`
 }
 type Mutation struct {
 	Action                string       `json:"action"`
@@ -208,7 +209,7 @@ func OwnEnvelope(id string, input OwnProduct) (sourcing.SourceEnvelope, error) {
 	}
 	envelope := sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: "user_input", SourcePlatform: "own_product", SourceID: id}, RawReference: sourcing.RawSourceReference{ReferenceType: "user_input", ReferenceID: id, Checksum: sourcing.RawSnapshotChecksum(string(raw))}, ProductCandidate: sourcing.ProductCandidate{Title: input.Title, Description: input.Description, DescriptionFormat: input.DescriptionFormat, Brand: input.Brand, Attributes: input.Attributes}}
 	for _, variant := range input.Variants {
-		candidate := sourcing.ProductVariantCandidate{SourceID: variant.SourceID, Title: variant.Title, SKU: variant.SKU, Attributes: variant.Attributes, Currency: variant.Currency, Price: variant.Price, Stock: variant.Stock}
+		candidate := sourcing.ProductVariantCandidate{SourceID: variant.SourceID, Title: variant.Title, SKU: variant.SKU, Attributes: variant.Attributes, Currency: variant.Currency, Price: variant.Price, Stock: variant.Stock, Packaging: catalog.CloneSKUPackaging(variant.Packaging)}
 		for index, value := range variant.Images {
 			candidate.Images = append(candidate.Images, sourcing.AssetCandidate{SourceID: StableID(id, variant.SourceID, value), URL: value, MediaType: "image", Role: map[bool]string{true: "main", false: "detail"}[index == 0]})
 		}

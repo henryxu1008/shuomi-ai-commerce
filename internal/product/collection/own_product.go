@@ -42,6 +42,9 @@ func validateOwnProduct(input OwnProduct) error {
 	items := len(input.Attributes) + len(input.Images) + len(input.Variants)
 	ids, skus := map[string]bool{}, map[string]bool{}
 	for _, v := range input.Variants {
+		if !v.Packaging.Valid() {
+			return ErrInvalid
+		}
 		sku := strings.TrimSpace(v.SKU)
 		if strings.TrimSpace(v.SourceID) == "" || !validString(v.SourceID, 128) || ids[v.SourceID] || !validString(v.Title, 2000) || !validString(v.SKU, 200) || sku != "" && skus[sku] || !validAttributes(v.Attributes) || !validImages(v.Images) || math.IsNaN(v.Price) || math.IsInf(v.Price, 0) || v.Price < 0 || v.Stock < 0 || int64(v.Stock) > 9007199254740991 || len(v.Currency) != 3 || strings.IndexFunc(v.Currency, func(r rune) bool { return r < 'A' || r > 'Z' }) >= 0 {
 			return ErrInvalid

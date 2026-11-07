@@ -7,7 +7,7 @@ vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchCo
 vi.mock("@/lib/api/product-collection",async original=>({...await original<object>(),readCollectionItem:state.read}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),listItemCompletionDrafts:state.drafts}));
 const itemId="550e8400-e29b-41d4-a716-446655440002";
-beforeEach(()=>{state.read.mockReset();state.drafts.mockResolvedValue({items:[],total:0});state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.manage"]}});
+beforeEach(()=>{state.read.mockReset();state.drafts.mockResolvedValue({items:[],total:0});state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.read","workbench.collection.manage"]}});
 afterEach(cleanup);
 it("offers content optimization only for an available runtime and current permissions",async()=>{
  state.context.permissions=["workbench.collection.read","local_agent.write","workbench.agent.use"];

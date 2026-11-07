@@ -98,6 +98,7 @@
 
 ## 商品、资产与草稿
 
+- `own-product-sku-packaging.md` — [自有商品逐 SKU 含包装事实录入](own-product-sku-packaging.md)
 - `completion-draft-history.md` — [待补全草稿保存历史与比较 v1](completion-draft-history.md)
 - `completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](completion-draft-restore.md)
 - `completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](completion-draft-structured.md)

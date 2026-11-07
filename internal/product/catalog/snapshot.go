@@ -71,6 +71,7 @@ type Variant struct {
 	Price            *Price      `json:"price,omitempty"`
 	Stock            *int        `json:"stock,omitempty"`
 	Images           []Image     `json:"images,omitempty"`
+	Packaging        *SKUPackaging `json:"packaging,omitempty"`
 	Barcode          string      `json:"barcode,omitempty"`
 	IsDefault        bool        `json:"is_default,omitempty"`
 	Trace            Trace       `json:"trace,omitempty"`

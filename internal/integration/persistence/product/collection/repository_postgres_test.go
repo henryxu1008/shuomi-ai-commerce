@@ -2,6 +2,7 @@ package collectionpersistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"testing"
@@ -350,6 +351,60 @@ func TestPostgresCollectionAtomicReplayOwnershipMoveAndCommitUnknown(t *testing.
 		other.Key = uuid.NewString()
 		other.OperationID = collection.StableID(other.Scope.OrganizationID, other.Scope.ActorID, other.Key)
 		_, err = repository.Execute(ctx, other)
+		require.ErrorIs(t, err, collection.ErrNotFound)
+	})
+	t.Run("SKU packaging revisions preserve original versions and exact replay", func(t *testing.T) {
+		owner := collection.Scope{OrganizationID: "packaging-org", ActorID: "packaging-actor", MemberID: "packaging-member"}
+		repository.own = func(tx *gorm.DB) (OwnPublisher, error) { return testOwnPublisher{tx}, nil }
+		var product collection.OwnProduct
+		require.NoError(t, json.Unmarshal([]byte(`{"title":"Measured","images":[],"variants":[{"sourceId":"red","sku":"RED","currency":"CNY","price":0,"stock":0,"packaging":{"weightGrams":125.5,"lengthCm":10}},{"sourceId":"blue","sku":"BLUE","currency":"CNY","price":0,"stock":7,"packaging":{"lengthCm":20}}]}`), &product))
+		create := testCommand(owner, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &product})
+		for i := range create.Envelope.ProductCandidate.Variants {
+			create.Envelope.ProductCandidate.Variants[i].OwnStockDeclared = true
+		}
+		created, err := repository.Execute(ctx, create)
+		require.NoError(t, err)
+		original, err := repository.ReadItem(ctx, owner, created.ItemID)
+		require.NoError(t, err)
+		first, err := snapshots.GetSnapshot(ctx, catalog.SnapshotIdentity{TenantID: owner.OrganizationID, ProductKey: original.Source.ProductKey}, original.Source.Version)
+		require.NoError(t, err)
+		firstBytes, err := json.Marshal(first.Snapshot)
+		require.NoError(t, err)
+		require.Contains(t, string(firstBytes), `"weightGrams":125.5`)
+		require.Equal(t, new(0), first.Snapshot.Variants[0].Stock)
+		canonical := catalog.ProjectCanonical(first.Snapshot)
+		require.Equal(t, 125.5, canonical.Variants[0].Weight.Value)
+		require.Nil(t, canonical.Variants[1].Weight)
+		product.Variants[0], product.Variants[1] = product.Variants[1], product.Variants[0]
+		product.Variants[1].SKU = "RED-RENAMED"
+		revision := testCommand(owner, uuid.NewString(), collection.Mutation{Action: "revise_product", ItemID: original.ID, ExpectedRevision: original.Revision, ExpectedSourceVersion: original.Source.Version, ExpectedPublicationID: original.Source.PublicationID, Product: &product})
+		for i := range revision.Envelope.ProductCandidate.Variants {
+			revision.Envelope.ProductCandidate.Variants[i].OwnStockDeclared = true
+		}
+		_, err = repository.Execute(ctx, revision)
+		require.NoError(t, err)
+		current, err := repository.ReadItem(ctx, owner, created.ItemID)
+		require.NoError(t, err)
+		second, err := snapshots.GetSnapshot(ctx, first.Identity, current.Source.Version)
+		require.NoError(t, err)
+		projected := catalog.ProjectCanonical(second.Snapshot)
+		require.Equal(t, "BLUE", projected.Variants[0].SKU)
+		require.Nil(t, projected.Variants[0].Weight)
+		require.Equal(t, "RED-RENAMED", projected.Variants[1].SKU)
+		require.Equal(t, 125.5, projected.Variants[1].Weight.Value)
+		replayed, err := repository.Execute(ctx, revision)
+		require.NoError(t, err)
+		require.True(t, replayed.Replayed)
+		changed := revision
+		changed.InputHash = collection.Digest("different packaging with the same command key")
+		_, err = repository.Execute(ctx, changed)
+		require.ErrorIs(t, err, collection.ErrConflict)
+		old, err := snapshots.GetSnapshot(ctx, first.Identity, first.Version)
+		require.NoError(t, err)
+		oldBytes, err := json.Marshal(old.Snapshot)
+		require.NoError(t, err)
+		require.Equal(t, string(firstBytes), string(oldBytes))
+		_, err = repository.ReadItem(ctx, collection.Scope{OrganizationID: owner.OrganizationID, ActorID: "foreign", MemberID: "foreign"}, created.ItemID)
 		require.ErrorIs(t, err, collection.ErrNotFound)
 	})
 	require.NoError(t, db.Exec("ALTER TABLE product_collection_items DROP CONSTRAINT product_collection_items_organization_id_actor_id_batch_id_fkey").Error)
