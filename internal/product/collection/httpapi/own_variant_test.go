@@ -16,11 +16,25 @@ func TestOwnVariantNumbersMustBeDeclared(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Idempotency-Key", uuid.NewString())
 			_, _, err := readMutation(req)
-			if fields == `"price":0,"stock":0` {
+			if fields == `"price":0,"stock":0` || fields == `"price":0` {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
 			}
 		})
+	}
+}
+
+func TestImportedOwnVariantStillRequiresStock(t *testing.T) {
+	for _, stock := range []string{"", `,"stock":null`, `,"stock":0`} {
+		req := httptest.NewRequest("POST", BasePath+"/commands", strings.NewReader(fmt.Sprintf(`{"action":"import_products","name":"测试批次","products":[{"title":"商品","images":[],"variants":[{"sourceId":"red","title":"红","sku":"RED","attributes":{},"currency":"CNY","price":0%s}]}]}`, stock)))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", uuid.NewString())
+		_, _, err := readMutation(req)
+		if stock == `,"stock":0` {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+		}
 	}
 }

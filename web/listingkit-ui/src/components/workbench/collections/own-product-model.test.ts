@@ -18,13 +18,14 @@ it("includes retained variant images in the aggregate limit when regenerating",(
  const rows=buildVariantRows(specs,[],1).map((row,i)=>({...row,image:i<4?"https://images.example.org/a.png":""}));
  expect(()=>buildVariantRows(specs,rows,1)).toThrow("保存限制");
 });
-it("keeps explicit zero and rejects empty numbers or duplicate SKU before submission",()=>{
+it("distinguishes empty stock from zero and rejects missing price or duplicate SKU before submission",()=>{
  const row={...newVariantRow({颜色:"红"}),sku:"RED",currency:"CNY",price:"0",stock:"0"};
  const base={title:"衣服",brand:"",description:"",images:[],mode:"multiple" as const,rows:[row]};
  expect(prepareOwnProduct(base).variants?.[0]).toMatchObject({price:0,stock:0,sourceId:row.id});
+ expect(prepareOwnProduct({...base,rows:[{...row,stock:""}]}).variants?.[0]).not.toHaveProperty("stock");
  expect(()=>prepareOwnProduct({...base,rows:[{...row,price:""}]})).toThrow();
  expect(()=>prepareOwnProduct({...base,rows:[row,{...row,id:"other"}]})).toThrow();
- expect(()=>prepareOwnProduct({...base,mode:"single",rows:[{...row,sku:""}]})).toThrow("请填写SKU、币种、价格和库存");
+ expect(()=>prepareOwnProduct({...base,mode:"single",rows:[{...row,sku:""}]})).toThrow("请填写SKU、币种和价格");
 });
 it.each([
  {currency:"CNY"}, {price:"0"}, {stock:"0"},
@@ -33,7 +34,7 @@ it.each([
  {title:"已填写的SKU名称"}, {attributes:{颜色:"红色"}},
 ])("rejects a partially populated single row instead of dropping its facts: %j",patch=>{
  const row={...newVariantRow(),...patch,sku:"   "};
- expect(()=>prepareOwnProduct({title:"衣服",brand:"",description:"",images:["https://images.example.org/red.png"],mode:"single",rows:[row]})).toThrow("请填写SKU、币种、价格和库存");
+ expect(()=>prepareOwnProduct({title:"衣服",brand:"",description:"",images:["https://images.example.org/red.png"],mode:"single",rows:[row]})).toThrow("请填写SKU、币种和价格");
 });
 it("allows a completely blank single row while retaining the common product facts",()=>{
  const base={title:"衣服",brand:"品牌",description:"基础资料",images:["https://images.example.org/common.png"],mode:"single" as const};

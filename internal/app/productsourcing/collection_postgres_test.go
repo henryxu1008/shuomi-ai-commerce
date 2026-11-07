@@ -101,7 +101,7 @@ func TestCollectionPublicationUsesOneActualSourceCatalogTransaction(t *testing.T
 	actor := acquisitionIdentity("supply-org", "supply-actor")
 
 	ownKey := uuid.NewString()
-	ownInput := collection.OwnProduct{Title: "原始自有商品", Attributes: map[string]string{"材质": "棉", "适用季节": "夏季"}, Images: []string{"https://images.example.org/original.png"}, Variants: []collection.OwnVariant{{SourceID: "red-s", Title: "红色 / S", SKU: "RED-S", Attributes: map[string]string{"颜色": "红色", "尺码": "S"}, Currency: "CNY", Price: 0, Stock: 0, Images: []string{"https://images.example.org/red.png"}}, {SourceID: "blue-m", Title: "蓝色 / M", SKU: "BLUE-M", Attributes: map[string]string{"颜色": "蓝色", "尺码": "M"}, Currency: "CNY", Price: 12.5, Stock: 8, Images: []string{"https://images.example.org/blue.png"}}}}
+	ownInput := collection.OwnProduct{Title: "原始自有商品", Attributes: map[string]string{"材质": "棉", "适用季节": "夏季"}, Images: []string{"https://images.example.org/original.png"}, Variants: []collection.OwnVariant{{SourceID: "red-s", Title: "红色 / S", SKU: "RED-S", Attributes: map[string]string{"颜色": "红色", "尺码": "S"}, Currency: "CNY", Price: 0, Stock: new(0), Images: []string{"https://images.example.org/red.png"}}, {SourceID: "blue-m", Title: "蓝色 / M", SKU: "BLUE-M", Attributes: map[string]string{"颜色": "蓝色", "尺码": "M"}, Currency: "CNY", Price: 12.5, Stock: new(8), Images: []string{"https://images.example.org/blue.png"}}}}
 	own, err := service.Mutate(actor, ownKey, collection.Mutation{Action: "create_product", Product: &ownInput})
 	require.NoError(t, err)
 	detail, err := service.ReadItem(actor, own.ItemID)

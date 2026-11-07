@@ -54,5 +54,5 @@ func TestImportReadsEntireSheetAndRejectsDangerousContent(t *testing.T) {
 		}
 	}))
 	require.NoError(t, err)
-	require.Equal(t, 0, p[0].Variants[0].Stock)
+	require.Equal(t, new(0), p[0].Variants[0].Stock)
 }
