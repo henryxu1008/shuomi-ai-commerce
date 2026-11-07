@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import * as Popover from "@radix-ui/react-popover";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { FulfillmentNavigation } from "./fulfillment/fulfillment-navigation";
 import { Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
@@ -14,6 +16,7 @@ import { SupportLauncher } from "@/components/workbench/support-launcher";
 import { ConsoleNavigation } from "@/components/workbench/console/console-navigation";
 import { parseCaptureEntry } from "@/app/capture/1688/capture-handoff";
 import { NotificationPopover } from "@/components/workbench/notifications/notification-center";
+import { getAccountProfile } from "@/lib/api/account";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 
 const NO_ORGANIZATION_ROUTE = "/workbench/no-organization";
@@ -158,7 +161,7 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
   const mounted = useSyncExternalStore(subscribeToHydration, getClientHydrationSnapshot, getServerHydrationSnapshot);
   const light = mounted && resolvedTheme === "light";
   function closeNavigation() { setMobileOpen(false); trigger.current?.focus(); }
-  return <div onKeyDown={(event) => { if (mobileOpen && event.key === "Escape") { event.preventDefault(); closeNavigation(); } }}>
+  return <div onKeyDown={(event) => { if (mobileOpen && event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); closeNavigation(); } }}>
     <a className="sr-only focus:not-sr-only" href="#console-main">跳到页面内容</a>
     <div className="console-frame" data-sidebar-collapsed={sidebarCollapsed || undefined}>
       <aside className="console-sidebar" id="workbench-desktop-navigation">
@@ -174,7 +177,17 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
             <SupportLauncher available={supportAvailable && !context.isSwitching} key={`${context.user?.id ?? ""}:${context.effectiveOrganization?.id ?? ""}:${context.isSwitching}`} />
             {notificationCenterAvailable ? <NotificationPopover /> : <Button disabled title="通知中心尚未启用" variant="outline">通知</Button>}
             <button className="console-theme-toggle" type="button" role="switch" aria-label="浅色模式" aria-checked={light} onClick={() => setTheme(light ? "dark" : "light")}>{light ? "浅色" : "深色"}<span aria-hidden="true" /></button>
-            <details className="console-user"><summary>我的账户 ⌄</summary><div><p className="break-words text-xs text-muted-foreground">已登录账号</p><p className="mt-1 break-all text-sm">{contextConfirmed ? context.user?.id : null}</p><Link href="/workbench/account/profile" prefetch={false}>账户资料</Link><a href="/api/zitadel-auth/logout">退出登录</a></div></details>
+            <Popover.Root>
+              <Popover.Trigger className="console-user-trigger" aria-label="我的账户">我的账户 ⌄</Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className="console-user-popover" aria-label="账户快捷操作" align="end" sideOffset={8} collisionPadding={12}>
+                  <p className="text-xs text-muted-foreground">已登录账号</p>
+                  <AccountDisplayName userId={contextConfirmed ? context.user?.id : undefined} />
+                  <Popover.Close asChild type={undefined}><Link href="/workbench/account/profile" prefetch={false}>账户资料</Link></Popover.Close>
+                  <a href="/api/zitadel-auth/logout">退出登录</a>
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
           </div>
         </header>
         {contextConfirmed && context.effectiveOrganization && context.effectiveOrganization.id !== context.homeOrganizationId ? <div className="console-delegation"><DelegatedOperationIndicator effectiveOrganization={context.effectiveOrganization} homeOrganizationId={context.homeOrganizationId} organizations={context.organizations} /></div> : null}
@@ -184,6 +197,25 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
     </div>
   </div>;
 }
+
+function AccountDisplayName({ userId }: { userId?: string }) {
+  const profile = useQuery({
+    queryKey: ["account", "popover-display-name", userId],
+    queryFn: userId ? async ({ signal }) => {
+      const account = await getAccountProfile({ expectedUserId: userId, signal });
+      return account.displayName?.trim() || null;
+    } : skipToken,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const displayName = profile.isSuccess ? profile.data : null;
+  const fallback = userId && profile.isPending ? "正在读取姓名…" : "当前账户";
+
+  return <p className="mt-1 break-words text-sm" role="status">{displayName ?? fallback}</p>;
+}
+
 function DelegatedOperationIndicator({
   effectiveOrganization,
   homeOrganizationId,

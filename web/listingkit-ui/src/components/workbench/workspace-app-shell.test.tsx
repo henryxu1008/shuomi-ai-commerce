@@ -62,6 +62,46 @@ function renderShell(child = <p>organization child</p>) {
 }
 
 describe("WorkspaceAppShell", () => {
+  it.each([
+    ["123456789", " 陈小明 ", "陈小明"],
+    ["123456789", " ", "当前账户"],
+    ["another-user", "其他账户姓名", "当前账户"],
+  ])("uses the matching account display name instead of the user ID (%s, %s)", async (profileUserId, displayName, expectedName) => {
+    const userId = "123456789";
+    const fetch = vi.fn((path: string) => Promise.resolve(Response.json(path === "/api/account/profile" ? {
+      schemaVersion: "account-v1", userId: profileUserId, homeOrganizationId: "org-a", displayName,
+      email: null, emailVerified: null, phoneNumber: null, phoneNumberVerified: null,
+      readAt: "2026-11-07T00:00:00Z", source: "zitadel_userinfo",
+    } : { ...ACTIVE_CONTEXT, user: { id: userId } })));
+    vi.stubGlobal("fetch", fetch);
+    const user = userEvent.setup();
+    renderShell();
+
+    const trigger = await screen.findByRole("button", { name: "我的账户" });
+    expect(fetch).not.toHaveBeenCalledWith("/api/account/profile", expect.anything());
+    await user.click(trigger);
+    const panel = within(screen.getByRole("dialog", { name: "账户快捷操作" }));
+    expect(await panel.findByText(expectedName)).toBeVisible();
+    expect(panel.queryByText(userId)).not.toBeInTheDocument();
+    expect(panel.queryByText("其他账户姓名")).not.toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith("/api/account/profile", expect.objectContaining({ method: "GET" }));
+  });
+
+  it("closes the account popover with Escape and restores the trigger focus", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(ACTIVE_CONTEXT)));
+    const user = userEvent.setup();
+    renderShell();
+
+    const trigger = await screen.findByText("我的账户 ⌄");
+    await user.click(trigger);
+    const profile = screen.getByRole("link", { name: /^账户资料$/ });
+    profile.focus();
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(profile).not.toBeVisible());
+    expect(trigger).toHaveFocus();
+  });
+
   it("narrows desktop navigation without remounting the page or losing draft input", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(ACTIVE_CONTEXT)));
     const user = userEvent.setup();
