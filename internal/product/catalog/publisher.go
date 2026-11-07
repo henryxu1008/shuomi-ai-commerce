@@ -99,6 +99,9 @@ func CloneProductSnapshot(snapshot ProductSnapshot) (ProductSnapshot, error) {
 		images = append(images, image.URL)
 	}
 	for _, v := range snapshot.Variants {
+		if !v.Packaging.Valid() {
+			return ProductSnapshot{}, ErrInvalidSnapshot
+		}
 		for _, image := range v.Images {
 			images = append(images, image.URL)
 		}

@@ -44,6 +44,7 @@ func canonicalVariantsFromSnapshot(variants []Variant) []canonical.Variant {
 	}
 	result := make([]canonical.Variant, 0, len(variants))
 	for _, variant := range variants {
+		dimensions, weight := canonicalSKUPackaging(variant.Packaging)
 		var stock *int
 		if variant.Stock != nil {
 			stock = new(*variant.Stock)
@@ -55,12 +56,35 @@ func canonicalVariantsFromSnapshot(variants []Variant) []canonical.Variant {
 			Price:            canonicalPriceFromSnapshot(variant.Price),
 			OwnStockDeclared: variant.OwnStockDeclared,
 			Images:           canonicalImagesFromSnapshot(variant.Images),
+			Dimensions:       dimensions,
+			Weight:           weight,
 			Barcode:          variant.Barcode,
 			IsDefault:        variant.IsDefault,
 			Trace:            canonicalTraceFromSnapshot(variant.Trace),
 		})
 	}
 	return result
+}
+
+func canonicalSKUPackaging(p *SKUPackaging) (*canonical.Dimensions, *canonical.Weight) {
+	if p == nil {
+		return nil, nil
+	}
+	var dimensions *canonical.Dimensions
+	if p.LengthCm != nil || p.WidthCm != nil || p.HeightCm != nil {
+		value := func(number *float64) float64 {
+			if number == nil {
+				return 0
+			}
+			return *number
+		}
+		dimensions = &canonical.Dimensions{Length: value(p.LengthCm), Width: value(p.WidthCm), Height: value(p.HeightCm), Unit: "cm"}
+	}
+	var weight *canonical.Weight
+	if p.WeightGrams != nil {
+		weight = &canonical.Weight{Value: *p.WeightGrams, Unit: "g"}
+	}
+	return dimensions, weight
 }
 
 func canonicalImagesFromSnapshot(images []Image) []canonical.Image {

@@ -337,6 +337,7 @@ func cloneVariants(items []catalog.Variant) []catalog.Variant {
 	for i, item := range items {
 		out[i] = item
 		out[i].Attributes = cloneAttributes(item.Attributes)
+		out[i].Packaging = catalog.CloneSKUPackaging(item.Packaging)
 		if item.Price != nil {
 			price := *item.Price
 			out[i].Price = &price
@@ -370,6 +371,7 @@ func cloneSource(source sourcing.SourceEnvelope) sourcing.SourceEnvelope {
 	out.ProductCandidate.Variants = append([]sourcing.ProductVariantCandidate(nil), source.ProductCandidate.Variants...)
 	for i := range out.ProductCandidate.Variants {
 		out.ProductCandidate.Variants[i].Attributes = cloneStringMap(source.ProductCandidate.Variants[i].Attributes)
+		out.ProductCandidate.Variants[i].Packaging = catalog.CloneSKUPackaging(source.ProductCandidate.Variants[i].Packaging)
 	}
 	out.AssetCandidates = append([]sourcing.AssetCandidate(nil), source.AssetCandidates...)
 	out.SupplierOrCostFacts.Facts = cloneStringMap(source.SupplierOrCostFacts.Facts)

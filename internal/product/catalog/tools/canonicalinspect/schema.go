@@ -69,8 +69,18 @@ var outputSchema = json.RawMessage(`{
         "source_id":{"type":"string"},"title":{"type":"string"},"sku":{"type":"string"},
         "attributes":{"type":"array","items":{"$ref":"#/$defs/attribute"}},
         "price":{"$ref":"#/$defs/price"},"stock":{"type":"integer"},
+        "packaging":{"$ref":"#/$defs/sku_packaging"},
         "images":{"type":"array","items":{"$ref":"#/$defs/image"}},
         "barcode":{"type":"string"},"is_default":{"type":"boolean"},"trace":{"$ref":"#/$defs/trace"}
+      }
+    },
+    "sku_packaging":{
+      "type":"object","additionalProperties":false,
+      "properties":{
+        "weightGrams":{"type":"number","exclusiveMinimum":0,"maximum":9007199254740991},
+        "lengthCm":{"type":"number","exclusiveMinimum":0,"maximum":9007199254740991},
+        "widthCm":{"type":"number","exclusiveMinimum":0,"maximum":9007199254740991},
+        "heightCm":{"type":"number","exclusiveMinimum":0,"maximum":9007199254740991}
       }
     },
     "price":{
