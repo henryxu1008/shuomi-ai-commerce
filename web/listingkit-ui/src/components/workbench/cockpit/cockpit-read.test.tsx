@@ -6,6 +6,8 @@ const id = "123e4567-e89b-42d3-a456-426614174000";
 const context = vi.hoisted(() => ({ user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},operationsCockpitAvailable:true,permissions:["workbench.cockpit.alerts.read"],isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null,retry:vi.fn(),registerOrganizationSwitchGuard:()=>()=>{} }));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>context}));
 vi.mock("next/link",()=>({default:({href,children,...props}:React.AnchorHTMLAttributes<HTMLAnchorElement>)=><a href={href} {...props}>{children}</a>}));
+const route = vi.hoisted(() => ({ search: "" }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(route.search) }));
 const caps={access:{goalsRead:true,goalsCreate:true,goalsManage:false,storesRead:true,factsWrite:false,alertsRead:true,adviceRead:true},today:"2026-10-10",stores:[{id,name:"真实店铺",platform:"shein",region:"US",status:"active"}]};
 const rules={rules:[],total:61,summary:{total:61,critical:1,attention:25,data:35},page:1,capturedAt:"2026-10-10T01:00:00Z",goalUnavailable:false,observations:{state:"unavailable",exceptional:0,complete:false,sources:[],latest:[],actionPath:"/workbench/store-orders"}};
 const period = { startDate: "2026-09-01", endDate: "2026-09-30" };
@@ -23,10 +25,10 @@ const visibleRules = { ...rules, rules: [goalRule, storeRule], total: 2, summary
 const totals={revenue:0,refunds:0,procurement:0,logistics:0,platform:0,advertising:0,other:0,netRevenue:0,netProfit:0,margin:null};
 const matrix={rows:[{store:caps.stores[0],complete:false,state:"data_incomplete",totals,growth:null,gapCount:1,excludedCount:0,recordCount:0}],total:60,page:1,summary:totals,summaryComplete:false,states:{loss:10,break_even:10,recorded_complete:10,data_incomplete:30},capturedAt:rules.capturedAt};
 const client=()=>new QueryClient({defaultOptions:{queries:{retry:false}}});
-beforeEach(()=>{window.history.replaceState(null,"","/");context.effectiveOrganization={id:"org-a"};});
+beforeEach(()=>{window.history.replaceState(null,"","/");route.search="";context.effectiveOrganization={id:"org-a"};});
 it("preserves every linked store in the matrix and never opens an arbitrary first-store detail",async()=>{
  const other="123e4567-e89b-42d3-a456-426614174001";
- window.history.replaceState(null,"",`/?storeId=${id}&storeId=${other}&startDate=2026-09-01&endDate=2026-09-30`);
+ route.search = `storeId=${id}&storeId=${other}&startDate=2026-09-01&endDate=2026-09-30`;
  context.permissions=["workbench.cockpit.stores.read"];
  const requests:string[]=[];
  vi.stubGlobal("fetch",vi.fn(async(url:string)=>{requests.push(url);return Response.json(url.endsWith("capabilities")?caps:matrix);}));
@@ -57,7 +59,8 @@ it.each(["alerts","advice"] as const)("%s shows full summary and sends bounded s
 
 it.each([goalRule, storeRule])("opens the original $kind alert with its query period", async rule => {
  context.permissions = ["workbench.cockpit.alerts.read", "workbench.cockpit.advice.read"];
- window.history.replaceState(null, "", "/workbench/overview/advice?" + new URLSearchParams(period));
+ route.search = new URLSearchParams(period).toString();
+ window.history.replaceState(null, "", "/workbench/overview/advice?" + route.search);
  const fetch = vi.fn(async (url: string) => Response.json(url.endsWith("capabilities") ? caps : visibleRules));
  vi.stubGlobal("fetch", fetch);
  const queryClient = client();
@@ -71,7 +74,8 @@ it.each([goalRule, storeRule])("opens the original $kind alert with its query pe
  expect(target.pathname).toBe("/workbench/overview/alerts");
  expect(Object.fromEntries(target.searchParams)).toEqual(expected);
 
- window.history.replaceState(null, "", target.pathname + target.search);
+ // The App Router can render the destination before committing browser history.
+ route.search = target.search;
  view.rerender(renderMode("alerts"));
  expect(await screen.findByRole("heading", { name: rule.title })).toBeVisible();
  const other = rule === goalRule ? storeRule : goalRule;
@@ -94,7 +98,7 @@ it("shows no return link when the current member lacks alert read access", async
 
 it("reports that a linked alert is unavailable without opening another rule", async () => {
  context.permissions = ["workbench.cockpit.alerts.read"];
- window.history.replaceState(null, "", "/workbench/overview/alerts?ruleId=obsolete");
+ route.search = "ruleId=obsolete";
  vi.stubGlobal("fetch", vi.fn(async (url: string) => Response.json(url.endsWith("capabilities") ? caps : visibleRules)));
  render(<QueryClientProvider client={client()}><CockpitPage mode="alerts"/></QueryClientProvider>);
  expect(await screen.findByText("当前结果中没有这条原预警。")).toBeVisible();
