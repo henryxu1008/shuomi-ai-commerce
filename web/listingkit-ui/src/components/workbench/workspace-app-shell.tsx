@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import * as Popover from "@radix-ui/react-popover";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { FulfillmentNavigation } from "./fulfillment/fulfillment-navigation";
 import { Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
@@ -15,6 +16,7 @@ import { SupportLauncher } from "@/components/workbench/support-launcher";
 import { ConsoleNavigation } from "@/components/workbench/console/console-navigation";
 import { parseCaptureEntry } from "@/app/capture/1688/capture-handoff";
 import { NotificationPopover } from "@/components/workbench/notifications/notification-center";
+import { getAccountProfile } from "@/lib/api/account";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 
 const NO_ORGANIZATION_ROUTE = "/workbench/no-organization";
@@ -180,7 +182,7 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
               <Popover.Portal>
                 <Popover.Content className="console-user-popover" aria-label="账户快捷操作" align="end" sideOffset={8} collisionPadding={12}>
                   <p className="text-xs text-muted-foreground">已登录账号</p>
-                  <p className="mt-1 break-all text-sm">{contextConfirmed ? context.user?.id : null}</p>
+                  <AccountDisplayName userId={contextConfirmed ? context.user?.id : undefined} />
                   <Popover.Close asChild type={undefined}><Link href="/workbench/account/profile" prefetch={false}>账户资料</Link></Popover.Close>
                   <a href="/api/zitadel-auth/logout">退出登录</a>
                 </Popover.Content>
@@ -195,6 +197,25 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
     </div>
   </div>;
 }
+
+function AccountDisplayName({ userId }: { userId?: string }) {
+  const profile = useQuery({
+    queryKey: ["account", "popover-display-name", userId],
+    queryFn: userId ? async ({ signal }) => {
+      const account = await getAccountProfile({ expectedUserId: userId, signal });
+      return account.displayName?.trim() || null;
+    } : skipToken,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const displayName = profile.isSuccess ? profile.data : null;
+  const fallback = userId && profile.isPending ? "正在读取姓名…" : "当前账户";
+
+  return <p className="mt-1 break-words text-sm" role="status">{displayName ?? fallback}</p>;
+}
+
 function DelegatedOperationIndicator({
   effectiveOrganization,
   homeOrganizationId,

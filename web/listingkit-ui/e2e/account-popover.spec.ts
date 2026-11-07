@@ -7,6 +7,8 @@ import { expect, test } from "@playwright/test";
 const secret = "shuomi-account-popover-synthetic-ui-only";
 const issuer = "https://account-popover-ui.invalid";
 const client = "account-popover-fixture";
+const userId = "123456789";
+const displayName = "陈小明";
 test.skip(process.env.AUTH_SECRET !== secret, "Requires the explicit synthetic account popover environment.");
 
 test.beforeEach(async ({ context, page, baseURL }) => {
@@ -15,7 +17,7 @@ test.beforeEach(async ({ context, page, baseURL }) => {
   const name = `shuomi.${namespace}.session-token`;
   const value = await encode({ secret, salt: name, maxAge: 600, token: {
     accessToken: "synthetic-access", expiresAt: Math.floor(Date.now() / 1000) + 600, identityVersion: 3,
-    identity: { tenantId: "org", userId: "operator", userType: "zitadel", roles: [] },
+    identity: { tenantId: "org", userId, userType: "zitadel", roles: [] },
   } });
   await context.addCookies([{ name, value, url: baseURL, httpOnly: true, sameSite: "Lax" }]);
   await page.route("**/*", async (route) => {
@@ -23,8 +25,13 @@ test.beforeEach(async ({ context, page, baseURL }) => {
     const url = new URL(request.url());
     if (url.origin !== baseURL || request.method() !== "GET") return route.abort();
     if (url.pathname === "/api/workbench/context") return route.fulfill({ json: {
-      user: { id: "operator" }, homeOrganizationId: "org", effectiveOrganizationId: "org", effectiveMemberId: "member", selectionRequired: false,
+      user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId: "org", effectiveMemberId: "member", selectionRequired: false,
       organizations: [{ id: "org", name: "测试企业", roles: [], permissions: [] }],
+    } });
+    if (url.pathname === "/api/account/profile" && request.headers()["x-expected-user-id"] === userId) return route.fulfill({ json: {
+      schemaVersion: "account-v1", userId, homeOrganizationId: "org", displayName,
+      email: null, emailVerified: null, phoneNumber: null, phoneNumberVerified: null,
+      readAt: "2026-11-07T00:00:00Z", source: "zitadel_userinfo",
     } });
     if (url.pathname.startsWith("/api/")) return route.fulfill({ status: 404, json: { code: "NOT_FOUND" } });
     return route.continue();
@@ -44,6 +51,8 @@ for (const width of [1440, 390]) {
 
     await trigger.press("Enter");
     await expect(panel).toBeFocused();
+    await expect(panel.getByText(displayName, { exact: true })).toBeVisible();
+    await expect(panel.getByText(userId, { exact: true })).toHaveCount(0);
     await page.keyboard.press("Tab");
     await expect(profile).toBeFocused();
     await page.keyboard.press("Escape");
