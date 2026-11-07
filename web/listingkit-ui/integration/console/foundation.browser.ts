@@ -62,15 +62,15 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("light theme uses the same structure and real preference toggle", async ({ page }, info) => {
+test("light theme uses the same structure and persists the preference", async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`${fixture.origin}/workbench`);
-  await page.getByRole("switch", { name: "浅色模式" }).click();
+  await page.getByRole("combobox", { name: "显示主题" }).selectOption("light");
   await expect(page.locator("html")).toHaveClass(/light/);
   await accessible(page);
   await page.screenshot({ path: info.outputPath("overview-light-1440.png") });
   await page.reload();
-  await expect(page.getByRole("switch", { name: "浅色模式" })).toBeChecked();
+  await expect(page.getByRole("combobox", { name: "显示主题" })).toHaveValue("light");
 });
 
 test("existing diagnostic uses actual BFF/Go/PG and keeps organization isolation", async ({ page }, info) => {

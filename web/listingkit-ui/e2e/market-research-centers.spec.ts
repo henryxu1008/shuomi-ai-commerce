@@ -60,10 +60,10 @@ test("the four native pages share a project and preserve evidence through analys
  await page.getByRole("button",{name:"确认生成AI建议"}).click();await expect(page.getByText("两项样本均需补齐完整成本，建议先进一步核实。")).toBeVisible();expect(starts).toBe(1);
  await page.screenshot({path:info.outputPath("selection-review-light-desktop.png"),fullPage:true});
  await page.setViewportSize({width:390,height:844});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);await page.screenshot({path:info.outputPath("selection-review-light-mobile.png"),fullPage:true});
- await page.getByRole("switch",{name:"浅色模式"}).click();await expect(page.locator("html")).toHaveClass(/dark/);await page.screenshot({path:info.outputPath("selection-review-dark-mobile.png"),fullPage:true});
+ await page.getByRole("combobox",{name:"显示主题"}).selectOption("dark");await expect(page.locator("html")).toHaveClass(/dark/);await page.screenshot({path:info.outputPath("selection-review-dark-mobile.png"),fullPage:true});
  const accessibility=await new AxeBuilder({page}).include(".console-page").withTags(["wcag2a","wcag2aa"]).analyze();expect(accessibility.violations.filter(v=>v.impact==="critical"||v.impact==="serious")).toEqual([]);
  await page.getByRole("button",{name:"开始评估"}).first().click();await page.getByLabel("选择理由").fill("已独立核对保存资料，批准进一步测试。");await page.getByRole("button",{name:"批准测试",exact:true}).click();await expect(page.getByText("批准测试",{exact:true}).first()).toBeVisible();
  const transfer=new URL((await page.getByRole("link",{name:"批次 1 · 核对 1 件商品"}).getAttribute("href"))!,origin);expect(JSON.parse(transfer.searchParams.get("transfer")!)).toEqual([candidates[0].observation.ref.selection]);expect(starts).toBe(1);
- await page.getByRole("switch",{name:"浅色模式"}).click();await expect(page.locator("html")).toHaveClass(/light/);
+ await page.getByRole("combobox",{name:"显示主题"}).selectOption("light");await expect(page.locator("html")).toHaveClass(/light/);
  await page.setViewportSize({width:1440,height:1000});await page.goto("/workbench/supply/selection");await expect(page.getByRole("heading",{name:"智能选品业务流程"})).toBeVisible();await page.screenshot({path:info.outputPath("selection-home-light-desktop.png"),fullPage:true});await page.getByRole("link",{name:/挑选重点商品/}).click();await expect(page.getByRole("heading",{name:"智能选品",level:1})).toBeVisible();await page.screenshot({path:info.outputPath("selection-list-light-desktop.png"),fullPage:true});
 });

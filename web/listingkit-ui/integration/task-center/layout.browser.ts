@@ -89,7 +89,7 @@ test("actual bounded pagination, refresh, organization 200 → 100 → 200 and l
   response = page.waitForResponse(projection); await page.getByLabel("当前企业", { exact: true }).selectOption("200");
   expect((await payload(await response)).items).toEqual(first.items);
   await expect(page.getByText("选择一条工作记录")).toBeVisible();
-  await page.getByRole("switch", { name: "浅色模式" }).click(); await accessible(page);
+  await page.getByRole("combobox", { name: "显示主题" }).selectOption("light"); await accessible(page);
   await page.screenshot({ path: info.outputPath("completed-light-1440.png") });
 });
 

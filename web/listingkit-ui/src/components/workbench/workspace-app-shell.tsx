@@ -12,6 +12,7 @@ import { Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { OrganizationSwitcher, workbenchErrorMessage } from "@/components/workbench/organization-switcher";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { SupportLauncher } from "@/components/workbench/support-launcher";
 import { ConsoleNavigation } from "@/components/workbench/console/console-navigation";
 import { parseCaptureEntry } from "@/app/capture/1688/capture-handoff";
@@ -158,9 +159,6 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
   const contextConfirmed = !context.isLoading && !context.isSwitching && !context.error && !context.blockingError;
   const fulfillmentScope={organizationId:context.effectiveOrganization?.id??"",userId:context.user?.id??""};
   const fulfillmentReady=contextConfirmed&&!!fulfillmentScope.organizationId&&!!fulfillmentScope.userId&&context.permissions?.includes("workbench.fulfillment.read")===true;
-  const { resolvedTheme, setTheme } = useTheme();
-  const mounted = useSyncExternalStore(subscribeToHydration, getClientHydrationSnapshot, getServerHydrationSnapshot);
-  const light = mounted && resolvedTheme === "light";
   function closeNavigation() { setMobileOpen(false); trigger.current?.focus(); }
   return <div onKeyDown={(event) => { if (mobileOpen && event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); closeNavigation(); } }}>
     <a className="sr-only focus:not-sr-only" href="#console-main">跳到页面内容</a>
@@ -177,7 +175,7 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
           <div className="console-global-actions">
             <SupportLauncher available={supportAvailable && !context.isSwitching} key={`${context.user?.id ?? ""}:${context.effectiveOrganization?.id ?? ""}:${context.isSwitching}`} />
             {notificationCenterAvailable ? <NotificationPopover /> : <Button disabled title="通知中心尚未启用" variant="outline">通知</Button>}
-            <button className="console-theme-toggle" type="button" role="switch" aria-label="浅色模式" aria-checked={light} onClick={() => setTheme(light ? "dark" : "light")}>{light ? "浅色" : "深色"}<span aria-hidden="true" /></button>
+            <WorkbenchThemeSelect />
             <Popover.Root>
               <Popover.Trigger className="console-user-trigger" aria-label="我的账户">我的账户 ⌄</Popover.Trigger>
               <Popover.Portal>
@@ -197,6 +195,25 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
       </div>
     </div>
   </div>;
+}
+
+function WorkbenchThemeSelect() {
+  const { theme, setTheme } = useTheme();
+  const mounted = useSyncExternalStore(subscribeToHydration, getClientHydrationSnapshot, getServerHydrationSnapshot);
+  return (
+    <Select
+      className="h-9 w-auto px-2 py-0"
+      aria-label="显示主题"
+      disabled={!mounted}
+      value={mounted ? (theme ?? "dark") : ""}
+      onChange={event => setTheme(event.currentTarget.value)}
+    >
+      <option value="" disabled hidden>显示主题</option>
+      <option value="light">浅色</option>
+      <option value="dark">深色</option>
+      <option value="system">跟随系统</option>
+    </Select>
+  );
 }
 
 function AccountDisplayName({ userId }: { userId?: string }) {

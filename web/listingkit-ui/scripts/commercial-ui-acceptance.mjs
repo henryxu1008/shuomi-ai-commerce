@@ -69,8 +69,7 @@ async function capture(name, fullPage = false) {
 async function visual(kind, width, theme) {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
   await go(kind);
-  const toggle = page.getByRole("switch", { name: "浅色模式" });
-  if ((await toggle.getAttribute("aria-checked") === "true") !== (theme === "light")) await toggle.click();
+  await page.getByRole("combobox", { name: "显示主题" }).selectOption(theme);
   await expect(page.locator("html")).toHaveClass(new RegExp(theme));
   const dimensions = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
   assert.ok(dimensions.scroll <= dimensions.client, `Horizontal overflow: ${JSON.stringify(dimensions)}`);

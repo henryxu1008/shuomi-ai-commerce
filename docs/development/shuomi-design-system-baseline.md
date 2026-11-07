@@ -45,7 +45,7 @@
 | `account/account-dialog.tsx` | 3 个导入；原生 modal/drawer，关闭后恢复原焦点 | 与 ResourceDialog 对照行为再考虑提取，不仅按外观合并 |
 | `resources/resource-dialog.tsx` | 16 个导入；原生 dialog，支持 locked，Esc 受锁定约束 | 保留不可中断操作边界；原生 top layer 不等于 React Portal |
 | `stores/store-catalog-dialogs.tsx` | 2 个导入，有组件和消费测试 | 店铺合同由 Store owner 提供，设计系统不生成连接状态 |
-| `providers/theme-provider.tsx` | ApplicationFrame 注入；next-themes，class 模式，偏好键 `listingkit-theme`，`enableSystem=false` | 当前只支持显式明暗选择；“系统偏好”尚未交付，不自动改成系统主题 |
+| `providers/theme-provider.tsx` | ApplicationFrame 注入；next-themes，class 模式，偏好键 `listingkit-theme` | 盘点基线仅支持手动明暗选择；当前选择规则见[设计变量参考](shuomi-design-tokens.md) |
 | `providers/toast-provider.tsx` | ApplicationFrame 已挂载；context 未导出，未找到 useToast/业务消费者；无直接测试 | 不能作为当前业务反馈已启用的证据。硬编码配色是潜在问题，优先级低于真实使用控件 |
 | `providers/workbench-context-provider.tsx` | 99 个生产导入，负责企业等运行上下文 | 不复制或改动；#1075 活跃分支持有相关修改 |
 | 业务 command hooks | Collection 6 个、Supply 9 个、Data 2 个消费位置；API、授权和结果不明处理归原 hook/领域 | 复用其反馈输入，禁止为了统一组件再造业务状态 |

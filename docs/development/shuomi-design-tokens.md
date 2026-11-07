@@ -4,6 +4,8 @@
 
 Figma 只作业务流程参考；本表从当前代码读取。变量 owner：`src/app/globals.css` 负责根页面，`src/app/console.css` 负责工作台。选择与持久偏好归原 `next-themes`，业务组件只消费变量。
 
+工作台顶部的「显示主题」提供浅色、深色、跟随系统。工作台首次进入时默认深色，已有 `listingkit-theme` 的 `light` / `dark` 值继续生效。选中 `system` 时，`next-themes` 在页面交互接管前按 `prefers-color-scheme` 设置根主题，并在系统明暗偏好变化时同步更新。该设置保存在当前浏览器，浮层和原生表单控件沿用根主题。
+
 ## 工作台明暗对照
 
 | 语义 / CSS 变量 | Light | Dark | 消费方式 |
