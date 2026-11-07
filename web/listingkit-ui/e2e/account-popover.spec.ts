@@ -26,12 +26,26 @@ test.beforeEach(async ({ context, page, baseURL }) => {
     if (url.origin !== baseURL || request.method() !== "GET") return route.abort();
     if (url.pathname === "/api/workbench/context") return route.fulfill({ json: {
       user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId: "org", effectiveMemberId: "member", selectionRequired: false,
-      organizations: [{ id: "org", name: "测试企业", roles: [], permissions: [] }],
+      organizations: [{ id: "org", name: "测试企业", roles: [], permissions: ["workbench.store.read"] }],
     } });
     if (url.pathname === "/api/account/profile" && request.headers()["x-expected-user-id"] === userId) return route.fulfill({ json: {
       schemaVersion: "account-v1", userId, homeOrganizationId: "org", displayName,
       email: null, emailVerified: null, phoneNumber: null, phoneNumberVerified: null,
       readAt: "2026-11-07T00:00:00Z", source: "zitadel_userinfo",
+    } });
+    if (url.pathname === "/api/notifications/identity") return route.fulfill({ json: { userId } });
+    if (/^\/api\/notifications\/(official|business)$/.test(url.pathname)) return route.fulfill({ json: {
+      schemaVersion: "notification-center-v1", items: [], coverage: [], exact: true, count: 0, unread: 0, pending: 0, next: "",
+    } });
+    if (url.pathname === "/api/workbench/store-center/catalog") return route.fulfill({ json: {
+      schemaVersion: "store-center-v1", organizationId: "org", userId, data: {
+        items: [], pagination: { page: 1, pageSize: 20, total: 0 },
+        metrics: { total: 0, normal: 0, attention: 0, syncHealthy: 0, unknown: 0, complete: true, observedAt: "2026-11-07T00:00:00Z" },
+        facets: { regions: [], applicationTypes: [], groups: [], canManageGroups: true },
+      },
+    } });
+    if (url.pathname === "/api/workbench/store-center/groups") return route.fulfill({ json: {
+      schemaVersion: "store-center-v1", organizationId: "org", userId, data: { items: [] },
     } });
     if (url.pathname.startsWith("/api/")) return route.fulfill({ status: 404, json: { code: "NOT_FOUND" } });
     return route.continue();
@@ -90,3 +104,61 @@ for (const width of [1440, 390]) {
     await expect(panel).toBeHidden();
   });
 }
+
+test.describe("workbench notification and store overlays", () => {
+  test.skip(process.env.LISTINGKIT_NOTIFICATION_CENTER_ENABLED !== "true" || process.env.CHATWOOT_API_TOKEN !== "overlay-synthetic-only", "Requires the loopback notification and support fixture settings.");
+
+  for (const width of [1440, 390]) {
+    for (const theme of ["dark", "light"]) {
+      test(`${width}px ${theme}: keyboard and focus restoration`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        await page.addInitScript((value) => localStorage.setItem("listingkit-theme", value), theme);
+        await page.goto("/workbench/stores");
+        await expect(page.locator("html")).toHaveClass(new RegExp(`\\b${theme}\\b`));
+        await expect(page.getByRole("button", { name: "联系客服", exact: true })).toBeEnabled();
+
+        const notice = page.getByRole("button", { name: "通知", exact: true });
+        const panel = page.getByRole("region", { name: "通知面板", exact: true });
+        const close = panel.getByRole("button", { name: "关闭通知面板" });
+        const official = panel.getByRole("tab", { name: "硕米官方通知" });
+        const business = panel.getByRole("tab", { name: "商家经营触发通知" });
+        await notice.press("Enter");
+        await expect(official).toBeVisible();
+        await expect(close).toBeFocused();
+        const surface = theme === "dark" ? "rgb(20, 34, 55)" : "rgb(255, 255, 255)";
+        await expect(panel).toHaveCSS("background-color", surface);
+        await page.keyboard.press("Tab");
+        await expect(official).toBeFocused();
+        await page.keyboard.press("ArrowRight");
+        await expect.soft(business).toBeFocused({ timeout: 1500 });
+        await expect.soft(business).toHaveAttribute("aria-selected", "true", { timeout: 1500 });
+        await expect(panel.getByRole("tabpanel", { name: "商家经营触发通知" })).toBeVisible();
+        await expect.poll(async () => panel.evaluate((node) => {
+          const { left, right } = node.getBoundingClientRect();
+          return left >= 0 && right <= document.documentElement.clientWidth + 1;
+        })).toBe(true);
+        await page.keyboard.press("ArrowLeft");
+        await expect(official).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(panel).toBeHidden();
+        await expect.soft(notice).toBeFocused({ timeout: 1500 });
+
+        const groups = page.getByRole("button", { name: "分组管理", exact: true });
+        const dialog = page.getByRole("dialog", { name: "分组管理", exact: true });
+        await expect(groups).toBeEnabled();
+        await groups.press("Enter");
+        await expect(dialog).toHaveCSS("background-color", surface);
+        await expect(dialog.getByRole("button", { name: "关闭" })).toBeFocused();
+        await page.keyboard.press("Tab");
+        await expect(dialog.getByRole("textbox", { name: "新建分组" })).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(dialog).toBeHidden();
+        await expect(groups).toBeFocused();
+        await groups.press("Enter");
+        await dialog.getByRole("button", { name: "关闭" }).click();
+        await expect(dialog).toBeHidden();
+        await expect(groups).toBeFocused();
+      });
+    }
+  }
+});
