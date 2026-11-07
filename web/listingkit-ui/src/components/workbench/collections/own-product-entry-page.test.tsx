@@ -10,7 +10,7 @@ import {CollectionAPIError,type CollectionIntent} from "@/lib/api/product-collec
 const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,mutate:vi.fn(),read:vi.fn(),item:vi.fn(),push:vi.fn(),replace:vi.fn(),upload:null as null|((url:string)=>void),block:null as null|((busy:boolean)=>void),allowUpload:true}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:state.push,replace:state.replace})}));
-vi.mock("./source-image-uploader",()=>({SourceImageUploader:({onImage,onBlocked,allowNewUpload}:{onImage:(url:string)=>void;onBlocked:(busy:boolean)=>void;allowNewUpload:boolean})=>{state.upload=onImage;state.block=onBlocked;state.allowUpload=allowNewUpload;return null}}));
+vi.mock("./source-image-uploader",()=>({SourceImageUploader:({onImage,onBlocked,allowNewUpload}:{onImage:(url:string)=>void;onBlocked:(busy:boolean)=>void;allowNewUpload:boolean})=>{state.upload=onImage;state.block=onBlocked;state.allowUpload=allowNewUpload;return <label>图片文件<input type="file" /></label>}}));
 vi.mock("@/lib/api/product-collection",async original=>({...await original<object>(),mutateCollection:state.mutate,readCollectionOperation:state.read,readCollectionItem:state.item,listOwnProducts:async()=>({items:[],total:0}),listCollectionBatches:async()=>({items:[],total:0})}));
 const itemId="550e8400-e29b-41d4-a716-446655440002";
 beforeEach(()=>{state.mutate.mockReset();state.read.mockReset();state.item.mockReset();state.push.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.read","workbench.collection.manage"],pendingCollectionIntent:null,collectionIntentReady:true,pendingSupplyIntent:null,supplyIntentReady:true,registerOrganizationSwitchGuard:()=>()=>{},setPendingCollectionIntent:(value:CollectionIntent|null)=>{state.context.pendingCollectionIntent=value;return true}}});
@@ -134,6 +134,26 @@ it("does not reuse a fresh base with stale restored content after original-key c
  expect(screen.getByRole("button",{name:"保存新版本"})).toBeDisabled();expect(screen.getByLabelText("商品名称")).toBeDisabled();
  await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));expect(state.mutate).toHaveBeenCalledOnce();
  expect(state.mutate.mock.calls[0][0]).toEqual(pending);
+});
+
+it("adds a confirmed local upload to the gallery and inserts it into the description only on request", async () => {
+ const url = "https://images.example.org/gallery.png";
+ render(<OwnProductEntryPage />);
+ const description = await screen.findByRole("textbox", { name: "商品描述" });
+ act(() => state.upload!(url));
+ expect(screen.getByAltText("商品图片 1")).toBeInTheDocument();
+ expect(description.querySelector("img")).toBeNull();
+ const gallery = screen.getByRole("region", { name: "商品图片" });
+ expect(within(gallery).getByLabelText("图片文件")).toBeVisible();
+ expect(screen.getAllByLabelText("图片文件")).toHaveLength(1);
+ const toolbar = screen.getByRole("toolbar", { name: "商品描述排版" });
+ await userEvent.click(within(toolbar).getByRole("button", { name: "插入图片" }));
+ await userEvent.selectOptions(screen.getByRole("combobox", { name: "商品描述插图" }), url);
+ expect(description.querySelector("img")).toBeNull();
+ await userEvent.click(screen.getByRole("button", { name: "插入到正文" }));
+ expect(description.querySelector("img")).toHaveAttribute("src", "/api/image-proxy?url=" + encodeURIComponent(url));
+ expect(within(gallery).getAllByAltText(/商品图片 \d/)).toHaveLength(1);
+ expect(state.mutate).not.toHaveBeenCalled();
 });
 
 it("merges delayed upload callbacks into current images and locks image editing during pending upload",async()=>{
