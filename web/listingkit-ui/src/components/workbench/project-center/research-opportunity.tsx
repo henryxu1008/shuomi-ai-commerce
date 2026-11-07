@@ -30,31 +30,39 @@ export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,select
   scope:ProjectScope; scopeKey:string; projectId:string; store:ResearchHandoffStore; draft:ResearchHandoff|null;
   selected:ResearchCandidate[]; after:string; blocked:boolean; canStartQuery?:boolean; showResearchFixture?:boolean; showResearchPaginationFixture?:boolean; onJobChange:()=>void;
 }) {
-  const [jobs,setJobs]=useState<ResearchJob[]>([]);
+  const [savedJobs,setSavedJobs]=useState<ResearchJob[]>([]);
   const [canImport,setCanImport]=useState(false);
-  const [canImportPagination,setCanImportPagination]=useState(false);
+  const [paginationResult,setPaginationResult]=useState<{key:string;status:z.infer<typeof researchPaginationFixtureStatus>|null}>();
   const [importing,setImporting]=useState(false);
   const [importError,setImportError]=useState("");
   const importRequest=useRef<AbortController|null>(null);
   const [readStatus,setReadStatus]=useState<"loading"|"ready"|"error">("loading");
   const [refresh,setRefresh]=useState(0);
+  const paginationKey=JSON.stringify([scopeKey,projectId,refresh]);
+  const pagination=showResearchPaginationFixture && paginationResult?.key===paginationKey?paginationResult.status:undefined;
+  const jobs=pagination?.ready?[...savedJobs,researchPaginationFixtureJob(pagination.batch)]:savedJobs;
   useEffect(()=>{
     const controller=new AbortController();
     const fixture=showResearchFixture?researchRequest(scope,projectId,researchFixtureStatus,controller.signal,{fixture:"read"}):Promise.resolve(null);
-    const pagination=showResearchPaginationFixture?researchRequest(scope,projectId,researchPaginationFixtureStatus,controller.signal,{fixture:"readPagination"}):Promise.resolve(null);
-    Promise.all([dataRequest(scope,"amazon/jobs",z.array(jobSchema).max(100),undefined,controller.signal),fixture,pagination])
-      .then(([value,fixtureStatus,paginationStatus])=>{
+    Promise.all([dataRequest(scope,"amazon/jobs",z.array(jobSchema).max(100),undefined,controller.signal),fixture])
+      .then(([value,fixtureStatus])=>{
         if (controller.signal.aborted) return;
         const available:ResearchJob[]=value.filter(eligibleResearchJob);
-        if(paginationStatus?.ready)available.unshift(researchPaginationFixtureJob(paginationStatus.batch));
         if(fixtureStatus?.ready)available.unshift(researchFixtureJob(fixtureStatus.batch));
         setCanImport(fixtureStatus?.ready===false);
-        setCanImportPagination(paginationStatus?.ready===false);
-        setJobs(available);
+        setSavedJobs(available);
         setReadStatus("ready");
       }).catch(()=>{if (!controller.signal.aborted) setReadStatus("error");});
     return ()=>controller.abort();
-  },[scope,projectId,refresh,showResearchFixture,showResearchPaginationFixture]);
+  },[scope,projectId,refresh,showResearchFixture]);
+  useEffect(()=>{
+    if(!showResearchPaginationFixture)return;
+    const controller=new AbortController();
+    researchRequest(scope,projectId,researchPaginationFixtureStatus,controller.signal,{fixture:"readPagination"})
+      .then(status=>{if(!controller.signal.aborted)setPaginationResult({key:paginationKey,status});})
+      .catch(()=>{if(!controller.signal.aborted)setPaginationResult({key:paginationKey,status:null});});
+    return ()=>controller.abort();
+  },[scope,projectId,paginationKey,showResearchPaginationFixture]);
   useEffect(()=>()=>importRequest.current?.abort(),[]);
   async function importFixture(pagination:boolean){
     if(importRequest.current||blocked)return;
@@ -80,10 +88,11 @@ export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,select
     <div className="flex flex-wrap gap-2">
       {canStartQuery?<Button asChild variant="outline"><Link href="/workbench/data/market" prefetch={false}>前往数据市场</Link></Button>:null}
       {canImport?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(false)}>导入合成验收资料</Button>:null}
-      {canImportPagination?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(true)}>导入合成分页资料</Button>:null}
+      {pagination?.ready===false?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(true)}>导入合成分页资料</Button>:null}
       <Button variant="outline" onClick={()=>{setReadStatus("loading");setRefresh(value=>value+1);}}>刷新查询结果</Button>
     </div>
     {importError?<p role="alert">{importError}</p>:null}
+    {pagination===null?<p role="alert">暂时无法读取合成分页资料。</p>:null}
     {readStatus==="loading"?<p role="status">正在读取已保存的查询…</p>:readStatus==="error"?<p role="alert">暂时无法读取已保存的查询。</p>:null}
     <label className="grid gap-1">本次查询
       <select className="rounded border bg-background p-2" disabled={readStatus!=="ready" || blocked}

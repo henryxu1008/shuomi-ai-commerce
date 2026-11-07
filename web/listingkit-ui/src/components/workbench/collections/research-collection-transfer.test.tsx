@@ -362,3 +362,28 @@ it("W3 identifies missing evidence before any handoff",async()=>{
   expect(screen.queryByRole("button",{name:"确认并进入选品"})).toBeNull();
   expect(f.inspect).not.toHaveBeenCalled();
 });
+
+it("keeps W1 and saved Amazon queries usable while the pagination fixture fails",async()=>{
+  let failPagination!:()=>void;
+  f.research.mockImplementation((_scope,_project,_schema,_signal,options)=>{
+    if (options?.fixture==="readPagination") return new Promise((_resolve,reject)=>{
+      failPagination=()=>reject(new Error("pagination source unavailable"));
+    });
+    if (options?.fixture==="read") return Promise.resolve({
+      ready:true,batch:{id:id(88),keyword:"W1 original",amazon:[{item:{batchId}}]},
+    });
+    return Promise.reject(new Error("unexpected research request"));
+  });
+  render(<ResearchOpportunity scope={scope} scopeKey={scopeKey} projectId={projectId} store={store}
+    draft={null} selected={[]} after="" blocked={false} showResearchFixture showResearchPaginationFixture onJobChange={()=>{}}/>);
+  const select=screen.getByRole("combobox",{name:"本次查询"});
+  await screen.findByRole("option",{name:/W1 original/});
+  expect(select).toBeEnabled();
+  await act(async()=>failPagination());
+  expect(await screen.findByText("暂时无法读取合成分页资料。")).toBeVisible();
+  expect(select).toBeEnabled();
+  expect(screen.getByRole("option",{name:/under sink organizer/})).toBeVisible();
+  expect(screen.queryByRole("button",{name:"导入合成分页资料"})).toBeNull();
+  fireEvent.change(select,{target:{value:id(88)}});
+  expect(store.getSnapshot()?.job.id).toBe(id(88));
+});
