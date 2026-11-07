@@ -9,7 +9,7 @@ export function ThemeProvider({ children, defaultTheme = "light" }: PropsWithChi
       attribute="class"
       defaultTheme={defaultTheme}
       disableTransitionOnChange
-      enableSystem={false}
+      enableSystem
       storageKey="listingkit-theme"
     >
       {children}

@@ -83,14 +83,15 @@ for (const width of [1440, 390]) {
     await expect(panel.getByRole("link", { name: "退出登录" })).toHaveAttribute("href", "/api/zitadel-auth/logout");
     const darkSurface = await panel.evaluate((node) => getComputedStyle(node).backgroundColor);
 
-    const theme = page.getByRole("switch", { name: "浅色模式" });
-    await theme.click();
+    const theme = page.getByRole("combobox", { name: "显示主题" });
+    await theme.focus();
     await expect(panel).toBeHidden();
     await expect(theme).toBeFocused();
-    await expect(theme).toBeChecked();
+    await theme.selectOption("light");
+    await expect(page.locator("html")).toHaveClass(/\blight\b/);
 
     await page.reload();
-    await expect(theme).toBeChecked();
+    await expect(theme).toHaveValue("light");
     await trigger.press("Enter");
     await expect(panel).toBeVisible();
     expect(await panel.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(darkSurface);
@@ -105,13 +106,80 @@ for (const width of [1440, 390]) {
   });
 }
 
+test("applies a saved system theme before hydration", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.addInitScript(() => localStorage.setItem("listingkit-theme", "system"));
+
+  // The inline theme script can run while the application scripts are held.
+  let releaseScripts!: () => void;
+  const hydration = new Promise<void>((resolve) => { releaseScripts = resolve; });
+  await page.route("**/_next/static/**", async (route) => {
+    if (route.request().resourceType() === "script") await hydration;
+    await route.continue();
+  });
+  try {
+    await page.goto("/workbench", { waitUntil: "commit" });
+    await expect(page.locator("html")).toHaveClass(/\blight\b/);
+    await expect(page.getByRole("combobox", { name: "显示主题" })).toHaveCount(0);
+  } finally {
+    releaseScripts();
+  }
+  await expect(page.getByRole("combobox", { name: "显示主题" })).toHaveValue("system");
+});
+
 test.describe("workbench notification and store overlays", () => {
   test.skip(process.env.LISTINGKIT_NOTIFICATION_CENTER_ENABLED !== "true" || process.env.CHATWOOT_API_TOKEN !== "overlay-synthetic-only", "Requires the loopback notification and support fixture settings.");
 
   for (const width of [1440, 390]) {
+    test(`${width}px follows system changes with the notification and store overlays open`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.goto("/workbench/stores");
+
+      const html = page.locator("html");
+      const preference = page.getByRole("combobox", { name: "显示主题" });
+      await expect(preference).toHaveValue("dark");
+      await expect(html).toHaveClass(/\bdark\b/);
+      await preference.selectOption("system");
+      await expect(html).toHaveClass(/\blight\b/);
+
+      const notice = page.getByRole("button", { name: "通知", exact: true });
+      const panel = page.getByRole("region", { name: "通知面板", exact: true });
+      const noticeClose = panel.getByRole("button", { name: "关闭通知面板" });
+      await notice.press("Enter");
+      await expect(panel).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await expect(panel).toHaveCSS("background-color", "rgb(20, 34, 55)");
+      await expect(noticeClose).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(notice).toBeFocused();
+
+      const groups = page.getByRole("button", { name: "分组管理", exact: true });
+      const dialog = page.getByRole("dialog", { name: "分组管理", exact: true });
+      await expect(groups).toBeEnabled();
+      await groups.press("Enter");
+      await expect(dialog).toHaveCSS("background-color", "rgb(20, 34, 55)");
+      await page.emulateMedia({ colorScheme: "light" });
+      await expect(dialog).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(dialog.getByRole("button", { name: "关闭" })).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(groups).toBeFocused();
+
+      await page.reload();
+      await expect(preference).toHaveValue("system");
+      await expect(html).toHaveClass(/\blight\b/);
+      await preference.selectOption("light");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await expect(html).toHaveClass(/\blight\b/);
+      await page.reload();
+      await expect(preference).toHaveValue("light");
+      await expect(html).toHaveClass(/\blight\b/);
+    });
+
     for (const theme of ["dark", "light"]) {
       test(`${width}px ${theme}: keyboard and focus restoration`, async ({ page }) => {
         await page.setViewportSize({ width, height: 844 });
+        await page.emulateMedia({ colorScheme: theme === "dark" ? "light" : "dark" });
         await page.addInitScript((value) => localStorage.setItem("listingkit-theme", value), theme);
         await page.goto("/workbench/stores");
         await expect(page.locator("html")).toHaveClass(new RegExp(`\\b${theme}\\b`));
