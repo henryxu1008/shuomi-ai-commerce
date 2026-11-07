@@ -33,7 +33,7 @@ type ownIntakeApplication struct {
 }
 
 func buildOwnIntakeApplication(parent *productAgentApplication, media productsourcing.SourceMedia) (*ownIntakeApplication, error) {
-	if parent == nil || parent.configuration == nil || parent.store == nil || parent.config.CurrentTextPolicies == nil {
+	if parent == nil || parent.config.ContentOnly || parent.config.ContentTitleOnly || parent.configuration == nil || parent.store == nil || parent.config.CurrentTextPolicies == nil {
 		return nil, nil
 	}
 	routes, err := newProductTextRouteResolver(parent.config, nil)

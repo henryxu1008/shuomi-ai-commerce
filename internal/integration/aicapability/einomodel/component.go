@@ -138,6 +138,7 @@ type GuardConfig struct {
 	// manufacturer/wire binding; a response cannot introduce a new alias.
 	ResponseModelID      string
 	SingleImage          *SingleImageRequest `json:"-"`
+	visionText           *boundVisionText    `json:"-"`
 	Logger               *logrus.Entry       `json:"-"`
 	Adapter              AdapterKind
 	ProviderID           string
@@ -242,7 +243,13 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 	} else if cfg.ThinkingMode != "" {
 		return nil, ErrInvalid
 	}
-	if aicapability.SingleImagePurpose(cfg.AdapterPolicyVersion) {
+	if cfg.visionText != nil {
+		if !aicapability.SingleImagePurpose(cfg.AdapterPolicyVersion) || cfg.SingleImage != nil || cfg.visionText.System == "" || cfg.visionText.Prompt == "" {
+			return nil, ErrInvalid
+		}
+		frozen := *cfg.visionText
+		cfg.visionText = &frozen
+	} else if aicapability.SingleImagePurpose(cfg.AdapterPolicyVersion) {
 		if !validSingleImageRequest(cfg) {
 			return nil, ErrInvalid
 		}
@@ -379,7 +386,7 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		if g.cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
 			usage = observeDeepSeekUsage(raw)
 		}
-		if (g.cfg.SingleImage != nil || g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy) &&
+		if (g.cfg.SingleImage != nil || g.cfg.visionText != nil || g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy) &&
 			(usage.BillableUsage == nil || g.cfg.BillingUsageVersion != aicapability.ReferenceTextTotalsV1 && !validStrictOpenAIResponseUsage(raw, g.cfg.ModelID)) {
 			usage = ObservedUsage{}
 		}

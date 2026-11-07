@@ -78,8 +78,12 @@ func singleFramePNG(raw []byte) bool {
 	return false
 }
 
+// boundVisionText is the exact text-only intake input sent through an admitted
+// vision model, with no image part, tools, or caller-defined provider options.
+type boundVisionText struct{ System, Prompt string }
+
 func validSingleImageWire(raw []byte, cfg GuardConfig) bool {
-	if cfg.SingleImage == nil || !cfg.SingleImage.Image.Valid() {
+	if cfg.visionText == nil && (cfg.SingleImage == nil || !cfg.SingleImage.Image.Valid()) {
 		return false
 	}
 	var envelope struct {
@@ -103,6 +107,11 @@ func validSingleImageWire(raw []byte, cfg GuardConfig) bool {
 		return false
 	}
 	var system string
+	if cfg.visionText != nil {
+		var prompt string
+		return json.Unmarshal(envelope.Messages[0].Content, &system) == nil && system == cfg.visionText.System &&
+			json.Unmarshal(envelope.Messages[1].Content, &prompt) == nil && prompt == cfg.visionText.Prompt
+	}
 	var parts []struct {
 		Type     string `json:"type"`
 		Text     string `json:"text"`

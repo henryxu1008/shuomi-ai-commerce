@@ -55,13 +55,17 @@ func configureOwnIntakeFixture(settings *ProductAgentDependencies, calls *atomic
 	settings.ImageAnalysisPolicies = nil
 	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: settings, ownIntake: map[string]governed.RoutePolicy{"B": p}}
 	settings.TextTransport = analysisFixtureTransport(func(r *http.Request) (*http.Response, error) {
-		calls.Add(1)
+		dispatch := calls.Add(1)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
-		if strings.Count(string(body), "data:image/png;base64,") != 1 || !strings.Contains(string(body), "WHT-M") {
-			return nil, fmt.Errorf("expected the original bounded PNG and SKU facts on the governed model wire")
+		wantImages := 1
+		if dispatch > 1 {
+			wantImages = 0
+		}
+		if strings.Count(string(body), "data:image/png;base64,") != wantImages || !strings.Contains(string(body), "WHT-M") {
+			return nil, fmt.Errorf("expected %d PNG parts and original SKU facts on the governed model wire", wantImages)
 		}
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":"intake-fixture","object":"chat.completion","created":1,"model":%q,"choices":[{"index":0,"message":{"role":"assistant","content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":30,"completion_tokens":5,"total_tokens":35,"prompt_tokens_details":{"cached_tokens":10}}}`, aicapability.SingleImageMiniModel, ownIntakeFixtureCandidate)))}, nil
 	})
@@ -219,6 +223,15 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	var count int64
 	require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
 	require.Zero(t, count, "generation alone never saves a product")
+	textBody := body
+	textBody.ImageNumber, textBody.ImageURL = 0, ""
+	textKey := uuid.NewString()
+	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", textKey, textBody, 200), &prepared))
+	textResult := call("POST", ownIntakeBase+"/"+textKey+"/confirm", textKey, ownIntakeConfirm{ownIntakeBody: textBody, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}, 200)
+	var textOnly ownIntakeResult
+	require.NoError(t, json.Unmarshal(textResult, &textOnly))
+	require.NotNil(t, textOnly.Candidate, textOnly.StopReason)
+	require.EqualValues(t, 2, calls.Load())
 
 	app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
 		calls.Add(1)
@@ -234,7 +247,7 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	require.Nil(t, uncertain.Candidate)
 	require.JSONEq(t, string(unknownResult), string(call("GET", ownIntakeBase+"/"+unknownKey, "", nil, 200)))
 	require.JSONEq(t, string(unknownResult), string(call("POST", ownIntakeBase+"/"+unknownKey+"/confirm", unknownKey, unknown, 200)))
-	require.EqualValues(t, 2, calls.Load(), "an uncertain provider result must never be redispatched")
+	require.EqualValues(t, 3, calls.Load(), "an uncertain provider result must never be redispatched")
 }
 
 func runOwnIntakeBrowser(t *testing.T, backend string) {
