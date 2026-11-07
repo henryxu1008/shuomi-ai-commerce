@@ -18,9 +18,9 @@ it("keeps untouched plain bytes, edits through the real rich editor, and stores 
  render(<Form/>);
  const textbox=await screen.findByRole("textbox",{name:"商品描述"});
  expect(textbox).toHaveTextContent("<b>literal</b>");expect(textbox.querySelector("b")).toBeNull();expect(change).not.toHaveBeenCalled();
- fireEvent.click(screen.getByRole("button",{name:"图片"}));
- fireEvent.change(screen.getByRole("combobox",{name:"商品描述插图"}),{target:{value:image}});
  fireEvent.click(screen.getByRole("button",{name:"插入图片"}));
+ fireEvent.change(screen.getByRole("combobox",{name:"商品描述插图"}),{target:{value:image}});
+ fireEvent.click(screen.getByRole("button",{name:"插入到正文"}));
  await waitFor(()=>expect(change).toHaveBeenCalledWith(expect.stringContaining('src="'+image+'"'),"html-v1"));
  expect(screen.getByRole("textbox",{name:"商品描述"}).querySelector("img")).toHaveAttribute("src","/api/image-proxy?url="+encodeURIComponent(image));
  expect(change.mock.lastCall?.[0]).not.toContain("/api/image-proxy");
