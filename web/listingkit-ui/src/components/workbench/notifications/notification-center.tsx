@@ -228,9 +228,13 @@ export function NotificationPopover() {
     document.addEventListener("pointerdown", outside); return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
   function dismiss() { setOpen(false); trigger.current?.focus(); }
+  function togglePanel() {
+    if (!open && identity.isError && !identity.isFetching) void identity.refetch();
+    setOpen(!open);
+  }
   return <div ref={root} className={styles.popoverRoot} onKeyDown={event => { if (open && event.key === "Escape") { event.preventDefault(); dismiss(); } }}>
     <button className={styles.trigger} type="button" ref={trigger} aria-label="通知" aria-expanded={open} aria-controls={open ? id : undefined}
-      aria-describedby={hasUnread ? id + "-unread" : undefined} onClick={() => setOpen(value => !value)}>
+      aria-describedby={hasUnread ? id + "-unread" : undefined} onClick={togglePanel}>
       <span className={styles.triggerIcon} aria-hidden="true">
         <Bell size={16} />
         {hasUnread ? <span className={styles.unreadDot} /> : null}
@@ -240,7 +244,7 @@ export function NotificationPopover() {
     {hasUnread ? <span id={id + "-unread"} className="sr-only">有未读通知</span> : null}
     {open ? <section className={styles.popover} id={id} aria-label="通知面板">
       <div className={styles.popoverHead}><strong>通知中心</strong><button ref={close} type="button" aria-label="关闭通知面板" onClick={dismiss}><X size={17} aria-hidden="true" /></button></div>
-      <PopoverFeed userId={identityRejected ? "" : userId} identityPending={identity.isPending} onNavigate={() => setOpen(false)} />
+      <PopoverFeed userId={identityRejected ? "" : userId} identityPending={!userId && identity.isFetching} onNavigate={() => setOpen(false)} />
       <Link className={styles.viewAll} href="/workbench/notifications" prefetch={false} onClick={() => setOpen(false)}>查看全部通知<ChevronRight size={14} aria-hidden="true" /></Link>
     </section> : null}
   </div>;

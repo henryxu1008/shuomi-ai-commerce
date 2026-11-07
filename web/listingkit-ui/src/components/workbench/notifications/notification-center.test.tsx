@@ -119,6 +119,31 @@ it("hides the other channel's cached unread dot after an explicit identity rejec
   expect(screen.queryByRole("tab", { name: /商家经营/ })).toBeNull();
 });
 
+it("retries a failed identity read when the user opens the panel", async () => {
+  let identityUnavailable = true;
+  const fetch = vi.fn(async (url: string) => {
+    if (url.endsWith("/identity")) {
+      return identityUnavailable ? Response.json({}, { status: 503 }) : Response.json({ userId: "actor" });
+    }
+    if (url.includes("/business?")) return Response.json({ ...list("business", "org-a"), unread: 0 });
+    return Response.json(list());
+  });
+  vi.stubGlobal("fetch", fetch);
+  mount(<NotificationPopover />);
+  const trigger = screen.getByRole("button", { name: "通知" });
+  fireEvent.click(trigger);
+  await screen.findByText(/登录或企业上下文尚未确认/);
+  await waitFor(() => expect(clients[0].isFetching()).toBe(0));
+  fireEvent.click(trigger);
+
+  const priorIdentityReads = fetch.mock.calls.filter(([url]) => url.endsWith("/identity")).length;
+  identityUnavailable = false;
+  fireEvent.click(trigger);
+  await screen.findByText("产品能力更新");
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription("有未读通知"));
+  expect(fetch.mock.calls.filter(([url]) => url.endsWith("/identity"))).toHaveLength(priorIdentityReads + 1);
+});
+
 it("keeps official and personal messages available when the organization read fails", async () => {
   fixture.context.error = { code: "DEPENDENCY_UNAVAILABLE" }; fixture.context.user = null;
   const fetch = vi.fn().mockImplementation((url: string) => Promise.resolve(Response.json(url.includes("/official") ? list() : { ...list("business"), items: [] })));
