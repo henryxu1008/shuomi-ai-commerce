@@ -43,7 +43,8 @@ interface MenuNavigationOptions<T> {
 /**
  * Hook that implements keyboard navigation for dropdown menus and command palettes.
  *
- * Handles arrow keys, tab, home/end, enter for selection, and escape to close.
+ * Handles arrow keys, home/end, enter for selection, and escape to close.
+ * Tab and Shift+Tab retain native focus navigation through the surrounding form.
  * Works with both Tiptap editors and regular DOM elements.
  *
  * @param options - Configuration options for the menu navigation
@@ -105,16 +106,6 @@ export function useMenuNavigation<T>({
           if (orientation === "vertical") return false
           event.preventDefault()
           moveNext()
-          return true
-        }
-
-        case "Tab": {
-          event.preventDefault()
-          if (event.shiftKey) {
-            movePrev()
-          } else {
-            moveNext()
-          }
           return true
         }
 

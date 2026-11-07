@@ -49,7 +49,7 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
   const [batches, setBatches] = useState<CollectionBatch[]>([]);
   const [items, setItems] = useState<CollectionItem[]>([]);
   const [batchId, setBatchId] = useState<string | null>(initialBatchId??null);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState<number>();
   const [next, setNext] = useState<string>();
   const [after, setAfter] = useState<string>();
   const [search, setSearch] = useState("");
@@ -97,7 +97,12 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
       if (tab === "batches" && !batchId) setBatches(page.items as CollectionBatch[]);
       else setItems(page.items as CollectionItem[]);
       setTotal(page.total); setNext(page.nextCursor); setError(null);
-    }).catch((failure: unknown) => { if (current) setError(codeOf(failure)); }).finally(() => { if (current) setLoading(false); });
+    }).catch((failure: unknown) => {
+      if (!current) return;
+      setTotal(undefined);
+      setNext(undefined);
+      setError(codeOf(failure));
+    }).finally(() => { if (current) setLoading(false); });
     return () => { current = false; controller.abort(); };
   }, [scope, tab, batchId, keyword, after, reload]);
   useEffect(()=>{
@@ -159,8 +164,25 @@ function ScopedCollectionPage({ scope,offlineAvailable,agentAvailable,supplyAvai
     {error && error !== "OUTCOME_UNKNOWN" ? <p role="alert" className="mb-4 text-sm text-destructive">{failureText[error] ?? "暂时无法完成请求，请刷新或核实原操作。"}</p> : null}
     {notice ? <p role="status" className="mb-4 break-all text-sm text-success-foreground">{notice}</p> : null}
     <Card className="overflow-hidden rounded-xl border-border">
-      <div className="flex items-center justify-between border-b border-border px-5 py-4"><h2 className="font-semibold">{tab === "own" ? "自有商品库" : batchId ? "批次商品" : "商品批次"}</h2><span className="text-sm text-muted-foreground">共 {total} {displayingItems ? "件商品" : "个批次"}</span></div>
-      {loading ? <div className="p-6" role="status">正在读取商品资料…</div> : !total ? <div className="p-10 text-center text-sm text-muted-foreground">{tab === "own" ? "还没有自有商品，添加商品后可继续适配。" : "暂无商品批次，采集商品后会保存到这里。"}<div className="mt-4"><Button asChild variant="outline"><Link href="/workbench/supply/acquisition">去采集商品</Link></Button></div></div> : displayingItems ?
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="font-semibold">{tab === "own" ? "自有商品库" : batchId ? "批次商品" : "商品批次"}</h2>
+        {!loading && total !== undefined ? <span className="text-sm text-muted-foreground">共 {total} {displayingItems ? "件商品" : "个批次"}</span> : null}
+      </div>
+      {loading ? <div className="p-6" role="status">正在读取商品资料…</div> : total === undefined ? null : total === 0 ? (
+        <div className="p-10 text-center text-sm text-muted-foreground">
+          {tab === "own" && keyword.trim() ? (
+            <div role="status">
+              <p>没有符合搜索条件的自有商品。</p>
+              <p>清空关键词后再次搜索可查看全部商品。</p>
+            </div>
+          ) : (
+            <>
+              {tab === "own" ? "还没有自有商品，添加商品后可继续适配。" : "暂无商品批次，采集商品后会保存到这里。"}
+              <div className="mt-4"><Button asChild variant="outline"><Link href="/workbench/supply/acquisition">去采集商品</Link></Button></div>
+            </>
+          )}
+        </div>
+      ) : displayingItems ?
         <Table><TableHeader className="bg-muted"><TableRow><TableHead>商品</TableHead><TableHead>来源</TableHead><TableHead>保存时间</TableHead><TableHead>操作</TableHead></TableRow></TableHeader><TableBody>{items.map(item => <TableRow key={item.id}><TableCell>{item.source.kind==="own"?<Link className="flex items-center gap-3 text-left" href={`/workbench/data/mine/own/${item.id}`} prefetch={false}>{item.thumbnailUrl ? <Image unoptimized src={`/api/image-proxy?url=${encodeURIComponent(item.thumbnailUrl)}`} width={56} height={56} className="rounded-md object-cover" alt="" /> : <span aria-hidden="true" className="h-14 w-14 rounded-md bg-muted" />}<span><span className="block max-w-sm font-medium">{item.title || "未命名商品"}</span><span className="text-xs text-muted-foreground">{item.source.productKey}</span></span></Link>:<button className="flex items-center gap-3 text-left" onClick={() => void showDetail(item)}>{item.thumbnailUrl ? <Image unoptimized src={`/api/image-proxy?url=${encodeURIComponent(item.thumbnailUrl)}`} width={56} height={56} className="rounded-md object-cover" alt="" /> : <span aria-hidden="true" className="h-14 w-14 rounded-md bg-muted" />}<span><span className="block max-w-sm font-medium">{item.title || "未命名商品"}</span><span className="text-xs text-muted-foreground">{item.source.productKey}</span></span></button>}</TableCell><TableCell>{kindLabels[item.source.kind]}</TableCell><TableCell>{date(item.createdAt)}</TableCell><TableCell><div className="flex gap-2">{item.source.kind==="own"?<Button asChild size="sm" variant="outline"><Link href={`/workbench/data/mine/own/${item.id}`} prefetch={false}>查看</Link></Button>:<Button size="sm" variant="outline" onClick={() => void showDetail(item)}>查看</Button>}<Button size="sm" variant="ghost" disabled={writeBlocked} onClick={() => void showMove(item)}>移动批次</Button><Button size="sm" variant="ghost" disabled={writeBlocked} onClick={() => { setSelectedItem(item); setDialog("archive-item"); }}>归档</Button></div></TableCell></TableRow>)}</TableBody></Table> :
         <Table><TableHeader className="bg-muted"><TableRow><TableHead>批次名称</TableHead><TableHead>来源方式</TableHead><TableHead>商品总量</TableHead><TableHead>创建时间</TableHead><TableHead>操作</TableHead></TableRow></TableHeader><TableBody>{batches.map(batch => <TableRow key={batch.id}><TableCell><button className="font-medium text-foreground hover:text-primary" onClick={() => changeView("batches", batch.id)}>{batch.name}</button></TableCell><TableCell><span className="rounded-full bg-success px-3 py-1 text-xs text-success-foreground">{kindLabels[batch.kind]}</span></TableCell><TableCell>{batch.count}</TableCell><TableCell>{date(batch.createdAt)}</TableCell><TableCell><div className="flex gap-2">{supplyAvailable && (batch.supplyTransferSupported || batch.kind==="sds_template") ? <Button size="sm" variant="outline" title={!batch.supplyTransferSupported && batch.kind==="sds_template"?"SDS 模板须先定制成品，再转入待上传":undefined} disabled={transferBlocked || batch.count===0 || !batch.supplyTransferSupported} onClick={()=>{setSelectedBatch(batch);setDialog("transfer")}}>转入待上传</Button> : null}<Button size="sm" variant="outline" onClick={() => changeView("batches", batch.id)}>查看商品</Button><Button size="sm" variant="ghost" disabled={writeBlocked} onClick={() => { setSelectedBatch(batch); setName(batch.name); setDialog("rename"); }}>重命名</Button><Button size="sm" variant="ghost" disabled={writeBlocked} onClick={() => { setSelectedBatch(batch); setDialog("archive-batch"); }}>归档</Button></div></TableCell></TableRow>)}</TableBody></Table>}
       <div className="flex justify-end gap-2 border-t border-border p-4"><Button size="sm" variant="outline" disabled={!after || loading} onClick={() => { setAfter(undefined); setLoading(true); }}>首页</Button><Button size="sm" variant="outline" disabled={!next || loading} onClick={() => { setAfter(next); setLoading(true); }}>下一页</Button></div>

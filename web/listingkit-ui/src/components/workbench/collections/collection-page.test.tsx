@@ -115,6 +115,50 @@ it.each(["batches", "own", "batch-items"])("completes empty and repeated keyword
   expect(state.mutate).not.toHaveBeenCalled(); expect(state.supplyWrite).not.toHaveBeenCalled();
 });
 
+it("keeps the own product count hidden while switching lists", async () => {
+  state.list.mockResolvedValue({ items: [], total: 3 });
+  state.items.mockImplementation(() => new Promise(() => {}));
+  render(<CollectionPage />);
+  await screen.findByText("共 3 个批次");
+  await userEvent.click(screen.getByRole("tab", { name: "自有商品库" }));
+  expect(screen.getByRole("status")).toHaveTextContent("正在读取商品资料");
+  expect(screen.queryByText(/共 \d+ 件商品/)).not.toBeInTheDocument();
+});
+
+it("distinguishes no matching own products from an empty library", async () => {
+  const item = { id: "550e8400-e29b-41d4-a716-446655440001", title: "测试毛衣", source: { kind: "own", productKey: "SKU-1" }, createdAt: "2026-11-07T00:00:00Z" };
+  state.items.mockImplementation((_scope, { keyword }) => Promise.resolve(
+    !keyword || item.title.includes(keyword) || item.source.productKey.includes(keyword)
+      ? { items: [item], total: 1 }
+      : { items: [], total: 0 },
+  ));
+  const keyboard = userEvent.setup();
+  render(<CollectionPage initialView="own" />);
+  await screen.findByText(item.title);
+  const search = screen.getByRole("textbox", { name: "搜索商品名称或标识" });
+  await keyboard.type(search, "SKU-1{Enter}");
+  await waitFor(() => expect(state.items).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ keyword: "SKU-1" }), expect.anything()));
+  expect(await screen.findByText(item.title)).toBeInTheDocument();
+  await keyboard.clear(search);
+  await keyboard.type(search, "not-a-match{Enter}");
+  expect(await screen.findByText("没有符合搜索条件的自有商品。")).toBeInTheDocument();
+  expect(screen.queryByText(/还没有自有商品/)).not.toBeInTheDocument();
+  await keyboard.clear(search);
+  await keyboard.type(search, "{Enter}");
+  expect(await screen.findByText(item.title)).toBeInTheDocument();
+  expect(state.mutate).not.toHaveBeenCalled();
+});
+
+it("does not show a zero-match result when the own product search fails", async () => {
+  render(<CollectionPage initialView="own" />);
+  await screen.findByText(/还没有自有商品/);
+  state.items.mockRejectedValueOnce(new CollectionAPIError("DEPENDENCY_UNAVAILABLE", 502));
+  await userEvent.type(screen.getByRole("textbox", { name: "搜索商品名称或标识" }), "测试{Enter}");
+  expect(await screen.findByRole("alert")).toHaveTextContent("暂时无法完成请求");
+  expect(screen.queryByText("没有符合搜索条件的自有商品。")).not.toBeInTheDocument();
+  expect(screen.queryByText("共 0 件商品")).not.toBeInTheDocument();
+});
+
 it.each(["batches", "own"] as const)("rereads the already selected %s tab instead of leaving loading stuck", async view => {
   render(<CollectionPage initialView={view} />);
   const read = view === "own" ? state.items : state.list;
