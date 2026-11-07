@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowLeft, Bell, Check, ChevronRight, Diamond, Info, RefreshCw, CircleDot, X } from "lucide-react";
 import { z } from "zod";
@@ -12,6 +12,8 @@ import styles from "./notifications.module.css";
 import { OfficialAnnouncementsEntry } from "./official-announcements";
 
 const policy = { staleTime: 0, gcTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false } as const;
+const compactFeedLimit = 4;
+const unreadIndicatorPolicy = { refetchInterval: 120_000, refetchOnWindowFocus: true, refetchOnReconnect: true } as const;
 const labels: Record<string, string> = { official: "官方消息", "workbench-plan": "对话计划", "workbench-task": "AI 任务", "product-review": "标题审核", acquisition: "商品获取", store: "店铺状态", "org-resource": "企业资源", "member-resource": "个人分配资源", "member-limit": "月度用量", billing: "订单与账单", "invitation-admin": "企业邀请", "invitation-recipient": "收到的邀请", membership: "成员操作", knowledge: "知识文件", "organization-verification": "企业认证", "personal-verification": "个人认证", "referral-earnings": "推广收益", "referral-withdrawal": "提现", inventory: "库存", advertising: "广告", opportunity: "商机", report: "报告", "merchant-chat": "商家聊天", fulfillment: "履约" };
 const officialTypes: Record<string, string> = { PRODUCT: "产品更新", SYSTEM: "系统通知", ACTIVITY: "活动公告", POLICY: "规则说明" };
 function notificationTime(value: string | null) { return value ? new Date(value).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }) : "发生时间未提供"; }
@@ -22,12 +24,40 @@ function errorMessage(error: unknown) {
   if (["STALE_SNAPSHOT", "NOT_FOUND"].includes(code)) return "通知状态已变化，请刷新后查看。";
   return "通知暂时无法读取，请稍后重试。";
 }
-function useScope(userId: string, tab: "official" | "business"): { scope: NotificationScope; available: boolean; companyUnavailable: boolean } {
+function useScope(userId: string, tab: "official" | "business"): { scope: NotificationScope; authorizationKey: string; available: boolean; companyUnavailable: boolean } {
   const context = useWorkbenchContext();
   const confirmed = !context.isLoading && !context.isSwitching && !context.error && !context.blockingError && !context.selectionRequired && context.user?.id === userId;
   const organizationId = confirmed ? context.effectiveOrganization?.id : undefined;
   const authenticationError = context.error?.code === "AUTHENTICATION_REQUIRED" || context.blockingError?.code === "AUTHENTICATION_REQUIRED";
-  return { scope: { userId, channel: tab === "official" ? "official" : organizationId ? "business" : "personal", ...(organizationId && tab === "business" ? { organizationId } : {}) }, available: Boolean(userId) && !authenticationError && !context.isSwitching && (!context.user || context.user.id === userId), companyUnavailable: tab === "business" && !organizationId };
+  const scope: NotificationScope = { userId, channel: tab === "official" ? "official" : organizationId ? "business" : "personal", ...(organizationId && tab === "business" ? { organizationId } : {}) };
+  const authorizationKey = scope.channel === "business"
+    ? JSON.stringify([context.effectiveMemberId, [...(context.roles ?? [])].sort(), [...(context.permissions ?? [])].sort()])
+    : "";
+  return { scope, authorizationKey, available: Boolean(userId) && !authenticationError && !context.isSwitching && (!context.user || context.user.id === userId), companyUnavailable: tab === "business" && !organizationId };
+}
+function feedOptions(scope: NotificationScope, authorizationKey: string, filter: string, after: string, limit: number) {
+  return queryOptions({
+    ...policy,
+    queryKey: ["notifications", scope, authorizationKey, filter, after, limit],
+    queryFn: ({ signal }) => notificationRequest(scope, `?filter=${filter}&limit=${limit}${after ? "&after=" + after : ""}`, notificationListSchema, { signal }),
+  });
+}
+
+function isIdentityRejection(error: unknown) {
+  return error instanceof NotificationError &&
+    (error.status === 401 || error.code === "AUTHENTICATION_REQUIRED" || error.code === "IDENTITY_CONTEXT_CHANGED");
+}
+
+function useUnreadIndicator(userId: string) {
+  const official = useScope(userId, "official");
+  const business = useScope(userId, "business");
+  // Share the compact first-page queries with the panel. Their unread counts cover the full scope.
+  const officialFeed = useQuery({ ...feedOptions(official.scope, official.authorizationKey, "all", "", compactFeedLimit), ...unreadIndicatorPolicy, enabled: official.available });
+  const businessFeed = useQuery({ ...feedOptions(business.scope, business.authorizationKey, "all", "", compactFeedLimit), ...unreadIndicatorPolicy, enabled: business.available });
+  const identityRejected = isIdentityRejection(officialFeed.error) || isIdentityRejection(businessFeed.error);
+  const hasUnread = (official.available && officialFeed.isSuccess && officialFeed.data.unread > 0) ||
+    (business.available && businessFeed.isSuccess && businessFeed.data.unread > 0);
+  return { identityRejected, hasUnread: !identityRejected && hasUnread };
 }
 function Coverage({ data }: { data?: NotificationList }) {
   if (!data) return null;
@@ -122,22 +152,22 @@ function ItemRow({ item, compact = false, onNavigate }: { item: NotificationItem
 export function NotificationCenterPage({ expectedUserId, realm }: { expectedUserId: string; realm?: string }) {
   const [tab, setTab] = useState<NotificationTab>("official");
   const focusRequestRef = useRef<NotificationTab | null>(null);
-  const { scope, available, companyUnavailable } = useScope(expectedUserId, tab);
+  const { scope, authorizationKey, available, companyUnavailable } = useScope(expectedUserId, tab);
   return <section className={styles.page}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className={styles.heading}><h1>通知中心</h1><p>官方消息与业务提醒集中查看，重要事项及时掌握。</p></div>
       {available && realm ? <OfficialAnnouncementsEntry scope={{ userId: expectedUserId, realm, channel: "platform/official" }} /> : null}
     </div>
-    {available ? <NotificationFeed key={JSON.stringify(scope)} scope={scope} tab={tab} setTab={setTab} focusRequestRef={focusRequestRef} companyUnavailable={companyUnavailable} /> : <p role="status" className={styles.notice}>登录或企业上下文正在变化，消息已停止加载。</p>}
+    {available ? <NotificationFeed key={JSON.stringify([scope, authorizationKey])} scope={scope} authorizationKey={authorizationKey} tab={tab} setTab={setTab} focusRequestRef={focusRequestRef} companyUnavailable={companyUnavailable} /> : <p role="status" className={styles.notice}>登录或企业上下文正在变化，消息已停止加载。</p>}
   </section>;
 }
-function NotificationFeed({ scope, tab, setTab, focusRequestRef, companyUnavailable, compact = false, onNavigate }: { scope: NotificationScope; tab: NotificationTab; setTab: (tab: NotificationTab) => void; focusRequestRef: TabFocusRequest; companyUnavailable: boolean; compact?: boolean; onNavigate?: () => void }) {
+function NotificationFeed({ scope, authorizationKey, tab, setTab, focusRequestRef, companyUnavailable, compact = false, onNavigate }: { scope: NotificationScope; authorizationKey: string; tab: NotificationTab; setTab: (tab: NotificationTab) => void; focusRequestRef: TabFocusRequest; companyUnavailable: boolean; compact?: boolean; onNavigate?: () => void }) {
   const client = useQueryClient();
   const tabsId = useId();
   const [filtered, setFiltered] = useState(false);
   const [cursors, setCursors] = useState([""]);
   const filter = filtered ? tab === "official" ? "unread" : "pending" : "all";
-  const query = useQuery({ ...policy, queryKey: ["notifications", scope, filter, cursors.at(-1), compact ? 4 : 20], queryFn: ({ signal }) => notificationRequest(scope, `?filter=${filter}&limit=${compact ? 4 : 20}${cursors.at(-1) ? "&after=" + cursors.at(-1) : ""}`, notificationListSchema, { signal }) });
+  const query = useQuery(feedOptions(scope, authorizationKey, filter, cursors.at(-1) ?? "", compact ? compactFeedLimit : 20));
   const reading = useReading(scope, () => { setCursors([""]); void client.invalidateQueries({ queryKey: ["notifications"] }); });
   const data = query.error ? undefined : query.data;
   return <>
@@ -155,12 +185,12 @@ function NotificationFeed({ scope, tab, setTab, focusRequestRef, companyUnavaila
   </>;
 }
 export function NotificationDetailPage({ expectedUserId, category, notificationRef }: { expectedUserId: string; category: "official" | "business"; notificationRef: string }) {
-  const { scope, available, companyUnavailable } = useScope(expectedUserId, category);
-  return <section className={styles.page}><div className={styles.heading}><h1>通知详情</h1><p>查看消息内容与相关业务入口。</p></div><Link className={styles.back} href="/workbench/notifications" prefetch={false}><ArrowLeft size={15} aria-hidden="true" />返回通知中心</Link>{available ? <NotificationDetail key={JSON.stringify(scope)} scope={scope} id={notificationRef} companyUnavailable={companyUnavailable} /> : <p className={styles.notice} role="status">上下文正在变化，通知内容已隐藏。</p>}</section>;
+  const { scope, authorizationKey, available, companyUnavailable } = useScope(expectedUserId, category);
+  return <section className={styles.page}><div className={styles.heading}><h1>通知详情</h1><p>查看消息内容与相关业务入口。</p></div><Link className={styles.back} href="/workbench/notifications" prefetch={false}><ArrowLeft size={15} aria-hidden="true" />返回通知中心</Link>{available ? <NotificationDetail key={JSON.stringify([scope, authorizationKey])} scope={scope} authorizationKey={authorizationKey} id={notificationRef} companyUnavailable={companyUnavailable} /> : <p className={styles.notice} role="status">上下文正在变化，通知内容已隐藏。</p>}</section>;
 }
-function NotificationDetail({ scope, id, companyUnavailable }: { scope: NotificationScope; id: string; companyUnavailable: boolean }) {
+function NotificationDetail({ scope, authorizationKey, id, companyUnavailable }: { scope: NotificationScope; authorizationKey: string; id: string; companyUnavailable: boolean }) {
   const client = useQueryClient();
-  const query = useQuery({ ...policy, queryKey: ["notifications", scope, id], queryFn: ({ signal }) => notificationRequest(scope, "/" + id, notificationItemSchema, { signal }) });
+  const query = useQuery({ ...policy, queryKey: ["notifications", scope, authorizationKey, id], queryFn: ({ signal }) => notificationRequest(scope, "/" + id, notificationItemSchema, { signal }) });
   const reading = useReading(scope, () => { void client.invalidateQueries({ queryKey: ["notifications"] }); });
   const item = query.error ? undefined : query.data;
   // Opening the detail performs a read only. Business attention is unchanged.
@@ -177,6 +207,20 @@ export function NotificationPopover() {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null), close = useRef<HTMLButtonElement>(null);
   const id = useId();
+  const context = useWorkbenchContext();
+  const identity = useQuery({
+    ...policy,
+    queryKey: ["notification-session-identity", context.user?.id],
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    queryFn: async ({ signal }) => {
+      const response = await fetch("/api/notifications/identity", { signal, cache: "no-store", redirect: "error" });
+      if (!response.ok) throw new NotificationError("AUTHENTICATION_REQUIRED", response.status);
+      return z.object({ userId: z.string().min(1).max(128) }).strict().parse(await readBoundedStrictJSON(response, 1024, signal));
+    },
+  });
+  const userId = identity.isSuccess ? identity.data.userId : "";
+  const { hasUnread, identityRejected } = useUnreadIndicator(userId);
   useEffect(() => {
     if (!open) return;
     close.current?.focus();
@@ -184,18 +228,32 @@ export function NotificationPopover() {
     document.addEventListener("pointerdown", outside); return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
   function dismiss() { setOpen(false); trigger.current?.focus(); }
-  return <div ref={root} className={styles.popoverRoot} onKeyDown={event => { if (open && event.key === "Escape") { event.preventDefault(); dismiss(); } }}><button className={styles.trigger} type="button" ref={trigger} aria-label="通知" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}><Bell size={16} aria-hidden="true" /><span>通知</span></button>{open ? <section className={styles.popover} id={id} aria-label="通知面板"><div className={styles.popoverHead}><strong>通知中心</strong><button ref={close} type="button" aria-label="关闭通知面板" onClick={dismiss}><X size={17} aria-hidden="true" /></button></div><PopoverFeed onNavigate={() => setOpen(false)} /><Link className={styles.viewAll} href="/workbench/notifications" prefetch={false} onClick={() => setOpen(false)}>查看全部通知<ChevronRight size={14} aria-hidden="true" /></Link></section> : null}</div>;
+  function togglePanel() {
+    if (!open && identity.isError && !identity.isFetching) void identity.refetch();
+    setOpen(!open);
+  }
+  return <div ref={root} className={styles.popoverRoot} onKeyDown={event => { if (open && event.key === "Escape") { event.preventDefault(); dismiss(); } }}>
+    <button className={styles.trigger} type="button" ref={trigger} aria-label="通知" aria-expanded={open} aria-controls={open ? id : undefined}
+      aria-describedby={hasUnread ? id + "-unread" : undefined} onClick={togglePanel}>
+      <span className={styles.triggerIcon} aria-hidden="true">
+        <Bell size={16} />
+        {hasUnread ? <span className={styles.unreadDot} /> : null}
+      </span>
+      <span className={styles.triggerLabel}>通知</span>
+    </button>
+    {hasUnread ? <span id={id + "-unread"} className="sr-only">有未读通知</span> : null}
+    {open ? <section className={styles.popover} id={id} aria-label="通知面板">
+      <div className={styles.popoverHead}><strong>通知中心</strong><button ref={close} type="button" aria-label="关闭通知面板" onClick={dismiss}><X size={17} aria-hidden="true" /></button></div>
+      <PopoverFeed userId={identityRejected ? "" : userId} identityPending={!userId && identity.isFetching} onNavigate={() => setOpen(false)} />
+      <Link className={styles.viewAll} href="/workbench/notifications" prefetch={false} onClick={() => setOpen(false)}>查看全部通知<ChevronRight size={14} aria-hidden="true" /></Link>
+    </section> : null}
+  </div>;
 }
-function PopoverFeed({ onNavigate }: { onNavigate: () => void }) {
+function PopoverFeed({ userId, identityPending, onNavigate }: { userId: string; identityPending: boolean; onNavigate: () => void }) {
   const [tab, setTab] = useState<NotificationTab>("official");
   const focusRequestRef = useRef<NotificationTab | null>(null);
-  const identity = useQuery({ ...policy, queryKey: ["notification-session-identity"], queryFn: async ({ signal }) => {
-    const response = await fetch("/api/notifications/identity", { signal, cache: "no-store", redirect: "error" });
-    if (!response.ok) throw new NotificationError("AUTHENTICATION_REQUIRED", response.status);
-    return z.object({ userId: z.string().min(1).max(128) }).strict().parse(await readBoundedStrictJSON(response, 1024, signal));
-  } });
-  const { scope, available, companyUnavailable } = useScope(identity.data?.userId ?? "", tab);
-  if (identity.isPending) return <p className={styles.empty} role="status">正在读取通知…</p>;
-  if (identity.error || !available) return <p className={styles.empty} role="status">登录或企业上下文尚未确认。<Link href="/workbench/notifications" prefetch={false} onClick={onNavigate}>打开通知中心</Link></p>;
-  return <NotificationFeed key={JSON.stringify(scope)} scope={scope} tab={tab} setTab={setTab} focusRequestRef={focusRequestRef} companyUnavailable={companyUnavailable} compact onNavigate={onNavigate} />;
+  const { scope, authorizationKey, available, companyUnavailable } = useScope(userId, tab);
+  if (identityPending) return <p className={styles.empty} role="status">正在读取通知…</p>;
+  if (!available) return <p className={styles.empty} role="status">登录或企业上下文尚未确认。<Link href="/workbench/notifications" prefetch={false} onClick={onNavigate}>打开通知中心</Link></p>;
+  return <NotificationFeed key={JSON.stringify([scope, authorizationKey])} scope={scope} authorizationKey={authorizationKey} tab={tab} setTab={setTab} focusRequestRef={focusRequestRef} companyUnavailable={companyUnavailable} compact onNavigate={onNavigate} />;
 }
