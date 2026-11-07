@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ArrowLeft, Bell, Check, ChevronRight, Diamond, Info, RefreshCw, CircleDot, X } from "lucide-react";
 import { z } from "zod";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
@@ -78,10 +78,34 @@ function useReading(scope: NotificationScope, changed: () => void) {
 function ReadingStatus({ reading }: { reading: ReturnType<typeof useReading> }) {
   return reading.error ? <div role="alert" className={styles.notice}>{errorMessage(reading.error)}{reading.intent?.unknown ? <button type="button" disabled={reading.busy} onClick={reading.verify}>核实原操作</button> : null}</div> : null;
 }
-function Tabs({ tab, onChange, data }: { tab: "official" | "business"; onChange: (tab: "official" | "business") => void; data?: NotificationList }) {
-  return <div className={styles.tabs} role="tablist" aria-label="消息分类">
-    <button type="button" role="tab" aria-label="硕米官方通知" aria-selected={tab === "official"} onClick={() => onChange("official")}><Diamond size={15} aria-hidden="true" />硕米官方通知</button>
-    <button type="button" role="tab" aria-label="商家经营触发通知" aria-selected={tab === "business"} onClick={() => onChange("business")}><Bell size={15} aria-hidden="true" />商家经营触发通知{data?.pending && tab === "business" ? <span className={styles.badge}>{data.exact ? "" : "≥"}{data.pending}</span> : null}</button>
+type NotificationTab = "official" | "business";
+type TabFocusRequest = RefObject<NotificationTab | null>;
+
+function Tabs({ tab, onChange, data, id, focusRequestRef }: { tab: NotificationTab; onChange: (tab: NotificationTab) => void; data?: NotificationList; id: string; focusRequestRef: TabFocusRequest }) {
+  const list = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (focusRequestRef.current !== tab) return;
+    focusRequestRef.current = null;
+    // The feed remounts on scope changes to discard the old category's state.
+    if (document.activeElement === document.body) list.current?.querySelector<HTMLButtonElement>('button[aria-selected="true"]')?.focus();
+  }, [focusRequestRef, tab]);
+
+  function select(next: NotificationTab) {
+    if (next === tab) return;
+    focusRequestRef.current = next;
+    onChange(next);
+  }
+
+  return <div ref={list} className={styles.tabs} role="tablist" aria-label="消息分类" onKeyDown={event => {
+    const key = event.key;
+    if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "Home" && key !== "End") return;
+    event.preventDefault();
+    if (key === "Home") select("official");
+    else if (key === "End") select("business");
+    else select(tab === "official" ? "business" : "official");
+  }}>
+    <button id={`${id}-official`} type="button" role="tab" aria-label="硕米官方通知" aria-selected={tab === "official"} aria-controls={tab === "official" ? `${id}-panel` : undefined} tabIndex={tab === "official" ? 0 : -1} onClick={() => select("official")}><Diamond size={15} aria-hidden="true" />硕米官方通知</button>
+    <button id={`${id}-business`} type="button" role="tab" aria-label="商家经营触发通知" aria-selected={tab === "business"} aria-controls={tab === "business" ? `${id}-panel` : undefined} tabIndex={tab === "business" ? 0 : -1} onClick={() => select("business")}><Bell size={15} aria-hidden="true" />商家经营触发通知{data?.pending && tab === "business" ? <span className={styles.badge}>{data.exact ? "" : "≥"}{data.pending}</span> : null}</button>
   </div>;
 }
 function ItemRow({ item, compact = false, onNavigate }: { item: NotificationItem; compact?: boolean; onNavigate?: () => void }) {
@@ -95,15 +119,17 @@ function ItemRow({ item, compact = false, onNavigate }: { item: NotificationItem
   </Link>;
 }
 export function NotificationCenterPage({ expectedUserId }: { expectedUserId: string }) {
-  const [tab, setTab] = useState<"official" | "business">("official");
+  const [tab, setTab] = useState<NotificationTab>("official");
+  const focusRequestRef = useRef<NotificationTab | null>(null);
   const { scope, available, companyUnavailable } = useScope(expectedUserId, tab);
   return <section className={styles.page}>
     <div className={styles.heading}><h1>通知中心</h1><p>官方消息与业务提醒集中查看，重要事项及时掌握。</p></div>
-    {available ? <NotificationFeed key={JSON.stringify(scope)} scope={scope} tab={tab} setTab={setTab} companyUnavailable={companyUnavailable} /> : <p role="status" className={styles.notice}>登录或企业上下文正在变化，消息已停止加载。</p>}
+    {available ? <NotificationFeed key={JSON.stringify(scope)} scope={scope} tab={tab} setTab={setTab} focusRequestRef={focusRequestRef} companyUnavailable={companyUnavailable} /> : <p role="status" className={styles.notice}>登录或企业上下文正在变化，消息已停止加载。</p>}
   </section>;
 }
-function NotificationFeed({ scope, tab, setTab, companyUnavailable, compact = false, onNavigate }: { scope: NotificationScope; tab: "official" | "business"; setTab: (tab: "official" | "business") => void; companyUnavailable: boolean; compact?: boolean; onNavigate?: () => void }) {
+function NotificationFeed({ scope, tab, setTab, focusRequestRef, companyUnavailable, compact = false, onNavigate }: { scope: NotificationScope; tab: NotificationTab; setTab: (tab: NotificationTab) => void; focusRequestRef: TabFocusRequest; companyUnavailable: boolean; compact?: boolean; onNavigate?: () => void }) {
   const client = useQueryClient();
+  const tabsId = useId();
   const [filtered, setFiltered] = useState(false);
   const [cursors, setCursors] = useState([""]);
   const filter = filtered ? tab === "official" ? "unread" : "pending" : "all";
@@ -111,7 +137,8 @@ function NotificationFeed({ scope, tab, setTab, companyUnavailable, compact = fa
   const reading = useReading(scope, () => { setCursors([""]); void client.invalidateQueries({ queryKey: ["notifications"] }); });
   const data = query.error ? undefined : query.data;
   return <>
-    <div className={styles.controls}><Tabs tab={tab} onChange={setTab} data={data} />{!compact ? <label className={styles.filter}><input type="checkbox" checked={filtered} onChange={event => { setFiltered(event.target.checked); setCursors([""]); }} />{tab === "official" ? "仅看未读" : "仅看待处理"}{data ? <span className={styles.badge}>{data.exact ? "" : "≥"}{tab === "official" ? data.unread : data.pending}</span> : null}</label> : null}</div>
+    <div className={styles.controls}><Tabs tab={tab} onChange={setTab} data={data} id={tabsId} focusRequestRef={focusRequestRef} />{!compact ? <label className={styles.filter}><input type="checkbox" checked={filtered} onChange={event => { setFiltered(event.target.checked); setCursors([""]); }} />{tab === "official" ? "仅看未读" : "仅看待处理"}{data ? <span className={styles.badge}>{data.exact ? "" : "≥"}{tab === "official" ? data.unread : data.pending}</span> : null}</label> : null}</div>
+    <div role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
     {companyUnavailable ? <p className={styles.coverage} role="status">当前仅显示个人提醒。选择可访问的企业后可查看企业业务消息。</p> : null}
     <ReadingStatus reading={reading} />
     <section className={styles.panel} aria-label={tab === "official" ? "官方消息列表" : "业务提醒列表"}>
@@ -120,6 +147,7 @@ function NotificationFeed({ scope, tab, setTab, companyUnavailable, compact = fa
     </section>
     <Coverage data={data} />
     {!compact && data ? <div className={styles.pagination}><button type="button" disabled={cursors.length === 1 || reading.busy || query.isFetching} onClick={() => setCursors(old => old.slice(0, -1))}>上一页</button><span>第 {cursors.length} 页</span><button type="button" disabled={!data.next || reading.busy || query.isFetching} onClick={() => setCursors(old => [...old, data.next])}>下一页</button></div> : null}
+    </div>
   </>;
 }
 export function NotificationDetailPage({ expectedUserId, category, notificationRef }: { expectedUserId: string; category: "official" | "business"; notificationRef: string }) {
@@ -155,7 +183,8 @@ export function NotificationPopover() {
   return <div ref={root} className={styles.popoverRoot} onKeyDown={event => { if (open && event.key === "Escape") { event.preventDefault(); dismiss(); } }}><button className={styles.trigger} type="button" ref={trigger} aria-label="通知" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}><Bell size={16} aria-hidden="true" /><span>通知</span></button>{open ? <section className={styles.popover} id={id} aria-label="通知面板"><div className={styles.popoverHead}><strong>通知中心</strong><button ref={close} type="button" aria-label="关闭通知面板" onClick={dismiss}><X size={17} aria-hidden="true" /></button></div><PopoverFeed onNavigate={() => setOpen(false)} /><Link className={styles.viewAll} href="/workbench/notifications" prefetch={false} onClick={() => setOpen(false)}>查看全部通知<ChevronRight size={14} aria-hidden="true" /></Link></section> : null}</div>;
 }
 function PopoverFeed({ onNavigate }: { onNavigate: () => void }) {
-  const [tab, setTab] = useState<"official" | "business">("official");
+  const [tab, setTab] = useState<NotificationTab>("official");
+  const focusRequestRef = useRef<NotificationTab | null>(null);
   const identity = useQuery({ ...policy, queryKey: ["notification-session-identity"], queryFn: async ({ signal }) => {
     const response = await fetch("/api/notifications/identity", { signal, cache: "no-store", redirect: "error" });
     if (!response.ok) throw new NotificationError("AUTHENTICATION_REQUIRED", response.status);
@@ -164,5 +193,5 @@ function PopoverFeed({ onNavigate }: { onNavigate: () => void }) {
   const { scope, available, companyUnavailable } = useScope(identity.data?.userId ?? "", tab);
   if (identity.isPending) return <p className={styles.empty} role="status">正在读取通知…</p>;
   if (identity.error || !available) return <p className={styles.empty} role="status">登录或企业上下文尚未确认。<Link href="/workbench/notifications" prefetch={false} onClick={onNavigate}>打开通知中心</Link></p>;
-  return <NotificationFeed key={JSON.stringify(scope)} scope={scope} tab={tab} setTab={setTab} companyUnavailable={companyUnavailable} compact onNavigate={onNavigate} />;
+  return <NotificationFeed key={JSON.stringify(scope)} scope={scope} tab={tab} setTab={setTab} focusRequestRef={focusRequestRef} companyUnavailable={companyUnavailable} compact onNavigate={onNavigate} />;
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import styles from "./resources.module.css";
 export function ResourceDialog({
@@ -16,10 +16,19 @@ export function ResourceDialog({
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current;
-    dialog?.showModal();
-    return () => dialog?.close();
+    if (!dialog) return;
+    const trigger = document.activeElement;
+    dialog.showModal();
+    return () => {
+      const focused = document.activeElement;
+      const restoreFocus = focused === document.body || dialog.contains(focused);
+      dialog.close();
+      if (restoreFocus && trigger instanceof HTMLElement && trigger.isConnected && document.activeElement !== trigger) {
+        trigger.focus({ preventScroll: true });
+      }
+    };
   }, []);
   return (
     <dialog
