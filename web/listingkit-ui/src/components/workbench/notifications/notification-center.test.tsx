@@ -28,6 +28,49 @@ it("keeps full and compact pagination separate in the same query client",async()
  await waitFor(()=>expect(screen.getAllByRole("region",{name:"官方消息列表"}).map(panel=>within(panel).getAllByRole("link").length)).toEqual([20,4]));
 });
 afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.unstubAllGlobals(); });
+it("shows a dot before opening the panel and clears it when the last notification is read", async () => {
+  let unread = 1;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/identity")) return Response.json({ userId: "actor" });
+    if (url.endsWith("/snapshot")) return Response.json({ id: snapshotID, fingerprint: "a".repeat(64), expiresAt: "2026-10-09T00:05:00Z", count: 1 });
+    if (url.endsWith("/read-all")) {
+      unread = 0;
+      return receipt(new Headers(init?.headers).get("Idempotency-Key")!, "read-all");
+    }
+    if (url.includes("/business?")) return Response.json({ ...list("business", "org-a"), unread: 0 });
+    return Response.json({ ...list(), unread, count: 1, items: [{ ...item(), read: unread === 0 }] });
+  }));
+  mount(<NotificationPopover />);
+  const trigger = screen.getByRole("button", { name: "通知" });
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription("有未读通知"));
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(trigger);
+  expect(trigger).toHaveAccessibleDescription("有未读通知");
+  fireEvent.click(await screen.findByRole("button", { name: "全部已读" }));
+  await waitFor(() => expect(trigger).not.toHaveAccessibleDescription());
+});
+
+it("shows a business unread dot only for the currently authorized company", async () => {
+  const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/identity")) return Response.json({ userId: "actor" });
+    if (url.includes("/official?")) return Response.json({ ...list(), unread: 0 });
+    const org = new Headers(init?.headers).get("X-Expected-Organization-ID")!;
+    return Response.json({ ...list("business", org), unread: org === "org-a" ? 1 : 0 });
+  });
+  vi.stubGlobal("fetch", fetch);
+  const view = mount(<NotificationPopover />);
+  const trigger = screen.getByRole("button", { name: "通知" });
+  await waitFor(() => expect(trigger).toHaveAccessibleDescription("有未读通知"));
+  fixture.context.isSwitching = true;
+  view.rerender(<QueryClientProvider client={clients[0]}><NotificationPopover /></QueryClientProvider>);
+  expect(trigger).not.toHaveAccessibleDescription();
+  fixture.context.isSwitching = false;
+  fixture.context.effectiveOrganization = { id: "org-b" };
+  view.rerender(<QueryClientProvider client={clients[0]}><NotificationPopover /></QueryClientProvider>);
+  await waitFor(() => expect(fetch.mock.calls.some(([, init]) => new Headers(init?.headers).get("X-Expected-Organization-ID") === "org-b")).toBe(true));
+  expect(trigger).not.toHaveAccessibleDescription();
+});
+
 it("keeps official and personal messages available when the organization read fails", async () => {
   fixture.context.error = { code: "DEPENDENCY_UNAVAILABLE" }; fixture.context.user = null;
   const fetch = vi.fn().mockImplementation((url: string) => Promise.resolve(Response.json(url.includes("/official") ? list() : { ...list("business"), items: [] })));
