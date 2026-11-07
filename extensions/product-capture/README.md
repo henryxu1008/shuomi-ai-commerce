@@ -195,8 +195,10 @@ method with the test-only extension debugging flag. Automated runs use headless
 mode; omit `--cdp` for the manual headed loader. It clicks the actual source-page
 button with trusted browser input, rejects a synthetic click, tests original-tab
 return, explicitly confirms a new Amazon fixture capture, checks the other-tab
-rejection, interrupts the task's workers, and reloads the
-receiver with the same recovery key. The flag is never part of the extension
+rejection, restarts the worker without navigating the receiver, and checks
+the original binding and expiry. The Amazon fixture confirms one save on the
+original key and body, then checks scope and duplicate rejection after another
+restart. Reloading the receiver keeps the original key for reconciliation. The flag is never part of the extension
 or a user's regular browser configuration. The debugger uses an OS-assigned
 dynamic port recorded in this launch's atomically allocated profile; all controls
 come from the same launch's Playwright pipe. No fixed-port
@@ -287,15 +289,13 @@ The browser ingress is
 are owned by Product Sourcing and the application, not this transport directory. Public `{source}`
 acquisition is not a substitute for uploading BrowserCapturePayload.
 
-One handoff lives only in worker memory, for at most five minutes. Chrome may
-terminate an idle worker much earlier. There is no keepalive or storage;
-after loss/expiry, capture reads fail. If a request may already have been
-submitted, the app's original key recovery URL remains the recovery entry.
-The backend must reauthorize that scope and read the original staging command
-through the existing SRC Verify/Read path. The original 1688 ByKey path may resume a previously frozen command under its existing guarded Claim/Finish protocol; it never captures a new page or replaces the command.
-A missing receipt does not authorize an automatic new POST/key. The extension
-cannot recover a forgotten key after restart; it tells the user to use the
-original app page. Beginning another capture requires an explicit new action.
+A document-bound handoff is kept in trusted browser session storage until
+its original five-minute deadline. The same document can continue after an
+extension worker restart. If the document or session is gone, the user can
+explicitly restore the same IndexedDB draft and original key with a fresh
+handoff. An interrupted send still requires checking the original key through
+the existing backend recovery path. A missing receipt does not authorize an
+automatic POST. See the [worker restart design](../../docs/architecture/plugin-capture-handoff-worker-restart.md).
 
 ## Release packaging limitation
 

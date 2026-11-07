@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { BoundHandoff } from './return-session';
 import { UUID } from './validation';
 import { DraftStore, draftScope, sameDraftScope, type Draft, type DraftScope } from './draft-store';
 
@@ -22,7 +23,18 @@ export class Handoff {
   private retryPermit?: { revision: number; scope: DraftScope; until: number };
   private invalidated=false;
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(private readonly app: string, private readonly drafts: DraftStore, private readonly clock: () => number = Date.now) {}
+  constructor(private readonly app: string, private readonly drafts: DraftStore, private readonly clock: () => number = Date.now,
+    private readonly session?: {
+      assertCurrent(tabId: number, nonce: string): void;
+      remember(binding: BoundHandoff): Promise<void>;
+    }) {}
+  restore(draft: Draft, binding: BoundHandoff) {
+    if (!draft.payload || draft.app !== this.app || draft.id !== binding.draftId || draft.key !== binding.key
+      || this.clock() >= binding.expires) return false;
+    this.last = draft;
+    this.capability = { ...binding };
+    return true;
+  }
   prepare(draft: Draft, nonce: string) {
     if (this.capability) throw Error('HANDOFF_ACTIVE');
     if (!draft.payload || draft.app !== this.app || !UUID.test(nonce)) throw Error('INVALID_MESSAGE');
@@ -48,10 +60,16 @@ export class Handoff {
     const m = schema.parse(value), scope = draftScope(m.scope);
     if (m.handoffId !== p.nonce || m.idempotencyKey !== p.key) throw Error('INVALID_MESSAGE');
     if (p.documentId ? p.documentId !== sender.documentId : m.type !== 'capture.meta') {if(p.documentId)this.invalidated=true;throw Error('INVALID_SENDER');}
+    this.session?.assertCurrent(p.tabId, p.nonce);
     const d = await this.drafts.get(p.draftId);
     if (!d || d.key !== p.key || d.app !== this.app) throw Error('DRAFT_CHANGED');
     if (d.scope && !sameDraftScope(d.scope, scope)) throw Error('DRAFT_SCOPE_CHANGED');
-    p.documentId ??= sender.documentId;
+    this.current();
+    if (!p.documentId) {
+      await this.session?.remember({ ...p, tabId: p.tabId, documentId: sender.documentId });
+      p.documentId = sender.documentId;
+      this.current();
+    }
     let result = d;
     switch (m.type) {
       case 'capture.meta': break;
