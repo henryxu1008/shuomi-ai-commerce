@@ -30,8 +30,15 @@ Collection owner 发布时逐行产生 Catalog 的可空库存及 `OwnStockDecla
 | 现 [内容智能体](product-content-localization.md)、[单图](product-image-visual-analysis.md)、商业调用与 Agent Run owner | 新资料整理适配器冻结本次输入、图片身份、配置和运行键，注册新操作和限定候选 validator。现有 Go 应用注入，前端沿同源 API 消费实际结果。 |
 | [Collection 和 Catalog](own-product-entry.md) 持有商品版本和保存回执 | 候选仅合入现有可编辑表单。用户显式提交原商品命令，经原鉴权和 UoW 写入并返回一个商品标识。 |
 
-一次生成使用作用域内原运行键、规范化说明摘要和选图摘要。同键同输入读原结果，同键异输入拒绝。取消、超时、结果未知沿原运行和调用记录核实，未知不自动重发。已确认的用户表单值保留，失败可继续手工录入。迟到结果只可应用在同一当前表单、相同企业成员和输入快照，输入/选图变化需重新生成。模型输出是临时候选，商品保存、AI 调用和已确认媒体分别沿原 owner，失败不伪装成共同提交。无新业务事实表、跨库事务、迁移或第二运行系统。Legacy decision 为 N/A。
+### 未保存录入的绑定和快照
+
+- `agent.Binding` 增加互斥类型 `own-product-intake-v1`，`ContextID` 为本次规范 UUID 命令键，`TargetPlatform` 固定 `product`。`ProductKey`、`CatalogVersion`、`PublicationID` 与其他专用 Binding 字段必须为空。其类型专属引用 `OwnProductIntakeRef` 只携带规范输入的 SHA-256，以及可空的已选图片内容 SHA-256。其他 ContextKind 禁止携带该引用。请求验证进一步要求 `Binding.ContextID == Request.Key`，同一个键不能通过另一个 ContextID 另开一次生成。该键既不代表商品，也不代表存储对象。
+- 录入应用从可信身份解析企业、操作者、当前成员，重验 Collection 写和智能体执行权限。服务端规范化 UTF-8 说明（最多 4096 字节）、图库图片的稳定图号和顺序，以及单张预读图的图号和内容摘要，按固定 `own-product-intake-input-v1` 编码计算输入摘要。预读由 SourceMedia owner 以当前企业、当前操作者和内容哈希重建对象身份，再校验当前图片字节。客户端传入的 URL 或图号不能决定租户和存储键，也不作为任意外链拉取。用户在图库中的其他图片只提供有界图号与显式描述作为资料。
+- `agentconfig` 新增仅面向 `product.own.intake.agent` 的固定 Agent/Policy/Prompt/候选 Schema 版本组合。`Prepare` 和 `LoadSnapshot` 对该组合显式匹配上述绑定、无模板/知识库/写工具、有界预算及已准入的模型 Profile。执行模式由现有 Agent 配置 owner 冻结，录入仅采用人工核对。`agent_configuration` 原配置快照记录成员、绑定和摘要、Agent/Prompt/Schema、模式及路由预算元数据，经现有 `ConfigurationSnapshotRef` 传入 Run。输入原文和图片字节仅存在于本次获准调用的请求内存，只有摘要进入配置快照，配置加载保持现有大小和完整性检查。使用 `product_agent_runs` 原作用域、ContextKind、ContextID、键和持久化状态；无需修改表或借用 `ImageAnalysisBinding`。复用后者下游有界单图传输和计量基础，保持商品图分析操作原校验独立。
+- 准备和确认分别重验成员、权限、绑定和原输入。确认必须带原请求与所确认 Quote，服务端重新计算输入摘要并核对原快照；同键异输入拒绝，不能替换模型输入。Governed Model 的 `InputHash` 和 Quote 绑定快照摘要、当前执行身份、原调用键和可信路由/价格。尚未确认或能证明从未派发时，可重新提交原输入继续准备；如果发送结果不确定，只按原调用及 Run 键核实，未知不自动重发。Agent 的候选作为有界 `DomainProposal` 存在原 Run；专属 validator 匹配 Scope/Member、Binding、Snapshot 和真实调用回执，返回前验证类型、事实证据和冻结图库身份，表单采纳前复核当前图库。重开页面可凭原键读取同一运行及结果，鉴权需重新检查，读取不要求重新发送资料或触发模型。迟到结果只可应用在同一当前表单、相同企业成员和输入快照，输入/选图变化需重新生成。结果读取沿现有 Run 保留规则。
+
+取消、超时和结果未知沿原运行和调用记录核实。已确认的用户表单值保留，失败可继续手工录入。商品保存、AI 调用和已确认媒体分别沿原 owner，失败不伪装成共同提交。无新业务事实表、跨库事务、迁移或第二运行系统。Legacy decision 为 N/A。
 
 ## 独立验收
 
-隔离环境注入受控模型响应，走实际图库、表单、API、Collection/Catalog 保存与读取。输入黑 M、黑 L、白 M 和公共图、白色专属图，确认仅三行。补齐每行 SKU、币种和价格，黑 M 填库存 0，黑 L 或白 M 留空。保存前核对公共图、白 M 专属图与库存显示，保存一次后刷新、重新打开详情及编辑逐项核对。覆盖重生成保持人工值、缺省与 0 的请求指纹和发布投影、现有导入和平台未声明库存路径。正式模型及真实试用另行验证。
+隔离环境注入受控模型响应，走实际图库、表单、API、Collection/Catalog 保存与读取。输入黑 M、黑 L、白 M 和公共图、白色专属图，确认仅三行。补齐每行 SKU、币种和价格，黑 M 填库存 0，黑 L 或白 M 留空。保存前核对公共图、白 M 专属图与库存显示，保存一次后刷新、重新打开详情及编辑逐项核对。覆盖重生成保持人工值、缺省与 0 的请求指纹和发布投影、现有导入和平台未声明库存路径。录入绑定验证准备、确认、原键回读均不需要商品 ID，同键改说明/选图返回冲突，换企业或成员拒绝，调用未知时无第二次发送。正式模型及真实试用另行验证。
