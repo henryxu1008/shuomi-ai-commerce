@@ -240,6 +240,7 @@
 - `cockpit-shein-order-amount.md` — [运营驾驶舱：SHEIN US 已保存订单商品金额（原币）](cockpit-shein-order-amount.md)
 - `cockpit-walmart-order-amount.md` — [Walmart US 消费者订单保存与单店商品金额](cockpit-walmart-order-amount.md)
 - `cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](cockpit-tiktok-order-amount.md)
+- `cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md)
 - `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
 - `project-center-overview-read.md` — [Project Center overview read V1](project-center-overview-read.md)
 - `task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](task-center-native-run-projection.md)
@@ -256,5 +257,3 @@
 - `platform-support-chatwoot.md` — [Platform customer support through Chatwoot official APIs](platform-support-chatwoot.md)
 
 Every architecture document is explicitly indexed above. 新增、合并或删除合同时同步本索引；当前规则写入已有 owner 的合同，不追加退休记录、历史索引或逐轮评审日志。
-
-- [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md) — 独立来源合同与离线验证；不启用在线订单同步。
