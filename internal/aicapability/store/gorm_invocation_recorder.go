@@ -2,6 +2,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,7 +13,6 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	sigjson "sigs.k8s.io/json"
 	"task-processor/internal/aicapability"
 )
 
@@ -528,8 +528,14 @@ func invocationRecordFromRow(row invocationRow) (aicapability.InvocationRecord, 
 		if len(raw) > 8<<10 {
 			return aicapability.InvocationRecord{}, aicapability.ErrProviderRejectionProof
 		}
-		strict, err := sigjson.UnmarshalStrict(raw, &rejection, sigjson.DisallowDuplicateFields, sigjson.DisallowUnknownFields)
-		if err != nil || len(strict) != 0 || rejection == nil {
+		if err := json.Unmarshal(raw, &rejection); err != nil || rejection == nil {
+			return aicapability.InvocationRecord{}, aicapability.ErrProviderRejectionProof
+		}
+		// This private fact is written only by invocationRowFromRecord. Requiring
+		// its exact owner encoding also rejects duplicate/unknown fields without
+		// broadening the capability module's dependency boundary.
+		canonical, err := json.Marshal(rejection)
+		if err != nil || !bytes.Equal(raw, canonical) {
 			return aicapability.InvocationRecord{}, aicapability.ErrProviderRejectionProof
 		}
 	}

@@ -144,3 +144,27 @@ func TestProviderRejectionUsesOriginalMonthAndDebtFirstAfterRevocation(t *testin
 	require.EqualValues(t, 15445282, event.GrossCredit)
 	require.EqualValues(t, 2000000, event.DebtRepaid)
 }
+
+func TestProviderRejectionPersistedProofRequiresCanonicalOwnerEncoding(t *testing.T) {
+	for _, alteration := range []struct {
+		name   string
+		change func(string) string
+	}{
+		{"noncanonical", func(raw string) string { return " " + raw }},
+		{"unknown field", func(raw string) string { return strings.TrimSuffix(raw, "}") + `,"unknown":true}` }},
+		{"duplicate field", func(raw string) string {
+			return strings.TrimSuffix(raw, "}") + `,"version":"own-intake-openai-unbilled-v1"}`
+		}},
+	} {
+		t.Run(alteration.name, func(t *testing.T) {
+			native := openSQLiteStore(t)
+			recorder, _, fact := rejectedInvocationFixture(t, openSQLiteStore(t), native)
+			require.NoError(t, recorder.RecordInvocation(context.Background(), fact))
+			var raw string
+			require.NoError(t, native.Table("ai_invocations").Select("provider_rejection_proof_json").Scan(&raw).Error)
+			require.NoError(t, native.Exec("UPDATE ai_invocations SET provider_rejection_proof_json=? WHERE invocation_id=?", alteration.change(raw), fact.InvocationID).Error)
+			_, _, err := recorder.FindInvocation(context.Background(), "org", "member", fact.InvocationID, "input")
+			require.Error(t, err)
+		})
+	}
+}
