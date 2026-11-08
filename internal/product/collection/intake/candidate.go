@@ -133,12 +133,12 @@ func (f Fact) valid(notes string) bool {
 
 var currencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
 
-const stockField = `(?:库存(?:数量)?|\b(?:stock|inventory)\b)`
+const stockField = `(?:库存(?:数量)?|\b(?:stock|inventory)\b(?:\s+|[：:=]))`
 
-var stockLabel = regexp.MustCompile(`(?i)` + stockField + `(?:\s|[：:=0-9]|为|是|明确|未知|未|不|待|大约|大概|约|预计|估计|可能|至少|至多|$)`)
 var stockEvidence = regexp.MustCompile(`(?i)` + stockField + `\s*(?:明确\s*)?(?:为|是|is|[：:=])?\s*([0-9]+)(?:\s*(?:件|个|units?|pcs))?`)
-var stockUncertain = regexp.MustCompile(`(?i)` + stockField + `\s*(?:为|是|is|[：:=])?\s*(?:未知|未填写|未提供|未确定|未确认|待确认|不详|留空|空值|unknown|unspecified)|(?:^|[，,。;；])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实)(?:库存(?:数量)?|数量)?\s*(?:$|[，,。;；])`)
+var stockUncertain = regexp.MustCompile(`(?i)` + stockField + `\s*(?:为|是|is|[：:=])?\s*(?:未知|未填写|未提供|未确定|未确认|待确认|不详|留空|空值|unknown|unspecified|大约|大概|约|预计|估计|可能|至少|至多|不是|不为|不等于|-\s*[0-9])|(?:^|[，,。;；])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实)(?:库存(?:数量)?|数量)?\s*(?:$|[，,。;；])`)
 var stockQualified = regexp.MustCompile(`(?i)(?:并非|不是|不代表|不表示|未确认|没有确认|不能确认|大约|大概|约|预计|估计|可能|至少|至多)\s*库存|\b(?:not|approximately|about)\s+(?:stock|inventory)`)
+var followingStockField = regexp.MustCompile(`(?i)^(?:SKU\b|货号|编码|币种|价格|单价|图片|图号|颜色|尺码|品牌|库存|(?:stock|inventory|price|currency|image|color|size|brand)\b|[A-Z]{3}(?:\s|[：:=]))`)
 var priceEvidence = regexp.MustCompile(`(?i)(?:价格|单价|price|[¥￥$€])\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
@@ -182,7 +182,7 @@ func (r Row) stockIsExplicit() bool {
 		return false
 	}
 	matches := stockEvidence.FindAllStringSubmatchIndex(r.Evidence, -1)
-	if len(matches) == 0 || len(matches) != len(stockLabel.FindAllStringIndex(r.Evidence, -1)) {
+	if len(matches) == 0 {
 		return false
 	}
 	for _, m := range matches {
@@ -191,9 +191,12 @@ func (r Row) stockIsExplicit() bool {
 			return false
 		}
 		// Reject decimal, range and approximate suffixes rather than accepting a prefix.
-		after := strings.TrimSpace(r.Evidence[m[1]:])
+		rest := r.Evidence[m[1]:]
+		after := strings.TrimLeftFunc(rest, unicode.IsSpace)
 		if after != "" && !strings.ContainsRune("，,。;；)）]", []rune(after)[0]) {
-			return false
+			if len(rest) == len(after) || !followingStockField.MatchString(after) {
+				return false
+			}
 		}
 	}
 	return true
