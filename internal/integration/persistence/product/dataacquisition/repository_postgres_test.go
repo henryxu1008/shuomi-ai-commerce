@@ -142,6 +142,63 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 		require.NoError(t, db.Raw("SELECT reserved_fen+consumed_fen FROM data_service_quota WHERE organization_id='zero-org' AND window_kind='month'").Scan(&fen).Error)
 		require.Zero(t, fen, "release uses original zero snapshot, not current 8-fen price")
 	})
+	t.Run("monthly usage sums original job prices including older jobs saved this month", func(t *testing.T) {
+		scope := collection.Scope{OrganizationID: "usage-org", ActorID: "usage-actor", MemberID: "usage-member"}
+		price := &mutableDataPrices{}
+		repo.ConfigurePrices(price)
+		for _, scenario := range []struct {
+			unit               int64
+			rows               int
+			confirmed, pending int64
+		}{{0, 3, 0, 0}, {7, 2, 7, 7}, {11, 1, 18, 7}} {
+			version := uuid.NewString()
+			price.value = dataacquisition.PriceSnapshot{OfferID: uuid.NewString(), Version: version, Currency: "CNY", UnitPriceFen: scenario.unit}
+			asins := []string{"B000000001", "B000000002", "B000000003"}[:scenario.rows]
+			query := dataacquisition.Query{Site: "us", Mode: "asin", ASINs: asins, Limit: scenario.rows}
+			job, err := repo.Admit(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), query, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: version, MaximumCostFen: scenario.unit * int64(scenario.rows)})
+			require.NoError(t, err)
+			job, err = repo.Discover(ctx, job, asins)
+			require.NoError(t, err)
+			items, err := repo.Items(ctx, job)
+			require.NoError(t, err)
+			for index, item := range items {
+				intent, err := repo.ChargeIntent(ctx, orgresource.ConsumerChargeIdentity{OrganizationID: scope.OrganizationID, Consumer: orgresource.ConsumerAmazonData, OperationID: item.ID})
+				require.NoError(t, err)
+				receipt := orgresource.ConsumerChargeReceipt{Intent: intent, ReservationID: uuid.NewString(), State: orgresource.ReservationReserved, CreatedAt: time.Now().UTC()}
+				_, err = repo.BindReservation(ctx, job, item.ID, receipt)
+				require.NoError(t, err)
+				claim, err := repo.Claim(ctx, job, item.ID)
+				require.NoError(t, err)
+				evidence := dataacquisition.Evidence{Site: "us", ASIN: item.ASIN, Title: "usage fixture", MainImage: "https://m.media-amazon.com/images/I/fixture.jpg", Availability: "available", Price: 10, Currency: "USD", CapturedAt: time.Now().UTC().Format(time.RFC3339Nano), ParserVersion: "amazon-v1"}
+				prepared, err := repo.PrepareEvidence(ctx, job, claim, evidence)
+				require.NoError(t, err)
+				_, err = repo.Publish(ctx, job, prepared)
+				require.NoError(t, err)
+				if scenario.unit != 7 || index == 0 {
+					proof, err := repo.ChargeProof(ctx, receipt)
+					require.NoError(t, err)
+					receipt.State = orgresource.ReservationCommitted
+					receipt.OwnerEvidenceID = proof.EvidenceID
+					require.NoError(t, repo.RecordCharge(ctx, job, item.ID, receipt))
+				}
+			}
+			if scenario.unit == 7 {
+				require.NoError(t, db.Exec("UPDATE data_acquisition_jobs SET created_at=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'-interval '1 hour',deadline=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'-interval '30 minutes' WHERE organization_id=? AND id=?", scope.OrganizationID, job.ID).Error)
+			}
+			repo.ConfigurePrices(nil)
+			stats, err := repo.Usage(ctx, scope)
+			require.NoError(t, err)
+			require.Equal(t, scenario.confirmed, stats.MonthConfirmedFen, "confirmed totals use each original snapshot, not fixed/current prices")
+			require.Equal(t, scenario.pending, stats.MonthPendingFen)
+			other := scope
+			other.ActorID = "another-actor"
+			empty, err := repo.Usage(ctx, other)
+			require.NoError(t, err)
+			require.Zero(t, empty.MonthConfirmedFen)
+			require.Zero(t, empty.MonthPendingFen)
+			repo.ConfigurePrices(price)
+		}
+	})
 	repo.ConfigurePrices(testDataPrices{})
 	scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "original-grant"}
 	keys, err := keystore.NewCredentialRepository(ctx, db)
