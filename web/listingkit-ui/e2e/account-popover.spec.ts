@@ -11,6 +11,42 @@ const userId = "123456789";
 const displayName = "陈小明";
 test.skip(process.env.AUTH_SECRET !== secret, "Requires the explicit synthetic account popover environment.");
 
+for (const width of [1440, 390]) {
+  for (const theme of ["light", "dark"]) {
+    test(`own-product page actions stay in the viewport at ${width}px in ${theme}`, async ({ page }, info) => {
+      test.skip(process.env.LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED !== "true" || process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED !== "true" || process.env.LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED !== "true", "Requires the explicit isolated own-product UI features.");
+      const itemId = "550e8400-e29b-41d4-a716-446655440002";
+      const title = "【合成回归】三规格商品";
+      await page.setViewportSize({ width, height: 844 });
+      await page.route("**/api/workbench/context", route => route.fulfill({ json: {
+        user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId: "org", effectiveMemberId: "member", selectionRequired: false,
+        organizations: [{ id: "org", name: "测试企业", roles: [], permissions: ["workbench.collection.read", "workbench.collection.manage", "local_agent.write", "workbench.agent.use", "workbench.supply.read", "workbench.supply.manage"] }],
+      } }));
+      await page.route(`**/api/workbench/collections/items/${itemId}`, route => route.fulfill({ json: {
+        item: { id: itemId, batchId: itemId, revision: 1, createdAt: "2026-11-08T00:00:00Z", source: { kind: "own", productKey: "own-responsive-fixture", publicationId: itemId, version: "1" } },
+        product: { title, description: "只用于共享页面操作区布局回归。", variants: [
+          { sku: "BLK-M", attributes: [{ name: "颜色", value: "黑" }, { name: "尺码", value: "M" }], price: { currency: "CNY", amount: 29 }, stock: 0, own_stock_declared: true },
+          { sku: "BLK-L", attributes: [{ name: "颜色", value: "黑" }, { name: "尺码", value: "L" }], price: { currency: "CNY", amount: 29 } },
+          { sku: "WHT-M", attributes: [{ name: "颜色", value: "白" }, { name: "尺码", value: "M" }], price: { currency: "CNY", amount: 29 } },
+        ] },
+      } }));
+      await page.goto(`/workbench/data/mine/own/${itemId}`);
+      await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+      await page.getByRole("combobox", { name: "显示主题", exact: true }).selectOption(theme);
+      const actions = page.getByRole("group", { name: "页面操作", exact: true });
+      await expect(actions.getByRole("link")).toHaveCount(5);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      for (const action of await actions.getByRole("link").all()) {
+        expect(await action.evaluate(node => {
+          const rect = node.getBoundingClientRect();
+          return rect.left >= 0 && rect.right <= document.documentElement.clientWidth;
+        })).toBe(true);
+      }
+      await page.screenshot({ path: info.outputPath(`own-product-actions-${width}-${theme}.png`) });
+    });
+  }
+}
+
 test.beforeEach(async ({ context, page, baseURL }) => {
   if (baseURL !== "http://127.0.0.1:3210") throw new Error("Loopback fixture required");
   const namespace = createHash("sha256").update(JSON.stringify([baseURL, issuer, client])).digest("hex").slice(0, 32);
