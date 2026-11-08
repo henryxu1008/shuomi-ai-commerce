@@ -153,6 +153,26 @@ func (a researchSources) CanReadPageEvidenceConcurrently(scope collection.Scope,
 	return a.fixture.OwnsPagination(scope, project) && a.fixture.IsPaginationPublication(selection.PublicationID)
 }
 
+func (a researchSources) BindPageEvidence(ctx context.Context, scope collection.Scope, project string) (research.PageEvidenceReader, error) {
+	reader, err := a.fixture.BindPaginationPage(ctx, scope, project)
+	if err != nil {
+		return nil, err
+	}
+	return researchFixturePageReader{reader}, nil
+}
+
+type researchFixturePageReader struct {
+	*dataservicesapp.ResearchPaginationPageReader
+}
+
+func (r researchFixturePageReader) Observe(selection research.Selection) (research.Observation, error) {
+	batch, entry, err := r.ReadOriginal(collection.SelectionInput{ItemID: selection.ItemID, ExpectedRevision: selection.Revision, OriginalPublicationID: selection.PublicationID, OriginalVersion: selection.Version})
+	if err != nil {
+		return research.Observation{}, supplierEvidenceFailure(err)
+	}
+	return fixtureAmazonObservation(batch.ID, batch.Keyword, dataservicesapp.ResearchPaginationCount, entry, selection), nil
+}
+
 func (a researchSources) observeFixture(ctx context.Context, scope collection.Scope, project string, selection research.Selection, item collection.Item) (research.Observation, error) {
 	if a.fixture.IsPaginationPublication(item.Source.PublicationID) {
 		batch, entry, err := a.fixture.ReadPaginationOriginal(ctx, scope, project, item)

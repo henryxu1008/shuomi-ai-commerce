@@ -29,6 +29,23 @@ func (*pageEvidenceSources) CanReadPageEvidenceConcurrently(collection.Scope, st
 	return true
 }
 
+type testPageEvidenceReader struct {
+	ctx     context.Context
+	sources *pageEvidenceSources
+	scope   collection.Scope
+	project string
+}
+
+func (s *pageEvidenceSources) BindPageEvidence(ctx context.Context, scope collection.Scope, project string) (PageEvidenceReader, error) {
+	return testPageEvidenceReader{ctx: ctx, sources: s, scope: scope, project: project}, nil
+}
+
+func (r testPageEvidenceReader) Observe(selection Selection) (Observation, error) {
+	return r.sources.Observe(r.ctx, r.scope, r.project, selection)
+}
+
+func (testPageEvidenceReader) Reauthorize(context.Context) error { return nil }
+
 func (s *pageEvidenceSources) Observe(ctx context.Context, scope collection.Scope, project string, selection Selection) (Observation, error) {
 	s.started <- selection
 	select {

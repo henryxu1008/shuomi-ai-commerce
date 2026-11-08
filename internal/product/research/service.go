@@ -180,7 +180,7 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 	page := Page{Items: []CandidateView{}, NextCursor: next}
 	sourceCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	prepared := s.preparePageEvidence(sourceCtx, scope, project, rows)
+	prepared := s.preparePageEvidence(ctx, sourceCtx, scope, project, rows)
 	cache := map[string]*Observation{}
 	read := func(ref EvidenceRef) *Observation {
 		digest := ref.Digest()
