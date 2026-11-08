@@ -1,0 +1,37 @@
+# SHEIN US 单店已保存订单商品金额（原币）
+
+Design Basis: Independent Architecture. Admission Status: DESIGNING。执行 #1163。用户 2026-11-08 批准先明确口径并实现单店只读统计，在独立本地实例用测试订单验日期、店铺、金额缺失和覆盖不足；不叫 GMV、不调用外部平台、不动全平台成功率、GMV 卡片、原合成预览。Figma 仅可参考业务流程，不作 UI 验收标准。
+
+## 用户结果与边界
+
+驾驶舱显式选择一家 SHEIN US 店铺时，在独立面板显示「已保存订单商品金额（原币）」，随昨日/近7天/近30天及店铺变化。数据来源为 Store Observations 已保存消费者订单，不取 Listing attempt、供货成本、采购/ERP 金额或人工经营收入。本批不判断已支付 GMV、净成交额、结算或真实销售覆盖。
+
+复用 operations-cockpit.md、store-center-platform-observations.md、cockpit-listing-task-metrics.md 和当前项目边界；保留现有观察权限、Store/当前商家绑定与同步 owner。本批新增只读投影合同，无新事实、表、状态机、写事务、平台调用或恢复协议。
+
+## 日期、去重、金额和覆盖
+
+- 日期为 UTC+8 已完成自然日，首页日期转 [start 00:00, end次日00:00)，最多30天。按已保存 Order.IssuedAt（原列表 orderCreateTime）筛选，与原同步查询范围一致。详情 orderTime/CreatedAt、更新时间、观察时间不作为入组日期。界面明确「按平台订单列表时间」，不冒充支付时间或消费者下单日期。
+- 只读当前组织、当前成员 Store 和 store.orders.read 权限下、当前本地商家绑定匹配的 SHEIN US 订单。沿原观察可见性，不改为仅同步发起人的私有数据。Binding.Site=shein-us，平台为原 owner 合法 SHEIN 绑定；全托管观察原不支持继续不可用。
+- 只使用原 owner 的当前完整 head generation，不拼历史批次、不把多个同步版本相加。以 organization+store+sync+platform order ID 唯一记录读取，每订单计一次；同一 generation 如替身返回重复相同记录去重，重复身份载荷不同返回不可用。一个订单的多个 goodsId/包裹不重复加订单总额；订单取消/换货等状态不作额外剔除，因指标仅表达所保存订单的商品金额，不表示支付/有效成交。
+- 金额仅来自 Order.Amount.Value（productTotalPrice）和 Currency（orderCurrency），不取 SupplyCost。复用原生十进制约束（非负、最多20位整数和8位小数），Go math/big.Int 按8位定标精确求和，输出规范十进制字符串、至少2位小数，不转 float、不做汇率/币种精度舍入或支付记账。最多250条，输出长度有界；不同3位大写原币分行，绝不跨币相加。
+- 当前 head 必须 status=completed、Progress.Incomplete=false、observedAt非空，并且 Range 覆盖整段查询。原同步 Window.End 为闭区间、秒精度，必须 >=查询 exclusiveEnd-1秒。原头/最新批次不同或最新尚非completed，保守显示覆盖不足，不借旧数据填全量。响应前重读 Heads 验证源 ID/revision/generation/binding/range/status 未变化，复验授权、Store目录和原 handle。
+- 范围覆盖不足/无同步时无金额和订单总数，提示缺覆盖与原同步范围/取得时间。覆盖完整但期间无订单时明确空结果（不凭空猜 USD 0）。缺 Amount/值、币种或列表时间时，返回匹配订单数及缺失字段数量，隐藏所有金额，提示「金额/币种/日期字段不完整」，不把缺失当0。日期缺失的行无法判定所属期间，保守计入时间未知并隐藏金额。
+- 新窄 Repository.OrderAmountRecords 按明确 org/store/sync、订单类型及 [IssuedAt起,止) 读取，同时包含列表时间缺失的记录；候选先筛日期再限251。大于250返回limited，提示缩小日期。非法非空时间导致不可读取，不猜日期。绑定、来源或依赖不可证明时 unavailable/原403，均不返回数值。
+- GET 无外部平台访问：SHEIN 原 ObservationAccess.Authorize/Check 只验证本地 Store/连接材料和 IAM；不调用 Orders/OrderDetails/Track，不启动 Sync/Ensure。保留原 sync 同一 generation 原子发布和不可变 completed 事实，不增加跨 owner 快照或恢复协议。
+
+## 调用与响应
+
+contract → implementation → injection → consumer：
+Store Observations OrderAmountQuery/OrderAmountMetrics → observations.Service.SavedOrderAmounts + 私有精确聚合 → 现有 storeobservations.Repository 的窄读取端口 → 既有 store-observations HTTP/BFF → cockpit-overview 的显式 SHEIN US 单店面板。
+
+GET /api/v1/workbench/store-observations/orders/saved-amount-metrics?startDate=...&endDate=...&storeId=一个UUID。沿既有当前身份、live Store Orders read 授权、服务端 user/org envelope、20秒请求上限和严格 query/BFF/schema。客户端平台不是权限依据。现有 lifecycle 未就绪继续 unavailable。
+
+status 为 complete / missing_fields / coverage_incomplete / limited。共同 capturedAt、来源（可读时 sync ID/取得时间/范围）；complete 含订单数和各币 amount/count；missing_fields 含匹配订单数及缺 Amount/Currency/Time 数量，无 amounts；coverage_incomplete、limited 无金额及完整订单数。缺权限/不可用走原HTTP错误。返回不含订单明细、客户隐私或凭据。
+
+前端复用首页同一 statsQuery / user/org query key / AbortSignal 和读取态，日期/店铺/权限切换不显示旧值；仅显式单选 SHEIN US 时请求/展示，其他店铺或多店隐藏。金额按币种列示，无汇总百分比。GMV卡片和人工经营统计不消费本响应。
+
+## 验证与交付
+
+先 RED：UTC+8 两端、IssuedAt 与 CreatedAt 不同、重复订单/包裹、多同步批次不叠加、两个店铺日期、精确小数/多币、缺金额/币种/时间、完整空结果、同步范围不足/未完成/新head变化、原权限/换绑/依赖失败及候选上限。复用已有单元、隔离 PostgreSQL、BFF/schema 和首页组件测试；只测本次风险，不建设验收平台。
+
+独立本地实例在新端口准备两家 SHEIN US 测试店、不同日期及覆盖范围、原生保存订单和异常字段。正式 GET → BFF → 首页浏览器验证无刷新切换、已知/缺失/不完整提示；无平台/provider客户端。保留既有实例与预览，提供入口。实现完成开一个草稿 PR，合并、正式部署、关闭 #1163 另行授权。Legacy decision: N/A，无迁移/第二事实源。
