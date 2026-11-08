@@ -1,6 +1,6 @@
 # #1165 供应商明确拒绝且未计费的原调用恢复
 
-Design Basis 为 Independent Architecture。源码调查基线为 `cd3675393e7e102425d96bbcd72c6aef6e2489cb`，试用后端证据基线为 `fb8cdbc013548b5f13a2c558922441334c576607`。本轮 Admission Status 为 NOT_READY，等待独立架构评审。执行位置为 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)，延续已合入的 [#1165](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1165)。
+Design Basis 为 Independent Architecture。源码调查基线为 `cd3675393e7e102425d96bbcd72c6aef6e2489cb`，试用后端证据基线为 `fb8cdbc013548b5f13a2c558922441334c576607`。离线实现设计的 Admission Status 为 IMPLEMENTATION_READY，独立评审依据见文末。本次真实恢复的执行证据为 NOT_READY。执行位置为 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)，延续已合入的 [#1165](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1165)。
 
 ## 产品决定、范围与当前事实
 
@@ -167,3 +167,11 @@ R 取原预留行的 15,445,282 微点，并与原 receipt/冻结 tariff 重算�
 运行时入口读取、原拒绝记录恢复、实际 R 释放、真实模型与保存验证当前均为 NOT_RUN。设计文本检查只核引用、owner 和差异范围，不冒充离线实现或真实恢复通过。
 
 独立 Reviewer 应针对本文件的准确 blob 与源码基线，按 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE 分类 findings。BLOCKER 必须指明跨租户、错误授权、错误释放/重复扣费、数据损坏、不可安全恢复副作用或核心恢复 happy path/rollout 无法完成中的具体后果。最多两轮正常设计评审，非阻塞实现义务留在本批后续实现验证收敛。
+
+## 独立架构评审结论
+
+2026-11-08，原唯一独立 Reviewer 完成两轮。首轮绑定 `c03b5e1986df069aa4f50993fd91d2d90e5be325`，第二轮仅复核结算触发链和 schema 切换两处增量，最终绑定正文 blob `c2d468a9b4de21d8f845a17180956445ca232e75`，对应提交 `85e65ca3e66354a4bef733538e7ff9186a11c495`。源码基线均为 `cd3675393e7e102425d96bbcd72c6aef6e2489cb`。
+
+最终结论为 IMPLEMENTATION_READY，设计 BLOCKER 为 0。recorder/adapter/RecoverDue 三链、原固定哈希、同/异证明幂等和竞态、跨库 ACK 丢失、原月份/debt-first、准确 schema 切换列为 IMPLEMENTATION_TEST，必须在后续实现和隔离验证中收敛。当前提交只补结论与状态元数据，已评审设计正文未变。
+
+本次 provider 明确未计费及原调用关联证明仍须按本文条件补齐。实际原 15.445282 AI 点恢复仍为 NOT_READY，真实 schema/账本/部署/provider/商品操作均为 NOT_RUN。后续正式实现和真实执行权限继续由用户阶段决定。
