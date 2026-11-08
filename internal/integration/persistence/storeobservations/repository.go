@@ -229,7 +229,7 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 		if !sameSync(current, expected) || current.Terminal() {
 			return o.ErrConflict
 		}
-		if len(records) > 30 && (current.Kind != o.Orders || current.Binding.Platform != storecenter.PlatformTikTokShop) {
+		if len(records) > 30 && (current.Kind != o.Orders || current.Binding.Platform != storecenter.PlatformTikTokShop && current.Binding.Platform != storecenter.PlatformTemu) {
 			return o.ErrInvalid
 		}
 		// Coverage defects cannot be cleared by a later successful page.
@@ -243,21 +243,24 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				return o.ErrInvalid
 			}
 			seen[v.ID] = true
-			validProduct := v.TikTokOrder == nil && current.Binding.Platform != storecenter.PlatformTikTokShop && v.WalmartProduct == nil && v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu && current.Binding.Platform != storecenter.PlatformWalmart
+			validProduct := v.TemuOrder == nil && v.TikTokOrder == nil && current.Binding.Platform != storecenter.PlatformTikTokShop && v.WalmartProduct == nil && v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu && current.Binding.Platform != storecenter.PlatformWalmart
 			if current.Binding.Platform == storecenter.PlatformTemu {
 				validProduct = v.WalmartProduct == nil && v.Order == nil && v.Product == nil && v.TemuProduct != nil && v.TemuProduct.ID == v.ID && temuo.ValidProduct(*v.TemuProduct) && v.TemuProduct.Mode == string(current.Binding.MerchantMode)
 			}
 			if current.Binding.Platform == storecenter.PlatformWalmart {
 				validProduct = v.Order == nil && v.Product == nil && v.TemuProduct == nil && v.WalmartProduct != nil && v.WalmartProduct.Valid() && v.WalmartProduct.SKU == v.ID
 			}
-			validOrder := v.TikTokOrder == nil && v.WalmartOrder == nil && v.WalmartProduct == nil && v.Order != nil && v.Product == nil && v.TemuProduct == nil && v.Order.ID == v.ID && v.Order.Site == "shein-us" && current.Binding.Platform != storecenter.PlatformTemu
+			validOrder := v.TemuOrder == nil && v.TikTokOrder == nil && v.WalmartOrder == nil && v.WalmartProduct == nil && v.Order != nil && v.Product == nil && v.TemuProduct == nil && v.Order.ID == v.ID && v.Order.Site == "shein-us" && current.Binding.Platform != storecenter.PlatformTemu
 			if current.Binding.Platform == storecenter.PlatformWalmart {
 				validOrder = v.WalmartOrder != nil && v.WalmartOrder.Valid() && v.WalmartOrder.ID == v.ID && v.Order == nil && v.WalmartProduct == nil && v.Product == nil && v.TemuProduct == nil
 			}
 			if current.Binding.Platform == storecenter.PlatformTikTokShop {
 				validOrder = v.TikTokOrder != nil && v.TikTokOrder.Valid() && v.TikTokOrder.ID == v.ID && v.Order == nil && v.WalmartOrder == nil && v.WalmartProduct == nil && v.Product == nil && v.TemuProduct == nil
 			}
-			if current.Kind == o.Products && (!validProduct || v.WalmartOrder != nil || v.TikTokOrder != nil) || current.Kind == o.Orders && !validOrder {
+			if current.Binding.Platform == storecenter.PlatformTemu {
+				validOrder = current.Binding.ValidTemuOrderApplication() && v.TemuOrder != nil && v.TemuOrder.Valid() && v.TemuOrder.ID == v.ID && v.TikTokOrder == nil && v.WalmartOrder == nil && v.WalmartProduct == nil && v.Product == nil && v.TemuProduct == nil && v.Order == nil
+			}
+			if current.Kind == o.Products && (!validProduct || v.TemuOrder != nil || v.WalmartOrder != nil || v.TikTokOrder != nil) || current.Kind == o.Orders && (!validOrder || v.TemuOrder != nil && current.Binding.Platform != storecenter.PlatformTemu) {
 				return o.ErrInvalid
 			}
 			var prior struct {
@@ -269,12 +272,13 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 			if result.Error != nil {
 				return o.ErrUnavailable
 			}
-			if (v.WalmartOrder != nil || v.TikTokOrder != nil) && result.RowsAffected > 0 {
+			if (v.TemuOrder != nil || v.WalmartOrder != nil || v.TikTokOrder != nil) && result.RowsAffected > 0 {
 				var saved struct {
+					TemuOrder    *o.TemuOrder    `json:"temuOrder"`
 					TikTokOrder  *o.TikTokOrder  `json:"tiktokOrder"`
 					WalmartOrder *o.WalmartOrder `json:"walmartOrder"`
 				}
-				if json.Unmarshal(prior.Payload, &saved) != nil || (v.WalmartOrder != nil && saved.WalmartOrder == nil) || (v.TikTokOrder != nil && saved.TikTokOrder == nil) {
+				if json.Unmarshal(prior.Payload, &saved) != nil || (v.TemuOrder != nil && saved.TemuOrder == nil) || (v.WalmartOrder != nil && saved.WalmartOrder == nil) || (v.TikTokOrder != nil && saved.TikTokOrder == nil) {
 					return o.ErrUnavailable
 				}
 				var oldOrder, newOrder any = saved.WalmartOrder, v.WalmartOrder
@@ -282,6 +286,10 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				if v.TikTokOrder != nil {
 					oldOrder, newOrder = saved.TikTokOrder, v.TikTokOrder
 					prefix = "tiktok"
+				}
+				if v.TemuOrder != nil {
+					oldOrder, newOrder = saved.TemuOrder, v.TemuOrder
+					prefix = "temu"
 				}
 				if !reflect.DeepEqual(oldOrder, newOrder) {
 					next.Note(prefix + "_order_identity_conflict")
@@ -301,13 +309,14 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
+				TemuOrder      *o.TemuOrder     `json:"temuOrder,omitempty"`
 				TikTokOrder    *o.TikTokOrder   `json:"tiktokOrder,omitempty"`
 				WalmartOrder   *o.WalmartOrder  `json:"walmartOrder,omitempty"`
 				WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
 				Product        *o.Product       `json:"product,omitempty"`
 				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
 				Order          *o.Order         `json:"order,omitempty"`
-			}{v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
+			}{v.TemuOrder, v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid
 			}
@@ -321,6 +330,15 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 		if status == "completed" && current.Kind == o.Orders && current.Binding.Platform == storecenter.PlatformTikTokShop && (next.TikTokOrders == nil || !next.TikTokOrders.Complete || len(next.Windows) > 0) {
 			next.Note("tiktok_order_pages_incomplete")
 		}
+		if status == "completed" && current.Kind == o.Orders && current.Binding.Platform == storecenter.PlatformTemu && (next.TemuOrders == nil || !next.TemuOrders.Complete || len(next.Windows) > 0) {
+			next.Note("temu_order_pages_incomplete")
+		}
+		if next.Incomplete && next.TemuOrders != nil {
+			p := *next.TemuOrders
+			p.Complete = false
+			next.TemuOrders = &p
+		}
+
 		if next.Incomplete && next.TikTokOrders != nil {
 			p := *next.TikTokOrders
 			p.Complete = false

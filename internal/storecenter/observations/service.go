@@ -17,6 +17,7 @@ import (
 )
 
 type Service struct {
+	TemuOrders    TemuOrderReader
 	TikTokOrders  TikTokOrderReader
 	WalmartOrders WalmartOrderReader
 	Repository    Repository
@@ -442,6 +443,12 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 			product := p
 			records = append(records, Record{StoreID: sync.StoreID, SyncID: sync.ID, ID: p.ID, Product: &product})
 		}
+	} else if sync.Binding.Platform == storecenter.PlatformTemu {
+		updated, err := s.stepTemuOrders(ctx, sync, merchant)
+		if err != nil {
+			return stop(err)
+		}
+		return updated, nil
 	} else if sync.Binding.Platform == storecenter.PlatformTikTokShop {
 		updated, err := s.stepTikTokOrders(ctx, sync, merchant)
 		if err != nil {

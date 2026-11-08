@@ -263,3 +263,8 @@ func productExecutionReadError(err error) error {
 	}
 	return ErrDependencyUnavailable
 }
+
+// A regional consumer-order proof never grants product execution authority.
+func (b ProductMerchantBinding) ValidTemuOrderApplication() bool {
+	return b.Platform == PlatformTemu && (b.IdentityPartition == PartitionUS || b.IdentityPartition == PartitionGlobal) && (b.MerchantMode == MerchantLocal || b.MerchantMode == MerchantSemiManaged) && b.RegionID == 211 && b.Site == "temu-order-us" && b.ApplicationType == "" && b.Walmart == (WalmartMerchantBinding{}) && b.TikTok == (TikTokMerchantBinding{}) && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, ":temu:"+string(b.IdentityPartition)+":manual_token:3:r2") && b.VerificationRevision == "temu-regional-order-identity-v2" && len(b.ScopesHash) == 64 && len(b.SupplierIdentityHash) == 64 && !b.CredentialExpiresAt.IsZero()
+}

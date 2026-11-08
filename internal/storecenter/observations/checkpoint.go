@@ -27,6 +27,14 @@ func OrderWindows(start, end time.Time) ([]Window, error) {
 	return out, nil
 }
 func copyCheckpoint(c Checkpoint) Checkpoint {
+	if c.TemuOrders != nil {
+		p := *c.TemuOrders
+		if p.Total != nil {
+			v := *p.Total
+			p.Total = &v
+		}
+		c.TemuOrders = &p
+	}
 	if c.TikTokOrders != nil {
 		p := *c.TikTokOrders
 		p.TokenHashes = append([]string{}, p.TokenHashes...)

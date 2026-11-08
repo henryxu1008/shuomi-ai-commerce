@@ -259,6 +259,14 @@ func freezeOrderAmountSources(values []Sync) []Sync {
 		v.Progress.Windows = slices.Clone(v.Progress.Windows)
 		v.Progress.Notes = slices.Clone(v.Progress.Notes)
 		v.Progress.TemuTokenHashes = slices.Clone(v.Progress.TemuTokenHashes)
+		if v.Progress.TemuOrders != nil {
+			p := *v.Progress.TemuOrders
+			if p.Total != nil {
+				n := *p.Total
+				p.Total = &n
+			}
+			v.Progress.TemuOrders = &p
+		}
 		if v.Progress.TikTokOrders != nil {
 			p := *v.Progress.TikTokOrders
 			p.TokenHashes = slices.Clone(p.TokenHashes)

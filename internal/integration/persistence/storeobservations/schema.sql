@@ -58,14 +58,15 @@ CREATE TABLE store_observations.records(
  PRIMARY KEY(organization_id,store_id,sync_id,platform_id),
  FOREIGN KEY(organization_id,store_id,kind,sync_id) REFERENCES store_observations.syncs(organization_id,store_id,kind,id),
  CONSTRAINT store_observation_record_variant CHECK(
-  (kind='products' AND NOT payload ? 'order' AND NOT payload ? 'walmartOrder' AND NOT payload ? 'tiktokOrder' AND (
+  (kind='products' AND NOT payload ? 'temuOrder' AND NOT payload ? 'order' AND NOT payload ? 'walmartOrder' AND NOT payload ? 'tiktokOrder' AND (
     (payload ? 'product' AND NOT payload ? 'walmartProduct' AND NOT payload ? 'temuProduct' AND payload->'product'->>'id'=platform_id)
     OR (payload ? 'temuProduct' AND NOT payload ? 'walmartProduct' AND NOT payload ? 'product' AND payload->'temuProduct'->>'id'=platform_id AND payload->'temuProduct'->>'entity' IN('local_goods','supplier_skc'))
  OR (payload ? 'walmartProduct' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND jsonb_typeof(payload->'walmartProduct')='object' AND COALESCE(payload->'walmartProduct'->>'sku','')<>'' AND payload->'walmartProduct'->>'sku'=platform_id)
   ))
-  OR (kind='orders' AND payload ? 'order' AND payload->'order'->>'id'=platform_id AND payload->'order'->>'site'='shein-us' AND NOT payload ? 'walmartOrder' AND NOT payload ? 'tiktokOrder' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
-  OR (kind='orders' AND NOT payload ? 'tiktokOrder' AND jsonb_typeof(payload->'walmartOrder')='object' AND COALESCE(payload->'walmartOrder'->>'id','')<>'' AND payload->'walmartOrder'->>'id'=platform_id AND COALESCE(payload->'walmartOrder'->>'site','')='walmart-us' AND NOT payload ? 'order' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
- OR (kind='orders' AND jsonb_typeof(payload->'tiktokOrder')='object' AND COALESCE(payload->'tiktokOrder'->>'id','')<>'' AND payload->'tiktokOrder'->>'id'=platform_id AND COALESCE(payload->'tiktokOrder'->>'site','')='tiktokshop-us' AND NOT payload ? 'order' AND NOT payload ? 'walmartOrder' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
+  OR (kind='orders' AND NOT payload ? 'temuOrder' AND payload ? 'order' AND payload->'order'->>'id'=platform_id AND payload->'order'->>'site'='shein-us' AND NOT payload ? 'walmartOrder' AND NOT payload ? 'tiktokOrder' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
+  OR (kind='orders' AND NOT payload ? 'temuOrder' AND NOT payload ? 'tiktokOrder' AND jsonb_typeof(payload->'walmartOrder')='object' AND COALESCE(payload->'walmartOrder'->>'id','')<>'' AND payload->'walmartOrder'->>'id'=platform_id AND COALESCE(payload->'walmartOrder'->>'site','')='walmart-us' AND NOT payload ? 'order' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
+ OR (kind='orders' AND NOT payload ? 'temuOrder' AND jsonb_typeof(payload->'tiktokOrder')='object' AND COALESCE(payload->'tiktokOrder'->>'id','')<>'' AND payload->'tiktokOrder'->>'id'=platform_id AND COALESCE(payload->'tiktokOrder'->>'site','')='tiktokshop-us' AND NOT payload ? 'order' AND NOT payload ? 'walmartOrder' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
+ OR (kind='orders' AND jsonb_typeof(payload->'temuOrder')='object' AND COALESCE(payload->'temuOrder'->>'id','')<>'' AND payload->'temuOrder'->>'id'=platform_id AND COALESCE(payload->'temuOrder'->>'site','')='temu-order-us' AND COALESCE(payload->'temuOrder'->>'regionId','')='211' AND NOT payload ? 'order' AND NOT payload ? 'walmartOrder' AND NOT payload ? 'tiktokOrder' AND NOT payload ? 'product' AND NOT payload ? 'temuProduct' AND NOT payload ? 'walmartProduct')
  )
 );
 CREATE INDEX observations_sync_generation ON store_observations.syncs(organization_id,store_id,kind,generation DESC);
