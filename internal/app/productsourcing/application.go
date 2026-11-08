@@ -40,9 +40,10 @@ func NewExecutionPublicationGateway(db *gorm.DB, resolve func(context.Context) (
 	return sourcing.NewExecutionPublicationGateway(store, resolve)
 }
 
-// NewPublicAcquisition admits external public evidence as its own producer.
+// NewPublicAcquisition composes the existing acquisition owner. A nil provider
+// admits only original-key verification and published reads, never new dispatch.
 func NewPublicAcquisition(ctx context.Context, db *gorm.DB, live sourcing.LiveOrganizationAccess, permissions *authz.ListingKitAuthorizer, provider sourcing.PublicAcquirer, charges orgresource.ConsumerChargePort, options ...AcquisitionPublicationOption) (*AcquisitionService, error) {
-	if ctx == nil || provider == nil {
+	if ctx == nil {
 		return nil, sourcing.ErrAcquisitionUnavailable
 	}
 	operations, err := acquisitionpersistence.NewRepository(ctx, db)

@@ -49,8 +49,9 @@ func newBrowserPostgresService(t *testing.T, provider sourcing.PublicAcquirer) *
 	db := acquisitionDatabase(t)
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) {
-		return []string{"listingkit_operator"}, nil
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	live := liveRolesFunc(func(_ context.Context, org, _ string) ([]string, error) {
+		return []string{authz.EnterpriseRoleKey(org, 1)}, nil
 	})
 	require.NoError(t, InstallAcquisitionSchema(db))
 	service, err := NewBrowserPublicAcquisition(context.Background(), db, live, permissions, provider, 90*time.Second, newTestResourceChargePort(t, db))

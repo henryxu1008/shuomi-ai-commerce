@@ -2,10 +2,9 @@ package productsourcing
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -19,7 +18,6 @@ import (
 	"gorm.io/gorm/logger"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
-	a1688 "task-processor/internal/integration/acquisition/a1688"
 	"task-processor/internal/product/sourcing"
 )
 
@@ -51,43 +49,31 @@ func acquisitionDatabase(t *testing.T) *gorm.DB {
 	return db
 }
 
-type acquisitionFixtureTransport func(*http.Request) (*http.Response, error)
+// Synthetic typed evidence keeps publication, authorization and recovery tests
+// independent of the retired static-HTML provider.
+type acquisitionFixtureProvider func(context.Context, sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error)
 
-func (f acquisitionFixtureTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+func (f acquisitionFixtureProvider) Acquire(ctx context.Context, source sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error) {
+	return f(ctx, source)
+}
 
 func acquisitionFixture(t *testing.T) (sourcing.PublicAcquirer, *atomic.Int32, func(string)) {
 	t.Helper()
-	fixture, err := os.ReadFile("../../integration/acquisition/a1688/testdata/public-product.html")
-	require.NoError(t, err)
-	var body atomic.Value
-	body.Store(string(fixture))
+	var title atomic.Value
+	title.Store("Public fixture bottle")
 	count := &atomic.Int32{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	provider := acquisitionFixtureProvider(func(_ context.Context, source sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error) {
 		count.Add(1)
-		if r.URL.RawQuery != "" || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
-			t.Error("fixture received forbidden query or credentials")
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte(body.Load().(string)))
-	}))
-	t.Cleanup(server.Close)
-	target, err := url.Parse(server.URL)
-	require.NoError(t, err)
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = nil
-	t.Cleanup(transport.CloseIdleConnections)
-	provider := a1688.NewWithTransport(acquisitionFixtureTransport(func(r *http.Request) (*http.Response, error) {
-		if r.URL.String() != "https://detail.1688.com/offer/981645030344.html" {
-			t.Error("noncanonical acquisition request")
-		}
-		forward := r.Clone(r.Context())
-		address := *r.URL
-		address.Scheme = target.Scheme
-		address.Host = target.Host
-		forward.URL = &address
-		return transport.RoundTrip(forward)
-	}))
-	return provider, count, func(title string) { body.Store(strings.ReplaceAll(string(fixture), "Public fixture bottle", title)) }
+		require.Equal(t, "https://detail.1688.com/offer/981645030344.html", source.URL)
+		text := title.Load().(string)
+		digest := sha256.Sum256([]byte(text))
+		return sourcing.AcquisitionEvidence{
+			SchemaVersion: 1, SourceURL: source.URL, OfferID: source.OfferID, Title: &text,
+			Images:     []sourcing.AcquisitionImage{{URL: "https://cbu01.alicdn.com/fixture-bottle.jpg", Role: "primary"}},
+			CapturedAt: time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC), ContentSHA256: hex.EncodeToString(digest[:]), ParserVersion: "synthetic-evidence-v1",
+		}, nil
+	})
+	return provider, count, func(text string) { title.Store(text) }
 }
 
 func acquisitionIdentity(org, actor string) context.Context {
@@ -99,12 +85,13 @@ func TestAcquisitionBusinessChainPublishesExactVersionsAndObservesRevocation(t *
 	provider, fetches, changeTitle := acquisitionFixture(t)
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
 	var revoked atomic.Bool
 	live := liveRolesFunc(func(_ context.Context, org, actor string) ([]string, error) {
 		if revoked.Load() {
 			return []string{"listingkit_viewer"}, nil
 		}
-		return []string{"listingkit_operator"}, nil
+		return []string{authz.EnterpriseRoleKey(org, 1)}, nil
 	})
 	_, err = NewPublicAcquisition(context.Background(), db, live, permissions, provider, newTestResourceChargePort(t, db))
 	require.Error(t, err)
@@ -189,7 +176,10 @@ func TestAcquisitionBusinessChainRecoversLostResponseUsingFrozenCommand(t *testi
 	provider, fetches, _ := acquisitionFixture(t)
 	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
 	require.NoError(t, err)
-	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) { return []string{"listingkit_operator"}, nil })
+	permissions.SetRolePolicyReader(acquisitionTestRolePolicy{})
+	live := liveRolesFunc(func(_ context.Context, org, _ string) ([]string, error) {
+		return []string{authz.EnterpriseRoleKey(org, 1)}, nil
+	})
 	service, err := NewPublicAcquisition(context.Background(), db, live, permissions, provider, newTestResourceChargePort(t, db))
 	require.NoError(t, err)
 	lost := &acquisitionLostPublicationResponse{AcquisitionPublisher: service.publisher}

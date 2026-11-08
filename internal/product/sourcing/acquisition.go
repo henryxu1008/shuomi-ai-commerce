@@ -72,9 +72,9 @@ var acquisitionDigest = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var acquisitionDecimal = regexp.MustCompile(`^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$`)
 var acquisitionCurrency = regexp.MustCompile(`^[A-Z]{3}$`)
 
-// Acquisition channels admitted by the current owner. public_http and
-// public_browser are the two anonymous public providers; browser_capture is
-// the client-captured payload.
+// Acquisition evidence channels admitted by the current owner. public_http is
+// retained for original receipts; its static-HTML provider is retired. New
+// server acquisition requires public_browser; browser_capture is client input.
 const (
 	AcquisitionChannelPublicHTTP    = "public_http"
 	AcquisitionChannelPublicBrowser = "public_browser"
@@ -121,7 +121,7 @@ func Canonical1688Source(input string) (AcquisitionSource, error) {
 //
 // Admitted channels are exactly the current owner set; an unknown value is
 // rejected rather than defaulted.
-//   - public_http: anonymous public acquisition over plain HTTP.
+//   - public_http: historical anonymous HTTP evidence and frozen commands.
 //   - public_browser: anonymous public acquisition in a controlled browser
 //     (src2b-public-browser-v1). Same anonymous/public premise and same
 //     CaptureSHA256-empty, content-independent fingerprint as public_http.
