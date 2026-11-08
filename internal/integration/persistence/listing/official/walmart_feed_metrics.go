@@ -28,7 +28,7 @@ func (r *OfficialRepository) ListWalmartFeedAttemptIDs(ctx context.Context, scop
 	return ids, nil
 }
 
-func (r *OfficialRepository) ReadWalmartFeedAttempt(ctx context.Context, scope collection.Scope, id string) (submission.ExecutionAttempt, error) {
+func (r *OfficialRepository) ReadCockpitSubmissionAttempt(ctx context.Context, scope collection.Scope, id string) (submission.ExecutionAttempt, error) {
 	if r == nil || r.core == nil || scope.Validate() != nil || !collection.ValidID(id) {
 		return submission.ExecutionAttempt{}, submission.ErrExecutionInvalid
 	}

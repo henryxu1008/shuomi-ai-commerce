@@ -234,6 +234,7 @@
 - `operations-cockpit.md` — [运营驾驶舱首版：人工经营事实与有据可查的经营投影](operations-cockpit.md)
 - `cockpit-listing-task-metrics.md` — [运营驾驶舱首页：刊登与任务统计](cockpit-listing-task-metrics.md)
 - `cockpit-walmart-feed-rate.md` — [运营驾驶舱：Walmart Feed 提交受理率](cockpit-walmart-feed-rate.md)
+- `cockpit-tiktok-us-publish-rate.md` — [运营驾驶舱：TikTok Shop US 提交审核率](cockpit-tiktok-us-publish-rate.md)
 - `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
 - `project-center-overview-read.md` — [Project Center overview read V1](project-center-overview-read.md)
 - `task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](task-center-native-run-projection.md)

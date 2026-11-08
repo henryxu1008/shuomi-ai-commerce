@@ -175,6 +175,68 @@ func TestPostgresTikTokStagesUseAtomicCompletionAndRetainDraft(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "US-product", reread.TikTok.Publication.ProductID)
 	require.Equal(t, marketplace.RemoteDraft, reread.TikTok.Publication.State)
+	cohort := submission.TikTokGlobalPublishReadScope{StoreID: b.StoreID, ApplicationID: b.ApplicationID, MerchantIdentityHash: b.SupplierIdentityHash, ShopID: b.TikTok.ShopID}
+	finalAttempt, err := kernel.Get(ctx, claim.Scope, retained.ID)
+	require.NoError(t, err)
+	ids, err := official.ListTikTokGlobalPublishAttemptIDs(ctx, scope, cohort, finalAttempt.CreatedAt, finalAttempt.CreatedAt.Add(time.Minute), 251)
+	require.NoError(t, err)
+	require.Equal(t, []string{retained.ID}, ids, "only the global US publish attempt is included")
+	ids, err = official.ListTikTokGlobalPublishAttemptIDs(ctx, scope, cohort, finalAttempt.CreatedAt.Add(-time.Minute), finalAttempt.CreatedAt, 251)
+	require.NoError(t, err)
+	require.Empty(t, ids, "the upper date boundary is exclusive")
+
+	otherMember := collection.Scope{OrganizationID: scope.OrganizationID, ActorID: "other-actor", MemberID: "other-member"}
+	ids, err = official.ListTikTokGlobalPublishAttemptIDs(ctx, otherMember, cohort, finalAttempt.CreatedAt, finalAttempt.CreatedAt.Add(time.Minute), 251)
+	require.NoError(t, err)
+	require.Empty(t, ids)
+	_, err = official.ReadTikTokGlobalReference(ctx, otherMember, intent.Key)
+	require.Error(t, err, "a member cannot follow another member's final intent")
+	// The second member prepared the same original product in a separate collection.
+	source := saved.Source
+	for _, clone := range []struct {
+		query string
+		id    string
+	}{
+		{"INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) SELECT b.organization_id,?,?,b.id,b.name,b.kind,b.revision,b.created_at FROM product_collection_batches b JOIN product_collection_items i ON (i.organization_id,i.actor_id,i.batch_id)=(b.organization_id,b.actor_id,b.id) WHERE b.organization_id=? AND b.actor_id=? AND i.id=?", source.CollectionItemID},
+		{"INSERT INTO product_collection_items(organization_id,actor_id,member_id,id,batch_id,product_key,publication_id,original_version,source_kind,source_operation_id,revision,created_at) SELECT organization_id,?,?,id,batch_id,product_key,publication_id,original_version,source_kind,source_operation_id,revision,created_at FROM product_collection_items WHERE organization_id=? AND actor_id=? AND id=?", source.CollectionItemID},
+		{"INSERT INTO listing_preparations(organization_id,actor_id,member_id,id,command_key,input_hash,input_json,source_batch_id,source_revision,name,item_count,revision,created_at) SELECT organization_id,?,?,id,command_key,input_hash,input_json,source_batch_id,source_revision,name,item_count,revision,created_at FROM listing_preparations WHERE organization_id=? AND actor_id=? AND id=?", source.PreparationID},
+		{"INSERT INTO listing_preparation_sources(organization_id,actor_id,member_id,id,preparation_id,collection_item_id,collection_revision,product_key,publication_id,original_version,source_kind,source_operation_id) SELECT organization_id,?,?,id,preparation_id,collection_item_id,collection_revision,product_key,publication_id,original_version,source_kind,source_operation_id FROM listing_preparation_sources WHERE organization_id=? AND actor_id=? AND id=?", source.ID},
+	} {
+		result := db.Exec(clone.query, otherMember.ActorID, otherMember.MemberID, scope.OrganizationID, scope.ActorID, clone.id)
+		require.NoError(t, result.Error)
+		require.EqualValues(t, 1, result.RowsAffected)
+	}
+	otherSaved := saved
+	otherSaved.ID = uuid.NewString()
+	otherSaved.TargetID = record.TargetIdentity(otherMember, source.ID, b.StoreID)
+	otherRaw, err := json.Marshal(otherSaved)
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,?,1,?,?,?::jsonb,?)", otherMember.OrganizationID, otherMember.ActorID, otherMember.MemberID, otherSaved.ID, otherSaved.TargetID, source.ID, b.StoreID, b.Site, collection.Digest(otherSaved.Input), collection.Digest(otherSaved), string(otherRaw), otherSaved.CreatedAt).Error)
+	for _, mismatch := range []string{"compatible", "shop", "seller"} {
+		t.Run("global_reference/"+mismatch, func(t *testing.T) {
+			otherIntent := intent
+			otherIntent.Key, otherIntent.Owner = uuid.NewString(), otherMember
+			otherIntent.RecordID, otherIntent.RecordHash = otherSaved.ID, collection.Digest(otherSaved)
+			switch mismatch {
+			case "shop":
+				otherIntent.Binding.TikTok.ShopID = "wrong-shop"
+			case "seller":
+				otherIntent.Binding.SupplierIdentityHash = collection.Digest("wrong seller")
+			}
+			otherIntent.InputHash = submission.OfficialIntentInputHash(otherIntent)
+			require.NoError(t, submission.ValidateOfficialIntent(otherIntent))
+			encoded, err := json.Marshal(otherIntent)
+			require.NoError(t, err)
+			require.NoError(t, db.Exec("INSERT INTO listing_submission_official_intents(organization_id,actor_id,member_id,intent_key,record_id,kind,input_hash,body_hash,body_json) VALUES(?,?,?,?,?,?,?,?,?::jsonb)", otherMember.OrganizationID, otherMember.ActorID, otherMember.MemberID, otherIntent.Key, otherIntent.RecordID, otherIntent.Kind, otherIntent.InputHash, collection.Digest(otherIntent), string(encoded)).Error)
+			actual, err := official.ReadTikTokGlobalReference(ctx, otherMember, otherIntent.Key)
+			if mismatch == "compatible" {
+				require.NoError(t, err)
+				require.Equal(t, globalReceipt, actual, "same binding can reuse the exact global receipt from another member")
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
 	for _, original := range closed {
 		stopped, e := kernel.StopTikTokBeforeSend(ctx, original, submission.NoSendPreflightUnavailable)
 		require.NoError(t, e)

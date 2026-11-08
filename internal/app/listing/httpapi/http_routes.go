@@ -88,6 +88,7 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 		{"GET", "/:preparation_id/stages", "stages", preparation.PermissionRead},
 		{"GET", "/cockpit-metrics", "cockpit-metrics", preparation.PermissionRead},
 		{"GET", "/walmart-feed-metrics", "walmart-feed-metrics", preparation.PermissionRead},
+		{"GET", "/tiktok-publish-metrics", "tiktok-publish-metrics", preparation.PermissionRead},
 		{"POST", "/shein-completion-preview", "shein-completion-preview", preparation.PermissionManage},
 		{"GET", "/:preparation_id", "preparation", preparation.PermissionRead}, {"GET", "/:preparation_id/operations", "operations", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id", "publication", preparation.PermissionRead},
@@ -127,12 +128,12 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 					return
 				}
 			}
-			if spec.action != "cockpit-metrics" && spec.action != "walmart-feed-metrics" && spec.action != "upload-plans" && spec.action != "optimization-options" && spec.action != "list" && spec.action != "sources" && spec.action != "stages" && spec.action != "operation-items" && spec.action != "operations" && c.Request.URL.RawQuery != "" {
+			if spec.action != "cockpit-metrics" && spec.action != "walmart-feed-metrics" && spec.action != "tiktok-publish-metrics" && spec.action != "upload-plans" && spec.action != "optimization-options" && spec.action != "list" && spec.action != "sources" && spec.action != "stages" && spec.action != "operation-items" && spec.action != "operations" && c.Request.URL.RawQuery != "" {
 				listingError(c, preparation.ErrInvalid)
 				return
 			}
 			switch spec.action {
-			case "cockpit-metrics", "walmart-feed-metrics":
+			case "cockpit-metrics", "walmart-feed-metrics", "tiktok-publish-metrics":
 				now := time.Now()
 				filter, e := workbenchmetrics.Parse(c.Request.URL.RawQuery, now)
 				if e != nil {
@@ -141,9 +142,12 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 				}
 				readCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 				defer cancel()
-				if spec.action == "walmart-feed-metrics" {
+				switch spec.action {
+				case "walmart-feed-metrics":
 					output, err = app.WalmartFeedMetrics(readCtx, filter, now)
-				} else {
+				case "tiktok-publish-metrics":
+					output, err = app.TikTokPublishMetrics(readCtx, filter, now)
+				default:
 					output, err = app.CockpitMetrics(readCtx, filter, now)
 				}
 			case "cancel-upload-plan", "create-upload-plan", "upload-plans", "upload-plan", "upload-plan-key", "upload-plan-preview", "continue-upload-plan", "upload-plan-command":

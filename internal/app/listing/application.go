@@ -19,6 +19,8 @@ import (
 )
 
 type Application struct {
+	TikTokPublishSource   TikTokPublishMetricsSource
+	TikTokPublishMerchant func(context.Context, collection.Scope, string) (submission.TikTokGlobalPublishReadScope, error)
 	WalmartFeedSource     WalmartFeedMetricsSource
 	WalmartFeedMerchant   func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
 	CockpitStoreAccess    func(context.Context, collection.Scope, []string) error

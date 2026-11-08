@@ -15,7 +15,7 @@ export const listingMetrics = z.discriminatedUnion("status", [
   }),
 ]);
 
-export const walmartFeedMetrics = z.discriminatedUnion("status", [
+export const storeSubmissionMetrics = z.discriminatedUnion("status", [
   limited,
   z.strictObject({
     status: z.literal("complete"),

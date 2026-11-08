@@ -67,6 +67,21 @@ func TikTokImageSubjectID(image marketplace.ImageObservation, b storecenter.Prod
 	}
 	return "tiktok-image-us-" + digestExecutionParts(image.ContentHash, image.UseCase, b.SupplierIdentityHash, b.ApplicationID), nil
 }
+
+type TikTokGlobalPublishReadScope struct {
+	StoreID, ApplicationID, MerchantIdentityHash, ShopID string
+}
+
+func (s TikTokGlobalPublishReadScope) Valid() bool {
+	return collection.ValidID(s.StoreID) && authidentity.IsBoundedIdentifier(s.ApplicationID) &&
+		isExecutionDigest(s.MerchantIdentityHash) && authidentity.IsBoundedIdentifier(s.ShopID)
+}
+
+func (s TikTokGlobalPublishReadScope) MatchesBinding(b storecenter.ProductMerchantBinding) bool {
+	return b.ValidTikTokApplication() && s.StoreID == b.StoreID && s.ApplicationID == b.ApplicationID &&
+		s.MerchantIdentityHash == b.SupplierIdentityHash && s.ShopID == b.TikTok.ShopID
+}
+
 func TikTokCompatibleBinding(a, b storecenter.ProductMerchantBinding) bool {
 	return a.ValidTikTokApplication() && b.ValidTikTokApplication() && a.OrganizationID == b.OrganizationID && a.StoreID == b.StoreID && a.ApplicationID == b.ApplicationID && a.SupplierIdentityHash == b.SupplierIdentityHash && a.TikTok.ShopID == b.TikTok.ShopID
 }

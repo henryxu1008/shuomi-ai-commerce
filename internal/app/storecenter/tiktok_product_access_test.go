@@ -20,6 +20,7 @@ type tiktokProductProvider struct {
 	app         tiktok.Application
 	shopID      string
 	calls       int
+	shopCalls   int
 	statusCalls int
 	afterStatus func()
 }
@@ -37,6 +38,7 @@ func (p *tiktokProductProvider) QueryProductStatus(_ context.Context, token, cip
 
 func (p *tiktokProductProvider) Application() tiktok.Application { return p.app }
 func (p *tiktokProductProvider) AuthorizedShops(context.Context, string) ([]tiktok.Shop, error) {
+	p.shopCalls++
 	return []tiktok.Shop{{ID: p.shopID, Code: "USCODE", Cipher: "fresh-cipher", Region: "US", SellerType: "CROSS_BORDER"}}, nil
 }
 func (p *tiktokProductProvider) QueryListingRules(_ context.Context, token, cipher string) (marketplace.ListingRules, error) {
@@ -63,6 +65,14 @@ func TestTikTokProductAccessRequiresFreshShopScopesAndCanonicalGeneration(t *tes
 	access, err := NewOfficialProductAccess(reader, productLiveAccess{}, registry)
 	require.NoError(t, err)
 	subject := storecenter.ProductExecutionSubject{OrganizationID: "org-a", ActorID: "actor", MemberID: "member", Purpose: storecenter.ProductPurposeRules}
+	saved, err := access.ReadSavedTikTokShopIdentity(context.Background(), subject, storeID)
+	require.NoError(t, err)
+	require.Equal(t, SavedTikTokShopIdentity{ApplicationID: "app", MerchantIdentityHash: grant.SellerIdentityHash, ShopID: "shop"}, saved)
+	reader.material.TikTok.Binding.Shop.Region = "GB"
+	_, err = access.ReadSavedTikTokShopIdentity(context.Background(), subject, storeID)
+	require.ErrorIs(t, err, ErrProductAccessChanged)
+	reader.material.TikTok.Binding.Shop.Region = "US"
+	require.Zero(t, provider.shopCalls, "reading a saved binding must not request Authorized Shops")
 	handle, err := access.AuthorizeTikTokRules(context.Background(), subject, storeID, nil)
 	require.NoError(t, err)
 	require.True(t, handle.Binding().ValidTikTokApplication())
