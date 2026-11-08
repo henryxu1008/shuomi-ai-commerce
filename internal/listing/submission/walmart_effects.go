@@ -19,6 +19,17 @@ import (
 const WalmartSubmitAction = "walmart_submit_feed"
 const walmartAuthorizationRejected = "WALMART_AUTHORIZATION_REJECTED"
 
+// WalmartFeedReadScope describes the current merchant partition of the
+// historical Feed attempts selected by Listing.
+type WalmartFeedReadScope struct {
+	StoreID, MerchantIdentityHash, Environment string
+}
+
+func (s WalmartFeedReadScope) Valid() bool {
+	return collection.ValidID(s.StoreID) && isExecutionDigest(s.MerchantIdentityHash) &&
+		(s.Environment == "production" || s.Environment == "sandbox")
+}
+
 func WalmartCorrelationID(intent OfficialIntent) string {
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("walmart-feed-v1:"+intent.Owner.OrganizationID+":"+intent.Key+":"+intent.PayloadFingerprint)).String()
 }

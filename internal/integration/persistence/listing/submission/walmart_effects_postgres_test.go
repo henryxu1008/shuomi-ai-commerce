@@ -493,15 +493,18 @@ func TestWalmartFeedCandidatesAreScopedBeforeTheLimit(t *testing.T) {
 	require.NoError(t, f.db.Table(effectsstore.AttemptTable).CreateInBatches(oldAttempts, 100).Error)
 
 	end := attempt.CreatedAt.Add(time.Microsecond)
-	ids, err := f.official.ListWalmartFeedAttemptIDs(f.ctx, f.scope, f.binding, attempt.CreatedAt, end, 251)
+	cohort := submission.WalmartFeedReadScope{
+		StoreID: f.binding.StoreID, MerchantIdentityHash: f.binding.SupplierIdentityHash, Environment: f.binding.Walmart.Environment,
+	}
+	ids, err := f.official.ListWalmartFeedAttemptIDs(f.ctx, f.scope, cohort, attempt.CreatedAt, end, 251)
 	require.NoError(t, err)
 	require.Equal(t, []string{attempt.AttemptID}, ids)
 	scope := f.scope
 	scope.MemberID = "different-member"
-	ids, err = f.official.ListWalmartFeedAttemptIDs(f.ctx, scope, f.binding, attempt.CreatedAt, end, 251)
+	ids, err = f.official.ListWalmartFeedAttemptIDs(f.ctx, scope, cohort, attempt.CreatedAt, end, 251)
 	require.NoError(t, err)
 	require.Empty(t, ids)
-	ids, err = f.official.ListWalmartFeedAttemptIDs(f.ctx, f.scope, f.binding, attempt.CreatedAt.Add(-time.Second), attempt.CreatedAt, 251)
+	ids, err = f.official.ListWalmartFeedAttemptIDs(f.ctx, f.scope, cohort, attempt.CreatedAt.Add(-time.Second), attempt.CreatedAt, 251)
 	require.NoError(t, err)
 	require.Empty(t, ids, "an attempt at the exclusive end belongs to the next period")
 }

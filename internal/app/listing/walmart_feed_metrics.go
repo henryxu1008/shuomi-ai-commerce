@@ -13,7 +13,7 @@ import (
 )
 
 type WalmartFeedMetricsSource interface {
-	ListWalmartFeedAttemptIDs(context.Context, collection.Scope, storecenter.ProductMerchantBinding, time.Time, time.Time, int) ([]string, error)
+	ListWalmartFeedAttemptIDs(context.Context, collection.Scope, submission.WalmartFeedReadScope, time.Time, time.Time, int) ([]string, error)
 	ReadWalmartFeedAttempt(context.Context, collection.Scope, string) (submission.ExecutionAttempt, error)
 	ReadOfficialIntent(context.Context, collection.Scope, string) (submission.OfficialIntent, error)
 	ReadOfficial(context.Context, collection.Scope, string) (submission.OfficialReceipt, error)
@@ -58,7 +58,10 @@ func (a *Application) WalmartFeedMetrics(ctx context.Context, filter workbenchme
 	if err != nil {
 		return result, err
 	}
-	ids, err := a.WalmartFeedSource.ListWalmartFeedAttemptIDs(ctx, scope, binding, filter.Start, filter.End, workbenchmetrics.MaxCandidates+1)
+	cohort := submission.WalmartFeedReadScope{
+		StoreID: binding.StoreID, MerchantIdentityHash: binding.SupplierIdentityHash, Environment: binding.Walmart.Environment,
+	}
+	ids, err := a.WalmartFeedSource.ListWalmartFeedAttemptIDs(ctx, scope, cohort, filter.Start, filter.End, workbenchmetrics.MaxCandidates+1)
 	if err != nil {
 		return result, record.ErrUnavailable
 	}
