@@ -100,9 +100,15 @@ func importServiceFixture(t *testing.T) (context.Context, *TargetService, *impor
 }
 func TestSheinImportPreviewAndSaveBindExactCandidateAndBaseline(t *testing.T) {
 	ctx, service, repo, versions, rules, request := importServiceFixture(t)
+	const internalNote = "WORKBENCH_ONLY_SHEIN_PROVIDER_NOTE"
+	versions.saved.Content.InternalNote = internalNote
 	preview, err := service.PreviewSheinImport(ctx, request)
 	require.NoError(t, err)
 	require.Equal(t, 1, repo.writes, "preview has no write")
+	previewJSON, err := json.Marshal(preview)
+	require.NoError(t, err)
+	require.NotContains(t, string(previewJSON), internalNote)
+	require.NotContains(t, string(previewJSON), "internalNote")
 	// The Console normalizes nullable array responses to empty arrays. This
 	// representation must not be treated as an unselected business edit.
 	preview.Input.Draft.Images = []goods.OfficialImageSlot{}
@@ -134,6 +140,11 @@ func TestSheinImportPreviewAndSaveBindExactCandidateAndBaseline(t *testing.T) {
 	saved, err := service.Create(ctx, key, preview.Input)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), saved.Record.Revision)
+	// The uploader builds its platform request from this official product DTO.
+	payload, err := json.Marshal(saved.Record.Result.Product)
+	require.NoError(t, err)
+	require.NotContains(t, string(payload), internalNote)
+	require.NotContains(t, string(payload), "internalNote")
 	require.Equal(t, versions.saved.ID, saved.Record.Input.SheinImport.CompletionDraft.RecordID)
 	rules.merchant.ConnectionRevision++
 	versions.saved.Revision = 99

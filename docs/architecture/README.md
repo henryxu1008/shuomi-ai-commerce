@@ -103,6 +103,7 @@
 - `completion-draft-history.md` — [待补全草稿保存历史与比较 v1](completion-draft-history.md)
 - `completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](completion-draft-restore.md)
 - `completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](completion-draft-structured.md)
+- `completion-draft-internal-note.md` — [待补全草稿内部备注](completion-draft-internal-note.md)
 - `market-research-selection.md` — [市场研究与选品：最小领域合同](market-research-selection.md)
 - `market-research-evidence-analysis-v1.md` — [两个中心 V1：研究证据分析合同增量](market-research-evidence-analysis-v1.md)
 - `amazon-opportunity-handoff-v1.md` — [Amazon 美国站调研机会与选品交接 V1](amazon-opportunity-handoff-v1.md)

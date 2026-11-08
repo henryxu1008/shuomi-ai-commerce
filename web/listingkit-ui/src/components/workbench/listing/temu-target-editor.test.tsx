@@ -81,7 +81,12 @@ it("approves only explicitly selected source images under original TEMU provenan
  await userEvent.click(screen.getByLabelText("使用来源图 1"));await userEvent.click(screen.getByRole("button",{name:"确认完整图片选择"}));expect(state.execute).toHaveBeenCalledWith("approve",{selection:{itemId:id,originalPublicationId:id,originalSnapshotVersion:"9007199254740993",effectiveCatalogVersion:"9007199254740993",targetPlatform:"temu"},images:[{id,role:"gallery"}],approved:[]});
 });
 it("imports completion text only after an explicit action",async()=>{
- state.rules.mockResolvedValue(rules("local"));state.completion.mockResolvedValue({revision:3,content:{title:"候选标题",description:"候选描述"}});render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0} completionAvailable/>);const bring=await screen.findByRole("button",{name:"带入待补全草稿 R3"});await screen.findByLabelText("商品标题");expect(screen.getByLabelText("商品标题")).toHaveValue("原始商品");await userEvent.click(bring);expect(screen.getByLabelText("商品标题")).toHaveValue("候选标题");
+ state.rules.mockResolvedValue(rules("local"));state.completion.mockResolvedValue({revision:3,content:{title:"候选标题",description:"候选描述",internalNote:"WORKBENCH_ONLY_TEMU_NOTE"}});render(<TemuTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={command} disabled={false} saved={0} completionAvailable/>);const bring=await screen.findByRole("button",{name:"带入待补全草稿 R3"});await screen.findByLabelText("商品标题");expect(screen.getByLabelText("商品标题")).toHaveValue("原始商品");await userEvent.click(bring);expect(screen.getByLabelText("商品标题")).toHaveValue("候选标题");
+ await userEvent.click(screen.getByRole("button",{name:"保存并校验平台资料"}));
+ expect(state.execute).toHaveBeenCalledOnce();
+ const payload=JSON.stringify(state.execute.mock.lastCall?.[1]);
+ expect(payload).toContain("候选描述");
+ expect(payload).not.toMatch(/internalNote|WORKBENCH_ONLY_TEMU_NOTE/);
 });
 it("uses exact predefined variation IDs when the current template disallows custom values",async()=>{
  const current={...rules("local"),temu:{...rules("local").temu,localVariations:{catId:"34",language:"en",variations:[{parentSpecId:"9007199254740994",parentSpecName:"Color",required:true,variationType:"0",specList:[{specId:"9007199254740993",specName:"Blue",parentSpecId:"9007199254740994",parentSpecName:"Color",subGroupId:null,subGroupName:""}]}]}}};state.rules.mockResolvedValue(current);

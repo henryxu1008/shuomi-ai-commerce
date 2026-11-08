@@ -19,12 +19,14 @@ import (
 
 const StatusPending = "pending_completion"
 const MaxPayloadBytes = 64 << 10
+const maxInternalNoteBytes = 1024
 
 type Content struct {
 	Title             string             `json:"title"`
 	Description       string             `json:"description"`
 	DescriptionFormat string             `json:"descriptionFormat,omitempty"`
 	DescriptionImages []string           `json:"descriptionImages,omitempty"`
+	InternalNote      string             `json:"internalNote,omitempty"`
 	Structured        *StructuredContent `json:"structured,omitempty"`
 }
 type SaveInput struct {
@@ -34,6 +36,10 @@ type SaveInput struct {
 }
 
 func (in SaveInput) Validate() error {
+	note := in.Content.InternalNote
+	if len(note) > maxInternalNoteBytes || !utf8.ValidString(note) || strings.ContainsRune(note, 0) {
+		return preparation.ErrInvalid
+	}
 	if in.Content.Structured.validate() != nil || description.Validate(in.Content.Description, in.Content.DescriptionFormat, nil) != nil || !in.Content.validDescriptionImages() {
 		return preparation.ErrInvalid
 	}
