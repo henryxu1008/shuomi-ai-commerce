@@ -18,7 +18,7 @@ await mkdir(resolve(root, 'artifacts'), { recursive: true });
 const artifacts = await mkdtemp(resolve(root, 'artifacts', `${browserName}-`));
 const profile = resolve(artifacts, 'profile');
 const receiver = `<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="referrer" content="no-referrer"><title>Issue399 Fixture Receiver</title></head><body>
-<h1>Transport Fixture — 不是真实后端</h1><p id="status">等待受限capture消息</p><button id="unknown" disabled>模拟响应丢失</button><pre id="summary"></pre>
+<h1>Transport Fixture — 不是真实后端</h1><p id="status">等待受限capture消息</p><button id="save" disabled>确认保存</button><button id="unknown" disabled>模拟响应丢失</button><pre id="summary"></pre>
 <script>
 const params = new URLSearchParams(location.hash.slice(1));
 const extensionId=params.get('extensionId'),handoffId=params.get('handoffId'),idempotencyKey=params.get('idempotencyKey');
@@ -39,7 +39,7 @@ async function readCapture(){
   window.fixtureReceived={...response,handoffId};
   history.replaceState(null,'','#operationKey='+idempotencyKey);
   document.querySelector('#summary').textContent=JSON.stringify(response.payload,null,2);
-  document.querySelector('#status').textContent='FIXTURE_CAPTURE_RECEIVED';document.querySelector('#unknown').disabled=false;
+  document.querySelector('#status').textContent='FIXTURE_CAPTURE_RECEIVED';document.querySelector('#unknown').disabled=false;document.querySelector('#save').disabled=false;
 }
 document.querySelector('#unknown').onclick=async()=>{
   const common={version:2,handoffId,idempotencyKey,scope};
@@ -49,9 +49,28 @@ document.querySelector('#unknown').onclick=async()=>{
   await chrome.runtime.sendMessage(extensionId,{...common,type:'capture.status',phase:'unknown'});
   document.querySelector('#status').textContent='FIXTURE_OUTCOME_UNKNOWN';
 };
+document.querySelector('#save').onclick=async()=>{
+  const common={version:2,handoffId,idempotencyKey,scope};
+  const body=canonicalAmazon(window.fixtureReceived.payload);
+  const bound=await chrome.runtime.sendMessage(extensionId,{...common,type:'capture.bind',body});
+  if(bound?.phase!=='bound'){document.querySelector('#status').textContent='FIXTURE_BIND_DENIED:'+bound?.code;return;}
+  const sent=await chrome.runtime.sendMessage(extensionId,{...common,type:'capture.send'});
+  if(sent?.phase!=='sending'){document.querySelector('#status').textContent='FIXTURE_SEND_DENIED:'+sent?.code;return;}
+  const response=await fetch('/fixture-save',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':idempotencyKey},body});
+  if(!response.ok)throw Error('Fixture save failed');
+  document.querySelector('#status').textContent='FIXTURE_SAVED';
+  // Deliberately omit the draft status report to model interruption after dispatch.
+};
 readCapture().catch(()=>document.querySelector('#status').textContent='CAPTURE_UNAVAILABLE');
 </script></body></html>`;
-const server = createServer((req, res) => {
+const fixtureSaves=[];
+const server = createServer(async (req, res) => {
+  if (req.method === 'POST' && req.url === '/fixture-save') {
+    const chunks=[];
+    for await (const chunk of req) chunks.push(chunk);
+    fixtureSaves.push({key:req.headers['idempotency-key'],body:Buffer.concat(chunks).toString('utf8')});
+    res.writeHead(201);res.end();return;
+  }
   if (req.method !== 'GET' || !['/capture/1688','/capture/amazon'].includes(req.url)) { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8', 'Referrer-Policy':'no-referrer' }); res.end(receiver);
 });
@@ -103,43 +122,60 @@ try {
   // smoke run that only checks "no host_permissions" would pass a widened grant silently.
   if (JSON.stringify(manifest.permissions) !== JSON.stringify(['activeTab','scripting','storage','unlimitedStorage']) || JSON.stringify(manifest.host_permissions) !== JSON.stringify(['https://detail.1688.com/*','https://www.amazon.com/*','https://www.amazon.ca/*','https://www.amazon.co.uk/*','https://www.amazon.de/*','https://www.amazon.co.jp/*'])) throw Error('Unexpected permissions');
   const recreatedReturns=[];
-  async function recreateAndReturn(sourcePage,receiver,capture,platform){
-    const originalReceiver=receiver, originalURL=receiver.url(), pageCount=context.pages().length;
+  const fixtureScope={userId:'fixture-actor',organizationId:'fixture-org',memberId:'fixture-member'};
+  async function captureMessage(receiver,capture,type,fields={}) {
+    return receiver.evaluate(({id,capture,type,fixtureScope,fields}) =>
+      chrome.runtime.sendMessage(id,{version:2,type,handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey,scope:fixtureScope,...fields}),
+      {id,capture,type,fixtureScope,fields});
+  }
+  async function stopWorker(sourcePage) {
     const control=await context.newCDPSession(sourcePage);
-    await control.send('ServiceWorker.enable');
-    await control.send('ServiceWorker.stopAllWorkers');
-    const afterStop=await receiver.evaluate(async ({id,capture})=>{
-      try { return await chrome.runtime.sendMessage(id,{version:2,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey,scope:{userId:'fixture-actor',organizationId:'fixture-org',memberId:'fixture-member'}}); }
-      catch(error){
-        if(error.message==='Could not establish connection. Receiving end does not exist.')return {code:'LISTENER_UNAVAILABLE'};
-        throw error;
-      }
-    },{id,capture});
-    if(!['CAPTURE_EXPIRED','LISTENER_UNAVAILABLE'].includes(afterStop?.code))throw Error('Worker recreation accepted an expired transport capability');
-    await sourcePage.bringToFront();
-    await sourcePage.getByRole('button',{name:'刷新状态',exact:true}).click();
-    const button=sourcePage.getByRole('button',{name:'返回应用核实',exact:true});
-    await button.waitFor();
-    const replacement=context.waitForEvent('page',{timeout:3000}).catch(()=>undefined);
-    await button.click();
-    const fresh=await replacement;if(fresh)receiver=fresh;
-    await receiver.waitForFunction(()=>document.visibilityState==='visible');
-    await receiver.locator('#status').filter({hasText:'FIXTURE_CAPTURE_RECEIVED'}).waitFor().catch(async error=>{console.log({stage:'RECEIVER_RESTORE_FAILURE',status:await receiver.locator('#status').innerText()});throw error;});
-    await receiver.waitForFunction(old=>window.fixtureReceived?.handoffId && window.fixtureReceived.handoffId!==old,capture.handoffId);
-    if(context.pages().length!==pageCount+(fresh?1:0) || receiver.url()!==originalURL || originalReceiver.url()!==originalURL)throw Error('Worker restore changed the original key or navigated an unverified tab');
-    const restored=await receiver.evaluate(()=>window.fixtureReceived);
-    if(JSON.stringify(restored.payload)!==JSON.stringify(capture.payload)||restored.idempotencyKey!==capture.idempotencyKey||restored.handoffId===capture.handoffId)throw Error('Durable restore changed facts/key or reused an old nonce');
+    try {
+      await control.send('ServiceWorker.enable');
+      await control.send('ServiceWorker.stopAllWorkers');
+    } finally { await control.detach(); }
+  }
+  async function sessionBinding() {
     const stateWorker=context.serviceWorkers().find(value=>value.url()===`chrome-extension://${id}/background.js`);
-    if(!stateWorker)throw Error('Source return did not revive the worker');
+    if(!stateWorker)throw Error('No fixture extension worker');
     const stored=await stateWorker.evaluate(()=>chrome.storage.session.get(null));
     const entries=Object.values(stored);
     if(entries.length!==1 || entries[0].phase!=='bound' || !Number.isInteger(entries[0].tabId)
-      || JSON.stringify(Object.keys(entries[0]).sort())!==JSON.stringify(['phase','revision','sourceURL','tabId','version'])
-      || [capture.idempotencyKey,capture.handoffId].includes(entries[0].revision))throw Error('Unexpected session navigation contents');
+      || JSON.stringify(Object.keys(entries[0]).sort())!==JSON.stringify(['handoff','nonce','phase','revision','sourceURL','tabId','version'])
+      || JSON.stringify(Object.keys(entries[0].handoff).sort())!==JSON.stringify(['documentId','draftId','expires','key','nonce']))throw Error('Unexpected session binding');
+    return {stateWorker,binding:entries[0]};
+  }
+  async function recreateAndReturn(sourcePage,receiver,capture,platform){
+    const originalURL=receiver.url(), pageCount=context.pages().length;
+    const {stateWorker:previousWorker,binding:before}=await sessionBinding();
+    await previousWorker.evaluate(()=>{globalThis.fixtureWorkerBeforeStop=true;});
+    await stopWorker(sourcePage);
+    const afterStop=await captureMessage(receiver,capture,'capture.read');
+    if(afterStop?.type!=='capture.draft'||afterStop.idempotencyKey!==capture.idempotencyKey
+      ||JSON.stringify(afterStop.payload)!==JSON.stringify(capture.payload))throw Error('Worker restart lost the same-page draft or changed its key');
+    const {stateWorker,binding:after}=await sessionBinding();
+    if(await stateWorker.evaluate(()=>globalThis.fixtureWorkerBeforeStop===true))throw Error('The original fixture worker was not restarted');
+    if(JSON.stringify(after)!==JSON.stringify(before) || after.handoff.key!==capture.idempotencyKey || after.nonce!==capture.handoffId)throw Error('Worker restart changed the original binding or deadline');
+    await sourcePage.bringToFront();
+    await sourcePage.getByRole('button',{name:'刷新状态',exact:true}).click();
+    await sourcePage.getByRole('button',{name:'返回应用核实',exact:true}).click();
+    await receiver.waitForFunction(()=>document.visibilityState==='visible');
+    if(context.pages().length!==pageCount || receiver.url()!==originalURL)throw Error('Worker return changed the original document');
     const panel=await sourcePage.locator('#shuomi-product-capture').innerText();
     if(panel.includes(capture.idempotencyKey)||panel.includes(capture.handoffId))throw Error('Private transport identity leaked into source entry');
-    recreatedReturns.push({platform,sameOriginalTab:!fresh,explicitNewReceiver:!!fresh,sameOriginalURL:true,oldPayloadUnavailable:afterStop.code,sessionFields:Object.keys(entries[0]).sort()});
-    return receiver;
+    if(platform==='1688'){
+      // Advance only the isolated worker clock to the original absolute deadline.
+      await stateWorker.evaluate(expires=>{
+        globalThis.fixtureRealNow=Date.now;
+        Date.now=()=>expires;
+      },after.handoff.expires);
+      try {
+        if((await captureMessage(receiver,capture,'capture.read'))?.code!=='CAPTURE_EXPIRED')throw Error('Original deadline was not enforced after worker restart');
+      } finally {
+        await stateWorker.evaluate(()=>{Date.now=globalThis.fixtureRealNow;delete globalThis.fixtureRealNow;});
+      }
+    }
+    recreatedReturns.push({platform,sameOriginalTab:true,sameOriginalKey:true,sameDocument:true,originalDeadlinePreserved:true,deadlineBoundarySimulated:platform==='1688'});
   }
   await page.goto('https://detail.1688.com/offer/981645030344.html');
   console.log(JSON.stringify({ stage:'CLICK_SOURCE_PAGE_CAPTURE', id }));
@@ -181,7 +217,7 @@ try {
   const rejection = await wrong.evaluate(async ({id,capture})=>chrome.runtime.sendMessage(id,{version:2,type:'capture.read',handoffId:capture.handoffId,idempotencyKey:capture.idempotencyKey,scope:{userId:'fixture-actor',organizationId:'fixture-org',memberId:'fixture-member'}}),{id,capture});
   if(rejection.code!=='ACTION_UNAVAILABLE')throw Error('Other application tab read accepted');
   await wrong.close();
-  if(automated){app=await recreateAndReturn(page,firstApp,firstCapture,'1688');if(app!==firstApp)await app.close();}
+  if(automated)await recreateAndReturn(page,firstApp,firstCapture,'1688');
   let amazonSource;
   if(automated){
     const amazon=await context.newPage(); await amazon.goto('https://www.amazon.com/dp/B0BDLGZCTY');
@@ -208,22 +244,34 @@ try {
     if(!panelBounds || panelBounds.y<0 || panelBounds.y+panelBounds.height>viewport.height || panelBounds.x+panelBounds.width>viewport.width)throw Error('Source panel outside the viewport');
     await amazon.screenshot({path:resolve(artifacts,'amazon-source-page.png')});
   }
-  await app.locator('#unknown').click();
-  await app.locator('#status').filter({hasText:'FIXTURE_OUTCOME_UNKNOWN'}).waitFor();
-  await app.screenshot({path:resolve(artifacts,'receiver.png')});
-  let recoveryURL=app.url();
-  if(!recoveryURL.endsWith(`#operationKey=${capture.idempotencyKey}`))throw Error('Original recovery key was lost');
-  let workerRestartRejected=false;
-  let workerStopOutcome=null;
+  let resumedSave=null;
   if(automated){
-    app=await recreateAndReturn(amazonSource,app,capture,'amazon');
-    workerStopOutcome=recreatedReturns.at(-1).oldPayloadUnavailable;
-    workerRestartRejected=true;
+    await recreateAndReturn(amazonSource,app,capture,'amazon');
+    const body=amazonCaptureBody(capture.payload);
+    await app.getByRole('button',{name:'确认保存',exact:true}).click();
+    await app.locator('#status').filter({hasText:'FIXTURE_SAVED'}).waitFor();
+    if(fixtureSaves.length!==1||fixtureSaves[0].key!==capture.idempotencyKey||fixtureSaves[0].body!==body)throw Error('Unexpected fixture save request');
+    if((await captureMessage(app,capture,'capture.send'))?.code!=='DRAFT_CHANGED')throw Error('Duplicate send accepted while saving');
+    await stopWorker(amazonSource);
+    const restored=await captureMessage(app,capture,'capture.read');
+    if(restored?.phase!=='unknown'||restored.canSubmit||restored.idempotencyKey!==capture.idempotencyKey)throw Error('Interrupted send did not remain unknown on the original key');
+    for(const field of ['organizationId','userId','memberId']){
+      const mismatch={...fixtureScope,[field]:'wrong-fixture-scope'};
+      if((await captureMessage(app,capture,'capture.read',{scope:mismatch}))?.code!=='DRAFT_SCOPE_CHANGED')throw Error('Restored scope check failed: '+field);
+    }
+    if((await captureMessage(app,capture,'capture.send'))?.code!=='DRAFT_CHANGED'||fixtureSaves.length!==1)throw Error('Duplicate send accepted after worker restart');
+    resumedSave={sameOriginalKey:true,sameCanonicalBody:true,fixtureRequests:fixtureSaves.length,scopeChecks:['organizationId','userId','memberId'],restartDuringSend:'UNKNOWN',duplicateDeniedBeforeAndAfterRestart:true};
+  }else{
+    await app.locator('#unknown').click();
+    await app.locator('#status').filter({hasText:'FIXTURE_OUTCOME_UNKNOWN'}).waitFor();
   }
-  recoveryURL=app.url();
+  await app.screenshot({path:resolve(artifacts,'receiver.png')});
+  const recoveryURL=app.url();
+  if(!recoveryURL.endsWith(`#operationKey=${capture.idempotencyKey}`))throw Error('Original recovery key was lost');
   await app.reload();
   await app.locator('#status').filter({hasText:'恢复模式：只有原key，无自动POST'}).waitFor();
   if(app.url()!==recoveryURL)throw Error('Reload changed recovery identity');
+  if(automated&&(await captureMessage(app,capture,'capture.meta'))?.code!=='ACTION_UNAVAILABLE')throw Error('A new document took over the old capability');
   let familyResult=null;
   if(automated){
     familyMode=true;
@@ -294,7 +342,7 @@ try {
   const buildHashes={};
   for(const name of ['manifest.json','background.js','extractor.js','page.js','popup.js','popup.html','popup.css']) buildHashes[name]=createHash('sha256').update(await readFile(resolve(root,'dist-fixture',name))).digest('hex');
   await writeFile(resolve(artifacts,'receipt.json'),JSON.stringify({head,buildHashes,browserName,browserVersion:context.browser()?.version(),id,manifest,
-    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,initialCaptureAfterWorkerStop:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:true,workerRestartRejected,workerStopOutcome,recreatedReturns,reloadPreservedKey:true,
+    result:'PASS_TRANSPORT_FIXTURE_ONLY',ownProfileDynamicEndpoint:automated,sourcePageEntry:automated,initialCaptureAfterWorkerStop:automated,syntheticClickRejected:automated,originalTabReturn:true,amazonExplicitNewCapture:automated,ownTabCapture:true,wrongAppTabRejected:true,unknownStatusSent:!automated,resumedSave,recreatedReturns,reloadPreservedKey:true,
     familyResult,backendIntegration:'NOT_RUN',real1688:'NOT_RUN',realAmazon:'NOT_RUN'},null,2));
   console.log(JSON.stringify({stage:'TRANSPORT_FIXTURE_PASS',artifacts}));
 } finally {

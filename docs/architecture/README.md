@@ -86,6 +86,7 @@
 - `1688-acquisition-channel-pricing.md` — [1688 acquisition channel pricing — design basis for #592](1688-acquisition-channel-pricing.md)
 - `plugin-capture-amazon-variants.md` — [Amazon 插件：可选采集同族其他变体](plugin-capture-amazon-variants.md)
 - `plugin-capture-durable-drafts.md` — [商品采集插件：可恢复本地草稿规划与设计 v1](plugin-capture-durable-drafts.md)
+- `plugin-capture-handoff-worker-restart.md` — [商品采集交接在扩展后台重建后恢复](plugin-capture-handoff-worker-restart.md)
 - `plugin-capture-entry-flow.md` — [Product capture entry and original-tab return](plugin-capture-entry-flow.md)
 - `plugin-capture-ingestion.md` — [插件采集增量架构：规格图片与 Amazon 接收保存 V1](plugin-capture-ingestion.md)
 - `plugin-capture-listing-materials.md` — [插件上架资料补齐：高清相册、参数、正文/详情图与重量 V1](plugin-capture-listing-materials.md)
