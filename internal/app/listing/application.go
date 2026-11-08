@@ -19,6 +19,8 @@ import (
 )
 
 type Application struct {
+	TemuCreateSource      TemuCreateMetricsSource
+	TemuCreateMerchant    func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
 	SheinPublishSource    SheinPublishMetricsSource
 	SheinPublishMerchant  func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
 	TikTokPublishSource   TikTokPublishMetricsSource

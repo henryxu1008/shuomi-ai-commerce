@@ -177,9 +177,39 @@ func TestPostgresTemuImageRenewalRequiresLatestKnownExpiredSuccess(t *testing.T)
 	blockedImage := seedTemuImageIntent(t, db, saved, "product-pending-image", latest.ID)
 	_, err = kernel.Acquire(ctx, blockedImage)
 	require.ErrorIs(t, err, submission.ErrExecutionTargetClaimed, "the canonical product fence gates all new image effects")
+	assertCreationMetrics := func(t *testing.T, b storecenter.ProductMerchantBinding, a submission.ExecutionAttempt) {
+		t.Helper()
+		cohort := submission.TemuCreateReadScope{StoreID: b.StoreID, ApplicationID: b.ApplicationID, MerchantIdentityHash: b.SupplierIdentityHash, Site: b.Site, IdentityPartition: b.IdentityPartition, MerchantMode: b.MerchantMode, RegionID: b.RegionID}
+		scope := collection.Scope{OrganizationID: b.OrganizationID, ActorID: "actor-a", MemberID: "member-a"}
+		ids, err := originals.ListTemuCreateAttemptIDs(ctx, scope, cohort, a.CreatedAt, a.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Equal(t, []string{a.AttemptID}, ids, "only the original formal create is included, excluding its images")
+		ids, err = originals.ListTemuCreateAttemptIDs(ctx, scope, cohort, a.CreatedAt.Add(-time.Minute), a.CreatedAt, 251)
+		require.NoError(t, err)
+		require.Empty(t, ids)
+		otherCohort := cohort
+		if b.MerchantMode == storecenter.MerchantLocal {
+			otherCohort.IdentityPartition = storecenter.PartitionEU
+		} else {
+			otherCohort.MerchantMode = storecenter.MerchantSemiManaged
+		}
+		ids, err = originals.ListTemuCreateAttemptIDs(ctx, scope, otherCohort, a.CreatedAt, a.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Empty(t, ids, "a different partition or mode cannot consume the original attempt")
+		scope.MemberID = "another-member"
+		ids, err = originals.ListTemuCreateAttemptIDs(ctx, scope, cohort, a.CreatedAt, a.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Empty(t, ids)
+		scope.MemberID = "member-a"
+		cohort.MerchantIdentityHash = collection.Digest("another merchant")
+		ids, err = originals.ListTemuCreateAttemptIDs(ctx, scope, cohort, a.CreatedAt, a.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Empty(t, ids)
+	}
 	productClaim := submission.ExecutionClaim{Scope: submission.ExecutionScope{OrganizationID: "org-a"}, AttemptID: product.Attempt.AttemptID, FenceEpoch: product.Permit.FenceEpoch, OwnerID: product.Permit.ClaimOwnerID, Token: product.Permit.ClaimToken}
 	_, err = kernel.MarkUnknown(ctx, productClaim, submission.UnknownResponseLost)
 	require.NoError(t, err)
+	assertCreationMetrics(t, saved.Merchant, product.Attempt)
 	_, err = kernel.Acquire(ctx, blockedImage)
 	require.ErrorIs(t, err, submission.ErrExecutionTargetClaimed, "product UNKNOWN cannot begin image renewal")
 	for _, remaining := range []time.Duration{-time.Hour, 5 * time.Second} {
@@ -205,6 +235,7 @@ func TestPostgresTemuImageRenewalRequiresLatestKnownExpiredSuccess(t *testing.T)
 		claim := submission.ExecutionClaim{Scope: submission.ExecutionScope{OrganizationID: "org-a"}, AttemptID: acquired.Attempt.AttemptID, FenceEpoch: acquired.Permit.FenceEpoch, OwnerID: acquired.Permit.ClaimOwnerID, Token: acquired.Permit.ClaimToken}
 		_, err = kernel.MarkUnknown(ctx, claim, submission.UnknownResponseLost)
 		require.NoError(t, err)
+		assertCreationMetrics(t, supplier.Merchant, acquired.Attempt)
 		another := seedTemuImageIntent(t, db, supplier, "supplier-image-product-unknown", "")
 		_, err = kernel.Acquire(ctx, another)
 		require.ErrorIs(t, err, submission.ErrExecutionTargetClaimed)
