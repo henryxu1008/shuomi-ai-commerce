@@ -10,9 +10,15 @@ const unitPrice = '.pricePerUnit,.a-price-per-unit';
 const referencePrice = '.a-text-price,s,del';
 
 function amountText(raw: string, site: Site): string | null {
-  const normalized = raw.replace(/\s/g, '').replace(/^(?:US\$|CA\$|CDN\$|\$|£|€|￥|¥)/, '').replace(/(?:€|円)$/, '');
-  const amount = site === 'de' ? normalized.replace(',', '.') : normalized;
-  return /^(0|[1-9][0-9]{0,15})(\.[0-9]{1,8})?$/.test(amount) ? amount : null;
+  const normalized = raw.trim().replace(/^(?:US\$|CA\$|CDN\$|\$|£|€|￥|¥)\s*/, '').replace(/\s*(?:€|円)$/, '');
+  // Validate complete locale-specific groups before removing separators. Do not
+  // turn malformed groups, mixed locales or whitespace-separated numbers into a quote.
+  const format = site === 'de'
+    ? /^(?:0|[1-9][0-9]*|[1-9][0-9]{0,2}(?:\.[0-9]{3})+)(?:,[0-9]+)?$/
+    : /^(?:0|[1-9][0-9]*|[1-9][0-9]{0,2}(?:,[0-9]{3})+)(?:\.[0-9]+)?$/;
+  if (!format.test(normalized)) return null;
+  const amount = site === 'de' ? normalized.replace(/\./g, '').replace(',', '.') : normalized.replace(/,/g, '');
+  return validPriceAmount(amount) ? amount : null;
 }
 
 // An explicit product tuple is separate from the general text reader: only
