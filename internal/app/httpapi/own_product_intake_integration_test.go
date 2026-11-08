@@ -389,21 +389,6 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
 	require.Zero(t, count, "all offline verification stops before product save")
 
-	app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
-		calls.Add(1)
-		return nil, errors.New("isolated response lost after provider handoff")
-	})
-	unknownKey := uuid.NewString()
-	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", unknownKey, body, 200), &prepared))
-	unknown := ownIntakeConfirm{ownIntakeBody: body, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}
-	unknownResult := call("POST", ownIntakeBase+"/"+unknownKey+"/confirm", unknownKey, unknown, 200)
-	var uncertain ownIntakeResult
-	require.NoError(t, json.Unmarshal(unknownResult, &uncertain))
-	require.Equal(t, agent.StopModelUnknown, uncertain.StopReason)
-	require.Nil(t, uncertain.Candidate)
-	require.JSONEq(t, string(unknownResult), string(call("GET", ownIntakeBase+"/"+unknownKey, "", nil, 200)))
-	require.JSONEq(t, string(unknownResult), string(call("POST", ownIntakeBase+"/"+unknownKey+"/confirm", unknownKey, unknown, 200)))
-	require.EqualValues(t, 4, calls.Load(), "an uncertain provider result must never be redispatched")
 	// Invalid prices stop on the guarded model path and preserve the field
 	// diagnostic on read/re-confirm, without a second controlled dispatch.
 	for _, source := range []string{"CNY 29-39", "CNY 29,999.00", "不是 CNY 29，价格待定", "CNY 29 或 CNY 39，尚未确认"} {
@@ -436,6 +421,23 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 			require.Zero(t, count, "price rejection never saves a product")
 		})
 	}
+
+	beforeUnknown := calls.Load()
+	app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return nil, errors.New("isolated response lost after provider handoff")
+	})
+	unknownKey := uuid.NewString()
+	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", unknownKey, body, 200), &prepared))
+	unknown := ownIntakeConfirm{ownIntakeBody: body, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}
+	unknownResult := call("POST", ownIntakeBase+"/"+unknownKey+"/confirm", unknownKey, unknown, 200)
+	var uncertain ownIntakeResult
+	require.NoError(t, json.Unmarshal(unknownResult, &uncertain))
+	require.Equal(t, agent.StopModelUnknown, uncertain.StopReason)
+	require.Nil(t, uncertain.Candidate)
+	require.JSONEq(t, string(unknownResult), string(call("GET", ownIntakeBase+"/"+unknownKey, "", nil, 200)))
+	require.JSONEq(t, string(unknownResult), string(call("POST", ownIntakeBase+"/"+unknownKey+"/confirm", unknownKey, unknown, 200)))
+	require.Equal(t, beforeUnknown+1, calls.Load(), "an uncertain provider result must never be redispatched")
 
 }
 
