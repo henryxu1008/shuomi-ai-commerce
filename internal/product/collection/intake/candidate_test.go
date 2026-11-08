@@ -20,7 +20,7 @@ func naturalStockFixture(stock string) (Input, Candidate) {
 }
 
 func TestCandidateNaturalStockKeepsThreeRowsAndUnknown(t *testing.T) {
-	for _, phrase := range []string{"库存明确为 0", "库存明确为0", "库存为 0", "库存是 0", "库存数量为 0", "库存：0", "stock is 0", "库存明确为 0 件"} {
+	for _, phrase := range []string{"库存明确为 0", "库存明确为0", "库存为 0", "库存是 0", "库存数量为 0", "库存：0", "stock is 0", "库存明确为 0 件", "库存明确为0，图片尚未确认"} {
 		t.Run(phrase, func(t *testing.T) {
 			in, c := naturalStockFixture(phrase)
 			raw, err := json.Marshal(c)
@@ -43,7 +43,7 @@ func TestCandidateNaturalStockKeepsThreeRowsAndUnknown(t *testing.T) {
 }
 
 func TestCandidateStockDoesNotTurnUnknownOrAmbiguousIntoZero(t *testing.T) {
-	for _, phrase := range []string{"库存未填写", "库存未知，不能填0", "库存不是0", "库存不为0", "库存为-1", "库存为0.5", "库存为0或5", "库存约为0", "库存为0左右", "库存为0，库存为5", "库存为0，尚未确认", "库存为0.0", "库存为0，库存大约5", "库存为0，库存未知"} {
+	for _, phrase := range []string{"库存未填写", "库存未知，不能填0", "库存不是0", "库存不为0", "库存为-1", "库存为0.5", "库存为0或5", "库存约为0", "库存为0左右", "库存为0，库存为5", "库存为0，尚未确认", "库存为0.0", "库存为0，库存大约5", "库存为0，库存未知", "并非库存为0", "未确认库存为0", "not stock is 0", "大约库存为0"} {
 		t.Run(phrase, func(t *testing.T) {
 			in, c := naturalStockFixture(phrase)
 			err := c.Validate(in)
