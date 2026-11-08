@@ -15,6 +15,13 @@ type Access struct {
 	Official      *storeapp.OfficialObservationAccess
 }
 
+func (a Access) ReadSavedWalmartOrderBinding(ctx context.Context, s o.Scope, store string) (o.Binding, error) {
+	if a.Official == nil {
+		return o.Binding{}, o.ErrUnavailable
+	}
+	return a.Official.ReadSavedWalmartOrderBinding(ctx, storecenter.ObservationSubject{OrganizationID: s.OrganizationID, ActorID: s.ActorID, MemberID: s.MemberID, Purpose: storecenter.ObservationPurposeOrders}, store)
+}
+
 func (a Access) Authorize(ctx context.Context, s o.Scope, k o.Kind, sync bool) error {
 	return a.Authorization.Authorize(ctx, s, k, sync)
 }

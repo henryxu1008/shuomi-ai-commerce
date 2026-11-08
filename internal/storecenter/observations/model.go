@@ -188,15 +188,16 @@ func (w Window) Key() string {
 }
 
 type Checkpoint struct {
-	Page            int      `json:"page"`
-	Windows         []Window `json:"windows"`
-	ExpectedTotal   *int     `json:"expectedTotal"`
-	Seen            int      `json:"seen"`
-	Pages           int      `json:"pages"`
-	Incomplete      bool     `json:"incomplete"`
-	Notes           []string `json:"notes"`
-	TemuPageToken   string   `json:"temuPageToken,omitempty"`
-	TemuTokenHashes []string `json:"temuTokenHashes,omitempty"`
+	WalmartOrders   *WalmartOrderProgress `json:"walmartOrders,omitempty"`
+	Page            int                   `json:"page"`
+	Windows         []Window              `json:"windows"`
+	ExpectedTotal   *int                  `json:"expectedTotal"`
+	Seen            int                   `json:"seen"`
+	Pages           int                   `json:"pages"`
+	Incomplete      bool                  `json:"incomplete"`
+	Notes           []string              `json:"notes"`
+	TemuPageToken   string                `json:"temuPageToken,omitempty"`
+	TemuTokenHashes []string              `json:"temuTokenHashes,omitempty"`
 }
 
 func (c *Checkpoint) Note(s string) {
@@ -233,6 +234,12 @@ func (s Sync) MarshalJSON() ([]byte, error) {
 	type publicSync Sync
 	s.Progress.TemuPageToken = ""
 	s.Progress.TemuTokenHashes = nil
+	if s.Progress.WalmartOrders != nil {
+		p := *s.Progress.WalmartOrders
+		p.Cursor = ""
+		p.CursorHashes = nil
+		s.Progress.WalmartOrders = &p
+	}
 	return json.Marshal(publicSync(s))
 }
 
@@ -262,6 +269,7 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
+	WalmartOrder   *WalmartOrder    `json:"walmartOrder,omitempty"`
 	WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
 	StoreID        string           `json:"storeId"`
 	SyncID         string           `json:"syncId"`
