@@ -21,7 +21,7 @@ Design Basis: Independent Architecture。Admission Status: NOT_READY / pending i
 2. 保存身份为organization/store/generation/purchaseOrderId；customerOrderId只用于说明拆单，不用来合并不同PO。订单行按lineNumber唯一；相同SKU不同lineNumber分别保留，包裹/状态分组/数量不生成额外金额。重复同PO相同载荷跨页/跨窗口只保存一次；不同载荷不得静默覆盖，记录coverage冲突并禁止发布完整head。不同generation不累加。
 3. WalmartOrder仅允许purchaseOrderId、customerOrderId、orderDate、orderType，以及lineNumber、quantity、PRODUCT费用列表（currency/原十进制amount）。不存地址、姓名、邮箱、电话、trackingURL、支付资料、raw response或凭据。订单身份/行集合必须有效；空行集合或字段缺失不能被当成零元。
 4. 直接累计每个原生订单行的PRODUCT chargeAmount，**不再次乘orderLineQuantity**；指标表达原API保存的PRODUCT费用合计。不加入SHIPPING、tax、FEE、退款、供货/采购金额，不从刊登售价推算；不另行反推折扣前/后成交。每行恰有一个PRODUCT费用才进入金额；缺失、多个PRODUCT或显式折扣标记无法解释时保留缺字段/待核实并隐藏合计。原始quantity留存但不参与费用乘法；虚拟包不按pack元数据展开。保留所有原订单类型及状态所对应原费用，不依据状态扣减，不声称已付款或净收入。
-5. 金额为非负十进制（最多20位整数、8位小数）；json.Number/原字符串精确读取，不经float；各3位大写原币分别累加。复用SHEIN已有math/big.Int精确聚合方式。明确0和缺失不同；期间完整空集合不猜币种或填USD0。
+5. 金额为非负十进制（最多20位整数、8位小数）；json.Number/原字符串精确读取，不经float；各3位大写原币分别累加。同一PO的所有PRODUCT费用必须同币，混币PO标字段待核实并隐藏金额，不拼成虚假订单总额；不同PO可分原币展示。复用SHEIN已有math/big.Int精确聚合方式。明确0和缺失不同；期间完整空集合不猜币种或填USD0。
 
 ## 读取、分页和覆盖
 
