@@ -210,6 +210,19 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		}
 		return nil
 	}
+	app.CockpitSubmissionStores = func(ctx context.Context, scope collection.Scope, ids []string) ([]listingapp.CockpitSubmissionStore, error) {
+		// Store metadata is local and organization scoped; access is checked by the
+		// aggregate before and after this read, in addition to every native projection.
+		result := make([]listingapp.CockpitSubmissionStore, 0, len(ids))
+		for _, id := range ids {
+			store, err := storeRepo.Get(ctx, scope.OrganizationID, id)
+			if err != nil || store == nil || store.ID() != id {
+				return nil, record.ErrUnavailable
+			}
+			result = append(result, listingapp.CockpitSubmissionStore{ID: id, Platform: string(store.Platform()), Region: store.Region()})
+		}
+		return result, nil
+	}
 	app.Uploader = uploader
 	app.SheinPublication, err = listingapp.NewSheinPublicationService(listingapp.SheinPublicationDependencies{Sources: sources, Records: records, Authorization: auth, ExecutionAuthorization: executionAuth, Receipts: official, Intents: official, Kernel: kernel, Attempts: effects, Stores: listingapp.OfficialSheinPublicationStore{Access: access}})
 	if err != nil {

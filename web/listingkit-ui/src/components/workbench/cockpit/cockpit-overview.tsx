@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { cockpitRequest, cockpitErrorText, type CockpitScope } from "@/lib/api/operations-cockpit";
 import { cockpitCapabilities, cockpitMatrix, cockpitRules, moneyText, type CockpitCapabilities } from "@/lib/contracts/operations-cockpit";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
-import { listingMetrics, publicationMetrics, taskMetrics, storeSubmissionMetrics, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
+import { listingMetrics, publicationMetrics, taskMetrics, storeSubmissionMetrics, submissionOverviewMetrics, type SubmissionOverview, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
 import { CockpitTaskDistribution } from "./cockpit-task-distribution";
 import styles from "./cockpit-overview.module.css";
 
@@ -29,7 +29,7 @@ const metrics = [
   ["活跃店铺", "所选范围内已启用的授权店铺", "success"],
   ["待处理商品", "商品统计待接入", "warning"],
   ["待审核商品", "审核统计待接入", "accent"],
-  ["上传成功率", "上传结果统计待接入", "info"],
+  ["待核实操作次数", "提交与创建统计暂不可用", "info"],
   ["异常任务", "异常任务统计待接入", "danger"],
 ] as const;
 const stages = [
@@ -122,13 +122,14 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     retry: false,
     gcTime: 0,
     queryFn: async ({ signal }) => {
-      const [listing, tasks, submission, publication] = await Promise.allSettled([
+      const [listing, tasks, submission, publication, overview] = await Promise.allSettled([
         listingAllowed ? readCockpitMetrics(scope, "supply-preparations", statsQuery, listingMetrics, signal) : undefined,
         tasksAllowed ? readCockpitMetrics(scope, "tasks", statsQuery, taskMetrics, signal) : undefined,
         listingAllowed && submissionOwner ? readCockpitMetrics(scope, submissionOwner, statsQuery, storeSubmissionMetrics, signal) : undefined,
         listingAllowed && countOwner ? readCockpitMetrics(scope, countOwner, statsQuery, publicationMetrics, signal) : undefined,
+        listingAllowed ? readCockpitMetrics(scope, "submission-overview", statsQuery, submissionOverviewMetrics, signal) : undefined,
       ] as const);
-      return { listing, tasks, submission, publication };
+      return { listing, tasks, submission, publication, overview };
     },
   });
   const listingRead = stats.data?.listing.status === "fulfilled" ? stats.data.listing.value : undefined;
@@ -149,6 +150,12 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const publicationMessage = metricsMessage(publicationAllowed, publicationRead);
   const publicationCounts = !publicationMessage && publicationRead?.result?.status === "complete" ? publicationRead.result.counts : undefined;
   const submissionCounts = !submissionMessage && submissionRead?.result?.status === "complete" ? submissionRead.result.counts : undefined;
+
+  const overviewRead = stats.data?.overview.status === "fulfilled" ? stats.data.overview.value : undefined;
+  const overviewMessage = !listingAllowed || statsScopeMessage || refreshing || stats.isFetching || stats.isPending
+    ? metricsMessage(listingAllowed, overviewRead)
+    : overviewRead?.result ? undefined : overviewRead?.message ?? "统计暂不可用";
+  const overview = !overviewMessage ? overviewRead?.result : undefined;
 
   function readState(allowed: boolean, fetching: boolean, error: unknown) {
     if (refreshing) return "正在刷新经营事实…";
@@ -204,6 +211,8 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskCounts={!taskMessage && taskRead?.result?.status === "complete" ? taskRead.result.counts : undefined}
     listingMessage={listingMessage}
     taskMessage={taskMessage}
+    submissionOverview={overview}
+    submissionOverviewMessage={overviewMessage}
     storeSubmission={countOwner
       ? <PublicationCounts platform={countOwner === "temu-create" ? "temu" : "shein"} counts={publicationCounts} message={publicationMessage} />
       : submissionOwner ? <StoreSubmissionRate owner={submissionOwner} counts={submissionCounts} message={submissionMessage} /> : undefined}
@@ -237,6 +246,39 @@ function RuleList({ data, state, mode, actionFor }: {
       {mode === "alerts" ? "当前范围暂无规则预警" : "当前范围暂无人工处理建议"}
     </p>}
   </>;
+}
+
+function SubmissionOverviewPanel({ data, message }: { data?: SubmissionOverview; message?: string }) {
+  const labels = [
+    ["walmart", "Walmart US", "Feed 提交尝试", "已受理", "明确拒绝", "结果未知"],
+    ["tiktokshop", "TikTok Shop US", "全球商品发布到美国站的最后一步", "已提交审核", "明确失败", "结果未知"],
+    ["shein", "SHEIN US", "正式商品发布尝试", "已确认提交", "明确失败", "结果待核实"],
+    ["temu", "Temu", "正式商品创建尝试 · 多站点只计一次", "已确认创建", "明确失败", "结果待核实"],
+  ] as const;
+  return <Panel title="提交与创建概览" detail="当前企业内本人可读 · 按原尝试日期统计">
+    <p className={styles.panelNote}>各平台阶段分别展示，仅合计待核实操作次数，不代表商品数或上架结果。</p>
+    {message ? <p className={styles.empty} role="status">{message}</p> : <div className={styles.tableWrap} tabIndex={0} role="region" aria-label="各平台提交与创建数量">
+      <table>
+        <thead><tr><th scope="col">平台 / 统计对象</th><th scope="col">已确认结果</th><th scope="col">明确失败</th><th scope="col">待核实</th></tr></thead>
+        <tbody>{labels.map(([platform, title, unit, confirmed, rejected, unknown]) => {
+          const row = data?.rows?.find(item => item.platform === platform);
+          const counts = row?.status === "complete" ? row.counts : undefined;
+          const state = row?.status === "empty" ? "所选范围无适用店铺"
+            : row?.status === "limited" ? "记录较多，请缩小日期或店铺范围" : "统计暂不可用";
+          return <tr key={platform}>
+            <th scope="row">{title}<small className={styles.platformUnit}>{unit}{row?.stores ? ` · ${row.stores} 家店铺` : ""}</small></th>
+            {counts ? <>
+              <td><span>{confirmed}</span><strong className={styles.platformCount}>{counts.confirmed}</strong></td>
+              <td>{"rejected" in counts ? <><span>{rejected}</span><strong className={styles.platformCount}>{String(counts.rejected)}</strong></> : "口径未覆盖"}</td>
+              <td><span>{unknown}</span><strong className={styles.platformCount}>{counts.unknown}</strong></td>
+            </> : <><td colSpan={platform === "shein" || platform === "temu" ? 1 : 3}>{state}</td>
+              {(platform === "shein" || platform === "temu") && <><td>口径未覆盖</td><td>{state}</td></>}</>}
+          </tr>;
+        })}</tbody>
+      </table>
+    </div>}
+    {data?.status === "incomplete" && <p className={styles.panelNote} role="status">统计未完整覆盖，待核实合计暂不可用。{data.excludedStores > 0 ? ` 所选范围有 ${data.excludedStores} 家店铺的统计口径尚未覆盖。` : "请查看各平台读取状态。"}</p>}
+  </Panel>;
 }
 
 function PublicationCounts({ platform, counts, message }: {
@@ -273,7 +315,7 @@ function StoreSubmissionRate({ owner, counts, message }: {
     </div> : <p className={styles.empty} role="status">{message}</p>}
   </Panel>;
 }
-function OverviewPanels({ filters, message, activeStores, listingCounts, taskCounts, listingMessage, taskMessage, storeSubmission, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
+function OverviewPanels({ filters, message, activeStores, listingCounts, taskCounts, listingMessage, taskMessage, storeSubmission, submissionOverview, submissionOverviewMessage, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
   filters?: ReactNode;
   message?: string;
   activeStores?: number;
@@ -282,6 +324,8 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
   listingMessage?: string;
   taskMessage?: string;
   storeSubmission?: ReactNode;
+  submissionOverview?: SubmissionOverview;
+  submissionOverviewMessage?: string;
   platforms?: readonly string[];
   matrix?: Matrix;
   matrixState?: string;
@@ -292,9 +336,9 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
   alertLink?: { href: string; label: string };
   adviceLink?: { href: string; label: string };
 }) {
-  const values = [undefined, activeStores, listingCounts?.pending, listingCounts?.review, undefined, taskCounts?.ERROR];
+  const values = [undefined, activeStores, listingCounts?.pending, listingCounts?.review, submissionOverview?.status === "complete" ? submissionOverview.unknownTotal : undefined, taskCounts?.ERROR];
   const notes = [undefined, undefined, listingMessage ?? (listingCounts && "期间新增刊登资料 · 仍待补全或上传"),
-    listingMessage ?? (listingCounts && "期间新增刊登资料 · 仍待人工审核"), undefined,
+    listingMessage ?? (listingCounts && "期间新增刊登资料 · 仍待人工审核"), submissionOverviewMessage ?? (submissionOverview?.status === "complete" ? "当前企业内本人可读 · 原尝试次数" : "统计未完整覆盖，合计暂不可用"),
     taskMessage ?? (taskCounts && "期间创建的本人店铺任务 · 当前异常")];
   const profit = matrix?.summaryComplete && matrix.total > 0 ? moneyText(matrix.summary.netProfit) : undefined;
   const profitNote = matrix ? profit ? "人工收入与成本 · 完整覆盖所选店铺"
@@ -327,6 +371,7 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
         </Card>)}
       </div>
 
+      <SubmissionOverviewPanel data={submissionOverview} message={submissionOverviewMessage ?? message} />
       {storeSubmission}
       <div className={styles.split}>
         <Panel title="经营与刊登趋势" detail="所选完整日">

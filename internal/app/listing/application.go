@@ -19,44 +19,45 @@ import (
 )
 
 type Application struct {
-	TemuCreateSource      TemuCreateMetricsSource
-	TemuCreateMerchant    func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
-	SheinPublishSource    SheinPublishMetricsSource
-	SheinPublishMerchant  func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
-	TikTokPublishSource   TikTokPublishMetricsSource
-	TikTokPublishMerchant func(context.Context, collection.Scope, string) (submission.TikTokGlobalPublishReadScope, error)
-	WalmartFeedSource     WalmartFeedMetricsSource
-	WalmartFeedMerchant   func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
-	CockpitStoreAccess    func(context.Context, collection.Scope, []string) error
-	UploadPlans           *preparation.UploadPlanService
-	SourceMaterialsOnly   bool
-	SheinPublication      *SheinPublicationService
-	WalmartCatalog        WalmartRuleReader
-	Preparations          *preparation.Service
-	Sources               *preparation.SourceSelector
-	Operations            *preparation.OperationService
-	Execution             OperationApplication
-	Targets               *record.TargetService
-	Records               record.TargetRepository
-	Products              record.EffectiveTargetProductReader
-	Rules                 record.TargetRuleReader
-	TemuRules             TemuTargetRuleReader
-	TikTokRules           record.TargetTikTokRuleReader
-	TikTokCatalog         TikTokRuleReader
-	TikTokStatusStores    TikTokRuleStore
-	WalmartRules          record.TargetWalmartRuleReader
-	WalmartStatusStores   WalmartRuleStore
-	WalmartResults        submission.WalmartResultRepository
-	Assets                record.ApprovedAssetReader
-	Approvals             *asset.SourceApprovalService
-	Authorization         preparation.Authorizer
-	PublicationReceipts   submission.OfficialReceiptRepository
-	PublicationStores     RuleStore
-	TargetMerchants       TargetMerchantReader
-	AuthorizeOptimization func(context.Context, preparation.OperationInput) error
-	OptimizationOptions   func(context.Context, collection.Query) (OptimizationOptions, error)
-	StageProjection       ReviewProjection
-	Uploader              *UploadService
+	CockpitSubmissionStores func(context.Context, collection.Scope, []string) ([]CockpitSubmissionStore, error)
+	TemuCreateSource        TemuCreateMetricsSource
+	TemuCreateMerchant      func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
+	SheinPublishSource      SheinPublishMetricsSource
+	SheinPublishMerchant    func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
+	TikTokPublishSource     TikTokPublishMetricsSource
+	TikTokPublishMerchant   func(context.Context, collection.Scope, string) (submission.TikTokGlobalPublishReadScope, error)
+	WalmartFeedSource       WalmartFeedMetricsSource
+	WalmartFeedMerchant     func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
+	CockpitStoreAccess      func(context.Context, collection.Scope, []string) error
+	UploadPlans             *preparation.UploadPlanService
+	SourceMaterialsOnly     bool
+	SheinPublication        *SheinPublicationService
+	WalmartCatalog          WalmartRuleReader
+	Preparations            *preparation.Service
+	Sources                 *preparation.SourceSelector
+	Operations              *preparation.OperationService
+	Execution               OperationApplication
+	Targets                 *record.TargetService
+	Records                 record.TargetRepository
+	Products                record.EffectiveTargetProductReader
+	Rules                   record.TargetRuleReader
+	TemuRules               TemuTargetRuleReader
+	TikTokRules             record.TargetTikTokRuleReader
+	TikTokCatalog           TikTokRuleReader
+	TikTokStatusStores      TikTokRuleStore
+	WalmartRules            record.TargetWalmartRuleReader
+	WalmartStatusStores     WalmartRuleStore
+	WalmartResults          submission.WalmartResultRepository
+	Assets                  record.ApprovedAssetReader
+	Approvals               *asset.SourceApprovalService
+	Authorization           preparation.Authorizer
+	PublicationReceipts     submission.OfficialReceiptRepository
+	PublicationStores       RuleStore
+	TargetMerchants         TargetMerchantReader
+	AuthorizeOptimization   func(context.Context, preparation.OperationInput) error
+	OptimizationOptions     func(context.Context, collection.Query) (OptimizationOptions, error)
+	StageProjection         ReviewProjection
+	Uploader                *UploadService
 	// Trial admission narrows reads to explicitly prepared test records.
 	ValidateDraftRead func(context.Context, collection.Scope, record.TargetRecord) error
 }
