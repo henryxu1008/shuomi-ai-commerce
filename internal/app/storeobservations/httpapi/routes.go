@@ -38,6 +38,10 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 			specs = append(specs, struct {
 				method, path, action string
 				sync                 bool
+			}{"GET", "/walmart-saved-amount-metrics", "walmart-saved-amount-metrics", false})
+			specs = append(specs, struct {
+				method, path, action string
+				sync                 bool
 			}{"GET", "/stores/:store_id/syncs/:sync_id/records/:record_id/packages/:package_id/track", "track", false})
 		}
 		for _, spec := range specs {
@@ -59,7 +63,7 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 						return
 					}
 				}
-				if spec.action != "list" && spec.action != "saved-amount-metrics" && c.Request.URL.RawQuery != "" {
+				if spec.action != "list" && spec.action != "saved-amount-metrics" && spec.action != "walmart-saved-amount-metrics" && c.Request.URL.RawQuery != "" {
 					failure(c, o.ErrInvalid)
 					return
 				}
@@ -103,13 +107,18 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 				switch spec.action {
 				case "capabilities":
 					data, e = a.Capabilities(ctx, scope, kind)
-				case "saved-amount-metrics":
+				case "saved-amount-metrics", "walmart-saved-amount-metrics":
 					filter, err := workbenchmetrics.Parse(c.Request.URL.RawQuery, time.Now())
 					if err != nil || len(filter.Stores) != 1 {
 						failure(c, o.ErrInvalid)
 						return
 					}
-					data, e = a.Service.SavedOrderAmounts(ctx, scope, o.OrderAmountQuery{StoreID: filter.Stores[0], Start: filter.Start, End: filter.End})
+					query := o.OrderAmountQuery{StoreID: filter.Stores[0], Start: filter.Start, End: filter.End}
+					if spec.action == "walmart-saved-amount-metrics" {
+						data, e = a.Service.SavedWalmartOrderAmounts(ctx, scope, query)
+					} else {
+						data, e = a.Service.SavedOrderAmounts(ctx, scope, query)
+					}
 				case "list":
 					data, e = a.Service.List(ctx, scope, query)
 				case "begin":

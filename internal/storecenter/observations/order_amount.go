@@ -147,13 +147,17 @@ var orderAmountDecimal = regexp.MustCompile(`^[0-9]{1,20}(\.[0-9]{1,8})?$`)
 var orderAmountCurrency = regexp.MustCompile(`^[A-Z]{3}$`)
 
 func aggregateOrderAmounts(result OrderAmountMetrics, rows []OrderAmountRecord, q OrderAmountQuery) (OrderAmountMetrics, error) {
+	return aggregateOrderAmountsWithDecimal(result, rows, q, orderAmountDecimal, "shein-us")
+}
+
+func aggregateOrderAmountsWithDecimal(result OrderAmountMetrics, rows []OrderAmountRecord, q OrderAmountQuery, decimal *regexp.Regexp, site string) (OrderAmountMetrics, error) {
 	matched := 0
 	missing := OrderAmountMissing{}
 	seen := map[string]OrderAmountRecord{}
 	totals := map[string]*big.Int{}
 	counts := map[string]int{}
 	for _, row := range rows {
-		if row.StoreID != q.StoreID || result.Source == nil || row.SyncID != result.Source.SyncID || !Identity(row.ID) || row.Site != "shein-us" {
+		if row.StoreID != q.StoreID || result.Source == nil || row.SyncID != result.Source.SyncID || !Identity(row.ID) || row.Site != site {
 			return OrderAmountMetrics{}, ErrUnavailable
 		}
 		if prior, exists := seen[row.ID]; exists {
@@ -184,7 +188,7 @@ func aggregateOrderAmounts(result OrderAmountMetrics, rows []OrderAmountRecord, 
 		if row.Amount == nil {
 			continue
 		}
-		if row.Amount.Value != "" && !orderAmountDecimal.MatchString(row.Amount.Value) || row.Amount.Currency != "" && !orderAmountCurrency.MatchString(row.Amount.Currency) {
+		if row.Amount.Value != "" && !decimal.MatchString(row.Amount.Value) || row.Amount.Currency != "" && !orderAmountCurrency.MatchString(row.Amount.Currency) {
 			return OrderAmountMetrics{}, ErrUnavailable
 		}
 		if row.Amount.Value == "" || row.Amount.Currency == "" {
@@ -255,6 +259,15 @@ func freezeOrderAmountSources(values []Sync) []Sync {
 		v.Progress.Windows = slices.Clone(v.Progress.Windows)
 		v.Progress.Notes = slices.Clone(v.Progress.Notes)
 		v.Progress.TemuTokenHashes = slices.Clone(v.Progress.TemuTokenHashes)
+		if v.Progress.WalmartOrders != nil {
+			p := *v.Progress.WalmartOrders
+			p.CursorHashes = slices.Clone(p.CursorHashes)
+			if p.Total != nil {
+				n := *p.Total
+				p.Total = &n
+			}
+			v.Progress.WalmartOrders = &p
+		}
 	}
 	return result
 }

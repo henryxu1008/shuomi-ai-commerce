@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { CockpitEntry } from "../console/cockpit-entry";
 import { cockpitRequest } from "@/lib/api/operations-cockpit";
 import { readSavedOrderAmount } from "@/lib/api/shein-order-amount";
+import { readWalmartOrderAmount } from "@/lib/api/walmart-order-amount";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 const state = vi.hoisted(() => ({ context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a" }, permissions: ["workbench.cockpit.stores.read"], operationsCockpitAvailable: true, isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null } }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => state.context }));
@@ -12,13 +13,14 @@ vi.mock("@/lib/api/operations-cockpit", async original => ({ ...await original<t
 vi.mock("@/lib/api/cockpit-metrics", () => ({ readCockpitMetrics: vi.fn() }));
 vi.mock("@/components/ui/chart", () => ({ EChart: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} /> }));
 vi.mock("@/lib/api/shein-order-amount", () => ({ readSavedOrderAmount: vi.fn() }));
+vi.mock("@/lib/api/walmart-order-amount", () => ({ readWalmartOrderAmount: vi.fn() }));
 const clients: QueryClient[] = [];
 const access = { goalsRead: false, goalsCreate: false, goalsManage: false, storesRead: true, factsWrite: false, alertsRead: false, adviceRead: false };
 const totals = { revenue: 120000, refunds: 0, procurement: 100000, logistics: 0, platform: 0, advertising: 0, other: 0, netRevenue: 120000, netProfit: 20000, margin: null };
 const capabilities = { access, today: "2026-10-11", stores: [] };
 const matrix = { rows: [], total: 0, page: 1, summary: totals, summaryComplete: false, states: { loss: 0, break_even: 0, recorded_complete: 0, data_incomplete: 0 }, capturedAt: "2026-10-11T00:00:00Z" };
 function mount() { const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client); const tree = () => <QueryClientProvider client={client}><CockpitEntry /></QueryClientProvider>; const view = render(tree()); return { ...view, update: () => view.rerender(tree()) }; }
-afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.mocked(cockpitRequest).mockReset(); vi.mocked(readCockpitMetrics).mockReset(); vi.mocked(readSavedOrderAmount).mockReset(); state.context.permissions = ["workbench.cockpit.stores.read"]; state.context.isSwitching = false; state.context.effectiveOrganization = { id: "org-a" }; });
+afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.mocked(cockpitRequest).mockReset(); vi.mocked(readCockpitMetrics).mockReset(); vi.mocked(readSavedOrderAmount).mockReset(); vi.mocked(readWalmartOrderAmount).mockReset(); state.context.permissions = ["workbench.cockpit.stores.read"]; state.context.isSwitching = false; state.context.effectiveOrganization = { id: "org-a" }; });
 it("updates listing and task metrics together when changing both date and store", async () => {
   const first = "123e4567-e89b-42d3-a456-426614174000";
   const second = "123e4567-e89b-42d3-a456-426614174001";
@@ -296,6 +298,26 @@ it("shows native platform quantities and only a complete unknown-operation total
  expect(screen.getByText("GMV 数据待接入")).toBeVisible();
 });
 
+it("reads saved Walmart amounts by the same date and store and hides the previous value",async()=>{
+ const a={id:"123e4567-e89b-42d3-a456-426614174000",name:"Walmart A",platform:"walmart",region:"US",status:"active"};
+ const b={...a,id:"123e4567-e89b-42d3-a456-426614174001",name:"Walmart B"};
+ state.context.permissions.push("workbench.store.orders.read");
+ vi.mocked(cockpitRequest).mockImplementation(async(_scope,path)=>path==="capabilities"?{...capabilities,stores:[a,b]}:matrix);
+ const source={syncId:a.id,observedAt:"2026-10-11T00:00:00Z",range:{start:"2026-09-11T16:00:00Z",end:"2026-10-10T16:00:00Z"}};
+ vi.mocked(readWalmartOrderAmount).mockImplementation(async(_scope,query)=>{
+  const p=new URLSearchParams(query);
+  if(p.get("storeId")===b.id)return {result:{status:"coverage_incomplete",capturedAt:"2026-10-11T00:00:00Z",source,reason:"range_not_covered"}};
+  if(p.get("startDate")==="2026-10-10")return {result:{status:"missing_fields",capturedAt:"2026-10-11T00:00:00Z",source,matchedOrderCount:1,missing:{amountCount:1,currencyCount:0,unknownTimeCount:0}}};
+  return {result:{status:"complete",capturedAt:"2026-10-11T00:00:00Z",source,matchedOrderCount:1,amounts:[{currency:"USD",amount:"19.90",orderCount:1}]}};
+ });
+ mount();const shop=await screen.findByRole("combobox",{name:"店铺"});
+ await userEvent.selectOptions(shop,a.id);await screen.findByText("19.90");
+ expect(screen.getByText(/不再乘订单行数量/)).toBeVisible();
+ await userEvent.click(screen.getByRole("button",{name:"昨日"}));await screen.findByText(/缺金额 1 笔/);expect(screen.queryByText("19.90")).not.toBeInTheDocument();
+ await userEvent.selectOptions(shop,b.id);await screen.findByText("原同步范围未覆盖所选完整日期，暂不显示金额。");
+ expect(new URLSearchParams(vi.mocked(readWalmartOrderAmount).mock.calls.at(-1)![1]).get("storeId")).toBe(b.id);
+ expect(screen.getByText("GMV 数据待接入")).toBeVisible();expect(vi.mocked(readSavedOrderAmount)).not.toHaveBeenCalled();
+});
 it("shows saved SHEIN order amounts separately and hides stale amounts for missing fields or incomplete coverage",async()=>{
  const first={id:"123e4567-e89b-42d3-a456-426614174000",name:"SHEIN 金额店 A",platform:"shein",region:"US",status:"active"};
  const second={...first,id:"123e4567-e89b-42d3-a456-426614174001",name:"SHEIN 金额店 B"};
