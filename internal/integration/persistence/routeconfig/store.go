@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	credential "task-processor/internal/aicapability/channelcredential"
@@ -345,7 +346,12 @@ func (s *Store) conflict(ctx context.Context, tx *gorm.DB, cmd d.Command, cause 
 // GrantSQL is consumed only by explicit schema installation; never startup.
 func GrantSQL(role string, writer bool) string {
 	identifier := pgx.Identifier{role}.Sanitize()
-	q := fmt.Sprintf("GRANT SELECT ON public.ai_route_config_revisions,public.ai_route_config_current,public.ai_route_config_options,public.ai_channel_credential_bindings TO %s;", identifier)
+	var readerSQL strings.Builder
+	for _, grant := range RuntimeReadTableGrants() {
+		readerSQL.WriteString(grant.SQL(role))
+		readerSQL.WriteByte(';')
+	}
+	q := readerSQL.String()
 	if writer {
 		q += fmt.Sprintf("GRANT INSERT ON public.ai_route_config_revisions TO %s;GRANT INSERT,UPDATE ON public.ai_route_config_current,public.ai_route_config_options TO %s;", identifier, identifier)
 	}

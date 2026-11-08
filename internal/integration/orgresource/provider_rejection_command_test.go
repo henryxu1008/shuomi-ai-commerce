@@ -16,6 +16,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"task-processor/internal/aicapability"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
+	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 func prepareRecoveryCommandRoles(t *testing.T, resource, native *gorm.DB) (map[string]any, map[string]any) {
@@ -46,6 +48,19 @@ func prepareRecoveryCommandRoles(t *testing.T, resource, native *gorm.DB) (map[s
 		quoted = append(quoted, pgx.Identifier{column}.Sanitize())
 	}
 	require.NoError(t, native.Exec("GRANT UPDATE("+strings.Join(quoted, ",")+") ON ai_invocations TO product_agent_runtime").Error)
+	require.NoError(t, native.Exec("GRANT USAGE,CREATE ON SCHEMA public TO product_agent_owner").Error)
+	require.NoError(t, native.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SET LOCAL ROLE product_agent_owner").Error; err != nil {
+			return err
+		}
+		if err := channelstore.EnsureSchema(context.Background(), tx); err != nil {
+			return err
+		}
+		if err := tx.Exec(routeconfigstore.SchemaSQL).Error; err != nil {
+			return err
+		}
+		return tx.Exec(routeconfigstore.GrantSQL("product_agent_runtime", false)).Error
+	}))
 	for _, table := range []string{"saas_organization_resource_buckets", "saas_organization_resource_operations", "saas_organization_resource_reservations", "saas_organization_resource_debts", "saas_member_ai_point_limits", "saas_member_ai_point_months", "saas_member_resource_positions"} {
 		require.NoError(t, resource.Exec("GRANT SELECT,INSERT,UPDATE ON "+table+" TO commercial_owner_runtime").Error)
 	}
