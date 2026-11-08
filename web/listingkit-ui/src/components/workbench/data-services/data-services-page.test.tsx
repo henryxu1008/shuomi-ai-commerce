@@ -36,6 +36,27 @@ describe("data service product paths", () => {
         expect(requests.mock.calls.map(([url]) => url.split("/").at(-1))).toEqual(["options", "jobs"]);
         expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
     });
+    it("keeps fractional and non-finite row input safe until valid bounded rows are confirmed", async () => {
+        const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));
+        vi.stubGlobal("fetch", requests);
+        render(<DataServicesPage mode="amazon"/>);
+        const start = await screen.findByRole("button", { name: "新建采集任务" });
+        await waitFor(() => expect(start).toBeEnabled());
+        fireEvent.click(start);
+        const input = screen.getByLabelText("最大数据条数");
+        const submit = screen.getByRole("button", { name: "确认并开始采集" });
+        for (const invalid of ["1.5", "", "1e309", "201", "0"]) {
+            fireEvent.change(input, { target: { value: invalid } });
+            expect(submit).toBeDisabled();
+            expect(screen.getByText(/请输入 1–200 的整数条数/)).toBeVisible();
+        }
+        for (const valid of ["1", "200"]) {
+            fireEvent.change(input, { target: { value: valid } });
+            expect(submit).toBeEnabled();
+            expect(screen.queryByText(/请输入 1–200 的整数条数/)).not.toBeInTheDocument();
+        }
+        expect(requests.mock.calls.every(([,init]) => !init?.method || init.method === "GET")).toBe(true);
+    });
     it("shows readable Amazon results and distinguishes failed page reads from empty results", async () => {
         const saved = { ...job, state: "PARTIAL", saved: 1, failed: 1, batchId: id };
         let failNext = true;

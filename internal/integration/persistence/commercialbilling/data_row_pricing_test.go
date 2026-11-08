@@ -27,6 +27,20 @@ func TestDataRowPricePublicationVersionReplayAndEmptyInstallation(t *testing.T) 
 	replay, err := r.PublishDataRowPrice(ctx, cmd)
 	require.NoError(t, err)
 	require.Equal(t, receipt, replay)
+	otherActor := cmd
+	otherActor.ActorID = "another-platform-admin"
+	otherActor.ExpectedVersion = receipt.Offer.PricingVersion
+	otherActor.UnitPriceMinor = 9
+	_, err = r.PublishDataRowPrice(ctx, otherActor)
+	require.ErrorIs(t, err, billing.ErrConflict, "deployment request key cannot be reused by another actor with the newest version")
+	stillCurrent, err := r.CurrentDataRowOffer(ctx)
+	require.NoError(t, err)
+	require.Equal(t, receipt.Offer, stillCurrent)
+	var publications int64
+	require.NoError(t, r.db.Model(&dataRowPricePublicationRow{}).Count(&publications).Error)
+	require.EqualValues(t, 1, publications)
+	_, err = r.ReadDataRowPriceReceipt(ctx, otherActor.ActorID, cmd.IdempotencyKey)
+	require.ErrorIs(t, err, billing.ErrNotFound)
 	cmd.UnitPriceMinor = 7
 	_, err = r.PublishDataRowPrice(ctx, cmd)
 	require.ErrorIs(t, err, billing.ErrConflict)

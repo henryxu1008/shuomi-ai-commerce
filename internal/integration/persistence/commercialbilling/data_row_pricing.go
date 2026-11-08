@@ -17,7 +17,7 @@ import (
 
 type dataRowPricePublicationRow struct {
 	ID             string    `gorm:"primaryKey;size:128"`
-	ActorID        string    `gorm:"size:128;not null;uniqueIndex:uq_data_row_price_request"`
+	ActorID        string    `gorm:"size:128;not null"`
 	IdempotencyKey string    `gorm:"size:128;not null;uniqueIndex:uq_data_row_price_request"`
 	Fingerprint    string    `gorm:"size:64;not null"`
 	ResultJSON     string    `gorm:"not null"`
@@ -42,9 +42,9 @@ func validPriceToken(s string) bool {
 func validPriceCommand(c billing.DataRowPriceCommand) bool {
 	return validPriceToken(c.ActorID) && validPriceToken(c.OrganizationID) && validPriceToken(c.ExpectedVersion) && validPriceToken(c.IdempotencyKey) && c.UnitPriceMinor >= 0 && utf8.ValidString(c.Reason) && len(c.Reason) <= 500 && strings.TrimSpace(c.Reason) != "" && !strings.ContainsRune(c.Reason, 0)
 }
-func readPriceReceipt(db *gorm.DB, actor, key string) (dataRowPricePublicationRow, error) {
+func readPriceReceipt(db *gorm.DB, key string) (dataRowPricePublicationRow, error) {
 	var row dataRowPricePublicationRow
-	err := db.Where("actor_id=? AND idempotency_key=?", actor, key).Take(&row).Error
+	err := db.Where("idempotency_key=?", key).Take(&row).Error
 	return row, err
 }
 func decodePriceReceipt(row dataRowPricePublicationRow) (billing.DataRowPriceReceipt, error) {
@@ -65,7 +65,7 @@ func (r *Repository) PublishDataRowPrice(ctx context.Context, c billing.DataRowP
 	}{c.ActorID, c.OrganizationID, c})
 	var out billing.DataRowPriceReceipt
 	replay := func(tx *gorm.DB) (bool, error) {
-		row, e := readPriceReceipt(tx, c.ActorID, c.IdempotencyKey)
+		row, e := readPriceReceipt(tx, c.IdempotencyKey)
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
@@ -150,12 +150,15 @@ func (r *Repository) ReadDataRowPriceReceipt(ctx context.Context, actor, key str
 	if r == nil || r.db == nil || !validPriceToken(actor) || !validPriceToken(key) {
 		return billing.DataRowPriceReceipt{}, billing.ErrInvalid
 	}
-	row, e := readPriceReceipt(r.db.WithContext(ctx), actor, key)
+	row, e := readPriceReceipt(r.db.WithContext(ctx), key)
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return billing.DataRowPriceReceipt{}, billing.ErrNotFound
 	}
 	if e != nil {
 		return billing.DataRowPriceReceipt{}, e
+	}
+	if row.ActorID != actor {
+		return billing.DataRowPriceReceipt{}, billing.ErrNotFound
 	}
 	return decodePriceReceipt(row)
 }
