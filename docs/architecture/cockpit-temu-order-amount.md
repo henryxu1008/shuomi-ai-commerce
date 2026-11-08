@@ -1,6 +1,6 @@
 # Temu US 消费者订单保存与单店商品金额
 
-Design Basis: Independent Architecture。Admission Status: DESIGN_REVIEW_PENDING。执行 #1163。用户2026-11-08明确要求本土店和半托管一起做，先确定读取/保存合同，再用独立本地测试订单验证。适用产品依据为该用户决定、greenfield-no-legacy-migration.md及project-boundaries.md；Figma不作为UI权威。
+Design Basis: Independent Architecture。Admission Status: IMPLEMENTATION_READY / FROZEN。执行 #1163。用户2026-11-08明确要求本土店和半托管一起做，先确定读取/保存合同，再用独立本地测试订单验证。适用产品依据为该用户决定、greenfield-no-legacy-migration.md及project-boundaries.md；Figma不作为UI权威。
 
 ## 用户结果与本批边界
 
@@ -58,3 +58,6 @@ Threat Model沿原verified身份、租户/成员/Store授权、凭据、原事�
 TDD：r1拒绝SEMI、r2两模式身份/分区/缺semiUniqueId、商品与订单权限隔离；decoder父子金额不叠加/ID关联/精确美分/缺字段/PII不保存；日期尾秒/次日/窗边界；稳定total、短页、重复/冲突、100条事务与互斥variant；SQL日期先筛再限、租户/权限/连接/来源漂移。复用相关现有测试与CI，最终一次独立交付检查。
 
 独立本地新PG用本土与半托两家测试店、两组日期、同父多子/多站、重放、旧generation、缺金额/币种和覆盖不足，经正式保存和HTTP/BFF/浏览器无刷新切换；全程禁止外部请求。保留可访问入口供用户试用，不自行签发产品验收或合并。
+
+独立架构复核：/root/architecture_review核对设计1179fa2ea403ba9e4d406c6b0117a847af43f171与实际owner/授权/事务，未发现BLOCKER，结论IMPLEMENTATION_READY。r1/r2与产品拒绝、金额关联/缺失/警告、100条原子保存、稳定total/重复页与末秒边界归IMPLEMENTATION_TEST在本批收敛。
+
