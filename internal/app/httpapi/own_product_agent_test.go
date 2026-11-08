@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,5 +59,35 @@ func TestOwnContentAdmissionRequiresCollectionAndAgentRoutes(t *testing.T) {
 		bad := append([]httproute.Descriptor(nil), routes...)
 		bad[i].AuthPolicy = httproute.AuthPolicyPublic
 		require.Error(t, validate(bad, flags))
+	}
+}
+
+func TestOwnIntakeRoutesComposeWithImageAnalysisAndCollectionHistory(t *testing.T) {
+	routes := append(agentAndPointRoutes(true, false), collectionhttp.Routes(nil, nil)...)
+	routes = append(routes, ownContentAgentRoutes(nil)...)
+	routes = append(routes, ownIntakeRoutes(nil)...)
+	routes = append(routes, imageAnalysisRoutes(nil)...)
+	routes = append(routes, (fullImageModule{}).routes()...)
+
+	flags := currentApplicationOptionalRoutes{
+		ProductAgent: true, Collections: true, OwnIntake: true, ImageAnalysis: true, FullImageSet: true,
+	}
+	validate := func(r []httproute.Descriptor, f currentApplicationOptionalRoutes) error {
+		return validateCurrentApplicationRoutesInternal(r, false, false, false, false, false, false, false, f)
+	}
+	require.NoError(t, validate(routes, flags))
+
+	disabled := flags
+	disabled.ImageAnalysis = false
+	require.ErrorContains(t, validate(routes, disabled), "image analysis application not admitted")
+	for i, route := range routes {
+		if !strings.HasPrefix(route.Path, collectionhttp.BasePath+"/") {
+			continue
+		}
+		t.Run(route.Method+" "+route.Path, func(t *testing.T) {
+			bad := append([]httproute.Descriptor(nil), routes...)
+			bad[i].Permission = ""
+			require.Error(t, validate(bad, flags))
+		})
 	}
 }
