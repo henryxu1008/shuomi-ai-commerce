@@ -188,6 +188,7 @@ func (w Window) Key() string {
 }
 
 type Checkpoint struct {
+	TikTokOrders    *TikTokOrderProgress  `json:"tiktokOrders,omitempty"`
 	WalmartOrders   *WalmartOrderProgress `json:"walmartOrders,omitempty"`
 	Page            int                   `json:"page"`
 	Windows         []Window              `json:"windows"`
@@ -232,6 +233,12 @@ type Sync struct {
 
 func (s Sync) MarshalJSON() ([]byte, error) {
 	type publicSync Sync
+	if s.Progress.TikTokOrders != nil {
+		p := *s.Progress.TikTokOrders
+		p.Token = ""
+		p.TokenHashes = nil
+		s.Progress.TikTokOrders = &p
+	}
 	s.Progress.TemuPageToken = ""
 	s.Progress.TemuTokenHashes = nil
 	if s.Progress.WalmartOrders != nil {
@@ -269,6 +276,7 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
+	TikTokOrder    *TikTokOrder     `json:"tiktokOrder,omitempty"`
 	WalmartOrder   *WalmartOrder    `json:"walmartOrder,omitempty"`
 	WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
 	StoreID        string           `json:"storeId"`
