@@ -84,6 +84,26 @@ func TestPreparationClosesAllBusinessRoutesBeforePersistenceOrDispatch(t *testin
 
 type unreadBody struct{}
 
+func TestTikTokAmountQueryReachesTheOriginalIdentityBoundary(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	called := false
+	routes := Routes(&app.Application{Service: &o.Service{}}, func(ctx context.Context, _ string) (context.Context, error) {
+		called = true
+		return ctx, o.ErrForbidden
+	})
+	engine := gin.New()
+	for _, r := range routes {
+		if strings.HasSuffix(r.Path, "/tiktok-saved-amount-metrics") {
+			engine.Handle(r.Method, r.Path, r.Handler)
+		}
+	}
+	req := httptest.NewRequest("GET", BasePath+"/orders/tiktok-saved-amount-metrics?startDate=2026-11-01&endDate=2026-11-07&storeId="+uuid.NewString(), nil)
+	out := httptest.NewRecorder()
+	engine.ServeHTTP(out, req)
+	require.True(t, called)
+	require.Equal(t, 403, out.Code)
+}
+
 func (unreadBody) Read([]byte) (int, error) { panic("read-only request body must not be consumed") }
 func (unreadBody) Close() error             { return nil }
 func TestReadRejectsBodyWithoutBlockingOrBindingIdentity(t *testing.T) {

@@ -217,7 +217,7 @@ func sameSync(a, b o.Sync) bool {
 	return a.ID == b.ID && a.StoreID == b.StoreID && a.Owner == b.Owner && a.Kind == b.Kind && a.Binding == b.Binding && a.Generation == b.Generation && a.Revision == b.Revision
 }
 func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Checkpoint, records []o.Record, status string, at time.Time) (o.Sync, error) {
-	if status != "running" && status != "completed" && status != "partial" || !expected.Owner.Valid() || !o.ValidID(expected.ID) || at.IsZero() || len(records) > 30 {
+	if status != "running" && status != "completed" && status != "partial" || !expected.Owner.Valid() || !o.ValidID(expected.ID) || at.IsZero() || len(records) > 100 {
 		return o.Sync{}, o.ErrInvalid
 	}
 	var out o.Sync
@@ -228,6 +228,9 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 		}
 		if !sameSync(current, expected) || current.Terminal() {
 			return o.ErrConflict
+		}
+		if len(records) > 30 && (current.Kind != o.Orders || current.Binding.Platform != storecenter.PlatformTikTokShop) {
+			return o.ErrInvalid
 		}
 		// Coverage defects cannot be cleared by a later successful page.
 		for _, note := range current.Progress.Notes {
@@ -240,18 +243,21 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				return o.ErrInvalid
 			}
 			seen[v.ID] = true
-			validProduct := v.WalmartProduct == nil && v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu && current.Binding.Platform != storecenter.PlatformWalmart
+			validProduct := v.TikTokOrder == nil && current.Binding.Platform != storecenter.PlatformTikTokShop && v.WalmartProduct == nil && v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu && current.Binding.Platform != storecenter.PlatformWalmart
 			if current.Binding.Platform == storecenter.PlatformTemu {
 				validProduct = v.WalmartProduct == nil && v.Order == nil && v.Product == nil && v.TemuProduct != nil && v.TemuProduct.ID == v.ID && temuo.ValidProduct(*v.TemuProduct) && v.TemuProduct.Mode == string(current.Binding.MerchantMode)
 			}
 			if current.Binding.Platform == storecenter.PlatformWalmart {
 				validProduct = v.Order == nil && v.Product == nil && v.TemuProduct == nil && v.WalmartProduct != nil && v.WalmartProduct.Valid() && v.WalmartProduct.SKU == v.ID
 			}
-			validOrder := v.WalmartOrder == nil && v.WalmartProduct == nil && v.Order != nil && v.Product == nil && v.TemuProduct == nil && v.Order.ID == v.ID && v.Order.Site == "shein-us" && current.Binding.Platform != storecenter.PlatformTemu
+			validOrder := v.TikTokOrder == nil && v.WalmartOrder == nil && v.WalmartProduct == nil && v.Order != nil && v.Product == nil && v.TemuProduct == nil && v.Order.ID == v.ID && v.Order.Site == "shein-us" && current.Binding.Platform != storecenter.PlatformTemu
 			if current.Binding.Platform == storecenter.PlatformWalmart {
 				validOrder = v.WalmartOrder != nil && v.WalmartOrder.Valid() && v.WalmartOrder.ID == v.ID && v.Order == nil && v.WalmartProduct == nil && v.Product == nil && v.TemuProduct == nil
 			}
-			if current.Kind == o.Products && (!validProduct || v.WalmartOrder != nil) || current.Kind == o.Orders && !validOrder {
+			if current.Binding.Platform == storecenter.PlatformTikTokShop {
+				validOrder = v.TikTokOrder != nil && v.TikTokOrder.Valid() && v.TikTokOrder.ID == v.ID && v.Order == nil && v.WalmartOrder == nil && v.WalmartProduct == nil && v.Product == nil && v.TemuProduct == nil
+			}
+			if current.Kind == o.Products && (!validProduct || v.WalmartOrder != nil || v.TikTokOrder != nil) || current.Kind == o.Orders && !validOrder {
 				return o.ErrInvalid
 			}
 			var prior struct {
@@ -263,17 +269,24 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 			if result.Error != nil {
 				return o.ErrUnavailable
 			}
-			if v.WalmartOrder != nil && result.RowsAffected > 0 {
+			if (v.WalmartOrder != nil || v.TikTokOrder != nil) && result.RowsAffected > 0 {
 				var saved struct {
+					TikTokOrder  *o.TikTokOrder  `json:"tiktokOrder"`
 					WalmartOrder *o.WalmartOrder `json:"walmartOrder"`
 				}
-				if json.Unmarshal(prior.Payload, &saved) != nil || saved.WalmartOrder == nil {
+				if json.Unmarshal(prior.Payload, &saved) != nil || (v.WalmartOrder != nil && saved.WalmartOrder == nil) || (v.TikTokOrder != nil && saved.TikTokOrder == nil) {
 					return o.ErrUnavailable
 				}
-				if !reflect.DeepEqual(saved.WalmartOrder, v.WalmartOrder) {
-					next.Note("walmart_order_identity_conflict")
+				var oldOrder, newOrder any = saved.WalmartOrder, v.WalmartOrder
+				prefix := "walmart"
+				if v.TikTokOrder != nil {
+					oldOrder, newOrder = saved.TikTokOrder, v.TikTokOrder
+					prefix = "tiktok"
+				}
+				if !reflect.DeepEqual(oldOrder, newOrder) {
+					next.Note(prefix + "_order_identity_conflict")
 				} else if prior.WindowKey == v.WindowKey && prior.PageIndex != current.Progress.Page {
-					next.Note("walmart_duplicate_page_identity")
+					next.Note(prefix + "_duplicate_page_identity")
 				} else if prior.WindowKey != v.WindowKey {
 					// Keep the original observation payload/time. The existing page
 					// marker tracks this window/partition's first sighting so a later
@@ -288,12 +301,13 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
+				TikTokOrder    *o.TikTokOrder   `json:"tiktokOrder,omitempty"`
 				WalmartOrder   *o.WalmartOrder  `json:"walmartOrder,omitempty"`
 				WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
 				Product        *o.Product       `json:"product,omitempty"`
 				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
 				Order          *o.Order         `json:"order,omitempty"`
-			}{v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
+			}{v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid
 			}
@@ -303,6 +317,14 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 		}
 		if status == "completed" && current.Kind == o.Orders && current.Binding.Platform == storecenter.PlatformWalmart && (next.WalmartOrders == nil || !next.WalmartOrders.Complete || len(next.Windows) > 0) {
 			next.Note("walmart_order_partition_incomplete")
+		}
+		if status == "completed" && current.Kind == o.Orders && current.Binding.Platform == storecenter.PlatformTikTokShop && (next.TikTokOrders == nil || !next.TikTokOrders.Complete || len(next.Windows) > 0) {
+			next.Note("tiktok_order_pages_incomplete")
+		}
+		if next.Incomplete && next.TikTokOrders != nil {
+			p := *next.TikTokOrders
+			p.Complete = false
+			next.TikTokOrders = &p
 		}
 		if status == "completed" && next.Incomplete {
 			status = "partial"
