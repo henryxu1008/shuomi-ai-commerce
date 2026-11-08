@@ -17,9 +17,9 @@ Design Basis: Independent Architecture。Admission Status: NOT_READY / pending i
 
 ## 日期、身份与金额合同
 
-1. 日期取原orderDate（epoch milliseconds，归一为UTC RFC3339），不是statusDate/发货/保存时间。首页沿UTC+8完整自然日[start,end)，最多30天。缺orderDate保留为时间未知，非法非空值拒绝。查询时间固定在原sync.Range，原OrderWindows使用闭秒窗口；相邻窗口重叠按身份去重，不能漏午夜边界。原平台日期边界包含性未通过真实调用确认，未来在线适配须扩大边界读取后按本地orderDate精确筛选，不能推测完整。
+1. 日期取原orderDate（epoch milliseconds，归一为UTC RFC3339），不是statusDate/发货/保存时间。首页沿UTC+8完整自然日[start,end)，最多30天。缺orderDate保留为时间未知，非法非空值拒绝。Walmart使用毫秒时间：完整日的原sync.Range.End必须至少到查询exclusiveEnd（次日00:00），不能以SHEIN的exclusiveEnd-1秒作为覆盖证明。原OrderWindows只作分块；每块读取合同须向两端各扩1秒，原ReaderQuery携带固定窗口和明确扩展后查询时间，解析后按原sync.Range的[start,end)毫秒精确筛选。相邻块读取重叠按身份去重，23:59:59.999保留，次日00:00排除。原平台日期边界包含性未通过真实调用确认，未来在线适配必须按扩展合同读取，不可声称未执行的平台实际覆盖。
 2. 保存身份为organization/store/generation/purchaseOrderId；customerOrderId只用于说明拆单，不用来合并不同PO。订单行按lineNumber唯一；相同SKU不同lineNumber分别保留，包裹/状态分组/数量不生成额外金额。重复同PO相同载荷跨页/跨窗口只保存一次；不同载荷不得静默覆盖，记录coverage冲突并禁止发布完整head。不同generation不累加。
-3. WalmartOrder仅允许purchaseOrderId、customerOrderId、orderDate、orderType，以及lineNumber、quantity、PRODUCT费用列表（currency/原十进制amount）。不存地址、姓名、邮箱、电话、trackingURL、支付资料、raw response或凭据。订单身份/行集合必须有效；空行集合或字段缺失不能被当成零元。
+3. PRODUCT歧义标志（如多个PRODUCT、isDiscount/discountType）必须进入typed order持久化，不能在decoder后丢失。WalmartOrder仅允许purchaseOrderId、customerOrderId、orderDate、orderType，以及lineNumber、quantity、PRODUCT费用列表（currency/原十进制amount）。不存地址、姓名、邮箱、电话、trackingURL、支付资料、raw response或凭据。订单身份/行集合必须有效；空行集合或字段缺失不能被当成零元。
 4. 直接累计每个原生订单行的PRODUCT chargeAmount，**不再次乘orderLineQuantity**；指标表达原API保存的PRODUCT费用合计。不加入SHIPPING、tax、FEE、退款、供货/采购金额，不从刊登售价推算；不另行反推折扣前/后成交。每行恰有一个PRODUCT费用才进入金额；缺失、多个PRODUCT或显式折扣标记无法解释时保留缺字段/待核实并隐藏合计。原始quantity留存但不参与费用乘法；虚拟包不按pack元数据展开。保留所有原订单类型及状态所对应原费用，不依据状态扣减，不声称已付款或净收入。
 5. 金额为非负十进制（最多20位整数、8位小数）；json.Number/原字符串精确读取，不经float；各3位大写原币分别累加。同一PO的所有PRODUCT费用必须同币，混币PO标字段待核实并隐藏金额，不拼成虚假订单总额；不同PO可分原币展示。复用SHEIN已有math/big.Int精确聚合方式。明确0和缺失不同；期间完整空集合不猜币种或填USD0。
 
@@ -35,11 +35,11 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 
 ## owner、持久化、授权和读取路径
 
-唯一owner为internal/storecenter/observations，平台订单规则为internal/marketplace/walmart；官方形状decoder在internal/integration/walmart。扩展Record.WalmartOrder及原records JSON variant，SQL约束明确Walmart site/id与SHEIN variant互斥，不增加表或迁移/双读。修改当前全新安装schema及其严格verifier快照；不对任何保留数据库ALTER/重建。测试用新独立PostgreSQL。
+唯一owner为internal/storecenter/observations，平台订单规则为internal/marketplace/walmart；官方形状decoder在internal/integration/walmart。扩展Record.WalmartOrder及原records JSON variant，SQL约束明确Walmart site/id与SHEIN variant互斥，不增加表或迁移/双读。Walmart重复检查与payload保存处在同一原sync行锁事务：规范化typed payload相同则skip，冲突保留原payload并sticky incomplete，禁止沿原ON CONFLICT覆盖；SHEIN语义不变。修改当前全新安装schema及其严格verifier快照；不对任何保留数据库ALTER/重建。测试用新独立PostgreSQL。
 
 只读单店统计路径：当前verified组织/actor/member + store.orders.read → 原Store本地ReadObservation(orders)及本地Walmart grant/application/binding → 当前heads/latest → 原records.WalmartOrder窄日期投影 → 精确聚合 → 重读来源/授权/本地binding → 正式HTTP/BFF → Walmart单店独立面板。本地已保存读取不调用TokenDetail、Merchant、Orders、refresh或任一provider；不借用product_publish/rules权限。grant必须active、未过期，匹配组织/店铺/应用/环境/商家、generation/version/StoreVersion/ConnectionRevision；当前Store/成员授权由原ReadObservation落实，不建立第二授权体系。
 
-统计仅当前完整head，head/latest为同一完整sync、ObservedAt有效、Progress.Incomplete=false、Range覆盖所选完整日期，且Walmart三个分区确有原checkpoint完成标记；快照深拷贝保留nil/empty语义，响应前复验。候选先按日期过滤再限251（缺时间保留），最多250订单；非法非空时间不可用。金额/币种/日期/PRODUCT费用歧义任一缺失则隐藏全部金额并显示相应计数；覆盖不足或limited不返回金额/完整订单数。
+统计仅当前完整head，head/latest为同一完整sync、ObservedAt有效、Progress.Incomplete=false、Range覆盖所选完整日期，Walmart要求Range.End>=查询exclusiveEnd（毫秒日界），且三个分区确有原checkpoint完成标记；快照深拷贝保留nil/empty语义，响应前复验。候选先按日期过滤再限251（缺时间保留），最多250订单；非法非空时间不可用。金额/币种/日期/PRODUCT费用歧义任一缺失则隐藏全部金额并显示相应计数；覆盖不足或limited不返回金额/完整订单数。
 
 复用OrderAmountMetrics的complete/missing_fields/coverage_incomplete/limited形状，Walmart缺费用歧义另有明确missing提示计数；SHEIN形状与行为不变。新增 GET /api/v1/workbench/store-observations/orders/walmart-saved-amount-metrics，严格单店/日期、20秒、现有身份envelope/no-store/BFF。只在显式Walmart US单店展示，日期/店铺/企业变化取消旧请求、不留旧值。
 
@@ -48,3 +48,4 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 先RED再最小实现：原生JSON数字/字符串金额、小数精度、数量不重复相乘、PO与customerOrder拆分、多行同SKU、跨页/窗口重放及冲突、跨generation、午夜日期边界、缺金额/币种/日期及PRODUCT歧义；三履约分区、短页有cursor、空页有cursor、循环/超限、源漂移/撤权/换绑；原SQL事务及严格schema、跨租户、head与checkpoint原子发布。只运行与本批直接相关既有测试，最终CI按仓库规则。
 
 独立本地实例准备两家Walmart US测试店、不同日期/履约分区、多行/数量及同customerOrder多PO、旧批次与重放、缺字段与不完整覆盖，离线reader→正式保存→统计GET/BFF→浏览器首页无刷新复测；全程网络拦截，其他保留实例保持不变。实现完成独立最终检查，交入口/数据/限制供用户确认；不自行签发用户验收或合并。Legacy decision: N/A。
+
