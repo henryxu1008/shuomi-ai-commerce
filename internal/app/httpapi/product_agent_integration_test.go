@@ -219,6 +219,9 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
 	pointBudget := int64(10_000_000)
+	if mode == "own intake" {
+		pointBudget = 30_000_000
+	}
 	if rehearsal != nil && rehearsal.pilot {
 		pointBudget = 4_000_000_000
 	}
@@ -574,10 +577,11 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			settings.TextTransport = titleRehearsalLoopback(t, provider.URL)
 		}
 	}
+	var publishOwnIntakeFX func(int64) error
 	if mode == "image analysis" || mode == "own intake" {
 		configureImageAnalysisFixture(&settings, *row, &calls)
 		if mode == "own intake" {
-			configureOwnIntakeFixture(&settings, &calls)
+			publishOwnIntakeFX = configureOwnIntakeFixture(t, &settings, &calls)
 		}
 		if len(imageProvider) > 0 {
 			configureEinoImageAnalysisFixture(&settings, *row, &calls, imageProvider[0])
@@ -714,7 +718,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	}
 	if mode == "image analysis" || mode == "own intake" {
 		if mode == "own intake" {
-			testOwnIntakeThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls)
+			testOwnIntakeThroughOwners(t, f, module.(productAgentModule).application, deps, auth, &calls, publishOwnIntakeFX)
 			return
 		}
 		expected := "31"

@@ -29,11 +29,14 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	channel "task-processor/internal/aicapability/channelcredential"
+	d "task-processor/internal/aicapability/routeconfig"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authz"
-	governed "task-processor/internal/integration/aicapability/einomodel"
+	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	routestore "task-processor/internal/integration/persistence/routeconfig"
 	s3 "task-processor/internal/integration/s3"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/collection"
@@ -48,12 +51,71 @@ func TestOwnIntakeHTTPAndIsolatedBrowser(t *testing.T) {
 	testProductAgentOwners(t, "own intake")
 }
 
-func configureOwnIntakeFixture(settings *ProductAgentDependencies, calls *atomic.Int32) {
+func configureOwnIntakeFixture(t *testing.T, settings *ProductAgentDependencies, calls *atomic.Int32) func(int64) error {
+	t.Helper()
+	ctx, now := context.Background(), time.Now().UTC()
+	db := settings.RunDB
+	require.NoError(t, routestore.InstallSchema(ctx, db))
+	repo, err := routestore.New(db)
+	require.NoError(t, err)
+	conn, err := newHTTPChannelFixture(db).owner.Publish(ctx, channel.Command{
+		OrganizationID: "B", ActorID: "synthetic-operator", Key: uuid.NewString(),
+		ConnectionID: "openai-mini", Provider: "openai", Channel: "openai-direct", Region: "global",
+		Account: "fixture", BaseURL: "https://api.openai.com/v1", Secret: "fixture-key", Enabled: true,
+	})
+	require.NoError(t, err)
+	prices := &d.PlatformPricesService{Repository: repo}
+	price := d.PublishedModelPrice{
+		ID: "fixture-mini", Provider: "openai", Model: aicapability.SingleImageMiniModel,
+		Channel: conn.Channel, Region: conn.Region, ServiceType: "standard-sync", Currency: "USD",
+		UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750_000, CachedInputText: 75_000, OutputText: 4_500_000},
+		SourceURL:  "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+		VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour),
+	}
+	revision := d.NoRevision
+	publishFX := func(rate int64) error {
+		fx := d.PublishedFXRate{Currency: "USD", CNYMicrosPerCurrencyUnit: rate,
+			SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", RateDate: now.Format(time.DateOnly),
+			VerifiedAt: now, EffectiveFrom: price.EffectiveFrom, EffectiveUntil: price.EffectiveUntil}
+		next, err := prices.Publish(ctx, "synthetic-platform", uuid.NewString(), d.PlatformPricesInput{
+			ExpectedRevision: revision, Prices: []d.PublishedModelPrice{price}, FX: []d.PublishedFXRate{fx},
+		})
+		if err != nil {
+			return err
+		}
+		revision = next.ID
+		return nil
+	}
+	require.NoError(t, publishFX(8_000_000))
 	settings.TextLogger = logrus.NewEntry(logrus.New())
 	p := settings.ImageAnalysisPolicies["B"]
 	p.Profile.PromptVersion, p.Profile.OutputSchemaVersion = agentconfig.OwnIntakePromptVersion, agentconfig.OwnIntakeActionVersion
 	settings.ImageAnalysisPolicies = nil
-	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: settings, ownIntake: map[string]governed.RoutePolicy{"B": p}}
+	p.Profile.ClientName, p.Profile.ConnectionID = conn.ConnectionID, conn.ConnectionID
+	p.AdmittedCredentialVersion = conn.Reference
+	p.Profile.MaximumPromptTokens, p.Profile.MaximumCompletionTokens = 24_000, 4_000
+	p.Profile.MaximumInputBytes = 1 << 20
+	p.Profile.InputMicrosPerMillion, p.Profile.OutputMicrosPerMillion = 6_000_000, 36_000_000
+	settings.TextPolicies = nil
+	settings.Limits.CostMicros = 300_000
+	ref := d.ModelBindingReference{ID: conn.ConnectionID, Version: "fixture-mini-v1"}
+	catalog, err := qualified.NewCatalog([]qualified.Definition{{
+		Scope:        d.Scope{OrganizationID: "B", Capability: string(aicapability.OperationOwnProductIntake)},
+		Manufacturer: conn.Provider, Channel: conn.Channel, Region: conn.Region, ServiceType: price.ServiceType,
+		PriceID: price.ID, ReferenceVersion: ref.Version, BoundEvidenceVersion: "fixture-mini-bound",
+		ConnectionID: conn.ConnectionID, ConnectionProvider: conn.Provider, ConnectionEndpoint: conn.BaseURL,
+		Text: &p, MaximumCostMicros: settings.Limits.CostMicros, MaximumMicropoints: 30_000_000,
+	}})
+	require.NoError(t, err)
+	service := &d.SharedModelService{Repository: repo, Catalog: &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}}
+	_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{
+		ExpectedRevision: d.NoRevision,
+		Selection: d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: conn.Channel,
+			Text:  d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"},
+			Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: ref},
+	})
+	require.NoError(t, err)
+	settings.CurrentTextPolicies = qualified.SharedTextReader{Service: service}
 	settings.TextTransport = analysisFixtureTransport(func(r *http.Request) (*http.Response, error) {
 		dispatch := calls.Add(1)
 		body, err := io.ReadAll(r.Body)
@@ -64,11 +126,20 @@ func configureOwnIntakeFixture(settings *ProductAgentDependencies, calls *atomic
 		if dispatch > 1 {
 			wantImages = 0
 		}
-		if strings.Count(string(body), "data:image/png;base64,") != wantImages || !strings.Contains(string(body), "WHT-M") {
+		var wire struct {
+			Model               string `json:"model"`
+			MaxCompletionTokens int    `json:"max_completion_tokens"`
+		}
+		if err := json.Unmarshal(body, &wire); err != nil {
+			return nil, err
+		}
+		if r.URL.String() != "https://api.openai.com/v1/chat/completions" || wire.Model != aicapability.SingleImageMiniModel || wire.MaxCompletionTokens != 4_000 ||
+			strings.Count(string(body), "data:image/png;base64,") != wantImages || !strings.Contains(string(body), "WHT-M") {
 			return nil, fmt.Errorf("expected %d PNG parts and original SKU facts on the governed model wire", wantImages)
 		}
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":"intake-fixture","object":"chat.completion","created":1,"model":%q,"choices":[{"index":0,"message":{"role":"assistant","content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":30,"completion_tokens":5,"total_tokens":35,"prompt_tokens_details":{"cached_tokens":10}}}`, aicapability.SingleImageMiniModel, ownIntakeFixtureCandidate)))}, nil
 	})
+	return publishFX
 }
 
 type ownIntakeFixtureMedia struct {
@@ -104,7 +175,7 @@ func (m *ownIntakeFixtureMedia) ReadObject(_ context.Context, key string, max in
 	return bytes.Clone(obj.Data), s3.ObjectInspection{Exists: true, ContentLength: obj.SizeBytes, ContentType: obj.ContentType}, nil
 }
 
-func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent *productAgentApplication, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, calls *atomic.Int32) {
+func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent *productAgentApplication, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, calls *atomic.Int32, publishFX func(int64) error) {
 	t.Helper()
 	ctx := context.Background()
 	live := &productReviewLiveOrganizationAccess{resolver: deps.organizationResolver, now: time.Now}
@@ -205,6 +276,10 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", key, body, 200), &recovered))
 	require.Equal(t, prepared, recovered, "missing Run recovery uses the same prepared snapshot and quote")
 	require.Zero(t, calls.Load())
+	require.Equal(t, "CNY", prepared.Quote.Currency)
+	require.LessOrEqual(t, prepared.Quote.MaximumTokens, int64(28_000))
+	require.Equal(t, int64(6*(prepared.Quote.MaximumTokens-4_000)+36*4_000), prepared.Quote.MaximumCostMicros)
+	require.LessOrEqual(t, prepared.Quote.MaximumCostMicros, int64(288_000))
 	confirmation := ownIntakeConfirm{ownIntakeBody: body, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}
 	confirmation.Notes += "\n变更"
 	call("POST", ownIntakeBase+"/"+key+"/confirm", key, confirmation, 409)
@@ -236,6 +311,47 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	require.NoError(t, json.Unmarshal(textResult, &textOnly))
 	require.NotNil(t, textOnly.Candidate, textOnly.StopReason)
 	require.EqualValues(t, 2, calls.Load())
+
+	// Change the published FX after the actual point reservation, while the
+	// original request is about to enter the final guarded transport handoff.
+	staleKey := uuid.NewString()
+	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", staleKey, body, 200), &prepared))
+	stale := ownIntakeConfirm{ownIntakeBody: body, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}
+	ledger := app.executor.Ledger
+	type fxChange struct {
+		quantity int64
+		err      error
+	}
+	changed := make(chan fxChange, 1)
+	app.executor.Ledger = agentReserveHook{ProductAgentInvocationLedger: parent.config.Ledger, afterReserve: func() {
+		var change fxChange
+		change.err = f.owner.Table("saas_organization_resource_reservations").
+			Where("organization_id = ? AND state = ?", "B", "reserved").
+			Select("quantity").Take(&change.quantity).Error
+		if change.err == nil {
+			change.err = publishFX(8_100_000)
+		}
+		changed <- change
+	}}
+	var blocked ownIntakeResult
+	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/"+staleKey+"/confirm", staleKey, stale, 200), &blocked))
+	select {
+	case change := <-changed:
+		require.NoError(t, change.err)
+		require.Equal(t, prepared.Quote.MaximumCostMicros*100, change.quantity)
+		require.LessOrEqual(t, change.quantity, int64(30_000_000))
+	default:
+		t.Fatal("expected an actual point reservation before changing FX")
+	}
+	require.Nil(t, blocked.Candidate)
+	require.Equal(t, agent.StopDependency, blocked.StopReason)
+	require.NoError(t, f.owner.Table("saas_organization_resource_reservations").
+		Where("organization_id = ? AND state = ?", "B", "reserved").Count(&count).Error)
+	require.Zero(t, count, "the no-send result releases the reservation")
+	require.EqualValues(t, 2, calls.Load(), "no stale quote reaches the controlled provider")
+	app.executor.Ledger = ledger
+	call("POST", ownIntakeBase+"/prepare", uuid.NewString(), body, 503)
+	require.NoError(t, publishFX(8_000_000))
 
 	app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
 		calls.Add(1)
