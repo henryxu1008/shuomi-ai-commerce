@@ -24,6 +24,12 @@ func installOriginalRouteReader(t *testing.T, f prepareFixture) {
 	}))
 }
 
+func installOriginalInvocationAuditReader(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	require.NoError(t, db.Exec("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='account_audit_product_reader') THEN CREATE ROLE account_audit_product_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; END IF; END $$").Error)
+	require.NoError(t, db.Exec("GRANT SELECT ON public.ai_invocations TO account_audit_product_reader").Error)
+}
+
 func TestPrepareProviderRejectionProofAddsOnlyEmptyColumnAndPreciseGrant(t *testing.T) {
 	f := newPrepareFixture(t, "run")
 	ctx := context.Background()
@@ -58,10 +64,21 @@ func TestPrepareProviderRejectionProofAddsOnlyEmptyColumnAndPreciseGrant(t *test
 	}))
 	require.NoError(t, f.db.Exec("INSERT INTO ai_invocations(invocation_id,tenant_id,member_id,input_hash,operation,outcome,review_score,review_needs_human,review_reasons) VALUES('kept','org','member','input','product.own.intake.generate','dispatched',0,false,'null')").Error)
 	installOriginalRouteReader(t, f)
+	installOriginalInvocationAuditReader(t, f.db)
 	routeTables := []string{"public.ai_route_config_revisions", "public.ai_route_config_current", "public.ai_route_config_options"}
 	routeBefore := retainedSnapshot(t, f.db, routeTables)
 	var before string
 	require.NoError(t, f.db.Raw("SELECT to_jsonb(v)::text FROM ai_invocations v WHERE invocation_id='kept'").Scan(&before).Error)
+	// The same owner command can qualify the actual 52-column baseline in a
+	// database-enforced read-only rehearsal without applying its final DDL.
+	err = f.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SET TRANSACTION READ ONLY").Error; err != nil {
+			return err
+		}
+		_, err := PrepareProviderRejectionProof(ctx, tx)
+		return err
+	})
+	require.ErrorContains(t, err, "cannot execute ALTER TABLE in a read-only transaction")
 	result, err := PrepareProviderRejectionProof(ctx, f.db)
 	require.NoError(t, err)
 	require.Equal(t, "CREATED", result.Outcome)
@@ -83,6 +100,29 @@ func TestPrepareProviderRejectionProofAddsOnlyEmptyColumnAndPreciseGrant(t *test
 	require.NoError(t, err)
 	require.Equal(t, "CREATED", result.Outcome)
 	require.Equal(t, routeBefore, retainedSnapshot(t, f.db, routeTables), "capability preparation must preserve the original route reader facts and ACL")
+}
+
+func TestInvocationRecoverySharedLedgerRetainsAuditAndRejectsRuntimeExcess(t *testing.T) {
+	for _, privilege := range []string{"DELETE", "UPDATE", "SELECT WITH GRANT OPTION"} {
+		t.Run(privilege, func(t *testing.T) {
+			f := newPrepareFixture(t, "run")
+			_, err := PrepareRun(context.Background(), f.db)
+			require.NoError(t, err)
+			installOriginalInvocationAuditReader(t, f.db)
+			runtime := f.role(t, "product_agent_runtime")
+			require.NoError(t, VerifyInvocationRecoveryRuntime(context.Background(), runtime))
+			statement := "GRANT " + privilege + " ON ai_invocations TO product_agent_runtime"
+			if privilege == "SELECT WITH GRANT OPTION" {
+				statement = "GRANT SELECT ON ai_invocations TO product_agent_runtime WITH GRANT OPTION"
+			}
+			require.NoError(t, f.db.Exec(statement).Error)
+			before := retainedSnapshot(t, f.db, []string{"public.ai_invocations"})
+			_, err = PrepareProviderRejectionProof(context.Background(), f.db)
+			require.Error(t, err)
+			require.Error(t, VerifyInvocationRecoveryRuntime(context.Background(), runtime))
+			require.Equal(t, before, retainedSnapshot(t, f.db, []string{"public.ai_invocations"}))
+		})
+	}
 }
 
 func TestProviderRejectionRouteReaderRejectsWritesAndGrantOptions(t *testing.T) {

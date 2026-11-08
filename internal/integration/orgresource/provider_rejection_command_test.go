@@ -48,6 +48,7 @@ func prepareRecoveryCommandRoles(t *testing.T, resource, native *gorm.DB) (map[s
 		quoted = append(quoted, pgx.Identifier{column}.Sanitize())
 	}
 	require.NoError(t, native.Exec("GRANT UPDATE("+strings.Join(quoted, ",")+") ON ai_invocations TO product_agent_runtime").Error)
+	require.NoError(t, native.Exec("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='account_audit_product_reader') THEN CREATE ROLE account_audit_product_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; END IF; END $$; GRANT SELECT ON ai_invocations TO account_audit_product_reader").Error)
 	require.NoError(t, native.Exec("GRANT USAGE,CREATE ON SCHEMA public TO product_agent_owner").Error)
 	require.NoError(t, native.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SET LOCAL ROLE product_agent_owner").Error; err != nil {

@@ -112,6 +112,8 @@ Gemini 的可信 ModelProfile.ThinkingMode 必须显式为 low、minimal 或 bud
 
 资格检查复用原模型路由 owner 的只读表授权合同，保留运行角色对已发布模型配置的合法读取。不要为通过检查而撤销正常路由读取权限，也不要临时扩大角色权限；路由写入、授予权限和无关关系访问仍须拒绝。准备命令与只读 inspect 使用同一资格边界。
 
+`ai_invocations` 沿原 `PrepareRun` 的共享账本合同检查关系结构及指定运行角色的精确权限，保留 Account Audit 等原 owner 的合法读取授权。其他私有关系继续使用各自的闭合 ACL 检查，能力准备与 inspect 不撤销或改写已有审计授权。
+
 只有另行获准真实账本恢复且证据齐备后，才把只读核对得到的 `proofDigest` 固定到 `expectedProofDigest`，显式设置 `resolveEnabled: true` 并使用 `-action resolve`。操作键由原调用派生，重复命令、并发恢复和原 owner 的扫描器复用同一原预留与 A=0 结算。原计费 owner 仍按原月份、债务优先及原事务处理；失败或响应丢失后检查同一身份，不创建新调用、不重发模型。缺证明保持原 UNKNOWN 和预留。
 
 已有合格 52 列原调用库需要单独批准的显式 schema 能力准备 `go run ./cmd/product-agent-runtime-prepare -target invocation-provider-rejection`。该目标只增加可空证明列及原 runtime 的精确列权限，不写原调用或账本，也不由服务启动自动执行。新空库沿原准备流程使用当前完整合同。部署必须配套当前合同的程序；已经写入证明后不得直接回滚到不认识该列与终态的程序。
