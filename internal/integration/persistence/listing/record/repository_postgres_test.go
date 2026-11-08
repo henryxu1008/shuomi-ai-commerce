@@ -417,7 +417,27 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		_, err = officialstore.NewOfficialRepository(ctx, db)
 		require.ErrorIs(t, err, submission.ErrExecutionUnavailable)
 		require.NoError(t, officialstore.InstallOfficialSchema(db))
-		official, err := officialstore.NewOfficialRepository(ctx, db)
+		// Official intents/receipts are append-only for the serving role. Run
+		// this existing prepare/complete/readback/rollback suite with that bound.
+		require.NoError(t, db.Exec(`CREATE ROLE official_effects_serving NOLOGIN;
+GRANT USAGE ON SCHEMA public TO official_effects_serving;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO official_effects_serving;
+GRANT INSERT ON listing_submission_official_intents,listing_submission_official_receipts TO official_effects_serving;
+GRANT INSERT,UPDATE ON listing_preparation_targets,listing_submission_execution_attempts,listing_submission_target_fences,listing_walmart_sku_bindings TO official_effects_serving`).Error)
+		conn, err := pool.Conn(ctx)
+		require.NoError(t, err)
+		defer conn.Close()
+		_, err = conn.ExecContext(ctx, "SET ROLE official_effects_serving")
+		require.NoError(t, err)
+		defer conn.ExecContext(context.Background(), "RESET ROLE")
+		serving, err := gorm.Open(postgres.New(postgres.Config{Conn: conn}), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		require.NoError(t, err)
+		var mayUpdate, mayDelete bool
+		require.NoError(t, serving.Raw("SELECT has_table_privilege(current_user,'listing_submission_official_intents','UPDATE')").Scan(&mayUpdate).Error)
+		require.NoError(t, serving.Raw("SELECT has_table_privilege(current_user,'listing_submission_official_intents','DELETE')").Scan(&mayDelete).Error)
+		require.False(t, mayUpdate)
+		require.False(t, mayDelete)
+		official, err := officialstore.NewOfficialRepository(ctx, serving)
 		require.NoError(t, err)
 		intent, err := official.PrepareOfficial(ctx, intentProof)
 		require.NoError(t, err)
