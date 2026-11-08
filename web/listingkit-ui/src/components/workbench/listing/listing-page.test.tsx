@@ -3,11 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ListingPage } from "./listing-page";
 import ListingEntry from "@/app/workbench/listing/page";
+import {SupplyAPIError} from "@/lib/api/supply-chain";
+import {sheinImportFixture} from "@/test/shein-import-fixture";
 import ListingStage from "@/app/workbench/listing/[stage]/page";
 vi.mock("next/server",()=>({connection:vi.fn()}));
-const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),preparations:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn()}));
+const state=vi.hoisted(()=>({context:{} as Record<string,unknown>,preparation:vi.fn(),preparations:vi.fn(),stages:vi.fn(),sources:vi.fn(),history:vi.fn(),stores:vi.fn(),options:vi.fn(),write:vi.fn(),detail:vi.fn(),target:vi.fn(),publication:vi.fn(),operation:vi.fn(),items:vi.fn(),attempt:vi.fn(),record:vi.fn(),plans:vi.fn(),plan:vi.fn(),preview:vi.fn(),rules:vi.fn(),completion:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
-vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyPreparations:state.preparations,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record,listUploadPlans:state.plans,readUploadPlan:state.plan,previewUploadPlan:state.preview,supplyInventory:vi.fn().mockResolvedValue({assets:[]})}));
+vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplyPreparation:state.preparation,listSupplyPreparations:state.preparations,listSupplyStages:state.stages,listSupplySources:state.sources,listSupplyOperations:state.history,supplyCommand:state.write,readSupplyOptimizationOptions:state.options,readSupplySource:state.detail,readSupplyTarget:state.target,readSupplySavedTarget:state.target,readSupplyPublication:state.publication,readSupplyOperation:state.operation,listSupplyOperationItems:state.items,readSupplyUploadAttempt:state.attempt,readSupplyRecord:state.record,listUploadPlans:state.plans,readUploadPlan:state.plan,previewUploadPlan:state.preview,supplyRules:state.rules,readSupplyCompletionDraft:state.completion,supplyInventory:vi.fn().mockResolvedValue({assets:[]})}));
 vi.mock("./temu-target-editor",()=>({TemuTargetEditor:({existing}:{existing?:{temu:{mode:string}}})=><p>TEMU 原生资料 {existing?.temu.mode}</p>}));
 vi.mock("./bulk-review-panel",()=>({BulkListingReviewPanel:({items}:{items:unknown[]})=><p>实际批量提案 {items.length} 件</p>}));
 vi.mock("@/lib/api/workbench-stores",async original=>({...await original<typeof import("@/lib/api/workbench-stores")>(),listWorkbenchStores:state.stores}));
@@ -16,6 +18,7 @@ beforeEach(()=>{
  for(const name of ["LISTINGKIT_SUPPLY_CHAIN_ENABLED","LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED"])vi.stubEnv(name,"true");
  state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.supply.read","workbench.supply.manage","workbench.listing.submit","workbench.store.read"],supplyIntentReady:true,pendingSupplyIntent:null,pendingCollectionIntent:null,setPendingSupplyIntent:()=>true,registerOrganizationSwitchGuard:()=>()=>{}};
  state.plans.mockReset().mockResolvedValue({items:[]});state.plan.mockReset();state.preview.mockReset();
+ state.rules.mockReset();state.completion.mockReset();
  state.options.mockReset().mockResolvedValue({titles:[],reason:"未启用"});
  state.stages.mockReset().mockResolvedValue({items:[],total:205,batchTotal:205,counts:{all:205,waiting:205,missing:0,ready:0,review:0,uploaded:0},nextCursor:source});
  state.preparations.mockReset().mockResolvedValue({items:[{id:prep,name:"完整批次",count:205,createdAt:"2026-10-08T00:00:00Z"}],total:1});
@@ -331,4 +334,34 @@ it("keeps uploaded records read-only while retaining the original product and ve
  await screen.findByText("原上传商品");
  for(const name of ["查看 / 补全","上传配置","配置所选商品上传","检查进度并继续","停止后续步骤","新建上传计划"])expect(screen.queryByRole("button",{name})).not.toBeInTheDocument();
  expect(screen.getByRole("button",{name:"查看商品"})).toBeEnabled();expect(state.write).not.toHaveBeenCalled();
+});
+
+it("opens the first SHEIN platform editor from the actual waiting route",async()=>{
+ const fixture=sheinImportFixture();
+ const detail={...fixture.detail,source:{...fixture.detail.source,id:source,preparationId:prep},product:{...fixture.detail.product,title:"合成首次建档商品"}};
+ state.detail.mockResolvedValue(detail);
+ state.stages.mockImplementation(async (_scope,_preparation,_store,stage)=>({
+  items:stage==="waiting"?[{sourceId:source,stage:"waiting"}]:[],
+  total:stage==="waiting"?1:0,batchTotal:1,
+  counts:{all:1,waiting:1,missing:0,ready:0,review:0,uploaded:0},
+ }));
+ state.target.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));
+ state.publication.mockResolvedValue({sourceId:source,storeId:store});
+ state.rules.mockResolvedValue(fixture.rules);
+ state.completion.mockResolvedValue({...fixture.candidate,source:detail.source});
+ const page=await ListingStage({
+  params:Promise.resolve({stage:"waiting"}),
+  searchParams:Promise.resolve({preparation:prep,store}),
+ });
+ render(page);
+ await userEvent.click(await screen.findByRole("button",{name:"查看 / 补全"}));
+ const dialog=await screen.findByRole("dialog",{name:"商品资料与平台适配"});
+ expect(dialog).toBeVisible();
+ expect(await screen.findByLabelText("商品标题内容 1")).toHaveValue("合成首次建档商品");
+ await waitFor(()=>expect(state.rules).toHaveBeenCalledWith(
+  {userId:"actor-a",organizationId:"org-a"},
+  expect.objectContaining({sourceId:source,storeId:store,expectedRevision:0}),
+  expect.any(AbortSignal),
+ ));
+ expect(state.write).not.toHaveBeenCalled();
 });
