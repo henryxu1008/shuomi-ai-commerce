@@ -38,3 +38,20 @@ it.each([
   expect((await buildWorkbenchBrowserResponse(Response.json({ ...complete, rawTask: "private" }), contract)).status).toBe(502);
   expect((await buildWorkbenchBrowserResponse(Response.json({ ...complete, status: "limited" }), contract)).status).toBe(502);
 });
+
+it("admits one store and only bounded counts for the Walmart Feed metric", async () => {
+  const path = ["supply-preparations", "walmart-feed-metrics"];
+  const url = "http://localhost/api/workbench/" + path.join("/");
+  const mapped = await buildWorkbenchUpstreamRequest(new Request(url + query, { headers: scope }), path, "server-token", "user-a");
+  expect(mapped).not.toBeInstanceOf(Response);
+  if (mapped instanceof Response) return;
+  expect(mapped.responseContract).toBe("supply-walmart-feed-metrics");
+  expect(mapped.sourceMutation).toBe(false);
+  const multiple = await buildWorkbenchUpstreamRequest(new Request(url + query + "&storeId=" + second, { headers: scope }), path, "server-token", "user-a");
+  expect(multiple).toBeInstanceOf(Response);
+  if (multiple instanceof Response) expect(multiple.status).toBe(400);
+  const complete = { status: "complete", capturedAt, counts: { accepted: 0, rejected: 0, unknown: 1 } };
+  expect((await buildWorkbenchBrowserResponse(Response.json(complete), mapped.responseContract)).status).toBe(200);
+  expect((await buildWorkbenchBrowserResponse(Response.json({ ...complete, counts: { accepted: 250, rejected: 1, unknown: 0 } }), mapped.responseContract)).status).toBe(502);
+  expect((await buildWorkbenchBrowserResponse(Response.json({ ...complete, attemptId: "private" }), mapped.responseContract)).status).toBe(502);
+});
