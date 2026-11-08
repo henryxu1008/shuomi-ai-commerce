@@ -68,6 +68,28 @@ func TestObservedOrderDetailsCorrelateMembershipAndDiscardPrivateFields(t *testi
 	_, e = c.QueryObservedOrderDetails(context.Background(), goodsCredential(), []string{"order-a"})
 	require.ErrorIs(t, e, o.ErrUnavailable)
 }
+
+func TestObservedOrderMissingPricesPreserveKnownCurrencies(t *testing.T) {
+	for _, test := range []struct {
+		name, fields string
+		amount, cost *o.Price
+	}{
+		{"known currencies without values", `,"orderCurrency":"USD","productTotalPrice":null,"saleCurrency":"CNY"`, &o.Price{Currency: "USD"}, &o.Price{Currency: "CNY"}},
+		{"no amount facts", ``, nil, nil},
+		{"explicit zero", `,"orderCurrency":"USD","productTotalPrice":"0"`, &o.Price{Currency: "USD", Value: "0"}, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			raw := `{"code":"0","info":[{"orderNo":"order-a","salesSite":"shein-us"` + test.fields + `}]}`
+			c := testClient(t, roundTripFunc(func(r *http.Request) (*http.Response, error) { return observationResponse(raw), nil }))
+			c.application.Version = "offline:semi_managed"
+			rows, err := c.QueryObservedOrderDetails(context.Background(), goodsCredential(), []string{"order-a"})
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.Equal(t, test.amount, rows[0].Amount)
+			require.Equal(t, test.cost, rows[0].SupplyCost)
+		})
+	}
+}
 func TestObservedLogisticsAllowsPackageWithoutWaybillAndRejectsDuplicateJSON(t *testing.T) {
 	raw := `{"code":"0","info":{"trackInfo":[{"carrier":"Carrier","waybillNo":"waybill-a","tracking":[{"description":"Collected","nodeCode":"collected","updateTimeMillis":1700000000000}]}]}}`
 	c := testClient(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
