@@ -15,6 +15,16 @@ export const listingMetrics = z.discriminatedUnion("status", [
   }),
 ]);
 
+export const sheinPublishMetrics = z.discriminatedUnion("status", [
+  limited,
+  z.strictObject({
+    status: z.literal("complete"),
+    capturedAt,
+    counts: z.strictObject({ confirmed: count, unknown: count })
+      .refine(value => value.confirmed + value.unknown <= 250),
+  }),
+]);
+
 export const storeSubmissionMetrics = z.discriminatedUnion("status", [
   limited,
   z.strictObject({

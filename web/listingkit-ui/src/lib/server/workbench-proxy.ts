@@ -560,11 +560,11 @@ export async function buildWorkbenchUpstreamRequest(
         }else if(request.headers.has("Idempotency-Key"))return protocolError(400,"INVALID_REQUEST","Unexpected image key");
         headers.set("Content-Type","application/json");body=JSON.stringify(validated.data);
       }
-    } else if (route.requestContract === "supply-cockpit-metrics" || route.requestContract === "supply-walmart-feed-metrics" || route.requestContract === "supply-tiktok-publish-metrics" || route.requestContract === "ai-task-cockpit-metrics") {
+    } else if (route.requestContract === "supply-cockpit-metrics" || route.requestContract === "supply-walmart-feed-metrics" || route.requestContract === "supply-tiktok-publish-metrics" || route.requestContract === "supply-shein-publish-metrics" || route.requestContract === "ai-task-cockpit-metrics") {
       if (!authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER) !== authenticatedActorSubject)
         return protocolError(409, "IDENTITY_CONTEXT_CHANGED", "Identity context changed");
       const url = new URL(request.url);
-      const maxStores = route.requestContract === "supply-walmart-feed-metrics" || route.requestContract === "supply-tiktok-publish-metrics" ? 1 : undefined;
+      const maxStores = route.requestContract === "supply-walmart-feed-metrics" || route.requestContract === "supply-tiktok-publish-metrics" || route.requestContract === "supply-shein-publish-metrics" ? 1 : undefined;
       if (!isCockpitMetricsQuery(url, maxStores) || request.headers.has("Idempotency-Key") ||
         request.headers.has("content-encoding") || !(await requestHasNoBody(request)))
         return protocolError(400, "INVALID_REQUEST", "Metrics query is invalid");
