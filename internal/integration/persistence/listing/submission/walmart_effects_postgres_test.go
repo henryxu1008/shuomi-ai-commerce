@@ -446,3 +446,62 @@ func TestPostgresWalmartLargeHistoryDoesNotBlockNextRead(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, req.ReadProgress.StartOffset)
 }
+
+func TestWalmartFeedCandidatesAreScopedBeforeTheLimit(t *testing.T) {
+	f := newWalmartPostgresFixture(t, 3)
+	original, command := f.seed()
+	acquired, err := f.kernel.Acquire(f.ctx, command)
+	require.NoError(t, err)
+	attempt := acquired.Attempt
+
+	// Add old-merchant facts using the same persisted format. They belong to
+	// the same store but must never consume its current merchant's read budget.
+	oldIntents := make([]map[string]any, 251)
+	oldAttempts := make([]map[string]any, len(oldIntents))
+	for i := range oldIntents {
+		intent := original
+		intent.Key = uuid.NewString()
+		intent.Binding.SupplierIdentityHash = collection.Digest("previous merchant")
+		intent.Target.SubjectID, err = submission.WalmartSubjectID(intent.Source.Source.ProductKey, intent.Binding.SupplierIdentityHash)
+		require.NoError(t, err)
+		oldCommand := command
+		oldCommand.IntentKey, oldCommand.Target = intent.Key, intent.Target
+		id, err := uuid.NewV7()
+		require.NoError(t, err)
+		reservation, err := submission.NewExecutionReservation(oldCommand, id.String(), "offline-test-key", attempt.CreatedAt)
+		require.NoError(t, err)
+		old := reservation.Attempt
+		intent.PayloadFingerprint = old.PayloadFingerprint
+		intent.InputHash = submission.OfficialIntentInputHash(intent)
+		require.NoError(t, submission.ValidateOfficialIntent(intent))
+		body, err := json.Marshal(intent)
+		require.NoError(t, err)
+		oldIntents[i] = map[string]any{
+			"organization_id": intent.Owner.OrganizationID, "actor_id": intent.Owner.ActorID, "member_id": intent.Owner.MemberID,
+			"intent_key": intent.Key, "record_id": intent.RecordID, "kind": intent.Kind, "input_hash": intent.InputHash,
+			"body_hash": collection.Digest(intent), "body_json": string(body),
+		}
+		oldAttempts[i] = map[string]any{
+			"organization_id": old.OrganizationID, "attempt_id": old.AttemptID, "intent_key": old.IntentKey,
+			"platform": old.Target.Platform, "store_id": old.Target.StoreID, "subject_id": old.Target.SubjectID, "action": old.Action,
+			"payload_fingerprint": old.PayloadFingerprint, "provider_execution_key": old.ProviderExecutionKey,
+			"claim_owner_id": old.ClaimOwnerID, "claim_token_hash": reservation.ClaimTokenHash, "fence_epoch": i + 1,
+			"status": old.Status, "lease_expires_at": old.LeaseExpiresAt, "created_at": old.CreatedAt, "updated_at": old.UpdatedAt,
+		}
+	}
+	require.NoError(t, f.db.Table("listing_submission_official_intents").CreateInBatches(oldIntents, 100).Error)
+	require.NoError(t, f.db.Table(effectsstore.AttemptTable).CreateInBatches(oldAttempts, 100).Error)
+
+	end := attempt.CreatedAt.Add(time.Microsecond)
+	ids, err := f.official.ListWalmartFeedAttemptIDs(f.ctx, f.scope, f.binding, attempt.CreatedAt, end, 251)
+	require.NoError(t, err)
+	require.Equal(t, []string{attempt.AttemptID}, ids)
+	scope := f.scope
+	scope.MemberID = "different-member"
+	ids, err = f.official.ListWalmartFeedAttemptIDs(f.ctx, scope, f.binding, attempt.CreatedAt, end, 251)
+	require.NoError(t, err)
+	require.Empty(t, ids)
+	ids, err = f.official.ListWalmartFeedAttemptIDs(f.ctx, f.scope, f.binding, attempt.CreatedAt.Add(-time.Second), attempt.CreatedAt, 251)
+	require.NoError(t, err)
+	require.Empty(t, ids, "an attempt at the exclusive end belongs to the next period")
+}

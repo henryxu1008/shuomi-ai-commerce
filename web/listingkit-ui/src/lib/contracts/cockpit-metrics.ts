@@ -15,6 +15,15 @@ export const listingMetrics = z.discriminatedUnion("status", [
   }),
 ]);
 
+export const walmartFeedMetrics = z.discriminatedUnion("status", [
+  limited,
+  z.strictObject({
+    status: z.literal("complete"),
+    capturedAt,
+    counts: z.strictObject({ accepted: count, rejected: count, unknown: count })
+      .refine(value => value.accepted + value.rejected + value.unknown <= 250),
+  }),
+]);
 export const taskMetrics = z.discriminatedUnion("status", [
   limited,
   z.strictObject({
@@ -33,7 +42,7 @@ export const taskMetrics = z.discriminatedUnion("status", [
 
 export type TaskCounts = Extract<z.infer<typeof taskMetrics>, { status: "complete" }>["counts"];
 
-export function isCockpitMetricsQuery(url: URL) {
+export function isCockpitMetricsQuery(url: URL, maxStores = 500) {
   if (url.search.length >= 16000 || /%(?![0-9A-Fa-f]{2})/.test(url.search)) return false;
   const query = url.searchParams;
   if ([...query.keys()].some(key => !["startDate", "endDate", "storeId"].includes(key))) return false;
@@ -42,6 +51,6 @@ export function isCockpitMetricsQuery(url: URL) {
     if (dates.length !== 1 || !z.iso.date().safeParse(dates[0]).success) return false;
   }
   const stores = query.getAll("storeId");
-  return stores.length > 0 && stores.length <= 500 &&
+  return stores.length > 0 && stores.length <= maxStores &&
     new Set(stores).size === stores.length && stores.every(isAcquisitionUUID);
 }

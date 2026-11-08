@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { cockpitRequest, cockpitErrorText, type CockpitScope } from "@/lib/api/operations-cockpit";
 import { cockpitCapabilities, cockpitMatrix, cockpitRules, moneyText, type CockpitCapabilities } from "@/lib/contracts/operations-cockpit";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
-import { listingMetrics, taskMetrics, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
+import { listingMetrics, taskMetrics, walmartFeedMetrics, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
 import { CockpitTaskDistribution } from "./cockpit-task-distribution";
 import styles from "./cockpit-overview.module.css";
 
@@ -103,6 +103,8 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     : selected.length === 0 ? "所选范围暂无店铺" : undefined;
   const listingAllowed = permissions?.includes("workbench.supply.read") ?? false;
   const tasksAllowed = permissions?.includes("workbench.task.read") ?? false;
+  const showWalmartFeed = Boolean(store) && selected.length === 1 && selected[0].platform === "walmart" && selected[0].region === "US";
+  const walmartFeedAllowed = showWalmartFeed && listingAllowed;
   const access = capabilities.access;
   const key = ["operations-cockpit", scope.userId, scope.organizationId];
   const matrix = useQuery({ queryKey: [...key, "home-matrix", query, access.storesRead], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), enabled: access.storesRead && valid, retry: false, gcTime: 0 });
@@ -110,16 +112,17 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const advice = useQuery({ queryKey: [...key, "home-advice", query, access.adviceRead], queryFn: ({ signal }) => cockpitRequest(scope, "advice?" + query, cockpitRules, { signal }), enabled: access.adviceRead && valid, retry: false, gcTime: 0 });
 
   const stats = useQuery({
-    queryKey: [...key, "home-metrics", statsQuery, listingAllowed, tasksAllowed],
+    queryKey: [...key, "home-metrics", statsQuery, listingAllowed, tasksAllowed, walmartFeedAllowed],
     enabled: !refreshing && !statsScopeMessage && (listingAllowed || tasksAllowed),
     retry: false,
     gcTime: 0,
     queryFn: async ({ signal }) => {
-      const [listing, tasks] = await Promise.allSettled([
+      const [listing, tasks, walmartFeed] = await Promise.allSettled([
         listingAllowed ? readCockpitMetrics(scope, "supply-preparations", statsQuery, listingMetrics, signal) : undefined,
         tasksAllowed ? readCockpitMetrics(scope, "tasks", statsQuery, taskMetrics, signal) : undefined,
+        walmartFeedAllowed ? readCockpitMetrics(scope, "walmart-feed", statsQuery, walmartFeedMetrics, signal) : undefined,
       ] as const);
-      return { listing, tasks };
+      return { listing, tasks, walmartFeed };
     },
   });
   const listingRead = stats.data?.listing.status === "fulfilled" ? stats.data.listing.value : undefined;
@@ -134,6 +137,9 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   }
   const listingMessage = metricsMessage(listingAllowed, listingRead);
   const taskMessage = metricsMessage(tasksAllowed, taskRead);
+  const walmartRead = stats.data?.walmartFeed.status === "fulfilled" ? stats.data.walmartFeed.value : undefined;
+  const walmartMessage = metricsMessage(walmartFeedAllowed, walmartRead);
+  const walmartCounts = !walmartMessage && walmartRead?.result?.status === "complete" ? walmartRead.result.counts : undefined;
 
   function readState(allowed: boolean, fetching: boolean, error: unknown) {
     if (refreshing) return "正在刷新经营事实…";
@@ -189,6 +195,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskCounts={!taskMessage && taskRead?.result?.status === "complete" ? taskRead.result.counts : undefined}
     listingMessage={listingMessage}
     taskMessage={taskMessage}
+    walmartFeed={showWalmartFeed ? <WalmartFeedRate counts={walmartCounts} message={walmartMessage} /> : undefined}
     platforms={refreshing ? undefined : [...new Set(selected.map(s => s.platform))].sort()}
     matrix={matrixState ? undefined : matrix.data}
     matrixState={matrixState}
@@ -221,7 +228,22 @@ function RuleList({ data, state, mode, actionFor }: {
   </>;
 }
 
-function OverviewPanels({ filters, message, activeStores, listingCounts, taskCounts, listingMessage, taskMessage, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
+function WalmartFeedRate({ counts, message }: {
+  counts?: { accepted: number; rejected: number; unknown: number };
+  message?: string;
+}) {
+  const denominator = counts ? counts.accepted + counts.rejected : 0;
+  const rate = counts && denominator > 0
+    ? (100 * counts.accepted / denominator).toFixed(1) + "%"
+    : "暂无已确认结果";
+  return <Panel title="Walmart Feed 提交受理率" detail="按原 Feed 提交尝试统计">
+    {counts ? <div className={styles.profit} aria-live="polite">
+      <strong>{rate}</strong>
+      <small>已受理 {counts.accepted} · 明确拒绝 {counts.rejected} · 结果未知 {counts.unknown}</small>
+    </div> : <p className={styles.empty} role="status">{message}</p>}
+  </Panel>;
+}
+function OverviewPanels({ filters, message, activeStores, listingCounts, taskCounts, listingMessage, taskMessage, walmartFeed, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
   filters?: ReactNode;
   message?: string;
   activeStores?: number;
@@ -229,6 +251,7 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
   taskCounts?: TaskCounts;
   listingMessage?: string;
   taskMessage?: string;
+  walmartFeed?: ReactNode;
   platforms?: readonly string[];
   matrix?: Matrix;
   matrixState?: string;
@@ -274,6 +297,7 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
         </Card>)}
       </div>
 
+      {walmartFeed}
       <div className={styles.split}>
         <Panel title="经营与刊登趋势" detail="所选完整日">
           <div className={styles.trend}>

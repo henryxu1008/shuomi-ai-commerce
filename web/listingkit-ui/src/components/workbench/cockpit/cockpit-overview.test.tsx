@@ -135,3 +135,36 @@ it.each([false, true])("preserves unavailable goal evaluation alongside actual r
   expect(screen.queryByText("当前范围暂无人工处理建议")).not.toBeInTheDocument();
   if (hasRules) expect(screen.getAllByText("真实经营预警")).toHaveLength(2);
 });
+
+it("shows a separate Feed rate only for an explicitly selected Walmart store and reloads it with the date", async () => {
+  const walmart = { id: "123e4567-e89b-42d3-a456-426614174000", name: "Walmart 验收店", platform: "walmart", region: "US", status: "active" };
+  const shein = { ...walmart, id: "123e4567-e89b-42d3-a456-426614174001", name: "SHEIN 验收店", platform: "shein" };
+  const title = "Walmart Feed 提交受理率";
+  const capturedAt = "2026-10-11T00:00:00Z";
+  state.context.permissions.push("workbench.supply.read");
+  vi.mocked(cockpitRequest).mockImplementation(async (_scope, path) => path === "capabilities"
+    ? { ...capabilities, stores: [walmart, shein] } : matrix);
+  vi.mocked(readCockpitMetrics).mockImplementation(async (_scope, owner, query) => {
+    const yesterday = new URLSearchParams(query).get("startDate") === "2026-10-10";
+    const counts = String(owner) === "walmart-feed"
+      ? { accepted: yesterday ? 0 : 1, rejected: yesterday ? 0 : 1, unknown: 1 }
+      : { pending: 2, review: 1 };
+    return { result: { status: "complete", capturedAt, counts } };
+  });
+  const user = userEvent.setup();
+  mount();
+  const shop = await screen.findByRole("combobox", { name: "店铺" });
+  expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument();
+  await user.selectOptions(shop, walmart.id);
+  await screen.findByRole("heading", { name: title });
+  expect(await screen.findByText("50.0%")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: /^昨日$/ }));
+  expect(await screen.findByText("暂无已确认结果")).toBeVisible();
+  expect(screen.queryByText("50.0%")).not.toBeInTheDocument();
+  expect(vi.mocked(readCockpitMetrics).mock.calls.some(([, owner, query]) => String(owner) === "walmart-feed"
+    && query === "startDate=2026-10-10&endDate=2026-10-10&storeId=" + walmart.id)).toBe(true);
+  await user.selectOptions(shop, shein.id);
+  expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument();
+  expect(screen.getByText("上传结果统计待接入")).toBeVisible();
+  expect(screen.getByText("GMV 数据待接入")).toBeVisible();
+});
