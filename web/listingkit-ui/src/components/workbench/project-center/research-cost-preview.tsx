@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import {ResearchError} from "@/lib/api/market-research";
 import {
-  blankCostBasis, blankCostDraft, costFields, evaluateCost,
+  blankCostBasis, blankCostDraft, costFields,
   type CostBasis, type CostDraft, type CostField, type CostOutcome, type CostResult, type CostValue,
 } from "@/lib/workbench/research-cost-preview";
 
@@ -15,6 +16,7 @@ const terms: Record<CostField, string> = {
   taxFixed: "卖家承担固定税费", taxRate: "卖家承担税率",
   advertising: "广告分摊", exchangeCost: "额外换汇成本",
 };
+export const costFieldLabels=terms;
 
 const fields: Record<string, string> = {
   channel: "计划销售渠道", fulfillment: "履约方式", specification: "商品规格",
@@ -106,7 +108,7 @@ function OutcomeFields({ label, value, purchaseCurrency, onChange }: {
   </fieldset>;
 }
 
-function PreviewResult({ result }: { result: CostResult }) {
+export function PreviewResult({ result }: { result: CostResult }) {
   if (result.status === "UNSUPPORTED_COST_RULE") {
     return <p role="status">暂不支持阶梯、最低收费或其他超出本次范围的费用规则，完整利润和保本价待核实。</p>;
   }
@@ -131,10 +133,14 @@ function PreviewResult({ result }: { result: CostResult }) {
   </section>;
 }
 
-export function ResearchCostPreview({ verifyEvidence }: {
-  verifyEvidence: (signal: AbortSignal) => Promise<boolean>;
+export function ResearchCostPreview({ calculate,onEdit,onSave,initialDraft,disabled=false }: {
+  calculate: (draft:CostDraft,signal: AbortSignal) => Promise<CostResult>;
+  onEdit?:()=>void;
+  onSave?:(draft:CostDraft)=>Promise<void>;
+  initialDraft?:CostDraft;
+  disabled?:boolean;
 }) {
-  const [draft, setDraft] = useState(blankCostDraft);
+  const [draft, setDraft] = useState(initialDraft??blankCostDraft);
   const [result, setResult] = useState<CostResult>();
   const [message, setMessage] = useState("");
   const [checking, setChecking] = useState(false);
@@ -150,11 +156,13 @@ export function ResearchCostPreview({ verifyEvidence }: {
   }
 
   function edit<K extends keyof CostDraft>(field: K, value: CostDraft[K]) {
+    onEdit?.();
     clearPreview();
     setDraft(previous => ({ ...previous, [field]: value }));
   }
 
   function changeCurrency(purchaseCurrency: CostDraft["purchaseCurrency"]) {
+    onEdit?.();
     clearPreview();
     const clearProcurement = (outcome: CostOutcome): CostOutcome => ({
       ...outcome, costs: { ...outcome.costs, procurement: { kind: "value", value: "" } },
@@ -174,15 +182,16 @@ export function ResearchCostPreview({ verifyEvidence }: {
     setMessage("");
     setChecking(true);
     try {
-      const unchanged = await verifyEvidence(request.signal);
+      const response = await calculate(draft,request.signal);
       if (request.signal.aborted) return;
-      if (unchanged) setResult(evaluateCost(draft));
-      else {
+      setResult(response);
+    } catch (error) {
+      if (request.signal.aborted)return;
+      const transient=error instanceof ResearchError&&(["DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED"].includes(error.code)||error.code==="INVALID_UPSTREAM_RESPONSE"&&!!error.status&&error.status>=500);
+      if(error instanceof ResearchError&&!transient||error instanceof Error&&["REVISION_CONFLICT","FORBIDDEN","NOT_FOUND","PROJECT_ARCHIVED"].includes(error.message)){
         setDraft(blankCostDraft());
         setMessage("原商品资料已变化或暂不可读，请刷新商品资料后重新填写。");
-      }
-    } catch {
-      if (!request.signal.aborted) setMessage("暂时无法核对原商品资料。已保留输入，请重新查看试算。");
+      }else setMessage("暂时无法核对原商品资料。已保留输入，请重新查看试算。");
     } finally {
       if (current.current === request) {
         current.current = null;
@@ -196,7 +205,8 @@ export function ResearchCostPreview({ verifyEvidence }: {
 
   return <form aria-label="经营假设和参考试算" className="grid min-w-0 gap-4 border-t border-border pt-4"
     onSubmit={preview}>
-    <p className="text-sm text-muted-foreground">美国市场 · USD 销售 · 每单一件。请填写自己的经营假设，商品资料的展示价不会带入。试算留在当前页面。</p>
+    <p className="text-sm text-muted-foreground">美国市场 · USD 销售 · 每单一件。请填写自己的经营假设，商品资料的展示价不会带入。未保存的输入只留在当前页面。</p>
+    <fieldset disabled={disabled} className="grid min-w-0 gap-4">
     <div className="grid min-w-0 gap-3 sm:grid-cols-2">
       <TextField label="计划销售渠道" value={draft.channel} onChange={value => edit("channel", value)} />
       <TextField label="履约方式" value={draft.fulfillment} onChange={value => edit("fulfillment", value)} />
@@ -240,7 +250,9 @@ export function ResearchCostPreview({ verifyEvidence }: {
       {draft.refundRate && !refundIsZero && <OutcomeFields label="全额退款" value={draft.refunded} purchaseCurrency={draft.purchaseCurrency}
         onChange={value => edit("refunded", value)} />}
     </>}
-    <div><Button type="submit" variant="secondary" disabled={checking}>{checking ? "正在核对商品资料…" : "查看参考试算"}</Button></div>
+    <div className="flex flex-wrap gap-2"><Button type="submit" variant="secondary" disabled={checking}>{checking ? "正在核对商品资料…" : "查看参考试算"}</Button>
+    {onSave&&<Button type="button" disabled={checking||!result} onClick={async()=>{setChecking(true);try{await onSave(draft)}finally{setChecking(false)}}}>保存本次评估</Button>}</div>
+    </fieldset>
     {message && <p role="alert">{message}</p>}
     {result && <PreviewResult result={result} />}
   </form>;

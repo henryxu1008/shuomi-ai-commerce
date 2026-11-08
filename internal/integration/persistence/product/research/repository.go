@@ -6,19 +6,30 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 	"sort"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/research"
 	"time"
 )
 
-type Repository struct{ db *gorm.DB }
+type Repository struct {
+	db          *gorm.DB
+	assessments bool
+}
 
 func New(ctx context.Context, db *gorm.DB) (*Repository, error) {
 	if e := VerifySchema(ctx, db); e != nil {
 		return nil, e
 	}
-	return &Repository{db}, nil
+	var present bool
+	if db.WithContext(ctx).Raw("SELECT to_regclass(?) IS NOT NULL", assessmentTable).Scan(&present).Error != nil {
+		return nil, research.ErrUnavailable
+	}
+	if present && VerifyAssessmentSchema(ctx, db) != nil {
+		return nil, research.ErrUnavailable
+	}
+	return &Repository{db: db, assessments: present}, nil
 }
 
 type candidateRow struct {
@@ -74,7 +85,7 @@ func (r *Repository) Lookup(ctx context.Context, s collection.Scope, p, key stri
 	if e != nil {
 		return research.Receipt{}, e
 	}
-	return decodeReceipt(row)
+	return scopedReceipt(r.db.WithContext(ctx), s, p, row)
 }
 func (r *Repository) Replay(ctx context.Context, s collection.Scope, p, key string, c research.Command) (research.Receipt, bool, error) {
 	row, e := lookup(r.db.WithContext(ctx), s, p, key)
@@ -87,7 +98,7 @@ func (r *Repository) Replay(ctx context.Context, s collection.Scope, p, key stri
 	if row.InputHash != collection.Digest(c) {
 		return research.Receipt{}, true, research.ErrConflict
 	}
-	out, e := decodeReceipt(row)
+	out, e := scopedReceipt(r.db.WithContext(ctx), s, p, row)
 	return out, true, e
 }
 func load(db *gorm.DB, s collection.Scope, p, id string, lock bool) (candidateRow, error) {
@@ -226,10 +237,10 @@ func (r *Repository) List(ctx context.Context, s collection.Scope, p, after stri
 	return out, next, nil
 }
 func (r *Repository) Commit(ctx context.Context, s collection.Scope, p, key string, c research.Command, observations []research.Observation, validation error) (research.Receipt, error) {
-	return r.commit(ctx, s, p, key, c, observations, validation, nil)
+	return r.commit(ctx, s, p, key, c, observations, validation, nil, nil)
 }
 
-func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key string, c research.Command, observations []research.Observation, validation error, supplier *research.SupplierReviewProof) (research.Receipt, error) {
+func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key string, c research.Command, observations []research.Observation, validation error, supplier *research.SupplierReviewProof, assessment *research.AssessmentProof) (research.Receipt, error) {
 	tx := r.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return research.Receipt{}, research.ErrUnavailable
@@ -243,7 +254,7 @@ func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key stri
 		if existing.InputHash != collection.Digest(c) {
 			return research.Receipt{}, research.ErrConflict
 		}
-		return decodeReceipt(existing)
+		return scopedReceipt(tx, s, p, existing)
 	}
 	if !errors.Is(e, research.ErrNotFound) {
 		return research.Receipt{}, e
@@ -329,6 +340,27 @@ func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key stri
 		if c.Action != "select" && c.Action != "unlink" && c.EvidenceDigest != ref.Digest() {
 			return out, research.ErrConflict
 		}
+		if assessment != nil {
+			if row.Platform != "amazon" || row.Market != "us" || assessment.Record.MemberID != s.MemberID || assessment.Record.Market != ref || assessment.Record.LinkID != linkID || assessment.Recheck == nil || !time.Now().Before(assessment.Expires) {
+				return out, research.ErrConflict
+			}
+			if c.Action == research.SaveAssessment {
+				if assessment.Record.CandidateRevision != row.Revision || assessment.Record.RequestHash != collection.Digest(c) || linkID != c.LinkID {
+					return out, research.ErrConflict
+				}
+				v := assessment.Record.Reference(key)
+				out.AssessmentRef = &v
+			} else {
+				stored, e := loadAssessment(tx, s, p, c.CandidateID, c.AssessmentRef.ID)
+				if e != nil {
+					return out, e
+				}
+				if stored.Record.MemberID != s.MemberID || stored.Record.Reference(stored.ID) != *c.AssessmentRef || collection.Digest(stored.Record) != collection.Digest(assessment.Record) {
+					return out, research.ErrConflict
+				}
+				out.AssessmentRef = c.AssessmentRef
+			}
+		}
 		switch c.Action {
 		case "select":
 			row.SelectedLinkID = &linkID
@@ -359,6 +391,10 @@ func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key stri
 				linkID != c.LinkID || ref.Source.Kind != "amazon_data" || !time.Now().Before(supplier.Expires) {
 				return out, research.ErrConflict
 			}
+		case research.SaveAssessment:
+			if assessment == nil || c.Assessment == nil {
+				return out, research.ErrInvalid
+			}
 		case "reset":
 			row.State = "TO_RESEARCH"
 			row.Reason = ""
@@ -367,7 +403,7 @@ func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key stri
 		}
 		row.Revision++
 		updates := map[string]any{"revision": row.Revision}
-		if supplier == nil {
+		if supplier == nil && c.Action != research.SaveAssessment {
 			updates["selected_link_id"] = row.SelectedLinkID
 			updates["state"] = row.State
 			updates["reason"] = row.Reason
@@ -375,17 +411,18 @@ func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key stri
 		if e := scoped(tx, s, p).Model(&candidateRow{}).Where("id=?", row.ID).Updates(updates).Error; e != nil {
 			return out, research.ErrUnavailable
 		}
-		if supplier == nil {
+		if supplier == nil && c.Action != research.SaveAssessment {
 			decision = &research.Decision{State: row.State, EvidenceDigest: ref.Digest(), Ref: ref, Revision: row.Revision, At: now}
 		}
 		if c.Action == "decide" {
 			decision.Reason = c.Reason
+			decision.AssessmentRef = c.AssessmentRef
 		}
 		out.CandidateIDs = append(out.CandidateIDs, row.ID)
 		out.Revisions[row.ID] = row.Revision
 	}
 	raw, _ := json.Marshal(c)
-	if supplier != nil {
+	if supplier != nil || c.Action == research.SaveAssessment {
 		raw, _ = json.Marshal(research.Command{Action: c.Action, CandidateID: c.CandidateID, ExpectedRevision: c.ExpectedRevision})
 	}
 	receiptJSON, _ := json.Marshal(out)
@@ -396,12 +433,28 @@ func (r *Repository) commit(ctx context.Context, s collection.Scope, p, key stri
 	if decision != nil {
 		command.DecisionJSON, _ = json.Marshal(decision)
 	}
-	if e := tx.Create(&command).Error; e != nil {
+	if e := tx.Session(&gorm.Session{Logger: logger.Discard}).Create(&command).Error; e != nil {
 		return research.Receipt{}, research.ErrUnavailable
 	}
 	if supplier != nil {
 		if err := insertSupplierReview(tx, s, p, key, c, out.Revisions[c.CandidateID], now, *supplier); err != nil {
 			return research.Receipt{}, err
+		}
+	}
+	if assessment != nil {
+		if c.Action == research.SaveAssessment {
+			if err := insertAssessment(tx, s, p, key, c, out.Revisions[c.CandidateID], now, *assessment); err != nil {
+				return research.Receipt{}, err
+			}
+		}
+		if !time.Now().Before(assessment.Expires) {
+			return research.Receipt{}, research.ErrConflict
+		}
+		if err := assessment.Recheck(ctx); err != nil {
+			return research.Receipt{}, err
+		}
+		if !time.Now().Before(assessment.Expires) {
+			return research.Receipt{}, research.ErrConflict
 		}
 	}
 	if tx.Commit().Error != nil {

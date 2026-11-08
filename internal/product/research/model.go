@@ -107,6 +107,7 @@ type Decision struct {
 	Ref                           EvidenceRef
 	Revision                      int64
 	At                            time.Time
+	AssessmentRef                 *AssessmentRef `json:"assessmentRef,omitempty"`
 }
 type Candidate struct {
 	ID, ProjectID, SelectedLinkID, State, Reason string
@@ -120,11 +121,12 @@ type EvidenceView struct {
 	Observation *Observation `json:"observation,omitempty"`
 }
 type DecisionView struct {
-	State          string    `json:"state"`
-	Reason         string    `json:"reason,omitempty"`
-	EvidenceDigest string    `json:"evidenceDigest,omitempty"`
-	Revision       int64     `json:"revision"`
-	At             time.Time `json:"at"`
+	State          string         `json:"state"`
+	Reason         string         `json:"reason,omitempty"`
+	EvidenceDigest string         `json:"evidenceDigest,omitempty"`
+	Revision       int64          `json:"revision"`
+	At             time.Time      `json:"at"`
+	AssessmentRef  *AssessmentRef `json:"assessmentRef,omitempty"`
 }
 type CandidateView struct {
 	ID             string         `json:"id"`
@@ -136,6 +138,7 @@ type CandidateView struct {
 	Observation    *Observation   `json:"observation,omitempty"`
 	Evidence       []EvidenceView `json:"evidence"`
 	SupplierReview bool           `json:"supplierReview,omitempty"`
+	Assessment     bool           `json:"assessment,omitempty"`
 	History        []DecisionView `json:"history"`
 }
 type Page struct {
@@ -144,21 +147,24 @@ type Page struct {
 	Incomplete bool            `json:"incomplete"`
 }
 type Command struct {
-	Action           string         `json:"action"`
-	Supplier         *SupplierInput `json:"supplier,omitempty"`
-	Selections       []Selection    `json:"selections,omitempty"`
-	CandidateID      string         `json:"candidateId,omitempty"`
-	ExpectedRevision int64          `json:"expectedRevision,omitempty"`
-	LinkID           string         `json:"linkId,omitempty"`
-	EvidenceDigest   string         `json:"evidenceDigest,omitempty"`
-	State            string         `json:"state,omitempty"`
-	Reason           string         `json:"reason,omitempty"`
+	Action           string           `json:"action"`
+	Supplier         *SupplierInput   `json:"supplier,omitempty"`
+	Assessment       *AssessmentInput `json:"assessment,omitempty"`
+	AssessmentRef    *AssessmentRef   `json:"assessmentRef,omitempty"`
+	Selections       []Selection      `json:"selections,omitempty"`
+	CandidateID      string           `json:"candidateId,omitempty"`
+	ExpectedRevision int64            `json:"expectedRevision,omitempty"`
+	LinkID           string           `json:"linkId,omitempty"`
+	EvidenceDigest   string           `json:"evidenceDigest,omitempty"`
+	State            string           `json:"state,omitempty"`
+	Reason           string           `json:"reason,omitempty"`
 }
 type Receipt struct {
-	Key          string           `json:"key"`
-	CandidateIDs []string         `json:"candidateIds"`
-	Replayed     bool             `json:"replayed"`
-	Revisions    map[string]int64 `json:"revisions"`
+	Key           string           `json:"key"`
+	CandidateIDs  []string         `json:"candidateIds"`
+	Replayed      bool             `json:"replayed"`
+	Revisions     map[string]int64 `json:"revisions"`
+	AssessmentRef *AssessmentRef   `json:"assessmentRef,omitempty"`
 }
 type Projects interface {
 	Authorize(context.Context, collection.Scope, string, bool) error
@@ -176,11 +182,12 @@ type Repository interface {
 	Commit(context.Context, collection.Scope, string, string, Command, []Observation, error) (Receipt, error)
 }
 type Service struct {
-	Store           Repository
-	Projects        Projects
-	Sources         Sources
-	SupplierSources SupplierSources
-	SupplierExpiry  func(context.Context) time.Time
+	Store            Repository
+	Projects         Projects
+	Sources          Sources
+	SupplierSources  SupplierSources
+	SupplierExpiry   func(context.Context) time.Time
+	AssessmentExpiry func(context.Context) time.Time
 }
 
 func New(store Repository, projects Projects, sources Sources) *Service {

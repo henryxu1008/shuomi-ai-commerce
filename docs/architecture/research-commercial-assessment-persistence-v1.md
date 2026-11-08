@@ -1,8 +1,8 @@
 # #1205 保存经营评估与人工决定引用：局部设计候选
 
-Status: **PRODUCT_CONFIRMED（D1–D3）/ ARCHITECTURE_REVIEW_PENDING / NOT_IMPLEMENTATION_READY**。Design Basis: **Independent Architecture（局部增量）**。
+Status: **PRODUCT_CONFIRMED（D1–D3）/ IMPLEMENTATION_READY / IMPLEMENTED_PENDING_FINAL_REVIEW**。Design Basis: **Independent Architecture（局部增量）**。
 
-调查基线：main `cc2262a2e6e9326b76fdf9c89d54e9e9f9103dd6`，2026-11-08。用户已认可本设计候选及 D1–D3，并授权当前唯一负责人在原工作区提交、推送设计、创建 Ready PR，核对准确 HEAD 的正常 CI 与现有 Codex 自动架构评审。本阶段只交付设计；评审结论须绑定准确 HEAD，不能由“自动评审无 finding”自行推定 IMPLEMENTATION_READY。不授权实现、额外派工/评审、合并、部署、关单或运行验收。
+调查基线：main `cc2262a2e6e9326b76fdf9c89d54e9e9f9103dd6`，2026-11-08。设计提交时为 pending；随后用户明确现有 Codex 对准确 HEAD `df6ee8c7decf18fe2c33da465cd183e61eda74a1` 完成评审并点赞即本轮架构评审通过，并授权当前唯一 Writer 在原工作区/PR #1209 按冻结设计先补 IT1–IT5 回归再实现、自检、推送及自动复核。该准入及授权覆盖本局部增量；不包含额外派工、合并、部署、关单或真实操作。最终实现 HEAD、CI 与评审证据维护于 PR，不以工程证据替代运行或产品验收。
 
 ## 1. 用户结果与范围
 
@@ -140,7 +140,7 @@ Research 拥有全部业务写入和回执；Project/Source 仅被只读核对�
 | 暂时查不到原 key | 不能单凭一次 404 断言旧请求绝未提交；若显式重放，只提交原 key/同意图，经原 key 锁再次核对后决定唯一提交。无自动重试循环 |
 | 验证错误、撤权、归档或过期且未提交 | 不产生业务记录；客户端区分明确拒绝与结果不明。已提交的回执不被后来失效改写 |
 
-已确认 D3：复用现有 `useResourcePending` 的 **sessionStorage** 原请求机制，按 user/org/project 和本动作隔离保存本次显式“保存评估”的有界完整命令（含经营输入），确认回执后清除；不写 localStorage、不写 URL/遥测，不存 Key 等凭据。刷新后可原键核对/原内容重放；跨设备从服务端已保存记录找回。此项只限已点击保存后的待核请求，未保存试算草稿不持久化。它是用户已确认的、对旧“临时试算不进入浏览器持久存储”约束的窄扩展，仅适用于本设计新保存命令，尚未实现，不改变其他路径。
+已确认 D3：复用现有 `useResourcePending` 的 **sessionStorage** 原请求机制，按 user/org/project 和本动作隔离保存本次显式“保存评估”的有界完整命令（含经营输入），确认回执后清除；不写 localStorage、不写 URL/遥测，不存 Key 等凭据。刷新后可原键核对/原内容重放；跨设备从服务端已保存记录找回。此项只限已点击保存后的待核请求，未保存试算草稿不持久化。它是用户已确认的、对旧“临时试算不进入浏览器持久存储”约束的窄扩展，仅适用于本设计新保存命令，不改变其他路径。
 
 ## 8. 权限、回读与保密
 
@@ -158,14 +158,14 @@ Research 拥有全部业务写入和回执；Project/Source 仅被只读核对�
 - owner/installer 沿原显式安装角色，不把 owner 权限交给应用。
 - `product_research_runtime` 沿原受限 pool，新增评估表只 SELECT/INSERT；原候选只原列 UPDATE，命令/历史无 UPDATE/DELETE；扩展原权限验证的准确表 allowlist，不给其他 owner 表权限。
 - 预期修改仅 Research domain/仓储/HTTP、原 composition/installer 的窄接线、原 BFF/页面/测试及本合同；不改 Eino 核心、Agent 定义、Provider、资源/钱账本、来源发布或转入事实。
-- 同一用户结果一个主要 PR，一个 Writer；用户确认候选后再决定提交和适用局部高风险评审。当前未派 Reviewer，未达到 IMPLEMENTATION_READY，不修改生产代码。
+- 同一用户结果一个主要 PR、一个 Writer；沿现有 Codex 完成范围内自动复核，不新增 Reviewer。冻结设计已获 IMPLEMENTATION_READY 及后续实施授权。
 
 Legacy decision: **EXTRACT**（当前有效的纯计算规则）；**RETIRE**（替换后的 TS 权威实现）。
 Reusable behavior: 原精度、退款、缺项、符号和保本规则及用例；现有 Research 权限、事务和恢复。
 Current owner: `internal/product/research` 的服务端计算与记录；前端仅输入和展示。
 Cutover/deletion condition: 页面接到同一服务端计算并核对原用例后，删除旧 TS 权威公式及调用，不保留 fallback/双算/双写。不承接已消失试算、旧数据、旧 ID 或旧执行状态。
 
-## 10. 后续实施义务（本轮均未执行）
+## 10. 实施义务与限定验证
 
 | 义务 | 后续必要证据 |
 | --- | --- |
@@ -175,7 +175,9 @@ Cutover/deletion condition: 页面接到同一服务端计算并核对原用例�
 | IT4 权限与遮蔽 | 跨 org/actor/member/project、归档、来源撤权/unlink、原版缺失、末次门禁/有效期、读期间变更；占位不能泄露条件或结果；受限运行角色拒绝越权和改旧记录 |
 | IT5 正常 UI 路径 | 原候选预览→保存→整页刷新→重新登录找回；编辑另存；待补明确标记；选择评估后显式人工决定；原 pending/session/key 找回及切换上下文隔离 |
 
-只在后续另获实现及运行授权后执行现有业务单元/组件回归、任务自有隔离 PG 和必要浏览器路径；不开发额外 runner/验收平台。本阶段只执行文档检查和正常 PR CI/自动架构评审，具体 HEAD/结论写 PR；IT1–IT5 的行为回归、schema 安装、浏览器、真实业务和产品验收全部 **NOT_RUN**；保留环境准入/未取证交接为 **UNKNOWN**。
+实施授权仅使用合成数据、合成来源及任务自有临时 PostgreSQL。IT1 对应 `internal/product/research/cost_test.go`；IT2–IT4 对应 Research persistence 的 `assessment_postgres_test.go`、现有 supplier owner 隔离回归及 HTTP 严格输入回归；IT5 对应原页面、评估组件、原 pending 和 BFF 回归。组件卸载/重进用于离线验证服务端找回及原键恢复，不冒充真实浏览器刷新/重新登录。具体执行结果与准确 HEAD 写 PR；不开发额外 runner/验收平台。
+
+浏览器、真实业务、保留环境安装/升级、运行及产品验收继续 **NOT_RUN**；现场准入和未取证项 **UNKNOWN**。现有 35444/35446/35447 的实例、数据和会话均不在本轮执行范围。
 
 ## 11. 用户已确认的最小决定（2026-11-08）
 
@@ -183,4 +185,4 @@ Cutover/deletion condition: 页面接到同一服务端计算并核对原用例�
 - **D2 明确选择记录中的条件**：不自动把最新评估作为当前条件；编辑后必须另存或明确放弃编辑再选原记录。历史评估与“适用于当前选择”分开，不因 review/decide 的纯技术 revision 推进就失效。
 - **D3 原请求会话恢复**：仅对用户已显式保存、尚待核对的命令，复用现有 sessionStorage 有界保存原经营输入，原回执确定后清除；未保存草稿仍不持久化，不把 UI 临时 state 当作可靠恢复。
 
-本次确认覆盖 D1–D3 及设计提交/推送/Ready PR、正常 CI 与现有 Codex 自动架构评审；不批准实现、安装、真实数据/Key/平台动作、合并、部署或 Issue 关闭。#1201 只核本批实际市场/供货/准备交接，未证实的缺口保留 UNKNOWN，不自行扩范围。取得明确架构准入及后续实施授权前，不修改正式业务路径。
+初次确认覆盖 D1–D3 及设计提交/推送/Ready PR、正常 CI 与现有 Codex 自动架构评审；后续用户已单独批准按该已评审 HEAD 实施及维护原 PR。未批准保留环境安装、真实数据/Key/平台动作、合并、部署或 Issue 关闭。#1201 只核本批实际市场/供货/准备交接，未证实的缺口保留 UNKNOWN，不自行扩范围。

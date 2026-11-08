@@ -1,6 +1,7 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {proxyMarketResearch} from "./market-research-proxy";
 import {WORKBENCH_COOKIE_NAME} from "./workbench-proxy";
+import {blankCostDraft} from "@/lib/workbench/research-cost-preview";
 const id="550e8400-e29b-41d4-a716-446655440000",fetcher=vi.fn();
 beforeEach(()=>{vi.stubGlobal("fetch",fetcher);fetcher.mockReset();process.env.LISTINGKIT_PUBLIC_BASE_URL="https://app.example";process.env.LISTINGKIT_SERVICE_API_BASE="http://localhost:8080/api/v1";});afterEach(()=>vi.unstubAllGlobals());
 function request(body='{"action":"link","selections":[{"itemId":"'+id+'","revision":1,"publicationId":"'+id+'","version":"1"}]}'){return new Request("https://app.example/api/workbench/research/projects/"+id+"/commands",{method:"POST",headers:{Origin:"https://app.example","Sec-Fetch-Site":"same-origin",Cookie:WORKBENCH_COOKIE_NAME+"=org-a","X-Expected-User-ID":"user-a","X-Expected-Organization-ID":"org-a","Content-Type":"application/json","Idempotency-Key":id},body});}
@@ -81,4 +82,22 @@ it("rejects a supplier preview from a mismatched session before dispatch", async
   const response = await proxyMarketResearch(supplierPreviewRequest(), "token", "other");
   expect(response.status).toBe(409);
   expect(fetcher).not.toHaveBeenCalled();
+});
+
+it("previews without an idempotency key and never reports a read as an unknown write",async()=>{
+ const url=`https://app.example/api/workbench/research/projects/${id}/candidates/${id}/assessment-preview`;
+ const body={action:"save_assessment",candidateId:id,expectedRevision:2,linkId:id,evidenceDigest:"a".repeat(64),assessment:{cost:blankCostDraft()}};
+ const headers=new Headers(request().headers);headers.delete("Idempotency-Key");
+ const make=()=>new Request(url,{method:"POST",headers,body:JSON.stringify(body)});
+ fetcher.mockResolvedValueOnce(Response.json({input:body.assessment.cost,result:{status:"INSUFFICIENT_INPUT",fields:["price"]},ruleVersion:"manual-unit-economics-v1"}));
+ const response=await proxyMarketResearch(make(),"token","user-a");expect(response.status).toBe(200);expect(fetcher.mock.calls[0][1].headers.has("Idempotency-Key")).toBe(false);
+ fetcher.mockRejectedValueOnce(new Error("offline"));expect(await (await proxyMarketResearch(make(),"token","user-a")).json()).toEqual({code:"DEPENDENCY_UNAVAILABLE"});
+});
+
+it("checks an assessment response against the exact record ID, not the route's candidates segment",async()=>{
+ const recordId="550e8400-e29b-41d4-a716-446655440001";
+ const make=()=>new Request(`https://app.example/api/workbench/research/projects/${id}/candidates/${id}/assessments/${recordId}`,{headers:{Cookie:`${WORKBENCH_COOKIE_NAME}=org-a`,"X-Expected-User-ID":"user-a","X-Expected-Organization-ID":"org-a"}});
+ const masked={id:recordId,candidateRevision:3,at:"2026-11-09T00:00:00Z",applicability:"DETAIL_UNAVAILABLE"};
+ fetcher.mockResolvedValueOnce(Response.json(masked));expect((await proxyMarketResearch(make(),"token","user-a")).status).toBe(200);
+ fetcher.mockResolvedValueOnce(Response.json({...masked,id}));expect((await proxyMarketResearch(make(),"token","user-a")).status).toBe(502);
 });
