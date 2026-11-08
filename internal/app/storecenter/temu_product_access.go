@@ -51,6 +51,32 @@ func (a *OfficialProductAccess) AuthorizeTemuRules(ctx context.Context, subject 
 	return &TemuRulesHandle{proof}, nil
 }
 
+// ReadSavedTemuCreationBinding reads the locally verified Store identity for statistics.
+func (a *OfficialProductAccess) ReadSavedTemuCreationBinding(ctx context.Context, subject storecenter.ProductExecutionSubject, storeID string) (MerchantBinding, error) {
+	if a == nil || ctx == nil || ctx.Err() != nil || subject.Purpose != storecenter.ProductPurposeRules {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	material, err := a.reader.ReadProductExecution(ctx, subject, storeID, a.authorization, a.now())
+	if err != nil || material.Platform != storecenter.PlatformTemu {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	entry, err := a.applications.resolve(material.Attempt.AppID, material.Attempt.AppVersion, material.Platform, material.Attempt.IdentityPartition)
+	if err != nil {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	credential, err := entry.protection.Open(material.Attempt, material.Attempt.KeyID, material.Attempt.Ciphertext)
+	if err != nil {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	binding, ok := temuMerchantBinding(subject, storeID, material, credential, entry, a.now())
+	if !ok {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	return binding, nil
+}
+
 func (a *OfficialProductAccess) authorizeTemu(ctx context.Context, subject storecenter.ProductExecutionSubject, storeID string, expected *MerchantBinding) (*temuMerchantAuthority, error) {
 	if a == nil || ctx == nil || ctx.Err() != nil || !validTemuProductPurpose(subject.Purpose) {
 		return nil, ErrProductAccessChanged

@@ -153,6 +153,12 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 			OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Purpose: storecenter.ProductPurposeRules,
 		}, id)
 	}
+	app.TemuCreateSource = official
+	app.TemuCreateMerchant = func(ctx context.Context, scope collection.Scope, id string) (storecenter.ProductMerchantBinding, error) {
+		return access.ReadSavedTemuCreationBinding(ctx, storecenter.ProductExecutionSubject{
+			OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Purpose: storecenter.ProductPurposeRules,
+		}, id)
+	}
 	app.SheinPublishSource = official
 	app.SheinPublishMerchant = func(ctx context.Context, scope collection.Scope, id string) (storecenter.ProductMerchantBinding, error) {
 		handle, err := access.Authorize(ctx, storecenter.ProductExecutionSubject{

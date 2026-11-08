@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { cockpitRequest, cockpitErrorText, type CockpitScope } from "@/lib/api/operations-cockpit";
 import { cockpitCapabilities, cockpitMatrix, cockpitRules, moneyText, type CockpitCapabilities } from "@/lib/contracts/operations-cockpit";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
-import { listingMetrics, sheinPublishMetrics, taskMetrics, storeSubmissionMetrics, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
+import { listingMetrics, publicationMetrics, taskMetrics, storeSubmissionMetrics, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
 import { CockpitTaskDistribution } from "./cockpit-task-distribution";
 import styles from "./cockpit-overview.module.css";
 
@@ -107,8 +107,9 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const selectedPlatform = singleUSStore ? selected[0].platform : undefined;
   const submissionOwner = selectedPlatform === "walmart" ? "walmart-feed" : selectedPlatform === "tiktokshop" ? "tiktok-publish" : undefined;
   const submissionAllowed = Boolean(submissionOwner) && listingAllowed;
-  const showSheinPublication = selectedPlatform === "shein";
-  const sheinPublicationAllowed = showSheinPublication && listingAllowed;
+  const countOwner = selectedPlatform === "shein" ? "shein-publish"
+    : store && selected.length === 1 && selected[0].platform === "temu" ? "temu-create" : undefined;
+  const publicationAllowed = Boolean(countOwner) && listingAllowed;
   const access = capabilities.access;
   const key = ["operations-cockpit", scope.userId, scope.organizationId];
   const matrix = useQuery({ queryKey: [...key, "home-matrix", query, access.storesRead], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), enabled: access.storesRead && valid, retry: false, gcTime: 0 });
@@ -116,18 +117,18 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const advice = useQuery({ queryKey: [...key, "home-advice", query, access.adviceRead], queryFn: ({ signal }) => cockpitRequest(scope, "advice?" + query, cockpitRules, { signal }), enabled: access.adviceRead && valid, retry: false, gcTime: 0 });
 
   const stats = useQuery({
-    queryKey: [...key, "home-metrics", statsQuery, listingAllowed, tasksAllowed, submissionOwner, submissionAllowed, sheinPublicationAllowed],
+    queryKey: [...key, "home-metrics", statsQuery, listingAllowed, tasksAllowed, submissionOwner, submissionAllowed, countOwner, publicationAllowed],
     enabled: !refreshing && !statsScopeMessage && (listingAllowed || tasksAllowed),
     retry: false,
     gcTime: 0,
     queryFn: async ({ signal }) => {
-      const [listing, tasks, submission, sheinPublication] = await Promise.allSettled([
+      const [listing, tasks, submission, publication] = await Promise.allSettled([
         listingAllowed ? readCockpitMetrics(scope, "supply-preparations", statsQuery, listingMetrics, signal) : undefined,
         tasksAllowed ? readCockpitMetrics(scope, "tasks", statsQuery, taskMetrics, signal) : undefined,
         listingAllowed && submissionOwner ? readCockpitMetrics(scope, submissionOwner, statsQuery, storeSubmissionMetrics, signal) : undefined,
-        sheinPublicationAllowed ? readCockpitMetrics(scope, "shein-publish", statsQuery, sheinPublishMetrics, signal) : undefined,
+        listingAllowed && countOwner ? readCockpitMetrics(scope, countOwner, statsQuery, publicationMetrics, signal) : undefined,
       ] as const);
-      return { listing, tasks, submission, sheinPublication };
+      return { listing, tasks, submission, publication };
     },
   });
   const listingRead = stats.data?.listing.status === "fulfilled" ? stats.data.listing.value : undefined;
@@ -144,9 +145,9 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const taskMessage = metricsMessage(tasksAllowed, taskRead);
   const submissionRead = stats.data?.submission.status === "fulfilled" ? stats.data.submission.value : undefined;
   const submissionMessage = metricsMessage(submissionAllowed, submissionRead);
-  const sheinRead = stats.data?.sheinPublication.status === "fulfilled" ? stats.data.sheinPublication.value : undefined;
-  const sheinMessage = metricsMessage(sheinPublicationAllowed, sheinRead);
-  const sheinCounts = !sheinMessage && sheinRead?.result?.status === "complete" ? sheinRead.result.counts : undefined;
+  const publicationRead = stats.data?.publication.status === "fulfilled" ? stats.data.publication.value : undefined;
+  const publicationMessage = metricsMessage(publicationAllowed, publicationRead);
+  const publicationCounts = !publicationMessage && publicationRead?.result?.status === "complete" ? publicationRead.result.counts : undefined;
   const submissionCounts = !submissionMessage && submissionRead?.result?.status === "complete" ? submissionRead.result.counts : undefined;
 
   function readState(allowed: boolean, fetching: boolean, error: unknown) {
@@ -203,8 +204,8 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskCounts={!taskMessage && taskRead?.result?.status === "complete" ? taskRead.result.counts : undefined}
     listingMessage={listingMessage}
     taskMessage={taskMessage}
-    storeSubmission={showSheinPublication
-      ? <SheinPublicationCounts counts={sheinCounts} message={sheinMessage} />
+    storeSubmission={countOwner
+      ? <PublicationCounts platform={countOwner === "temu-create" ? "temu" : "shein"} counts={publicationCounts} message={publicationMessage} />
       : submissionOwner ? <StoreSubmissionRate owner={submissionOwner} counts={submissionCounts} message={submissionMessage} /> : undefined}
     platforms={refreshing ? undefined : [...new Set(selected.map(s => s.platform))].sort()}
     matrix={matrixState ? undefined : matrix.data}
@@ -238,13 +239,16 @@ function RuleList({ data, state, mode, actionFor }: {
   </>;
 }
 
-function SheinPublicationCounts({ counts, message }: {
+function PublicationCounts({ platform, counts, message }: {
+  platform: "shein" | "temu";
   counts?: { confirmed: number; unknown: number };
   message?: string;
 }) {
-  return <Panel title="SHEIN US 商品发布" detail="按正式发布的原尝试统计">
-    {counts ? <dl className={styles.sheinPublicationCounts} aria-live="polite">
-      <div><dt>已确认提交</dt><dd>{counts.confirmed}</dd></div>
+  const title = platform === "temu" ? "Temu 商品创建" : "SHEIN US 商品发布";
+  const detail = platform === "temu" ? "按正式商品创建的原尝试统计" : "按正式发布的原尝试统计";
+  return <Panel title={title} detail={detail}>
+    {counts ? <dl className={styles.publicationCounts} aria-live="polite">
+      <div><dt>{platform === "temu" ? "已确认创建" : "已确认提交"}</dt><dd>{counts.confirmed}</dd></div>
       <div><dt>结果待核实</dt><dd>{counts.unknown}</dd></div>
     </dl> : <p className={styles.empty} role="status">{message}</p>}
   </Panel>;
