@@ -11,6 +11,7 @@ func ownVariantNumbersDeclared(raw []byte) bool {
 		Variants []map[string]json.RawMessage `json:"variants"`
 	}
 	var shape struct {
+		Action   string         `json:"action"`
 		Product  *productShape  `json:"product"`
 		Products []productShape `json:"products"`
 	}
@@ -23,11 +24,10 @@ func ownVariantNumbersDeclared(raw []byte) bool {
 	}
 	for _, p := range products {
 		for _, v := range p.Variants {
-			for _, field := range []string{"price", "stock"} {
-				value := bytes.TrimSpace(v[field])
-				if len(value) == 0 || bytes.Equal(value, []byte("null")) {
-					return false
-				}
+			price := bytes.TrimSpace(v["price"])
+			stock := bytes.TrimSpace(v["stock"])
+			if len(price) == 0 || bytes.Equal(price, []byte("null")) || bytes.Equal(stock, []byte("null")) || (shape.Action == "import_products" && len(stock) == 0) {
+				return false
 			}
 		}
 	}

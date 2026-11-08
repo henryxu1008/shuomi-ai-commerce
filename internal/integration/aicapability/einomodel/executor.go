@@ -210,6 +210,8 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 	}
 	if input.Image != nil {
 		guardCfg.SingleImage = &SingleImageRequest{Image: *input.Image, System: input.System, Prompt: input.Prompt}
+	} else if input.Operation == aicapability.OperationOwnProductIntake {
+		guardCfg.visionText = &boundVisionText{System: input.System, Prompt: input.Prompt}
 	}
 	guard, err := NewGuardedClient(guardCfg, e.BaseTransport, func(gateCtx context.Context) error {
 		// The SDK may construct its own request context. The frozen caller bound
@@ -294,7 +296,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		}
 		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 	}
-	if !output.Usage.Known || (input.Image != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || p.OfficialTariff.IsReferenceEstimate()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
+	if !output.Usage.Known || (input.Image != nil || guardCfg.visionText != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || p.OfficialTariff.IsReferenceEstimate()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||
 		errors.Is(generationErr, ErrOutcomeUnknown) || errors.Is(generationErr, ErrUsageUnknown) {
 		category := "outcome_or_usage_unknown"

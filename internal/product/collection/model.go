@@ -122,7 +122,7 @@ type OwnVariant struct {
 	Attributes map[string]string `json:"attributes"`
 	Currency   string            `json:"currency"`
 	Price      float64           `json:"price"`
-	Stock      int               `json:"stock"`
+	Stock      *int              `json:"stock,omitempty"`
 	Images     []string          `json:"images,omitempty"`
 	Packaging  *catalog.SKUPackaging `json:"packaging,omitempty"`
 }
@@ -142,7 +142,7 @@ type Mutation struct {
 }
 
 // WithVerifiedStockFields is set by the strict Collection ingress after
-// checking that each SKU declares its stock in the original request.
+// checking that any supplied stock is explicitly numeric.
 func (m Mutation) WithVerifiedStockFields() Mutation {
 	m.stockFieldsVerified = true
 	return m
@@ -209,7 +209,10 @@ func OwnEnvelope(id string, input OwnProduct) (sourcing.SourceEnvelope, error) {
 	}
 	envelope := sourcing.SourceEnvelope{Identity: sourcing.SourceIdentity{SourceType: "user_input", SourcePlatform: "own_product", SourceID: id}, RawReference: sourcing.RawSourceReference{ReferenceType: "user_input", ReferenceID: id, Checksum: sourcing.RawSnapshotChecksum(string(raw))}, ProductCandidate: sourcing.ProductCandidate{Title: input.Title, Description: input.Description, DescriptionFormat: input.DescriptionFormat, Brand: input.Brand, Attributes: input.Attributes}}
 	for _, variant := range input.Variants {
-		candidate := sourcing.ProductVariantCandidate{SourceID: variant.SourceID, Title: variant.Title, SKU: variant.SKU, Attributes: variant.Attributes, Currency: variant.Currency, Price: variant.Price, Stock: variant.Stock, Packaging: catalog.CloneSKUPackaging(variant.Packaging)}
+		candidate := sourcing.ProductVariantCandidate{SourceID: variant.SourceID, Title: variant.Title, SKU: variant.SKU, Attributes: variant.Attributes, Currency: variant.Currency, Price: variant.Price, Packaging: catalog.CloneSKUPackaging(variant.Packaging)}
+		if variant.Stock != nil {
+			candidate.Stock = *variant.Stock
+		}
 		for index, value := range variant.Images {
 			candidate.Images = append(candidate.Images, sourcing.AssetCandidate{SourceID: StableID(id, variant.SourceID, value), URL: value, MediaType: "image", Role: map[bool]string{true: "main", false: "detail"}[index == 0]})
 		}

@@ -84,10 +84,46 @@ func testOwnSKUPackagingHTTPChain(t *testing.T, db *gorm.DB) {
 		require.Equal(t, status, response.Code, "%s %s: %s", method, path, response.Body.String())
 		return append([]byte(nil), response.Body.Bytes()...)
 	}
+	t.Run("own product preserves three explicit SKUs and optional stock", func(t *testing.T) {
+		const common = "https://images.example.org/intake-common.png"
+		const white = "https://images.example.org/intake-white.png"
+		fixture := []byte(`{"action":"create_product","product":{"title":"隔离测试 三规格上衣","images":["` + common + `"],"variants":[
+		  {"sourceId":"black-m","title":"黑 M","sku":"BLK-M","attributes":{"颜色":"黑","尺码":"M"},"currency":"CNY","price":29,"stock":0},
+		  {"sourceId":"black-l","title":"黑 L","sku":"BLK-L","attributes":{"颜色":"黑","尺码":"L"},"currency":"CNY","price":29},
+		  {"sourceId":"white-m","title":"白 M","sku":"WHT-M","attributes":{"颜色":"白","尺码":"M"},"currency":"CNY","price":29,"stock":5,"images":["` + white + `"]}
+		]}}`)
+		var before, after int64
+		require.NoError(t, db.Table("product_collection_items").Count(&before).Error)
+		var saved collection.Receipt
+		key := uuid.NewString()
+		require.NoError(t, json.Unmarshal(request(http.MethodPost, "/commands", key, json.RawMessage(fixture), http.StatusOK), &saved))
+		changed := bytes.Replace(fixture, []byte(`"price":29}`), []byte(`"price":29,"stock":0}`), 1)
+		require.NotEqual(t, fixture, changed)
+		request(http.MethodPost, "/commands", key, json.RawMessage(changed), http.StatusConflict)
+		require.NoError(t, db.Table("product_collection_items").Count(&after).Error)
+		require.Equal(t, before+1, after)
+		var detail collection.ItemDetail
+		require.NoError(t, json.Unmarshal(request(http.MethodGet, "/items/"+saved.ItemID, "", nil, http.StatusOK), &detail))
+		require.Len(t, detail.Product.Variants, 3)
+		require.Equal(t, "BLK-M", detail.Product.Variants[0].SKU)
+		require.Equal(t, "BLK-L", detail.Product.Variants[1].SKU)
+		require.Equal(t, "WHT-M", detail.Product.Variants[2].SKU)
+		require.Len(t, detail.Product.Images, 1)
+		require.Equal(t, common, detail.Product.Images[0].URL)
+		require.Empty(t, detail.Product.Variants[0].Images)
+		require.Empty(t, detail.Product.Variants[1].Images)
+		require.Len(t, detail.Product.Variants[2].Images, 1)
+		require.Equal(t, white, detail.Product.Variants[2].Images[0].URL)
+		require.True(t, detail.Product.Variants[0].OwnStockDeclared)
+		require.NotNil(t, detail.Product.Variants[0].Stock)
+		require.Zero(t, *detail.Product.Variants[0].Stock)
+		require.False(t, detail.Product.Variants[1].OwnStockDeclared)
+		require.Nil(t, detail.Product.Variants[1].Stock)
+	})
 	number := func(value float64) *float64 { return &value }
 	product := collection.OwnProduct{Title: "HTTP measured package", Variants: []collection.OwnVariant{
-		{SourceID: "red", SKU: "RED", Currency: "CNY", Stock: 0, Packaging: &catalog.SKUPackaging{WeightGrams: number(125.5), LengthCm: number(10), WidthCm: number(8), HeightCm: number(2)}},
-		{SourceID: "blue", SKU: "BLUE", Currency: "CNY", Stock: 7, Packaging: &catalog.SKUPackaging{LengthCm: number(20)}},
+		{SourceID: "red", SKU: "RED", Currency: "CNY", Stock: new(0), Packaging: &catalog.SKUPackaging{WeightGrams: number(125.5), LengthCm: number(10), WidthCm: number(8), HeightCm: number(2)}},
+		{SourceID: "blue", SKU: "BLUE", Currency: "CNY", Stock: new(7), Packaging: &catalog.SKUPackaging{LengthCm: number(20)}},
 	}}
 	key := uuid.NewString()
 	input := collection.Mutation{Action: "create_product", Product: &product}

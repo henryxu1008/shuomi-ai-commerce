@@ -62,9 +62,16 @@ type Binding struct {
 	StoreDiagnosis                                            StoreDiagnosisRef                         `json:",omitzero"`
 	ResearchSelection                                         ResearchSelectionRef                      `json:",omitzero"`
 	CandidateRules                                            CandidateRulesRef                         `json:",omitzero"`
+	OwnProductIntake                                         OwnProductIntakeRef                      `json:",omitzero"`
 }
 
 func (b Binding) Valid() bool {
+	if b.ContextKind == OwnProductIntakeContextKind {
+		return b.validOwnProductIntake()
+	}
+	if b.OwnProductIntake != (OwnProductIntakeRef{}) {
+		return false
+	}
 	if b.ContextKind != CandidateRulesContextKind && b.CandidateRules != (CandidateRulesRef{}) || b.ContextKind != ResearchSelectionContextKind && b.ResearchSelection != (ResearchSelectionRef{}) {
 		return false
 	}

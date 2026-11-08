@@ -229,7 +229,7 @@ it("keeps partial single-SKU input local until SKU is completed, then submits th
  await userEvent.type(screen.getByLabelText("价格 1"),"0");
  await userEvent.type(screen.getByLabelText("库存 1"),"0");
  await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
- expect(await screen.findByRole("alert")).toHaveTextContent("请填写SKU、币种、价格和库存");
+ expect(await screen.findByRole("alert")).toHaveTextContent("请填写SKU、币种和价格");
  expect(state.mutate).not.toHaveBeenCalled();expect(state.context.pendingCollectionIntent).toBeNull();expect(state.push).not.toHaveBeenCalled();
  expect(screen.getByLabelText("币种 1")).toHaveValue("CNY");expect(screen.getByLabelText("价格 1")).toHaveValue(0);expect(screen.getByLabelText("库存 1")).toHaveValue(0);
  await userEvent.type(screen.getByLabelText("SKU 1"),"SINGLE");
@@ -243,7 +243,7 @@ it("does not silently drop a single row's image-only selection",async()=>{
  act(()=>state.upload!("https://images.example.org/red.png"));
  await userEvent.selectOptions(screen.getByLabelText("变体图片 1"),"https://images.example.org/red.png");
  await userEvent.click(screen.getByRole("button",{name:"保存商品"}));
- expect(await screen.findByRole("alert")).toHaveTextContent("请填写SKU、币种、价格和库存");
+ expect(await screen.findByRole("alert")).toHaveTextContent("请填写SKU、币种和价格");
  expect(screen.getByLabelText("变体图片 1")).toHaveValue("https://images.example.org/red.png");
  expect(state.mutate).not.toHaveBeenCalled();expect(state.context.pendingCollectionIntent).toBeNull();expect(state.push).not.toHaveBeenCalled();
 });

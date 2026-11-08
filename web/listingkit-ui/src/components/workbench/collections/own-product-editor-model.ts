@@ -27,8 +27,11 @@ export function hydrateOwnProduct(detail:CollectionDetail):OwnProductFormState{
 }
 export function formFromOwnProduct(raw:z.infer<typeof editableOwnProductSchema>):OwnProductFormState{
  const rows:VariantRow[]=(raw.variants??[]).map(v=>({id:v.sourceId,title:v.title,sku:v.sku,attributes:v.attributes,currency:v.currency,price:String(v.price),stock:v.stock===undefined?"":String(v.stock),image:v.images?.[0]??"",originalImages:v.images??[],existing:true,...(v.packaging?{packaging:Object.fromEntries(packagingFields.flatMap(field=>{const value=v.packaging?.[field.key];return value===undefined?[]:[[field.key,String(value)]]}))}:{})}));
+ const specs=specificationsFromRows(rows);
+ return {title:raw.title,brand:raw.brand??"",description:raw.description,...(raw.descriptionFormat?{descriptionFormat:raw.descriptionFormat}:{}),images:raw.images,rows:rows.length?rows:[newVariantRow()],mode:rows.length>1||specs.length?"multiple":"single",specs:specs.length?specs:[{id:"initial",name:"",values:""}],attributes:Object.entries(raw.attributes??{}).map(([name,value],index)=>({id:`attribute-${index}`,name,value}))};
+}
+export function specificationsFromRows(rows:VariantRow[]):Specification[]{
  const dimensions=new Map<string,Set<string>>();
  for(const row of rows)for(const [name,value] of Object.entries(row.attributes)){if(!dimensions.has(name))dimensions.set(name,new Set());dimensions.get(name)!.add(value)}
- const specs=[...dimensions].map(([name,values],index)=>({id:`dimension-${index}`,name,values:[...values].join(",")}));
- return {title:raw.title,brand:raw.brand??"",description:raw.description,...(raw.descriptionFormat?{descriptionFormat:raw.descriptionFormat}:{}),images:raw.images,rows:rows.length?rows:[newVariantRow()],mode:rows.length>1||dimensions.size?"multiple":"single",specs:specs.length?specs:[{id:"initial",name:"",values:""}],attributes:Object.entries(raw.attributes??{}).map(([name,value],index)=>({id:`attribute-${index}`,name,value}))};
+ return [...dimensions].map(([name,values],index)=>({id:`dimension-${index}`,name,values:[...values].join(",")}));
 }

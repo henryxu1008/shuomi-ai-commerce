@@ -16,6 +16,7 @@ export const agentGroups: readonly {
     name: "商品内容与本地化", description: "完善商品标题、描述、卖点与关键词，按目标语言处理内容。",
     summary: "标题优化 · 内容完善与本地化",
   },
+  { id: "own-product-intake", agentIds: ["product.own.intake.agent"], category: "商品", summary: "商品资料与 SKU 候选 · 人工采纳" },
   { id: "listing-materials", agentIds: ["listing.materials.agent"], category: "商品", summary: "平台上架资料 · 可检查草稿" },
   { id: "product-image", agentIds: ["product.image.agent"], category: "商品", summary: "主图与详情图 · 人工选择批准" },
   { id: "pod-design", agentIds: ["pod.design.agent"], category: "商品", summary: "原创图案 · 保存后布局与效果图" },

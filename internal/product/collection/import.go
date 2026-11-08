@@ -191,7 +191,7 @@ func ParseImport(ctx context.Context, raw []byte) ([]OwnProduct, error) {
 			if e != nil || se != nil || price < 0 || stock < 0 || len(values[5]) != 3 || strings.ToUpper(values[5]) != values[5] {
 				return nil, ErrInvalid
 			}
-			p.Variants = []OwnVariant{{SourceID: "row-" + strconv.Itoa(i+2), Title: p.Title, SKU: values[4], Currency: values[5], Price: price, Stock: stock, Attributes: map[string]string{}}}
+			p.Variants = []OwnVariant{{SourceID: "row-" + strconv.Itoa(i+2), Title: p.Title, SKU: values[4], Currency: values[5], Price: price, Stock: &stock, Attributes: map[string]string{}}}
 		} else if values[5] != "" || values[6] != "" || values[7] != "" {
 			return nil, ErrInvalid
 		}

@@ -13,12 +13,12 @@ it("hydrates a single attributed SKU without promoting variant images or regener
  expect(prepareOwnProduct({...form,title:"改商品名",rows:form.rows}).variants?.[0].title).toBe("自定义SKU名");
  expect(prepareOwnProduct({...form,rows:form.rows.map(row=>({...row,image:a}))}).variants?.[0].images).toEqual([a]);
 });
-it("requires explicit stock on edit when saved stock lacks an operator declaration",()=>{
+it("preserves missing stock on edit when saved stock lacks an operator declaration",()=>{
  for(const stock of [undefined,7]){
   const variant={...savedProduct.product.variants![0],stock,own_stock_declared:undefined};
   const form=hydrateOwnProduct({...savedProduct,product:{...savedProduct.product,variants:[variant]}});
   expect(form.rows[0].stock).toBe("");
-  expect(()=>prepareOwnProduct(form)).toThrow();
+  expect(prepareOwnProduct(form).variants?.[0]).not.toHaveProperty("stock");
  }
 });
 it("rejects missing identity/price and unsupported current facts rather than overwriting them",()=>{
