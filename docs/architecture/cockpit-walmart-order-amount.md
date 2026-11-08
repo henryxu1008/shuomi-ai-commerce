@@ -1,6 +1,6 @@
 # Walmart US 消费者订单保存与单店商品金额
 
-Design Basis: Independent Architecture。Admission Status: NOT_READY / pending independent review。执行 #1163，用户 2026-11-08 授权先确定读取、保存、日期、去重、金额及覆盖合同，再在独立本地实例用测试订单验证。Figma仅辅助业务流程。
+Design Basis: Independent Architecture。Admission Status: IMPLEMENTATION_READY / FROZEN。执行 #1163，用户 2026-11-08 授权先确定读取、保存、日期、去重、金额及覆盖合同，再在独立本地实例用测试订单验证。Figma仅辅助业务流程。
 
 ## 用户结果与阶段范围
 
@@ -21,7 +21,7 @@ Design Basis: Independent Architecture。Admission Status: NOT_READY / pending i
 2. 保存身份为organization/store/generation/purchaseOrderId；customerOrderId只用于说明拆单，不用来合并不同PO。订单行按lineNumber唯一；相同SKU不同lineNumber分别保留，包裹/状态分组/数量不生成额外金额。重复同PO相同载荷跨页/跨窗口只保存一次；不同载荷不得静默覆盖，记录coverage冲突并禁止发布完整head。不同generation不累加。
 3. PRODUCT歧义标志（如多个PRODUCT、isDiscount/discountType）必须进入typed order持久化，不能在decoder后丢失。WalmartOrder仅允许purchaseOrderId、customerOrderId、orderDate、orderType，以及lineNumber、quantity、PRODUCT费用列表（currency/原十进制amount）。不存地址、姓名、邮箱、电话、trackingURL、支付资料、raw response或凭据。订单身份/行集合必须有效；空行集合或字段缺失不能被当成零元。
 4. 直接累计每个原生订单行的PRODUCT chargeAmount，**不再次乘orderLineQuantity**；指标表达原API保存的PRODUCT费用合计。不加入SHIPPING、tax、FEE、退款、供货/采购金额，不从刊登售价推算；不另行反推折扣前/后成交。每行恰有一个PRODUCT费用才进入金额；缺失、多个PRODUCT或显式折扣标记无法解释时保留缺字段/待核实并隐藏合计。原始quantity留存但不参与费用乘法；虚拟包不按pack元数据展开。保留所有原订单类型及状态所对应原费用，不依据状态扣减，不声称已付款或净收入。
-5. 金额为非负十进制（最多20位整数、8位小数）；json.Number/原字符串精确读取，不经float；各3位大写原币分别累加。同一PO的所有PRODUCT费用必须同币，混币PO标字段待核实并隐藏金额，不拼成虚假订单总额；不同PO可分原币展示。复用SHEIN已有math/big.Int精确聚合方式。明确0和缺失不同；期间完整空集合不猜币种或填USD0。
+5. 每PO最多100行、每次统计最多250 PO。金额为非负十进制（每PRODUCT最多20位整数、8位小数）；json.Number/原字符串精确读取，不经float；各3位大写原币分别累加。同一PO的所有PRODUCT费用必须同币，混币PO标字段待核实并隐藏金额，不拼成虚假订单总额；不同PO可分原币展示。复用SHEIN已有math/big.Int精确聚合方式。明确0和缺失不同；期间完整空集合不猜币种或填USD0。
 
 ## 读取、分页和覆盖
 
@@ -48,4 +48,7 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 先RED再最小实现：原生JSON数字/字符串金额、小数精度、数量不重复相乘、PO与customerOrder拆分、多行同SKU、跨页/窗口重放及冲突、跨generation、午夜日期边界、缺金额/币种/日期及PRODUCT歧义；三履约分区、短页有cursor、空页有cursor、循环/超限、源漂移/撤权/换绑；原SQL事务及严格schema、跨租户、head与checkpoint原子发布。只运行与本批直接相关既有测试，最终CI按仓库规则。
 
 独立本地实例准备两家Walmart US测试店、不同日期/履约分区、多行/数量及同customerOrder多PO、旧批次与重放、缺字段与不完整覆盖，离线reader→正式保存→统计GET/BFF→浏览器首页无刷新复测；全程网络拦截，其他保留实例保持不变。实现完成独立最终检查，交入口/数据/限制供用户确认；不自行签发用户验收或合并。Legacy decision: N/A。
+
+
+独立架构复核：/root/architecture_review已实际核对93ad47de0e67ad7f2e9320adfafc5588ca4fe7b0及每PO100行/250PO、Walmart独立金额字符串<=36字符补充，IMPLEMENTATION_READY，无剩余BLOCKER。毫秒日界、三分区/cursor、事务去重/local-only grant、歧义留存、最大精度与窄屏为IMPLEMENTATION_TEST。冻结后按此基线实施，不扩大正式在线范围。
 
