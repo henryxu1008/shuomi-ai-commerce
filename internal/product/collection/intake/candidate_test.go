@@ -92,6 +92,16 @@ func TestStockChecksEveryDeclarationWithoutGuessingCurrency(t *testing.T) {
 	}
 }
 
+func TestStockSKUMaskingEndsAtTheIdentifiedValue(t *testing.T) {
+	for _, sku := range []string{"BLK-M", "STOCK123", "STOCK.M", "STOCK:123", "库存-M"} {
+		for _, separator := range []string{"。", "、", "！", ":", "，"} {
+			line := "黑 M，SKU " + sku + separator + "库存 5"
+			c := Candidate{Rows: []Row{{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: line, SKU: sku, Stock: new(5)}}}
+			require.NoError(t, c.Validate(Input{Notes: line}), line)
+		}
+	}
+}
+
 func TestCandidatePreservesSparseVariantsAndZero(t *testing.T) {
 	input := Input{Notes: "黑 M，SKU BLK-M，CNY 29，库存 0\n黑 L，SKU BLK-L，CNY 29\n白 M，SKU WHT-M，CNY 29，图片2", GalleryCount: 2}
 	raw := []byte(`{"title":"三规格上衣","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存 0","sku":"BLK-M","currency":"CNY","price":29,"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29","sku":"BLK-L","currency":"CNY","price":29},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","currency":"CNY","price":29,"image":2}]}`)

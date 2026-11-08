@@ -140,7 +140,10 @@ var stockQuantity = regexp.MustCompile(`(?i)^\s*(?:明确\s*)?(?:为|是|is|[：
 var stockUncertain = regexp.MustCompile(`(?:^|[，,。;；])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实)(?:库存(?:数量)?|数量)?\s*(?:$|[，,。;；])`)
 var stockQualified = regexp.MustCompile(`(?i)(?:并非|不是|不代表|不表示|未确认|没有确认|不能确认|大约|大概|约|预计|估计|可能|至少|至多)\s*库存|\b(?:not|approximately|about)\s+(?:stock|inventory)`)
 var followingStockField = regexp.MustCompile(`(?i)^(?:SKU\b|货号|编码|币种|价格|单价|图片|图号|颜色|尺码|品牌|库存|(?:stock|inventory|price|currency|image|color|size|brand)\b)`)
-var skuFieldValue = regexp.MustCompile(`(?i)(?:\bSKU\b|货号|商品编码)\s*[：:=]?\s*([^\s，,;；()（）]+)`)
+
+const skuFieldPrefix = `(?i)(?:\bSKU\b|货号|商品编码)\s*[：:=]?\s*`
+
+var skuFieldValue = regexp.MustCompile(skuFieldPrefix + `([\p{L}\p{N}_-]+)`)
 var priceEvidence = regexp.MustCompile(`(?i)(?:价格|单价|price|[¥￥$€])\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
@@ -183,7 +186,11 @@ func (r Row) stockIsExplicit() bool {
 	// SKU values are identifiers, including when they contain words such as STOCK.
 	// Mask only that field's value; never use its digits as inventory evidence.
 	evidence := []byte(r.Evidence)
-	for _, m := range skuFieldValue.FindAllStringSubmatchIndex(r.Evidence, -1) {
+	identifier := skuFieldValue
+	if r.SKU != "" {
+		identifier = regexp.MustCompile(skuFieldPrefix + `(` + regexp.QuoteMeta(r.SKU) + `)`)
+	}
+	for _, m := range identifier.FindAllStringSubmatchIndex(r.Evidence, -1) {
 		for i := m[2]; i < m[3]; i++ {
 			evidence[i] = '_'
 		}
