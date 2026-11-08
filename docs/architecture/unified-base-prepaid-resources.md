@@ -1,5 +1,7 @@
 # 统一基础方案与预付资源 V1
 
+> DATA_ROW 当前合同增量：参见[平台调价与零价订单](data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
+
 当前 owner 为 `internal/ledger/money`、`internal/commercial/billing`、`internal/ledger/orgresource` 和既有 Resource 适配器。商业资源与 Store 的公共 PostgreSQL 读取显式绑定 public，不使用 shadow fallback。
 
 Issue: #478 · Delivery Batch: 账户中心与套餐权益统一模型

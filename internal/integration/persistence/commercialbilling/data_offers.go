@@ -17,7 +17,7 @@ func (r *Repository) ListResourceOffers(ctx context.Context) ([]billing.Offer, e
 	result := make([]billing.Offer, 0, len(rows))
 	for _, row := range rows {
 		offer := offerFromRow(row)
-		if offer.Validate() != nil || offer.UnitPriceMinor <= 0 || (offer.StartsAt != nil && now.Before(*offer.StartsAt)) || (offer.ExpiresAt != nil && !now.Before(*offer.ExpiresAt)) {
+		if offer.Validate() != nil || (offer.StartsAt != nil && now.Before(*offer.StartsAt)) || (offer.ExpiresAt != nil && !now.Before(*offer.ExpiresAt)) {
 			continue
 		}
 		result = append(result, offer)

@@ -8,7 +8,7 @@ afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 describe("original Amazon creation recovery without Collection read permission", () => {
     it.each([false, true])("replays the original write and clears pending only after success, restored=%s", async restored => {
         const scope = { userId: "writer", organizationId: "original-org" };
-        const body = { query: { site: "us", mode: "asin", asins: ["B000123456"], limit: 1 }, maximumRows: 1, maximumCostFen: 5 };
+        const body = { query: { site: "us", mode: "asin", asins: ["B000123456"], limit: 1 }, maximumRows: 1, maximumCostFen:"5",pricingVersion:"test-price" };
         const stored = { ...scope, key: "a233d58b-1fd3-40d7-a983-d35bbec45313", path: "amazon/jobs", specialist: false, body };
         if (restored) expect(saveDataIntent(stored)).toBe(true);
         const writes: { body: string; key: string | null; user: string | null; org: string | null }[] = [];
@@ -24,7 +24,7 @@ describe("original Amazon creation recovery without Collection read permission",
             writes.push({ body: String(init.body), key: headers.get("Idempotency-Key"), user: headers.get("X-Expected-User-ID"), org: headers.get("X-Expected-Organization-ID") });
             const failure = failures.shift();
             if (failure) return Response.json({ error: { code: failure === 503 ? "DATA_UNKNOWN" : "FORBIDDEN" } }, { status: failure });
-            return Response.json({ id: stored.key, commandKey: headers.get("Idempotency-Key"), query: JSON.parse(String(init.body)).query, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, confirmedFen: 0, pendingFen: 0, createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" }, { status: 202 });
+            return Response.json({ id: stored.key, commandKey: headers.get("Idempotency-Key"), query: JSON.parse(String(init.body)).query, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"},confirmedFen:"0", pendingFen:"0", createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" }, { status: 202 });
         }));
         const { result } = renderHook(() => useDataCommand(scope));
         await act(async () => { await Promise.resolve(); });

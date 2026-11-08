@@ -27,9 +27,10 @@ const SpecialistBase = "/api/v1/platform/data-customization"
 const APIBase = "/data-api/v1/amazon/jobs"
 
 type createJob struct {
+	PricingVersion string                `json:"pricingVersion"`
 	Query          dataacquisition.Query `json:"query"`
 	MaximumRows    int                   `json:"maximumRows"`
-	MaximumCostFen int64                 `json:"maximumCostFen"`
+	MaximumCostFen string                `json:"maximumCostFen"`
 }
 type keyChange struct {
 	ExpectedRevision int64                `json:"expectedRevision"`
@@ -230,7 +231,7 @@ func (m *handler) handle(c *gin.Context, action, permission string, special, ext
 			funding, fundingErr := m.Funding.Funding(ctx, principal.Scope)
 			err = fundingErr
 			if err == nil {
-				value, err = m.Acquisition.Start(ctx, principal, command, input.Query, funding, input.MaximumCostFen)
+				value, err = m.Acquisition.Start(ctx, principal, command, input.Query, funding, dataacquisition.PriceConfirmation{Version: input.PricingVersion, MaximumCostFen: parseDataMaximum(input.MaximumCostFen)})
 			}
 		}
 	case "job-command":
@@ -508,4 +509,12 @@ func dataError(c *gin.Context, err error) {
 	}
 	httproute.RejectUnreadRequestBody(c)
 	c.JSON(status, gin.H{"error": gin.H{"code": code, "message": code}})
+}
+
+func parseDataMaximum(raw string) int64 {
+	v, e := strconv.ParseInt(raw, 10, 64)
+	if e != nil || v < 0 || strconv.FormatInt(v, 10) != raw {
+		return -1
+	}
+	return v
 }

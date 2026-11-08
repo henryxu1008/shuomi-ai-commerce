@@ -13,6 +13,7 @@ import (
 	datahttp "task-processor/internal/dataservice/httpapi"
 	"task-processor/internal/httproute"
 	"task-processor/internal/integration/dataserviceauth"
+	commercialprices "task-processor/internal/integration/persistence/commercialbilling"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
@@ -105,6 +106,13 @@ func buildDataServices(ctx context.Context, o currentApplicationOptions, deps ro
 		if err != nil {
 			return dataServicesModule{}, nil, err
 		}
+	}
+	if o.commercialOwnerDB != nil {
+		prices, e := commercialprices.New(o.commercialOwnerDB)
+		if e != nil {
+			return dataServicesModule{}, nil, e
+		}
+		moduleDependencies.Prices = dataservicesapp.CommercialDataPrice{Reader: prices}
 	}
 	module, err := dataservicesapp.NewModule(ctx, moduleDependencies)
 	if err != nil {

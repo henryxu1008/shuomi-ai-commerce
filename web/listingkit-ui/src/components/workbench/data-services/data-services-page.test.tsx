@@ -12,9 +12,9 @@ vi.mock("@/components/workbench/collections/collection-page", () => ({ Collectio
         children: React.ReactNode;
         onClose: () => void;
     }) => <section role="dialog" aria-label={title}><button onClick={onClose}>关闭</button>{children}</section> }));
-const options = { sites: [{ code: "us", domain: "www.amazon.com", name: "美国" }], customSites: [{ code: "us", domain: "www.amazon.com", name: "美国" }], fields: ["asin", "title"], priceFen: 5, maximumRows: 200, formats: ["csv", "json", "xlsx"], acquisitionReady: true };
+const options = { sites: [{ code: "us", domain: "www.amazon.com", name: "美国" }], customSites: [{ code: "us", domain: "www.amazon.com", name: "美国" }], fields: ["asin", "title"], price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"}, maximumRows: 200, formats: ["csv", "json", "xlsx"], acquisitionReady: true };
 const id = "a233d58b-1fd3-40d7-a983-d35bbec45313";
-const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B000123456"], limit: 1, fields: ["asin", "title"] }, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, confirmedFen: 0, pendingFen: 0, createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" };
+const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B000123456"], limit: 1, fields: ["asin", "title"] }, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"},confirmedFen:"0", pendingFen:"0", createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" };
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe("data service product paths", () => {
@@ -35,6 +35,27 @@ describe("data service product paths", () => {
         expect(within(form).getByRole("button", { name: "确认并开始采集" })).toBeVisible();
         expect(requests.mock.calls.map(([url]) => url.split("/").at(-1))).toEqual(["options", "jobs"]);
         expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+    });
+    it("keeps fractional and non-finite row input safe until valid bounded rows are confirmed", async () => {
+        const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));
+        vi.stubGlobal("fetch", requests);
+        render(<DataServicesPage mode="amazon"/>);
+        const start = await screen.findByRole("button", { name: "新建采集任务" });
+        await waitFor(() => expect(start).toBeEnabled());
+        fireEvent.click(start);
+        const input = screen.getByLabelText("最大数据条数");
+        const submit = screen.getByRole("button", { name: "确认并开始采集" });
+        for (const invalid of ["1.5", "", "1e309", "201", "0"]) {
+            fireEvent.change(input, { target: { value: invalid } });
+            expect(submit).toBeDisabled();
+            expect(screen.getByText(/请输入 1–200 的整数条数/)).toBeVisible();
+        }
+        for (const valid of ["1", "200"]) {
+            fireEvent.change(input, { target: { value: valid } });
+            expect(submit).toBeEnabled();
+            expect(screen.queryByText(/请输入 1–200 的整数条数/)).not.toBeInTheDocument();
+        }
+        expect(requests.mock.calls.every(([,init]) => !init?.method || init.method === "GET")).toBe(true);
     });
     it("shows readable Amazon results and distinguishes failed page reads from empty results", async () => {
         const saved = { ...job, state: "PARTIAL", saved: 1, failed: 1, batchId: id };
@@ -104,12 +125,19 @@ describe("data service product paths", () => {
         expect(screen.queryByText("数据服务暂不可用，请稍后刷新。")).not.toBeInTheDocument();
         expect(requests.mock.calls).toHaveLength(3);
     });
+    it("reads explicit zero pricing in the API overview without the retired fixed price", async () => {
+        const overview = { options: { ...options, price: { ...options.price, unitPriceFen: "0", pricingVersion: "zero-price" } }, keys: [], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen: "0", monthPendingFen: "0", finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } };
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/keys") ? [] : overview)));
+        render(<DataServicesPage mode="api"/>);
+        expect(await screen.findByText("¥0.00 / 成功保存一条 · 按当前价目折算" )).toBeVisible();
+        expect(screen.queryByText("¥0.05 / 成功保存一条 · 使用预付 DATA_ROW")).not.toBeInTheDocument();
+    });
     it.each([
         [79, 0, 100, false], [60, 20, 100, true], [80, 0, 100, true], [0, 80, 100, true], [90, 10, 100, true],
         [60, 20, 101, false], [0, 8, 10, true],
     ])("warns at 80 percent from actual per-key occupied budget %s + %s / %s", async (consumed, reserved, limit, warning) => {
         const key = { id, suffix: "test", state: "ACTIVE", revision: 1, createdAt: job.createdAt, limits: { name: "实际限额密钥", expiresAt: new Date(Date.now() + 3600000).toISOString(), dailyRows: 10, monthlyCostFen: Number(limit), permissions: ["amazon.acquire", "amazon.result.read"] } };
-        const overview = { options, keys: [key], jobs: [], keyQuotas: [{ keyId: id, dayConsumedRows: 0, dayReservedRows: 0, monthConsumedFen: Number(consumed), monthReservedFen: Number(reserved) }], usage: { dayRows: 0, monthConfirmedFen: 0, monthPendingFen: 0, finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } };
+        const overview = { options, keys: [key], jobs: [], keyQuotas: [{ keyId: id, dayConsumedRows: 0, dayReservedRows: 0, monthConsumedFen: String(consumed), monthReservedFen: String(reserved) }], usage: { dayRows: 0, monthConfirmedFen:"0", monthPendingFen:"0", finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } };
         vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/keys") ? [key] : overview)));
         render(<DataServicesPage mode="api"/>);
         await screen.findByRole("progressbar", { name: "该密钥月预算占用" });
@@ -129,7 +157,7 @@ describe("data service product paths", () => {
     });
     it("changes the warning with the selected key and never invents missing quota", async () => {
         const keys = [id, "b233d58b-1fd3-40d7-a983-d35bbec45313", "c233d58b-1fd3-40d7-a983-d35bbec45313"].map((keyId, i) => ({ id: keyId, suffix: "test", state: "ACTIVE", revision: 1, createdAt: job.createdAt, limits: { name: ["高占用密钥", "低占用密钥", "未读到额度密钥"][i], expiresAt: new Date(Date.now() + 3600000).toISOString(), dailyRows: 10, monthlyCostFen: [100, 200, 10][i], permissions: ["amazon.acquire", "amazon.result.read"] } }));
-        const overview = { options, keys, jobs: [], keyQuotas: keys.slice(0, 2).map(key => ({ keyId: key.id, dayConsumedRows: 0, dayReservedRows: 0, monthConsumedFen: 60, monthReservedFen: 20 })), usage: { dayRows: 0, monthConfirmedFen: 0, monthPendingFen: 0, finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } };
+        const overview = { options, keys, jobs: [], keyQuotas: keys.slice(0, 2).map(key => ({ keyId: key.id, dayConsumedRows: 0, dayReservedRows: 0, monthConsumedFen:"60", monthReservedFen:"20" })), usage: { dayRows: 0, monthConfirmedFen:"0", monthPendingFen:"0", finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } };
         vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/keys") ? keys : overview)));
         render(<DataServicesPage mode="api"/>);
         const selector = await screen.findByRole("combobox", { name: "额度所属密钥" });
@@ -187,7 +215,7 @@ describe("data service product paths", () => {
         fireEvent.change(screen.getByLabelText("最大数据条数"), { target: { value: "1" } });
         fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "提交定制需求" }));
         await waitFor(() => expect(mutations).toHaveLength(2));
-        expect(mutations[0]).toMatchObject({ body: { maximumRows: 1, maximumCostFen: 5, query: { asins: ["B000123456"] } } });
+        expect(mutations[0]).toMatchObject({ body: { maximumRows: 1, maximumCostFen:"5",pricingVersion:"test-price", query: { asins: ["B000123456"] } } });
         expect(mutations[1]).toMatchObject({ body: { name: "history-independent request", purpose: "选品分析", query: { asins: ["B000123456"], limit: 1 } } });
         expect(mutations[0].key).toMatch(/^[a-f0-9-]{36}$/);
         expect(mutations[1].key).not.toBe(mutations[0].key);
@@ -243,7 +271,7 @@ describe("data service product paths", () => {
     it("does not grant key controls from overview when the independent key read fails", async () => {
         vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/keys")
             ? json({ error: { code: "FORBIDDEN" } }, 403)
-            : json({ options, keys: [], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen: 0, monthPendingFen: 0, finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } })));
+            : json({ options, keys: [], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen:"0", monthPendingFen:"0", finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } })));
         render(<DataServicesPage mode="api"/>);
         await screen.findByText("当前身份或权限已失效，请确认登录及企业。");
         expect(screen.getByRole("button", { name: "创建API密钥" })).toBeDisabled();
@@ -261,7 +289,7 @@ describe("data service product paths", () => {
                 return json({ ...key, limits: body.patch.limits, revision: 2 });
             }
             if (url.endsWith("/keys")) return json([key]);
-            return json({ options, keys: [key], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen: 0, monthPendingFen: 0, finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } });
+            return json({ options, keys: [key], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen:"0", monthPendingFen:"0", finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } });
         }));
         render(<DataServicesPage mode="api"/>);
         fireEvent.click(await screen.findByRole("button", { name: "管理密钥" }));
@@ -272,7 +300,7 @@ describe("data service product paths", () => {
         expect(mutations[0]).toMatchObject({ patch: { limits: { expiresAt, dailyRows: 20 } } });
     });
     it("rejects a key name exceeding the existing 80 UTF-8 bytes before dispatch", async () => {
-        vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/keys") ? [] : { options, keys: [], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen: 0, monthPendingFen: 0, finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } })));
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/keys") ? [] : { options, keys: [], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen:"0", monthPendingFen:"0", finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } })));
         render(<DataServicesPage mode="api"/>);
         const create = await screen.findByRole("button", { name: "创建API密钥" });
         await waitFor(() => expect(create).toBeEnabled());
@@ -335,7 +363,7 @@ describe("data service product paths", () => {
                 return json({ items: [{ id, state: "FAILED", reason }] });
             if (url.endsWith(id))
                 return json(failed);
-            return json({ options, keys: [], jobs: [failed], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen: 0, monthPendingFen: 0, finishedJobs: 1, succeededJobs: 0, successRate: 0, window: "UTC calendar month; completed jobs" } });
+            return json({ options, keys: [], jobs: [failed], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen:"0", monthPendingFen:"0", finishedJobs: 1, succeededJobs: 0, successRate: 0, window: "UTC calendar month; completed jobs" } });
         }));
         render(<DataServicesPage mode="api"/>);
         fireEvent.click(await screen.findByRole("button", { name: "查看" }));
@@ -398,11 +426,11 @@ describe("data service product paths", () => {
         fireEvent.click(screen.getByRole("button", { name: "核实／继续原请求" }));
         await waitFor(() => expect(mutations).toHaveLength(2));
         expect(mutations[1]).toEqual(mutations[0]);
-        expect(mutations[1].body).toMatchObject({ maximumRows: 1, maximumCostFen: 5 });
+        expect(mutations[1].body).toMatchObject({ maximumRows: 1, maximumCostFen:"5",pricingVersion:"test-price" });
         await waitFor(() => expect(sessionStorage.length).toBe(0));
     });
     it("shows null success sample and separates confirmed fees from pending", async () => {
-        vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/keys") ? [] : { options, keys: [], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen: 0, monthPendingFen: 5, finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC calendar month; completed jobs" } })));
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/keys") ? [] : { options, keys: [], jobs: [], keyQuotas: [], usage: { dayRows: 0, monthConfirmedFen:"0", monthPendingFen:"5", finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC calendar month; completed jobs" } })));
         render(<DataServicesPage mode="api"/>);
         await screen.findByText("暂无样本");
         expect(screen.getByText("已保存待确认 ¥0.05")).toBeInTheDocument();

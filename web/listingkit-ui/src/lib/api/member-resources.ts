@@ -59,7 +59,7 @@ const offer = z
     offerId: memberResourceID,
     pricingVersion: memberResourceID,
     currency: z.literal("CNY"),
-    unitPriceMinor: positive,
+    unitPriceMinor: resourceInteger,
     minQuantity: positive,
     maxQuantity: positive,
   })

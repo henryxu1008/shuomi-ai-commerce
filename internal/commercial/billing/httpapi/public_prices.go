@@ -14,6 +14,7 @@ import (
 const PublicResourceOfferPath = "/api/v1/commercial/resource-offers"
 
 type publicOfferPrice struct {
+	SettlementMode string `json:"settlement_mode,omitempty"`
 	OfferID        string `json:"offer_id"`
 	ProductKind    string `json:"product_kind"`
 	ResourceType   string `json:"resource_type"`
@@ -59,7 +60,7 @@ func (h *Handler) PublicResourceOffers(c *gin.Context) {
 	}
 	items := make([]publicOfferPrice, 0, len(offers))
 	for _, o := range offers {
-		items = append(items, publicOfferPrice{OfferID: o.OfferID, ProductKind: string(o.ProductKind), ResourceType: string(o.ResourceType), Currency: o.Currency, UnitPriceMinor: strconv.FormatInt(o.UnitPriceMinor, 10), MinQuantity: strconv.FormatInt(o.MinQuantity, 10), MaxQuantity: strconv.FormatInt(o.MaxQuantity, 10), PricingVersion: o.PricingVersion})
+		items = append(items, publicOfferPrice{SettlementMode: string(o.SettlementMode), OfferID: o.OfferID, ProductKind: string(o.ProductKind), ResourceType: string(o.ResourceType), Currency: o.Currency, UnitPriceMinor: strconv.FormatInt(o.UnitPriceMinor, 10), MinQuantity: strconv.FormatInt(o.MinQuantity, 10), MaxQuantity: strconv.FormatInt(o.MaxQuantity, 10), PricingVersion: o.PricingVersion})
 	}
 	body, err := json.Marshal(struct {
 		SchemaVersion   string             `json:"schema_version"`

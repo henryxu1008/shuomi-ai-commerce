@@ -2167,8 +2167,19 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			expected[route] = struct{}{}
 		}
 		for _, descriptor := range routes {
+			if strings.HasPrefix(descriptor.Path, dataRowPriceBase) {
+				for _, r := range (dataRowPricingModule{}).routes() {
+					expected[currentApplicationRoute{Method: r.Method, Path: r.Path}] = struct{}{}
+				}
+				break
+			}
+		}
+		for _, descriptor := range routes {
 			if (descriptor.Path == billinghttp.PublicResourceOfferPath || descriptor.Path == billinghttp.PublicStorageOffersPath) && !billinghttp.ValidatePublicPriceDescriptor(descriptor) {
 				return errors.New("public retail catalog loses its price-only read boundary")
+			}
+			if strings.HasPrefix(descriptor.Path, dataRowPriceBase) && !validateDataRowPricingDescriptor(descriptor) {
+				return errors.New("data price administration loses platform permission boundary")
 			}
 		}
 	}

@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/gorm"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
+	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 	skillstore "task-processor/internal/integration/persistence/skill"
 )
 
@@ -76,6 +77,7 @@ func ownerGrantBounds(db *gorm.DB, role string) (map[string]configstore.RuntimeT
 		// not a second copy of the Skill/configuration permission authority.
 		shared := append(configstore.RuntimeTableGrants(), configstore.SkillAdmissionRuntimeTableGrant())
 		shared = append(shared, skillstore.RuntimeTableGrants()...)
+		shared = append(shared, routeconfigstore.RuntimeReadTableGrants()...)
 		for _, g := range shared {
 			result[g.Relation] = g
 		}

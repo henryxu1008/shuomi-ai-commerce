@@ -20,6 +20,7 @@ func InstallSchema(db *gorm.DB) error {
  source_kind varchar(32) NOT NULL DEFAULT 'amazon_data' CHECK(source_kind IN ('amazon_data','shein_us_data')),
  trial_binding char(64), command_key uuid NOT NULL,input_hash varchar(64) NOT NULL CHECK(input_hash ~ '^[0-9a-f]{64}$'),
  credential_id uuid,credential_revision bigint,query_json jsonb NOT NULL CHECK(octet_length(query_json::text)<=65536),
+ price_snapshot jsonb CHECK((source_kind='amazon_data' AND price_snapshot IS NOT NULL AND jsonb_typeof(price_snapshot)='object' AND octet_length(price_snapshot::text)<=4096) OR (source_kind='shein_us_data' AND price_snapshot IS NULL)),
  funding varchar(32) NOT NULL CHECK(funding IN ('enterprise_unallocated','member_allocated')),
  state varchar(24) NOT NULL CHECK(state IN ('ADMITTED','RUNNING','SUCCEEDED','PARTIAL','FAILED','CANCELED')),reason varchar(64) NOT NULL DEFAULT '',
  discovered boolean NOT NULL DEFAULT false,canceled boolean NOT NULL DEFAULT false,quota_reserved integer NOT NULL CHECK(quota_reserved BETWEEN 0 AND 200),
@@ -56,7 +57,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		return dataacquisition.ErrUnavailable
 	}
 	for _, q := range []string{
-		"SELECT organization_id,actor_id,member_id,id,command_key,input_hash,credential_id,credential_revision,query_json,funding,state,reason,discovered,canceled,quota_reserved,day_window,month_window,created_at,deadline,source_kind,trial_binding FROM data_acquisition_jobs LIMIT 0",
+		"SELECT organization_id,actor_id,member_id,id,command_key,input_hash,credential_id,credential_revision,query_json,price_snapshot,funding,state,reason,discovered,canceled,quota_reserved,day_window,month_window,created_at,deadline,source_kind,trial_binding FROM data_acquisition_jobs LIMIT 0",
 		"SELECT organization_id,actor_id,job_id,id,asin,state,intent_json,claim_token,lease_until,evidence_json,source_json,terminal_evidence,reservation_id,charge_state,reason,created_at,saved_at,source_kind,native_goods_id,source_position,evidence_checksum FROM data_acquisition_items LIMIT 0",
 	} {
 		if db.WithContext(ctx).Exec(q).Error != nil {
