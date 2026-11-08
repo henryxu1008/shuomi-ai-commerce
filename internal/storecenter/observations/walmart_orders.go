@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
-	"task-processor/internal/marketplace/walmart"
 	"time"
 )
 
@@ -13,7 +12,7 @@ import (
 // An implementation must pin merchant/market/range, include replacement orders,
 // avoid status filters, check the live orders scope and use only a fixed GET.
 type WalmartOrderReader interface {
-	ReadWalmartOrders(context.Context, Scope, Binding, WalmartOrderQuery) (walmart.OrderPage, error)
+	ReadWalmartOrders(context.Context, Scope, Binding, WalmartOrderQuery) (WalmartOrderPage, error)
 }
 type WalmartOrderQuery struct {
 	Start, End time.Time

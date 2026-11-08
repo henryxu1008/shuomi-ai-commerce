@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"strconv"
 	"strings"
-	"task-processor/internal/marketplace/walmart"
 	"task-processor/internal/storecenter"
 	"testing"
 	"time"
@@ -20,7 +19,7 @@ type walmartAmountAccess struct {
 
 func TestWalmartAmountsKeepUnknownDatesSourceDriftAndMaximumPrecision(t *testing.T) {
 	s, r, _, q := walmartAmountFixture(t)
-	order := walmart.Order{ID: "po", Site: "walmart-us", Lines: []walmart.OrderLine{{Number: "1", Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "0.10"}}}}}
+	order := WalmartOrder{ID: "po", Site: "walmart-us", Lines: []WalmartOrderLine{{Number: "1", Charges: []WalmartOrderCharge{{Currency: "USD", Amount: "0.10"}}}}}
 	r.rows = []WalmartOrderAmountRecord{{StoreID: q.StoreID, SyncID: r.heads[0].ID, Order: order}}
 	scope := Scope{"org-a", "actor", "member"}
 	got, e := s.SavedWalmartOrderAmounts(context.Background(), scope, q)
@@ -31,9 +30,9 @@ func TestWalmartAmountsKeepUnknownDatesSourceDriftAndMaximumPrecision(t *testing
 	require.Nil(t, got.Amounts)
 	r.rows = nil
 	for i := 0; i < 250; i++ {
-		v := walmart.Order{ID: strconv.Itoa(i), Site: "walmart-us", Date: q.Start.Format(time.RFC3339Nano)}
+		v := WalmartOrder{ID: strconv.Itoa(i), Site: "walmart-us", Date: q.Start.Format(time.RFC3339Nano)}
 		for line := 0; line < 100; line++ {
-			v.Lines = append(v.Lines, walmart.OrderLine{Number: strconv.Itoa(line), Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "99999999999999999999.99999999"}}})
+			v.Lines = append(v.Lines, WalmartOrderLine{Number: strconv.Itoa(line), Charges: []WalmartOrderCharge{{Currency: "USD", Amount: "99999999999999999999.99999999"}}})
 		}
 		r.rows = append(r.rows, WalmartOrderAmountRecord{StoreID: q.StoreID, SyncID: r.heads[0].ID, Order: v})
 	}
@@ -83,7 +82,7 @@ func TestWalmartSavedAmountsRetainMillisAndHideMissingCoverage(t *testing.T) {
 	for _, kind := range []string{"complete", "last second", "missing", "coverage", "partition", "changed", "no sync"} {
 		t.Run(kind, func(t *testing.T) {
 			s, r, a, q := walmartAmountFixture(t)
-			o := walmart.Order{ID: "po", Site: "walmart-us", Date: q.End.Add(-time.Millisecond).Format(time.RFC3339Nano), Lines: []walmart.OrderLine{{Number: "1", Quantity: "9", Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "19.90"}}}}}
+			o := WalmartOrder{ID: "po", Site: "walmart-us", Date: q.End.Add(-time.Millisecond).Format(time.RFC3339Nano), Lines: []WalmartOrderLine{{Number: "1", Quantity: "9", Charges: []WalmartOrderCharge{{Currency: "USD", Amount: "19.90"}}}}}
 			r.rows = []WalmartOrderAmountRecord{{StoreID: q.StoreID, SyncID: r.heads[0].ID, Order: o}}
 			switch kind {
 			case "last second":

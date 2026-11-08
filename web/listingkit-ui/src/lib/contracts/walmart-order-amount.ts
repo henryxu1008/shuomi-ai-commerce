@@ -24,4 +24,3 @@ export const walmartOrderAmountMetrics=z.discriminatedUnion("status",[
   reason:z.enum(["no_saved_sync","sync_incomplete","newer_sync_incomplete","range_not_covered"])}),
  z.strictObject({status:z.literal("limited"),capturedAt:stamp,source:completeSource}),
 ]);
-export type WalmartOrderAmountMetrics=z.infer<typeof walmartOrderAmountMetrics>;

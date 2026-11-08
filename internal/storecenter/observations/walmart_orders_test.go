@@ -4,19 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/walmart"
 	"task-processor/internal/storecenter"
 	"testing"
 	"time"
 )
 
 type walmartPages struct {
-	page  walmart.OrderPage
+	page  WalmartOrderPage
 	query WalmartOrderQuery
 	after func()
 }
 
-func (r *walmartPages) ReadWalmartOrders(_ context.Context, _ Scope, _ Binding, q WalmartOrderQuery) (walmart.OrderPage, error) {
+func (r *walmartPages) ReadWalmartOrders(_ context.Context, _ Scope, _ Binding, q WalmartOrderQuery) (WalmartOrderPage, error) {
 	r.query = q
 	if r.after != nil {
 		r.after()
@@ -33,7 +32,7 @@ func TestWalmartOrdersUseThreePartitionsAndMillisDayBoundaries(t *testing.T) {
 	end := r.sync.CreatedAt
 	r.sync.Range = &Window{Start: start, End: end}
 	r.sync.Progress.Windows = []Window{*r.sync.Range}
-	reader := &walmartPages{page: walmart.OrderPage{Total: 1, Items: []walmart.Order{{ID: "po", Site: "walmart-us", Date: end.Add(-time.Millisecond).Format(time.RFC3339Nano), Lines: []walmart.OrderLine{{Number: "1", Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "1.00"}}}}}}}}
+	reader := &walmartPages{page: WalmartOrderPage{Total: 1, Items: []WalmartOrder{{ID: "po", Site: "walmart-us", Date: end.Add(-time.Millisecond).Format(time.RFC3339Nano), Lines: []WalmartOrderLine{{Number: "1", Charges: []WalmartOrderCharge{{Currency: "USD", Amount: "1.00"}}}}}}}}
 	s.WalmartOrders = reader
 	for partition := 0; partition < 3; partition++ {
 		got, err := s.Step(context.Background(), "org-a", r.sync.ID)
@@ -78,7 +77,7 @@ func TestWalmartOrdersRevocationAfterReadUsesOriginalSuspension(t *testing.T) {
 	m.binding = r.sync.Binding
 	r.sync.Range = &Window{Start: r.sync.CreatedAt.Add(-time.Hour), End: r.sync.CreatedAt}
 	r.sync.Progress.Windows = []Window{*r.sync.Range}
-	s.WalmartOrders = &walmartPages{page: walmart.OrderPage{Total: 0}, after: func() { m.err = ErrForbidden }}
+	s.WalmartOrders = &walmartPages{page: WalmartOrderPage{Total: 0}, after: func() { m.err = ErrForbidden }}
 	got, e := s.Step(context.Background(), "org-a", r.sync.ID)
 	require.NoError(t, e)
 	require.Equal(t, "suspended", got.Status)

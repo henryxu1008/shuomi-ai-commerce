@@ -35,7 +35,7 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 
 ## owner、持久化、授权和读取路径
 
-唯一owner为internal/storecenter/observations，平台订单规则为internal/marketplace/walmart；官方形状decoder在internal/integration/walmart。扩展Record.WalmartOrder及原records JSON variant，SQL约束明确Walmart site/id与SHEIN variant互斥，不增加表或迁移/双读。Walmart重复检查与payload保存处在同一原sync行锁事务：规范化typed payload相同不重存payload/observedAt；跨窗/分区仅更新既有window_key/page_index作为当前首次观察位置，同窗同分区跨页重复标sticky incomplete；冲突保留原payload并sticky incomplete，禁止沿原ON CONFLICT覆盖；SHEIN语义不变。修改当前全新安装schema及其严格verifier快照；不对任何保留数据库ALTER/重建。测试用新独立PostgreSQL。
+唯一owner为internal/storecenter/observations，Walmart只读订单数据合同与PRODUCT费用投影同属该观察owner（沿原SHEIN Order模式）；官方形状decoder在internal/integration/walmart。扩展Record.WalmartOrder及原records JSON variant，SQL约束明确Walmart site/id与SHEIN variant互斥，不增加表或迁移/双读。Walmart重复检查与payload保存处在同一原sync行锁事务：规范化typed payload相同不重存payload/observedAt；跨窗/分区仅更新既有window_key/page_index作为当前首次观察位置，同窗同分区跨页重复标sticky incomplete；冲突保留原payload并sticky incomplete，禁止沿原ON CONFLICT覆盖；SHEIN语义不变。修改当前全新安装schema及其严格verifier快照；不对任何保留数据库ALTER/重建。测试用新独立PostgreSQL。
 
 只读单店统计路径：当前verified组织/actor/member + store.orders.read → 原Store本地ReadObservation(orders)及本地Walmart grant/application/binding → 当前heads/latest → 原records.WalmartOrder窄日期投影 → 精确聚合 → 重读来源/授权/本地binding → 正式HTTP/BFF → Walmart单店独立面板。本地已保存读取不调用TokenDetail、Merchant、Orders、refresh或任一provider；不借用product_publish/rules权限。grant必须active、未过期，匹配组织/店铺/应用/环境/商家、generation/version/StoreVersion/ConnectionRevision；当前Store/成员授权由原ReadObservation落实，不建立第二授权体系。
 
@@ -51,3 +51,5 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 
 
 独立架构复核：/root/architecture_review已实际核对93ad47de0e67ad7f2e9320adfafc5588ca4fe7b0及每PO100行/250PO、Walmart独立金额字符串<=36字符补充，IMPLEMENTATION_READY，无剩余BLOCKER。毫秒日界、三分区/cursor、事务去重/local-only grant、歧义留存、最大精度与窄屏为IMPLEMENTATION_TEST。冻结后按此基线实施，不扩大正式在线范围。
+
+实现期依赖边界检查修正：新订单数据合同落在Store Observations，不由integration引用Marketplace业务root。独立Reviewer确认IMPLEMENTATION_TEST，数据/权限/事务/JSON形状不变，不保留alias或第二合同，不调整guard/CI规则。

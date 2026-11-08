@@ -1,4 +1,4 @@
-package walmart
+package observations
 
 import (
 	"math/big"
@@ -8,42 +8,42 @@ import (
 	"unicode"
 )
 
-const MaxOrderLines = 100
+const walmartMaxOrderLines = 100
 
-var orderDecimal = regexp.MustCompile(`^[0-9]{1,20}(\.[0-9]{1,8})?$`)
-var orderCurrency = regexp.MustCompile(`^[A-Z]{3}$`)
+var walmartOrderDecimal = regexp.MustCompile(`^[0-9]{1,20}(\.[0-9]{1,8})?$`)
+var walmartOrderCurrency = regexp.MustCompile(`^[A-Z]{3}$`)
 
-// Order is an allowlisted consumer purchase order, not a procurement order or
+// WalmartOrder is an allowlisted consumer purchase order, not a procurement order or
 // a SHEIN observation. Raw responses and customer contact data never enter it.
-type Order struct {
-	ID              string      `json:"id"`
-	Site            string      `json:"site"`
-	CustomerOrderID string      `json:"customerOrderId,omitempty"`
-	Date            string      `json:"date"`
-	Type            string      `json:"type,omitempty"`
-	Lines           []OrderLine `json:"lines"`
+type WalmartOrder struct {
+	ID              string             `json:"id"`
+	Site            string             `json:"site"`
+	CustomerOrderID string             `json:"customerOrderId,omitempty"`
+	Date            string             `json:"date"`
+	Type            string             `json:"type,omitempty"`
+	Lines           []WalmartOrderLine `json:"lines"`
 }
-type OrderLine struct {
-	Number    string        `json:"number"`
-	Quantity  string        `json:"quantity,omitempty"`
-	Charges   []OrderCharge `json:"charges"`
-	Ambiguous bool          `json:"ambiguous,omitempty"`
+type WalmartOrderLine struct {
+	Number    string               `json:"number"`
+	Quantity  string               `json:"quantity,omitempty"`
+	Charges   []WalmartOrderCharge `json:"charges"`
+	Ambiguous bool                 `json:"ambiguous,omitempty"`
 }
-type OrderCharge struct {
+type WalmartOrderCharge struct {
 	Currency string `json:"currency"`
 	Amount   string `json:"amount"`
 }
-type OrderPage struct {
+type WalmartOrderPage struct {
 	Total      int
-	Items      []Order
+	Items      []WalmartOrder
 	NextCursor string
 }
 
-func orderText(s string, n int) bool {
+func walmartOrderText(s string, n int) bool {
 	return len(s) <= n && strings.TrimSpace(s) == s && !strings.ContainsFunc(s, unicode.IsControl)
 }
-func (o Order) Valid() bool {
-	if o.ID == "" || !orderText(o.ID, 128) || o.Site != "walmart-us" || !orderText(o.CustomerOrderID, 128) || !orderText(o.Type, 64) || len(o.Lines) > MaxOrderLines {
+func (o WalmartOrder) Valid() bool {
+	if o.ID == "" || !walmartOrderText(o.ID, 128) || o.Site != "walmart-us" || !walmartOrderText(o.CustomerOrderID, 128) || !walmartOrderText(o.Type, 64) || len(o.Lines) > walmartMaxOrderLines {
 		return false
 	}
 	if o.Date != "" {
@@ -54,12 +54,12 @@ func (o Order) Valid() bool {
 	}
 	seen := map[string]bool{}
 	for _, line := range o.Lines {
-		if line.Number == "" || !orderText(line.Number, 128) || seen[line.Number] || !orderText(line.Quantity, 32) || len(line.Charges) > 20 {
+		if line.Number == "" || !walmartOrderText(line.Number, 128) || seen[line.Number] || !walmartOrderText(line.Quantity, 32) || len(line.Charges) > 20 {
 			return false
 		}
 		seen[line.Number] = true
 		for _, charge := range line.Charges {
-			if charge.Amount != "" && !orderDecimal.MatchString(charge.Amount) || charge.Currency != "" && !orderCurrency.MatchString(charge.Currency) {
+			if charge.Amount != "" && !walmartOrderDecimal.MatchString(charge.Amount) || charge.Currency != "" && !walmartOrderCurrency.MatchString(charge.Currency) {
 				return false
 			}
 		}
@@ -69,7 +69,7 @@ func (o Order) Valid() bool {
 
 // ProductAmount sums the source's line PRODUCT fees once. Quantity, status
 // groups, taxes, shipping and virtual-pack counts do not multiply these fees.
-func (o Order) ProductAmount() (amount, currency string, missingAmount, missingCurrency bool) {
+func (o WalmartOrder) ProductAmount() (amount, currency string, missingAmount, missingCurrency bool) {
 	total := new(big.Int)
 	if len(o.Lines) == 0 {
 		return "", "", true, true
@@ -82,7 +82,7 @@ func (o Order) ProductAmount() (amount, currency string, missingAmount, missingC
 			missingCurrency = true
 		}
 		for _, charge := range line.Charges {
-			if charge.Amount == "" || !orderDecimal.MatchString(charge.Amount) {
+			if charge.Amount == "" || !walmartOrderDecimal.MatchString(charge.Amount) {
 				missingAmount = true
 			} else {
 				parts := strings.SplitN(charge.Amount, ".", 2)
@@ -97,7 +97,7 @@ func (o Order) ProductAmount() (amount, currency string, missingAmount, missingC
 					total.Add(total, scaled)
 				}
 			}
-			if !orderCurrency.MatchString(charge.Currency) {
+			if !walmartOrderCurrency.MatchString(charge.Currency) {
 				missingCurrency = true
 			} else if currency == "" {
 				currency = charge.Currency

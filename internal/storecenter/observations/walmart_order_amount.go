@@ -4,13 +4,12 @@ import (
 	"context"
 	"reflect"
 	"regexp"
-	"task-processor/internal/marketplace/walmart"
 	"task-processor/internal/storecenter"
 )
 
 type WalmartOrderAmountRecord struct {
 	StoreID, SyncID string
-	Order           walmart.Order
+	Order           WalmartOrder
 }
 type WalmartOrderAmountReader interface {
 	WalmartOrderAmountRecords(context.Context, string, string, OrderAmountQuery, int) ([]WalmartOrderAmountRecord, error)

@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
-	marketplace "task-processor/internal/marketplace/walmart"
+	observations "task-processor/internal/storecenter/observations"
 	"time"
 )
 
 // DecodeOrderPage is the bounded protocol boundary used by the offline source.
 // This phase deliberately adds no network client or live reader registration.
-func DecodeOrderPage(raw []byte) (marketplace.OrderPage, error) {
-	var result marketplace.OrderPage
+func DecodeOrderPage(raw []byte) (observations.WalmartOrderPage, error) {
+	var result observations.WalmartOrderPage
 	if len(raw) == 0 || len(raw) > 2<<20 {
-		return result, marketplace.ErrUnavailable
+		return result, observations.ErrUnavailable
 	}
 	type charge struct {
 		Type   string `json:"chargeType"`
@@ -53,18 +53,18 @@ func DecodeOrderPage(raw []byte) (marketplace.OrderPage, error) {
 		} `json:"list"`
 	}
 	if json.Unmarshal(raw, &wire) != nil || len(wire.Errors) > 0 || wire.List == nil || wire.List.Meta == nil || wire.List.Meta.Total == nil || *wire.List.Meta.Total < 0 || wire.List.Elements == nil || wire.List.Elements.Orders == nil || len(*wire.List.Elements.Orders) > 30 {
-		return result, marketplace.ErrUnavailable
+		return result, observations.ErrUnavailable
 	}
 	result.Total = *wire.List.Meta.Total
-	result.Items = []marketplace.Order{}
+	result.Items = []observations.WalmartOrder{}
 	if v := wire.List.Meta.Cursor; len(v) > 0 && string(v) != "null" {
 		if json.Unmarshal(v, &result.NextCursor) != nil || len(result.NextCursor) > 8192 || strings.ContainsAny(result.NextCursor, "\r\n\x00") {
-			return marketplace.OrderPage{}, marketplace.ErrUnavailable
+			return observations.WalmartOrderPage{}, observations.ErrUnavailable
 		}
 	}
 	seen := map[string]bool{}
 	for _, v := range *wire.List.Elements.Orders {
-		o := marketplace.Order{ID: v.ID, Site: "walmart-us", CustomerOrderID: v.Customer, Type: v.Type, Lines: []marketplace.OrderLine{}}
+		o := observations.WalmartOrder{ID: v.ID, Site: "walmart-us", CustomerOrderID: v.Customer, Type: v.Type, Lines: []observations.WalmartOrderLine{}}
 		if date := string(v.Date); date != "" && date != "null" {
 			text, e := orderNumber(v.Date)
 			if e != nil {
@@ -72,13 +72,13 @@ func DecodeOrderPage(raw []byte) (marketplace.OrderPage, error) {
 			}
 			millis, e := strconv.ParseInt(text, 10, 64)
 			if e != nil || millis <= 0 {
-				return result, marketplace.ErrUnavailable
+				return result, observations.ErrUnavailable
 			}
 			o.Date = time.UnixMilli(millis).UTC().Format(time.RFC3339Nano)
 		}
 		if v.Lines != nil {
 			for _, line := range v.Lines.Items {
-				saved := marketplace.OrderLine{Number: line.Number, Charges: []marketplace.OrderCharge{}}
+				saved := observations.WalmartOrderLine{Number: line.Number, Charges: []observations.WalmartOrderCharge{}}
 				if line.Quantity != nil {
 					var e error
 					saved.Quantity, e = orderNumber(line.Quantity.Amount)
@@ -94,7 +94,7 @@ func DecodeOrderPage(raw []byte) (marketplace.OrderPage, error) {
 						if c.Type != "PRODUCT" {
 							continue
 						}
-						fee := marketplace.OrderCharge{}
+						fee := observations.WalmartOrderCharge{}
 						if c.Amount != nil {
 							var e error
 							fee.Currency = c.Amount.Currency
@@ -113,7 +113,7 @@ func DecodeOrderPage(raw []byte) (marketplace.OrderPage, error) {
 			}
 		}
 		if !o.Valid() || seen[o.ID] {
-			return marketplace.OrderPage{}, marketplace.ErrUnavailable
+			return observations.WalmartOrderPage{}, observations.ErrUnavailable
 		}
 		seen[o.ID] = true
 		result.Items = append(result.Items, o)
@@ -127,13 +127,13 @@ func orderNumber(raw json.RawMessage) (string, error) {
 	if raw[0] == '"' {
 		var value string
 		if json.Unmarshal(raw, &value) != nil {
-			return "", marketplace.ErrUnavailable
+			return "", observations.ErrUnavailable
 		}
 		return value, nil
 	}
 	var number json.Number
 	if json.Unmarshal(raw, &number) != nil {
-		return "", marketplace.ErrUnavailable
+		return "", observations.ErrUnavailable
 	}
 	return number.String(), nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"task-processor/internal/authidentity"
-	"task-processor/internal/marketplace/walmart"
 	o "task-processor/internal/storecenter/observations"
 )
 
@@ -25,7 +24,7 @@ func (r *Repository) WalmartOrderAmountRecords(ctx context.Context, org, sync st
 	}
 	result := make([]o.WalmartOrderAmountRecord, 0, len(rows))
 	for _, row := range rows {
-		var order *walmart.Order
+		var order *o.WalmartOrder
 		if json.Unmarshal(row.Body, &order) != nil || order == nil {
 			return nil, o.ErrUnavailable
 		}

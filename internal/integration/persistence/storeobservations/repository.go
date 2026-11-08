@@ -265,7 +265,7 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 			}
 			if v.WalmartOrder != nil && result.RowsAffected > 0 {
 				var saved struct {
-					WalmartOrder *walmart.Order `json:"walmartOrder"`
+					WalmartOrder *o.WalmartOrder `json:"walmartOrder"`
 				}
 				if json.Unmarshal(prior.Payload, &saved) != nil || saved.WalmartOrder == nil {
 					return o.ErrUnavailable
@@ -288,7 +288,7 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
-				WalmartOrder   *walmart.Order   `json:"walmartOrder,omitempty"`
+				WalmartOrder   *o.WalmartOrder  `json:"walmartOrder,omitempty"`
 				WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
 				Product        *o.Product       `json:"product,omitempty"`
 				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`

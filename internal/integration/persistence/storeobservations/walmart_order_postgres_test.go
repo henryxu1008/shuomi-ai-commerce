@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/walmart"
 	"task-processor/internal/storecenter"
 	o "task-processor/internal/storecenter/observations"
 	"testing"
@@ -25,7 +24,7 @@ func TestWalmartOrderPostgresKeepsOriginalPOAcrossReplaysAndConflicts(t *testing
 	command, e := r.Begin(ctx, scope, uuid.NewString(), "walmart", in, children)
 	require.NoError(t, e)
 	s := command.Syncs[0]
-	po := walmart.Order{ID: "po-1", Site: "walmart-us", Date: time.Now().UTC().Format(time.RFC3339Nano), Lines: []walmart.OrderLine{{Number: "1", Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "10.00"}}}}}
+	po := o.WalmartOrder{ID: "po-1", Site: "walmart-us", Date: time.Now().UTC().Format(time.RFC3339Nano), Lines: []o.WalmartOrderLine{{Number: "1", Charges: []o.WalmartOrderCharge{{Currency: "USD", Amount: "10.00"}}}}}
 	row := o.Record{StoreID: store, SyncID: s.ID, ID: po.ID, WalmartOrder: &po, WindowKey: "one"}
 	next := s.Progress
 	next.Page++
@@ -65,7 +64,7 @@ func TestWalmartOrderAmountPostgresFiltersBeforeCapAndPreservesMilliseconds(t *t
 	start := time.Date(2026, 11, 6, 16, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
 	insert := func(id, date string) {
-		body, _ := json.Marshal(map[string]any{"walmartOrder": walmart.Order{ID: id, Site: "walmart-us", Date: date, Lines: []walmart.OrderLine{{Number: "1", Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "0.10"}}}}}})
+		body, _ := json.Marshal(map[string]any{"walmartOrder": o.WalmartOrder{ID: id, Site: "walmart-us", Date: date, Lines: []o.WalmartOrderLine{{Number: "1", Charges: []o.WalmartOrderCharge{{Currency: "USD", Amount: "0.10"}}}}}})
 		require.NoError(t, db.Exec("INSERT INTO store_observations.records(organization_id,store_id,sync_id,kind,platform_id,payload,observed_at,page_index) VALUES(?,?,?,'orders',?,?::jsonb,?,1)", scope.OrganizationID, store, source.ID, id, string(body), time.Now()).Error)
 	}
 	for i := 0; i < 251; i++ {
@@ -104,7 +103,7 @@ func TestWalmartRepeatedPageCannotHideMissingPOAfterWindowOverlap(t *testing.T) 
 	cmd, e := r.Begin(ctx, scope, uuid.NewString(), "duplicate-page", in, children)
 	require.NoError(t, e)
 	source := cmd.Syncs[0]
-	po := walmart.Order{ID: "po-a", Site: "walmart-us", Lines: []walmart.OrderLine{{Number: "1", Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "10.00"}}}}}
+	po := o.WalmartOrder{ID: "po-a", Site: "walmart-us", Lines: []o.WalmartOrderLine{{Number: "1", Charges: []o.WalmartOrderCharge{{Currency: "USD", Amount: "10.00"}}}}}
 	row := o.Record{StoreID: store, SyncID: source.ID, ID: po.ID, WalmartOrder: &po, WindowKey: "previous-window/0"}
 	next := source.Progress
 	next.Page = 1

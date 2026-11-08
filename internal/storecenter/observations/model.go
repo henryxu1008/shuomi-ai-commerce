@@ -269,7 +269,7 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
-	WalmartOrder   *walmart.Order   `json:"walmartOrder,omitempty"`
+	WalmartOrder   *WalmartOrder    `json:"walmartOrder,omitempty"`
 	WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
 	StoreID        string           `json:"storeId"`
 	SyncID         string           `json:"syncId"`
