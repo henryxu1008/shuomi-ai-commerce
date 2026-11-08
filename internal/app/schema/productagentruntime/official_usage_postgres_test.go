@@ -11,7 +11,7 @@ func TestInvocationContractIncludesBillableMetadataWithoutUpgradingOldSchema(t *
 	f := newPrepareFixture(t, "run")
 	spec, err := invocationContract(f.db)
 	require.NoError(t, err)
-	require.Len(t, spec.Columns, 52)
+	require.Len(t, spec.Columns, 53)
 	found := map[string]bool{}
 	for _, column := range spec.Columns {
 		if column.Name == "billable_usage_json" || column.Name == "official_tariff_json" {
