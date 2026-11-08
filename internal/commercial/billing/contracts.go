@@ -42,6 +42,7 @@ type SettlementMode string
 
 const (
 	SettlementWallet          SettlementMode = "WALLET"
+	SettlementZeroPrice       SettlementMode = "ZERO_PRICE"
 	SettlementExternalPayment SettlementMode = "EXTERNAL_PAYMENT"
 )
 
@@ -108,7 +109,7 @@ func (offer Offer) Validate() error {
 		(offer.Status != OfferActive && offer.Status != OfferDisabled) {
 		return ErrInvalid
 	}
-	if offer.PlanCode != "" || offer.TermMonths != 0 || offer.SettlementMode != "" {
+	if offer.PlanCode != "" || offer.TermMonths != 0 || !ValidResourcePrice(offer.ProductKind, offer.UnitPriceMinor, offer.SettlementMode) {
 		return ErrInvalid
 	}
 	if offer.StartsAt != nil && offer.ExpiresAt != nil && !offer.StartsAt.Before(*offer.ExpiresAt) {
@@ -157,7 +158,7 @@ func (quote Quote) Validate() error {
 		quote.ResourceType != resourceType ||
 		quote.ResourceQuantity <= 0 ||
 		quote.Currency != CurrencyCNY ||
-		quote.TotalMinor <= 0 ||
+		!ValidResourcePrice(quote.ProductKind, quote.TotalMinor, quote.SettlementMode) ||
 		strings.TrimSpace(quote.PricingVersion) == "" ||
 		quote.ExpiresAt.IsZero() ||
 		quote.CreatedAt.IsZero() ||
@@ -165,7 +166,7 @@ func (quote Quote) Validate() error {
 		strings.TrimSpace(quote.Fingerprint) == "" {
 		return ErrInvalid
 	}
-	if quote.PlanCode != "" || quote.PlanFingerprint != "" || quote.TermMonths != 0 || quote.SettlementMode != "" {
+	if quote.PlanCode != "" || quote.PlanFingerprint != "" || quote.TermMonths != 0 {
 		return ErrInvalid
 	}
 	return nil
@@ -223,7 +224,7 @@ func (item OrderItem) Validate() error {
 		!ok ||
 		item.ResourceType != resourceType ||
 		item.ResourceQuantity <= 0 ||
-		item.AmountMinor <= 0 {
+		(item.AmountMinor < 0 || (item.AmountMinor == 0 && item.ProductKind != ProductDataRow)) {
 		return ErrInvalid
 	}
 	return nil
@@ -308,7 +309,7 @@ func (order Order) Validate() error {
 		!isCanonicalIdentifier(order.OrganizationID) ||
 		(order.Kind != OrderWalletTopUp && order.Kind != OrderResourcePurchase && order.Kind != OrderStorageCapacityPurchase) ||
 		order.Currency != CurrencyCNY ||
-		order.AmountMinor <= 0 ||
+		(order.AmountMinor == 0 && !(order.Kind == OrderResourcePurchase && order.SettlementMode == SettlementZeroPrice)) ||
 		order.AmountMinor < 0 ||
 		!validOrderStatus(order.Status) ||
 		strings.TrimSpace(order.IdempotencyKey) == "" ||
@@ -326,6 +327,15 @@ func (order Order) Validate() error {
 			return ErrInvalid
 		}
 	case OrderResourcePurchase:
+		if order.SettlementMode == SettlementZeroPrice {
+			if order.ProductKind != ProductDataRow || order.AmountMinor != 0 || !isCanonicalIdentifier(order.ActorID) || !isCanonicalIdentifier(order.QuoteID) || len(order.Items) != 1 || order.Items[0].Validate() != nil || order.Items[0].ProductKind != ProductDataRow || order.Items[0].AmountMinor != 0 || hasWalletReservationEvidence(order) || order.PaymentID != "" || order.Status == OrderFundsReserved || (order.Status == OrderFulfilled && !hasResourceGrantProof(order)) || ((order.Status == OrderPending || order.Status == OrderCancelled) && hasResourceGrantEvidence(order)) {
+				return ErrInvalid
+			}
+			return nil
+		}
+		if order.SettlementMode != "" && order.SettlementMode != SettlementWallet {
+			return ErrInvalid
+		}
 		if len(order.Items) == 1 && order.Items[0].ProductKind == ProductStorageCapacityPack {
 			return ErrInvalid
 		}
@@ -339,6 +349,15 @@ func (order Order) Validate() error {
 		}
 	}
 	return nil
+}
+
+// ValidResourcePrice distinguishes an explicitly published free DATA_ROW offer
+// from missing pricing. Money and every other resource retain positive amounts.
+func ValidResourcePrice(kind ProductKind, amount int64, mode SettlementMode) bool {
+	if kind == ProductDataRow {
+		return (amount == 0 && mode == SettlementZeroPrice) || (amount > 0 && (mode == "" || mode == SettlementWallet))
+	}
+	return amount > 0 && mode == ""
 }
 
 func validOrderFailureCode(order Order) bool {

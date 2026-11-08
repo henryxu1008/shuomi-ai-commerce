@@ -1,8 +1,9 @@
-# DATA_ROW 平台调价与零价订单最小设计候选
+# DATA_ROW 平台调价与零价订单最小设计
 
 Design Basis: Independent Architecture
 Product Status: D1–D4 已获用户确认（2026-11-08）
-Admission Status: ARCHITECTURE_REVIEW_PENDING / NOT_IMPLEMENTATION_READY
+Admission Status: IMPLEMENTATION_READY / FROZEN
+正式架构准入：[PR #1178 原独立 Reviewer 结论](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1178#issuecomment-6719700276)，绑定设计 HEAD `ea6a773ad06674f29e55d589985986228410c541`；五组实施义务在原 PR 收敛。
 日期：2026-11-08
 调查基线：`fa9570c2d577eec09834de1d7c9ec580e3e24fe6`（35447 对应源码；不冒充最新 main）
 文档提交基线：`4838a2b257f7d479d98064bce41041f0b3bec714`；核对上述调查基线以来的 Commercial、Resource、data acquisition、相关权限及商业价格依据，范围内代码和合同无差异。
@@ -13,18 +14,18 @@ Admission Status: ARCHITECTURE_REVIEW_PENDING / NOT_IMPLEMENTATION_READY
 使用者：平台管理员维护 DATA_ROW 售价；有资源购买权限的企业成员按数量取得资源。
 当前具体阻碍：35447 企业没有钱包余额和 DATA_ROW，支付未配置；调试领取 3 条应能使用正式零价订单，无须真实充值、伪造支付或直接修改余额。
 
-用户已明确要求：平台后台可调整 DATA_ROW 价格，支持调试时按数量领取 3 条、¥0 入账，保留价格版本、权限、原键恢复及一套计费。后续已确认 D1–D4，并授权当前唯一负责人在原工作区提交、推送、创建 Ready 的 design-only PR，核对准确 HEAD CI 和既有 Codex 自动架构评审；不实现、不改价/余额、不充值/采集/开放出站、不合并、不动 35444/35446，不新增人员或重复触发评审。
+用户已明确要求：平台后台可调整 DATA_ROW 价格，支持调试时按数量领取 3 条、¥0 入账，保留价格版本、权限、原键恢复及一套计费。D1–D4 已确认并通过上述正式架构准入；用户随后授权当前唯一 Writer 在原工作区、原 PR 先补五组离线/隔离回归，再最小实现、自检、核对新 HEAD CI，复用原 Reviewer 做必要增量复核。不改真实价目/余额、不充值/采集/开放出站、不合并部署、不动 35444/35446，不新增人员。
 
-本候选包含：平台价格发布和去敏审计、现有数量报价/资源订单的零价模式、原资源授予和恢复、数据费用投影同源及原页面接线。它不授权创建报价、订单或试用记录。
+本候选包含：平台价格发布和去敏审计、现有数量报价/资源订单的零价模式、原资源授予和恢复、数据费用投影同源及原页面接线。它不授权在保留环境创建报价、订单或试用记录；合成报价/订单仅进入任务自有临时测试库。
 
 不包含：其他资源改价、企业差异价/优惠券/试用赠送、自动领取/补足、退款及新支付渠道、采集权限扩大、外部渠道成本归零、保留库迁移/回填/价格修改、历史任务跨版本续跑、新账本/调度器/通用配置平台。负价始终拒绝。
 
 ## 2. 权威与现状依据
 
-- 用户本轮已确认的 D1–D4 是产品依据；下述历史文档的固定 5 分和“调价仅安装/运维”的冲突部分按本增量明确替代，旧文保留历史来源。本设计仍须完成架构准入，不能据产品确认修改生产代码。
+- 用户本轮已确认的 D1–D4 是产品依据；下述历史文档的固定 5 分和“调价仅安装/运维”的冲突部分按本增量明确替代，旧文保留历史来源。本设计已按上述准确 HEAD 完成架构准入；实施授权和真实操作授权分别处理。
 - [统一基础与预付资源](unified-base-prepaid-resources.md)：Commercial 报价/订单、Money 钱包、Resource 授予/消费的分工。
 - [采集渠道计价](1688-acquisition-channel-pricing.md)：服务端成功采集消费 DATA_ROW，插件/本地渠道免费；消费不直接扣钱包。
-- [正式零售价](commercial-retail-pricing.md)：同一 Commercial offer、报价冻结、原订单恢复；当前 DATA_ROW 为 5 分。
+- [正式零售价](commercial-retail-pricing.md)：同一 Commercial offer、报价冻结、原订单恢复；原初始 DATA_ROW 为 5 分；后续当前价目按本设计发布。
 - [模型配置发布](model-route-pricing-management.md)：仅复用平台资格、校验/预览/发布及原回执交互模式，不复用其模型价格 owner 或表。
 - [全新系统基线](../product/greenfield-no-legacy-migration.md)；本工作区 AGENTS.md 的当前 Figma 边界：Figma 仅供流程参考，非页面布局权威。
 
@@ -120,9 +121,9 @@ Cutover/deletion condition：所有现行消费者接入版本化价目后，删
 
 全新 schema/新合同仅在后续获准的空库安装和隔离测试采用；不迁移 35447 或其他保留库、不为旧任务补价格快照、不做双读/默认补 5 分/跨版本续跑。既有保存资料和原回执仍按原版本只读保留。新 schema 如需部署到含旧任务的环境，必须先报告，不由此候选推定迁移授权。
 
-这是资金/价格、平台权限及恢复合同增量，必须独立架构准入。当前授权止于设计文档提交、Ready PR、正常 CI 和既有 Codex 自动架构评审；未取得评审结论前不能标 IMPLEMENTATION_READY，产品确认或架构准入也不自动授权实现。滚动的准确 HEAD、CI 与评审证据写 PR，不为更新证据反复提交本文。不改变当前安装器、价目或正式业务代码。
+这是资金/价格、平台权限及恢复合同增量，已通过独立架构准入并取得有条件的离线实施授权。滚动的准确 HEAD、CI 与评审证据写 PR，不为更新证据反复提交本文。新空库安装器的代码可维护，但本轮不执行任何保留环境安装、升级或价格变更。
 
-## 8. 后续有限实施义务（本轮未执行）
+## 8. 有限实施义务与独立验收边界
 
 1. 平台权限与发布并发：企业管理员拒绝、撤权拒绝、原版本 CAS、同键同载荷回执、异载荷冲突、0 合法/负价和溢出拒绝；发布和审计同事务。
 2. 数量报价/模式：仅 DATA_ROW 的 3×0 可售；金额换算在 0 价明确禁用；其他资源/充值仍拒绝 0；价格缺失不当 0；正价原回归继续有效。
@@ -132,3 +133,11 @@ Cutover/deletion condition：所有现行消费者接入版本化价目后，删
 6. 未来指定独立验证者在获准空库/合成传输核对：平台发布零价 → 测试企业数量3 → ¥0订单 → 原资源回执/余额3 → 同键找回；真实采集、外部费用、用户产品验收分别报告，不能以 CI 代替。
 
 现场价格/余额、外部渠道费用和真实补采准入保持原状态。运行、零价领取、真实采集和产品验收均 NOT_RUN；缺证据 UNKNOWN。
+
+## 9. 当前实现接线说明
+
+- 平台维护入口：现有企业空间平台管理区 → 数据条数价格，页面 `/workbench/account/organization/data-row-pricing`。当前价、预览、发布及原发布回执复用既有权限、同源写门禁和原键交互；API 位于 `/api/v1/workbench/commercial/data-row-pricing`。
+- 企业资源购买继续走原数量报价和订单入口，明确显示价格版本；零价时金额换算禁用，选择数量后显式确认。成员资源页读取同一零价；原按金额分配入口在零价时说明不能换算，不以除零、未知价或伪造报价替代。
+- 采集 options 返回 `price={offerId,pricingVersion,currency,unitPriceFen}`；新任务确认 `pricingVersion` 与十进制字符串 `maximumCostFen`。Job 固定 `price`；相关金额投影使用十进制字符串，避免浏览器丢失整数精度。没有当前价时不能提交新任务，原键读回先核原请求。
+- 新空 Commercial schema 新增不可变价格发布回执表和当前 DATA_ROW 唯一约束；原运行角色只增加所需 offer INSERT/status UPDATE、发布回执 SELECT/INSERT，不授予通用 grant、钱包写入或 schema owner。Product 新空 schema 固定任务 `price_snapshot`，旧保留库不迁移、不补默认快照。
+- 单元测试与任务自有 PostgreSQL/SQLite 测试是工程证据；不表示平台真实改价、真实领取、采集、部署或产品验收通过。

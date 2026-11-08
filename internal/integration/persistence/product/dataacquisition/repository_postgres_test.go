@@ -92,6 +92,57 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 	}
 	repo, err := NewRepository(ctx, db, access, publish, newTestResultReader)
 	require.NoError(t, err)
+	repo.ConfigurePrices(testDataPrices{})
+
+	t.Run("zero-price-snapshot-original-key-and-row-quota", func(t *testing.T) {
+		zeroScope := collection.Scope{OrganizationID: "zero-org", ActorID: "zero-actor", MemberID: "zero-member"}
+		owner, err := keystore.NewCredentialRepository(ctx, db)
+		require.NoError(t, err)
+		key := dataservice.Credential{ID: uuid.NewString(), Scope: zeroScope, Input: dataservice.KeyInput{Name: "zero-key", ExpiresAt: time.Now().Add(time.Hour), DailyRows: 1, MonthlyCostFen: 1, Permissions: []string{dataservice.PermissionAcquire, dataservice.PermissionResult}}, Digest: collection.Digest("zero-secret"), Suffix: "zero", State: "ACTIVE", Revision: 1, CreatedAt: time.Now().UTC()}
+		_, _, err = owner.Create(ctx, key, uuid.NewString(), collection.Digest(key.Input))
+		require.NoError(t, err)
+		price := &mutableDataPrices{value: dataacquisition.PriceSnapshot{OfferID: "zero-offer", Version: "zero-price", Currency: "CNY", UnitPriceFen: 0}}
+		repo.ConfigurePrices(price)
+		q := dataacquisition.Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1}
+		principal := dataacquisition.Principal{Scope: zeroScope, CredentialID: key.ID, CredentialRevision: 1}
+		command := uuid.NewString()
+		confirmation := dataacquisition.PriceConfirmation{Version: "zero-price", MaximumCostFen: 0}
+		job, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, confirmation)
+		require.NoError(t, err)
+		require.Zero(t, job.Price.UnitPriceFen)
+		_, err = repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise, confirmation)
+		require.ErrorIs(t, err, dataacquisition.ErrConflict, "zero price still enforces daily row quota")
+		price.value = dataacquisition.PriceSnapshot{OfferID: "paid-offer", Version: "paid-price", Currency: "CNY", UnitPriceFen: 8}
+		original, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, confirmation)
+		require.NoError(t, err)
+		require.Equal(t, job.ID, original.ID)
+		require.Equal(t, "zero-price", original.Price.Version)
+		_, err = repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise, confirmation)
+		require.ErrorIs(t, err, dataacquisition.ErrConflict, "stale confirmation must not silently reprice")
+		repo.ConfigurePrices(nil)
+		_, err = repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, confirmation)
+		require.NoError(t, err, "original key must not need current price")
+		_, err = repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise, confirmation)
+		require.ErrorIs(t, err, dataacquisition.ErrUnavailable)
+		repo.ConfigurePrices(price)
+		job, err = repo.Discover(ctx, job, q.ASINs)
+		require.NoError(t, err)
+		items, err := repo.Items(ctx, job)
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+		job, err = repo.Cancel(ctx, zeroScope, job.ID, uuid.NewString())
+		require.NoError(t, err)
+		_, err = repo.Fence(ctx, job, items[0], "canceled")
+		require.NoError(t, err)
+		_, err = repo.Finish(ctx, job)
+		require.NoError(t, err)
+		var rows, fen int64
+		require.NoError(t, db.Raw("SELECT reserved_rows FROM data_service_quota WHERE organization_id='zero-org' AND window_kind='day'").Scan(&rows).Error)
+		require.Zero(t, rows)
+		require.NoError(t, db.Raw("SELECT reserved_fen+consumed_fen FROM data_service_quota WHERE organization_id='zero-org' AND window_kind='month'").Scan(&fen).Error)
+		require.Zero(t, fen, "release uses original zero snapshot, not current 8-fen price")
+	})
+	repo.ConfigurePrices(testDataPrices{})
 	scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "original-grant"}
 	keys, err := keystore.NewCredentialRepository(ctx, db)
 	require.NoError(t, err)
@@ -102,9 +153,9 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 	q, err := dataacquisition.NormalizeQuery(dataacquisition.Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456", "B000654321"}, Limit: 2})
 	require.NoError(t, err)
 	command := uuid.NewString()
-	job, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise)
+	job, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 	require.NoError(t, err)
-	replay, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise)
+	replay, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 	require.NoError(t, err)
 	require.Equal(t, job.ID, replay.ID)
 	// A command binds the effective key permission set, independently of mutable quotas.
@@ -112,19 +163,19 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 	onePermission.Permissions = []string{dataservice.PermissionAcquire}
 	changedKey, err := keys.Change(ctx, scope, key.ID, uuid.NewString(), collection.Digest(onePermission), 1, dataservice.KeyPatch{State: "ACTIVE", Limits: &onePermission})
 	require.NoError(t, err)
-	_, err = repo.Admit(ctx, dataacquisition.Principal{Scope: scope, CredentialID: key.ID, CredentialRevision: changedKey.Revision}, command, q, orgresource.FundingEnterprise)
+	_, err = repo.Admit(ctx, dataacquisition.Principal{Scope: scope, CredentialID: key.ID, CredentialRevision: changedKey.Revision}, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 	require.ErrorIs(t, err, dataacquisition.ErrConflict, "permission changes cannot replay a different admission contract")
 	restoredKey, err := keys.Change(ctx, scope, key.ID, uuid.NewString(), collection.Digest(key.Input), changedKey.Revision, dataservice.KeyPatch{State: "ACTIVE", Limits: &key.Input})
 	require.NoError(t, err)
 	principal.CredentialRevision = restoredKey.Revision // A replay authenticates against the current configuration.
-	replay, err = repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise)
+	replay, err = repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 	require.NoError(t, err)
 	require.Equal(t, job.ID, replay.ID)
 	changed := q
 	changed.Limit = 1
-	_, err = repo.Admit(ctx, principal, command, changed, orgresource.FundingEnterprise)
+	_, err = repo.Admit(ctx, principal, command, changed, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(changed.Limit) * 5})
 	require.ErrorIs(t, err, dataacquisition.ErrConflict)
-	_, err = repo.Admit(ctx, principal, uuid.NewString(), changed, orgresource.FundingEnterprise)
+	_, err = repo.Admit(ctx, principal, uuid.NewString(), changed, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(changed.Limit) * 5})
 	require.ErrorIs(t, err, dataacquisition.ErrConflict, "reserved rows prevent concurrent over-admission")
 	other := scope
 	other.ActorID = "other"
@@ -192,6 +243,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 	require.NoError(t, err)
 	restarted, err := NewRepository(ctx, db, access, publish, newTestResultReader)
 	require.NoError(t, err)
+	restarted.ConfigurePrices(testDataPrices{})
 	read, err := restarted.Read(ctx, scope, job.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, read.Saved)
@@ -226,7 +278,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 				require.NoError(t, err)
 				principal := dataacquisition.Principal{Scope: local.Scope, CredentialID: local.ID, CredentialRevision: 1}
 				command := uuid.NewString()
-				original, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise)
+				original, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 				require.NoError(t, err)
 				var returned dataacquisition.Job
 				var freshRevision int64
@@ -270,7 +322,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 						done := make(chan error, 1)
 						go func() {
 							var e error
-							returned, e = repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise)
+							returned, e = repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 							done <- e
 						}()
 						require.Eventually(t, func() bool {
@@ -288,7 +340,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 					}
 				}
 				if scenario != "expires while waiting for key lock" {
-					returned, err = repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise)
+					returned, err = repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 				}
 				require.Error(t, err, "stale authenticated key must not expose the original command")
 				require.Zero(t, returned)
@@ -300,13 +352,13 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 				require.Equal(t, int64(1), count)
 				if freshRevision != 0 {
 					principal.CredentialRevision = freshRevision
-					replayed, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise)
+					replayed, err := repo.Admit(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 					require.NoError(t, err, "fresh authentication replays the same hash after limits/CIDR changes")
 					require.Equal(t, original.ID, replayed.ID)
 					require.NoError(t, db.Raw("SELECT reserved_rows FROM data_service_quota WHERE key_id=? AND window_kind='day'", local.ID).Scan(&rows).Error)
 					require.Equal(t, int64(2), rows)
 				} else {
-					_, err = repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise)
+					_, err = repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 					require.Error(t, err, "new admissions use the same current key guard")
 				}
 				_, err = repo.Cancel(ctx, local.Scope, original.ID, uuid.NewString())
@@ -325,7 +377,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 				localKey.ID, localKey.Digest = uuid.NewString(), collection.Digest(uuid.NewString())
 				_, _, err := keys.Create(ctx, localKey, uuid.NewString(), collection.Digest(localKey.Input))
 				require.NoError(t, err)
-				original, err := repo.Admit(ctx, dataacquisition.Principal{Scope: localScope, CredentialID: localKey.ID, CredentialRevision: 1}, uuid.NewString(), q, orgresource.FundingEnterprise)
+				original, err := repo.Admit(ctx, dataacquisition.Principal{Scope: localScope, CredentialID: localKey.ID, CredentialRevision: 1}, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 				require.NoError(t, err)
 				original, err = repo.Discover(ctx, original, q.ASINs[:1])
 				require.NoError(t, err)
@@ -403,7 +455,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, e := repo.Admit(ctx, p, uuid.NewString(), one, orgresource.FundingMember)
+				_, e := repo.Admit(ctx, p, uuid.NewString(), one, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(one.Limit) * 5})
 				out <- e
 			}()
 		}
@@ -427,7 +479,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 	t.Run("stopped discovery is a failure rather than an empty success", func(t *testing.T) {
 		access.denied = false
 		console := dataacquisition.Principal{Scope: scope}
-		empty, err := repo.Admit(ctx, console, uuid.NewString(), changed, orgresource.FundingMember)
+		empty, err := repo.Admit(ctx, console, uuid.NewString(), changed, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(changed.Limit) * 5})
 		require.NoError(t, err)
 		stopped, err := repo.FailDiscovery(ctx, empty, "provider_rejected")
 		require.NoError(t, err)
@@ -440,7 +492,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 	for _, reason := range []string{"provider_rejected", "provider_challenged", "provider_unsupported"} {
 		t.Run("terminal provider reason requires current claim "+reason, func(t *testing.T) {
 			access.denied = false
-			original, err := repo.Admit(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), changed, orgresource.FundingMember)
+			original, err := repo.Admit(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), changed, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(changed.Limit) * 5})
 			require.NoError(t, err)
 			original, err = repo.Discover(ctx, original, []string{"B000123456"})
 			require.NoError(t, err)
@@ -483,11 +535,11 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 		_, _, err := keys.Create(ctx, k, uuid.NewString(), collection.Digest(k.Input))
 		require.NoError(t, err)
 		p := dataacquisition.Principal{Scope: s, CredentialID: k.ID, CredentialRevision: 1}
-		old, err := repo.Admit(ctx, p, uuid.NewString(), changed, orgresource.FundingMember)
+		old, err := repo.Admit(ctx, p, uuid.NewString(), changed, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(changed.Limit) * 5})
 		require.NoError(t, err)
 		require.NoError(t, db.Exec("UPDATE data_service_quota SET window_start=CASE WHEN window_kind='day' THEN (date_trunc('day',now() AT TIME ZONE 'UTC')-interval '1 day')::date ELSE (date_trunc('month',now() AT TIME ZONE 'UTC')-interval '1 month')::date END WHERE key_id=?", k.ID).Error)
 		require.NoError(t, db.Exec("UPDATE data_acquisition_jobs SET day_window=(date_trunc('day',now() AT TIME ZONE 'UTC')-interval '1 day')::date,month_window=(date_trunc('month',now() AT TIME ZONE 'UTC')-interval '1 month')::date,created_at=now()-interval '1 day',deadline=now()-interval '23 hours 30 minutes' WHERE id=?", old.ID).Error)
-		fresh, err := repo.Admit(ctx, p, uuid.NewString(), changed, orgresource.FundingMember)
+		fresh, err := repo.Admit(ctx, p, uuid.NewString(), changed, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(changed.Limit) * 5})
 		require.NoError(t, err)
 		require.NotEqual(t, old.ID, fresh.ID)
 		_, err = repo.Cancel(ctx, s, old.ID, uuid.NewString())
@@ -513,7 +565,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 				p := dataacquisition.Principal{Scope: s, CredentialID: k.ID, CredentialRevision: 1}
 				jobs := make([]dataacquisition.Job, 2)
 				for index := range jobs {
-					jobs[index], err = repo.Admit(ctx, p, uuid.NewString(), changed, orgresource.FundingEnterprise)
+					jobs[index], err = repo.Admit(ctx, p, uuid.NewString(), changed, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(changed.Limit) * 5})
 					require.NoError(t, err)
 					jobs[index], err = repo.Discover(ctx, jobs[index], []string{"B000123456"})
 					require.NoError(t, err)
@@ -559,6 +611,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 				t.Cleanup(func() { pool.SetMaxOpenConns(0) })
 				restarted, err := NewRepository(ctx, db, access, publish, newTestResultReader)
 				require.NoError(t, err)
+				restarted.ConfigurePrices(testDataPrices{})
 				replayed, err := restarted.Cancel(ctx, s, jobs[winner].ID, command)
 				require.NoError(t, err)
 				require.Equal(t, "CANCELED", replayed.State)
@@ -627,7 +680,7 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 		}
 		k := newKey()
 		p := dataacquisition.Principal{Scope: k.Scope, CredentialID: k.ID, CredentialRevision: 1}
-		original, err := repo.Admit(ctx, p, uuid.NewString(), q, orgresource.FundingMember)
+		original, err := repo.Admit(ctx, p, uuid.NewString(), q, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 		require.NoError(t, err)
 		entered, release := make(chan struct{}), make(chan struct{})
 		var releaseOnce sync.Once
@@ -744,4 +797,16 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 			require.NoError(t, err, "no surviving row lock after the read fails")
 		})
 	})
+}
+
+type testDataPrices struct{}
+
+func (testDataPrices) CurrentDataRowPrice(context.Context) (dataacquisition.PriceSnapshot, error) {
+	return dataacquisition.PriceSnapshot{OfferID: "test-offer", Version: "test-price", Currency: "CNY", UnitPriceFen: 5}, nil
+}
+
+type mutableDataPrices struct{ value dataacquisition.PriceSnapshot }
+
+func (p *mutableDataPrices) CurrentDataRowPrice(context.Context) (dataacquisition.PriceSnapshot, error) {
+	return p.value, nil
 }

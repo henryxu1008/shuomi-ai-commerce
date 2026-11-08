@@ -93,6 +93,11 @@ func TestMemberResourcesHTTPUsesNativePositionsAndAllowsDepartedFreeReclaim(t *t
 	require.Equal(t, 409, expired.Code, expired.Body.String())
 	duplicate := request("POST", path, `{"resourceType":"store_renewal_period","action":"allocate","quantity":"1","quantity":"2","expectedVersion":"1"}`, "duplicate")
 	require.Equal(t, 400, duplicate.Code, duplicate.Body.String())
+	_, err = prices.PublishDataRowPrice(context.Background(), billing.DataRowPriceCommand{ActorID: "platform", OrganizationID: "org-1", ExpectedVersion: "price-v1", UnitPriceMinor: 0, IdempotencyKey: "zero-price", Reason: "test zero projection"})
+	require.NoError(t, err)
+	zeroPrices := request("GET", memberResourcesBase+"/data-prices", "", "")
+	require.Equal(t, 200, zeroPrices.Code, zeroPrices.Body.String())
+	require.Contains(t, zeroPrices.Body.String(), `"unitPriceMinor":"0"`)
 	directory.member.State = "removed"
 	read := request("GET", memberResourcesBase, "", "")
 	require.Equal(t, 200, read.Code, read.Body.String())

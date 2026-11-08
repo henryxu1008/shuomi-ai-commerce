@@ -28,7 +28,7 @@ func (m memberResourcesModule) dataPrices(c *gin.Context) {
 	}
 	items := make([]gin.H, 0, len(offers))
 	for _, offer := range offers {
-		if offer.Validate() != nil || offer.ProductKind != billing.ProductDataRow || offer.ResourceType != orgresource.ResourceDataRow || offer.UnitPriceMinor <= 0 {
+		if offer.Validate() != nil || offer.ProductKind != billing.ProductDataRow || offer.ResourceType != orgresource.ResourceDataRow {
 			writeMemberResourceError(c, billing.ErrOfferUnavailable)
 			return
 		}

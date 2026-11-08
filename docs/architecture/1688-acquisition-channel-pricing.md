@@ -1,5 +1,7 @@
 # 1688 acquisition channel pricing — design basis for #592
 
+> DATA_ROW 当前合同增量：参见[平台调价与零价订单](data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
+
 Status: **IMPLEMENTATION_READY** (independent architecture review, 2026-10-03; reviewed design blob `0871c1ed77ae4dcc0bdee2461725f3754b987f34`, no design-level `BLOCKER`). The reviewer classified offer initialization and the prior price-delay wording as `IMPLEMENTATION_TEST`; both must be resolved in this batch.
 
 ## Product outcome and authority

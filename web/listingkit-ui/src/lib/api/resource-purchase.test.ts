@@ -4,6 +4,7 @@ import {
   createResourceOrder,
   getResourceOffers,
   parseResourceQuote,
+  parseResourceOffers,
 } from "./resource-purchase";
 const quote = {
   quote_id: "quote-1",
@@ -23,6 +24,14 @@ const quote = {
   remainder_minor: "3",
 };
 afterEach(() => vi.unstubAllGlobals());
+it("accepts explicit DATA_ROW zero-price quantity quotes while rejecting zero-priced other resources",()=>{
+ const offer={offer_id:"zero-data",product_kind:"DATA_ROW",resource_type:"data_row",currency:"CNY",unit_price_minor:"0",min_quantity:"1",max_quantity:"100000",pricing_version:"zero-version",settlement_mode:"ZERO_PRICE"};
+ expect(parseResourceOffers({organization_id:"org-B",items:[offer]})).not.toBeNull();
+ const zero={...quote,offer_id:"zero-data",product_kind:"DATA_ROW",resource_type:"data_row",resource_quantity:"3",total_minor:"0",pricing_version:"zero-version",settlement_mode:"ZERO_PRICE",amount_minor:undefined,unit_price_minor:undefined,remainder_minor:undefined};
+ expect(parseResourceQuote(zero)).not.toBeNull();
+ expect(parseResourceQuote({...zero,product_kind:"AI_POINT",resource_type:"ai_point"})).toBeNull();
+ expect(parseResourceOffers({organization_id:"org-B",items:[{...offer,settlement_mode:undefined}]})).toBeNull();
+});
 it("checks frozen budget arithmetic with exact int64 quantities", () => {
   expect(parseResourceQuote(quote)).toEqual(quote);
   for (const changed of [

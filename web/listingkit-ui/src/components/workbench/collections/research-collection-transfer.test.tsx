@@ -51,7 +51,7 @@ const projectId=id(1),A=id(2),B=id(3),batchId=id(4),jobId=id(5),key=id(6);
 const query={site:"us",mode:"keyword",keyword:"under sink organizer",limit:5,fields:["attributes","price","currency"]} as const;
 const job={id:jobId,query:{...query,fields:[...query.fields]},batchId,saved:2,state:"SUCCEEDED",
   commandKey:id(7),createdAt:"2026-11-06T12:00:00Z",deadline:"2026-11-06T12:00:00Z",
-  discovered:true,canceled:false,failed:0,pending:0,confirmedFen:0,pendingFen:0} satisfies DataJob;
+  discovered:true,canceled:false,failed:0,pending:0,price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"},confirmedFen:"0",pendingFen:"0"} satisfies DataJob;
 const nextJob={...job,id:id(8),batchId:id(9),query:{...job.query,keyword:"under sink mat"}};
 const choices=[A,B].map(candidateId=>({candidateId,expectedRevision:"1",linkId:candidateId,evidenceDigest:"a".repeat(64),
   selection:{itemId:candidateId,expectedRevision:"2",originalPublicationId:candidateId,originalVersion:candidateId===A?"3":"1"}}));

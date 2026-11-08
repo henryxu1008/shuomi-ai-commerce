@@ -67,9 +67,10 @@ func TestAmazonPublicationUsesCurrentSourceCatalogCollectionTransaction(t *testi
 	require.NoError(t, err)
 	repo, err := jobstore.NewRepository(ctx, db, live, publisher, transactionResultReader)
 	require.NoError(t, err)
+	repo.ConfigurePrices(testCommercialPrice{})
 	scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "member"}
 	q := dataacquisition.Query{Site: "jp", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1}
-	job, err := repo.Admit(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingMember)
+	job, err := repo.Admit(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64((q).Limit) * 5})
 	require.NoError(t, err)
 	job, err = repo.Discover(ctx, job, q.ASINs)
 	require.NoError(t, err)

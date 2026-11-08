@@ -56,7 +56,7 @@
 
 - `alipay-wallet-topup-design.md` — [微信支付与支付宝企业钱包充值架构设计](alipay-wallet-topup-design.md)
 - `commercial-retail-pricing.md` — [店铺与 AI 预付资源正式价格 V1](commercial-retail-pricing.md)
-- `data-row-platform-pricing-zero-orders.md` — [DATA_ROW 平台调价与零价订单设计](data-row-platform-pricing-zero-orders.md) · D1–D4 已确认，架构评审待完成；不授权实现或环境改价。
+- `data-row-platform-pricing-zero-orders.md` — [DATA_ROW 平台调价与零价订单设计](data-row-platform-pricing-zero-orders.md) · D1–D4 已确认，正式架构准入 IMPLEMENTATION_READY；原 PR 离线实施，保留环境改价及产品验收未授权。
 - `enterprise-storage-capacity.md` — [企业存储容量 V1](enterprise-storage-capacity.md)
 - `local-ai-trial.md` — [Local 一次性 AI 试用来源 v1](local-ai-trial.md)
 - `member-resource-allocation.md` — [Member resources and official store connection v1](member-resource-allocation.md)

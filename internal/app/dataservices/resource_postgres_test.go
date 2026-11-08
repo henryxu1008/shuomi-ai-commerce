@@ -186,6 +186,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 	require.NoError(t, err)
 	repo, err := jobstore.NewRepository(ctx, productDB, fixture, publisher, transactionResultReader)
 	require.NoError(t, err)
+	repo.ConfigurePrices(testCommercialPrice{})
 	resourceRepo, err := resourceadapter.NewGormConsumerChargeRepository(resourceDB, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
 	charges, err := orgresource.NewConsumerChargeService(resourceRepo, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerAmazonData: dataacquisition.ChargeOwner{Repository: repo}})
@@ -195,7 +196,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 	require.NoError(t, err)
 	scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "member"}
 	q := dataacquisition.Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1, Fields: []string{"asin", "title"}}
-	job, err := service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, 5)
+	job, err := service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 	require.NoError(t, err)
 	job, err = repo.Discover(ctx, job, q.ASINs)
 	require.NoError(t, err)
@@ -221,7 +222,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 	require.Equal(t, int64(10), bucket.Available)
 	require.Zero(t, bucket.Reserved)
 	fixture.denied = false
-	job, err = service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, 5)
+	job, err = service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 	require.NoError(t, err)
 	require.NoError(t, service.Run(ctx, scope, job.ID))
 	require.NoError(t, service.Run(ctx, scope, job.ID))
@@ -253,7 +254,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 	require.ErrorIs(t, capturedResultReader{store}.Verify(ctx, scope, *savedItems[0].Source, bad), dataacquisition.ErrUnavailable)
 	t.Run("bounded console and DataKey routes use original owner", func(t *testing.T) {
 		require.NoError(t, keystore.InstallCustomSchema(productDB))
-		module, err := NewModule(ctx, Dependencies{ExecutionEnabled: true, ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture, Funding: fixture, Provider: fixture, Starter: fixture, Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
+		module, err := NewModule(ctx, Dependencies{Prices: testCommercialPrice{}, ExecutionEnabled: true, ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture, Funding: fixture, Provider: fixture, Starter: fixture, Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
 			return orgresource.NewConsumerChargeService(resourceRepo, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerAmazonData: owner})
 		}})
 		require.NoError(t, err)
@@ -292,7 +293,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 						fixture.enabledSites = sites
 						command := uuid.NewString()
 						starts := fixture.starts
-						w := send("POST", route.path, `{"query":{"site":"br","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":5}`, route.header, command)
+						w := send("POST", route.path, `{"query":{"site":"br","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":"5","pricingVersion":"test-price"}`, route.header, command)
 						require.Equal(t, 400, w.Code, "unopened site must be rejected before durable admission")
 						require.Contains(t, w.Body.String(), "INVALID_DATA_REQUEST")
 						require.Equal(t, starts, fixture.starts)
@@ -302,7 +303,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 						require.NoError(t, productDB.Raw("SELECT COALESCE(sum(reserved_rows),0) FROM data_service_quota WHERE key_id=?", created.Key.ID).Scan(&reserved).Error)
 						require.Zero(t, reserved)
 						fixture.enabledSites = dataacquisition.Sites()[:1]
-						w = send("POST", route.path, `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":5}`, route.header, command)
+						w = send("POST", route.path, `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":"5","pricingVersion":"test-price"}`, route.header, command)
 						require.Equal(t, http.StatusAccepted, w.Code, "rejection must not bind the unused command")
 						var admitted dataacquisition.Job
 						require.NoError(t, json.Unmarshal(w.Body.Bytes(), &admitted))
@@ -322,7 +323,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 			require.Equal(t, 200, w.Code, "customization may still request any product site for offline confirmation")
 		})
 		jobCommand := uuid.NewString()
-		w = send("POST", APIBase, `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":5}`, keyHeader, jobCommand)
+		w = send("POST", APIBase, `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":"5","pricingVersion":"test-price"}`, keyHeader, jobCommand)
 		require.Equal(t, http.StatusAccepted, w.Code)
 		var externalJob dataacquisition.Job
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &externalJob))
@@ -342,7 +343,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		w = send("GET", APIBase+"/"+externalJob.ID+"/results", "", keyHeader, "")
 		require.Equal(t, 200, w.Code)
 		require.Contains(t, w.Body.String(), "controlled fixture")
-		w = send("POST", APIBase, `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":5}`, keyHeader, jobCommand)
+		w = send("POST", APIBase, `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":"5","pricingVersion":"test-price"}`, keyHeader, jobCommand)
 		require.Equal(t, http.StatusAccepted, w.Code, "terminal command replay uses the original result")
 		require.Equal(t, starts, fixture.starts)
 		productPool.SetMaxOpenConns(0)
@@ -378,7 +379,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 					require.NoError(t, err)
 					principal := dataacquisition.Principal{Scope: scope, CredentialID: created.Key.ID, CredentialRevision: 1}
 					command := uuid.NewString()
-					original, err := module.Runner().Start(ctx, principal, command, q, orgresource.FundingEnterprise, 5)
+					original, err := module.Runner().Start(ctx, principal, command, q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 					require.NoError(t, err)
 					_, err = repo.Cancel(ctx, scope, original.ID, uuid.NewString())
 					require.NoError(t, err)
@@ -410,7 +411,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 				created, err := module.keys.Create(ctx, uuid.NewString(), dataservice.KeyInput{Name: "write race", ExpiresAt: time.Now().UTC().Add(time.Hour), DailyRows: 2, MonthlyCostFen: 10, Permissions: []string{dataservice.PermissionAcquire}})
 				require.NoError(t, err)
 				command := uuid.NewString()
-				body := `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":5}`
+				body := `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":"5","pricingVersion":"test-price"}`
 				header := "DataKey " + created.Key.ID + "." + created.Secret
 				w := send("POST", APIBase, body, header, command)
 				require.Equal(t, http.StatusAccepted, w.Code)
@@ -471,7 +472,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 			require.NoError(t, err)
 			header := "DataKey " + created.Key.ID + "." + created.Secret
 			command := uuid.NewString()
-			body := `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":5}`
+			body := `{"query":{"site":"us","mode":"asin","asins":["B000123456"],"limit":1},"maximumRows":1,"maximumCostFen":"5","pricingVersion":"test-price"}`
 			fixture.startErr = dataacquisition.ErrUnavailable
 			t.Cleanup(func() { fixture.startErr = nil })
 			for attempt := 0; attempt < 2; attempt++ {
@@ -576,7 +577,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		require.Equal(t, int64(2), bucket.Consumed, "custom delivery does not consume DATA_ROW")
 	})
 	t.Run("disabled execution keeps guarded history without restoring work", func(t *testing.T) {
-		module, err := NewModule(ctx, Dependencies{ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture})
+		module, err := NewModule(ctx, Dependencies{Prices: testCommercialPrice{}, ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture})
 		require.NoError(t, err)
 		require.Nil(t, module.Runner())
 		require.Nil(t, module.ChargeOwner())
@@ -591,7 +592,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		for _, route := range module.BuildRoutes() {
 			router.Handle(route.Method, route.Path, route.Handler)
 		}
-		enabledModule, err := NewModule(ctx, Dependencies{ExecutionEnabled: true, ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture, Funding: fixture, Provider: fixture, Starter: fixture, Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
+		enabledModule, err := NewModule(ctx, Dependencies{Prices: testCommercialPrice{}, ExecutionEnabled: true, ProductDB: productDB, Access: fixture, Live: fixture, Specialist: fixture, Funding: fixture, Provider: fixture, Starter: fixture, Charges: func(owner orgresource.ConsumerChargeOwner) (dataacquisition.Charges, error) {
 			return orgresource.NewConsumerChargeService(resourceRepo, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerAmazonData: owner})
 		}})
 		require.NoError(t, err)
@@ -631,7 +632,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		starts, fetches, checks := fixture.starts, fixture.fetches, fixture.executionChecks
 		for _, state := range []string{"ADMITTED", "RUNNING"} {
 			principal := dataacquisition.Principal{Scope: scope, CredentialID: created.Key.ID, CredentialRevision: created.Key.Revision}
-			original, err := repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise)
+			original, err := repo.Admit(ctx, principal, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64((q).Limit) * 5})
 			require.NoError(t, err)
 			if state == "RUNNING" {
 				original, err = repo.Discover(ctx, original, q.ASINs)
@@ -699,7 +700,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 			runner, err := dataacquisition.NewService(repo, fixture, provider, charges, fixture)
 			require.NoError(t, err)
 			principal := dataacquisition.Principal{Scope: scope, CredentialID: created.Key.ID, CredentialRevision: created.Key.Revision}
-			job, err := runner.Start(ctx, principal, uuid.NewString(), dataacquisition.Query{Site: "us", Mode: "keyword", Keyword: "fixture", Limit: 1}, orgresource.FundingEnterprise, 5)
+			job, err := runner.Start(ctx, principal, uuid.NewString(), dataacquisition.Query{Site: "us", Mode: "keyword", Keyword: "fixture", Limit: 1}, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 			require.NoError(t, err)
 			require.NoError(t, runner.Run(ctx, scope, job.ID))
 			require.NoError(t, runner.Run(ctx, scope, job.ID), "recovery must not repeat terminal discovery")
@@ -733,7 +734,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		delayed := &unavailableReconcile{ConsumerChargeService: charges, unavailable: true}
 		runner, err := dataacquisition.NewService(repo, fixture, provider, delayed, fixture)
 		require.NoError(t, err)
-		job, err := runner.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, 5)
+		job, err := runner.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 		require.NoError(t, err)
 		require.ErrorIs(t, runner.Run(ctx, scope, job.ID), context.DeadlineExceeded)
 		job, err = repo.Read(ctx, scope, job.ID)
@@ -785,7 +786,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 			provider := &executionFixture{fetchErr: tc.fetchErr}
 			runner, err := dataacquisition.NewService(repo, fixture, provider, charges, fixture)
 			require.NoError(t, err)
-			job, err := runner.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, 5)
+			job, err := runner.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 			require.NoError(t, err)
 			if tc.expire {
 				require.ErrorIs(t, runner.Run(ctx, scope, job.ID), tc.fetchErr)
@@ -811,7 +812,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		})
 	}
 	t.Run("resource owner reads only original facts within its callback budget", func(t *testing.T) {
-		original, err := service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, 5)
+		original, err := service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 		require.NoError(t, err)
 		original, err = repo.Discover(ctx, original, q.ASINs)
 		require.NoError(t, err)
@@ -837,7 +838,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		require.Zero(t, bucket.Reserved)
 	})
 	t.Run("slow live IAM remains before reserve and revocation prevents fetch", func(t *testing.T) {
-		original, err := service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, 5)
+		original, err := service.Start(ctx, dataacquisition.Principal{Scope: scope}, uuid.NewString(), q, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 		require.NoError(t, err)
 		original, err = repo.Discover(ctx, original, q.ASINs)
 		require.NoError(t, err)
@@ -870,7 +871,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 	t.Run("archiving a running batch does not cancel original saves or duplicate charges", func(t *testing.T) {
 		owner := collection.Scope{OrganizationID: "org", ActorID: "archive-creator", MemberID: "archive-grant"}
 		query := dataacquisition.Query{Site: "us", Mode: "asin", ASINs: []string{"B000111111", "B000222222"}, Limit: 2}
-		original, err := service.Start(ctx, dataacquisition.Principal{Scope: owner}, uuid.NewString(), query, orgresource.FundingEnterprise, 10)
+		original, err := service.Start(ctx, dataacquisition.Principal{Scope: owner}, uuid.NewString(), query, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 10})
 		require.NoError(t, err)
 		original, err = repo.Discover(ctx, original, query.ASINs)
 		require.NoError(t, err)
@@ -927,7 +928,7 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 		query := dataacquisition.Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1, Fields: []string{"title", "availability", "price", "currency"}}
 		readBalance()
 		before, fetches := bucket.Consumed, fixture.fetches
-		original, err := runner.Start(ctx, dataacquisition.Principal{Scope: owner}, uuid.NewString(), query, orgresource.FundingEnterprise, 5)
+		original, err := runner.Start(ctx, dataacquisition.Principal{Scope: owner}, uuid.NewString(), query, orgresource.FundingEnterprise, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 		require.NoError(t, err)
 		require.NoError(t, runner.Run(ctx, owner, original.ID))
 		require.NoError(t, runner.Run(ctx, owner, original.ID))

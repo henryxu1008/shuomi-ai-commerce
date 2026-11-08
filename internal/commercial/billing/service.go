@@ -107,6 +107,9 @@ func (s *Service) CreateResourceOrder(ctx context.Context, request CreateResourc
 		if order.Status == OrderCancelled {
 			return order, cancellationError(order.FailureCode)
 		}
+		if order.SettlementMode == SettlementZeroPrice {
+			return s.fulfillZeroPriceOrder(ctx, order)
+		}
 		if order.Status == OrderReconciliationRequired || order.Status == OrderFundsReserved || order.Status == OrderFulfilling {
 			return s.ReconcileResourceOrder(ctx, order.OrganizationID, order.OrderID)
 		}
@@ -137,6 +140,9 @@ func (s *Service) CreateResourceOrder(ctx context.Context, request CreateResourc
 	}
 	if order.Status != OrderPending {
 		return order, nil
+	}
+	if order.SettlementMode == SettlementZeroPrice {
+		return s.fulfillZeroPriceOrder(ctx, order)
 	}
 	reservation, err := s.wallet.ReserveCommercialPurchase(ctx, money.ReserveWalletFundsInput{OperationID: order.OrderID, OrganizationID: order.OrganizationID, CommercialOrderID: order.OrderID, Currency: order.Currency, AmountMinor: order.AmountMinor})
 	if err != nil {
@@ -232,6 +238,9 @@ func (s *Service) ReconcileResourceOrder(ctx context.Context, organizationID, or
 	}
 	if order.Kind != OrderResourcePurchase {
 		return Order{}, ErrInvalid
+	}
+	if order.SettlementMode == SettlementZeroPrice {
+		return s.fulfillZeroPriceOrder(ctx, order)
 	}
 	if order.Status != OrderPending && order.Status != OrderReconciliationRequired && order.Status != OrderFundsReserved && order.Status != OrderFulfilling {
 		return order, nil

@@ -25,6 +25,7 @@ type FundingResolver interface {
 	Funding(context.Context, collection.Scope) (orgresource.ResourceFunding, error)
 }
 type Dependencies struct {
+	Prices            dataacquisition.PriceReader
 	ExecutionEnabled  bool
 	ProductDB         *gorm.DB
 	Access            dataservice.Access
@@ -37,6 +38,7 @@ type Dependencies struct {
 	TrustedProxyCIDRs []string
 }
 type Module struct {
+	prices            dataacquisition.PriceReader
 	executionEnabled  bool
 	productDB         *gorm.DB
 	reader            *dataacquisition.Reader
@@ -78,6 +80,7 @@ func NewModule(ctx context.Context, d Dependencies) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
+	repo.ConfigurePrices(d.Prices)
 	reader, err := dataacquisition.NewReader(repo, d.Live)
 	if err != nil {
 		return nil, err
@@ -109,7 +112,7 @@ func NewModule(ctx context.Context, d Dependencies) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Module{executionEnabled: d.ExecutionEnabled, productDB: d.ProductDB, reader: reader, keys: keys, custom: custom, acquisition: acquisition, repo: repo, access: d.Access, live: d.Live, funding: d.Funding, provider: d.Provider, results: capturedResultReader{sr}, trustedProxyCIDRs: append([]string(nil), d.TrustedProxyCIDRs...)}, nil
+	return &Module{prices: d.Prices, executionEnabled: d.ExecutionEnabled, productDB: d.ProductDB, reader: reader, keys: keys, custom: custom, acquisition: acquisition, repo: repo, access: d.Access, live: d.Live, funding: d.Funding, provider: d.Provider, results: capturedResultReader{sr}, trustedProxyCIDRs: append([]string(nil), d.TrustedProxyCIDRs...)}, nil
 }
 func (m *Module) Runner() *dataacquisition.Service { return m.acquisition }
 func (m *Module) ChargeOwner() orgresource.ConsumerChargeOwner {
@@ -136,13 +139,22 @@ func (m *Module) BuildRoutes() []httproute.Descriptor {
 }
 
 func (m *Module) options(ctx context.Context) options {
-	o := options{Sites: []dataacquisition.Site{}, CustomSites: dataacquisition.Sites(), Fields: dataacquisition.Fields(), PriceFen: dataacquisition.PriceFen, MaximumRows: 200, Formats: []string{"csv", "json", "xlsx"}}
+	o := options{Sites: []dataacquisition.Site{}, CustomSites: dataacquisition.Sites(), Fields: dataacquisition.Fields(), MaximumRows: 200, Formats: []string{"csv", "json", "xlsx"}}
+	if m.prices != nil {
+		if price, e := m.prices.CurrentDataRowPrice(ctx); e == nil {
+			o.Price = &price
+		}
+	}
 	if !m.executionEnabled {
 		o.UnavailableReason = "实时采集已关闭，可查看已保存资料和历史"
 		return o
 	}
 	if err := m.provider.Ready(ctx); err != nil {
 		o.UnavailableReason = "实时抓取运行环境未就绪"
+		return o
+	}
+	if o.Price == nil {
+		o.UnavailableReason = "数据价格尚未配置"
 		return o
 	}
 	o.Sites = m.provider.Sites()

@@ -43,14 +43,14 @@ type Dependencies struct {
 }
 type handler struct{ Dependencies }
 type Options struct {
-	Sites             []dataacquisition.Site `json:"sites"`
-	CustomSites       []dataacquisition.Site `json:"customSites"`
-	Fields            []string               `json:"fields"`
-	PriceFen          int64                  `json:"priceFen"`
-	MaximumRows       int                    `json:"maximumRows"`
-	Formats           []string               `json:"formats"`
-	AcquisitionReady  bool                   `json:"acquisitionReady"`
-	UnavailableReason string                 `json:"unavailableReason,omitempty"`
+	Sites             []dataacquisition.Site         `json:"sites"`
+	CustomSites       []dataacquisition.Site         `json:"customSites"`
+	Fields            []string                       `json:"fields"`
+	Price             *dataacquisition.PriceSnapshot `json:"price,omitempty"`
+	MaximumRows       int                            `json:"maximumRows"`
+	Formats           []string                       `json:"formats"`
+	AcquisitionReady  bool                           `json:"acquisitionReady"`
+	UnavailableReason string                         `json:"unavailableReason,omitempty"`
 }
 
 func ValidateProxyCIDRs(values []string) error { return validateProxyCIDRs(values) }

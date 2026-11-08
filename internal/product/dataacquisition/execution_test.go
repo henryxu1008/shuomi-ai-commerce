@@ -32,7 +32,15 @@ type admissionRepository struct {
 	*resultRepository
 }
 
-func (r *admissionRepository) Admit(context.Context, Principal, string, Query, orgresource.ResourceFunding) (Job, error) {
+func TestZeroPriceAdmissionDoesNotRequireRetiredFiveFenPrice(t *testing.T) {
+	scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "original"}
+	repo := &admissionRepository{resultRepository: &resultRepository{job: Job{ID: uuid.NewString(), Scope: scope, State: "SUCCEEDED"}}}
+	svc := &Service{repo: repo, live: &revokedAccess{}}
+	_, err := svc.Start(context.Background(), Principal{Scope: scope}, uuid.NewString(), Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1}, orgresource.FundingEnterprise, PriceConfirmation{Version: "test-price", MaximumCostFen: 0})
+	require.NoError(t, err, "admission repository must validate the frozen price, not a fixed five-fen constant")
+}
+
+func (r *admissionRepository) Admit(context.Context, Principal, string, Query, orgresource.ResourceFunding, PriceConfirmation) (Job, error) {
 	return r.job, nil
 }
 
@@ -43,11 +51,11 @@ func TestCommittedAdmissionPreservesUnknownAndTerminalReplaySkipsStartup(t *test
 	repo := &admissionRepository{resultRepository: &resultRepository{job: Job{ID: uuid.NewString(), Scope: scope, CommandKey: command, State: "ADMITTED"}}}
 	starter := &outageStarter{err: ErrUnavailable}
 	svc := &Service{repo: repo, live: &revokedAccess{}, starter: starter}
-	job, err := svc.Start(context.Background(), Principal{Scope: scope}, command, q, orgresource.FundingEnterprise, 5)
+	job, err := svc.Start(context.Background(), Principal{Scope: scope}, command, q, orgresource.FundingEnterprise, PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 	require.ErrorIs(t, err, ErrUnknown, "the durable job must be recovered through its original command")
 	require.Equal(t, repo.job.ID, job.ID)
 	starter.err = nil
-	recovered, err := svc.Start(context.Background(), Principal{Scope: scope}, command, q, orgresource.FundingEnterprise, 5)
+	recovered, err := svc.Start(context.Background(), Principal{Scope: scope}, command, q, orgresource.FundingEnterprise, PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 	require.NoError(t, err)
 	require.Equal(t, job.ID, recovered.ID)
 	for _, state := range []string{"SUCCEEDED", "PARTIAL", "FAILED", "CANCELED"} {
@@ -55,7 +63,7 @@ func TestCommittedAdmissionPreservesUnknownAndTerminalReplaySkipsStartup(t *test
 			repo.job.State = state
 			starter.err = ErrUnavailable
 			before := starter.calls
-			replayed, err := svc.Start(context.Background(), Principal{Scope: scope}, command, q, orgresource.FundingEnterprise, 5)
+			replayed, err := svc.Start(context.Background(), Principal{Scope: scope}, command, q, orgresource.FundingEnterprise, PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
 			require.NoError(t, err)
 			require.Equal(t, state, replayed.State)
 			require.Equal(t, before, starter.calls, "terminal command replay must not depend on Temporal")
