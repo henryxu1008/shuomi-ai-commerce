@@ -48,7 +48,7 @@ func NewOfficialClient(options OfficialClientOptions) (*OfficialClient, error) {
 			return nil, storecenter.ErrOfficialConnectionUnavailable
 		}
 	case storecenter.PartitionUS, storecenter.PartitionEU, storecenter.PartitionGlobal:
-		if app.SupportedModes != storecenter.ModesLocal {
+		if app.SupportedModes != storecenter.ModesLocal && !(app.SupportedModes == storecenter.ModesLocal|storecenter.ModesSemiManaged && (app.IdentityPartition == storecenter.PartitionUS || app.IdentityPartition == storecenter.PartitionGlobal) && strings.HasSuffix(app.Version, ":temu:"+string(app.IdentityPartition)+":manual_token:3:r2")) {
 			return nil, storecenter.ErrOfficialConnectionUnavailable
 		}
 	default:
@@ -140,11 +140,12 @@ func (c *OfficialClient) querySupplier(ctx context.Context, token string) (store
 
 func (c *OfficialClient) queryLocal(ctx context.Context, token string) (storecenter.OfficialStoreInformation, error) {
 	var identity struct {
-		MallID      *int64   `json:"mallId"`
-		MallType    *int     `json:"mallType"`
-		RegionID    *int64   `json:"regionId"`
-		ExpiredTime *int64   `json:"expiredTime"`
-		Scopes      []string `json:"apiScopeList"`
+		SemiUniqueID string   `json:"semiUniqueId"`
+		MallID       *int64   `json:"mallId"`
+		MallType     *int     `json:"mallType"`
+		RegionID     *int64   `json:"regionId"`
+		ExpiredTime  *int64   `json:"expiredTime"`
+		Scopes       []string `json:"apiScopeList"`
 	}
 	origin := localAPIOrigin(c.application.IdentityPartition)
 	if origin == "" {
@@ -153,7 +154,7 @@ func (c *OfficialClient) queryLocal(ctx context.Context, token string) (storecen
 	if err := c.readIdentity(ctx, origin, localInfoAPI, token, &identity); err != nil {
 		return storecenter.OfficialStoreInformation{}, err
 	}
-	if identity.MallID == nil || *identity.MallID < 1 || identity.MallType == nil || *identity.MallType != 100 || identity.RegionID == nil || *identity.RegionID < 1 {
+	if identity.MallID == nil || *identity.MallID < 1 || identity.MallType == nil || (*identity.MallType != 100 && !(c.application.SupportedModes == storecenter.ModesLocal|storecenter.ModesSemiManaged && *identity.MallType == 1)) || identity.RegionID == nil || *identity.RegionID < 1 {
 		return storecenter.OfficialStoreInformation{}, storecenter.ErrOfficialConnectionUnavailable
 	}
 	facts, err := c.verification(strconv.FormatInt(*identity.MallID, 10), storecenter.MerchantLocalNamespace, *identity.RegionID, identity.ExpiredTime, identity.Scopes)
@@ -161,6 +162,17 @@ func (c *OfficialClient) queryLocal(ctx context.Context, token string) (storecen
 		return storecenter.OfficialStoreInformation{}, err
 	}
 	facts.Mode = storecenter.MerchantLocal
+	if c.application.SupportedModes == storecenter.ModesLocal|storecenter.ModesSemiManaged {
+		if facts.RegionID != 211 {
+			return storecenter.OfficialStoreInformation{}, storecenter.ErrOfficialConnectionUnavailable
+		}
+		facts.ContractRevision = "temu-regional-order-identity-v2"
+		if *identity.MallType == 1 {
+			facts.Mode = storecenter.MerchantSemiManaged
+			facts.Namespace = storecenter.MerchantRegionalSemiNamespace
+			facts.SemiUniqueID = identity.SemiUniqueID
+		}
+	}
 	if _, err := facts.MerchantIdentityHash(); err != nil {
 		return storecenter.OfficialStoreInformation{}, err
 	}

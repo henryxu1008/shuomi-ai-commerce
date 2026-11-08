@@ -1,4 +1,5 @@
 "use client";
+import { readTemuOrderAmount } from "@/lib/api/temu-order-amount";
 
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
@@ -115,7 +116,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     : store && selected.length === 1 && selected[0].platform === "temu" ? "temu-create" : undefined;
   const publicationAllowed = Boolean(countOwner) && listingAllowed;
   const ordersAllowed = permissions?.includes("workbench.store.orders.read") ?? false;
-  const showOrderAmount = selectedPlatform === "shein" || selectedPlatform === "walmart" || selectedPlatform === "tiktokshop";
+  const showOrderAmount = selectedPlatform === "temu" || selectedPlatform === "shein" || selectedPlatform === "walmart" || selectedPlatform === "tiktokshop";
   const access = capabilities.access;
   const key = ["operations-cockpit", scope.userId, scope.organizationId];
   const matrix = useQuery({ queryKey: [...key, "home-matrix", query, access.storesRead], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), enabled: access.storesRead && valid, retry: false, gcTime: 0 });
@@ -134,7 +135,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
         listingAllowed && submissionOwner ? readCockpitMetrics(scope, submissionOwner, statsQuery, storeSubmissionMetrics, signal) : undefined,
         listingAllowed && countOwner ? readCockpitMetrics(scope, countOwner, statsQuery, publicationMetrics, signal) : undefined,
         listingAllowed ? readCockpitMetrics(scope, "submission-overview", statsQuery, submissionOverviewMetrics, signal) : undefined,
-        showOrderAmount && ordersAllowed ? (selectedPlatform === "tiktokshop" ? readTikTokOrderAmount(scope,statsQuery,signal) : selectedPlatform === "walmart" ? readWalmartOrderAmount(scope,statsQuery,signal) : readSavedOrderAmount(scope, statsQuery, signal)) : undefined,
+        showOrderAmount && ordersAllowed ? (selectedPlatform === "temu" ? readTemuOrderAmount(scope,statsQuery,signal) : selectedPlatform === "tiktokshop" ? readTikTokOrderAmount(scope,statsQuery,signal) : selectedPlatform === "walmart" ? readWalmartOrderAmount(scope,statsQuery,signal) : readSavedOrderAmount(scope, statsQuery, signal)) : undefined,
       ] as const);
       return { listing, tasks, submission, publication, overview, orderAmount };
     },
@@ -302,7 +303,7 @@ function SavedOrderAmounts({data,message,platform}:{data?:SavedOrderAmountMetric
     range_not_covered:"原同步范围未覆盖所选完整日期，暂不显示金额。",
   }[data.reason] : undefined;
   const timeText=(value:string)=>new Date(value).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false});
-  return <Panel title="已保存订单商品金额（原币）" detail={platform==="tiktokshop"?"TikTok Shop US · 按订单创建时间 · UTC+8 完整日":platform==="walmart"?"Walmart US · 按 orderDate · UTC+8 完整日":"按平台订单列表时间 · UTC+8 完整日"}>
+  return <Panel title="已保存订单商品金额（原币）" detail={platform==="temu"?"Temu US · 本土 / 半托管 · 按父订单创建时间 · UTC+8 完整日":platform==="tiktokshop"?"TikTok Shop US · 按订单创建时间 · UTC+8 完整日":platform==="walmart"?"Walmart US · 按 orderDate · UTC+8 完整日":"按平台订单列表时间 · UTC+8 完整日"}>
     {message ? <p className={styles.empty} role="status">{message}</p>
       : data?.status==="complete" ? data.matchedOrderCount===0 ? <p className={styles.empty}>所选期间暂无已保存订单。</p>
         : <><dl className={`${styles.publicationCounts} ${styles.orderAmounts}`} aria-label="各原币订单商品金额">
@@ -314,7 +315,7 @@ function SavedOrderAmounts({data,message,platform}:{data?:SavedOrderAmountMetric
       {data.source.range&&<>原同步范围：{timeText(data.source.range.start)} 至 {timeText(data.source.range.end)}（UTC+8）。</>}
       {data.source.observedAt&&<> 取得时间：{timeText(data.source.observedAt)}（UTC+8）。</>}
     </p>}
-    <p className={styles.panelNote}>{platform==="tiktokshop"?"按订单 ID 去重，累计已保存的原商品小计，包含原订单状态；不再扣减折扣或按数量、商品行、包裹重复计算。不含税费、运费及供货成本，不推断实际付款或净成交，不做汇率换算。":platform==="walmart"?"按 purchaseOrderId 去重，拆分 PO 分别计数。累计原 PRODUCT 费用，不再乘订单行数量；缺金额项也包括费用待核实。完整统计须覆盖卖家自发货、WFS及3PL，不含税费、运费或供货成本，不推断支付或净成交，不做汇率换算。":"仅已保存订单的商品金额，包含原保存订单状态；非支付或结算金额，不含供货成本，不做汇率换算。"}</p>
+    <p className={styles.panelNote}>{platform==="temu"?"按父订单号去重，累计原商品促销总价；子单、数量、包裹和站点不重复计价。按原币精确计算，不含税运费，不代表 GMV、实际付款或结算。":platform==="tiktokshop"?"按订单 ID 去重，累计已保存的原商品小计，包含原订单状态；不再扣减折扣或按数量、商品行、包裹重复计算。不含税费、运费及供货成本，不推断实际付款或净成交，不做汇率换算。":platform==="walmart"?"按 purchaseOrderId 去重，拆分 PO 分别计数。累计原 PRODUCT 费用，不再乘订单行数量；缺金额项也包括费用待核实。完整统计须覆盖卖家自发货、WFS及3PL，不含税费、运费或供货成本，不推断支付或净成交，不做汇率换算。":"仅已保存订单的商品金额，包含原保存订单状态；非支付或结算金额，不含供货成本，不做汇率换算。"}</p>
   </Panel>;
 }
 

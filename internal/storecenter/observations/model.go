@@ -188,6 +188,7 @@ func (w Window) Key() string {
 }
 
 type Checkpoint struct {
+	TemuOrders      *TemuOrderProgress    `json:"temuOrders,omitempty"`
 	TikTokOrders    *TikTokOrderProgress  `json:"tiktokOrders,omitempty"`
 	WalmartOrders   *WalmartOrderProgress `json:"walmartOrders,omitempty"`
 	Page            int                   `json:"page"`
@@ -276,6 +277,7 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
+	TemuOrder      *TemuOrder       `json:"temuOrder,omitempty"`
 	TikTokOrder    *TikTokOrder     `json:"tiktokOrder,omitempty"`
 	WalmartOrder   *WalmartOrder    `json:"walmartOrder,omitempty"`
 	WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`

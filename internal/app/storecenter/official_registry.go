@@ -141,6 +141,11 @@ func validRegisteredApplication(app storecenter.OfficialApplication, mode storec
 	if app.Platform != storecenter.PlatformTemu || mode != "" || app.AuthorizationMethod != storecenter.AuthorizationManualToken || app.CallbackURL != "" {
 		return false
 	}
+	if app.SupportedModes == storecenter.ModesLocal|storecenter.ModesSemiManaged && (app.IdentityPartition == storecenter.PartitionUS || app.IdentityPartition == storecenter.PartitionGlobal) {
+		suffix := ":temu:" + string(app.IdentityPartition) + ":manual_token:3:r2"
+		base, ok := strings.CutSuffix(app.Version, suffix)
+		return ok && authidentity.IsBoundedIdentifier(base)
+	}
 	modes := storecenter.ModesLocal
 	switch app.IdentityPartition {
 	case storecenter.PartitionCN:

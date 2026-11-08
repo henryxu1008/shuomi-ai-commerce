@@ -29,8 +29,9 @@ const (
 	MerchantSemiManaged  OfficialMerchantMode = "semi_managed"
 	MerchantFullyManaged OfficialMerchantMode = "fully_managed"
 
-	MerchantSupplierNamespace OfficialMerchantNamespace = "supplier"
-	MerchantLocalNamespace    OfficialMerchantNamespace = "local"
+	MerchantSupplierNamespace     OfficialMerchantNamespace = "supplier"
+	MerchantLocalNamespace        OfficialMerchantNamespace = "local"
+	MerchantRegionalSemiNamespace OfficialMerchantNamespace = "regional_semi"
 
 	ModesLocal        OfficialModeSet = 1
 	ModesSemiManaged  OfficialModeSet = 2
@@ -61,6 +62,7 @@ type OfficialVerificationFacts struct {
 	Platform          Platform                  `json:"platform"`
 	IdentityPartition OfficialIdentityPartition `json:"identityPartition"`
 	Namespace         OfficialMerchantNamespace `json:"namespace"`
+	SemiUniqueID      string                    `json:"semiUniqueId,omitempty"`
 	MerchantID        string                    `json:"merchantId"`
 	Mode              OfficialMerchantMode      `json:"mode"`
 	RegionID          int64                     `json:"regionId,omitempty"`
@@ -76,6 +78,9 @@ func (f OfficialVerificationFacts) MerchantIdentityHash() (string, error) {
 	if f.Platform != PlatformTemu || f.MerchantID == "" || len(f.MerchantID) > 200 || !utf8.ValidString(f.MerchantID) || strings.TrimSpace(f.MerchantID) != f.MerchantID || strings.IndexFunc(f.MerchantID, unicode.IsControl) >= 0 {
 		return "", ErrOfficialConnectionUnavailable
 	}
+	if f.Namespace != MerchantRegionalSemiNamespace && f.SemiUniqueID != "" {
+		return "", ErrOfficialConnectionUnavailable
+	}
 	var identity []string
 	switch f.Namespace {
 	case MerchantSupplierNamespace:
@@ -83,8 +88,13 @@ func (f OfficialVerificationFacts) MerchantIdentityHash() (string, error) {
 			return "", ErrOfficialConnectionUnavailable
 		}
 		identity = []string{string(f.Platform), string(f.Namespace), f.MerchantID}
+	case MerchantRegionalSemiNamespace:
+		if f.Mode != MerchantSemiManaged || f.RegionID != 211 || f.IdentityPartition != PartitionUS && f.IdentityPartition != PartitionGlobal || f.SemiUniqueID == "" || !textTemuIdentity(f.SemiUniqueID) {
+			return "", ErrOfficialConnectionUnavailable
+		}
+		identity = []string{string(f.Platform), string(f.IdentityPartition), string(f.Namespace), f.MerchantID, f.SemiUniqueID}
 	case MerchantLocalNamespace:
-		if f.Mode != MerchantLocal || f.RegionID < 1 || f.IdentityPartition != PartitionUS && f.IdentityPartition != PartitionEU && f.IdentityPartition != PartitionGlobal {
+		if f.SemiUniqueID != "" || f.Mode != MerchantLocal || f.RegionID < 1 || f.IdentityPartition != PartitionUS && f.IdentityPartition != PartitionEU && f.IdentityPartition != PartitionGlobal {
 			return "", ErrOfficialConnectionUnavailable
 		}
 		identity = []string{string(f.Platform), string(f.IdentityPartition), string(f.Namespace), f.MerchantID}
@@ -94,4 +104,8 @@ func (f OfficialVerificationFacts) MerchantIdentityHash() (string, error) {
 	encoded, _ := json.Marshal(identity)
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:]), nil
+}
+
+func textTemuIdentity(s string) bool {
+	return len(s) <= 200 && utf8.ValidString(s) && strings.TrimSpace(s) == s && strings.IndexFunc(s, unicode.IsControl) < 0
 }
