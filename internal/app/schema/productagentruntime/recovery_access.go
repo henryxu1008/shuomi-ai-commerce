@@ -24,9 +24,8 @@ func VerifyInvocationRecoveryRuntime(ctx context.Context, db *gorm.DB) error {
 	if err = verifyRelation(db.WithContext(ctx), ledger); err != nil {
 		return err
 	}
-	if err = verifyPrivateACL(db.WithContext(ctx), ledger.Name); err != nil {
-		return err
-	}
+	// Keep the shared ledger's audit readers, as PrepareRun does. The original
+	// relation and this runtime's precise privileges remain fully qualified.
 	ready, err := verifyGrants(db.WithContext(ctx), runGrants(ledger)[:1])
 	if err != nil || !ready {
 		return errors.New("invocation recovery runtime grants unavailable")

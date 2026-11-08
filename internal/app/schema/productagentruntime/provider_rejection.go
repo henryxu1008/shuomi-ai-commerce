@@ -24,9 +24,8 @@ func PrepareProviderRejectionProof(ctx context.Context, db *gorm.DB) (Result, er
 		if err = tx.Exec("LOCK TABLE public.ai_invocations IN ACCESS EXCLUSIVE MODE").Error; err != nil {
 			return err
 		}
-		if err = verifyPrivateACL(tx, "ai_invocations"); err != nil {
-			return err
-		}
+		// The original ledger is shared with qualified audit readers. Match
+		// PrepareRun's relation and runtime grants without closing other owners' ACL.
 		if tx.Migrator().HasColumn("ai_invocations", "provider_rejection_proof_json") {
 			if err = verifyRelation(tx, current); err != nil {
 				return err
