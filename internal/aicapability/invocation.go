@@ -27,7 +27,8 @@ const (
 )
 
 type InvocationRecord struct {
-	BillableUsage           *BillableModelUsage `json:"billableUsage,omitempty"`
+	ProviderRejectionProof  *ProviderRejectionProof `json:"providerRejectionProof,omitempty"`
+	BillableUsage           *BillableModelUsage     `json:"billableUsage,omitempty"`
 	OfficialTariff          OfficialModelTariff
 	MaximumPromptTokens     int64
 	MaximumCompletionTokens int64

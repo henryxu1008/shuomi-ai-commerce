@@ -129,8 +129,8 @@ func runContracts(db *gorm.DB) ([]relationContract, error) {
 
 func invocationContract(db *gorm.DB) (relationContract, error) {
 	spec, err := modelContract(db, aistore.InvocationSchemaModel(), "product_agent_owner")
-	if err == nil && len(spec.Columns) != 52 {
-		err = fmt.Errorf("invocation owner differs from current 52-column contract")
+	if err == nil && len(spec.Columns) != 53 {
+		err = fmt.Errorf("invocation owner differs from current 53-column contract")
 	}
 	return spec, err
 }
@@ -189,11 +189,17 @@ func verifyRelation(db *gorm.DB, spec relationContract) error {
 	}
 	for i, expected := range spec.Columns {
 		actual := cols[i]
+		positionOK := actual.Position == i+1
+		// Only this appended capability can follow a dropped empty proof column.
+		// All original active columns retain their exact physical positions.
+		if spec.Name == "ai_invocations" && expected.Name == "provider_rejection_proof_json" && i == len(spec.Columns)-1 {
+			positionOK = actual.Position >= i+1
+		}
 		defaultOK := actual.Default == expected.Default
 		if expected.Default == "@owned-sequence" {
 			defaultOK = actual.Default == "nextval('"+spec.Name+"_"+expected.Name+"_seq'::regclass)"
 		}
-		if actual.Name != expected.Name || actual.Type != expected.Type || actual.NotNull != expected.NotNull || actual.Position != i+1 || actual.Identity != "" || actual.Generated != "" || !actual.DefaultCollation || !defaultOK {
+		if actual.Name != expected.Name || actual.Type != expected.Type || actual.NotNull != expected.NotNull || !positionOK || actual.Identity != "" || actual.Generated != "" || !actual.DefaultCollation || !defaultOK {
 			return fmt.Errorf("public.%s.%s column contract differs", spec.Name, expected.Name)
 		}
 	}
