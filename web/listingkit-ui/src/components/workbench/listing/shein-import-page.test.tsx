@@ -45,8 +45,33 @@ it("uses an explicit attribute option and disables incompatible currency",async(
 it("keeps readonly users and a store without saved Target out of confirmation",async()=>{
  f.context.permissions=["workbench.supply.read","workbench.store.read"];const view=render(<SheinImportPage {...props}/>);await screen.findByText(/当前身份没有供应链管理权限/);expect(preview()).toBeDisabled();expect(confirm()).toBeDisabled();expect(f.rules).not.toHaveBeenCalled();view.unmount();
  f.context.permissions.push("workbench.supply.manage");f.target.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));render(<SheinImportPage {...props} recordId={undefined}/>);await screen.findByText(/候选 R3/);fireEvent.change(screen.getByRole("combobox",{name:"SHEIN 店铺"}),{target:{value:id.store}});await screen.findByText(/此店铺尚无已保存的平台草稿/);expect(confirm()).toBeDisabled();expect(f.save).not.toHaveBeenCalled();
+ expect(screen.getByRole("link",{name:"前往平台草稿"})).toHaveAttribute("href",`/workbench/listing/waiting?preparation=${id.batch}&store=${id.store}`);
 });
 it("clears the selected store and its preview when paging the store list",async()=>{
  f.stores.mockResolvedValueOnce({items:[{id:id.store,name:"第一页店铺",platform:"shein"}],pagination:{total:101}}).mockResolvedValueOnce({items:[{id:id.saved,name:"第二页店铺",platform:"shein"}],pagination:{total:101}});
  render(<SheinImportPage {...props} recordId={undefined}/>);await screen.findByText(/候选 R3/);fireEvent.change(screen.getByRole("combobox",{name:"SHEIN 店铺"}),{target:{value:id.store}});await waitFor(()=>expect(preview()).toBeEnabled());fireEvent.click(preview());await waitFor(()=>expect(confirm()).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"下一页店铺"}));await screen.findByRole("option",{name:"第二页店铺"});expect(screen.getByRole("combobox",{name:"SHEIN 店铺"})).toHaveValue("");expect(screen.queryByRole("button",{name:"确认保存为新平台草稿版本"})).not.toBeInTheDocument();expect(screen.queryByText("本次覆盖预览")).not.toBeInTheDocument();expect(f.save).not.toHaveBeenCalled();
+});
+
+it.each([
+ {baseReady:false,savedReady:true,before:"missing",after:"waiting"},
+ {baseReady:true,savedReady:false,before:"waiting",after:"missing"},
+])("returns to the visible platform stage before and after saving $after",async({baseReady,savedReady,before,after})=>{
+ const data=sheinImportFixture();
+ data.base.result.ready_for_upload=baseReady;
+ data.saved.record.result={...data.saved.record.result,ready_for_upload:savedReady};
+ f.record.mockResolvedValue(data.base);
+ f.save.mockResolvedValue(data.saved);
+ render(<SheinImportPage {...props}/>);
+ const originalHref=new URL((await screen.findByRole("link",{name:"返回平台草稿"})).getAttribute("href")!,"https://test.invalid");
+ expect(originalHref.pathname).toBe(`/workbench/listing/${before}`);
+ expect(Object.fromEntries(originalHref.searchParams)).toEqual({preparation:id.batch,store:id.store,...before==="missing"?{mode:"platform"}:{}});
+ await waitFor(()=>expect(preview()).toBeEnabled());
+ fireEvent.click(preview());
+ await waitFor(()=>expect(confirm()).toBeEnabled());
+ fireEvent.click(confirm());
+ await screen.findByText(/本次已保存 Target R2/);
+ const savedHref=new URL(screen.getByRole("link",{name:"返回平台草稿"}).getAttribute("href")!,"https://test.invalid");
+ expect(savedHref.pathname).toBe(`/workbench/listing/${after}`);
+ expect(Object.fromEntries(savedHref.searchParams)).toEqual({preparation:id.batch,store:id.store,...after==="missing"?{mode:"platform"}:{}});
+ expect(f.save).toHaveBeenCalledTimes(1);
 });

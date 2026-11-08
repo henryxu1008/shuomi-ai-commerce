@@ -15,6 +15,7 @@ import {listWorkbenchStores,type WorkbenchStore} from "@/lib/api/workbench-store
 import {readSupplySource,readSupplyCompletionDraft,readCompletionRevision,readSupplyRecord,readSupplyTarget,supplyRules,previewSheinImport,SupplyAPIError,type SupplyScope} from "@/lib/api/supply-chain";
 import {targetReceiptSchema,type SupplySourceDetail,type SupplyCompletionDraft,type SupplyTarget,type SupplyTargetInput,type SupplyRules,type SheinImportSelection} from "@/lib/contracts/supply-chain";
 import {completionDraftHref} from "@/lib/contracts/completion-draft-navigation";
+import {listingStageHref} from "@/lib/workbench/listing-navigation";
 
 type Props={sourceId:string;preparationId?:string;itemId?:string;revision?:number;recordId?:string};
 const emptySelection=():SheinImportSelection=>({title:false,description:false,attributes:[],skus:[]});
@@ -32,10 +33,10 @@ export function SheinImportPage(props:Props){
 function ImportSource({scope,canManage,canReadStores,...props}:Props&{scope:SupplyScope;canManage:boolean;canReadStores:boolean}){
  const [data,setData]=useState<{detail:SupplySourceDetail;candidate:SupplyCompletionDraft;initialBase?:SupplyTarget}>(),[error,setError]=useState(false),[reload,setReload]=useState(0);
  const [storeId,setStoreId]=useState(""),[stores,setStores]=useState<WorkbenchStore[]>([]),[storePage,setStorePage]=useState(1),[storeTotal,setStoreTotal]=useState(0),[storeError,setStoreError]=useState(false);
- const [receipt,setReceipt]=useState<{revision:number;candidate:number}>();
+ const [receipt,setReceipt]=useState<SupplyTarget>();
  const refreshSource=()=>{setData(undefined);setError(false);setStoreError(false);setReload(n=>n+1)};
  const loadStorePage=(next:number)=>{setStoreId("");setReceipt(undefined);setStores([]);setStoreError(false);setStorePage(next)};
- const command=useListingCommand(scope,(result,intent)=>{if(intent.route!=="save-target")return;const saved=targetReceiptSchema.parse(result).record;if(saved.source.id===props.sourceId&&"sheinImport" in saved.input&&saved.input.sheinImport)setReceipt({revision:saved.revision,candidate:saved.input.sheinImport.completionDraft.revision})});
+ const command=useListingCommand(scope,(result,intent)=>{if(intent.route!=="save-target")return;const saved=targetReceiptSchema.parse(result).record;if(saved.source.id===props.sourceId&&"result" in saved&&saved.input.sheinImport)setReceipt(saved)});
  useEffect(()=>{const c=new AbortController();let live=true;
   void (async()=>{
    const detail=await readSupplySource(scope,props.sourceId,c.signal);
@@ -54,24 +55,25 @@ function ImportSource({scope,canManage,canReadStores,...props}:Props&{scope:Supp
  if(!data)return <ConsoleState kind="loading" title="正在读取固定候选版本"/>;
  const {detail,candidate,initialBase}=data,source=detail.source,item=source.source.kind==="own"?source.collectionItemId:undefined;
  const list=`/workbench/listing/missing?preparation=${source.preparationId}`;
- const platform=`/workbench/listing/missing?mode=platform&preparation=${source.preparationId}${storeId?`&store=${storeId}`:""}`;
  const locked=command.busy||!!command.pending;
  return <ConsolePage title="SHEIN 带入预览" description="选定候选资料，预览覆盖结果，再确认保存为本地平台草稿的新版本。" breadcrumbs={[{label:"商品刊登",href:"/workbench/listing"},{label:"待补全",href:list},{label:"SHEIN 带入预览"}]} actions={<div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href={completionDraftHref(source.id,source.preparationId,item)}>返回草稿</Link></Button>{item?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${item}`}>返回商品</Link></Button>:null}<Button asChild variant="outline"><Link href={list}>返回待补全列表</Link></Button></div>}>
-  <div className="space-y-5"><ListingCommandFeedback state={command}/>{receipt?<Card role="status" className="space-y-2 p-5"><p>本次已保存 Target R{receipt.revision} · 使用候选 R{receipt.candidate}</p><p className="text-sm text-muted-foreground">这是本次操作的保存回执，可能已有后续版本。未执行发布；重新读取目标后才能再次带入。</p></Card>:null}
+  <div className="space-y-5"><ListingCommandFeedback state={command}/>{receipt?<Card role="status" className="space-y-2 p-5"><p>本次已保存 Target R{receipt.revision} · 使用候选 R{receipt.input.sheinImport?.completionDraft.revision}</p><p className="text-sm text-muted-foreground">这是本次操作的保存回执，可能已有后续版本。未执行发布；重新读取目标后才能再次带入。</p></Card>:null}
    <Card className="space-y-3 p-5"><p>候选 R{candidate.revision} · 固定来源 V{source.source.version}</p><p className="text-sm text-muted-foreground">当前候选后续保存不会改变本次选择。{candidate.content.structured?"属性和 SKU 取自此候选保存版本。":"此版本未保存结构化候选资料，仅能带入文字。"}</p><label className="grid gap-2 text-sm">SHEIN 店铺<Select aria-label="SHEIN 店铺" disabled={!canReadStores||locked} value={storeId} onChange={e=>{setStoreId(e.target.value);setReceipt(undefined)}}><option value="">选择目标店铺</option>{initialBase&&!stores.some(s=>s.id===initialBase.input.storeId)?<option value={initialBase.input.storeId}>已保存草稿的店铺 · {initialBase.input.storeId}</option>:null}{stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</Select></label>{!canReadStores?<p className="text-sm text-muted-foreground">当前身份没有店铺列表查看权限。</p>:storeError?<p role="alert">店铺列表读取失败。<Button variant="outline" onClick={refreshSource}>重新读取资料</Button></p>:!stores.length?<p className="text-sm text-muted-foreground">当前没有可选择的 SHEIN 店铺，请先在店铺中心配置。</p>:null}{storeTotal>100?<div className="flex gap-2"><Button variant="outline" disabled={storePage===1||locked} onClick={()=>loadStorePage(storePage-1)}>上一页店铺</Button><Button variant="outline" disabled={storePage*100>=storeTotal||locked} onClick={()=>loadStorePage(storePage+1)}>下一页店铺</Button></div>:null}</Card>
    {!canManage?<p role="alert" className="text-sm text-muted-foreground">当前身份没有供应链管理权限，不能预览或确认带入。</p>:null}
-   {storeId?<ImportMapping key={`${storeId}:${reload}`} scope={scope} detail={detail} candidate={candidate} storeId={storeId} initialBase={initialBase?.input.storeId===storeId?initialBase:undefined} canManage={canManage} command={command} receipt={!!receipt} resetReceipt={()=>setReceipt(undefined)} platformHref={platform}/>:null}
+   {storeId?<ImportMapping key={`${storeId}:${reload}`} scope={scope} detail={detail} candidate={candidate} storeId={storeId} initialBase={initialBase?.input.storeId===storeId?initialBase:undefined} canManage={canManage} command={command} receipt={receipt} resetReceipt={()=>setReceipt(undefined)}/>:null}
   </div>
  </ConsolePage>;
 }
 
-function ImportMapping({scope,detail,candidate,storeId,initialBase,canManage,command,receipt,resetReceipt,platformHref}:{scope:SupplyScope;detail:SupplySourceDetail;candidate:SupplyCompletionDraft;storeId:string;initialBase?:SupplyTarget;canManage:boolean;command:ReturnType<typeof useListingCommand>;receipt:boolean;resetReceipt:()=>void;platformHref:string}){
+function ImportMapping({scope,detail,candidate,storeId,initialBase,canManage,command,receipt,resetReceipt}:{scope:SupplyScope;detail:SupplySourceDetail;candidate:SupplyCompletionDraft;storeId:string;initialBase?:SupplyTarget;canManage:boolean;command:ReturnType<typeof useListingCommand>;receipt?:SupplyTarget;resetReceipt:()=>void}){
  const [base,setBase]=useState<SupplyTarget>(),[rules,setRules]=useState<SupplyRules>(),[loading,setLoading]=useState(true),[error,setError]=useState<string>(),[reload,setReload]=useState(0);
  const [selection,setSelection]=useState<SheinImportSelection>(()=>({...emptySelection(),title:candidate.content.title.length>0})),[preview,setPreview]=useState<SupplyTargetInput>(),[previewing,setPreviewing]=useState(false),[conflictCleared,setConflictCleared]=useState(false);
  const epoch=useRef(0),abort=useRef<AbortController|null>(null);
  const cancelPreview=useCallback(()=>{epoch.current++;abort.current?.abort()},[]);
  const conflict=command.error==="REVISION_CONFLICT"&&!conflictCleared||error==="REVISION_CONFLICT";
- const locked=!canManage||loading||command.busy||!!command.pending||!command.ready||receipt||conflict;
+ const locked=!canManage||loading||command.busy||!!command.pending||!command.ready||!!receipt||conflict;
+ const currentTarget=receipt??base;
+ const platformHref=listingStageHref(error==="NOT_FOUND"||currentTarget?.result.ready_for_upload?"waiting":"missing",{preparation:detail.source.preparationId,store:storeId,mode:"platform"});
  useEffect(()=>{const c=new AbortController();let live=true;
   void (async()=>{const target=reload===0&&initialBase?initialBase:await readSupplyTarget(scope,detail.source.id,storeId,c.signal);if(JSON.stringify(target.source)!==JSON.stringify(detail.source))throw new Error("Baseline differs");
    const rule=canManage?await supplyRules(scope,{sourceId:detail.source.id,storeId,expectedRevision:target.revision,effectiveVersion:target.effectiveVersion,...target.applyReceiptId?{applyReceiptId:target.applyReceiptId}:{},draft:target.input.draft},c.signal):undefined;
