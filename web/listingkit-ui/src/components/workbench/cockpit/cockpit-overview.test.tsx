@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { CockpitEntry } from "../console/cockpit-entry";
 import { cockpitRequest } from "@/lib/api/operations-cockpit";
 import { readSavedOrderAmount } from "@/lib/api/shein-order-amount";
+import { readTikTokOrderAmount } from "@/lib/api/tiktok-order-amount";
 import { readWalmartOrderAmount } from "@/lib/api/walmart-order-amount";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 const state = vi.hoisted(() => ({ context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a" }, permissions: ["workbench.cockpit.stores.read"], operationsCockpitAvailable: true, isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null } }));
@@ -13,6 +14,7 @@ vi.mock("@/lib/api/operations-cockpit", async original => ({ ...await original<t
 vi.mock("@/lib/api/cockpit-metrics", () => ({ readCockpitMetrics: vi.fn() }));
 vi.mock("@/components/ui/chart", () => ({ EChart: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} /> }));
 vi.mock("@/lib/api/shein-order-amount", () => ({ readSavedOrderAmount: vi.fn() }));
+vi.mock("@/lib/api/tiktok-order-amount", () => ({ readTikTokOrderAmount: vi.fn() }));
 vi.mock("@/lib/api/walmart-order-amount", () => ({ readWalmartOrderAmount: vi.fn() }));
 const clients: QueryClient[] = [];
 const access = { goalsRead: false, goalsCreate: false, goalsManage: false, storesRead: true, factsWrite: false, alertsRead: false, adviceRead: false };
@@ -347,4 +349,25 @@ it("shows saved SHEIN order amounts separately and hides stale amounts for missi
  expect(screen.getByText("GMV 数据待接入")).toBeVisible();
  await userEvent.selectOptions(shop,"");
  expect(screen.queryByRole("heading",{name:"已保存订单商品金额（原币）"})).not.toBeInTheDocument();
+});
+
+it("reads saved TikTok amounts by the same date and store and hides the previous value",async()=>{
+ const a={id:"123e4567-e89b-42d3-a456-426614174000",name:"TikTok A",platform:"tiktokshop",region:"US",status:"active"};
+ const b={...a,id:"123e4567-e89b-42d3-a456-426614174001",name:"TikTok B"};
+ state.context.permissions.push("workbench.store.orders.read");
+ vi.mocked(cockpitRequest).mockImplementation(async(_scope,path)=>path==="capabilities"?{...capabilities,stores:[a,b]}:matrix);
+ const source={syncId:a.id,observedAt:"2026-10-11T00:00:00Z",range:{start:"2026-09-11T16:00:00Z",end:"2026-10-10T16:00:00Z"}};
+ vi.mocked(readTikTokOrderAmount).mockImplementation(async(_scope,query)=>{
+  const p=new URLSearchParams(query);
+  if(p.get("storeId")===b.id)return {result:{status:"coverage_incomplete",capturedAt:"2026-10-11T00:00:00Z",source,reason:"range_not_covered"}};
+  if(p.get("startDate")==="2026-10-10")return {result:{status:"missing_fields",capturedAt:"2026-10-11T00:00:00Z",source,matchedOrderCount:1,missing:{amountCount:1,currencyCount:0,unknownTimeCount:0}}};
+  return {result:{status:"complete",capturedAt:"2026-10-11T00:00:00Z",source,matchedOrderCount:1,amounts:[{currency:"USD",amount:"19.90",orderCount:1}]}};
+ });
+ mount();const shop=await screen.findByRole("combobox",{name:"店铺"});
+ await userEvent.selectOptions(shop,a.id);await screen.findByText("19.90");
+ expect(screen.getByText(/累计已保存的原商品小计/)).toBeVisible();
+ await userEvent.click(screen.getByRole("button",{name:"昨日"}));await screen.findByText(/缺金额 1 笔/);expect(screen.queryByText("19.90")).not.toBeInTheDocument();
+ await userEvent.selectOptions(shop,b.id);await screen.findByText("原同步范围未覆盖所选完整日期，暂不显示金额。");
+ expect(new URLSearchParams(vi.mocked(readTikTokOrderAmount).mock.calls.at(-1)![1]).get("storeId")).toBe(b.id);
+ expect(screen.getByText("GMV 数据待接入")).toBeVisible();expect(vi.mocked(readSavedOrderAmount)).not.toHaveBeenCalled();
 });

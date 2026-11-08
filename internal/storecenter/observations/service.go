@@ -17,6 +17,7 @@ import (
 )
 
 type Service struct {
+	TikTokOrders  TikTokOrderReader
 	WalmartOrders WalmartOrderReader
 	Repository    Repository
 	Access        Access
@@ -441,6 +442,12 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 			product := p
 			records = append(records, Record{StoreID: sync.StoreID, SyncID: sync.ID, ID: p.ID, Product: &product})
 		}
+	} else if sync.Binding.Platform == storecenter.PlatformTikTokShop {
+		updated, err := s.stepTikTokOrders(ctx, sync, merchant)
+		if err != nil {
+			return stop(err)
+		}
+		return updated, nil
 	} else if sync.Binding.Platform == storecenter.PlatformWalmart {
 		updated, err := s.stepWalmartOrders(ctx, sync, merchant)
 		if err != nil {
