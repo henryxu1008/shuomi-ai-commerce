@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	app "task-processor/internal/app/storeobservations"
+	"task-processor/internal/app/workbenchmetrics"
 	"task-processor/internal/httproute"
 	o "task-processor/internal/storecenter/observations"
 	"time"
@@ -30,6 +31,10 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 			sync                 bool
 		}{{"GET", "/capabilities", "capabilities", false}, {"GET", "", "list", false}, {"POST", "/syncs", "begin", true}, {"GET", "/commands/:key", "command", false}, {"GET", "/syncs/:sync_id", "status", false}, {"POST", "/syncs/:sync_id/ensure", "ensure", true}, {"GET", "/stores/:store_id/syncs/:sync_id/records/:record_id", "detail", false}}
 		if kind == o.Orders {
+			specs = append(specs, struct {
+				method, path, action string
+				sync                 bool
+			}{"GET", "/saved-amount-metrics", "saved-amount-metrics", false})
 			specs = append(specs, struct {
 				method, path, action string
 				sync                 bool
@@ -54,7 +59,7 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 						return
 					}
 				}
-				if spec.action != "list" && c.Request.URL.RawQuery != "" {
+				if spec.action != "list" && spec.action != "saved-amount-metrics" && c.Request.URL.RawQuery != "" {
 					failure(c, o.ErrInvalid)
 					return
 				}
@@ -98,6 +103,13 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 				switch spec.action {
 				case "capabilities":
 					data, e = a.Capabilities(ctx, scope, kind)
+				case "saved-amount-metrics":
+					filter, err := workbenchmetrics.Parse(c.Request.URL.RawQuery, time.Now())
+					if err != nil || len(filter.Stores) != 1 {
+						failure(c, o.ErrInvalid)
+						return
+					}
+					data, e = a.Service.SavedOrderAmounts(ctx, scope, o.OrderAmountQuery{StoreID: filter.Stores[0], Start: filter.Start, End: filter.End})
 				case "list":
 					data, e = a.Service.List(ctx, scope, query)
 				case "begin":

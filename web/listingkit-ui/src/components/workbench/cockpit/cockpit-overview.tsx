@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { cockpitRequest, cockpitErrorText, type CockpitScope } from "@/lib/api/operations-cockpit";
 import { cockpitCapabilities, cockpitMatrix, cockpitRules, moneyText, type CockpitCapabilities } from "@/lib/contracts/operations-cockpit";
+import { readSavedOrderAmount } from "@/lib/api/shein-order-amount";
+import type { SavedOrderAmountMetrics } from "@/lib/contracts/shein-order-amount";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 import { listingMetrics, publicationMetrics, taskMetrics, storeSubmissionMetrics, submissionOverviewMetrics, type SubmissionOverview, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
 import { CockpitTaskDistribution } from "./cockpit-task-distribution";
@@ -110,6 +112,8 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const countOwner = selectedPlatform === "shein" ? "shein-publish"
     : store && selected.length === 1 && selected[0].platform === "temu" ? "temu-create" : undefined;
   const publicationAllowed = Boolean(countOwner) && listingAllowed;
+  const ordersAllowed = permissions?.includes("workbench.store.orders.read") ?? false;
+  const showOrderAmount = selectedPlatform === "shein";
   const access = capabilities.access;
   const key = ["operations-cockpit", scope.userId, scope.organizationId];
   const matrix = useQuery({ queryKey: [...key, "home-matrix", query, access.storesRead], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), enabled: access.storesRead && valid, retry: false, gcTime: 0 });
@@ -117,19 +121,20 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const advice = useQuery({ queryKey: [...key, "home-advice", query, access.adviceRead], queryFn: ({ signal }) => cockpitRequest(scope, "advice?" + query, cockpitRules, { signal }), enabled: access.adviceRead && valid, retry: false, gcTime: 0 });
 
   const stats = useQuery({
-    queryKey: [...key, "home-metrics", statsQuery, listingAllowed, tasksAllowed, submissionOwner, submissionAllowed, countOwner, publicationAllowed],
-    enabled: !refreshing && !statsScopeMessage && (listingAllowed || tasksAllowed),
+    queryKey: [...key, "home-metrics", statsQuery, listingAllowed, tasksAllowed, submissionOwner, submissionAllowed, countOwner, publicationAllowed, ordersAllowed, showOrderAmount],
+    enabled: !refreshing && !statsScopeMessage && (listingAllowed || tasksAllowed || (ordersAllowed && showOrderAmount)),
     retry: false,
     gcTime: 0,
     queryFn: async ({ signal }) => {
-      const [listing, tasks, submission, publication, overview] = await Promise.allSettled([
+      const [listing, tasks, submission, publication, overview, orderAmount] = await Promise.allSettled([
         listingAllowed ? readCockpitMetrics(scope, "supply-preparations", statsQuery, listingMetrics, signal) : undefined,
         tasksAllowed ? readCockpitMetrics(scope, "tasks", statsQuery, taskMetrics, signal) : undefined,
         listingAllowed && submissionOwner ? readCockpitMetrics(scope, submissionOwner, statsQuery, storeSubmissionMetrics, signal) : undefined,
         listingAllowed && countOwner ? readCockpitMetrics(scope, countOwner, statsQuery, publicationMetrics, signal) : undefined,
         listingAllowed ? readCockpitMetrics(scope, "submission-overview", statsQuery, submissionOverviewMetrics, signal) : undefined,
+        showOrderAmount && ordersAllowed ? readSavedOrderAmount(scope, statsQuery, signal) : undefined,
       ] as const);
-      return { listing, tasks, submission, publication, overview };
+      return { listing, tasks, submission, publication, overview, orderAmount };
     },
   });
   const listingRead = stats.data?.listing.status === "fulfilled" ? stats.data.listing.value : undefined;
@@ -156,6 +161,11 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     ? metricsMessage(listingAllowed, overviewRead)
     : overviewRead?.result ? undefined : overviewRead?.message ?? "统计暂不可用";
   const overview = !overviewMessage ? overviewRead?.result : undefined;
+
+  const orderAmountRead = stats.data?.orderAmount.status === "fulfilled" ? stats.data.orderAmount.value : undefined;
+  const orderAmountMessage = !ordersAllowed ? "当前身份无查看订单权限"
+    : statsScopeMessage || refreshing || stats.isFetching || stats.isPending ? metricsMessage(ordersAllowed, orderAmountRead)
+    : orderAmountRead?.result ? undefined : orderAmountRead?.message ?? "已保存订单金额暂不可用";
 
   function readState(allowed: boolean, fetching: boolean, error: unknown) {
     if (refreshing) return "正在刷新经营事实…";
@@ -213,6 +223,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskMessage={taskMessage}
     submissionOverview={overview}
     submissionOverviewMessage={overviewMessage}
+    storeOrderAmount={showOrderAmount ? <SavedOrderAmounts data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} /> : undefined}
     storeSubmission={countOwner
       ? <PublicationCounts platform={countOwner === "temu-create" ? "temu" : "shein"} counts={publicationCounts} message={publicationMessage} />
       : submissionOwner ? <StoreSubmissionRate owner={submissionOwner} counts={submissionCounts} message={submissionMessage} /> : undefined}
@@ -281,6 +292,30 @@ function SubmissionOverviewPanel({ data, message }: { data?: SubmissionOverview;
   </Panel>;
 }
 
+function SavedOrderAmounts({data,message}:{data?:SavedOrderAmountMetrics;message?:string}){
+  const coverageMessage=data?.status==="coverage_incomplete" ? {
+    no_saved_sync:"尚无已保存订单同步结果，暂不显示金额。",
+    sync_incomplete:"订单同步尚未完整完成，暂不显示金额。",
+    newer_sync_incomplete:"存在更新的未完成同步，暂不显示此前批次金额。",
+    range_not_covered:"原同步范围未覆盖所选完整日期，暂不显示金额。",
+  }[data.reason] : undefined;
+  const timeText=(value:string)=>new Date(value).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false});
+  return <Panel title="已保存订单商品金额（原币）" detail="按平台订单列表时间 · UTC+8 完整日">
+    {message ? <p className={styles.empty} role="status">{message}</p>
+      : data?.status==="complete" ? data.matchedOrderCount===0 ? <p className={styles.empty}>所选期间暂无已保存订单。</p>
+        : <><dl className={styles.publicationCounts} aria-label="各原币订单商品金额">
+          {data.amounts.map(item=><div key={item.currency}><dt>{item.currency}</dt><dd>{item.amount}</dd><small>{item.orderCount} 笔订单</small></div>)}
+        </dl><p className={styles.panelNote}>已匹配 {data.matchedOrderCount} 笔订单，按订单去重，各币种分别展示。</p></>
+      : data?.status==="missing_fields" ? <p className={styles.empty} role="status">已匹配 {data.matchedOrderCount} 笔订单；缺金额 {data.missing.amountCount} 笔，缺币种 {data.missing.currencyCount} 笔，列表时间不明 {data.missing.unknownTimeCount} 笔。字段不完整，暂不显示金额。</p>
+      : <p className={styles.empty} role="status">{coverageMessage ?? (data?.status==="limited" ? "记录较多，请缩小日期范围后再查看金额。" : "已保存订单金额暂不可用")}</p>}
+    {!message&&data?.source&&<p className={styles.panelNote}>
+      {data.source.range&&<>原同步范围：{timeText(data.source.range.start)} 至 {timeText(data.source.range.end)}（UTC+8）。</>}
+      {data.source.observedAt&&<> 取得时间：{timeText(data.source.observedAt)}（UTC+8）。</>}
+    </p>}
+    <p className={styles.panelNote}>仅已保存订单的商品金额，包含原保存订单状态；非支付或结算金额，不含供货成本，不做汇率换算。</p>
+  </Panel>;
+}
+
 function PublicationCounts({ platform, counts, message }: {
   platform: "shein" | "temu";
   counts?: { confirmed: number; unknown: number };
@@ -315,7 +350,7 @@ function StoreSubmissionRate({ owner, counts, message }: {
     </div> : <p className={styles.empty} role="status">{message}</p>}
   </Panel>;
 }
-function OverviewPanels({ filters, message, activeStores, listingCounts, taskCounts, listingMessage, taskMessage, storeSubmission, submissionOverview, submissionOverviewMessage, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
+function OverviewPanels({ filters, message, activeStores, listingCounts, taskCounts, listingMessage, taskMessage, storeSubmission, storeOrderAmount, submissionOverview, submissionOverviewMessage, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
   filters?: ReactNode;
   message?: string;
   activeStores?: number;
@@ -324,6 +359,7 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
   listingMessage?: string;
   taskMessage?: string;
   storeSubmission?: ReactNode;
+  storeOrderAmount?: ReactNode;
   submissionOverview?: SubmissionOverview;
   submissionOverviewMessage?: string;
   platforms?: readonly string[];
@@ -373,6 +409,7 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
 
       <SubmissionOverviewPanel data={submissionOverview} message={submissionOverviewMessage ?? message} />
       {storeSubmission}
+      {storeOrderAmount}
       <div className={styles.split}>
         <Panel title="经营与刊登趋势" detail="所选完整日">
           <div className={styles.trend}>

@@ -4,19 +4,21 @@ import { afterEach, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { CockpitEntry } from "../console/cockpit-entry";
 import { cockpitRequest } from "@/lib/api/operations-cockpit";
+import { readSavedOrderAmount } from "@/lib/api/shein-order-amount";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 const state = vi.hoisted(() => ({ context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a" }, permissions: ["workbench.cockpit.stores.read"], operationsCockpitAvailable: true, isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null } }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => state.context }));
 vi.mock("@/lib/api/operations-cockpit", async original => ({ ...await original<typeof import("@/lib/api/operations-cockpit")>(), cockpitRequest: vi.fn() }));
 vi.mock("@/lib/api/cockpit-metrics", () => ({ readCockpitMetrics: vi.fn() }));
 vi.mock("@/components/ui/chart", () => ({ EChart: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} /> }));
+vi.mock("@/lib/api/shein-order-amount", () => ({ readSavedOrderAmount: vi.fn() }));
 const clients: QueryClient[] = [];
 const access = { goalsRead: false, goalsCreate: false, goalsManage: false, storesRead: true, factsWrite: false, alertsRead: false, adviceRead: false };
 const totals = { revenue: 120000, refunds: 0, procurement: 100000, logistics: 0, platform: 0, advertising: 0, other: 0, netRevenue: 120000, netProfit: 20000, margin: null };
 const capabilities = { access, today: "2026-10-11", stores: [] };
 const matrix = { rows: [], total: 0, page: 1, summary: totals, summaryComplete: false, states: { loss: 0, break_even: 0, recorded_complete: 0, data_incomplete: 0 }, capturedAt: "2026-10-11T00:00:00Z" };
 function mount() { const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client); const tree = () => <QueryClientProvider client={client}><CockpitEntry /></QueryClientProvider>; const view = render(tree()); return { ...view, update: () => view.rerender(tree()) }; }
-afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.mocked(cockpitRequest).mockReset(); vi.mocked(readCockpitMetrics).mockReset(); state.context.permissions = ["workbench.cockpit.stores.read"]; state.context.isSwitching = false; state.context.effectiveOrganization = { id: "org-a" }; });
+afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.mocked(cockpitRequest).mockReset(); vi.mocked(readCockpitMetrics).mockReset(); vi.mocked(readSavedOrderAmount).mockReset(); state.context.permissions = ["workbench.cockpit.stores.read"]; state.context.isSwitching = false; state.context.effectiveOrganization = { id: "org-a" }; });
 it("updates listing and task metrics together when changing both date and store", async () => {
   const first = "123e4567-e89b-42d3-a456-426614174000";
   const second = "123e4567-e89b-42d3-a456-426614174001";
@@ -292,4 +294,35 @@ it("shows native platform quantities and only a complete unknown-operation total
  expect(card?.querySelector("strong")).toHaveTextContent("—");
  expect(screen.getByRole("region",{name:"各平台提交与创建数量"})).not.toHaveTextContent("已受理2");
  expect(screen.getByText("GMV 数据待接入")).toBeVisible();
+});
+
+it("shows saved SHEIN order amounts separately and hides stale amounts for missing fields or incomplete coverage",async()=>{
+ const first={id:"123e4567-e89b-42d3-a456-426614174000",name:"SHEIN 金额店 A",platform:"shein",region:"US",status:"active"};
+ const second={...first,id:"123e4567-e89b-42d3-a456-426614174001",name:"SHEIN 金额店 B"};
+ state.context.permissions.push("workbench.store.orders.read");
+ vi.mocked(cockpitRequest).mockImplementation(async(_scope,path)=>path==="capabilities"?{...capabilities,stores:[first,second]}:matrix);
+ const source={syncId:first.id,observedAt:"2026-10-11T00:00:00Z",range:{start:"2026-09-11T16:00:00Z",end:"2026-10-10T15:59:59Z"}};
+ vi.mocked(readSavedOrderAmount).mockImplementation(async(_scope,query)=>{
+  const params=new URLSearchParams(query);
+  if(params.get("storeId")===second.id)return {result:{status:"coverage_incomplete",capturedAt:"2026-10-11T00:00:00Z",source,reason:"range_not_covered"}};
+  if(params.get("startDate")==="2026-10-10")return {result:{status:"missing_fields",capturedAt:"2026-10-11T00:00:00Z",source,matchedOrderCount:1,missing:{amountCount:1,currencyCount:0,unknownTimeCount:0}}};
+  return {result:{status:"complete",capturedAt:"2026-10-11T00:00:00Z",source,matchedOrderCount:2,amounts:[{currency:"USD",amount:"0.30",orderCount:2}]}};
+ });
+ mount();
+ const shop=await screen.findByRole("combobox",{name:"店铺"});
+ expect(vi.mocked(readSavedOrderAmount)).not.toHaveBeenCalled();
+ await userEvent.selectOptions(shop,first.id);
+ const title=await screen.findByRole("heading",{name:"已保存订单商品金额（原币）"});
+ await screen.findByText("0.30");
+ expect(title).toBeVisible();
+ await userEvent.click(screen.getByRole("button",{name:"昨日"}));
+ await screen.findByText(/缺金额 1 笔/);
+ expect(screen.queryByText("0.30")).not.toBeInTheDocument();
+ await userEvent.selectOptions(shop,second.id);
+ await screen.findByText("原同步范围未覆盖所选完整日期，暂不显示金额。");
+ expect(screen.queryByText("0.30")).not.toBeInTheDocument();
+ expect(new URLSearchParams(vi.mocked(readSavedOrderAmount).mock.calls.at(-1)![1]).get("storeId")).toBe(second.id);
+ expect(screen.getByText("GMV 数据待接入")).toBeVisible();
+ await userEvent.selectOptions(shop,"");
+ expect(screen.queryByRole("heading",{name:"已保存订单商品金额（原币）"})).not.toBeInTheDocument();
 });
