@@ -302,3 +302,30 @@ func TestTemuRuleReadRejectsSingleCallAndEarlierCallerDeadlines(t *testing.T) {
 		})
 	}
 }
+
+func TestSavedTemuCreationBindingUsesOnlyLocalFacts(t *testing.T) {
+	for _, tc := range []struct {
+		partition storecenter.OfficialIdentityPartition
+		mode      storecenter.OfficialMerchantMode
+	}{
+		{storecenter.PartitionCN, storecenter.MerchantFullyManaged},
+		{storecenter.PartitionCN, storecenter.MerchantSemiManaged},
+		{storecenter.PartitionUS, storecenter.MerchantLocal},
+		{storecenter.PartitionEU, storecenter.MerchantLocal},
+		{storecenter.PartitionGlobal, storecenter.MerchantLocal},
+	} {
+		t.Run(string(tc.partition)+string(tc.mode), func(t *testing.T) {
+			a, reader, provider, subject := newTemuRulesAccess(t, tc.partition, tc.mode)
+			binding, err := a.ReadSavedTemuCreationBinding(context.Background(), subject, "store-a")
+			require.NoError(t, err)
+			require.True(t, binding.ValidTemuApplication())
+			require.Equal(t, tc.partition, binding.IdentityPartition)
+			require.Equal(t, tc.mode, binding.MerchantMode)
+			reader.material.Connection.MerchantIdentityHash = strings.Repeat("a", 64)
+			_, err = a.ReadSavedTemuCreationBinding(context.Background(), subject, "store-a")
+			require.ErrorIs(t, err, ErrProductAccessChanged)
+			require.Zero(t, provider.identityReads)
+			require.Zero(t, provider.metadataReads)
+		})
+	}
+}

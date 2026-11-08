@@ -231,3 +231,34 @@ it("shows SHEIN US publication counts for the selected shop and dates", async ()
   expect(within(card).getByText("结果待核实")).toBeVisible();
   expect(within(card).queryByText(/%/)).not.toBeInTheDocument();
 });
+it("shows Temu creation counts for the selected shop and dates", async () => {
+  const storeA = { id: "123e4567-e89b-42d3-a456-426614174000", name: "Temu 验收店 A", platform: "temu", region: "DE", status: "active" };
+  const storeB = { ...storeA, id: "123e4567-e89b-42d3-a456-426614174001", name: "Temu 验收店 B" };
+  const title = "Temu 商品创建";
+  state.context.permissions.push("workbench.supply.read");
+  vi.mocked(cockpitRequest).mockImplementation(async (_scope, path) => path === "capabilities"
+    ? { ...capabilities, stores: [storeA, storeB] } : matrix);
+  vi.mocked(readCockpitMetrics).mockImplementation(async (_scope, owner, query) => {
+    const params = new URLSearchParams(query);
+    const yesterday = params.get("startDate") === "2026-10-10";
+    const counts = String(owner) === "temu-create"
+      ? { confirmed: params.get("storeId") === storeB.id ? 0 : yesterday ? 1 : 2, unknown: 1 }
+      : { pending: 2, review: 1 };
+    return { result: { status: "complete", capturedAt: "2026-10-11T00:00:00Z", counts } };
+  });
+  const user = userEvent.setup();
+  mount();
+  const shop = await screen.findByRole("combobox", { name: "店铺" });
+  expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument();
+  await user.selectOptions(shop, storeA.id);
+  const panel = await screen.findByRole("heading", { name: title });
+  const card = panel.parentElement!.parentElement!;
+  expect(await within(card).findByText("2")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: /^昨日$/ }));
+  await waitFor(() => expect(within(card).getAllByText("1")).toHaveLength(2));
+  await user.selectOptions(shop, storeB.id);
+  expect(await within(card).findByText("0")).toBeVisible();
+  expect(within(card).getByText("已确认创建")).toBeVisible();
+  expect(within(card).getByText("结果待核实")).toBeVisible();
+  expect(within(card).queryByText(/%/)).not.toBeInTheDocument();
+});

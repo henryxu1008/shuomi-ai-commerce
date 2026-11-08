@@ -16,19 +16,19 @@ type SheinPublishMetricsSource interface {
 	ListSheinPublishAttemptIDs(context.Context, collection.Scope, submission.SheinPublishReadScope, time.Time, time.Time, int) ([]string, error)
 }
 
-type sheinPublishCounts struct {
+type publicationCounts struct {
 	Confirmed int `json:"confirmed"`
 	Unknown   int `json:"unknown"`
 }
 
-type sheinPublishMetrics struct {
-	Status     string              `json:"status"`
-	CapturedAt time.Time           `json:"capturedAt"`
-	Counts     *sheinPublishCounts `json:"counts,omitempty"`
+type publicationMetrics struct {
+	Status     string             `json:"status"`
+	CapturedAt time.Time          `json:"capturedAt"`
+	Counts     *publicationCounts `json:"counts,omitempty"`
 }
 
-func (a *Application) SheinPublishMetrics(ctx context.Context, filter workbenchmetrics.Filter, now time.Time) (sheinPublishMetrics, error) {
-	result := sheinPublishMetrics{CapturedAt: now.UTC()}
+func (a *Application) SheinPublishMetrics(ctx context.Context, filter workbenchmetrics.Filter, now time.Time) (publicationMetrics, error) {
+	result := publicationMetrics{CapturedAt: now.UTC()}
 	if len(filter.Stores) != 1 || !filter.Start.Before(filter.End) {
 		return result, record.ErrInvalid
 	}
@@ -63,7 +63,7 @@ func (a *Application) SheinPublishMetrics(ctx context.Context, filter workbenchm
 	}
 	result.Status = "limited"
 	if len(ids) <= workbenchmetrics.MaxCandidates {
-		counts := &sheinPublishCounts{}
+		counts := &publicationCounts{}
 		seen := make(map[string]bool, len(ids))
 		for _, id := range ids {
 			if seen[id] {
@@ -71,29 +71,29 @@ func (a *Application) SheinPublishMetrics(ctx context.Context, filter workbenchm
 			}
 			seen[id] = true
 			if err := a.countSheinPublishAttempt(ctx, scope, cohort, filter, id, counts); err != nil {
-				return sheinPublishMetrics{}, err
+				return publicationMetrics{}, err
 			}
 		}
 		result.Status, result.Counts = "complete", counts
 	}
 	fresh, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
 	if err != nil {
-		return sheinPublishMetrics{}, err
+		return publicationMetrics{}, err
 	}
 	if fresh != scope {
-		return sheinPublishMetrics{}, record.ErrForbidden
+		return publicationMetrics{}, record.ErrForbidden
 	}
 	current, err := readBinding()
 	if err != nil {
-		return sheinPublishMetrics{}, err
+		return publicationMetrics{}, err
 	}
 	if current != cohort {
-		return sheinPublishMetrics{}, record.ErrForbidden
+		return publicationMetrics{}, record.ErrForbidden
 	}
 	return result, nil
 }
 
-func (a *Application) countSheinPublishAttempt(ctx context.Context, scope collection.Scope, cohort submission.SheinPublishReadScope, filter workbenchmetrics.Filter, id string, counts *sheinPublishCounts) error {
+func (a *Application) countSheinPublishAttempt(ctx context.Context, scope collection.Scope, cohort submission.SheinPublishReadScope, filter workbenchmetrics.Filter, id string, counts *publicationCounts) error {
 	source := a.SheinPublishSource
 	attempt, err := source.ReadCockpitSubmissionAttempt(ctx, scope, id)
 	if err != nil || attempt.AttemptID != id || attempt.OrganizationID != scope.OrganizationID ||
