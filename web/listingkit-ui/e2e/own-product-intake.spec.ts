@@ -59,7 +59,7 @@ test("uploads, generates and adopts exactly three SKUs, saves, then refreshes th
  const originalKey=prepared.request().headers()["idempotency-key"];
  await page.route("**/own-product-intake/*/confirm",route=>route.abort("failed"),{times:1});
  await page.getByRole("button",{name:"确认生成候选"}).click();
- await expect(page.getByRole("alert")).toContainText("请求结果待核实");
+ await expect(page.getByRole("alert").filter({hasText:"请求结果待核实"})).toBeVisible();
  await page.getByRole("button",{name:"核实原生成结果"}).click();
  const recovering=page.waitForResponse(r=>r.url().endsWith("/own-product-intake/prepare"));
  await page.getByRole("button",{name:"按原请求重新检查用量"}).click();
