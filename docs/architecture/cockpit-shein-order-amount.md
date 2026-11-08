@@ -1,6 +1,6 @@
 # SHEIN US 单店已保存订单商品金额（原币）
 
-Design Basis: Independent Architecture. Admission Status: DESIGNING。执行 #1163。用户 2026-11-08 批准先明确口径并实现单店只读统计，在独立本地实例用测试订单验日期、店铺、金额缺失和覆盖不足；不叫 GMV、不调用外部平台、不动全平台成功率、GMV 卡片、原合成预览。Figma 仅可参考业务流程，不作 UI 验收标准。
+Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY。执行 #1163。用户 2026-11-08 批准先明确口径并实现单店只读统计，在独立本地实例用测试订单验日期、店铺、金额缺失和覆盖不足；不叫 GMV、不调用外部平台、不动全平台成功率、GMV 卡片、原合成预览。Figma 仅可参考业务流程，不作 UI 验收标准。
 
 ## 用户结果与边界
 
@@ -15,8 +15,8 @@ Design Basis: Independent Architecture. Admission Status: DESIGNING。执行 #11
 - 只使用原 owner 的当前完整 head generation，不拼历史批次、不把多个同步版本相加。以 organization+store+sync+platform order ID 唯一记录读取，每订单计一次；同一 generation 如替身返回重复相同记录去重，重复身份载荷不同返回不可用。一个订单的多个 goodsId/包裹不重复加订单总额；订单取消/换货等状态不作额外剔除，因指标仅表达所保存订单的商品金额，不表示支付/有效成交。
 - 金额仅来自 Order.Amount.Value（productTotalPrice）和 Currency（orderCurrency），不取 SupplyCost。复用原生十进制约束（非负、最多20位整数和8位小数），Go math/big.Int 按8位定标精确求和，输出规范十进制字符串、至少2位小数，不转 float、不做汇率/币种精度舍入或支付记账。最多250条，输出长度有界；不同3位大写原币分行，绝不跨币相加。
 - 当前 head 必须 status=completed、Progress.Incomplete=false、observedAt非空，并且 Range 覆盖整段查询。原同步 Window.End 为闭区间、秒精度，必须 >=查询 exclusiveEnd-1秒。原头/最新批次不同或最新尚非completed，保守显示覆盖不足，不借旧数据填全量。响应前重读 Heads 验证源 ID/revision/generation/binding/range/status 未变化，复验授权、Store目录和原 handle。
-- 范围覆盖不足/无同步时无金额和订单总数，提示缺覆盖与原同步范围/取得时间。覆盖完整但期间无订单时明确空结果（不凭空猜 USD 0）。缺 Amount/值、币种或列表时间时，返回匹配订单数及缺失字段数量，隐藏所有金额，提示「金额/币种/日期字段不完整」，不把缺失当0。日期缺失的行无法判定所属期间，保守计入时间未知并隐藏金额。
-- 新窄 Repository.OrderAmountRecords 按明确 org/store/sync、订单类型及 [IssuedAt起,止) 读取，同时包含列表时间缺失的记录；候选先筛日期再限251。大于250返回limited，提示缩小日期。非法非空时间导致不可读取，不猜日期。绑定、来源或依赖不可证明时 unavailable/原403，均不返回数值。
+- 范围覆盖不足/无同步时无金额和订单总数，提示缺覆盖与原同步范围/取得时间。覆盖完整但期间无订单时明确空结果（不凭空猜 USD 0）。缺 Amount/值、币种或列表时间时，返回 matchedOrderCount（仅日期明确且落入区间）及缺失字段数量，时间未知独立 unknownTimeCount，隐藏所有金额，提示「金额/币种/日期字段不完整」，不把缺失当0。日期缺失的行无法判定所属期间，保守计入时间未知并隐藏金额。
+- 新窄 Repository.OrderAmountRecords 仅投影 OrderAmountRecord 的店铺、sync、订单ID、site、IssuedAt和Amount，避免加载商品/包裹正文；按明确 org/store/sync、订单类型及 [IssuedAt起,止) 读取，同时包含列表时间缺失的记录；候选先筛日期再限251。大于250返回limited，提示缩小日期。非法非空时间导致不可读取，不猜日期。绑定、来源或依赖不可证明时 unavailable/原403，均不返回数值。
 - GET 无外部平台访问：SHEIN 原 ObservationAccess.Authorize/Check 只验证本地 Store/连接材料和 IAM；不调用 Orders/OrderDetails/Track，不启动 Sync/Ensure。保留原 sync 同一 generation 原子发布和不可变 completed 事实，不增加跨 owner 快照或恢复协议。
 
 ## 调用与响应
@@ -35,3 +35,5 @@ status 为 complete / missing_fields / coverage_incomplete / limited。共同 ca
 先 RED：UTC+8 两端、IssuedAt 与 CreatedAt 不同、重复订单/包裹、多同步批次不叠加、两个店铺日期、精确小数/多币、缺金额/币种/时间、完整空结果、同步范围不足/未完成/新head变化、原权限/换绑/依赖失败及候选上限。复用已有单元、隔离 PostgreSQL、BFF/schema 和首页组件测试；只测本次风险，不建设验收平台。
 
 独立本地实例在新端口准备两家 SHEIN US 测试店、不同日期及覆盖范围、原生保存订单和异常字段。正式 GET → BFF → 首页浏览器验证无刷新切换、已知/缺失/不完整提示；无平台/provider客户端。保留既有实例与预览，提供入口。实现完成开一个草稿 PR，合并、正式部署、关闭 #1163 另行授权。Legacy decision: N/A，无迁移/第二事实源。
+
+独立架构复核：设计提交 092642aac62703cab7264bf19f7b3cc67e9322f6 及窄投影补充，由 /root/architecture_review 检查真实 CommitPage/Stop 原子与 terminal 不可变、Heads、SHEIN 本地授权及 HTTP/BFF，结论 IMPLEMENTATION_READY，无 BLOCKER。未知日期计数、SQL先日期后限额/非法日期失败、源切换/撤权/换绑作为 IMPLEMENTATION_TEST 在本批收敛。
