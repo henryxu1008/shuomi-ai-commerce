@@ -128,6 +128,59 @@ func TestPostgresUploadPlanWholeSelectionAtomicContinueAndReplay(t *testing.T) {
 	require.ErrorIs(t, err, preparation.ErrNotFound)
 
 	selected := preview.Items[0].Item.SourceID
+	t.Run("runtime role keeps immutable sources read only", func(t *testing.T) {
+		// Match the serving role's relevant grants, not the schema owner's
+		// superuser privileges used to seed this isolated database.
+		require.NoError(t, db.Exec("CREATE ROLE upload_plan_serving NOLOGIN").Error)
+		require.NoError(t, db.Exec(`GRANT USAGE ON SCHEMA public TO upload_plan_serving;
+GRANT SELECT,INSERT ON listing_preparation_sources TO upload_plan_serving;
+GRANT SELECT,INSERT,UPDATE ON listing_preparations,listing_preparation_targets,listing_preparation_operations,listing_preparation_operation_items,listing_preparation_upload_plans,listing_preparation_upload_plan_items TO upload_plan_serving`).Error)
+		conn, err := pool.Conn(ctx)
+		require.NoError(t, err)
+		defer conn.Close()
+		_, err = conn.ExecContext(ctx, "SET ROLE upload_plan_serving")
+		require.NoError(t, err)
+		defer conn.ExecContext(context.Background(), "RESET ROLE")
+		serving, err := gorm.Open(postgres.New(postgres.Config{Conn: conn}), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		require.NoError(t, err)
+		var mayUpdate, mayDelete bool
+		require.NoError(t, serving.Raw("SELECT has_table_privilege(current_user,'listing_preparation_sources','UPDATE')").Scan(&mayUpdate).Error)
+		require.NoError(t, serving.Raw("SELECT has_table_privilege(current_user,'listing_preparation_sources','DELETE')").Scan(&mayDelete).Error)
+		require.False(t, mayUpdate)
+		require.False(t, mayDelete)
+		t.Run("create and continue original plan", func(t *testing.T) {
+			runtimeRepo, err := NewUploadPlanRepository(ctx, serving)
+			require.NoError(t, err)
+			runtimeService, err := preparation.NewUploadPlanService(fixedAuth{scope}, runtimeRepo, uploadPlanInputsFixture{})
+			require.NoError(t, err)
+			subset := config
+			subset.SourceIDs = []string{selected}
+			created, err := runtimeService.Create(actor, uuid.NewString(), subset)
+			require.NoError(t, err)
+			checked, err := runtimeService.Preview(actor, created.Plan.ID, preparation.UploadPlanContinueInput{ExpectedRevision: 1})
+			require.NoError(t, err)
+			command := preparation.UploadPlanContinueInput{ExpectedRevision: 1, PreviewHash: checked.Hash}
+			key := uuid.NewString()
+			continued, err := runtimeService.Continue(actor, created.Plan.ID, key, command)
+			require.NoError(t, err)
+			require.Equal(t, created.Plan.ID, continued.PlanID)
+			require.Len(t, continued.OperationIDs, 1)
+			again, err := runtimeService.Continue(actor, created.Plan.ID, key, command)
+			require.NoError(t, err)
+			require.True(t, again.Replayed)
+			require.Equal(t, continued.OperationIDs, again.OperationIDs)
+		})
+		t.Run("prepare direct operation", func(t *testing.T) {
+			err := serving.Transaction(func(tx *gorm.DB) error {
+				out, err := prepareOperationTx(ctx, tx, scope, uuid.NewString(), preparation.OperationInput{PreparationID: prepID, ExpectedRevision: 1, StoreID: config.StoreID, Action: preparation.OperationAdapt, SourceIDs: []string{selected}})
+				if err == nil {
+					require.EqualValues(t, 1, out.Operation.Count)
+				}
+				return err
+			})
+			require.NoError(t, err)
+		})
+	})
 	t.Run("different keys at one revision bind only one operation", func(t *testing.T) {
 		subset := config
 		subset.SourceIDs = []string{selected}

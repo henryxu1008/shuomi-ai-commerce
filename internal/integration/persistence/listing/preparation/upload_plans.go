@@ -139,6 +139,9 @@ func (r *UploadPlanRepository) CreateUploadPlan(ctx context.Context, proof prepa
 		return preparation.UploadPlanReceipt{}, preparation.ErrUnavailable
 	}
 	query := operationBase(tx.Model(&sourceRow{}), scope).Where("preparation_id=?", in.PreparationID)
+	// Transfer fixes source membership and versions. The serving role cannot
+	// update/delete sources; row locking would incorrectly require UPDATE.
+	// The parent preparation lock above still binds its checked revision.
 	if len(in.SourceIDs) > 0 {
 		query = query.Where("id IN ?", in.SourceIDs)
 	}
@@ -150,7 +153,7 @@ func (r *UploadPlanRepository) CreateUploadPlan(ctx context.Context, proof prepa
 		if after != "" {
 			page = page.Where("id>?::uuid", after)
 		}
-		if page.Clauses(clause.Locking{Strength: "SHARE"}).Order("id").Limit(100).Find(&sources).Error != nil {
+		if page.Order("id").Limit(100).Find(&sources).Error != nil {
 			return preparation.UploadPlanReceipt{}, preparation.ErrUnavailable
 		}
 		if len(sources) == 0 {
