@@ -4,9 +4,10 @@ import {test,expect} from "@playwright/test";
 
 const secret="codex-own-intake-isolated-browser-only";
 const backend=process.env.OWN_INTAKE_BROWSER_BACKEND;
+const preSave=process.env.OWN_INTAKE_BROWSER_PRESAVE==="1";
 test.skip(process.env.OWN_INTAKE_BROWSER!=="1"||process.env.AUTH_SECRET!==secret||!backend,"requires the isolated Go/PostgreSQL fixture");
 
-test("uploads, generates and adopts exactly three SKUs, saves, then refreshes the details",async({page,context,baseURL},info)=>{
+test("uploads and adopts three SKUs; checks rejection before save or persists when enabled",async({page,context,baseURL},info)=>{
  test.setTimeout(120000);
  const origin=baseURL!,issuer="https://own-intake-ui.invalid",client="own-intake-fixture";
  const namespace=createHash("sha256").update(JSON.stringify([origin,issuer,client])).digest("hex").slice(0,32);
@@ -28,6 +29,8 @@ test("uploads, generates and adopts exactly three SKUs, saves, then refreshes th
   }
   return route.continue();
  });
+ let saveRequests=0;
+ if(preSave)await page.route("**/api/workbench/collections/commands",route=>{saveRequests++;return route.abort();});
  await page.goto("/workbench/data/mine/own/new");
  await expect(page.getByRole("heading",{name:"添加自有商品",level:1})).toBeVisible();
  const agent=await page.request.get("/api/workbench/agents/product.own.intake.agent",{headers:{"X-Expected-User-ID":"admin","X-Expected-Organization-ID":"B"}});
@@ -50,7 +53,7 @@ test("uploads, generates and adopts exactly three SKUs, saves, then refreshes th
   await expect(images.getByAltText(`商品图片 ${uploaded.length}`)).toBeVisible();
  }
  await page.getByRole("button",{name:"开始整理资料"}).click();
- await page.getByLabel("给 AI 的商品资料").fill("黑 M，SKU BLK-M，CNY 29，库存 0\n黑 L，SKU BLK-L，CNY 29\n白 M，SKU WHT-M，CNY 29，图片2");
+ await page.getByLabel("给 AI 的商品资料").fill("黑 M，SKU BLK-M，CNY 29，库存明确为 0\n黑 L，SKU BLK-L，CNY 29，库存未填写\n白 M，SKU WHT-M，CNY 29，图片2");
  await page.getByLabel("让 AI 查看一张图片").selectOption({label:"图片 2"});
  const prepare=page.waitForResponse(r=>r.url().endsWith("/own-product-intake/prepare"));
  await page.getByRole("button",{name:"检查生成用量"}).click();
@@ -88,6 +91,19 @@ test("uploads, generates and adopts exactly three SKUs, saves, then refreshes th
  await expect(images.getByLabel("公共图片 2")).not.toBeChecked();
  await expect(page.getByLabel("变体图片 3")).toHaveValue(uploaded[1]);
  await page.screenshot({path:info.outputPath("adopted-three-skus.png"),fullPage:true});
+ if(preSave){
+  await page.getByLabel("让 AI 查看一张图片").selectOption({label:"仅使用文字资料"});
+  await page.getByRole("button",{name:"检查生成用量"}).click();
+  await page.getByRole("button",{name:"确认生成候选"}).click();
+  const error=page.getByRole("alert").filter({hasText:"第 2 个 SKU 的库存"});
+  await expect(error).toContainText("未填写不能作为 0");
+  await expect(page.getByLabel("库存 1")).toHaveValue("0");
+  await expect(page.getByLabel("库存 2")).toHaveValue("");
+  await expect(page.getByLabel(/^SKU \d$/)).toHaveCount(3);
+  await page.screenshot({path:info.outputPath("rejected-stock-field-before-save.png"),fullPage:true});
+  expect(saveRequests).toBe(0);
+  return;
+ }
  const saving=page.waitForResponse(r=>r.url().endsWith("/collections/commands")&&r.request().method()==="POST");
  await page.getByRole("button",{name:"保存商品",exact:true}).click();
  const saved=await saving;

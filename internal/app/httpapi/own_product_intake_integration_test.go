@@ -137,7 +137,11 @@ func configureOwnIntakeFixture(t *testing.T, settings *ProductAgentDependencies,
 			strings.Count(string(body), "data:image/png;base64,") != wantImages || !strings.Contains(string(body), "WHT-M") {
 			return nil, fmt.Errorf("expected %d PNG parts and original SKU facts on the governed model wire", wantImages)
 		}
-		return ownIntakeControlledResponse(ownIntakeFixtureCandidate), nil
+		candidate := ownIntakeFixtureCandidate
+		if os.Getenv("OWN_INTAKE_BROWSER") == "1" && os.Getenv("OWN_INTAKE_BROWSER_PRESAVE") == "1" && dispatch == 2 {
+			candidate = strings.Replace(candidate, `"sku":"BLK-L","currency"`, `"sku":"BLK-L","stock":0,"currency"`, 1)
+		}
+		return ownIntakeControlledResponse(candidate), nil
 	})
 	return publishFX
 }
@@ -229,10 +233,14 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 
 	if os.Getenv("OWN_INTAKE_BROWSER") == "1" {
 		runOwnIntakeBrowser(t, server.URL)
-		require.EqualValues(t, 1, calls.Load(), "browser confirmation dispatches once")
+		wantCalls, wantProducts := 1, 1
+		if os.Getenv("OWN_INTAKE_BROWSER_PRESAVE") == "1" {
+			wantCalls, wantProducts = 2, 0
+		}
+		require.EqualValues(t, wantCalls, calls.Load(), "only explicitly confirmed controlled responses are dispatched")
 		var count int64
 		require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
-		require.EqualValues(t, 1, count, "browser saved exactly one product")
+		require.EqualValues(t, wantProducts, count, "pre-save mode must leave the own-product library empty")
 		return
 	}
 	call := func(method, path, key string, body any, status int) []byte {

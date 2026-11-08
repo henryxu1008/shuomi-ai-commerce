@@ -59,6 +59,20 @@ func TestCandidateStockDoesNotTurnUnknownOrAmbiguousIntoZero(t *testing.T) {
 	require.ErrorContains(t, c.Validate(in), "rows[0].evidence")
 }
 
+func TestStockLabelsIgnoreSKUFragmentsAndKeepUnconfirmedUnknown(t *testing.T) {
+	for _, sku := range []string{"STOCK-M", "INVENTORY-M", "STOCK123", "SKU_STOCK_M", "stock"} {
+		in, c := naturalStockFixture("库存明确为0")
+		in.Notes = strings.ReplaceAll(in.Notes, "BLK-M", sku)
+		c.Rows[0].Evidence = strings.ReplaceAll(c.Rows[0].Evidence, "BLK-M", sku)
+		c.Rows[0].SKU = sku
+		require.NoError(t, c.Validate(in), sku)
+	}
+	for _, phrase := range []string{"库存为0，待确认", "库存为0，未确认", "库存为0，未确定", "库存为0，待核实"} {
+		in, c := naturalStockFixture(phrase)
+		require.ErrorContains(t, c.Validate(in), "rows[0].stock", phrase)
+	}
+}
+
 func TestCandidatePreservesSparseVariantsAndZero(t *testing.T) {
 	input := Input{Notes: "黑 M，SKU BLK-M，CNY 29，库存 0\n黑 L，SKU BLK-L，CNY 29\n白 M，SKU WHT-M，CNY 29，图片2", GalleryCount: 2}
 	raw := []byte(`{"title":"三规格上衣","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存 0","sku":"BLK-M","currency":"CNY","price":29,"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29","sku":"BLK-L","currency":"CNY","price":29},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","currency":"CNY","price":29,"image":2}]}`)
