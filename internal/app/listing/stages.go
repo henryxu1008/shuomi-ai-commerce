@@ -26,17 +26,22 @@ func (p ReviewProjection) pending(ctx context.Context, scope collection.Scope, i
 	if item.Status != preparation.ItemReview {
 		return false, nil
 	}
+	state, err := p.reviewState(ctx, scope, item, productKey, version)
+	return err == nil && state != "rejected", err
+}
+
+func (p ReviewProjection) reviewState(ctx context.Context, scope collection.Scope, item preparation.OperationItem, productKey string, version uint64) (string, error) {
 	if p.Reviews == nil {
-		return false, record.ErrUnavailable
+		return "", record.ErrUnavailable
 	}
 	v, err := p.Reviews.Read(ctx, review.Scope{Org: scope.OrganizationID, Actor: scope.ActorID}, item.ResultReference)
 	if err != nil {
-		return false, record.ErrUnavailable
+		return "", record.ErrUnavailable
 	}
 	if v.ID != item.ResultReference || v.Org != scope.OrganizationID || v.Owner != scope.ActorID || v.Input.ProductKey != productKey || v.Input.BaseVersion != version {
-		return false, record.ErrConflict
+		return "", record.ErrConflict
 	}
-	return v.State != "rejected", nil
+	return v.State, nil
 }
 func (p ReviewProjection) RequireUploadReady(ctx context.Context, scope collection.Scope, saved record.TargetRecord) error {
 	if p.Facts == nil {

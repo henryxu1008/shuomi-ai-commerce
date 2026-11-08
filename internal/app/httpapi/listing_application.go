@@ -7,6 +7,7 @@ import (
 	listingapp "task-processor/internal/app/listing"
 	listinghttp "task-processor/internal/app/listing/httpapi"
 	storeapp "task-processor/internal/app/storecenter"
+	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
@@ -22,6 +23,7 @@ import (
 	"task-processor/internal/listing/submission"
 	temurules "task-processor/internal/marketplace/temu/rules"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/product/review"
 	"task-processor/internal/storecenter"
 	"task-processor/internal/workbenchcontext"
 	"time"
@@ -147,6 +149,36 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	app := &listingapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: listingapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: listingapp.OfficialTikTokRuleStore{Access: access}, WalmartRules: walmartRules, WalmartCatalog: walmartRules, WalmartStatusStores: walmartStores, WalmartResults: official, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: listingapp.OfficialRuleStore{Access: access}, TargetMerchants: listingapp.OfficialTargetMerchantStore{Access: access}}
 	var optimizer listingapp.OperationOptimizer
 	app.StageProjection = stageProjection
+	app.CockpitStoreAccess = func(ctx context.Context, scope collection.Scope, ids []string) error {
+		fresh, err := freshWorkbenchIdentity(ctx, resolver, permissions, []string{scope.OrganizationID}, authz.PermissionWorkbenchStoreRead)
+		if errors.Is(err, review.ErrForbidden) {
+			return record.ErrForbidden
+		}
+		if err != nil {
+			return record.ErrUnavailable
+		}
+		if fresh.UserID != scope.ActorID || fresh.TenantID != scope.OrganizationID || fresh.EffectiveMemberID != scope.MemberID {
+			return record.ErrForbidden
+		}
+		allowed, err := authz.AuthorizeOrganization(ctx, permissions, scope.ActorID, scope.OrganizationID, fresh.Roles, collection.PermissionRead)
+		if err != nil {
+			return record.ErrUnavailable
+		}
+		if !allowed {
+			return record.ErrForbidden
+		}
+		ctx = authidentity.WithAuthenticatedIdentity(ctx, fresh)
+		for _, id := range ids {
+			store, err := storeRepo.Get(ctx, scope.OrganizationID, id)
+			if errors.Is(err, storecenter.ErrNotFound) {
+				return record.ErrForbidden
+			}
+			if err != nil || store == nil || store.ID() != id {
+				return record.ErrUnavailable
+			}
+		}
+		return nil
+	}
 	app.Uploader = uploader
 	app.SheinPublication, err = listingapp.NewSheinPublicationService(listingapp.SheinPublicationDependencies{Sources: sources, Records: records, Authorization: auth, ExecutionAuthorization: executionAuth, Receipts: official, Intents: official, Kernel: kernel, Attempts: effects, Stores: listingapp.OfficialSheinPublicationStore{Access: access}})
 	if err != nil {

@@ -230,6 +230,7 @@
 - `notification-center.md` — [通知中心 V1：站内通知与业务状态投影](notification-center.md)
 - `operations-cockpit-figma-read.md` — [运营驾驶舱四页 Figma 与只读投影补充](operations-cockpit-figma-read.md)
 - `operations-cockpit.md` — [运营驾驶舱首版：人工经营事实与有据可查的经营投影](operations-cockpit.md)
+- `cockpit-listing-task-metrics.md` — [运营驾驶舱首页：刊登与任务统计](cockpit-listing-task-metrics.md)
 - `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
 - `project-center-overview-read.md` — [Project Center overview read V1](project-center-overview-read.md)
 - `task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](task-center-native-run-projection.md)

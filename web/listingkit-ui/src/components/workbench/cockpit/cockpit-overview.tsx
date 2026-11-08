@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { cockpitRequest, cockpitErrorText, type CockpitScope } from "@/lib/api/operations-cockpit";
 import { cockpitCapabilities, cockpitMatrix, cockpitRules, moneyText, type CockpitCapabilities } from "@/lib/contracts/operations-cockpit";
+import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
+import { listingMetrics, taskMetrics, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
+import { CockpitTaskDistribution } from "./cockpit-task-distribution";
 import styles from "./cockpit-overview.module.css";
 
 type Matrix = z.infer<typeof cockpitMatrix>;
@@ -72,11 +75,11 @@ function ReadOverview({ scope, permissions }: { scope: CockpitScope; permissions
   if (query.error || !query.data) return <OverviewPanels message={cockpitErrorText(query.error)}
     filters={<Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}>重新读取</Button>} />;
   return <ConnectedOverview key={JSON.stringify([scope, query.data.access])}
-    scope={scope} capabilities={query.data} refreshing={query.isFetching} />;
+    scope={scope} capabilities={query.data} refreshing={query.isFetching} permissions={permissions} />;
 }
 
-function ConnectedOverview({ scope, capabilities, refreshing }: {
-  scope: CockpitScope; capabilities: CockpitCapabilities; refreshing: boolean;
+function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
+  scope: CockpitScope; capabilities: CockpitCapabilities; refreshing: boolean; permissions?: readonly string[];
 }) {
   const client = useQueryClient();
   const [platform, setPlatform] = useState("");
@@ -93,11 +96,44 @@ function ConnectedOverview({ scope, capabilities, refreshing }: {
   const query = params.toString();
   const tooLarge = query.length >= 16000;
   const valid = !tooLarge && (!narrowed || selected.length > 0);
+  const statsParams = new URLSearchParams(period);
+  for (const id of selected.map(item => item.id).sort()) statsParams.append("storeId", id);
+  const statsQuery = statsParams.toString();
+  const statsScopeMessage = statsQuery.length >= 15999 || selected.length > 500 ? "范围较大，请按店铺筛选"
+    : selected.length === 0 ? "所选范围暂无店铺" : undefined;
+  const listingAllowed = permissions?.includes("workbench.supply.read") ?? false;
+  const tasksAllowed = permissions?.includes("workbench.task.read") ?? false;
   const access = capabilities.access;
   const key = ["operations-cockpit", scope.userId, scope.organizationId];
   const matrix = useQuery({ queryKey: [...key, "home-matrix", query, access.storesRead], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), enabled: access.storesRead && valid, retry: false, gcTime: 0 });
   const alerts = useQuery({ queryKey: [...key, "home-alerts", query, access.alertsRead], queryFn: ({ signal }) => cockpitRequest(scope, "alerts?" + query, cockpitRules, { signal }), enabled: access.alertsRead && valid, retry: false, gcTime: 0 });
   const advice = useQuery({ queryKey: [...key, "home-advice", query, access.adviceRead], queryFn: ({ signal }) => cockpitRequest(scope, "advice?" + query, cockpitRules, { signal }), enabled: access.adviceRead && valid, retry: false, gcTime: 0 });
+
+  const stats = useQuery({
+    queryKey: [...key, "home-metrics", statsQuery, listingAllowed, tasksAllowed],
+    enabled: !refreshing && !statsScopeMessage && (listingAllowed || tasksAllowed),
+    retry: false,
+    gcTime: 0,
+    queryFn: async ({ signal }) => {
+      const [listing, tasks] = await Promise.allSettled([
+        listingAllowed ? readCockpitMetrics(scope, "supply-preparations", statsQuery, listingMetrics, signal) : undefined,
+        tasksAllowed ? readCockpitMetrics(scope, "tasks", statsQuery, taskMetrics, signal) : undefined,
+      ] as const);
+      return { listing, tasks };
+    },
+  });
+  const listingRead = stats.data?.listing.status === "fulfilled" ? stats.data.listing.value : undefined;
+  const taskRead = stats.data?.tasks.status === "fulfilled" ? stats.data.tasks.value : undefined;
+  function metricsMessage(allowed: boolean, read?: { message?: string; result?: { status: string } }) {
+    if (!allowed) return "当前身份无查看权限";
+    if (statsScopeMessage) return statsScopeMessage;
+    if (refreshing || stats.isFetching || stats.isPending) return "正在读取所选范围统计…";
+    if (read?.result?.status === "complete") return undefined;
+    if (read?.result?.status === "limited") return "记录较多，请缩小日期或店铺范围";
+    return read?.message ?? "统计暂不可用";
+  }
+  const listingMessage = metricsMessage(listingAllowed, listingRead);
+  const taskMessage = metricsMessage(tasksAllowed, taskRead);
 
   function readState(allowed: boolean, fetching: boolean, error: unknown) {
     if (refreshing) return "正在刷新经营事实…";
@@ -149,6 +185,10 @@ function ConnectedOverview({ scope, capabilities, refreshing }: {
     filters={filters}
     message={refreshing ? "正在刷新经营事实…" : undefined}
     activeStores={refreshing ? undefined : selected.filter(s => s.status === "active").length}
+    listingCounts={!listingMessage && listingRead?.result?.status === "complete" ? listingRead.result.counts : undefined}
+    taskCounts={!taskMessage && taskRead?.result?.status === "complete" ? taskRead.result.counts : undefined}
+    listingMessage={listingMessage}
+    taskMessage={taskMessage}
     platforms={refreshing ? undefined : [...new Set(selected.map(s => s.platform))].sort()}
     matrix={matrixState ? undefined : matrix.data}
     matrixState={matrixState}
@@ -181,10 +221,14 @@ function RuleList({ data, state, mode, actionFor }: {
   </>;
 }
 
-function OverviewPanels({ filters, message, activeStores, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
+function OverviewPanels({ filters, message, activeStores, listingCounts, taskCounts, listingMessage, taskMessage, platforms, matrix, matrixState, matrixHref, rowHref, alerts, advice, alertLink, adviceLink }: {
   filters?: ReactNode;
   message?: string;
   activeStores?: number;
+  listingCounts?: { pending: number; review: number };
+  taskCounts?: TaskCounts;
+  listingMessage?: string;
+  taskMessage?: string;
   platforms?: readonly string[];
   matrix?: Matrix;
   matrixState?: string;
@@ -195,6 +239,10 @@ function OverviewPanels({ filters, message, activeStores, platforms, matrix, mat
   alertLink?: { href: string; label: string };
   adviceLink?: { href: string; label: string };
 }) {
+  const values = [undefined, activeStores, listingCounts?.pending, listingCounts?.review, undefined, taskCounts?.ERROR];
+  const notes = [undefined, undefined, listingMessage ?? (listingCounts && "期间新增刊登资料 · 仍待补全或上传"),
+    listingMessage ?? (listingCounts && "期间新增刊登资料 · 仍待人工审核"), undefined,
+    taskMessage ?? (taskCounts && "期间创建的本人店铺任务 · 当前异常")];
   const profit = matrix?.summaryComplete && matrix.total > 0 ? moneyText(matrix.summary.netProfit) : undefined;
   const profitNote = matrix ? profit ? "人工收入与成本 · 完整覆盖所选店铺"
     : "待完整数据，未按部分录入推定完整利润" : matrixState ?? message ?? "待完整数据";
@@ -221,8 +269,8 @@ function OverviewPanels({ filters, message, activeStores, platforms, matrix, mat
       <div className={styles.metrics}>
         {metrics.map(([title, note, tone], i) => <Card className={styles.metric} key={title}>
           <div className={styles.metricTop}><h2>{title}</h2><span className={styles.mark} data-tone={tone} aria-hidden="true">◉</span></div>
-          <strong>{i === 1 ? activeStores ?? "—" : "—"}</strong>
-          <small>{note}</small>
+          <strong>{values[i] ?? "—"}</strong>
+          <small>{notes[i] ?? note}</small>
         </Card>)}
       </div>
 
@@ -234,14 +282,8 @@ function OverviewPanels({ filters, message, activeStores, platforms, matrix, mat
           </div>
           {matrixHref && <Link className={styles.textLink} href={matrixHref} prefetch={false}>查看真实经营明细 →</Link>}
         </Panel>
-        <Panel title="执行状态分布" detail="任务统计待接入">
-          <div className={styles.distribution}>
-            <div className={styles.emptyRing} aria-hidden="true">—</div>
-            <ul className={styles.legend}>
-              {([["执行中", "success"], ["待审核", "accent"], ["异常", "danger"], ["已完成", "info"]] as const).map(([label, tone]) =>
-                <li key={label}><span className={styles.dot} data-tone={tone} aria-hidden="true" /><span>{label}</span><span aria-label="暂无统计">—</span></li>)}
-            </ul>
-          </div>
+        <Panel title="执行状态分布" detail="期间创建的本人店铺任务 · 当前状态">
+          <CockpitTaskDistribution counts={taskCounts} message={taskMessage ?? message} />
         </Panel>
       </div>
 

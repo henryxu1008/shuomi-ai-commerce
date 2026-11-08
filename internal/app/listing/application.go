@@ -19,6 +19,7 @@ import (
 )
 
 type Application struct {
+	CockpitStoreAccess    func(context.Context, collection.Scope, []string) error
 	UploadPlans           *preparation.UploadPlanService
 	SourceMaterialsOnly   bool
 	SheinPublication      *SheinPublicationService
