@@ -175,8 +175,9 @@ func prepareOperationTx(ctx context.Context, tx *gorm.DB, scope collection.Scope
 	if len(input.SourceIDs) > 0 {
 		query = query.Where("id IN ?", input.SourceIDs)
 	}
-	// Membership is immutable, but source locks also order this transaction
-	// with future owner commands. Traverse every page without UI truncation.
+	// Transfer fixes source membership and versions. Read without source row
+	// locks so the serving role keeps its SELECT/INSERT-only source grants.
+	// Parent revision and mutable target locks remain in this transaction.
 	after := ""
 	for {
 		var sources []sourceRow
@@ -184,7 +185,7 @@ func prepareOperationTx(ctx context.Context, tx *gorm.DB, scope collection.Scope
 		if after != "" {
 			page = page.Where("id>?::uuid", after)
 		}
-		if page.Clauses(clause.Locking{Strength: "SHARE"}).Order("id").Limit(100).Find(&sources).Error != nil {
+		if page.Order("id").Limit(100).Find(&sources).Error != nil {
 			return preparation.OperationReceipt{}, preparation.ErrUnavailable
 		}
 		if len(sources) == 0 {

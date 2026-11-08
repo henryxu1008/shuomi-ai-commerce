@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
 	record "task-processor/internal/listing/record/target"
@@ -48,11 +47,13 @@ type officialReceiptRow struct {
 func (officialReceiptRow) TableName() string { return "listing_submission_official_receipts" }
 func readOfficialIntent(db *gorm.DB, org, key string, lock bool) (submission.OfficialIntent, error) {
 	var row officialIntentRow
-	query := db.Where("organization_id=? AND intent_key=?", org, key)
-	if lock {
-		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	// Intent bodies are immutable and the serving role has no UPDATE grant.
+	// Use the owner's existing transaction-scoped intent key lock so prepare,
+	// complete and readback remain serialized without widening intent grants.
+	if lock && advisoryLock(db, "official-intent", org, key) != nil {
+		return submission.OfficialIntent{}, submission.ErrExecutionUnavailable
 	}
-	result := query.Take(&row)
+	result := db.Where("organization_id=? AND intent_key=?", org, key).Take(&row)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return submission.OfficialIntent{}, submission.ErrExecutionNotFound
 	}
