@@ -450,6 +450,10 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		require.Equal(t, submission.ExecutionClaimed, actual.Status, "a failed receipt insert rolls back kernel success and target release together")
 		unknown, err := kernel.MarkUnknown(ctx, claim, submission.UnknownResponseLost)
 		require.NoError(t, err)
+		cohort := submission.SheinPublishReadScope{StoreID: intent.Binding.StoreID, ApplicationID: intent.Binding.ApplicationID, ApplicationType: intent.Binding.ApplicationType, MerchantIdentityHash: intent.Binding.SupplierIdentityHash}
+		ids, err := official.ListSheinPublishAttemptIDs(ctx, scope, cohort, unknown.CreatedAt, unknown.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Equal(t, []string{unknown.AttemptID}, ids, "original UNKNOWN is a candidate before readback")
 		readback := model.ProductReadback{CategoryID: wire.Product.CategoryID, ProductTypeID: wire.Product.ProductTypeID, BrandCode: wire.Product.BrandCode, SupplierCode: wire.Product.SupplierCode, Names: wire.Product.Names, SKCSupplierCodes: map[string]string{"skc-a": wire.Product.SKCs[0].SupplierCode}, Product: result}
 		resolution, err := submission.NewPublishResolution(scope, intent, completed.Record, unknown, wire.Product, "spu-a", readback)
 		require.NoError(t, err)
@@ -479,6 +483,22 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 		require.NoError(t, err)
 		require.Equal(t, submission.ExecutionSucceeded, actual.Status)
 		require.Equal(t, saved.ID, actual.Evidence.Reference)
+		ids, err = official.ListSheinPublishAttemptIDs(ctx, scope, cohort, actual.CreatedAt, actual.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Equal(t, []string{saved.ID}, ids, "resolving UNKNOWN retains the original candidate identity")
+		ids, err = official.ListSheinPublishAttemptIDs(ctx, scope, cohort, actual.CreatedAt.Add(-time.Minute), actual.CreatedAt, 251)
+		require.NoError(t, err)
+		require.Empty(t, ids, "the end boundary is exclusive")
+		foreignScope := scope
+		foreignScope.ActorID = "another-actor"
+		ids, err = official.ListSheinPublishAttemptIDs(ctx, foreignScope, cohort, actual.CreatedAt, actual.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Empty(t, ids)
+		foreignMerchant := cohort
+		foreignMerchant.MerchantIdentityHash = collection.Digest("another merchant")
+		ids, err = official.ListSheinPublishAttemptIDs(ctx, scope, foreignMerchant, actual.CreatedAt, actual.CreatedAt.Add(time.Minute), 251)
+		require.NoError(t, err)
+		require.Empty(t, ids)
 		t.Run("SHEIN shelf binds original receipt after a newer local head and completes atomically", func(t *testing.T) {
 			changed := input
 			changed.ExpectedRevision = completed.Record.Revision
