@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/sourcing"
 )
@@ -111,6 +112,51 @@ func (f *ResearchFixture) ReadPagination(ctx context.Context, scope collection.S
 		return ResearchPaginationBatch{}, err
 	}
 	return b, nil
+}
+
+// ResearchPaginationPageReader is bound to the current page's evidence context.
+type ResearchPaginationPageReader struct {
+	fixture     *ResearchFixture
+	ctx         context.Context
+	producer    *sourcing.InternalProducer
+	collections *collectionstore.Repository
+}
+
+func (f *ResearchFixture) BindPaginationPage(ctx context.Context, scope collection.Scope, project string) (*ResearchPaginationPageReader, error) {
+	if !f.OwnsPagination(scope, project) {
+		return nil, collection.ErrForbidden
+	}
+	if err := f.check(ctx, scope, project, false); err != nil {
+		return nil, err
+	}
+	authority := researchPaginationAuthority{sourcing.PublicationScope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}}
+	producer, collections, err := f.openReader(authority)
+	if err != nil {
+		return nil, err
+	}
+	return &ResearchPaginationPageReader{fixture: f, ctx: ctx, producer: producer, collections: collections}, nil
+}
+
+func (r *ResearchPaginationPageReader) ReadOriginal(in collection.SelectionInput) (ResearchPaginationBatch, ResearchFixtureItem, error) {
+	source, ok := r.fixture.pagination.byPublication[in.OriginalPublicationID]
+	if !ok {
+		return ResearchPaginationBatch{}, ResearchFixtureItem{}, collection.ErrForbidden
+	}
+	// Verify the exact publication, Catalog snapshot and live member item
+	// through the same owners used by the existing pagination reader.
+	entry, err := r.fixture.readSource(r.ctx, r.producer, r.collections, source)
+	if err != nil {
+		return ResearchPaginationBatch{}, ResearchFixtureItem{}, err
+	}
+	if entry.Item.ID != in.ItemID || entry.Item.Revision != in.ExpectedRevision ||
+		entry.Item.Source.PublicationID != in.OriginalPublicationID || entry.Item.Source.Version != in.OriginalVersion {
+		return ResearchPaginationBatch{}, ResearchFixtureItem{}, collection.ErrConflict
+	}
+	return r.fixture.pagination.batch, entry, nil
+}
+
+func (r *ResearchPaginationPageReader) Reauthorize(ctx context.Context) error {
+	return r.fixture.check(ctx, r.fixture.scope, r.fixture.project, false)
 }
 
 func (f *ResearchFixture) ReadPaginationOriginal(ctx context.Context, scope collection.Scope, project string, item collection.Item) (ResearchPaginationBatch, ResearchFixtureItem, error) {
