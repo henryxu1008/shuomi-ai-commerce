@@ -25,4 +25,3 @@ export const walmartOrderAmountMetrics=z.discriminatedUnion("status",[
  z.strictObject({status:z.literal("limited"),capturedAt:stamp,source:completeSource}),
 ]);
 export type WalmartOrderAmountMetrics=z.infer<typeof walmartOrderAmountMetrics>;
-

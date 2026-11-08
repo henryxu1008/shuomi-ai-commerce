@@ -12,4 +12,3 @@ export async function readWalmartOrderAmount(scope:CockpitScope,query:string,sig
  const envelope=z.strictObject({organizationId:z.literal(scope.organizationId),userId:z.literal(scope.userId),data:walmartOrderAmountMetrics});
  return {result:envelope.parse(await readBoundedStrictJSON(response,65536,signal)).data};
 }
-
