@@ -33,7 +33,7 @@ type targetCohortReader interface {
 func (a *Application) CockpitMetrics(ctx context.Context, filter workbenchmetrics.Filter, now time.Time) (listingMetrics, error) {
 	result := listingMetrics{CapturedAt: now.UTC()}
 	cohort, ok := a.Records.(targetCohortReader)
-	if !ok || a.CockpitStoreAccess == nil || a.TargetMerchants == nil || a.StageProjection.Facts == nil || a.Authorization == nil {
+	if !ok || a.CockpitStoreAccess == nil || a.TargetMerchants == nil || a.PublicationReceipts == nil || a.StageProjection.Facts == nil || a.Authorization == nil {
 		return result, record.ErrUnavailable
 	}
 	scope, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
@@ -76,26 +76,8 @@ func (a *Application) CockpitMetrics(ctx context.Context, filter workbenchmetric
 			if !sameMetricsMerchant(saved.Merchant, binding) {
 				continue
 			}
-			publication, err := a.Publication(ctx, saved.Source.ID, storeID)
-			if err != nil {
+			if err := a.countTargetQueues(ctx, scope, saved, binding, counts); err != nil {
 				return result, err
-			}
-			if publication.ReceiptID != "" && !sameMetricsMerchant(publication.binding, binding) {
-				return result, record.ErrForbidden
-			}
-			if publication.RecordID == saved.ID && (publication.TikTok == nil || publication.TikTok.Publication == nil ||
-				publication.TikTok.Publication.State != marketplace.PublicationFailed) {
-				continue
-			}
-			pending, review, err := a.StageProjection.metricQueues(ctx, scope, saved)
-			if err != nil {
-				return result, err
-			}
-			if pending {
-				counts.Pending++
-			}
-			if review {
-				counts.Review++
 			}
 		}
 		result.Status, result.Counts = "complete", counts
@@ -120,6 +102,36 @@ func (a *Application) CockpitMetrics(ctx context.Context, filter workbenchmetric
 		}
 	}
 	return result, nil
+}
+
+func (a *Application) countTargetQueues(ctx context.Context, scope collection.Scope, saved record.TargetRecord, binding storecenter.ProductMerchantBinding, counts *listingMetricCounts) error {
+	pending, review, err := a.StageProjection.metricQueues(ctx, scope, saved)
+	if err != nil {
+		return err
+	}
+	// The listing workflow lets an exact review override an earlier upload.
+	if review {
+		counts.Review++
+		return nil
+	}
+	if !pending {
+		return nil
+	}
+	receipt, err := a.readPublicationReceipt(ctx, scope, saved.Source.Source.ProductKey, binding)
+	if err != nil {
+		return err
+	}
+	if receipt != nil && receipt.Owner == scope && receipt.RecordID == saved.ID {
+		if !sameMetricsMerchant(receipt.Binding, binding) {
+			return record.ErrForbidden
+		}
+		if receipt.TikTok == nil || receipt.TikTok.Publication == nil ||
+			receipt.TikTok.Publication.State != marketplace.PublicationFailed {
+			return nil
+		}
+	}
+	counts.Pending++
+	return nil
 }
 
 // The current reader enforces the live credential and service rules. Compare

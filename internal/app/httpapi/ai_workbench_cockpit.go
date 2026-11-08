@@ -31,13 +31,17 @@ func (a *aiWorkbenchApplication) taskCockpitMetrics(c *gin.Context, ctx context.
 
 func (a *aiWorkbenchApplication) readTaskCockpitMetrics(ctx context.Context, owner aiworkbench.Scope, filter workbenchmetrics.Filter, now time.Time) (gin.H, error) {
 	original, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	if !ok || original.EffectiveMemberID == "" || a.scopes.reader.Store == nil {
+	if !ok || original.EffectiveMemberID == "" || a.scopes.storeRead == nil {
 		return nil, aiworkbench.ErrUnavailable
 	}
 	stores := make(map[string]aiworkbench.StoreScopeFacts, len(filter.Stores))
 	checkStores := func() error {
+		readCtx, err := a.scopeIdentity(ctx, owner, authz.PermissionWorkbenchStoreRead)
+		if err != nil {
+			return aiworkbench.ErrUnavailable
+		}
 		for _, id := range filter.Stores {
-			store, err := a.scopes.reader.Store(ctx, owner, id)
+			store, err := a.scopes.storeRead(readCtx, owner.OrganizationID, id)
 			if err != nil || store.ID != id {
 				return aiworkbench.ErrUnavailable
 			}

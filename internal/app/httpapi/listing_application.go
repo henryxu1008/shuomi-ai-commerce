@@ -160,6 +160,13 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		if fresh.UserID != scope.ActorID || fresh.TenantID != scope.OrganizationID || fresh.EffectiveMemberID != scope.MemberID {
 			return record.ErrForbidden
 		}
+		allowed, err := authz.AuthorizeOrganization(ctx, permissions, scope.ActorID, scope.OrganizationID, fresh.Roles, collection.PermissionRead)
+		if err != nil {
+			return record.ErrUnavailable
+		}
+		if !allowed {
+			return record.ErrForbidden
+		}
 		ctx = authidentity.WithAuthenticatedIdentity(ctx, fresh)
 		for _, id := range ids {
 			store, err := storeRepo.Get(ctx, scope.OrganizationID, id)

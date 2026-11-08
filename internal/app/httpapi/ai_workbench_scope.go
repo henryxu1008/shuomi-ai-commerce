@@ -19,6 +19,7 @@ import (
 
 type workbenchScopeSources struct {
 	reader      aiworkbench.ScopeReader
+	storeRead   func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
 	projectPage func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
 	storePage   func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
 }
@@ -34,12 +35,8 @@ func (a *aiWorkbenchApplication) scopeIdentity(ctx context.Context, owner aiwork
 }
 
 func (a *aiWorkbenchApplication) attachStoreScopes(stores *storecenter.MemberScopedStoreRepository) {
-	a.scopes.reader.Store = func(ctx context.Context, owner aiworkbench.Scope, id string) (aiworkbench.StoreScopeFacts, error) {
-		ctx, err := a.scopeIdentity(ctx, owner, authz.PermissionWorkbenchStoreRead)
-		if err != nil {
-			return aiworkbench.StoreScopeFacts{}, err
-		}
-		s, err := stores.Get(ctx, owner.OrganizationID, id)
+	a.scopes.storeRead = func(ctx context.Context, org, id string) (aiworkbench.StoreScopeFacts, error) {
+		s, err := stores.Get(ctx, org, id)
 		if errors.Is(err, storecenter.ErrNotFound) {
 			return aiworkbench.StoreScopeFacts{}, aiworkbench.ErrNotFound
 		}
@@ -47,6 +44,13 @@ func (a *aiWorkbenchApplication) attachStoreScopes(stores *storecenter.MemberSco
 			return aiworkbench.StoreScopeFacts{}, aiworkbench.ErrUnavailable
 		}
 		return aiworkbench.StoreScopeFacts{ID: s.ID(), Name: s.Name(), Platform: string(s.Platform()), Region: s.Region(), Version: uint64(s.Version())}, nil
+	}
+	a.scopes.reader.Store = func(ctx context.Context, owner aiworkbench.Scope, id string) (aiworkbench.StoreScopeFacts, error) {
+		ctx, err := a.scopeIdentity(ctx, owner, authz.PermissionWorkbenchStoreRead)
+		if err != nil {
+			return aiworkbench.StoreScopeFacts{}, err
+		}
+		return a.scopes.storeRead(ctx, owner.OrganizationID, id)
 	}
 	a.scopes.storePage = func(ctx context.Context, owner aiworkbench.Scope, page int) (storecenter.StorePage, error) {
 		ctx, err := a.scopeIdentity(ctx, owner, authz.PermissionWorkbenchStoreRead)

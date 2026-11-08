@@ -52,6 +52,29 @@ func TestCockpitListingQueuesAreExclusiveAndUseCurrentTargetVersion(t *testing.T
 	require.ErrorIs(t, err, record.ErrConflict)
 }
 
+func TestCockpitCurrentReviewOverridesExistingUploadReceipt(t *testing.T) {
+	uploader, scope, records, _, _, receipts, _ := uploadFixture(t)
+	saved := records.saved
+	ctx := context.Background()
+	result, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+	require.NoError(t, err)
+	require.Equal(t, saved.ID, result.PublishedRecordID)
+	app := Application{PublicationReceipts: receipts, StageProjection: ReviewProjection{Facts: stageFactsFixture{}}}
+	var counts listingMetricCounts
+	require.NoError(t, app.countTargetQueues(ctx, scope, saved, saved.Merchant, &counts))
+	require.Equal(t, listingMetricCounts{}, counts, "an uploaded current record is no longer pending")
+
+	proposalID := uuid.NewString()
+	item := preparation.OperationItem{SourceID: saved.Source.ID, RecordID: saved.ID, RecordRevision: saved.Revision, Status: preparation.ItemReview, ResultReference: proposalID}
+	app.StageProjection = ReviewProjection{
+		Facts: stageFactsFixture{item: item},
+		Reviews: stageReviewFixture{value: review.Record{ID: proposalID, Org: scope.OrganizationID, Owner: scope.ActorID, State: "pending",
+			Input: review.CreateInput{ProductKey: saved.Source.Source.ProductKey, BaseVersion: saved.EffectiveVersion}}},
+	}
+	require.NoError(t, app.countTargetQueues(ctx, scope, saved, saved.Merchant, &counts))
+	require.Equal(t, listingMetricCounts{Review: 1}, counts)
+}
+
 func TestCockpitMerchantBindingExcludesOldMerchantAndAcceptsRefreshedExpiry(t *testing.T) {
 	_, _, records, _, _, _, _ := uploadFixture(t)
 	saved := records.saved.Merchant

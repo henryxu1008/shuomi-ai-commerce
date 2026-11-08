@@ -58,32 +58,9 @@ func (a *Application) Publication(ctx context.Context, sourceID, storeID string)
 	if !validTargetMerchant(scope, storeID, binding) {
 		return value, record.ErrConflict
 	}
-	subject, err := submission.ProductSubjectID(source.Source.ProductKey, binding.Site)
-	platform := "shein"
-	if binding.Platform == storecenter.PlatformTemu {
-		platform = "temu"
-		subject, err = submission.TemuProductSubjectID(source.Source.ProductKey, binding)
-	}
-	if binding.Platform == storecenter.PlatformTikTokShop {
-		platform = "tiktokshop"
-		subject, err = submission.TikTokProductSubjectID(source.Source.ProductKey, submission.TikTokPublishStage)
-	}
-	if binding.Platform == storecenter.PlatformWalmart {
-		platform = "walmart"
-		subject, err = submission.WalmartSubjectID(source.Source.ProductKey, binding.SupplierIdentityHash)
-	}
-	if err != nil {
+	receipt, err := a.readPublicationReceipt(ctx, scope, source.Source.ProductKey, binding)
+	if err != nil || receipt == nil {
 		return value, err
-	}
-	receipt, err := a.PublicationReceipts.FindOfficialTarget(ctx, scope.OrganizationID, submission.ExecutionTarget{Platform: platform, StoreID: storeID, SubjectID: subject})
-	if errors.Is(err, submission.ErrExecutionNotFound) || errors.Is(err, submission.ErrExecutionTargetClaimed) {
-		return value, nil
-	}
-	if err != nil {
-		return value, err
-	}
-	if submission.ValidateOfficialReceipt(receipt) != nil || receipt.Kind != "publish" || receipt.ProductKey != source.Source.ProductKey || receipt.Binding.SupplierIdentityHash != binding.SupplierIdentityHash || receipt.Binding.StoreID != storeID || receipt.Target.SubjectID != subject {
-		return value, record.ErrConflict
 	}
 	if _, _, _, err = proof.Read(ctx); err != nil {
 		return value, err
@@ -123,4 +100,36 @@ func (a *Application) Publication(ctx context.Context, sourceID, storeID string)
 		return boundWalmartPublication(value)
 	}
 	return value, nil
+}
+
+func (a *Application) readPublicationReceipt(ctx context.Context, scope collection.Scope, productKey string, binding storecenter.ProductMerchantBinding) (*submission.OfficialReceipt, error) {
+	storeID := binding.StoreID
+	subject, err := submission.ProductSubjectID(productKey, binding.Site)
+	platform := "shein"
+	if binding.Platform == storecenter.PlatformTemu {
+		platform = "temu"
+		subject, err = submission.TemuProductSubjectID(productKey, binding)
+	}
+	if binding.Platform == storecenter.PlatformTikTokShop {
+		platform = "tiktokshop"
+		subject, err = submission.TikTokProductSubjectID(productKey, submission.TikTokPublishStage)
+	}
+	if binding.Platform == storecenter.PlatformWalmart {
+		platform = "walmart"
+		subject, err = submission.WalmartSubjectID(productKey, binding.SupplierIdentityHash)
+	}
+	if err != nil {
+		return nil, err
+	}
+	receipt, err := a.PublicationReceipts.FindOfficialTarget(ctx, scope.OrganizationID, submission.ExecutionTarget{Platform: platform, StoreID: storeID, SubjectID: subject})
+	if errors.Is(err, submission.ErrExecutionNotFound) || errors.Is(err, submission.ErrExecutionTargetClaimed) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if submission.ValidateOfficialReceipt(receipt) != nil || receipt.Kind != "publish" || receipt.ProductKey != productKey || receipt.Binding.SupplierIdentityHash != binding.SupplierIdentityHash || receipt.Binding.StoreID != storeID || receipt.Target.SubjectID != subject {
+		return nil, record.ErrConflict
+	}
+	return &receipt, nil
 }
