@@ -10,6 +10,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"reflect"
 	"strings"
 	"task-processor/internal/authidentity"
 	temuo "task-processor/internal/marketplace/temu/observations"
@@ -246,26 +247,44 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 			if current.Binding.Platform == storecenter.PlatformWalmart {
 				validProduct = v.Order == nil && v.Product == nil && v.TemuProduct == nil && v.WalmartProduct != nil && v.WalmartProduct.Valid() && v.WalmartProduct.SKU == v.ID
 			}
-			if current.Kind == o.Products && !validProduct || current.Kind == o.Orders && (v.WalmartProduct != nil || current.Binding.Platform == storecenter.PlatformWalmart || v.Order == nil || v.Product != nil || v.TemuProduct != nil || v.Order.ID != v.ID || v.Order.Site != "shein-us" || current.Binding.Platform == storecenter.PlatformTemu) {
+			validOrder := v.WalmartOrder == nil && v.WalmartProduct == nil && v.Order != nil && v.Product == nil && v.TemuProduct == nil && v.Order.ID == v.ID && v.Order.Site == "shein-us" && current.Binding.Platform != storecenter.PlatformTemu
+			if current.Binding.Platform == storecenter.PlatformWalmart {
+				validOrder = v.WalmartOrder != nil && v.WalmartOrder.Valid() && v.WalmartOrder.ID == v.ID && v.Order == nil && v.WalmartProduct == nil && v.Product == nil && v.TemuProduct == nil
+			}
+			if current.Kind == o.Products && (!validProduct || v.WalmartOrder != nil) || current.Kind == o.Orders && !validOrder {
 				return o.ErrInvalid
 			}
 			var prior struct {
 				WindowKey string
 				PageIndex int
+				Payload   []byte
 			}
-			result := tx.Raw(`SELECT window_key,page_index FROM store_observations.records WHERE organization_id=? AND store_id=? AND sync_id=? AND platform_id=?`, current.Owner.OrganizationID, current.StoreID, current.ID, v.ID).Scan(&prior)
+			result := tx.Raw(`SELECT window_key,page_index,payload FROM store_observations.records WHERE organization_id=? AND store_id=? AND sync_id=? AND platform_id=?`, current.Owner.OrganizationID, current.StoreID, current.ID, v.ID).Scan(&prior)
 			if result.Error != nil {
 				return o.ErrUnavailable
+			}
+			if v.WalmartOrder != nil && result.RowsAffected > 0 {
+				var saved struct {
+					WalmartOrder *walmart.Order `json:"walmartOrder"`
+				}
+				if json.Unmarshal(prior.Payload, &saved) != nil || saved.WalmartOrder == nil {
+					return o.ErrUnavailable
+				}
+				if !reflect.DeepEqual(saved.WalmartOrder, v.WalmartOrder) {
+					next.Note("walmart_order_identity_conflict")
+				}
+				continue
 			}
 			if result.RowsAffected > 0 && prior.WindowKey == v.WindowKey && prior.PageIndex != current.Progress.Page {
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
+				WalmartOrder   *walmart.Order   `json:"walmartOrder,omitempty"`
 				WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
 				Product        *o.Product       `json:"product,omitempty"`
 				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
 				Order          *o.Order         `json:"order,omitempty"`
-			}{v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
+			}{v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid
 			}
@@ -273,8 +292,16 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				return o.ErrUnavailable
 			}
 		}
+		if status == "completed" && current.Kind == o.Orders && current.Binding.Platform == storecenter.PlatformWalmart && (next.WalmartOrders == nil || !next.WalmartOrders.Complete || len(next.Windows) > 0) {
+			next.Note("walmart_order_partition_incomplete")
+		}
 		if status == "completed" && next.Incomplete {
 			status = "partial"
+		}
+		if next.Incomplete && next.WalmartOrders != nil {
+			p := *next.WalmartOrders
+			p.Complete = false
+			next.WalmartOrders = &p
 		}
 		raw, _ := json.Marshal(next)
 		if len(raw) > 65536 {

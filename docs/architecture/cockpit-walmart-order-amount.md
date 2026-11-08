@@ -41,7 +41,7 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 
 统计仅当前完整head，head/latest为同一完整sync、ObservedAt有效、Progress.Incomplete=false、Range覆盖所选完整日期，Walmart要求Range.End>=查询exclusiveEnd（毫秒日界），且三个分区确有原checkpoint完成标记；快照深拷贝保留nil/empty语义，响应前复验。候选先按日期过滤再限251（缺时间保留），最多250订单；非法非空时间不可用。金额/币种/日期/PRODUCT费用歧义任一缺失则隐藏全部金额并显示相应计数；覆盖不足或limited不返回金额/完整订单数。
 
-复用OrderAmountMetrics的complete/missing_fields/coverage_incomplete/limited形状，Walmart缺费用歧义另有明确missing提示计数；SHEIN形状与行为不变。新增 GET /api/v1/workbench/store-observations/orders/walmart-saved-amount-metrics，严格单店/日期、20秒、现有身份envelope/no-store/BFF。只在显式Walmart US单店展示，日期/店铺/企业变化取消旧请求、不留旧值。
+复用OrderAmountMetrics的complete/missing_fields/coverage_incomplete/limited形状，Walmart的amountCount按缺金额或PRODUCT费用待核实的PO计数，界面解释此含义；SHEIN形状与行为不变。新增 GET /api/v1/workbench/store-observations/orders/walmart-saved-amount-metrics，严格单店/日期、20秒、现有身份envelope/no-store/BFF。只在显式Walmart US单店展示，日期/店铺/企业变化取消旧请求、不留旧值。
 
 ## 验证和准入
 
@@ -51,4 +51,5 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 
 
 独立架构复核：/root/architecture_review已实际核对93ad47de0e67ad7f2e9320adfafc5588ca4fe7b0及每PO100行/250PO、Walmart独立金额字符串<=36字符补充，IMPLEMENTATION_READY，无剩余BLOCKER。毫秒日界、三分区/cursor、事务去重/local-only grant、歧义留存、最大精度与窄屏为IMPLEMENTATION_TEST。冻结后按此基线实施，不扩大正式在线范围。
+
 

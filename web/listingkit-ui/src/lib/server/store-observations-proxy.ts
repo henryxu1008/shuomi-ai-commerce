@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { savedOrderAmountMetrics } from "@/lib/contracts/shein-order-amount";
+import { walmartOrderAmountMetrics } from "@/lib/contracts/walmart-order-amount";
 import { isCockpitMetricsQuery } from "@/lib/contracts/cockpit-metrics";
 import {
   observationBeginSchema,
@@ -58,9 +59,9 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
     write: false,
     begin: false,
   };
-  if(kind==="orders"&&segments.length===2&&segments[1]==="saved-amount-metrics"&&method==="GET"){
+  if(kind==="orders"&&segments.length===2&&["saved-amount-metrics","walmart-saved-amount-metrics"].includes(segments[1])&&method==="GET"){
     if(!isCockpitMetricsQuery(url,1))return null;
-    e.schema=savedOrderAmountMetrics;
+    e.schema=segments[1]==="walmart-saved-amount-metrics"?walmartOrderAmountMetrics:savedOrderAmountMetrics;
     return e;
   }
   if (segments.length === 1 && method === "GET") {

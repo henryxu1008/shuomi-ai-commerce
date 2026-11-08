@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { cockpitRequest, cockpitErrorText, type CockpitScope } from "@/lib/api/operations-cockpit";
 import { cockpitCapabilities, cockpitMatrix, cockpitRules, moneyText, type CockpitCapabilities } from "@/lib/contracts/operations-cockpit";
 import { readSavedOrderAmount } from "@/lib/api/shein-order-amount";
+import { readWalmartOrderAmount } from "@/lib/api/walmart-order-amount";
 import type { SavedOrderAmountMetrics } from "@/lib/contracts/shein-order-amount";
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 import { listingMetrics, publicationMetrics, taskMetrics, storeSubmissionMetrics, submissionOverviewMetrics, type SubmissionOverview, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
@@ -113,7 +114,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     : store && selected.length === 1 && selected[0].platform === "temu" ? "temu-create" : undefined;
   const publicationAllowed = Boolean(countOwner) && listingAllowed;
   const ordersAllowed = permissions?.includes("workbench.store.orders.read") ?? false;
-  const showOrderAmount = selectedPlatform === "shein";
+  const showOrderAmount = selectedPlatform === "shein" || selectedPlatform === "walmart";
   const access = capabilities.access;
   const key = ["operations-cockpit", scope.userId, scope.organizationId];
   const matrix = useQuery({ queryKey: [...key, "home-matrix", query, access.storesRead], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), enabled: access.storesRead && valid, retry: false, gcTime: 0 });
@@ -132,7 +133,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
         listingAllowed && submissionOwner ? readCockpitMetrics(scope, submissionOwner, statsQuery, storeSubmissionMetrics, signal) : undefined,
         listingAllowed && countOwner ? readCockpitMetrics(scope, countOwner, statsQuery, publicationMetrics, signal) : undefined,
         listingAllowed ? readCockpitMetrics(scope, "submission-overview", statsQuery, submissionOverviewMetrics, signal) : undefined,
-        showOrderAmount && ordersAllowed ? readSavedOrderAmount(scope, statsQuery, signal) : undefined,
+        showOrderAmount && ordersAllowed ? (selectedPlatform === "walmart" ? readWalmartOrderAmount(scope,statsQuery,signal) : readSavedOrderAmount(scope, statsQuery, signal)) : undefined,
       ] as const);
       return { listing, tasks, submission, publication, overview, orderAmount };
     },
@@ -223,7 +224,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskMessage={taskMessage}
     submissionOverview={overview}
     submissionOverviewMessage={overviewMessage}
-    storeOrderAmount={showOrderAmount ? <SavedOrderAmounts data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} /> : undefined}
+    storeOrderAmount={showOrderAmount ? <SavedOrderAmounts platform={selectedPlatform} data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} /> : undefined}
     storeSubmission={countOwner
       ? <PublicationCounts platform={countOwner === "temu-create" ? "temu" : "shein"} counts={publicationCounts} message={publicationMessage} />
       : submissionOwner ? <StoreSubmissionRate owner={submissionOwner} counts={submissionCounts} message={submissionMessage} /> : undefined}
@@ -292,7 +293,7 @@ function SubmissionOverviewPanel({ data, message }: { data?: SubmissionOverview;
   </Panel>;
 }
 
-function SavedOrderAmounts({data,message}:{data?:SavedOrderAmountMetrics;message?:string}){
+function SavedOrderAmounts({data,message,platform}:{data?:SavedOrderAmountMetrics;message?:string;platform?:string}){
   const coverageMessage=data?.status==="coverage_incomplete" ? {
     no_saved_sync:"尚无已保存订单同步结果，暂不显示金额。",
     sync_incomplete:"订单同步尚未完整完成，暂不显示金额。",
@@ -300,7 +301,7 @@ function SavedOrderAmounts({data,message}:{data?:SavedOrderAmountMetrics;message
     range_not_covered:"原同步范围未覆盖所选完整日期，暂不显示金额。",
   }[data.reason] : undefined;
   const timeText=(value:string)=>new Date(value).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false});
-  return <Panel title="已保存订单商品金额（原币）" detail="按平台订单列表时间 · UTC+8 完整日">
+  return <Panel title="已保存订单商品金额（原币）" detail={platform==="walmart"?"Walmart US · 按 orderDate · UTC+8 完整日":"按平台订单列表时间 · UTC+8 完整日"}>
     {message ? <p className={styles.empty} role="status">{message}</p>
       : data?.status==="complete" ? data.matchedOrderCount===0 ? <p className={styles.empty}>所选期间暂无已保存订单。</p>
         : <><dl className={`${styles.publicationCounts} ${styles.orderAmounts}`} aria-label="各原币订单商品金额">
@@ -312,7 +313,7 @@ function SavedOrderAmounts({data,message}:{data?:SavedOrderAmountMetrics;message
       {data.source.range&&<>原同步范围：{timeText(data.source.range.start)} 至 {timeText(data.source.range.end)}（UTC+8）。</>}
       {data.source.observedAt&&<> 取得时间：{timeText(data.source.observedAt)}（UTC+8）。</>}
     </p>}
-    <p className={styles.panelNote}>仅已保存订单的商品金额，包含原保存订单状态；非支付或结算金额，不含供货成本，不做汇率换算。</p>
+    <p className={styles.panelNote}>{platform==="walmart"?"按 purchaseOrderId 去重，拆分 PO 分别计数。累计原 PRODUCT 费用，不再乘订单行数量；缺金额项也包括费用待核实。完整统计须覆盖卖家自发货、WFS及3PL，不含税费、运费或供货成本，不推断支付或净成交，不做汇率换算。":"仅已保存订单的商品金额，包含原保存订单状态；非支付或结算金额，不含供货成本，不做汇率换算。"}</p>
   </Panel>;
 }
 
