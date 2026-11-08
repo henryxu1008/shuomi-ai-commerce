@@ -1001,6 +1001,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	var researchRuntime *marketResearchApplication
 	var supplierReviewReady bool
 	var selectionRuntime *productSelectionApplication
+	var intakeRuntime *ownIntakeApplication
 	if planCollections != nil {
 		var e error
 		selectionRuntime, e = buildProductSelectionApplication(ctx, productRuntime, planCollections, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
@@ -1008,6 +1009,14 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, fmt.Errorf("build current product selection: %w", e)
 		}
 		modules = append(modules, productSelectionModule{app: selectionRuntime})
+		intakeRuntime, e = buildCurrentOwnIntake(productRuntime, supplied.collectionSourceMedia, workbench.authDependencies.organizationResolver, authorizer)
+		if e != nil {
+			return nil, fmt.Errorf("build current own product intake: %w", e)
+		}
+		if intakeRuntime != nil {
+			productRuntime.ownIntake = intakeRuntime
+			modules = append(modules, ownIntakeModule{app: intakeRuntime})
+		}
 	}
 	if supplied.listing != nil {
 		module, e := buildListingModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.listing, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
@@ -1432,6 +1441,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		AcquisitionImage:     factories.buildAcquisitionImage != nil,
 		FullImageSet:         imageRuntime != nil,
 		ImageAnalysis:        imageAnalysisRuntime != nil,
+		OwnIntake:            intakeRuntime != nil,
 		ProductAgent:         supplied.productAgent != nil,
 		ContentTitleOnly:     supplied.productAgent != nil && supplied.productAgent.ContentTitleOnly,
 		ContentOnly:          supplied.productAgent != nil && supplied.productAgent.ContentOnly,
@@ -1546,6 +1556,7 @@ type currentApplicationOptionalRoutes struct {
 	AcquisitionImage     bool
 	FullImageSet         bool
 	ImageAnalysis        bool
+	OwnIntake            bool
 	ProductAgent         bool
 	ContentTitleOnly     bool
 	ContentOnly          bool
@@ -1811,6 +1822,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.FullImageSet {
 		for _, route := range (fullImageModule{}).routes() {
+			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
+		}
+	}
+	if optional.OwnIntake {
+		for _, route := range ownIntakeRoutes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: route.Method, Path: route.Path})
 		}
 	}
@@ -2302,6 +2318,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		if want, ok := referralRoutes[route]; ok && (descriptor.AuthPolicy != want.AuthPolicy || descriptor.OrganizationAccessPolicy != want.OrganizationAccessPolicy || route.Path != accountReferralWithdrawalReviewPath && route.Path != accountReferralWithdrawalReviewQueuePath && descriptor.Permission != "" || descriptor.OrganizationTargetResolver != nil || descriptor.RequestTimeout != want.RequestTimeout || descriptor.RejectUnreadRequestBody != want.RejectUnreadRequestBody) {
 			return errors.New("referrals descriptor does not preserve its authority boundary")
 		}
+		if strings.HasPrefix(descriptor.Path, ownIntakeBase+"/") && (descriptor.Module != ownIntakeModuleName || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionWorkbenchAgentUse || descriptor.RequestTimeout != 2*time.Minute || descriptor.OrganizationTargetResolver != nil || descriptor.Handler == nil) {
+			return errors.New("own product intake loses live permission boundary")
+		}
 		if _, ok := expected[route]; !ok {
 			return fmt.Errorf("current application route contract contains unadmitted route %s %s", descriptor.Method, descriptor.Path)
 		}
@@ -2383,7 +2402,7 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isResearchAnalysisRunHTTPPath(request.URL.Path) || isImageAnalysisConfirmHTTPPath(request.URL.Path) || isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase)) {
+		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isResearchAnalysisRunHTTPPath(request.URL.Path) || isImageAnalysisConfirmHTTPPath(request.URL.Path) || isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase) || strings.HasPrefix(request.URL.Path, ownIntakeBase+"/")) {
 			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.
 			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(125 * time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {

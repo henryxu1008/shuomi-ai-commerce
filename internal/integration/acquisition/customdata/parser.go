@@ -64,7 +64,7 @@ func ParseDelivery(ctx context.Context, format string, raw []byte) ([]collection
 				if err != nil || stockErr != nil {
 					return nil, dataservice.ErrInvalid
 				}
-				product.Variants = []collection.OwnVariant{{SourceID: "row-" + strconv.Itoa(line+2), Title: product.Title, SKU: record[4], Currency: record[5], Price: price, Stock: stock, Attributes: map[string]string{}}}
+				product.Variants = []collection.OwnVariant{{SourceID: "row-" + strconv.Itoa(line+2), Title: product.Title, SKU: record[4], Currency: record[5], Price: price, Stock: &stock, Attributes: map[string]string{}}}
 			} else if record[5] != "" || record[6] != "" || record[7] != "" {
 				return nil, dataservice.ErrInvalid
 			}

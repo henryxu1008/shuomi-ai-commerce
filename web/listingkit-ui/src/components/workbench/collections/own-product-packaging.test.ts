@@ -20,7 +20,7 @@ it("keeps packaging with stable rows across reordering and leaves new combinatio
  const product=prepareOwnProduct({title:"商品",brand:"",description:"",images:[],mode:"multiple",rows:next.slice(0,2)});
  expect(product.variants).toEqual([expect.objectContaining({sourceId:rows[1].id,packaging:{weightGrams:250,lengthCm:20}}),expect.objectContaining({sourceId:rows[0].id,stock:0,packaging:{weightGrams:125.5,lengthCm:10}})]);
  expect(prepareOwnProduct({title:"商品",brand:"",description:"",images:[],mode:"multiple",rows:[Object.assign(next[2],{sku:"GREEN",currency:"CNY",price:"0",stock:"0"})]}).variants?.[0]).not.toHaveProperty("packaging");
- expect(()=>prepareOwnProduct({title:"商品",brand:"",description:"",images:[],mode:"single",rows:[Object.assign(newVariantRow(),{packaging:{weightGrams:"12"}})]})).toThrow("请填写SKU、币种、价格和库存");
+ expect(()=>prepareOwnProduct({title:"商品",brand:"",description:"",images:[],mode:"single",rows:[Object.assign(newVariantRow(),{packaging:{weightGrams:"12"}})]})).toThrow("请填写SKU、币种和价格");
 });
 
 it("hydrates exact packaging independently from sales dimensions and includes it in pending revisions and history differences",()=>{

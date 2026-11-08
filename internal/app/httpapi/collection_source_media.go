@@ -26,6 +26,18 @@ func (m *collectionSourceMediaDependencies) readAuthorizedPublished(ctx context.
 	return (productsourcing.SourceMedia{Storage: storage}).ReadAuthorizedPublished(ctx, originalActor, url, maximum)
 }
 
+func buildCurrentOwnIntake(parent *productAgentApplication, media *collectionSourceMediaDependencies, resolver organizationIdentityResolver, permissions *authz.ListingKitAuthorizer) (*ownIntakeApplication, error) {
+	if media == nil {
+		return buildOwnIntakeApplication(parent, nil)
+	}
+	authority, err := collection.NewContextAuthorizer(&productReviewLiveOrganizationAccess{resolver: resolver, now: time.Now}, permissions)
+	if err != nil {
+		return nil, err
+	}
+	source := productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, TrialURLs: media.TrialURLs}
+	return buildOwnIntakeApplication(parent, source.ReadOwnIntake)
+}
+
 func buildProductCollectionModuleWithSourceMedia(ctx context.Context, db *gorm.DB, dependencies routeAuthDependencies, permissions *authz.ListingKitAuthorizer, cfg *config.Config, supply bool, media *collectionSourceMediaDependencies, marketPODImages ...bool) (kernelmodule.Module, error) {
 	if err := configureCollectionSourceMediaTrial(media, cfg); err != nil {
 		return nil, err

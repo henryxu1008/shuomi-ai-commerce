@@ -70,6 +70,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		if c.ProductCollections {
 			add(aicapability.OperationProductSelectionDecision, p.SelectionTextPolicies)
+			add(aicapability.OperationOwnProductIntake, p.OwnIntakePolicies)
 			if c.MarketResearch != nil {
 				add(aicapability.OperationProductResearchDecision, p.ResearchTextPolicies)
 			}

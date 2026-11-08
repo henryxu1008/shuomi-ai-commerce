@@ -120,7 +120,7 @@ func ValidateCustomProducts(rows []collection.OwnProduct) error {
 	}
 	for i, row := range rows {
 		for _, v := range row.Variants {
-			if v.Price < 0 || math.IsNaN(v.Price) || math.IsInf(v.Price, 0) || v.Stock < 0 || (v.SourceID == "" && v.SKU == "") || len(v.Currency) != 3 {
+			if v.Price < 0 || math.IsNaN(v.Price) || math.IsInf(v.Price, 0) || (v.SourceID == "" && v.SKU == "") || len(v.Currency) != 3 {
 				return ErrInvalid
 			}
 			for _, r := range v.Currency {

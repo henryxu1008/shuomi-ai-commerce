@@ -31,7 +31,7 @@ func TestOwnVariantsKeepSeparateImagesAndExplicitZeroPrice(t *testing.T) {
 }
 
 func TestOwnVariantRejectsInvalidFactsBeforeWrite(t *testing.T) {
-	base := OwnVariant{SourceID: "red", Title: "red", SKU: "RED", Currency: "CNY", Price: 0, Stock: 0, Attributes: map[string]string{"color": "red"}}
+	base := OwnVariant{SourceID: "red", Title: "red", SKU: "RED", Currency: "CNY", Price: 0, Stock: new(0), Attributes: map[string]string{"color": "red"}}
 	for _, test := range []struct {
 		name   string
 		change func(*OwnProduct)
@@ -40,7 +40,7 @@ func TestOwnVariantRejectsInvalidFactsBeforeWrite(t *testing.T) {
 		{"duplicate sku", func(p *OwnProduct) { v := base; v.SourceID = "blue"; p.Variants = append(p.Variants, v) }},
 		{"unsafe image", func(p *OwnProduct) { p.Variants[0].Images = []string{"file:///private.jpg"} }},
 		{"negative price", func(p *OwnProduct) { p.Variants[0].Price = -1 }},
-		{"negative stock", func(p *OwnProduct) { p.Variants[0].Stock = -1 }},
+		{"negative stock", func(p *OwnProduct) { p.Variants[0].Stock = new(-1) }},
 		{"invalid currency", func(p *OwnProduct) { p.Variants[0].Currency = "cny" }},
 		{"variant budget", func(p *OwnProduct) { p.Variants = make([]OwnVariant, 257) }},
 		{"aggregate budget", func(p *OwnProduct) {

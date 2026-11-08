@@ -44,7 +44,7 @@ func channelManagementDefinitions(definitions []qualified.Definition, writable b
 		if d.Text != nil {
 			p := d.Text.ShapeProfile()
 			model, id = p.ModelID, p.ClientName
-			if d.Scope.Capability == string(aicapability.OperationProductImageAnalysis) {
+			if aicapability.VisionTextOperation(aicapability.Operation(d.Scope.Capability)) {
 				category = "multimodal"
 			}
 			if endpoint != "" && (governed.EndpointIdentityDigest(endpoint) != p.EndpointIdentityDigest || !governed.ValidAdapterEndpoint(governed.AdapterKind(p.AdapterKind), endpoint)) {

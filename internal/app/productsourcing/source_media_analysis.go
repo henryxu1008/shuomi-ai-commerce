@@ -8,6 +8,16 @@ import (
 	"task-processor/internal/product/collection"
 )
 
+// ReadOwnIntake reads an upload owned by the current authorized actor before
+// the first product publication. The existing URL and byte checks stay shared.
+func (m SourceMedia) ReadOwnIntake(ctx context.Context, rawURL string, maximum int64) ([]byte, bool, error) {
+	scope, err := m.scope(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	return m.ReadAuthorizedPublished(ctx, scope.ActorID, rawURL, maximum)
+}
+
 // ReadAuthorizedPublished extracts the existing immutable media read for
 // an already-authorized exact Catalog/ApprovedAsset fact. The caller derives
 // originalActor from that fact, never HTTP input. No upload/manage grant,

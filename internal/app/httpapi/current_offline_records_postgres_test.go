@@ -273,11 +273,11 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 		collectionRouter.ServeHTTP(response, req)
 		return response
 	}
-	require.Equal(t, 400, sendCollection(ownKey, strings.Replace(ownBody, `,"stock":0`, "", 1)).Code)
 	require.Equal(t, 400, sendCollection(ownKey, strings.Replace(ownBody, `"stock":0`, `"stock":null`, 1)).Code)
 	require.Equal(t, 400, sendCollection(ownKey, strings.Replace(ownBody, `"stock":0`, `"stock":0,"ownStockDeclared":true`, 1)).Code)
 	created := sendCollection(ownKey, ownBody)
 	require.Less(t, created.Code, 300, created.Body.String())
+	require.Equal(t, 409, sendCollection(ownKey, strings.Replace(ownBody, `,"stock":0`, "", 1)).Code)
 	var own collection.Receipt
 	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &own))
 	replayed := sendCollection(ownKey, ownBody)
@@ -365,7 +365,7 @@ func TestOfflineNormalSavedDiagnosticReportAndRevocation(t *testing.T) {
 	require.Equal(t, new(0), importedItem.Product.Variants[0].Stock)
 
 	revision := imported.Products[0]
-	revision.Variants[0].Stock = 7
+	revision.Variants[0].Stock = new(7)
 	revisionBody, e := json.Marshal(collection.Mutation{
 		Action: "revise_product", ItemID: importedItem.Item.ID, ExpectedRevision: importedItem.Item.Revision,
 		ExpectedSourceVersion: importedItem.Item.Source.Version, ExpectedPublicationID: importedItem.Item.Source.PublicationID, Product: &revision,

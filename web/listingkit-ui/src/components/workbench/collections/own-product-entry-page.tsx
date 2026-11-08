@@ -14,11 +14,14 @@ import {Textarea} from "@/components/ui/textarea";
 import {Table,TableHeader,TableHead,TableBody,TableRow,TableCell} from "@/components/ui/table";
 import {ConsolePage,ConsoleState} from "../console/console-page";
 import {DescriptionEditor} from "../description-editor";
+import {OwnProductIntake} from "./own-product-intake";
+import {applyIntakeVariants} from "./own-product-intake-model";
+import type {IntakeCandidate} from "@/lib/contracts/own-product-intake";
 import {SourceImageUploader} from "./source-image-uploader";
 import {useCollectionCommand} from "./use-collection-command";
 import {CollectionCommandFeedback} from "./collection-command-feedback";
-import {buildVariantRows,newVariantRow,prepareOwnProduct,prepareProductAttributes,removeVariantImage,specificationSignature,type ProductAttributeRow,type Specification,type VariantRow} from "./own-product-model";
-import {formFromOwnProduct,type OwnProductFormState} from "./own-product-editor-model";
+import {buildVariantRows,newVariantRow,prepareOwnProduct,prepareProductAttributes,removeVariantImage,specificationSignature,variantCombinationKey,type ProductAttributeRow,type Specification,type VariantRow} from "./own-product-model";
+import {formFromOwnProduct,specificationsFromRows,type OwnProductFormState} from "./own-product-editor-model";
 import {collectionCommandSchema,type CollectionDetail} from "@/lib/contracts/product-collection";
 import type {CollectionScope} from "@/lib/api/product-collection";
 import {packagingFields} from "./own-product-packaging";
@@ -51,6 +54,9 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
  const [attributes,setAttributes]=useState<ProductAttributeRow[]>(initial?.attributes??[{id:"initial",name:"",value:""}]);
  const [images,setImages]=useState<string[]>(initial?.images??[]),[imageURL,setImageURL]=useState(""),[mediaBlocked,setMediaBlocked]=useState(false);
  const imagesRef=useRef<string[]>(initial?.images??[]);
+ const [uploaded,setUploaded]=useState<ReadonlySet<string>>(()=>new Set());
+ const confirmedGallery=useRef(new Set<string>());
+ const removedIntakeRows=useRef(new Set<string>());
  const [commonImages,setCommonImages]=useState<string[]>(initial?.images??[]);
  const [originalSKUImages]=useState(()=>new Set(initial?.rows.flatMap(row=>row.originalImages??[])??[]));
  const [mode,setMode]=useState<"single"|"multiple">(initial?.mode??"single");
@@ -78,6 +84,27 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
   setRows(prior=>prior.map((row,index)=>({...row,...(bulk.prefix?{sku:`${bulk.prefix.trim()}-${index+1}`}:{}) ,...(bulk.currency?{currency:bulk.currency}:{}) ,...(bulk.price.trim()?{price:bulk.price}:{}) ,...(bulk.stock.trim()?{stock:bulk.stock}:{})})));setError("");
  }
  const activeRows=mode==="single"?[single]:rows;
+ function adoptIntake(candidate:IntakeCandidate,acceptImages:boolean,gallery:string[]){
+  if(gallery.length!==imagesRef.current.length||gallery.some((url,index)=>url!==imagesRef.current[index]))throw new Error("候选引用的图库已变化，请重新生成。");
+  if(stale||mode==="multiple"&&!rows.length&&specs.some(spec=>spec.name.trim()||spec.values.trim())&&candidate.rows?.length)throw new Error("规格已修改，请先确认当前规格组合。");
+  const next=applyIntakeVariants(candidate,activeRows,imagesRef.current,acceptImages,removedIntakeRows.current);
+  const added=Object.entries(candidate.attributes??{}).filter(([name])=>!attributes.some(row=>row.name.trim()===name));
+  if(attributes.length+added.length>256)throw new Error("商品属性超过保存限制，请减少候选属性。");
+  if(!title.trim()&&candidate.title)setTitle(candidate.title);
+  if(!brand.trim()&&candidate.brand)setBrand(candidate.brand.value);
+  if(!description.trim()&&candidate.description){setDescription(candidate.description);setDescriptionFormat(undefined)}
+  if(added.length)setAttributes(prior=>[...prior.filter(row=>row.name||row.value),...added.map(([name,fact])=>({id:crypto.randomUUID(),name,value:fact.value}))]);
+  if(candidate.rows?.length&&next.rows.length){
+   const dimensions=specificationsFromRows(next.rows);
+   if(next.rows.length>1||dimensions.length){
+    setMode("multiple");setRows(next.rows);setSpecs(dimensions);setGenerated(specificationSignature(dimensions));
+   }else{
+    setMode("single");setSingle(next.rows[0]);
+   }
+  }
+  if(next.assigned.size)setCommonImages(prior=>prior.filter(url=>!next.assigned.has(url)||confirmedGallery.current.has(url)));
+  setError("");
+ }
  const formIdentity=JSON.stringify({title,brand,description,descriptionFormat,images,commonImages,attributes,mode,single,rows,specs}),originalForm=useRef(formIdentity);
  function leave(){if(edit&&!commands.pending&&originalForm.current!==formIdentity&&!window.confirm("还有未保存的修改，确定返回商品详情吗？"))return;router.push(edit?`/workbench/data/mine/own/${edit.detail.item.id}`:library)}
  const pageTitle=edit?"编辑自有商品":"添加自有商品";
@@ -91,6 +118,7 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
    {context.pendingSupplyIntent?<p className="text-sm text-muted-foreground">有待核实的供应链操作，请先返回“商品刊登”处理后再保存商品。</p>:null}
    {!context.permissions.includes("workbench.collection.manage")?<p role="alert" className="text-sm text-destructive">当前没有添加自有商品的权限。</p>:null}
    <fieldset disabled={disabled} className="min-w-0 space-y-6 disabled:opacity-70">
+    {!edit&&context.permissions.includes("workbench.agent.use")&&context.permissions.includes("workbench.agent.local.write")&&context.effectiveMemberId?<OwnProductIntake key={context.effectiveMemberId} scope={scope} member={context.effectiveMemberId} images={images} uploaded={uploaded} disabled={disabled||mediaBlocked} onAdopt={adoptIntake}/>:null}
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(300px,2fr)]">
      <Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">基本资料</h2><p className="mt-1 text-sm text-muted-foreground">所有变体共用商品名称、品牌和描述。</p></div>
       <label className="grid gap-2 text-sm">商品名称<Input required maxLength={2000} value={title} placeholder="输入商品名称" onChange={e=>setTitle(e.target.value)}/></label>
@@ -98,11 +126,11 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
       <DescriptionEditor label="商品描述" value={description} format={descriptionFormat} images={[...new Set([...images,...activeRows.flatMap(v=>v.originalImages??[])])]} disabled={disabled} maxBytes={8192} onChange={(value,format)=>{setDescription(value);setDescriptionFormat(format)}}/>
      </Card>
      <Card role="region" aria-label="商品图片" className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">商品图片</h2><p className="mt-1 text-sm text-muted-foreground">勾选的公共图片供所有SKU共用，第一张公共图片作为主图。取消勾选后仅用于表格中绑定的SKU；绑定SKU不会自动取消公共归属。</p></div>
-      <SourceImageUploader scope={scope} allowNewUpload={images.length<40} disabled={disabled} onBlocked={setMediaBlocked} onImage={url=>addImages([url])} uploadLabel="上传图片"/>
+      <SourceImageUploader scope={scope} allowNewUpload={images.length<40} disabled={disabled} onBlocked={setMediaBlocked} onImage={url=>addImages([url])} onMedia={media=>setUploaded(prior=>new Set([...prior,media.url]))} uploadLabel="上传图片"/>
       {images.length?<div className="grid grid-cols-3 gap-3">{images.map((url,index)=><div key={url} className="min-w-0 space-y-2 rounded-lg border border-border p-2">
        <Image unoptimized src={`/api/image-proxy?url=${encodeURIComponent(url)}`} alt={`商品图片 ${index+1}`} width={120} height={120} className="aspect-square w-full rounded-md object-contain"/>
        <div className="flex items-center justify-between text-xs"><span>{commonImages.includes(url)?commonImages[0]===url?"公共主图":"公共图片":"SKU专属"}</span><Button type="button" size="icon" variant="ghost" aria-label={`移除图片 ${index+1}`} disabled={mediaBlocked} onClick={()=>removeImage(url)}><Trash2 size={14}/></Button></div>
-       <label className="flex items-center gap-2 text-xs"><Checkbox aria-label={`公共图片 ${index+1}`} checked={commonImages.includes(url)} disabled={mediaBlocked} onChange={e=>{const checked=e.target.checked;setCommonImages(prior=>checked?images.filter(v=>v===url||prior.includes(v)):prior.filter(v=>v!==url))}}/>作为公共图片</label>
+       <label className="flex items-center gap-2 text-xs"><Checkbox aria-label={`公共图片 ${index+1}`} checked={commonImages.includes(url)} disabled={mediaBlocked} onChange={e=>{const checked=e.target.checked;confirmedGallery.current.add(url);setCommonImages(prior=>checked?images.filter(v=>v===url||prior.includes(v)):prior.filter(v=>v!==url))}}/>作为公共图片</label>
       </div>)}</div>:<p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">尚未添加图片</p>}
       <label className="grid gap-2 text-sm">图片链接<Textarea rows={2} disabled={mediaBlocked} value={imageURL} placeholder="每行一个HTTPS图片链接" onChange={e=>setImageURL(e.target.value)}/></label>
       <Button type="button" variant="outline" disabled={!imageURL.trim()||mediaBlocked||images.length>=40} onClick={()=>addImages(imageURL.split(/\r?\n/).map(v=>v.trim()).filter(Boolean))}><Plus size={16}/>添加图片链接</Button>
@@ -117,12 +145,12 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
      {mode==="multiple"?<><div className="space-y-3">{specs.map((spec,index)=><div key={spec.id} className="grid items-end gap-3 sm:grid-cols-[minmax(120px,1fr)_minmax(0,3fr)_auto]"><label className="grid gap-2 text-sm">规格名称 {index+1}<Input value={spec.name} placeholder="例如：颜色" onChange={e=>setSpecs(prior=>prior.map(s=>s.id===spec.id?{...s,name:e.target.value}:s))}/></label><label className="grid gap-2 text-sm">规格值 {index+1}<Input value={spec.values} placeholder="例如：红色,蓝色（用逗号分隔）" onChange={e=>setSpecs(prior=>prior.map(s=>s.id===spec.id?{...s,values:e.target.value}:s))}/></label><Button type="button" variant="ghost" size="icon" aria-label={`删除规格 ${index+1}`} disabled={specs.length===1} onClick={()=>setSpecs(prior=>prior.filter(s=>s.id!==spec.id))}><Trash2 size={16}/></Button></div>)}</div>
       <div className="flex flex-wrap gap-3"><Button type="button" variant="outline" onClick={()=>setSpecs(prior=>[...prior,{id:crypto.randomUUID(),name:"",values:""}])}><Plus size={16}/>添加规格</Button><Button type="button" onClick={generate}>{rows.length?"更新变体组合":"生成变体组合"}</Button></div>
       <p className="text-xs text-muted-foreground">更新时保留相同组合已填写的资料，并移除不在当前规格中的组合。每个商品最多256个变体，规格与图片总量也受保存限制。</p>{stale?<p role="status" className="text-sm text-warning-foreground">规格已修改，请更新变体组合后保存。</p>:null}
-     </>:<p className="text-sm text-muted-foreground">可先保存基础资料；填写SKU后，需要同时声明币种、价格和库存。</p>}
+     </>:<p className="text-sm text-muted-foreground">可先保存基础资料；填写 SKU 后需同时声明币种和价格。库存可留空，填 0 表示明确无库存。</p>}
     </Card>
     {(mode==="single"||rows.length>0)?<Card className="overflow-hidden"><div className="space-y-4 border-b border-border p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">{mode==="single"?"SKU资料":"变体资料"}</h2><span className="text-sm text-muted-foreground">{activeRows.length} 个{mode==="single"?"规格":"变体"}</span></div>
      {mode==="multiple"?<div className="rounded-lg border border-border bg-muted p-4"><p className="mb-3 text-sm font-medium">批量填写</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><label className="grid gap-2 text-xs">SKU前缀<Input value={bulk.prefix} placeholder="选填，生成前缀-序号" onChange={e=>setBulk(v=>({...v,prefix:e.target.value}))}/></label><label className="grid gap-2 text-xs">公共币种<Input maxLength={3} value={bulk.currency} placeholder="例如 CNY" onChange={e=>setBulk(v=>({...v,currency:e.target.value.toUpperCase()}))}/></label><label className="grid gap-2 text-xs">公共价格<Input type="number" min="0" step="any" value={bulk.price} onChange={e=>setBulk(v=>({...v,price:e.target.value}))}/></label><label className="grid gap-2 text-xs">公共库存<Input type="number" min="0" step="1" value={bulk.stock} onChange={e=>setBulk(v=>({...v,stock:e.target.value}))}/></label><Button type="button" className="self-end" variant="outline" onClick={applyBulk}>应用到全部变体</Button></div><p className="mt-3 text-xs text-muted-foreground">仅应用已填写的公共值，会覆盖各行对应字段。价格和库存填0表示明确声明0。</p></div>:null}
      <p className="text-xs text-muted-foreground">价格和库存是你提供的来源资料，保存后仍需按目标平台要求适配。</p></div>
-     <Table className="min-w-[960px]"><TableHeader className="bg-muted"><TableRow><TableHead>规格组合</TableHead>{edit?<TableHead>SKU名称</TableHead>:null}<TableHead>SKU</TableHead><TableHead>币种</TableHead><TableHead>价格</TableHead><TableHead>库存</TableHead><TableHead>变体图片</TableHead>{mode==="multiple"?<TableHead>操作</TableHead>:null}</TableRow></TableHeader><TableBody>{activeRows.map((row,index)=><TableRow key={row.id}><TableCell><span className="block max-w-52 break-words text-sm">{Object.values(row.attributes).join(" / ")||"默认规格"}</span></TableCell>{edit?<TableCell><Input aria-label={`SKU名称 ${index+1}`} className="min-w-36" maxLength={2000} value={row.title??""} onChange={e=>patchRow(row.id,{title:e.target.value})}/></TableCell>:null}<TableCell><Input aria-label={`SKU ${index+1}`} className="min-w-36" maxLength={200} value={row.sku} onChange={e=>patchRow(row.id,{sku:e.target.value})}/></TableCell><TableCell><Input aria-label={`币种 ${index+1}`} className="w-24" maxLength={3} placeholder="CNY" value={row.currency} onChange={e=>patchRow(row.id,{currency:e.target.value.toUpperCase()})}/></TableCell><TableCell><Input aria-label={`价格 ${index+1}`} className="w-28" type="number" min="0" step="any" value={row.price} onChange={e=>patchRow(row.id,{price:e.target.value})}/></TableCell><TableCell><Input aria-label={`库存 ${index+1}`} className="w-28" type="number" min="0" step="1" value={row.stock} onChange={e=>patchRow(row.id,{stock:e.target.value})}/></TableCell><TableCell><Select aria-label={`变体图片 ${index+1}`} className="min-w-32" value={row.image} onChange={e=>patchRow(row.id,{image:e.target.value})}><option value="">未指定</option>{row.originalImages?.filter(url=>!images.includes(url)).map((url,i)=><option key={url} value={url}>原SKU图片 {i+1}</option>)}{images.map((url,i)=><option key={url} value={url}>{`图片 ${i+1} · ${commonImages.includes(url)?"公共":"SKU专属"}`}</option>)}</Select>{edit&&row.originalImages?.length?<p className="mt-2 max-w-48 text-xs text-muted-foreground">原有{row.originalImages.length}张SKU图片。保持原选择会保留图组；改选会替换图组。</p>:null}</TableCell>{mode==="multiple"?<TableCell><Button type="button" variant="ghost" size="icon" aria-label={`删除变体 ${index+1}`} onClick={()=>setRows(prior=>prior.filter(v=>v.id!==row.id))}><Trash2 size={16}/></Button></TableCell>:null}</TableRow>)}</TableBody></Table>
+     <Table className="min-w-[960px]"><TableHeader className="bg-muted"><TableRow><TableHead>规格组合</TableHead>{edit?<TableHead>SKU名称</TableHead>:null}<TableHead>SKU</TableHead><TableHead>币种</TableHead><TableHead>价格</TableHead><TableHead>库存</TableHead><TableHead>变体图片</TableHead>{mode==="multiple"?<TableHead>操作</TableHead>:null}</TableRow></TableHeader><TableBody>{activeRows.map((row,index)=><TableRow key={row.id}><TableCell><span className="block max-w-52 break-words text-sm">{Object.values(row.attributes).join(" / ")||"默认规格"}</span></TableCell>{edit?<TableCell><Input aria-label={`SKU名称 ${index+1}`} className="min-w-36" maxLength={2000} value={row.title??""} onChange={e=>patchRow(row.id,{title:e.target.value})}/></TableCell>:null}<TableCell><Input aria-label={`SKU ${index+1}`} className="min-w-36" maxLength={200} value={row.sku} onChange={e=>patchRow(row.id,{sku:e.target.value})}/></TableCell><TableCell><Input aria-label={`币种 ${index+1}`} className="w-24" maxLength={3} placeholder="CNY" value={row.currency} onChange={e=>patchRow(row.id,{currency:e.target.value.toUpperCase()})}/></TableCell><TableCell><Input aria-label={`价格 ${index+1}`} className="w-28" type="number" min="0" step="any" value={row.price} onChange={e=>patchRow(row.id,{price:e.target.value})}/></TableCell><TableCell><Input aria-label={`库存 ${index+1}`} className="w-28" type="number" min="0" step="1" value={row.stock} onChange={e=>patchRow(row.id,{stock:e.target.value})}/></TableCell><TableCell><Select aria-label={`变体图片 ${index+1}`} className="min-w-32" value={row.image} onChange={e=>patchRow(row.id,{image:e.target.value})}><option value="">未指定</option>{row.originalImages?.filter(url=>!images.includes(url)).map((url,i)=><option key={url} value={url}>原SKU图片 {i+1}</option>)}{images.map((url,i)=><option key={url} value={url}>{`图片 ${i+1} · ${commonImages.includes(url)?"公共":"SKU专属"}`}</option>)}</Select>{edit&&row.originalImages?.length?<p className="mt-2 max-w-48 text-xs text-muted-foreground">原有{row.originalImages.length}张SKU图片。保持原选择会保留图组；改选会替换图组。</p>:null}</TableCell>{mode==="multiple"?<TableCell><Button type="button" variant="ghost" size="icon" aria-label={`删除变体 ${index+1}`} onClick={()=>{removedIntakeRows.current.add(variantCombinationKey(row.attributes));setRows(prior=>prior.filter(v=>v.id!==row.id))}}><Trash2 size={16}/></Button></TableCell>:null}</TableRow>)}</TableBody></Table>
     </Card>:null}
     {activeRows.length?<Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">SKU 含包装资料</h2><p className="mt-1 text-sm text-muted-foreground">填写一件该 SKU 的含包装实测值。重量用克（g），尺寸用厘米（cm）；留空表示未知，可保存后补充。保存后仍按目标平台要求检查。</p></div><div className="space-y-4">{activeRows.map((row,index)=><div key={row.id} role="group" aria-label={`SKU 包装 ${row.sku||index+1}`} className="space-y-3 rounded-lg border border-border p-4"><p className="break-words text-sm font-medium">{row.sku||`SKU ${index+1}`} · {Object.values(row.attributes).join(" / ")||"默认规格"}</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{packagingFields.map(field=><label key={field.key} className="grid gap-2 text-sm">{field.label} {field.unit}<Input aria-label={`${field.label} ${field.unit} ${index+1}`} type="number" inputMode="decimal" min="0" step="any" value={row.packaging?.[field.key]??""} placeholder="未知" onChange={event=>patchRow(row.id,{packaging:{...row.packaging,[field.key]:event.target.value}})}/></label>)}</div></div>)}</div></Card>:null}
    </fieldset>
