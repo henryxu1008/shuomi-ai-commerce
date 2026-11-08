@@ -49,7 +49,7 @@ TemuOrderReader是显式注入的窄port：固定binding/window/page，返回typ
 
 复用OrderAmountMetrics及math/big精确累计，单店GET /api/v1/workbench/store-observations/orders/temu-saved-amount-metrics，经原身份envelope、订单读权限、20秒/no-store、BFF、严格日期query。只当前完整head且head/latest同一完整sync、有效ObservedAt及足够Range；最多250候选，缺金额/币种/时间隐藏全部金额并给数量，覆盖不足/limited不返回完整合计。空集合为无记录，不猜0或币种。
 
-响应前再次读取当前授权/绑定与heads/latest，任一漂移不可用；前端复用独立单店金额面板、日期/店铺筛选及迟到响应隔离，只TemuUS单店可见。页面明确美国V1商品促销总价、按父订单计、不含税运费/不代表GMV或结算，真实平台金额授权未验证。原全平台/GMV/合成预览不变。
+响应前再次读取当前授权/绑定与heads/latest，任一漂移不可用；前端复用独立单店金额面板、日期/店铺筛选及迟到响应隔离，只TemuUS单店可见。页面说明原商品促销总价、按父订单计、不含税运费/不代表GMV或结算及已保存覆盖范围。真实平台金额授权未验证的阶段证据写PR和交付说明，由独立实例标识本地测试，不永久写成业务数据事实。原全平台/GMV/合成预览不变。
 
 ## 验证与停止点
 
@@ -60,4 +60,5 @@ TDD：r1拒绝SEMI、r2两模式身份/分区/缺semiUniqueId、商品与订单�
 独立本地新PG用本土与半托两家测试店、两组日期、同父多子/多站、重放、旧generation、缺金额/币种和覆盖不足，经正式保存和HTTP/BFF/浏览器无刷新切换；全程禁止外部请求。保留可访问入口供用户试用，不自行签发产品验收或合并。
 
 独立架构复核：/root/architecture_review核对设计1179fa2ea403ba9e4d406c6b0117a847af43f171与实际owner/授权/事务，未发现BLOCKER，结论IMPLEMENTATION_READY。r1/r2与产品拒绝、金额关联/缺失/警告、100条原子保存、稳定total/重复页与末秒边界归IMPLEMENTATION_TEST在本批收敛。
+
 
