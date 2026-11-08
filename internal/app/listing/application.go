@@ -19,6 +19,8 @@ import (
 )
 
 type Application struct {
+	SheinPublishSource    SheinPublishMetricsSource
+	SheinPublishMerchant  func(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error)
 	TikTokPublishSource   TikTokPublishMetricsSource
 	TikTokPublishMerchant func(context.Context, collection.Scope, string) (submission.TikTokGlobalPublishReadScope, error)
 	WalmartFeedSource     WalmartFeedMetricsSource

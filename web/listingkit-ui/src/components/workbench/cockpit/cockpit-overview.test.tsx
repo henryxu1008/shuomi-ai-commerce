@@ -35,6 +35,7 @@ it("updates listing and task metrics together when changing both date and store"
     const oneStore = params.getAll("storeId").length === 1;
     if (owner === "tasks" && isYesterday && oneStore) return new Promise(resolve => { resolveFilteredTask = resolve; });
     if (owner === "tasks") return taskResult(isYesterday ? 2 : 5);
+    if (String(owner) === "shein-publish") return { result: { status: "complete", capturedAt, counts: { confirmed: 0, unknown: 0 } } };
     return { result: { status: "complete", capturedAt, counts: { pending: oneStore ? 1 : isYesterday ? 3 : 9, review: oneStore ? 0 : isYesterday ? 1 : 4 } } };
   });
 
@@ -63,9 +64,10 @@ it("updates listing and task metrics together when changing both date and store"
   const ringLegend = screen.getByRole("list", { name: "任务状态数量" });
   expect(within(ringLegend).getByText("异常").parentElement).toHaveTextContent("异常0");
   const calls = vi.mocked(readCockpitMetrics).mock.calls;
-  expect(calls.slice(-2).map(([,owner,query]) => [owner,query])).toEqual([
+  expect(calls.slice(-3).map(([,owner,query]) => [owner,query])).toEqual([
     ["supply-preparations", `startDate=2026-10-10&endDate=2026-10-10&storeId=${second}`],
     ["tasks", `startDate=2026-10-10&endDate=2026-10-10&storeId=${second}`],
+    ["shein-publish", `startDate=2026-10-10&endDate=2026-10-10&storeId=${second}`],
   ]);
   expect(screen.getByText("GMV 数据待接入")).toBeVisible();
   expect(screen.getByText("上传结果统计待接入")).toBeVisible();
@@ -197,4 +199,35 @@ it("shows the TikTok US submission rate only for the selected TikTok shop", asyn
   expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument();
   expect(screen.getByText("上传结果统计待接入")).toBeVisible();
   expect(screen.getByText("GMV 数据待接入")).toBeVisible();
+});
+it("shows SHEIN US publication counts for the selected shop and dates", async () => {
+  const storeA = { id: "123e4567-e89b-42d3-a456-426614174000", name: "SHEIN 验收店 A", platform: "shein", region: "US", status: "active" };
+  const storeB = { ...storeA, id: "123e4567-e89b-42d3-a456-426614174001", name: "SHEIN 验收店 B" };
+  const title = "SHEIN US 商品发布";
+  state.context.permissions.push("workbench.supply.read");
+  vi.mocked(cockpitRequest).mockImplementation(async (_scope, path) => path === "capabilities"
+    ? { ...capabilities, stores: [storeA, storeB] } : matrix);
+  vi.mocked(readCockpitMetrics).mockImplementation(async (_scope, owner, query) => {
+    const params = new URLSearchParams(query);
+    const yesterday = params.get("startDate") === "2026-10-10";
+    const counts = String(owner) === "shein-publish"
+      ? { confirmed: params.get("storeId") === storeB.id ? 0 : yesterday ? 1 : 2, unknown: 1 }
+      : { pending: 2, review: 1 };
+    return { result: { status: "complete", capturedAt: "2026-10-11T00:00:00Z", counts } };
+  });
+  const user = userEvent.setup();
+  mount();
+  const shop = await screen.findByRole("combobox", { name: "店铺" });
+  expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument();
+  await user.selectOptions(shop, storeA.id);
+  const panel = await screen.findByRole("heading", { name: title });
+  const card = panel.parentElement!.parentElement!;
+  expect(await within(card).findByText("2")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: /^昨日$/ }));
+  await waitFor(() => expect(within(card).getAllByText("1")).toHaveLength(2));
+  await user.selectOptions(shop, storeB.id);
+  expect(await within(card).findByText("0")).toBeVisible();
+  expect(within(card).getByText("已确认提交")).toBeVisible();
+  expect(within(card).getByText("结果待核实")).toBeVisible();
+  expect(within(card).queryByText(/%/)).not.toBeInTheDocument();
 });
