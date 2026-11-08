@@ -118,7 +118,7 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
    {context.pendingSupplyIntent?<p className="text-sm text-muted-foreground">有待核实的供应链操作，请先返回“商品刊登”处理后再保存商品。</p>:null}
    {!context.permissions.includes("workbench.collection.manage")?<p role="alert" className="text-sm text-destructive">当前没有添加自有商品的权限。</p>:null}
    <fieldset disabled={disabled} className="min-w-0 space-y-6 disabled:opacity-70">
-    {!edit&&context.permissions.includes("workbench.agent.use")&&context.permissions.includes("workbench.agent.local.write")&&context.effectiveMemberId?<OwnProductIntake key={context.effectiveMemberId} scope={scope} member={context.effectiveMemberId} images={images} uploaded={uploaded} disabled={disabled||mediaBlocked} onAdopt={adoptIntake}/>:null}
+    {!edit&&context.permissions.includes("workbench.agent.use")&&context.permissions.includes("local_agent.write")&&context.effectiveMemberId?<OwnProductIntake key={context.effectiveMemberId} scope={scope} member={context.effectiveMemberId} images={images} uploaded={uploaded} disabled={disabled||mediaBlocked} onAdopt={adoptIntake}/>:null}
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(300px,2fr)]">
      <Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">基本资料</h2><p className="mt-1 text-sm text-muted-foreground">所有变体共用商品名称、品牌和描述。</p></div>
       <label className="grid gap-2 text-sm">商品名称<Input required maxLength={2000} value={title} placeholder="输入商品名称" onChange={e=>setTitle(e.target.value)}/></label>

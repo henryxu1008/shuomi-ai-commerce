@@ -287,3 +287,12 @@ it("preserves a saved rich description byte-for-byte while editing only its titl
  await waitFor(()=>expect(state.mutate).toHaveBeenCalledOnce());
  expect(state.mutate.mock.calls[0][0].command.product).toMatchObject({description:detail.product.description,descriptionFormat:"html-v1"});
 });
+
+it("shows intake for the canonical local Agent permission and hides it after revocation",()=>{
+ state.context={...state.context,effectiveMemberId:"member-a",permissions:["workbench.collection.read","workbench.collection.manage","workbench.agent.use","local_agent.write"]};
+ const view=render(<OwnProductEntryPage/>);
+ expect(screen.getByRole("heading",{name:"AI 整理商品资料"})).toBeInTheDocument();
+ state.context={...state.context,permissions:["workbench.collection.read","workbench.collection.manage","workbench.agent.use"]};
+ view.rerender(<OwnProductEntryPage/>);
+ expect(screen.queryByRole("heading",{name:"AI 整理商品资料"})).not.toBeInTheDocument();
+});
