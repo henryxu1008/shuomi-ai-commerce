@@ -10,5 +10,5 @@ export default defineConfig({
  reporter:"line",
  use:{baseURL:origin,screenshot:"only-on-failure",trace:"retain-on-failure"},
  projects:[{name:"chromium",use:{...devices["Desktop Chrome"]}}],
- webServer:{command:`pnpm dev --hostname 127.0.0.1 --port ${new URL(origin).port}`,url:origin,reuseExistingServer:false,timeout:120000},
+ webServer:{command:`pnpm dev --webpack --hostname 127.0.0.1 --port ${new URL(origin).port}`,url:origin,reuseExistingServer:false,timeout:120000},
 });
