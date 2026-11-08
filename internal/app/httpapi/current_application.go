@@ -1689,13 +1689,6 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range collectionhttp.Routes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
-		for _, r := range routes {
-			if r.Path == collectionhttp.BasePath || strings.HasPrefix(r.Path, collectionhttp.BasePath+"/") {
-				if err := validateCollectionDescriptor(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	if optional.ShopDiagnosis {
 		if !optional.OperationsCockpit || !optional.StoreCenter {
@@ -1944,6 +1937,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("image analysis application not admitted")
 			}
 			continue
+		}
+		if optional.Collections && (descriptor.Path == collectionhttp.BasePath || strings.HasPrefix(descriptor.Path, collectionhttp.BasePath+"/")) {
+			if err := validateCollectionDescriptor(descriptor); err != nil {
+				return err
+			}
 		}
 		if strings.HasPrefix(descriptor.Path, shopDiagnosisBase+"/") {
 			if !optional.ShopDiagnosis || !optional.OperationsCockpit || !optional.StoreCenter {
