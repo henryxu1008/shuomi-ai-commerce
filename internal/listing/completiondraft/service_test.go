@@ -270,3 +270,18 @@ func TestContentAndRevisionBoundsBeforePersistence(t *testing.T) {
 	}
 	require.Zero(t, r.writes)
 }
+
+func TestInternalNoteBoundsAndIdentity(t *testing.T) {
+	input := SaveInput{SourceID: uuid.NewString(), Content: Content{Title: "candidate"}}
+	baseline := InputHash(input)
+	input.Content.InternalNote = strings.Repeat("界", 341) + "a"
+	require.NoError(t, input.Validate())
+	require.NotEqual(t, baseline, InputHash(input))
+	for _, invalid := range []string{input.Content.InternalNote + "a", "a\x00b", string([]byte{0xff})} {
+		input.Content.InternalNote = invalid
+		require.ErrorIs(t, input.Validate(), preparation.ErrInvalid)
+	}
+	input.Content.InternalNote = ""
+	require.NoError(t, input.Validate())
+	require.Equal(t, baseline, InputHash(input))
+}

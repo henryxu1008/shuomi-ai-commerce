@@ -9,7 +9,7 @@ vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),t
 const id="11111111-1111-4111-8111-111111111111";
 const source:SupplySourceDetail={source:{id,preparationId:id,collectionItemId:id,collectionRevision:1,source:{productKey:"product",publicationId:id,version:"1",kind:"own"}},product:{title:"Source title",description:"Source description",variants:[{sku:"foreign-sku",stock:42,price:{amount:99}}]},images:[]};
 const listing={methods:["LOCAL_REPLICATION"],inventoryRules:[],fingerprint:"a".repeat(64)},category={id:"cat",parent_id:"0",local_name:"Example",is_leaf:true,permission_statuses:["AVAILABLE"]};
-beforeEach(()=>{state.rules.mockReset();state.execute.mockReset();state.rules.mockImplementation((_scope,input)=>Promise.resolve(input.tiktokRules.categoryId?{merchant:{},tiktok:{selection:input.tiktokRules,listing,category,rules:{product_certifications:[],size_chart:{is_required:false,is_supported:false},package_dimension:{is_required:false}},attributes:[],warehouses:[]}}:{merchant:{},tiktokCatalog:{method:input.tiktokRules.method,listing,categories:input.tiktokRules.method?[category]:[]}}));state.inventory.mockResolvedValue({scope:{target_platform:"tiktokshop"},assets:[]});state.completion.mockResolvedValue({id,revision:7,content:{title:"Reviewed title",description:"Reviewed description"}})});
+beforeEach(()=>{state.rules.mockReset();state.execute.mockReset();state.rules.mockImplementation((_scope,input)=>Promise.resolve(input.tiktokRules.categoryId?{merchant:{},tiktok:{selection:input.tiktokRules,listing,category,rules:{product_certifications:[],size_chart:{is_required:false,is_supported:false},package_dimension:{is_required:false}},attributes:[],warehouses:[]}}:{merchant:{},tiktokCatalog:{method:input.tiktokRules.method,listing,categories:input.tiktokRules.method?[category]:[]}}));state.inventory.mockResolvedValue({scope:{target_platform:"tiktokshop"},assets:[]});state.completion.mockResolvedValue({id,revision:7,content:{title:"Reviewed title",description:"Reviewed description",internalNote:"WORKBENCH_ONLY_TIKTOK_NOTE"}})});
 afterEach(cleanup);
 it("requires an actual method choice and carries the selected saved completion revision",async()=>{
  render(<TikTokTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} command={{execute:state.execute} as unknown as ListingCommandState} disabled={false} saved={0} completionAvailable/>);
@@ -19,6 +19,7 @@ it("requires an actual method choice and carries the selected saved completion r
  await userEvent.click(screen.getByRole("button",{name:"保存并校验 TikTok 资料"}));
  expect(state.execute.mock.lastCall?.[1]).toMatchObject({completionDraft:{recordId:id,revision:7},tiktok:{title:"Reviewed title",description:"Reviewed description",saveMode:"AS_DRAFT",skus:[{sellerSku:"",salePrice:"",inventory:[]}]}});
  expect(state.execute.mock.lastCall?.[1].tiktok.skus[0]).not.toHaveProperty("stock");
+ expect(JSON.stringify(state.execute.mock.lastCall?.[1])).not.toMatch(/internalNote|WORKBENCH_ONLY_TIKTOK_NOTE/);
 });
 it("removes a cancelled optional certification while retaining other selected proofs",async()=>{
  const readRules=state.rules.getMockImplementation()!;

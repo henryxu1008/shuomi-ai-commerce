@@ -133,3 +133,26 @@ it("restores the old description format and preserves current structured candida
   view.unmount();f.context.pendingSupplyIntent=null;
  }
 });
+
+
+it("restores old text while keeping the current internal note",async()=>{
+ const internalNote="CURRENT_WORKBENCH_NOTE";
+ const current={...head,content:{...head.content,internalNote}};
+ const historical={...old,content:{...old.content,internalNote:"HISTORICAL_WORKBENCH_NOTE"}};
+ f.head.mockResolvedValue(current);
+ f.old.mockResolvedValue(historical);
+ const content={...old.content,internalNote};
+ f.save.mockResolvedValue(receipt({...saved,content}));
+ render(<CompletionRestorePage {...props}/>);
+ await screen.findByText("当前已保存 R3");
+ expect(screen.queryByText("HISTORICAL_WORKBENCH_NOTE")).not.toBeInTheDocument();
+ fireEvent.click(confirm());
+ await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content}}),expect.any(AbortSignal)));
+});
+it("does not enable historical text restore for an internal note difference alone",async()=>{
+ f.head.mockResolvedValue({...head,content:{...old.content,internalNote:"CURRENT_WORKBENCH_NOTE"}});
+ render(<CompletionRestorePage {...props}/>);
+ await screen.findByText("标题和描述与当前版本相同，无需恢复。");
+ expect(confirm()).toBeDisabled();
+ expect(f.save).not.toHaveBeenCalled();
+});

@@ -68,3 +68,20 @@ it("retains the exact rich description and format when saving only attributes an
  f.head.mockResolvedValue(rich);render(<CompletionStructuredPage {...props}/>);await screen.findByRole("heading",{name:"候选商品属性"});
  fireEvent.click(save());await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{sourceId:id,expectedRevision:3,content:rich.content}}),expect.any(AbortSignal)));
 });
+
+
+it("keeps the saved internal note when an attribute edit is saved",async()=>{
+ const internalNote="WORKBENCH_ONLY_STRUCTURED_NOTE";
+ const existing={...head,content:{...content,internalNote}};
+ f.head.mockResolvedValue(existing);
+ f.save.mockResolvedValue({record:{...existing,revision:4},replayed:false});
+ render(<CompletionStructuredPage {...props}/>);
+ await screen.findByRole("heading",{name:"候选商品属性"});
+ fireEvent.click(screen.getByRole("button",{name:"添加属性"}));
+ fireEvent.change(screen.getByRole("textbox",{name:"属性名称 1"}),{target:{value:"材质"}});
+ fireEvent.change(screen.getByRole("textbox",{name:"属性值 1"}),{target:{value:"棉"}});
+ fireEvent.click(save());
+ await waitFor(()=>expect(f.save).toHaveBeenCalledWith(expect.objectContaining({command:{
+  sourceId:id,expectedRevision:3,content:{...existing.content,structured:{...content.structured,attributes:[{name:"材质",value:"棉"}]}}
+ }}),expect.any(AbortSignal)));
+});

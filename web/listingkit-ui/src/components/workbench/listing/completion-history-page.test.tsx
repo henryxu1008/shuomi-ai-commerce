@@ -42,7 +42,7 @@ it("reads an exact old revision as read-only and separately compares the two tex
  const view=render(<CompletionHistoryPage sourceId={id} revision={1} preparationId={batch} itemId={batch}/>);
  await screen.findByText("旧标题");expect(screen.getByText("固定来源 V1")).toBeVisible();expect(screen.getByText("保存版本 R1 · 只读")).toBeVisible();expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
  view.rerender(<CompletionHistoryPage sourceId={id} from={1} to={2} preparationId={batch} itemId={batch}/>);
- const table=await screen.findByRole("table",{name:"标题和描述差异"});expect(table).toBeVisible();expect(screen.getByText((_,element)=>element?.tagName==="P"&&element.textContent===current.content.description)).toBeVisible();expect(within(table).getAllByText("已变化")).toHaveLength(2);
+ const table=await screen.findByRole("table",{name:"标题、描述和内部备注差异"});expect(table).toBeVisible();expect(screen.getByText((_,element)=>element?.tagName==="P"&&element.textContent===current.content.description)).toBeVisible();expect(within(table).getAllByText("已变化")).toHaveLength(2);
 });
 it("shows real empty/error states and blocks mismatched navigation or cross-draft comparisons",async()=>{
  f.list.mockResolvedValue({source,draftId:batch,currentRevision:0,items:[]});let view=render(<CompletionHistoryPage sourceId={id}/>);await screen.findByText("尚无保存历史");view.unmount();
@@ -52,13 +52,24 @@ it("shows real empty/error states and blocks mismatched navigation or cross-draf
 it("distinguishes identical saved text from whitespace changes",async()=>{
  f.read.mockImplementation((_scope,_id,revision)=>Promise.resolve({...old,id:revision===1?id:batch,revision}));
  const view=render(<CompletionHistoryPage sourceId={id} from={1} to={2}/>);
- await screen.findByText("标题和描述没有变化。");expect(within(screen.getByRole("table",{name:"标题和描述差异"})).getAllByText("未变化")).toHaveLength(4);view.unmount();
+ await screen.findByText("标题、描述和内部备注没有变化。");expect(within(screen.getByRole("table",{name:"标题、描述和内部备注差异"})).getAllByText("未变化")).toHaveLength(5);view.unmount();
  f.read.mockImplementation((_scope,_id,revision)=>Promise.resolve({...old,id:revision===1?id:batch,revision,content:{title:"",description:revision===1?"":"\n"}}));
- render(<CompletionHistoryPage sourceId={id} from={1} to={2}/>);await screen.findByText("已变化");expect(screen.getByText("仅含空白文本 · 1 个字符")).toBeVisible();expect(screen.queryByText("标题和描述没有变化。")).not.toBeInTheDocument();
+ render(<CompletionHistoryPage sourceId={id} from={1} to={2}/>);await screen.findByText("已变化");expect(screen.getByText("仅含空白文本 · 1 个字符")).toBeVisible();expect(screen.queryByText("标题、描述和内部备注没有变化。")).not.toBeInTheDocument();
 });
 it("keeps cross-page selections and removes old content immediately on scope or navigation changes",async()=>{
  f.list.mockResolvedValueOnce({source,draftId:batch,currentRevision:2,items:[current],nextBefore:2}).mockResolvedValueOnce({source,draftId:batch,currentRevision:2,items:[old]});
  const view=render(<CompletionHistoryPage sourceId={id} preparationId={batch}/>);await screen.findByText("新标题");fireEvent.click(screen.getByRole("checkbox",{name:"选择 R2"}));fireEvent.click(screen.getByRole("button",{name:"查看更早保存"}));await screen.findByText("旧标题");fireEvent.click(screen.getByRole("checkbox",{name:"选择 R1"}));expect(screen.getByRole("link",{name:"对比所选版本"})).toBeVisible();
  let resolve!:(value:unknown)=>void;f.list.mockReturnValue(new Promise(r=>{resolve=r}));f.context.effectiveOrganization.id="other-org";view.rerender(<CompletionHistoryPage sourceId={id} preparationId={batch}/>);expect(screen.queryByText("旧标题")).not.toBeInTheDocument();
  view.rerender(<CompletionHistoryPage sourceId={id} preparationId={id}/>);resolve({source,draftId:batch,currentRevision:2,items:[old]});await waitFor(()=>expect(screen.queryByText("旧标题")).not.toBeInTheDocument());
+});
+
+
+it("shows an internal note change separately from platform-facing content",async()=>{
+ const withNote={...current,content:{...old.content,internalNote:"WORKBENCH_ONLY_HISTORY_NOTE"}};
+ f.read.mockImplementation(async(_scope,_id,revision)=>revision===1?old:withNote);
+ const view=render(<CompletionHistoryPage sourceId={id} from={1} to={2}/>);
+ expect(await screen.findByRole("row",{name:/内部备注 已变化 未填写 WORKBENCH_ONLY_HISTORY_NOTE/})).toBeVisible();
+ view.unmount();
+ render(<CompletionHistoryPage sourceId={id} revision={2}/>);
+ expect(await screen.findByText("WORKBENCH_ONLY_HISTORY_NOTE")).toBeVisible();
 });
