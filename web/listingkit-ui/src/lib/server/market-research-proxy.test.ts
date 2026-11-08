@@ -101,3 +101,9 @@ it("checks an assessment response against the exact record ID, not the route's c
  fetcher.mockResolvedValueOnce(Response.json(masked));expect((await proxyMarketResearch(make(),"token","user-a")).status).toBe(200);
  fetcher.mockResolvedValueOnce(Response.json({...masked,id}));expect((await proxyMarketResearch(make(),"token","user-a")).status).toBe(502);
 });
+
+it("preserves bounded validation field names without turning a rejected save into UNKNOWN",async()=>{
+ const error={code:"INVALID_REQUEST",fields:["refundRate"]};fetcher.mockResolvedValueOnce(Response.json(error,{status:400}));
+ const body={action:"save_assessment",candidateId:id,expectedRevision:2,linkId:id,evidenceDigest:"a".repeat(64),assessment:{cost:{...blankCostDraft(),refundRate:"100.01"}}};
+ const response=await proxyMarketResearch(request(JSON.stringify(body)),"token","user-a");expect(response.status).toBe(400);expect(await response.json()).toEqual(error);
+});

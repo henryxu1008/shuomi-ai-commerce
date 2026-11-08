@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ResearchCostPreview } from "./research-cost-preview";
+import {ResearchError} from "@/lib/api/market-research";
 
 afterEach(cleanup);
 
@@ -45,4 +46,14 @@ it("requires new procurement amounts after the currency changes", () => {
   fireEvent.change(screen.getByLabelText("采购币种"), { target: { value: "CNY" } });
   expect(screen.getByLabelText("正常成交 采购与包装消耗（CNY/件）")).toHaveValue("");
   expect(screen.getByLabelText("人工汇率（1 CNY 折合多少 USD）")).toHaveValue("");
+});
+
+it("retains the whole draft when the server rejects a refund percentage",async()=>{
+ const calculate=vi.fn().mockRejectedValue(new ResearchError("INVALID_REQUEST",400,["refundRate"]));
+ render(<ResearchCostPreview calculate={calculate}/>);
+ const channel=screen.getByLabelText("计划销售渠道"),refund=screen.getByLabelText("全额退款概率（%）");
+ fireEvent.change(channel,{target:{value:"Amazon US"}});fireEvent.change(refund,{target:{value:"100.01"}});
+ fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
+ expect(await screen.findByText("有输入需要更正")).toBeVisible();expect(screen.getByText("全额退款概率")).toBeVisible();expect(channel).toHaveValue("Amazon US");expect(refund).toHaveValue("100.01");
+ expect(screen.queryByText(/原商品资料已变化或暂不可读/)).not.toBeInTheDocument();
 });

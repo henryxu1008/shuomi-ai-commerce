@@ -122,6 +122,10 @@ export async function proxyProjectCenter(
     );
     controller.signal.throwIfAborted();
     if (response.status !== 200) {
+      if(options?.base==="research/projects"&&response.status===400){
+        const inputError=z.strictObject({code:z.literal("INVALID_REQUEST"),fields:z.array(z.string().max(120).refine(v=>!v.includes("\0"))).max(80)}).safeParse(payload);
+        if(inputError.success)return Response.json(inputError.data,{status:400,headers:safe});
+      }
       const failure = z
         .strictObject({ code: z.string().regex(/^[A-Z_]{1,80}$/) })
         .safeParse(payload);

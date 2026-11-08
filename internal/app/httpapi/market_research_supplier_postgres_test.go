@@ -299,6 +299,9 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, assessment.Detail)
 	require.Equal(t, "CONFIRMED", assessment.Detail.SupplierBinding)
+	require.Equal(t, "sku-adjustable-white-01", assessment.Detail.SupplierSKU)
+	require.Equal(t, 20, assessment.Detail.SupplierQuantity)
+	require.Equal(t, "piece", assessment.Detail.SupplierUnit)
 	require.Equal(t, "UNSUPPORTED_COST_RULE", assessment.Detail.Result.Status)
 	require.Equal(t, *assessmentReceipt.AssessmentRef, assessment.Detail.Ref)
 	mismatched := assessmentCommand

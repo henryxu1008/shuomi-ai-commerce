@@ -77,6 +77,17 @@ func failure(c *gin.Context, e error) {
 		}
 	}
 	c.Header("Cache-Control", "private, no-store")
+	var inputError *research.CostInputError
+	if errors.As(e, &inputError) {
+		fields := []string{}
+		for _, field := range inputError.Fields {
+			if len(field) <= 120 && !strings.ContainsRune(field, 0) && len(fields) < 80 {
+				fields = append(fields, field)
+			}
+		}
+		c.JSON(status, gin.H{"code": code, "fields": fields})
+		return
+	}
 	c.JSON(status, gin.H{"code": code})
 }
 func (h *Handler) serve(c *gin.Context) {
@@ -112,8 +123,12 @@ func (h *Handler) serve(c *gin.Context) {
 		}
 		var command research.Command
 		violations, e := strict.UnmarshalStrict(raw, &command, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
-		if e != nil || len(violations) > 0 || research.Validate(command) != nil {
+		if e != nil || len(violations) > 0 {
 			failure(c, research.ErrInvalid)
+			return
+		}
+		if e = research.Validate(command); e != nil {
+			failure(c, e)
 			return
 		}
 		if preview {

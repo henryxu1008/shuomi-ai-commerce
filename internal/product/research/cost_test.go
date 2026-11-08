@@ -1,6 +1,7 @@
 package research
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,42 @@ func costFixture() CostInput {
 	}
 	return CostInput{Channel: "US", Fulfillment: "merchant shipped", Specification: "blue single item", Quantity: "20", Price: "30", RefundRate: "5",
 		SalesBasis: basis, Rule: "fixed_percent", PurchaseCurrency: "USD", Completed: outcome("6", "10"), Refunded: outcome("8", "0")}
+}
+
+func TestCostProbabilityEndpointsUpperBoundsAndWireFormat(t *testing.T) {
+	in := costFixture()
+	in.RefundRate = "100"
+	_, result := CalculateCost(in)
+	require.Equal(t, "COMPUTABLE", result.Status)
+	require.Equal(t, "-19.00", result.Contribution)
+	require.Equal(t, "-8.00", result.Gross)
+	require.Nil(t, result.CompletedContribution)
+	require.Nil(t, result.BreakEven)
+	in = costFixture()
+	in.Quantity = "1000000"
+	in.RefundRate = "0"
+	in.Price = "1000000"
+	in.PurchaseCurrency = "CNY"
+	in.ExchangeRate = "1000"
+	in.ExchangeBasis = in.SalesBasis
+	for key := range in.Completed.Costs {
+		in.Completed.Costs[key] = CostValue{Kind: "not_applicable", Reason: "not incurred"}
+	}
+	in.Completed.Costs["procurement"] = CostValue{Kind: "value", Value: "1000000"}
+	_, result = CalculateCost(in)
+	require.Equal(t, "COMPUTABLE", result.Status)
+	require.Equal(t, "-999000000.00", result.Contribution)
+	in.Price = "1000000.01"
+	_, result = CalculateCost(in)
+	require.Equal(t, "INVALID_INPUT", result.Status)
+	normal, result := CalculateCost(CostInput{Rule: "fixed_percent", PurchaseCurrency: "USD"})
+	raw, err := json.Marshal(normal)
+	require.NoError(t, err)
+	require.Contains(t, string(raw), `"kind":"value","value":""`)
+	raw, err = json.Marshal(result)
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), "breakEven")
+	require.NotContains(t, string(raw), "contribution")
 }
 
 func TestCostOriginalVectorsAndNormalization(t *testing.T) {

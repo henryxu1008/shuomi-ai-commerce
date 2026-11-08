@@ -187,6 +187,10 @@ export function ResearchCostPreview({ calculate,onEdit,onSave,initialDraft,disab
       setResult(response);
     } catch (error) {
       if (request.signal.aborted)return;
+      if(error instanceof ResearchError&&error.code==="INVALID_REQUEST"){
+        setResult({status:"INVALID_INPUT",fields:error.fields??[]});
+        setMessage("输入格式或数值需要更正，请检查金额、退款概率及日期；已保留输入。");return;
+      }
       const transient=error instanceof ResearchError&&(["DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED"].includes(error.code)||error.code==="INVALID_UPSTREAM_RESPONSE"&&!!error.status&&error.status>=500);
       if(error instanceof ResearchError&&!transient||error instanceof Error&&["REVISION_CONFLICT","FORBIDDEN","NOT_FOUND","PROJECT_ARCHIVED"].includes(error.message)){
         setDraft(blankCostDraft());

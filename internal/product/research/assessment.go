@@ -46,13 +46,17 @@ type AssessmentRow struct {
 	Record   AssessmentRecord
 }
 type AssessmentDetail struct {
-	Ref             AssessmentRef          `json:"ref"`
-	Input           CostInput              `json:"input"`
-	Result          CostResult             `json:"result"`
-	RuleVersion     string                 `json:"ruleVersion"`
-	Market          Selection              `json:"market"`
-	SupplierReview  *AssessmentSupplierRef `json:"supplierReview,omitempty"`
-	SupplierBinding string                 `json:"supplierBinding"`
+	Ref              AssessmentRef          `json:"ref"`
+	Input            CostInput              `json:"input"`
+	Result           CostResult             `json:"result"`
+	RuleVersion      string                 `json:"ruleVersion"`
+	Market           Selection              `json:"market"`
+	SupplierReview   *AssessmentSupplierRef `json:"supplierReview,omitempty"`
+	SupplierBinding  string                 `json:"supplierBinding"`
+	SupplierSKU      string                 `json:"supplierSkuId,omitempty"`
+	SupplierQuantity int                    `json:"supplierQuantity,omitempty"`
+	SupplierUnit     string                 `json:"supplierUnit,omitempty"`
+	SupplierVersion  uint64                 `json:"supplierVersion,omitempty,string"`
 }
 type AssessmentView struct {
 	ID            string            `json:"id"`
@@ -96,7 +100,7 @@ func validateAssessmentCommand(c Command) error {
 	}
 	_, result := CalculateCost(c.Assessment.Cost)
 	if result.Status == "INVALID_INPUT" {
-		return ErrInvalid
+		return &CostInputError{Fields: result.Fields}
 	}
 	raw, err := json.Marshal(c)
 	if err != nil || len(raw) > 24<<10 {
@@ -188,7 +192,10 @@ func (s *Service) PrepareAssessment(ctx context.Context, scope collection.Scope,
 	if !s.AssessmentsEnabled() {
 		return AssessmentProof{}, ErrUnsupported
 	}
-	if Validate(c) != nil || c.Action != SaveAssessment && c.AssessmentRef == nil {
+	if validation := Validate(c); validation != nil {
+		return AssessmentProof{}, validation
+	}
+	if c.Action != SaveAssessment && c.AssessmentRef == nil {
 		return AssessmentProof{}, ErrInvalid
 	}
 	bounded, cancel, expires, err := s.assessmentDeadline(ctx)
@@ -285,6 +292,12 @@ func (s *Service) assessmentView(ctx context.Context, scope collection.Scope, pr
 		binding = rec.Supplier.Input.Status
 	}
 	view.Detail = &AssessmentDetail{Ref: rec.Reference(row.ID), Input: rec.Input, Result: rec.Result, RuleVersion: rec.RuleVersion, Market: rec.Market.Selection, SupplierReview: rec.SupplierReview, SupplierBinding: binding}
+	if rec.Supplier != nil {
+		view.Detail.SupplierSKU = rec.Supplier.Input.SKUID
+		view.Detail.SupplierQuantity = rec.Supplier.Input.Quantity
+		view.Detail.SupplierUnit = rec.Supplier.Input.Unit
+		view.Detail.SupplierVersion = rec.Supplier.Offer.Source.Version
+	}
 	return view
 }
 func (s *Service) ReadAssessment(ctx context.Context, scope collection.Scope, project, candidate, id string) (AssessmentView, error) {

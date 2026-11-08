@@ -50,6 +50,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  const [items,setItems]=useState<ResearchCandidate[]>([]),[after,setAfter]=useState(initialAfter),[next,setNext]=useState(""),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true),[incomplete,setIncomplete]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false),[picker,setPicker]=useState(false),[unsupported,setUnsupported]=useState<string[]>([]),[chosen,setChosen]=useState<string[]>([]),[compare,setCompare]=useState(false),[absent,setAbsent]=useState(false);
   const [openedSupplier,setOpenedSupplier]=useState("");
  const [loadedCostPage,setLoadedCostPage]=useState("");
+ const [openedAssessment,setOpenedAssessment]=useState<string|null>(null);
  const [assessmentChoices,setAssessmentChoices]=useState<Record<string,{ref:AssessmentRef;readKey:string}|undefined>>({});
  const costPageKey=JSON.stringify([scope.userId,scope.organizationId,projectId,after,refresh,canRead,canWrite,archived]);
  const lifetime=useRef<AbortController|null>(null),flight=useRef(false),handoff=useRef(false);
@@ -157,7 +158,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
       {openedSupplier===v.id&&<ResearchSupplierReview key={JSON.stringify([scope,projectId,v.id,v.revision,canWrite,context.permissions])}
        scope={scope} projectId={projectId} candidateId={v.id} canWrite={canWrite} onSaved={(revision,before)=>{if(before!==undefined)advanceRevision(active,v.id,before,revision);reload();}}/>}
      </div>}
-     {v.assessment&&canRead&&<ResearchAssessments scope={scope} projectId={projectId} candidate={v} canWrite={canWrite} disabled={locked}
+     {v.assessment&&canRead&&<ResearchAssessments scope={scope} projectId={projectId} candidate={v} canWrite={canWrite} disabled={locked} expanded={openedAssessment===assessmentKey} onExpandedChange={open=>setOpenedAssessment(open?assessmentKey:null)}
       onSave={body=>submit(body,null)} selectedRef={assessmentChoices[assessmentKey]?.ref} onChoose={ref=>setAssessmentChoices(old=>({...old,[assessmentKey]:ref?{ref,readKey:costPageKey}:undefined}))}/>}
      <CandidateDecision value={v} canWrite={canWrite} disabled={locked||!!assessmentChoices[assessmentKey]&&assessmentChoices[assessmentKey]?.readKey!==costPageKey} assessmentRef={assessmentChoices[assessmentKey]?.readKey===costPageKey?assessmentChoices[assessmentKey]?.ref:undefined} command={body=>void submit(body,null)}/>
     </article>;

@@ -110,8 +110,11 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 	if err := s.authorize(ctx, scope, project, true); err != nil {
 		return Receipt{}, err
 	}
-	if !collection.ValidID(key) || Validate(c) != nil {
+	if !collection.ValidID(key) {
 		return Receipt{}, ErrInvalid
+	}
+	if validation := Validate(c); validation != nil {
+		return Receipt{}, validation
 	}
 	if c.Action == RecordSupplierReview && !s.SupplierReviewsEnabled() {
 		return Receipt{}, ErrUnsupported
@@ -214,6 +217,20 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 		cache[digest] = v
 		return v
 	}
+	assessmentAccess := map[string]bool{}
+	canReadAssessment := func(candidate string, ref *AssessmentRef) bool {
+		if ref == nil {
+			return true
+		}
+		key := candidate + ":" + collection.Digest(ref)
+		if allowed, found := assessmentAccess[key]; found {
+			return allowed
+		}
+		view, e := s.ReadAssessment(sourceCtx, scope, project, candidate, ref.ID)
+		allowed := e == nil && view.Detail != nil && view.Detail.Ref == *ref
+		assessmentAccess[key] = allowed
+		return allowed
+	}
 	for _, c := range rows {
 		v := CandidateView{ID: c.ID, State: c.State, Revision: c.Revision, SelectedLinkID: c.SelectedLinkID, Evidence: []EvidenceView{}, History: []DecisionView{}}
 		v.SupplierReview = s.SupplierReviewsEnabled() && c.Identity.Platform == "amazon" && c.Identity.Market == "us"
@@ -227,19 +244,18 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 			if link.ID == c.SelectedLinkID && observation != nil {
 				v.Observation = observation
 				v.EvidenceDigest = link.Ref.Digest()
-				v.Reason = c.Reason
 			}
+		}
+		if owner := c.ReasonDecision; owner != nil && v.Observation != nil && owner.Reason == c.Reason && owner.Ref.Digest() == v.EvidenceDigest && read(owner.Ref) != nil && canReadAssessment(c.ID, owner.AssessmentRef) {
+			v.Reason = owner.Reason
 		}
 		for _, h := range c.History {
 			d := DecisionView{State: h.State, Revision: h.Revision, At: h.At}
 			allowed := read(h.Ref) != nil
 			if h.AssessmentRef != nil {
-				view, e := s.ReadAssessment(sourceCtx, scope, project, c.ID, h.AssessmentRef.ID)
-				allowed = allowed && e == nil && view.Detail != nil && view.Detail.Ref == *h.AssessmentRef
+				allowed = allowed && canReadAssessment(c.ID, h.AssessmentRef)
 				if allowed {
 					d.AssessmentRef = h.AssessmentRef
-				} else if h.Reason == c.Reason {
-					v.Reason = ""
 				}
 			}
 			if allowed {

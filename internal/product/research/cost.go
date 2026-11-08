@@ -12,6 +12,12 @@ import (
 
 const CostRuleVersion = "manual-unit-economics-v1"
 
+// CostInputError carries field names only, never entered amounts or source text.
+type CostInputError struct{ Fields []string }
+
+func (e *CostInputError) Error() string { return ErrInvalid.Error() }
+func (e *CostInputError) Unwrap() error { return ErrInvalid }
+
 type CostBasis struct {
 	Source string `json:"source"`
 	AsOf   string `json:"asOf"`

@@ -196,21 +196,46 @@ func details(db *gorm.DB, s collection.Scope, p string, row candidateRow) (resea
 		return out, research.ErrUnavailable
 	}
 	for _, c := range commands {
-		var d research.Decision
-		if json.Unmarshal(c.DecisionJSON, &d) != nil {
-			return out, research.ErrUnavailable
-		}
-		if d.Reason != "" {
-			// A change to another link can retain the candidate's reason without owning it.
-			var intent research.Command
-			if json.Unmarshal(c.IntentJSON, &intent) != nil || intent.Action != "decide" ||
-				intent.CandidateID != row.ID || intent.Reason != d.Reason || intent.EvidenceDigest != d.Ref.Digest() {
-				d.Reason = ""
-			}
+		d, err := commandDecision(c, row.ID)
+		if err != nil {
+			return out, err
 		}
 		out.History = append(out.History, d)
 	}
+	if row.Reason != "" {
+		// The current reason is owned by a decide command, not by the bounded
+		// display history. Nonselected unlinks must not sever its authorization.
+		var owners []commandRow
+		if err := scoped(db, s, p).Where("candidate_id=? AND decision_json IS NOT NULL AND intent_json->>'action'='decide'", row.ID).
+			Order("(decision_json->>'Revision')::bigint DESC").Limit(1).Find(&owners).Error; err != nil {
+			return out, research.ErrUnavailable
+		}
+		if len(owners) == 1 {
+			d, err := commandDecision(owners[0], row.ID)
+			if err != nil {
+				return out, err
+			}
+			if d.Reason == row.Reason && d.State == row.State && d.Revision <= row.Revision {
+				out.ReasonDecision = &d
+			}
+		}
+	}
 	return out, nil
+}
+
+func commandDecision(c commandRow, candidate string) (research.Decision, error) {
+	var d research.Decision
+	if json.Unmarshal(c.DecisionJSON, &d) != nil {
+		return d, research.ErrUnavailable
+	}
+	if d.Reason != "" {
+		var intent research.Command
+		if json.Unmarshal(c.IntentJSON, &intent) != nil || intent.Action != "decide" || intent.CandidateID != candidate || intent.Reason != d.Reason || intent.EvidenceDigest != d.Ref.Digest() {
+			d.Reason = ""
+			d.AssessmentRef = nil
+		}
+	}
+	return d, nil
 }
 func (r *Repository) List(ctx context.Context, s collection.Scope, p, after string) ([]research.Candidate, string, error) {
 	var rows []candidateRow

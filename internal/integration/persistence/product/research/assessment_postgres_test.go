@@ -215,6 +215,32 @@ func TestAssessmentTransactionRecoveryReferenceAndPrivacy(t *testing.T) {
 	current, err = repo.Load(ctx, scope, project.id, id)
 	require.NoError(t, err)
 	require.Equal(t, decision.AssessmentRef, current.History[0].AssessmentRef)
+	// The reason's owning decision must not depend on the 20-row display window.
+	alt := sel
+	alt.ItemID = uuid.NewString()
+	alt.PublicationID = uuid.NewString()
+	altObservation := obs
+	altObservation.Ref.Selection = alt
+	altObservation.Ref.Source.PublicationID = alt.PublicationID
+	altObservation.Ref.Source.OperationID = alt.PublicationID
+	altObservation.Ref.Checksum = collection.Digest(alt)
+	sources.values[alt.ItemID] = altObservation
+	for i := 0; i < 21; i++ {
+		_, e := svc.Execute(ctx, scope, project.id, uuid.NewString(), research.Command{Action: "link", Selections: []research.Selection{alt}})
+		require.NoError(t, e)
+		c, e := repo.Load(ctx, scope, project.id, id)
+		require.NoError(t, e)
+		altLink := collection.StableID(scope.OrganizationID, scope.ActorID, project.id, "observation", altObservation.Ref.Digest())
+		_, e = svc.Execute(ctx, scope, project.id, uuid.NewString(), research.Command{Action: "unlink", CandidateID: id, ExpectedRevision: c.Revision, LinkID: altLink})
+		require.NoError(t, e)
+	}
+	original.marketDenied = true
+	masked, e := svc.List(ctx, scope, project.id, "")
+	require.NoError(t, e)
+	require.Empty(t, masked.Items[0].Reason, "current reason must be independently redacted after its decision leaves the history window")
+	original.marketDenied = false
+	current, err = repo.Load(ctx, scope, project.id, id)
+	require.NoError(t, err)
 	_, err = svc.Execute(ctx, scope, project.id, key, research.Command{Action: "reset", CandidateID: id, ExpectedRevision: current.Revision, EvidenceDigest: ref.Digest()})
 	require.ErrorIs(t, err, research.ErrConflict)
 	// Unlinking masks the original saved detail, without deleting its record.

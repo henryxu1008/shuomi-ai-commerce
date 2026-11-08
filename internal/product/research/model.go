@@ -115,6 +115,7 @@ type Candidate struct {
 	Identity                                     ProductIdentity
 	Links                                        []Link
 	History                                      []Decision
+	ReasonDecision                               *Decision
 }
 type EvidenceView struct {
 	ID          string       `json:"id"`

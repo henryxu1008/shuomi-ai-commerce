@@ -237,6 +237,14 @@ it("uses the server preview and keeps the unreferenced human decision available"
  fireEvent.click(screen.getByRole("button",{name:"批准测试"}));
  await waitFor(()=>expect(mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent.body).toEqual({action:"decide",candidateId:id,expectedRevision:2,evidenceDigest:"a".repeat(64),state:"APPROVED_FOR_TEST",reason:"继续核对货源条件"}));
 });
+it("edits only one candidate at a time and never transfers private assumptions to another",async()=>{
+ const other={...candidate,id:"22222222-2222-4222-8222-222222222222",assessment:true};
+ mock.read.mockImplementation(async(_s,_p,_schema,_signal,options)=>options?.assessment?{items:[]}:{items:[{...candidate,assessment:true},other],incomplete:false});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ const open=await screen.findAllByRole("button",{name:"填写经营假设"});fireEvent.click(open[0]);fireEvent.change(screen.getByLabelText("假设售价（USD/件）"),{target:{value:"30"}});
+ fireEvent.click(screen.getByRole("button",{name:"填写经营假设"}));
+ expect(screen.getAllByRole("form",{name:"经营假设和参考试算"})).toHaveLength(1);expect(screen.getByLabelText("假设售价（USD/件）")).toHaveValue("");
+});
 it("carries the explicitly chosen immutable assessment into the original human decision",async()=>{
  const recordId="33333333-3333-4333-8333-333333333333";
  const ref={assessmentId:recordId,revision:1,contextHash:"c".repeat(64),inputHash:"d".repeat(64)};

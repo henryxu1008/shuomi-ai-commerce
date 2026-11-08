@@ -11,15 +11,18 @@ import {assessmentPage,assessmentView,assessmentPreview,type AssessmentRef,type 
 import {costFields,type CostDraft} from "@/lib/workbench/research-cost-preview";
 import {ResearchCostPreview,PreviewResult,costFieldLabels} from "./research-cost-preview";
 
-export function ResearchAssessments({scope,projectId,candidate,canWrite,disabled,onSave,onChoose,selectedRef}:{
+export function ResearchAssessments({scope,projectId,candidate,canWrite,disabled,onSave,onChoose,selectedRef,expanded,onExpandedChange}:{
  scope:ProjectScope;projectId:string;candidate:ResearchCandidate;canWrite:boolean;disabled:boolean;
  onSave:(command:ResearchCommand)=>Promise<z.infer<typeof researchReceipt>|undefined>;
  onChoose:(ref?:AssessmentRef)=>void;
  selectedRef?:AssessmentRef;
+ expanded?:boolean;onExpandedChange?:(open:boolean)=>void;
 }){
  const [page,setPage]=useState<z.infer<typeof assessmentPage>>({items:[]}),[before,setBefore]=useState<number>(),[refresh,setRefresh]=useState(0);
  const [suppliers,setSuppliers]=useState<z.infer<typeof supplierReviewPage>>({items:[]}),[supplierBefore,setSupplierBefore]=useState<number>();
- const [supplier,setSupplier]=useState<AssessmentSupplierRef>(),[opened,setOpened]=useState(false),[dirty,setDirty]=useState(false),[draftKey,setDraftKey]=useState(0);
+ const [supplier,setSupplier]=useState<AssessmentSupplierRef>(),[localOpened,setLocalOpened]=useState(false),[dirty,setDirty]=useState(false),[draftKey,setDraftKey]=useState(0);
+ const opened=expanded??localOpened;
+ function setOpened(value:boolean){setLocalOpened(value);onExpandedChange?.(value);if(!value)setDirty(false)}
  const [selected,setSelected]=useState<AssessmentView>(),[discard,setDiscard]=useState<string>(),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
  const flight=useRef<AbortController|null>(null);
  const checkedRevision=useRef<number|undefined>(undefined);
@@ -73,7 +76,7 @@ export function ResearchAssessments({scope,projectId,candidate,canWrite,disabled
  const writable=canWrite&&!!candidate.observation&&!!candidate.selectedLinkId&&!!candidate.evidenceDigest;
  return <section aria-label="已保存经营评估" className="grid min-w-0 gap-3 border-t border-border pt-4">
   <h5 className="font-medium">经营评估</h5>
-  {writable&&<div><Button type="button" variant="secondary" disabled={disabled||busy} aria-expanded={opened} onClick={()=>setOpened(v=>!v)}>{opened?"收起参考试算":"填写经营假设"}</Button></div>}
+  {writable&&<div><Button type="button" variant="secondary" disabled={disabled||busy} aria-expanded={opened} onClick={()=>setOpened(!opened)}>{opened?"收起参考试算":"填写经营假设"}</Button></div>}
   {opened&&writable&&<>
    {candidate.supplierReview&&<div className="grid gap-2"><label>本次明确引用的货源核对
     <Select disabled={disabled||busy} value={supplier?.requestKey??""} onChange={event=>{const row=suppliers.items.find(v=>v.reference?.requestKey===event.target.value);setSupplier(row?.reference);edited();}}>
@@ -94,6 +97,7 @@ export function ResearchAssessments({scope,projectId,candidate,canWrite,disabled
    <p>{selected.applicability==="CURRENT"?"使用此记录中的条件":"历史条件，不适用于当前选择"} · {selected.id}</p>
    <p>{selected.detail.input.channel} · {selected.detail.input.fulfillment} · {selected.detail.input.specification} · 采购意向 {selected.detail.input.quantity||"待补"} 件</p>
    <p>原商品 v{selected.detail.market.version} · 货源绑定 {selected.detail.supplierBinding} · {selected.detail.ruleVersion}</p>
+   {selected.detail.supplierReview&&<p>原核对 SKU：{selected.detail.supplierSkuId} · {selected.detail.supplierQuantity} 件 · 原货源 v{selected.detail.supplierVersion}。规格说明和费用属于手工假设，不修改这份核对。</p>}
    <details><summary>记录中的完整条件</summary><dl>
     <dt>假设售价 / 退款概率</dt><dd>{selected.detail.input.price||"未知"} USD / {selected.detail.input.refundRate||"未知"}%</dd>
     <dt>销售依据</dt><dd>{selected.detail.input.salesBasis.source||"待补"} · {selected.detail.input.salesBasis.asOf||"待补"}</dd>
