@@ -82,8 +82,8 @@ type Config struct {
 	ListingKitAuthorization              ListingKitAuthorizationConfig             `json:"listingKitAuthorization,omitempty"`
 	Referrals                            ReferralsConfig                           `json:"referrals"`
 	// BrowserCollector enables the standalone anonymous public 1688 browser
-	// collector (design D13). Omitted means the application keeps the existing
-	// anonymous public HTTP provider unchanged.
+	// collector (design D13). Omitted means new acquisition is unavailable;
+	// original receipts and published records remain readable.
 	BrowserCollector *BrowserCollectorConfig `json:"browserCollector,omitempty"`
 }
 

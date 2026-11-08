@@ -30,7 +30,7 @@ func issue398CurrentLeafImporter(importer, target string) bool {
 		return false
 	}
 	switch importer {
-	case "task-processor/internal/integration/acquisition/a1688", "task-processor/internal/app/productsourcing", "task-processor/internal/app/listing", "task-processor/internal/integration/shein", "task-processor/internal/app/runtime/currentapplication", "task-processor/internal/app/pod", "task-processor/internal/integration/sds":
+	case "task-processor/internal/app/productsourcing", "task-processor/internal/app/listing", "task-processor/internal/integration/shein", "task-processor/internal/app/runtime/currentapplication", "task-processor/internal/app/pod", "task-processor/internal/integration/sds":
 		return true
 	}
 	return false
@@ -50,7 +50,8 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			// #1075: explicit SHEIN US trial ledger maintenance on the existing database.
 			"internal/app/productsourcing/shein_trial_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
 		}},
-		{"internal/integration/acquisition/a1688", issue398HTTP, map[string][]string{"internal/integration/acquisition/a1688/public.go": {"NewPublicImageHTTPClient"}}},
+		// The retired HTTP provider has no admitted APIs, including siblings.
+		{"internal/integration/acquisition/a1688", issue398HTTP, nil},
 		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableListing", "EnableSHEINUSTrialLedger"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
 		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
@@ -177,7 +178,7 @@ func TestIssue398CurrentLeafEdgesAreExact(t *testing.T) {
 		want             bool
 	}{
 		{"task-processor/internal/app/productsourcing", issue398Database, true},
-		{"task-processor/internal/integration/acquisition/a1688", issue398HTTP, true},
+		{"task-processor/internal/integration/acquisition/a1688", issue398HTTP, false},
 		{"task-processor/internal/app/productsourcing/child", issue398Database, false},
 		{"task-processor/internal/app/productsourcingfake", issue398Database, false},
 		{"task-processor/internal/app/productsourcing", issue398Database + "/child", false},
@@ -249,7 +250,7 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"source media cannot consume capacity admission", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
 		{"runtime storage port", "internal/app/runtime/currentapplication/source_media_storage.go", "task-processor/internal/app/productsourcing", "SourceMediaStorage", true},
 		{"runtime producer forbidden", "internal/app/runtime/currentapplication/config.go", "task-processor/internal/app/productsourcing", "NewPublicAcquisition", false},
-		{"HTTP leaf", "internal/integration/acquisition/a1688/public.go", issue398HTTP, "NewPublicImageHTTPClient", true},
+		{"retired HTTP leaf", "internal/integration/acquisition/a1688/public.go", issue398HTTP, "NewPublicImageHTTPClient", false},
 		{"HTTP wrong API", "internal/integration/acquisition/a1688/public.go", issue398HTTP, "Fetch", false},
 		{"HTTP sibling", "internal/integration/acquisition/a1688/other.go", issue398HTTP, "NewPublicImageHTTPClient", false},
 		{"HTTP nested", "internal/integration/acquisition/a1688/child/public.go", issue398HTTP, "NewPublicImageHTTPClient", false},

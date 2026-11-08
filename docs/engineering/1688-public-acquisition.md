@@ -1,5 +1,16 @@
 # SRC-2B1 public 1688 acquisition
 
+> **Current override — 2026-11-08, user decision in #1070:** the anonymous
+> static-HTML HTTP provider, its parser and HTML fixture are **RETIRED**. The
+> default application no longer selects it. New server acquisition requires an
+> explicitly configured browser collector; absent/incomplete configuration
+> returns `SOURCE_UNAVAILABLE` before creating an operation or reserving resources.
+> Original-key verification and published reads retain their existing authorization,
+> receipt and ledger contracts; a missing/uncertain receipt is not a retry grant.
+> The historical `public_http` evidence label remains readable, not a fallback.
+> Static-provider limits, comparisons and execution records below are historical.
+> This source change does not update any retained instance or prove real acquisition.
+
 Contract: `src2b-acquisition-v1`, Issue #398. This is anonymous public acquisition,
 not Browser Capture, Source Account management, a Connection, or a login flow.
 The parser accepts only the explicitly supported static `window.context` JSON
@@ -39,8 +50,9 @@ result recorded in the design §12-A''.
 
 ## Ownership and lifecycle
 
-- `internal/integration/acquisition/a1688` fetches bounded anonymous public HTML
-  and produces untrusted `AcquisitionEvidence` only.
+- `internal/integration/acquisition/a1688/browser` produces untrusted browser
+  evidence through the explicitly configured collector. The parent static-HTML
+  provider has been removed; there is no implicit HTTP alternative.
 - `internal/product/sourcing` validates/maps evidence. Original decimals and
   missing facts remain visible; images remain candidates, never Approved Assets.
 - `internal/app/productsourcing` coordinates existing live authorization,
