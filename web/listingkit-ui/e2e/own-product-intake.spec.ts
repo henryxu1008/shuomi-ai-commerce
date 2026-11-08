@@ -13,7 +13,7 @@ test("uploads, generates and adopts exactly three SKUs, saves, then refreshes th
  const name=`shuomi.${namespace}.session-token`;
  const value=await encode({secret,salt:name,maxAge:600,token:{accessToken:"admin",expiresAt:Math.floor(Date.now()/1000)+600,identityVersion:3,identity:{tenantId:"B",userId:"admin",userType:"zitadel",roles:[]}}});
  await context.addCookies([{name,value,url:origin,httpOnly:true,sameSite:"Lax"},{name:"shuomi_effective_organization",value:"B",url:origin,httpOnly:true,sameSite:"Lax"}]);
- const permissions=["workbench.collection.read","workbench.collection.manage","workbench.agent.use","workbench.agent.local.write"];
+ const permissions=["workbench.collection.read","workbench.collection.manage","workbench.agent.use","local_agent.write"];
  await page.route("**/*",async route=>{
   const url=new URL(route.request().url());
   if(url.origin!==origin)return route.abort();
