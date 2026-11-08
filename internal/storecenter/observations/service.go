@@ -17,11 +17,12 @@ import (
 )
 
 type Service struct {
-	Repository Repository
-	Access     Access
-	Directory  Directory
-	Starter    Starter
-	Now        func() time.Time
+	WalmartOrders WalmartOrderReader
+	Repository    Repository
+	Access        Access
+	Directory     Directory
+	Starter       Starter
+	Now           func() time.Time
 }
 
 func (s *Service) now() time.Time {
@@ -440,6 +441,12 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 			product := p
 			records = append(records, Record{StoreID: sync.StoreID, SyncID: sync.ID, ID: p.ID, Product: &product})
 		}
+	} else if sync.Binding.Platform == storecenter.PlatformWalmart {
+		updated, err := s.stepWalmartOrders(ctx, sync, merchant)
+		if err != nil {
+			return stop(err)
+		}
+		return updated, nil
 	} else {
 		if len(c.Windows) == 0 {
 			return Sync{}, ErrConflict

@@ -27,6 +27,15 @@ func OrderWindows(start, end time.Time) ([]Window, error) {
 	return out, nil
 }
 func copyCheckpoint(c Checkpoint) Checkpoint {
+	if c.WalmartOrders != nil {
+		p := *c.WalmartOrders
+		p.CursorHashes = append([]string{}, p.CursorHashes...)
+		if p.Total != nil {
+			n := *p.Total
+			p.Total = &n
+		}
+		c.WalmartOrders = &p
+	}
 	c.Windows = append([]Window{}, c.Windows...)
 	c.Notes = append([]string{}, c.Notes...)
 	c.TemuTokenHashes = append([]string(nil), c.TemuTokenHashes...)

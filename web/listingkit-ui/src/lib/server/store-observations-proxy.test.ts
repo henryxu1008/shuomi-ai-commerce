@@ -210,3 +210,14 @@ it("forwards only scoped single-store saved order amounts and rejects fabricated
  fetch.mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{...data,matchedOrderCount:3}}));
  expect((await proxyStoreObservations(new Request(url+query,{headers}),"private","actor-a")).status).toBe(502);
 });
+
+it("validates Walmart saved amounts independently including maximum line aggregates",async()=>{
+ configure();const query=`?startDate=2026-10-01&endDate=2026-10-07&storeId=${id}`;
+ const source={syncId:id,observedAt:"2026-10-08T00:00:00Z",range:{start:"2026-09-01T16:00:00Z",end:"2026-10-07T16:00:00Z"}};
+ const data={status:"complete",capturedAt:source.observedAt,source,matchedOrderCount:250,amounts:[{currency:"USD",amount:"2499999999999999999999999.99975000",orderCount:250}]};
+ const fetch=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data}));vi.stubGlobal("fetch",fetch);
+ const url="http://localhost:3000/api/workbench/store-observations/orders/walmart-saved-amount-metrics";
+ expect((await proxyStoreObservations(new Request(url+query,{headers}),"private","actor-a")).status).toBe(200);
+ expect(fetch.mock.calls[0][0].pathname).toBe("/api/v1/workbench/store-observations/orders/walmart-saved-amount-metrics");
+ fetch.mockClear();expect((await proxyStoreObservations(new Request(url+query+"&storeId="+id,{headers}),"private","actor-a")).status).toBe(400);expect(fetch).not.toHaveBeenCalled();
+});
