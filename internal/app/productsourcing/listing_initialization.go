@@ -6,12 +6,16 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	keystore "task-processor/internal/integration/persistence/dataservice"
 	officialstore "task-processor/internal/integration/persistence/listing/official"
 	prepstore "task-processor/internal/integration/persistence/listing/preparation"
 	recordstore "task-processor/internal/integration/persistence/listing/record"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
+	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
+	researchstore "task-processor/internal/integration/persistence/product/research"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
+	marketstore "task-processor/internal/integration/persistence/product/supplymarket"
 	platformdatabase "task-processor/internal/platform/database"
 )
 
@@ -42,7 +46,7 @@ func EnableListing(ctx context.Context, manifest, confirmedDatabase string) erro
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	cfg, err := readAcquisitionInitManifest(manifest, confirmedDatabase, refused)
-	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.CompletionDrafts || !cfg.SupplyChain || cfg.AcquisitionPlans || cfg.ImageSets || cfg.SupplyMarket || cfg.POD || cfg.DataServices {
+	if err != nil || cfg.OfflineRecords || !cfg.Collections || !cfg.CompletionDrafts || !cfg.SupplyChain || cfg.POD {
 		return refused
 	}
 	d := cfg.Database
@@ -55,6 +59,7 @@ func EnableListing(ctx context.Context, manifest, confirmedDatabase string) erro
 		if tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(current_database()||':source-acquisition-init',0))").Error != nil || verifyListingTableOwner(tx, listingFeatureBaseTables) != nil || prepstore.VerifySourcePageIndex(ctx, tx) != nil {
 			return refused
 		}
+		capabilities := acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true, AcquisitionPlans: cfg.AcquisitionPlans, SupplyMarket: cfg.SupplyMarket, ImageSets: cfg.ImageSets}
 		tables := listingFeatureNewTables()
 		var present int64
 		if tx.Raw("SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ?", tables).Scan(&present).Error != nil {
@@ -77,6 +82,38 @@ func EnableListing(ctx context.Context, manifest, confirmedDatabase string) erro
 		default:
 			return refused
 		}
+		// Validate the retained footprint before any DDL or new grants. Declared
+		// features must already exist; this entry never installs them. The basic
+		// path retains its existing optional Review SELECT admission at commit.
+		capabilities.SupplyChain = present == int64(len(tables))
+		if (capabilities.SupplyChain || cfg.AcquisitionPlans || cfg.SupplyMarket || cfg.ImageSets) && acquisitionstore.VerifyOwnerRuntimePermissions(ctx, tx, capabilities) != nil {
+			return refused
+		}
+		var retainedTables []string
+		if cfg.AcquisitionPlans {
+			retainedTables = append(retainedTables, "product_acquisition_plans", "product_acquisition_plan_items", "product_acquisition_rule_templates", "product_acquisition_rule_commands")
+		}
+		if cfg.SupplyMarket {
+			retainedTables = append(retainedTables, marketstore.Tables...)
+		}
+		if cfg.DataServices {
+			retainedTables = append(retainedTables, keystore.Tables...)
+			retainedTables = append(retainedTables, keystore.CustomTables...)
+			retainedTables = append(retainedTables, jobstore.Tables...)
+		}
+		if cfg.SupplierReview {
+			retainedTables = append(retainedTables, researchstore.Tables...)
+			retainedTables = append(retainedTables, "research_supplier_reviews")
+		}
+		if len(retainedTables) > 0 && verifyListingTableOwner(tx, retainedTables) != nil {
+			return refused
+		}
+		if cfg.DataServices && acquisitionstore.VerifyDataServicesOwnerPermissions(ctx, tx, false) != nil {
+			return refused
+		}
+		if cfg.SupplierReview && researchstore.VerifySchema(ctx, tx) != nil {
+			return refused
+		}
 		switch present {
 		case 0:
 			if reviewPresent == 0 && reviewstore.InstallSchema(tx) != nil {
@@ -95,8 +132,8 @@ func EnableListing(ctx context.Context, manifest, confirmedDatabase string) erro
 		// Check the complete unchanged allow/deny contract before commit. This
 		// also admits an existing Review SELECT without revoking/regranting it;
 		// any old or new schema/permission drift rolls back all installation.
-		capabilities := acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true, SupplyChain: true}
-		if reviewstore.VerifySchema(ctx, tx) != nil || acquisitionstore.VerifyOwnerRuntimePermissions(ctx, tx, capabilities) != nil {
+		capabilities.SupplyChain = true
+		if reviewstore.VerifySchema(ctx, tx) != nil || acquisitionstore.VerifyOwnerRuntimePermissions(ctx, tx, capabilities) != nil || cfg.DataServices && acquisitionstore.VerifyDataServicesOwnerPermissions(ctx, tx, false) != nil {
 			return refused
 		}
 		return nil

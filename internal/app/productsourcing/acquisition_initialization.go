@@ -118,14 +118,16 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 				return err
 			}
 		}
-		if cfg.ImageSets && !cfg.SupplyChain {
+		if cfg.ImageSets && !cfg.SupplyChain && !cfg.SupplyMarket {
 			if err := reviewstore.InstallSchema(tx); err != nil {
 				return err
 			}
 		}
 		if cfg.SupplyMarket {
-			if err := reviewstore.InstallSchema(tx); err != nil {
-				return err
+			if !cfg.SupplyChain {
+				if err := reviewstore.InstallSchema(tx); err != nil {
+					return err
+				}
 			}
 			if err := marketstore.InstallSchema(tx); err != nil {
 				return err

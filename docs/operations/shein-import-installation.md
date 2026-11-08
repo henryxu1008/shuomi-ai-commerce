@@ -25,6 +25,8 @@
 | `listing_target_record_commands` | 原保存命令与幂等回执 | S/I |
 | `listing_preparation_operations` | 既有 adapt/upload/optimize 操作 owner | S/I/U |
 | `listing_preparation_operation_items` | 操作的逐商品结果 | S/I/U |
+| `listing_preparation_upload_plans` | 不可变上传计划及进度 | S/I/U |
+| `listing_preparation_upload_plan_items` | 原计划成员与逐项关联 | S/I/U |
 | `listing_submission_execution_attempts` | 既有执行幂等及 UNKNOWN owner | S/I/U |
 | `listing_submission_target_fences` | 既有执行 fencing | S/I/U |
 | `listing_submission_official_intents` | 官方副作用意图 | S/I |
@@ -34,7 +36,7 @@
 | `product_title_proposals` | 读取当前有效商品及 Review 投影 | S |
 | `product_title_operations` | 既有 Review schema 安装单元的配套表 | 无；保持 owner-only |
 
-运行组合直接要求 12 张表的权限；既有 `reviewpersistence.InstallSchema` 同时创建最后两张表，其中 `product_title_operations` 保持 owner-only。方案复用该 owner 安装单元，不为减少一张空表复制或拆写 Review DDL，也不授予 title producer 权限。Walmart 两表是当前通用 SupplyChain 启动的既有依赖，不因此配置 Walmart 应用、店铺或执行平台调用。原 `listing_preparations`、`listing_preparation_sources` 和三个 CompletionDraft 表已经满足权限，不新增重复授权或改写事实。
+运行组合直接要求 14 张表的权限；既有 `reviewpersistence.InstallSchema` 同时创建最后两张表，其中 `product_title_operations` 保持 owner-only。方案复用该 owner 安装单元，不为减少一张空表复制或拆写 Review DDL，也不授予 title producer 权限。Walmart 两表是当前通用 SupplyChain 启动的既有依赖，不因此配置 Walmart 应用、店铺或执行平台调用。原 `listing_preparations`、`listing_preparation_sources` 和三个 CompletionDraft 表已经满足权限，不新增重复授权或改写事实。
 
 DDL/约束/索引来自原 owner：`internal/integration/persistence/listing/{record,preparation,submission,official}` 和 `internal/integration/persistence/product/review`。不能使用旧 `internal/app/listingrecordstore/schema.sql`；它不是本次 Target owner。
 
@@ -60,11 +62,17 @@ Product 增量入口不操作 Store 表或 ACL。Store 使用当前 owner schema
 
 ## Product 增量安装入口
 
-入口为 `product-acquisition-init --config <私有owner-manifest> --enable-supply-chain --confirm-database <准确Product数据库名>`。`--enable-supply-chain` 与 `--confirm-empty-database`、其他 feature 增量开关互斥；拒绝额外位置参数。保留原空库与 plan/completion 入口语义。增量 manifest 明确 `collections:true,supplyCompletionDrafts:true,supplyChain:true`，此入口不组合其他可选 capability，避免把未授权功能的安装混入。
+入口为 `product-acquisition-init --config <私有owner-manifest> --enable-supply-chain --confirm-database <准确Product数据库名>`。`--enable-supply-chain` 与 `--confirm-empty-database`、其他 feature 增量开关互斥；拒绝额外位置参数。保留原空库与 plan/completion 入口语义。增量 manifest 明确 `collections:true,supplyCompletionDrafts:true,supplyChain:true`。已安装的当前采集计划、数据市场和图片读取能力分别用 `acquisitionPlans`、`supplyMarket`、`imageSets` 准确声明；最终精确权限验证使用完整组合，不能省略声明以隐藏额外权限。
+
+这些声明仅保留和验证既有能力：缺表、缺权限、错误 owner 或漂移都拒绝，不顺带安装或补权。`dataServices` 声明既有独立数据服务角色，复用其维护权限/schema 校验；`researchSupplierReview` 声明已安装的研究资料表，核对 owner 和基础 Research schema，但不替代 Research 运行身份的完整准入验证。两者不增加 Product runtime 权限；本入口不修改其表、列授权或数据。POD 与离线记录的重叠安装组合本期继续拒绝。
+
+准备私有维护 manifest 时，按目标环境当前已启用能力填写；维护文件的 database 使用原 Product owner，绝不复制服务 manifest 的 runtime 凭据来执行安装。本次修改不授权运行实例安装、改配置或部署。
+
+空库安装继续使用原显式入口；SupplyChain、SupplyMarket 与 ImageSets 组合共享 Review owner，只安装一次，仍使用原 schema 和最小权限。
 
 维护连接沿现有私有文件、literal loopback、准确数据库名和 30 秒 context；不接受 runtime 身份。数据库中现有 14 张 public 基线表必须归同一当前维护 owner、满足现有 owner schema/keys 与当前 runtime allow/deny 合同，不能用其他同名表/角色继承或凭据轮换取得准入。
 
-同一个 Product 事务与既有 advisory lock 串行首次安装和重入。13 张依赖表分为 11 张 Supply 执行表和 2 张共享 Product Review 表。11 张 Supply 表全缺时，只安装缺失的当前能力：Review 两表也全缺则调用既有 Review 安装器；Review 已成组存在则先验证同一维护 owner 和当前 Review schema，复用而不重建、修复或改写数据/owner/索引。新增授权仍限现有权限矩阵：11 张 Supply 表的原精确权限，以及 Review proposal 的 SELECT（已有时保留）；不授予 Review 写权限或 operation 读写权限，不改变既有 Review 授权及原 14 表 ACL。全部 13 表已存在时只读核实 owner、schema、约束和完整权限，不再次安装或补授权。Supply 部分安装（包括历史 11 表总集）、Review 仅有一表/漂移/异 owner，或已安装 Supply 缺少 Review，均拒绝。事务失败或超时不留下部分 DDL/GRANT，提交响应不确定时原命令重入核实已完成结果，不建新的安装事实源。
+同一个 Product 事务与既有 advisory lock 串行首次安装和重入。15 张依赖表分为 13 张 Supply 执行表和 2 张共享 Product Review 表。13 张 Supply 表全缺时，只安装缺失的当前能力：Review 两表也全缺则调用既有 Review 安装器；Review 已成组存在则先验证同一维护 owner 和当前 Review schema，复用而不重建、修复或改写数据/owner/索引。新增授权仍限现有权限矩阵：13 张 Supply 表的原精确权限，以及 Review proposal 的 SELECT（已有时保留）；不授予 Review 写权限或 operation 读写权限，不改变既有 Review 授权及原 14 表 ACL。全部 15 表已存在时只读核实 owner、schema、约束和完整权限，不再次安装或补授权。Supply 部分安装（包括缺少上传计划两表的部分集）、Review 仅有一表/漂移/异 owner，或已安装 Supply 缺少 Review，均拒绝。事务失败或超时不留下部分 DDL/GRANT，提交响应不确定时原命令重入核实已完成结果，不建新的安装事实源。
 
 维护核对复用现有 runtime 权限查询中的同一 allow/deny 清单，以固定 `source_acquisition_runtime` 为 catalog 检查对象；普通运行连接仍检查实际 session/current user，维护检查不能变成 serving 准入。完整权限在同一事务提交前核对，允许原本已有的 proposal SELECT；原权限缺失或额外表/列权限、grant option 等漂移仍拒绝并回滚，不通过撤权/重授来修复。没有 `SET ROLE`、运行凭据读取、role 创建/继承、全库 REVOKE 或默认授权变更。Review 校验归既有 Review owner，不能只凭表名把漂移误认成完成。
 
