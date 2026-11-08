@@ -15,7 +15,6 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/commercetool"
-	"task-processor/internal/core/config"
 	einoruntime "task-processor/internal/integration/agent/eino"
 	model "task-processor/internal/integration/agent/einomodel"
 	governed "task-processor/internal/integration/aicapability/einomodel"
@@ -40,7 +39,7 @@ type imageAnalysisApplication struct {
 	limits    agent.Limits
 }
 
-func buildImageAnalysisApplication(parent *productAgentApplication, supply *listingapp.Application, cfg *config.Config, media *collectionSourceMediaDependencies) (*imageAnalysisApplication, error) {
+func buildImageAnalysisApplication(parent *productAgentApplication, supply *listingapp.Application, images *FullImageSetDependencies, media *collectionSourceMediaDependencies) (*imageAnalysisApplication, error) {
 	if parent == nil || parent.config.ContentOnly || parent.config.ContentTitleOnly || parent.config.AssetDB == nil {
 		return nil, nil
 	}
@@ -54,8 +53,9 @@ func buildImageAnalysisApplication(parent *productAgentApplication, supply *list
 	a.materials = imageapp.AnalysisMaterialReader{Snapshots: parent.snapshots, ReadPublic: newImageSetSourceByteReader(), ReadOwned: func(ctx context.Context, b agent.Binding, url, owner string, max int64) ([]byte, bool, error) {
 		return media.readAuthorizedPublished(ctx, owner, url, max)
 	}}
-	if cfg != nil && cfg.ImageAgent.ArtifactStore.Enabled {
-		materials, e := imageworker.NewImageSetMaterialReader(cfg)
+	// The API history configuration carries public URLs, not object storage access.
+	if images != nil && images.WorkerConfig != nil && images.WorkerConfig.ImageAgent.ArtifactStore.Enabled {
+		materials, e := imageworker.NewImageSetMaterialReader(images.WorkerConfig)
 		if e != nil {
 			return nil, e
 		}

@@ -1170,7 +1170,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		} else if supplyRuntime != nil {
 			analysisSupply = supplyRuntime.app
 		}
-		analysis, e := buildImageAnalysisApplication(productRuntime, analysisSupply, cfg, supplied.collectionSourceMedia)
+		analysis, e := buildImageAnalysisApplication(productRuntime, analysisSupply, supplied.fullImages, supplied.collectionSourceMedia)
 		if e != nil {
 			return nil, fmt.Errorf("build image analysis: %w", e)
 		}
