@@ -70,9 +70,9 @@ func advanceWalmartOrders(current Checkpoint, count, total int, cursor string) (
 		c.Page++
 		return c, "running", nil
 	}
-	// Identical page/window replays may add raw rows; the transaction deduplicates
-	// by PO. A cursor remains the end signal, not a short page or a counter.
-	if c.Seen < *p.Total {
+	// A cursor remains the end signal; inconsistent counts retain partial
+	// coverage. Same-window duplicate pages are independently detected in SQL.
+	if c.Seen != *p.Total {
 		c.Note("walmart_order_count_mismatch")
 	}
 	p.Partition++

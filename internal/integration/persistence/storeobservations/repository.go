@@ -272,6 +272,15 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				}
 				if !reflect.DeepEqual(saved.WalmartOrder, v.WalmartOrder) {
 					next.Note("walmart_order_identity_conflict")
+				} else if prior.WindowKey == v.WindowKey && prior.PageIndex != current.Progress.Page {
+					next.Note("walmart_duplicate_page_identity")
+				} else if prior.WindowKey != v.WindowKey {
+					// Keep the original observation payload/time. The existing page
+					// marker tracks this window/partition's first sighting so a later
+					// duplicate page cannot hide a missing PO after an overlap.
+					if tx.Exec(`UPDATE store_observations.records SET window_key=?,page_index=? WHERE organization_id=? AND store_id=? AND sync_id=? AND platform_id=?`, v.WindowKey, current.Progress.Page, current.Owner.OrganizationID, current.StoreID, current.ID, v.ID).Error != nil {
+						return o.ErrUnavailable
+					}
 				}
 				continue
 			}

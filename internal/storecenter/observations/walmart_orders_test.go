@@ -115,3 +115,10 @@ func TestWalmartOrderBudgetsAndUnconfiguredReaderCannotClaimComplete(t *testing.
 	require.ErrorIs(t, e, ErrUnavailable)
 	require.Zero(t, r.commits)
 }
+
+func TestWalmartReportedCountCannotUnderstateDistinctRows(t *testing.T) {
+	c := Checkpoint{Page: 1, Windows: []Window{{Start: time.Now().Add(-time.Hour), End: time.Now()}}}
+	got, _, e := advanceWalmartOrders(c, 2, 1, "")
+	require.NoError(t, e)
+	require.True(t, got.Incomplete)
+}

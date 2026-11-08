@@ -91,3 +91,44 @@ func TestWalmartOrderAmountPostgresFiltersBeforeCapAndPreservesMilliseconds(t *t
 	_, e = r.WalmartOrderAmountRecords(ctx, scope.OrganizationID, source.ID, q, 251)
 	require.Error(t, e)
 }
+
+func TestWalmartRepeatedPageCannotHideMissingPOAfterWindowOverlap(t *testing.T) {
+	ctx, db, r := observationDatabase(t)
+	scope := o.Scope{"org-a", "actor", "member"}
+	store := uuid.NewString()
+	in, children := syncInput(scope, store)
+	in.Kind = o.Orders
+	children[0].Kind = o.Orders
+	children[0].Binding.Platform = storecenter.PlatformWalmart
+	children[0].Binding.Site = "walmart-us"
+	cmd, e := r.Begin(ctx, scope, uuid.NewString(), "duplicate-page", in, children)
+	require.NoError(t, e)
+	source := cmd.Syncs[0]
+	po := walmart.Order{ID: "po-a", Site: "walmart-us", Lines: []walmart.OrderLine{{Number: "1", Charges: []walmart.OrderCharge{{Currency: "USD", Amount: "10.00"}}}}}
+	row := o.Record{StoreID: store, SyncID: source.ID, ID: po.ID, WalmartOrder: &po, WindowKey: "previous-window/0"}
+	next := source.Progress
+	next.Page = 1
+	source, e = r.CommitPage(ctx, source, next, []o.Record{row}, "running", time.Now())
+	require.NoError(t, e)
+	row.WindowKey = "current-window/0"
+	next.Page = 2
+	source, e = r.CommitPage(ctx, source, next, []o.Record{row}, "running", time.Now())
+	require.NoError(t, e)
+	require.False(t, source.Progress.Incomplete)
+	// total=2 with two raw page rows PO-A/PO-A must not certify missing PO-B.
+	next.Page = 3
+	next.Seen = 2
+	total := 2
+	next.WalmartOrders = &o.WalmartOrderProgress{Complete: true, Total: &total}
+	source, e = r.CommitPage(ctx, source, next, []o.Record{row}, "completed", time.Now())
+	require.NoError(t, e)
+	require.Equal(t, "partial", source.Status)
+	require.False(t, source.Progress.WalmartOrders.Complete)
+	require.Contains(t, source.Progress.Notes, "walmart_duplicate_page_identity")
+	var count int64
+	require.NoError(t, db.Raw("SELECT count(*) FROM store_observations.records WHERE organization_id=? AND sync_id=?", scope.OrganizationID, source.ID).Scan(&count).Error)
+	require.EqualValues(t, 1, count)
+	var published bool
+	require.NoError(t, db.Raw("SELECT current_id IS NOT NULL FROM store_observations.heads WHERE organization_id=? AND store_id=? AND kind='orders'", scope.OrganizationID, store).Scan(&published).Error)
+	require.False(t, published)
+}
