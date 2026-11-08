@@ -8,15 +8,22 @@ import (
 	"task-processor/internal/product/collection"
 )
 
+// PageEvidenceReader reads admitted sources under the current page's read budget.
+type PageEvidenceReader interface {
+	Observe(Selection) (Observation, error)
+	Reauthorize(context.Context) error
+}
+
 type concurrentPageSources interface {
 	CanReadPageEvidenceConcurrently(collection.Scope, string, Selection) bool
+	BindPageEvidence(context.Context, collection.Scope, string) (PageEvidenceReader, error)
 }
 
 const pageEvidenceWorkers = 4
 
 // preparePageEvidence overlaps only reads admitted by the source adapter. Other
 // originals are read first, so an unusually slow fixture batch cannot crowd them out.
-func (s *Service) preparePageEvidence(ctx context.Context, scope collection.Scope, project string, rows []Candidate) map[Selection]*Observation {
+func (s *Service) preparePageEvidence(ctx, sourceCtx context.Context, scope collection.Scope, project string, rows []Candidate) map[Selection]*Observation {
 	source, ok := s.Sources.(concurrentPageSources)
 	if !ok {
 		return nil
@@ -48,27 +55,42 @@ func (s *Service) preparePageEvidence(ctx context.Context, scope collection.Scop
 		return nil
 	}
 	for _, selection := range sequential {
-		if ctx.Err() != nil {
-			break
+		if sourceCtx.Err() != nil {
+			return results
 		}
-		results[selection] = s.observePageSelection(ctx, scope, project, selection)
+		results[selection] = s.observePageSelection(sourceCtx, scope, project, selection)
+	}
+	if sourceCtx.Err() != nil {
+		return results
+	}
+	reader, err := source.BindPageEvidence(sourceCtx, scope, project)
+	if err != nil {
+		return results
 	}
 
 	observed := make([]*Observation, len(concurrent))
 	var workers errgroup.Group
 	workers.SetLimit(pageEvidenceWorkers)
 	for i, selection := range concurrent {
-		if ctx.Err() != nil {
+		if sourceCtx.Err() != nil {
 			break
 		}
 		workers.Go(func() error {
-			if ctx.Err() == nil {
-				observed[i] = s.observePageSelection(ctx, scope, project, selection)
+			if sourceCtx.Err() == nil {
+				observation, err := reader.Observe(selection)
+				if err == nil && ValidObservation(observation, selection) {
+					observed[i] = &observation
+				}
 			}
 			return nil
 		})
 	}
 	_ = workers.Wait()
+	// A slow row can exhaust the source budget. Recheck permission with the
+	// live request so completed originals can still be returned safely.
+	if reader.Reauthorize(ctx) != nil {
+		return results
+	}
 	for i, selection := range concurrent {
 		results[selection] = observed[i]
 	}
