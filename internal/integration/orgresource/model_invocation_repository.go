@@ -53,16 +53,7 @@ func modelPointHash(value any) string {
 }
 func modelPointKey(kind, id string) string { return "model-point-" + kind + ":" + modelPointHash(id) }
 func modelPointFingerprint(fact aicapability.InvocationRecord) string {
-	fact.BillableUsage = nil
-	fact.StartedAt = fact.StartedAt.UTC().Truncate(time.Microsecond)
-	fact.FinishedAt = time.Time{}
-	fact.LatencyMilliseconds = 0
-	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens, fact.ImageCount = 0, 0, 0, 0
-	fact.EstimatedCostMicros, fact.EstimatedCostKnown, fact.UsageKnown = 0, false, false
-	fact.Outcome = aicapability.InvocationDispatched
-	fact.ErrorCategory, fact.ErrorCode, fact.RouteErrorCategory = "", "", ""
-	fact.ProviderRequestID, fact.UpstreamJobID, fact.OutputHash = "", "", ""
-	return modelPointFactHash(fact)
+	return modelPointFactHash(aicapability.InvocationDispatchIdentity(fact))
 }
 func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id string) (aicapability.InvocationRecord, error) {
 	fact, err := r.owner.ReadModelInvocation(ctx, org, id)
@@ -189,10 +180,19 @@ func (r *GormModelInvocationRepository) ReserveAIInvocationUsage(ctx context.Con
 
 func matchesModelPointReceipt(fact aicapability.InvocationRecord, fingerprint string, quantity int64, receipt modelPointReceipt, row organizationResourceReservationRow) bool {
 	month := orgresource.AIPointMonthStart(fact.StartedAt)
+	if p := fact.ProviderRejectionProof; p != nil && (p.ReservationID != row.ReservationID || p.DispatchFingerprint != fingerprint || p.ReservedMicropoints != quantity || !p.MemberMonth.Equal(month)) {
+		return false
+	}
 	return receipt.UnitVersion == fact.OfficialTariff.UnitVersion && row.QuantityUnit == receipt.UnitVersion && receipt.ReservationID != "" && receipt.MemberID == fact.MemberID && receipt.Fingerprint == fingerprint && receipt.PriceVersion == fact.OfficialTariff.PriceVersion && receipt.Quantity == quantity && receipt.LimitVersion > 0 && receipt.Month.Equal(month) && row.OrganizationID == fact.TenantID && row.OwnerType == modelPointOwner && row.OwnerAttemptID == fact.InvocationID && row.BusinessScope == modelPointBusinessScope(fact) && row.ResourceType == string(orgresource.ResourceAIPoint) && row.ReservationPurpose == modelPointOwner && row.Quantity == quantity && row.RequestFingerprint == fingerprint && row.MemberID == receipt.MemberID && row.MemberMonthStart != nil && row.MemberMonthStart.Equal(month) && row.MemberLimitVersion == receipt.LimitVersion && row.PriceVersion == receipt.PriceVersion && row.ChargeActorID == fact.UserID
 }
 
 func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error) {
+	if fact.ProviderRejectionProof != nil {
+		if aicapability.ValidateProviderRejection(fact) != nil || fact.ProviderRejectionProof.DispatchFingerprint != modelPointFingerprint(fact) {
+			return 0, false, orgresource.ErrInvalidOwnerProof
+		}
+		return 0, false, nil
+	}
 	if fact.FinishedAt.IsZero() || fact.FinishedAt.Before(fact.StartedAt) {
 		return 0, false, orgresource.ErrOwnerNotTerminal
 	}

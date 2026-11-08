@@ -1,5 +1,5 @@
-// product-agent-runtime-prepare qualifies and prepares the two fixed native
-// targets. It never runs serving, creates roles, or reads provider credentials.
+// product-agent-runtime-prepare qualifies and prepares fixed native targets and
+// explicit schema capabilities. It never serves or reads provider credentials.
 package main
 
 import (
@@ -17,11 +17,11 @@ import (
 )
 
 func main() {
-	target := flag.String("target", "", "fixed target: run or review")
+	target := flag.String("target", "", "fixed target: run, review, or invocation-provider-rejection")
 	flag.Parse()
 	env := "PRODUCT_AGENT_SCHEMA_DSN"
-	if flag.NArg() != 0 || (*target != "run" && *target != "review") {
-		fmt.Fprintln(os.Stderr, "requires exactly --target run or --target review")
+	if flag.NArg() != 0 || (*target != "run" && *target != "review" && *target != "invocation-provider-rejection") {
+		fmt.Fprintln(os.Stderr, "requires --target run, review, or invocation-provider-rejection")
 		os.Exit(2)
 	}
 	if *target == "review" {
@@ -54,6 +54,8 @@ func main() {
 	var result productagentruntime.Result
 	if *target == "run" {
 		result, err = productagentruntime.PrepareRun(ctx, db)
+	} else if *target == "invocation-provider-rejection" {
+		result, err = productagentruntime.PrepareProviderRejectionProof(ctx, db)
 	} else {
 		result, err = productagentruntime.PrepareReview(ctx, db)
 	}

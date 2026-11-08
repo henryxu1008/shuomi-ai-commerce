@@ -34,6 +34,7 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"product-agent-credential-provision":  {},
 		"product-agent-runtime-prepare":       {},
 		"local-ai-trial-grant":                {},
+		"model-invocation-recovery":           {},
 		"product-acquisition-init":            {},
 		"store-center-schema-init":            {},
 		"source-account-registry-schema-init": {},

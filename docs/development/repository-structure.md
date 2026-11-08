@@ -67,6 +67,7 @@ Framework、Transport、Workflow、Persistence、Provider SDK、Marketplace Clie
     - `issue36-local-trial-init`
     - `knowledge-schema-init`
     - `local-ai-trial-grant`
+    - `model-invocation-recovery`
     - `notification-center-schema-init`
     - `organization-membership-schema-init`
     - `product-acquisition-init`

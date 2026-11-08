@@ -101,3 +101,17 @@ Gemini 的可信 ModelProfile.ThinkingMode 必须显式为 low、minimal 或 bud
 
 本段只描述源码交付和配置合同，不代表保留实例已更新、配置已发布或真实调用已验收；正式新安装仍用原初始化入口，不迁移保留库或建设第二安装器。
 未准备好依赖继续显示原因；UNKNOWN、原预留及当前合同内原键恢复不因换型号/换 Key 自动改变。真实调用、效果、浏览器及产品验收保持 NOT_RUN。
+
+## 原单图调用的明确拒绝、未计费恢复
+
+沿[已批准恢复设计](../architecture/own-intake-provider-unbilled-recovery.md)，受控命令只恢复配置指定的原调用与原预留。它没有模型调用、商品保存、schema 初始化或通用退款入口。
+
+入口为 `go run ./cmd/model-invocation-recovery -config <本机私密配置绝对路径> -action inspect`。默认 `inspect` 使用只读连接，输出原调用、预留、绑定摘要、证明就绪状态和已确认结算状态。配置文件必须通过现有私密文件权限检查，严格 JSON 限 16 KiB；不得提交到 Git 或打印数据库密码。
+
+配置固定 `organizationId`、`memberId`、`invocationId`、`reservationId`、`expectedDispatchFingerprint`、`operatorId`、`approvalEvidenceId`、`observedAt` 和 `evidence`，数据库仅使用 `invocationDatabase` 的 `product_agent_runtime` 与 `resourceDatabase` 的 `commercial_owner_runtime`。不提供退款数量或模型凭据。受保护操作者先核验原请求关联、单次发送、明确拒绝及未计费来源，再登记来源摘要；摘要本身不能替代来源证明。HTTP 429、汇总零用量、账单已支付或单条控制台错误均不足以单独准入。
+
+只有另行获准真实账本恢复且证据齐备后，才把只读核对得到的 `proofDigest` 固定到 `expectedProofDigest`，显式设置 `resolveEnabled: true` 并使用 `-action resolve`。操作键由原调用派生，重复命令、并发恢复和原 owner 的扫描器复用同一原预留与 A=0 结算。原计费 owner 仍按原月份、债务优先及原事务处理；失败或响应丢失后检查同一身份，不创建新调用、不重发模型。缺证明保持原 UNKNOWN 和预留。
+
+已有合格 52 列原调用库需要单独批准的显式 schema 能力准备 `go run ./cmd/product-agent-runtime-prepare -target invocation-provider-rejection`。该目标只增加可空证明列及原 runtime 的精确列权限，不写原调用或账本，也不由服务启动自动执行。新空库沿原准备流程使用当前完整合同。部署必须配套当前合同的程序；已经写入证明后不得直接回滚到不认识该列与终态的程序。
+
+本次只完成离线实现和独立隔离验证。试用库准备、真实恢复和后续模型调用均未执行；原请求缺少供应商明确未计费证明，继续保持不可释放。
