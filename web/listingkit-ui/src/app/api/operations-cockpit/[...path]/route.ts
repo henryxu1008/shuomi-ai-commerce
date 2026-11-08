@@ -3,6 +3,7 @@ import { serverAuth } from "@/auth";
 import { readZitadelIdentityFromSession } from "@/lib/server/zitadel-auth";
 import { readZitadelServerAccessToken } from "@/lib/server/zitadel-server-token";
 import { proxyCockpit, cockpitFailure } from "@/lib/server/operations-cockpit-proxy";
+export const dynamic = "force-dynamic";
 const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown }) => proxyCockpit(request, readZitadelServerAccessToken(request.auth as never), String(readZitadelIdentityFromSession(request.auth as never)?.userId ?? "")));
 async function handle(request: NextRequest) {
  const controller = new AbortController(), abort = () => controller.abort();

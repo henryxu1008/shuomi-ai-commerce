@@ -37,3 +37,13 @@ status 为 complete / missing_fields / coverage_incomplete / limited。共同 ca
 独立本地实例在新端口准备两家 SHEIN US 测试店、不同日期及覆盖范围、原生保存订单和异常字段。正式 GET → BFF → 首页浏览器验证无刷新切换、已知/缺失/不完整提示；无平台/provider客户端。保留既有实例与预览，提供入口。实现完成开一个草稿 PR，合并、正式部署、关闭 #1163 另行授权。Legacy decision: N/A，无迁移/第二事实源。
 
 独立架构复核：设计提交 092642aac62703cab7264bf19f7b3cc67e9322f6 及窄投影补充，由 /root/architecture_review 检查真实 CommitPage/Stop 原子与 terminal 不可变、Heads、SHEIN 本地授权及 HTTP/BFF，结论 IMPLEMENTATION_READY，无 BLOCKER。未知日期计数、SQL先日期后限额/非法日期失败、源切换/撤权/换绑作为 IMPLEMENTATION_TEST 在本批收敛。
+
+## 半托消费者订单同步接线复用
+
+用户后续批准只补齐 SHEIN 半托消费者订单同步接线，并在独立本地实例使用测试回执；本土和全托不纳入此次实现。Design Basis: Reuse Existing Architecture，执行范围见 #1163。复用已批准的 `semi_managed` 应用注册、Store 商家绑定和独立只读观察 handle，经 `order-list` / `order-detail`、原 `Service.Begin/Step` 和 PostgreSQL `CommitPage` 保存，现有单店金额接口和首页消费者保持不变；无新 schema、事实 owner、状态机、权限或恢复协议。
+
+半托商品金额仍只消费 `productTotalPrice/orderCurrency`；`totalCostPrice/saleCurrency` 是独立供货成本，不用于填补商品金额。平台只提供币种、未提供金额时保留已知币种，分别报告缺金额与缺币种；两字段都未知时不制造 Price，明确零值继续保留。订单金额与供货成本的同根因字段丢失一并修正。
+
+有界集成测试 `TestSheinSemiOrdersSyncToSavedAmountsPostgres` 使用正式同步 POST、真实应用注册/凭据保护/签名客户端/响应解析及原 PostgreSQL 事务，外层 HTTP RoundTripper 仅返回离线官方形状回执，不含默认传输或网络拨号。IAM/Store 核验材料为测试替身，工作流启动器在测试内执行原 Step；不将其称为真实商家授权或 Temporal 集群验收。验证当前完整 generation、原命令重放、相邻闭区间窗口重复订单、商品/包裹不重复计价、列表时间与详情时间不同、供货成本不兜底，以及缺字段/覆盖不足。驾驶舱本地实例复用现有验收承载，不新增通用 runner 或验收平台。
+
+本轮不请求外部平台，不改全平台成功率、GMV 卡片或原合成预览。真实半托店的应用/接口权限、实际字段和完整销售覆盖仍需后续单独授权核对；离线通过不代表真实平台或产品验收通过。

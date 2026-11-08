@@ -411,14 +411,16 @@ func (c *OfficialClient) QueryObservedOrderDetails(ctx context.Context, k storec
 		if e != nil {
 			return nil, e
 		}
-		if amount.Value != "" {
+		// A known currency remains a source fact when its value is missing.
+		// Dropping it would incorrectly report both fields as unknown.
+		if amount.Value != "" || amount.Currency != "" {
 			result.Amount = &amount
 		}
 		cost, e := observedPrice(v.Cost, nil, v.SaleCurrency)
 		if e != nil {
 			return nil, e
 		}
-		if cost.Value != "" {
+		if cost.Value != "" || cost.Currency != "" {
 			result.SupplyCost = &cost
 		}
 		for _, pair := range []struct {
