@@ -21,7 +21,6 @@ import (
 type syntheticCurrentTextPolicies struct {
 	settings *ProductAgentDependencies
 	planning map[string]governed.RoutePolicy
-	ownIntake map[string]governed.RoutePolicy
 }
 
 func (f syntheticCurrentTextPolicies) ReadPolicy(_ context.Context, key governed.RouteKey) (governed.RoutePolicy, error) {
@@ -39,8 +38,6 @@ func (f syntheticCurrentTextPolicies) ReadPolicy(_ context.Context, key governed
 		policies = f.settings.SelectionTextPolicies
 	case aicapability.OperationShopDiagnosisDecision:
 		policies = f.settings.DiagnosisTextPolicies
-	case aicapability.OperationOwnProductIntake:
-		policies = f.ownIntake
 	case aicapability.OperationProductImageAnalysis:
 		policies = f.settings.ImageAnalysisPolicies
 	}
