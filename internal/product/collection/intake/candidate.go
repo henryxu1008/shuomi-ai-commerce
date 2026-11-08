@@ -135,10 +135,12 @@ var currencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
 
 const stockField = `(?:库存(?:数量)?|\b(?:stock|inventory)\b(?:\s+|[：:=]))`
 
-var stockEvidence = regexp.MustCompile(`(?i)` + stockField + `\s*(?:明确\s*)?(?:为|是|is|[：:=])?\s*([0-9]+)(?:\s*(?:件|个|units?|pcs))?`)
-var stockUncertain = regexp.MustCompile(`(?i)` + stockField + `\s*(?:为|是|is|[：:=])?\s*(?:未知|未填写|未提供|未确定|未确认|待确认|不详|留空|空值|unknown|unspecified|大约|大概|约|预计|估计|可能|至少|至多|不是|不为|不等于|-\s*[0-9])|(?:^|[，,。;；])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实)(?:库存(?:数量)?|数量)?\s*(?:$|[，,。;；])`)
+var stockDeclaration = regexp.MustCompile(`(?i)` + stockField)
+var stockQuantity = regexp.MustCompile(`(?i)^\s*(?:明确\s*)?(?:为|是|is|[：:=])?\s*([0-9]+)(?:\s*(?:件|个|units?|pcs))?`)
+var stockUncertain = regexp.MustCompile(`(?:^|[，,。;；])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实)(?:库存(?:数量)?|数量)?\s*(?:$|[，,。;；])`)
 var stockQualified = regexp.MustCompile(`(?i)(?:并非|不是|不代表|不表示|未确认|没有确认|不能确认|大约|大概|约|预计|估计|可能|至少|至多)\s*库存|\b(?:not|approximately|about)\s+(?:stock|inventory)`)
-var followingStockField = regexp.MustCompile(`(?i)^(?:SKU\b|货号|编码|币种|价格|单价|图片|图号|颜色|尺码|品牌|库存|(?:stock|inventory|price|currency|image|color|size|brand)\b|[A-Z]{3}(?:\s|[：:=]))`)
+var followingStockField = regexp.MustCompile(`(?i)^(?:SKU\b|货号|编码|币种|价格|单价|图片|图号|颜色|尺码|品牌|库存|(?:stock|inventory|price|currency|image|color|size|brand)\b)`)
+var skuFieldValue = regexp.MustCompile(`(?i)(?:\bSKU\b|货号|商品编码)\s*[：:=]?\s*([^\s，,;；()（）]+)`)
 var priceEvidence = regexp.MustCompile(`(?i)(?:价格|单价|price|[¥￥$€])\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
@@ -178,23 +180,41 @@ func (r Row) validate(in Input, index int) error {
 }
 
 func (r Row) stockIsExplicit() bool {
-	if stockUncertain.MatchString(r.Evidence) || stockQualified.MatchString(r.Evidence) {
+	// SKU values are identifiers, including when they contain words such as STOCK.
+	// Mask only that field's value; never use its digits as inventory evidence.
+	evidence := []byte(r.Evidence)
+	for _, m := range skuFieldValue.FindAllStringSubmatchIndex(r.Evidence, -1) {
+		for i := m[2]; i < m[3]; i++ {
+			evidence[i] = '_'
+		}
+	}
+	source := string(evidence)
+	if stockUncertain.MatchString(source) || stockQualified.MatchString(source) {
 		return false
 	}
-	matches := stockEvidence.FindAllStringSubmatchIndex(r.Evidence, -1)
+	matches := stockDeclaration.FindAllStringIndex(source, -1)
 	if len(matches) == 0 {
 		return false
 	}
 	for _, m := range matches {
-		quantity, err := strconv.ParseInt(r.Evidence[m[2]:m[3]], 10, 64)
+		// Every inventory declaration must state the same exact integer. A later
+		// unknown/qualified declaration cannot be silently skipped.
+		tail := source[m[1]:]
+		value := stockQuantity.FindStringSubmatchIndex(tail)
+		if value == nil {
+			return false
+		}
+		quantity, err := strconv.ParseInt(tail[value[2]:value[3]], 10, 64)
 		if err != nil || quantity != int64(*r.Stock) {
 			return false
 		}
 		// Reject decimal, range and approximate suffixes rather than accepting a prefix.
-		rest := r.Evidence[m[1]:]
+		rest := tail[value[1]:]
 		after := strings.TrimLeftFunc(rest, unicode.IsSpace)
 		if after != "" && !strings.ContainsRune("，,。;；)）]", []rune(after)[0]) {
-			if len(rest) == len(after) || !followingStockField.MatchString(after) {
+			currency := currencyEvidence.FindStringSubmatchIndex(after)
+			knownCurrency := r.Currency != "" && currency != nil && currency[0] == 0 && after[currency[2]:currency[3]] == r.Currency
+			if len(rest) == len(after) || !followingStockField.MatchString(after) && !knownCurrency {
 				return false
 			}
 		}

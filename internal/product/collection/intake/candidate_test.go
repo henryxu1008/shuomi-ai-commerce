@@ -75,7 +75,20 @@ func TestStockLabelsIgnoreSKUFragmentsAndKeepUnconfirmedUnknown(t *testing.T) {
 		in := Input{Notes: line}
 		sku := strings.Fields(line)[len(strings.Fields(line))-1]
 		c := Candidate{Rows: []Row{{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: line, SKU: sku, Stock: new(5)}}}
+		if strings.Contains(line, "CNY 99") {
+			c.Rows[0].Currency = "CNY"
+			c.Rows[0].Price = new(99.0)
+		}
 		require.NoError(t, c.Validate(in), line)
+	}
+}
+
+func TestStockChecksEveryDeclarationWithoutGuessingCurrency(t *testing.T) {
+	for _, phrase := range []string{"库存为0，库存待核实", "库存为0，库存尚未确认", "库存为0，库存明确未知", "库存为0，库存数量未填写", "库存 0 not confirmed", "库存 0 not 5"} {
+		t.Run(phrase, func(t *testing.T) {
+			in, c := naturalStockFixture(phrase)
+			require.ErrorContains(t, c.Validate(in), "rows[0].stock")
+		})
 	}
 }
 
