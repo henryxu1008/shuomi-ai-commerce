@@ -8,7 +8,7 @@ import {Select} from "@/components/ui/select";
 import {Textarea} from "@/components/ui/textarea";
 import {podRequest} from "@/lib/api/pod";
 import {MarketAPIError} from "@/lib/api/supply-market";
-import {intakePrepared,intakeResult,type IntakeBody,type IntakeCandidate,type IntakePrepared} from "@/lib/contracts/own-product-intake";
+import {intakePrepared,intakeResult,intakeValidationMessage,type IntakeBody,type IntakeCandidate,type IntakePrepared} from "@/lib/contracts/own-product-intake";
 import {collectionID} from "@/lib/contracts/product-collection";
 import type {CollectionScope} from "@/lib/api/product-collection";
 
@@ -88,7 +88,7 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
   storeReceipt(null);
   setMissingRunKey(null);
   setPrepared(null);
-  if(!response.candidate){setError("本次生成没有通过校验，请核对资料后重新整理。");return}
+  if(!response.candidate){setError(response.validationError?intakeValidationMessage(response.validationError):"本次生成没有通过校验，请核对资料后重新整理。");return}
   setResult({signature:expected,candidate:response.candidate});
   setMessage("候选已生成。核对后可采纳到表单。");
  }

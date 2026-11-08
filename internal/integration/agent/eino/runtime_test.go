@@ -35,6 +35,7 @@ type fakeModel struct {
 	waitStarted        chan struct{}
 	notDispatchedAt    int
 	observedInvalid    bool
+	observedUnresolved []string
 	lastInput          agent.ModelInput
 }
 
@@ -67,7 +68,7 @@ func (m *fakeModel) Decide(ctx context.Context, in agent.ModelInput) (agent.Mode
 		return agent.ModelResult{}, errors.New("lost response")
 	}
 	if m.observedInvalid {
-		return agent.ModelResult{InvocationID: in.InvocationID, Usage: agent.ObservedUsage{Tokens: 2, CostMicros: 1, Currency: in.UpperBound.Currency, Known: true}}, agent.ErrModelInvalidOutput
+		return agent.ModelResult{Action: agent.Action{Unresolved: m.observedUnresolved}, InvocationID: in.InvocationID, Usage: agent.ObservedUsage{Tokens: 2, CostMicros: 1, Currency: in.UpperBound.Currency, Known: true}}, agent.ErrModelInvalidOutput
 	}
 	a := m.actions[0]
 	m.actions = m.actions[1:]

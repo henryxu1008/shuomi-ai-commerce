@@ -44,8 +44,8 @@ import (
 	"task-processor/internal/product/sourcing"
 )
 
-const ownIntakeFixtureNotes = "黑 M，SKU BLK-M，CNY 29，库存 0\n黑 L，SKU BLK-L，CNY 29\n白 M，SKU WHT-M，CNY 29，图片2"
-const ownIntakeFixtureCandidate = `{"title":"隔离验收 三规格上衣","description":"三种在售规格。","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存 0","sku":"BLK-M","currency":"CNY","price":29,"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29","sku":"BLK-L","currency":"CNY","price":29},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","currency":"CNY","price":29,"image":2}]}`
+const ownIntakeFixtureNotes = "黑 M，SKU BLK-M，CNY 29，库存明确为 0\n黑 L，SKU BLK-L，CNY 29，库存未填写\n白 M，SKU WHT-M，CNY 29，图片2"
+const ownIntakeFixtureCandidate = `{"title":"隔离验收 三规格上衣","description":"三种在售规格。","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存明确为 0","sku":"BLK-M","currency":"CNY","price":29,"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29，库存未填写","sku":"BLK-L","currency":"CNY","price":29},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","currency":"CNY","price":29,"image":2}]}`
 
 func TestOwnIntakeHTTPAndIsolatedBrowser(t *testing.T) {
 	testProductAgentOwners(t, "own intake")
@@ -137,9 +137,17 @@ func configureOwnIntakeFixture(t *testing.T, settings *ProductAgentDependencies,
 			strings.Count(string(body), "data:image/png;base64,") != wantImages || !strings.Contains(string(body), "WHT-M") {
 			return nil, fmt.Errorf("expected %d PNG parts and original SKU facts on the governed model wire", wantImages)
 		}
-		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":"intake-fixture","object":"chat.completion","created":1,"model":%q,"choices":[{"index":0,"message":{"role":"assistant","content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":30,"completion_tokens":5,"total_tokens":35,"prompt_tokens_details":{"cached_tokens":10}}}`, aicapability.SingleImageMiniModel, ownIntakeFixtureCandidate)))}, nil
+		candidate := ownIntakeFixtureCandidate
+		if os.Getenv("OWN_INTAKE_BROWSER") == "1" && os.Getenv("OWN_INTAKE_BROWSER_PRESAVE") == "1" && dispatch == 2 {
+			candidate = strings.Replace(candidate, `"sku":"BLK-L","currency"`, `"sku":"BLK-L","stock":0,"currency"`, 1)
+		}
+		return ownIntakeControlledResponse(candidate), nil
 	})
 	return publishFX
+}
+
+func ownIntakeControlledResponse(content string) *http.Response {
+	return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":"intake-fixture","object":"chat.completion","created":1,"model":%q,"choices":[{"index":0,"message":{"role":"assistant","content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":30,"completion_tokens":5,"total_tokens":35,"prompt_tokens_details":{"cached_tokens":10}}}`, aicapability.SingleImageMiniModel, content)))}
 }
 
 type ownIntakeFixtureMedia struct {
@@ -225,10 +233,14 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 
 	if os.Getenv("OWN_INTAKE_BROWSER") == "1" {
 		runOwnIntakeBrowser(t, server.URL)
-		require.EqualValues(t, 1, calls.Load(), "browser confirmation dispatches once")
+		wantCalls, wantProducts := 1, 1
+		if os.Getenv("OWN_INTAKE_BROWSER_PRESAVE") == "1" {
+			wantCalls, wantProducts = 2, 0
+		}
+		require.EqualValues(t, wantCalls, calls.Load(), "only explicitly confirmed controlled responses are dispatched")
 		var count int64
 		require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
-		require.EqualValues(t, 1, count, "browser saved exactly one product")
+		require.EqualValues(t, wantProducts, count, "pre-save mode must leave the own-product library empty")
 		return
 	}
 	call := func(method, path, key string, body any, status int) []byte {
@@ -353,6 +365,30 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	call("POST", ownIntakeBase+"/prepare", uuid.NewString(), body, 503)
 	require.NoError(t, publishFX(8_000_000))
 
+	// A model must not turn the explicitly unfilled black L stock into zero.
+	invalidCandidate := strings.Replace(ownIntakeFixtureCandidate, `"sku":"BLK-L","currency"`, `"sku":"BLK-L","stock":0,"currency"`, 1)
+	app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return ownIntakeControlledResponse(invalidCandidate), nil
+	})
+	invalidKey := uuid.NewString()
+	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", invalidKey, textBody, 200), &prepared))
+	invalidConfirmation := ownIntakeConfirm{ownIntakeBody: textBody, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}
+	invalidResult := call("POST", ownIntakeBase+"/"+invalidKey+"/confirm", invalidKey, invalidConfirmation, 200)
+	var rejected ownIntakeResult
+	require.NoError(t, json.Unmarshal(invalidResult, &rejected))
+	require.Equal(t, agent.StopInvalidOutput, rejected.StopReason)
+	require.Nil(t, rejected.Candidate)
+	require.NotNil(t, rejected.ValidationError)
+	require.Equal(t, "rows[1].stock", rejected.ValidationError.Field)
+	require.Equal(t, "stock_evidence", rejected.ValidationError.Code)
+	require.NotContains(t, string(invalidResult), "BLK-L", "diagnostic must not disclose model content")
+	require.JSONEq(t, string(invalidResult), string(call("GET", ownIntakeBase+"/"+invalidKey, "", nil, 200)))
+	require.JSONEq(t, string(invalidResult), string(call("POST", ownIntakeBase+"/"+invalidKey+"/confirm", invalidKey, invalidConfirmation, 200)))
+	require.EqualValues(t, 3, calls.Load(), "invalid candidate readback must not call again")
+	require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
+	require.Zero(t, count, "all offline verification stops before product save")
+
 	app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
 		calls.Add(1)
 		return nil, errors.New("isolated response lost after provider handoff")
@@ -367,7 +403,8 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	require.Nil(t, uncertain.Candidate)
 	require.JSONEq(t, string(unknownResult), string(call("GET", ownIntakeBase+"/"+unknownKey, "", nil, 200)))
 	require.JSONEq(t, string(unknownResult), string(call("POST", ownIntakeBase+"/"+unknownKey+"/confirm", unknownKey, unknown, 200)))
-	require.EqualValues(t, 3, calls.Load(), "an uncertain provider result must never be redispatched")
+	require.EqualValues(t, 4, calls.Load(), "an uncertain provider result must never be redispatched")
+
 }
 
 func runOwnIntakeBrowser(t *testing.T, backend string) {
