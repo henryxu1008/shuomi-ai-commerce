@@ -272,9 +272,10 @@ function ScopedPurchase({
     setSelected(null);
     if (result.status === "FULFILLED") {
       try {
+        const zero=result.settlement_mode==="ZERO_PRICE";
         const [readback,walletReadback] = await Promise.all([
           getCommercialResources(userId,organizationId,signal),
-          getCommercialWallet(userId,organizationId,signal),
+          zero?Promise.resolve(null):getCommercialWallet(userId,organizationId,signal),
         ]);
         signal.throwIfAborted();
         const type = resourceDefinitions.find(
@@ -290,14 +291,14 @@ function ScopedPurchase({
         );
         if (
           readback.organization_id !== organizationId ||
-          walletReadback.organization_id !== organizationId ||
+          (!zero && walletReadback?.organization_id !== organizationId) ||
           !type ||
           readback.resources.find((r) => r.resource_type === type.type)
             ?.state !== "recorded"
         )
           throw new Error("unconfirmed");
         setBalances(readback);
-        client.setQueryData(["workbench",organizationId,"commercial-wallet",userId,"resource-purchase"],walletReadback);
+        if(walletReadback)client.setQueryData(["workbench",organizationId,"commercial-wallet",userId,"resource-purchase"],walletReadback);
         if (persist(null)) setMessage("资源已到账，余额已重新读取。");
         void client.invalidateQueries({
           queryKey: ["workbench", organizationId],
@@ -325,8 +326,8 @@ function ScopedPurchase({
     if (!ready || !quote || !selected || pending.value || !canPurchase || busy)
       return;
     if (
-      wallet.data?.organization_id !== organizationId ||
-      BigInt(wallet.data.available_minor) < BigInt(quote.total_minor)
+      quote.settlement_mode!=="ZERO_PRICE" && (wallet.data?.organization_id !== organizationId ||
+      BigInt(wallet.data.available_minor) < BigInt(quote.total_minor))
     ) {
       setMessage("企业钱包余额不足或尚未确认，请刷新钱包。");
       return;
@@ -389,7 +390,7 @@ function ScopedPurchase({
     <div className={styles.stack}>
       <p className={styles.observation}>
         当前企业：{organizationName}（{organizationId}） ·
-        资源使用企业钱包购买，余额不按月清零。
+        正价资源使用企业钱包购买，零价资源按数量领取；资源余额不按月清零。
       </p>
       {pending.invalid ? (
         <p role="alert">原订单恢复信息无效，请联系支持核对；已暂停新购买。</p>
@@ -438,8 +439,9 @@ function ScopedPurchase({
               </dd>
             </div>
             <div>
-              <dt>实际扣款</dt>
+              <dt>{quote.settlement_mode==="ZERO_PRICE"?"合计（无需充值）":"实际扣款"}</dt>
               <dd>{resourceMoney(quote.total_minor)}</dd>
+              <dt>价格版本</dt><dd>{quote.pricing_version}</dd>
             </div>
             {quote.remainder_minor !== undefined ? (
               <div>
@@ -452,19 +454,19 @@ function ScopedPurchase({
               <dd>{quote.expires_at.replace("T", " ").replace("Z", " UTC")}</dd>
             </div>
           </dl>
-          {wallet.isError ? (
+          {wallet.isError && quote.settlement_mode!=="ZERO_PRICE" ? (
             <p role="alert">钱包余额暂不可确认，请刷新后重试。</p>
           ) : null}
           <div className={styles.actions}>
             <Button
               disabled={
                 busy ||
-                wallet.data?.organization_id !== organizationId ||
-                BigInt(wallet.data.available_minor) < BigInt(quote.total_minor)
+                (quote.settlement_mode!=="ZERO_PRICE" && (wallet.data?.organization_id !== organizationId ||
+                BigInt(wallet.data.available_minor) < BigInt(quote.total_minor)))
               }
               onClick={() => void submit()}
             >
-              确认购买
+              {quote.settlement_mode==="ZERO_PRICE"?`确认领取${quote.resource_quantity}条`:"确认购买"}
             </Button>
             <Button
               variant="outline"
@@ -542,17 +544,18 @@ function ResourceCard({
 }) {
   const [offerId, setOfferId] = useState("");
   const offer = offers.find((o) => o.offer_id === offerId) ?? offers[0];
+  const zero=offer?.settlement_mode==="ZERO_PRICE";
   const [mode, setMode] = useState("quantity");
   const [value, setValue] = useState("1");
   const selection =
-    mode === "amount"
+    mode === "amount" && !zero
       ? amountMinor(value)
       : positiveInt64(value)
         ? value
         : null;
   const valid =
     selection !== null &&
-    (mode === "amount" ||
+    (mode === "amount" && !zero ||
       (!!offer &&
         BigInt(selection) >= BigInt(offer.min_quantity) &&
         BigInt(selection) <= BigInt(offer.max_quantity)));
@@ -587,7 +590,7 @@ function ResourceCard({
               </select>
             </label>
           ) : null}
-          {definition.type !== "store_renewal_period" ? (
+          {definition.type !== "store_renewal_period" && !zero ? (
             <label>
               购买方式
               <select
@@ -604,10 +607,10 @@ function ResourceCard({
             </label>
           ) : null}
           <label>
-            {mode === "amount" ? "金额（元）" : "购买数量"}
+            {mode === "amount" && !zero ? "金额（元）" : "购买数量"}
             <input
-              aria-label={mode === "amount" ? "金额（元）" : "购买数量"}
-              inputMode={mode === "amount" ? "decimal" : "numeric"}
+              aria-label={mode === "amount" && !zero ? "金额（元）" : "购买数量"}
+              inputMode={mode === "amount" && !zero ? "decimal" : "numeric"}
               maxLength={22}
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -625,7 +628,7 @@ function ResourceCard({
           if (offer && selection)
             void onQuote(
               offer,
-              mode === "amount"
+              mode === "amount" && !zero
                 ? { amountMinor: selection }
                 : { quantity: selection },
             );

@@ -13,8 +13,16 @@ func (r *Repository) Usage(ctx context.Context, s collection.Scope) (dataacquisi
 	var usage dataacquisition.Usage
 	err := r.db.WithContext(ctx).Raw(`SELECT
  (SELECT count(*) FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND state='SAVED' AND saved_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS day_rows,
- (SELECT count(*)*5 FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND state='SAVED' AND charge_state='committed' AND saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_confirmed_fen,
- (SELECT count(*)*5 FROM data_acquisition_items WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND state='SAVED' AND charge_state<>'committed' AND saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_pending_fen,
+ (SELECT COALESCE(sum(COALESCE(j.price_snapshot->>'unitPriceFen','missing-frozen-price')::bigint),0)
+ FROM data_acquisition_items i JOIN data_acquisition_jobs j
+ ON j.organization_id=i.organization_id AND j.actor_id=i.actor_id AND j.id=i.job_id AND j.source_kind=i.source_kind
+ WHERE i.organization_id=? AND i.actor_id=? AND i.source_kind='amazon_data' AND i.state='SAVED' AND i.charge_state='committed'
+ AND i.saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_confirmed_fen,
+ (SELECT COALESCE(sum(COALESCE(j.price_snapshot->>'unitPriceFen','missing-frozen-price')::bigint),0)
+ FROM data_acquisition_items i JOIN data_acquisition_jobs j
+ ON j.organization_id=i.organization_id AND j.actor_id=i.actor_id AND j.id=i.job_id AND j.source_kind=i.source_kind
+ WHERE i.organization_id=? AND i.actor_id=? AND i.source_kind='amazon_data' AND i.state='SAVED' AND i.charge_state<>'committed'
+ AND i.saved_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') AS month_pending_fen,
  count(*) FILTER (WHERE state IN ('SUCCEEDED','PARTIAL','FAILED','CANCELED')) AS finished_jobs,
  count(*) FILTER (WHERE state='SUCCEEDED') AS succeeded_jobs
  FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' AND created_at>=date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID, s.OrganizationID, s.ActorID).Scan(&usage).Error

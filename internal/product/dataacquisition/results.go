@@ -8,8 +8,8 @@ import (
 
 type Usage struct {
 	DayRows           int64    `json:"dayRows"`
-	MonthConfirmedFen int64    `json:"monthConfirmedFen"`
-	MonthPendingFen   int64    `json:"monthPendingFen"`
+	MonthConfirmedFen int64    `json:"monthConfirmedFen,string"`
+	MonthPendingFen   int64    `json:"monthPendingFen,string"`
 	FinishedJobs      int64    `json:"finishedJobs"`
 	SucceededJobs     int64    `json:"succeededJobs"`
 	SuccessRate       *float64 `json:"successRate"`
@@ -19,8 +19,8 @@ type KeyQuota struct {
 	KeyID            string `json:"keyId"`
 	DayConsumedRows  int64  `json:"dayConsumedRows"`
 	DayReservedRows  int64  `json:"dayReservedRows"`
-	MonthConsumedFen int64  `json:"monthConsumedFen"`
-	MonthReservedFen int64  `json:"monthReservedFen"`
+	MonthConsumedFen int64  `json:"monthConsumedFen,string"`
+	MonthReservedFen int64  `json:"monthReservedFen,string"`
 }
 type Result struct {
 	ID      string             `json:"id"`

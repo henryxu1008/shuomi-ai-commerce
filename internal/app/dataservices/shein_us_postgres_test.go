@@ -75,6 +75,7 @@ func TestSHEINUSPublicationAndExactReadback(t *testing.T) {
 	require.NoError(t, err)
 	repo, err := jobstore.NewRepository(ctx, db, live, publisher, transactionResultReader)
 	require.NoError(t, err)
+	repo.ConfigurePrices(testCommercialPrice{})
 	sources, err := sourcestore.NewRepository(db, newCatalogBridge)
 	require.NoError(t, err)
 	m := &Module{live: live, repo: repo, results: capturedResultReader{sources}}

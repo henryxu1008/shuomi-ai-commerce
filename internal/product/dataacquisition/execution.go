@@ -15,6 +15,7 @@ type Principal struct {
 	CredentialRevision int64
 }
 type Job struct {
+	Price        PriceSnapshot               `json:"price"`
 	ID           string                      `json:"id"`
 	Scope        collection.Scope            `json:"-"`
 	CredentialID string                      `json:"credentialId,omitempty"`
@@ -29,8 +30,8 @@ type Job struct {
 	Saved        int                         `json:"saved"`
 	Failed       int                         `json:"failed"`
 	Pending      int                         `json:"pending"`
-	ConfirmedFen int64                       `json:"confirmedFen"`
-	PendingFen   int64                       `json:"pendingFen"`
+	ConfirmedFen int64                       `json:"confirmedFen,string"`
+	PendingFen   int64                       `json:"pendingFen,string"`
 	BatchID      string                      `json:"batchId,omitempty"`
 	CreatedAt    time.Time                   `json:"createdAt"`
 	Deadline     time.Time                   `json:"deadline"`
@@ -70,7 +71,7 @@ type ResultReadRepository interface {
 }
 type Repository interface {
 	WithResultRead(context.Context, Principal, func(context.Context, ResultReadRepository, CapturedResultReader) error) error
-	Admit(context.Context, Principal, string, Query, orgresource.ResourceFunding) (Job, error)
+	Admit(context.Context, Principal, string, Query, orgresource.ResourceFunding, PriceConfirmation) (Job, error)
 	Read(context.Context, collection.Scope, string) (Job, error)
 	List(context.Context, collection.Scope, int) ([]Job, error)
 	CheckActive(context.Context, Job) error
@@ -103,15 +104,15 @@ func NewService(repo Repository, live LiveAccess, provider Provider, charges Cha
 	}
 	return &Service{repo, live, provider, charges, starter, time.Now}, nil
 }
-func (s *Service) Start(ctx context.Context, p Principal, command string, q Query, funding orgresource.ResourceFunding, maximumCostFen int64) (Job, error) {
+func (s *Service) Start(ctx context.Context, p Principal, command string, q Query, funding orgresource.ResourceFunding, confirmation PriceConfirmation) (Job, error) {
 	q, err := NormalizeQuery(q)
-	if err != nil || !collection.ValidID(command) || p.Scope.Validate() != nil || maximumCostFen != int64(q.Limit)*PriceFen {
+	if err != nil || !collection.ValidID(command) || p.Scope.Validate() != nil || confirmation.Validate() != nil {
 		return Job{}, ErrInvalid
 	}
 	if err = s.live.CheckExecution(ctx, p, funding); err != nil {
 		return Job{}, err
 	}
-	job, err := s.repo.Admit(ctx, p, command, q, funding)
+	job, err := s.repo.Admit(ctx, p, command, q, funding, confirmation)
 	if err != nil {
 		return Job{}, err
 	}

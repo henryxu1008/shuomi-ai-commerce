@@ -21,6 +21,7 @@ import (
 type Publisher func(context.Context, *gorm.DB, dataacquisition.Job, dataacquisition.Item) (collection.Source, error)
 type ResultReaderFactory func(*gorm.DB) (dataacquisition.CapturedResultReader, error)
 type Repository struct {
+	prices       dataacquisition.PriceReader
 	db           *gorm.DB
 	live         dataacquisition.LiveAccess
 	publish      Publisher
@@ -89,7 +90,11 @@ func (r *Repository) WithResultRead(ctx context.Context, p dataacquisition.Princ
 	})
 }
 
+// ConfigurePrices injects the Commercial reader; nil prevents new admission only.
+func (r *Repository) ConfigurePrices(prices dataacquisition.PriceReader) { r.prices = prices }
+
 type jobRow struct {
+	PriceJSON                                                                                          []byte `gorm:"column:price_snapshot"`
 	OrganizationID, ActorID, MemberID, ID, CommandKey, InputHash, CredentialID, Funding, State, Reason string
 	CredentialRevision                                                                                 int64
 	QueryJSON                                                                                          []byte
@@ -98,9 +103,13 @@ type jobRow struct {
 	DayWindow, MonthWindow, CreatedAt, Deadline                                                        time.Time
 }
 
-const jobColumns = "organization_id,actor_id,member_id,id,command_key,input_hash,COALESCE(credential_id::text,'') AS credential_id,COALESCE(credential_revision,0) AS credential_revision,query_json,funding,state,reason,discovered,canceled,quota_reserved,day_window,month_window,created_at,deadline"
+const jobColumns = "organization_id,actor_id,member_id,id,command_key,input_hash,COALESCE(credential_id::text,'') AS credential_id,COALESCE(credential_revision,0) AS credential_revision,query_json,price_snapshot,funding,state,reason,discovered,canceled,quota_reserved,day_window,month_window,created_at,deadline"
 
 func (row jobRow) job() (dataacquisition.Job, error) {
+	var price dataacquisition.PriceSnapshot
+	if json.Unmarshal(row.PriceJSON, &price) != nil || price.Validate() != nil {
+		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
+	}
 	var q dataacquisition.Query
 	if json.Unmarshal(row.QueryJSON, &q) != nil {
 		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
@@ -109,7 +118,10 @@ func (row jobRow) job() (dataacquisition.Job, error) {
 	if err != nil || collection.Digest(normalized) != collection.Digest(q) {
 		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
 	}
-	return dataacquisition.Job{ID: row.ID, Scope: collection.Scope{OrganizationID: row.OrganizationID, ActorID: row.ActorID, MemberID: row.MemberID}, CredentialID: row.CredentialID, CommandKey: row.CommandKey, InputHash: row.InputHash, Query: q, Funding: orgresource.ResourceFunding(row.Funding), State: row.State, Reason: row.Reason, Discovered: row.Discovered, Canceled: row.Canceled, CreatedAt: row.CreatedAt, Deadline: row.Deadline}, nil
+	if _, err := price.Cost(q.Limit); err != nil {
+		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
+	}
+	return dataacquisition.Job{Price: price, ID: row.ID, Scope: collection.Scope{OrganizationID: row.OrganizationID, ActorID: row.ActorID, MemberID: row.MemberID}, CredentialID: row.CredentialID, CommandKey: row.CommandKey, InputHash: row.InputHash, Query: q, Funding: orgresource.ResourceFunding(row.Funding), State: row.State, Reason: row.Reason, Discovered: row.Discovered, Canceled: row.Canceled, CreatedAt: row.CreatedAt, Deadline: row.Deadline}, nil
 }
 func readJob(db *gorm.DB, s collection.Scope, id string, lock bool) (jobRow, error) {
 	query := "SELECT " + jobColumns + " FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND id=? AND source_kind='amazon_data'"
@@ -194,9 +206,9 @@ func summarize(db *gorm.DB, row jobRow) (dataacquisition.Job, error) {
 		case "SAVED":
 			job.Saved++
 			if i.ChargeState == string(orgresource.ReservationCommitted) {
-				job.ConfirmedFen += dataacquisition.PriceFen
+				job.ConfirmedFen += job.Price.UnitPriceFen
 			} else {
-				job.PendingFen += dataacquisition.PriceFen
+				job.PendingFen += job.Price.UnitPriceFen
 			}
 		case "FAILED":
 			job.Failed++
@@ -310,6 +322,11 @@ func lockQuota(tx *gorm.DB, row jobRow, create bool) error {
 	return nil
 }
 func quotaMove(tx *gorm.DB, row *jobRow, release, consume int) error {
+	original, err := row.job()
+	if err != nil {
+		return err
+	}
+	unitPrice := original.Price.UnitPriceFen
 	if release < 0 || consume < 0 || consume > release || release > row.QuotaReserved {
 		return dataacquisition.ErrConflict
 	}
@@ -318,7 +335,7 @@ func quotaMove(tx *gorm.DB, row *jobRow, release, consume int) error {
 			kind  string
 			start time.Time
 		}{{"day", row.DayWindow}, {"month", row.MonthWindow}} {
-			result := tx.Exec("UPDATE data_service_quota SET reserved_rows=reserved_rows-?,reserved_fen=reserved_fen-?,consumed_rows=consumed_rows+?,consumed_fen=consumed_fen+? WHERE organization_id=? AND actor_id=? AND key_id=? AND window_kind=? AND window_start=? AND reserved_rows>=? AND reserved_fen>=?", release, int64(release)*dataacquisition.PriceFen, consume, int64(consume)*dataacquisition.PriceFen, row.OrganizationID, row.ActorID, row.CredentialID, window.kind, window.start, release, int64(release)*dataacquisition.PriceFen)
+			result := tx.Exec("UPDATE data_service_quota SET reserved_rows=reserved_rows-?,reserved_fen=reserved_fen-?,consumed_rows=consumed_rows+?,consumed_fen=consumed_fen+? WHERE organization_id=? AND actor_id=? AND key_id=? AND window_kind=? AND window_start=? AND reserved_rows>=? AND reserved_fen>=?", release, int64(release)*unitPrice, consume, int64(consume)*unitPrice, row.OrganizationID, row.ActorID, row.CredentialID, window.kind, window.start, release, int64(release)*unitPrice)
 			if result.Error != nil {
 				return result.Error
 			}
@@ -331,9 +348,9 @@ func quotaMove(tx *gorm.DB, row *jobRow, release, consume int) error {
 	return tx.Exec("UPDATE data_acquisition_jobs SET quota_reserved=? WHERE organization_id=? AND actor_id=? AND id=?", row.QuotaReserved, row.OrganizationID, row.ActorID, row.ID).Error
 }
 
-func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, command string, q dataacquisition.Query, funding orgresource.ResourceFunding) (dataacquisition.Job, error) {
+func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, command string, q dataacquisition.Query, funding orgresource.ResourceFunding, confirmation dataacquisition.PriceConfirmation) (dataacquisition.Job, error) {
 	q, err := dataacquisition.NormalizeQuery(q)
-	if err != nil || p.Scope.Validate() != nil || !collection.ValidID(command) || (p.CredentialID != "" && (!collection.ValidID(p.CredentialID) || p.CredentialRevision < 1)) || (funding != orgresource.FundingEnterprise && funding != orgresource.FundingMember) {
+	if err != nil || confirmation.Validate() != nil || p.Scope.Validate() != nil || !collection.ValidID(command) || (p.CredentialID != "" && (!collection.ValidID(p.CredentialID) || p.CredentialRevision < 1)) || (funding != orgresource.FundingEnterprise && funding != orgresource.FundingMember) {
 		return dataacquisition.Job{}, dataacquisition.ErrInvalid
 	}
 	var out dataacquisition.Job
@@ -374,11 +391,12 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 		// The locked canonical key supplies the effective bounded permission set.
 		// Quota/revision changes do not alter an original command, permissions do.
 		hash := collection.Digest(struct {
-			Query       dataacquisition.Query
-			Member, Key string
-			Funding     orgresource.ResourceFunding
-			Permissions []string
-		}{q, p.Scope.MemberID, p.CredentialID, funding, key.Input.Permissions})
+			Query        dataacquisition.Query
+			Member, Key  string
+			Funding      orgresource.ResourceFunding
+			Permissions  []string
+			Confirmation dataacquisition.PriceConfirmation
+		}{q, p.Scope.MemberID, p.CredentialID, funding, key.Input.Permissions, confirmation})
 		// Original command replay never reserves quota or another job.
 		var existing jobRow
 		found := tx.Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND command_key=? AND source_kind='amazon_data'", p.Scope.OrganizationID, p.Scope.ActorID, command).Scan(&existing)
@@ -394,6 +412,24 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 		if err = r.live.CheckExecution(ctx, p, funding); err != nil {
 			return err
 		}
+		if r.prices == nil {
+			return dataacquisition.ErrUnavailable
+		}
+		price, err := r.prices.CurrentDataRowPrice(ctx)
+		if err != nil {
+			return err
+		}
+		maximumCost, err := price.Cost(q.Limit)
+		if err != nil {
+			return err
+		}
+		if price.Version != confirmation.Version || maximumCost != confirmation.MaximumCostFen {
+			return dataacquisition.ErrConflict
+		}
+		priceJSON, err := json.Marshal(price)
+		if err != nil {
+			return err
+		}
 		var now time.Time
 		if err = tx.Raw("SELECT now()").Scan(&now).Error; err != nil {
 			return err
@@ -401,7 +437,7 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 		now = now.UTC()
 		day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 		month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-		row := jobRow{OrganizationID: p.Scope.OrganizationID, ActorID: p.Scope.ActorID, MemberID: p.Scope.MemberID, ID: collection.StableID(p.Scope.OrganizationID, p.Scope.ActorID, "amazon-job", command), CommandKey: command, InputHash: hash, CredentialID: p.CredentialID, CredentialRevision: p.CredentialRevision, Funding: string(funding), State: "ADMITTED", QuotaReserved: q.Limit, DayWindow: day, MonthWindow: month, CreatedAt: now, Deadline: now.Add(30 * time.Minute)}
+		row := jobRow{PriceJSON: priceJSON, OrganizationID: p.Scope.OrganizationID, ActorID: p.Scope.ActorID, MemberID: p.Scope.MemberID, ID: collection.StableID(p.Scope.OrganizationID, p.Scope.ActorID, "amazon-job", command), CommandKey: command, InputHash: hash, CredentialID: p.CredentialID, CredentialRevision: p.CredentialRevision, Funding: string(funding), State: "ADMITTED", QuotaReserved: q.Limit, DayWindow: day, MonthWindow: month, CreatedAt: now, Deadline: now.Add(30 * time.Minute)}
 		if err = lockQuota(tx, row, true); err != nil {
 			return err
 		}
@@ -414,7 +450,7 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 				return err
 			}
 			for _, b := range buckets {
-				if b.WindowKind == "day" && b.Rows+int64(q.Limit) > key.Input.DailyRows || b.WindowKind == "month" && b.Fen+int64(q.Limit)*dataacquisition.PriceFen > key.Input.MonthlyCostFen {
+				if b.WindowKind == "day" && b.Rows+int64(q.Limit) > key.Input.DailyRows || b.WindowKind == "month" && (maximumCost > key.Input.MonthlyCostFen || b.Fen > key.Input.MonthlyCostFen-maximumCost) {
 					return dataacquisition.ErrConflict
 				}
 			}
@@ -450,7 +486,7 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 			keyID = row.CredentialID
 			revision = row.CredentialRevision
 		}
-		if err = tx.Exec("INSERT INTO data_acquisition_jobs(organization_id,actor_id,member_id,id,command_key,input_hash,credential_id,credential_revision,query_json,funding,state,quota_reserved,day_window,month_window,created_at,deadline) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row.OrganizationID, row.ActorID, row.MemberID, row.ID, command, hash, keyID, revision, string(raw), funding, row.State, row.QuotaReserved, day, month, now, row.Deadline).Error; err != nil {
+		if err = tx.Exec("INSERT INTO data_acquisition_jobs(organization_id,actor_id,member_id,id,command_key,input_hash,credential_id,credential_revision,query_json,price_snapshot,funding,state,quota_reserved,day_window,month_window,created_at,deadline) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", row.OrganizationID, row.ActorID, row.MemberID, row.ID, command, hash, keyID, revision, string(raw), string(priceJSON), funding, row.State, row.QuotaReserved, day, month, now, row.Deadline).Error; err != nil {
 			return err
 		}
 		if p.CredentialID != "" {
@@ -458,12 +494,13 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 				kind  string
 				start time.Time
 			}{{"day", day}, {"month", month}} {
-				if err = tx.Exec("UPDATE data_service_quota SET reserved_rows=reserved_rows+?,reserved_fen=reserved_fen+? WHERE organization_id=? AND actor_id=? AND key_id=? AND window_kind=? AND window_start=?", q.Limit, int64(q.Limit)*dataacquisition.PriceFen, row.OrganizationID, row.ActorID, row.CredentialID, window.kind, window.start).Error; err != nil {
+				if err = tx.Exec("UPDATE data_service_quota SET reserved_rows=reserved_rows+?,reserved_fen=reserved_fen+? WHERE organization_id=? AND actor_id=? AND key_id=? AND window_kind=? AND window_start=?", q.Limit, maximumCost, row.OrganizationID, row.ActorID, row.CredentialID, window.kind, window.start).Error; err != nil {
 					return err
 				}
 			}
 		}
 		row.QueryJSON = raw
+		row.PriceJSON = priceJSON
 		out, err = row.job()
 		if err == nil {
 			err = checkCredential()
@@ -564,7 +601,7 @@ func originalItemIntent(job dataacquisition.Job, asin string) orgresource.Consum
 	return orgresource.ConsumerChargeIntent{Identity: orgresource.ConsumerChargeIdentity{OrganizationID: job.Scope.OrganizationID, Consumer: orgresource.ConsumerAmazonData, OperationID: id}, ActorID: job.Scope.ActorID, MemberID: job.Scope.MemberID, Funding: job.Funding, ResourceType: orgresource.ResourceDataRow, Quantity: 1, Fingerprint: collection.Digest(struct {
 		Job, Query, ASIN string
 		Price            int64
-	}{job.ID, job.InputHash, asin, dataacquisition.PriceFen}), BusinessScope: "amazon-data:" + job.ID + ":" + id}
+	}{job.ID, job.InputHash, asin, job.Price.UnitPriceFen}), BusinessScope: "amazon-data:" + job.ID + ":" + id}
 }
 func (r *Repository) Discover(ctx context.Context, job dataacquisition.Job, ids []string) (dataacquisition.Job, error) {
 	if len(ids) > 200 {

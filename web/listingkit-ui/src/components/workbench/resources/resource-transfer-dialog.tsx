@@ -119,7 +119,7 @@ export function TransferDialog({
     BigInt(count) <= BigInt(limit) &&
     (!dataAmount || !!quote);
   async function preview() {
-    if (quoting || operation || !pricesAvailable || !selectedOffer) return;
+    if (quoting || operation || !pricesAvailable || !selectedOffer || selectedOffer.unitPriceMinor === "0") return;
     setQuoting(true);
     setMessage("");
     setQuote(null);
@@ -308,13 +308,14 @@ export function TransferDialog({
                 重新读取数据价格
               </Button>
             ) : null}
+            {selectedOffer?.unitPriceMinor === "0" ? <p role="status">当前单价为零，不能按金额换算条数。零价资源领取请使用企业资源购买的数量入口。</p> : null}
             <label className={styles.dialogField}>
               分配金额（元）
               <input
                 value={amount}
                 inputMode="decimal"
                 maxLength={21}
-                disabled={operation !== null || quoting}
+                disabled={operation !== null || quoting || selectedOffer?.unitPriceMinor === "0"}
                 onChange={(event) => {
                   setAmount(event.target.value);
                   setQuote(null);
@@ -324,7 +325,7 @@ export function TransferDialog({
             <Button
               variant="outline"
               disabled={
-                operation !== null || quoting || !pricesAvailable || !selectedOffer
+                operation !== null || quoting || !pricesAvailable || !selectedOffer || selectedOffer.unitPriceMinor === "0"
               }
               onClick={() => void preview()}
             >

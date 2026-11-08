@@ -141,7 +141,7 @@ func (h *Handler) CreateQuote(c *gin.Context) {
 }
 
 func quoteResponseFromDomain(quote billing.Quote) quoteResponse {
-	result := quoteResponse{QuoteID: quote.QuoteID, OrganizationID: quote.OrganizationID, OfferID: quote.OfferID, ProductKind: string(quote.ProductKind), ResourceType: string(quote.ResourceType), ResourceQuantity: strconv.FormatInt(quote.ResourceQuantity, 10), Currency: quote.Currency, TotalMinor: strconv.FormatInt(quote.TotalMinor, 10), PricingVersion: quote.PricingVersion, ExpiresAt: quote.ExpiresAt.UTC().Format(time.RFC3339Nano), Fingerprint: quote.Fingerprint, CreatedAt: quote.CreatedAt.UTC().Format(time.RFC3339Nano)}
+	result := quoteResponse{SettlementMode: string(quote.SettlementMode), QuoteID: quote.QuoteID, OrganizationID: quote.OrganizationID, OfferID: quote.OfferID, ProductKind: string(quote.ProductKind), ResourceType: string(quote.ResourceType), ResourceQuantity: strconv.FormatInt(quote.ResourceQuantity, 10), Currency: quote.Currency, TotalMinor: strconv.FormatInt(quote.TotalMinor, 10), PricingVersion: quote.PricingVersion, ExpiresAt: quote.ExpiresAt.UTC().Format(time.RFC3339Nano), Fingerprint: quote.Fingerprint, CreatedAt: quote.CreatedAt.UTC().Format(time.RFC3339Nano)}
 	if quote.ProductKind == billing.ProductStorageCapacityPack {
 		result.StorageUnitBytes = strconv.FormatInt(quote.StorageUnitBytes, 10)
 		result.StorageDurationSeconds = strconv.FormatInt(quote.StorageDurationSeconds, 10)
@@ -166,7 +166,11 @@ func (h *Handler) ResourceOffers(c *gin.Context) {
 	}
 	items := make([]map[string]string, 0, len(offers))
 	for _, offer := range offers {
-		items = append(items, map[string]string{"offer_id": offer.OfferID, "product_kind": string(offer.ProductKind), "resource_type": string(offer.ResourceType), "currency": offer.Currency, "unit_price_minor": strconv.FormatInt(offer.UnitPriceMinor, 10), "min_quantity": strconv.FormatInt(offer.MinQuantity, 10), "max_quantity": strconv.FormatInt(offer.MaxQuantity, 10), "pricing_version": offer.PricingVersion})
+		item := map[string]string{"offer_id": offer.OfferID, "product_kind": string(offer.ProductKind), "resource_type": string(offer.ResourceType), "currency": offer.Currency, "unit_price_minor": strconv.FormatInt(offer.UnitPriceMinor, 10), "min_quantity": strconv.FormatInt(offer.MinQuantity, 10), "max_quantity": strconv.FormatInt(offer.MaxQuantity, 10), "pricing_version": offer.PricingVersion}
+		if offer.SettlementMode != "" {
+			item["settlement_mode"] = string(offer.SettlementMode)
+		}
+		items = append(items, item)
 	}
 	writeJSON(c, http.StatusOK, map[string]any{"organization_id": organizationID, "items": items})
 }
@@ -406,6 +410,7 @@ type walletEntryResponse struct {
 	OccurredAt        string  `json:"occurred_at"`
 }
 type quoteResponse struct {
+	SettlementMode         string `json:"settlement_mode,omitempty"`
 	StorageUnitBytes       string `json:"storage_unit_bytes,omitempty"`
 	StorageDurationSeconds string `json:"storage_duration_seconds,omitempty"`
 	QuoteID                string `json:"quote_id"`

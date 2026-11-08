@@ -51,7 +51,7 @@ func buildCommercialBillingModule(ctx context.Context, commercialDB, moneyDB *go
 	if err != nil {
 		return nil, err
 	}
-	module := commercialBillingModule{handler: billinghttp.NewHandler(service)}
+	module := commercialBillingModule{handler: billinghttp.NewHandler(service), pricing: dataRowPricingModule{store: commercial, authorizer: authorizer}}
 	if cfg.StorageCapacity {
 		capacity, e := capacitystore.New(commercialDB)
 		if e != nil {
@@ -77,6 +77,7 @@ func buildCommercialBillingModule(ctx context.Context, commercialDB, moneyDB *go
 }
 
 type commercialBillingModule struct {
+	pricing            dataRowPricingModule
 	handler            *billinghttp.Handler
 	reconcileResources func(context.Context) error
 	reconcileTopUps    func(context.Context) error
@@ -94,5 +95,6 @@ func (m commercialBillingModule) Register(registry *kernelmodule.Registry) error
 		return err
 	}
 	registry.AddRoutes(routes...)
+	registry.AddRoutes(m.pricing.routes()...)
 	return nil
 }

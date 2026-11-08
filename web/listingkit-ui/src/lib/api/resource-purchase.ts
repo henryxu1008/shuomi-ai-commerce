@@ -39,7 +39,8 @@ const offer = z
     product_kind: kind,
     resource_type: resource,
     currency: z.literal("CNY"),
-    unit_price_minor: positive,
+    unit_price_minor: nonnegative,
+    settlement_mode: z.enum(["WALLET","ZERO_PRICE"]).optional(),
     min_quantity: positive,
     max_quantity: positive,
     pricing_version: version,
@@ -48,6 +49,7 @@ const offer = z
   .refine(
     (v) =>
       v.resource_type === types[v.product_kind] &&
+      (v.unit_price_minor === "0" ? v.product_kind === "DATA_ROW" && v.settlement_mode === "ZERO_PRICE" : v.settlement_mode !== "ZERO_PRICE") &&
       positiveInt64(v.min_quantity) &&
       positiveInt64(v.max_quantity) &&
       BigInt(v.min_quantity) <= BigInt(v.max_quantity),
@@ -68,7 +70,8 @@ const quote = z
     resource_type: resource,
     resource_quantity: positive,
     currency: z.literal("CNY"),
-    total_minor: positive,
+    total_minor: nonnegative,
+    settlement_mode: z.enum(["WALLET","ZERO_PRICE"]).optional(),
     pricing_version: version,
     expires_at: timestamp,
     fingerprint: id,
@@ -80,6 +83,7 @@ const quote = z
   .strict()
   .refine((v) => {
     if (
+      (v.total_minor === "0" ? !(v.product_kind === "DATA_ROW" && v.settlement_mode === "ZERO_PRICE") : v.settlement_mode === "ZERO_PRICE") ||
       v.resource_type !== types[v.product_kind] ||
       Date.parse(v.created_at) >= Date.parse(v.expires_at)
     )

@@ -140,7 +140,10 @@ func AutoMigrate(db *gorm.DB) error {
 	if db == nil {
 		return billing.ErrFeatureUnavailable
 	}
-	if err := db.AutoMigrate(&offerRow{}, &quoteRow{}, &orderRow{}, &orderItemRow{}); err != nil {
+	if err := db.AutoMigrate(&offerRow{}, &quoteRow{}, &orderRow{}, &orderItemRow{}, &dataRowPricePublicationRow{}); err != nil {
+		return err
+	}
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_commercial_current_data_row ON commercial_offers(product_kind) WHERE product_kind='DATA_ROW' AND status='ACTIVE'").Error; err != nil {
 		return err
 	}
 	if err := capacitystore.AutoMigrate(db); err != nil {
@@ -153,7 +156,7 @@ func AutoMigrate(db *gorm.DB) error {
 }
 
 func (r *Repository) SaveOffer(ctx context.Context, offer billing.Offer) error {
-	if r == nil || r.db == nil || offer.Validate() != nil || offer.UnitPriceMinor <= 0 {
+	if r == nil || r.db == nil || offer.Validate() != nil {
 		return billing.ErrInvalid
 	}
 	row := offerToRow(offer)
@@ -163,7 +166,7 @@ func (r *Repository) SaveOffer(ctx context.Context, offer billing.Offer) error {
 // CreateOffer inserts a controlled catalog offer without replacing an existing
 // commercial fact. Serving purchase traffic only reads these offers.
 func (r *Repository) CreateOffer(ctx context.Context, offer billing.Offer) error {
-	if r == nil || r.db == nil || offer.Validate() != nil || offer.UnitPriceMinor <= 0 {
+	if r == nil || r.db == nil || offer.Validate() != nil {
 		return billing.ErrInvalid
 	}
 	row := offerToRow(offer)
@@ -173,7 +176,7 @@ func (r *Repository) CreateOffer(ctx context.Context, offer billing.Offer) error
 // CreateOfferIfAbsent installs a server-owned catalog entry once. Re-running
 // schema initialization must never replace a later owner-managed price.
 func (r *Repository) CreateOfferIfAbsent(ctx context.Context, offer billing.Offer) error {
-	if r == nil || r.db == nil || offer.Validate() != nil || offer.UnitPriceMinor <= 0 {
+	if r == nil || r.db == nil || offer.Validate() != nil {
 		return billing.ErrInvalid
 	}
 	row := offerToRow(offer)
@@ -186,7 +189,7 @@ func (r *Repository) CreateOfferIfAbsent(ctx context.Context, offer billing.Offe
 		return billing.ErrFeatureUnavailable
 	}
 	current := offerFromRow(existing)
-	if current.Validate() != nil || current.UnitPriceMinor <= 0 || current.ProductKind != offer.ProductKind || current.ResourceType != offer.ResourceType || current.Currency != offer.Currency {
+	if current.Validate() != nil || current.ProductKind != offer.ProductKind || current.ResourceType != offer.ResourceType || current.Currency != offer.Currency {
 		return billing.ErrInvalid
 	}
 	return nil
@@ -204,7 +207,7 @@ func (r *Repository) ReadOffer(ctx context.Context, offerID string) (billing.Off
 		return billing.Offer{}, billing.ErrFeatureUnavailable
 	}
 	offer := offerFromRow(row)
-	if offer.Validate() != nil || offer.Status != billing.OfferActive || offer.UnitPriceMinor <= 0 {
+	if offer.Validate() != nil || offer.Status != billing.OfferActive {
 		return billing.Offer{}, billing.ErrOfferUnavailable
 	}
 	now := r.now()
@@ -230,6 +233,10 @@ func (r *Repository) CreateQuote(ctx context.Context, request billing.QuoteReque
 	}
 	now := r.now().UTC()
 	quote := billing.Quote{QuoteID: uuid.NewString(), OrganizationID: strings.TrimSpace(request.OrganizationID), OfferID: offer.OfferID, ProductKind: offer.ProductKind, ResourceType: offer.ResourceType, ResourceQuantity: request.Quantity, Currency: offer.Currency, TotalMinor: offer.UnitPriceMinor * request.Quantity, PricingVersion: offer.PricingVersion, CreatedAt: now, ExpiresAt: now.Add(15 * time.Minute), StorageUnitBytes: offer.StorageUnitBytes, StorageDurationSeconds: offer.StorageDurationSeconds}
+	quote.SettlementMode = offer.SettlementMode
+	if quote.ProductKind == billing.ProductDataRow && quote.TotalMinor > 0 {
+		quote.SettlementMode = billing.SettlementWallet
+	}
 	quote.Fingerprint = fingerprint(struct {
 		OrganizationID string                   `json:"organization_id"`
 		OfferID        string                   `json:"offer_id"`
@@ -307,7 +314,7 @@ func (r *Repository) CreatePendingResourceOrder(ctx context.Context, request bil
 		if quote.ProductKind == billing.ProductStorageCapacityPack {
 			kind = billing.OrderStorageCapacityPurchase
 		}
-		row := orderRow{OrderID: uuid.NewString(), OrganizationID: request.OrganizationID, ActorID: request.ActorID, Kind: string(kind), QuoteID: quote.QuoteID, Description: billing.DescribeOrder(kind, quote.ProductKind, quote.ResourceQuantity), Currency: quote.Currency, AmountMinor: quote.TotalMinor, Status: string(billing.OrderPending), ProductKind: string(quote.ProductKind), IdempotencyKey: request.IdempotencyKey, RequestFingerprint: fingerprint, Version: 1, CreatedAt: now, UpdatedAt: now}
+		row := orderRow{SettlementMode: string(quote.SettlementMode), OrderID: uuid.NewString(), OrganizationID: request.OrganizationID, ActorID: request.ActorID, Kind: string(kind), QuoteID: quote.QuoteID, Description: billing.DescribeOrder(kind, quote.ProductKind, quote.ResourceQuantity), Currency: quote.Currency, AmountMinor: quote.TotalMinor, Status: string(billing.OrderPending), ProductKind: string(quote.ProductKind), IdempotencyKey: request.IdempotencyKey, RequestFingerprint: fingerprint, Version: 1, CreatedAt: now, UpdatedAt: now}
 		item := orderItemRow{OrderItemID: uuid.NewString(), OrderID: row.OrderID, ProductKind: string(quote.ProductKind), ResourceType: string(quote.ResourceType), ResourceQuantity: quote.ResourceQuantity, AmountMinor: quote.TotalMinor, StorageUnitBytes: quote.StorageUnitBytes, StorageDurationSeconds: quote.StorageDurationSeconds}
 		result := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "organization_id"}, {Name: "idempotency_key"}}, DoNothing: true}).Create(&row)
 		if result.Error != nil {

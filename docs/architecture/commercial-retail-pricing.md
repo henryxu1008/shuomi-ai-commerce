@@ -1,5 +1,7 @@
 # 店铺与 AI 预付资源正式价格 V1
 
+> DATA_ROW 当前合同增量：参见[平台调价与零价订单](data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
+
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY — 2026-10-08 独立 reviewer 复核设计 blob 5700e1cb85ccf443053800991abef62e336c2f3a、Issue #600 和引用合同，无设计级 BLOCKER；三个 IMPLEMENTATION_TEST 在本批收敛。
 

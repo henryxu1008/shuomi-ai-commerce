@@ -26,8 +26,6 @@ var (
 	ErrSourceUnsupported = errors.New("source page structure unsupported")
 )
 
-const PriceFen int64 = 5
-
 type Site = amazonidentity.Site
 
 func Sites() []Site { return amazonidentity.Sites() }

@@ -77,7 +77,7 @@ Amazon 复用现有 Playwright Go SDK，先安装匹配 SDK 的 driver 与 Chrom
 
 复用当前 namespace/client/worker 生命周期：task queue `data-services-v1`，由 `dataservicesruntime.RegisterWorker(worker, module.Runner())` 注册，再由 #619 原 runtime 启停。workflow `DataAcquisitionV1` 固定原 org/actor/job identity/hash/deadline，执行最长 30 分钟，原 memo 核对；创建重试/读取会修复原已提交未启动任务，worker 重启继续原任务，不建设新 scheduler。
 
-Resource owner map 在创建服务时增加 `orgresource.ConsumerAmazonData` (`amazon_data_v1`) → module factory 传入的 owner，同时保留原消费者。复用 `NewGormConsumerChargeRepository(resourceDB, currentTransactionConfig)` 及现有 `RecoverDue` 循环；不能另外创建 wallet 扣费路径。每成功保存商品 1 DATA_ROW，5 分预算计量；变体不额外扣条数。先 Lookup 原 reservation 再 reserve，未知响应保留原 operation；失败/撤权先 fence，再凭原 proof 释放；已保存待确认仅结算原 reservation，不再 fetch。
+Resource owner map 在创建服务时增加 `orgresource.ConsumerAmazonData` (`amazon_data_v1`) → module factory 传入的 owner，同时保留原消费者。复用 `NewGormConsumerChargeRepository(resourceDB, currentTransactionConfig)` 及现有 `RecoverDue` 循环；不能另外创建 wallet 扣费路径。每成功保存商品 1 DATA_ROW，预算按任务冻结的 Commercial 单价计量（见[版本化价目](../architecture/data-row-platform-pricing-zero-orders.md)）；变体不额外扣条数。先 Lookup 原 reservation 再 reserve，未知响应保留原 operation；失败/撤权先 fence，再凭原 proof 释放；已保存待确认仅结算原 reservation，不再 fetch。
 
 ## 外部 API 最小接入
 
@@ -89,7 +89,7 @@ Authorization: DataKey <public-key-id>.<once-only-secret>
 Idempotency-Key: <new-command-uuid>
 Content-Type: application/json
 
-{"query":{"site":"us","mode":"keyword","keyword":"desk lamp","limit":10,"fields":["asin","title","price","currency"]},"maximumRows":10,"maximumCostFen":50}
+{"query":{"site":"us","mode":"keyword","keyword":"desk lamp","limit":10,"fields":["asin","title","price","currency"]},"maximumRows":10,"maximumCostFen":"50","pricingVersion":"从 options.price 读取的版本"}
 ```
 
 返回 **202** 和原任务状态。`GET /data-api/v1/amazon/jobs/{id}` 轮询；`GET .../{id}/results?limit=100`，返回 nextCursor 后用 cursor 续页。`GET /data-api/v1/amazon/jobs/by-command/{uuid}` 核实未知创建。新任务新 UUID；重试原 UUID/完整载荷，载荷变化冲突。其他读取和已确认普通命令返回 200。64 KiB JSON，拒绝重复/未知字段；上传/结果最多 2 MiB。当前批最多 200 条。
@@ -103,3 +103,6 @@ Content-Type: application/json
 开发证据包括真实隔离 Product/Resource 双库保存与原 reservation 恢复、密钥/并发 quota/跨原 UTC 窗口、custom same-transaction delivery、Temporal testsuite、实际 handler（受控 IAM/provider fixture）、BFF/原命令恢复/UI 类型与构建。Figma 两个内容 frame 的受控浏览器截图用实际组件及限定 fixtures 校准；临时视觉服务器不提交、不作为交付实例。
 
 真实 IAM 配置、实际 Amazon 请求、正式 Temporal server/worker 恢复、#619 保留运行实例与用户业务验收均需独立记录，当前本线程为 **NOT_RUN**。代码/CI/review 不能替代这些结果。#621 在实现与独立检查后进入 In Review；未获授权不 merge、deploy、close Issue、触碰真实数据或调用付费 provider。
+
+DATA_ROW 当前价来自 Commercial 只读注入。创建新任务前读取 options.price 并确认 pricingVersion；金额为十进制字符串，示例 50 仅适用于该次快照单价 5 分。缺价不按免费处理，调价后原键任务仍按原冻结快照恢复。新 schema 仅用于获准空库，不在保留库回填 price_snapshot。
+外部 DataKey 客户端从已有只读价格目录 `GET /api/v1/commercial/resource-offers` 选择 DATA_ROW 的 `pricing_version` 与 `unit_price_minor`，计算并显式确认整次金额；控制台从受权 options.price 读取同一来源。公开目录不授予任务准入或资源权限。

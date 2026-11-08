@@ -9,6 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { ResourcePurchasePanel } from "./resource-purchase-panel";
+import type {ResourceOffer} from "@/lib/api/resource-purchase";
 import { commercialResourcesFixture } from "@/test/fixtures/commercial-resources";
 const api = vi.hoisted(() => ({
   quote: vi.fn(),
@@ -70,7 +71,7 @@ const order = {
   updated_at: "2026-09-29T00:00:00Z",
 };
 let client: QueryClient;
-function tree(org = "org-B", items = [offer], roles = ["workbench.commercial.purchase"]) {
+function tree(org = "org-B", items:ResourceOffer[] = [offer], roles = ["workbench.commercial.purchase"]) {
   return (
     <QueryClientProvider client={client}>
       <ResourcePurchasePanel
@@ -109,6 +110,15 @@ afterEach(() => {
   client.clear();
   sessionStorage.clear();
   vi.restoreAllMocks();
+});
+
+it("receives exactly three zero-price rows without requiring wallet balance",async()=>{
+ const zero:ResourceOffer={...offer,offer_id:"zero-data",product_kind:"DATA_ROW",resource_type:"data_row",unit_price_minor:"0",settlement_mode:"ZERO_PRICE"};
+ const zeroQuote={...quote,offer_id:zero.offer_id,product_kind:zero.product_kind,resource_type:zero.resource_type,resource_quantity:"3",total_minor:"0",settlement_mode:"ZERO_PRICE",amount_minor:undefined,unit_price_minor:undefined,remainder_minor:undefined};
+ api.quote.mockResolvedValue(zeroQuote);api.order.mockResolvedValue({...order,product_kind:"DATA_ROW",total_minor:"0",settlement_mode:"ZERO_PRICE",items:[{order_item_id:"data-item",product_kind:"DATA_ROW",resource_type:"data_row",resource_quantity:"3",amount_minor:"0"}]});
+ const balance=commercialResourcesFixture("org-B");api.resources.mockResolvedValue({...balance,resources:balance.resources.map(r=>r.resource_type==="data_row"?{...r,state:"recorded",available:"3",allocated:"0",reserved:"0",consumed:"0",debt:"0",updated_at:order.created_at}:r)});
+ api.wallet.mockRejectedValue(new Error("wallet unavailable"));render(tree("org-B",[zero]));const user=userEvent.setup();const card=screen.getByRole("region",{name:"数据资源购买"});await user.clear(within(card).getByLabelText("购买数量"));await user.type(within(card).getByLabelText("购买数量"),"3");expect(within(card).queryByLabelText("购买方式")).toBeNull();await user.click(within(card).getByRole("button",{name:"获取报价"}));
+ const confirmation=await screen.findByRole("region",{name:"报价确认"});await user.click(within(confirmation).getByRole("button",{name:"确认领取3条"}));expect(await screen.findByText(/资源已到账/)).toBeVisible();expect(api.order).toHaveBeenCalledOnce();
 });
 async function confirm() {
   const user = userEvent.setup();

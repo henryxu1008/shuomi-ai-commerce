@@ -91,7 +91,8 @@ func publishResearchAmazonFixture(t *testing.T, ctx context.Context, db *gorm.DB
 		asins = append(asins, sample.ASIN)
 		evidenceByASIN[sample.ASIN] = sample
 	}
-	job, err := repo.Admit(ctx, dataacquisition.Principal{Scope: access.scope}, uuid.NewString(), q, orgresource.FundingMember)
+	repo.ConfigurePrices(testSupplierDataPrice{})
+	job, err := repo.Admit(ctx, dataacquisition.Principal{Scope: access.scope}, uuid.NewString(), q, orgresource.FundingMember, dataacquisition.PriceConfirmation{Version: "test-price", MaximumCostFen: int64(q.Limit) * 5})
 	require.NoError(t, err)
 	job, err = repo.Discover(ctx, job, asins)
 	require.NoError(t, err)
@@ -359,4 +360,10 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	var count int64
 	require.NoError(t, db.Table("research_supplier_reviews").Count(&count).Error)
 	require.EqualValues(t, 1, count)
+}
+
+type testSupplierDataPrice struct{}
+
+func (testSupplierDataPrice) CurrentDataRowPrice(context.Context) (dataacquisition.PriceSnapshot, error) {
+	return dataacquisition.PriceSnapshot{OfferID: "test-offer", Version: "test-price", Currency: "CNY", UnitPriceFen: 5}, nil
 }
