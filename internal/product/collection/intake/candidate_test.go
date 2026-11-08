@@ -71,6 +71,12 @@ func TestStockLabelsIgnoreSKUFragmentsAndKeepUnconfirmedUnknown(t *testing.T) {
 		in, c := naturalStockFixture(phrase)
 		require.ErrorContains(t, c.Validate(in), "rows[0].stock", phrase)
 	}
+	for _, line := range []string{"黑 M 库存 5 SKU BLK-M", "黑 M 库存为5 CNY 99 SKU BLK-M", "黑 M 库存 5 SKU stock", "黑 M 库存 5 SKU STOCK-123"} {
+		in := Input{Notes: line}
+		sku := strings.Fields(line)[len(strings.Fields(line))-1]
+		c := Candidate{Rows: []Row{{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: line, SKU: sku, Stock: new(5)}}}
+		require.NoError(t, c.Validate(in), line)
+	}
 }
 
 func TestCandidatePreservesSparseVariantsAndZero(t *testing.T) {
