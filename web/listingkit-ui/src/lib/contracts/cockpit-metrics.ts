@@ -34,6 +34,31 @@ export const storeSubmissionMetrics = z.discriminatedUnion("status", [
       .refine(value => value.accepted + value.rejected + value.unknown <= 250),
   }),
 ]);
+
+function overviewRow(platform: "walmart" | "tiktokshop" | "shein" | "temu") {
+ const failureCovered = platform === "walmart" || platform === "tiktokshop";
+ const counts = z.strictObject({
+  confirmed: count, unknown: count, ...(failureCovered ? { rejected: count } : {}),
+ }).refine(value => value.confirmed + value.unknown + ("rejected" in value ? Number(value.rejected) : 0) <= 250);
+ return z.discriminatedUnion("status", [
+  z.strictObject({ platform: z.literal(platform), status: z.literal("empty"), stores: z.literal(0) }),
+  z.strictObject({ platform: z.literal(platform), status: z.enum(["limited", "unavailable"]), stores: z.number().int().min(1).max(500) }),
+  z.strictObject({ platform: z.literal(platform), status: z.literal("complete"), stores: z.number().int().min(1).max(500), counts }),
+ ]);
+}
+const overviewShape = {
+ capturedAt, rows: z.tuple([overviewRow("walmart"), overviewRow("tiktokshop"), overviewRow("shein"), overviewRow("temu")]),
+ excludedStores: z.number().int().min(0).max(500),
+};
+export const submissionOverviewMetrics = z.discriminatedUnion("status", [
+ z.strictObject({ ...overviewShape, status: z.literal("complete"), unknownTotal: z.number().int().min(0).max(1000) })
+  .refine(value => value.excludedStores === 0 && value.rows.every(row => row.status === "complete" || row.status === "empty") &&
+   value.unknownTotal === value.rows.reduce((sum,row) => sum + (row.status === "complete" ? row.counts.unknown : 0), 0)),
+ z.strictObject({ ...overviewShape, status: z.literal("incomplete") })
+  .refine(value => value.excludedStores > 0 || value.rows.some(row => row.status === "limited" || row.status === "unavailable")),
+]);
+export type SubmissionOverview = z.infer<typeof submissionOverviewMetrics>;
+
 export const taskMetrics = z.discriminatedUnion("status", [
   limited,
   z.strictObject({
