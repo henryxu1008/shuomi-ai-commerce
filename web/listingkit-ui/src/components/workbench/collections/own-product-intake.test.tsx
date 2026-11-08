@@ -15,6 +15,48 @@ const prepared={configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:"1111
 const panel=()=>render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={vi.fn()}/>);
 afterEach(()=>{cleanup();sessionStorage.clear();request.mockReset();vi.unstubAllGlobals()});
 
+it("shows a row and field reason without adopting or calling again",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup();
+ request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"stopped",stopReason:"invalid_model_output",validationError:{field:"rows[0].stock",code:"stock_evidence"}}));
+ const adopt=vi.fn();
+ render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
+ await user.click(screen.getByRole("button",{name:"开始整理资料"}));
+ await user.type(screen.getByLabelText("给 AI 的商品资料"),notes);
+ await user.click(screen.getByRole("button",{name:"检查生成用量"}));
+ await user.click(await screen.findByRole("button",{name:"确认生成候选"}));
+ const error=await screen.findByRole("alert");
+ expect(error).toHaveTextContent("第 1 个 SKU");
+ expect(error).toHaveTextContent("库存");
+ expect(error).toHaveTextContent("明确");
+ expect(screen.queryByRole("button",{name:"采纳到商品表单"})).not.toBeInTheDocument();
+ expect(request).toHaveBeenCalledTimes(2);
+ expect(adopt).not.toHaveBeenCalled();
+});
+
+it("shows only the three supplied variants and preserves zero versus missing before save",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup(),adopt=vi.fn();
+ const rows=[
+  {attributes:{颜色:"黑",尺码:"M"},evidence:"黑 M，库存明确为 0",sku:"BLK-M",stock:0},
+  {attributes:{颜色:"黑",尺码:"L"},evidence:"黑 L，库存未填写",sku:"BLK-L"},
+  {attributes:{颜色:"白",尺码:"M"},evidence:"白 M，库存为5",sku:"WHT-M",stock:5},
+ ];
+ request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"human_review_required",candidate:{title:"黑白T恤",rows}}));
+ render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
+ await user.click(screen.getByRole("button",{name:"开始整理资料"}));
+ await user.type(screen.getByLabelText("给 AI 的商品资料"),rows.map(row=>row.evidence).join("\n"));
+ await user.click(screen.getByRole("button",{name:"检查生成用量"}));
+ await user.click(await screen.findByRole("button",{name:"确认生成候选"}));
+ const region=await screen.findByRole("region",{name:"AI 生成候选"});
+ expect(region.querySelectorAll("li")).toHaveLength(3);
+ expect(region.querySelectorAll("li")[0]).toHaveTextContent("库存 0");
+ expect(region.querySelectorAll("li")[1]).toHaveTextContent("库存 未填写");
+ expect(region.querySelectorAll("li")[2]).toHaveTextContent("库存 5");
+ expect(adopt).not.toHaveBeenCalled();
+ expect(request).toHaveBeenCalledTimes(2);
+});
+
 it("reconstructs a missing run after reload and confirms only under the original key",async()=>{
  vi.stubGlobal("crypto",webcrypto);
  const user=userEvent.setup();

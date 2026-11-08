@@ -381,6 +381,8 @@ func (a *ownIntakeApplication) Decide(ctx context.Context, in agent.ModelInput) 
 	}
 	r.Usage = agent.ObservedUsage{Known: true, Tokens: int64(out.Usage.TotalTokens), CostMicros: cost, Currency: q.Currency}
 	if invalid {
+		_, validationErr := intake.Decode([]byte(out.Content), e.input.input)
+		r.Action.Unresolved = []string{intake.IssueToken(validationErr)}
 		return r, agent.ErrModelInvalidOutput
 	}
 	payload, err := json.Marshal(ownIntakeProposal{Output: out.Content, InvocationID: in.InvocationID, RunID: in.AgentRunID, InputHash: q.InputHash, ConfigurationDigest: e.frozen.Digest})
@@ -426,10 +428,11 @@ func (a *ownIntakeApplication) ValidateDomain(ctx context.Context, r agent.Reque
 }
 
 type ownIntakeResult struct {
-	RequestKey string            `json:"requestKey"`
-	Phase      agent.Phase       `json:"phase"`
-	StopReason agent.StopReason  `json:"stopReason,omitempty"`
-	Candidate  *intake.Candidate `json:"candidate,omitempty"`
+	RequestKey      string                  `json:"requestKey"`
+	Phase           agent.Phase             `json:"phase"`
+	StopReason      agent.StopReason        `json:"stopReason,omitempty"`
+	Candidate       *intake.Candidate       `json:"candidate,omitempty"`
+	ValidationError *intake.ValidationIssue `json:"validationError,omitempty"`
 }
 
 func (a *ownIntakeApplication) project(ctx context.Context, id agent.ExecutionIdentity, run agent.Record, s agentconfig.Snapshot) (ownIntakeResult, error) {
@@ -440,6 +443,9 @@ func (a *ownIntakeApplication) project(ctx context.Context, id agent.ExecutionId
 	fresh, err := a.identity(ctx)
 	if err != nil || fresh != id || state.Scope != intakeScope(id) || request != s.Request || state.Request.ConfigurationSnapshotRef != ownIntakeRef(s) {
 		return out, agentconfig.ErrForbidden
+	}
+	if state.StopReason == agent.StopInvalidOutput && len(state.Unresolved) == 1 {
+		out.ValidationError = intake.IssueFromToken(state.Unresolved[0])
 	}
 	if state.Phase != agent.HumanReviewRequired || state.Validation == nil || !state.Validation.Valid || state.DomainProposal == nil {
 		return out, nil

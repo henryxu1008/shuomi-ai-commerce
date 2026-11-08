@@ -108,6 +108,12 @@ func (e *execution) model(ctx context.Context, s *flowState) {
 		return
 	}
 	if observedInvalid {
+		// The governed adapter may provide bounded validation identifiers even
+		// when no Action is admissible. Keep them in existing Run metadata so
+		// readback can explain the failure without retaining rejected content.
+		if raw, marshalErr := json.Marshal(result.Action.Unresolved); marshalErr == nil && len(raw) <= maxCallMetadataBytes {
+			s.State.Unresolved = clone(result.Action.Unresolved)
+		}
 		s.stop(agent.StopInvalidOutput)
 		return
 	}

@@ -4,6 +4,7 @@ package intake
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -55,40 +56,70 @@ type Row struct {
 func Decode(raw []byte, in Input) (Candidate, error) {
 	var out Candidate
 	if len(raw) == 0 || len(raw) > 28<<10 || !utf8.Valid(raw) {
-		return out, ErrInvalid
+		return out, ValidationIssue{"candidate", "invalid_json"}
 	}
 	issues, err := strict.UnmarshalStrict(raw, &out, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
-	if err != nil || len(issues) != 0 || out.Validate(in) != nil {
-		return Candidate{}, ErrInvalid
+	if err != nil {
+		return Candidate{}, ValidationIssue{"candidate", "invalid_json"}
+	}
+	if len(issues) != 0 {
+		return Candidate{}, ValidationIssue{"candidate", "invalid_schema"}
+	}
+	if err := out.Validate(in); err != nil {
+		return Candidate{}, err
 	}
 	return out, nil
 }
 
 func (c Candidate) Validate(in Input) error {
-	if !in.Valid() || !text(c.Title, 2000, false) || !text(c.Description, 8192, false) || len(c.Rows) > 256 || len(c.Attributes) > 64 || len(c.Questions) > 12 {
-		return ErrInvalid
+	if !in.Valid() {
+		return ValidationIssue{"candidate", "invalid_value"}
+	}
+	if !text(c.Title, 2000, false) {
+		return ValidationIssue{"title", "invalid_value"}
+	}
+	if !text(c.Description, 8192, false) {
+		return ValidationIssue{"description", "invalid_value"}
+	}
+	if len(c.Rows) > 256 {
+		return ValidationIssue{"rows", "invalid_value"}
+	}
+	if len(c.Attributes) > 64 {
+		return ValidationIssue{"attributes", "invalid_value"}
+	}
+	if len(c.Questions) > 12 {
+		return ValidationIssue{"questions", "invalid_value"}
 	}
 	if c.Title == "" && c.Description == "" && c.Brand == nil && len(c.Attributes)+len(c.Rows)+len(c.Questions) == 0 {
-		return ErrInvalid
+		return ValidationIssue{"candidate", "empty_candidate"}
 	}
 	if c.Brand != nil && !c.Brand.valid(in.Notes) {
-		return ErrInvalid
+		return ValidationIssue{"brand", "source_evidence"}
 	}
 	for k, f := range c.Attributes {
 		if !text(k, 200, true) || !f.valid(in.Notes) {
-			return ErrInvalid
+			return ValidationIssue{"attributes", "source_evidence"}
 		}
 	}
 	for _, q := range c.Questions {
 		if !text(q, 512, true) {
-			return ErrInvalid
+			return ValidationIssue{"questions", "invalid_value"}
 		}
 	}
 	combinations, skus := map[string]bool{}, map[string]bool{}
-	for _, row := range c.Rows {
+	for i, row := range c.Rows {
+		if err := row.validate(in, i); err != nil {
+			return err
+		}
 		key, _ := json.Marshal(row.Attributes)
-		if !row.valid(in) || len(c.Rows) > 1 && len(row.Attributes) == 0 || combinations[string(key)] || row.SKU != "" && skus[strings.ToLower(row.SKU)] {
-			return ErrInvalid
+		if len(c.Rows) > 1 && len(row.Attributes) == 0 {
+			return ValidationIssue{fmt.Sprintf("rows[%d].attributes", i), "invalid_value"}
+		}
+		if combinations[string(key)] {
+			return ValidationIssue{fmt.Sprintf("rows[%d].attributes", i), "duplicate_variant"}
+		}
+		if row.SKU != "" && skus[strings.ToLower(row.SKU)] {
+			return ValidationIssue{fmt.Sprintf("rows[%d].sku", i), "duplicate_sku"}
 		}
 		combinations[string(key)] = true
 		skus[strings.ToLower(row.SKU)] = true
@@ -101,25 +132,67 @@ func (f Fact) valid(notes string) bool {
 }
 
 var currencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
-var stockEvidence = regexp.MustCompile(`(?i)(?:库存|stock|inventory)\s*[：:=]?\s*([0-9]+)(?:[^0-9.]|$)`)
+var stockLabel = regexp.MustCompile(`(?i)库存(?:数量)?|stock|inventory`)
+var stockEvidence = regexp.MustCompile(`(?i)(?:库存(?:数量)?|stock|inventory)\s*(?:明确\s*)?(?:为|是|is|[：:=])?\s*([0-9]+)(?:\s*(?:件|个|units?|pcs))?`)
+var stockUncertain = regexp.MustCompile(`(?i)(?:库存(?:数量)?|stock|inventory)\s*(?:为|是|is|[：:=])?\s*(?:未知|未填写|未提供|未确定|未确认|待确认|不详|留空|空值|unknown|unspecified)|尚未确认|不能确认`)
 var priceEvidence = regexp.MustCompile(`(?i)(?:价格|单价|price|[¥￥$€])\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
 
-func (r Row) valid(in Input) bool {
-	if !text(r.Evidence, 512, true) || strings.ContainsAny(r.Evidence, "\n\r;；") || !strings.Contains(in.Notes, r.Evidence) || len(r.Attributes) > 12 || !text(r.SKU, 200, false) {
-		return false
+func (r Row) validate(in Input, index int) error {
+	issue := func(field, code string) error { return ValidationIssue{fmt.Sprintf("rows[%d].%s", index, field), code} }
+	if !text(r.Evidence, 512, true) || strings.ContainsAny(r.Evidence, "\n\r;；") || !strings.Contains(in.Notes, r.Evidence) {
+		return issue("evidence", "source_evidence")
+	}
+	if len(r.Attributes) > 12 {
+		return issue("attributes", "invalid_value")
+	}
+	if !text(r.SKU, 200, false) {
+		return issue("sku", "invalid_value")
 	}
 	for name, value := range r.Attributes {
 		if !text(name, 200, true) || !text(value, 512, true) || name != strings.TrimSpace(name) || value != strings.TrimSpace(value) || strings.ContainsAny(value, ",，、\n") || !containsValue(r.Evidence, value) {
+			return issue("attributes", "source_evidence")
+		}
+	}
+	if r.SKU != "" && !containsValue(r.Evidence, r.SKU) {
+		return issue("sku", "source_evidence")
+	}
+	if r.Currency != "" && (!currencyCode.MatchString(r.Currency) || !containsValue(r.Evidence, r.Currency)) {
+		return issue("price", "price_evidence")
+	}
+	if r.Price != nil && !(*r.Price >= 0 && !math.IsInf(*r.Price, 0) && r.priceIsExplicit()) {
+		return issue("price", "price_evidence")
+	}
+	if r.Stock != nil && (*r.Stock < 0 || int64(*r.Stock) > 9007199254740991 || !r.stockIsExplicit()) {
+		return issue("stock", "stock_evidence")
+	}
+	if r.Image < 0 || r.Image > in.GalleryCount || !(r.Image == 0 || r.Image == in.SelectedImage || matchesNumber(imageEvidence, r.Evidence, float64(r.Image))) {
+		return issue("image", "image_reference")
+	}
+	return nil
+}
+
+func (r Row) stockIsExplicit() bool {
+	if stockUncertain.MatchString(r.Evidence) {
+		return false
+	}
+	matches := stockEvidence.FindAllStringSubmatchIndex(r.Evidence, -1)
+	if len(matches) == 0 || len(matches) != len(stockLabel.FindAllStringIndex(r.Evidence, -1)) {
+		return false
+	}
+	for _, m := range matches {
+		quantity, err := strconv.ParseInt(r.Evidence[m[2]:m[3]], 10, 64)
+		if err != nil || quantity != int64(*r.Stock) {
+			return false
+		}
+		// Reject decimal, range and approximate suffixes rather than accepting a prefix.
+		after := strings.TrimSpace(r.Evidence[m[1]:])
+		if after != "" && !strings.ContainsRune("，,。;；)）]", []rune(after)[0]) {
 			return false
 		}
 	}
-	return (r.SKU == "" || containsValue(r.Evidence, r.SKU)) &&
-		(r.Currency == "" || currencyCode.MatchString(r.Currency) && containsValue(r.Evidence, r.Currency)) &&
-		(r.Price == nil || *r.Price >= 0 && !math.IsInf(*r.Price, 0) && r.priceIsExplicit()) &&
-		(r.Stock == nil || *r.Stock >= 0 && int64(*r.Stock) <= 9007199254740991 && matchesNumber(stockEvidence, r.Evidence, float64(*r.Stock))) &&
-		r.Image >= 0 && r.Image <= in.GalleryCount && (r.Image == 0 || r.Image == in.SelectedImage || matchesNumber(imageEvidence, r.Evidence, float64(r.Image)))
+	return true
 }
 
 func (r Row) priceIsExplicit() bool {

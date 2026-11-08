@@ -2,6 +2,7 @@ package einoruntime
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +10,31 @@ import (
 	"task-processor/internal/commercetool"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 )
+
+func TestObservedInvalidKeepsBoundedReasonsOnOriginalReadback(t *testing.T) {
+	for _, oversized := range []bool{false, true} {
+		r, request, model, _, _, _ := readonlyRuntime(t)
+		model.observedInvalid = true
+		model.observedUnresolved = []string{`own-intake-validation:{"field":"rows[0].stock","code":"stock_evidence"}`}
+		if oversized {
+			model.observedUnresolved = []string{strings.Repeat("x", agent.MaxModelOutputBytes)}
+		}
+		record, err := r.Start(context.Background(), request)
+		require.NoError(t, err)
+		require.Equal(t, agent.StopInvalidOutput, record.State.StopReason)
+		if oversized {
+			require.Empty(t, record.State.Unresolved)
+		} else {
+			require.Equal(t, model.observedUnresolved, record.State.Unresolved)
+		}
+		replay, err := r.Start(context.Background(), request)
+		require.NoError(t, err)
+		require.Equal(t, record.State.Unresolved, replay.State.Unresolved)
+		require.Equal(t, 1, model.calls)
+		require.EqualValues(t, 2, record.State.Usage.Tokens)
+		require.Nil(t, record.State.DomainProposal)
+	}
+}
 
 type readonlyValidator struct {
 	valid bool
