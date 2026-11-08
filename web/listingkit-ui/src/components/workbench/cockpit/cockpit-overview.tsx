@@ -303,7 +303,7 @@ function SavedOrderAmounts({data,message}:{data?:SavedOrderAmountMetrics;message
   return <Panel title="已保存订单商品金额（原币）" detail="按平台订单列表时间 · UTC+8 完整日">
     {message ? <p className={styles.empty} role="status">{message}</p>
       : data?.status==="complete" ? data.matchedOrderCount===0 ? <p className={styles.empty}>所选期间暂无已保存订单。</p>
-        : <><dl className={styles.publicationCounts} aria-label="各原币订单商品金额">
+        : <><dl className={`${styles.publicationCounts} ${styles.orderAmounts}`} aria-label="各原币订单商品金额">
           {data.amounts.map(item=><div key={item.currency}><dt>{item.currency}</dt><dd>{item.amount}</dd><small>{item.orderCount} 笔订单</small></div>)}
         </dl><p className={styles.panelNote}>已匹配 {data.matchedOrderCount} 笔订单，按订单去重，各币种分别展示。</p></>
       : data?.status==="missing_fields" ? <p className={styles.empty} role="status">已匹配 {data.matchedOrderCount} 笔订单；缺金额 {data.missing.amountCount} 笔，缺币种 {data.missing.currencyCount} 笔，列表时间不明 {data.missing.unknownTimeCount} 笔。字段不完整，暂不显示金额。</p>
