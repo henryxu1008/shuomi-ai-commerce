@@ -1,6 +1,6 @@
 # 驾驶舱 · Walmart Feed 提交受理率
 
-状态 `DESIGN_REVIEW`。执行 [#1163](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1163)，用户批准先接 Walmart 单店指标及隔离本地实机验证。
+状态 `IMPLEMENTATION_READY`。执行 [#1163](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1163)，用户批准先接 Walmart 单店指标及隔离本地实机验证。
 
 ## 产品范围
 
@@ -16,7 +16,7 @@ Listing 通过现有 Store 授权校验 org/actor/member 和当前 Store grant�
 
 Submission 的 OfficialRepository 新增有界候选读取，关联原 intent 的 org/actor/member，只选当前店铺、Walmart action、publish 和日期窗口。最多读取 251 个唯一候选，超过 250 返回 limited。通过既有 attempt、intent、原 immutable TargetRecord 以及 receipt reader 验证 owner、原记录、指纹和完整绑定。复用 Walmart 持久化拒绝的证据核对，将通用校验从仅修复场景的谓词中提取并保留原行为。读取时间取请求开始，结果按读取时已提交的状态分类。独立汇总不承诺与其他 owner 的全局时间点一致。
 
-UI 将显式单选 Walmart 店铺的查询加入现有筛选 query key、AbortSignal 和结果加载周期，当前范围以外的迟到响应不渲染。维持现有 Listing 与任务的响应结构。新路径不访问 SKU observation，不触发外部平台、计费、发送或补偿。不引入 schema、索引、写事务、新持久事实或旧数据兼容层。幂等、重试、UNKNOWN 和恢复继续由原 Submission owner 负责。只读失败可重新读取，部分结果不显示为完整统计。
+UI 将显式单选 Walmart 店铺的查询加入现有筛选 query key、AbortSignal 和结果加载周期，当前范围以外的迟到响应不渲染。维持现有 Listing 与任务的响应结构。新路径不访问 SKU observation，不触发外部平台、计费、发送或补偿。不引入 schema、索引、写事务、新持久事实或旧数据兼容层。幂等、重试、UNKNOWN 和恢复继续由原 Submission owner 负责。只读失败可重新读取，部分结果不显示为完整统计。独立复核通过的设计为 ce177c88075d20fdd2b181aad13ffb8b430b31b5。当前商户身份和环境先于候选上限缩小范围，并以类型化数据复验。独立验收对既有刊登统计与新增指标都使用本地 Store 测试绑定，避免既有刊登统计的 TokenDetail 路径触发外部调用。
 
 ## 验证
 
