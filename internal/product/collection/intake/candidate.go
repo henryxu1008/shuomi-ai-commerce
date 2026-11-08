@@ -134,7 +134,8 @@ func (f Fact) valid(notes string) bool {
 var currencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
 var stockLabel = regexp.MustCompile(`(?i)库存(?:数量)?|stock|inventory`)
 var stockEvidence = regexp.MustCompile(`(?i)(?:库存(?:数量)?|stock|inventory)\s*(?:明确\s*)?(?:为|是|is|[：:=])?\s*([0-9]+)(?:\s*(?:件|个|units?|pcs))?`)
-var stockUncertain = regexp.MustCompile(`(?i)(?:库存(?:数量)?|stock|inventory)\s*(?:为|是|is|[：:=])?\s*(?:未知|未填写|未提供|未确定|未确认|待确认|不详|留空|空值|unknown|unspecified)|尚未确认|不能确认`)
+var stockUncertain = regexp.MustCompile(`(?i)(?:库存(?:数量)?|stock|inventory)\s*(?:为|是|is|[：:=])?\s*(?:未知|未填写|未提供|未确定|未确认|待确认|不详|留空|空值|unknown|unspecified)|(?:^|[，,。;；])\s*(?:尚未确认|不能确认)(?:库存(?:数量)?|数量)?\s*(?:$|[，,。;；])`)
+var stockQualified = regexp.MustCompile(`(?i)(?:并非|不是|不代表|不表示|未确认|没有确认|不能确认|大约|大概|约|预计|估计|可能|至少|至多)\s*库存|\b(?:not|approximately|about)\s+(?:stock|inventory)`)
 var priceEvidence = regexp.MustCompile(`(?i)(?:价格|单价|price|[¥￥$€])\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
@@ -174,7 +175,7 @@ func (r Row) validate(in Input, index int) error {
 }
 
 func (r Row) stockIsExplicit() bool {
-	if stockUncertain.MatchString(r.Evidence) {
+	if stockUncertain.MatchString(r.Evidence) || stockQualified.MatchString(r.Evidence) {
 		return false
 	}
 	matches := stockEvidence.FindAllStringSubmatchIndex(r.Evidence, -1)
