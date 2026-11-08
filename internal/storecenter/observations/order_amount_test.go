@@ -142,3 +142,27 @@ func TestSavedOrderAmountEmptyAndBadQueryDoNotInventCurrency(t *testing.T) {
 	_, e = s.SavedOrderAmounts(context.Background(), Scope{"org-a", "actor-a", "member-a"}, q)
 	require.ErrorIs(t, e, ErrInvalid)
 }
+
+func TestSavedOrderAmountWithoutSyncExplainsCoverage(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		heads, latest []Sync
+	}{
+		{name: "nil"},
+		{name: "empty", heads: []Sync{}, latest: []Sync{}},
+		{name: "empty heads", heads: []Sync{}},
+		{name: "empty latest", latest: []Sync{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, r, _, _, q := amountFixture(t)
+			r.heads, r.latest = tc.heads, tc.latest
+			got, err := s.SavedOrderAmounts(context.Background(), Scope{"org-a", "actor-a", "member-a"}, q)
+			require.NoError(t, err)
+			require.Equal(t, "coverage_incomplete", got.Status)
+			require.Equal(t, "no_saved_sync", got.Reason)
+			require.Nil(t, got.Source)
+			require.Nil(t, got.MatchedOrderCount)
+			require.Nil(t, got.Amounts)
+		})
+	}
+}

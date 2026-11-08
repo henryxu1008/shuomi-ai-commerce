@@ -237,7 +237,7 @@ func aggregateOrderAmounts(result OrderAmountMetrics, rows []OrderAmountRecord, 
 
 // Keep the initial metadata stable even when a repository reuses decoded values.
 func freezeOrderAmountSources(values []Sync) []Sync {
-	result := append([]Sync(nil), values...)
+	result := slices.Clone(values)
 	for i := range result {
 		v := &result[i]
 		if v.Range != nil {
