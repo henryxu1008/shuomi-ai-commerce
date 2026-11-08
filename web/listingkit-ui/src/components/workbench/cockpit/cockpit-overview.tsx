@@ -482,4 +482,3 @@ function OverviewPanels({ filters, message, activeStores, listingCounts, taskCou
     </div>
   </section>;
 }
-

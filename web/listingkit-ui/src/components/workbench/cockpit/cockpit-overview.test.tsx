@@ -394,4 +394,3 @@ it("reads saved Temu amounts by the same date and store and hides the previous v
  expect(new URLSearchParams(vi.mocked(readTemuOrderAmount).mock.calls.at(-1)![1]).get("storeId")).toBe(b.id);
  expect(screen.getByText("GMV 数据待接入")).toBeVisible();expect(vi.mocked(readSavedOrderAmount)).not.toHaveBeenCalled();
 });
-
