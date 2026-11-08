@@ -1,5 +1,7 @@
 # 服务端匿名浏览器采集（1688 public browser acquisition）架构设计
 
+> **2026-11-08 用户决定（#1070）**：退休匿名静态 HTML HTTP provider、解析器和专用 fixture，取消缺省 HTTP 选择。新增服务端采集只使用显式配置完整的现有 browser collector；缺配置时沿现有不可用错误拒绝新请求，在创建操作、领取及预留资源之前停止。原键核对、历史发布读回和既有权限/账本/UNKNOWN 合同保留；`public_http` 仅保留历史证据识别，不构成采集 fallback。下文两 provider 对比及历史评审/运行证据按原时间保留，不能据此恢复已退休入口。本次不部署、不改变 collector 安全边界，不表示真实采集或产品验收通过。
+
 - Contract/Design ID: `src2b-public-browser-v1`
 - Status: **FROZEN BASELINE / `IMPLEMENTATION_READY`（用户决定 2026-09-26）**
 - Product Decision: `PD-1688-SERVER-PUBLIC-BROWSER-2026-09-26`

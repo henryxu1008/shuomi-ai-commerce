@@ -39,6 +39,15 @@ func (s *AcquisitionService) Acquire(ctx context.Context, key, source string) (s
 	if err != nil {
 		return sourcing.AcquisitionResult{}, err
 	}
+	if s.provider == nil {
+		// Reuse the original-key recovery contract without creating or claiming
+		// a new operation, reserving resources or dispatching another provider.
+		result, err := s.Verify(ctx, key, source)
+		if errors.Is(err, sourcing.ErrAcquisitionNotFound) {
+			return sourcing.AcquisitionResult{}, sourcing.ErrAcquisitionUnavailable
+		}
+		return result, err
+	}
 	op, fetchClaim, err := s.operations.Start(ctx, request)
 	if err != nil {
 		return sourcing.AcquisitionResult{}, err

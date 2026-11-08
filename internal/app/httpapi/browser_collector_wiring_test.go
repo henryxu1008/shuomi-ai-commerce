@@ -6,13 +6,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/core/config"
-	"task-processor/internal/integration/acquisition/a1688"
 	"task-processor/internal/integration/acquisition/browserclient"
 )
 
 // The collector path is opt-in and all-or-nothing: a partial configuration must
-// keep the existing anonymous public HTTP provider rather than half-enable a
-// path the operator did not fully configure.
+// leave acquisition unavailable rather than select an implicit HTTP provider.
 func TestPublicAcquisitionProviderRequiresCompleteOptIn(t *testing.T) {
 	cases := map[string]config.BrowserCollectorConfig{
 		"unset":            {},
@@ -26,7 +24,7 @@ func TestPublicAcquisitionProviderRequiresCompleteOptIn(t *testing.T) {
 		cfg := &config.Config{BrowserCollector: collector}
 		provider, browserService, err := publicAcquisitionProvider(cfg)
 		require.NoError(t, err, name)
-		require.IsType(t, &a1688.Client{}, provider, name+": must stay on the existing HTTP provider")
+		require.Nil(t, provider, name+": no implicit HTTP provider")
 		require.False(t, browserService, name+": must not select the browser service")
 		if _, ok := browserCollectorSettingsFrom(cfg); ok {
 			t.Fatalf("%s: settings must not resolve without a complete opt-in", name)
@@ -55,11 +53,11 @@ func TestPublicAcquisitionProviderUsesCollectorWhenFullyConfigured(t *testing.T)
 	require.True(t, browserService, "a configured collector must select the browser service")
 }
 
-// A nil config must not panic and must stay on the existing provider.
+// A nil config must not panic or install an implicit provider.
 func TestPublicAcquisitionProviderHandlesNilConfig(t *testing.T) {
 	provider, browserService, err := publicAcquisitionProvider(nil)
 	require.NoError(t, err)
-	require.IsType(t, &a1688.Client{}, provider)
+	require.Nil(t, provider)
 	require.False(t, browserService)
 }
 

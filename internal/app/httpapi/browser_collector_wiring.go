@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"task-processor/internal/core/config"
-	"task-processor/internal/integration/acquisition/a1688"
 	"task-processor/internal/integration/acquisition/browserclient"
 	"task-processor/internal/integration/acquisition/browsercollector"
 	"task-processor/internal/product/sourcing"
@@ -15,8 +14,8 @@ import (
 //
 // The production provider is selected by configuration, never by ambient
 // state: an operator must opt in by supplying both the collector endpoint and
-// the service credential. When they are absent the existing anonymous public
-// HTTP provider is used unchanged, so turning the collector on is an explicit,
+// the service credential. When they are absent new acquisition is unavailable,
+// so turning the collector on is an explicit,
 // reversible deployment action rather than a code-path accident.
 
 // browserCollectorSettings holds the resolved, config-gated collector wiring.
@@ -28,7 +27,7 @@ type browserCollectorSettings struct {
 
 // browserCollectorSettingsFrom resolves the collector wiring from raw
 // configuration. It returns ok=false when the operator has not opted in, which
-// keeps the previous provider in place.
+// leaves new acquisition unavailable.
 func browserCollectorSettingsFrom(cfg *config.Config) (browserCollectorSettings, bool) {
 	if cfg == nil {
 		return browserCollectorSettings{}, false
@@ -38,7 +37,7 @@ func browserCollectorSettingsFrom(cfg *config.Config) (browserCollectorSettings,
 	credential := strings.TrimSpace(collector.Credential)
 	// Both halves are required: an endpoint without a credential would start a
 	// client that can never be admitted, and a credential without an endpoint
-	// has nothing to call. Either way, stay on the existing provider.
+	// has nothing to call. Either way, do not dispatch a different provider.
 	if endpoint == "" || credential == "" {
 		return browserCollectorSettings{}, false
 	}
@@ -49,14 +48,12 @@ func browserCollectorSettingsFrom(cfg *config.Config) (browserCollectorSettings,
 	return browserCollectorSettings{endpoint: endpoint, credential: credential, timeout: timeout}, true
 }
 
-// publicAcquisitionProvider builds the anonymous public acquisition provider for
-// the current composition. It prefers the browser collector when the deployment
-// has explicitly configured it, and otherwise returns the existing HTTP provider.
+// publicAcquisitionProvider selects only an explicitly configured collector.
+// No collector means no new dispatch; the existing owner still serves history.
 func publicAcquisitionProvider(cfg *config.Config) (sourcing.PublicAcquirer, bool, error) {
 	settings, ok := browserCollectorSettingsFrom(cfg)
 	if !ok {
-		provider, err := publicHTTPProvider()
-		return provider, false, err
+		return nil, false, nil
 	}
 	// The client-side admission is fail-closed: a collector that rejects the
 	// credential surfaces as an availability failure, never as a fabricated
@@ -76,6 +73,3 @@ func publicAcquisitionProvider(cfg *config.Config) (sourcing.PublicAcquirer, boo
 	// child budget.
 	return client, true, nil
 }
-
-// publicHTTPProvider is the existing anonymous public HTTP provider.
-func publicHTTPProvider() (sourcing.PublicAcquirer, error) { return a1688.New(), nil }
