@@ -34,6 +34,10 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 			specs = append(specs, struct {
 				method, path, action string
 				sync                 bool
+			}{"GET", "/tiktok-saved-amount-metrics", "tiktok-saved-amount-metrics", false})
+			specs = append(specs, struct {
+				method, path, action string
+				sync                 bool
 			}{"GET", "/saved-amount-metrics", "saved-amount-metrics", false})
 			specs = append(specs, struct {
 				method, path, action string
@@ -63,7 +67,7 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 						return
 					}
 				}
-				if spec.action != "list" && spec.action != "saved-amount-metrics" && spec.action != "walmart-saved-amount-metrics" && c.Request.URL.RawQuery != "" {
+				if spec.action != "list" && spec.action != "saved-amount-metrics" && spec.action != "walmart-saved-amount-metrics" && spec.action != "tiktok-saved-amount-metrics" && c.Request.URL.RawQuery != "" {
 					failure(c, o.ErrInvalid)
 					return
 				}
@@ -107,14 +111,16 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 				switch spec.action {
 				case "capabilities":
 					data, e = a.Capabilities(ctx, scope, kind)
-				case "saved-amount-metrics", "walmart-saved-amount-metrics":
+				case "saved-amount-metrics", "walmart-saved-amount-metrics", "tiktok-saved-amount-metrics":
 					filter, err := workbenchmetrics.Parse(c.Request.URL.RawQuery, time.Now())
 					if err != nil || len(filter.Stores) != 1 {
 						failure(c, o.ErrInvalid)
 						return
 					}
 					query := o.OrderAmountQuery{StoreID: filter.Stores[0], Start: filter.Start, End: filter.End}
-					if spec.action == "walmart-saved-amount-metrics" {
+					if spec.action == "tiktok-saved-amount-metrics" {
+						data, e = a.Service.SavedTikTokOrderAmounts(ctx, scope, query)
+					} else if spec.action == "walmart-saved-amount-metrics" {
 						data, e = a.Service.SavedWalmartOrderAmounts(ctx, scope, query)
 					} else {
 						data, e = a.Service.SavedOrderAmounts(ctx, scope, query)

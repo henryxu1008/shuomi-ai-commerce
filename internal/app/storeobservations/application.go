@@ -15,6 +15,13 @@ type Access struct {
 	Official      *storeapp.OfficialObservationAccess
 }
 
+func (a Access) ReadSavedTikTokOrderBinding(ctx context.Context, s o.Scope, store string) (o.Binding, error) {
+	if a.Official == nil {
+		return o.Binding{}, o.ErrUnavailable
+	}
+	return a.Official.ReadSavedTikTokOrderBinding(ctx, storecenter.ObservationSubject{OrganizationID: s.OrganizationID, ActorID: s.ActorID, MemberID: s.MemberID, Purpose: storecenter.ObservationPurposeOrders}, store)
+}
+
 func (a Access) ReadSavedWalmartOrderBinding(ctx context.Context, s o.Scope, store string) (o.Binding, error) {
 	if a.Official == nil {
 		return o.Binding{}, o.ErrUnavailable
