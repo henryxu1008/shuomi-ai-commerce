@@ -109,7 +109,7 @@ func (a *OfficialProductAccess) authorizeWalmart(ctx context.Context, s storecen
 	if e != nil || !detail.Allows(s.Purpose, a.now()) || marketplace.Hash(detail.Scopes) != g.ScopesHash {
 		return nil, ErrProductAccessChanged
 	}
-	b := MerchantBinding{Platform: storecenter.PlatformWalmart, Site: "walmart-us", OrganizationID: s.OrganizationID, StoreID: id, StoreVersion: m.StoreVersion, ConnectionRevision: m.Connection.Version, ApplicationRevision: g.AppRevision, ApplicationID: g.AppID, SupplierIdentityHash: g.MerchantIdentityHash, ServiceExpiresAt: m.ServiceExpiresAt, CredentialExpiresAt: g.AccessExpiresAt, ScopesHash: g.ScopesHash, Walmart: storecenter.WalmartMerchantBinding{Market: "US", Environment: g.Environment, GrantID: g.ID, Generation: g.Generation, GrantVersion: g.Version}}
+	b := walmartMerchantBinding(m, g)
 	if !b.ValidWalmartApplication() || expected != nil && b != *expected {
 		return nil, ErrProductAccessChanged
 	}
@@ -119,6 +119,35 @@ func (a *OfficialProductAccess) authorizeWalmart(ctx context.Context, s storecen
 	}
 	return h, nil
 }
+
+// ReadSavedWalmartFeedBinding verifies the current local Store authority for a
+// saved Feed summary without opening credentials or contacting Walmart.
+func (a *OfficialProductAccess) ReadSavedWalmartFeedBinding(ctx context.Context, subject storecenter.ProductExecutionSubject, id string) (MerchantBinding, error) {
+	if a == nil || ctx == nil || ctx.Err() != nil || !a.applications.WalmartConfigured() || subject.Purpose != storecenter.ProductPurposeRules {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	now := a.now()
+	material, err := a.reader.ReadProductExecution(ctx, subject, id, a.authorization, now)
+	if err != nil || material.Platform != storecenter.PlatformWalmart || material.Walmart == nil {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	grant := *material.Walmart
+	app := a.applications.walmartProvider.Application()
+	if grant.OrganizationID != subject.OrganizationID || grant.StoreID != id || grant.AppID != app.ClientID ||
+		grant.AppRevision != app.Revision || grant.Environment != app.Environment || !grant.CanRead(now) || !now.Before(material.ServiceExpiresAt) {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	binding := walmartMerchantBinding(material, grant)
+	if !binding.ValidWalmartApplication() {
+		return MerchantBinding{}, ErrProductAccessChanged
+	}
+	return binding, nil
+}
+
+func walmartMerchantBinding(m storecenter.ProductExecutionMaterial, g storecenter.WalmartGrant) MerchantBinding {
+	return MerchantBinding{Platform: storecenter.PlatformWalmart, Site: "walmart-us", OrganizationID: g.OrganizationID, StoreID: g.StoreID, StoreVersion: m.StoreVersion, ConnectionRevision: m.Connection.Version, ApplicationRevision: g.AppRevision, ApplicationID: g.AppID, SupplierIdentityHash: g.MerchantIdentityHash, ServiceExpiresAt: m.ServiceExpiresAt, CredentialExpiresAt: g.AccessExpiresAt, ScopesHash: g.ScopesHash, Walmart: storecenter.WalmartMerchantBinding{Market: "US", Environment: g.Environment, GrantID: g.ID, Generation: g.Generation, GrantVersion: g.Version}}
+}
+
 func (a *OfficialProductAccess) AuthorizeWalmartRules(ctx context.Context, s storecenter.ProductExecutionSubject, id string, expected *MerchantBinding) (*WalmartRulesHandle, error) {
 	if s.Purpose != storecenter.ProductPurposeRules {
 		return nil, ErrProductAccessChanged

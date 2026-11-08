@@ -17,6 +17,18 @@ import (
 )
 
 const WalmartSubmitAction = "walmart_submit_feed"
+const walmartAuthorizationRejected = "WALMART_AUTHORIZATION_REJECTED"
+
+// WalmartFeedReadScope describes the current merchant partition of the
+// historical Feed attempts selected by Listing.
+type WalmartFeedReadScope struct {
+	StoreID, MerchantIdentityHash, Environment string
+}
+
+func (s WalmartFeedReadScope) Valid() bool {
+	return collection.ValidID(s.StoreID) && isExecutionDigest(s.MerchantIdentityHash) &&
+		(s.Environment == "production" || s.Environment == "sandbox")
+}
 
 func WalmartCorrelationID(intent OfficialIntent) string {
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("walmart-feed-v1:"+intent.Owner.OrganizationID+":"+intent.Key+":"+intent.PayloadFingerprint)).String()
@@ -108,7 +120,7 @@ func NewWalmartRejectionEvidence(intent OfficialIntent, attempt ExecutionAttempt
 	if ValidateOfficialIntent(intent) != nil || intent.Walmart == nil || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionClaimed || attempt.OrganizationID != intent.Owner.OrganizationID || attempt.IntentKey != intent.Key || attempt.Target != intent.Target || attempt.Action != WalmartSubmitAction || attempt.PayloadFingerprint != intent.PayloadFingerprint {
 		return ExecutionEvidence{}, ErrExecutionEvidenceRequired
 	}
-	const reason = "WALMART_AUTHORIZATION_REJECTED"
+	const reason = walmartAuthorizationRejected
 	evidence := ExecutionEvidence{Kind: EvidenceProviderResponse, Outcome: ExecutionFailedDefinitive, Reference: WalmartCorrelationID(intent), Fingerprint: digestExecutionParts("walmart-feed-rejected-v1", intent.InputHash, intent.PayloadFingerprint, WalmartCorrelationID(intent), reason), Reason: reason, ObservedAt: canonicalExecutionTime(observedAt)}
 	if err := validateExecutionEvidence(attempt, evidence, observedAt); err != nil {
 		return ExecutionEvidence{}, err
@@ -119,12 +131,26 @@ func NewWalmartRejectionEvidence(intent OfficialIntent, attempt ExecutionAttempt
 // WalmartRejectedRepairMatches verifies the persisted no-effect evidence and
 // the exact user-approved repair payload. It never resolves an UNKNOWN attempt.
 func WalmartRejectedRepairMatches(next, rejected OfficialIntent, attempt ExecutionAttempt) bool {
-	if ValidateOfficialIntent(next) != nil || ValidateOfficialIntent(rejected) != nil || next.Walmart == nil || rejected.Walmart == nil || rejected.Walmart.RepairFrom == "" || ValidatePersistedExecutionAttempt(attempt) != nil || attempt.Status != ExecutionFailedDefinitive || attempt.Evidence == nil {
+	if ValidateOfficialIntent(next) != nil || next.Walmart == nil || rejected.Walmart == nil || rejected.Walmart.RepairFrom == "" {
+		return false
+	}
+	return WalmartFeedRejectionMatches(rejected, attempt) && next.Owner == rejected.Owner && next.Source == rejected.Source && next.Target == rejected.Target && WalmartCompatibleBinding(next.Binding, rejected.Binding) && next.PayloadFingerprint == rejected.PayloadFingerprint && reflect.DeepEqual(next.Walmart, rejected.Walmart)
+}
+
+// WalmartFeedRejectionMatches checks the exact evidence of a rejected Feed
+// attempt, including initial submissions and subsequent repairs.
+func WalmartFeedRejectionMatches(intent OfficialIntent, attempt ExecutionAttempt) bool {
+	if ValidateOfficialIntent(intent) != nil || intent.Walmart == nil || ValidatePersistedExecutionAttempt(attempt) != nil ||
+		attempt.Status != ExecutionFailedDefinitive || attempt.OrganizationID != intent.Owner.OrganizationID ||
+		attempt.IntentKey != intent.Key || attempt.Target != intent.Target || attempt.Action != WalmartSubmitAction ||
+		attempt.PayloadFingerprint != intent.PayloadFingerprint {
 		return false
 	}
 	e := attempt.Evidence
-	const reason = "WALMART_AUTHORIZATION_REJECTED"
-	return attempt.OrganizationID == rejected.Owner.OrganizationID && attempt.IntentKey == rejected.Key && attempt.Target == rejected.Target && attempt.Action == WalmartSubmitAction && attempt.PayloadFingerprint == rejected.PayloadFingerprint && e.Kind == EvidenceProviderResponse && e.Outcome == ExecutionFailedDefinitive && e.AuthorizedBy == "" && e.Reason == reason && e.Reference == WalmartCorrelationID(rejected) && e.Fingerprint == digestExecutionParts("walmart-feed-rejected-v1", rejected.InputHash, rejected.PayloadFingerprint, WalmartCorrelationID(rejected), reason) && next.Owner == rejected.Owner && next.Source == rejected.Source && next.Target == rejected.Target && WalmartCompatibleBinding(next.Binding, rejected.Binding) && next.PayloadFingerprint == rejected.PayloadFingerprint && reflect.DeepEqual(next.Walmart, rejected.Walmart)
+	correlation := WalmartCorrelationID(intent)
+	return e.Kind == EvidenceProviderResponse && e.Outcome == ExecutionFailedDefinitive && e.AuthorizedBy == "" &&
+		e.Reason == walmartAuthorizationRejected && e.Reference == correlation &&
+		e.Fingerprint == digestExecutionParts("walmart-feed-rejected-v1", intent.InputHash, intent.PayloadFingerprint, correlation, walmartAuthorizationRejected)
 }
 
 func NewWalmartCompletion(owner collection.Scope, saved record.TargetRecord, intent OfficialIntent, attempt ExecutionAttempt, claim ExecutionClaim, accepted marketplace.AcceptedFeed) (OfficialCompletion, error) {
