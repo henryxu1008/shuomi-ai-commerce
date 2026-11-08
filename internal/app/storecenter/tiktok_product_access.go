@@ -111,6 +111,37 @@ func (a *OfficialProductAccess) authorizeTikTok(ctx context.Context, subject sto
 	return &TikTokRulesHandle{owner: a, subject: subject, application: app, material: private, binding: binding, connectionRef: material.Connection.AttemptID, expiresAt: expires}, nil
 }
 
+type SavedTikTokShopIdentity struct {
+	ApplicationID, MerchantIdentityHash, ShopID string
+}
+
+// ReadSavedTikTokShopIdentity authorizes an internal read from the saved binding.
+func (a *OfficialProductAccess) ReadSavedTikTokShopIdentity(ctx context.Context, subject storecenter.ProductExecutionSubject, id string) (SavedTikTokShopIdentity, error) {
+	if a == nil || ctx == nil || subject.Purpose != storecenter.ProductPurposeRules || !a.applications.TikTokConfigured() {
+		return SavedTikTokShopIdentity{}, ErrProductAccessChanged
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	material, err := a.reader.ReadProductExecution(ctx, subject, id, a.authorization, a.now())
+	if err != nil || material.Platform != storecenter.PlatformTikTokShop || material.TikTok == nil || !a.now().Before(material.ServiceExpiresAt) {
+		return SavedTikTokShopIdentity{}, ErrProductAccessChanged
+	}
+	app := a.applications.tiktokProvider.Application()
+	saved := material.TikTok
+	grant, err := authorization.RestoreGrant(saved.Grant)
+	if err != nil || !grant.CanSend(a.now()) || saved.Grant.OrganizationID != subject.OrganizationID ||
+		saved.Grant.AppKey != app.AppKey || saved.Grant.AppRevision != app.Revision ||
+		saved.Binding.OrganizationID != subject.OrganizationID || saved.Binding.StoreID != id ||
+		saved.Binding.GrantID != saved.Grant.ID || saved.Binding.AppKey != app.AppKey || saved.Binding.Status != "active" {
+		return SavedTikTokShopIdentity{}, ErrProductAccessChanged
+	}
+	shop, err := authorization.SelectUSCrossBorderShop([]authorization.Shop{saved.Binding.Shop}, saved.Binding.Shop.Code)
+	if err != nil {
+		return SavedTikTokShopIdentity{}, ErrProductAccessChanged
+	}
+	return SavedTikTokShopIdentity{ApplicationID: app.AppKey, MerchantIdentityHash: saved.Grant.SellerIdentityHash, ShopID: shop.ID}, nil
+}
+
 func hasTikTokScopes(tokens authorization.TokenSet, required ...string) bool {
 	for _, scope := range required {
 		found := false

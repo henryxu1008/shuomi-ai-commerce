@@ -12,27 +12,31 @@ import (
 	"task-processor/internal/storecenter"
 )
 
-type WalmartFeedMetricsSource interface {
-	ListWalmartFeedAttemptIDs(context.Context, collection.Scope, submission.WalmartFeedReadScope, time.Time, time.Time, int) ([]string, error)
-	ReadWalmartFeedAttempt(context.Context, collection.Scope, string) (submission.ExecutionAttempt, error)
+type cockpitSubmissionReader interface {
+	ReadCockpitSubmissionAttempt(context.Context, collection.Scope, string) (submission.ExecutionAttempt, error)
 	ReadOfficialIntent(context.Context, collection.Scope, string) (submission.OfficialIntent, error)
 	ReadOfficial(context.Context, collection.Scope, string) (submission.OfficialReceipt, error)
 }
 
-type walmartFeedMetrics struct {
-	Status     string                   `json:"status"`
-	CapturedAt time.Time                `json:"capturedAt"`
-	Counts     *walmartFeedMetricCounts `json:"counts,omitempty"`
+type WalmartFeedMetricsSource interface {
+	cockpitSubmissionReader
+	ListWalmartFeedAttemptIDs(context.Context, collection.Scope, submission.WalmartFeedReadScope, time.Time, time.Time, int) ([]string, error)
 }
 
-type walmartFeedMetricCounts struct {
+type storeSubmissionMetrics struct {
+	Status     string                 `json:"status"`
+	CapturedAt time.Time              `json:"capturedAt"`
+	Counts     *storeSubmissionCounts `json:"counts,omitempty"`
+}
+
+type storeSubmissionCounts struct {
 	Accepted int `json:"accepted"`
 	Rejected int `json:"rejected"`
 	Unknown  int `json:"unknown"`
 }
 
-func (a *Application) WalmartFeedMetrics(ctx context.Context, filter workbenchmetrics.Filter, now time.Time) (walmartFeedMetrics, error) {
-	result := walmartFeedMetrics{CapturedAt: now.UTC()}
+func (a *Application) WalmartFeedMetrics(ctx context.Context, filter workbenchmetrics.Filter, now time.Time) (storeSubmissionMetrics, error) {
+	result := storeSubmissionMetrics{CapturedAt: now.UTC()}
 	if len(filter.Stores) != 1 || !filter.Start.Before(filter.End) {
 		return result, record.ErrInvalid
 	}
@@ -67,7 +71,7 @@ func (a *Application) WalmartFeedMetrics(ctx context.Context, filter workbenchme
 	}
 	result.Status = "limited"
 	if len(ids) <= workbenchmetrics.MaxCandidates {
-		counts := &walmartFeedMetricCounts{}
+		counts := &storeSubmissionCounts{}
 		seen := make(map[string]bool, len(ids))
 		for _, id := range ids {
 			if seen[id] {
@@ -75,30 +79,30 @@ func (a *Application) WalmartFeedMetrics(ctx context.Context, filter workbenchme
 			}
 			seen[id] = true
 			if err := a.countWalmartFeedAttempt(ctx, scope, binding, filter, id, counts); err != nil {
-				return walmartFeedMetrics{}, err
+				return storeSubmissionMetrics{}, err
 			}
 		}
 		result.Status, result.Counts = "complete", counts
 	}
 	fresh, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
 	if err != nil {
-		return walmartFeedMetrics{}, err
+		return storeSubmissionMetrics{}, err
 	}
 	if fresh != scope {
-		return walmartFeedMetrics{}, record.ErrForbidden
+		return storeSubmissionMetrics{}, record.ErrForbidden
 	}
 	current, err := readBinding()
 	if err != nil {
-		return walmartFeedMetrics{}, err
+		return storeSubmissionMetrics{}, err
 	}
 	if !submission.WalmartCompatibleBinding(binding, current) {
-		return walmartFeedMetrics{}, record.ErrForbidden
+		return storeSubmissionMetrics{}, record.ErrForbidden
 	}
 	return result, nil
 }
 
-func (a *Application) countWalmartFeedAttempt(ctx context.Context, scope collection.Scope, binding storecenter.ProductMerchantBinding, filter workbenchmetrics.Filter, id string, counts *walmartFeedMetricCounts) error {
-	attempt, err := a.WalmartFeedSource.ReadWalmartFeedAttempt(ctx, scope, id)
+func (a *Application) countWalmartFeedAttempt(ctx context.Context, scope collection.Scope, binding storecenter.ProductMerchantBinding, filter workbenchmetrics.Filter, id string, counts *storeSubmissionCounts) error {
+	attempt, err := a.WalmartFeedSource.ReadCockpitSubmissionAttempt(ctx, scope, id)
 	if err != nil || attempt.AttemptID != id || attempt.OrganizationID != scope.OrganizationID || attempt.Target.Platform != "walmart" ||
 		attempt.Target.StoreID != binding.StoreID || attempt.Action != submission.WalmartSubmitAction ||
 		attempt.CreatedAt.Before(filter.Start) || !attempt.CreatedAt.Before(filter.End) || submission.ValidatePersistedExecutionAttempt(attempt) != nil {

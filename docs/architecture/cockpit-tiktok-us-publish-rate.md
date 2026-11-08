@@ -14,7 +14,7 @@ Design Basis 为 Independent Architecture。新增 Listing `GET /api/v1/workbenc
 
 Store 从现有本地 owner 读取当前有效 US 跨境店绑定、授权和 app 配置元数据。只返回当前 app、商户、Shop 身份，不解密凭据，不调用 AuthorizedShops 或平台状态。进入和返回前重验 Listing/Store 权限与该身份。孤立验收对既有刊登读也使用测试本地 Store 绑定，避免已有 AuthorizedShops 路径。
 
-Submission OfficialRepository 使用本域窄读范围，按原 intent 的 org/actor/member、当前店/商户/app/Shop、global 引用、action 和日期筛选，先收窄再按原 attempt 限制 251 条。超过 250 返回 limited。逐条以原 attempt、intent、immutable Target、精确引用的全球创建回执及 US 发布回执核对身份和指纹。用现有 ResolveTikTokPayload 和 CorrelatesGlobalPublication 验证最终请求与回执关系。所选范围内证据缺失或冲突则整个统计 unavailable。最终 intent 和最终回执仍按原 actor/member 精确读取。全球创建回执仅沿该 intent 的不可变 ID 与哈希读取，并验证同企业、店铺、应用、商户、US Shop、商品与草稿关系，保留现有写端允许的跨成员复用。重用已有 read-only repository 和 typed domain validators。数据读取按本次请求，不承诺跨 owner 同一快照。未引入数据库结构、写事务、执行幂等、恢复、计费、旧兼容或对外副作用。
+Submission OfficialRepository 使用本域窄读范围，按原 intent 的 org/actor/member、当前店/商户/app/Shop、global 引用、已留存回执或结果未知的 attempt 状态、action 和日期筛选，先收窄再按原 attempt 限制 251 条。超过 250 返回 limited。逐条以原 attempt、intent、immutable Target、精确引用的全球创建回执及 US 发布回执核对身份和指纹。用现有 ResolveTikTokPayload 和 CorrelatesGlobalPublication 验证最终请求与回执关系。所选范围内证据缺失或冲突则整个统计 unavailable。最终 intent 和最终回执仍按原 actor/member 精确读取。全球创建回执仅沿该 intent 的不可变 ID 与哈希读取，并验证同企业、店铺、应用、商户、US Shop、商品与草稿关系，保留现有写端允许的跨成员复用。重用已有 read-only repository 和 typed domain validators。数据读取按本次请求，不承诺跨 owner 同一快照。未引入数据库结构、写事务、执行幂等、恢复、计费、旧兼容或对外副作用。
 
 UI 接入同一筛选 query key、取消和加载周期。只读失败允许刷新，迟到响应不混入其他范围。
 

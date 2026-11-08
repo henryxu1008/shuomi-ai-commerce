@@ -153,6 +153,15 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 			OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Purpose: storecenter.ProductPurposeRules,
 		}, id)
 	}
+	app.TikTokPublishSource = official
+	app.TikTokPublishMerchant = func(ctx context.Context, scope collection.Scope, id string) (submission.TikTokGlobalPublishReadScope, error) {
+		shop, err := access.ReadSavedTikTokShopIdentity(ctx, storecenter.ProductExecutionSubject{
+			OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, Purpose: storecenter.ProductPurposeRules,
+		}, id)
+		return submission.TikTokGlobalPublishReadScope{
+			StoreID: id, ApplicationID: shop.ApplicationID, MerchantIdentityHash: shop.MerchantIdentityHash, ShopID: shop.ShopID,
+		}, err
+	}
 	var optimizer listingapp.OperationOptimizer
 	app.StageProjection = stageProjection
 	app.CockpitStoreAccess = func(ctx context.Context, scope collection.Scope, ids []string) error {

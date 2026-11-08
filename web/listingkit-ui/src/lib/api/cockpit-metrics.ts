@@ -3,10 +3,12 @@ import type { CockpitScope } from "./operations-cockpit";
 import { readBoundedStrictJSON } from "./strict-json-response";
 
 export async function readCockpitMetrics<T>(
-  scope: CockpitScope, owner: "supply-preparations" | "tasks" | "walmart-feed", query: string,
+  scope: CockpitScope, owner: "supply-preparations" | "tasks" | "walmart-feed" | "tiktok-publish", query: string,
   schema: z.ZodType<T>, signal: AbortSignal,
 ) {
-  const path = owner === "walmart-feed" ? "supply-preparations/walmart-feed-metrics" : owner + "/cockpit-metrics";
+  const path = owner === "walmart-feed" || owner === "tiktok-publish"
+    ? "supply-preparations/" + owner + "-metrics"
+    : owner + "/cockpit-metrics";
   const response = await fetch(`/api/workbench/${path}?${query}`, {
     signal,
     cache: "no-store",
