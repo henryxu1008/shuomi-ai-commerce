@@ -1,6 +1,6 @@
 # TikTok Shop US 消费者订单保存与单店商品金额
 
-Design Basis: Independent Architecture。Admission Status: DRAFT / NOT_READY。执行 #1163，用户2026-11-08授权先确定消费者订单读取、保存、日期、去重、商品金额及覆盖合同，再在独立本地实例用测试订单验证。Figma仅辅助业务流程。
+Design Basis: Independent Architecture。Admission Status: IMPLEMENTATION_READY / FROZEN。执行 #1163，用户2026-11-08授权先确定消费者订单读取、保存、日期、去重、商品金额及覆盖合同，再在独立本地实例用测试订单验证。Figma仅辅助业务流程。
 
 ## 用户结果、阶段与范围
 
@@ -49,3 +49,5 @@ Threat Model沿当前verified身份、租户/成员/Store授权、原单DB事务
 先RED/GREEN验证decoder秒级日期/缺字段/精确金额、订单多行/包裹不乘、原ID重复/冲突/旧generation、分页短页/空页有token/循环/总数漂移/上限、token不出HTTP、原PG事务与fresh schema/跨租户/日期先筛后限、精确末秒与次日边界、本地grant授权不访问provider。只运行相关必要测试，最终稳定候选走原CI并做一次独立交付检查。
 
 新的独立本地实例准备两家US跨境测试店、两组日期订单、同ID重放/旧批次、多商品/包裹原小计、缺金额/币种及范围覆盖不足，经离线reader→原正式保存→GET/BFF→首页切换，无刷新实机验证。网络拦截，其他实例不动。交付入口/结果/限制供用户试用；不擅自合并/部署/关闭Issue。
+
+独立架构复核：/root/architecture_review实际核对设计a0d7e9078ebe2c190856c0e128c6095e13d41fcd，结论IMPLEMENTATION_READY，无BLOCKER。原CommitPage仅对TikTok orders放行100单，31/100可保存、101拒绝，其他平台保持30；ScopesHash仅专用saved-TikTok比较排除，全局ValidTikTokApplication不变。上述边界、token/总数/重复页与原子head、秒级半开日期、clone/去敏、PII/金额和绑定漂移均为IMPLEMENTATION_TEST，在本批实现验证收敛。
