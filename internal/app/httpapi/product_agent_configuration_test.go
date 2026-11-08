@@ -12,13 +12,17 @@ import (
 func TestProductAgentCatalogHasDistinctDefinitionsInCursorOrder(t *testing.T) {
 	entries, err := (productAgentCatalog{}).ReadCatalog(context.Background())
 	require.NoError(t, err)
-	require.Len(t, entries, 8)
+	require.Len(t, entries, 9)
 	for i := 1; i < len(entries); i++ {
 		require.Less(t, entries[i-1].Definition.ID, entries[i].Definition.ID, "market cursors require canonical ID order without duplicate definitions")
 	}
 	schemas := map[string]string{}
 	for _, entry := range entries {
 		schemas[entry.Definition.ID] = entry.ParameterSchema
+		if entry.Definition.ID == agentconfig.OwnIntakeAgentID {
+			require.Equal(t, agentconfig.OwnIntakeDefinition(), entry.Definition)
+			require.Empty(t, entry.Definition.AllowedTools)
+		}
 		if entry.Definition.ID == agentconfig.DiagnosisAgentID {
 			require.Equal(t, agentconfig.DiagnosisAgentVersion, entry.Definition.Version)
 			require.Equal(t, []commercetool.ToolRef{agentconfig.DiagnosisInspectToolRef()}, entry.Definition.AllowedTools, "diagnosis must not borrow another Agent's tools")
@@ -36,6 +40,7 @@ func TestProductAgentCatalogHasDistinctDefinitionsInCursorOrder(t *testing.T) {
 	require.Equal(t, agentconfig.SelectionParameterSchema, schemas[agentconfig.SelectionAgentID])
 	require.Equal(t, agentconfig.ResearchParameterSchema, schemas[agentconfig.ResearchAgentID])
 	require.Equal(t, agentconfig.DiagnosisParameterSchema, schemas[agentconfig.DiagnosisAgentID])
+	require.Equal(t, agentconfig.OwnIntakeActionVersion, schemas[agentconfig.OwnIntakeAgentID])
 }
 
 func TestProductAgentTemplateSelectionIsExplicitAndStartOnly(t *testing.T) {

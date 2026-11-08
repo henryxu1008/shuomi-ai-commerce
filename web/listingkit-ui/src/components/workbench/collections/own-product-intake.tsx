@@ -35,12 +35,15 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
  const [prepared,setPrepared]=useState<Prepared|null>(null),[result,setResult]=useState<Pending|null>(null);
  const [original,setOriginal]=useState<Receipt|null>(()=>originalReceipt(storageKey)),[confirmImages,setConfirmImages]=useState(false);
+ const [missingRunKey,setMissingRunKey]=useState<string|null>(null);
  const current=useRef(""),flight=useRef<AbortController|null>(null);
  const signature=JSON.stringify({notes:notes.trim(),images,image});
  useEffect(()=>{current.current=signature},[signature]);
  useEffect(()=>()=>flight.current?.abort(),[]);
  const selected=images.indexOf(image)+1;
  const changed=!!prepared&&prepared.signature!==signature;
+ const recovering=!!original&&original.key===missingRunKey;
+ const canPrepare=!!notes.trim()&&new TextEncoder().encode(notes.trim()).byteLength<=4096&&(!image||selected>0);
  const candidate=result?.signature===signature?result.candidate:null;
  const hasImages=candidate?.rows?.some(row=>row.image!==undefined)??false;
 
@@ -62,10 +65,15 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
   }finally{flight.current=null;if(!controller.signal.aborted)setBusy(false)}
  }
 
- function prepare(){
+ function prepare(recovery?:Receipt){
   void action(async signal=>{
-   const key=crypto.randomUUID();
+   if(recovery&&await digest(signature)!==recovery.digest){
+    setError("请恢复原说明和图库顺序，并选择原图片后再继续。");
+    return;
+   }
+   const key=recovery?.key??crypto.randomUUID();
    const body:IntakeBody={notes:notes.trim(),gallery:await Promise.all(images.map(digest)),...(selected>0?{imageNumber:selected,imageUrl:image}:{})};
+   if(signal.aborted||current.current!==signature)return;
    const response=await podRequest(scope,"prepare",intakePrepared,signal,{key,body},namespace);
    if(!signal.aborted&&current.current===signature){setPrepared({key,body,signature,prepared:response});setResult(null);setConfirmImages(false)}
   });
@@ -78,6 +86,7 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
    return;
   }
   storeReceipt(null);
+  setMissingRunKey(null);
   setPrepared(null);
   if(!response.candidate){setError("本次生成没有通过校验，请核对资料后重新整理。");return}
   setResult({signature:expected,candidate:response.candidate});
@@ -86,15 +95,18 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
 
  function confirm(){
   const intent=prepared;
-  if(!intent||changed||original)return;
+  if(!intent||changed||original&&(!recovering||original.key!==intent.key))return;
   void action(async signal=>{
-   storeReceipt({key:intent.key,digest:await digest(intent.signature)});
+   const signatureDigest=original?.digest??await digest(intent.signature);
+   if(signal.aborted||current.current!==intent.signature)return;
+   if(!original)storeReceipt({key:intent.key,digest:signatureDigest});
+   setMissingRunKey(null);
    const {configurationSnapshotRef,quote}=intent.prepared;
    try{
     const response=await podRequest(scope,intent.key+"/confirm",intakeResult,signal,{key:intent.key,body:{...intent.body,configurationSnapshotRef,quoteDigest:quote.InputHash}},namespace);
     if(!signal.aborted)receive(response,intent.key,intent.signature);
    }catch(e){
-    if(e instanceof MarketAPIError&&e.status>=400&&e.status<500&&e.code!=="OUTCOME_UNKNOWN")storeReceipt(null);
+    if(!original&&e instanceof MarketAPIError&&e.status>=400&&e.status<500&&e.code!=="OUTCOME_UNKNOWN")storeReceipt(null);
     throw e;
    }
   });
@@ -103,8 +115,20 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
  function readOriginal(){
   if(!original)return;
   void action(async signal=>{
+   setMissingRunKey(null);
+   setPrepared(null);
    const matching=await digest(signature)===original.digest;
-   const response=await podRequest(scope,original.key,intakeResult,signal,undefined,namespace);
+   let response:ReturnType<typeof intakeResult.parse>;
+   try{
+    response=await podRequest(scope,original.key,intakeResult,signal,undefined,namespace);
+   }catch(e){
+    if(!signal.aborted&&e instanceof MarketAPIError&&e.status===404&&e.code==="NOT_FOUND"){
+     setMissingRunKey(original.key);
+     setMessage("暂未查到原生成记录，可以用原资料重新检查用量。");
+     return;
+    }
+    throw e;
+   }
    if(signal.aborted)return;
    if(!matching&&response.candidate){setMessage("原结果已找到。恢复原说明和图库顺序后可采纳。");return}
    receive(response,original.key,signature);
@@ -120,10 +144,11 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
    <label className="grid gap-2 text-sm">给 AI 的商品资料<Textarea rows={5} value={notes} disabled={busy} onChange={e=>setNotes(e.target.value)} placeholder="逐行写已知 SKU、规格、币种、价格和库存。可用「图片 2」指定图片。"/></label>
    <label className="grid gap-2 text-sm">让 AI 查看一张图片<Select value={selected>0?image:""} disabled={busy} onChange={e=>setImage(e.target.value)}><option value="">仅使用文字资料</option>{images.map((url,i)=>uploaded.has(url)?<option key={url} value={url}>图片 {i+1}</option>:null)}</Select></label>
    <div className="flex flex-wrap gap-2">
-    <Button type="button" variant="outline" disabled={busy||disabled||!!original||!notes.trim()||new TextEncoder().encode(notes.trim()).byteLength>4096||!!image&&!selected} onClick={prepare}>检查生成用量</Button>
+    <Button type="button" variant="outline" disabled={busy||disabled||!!original||!canPrepare} onClick={()=>prepare()}>检查生成用量</Button>
     {original?<Button type="button" variant="outline" disabled={busy||disabled} onClick={readOriginal}>核实原生成结果</Button>:null}
+    {original&&recovering?<Button type="button" variant="outline" disabled={busy||disabled||!canPrepare} onClick={()=>prepare(original)}>按原请求重新检查用量</Button>:null}
    </div>
-   {prepared&&!changed&&!original?<div className="flex flex-wrap items-center gap-3"><p className="text-sm">最多 {prepared.prepared.quote.MaximumTokens} tokens · 模型成本上限 {prepared.prepared.quote.Currency} {(prepared.prepared.quote.MaximumCostMicros/1_000_000).toFixed(6)}</p><Button type="button" disabled={busy||disabled} onClick={confirm}>确认生成候选</Button></div>:null}
+   {prepared&&!changed&&(!original||recovering&&prepared.key===original.key)?<div className="flex flex-wrap items-center gap-3"><p className="text-sm">最多 {prepared.prepared.quote.MaximumTokens} tokens · 模型成本上限 {prepared.prepared.quote.Currency} {(prepared.prepared.quote.MaximumCostMicros/1_000_000).toFixed(6)}</p><Button type="button" disabled={busy||disabled} onClick={confirm}>确认生成候选</Button></div>:null}
    {busy?<p role="status" className="text-sm">正在处理整理请求…</p>:null}
    {message?<p role="status" className="text-sm">{message}</p>:null}
    {error?<p role="alert" className="text-sm text-destructive">{error}</p>:null}

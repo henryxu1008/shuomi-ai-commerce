@@ -14,7 +14,6 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
-	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authz"
 	einoruntime "task-processor/internal/integration/agent/eino"
 	governed "task-processor/internal/integration/aicapability/einomodel"
@@ -23,16 +22,18 @@ import (
 	"task-processor/internal/product/collection/intake"
 )
 
+type ownIntakeMediaReader func(context.Context, string, int64) ([]byte, bool, error)
+
 type ownIntakeApplication struct {
-	parent   *productAgentApplication
-	media    productsourcing.SourceMedia
-	resolve  func(context.Context, aicapability.TextInputIdentity) (governed.QualifiedRoute, error)
-	executor *governed.Executor
-	receipts aicapability.InvocationReplayReader
-	runtime  *einoruntime.Runtime
+	parent    *productAgentApplication
+	readMedia ownIntakeMediaReader
+	resolve   func(context.Context, aicapability.TextInputIdentity) (governed.QualifiedRoute, error)
+	executor  *governed.Executor
+	receipts  aicapability.InvocationReplayReader
+	runtime   *einoruntime.Runtime
 }
 
-func buildOwnIntakeApplication(parent *productAgentApplication, media productsourcing.SourceMedia) (*ownIntakeApplication, error) {
+func buildOwnIntakeApplication(parent *productAgentApplication, readMedia ownIntakeMediaReader) (*ownIntakeApplication, error) {
 	if parent == nil || parent.config.ContentOnly || parent.config.ContentTitleOnly || parent.configuration == nil || parent.store == nil || parent.config.CurrentTextPolicies == nil {
 		return nil, nil
 	}
@@ -44,7 +45,7 @@ func buildOwnIntakeApplication(parent *productAgentApplication, media productsou
 	if !ok {
 		return nil, nil
 	}
-	a := &ownIntakeApplication{parent: parent, media: media, resolve: routes.Resolve, receipts: receipts}
+	a := &ownIntakeApplication{parent: parent, readMedia: readMedia, resolve: routes.Resolve, receipts: receipts}
 	a.executor = &governed.Executor{Ledger: parent.config.Ledger, Logger: parent.config.TextLogger, Admission: parent.textAdmission, Resolve: a.resolve, BaseTransport: parent.config.TextTransport,
 		Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 			id, err := a.identity(ctx)
@@ -122,7 +123,10 @@ func (a *ownIntakeApplication) input(ctx context.Context, key string, body ownIn
 		if len(body.ImageURL) > 2048 || body.Gallery[body.ImageNumber-1] != intakeDigest([]byte(body.ImageURL)) {
 			return out, agent.ErrInvalid
 		}
-		raw, recognized, err := a.media.ReadOwnIntake(ctx, body.ImageURL, aicapability.MaximumSingleImageBytes)
+		if a.readMedia == nil {
+			return out, agent.ErrUnavailable
+		}
+		raw, recognized, err := a.readMedia(ctx, body.ImageURL, aicapability.MaximumSingleImageBytes)
 		if err != nil {
 			return out, err
 		}
@@ -450,16 +454,4 @@ func (a *ownIntakeApplication) project(ctx context.Context, id agent.ExecutionId
 	}
 	out.Candidate = &candidate
 	return out, nil
-}
-
-func buildCurrentOwnIntake(parent *productAgentApplication, media *collectionSourceMediaDependencies, resolver organizationIdentityResolver, permissions *authz.ListingKitAuthorizer) (*ownIntakeApplication, error) {
-	var source productsourcing.SourceMedia
-	if media != nil {
-		authority, err := collection.NewContextAuthorizer(&productReviewLiveOrganizationAccess{resolver: resolver, now: time.Now}, permissions)
-		if err != nil {
-			return nil, err
-		}
-		source = productsourcing.SourceMedia{Storage: media.Storage, Authorization: authority, TrialURLs: media.TrialURLs}
-	}
-	return buildOwnIntakeApplication(parent, source)
 }

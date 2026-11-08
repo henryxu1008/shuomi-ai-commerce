@@ -124,7 +124,7 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	storage := &ownIntakeFixtureMedia{objects: map[string]s3.ImmutableObjectPut{}}
 	media := productsourcing.SourceMedia{Storage: storage, Authorization: authority}
 	service.WithSnapshots(snapshots).WithMedia(media)
-	app, err := buildOwnIntakeApplication(parent, media)
+	app, err := buildOwnIntakeApplication(parent, media.ReadOwnIntake)
 	require.NoError(t, err)
 	require.NotNil(t, app)
 	parent.ownIntake = app
@@ -200,6 +200,10 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	key := uuid.NewString()
 	var prepared ownIntakePrepared
 	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", key, body, 200), &prepared))
+	call("GET", ownIntakeBase+"/"+key, "", nil, 404)
+	var recovered ownIntakePrepared
+	require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", key, body, 200), &recovered))
+	require.Equal(t, prepared, recovered, "missing Run recovery uses the same prepared snapshot and quote")
 	require.Zero(t, calls.Load())
 	confirmation := ownIntakeConfirm{ownIntakeBody: body, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}
 	confirmation.Notes += "\n变更"
