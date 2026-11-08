@@ -19,6 +19,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
+	researchstore "task-processor/internal/integration/persistence/product/research"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	"task-processor/internal/product/review"
 )
@@ -41,8 +42,10 @@ func TestSupplyFeaturePreservesNonemptyProductAndRejectsDrift(t *testing.T) {
 	admin := openSupplyFeatureTestDB(t, dsn)
 	require.NoError(t, admin.Exec(`CREATE ROLE acquisition_owner LOGIN PASSWORD 'isolated-owner' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE source_acquisition_runtime LOGIN PASSWORD 'isolated-runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE data_services_runtime LOGIN PASSWORD 'isolated-runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+CREATE ROLE product_research_runtime LOGIN PASSWORD 'isolated-runtime' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 CREATE ROLE retained_reader NOLOGIN`).Error)
-	newFixture := func(t *testing.T) listingFeatureFixture {
+	newFixture := func(t *testing.T, options ...func(*acquisitionInitManifest)) listingFeatureFixture {
 		t.Helper()
 		name := "supply_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		require.NoError(t, admin.Exec("CREATE DATABASE "+name+" OWNER acquisition_owner").Error)
@@ -53,6 +56,9 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		port, err := strconv.Atoi(parsed.Port())
 		require.NoError(t, err)
 		manifest := acquisitionInitManifest{SchemaVersion: 1, Collections: true, CompletionDrafts: true}
+		for _, option := range options {
+			option(&manifest)
+		}
 		manifest.Database.Host, manifest.Database.Port = "127.0.0.1", port
 		manifest.Database.User, manifest.Database.Password, manifest.Database.Database = "acquisition_owner", "isolated-owner", name
 		path := filepath.Join(t.TempDir(), "owner.json")
@@ -62,12 +68,134 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		require.NoError(t, owner.Exec("GRANT SELECT ON product_collection_items TO retained_reader").Error)
 		var tables []string
 		require.NoError(t, owner.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
-		require.Len(t, tables, 14)
+		if len(options) == 0 {
+			require.Len(t, tables, 14)
+		}
 		manifest.SupplyChain = true
 		writeSupplyFeatureManifest(t, path, manifest)
 		parsed.User = url.UserPassword(acquisitionstore.RuntimeRole, "isolated-runtime")
 		return listingFeatureFixture{owner: owner, runtime: openSupplyFeatureTestDB(t, parsed.String()), manifest: path, database: name, baseTables: tables}
 	}
+
+	for _, tc := range []struct {
+		name      string
+		configure func(*acquisitionInitManifest)
+	}{
+		{"plans", func(m *acquisitionInitManifest) { m.AcquisitionPlans = true }},
+		{"market", func(m *acquisitionInitManifest) { m.SupplyMarket = true }},
+		{"image read", func(m *acquisitionInitManifest) { m.ImageSets = true }},
+		{"combined", func(m *acquisitionInitManifest) {
+			m.AcquisitionPlans = true
+			m.SupplyMarket = true
+			m.ImageSets = true
+			m.DataServices = true
+			m.SupplierReview = true
+		}},
+	} {
+		t.Run("declared installed capabilities/"+tc.name, func(t *testing.T) {
+			f := newFixture(t, tc.configure)
+			if tc.name == "combined" {
+				require.NoError(t, f.owner.Exec(`INSERT INTO product_acquisition_rule_templates VALUES ('org','actor','member','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',1,false,'{"synthetic":true}',repeat('a',64));
+INSERT INTO supply_market_records VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','org','actor','member','selected','DRAFT',1,'{"synthetic":true}',now());`).Error)
+			}
+			before := listingFeatureSnapshot(t, f.owner, f.baseTables)
+			var m acquisitionInitManifest
+			raw, err := os.ReadFile(f.manifest)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(raw, &m))
+			caps := acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true, AcquisitionPlans: m.AcquisitionPlans, SupplyMarket: m.SupplyMarket, ImageSets: m.ImageSets}
+			require.NoError(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.runtime, caps))
+			var wg sync.WaitGroup
+			errs := make(chan error, 2)
+			for range 2 {
+				wg.Add(1)
+				go func() { defer wg.Done(); errs <- EnableListing(ctx, f.manifest, f.database) }()
+			}
+			wg.Wait()
+			close(errs)
+			for err := range errs {
+				require.NoError(t, err)
+			}
+			require.Equal(t, before, listingFeatureSnapshot(t, f.owner, f.baseTables), "all saved synthetic facts and original ACLs must survive")
+			caps.SupplyChain = true
+			require.NoError(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.runtime, caps))
+			if m.DataServices {
+				require.NoError(t, acquisitionstore.VerifyDataServicesOwnerPermissions(ctx, f.owner, false))
+			}
+			if m.SupplierReview {
+				parsed, err := url.Parse(dsn)
+				require.NoError(t, err)
+				parsed.Path = "/" + f.database
+				parsed.User = url.UserPassword(researchstore.RuntimeRole, "isolated-runtime")
+				require.NoError(t, researchstore.VerifyRuntimePermissions(ctx, openSupplyFeatureTestDB(t, parsed.String())))
+			}
+			var tables []string
+			require.NoError(t, f.owner.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
+			installed := listingFeatureSnapshot(t, f.owner, tables)
+			require.NoError(t, EnableListing(ctx, f.manifest, f.database))
+			require.Equal(t, installed, listingFeatureSnapshot(t, f.owner, tables), "reentry is read-only verification")
+		})
+	}
+
+	t.Run("fresh combined Listing and market share one Review installation", func(t *testing.T) {
+		f := newFixture(t, func(m *acquisitionInitManifest) {
+			m.SupplyChain = true
+			m.AcquisitionPlans = true
+			m.SupplyMarket = true
+			m.ImageSets = true
+		})
+		require.NoError(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.runtime, acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true, SupplyChain: true, AcquisitionPlans: true, SupplyMarket: true, ImageSets: true}))
+		before := listingFeatureSnapshot(t, f.owner, f.baseTables)
+		require.NoError(t, EnableListing(ctx, f.manifest, f.database))
+		require.Equal(t, before, listingFeatureSnapshot(t, f.owner, f.baseTables))
+	})
+
+	t.Run("declared capabilities never install or repair retained dependencies", func(t *testing.T) {
+		for _, tc := range []struct{ name, change string }{
+			{"missing table", "DROP TABLE supply_market_events"},
+			{"missing privilege", "REVOKE UPDATE ON product_acquisition_plans FROM source_acquisition_runtime"},
+			{"schema drift", "ALTER TABLE supply_market_records DROP COLUMN revision"},
+			{"wrong optional owner", "ALTER TABLE supply_market_events OWNER TO retained_reader"},
+			{"missing independent capability", "DROP TABLE data_service_custom_events"},
+			{"column escalation", "GRANT UPDATE(input_hash) ON product_acquisition_rule_commands TO source_acquisition_runtime"},
+			{"grant option", "GRANT SELECT ON supply_market_records TO source_acquisition_runtime WITH GRANT OPTION"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				f := newFixture(t, func(m *acquisitionInitManifest) {
+					m.AcquisitionPlans = true
+					m.SupplyMarket = true
+					m.DataServices = true
+				})
+				parsed, err := url.Parse(dsn)
+				require.NoError(t, err)
+				parsed.Path = "/" + f.database
+				inspect := openSupplyFeatureTestDB(t, parsed.String())
+				require.NoError(t, inspect.Exec(tc.change).Error)
+				var tables []string
+				require.NoError(t, f.owner.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
+				before := listingFeatureSnapshot(t, inspect, tables)
+				require.Error(t, EnableListing(ctx, f.manifest, f.database))
+				require.Equal(t, before, listingFeatureSnapshot(t, inspect, tables))
+				var count int64
+				require.NoError(t, f.owner.Raw("SELECT count(*) FROM pg_tables WHERE schemaname='public'").Scan(&count).Error)
+				require.EqualValues(t, len(tables), count)
+			})
+		}
+	})
+
+	t.Run("omitted retained capabilities are rejected", func(t *testing.T) {
+		f := newFixture(t, func(m *acquisitionInitManifest) { m.AcquisitionPlans = true; m.SupplyMarket = true })
+		var m acquisitionInitManifest
+		raw, err := os.ReadFile(f.manifest)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(raw, &m))
+		m.AcquisitionPlans = false
+		m.SupplyMarket = false
+		writeSupplyFeatureManifest(t, f.manifest, m)
+		before := listingFeatureSnapshot(t, f.owner, f.baseTables)
+		require.Error(t, EnableListing(ctx, f.manifest, f.database))
+		require.Equal(t, before, listingFeatureSnapshot(t, f.owner, f.baseTables))
+	})
 
 	t.Run("atomic concurrent install and receipt verification preserve all existing facts and grants", func(t *testing.T) {
 		f := newFixture(t)
@@ -219,7 +347,7 @@ CREATE ROLE retained_reader NOLOGIN`).Error)
 		})
 	}
 
-	t.Run("feature manifest cannot expand or omit its exact baseline scope", func(t *testing.T) {
+	t.Run("feature manifest cannot invent missing capabilities or omit its required baseline", func(t *testing.T) {
 		f := newFixture(t)
 		before := listingFeatureSnapshot(t, f.owner, f.baseTables)
 		raw, err := os.ReadFile(f.manifest)
