@@ -144,7 +144,6 @@ var followingStockField = regexp.MustCompile(`(?i)^(?:SKU\b|货号|编码|币种
 const skuFieldPrefix = `(?i)(?:\bSKU\b|货号|商品编码)\s*[：:=]?\s*`
 
 var skuFieldValue = regexp.MustCompile(skuFieldPrefix + `([\p{L}\p{N}_-]+)`)
-var priceEvidence = regexp.MustCompile(`(?i)(?:价格|单价|price|[¥￥$€])\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
 
@@ -170,7 +169,7 @@ func (r Row) validate(in Input, index int) error {
 	if r.Currency != "" && (!currencyCode.MatchString(r.Currency) || !containsValue(r.Evidence, r.Currency)) {
 		return issue("price", "price_evidence")
 	}
-	if r.Price != nil && !(*r.Price >= 0 && !math.IsInf(*r.Price, 0) && r.priceIsExplicit()) {
+	if r.Price != nil && !(*r.Price >= 0 && !math.IsInf(*r.Price, 0) && r.priceIsExplicit(in.Notes)) {
 		return issue("price", "price_evidence")
 	}
 	if r.Stock != nil && (*r.Stock < 0 || int64(*r.Stock) > 9007199254740991 || !r.stockIsExplicit()) {
@@ -227,18 +226,6 @@ func (r Row) stockIsExplicit() bool {
 		}
 	}
 	return true
-}
-
-func (r Row) priceIsExplicit() bool {
-	if matchesNumber(priceEvidence, r.Evidence, *r.Price) {
-		return true
-	}
-	for _, m := range currencyEvidence.FindAllStringSubmatch(r.Evidence, -1) {
-		if n, err := strconv.ParseFloat(m[2], 64); err == nil && m[1] == r.Currency && n == *r.Price {
-			return true
-		}
-	}
-	return false
 }
 
 func matchesNumber(pattern *regexp.Regexp, evidence string, value float64) bool {

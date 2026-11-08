@@ -404,6 +404,38 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	require.JSONEq(t, string(unknownResult), string(call("GET", ownIntakeBase+"/"+unknownKey, "", nil, 200)))
 	require.JSONEq(t, string(unknownResult), string(call("POST", ownIntakeBase+"/"+unknownKey+"/confirm", unknownKey, unknown, 200)))
 	require.EqualValues(t, 4, calls.Load(), "an uncertain provider result must never be redispatched")
+	// Invalid prices stop on the guarded model path and preserve the field
+	// diagnostic on read/re-confirm, without a second controlled dispatch.
+	for _, source := range []string{"CNY 29-39", "CNY 29,999.00", "不是 CNY 29，价格待定", "CNY 29 或 CNY 39，尚未确认"} {
+		t.Run("price "+source, func(t *testing.T) {
+			notes := strings.Replace(ownIntakeFixtureNotes, "CNY 29", source, 1)
+			candidate := strings.Replace(ownIntakeFixtureCandidate, "CNY 29", source, 1)
+			app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
+				calls.Add(1)
+				return ownIntakeControlledResponse(candidate), nil
+			})
+			request := textBody
+			request.Notes = notes
+			key := uuid.NewString()
+			require.NoError(t, json.Unmarshal(call("POST", ownIntakeBase+"/prepare", key, request, 200), &prepared))
+			confirm := ownIntakeConfirm{ownIntakeBody: request, Ref: prepared.Ref, QuoteDigest: prepared.Quote.InputHash}
+			before := calls.Load()
+			response := call("POST", ownIntakeBase+"/"+key+"/confirm", key, confirm, 200)
+			var result ownIntakeResult
+			require.NoError(t, json.Unmarshal(response, &result))
+			require.Equal(t, agent.StopInvalidOutput, result.StopReason)
+			require.Nil(t, result.Candidate)
+			require.NotNil(t, result.ValidationError)
+			require.Equal(t, "rows[0].price", result.ValidationError.Field)
+			require.Equal(t, "price_evidence", result.ValidationError.Code)
+			require.NotContains(t, string(response), source)
+			require.JSONEq(t, string(response), string(call("GET", ownIntakeBase+"/"+key, "", nil, 200)))
+			require.JSONEq(t, string(response), string(call("POST", ownIntakeBase+"/"+key+"/confirm", key, confirm, 200)))
+			require.Equal(t, before+1, calls.Load())
+			require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
+			require.Zero(t, count, "price rejection never saves a product")
+		})
+	}
 
 }
 

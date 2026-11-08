@@ -22,3 +22,15 @@ it("preserves manual values and respects a previously removed row",()=>{
  expect(result.rows[0].id).toBe(first.id);
  expect(result.assigned.size).toBe(0);
 });
+
+it("keeps unknown prices blank and never overwrites a manual price",()=>{
+ const suggested={rows:[
+  {attributes:blackM,evidence:"black M",currency:"CNY",price:10},
+  {attributes:blackL,evidence:"black L"},
+  {attributes:whiteM,evidence:"white M",currency:"CNY",price:0},
+ ]};
+ const first={...newVariantRow(blackM),currency:"USD",price:"25.50"};
+ const result=applyIntakeVariants(suggested,[first],[],false,new Set());
+ expect(result.rows.map(row=>[row.currency,row.price])).toEqual([["USD","25.50"],["",""],["CNY","0"]]);
+ expect(result.rows[0].id).toBe(first.id);
+});
