@@ -201,6 +201,24 @@ func TestPostgresTargetImmutableRevisionsCommandReplayAndConcurrentCAS(t *testin
 	head, err := repository.ReadTargetHead(actor, scope, first.Record.TargetID)
 	require.NoError(t, err)
 	require.Equal(t, candidates[winner].Record, head)
+	firstSavedAt := first.Record.CreatedAt
+	inRange, err := repository.ListNewTargetIDs(actor, scope, []string{input.StoreID}, firstSavedAt, firstSavedAt.Add(time.Second), 10)
+	require.NoError(t, err)
+	require.Equal(t, []string{head.TargetID}, inRange, "target edits do not add to the first-revision cohort")
+	for _, query := range []struct {
+		scope      collection.Scope
+		store      string
+		start, end time.Time
+	}{
+		{scope, input.StoreID, firstSavedAt.Add(time.Microsecond), firstSavedAt.Add(time.Second)},
+		{scope, input.StoreID, firstSavedAt.Add(-time.Second), firstSavedAt},
+		{scope, uuid.NewString(), firstSavedAt, firstSavedAt.Add(time.Second)},
+		{collection.Scope{OrganizationID: "org-b", ActorID: scope.ActorID, MemberID: scope.MemberID}, input.StoreID, firstSavedAt, firstSavedAt.Add(time.Second)},
+	} {
+		ids, err := repository.ListNewTargetIDs(actor, query.scope, []string{query.store}, query.start, query.end, 10)
+		require.NoError(t, err)
+		require.Empty(t, ids)
+	}
 	original, err := repository.ReadTargetCommand(actor, scope, key)
 	require.NoError(t, err)
 	require.Equal(t, first.Record, original.Record, "new target revision never mutates the original record")

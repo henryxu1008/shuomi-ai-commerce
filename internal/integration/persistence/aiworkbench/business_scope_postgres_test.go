@@ -20,7 +20,7 @@ func TestIT4ScopedPostgresPaginationFiltersBeforeLimitAndChecksAnchors(t *testin
 	ctx := context.Background()
 	owner := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
 	add := func(selection aiworkbench.ScopeSelection, fixed aiworkbench.BusinessScope, when time.Time) string {
-		c, _, err := store.CreateScoped(ctx, owner, uuid.NewString(), aiworkbench.CreateInput{Selection: &selection}, &fixed, nil)
+		c, _, err := store.CreateScoped(ctx, owner, uuid.NewString(), aiworkbench.CreateInput{Selection: &selection, MemberID: "member-a"}, &fixed, nil)
 		require.NoError(t, err)
 		key := uuid.NewString()
 		plan, _, err := store.AppendUser(ctx, owner, c.ID, key, aiworkbench.MessageInput{Content: "Improve title", OperationID: "op-1", TargetPlatform: "shein"},
@@ -71,6 +71,28 @@ func TestIT4ScopedPostgresPaginationFiltersBeforeLimitAndChecksAnchors(t *testin
 	require.Equal(t, firstID, first.Tasks[0].ID)
 	require.NotEmpty(t, first.Next)
 	newID := add(filter, shop, when.Add(2*time.Second))
+	tasks, err := store.ListNewStoreTasks(ctx, owner, "member-a", []string{"shop"}, when, when.Add(2*time.Second), 10)
+	require.NoError(t, err)
+	require.Len(t, tasks, 2)
+	require.ElementsMatch(t, []string{firstID, secondID}, []string{tasks[0].ID, tasks[1].ID})
+	for _, task := range tasks {
+		frozen, err := store.ReadFrozenScope(ctx, owner, task.WorkbenchContextRef)
+		require.NoError(t, err)
+		require.Equal(t, "shop", frozen.Scope.StoreID)
+	}
+	latest, err := store.ListNewStoreTasks(ctx, owner, "member-a", []string{"shop"}, when.Add(2*time.Second), when.Add(3*time.Second), 10)
+	require.NoError(t, err)
+	require.Len(t, latest, 1)
+	require.Equal(t, newID, latest[0].ID)
+	otherStore, err := store.ListNewStoreTasks(ctx, owner, "member-a", []string{"other-shop"}, when, when.Add(3*time.Second), 10)
+	require.NoError(t, err)
+	require.Empty(t, otherStore)
+	otherOwner, err := store.ListNewStoreTasks(ctx, aiworkbench.Scope{OrganizationID: "org-b", ActorID: owner.ActorID}, "member-a", []string{"shop"}, when, when.Add(3*time.Second), 10)
+	require.NoError(t, err)
+	require.Empty(t, otherOwner)
+	otherMember, err := store.ListNewStoreTasks(ctx, owner, "different-member", []string{"shop"}, when, when.Add(3*time.Second), 10)
+	require.NoError(t, err)
+	require.Empty(t, otherMember)
 	second, err := store.ListScopedTasks(ctx, owner, filter, first.Next, 1, visible)
 	require.NoError(t, err)
 	require.Len(t, second.Tasks, 1)

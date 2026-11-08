@@ -339,6 +339,7 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		{"PATCH", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatUse, "metadata", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/messages", authz.PermissionWorkbenchChatUse, "message", 2 * time.Minute},
 		{"POST", workbenchChatBase + "/:conversation_id/proposals/:proposal_id/confirm", authz.PermissionWorkbenchChatUse, "confirm", 2 * time.Minute},
+		{"GET", workbenchTaskBase + "/cockpit-metrics", authz.PermissionWorkbenchTaskRead, "task-cockpit-metrics", 12 * time.Second},
 		{"GET", workbenchTaskBase + "/scopes", authz.PermissionWorkbenchTaskRead, "task-scope-options", 15 * time.Second},
 		{"GET", workbenchTaskBase, authz.PermissionWorkbenchTaskRead, "list-tasks", 15 * time.Second},
 		{"GET", workbenchTaskBase + "/:task_id", authz.PermissionWorkbenchTaskRead, "get-task", 15 * time.Second},
@@ -389,6 +390,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					a.confirmProposal(c, ctx, scope)
 				case "list-tasks":
 					a.listTasks(c, ctx, scope)
+				case "task-cockpit-metrics":
+					a.taskCockpitMetrics(c, ctx, scope)
 				case "get-task":
 					a.getTask(c, ctx, scope)
 				case "task-start", "task-resume", "task-review":

@@ -1,3 +1,4 @@
+import { isCockpitMetricsQuery } from "@/lib/contracts/cockpit-metrics";
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
 import {completionRevision} from "@/lib/contracts/completion-draft-navigation";
 import {materialsErrorStatuses} from "@/lib/contracts/listing-materials";
@@ -342,7 +343,7 @@ const workbenchRouteAllowlist = [
     ["GET","subject-read"], ["GET","scope-options"], ["GET", "conversation-list"], ["POST", "conversation-create"],
     ["GET", "conversation-read"], ["PATCH", "conversation-metadata"],
     ["POST", "message"], ["POST", "confirm"],
-    ["GET", "task-list"], ["GET", "task-read"], ["GET", "task-scope-options"],
+    ["GET", "task-list"], ["GET", "task-cockpit-metrics"], ["GET", "task-read"], ["GET", "task-scope-options"],
     ["POST", "task-start"], ["POST", "task-resume"], ["POST", "task-review"],
   ] as const).map(([method, name]) => routeDefinition(method, `ai-${name}`, `ai-${name}`,
     path => aiWorkbenchPath(method, path) === name ? path.join("/") : null)),
@@ -559,6 +560,14 @@ export async function buildWorkbenchUpstreamRequest(
         }else if(request.headers.has("Idempotency-Key"))return protocolError(400,"INVALID_REQUEST","Unexpected image key");
         headers.set("Content-Type","application/json");body=JSON.stringify(validated.data);
       }
+    } else if (route.requestContract === "supply-cockpit-metrics" || route.requestContract === "ai-task-cockpit-metrics") {
+      if (!authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER) !== authenticatedActorSubject)
+        return protocolError(409, "IDENTITY_CONTEXT_CHANGED", "Identity context changed");
+      const url = new URL(request.url);
+      if (!isCockpitMetricsQuery(url) || request.headers.has("Idempotency-Key") ||
+        request.headers.has("content-encoding") || !(await requestHasNoBody(request)))
+        return protocolError(400, "INVALID_REQUEST", "Metrics query is invalid");
+      query = url.search;
     } else if (supplyContract) {
       const action=route.requestContract.slice(7) as SupplyRoute;
       if(!authenticatedActorSubject || request.headers.get(EXPECTED_USER_ID_HEADER)!==authenticatedActorSubject)return protocolError(409,"IDENTITY_CONTEXT_CHANGED","Identity context changed");
@@ -1073,7 +1082,7 @@ export async function buildWorkbenchUpstreamRequest(
       (imageSetContract && request.method==="POST" && route.requestContract!=="image-set-preview" && route.requestContract!=="image-set-requirements") ||
       (supplyContract && supplyMutates(route.requestContract.slice(7) as SupplyRoute)) ||
       route.requestContract === "collection-command" || route.requestContract === "collection-media-upload" ||
-      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-read","ai-subject-read","ai-scope-options","ai-task-scope-options"].includes(route.requestContract)) ||
+      (route.requestContract.startsWith("ai-") && !["ai-conversation-list", "ai-conversation-read", "ai-task-list", "ai-task-cockpit-metrics", "ai-task-read","ai-subject-read","ai-scope-options","ai-task-scope-options"].includes(route.requestContract)) ||
       (route.requestContract.startsWith("store-connection-") && route.requestContract !== "store-connection-read" && route.requestContract !== "store-connection-applications") ||
       route.requestContract.startsWith("store-service-") ||
       (route.requestContract.startsWith("product-agent-") && (analysisContract?request.method==="POST":route.requestContract!=="product-agent-read")) ||

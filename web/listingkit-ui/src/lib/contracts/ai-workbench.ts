@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { taskMetrics } from "./cockpit-metrics";
 import {sameContentSelection,contentSelectionSchema} from "./content-selection";
 import {collectionVersion} from "./product-collection";
 import { isAcquisitionUUID } from "./product-acquisition";
@@ -81,7 +82,7 @@ export type AIConversation = z.infer<typeof conversation>;
 export type AIProposal = z.infer<typeof proposal>;
 
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
-  "scope-options" | "task-scope-options" | "subject-read" | "message" | "confirm" | "task-list" | "task-read" | "task-start" | "task-resume" | "task-review";
+  "scope-options" | "task-scope-options" | "subject-read" | "message" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review";
 
 export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRoute | null {
   if(method==="GET"&&path.length===4&&path[0]==="chat"&&path[1]==="subjects"&&["own_product","acquisition"].includes(path[2]??"")&&isAcquisitionUUID(path[3]??""))return "subject-read";
@@ -94,6 +95,7 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
     if (path.length === 6 && path[3] === "proposals" && isAcquisitionUUID(path[4] ?? "") && path[5] === "confirm" && method === "POST") return "confirm";
   }
   if (path[0] === "tasks") {
+    if (path.length === 2 && path[1] === "cockpit-metrics" && method === "GET") return "task-cockpit-metrics";
     if (path.length === 2 && path[1] === "scopes" && method === "GET") return "task-scope-options";
     if (path.length === 1 && method === "GET") return "task-list";
     if (!isAcquisitionUUID(path[1] ?? "")) return null;
@@ -108,6 +110,7 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
 }
 
 export const aiResponseSchemas = {
+ "task-cockpit-metrics": taskMetrics,
  "scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),
  "task-scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),
  "subject-read":z.strictObject({subject:aiTaskSubject,productKey:z.string().min(1).max(128)}),

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	listingapp "task-processor/internal/app/listing"
+	"task-processor/internal/app/workbenchmetrics"
 	"task-processor/internal/httproute"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
@@ -85,6 +86,7 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 		{"GET", "", "list", preparation.PermissionRead}, {"POST", "/transfer", "transfer", preparation.PermissionManage}, {"GET", "/transfers/by-key/:key", "transfer-read", preparation.PermissionRead},
 		{"GET", "/:preparation_id/sources", "sources", preparation.PermissionRead}, {"GET", "/sources/:source_id", "source", preparation.PermissionRead},
 		{"GET", "/:preparation_id/stages", "stages", preparation.PermissionRead},
+		{"GET", "/cockpit-metrics", "cockpit-metrics", preparation.PermissionRead},
 		{"POST", "/shein-completion-preview", "shein-completion-preview", preparation.PermissionManage},
 		{"GET", "/:preparation_id", "preparation", preparation.PermissionRead}, {"GET", "/:preparation_id/operations", "operations", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id", "publication", preparation.PermissionRead},
@@ -124,11 +126,21 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 					return
 				}
 			}
-			if spec.action != "upload-plans" && spec.action != "optimization-options" && spec.action != "list" && spec.action != "sources" && spec.action != "stages" && spec.action != "operation-items" && spec.action != "operations" && c.Request.URL.RawQuery != "" {
+			if spec.action != "cockpit-metrics" && spec.action != "upload-plans" && spec.action != "optimization-options" && spec.action != "list" && spec.action != "sources" && spec.action != "stages" && spec.action != "operation-items" && spec.action != "operations" && c.Request.URL.RawQuery != "" {
 				listingError(c, preparation.ErrInvalid)
 				return
 			}
 			switch spec.action {
+			case "cockpit-metrics":
+				now := time.Now()
+				filter, e := workbenchmetrics.Parse(c.Request.URL.RawQuery, now)
+				if e != nil {
+					listingError(c, preparation.ErrInvalid)
+					return
+				}
+				readCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+				defer cancel()
+				output, err = app.CockpitMetrics(readCtx, filter, now)
 			case "cancel-upload-plan", "create-upload-plan", "upload-plans", "upload-plan", "upload-plan-key", "upload-plan-preview", "continue-upload-plan", "upload-plan-command":
 				if app.UploadPlans == nil {
 					listingError(c, preparation.ErrUnavailable)

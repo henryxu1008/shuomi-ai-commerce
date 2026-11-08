@@ -1,19 +1,75 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { CockpitEntry } from "../console/cockpit-entry";
 import { cockpitRequest } from "@/lib/api/operations-cockpit";
+import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 const state = vi.hoisted(() => ({ context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a" }, permissions: ["workbench.cockpit.stores.read"], operationsCockpitAvailable: true, isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null } }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => state.context }));
 vi.mock("@/lib/api/operations-cockpit", async original => ({ ...await original<typeof import("@/lib/api/operations-cockpit")>(), cockpitRequest: vi.fn() }));
+vi.mock("@/lib/api/cockpit-metrics", () => ({ readCockpitMetrics: vi.fn() }));
+vi.mock("@/components/ui/chart", () => ({ EChart: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} /> }));
 const clients: QueryClient[] = [];
 const access = { goalsRead: false, goalsCreate: false, goalsManage: false, storesRead: true, factsWrite: false, alertsRead: false, adviceRead: false };
 const totals = { revenue: 120000, refunds: 0, procurement: 100000, logistics: 0, platform: 0, advertising: 0, other: 0, netRevenue: 120000, netProfit: 20000, margin: null };
 const capabilities = { access, today: "2026-10-11", stores: [] };
 const matrix = { rows: [], total: 0, page: 1, summary: totals, summaryComplete: false, states: { loss: 0, break_even: 0, recorded_complete: 0, data_incomplete: 0 }, capturedAt: "2026-10-11T00:00:00Z" };
 function mount() { const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client); const tree = () => <QueryClientProvider client={client}><CockpitEntry /></QueryClientProvider>; const view = render(tree()); return { ...view, update: () => view.rerender(tree()) }; }
-afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.mocked(cockpitRequest).mockReset(); state.context.isSwitching = false; state.context.effectiveOrganization = { id: "org-a" }; });
+afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.mocked(cockpitRequest).mockReset(); vi.mocked(readCockpitMetrics).mockReset(); state.context.permissions = ["workbench.cockpit.stores.read"]; state.context.isSwitching = false; state.context.effectiveOrganization = { id: "org-a" }; });
+it("updates listing and task metrics together when changing both date and store", async () => {
+  const first = "123e4567-e89b-42d3-a456-426614174000";
+  const second = "123e4567-e89b-42d3-a456-426614174001";
+  const store = { id: first, name: "店铺一", platform: "shein", region: "US", status: "active" };
+  const capturedAt = "2026-10-11T00:00:00Z";
+  state.context.permissions = ["workbench.cockpit.stores.read", "workbench.supply.read", "workbench.task.read"];
+  vi.mocked(cockpitRequest).mockImplementation(async (_scope,path) => path === "capabilities"
+    ? { ...capabilities, stores: [store, { ...store, id: second, name: "店铺二" }] } : matrix);
+  const taskResult = (errors: number) => ({
+    result: { status: "complete", capturedAt, counts: { RUNNING: 1, WAITING_CONFIRMATION: 0, COMPLETED: 0, ERROR: errors, PAUSED: 0, UNKNOWN: 0 } },
+  });
+  let resolveFilteredTask!: (result: ReturnType<typeof taskResult>) => void;
+  vi.mocked(readCockpitMetrics).mockImplementation(async (_scope, owner, query) => {
+    const params = new URLSearchParams(query);
+    const isYesterday = params.get("startDate") === "2026-10-10";
+    const oneStore = params.getAll("storeId").length === 1;
+    if (owner === "tasks" && isYesterday && oneStore) return new Promise(resolve => { resolveFilteredTask = resolve; });
+    if (owner === "tasks") return taskResult(isYesterday ? 2 : 5);
+    return { result: { status: "complete", capturedAt, counts: { pending: oneStore ? 1 : isYesterday ? 3 : 9, review: oneStore ? 0 : isYesterday ? 1 : 4 } } };
+  });
+
+  const cardValue = (name: string) => screen.getByRole("heading", { name }).parentElement?.parentElement?.querySelector("strong");
+  mount();
+  await screen.findByRole("img", { name: "执行状态分布，共 6 条任务" });
+  expect(cardValue("待处理商品")).toHaveTextContent("9");
+  expect(cardValue("待审核商品")).toHaveTextContent("4");
+  expect(cardValue("异常任务")).toHaveTextContent("5");
+
+  await userEvent.click(screen.getByRole("button", { name: "昨日" }));
+  await screen.findByRole("img", { name: "执行状态分布，共 3 条任务" });
+  expect(cardValue("待处理商品")).toHaveTextContent("3");
+  expect(cardValue("待审核商品")).toHaveTextContent("1");
+  expect(cardValue("异常任务")).toHaveTextContent("2");
+
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "店铺" }), second);
+  await waitFor(() => expect(resolveFilteredTask).toBeDefined());
+  for (const name of ["待处理商品", "待审核商品", "异常任务"]) expect(cardValue(name)).toHaveTextContent("—");
+  expect(screen.queryByRole("img", { name: /执行状态分布/ })).not.toBeInTheDocument();
+  await act(async () => resolveFilteredTask(taskResult(0)));
+  await screen.findByRole("img", { name: "执行状态分布，共 1 条任务" });
+  expect(cardValue("待处理商品")).toHaveTextContent("1");
+  expect(cardValue("待审核商品")).toHaveTextContent("0");
+  expect(cardValue("异常任务")).toHaveTextContent("0");
+  const ringLegend = screen.getByRole("list", { name: "任务状态数量" });
+  expect(within(ringLegend).getByText("异常").parentElement).toHaveTextContent("异常0");
+  const calls = vi.mocked(readCockpitMetrics).mock.calls;
+  expect(calls.slice(-2).map(([,owner,query]) => [owner,query])).toEqual([
+    ["supply-preparations", `startDate=2026-10-10&endDate=2026-10-10&storeId=${second}`],
+    ["tasks", `startDate=2026-10-10&endDate=2026-10-10&storeId=${second}`],
+  ]);
+  expect(screen.getByText("GMV 数据待接入")).toBeVisible();
+  expect(screen.getByText("上传结果统计待接入")).toBeVisible();
+});
 it("does not advertise or request oversized detail scopes and restores a valid single-store link", async () => {
   const stores=Array.from({length:400},(_,i)=>({id:`${(i+1).toString(16).padStart(8,"0")}-1111-4111-8111-111111111111`,name:`Store ${i}`,platform:"shein",region:"US"}));
   vi.mocked(cockpitRequest).mockImplementation(async (_scope,path)=>path==="capabilities"?{...capabilities,stores}:matrix);
