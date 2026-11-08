@@ -113,3 +113,30 @@ it("keeps pending upload recovery visible and blocks save when upload permission
  expect(screen.getByRole("button",{name:"核实原图片"})).toBeDisabled();expect(localStorage.getItem("shuomi_source_media_intent")).not.toBeNull();
  expect(f.save).not.toHaveBeenCalled();
 });
+
+
+it("saves, reloads and clears an internal note on a synthetic draft",async()=>{
+ const note="页面标称 9 件装，实际装箱件数待核实";
+ let persisted={...record,content:{...record.content,internalNote:undefined as string|undefined}};
+ f.read.mockImplementation(async()=>persisted);
+ f.save.mockImplementation(async({command})=>{
+  persisted={...record,revision:command.expectedRevision+1,content:JSON.parse(JSON.stringify(command.content))};
+  return {record:persisted,replayed:false};
+ });
+ const view=render(<CompletionDraftPage sourceId={id}/>);
+ const field=await screen.findByRole("textbox",{name:"内部备注"});
+ expect(field).toHaveValue("");
+ fireEvent.change(field,{target:{value:note}});
+ fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));
+ await screen.findByText(/^未绑定店铺 · 已保存 R2/);
+ expect(persisted.content).toEqual({...record.content,internalNote:note});
+ view.unmount();
+ render(<CompletionDraftPage sourceId={id}/>);
+ const reloaded=await screen.findByRole("textbox",{name:"内部备注"});
+ expect(reloaded).toHaveValue(note);
+ fireEvent.change(reloaded,{target:{value:""}});
+ fireEvent.click(screen.getByRole("button",{name:"保存待补全草稿"}));
+ await screen.findByText(/^未绑定店铺 · 已保存 R3/);
+ expect(screen.getByRole("textbox",{name:"内部备注"})).toHaveValue("");
+ expect(persisted.content).toEqual(record.content);
+});

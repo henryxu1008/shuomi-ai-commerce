@@ -152,12 +152,20 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	input2.ExpectedRevision = 1
 	input2.Content.Description = `<p><strong>Candidate R2</strong><img src="https://images.example.org/candidate.png"></p>`
 	input2.Content.DescriptionFormat = "html-v1"
+	input2.Content.InternalNote = "合成备注：包装待核实"
 	input2.Content.DescriptionImages = []string{"https://images.example.org/candidate.png"}
 	richKey := uuid.NewString()
 	second, err := service.Save(actor, richKey, input2)
 	require.NoError(t, err)
 	require.EqualValues(t, 2, second.Record.Revision)
 	require.Equal(t, input2.Content, second.Record.Content)
+	readSecond, err := service.Read(actor, input2.SourceID)
+	require.NoError(t, err)
+	require.Equal(t, input2.Content.InternalNote, readSecond.Content.InternalNote)
+	differentNote := input2
+	differentNote.Content.InternalNote = "another note"
+	_, err = service.Save(actor, richKey, differentNote)
+	require.ErrorIs(t, err, preparation.ErrConflict)
 	differentFormat := input2
 	differentFormat.Content.DescriptionFormat = ""
 	differentFormat.Content.DescriptionImages = nil
@@ -226,11 +234,16 @@ func TestPostgresUnboundDraftAtomicCASReplayAndUnknownRecovery(t *testing.T) {
 	lostService, err := completiondraft.NewService(selector, cs, ps, auth, lostRepo)
 	require.NoError(t, err)
 	unknownKey := uuid.NewString()
+	input2.Content.InternalNote = ""
 	_, err = lostService.Save(actor, unknownKey, input2)
 	require.ErrorIs(t, err, preparation.ErrUnknown)
 	recovered, err := service.ReadCommand(actor, unknownKey)
 	require.NoError(t, err)
 	require.EqualValues(t, 4, recovered.Record.Revision)
+	require.Empty(t, recovered.Record.Content.InternalNote)
+	cleared, err := service.Read(actor, input2.SourceID)
+	require.NoError(t, err)
+	require.Empty(t, cleared.Content.InternalNote)
 	// Candidate text never updates the canonical source snapshot.
 	var original string
 	require.NoError(t, db.Raw("SELECT snapshot_json->>'title' FROM product_snapshot_versions WHERE product_key=?", product).Scan(&original).Error)

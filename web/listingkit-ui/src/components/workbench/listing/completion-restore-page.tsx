@@ -76,9 +76,9 @@ function ScopedRestore({scope,sourceId,revision,preparationId,itemId}:Props&{sco
   {loading?<ConsoleState kind="loading" title="正在读取旧版与当前保存版本"/>:readError||receiptError?<ConsoleState kind="error" title="无法读取恢复内容">请确认当前权限、来源和版本。<Button variant="outline" disabled={command.busy||!!command.pending} onClick={refresh}>重新读取当前版本</Button></ConsoleState>:visible&&source?<div className="space-y-5">
    {saved?<Card role="status" className="space-y-3 p-5"><h2 className="font-semibold">已保存为 R{saved.revision}</h2><p className="text-sm text-muted-foreground">原操作的标题和描述已保存，全部历史记录及固定来源保持不变。当前版本以下方重新读取结果为准。</p><Button asChild variant="outline"><Link href={completionHistoryHref(sourceId,source.preparationId,itemId,{revision:saved.revision})}>查看已保存 R{saved.revision}</Link></Button></Card>:null}
    <Card className="flex flex-wrap items-center gap-3 p-5"><Badge variant="secondary">固定来源 V{source.source.version}</Badge><p className="break-all text-xs text-muted-foreground">来源 {sourceId} · 转入批次 {source.preparationId}</p></Card>
-   <CompletionTextComparison records={[visible.head,visible.old]} title="恢复内容预览" labels={[`当前已保存 R${visible.head.revision}`,`将采用旧版 R${revision} 内容`]}/>
+   <CompletionTextComparison records={[visible.head,visible.old]} title="恢复内容预览" includeInternalNote={false} labels={[`当前已保存 R${visible.head.revision}`,`将采用旧版 R${revision} 内容`]}/>
    <Card className="space-y-4 p-5">
-    <p className="text-sm">确认后将旧版 R{revision} 的标题和描述保存为新的版本，当前候选属性、价格、库存和全部历史记录保持不变。</p>
+    <p className="text-sm">确认后将旧版 R{revision} 的标题和描述保存为新的版本，当前内部备注、候选属性、价格、库存和全部历史记录保持不变。</p>
     {visible.old.revision===visible.head.revision?<p className="text-sm text-muted-foreground">所选版本已是当前版本，无需恢复。</p>:sameContent(visible.old.content,visible.head.content)?<p className="text-sm text-muted-foreground">标题和描述与当前版本相同，无需恢复。</p>:null}
     {visible.head.revision>=Number.MAX_SAFE_INTEGER?<p role="alert">保存版本已达上限，无法追加新版本。</p>:null}
     {conflict?<p role="alert" className="text-sm text-destructive">当前版本已变化，请重新读取并确认差异后再恢复。</p>:null}
