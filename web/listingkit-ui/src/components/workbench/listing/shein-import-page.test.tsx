@@ -75,3 +75,32 @@ it.each([
  expect(Object.fromEntries(savedHref.searchParams)).toEqual({preparation:id.batch,store:id.store,...after==="missing"?{mode:"platform"}:{}});
  expect(f.save).toHaveBeenCalledTimes(1);
 });
+
+it("keeps another store's original recovery receipt out of the current store navigation",async()=>{
+ const data=sheinImportFixture();
+ f.save.mockRejectedValueOnce(new SupplyAPIError("OUTCOME_UNKNOWN",503));
+ const original=render(<SheinImportPage {...props}/>);
+ await waitFor(()=>expect(preview()).toBeEnabled());
+ fireEvent.click(preview());
+ await waitFor(()=>expect(confirm()).toBeEnabled());
+ fireEvent.click(confirm());
+ await screen.findByText("结果待核实");
+ const pending=f.context.pendingSupplyIntent;
+ original.unmount();
+
+ const secondStore=id.candidate;
+ const secondBase={...data.base,id:id.saved,input:{...data.base.input,storeId:secondStore},merchant:{...data.base.merchant,store_id:secondStore}};
+ f.record.mockResolvedValue(secondBase);
+ f.rules.mockResolvedValue({...data.rules,merchant:secondBase.merchant});
+ f.verify.mockResolvedValue({...data.saved,record:{...data.saved.record,result:{...data.saved.record.result,ready_for_upload:true}}});
+ render(<SheinImportPage {...props} recordId={secondBase.id}/>);
+ await screen.findByText("目标平台草稿 R1");
+ fireEvent.click(screen.getByRole("button",{name:"核实原操作"}));
+ await waitFor(()=>expect(f.verify).toHaveBeenCalledWith(expect.objectContaining({key:pending!.key,command:pending!.command}),expect.any(AbortSignal)));
+ await waitFor(()=>expect(screen.queryByText("结果待核实")).not.toBeInTheDocument());
+ expect(screen.queryByText(/本次已保存 Target R2/)).not.toBeInTheDocument();
+ const target=new URL(screen.getByRole("link",{name:"返回平台草稿"}).getAttribute("href")!,"https://test.invalid");
+ expect(target.pathname).toBe("/workbench/listing/missing");
+ expect(Object.fromEntries(target.searchParams)).toEqual({preparation:id.batch,store:secondStore,mode:"platform"});
+ expect(f.save).toHaveBeenCalledTimes(1);
+});

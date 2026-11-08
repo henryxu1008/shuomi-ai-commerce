@@ -36,7 +36,13 @@ function ImportSource({scope,canManage,canReadStores,...props}:Props&{scope:Supp
  const [receipt,setReceipt]=useState<SupplyTarget>();
  const refreshSource=()=>{setData(undefined);setError(false);setStoreError(false);setReload(n=>n+1)};
  const loadStorePage=(next:number)=>{setStoreId("");setReceipt(undefined);setStores([]);setStoreError(false);setStorePage(next)};
- const command=useListingCommand(scope,(result,intent)=>{if(intent.route!=="save-target")return;const saved=targetReceiptSchema.parse(result).record;if(saved.source.id===props.sourceId&&"result" in saved&&saved.input.sheinImport)setReceipt(saved)});
+ const command=useListingCommand(scope,(result,intent)=>{
+  if(intent.route!=="save-target")return;
+  const saved=targetReceiptSchema.parse(result).record;
+  if(saved.source.id===props.sourceId&&"result" in saved&&saved.input.storeId===storeId&&saved.input.sheinImport){
+   setReceipt(saved);
+  }
+ });
  useEffect(()=>{const c=new AbortController();let live=true;
   void (async()=>{
    const detail=await readSupplySource(scope,props.sourceId,c.signal);
