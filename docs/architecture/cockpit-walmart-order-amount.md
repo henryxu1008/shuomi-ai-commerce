@@ -51,5 +51,3 @@ WalmartOrderQuery固定原Window、履约分区和上一页游标；WalmartOrder
 
 
 独立架构复核：/root/architecture_review已实际核对93ad47de0e67ad7f2e9320adfafc5588ca4fe7b0及每PO100行/250PO、Walmart独立金额字符串<=36字符补充，IMPLEMENTATION_READY，无剩余BLOCKER。毫秒日界、三分区/cursor、事务去重/local-only grant、歧义留存、最大精度与窄屏为IMPLEMENTATION_TEST。冻结后按此基线实施，不扩大正式在线范围。
-
-
