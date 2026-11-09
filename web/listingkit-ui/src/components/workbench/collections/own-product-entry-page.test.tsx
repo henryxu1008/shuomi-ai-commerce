@@ -1,4 +1,4 @@
-import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {OwnProductEntryPage} from "./own-product-entry-page";
@@ -14,6 +14,11 @@ vi.mock("./source-image-uploader",()=>({SourceImageUploader:({onImage,onBlocked,
 vi.mock("@/lib/api/product-collection",async original=>({...await original<object>(),mutateCollection:state.mutate,readCollectionOperation:state.read,readCollectionItem:state.item,listOwnProducts:async()=>({items:[],total:0}),listCollectionBatches:async()=>({items:[],total:0})}));
 const itemId="550e8400-e29b-41d4-a716-446655440002";
 beforeEach(()=>{state.mutate.mockReset();state.read.mockReset();state.item.mockReset();state.push.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.read","workbench.collection.manage"],pendingCollectionIntent:null,collectionIntentReady:true,pendingSupplyIntent:null,supplyIntentReady:true,registerOrganizationSwitchGuard:()=>()=>{},setPendingCollectionIntent:(value:CollectionIntent|null)=>{state.context.pendingCollectionIntent=value;return true}}});
+beforeEach(()=>{
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
+ Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+});
+afterEach(()=>vi.restoreAllMocks());
 afterEach(cleanup);
 
 const savedDetail={item:{id:itemId,batchId:itemId,revision:3,createdAt:"2026-10-14T01:00:00Z",source:{kind:"own" as const,productKey:"own-product",publicationId:itemId,version:"5"}},product:{title:"已有商品",brand:"原品牌",description:"原描述",attributes:[{name:"材质",value:"棉"}],images:[{url:"https://images.example.org/public.png"}],variants:[{source_id:"stable-sku",title:"原SKU标题",sku:"RED",attributes:[{name:"颜色",value:"红色"}],price:{amount:0,currency:"CNY"},stock:0,own_stock_declared:true,images:[{url:"https://images.example.org/red.png"},{url:"https://images.example.org/red-detail.png"}]}]}};
@@ -123,7 +128,38 @@ it("keeps local changes after a conflict and asks before abandoning them",async(
  const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);render(<OwnProductEditPage itemId={itemId}/>);
  await screen.findByDisplayValue("已有商品");await userEvent.type(screen.getByLabelText("商品名称"),"修改");await userEvent.click(screen.getByRole("button",{name:"保存新版本"}));
  expect(await screen.findByText("资料已发生变化，请刷新后重试。")).toBeInTheDocument();expect(state.push).not.toHaveBeenCalled();
- await userEvent.click(screen.getByRole("button",{name:"取消并返回详情"}));expect(confirm).toHaveBeenCalledOnce();expect(state.push).not.toHaveBeenCalled();confirm.mockRestore();
+ await userEvent.click(screen.getByRole("button",{name:"取消并返回详情"}));
+ const dialog=screen.getByRole("dialog",{name:"放弃未保存的修改？"});
+ await userEvent.click(within(dialog).getByRole("button",{name:"继续编辑"}));
+ expect(screen.getByLabelText("商品名称")).toHaveValue("已有商品修改");expect(state.push).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();
+ act(()=>state.block!(true));
+ await userEvent.click(screen.getByRole("button",{name:"重新读取最新资料"}));
+ expect(screen.getByRole("dialog",{name:"重新读取最新资料？"})).toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"放弃并重新读取"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"保留当前内容"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"关闭"})).toBeEnabled();
+ await userEvent.click(screen.getByRole("button",{name:"保留当前内容"}));
+ expect(screen.getByLabelText("商品名称")).toHaveValue("已有商品修改");expect(state.mutate).toHaveBeenCalledOnce();expect(confirm).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole("button",{name:"重新读取最新资料"}));
+ fireEvent(screen.getByRole("dialog",{name:"重新读取最新资料？"}),new Event("cancel",{cancelable:true}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.getByLabelText("商品名称")).toHaveValue("已有商品修改");
+});
+it("keeps unsaved input until explicit discard and never saves on either choice",async()=>{
+ const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);state.item.mockResolvedValue(savedDetail);
+ const view=render(<OwnProductEditPage itemId={itemId}/>);await screen.findByDisplayValue("已有商品");
+ await userEvent.type(screen.getByLabelText("商品名称"),"未保存");
+ const trigger=screen.getByRole("button",{name:"取消并返回详情"});await userEvent.click(trigger);
+ expect(screen.getByRole("button",{name:"继续编辑"})).toHaveFocus();
+ await userEvent.click(screen.getByRole("button",{name:"继续编辑"}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(trigger).toHaveFocus();expect(screen.getByLabelText("商品名称")).toHaveValue("已有商品未保存");expect(state.push).not.toHaveBeenCalled();
+ await userEvent.click(trigger);await userEvent.click(screen.getByRole("button",{name:"放弃修改"}));
+ expect(state.push).toHaveBeenCalledExactlyOnceWith(`/workbench/data/mine/own/${itemId}`);expect(state.mutate).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();
+ view.unmount();render(<OwnProductEditPage itemId={itemId}/>);await screen.findByDisplayValue("已有商品");expect(screen.getByLabelText("库存 1")).toHaveValue(0);
+});
+it("returns directly when the saved editor has no changes",async()=>{
+ state.item.mockResolvedValue(savedDetail);render(<OwnProductEditPage itemId={itemId}/>);await screen.findByDisplayValue("已有商品");
+ await userEvent.click(screen.getByRole("button",{name:"取消并返回详情"}));
+ expect(state.push).toHaveBeenCalledExactlyOnceWith(`/workbench/data/mine/own/${itemId}`);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(state.mutate).not.toHaveBeenCalled();
 });
 it("does not reuse a fresh base with stale restored content after original-key conflict",async()=>{
  const pending:CollectionIntent={userId:"actor-a",organizationId:"org-a",key:itemId,command:{action:"revise_product",itemId,expectedRevision:1,expectedSourceVersion:"1",expectedPublicationId:itemId,product:{title:"旧版待核实内容",description:"",images:[]}}};
