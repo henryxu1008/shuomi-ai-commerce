@@ -1,6 +1,6 @@
 # #1205：已有合成原件窄读取——局部设计候选
 
-状态：PRODUCT_CONFIRMED / ARCHITECTURE_IN_REVIEW / NOT_IMPLEMENTATION_READY。2026-11-09。
+状态说明（2026-11-09）：原设计 a9937773e 已通过架构复核并获实施授权；下文 §1–9 保留该冻结设计的提交时说明。单件读取/手工链已实施并完成离线及隔离自检，未部署；§10 是本次调用追踪发现、用户确认补齐的转入设计增量，尚待现有 Codex 的有界准入复核，不能以初始实现宣称全部 Must 满足。滚动证据维护在 PR。
 用户已授权当前同一Writer在原工作区提交/推送本设计、创建Ready PR，并核对准确HEAD的CI和现有Codex架构复核。未授权实施、运行配置变更、样本/业务写入、重启、模型/平台调用或合并；不新增Writer/Reviewer。
 
 ## 1. 用户结果与结论
@@ -158,3 +158,34 @@ Research AI目前的 `analysisSelection` 会调用与手工链相同的`Sources.
 仅设计文档及目录索引；原Writer/工作区继续，按用户授权创建Ready PR并由现有Codex做R1架构复核，不新增人员或重复触发评审。未改生产代码、配置、schema、原件/评估/决定、角色或凭据，未重启、部署、调用模型/平台，不关单。运行候选7dec未变。产品隔离范围已确认；架构复核等待准确HEAD结果，实现/新增边界验证及产品验收NOT_RUN。滚动HEAD/CI/评审证据维护在PR，不提交到本合同。
 
 Legacy decision: EXTRACT（当前仍有效的fixture精确读取/证明行为）；没有legacy兼容、迁移、双读/双写或第二事实源。文档中的候选接口与profile均未实现，也不是现有能力声明。
+
+
+## 10. 商品准备转入拒绝的有界补充
+
+2026-11-09，用户确认在同一 PR 补齐：仅新 manual profile 绑定的 B000123457，拒绝单件及整批中的新转入；原键回执找回、其他商品及旧合成验收流程保持。
+
+### 10.1 实际缺口与分类
+
+现有 `preparation.Service.Transfer` 先找原命令回执，再通过 Collection `SelectBatch` 获得固定选择；持久化 `preparation.Repository.Transfer` 在原同库事务中枚举该选择，仅以 `ListingTransferKind` 准入来源。B000123457 的原 `amazon_data` 类型合法，因此原“我的数据→转入商品准备”接口不消费 Research 的 REJECTED/APPROVED 决定，能够绕开只在 Research 拒绝批准的限制。
+
+Finding classification: BLOCKER（当前 Must 的用途限制不能由页面或下游执行拒绝代替；影响本切片最终交付）。不声称已产生真实错误写入。既有执行和发布守卫仍有效，但不能把它们当作转入拒绝的证据。
+
+### 10.2 最小方案与 owner
+
+- 不改 Collection 原件、来源类型、权限或已发布事实，不给原件加第二份持久化用途标签，不改所有合成资料的通用准入。
+- 在商品准备领域 Service 增加一个仅由服务器构造的不可变“人工原件转入排除”绑定：原 organization/actor/member + Collection item ID + publication ID。身份仍由现有当前成员授权确定；请求不能自报或解除此限制。
+- 同一配置同时装配 Research 窄读取与商品准备排除。当前正常 Listing、Source Materials、Completion Drafts 及 Acquisition Plans 提供 Preparation 转入入口的组合全部纳入；共享 application 重用同一 owner，独立 Preparation 组合也不得漏装。缺绑定/非法绑定拒绝启动，而不是仅约束某一页面。
+- Service 仍优先 `FindTransfer` 按原键/原载荷返回已提交回执。仅对新转入，把冻结的排除绑定封装在原 `TransferCommit` 中；不新增状态机、表或日志事实。
+- 持久化 owner 在原 `VisitSelection` 的逐件回调中、加入来源缓冲前核验排除。原 scope 下任一项匹配排除的 item ID 或 publication ID 均拒绝整个新事务，不跳过该项后把部分结果写成成功。显式单件与未提供 itemIds 的整批选择使用同一检查；已创建 Preparation 行及此前缓冲/写入的来源均由原事务回滚。
+- 不增加 DB 写权限、重试入口或业务命令。原键不同载荷仍冲突；并发同键按原 advisory lock 和原事务处理；UNKNOWN 仍按原键找回，不盲目新建。
+- 关闭新 profile 仅移除本次局部装配，绝不删除数据、改写原回执或恢复旧运行资格。此段不授权实际运行配置变化。
+
+### 10.3 必要实施义务
+
+1. 用既有隔离 PostgreSQL/Collection/Preparation 测试证明：未排除时原测试链仍成立；启用新绑定后，该件的单件转入与包含它的整批转入均返回拒绝且 Preparation/来源行无新增。
+2. 合成批次须包含正常项，证明不能部分写入；仅转其他项成功；原 scope 之外的正常组合不受影响。
+3. 在启用绑定之前已提交的相同请求，启用后仍可按原键/同载荷找回；不同载荷不冒充回执。原回执读取不触发新转入。
+4. 正常应用装配测试覆盖所有当前转入入口的服务连接；保留原 fixture 配置/导入守卫，不把所有 fixture 一律禁用或改变旧合成链。
+5. 继续复用下游执行/发布拒绝，不重做全仓验收；真实转入、运行、浏览器及产品验收 NOT_RUN。
+
+本补充只明确用户已经批准的“禁止该对象转入”在原 owner 的最小落点；不接受新风险。当前等待现有 Codex 对本增量的范围内架构准入，尚未实现这一新转入绑定。通过后先以失败回归捕获通用入口缺口，再在原 PR 最小实现。

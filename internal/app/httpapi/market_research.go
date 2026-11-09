@@ -102,9 +102,10 @@ func (a researchProjects) requireResearchProject(ctx context.Context, scope pc.S
 }
 
 type researchSources struct {
-	collections *collection.Service
-	data        *dataservicesapp.Module
-	fixture     *dataservicesapp.ResearchFixture
+	collections    *collection.Service
+	data           *dataservicesapp.Module
+	fixture        *dataservicesapp.ResearchFixture
+	manualOriginal *dataservicesapp.ResearchManualOriginalReader
 }
 
 func (a researchSources) Observe(ctx context.Context, scope collection.Scope, project string, in research.Selection) (research.Observation, error) {
@@ -124,6 +125,15 @@ func (a researchSources) Observe(ctx context.Context, scope collection.Scope, pr
 	principal := dataacquisition.Principal{Scope: scope}
 	var observation research.Observation
 	switch {
+	case a.manualOriginal != nil && collection.IsResearchFixtureProduct(detail.Item.Source.ProductKey):
+		var entry dataservicesapp.ResearchFixtureItem
+		entry, err = a.readManualOriginal(ctx, scope, project, in)
+		if err == nil && (entry.Item.Source != detail.Item.Source || entry.Item.ID != detail.Item.ID || entry.Item.BatchID != detail.Item.BatchID) {
+			err = research.ErrConflict
+		}
+		if err == nil {
+			observation = fixtureAmazonObservation(a.manualOriginal.BundleID(), researchManualOriginalKeyword, 5, entry, in)
+		}
 	case collection.IsResearchFixtureProduct(detail.Item.Source.ProductKey):
 		observation, err = a.observeFixture(ctx, scope, project, in, detail.Item)
 	case detail.Item.Source.Kind == "amazon_data":

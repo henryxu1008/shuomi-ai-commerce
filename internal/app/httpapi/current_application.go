@@ -225,6 +225,7 @@ type currentApplicationOptions struct {
 	aiWorkbenches                int
 	marketResearchDB             *gorm.DB
 	researchFixture              *ResearchFixtureBinding
+	researchManualOriginal       *dataservicesapp.ResearchManualOriginalBinding
 	marketResearchSupplierReview bool
 	marketResearchConfigs        int
 	sheinTrial                   *sheinTrialDependencies
@@ -669,6 +670,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.sheinTrialConfigs != 0 && (supplied.sheinTrialConfigs != 1 || supplied.sheinTrial == nil || !supplied.sheinTrial.complete() || supplied.marketResearchConfigs != 1) {
 		return nil, errors.New("SHEIN trial requires market research and one complete explicit composition")
+	}
+	if err := supplied.validateResearchManualOriginal(cfg.ListingKit.Zitadel.IssuerURL); err != nil {
+		return nil, err
 	}
 	if supplied.researchFixture != nil && (supplied.marketResearchConfigs != 1 || !supplied.marketResearchSupplierReview ||
 		supplied.productAcquisitionDB == nil || supplied.dataServices == nil || supplied.dataServices.ExecutionEnabled ||
@@ -1270,6 +1274,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			researchOwner := researchMod.(researchModule)
 			if supplied.researchFixture != nil {
 				if e := researchOwner.enableFixture(ctx, supplied.productAcquisitionDB, *supplied.researchFixture); e != nil {
+					return nil, e
+				}
+			}
+			if supplied.researchManualOriginal != nil {
+				if e := researchOwner.enableManualOriginal(ctx, supplied.productAcquisitionDB, *supplied.researchManualOriginal); e != nil {
 					return nil, e
 				}
 			}

@@ -43,6 +43,13 @@ func (s *Service) analysisSelection(ctx context.Context, scope collection.Scope,
 	if err := s.Projects.AuthorizeAnalysis(ctx, scope, project, current); err != nil {
 		return nil, err
 	}
+	if candidate, _, selection, enabled := s.manualOriginal(scope, project); enabled {
+		for _, in := range choices {
+			if in.CandidateID == candidate || sameManualOriginal(in.Selection, selection) {
+				return nil, ErrUnsupported
+			}
+		}
+	}
 	ordered := append([]AnalysisChoice(nil), choices...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Selection.ItemID < ordered[j].Selection.ItemID })
 	seen := map[string]bool{}

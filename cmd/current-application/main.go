@@ -184,6 +184,9 @@ func execute() error {
 					options = append(options, httpapi.WithMarketResearchSupplierReview())
 				}
 			}
+			if f := features.ResearchManualOriginal; f != nil {
+				options = append(options, httpapi.WithResearchManualOriginal(f.Binding))
+			}
 			if f := features.ResearchFixture; f != nil {
 				options = append(options, httpapi.WithResearchFixture(httpapi.ResearchFixtureBinding{
 					Scope: collection.Scope{OrganizationID: f.OrganizationID, ActorID: f.ActorID, MemberID: f.MemberID}, Project: f.ProjectID,
