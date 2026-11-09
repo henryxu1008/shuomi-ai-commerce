@@ -45,7 +45,7 @@ import (
 )
 
 const ownIntakeFixtureNotes = "黑 M，SKU BLK-M，CNY 29，库存明确为 0\n黑 L，SKU BLK-L，CNY 29，库存未填写\n白 M，SKU WHT-M，CNY 29，图片2"
-const ownIntakeFixtureCandidate = `{"title":"隔离验收 三规格上衣","description":"三种在售规格。","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存明确为 0","sku":"BLK-M","currency":"CNY","price":29,"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29，库存未填写","sku":"BLK-L","currency":"CNY","price":29},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","currency":"CNY","price":29,"image":2}]}`
+const ownIntakeFixtureCandidate = `{"title":"隔离验收 三规格上衣","description":"三种在售规格。","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存明确为 0","sku":"BLK-M","priceSuggestion":{"amount":29,"currency":"CNY","evidence":"CNY 29"},"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29，库存未填写","sku":"BLK-L","priceSuggestion":{"amount":29,"currency":"CNY","evidence":"CNY 29"}},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","priceSuggestion":{"amount":29,"currency":"CNY","evidence":"CNY 29"},"image":2}]}`
 
 func TestOwnIntakeHTTPAndIsolatedBrowser(t *testing.T) {
 	testProductAgentOwners(t, "own intake")
@@ -139,7 +139,7 @@ func configureOwnIntakeFixture(t *testing.T, settings *ProductAgentDependencies,
 		}
 		candidate := ownIntakeFixtureCandidate
 		if os.Getenv("OWN_INTAKE_BROWSER") == "1" && os.Getenv("OWN_INTAKE_BROWSER_PRESAVE") == "1" && dispatch == 2 {
-			candidate = strings.Replace(candidate, `"sku":"BLK-L","currency"`, `"sku":"BLK-L","stock":0,"currency"`, 1)
+			candidate = strings.Replace(candidate, `"sku":"BLK-L","priceSuggestion"`, `"sku":"BLK-L","stock":0,"priceSuggestion"`, 1)
 		}
 		return ownIntakeControlledResponse(candidate), nil
 	})
@@ -366,7 +366,7 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	require.NoError(t, publishFX(8_000_000))
 
 	// A model must not turn the explicitly unfilled black L stock into zero.
-	invalidCandidate := strings.Replace(ownIntakeFixtureCandidate, `"sku":"BLK-L","currency"`, `"sku":"BLK-L","stock":0,"currency"`, 1)
+	invalidCandidate := strings.Replace(ownIntakeFixtureCandidate, `"sku":"BLK-L","priceSuggestion"`, `"sku":"BLK-L","stock":0,"priceSuggestion"`, 1)
 	app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
 		calls.Add(1)
 		return ownIntakeControlledResponse(invalidCandidate), nil
@@ -377,24 +377,24 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 	invalidResult := call("POST", ownIntakeBase+"/"+invalidKey+"/confirm", invalidKey, invalidConfirmation, 200)
 	var rejected ownIntakeResult
 	require.NoError(t, json.Unmarshal(invalidResult, &rejected))
-	require.Equal(t, agent.StopInvalidOutput, rejected.StopReason)
-	require.Nil(t, rejected.Candidate)
-	require.NotNil(t, rejected.ValidationError)
-	require.Equal(t, "rows[1].stock", rejected.ValidationError.Field)
-	require.Equal(t, "stock_evidence", rejected.ValidationError.Code)
-	require.NotContains(t, string(invalidResult), "BLK-L", "diagnostic must not disclose model content")
+	require.Equal(t, agent.HumanReviewRequired, rejected.Phase)
+	require.NotNil(t, rejected.Candidate)
+	require.Nil(t, rejected.Candidate.Rows[1].Stock)
+	require.Equal(t, []int{1}, rejected.Candidate.StockReviewRows)
+	require.Equal(t, "BLK-L", rejected.Candidate.Rows[1].SKU)
+	require.Nil(t, rejected.ValidationError)
 	require.JSONEq(t, string(invalidResult), string(call("GET", ownIntakeBase+"/"+invalidKey, "", nil, 200)))
 	require.JSONEq(t, string(invalidResult), string(call("POST", ownIntakeBase+"/"+invalidKey+"/confirm", invalidKey, invalidConfirmation, 200)))
-	require.EqualValues(t, 3, calls.Load(), "invalid candidate readback must not call again")
+	require.EqualValues(t, 3, calls.Load(), "quarantined stock readback must not call again")
 	require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
 	require.Zero(t, count, "all offline verification stops before product save")
 
-	// Invalid prices stop on the guarded model path and preserve the field
-	// diagnostic on read/re-confirm, without a second controlled dispatch.
+	// Ambiguous prices remain suggestions for explicit human confirmation.
+	// Other valid fields survive, and read/re-confirm never dispatches again.
 	for _, source := range []string{"CNY 29-39", "CNY 29,999.00", "不是 CNY 29，价格待定", "CNY 29 或 CNY 39，尚未确认"} {
 		t.Run("price "+source, func(t *testing.T) {
-			notes := strings.Replace(ownIntakeFixtureNotes, "CNY 29", source, 1)
-			candidate := strings.Replace(ownIntakeFixtureCandidate, "CNY 29", source, 1)
+			notes := strings.ReplaceAll(ownIntakeFixtureNotes, "CNY 29", source)
+			candidate := strings.ReplaceAll(ownIntakeFixtureCandidate, "CNY 29", source)
 			app.executor.BaseTransport = analysisFixtureTransport(func(*http.Request) (*http.Response, error) {
 				calls.Add(1)
 				return ownIntakeControlledResponse(candidate), nil
@@ -408,17 +408,23 @@ func testOwnIntakeThroughOwners(t *testing.T, f *acquisitionHTTPFixture, parent 
 			response := call("POST", ownIntakeBase+"/"+key+"/confirm", key, confirm, 200)
 			var result ownIntakeResult
 			require.NoError(t, json.Unmarshal(response, &result))
-			require.Equal(t, agent.StopInvalidOutput, result.StopReason)
-			require.Nil(t, result.Candidate)
-			require.NotNil(t, result.ValidationError)
-			require.Equal(t, "rows[0].price", result.ValidationError.Field)
-			require.Equal(t, "price_evidence", result.ValidationError.Code)
-			require.NotContains(t, string(response), source)
+			require.Equal(t, agent.HumanReviewRequired, result.Phase)
+			require.NotNil(t, result.Candidate)
+			require.Nil(t, result.ValidationError)
+			require.Equal(t, "隔离验收 三规格上衣", result.Candidate.Title)
+			require.Equal(t, source, result.Candidate.Rows[0].PriceSuggestion.Evidence)
+			require.Equal(t, new(29.0), result.Candidate.Rows[0].PriceSuggestion.Amount)
+			require.NotContains(t, string(response), `"price":`)
+			require.NotContains(t, string(response), `"confirmed"`)
+			if strings.Contains(source, "尚未确认") {
+				require.Nil(t, result.Candidate.Rows[0].Stock)
+				require.Equal(t, []int{0}, result.Candidate.StockReviewRows)
+			}
 			require.JSONEq(t, string(response), string(call("GET", ownIntakeBase+"/"+key, "", nil, 200)))
 			require.JSONEq(t, string(response), string(call("POST", ownIntakeBase+"/"+key+"/confirm", key, confirm, 200)))
 			require.Equal(t, before+1, calls.Load())
 			require.NoError(t, f.owner.Table("product_collection_items").Count(&count).Error)
-			require.Zero(t, count, "price rejection never saves a product")
+			require.Zero(t, count, "pending price suggestions never save a product")
 		})
 	}
 

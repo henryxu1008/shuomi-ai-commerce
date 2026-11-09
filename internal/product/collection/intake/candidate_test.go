@@ -12,9 +12,9 @@ func naturalStockFixture(stock string) (Input, Candidate) {
 	lines := []string{"黑 M，SKU BLK-M，CNY 99，" + stock, "黑 L，SKU BLK-L，CNY 99，库存未填写", "白 M，SKU WHT-M，CNY 99，库存为 5，图片2"}
 	in := Input{Notes: strings.Join(lines, "\n"), GalleryCount: 2, SelectedImage: 1}
 	c := Candidate{Title: "黑白T恤", Rows: []Row{
-		{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: lines[0], SKU: "BLK-M", Currency: "CNY", Price: new(99.0), Stock: new(0)},
-		{Attributes: map[string]string{"颜色": "黑", "尺码": "L"}, Evidence: lines[1], SKU: "BLK-L", Currency: "CNY", Price: new(99.0)},
-		{Attributes: map[string]string{"颜色": "白", "尺码": "M"}, Evidence: lines[2], SKU: "WHT-M", Currency: "CNY", Price: new(99.0), Stock: new(5), Image: 2},
+		{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: lines[0], SKU: "BLK-M", PriceSuggestion: &PriceSuggestion{Amount: new(99.0), Currency: "CNY", Evidence: "CNY 99"}, Stock: new(0)},
+		{Attributes: map[string]string{"颜色": "黑", "尺码": "L"}, Evidence: lines[1], SKU: "BLK-L", PriceSuggestion: &PriceSuggestion{Amount: new(99.0), Currency: "CNY", Evidence: "CNY 99"}},
+		{Attributes: map[string]string{"颜色": "白", "尺码": "M"}, Evidence: lines[2], SKU: "WHT-M", PriceSuggestion: &PriceSuggestion{Amount: new(99.0), Currency: "CNY", Evidence: "CNY 99"}, Stock: new(5), Image: 2},
 	}}
 	return in, c
 }
@@ -76,8 +76,7 @@ func TestStockLabelsIgnoreSKUFragmentsAndKeepUnconfirmedUnknown(t *testing.T) {
 		sku := strings.Fields(line)[len(strings.Fields(line))-1]
 		c := Candidate{Rows: []Row{{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: line, SKU: sku, Stock: new(5)}}}
 		if strings.Contains(line, "CNY 99") {
-			c.Rows[0].Currency = "CNY"
-			c.Rows[0].Price = new(99.0)
+			c.Rows[0].PriceSuggestion = &PriceSuggestion{Amount: new(99.0), Currency: "CNY", Evidence: "CNY 99"}
 		}
 		require.NoError(t, c.Validate(in), line)
 	}
@@ -104,7 +103,7 @@ func TestStockSKUMaskingEndsAtTheIdentifiedValue(t *testing.T) {
 
 func TestCandidatePreservesSparseVariantsAndZero(t *testing.T) {
 	input := Input{Notes: "黑 M，SKU BLK-M，CNY 29，库存 0\n黑 L，SKU BLK-L，CNY 29\n白 M，SKU WHT-M，CNY 29，图片2", GalleryCount: 2}
-	raw := []byte(`{"title":"三规格上衣","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存 0","sku":"BLK-M","currency":"CNY","price":29,"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29","sku":"BLK-L","currency":"CNY","price":29},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","currency":"CNY","price":29,"image":2}]}`)
+	raw := []byte(`{"title":"三规格上衣","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"黑 M，SKU BLK-M，CNY 29，库存 0","sku":"BLK-M","priceSuggestion":{"amount":29,"currency":"CNY","evidence":"CNY 29"},"stock":0},{"attributes":{"颜色":"黑","尺码":"L"},"evidence":"黑 L，SKU BLK-L，CNY 29","sku":"BLK-L","priceSuggestion":{"amount":29,"currency":"CNY","evidence":"CNY 29"}},{"attributes":{"颜色":"白","尺码":"M"},"evidence":"白 M，SKU WHT-M，CNY 29，图片2","sku":"WHT-M","priceSuggestion":{"amount":29,"currency":"CNY","evidence":"CNY 29"},"image":2}]}`)
 	proposal, err := Decode(raw, input)
 	require.NoError(t, err)
 	require.Len(t, proposal.Rows, 3)
