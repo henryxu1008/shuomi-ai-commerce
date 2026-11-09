@@ -4,8 +4,8 @@ import {readFileSync} from "node:fs";
 import {ResearchPanel} from "./research-panel";
 import {ResearchError} from "@/lib/api/market-research";
 import {researchPage} from "@/lib/contracts/market-research";
-import {proxyMarketResearch} from "@/lib/server/market-research-proxy";
-import {WORKBENCH_COOKIE_NAME} from "@/lib/server/workbench-proxy";
+import {blankCostDraft} from "@/lib/workbench/research-cost-preview";
+
 import {parseCollectionResponse,type CollectionItem} from "@/lib/contracts/product-collection";
 const mock=vi.hoisted(()=>({read:vi.fn(),pickerItem:undefined as CollectionItem|undefined,context:{permissions:["workbench.collection.read","workbench.project.manage"],registerOrganizationSwitchGuard:()=>()=>{}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>mock.context}));
@@ -215,132 +215,81 @@ it("hands only the selected approved observations to the original per-batch conf
  expect(mock.read.mock.calls.every(call=>!call[4]?.intent)).toBe(true);
 });
 
-it("rechecks the exact Amazon observation for a cost preview and keeps the original decision independent", async () => {
- const selected={...candidate,state:"PENDING_CONFIRMATION"};
- mock.read.mockResolvedValue({items:[selected],incomplete:false});
+// The authoritative formula and source revalidation moved to Research's preview.
+// The page still owns identity isolation and the original pending command.
+function assessmentReads(value={...candidate,assessment:true,state:"PENDING_CONFIRMATION"},preview:()=>Promise<unknown>=async()=>({input:blankCostDraft(),result:{status:"INSUFFICIENT_INPUT",fields:["price"]},ruleVersion:"manual-unit-economics-v1"})) {
+ mock.read.mockImplementation(async(_scope,_project,_schema,_signal,options)=>{
+  if(options?.assessment?.preview)return preview();
+  if(options?.assessment)return {items:[]};
+  if(options?.intent)throw new ResearchError("OUTCOME_UNKNOWN");
+  return {items:[value],incomplete:false};
+ });
+}
+it("uses the server preview and keeps the unreferenced human decision available",async()=>{
+ assessmentReads();
  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
  fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
  fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
  expect(await screen.findByText("资料仍有缺项")).toBeVisible();
- expect(mock.read.mock.calls.filter(call=>!call[4]?.intent)).toHaveLength(2);
- expect(mock.read.mock.calls.filter(call=>call[4]?.intent)).toHaveLength(0);
+ expect(mock.read.mock.calls.filter(call=>call[4]?.assessment?.preview)).toHaveLength(1);
+ expect(mock.read.mock.calls.some(call=>call[4]?.intent)).toBe(false);
  fireEvent.change(screen.getByRole("textbox",{name:"选择理由"}),{target:{value:"继续核对货源条件"}});
  fireEvent.click(screen.getByRole("button",{name:"批准测试"}));
- await waitFor(()=>expect(mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent.body).toEqual({
-   action:"decide",candidateId:id,expectedRevision:2,evidenceDigest:"a".repeat(64),state:"APPROVED_FOR_TEST",reason:"继续核对货源条件",
- }));
+ await waitFor(()=>expect(mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent.body).toEqual({action:"decide",candidateId:id,expectedRevision:2,evidenceDigest:"a".repeat(64),state:"APPROVED_FOR_TEST",reason:"继续核对货源条件"}));
 });
-
-it.each(["account","organization","project","permission","archived"])("drops open preview and draft after %s changes", async change => {
- const scope={userId:"u",organizationId:"o"};
+it("edits only one candidate at a time and never transfers private assumptions to another",async()=>{
+ const other={...candidate,id:"22222222-2222-4222-8222-222222222222",assessment:true};
+ mock.read.mockImplementation(async(_s,_p,_schema,_signal,options)=>options?.assessment?{items:[]}:{items:[{...candidate,assessment:true},other],incomplete:false});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ const open=await screen.findAllByRole("button",{name:"填写经营假设"});fireEvent.click(open[0]);fireEvent.change(screen.getByLabelText("假设售价（USD/件）"),{target:{value:"30"}});
+ fireEvent.click(screen.getByRole("button",{name:"填写经营假设"}));
+ expect(screen.getAllByRole("form",{name:"经营假设和参考试算"})).toHaveLength(1);expect(screen.getByLabelText("假设售价（USD/件）")).toHaveValue("");
+});
+it("carries the explicitly chosen immutable assessment into the original human decision",async()=>{
+ const recordId="33333333-3333-4333-8333-333333333333";
+ const ref={assessmentId:recordId,revision:1,contextHash:"c".repeat(64),inputHash:"d".repeat(64)};
+ const record={id:recordId,candidateRevision:2,at:"2026-11-09T00:00:00Z",applicability:"CURRENT",detail:{ref,input:blankCostDraft(),result:{status:"INSUFFICIENT_INPUT",fields:["price"]},market:{itemId:id,revision:1,publicationId:id,version:"1"},supplierBinding:"UNKNOWN",ruleVersion:"manual-unit-economics-v1"}};
+ mock.read.mockImplementation(async(_scope,_project,_schema,_signal,options)=>options?.assessment?.id?record:options?.assessment?{items:[record]}:options?.intent?{key:options.intent.key,candidateIds:[id],revisions:{[id]:3},replayed:false,assessmentRef:ref}:{items:[{...candidate,assessment:true,state:"PENDING_CONFIRMATION"}],incomplete:false});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"查看并使用此记录中的条件"}));
+ await screen.findByText("本次明确引用经营评估："+recordId);
+ fireEvent.change(screen.getByRole("textbox",{name:"选择理由"}),{target:{value:"已明确考虑待补费用"}});
+ fireEvent.click(screen.getByRole("button",{name:"批准测试"}));
+ await waitFor(()=>expect(mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent.body.assessmentRef).toEqual(ref));
+});
+it.each(["account","organization","project","permission","archived"])("discards private unsaved conditions on %s changes",async change=>{
+ assessmentReads();const scope={userId:"u",organizationId:"o"};
  const result=render(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection"/>);
  fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
  fireEvent.change(screen.getByLabelText("假设售价（USD/件）"),{target:{value:"30"}});
- fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
- expect(await screen.findByText("资料仍有缺项")).toBeVisible();
  if(change==="permission")mock.context.permissions=["workbench.collection.read"];
- const changedScope=change==="account"?{...scope,userId:"another-user"}:change==="organization"?{...scope,organizationId:"another-org"}:scope;
- const changedProject=change==="project"?"22222222-2222-4222-8222-222222222222":id;
- result.rerender(<ResearchPanel scope={changedScope} projectId={changedProject} archived={change==="archived"} view="selection"/>);
- await waitFor(()=>expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument());
- expect(screen.queryByRole("form",{name:"经营假设和参考试算"})).not.toBeInTheDocument();
- if(change==="permission"||change==="archived")expect(screen.queryByRole("button",{name:"填写经营假设"})).not.toBeInTheDocument();
-});
-
-it.each(["new version","withdrawn","SHEIN"])("does not reuse preview evidence when the fresh page returns %s", async change => {
- const next=change==="new version"
-  ? {...candidate,observation:{...candidate.observation,ref:{...candidate.observation.ref,selection:{...candidate.observation.ref.selection,version:"2"}}}}
-  : change==="withdrawn"?{...candidate,observation:undefined,evidenceDigest:undefined}
-  : {...candidate,observation:{...candidate.observation,query:{mode:"category",categoryRef:"1727"},shein:{market:"US",nativeGoodsId:"456",price:null}}};
- mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false}).mockResolvedValue({items:[next],incomplete:false});
- render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
- fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
- fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
- expect(await screen.findByText(/原商品资料已变化或暂不可读/)).toBeVisible();
- expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument();
- // After the original page refresh, only a currently readable Amazon US version can reopen.
- fireEvent.click(screen.getByRole("button",{name:"刷新商品资料"}));
+ const nextScope=change==="account"?{...scope,userId:"another"}:change==="organization"?{...scope,organizationId:"another"}:scope;
+ result.rerender(<ResearchPanel scope={nextScope} projectId={change==="project"?"22222222-2222-4222-8222-222222222222":id} archived={change==="archived"} view="selection"/>);
  await waitFor(()=>expect(screen.queryByRole("form",{name:"经营假设和参考试算"})).not.toBeInTheDocument());
- if(change!=="new version")expect(screen.queryByRole("button",{name:"填写经营假设"})).not.toBeInTheDocument();
- expect(mock.read.mock.calls.every(call=>!call[4]?.intent)).toBe(true);
 });
-
-
-it("keeps one candidate's assumptions out of another candidate", async () => {
- const otherId="22222222-2222-4222-8222-222222222222";
- const other={...candidate,id:otherId,selectedLinkId:otherId,evidenceDigest:"b".repeat(64),observation:{
-  ...candidate.observation,title:"另一件保存商品",
- }};
- mock.read.mockResolvedValue({items:[candidate,other],incomplete:false});
+it.each(["AUTHENTICATION_REQUIRED","IDENTITY_CONTEXT_CHANGED","ORGANIZATION_CONTEXT_CHANGED","PERMISSION_DENIED","INVALID_UPSTREAM_RESPONSE","REVISION_CONFLICT"])("clears protected conditions after definite %s",async code=>{
+ assessmentReads(undefined,async()=>{throw new ResearchError(code)});
  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
- const entries=await screen.findAllByRole("button",{name:"填写经营假设"});
- expect(entries).toHaveLength(2);
- fireEvent.click(entries[0]);
- fireEvent.change(screen.getByLabelText("假设售价（USD/件）"),{target:{value:"30"}});
- fireEvent.click(screen.getByRole("button",{name:"填写经营假设"}));
- expect(screen.getAllByRole("form",{name:"经营假设和参考试算"})).toHaveLength(1);
- expect(screen.getByLabelText("假设售价（USD/件）")).toHaveValue("");
-});
-
-
-it.each(["AUTHENTICATION_REQUIRED","IDENTITY_CONTEXT_CHANGED","ORGANIZATION_CONTEXT_CHANGED","PERMISSION_DENIED","INVALID_UPSTREAM_RESPONSE"])(
- "clears a private cost draft when the Research read returns %s",
- async code=>{
-  mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false})
-   .mockRejectedValueOnce(new ResearchError(code));
-  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
-  fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
-  const price=screen.getByLabelText("假设售价（USD/件）");
-  fireEvent.change(price,{target:{value:"30"}});
-  fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
-  expect(await screen.findByText(/原商品资料已变化或暂不可读/)).toBeVisible();
-  expect(price).toHaveValue("");
-  expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument();
- },
-);
-
-
-it.each(["DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED"])(
- "retains the draft for a temporary %s read failure",
- async code=>{
-  mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false})
-   .mockRejectedValueOnce(new ResearchError(code));
-  render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
-  fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
-  const price=screen.getByLabelText("假设售价（USD/件）");
-  fireEvent.change(price,{target:{value:"30"}});
-  fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
-  expect(await screen.findByText(/已保留输入/)).toBeVisible();
-  expect(price).toHaveValue("30");
- },
-);
-
-
-it.each([403,503,504,"network"])("uses the actual Research response %s for an upstream failure",async status=>{
- const real=await vi.importActual<typeof import("@/lib/api/market-research")>("@/lib/api/market-research");
- vi.stubEnv("LISTINGKIT_SERVICE_API_BASE","http://127.0.0.1:9/api/v1");
- const upstream=vi.fn(async ()=>{
-  if(typeof status!=="number")throw new TypeError("network unavailable");
-  const code=status===403?"PERMISSION_DENIED":status===503?"DEPENDENCY_UNAVAILABLE":"DEADLINE_EXCEEDED";
-  return Response.json({code,message:"Synthetic backend error",requestId:"",fieldErrors:[]},{status});
- });
- const browser=vi.fn(async (url:string,init:RequestInit)=>{
-  if(status==="network")throw new TypeError("browser did not receive a response");
-  const headers=new Headers(init.headers);
-  headers.set("Cookie",WORKBENCH_COOKIE_NAME+"=o");
-  return proxyMarketResearch(new Request(new URL(url,window.location.origin),{...init,headers}),"fixture-only","u");
- });
- vi.stubGlobal("fetch",vi.fn((url:string,init:RequestInit)=>url.startsWith("/api/")?browser(url,init):upstream()));
- mock.read.mockResolvedValueOnce({items:[candidate],incomplete:false}).mockImplementationOnce(real.researchRequest);
- render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
- fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));
- const price=screen.getByLabelText("假设售价（USD/件）");
- fireEvent.change(price,{target:{value:"30"}});
+ fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));const price=screen.getByLabelText("假设售价（USD/件）");fireEvent.change(price,{target:{value:"30"}});
  fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));
- expect(await screen.findByText(status===403?/原商品资料已变化或暂不可读/:/已保留输入/)).toBeVisible();
- expect(price).toHaveValue(status===403?"":"30");
- expect(browser).toHaveBeenCalledOnce();
- expect(browser.mock.calls[0][1].method).toBe("GET");
- expect(upstream).toHaveBeenCalledTimes(status==="network"?0:1);
- expect(screen.queryByText("资料仍有缺项")).not.toBeInTheDocument();
+ expect(await screen.findByText(/原商品资料已变化或暂不可读/)).toBeVisible();expect(price).toHaveValue("");
+});
+it.each(["DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED"])("retains unsaved conditions after transient %s",async code=>{
+ assessmentReads(undefined,async()=>{throw new ResearchError(code)});
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false} view="selection"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));const price=screen.getByLabelText("假设售价（USD/件）");fireEvent.change(price,{target:{value:"30"}});
+ fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));expect(await screen.findByText(/已保留输入/)).toBeVisible();expect(price).toHaveValue("30");
+});
+it("keeps a lost assessment save in the existing session journal and reconciles the same key after remount",async()=>{
+ assessmentReads();const scope={userId:"u",organizationId:"o"};const props={scope,projectId:id,archived:false,view:"selection" as const};
+ const view=render(<ResearchPanel {...props}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"填写经营假设"}));fireEvent.change(screen.getByLabelText("假设售价（USD/件）"),{target:{value:"30"}});fireEvent.click(screen.getByRole("button",{name:"查看参考试算"}));await screen.findByText("资料仍有缺项");
+ fireEvent.click(screen.getByRole("button",{name:"保存本次评估"}));await screen.findByText("上一次操作还没有确认结果。");
+ const sent=mock.read.mock.calls.find(call=>call[4]?.intent)?.[4].intent;
+ expect(sent.body.assessment.cost.price).toBe("30");
+ const storageKey="resource.pending:"+JSON.stringify(["u","o","research",id]);expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual(sent);expect(localStorage.getItem(storageKey)).toBeNull();
+ view.unmount();
+ mock.read.mockImplementation(async(_scope,_project,_schema,_signal,options)=>options?.lookup?{key:sent.key,candidateIds:[id],revisions:{[id]:3},replayed:true,assessmentRef:{assessmentId:sent.key,revision:1,inputHash:"a".repeat(64),contextHash:"b".repeat(64)}}:options?.assessment?{items:[]}:{items:[{...candidate,assessment:true}],incomplete:false});
+ render(<ResearchPanel {...props}/>);fireEvent.click(await screen.findByRole("button",{name:"查询操作结果"}));
+ await waitFor(()=>expect(sessionStorage.getItem(storageKey)).toBeNull());expect(mock.read.mock.calls.filter(call=>call[4]?.intent)).toHaveLength(1);expect(mock.read.mock.calls.find(call=>call[4]?.lookup)?.[4].lookup).toBe(sent.key);
 });

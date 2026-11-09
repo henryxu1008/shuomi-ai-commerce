@@ -33,7 +33,7 @@ func (r *Repository) CommitSupplier(ctx context.Context, scope collection.Scope,
 		ctx, cancel = context.WithDeadline(ctx, proof.Expires)
 		defer cancel()
 	}
-	return r.commit(ctx, scope, project, key, cmd, nil, validation, &proof)
+	return r.commit(ctx, scope, project, key, cmd, nil, validation, &proof, nil)
 }
 
 func insertSupplierReview(tx *gorm.DB, scope collection.Scope, project, key string, cmd research.Command, revision int64, now time.Time, proof research.SupplierReviewProof) error {
@@ -70,7 +70,7 @@ func (r *Repository) ListSupplierReviews(ctx context.Context, scope collection.S
 		if json.Unmarshal(row.RecordJSON, &record) != nil {
 			return nil, research.ErrUnavailable
 		}
-		out = append(out, research.SupplierReviewRow{Revision: row.CandidateRevision, At: row.CreatedAt, Record: record})
+		out = append(out, research.SupplierReviewRow{RequestKey: row.RequestKey, Revision: row.CandidateRevision, At: row.CreatedAt, Record: record})
 	}
 	return out, nil
 }

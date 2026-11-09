@@ -94,3 +94,39 @@ func TestResearchHTTPRejectsForgedAndDuplicateInputBeforeDomainAccess(t *testing
 	require.Equal(t, 400, w.Code)
 	require.Equal(t, 1, repo.calls)
 }
+
+func TestAssessmentRoutesAreBoundedAndStrict(t *testing.T) {
+	for _, d := range researchRoutes(nil, false, true) {
+		require.NoError(t, ValidateDescriptor(d))
+		if strings.Contains(d.Path, "assessment-preview") {
+			require.Equal(t, "workbench.project.manage", d.Permission)
+		}
+	}
+	scope := collection.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"}
+	h := &Handler{Service: research.New(&scopeRepository{scope: scope}, scopeProjects{scope}, noSources{}), Bind: func(ctx context.Context, _ string) (context.Context, collection.Scope, error) { return ctx, scope, nil }}
+	router := gin.New()
+	for _, d := range researchRoutes(h, false, true) {
+		router.Handle(d.Method, d.Path, d.Handler)
+	}
+	id := "11111111-1111-4111-8111-111111111111"
+	invalidCost := `{"action":"save_assessment","candidateId":"` + id + `","expectedRevision":2,"linkId":"` + id + `","evidenceDigest":"` + strings.Repeat("a", 64) + `","assessment":{"cost":{"rule":"fixed_percent","purchaseCurrency":"USD","refundRate":"100.01"}}}`
+	invalidResponse := httptest.NewRecorder()
+	invalidRequest := httptest.NewRequest("POST", Base+"/"+id+"/candidates/"+id+"/assessment-preview", strings.NewReader(invalidCost))
+	invalidRequest.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(invalidResponse, invalidRequest)
+	require.Equal(t, 400, invalidResponse.Code)
+	require.Contains(t, invalidResponse.Body.String(), `"fields":["refundRate"]`)
+	require.NotContains(t, invalidResponse.Body.String(), "100.01")
+	for _, body := range []string{`{"action":"save_assessment","profit":"100"}`, `{"action":"save_assessment","action":"decide"}`, `{"organizationId":"forged"}`} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", Base+"/"+id+"/candidates/"+id+"/assessment-preview", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(w, req)
+		require.Equal(t, 400, w.Code)
+	}
+	for _, suffix := range []string{"/assessments?before=01", "/assessments?actorId=x", "/assessments/" + id + "?latest=true"} {
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest("GET", Base+"/"+id+"/candidates/"+id+suffix, nil))
+		require.Equal(t, 400, w.Code)
+	}
+}
