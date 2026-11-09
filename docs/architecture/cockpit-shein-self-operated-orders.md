@@ -1,6 +1,6 @@
 # SHEIN US 普通自运营消费者订单
 
-Design Basis: Independent Architecture。Admission Status: DESIGNING。执行 #1163；当前用户批准按公开文档核查后的建议推进，只做 US 普通自运营消费者订单，保留业务类型及销售范围，特殊 POP/SFS 单独核对，不增加仅本土销售筛选。正式代码须独立复核达到 IMPLEMENTATION_READY 后修改。
+Design Basis: Independent Architecture。Admission Status: IMPLEMENTATION_READY。执行 #1163；当前用户批准按公开文档核查后的建议推进，只做 US 普通自运营消费者订单，保留业务类型及销售范围，特殊 POP/SFS 单独核对，不增加仅本土销售筛选。
 
 ## 用户结果与范围
 
@@ -50,3 +50,5 @@ TDD 先捕获：授权业务模式解析/密文往返与格式边界；店铺信
 订单测试验证 salesArea 1/2/null/未知码经 parser → 原 PostgreSQL → GET/BFF 保留；详情展示准确，不把缺失当本土。独立新 PostgreSQL + 两家普通自运营店及有界特殊类型测试材料，使用原 Service/保存/统计和现有本地承载验证日期、店铺、原键重放/跨窗口去重、原generation、缺金额/币种、覆盖不足及特定来源排除。只用本轮必要测试及稳定候选 CI，不新增通用 runner 或专项工具平台。
 
 运行入口、准确候选与结果写 PR；新实例与测试数据保留供用户试用。完成实现进入 In Review，独立最终检查与用户产品验收分别记录；本轮不合并、不改原半托实例/原合成预览。
+
+独立架构复核：设计 c09e1f34b442e766431c5085373819fd58c92c7c 由 /root/architecture_review 确认 IMPLEMENTATION_READY，无 BLOCKER。6374a4666 已校准原 SHEIN 跨窗保存事实；该设计事实澄清及其余格式/准入/销售范围保留/半托回归归 IMPLEMENTATION_TEST，在本批实现验证中收敛，不新增同步协议。
