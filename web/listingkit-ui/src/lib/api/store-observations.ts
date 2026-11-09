@@ -129,7 +129,7 @@ export const observationRecordSchema = z
       [v.product,v.temuProduct,v.walmartProduct,v.order].filter(Boolean).length===1 &&
       (v.product?.id ?? v.temuProduct?.id ?? v.walmartProduct?.sku ?? v.order?.id) === v.id,
   );
-export const observationKindSchema = z.enum(["products", "orders"]);
+export const observationKindSchema = z.enum(["products", "orders", "supply-orders"]);
 export type ObservationKind = z.infer<typeof observationKindSchema>;
 const window = z.object({ start: date, end: date }).strict();
 export const observationSyncSchema = z
@@ -148,6 +148,7 @@ export const observationSyncSchema = z
     ]),
     progress: z
       .object({
+        supplyOrders: z.object({orderIds:z.array(identity).min(1).max(200),next:z.number().int().min(0).max(200),missingIds:z.array(identity).max(200)}).strict().optional(),
         page: z.number().int().min(1).max(5001),
         windows: z.array(window).max(512),
         expectedTotal: count.nullable(),
@@ -167,6 +168,7 @@ export const observationBeginSchema = z
   .object({
     kind: observationKindSchema,
     stores: z.array(observationID).max(500),
+    supplyOrderIds: z.array(identity.refine(v=>!/[,/\\?#]/u.test(v))).min(1).max(200).optional(),
     start: date.nullable().optional(),
     end: date.nullable().optional(),
   })
@@ -174,7 +176,8 @@ export const observationBeginSchema = z
   .refine(
     (v) =>
       new Set(v.stores).size === v.stores.length &&
-      (v.kind !== "products" || (!v.start && !v.end)),
+      (v.kind !== "products" || (!v.start && !v.end)) &&
+      (v.kind === "supply-orders" ? v.stores.length===1 && Boolean(v.supplyOrderIds?.length) && !v.start && !v.end : !v.supplyOrderIds),
   );
 export const observationCommandSchema = z
   .object({

@@ -14,6 +14,19 @@ type OfficialObservationProvider interface {
 	QueryObservedOrderDetails(context.Context, storecenter.OfficialMerchantCredential, []string) ([]o.Order, error)
 	QueryObservedTrack(context.Context, storecenter.OfficialMerchantCredential, string, string) ([]o.Track, error)
 }
+type OfficialSupplyOrderProvider interface {
+	QueryObservedSupplyOrders(context.Context, storecenter.OfficialMerchantCredential, []string) (o.SupplyPage, error)
+}
+
+func observationBinding(s storecenter.ObservationSubject, store string, m storecenter.ProductExecutionMaterial, k storecenter.OfficialMerchantCredential, mode storecenter.OfficialApplicationType) MerchantBinding {
+	b := officialMerchantBinding(s.OrganizationID, store, m, k, mode)
+	if s.Purpose == storecenter.ObservationPurposeSupplyOrders {
+		b.Site = "unknown"
+		b.Platform = storecenter.PlatformShein
+	}
+	return b
+}
+
 type OfficialObservationAccess struct {
 	reader        storecenter.ObservationReader
 	authorization storecenter.ObservationAuthorizer
@@ -49,7 +62,7 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	if a == nil || ctx == nil || ctx.Err() != nil {
 		return nil, o.ErrUnavailable
 	}
-	if s.Purpose != storecenter.ObservationPurposeProducts && s.Purpose != storecenter.ObservationPurposeOrders {
+	if s.Purpose != storecenter.ObservationPurposeProducts && s.Purpose != storecenter.ObservationPurposeOrders && s.Purpose != storecenter.ObservationPurposeSupplyOrders {
 		return nil, o.ErrForbidden
 	}
 	callerCtx, startedAt := ctx, a.now()
@@ -58,6 +71,9 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	m, e := a.reader.ReadObservation(ctx, s, store, a.authorization, a.now())
 	if e != nil {
 		return nil, observationError(e)
+	}
+	if s.Purpose == storecenter.ObservationPurposeSupplyOrders && m.Platform != storecenter.PlatformShein {
+		return nil, o.ErrUnsupported
 	}
 	if m.Platform == storecenter.PlatformWalmart {
 		return a.authorizeWalmartObservation(callerCtx, startedAt, s, store, expected, m)
@@ -75,6 +91,11 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	if s.Purpose == storecenter.ObservationPurposeOrders && entry.mode == storecenter.ApplicationFullyManaged {
 		return nil, o.ErrUnsupported
 	}
+	if s.Purpose == storecenter.ObservationPurposeSupplyOrders {
+		if _, ok := entry.provider.(OfficialSupplyOrderProvider); !ok || entry.mode != storecenter.ApplicationFullyManaged {
+			return nil, o.ErrUnsupported
+		}
+	}
 	k, e := entry.protection.Open(m.Attempt, m.Attempt.KeyID, m.Attempt.Ciphertext)
 	if e != nil || !validOfficialMaterial(s.OrganizationID, store, m, k, entry, a.now()) {
 		return nil, o.ErrConflict
@@ -82,7 +103,7 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	if s.Purpose == storecenter.ObservationPurposeOrders && entry.mode == storecenter.ApplicationSelfOperated && k.SheinBusinessMode != "" {
 		return nil, o.ErrUnsupported
 	}
-	binding := officialMerchantBinding(s.OrganizationID, store, m, k, entry.mode)
+	binding := observationBinding(s, store, m, k, entry.mode)
 	if expected != nil && *expected != binding {
 		return nil, o.ErrConflict
 	}
@@ -123,7 +144,7 @@ func (h *ObservationHandle) credential(ctx context.Context) (storecenter.Officia
 		}
 		return k, nil
 	}
-	if e != nil || !validOfficialMaterial(h.subject.OrganizationID, h.binding.StoreID, m, k, entry, h.owner.now()) || officialMerchantBinding(h.subject.OrganizationID, h.binding.StoreID, m, k, entry.mode) != h.binding {
+	if e != nil || !validOfficialMaterial(h.subject.OrganizationID, h.binding.StoreID, m, k, entry, h.owner.now()) || observationBinding(h.subject, h.binding.StoreID, m, k, entry.mode) != h.binding {
 		return storecenter.OfficialMerchantCredential{}, o.ErrConflict
 	}
 	if h.subject.Purpose == storecenter.ObservationPurposeOrders && entry.mode == storecenter.ApplicationSelfOperated && k.SheinBusinessMode != "" {
@@ -173,6 +194,15 @@ func (h *ObservationHandle) Products(ctx context.Context, page int) (o.ProductPa
 func (h *ObservationHandle) Orders(ctx context.Context, w o.Window, page int) (o.OrderPage, error) {
 	return observationCall(ctx, h, storecenter.ObservationPurposeOrders, func(ctx context.Context, k storecenter.OfficialMerchantCredential) (o.OrderPage, error) {
 		return h.entry.provider.(OfficialObservationProvider).QueryObservedOrders(ctx, k, w, page)
+	})
+}
+func (h *ObservationHandle) SupplyOrders(ctx context.Context, ids []string) (o.SupplyPage, error) {
+	return observationCall(ctx, h, storecenter.ObservationPurposeSupplyOrders, func(ctx context.Context, k storecenter.OfficialMerchantCredential) (o.SupplyPage, error) {
+		provider, ok := h.entry.provider.(OfficialSupplyOrderProvider)
+		if !ok || h.entry.mode != storecenter.ApplicationFullyManaged {
+			return o.SupplyPage{}, o.ErrUnsupported
+		}
+		return provider.QueryObservedSupplyOrders(ctx, k, ids)
 	})
 }
 func (h *ObservationHandle) OrderDetails(ctx context.Context, ids []string) ([]o.Order, error) {

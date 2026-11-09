@@ -57,6 +57,9 @@ func TestPreparationClosesAllBusinessRoutesBeforePersistenceOrDispatch(t *testin
 			if strings.Contains(path, "/orders/") {
 				kind = "orders"
 			}
+			if strings.Contains(path, "/supply-orders/") {
+				kind = "supply-orders"
+			}
 			body = strings.NewReader(`{"kind":"` + kind + `","stores":[]}`)
 		}
 		r := httptest.NewRequest(route.Method, path, body)
