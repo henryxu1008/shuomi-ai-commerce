@@ -153,6 +153,18 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 		require.True(t, facts[0].Ready)
 		require.Empty(t, facts[0].PublishedRecordID)
 	}
+	// Local color heads must never multiply the ordinary source projection or
+	// become candidates for existing upload/optimization operations.
+	colorStore, colorFamily := uuid.NewString(), uuid.NewString()
+	for range 2 {
+		targetID, recordID, partitionID := uuid.NewString(), uuid.NewString(), uuid.NewString()
+		require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,purpose,partition_id,family_id,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,'shein-us','shein_color_local',?,?,1,?,?,?::jsonb,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, targetID, projected[0].SourceID, colorStore, partitionID, colorFamily, collection.Digest("input"), collection.Digest("body"), "{}").Error)
+		require.NoError(t, db.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,purpose,partition_id,family_id,current_record_id,revision) VALUES(?,?,?,?,?,?,'shein-us','shein_color_local',?,?,?,1)", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID, projected[0].SourceID, colorStore, partitionID, colorFamily, recordID).Error)
+	}
+	colorFacts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, colorStore, collection.Digest("supplier"), "")
+	require.NoError(t, err)
+	require.Len(t, colorFacts, 100)
+	require.Empty(t, colorFacts[0].RecordID, "local-only children are discovered separately, never ordinary current Target")
 	opService, err := preparation.NewOperationService(service, collections, operations)
 	require.NoError(t, err)
 	_, err = opService.WithExecution(&operationExecutionAuth{})
@@ -387,7 +399,7 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 	_, err = repository.ListSources(actor, foreign, receipt.Preparation.ID, collection.Query{Limit: 100})
 	require.ErrorIs(t, err, preparation.ErrNotFound)
 	// Constructor is read-only: it does not repair an omitted required table.
-	require.NoError(t, db.Exec("DROP TABLE listing_walmart_feed_observations; DROP TABLE listing_walmart_sku_bindings; DROP TABLE listing_submission_official_receipts; DROP TABLE listing_submission_official_intents; DROP TABLE listing_target_record_commands; DROP TABLE listing_preparation_targets; DROP TABLE listing_target_records").Error)
+	require.NoError(t, db.Exec("DROP TABLE listing_walmart_feed_observations; DROP TABLE listing_walmart_sku_bindings; DROP TABLE listing_submission_official_receipts; DROP TABLE listing_submission_official_intents; DROP TABLE listing_target_split_commands; DROP TABLE listing_target_record_commands; DROP TABLE listing_preparation_targets; DROP TABLE listing_target_records").Error)
 	require.NoError(t, db.Exec("DROP TABLE listing_preparation_operation_items; DROP TABLE listing_preparation_operations").Error)
 	require.NoError(t, db.Exec("DROP TABLE listing_preparation_sources").Error)
 	_, err = NewRepository(ctx, db)

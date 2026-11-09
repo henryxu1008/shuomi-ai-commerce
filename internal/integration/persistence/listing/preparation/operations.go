@@ -203,7 +203,7 @@ func prepareOperationTx(ctx context.Context, tx *gorm.DB, scope collection.Scope
 					Revision        int64
 					Site            string
 				}
-				query := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=?", scope.OrganizationID, scope.ActorID, scope.MemberID, source.ID, input.StoreID)
+				query := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=? AND purpose='standard'", scope.OrganizationID, scope.ActorID, scope.MemberID, source.ID, input.StoreID)
 				if input.Action == preparation.OperationUpload {
 					query = query.Where("site IN ?", []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us", "walmart-us"})
 				} else {
@@ -517,14 +517,14 @@ func (r *OperationRepository) BindOperationTarget(ctx context.Context, proof pre
 			CurrentRecordID string
 			Revision        int64
 		}
-		if err := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=? AND site='shein-us'", row.OrganizationID, row.ActorID, row.MemberID, sourceID, op.Input.StoreID).Take(&head).Error; err != nil {
+		if err := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=? AND purpose='standard' AND site='shein-us'", row.OrganizationID, row.ActorID, row.MemberID, sourceID, op.Input.StoreID).Take(&head).Error; err != nil {
 			return err
 		}
 		if head.CurrentRecordID != recordID || head.Revision != revision {
 			return preparation.ErrConflict
 		}
 		var count int64
-		if err := tx.Table("listing_target_records").Where("organization_id=? AND actor_id=? AND member_id=? AND id=? AND source_id=? AND store_id=? AND site='shein-us' AND revision=?", row.OrganizationID, row.ActorID, row.MemberID, recordID, sourceID, op.Input.StoreID, revision).Count(&count).Error; err != nil {
+		if err := tx.Table("listing_target_records").Where("organization_id=? AND actor_id=? AND member_id=? AND id=? AND source_id=? AND store_id=? AND purpose='standard' AND site='shein-us' AND revision=?", row.OrganizationID, row.ActorID, row.MemberID, recordID, sourceID, op.Input.StoreID, revision).Count(&count).Error; err != nil {
 			return err
 		}
 		if count != 1 {

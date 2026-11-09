@@ -186,3 +186,12 @@ Cutover/deletion condition: 页面接到同一服务端计算并核对原用例�
 - **D3 原请求会话恢复**：仅对用户已显式保存、尚待核对的命令，复用现有 sessionStorage 有界保存原经营输入，原回执确定后清除；未保存草稿仍不持久化，不把 UI 临时 state 当作可靠恢复。
 
 初次确认覆盖 D1–D3 及设计提交/推送/Ready PR、正常 CI 与现有 Codex 自动架构评审；后续用户已单独批准按该已评审 HEAD 实施及维护原 PR。未批准保留环境安装、真实数据/Key/平台动作、合并、部署或 Issue 关闭。#1201 只核本批实际市场/供货/准备交接，未证实的缺口保留 UNKNOWN，不自行扩范围。
+
+
+## 11. 指定统一实例的评估表定向准备（2026-11-09）
+
+用户已确认复用统一实例现有功能/身份/数据，先准备#1205最小整合及评估表安装，检查后再确认更新；35448保留。本决定仅替代本功能“只能新空库安装”的阶段限制，不授权实际库DDL、镜像构建、重启或部署。Design Basis: Reuse Existing Architecture / READY；复用本设计既有表/事实owner/事务/权限/原键及Product显式feature installer，无数据迁移或旧事实重新解释。
+
+现有product-acquisition-init增加互斥的--enable-research-assessments和准确--confirm-database；沿私密owner manifest、30s预算、原source-acquisition-init advisory事务锁。必须是实际目标库的acquisition_owner、原四张Research表owner及schema/供货核对schema正确，runtime无危险角色能力。只有目标表缺失才调用同一InstallAssessmentSchema；存在时严格核对表形状、owner、约束及准确ACL，不能重建/修复或回填。安装/校验同事务，失败全部回滚；新表仅Research runtime SELECT/INSERT，原表/grants/记录不变。
+
+隔离验证覆盖非空库数据/grants保留、重复/并发安装、错误库/owner/原schema/目标schema或ACL漂移拒绝及事务失败无残留。不新增installer框架、第二schema定义或serving DDL。组合源码仅带本功能及路由、已批准退休边界；不随之升级DataServices计价/Store观察schema，旧CI不作为新组合直接执行结果。运行/真实保存恢复/浏览器业务/产品验收NOT_RUN，最终镜像及实例更新另行确认。

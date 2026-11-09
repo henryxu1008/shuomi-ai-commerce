@@ -110,6 +110,18 @@ func (r *Repository) Begin(ctx context.Context, scope o.Scope, key, hash string,
 	if !scope.Valid() || !o.ValidID(key) || !o.Text(hash, 64) || hash == "" || !in.Kind.Valid() || len(children) == 0 || len(children) > 500 || len(children) != len(in.Stores) {
 		return o.Command{}, o.ErrInvalid
 	}
+	if in.Kind == o.SupplyOrders {
+		ids, e := o.NormalizeSupplyOrderIDs(in.SupplyOrderIDs)
+		if e != nil || !reflect.DeepEqual(ids, in.SupplyOrderIDs) || len(children) != 1 || in.Start != nil || in.End != nil {
+			return o.Command{}, o.ErrInvalid
+		}
+		p := children[0].Progress.SupplyOrders
+		if !o.ValidSupplyProgress(p) || p.Next != 0 || len(p.MissingIDs) != 0 || !reflect.DeepEqual(p.OrderIDs, ids) || children[0].Binding.Platform != storecenter.PlatformShein || children[0].Binding.ApplicationType != storecenter.ApplicationFullyManaged {
+			return o.Command{}, o.ErrInvalid
+		}
+	} else if len(in.SupplyOrderIDs) > 0 {
+		return o.Command{}, o.ErrInvalid
+	}
 	var out o.Command
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Serializes only this original member's parent operation, including a lost
@@ -237,12 +249,23 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 			next.Note(note)
 		}
 		next.Incomplete = next.Incomplete || current.Progress.Incomplete
+		if current.Kind == o.SupplyOrders {
+			if e := o.ValidateSupplyCommit(current, next, records, status); e != nil {
+				return e
+			}
+		}
 		seen := map[string]bool{}
 		for _, v := range records {
 			if v.StoreID != current.StoreID || v.SyncID != current.ID || !o.Identity(v.ID) || seen[v.ID] || at.Before(current.CreatedAt) {
 				return o.ErrInvalid
 			}
 			seen[v.ID] = true
+			if v.SupplyOrder != nil && current.Kind != o.SupplyOrders {
+				return o.ErrInvalid
+			}
+			if current.Kind == o.SupplyOrders && (v.SupplyOrder == nil || v.Product != nil || v.Order != nil || v.TemuProduct != nil || v.WalmartProduct != nil || v.WalmartOrder != nil || v.TikTokOrder != nil || v.TemuOrder != nil) {
+				return o.ErrInvalid
+			}
 			validProduct := v.TemuOrder == nil && v.TikTokOrder == nil && current.Binding.Platform != storecenter.PlatformTikTokShop && v.WalmartProduct == nil && v.Order == nil && v.Product != nil && v.TemuProduct == nil && v.Product.ID == v.ID && current.Binding.Platform != storecenter.PlatformTemu && current.Binding.Platform != storecenter.PlatformWalmart
 			if current.Binding.Platform == storecenter.PlatformTemu {
 				validProduct = v.WalmartProduct == nil && v.Order == nil && v.Product == nil && v.TemuProduct != nil && v.TemuProduct.ID == v.ID && temuo.ValidProduct(*v.TemuProduct) && v.TemuProduct.Mode == string(current.Binding.MerchantMode)
@@ -309,6 +332,7 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				next.Note("duplicate_platform_identity")
 			}
 			payload, _ := json.Marshal(struct {
+				SupplyOrder    *o.SupplyOrder   `json:"supplyOrder,omitempty"`
 				TemuOrder      *o.TemuOrder     `json:"temuOrder,omitempty"`
 				TikTokOrder    *o.TikTokOrder   `json:"tiktokOrder,omitempty"`
 				WalmartOrder   *o.WalmartOrder  `json:"walmartOrder,omitempty"`
@@ -316,7 +340,7 @@ func (r *Repository) CommitPage(ctx context.Context, expected o.Sync, next o.Che
 				Product        *o.Product       `json:"product,omitempty"`
 				TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
 				Order          *o.Order         `json:"order,omitempty"`
-			}{v.TemuOrder, v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
+			}{v.SupplyOrder, v.TemuOrder, v.TikTokOrder, v.WalmartOrder, v.WalmartProduct, v.Product, v.TemuProduct, v.Order})
 			if len(payload) > 262144 {
 				return o.ErrInvalid
 			}

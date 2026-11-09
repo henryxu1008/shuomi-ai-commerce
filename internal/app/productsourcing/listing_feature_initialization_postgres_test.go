@@ -219,7 +219,8 @@ INSERT INTO supply_market_records VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 		require.Error(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.owner, capabilities), "maintenance verification must not admit serving as owner")
 		var tables []string
 		require.NoError(t, f.owner.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
-		require.Len(t, tables, 29)
+		require.Len(t, tables, 30)
+		require.Contains(t, tables, "listing_target_split_commands")
 		require.Contains(t, tables, "listing_preparation_upload_plans")
 		require.Contains(t, tables, "listing_preparation_upload_plan_items")
 		require.NoError(t, f.owner.Exec(`INSERT INTO product_title_operations VALUES ('org','actor','retained-command','fingerprint','retained-response')`).Error)
@@ -257,7 +258,8 @@ INSERT INTO supply_market_records VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 			require.NoError(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.runtime, acquisitionstore.RuntimeCapabilities{Collections: true, CompletionDrafts: true, SupplyChain: true}))
 			var tables []string
 			require.NoError(t, f.owner.Raw("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename").Scan(&tables).Error)
-			require.Len(t, tables, 29)
+			require.Len(t, tables, 30)
+			require.Contains(t, tables, "listing_target_split_commands")
 			require.Contains(t, tables, "listing_preparation_upload_plans")
 			require.Contains(t, tables, "listing_preparation_upload_plan_items")
 			installed := listingFeatureSnapshot(t, f.owner, tables)

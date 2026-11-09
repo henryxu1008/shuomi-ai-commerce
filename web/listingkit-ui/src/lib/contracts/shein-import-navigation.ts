@@ -5,6 +5,6 @@ export function sheinImportHref(sourceId:string,preparationId:string,itemId?:str
  return `/workbench/listing/missing/${collectionID.parse(sourceId)}/shein?${query}`;
 }
 export function sheinImportNavigation(query:Record<string,string|string[]|undefined>){
- const {target,revision,...rest}=query,navigation=completionDraftNavigation(rest);if(!navigation||target!==undefined&&(typeof target!=="string"||!collectionID.safeParse(target).success)||revision!==undefined&&completionRevision(revision)===null)return null;
- return {...navigation,recordId:target as string|undefined,revision:revision===undefined?undefined:completionRevision(revision)!};
+ const {target,revision,family,...rest}=query,navigation=completionDraftNavigation(rest);if(!navigation||family!==undefined&&(typeof family!=="string"||!collectionID.safeParse(family).success)||target!==undefined&&(typeof target!=="string"||!collectionID.safeParse(target).success)||revision!==undefined&&completionRevision(revision)===null)return null;
+ return {...navigation,familyId:family as string|undefined,recordId:target as string|undefined,revision:revision===undefined?undefined:completionRevision(revision)!};
 }

@@ -1,0 +1,25 @@
+import {act,render,screen,waitFor} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
+import {afterEach,expect,it,vi} from "vitest";
+import {SheinSupplyTimes} from "./shein-supply-times";
+import {observationRequest} from "@/lib/api/store-observations";
+import {supplyTimeLabels} from "@/lib/contracts/shein-supply-time-detail";
+vi.mock("@/lib/api/store-observations",async original=>({...await original<typeof import("@/lib/api/store-observations")>(),observationRequest:vi.fn()}));
+afterEach(()=>vi.clearAllMocks());
+const scope={organizationId:"org",userId:"user"},a="d6f6ca0a-27e2-4c4a-b1aa-4505110ae635",b="c0d81244-c016-442a-8184-3cac18dce4ee";
+const record={id:"PO-A",supplyOrder:{businessTimes:{source:"/open-api/order/purchase-order-infos",values:Object.fromEntries(Object.keys(supplyTimeLabels).map(k=>[k,k==="addTime"?{state:"local_datetime",rawType:"string",raw:"1970-01-01 08:00:01"}:{state:"missing",rawType:"missing",raw:null}]))}}};
+it("shows original text and missing states, clears detail on shop/batch changes and hides it after failed refresh",async()=>{
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});const wrap=({children}:{children:React.ReactNode})=><QueryClientProvider client={client}>{children}</QueryClientProvider>;
+ vi.mocked(observationRequest).mockResolvedValue(record);
+ const view=render(<SheinSupplyTimes key="a-sync" scope={scope} storeId={a} syncId={a} ids={["PO-A"]}/>,{wrapper:wrap});
+ await userEvent.click(screen.getByText("查看业务时间原始值"));await userEvent.selectOptions(screen.getByLabelText("查看时间的采购单"),"PO-A");
+ await screen.findByText('"1970-01-01 08:00:01"');expect(screen.getAllByText("无原始值")).toHaveLength(12);
+ expect(vi.mocked(observationRequest).mock.calls[0][0]).toBe(`supply-orders/stores/${a}/syncs/${a}/records/PO-A`);
+ vi.mocked(observationRequest).mockRejectedValue(new Error("revoked"));
+ await act(async()=>{await client.refetchQueries({queryKey:["operations-cockpit",scope.userId,scope.organizationId]})});
+ await screen.findByRole("alert");expect(screen.queryByText('"1970-01-01 08:00:01"')).toBeNull();
+ view.rerender(<SheinSupplyTimes key="b-sync" scope={scope} storeId={b} syncId={b} ids={["PO-B"]}/>);
+ await waitFor(()=>expect(screen.getByLabelText("查看时间的采购单")).toHaveValue(""));expect(screen.queryByRole("alert")).toBeNull();expect(screen.queryByText("原单：PO-A",{exact:false})).toBeNull();
+ client.clear();
+});

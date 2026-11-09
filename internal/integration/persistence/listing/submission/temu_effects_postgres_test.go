@@ -72,7 +72,7 @@ func TestPostgresTemuImageRenewalRequiresLatestKnownExpiredSuccess(t *testing.T)
 	for _, table := range []string{effectsstore.AttemptTable, effectsstore.TargetFenceTable, "listing_submission_official_intents", "listing_submission_official_receipts"} {
 		require.NoError(t, db.Exec("GRANT SELECT,INSERT,UPDATE ON "+table+" TO temu_runtime31").Error)
 	}
-	require.NoError(t, db.Exec("GRANT SELECT ON listing_walmart_sku_bindings,listing_walmart_feed_observations TO temu_runtime31").Error)
+	require.NoError(t, db.Exec("GRANT SELECT ON listing_target_split_commands,listing_walmart_sku_bindings,listing_walmart_feed_observations TO temu_runtime31").Error)
 	runtimeDSN, err := url.Parse(dsn)
 	require.NoError(t, err)
 	runtimeDSN.User = url.UserPassword("temu_runtime31", "synthetic-runtime-only")
@@ -362,4 +362,21 @@ func seedTemuImageSuccess(t *testing.T, db *gorm.DB, saved record.TargetRecord, 
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("INSERT INTO listing_submission_official_receipts(organization_id,actor_id,member_id,attempt_id,intent_key,store_id,subject_id,kind,body_hash,body_json) VALUES(?,?,?,?,?,?,?,'image',?,?::jsonb)", r.Owner.OrganizationID, r.Owner.ActorID, r.Owner.MemberID, r.ID, r.IntentKey, r.Target.StoreID, r.Target.SubjectID, collection.Digest(r), string(encoded)).Error)
 	return r
+}
+
+// Fixture-only platform replacement preserves the full head -> immutable record
+// FK at every statement boundary; serving code never rewrites these records.
+func replaceEffectFixtureRecord(t *testing.T, db *gorm.DB, saved record.TargetRecord) {
+	t.Helper()
+	raw, e := json.Marshal(saved)
+	require.NoError(t, e)
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		if e := tx.Exec("DELETE FROM listing_preparation_targets WHERE organization_id=? AND actor_id=? AND id=?", saved.Merchant.OrganizationID, "actor-a", saved.TargetID).Error; e != nil {
+			return e
+		}
+		if e := tx.Exec("UPDATE listing_target_records SET site=?,input_hash=?,body_hash=?,body_json=?::jsonb WHERE id=?", saved.Merchant.Site, collection.Digest(saved.Input), collection.Digest(saved), string(raw), saved.ID).Error; e != nil {
+			return e
+		}
+		return tx.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,purpose,partition_id,family_id,current_record_id,revision) SELECT organization_id,actor_id,member_id,target_id,source_id,store_id,site,purpose,partition_id,family_id,id,revision FROM listing_target_records WHERE id=?", saved.ID).Error
+	}))
 }

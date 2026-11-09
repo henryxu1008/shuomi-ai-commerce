@@ -95,6 +95,8 @@ func (a Authorization) AuthorizeObservation(ctx context.Context, s storecenter.O
 	case storecenter.ObservationPurposeProducts:
 	case storecenter.ObservationPurposeOrders:
 		kind = o.Orders
+	case storecenter.ObservationPurposeSupplyOrders:
+		kind = o.SupplyOrders
 	default:
 		return storecenter.ObservationAuthorization{}, storecenter.ErrNotFound
 	}

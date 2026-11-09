@@ -1055,7 +1055,10 @@ export async function buildWorkbenchUpstreamRequest(
     responseContract: route.responseContract,
     expectedStoreId:analysisContract?JSON.stringify(analysisBinding(path,headers.get("Idempotency-Key")??undefined)):route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
       route.requestContract.startsWith("supply-shein-")&&route.requestContract!=="supply-shein-completion-preview"&&typeof body==="string"?JSON.stringify({...JSON.parse(body),key:headers.get("Idempotency-Key")??JSON.parse(body).key}):
-      route.requestContract==="supply-shein-completion-preview"&&typeof body==="string"?body:
+      route.requestContract==="supply-color-split-list"?`${path[2]}:${path[4]}`:
+ route.requestContract==="supply-color-split-family"?`${path[2]}:${path[4]}`:
+ ["supply-color-split-preview","supply-create-color-split"].includes(route.requestContract)&&typeof body==="string"?body:
+ route.requestContract==="supply-shein-completion-preview"&&typeof body==="string"?body:
       route.requestContract.startsWith("supply-materials-")?`${path[2]}:${path[5]??request.headers.get("Idempotency-Key")??(typeof body==="string"?JSON.parse(body).requestKey:"")}`:
       route.requestContract==="product-acquisition-plan-read"||route.requestContract==="product-acquisition-plan-advance"?path[3]:
       ["supply-cancel-upload-plan","supply-upload-plan","supply-upload-plan-preview","supply-continue-upload-plan","supply-upload-plan-command"].includes(route.requestContract)?path[2]:
@@ -1169,7 +1172,7 @@ export async function buildWorkbenchBrowserResponse(
     if(!parsedBody||!payload)return invalid();
     if(upstream.ok){const checked=parseSupplyResponse(contract.slice(7) as SupplyRoute,payload,expectedStoreId);return upstream.status===200 && checked?new NextResponse(JSON.stringify(checked),{status:200,headers:safeJSONHeaders()}):invalid();}
     const standard=parseWorkbenchErrorEnvelopePayload(payload);const code=typeof payload.code==="string"?payload.code:standard.success?standard.data.code:"";
-    const statuses:Record<string,number>={...acquisitionErrorStatuses,INVALID_REQUEST:400,PERMISSION_DENIED:403,NOT_FOUND:404,REVISION_CONFLICT:409,NOT_READY:409,OUTCOME_UNKNOWN:409,...(contract.startsWith("supply-materials-")?materialsErrorStatuses:{})};
+    const statuses:Record<string,number>={...acquisitionErrorStatuses,INVALID_REQUEST:400,PERMISSION_DENIED:403,NOT_FOUND:404,REVISION_CONFLICT:409,NOT_READY:409,SPLIT_ALREADY_EXISTS:409,OUTCOME_UNKNOWN:409,...(contract.startsWith("supply-materials-")?materialsErrorStatuses:{})};
     if(statuses[code]!==upstream.status)return invalid();
     const response=protocolError(upstream.status,code,"Supply request could not be completed",options.requestId??"");
     if(code==="ORGANIZATION_ACCESS_REVOKED"||code==="ORGANIZATION_ACCESS_DENIED")clearSelectionCookie(response);return response;

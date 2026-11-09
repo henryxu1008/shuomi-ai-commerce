@@ -26,6 +26,23 @@ type uploadAuth struct {
 	denied bool
 }
 
+func TestColorLocalTargetCannotReachUploadSideEffects(t *testing.T) {
+	service, scope, records, merchant, kernel, official, _ := uploadFixture(t)
+	records.saved.Input.ColorPartition = &record.ColorPartition{LocalOnly: true}
+	records.saved.Result.ReadyForUpload = true
+	_, err := service.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.ErrorIs(t, err, record.ErrForbidden)
+	require.Zero(t, merchant.transforms)
+	require.Zero(t, merchant.publishes)
+	require.Empty(t, kernel.attempts)
+	require.Empty(t, official.intents)
+	require.Empty(t, official.receipts)
+	require.False(t, record.PublicationReady(records.saved))
+	app := &Application{Authorization: &uploadAuth{scope: scope}, Uploader: service}
+	_, err = app.ReadUploadAttempt(context.Background(), records.saved.ID, uuid.NewString())
+	require.ErrorIs(t, err, record.ErrForbidden)
+}
+
 func (a *uploadAuth) Authorize(context.Context, string) (collection.Scope, error) {
 	return a.scope, nil
 }

@@ -47,7 +47,7 @@ func ValidPlatformRecord(value TargetRecord) bool {
 }
 
 func PublicationReady(value TargetRecord) bool {
-	if !ValidPlatformRecord(value) {
+	if value.Input.ColorPartition != nil || !ValidPlatformRecord(value) {
 		return false
 	}
 	if value.Merchant.Platform == storecenter.PlatformWalmart {

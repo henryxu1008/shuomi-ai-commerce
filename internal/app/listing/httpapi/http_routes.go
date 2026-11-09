@@ -93,6 +93,11 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 		{"GET", "/temu-create-metrics", "temu-create-metrics", preparation.PermissionRead},
 		{"GET", "/submission-overview-metrics", "submission-overview-metrics", preparation.PermissionRead},
 		{"POST", "/shein-completion-preview", "shein-completion-preview", preparation.PermissionManage},
+		{"POST", "/shein-color-split-preview", "color-split-preview", preparation.PermissionManage},
+		{"POST", "/shein-color-splits", "create-color-split", preparation.PermissionManage},
+		{"GET", "/shein-color-split-commands/:key", "color-split-command", preparation.PermissionRead},
+		{"GET", "/sources/:source_id/stores/:store_id/color-splits", "color-split-list", preparation.PermissionRead},
+		{"GET", "/sources/:source_id/color-splits/:family_id", "color-split-family", preparation.PermissionRead},
 		{"GET", "/:preparation_id", "preparation", preparation.PermissionRead}, {"GET", "/:preparation_id/operations", "operations", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id", "publication", preparation.PermissionRead},
 		{"GET", "/sources/:source_id/publications/:store_id/status/:receipt_id", "publication-status", preparation.PermissionRead},
@@ -241,6 +246,50 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 				case "shein-shelf-result":
 					output, err = app.SheinPublication.Read(ctx, in.Key, in)
 				}
+			case "color-split-preview":
+				var in record.ColorSplitRequest
+				_, e := listingBody(c.Request, &in, false)
+				if e != nil {
+					listingError(c, e)
+					return
+				}
+				if app.Targets == nil {
+					listingError(c, record.ErrUnavailable)
+					return
+				}
+				output, err = app.Targets.PreviewColorSplit(ctx, in)
+			case "create-color-split":
+				var in record.ColorSplitPlan
+				key, e := listingBody(c.Request, &in, true)
+				if e != nil {
+					listingError(c, e)
+					return
+				}
+				if app.Targets == nil {
+					listingError(c, record.ErrUnavailable)
+					return
+				}
+				output, err = app.Targets.CreateColorSplit(ctx, key, in)
+			case "color-split-command":
+				if app.Targets == nil {
+					listingError(c, record.ErrUnavailable)
+					return
+				}
+				output, err = app.Targets.ReadColorSplitCommand(ctx, c.Param("key"))
+			case "color-split-list":
+				if app.Targets == nil {
+					listingError(c, record.ErrUnavailable)
+					return
+				}
+				var items []record.ColorSplitReceipt
+				items, err = app.Targets.ListColorSplitFamilies(ctx, c.Param("source_id"), c.Param("store_id"))
+				output = gin.H{"items": items}
+			case "color-split-family":
+				if app.Targets == nil {
+					listingError(c, record.ErrUnavailable)
+					return
+				}
+				output, err = app.Targets.ReadColorSplitFamily(ctx, c.Param("source_id"), c.Param("family_id"))
 			case "shein-completion-preview":
 				var in record.SheinImportRequest
 				_, e := listingBody(c.Request, &in, false)
@@ -537,6 +586,8 @@ func listingError(c *gin.Context, err error) {
 		status, code = http.StatusForbidden, "PERMISSION_DENIED"
 	case errors.Is(err, submission.ErrExecutionNotFound), errors.Is(err, collection.ErrNotFound), errors.Is(err, preparation.ErrNotFound), errors.Is(err, record.ErrNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
+	case errors.Is(err, record.ErrSplitExists):
+		status, code = http.StatusConflict, "SPLIT_ALREADY_EXISTS"
 	case errors.Is(err, submission.ErrExecutionIntentConflict), errors.Is(err, preparation.ErrConflict), errors.Is(err, record.ErrConflict), errors.Is(err, asset.ErrApprovalConflict):
 		status, code = http.StatusConflict, "REVISION_CONFLICT"
 	case errors.Is(err, submission.ErrExecutionTargetClaimed), errors.Is(err, submission.ErrExecutionTargetSucceeded), errors.Is(err, record.ErrNotReady):

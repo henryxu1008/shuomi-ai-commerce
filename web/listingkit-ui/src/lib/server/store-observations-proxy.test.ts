@@ -46,6 +46,23 @@ function configure() {
   vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost:3000");
 }
 
+it("binds supply observations to the exact store and rejects date-based or generic supply reads",async()=>{
+ configure();const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
+ const request=(path:string)=>proxyStoreObservations(new Request(`http://localhost:3000/api/workbench/store-observations/${path}`,{headers}),"private","actor-a");
+ for(const path of ["supply-orders",`supply-orders/observation?storeId=${id}&startDate=2026-11-01`,`supply-orders/stores/${id}/syncs/${id}/records/A/packages/x/track`])expect((await request(path)).status).toBe(400);
+ expect(fetch).not.toHaveBeenCalled();
+ const payload={storeId:id,status:"not_synced",canSync:false,savedOrderIds:[]};
+ fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:payload}));expect((await request(`supply-orders/observation?storeId=${id}`)).status).toBe(200);
+ fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:{...payload,storeId:"c0d81244-c016-442a-8184-3cac18dce4ee"}}));expect((await request(`supply-orders/observation?storeId=${id}`)).status).toBe(502);
+});
+it("accepts supply capabilities with unknown site and rejects an invented US site",async()=>{
+ configure();const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
+ const read=()=>proxyStoreObservations(new Request("http://localhost:3000/api/workbench/store-observations/supply-orders/capabilities",{headers}),"private","actor-a");
+ const data={kind:"supply-orders",site:"unknown",platformUrl:"",runtimeReady:true,providerConfigured:true,available:true,canSync:true};
+ fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data}));expect((await read()).status).toBe(200);
+ fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:{...data,site:"shein-us"}}));expect((await read()).status).toBe(502);
+});
+
 it("forwards a native product platform filter and rejects unsupported order filters",async()=>{
  configure();
  const fetch=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{items:[],next:"",summary:{total:0,active:0,offShelf:0,today:0,todayUnknown:0,pending:0,transit:0,exceptional:0,unknown:0},syncs:[],latest:[],complete:false}}));
