@@ -133,3 +133,34 @@ func TestSalesMappingDoesNotReassignSampleOrSizeChartWhenValuesAreSwapped(t *tes
 		})
 	}
 }
+
+func TestSalesMappingRejectsMetadataOnEmptyBaselineGroups(t *testing.T) {
+	for name, group := range map[string]model.ProductSKC{
+		"supplier code":     {SupplierCode: "keep-empty-code"},
+		"names":             {Names: []model.LanguageContent{{Language: "en", Name: "Keep empty color"}}},
+		"stock proofs":      {StockProofs: []model.StockProof{{Filename: "keep.pdf", Type: "2", URL: "https://fixture.example/keep.pdf"}}},
+		"other group field": {ShelfWay: "keep-shelf"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			base, source, candidate, selection, rules, inventory := salesFixture()
+			base.Product.SKCs = append(base.Product.SKCs, group)
+			before := collection.Digest(base)
+			_, err := deriveSheinSales(base, source, candidate, selection, rules, inventory)
+			require.Error(t, err, "empty groups still own their non-mapped metadata")
+			var field *SheinSalesFieldError
+			require.ErrorAs(t, err, &field)
+			require.Equal(t, "skc_list.1", field.Field)
+			require.Equal(t, before, collection.Digest(base))
+		})
+	}
+}
+
+func TestSalesMappingAllowsAnEmptyPlaceholderWithoutMetadata(t *testing.T) {
+	base, source, candidate, selection, rules, inventory := salesFixture()
+	base.Product.SKCs = append(base.Product.SKCs, model.ProductSKC{})
+	result, err := deriveSheinSales(base, source, candidate, selection, rules, inventory)
+	require.NoError(t, err)
+	require.Len(t, result.Product.SKCs, 2)
+	require.Len(t, result.Product.SKCs[0].SKUs, 2)
+	require.Len(t, result.Product.SKCs[1].SKUs, 1)
+}

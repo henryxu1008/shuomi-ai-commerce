@@ -279,11 +279,15 @@ func deriveSheinSales(base goods.OfficialDraftInput, source catalog.ProductSnaps
 	if len(out.Product.SKCs) > 40 || rules.Attributes.MainAttributeStatus != nil && *rules.Attributes.MainAttributeStatus == 1 && len(out.Product.SKCs) != 1 {
 		return fail("dimensions", "当前类目不允许这些主销售属性分组")
 	}
-	for old, groups := range oldGroups {
+	for old := range base.Product.SKCs {
+		groups := oldGroups[old]
 		metadata := base.Product.SKCs[old]
 		metadata.SaleAttribute = model.AttributeValue{}
 		metadata.SKUs = nil
 		if !reflect.DeepEqual(metadata, model.ProductSKC{}) && !emptySKCMetadata(metadata) {
+			if len(groups) == 0 {
+				return fail(fmt.Sprintf("skc_list.%d", old), "颜色组没有来源 SKU，无法保留其已有资料；请先处理空组")
+			}
 			if len(groups) != 1 {
 				return fail(fmt.Sprintf("skc_list.%d", old), "非空颜色组资料不能自动分配给多个新组")
 			}

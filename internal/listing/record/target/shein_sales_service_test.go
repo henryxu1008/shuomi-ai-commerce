@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/listing/preparation"
 	"task-processor/internal/marketplace/shein/goods"
+	model "task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/product/asset"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
@@ -132,4 +133,25 @@ func TestSalesOriginalReceiptPreservesHistoricalDiagnostic(t *testing.T) {
 	require.NoError(t, e)
 	require.True(t, replay.Replayed)
 	require.Equal(t, saved.Record.Result, replay.Record.Result, "read/replay returns immutable stored diagnostics; never recompute with current builder")
+}
+
+func TestSalesPreviewAndSaveRejectEmptyGroupMetadataWithoutWriting(t *testing.T) {
+	ctx, service, repo, _, _, _, input := salesServiceFixture(t)
+	preview, err := service.PreviewSheinSalesMapping(ctx, input)
+	require.NoError(t, err)
+	require.NotNil(t, preview.Input)
+	baseline := repo.byID[input.BaseRecordID]
+	baseline.Input.Draft.Product.SKCs = append(baseline.Input.Draft.Product.SKCs, model.ProductSKC{SupplierCode: "cannot-discard"})
+	repo.byID[baseline.ID] = baseline
+	repo.head = baseline
+	before := collection.Digest(baseline)
+	rejected, err := service.PreviewSheinSalesMapping(ctx, input)
+	require.NoError(t, err)
+	require.Nil(t, rejected.Input)
+	require.Len(t, rejected.Issues, 1)
+	require.Equal(t, "skc_list.1", rejected.Issues[0].Field)
+	_, err = service.Create(ctx, uuid.NewString(), *preview.Input)
+	require.Error(t, err, "direct save must enforce the same preservation rule")
+	require.Equal(t, 1, repo.writes)
+	require.Equal(t, before, collection.Digest(repo.head))
 }
