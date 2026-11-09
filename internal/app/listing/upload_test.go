@@ -398,6 +398,19 @@ func TestOfficialUploadCompletesCorrelatedImagesAndPreservesOneOriginalChannel(t
 	require.Equal(t, 1, merchant.publishes)
 	require.Equal(t, 3, merchant.transforms)
 }
+
+func TestSparseDraftWithoutMappingMetadataCannotDispatch(t *testing.T) {
+	service, scope, records, merchant, kernel, official, _ := uploadFixture(t)
+	records.saved.Input.SheinSalesMapping = nil
+	records.saved.Result.ReadyForUpload = false
+	records.saved.Result.Issues = []goods.OfficialIssue{{Field: "skc_list.1.sku_list", Code: "variant_set_unconfirmed", Message: "各颜色规格集合不同，平台发布资格待确认；可保留当前草稿"}}
+	_, err := service.Upload(context.Background(), scope, uuid.NewString(), records.saved.ID)
+	require.ErrorIs(t, err, record.ErrNotReady)
+	require.Zero(t, merchant.transforms)
+	require.Zero(t, merchant.publishes)
+	require.Empty(t, kernel.attempts)
+	require.Empty(t, official.intents)
+}
 func TestLostOfficialResponseCannotBeResentByOriginalOrNewOperation(t *testing.T) {
 	s, scope, records, merchant, _, _, _ := uploadFixture(t)
 	merchant.loseResponse = true

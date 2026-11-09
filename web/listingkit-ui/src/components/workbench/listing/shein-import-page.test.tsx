@@ -13,6 +13,9 @@ const props={sourceId:id.source,preparationId:id.batch,itemId:id.batch,revision:
 beforeEach(()=>{vi.clearAllMocks();const data=sheinImportFixture();f.context.effectiveOrganization.id="org";f.context.permissions=["workbench.supply.read","workbench.supply.manage","workbench.store.read"];f.context.pendingSupplyIntent=null;f.context.setPendingSupplyIntent.mockImplementation(v=>{f.context.pendingSupplyIntent=v;return true});f.source.mockResolvedValue(data.detail);f.head.mockResolvedValue(data.candidate);f.revision.mockResolvedValue(data.candidate);f.stores.mockResolvedValue({items:[{id:id.store,name:"SHEIN 店铺",platform:"shein"}],pagination:{total:1}});f.target.mockResolvedValue(data.base);f.record.mockResolvedValue(data.base);f.rules.mockResolvedValue(data.rules);f.preview.mockResolvedValue(data.preview);f.save.mockResolvedValue(data.saved);f.verify.mockResolvedValue(data.saved)});
 afterEach(()=>{cleanup();vi.unstubAllEnvs()});
 const preview=()=>screen.getByRole("button",{name:"预览带入结果"}),confirm=()=>screen.getByRole("button",{name:"确认保存为新平台草稿版本"});
+it("keeps ordinary single-product intake out of the historical split flow",async()=>{
+ render(<SheinImportPage {...props}/>);await screen.findByRole("button",{name:"映射颜色与销售规格"});expect(screen.queryByRole("button",{name:"按颜色拆分"})).not.toBeInTheDocument();
+});
 it("uses an independent strict route with all return context",async()=>{
  vi.stubEnv("LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED","true");vi.stubEnv("LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED","true");vi.stubEnv("LISTINGKIT_SUPPLY_CHAIN_ENABLED","true");
  const route=(query:Record<string,string|string[]|undefined>)=>Route({params:Promise.resolve({stage:"missing",sourceId:id.source}),searchParams:Promise.resolve(query)});

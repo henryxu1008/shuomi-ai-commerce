@@ -92,6 +92,7 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 		{"GET", "/shein-publish-metrics", "shein-publish-metrics", preparation.PermissionRead},
 		{"GET", "/temu-create-metrics", "temu-create-metrics", preparation.PermissionRead},
 		{"GET", "/submission-overview-metrics", "submission-overview-metrics", preparation.PermissionRead},
+		{"POST", "/shein-sales-mapping-preview", "shein-sales-mapping-preview", preparation.PermissionManage},
 		{"POST", "/shein-completion-preview", "shein-completion-preview", preparation.PermissionManage},
 		{"POST", "/shein-color-split-preview", "color-split-preview", preparation.PermissionManage},
 		{"POST", "/shein-color-splits", "create-color-split", preparation.PermissionManage},
@@ -290,6 +291,17 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 					return
 				}
 				output, err = app.Targets.ReadColorSplitFamily(ctx, c.Param("source_id"), c.Param("family_id"))
+			case "shein-sales-mapping-preview":
+				var in record.SheinSalesRequest
+				if _, e := listingBody(c.Request, &in, false); e != nil {
+					listingError(c, e)
+					return
+				}
+				if app.Targets == nil {
+					listingError(c, record.ErrUnavailable)
+					return
+				}
+				output, err = app.Targets.PreviewSheinSalesMapping(ctx, in)
 			case "shein-completion-preview":
 				var in record.SheinImportRequest
 				_, e := listingBody(c.Request, &in, false)

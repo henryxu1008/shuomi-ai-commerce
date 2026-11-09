@@ -3,6 +3,16 @@ import { buildWorkbenchUpstreamRequest, buildWorkbenchBrowserResponse } from "./
 import {sheinImportFixture} from "@/test/shein-import-fixture";
 const id="550e8400-e29b-41d4-a716-446655440000";
 const scope={cookie:"shuomi_effective_organization=org-a","X-Expected-Organization-ID":"org-a","X-Expected-User-ID":"actor-a"};
+it("binds the read-only sales mapping preview through the BFF without adding a command key",async()=>{
+ const f=sheinImportFixture(),selection={dimensions:[{sourceName:"color",attributeId:12,main:true}],values:[{sourceName:"color",sourceValue:"blue",optionId:34}],rows:[{sourceIndex:0,skcIndex:0,skuIndex:0}],images:[]};
+ const body={sourceId:f.request.sourceId,baseRecordId:f.request.baseRecordId,completionDraft:f.request.completionDraft,selection};
+ const path=["supply-preparations","shein-sales-mapping-preview"],request=new Request(`http://localhost/api/workbench/${path.join("/")}`,{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json"},body:JSON.stringify(body)});
+ const upstream=await buildWorkbenchUpstreamRequest(request,path,"server-token","actor-a");expect(upstream).not.toBeInstanceOf(Response);if(upstream instanceof Response)throw Error("preview rejected");
+ expect(upstream.expectedStoreId).toBe(JSON.stringify(body));
+ const result={request:body,issues:[{field:"source.variants.0.color",code:"mapping_conflict",message:"请确认平台值"}]};
+ expect((await buildWorkbenchBrowserResponse(Response.json(result),"supply-shein-sales-mapping-preview",upstream.expectedStoreId)).status).toBe(200);
+ expect((await buildWorkbenchBrowserResponse(Response.json({...result,request:{...body,baseRecordId:f.request.sourceId}}),"supply-shein-sales-mapping-preview",upstream.expectedStoreId)).status).toBe(502);
+});
 describe("private supply chain proxy",()=>{
  it.each(["adapt","optimize","upload"] as const)("reads a plan-created %s operation through every original BFF recovery route",async action=>{
   const source="550e8400-e29b-41d4-a716-446655440001";

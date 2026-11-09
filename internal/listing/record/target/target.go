@@ -24,22 +24,23 @@ var ErrTargetUnknown = errors.New("listing target command outcome is unknown; re
 // Target records use the current private source selection. They neither wrap
 // the older local draft service nor accept ProductKey as read authority.
 type TargetInput struct {
-	TargetID         string                    `json:"targetId,omitempty"`
-	ColorPartition   *ColorPartition           `json:"colorPartition,omitempty"`
-	WalmartRules     *walmart.RuleSelection    `json:"walmartRules,omitempty"`
-	SourceID         string                    `json:"sourceId"`
-	StoreID          string                    `json:"storeId"`
-	ExpectedRevision int64                     `json:"expectedRevision"`
-	EffectiveVersion uint64                    `json:"effectiveVersion,string"`
-	ApplyReceiptID   string                    `json:"applyReceiptId,omitempty"`
-	Draft            goods.OfficialDraftInput  `json:"draft"`
-	TemuRules        *temumodel.RuleSelection  `json:"temuRules,omitempty"`
-	Temu             *temugoods.DraftInput     `json:"temu,omitempty"`
-	TikTok           *tiktok.DraftInput        `json:"tiktok,omitempty"`
-	Walmart          *walmart.DraftInput       `json:"walmart,omitempty"`
-	TikTokRules      *tiktok.RuleSelection     `json:"tiktokRules,omitempty"`
-	CompletionDraft  *CompletionDraftSelection `json:"completionDraft,omitempty"`
-	SheinImport      *SheinImport              `json:"sheinImport,omitempty"`
+	TargetID          string                    `json:"targetId,omitempty"`
+	ColorPartition    *ColorPartition           `json:"colorPartition,omitempty"`
+	WalmartRules      *walmart.RuleSelection    `json:"walmartRules,omitempty"`
+	SourceID          string                    `json:"sourceId"`
+	StoreID           string                    `json:"storeId"`
+	ExpectedRevision  int64                     `json:"expectedRevision"`
+	EffectiveVersion  uint64                    `json:"effectiveVersion,string"`
+	ApplyReceiptID    string                    `json:"applyReceiptId,omitempty"`
+	Draft             goods.OfficialDraftInput  `json:"draft"`
+	TemuRules         *temumodel.RuleSelection  `json:"temuRules,omitempty"`
+	Temu              *temugoods.DraftInput     `json:"temu,omitempty"`
+	TikTok            *tiktok.DraftInput        `json:"tiktok,omitempty"`
+	Walmart           *walmart.DraftInput       `json:"walmart,omitempty"`
+	TikTokRules       *tiktok.RuleSelection     `json:"tiktokRules,omitempty"`
+	CompletionDraft   *CompletionDraftSelection `json:"completionDraft,omitempty"`
+	SheinSalesMapping *SheinSalesMapping        `json:"sheinSalesMapping,omitempty"`
+	SheinImport       *SheinImport              `json:"sheinImport,omitempty"`
 }
 type TargetRecord struct {
 	ID                       string                                `json:"id"`
@@ -283,6 +284,9 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if !ValidColorPartition(scope, input) {
 		return TargetReceipt{}, ErrInvalid
 	}
+	if input.SheinSalesMapping != nil && (input.SheinImport != nil || input.CompletionDraft != nil || input.ColorPartition != nil || input.Temu != nil || input.TikTok != nil || input.Walmart != nil || input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil) {
+		return TargetReceipt{}, ErrInvalid
+	}
 	if input.SheinImport != nil && (input.Temu != nil || input.TikTok != nil || input.Walmart != nil || input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil || input.CompletionDraft != nil) {
 		return TargetReceipt{}, ErrInvalid
 	}
@@ -312,6 +316,9 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 		return TargetReceipt{}, ErrInvalid
 	}
 	input = copied
+	if input.SheinSalesMapping != nil {
+		normalizeSalesSelection(&input.SheinSalesMapping.Selection)
+	}
 	inputHash := collection.Digest(input)
 	prior, err := s.dependencies.Records.FindTargetCommand(ctx, scope, key, inputHash)
 	if err == nil {
@@ -394,6 +401,14 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	}
 	if input.SheinImport != nil {
 		completionVersion = func(ctx context.Context) error { return s.validateSheinImport(ctx, scope, input, source, prepared) }
+		if err = completionVersion(ctx); err != nil {
+			return TargetReceipt{}, err
+		}
+	}
+	if input.SheinSalesMapping != nil {
+		completionVersion = func(ctx context.Context) error {
+			return s.validateSheinSalesMapping(ctx, scope, input, source, prepared, product, inventory)
+		}
 		if err = completionVersion(ctx); err != nil {
 			return TargetReceipt{}, err
 		}
