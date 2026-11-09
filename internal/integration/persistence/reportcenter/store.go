@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"strings"
-	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/pkg/pgschema"
 	rc "task-processor/internal/reportcenter"
 	"time"
 )
@@ -109,7 +109,7 @@ func VerifyTargetSourceSchema(ctx context.Context, db *gorm.DB) error {
 	err := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(c.oid) AS definition,c.convalidated AS validated
  FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=ANY(c.conkey)
  WHERE c.conrelid=to_regclass('report_center.saved_reports') AND c.contype='c' AND a.attname='kind'`).Scan(&checks).Error
-	if err != nil || len(checks) != 1 || !checks[0].Validated || !platformdatabase.SchemaConstraintEqual(checks[0].Definition, definition) {
+	if err != nil || len(checks) != 1 || !checks[0].Validated || !pgschema.SchemaConstraintEqual(checks[0].Definition, definition) {
 		return rc.ErrUnavailable
 	}
 	return nil

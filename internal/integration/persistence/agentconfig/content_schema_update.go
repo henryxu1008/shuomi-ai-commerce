@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/pkg/pgschema"
 	"time"
 
 	"gorm.io/gorm"
@@ -80,7 +80,7 @@ func exactSchemaChecks(checks []contentSchemaCheck, expected map[string]string) 
 		return false
 	}
 	for _, c := range checks {
-		if want, ok := expected[c.Name]; !ok || !platformdatabase.SchemaConstraintEqual(c.Definition, want) || !c.Valid || c.Inherited {
+		if want, ok := expected[c.Name]; !ok || !pgschema.SchemaConstraintEqual(c.Definition, want) || !c.Valid || c.Inherited {
 			return false
 		}
 	}

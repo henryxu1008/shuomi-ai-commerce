@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/pkg/pgschema"
 
 	"gorm.io/gorm"
 )
@@ -530,7 +530,7 @@ ORDER BY constraint_row.conname`, table).Rows()
 		if !observed.validated || observed.deferrable || observed.deferred {
 			return fmt.Errorf("submission execution constraint public.%s.%s must be validated and immediate", table, name)
 		}
-		if !platformdatabase.SchemaConstraintEqual(observed.definition, contract.exactDefinition) {
+		if !pgschema.SchemaConstraintEqual(observed.definition, contract.exactDefinition) {
 			return fmt.Errorf("submission execution constraint public.%s.%s definition mismatch: got %s", table, name, observed.definition)
 		}
 	}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/pkg/pgschema"
 
 	"gorm.io/gorm"
 )
@@ -183,7 +183,7 @@ func equalConstraintContracts(actual, expected []string) bool {
 	}
 	for i, value := range actual {
 		a, b := strings.Split(value, "|"), strings.Split(expected[i], "|")
-		if len(a) != 4 || len(b) != 4 || a[0] != b[0] || a[1] != b[1] || a[3] != b[3] || !platformdatabase.SchemaConstraintEqual(a[2], b[2]) {
+		if len(a) != 4 || len(b) != 4 || a[0] != b[0] || a[1] != b[1] || a[3] != b[3] || !pgschema.SchemaConstraintEqual(a[2], b[2]) {
 			return false
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/pkg/pgschema"
 )
 
 func installInvitations(ctx context.Context, tx *sql.Tx) error {
@@ -61,7 +61,7 @@ func verifyInvitations(ctx context.Context, db schemaReader) error {
 			rows.Close()
 			return err
 		}
-		if !platformdatabase.SchemaConstraintEqual(definition, constraints[name]) || !validated || deferrable {
+		if !pgschema.SchemaConstraintEqual(definition, constraints[name]) || !validated || deferrable {
 			rows.Close()
 			return errors.New("invitation constraint mismatch")
 		}
@@ -88,7 +88,7 @@ func verifyInvitations(ctx context.Context, db schemaReader) error {
 		}
 		matched := false
 		for expected := range want {
-			if platformdatabase.SchemaIndexEqual(def, expected) {
+			if pgschema.SchemaIndexEqual(def, expected) {
 				delete(want, expected)
 				matched = true
 				break

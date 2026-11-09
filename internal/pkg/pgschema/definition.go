@@ -1,4 +1,6 @@
-package database
+// Package pgschema compares PostgreSQL definitions without database connections,
+// schema writes or ownership of the caller's admission policy.
+package pgschema
 
 import (
 	"encoding/json"

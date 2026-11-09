@@ -3,7 +3,7 @@ package researchpersistence
 import (
 	"context"
 	"gorm.io/gorm"
-	platformdatabase "task-processor/internal/platform/database"
+	"task-processor/internal/pkg/pgschema"
 	"task-processor/internal/product/research"
 )
 
@@ -81,7 +81,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		}
 		matched := false
 		for _, definition := range definitions {
-			matched = matched || platformdatabase.SchemaConstraintEqual(definition, expected.expression)
+			matched = matched || pgschema.SchemaConstraintEqual(definition, expected.expression)
 		}
 		if !matched {
 			return research.ErrUnavailable
