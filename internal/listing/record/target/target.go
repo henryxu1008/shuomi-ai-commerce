@@ -24,6 +24,8 @@ var ErrTargetUnknown = errors.New("listing target command outcome is unknown; re
 // Target records use the current private source selection. They neither wrap
 // the older local draft service nor accept ProductKey as read authority.
 type TargetInput struct {
+	TargetID         string                    `json:"targetId,omitempty"`
+	ColorPartition   *ColorPartition           `json:"colorPartition,omitempty"`
 	WalmartRules     *walmart.RuleSelection    `json:"walmartRules,omitempty"`
 	SourceID         string                    `json:"sourceId"`
 	StoreID          string                    `json:"storeId"`
@@ -218,7 +220,7 @@ func (s *TargetService) Create(ctx context.Context, key string, input TargetInpu
 // CreateForAgent only exposes the existing local Target owner. A nonnil guard
 // is mandatory and cannot be selected or supplied by an untrusted caller.
 func (s *TargetService) CreateForAgent(ctx context.Context, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
-	if guard == nil {
+	if guard == nil || input.ColorPartition != nil {
 		return TargetReceipt{}, ErrForbidden
 	}
 	return s.createForRequest(ctx, key, input, guard)
@@ -251,14 +253,14 @@ func (s *TargetService) CreateForExecution(ctx context.Context, scope collection
 }
 
 func (s *TargetService) CreateForExecutionForAgent(ctx context.Context, scope collection.Scope, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
-	if guard == nil {
+	if guard == nil || input.ColorPartition != nil {
 		return TargetReceipt{}, ErrForbidden
 	}
 	return s.createForExecution(ctx, scope, key, input, guard)
 }
 
 func (s *TargetService) createForExecution(ctx context.Context, scope collection.Scope, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
-	if ctx == nil || s == nil || scope.Validate() != nil || s.dependencies.ExecutionSources == nil || s.dependencies.ExecutionAuthorization == nil {
+	if input.ColorPartition != nil || ctx == nil || s == nil || scope.Validate() != nil || s.dependencies.ExecutionSources == nil || s.dependencies.ExecutionAuthorization == nil {
 		return TargetReceipt{}, ErrForbidden
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
@@ -278,6 +280,9 @@ func (s *TargetService) createForExecution(ctx context.Context, scope collection
 }
 
 func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error, guard TargetAgentGuard) (TargetReceipt, error) {
+	if !ValidColorPartition(scope, input) {
+		return TargetReceipt{}, ErrInvalid
+	}
 	if input.SheinImport != nil && (input.Temu != nil || input.TikTok != nil || input.Walmart != nil || input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil || input.CompletionDraft != nil) {
 		return TargetReceipt{}, ErrInvalid
 	}
@@ -314,6 +319,23 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	}
 	if !errors.Is(err, ErrNotFound) {
 		return TargetReceipt{}, err
+	}
+	if input.ColorPartition != nil {
+		repo, e := s.colorRepo()
+		if e != nil {
+			return TargetReceipt{}, e
+		}
+		initial, e := repo.ReadColorSplitFamily(ctx, scope, input.ColorPartition.FamilyID)
+		if e != nil {
+			return TargetReceipt{}, e
+		}
+		base, e := s.dependencies.Records.ReadTargetRecord(ctx, scope, input.ColorPartition.BaseRecordID)
+		if e != nil {
+			return TargetReceipt{}, e
+		}
+		if e := ValidateColorEdit(initial, input, base); e != nil {
+			return TargetReceipt{}, e
+		}
 	}
 	selected, err := selectSource(ctx, input.SourceID)
 	if err != nil {
@@ -376,7 +398,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 			return TargetReceipt{}, err
 		}
 	}
-	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: TargetIdentity(scope, source.ID, input.StoreID), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
+	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: RecordIdentity(scope, input), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
 	value.ImageObservations = prepared.images
 	value.ProofObservations = prepared.proofs
 	value.Temu, value.TemuRuleSnapshot = prepared.temu, prepared.temuRules

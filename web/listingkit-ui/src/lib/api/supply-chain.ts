@@ -10,7 +10,7 @@ import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecision
 import { SupplyAPIError } from "./supply-error";
 
 export type SupplyScope=CollectionScope;
-export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
+export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"create-color-split"|"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
  if(route==="cancel-upload-plan")return plans.uploadPlanCancelIntentSchema;
  if(route==="continue-upload-plan")return plans.uploadPlanContinueIntentSchema;
@@ -92,6 +92,7 @@ export async function prepareSheinShelf(scope:SupplyScope,input:c.SheinShelfInpu
  if(!c.matchesSheinResponse("shein-shelf-prepare",value,JSON.stringify({...command,key})))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 }
 export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(intent.route==="create-color-split"){const value=await send(`${base}/shein-color-splits`,intent,c.colorSplitReceiptSchema,signal,{method:"POST",command:c.colorSplitPlanSchema.parse(intent.command),key:intent.key,mutates:true});return commandResult(value,intent,true);}
  if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command);const value=await send(`${base}/upload-plans/${input.planId}/cancel`,intent,plans.uploadPlanSchema,signal,{method:"POST",command:{expectedRevision:input.expectedRevision},mutates:true});return commandResult(value,intent,true);}
 
  if(intent.route==="create-upload-plan"||intent.route==="continue-upload-plan"){
@@ -113,6 +114,7 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
  return commandResult(value,intent,true);
 }
 export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(intent.route==="create-color-split")return commandResult(await send(`${base}/shein-color-split-commands/${collectionID.parse(intent.key)}`,intent,c.colorSplitReceiptSchema,signal),intent,false);
  const key=collectionID.parse(intent.key);
  if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command);return commandResult(await readUploadPlan(intent,input.planId,signal),intent,false);}
  if(intent.route==="create-upload-plan"||intent.route==="continue-upload-plan"){
@@ -152,6 +154,7 @@ async function send<T extends z.ZodType>(path:string,scope:SupplyScope,schema:T,
 
 function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  let valid=false;
+ if(intent.route==="create-color-split")valid=c.matchesColorSplitReceipt(value,intent.command);
  if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command),plan=plans.uploadPlanSchema.parse(value);valid=plan.id===input.planId&&plan.cancelled&&plan.revision>=input.expectedRevision;}
  if(intent.route==="create-upload-plan"){const input=plans.uploadPlanInputSchema.parse(intent.command),output=plans.uploadPlanReceiptSchema.parse(value).plan.input;const canonical=(v:plans.UploadPlanInput)=>JSON.stringify({...v,sourceIds:[...(v.sourceIds??[])].sort()});valid=canonical(input)===canonical(output);}
  if(intent.route==="continue-upload-plan")valid=plans.uploadPlanAdvanceSchema.parse(value).planId===plans.uploadPlanContinueIntentSchema.parse(intent.command).planId;
@@ -167,6 +170,7 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  if(intent.route==="save-target"){
   const input=c.targetInputSchema.parse(intent.command),result=c.targetReceiptSchema.parse(value).record;
   valid=result.source.id===input.sourceId&&result.merchant.store_id===input.storeId&&result.input.expectedRevision===input.expectedRevision&&result.effectiveVersion===input.effectiveVersion&&(result.applyReceiptId??"")===(input.applyReceiptId??"");
+  if("colorPartition" in input&&input.colorPartition)valid=valid&&result.targetId===input.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
   if("sheinImport" in input&&input.sheinImport)valid=valid&&result.targetId===input.sheinImport.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
  }
  if(intent.route==="create-operation"){
@@ -193,3 +197,8 @@ export async function readSourceProductInputs(scope:SupplyScope,source:c.SupplyS
 export const listUploadPlans=(scope:SupplyScope,q:Pick<Query,"limit"|"after">={},signal?:AbortSignal)=>send(`${base}/upload-plans${query(q)}`,scope,plans.uploadPlanPageSchema,signal);
 export async function readUploadPlan(scope:SupplyScope,id:string,signal?:AbortSignal){const v=await send(`${base}/upload-plans/${collectionID.parse(id)}`,scope,plans.uploadPlanSchema,signal);if(v.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return v;}
 export async function previewUploadPlan(scope:SupplyScope,id:string,input:z.input<typeof plans.uploadPlanSelectionSchema>,signal?:AbortSignal){const v=await send(`${base}/upload-plans/${collectionID.parse(id)}/preview`,scope,plans.uploadPlanPreviewSchema,signal,{method:"POST",command:plans.uploadPlanSelectionSchema.parse(input)});if(v.plan.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return v;}
+
+export async function previewColorSplit(scope:SupplyScope,request:z.input<typeof c.colorSplitRequestSchema>,signal?:AbortSignal){const command=c.colorSplitRequestSchema.parse(request),value=await send(base+"/shein-color-split-preview",scope,c.colorSplitPlanSchema,signal,{method:"POST",command});if(JSON.stringify(value.request)!==JSON.stringify(command))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;}
+export async function readColorSplitFamily(scope:SupplyScope,source:string,family:string,signal?:AbortSignal){const value=await send(`${base}/sources/${collectionID.parse(source)}/color-splits/${collectionID.parse(family)}`,scope,c.colorSplitReceiptSchema,signal);if(value.familyId!==family||value.records.some(r=>r.source.id!==source))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;}
+
+export async function listColorSplitFamilies(scope:SupplyScope,source:string,store:string,signal?:AbortSignal){const value=await send(`${base}/sources/${collectionID.parse(source)}/stores/${collectionID.parse(store)}/color-splits`,scope,z.object({items:z.array(c.colorSplitReceiptSchema).max(40)}).strict(),signal);if(value.items.some(f=>f.records.some(r=>r.source.id!==source||r.input.storeId!==store)))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;}

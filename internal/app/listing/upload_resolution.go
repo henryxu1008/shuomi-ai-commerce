@@ -50,6 +50,9 @@ func (a *Application) ReadUploadAttempt(ctx context.Context, recordID, attemptID
 	if err != nil {
 		return UploadAttemptView{}, err
 	}
+	if saved.Input.ColorPartition != nil {
+		return UploadAttemptView{}, record.ErrForbidden
+	}
 	if _, err = s.source(ctx, scope, saved); err != nil {
 		return UploadAttemptView{}, err
 	}
@@ -197,6 +200,9 @@ func (s *UploadService) ResolveUpload(ctx context.Context, scope collection.Scop
 	saved, err := s.dependencies.Records.ReadTargetRecord(ctx, scope, input.RecordID)
 	if err != nil {
 		return UploadResult{}, err
+	}
+	if saved.Input.ColorPartition != nil {
+		return UploadResult{}, record.ErrForbidden
 	}
 	if _, err = s.source(ctx, scope, saved); err != nil {
 		return UploadResult{}, err

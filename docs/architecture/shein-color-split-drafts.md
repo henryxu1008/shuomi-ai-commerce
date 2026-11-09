@@ -2,7 +2,7 @@
 
 Design Basis: Independent Architecture
 
-Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-11-09 独立 R1 评审通过，0 BLOCKER，详见 §11；本轮仅设计，不授权正式实现。
+Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-11-09 独立 R1 评审通过，0 BLOCKER，详见 §11；设计冻结；用户后续明确授权本次正式实现与隔离验证，详见下方实施窗口。
 
 依据：用户 2026-11-09 明确要求原商品和候选 R1 不变，黑 M/黑 L 一份、白 M 一份；明确身份、SKU/图片归属、幂等与重试，先独立评审。执行进度归 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)。调查基线 `main 7c480d513660f5aa93bee92722c3bd4ad44ea0ce`。
 
@@ -21,7 +21,7 @@ Must：两份都创建或都不创建；每个选定源 SKU 恰好归属一份�
 
 没有发布、上传、Submission/Plan/Operation/Agent adoption 接入；不改变已有发布许可，不宣称拆分稿可发布。未来上传消费拆分目标是新的有界任务，必须设计准确 target/record、远端 SPU/SKU 归属与原键恢复，不能仅删除禁止标志。
 
-本轮不写生产代码、schema 或夹具，不操作原 35444 配置/数据，不调用模型、保存/发布业务资料或释放原 15.445282 AI 点预留。后续实现、隔离运行、合并、部署和用户验收分别授权。
+实施窗口（2026-11-09 用户明确决定）：按冻结方案实现，并仅在隔离环境创建两份颜色草稿、验证四项 IMPLEMENTATION_TEST；原商品和 R1 不变。合并、原 35444 部署、真实平台写入不在本次授权内；不改原 35444 配置/数据，不调用模型、不发布、不释放原 15.445282 AI 点预留。
 
 ## 2. 产品依据、平台证据与现有能力
 
@@ -54,7 +54,7 @@ UI 复用 SHEIN 带入页、差异预览、原操作键恢复组件、Target 编
 
 ## 4. 身份、持久化和路由
 
-下面是拟实现的明确增量，不是现有 API。
+下面是本次正式实现对应的设计增量。
 
 - `familyId = StableID(org, actor, "shein-color-family-v1", sourceId, storeId, site, colorAttributeId)`。不包含本次 command key、候选 revision、颜色文案或数组顺序。同一来源/店铺/属性只首次创建一个家族；以后不通过换候选或换键重复拆分。
 - `partitionId = StableID(familyId, colorAttributeId, officialColorValueId)`；本例两份有不同 partitionId。颜色名仅展示，重命名不改变身份。
@@ -94,7 +94,7 @@ Schema 按新安装显式 installer/运行权限合同实现，serving 仅 verif
 
 ## 7. API、预览绑定与普通编辑
 
-拟增量：`POST .../shein-color-split-preview` 只读；`POST .../shein-color-splits` 显式确认；`GET .../shein-color-split-commands/:key` 原键核对；`GET .../sources/:sourceId/color-splits/:familyId` 返回组列表/当前 head；孩子编辑使用显式 targetId 和 expectedRevision 的现有 Target 保存路径增量。
+拟增量：`POST .../shein-color-split-preview` 只读；`POST .../shein-color-splits` 显式确认；`GET .../shein-color-split-commands/:key` 原键核对；`GET .../sources/:sourceId/color-splits/:familyId` 返回组列表/当前 head；另提供 `GET .../sources/:sourceId/stores/:storeId/color-splits` 有界只读发现入口（最多 40 个 family，不增加事实 owner）；普通阶段投影及已有上传/优化来源查询明确限定 `purpose=standard`。孩子编辑使用显式 targetId 和 expectedRevision 的现有 Target 保存路径增量。
 
 预览包含规范化 plan（固定引用、完整 SKU 映射、图片明确选择、两稿派生 input、规则/merchant/inventory hash、planHash、localOnly），客户端不拥有派生业务值。排序仅规范 ID/映射列表，不舍入数值、不折叠 0/null；重复/缺字段严格拒绝。预览不是许可令牌。
 
@@ -142,7 +142,7 @@ Legacy decision: N/A；新增当前事实，不迁移/兼容旧系统。复用�
 - durable localOnly不能被直接 recordId、旧plan/operation、Agent/材料/上传或伪造payload绕过；原 standard flow未变。
 - 浏览器预览→一次确认→两份回执→刷新重开；返回取消不保存，未知结果保留原键；复用现有键盘/主题/响应式组件，仅验证本轮受影响流程。
 
-开发自检、CI与独立代码复核不签发用户验收。原35444、真实Store/官方写入、模型、发布、账本均NOT_RUN。交付后先由用户决定是否实施及隔离验证；本轮在独立 Architecture Review 后停止。
+开发自检、CI与独立代码复核不签发用户验收。原35444、真实Store/官方写入、模型、发布、账本均NOT_RUN。正式实现与隔离验证已获后续授权；完成后进入 In Review，合并、原实例更新与用户验收仍分别确认。
 
 ## 11. 独立评审记录
 
