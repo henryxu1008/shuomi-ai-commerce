@@ -75,6 +75,7 @@ func VerifyAssessmentOwnerInstallation(ctx context.Context, db *gorm.DB) error {
 		return research.ErrUnavailable
 	}
 	var safe bool
+	const resultConstraint = `CHECK (((((record_json -> 'result'::text) ->> 'status'::text) IS NOT NULL) AND (((record_json -> 'result'::text) ->> 'status'::text) = ANY (ARRAY['COMPUTABLE'::text, 'INSUFFICIENT_INPUT'::text, 'UNSUPPORTED_COST_RULE'::text]))))`
 	err := db.WithContext(ctx).Raw(`SELECT
  c.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)
  AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity
@@ -91,6 +92,8 @@ func VerifyAssessmentOwnerInstallation(ctx context.Context, db *gorm.DB) error {
  AND 8=(SELECT count(*) FROM pg_constraint WHERE conrelid=c.oid)
  AND NOT EXISTS(SELECT 1 FROM pg_index WHERE indrelid=c.oid AND (NOT indisvalid OR NOT indisready OR NOT indimmediate))
  AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=c.oid AND NOT tgisinternal)
+ AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=c.oid AND conname='assessment_result'
+ AND convalidated AND NOT condeferrable AND pg_get_constraintdef(oid)=?)
  AND has_schema_privilege(?, 'public', 'USAGE')
  AND has_table_privilege(?,c.oid,'SELECT') AND has_table_privilege(?,c.oid,'INSERT')
  AND NOT has_table_privilege(?,c.oid,'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
@@ -100,7 +103,7 @@ func VerifyAssessmentOwnerInstallation(ctx context.Context, db *gorm.DB) error {
  AND NOT EXISTS(SELECT 1 FROM pg_attribute t CROSS JOIN LATERAL aclexplode(t.attacl) a
  WHERE t.attrelid=c.oid AND a.grantee<>c.relowner)
  FROM pg_class c WHERE c.oid=to_regclass(?)`,
-		RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, assessmentTable).Scan(&safe).Error
+		resultConstraint, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, assessmentTable).Scan(&safe).Error
 	if err != nil || !safe {
 		return research.ErrUnavailable
 	}

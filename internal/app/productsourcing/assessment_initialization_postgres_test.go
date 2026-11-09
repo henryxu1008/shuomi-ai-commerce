@@ -124,4 +124,10 @@ INSERT INTO research_commands VALUES ('org','actor','11111111-1111-4111-8111-111
 		require.NoError(t, owner.Exec("GRANT USAGE ON SCHEMA public TO product_research_runtime").Error)
 		require.NoError(t, EnableResearchAssessments(ctx, manifest, name))
 	})
+	t.Run("weakened result constraint is not accepted by name alone", func(t *testing.T) {
+		owner, manifest, name := fixture(t)
+		require.NoError(t, EnableResearchAssessments(ctx, manifest, name))
+		require.NoError(t, owner.Exec("ALTER TABLE research_assessments DROP CONSTRAINT assessment_result, ADD CONSTRAINT assessment_result CHECK(true)").Error)
+		require.Error(t, EnableResearchAssessments(ctx, manifest, name))
+	})
 }
