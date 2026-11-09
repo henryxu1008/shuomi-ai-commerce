@@ -9,7 +9,9 @@ import (
 func TestSupplyCommitPreservesOriginalBatchAndCoverage(t *testing.T) {
 	p := Checkpoint{Page: 1, SupplyOrders: &SupplyProgress{OrderIDs: []string{"PO-A", "PO-B"}, MissingIDs: []string{}}}
 	current := Sync{Kind: SupplyOrders, Binding: Binding{Platform: storecenter.PlatformShein, ApplicationType: storecenter.ApplicationFullyManaged}, Progress: p}
-	order := SupplyOrder{ID: "PO-A", Lines: []SupplyLine{}}
+	times, err := ParseSupplyBusinessTimes(nil)
+	require.NoError(t, err)
+	order := SupplyOrder{BusinessTimes: times, ID: "PO-A", Lines: []SupplyLine{}}
 	next := copyCheckpoint(p)
 	next.Page++
 	next.Pages++

@@ -753,6 +753,9 @@ func (s *Service) Detail(ctx context.Context, scope Scope, store, syncID, id str
 	if record.ID != id || record.StoreID != store || record.SyncID != syncID {
 		return Record{}, ErrNotFound
 	}
+	if kind == SupplyOrders && (record.SupplyOrder == nil || record.SupplyOrder.ID != id || !record.SupplyOrder.Valid() || record.Order != nil || record.Product != nil || record.TemuProduct != nil || record.WalmartProduct != nil || record.TemuOrder != nil || record.WalmartOrder != nil || record.TikTokOrder != nil) {
+		return Record{}, ErrUnavailable
+	}
 	if kind == Orders {
 		detail, e := merchant.OrderDetails(ctx, []string{id})
 		if e != nil {

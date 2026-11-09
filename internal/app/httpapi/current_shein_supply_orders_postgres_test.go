@@ -37,7 +37,15 @@ func seedSupplyOrderReceipts(t *testing.T, repo *obspg.Repository, scope o.Scope
 		return map[string]any{"orderNo": id, "isJitMotherName": mother, "type": 1, "status": 2, "sceneType": 1, "orderExtends": []map[string]any{{"skuCode": "sku-" + id, "orderQuantity": n, "deliveryQuantity": n, "receiptQuantity": n, "storageQuantity": n, "defectiveQuantity": 0}}}
 	}
 	original := row("PO-A", "否", 5)
+	original["addTime"] = "2026-11-01 12:34:56"
+	original["allocateTime"] = nil
+	original["updateTime"] = ""
+	original["reserveTime"] = "1970-01-01 08:00:01"
+	original["requestReceiptTime"] = "2026-11-02T00:00:00-05:00"
 	missingQty := row("PO-B-1", "No", 2)
+	missingQty["addTime"] = " 2026-11-03 01:02:03 "
+	missingQty["receiptTime"] = json.Number("123.00")
+	missingQty["checkTime"] = false
 	delete(missingQty["orderExtends"].([]map[string]any)[0], "receiptQuantity")
 	f.supplyRows = map[string][]map[string]any{a: {original, row("JIT-MOTHER-A", "是", 100), row("JIT-CHILD-A", "否", 7), original}, b: {row("PO-B-OLD", "否", 99), missingQty, row("PO-B-UNKNOWN", "", 50)}}
 	service := &o.Service{Repository: repo, Access: f, Directory: f}
@@ -120,6 +128,32 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	require.Equal(t, 1, saved.Summary.MotherCount)
 	require.Equal(t, "12", *saved.Summary.Quantities.Ordered.Value)
 	require.Equal(t, "0", *saved.Summary.Quantities.Defective.Value)
+	detail := func(store, sync, id string) o.Record {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/store-observations/supply-orders/stores/"+store+"/syncs/"+sync+"/records/"+id, nil)
+		req.Header.Set("Authorization", "Bearer offline")
+		req.Header.Set("X-Requested-Organization-ID", scope.OrganizationID)
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+		require.Equal(t, 200, res.Code, res.Body.String())
+		var out struct {
+			Data o.Record `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &out))
+		return out.Data
+	}
+	stored := detail(a, saved.Source.SyncID, "PO-A").SupplyOrder.BusinessTimes
+	require.True(t, stored.Valid())
+	require.Equal(t, "2026-11-01 12:34:56", *stored.Values["addTime"].Raw)
+	require.Equal(t, "null", stored.Values["allocateTime"].State)
+	require.Equal(t, "empty", stored.Values["updateTime"].State)
+	require.Equal(t, "missing", stored.Values["deliveryTime"].State)
+	require.Nil(t, stored.Values["deliveryTime"].Raw)
+	require.Equal(t, "2026-11-02T00:00:00-05:00", *stored.Values["requestReceiptTime"].Raw)
+	require.Equal(t, before, f.calls, "saved details must never request provider")
+	_, err = service.Detail(ctx, scope, b, saved.Source.SyncID, "PO-A", o.SupplyOrders)
+	require.ErrorIs(t, err, o.ErrNotFound)
+	_, err = service.Detail(ctx, o.Scope{OrganizationID: "other", ActorID: scope.ActorID, MemberID: scope.MemberID}, a, saved.Source.SyncID, "PO-A", o.SupplyOrders)
+	require.Error(t, err)
 	begin(b, uuid.NewString(), []string{"PO-B-OLD"})
 	second := begin(b, uuid.NewString(), []string{"PO-B-1", "PO-B-MISSING", "PO-B-UNKNOWN"})
 	partial := read(b)
@@ -131,6 +165,10 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	require.Equal(t, 1, partial.Summary.UnknownTypeCount)
 	require.Equal(t, "2", *partial.Summary.Quantities.Ordered.Value)
 	require.Nil(t, partial.Summary.Quantities.Received.Value)
+	storedB := detail(b, partial.Source.SyncID, "PO-B-1").SupplyOrder.BusinessTimes
+	require.Equal(t, " 2026-11-03 01:02:03 ", *storedB.Values["addTime"].Raw)
+	require.Equal(t, "123.00", *storedB.Values["receiptTime"].Raw)
+	require.Equal(t, "missing", storedB.Values["deliveryTime"].State)
 	require.Equal(t, saved, read(a))
 	require.Equal(t, before+2, f.calls) // observation reads never call the provider
 	var count int64
@@ -162,7 +200,9 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	badNext.Page = 2
 	badRows := []o.Record{}
 	for _, id := range ids[:20] {
-		order := o.SupplyOrder{ID: id, Lines: []o.SupplyLine{}}
+		times, parseErr := o.ParseSupplyBusinessTimes(nil)
+		require.NoError(t, parseErr)
+		order := o.SupplyOrder{ID: id, BusinessTimes: times, Lines: []o.SupplyLine{}}
 		badRows = append(badRows, o.Record{StoreID: a, SyncID: old.ID, ID: id, SupplyOrder: &order})
 	}
 	badRows[1].StoreID = b // after the first insert, shared transaction must roll back everything
