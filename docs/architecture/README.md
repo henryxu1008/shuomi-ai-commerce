@@ -144,7 +144,8 @@
 - `store-core-schema-alignment.md` — [own675 Store 核心合同对齐方案](store-core-schema-alignment.md)
 - `report-center-shein-offline-package-source.md` — [Report Center：原 SHEIN 离线包诊断正常接线候选](report-center-shein-offline-package-source.md)
 - `report-center-shein-target-source.md` — [Report Center：当前 SHEIN 已保存资料来源候选](report-center-shein-target-source.md)
-- `shein-color-split-drafts.md` — [SHEIN 按颜色拆分本地平台草稿](shein-color-split-drafts.md)
+- `shein-sales-attribute-mapping.md` — [SHEIN 单商品多颜色、多 SKU 销售属性映射](shein-sales-attribute-mapping.md)；#1158 当前设计，独立评审待完成，尚未授权实现；保留同一草稿三行，稀疏集合发布资格仍待确认。
+- `shein-color-split-drafts.md` — [SHEIN 按颜色拆分本地平台草稿](shein-color-split-drafts.md)；历史独立能力，已撤回作为本例必经流程的推荐，参见单商品映射设计。
 - `shein-native-validator-contract.md` — [SHEIN 原生资料公共诊断与材料 Tool v2](shein-native-validator-contract.md)
 - `shein-offline-stock-packaging.md` — [SHEIN 离线诊断的库存和 SKU 包装缺项](shein-offline-stock-packaging.md)
 - `shein-offline-validation-input-binding.md` — [SHEIN 离线诊断输入、freshness 与组织范围读取设计](shein-offline-validation-input-binding.md)
