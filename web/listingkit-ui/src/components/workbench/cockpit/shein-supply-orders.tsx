@@ -9,6 +9,7 @@ import { observationRequest, observationCommandSchema, observationSyncSchema, ob
 import { supplyObservationSchema } from "@/lib/contracts/shein-supply-orders";
 import styles from "./cockpit-overview.module.css";
 import {SheinSupplyTimes} from "./shein-supply-times";
+import {SheinSupplyDates} from "./shein-supply-dates";
 
 type Intent = {key:string;input: {kind:"supply-orders";stores:string[];supplyOrderIds:string[]}};
 const titles = {ordered:"订购数量",delivered:"已发货数量",received:"已收货数量",stored:"已入库数量",defective:"次品数量"};
@@ -24,16 +25,16 @@ function restoreIntent(storageKey:string,storeId:string):{intent?:Intent;error?:
   }catch {return {error:"原读取记录暂不可用，请恢复本页会话存储后重试。"};}
 }
 
-// This panel deliberately has no date input: the provider's natural-day contract is unconfirmed.
-export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:ObservationScope;storeId:string;onApplicable:(id:string)=>void}) {
+// Date filters are source calendar labels and never become provider queries.
+export function SheinSupplyOrders({scope,storeId,startDate,endDate,onApplicable}:{scope:ObservationScope;storeId:string;startDate:string;endDate:string;onApplicable:(id:string)=>void}) {
   const storageKey=JSON.stringify(["shein-supply-read",scope.organizationId,scope.userId,storeId]);
   const [restored]=useState(()=>restoreIntent(storageKey,storeId));
   const [text,setText]=useState(restored.intent?.input.supplyOrderIds.join("\n")??"");
   const [intent,setIntent]=useState<Intent|undefined>(restored.intent);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState(restored.error??"");
-  const query=useQuery({queryKey:["operations-cockpit",scope.userId,scope.organizationId,"shein-supply-orders",storeId],
-    queryFn:({signal})=>observationRequest(`supply-orders/observation?storeId=${encodeURIComponent(storeId)}`,scope,supplyObservationSchema,signal),
+  const query=useQuery({queryKey:["operations-cockpit",scope.userId,scope.organizationId,"shein-supply-orders",storeId,startDate,endDate],
+    queryFn:({signal})=>observationRequest(`supply-orders/observation?${new URLSearchParams({storeId,startDate,endDate})}`,scope,supplyObservationSchema,signal),
     retry:false,gcTime:0,refetchInterval:q=>q.state.data?.status==="running"?2000:false});
   const applicable=query.data?.status!==undefined&&query.data.status!=="not_applicable";
   useEffect(()=>{if(applicable)onApplicable(storeId);},[applicable,onApplicable,storeId]);
@@ -69,13 +70,15 @@ export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:Observatio
   const source=intent?undefined:data?.source,summary=intent?undefined:data?.summary;
   return <Card className={styles.panel}>
     <header className={styles.panelHeader}><h2>SHEIN 全托供货单观察</h2><small>按采购单号批次</small></header>
-    <p className={styles.panelNote}>仅观察本批采购单号，不代表店铺全量。日期口径待确认，不随首页日期变化；暂不统计金额。</p>
+    <p className={styles.panelNote}>仅观察最新已保存批次，不代表店铺全量。原文日期观察随首页筛选，不转换时区；暂不统计金额。</p>
     {query.isPending||query.isFetching||busy?<p role="status">正在确认供货单读取…</p>:query.error?<p role="alert">供货单观察暂不可用。<Button variant="outline" onClick={()=>void query.refetch()}>重新读取</Button></p>:null}
     {data&&<>
       <p role="status">{intent?"原读取结果尚未确认，请重试原读取":data.status==="not_synced"?"尚无已保存批次":data.status==="running"?"本批正在读取，完成后自动更新":data.status==="saved"?"本批单号均已保存":"覆盖不足：仅展示本批已保存部分"}</p>
       {data.status==="running"&&data.canSync&&source&&<Button variant="outline" disabled={busy} onClick={()=>void resume()}>继续原读取</Button>}
       {source&&<p className={styles.panelNote}>本批 {source.orderIds.length} 个单号 · 已保存 {data.savedOrderIds.length} 个 · 未返回 {source.missingIds.length} 个</p>}
+      {source&&data.originalDates&&<SheinSupplyDates data={data.originalDates}/>}
       {summary&&<>
+        <h3>本批全部数量（不按日期筛选）</h3>
         <dl className={styles.publicationCounts}><div><dt>非母单原单</dt><dd>{summary.orderCount}</dd></div><div><dt>JIT 母单（单列）</dt><dd>{summary.motherCount}</dd></div><div><dt>母子类型待核实</dt><dd>{summary.unknownTypeCount}</dd></div></dl>
         <p className={styles.panelNote}>以下仅合计已保存的非母单；母单与类型待核实单均不叠加。</p>
         <dl className={styles.publicationCounts}>{(Object.keys(titles) as (keyof typeof titles)[]).map(k=><div key={k}><dt>{titles[k]}</dt><dd>{summary.quantities[k].value??"待核实"}</dd>{summary.quantities[k].missingLines>0&&<small>{summary.quantities[k].missingLines} 行缺失或有歧义</small>}</div>)}</dl>

@@ -1,5 +1,5 @@
 import { temuOrderAmountMetrics } from "@/lib/contracts/temu-order-amount";
-import {supplyObservationSchema} from "@/lib/contracts/shein-supply-orders";
+import {supplyObservationSchema,supplyDateRangeSchema} from "@/lib/contracts/shein-supply-orders";
 import {supplyTimeDetailSchema} from "@/lib/contracts/shein-supply-time-detail";
 import { z } from "zod";
 import { savedOrderAmountMetrics } from "@/lib/contracts/shein-order-amount";
@@ -46,6 +46,7 @@ type Endpoint = {
   sync?: string;
   record?: string;
   command?: string;
+  dateRange?: {startDate:string;endDate:string};
 };
 function observationEndpoint(url: URL, method: string): Endpoint | null {
   const prefix = "/api/workbench/store-observations/";
@@ -65,7 +66,12 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
   };
   if(kind==="supply-orders"){
     if(segments.length===2&&segments[1]==="observation"&&method==="GET"){
-      if([...url.searchParams.keys()].length!==1||url.searchParams.getAll("storeId").length!==1||!observationID.safeParse(url.searchParams.get("storeId")).success)return null;
+      const keys=[...url.searchParams.keys()];
+      if(url.search.length>512||(keys.length!==1&&keys.length!==3)||url.searchParams.getAll("storeId").length!==1||!observationID.safeParse(url.searchParams.get("storeId")).success)return null;
+      if(keys.length===3){
+        if(url.searchParams.getAll("startDate").length!==1||url.searchParams.getAll("endDate").length!==1)return null;
+        const range=supplyDateRangeSchema.safeParse({startDate:url.searchParams.get("startDate"),endDate:url.searchParams.get("endDate")});if(!range.success)return null;e.dateRange=range.data;
+      }
       e.store=url.searchParams.get("storeId")!;e.schema=supplyObservationSchema;return e;
     }
     if(segments.length===1)return null;
@@ -220,8 +226,13 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
 }
 function matches(e: Endpoint, data: unknown): boolean {
   if(e.schema===supplyTimeDetailSchema){const v=supplyTimeDetailSchema.parse(data);return v.storeId===e.store&&v.syncId===e.sync&&v.id===e.record;}
-  if (e.schema === supplyObservationSchema)
-    return supplyObservationSchema.parse(data).storeId === e.store;
+  if (e.schema === supplyObservationSchema){
+    const v=supplyObservationSchema.parse(data);
+    if(v.storeId!==e.store)return false;
+    if(!e.dateRange)return !v.originalDates;
+    if(!v.summary)return !v.originalDates;
+    return !!v.originalDates&&v.originalDates.range.startDate===e.dateRange.startDate&&v.originalDates.range.endDate===e.dateRange.endDate;
+  }
   if (e.schema === observationRecordSchema) {
     const v = observationRecordSchema.parse(data);
     return (

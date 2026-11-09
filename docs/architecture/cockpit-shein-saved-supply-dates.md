@@ -1,6 +1,6 @@
 # 已保存全托供货单的原始日期观察
 
-Design Basis: Independent Architecture. Admission Status: REVIEW_PENDING. 执行 #1163；用户2026-11-09明确批准仅基于已保存数据的有界日期观察。本合同覆盖本次新增只读派生字段，不重新打开原时间保存合同。
+Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY. 执行 #1163；用户2026-11-09明确批准仅基于已保存数据的有界日期观察。本合同覆盖本次新增只读派生字段，不重新打开原时间保存合同。
 
 ## 用户结果、范围与依据
 
@@ -38,3 +38,5 @@ SheinSupplyOrders用同一个请求/缓存键包含scope/store/startDate/endDate
 独立本地实例复用原750fb728... PG/shein_supply_times_browser、店铺和6条原回执，前后固定原记录指纹。原A：11月1日急采PO-A 1单/5订购，子单缺日期单列、母单100不叠加；原B：格式未识别与母子待核实、partial提示保留，旧99不混入。原批无备货日期正例，在隔离且明确标记的补充店铺/批次中由正式adapter→Step→PG保存一条type2回执，addTime与allocateTime不同日且带偏移，用于备货分支，不改写原6条。浏览器切原日期/店铺实测，补充证据与原回执证据分开，外部平台调用0。
 
 交付一个Draft PR和保留本地入口；不自动合并、关闭Issue或签发用户产品验收。真实店铺与平台全量日期合同仍是NOT_RUN，不阻止本次有界已保存观察。
+
+独立设计检查：f7b8008d14ae2b14fdec1a12f38974af73402df6，IMPLEMENTATION_READY，无BLOCKER；日期结构/分区/权限/BFF绑定及同回执运行为IMPLEMENTATION_TEST。

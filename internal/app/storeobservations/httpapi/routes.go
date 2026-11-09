@@ -121,11 +121,20 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 				switch spec.action {
 				case "supply-observation":
 					values, err := url.ParseQuery(c.Request.URL.RawQuery)
-					if err != nil || len(c.Request.URL.RawQuery) > 512 || len(values) != 1 || len(values["storeId"]) != 1 || !o.ValidID(values.Get("storeId")) {
+					if err != nil || len(c.Request.URL.RawQuery) > 512 || (len(values) != 1 && len(values) != 3) || len(values["storeId"]) != 1 || !o.ValidID(values.Get("storeId")) {
 						failure(c, o.ErrInvalid)
 						return
 					}
-					data, e = a.Service.SupplyObservation(ctx, scope, values.Get("storeId"))
+					if len(values) == 3 {
+						dates := o.SupplyDateRange{StartDate: values.Get("startDate"), EndDate: values.Get("endDate")}
+						if len(values["startDate"]) != 1 || len(values["endDate"]) != 1 || !dates.Valid() {
+							failure(c, o.ErrInvalid)
+							return
+						}
+						data, e = a.Service.SupplyObservationDates(ctx, scope, values.Get("storeId"), dates)
+					} else {
+						data, e = a.Service.SupplyObservation(ctx, scope, values.Get("storeId"))
+					}
 				case "capabilities":
 					data, e = a.Capabilities(ctx, scope, kind)
 				case "temu-saved-amount-metrics", "saved-amount-metrics", "walmart-saved-amount-metrics", "tiktok-saved-amount-metrics":

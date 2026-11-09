@@ -229,7 +229,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskMessage={taskMessage}
     submissionOverview={overview}
     submissionOverviewMessage={overviewMessage}
-    storeOrderAmount={<>{supplyStore && ordersAllowed && <SheinSupplyOrders key={supplyStore} scope={scope} storeId={supplyStore} onApplicable={setSupplyApplicableStore}/ >}{showOrderAmount && <SavedOrderAmounts platform={selectedPlatform} data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} />}</>}
+    storeOrderAmount={<>{supplyStore && ordersAllowed && <SheinSupplyOrders key={supplyStore} scope={scope} storeId={supplyStore} startDate={period.startDate} endDate={period.endDate} onApplicable={setSupplyApplicableStore}/ >}{showOrderAmount && <SavedOrderAmounts platform={selectedPlatform} data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} />}</>}
     storeSubmission={countOwner
       ? <PublicationCounts platform={countOwner === "temu-create" ? "temu" : "shein"} counts={publicationCounts} message={publicationMessage} />
       : submissionOwner ? <StoreSubmissionRate owner={submissionOwner} counts={submissionCounts} message={submissionMessage} /> : undefined}
