@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { encode } from "@auth/core/jwt";
 import { expect, test } from "@playwright/test";
 import { initialListingDraft } from "../src/components/workbench/listing/draft-fields";
-import { rulesSchema, sheinTargetRecordSchema, type SupplySourceDetail } from "../src/lib/contracts/supply-chain";
+import { rulesSchema, sheinTargetRecordSchema, materialsRunSchema, type SupplySourceDetail } from "../src/lib/contracts/supply-chain";
 import { catalogEntrySchema, materialsTemplatesPageSchema } from "../src/lib/contracts/agent-configuration";
+import { readMaterialsIntent, readMaterialsMutation } from "../src/components/workbench/listing/materials-intent";
 import { executionModeViewSchema } from "../src/lib/contracts/execution-mode";
 
 // Use the regular Next development server and Auth.js with a synthetic session.
@@ -15,21 +16,26 @@ const userId = "123456789";
 const displayName = "陈小明";
 test.skip(process.env.AUTH_SECRET !== secret, "Requires the explicit synthetic account popover environment.");
 
+function materialsFixture() {
+  const id = "550e8400-e29b-41d4-a716-446655440000";
+  const storeId = "550e8400-e29b-41d4-a716-446655440002";
+  const at = "2026-11-09T00:00:00Z";
+  // Reuse the existing materials unit fixture's draft, scope and candidate categories.
+  const draft = initialListingDraft({ product: { title: "【合成验收】平台资料商品" } } as SupplySourceDetail);
+  const merchant = { organization_id: "org", store_id: storeId, site: "shein-us", store_version: 1, connection_revision: 1, application_revision: "1", application_id: "synthetic-app", application_type: "self_operated", supplier_identity_hash: "a".repeat(64), service_expires_at: "2027-01-01T00:00:00Z" };
+  const record = sheinTargetRecordSchema.parse({ id, targetId: id, revision: 1, effectiveVersion: "1", source: { id, preparationId: id, collectionItemId: id, collectionRevision: 1, source: { kind: "own", productKey: "own-materials-synthetic", publicationId: id, version: "1" } }, input: { sourceId: id, storeId, expectedRevision: 0, effectiveVersion: "1", draft }, merchant, productHash: "a".repeat(64), inventoryHash: "b".repeat(64), rulesHash: "c".repeat(64), result: { product: draft.product, images: [], ready_for_upload: false, issues: [] }, createdAt: at });
+  const rules = rulesSchema.parse({ merchant, rules: { application_type: "self_operated", categories: [{ category_id: 123, product_type_id: 456, parent_category_id: 0, category_name: "【合成】候选类目A", last_category: true, children: [] }, { category_id: 124, product_type_id: 457, parent_category_id: 0, category_name: "【合成】候选类目B", last_category: true, children: [] }], brands: [], sites: [], warehouses: [], fill: { fill_in_standard_list: [], currency: "CNY", default_language: "en", default_language_title_max_length: null, language_title_max_length_list: [], picture_config_list: [], supplier_code_in_spu_dimension: false, support_duplicate_sale_attr_value: false }, attributes: { product_type_id: 0, main_attribute_status: null, attribute_infos: [] }, linked: [] } });
+  const config = catalogEntrySchema.parse({ agent: { agentId: "listing.materials.agent", activation: "ENABLED", revision: "1", activationEpoch: "1", defaultTemplate: null, updatedAt: at }, name: "【合成】平台资料智能体", description: "仅用于隔离UI验证", definitionVersion: "v1", parameterSchema: "listing-materials-config-v1", canConfigure: false, canUse: true, canReadRuns: true, capabilities: [{ id: "listing.materials.inspect", support: "REQUIRED", readiness: "AVAILABLE", reason: "合成前置已就绪", observedAt: at }] });
+  const templates = materialsTemplatesPageSchema.parse({ items: [1, 2].map(n => ({ templateId: `550e8400-e29b-41d4-a716-44665544000${n + 2}`, agentId: "listing.materials.agent", lifecycle: "ACTIVE", revision: String(n), version: String(n), schemaVersion: "listing-materials-config-v1", name: `【合成】平台模板${n}`, targetPlatform: "shein", createdAt: at })), nextCursor: "" });
+  const mode = executionModeViewSchema.parse({ subject: { kind: "registered_agent", id: "listing.materials.agent" }, definition: { id: "listing.materials.agent", version: "v1" }, mode: "default", revision: "1", policyVersion: "agent-execution-policy-v1", canConfigure: false, updatedAt: at, updatedBy: "synthetic" });
+  return { id, storeId, record, rules, config, templates, mode };
+}
+
 for (const width of [1440, 390]) {
   for (const theme of ["dark", "light"]) {
     test(`materials selections and confirmation at ${width}px in ${theme}`, async ({ page }, info) => {
       test.skip(process.env.LISTINGKIT_SUPPLY_CHAIN_ENABLED !== "true" || process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED !== "true", "Requires isolated materials features.");
-      const id = "550e8400-e29b-41d4-a716-446655440000";
-      const storeId = "550e8400-e29b-41d4-a716-446655440002";
-      const at = "2026-11-09T00:00:00Z";
-      // Reuse the existing materials unit fixture's draft, scope and candidate categories.
-      const draft = initialListingDraft({ product: { title: "【合成验收】平台资料商品" } } as SupplySourceDetail);
-      const merchant = { organization_id: "org", store_id: storeId, site: "shein-us", store_version: 1, connection_revision: 1, application_revision: "1", application_id: "synthetic-app", application_type: "self_operated", supplier_identity_hash: "a".repeat(64), service_expires_at: "2027-01-01T00:00:00Z" };
-      const record = sheinTargetRecordSchema.parse({ id, targetId: id, revision: 1, effectiveVersion: "1", source: { id, preparationId: id, collectionItemId: id, collectionRevision: 1, source: { kind: "own", productKey: "own-materials-synthetic", publicationId: id, version: "1" } }, input: { sourceId: id, storeId, expectedRevision: 0, effectiveVersion: "1", draft }, merchant, productHash: "a".repeat(64), inventoryHash: "b".repeat(64), rulesHash: "c".repeat(64), result: { product: draft.product, images: [], ready_for_upload: false, issues: [] }, createdAt: at });
-      const rules = rulesSchema.parse({ merchant, rules: { application_type: "self_operated", categories: [{ category_id: 123, product_type_id: 456, parent_category_id: 0, category_name: "【合成】候选类目A", last_category: true, children: [] }, { category_id: 124, product_type_id: 457, parent_category_id: 0, category_name: "【合成】候选类目B", last_category: true, children: [] }], brands: [], sites: [], warehouses: [], fill: { fill_in_standard_list: [], currency: "CNY", default_language: "en", default_language_title_max_length: null, language_title_max_length_list: [], picture_config_list: [], supplier_code_in_spu_dimension: false, support_duplicate_sale_attr_value: false }, attributes: { product_type_id: 0, main_attribute_status: null, attribute_infos: [] }, linked: [] } });
-      const config = catalogEntrySchema.parse({ agent: { agentId: "listing.materials.agent", activation: "ENABLED", revision: "1", activationEpoch: "1", defaultTemplate: null, updatedAt: at }, name: "【合成】平台资料智能体", description: "仅用于隔离UI验证", definitionVersion: "v1", parameterSchema: "listing-materials-config-v1", canConfigure: false, canUse: true, canReadRuns: true, capabilities: [{ id: "listing.materials.inspect", support: "REQUIRED", readiness: "AVAILABLE", reason: "合成前置已就绪", observedAt: at }] });
-      const templates = materialsTemplatesPageSchema.parse({ items: [1, 2].map(n => ({ templateId: `550e8400-e29b-41d4-a716-44665544000${n + 2}`, agentId: "listing.materials.agent", lifecycle: "ACTIVE", revision: String(n), version: String(n), schemaVersion: "listing-materials-config-v1", name: `【合成】平台模板${n}`, targetPlatform: "shein", createdAt: at })), nextCursor: "" });
-      const mode = executionModeViewSchema.parse({ subject: { kind: "registered_agent", id: "listing.materials.agent" }, definition: { id: "listing.materials.agent", version: "v1" }, mode: "default", revision: "1", policyVersion: "agent-execution-policy-v1", canConfigure: false, updatedAt: at, updatedBy: "synthetic" });
+      const { id, storeId, record, rules, config, templates, mode } = materialsFixture();
       const forbidden: string[] = [];
       let categoryReads = 0;
       await page.route("**/api/workbench/**", async route => {
@@ -95,6 +101,108 @@ for (const width of [1440, 390]) {
       }
       await purpose.selectOption("category-rules"); await expect(category).toHaveValue("124");
       expect(categoryReads).toBeGreaterThan(0); expect(forbidden).toEqual([]);
+    });
+  }
+}
+
+for (const width of [1440, 390]) {
+  for (const theme of ["dark", "light"]) {
+    test(`materials retained states at ${width}px in ${theme}`, async ({ page, baseURL }, info) => {
+      test.skip(process.env.LISTINGKIT_SUPPLY_CHAIN_ENABLED !== "true" || process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED !== "true", "Requires isolated materials features.");
+      const { id, record, config, templates, mode } = materialsFixture();
+      const key = "550e8400-e29b-41d4-a716-446655440001";
+      const configurationSnapshotRef = { Kind: "agent-configuration-v1", ID: key, Digest: "a".repeat(64) };
+      const modeSnapshotRef = { Kind: "agent-execution-mode-v1", ID: key, Digest: "b".repeat(64) };
+      const feedbackText = "【合成】保留原资料\n只补充类目核对意见";
+      const intent = { recordId: id, userId, organizationId: "org", key, prepare: { requestKey: key, expectedModeRevision: "1" }, prepared: { recordId: id, requestKey: key, configurationSnapshotRef, modeSnapshotRef, modeRevision: "1", templateSelection: null } };
+      const mutation = { recordId: id, userId, organizationId: "org", key, action: "resume", input: { configurationSnapshotRef, revision: "3", feedback: feedbackText } };
+      expect(readMaterialsIntent(JSON.stringify(intent))).not.toBeNull();
+      expect(readMaterialsMutation(JSON.stringify(mutation))).not.toBeNull();
+      const common = { runId: key, requestKey: key, recordId: id, revision: "3", configurationSnapshotRef, modeSnapshotRef, executionMode: "default", modeRevision: "1", before: record.input, unresolved: ["【合成】类目仍需本人核对"], canRequestAdoption: false, steps: [], tokens: 30, estimatedCostMicros: 20, currency: "CNY", usageStatus: "observed" };
+      const interrupted = materialsRunSchema.parse({ ...common, phase: "interrupted", canResume: true });
+      const unknown = materialsRunSchema.parse({ ...interrupted, usageStatus: "unknown_reserved" });
+      const readOnly = materialsRunSchema.parse({ ...common, phase: "human_review_required", executionMode: "read_only", canResume: false, after: { ...record.input, draft: { ...record.input.draft, product: { ...record.input.draft.product, brand_code: "synthetic-brand" } } }, proposal: { brandCode: "synthetic-brand", evidenceIds: ["synthetic-observed"] }, candidateHash: "c".repeat(64) });
+      let scenario = "interrupted", unknownReadFailure = false;
+      const writes: string[] = [], runReads: string[] = [];
+      await page.route("**/*", async route => {
+        const request = route.request(), url = new URL(request.url()), path = url.pathname;
+        if (url.origin !== baseURL || request.method() !== "GET") { writes.push(`${request.method()} ${url.origin}${path}`); return route.abort(); }
+        if (path === "/api/workbench/context") return route.fulfill({ json: { user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId: "org", effectiveMemberId: "member", selectionRequired: false, organizations: [{ id: "org", name: "【合成】平台资料测试企业", roles: [], permissions: ["workbench.supply.read", "workbench.agent.use", "local_agent.write"] }] } });
+        if (path === `/api/workbench/supply-preparations/records/${id}`) return route.fulfill({ json: record });
+        if (path.includes("/materials-agent/")) {
+          expect(path).toBe(`/api/workbench/supply-preparations/records/${id}/materials-agent/runs/${key}`);
+          expect(request.headers()["x-expected-user-id"]).toBe(userId);
+          expect(request.headers()["x-expected-organization-id"]).toBe("org");
+          runReads.push(path);
+          if (scenario === "unknown" && unknownReadFailure) return route.fulfill({ status: 409, json: { code: "OUTCOME_UNKNOWN" } });
+          return route.fulfill({ json: scenario === "read-only" ? readOnly : scenario === "unknown" ? unknown : interrupted });
+        }
+        if (path === "/api/workbench/agents/listing.materials.agent") {
+          if (scenario === "permission") return route.fulfill({ status: 403, json: { code: "FORBIDDEN" } });
+          const value = scenario === "dependency" ? catalogEntrySchema.parse({ ...config, capabilities: [{ ...config.capabilities[0], readiness: "NEEDS_CONFIGURATION", reason: "【合成】模型配置尚未就绪" }] }) : config;
+          return route.fulfill({ json: value });
+        }
+        if (path === "/api/workbench/agents/listing.materials.agent/templates") return route.fulfill({ json: templates });
+        if (path === "/api/workbench/agents/execution-modes/registered_agent/listing.materials.agent") return route.fulfill({ json: executionModeViewSchema.parse({ ...mode, mode: scenario === "read-only" ? "read_only" : "default" }) });
+        return route.fallback();
+      });
+      await page.setViewportSize({ width, height: 844 });
+      for (scenario of ["interrupted", "unknown", "read-only", "permission", "dependency"]) {
+        const params = new URLSearchParams();
+        if (["interrupted", "unknown", "read-only"].includes(scenario)) {
+          params.set("agent_key", key); params.set("agent_actor", userId); params.set("agent_org", "org");
+          if (scenario === "unknown") { params.set("materials_intent", JSON.stringify(intent)); params.set("materials_mutation", JSON.stringify(mutation)); }
+        }
+        await page.goto(`/workbench/listing/materials/${id}?${params}`);
+        await expect(page.getByRole("heading", { name: "平台上架资料", exact: true })).toBeVisible();
+        const preference = page.getByRole("combobox", { name: "显示主题", exact: true });
+        await preference.selectOption(theme);
+        const feedback = page.getByRole("textbox", { name: "补充核对意见", exact: true });
+        if (scenario === "interrupted") {
+          await expect(page.getByRole("heading", { name: "等待继续", exact: true })).toBeVisible();
+          const resume = page.getByRole("button", { name: "按原编号继续", exact: true });
+          await expect(resume).toBeDisabled();
+          await page.getByRole("button", { name: "核对原运行", exact: true }).focus();
+          await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "核对原保存结果", exact: true })).toBeFocused();
+          await page.keyboard.press("Tab"); await expect(feedback).toBeFocused();
+          await page.keyboard.type("【合成】保留原资料"); await page.keyboard.press("Enter"); await page.keyboard.type("只补充类目核对意见");
+          await expect(feedback).toHaveValue(feedbackText); await expect(resume).toBeEnabled();
+          await page.keyboard.press("Tab"); await expect(resume).toBeFocused();
+          await page.keyboard.press("Shift+Tab"); await expect(feedback).toBeFocused();
+        } else if (scenario === "unknown") {
+          await expect(feedback).toBeDisabled(); await expect(feedback).toHaveValue(feedbackText);
+          await expect(page.getByText("用量待核实，原预留仍保留", { exact: false })).toBeVisible();
+          // Development Strict Mode may restore twice; fail only the explicit read below.
+          unknownReadFailure = true;
+          await page.getByRole("button", { name: "核对原运行", exact: true }).press("Enter");
+          await expect(page.getByRole("main").getByRole("alert")).toHaveText("结果尚未确认，请保留本次编号并核对原请求。");
+          await expect(page.getByRole("button", { name: "重试原继续请求", exact: true })).toBeEnabled();
+          await expect(page.getByRole("button", { name: "重试原确认与请求", exact: true })).toHaveCount(0);
+        } else if (scenario === "read-only") {
+          await expect(page.getByRole("heading", { name: "建议差异 · 尚未保存", exact: true })).toBeVisible();
+          await expect(page.getByText("本次为只读模式，建议可查看，不能保存到平台草稿。", { exact: true })).toBeVisible();
+          await expect(page.getByText("synthetic-brand", { exact: true })).toBeVisible();
+          await expect(page.getByRole("checkbox")).toHaveCount(0); await expect(feedback).toHaveCount(0);
+        } else {
+          await expect(page.getByText(scenario === "permission" ? "当前身份没有操作权限。" : "【合成】模型配置尚未就绪", { exact: true })).toBeVisible();
+          await expect(page.getByRole("button", { name: "准备平台资料", exact: true })).toBeDisabled();
+        }
+        for (const value of [theme === "dark" ? "light" : "dark", theme]) {
+          await preference.selectOption(value);
+          await expect(page.locator("html")).toHaveClass(new RegExp(`\\b${value}\\b`));
+          if (scenario === "interrupted" || scenario === "unknown") await expect(feedback).toHaveValue(feedbackText);
+        }
+        if (params.has("agent_key")) {
+          await expect(page.getByText(`本次编号 ${key}`, { exact: true })).toBeVisible();
+          await expect(page.getByRole("button", { name: "准备平台资料", exact: true })).toHaveCount(0);
+          expect(new URL(page.url()).searchParams.get("agent_key")).toBe(key);
+          if (scenario === "unknown") expect(JSON.parse(new URL(page.url()).searchParams.get("materials_mutation")!)).toEqual(mutation);
+        }
+        await expect(page.getByRole("button", { name: "确认保存本地草稿", exact: true })).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+        await page.screenshot({ path: info.outputPath(`materials-state-${scenario}-${width}-${theme}.png`), fullPage: true });
+      }
+      expect(runReads.length).toBeGreaterThanOrEqual(4); expect(writes).toEqual([]);
     });
   }
 }
