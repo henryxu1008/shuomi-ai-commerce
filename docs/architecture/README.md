@@ -249,6 +249,7 @@
 - `cockpit-shein-supply-business-times.md` — [SHEIN 全托：业务时间原值、来源与缺失状态保存](cockpit-shein-supply-business-times.md)
 - `cockpit-shein-saved-supply-dates.md` — [已保存全托供货单按原始日期观察](cockpit-shein-saved-supply-dates.md)
 - `cockpit-walmart-order-amount.md` — [Walmart US 消费者订单保存与单店商品金额](cockpit-walmart-order-amount.md)
+- `cockpit-walmart-order-sync.md` — [Walmart US 消费者订单手动同步接线](cockpit-walmart-order-sync.md)
 - `cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](cockpit-tiktok-order-amount.md)
 - `cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md)
 - `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)

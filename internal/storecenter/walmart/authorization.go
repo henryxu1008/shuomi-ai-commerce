@@ -38,6 +38,12 @@ func (d TokenDetail) Allows(purpose string, now time.Time) bool {
 	if purpose == "feed_result" {
 		level = d.Scopes["feeds"]
 	}
+	if purpose == "store_orders_read" {
+		level = d.Scopes["orders"]
+	}
+	if purpose != "product_rules" && purpose != "product_publish" && purpose != "store_products_read" && purpose != "feed_result" && purpose != "store_orders_read" {
+		return false
+	}
 	return level == "full_access" || level == "view_only"
 }
 

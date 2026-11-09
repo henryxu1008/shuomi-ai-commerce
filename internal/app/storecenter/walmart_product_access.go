@@ -145,7 +145,7 @@ func (a *OfficialProductAccess) ReadSavedWalmartFeedBinding(ctx context.Context,
 }
 
 func walmartMerchantBinding(m storecenter.ProductExecutionMaterial, g storecenter.WalmartGrant) MerchantBinding {
-	return MerchantBinding{Platform: storecenter.PlatformWalmart, Site: "walmart-us", OrganizationID: g.OrganizationID, StoreID: g.StoreID, StoreVersion: m.StoreVersion, ConnectionRevision: m.Connection.Version, ApplicationRevision: g.AppRevision, ApplicationID: g.AppID, SupplierIdentityHash: g.MerchantIdentityHash, ServiceExpiresAt: m.ServiceExpiresAt, CredentialExpiresAt: g.AccessExpiresAt, ScopesHash: g.ScopesHash, Walmart: storecenter.WalmartMerchantBinding{Market: "US", Environment: g.Environment, GrantID: g.ID, Generation: g.Generation, GrantVersion: g.Version}}
+	return MerchantBinding{Platform: storecenter.PlatformWalmart, Site: "walmart-us", OrganizationID: g.OrganizationID, StoreID: g.StoreID, StoreVersion: m.StoreVersion, ConnectionRevision: m.Connection.Version, ApplicationRevision: g.AppRevision, ApplicationID: g.AppID, SupplierIdentityHash: g.MerchantIdentityHash, ServiceExpiresAt: m.ServiceExpiresAt.UTC(), CredentialExpiresAt: g.AccessExpiresAt.UTC(), ScopesHash: g.ScopesHash, Walmart: storecenter.WalmartMerchantBinding{Market: "US", Environment: g.Environment, GrantID: g.ID, Generation: g.Generation, GrantVersion: g.Version}}
 }
 
 func (a *OfficialProductAccess) AuthorizeWalmartRules(ctx context.Context, s storecenter.ProductExecutionSubject, id string, expected *MerchantBinding) (*WalmartRulesHandle, error) {

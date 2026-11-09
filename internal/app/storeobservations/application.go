@@ -61,10 +61,10 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 		return nil, o.ErrUnavailable
 	}
 	platform := storecenter.Platform(selectedPlatform)
-	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu && platform != storecenter.PlatformWalmart || kind == o.Orders && (platform == storecenter.PlatformTemu || platform == storecenter.PlatformWalmart) {
+	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu && platform != storecenter.PlatformWalmart || kind == o.Orders && platform == storecenter.PlatformTemu {
 		return nil, o.ErrInvalid
 	}
-	if kind == o.Orders || kind == o.SupplyOrders {
+	if kind == o.SupplyOrders {
 		platform = storecenter.PlatformShein
 	}
 	out := []string{}
@@ -78,6 +78,9 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 			return nil, o.ErrUnavailable
 		}
 		for _, store := range result.Stores {
+			if kind == o.Orders && store.Platform() != storecenter.PlatformShein && store.Platform() != storecenter.PlatformWalmart {
+				continue
+			}
 			if !o.ValidID(store.ID()) || seen[store.ID()] {
 				return nil, o.ErrUnavailable
 			}
@@ -122,7 +125,10 @@ func (a *Application) Available() bool {
 }
 func (a *Application) Capabilities(ctx context.Context, s o.Scope, k o.Kind) (Capabilities, error) {
 	c := Capabilities{Kind: k, Site: "shein-us", PlatformURL: "https://sellerhub.shein.com/"}
-	if k == o.SupplyOrders { c.Site = "unknown"; c.PlatformURL = "" }
+	if k == o.SupplyOrders {
+		c.Site = "unknown"
+		c.PlatformURL = ""
+	}
 	if k == o.Products {
 		c.Site = "store-native"
 		c.PlatformURL = ""

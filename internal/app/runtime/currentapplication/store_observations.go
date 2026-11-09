@@ -20,7 +20,8 @@ func (c *Config) validateStoreObservations() error {
 	if !c.StoreCenter.Enabled || c.Identity.TenantDirectoryToken == "" {
 		return errors.New("Store observations require current Store, official applications and exact membership authorization")
 	}
-	if s.PreparationOnly && len(c.StoreCenter.OfficialApplications) != 0 || !s.PreparationOnly && len(c.StoreCenter.OfficialApplications) == 0 {
+	hasApplications := len(c.StoreCenter.OfficialApplications) != 0 || c.StoreCenter.WalmartUS != nil || c.StoreCenter.TikTokShop != nil
+	if s.PreparationOnly && hasApplications || !s.PreparationOnly && !hasApplications {
 		return errors.New("Store observations require official applications in full mode and no applications in explicit preparation mode")
 	}
 	host, port, err := net.SplitHostPort(s.TemporalAddress)

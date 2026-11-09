@@ -28,7 +28,7 @@ func (r mixedStoreDirectory) List(_ context.Context, organization string, query 
 
 func TestMixedDirectoryAllOrdersExcludeTemuAndProductsKeepBoth(t *testing.T) {
 	repo := mixedStoreDirectory{}
-	for _, platform := range []string{"shein", "temu"} {
+	for _, platform := range []string{"shein", "temu", "walmart"} {
 		store, err := storecenter.NewStore(storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: "org-a", ActorSubject: "actor-a", Name: platform, Platform: platform, Region: "US", CreateIdempotencyKey: uuid.NewString(), OccurredAt: time.Now()})
 		require.NoError(t, err)
 		repo.stores = append(repo.stores, *store)
@@ -37,15 +37,21 @@ func TestMixedDirectoryAllOrdersExcludeTemuAndProductsKeepBoth(t *testing.T) {
 	scope := o.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}
 	orders, err := d.ListStores(context.Background(), scope, o.Orders, "")
 	require.NoError(t, err)
-	require.Equal(t, []string{repo.stores[0].ID()}, orders)
+	require.Equal(t, []string{repo.stores[0].ID(), repo.stores[2].ID()}, orders)
 	products, err := d.ListStores(context.Background(), scope, o.Products, "")
 	require.NoError(t, err)
-	require.Len(t, products, 2)
+	require.Len(t, products, 3)
 	_, err = d.ListStores(context.Background(), scope, o.Kind("unsupported"), "")
 	require.Error(t, err)
 	temu, err := d.ListStores(context.Background(), scope, o.Products, "temu")
 	require.NoError(t, err)
 	require.Equal(t, []string{repo.stores[1].ID()}, temu)
+	walmart, err := d.ListStores(context.Background(), scope, o.Orders, "walmart")
+	require.NoError(t, err)
+	require.Equal(t, []string{repo.stores[2].ID()}, walmart)
+	shein, err := d.ListStores(context.Background(), scope, o.Orders, "shein")
+	require.NoError(t, err)
+	require.Equal(t, []string{repo.stores[0].ID()}, shein)
 	_, err = d.ListStores(context.Background(), scope, o.Orders, "temu")
 	require.ErrorIs(t, err, o.ErrInvalid)
 }

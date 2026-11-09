@@ -13,8 +13,12 @@ type WalmartProductsReader interface {
 	Products(context.Context, auth.TokenSet, int) (marketplace.ProductPage, error)
 }
 
+type WalmartOrdersReader interface {
+	Orders(context.Context, auth.TokenSet, o.WalmartOrderQuery) (o.WalmartOrderPage, error)
+}
+
 func (a *OfficialObservationAccess) authorizeWalmartObservation(ctx context.Context, started time.Time, s storecenter.ObservationSubject, id string, expected *MerchantBinding, m storecenter.ProductExecutionMaterial) (*ObservationHandle, error) {
-	if s.Purpose != storecenter.ObservationPurposeProducts {
+	if s.Purpose != storecenter.ObservationPurposeProducts && s.Purpose != storecenter.ObservationPurposeOrders {
 		return nil, o.ErrUnsupported
 	}
 	if !a.applications.WalmartConfigured() || m.Walmart == nil {
@@ -25,10 +29,14 @@ func (a *OfficialObservationAccess) authorizeWalmartObservation(ctx context.Cont
 	if g.OrganizationID != s.OrganizationID || g.StoreID != id || g.AppID != app.ClientID || g.AppRevision != app.Revision || g.Environment != app.Environment || !g.CanRead(a.now()) || !a.now().Before(m.ServiceExpiresAt) {
 		return nil, o.ErrConflict
 	}
-	if _, ok := a.applications.walmartProvider.(WalmartProductsReader); !ok {
+	if s.Purpose == storecenter.ObservationPurposeProducts {
+		if _, ok := a.applications.walmartProvider.(WalmartProductsReader); !ok {
+			return nil, o.ErrUnavailable
+		}
+	} else if _, ok := a.applications.walmartProvider.(WalmartOrdersReader); !ok {
 		return nil, o.ErrUnavailable
 	}
-	binding := MerchantBinding{Platform: storecenter.PlatformWalmart, Site: "walmart-us", OrganizationID: s.OrganizationID, StoreID: id, StoreVersion: m.StoreVersion, ConnectionRevision: m.Connection.Version, ApplicationRevision: g.AppRevision, ApplicationID: g.AppID, SupplierIdentityHash: g.MerchantIdentityHash, ServiceExpiresAt: m.ServiceExpiresAt, CredentialExpiresAt: g.AccessExpiresAt, ScopesHash: g.ScopesHash, Walmart: storecenter.WalmartMerchantBinding{Environment: g.Environment, Market: "US", GrantID: g.ID, Generation: g.Generation, GrantVersion: g.Version}}
+	binding := walmartMerchantBinding(m, g)
 	if !binding.ValidWalmartApplication() || expected != nil && *expected != binding {
 		return nil, o.ErrConflict
 	}
@@ -40,7 +48,7 @@ func (a *OfficialObservationAccess) authorizeWalmartObservation(ctx context.Cont
 }
 func (h *ObservationHandle) walmartCredential(ctx context.Context) (auth.TokenSet, error) {
 	var zero auth.TokenSet
-	if h == nil || h.owner == nil || h.walmartGrant == nil || ctx == nil || ctx.Err() != nil || !h.owner.now().Before(h.expiresAt) || h.subject.Purpose != storecenter.ObservationPurposeProducts {
+	if h == nil || h.owner == nil || h.walmartGrant == nil || ctx == nil || ctx.Err() != nil || !h.owner.now().Before(h.expiresAt) || (h.subject.Purpose != storecenter.ObservationPurposeProducts && h.subject.Purpose != storecenter.ObservationPurposeOrders) {
 		return zero, o.ErrForbidden
 	}
 	ctx, cancel := context.WithDeadline(ctx, h.expiresAt)
@@ -59,12 +67,15 @@ func (h *ObservationHandle) walmartCredential(ctx context.Context) (auth.TokenSe
 		return zero, o.ErrConflict
 	}
 	detail, e := h.owner.applications.walmartProvider.TokenDetail(ctx, tokens)
-	if e != nil || !detail.Allows(storecenter.ObservationPurposeProducts, h.owner.now()) || marketplace.Hash(detail.Scopes) != g.ScopesHash {
+	if e != nil || !detail.Allows(h.subject.Purpose, h.owner.now()) || marketplace.Hash(detail.Scopes) != g.ScopesHash {
 		return zero, o.ErrConflict
 	}
 	return tokens, nil
 }
 func (h *ObservationHandle) walmartProducts(ctx context.Context, page int) (o.ProductPage, error) {
+	if h.subject.Purpose != storecenter.ObservationPurposeProducts {
+		return o.ProductPage{}, o.ErrForbidden
+	}
 	tokens, e := h.walmartCredential(ctx)
 	if e != nil {
 		return o.ProductPage{}, e
@@ -77,4 +88,26 @@ func (h *ObservationHandle) walmartProducts(ctx context.Context, page int) (o.Pr
 		return o.ProductPage{}, e
 	}
 	return o.ProductPage{Total: result.Total, WalmartItems: result.Items}, nil
+}
+
+// ReadWalmartOrders reopens the exact original binding under the order purpose.
+func (a *OfficialObservationAccess) ReadWalmartOrders(ctx context.Context, s o.Scope, binding o.Binding, query o.WalmartOrderQuery) (o.WalmartOrderPage, error) {
+	h, err := a.Authorize(ctx, storecenter.ObservationSubject{OrganizationID: s.OrganizationID, ActorID: s.ActorID, MemberID: s.MemberID, Purpose: storecenter.ObservationPurposeOrders, Sync: true}, binding.StoreID, &binding)
+	if err != nil {
+		return o.WalmartOrderPage{}, err
+	}
+	ctx, cancel := context.WithDeadline(ctx, h.expiresAt)
+	defer cancel()
+	tokens, err := h.walmartCredential(ctx)
+	if err != nil {
+		return o.WalmartOrderPage{}, err
+	}
+	page, err := h.owner.applications.walmartProvider.(WalmartOrdersReader).Orders(ctx, tokens, query)
+	if err != nil {
+		return o.WalmartOrderPage{}, o.ErrUnavailable
+	}
+	if _, err = h.walmartCredential(ctx); err != nil {
+		return o.WalmartOrderPage{}, err
+	}
+	return page, nil
 }
