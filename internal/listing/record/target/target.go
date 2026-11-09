@@ -325,7 +325,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 		if e != nil {
 			return TargetReceipt{}, e
 		}
-		initial, e := repo.ReadColorSplitFamily(ctx, scope, input.ColorPartition.FamilyID)
+		initial, e := repo.ReadColorSplitCreation(ctx, scope, input.ColorPartition.FamilyID)
 		if e != nil {
 			return TargetReceipt{}, e
 		}

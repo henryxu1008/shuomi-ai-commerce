@@ -85,6 +85,13 @@ func (r *Repository) ReadColorSplitFamily(ctx context.Context, scope collection.
 	v, _, e := readSplit(r.db.WithContext(ctx), scope, "family_id", family, true)
 	return v, e
 }
+
+// ReadColorSplitCreation returns the immutable initial pair for ownership checks.
+// The separate family reader intentionally resolves current editable heads.
+func (r *Repository) ReadColorSplitCreation(ctx context.Context, scope collection.Scope, family string) (record.ColorSplitReceipt, error) {
+	v, _, e := readSplit(r.db.WithContext(ctx), scope, "family_id", family, false)
+	return v, e
+}
 func validateColorEdit(db *gorm.DB, scope collection.Scope, v record.TargetRecord) error {
 	if v.Input.ColorPartition == nil {
 		return nil

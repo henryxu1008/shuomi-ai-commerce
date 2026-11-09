@@ -118,6 +118,7 @@ type ColorSplitRepository interface {
 	FindColorSplitCommand(context.Context, collection.Scope, string, string) (ColorSplitReceipt, error)
 	ReadColorSplitCommand(context.Context, collection.Scope, string) (ColorSplitReceipt, error)
 	ReadColorSplitFamily(context.Context, collection.Scope, string) (ColorSplitReceipt, error)
+	ReadColorSplitCreation(context.Context, collection.Scope, string) (ColorSplitReceipt, error)
 	SaveColorSplit(context.Context, ColorSplitPrepared) (ColorSplitReceipt, error)
 }
 type ColorSplitPrepared struct {

@@ -193,6 +193,27 @@ func TestPostgresColorSplitAtomicReplayMembershipAndLocalOnly(t *testing.T) {
 	old, e := service.ReadColorSplitCommand(actor, key)
 	require.NoError(t, e)
 	require.EqualValues(t, 1, old.Records[0].Revision)
+	// An initially shared image remains allocated to both children even after
+	// one child temporarily removes it. Mutable heads cannot redefine ownership.
+	removed := updated.Record.Input
+	removed.ExpectedRevision = 2
+	removed.Draft.Images = []goods.OfficialImageSlot{}
+	withoutShared, e := service.Create(actor, uuid.NewString(), removed)
+	require.NoError(t, e)
+	restored := withoutShared.Record.Input
+	restored.ExpectedRevision = 3
+	restored.Draft.Images = updated.Record.Input.Draft.Images
+	withShared, e := service.Create(actor, uuid.NewString(), restored)
+	require.NoError(t, e, "restoring an originally shared image must use immutable creation allocation")
+	require.EqualValues(t, 4, withShared.Record.Revision)
+	current, e = service.ReadColorSplitFamily(actor, source.ID, saved.FamilyID)
+	require.NoError(t, e)
+	require.EqualValues(t, 1, current.Records[1].Revision)
+	require.Equal(t, saved.Records[1].Input.Draft.Images, current.Records[1].Input.Draft.Images)
+	old, e = service.ReadColorSplitCommand(actor, key)
+	require.NoError(t, e)
+	require.EqualValues(t, 1, old.Records[0].Revision)
+	require.Equal(t, saved.Records[0].Input.Draft.Images, old.Records[0].Input.Draft.Images)
 	edit.Draft.Product.SKCs[0].SKUs[0].SupplierSKU = "FORGED"
 	_, e = service.Create(actor, uuid.NewString(), edit)
 	require.Error(t, e)
