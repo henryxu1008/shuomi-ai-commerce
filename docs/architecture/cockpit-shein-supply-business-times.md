@@ -1,6 +1,6 @@
 # SHEIN 全托业务时间原值保存
 
-Design Basis: Independent Architecture. Admission Status: REVIEW_PENDING. 执行 #1163，用户2026-11-09批准本批，单Writer、单主要PR。
+Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY. 执行 #1163，用户2026-11-09批准本批，单Writer、单主要PR。
 
 ## 产品结果与依据
 
@@ -31,3 +31,5 @@ bundle固定`contract=shein-supply-business-times/v1`，`source=/open-api/order/
 TDD覆盖missing/null/empty/空白、无偏移/显式偏移/非法日历、1970、数字/布尔、超长/复合结构、原值PG往返、重复与时间冲突、跨店/绑定错误和原数量/coverage。复用现有测试/原离线fixture，不扩展通用runner。新建独立本地PG及两家全托测试店，新schema空数据；原35726及其他预览不改。用无fallback传输替身走正式parser/Step/PG/HTTP/BFF，浏览器查看13字段、切换店铺/原单，确认缺失不补同步时间，日期切换不改变该批事实，外部业务请求0。开发自检和代码复核不等于用户产品验收。
 
 交付Draft PR和保留试用入口；不自动合并/关闭Issue。日期统计、真实时区/查询边界确认、金额均明确后续，不把本批宣称自然日可用。
+
+独立架构检查：8a78dcf4c98df5a89a25f1d49e97f290c14560c6，IMPLEMENTATION_READY，无BLOCKER；完整字段原值校验、Detail绑定贯通、冲突/预算回滚和UI隔离为本批IMPLEMENTATION_TEST。
