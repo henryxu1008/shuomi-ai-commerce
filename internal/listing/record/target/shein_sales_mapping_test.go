@@ -115,6 +115,10 @@ func TestSalesMappingDoesNotReassignSampleOrSizeChartWhenValuesAreSwapped(t *tes
 			} else {
 				base.Product.SizeAttributes = []model.SizeAttribute{{AttributeID: 99, RelatedSaleAttributeID: importPtr(int64(13)), RelatedSaleAttributeValueID: importPtr(int64(36))}}
 			}
+			kept, e := deriveSheinSales(base, s, c, sel, r, inv)
+			require.NoError(t, e, "unchanged source associations remain usable")
+			require.Equal(t, base.Product.Sample, kept.Product.Sample)
+			require.Equal(t, base.Product.SizeAttributes, kept.Product.SizeAttributes)
 			for i := range sel.Values {
 				if sel.Values[i].SourceName == "尺码" {
 					if sel.Values[i].SourceValue == "M" {
