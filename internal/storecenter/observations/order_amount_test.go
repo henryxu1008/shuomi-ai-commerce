@@ -166,3 +166,47 @@ func TestSavedOrderAmountWithoutSyncExplainsCoverage(t *testing.T) {
 		})
 	}
 }
+
+type noHeadOrderAccess struct {
+	Access
+	opens   int
+	openErr error
+}
+
+func (a *noHeadOrderAccess) Open(ctx context.Context, scope Scope, store string, kind Kind, sync bool, expected *Binding) (Merchant, error) {
+	a.opens++
+	if a.openErr != nil {
+		return nil, a.openErr
+	}
+	return a.Access.Open(ctx, scope, store, kind, sync, expected)
+}
+
+func TestSavedSheinAmountsWithoutHeadStillRequireCurrentConsumerEligibility(t *testing.T) {
+	for _, test := range []string{"eligible", "unsupported", "revoked", "wrong_store"} {
+		t.Run(test, func(t *testing.T) {
+			s, r, a, m, q := amountFixture(t)
+			r.heads = nil
+			r.latest = nil
+			access := &noHeadOrderAccess{Access: a}
+			s.Access = access
+			switch test {
+			case "unsupported":
+				access.openErr = ErrUnsupported
+			case "revoked":
+				m.err = ErrForbidden
+			case "wrong_store":
+				m.binding.StoreID = "other-store"
+			}
+			got, err := s.SavedOrderAmounts(context.Background(), Scope{"org-a", "actor-a", "member-a"}, q)
+			if test == "eligible" {
+				require.NoError(t, err)
+				require.Equal(t, "no_saved_sync", got.Reason)
+				require.Equal(t, "coverage_incomplete", got.Status)
+			} else {
+				require.Error(t, err)
+				require.Nil(t, got.Amounts)
+			}
+			require.Equal(t, 1, access.opens)
+		})
+	}
+}

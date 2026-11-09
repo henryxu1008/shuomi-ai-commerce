@@ -9,7 +9,7 @@ const store="123e4567-e89b-42d3-a456-426614174000";
 const id="123e4567-e89b-42d3-a456-426614174001";
 const permissions=["workbench.store.orders.sync"];
 afterEach(()=>{cleanup();sessionStorage.clear();vi.mocked(observationRequest).mockReset();});
-it.each(["walmart","tiktokshop","temu"] as const)("%s syncs explicit date/store, retains the original key after a lost response, and refreshes home on completion",async(platform)=>{
+it.each(["walmart","tiktokshop","temu","shein"] as const)("%s syncs explicit date/store, retains the original key after a lost response, and refreshes home on completion",async(platform)=>{
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
  const invalidate=vi.spyOn(client,"invalidateQueries");
  let committed=false,reveal=false;
@@ -17,7 +17,7 @@ it.each(["walmart","tiktokshop","temu"] as const)("%s syncs explicit date/store,
   if(path==="orders/capabilities")return {canSync:true};
   if(write){committed=true;throw new ObservationError("DEPENDENCY_UNAVAILABLE",0);}
   if(!committed||!reveal)throw new ObservationError("NOT_FOUND",404);
-  return {id,input:{kind:"orders",stores:[store],start:"2026-11-01T00:00:00+08:00",end:"2026-11-09T00:00:00+08:00"},syncs:[{id,storeId:store,status:"completed",progress:{seen:2}}]};
+  return {id,input:{kind:"orders",stores:[store],start:"2026-11-01T00:00:00+08:00",end:platform==="shein"?"2026-11-08T23:59:59+08:00":"2026-11-09T00:00:00+08:00"},syncs:[{id,storeId:store,status:"completed",progress:{seen:2}}]};
  });
  const tree=(startDate:string)=> <QueryClientProvider client={client}><StoreOrderSync platform={platform} scope={scope} storeId={store} startDate={startDate} endDate="2026-11-08" permissions={permissions}/></QueryClientProvider>;
  const view=render(tree("2026-11-01"));
@@ -25,7 +25,7 @@ it.each(["walmart","tiktokshop","temu"] as const)("%s syncs explicit date/store,
  fireEvent.click(screen.getByRole("button",{name:"同步所选日期订单"}));
  await screen.findByText(/同步结果尚未确认/);
  const write=vi.mocked(observationRequest).mock.calls.find(c=>c[4])!;
- expect(write[4]).toMatchObject({input:{kind:"orders",stores:[store],start:"2026-11-01T00:00:00+08:00",end:"2026-11-09T00:00:00+08:00"}});
+ expect(write[4]).toMatchObject({input:{kind:"orders",stores:[store],start:"2026-11-01T00:00:00+08:00",end:platform==="shein"?"2026-11-08T23:59:59+08:00":"2026-11-09T00:00:00+08:00"}});
  view.rerender(tree("2026-10-10"));
  reveal=true;
  fireEvent.click(screen.getByRole("button",{name:"确认原同步结果"}));
@@ -35,11 +35,11 @@ it.each(["walmart","tiktokshop","temu"] as const)("%s syncs explicit date/store,
  client.clear();
 });
 
-it.each(["walmart","tiktokshop","temu"] as const)("%s retires a confirmed terminal intent before remounting with an obsolete merchant binding",async(platform)=>{
+it.each(["walmart","tiktokshop","temu","shein"] as const)("%s retires a confirmed terminal intent before remounting with an obsolete merchant binding",async(platform)=>{
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
  const key="123e4567-e89b-42d3-a456-426614174002";
  const storageKey=JSON.stringify([`${platform}-order-sync`,scope.organizationId,scope.userId,store]);
- const input={kind:"orders",stores:[store],start:"2026-11-01T00:00:00+08:00",end:"2026-11-09T00:00:00+08:00"};
+ const input={kind:"orders",stores:[store],start:"2026-11-01T00:00:00+08:00",end:platform==="shein"?"2026-11-08T23:59:59+08:00":"2026-11-09T00:00:00+08:00"};
  sessionStorage.setItem(storageKey,JSON.stringify({key,input}));
  let obsolete=false;
  vi.mocked(observationRequest).mockImplementation(async(path,_scope,_schema,_signal,write)=>{
