@@ -35,6 +35,10 @@ func InstallAssessmentSchema(tx *gorm.DB) error {
 }
 
 func VerifyAssessmentSchema(ctx context.Context, db *gorm.DB) error {
+	return verifyAssessmentSchema(ctx, db, true)
+}
+
+func verifyAssessmentSchema(ctx context.Context, db *gorm.DB, serving bool) error {
 	var verified bool
 	err := db.WithContext(ctx).Raw(`WITH expected(name, kind, cols, ref, refcols) AS (VALUES
  ('assessment_key','p',ARRAY['organization_id','actor_id','project_id','request_key'],NULL::text,NULL::text[]),
@@ -53,12 +57,54 @@ func VerifyAssessmentSchema(ctx context.Context, db *gorm.DB) error {
  AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(?) AND convalidated AND pg_get_constraintdef(oid)='CHECK ((octet_length((record_json)::text) <= 32768))')
  AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(?) AND convalidated AND pg_get_constraintdef(oid)='CHECK ((assessment_revision = 1))')
  AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(?) AND convalidated AND conname='assessment_result')
- AND EXISTS(SELECT 1 FROM pg_class WHERE oid=to_regclass(?) AND relkind='r' AND relowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user))`,
-		assessmentTable, assessmentTable, assessmentTable, assessmentTable, assessmentTable, assessmentTable).Scan(&verified).Error
+ AND EXISTS(SELECT 1 FROM pg_class WHERE oid=to_regclass(?) AND relkind='r' AND (? OR relowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user)))`,
+		assessmentTable, assessmentTable, assessmentTable, assessmentTable, assessmentTable, assessmentTable, !serving).Scan(&verified).Error
 	if err != nil || !verified {
 		return research.ErrUnavailable
 	}
 	if db.WithContext(ctx).Exec("SELECT organization_id,actor_id,project_id,request_key,candidate_id,candidate_revision,record_json,created_at FROM "+assessmentTable+" LIMIT 0").Error != nil {
+		return research.ErrUnavailable
+	}
+	return nil
+}
+
+// VerifyAssessmentOwnerInstallation is the explicit installer's read-only check.
+// It never fixes drift or broadens grants on a previously installed table.
+func VerifyAssessmentOwnerInstallation(ctx context.Context, db *gorm.DB) error {
+	if verifyAssessmentSchema(ctx, db, false) != nil {
+		return research.ErrUnavailable
+	}
+	var safe bool
+	const resultConstraint = `CHECK (((((record_json -> 'result'::text) ->> 'status'::text) IS NOT NULL) AND (((record_json -> 'result'::text) ->> 'status'::text) = ANY (ARRAY['COMPUTABLE'::text, 'INSUFFICIENT_INPUT'::text, 'UNSUPPORTED_COST_RULE'::text]))))`
+	err := db.WithContext(ctx).Raw(`SELECT
+ c.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)
+ AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity
+ AND 9=(SELECT count(*) FROM pg_attribute WHERE attrelid=c.oid AND attnum>0 AND NOT attisdropped)
+ AND NOT EXISTS(SELECT 1 FROM (VALUES
+ ('organization_id','character varying(128)'),('actor_id','character varying(128)'),
+ ('project_id','uuid'),('request_key','uuid'),('candidate_id','uuid'),
+ ('candidate_revision','bigint'),('assessment_revision','bigint'),('record_json','jsonb'),('created_at','timestamp with time zone')
+ ) AS expected(name,kind) WHERE NOT EXISTS(SELECT 1 FROM pg_attribute a
+ WHERE a.attrelid=c.oid AND a.attname=expected.name AND a.attnum>0 AND NOT a.attisdropped
+ AND a.attnotnull AND pg_catalog.format_type(a.atttypid,a.atttypmod)=expected.kind))
+ AND EXISTS(SELECT 1 FROM pg_attribute a JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+ WHERE a.attrelid=c.oid AND a.attname='assessment_revision' AND pg_get_expr(d.adbin,d.adrelid)='1')
+ AND 8=(SELECT count(*) FROM pg_constraint WHERE conrelid=c.oid)
+ AND NOT EXISTS(SELECT 1 FROM pg_index WHERE indrelid=c.oid AND (NOT indisvalid OR NOT indisready OR NOT indimmediate))
+ AND NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=c.oid AND NOT tgisinternal)
+ AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=c.oid AND conname='assessment_result'
+ AND convalidated AND NOT condeferrable AND pg_get_constraintdef(oid)=?)
+ AND has_schema_privilege(?, 'public', 'USAGE')
+ AND has_table_privilege(?,c.oid,'SELECT') AND has_table_privilege(?,c.oid,'INSERT')
+ AND NOT has_table_privilege(?,c.oid,'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+ AND NOT has_any_column_privilege(?,c.oid,'UPDATE,REFERENCES,SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION')
+ AND NOT EXISTS(SELECT 1 FROM aclexplode(c.relacl) a
+ WHERE a.grantee NOT IN(c.relowner,(SELECT oid FROM pg_roles WHERE rolname=?)))
+ AND NOT EXISTS(SELECT 1 FROM pg_attribute t CROSS JOIN LATERAL aclexplode(t.attacl) a
+ WHERE t.attrelid=c.oid AND a.grantee<>c.relowner)
+ FROM pg_class c WHERE c.oid=to_regclass(?)`,
+		resultConstraint, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, RuntimeRole, assessmentTable).Scan(&safe).Error
+	if err != nil || !safe {
 		return research.ErrUnavailable
 	}
 	return nil
