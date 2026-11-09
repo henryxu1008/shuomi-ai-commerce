@@ -1,0 +1,21 @@
+import {render,screen,fireEvent,waitFor} from "@testing-library/react";
+import {it,expect,vi} from "vitest";
+import {SheinSalesPanel} from "./shein-sales-panel";
+import {sheinImportFixture} from "@/test/shein-import-fixture";
+import {rulesSchema,sheinTargetRecordSchema,sourceDetailSchema,completionRecordSchema} from "@/lib/contracts/supply-chain";
+const f=vi.hoisted(()=>({preview:vi.fn()}));
+vi.mock("@/lib/api/supply-chain",async original=>({...await original<typeof import("@/lib/api/supply-chain")>(),previewSheinSalesMapping:f.preview}));
+it("requires explicit dimension/value and row confirmation; changing a selection clears the preview",async()=>{
+ const fixture=sheinImportFixture(),execute=vi.fn();
+ const base=sheinTargetRecordSchema.parse(fixture.base),detail=sourceDetailSchema.parse(fixture.detail),candidate=completionRecordSchema.parse(fixture.candidate),rules=rulesSchema.parse(fixture.rules);
+ detail.product.variants![0].sku="target-sku";
+ rules.rules.attributes.attribute_infos[0]={...rules.rules.attributes.attribute_infos[0],attribute_id:12,attribute_name:"Color",attribute_type:1,attribute_label:1};
+ f.preview.mockImplementation(async(_scope,request)=>({request,input:{...base.input,expectedRevision:1,sheinSalesMapping:{version:"shein-sales-mapping-v1"}},issues:[]}));
+ render(<SheinSalesPanel scope={{userId:"actor",organizationId:"org"}} detail={detail} candidate={candidate} base={base} rules={rules} locked={false} onRefresh={()=>{}} execute={execute}/>);
+ const preview=screen.getByRole("button",{name:"预览销售属性映射"});expect(preview).toBeDisabled();
+ fireEvent.change(screen.getByLabelText("颜色 的平台属性"),{target:{value:"main:12"}});
+ fireEvent.change(screen.getByLabelText("颜色：蓝 的平台值"),{target:{value:"11"}});
+ expect(preview).toBeDisabled();fireEvent.click(screen.getByLabelText("确认全部 SKU 对应"));expect(preview).toBeEnabled();
+ fireEvent.click(preview);await waitFor(()=>expect(screen.getByRole("button",{name:"确认映射并保存新版本"})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText("颜色：蓝 的平台值"),{target:{value:""}});expect(screen.getByRole("button",{name:"确认映射并保存新版本"})).toBeDisabled();expect(execute).not.toHaveBeenCalled();
+});

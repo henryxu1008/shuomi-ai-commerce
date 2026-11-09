@@ -1,3 +1,4 @@
+import {sheinSalesRequestSchema,type SheinSalesRequest} from "../contracts/shein-sales-mapping";
 import * as plans from "@/lib/contracts/upload-plan";
 import {sourceProductInputsSchema} from "@/lib/contracts/source-materials";
 import { z } from "zod";
@@ -75,6 +76,10 @@ export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSig
 	const value=await send(`${base}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const supplyRules=(scope:SupplyScope,input:c.SupplyTargetInput,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.rulesSchema,signal,{method:"POST",command:c.targetInputSchema.parse(input)});
+export async function previewSheinSalesMapping(scope:SupplyScope,request:SheinSalesRequest,signal?:AbortSignal){
+ const input=sheinSalesRequestSchema.parse(request),result=await send(`${base}/shein-sales-mapping-preview`,scope,c.sheinSalesPreviewSchema,signal,{method:"POST",command:input});
+ if(!c.matchesSheinSalesPreview(result,input))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
+}
 export async function previewSheinImport(scope:SupplyScope,request:c.SheinImportRequest,signal?:AbortSignal){
  const input=c.sheinImportRequestSchema.parse(request),result=await send(`${base}/shein-completion-preview`,scope,c.sheinImportPreviewSchema,signal,{method:"POST",command:input});
  if(!c.matchesSheinImportPreview(result,input))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
@@ -171,6 +176,7 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
   const input=c.targetInputSchema.parse(intent.command),result=c.targetReceiptSchema.parse(value).record;
   valid=result.source.id===input.sourceId&&result.merchant.store_id===input.storeId&&result.input.expectedRevision===input.expectedRevision&&result.effectiveVersion===input.effectiveVersion&&(result.applyReceiptId??"")===(input.applyReceiptId??"");
   if("colorPartition" in input&&input.colorPartition)valid=valid&&result.targetId===input.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
+  if("sheinSalesMapping" in input&&input.sheinSalesMapping)valid=valid&&result.targetId===input.sheinSalesMapping.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
   if("sheinImport" in input&&input.sheinImport)valid=valid&&result.targetId===input.sheinImport.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
  }
  if(intent.route==="create-operation"){

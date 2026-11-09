@@ -233,6 +233,7 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 		// Re-adaptation is a new command; retain imported values, not the
 		// previous operation's candidate/baseline binding.
 		input.SheinImport = nil
+		input.SheinSalesMapping = nil
 	} else if errors.Is(e, record.ErrNotFound) {
 		if a.TargetMerchants == nil {
 			return record.TargetReceipt{}, preparation.ErrUnavailable

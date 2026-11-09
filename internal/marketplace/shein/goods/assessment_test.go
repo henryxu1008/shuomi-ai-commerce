@@ -20,6 +20,18 @@ func officialRequest(t *testing.T) contract.BoundRequest[sheinvalidator.Official
 	return contract.BoundRequest[sheinvalidator.OfficialIdentity]{Input: sheinvalidator.OfficialIdentity{ContextDigest: digest, ProductReferenceDigest: digest, MerchantDigest: digest}, Target: contract.Target{Marketplace: "shein", Site: "shein-us"}, Action: contract.Preview, RuleVersion: sheinvalidator.OfficialDraftRuleVersion, BindingVersion: sheinvalidator.OfficialDraftBindingVersion, ReadAt: time.Unix(100, 0).UTC(), EvaluatedAt: time.Unix(101, 0).UTC(), Freshness: contract.ExternalFreshness{Status: contract.NotEvaluated}}
 }
 
+func TestSalesMappingDiagnosticVersionRejectsPriorEvaluationBinding(t *testing.T) {
+	require.Equal(t, "shein.official_draft.v2", sheinvalidator.OfficialDraftRuleVersion)
+	assessment := AssessOfficial(OfficialDraftInput{}, OfficialRuleSnapshot{}, asset.ApprovedAssetInventory{}, nil, nil)
+	current, err := assessment.Diagnostic(officialRequest(t))
+	require.NoError(t, err)
+	require.Equal(t, sheinvalidator.OfficialDraftRuleVersion, current.RuleVersion)
+	prior := officialRequest(t)
+	prior.RuleVersion = "shein.official_draft.v1"
+	_, err = assessment.Diagnostic(prior)
+	require.Error(t, err, "new execution cannot claim the former rule version")
+}
+
 func TestOfficialDiagnosticUsesActualNativeFindingsAndStableContent(t *testing.T) {
 	draft, rules, inventory := OfficialDraftInput{}, OfficialRuleSnapshot{}, asset.ApprovedAssetInventory{}
 	a := AssessOfficial(draft, rules, inventory, nil, nil)

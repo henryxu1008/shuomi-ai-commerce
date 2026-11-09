@@ -172,7 +172,7 @@ func ValidColorPartition(s collection.Scope, in TargetInput) bool {
 	if p == nil {
 		return in.TargetID == "" || in.TargetID == TargetIdentity(s, in.SourceID, in.StoreID)
 	}
-	if !p.LocalOnly || p.ColorAttributeID <= 0 || p.ColorValueID <= 0 || p.FamilyID != ColorFamilyIdentity(s, in.SourceID, in.StoreID, p.ColorAttributeID) || p.PartitionID != ColorPartitionIdentity(p.FamilyID, p.ColorAttributeID, p.ColorValueID) || in.TargetID != RecordIdentity(s, in) || !collection.ValidID(p.BaseRecordID) || !collection.ValidID(p.CompletionDraft.RecordID) || p.CompletionDraft.Revision < 1 || in.SheinImport != nil || in.CompletionDraft != nil || in.Temu != nil || in.TikTok != nil || in.Walmart != nil || len(in.Draft.Product.SKCs) != 1 {
+	if !p.LocalOnly || p.ColorAttributeID <= 0 || p.ColorValueID <= 0 || p.FamilyID != ColorFamilyIdentity(s, in.SourceID, in.StoreID, p.ColorAttributeID) || p.PartitionID != ColorPartitionIdentity(p.FamilyID, p.ColorAttributeID, p.ColorValueID) || in.TargetID != RecordIdentity(s, in) || !collection.ValidID(p.BaseRecordID) || !collection.ValidID(p.CompletionDraft.RecordID) || p.CompletionDraft.Revision < 1 || in.SheinSalesMapping != nil || in.SheinImport != nil || in.CompletionDraft != nil || in.Temu != nil || in.TikTok != nil || in.Walmart != nil || len(in.Draft.Product.SKCs) != 1 {
 		return false
 	}
 	skc := in.Draft.Product.SKCs[0]

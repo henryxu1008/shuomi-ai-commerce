@@ -7,6 +7,8 @@ Admission Status: **IMPLEMENTATION_READY / FROZEN**。2026-11-09 独立 R1 核�
 
 调查基线：`main 0685b62e1`。唯一 Writer：当前主会话；工作分支 `codex/issue1158-sales-attribute-mapping`。本文不是已实现能力，也不是实例更新或发布许可。
 
+实施窗口（2026-11-09 后续用户明确决定）：已授权按冻结设计实现，并在隔离环境验证预览、确认、保存、刷新和四项 IMPLEMENTATION_TEST。该决定替代下方设计阶段“生产实现/隔离保存待授权”的阶段限制；其他 Out of Scope 保持，尤其不操作原 35444、不调用模型、不发布、不释放原预留。实施与交付证据记录在本批 PR，架构准入不代替运行或用户验收。
+
 ## 1. Product Outcome / Must / Out of Scope
 
 使用者是把已保存自有商品和固定待补全候选 R1 带入店铺平台草稿的运营人员。当前被阻塞的操作是：源商品已经有颜色、尺码和三条 SKU，但基础平台草稿只复制编码，没有可用的官方销售属性映射。
@@ -70,6 +72,8 @@ Out of Scope：生产代码/schema、原 35444 配置/数据/部署、真实模�
 | native issues / 发布 wire | Marketplace SHEIN goods；所有消费者共用 |
 
 拟议调用链：现有 Target 带入页/编辑字段 → Console BFF 严格 DTO → `app/listing/httpapi` 新增只读 `POST /shein-sales-mapping-preview` → TargetService `PreviewSheinSalesMapping` → 当前 Source/Products/Completion/Rules/Assets ports → 返回完整 `TargetInput` 与逐行前后变化。它不保存，不生成平台 SKU，不调用模型或外部 mutation。
+
+预览同时返回本次准确读取的官方属性模板，确认表的属性/枚举名称用该模板展示，不能把此前页面缓存的标签当作当前平台值。模板仍由原 RuleReader 负责，不是持久化第二规则源；确认保存继续核对绑定 hash。普通带入入口不主动发起拆色，已有 family 的明确历史入口仍可读取其原资料。
 
 确认仍调用原 `POST targets` / `TargetService.Create` / `TargetPrepared` / `SaveTarget`。扩展现有 TargetInput 可选 typed `sheinSalesMapping` 操作绑定（与 SheinImport、CompletionDraft、ColorPartition 及其他平台分支互斥），含准确 baseRecordId/revision、固定 R1、selection、规则/merchant/inventory hashes、派生版本标识。正文仍是 `input.draft`，映射信息只是本次 provenance/重算依据，不成为可独立修改的第二份草稿或业务规则库。沿既有 JSON record 存储，无 DDL 或新 grants。
 

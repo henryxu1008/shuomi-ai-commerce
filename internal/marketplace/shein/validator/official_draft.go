@@ -8,7 +8,7 @@ import (
 )
 
 const OfficialDraftScope = "shein.official_draft"
-const OfficialDraftRuleVersion = "shein.official_draft.v1"
+const OfficialDraftRuleVersion = "shein.official_draft.v2"
 const OfficialDraftBindingVersion = "shein.official-input.go-json.v1"
 
 // OfficialIdentity binds owner-loaded context/Product/merchant facts. The

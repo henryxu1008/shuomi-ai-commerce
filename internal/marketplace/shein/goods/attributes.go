@@ -193,10 +193,39 @@ func saleSignature(values []model.AttributeValue, skipID int64) string {
 }
 func (b *officialBuild) validateVariantMatrix() {
 	var first []string
+	var dimensions string
+	var haveDimensions bool
+	var mainID int64
 	for i, skc := range b.result.Product.SKCs {
+		groupInvalid := false
+		if i == 0 {
+			mainID = skc.SaleAttribute.AttributeID
+		} else if mainID != skc.SaleAttribute.AttributeID {
+			b.issue(fmt.Sprintf("skc_list.%d.sale_attribute", i), "invalid", "同一商品的主销售属性须一致")
+			groupInvalid = true
+		}
 		signatures := []string{}
 		seen := map[string]bool{}
-		for _, sku := range skc.SKUs {
+		for j, sku := range skc.SKUs {
+			names := []string{}
+			seenIDs := map[int64]bool{}
+			for _, value := range sku.SaleAttributes {
+				if seenIDs[value.AttributeID] {
+					b.issue(fmt.Sprintf("skc_list.%d.sku_list.%d.sale_attribute_list", i, j), "invalid", "同一 SKU 的销售属性名称不得重复")
+					groupInvalid = true
+				}
+				seenIDs[value.AttributeID] = true
+				names = append(names, strconv.FormatInt(value.AttributeID, 10))
+			}
+			sort.Strings(names)
+			schema := strings.Join(names, "|")
+			if !haveDimensions {
+				dimensions = schema
+				haveDimensions = true
+			} else if dimensions != schema {
+				b.issue(fmt.Sprintf("skc_list.%d.sku_list.%d.sale_attribute_list", i, j), "invalid", "同一商品的 SKU 次销售属性维度和数量须一致")
+				groupInvalid = true
+			}
 			signature := saleSignature(sku.SaleAttributes, skc.SaleAttribute.AttributeID)
 			if seen[signature] {
 				b.issue(fmt.Sprintf("skc_list.%d.sku_list", i), "invalid", "同一 SKC 的 SKU 销售规格不得重复")
@@ -207,8 +236,8 @@ func (b *officialBuild) validateVariantMatrix() {
 		sort.Strings(signatures)
 		if i == 0 {
 			first = signatures
-		} else if strings.Join(first, "\x00") != strings.Join(signatures, "\x00") {
-			b.issue(fmt.Sprintf("skc_list.%d.sku_list", i), "invalid", "各 SKC 下的 SKU 规格范围须一致")
+		} else if !groupInvalid && strings.Join(first, "\x00") != strings.Join(signatures, "\x00") {
+			b.issue(fmt.Sprintf("skc_list.%d.sku_list", i), "variant_set_unconfirmed", "各颜色规格集合不同，平台发布资格待确认；可保留当前草稿")
 		}
 	}
 }
