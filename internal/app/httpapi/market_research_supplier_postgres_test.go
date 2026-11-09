@@ -134,6 +134,7 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	require.NoError(t, db.Exec("CREATE ROLE product_research_runtime LOGIN PASSWORD 'fixture-runtime'; REVOKE CREATE ON SCHEMA public FROM PUBLIC").Error)
 	require.NoError(t, researchstore.GrantRuntime(db))
 	require.NoError(t, researchstore.InstallSupplierReviewSchema(db))
+	require.NoError(t, researchstore.InstallAssessmentSchema(db))
 
 	scope := collection.Scope{OrganizationID: "org-fixture", ActorID: "actor-fixture", MemberID: "member-fixture"}
 	ctx = authidentity.WithAuthenticatedIdentity(ctx, authidentity.AuthenticatedIdentity{TenantID: scope.OrganizationID, EffectiveOrganizationID: scope.OrganizationID,
@@ -215,6 +216,7 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	svc := research.New(repo, sheinResearchProject{access}, sources)
 	svc.SupplierSources = sources
 	svc.SupplierExpiry = supplierEvidenceExpiry
+	svc.AssessmentExpiry = supplierEvidenceExpiry
 	link := func(selections ...research.Selection) research.Receipt {
 		t.Helper()
 		receipt, err := svc.Execute(ctx, scope, access.project, uuid.NewString(), research.Command{Action: "link", Selections: selections})
@@ -286,6 +288,29 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, replay.Replayed)
 
+	assessmentCandidate := candidate(id)
+	assessmentKey := uuid.NewString()
+	assessmentCommand := research.Command{Action: research.SaveAssessment, CandidateID: id, ExpectedRevision: assessmentCandidate.Revision, LinkID: assessmentCandidate.SelectedLinkID, EvidenceDigest: assessmentCandidate.EvidenceDigest,
+		Assessment: &research.AssessmentInput{Cost: research.CostInput{Rule: "unsupported", PurchaseCurrency: "USD", Quantity: "20", Specification: "sku-adjustable-white-01"}, SupplierReview: &research.AssessmentSupplierRef{Key: key, Revision: replay.Revisions[id]}}}
+	assessmentReceipt, err := svc.Execute(ctx, scope, access.project, assessmentKey, assessmentCommand)
+	require.NoError(t, err)
+	assessment, err := svc.ReadAssessment(ctx, scope, access.project, id, assessmentKey)
+	require.NoError(t, err)
+	require.NotNil(t, assessment.Detail)
+	require.Equal(t, "CONFIRMED", assessment.Detail.SupplierBinding)
+	require.Equal(t, "sku-adjustable-white-01", assessment.Detail.SupplierSKU)
+	require.Equal(t, 20, assessment.Detail.SupplierQuantity)
+	require.Equal(t, "piece", assessment.Detail.SupplierUnit)
+	require.Equal(t, "UNSUPPORTED_COST_RULE", assessment.Detail.Result.Status)
+	require.Equal(t, *assessmentReceipt.AssessmentRef, assessment.Detail.Ref)
+	mismatched := assessmentCommand
+	changed := *assessmentCommand.Assessment
+	changed.Cost.Quantity = "21"
+	mismatched.Assessment = &changed
+	mismatched.ExpectedRevision = assessmentReceipt.Revisions[id]
+	_, err = svc.Execute(ctx, scope, access.project, uuid.NewString(), mismatched)
+	require.ErrorIs(t, err, research.ErrConflict, "changed quantity cannot inherit the saved supplier confirmation")
+
 	approve(candidate(id))
 	require.Equal(t, "APPROVED_FOR_TEST", candidate(id).State)
 	page, err := svc.List(ctx, scope, access.project, "")
@@ -354,6 +379,9 @@ func TestResearchSupplierReviewUsesLiveOriginalOwners(t *testing.T) {
 	for _, denied := range []*bool{&roles.denied, &access.denied} {
 		*denied = true
 		require.JSONEq(t, `{"items":[{"current":true}]}`, read())
+		protected, e := svc.ReadAssessment(ctx, scope, access.project, id, assessmentKey)
+		require.NoError(t, e)
+		require.Nil(t, protected.Detail)
 		*denied = false
 	}
 	var count int64

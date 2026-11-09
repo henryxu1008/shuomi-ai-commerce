@@ -34,6 +34,12 @@ func ValidObservation(v Observation, s Selection) bool {
 	}
 }
 func Validate(c Command) error {
+	if c.Action == SaveAssessment {
+		return validateAssessmentCommand(c)
+	}
+	if c.Assessment != nil || c.AssessmentRef != nil && (c.Action != "decide" || !ValidAssessmentRef(*c.AssessmentRef)) {
+		return ErrInvalid
+	}
 	if c.Action == RecordSupplierReview {
 		if !collection.ValidID(c.CandidateID) || c.ExpectedRevision < 1 || len(c.Selections) != 0 ||
 			!collection.ValidID(c.LinkID) || !supplierDigest.MatchString(c.EvidenceDigest) ||
@@ -104,10 +110,16 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 	if err := s.authorize(ctx, scope, project, true); err != nil {
 		return Receipt{}, err
 	}
-	if !collection.ValidID(key) || Validate(c) != nil {
+	if !collection.ValidID(key) {
 		return Receipt{}, ErrInvalid
 	}
+	if validation := Validate(c); validation != nil {
+		return Receipt{}, validation
+	}
 	if c.Action == RecordSupplierReview && !s.SupplierReviewsEnabled() {
+		return Receipt{}, ErrUnsupported
+	}
+	if (c.Action == SaveAssessment || c.AssessmentRef != nil) && !s.AssessmentsEnabled() {
 		return Receipt{}, ErrUnsupported
 	}
 	c.Selections = append([]Selection(nil), c.Selections...)
@@ -118,6 +130,10 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 	if c.Action == RecordSupplierReview {
 		proof, validation := s.prepareSupplier(ctx, scope, project, c)
 		return s.Store.(SupplierReviewStore).CommitSupplier(ctx, scope, project, key, c, proof, validation)
+	}
+	if c.Action == SaveAssessment || c.AssessmentRef != nil {
+		proof, validation := s.PrepareAssessment(ctx, scope, project, c)
+		return s.Store.(AssessmentStore).CommitAssessment(ctx, scope, project, key, c, proof, validation)
 	}
 	var validation error
 	observations := []Observation{}
@@ -201,9 +217,24 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 		cache[digest] = v
 		return v
 	}
+	assessmentAccess := map[string]bool{}
+	canReadAssessment := func(candidate string, ref *AssessmentRef) bool {
+		if ref == nil {
+			return true
+		}
+		key := candidate + ":" + collection.Digest(ref)
+		if allowed, found := assessmentAccess[key]; found {
+			return allowed
+		}
+		view, e := s.ReadAssessment(sourceCtx, scope, project, candidate, ref.ID)
+		allowed := e == nil && view.Detail != nil && view.Detail.Ref == *ref
+		assessmentAccess[key] = allowed
+		return allowed
+	}
 	for _, c := range rows {
 		v := CandidateView{ID: c.ID, State: c.State, Revision: c.Revision, SelectedLinkID: c.SelectedLinkID, Evidence: []EvidenceView{}, History: []DecisionView{}}
 		v.SupplierReview = s.SupplierReviewsEnabled() && c.Identity.Platform == "amazon" && c.Identity.Market == "us"
+		v.Assessment = s.AssessmentsEnabled() && c.Identity.Platform == "amazon" && c.Identity.Market == "us"
 		for _, link := range c.Links {
 			if link.Removed {
 				continue
@@ -213,12 +244,21 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 			if link.ID == c.SelectedLinkID && observation != nil {
 				v.Observation = observation
 				v.EvidenceDigest = link.Ref.Digest()
-				v.Reason = c.Reason
 			}
+		}
+		if owner := c.ReasonDecision; owner != nil && v.Observation != nil && owner.Reason == c.Reason && owner.Ref.Digest() == v.EvidenceDigest && read(owner.Ref) != nil && canReadAssessment(c.ID, owner.AssessmentRef) {
+			v.Reason = owner.Reason
 		}
 		for _, h := range c.History {
 			d := DecisionView{State: h.State, Revision: h.Revision, At: h.At}
-			if read(h.Ref) != nil {
+			allowed := read(h.Ref) != nil
+			if h.AssessmentRef != nil {
+				allowed = allowed && canReadAssessment(c.ID, h.AssessmentRef)
+				if allowed {
+					d.AssessmentRef = h.AssessmentRef
+				}
+			}
+			if allowed {
 				d.EvidenceDigest = h.EvidenceDigest
 				d.Reason = h.Reason
 			}

@@ -79,9 +79,10 @@ type SupplierReviewProof struct {
 }
 
 type SupplierReviewRow struct {
-	Revision int64
-	At       time.Time
-	Record   SupplierReviewRecord
+	RequestKey string
+	Revision   int64
+	At         time.Time
+	Record     SupplierReviewRecord
 }
 
 type SupplierReviewStore interface {
@@ -104,8 +105,9 @@ type SupplierReviewPage struct {
 }
 
 type SupplierReviewView struct {
-	Current bool                  `json:"current"`
-	Detail  *SupplierReviewDetail `json:"detail,omitempty"`
+	Reference *AssessmentSupplierRef `json:"reference,omitempty"`
+	Current   bool                   `json:"current"`
+	Detail    *SupplierReviewDetail  `json:"detail,omitempty"`
 }
 
 type SupplierReviewDetail struct {
@@ -340,6 +342,9 @@ func (s *Service) SupplierReviews(ctx context.Context, scope collection.Scope, p
 	for i, row := range rows {
 		item := SupplierReviewView{Current: before == 0 && i == 0 && row.Record.LinkID == c.SelectedLinkID}
 		item.Detail = s.readSupplierDetail(ctx, scope, project, c, row, store)
+		if item.Detail != nil && collection.ValidID(row.RequestKey) {
+			item.Reference = &AssessmentSupplierRef{Key: row.RequestKey, Revision: row.Revision}
+		}
 		page.Items = append(page.Items, item)
 	}
 	if err = s.authorize(ctx, scope, project, false); err != nil {
