@@ -931,7 +931,10 @@ function Detail({
       className={styles.dialog}
       aria-labelledby="observation-detail-title"
       onCancel={close}
-      onClose={close}
+      onClose={(event) => {
+        // Strict Mode reopens the dialog before its cleanup's queued close event.
+        if (!event.currentTarget.open) close();
+      }}
     >
       <header>
         <div>

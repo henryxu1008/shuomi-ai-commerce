@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
 const context = vi.hoisted(() => ({
   user: { id: "actor-a" },
   effectiveOrganization: { id: "org-a", name: "企业 A" },
@@ -65,7 +66,9 @@ beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "close", {
     configurable: true,
     value: function (this: HTMLDialogElement) {
+      const wasOpen = this.open;
       this.open = false;
+      if (wasOpen) queueMicrotask(() => this.dispatchEvent(new Event("close")));
     },
   });
 });
@@ -77,15 +80,16 @@ it("explains missing runtime admission without requesting observations", async()
  expect(request).not.toHaveBeenCalled();
  expect(screen.queryByRole("button",{name:"同步商品"})).not.toBeInTheDocument();
 });
-function renderPage(kind: "products" | "orders" = "products") {
+function renderPage(kind: "products" | "orders" = "products", strict = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const view = render(
+  const page = (
     <QueryClientProvider client={client}>
       <ObservationPage kind={kind} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const view = render(strict ? <StrictMode>{page}</StrictMode> : page);
   return { ...view, client };
 }
 
@@ -93,8 +97,10 @@ it.each([{area:1,label:"本土销售"},{area:2,label:"跨境销售"},{area:99,la
  context.permissions=["workbench.store.orders.read"];
  const orderRecord={storeId:id,syncId:id,id:"order-a",observedAt:"2026-10-09T01:00:00Z",order:{id:"order-a",site:"shein-us",status:2,stockMode:null,salesArea:area,type:null,tag:null,reasons:[],items:[],packages:[],amount:null,supplyCost:null,createdAt:"",updatedAt:"",issuedAt:"",needDeliveryAt:"",handoverAt:"",expectedCollectAt:""}};
  vi.stubGlobal("fetch",vi.fn().mockImplementation((path:string)=>Promise.resolve(Response.json({organizationId:"org-a",userId:"actor-a",data:path.endsWith("/capabilities")?{available:true,runtimeReady:true,providerConfigured:true,canSync:false,kind:"orders",site:"shein-us",platformUrl:"https://sellerhub.shein.com/"}:path.includes("/records/")?orderRecord:{items:[orderRecord],next:"",summary:{total:1,active:0,offShelf:0,today:0,todayUnknown:1,pending:1,transit:0,exceptional:0,unknown:0},syncs:[],latest:[],complete:false}}))));
- renderPage("orders");await userEvent.click(await screen.findByRole("button",{name:"详情 / 物流"}));
+ renderPage("orders",true);await userEvent.click(await screen.findByRole("button",{name:"详情 / 物流"}));
  const term=await screen.findByText("销售范围");expect(term.nextElementSibling).toHaveTextContent(label);
+ document.querySelector("dialog")!.close();
+ await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 });
 
 it("opens native product facts with large IDs and separates raw review codes from sales",async()=>{
