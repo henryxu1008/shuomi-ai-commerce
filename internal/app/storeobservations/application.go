@@ -61,7 +61,7 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 		return nil, o.ErrUnavailable
 	}
 	platform := storecenter.Platform(selectedPlatform)
-	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu && platform != storecenter.PlatformWalmart || kind == o.Orders && platform == storecenter.PlatformTemu {
+	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu && platform != storecenter.PlatformWalmart && !(kind == o.Orders && platform == storecenter.PlatformTikTokShop) || kind == o.Orders && platform == storecenter.PlatformTemu {
 		return nil, o.ErrInvalid
 	}
 	if kind == o.SupplyOrders {
@@ -78,7 +78,10 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 			return nil, o.ErrUnavailable
 		}
 		for _, store := range result.Stores {
-			if kind == o.Orders && store.Platform() != storecenter.PlatformShein && store.Platform() != storecenter.PlatformWalmart {
+			if kind == o.Orders && store.Platform() != storecenter.PlatformShein && store.Platform() != storecenter.PlatformWalmart && store.Platform() != storecenter.PlatformTikTokShop {
+				continue
+			}
+			if kind == o.Products && store.Platform() == storecenter.PlatformTikTokShop {
 				continue
 			}
 			if !o.ValidID(store.ID()) || seen[store.ID()] {

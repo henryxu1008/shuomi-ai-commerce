@@ -751,7 +751,7 @@ func (s *Service) Detail(ctx context.Context, scope Scope, store, syncID, id str
 	if e != nil || sync.StoreID != store || sync.Kind != kind {
 		return Record{}, ErrNotFound
 	}
-	if kind == Orders && sync.Binding.Platform == storecenter.PlatformWalmart {
+	if kind == Orders && (sync.Binding.Platform == storecenter.PlatformWalmart || sync.Binding.Platform == storecenter.PlatformTikTokShop) {
 		return Record{}, ErrUnsupported
 	}
 	merchant, e := s.Access.Open(ctx, scope, store, kind, false, &sync.Binding)

@@ -37,6 +37,7 @@ type OfficialObservationAccess struct {
 // Credentials and authorization are private process-local fields. In
 // particular this type has no method for any product or fulfillment mutation.
 type ObservationHandle struct {
+	tiktokOrders                  *tikTokOrderAuthority
 	walmartGrant                  *storecenter.WalmartGrant
 	owner                         *OfficialObservationAccess
 	entry                         officialApplicationEntry
@@ -77,6 +78,9 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	}
 	if m.Platform == storecenter.PlatformWalmart {
 		return a.authorizeWalmartObservation(callerCtx, startedAt, s, store, expected, m)
+	}
+	if m.Platform == storecenter.PlatformTikTokShop {
+		return a.authorizeTikTokOrders(callerCtx, startedAt, s, store, expected, m)
 	}
 	entry, e := a.applications.resolve(m.Attempt.AppID, m.Attempt.AppVersion, m.Platform, m.Attempt.IdentityPartition)
 	if e != nil {
@@ -153,6 +157,10 @@ func (h *ObservationHandle) credential(ctx context.Context) (storecenter.Officia
 	return k, nil
 }
 func (h *ObservationHandle) Check(ctx context.Context) error {
+	if h != nil && h.tiktokOrders != nil {
+		_, e := h.tikTokOrderCredential(ctx)
+		return e
+	}
 	if h != nil && h.walmartGrant != nil {
 		_, e := h.walmartCredential(ctx)
 		return e
