@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"task-processor/internal/pkg/pgschema"
 
 	"gorm.io/gorm"
 	aistore "task-processor/internal/aicapability/store"
@@ -230,7 +231,7 @@ func verifyRelation(db *gorm.DB, spec relationContract) error {
 		return fmt.Errorf("public.%s constraint counts differ", spec.Name)
 	}
 	for name, definition := range spec.Checks {
-		if checks[name] != definition {
+		if !pgschema.SchemaConstraintEqual(checks[name], definition) {
 			return fmt.Errorf("public.%s check %s differs", spec.Name, name)
 		}
 	}

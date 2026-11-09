@@ -9,6 +9,7 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"task-processor/internal/pkg/pgschema"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,7 +107,7 @@ func NewRepository(ctx context.Context, db *gorm.DB) (*Repository, error) {
 		"acq_state_command":  `CHECK (((((state)::text = 'acquiring'::text) AND (command IS NULL) AND ((command_hash)::text = ''::text)) OR (((state)::text = ANY ((ARRAY['prepared'::character varying, 'publishing'::character varying, 'published'::character varying])::text[])) AND (command IS NOT NULL) AND (length((command_hash)::text) = 64)) OR (((state)::text = 'failed'::text) AND (((command IS NULL) AND ((command_hash)::text = ''::text)) OR ((command IS NOT NULL) AND (length((command_hash)::text) = 64))))))`,
 	}
 	for _, definition := range definitions {
-		if expectedDefinitions[definition.Name] != definition.Definition {
+		if !pgschema.SchemaConstraintEqual(definition.Definition, expectedDefinitions[definition.Name]) {
 			return nil, sourcing.ErrAcquisitionUnavailable
 		}
 	}

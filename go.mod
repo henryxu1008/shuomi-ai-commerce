@@ -45,6 +45,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ess v1.3.184
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
+	github.com/wasilibs/go-pgquery v0.0.0-20250409022910-10ac41983c07
 	github.com/wneessen/go-mail v0.8.1
 	github.com/yuin/goldmark v1.8.5
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
@@ -282,4 +283,7 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3
+	github.com/pganalyze/pg_query_go/v6 v6.1.0 // indirect
+	github.com/tetratelabs/wazero v1.9.0 // indirect
+	github.com/wasilibs/wazero-helpers v0.0.0-20240620070341-3dff1577cd52 // indirect
 )

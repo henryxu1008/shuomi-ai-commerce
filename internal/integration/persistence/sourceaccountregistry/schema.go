@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"task-processor/internal/pkg/pgschema"
 
 	"gorm.io/gorm"
 )
@@ -169,11 +170,24 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 		for _, constraint := range expectedConstraints[table] {
 			expected = append(expected, constraint+"|true")
 		}
-		if !slices.Equal(constraints, expected) {
+		if !equalConstraintContracts(constraints, expected) {
 			return fmt.Errorf("source account registry schema mismatch for public.%s constraints: got %v", table, constraints)
 		}
 	}
 	return verifyIndexes(ctx, query)
+}
+
+func equalConstraintContracts(actual, expected []string) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	for i, value := range actual {
+		a, b := strings.Split(value, "|"), strings.Split(expected[i], "|")
+		if len(a) != 4 || len(b) != 4 || a[0] != b[0] || a[1] != b[1] || a[3] != b[3] || !pgschema.SchemaConstraintEqual(a[2], b[2]) {
+			return false
+		}
+	}
+	return true
 }
 
 func readColumns(ctx context.Context, query schemaQuery, table string) ([]string, error) {

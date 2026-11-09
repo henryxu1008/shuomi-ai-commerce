@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"strings"
+	"task-processor/internal/pkg/pgschema"
 	rc "task-processor/internal/reportcenter"
 	"time"
 )
@@ -101,11 +102,14 @@ func VerifyTargetSourceSchema(ctx context.Context, db *gorm.DB) error {
 		return rc.ErrUnavailable
 	}
 	const definition = `CHECK (((kind)::text = ANY ((ARRAY['TITLE_REVIEW'::character varying, 'SHEIN_RECORD'::character varying, 'SHEIN_TARGET_RECORD'::character varying])::text[])))`
-	var ready bool
-	err := db.WithContext(ctx).Raw(`SELECT count(*)=1 AND COALESCE(bool_and(c.convalidated AND pg_get_constraintdef(c.oid)=?),false)
+	var checks []struct {
+		Definition string
+		Validated  bool
+	}
+	err := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(c.oid) AS definition,c.convalidated AS validated
  FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=ANY(c.conkey)
- WHERE c.conrelid=to_regclass('report_center.saved_reports') AND c.contype='c' AND a.attname='kind'`, definition).Scan(&ready).Error
-	if err != nil || !ready {
+ WHERE c.conrelid=to_regclass('report_center.saved_reports') AND c.contype='c' AND a.attname='kind'`).Scan(&checks).Error
+	if err != nil || len(checks) != 1 || !checks[0].Validated || !pgschema.SchemaConstraintEqual(checks[0].Definition, definition) {
 		return rc.ErrUnavailable
 	}
 	return nil

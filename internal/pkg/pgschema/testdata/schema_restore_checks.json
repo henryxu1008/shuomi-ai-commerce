@@ -1,0 +1,653 @@
+[
+  {
+    "name": "commercial.public.saas_member_resource_positions.chk_member_resource_type",
+    "original": "CHECK (((resource_type)::text = ANY ((ARRAY['store_renewal_period'::character varying, 'data_row'::character varying])::text[])))",
+    "restored": "CHECK (((resource_type)::text = ANY (ARRAY[('store_renewal_period'::character varying)::text, ('data_row'::character varying)::text])))",
+    "originalPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying, 'data_row'::character varying]::text[]))",
+    "restoredPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying::text, 'data_row'::character varying::text]))"
+  },
+  {
+    "name": "commercial.public.saas_organization_resource_buckets.chk_org_resource_bucket_type",
+    "original": "CHECK (((resource_type)::text = ANY ((ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying])::text[])))",
+    "restored": "CHECK (((resource_type)::text = ANY (ARRAY[('store_renewal_period'::character varying)::text, ('ai_point'::character varying)::text, ('data_row'::character varying)::text])))",
+    "originalPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying]::text[]))",
+    "restoredPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying::text, 'ai_point'::character varying::text, 'data_row'::character varying::text]))"
+  },
+  {
+    "name": "commercial.public.saas_organization_resource_debts.chk_org_resource_debt_type",
+    "original": "CHECK (((resource_type)::text = ANY ((ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying])::text[])))",
+    "restored": "CHECK (((resource_type)::text = ANY (ARRAY[('store_renewal_period'::character varying)::text, ('ai_point'::character varying)::text, ('data_row'::character varying)::text])))",
+    "originalPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying]::text[]))",
+    "restoredPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying::text, 'ai_point'::character varying::text, 'data_row'::character varying::text]))"
+  },
+  {
+    "name": "commercial.public.saas_organization_resource_events.chk_org_resource_event_type",
+    "original": "CHECK (((resource_type)::text = ANY ((ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying])::text[])))",
+    "restored": "CHECK (((resource_type)::text = ANY (ARRAY[('store_renewal_period'::character varying)::text, ('ai_point'::character varying)::text, ('data_row'::character varying)::text])))",
+    "originalPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying]::text[]))",
+    "restoredPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying::text, 'ai_point'::character varying::text, 'data_row'::character varying::text]))"
+  },
+  {
+    "name": "commercial.public.saas_organization_resource_operations.chk_org_resource_operation_state",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['processing'::character varying, 'succeeded'::character varying, 'failed'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('processing'::character varying)::text, ('succeeded'::character varying)::text, ('failed'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['processing'::character varying, 'succeeded'::character varying, 'failed'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['processing'::character varying::text, 'succeeded'::character varying::text, 'failed'::character varying::text]))"
+  },
+  {
+    "name": "commercial.public.saas_organization_resource_reservations.chk_org_resource_reservation_state",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['reserved'::character varying, 'committed'::character varying, 'released'::character varying, 'reconciliation_required'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('reserved'::character varying)::text, ('committed'::character varying)::text, ('released'::character varying)::text, ('reconciliation_required'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['reserved'::character varying, 'committed'::character varying, 'released'::character varying, 'reconciliation_required'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['reserved'::character varying::text, 'committed'::character varying::text, 'released'::character varying::text, 'reconciliation_required'::character varying::text]))"
+  },
+  {
+    "name": "commercial.public.saas_organization_resource_reservations.chk_org_resource_reservation_type",
+    "original": "CHECK (((resource_type)::text = ANY ((ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying])::text[])))",
+    "restored": "CHECK (((resource_type)::text = ANY (ARRAY[('store_renewal_period'::character varying)::text, ('ai_point'::character varying)::text, ('data_row'::character varying)::text])))",
+    "originalPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying]::text[]))",
+    "restoredPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying::text, 'ai_point'::character varying::text, 'data_row'::character varying::text]))"
+  },
+  {
+    "name": "commercial.public.saas_organization_resource_source_claims.chk_org_resource_source_claim_type",
+    "original": "CHECK (((resource_type)::text = ANY ((ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying])::text[])))",
+    "restored": "CHECK (((resource_type)::text = ANY (ARRAY[('store_renewal_period'::character varying)::text, ('ai_point'::character varying)::text, ('data_row'::character varying)::text])))",
+    "originalPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying, 'ai_point'::character varying, 'data_row'::character varying]::text[]))",
+    "restoredPretty": "CHECK (resource_type::text = ANY (ARRAY['store_renewal_period'::character varying::text, 'ai_point'::character varying::text, 'data_row'::character varying::text]))"
+  },
+  {
+    "name": "knowledge.public.knowledge_bases.knowledge_bases_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['ACTIVE'::character varying, 'DISABLING'::character varying, 'DISABLED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('DISABLING'::character varying)::text, ('DISABLED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying, 'DISABLING'::character varying, 'DISABLED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying::text, 'DISABLING'::character varying::text, 'DISABLED'::character varying::text]))"
+  },
+  {
+    "name": "knowledge.public.knowledge_dispatch_permits.knowledge_dispatch_permits_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['ACTIVE'::character varying, 'RELEASED'::character varying, 'EXPIRED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('RELEASED'::character varying)::text, ('EXPIRED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying, 'RELEASED'::character varying, 'EXPIRED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying::text, 'RELEASED'::character varying::text, 'EXPIRED'::character varying::text]))"
+  },
+  {
+    "name": "knowledge.public.knowledge_ingest_operations.knowledge_ingest_operations_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['base_create'::character varying, 'base_update'::character varying, 'base_disable'::character varying, 'source_create'::character varying, 'revision_create'::character varying, 'source_disable'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('base_create'::character varying)::text, ('base_update'::character varying)::text, ('base_disable'::character varying)::text, ('source_create'::character varying)::text, ('revision_create'::character varying)::text, ('source_disable'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['base_create'::character varying, 'base_update'::character varying, 'base_disable'::character varying, 'source_create'::character varying, 'revision_create'::character varying, 'source_disable'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['base_create'::character varying::text, 'base_update'::character varying::text, 'base_disable'::character varying::text, 'source_create'::character varying::text, 'revision_create'::character varying::text, 'source_disable'::character varying::text]))"
+  },
+  {
+    "name": "knowledge.public.knowledge_revisions.knowledge_revisions_check",
+    "original": "CHECK ((((state)::text <> ALL ((ARRAY['AVAILABLE'::character varying, 'PARTIAL'::character varying])::text[])) OR ((length(text) > 0) AND ((failure)::text = ''::text))))",
+    "restored": "CHECK ((((state)::text <> ALL (ARRAY[('AVAILABLE'::character varying)::text, ('PARTIAL'::character varying)::text])) OR ((length(text) > 0) AND ((failure)::text = ''::text))))",
+    "originalPretty": "CHECK ((state::text <> ALL (ARRAY['AVAILABLE'::character varying, 'PARTIAL'::character varying]::text[])) OR length(text) > 0 AND failure::text = ''::text)",
+    "restoredPretty": "CHECK ((state::text <> ALL (ARRAY['AVAILABLE'::character varying::text, 'PARTIAL'::character varying::text])) OR length(text) > 0 AND failure::text = ''::text)"
+  },
+  {
+    "name": "knowledge.public.knowledge_revisions.knowledge_revisions_content_type_check",
+    "original": "CHECK (((content_type)::text = ANY ((ARRAY['text/plain'::character varying, 'text/markdown'::character varying, 'application/pdf'::character varying, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'::character varying])::text[])))",
+    "restored": "CHECK (((content_type)::text = ANY (ARRAY[('text/plain'::character varying)::text, ('text/markdown'::character varying)::text, ('application/pdf'::character varying)::text, ('application/vnd.openxmlformats-officedocument.wordprocessingml.document'::character varying)::text])))",
+    "originalPretty": "CHECK (content_type::text = ANY (ARRAY['text/plain'::character varying, 'text/markdown'::character varying, 'application/pdf'::character varying, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'::character varying]::text[]))",
+    "restoredPretty": "CHECK (content_type::text = ANY (ARRAY['text/plain'::character varying::text, 'text/markdown'::character varying::text, 'application/pdf'::character varying::text, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'::character varying::text]))"
+  },
+  {
+    "name": "knowledge.public.knowledge_revisions.knowledge_revisions_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['ADMITTED'::character varying, 'OBJECT_STORED'::character varying, 'PROCESSING'::character varying, 'AVAILABLE'::character varying, 'PARTIAL'::character varying, 'FAILED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('ADMITTED'::character varying)::text, ('OBJECT_STORED'::character varying)::text, ('PROCESSING'::character varying)::text, ('AVAILABLE'::character varying)::text, ('PARTIAL'::character varying)::text, ('FAILED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['ADMITTED'::character varying, 'OBJECT_STORED'::character varying, 'PROCESSING'::character varying, 'AVAILABLE'::character varying, 'PARTIAL'::character varying, 'FAILED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['ADMITTED'::character varying::text, 'OBJECT_STORED'::character varying::text, 'PROCESSING'::character varying::text, 'AVAILABLE'::character varying::text, 'PARTIAL'::character varying::text, 'FAILED'::character varying::text]))"
+  },
+  {
+    "name": "knowledge.public.knowledge_sources.knowledge_sources_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['ACTIVE'::character varying, 'DISABLING'::character varying, 'DISABLED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('DISABLING'::character varying)::text, ('DISABLED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying, 'DISABLING'::character varying, 'DISABLED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying::text, 'DISABLING'::character varying::text, 'DISABLED'::character varying::text]))"
+  },
+  {
+    "name": "membership.public.organization_member_audit_events.organization_member_audit_operation_check",
+    "original": "CHECK (((operation)::text = ANY ((ARRAY['invite'::character varying, 'role'::character varying, 'remove'::character varying])::text[])))",
+    "restored": "CHECK (((operation)::text = ANY (ARRAY[('invite'::character varying)::text, ('role'::character varying)::text, ('remove'::character varying)::text])))",
+    "originalPretty": "CHECK (operation::text = ANY (ARRAY['invite'::character varying, 'role'::character varying, 'remove'::character varying]::text[]))",
+    "restoredPretty": "CHECK (operation::text = ANY (ARRAY['invite'::character varying::text, 'role'::character varying::text, 'remove'::character varying::text]))"
+  },
+  {
+    "name": "membership.public.organization_member_invitations.organization_member_invitations_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'accepting'::character varying, 'accepted'::character varying, 'declined'::character varying, 'cancelled'::character varying, 'expired'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('accepting'::character varying)::text, ('accepted'::character varying)::text, ('declined'::character varying)::text, ('cancelled'::character varying)::text, ('expired'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['pending'::character varying, 'accepting'::character varying, 'accepted'::character varying, 'declined'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['pending'::character varying::text, 'accepting'::character varying::text, 'accepted'::character varying::text, 'declined'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_acquisition_items.data_acquisition_items_charge_state_check",
+    "original": "CHECK (((charge_state)::text = ANY ((ARRAY[''::character varying, 'reserved'::character varying, 'committed'::character varying, 'released'::character varying, 'reconciliation_required'::character varying])::text[])))",
+    "restored": "CHECK (((charge_state)::text = ANY (ARRAY[(''::character varying)::text, ('reserved'::character varying)::text, ('committed'::character varying)::text, ('released'::character varying)::text, ('reconciliation_required'::character varying)::text])))",
+    "originalPretty": "CHECK (charge_state::text = ANY (ARRAY[''::character varying, 'reserved'::character varying, 'committed'::character varying, 'released'::character varying, 'reconciliation_required'::character varying]::text[]))",
+    "restoredPretty": "CHECK (charge_state::text = ANY (ARRAY[''::character varying::text, 'reserved'::character varying::text, 'committed'::character varying::text, 'released'::character varying::text, 'reconciliation_required'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_acquisition_items.data_acquisition_items_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['PREPARED'::character varying, 'FETCHING'::character varying, 'PREPARED_EVIDENCE'::character varying, 'SAVED'::character varying, 'FAILED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('PREPARED'::character varying)::text, ('FETCHING'::character varying)::text, ('PREPARED_EVIDENCE'::character varying)::text, ('SAVED'::character varying)::text, ('FAILED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['PREPARED'::character varying, 'FETCHING'::character varying, 'PREPARED_EVIDENCE'::character varying, 'SAVED'::character varying, 'FAILED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['PREPARED'::character varying::text, 'FETCHING'::character varying::text, 'PREPARED_EVIDENCE'::character varying::text, 'SAVED'::character varying::text, 'FAILED'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_acquisition_jobs.data_acquisition_jobs_funding_check",
+    "original": "CHECK (((funding)::text = ANY ((ARRAY['enterprise_unallocated'::character varying, 'member_allocated'::character varying])::text[])))",
+    "restored": "CHECK (((funding)::text = ANY (ARRAY[('enterprise_unallocated'::character varying)::text, ('member_allocated'::character varying)::text])))",
+    "originalPretty": "CHECK (funding::text = ANY (ARRAY['enterprise_unallocated'::character varying, 'member_allocated'::character varying]::text[]))",
+    "restoredPretty": "CHECK (funding::text = ANY (ARRAY['enterprise_unallocated'::character varying::text, 'member_allocated'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_acquisition_jobs.data_acquisition_jobs_source_kind_check",
+    "original": "CHECK (((source_kind)::text = ANY ((ARRAY['amazon_data'::character varying, 'shein_us_data'::character varying])::text[])))",
+    "restored": "CHECK (((source_kind)::text = ANY (ARRAY[('amazon_data'::character varying)::text, ('shein_us_data'::character varying)::text])))",
+    "originalPretty": "CHECK (source_kind::text = ANY (ARRAY['amazon_data'::character varying, 'shein_us_data'::character varying]::text[]))",
+    "restoredPretty": "CHECK (source_kind::text = ANY (ARRAY['amazon_data'::character varying::text, 'shein_us_data'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_acquisition_jobs.data_acquisition_jobs_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['ADMITTED'::character varying, 'RUNNING'::character varying, 'SUCCEEDED'::character varying, 'PARTIAL'::character varying, 'FAILED'::character varying, 'CANCELED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('ADMITTED'::character varying)::text, ('RUNNING'::character varying)::text, ('SUCCEEDED'::character varying)::text, ('PARTIAL'::character varying)::text, ('FAILED'::character varying)::text, ('CANCELED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['ADMITTED'::character varying, 'RUNNING'::character varying, 'SUCCEEDED'::character varying, 'PARTIAL'::character varying, 'FAILED'::character varying, 'CANCELED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['ADMITTED'::character varying::text, 'RUNNING'::character varying::text, 'SUCCEEDED'::character varying::text, 'PARTIAL'::character varying::text, 'FAILED'::character varying::text, 'CANCELED'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_service_credentials.data_service_credentials_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['ACTIVE'::character varying, 'DISABLED'::character varying, 'REVOKED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('DISABLED'::character varying)::text, ('REVOKED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying, 'DISABLED'::character varying, 'REVOKED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['ACTIVE'::character varying::text, 'DISABLED'::character varying::text, 'REVOKED'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_service_custom_requests.data_service_custom_requests_check1",
+    "original": "CHECK ((((state)::text <> ALL ((ARRAY['SPEC_CONFIRMED'::character varying, 'PREPARING'::character varying, 'DELIVERED'::character varying])::text[])) OR ((spec_json IS NOT NULL) AND (spec_revision > 0))))",
+    "restored": "CHECK ((((state)::text <> ALL (ARRAY[('SPEC_CONFIRMED'::character varying)::text, ('PREPARING'::character varying)::text, ('DELIVERED'::character varying)::text])) OR ((spec_json IS NOT NULL) AND (spec_revision > 0))))",
+    "originalPretty": "CHECK ((state::text <> ALL (ARRAY['SPEC_CONFIRMED'::character varying, 'PREPARING'::character varying, 'DELIVERED'::character varying]::text[])) OR spec_json IS NOT NULL AND spec_revision > 0)",
+    "restoredPretty": "CHECK ((state::text <> ALL (ARRAY['SPEC_CONFIRMED'::character varying::text, 'PREPARING'::character varying::text, 'DELIVERED'::character varying::text])) OR spec_json IS NOT NULL AND spec_revision > 0)"
+  },
+  {
+    "name": "product_acquisition.public.data_service_custom_requests.data_service_custom_requests_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['SUBMITTED'::character varying, 'EVALUATING'::character varying, 'SPEC_CONFIRMED'::character varying, 'PREPARING'::character varying, 'DELIVERED'::character varying, 'CLOSED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('SUBMITTED'::character varying)::text, ('EVALUATING'::character varying)::text, ('SPEC_CONFIRMED'::character varying)::text, ('PREPARING'::character varying)::text, ('DELIVERED'::character varying)::text, ('CLOSED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['SUBMITTED'::character varying, 'EVALUATING'::character varying, 'SPEC_CONFIRMED'::character varying, 'PREPARING'::character varying, 'DELIVERED'::character varying, 'CLOSED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['SUBMITTED'::character varying::text, 'EVALUATING'::character varying::text, 'SPEC_CONFIRMED'::character varying::text, 'PREPARING'::character varying::text, 'DELIVERED'::character varying::text, 'CLOSED'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.data_service_quota.data_service_quota_window_kind_check",
+    "original": "CHECK (((window_kind)::text = ANY ((ARRAY['day'::character varying, 'month'::character varying])::text[])))",
+    "restored": "CHECK (((window_kind)::text = ANY (ARRAY[('day'::character varying)::text, ('month'::character varying)::text])))",
+    "originalPretty": "CHECK (window_kind::text = ANY (ARRAY['day'::character varying, 'month'::character varying]::text[]))",
+    "restoredPretty": "CHECK (window_kind::text = ANY (ARRAY['day'::character varying::text, 'month'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.listing_preparation_sources.listing_preparation_sources_source_kind_check",
+    "original": "CHECK (((source_kind)::text = ANY ((ARRAY['acquisition'::character varying, 'own'::character varying, 'market'::character varying, 'sds_finished'::character varying, 'amazon_data'::character varying])::text[])))",
+    "restored": "CHECK (((source_kind)::text = ANY (ARRAY[('acquisition'::character varying)::text, ('own'::character varying)::text, ('market'::character varying)::text, ('sds_finished'::character varying)::text, ('amazon_data'::character varying)::text])))",
+    "originalPretty": "CHECK (source_kind::text = ANY (ARRAY['acquisition'::character varying, 'own'::character varying, 'market'::character varying, 'sds_finished'::character varying, 'amazon_data'::character varying]::text[]))",
+    "restoredPretty": "CHECK (source_kind::text = ANY (ARRAY['acquisition'::character varying::text, 'own'::character varying::text, 'market'::character varying::text, 'sds_finished'::character varying::text, 'amazon_data'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.product_acquisition_charge_intents.acq_charge_member",
+    "original": "CHECK ((((member_id)::text <> ''::text) AND ((funding)::text = ANY ((ARRAY['member_allocated'::character varying, 'enterprise_unallocated'::character varying])::text[]))))",
+    "restored": "CHECK ((((member_id)::text <> ''::text) AND ((funding)::text = ANY (ARRAY[('member_allocated'::character varying)::text, ('enterprise_unallocated'::character varying)::text]))))",
+    "originalPretty": "CHECK (member_id::text <> ''::text AND (funding::text = ANY (ARRAY['member_allocated'::character varying, 'enterprise_unallocated'::character varying]::text[])))",
+    "restoredPretty": "CHECK (member_id::text <> ''::text AND (funding::text = ANY (ARRAY['member_allocated'::character varying::text, 'enterprise_unallocated'::character varying::text])))"
+  },
+  {
+    "name": "product_acquisition.public.product_acquisition_operations.acq_state_command",
+    "original": "CHECK (((((state)::text = 'acquiring'::text) AND (command IS NULL) AND ((command_hash)::text = ''::text)) OR (((state)::text = ANY ((ARRAY['prepared'::character varying, 'publishing'::character varying, 'published'::character varying])::text[])) AND (command IS NOT NULL) AND (length((command_hash)::text) = 64)) OR (((state)::text = 'failed'::text) AND (((command IS NULL) AND ((command_hash)::text = ''::text)) OR ((command IS NOT NULL) AND (length((command_hash)::text) = 64))))))",
+    "restored": "CHECK (((((state)::text = 'acquiring'::text) AND (command IS NULL) AND ((command_hash)::text = ''::text)) OR (((state)::text = ANY (ARRAY[('prepared'::character varying)::text, ('publishing'::character varying)::text, ('published'::character varying)::text])) AND (command IS NOT NULL) AND (length((command_hash)::text) = 64)) OR (((state)::text = 'failed'::text) AND (((command IS NULL) AND ((command_hash)::text = ''::text)) OR ((command IS NOT NULL) AND (length((command_hash)::text) = 64))))))",
+    "originalPretty": "CHECK (state::text = 'acquiring'::text AND command IS NULL AND command_hash::text = ''::text OR (state::text = ANY (ARRAY['prepared'::character varying, 'publishing'::character varying, 'published'::character varying]::text[])) AND command IS NOT NULL AND length(command_hash::text) = 64 OR state::text = 'failed'::text AND (command IS NULL AND command_hash::text = ''::text OR command IS NOT NULL AND length(command_hash::text) = 64))",
+    "restoredPretty": "CHECK (state::text = 'acquiring'::text AND command IS NULL AND command_hash::text = ''::text OR (state::text = ANY (ARRAY['prepared'::character varying::text, 'publishing'::character varying::text, 'published'::character varying::text])) AND command IS NOT NULL AND length(command_hash::text) = 64 OR state::text = 'failed'::text AND (command IS NULL AND command_hash::text = ''::text OR command IS NOT NULL AND length(command_hash::text) = 64))"
+  },
+  {
+    "name": "product_acquisition.public.product_acquisition_plan_items.acq_plan_item_bounds",
+    "original": "CHECK ((((ordinal >= 0) AND (ordinal <= 199)) AND ((octet_length(item_json) >= 1) AND (octet_length(item_json) <= 65536)) AND (length((item_hash)::text) = 64)))",
+    "restored": "CHECK (((ordinal >= 0) AND (ordinal <= 199) AND ((octet_length(item_json) >= 1) AND (octet_length(item_json) <= 65536)) AND (length((item_hash)::text) = 64)))",
+    "originalPretty": "CHECK (ordinal >= 0 AND ordinal <= 199 AND octet_length(item_json) >= 1 AND octet_length(item_json) <= 65536 AND length(item_hash::text) = 64)",
+    "restoredPretty": "CHECK (ordinal >= 0 AND ordinal <= 199 AND octet_length(item_json) >= 1 AND octet_length(item_json) <= 65536 AND length(item_hash::text) = 64)"
+  },
+  {
+    "name": "product_acquisition.public.product_acquisition_rule_commands.acq_rule_command_bounds",
+    "original": "CHECK ((((octet_length(body) >= 1) AND (octet_length(body) <= 4096)) AND (length((input_hash)::text) = 64) AND (length((body_hash)::text) = 64)))",
+    "restored": "CHECK (((octet_length(body) >= 1) AND (octet_length(body) <= 4096) AND (length((input_hash)::text) = 64) AND (length((body_hash)::text) = 64)))",
+    "originalPretty": "CHECK (octet_length(body) >= 1 AND octet_length(body) <= 4096 AND length(input_hash::text) = 64 AND length(body_hash::text) = 64)",
+    "restoredPretty": "CHECK (octet_length(body) >= 1 AND octet_length(body) <= 4096 AND length(input_hash::text) = 64 AND length(body_hash::text) = 64)"
+  },
+  {
+    "name": "product_acquisition.public.product_collection_batches.product_collection_batches_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['acquisition'::character varying, 'own'::character varying, 'manual'::character varying, 'market'::character varying, 'sds_template'::character varying, 'sds_finished'::character varying, 'amazon_data'::character varying, 'custom_dataset'::character varying, 'shein_us_data'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('acquisition'::character varying)::text, ('own'::character varying)::text, ('manual'::character varying)::text, ('market'::character varying)::text, ('sds_template'::character varying)::text, ('sds_finished'::character varying)::text, ('amazon_data'::character varying)::text, ('custom_dataset'::character varying)::text, ('shein_us_data'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['acquisition'::character varying, 'own'::character varying, 'manual'::character varying, 'market'::character varying, 'sds_template'::character varying, 'sds_finished'::character varying, 'amazon_data'::character varying, 'custom_dataset'::character varying, 'shein_us_data'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['acquisition'::character varying::text, 'own'::character varying::text, 'manual'::character varying::text, 'market'::character varying::text, 'sds_template'::character varying::text, 'sds_finished'::character varying::text, 'amazon_data'::character varying::text, 'custom_dataset'::character varying::text, 'shein_us_data'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.product_collection_items.product_collection_items_source_kind_check",
+    "original": "CHECK (((source_kind)::text = ANY ((ARRAY['acquisition'::character varying, 'own'::character varying, 'market'::character varying, 'sds_template'::character varying, 'sds_finished'::character varying, 'amazon_data'::character varying, 'custom_dataset'::character varying, 'shein_us_data'::character varying])::text[])))",
+    "restored": "CHECK (((source_kind)::text = ANY (ARRAY[('acquisition'::character varying)::text, ('own'::character varying)::text, ('market'::character varying)::text, ('sds_template'::character varying)::text, ('sds_finished'::character varying)::text, ('amazon_data'::character varying)::text, ('custom_dataset'::character varying)::text, ('shein_us_data'::character varying)::text])))",
+    "originalPretty": "CHECK (source_kind::text = ANY (ARRAY['acquisition'::character varying, 'own'::character varying, 'market'::character varying, 'sds_template'::character varying, 'sds_finished'::character varying, 'amazon_data'::character varying, 'custom_dataset'::character varying, 'shein_us_data'::character varying]::text[]))",
+    "restoredPretty": "CHECK (source_kind::text = ANY (ARRAY['acquisition'::character varying::text, 'own'::character varying::text, 'market'::character varying::text, 'sds_template'::character varying::text, 'sds_finished'::character varying::text, 'amazon_data'::character varying::text, 'custom_dataset'::character varying::text, 'shein_us_data'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.research_opportunities.research_opportunities_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['TO_RESEARCH'::character varying, 'PENDING_CONFIRMATION'::character varying, 'APPROVED_FOR_TEST'::character varying, 'REJECTED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('TO_RESEARCH'::character varying)::text, ('PENDING_CONFIRMATION'::character varying)::text, ('APPROVED_FOR_TEST'::character varying)::text, ('REJECTED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['TO_RESEARCH'::character varying, 'PENDING_CONFIRMATION'::character varying, 'APPROVED_FOR_TEST'::character varying, 'REJECTED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['TO_RESEARCH'::character varying::text, 'PENDING_CONFIRMATION'::character varying::text, 'APPROVED_FOR_TEST'::character varying::text, 'REJECTED'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.supply_market_private_uploads.supply_market_private_uploads_content_type_check",
+    "original": "CHECK (((content_type)::text = ANY ((ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'application/pdf'::character varying])::text[])))",
+    "restored": "CHECK (((content_type)::text = ANY (ARRAY[('image/jpeg'::character varying)::text, ('image/png'::character varying)::text, ('application/pdf'::character varying)::text])))",
+    "originalPretty": "CHECK (content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'application/pdf'::character varying]::text[]))",
+    "restoredPretty": "CHECK (content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'application/pdf'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.supply_market_records.supply_market_records_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['official'::character varying, 'selected'::character varying, 'connection'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('official'::character varying)::text, ('selected'::character varying)::text, ('connection'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['official'::character varying, 'selected'::character varying, 'connection'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['official'::character varying::text, 'selected'::character varying::text, 'connection'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.supply_market_records.supply_market_records_stage_check",
+    "original": "CHECK (((stage)::text = ANY ((ARRAY['DRAFT'::character varying, 'SUBMITTED'::character varying, 'EVALUATING'::character varying, 'SUPPLEMENT_REQUIRED'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'PLAN_CONFIRMED'::character varying, 'CLOSED'::character varying])::text[])))",
+    "restored": "CHECK (((stage)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('SUBMITTED'::character varying)::text, ('EVALUATING'::character varying)::text, ('SUPPLEMENT_REQUIRED'::character varying)::text, ('APPROVED'::character varying)::text, ('REJECTED'::character varying)::text, ('PLAN_CONFIRMED'::character varying)::text, ('CLOSED'::character varying)::text])))",
+    "originalPretty": "CHECK (stage::text = ANY (ARRAY['DRAFT'::character varying, 'SUBMITTED'::character varying, 'EVALUATING'::character varying, 'SUPPLEMENT_REQUIRED'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'PLAN_CONFIRMED'::character varying, 'CLOSED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (stage::text = ANY (ARRAY['DRAFT'::character varying::text, 'SUBMITTED'::character varying::text, 'EVALUATING'::character varying::text, 'SUPPLEMENT_REQUIRED'::character varying::text, 'APPROVED'::character varying::text, 'REJECTED'::character varying::text, 'PLAN_CONFIRMED'::character varying::text, 'CLOSED'::character varying::text]))"
+  },
+  {
+    "name": "product_acquisition.public.supply_market_releases.supply_market_releases_channel_check",
+    "original": "CHECK (((channel)::text = ANY ((ARRAY['official'::character varying, 'selected'::character varying])::text[])))",
+    "restored": "CHECK (((channel)::text = ANY (ARRAY[('official'::character varying)::text, ('selected'::character varying)::text])))",
+    "originalPretty": "CHECK (channel::text = ANY (ARRAY['official'::character varying, 'selected'::character varying]::text[]))",
+    "restoredPretty": "CHECK (channel::text = ANY (ARRAY['official'::character varying::text, 'selected'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.execution_mode_snapshots.execution_mode_snapshots_mode_check",
+    "original": "CHECK (((mode)::text = ANY ((ARRAY['default'::character varying, 'auto_approve'::character varying, 'read_only'::character varying, 'full_access'::character varying])::text[])))",
+    "restored": "CHECK (((mode)::text = ANY (ARRAY[('default'::character varying)::text, ('auto_approve'::character varying)::text, ('read_only'::character varying)::text, ('full_access'::character varying)::text])))",
+    "originalPretty": "CHECK (mode::text = ANY (ARRAY['default'::character varying, 'auto_approve'::character varying, 'read_only'::character varying, 'full_access'::character varying]::text[]))",
+    "restoredPretty": "CHECK (mode::text = ANY (ARRAY['default'::character varying::text, 'auto_approve'::character varying::text, 'read_only'::character varying::text, 'full_access'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.execution_mode_snapshots.execution_mode_snapshots_subject_kind_check",
+    "original": "CHECK (((subject_kind)::text = ANY ((ARRAY['registered_agent'::character varying, 'private_delivery'::character varying])::text[])))",
+    "restored": "CHECK (((subject_kind)::text = ANY (ARRAY[('registered_agent'::character varying)::text, ('private_delivery'::character varying)::text])))",
+    "originalPretty": "CHECK (subject_kind::text = ANY (ARRAY['registered_agent'::character varying, 'private_delivery'::character varying]::text[]))",
+    "restoredPretty": "CHECK (subject_kind::text = ANY (ARRAY['registered_agent'::character varying::text, 'private_delivery'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.execution_modes.execution_modes_mode_check",
+    "original": "CHECK (((mode)::text = ANY ((ARRAY['default'::character varying, 'auto_approve'::character varying, 'read_only'::character varying, 'full_access'::character varying])::text[])))",
+    "restored": "CHECK (((mode)::text = ANY (ARRAY[('default'::character varying)::text, ('auto_approve'::character varying)::text, ('read_only'::character varying)::text, ('full_access'::character varying)::text])))",
+    "originalPretty": "CHECK (mode::text = ANY (ARRAY['default'::character varying, 'auto_approve'::character varying, 'read_only'::character varying, 'full_access'::character varying]::text[]))",
+    "restoredPretty": "CHECK (mode::text = ANY (ARRAY['default'::character varying::text, 'auto_approve'::character varying::text, 'read_only'::character varying::text, 'full_access'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.execution_modes.execution_modes_subject_kind_check",
+    "original": "CHECK (((subject_kind)::text = ANY ((ARRAY['registered_agent'::character varying, 'private_delivery'::character varying])::text[])))",
+    "restored": "CHECK (((subject_kind)::text = ANY (ARRAY[('registered_agent'::character varying)::text, ('private_delivery'::character varying)::text])))",
+    "originalPretty": "CHECK (subject_kind::text = ANY (ARRAY['registered_agent'::character varying, 'private_delivery'::character varying]::text[]))",
+    "restoredPretty": "CHECK (subject_kind::text = ANY (ARRAY['registered_agent'::character varying::text, 'private_delivery'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.organization_agents.organization_agents_activation_check",
+    "original": "CHECK (((activation)::text = ANY ((ARRAY['ENABLED'::character varying, 'DISABLED'::character varying])::text[])))",
+    "restored": "CHECK (((activation)::text = ANY (ARRAY[('ENABLED'::character varying)::text, ('DISABLED'::character varying)::text])))",
+    "originalPretty": "CHECK (activation::text = ANY (ARRAY['ENABLED'::character varying, 'DISABLED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (activation::text = ANY (ARRAY['ENABLED'::character varying::text, 'DISABLED'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.template_revisions.template_revisions_check",
+    "original": "CHECK (((((schema_version)::text = 'title-config-v1'::text) AND ((agent_id)::text <> ALL ((ARRAY['product.image.agent'::character varying, 'product.content.agent'::character varying, 'listing.materials.agent'::character varying, 'pod.design.agent'::character varying])::text[])) AND ((target_platform)::text <> 'product'::text) AND (image_parameters IS NULL) AND (content_parameters IS NULL)) OR (((schema_version)::text = 'image-config-v1'::text) AND ((agent_id)::text = 'product.image.agent'::text) AND (default_knowledge_base_id IS NULL) AND (image_parameters IS NOT NULL) AND (content_parameters IS NULL) AND ((octet_length(image_parameters) >= 2) AND (octet_length(image_parameters) <= 65536))) OR (((schema_version)::text = 'content-config-v1'::text) AND ((agent_id)::text = 'product.content.agent'::text) AND (image_parameters IS NULL) AND (content_parameters IS NOT NULL) AND ((octet_length(content_parameters) >= 2) AND (octet_length(content_parameters) <= 4096))) OR (((schema_version)::text = 'listing-materials-config-v1'::text) AND ((agent_id)::text = 'listing.materials.agent'::text) AND ((target_platform)::text = 'shein'::text) AND (default_knowledge_base_id IS NULL) AND (image_parameters IS NULL) AND (content_parameters IS NULL)) OR (((schema_version)::text = 'pod-artwork-config-v1'::text) AND ((agent_id)::text = 'pod.design.agent'::text) AND ((target_platform)::text = 'sds'::text) AND (default_knowledge_base_id IS NULL) AND (image_parameters IS NOT NULL) AND (content_parameters IS NULL) AND ((octet_length(image_parameters) >= 2) AND (octet_length(image_parameters) <= 8192)))))",
+    "restored": "CHECK (((((schema_version)::text = 'title-config-v1'::text) AND ((agent_id)::text <> ALL (ARRAY[('product.image.agent'::character varying)::text, ('product.content.agent'::character varying)::text, ('listing.materials.agent'::character varying)::text, ('pod.design.agent'::character varying)::text])) AND ((target_platform)::text <> 'product'::text) AND (image_parameters IS NULL) AND (content_parameters IS NULL)) OR (((schema_version)::text = 'image-config-v1'::text) AND ((agent_id)::text = 'product.image.agent'::text) AND (default_knowledge_base_id IS NULL) AND (image_parameters IS NOT NULL) AND (content_parameters IS NULL) AND ((octet_length(image_parameters) >= 2) AND (octet_length(image_parameters) <= 65536))) OR (((schema_version)::text = 'content-config-v1'::text) AND ((agent_id)::text = 'product.content.agent'::text) AND (image_parameters IS NULL) AND (content_parameters IS NOT NULL) AND ((octet_length(content_parameters) >= 2) AND (octet_length(content_parameters) <= 4096))) OR (((schema_version)::text = 'listing-materials-config-v1'::text) AND ((agent_id)::text = 'listing.materials.agent'::text) AND ((target_platform)::text = 'shein'::text) AND (default_knowledge_base_id IS NULL) AND (image_parameters IS NULL) AND (content_parameters IS NULL)) OR (((schema_version)::text = 'pod-artwork-config-v1'::text) AND ((agent_id)::text = 'pod.design.agent'::text) AND ((target_platform)::text = 'sds'::text) AND (default_knowledge_base_id IS NULL) AND (image_parameters IS NOT NULL) AND (content_parameters IS NULL) AND ((octet_length(image_parameters) >= 2) AND (octet_length(image_parameters) <= 8192)))))",
+    "originalPretty": "CHECK (schema_version::text = 'title-config-v1'::text AND (agent_id::text <> ALL (ARRAY['product.image.agent'::character varying, 'product.content.agent'::character varying, 'listing.materials.agent'::character varying, 'pod.design.agent'::character varying]::text[])) AND target_platform::text <> 'product'::text AND image_parameters IS NULL AND content_parameters IS NULL OR schema_version::text = 'image-config-v1'::text AND agent_id::text = 'product.image.agent'::text AND default_knowledge_base_id IS NULL AND image_parameters IS NOT NULL AND content_parameters IS NULL AND octet_length(image_parameters) >= 2 AND octet_length(image_parameters) <= 65536 OR schema_version::text = 'content-config-v1'::text AND agent_id::text = 'product.content.agent'::text AND image_parameters IS NULL AND content_parameters IS NOT NULL AND octet_length(content_parameters) >= 2 AND octet_length(content_parameters) <= 4096 OR schema_version::text = 'listing-materials-config-v1'::text AND agent_id::text = 'listing.materials.agent'::text AND target_platform::text = 'shein'::text AND default_knowledge_base_id IS NULL AND image_parameters IS NULL AND content_parameters IS NULL OR schema_version::text = 'pod-artwork-config-v1'::text AND agent_id::text = 'pod.design.agent'::text AND target_platform::text = 'sds'::text AND default_knowledge_base_id IS NULL AND image_parameters IS NOT NULL AND content_parameters IS NULL AND octet_length(image_parameters) >= 2 AND octet_length(image_parameters) <= 8192)",
+    "restoredPretty": "CHECK (schema_version::text = 'title-config-v1'::text AND (agent_id::text <> ALL (ARRAY['product.image.agent'::character varying::text, 'product.content.agent'::character varying::text, 'listing.materials.agent'::character varying::text, 'pod.design.agent'::character varying::text])) AND target_platform::text <> 'product'::text AND image_parameters IS NULL AND content_parameters IS NULL OR schema_version::text = 'image-config-v1'::text AND agent_id::text = 'product.image.agent'::text AND default_knowledge_base_id IS NULL AND image_parameters IS NOT NULL AND content_parameters IS NULL AND octet_length(image_parameters) >= 2 AND octet_length(image_parameters) <= 65536 OR schema_version::text = 'content-config-v1'::text AND agent_id::text = 'product.content.agent'::text AND image_parameters IS NULL AND content_parameters IS NOT NULL AND octet_length(content_parameters) >= 2 AND octet_length(content_parameters) <= 4096 OR schema_version::text = 'listing-materials-config-v1'::text AND agent_id::text = 'listing.materials.agent'::text AND target_platform::text = 'shein'::text AND default_knowledge_base_id IS NULL AND image_parameters IS NULL AND content_parameters IS NULL OR schema_version::text = 'pod-artwork-config-v1'::text AND agent_id::text = 'pod.design.agent'::text AND target_platform::text = 'sds'::text AND default_knowledge_base_id IS NULL AND image_parameters IS NOT NULL AND content_parameters IS NULL AND octet_length(image_parameters) >= 2 AND octet_length(image_parameters) <= 8192)"
+  },
+  {
+    "name": "product_agent.agent_configuration.template_revisions.template_revisions_schema_version_check",
+    "original": "CHECK (((schema_version)::text = ANY ((ARRAY['title-config-v1'::character varying, 'image-config-v1'::character varying, 'content-config-v1'::character varying, 'listing-materials-config-v1'::character varying, 'pod-artwork-config-v1'::character varying])::text[])))",
+    "restored": "CHECK (((schema_version)::text = ANY (ARRAY[('title-config-v1'::character varying)::text, ('image-config-v1'::character varying)::text, ('content-config-v1'::character varying)::text, ('listing-materials-config-v1'::character varying)::text, ('pod-artwork-config-v1'::character varying)::text])))",
+    "originalPretty": "CHECK (schema_version::text = ANY (ARRAY['title-config-v1'::character varying, 'image-config-v1'::character varying, 'content-config-v1'::character varying, 'listing-materials-config-v1'::character varying, 'pod-artwork-config-v1'::character varying]::text[]))",
+    "restoredPretty": "CHECK (schema_version::text = ANY (ARRAY['title-config-v1'::character varying::text, 'image-config-v1'::character varying::text, 'content-config-v1'::character varying::text, 'listing-materials-config-v1'::character varying::text, 'pod-artwork-config-v1'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.template_revisions.template_revisions_target_platform_check",
+    "original": "CHECK (((target_platform)::text = ANY ((ARRAY['product'::character varying, 'shein'::character varying, 'temu'::character varying, 'amazon'::character varying, 'sds'::character varying])::text[])))",
+    "restored": "CHECK (((target_platform)::text = ANY (ARRAY[('product'::character varying)::text, ('shein'::character varying)::text, ('temu'::character varying)::text, ('amazon'::character varying)::text, ('sds'::character varying)::text])))",
+    "originalPretty": "CHECK (target_platform::text = ANY (ARRAY['product'::character varying, 'shein'::character varying, 'temu'::character varying, 'amazon'::character varying, 'sds'::character varying]::text[]))",
+    "restoredPretty": "CHECK (target_platform::text = ANY (ARRAY['product'::character varying::text, 'shein'::character varying::text, 'temu'::character varying::text, 'amazon'::character varying::text, 'sds'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.agent_configuration.templates.templates_lifecycle_check",
+    "original": "CHECK (((lifecycle)::text = ANY ((ARRAY['ACTIVE'::character varying, 'ARCHIVED'::character varying])::text[])))",
+    "restored": "CHECK (((lifecycle)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('ARCHIVED'::character varying)::text])))",
+    "originalPretty": "CHECK (lifecycle::text = ANY (ARRAY['ACTIVE'::character varying, 'ARCHIVED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (lifecycle::text = ANY (ARRAY['ACTIVE'::character varying::text, 'ARCHIVED'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.public.product_agent_runs.product_agent_runs_phase_check",
+    "original": "CHECK (((phase)::text = ANY ((ARRAY['running'::character varying, 'interrupted'::character varying, 'human_review_required'::character varying, 'stopped'::character varying])::text[])))",
+    "restored": "CHECK (((phase)::text = ANY (ARRAY[('running'::character varying)::text, ('interrupted'::character varying)::text, ('human_review_required'::character varying)::text, ('stopped'::character varying)::text])))",
+    "originalPretty": "CHECK (phase::text = ANY (ARRAY['running'::character varying, 'interrupted'::character varying, 'human_review_required'::character varying, 'stopped'::character varying]::text[]))",
+    "restoredPretty": "CHECK (phase::text = ANY (ARRAY['running'::character varying::text, 'interrupted'::character varying::text, 'human_review_required'::character varying::text, 'stopped'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.skill_capability.share_requests.share_requests_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['SUBMITTED'::character varying, 'WITHDRAWN'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('SUBMITTED'::character varying)::text, ('WITHDRAWN'::character varying)::text, ('APPROVED'::character varying)::text, ('REJECTED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['SUBMITTED'::character varying, 'WITHDRAWN'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['SUBMITTED'::character varying::text, 'WITHDRAWN'::character varying::text, 'APPROVED'::character varying::text, 'REJECTED'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.skill_capability.skills.skills_owner_kind_check",
+    "original": "CHECK (((owner_kind)::text = ANY ((ARRAY['USER'::character varying, 'ORGANIZATION'::character varying, 'PLATFORM'::character varying])::text[])))",
+    "restored": "CHECK (((owner_kind)::text = ANY (ARRAY[('USER'::character varying)::text, ('ORGANIZATION'::character varying)::text, ('PLATFORM'::character varying)::text])))",
+    "originalPretty": "CHECK (owner_kind::text = ANY (ARRAY['USER'::character varying, 'ORGANIZATION'::character varying, 'PLATFORM'::character varying]::text[]))",
+    "restoredPretty": "CHECK (owner_kind::text = ANY (ARRAY['USER'::character varying::text, 'ORGANIZATION'::character varying::text, 'PLATFORM'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.skill_capability.versions.versions_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['DRAFT'::character varying, 'READY'::character varying, 'ENABLED'::character varying, 'DISABLED'::character varying, 'REVOKED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('READY'::character varying)::text, ('ENABLED'::character varying)::text, ('DISABLED'::character varying)::text, ('REVOKED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['DRAFT'::character varying, 'READY'::character varying, 'ENABLED'::character varying, 'DISABLED'::character varying, 'REVOKED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['DRAFT'::character varying::text, 'READY'::character varying::text, 'ENABLED'::character varying::text, 'DISABLED'::character varying::text, 'REVOKED'::character varying::text]))"
+  },
+  {
+    "name": "product_agent.skill_capability.versions.versions_visibility_check",
+    "original": "CHECK (((visibility)::text = ANY ((ARRAY['PRIVATE'::character varying, 'SHARED'::character varying])::text[])))",
+    "restored": "CHECK (((visibility)::text = ANY (ARRAY[('PRIVATE'::character varying)::text, ('SHARED'::character varying)::text])))",
+    "originalPretty": "CHECK (visibility::text = ANY (ARRAY['PRIVATE'::character varying, 'SHARED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (visibility::text = ANY (ARRAY['PRIVATE'::character varying::text, 'SHARED'::character varying::text]))"
+  },
+  {
+    "name": "reports.report_center.saved_reports.saved_reports_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['TITLE_REVIEW'::character varying, 'SHEIN_RECORD'::character varying, 'SHEIN_TARGET_RECORD'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('TITLE_REVIEW'::character varying)::text, ('SHEIN_RECORD'::character varying)::text, ('SHEIN_TARGET_RECORD'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['TITLE_REVIEW'::character varying, 'SHEIN_RECORD'::character varying, 'SHEIN_TARGET_RECORD'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['TITLE_REVIEW'::character varying::text, 'SHEIN_RECORD'::character varying::text, 'SHEIN_TARGET_RECORD'::character varying::text]))"
+  },
+  {
+    "name": "source_accounts.public.account_business_profile_audit_events.account_business_profile_audit_ids_check",
+    "original": "CHECK ((((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128)) AND ((organization_id)::text = btrim((organization_id)::text)) AND ((octet_length((actor_id)::text) >= 1) AND (octet_length((actor_id)::text) <= 128)) AND ((actor_id)::text = btrim((actor_id)::text)) AND ((octet_length((user_id)::text) >= 1) AND (octet_length((user_id)::text) <= 128)) AND ((user_id)::text = btrim((user_id)::text))))",
+    "restored": "CHECK (((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128) AND ((organization_id)::text = btrim((organization_id)::text)) AND ((octet_length((actor_id)::text) >= 1) AND (octet_length((actor_id)::text) <= 128)) AND ((actor_id)::text = btrim((actor_id)::text)) AND ((octet_length((user_id)::text) >= 1) AND (octet_length((user_id)::text) <= 128)) AND ((user_id)::text = btrim((user_id)::text))))",
+    "originalPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text) AND octet_length(actor_id::text) >= 1 AND octet_length(actor_id::text) <= 128 AND actor_id::text = btrim(actor_id::text) AND octet_length(user_id::text) >= 1 AND octet_length(user_id::text) <= 128 AND user_id::text = btrim(user_id::text))",
+    "restoredPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text) AND octet_length(actor_id::text) >= 1 AND octet_length(actor_id::text) <= 128 AND actor_id::text = btrim(actor_id::text) AND octet_length(user_id::text) >= 1 AND octet_length(user_id::text) <= 128 AND user_id::text = btrim(user_id::text))"
+  },
+  {
+    "name": "source_accounts.public.account_business_profiles.account_business_profiles_organization_id_check",
+    "original": "CHECK ((((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128)) AND ((organization_id)::text = btrim((organization_id)::text))))",
+    "restored": "CHECK (((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128) AND ((organization_id)::text = btrim((organization_id)::text))))",
+    "originalPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text))",
+    "restoredPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text))"
+  },
+  {
+    "name": "source_accounts.public.account_business_profiles.account_business_profiles_user_id_check",
+    "original": "CHECK ((((octet_length((user_id)::text) >= 1) AND (octet_length((user_id)::text) <= 128)) AND ((user_id)::text = btrim((user_id)::text))))",
+    "restored": "CHECK (((octet_length((user_id)::text) >= 1) AND (octet_length((user_id)::text) <= 128) AND ((user_id)::text = btrim((user_id)::text))))",
+    "originalPretty": "CHECK (octet_length(user_id::text) >= 1 AND octet_length(user_id::text) <= 128 AND user_id::text = btrim(user_id::text))",
+    "restoredPretty": "CHECK (octet_length(user_id::text) >= 1 AND octet_length(user_id::text) <= 128 AND user_id::text = btrim(user_id::text))"
+  },
+  {
+    "name": "source_accounts.public.account_user_preferences.account_user_preferences_user_id_check",
+    "original": "CHECK ((((octet_length((user_id)::text) >= 1) AND (octet_length((user_id)::text) <= 128)) AND ((user_id)::text = btrim((user_id)::text))))",
+    "restored": "CHECK (((octet_length((user_id)::text) >= 1) AND (octet_length((user_id)::text) <= 128) AND ((user_id)::text = btrim((user_id)::text))))",
+    "originalPretty": "CHECK (octet_length(user_id::text) >= 1 AND octet_length(user_id::text) <= 128 AND user_id::text = btrim(user_id::text))",
+    "restoredPretty": "CHECK (octet_length(user_id::text) >= 1 AND octet_length(user_id::text) <= 128 AND user_id::text = btrim(user_id::text))"
+  },
+  {
+    "name": "source_accounts.public.personal_verification_applications.personal_verification_applications_check",
+    "original": "CHECK ((((state)::text <> ALL ((ARRAY['PENDING'::character varying, 'VERIFIED'::character varying])::text[])) OR (((provider_certify_id)::text <> ''::text) AND (phone_verified_at > '1969-12-31 16:00:00+00'::timestamp with time zone))))",
+    "restored": "CHECK ((((state)::text <> ALL (ARRAY[('PENDING'::character varying)::text, ('VERIFIED'::character varying)::text])) OR (((provider_certify_id)::text <> ''::text) AND (phone_verified_at > '1969-12-31 16:00:00+00'::timestamp with time zone))))",
+    "originalPretty": "CHECK ((state::text <> ALL (ARRAY['PENDING'::character varying, 'VERIFIED'::character varying]::text[])) OR provider_certify_id::text <> ''::text AND phone_verified_at > '1969-12-31 16:00:00+00'::timestamp with time zone)",
+    "restoredPretty": "CHECK ((state::text <> ALL (ARRAY['PENDING'::character varying::text, 'VERIFIED'::character varying::text])) OR provider_certify_id::text <> ''::text AND phone_verified_at > '1969-12-31 16:00:00+00'::timestamp with time zone)"
+  },
+  {
+    "name": "source_accounts.public.personal_verification_applications.personal_verification_applications_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['OUTCOME_UNKNOWN'::character varying, 'PENDING'::character varying, 'VERIFIED'::character varying, 'REJECTED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('OUTCOME_UNKNOWN'::character varying)::text, ('PENDING'::character varying)::text, ('VERIFIED'::character varying)::text, ('REJECTED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['OUTCOME_UNKNOWN'::character varying, 'PENDING'::character varying, 'VERIFIED'::character varying, 'REJECTED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['OUTCOME_UNKNOWN'::character varying::text, 'PENDING'::character varying::text, 'VERIFIED'::character varying::text, 'REJECTED'::character varying::text]))"
+  },
+  {
+    "name": "source_accounts.public.source_account_operations.source_account_operations_actor_subject_check",
+    "original": "CHECK ((((octet_length((actor_subject)::text) >= 1) AND (octet_length((actor_subject)::text) <= 256)) AND ((actor_subject)::text = btrim((actor_subject)::text))))",
+    "restored": "CHECK (((octet_length((actor_subject)::text) >= 1) AND (octet_length((actor_subject)::text) <= 256) AND ((actor_subject)::text = btrim((actor_subject)::text))))",
+    "originalPretty": "CHECK (octet_length(actor_subject::text) >= 1 AND octet_length(actor_subject::text) <= 256 AND actor_subject::text = btrim(actor_subject::text))",
+    "restoredPretty": "CHECK (octet_length(actor_subject::text) >= 1 AND octet_length(actor_subject::text) <= 256 AND actor_subject::text = btrim(actor_subject::text))"
+  },
+  {
+    "name": "source_accounts.public.source_account_operations.source_account_operations_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['register'::character varying, 'enable'::character varying, 'disable'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('register'::character varying)::text, ('enable'::character varying)::text, ('disable'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['register'::character varying, 'enable'::character varying, 'disable'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['register'::character varying::text, 'enable'::character varying::text, 'disable'::character varying::text]))"
+  },
+  {
+    "name": "source_accounts.public.source_account_operations.source_account_operations_organization_id_check",
+    "original": "CHECK ((((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128)) AND ((organization_id)::text = btrim((organization_id)::text))))",
+    "restored": "CHECK (((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128) AND ((organization_id)::text = btrim((organization_id)::text))))",
+    "originalPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text))",
+    "restoredPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text))"
+  },
+  {
+    "name": "source_accounts.public.source_account_operations.source_account_operations_status_check",
+    "original": "CHECK (((resulting_management_status)::text = ANY ((ARRAY['enabled'::character varying, 'disabled'::character varying])::text[])))",
+    "restored": "CHECK (((resulting_management_status)::text = ANY (ARRAY[('enabled'::character varying)::text, ('disabled'::character varying)::text])))",
+    "originalPretty": "CHECK (resulting_management_status::text = ANY (ARRAY['enabled'::character varying, 'disabled'::character varying]::text[]))",
+    "restoredPretty": "CHECK (resulting_management_status::text = ANY (ARRAY['enabled'::character varying::text, 'disabled'::character varying::text]))"
+  },
+  {
+    "name": "source_accounts.public.source_account_resources.source_account_resources_created_by_check",
+    "original": "CHECK ((((octet_length((created_by)::text) >= 1) AND (octet_length((created_by)::text) <= 256)) AND ((created_by)::text = btrim((created_by)::text))))",
+    "restored": "CHECK (((octet_length((created_by)::text) >= 1) AND (octet_length((created_by)::text) <= 256) AND ((created_by)::text = btrim((created_by)::text))))",
+    "originalPretty": "CHECK (octet_length(created_by::text) >= 1 AND octet_length(created_by::text) <= 256 AND created_by::text = btrim(created_by::text))",
+    "restoredPretty": "CHECK (octet_length(created_by::text) >= 1 AND octet_length(created_by::text) <= 256 AND created_by::text = btrim(created_by::text))"
+  },
+  {
+    "name": "source_accounts.public.source_account_resources.source_account_resources_display_name_check",
+    "original": "CHECK ((((octet_length((display_name)::text) >= 1) AND (octet_length((display_name)::text) <= 120)) AND ((display_name)::text = btrim((display_name)::text)) AND ((display_name)::text !~ '[[:cntrl:]]'::text)))",
+    "restored": "CHECK (((octet_length((display_name)::text) >= 1) AND (octet_length((display_name)::text) <= 120) AND ((display_name)::text = btrim((display_name)::text)) AND ((display_name)::text !~ '[[:cntrl:]]'::text)))",
+    "originalPretty": "CHECK (octet_length(display_name::text) >= 1 AND octet_length(display_name::text) <= 120 AND display_name::text = btrim(display_name::text) AND display_name::text !~ '[[:cntrl:]]'::text)",
+    "restoredPretty": "CHECK (octet_length(display_name::text) >= 1 AND octet_length(display_name::text) <= 120 AND display_name::text = btrim(display_name::text) AND display_name::text !~ '[[:cntrl:]]'::text)"
+  },
+  {
+    "name": "source_accounts.public.source_account_resources.source_account_resources_management_status_check",
+    "original": "CHECK (((management_status)::text = ANY ((ARRAY['enabled'::character varying, 'disabled'::character varying])::text[])))",
+    "restored": "CHECK (((management_status)::text = ANY (ARRAY[('enabled'::character varying)::text, ('disabled'::character varying)::text])))",
+    "originalPretty": "CHECK (management_status::text = ANY (ARRAY['enabled'::character varying, 'disabled'::character varying]::text[]))",
+    "restoredPretty": "CHECK (management_status::text = ANY (ARRAY['enabled'::character varying::text, 'disabled'::character varying::text]))"
+  },
+  {
+    "name": "source_accounts.public.source_account_resources.source_account_resources_organization_id_check",
+    "original": "CHECK ((((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128)) AND ((organization_id)::text = btrim((organization_id)::text))))",
+    "restored": "CHECK (((octet_length((organization_id)::text) >= 1) AND (octet_length((organization_id)::text) <= 128) AND ((organization_id)::text = btrim((organization_id)::text))))",
+    "originalPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text))",
+    "restoredPretty": "CHECK (octet_length(organization_id::text) >= 1 AND octet_length(organization_id::text) <= 128 AND organization_id::text = btrim(organization_id::text))"
+  },
+  {
+    "name": "source_accounts.public.source_account_resources.source_account_resources_updated_by_check",
+    "original": "CHECK ((((octet_length((updated_by)::text) >= 1) AND (octet_length((updated_by)::text) <= 256)) AND ((updated_by)::text = btrim((updated_by)::text))))",
+    "restored": "CHECK (((octet_length((updated_by)::text) >= 1) AND (octet_length((updated_by)::text) <= 256) AND ((updated_by)::text = btrim((updated_by)::text))))",
+    "originalPretty": "CHECK (octet_length(updated_by::text) >= 1 AND octet_length(updated_by::text) <= 256 AND updated_by::text = btrim(updated_by::text))",
+    "restoredPretty": "CHECK (octet_length(updated_by::text) >= 1 AND octet_length(updated_by::text) <= 256 AND updated_by::text = btrim(updated_by::text))"
+  },
+  {
+    "name": "source_accounts.public.subject_verification_applications.subject_verification_applications_state_check",
+    "original": "CHECK (((state)::text = ANY ((ARRAY['OUTCOME_UNKNOWN'::character varying, 'PENDING'::character varying, 'VERIFIED'::character varying])::text[])))",
+    "restored": "CHECK (((state)::text = ANY (ARRAY[('OUTCOME_UNKNOWN'::character varying)::text, ('PENDING'::character varying)::text, ('VERIFIED'::character varying)::text])))",
+    "originalPretty": "CHECK (state::text = ANY (ARRAY['OUTCOME_UNKNOWN'::character varying, 'PENDING'::character varying, 'VERIFIED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (state::text = ANY (ARRAY['OUTCOME_UNKNOWN'::character varying::text, 'PENDING'::character varying::text, 'VERIFIED'::character varying::text]))"
+  },
+  {
+    "name": "store_center.public.workbench_store_connection_attempts.store_connection_attempt_platform",
+    "original": "CHECK (((((platform)::text = 'shein'::text) AND ((identity_partition)::text = ''::text) AND ((authorization_method)::text = 'callback'::text) AND ((private_input_digest)::text = ''::text) AND (verification_json = ''::text)) OR (((platform)::text = 'temu'::text) AND ((identity_partition)::text = ANY ((ARRAY['CN'::character varying, 'US'::character varying, 'EU'::character varying, 'GLOBAL'::character varying])::text[])) AND ((authorization_method)::text = 'manual_token'::text) AND (octet_length((private_input_digest)::text) = ANY (ARRAY[0, 64])) AND (((state)::text <> ALL ((ARRAY['credential_received'::character varying, 'verified'::character varying])::text[])) OR (octet_length((private_input_digest)::text) = 64)) AND (((state)::text <> 'verified'::text) OR (verification_json <> ''::text)))))",
+    "restored": "CHECK (((((platform)::text = 'shein'::text) AND ((identity_partition)::text = ''::text) AND ((authorization_method)::text = 'callback'::text) AND ((private_input_digest)::text = ''::text) AND (verification_json = ''::text)) OR (((platform)::text = 'temu'::text) AND ((identity_partition)::text = ANY (ARRAY[('CN'::character varying)::text, ('US'::character varying)::text, ('EU'::character varying)::text, ('GLOBAL'::character varying)::text])) AND ((authorization_method)::text = 'manual_token'::text) AND (octet_length((private_input_digest)::text) = ANY (ARRAY[0, 64])) AND (((state)::text <> ALL (ARRAY[('credential_received'::character varying)::text, ('verified'::character varying)::text])) OR (octet_length((private_input_digest)::text) = 64)) AND (((state)::text <> 'verified'::text) OR (verification_json <> ''::text)))))",
+    "originalPretty": "CHECK (platform::text = 'shein'::text AND identity_partition::text = ''::text AND authorization_method::text = 'callback'::text AND private_input_digest::text = ''::text AND verification_json = ''::text OR platform::text = 'temu'::text AND (identity_partition::text = ANY (ARRAY['CN'::character varying, 'US'::character varying, 'EU'::character varying, 'GLOBAL'::character varying]::text[])) AND authorization_method::text = 'manual_token'::text AND (octet_length(private_input_digest::text) = ANY (ARRAY[0, 64])) AND ((state::text <> ALL (ARRAY['credential_received'::character varying, 'verified'::character varying]::text[])) OR octet_length(private_input_digest::text) = 64) AND (state::text <> 'verified'::text OR verification_json <> ''::text))",
+    "restoredPretty": "CHECK (platform::text = 'shein'::text AND identity_partition::text = ''::text AND authorization_method::text = 'callback'::text AND private_input_digest::text = ''::text AND verification_json = ''::text OR platform::text = 'temu'::text AND (identity_partition::text = ANY (ARRAY['CN'::character varying::text, 'US'::character varying::text, 'EU'::character varying::text, 'GLOBAL'::character varying::text])) AND authorization_method::text = 'manual_token'::text AND (octet_length(private_input_digest::text) = ANY (ARRAY[0, 64])) AND ((state::text <> ALL (ARRAY['credential_received'::character varying::text, 'verified'::character varying::text])) OR octet_length(private_input_digest::text) = 64) AND (state::text <> 'verified'::text OR verification_json <> ''::text))"
+  },
+  {
+    "name": "store_center.public.workbench_store_connection_attempts.store_connection_attempt_shape",
+    "original": "CHECK (((((state)::text = ANY ((ARRAY['awaiting_consent'::character varying, 'exchange_dispatched'::character varying, 'failed'::character varying])::text[])) AND ((key_id)::text = ''::text) AND (ciphertext = ''::text)) OR (((state)::text = ANY ((ARRAY['credential_received'::character varying, 'verified'::character varying])::text[])) AND ((key_id)::text <> ''::text) AND (ciphertext <> ''::text))))",
+    "restored": "CHECK (((((state)::text = ANY (ARRAY[('awaiting_consent'::character varying)::text, ('exchange_dispatched'::character varying)::text, ('failed'::character varying)::text])) AND ((key_id)::text = ''::text) AND (ciphertext = ''::text)) OR (((state)::text = ANY (ARRAY[('credential_received'::character varying)::text, ('verified'::character varying)::text])) AND ((key_id)::text <> ''::text) AND (ciphertext <> ''::text))))",
+    "originalPretty": "CHECK ((state::text = ANY (ARRAY['awaiting_consent'::character varying, 'exchange_dispatched'::character varying, 'failed'::character varying]::text[])) AND key_id::text = ''::text AND ciphertext = ''::text OR (state::text = ANY (ARRAY['credential_received'::character varying, 'verified'::character varying]::text[])) AND key_id::text <> ''::text AND ciphertext <> ''::text)",
+    "restoredPretty": "CHECK ((state::text = ANY (ARRAY['awaiting_consent'::character varying::text, 'exchange_dispatched'::character varying::text, 'failed'::character varying::text])) AND key_id::text = ''::text AND ciphertext = ''::text OR (state::text = ANY (ARRAY['credential_received'::character varying::text, 'verified'::character varying::text])) AND key_id::text <> ''::text AND ciphertext <> ''::text)"
+  },
+  {
+    "name": "store_center.public.workbench_store_connections.store_connection_shape",
+    "original": "CHECK (((version > 0) AND ((status)::text = ANY ((ARRAY['disconnected'::character varying, 'connected'::character varying, 'expired'::character varying, 'unavailable'::character varying])::text[]))))",
+    "restored": "CHECK (((version > 0) AND ((status)::text = ANY (ARRAY[('disconnected'::character varying)::text, ('connected'::character varying)::text, ('expired'::character varying)::text, ('unavailable'::character varying)::text]))))",
+    "originalPretty": "CHECK (version > 0 AND (status::text = ANY (ARRAY['disconnected'::character varying, 'connected'::character varying, 'expired'::character varying, 'unavailable'::character varying]::text[])))",
+    "restoredPretty": "CHECK (version > 0 AND (status::text = ANY (ARRAY['disconnected'::character varying::text, 'connected'::character varying::text, 'expired'::character varying::text, 'unavailable'::character varying::text])))"
+  },
+  {
+    "name": "store_center.public.workbench_store_merchant_bindings.store_merchant_binding_shape",
+    "original": "CHECK (((octet_length((identity_hash)::text) = 64) AND ((app_id)::text <> ''::text) AND ((((platform)::text = 'shein'::text) AND ((open_key_id)::text <> ''::text)) OR (((platform)::text = ANY ((ARRAY['temu'::character varying, 'walmart'::character varying])::text[])) AND ((open_key_id)::text = ''::text)))))",
+    "restored": "CHECK (((octet_length((identity_hash)::text) = 64) AND ((app_id)::text <> ''::text) AND ((((platform)::text = 'shein'::text) AND ((open_key_id)::text <> ''::text)) OR (((platform)::text = ANY (ARRAY[('temu'::character varying)::text, ('walmart'::character varying)::text])) AND ((open_key_id)::text = ''::text)))))",
+    "originalPretty": "CHECK (octet_length(identity_hash::text) = 64 AND app_id::text <> ''::text AND (platform::text = 'shein'::text AND open_key_id::text <> ''::text OR (platform::text = ANY (ARRAY['temu'::character varying, 'walmart'::character varying]::text[])) AND open_key_id::text = ''::text))",
+    "restoredPretty": "CHECK (octet_length(identity_hash::text) = 64 AND app_id::text <> ''::text AND (platform::text = 'shein'::text AND open_key_id::text <> ''::text OR (platform::text = ANY (ARRAY['temu'::character varying::text, 'walmart'::character varying::text])) AND open_key_id::text = ''::text))"
+  },
+  {
+    "name": "store_center.public.workbench_store_metadata_operations.store_metadata_action",
+    "original": "CHECK (((action)::text = ANY ((ARRAY['create_group'::character varying, 'rename_group'::character varying, 'delete_group'::character varying, 'set_profile'::character varying, 'assign_group'::character varying])::text[])))",
+    "restored": "CHECK (((action)::text = ANY (ARRAY[('create_group'::character varying)::text, ('rename_group'::character varying)::text, ('delete_group'::character varying)::text, ('set_profile'::character varying)::text, ('assign_group'::character varying)::text])))",
+    "originalPretty": "CHECK (action::text = ANY (ARRAY['create_group'::character varying, 'rename_group'::character varying, 'delete_group'::character varying, 'set_profile'::character varying, 'assign_group'::character varying]::text[]))",
+    "restoredPretty": "CHECK (action::text = ANY (ARRAY['create_group'::character varying::text, 'rename_group'::character varying::text, 'delete_group'::character varying::text, 'set_profile'::character varying::text, 'assign_group'::character varying::text]))"
+  },
+  {
+    "name": "store_center.public.workbench_store_service_operations.store_service_operation_shape",
+    "original": "CHECK (((((state)::text = 'admitted'::text) AND ((reservation_id)::text = ''::text) AND (snapshot_json = ''::text) AND ((evidence_id)::text = ''::text) AND ((failure_code)::text = ''::text)) OR (((state)::text = 'bound'::text) AND ((reservation_id)::text <> ''::text) AND (snapshot_json = ''::text) AND ((evidence_id)::text = ''::text) AND ((failure_code)::text = ''::text)) OR (((state)::text = 'succeeded'::text) AND ((reservation_id)::text <> ''::text) AND (snapshot_json <> ''::text) AND ((evidence_id)::text <> ''::text) AND ((failure_code)::text = ''::text)) OR (((state)::text = 'failed_fenced'::text) AND (snapshot_json = ''::text) AND ((evidence_id)::text <> ''::text) AND ((failure_code)::text = ANY ((ARRAY['NOT_ALLOWED'::character varying, 'STORE_CHANGED'::character varying, 'CONNECTION_CHANGED'::character varying, 'INVALID_STATE'::character varying, 'QUOTA_INSUFFICIENT'::character varying])::text[])))))",
+    "restored": "CHECK (((((state)::text = 'admitted'::text) AND ((reservation_id)::text = ''::text) AND (snapshot_json = ''::text) AND ((evidence_id)::text = ''::text) AND ((failure_code)::text = ''::text)) OR (((state)::text = 'bound'::text) AND ((reservation_id)::text <> ''::text) AND (snapshot_json = ''::text) AND ((evidence_id)::text = ''::text) AND ((failure_code)::text = ''::text)) OR (((state)::text = 'succeeded'::text) AND ((reservation_id)::text <> ''::text) AND (snapshot_json <> ''::text) AND ((evidence_id)::text <> ''::text) AND ((failure_code)::text = ''::text)) OR (((state)::text = 'failed_fenced'::text) AND (snapshot_json = ''::text) AND ((evidence_id)::text <> ''::text) AND ((failure_code)::text = ANY (ARRAY[('NOT_ALLOWED'::character varying)::text, ('STORE_CHANGED'::character varying)::text, ('CONNECTION_CHANGED'::character varying)::text, ('INVALID_STATE'::character varying)::text, ('QUOTA_INSUFFICIENT'::character varying)::text])))))",
+    "originalPretty": "CHECK (state::text = 'admitted'::text AND reservation_id::text = ''::text AND snapshot_json = ''::text AND evidence_id::text = ''::text AND failure_code::text = ''::text OR state::text = 'bound'::text AND reservation_id::text <> ''::text AND snapshot_json = ''::text AND evidence_id::text = ''::text AND failure_code::text = ''::text OR state::text = 'succeeded'::text AND reservation_id::text <> ''::text AND snapshot_json <> ''::text AND evidence_id::text <> ''::text AND failure_code::text = ''::text OR state::text = 'failed_fenced'::text AND snapshot_json = ''::text AND evidence_id::text <> ''::text AND (failure_code::text = ANY (ARRAY['NOT_ALLOWED'::character varying, 'STORE_CHANGED'::character varying, 'CONNECTION_CHANGED'::character varying, 'INVALID_STATE'::character varying, 'QUOTA_INSUFFICIENT'::character varying]::text[])))",
+    "restoredPretty": "CHECK (state::text = 'admitted'::text AND reservation_id::text = ''::text AND snapshot_json = ''::text AND evidence_id::text = ''::text AND failure_code::text = ''::text OR state::text = 'bound'::text AND reservation_id::text <> ''::text AND snapshot_json = ''::text AND evidence_id::text = ''::text AND failure_code::text = ''::text OR state::text = 'succeeded'::text AND reservation_id::text <> ''::text AND snapshot_json <> ''::text AND evidence_id::text <> ''::text AND failure_code::text = ''::text OR state::text = 'failed_fenced'::text AND snapshot_json = ''::text AND evidence_id::text <> ''::text AND (failure_code::text = ANY (ARRAY['NOT_ALLOWED'::character varying::text, 'STORE_CHANGED'::character varying::text, 'CONNECTION_CHANGED'::character varying::text, 'INVALID_STATE'::character varying::text, 'QUOTA_INSUFFICIENT'::character varying::text])))"
+  },
+  {
+    "name": "store_center.public.workbench_store_tiktok_oauth_attempts.tiktok_attempt_state",
+    "original": "CHECK (((((state)::text = ANY ((ARRAY['created'::character varying, 'exchange_dispatched'::character varying, 'unknown'::character varying, 'rejected'::character varying, 'bound'::character varying])::text[])) AND ((key_id)::text = ''::text) AND (ciphertext = ''::text)) OR (((state)::text = 'credential_received'::text) AND ((key_id)::text <> ''::text) AND (ciphertext <> ''::text) AND (octet_length((seller_identity_hash)::text) = 64))))",
+    "restored": "CHECK (((((state)::text = ANY (ARRAY[('created'::character varying)::text, ('exchange_dispatched'::character varying)::text, ('unknown'::character varying)::text, ('rejected'::character varying)::text, ('bound'::character varying)::text])) AND ((key_id)::text = ''::text) AND (ciphertext = ''::text)) OR (((state)::text = 'credential_received'::text) AND ((key_id)::text <> ''::text) AND (ciphertext <> ''::text) AND (octet_length((seller_identity_hash)::text) = 64))))",
+    "originalPretty": "CHECK ((state::text = ANY (ARRAY['created'::character varying, 'exchange_dispatched'::character varying, 'unknown'::character varying, 'rejected'::character varying, 'bound'::character varying]::text[])) AND key_id::text = ''::text AND ciphertext = ''::text OR state::text = 'credential_received'::text AND key_id::text <> ''::text AND ciphertext <> ''::text AND octet_length(seller_identity_hash::text) = 64)",
+    "restoredPretty": "CHECK ((state::text = ANY (ARRAY['created'::character varying::text, 'exchange_dispatched'::character varying::text, 'unknown'::character varying::text, 'rejected'::character varying::text, 'bound'::character varying::text])) AND key_id::text = ''::text AND ciphertext = ''::text OR state::text = 'credential_received'::text AND key_id::text <> ''::text AND ciphertext <> ''::text AND octet_length(seller_identity_hash::text) = 64)"
+  },
+  {
+    "name": "store_center.public.workbench_store_tiktok_oauth_grants.tiktok_grant_state",
+    "original": "CHECK (((((status)::text = ANY ((ARRAY['active'::character varying, 'revoked'::character varying, 'expired'::character varying])::text[])) AND (refresh_operation_id IS NULL) AND (claim_expires_at IS NULL)) OR (((status)::text = ANY ((ARRAY['refresh_dispatched'::character varying, 'refresh_unknown'::character varying])::text[])) AND (refresh_operation_id IS NOT NULL) AND (claim_expires_at IS NOT NULL))))",
+    "restored": "CHECK (((((status)::text = ANY (ARRAY[('active'::character varying)::text, ('revoked'::character varying)::text, ('expired'::character varying)::text])) AND (refresh_operation_id IS NULL) AND (claim_expires_at IS NULL)) OR (((status)::text = ANY (ARRAY[('refresh_dispatched'::character varying)::text, ('refresh_unknown'::character varying)::text])) AND (refresh_operation_id IS NOT NULL) AND (claim_expires_at IS NOT NULL))))",
+    "originalPretty": "CHECK ((status::text = ANY (ARRAY['active'::character varying, 'revoked'::character varying, 'expired'::character varying]::text[])) AND refresh_operation_id IS NULL AND claim_expires_at IS NULL OR (status::text = ANY (ARRAY['refresh_dispatched'::character varying, 'refresh_unknown'::character varying]::text[])) AND refresh_operation_id IS NOT NULL AND claim_expires_at IS NOT NULL)",
+    "restoredPretty": "CHECK ((status::text = ANY (ARRAY['active'::character varying::text, 'revoked'::character varying::text, 'expired'::character varying::text])) AND refresh_operation_id IS NULL AND claim_expires_at IS NULL OR (status::text = ANY (ARRAY['refresh_dispatched'::character varying::text, 'refresh_unknown'::character varying::text])) AND refresh_operation_id IS NOT NULL AND claim_expires_at IS NOT NULL)"
+  },
+  {
+    "name": "store_center.public.workbench_store_tiktok_oauth_refresh_operations.tiktok_refresh_shape",
+    "original": "CHECK (((expected_generation > 0) AND (expected_grant_revision >= expected_generation) AND (octet_length((input_hash)::text) = 64) AND ((actor_id)::text <> ''::text) AND ((member_id)::text <> ''::text) AND ((state)::text = ANY ((ARRAY['dispatch'::character varying, 'unknown'::character varying, 'succeeded'::character varying, 'rejected'::character varying])::text[])) AND (claim_expires_at > created_at) AND (claim_expires_at <= (created_at + '00:05:00'::interval)) AND (updated_at >= created_at)))",
+    "restored": "CHECK (((expected_generation > 0) AND (expected_grant_revision >= expected_generation) AND (octet_length((input_hash)::text) = 64) AND ((actor_id)::text <> ''::text) AND ((member_id)::text <> ''::text) AND ((state)::text = ANY (ARRAY[('dispatch'::character varying)::text, ('unknown'::character varying)::text, ('succeeded'::character varying)::text, ('rejected'::character varying)::text])) AND (claim_expires_at > created_at) AND (claim_expires_at <= (created_at + '00:05:00'::interval)) AND (updated_at >= created_at)))",
+    "originalPretty": "CHECK (expected_generation > 0 AND expected_grant_revision >= expected_generation AND octet_length(input_hash::text) = 64 AND actor_id::text <> ''::text AND member_id::text <> ''::text AND (state::text = ANY (ARRAY['dispatch'::character varying, 'unknown'::character varying, 'succeeded'::character varying, 'rejected'::character varying]::text[])) AND claim_expires_at > created_at AND claim_expires_at <= (created_at + '00:05:00'::interval) AND updated_at >= created_at)",
+    "restoredPretty": "CHECK (expected_generation > 0 AND expected_grant_revision >= expected_generation AND octet_length(input_hash::text) = 64 AND actor_id::text <> ''::text AND member_id::text <> ''::text AND (state::text = ANY (ARRAY['dispatch'::character varying::text, 'unknown'::character varying::text, 'succeeded'::character varying::text, 'rejected'::character varying::text])) AND claim_expires_at > created_at AND claim_expires_at <= (created_at + '00:05:00'::interval) AND updated_at >= created_at)"
+  },
+  {
+    "name": "store_center.public.workbench_store_tiktok_shop_bindings.tiktok_binding_shape",
+    "original": "CHECK (((market = 'US'::text) AND ((seller_type)::text = 'CROSS_BORDER'::text) AND ((shop_id)::text <> ''::text) AND ((shop_code)::text <> ''::text) AND ((octet_length(shop_cipher) >= 1) AND (octet_length(shop_cipher) <= 8192)) AND ((status)::text = ANY ((ARRAY['active'::character varying, 'disconnected'::character varying, 'revoked'::character varying])::text[])) AND (version > 0) AND (updated_at >= created_at)))",
+    "restored": "CHECK (((market = 'US'::text) AND ((seller_type)::text = 'CROSS_BORDER'::text) AND ((shop_id)::text <> ''::text) AND ((shop_code)::text <> ''::text) AND ((octet_length(shop_cipher) >= 1) AND (octet_length(shop_cipher) <= 8192)) AND ((status)::text = ANY (ARRAY[('active'::character varying)::text, ('disconnected'::character varying)::text, ('revoked'::character varying)::text])) AND (version > 0) AND (updated_at >= created_at)))",
+    "originalPretty": "CHECK (market = 'US'::text AND seller_type::text = 'CROSS_BORDER'::text AND shop_id::text <> ''::text AND shop_code::text <> ''::text AND octet_length(shop_cipher) >= 1 AND octet_length(shop_cipher) <= 8192 AND (status::text = ANY (ARRAY['active'::character varying, 'disconnected'::character varying, 'revoked'::character varying]::text[])) AND version > 0 AND updated_at >= created_at)",
+    "restoredPretty": "CHECK (market = 'US'::text AND seller_type::text = 'CROSS_BORDER'::text AND shop_id::text <> ''::text AND shop_code::text <> ''::text AND octet_length(shop_cipher) >= 1 AND octet_length(shop_cipher) <= 8192 AND (status::text = ANY (ARRAY['active'::character varying::text, 'disconnected'::character varying::text, 'revoked'::character varying::text])) AND version > 0 AND updated_at >= created_at)"
+  },
+  {
+    "name": "store_center.public.workbench_store_walmart_oauth_attempts.walmart_attempt_bounds",
+    "original": "CHECK (((store_version > 0) AND (connection_version > 0) AND ((actor_id)::text <> ''::text) AND ((member_id)::text <> ''::text) AND ((app_id)::text <> ''::text) AND ((app_revision)::text <> ''::text) AND ((environment)::text = ANY ((ARRAY['production'::character varying, 'sandbox'::character varying])::text[])) AND (callback_url <> ''::text) AND (octet_length((state_hash)::text) = 64) AND ((nonce)::text <> ''::text) AND (expires_at > created_at) AND (expires_at <= (created_at + '00:05:00'::interval)) AND (updated_at >= created_at)))",
+    "restored": "CHECK (((store_version > 0) AND (connection_version > 0) AND ((actor_id)::text <> ''::text) AND ((member_id)::text <> ''::text) AND ((app_id)::text <> ''::text) AND ((app_revision)::text <> ''::text) AND ((environment)::text = ANY (ARRAY[('production'::character varying)::text, ('sandbox'::character varying)::text])) AND (callback_url <> ''::text) AND (octet_length((state_hash)::text) = 64) AND ((nonce)::text <> ''::text) AND (expires_at > created_at) AND (expires_at <= (created_at + '00:05:00'::interval)) AND (updated_at >= created_at)))",
+    "originalPretty": "CHECK (store_version > 0 AND connection_version > 0 AND actor_id::text <> ''::text AND member_id::text <> ''::text AND app_id::text <> ''::text AND app_revision::text <> ''::text AND (environment::text = ANY (ARRAY['production'::character varying, 'sandbox'::character varying]::text[])) AND callback_url <> ''::text AND octet_length(state_hash::text) = 64 AND nonce::text <> ''::text AND expires_at > created_at AND expires_at <= (created_at + '00:05:00'::interval) AND updated_at >= created_at)",
+    "restoredPretty": "CHECK (store_version > 0 AND connection_version > 0 AND actor_id::text <> ''::text AND member_id::text <> ''::text AND app_id::text <> ''::text AND app_revision::text <> ''::text AND (environment::text = ANY (ARRAY['production'::character varying::text, 'sandbox'::character varying::text])) AND callback_url <> ''::text AND octet_length(state_hash::text) = 64 AND nonce::text <> ''::text AND expires_at > created_at AND expires_at <= (created_at + '00:05:00'::interval) AND updated_at >= created_at)"
+  },
+  {
+    "name": "store_center.public.workbench_store_walmart_oauth_attempts.walmart_attempt_state",
+    "original": "CHECK (((((state)::text = ANY ((ARRAY['created'::character varying, 'exchange_dispatched'::character varying, 'bound'::character varying, 'rejected'::character varying, 'unknown'::character varying])::text[])) AND ((key_id)::text = ''::text) AND (ciphertext = ''::text)) OR (((state)::text = 'credential_received'::text) AND ((key_id)::text <> ''::text) AND ((octet_length(ciphertext) >= 1) AND (octet_length(ciphertext) <= 16384)) AND ((seller_id)::text <> ''::text))))",
+    "restored": "CHECK (((((state)::text = ANY (ARRAY[('created'::character varying)::text, ('exchange_dispatched'::character varying)::text, ('bound'::character varying)::text, ('rejected'::character varying)::text, ('unknown'::character varying)::text])) AND ((key_id)::text = ''::text) AND (ciphertext = ''::text)) OR (((state)::text = 'credential_received'::text) AND ((key_id)::text <> ''::text) AND ((octet_length(ciphertext) >= 1) AND (octet_length(ciphertext) <= 16384)) AND ((seller_id)::text <> ''::text))))",
+    "originalPretty": "CHECK ((state::text = ANY (ARRAY['created'::character varying, 'exchange_dispatched'::character varying, 'bound'::character varying, 'rejected'::character varying, 'unknown'::character varying]::text[])) AND key_id::text = ''::text AND ciphertext = ''::text OR state::text = 'credential_received'::text AND key_id::text <> ''::text AND octet_length(ciphertext) >= 1 AND octet_length(ciphertext) <= 16384 AND seller_id::text <> ''::text)",
+    "restoredPretty": "CHECK ((state::text = ANY (ARRAY['created'::character varying::text, 'exchange_dispatched'::character varying::text, 'bound'::character varying::text, 'rejected'::character varying::text, 'unknown'::character varying::text])) AND key_id::text = ''::text AND ciphertext = ''::text OR state::text = 'credential_received'::text AND key_id::text <> ''::text AND octet_length(ciphertext) >= 1 AND octet_length(ciphertext) <= 16384 AND seller_id::text <> ''::text)"
+  },
+  {
+    "name": "store_center.public.workbench_store_walmart_oauth_grants.walmart_grant_identity",
+    "original": "CHECK ((((environment)::text = ANY ((ARRAY['production'::character varying, 'sandbox'::character varying])::text[])) AND ((app_id)::text <> ''::text) AND ((app_revision)::text <> ''::text) AND ((seller_id)::text <> ''::text) AND (octet_length((merchant_identity_hash)::text) = 64) AND (octet_length((scopes_hash)::text) = 64)))",
+    "restored": "CHECK ((((environment)::text = ANY (ARRAY[('production'::character varying)::text, ('sandbox'::character varying)::text])) AND ((app_id)::text <> ''::text) AND ((app_revision)::text <> ''::text) AND ((seller_id)::text <> ''::text) AND (octet_length((merchant_identity_hash)::text) = 64) AND (octet_length((scopes_hash)::text) = 64)))",
+    "originalPretty": "CHECK ((environment::text = ANY (ARRAY['production'::character varying, 'sandbox'::character varying]::text[])) AND app_id::text <> ''::text AND app_revision::text <> ''::text AND seller_id::text <> ''::text AND octet_length(merchant_identity_hash::text) = 64 AND octet_length(scopes_hash::text) = 64)",
+    "restoredPretty": "CHECK ((environment::text = ANY (ARRAY['production'::character varying::text, 'sandbox'::character varying::text])) AND app_id::text <> ''::text AND app_revision::text <> ''::text AND seller_id::text <> ''::text AND octet_length(merchant_identity_hash::text) = 64 AND octet_length(scopes_hash::text) = 64)"
+  },
+  {
+    "name": "store_center.public.workbench_store_walmart_oauth_grants.walmart_grant_state",
+    "original": "CHECK ((((status)::text = ANY ((ARRAY['active'::character varying, 'refresh_dispatched'::character varying, 'refresh_unknown'::character varying, 'revoked'::character varying, 'expired'::character varying])::text[])) AND (((status)::text <> ALL ((ARRAY['refresh_dispatched'::character varying, 'refresh_unknown'::character varying])::text[])) OR (((refresh_operation_id)::text <> ''::text) AND (octet_length((refresh_input_hash)::text) = 64) AND (refresh_generation = generation) AND ((refresh_actor_id)::text <> ''::text) AND ((refresh_member_id)::text <> ''::text)))))",
+    "restored": "CHECK ((((status)::text = ANY (ARRAY[('active'::character varying)::text, ('refresh_dispatched'::character varying)::text, ('refresh_unknown'::character varying)::text, ('revoked'::character varying)::text, ('expired'::character varying)::text])) AND (((status)::text <> ALL (ARRAY[('refresh_dispatched'::character varying)::text, ('refresh_unknown'::character varying)::text])) OR (((refresh_operation_id)::text <> ''::text) AND (octet_length((refresh_input_hash)::text) = 64) AND (refresh_generation = generation) AND ((refresh_actor_id)::text <> ''::text) AND ((refresh_member_id)::text <> ''::text)))))",
+    "originalPretty": "CHECK ((status::text = ANY (ARRAY['active'::character varying, 'refresh_dispatched'::character varying, 'refresh_unknown'::character varying, 'revoked'::character varying, 'expired'::character varying]::text[])) AND ((status::text <> ALL (ARRAY['refresh_dispatched'::character varying, 'refresh_unknown'::character varying]::text[])) OR refresh_operation_id::text <> ''::text AND octet_length(refresh_input_hash::text) = 64 AND refresh_generation = generation AND refresh_actor_id::text <> ''::text AND refresh_member_id::text <> ''::text))",
+    "restoredPretty": "CHECK ((status::text = ANY (ARRAY['active'::character varying::text, 'refresh_dispatched'::character varying::text, 'refresh_unknown'::character varying::text, 'revoked'::character varying::text, 'expired'::character varying::text])) AND ((status::text <> ALL (ARRAY['refresh_dispatched'::character varying::text, 'refresh_unknown'::character varying::text])) OR refresh_operation_id::text <> ''::text AND octet_length(refresh_input_hash::text) = 64 AND refresh_generation = generation AND refresh_actor_id::text <> ''::text AND refresh_member_id::text <> ''::text))"
+  },
+  {
+    "name": "store_center.public.workbench_stores.store_delete_shape",
+    "original": "CHECK (((((record_status)::text = ANY ((ARRAY['deleting'::character varying, 'deleted'::character varying])::text[])) AND ((delete_operation_key)::text <> ''::text)) OR (((record_status)::text <> ALL ((ARRAY['deleting'::character varying, 'deleted'::character varying])::text[])) AND ((delete_operation_key)::text = ''::text))))",
+    "restored": "CHECK (((((record_status)::text = ANY (ARRAY[('deleting'::character varying)::text, ('deleted'::character varying)::text])) AND ((delete_operation_key)::text <> ''::text)) OR (((record_status)::text <> ALL (ARRAY[('deleting'::character varying)::text, ('deleted'::character varying)::text])) AND ((delete_operation_key)::text = ''::text))))",
+    "originalPretty": "CHECK ((record_status::text = ANY (ARRAY['deleting'::character varying, 'deleted'::character varying]::text[])) AND delete_operation_key::text <> ''::text OR (record_status::text <> ALL (ARRAY['deleting'::character varying, 'deleted'::character varying]::text[])) AND delete_operation_key::text = ''::text)",
+    "restoredPretty": "CHECK ((record_status::text = ANY (ARRAY['deleting'::character varying::text, 'deleted'::character varying::text])) AND delete_operation_key::text <> ''::text OR (record_status::text <> ALL (ARRAY['deleting'::character varying::text, 'deleted'::character varying::text])) AND delete_operation_key::text = ''::text)"
+  },
+  {
+    "name": "store_center.public.workbench_stores.store_record_status",
+    "original": "CHECK (((record_status)::text = ANY ((ARRAY['active'::character varying, 'disabled'::character varying, 'deleting'::character varying, 'deleted'::character varying])::text[])))",
+    "restored": "CHECK (((record_status)::text = ANY (ARRAY[('active'::character varying)::text, ('disabled'::character varying)::text, ('deleting'::character varying)::text, ('deleted'::character varying)::text])))",
+    "originalPretty": "CHECK (record_status::text = ANY (ARRAY['active'::character varying, 'disabled'::character varying, 'deleting'::character varying, 'deleted'::character varying]::text[]))",
+    "restoredPretty": "CHECK (record_status::text = ANY (ARRAY['active'::character varying::text, 'disabled'::character varying::text, 'deleting'::character varying::text, 'deleted'::character varying::text]))"
+  },
+  {
+    "name": "store_center.public.workbench_stores.store_service_period",
+    "original": "CHECK ((((service_status IS NULL) AND (service_started_at IS NULL) AND (service_expires_at IS NULL)) OR (((service_status)::text = 'pending_activation'::text) AND (service_started_at IS NULL) AND (service_expires_at IS NULL)) OR (((service_status)::text = ANY ((ARRAY['active'::character varying, 'expired'::character varying])::text[])) AND (service_started_at IS NOT NULL) AND (service_expires_at IS NOT NULL) AND (service_expires_at > service_started_at)) OR (((service_status)::text = 'suspended'::text) AND (((service_started_at IS NULL) AND (service_expires_at IS NULL)) OR ((service_started_at IS NOT NULL) AND (service_expires_at IS NOT NULL) AND (service_expires_at > service_started_at))))))",
+    "restored": "CHECK ((((service_status IS NULL) AND (service_started_at IS NULL) AND (service_expires_at IS NULL)) OR (((service_status)::text = 'pending_activation'::text) AND (service_started_at IS NULL) AND (service_expires_at IS NULL)) OR (((service_status)::text = ANY (ARRAY[('active'::character varying)::text, ('expired'::character varying)::text])) AND (service_started_at IS NOT NULL) AND (service_expires_at IS NOT NULL) AND (service_expires_at > service_started_at)) OR (((service_status)::text = 'suspended'::text) AND (((service_started_at IS NULL) AND (service_expires_at IS NULL)) OR ((service_started_at IS NOT NULL) AND (service_expires_at IS NOT NULL) AND (service_expires_at > service_started_at))))))",
+    "originalPretty": "CHECK (service_status IS NULL AND service_started_at IS NULL AND service_expires_at IS NULL OR service_status::text = 'pending_activation'::text AND service_started_at IS NULL AND service_expires_at IS NULL OR (service_status::text = ANY (ARRAY['active'::character varying, 'expired'::character varying]::text[])) AND service_started_at IS NOT NULL AND service_expires_at IS NOT NULL AND service_expires_at > service_started_at OR service_status::text = 'suspended'::text AND (service_started_at IS NULL AND service_expires_at IS NULL OR service_started_at IS NOT NULL AND service_expires_at IS NOT NULL AND service_expires_at > service_started_at))",
+    "restoredPretty": "CHECK (service_status IS NULL AND service_started_at IS NULL AND service_expires_at IS NULL OR service_status::text = 'pending_activation'::text AND service_started_at IS NULL AND service_expires_at IS NULL OR (service_status::text = ANY (ARRAY['active'::character varying::text, 'expired'::character varying::text])) AND service_started_at IS NOT NULL AND service_expires_at IS NOT NULL AND service_expires_at > service_started_at OR service_status::text = 'suspended'::text AND (service_started_at IS NULL AND service_expires_at IS NULL OR service_started_at IS NOT NULL AND service_expires_at IS NOT NULL AND service_expires_at > service_started_at))"
+  },
+  {
+    "name": "store_center.public.workbench_stores.store_service_shape",
+    "original": "CHECK (((((record_status)::text = ANY ((ARRAY['deleting'::character varying, 'deleted'::character varying])::text[])) AND (service_status IS NULL) AND (service_started_at IS NULL) AND (service_expires_at IS NULL)) OR (((record_status)::text = ANY ((ARRAY['active'::character varying, 'disabled'::character varying])::text[])) AND (service_status IS NOT NULL) AND ((service_status)::text = ANY ((ARRAY['pending_activation'::character varying, 'active'::character varying, 'expired'::character varying, 'suspended'::character varying])::text[])))))",
+    "restored": "CHECK (((((record_status)::text = ANY (ARRAY[('deleting'::character varying)::text, ('deleted'::character varying)::text])) AND (service_status IS NULL) AND (service_started_at IS NULL) AND (service_expires_at IS NULL)) OR (((record_status)::text = ANY (ARRAY[('active'::character varying)::text, ('disabled'::character varying)::text])) AND (service_status IS NOT NULL) AND ((service_status)::text = ANY (ARRAY[('pending_activation'::character varying)::text, ('active'::character varying)::text, ('expired'::character varying)::text, ('suspended'::character varying)::text])))))",
+    "originalPretty": "CHECK ((record_status::text = ANY (ARRAY['deleting'::character varying, 'deleted'::character varying]::text[])) AND service_status IS NULL AND service_started_at IS NULL AND service_expires_at IS NULL OR (record_status::text = ANY (ARRAY['active'::character varying, 'disabled'::character varying]::text[])) AND service_status IS NOT NULL AND (service_status::text = ANY (ARRAY['pending_activation'::character varying, 'active'::character varying, 'expired'::character varying, 'suspended'::character varying]::text[])))",
+    "restoredPretty": "CHECK ((record_status::text = ANY (ARRAY['deleting'::character varying::text, 'deleted'::character varying::text])) AND service_status IS NULL AND service_started_at IS NULL AND service_expires_at IS NULL OR (record_status::text = ANY (ARRAY['active'::character varying::text, 'disabled'::character varying::text])) AND service_status IS NOT NULL AND (service_status::text = ANY (ARRAY['pending_activation'::character varying::text, 'active'::character varying::text, 'expired'::character varying::text, 'suspended'::character varying::text])))"
+  },
+  {
+    "name": "store_center.store_observations.heads.heads_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['products'::character varying, 'orders'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('products'::character varying)::text, ('orders'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['products'::character varying, 'orders'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['products'::character varying::text, 'orders'::character varying::text]))"
+  },
+  {
+    "name": "store_center.store_observations.records.records_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['products'::character varying, 'orders'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('products'::character varying)::text, ('orders'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['products'::character varying, 'orders'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['products'::character varying::text, 'orders'::character varying::text]))"
+  },
+  {
+    "name": "store_center.store_observations.syncs.syncs_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['products'::character varying, 'orders'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('products'::character varying)::text, ('orders'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['products'::character varying, 'orders'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['products'::character varying::text, 'orders'::character varying::text]))"
+  },
+  {
+    "name": "store_center.store_observations.syncs.syncs_status_check",
+    "original": "CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'partial'::character varying, 'failed'::character varying, 'suspended'::character varying])::text[])))",
+    "restored": "CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('running'::character varying)::text, ('completed'::character varying)::text, ('partial'::character varying)::text, ('failed'::character varying)::text, ('suspended'::character varying)::text])))",
+    "originalPretty": "CHECK (status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'completed'::character varying, 'partial'::character varying, 'failed'::character varying, 'suspended'::character varying]::text[]))",
+    "restoredPretty": "CHECK (status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'partial'::character varying::text, 'failed'::character varying::text, 'suspended'::character varying::text]))"
+  },
+  {
+    "name": "tool_market.tool_market.requests.requests_kind_check",
+    "original": "CHECK (((kind)::text = ANY ((ARRAY['DATA'::character varying, 'CONNECTION'::character varying, 'AUTOMATION'::character varying, 'OUTPUT'::character varying])::text[])))",
+    "restored": "CHECK (((kind)::text = ANY (ARRAY[('DATA'::character varying)::text, ('CONNECTION'::character varying)::text, ('AUTOMATION'::character varying)::text, ('OUTPUT'::character varying)::text])))",
+    "originalPretty": "CHECK (kind::text = ANY (ARRAY['DATA'::character varying, 'CONNECTION'::character varying, 'AUTOMATION'::character varying, 'OUTPUT'::character varying]::text[]))",
+    "restoredPretty": "CHECK (kind::text = ANY (ARRAY['DATA'::character varying::text, 'CONNECTION'::character varying::text, 'AUTOMATION'::character varying::text, 'OUTPUT'::character varying::text]))"
+  },
+  {
+    "name": "tool_market.tool_market.requests.requests_stage_check",
+    "original": "CHECK (((stage)::text = ANY ((ARRAY['SUBMITTED'::character varying, 'EVALUATING'::character varying, 'PLAN_CONFIRMED'::character varying, 'DEVELOPING'::character varying, 'DELIVERED'::character varying, 'CLOSED'::character varying])::text[])))",
+    "restored": "CHECK (((stage)::text = ANY (ARRAY[('SUBMITTED'::character varying)::text, ('EVALUATING'::character varying)::text, ('PLAN_CONFIRMED'::character varying)::text, ('DEVELOPING'::character varying)::text, ('DELIVERED'::character varying)::text, ('CLOSED'::character varying)::text])))",
+    "originalPretty": "CHECK (stage::text = ANY (ARRAY['SUBMITTED'::character varying, 'EVALUATING'::character varying, 'PLAN_CONFIRMED'::character varying, 'DEVELOPING'::character varying, 'DELIVERED'::character varying, 'CLOSED'::character varying]::text[]))",
+    "restoredPretty": "CHECK (stage::text = ANY (ARRAY['SUBMITTED'::character varying::text, 'EVALUATING'::character varying::text, 'PLAN_CONFIRMED'::character varying::text, 'DEVELOPING'::character varying::text, 'DELIVERED'::character varying::text, 'CLOSED'::character varying::text]))"
+  }
+]
