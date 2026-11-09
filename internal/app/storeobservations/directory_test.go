@@ -29,7 +29,11 @@ func (r mixedStoreDirectory) List(_ context.Context, organization string, query 
 func TestMixedDirectoryAllOrdersExcludeTemuAndProductsKeepBoth(t *testing.T) {
 	repo := mixedStoreDirectory{}
 	for _, platform := range []string{"shein", "temu", "walmart", "tiktokshop"} {
-		store, err := storecenter.NewStore(storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: "org-a", ActorSubject: "actor-a", Name: platform, Platform: platform, Region: "US", CreateIdempotencyKey: uuid.NewString(), OccurredAt: time.Now()})
+		input := storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: "org-a", ActorSubject: "actor-a", Name: platform, Platform: platform, Region: "US", CreateIdempotencyKey: uuid.NewString(), OccurredAt: time.Now()}
+		if platform == "tiktokshop" {
+			input.ExternalStoreID = "USCODE"
+		}
+		store, err := storecenter.NewStore(input)
 		require.NoError(t, err)
 		repo.stores = append(repo.stores, *store)
 	}
