@@ -3,7 +3,7 @@
 Execution: [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)；关联 #1092。
 
 Design Basis: **Independent Architecture**。
-Admission Status: **DESIGN_REVIEW_PENDING**。本轮只有设计和独立架构评审；生产实现保持 Backlog，等待用户下一阶段决定。
+Admission Status: **IMPLEMENTATION_READY / FROZEN**。2026-11-09 独立 R1 核对设计提交 `912557a43316ecfe3bb562cfbc73ea03a4b6d4c9`，0 BLOCKER；四项 IMPLEMENTATION_TEST 见 §11，在实施/合并前收敛。本轮只有设计和独立架构评审；生产实现保持 Backlog，等待用户下一阶段决定。
 
 调查基线：`main 0685b62e1`。唯一 Writer：当前主会话；工作分支 `codex/issue1158-sales-attribute-mapping`。本文不是已实现能力，也不是实例更新或发布许可。
 
@@ -53,6 +53,8 @@ Out of Scope：生产代码/schema、原 35444 配置/数据/部署、真实模�
 4. 属性维度不一致与同组重复仍是确定错误，分别定位到属性/源 SKU；不能用新的“待确认”信息掩盖已确定的错误。相同完整规格集合继续按原规则评估，不为所有商品新增全局开关。
 5. 若要允许本例真实发布，需取得适用自营接口/类目的明确官方规则答复，或在另行授权的非生产平台环境获得准确三行 payload 的验证证据，再有界修订共享规则。不得通过 UI 开关、fixture 声称、用户点击或其他模式文档取消该阻断。本轮不增加供应商确认流程的通用系统。
 
+诊断 code/message 变化必须沿既有 native validator 的 rule/projection version 与输入绑定合同接线。当前 `OfficialDraftRuleVersion` 为 `shein.official_draft.v1`；后续实施须明确本次新执行使用的版本及所有消费者，不把新结果冒充原版本。历史 Target/result、报告、原 key 回执保留原版本和结果，不用当前 builder 重算覆盖；不新增迁移、fallback 或第二规则源。这是 IT-4 的实施/合并检查，不是另开架构的前置。
+
 文档证据保存于本机任务目录 `C:/Users/Henry/.codex/private/issue1158-sales-attribute-mapping-20261109/official-evidence.json` 及公开原响应 `3001352.json`；保存响应 SHA256 `d11cda18cf6555e33455a857adc2b24deb7b74460040cffdf3d90ec9d40b9dc1`。其中无项目凭据或业务数据；仓库只保存上述必要结论、定位与复核方法。
 
 ## 4. Owner / contract → implementation → injection → consumer
@@ -98,7 +100,7 @@ selection 的有界语义：
 2. 按已确认的官方主属性值建 SKC；按源行相对顺序保留 SKU。稳定顺序为各主值首次出现顺序、组内 sourceIndex 升序；同 selection 输入顺序变化先规范为该顺序。输出仅来自真实源行，不做颜色×尺码笛卡尔积。
 3. 只替换主/次销售属性及必要容器结构；每个 SKU 深复制其准确旧行其他业务字段。一个主值一个 SKC，SKU 次属性集合用已确认维度；同组组合重复拒绝。
 4. 源→平台主值合并若会把两份非空 SKC 元信息（supplierCode、名称、色块图等）合并冲突，或原一个 SKC 的非公共元信息要分配到多个新组，须定位并停止本次预览；不静默取第一份、复制编码或丢弃字段。初始空 SKC 容器可按明确新组分配，保留 SPU 公共文字；有内容的普通稿仍受此保护。
-5. SPU 商品属性、文字、尺码表、包装、条码、单 SKU 价格库存等不属于销售属性映射的字段保持；尺码表相关属性和值如不再能对应实际映射，明确报冲突，不静默删除、改值或复制。实际组合的 linked rules 必须按新 draft 重新读取。
+5. SPU 商品属性、文字、尺码表、样品、包装、条码、单 SKU 价格库存等不属于销售属性映射的字段保持；所有关联原 SKC/SKU 位置或属性值的结构必须按同一行双射核对，不能仅改 SKU 数组后让样品等引用指向另一行。无法无歧义保持时明确报冲突，不静默删除、改值或复制。实际组合的 linked rules 必须按新 draft 重新读取。
 6. 按当前规则再次重算，返回前后逐行展示与完整 input；任何 selection/基线/店铺上下文变化清掉预览，重新确认。映射失败保留表单选择，不能显示保存成功或部分应用。
 
 ## 6. 库存、价格与 R1
@@ -167,4 +169,13 @@ Legacy decision：**EXTRACT 当前合格能力，不引入 legacy owner/兼容/�
 
 本设计取代 `shein-color-split-drafts.md` 中“本例必须拆色以满足平台”的推进依据；#1220 历史代码/CI/隔离记录不删除，不擅自整体回滚、删表或删除已有隔离草稿，也不把其 localOnly 子稿转换为普通稿。当前路径不调用 split、不依赖 family/partition，不继续原 35444 的拆色开通。
 
-独立 Architecture Review 待执行。评审检查用户 Must、实际调用/持久化/资产/外部副作用边界与本轮真实 diff；finding 按 AGENTS 分类，默认最多两轮，不为未授权的发布或理论扩展新增平台。实现开工必须有明确 IMPLEMENTATION_READY；该状态不自动授权本轮未包含的生产编码或真实操作。
+独立 Architecture Review R1 已完成，准确候选 `912557a43316ecfe3bb562cfbc73ea03a4b6d4c9`，结论 **IMPLEMENTATION_READY，0 BLOCKER**。Reviewer 实际核对当前源码/合同、三文件文档 diff，并独立只读读取官方正文，确认 doc3002086/version159 及未完整示例；未执行实现测试或真实业务操作。报告位于 `C:/Users/Henry/.codex/private/issue1158-sales-attribute-mapping-20261109/architecture-review-r1.md`。
+
+| Finding | Classification / 层级 | 实施处理 |
+| --- | --- | --- |
+| IT-1 准确来源、完整行双射和零/空数值 | IMPLEMENTATION_TEST，实施/合并前 | 服务端完整重派生、严格0位置/来源、分支互斥及旧一次性绑定清除；完整 DTO/hash/回执/原键/CAS/事务/proof，不能仅比较元数据 |
+| IT-2 非空 SKC、关联结构和图片批准归属 | IMPLEMENTATION_TEST，实施/合并前 | 全部非公共元信息及索引引用保持，冲突停止；公共图不复制、专属图只随原行，尊重原批准条件，不写 Asset |
+| IT-3 稀疏集合跨消费者发布阻断 | IMPLEMENTATION_TEST，实施/合并前 | 共享 builder 非 Ready/无 wire，普通编辑移除绑定、材料/Plan/Operation/发送重建仍不能绕过；确定属性错误独立保留 |
+| IT-4 native 诊断版本与历史 | IMPLEMENTATION_TEST，实施/合并前 | 新执行版本/绑定及实际消费者同步，历史结果和原回执不倒改；沿原协议，无新迁移/fallback |
+
+上述要求细化已明确的 owner/合同，不改变用户 Must，不增加新的权限/状态/事务/持久化/副作用边界；落仓后只做对应文字增量复核，不重复全局设计审查。实现开工必须同时满足设计准入及用户阶段授权；IMPLEMENTATION_READY 不自动授权本轮未包含的生产编码或真实操作。
