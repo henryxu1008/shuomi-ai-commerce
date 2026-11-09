@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// DecodeOrderPage is the bounded protocol boundary used by the offline source.
-// This phase deliberately adds no network client or live reader registration.
+// DecodeOrderPage is the bounded allowlist boundary for saved consumer orders.
 func DecodeOrderPage(raw []byte) (observations.WalmartOrderPage, error) {
 	var result observations.WalmartOrderPage
 	if len(raw) == 0 || len(raw) > 2<<20 {

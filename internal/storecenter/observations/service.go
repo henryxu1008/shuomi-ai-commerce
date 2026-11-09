@@ -157,7 +157,11 @@ func (s *Service) Begin(ctx context.Context, scope Scope, key string, in BeginIn
 	if !errors.Is(e, ErrNotFound) {
 		return Command{}, e
 	}
-	stores, e := s.allowedStores(ctx, scope, in.Kind, true, in.Stores, "")
+	platform := ""
+	if in.Kind == Orders && len(in.Stores) == 0 {
+		platform = "shein"
+	}
+	stores, e := s.allowedStores(ctx, scope, in.Kind, true, in.Stores, platform)
 	if e != nil {
 		return Command{}, e
 	}
@@ -605,6 +609,11 @@ func (s *Service) List(ctx context.Context, scope Scope, q Query) (Result, error
 	if q.Platform != "" && q.Platform != "shein" && q.Platform != "temu" && q.Platform != "walmart" || q.Kind == Orders && (q.Platform == "temu" || q.Platform == "walmart") {
 		return Result{}, ErrInvalid
 	}
+	// The consumer record list is the SHEIN projection; native Walmart orders
+	// are consumed through their saved amount query, never this DTO.
+	if q.Kind == Orders && q.Platform == "" {
+		q.Platform = "shein"
+	}
 	stores, e := s.allowedStores(ctx, scope, q.Kind, false, q.Stores, q.Platform)
 	if e != nil {
 		return Result{}, e
@@ -741,6 +750,9 @@ func (s *Service) Detail(ctx context.Context, scope Scope, store, syncID, id str
 	sync, e := s.Repository.ReadSync(ctx, scope.OrganizationID, syncID)
 	if e != nil || sync.StoreID != store || sync.Kind != kind {
 		return Record{}, ErrNotFound
+	}
+	if kind == Orders && sync.Binding.Platform == storecenter.PlatformWalmart {
+		return Record{}, ErrUnsupported
 	}
 	merchant, e := s.Access.Open(ctx, scope, store, kind, false, &sync.Binding)
 	if e != nil {

@@ -4,8 +4,15 @@ import {
   observationRecordSchema,
   observationTracksSchema,
   observationCapabilitiesSchema,
+  observationSyncSchema,
 } from "./store-observations";
 export const fixtureID = "d6f6ca0a-27e2-4c4a-b1aa-4505110ae635";
+
+it("admits public Walmart progress but rejects cursor and hashes",()=>{
+ const source={id:fixtureID,commandId:fixtureID,storeId:fixtureID,kind:"orders",status:"running",progress:{page:1,windows:[],expectedTotal:null,seen:0,pages:1,incomplete:false,notes:[],walmartOrders:{partition:1,total:30,complete:false}},range:null,createdAt:"2026-11-01T00:00:00Z",observedAt:null,errorCode:""};
+ expect(observationSyncSchema.safeParse(source).success).toBe(true);
+ for(const secret of [{cursor:"?poIndex=2"},{cursorHashes:["hash"]}])expect(observationSyncSchema.safeParse({...source,progress:{...source.progress,walmartOrders:{...source.progress.walmartOrders,...secret}}}).success).toBe(false);
+});
 
 it.each([undefined,null,1,2,99])("preserves optional native sales area %s without inferring local",salesArea=>{
  const parsed=observationRecordSchema.parse({...fixtureOrderRecord,order:{...fixtureOrderRecord.order,salesArea}});

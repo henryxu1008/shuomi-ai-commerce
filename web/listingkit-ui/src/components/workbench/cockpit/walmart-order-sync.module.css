@@ -1,0 +1,4 @@
+.bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--card);margin-bottom:16px}
+.bar p{margin:4px 0 0;color:var(--muted-foreground);font-size:13px;overflow-wrap:anywhere}
+.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.actions [role=alert]{color:var(--destructive)}
