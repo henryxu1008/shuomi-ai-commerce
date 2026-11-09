@@ -1,6 +1,6 @@
 # SHEIN 全托采购单批次只读观察
 
-Design Basis: Independent Architecture. Admission Status: REVIEW_PENDING. 执行 #1163，用户2026-11-09明确批准全托授权域名校验、供货单读取/保存/数量观察，并选择“按采购单号批次”。本批一个Writer、一个主要PR；不自动合并或关闭Issue。
+Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY. 执行 #1163，用户2026-11-09明确批准全托授权域名校验、供货单读取/保存/数量观察，并选择“按采购单号批次”。本批一个Writer、一个主要PR；不自动合并或关闭Issue。
 
 ## 产品结果与范围
 
@@ -47,3 +47,5 @@ JIT原始标识保留；识别官方“是/否”及固定US语言的Yes/No，�
 TDD先复现：域名错配、原单重复、JIT母子、未知分类/缺数量/明确0、漏返回/返回额外身份/身份冲突、原key重放、跨店/换绑/权限失效和partial原批次显示。复用原单位/PG/HTTP/BFF/组件测试，必要范围不建设新runner或故障平台。
 
 独立新PG和两家全托店A/B：A含普通单/JIT母子/原单重复，B含缺返回或partial，切换回A无需刷新；原数值按请求集合去重，母子不叠加，覆盖不足提示。日期按钮不改变supply请求或数字，金额与GMV不接，浏览器所有外部请求为0。保留独立试用入口与记录。交付草稿PR/本地入口/限制，独立最终复核不代替用户产品验收，不擅自合并/关闭Issue/更新旧实例。
+
+独立架构复核：d4430a03bdd368befdd9406e532c1979288f14b3，IMPLEMENTATION_READY，无BLOCKER。准入贯通、latest部分批次、CAS/分块恢复、JIT/缺数量、域名回归为IMPLEMENTATION_TEST，在同批实现验证收敛。
