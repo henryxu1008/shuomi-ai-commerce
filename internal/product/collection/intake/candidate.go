@@ -15,7 +15,7 @@ import (
 	strict "sigs.k8s.io/json"
 )
 
-const Schema = "own-product-intake-candidate-v1"
+const Schema = "own-product-intake-candidate-v2"
 
 var ErrInvalid = errors.New("invalid own product intake")
 
@@ -44,31 +44,60 @@ type Candidate struct {
 }
 
 type Row struct {
-	Attributes map[string]string `json:"attributes"`
-	Evidence   string            `json:"evidence"`
-	SKU        string            `json:"sku,omitempty"`
-	Currency   string            `json:"currency,omitempty"`
-	Price      *float64          `json:"price,omitempty"`
-	Stock      *int              `json:"stock,omitempty"`
-	Image      int               `json:"image,omitempty"`
+	Attributes      map[string]string `json:"attributes"`
+	Evidence        string            `json:"evidence"`
+	SKU             string            `json:"sku,omitempty"`
+	PriceSuggestion *PriceSuggestion  `json:"priceSuggestion,omitempty"`
+	Stock           *int              `json:"stock,omitempty"`
+	Image           int               `json:"image,omitempty"`
 }
 
-func Decode(raw []byte, in Input) (Candidate, error) {
+// PriceSuggestion is not a verified product fact. The client must ask the user
+// to confirm its meaning and variant before copying both amount and currency.
+type PriceSuggestion struct {
+	Amount   *float64 `json:"amount"`
+	Currency string   `json:"currency,omitempty"`
+	Evidence string   `json:"evidence"`
+}
+
+// ReviewCandidate is the server's projection for human review, not model input.
+// The raw provider output and its receipt remain unchanged in the original Run.
+type ReviewCandidate struct {
+	Candidate
+	StockReviewRows []int `json:"stockReviewRows,omitempty"`
+}
+
+func (c Candidate) ForReview() ReviewCandidate {
+	out := ReviewCandidate{Candidate: c}
+	out.Rows = append([]Row(nil), c.Rows...)
+	for i, row := range out.Rows {
+		// Quarantine uncertainty, not malformed values. Structural/source errors
+		// must still fail Validate; never turn an invalid number into an omission.
+		if row.Stock != nil && *row.Stock >= 0 && int64(*row.Stock) <= 9007199254740991 && !row.stockIsExplicit() {
+			out.Rows[i].Stock = nil
+			out.StockReviewRows = append(out.StockReviewRows, i)
+		}
+	}
+	return out
+}
+
+func Decode(raw []byte, in Input) (ReviewCandidate, error) {
 	var out Candidate
 	if len(raw) == 0 || len(raw) > 28<<10 || !utf8.Valid(raw) {
-		return out, ValidationIssue{"candidate", "invalid_json"}
+		return ReviewCandidate{}, ValidationIssue{"candidate", "invalid_json"}
 	}
 	issues, err := strict.UnmarshalStrict(raw, &out, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
 	if err != nil {
-		return Candidate{}, ValidationIssue{"candidate", "invalid_json"}
+		return ReviewCandidate{}, ValidationIssue{"candidate", "invalid_json"}
 	}
 	if len(issues) != 0 {
-		return Candidate{}, ValidationIssue{"candidate", "invalid_schema"}
+		return ReviewCandidate{}, ValidationIssue{"candidate", "invalid_schema"}
 	}
-	if err := out.Validate(in); err != nil {
-		return Candidate{}, err
+	review := out.ForReview()
+	if err := review.Validate(in); err != nil {
+		return ReviewCandidate{}, err
 	}
-	return out, nil
+	return review, nil
 }
 
 func (c Candidate) Validate(in Input) error {
@@ -144,7 +173,6 @@ var followingStockField = regexp.MustCompile(`(?i)^(?:SKU\b|货号|编码|币种
 const skuFieldPrefix = `(?i)(?:\bSKU\b|货号|商品编码)\s*[：:=]?\s*`
 
 var skuFieldValue = regexp.MustCompile(skuFieldPrefix + `([\p{L}\p{N}_-]+)`)
-var priceEvidence = regexp.MustCompile(`(?i)(?:价格|单价|price|[¥￥$€])\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
 
@@ -167,11 +195,13 @@ func (r Row) validate(in Input, index int) error {
 	if r.SKU != "" && !containsValue(r.Evidence, r.SKU) {
 		return issue("sku", "source_evidence")
 	}
-	if r.Currency != "" && (!currencyCode.MatchString(r.Currency) || !containsValue(r.Evidence, r.Currency)) {
-		return issue("price", "price_evidence")
-	}
-	if r.Price != nil && !(*r.Price >= 0 && !math.IsInf(*r.Price, 0) && r.priceIsExplicit()) {
-		return issue("price", "price_evidence")
+	if p := r.PriceSuggestion; p != nil {
+		if p.Amount == nil || !(*p.Amount >= 0) || math.IsInf(*p.Amount, 0) || p.Currency != "" && !currencyCode.MatchString(p.Currency) {
+			return issue("price", "invalid_value")
+		}
+		if !text(p.Evidence, 512, true) || !strings.Contains(in.Notes, p.Evidence) {
+			return issue("price", "source_evidence")
+		}
 	}
 	if r.Stock != nil && (*r.Stock < 0 || int64(*r.Stock) > 9007199254740991 || !r.stockIsExplicit()) {
 		return issue("stock", "stock_evidence")
@@ -220,25 +250,13 @@ func (r Row) stockIsExplicit() bool {
 		after := strings.TrimLeftFunc(rest, unicode.IsSpace)
 		if after != "" && !strings.ContainsRune("，,。;；)）]", []rune(after)[0]) {
 			currency := currencyEvidence.FindStringSubmatchIndex(after)
-			knownCurrency := r.Currency != "" && currency != nil && currency[0] == 0 && after[currency[2]:currency[3]] == r.Currency
+			knownCurrency := r.PriceSuggestion != nil && r.PriceSuggestion.Currency != "" && currency != nil && currency[0] == 0 && after[currency[2]:currency[3]] == r.PriceSuggestion.Currency
 			if len(rest) == len(after) || !followingStockField.MatchString(after) && !knownCurrency {
 				return false
 			}
 		}
 	}
 	return true
-}
-
-func (r Row) priceIsExplicit() bool {
-	if matchesNumber(priceEvidence, r.Evidence, *r.Price) {
-		return true
-	}
-	for _, m := range currencyEvidence.FindAllStringSubmatch(r.Evidence, -1) {
-		if n, err := strconv.ParseFloat(m[2], 64); err == nil && m[1] == r.Currency && n == *r.Price {
-			return true
-		}
-	}
-	return false
 }
 
 func matchesNumber(pattern *regexp.Regexp, evidence string, value float64) bool {

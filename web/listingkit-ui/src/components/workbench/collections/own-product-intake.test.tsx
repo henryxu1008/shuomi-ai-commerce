@@ -112,3 +112,103 @@ it("keeps an existing unknown run locked to readback",async()=>{
  expect(screen.getByRole("button",{name:"检查生成用量"})).toBeDisabled();
  expect(request).toHaveBeenCalledTimes(3);
 });
+
+const priceCandidate={title:"保留有效标题",stockReviewRows:[0],rows:[
+ {attributes:{颜色:"黑",尺码:"M"},evidence:"黑 M",sku:"BLK-M",priceSuggestion:{amount:0,currency:"CNY",evidence:"CNY 0 或 CNY 10"}},
+ {attributes:{颜色:"白",尺码:"M"},evidence:"白 M",priceSuggestion:{amount:10,currency:"USD",evidence:"USD 10"}},
+ {attributes:{颜色:"黑",尺码:"L"},evidence:"黑 L",priceSuggestion:{amount:20,evidence:"价格20"}},
+]};
+const priceNotes="黑 M，CNY 0 或 CNY 10，尚未确认；白 M，USD 10；黑 L，价格20";
+async function generatePriceCandidate(user:ReturnType<typeof userEvent.setup>){
+ request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"human_review_required",candidate:priceCandidate}));
+ await user.click(screen.getByRole("button",{name:"开始整理资料"}));
+ await user.type(screen.getByLabelText("给 AI 的商品资料"),priceNotes);
+ await user.click(screen.getByRole("button",{name:"检查生成用量"}));
+ await user.click(await screen.findByRole("button",{name:"确认生成候选"}));
+ await screen.findByRole("region",{name:"AI 生成候选"});
+}
+
+it("adopts valid fields without confirming any price and never dispatches for adoption",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup(),adopt=vi.fn();
+ render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
+ await generatePriceCandidate(user);
+ expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(screen.getByLabelText("确认第 3 个 SKU 的商品单价和币种")).toBeDisabled();
+ expect(screen.getByText("库存需核对，未填入。请在商品表单手工确认填写。")).toBeVisible();
+ await user.click(screen.getByText("查看本次完整原说明"));
+ expect(screen.getByText(priceNotes,{selector:"p"})).toBeVisible();
+ await user.click(screen.getByRole("button",{name:"采纳到商品表单"}));
+ expect(adopt).toHaveBeenCalledWith(priceCandidate,false,[],new Set());
+ expect(request).toHaveBeenCalledTimes(2);
+ expect(screen.queryByRole("button",{name:"采纳到商品表单"})).not.toBeInTheDocument();
+});
+
+it("passes only the currently checked price rows, including explicit zero",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup(),adopt=vi.fn();
+ render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
+ await generatePriceCandidate(user);
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ await user.click(screen.getByLabelText("确认第 2 个 SKU 的商品单价和币种"));
+ await user.click(screen.getByLabelText("确认第 2 个 SKU 的商品单价和币种"));
+ await user.click(screen.getByRole("button",{name:"收起整理资料"}));
+ await user.click(screen.getByRole("button",{name:"开始整理资料"}));
+ expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).toBeChecked();
+ await user.click(screen.getByRole("button",{name:"采纳到商品表单"}));
+ expect(adopt).toHaveBeenCalledWith(priceCandidate,false,[],new Set([0]));
+ expect(request).toHaveBeenCalledTimes(2);
+});
+
+it("does not revive price confirmation after input or gallery changes and restoration",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup(),adopt=vi.fn();
+ const props={scope,member:"member",uploaded:new Set<string>(),disabled:false,onAdopt:adopt};
+ const view=render(<OwnProductIntake {...props} images={[]}/>);
+ await generatePriceCandidate(user);
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ await user.type(screen.getByLabelText("给 AI 的商品资料"),"修改");
+ expect(screen.queryByRole("region",{name:"AI 生成候选"})).not.toBeInTheDocument();
+ await user.clear(screen.getByLabelText("给 AI 的商品资料"));
+ await user.type(screen.getByLabelText("给 AI 的商品资料"),priceNotes);
+ expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ view.rerender(<OwnProductIntake {...props} images={["https://example.test/new.png"]}/>);
+ view.rerender(<OwnProductIntake {...props} images={[]}/>);
+ expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(request).toHaveBeenCalledTimes(2);
+});
+
+it("resets confirmations when a new candidate replaces an unchanged input",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup();
+ panel();
+ await generatePriceCandidate(user);
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"human_review_required",candidate:priceCandidate}));
+ await user.click(screen.getByRole("button",{name:"检查生成用量"}));
+ await user.click(await screen.findByRole("button",{name:"确认生成候选"}));
+ expect(await screen.findByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(request).toHaveBeenCalledTimes(4);
+});
+
+it("reads a pending candidate by the original key without confirming prices or dispatching again",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup();
+ const signature=JSON.stringify({notes:priceNotes,images:[],image:""});
+ const hash=await webcrypto.subtle.digest("SHA-256",new TextEncoder().encode(signature));
+ const digest=Array.from(new Uint8Array(hash),v=>v.toString(16).padStart(2,"0")).join("");
+ const key="11111111-1111-4111-8111-111111111111";
+ sessionStorage.setItem('own-intake:["actor","org","member"]',JSON.stringify({key,digest}));
+ request.mockResolvedValueOnce({requestKey:key,phase:"human_review_required",candidate:priceCandidate});
+ panel();
+ await user.click(screen.getByRole("button",{name:"开始整理资料"}));
+ await user.type(screen.getByLabelText("给 AI 的商品资料"),priceNotes);
+ await user.click(screen.getByRole("button",{name:"核实原生成结果"}));
+ expect(await screen.findByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(request).toHaveBeenCalledTimes(1);
+ expect(request.mock.calls[0][1]).toBe(key);
+ expect(request.mock.calls[0][4]).toBeUndefined();
+ await user.click(screen.getByText("查看本次完整原说明"));
+ expect(screen.getByText(priceNotes,{selector:"p"})).toBeVisible();
+});

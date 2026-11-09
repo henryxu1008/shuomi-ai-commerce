@@ -9,7 +9,12 @@ const quote=z.object({InputHash:mediaHashSchema,ProfileDigest:mediaHashSchema,Ma
 export const intakePrepared=z.object({configurationSnapshotRef:ref,quote}).strict();
 const intakeConfirm=intakeBody.extend({configurationSnapshotRef:ref,quoteDigest:mediaHashSchema});
 const fact=z.object({value:z.string().min(1).max(512),evidence:z.string().min(1).max(512)}).strict();
+const validationIssue=z.object({
+ field:z.string().regex(/^(candidate|title|description|brand|attributes|questions|rows|rows\[([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\]\.(attributes|evidence|sku|price|stock|image))$/),
+ code:z.enum(["invalid_json","invalid_schema","invalid_value","empty_candidate","source_evidence","duplicate_variant","duplicate_sku","price_evidence","stock_evidence","image_reference"]),
+}).strict();
 const candidate=z.object({
+ stockReviewRows:z.array(z.number().int().nonnegative().max(255)).max(256).optional(),
  title:z.string().max(2000).optional(),
  description:z.string().max(8192).optional(),
  brand:fact.optional(),
@@ -18,18 +23,18 @@ const candidate=z.object({
  rows:z.array(z.object({
    attributes:z.record(z.string(),z.string()).nullable(),
    evidence:z.string().min(1).max(512),
-   sku:z.string().max(200).optional(),currency:z.string().regex(/^[A-Z]{3}$/).optional(),
-   price:z.number().finite().nonnegative().optional(),stock:z.number().int().nonnegative().optional(),
+   sku:z.string().max(200).optional(),
+   priceSuggestion:z.object({amount:z.number().finite().nonnegative(),currency:z.string().regex(/^[A-Z]{3}$/).optional(),evidence:z.string().min(1).max(512)}).strict().optional(),
+   stock:z.number().int().nonnegative().optional(),
    image:positive.optional(),
  }).strict()).max(256).optional(),
-}).strict();
+}).strict().refine(value=>(value.stockReviewRows??[]).every((row,index,all)=>{
+ const target=value.rows?.[row];
+ return !!target&&target.stock===undefined&&all.indexOf(row)===index;
+}));
 export type IntakeCandidate=z.infer<typeof candidate>;
 export type IntakePrepared=z.infer<typeof intakePrepared>;
 export type IntakeBody=z.infer<typeof intakeBody>;
-const validationIssue=z.object({
- field:z.string().regex(/^(candidate|title|description|brand|attributes|questions|rows|rows\[([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\]\.(attributes|evidence|sku|price|stock|image))$/),
- code:z.enum(["invalid_json","invalid_schema","invalid_value","empty_candidate","source_evidence","duplicate_variant","duplicate_sku","price_evidence","stock_evidence","image_reference"]),
-}).strict();
 export const intakeResult=z.object({requestKey:collectionID,phase:z.enum(["running","human_review_required","interrupted","stopped"]),stopReason:z.string().max(128).optional(),candidate:candidate.optional(),validationError:validationIssue.optional()}).strict();
 
 export function intakeValidationMessage(issue:z.infer<typeof validationIssue>){

@@ -8,10 +8,10 @@ import (
 
 const (
 	OwnIntakeAgentID       = "product.own.intake.agent"
-	OwnIntakeAgentVersion  = "v1.0.0"
+	OwnIntakeAgentVersion  = "v1.1.0"
 	OwnIntakePolicyVersion = "own-product-intake-policy-v1"
-	OwnIntakePromptVersion = "own-product-intake-prompt-v1"
-	OwnIntakeActionVersion = "own-product-intake-candidate-v1"
+	OwnIntakePromptVersion = "own-product-intake-prompt-v2"
+	OwnIntakeActionVersion = "own-product-intake-candidate-v2"
 )
 
 func OwnIntakeDefinition() commercetool.AgentDefinition {
