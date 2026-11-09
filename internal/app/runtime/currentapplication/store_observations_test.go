@@ -6,6 +6,16 @@ import (
 	"testing"
 )
 
+func TestWalmartOnlyObservationRuntimeAndPreparation(t *testing.T) {
+	c := storeRuntimeConfig()
+	c.Identity.TenantDirectoryToken = "synthetic-service-token"
+	c.StoreCenter.WalmartUS = &WalmartUSConfig{}
+	c.StoreCenter.Observations = &StoreObservationsConfig{TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default"}
+	require.NoError(t, c.validateStoreObservations())
+	c.StoreCenter.Observations.PreparationOnly = true
+	require.Error(t, c.validateStoreObservations())
+}
+
 func TestStoreObservationsConfigDoesNotRequireSupply(t *testing.T) {
 	c := storeRuntimeConfig()
 	// Validate only this opt-in contract; official material preparation remains

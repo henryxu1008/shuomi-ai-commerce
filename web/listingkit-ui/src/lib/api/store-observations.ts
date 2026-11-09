@@ -148,6 +148,7 @@ export const observationSyncSchema = z
     ]),
     progress: z
       .object({
+        walmartOrders: z.object({partition:z.number().int().min(0).max(3),total:count.optional(),complete:z.boolean()}).strict().optional(),
         supplyOrders: z.object({orderIds:z.array(identity).min(1).max(200),next:z.number().int().min(0).max(200),missingIds:z.array(identity).max(200)}).strict().optional(),
         page: z.number().int().min(1).max(5001),
         windows: z.array(window).max(512),

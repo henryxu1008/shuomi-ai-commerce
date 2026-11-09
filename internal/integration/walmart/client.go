@@ -107,8 +107,12 @@ func (c *OfficialClient) request(ctx context.Context, method, path string, q url
 		return nil, 0, marketplace.ErrUnknown
 	}
 	defer response.Body.Close()
-	raw, e := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
-	if e != nil || len(raw) > maxResponseBytes {
+	limit := maxResponseBytes
+	if path == "/v3/orders" {
+		limit = 2 << 20
+	}
+	raw, e := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
+	if e != nil || len(raw) > limit {
 		return nil, response.StatusCode, marketplace.ErrUnavailable
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
