@@ -1,0 +1,62 @@
+.panel { min-width: 0; padding: 20px; }
+.header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.heading { display: flex; align-items: center; gap: 10px; }
+.heading h2 { font-size: var(--card-title-size); font-weight: 650; }
+.mode, .status { border-radius: var(--control-radius); padding: 3px 8px; font-size: var(--caption-text-size); background: var(--secondary); color: var(--muted-foreground); }
+.status[data-state="saved"] { background: var(--success); color: var(--success-foreground); }
+.status[data-state="incomplete"] { background: var(--warning); color: var(--warning-foreground); }
+.coverage { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
+.note, .coverage p { color: var(--muted-foreground); font-size: var(--caption-text-size); line-height: 1.65; overflow-wrap: anywhere; }
+.dates { display: grid; gap: 12px; }
+.range { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: var(--caption-text-size); color: var(--muted-foreground); }
+.range span:first-child { color: var(--foreground); font-weight: 550; }
+.dateTable { table-layout: fixed; }
+.dateTable th { font-size: var(--caption-text-size); font-weight: 500; }
+.dateTable th, .dateTable td { padding: 10px 12px; }
+.dateTable th:first-child, .dateTable td:first-child { padding-left: 0; width: 38%; }
+.dateTable th:last-child, .dateTable td:last-child { padding-right: 0; }
+.dateTable th:not(:first-child), .dateTable td:not(:first-child) { text-align: right; }
+.kind { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.kind strong { font-weight: 550; }
+.kind span, .quantity small { color: var(--muted-foreground); font-size: var(--caption-text-size); }
+.number { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.quantity small { display: block; }
+.checks { display: grid; gap: 8px; font-size: var(--caption-text-size); }
+.checks:empty { display: none; }
+.dates + .note { margin-top: 12px; }
+.checks details { padding: 8px 12px; border-radius: var(--control-radius); background: var(--warning); color: var(--warning-foreground); }
+.checks ul { padding-top: 8px; display: grid; gap: 5px; }
+.checks li, .ids { overflow-wrap: anywhere; }
+.footnote { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--caption-text-size); color: var(--muted-foreground); }
+.disclosure { border-top: 1px solid var(--border); margin-top: 14px; }
+.disclosure > summary, .checks summary, .matched > summary { cursor: pointer; font-size: var(--caption-text-size); font-weight: 500; }
+.disclosure > summary { padding: 12px 0 0; color: var(--foreground); }
+.disclosure > summary:focus-visible, .checks summary:focus-visible, .matched > summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; border-radius: 2px; }
+.detailBody { display: grid; gap: 16px; padding-top: 16px; }
+.detailBody h3 { font-size: var(--label-text-size); font-weight: 600; }
+.counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px 16px; padding: 0; margin: 0; }
+.counts dt, .counts small { color: var(--muted-foreground); font-size: var(--caption-text-size); }
+.counts dd { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ids { display: grid; gap: 5px; color: var(--muted-foreground); font-size: var(--caption-text-size); }
+.matched { font-size: var(--caption-text-size); color: var(--muted-foreground); }
+.matched p { margin-top: 6px; overflow-wrap: anywhere; }
+.form { display: grid; gap: 12px; padding-top: 16px; max-width: 720px; }
+.form label { font-size: var(--label-text-size); font-weight: 500; }
+.form button { justify-self: start; }
+.alert { margin-top: 12px; padding: 10px 12px; background: var(--warning); color: var(--warning-foreground); border-radius: var(--control-radius); font-size: var(--caption-text-size); }
+.timeBody { display: grid; gap: 12px; padding-top: 12px; }
+.timeSelect { display: grid; gap: 6px; font-size: var(--caption-text-size); max-width: 360px; }
+.timeTable { table-layout: fixed; }
+.timeTable th, .timeTable td { padding: 10px; overflow-wrap: anywhere; white-space: normal; font-size: var(--caption-text-size); }
+.timeTable th:first-child { width: 29%; }
+.timeTable th:last-child { width: 27%; }
+.timeTable code, .timeTable small { display: block; font-size: 11px; color: var(--muted-foreground); }
+.raw { font-family: var(--font-mono, monospace); white-space: pre-wrap; }
+@media (max-width: 600px) {
+  .panel { padding: 16px; }
+  .header { margin-bottom: 12px; }
+  .number { font-size: 21px; }
+  .dateTable th, .dateTable td { padding: 10px 6px; }
+  .counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .timeTable th, .timeTable td { padding: 8px 5px; }
+}
