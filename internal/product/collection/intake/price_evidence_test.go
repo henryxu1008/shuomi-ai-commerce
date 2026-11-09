@@ -2,6 +2,7 @@ package intake
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,8 @@ func TestPriceEvidenceKeepsExplicitAmountsAndUnrelatedUnknownFields(t *testing.T
 		{"黑 M，CNY 0", "CNY", 0},
 		{"黑 M，CNY 10，品牌 NIKE", "CNY", 10},
 		{"黑 M，CNY 10，品牌 GAP", "CNY", 10},
+		{"黑 M，PVC，CNY 10", "CNY", 10},
+		{"黑 M，ABS 20，CNY 10", "CNY", 10},
 		{"黑 M，CNY 10，尺码 XXXL", "CNY", 10},
 		{"黑 M，CNY 10，尺码 XXX", "CNY", 10},
 		{"黑 M，USD 1299.00", "USD", 1299},
@@ -100,4 +103,102 @@ func TestPriceEvidenceCannotHideQualifiersInOriginalStatement(t *testing.T) {
 		_, err = Decode(raw, Input{Notes: notes})
 		require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err, notes)
 	}
+}
+
+func TestPriceEvidenceIgnoresProductAbbreviations(t *testing.T) {
+	for _, term := range []string{"PVC", "ABS", "TPU", "LED", "ABS 10", "LED 20W"} {
+		for _, evidence := range []string{"黑 M，CNY 10", "材质 " + term + "，黑 M，CNY 10"} {
+			t.Run(term+"/"+evidence, func(t *testing.T) {
+				row := Row{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: evidence, Currency: "CNY", Price: new(10.0)}
+				raw, err := json.Marshal(Candidate{Rows: []Row{row}})
+				require.NoError(t, err)
+				_, err = Decode(raw, Input{Notes: "材质 " + term + "，黑 M，CNY 10"})
+				require.NoError(t, err)
+			})
+		}
+	}
+}
+
+func TestPriceEvidenceVariantScopesKeepQualifiersAndConflicts(t *testing.T) {
+	for _, notes := range []string{
+		"黑 M，CNY 10-20，白 L，CNY 30",
+		"黑 M，不是 CNY 10，白 L，CNY 30",
+		"黑 M，CNY 10，待确认，白 L，CNY 30",
+		"黑 M，CNY 10，价格 20，白 L，CNY 30",
+		"黑 M，CNY 10 或 白 L，CNY 30",
+		"黑 M，CNY 10，或 白 L，CNY 30",
+		"黑 M，CNY 10，黑 M，CNY 20，白 L，CNY 30",
+		"不是黑 M，CNY 10，白 L，CNY 30",
+		"黑 M，CNY 10，白 L，CNY 30，黑 M，CNY 20",
+		"黑 M，CNY 10，白 L，CNY 30，待确认",
+	} {
+		t.Run(notes, func(t *testing.T) {
+			rows := []Row{
+				{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: "黑 M，CNY 10", Currency: "CNY", Price: new(10.0)},
+				{Attributes: map[string]string{"颜色": "白", "尺码": "L"}, Evidence: "白 L，CNY 30", Currency: "CNY", Price: new(30.0)},
+			}
+			if notes == "黑 M，不是 CNY 10，白 L，CNY 30" {
+				rows[0].Evidence = "黑 M，不是 CNY 10"
+			}
+			raw, err := json.Marshal(Candidate{Rows: rows})
+			require.NoError(t, err)
+			_, err = Decode(raw, Input{Notes: notes})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "price_evidence")
+		})
+	}
+}
+
+func TestPriceEvidenceBindsSameLineVariants(t *testing.T) {
+	for _, separator := range []string{"，", ", ", "；", "\n"} {
+		t.Run(separator, func(t *testing.T) {
+			rows := []Row{
+				{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: "黑 M，CNY 10", Currency: "CNY", Price: new(10.0)},
+				{Attributes: map[string]string{"颜色": "白", "尺码": "L"}, Evidence: "白 L，CNY 20", Currency: "CNY", Price: new(20.0)},
+			}
+			raw, err := json.Marshal(Candidate{Rows: rows})
+			require.NoError(t, err)
+			_, err = Decode(raw, Input{Notes: rows[0].Evidence + separator + rows[1].Evidence})
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestPriceEvidenceCannotUseAnAmountAsAVariantBoundary(t *testing.T) {
+	rows := []Row{
+		{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: "黑 M，CNY 10", Currency: "CNY", Price: new(10.0)},
+		{Attributes: map[string]string{"颜色": "CNY", "尺码": "20"}, Evidence: "CNY 20"},
+	}
+	raw, err := json.Marshal(Candidate{Rows: rows})
+	require.NoError(t, err)
+	_, err = Decode(raw, Input{Notes: "黑 M，CNY 10，CNY 20"})
+	require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err)
+}
+
+func TestPriceEvidenceCannotInventVariantBoundaries(t *testing.T) {
+	for _, suffix := range []string{"20", "待确认", "20 M", "待确认 M"} {
+		attributes := map[string]string{"尺码": suffix}
+		if suffix == "20 M" || suffix == "待确认 M" {
+			attributes = map[string]string{"颜色": strings.TrimSuffix(suffix, " M"), "尺码": "M"}
+		}
+		rows := []Row{
+			{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: "黑 M，CNY 10", Currency: "CNY", Price: new(10.0)},
+			{Attributes: attributes, Evidence: suffix},
+		}
+		raw, err := json.Marshal(Candidate{Rows: rows})
+		require.NoError(t, err)
+		_, err = Decode(raw, Input{Notes: "黑 M，CNY 10，" + suffix})
+		require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err, suffix)
+	}
+}
+
+func TestPriceEvidenceBindsTypedNumericVariantHeaders(t *testing.T) {
+	rows := []Row{
+		{Attributes: map[string]string{"尺码": "20"}, Evidence: "尺码 20，CNY 10", Currency: "CNY", Price: new(10.0)},
+		{Attributes: map[string]string{"尺码": "30"}, Evidence: "尺码 30，CNY 20", Currency: "CNY", Price: new(20.0)},
+	}
+	raw, err := json.Marshal(Candidate{Rows: rows})
+	require.NoError(t, err)
+	_, err = Decode(raw, Input{Notes: rows[0].Evidence + "，" + rows[1].Evidence})
+	require.NoError(t, err)
 }

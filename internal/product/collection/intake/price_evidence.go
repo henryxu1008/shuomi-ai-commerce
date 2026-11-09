@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"golang.org/x/text/currency"
 )
 
 // Price evidence is deliberately a bounded declaration grammar, not a fallback
@@ -14,23 +16,23 @@ var priceAmount = regexp.MustCompile(`^\s*(?:明确\s*)?(?:为|是|(?i:is)|[：:
 var priceOtherValue = regexp.MustCompile(`(?:品牌|颜色|尺码|图片|图号|(?i:\b(?:brand|color|size|image)\b))\s*[：:=]?\s*([A-Za-z0-9_-]+)`)
 var priceCurrencyField = regexp.MustCompile(`(?:币种|(?i:\bcurrency\b))\s*[：:=]?\s*([A-Z]{3})\b`)
 var priceQualified = regexp.MustCompile(`(?i)并非|不是|不为|不代表|不表示|未确认|尚未确认|没有确认|不能确认|待确认|待定|大约|大概|约|预计|估计|可能|至少|至多|不低于|不高于|\b(?:not|pending|unconfirmed|about|approximately|from|between)\b`)
-var priceUncertain = regexp.MustCompile(`(?i)(?:^|[，,。(（])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实|待定|未知|not confirmed|pending|unconfirmed)\s*(?:$|[，,。)）])`)
+var priceUncertain = regexp.MustCompile(`(?i)(?:^|[，,。(（])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实|待定|未知|not confirmed|pending|unconfirmed)(?:\s|$|[，,。)）])`)
 var priceOtherField = regexp.MustCompile(`(?i)(?:尚未确认|不能确认|待确认|未确认|未确定|待核实|待定|未知|并非|不是|大约)?\s*(?:库存|图片|图号|颜色|尺码|品牌|货号|商品编码|\b(?:SKU|stock|inventory|image|color|size|brand)\b)`)
 var priceContinuation = regexp.MustCompile(`^[，,。]\s*(?:[0-9]|或|至|到|[-~～–—])`)
 
-func (r Row) priceIsExplicit(notes string) bool {
+func (r Row) priceIsExplicit(statements []string) bool {
 	if !r.priceStatementIsExplicit(r.Evidence) {
 		return false
 	}
 	// A model may quote a substring of a range or omit a negation/conflict. Check
 	// the original containing statement too; never grant authority to that excerpt.
 	found := false
-	for _, statement := range strings.FieldsFunc(notes, func(c rune) bool { return strings.ContainsRune("\n\r;；", c) }) {
+	for _, statement := range statements {
 		if strings.Contains(statement, r.Evidence) {
 			found = true
-			if !r.priceStatementIsExplicit(statement) {
-				return false
-			}
+		}
+		if !r.priceStatementIsExplicit(statement) {
+			return false
 		}
 	}
 	return found
@@ -70,6 +72,14 @@ func (r Row) priceStatementIsExplicit(statement string) bool {
 		marker := s[m[0]:m[1]]
 		if marker == "SKU" || currencyCode.MatchString(marker) && m[1] < len(s) && (s[m[1]] >= 'A' && s[m[1]] <= 'Z' || s[m[1]] >= 'a' && s[m[1]] <= 'z' || s[m[1]] == '_' || s[m[1]] == '-') {
 			continue
+		}
+		// A product abbreviation is not a currency declaration. Keep actual ISO
+		// currencies (including conflicts), the row's currency, and explicitly
+		// labelled price/currency fields subject to the strict checks below.
+		if currencyCode.MatchString(marker) && marker != r.Currency {
+			if _, err := currency.ParseISO(marker); err != nil {
+				continue
+			}
 		}
 		// Qualification before this declaration is significant, unlike an unrelated
 		// unknown stock/image field in another clause.

@@ -107,8 +107,9 @@ func (c Candidate) Validate(in Input) error {
 		}
 	}
 	combinations, skus := map[string]bool{}, map[string]bool{}
+	priceStatements := c.priceStatements(in.Notes)
 	for i, row := range c.Rows {
-		if err := row.validate(in, i); err != nil {
+		if err := row.validate(in, i, priceStatements[i]); err != nil {
 			return err
 		}
 		key, _ := json.Marshal(row.Attributes)
@@ -147,7 +148,7 @@ var skuFieldValue = regexp.MustCompile(skuFieldPrefix + `([\p{L}\p{N}_-]+)`)
 var currencyEvidence = regexp.MustCompile(`\b([A-Z]{3})\s*[：:=]?\s*([0-9]+(?:\.[0-9]+)?)(?:[^0-9.]|$)`)
 var imageEvidence = regexp.MustCompile(`(?i)(?:图片|image|图)\s*#?\s*([0-9]+)(?:[^0-9]|$)`)
 
-func (r Row) validate(in Input, index int) error {
+func (r Row) validate(in Input, index int, priceStatements []string) error {
 	issue := func(field, code string) error { return ValidationIssue{fmt.Sprintf("rows[%d].%s", index, field), code} }
 	if !text(r.Evidence, 512, true) || strings.ContainsAny(r.Evidence, "\n\r;；") || !strings.Contains(in.Notes, r.Evidence) {
 		return issue("evidence", "source_evidence")
@@ -169,7 +170,7 @@ func (r Row) validate(in Input, index int) error {
 	if r.Currency != "" && (!currencyCode.MatchString(r.Currency) || !containsValue(r.Evidence, r.Currency)) {
 		return issue("price", "price_evidence")
 	}
-	if r.Price != nil && !(*r.Price >= 0 && !math.IsInf(*r.Price, 0) && r.priceIsExplicit(in.Notes)) {
+	if r.Price != nil && !(*r.Price >= 0 && !math.IsInf(*r.Price, 0) && r.priceIsExplicit(priceStatements)) {
 		return issue("price", "price_evidence")
 	}
 	if r.Stock != nil && (*r.Stock < 0 || int64(*r.Stock) > 9007199254740991 || !r.stockIsExplicit()) {
