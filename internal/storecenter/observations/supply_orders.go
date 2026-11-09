@@ -125,47 +125,54 @@ type SupplySummary struct {
 	Quantities       SupplyQuantities `json:"quantities"`
 }
 
-func SummarizeSupplyOrders(orders []SupplyOrder) SupplySummary {
-	result := SupplySummary{}
-	sums := make([]big.Int, 5)
-	fields := []*SupplyQuantity{&result.Quantities.Ordered, &result.Quantities.Delivered, &result.Quantities.Received, &result.Quantities.Stored, &result.Quantities.Defective}
-	for _, order := range orders {
-		if order.Mother == nil {
-			result.UnknownTypeCount++
-			continue
+type supplySummaryAccumulator struct {
+	summary SupplySummary
+	sums    [5]big.Int
+	missing [5]int
+}
+
+func (a *supplySummaryAccumulator) add(order SupplyOrder) {
+	if order.Mother == nil {
+		a.summary.UnknownTypeCount++
+		return
+	}
+	if *order.Mother {
+		a.summary.MotherCount++
+		return
+	}
+	a.summary.OrderCount++
+	seen := map[string]bool{}
+	duplicate := false
+	for _, line := range order.Lines {
+		if seen[line.SKU] {
+			duplicate = true
 		}
-		if *order.Mother {
-			result.MotherCount++
-			continue
+		seen[line.SKU] = true
+	}
+	if len(order.Lines) == 0 {
+		for i := range a.missing {
+			a.missing[i]++
 		}
-		result.OrderCount++
-		seen := map[string]bool{}
-		duplicate := false
-		for _, line := range order.Lines {
-			if seen[line.SKU] {
-				duplicate = true
+		return
+	}
+	for _, line := range order.Lines {
+		for i, value := range []*int64{line.Ordered, line.Delivered, line.Received, line.Stored, line.Defective} {
+			if duplicate || value == nil {
+				a.missing[i]++
+				continue
 			}
-			seen[line.SKU] = true
-		}
-		if len(order.Lines) == 0 {
-			for _, field := range fields {
-				field.MissingLines++
-			}
-			continue
-		}
-		for _, line := range order.Lines {
-			for i, value := range []*int64{line.Ordered, line.Delivered, line.Received, line.Stored, line.Defective} {
-				if duplicate || value == nil {
-					fields[i].MissingLines++
-					continue
-				}
-				sums[i].Add(&sums[i], big.NewInt(*value))
-			}
+			a.sums[i].Add(&a.sums[i], big.NewInt(*value))
 		}
 	}
+}
+
+func (a *supplySummaryAccumulator) result() SupplySummary {
+	result := a.summary
+	fields := []*SupplyQuantity{&result.Quantities.Ordered, &result.Quantities.Delivered, &result.Quantities.Received, &result.Quantities.Stored, &result.Quantities.Defective}
 	for i, field := range fields {
+		field.MissingLines = a.missing[i]
 		if field.MissingLines == 0 {
-			value := sums[i].String()
+			value := a.sums[i].String()
 			field.Value = &value
 		}
 	}

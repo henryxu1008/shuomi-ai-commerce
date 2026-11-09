@@ -50,7 +50,7 @@ func TestSupplyQuantitiesSeparateMotherAndUnknownAndNeverFillMissingWithZero(t *
 		{ID: "child", Mother: &no, Lines: []SupplyLine{{SKU: "sku", Ordered: &five}}},
 		{ID: "unknown", Lines: []SupplyLine{{SKU: "sku", Ordered: &hundred}}},
 	}
-	result := SummarizeSupplyOrders(orders)
+	result := sumSupplyOrdersForTest(orders)
 	require.Equal(t, 2, result.OrderCount)
 	require.Equal(t, 1, result.MotherCount)
 	require.Equal(t, 1, result.UnknownTypeCount)
@@ -58,9 +58,17 @@ func TestSupplyQuantitiesSeparateMotherAndUnknownAndNeverFillMissingWithZero(t *
 	require.Nil(t, result.Quantities.Delivered.Value)
 	require.Equal(t, 1, result.Quantities.Delivered.MissingLines)
 	orders[2].Lines[0].Delivered = &zero
-	result = SummarizeSupplyOrders(orders)
+	result = sumSupplyOrdersForTest(orders)
 	require.Equal(t, "0", *result.Quantities.Delivered.Value)
 	orders[2].Lines = append(orders[2].Lines, orders[2].Lines[0])
-	result = SummarizeSupplyOrders(orders)
+	result = sumSupplyOrdersForTest(orders)
 	require.Nil(t, result.Quantities.Ordered.Value, "duplicate SKU cannot prove a unique quantity")
+}
+
+func sumSupplyOrdersForTest(orders []SupplyOrder) SupplySummary {
+	var accumulator supplySummaryAccumulator
+	for _, order := range orders {
+		accumulator.add(order)
+	}
+	return accumulator.result()
 }

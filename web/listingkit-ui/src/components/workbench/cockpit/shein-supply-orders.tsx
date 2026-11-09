@@ -31,7 +31,7 @@ export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:Observatio
   const [intent,setIntent]=useState<Intent|undefined>(restored.intent);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState(restored.error??"");
-  const query=useQuery({queryKey:["shein-supply-orders",scope.organizationId,scope.userId,storeId],
+  const query=useQuery({queryKey:["operations-cockpit",scope.userId,scope.organizationId,"shein-supply-orders",storeId],
     queryFn:({signal})=>observationRequest(`supply-orders/observation?storeId=${encodeURIComponent(storeId)}`,scope,supplyObservationSchema,signal),
     retry:false,gcTime:0,refetchInterval:q=>q.state.data?.status==="running"?2000:false});
   const applicable=query.data?.status!==undefined&&query.data.status!=="not_applicable";

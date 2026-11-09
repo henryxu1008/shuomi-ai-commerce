@@ -8,7 +8,7 @@ import (
 )
 
 type SupplyRecordReader interface {
-	SupplyOrderRecords(context.Context, string, string, string) ([]SupplyOrder, error)
+	VisitSupplyOrders(context.Context, string, string, string, func(SupplyOrder) error) error
 }
 type SupplyObservationSource struct {
 	SyncID     string     `json:"syncId"`
@@ -76,10 +76,6 @@ func (s *Service) SupplyObservation(ctx context.Context, scope Scope, store stri
 		if !ok {
 			return result, ErrUnavailable
 		}
-		orders, err := reader.SupplyOrderRecords(ctx, scope.OrganizationID, store, sync.ID)
-		if err != nil {
-			return result, err
-		}
 		allowed, seen := map[string]bool{}, map[string]bool{}
 		for _, id := range p.OrderIDs[:p.Next] {
 			allowed[id] = true
@@ -87,17 +83,23 @@ func (s *Service) SupplyObservation(ctx context.Context, scope Scope, store stri
 		for _, id := range p.MissingIDs {
 			delete(allowed, id)
 		}
-		for _, order := range orders {
+		var accumulator supplySummaryAccumulator
+		err := reader.VisitSupplyOrders(ctx, scope.OrganizationID, store, sync.ID, func(order SupplyOrder) error {
 			if !order.Valid() || !allowed[order.ID] || seen[order.ID] {
-				return result, ErrUnavailable
+				return ErrUnavailable
 			}
 			seen[order.ID] = true
 			result.SavedOrderIDs = append(result.SavedOrderIDs, order.ID)
+			accumulator.add(order)
+			return nil
+		})
+		if err != nil {
+			return result, err
 		}
-		if len(orders) != len(allowed) {
+		if len(seen) != len(allowed) {
 			return result, ErrUnavailable
 		}
-		summary := SummarizeSupplyOrders(orders)
+		summary := accumulator.result()
 		result.Summary = &summary
 		if sync.Status == "completed" && p.Next == len(p.OrderIDs) && len(p.MissingIDs) == 0 && !sync.Progress.Incomplete {
 			result.Status = "saved"

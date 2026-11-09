@@ -203,6 +203,31 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	var checkpointBytes int
 	require.NoError(t, owner.Raw("SELECT octet_length(progress::text) FROM store_observations.syncs WHERE id=?", longResult.ID).Scan(&checkpointBytes).Error)
 	require.LessOrEqual(t, checkpointBytes, 65536)
+	// Accepted records remain readable even when the saved batch exceeds the
+	// old aggregate reader limit. Provider chunks and each record remain bounded.
+	largeIDs := []string{}
+	for i := 0; i < 100; i++ {
+		id := fmt.Sprintf("LARGE-%03d", i)
+		largeIDs = append(largeIDs, id)
+		lines := []map[string]any{}
+		for j := 0; j < 500; j++ {
+			lines = append(lines, map[string]any{"skuCode": fmt.Sprintf("SKU-%03d-%04d", i, j), "orderQuantity": 1, "deliveryQuantity": 0, "receiptQuantity": 0, "storageQuantity": 0, "defectiveQuantity": 0})
+		}
+		f.supplyRows[a] = append(f.supplyRows[a], map[string]any{"orderNo": id, "isJitMotherName": "No", "orderExtends": lines})
+	}
+	large, err := service.Begin(ctx, scope, uuid.NewString(), o.BeginInput{Kind: o.SupplyOrders, Stores: []string{a}, SupplyOrderIDs: largeIDs})
+	require.NoError(t, err)
+	largeSync, err := repo.ReadSync(ctx, scope.OrganizationID, large.Syncs[0].ID)
+	require.NoError(t, err)
+	require.Equal(t, "completed", largeSync.Status)
+	var storedBytes int64
+	require.NoError(t, owner.Raw("SELECT sum(octet_length(payload::text)) FROM store_observations.records WHERE sync_id=?", largeSync.ID).Scan(&storedBytes).Error)
+	require.Greater(t, storedBytes, int64(4<<20))
+	largeObservation, err := service.SupplyObservation(ctx, scope, a)
+	require.NoError(t, err)
+	require.Equal(t, "saved", largeObservation.Status)
+	require.Len(t, largeObservation.SavedOrderIDs, 100)
+	require.Equal(t, "50000", *largeObservation.Summary.Quantities.Ordered.Value)
 	// A current-boundary change invalidates the old result instead of returning stale facts.
 	changed := f.materials[a]
 	changed.StoreVersion++

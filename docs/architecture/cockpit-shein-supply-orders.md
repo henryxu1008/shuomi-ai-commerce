@@ -27,8 +27,8 @@ Out of Scope: 真实店铺授权、真实令牌/业务API；消费者订单全�
 4. Provider扩展独立SupplyOrderReader能力；GET原purchase-order-infos，按<=20个已固定单号的小块查询，pageNumber=1/pageSize=200/selectJitMother=1，复用原签名transport；每块只能返回请求集合内身份。响应count/list与集合不符、额外身份、同身份不同载荷、字段结构错误不得伪装完整。重复相同orderNo/载荷只保留一份；未返回身份记缺覆盖，而非无货/取消。块大小保证URL有界，本批不翻任意时间列表。
 5. 复用原`Service.Begin/Step`、command、sync、checkpoint、worker和CommitPage，不新增运行状态机或retry owner。SupplyOrderIDs固定进原command输入及checkpoint，原key同规范输入返回原命令/同步，不同输入冲突；一店一批，最多10块。原24h期限及访问失败/重试/恢复入口不变；readonly provider重试没有远端写副作用。
 6. 原`store_observations` schema只在全新安装增加kind和payload约束，无新数据库/新schema owner。serving Verify验证当前结构，禁止ALTER/迁移/旧实例安装。原组织+店铺+sync+orderNo键保存，批次版本不相加，原generation/CAS/事务回滚保障继续使用。
-7. 新专用supply观察读取使用当前绑定下最新批次。未完成批次不给旧批数字冒充当前；terminal partial可显示其明确已保存部分并标缺覆盖，不能与上次完整head混合。完成批只表示已尝试该单号集合，始终声明非店铺全量/非原子快照。
-8. 原HTTP/BFF严格schema扩展专用supply路由，原tenant/user envelope、live scope、bounded JSON、same-origin/idempotency/CSRF准入继续适用。新增驾驶舱独立面板/子组件仅随单店变化取数，独立query key及AbortSignal；不把自然日参数送给supply API，日期切换不改变该批次含义。原stats、金额和全平台卡片调用保持。
+7. 新专用supply观察读取使用当前绑定下最新批次。未完成批次不给旧批数字冒充当前；terminal partial可显示其明确已保存部分并标缺覆盖，不能与上次完整head混合。读取以单个MVCC语句逐条消费最多200条原记录，每条沿用schema的256KiB限制，累计器只保留身份集合、计数和精确数量；不因整体大于4MiB拒绝已合法保存的批次，也不一次物化所有SKU行。完成批只表示已尝试该单号集合，始终声明非店铺全量/非原子快照。
+8. 原HTTP/BFF严格schema扩展专用supply路由，原tenant/user envelope、live scope、bounded JSON、same-origin/idempotency/CSRF准入继续适用。新增驾驶舱独立面板/子组件按单店取数，日期独立的子query key纳入现有operations-cockpit命名空间及刷新动作，保留AbortSignal；不把自然日参数送给supply API，日期切换不改变该批次含义。原stats、金额和全平台卡片调用保持。
 
 ## 数量与JIT
 

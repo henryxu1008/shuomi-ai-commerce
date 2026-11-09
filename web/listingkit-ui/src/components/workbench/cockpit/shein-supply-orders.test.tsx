@@ -43,7 +43,7 @@ it("hides cached facts and read controls when the same shop's refresh fails",asy
  const view=render(<SheinSupplyOrders scope={scope} storeId={a} onApplicable={applicable}/>,{wrapper:wrapper()});
  await screen.findByText("本批单号均已保存");expect(view.container.querySelectorAll("dd").length).toBe(8);
  vi.mocked(observationRequest).mockRejectedValue(new Error("binding or authorization changed"));
- await act(async()=>{await clients.at(-1)!.refetchQueries({queryKey:["shein-supply-orders",scope.organizationId,scope.userId,a]});});
+ await act(async()=>{await clients.at(-1)!.refetchQueries({queryKey:["operations-cockpit",scope.userId,scope.organizationId,"shein-supply-orders",a]});});
  await screen.findByRole("alert");expect(screen.queryByText("本批单号均已保存")).toBeNull();expect(view.container.querySelectorAll("dd").length).toBe(0);expect(screen.queryByRole("textbox")).toBeNull();
 });
 it("rejects a long multibyte batch before storing intent and keeps input editable",async()=>{
@@ -53,4 +53,11 @@ it("rejects a long multibyte batch before storing intent and keeps input editabl
  fireEvent.change(input,{target:{value:Array.from({length:100},(_,i)=>"采".repeat(125)+String(i).padStart(3,"0")).join("\n")}});
  await userEvent.click(screen.getByRole("button",{name:"读取并保存本批"}));await screen.findByRole("alert");
  expect(screen.getByRole("textbox")).not.toBeDisabled();expect(sessionStorage.length).toBe(0);expect(vi.mocked(observationRequest).mock.calls.some(c=>!!c[4])).toBe(false);
+});
+it("joins the existing cockpit refresh without adding date parameters",async()=>{
+ vi.mocked(observationRequest).mockResolvedValue({storeId:a,status:"not_synced",canSync:false,savedOrderIds:[]});
+ render(<SheinSupplyOrders scope={scope} storeId={a} onApplicable={applicable}/>,{wrapper:wrapper()});await screen.findByText("尚无已保存批次");
+ vi.mocked(observationRequest).mockResolvedValue({storeId:a,status:"incomplete",canSync:false,savedOrderIds:[]});
+ await act(async()=>{await clients.at(-1)!.invalidateQueries({queryKey:["operations-cockpit",scope.userId,scope.organizationId]});});
+ await screen.findByText("覆盖不足：仅展示本批已保存部分");expect(observationRequest).toHaveBeenCalledTimes(2);expect(vi.mocked(observationRequest).mock.calls[1][0]).toBe(`supply-orders/observation?storeId=${a}`);
 });
