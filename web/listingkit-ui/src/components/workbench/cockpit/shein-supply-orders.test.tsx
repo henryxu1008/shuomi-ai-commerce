@@ -1,4 +1,4 @@
-import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import {afterEach,expect,it,vi} from "vitest";
@@ -45,4 +45,12 @@ it("hides cached facts and read controls when the same shop's refresh fails",asy
  vi.mocked(observationRequest).mockRejectedValue(new Error("binding or authorization changed"));
  await act(async()=>{await clients.at(-1)!.refetchQueries({queryKey:["shein-supply-orders",scope.organizationId,scope.userId,a]});});
  await screen.findByRole("alert");expect(screen.queryByText("本批单号均已保存")).toBeNull();expect(view.container.querySelectorAll("dd").length).toBe(0);expect(screen.queryByRole("textbox")).toBeNull();
+});
+it("rejects a long multibyte batch before storing intent and keeps input editable",async()=>{
+ vi.mocked(observationRequest).mockResolvedValue({storeId:a,status:"not_synced",canSync:true,savedOrderIds:[]});
+ render(<SheinSupplyOrders scope={scope} storeId={a} onApplicable={applicable}/>,{wrapper:wrapper()});
+ const input=await screen.findByRole("textbox");
+ fireEvent.change(input,{target:{value:Array.from({length:100},(_,i)=>"采".repeat(125)+String(i).padStart(3,"0")).join("\n")}});
+ await userEvent.click(screen.getByRole("button",{name:"读取并保存本批"}));await screen.findByRole("alert");
+ expect(screen.getByRole("textbox")).not.toBeDisabled();expect(sessionStorage.length).toBe(0);expect(vi.mocked(observationRequest).mock.calls.some(c=>!!c[4])).toBe(false);
 });

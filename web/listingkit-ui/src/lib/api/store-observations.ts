@@ -164,6 +164,12 @@ export const observationSyncSchema = z
     errorCode: text(64),
   })
   .strict();
+function withinSupplyIdentityBudget(input:readonly string[]){
+  const ids=[...new Set(input)].sort();
+  // Match Go json.Marshal, including its HTML and line-separator escaping.
+  const worst=JSON.stringify({orderIds:ids,next:ids.length,missingIds:ids}).replace(/[<>&\u2028\u2029]/gu,c=>`\\u${c.charCodeAt(0).toString(16).padStart(4,"0")}`);
+  return new TextEncoder().encode(worst).length<=60*1024;
+}
 export const observationBeginSchema = z
   .object({
     kind: observationKindSchema,
@@ -178,7 +184,7 @@ export const observationBeginSchema = z
       new Set(v.stores).size === v.stores.length &&
       (v.kind !== "products" || (!v.start && !v.end)) &&
       (v.kind === "supply-orders" ? v.stores.length===1 && Boolean(v.supplyOrderIds?.length) && !v.start && !v.end : !v.supplyOrderIds),
-  );
+  ).refine(v=>v.kind!=="supply-orders"||withinSupplyIdentityBudget(v.supplyOrderIds??[]),{message:"采购单号批次过长，请减少批量"});
 export const observationCommandSchema = z
   .object({
     id: observationID,

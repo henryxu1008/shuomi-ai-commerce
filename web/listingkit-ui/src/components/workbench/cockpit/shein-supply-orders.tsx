@@ -38,20 +38,21 @@ export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:Observatio
   useEffect(()=>{if(applicable)onApplicable(storeId);},[applicable,onApplicable,storeId]);
   async function submit(){
     setError("");setBusy(true);
+    let original=intent;
     try {
-      let original=intent;
       if(!original){
         const raw=text.trim().split(/[\s,，]+/u).filter(Boolean);
         // Validate the original bounded request before canonicalizing duplicate IDs.
         const parsed=observationBeginSchema.parse({kind:"supply-orders",stores:[storeId],supplyOrderIds:raw});
-        original={key:crypto.randomUUID(),input:{kind:"supply-orders",stores:[storeId],supplyOrderIds:[...new Set(parsed.supplyOrderIds!)].sort()}};
-        sessionStorage.setItem(storageKey,JSON.stringify(original));
+        const next:Intent={key:crypto.randomUUID(),input:{kind:"supply-orders",stores:[storeId],supplyOrderIds:[...new Set(parsed.supplyOrderIds!)].sort()}};
+        sessionStorage.setItem(storageKey,JSON.stringify(next));
+        original=next;
         setIntent(original);
       }
       await observationRequest("supply-orders/syncs",scope,observationCommandSchema,undefined,original);
       sessionStorage.removeItem(storageKey);setIntent(undefined);
       await query.refetch();
-    }catch {setError("读取未确认。请重试原读取；不会重复创建另一批。每批最多 200 个采购单号，单号较长时请减少批量。");}
+    }catch {setError(original?"读取未确认，请重试原读取；不会重复创建另一批。":"无法准备读取，请检查单号、减少批量并确认本页会话存储可用。");}
     finally {setBusy(false);}
   }
   async function resume(){
