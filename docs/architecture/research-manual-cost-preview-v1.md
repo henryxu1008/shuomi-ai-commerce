@@ -1,5 +1,7 @@
 # #1074 单候选人工费用参考试算 · 独立设计
 
+后续范围：[#1205 保存经营评估与人工决定引用](research-commercial-assessment-persistence-v1.md) 已获独立架构准入和实施授权，替代本文首段的“浏览器权威计算、仅临时试算、不保存”限制；原计算口径及其有效业务/权限规则继续复用。本文其余未开放业务不因此获准，历史首段证据不改写。
+
 Design Basis 为 `Independent Architecture`。独立 Reviewer 在 `e9b8709cca6ed3d689f9983238e7f20f736bc5e2` 上确认本段为 `IMPLEMENTATION_READY`，记录在 #1074。本文冻结该首段合同，整体商业闭环、供应商自动报价、SHEIN 写动作和真实执行分别保持原准入。
 
 ## 用户结果与范围

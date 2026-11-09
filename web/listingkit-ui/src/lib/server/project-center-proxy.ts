@@ -14,7 +14,7 @@ export async function proxyProjectCenter(
   request: Request,
   token: string,
   userId: string,
-  options?: {endpoint:(url:URL,method:string)=>{path:string;input:z.ZodType|undefined;output:z.ZodType;expected:boolean}|null;base:string;inputBytes:number;outputBytes:number},
+  options?: {endpoint:(url:URL,method:string)=>{path:string;input:z.ZodType|undefined;output:z.ZodType;expected:boolean;readOnly?:boolean}|null;base:string;inputBytes:number;outputBytes:number},
 ): Promise<Response> {
   if (!token || !userId) return projectFailure(401, "AUTHENTICATION_REQUIRED");
   if (request.headers.get("X-Expected-User-ID") !== userId)
@@ -27,8 +27,9 @@ export async function proxyProjectCenter(
     request.headers.has("content-encoding")
   )
     return projectFailure(400, "INVALID_REQUEST");
-  const write = !!route.input;
-  if (write && !hasTrustedSameOriginWrite(request))
+  const hasInput = !!route.input;
+  const write = hasInput && !("readOnly" in route && route.readOnly);
+  if (hasInput && !hasTrustedSameOriginWrite(request))
     return projectFailure(403, "FORBIDDEN");
   let org = "";
   {
@@ -61,11 +62,11 @@ export async function proxyProjectCenter(
     });
     headers.set("X-Requested-Organization-ID", org);
     let body: string | undefined;
-    if (write) {
+    if (hasInput) {
       const key = request.headers.get("Idempotency-Key");
-      if (!z.uuid().safeParse(key).success)
+      if (write ? !z.uuid().safeParse(key).success : key !== null)
         return projectFailure(400, "INVALID_REQUEST");
-      headers.set("Idempotency-Key", key!);
+      if (write) headers.set("Idempotency-Key", key!);
       const match=request.headers.get("If-Match");
       if(route.expected){if(!match || !/^[1-9][0-9]{0,15}$/.test(match) || !Number.isSafeInteger(Number(match)))return projectFailure(400,"INVALID_REQUEST");headers.set("If-Match",match);}
       else if(match)return projectFailure(400,"INVALID_REQUEST");
@@ -121,6 +122,10 @@ export async function proxyProjectCenter(
     );
     controller.signal.throwIfAborted();
     if (response.status !== 200) {
+      if(options?.base==="research/projects"&&response.status===400){
+        const inputError=z.strictObject({code:z.literal("INVALID_REQUEST"),fields:z.array(z.string().max(120).refine(v=>!v.includes("\0"))).max(80)}).safeParse(payload);
+        if(inputError.success)return Response.json(inputError.data,{status:400,headers:safe});
+      }
       const failure = z
         .strictObject({ code: z.string().regex(/^[A-Z_]{1,80}$/) })
         .safeParse(payload);
@@ -138,7 +143,7 @@ export async function proxyProjectCenter(
     const parsed = route.output.safeParse(payload);
     if (!parsed.success) throw new Error();
     const v=parsed.data as {id?:string};
-    const entity=route.path.split("/")[1];
+    const entity=options?.base==="research/projects"&&/\/assessments\/[^/]+$/.test(route.path)?route.path.split("/").at(-1):route.path.split("/")[1];
     if(entity && entity!=="templates" && v.id && v.id!==entity)throw new Error();
     const receipt=parsed.data as {key?:string};
     if(options?.base==="research/projects" && receipt.key && receipt.key!==(write?request.headers.get("Idempotency-Key"):route.path.split("/").at(-1)))throw new Error();

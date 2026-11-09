@@ -15,7 +15,8 @@ import {researchAnalysisInput} from "@/lib/contracts/research-analysis";
 import {ResearchComparison} from "./research-comparison";
 import {SheinUSTrialPanel} from "./shein-us-trial-panel";
 import {ResearchSupplierReview} from "./research-supplier-review";
-import {ResearchCostPreview} from "./research-cost-preview";
+import {ResearchAssessments} from "./research-assessments";
+import type {AssessmentRef} from "@/lib/contracts/research-assessment";
 import {researchStep} from "@/lib/workbench/research-navigation";
 import styles from "./research-panel.module.css";
 import type {ResearchInspection} from "@/lib/contracts/research-analysis";
@@ -48,7 +49,9 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["research",projectId],researchIntent,{maxLength:65536});
  const [items,setItems]=useState<ResearchCandidate[]>([]),[after,setAfter]=useState(initialAfter),[next,setNext]=useState(""),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true),[incomplete,setIncomplete]=useState(false),[error,setError]=useState(""),[busy,setBusy]=useState(false),[picker,setPicker]=useState(false),[unsupported,setUnsupported]=useState<string[]>([]),[chosen,setChosen]=useState<string[]>([]),[compare,setCompare]=useState(false),[absent,setAbsent]=useState(false);
   const [openedSupplier,setOpenedSupplier]=useState("");
- const [openedCost,setOpenedCost]=useState<string|null>(null),[loadedCostPage,setLoadedCostPage]=useState("");
+ const [loadedCostPage,setLoadedCostPage]=useState("");
+ const [openedAssessment,setOpenedAssessment]=useState<string|null>(null);
+ const [assessmentChoices,setAssessmentChoices]=useState<Record<string,{ref:AssessmentRef;readKey:string}|undefined>>({});
  const costPageKey=JSON.stringify([scope.userId,scope.organizationId,projectId,after,refresh,canRead,canWrite,archived]);
  const lifetime=useRef<AbortController|null>(null),flight=useRef(false),handoff=useRef(false);
  const section=view==="embedded"?undefined:researchStep(view,workflowStep)?.section;
@@ -62,7 +65,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
 }}catch(e){if(!controller.signal.aborted)setError(message(e));}finally{if(!controller.signal.aborted)setLoading(false);}});return()=>controller.abort();},[scope,projectId,after,refresh,canRead,sample,costPageKey]);
  const reload=()=>setRefresh(v=>v+1);
  const locked=busy||loading||!!pending.command||!pending.ready||pending.error||!canWrite;
- const canPreview=!locked&&!error&&!incomplete&&loadedCostPage===costPageKey;
+
  function invalidateChoice() {
   const current=store?.getSnapshot();
   if (view==="research" && current && current.projectId===projectId && current.scope===scopeKey)
@@ -96,27 +99,12 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
    if (!controller.signal.aborted) setBusy(false);
   }
  }
- async function verifyCostEvidence(binding:string,signal:AbortSignal){
-  try {
-   const page=await researchRequest(scope,projectId,researchPage,signal,{after});
-   return !signal.aborted&&!page.incomplete&&page.items.some(candidate=>costBinding(candidate)===binding);
-  } catch (error) {
-   if(error instanceof ResearchError){
-    // The proxy can use the same error code for 403 and temporary 5xx failures.
-    const {code,status}=error;
-    const transient=code==="DEPENDENCY_UNAVAILABLE"||code==="DEADLINE_EXCEEDED"||
-     (code==="INVALID_UPSTREAM_RESPONSE"&&(status===502||status===503||status===504));
-    if((status!==undefined&&status<500)||!transient)return false;
-   }
-   throw error;
-  }
- }
  async function submit(body:ResearchCommand,original=pending.command){
   const controller=lifetime.current;if(!controller||controller.signal.aborted||flight.current)return;
   const intent=original??{key:crypto.randomUUID(),body};
   if (special && (!active || !canWrite || !store ||
       !("candidateId" in intent.body) || active.confirmed?.representative!==intent.body.candidateId ||
-      !["review","decide","reset"].includes(intent.body.action))) return;
+      !["review","decide","reset","save_assessment"].includes(intent.body.action))) return;
   flight.current=true;setBusy(true);setError("");setAbsent(false);
   try{
    if (active) {
@@ -131,7 +119,7 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
    const receipt=await researchRequest(scope,projectId,researchReceipt,controller.signal,{intent});
    if(!controller.signal.aborted){
     if (active && "candidateId" in intent.body) advanceRevision(active,intent.body.candidateId,intent.body.expectedRevision,receipt.revisions[intent.body.candidateId],intent.body.action==="decide"&&intent.body.state==="APPROVED_FOR_TEST");
-    pending.clear(intent);setPicker(false);reload();
+    pending.clear(intent);setPicker(false);reload();return receipt;
    }
   }
   catch(e){if(controller.signal.aborted)return;setError(message(e));if(e instanceof ResearchError&&e.code==="SOURCE_NOT_SUPPORTED"){pending.clear(intent);const rejected=intent.body.action==="link"?intent.body.selections.map(s=>s.itemId):[];setUnsupported(old=>[...old,...rejected]);return;}if(e instanceof ResearchError&&["INVALID_REQUEST","REVISION_CONFLICT","PROJECT_ARCHIVED"].includes(e.code)){pending.clear(intent);reload();}}
@@ -161,10 +149,8 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  {view==="selection"?<Card id="research-decisions" tabIndex={-1} className={styles.section}>
    <h3>评估与选品决定</h3><p>先查看商品资料，再逐件记录选择理由。AI 建议仅供参考，暂未开通 AI 也可继续作决定。</p>
    <div className={styles.grid}>{items.filter(v=>!special||active?.confirmed?.representative===v.id).map(v=>{
-    const binding=canPreview?costBinding(v):null;
-    const previewKey=binding?JSON.stringify([costPageKey,binding]):null;
-    const open=previewKey!==null&&openedCost===previewKey;
-    return <article key={v.id+":"+v.revision} className={styles.candidate}>
+    const assessmentKey=JSON.stringify([scope,projectId,v.id,v.selectedLinkId,v.evidenceDigest]);
+    return <article key={assessmentKey} className={styles.candidate}>
      <div className={styles.heading}><h4>{v.observation?.title||"这份资料暂时无法查看"}</h4><span className={styles.badge}>{states[v.state]}</span></div>
      {v.reason?<p>当前理由：{v.reason}</p>:null}
           {v.supplierReview&&canRead&&<div className="grid min-w-0 gap-3">
@@ -172,11 +158,9 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
       {openedSupplier===v.id&&<ResearchSupplierReview key={JSON.stringify([scope,projectId,v.id,v.revision,canWrite,context.permissions])}
        scope={scope} projectId={projectId} candidateId={v.id} canWrite={canWrite} onSaved={(revision,before)=>{if(before!==undefined)advanceRevision(active,v.id,before,revision);reload();}}/>}
      </div>}
-     {previewKey&&<div className="grid min-w-0 gap-3">
-      <div><Button variant="secondary" aria-expanded={open} onClick={()=>setOpenedCost(open?null:previewKey)}>{open?"收起参考试算":"填写经营假设"}</Button></div>
-      {open&&binding&&<ResearchCostPreview key={previewKey} verifyEvidence={signal=>verifyCostEvidence(binding,signal)}/>}
-     </div>}
-     <CandidateDecision value={v} canWrite={canWrite} disabled={locked} command={body=>void submit(body,null)}/>
+     {v.assessment&&canRead&&<ResearchAssessments scope={scope} projectId={projectId} candidate={v} canWrite={canWrite} disabled={locked} expanded={openedAssessment===assessmentKey} onExpandedChange={open=>setOpenedAssessment(open?assessmentKey:null)}
+      onSave={body=>submit(body,null)} selectedRef={assessmentChoices[assessmentKey]?.ref} onChoose={ref=>setAssessmentChoices(old=>({...old,[assessmentKey]:ref?{ref,readKey:costPageKey}:undefined}))}/>}
+     <CandidateDecision value={v} canWrite={canWrite} disabled={locked||!!assessmentChoices[assessmentKey]&&assessmentChoices[assessmentKey]?.readKey!==costPageKey} assessmentRef={assessmentChoices[assessmentKey]?.readKey===costPageKey?assessmentChoices[assessmentKey]?.ref:undefined} command={body=>void submit(body,null)}/>
     </article>;
    })}</div>
  </Card>:null}
@@ -190,13 +174,6 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
    prepare={startTransfer}/>
  </Card>:view!=="research"?<Card id="research-transfer" tabIndex={-1} className={styles.section}><h3>转入待上传</h3><p>勾选已批准测试的商品，再到“我的数据”核对。分批收集的资料需要分别确认；批准测试不代表已采购、已上架或已完成合规检查。</p>{groups.size===0?<p>请先选择已批准测试、且资料可以查看的商品。</p>:<div className={styles.actions}>{[...groups].map(([batch,values],i)=><Button key={batch} variant="outline" asChild><Link prefetch={false} href={"/workbench/data/mine?"+new URLSearchParams({batchId:batch,transfer:JSON.stringify(values.map(v=>v.observation!.ref.selection))})}>批次 {i+1} · 核对 {values.length} 件商品</Link></Button>)}</div>}<p className={styles.muted}>是否转入成功，请到“商品刊登”查看处理结果。</p></Card>:null}
  </section>;
-}
-function costBinding(candidate:ResearchCandidate):string|null{
- const observation=candidate.observation;
- if(!observation||"shein" in observation||observation.item.source.kind!=="amazon_data"||
-    observation.site.toLowerCase()!=="us"||!candidate.selectedLinkId||!candidate.evidenceDigest)return null;
- const {itemId,revision,publicationId,version}=observation.ref.selection;
- return JSON.stringify([candidate.id,candidate.revision,candidate.selectedLinkId,candidate.evidenceDigest,itemId,revision,publicationId,version]);
 }
 function message(e:unknown){return e instanceof ResearchError?failures[e.code]??"服务暂不可用，请重新读取。":"服务暂不可用，请重新读取。";}
 function CandidateCard({value:v,checked,toggle,disabled,chooseDisabled,canWrite,command,view}:{view:"embedded"|"research"|"selection";value:ResearchCandidate;checked:boolean;toggle:()=>void;disabled:boolean;chooseDisabled:boolean;canWrite:boolean;command:(body:ResearchCommand)=>void}){
@@ -222,8 +199,9 @@ function SHEINCardFacts({observation:o}:{observation:Extract<NonNullable<Researc
  </dl><p>此卡片可用于查看研究资料。</p></>;
 }
 
-function CandidateDecision({value:v,canWrite,disabled,command}:{value:ResearchCandidate;canWrite:boolean;disabled:boolean;command:(body:ResearchCommand)=>void}){
+function CandidateDecision({value:v,canWrite,disabled,command,assessmentRef}:{value:ResearchCandidate;canWrite:boolean;disabled:boolean;assessmentRef?:AssessmentRef;command:(body:ResearchCommand)=>void}){
  const [reason,setReason]=useState("");const change={candidateId:v.id,expectedRevision:v.revision,evidenceDigest:v.evidenceDigest!};
- return <>{canWrite&&v.observation&&!("shein" in v.observation)?<div className={styles.decision}>{v.state==="TO_RESEARCH"?<Button disabled={disabled} onClick={()=>command({action:"review",...change})}>开始评估</Button>:v.state==="PENDING_CONFIRMATION"?<><label>选择理由<textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={4096} rows={3}/></label><div className={styles.actions}><Button disabled={disabled||!reason.trim()} onClick={()=>command({action:"decide",...change,state:"APPROVED_FOR_TEST",reason:reason.trim()})}>批准测试</Button><Button variant="outline" disabled={disabled||!reason.trim()} onClick={()=>command({action:"decide",...change,state:"REJECTED",reason:reason.trim()})}>放弃该商品</Button></div></>:null}{v.state!=="TO_RESEARCH"?<Button variant="outline" disabled={disabled} onClick={()=>command({action:"reset",...change})}>重新了解这件商品</Button>:null}</div>:null}
- {v.history.length?<details><summary>过往选择记录（最近20条）</summary>{v.history.map(h=><div key={h.revision} className={styles.evidence}><p>{states[h.state]} · {h.at} · r{h.revision}</p>{h.reason?<p>{h.reason}</p>:null}<small>{h.evidenceDigest?"当时使用的资料："+h.evidenceDigest:"当时这份资料暂时无法查看"}</small></div>)}</details>:null}</>;
+ const assessment=assessmentRef?{assessmentRef}:{};
+ return <>{canWrite&&v.observation&&!("shein" in v.observation)?<div className={styles.decision}>{v.state==="TO_RESEARCH"?<Button disabled={disabled} onClick={()=>command({action:"review",...change})}>开始评估</Button>:v.state==="PENDING_CONFIRMATION"?<><p>{assessmentRef?"本次明确引用经营评估："+assessmentRef.assessmentId:"本次未引用经营评估"}</p><label>选择理由<textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={4096} rows={3}/></label><div className={styles.actions}><Button disabled={disabled||!reason.trim()} onClick={()=>command({action:"decide",...change,...assessment,state:"APPROVED_FOR_TEST",reason:reason.trim()})}>批准测试</Button><Button variant="outline" disabled={disabled||!reason.trim()} onClick={()=>command({action:"decide",...change,...assessment,state:"REJECTED",reason:reason.trim()})}>放弃该商品</Button></div></>:null}{v.state!=="TO_RESEARCH"?<Button variant="outline" disabled={disabled} onClick={()=>command({action:"reset",...change})}>重新了解这件商品</Button>:null}</div>:null}
+ {v.history.length?<details><summary>过往选择记录（最近20条）</summary>{v.history.map(h=><div key={h.revision} className={styles.evidence}><p>{states[h.state]} · {h.at} · r{h.revision}</p>{h.reason?<p>{h.reason}</p>:null}{h.assessmentRef?<p>引用经营评估：{h.assessmentRef.assessmentId}</p>:null}<small>{h.evidenceDigest?"当时使用的资料："+h.evidenceDigest:"当时这份资料暂时无法查看"}</small></div>)}</details>:null}</>;
 }

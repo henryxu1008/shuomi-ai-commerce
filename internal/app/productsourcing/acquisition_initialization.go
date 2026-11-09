@@ -152,7 +152,7 @@ func InitializeAcquisitionDatabase(ctx context.Context, manifest, confirmedDatab
 			}
 		}
 		if cfg.SupplierReview {
-			for _, install := range []func(*gorm.DB) error{researchstore.InstallSchema, researchstore.GrantRuntime, researchstore.InstallSupplierReviewSchema} {
+			for _, install := range []func(*gorm.DB) error{researchstore.InstallSchema, researchstore.GrantRuntime, researchstore.InstallSupplierReviewSchema, researchstore.InstallAssessmentSchema} {
 				if err := install(tx); err != nil {
 					return err
 				}
