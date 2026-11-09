@@ -55,22 +55,3 @@ it("admits one store and only bounded counts for the Walmart Feed metric", async
   expect((await buildWorkbenchBrowserResponse(Response.json({ ...complete, counts: { accepted: 250, rejected: 1, unknown: 0 } }), mapped.responseContract)).status).toBe(502);
   expect((await buildWorkbenchBrowserResponse(Response.json({ ...complete, attemptId: "private" }), mapped.responseContract)).status).toBe(502);
 });
-it("allows a bounded multi-store overview while keeping identity guards and incomplete totals", async () => {
- const path=["supply-preparations","submission-overview-metrics"];
- const url="http://localhost/api/workbench/"+path.join("/");
- const mapped=await buildWorkbenchUpstreamRequest(new Request(url+query+"&storeId="+second,{headers:scope}),path,"server-token","user-a");
- expect(mapped).not.toBeInstanceOf(Response);
- if(mapped instanceof Response)return;
- expect(mapped.responseContract).toBe("supply-submission-overview-metrics");
- expect(mapped.sourceMutation).toBe(false);
- for(const suffix of [query+"&actor=other",query+"&storeId="+store]){
-  const invalid=await buildWorkbenchUpstreamRequest(new Request(url+suffix,{headers:scope}),path,"server-token","user-a");
-  expect(invalid).toBeInstanceOf(Response);if(invalid instanceof Response)expect(invalid.status).toBe(400);
- }
- const incomplete={status:"incomplete",capturedAt,excludedStores:0,rows:[
-  {platform:"walmart",status:"empty",stores:0},{platform:"tiktokshop",status:"empty",stores:0},
-  {platform:"shein",status:"empty",stores:0},{platform:"temu",status:"limited",stores:2},
- ]};
- expect((await buildWorkbenchBrowserResponse(Response.json(incomplete),mapped.responseContract)).status).toBe(200);
- expect((await buildWorkbenchBrowserResponse(Response.json({...incomplete,unknownTotal:0}),mapped.responseContract)).status).toBe(502);
-});

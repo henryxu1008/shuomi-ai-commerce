@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { savedOrderAmountMetrics } from "@/lib/contracts/shein-order-amount";
-import { isCockpitMetricsQuery } from "@/lib/contracts/cockpit-metrics";
 import {
   observationBeginSchema,
   observationCapabilitiesSchema,
@@ -58,11 +56,6 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
     write: false,
     begin: false,
   };
-  if(kind==="orders"&&segments.length===2&&segments[1]==="saved-amount-metrics"&&method==="GET"){
-    if(!isCockpitMetricsQuery(url,1))return null;
-    e.schema=savedOrderAmountMetrics;
-    return e;
-  }
   if (segments.length === 1 && method === "GET") {
     if (url.search.length > 8192) return null;
     for (const k of url.searchParams.keys())

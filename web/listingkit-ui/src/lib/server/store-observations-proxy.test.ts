@@ -190,23 +190,3 @@ it("rejects overposted owner and duplicate JSON rather than issuing a new operat
   }
   expect(fetch).not.toHaveBeenCalled();
 });
-
-it("forwards only scoped single-store saved order amounts and rejects fabricated totals",async()=>{
- configure();
- const query=`?startDate=2026-10-01&endDate=2026-10-07&storeId=${id}`;
- const source={syncId:id,observedAt:"2026-10-08T00:00:00Z",range:{start:"2026-09-01T16:00:00Z",end:"2026-10-07T15:59:59Z"}};
- const data={status:"complete",capturedAt:"2026-10-08T00:00:00Z",source,matchedOrderCount:2,amounts:[{currency:"USD",amount:"0.30",orderCount:2}]};
- const fetch=vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data}));vi.stubGlobal("fetch",fetch);
- const url="http://localhost:3000/api/workbench/store-observations/orders/saved-amount-metrics";
- expect((await proxyStoreObservations(new Request(url+query,{headers}),"private","actor-a")).status).toBe(200);
- expect(fetch.mock.calls[0][0].pathname).toBe("/api/v1/workbench/store-observations/orders/saved-amount-metrics");
- fetch.mockClear();
- for(const suffix of ["",query+"&storeId="+id,query+"&actor=other",query+"&syncId="+id]){
-  expect((await proxyStoreObservations(new Request(url+suffix,{headers}),"private","actor-a")).status).toBe(400);
- }
- expect(fetch).not.toHaveBeenCalled();
- fetch.mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{status:"missing_fields",capturedAt:data.capturedAt,source,matchedOrderCount:2,missing:{amountCount:1,currencyCount:0,unknownTimeCount:0},amounts:data.amounts}}));
- expect((await proxyStoreObservations(new Request(url+query,{headers}),"private","actor-a")).status).toBe(502);
- fetch.mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:{...data,matchedOrderCount:3}}));
- expect((await proxyStoreObservations(new Request(url+query,{headers}),"private","actor-a")).status).toBe(502);
-});
