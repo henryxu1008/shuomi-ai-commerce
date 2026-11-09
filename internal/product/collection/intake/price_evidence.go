@@ -2,6 +2,7 @@ package intake
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -13,6 +14,7 @@ import (
 // number extractor. Unsupported notation stays unknown instead of guessing.
 var priceDeclaration = regexp.MustCompile(`价格|单价|(?i:\bprice\b)|[¥￥$€]|\b[A-Z]{3}`)
 var priceAmount = regexp.MustCompile(`^\s*(?:明确\s*)?(?:为|是|(?i:is)|[：:=])?\s*(?:([A-Z]{3}|[¥￥$€])\s*[：:=]?\s*)?([0-9]+(?:\.[0-9]+)?)`)
+var priceMonetaryUnit = regexp.MustCompile(`^(人民币|美元|美金|欧元|英镑|日元|日圆|円|元|[¥￥$€]|[A-Z]{3}\b)(?:\s*/(?:件|个|套))?`)
 var priceOtherValue = regexp.MustCompile(`(?:品牌|颜色|尺码|图片|图号|(?i:\b(?:brand|color|size|image)\b))\s*[：:=]?\s*([A-Za-z0-9_-]+)`)
 var priceCurrencyField = regexp.MustCompile(`(?:币种|(?i:\bcurrency\b))\s*[：:=]?\s*([A-Z]{3})\b`)
 var priceShippingFee = regexp.MustCompile(`(?i)(?:^|[，,。])\s*(?:运费|邮费|配送费|shipping(?:\s+(?:fee|cost))?|postage|freight)\s*(?:为|是|is|[：:=])?\s*((?:[A-Z]{3}|[¥￥$€])\s*[：:=]?\s*[0-9]+(?:\.[0-9]+)?)`)
@@ -22,7 +24,8 @@ var priceOtherField = regexp.MustCompile(`(?i)(?:尚未确认|不能确认|待�
 var priceContinuation = regexp.MustCompile(`^[，,。]\s*(?:[0-9]|或|至|到|[-~～–—])`)
 
 func (r Row) priceIsExplicit(statements []string) bool {
-	if !r.priceStatementIsExplicit(r.Evidence) {
+	currencyMatches := r.priceCurrencyValidator()
+	if !r.priceStatementIsExplicit(r.Evidence, currencyMatches) {
 		return false
 	}
 	// A model may quote a substring of a range or omit a negation/conflict. Check
@@ -32,14 +35,14 @@ func (r Row) priceIsExplicit(statements []string) bool {
 		if strings.Contains(statement, r.Evidence) {
 			found = true
 		}
-		if !r.priceStatementIsExplicit(statement) {
+		if !r.priceStatementIsExplicit(statement, currencyMatches) {
 			return false
 		}
 	}
 	return found
 }
 
-func (r Row) priceStatementIsExplicit(statement string) bool {
+func (r Row) priceStatementIsExplicit(statement string, currencyMatches func(string) bool) bool {
 	// Identifiers are not prices, even if a SKU contains PRICE, USD or digits.
 	source := []byte(statement)
 	currencyFound := r.Currency == ""
@@ -74,8 +77,11 @@ func (r Row) priceStatementIsExplicit(statement string) bool {
 		currencyFound = true
 	}
 	s := string(source)
-	count := 0
+	count, consumedUntil := 0, 0
 	for _, m := range priceDeclaration.FindAllStringIndex(s, -1) {
+		if m[0] < consumedUntil {
+			continue // A currency inside an already checked amount is not a new declaration.
+		}
 		marker := s[m[0]:m[1]]
 		if marker == "SKU" || currencyCode.MatchString(marker) && m[1] < len(s) && (s[m[1]] >= 'A' && s[m[1]] <= 'Z' || s[m[1]] >= 'a' && s[m[1]] <= 'z' || s[m[1]] == '_' || s[m[1]] == '-') {
 			continue
@@ -103,7 +109,7 @@ func (r Row) priceStatementIsExplicit(statement string) bool {
 		if amount[2] >= 0 {
 			explicitCurrency = tail[amount[2]:amount[3]]
 		}
-		if !r.priceCurrencyMatches(marker) || explicitCurrency != "" && !r.priceCurrencyMatches(explicitCurrency) {
+		if !currencyMatches(marker) || explicitCurrency != "" && !currencyMatches(explicitCurrency) {
 			return false
 		}
 		if currencyCode.MatchString(marker) || currencyCode.MatchString(explicitCurrency) {
@@ -115,6 +121,22 @@ func (r Row) priceStatementIsExplicit(statement string) bool {
 		}
 		rest := tail[amount[1]:]
 		after := strings.TrimLeftFunc(rest, unicode.IsSpace)
+		consumedUntil = m[1] + amount[1]
+		unit := priceMonetaryUnit.FindStringSubmatchIndex(after)
+		if unit != nil && currencyCode.MatchString(after[unit[2]:unit[3]]) && after[unit[2]:unit[3]] != r.Currency {
+			if _, err := currency.ParseISO(after[unit[2]:unit[3]]); err != nil {
+				unit = nil // SKU and other following fields are not currency units.
+			}
+		}
+		if unit != nil {
+			if !currencyMatches(after[unit[2]:unit[3]]) {
+				return false
+			}
+			currencyFound = true
+			consumedUntil += len(rest) - len(after) + unit[1]
+			rest = after[unit[1]:]
+			after = strings.TrimLeftFunc(rest, unicode.IsSpace)
+		}
 		if priceContinuation.MatchString(after) {
 			return false
 		}
@@ -139,18 +161,41 @@ func (r Row) priceStatementIsExplicit(statement string) bool {
 	return count != 0 && currencyFound
 }
 
-func (r Row) priceCurrencyMatches(marker string) bool {
-	if currencyCode.MatchString(marker) {
-		return r.Currency == marker
+// Keep the intersection across the quote and every original scope. Omitting
+// Currency cannot turn conflicting dollar/yuan declarations into one price.
+func (r Row) priceCurrencyValidator() func(string) bool {
+	allowed := []string{"CNY", "JPY", "USD", "EUR", "GBP"}
+	if r.Currency != "" {
+		allowed = []string{r.Currency}
 	}
+	return func(marker string) bool {
+		if currencyCode.MatchString(marker) {
+			return r.Currency == marker
+		}
+		options := priceCurrencyOptions(marker)
+		if len(options) == 0 {
+			return true
+		}
+		allowed = slices.DeleteFunc(allowed, func(code string) bool { return !slices.Contains(options, code) })
+		return len(allowed) != 0
+	}
+}
+
+func priceCurrencyOptions(marker string) []string {
 	switch marker {
-	case "$":
-		return r.Currency == "" || r.Currency == "USD"
-	case "€":
-		return r.Currency == "" || r.Currency == "EUR"
+	case "$", "美元", "美金":
+		return []string{"USD"}
+	case "€", "欧元":
+		return []string{"EUR"}
+	case "人民币", "元":
+		return []string{"CNY"}
+	case "英镑":
+		return []string{"GBP"}
+	case "日元", "日圆", "円":
+		return []string{"JPY"}
 	case "¥", "￥":
-		return r.Currency == "" || r.Currency == "CNY" || r.Currency == "JPY"
+		return []string{"CNY", "JPY"}
 	default:
-		return true
+		return nil
 	}
 }

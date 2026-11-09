@@ -96,7 +96,7 @@ func TestPriceEvidenceKeepsExplicitAmountsAndUnrelatedUnknownFields(t *testing.T
 }
 
 func TestPriceEvidenceCannotHideQualifiersInOriginalStatement(t *testing.T) {
-	for _, notes := range []string{"不是黑 M，CNY 10，价格待定", "黑 M，CNY 10-20", "黑 M，CNY 10，CNY 20", "黑 M，CNY 10，待确认", "黑 M，CNY 10，颜色黑价格20", "黑 M，CNY 10，品牌 NIKE价格待定"} {
+	for _, notes := range []string{"不是黑 M，CNY 10，价格待定", "黑 M，CNY 10-20", "黑 M，CNY 10，CNY 20", "黑 M，CNY 10，待确认", "黑 M，CNY 10，颜色黑价格20", "黑 M，CNY 10，品牌 NIKE价格待定", "黑 M，CNY 10元-20元", "黑 M，CNY 10美元", "黑 M，CNY 10元，待确认"} {
 		c := Candidate{Rows: []Row{{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: "黑 M，CNY 10", Currency: "CNY", Price: new(10.0)}}}
 		raw, err := json.Marshal(c)
 		require.NoError(t, err)
@@ -236,4 +236,75 @@ func TestPriceEvidenceCannotUseFeesOrHideProductPrices(t *testing.T) {
 		_, err = Decode(raw, Input{Notes: notes})
 		require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err, notes)
 	}
+}
+
+func TestPriceEvidenceAcceptsExplicitMonetaryUnits(t *testing.T) {
+	for _, tc := range []struct{ notes, currency string }{
+		{"黑 M，价格 10元，币种 CNY", "CNY"},
+		{"黑 M，单价 10 元", ""},
+		{"黑 M，单价 10元/件，币种 CNY", "CNY"},
+		{"黑 M，价格 10 CNY", "CNY"},
+		{"黑 M，price 10 USD", "USD"},
+		{"黑 M，CNY 10人民币", "CNY"},
+		{"黑 M，USD 10美元", "USD"},
+		{"黑 M，USD 10 美金", "USD"},
+		{"黑 M，EUR 10欧元", "EUR"},
+		{"黑 M，GBP 10英镑", "GBP"},
+		{"黑 M，JPY 10日元", "JPY"},
+	} {
+		t.Run(tc.notes, func(t *testing.T) {
+			row := Row{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: tc.notes, Currency: tc.currency, Price: new(10.0)}
+			raw, err := json.Marshal(Candidate{Rows: []Row{row}})
+			require.NoError(t, err)
+			_, err = Decode(raw, Input{Notes: tc.notes})
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestPriceEvidenceMonetaryUnitsKeepBoundaries(t *testing.T) {
+	for _, notes := range []string{
+		"黑 M，CNY 10美元", "黑 M，CNY 10欧元",
+		"黑 M，CNY 10元-20元", "黑 M，CNY 10元 至 20元",
+		"黑 M，CNY 10元，20元", "黑 M，CNY 10元左右",
+		"黑 M，不是 CNY 10元", "黑 M，CNY 10元，待确认",
+		"黑 M，CNY 10元，价格 20元", "黑 M，CNY 10.5.5元",
+		"黑 M，价格 10 USD，币种 CNY", "黑 M，CNY 10元/100件",
+		"黑 M，价格 10 CNY-20", "黑 M，价格 10 CNY，USD 20",
+	} {
+		t.Run(notes, func(t *testing.T) {
+			row := Row{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: notes, Currency: "CNY", Price: new(10.0)}
+			raw, err := json.Marshal(Candidate{Rows: []Row{row}})
+			require.NoError(t, err)
+			_, err = Decode(raw, Input{Notes: notes})
+			require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err)
+		})
+	}
+}
+
+func TestPriceEvidenceUnitsAgreeWhenCurrencyIsOmitted(t *testing.T) {
+	for _, notes := range []string{"黑 M，$10元", "黑 M，价格10美元，价格10元", "黑 M，€10美元"} {
+		t.Run(notes, func(t *testing.T) {
+			row := Row{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: notes, Price: new(10.0)}
+			raw, err := json.Marshal(Candidate{Rows: []Row{row}})
+			require.NoError(t, err)
+			_, err = Decode(raw, Input{Notes: notes})
+			require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err)
+		})
+	}
+	for _, notes := range []string{"黑 M，¥10元", "黑 M，￥10日元", "黑 M，$10美元"} {
+		row := Row{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: notes, Price: new(10.0)}
+		raw, err := json.Marshal(Candidate{Rows: []Row{row}})
+		require.NoError(t, err)
+		_, err = Decode(raw, Input{Notes: notes})
+		require.NoError(t, err, notes)
+	}
+	rows := []Row{
+		{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: "黑 M，$10", Price: new(10.0)},
+		{Attributes: map[string]string{"颜色": "白", "尺码": "L"}, Evidence: "白 L，CNY 20", Currency: "CNY", Price: new(20.0)},
+	}
+	raw, err := json.Marshal(Candidate{Rows: rows})
+	require.NoError(t, err)
+	_, err = Decode(raw, Input{Notes: "黑 M，$10，白 L，CNY 20，黑 M，€10"})
+	require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err)
 }
