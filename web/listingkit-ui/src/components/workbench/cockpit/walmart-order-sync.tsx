@@ -20,6 +20,7 @@ export function WalmartOrderSync({scope,storeId,startDate,endDate,permissions}:{
  const client=useQueryClient();
  const storageKey=JSON.stringify(["walmart-order-sync",scope.organizationId,scope.userId,storeId]);
  const [intent,setIntent]=useState<Intent>();
+ const [resolvedKey,setResolvedKey]=useState("");
  const [hydrated,setHydrated]=useState(false);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState("");
@@ -35,15 +36,22 @@ export function WalmartOrderSync({scope,storeId,startDate,endDate,permissions}:{
  },[storageKey,storeId]);
  const prefix=["walmart-order-sync",scope.organizationId,scope.userId,storeId];
  const caps=useQuery({queryKey:[...prefix,"capabilities",permissions],queryFn:({signal})=>observationRequest("orders/capabilities",scope,observationCapabilitiesSchema,signal),retry:false});
- const receipt=useQuery({queryKey:[...prefix,"command",intent?.key],enabled:hydrated&&!!intent,
+ const receipt=useQuery({queryKey:[...prefix,"command",intent?.key],enabled:hydrated&&!!intent&&intent.key!==resolvedKey,
   queryFn:async({signal})=>{
    const result=await observationRequest(`orders/commands/${intent!.key}`,scope,observationCommandSchema,signal);
    if(result.input.kind!=="orders"||result.input.stores.length!==1||result.input.stores[0]!==storeId||result.syncs.length!==1||result.syncs[0].storeId!==storeId||new Date(result.input.start!).getTime()!==new Date(intent!.input.start!).getTime()||new Date(result.input.end!).getTime()!==new Date(intent!.input.end!).getTime())throw new Error("original order scope changed");
    return result;
   },retry:false,refetchInterval:q=>q.state.data?.syncs.some(s=>active(s.status))?2000:false,gcTime:0});
  const sync=receipt.data?.syncs[0];
- const terminal=!!sync&&!active(sync.status);
- useEffect(()=>{if(terminal)void client.invalidateQueries({queryKey:["operations-cockpit",scope.userId,scope.organizationId]});},[terminal,sync?.id,client,scope.userId,scope.organizationId]);
+ const terminal=!!sync&&!active(sync.status)||!!intent&&intent.key===resolvedKey;
+ useEffect(()=>{
+  if(!terminal||!intent)return;
+  let mounted=true,storageFailed=false;
+  try{sessionStorage.removeItem(storageKey);}catch{storageFailed=true;}
+  void Promise.resolve().then(()=>{if(!mounted)return;setResolvedKey(intent.key);if(storageFailed){setStorageError(true);setError("同步已完成，但无法清理会话记录。请恢复本页会话存储后重试。");}});
+  void client.invalidateQueries({queryKey:["operations-cockpit",scope.userId,scope.organizationId]});
+  return ()=>{mounted=false;};
+ },[terminal,intent,storageKey,client,scope.userId,scope.organizationId]);
  const canSync=!!caps.data?.canSync&&permissions.includes("workbench.store.orders.sync");
  async function submit(){
   setBusy(true);setError("");
@@ -71,7 +79,7 @@ export function WalmartOrderSync({scope,storeId,startDate,endDate,permissions}:{
    <Button variant="outline" disabled={!hydrated||storageError||busy||!canSync||!!sync&&active(sync.status)} onClick={()=>void submit()}>{busy?"正在确认同步…":intent&&!terminal?"确认原同步结果":"同步所选日期订单"}</Button>
    {sync&&active(sync.status)&&canSync&&<Button variant="outline" disabled={busy} onClick={()=>void ensure()}>继续原同步</Button>}
    <span role="status">{sync?labels[sync.status]:caps.isPending?"正在确认同步能力…":!canSync?"同步尚未配置或无同步权限":""}</span>
-   {error&&!terminal&&<p role="alert">{error}</p>}
+   {error&&(!terminal||storageError)&&<p role="alert">{error}</p>}
   </div>
  </section>;
 }
