@@ -60,6 +60,7 @@ func TestResearchPageConcurrentEvidenceStillChecksExactCurrentAndHistoricalRefer
 	service, scope, choices, repo, _, originals := analysisReadFixture()
 	first, second := repo.rows[choices[0].CandidateID], repo.rows[choices[1].CandidateID]
 	first.Reason = "current reason"
+	first.ReasonDecision = &Decision{Ref: first.Links[0].Ref, Reason: first.Reason, EvidenceDigest: first.Links[0].Ref.Digest()}
 	otherVersion := first.Links[0].Ref
 	otherVersion.Checksum = "different original checksum"
 	first.History = []Decision{{Ref: otherVersion, Reason: "hidden historical reason", EvidenceDigest: otherVersion.Digest()}}

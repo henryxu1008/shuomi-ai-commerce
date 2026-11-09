@@ -209,6 +209,10 @@ func composeMarketResearch(ctx context.Context, db *gorm.DB, project projectModu
 		service.SupplierSources = sources
 		service.SupplierExpiry = supplierEvidenceExpiry
 	}
+	if supplierReview && repo.AssessmentsReady() {
+		service.SupplierSources = sources
+		service.AssessmentExpiry = supplierEvidenceExpiry
+	}
 	h := &rh.Handler{Service: service, Bind: func(ctx context.Context, header string) (context.Context, collection.Scope, error) {
 		ctx, err := (productReviewCapabilityBinder{}).Bind(ctx, header)
 		if err != nil {

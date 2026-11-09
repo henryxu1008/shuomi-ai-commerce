@@ -1,3 +1,4 @@
+import {assessmentRef,assessmentSupplierRef,saveAssessment,assessmentPreview,assessmentView,assessmentPage} from "./research-assessment";
 import {z} from "zod";
 import {MAX_1688_ACQUISITION_VARIANTS} from "./product-acquisition";
 import {collectionID,collectionVersion,isResearchFixtureProduct,collectionItemSchema,type CollectionItem} from "./product-collection";
@@ -62,7 +63,7 @@ export const researchPaginationFixtureStatus=z.discriminatedUnion("ready",[
 ]);
 export type ResearchPaginationFixtureBatch=z.infer<typeof paginationFixtureBatch>;
 const researchState=z.enum(["TO_RESEARCH","PENDING_CONFIRMATION","APPROVED_FOR_TEST","REJECTED"]);
-const candidateSchema=z.strictObject({id:collectionID,supplierReview:z.literal(true).optional(),state:researchState,reason:text(4096).optional(),revision,selectedLinkId:collectionID.optional(),evidenceDigest:digest.optional(),observation:observation.optional(),evidence:z.array(z.strictObject({id:collectionID,observation:observation.optional()})).max(21),history:z.array(z.strictObject({state:researchState,reason:text(4096).optional(),evidenceDigest:digest.optional(),revision,at:z.iso.datetime({offset:true})})).max(20)});
+const candidateSchema=z.strictObject({id:collectionID,assessment:z.literal(true).optional(),supplierReview:z.literal(true).optional(),state:researchState,reason:text(4096).optional(),revision,selectedLinkId:collectionID.optional(),evidenceDigest:digest.optional(),observation:observation.optional(),evidence:z.array(z.strictObject({id:collectionID,observation:observation.optional()})).max(21),history:z.array(z.strictObject({state:researchState,reason:text(4096).optional(),evidenceDigest:digest.optional(),assessmentRef:assessmentRef.optional(),revision,at:z.iso.datetime({offset:true})})).max(20)});
 export type ResearchCandidate=z.infer<typeof candidateSchema>;
 export const researchPage=z.strictObject({items:z.array(candidateSchema).max(50),nextCursor:collectionID.optional(),incomplete:z.boolean()});
 const change={candidateId:collectionID,expectedRevision:revision};
@@ -96,18 +97,19 @@ const supplierReviewDetail=z.strictObject({
  unit:z.literal("piece"),status:supplierStatus,reason:text(2048),at:z.iso.datetime({offset:true}),
  comparisons:z.array(comparison.extend({marketValue:text(512).optional(),supplierValue:text(512).optional()})).min(1).max(5),
 });
-export const supplierReviewPage=z.strictObject({items:z.array(z.strictObject({current:z.boolean(),detail:supplierReviewDetail.optional()})).max(5),nextBefore:revision.optional()});
+export const supplierReviewPage=z.strictObject({items:z.array(z.strictObject({current:z.boolean(),reference:assessmentSupplierRef.optional(),detail:supplierReviewDetail.optional()})).max(5),nextBefore:revision.optional()});
 export const supplierReviewPending=z.strictObject({key:collectionID});
 const researchCommand=z.discriminatedUnion("action",[
+ saveAssessment,
  z.strictObject({action:z.literal("link"),selections:z.array(researchSelection).min(1).max(200).refine(v=>new Set(v.map(s=>s.itemId)).size===v.length)}),
  z.strictObject({action:z.literal("select"),...change,linkId:collectionID}),z.strictObject({action:z.literal("unlink"),...change,linkId:collectionID}),
  z.strictObject({action:z.literal("review"),...change,evidenceDigest:digest}),z.strictObject({action:z.literal("reset"),...change,evidenceDigest:digest}),
-  z.strictObject({action:z.literal("decide"),...change,evidenceDigest:digest,state:z.enum(["APPROVED_FOR_TEST","REJECTED"]),reason:text(4096).refine(v=>!!v.trim())}),
+  z.strictObject({action:z.literal("decide"),...change,evidenceDigest:digest,state:z.enum(["APPROVED_FOR_TEST","REJECTED"]),assessmentRef:assessmentRef.optional(),reason:text(4096).refine(v=>!!v.trim())}),
  z.strictObject({action:z.literal("record_supplier_review"),...change,linkId:collectionID,evidenceDigest:digest,supplier:supplierInput}),
 ]);
 export type ResearchCommand=z.infer<typeof researchCommand>;
 export const researchIntent=z.strictObject({key:collectionID,body:researchCommand});
-export const researchReceipt=z.strictObject({key:collectionID,revisions:z.record(collectionID,revision).refine(v=>Object.keys(v).length<=200),candidateIds:z.array(collectionID).max(200),replayed:z.boolean()});
+export const researchReceipt=z.strictObject({key:collectionID,revisions:z.record(collectionID,revision).refine(v=>Object.keys(v).length<=200),candidateIds:z.array(collectionID).max(200),assessmentRef:assessmentRef.optional(),replayed:z.boolean()});
 export const researchTransfer=z.array(researchSelection).min(1).max(5).refine(v=>new Set(v.map(s=>s.itemId)).size===v.length);
 export function researchEndpoint(url:URL,method:string){
  const fixturePath=url.pathname.match(/^\/api\/workbench\/research\/projects\/([0-9a-f-]{36})\/acceptance-fixture(\/pagination)?$/);
@@ -115,6 +117,18 @@ export function researchEndpoint(url:URL,method:string){
   if(url.search||url.hash||!collectionID.safeParse(fixturePath[1]).success||method!=="GET"&&method!=="POST")return null;
   return {path:"/"+fixturePath[1]+"/acceptance-fixture"+(fixturePath[2]??""),input:method==="POST"?z.strictObject({}):undefined,
     output:fixturePath[2]?researchPaginationFixtureStatus:researchFixtureStatus,expected:false};
+ }
+ const assessmentPath=url.pathname.match(/^\/api\/workbench\/research\/projects\/([^/]+)\/candidates\/([^/]+)\/(assessment-preview|assessments)(?:\/([^/]+))?$/);
+ if(assessmentPath){
+  const [,project,candidate,operation,id]=assessmentPath;
+  if(url.hash||!collectionID.safeParse(project).success||!collectionID.safeParse(candidate).success)return null;
+  const path="/"+project+"/candidates/"+candidate+"/"+operation+(id?"/"+id:"");
+  if(operation==="assessment-preview")return method==="POST"&&!id&&!url.search?{path,input:saveAssessment.refine(v=>v.candidateId===candidate),output:assessmentPreview,expected:false,readOnly:true}:null;
+  if(method!=="GET")return null;
+  if(id)return collectionID.safeParse(id).success&&!url.search?{path,input:undefined,output:assessmentView,expected:false}:null;
+  const keys=[...url.searchParams.keys()],before=url.searchParams.get("before");
+  if(keys.length&&!(keys.length===1&&keys[0]==="before"&&before&&/^[1-9][0-9]*$/.test(before)&&Number.isSafeInteger(Number(before))))return null;
+  return {path,input:undefined,output:assessmentPage,expected:false};
  }
  const supplierPath=url.pathname.match(/^\/api\/workbench\/research\/projects\/([^/]+)\/candidates\/([^/]+)\/supplier-review$/);
  if(supplierPath){

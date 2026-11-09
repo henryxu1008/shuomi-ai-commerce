@@ -29,14 +29,18 @@ type Handler struct {
 type route struct{ method, path string }
 
 func Routes(h *Handler) []httproute.Descriptor {
-	return researchRoutes(h, h != nil && h.Service != nil && h.Service.SupplierReviewsEnabled())
+	return researchRoutes(h, h != nil && h.Service != nil && h.Service.SupplierReviewsEnabled(), h != nil && h.Service != nil && h.Service.AssessmentsEnabled())
 }
 
-func researchRoutes(h *Handler, supplier bool) []httproute.Descriptor {
+func researchRoutes(h *Handler, supplier bool, assessment ...bool) []httproute.Descriptor {
 	out := []httproute.Descriptor{}
 	specs := []route{{"GET", Base + "/:project_id"}, {"POST", Base + "/:project_id/commands"}, {"GET", Base + "/:project_id/commands/:key"}}
 	if supplier {
 		specs = append(specs, route{"GET", SupplierReviewPath})
+	}
+	if len(assessment) > 0 && assessment[0] {
+		prefix := Base + "/:project_id/candidates/:candidate"
+		specs = append(specs, route{"POST", prefix + "/assessment-preview"}, route{"GET", prefix + "/assessments"}, route{"GET", prefix + "/assessments/:assessment_id"})
 	}
 	for _, spec := range specs {
 		permission := "workbench.project.read"
@@ -54,7 +58,7 @@ func researchRoutes(h *Handler, supplier bool) []httproute.Descriptor {
 	return out
 }
 func ValidateDescriptor(d httproute.Descriptor) error {
-	for _, e := range researchRoutes(nil, true) {
+	for _, e := range researchRoutes(nil, true, true) {
 		if d.Method == e.Method && d.Path == e.Path && d.Module == e.Module && d.Permission == e.Permission && d.AuthPolicy == e.AuthPolicy && d.OrganizationAccessPolicy == e.OrganizationAccessPolicy && d.OrganizationTargetResolver == nil && d.RequestTimeout == e.RequestTimeout && d.RejectUnreadRequestBody == e.RejectUnreadRequestBody && d.Handler != nil {
 			return nil
 		}
@@ -73,6 +77,17 @@ func failure(c *gin.Context, e error) {
 		}
 	}
 	c.Header("Cache-Control", "private, no-store")
+	var inputError *research.CostInputError
+	if errors.As(e, &inputError) {
+		fields := []string{}
+		for _, field := range inputError.Fields {
+			if len(field) <= 120 && !strings.ContainsRune(field, 0) && len(fields) < 80 {
+				fields = append(fields, field)
+			}
+		}
+		c.JSON(status, gin.H{"code": code, "fields": fields})
+		return
+	}
 	c.JSON(status, gin.H{"code": code})
 }
 func (h *Handler) serve(c *gin.Context) {
@@ -90,8 +105,9 @@ func (h *Handler) serve(c *gin.Context) {
 	}
 	var value any
 	if c.Request.Method == http.MethodPost {
+		preview := strings.HasSuffix(c.FullPath(), "/assessment-preview")
 		keys := c.Request.Header.Values("Idempotency-Key")
-		if len(keys) != 1 || !collection.ValidID(keys[0]) || c.Request.URL.RawQuery != "" || c.Request.ContentLength > 64<<10 {
+		if (!preview && (len(keys) != 1 || !collection.ValidID(keys[0]))) || (preview && len(keys) > 0) || c.Request.URL.RawQuery != "" || c.Request.ContentLength > 64<<10 {
 			failure(c, research.ErrInvalid)
 			return
 		}
@@ -107,11 +123,23 @@ func (h *Handler) serve(c *gin.Context) {
 		}
 		var command research.Command
 		violations, e := strict.UnmarshalStrict(raw, &command, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
-		if e != nil || len(violations) > 0 || research.Validate(command) != nil {
+		if e != nil || len(violations) > 0 {
 			failure(c, research.ErrInvalid)
 			return
 		}
-		value, err = h.Service.Execute(ctx, scope, project, keys[0], command)
+		if e = research.Validate(command); e != nil {
+			failure(c, e)
+			return
+		}
+		if preview {
+			if command.CandidateID != c.Param("candidate") {
+				failure(c, research.ErrInvalid)
+				return
+			}
+			value, err = h.Service.PreviewAssessment(ctx, scope, project, command)
+		} else {
+			value, err = h.Service.Execute(ctx, scope, project, keys[0], command)
+		}
 	} else {
 		if c.Request.ContentLength != 0 {
 			httproute.RejectUnreadRequestBody(c)
@@ -119,7 +147,11 @@ func (h *Handler) serve(c *gin.Context) {
 			return
 		}
 		if candidate := c.Param("candidate"); candidate != "" {
-			value, err = h.supplierRead(ctx, scope, project, candidate, c.Request.URL.RawQuery)
+			if strings.Contains(c.FullPath(), "/assessments") {
+				value, err = h.assessmentRead(ctx, scope, project, candidate, c.Param("assessment_id"), c.Request.URL.RawQuery)
+			} else {
+				value, err = h.supplierRead(ctx, scope, project, candidate, c.Request.URL.RawQuery)
+			}
 		} else if key := c.Param("key"); key != "" {
 			if c.Request.URL.RawQuery != "" {
 				failure(c, research.ErrInvalid)
@@ -152,6 +184,27 @@ func (h *Handler) serve(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "private, no-store")
 	c.Data(200, "application/json", raw)
+}
+
+func (h *Handler) assessmentRead(ctx context.Context, scope collection.Scope, project, candidate, id, raw string) (any, error) {
+	if id != "" {
+		if raw != "" {
+			return nil, research.ErrInvalid
+		}
+		return h.Service.ReadAssessment(ctx, scope, project, candidate, id)
+	}
+	before := int64(0)
+	if raw != "" {
+		q, e := url.ParseQuery(raw)
+		if e != nil || len(q) != 1 || len(q["before"]) != 1 {
+			return nil, research.ErrInvalid
+		}
+		before, e = strconv.ParseInt(q.Get("before"), 10, 64)
+		if e != nil || before < 1 || strconv.FormatInt(before, 10) != q.Get("before") {
+			return nil, research.ErrInvalid
+		}
+	}
+	return h.Service.Assessments(ctx, scope, project, candidate, before)
 }
 
 func (h *Handler) supplierRead(ctx context.Context, scope collection.Scope, project, candidate, raw string) (any, error) {
