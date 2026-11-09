@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { observationRequest, observationCommandSchema, observationSyncSchema, observationBeginSchema, observationID, type ObservationScope } from "@/lib/api/store-observations";
 import { supplyObservationSchema } from "@/lib/contracts/shein-supply-orders";
 import styles from "./cockpit-overview.module.css";
+import {SheinSupplyTimes} from "./shein-supply-times";
 
 type Intent = {key:string;input: {kind:"supply-orders";stores:string[];supplyOrderIds:string[]}};
 const titles = {ordered:"订购数量",delivered:"已发货数量",received:"已收货数量",stored:"已入库数量",defective:"次品数量"};
@@ -80,6 +81,7 @@ export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:Observatio
         <dl className={styles.publicationCounts}>{(Object.keys(titles) as (keyof typeof titles)[]).map(k=><div key={k}><dt>{titles[k]}</dt><dd>{summary.quantities[k].value??"待核实"}</dd>{summary.quantities[k].missingLines>0&&<small>{summary.quantities[k].missingLines} 行缺失或有歧义</small>}</div>)}</dl>
       </>}
       {source&&<details className={styles.panelNote}><summary>查看本批单号与覆盖范围</summary><p className="break-all">请求：{source.orderIds.join("、")}</p><p className="break-all">已保存：{data.savedOrderIds.join("、")||"无"}</p>{source.missingIds.length>0&&<p className="break-all">待核实：{source.missingIds.join("、")}</p>}{source.notes.length>0&&<p>回执覆盖未完全确认，请以本批已保存部分为准。</p>}</details>}
+      {source&&summary&&data.savedOrderIds.length>0&&<SheinSupplyTimes key={JSON.stringify([scope.organizationId,scope.userId,storeId,source.syncId])} scope={scope} storeId={storeId} syncId={source.syncId} ids={data.savedOrderIds}/>}
       {data.canSync&&<form className="grid gap-3 p-3" onSubmit={e=>{e.preventDefault();void submit();}}>
         <label htmlFor="supply-order-ids">读取并保存采购单（每批最多 200 个单号，一行一个）</label>
         <Textarea id="supply-order-ids" value={text} onChange={e=>setText(e.target.value)} disabled={busy||!!intent||data.status==="running"} maxLength={26000}/>
