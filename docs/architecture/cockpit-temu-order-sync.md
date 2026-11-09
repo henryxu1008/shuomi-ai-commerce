@@ -1,6 +1,8 @@
 # Temu US 本土与半托管消费者订单手动同步
 
-Design Basis: Independent Architecture。Admission: PENDING_REVIEW。执行 #1163。
+Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY / FROZEN。
+
+独立准入：architecture_review已实际核对设计e619bb50cfef1f3867dc59759565f3e13cee2689/blob4c62a56572aed32f243c03d36598c64b33b4e7cf及base364e5514f，无BLOCKER。身份/scope/固定deadline、拒绝与非法回执区分、目录/Detail隔离、strict progress及原key恢复归IMPLEMENTATION_TEST在同批收敛。执行 #1163。
 
 ## 用户结果、依据与范围
 
@@ -14,6 +16,8 @@ Store继续唯一拥有原member/Store/OfficialAttempt/Connection和已核验reg
 
 内部命令目录允许显式Temu订单，原SHEIN隐式全选及通用列表/详情继续只限SHEIN，不将Temu记录塞入其他平台投影。复用已有StoreOrderSync，Temu独立session namespace；切换筛选不自动POST，原key/载荷不变，未确认时先查询原命令，明确not-found才原键重放，终态清理后可新建同步。
 
+组合细化（IMPLEMENTATION_TEST）：原runtime配置只生成r1，新增显式temuConsumerOrders布尔选项，默认false。仅Temu US/GLOBAL允许true，选择已批准的LOCAL|SEMI+r2订单应用；CN/EU/SHEIN拒绝，旧配置不自动升级、产品应用不增权。没有更改现有运行manifest或真实授权。
+
 ## 身份、权限与边界检查
 
 只使用ReadObservation(orders,Sync=true/false)，不借产品用途。复用ReadSavedTemuOrderBinding的完整本地r2身份验证与UTC表示，读取前解密原Attempt的AES-GCM凭据；解密必须匹配app/partition，不能含SHEIN字段、供应商或其他凭据。当前本地binding与预期binding全字段相等，包括org/store/version/app/partition/LOCAL或regional_semi身份hash、mallId/semiUniqueId、region211、scope hash、服务/token expiry与连接版本。
@@ -26,7 +30,7 @@ Store继续唯一拥有原member/Store/OfficialAttempt/Connection和已核验reg
 
 消费已批准保存合同中的固定API：同一application IdentityPartition对应的localAPIOrigin，POST /openapi/router，签名JSON type=bg.order.list.v2.get，pageNumber从1、pageSize100、createAfter=Start.Unix、createBefore=End.Unix-1。原48小时窗口、闭区间查询无重叠，不增状态/履约过滤。只parentOrderTime归日期，不用更新或同步时间。
 
-列表先由既有DecodeConsumerOrderPage解析/验证允许字段，<=100/页、2MiB/响应；按本页原parentOrderSn各请求一次type=bg.order.amount.query，原父单ID必须匹配回执。只retailPriceTotal/USD美分，不换金额版本或字段兜底，不按子单、数量、包裹或站点叠加。缺scope、明确接口拒绝/不可用或warning导致该父单amount未知；异常ID/非法非空金额/超限等保持原decoder拒绝。不把拒绝当零，不把金额缺失变成列表覆盖完成证据。总deadline或cancel到期整个页面不可提交。
+列表先由既有DecodeConsumerOrderPage解析/验证允许字段，<=100/页、2MiB/响应；按本页原parentOrderSn各请求一次type=bg.order.amount.query，原父单ID必须匹配回执。只retailPriceTotal/USD美分，不换金额版本或字段兜底，不按子单、数量、包裹或站点叠加。缺scope、明确接口拒绝或warning导致该父单amount未知；异常ID/非法非空金额/超限等保持原decoder拒绝。不把拒绝当零，不把金额缺失变成列表覆盖完成证据。总deadline或cancel到期整个页面不可提交。
 
 继续使用现有2MiB读取阶段上限、固定origin/禁止redirect/不自动重试、不输出原body/provider错误。金额按最多100个父单有界读取，受原30秒总预算约束；真实规模吞吐不在本次离线验收范围，不追加并发框架或通用runner。
 

@@ -269,3 +269,5 @@
 - `platform-support-chatwoot.md` — [Platform customer support through Chatwoot official APIs](platform-support-chatwoot.md)
 
 Every architecture document is explicitly indexed above. 新增、合并或删除合同时同步本索引；当前规则写入已有 owner 的合同，不追加退休记录、历史索引或逐轮评审日志。
+
+- `cockpit-temu-order-sync.md` — [Temu US 本土/半托管消费者订单手动同步](cockpit-temu-order-sync.md)

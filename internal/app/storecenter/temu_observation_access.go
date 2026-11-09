@@ -21,6 +21,9 @@ func (a *OfficialObservationAccess) authorizeTemuObservation(ctx context.Context
 	}
 	ctx, cancel := context.WithDeadline(ctx, expires)
 	defer cancel()
+	if s.Purpose == storecenter.ObservationPurposeOrders {
+		return a.authorizeTemuOrders(ctx, expires, s, store, expected, m, entry)
+	}
 	if s.Purpose != storecenter.ObservationPurposeProducts {
 		return nil, o.ErrUnsupported
 	}

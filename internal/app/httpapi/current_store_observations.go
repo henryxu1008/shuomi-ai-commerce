@@ -87,6 +87,7 @@ func buildCurrentStoreObservations(ctx context.Context, db *gorm.DB, d StoreObse
 	if official != nil {
 		service.WalmartOrders = official
 		service.TikTokOrders = official
+		service.TemuOrders = official
 	}
 	currentWorker, err := d.NewWorker(service)
 	if err != nil || currentWorker == nil {

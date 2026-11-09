@@ -157,3 +157,9 @@ it("requires whole-scope summaries and explicit coverage instead of page-derived
     }).success,
   ).toBe(false);
 });
+
+it("admits only the public Temu order progress fields",()=>{
+ const source={id:fixtureID,commandId:fixtureID,storeId:fixtureID,kind:"orders",status:"running",progress:{page:2,windows:[],expectedTotal:null,seen:1,pages:1,incomplete:false,notes:[],temuOrders:{total:2,complete:false}},range:null,createdAt:"2026-11-01T00:00:00Z",observedAt:null,errorCode:""};
+ expect(observationSyncSchema.safeParse(source).success).toBe(true);
+ expect(observationSyncSchema.safeParse({...source,progress:{...source.progress,temuOrders:{total:2,complete:false,token:"PRIVATE"}}}).success).toBe(false);
+});
