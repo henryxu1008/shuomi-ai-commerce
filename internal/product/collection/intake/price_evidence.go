@@ -15,6 +15,7 @@ var priceDeclaration = regexp.MustCompile(`价格|单价|(?i:\bprice\b)|[¥￥$�
 var priceAmount = regexp.MustCompile(`^\s*(?:明确\s*)?(?:为|是|(?i:is)|[：:=])?\s*(?:([A-Z]{3}|[¥￥$€])\s*[：:=]?\s*)?([0-9]+(?:\.[0-9]+)?)`)
 var priceOtherValue = regexp.MustCompile(`(?:品牌|颜色|尺码|图片|图号|(?i:\b(?:brand|color|size|image)\b))\s*[：:=]?\s*([A-Za-z0-9_-]+)`)
 var priceCurrencyField = regexp.MustCompile(`(?:币种|(?i:\bcurrency\b))\s*[：:=]?\s*([A-Z]{3})\b`)
+var priceShippingFee = regexp.MustCompile(`(?i)(?:^|[，,。])\s*(?:运费|邮费|配送费|shipping(?:\s+(?:fee|cost))?|postage|freight)\s*(?:为|是|is|[：:=])?\s*((?:[A-Z]{3}|[¥￥$€])\s*[：:=]?\s*[0-9]+(?:\.[0-9]+)?)`)
 var priceQualified = regexp.MustCompile(`(?i)并非|不是|不为|不代表|不表示|未确认|尚未确认|没有确认|不能确认|待确认|待定|大约|大概|约|预计|估计|可能|至少|至多|不低于|不高于|\b(?:not|pending|unconfirmed|about|approximately|from|between)\b`)
 var priceUncertain = regexp.MustCompile(`(?i)(?:^|[，,。(（])\s*(?:尚未确认|不能确认|待确认|未确认|未确定|待核实|待定|未知|not confirmed|pending|unconfirmed)(?:\s|$|[，,。)）])`)
 var priceOtherField = regexp.MustCompile(`(?i)(?:尚未确认|不能确认|待确认|未确认|未确定|待核实|待定|未知|并非|不是|大约)?\s*(?:库存|图片|图号|颜色|尺码|品牌|货号|商品编码|\b(?:SKU|stock|inventory|image|color|size|brand)\b)`)
@@ -55,6 +56,12 @@ func (r Row) priceStatementIsExplicit(statement string) bool {
 		mask(m[2], m[3])
 	}
 	for _, m := range priceOtherValue.FindAllStringSubmatchIndex(string(source), -1) {
+		mask(m[2], m[3])
+	}
+	// A separately labelled shipping charge is not the variant's unit price.
+	// Mask only its direct currency/amount, never the surrounding clause where a
+	// product-price conflict or qualifier may follow.
+	for _, m := range priceShippingFee.FindAllStringSubmatchIndex(string(source), -1) {
 		mask(m[2], m[3])
 	}
 	// A separate currency field is allowed, but all explicitly declared currencies

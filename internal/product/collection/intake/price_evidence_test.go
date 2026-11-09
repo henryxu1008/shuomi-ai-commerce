@@ -202,3 +202,38 @@ func TestPriceEvidenceBindsTypedNumericVariantHeaders(t *testing.T) {
 	_, err = Decode(raw, Input{Notes: rows[0].Evidence + "，" + rows[1].Evidence})
 	require.NoError(t, err)
 }
+
+func TestPriceEvidenceSeparatesLabelledShippingFees(t *testing.T) {
+	for _, label := range []string{"运费", "邮费", "配送费", "shipping fee", "shipping cost", "freight", "postage"} {
+		for _, feeCurrency := range []string{"CNY", "USD"} {
+			notes := "黑 M，CNY 10，" + label + " " + feeCurrency + " 5"
+			for _, evidence := range []string{"黑 M，CNY 10", notes} {
+				t.Run(label+"/"+feeCurrency+"/"+evidence, func(t *testing.T) {
+					row := Row{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: evidence, Currency: "CNY", Price: new(10.0)}
+					raw, err := json.Marshal(Candidate{Rows: []Row{row}})
+					require.NoError(t, err)
+					_, err = Decode(raw, Input{Notes: notes})
+					require.NoError(t, err)
+				})
+			}
+		}
+	}
+}
+
+func TestPriceEvidenceCannotUseFeesOrHideProductPrices(t *testing.T) {
+	for _, notes := range []string{
+		"黑 M，运费 CNY 10",
+		"黑 M，运费 CNY 10，价格待定",
+		"黑 M，CNY 10，运费 CNY 5价格20",
+		"黑 M，CNY 10，运费 CNY 5，价格 20",
+		"黑 M，CNY 10，运费 CNY 5，待确认",
+		"黑 M，CNY 10-20，运费 CNY 5",
+		"黑 M，不是 CNY 10，运费 CNY 5",
+	} {
+		row := Row{Attributes: map[string]string{"颜色": "黑", "尺码": "M"}, Evidence: notes, Currency: "CNY", Price: new(10.0)}
+		raw, err := json.Marshal(Candidate{Rows: []Row{row}})
+		require.NoError(t, err)
+		_, err = Decode(raw, Input{Notes: notes})
+		require.Equal(t, ValidationIssue{"rows[0].price", "price_evidence"}, err, notes)
+	}
+}
