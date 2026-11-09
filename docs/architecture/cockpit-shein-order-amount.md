@@ -52,7 +52,7 @@ status 为 complete / missing_fields / coverage_incomplete / limited。共同 ca
 
 用户2026-11-09明确批准在驾驶舱首页按所选店铺、完整日期手动同步，保存后金额自动更新；全托保留独立供货单面板。Design Basis: Reuse Existing Architecture，执行#1163，复用本合同、cockpit-shein-self-operated-orders.md及现有StoreOrderSync，不新增API、schema、权限规则、状态机、事务或恢复owner。
 
-SHEIN首次无head金额读取同样执行原Access.Open(orders,Sync=false)及Check，验证当前成员、店铺、应用模式和加密授权业务类型；无来源不表示消费者资格成立。原半托/普通self准入成功的金额响应才可显示消费者同步条，不从US标签、供货单not_applicable或请求失败推断资格。全托及非空特殊self业务类型沿原准入拒绝，首页不显示消费者入口；后续POST仍由原Begin/Access独立复验，不以UI作为授权。
+SHEIN首次无head金额读取同样执行原Access.Open(orders,Sync=false)及Check，验证当前成员、店铺、应用模式和加密授权业务类型；无来源不表示消费者资格成立。原半托/普通self准入成功且本次读取已完成的金额响应才可显示消费者同步条；刷新、加载及失败期间隐藏控件，保留原回执恢复和终态清理hooks，不自动POST/ensure，不从US标签、供货单not_applicable或请求失败推断资格。全托及非空特殊self业务类型沿原准入拒绝，首页不显示消费者入口；后续POST仍由原Begin/Access独立复验，不以UI作为授权。
 
 共享组件增加独立shein-order-sync namespace。SHEIN时间读取是UTC+8闭区间，所以请求所选起日00:00:00至末日23:59:59；其他平台原半开窗口不变。按orderCreateTime下发日期/原orderNo/productTotalPrice+orderCurrency，原key与日期载荷固定，未确认只查询/重放原键，确认终态清理；完成失效原首页统计查询，当前筛选自动更新。换店/日期和迟到响应继续由原query key及AbortSignal隔离。
 

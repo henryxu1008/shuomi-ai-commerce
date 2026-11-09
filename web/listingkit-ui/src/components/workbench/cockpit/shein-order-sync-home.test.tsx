@@ -18,7 +18,7 @@ const source={syncId:ids[3],observedAt:"2026-11-09T00:00:00Z",range:{start:"2026
 const clients:QueryClient[]=[];
 function mount(){
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);
- return render(<QueryClientProvider client={client}><CockpitOverview scope={scope} enabled permissions={["workbench.store.orders.read","workbench.store.orders.sync"]}/></QueryClientProvider>);
+ return {...render(<QueryClientProvider client={client}><CockpitOverview scope={scope} enabled permissions={["workbench.store.orders.read","workbench.store.orders.sync"]}/></QueryClientProvider>),client};
 }
 function configure(){
  vi.mocked(cockpitRequest).mockResolvedValue({access,today:"2026-11-09",stores:ids.map((id,i)=>({id,name:["半托","普通自运营","全托","POP-US"][i],platform:"shein",region:"US",status:"active"}))});
@@ -63,4 +63,17 @@ it("does not reuse a late consumer eligibility result after switching to a fully
  await userEvent.selectOptions(shop,ids[2]);await screen.findByText("SHEIN 供货概览");
  await act(async()=>release({result:{status:"coverage_incomplete",capturedAt:"2026-11-09T00:00:00Z",reason:"no_saved_sync"}}));
  expect(screen.queryByRole("region",{name:"SHEIN US 订单同步"})).not.toBeInTheDocument();expect(vi.mocked(observationRequest).mock.calls.filter(c=>c[4])).toHaveLength(0);
+});
+
+it("hides the previous eligibility while refreshing and after the refreshed scope is unavailable",async()=>{
+ configure();let refresh=false;let release!:(value:Awaited<ReturnType<typeof readSavedOrderAmount>>)=>void;
+ vi.mocked(readSavedOrderAmount).mockImplementation(async()=>refresh?new Promise(resolve=>{release=resolve;}):{result:{status:"coverage_incomplete",capturedAt:"2026-11-09T00:00:00Z",reason:"no_saved_sync"}});
+ const view=mount();await userEvent.selectOptions(await screen.findByRole("combobox",{name:"店铺"}),ids[0]);
+ await screen.findByRole("region",{name:"SHEIN US 订单同步"});refresh=true;
+ await act(async()=>{void view.client.invalidateQueries({queryKey:["operations-cockpit","user","org"]});});
+ await waitFor(()=>expect(release).toBeDefined());
+ expect(screen.queryByRole("region",{name:"SHEIN US 订单同步"})).not.toBeInTheDocument();
+ await act(async()=>release({message:"已保存订单金额暂不可用"}));
+ await screen.findByText("已保存订单金额暂不可用");
+ expect(screen.queryByRole("region",{name:"SHEIN US 订单同步"})).not.toBeInTheDocument();
 });

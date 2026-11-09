@@ -16,7 +16,7 @@ function requestInput(platform:string,storeId:string,startDate:string,endDate:st
  return observationBeginSchema.parse({kind:"orders",stores:[storeId],start:`${startDate}T00:00:00+08:00`,end:platform==="shein"?`${endDate}T23:59:59+08:00`:`${next.toISOString().slice(0,10)}T00:00:00+08:00`});
 }
 
-export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permissions}:{platform:"walmart"|"tiktokshop"|"temu"|"shein";scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[]}){
+export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permissions,visible=true}:{platform:"walmart"|"tiktokshop"|"temu"|"shein";scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[];visible?:boolean}){
  const client=useQueryClient();
  const label=platform==="shein"?"SHEIN US":platform==="temu"?"Temu US":platform==="walmart"?"Walmart US":"TikTok Shop US";
  const storageKey=JSON.stringify([`${platform}-order-sync`,scope.organizationId,scope.userId,storeId]);
@@ -53,7 +53,7 @@ export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permiss
   void client.invalidateQueries({queryKey:["operations-cockpit",scope.userId,scope.organizationId]});
   return ()=>{mounted=false;};
  },[terminal,intent,storageKey,client,scope.userId,scope.organizationId]);
- const canSync=!!caps.data?.canSync&&permissions.includes("workbench.store.orders.sync");
+ const canSync=visible&&!!caps.data?.canSync&&permissions.includes("workbench.store.orders.sync");
  async function submit(){
   setBusy(true);setError("");
   try{
@@ -74,6 +74,7 @@ export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permiss
   finally{setBusy(false);}
  }
  async function ensure(){if(!sync)return;setBusy(true);setError("");try{await observationRequest(`orders/syncs/${sync.id}/ensure`,scope,observationSyncSchema,undefined,{});await receipt.refetch();}catch{setError("继续同步结果尚未确认，请继续原任务。");}finally{setBusy(false);}}
+ if(!visible)return null;
  return <section className={styles.bar} aria-label={`${label} 订单同步`}>
   <div><strong>{label} 订单</strong><p>{platform==="shein"?"半托 / 普通自运营 · 按订单下发时间":platform==="temu"?"US 本土 / 半托管 · 按父订单读取":platform==="tiktokshop"?"仅当前支持的 US 跨境店":"仅手动读取所选店铺"} · {startDate} — {endDate}（UTC+8）</p>{intent&&<p>原任务日期：{intent.input.start?.slice(0,10)} — {new Date(new Date(intent.input.end!).getTime()-1).toLocaleDateString("sv-SE",{timeZone:"Asia/Shanghai"})}</p>}</div>
   <div className={styles.actions}>
