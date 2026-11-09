@@ -389,7 +389,7 @@ func (m productAcquisitionModule) Register(reg *kernelmodule.Registry) error {
 }
 
 func buildProductAcquisitionModule(ctx context.Context, db *gorm.DB, dependencies routeAuthDependencies, authorizer *authz.ListingKitAuthorizer, provider sourcing.PublicAcquirer, browserService bool, charges orgresource.ConsumerChargePort, collections ...bool) (kernelmodule.Module, error) {
-	if dependencies.organizationResolver == nil || authorizer == nil || provider == nil {
+	if dependencies.organizationResolver == nil || authorizer == nil || browserService && provider == nil {
 		return nil, sourcing.ErrAcquisitionUnavailable
 	}
 	capability, options, err := collectionAcquisitionOptions(collections)

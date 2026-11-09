@@ -590,8 +590,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		productDB := supplied.productAcquisitionDB
 		factories.buildAcquisition = func(authorizer *authz.ListingKitAuthorizer, dependencies routeAuthDependencies) (kernelmodule.Module, error) {
-			// The provider is config-gated: with no collector endpoint/credential
-			// the existing anonymous public HTTP provider is used unchanged.
+			// Only an explicit collector enables new dispatch. Without it the
+			// module retains original-key verification and published reads.
 			provider, browserService, err := publicAcquisitionProvider(cfg)
 			if err != nil {
 				return nil, err

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -24,16 +23,11 @@ import (
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
-	a1688 "task-processor/internal/integration/acquisition/a1688"
 	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/product/sourcing"
 	"task-processor/internal/workbenchcontext"
 )
-
-type acquisitionHTTPTransport func(*http.Request) (*http.Response, error)
-
-func (f acquisitionHTTPTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 // These fixtures consume current enterprise role policies, not retired operator
 // role names. The underlying grant fixture retains failure/revocation controls.
@@ -110,33 +104,18 @@ func newAcquisitionHTTPFixture(t *testing.T) *acquisitionHTTPFixture {
 	pool.SetMaxOpenConns(8)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	f := &acquisitionHTTPFixture{db: db, owner: owner, grants: &titleGrants{}}
-	body, err := os.ReadFile("../../integration/acquisition/a1688/testdata/public-product.html")
-	require.NoError(t, err)
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// These are typed synthetic facts, not a retained copy of the retired parser.
+	f.provider = acquisitionHTTPProviderFunc(func(_ context.Context, source sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error) {
 		f.fetches.Add(1)
-		if r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" || r.URL.RawQuery != "" {
-			t.Error("provider received identity or tracking data")
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(body)
-	}))
-	t.Cleanup(provider.Close)
-	target, err := url.Parse(provider.URL)
-	require.NoError(t, err)
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = nil
-	t.Cleanup(transport.CloseIdleConnections)
-	f.provider = a1688.NewWithTransport(acquisitionHTTPTransport(func(r *http.Request) (*http.Response, error) {
-		if r.URL.String() != "https://detail.1688.com/offer/981645030344.html" {
-			t.Error("noncanonical provider request")
-		}
-		copy := r.Clone(r.Context())
-		u := *r.URL
-		u.Scheme = target.Scheme
-		u.Host = target.Host
-		copy.URL = &u
-		return transport.RoundTrip(copy)
-	}))
+		require.Equal(t, "https://detail.1688.com/offer/981645030344.html", source.URL)
+		title := "Public fixture bottle"
+		digest := sha256.Sum256([]byte(title))
+		return sourcing.AcquisitionEvidence{
+			SchemaVersion: 1, SourceURL: source.URL, OfferID: source.OfferID, Title: &title,
+			Images:     []sourcing.AcquisitionImage{{URL: "https://cbu01.alicdn.com/fixture-bottle.jpg", Role: "primary"}},
+			CapturedAt: time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC), ContentSHA256: hex.EncodeToString(digest[:]), ParserVersion: "synthetic-evidence-v1",
+		}, nil
+	})
 	return f
 }
 
@@ -247,6 +226,35 @@ func TestAcquisitionMountedCurrentApplicationFullChainAndLiveAuthorization(t *te
 	require.EqualValues(t, 1, f.fetches.Load())
 }
 
+func TestAcquisitionMountedWithoutProviderRejectsNewIntentAndReadsOriginal(t *testing.T) {
+	f := newAcquisitionHTTPFixture(t)
+	key := uuid.NewString()
+	body := `{"source":"981645030344"}`
+	first := acquisitionHTTPCall(t, f.server(t), "POST", productAcquisitionBase, "operator", "B", key, body, 200)
+	f.provider = nil
+	disabled := f.server(t)
+	var before, after int64
+	require.NoError(t, f.owner.Table("product_acquisition_operations").Count(&before).Error)
+	acquisitionHTTPCall(t, disabled, "POST", productAcquisitionBase, "operator", "B", uuid.NewString(), body, 503)
+	require.NoError(t, f.owner.Table("product_acquisition_operations").Count(&after).Error)
+	require.Equal(t, before, after, "disabled provider must not create a new operation")
+	for _, path := range []string{productAcquisitionBase, productAcquisitionBase + "/verify"} {
+		replayed := acquisitionHTTPCall(t, disabled, "POST", path, "operator", "B", key, body, 200)
+		require.Equal(t, first.PublicationID, replayed.PublicationID)
+		require.Equal(t, first.CatalogVersion, replayed.CatalogVersion)
+	}
+	read := acquisitionHTTPCall(t, disabled, "GET", productAcquisitionBase+"/"+first.OperationID, "operator", "B", "", "", 200)
+	require.Equal(t, first.PublicationID, read.PublicationID)
+	code, _, err := acquisitionHTTPRequest(disabled, "GET", productAcquisitionBase+"/"+first.OperationID+"/product", "operator", "B", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 200, code)
+	acquisitionHTTPCall(t, disabled, "POST", productAcquisitionBase, "operator", "B", key, `{"source":"12345"}`, 409)
+	acquisitionHTTPCall(t, disabled, "GET", productAcquisitionBase+"/"+first.OperationID, "operator", "A", "", "", 404)
+	f.grants.revoked.Store(true)
+	acquisitionHTTPCall(t, disabled, "POST", productAcquisitionBase, "operator", "B", key, body, 403)
+	require.EqualValues(t, 1, f.fetches.Load())
+}
+
 func TestAcquisitionMountedHTTPResponseLossAndApplicationRestart(t *testing.T) {
 	f := newAcquisitionHTTPFixture(t)
 	normal := f.server(t)
@@ -279,6 +287,11 @@ func TestAcquisitionMountedHTTPResponseLossAndApplicationRestart(t *testing.T) {
 	require.EqualValues(t, 1, versions)
 	require.Equal(t, versions, receipts)
 }
+
+// Shared loopback transport used by the existing title evaluation fixtures.
+type acquisitionHTTPTransport func(*http.Request) (*http.Response, error)
+
+func (f acquisitionHTTPTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 type acquisitionHTTPProviderFunc func(context.Context, sourcing.AcquisitionSource) (sourcing.AcquisitionEvidence, error)
 
