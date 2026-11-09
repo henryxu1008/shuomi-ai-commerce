@@ -42,11 +42,12 @@ func (t OfficialApplicationType) Valid() bool {
 }
 
 type OfficialMerchantCredential struct {
-	AppID      string
-	OpenKeyID  string
-	SecretKey  string `json:"-"`
-	SupplierID string
-	Temu       *TemuMerchantCredential `json:"-"`
+	AppID             string
+	OpenKeyID         string
+	SecretKey         string `json:"-"`
+	SupplierID        string
+	SheinBusinessMode string
+	Temu              *TemuMerchantCredential `json:"-"`
 }
 type OfficialStoreInformation struct {
 	SupplierID   *string

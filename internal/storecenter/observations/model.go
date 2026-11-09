@@ -140,6 +140,7 @@ type Order struct {
 	Site              string      `json:"site"`
 	Status            *int        `json:"status"`
 	StockMode         *int        `json:"stockMode"`
+	SalesArea         *int        `json:"salesArea,omitempty"`
 	Type              *int        `json:"type"`
 	Tag               *int        `json:"tag"`
 	Reasons           []int       `json:"reasons"`

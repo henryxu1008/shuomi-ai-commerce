@@ -90,6 +90,24 @@ func TestObservedOrderMissingPricesPreserveKnownCurrencies(t *testing.T) {
 		})
 	}
 }
+
+func TestObservedSalesAreaKeepsKnownUnknownAndMissingEvidence(t *testing.T) {
+	for _, test := range []struct {
+		raw  string
+		want *int
+	}{{"1", intPointer(1)}, {"2", intPointer(2)}, {"99", intPointer(99)}, {"null", nil}} {
+		t.Run(test.raw, func(t *testing.T) {
+			c := testClient(t, roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return observationResponse(`{"code":"0","info":[{"orderNo":"order-a","salesSite":"shein-us","salesArea":` + test.raw + `}]}`), nil
+			}))
+			rows, err := c.QueryObservedOrderDetails(context.Background(), goodsCredential(), []string{"order-a"})
+			require.NoError(t, err)
+			require.Equal(t, test.want, rows[0].SalesArea)
+		})
+	}
+}
+
+func intPointer(v int) *int { return &v }
 func TestObservedLogisticsAllowsPackageWithoutWaybillAndRejectsDuplicateJSON(t *testing.T) {
 	raw := `{"code":"0","info":{"trackInfo":[{"carrier":"Carrier","waybillNo":"waybill-a","tracking":[{"description":"Collected","nodeCode":"collected","updateTimeMillis":1700000000000}]}]}}`
 	c := testClient(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {

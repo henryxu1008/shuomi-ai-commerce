@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/stretchr/testify/require"
-	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )
@@ -33,6 +33,54 @@ type observationProvider struct {
 	OfficialObservationProvider
 	calls int
 	after func()
+}
+
+func (p *observationProvider) QueryObservedOrders(context.Context, storecenter.OfficialMerchantCredential, o.Window, int) (o.OrderPage, error) {
+	p.calls++
+	if p.after != nil {
+		p.after()
+	}
+	return o.OrderPage{ReportedCount: new(int)}, nil
+}
+
+type observationBusinessProtection struct {
+	productSecretProtection
+	mode string
+}
+
+func (p *observationBusinessProtection) Open(a storecenter.OfficialConnectionAttempt, key, ciphertext string) (storecenter.OfficialMerchantCredential, error) {
+	c, e := p.productSecretProtection.Open(a, key, ciphertext)
+	c.SheinBusinessMode = p.mode
+	return c, e
+}
+
+func TestSelfOperatedOrdersDoNotAdmitSpecialBusinessModes(t *testing.T) {
+	for _, mode := range []string{"", "POP-US", "POP-GLOBAL", "SFS", "FUTURE-MODE"} {
+		t.Run(mode, func(t *testing.T) {
+			a, _, provider, subject := observationHandleFixture(t)
+			subject.Purpose = storecenter.ObservationPurposeOrders
+			protection := &observationBusinessProtection{mode: mode}
+			for key, entry := range a.applications.entries {
+				entry.protection = protection
+				a.applications.entries[key] = entry
+			}
+			h, err := a.Authorize(context.Background(), subject, "store-a", nil)
+			if mode != "" {
+				require.ErrorIs(t, err, o.ErrUnsupported)
+				require.Nil(t, h)
+				require.Zero(t, provider.calls)
+				return
+			}
+			require.NoError(t, err)
+			_, err = h.Orders(context.Background(), o.Window{Start: time.Now().Add(-time.Hour), End: time.Now()}, 1)
+			require.NoError(t, err)
+			require.Equal(t, 1, provider.calls)
+			protection.mode = "SFS"
+			_, err = h.Orders(context.Background(), o.Window{}, 1)
+			require.ErrorIs(t, err, o.ErrUnsupported)
+			require.Equal(t, 1, provider.calls, "recheck must precede provider call")
+		})
+	}
 }
 
 func (p *observationProvider) Application() storecenter.OfficialApplication {

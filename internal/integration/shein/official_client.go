@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"task-processor/internal/storecenter"
@@ -66,6 +67,10 @@ var _ storecenter.OfficialConnectionProvider = (*OfficialClient)(nil)
 
 func boundedParameter(value string, maximum int) bool {
 	return value != "" && len(value) <= maximum && utf8.ValidString(value) && strings.TrimSpace(value) == value && !strings.ContainsAny(value, "\r\n\x00")
+}
+
+func boundedBusinessMode(value string) bool {
+	return value == "" || boundedParameter(value, 64) && !strings.ContainsFunc(value, unicode.IsControl)
 }
 func (c *OfficialClient) Application() storecenter.OfficialApplication { return c.application }
 func (c *OfficialClient) AuthorizationURL(state string) (string, error) {
@@ -128,11 +133,12 @@ func (c *OfficialClient) Exchange(ctx context.Context, token, state string) (sto
 	var response struct {
 		Code string `json:"code"`
 		Info *struct {
-			SecretKey  string          `json:"secretKey"`
-			OpenKeyID  string          `json:"openKeyId"`
-			AppID      string          `json:"appid"`
-			State      string          `json:"state"`
-			SupplierID json.RawMessage `json:"supplierId"`
+			SecretKey    string          `json:"secretKey"`
+			OpenKeyID    string          `json:"openKeyId"`
+			AppID        string          `json:"appid"`
+			State        string          `json:"state"`
+			SupplierID   json.RawMessage `json:"supplierId"`
+			BusinessMode string          `json:"supplierBusinessMode"`
 		} `json:"info"`
 	}
 	if json.Unmarshal(data, &response) != nil || response.Code == "" {
@@ -146,14 +152,14 @@ func (c *OfficialClient) Exchange(ctx context.Context, token, state string) (sto
 		return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialExchangeUnknown
 	}
 	supplier, ok := supplierIdentity(info.SupplierID)
-	if !ok {
+	if !ok || !boundedBusinessMode(info.BusinessMode) {
 		return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialExchangeUnknown
 	}
 	secret, err := decryptMerchantSecret(info.SecretKey, c.appSecret)
 	if err != nil {
 		return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialExchangeUnknown
 	}
-	return storecenter.OfficialMerchantCredential{AppID: info.AppID, OpenKeyID: info.OpenKeyID, SecretKey: secret, SupplierID: supplier}, nil
+	return storecenter.OfficialMerchantCredential{AppID: info.AppID, OpenKeyID: info.OpenKeyID, SecretKey: secret, SupplierID: supplier, SheinBusinessMode: info.BusinessMode}, nil
 }
 func supplierIdentity(value json.RawMessage) (string, bool) {
 	text := string(value)
@@ -212,9 +218,10 @@ func (c *OfficialClient) QueryStore(ctx context.Context, credential storecenter.
 		Code string `json:"code"`
 		Info *struct {
 			StoreInfo *struct {
-				SupplierID  json.RawMessage `json:"supplierId"`
-				StoreName   *string         `json:"storeName"`
-				StoreStatus *int            `json:"storeStatus"`
+				SupplierID   json.RawMessage `json:"supplierId"`
+				StoreName    *string         `json:"storeName"`
+				StoreStatus  *int            `json:"storeStatus"`
+				BusinessMode string          `json:"supplierBusinessMode"`
 			} `json:"storeInfo"`
 		} `json:"info"`
 	}
@@ -229,6 +236,9 @@ func (c *OfficialClient) QueryStore(ctx context.Context, credential storecenter.
 	}
 	info := storecenter.OfficialStoreInformation{}
 	if store := response.Info.StoreInfo; store != nil {
+		if !boundedBusinessMode(store.BusinessMode) || store.BusinessMode != "" && store.BusinessMode != credential.SheinBusinessMode {
+			return info, storecenter.ErrOfficialConnectionUnavailable
+		}
 		if len(store.SupplierID) > 0 && string(store.SupplierID) != "null" {
 			supplier, ok := supplierIdentity(store.SupplierID)
 			if !ok || supplier != credential.SupplierID {

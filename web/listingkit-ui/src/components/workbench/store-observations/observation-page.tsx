@@ -40,6 +40,7 @@ import {
   observationTracksSchema,
   ObservationError,
   orderStatus,
+  orderSalesArea,
   orderProblems,
   type ObservationKind,
   type ObservationRecord,
@@ -930,7 +931,10 @@ function Detail({
       className={styles.dialog}
       aria-labelledby="observation-detail-title"
       onCancel={close}
-      onClose={close}
+      onClose={(event) => {
+        // Strict Mode reopens the dialog before its cleanup's queued close event.
+        if (!event.currentTarget.open) close();
+      }}
     >
       <header>
         <div>
@@ -1028,6 +1032,8 @@ function Detail({
               <dl className={styles.facts}>
                 <dt>平台状态</dt>
                 <dd>{orderStatus(order.status)}</dd>
+                <dt>销售范围</dt>
+                <dd>{orderSalesArea(order.salesArea)}</dd>
                 <dt>订单金额</dt>
                 <dd>{price(order.amount)}</dd>
                 <dt>供货价</dt>
