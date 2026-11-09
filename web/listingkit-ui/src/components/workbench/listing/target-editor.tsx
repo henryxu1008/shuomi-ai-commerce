@@ -42,7 +42,7 @@ export function ListingTargetEditor({scope,source,storeId,existing,appliedPropos
   const input={sourceId:source.source.id,storeId,expectedRevision:existing?.revision??0,effectiveVersion:version,...applied?{applyReceiptId:applied}:{},draft:currentInput.current,...partitioned?{targetId:existing!.targetId,colorPartition:existing!.input.colorPartition}:{}};
   void supplyRules(scope,input,c.signal).then(value=>{if(live){setRules(value);if(mode.current!==value.merchant.application_type){setDraft(d=>applyApplicationMode(d,value.merchant.application_type));mode.current=value.merchant.application_type}setError(undefined)}}).catch(e=>{if(live)setError(e instanceof SupplyAPIError?e.code:"DEPENDENCY_UNAVAILABLE")}).finally(()=>{if(live)setResolvedRuleEpoch(ruleEpoch)});
   return()=>{live=false;c.abort()};
- },[scope,source,storeId,existing,version,applied,ruleEpoch]);
+ },[scope,source,storeId,existing,version,applied,ruleEpoch,partitioned]);
  useEffect(()=>{let live=true;const c=new AbortController();
   void supplyInventory(scope,selection,c.signal).then(value=>{if(live)setInventory(value)}).catch(e=>{if(live)setError(e instanceof SupplyAPIError?e.code:"DEPENDENCY_UNAVAILABLE")});return()=>{live=false;c.abort()};
  // Selection facts are immutable during this editor session; saved refreshes the exact inventory.
