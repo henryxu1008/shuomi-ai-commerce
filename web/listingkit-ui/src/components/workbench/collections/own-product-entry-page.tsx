@@ -13,6 +13,7 @@ import {Select} from "@/components/ui/select";
 import {Textarea} from "@/components/ui/textarea";
 import {Table,TableHeader,TableHead,TableBody,TableRow,TableCell} from "@/components/ui/table";
 import {ConsolePage,ConsoleState} from "../console/console-page";
+import {ResourceDialog} from "../resources/resource-dialog";
 import {DescriptionEditor} from "../description-editor";
 import {OwnProductIntake} from "./own-product-intake";
 import {applyIntakeVariants} from "./own-product-intake-model";
@@ -63,6 +64,8 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
  const [single,setSingle]=useState(()=>initial?.rows[0]??newVariantRow()),[rows,setRows]=useState<VariantRow[]>(initial?.mode==="multiple"?initial.rows:[]);
  const [specs,setSpecs]=useState<Specification[]>(initial?.specs??[{id:"initial",name:"",values:""}]),[generated,setGenerated]=useState(()=>initial?specificationSignature(initial.specs):"");
  const [bulk,setBulk]=useState({prefix:"",currency:"",price:"",stock:""}),[error,setError]=useState("");
+ const [confirmation,setConfirmation]=useState<"leave"|"reload"|null>(null);
+ const keepEditingRef=useRef<HTMLButtonElement>(null);
  const commands=useCollectionCommand(scope,(receipt,intent)=>{
   if(intent.command.action==="create_product"&&receipt.itemId)router.push(`${library}&saved=${receipt.itemId}`);
   if(intent.command.action==="revise_product"&&receipt.itemId===intent.command.itemId)router.push(`/workbench/data/mine/own/${intent.command.itemId}`);
@@ -106,14 +109,15 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
   setError("");
  }
  const formIdentity=JSON.stringify({title,brand,description,descriptionFormat,images,commonImages,attributes,mode,single,rows,specs}),originalForm=useRef(formIdentity);
- function leave(){if(edit&&!commands.pending&&originalForm.current!==formIdentity&&!window.confirm("还有未保存的修改，确定返回商品详情吗？"))return;router.push(edit?`/workbench/data/mine/own/${edit.detail.item.id}`:library)}
+ function returnToDetail(){router.push(edit?`/workbench/data/mine/own/${edit.detail.item.id}`:library)}
+ function leave(){if(edit&&!commands.pending&&originalForm.current!==formIdentity){setConfirmation("leave");return}returnToDetail()}
  const pageTitle=edit?"编辑自有商品":"添加自有商品";
  if(["PERMISSION_DENIED","IDENTITY_CONTEXT_CHANGED","ORGANIZATION_CONTEXT_CHANGED"].includes(commands.error??""))return <ConsolePage title={pageTitle} description="当前访问资格已变化，请重新确认后读取商品。"><CollectionCommandFeedback state={commands} canRetry={false}/><Button variant="outline" onClick={()=>window.location.reload()}>重新读取最新资料</Button></ConsolePage>;
  return <ConsolePage title={pageTitle} description={edit?"修改已保存的商品资料，保存后生成新的资料版本。":"录入商品资料和销售规格，保存到当前企业下的自有商品库。"} breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:pageTitle}]} actions={<Button variant="outline" disabled={commands.busy||mediaBlocked} onClick={leave}><ArrowLeft size={16}/>{edit?"取消并返回详情":"返回自有商品库"}</Button>}>
   <form className="space-y-6" onSubmit={event=>{event.preventDefault();if(disabled||mediaBlocked)return;if(stale){setError("规格已修改，请先更新变体组合。");return}try{const product=prepareOwnProduct({title,brand,description,descriptionFormat,images:commonImages,imagePool:images,mode,rows:activeRows,attributes});const command=edit?{action:"revise_product" as const,itemId:edit.detail.item.id,expectedRevision:frozenRevision?.expectedRevision??edit.detail.item.revision,expectedSourceVersion:frozenRevision?.expectedSourceVersion??edit.detail.item.source.version,expectedPublicationId:frozenRevision?.expectedPublicationId??edit.detail.item.source.publicationId,product}:{action:"create_product" as const,product};const parsed=collectionCommandSchema.safeParse(command);if(!parsed.success)throw new Error(parsed.error.issues[0]?.message??"请检查填写内容。");setError("");void commands.run(parsed.data)}catch(failure){setError((failure as Error).message)}}}>
    <CollectionCommandFeedback state={commands}/>
    {restoredRequestEnded?<p role="status" className="text-sm text-muted-foreground">原请求已结束。重新读取最新资料后才能继续编辑。</p>:null}
-   {(restoredRequestEnded||edit&&commands.error==="REVISION_CONFLICT")?<Button type="button" variant="outline" onClick={()=>{if(window.confirm("重新读取会放弃当前未保存的修改，确定读取最新资料吗？"))window.location.reload()}}>重新读取最新资料</Button>:null}
+   {(restoredRequestEnded||edit&&commands.error==="REVISION_CONFLICT")?<Button type="button" variant="outline" onClick={()=>setConfirmation("reload")}>重新读取最新资料</Button>:null}
    {edit?<Card className="space-y-2 border-border bg-muted/40 p-4"><p className="text-sm font-medium">基于资料版本 {frozenRevision?.expectedSourceVersion??edit.detail.item.source.version}</p><p className="text-sm text-muted-foreground">保存会追加新版本，已有草稿继续使用它们选定的资料。{frozen?"正在显示待核实请求的原始内容。":""}</p></Card>:null}
    {context.pendingSupplyIntent?<p className="text-sm text-muted-foreground">有待核实的供应链操作，请先返回“商品刊登”处理后再保存商品。</p>:null}
    {!context.permissions.includes("workbench.collection.manage")?<p role="alert" className="text-sm text-destructive">当前没有添加自有商品的权限。</p>:null}
@@ -156,6 +160,13 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
    </fieldset>
    <Card className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-4 border-border bg-card p-4 text-card-foreground shadow-lg"><div className="min-w-0"><p className="text-sm">{mode==="multiple"?`${rows.length} 个变体`:(single.sku?"1 个SKU":"基础商品资料")} · {commonImages.length} 张公共图片</p><p className="mt-1 text-xs text-muted-foreground">保存到自有商品库，图片在适配时由你确认。</p>{error?<p role="alert" className="mt-2 text-sm text-destructive">{error}</p>:null}</div><Button type="submit" disabled={disabled||stale||mediaBlocked}>{commands.busy?"正在保存…":edit?"保存新版本":"保存商品"}</Button></Card>
   </form>
+  {confirmation?<ResourceDialog title={confirmation==="leave"?"放弃未保存的修改？":"重新读取最新资料？"} onClose={()=>setConfirmation(null)} locked={commands.busy||mediaBlocked} initialFocusRef={keepEditingRef}>
+   <p className="text-sm text-muted-foreground">{confirmation==="leave"?"当前修改尚未保存。放弃后将返回商品详情，已保存的商品资料不会改变。":"重新读取会放弃当前未保存的修改，并加载最新资料。"}</p>
+   <div className="flex flex-wrap justify-end gap-3">
+    <Button type="button" variant="outline" ref={keepEditingRef} disabled={commands.busy||mediaBlocked} onClick={()=>setConfirmation(null)}>{confirmation==="leave"?"继续编辑":"保留当前内容"}</Button>
+    <Button type="button" variant="destructive" disabled={commands.busy||mediaBlocked} onClick={()=>{if(commands.busy||mediaBlocked)return;setConfirmation(null);if(confirmation==="reload")window.location.reload();else returnToDetail()}}>{confirmation==="leave"?"放弃修改":"放弃并重新读取"}</Button>
+   </div>
+  </ResourceDialog>:null}
  </ConsolePage>;
 }
 
