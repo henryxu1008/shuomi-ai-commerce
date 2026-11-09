@@ -141,6 +141,13 @@ func (h *ObservationHandle) credential(ctx context.Context) (storecenter.Officia
 		return storecenter.OfficialMerchantCredential{}, o.ErrConflict
 	}
 	k, e := entry.protection.Open(m.Attempt, m.Attempt.KeyID, m.Attempt.Ciphertext)
+	if m.Platform == storecenter.PlatformTemu && h.subject.Purpose == storecenter.ObservationPurposeOrders {
+		binding, err := temuOrderBinding(h.subject.OrganizationID, h.binding.StoreID, m, entry, h.owner.now())
+		if e != nil || err != nil || !validTemuPrivateCredential(k) || k.AppID != entry.application.AppID || binding != h.binding || ctx.Err() != nil || !h.owner.now().Before(h.expiresAt) {
+			return storecenter.OfficialMerchantCredential{}, o.ErrConflict
+		}
+		return k, nil
+	}
 	if m.Platform == storecenter.PlatformTemu {
 		binding, valid := verifiedTemuMerchantBinding(h.subject.OrganizationID, h.binding.StoreID, m, k, entry, h.owner.now())
 		if e != nil || !valid || binding != h.binding || ctx.Err() != nil || !h.owner.now().Before(h.expiresAt) {
@@ -165,7 +172,10 @@ func (h *ObservationHandle) Check(ctx context.Context) error {
 		_, e := h.walmartCredential(ctx)
 		return e
 	}
-	_, e := h.credential(ctx)
+	k, e := h.credential(ctx)
+	if e == nil && h.binding.Platform == storecenter.PlatformTemu && h.subject.Purpose == storecenter.ObservationPurposeOrders {
+		return h.checkTemuOrderIdentity(ctx, k)
+	}
 	return e
 }
 func observationCall[T any](ctx context.Context, h *ObservationHandle, purpose string, call func(context.Context, storecenter.OfficialMerchantCredential) (T, error)) (T, error) {

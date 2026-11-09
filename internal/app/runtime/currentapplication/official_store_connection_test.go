@@ -81,6 +81,27 @@ func TestTemuOfficialApplicationsSupportBothSupplierModesAndSeparateLocalPartiti
 		require.Error(t, changed.validate())
 	}
 }
+func TestTemuConsumerOrdersRequireExplicitRegionalR2Configuration(t *testing.T) {
+	for _, partition := range []storecenter.OfficialIdentityPartition{storecenter.PartitionUS, storecenter.PartitionGlobal, storecenter.PartitionCN, storecenter.PartitionEU} {
+		config := OfficialStoreConnectionConfig{Platform: storecenter.PlatformTemu, IdentityPartition: partition, AppID: "orders-app", Version: "v1", TemuConsumerOrders: true}
+		app, err := config.application()
+		if partition == storecenter.PartitionCN || partition == storecenter.PartitionEU {
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+		require.Equal(t, storecenter.ModesLocal|storecenter.ModesSemiManaged, app.SupportedModes)
+		require.Equal(t, "v1:temu:"+string(partition)+":manual_token:3:r2", app.Version)
+		config.TemuConsumerOrders = false
+		original, err := config.application()
+		require.NoError(t, err)
+		require.Equal(t, storecenter.ModesLocal, original.SupportedModes)
+		require.NotEqual(t, original.Version, app.Version)
+	}
+	_, err := (&OfficialStoreConnectionConfig{Type: storecenter.ApplicationSelfOperated, Version: "v1", TemuConsumerOrders: true}).application()
+	require.Error(t, err)
+}
+
 func TestOfficialApplicationsRejectSharedFilesKeysAndUnknownTypes(t *testing.T) {
 	configs := []OfficialStoreConnectionConfig{}
 	for _, mode := range []storecenter.OfficialApplicationType{storecenter.ApplicationSelfOperated, storecenter.ApplicationSemiManaged, storecenter.ApplicationFullyManaged} {

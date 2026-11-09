@@ -115,3 +115,13 @@ func TestTemuCoverageRequiresStableCountsAndFullPages(t *testing.T) {
 	require.EqualValues(t, 1000, lo)
 	require.EqualValues(t, 1999, hi)
 }
+
+func TestTemuOrderDetailDoesNotEnterSheinProvider(t *testing.T) {
+	s, r, _, m := serviceFixture()
+	r.sync.Kind = Orders
+	r.sync.Binding = testTemuOrderBinding(r.sync.Binding)
+	m.binding = r.sync.Binding
+	m.afterDetail = func() { t.Fatal("Temu parent order entered SHEIN detail") }
+	_, err := s.Detail(context.Background(), Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}, r.sync.StoreID, r.sync.ID, "parent-order", Orders)
+	require.ErrorIs(t, err, ErrUnsupported)
+}

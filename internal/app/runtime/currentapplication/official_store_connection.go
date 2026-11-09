@@ -19,16 +19,17 @@ import (
 )
 
 type OfficialStoreConnectionConfig struct {
-	Platform          storecenter.Platform                  `json:"platform,omitempty"`
-	IdentityPartition storecenter.OfficialIdentityPartition `json:"identityPartition,omitempty"`
-	Type              storecenter.OfficialApplicationType   `json:"type"`
-	AppID             string                                `json:"appId"`
-	Version           string                                `json:"version"`
-	APIOrigin         string                                `json:"apiOrigin"`
-	CallbackURL       string                                `json:"callbackURL"`
-	AppSecretFile     string                                `json:"appSecretFile"`
-	CredentialKeyFile string                                `json:"credentialKeyFile"`
-	CredentialKeyID   string                                `json:"credentialKeyId"`
+	TemuConsumerOrders bool                                  `json:"temuConsumerOrders,omitempty"`
+	Platform           storecenter.Platform                  `json:"platform,omitempty"`
+	IdentityPartition  storecenter.OfficialIdentityPartition `json:"identityPartition,omitempty"`
+	Type               storecenter.OfficialApplicationType   `json:"type"`
+	AppID              string                                `json:"appId"`
+	Version            string                                `json:"version"`
+	APIOrigin          string                                `json:"apiOrigin"`
+	CallbackURL        string                                `json:"callbackURL"`
+	AppSecretFile      string                                `json:"appSecretFile"`
+	CredentialKeyFile  string                                `json:"credentialKeyFile"`
+	CredentialKeyID    string                                `json:"credentialKeyId"`
 }
 
 func (c *OfficialStoreConnectionConfig) application() (storecenter.OfficialApplication, error) {
@@ -37,7 +38,7 @@ func (c *OfficialStoreConnectionConfig) application() (storecenter.OfficialAppli
 	}
 	// Type is the existing SHEIN configuration discriminator. TEMU requires an
 	// explicit platform/partition and never reuses that application's one mode.
-	if (c.Platform == "" || c.Platform == storecenter.PlatformShein) && c.Type.Valid() && c.IdentityPartition == "" {
+	if (c.Platform == "" || c.Platform == storecenter.PlatformShein) && c.Type.Valid() && c.IdentityPartition == "" && !c.TemuConsumerOrders {
 		return storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: c.AppID, Version: storeapp.BoundOfficialRevision(c.Version, c.Type), CallbackURL: c.CallbackURL}, nil
 	}
 	if c.Platform != storecenter.PlatformTemu || c.Type != "" || c.APIOrigin != "" || c.CallbackURL != "" {
@@ -50,6 +51,12 @@ func (c *OfficialStoreConnectionConfig) application() (storecenter.OfficialAppli
 	case storecenter.PartitionUS, storecenter.PartitionEU, storecenter.PartitionGlobal:
 	default:
 		return storecenter.OfficialApplication{}, errors.New("official Store application identity partition invalid")
+	}
+	if c.TemuConsumerOrders {
+		if c.IdentityPartition != storecenter.PartitionUS && c.IdentityPartition != storecenter.PartitionGlobal {
+			return storecenter.OfficialApplication{}, errors.New("Temu consumer orders require US or GLOBAL regional identity")
+		}
+		return storecenter.OfficialApplication{Platform: storecenter.PlatformTemu, IdentityPartition: c.IdentityPartition, AuthorizationMethod: storecenter.AuthorizationManualToken, SupportedModes: storecenter.ModesLocal | storecenter.ModesSemiManaged, AppID: c.AppID, Version: c.Version + ":temu:" + string(c.IdentityPartition) + ":manual_token:3:r2"}, nil
 	}
 	return storecenter.OfficialApplication{Platform: storecenter.PlatformTemu, IdentityPartition: c.IdentityPartition, AuthorizationMethod: storecenter.AuthorizationManualToken, SupportedModes: modes, AppID: c.AppID, Version: storeapp.BoundTemuOfficialRevision(c.Version, c.IdentityPartition)}, nil
 }

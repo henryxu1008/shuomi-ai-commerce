@@ -28,7 +28,14 @@ func (a *OfficialObservationAccess) ReadSavedTemuOrderBinding(ctx context.Contex
 	if e != nil || entry.application.SupportedModes != storecenter.ModesLocal|storecenter.ModesSemiManaged {
 		return MerchantBinding{}, o.ErrConflict
 	}
-	organizationID, storeID := s.OrganizationID, id
+	binding, e := temuOrderBinding(s.OrganizationID, id, m, entry, now)
+	if ctx.Err() != nil {
+		return MerchantBinding{}, o.ErrUnavailable
+	}
+	return binding, e
+}
+
+func temuOrderBinding(organizationID, storeID string, m storecenter.ProductExecutionMaterial, entry officialApplicationEntry, now time.Time) (MerchantBinding, error) {
 	app, attempt, connection := entry.application, m.Attempt, m.Connection
 	if m.Platform != storecenter.PlatformTemu || app.Platform != m.Platform || attempt.Platform != m.Platform || connection.Platform != m.Platform || app.AuthorizationMethod != storecenter.AuthorizationManualToken || attempt.AuthorizationMethod != app.AuthorizationMethod || connection.AuthorizationMethod != app.AuthorizationMethod || attempt.IdentityPartition != app.IdentityPartition || connection.IdentityPartition != app.IdentityPartition || attempt.OrganizationID != organizationID || attempt.StoreID != storeID || attempt.AttemptID != connection.AttemptID || attempt.ConnectionVersion != connection.Version || connection.Status != storecenter.ConnectionStatusConnected || attempt.State != "verified" || connection.State != "verified" || attempt.AppID != app.AppID || attempt.AppVersion != app.Version || connection.AppID != app.AppID || connection.AppRevision != app.Version || m.StoreVersion < 1 || connection.Version < 1 || !now.Before(m.ServiceExpiresAt) {
 		return MerchantBinding{}, o.ErrConflict
@@ -52,7 +59,7 @@ func (a *OfficialObservationAccess) ReadSavedTemuOrderBinding(ctx context.Contex
 	scopesHash := sha256.Sum256(encoded)
 	site := "temu-order-us"
 	binding := MerchantBinding{Platform: app.Platform, IdentityPartition: app.IdentityPartition, MerchantMode: facts.Mode, RegionID: facts.RegionID, CredentialExpiresAt: facts.ExpiresAt.UTC(), VerificationRevision: facts.ContractRevision, ScopesHash: hex.EncodeToString(scopesHash[:]), OrganizationID: organizationID, StoreID: storeID, Site: site, StoreVersion: m.StoreVersion, ConnectionRevision: connection.Version, ApplicationID: app.AppID, ApplicationRevision: app.Version, SupplierIdentityHash: identity, ServiceExpiresAt: m.ServiceExpiresAt.UTC()}
-	if ctx.Err() != nil || !binding.ValidTemuOrderApplication() {
+	if !binding.ValidTemuOrderApplication() {
 		return MerchantBinding{}, o.ErrConflict
 	}
 	return binding, nil

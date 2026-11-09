@@ -16,9 +16,9 @@ function requestInput(storeId:string,startDate:string,endDate:string){
  return observationBeginSchema.parse({kind:"orders",stores:[storeId],start:`${startDate}T00:00:00+08:00`,end:`${next.toISOString().slice(0,10)}T00:00:00+08:00`});
 }
 
-export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permissions}:{platform:"walmart"|"tiktokshop";scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[]}){
+export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permissions}:{platform:"walmart"|"tiktokshop"|"temu";scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[]}){
  const client=useQueryClient();
- const label=platform==="walmart"?"Walmart US":"TikTok Shop US";
+ const label=platform==="temu"?"Temu US":platform==="walmart"?"Walmart US":"TikTok Shop US";
  const storageKey=JSON.stringify([`${platform}-order-sync`,scope.organizationId,scope.userId,storeId]);
  const [intent,setIntent]=useState<Intent>();
  const [resolvedKey,setResolvedKey]=useState("");
@@ -75,7 +75,7 @@ export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permiss
  }
  async function ensure(){if(!sync)return;setBusy(true);setError("");try{await observationRequest(`orders/syncs/${sync.id}/ensure`,scope,observationSyncSchema,undefined,{});await receipt.refetch();}catch{setError("继续同步结果尚未确认，请继续原任务。");}finally{setBusy(false);}}
  return <section className={styles.bar} aria-label={`${label} 订单同步`}>
-  <div><strong>{label} 订单</strong><p>{platform==="tiktokshop"?"仅当前支持的 US 跨境店":"仅手动读取所选店铺"} · {startDate} — {endDate}（UTC+8）</p>{intent&&<p>原任务日期：{intent.input.start?.slice(0,10)} — {new Date(new Date(intent.input.end!).getTime()-1).toLocaleDateString("sv-SE",{timeZone:"Asia/Shanghai"})}</p>}</div>
+  <div><strong>{label} 订单</strong><p>{platform==="temu"?"US 本土 / 半托管 · 按父订单读取":platform==="tiktokshop"?"仅当前支持的 US 跨境店":"仅手动读取所选店铺"} · {startDate} — {endDate}（UTC+8）</p>{intent&&<p>原任务日期：{intent.input.start?.slice(0,10)} — {new Date(new Date(intent.input.end!).getTime()-1).toLocaleDateString("sv-SE",{timeZone:"Asia/Shanghai"})}</p>}</div>
   <div className={styles.actions}>
    <Button variant="outline" disabled={!hydrated||storageError||busy||!canSync||!!sync&&active(sync.status)} onClick={()=>void submit()}>{busy?"正在确认同步…":intent&&!terminal?"确认原同步结果":"同步所选日期订单"}</Button>
    {sync&&active(sync.status)&&canSync&&<Button variant="outline" disabled={busy} onClick={()=>void ensure()}>继续原同步</Button>}

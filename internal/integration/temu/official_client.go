@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -23,6 +24,10 @@ const (
 	localInfoAPI         = "bg.open.accesstoken.info.get"
 	verificationRevision = "temu-identity-E08-E10-E11-E26-v1"
 )
+
+// A definite provider refusal is distinct from a malformed or oversized reply.
+// The order amount reader may retain an unknown amount only for this refusal.
+var errOfficialReadRejected = errors.New("official read rejected")
 
 type OfficialClientOptions struct {
 	Application storecenter.OfficialApplication
@@ -233,6 +238,9 @@ func (c *OfficialClient) callOfficialResponse(ctx context.Context, origin, api, 
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
+		if response.StatusCode >= 400 && response.StatusCode < 500 {
+			return "", errors.Join(storecenter.ErrOfficialConnectionUnavailable, errOfficialReadRejected)
+		}
 		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maxOfficialBody+1))
@@ -244,7 +252,13 @@ func (c *OfficialClient) callOfficialResponse(ctx context.Context, origin, api, 
 		Success *bool           `json:"success"`
 		Result  json.RawMessage `json:"result"`
 	}
-	if json.Unmarshal(data, &envelope) != nil || envelope.Success == nil || !*envelope.Success || len(envelope.Result) == 0 || bytes.Equal(envelope.Result, []byte("null")) && api != supplierSizeClassAPI || json.Unmarshal(envelope.Result, result) != nil {
+	if json.Unmarshal(data, &envelope) != nil || envelope.Success == nil {
+		return "", storecenter.ErrOfficialConnectionUnavailable
+	}
+	if !*envelope.Success {
+		return "", errors.Join(storecenter.ErrOfficialConnectionUnavailable, errOfficialReadRejected)
+	}
+	if len(envelope.Result) == 0 || bytes.Equal(envelope.Result, []byte("null")) && api != supplierSizeClassAPI || json.Unmarshal(envelope.Result, result) != nil {
 		// No provider message/raw body is included: either can echo secrets.
 		return "", storecenter.ErrOfficialConnectionUnavailable
 	}
