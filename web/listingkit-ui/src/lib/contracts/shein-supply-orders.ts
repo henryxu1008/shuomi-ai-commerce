@@ -14,4 +14,3 @@ export const supplyObservationSchema=z.object({
  if(v.status==="saved"&&(!v.source||!v.summary||v.source.status!=="completed"||v.source.missingIds.length||v.savedOrderIds.length!==v.source.orderIds.length))c.addIssue({code:"custom",message:"Unconfirmed completeness"});
  if(v.summary&&v.summary.orderCount+v.summary.motherCount+v.summary.unknownTypeCount!==v.savedOrderIds.length)c.addIssue({code:"custom",message:"Classification mismatch"});
 });
-export type SupplyObservation= z.infer<typeof supplyObservationSchema>;
