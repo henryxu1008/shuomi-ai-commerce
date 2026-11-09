@@ -2,7 +2,7 @@
 
 Design Basis: Independent Architecture
 
-Admission Status: NOT_READY — 待独立架构评审；本轮仅设计，不授权正式实现。
+Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-11-09 独立 R1 评审通过，0 BLOCKER，详见 §11；本轮仅设计，不授权正式实现。
 
 依据：用户 2026-11-09 明确要求原商品和候选 R1 不变，黑 M/黑 L 一份、白 M 一份；明确身份、SKU/图片归属、幂等与重试，先独立评审。执行进度归 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)。调查基线 `main 7c480d513660f5aa93bee92722c3bd4ad44ea0ce`。
 
@@ -75,6 +75,8 @@ Schema 按新安装显式 installer/运行权限合同实现，serving 仅 verif
 
 按基线已存 SKU 深拷贝分组，不生成新 SKU，不重建笛卡尔积，不切换颜色/尺码属性、不把未知库存当 0。R1 指定库存与基线有冲突时返回可定位 SKU/字段的冲突，由用户回普通补全流程处理；本轮要求 base 对应库存 0/空/空。保留每个 SKU 的原价格与币种，不从 CNY29 推导 USD12.50。基线文字/多语种/类目/品牌/包装等保持复制，描述提及其他颜色时预览明示“公共说明原文复制，可后续手动编辑”，不做语义重写或 AI 调用。
 
+只复制业务 Draft。父记录的 `SheinImport`、旧 expectedRevision、旧 command key 和其他一次性 adoption 绑定不传播到孩子；新记录只携带本次专用 colorPartition/split provenance。之后普通编辑保留不可变 membership，清除该次编辑不适用的候选带入操作绑定，沿既有合同执行。
+
 每组只保留自己 SKC，重排为 child SKC 0，SKU 顺序保持原相对顺序；尺码表仅保留明确关联到本组实际次销售属性值的条目，共享无关联尺寸项原样保留。无法确定关联的结构冲突不静默丢弃，定位字段并要求重新预览。linked rules 按每份实际保留的 SKU 组合重新查询；不使用父稿跨颜色的规则组合。
 
 后续编辑可改文字、批准图片位置、价格或明确库存，但禁止增加/删除 supplier_sku、改 membership/颜色/销售规格、跨组移动或换 source/candidate 归属。membership 不可变且由原 split receipt 可追溯；每次新 revision 仍是当前 Target owner 校验。普通保存/候选带入/Agent/材料建议入口不得绕过此边界；不支持的入口明确拒绝拆分 purpose。
@@ -115,6 +117,8 @@ Schema 按新安装显式 installer/运行权限合同实现，serving 仅 verif
 
 外部授权/Asset/Store 撤销与数据库 COMMIT 之间不声称分布式原子；继承当前短时 live-check/expiry 合同，不扩展到锁住外部服务。这里仅保存 localOnly 资料，没有支付、库存扣减、上传或不可逆副作用；未来发布必须重新授权并检查当前资格。
 
+Source proof 沿当前五秒有效期：两稿的规则/图片读取结束后再次 `selectSource`，核对同一 scope/SourceItem，生成短期 prepared proof，再进入一次事务；不沿用准备前已过期的 proof，不延长 TTL。事务提交前仍复核该 proof 与当前授权；等待锁导致过期则回滚，两稿都不提交。
+
 ## 9. 权限、Threat Model、资源与准入
 
 读沿 supply.read，预览/创建/编辑沿 supply.manage；org/actor/member/token 从验证后的服务端上下文解析。按当前 owner 资格核对所有 source、candidate、base、family、partition、Asset、store/site，跨企业/他人/成员替换拒绝。浏览器路径参数、name、color、assetID、localOnly 布尔均不是授权依据。
@@ -142,4 +146,13 @@ Legacy decision: N/A；新增当前事实，不迁移/兼容旧系统。复用�
 
 ## 11. 独立评审记录
 
-待评审。Finding 须按 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE 分类，说明当前 Must、用户后果与阻塞层级；最多两轮正常架构评审。冻结后无新 BLOCKER 不重开架构。
+独立 R1 绑定设计提交 `ba74d0caf30cd9eb7b282afef925ceaa1337b89e`，结论 IMPLEMENTATION_READY，0 BLOCKER。Reviewer 独立读取当前 Target、SQL、Source proof、Asset 和上传/Agent 消费路径；报告归档 `C:/Users/Henry/.codex/private/shein-color-split-design-20261109/review-r1.md`。本文件后续仅明确 IT-2/IT-3 与冻结/评审状态，最终文档增量另作有界复核，不冒充原 SHA 的直接证据。
+
+| Finding | Classification | 当前 Must / 用户后果 / 收敛层级 | Action |
+| --- | --- | --- | --- |
+| IT-1 SQL 与双稿原子提交 | IMPLEMENTATION_TEST | 身份、scope/FK/正文一致；不能串家族或部分创建；实施/合并层 | 用现有 PG 测试覆盖复合约束、标准空 partition 唯一性、第二稿/回执失败回滚、同键重放、异键同 family 并发 |
+| IT-2 五秒 Source proof | IMPLEMENTATION_TEST | 准确来源授权；两稿准备较久不能消费过期 proof；实施/合并层 | §8 明确准备后重选 Source，不延长 TTL，提交和锁等待过期检查 |
+| IT-3 父操作绑定 | IMPLEMENTATION_TEST | 原 R1/父稿不变且两子稿可独立保存；不能继承父稿一次性 SheinImport；实施/合并层 | §5 明确仅复制业务 Draft，清旧 key/revision/操作绑定，保存专属 partition provenance |
+| IT-4 localOnly 与回执 | IMPLEMENTATION_TEST | 本轮没有发布/Agent 侧效应；不能直传 recordId 或后续 revision 绕过；实施/合并层 | durable purpose 全 sibling paths 断言，split 初始回执与 family 当前 head 各自校验 |
+
+四项均是适用合同的实现与验证要求，不是未满足的架构 BLOCKER；实现测试失败且证明合同存在当前 Must 的真实 Blocker 时才退回设计。正常架构评审最多两轮，冻结后无新 BLOCKER 不重开架构。此结论不代表功能已实现、CI通过、实机通过或用户验收；本轮均 NOT_RUN。
