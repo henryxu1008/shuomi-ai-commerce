@@ -86,6 +86,9 @@ func TestOfficialApplicationsRejectSharedFilesKeysAndUnknownTypes(t *testing.T) 
 	for _, mode := range []storecenter.OfficialApplicationType{storecenter.ApplicationSelfOperated, storecenter.ApplicationSemiManaged, storecenter.ApplicationFullyManaged} {
 		root := t.TempDir()
 		configs = append(configs, OfficialStoreConnectionConfig{AppID: string(mode), Version: "v1", Type: mode, APIOrigin: "https://openapi.sheincorp.com", CallbackURL: "https://localhost/callback", AppSecretFile: filepath.Join(root, "app-secret"), CredentialKeyFile: filepath.Join(root, "key"), CredentialKeyID: string(mode)})
+		if mode == storecenter.ApplicationFullyManaged {
+			configs[len(configs)-1].APIOrigin = "https://openapi.sheincorp.cn"
+		}
 	}
 	require.NoError(t, validateOfficialApplications(configs))
 	for _, mutate := range []func([]OfficialStoreConnectionConfig){func(c []OfficialStoreConnectionConfig) { c[1].AppID = c[0].AppID }, func(c []OfficialStoreConnectionConfig) { c[1].CredentialKeyID = c[0].CredentialKeyID }, func(c []OfficialStoreConnectionConfig) { c[1].AppSecretFile = c[0].CredentialKeyFile }, func(c []OfficialStoreConnectionConfig) { c[1].Type = "unknown" }} {

@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	ObservationPurposeProducts = "store_products_read"
-	ObservationPurposeOrders   = "store_orders_read"
+	ObservationPurposeProducts     = "store_products_read"
+	ObservationPurposeOrders       = "store_orders_read"
+	ObservationPurposeSupplyOrders = "store_supply_orders_read"
 )
 
 type ObservationSubject struct {
@@ -27,7 +28,7 @@ type ObservationReader interface {
 
 // Independent readonly admission never substitutes a publish/rules purpose.
 func (r *MemberScopedStoreRepository) ReadObservation(ctx context.Context, subject ObservationSubject, storeID string, a ObservationAuthorizer, now time.Time) (ProductExecutionMaterial, error) {
-	if isNilDependency(a) || (subject.Purpose != ObservationPurposeProducts && subject.Purpose != ObservationPurposeOrders) {
+	if isNilDependency(a) || (subject.Purpose != ObservationPurposeProducts && subject.Purpose != ObservationPurposeOrders && subject.Purpose != ObservationPurposeSupplyOrders) {
 		return ProductExecutionMaterial{}, ErrNotFound
 	}
 	return r.readOfficialMaterial(ctx, StoreMemberAccess{OrganizationID: subject.OrganizationID, ActorID: subject.ActorID, MemberID: subject.MemberID}, storeID, now, func(ctx context.Context) (ProductExecutionAuthorization, error) {

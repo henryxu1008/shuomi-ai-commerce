@@ -241,6 +241,7 @@
 - `cockpit-tiktok-us-publish-rate.md` — [运营驾驶舱：TikTok Shop US 提交审核率](cockpit-tiktok-us-publish-rate.md)
 - `cockpit-shein-order-amount.md` — [运营驾驶舱：SHEIN US 已保存订单商品金额（原币）](cockpit-shein-order-amount.md)
 - `cockpit-shein-self-operated-orders.md` — [SHEIN US 普通自运营消费者订单及来源事实](cockpit-shein-self-operated-orders.md)
+- `cockpit-shein-supply-orders.md` — [SHEIN 全托：按采购单号批次保存供货单与数量观察](cockpit-shein-supply-orders.md)
 - `cockpit-walmart-order-amount.md` — [Walmart US 消费者订单保存与单店商品金额](cockpit-walmart-order-amount.md)
 - `cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](cockpit-tiktok-order-amount.md)
 - `cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md)

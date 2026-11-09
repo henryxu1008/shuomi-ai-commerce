@@ -17,6 +17,7 @@ import type { SavedOrderAmountMetrics } from "@/lib/contracts/shein-order-amount
 import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 import { listingMetrics, publicationMetrics, taskMetrics, storeSubmissionMetrics, submissionOverviewMetrics, type SubmissionOverview, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
 import { CockpitTaskDistribution } from "./cockpit-task-distribution";
+import { SheinSupplyOrders } from "./shein-supply-orders";
 import styles from "./cockpit-overview.module.css";
 
 type Matrix = z.infer<typeof cockpitMatrix>;
@@ -91,6 +92,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
   const [region, setRegion] = useState("");
   const [store, setStore] = useState("");
   const [days, setDays] = useState(7);
+  const [supplyApplicableStore, setSupplyApplicableStore] = useState("");
   const platformStores = capabilities.stores.filter(s => !platform || s.platform === platform);
   const regionStores = platformStores.filter(s => !region || s.region === region);
   const selected = regionStores.filter(s => !store || s.id === store);
@@ -116,7 +118,8 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     : store && selected.length === 1 && selected[0].platform === "temu" ? "temu-create" : undefined;
   const publicationAllowed = Boolean(countOwner) && listingAllowed;
   const ordersAllowed = permissions?.includes("workbench.store.orders.read") ?? false;
-  const showOrderAmount = selectedPlatform === "temu" || selectedPlatform === "shein" || selectedPlatform === "walmart" || selectedPlatform === "tiktokshop";
+  const supplyStore = store && selected.length === 1 && selected[0].platform === "shein" ? store : undefined;
+  const showOrderAmount = store !== supplyApplicableStore && (selectedPlatform === "temu" || selectedPlatform === "shein" || selectedPlatform === "walmart" || selectedPlatform === "tiktokshop");
   const access = capabilities.access;
   const key = ["operations-cockpit", scope.userId, scope.organizationId];
   const matrix = useQuery({ queryKey: [...key, "home-matrix", query, access.storesRead], queryFn: ({ signal }) => cockpitRequest(scope, "stores?" + query, cockpitMatrix, { signal }), enabled: access.storesRead && valid, retry: false, gcTime: 0 });
@@ -226,7 +229,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskMessage={taskMessage}
     submissionOverview={overview}
     submissionOverviewMessage={overviewMessage}
-    storeOrderAmount={showOrderAmount ? <SavedOrderAmounts platform={selectedPlatform} data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} /> : undefined}
+    storeOrderAmount={<>{supplyStore && ordersAllowed && <SheinSupplyOrders key={supplyStore} scope={scope} storeId={supplyStore} onApplicable={setSupplyApplicableStore}/ >}{showOrderAmount && <SavedOrderAmounts platform={selectedPlatform} data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} />}</>}
     storeSubmission={countOwner
       ? <PublicationCounts platform={countOwner === "temu-create" ? "temu" : "shein"} counts={publicationCounts} message={publicationMessage} />
       : submissionOwner ? <StoreSubmissionRate owner={submissionOwner} counts={submissionCounts} message={submissionMessage} /> : undefined}

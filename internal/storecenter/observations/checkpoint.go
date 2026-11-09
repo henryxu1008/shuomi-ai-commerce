@@ -27,6 +27,12 @@ func OrderWindows(start, end time.Time) ([]Window, error) {
 	return out, nil
 }
 func copyCheckpoint(c Checkpoint) Checkpoint {
+	if c.SupplyOrders != nil {
+		p := *c.SupplyOrders
+		p.OrderIDs = append([]string{}, p.OrderIDs...)
+		p.MissingIDs = append([]string{}, p.MissingIDs...)
+		c.SupplyOrders = &p
+	}
 	if c.TemuOrders != nil {
 		p := *c.TemuOrders
 		if p.Total != nil {

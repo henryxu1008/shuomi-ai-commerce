@@ -129,7 +129,7 @@ export const observationRecordSchema = z
       [v.product,v.temuProduct,v.walmartProduct,v.order].filter(Boolean).length===1 &&
       (v.product?.id ?? v.temuProduct?.id ?? v.walmartProduct?.sku ?? v.order?.id) === v.id,
   );
-export const observationKindSchema = z.enum(["products", "orders"]);
+export const observationKindSchema = z.enum(["products", "orders", "supply-orders"]);
 export type ObservationKind = z.infer<typeof observationKindSchema>;
 const window = z.object({ start: date, end: date }).strict();
 export const observationSyncSchema = z
@@ -148,6 +148,7 @@ export const observationSyncSchema = z
     ]),
     progress: z
       .object({
+        supplyOrders: z.object({orderIds:z.array(identity).min(1).max(200),next:z.number().int().min(0).max(200),missingIds:z.array(identity).max(200)}).strict().optional(),
         page: z.number().int().min(1).max(5001),
         windows: z.array(window).max(512),
         expectedTotal: count.nullable(),
@@ -163,10 +164,17 @@ export const observationSyncSchema = z
     errorCode: text(64),
   })
   .strict();
+function withinSupplyIdentityBudget(input:readonly string[]){
+  const ids=[...new Set(input)].sort();
+  // Match Go json.Marshal, including its HTML and line-separator escaping.
+  const worst=JSON.stringify({orderIds:ids,next:ids.length,missingIds:ids}).replace(/[<>&\u2028\u2029]/gu,c=>`\\u${c.charCodeAt(0).toString(16).padStart(4,"0")}`);
+  return new TextEncoder().encode(worst).length<=60*1024;
+}
 export const observationBeginSchema = z
   .object({
     kind: observationKindSchema,
     stores: z.array(observationID).max(500),
+    supplyOrderIds: z.array(identity.refine(v=>!/[,/\\?#]/u.test(v))).min(1).max(200).optional(),
     start: date.nullable().optional(),
     end: date.nullable().optional(),
   })
@@ -174,8 +182,9 @@ export const observationBeginSchema = z
   .refine(
     (v) =>
       new Set(v.stores).size === v.stores.length &&
-      (v.kind !== "products" || (!v.start && !v.end)),
-  );
+      (v.kind !== "products" || (!v.start && !v.end)) &&
+      (v.kind === "supply-orders" ? v.stores.length===1 && Boolean(v.supplyOrderIds?.length) && !v.start && !v.end : !v.supplyOrderIds),
+  ).refine(v=>v.kind!=="supply-orders"||withinSupplyIdentityBudget(v.supplyOrderIds??[]),{message:"采购单号批次过长，请减少批量"});
 export const observationCommandSchema = z
   .object({
     id: observationID,
@@ -235,11 +244,11 @@ export const observationCapabilitiesSchema = z
     runtimeReady: z.boolean(),
     providerConfigured: z.boolean(),
     kind: observationKindSchema,
-    site: z.enum(["shein-us","store-native"]),
+    site: z.enum(["shein-us","store-native","unknown"]),
     platformUrl: z.enum(["https://sellerhub.shein.com/",""]),
   })
   .strict()
-  .refine((v) => (!v.canSync || v.available) && (!v.available || (v.runtimeReady && v.providerConfigured)));
+  .refine((v) => (!v.canSync || v.available) && (!v.available || (v.runtimeReady && v.providerConfigured)) && (v.kind==="supply-orders"?v.site==="unknown"&&v.platformUrl==="":v.site!=="unknown"));
 export type ObservationRecord = z.infer<typeof observationRecordSchema>;
 export type ObservationSync = z.infer<typeof observationSyncSchema>;
 export type ObservationPrice = z.infer<typeof observationPriceSchema>;

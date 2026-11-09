@@ -145,6 +145,7 @@ GRANT SELECT ON workbench_stores TO retained_reader`).Error)
 		{"column type drift", `ALTER TABLE operations_cockpit.facts ALTER COLUMN note TYPE varchar(1000)`},
 		{"column nullability drift", `ALTER TABLE store_observations.records ALTER COLUMN payload DROP NOT NULL`},
 		{"default drift", `ALTER TABLE store_observations.records ALTER COLUMN window_key SET DEFAULT 'changed'`},
+		{"supply kind removed", `ALTER TABLE store_observations.records DROP CONSTRAINT records_kind_check, ADD CONSTRAINT records_kind_check CHECK(kind IN('products','orders'))`},
 		{"check drift", `ALTER TABLE operations_cockpit.facts DROP CONSTRAINT facts_revision_check, ADD CONSTRAINT facts_revision_check CHECK(revision>=0)`},
 		{"index drift", `DROP INDEX operations_cockpit.facts_scope_period`},
 		{"extra optional check", `ALTER TABLE operations_cockpit.facts ADD CONSTRAINT unexpected CHECK(note<>'')`},

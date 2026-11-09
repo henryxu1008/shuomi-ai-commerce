@@ -47,6 +47,9 @@ func (a Access) Open(ctx context.Context, s o.Scope, store string, k o.Kind, syn
 	if k == o.Orders {
 		purpose = storecenter.ObservationPurposeOrders
 	}
+	if k == o.SupplyOrders {
+		purpose = storecenter.ObservationPurposeSupplyOrders
+	}
 	return a.Official.Authorize(ctx, storecenter.ObservationSubject{OrganizationID: s.OrganizationID, ActorID: s.ActorID, MemberID: s.MemberID, Purpose: purpose, Sync: sync}, store, b)
 }
 
@@ -61,7 +64,7 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu && platform != storecenter.PlatformWalmart || kind == o.Orders && (platform == storecenter.PlatformTemu || platform == storecenter.PlatformWalmart) {
 		return nil, o.ErrInvalid
 	}
-	if kind == o.Orders {
+	if kind == o.Orders || kind == o.SupplyOrders {
 		platform = storecenter.PlatformShein
 	}
 	out := []string{}
@@ -119,6 +122,7 @@ func (a *Application) Available() bool {
 }
 func (a *Application) Capabilities(ctx context.Context, s o.Scope, k o.Kind) (Capabilities, error) {
 	c := Capabilities{Kind: k, Site: "shein-us", PlatformURL: "https://sellerhub.shein.com/"}
+	if k == o.SupplyOrders { c.Site = "unknown"; c.PlatformURL = "" }
 	if k == o.Products {
 		c.Site = "store-native"
 		c.PlatformURL = ""
