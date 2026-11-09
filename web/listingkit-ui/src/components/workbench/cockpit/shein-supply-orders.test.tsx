@@ -28,7 +28,7 @@ it("labels the saved subset, separates mother counts and keeps unknown quantitie
  const known={value:"2",missingLines:0},unknown={value:null,missingLines:1};
  vi.mocked(observationRequest).mockResolvedValue({storeId:a,status:"incomplete",canSync:false,savedOrderIds:["PO-A"],source:{orderIds:["PO-A","PO-B"],missingIds:["PO-B"],notes:[]},summary:{orderCount:1,motherCount:0,unknownTypeCount:0,quantities:{ordered:known,delivered:known,received:unknown,stored:known,defective:known}}});
  render(<SheinSupplyOrders scope={scope} storeId={a} startDate="2026-11-01" endDate="2026-11-03" onApplicable={applicable}/>,{wrapper:wrapper()});
- await screen.findByText("覆盖不足：仅展示本批已保存部分");expect(screen.getByText("1 行缺失或有歧义")).toBeVisible();expect(screen.getByText("待核实",{exact:true})).toBeVisible();expect(screen.queryByRole("textbox")).toBeNull();expect(applicable).toHaveBeenCalledWith(a);
+ await screen.findByText("覆盖不足：仅展示本批已保存部分");await userEvent.click(screen.getByText("批次详情",{exact:true}));expect(screen.getByText("1 行缺失或有歧义")).toBeVisible();expect(screen.getByText("待核实",{exact:true})).toBeVisible();expect(screen.queryByRole("textbox")).toBeNull();expect(applicable).toHaveBeenCalledWith(a);
 });
 it("resumes the same acknowledged sync without creating a new batch",async()=>{
  vi.mocked(observationRequest).mockImplementation(async(_path,_scope,_schema,_signal,write)=>write?{}:{storeId:a,status:"running",canSync:true,savedOrderIds:[],source:{syncId:b,orderIds:["PO-A"],missingIds:[],notes:[]}});
@@ -68,10 +68,21 @@ it("updates source date groups together and hides old dates while another range 
  let release:((value:unknown)=>void)|undefined;
  vi.mocked(observationRequest).mockImplementation(async path=>path.includes("startDate=2026-11-01")?result("2026-11-01",true):new Promise(resolve=>{release=resolve}));
  const view=render(<SheinSupplyOrders scope={scope} storeId={a} startDate="2026-11-01" endDate="2026-11-03" onApplicable={applicable}/>,{wrapper:wrapper()});
- await screen.findByRole("region",{name:"急采 · 下单日期"});expect(screen.getByText("本批全部数量（不按日期筛选）")).toBeVisible();
+ await screen.findByRole("region",{name:"已保存供货单原文日期观察"});expect(screen.getByText("本批全部数量（不按日期筛选）")).not.toBeVisible();
  view.rerender(<SheinSupplyOrders scope={scope} storeId={a} startDate="2026-11-02" endDate="2026-11-03" onApplicable={applicable}/>);
- expect(screen.queryByRole("region",{name:"急采 · 下单日期"})).toBeNull();
+ expect(screen.queryByRole("region",{name:"已保存供货单原文日期观察"})).toBeNull();
  await waitFor(()=>expect(release).toBeDefined());await act(async()=>release!(result("2026-11-02",false)));
  await screen.findByText(/2026-11-02 至 2026-11-03/);expect(screen.getByText(/区间外 1 单/)).toBeVisible();
  expect(vi.mocked(observationRequest).mock.calls.at(-1)?.[0]).toBe(`supply-orders/observation?storeId=${a}&startDate=2026-11-02&endDate=2026-11-03`);
+});
+
+it("keeps saved-batch details and read form behind separate disclosures while retaining their controls",async()=>{
+ const quantity={value:"5",missingLines:0};
+ vi.mocked(observationRequest).mockResolvedValue({storeId:a,status:"saved",canSync:true,savedOrderIds:["PO-A"],source:{syncId:b,orderIds:["PO-A"],missingIds:[],notes:[]},summary:{orderCount:1,motherCount:0,unknownTypeCount:0,quantities:{ordered:quantity,delivered:quantity,received:quantity,stored:quantity,defective:quantity}}});
+ render(<SheinSupplyOrders scope={scope} storeId={a} startDate="2026-11-01" endDate="2026-11-03" onApplicable={applicable}/>,{wrapper:wrapper()});
+ await screen.findByText("本批单号均已保存");
+ expect(screen.getByLabelText("读取并保存采购单（每批最多 200 个单号，一行一个）")).not.toBeVisible();
+ await userEvent.click(screen.getByText("读取采购单",{exact:true}));expect(screen.getByRole("textbox")).toBeVisible();
+ await userEvent.click(screen.getByText("读取采购单",{exact:true}));expect(screen.getByRole("textbox")).not.toBeVisible();
+ await userEvent.click(screen.getByText("批次详情",{exact:true}));expect(screen.getByText("本批全部数量（不按日期筛选）")).toBeVisible();expect(screen.getByText("查看业务时间原始值",{exact:true})).toBeVisible();
 });
