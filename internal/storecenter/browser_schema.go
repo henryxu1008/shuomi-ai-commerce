@@ -6,6 +6,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	platformdatabase "task-processor/internal/platform/database"
 )
 
 // InstallBrowserSchemaTx is invoked only by the existing Store schema owner.
@@ -111,7 +112,7 @@ func VerifyBrowserSchemaIfPresent(ctx context.Context, q coreSchemaQueryer) (boo
 		{"workbench_store_browser_reports", "store_browser_report_operation", "FOREIGN KEY (organization_id, operation_id) REFERENCES workbench_store_browser_operations(organization_id, operation_id)"},
 	} {
 		var definition string
-		if err := q.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=('public.'||$1)::regclass AND conname=$2 AND convalidated`, b.table, b.name).Scan(&definition); err != nil || strings.Join(strings.Fields(definition), " ") != b.definition {
+		if err := q.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=('public.'||$1)::regclass AND conname=$2 AND convalidated`, b.table, b.name).Scan(&definition); err != nil || !platformdatabase.SchemaConstraintEqual(definition, b.definition) {
 			return false, errors.New("Store browser immutable ownership constraint mismatch")
 		}
 	}

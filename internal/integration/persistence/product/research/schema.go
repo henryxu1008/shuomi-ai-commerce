@@ -3,6 +3,7 @@ package researchpersistence
 import (
 	"context"
 	"gorm.io/gorm"
+	platformdatabase "task-processor/internal/platform/database"
 	"task-processor/internal/product/research"
 )
 
@@ -74,7 +75,15 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		{"research_commands", "receipt_json", "CHECK ((octet_length((receipt_json)::text) <= 65536))"},
 		{"research_commands", "decision_json", "CHECK ((octet_length((decision_json)::text) <= 16384))"},
 	} {
-		if db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=ANY(c.conkey) WHERE c.conrelid=to_regclass(?) AND c.contype='c' AND c.convalidated AND a.attname=? AND pg_get_constraintdef(c.oid)=?)`, expected.table, expected.column, expected.expression).Scan(&ready).Error != nil || !ready {
+		var definitions []string
+		if db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(c.oid) FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=ANY(c.conkey) WHERE c.conrelid=to_regclass(?) AND c.contype='c' AND c.convalidated AND a.attname=?`, expected.table, expected.column).Scan(&definitions).Error != nil {
+			return research.ErrUnavailable
+		}
+		matched := false
+		for _, definition := range definitions {
+			matched = matched || platformdatabase.SchemaConstraintEqual(definition, expected.expression)
+		}
+		if !matched {
 			return research.ErrUnavailable
 		}
 	}

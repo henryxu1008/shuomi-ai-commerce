@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	platformdatabase "task-processor/internal/platform/database"
 
 	"gorm.io/gorm"
 )
@@ -259,7 +260,7 @@ func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities
 		if err := sqlDB.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid='public.workbench_stores'::regclass AND contype='c' AND conname=$1 AND convalidated`, name).Scan(&definition); err != nil {
 			return errors.New("store schema state constraints unavailable")
 		}
-		if strings.Join(strings.Fields(definition), " ") != want {
+		if !platformdatabase.SchemaConstraintEqual(definition, want) {
 			return fmt.Errorf("store schema state constraint mismatch: %s", name)
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strings"
+	platformdatabase "task-processor/internal/platform/database"
 )
 
 var walmartSchemaStatements = []string{
@@ -63,7 +63,7 @@ var walmartSchemaConstraints = []struct{ table, name, definition string }{
 func verifyWalmartSchema(ctx context.Context, db coreSchemaQueryer) error {
 	for _, c := range walmartSchemaConstraints {
 		var definition string
-		if e := db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=('public.'||$1)::regclass AND conname=$2 AND convalidated`, c.table, c.name).Scan(&definition); e != nil || strings.Join(strings.Fields(definition), " ") != c.definition {
+		if e := db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=('public.'||$1)::regclass AND conname=$2 AND convalidated`, c.table, c.name).Scan(&definition); e != nil || !platformdatabase.SchemaConstraintEqual(definition, c.definition) {
 			return errors.New("Walmart Store schema boundary unavailable")
 		}
 	}

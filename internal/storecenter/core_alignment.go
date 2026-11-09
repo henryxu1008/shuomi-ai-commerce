@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	platformdatabase "task-processor/internal/platform/database"
 )
 
 const coreRuntimeSubject = "(SELECT current_user::text AS runtime_role) subject"
@@ -74,9 +75,9 @@ func VerifyCoreAlignmentState(ctx context.Context, q coreSchemaQueryer) (current
 	}
 	definitions := currentConstraintDefinitions
 	switch {
-	case platform == currentConstraintDefinitions["store_platform"] && merchant == currentMerchantCheck && extras == 2:
+	case platformdatabase.SchemaConstraintEqual(platform, currentConstraintDefinitions["store_platform"]) && platformdatabase.SchemaConstraintEqual(merchant, currentMerchantCheck) && extras == 2:
 		current = true
-	case platform == baselinePlatformCheck && merchant == baselineMerchantCheck && extras == 0:
+	case platformdatabase.SchemaConstraintEqual(platform, baselinePlatformCheck) && platformdatabase.SchemaConstraintEqual(merchant, baselineMerchantCheck) && extras == 0:
 		definitions = maps.Clone(currentConstraintDefinitions)
 		definitions["store_platform"] = baselinePlatformCheck
 		delete(definitions, "store_tiktok_identity")
@@ -198,14 +199,14 @@ func verifyUnchangedCoreContract(ctx context.Context, q coreSchemaQueryer) error
 		table, name, _ := strings.Cut(key, ".")
 		var definition string
 		err := q.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid=('public.'||$1)::regclass AND conname=$2 AND convalidated AND NOT condeferrable AND NOT condeferred AND (contype<>'c' OR NOT connoinherit)`, table, name).Scan(&definition)
-		if err != nil || definition != want {
+		if err != nil || !platformdatabase.SchemaConstraintEqual(definition, want) {
 			return fmt.Errorf("unchanged Store constraint mismatch: %s", key)
 		}
 	}
 	for name, want := range unchangedCoreIndexes {
 		var definition string
 		err := q.QueryRowContext(ctx, `SELECT pg_get_indexdef(indexrelid) FROM pg_index WHERE indexrelid=to_regclass('public.'||$1) AND indisvalid AND indisready AND indislive`, name).Scan(&definition)
-		if err != nil || definition != want {
+		if err != nil || !platformdatabase.SchemaIndexEqual(definition, want) {
 			return fmt.Errorf("unchanged Store index mismatch: %s", name)
 		}
 	}

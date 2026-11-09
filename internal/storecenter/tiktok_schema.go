@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
+	platformdatabase "task-processor/internal/platform/database"
 )
 
 // These statements create only the admitted Store-owned facts during a fresh
@@ -111,7 +111,7 @@ func verifyTikTokSchema(ctx context.Context, db coreSchemaQueryer) error {
 		if err := db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=('public.'||$1)::regclass AND conname=$2 AND convalidated`, boundary.table, boundary.name).Scan(&definition); err != nil {
 			return fmt.Errorf("TikTok Shop schema constraint unavailable: %s", boundary.name)
 		}
-		if strings.Join(strings.Fields(definition), " ") != boundary.definition {
+		if !platformdatabase.SchemaConstraintEqual(definition, boundary.definition) {
 			return fmt.Errorf("TikTok Shop schema constraint mismatch: %s", boundary.name)
 		}
 	}

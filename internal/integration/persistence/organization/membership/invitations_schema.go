@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	platformdatabase "task-processor/internal/platform/database"
 )
 
 func installInvitations(ctx context.Context, tx *sql.Tx) error {
@@ -60,7 +61,7 @@ func verifyInvitations(ctx context.Context, db schemaReader) error {
 			rows.Close()
 			return err
 		}
-		if constraints[name] != definition || !validated || deferrable {
+		if !platformdatabase.SchemaConstraintEqual(definition, constraints[name]) || !validated || deferrable {
 			rows.Close()
 			return errors.New("invitation constraint mismatch")
 		}
