@@ -39,7 +39,7 @@ contract → implementation → injection → consumer：
 - 业务模式与 SecretKey 同一 Store 加密事实/事务保存，不双写业务类型表；模式缺失表示官方未提供，不是兼容分支。Legacy decision: N/A，全新安装，无迁移/fallback/旧ID映射。
 - 不新增状态机或事务。授权 exchange 的 claim/UNKNOWN、凭据 Install、Complete/Observe 和订单 CommitPage 仍由原 owner/事务处理；响应丢失不重建授权或重发，未知不计为成功。
 - 原授权事实只随原重新授权产生新凭据；QueryStore 的缺失不清空已知值，不一致 fail closed 并沿原状态查询/重授权路径处理。
-- 数据窗口、分页上限、deadline、每页事务、原 key 相同载荷返回原命令、不同载荷冲突、订单身份冲突失败、current head 和不拼历史 generation 均不变。
+- 数据窗口、分页上限、deadline、每页事务、原 key 相同载荷返回原命令、不同载荷冲突、current head 和不拼历史 generation 均不变。SHEIN 单页重复身份/详情关联不一致沿原规则拒绝；跨闭窗相同 orderNo 沿原 ON CONFLICT 更新单条保存记录，不新增跨窗口载荷冲突或恢复协议。同窗跨页的覆盖不足提示仍沿原 owner；不得套用其他平台的 typed 冲突分支重写 SHEIN 同步。
 - 日期仍按列表 orderCreateTime → IssuedAt，UTC+8 完整日；订单号去重，不按商品/包裹加总。金额只取 productTotalPrice/orderCurrency，各币精确求和；不使用成本或预计收入，缺字段和覆盖不足隐藏金额。salesArea 未知不会补零或被归为本土。
 - 无真实外部副作用；离线 RoundTripper 没有默认网络传输。测试内 IAM/Store 材料、调度替身清楚标明，不当作真实授权/Temporal 集群证据。
 
