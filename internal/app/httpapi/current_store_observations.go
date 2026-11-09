@@ -86,6 +86,7 @@ func buildCurrentStoreObservations(ctx context.Context, db *gorm.DB, d StoreObse
 	service := &o.Service{Repository: repo, Access: observationapp.Access{Authorization: authorization, Official: official}, Directory: observationapp.Directory{Stores: stores}, Starter: d.Starter}
 	if official != nil {
 		service.WalmartOrders = official
+		service.TikTokOrders = official
 	}
 	currentWorker, err := d.NewWorker(service)
 	if err != nil || currentWorker == nil {

@@ -33,5 +33,10 @@ func (a *OfficialObservationAccess) ReadSavedTikTokOrderBinding(ctx context.Cont
 	if e != nil {
 		return MerchantBinding{}, o.ErrConflict
 	}
-	return MerchantBinding{Platform: storecenter.PlatformTikTokShop, OrganizationID: s.OrganizationID, StoreID: id, Site: "tiktokshop-us", StoreVersion: m.StoreVersion, ConnectionRevision: m.Connection.Version, ApplicationID: app.AppKey, ApplicationRevision: app.Revision, SupplierIdentityHash: g.SellerIdentityHash, ServiceExpiresAt: m.ServiceExpiresAt, CredentialExpiresAt: g.AccessExpiresAt, TikTok: storecenter.TikTokMerchantBinding{GrantID: g.ID, ShopID: shop.ID, GrantGeneration: g.Generation, GrantRevision: g.Revision, BindingRevision: saved.Binding.Version}}, nil
+	return tikTokOrderBinding(s.OrganizationID, id, m, app, shop), nil
+}
+
+func tikTokOrderBinding(org, id string, m storecenter.ProductExecutionMaterial, app auth.Application, shop auth.Shop) MerchantBinding {
+	g := m.TikTok.Grant
+	return MerchantBinding{Platform: storecenter.PlatformTikTokShop, OrganizationID: org, StoreID: id, Site: "tiktokshop-us", StoreVersion: m.StoreVersion, ConnectionRevision: m.Connection.Version, ApplicationID: app.AppKey, ApplicationRevision: app.Revision, SupplierIdentityHash: g.SellerIdentityHash, ServiceExpiresAt: m.ServiceExpiresAt.UTC(), CredentialExpiresAt: g.AccessExpiresAt.UTC(), TikTok: storecenter.TikTokMerchantBinding{GrantID: g.ID, ShopID: shop.ID, GrantGeneration: g.Generation, GrantRevision: g.Revision, BindingRevision: m.TikTok.Binding.Version}}
 }

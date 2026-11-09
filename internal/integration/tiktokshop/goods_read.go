@@ -1,6 +1,7 @@
 package tiktokshop
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"mime"
@@ -17,6 +18,12 @@ import (
 // Only the named official endpoints below use this private transport helper.
 // It does not acquire a Store proof, refresh a token or send a mutation.
 func (c *OfficialClient) resourceRead(ctx context.Context, path string, query url.Values, token string) ([]byte, error) {
+	return c.resourceReadRequest(ctx, http.MethodGet, path, query, nil, token, marketplace.MaxOfficialResultBytes)
+}
+
+// Named read endpoints may use POST search with a signed JSON body. This
+// helper neither dispatches mutations nor owns any retry/refresh behavior.
+func (c *OfficialClient) resourceReadRequest(ctx context.Context, method, path string, query url.Values, body []byte, token string, limit int64) ([]byte, error) {
 	if c == nil || ctx == nil || ctx.Err() != nil || !bounded(token, 8192) {
 		return nil, marketplace.ErrListingRules
 	}
@@ -24,12 +31,12 @@ func (c *OfficialClient) resourceRead(ctx context.Context, path string, query ur
 	defer cancel()
 	query.Set("app_key", c.application.AppKey)
 	query.Set("timestamp", strconv.FormatInt(c.now().Unix(), 10))
-	signed, err := signature(path, query, nil, "application/json", c.appSecret)
+	signed, err := signature(path, query, body, "application/json", c.appSecret)
 	if err != nil {
 		return nil, marketplace.ErrListingRules
 	}
 	query.Set("sign", signed)
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, apiOrigin+path+"?"+query.Encode(), nil)
+	request, err := http.NewRequestWithContext(ctx, method, apiOrigin+path+"?"+query.Encode(), bytes.NewReader(body))
 	if err != nil {
 		return nil, marketplace.ErrListingRules
 	}
@@ -47,8 +54,8 @@ func (c *OfficialClient) resourceRead(ctx context.Context, path string, query ur
 	if err != nil || media != "application/json" || params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8") {
 		return nil, marketplace.ErrListingRules
 	}
-	raw, err := io.ReadAll(io.LimitReader(response.Body, marketplace.MaxOfficialResultBytes+1))
-	if err != nil || len(raw) == 0 || len(raw) > marketplace.MaxOfficialResultBytes || !utf8.Valid(raw) {
+	raw, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	if err != nil || len(raw) == 0 || int64(len(raw)) > limit || !utf8.Valid(raw) {
 		return nil, marketplace.ErrListingRules
 	}
 	return raw, nil

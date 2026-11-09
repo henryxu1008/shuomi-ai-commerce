@@ -18,7 +18,7 @@ import { readCockpitMetrics } from "@/lib/api/cockpit-metrics";
 import { listingMetrics, publicationMetrics, taskMetrics, storeSubmissionMetrics, submissionOverviewMetrics, type SubmissionOverview, type TaskCounts } from "@/lib/contracts/cockpit-metrics";
 import { CockpitTaskDistribution } from "./cockpit-task-distribution";
 import { SheinSupplyOrders } from "./shein-supply-orders";
-import { WalmartOrderSync } from "./walmart-order-sync";
+import { StoreOrderSync } from "./store-order-sync";
 import styles from "./cockpit-overview.module.css";
 
 type Matrix = z.infer<typeof cockpitMatrix>;
@@ -230,7 +230,7 @@ function ConnectedOverview({ scope, capabilities, refreshing, permissions }: {
     taskMessage={taskMessage}
     submissionOverview={overview}
     submissionOverviewMessage={overviewMessage}
-    storeOrderAmount={<>{selectedPlatform==="walmart"&&ordersAllowed&&<WalmartOrderSync key={JSON.stringify([scope.organizationId,scope.userId,store])} scope={scope} storeId={store} startDate={period.startDate} endDate={period.endDate} permissions={permissions??[]}/ >}{supplyStore && ordersAllowed && <SheinSupplyOrders key={supplyStore} scope={scope} storeId={supplyStore} startDate={period.startDate} endDate={period.endDate} onApplicable={setSupplyApplicableStore}/ >}{showOrderAmount && <SavedOrderAmounts platform={selectedPlatform} data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} />}</>}
+    storeOrderAmount={<>{(selectedPlatform==="walmart"||selectedPlatform==="tiktokshop")&&ordersAllowed&&<StoreOrderSync platform={selectedPlatform} key={JSON.stringify([scope.organizationId,scope.userId,store])} scope={scope} storeId={store} startDate={period.startDate} endDate={period.endDate} permissions={permissions??[]}/ >}{supplyStore && ordersAllowed && <SheinSupplyOrders key={supplyStore} scope={scope} storeId={supplyStore} startDate={period.startDate} endDate={period.endDate} onApplicable={setSupplyApplicableStore}/ >}{showOrderAmount && <SavedOrderAmounts platform={selectedPlatform} data={!orderAmountMessage ? orderAmountRead?.result : undefined} message={orderAmountMessage} />}</>}
     storeSubmission={countOwner
       ? <PublicationCounts platform={countOwner === "temu-create" ? "temu" : "shein"} counts={publicationCounts} message={publicationMessage} />
       : submissionOwner ? <StoreSubmissionRate owner={submissionOwner} counts={submissionCounts} message={submissionMessage} /> : undefined}

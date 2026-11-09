@@ -28,8 +28,12 @@ func (r mixedStoreDirectory) List(_ context.Context, organization string, query 
 
 func TestMixedDirectoryAllOrdersExcludeTemuAndProductsKeepBoth(t *testing.T) {
 	repo := mixedStoreDirectory{}
-	for _, platform := range []string{"shein", "temu", "walmart"} {
-		store, err := storecenter.NewStore(storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: "org-a", ActorSubject: "actor-a", Name: platform, Platform: platform, Region: "US", CreateIdempotencyKey: uuid.NewString(), OccurredAt: time.Now()})
+	for _, platform := range []string{"shein", "temu", "walmart", "tiktokshop"} {
+		input := storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: "org-a", ActorSubject: "actor-a", Name: platform, Platform: platform, Region: "US", CreateIdempotencyKey: uuid.NewString(), OccurredAt: time.Now()}
+		if platform == "tiktokshop" {
+			input.ExternalStoreID = "USCODE"
+		}
+		store, err := storecenter.NewStore(input)
 		require.NoError(t, err)
 		repo.stores = append(repo.stores, *store)
 	}
@@ -37,7 +41,7 @@ func TestMixedDirectoryAllOrdersExcludeTemuAndProductsKeepBoth(t *testing.T) {
 	scope := o.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}
 	orders, err := d.ListStores(context.Background(), scope, o.Orders, "")
 	require.NoError(t, err)
-	require.Equal(t, []string{repo.stores[0].ID(), repo.stores[2].ID()}, orders)
+	require.Equal(t, []string{repo.stores[0].ID(), repo.stores[2].ID(), repo.stores[3].ID()}, orders)
 	products, err := d.ListStores(context.Background(), scope, o.Products, "")
 	require.NoError(t, err)
 	require.Len(t, products, 3)
@@ -52,6 +56,11 @@ func TestMixedDirectoryAllOrdersExcludeTemuAndProductsKeepBoth(t *testing.T) {
 	shein, err := d.ListStores(context.Background(), scope, o.Orders, "shein")
 	require.NoError(t, err)
 	require.Equal(t, []string{repo.stores[0].ID()}, shein)
+	tiktok, err := d.ListStores(context.Background(), scope, o.Orders, "tiktokshop")
+	require.NoError(t, err)
+	require.Equal(t, []string{repo.stores[3].ID()}, tiktok)
+	_, err = d.ListStores(context.Background(), scope, o.Products, "tiktokshop")
+	require.ErrorIs(t, err, o.ErrInvalid)
 	_, err = d.ListStores(context.Background(), scope, o.Orders, "temu")
 	require.ErrorIs(t, err, o.ErrInvalid)
 }

@@ -5,7 +5,7 @@ import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {z} from "zod";
 import {Button} from "@/components/ui/button";
 import {observationRequest,observationBeginSchema,observationID,observationCommandSchema,observationSyncSchema,observationCapabilitiesSchema,ObservationError,type ObservationScope} from "@/lib/api/store-observations";
-import styles from "./walmart-order-sync.module.css";
+import styles from "./store-order-sync.module.css";
 
 const intentSchema=z.object({key:observationID,input:observationBeginSchema}).strict().refine(v=>v.input.kind==="orders"&&v.input.stores.length===1&&!!v.input.start&&!!v.input.end);
 type Intent=z.infer<typeof intentSchema>;
@@ -16,9 +16,10 @@ function requestInput(storeId:string,startDate:string,endDate:string){
  return observationBeginSchema.parse({kind:"orders",stores:[storeId],start:`${startDate}T00:00:00+08:00`,end:`${next.toISOString().slice(0,10)}T00:00:00+08:00`});
 }
 
-export function WalmartOrderSync({scope,storeId,startDate,endDate,permissions}:{scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[]}){
+export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permissions}:{platform:"walmart"|"tiktokshop";scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[]}){
  const client=useQueryClient();
- const storageKey=JSON.stringify(["walmart-order-sync",scope.organizationId,scope.userId,storeId]);
+ const label=platform==="walmart"?"Walmart US":"TikTok Shop US";
+ const storageKey=JSON.stringify([`${platform}-order-sync`,scope.organizationId,scope.userId,storeId]);
  const [intent,setIntent]=useState<Intent>();
  const [resolvedKey,setResolvedKey]=useState("");
  const [hydrated,setHydrated]=useState(false);
@@ -34,7 +35,7 @@ export function WalmartOrderSync({scope,storeId,startDate,endDate,permissions}:{
   });
   return ()=>{mounted=false;};
  },[storageKey,storeId]);
- const prefix=["walmart-order-sync",scope.organizationId,scope.userId,storeId];
+ const prefix=[`${platform}-order-sync`,scope.organizationId,scope.userId,storeId];
  const caps=useQuery({queryKey:[...prefix,"capabilities",permissions],queryFn:({signal})=>observationRequest("orders/capabilities",scope,observationCapabilitiesSchema,signal),retry:false});
  const receipt=useQuery({queryKey:[...prefix,"command",intent?.key],enabled:hydrated&&!!intent&&intent.key!==resolvedKey,
   queryFn:async({signal})=>{
@@ -73,8 +74,8 @@ export function WalmartOrderSync({scope,storeId,startDate,endDate,permissions}:{
   finally{setBusy(false);}
  }
  async function ensure(){if(!sync)return;setBusy(true);setError("");try{await observationRequest(`orders/syncs/${sync.id}/ensure`,scope,observationSyncSchema,undefined,{});await receipt.refetch();}catch{setError("继续同步结果尚未确认，请继续原任务。");}finally{setBusy(false);}}
- return <section className={styles.bar} aria-label="Walmart US 订单同步">
-  <div><strong>Walmart US 订单</strong><p>仅手动读取所选店铺 · {startDate} — {endDate}（UTC+8）</p>{intent&&<p>原任务日期：{intent.input.start?.slice(0,10)} — {new Date(new Date(intent.input.end!).getTime()-1).toLocaleDateString("sv-SE",{timeZone:"Asia/Shanghai"})}</p>}</div>
+ return <section className={styles.bar} aria-label={`${label} 订单同步`}>
+  <div><strong>{label} 订单</strong><p>{platform==="tiktokshop"?"仅当前支持的 US 跨境店":"仅手动读取所选店铺"} · {startDate} — {endDate}（UTC+8）</p>{intent&&<p>原任务日期：{intent.input.start?.slice(0,10)} — {new Date(new Date(intent.input.end!).getTime()-1).toLocaleDateString("sv-SE",{timeZone:"Asia/Shanghai"})}</p>}</div>
   <div className={styles.actions}>
    <Button variant="outline" disabled={!hydrated||storageError||busy||!canSync||!!sync&&active(sync.status)} onClick={()=>void submit()}>{busy?"正在确认同步…":intent&&!terminal?"确认原同步结果":"同步所选日期订单"}</Button>
    {sync&&active(sync.status)&&canSync&&<Button variant="outline" disabled={busy} onClick={()=>void ensure()}>继续原同步</Button>}
