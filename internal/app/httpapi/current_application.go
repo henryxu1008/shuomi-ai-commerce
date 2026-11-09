@@ -1000,6 +1000,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	var researchRuntime *marketResearchApplication
 	var supplierReviewReady bool
+	var researchAssessmentsReady bool
 	var selectionRuntime *productSelectionApplication
 	var intakeRuntime *ownIntakeApplication
 	if planCollections != nil {
@@ -1273,6 +1274,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				}
 			}
 			supplierReviewReady = researchOwner.service.SupplierReviewsEnabled()
+			researchAssessmentsReady = researchOwner.service.AssessmentsEnabled()
 			if supplied.sheinTrial != nil {
 				researchOwner.trial, e = composeMarketResearchSHEINTrial(ctx, researchData, *supplied.sheinTrial, researchOwner.projects, researchOwner.handler.Bind)
 				if e != nil {
@@ -1450,6 +1452,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		MarketResearch:       supplied.marketResearchDB != nil,
 		ResearchFixture:      supplied.researchFixture != nil,
 		SupplierReview:       supplierReviewReady,
+		ResearchAssessments:  researchAssessmentsReady,
 		SHEINTrial:           supplied.sheinTrial != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
 		ModelRoutePricing:    supplied.modelRoutePricing != nil,
@@ -1565,6 +1568,7 @@ type currentApplicationOptionalRoutes struct {
 	MarketResearch       bool
 	ResearchFixture      bool
 	SupplierReview       bool
+	ResearchAssessments  bool
 	SHEINTrial           bool
 	MemberPoints         bool
 	MemberResources      bool
@@ -1573,6 +1577,9 @@ type currentApplicationOptionalRoutes struct {
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if optional.ResearchAssessments && !optional.MarketResearch {
+		return errors.New("research assessment routes require market research")
+	}
 	if optional.ResearchPaginationFixture && !optional.ResearchFixture {
 		return errors.New("pagination fixture requires the local research fixture")
 	}
@@ -1866,6 +1873,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.SupplierReview {
 		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: rh.SupplierReviewPath})
+	}
+	if optional.ResearchAssessments {
+		prefix := rh.Base + "/:project_id/candidates/:candidate"
+		admitted = append(admitted,
+			currentApplicationRoute{Method: http.MethodPost, Path: prefix + "/assessment-preview"},
+			currentApplicationRoute{Method: http.MethodGet, Path: prefix + "/assessments"},
+			currentApplicationRoute{Method: http.MethodGet, Path: prefix + "/assessments/:assessment_id"},
+		)
 	}
 	if optional.ResearchFixture {
 		for _, r := range marketResearchFixtureRoutes(researchModule{}, researchFixturePath) {
