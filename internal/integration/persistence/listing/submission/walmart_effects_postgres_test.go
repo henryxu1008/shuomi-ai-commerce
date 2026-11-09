@@ -96,10 +96,7 @@ func newWalmartPostgresFixture(t *testing.T, count int) walmartPostgresFixture {
 		require.NoError(t, e)
 		saved.Walmart = &draft
 		require.True(t, record.PublicationReady(saved))
-		raw, e := json.Marshal(saved)
-		require.NoError(t, e)
-		require.NoError(t, db.Exec("UPDATE listing_target_records SET site=?,input_hash=?,body_hash=?,body_json=?::jsonb WHERE id=?", binding.Site, collection.Digest(saved.Input), collection.Digest(saved), string(raw), saved.ID).Error)
-		require.NoError(t, db.Exec("UPDATE listing_preparation_targets SET site=? WHERE id=?", binding.Site, saved.TargetID).Error)
+		replaceEffectFixtureRecord(t, db, saved)
 	}
 	saveRecord()
 	recordReader, e := recordstore.NewRepository(ctx, db)

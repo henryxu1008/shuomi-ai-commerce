@@ -11,6 +11,20 @@ vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),s
 const id="11111111-1111-4111-8111-111111111111";
 const source:SupplySourceDetail={source:{id,preparationId:id,collectionItemId:id,collectionRevision:1,source:{productKey:"product-a",publicationId:id,version:"1",kind:"own"}},product:{title:"原始商品",variants:[{sku:"source-sku",price:{amount:99},stock:42}]},images:[{id,url:"https://example.org/main.jpg",width:900,height:900}]};
 const command={execute:state.execute} as unknown as ListingCommandState;
+it("keeps a color child on its fixed SKU and approved inventory without material mutation entries",async()=>{
+ state.completion.mockResolvedValue({revision:1,content:{description:""}});
+ state.rules.mockResolvedValue(rules("self_operated"));
+ const draft=initialListingDraft(source);
+ const existing={id,targetId:id,revision:1,effectiveVersion:"1",input:{sourceId:id,storeId:id,expectedRevision:0,effectiveVersion:"1",targetId:id,draft,colorPartition:{familyId:id,partitionId:id,colorAttributeId:12,colorValueId:34,baseRecordId:id,completionDraft:{recordId:id,revision:1},members:[],localOnly:true}},merchant:{site:"shein-us",application_type:"self_operated"},result:{ready_for_upload:false,issues:[]}} as unknown as SupplyTarget;
+ render(<ListingTargetEditor scope={{userId:"actor",organizationId:"org"}} source={source} storeId={id} existing={existing} command={command} disabled={false} saved={0} materialsAvailable completionAvailable/>);
+ await waitFor(()=>expect(state.inventory).toHaveBeenCalled());
+ expect(screen.queryByRole("checkbox",{name:"使用来源图 1"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"确认完整图片选择"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:"准备平台资料"})).not.toBeInTheDocument();
+ expect(state.imagePanel).not.toHaveBeenCalled();
+ expect(screen.getByLabelText("商家 SKU 1-1")).toHaveAttribute("readonly");
+ expect(screen.getByRole("button",{name:"添加 SKU"})).toBeDisabled();
+});
 it("opens materials only for an unchanged saved Target and removes the entry after manual edits",async()=>{
  state.rules.mockResolvedValue(rules("self_operated"));
  const draft=initialListingDraft(source);

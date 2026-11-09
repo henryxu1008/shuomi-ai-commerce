@@ -85,10 +85,7 @@ func TestPostgresTikTokStagesUseAtomicCompletionAndRetainDraft(t *testing.T) {
 	saved.TikTokImageObservations = []marketplace.ImageObservation{observed}
 	saved.RulesHash = marketplace.RuleHash(rules)
 	saved.InventoryHash = collection.Digest(inventory)
-	raw, err := json.Marshal(saved)
-	require.NoError(t, err)
-	require.NoError(t, db.Exec("UPDATE listing_target_records SET site=?,input_hash=?,body_hash=?,body_json=?::jsonb WHERE id=?", b.Site, collection.Digest(saved.Input), collection.Digest(saved), string(raw), saved.ID).Error)
-	require.NoError(t, db.Exec("UPDATE listing_preparation_targets SET site=? WHERE id=?", b.Site, saved.TargetID).Error)
+	replaceEffectFixtureRecord(t, db, saved)
 	records, err := recordstore.NewRepository(ctx, db)
 	require.NoError(t, err)
 	scope := collection.Scope{OrganizationID: "org-a", ActorID: "actor-a", MemberID: "member-a"}

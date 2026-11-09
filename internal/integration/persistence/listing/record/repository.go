@@ -22,6 +22,7 @@ func NewRepository(ctx context.Context, db *gorm.DB) (*Repository, error) {
 }
 
 type recordRow struct {
+	Purpose, PartitionID, FamilyID        string
 	OrganizationID, ActorID, MemberID     string
 	ID, TargetID, SourceID, StoreID, Site string
 	Revision                              int64
@@ -33,6 +34,7 @@ type recordRow struct {
 func (recordRow) TableName() string { return "listing_target_records" }
 
 type headRow struct {
+	Purpose, PartitionID, FamilyID               string
 	OrganizationID, ActorID, MemberID            string
 	ID, SourceID, StoreID, Site, CurrentRecordID string
 	Revision                                     int64
@@ -52,7 +54,7 @@ func validHash(value string) bool {
 }
 func validateRecord(scope collection.Scope, value record.TargetRecord) bool {
 	return scope.Validate() == nil && collection.ValidID(value.ID) && collection.ValidID(value.Source.ID) && collection.ValidID(value.Input.StoreID) &&
-		value.TargetID == record.TargetIdentity(scope, value.Source.ID, value.Input.StoreID) && value.Revision > 0 && value.Revision == value.Input.ExpectedRevision+1 &&
+		record.ValidColorPartition(scope, value.Input) && value.TargetID == record.RecordIdentity(scope, value.Input) && value.Revision > 0 && value.Revision == value.Input.ExpectedRevision+1 &&
 		value.Input.SourceID == value.Source.ID && value.EffectiveVersion == value.Input.EffectiveVersion && value.ApplyReceiptID == value.Input.ApplyReceiptID &&
 		value.Merchant.OrganizationID == scope.OrganizationID && value.Merchant.StoreID == value.Input.StoreID && record.ValidPlatformRecord(value) &&
 		validHash(value.ProductHash) && validHash(value.InventoryHash) && validHash(value.RulesHash) && !value.CreatedAt.IsZero()
@@ -65,6 +67,10 @@ func decodeRecord(scope collection.Scope, row recordRow) (record.TargetRecord, e
 	if len(row.BodyJSON) > record.MaxPayloadBytes || json.Unmarshal(row.BodyJSON, &value) != nil || !validateRecord(scope, value) ||
 		collection.Digest(value) != row.BodyHash || collection.Digest(value.Input) != row.InputHash || value.ID != row.ID || value.TargetID != row.TargetID ||
 		value.Source.ID != row.SourceID || value.Input.StoreID != row.StoreID || value.Merchant.Site != row.Site || value.Revision != row.Revision || !value.CreatedAt.Equal(row.CreatedAt) {
+		return record.TargetRecord{}, record.ErrUnavailable
+	}
+	purpose, partition, family := record.RecordPurpose(value.Input)
+	if row.Purpose != purpose || row.PartitionID != partition || row.FamilyID != family {
 		return record.TargetRecord{}, record.ErrUnavailable
 	}
 	return value, nil
@@ -141,6 +147,10 @@ func (r *Repository) ReadTargetHead(ctx context.Context, scope collection.Scope,
 	if err != nil {
 		return record.TargetRecord{}, err
 	}
+	purpose, partition, family := record.RecordPurpose(value.Input)
+	if head.Purpose != purpose || head.PartitionID != partition || head.FamilyID != family {
+		return record.TargetRecord{}, record.ErrUnavailable
+	}
 	if value.TargetID != head.ID || value.Revision != head.Revision || value.Source.ID != head.SourceID || value.Input.StoreID != head.StoreID || value.Merchant.Site != head.Site {
 		return record.TargetRecord{}, record.ErrUnavailable
 	}
@@ -197,11 +207,15 @@ func (r *Repository) SaveTarget(ctx context.Context, proof record.TargetPrepared
 	if err = proof.CheckAgentCommit(ctx); err != nil {
 		return record.TargetReceipt{}, err
 	}
+	if err = validateColorEdit(tx, scope, value); err != nil {
+		return record.TargetReceipt{}, err
+	}
 	raw, err := json.Marshal(value)
 	if err != nil || len(raw) > record.MaxPayloadBytes {
 		return record.TargetReceipt{}, record.ErrTooLarge
 	}
-	row := recordRow{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ID: value.ID, TargetID: value.TargetID, SourceID: value.Source.ID, StoreID: value.Input.StoreID, Site: value.Merchant.Site, Revision: value.Revision, InputHash: hash, BodyHash: collection.Digest(value), BodyJSON: raw, CreatedAt: value.CreatedAt}
+	purpose, partition, family := record.RecordPurpose(value.Input)
+	row := recordRow{Purpose: purpose, PartitionID: partition, FamilyID: family, OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ID: value.ID, TargetID: value.TargetID, SourceID: value.Source.ID, StoreID: value.Input.StoreID, Site: value.Merchant.Site, Revision: value.Revision, InputHash: hash, BodyHash: collection.Digest(value), BodyJSON: raw, CreatedAt: value.CreatedAt}
 	if tx.Create(&row).Error != nil {
 		return record.TargetReceipt{}, record.ErrUnavailable
 	}
@@ -214,7 +228,7 @@ func (r *Repository) SaveTarget(ctx context.Context, proof record.TargetPrepared
 			return record.TargetReceipt{}, record.ErrConflict
 		}
 	} else {
-		head = headRow{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ID: value.TargetID, SourceID: value.Source.ID, StoreID: value.Input.StoreID, Site: value.Merchant.Site, CurrentRecordID: value.ID, Revision: value.Revision}
+		head = headRow{Purpose: purpose, PartitionID: partition, FamilyID: family, OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID, ID: value.TargetID, SourceID: value.Source.ID, StoreID: value.Input.StoreID, Site: value.Merchant.Site, CurrentRecordID: value.ID, Revision: value.Revision}
 		if tx.Create(&head).Error != nil {
 			return record.TargetReceipt{}, record.ErrUnavailable
 		}

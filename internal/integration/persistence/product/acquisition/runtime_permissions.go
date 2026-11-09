@@ -127,6 +127,7 @@ const supplyPrivileges = `,('listing_preparations','SELECT'),('listing_preparati
  ('listing_preparation_targets','SELECT'),('listing_preparation_targets','INSERT'),('listing_preparation_targets','UPDATE'),
  ('listing_target_records','SELECT'),('listing_target_records','INSERT'),
  ('listing_target_record_commands','SELECT'),('listing_target_record_commands','INSERT'),
+ ('listing_target_split_commands','SELECT'),('listing_target_split_commands','INSERT'),
  ('listing_preparation_operations','SELECT'),('listing_preparation_operations','INSERT'),('listing_preparation_operations','UPDATE'),
  ('listing_preparation_operation_items','SELECT'),('listing_preparation_operation_items','INSERT'),('listing_preparation_operation_items','UPDATE'),
  ('listing_preparation_upload_plans','SELECT'),('listing_preparation_upload_plans','INSERT'),('listing_preparation_upload_plans','UPDATE'),
