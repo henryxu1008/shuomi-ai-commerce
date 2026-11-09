@@ -89,6 +89,14 @@ function renderPage(kind: "products" | "orders" = "products") {
   return { ...view, client };
 }
 
+it.each([{area:1,label:"本土销售"},{area:2,label:"跨境销售"},{area:99,label:"未识别 (99)"},{area:undefined,label:"未知"}])("shows preserved sales area $label without inferring shop identity",async({area,label})=>{
+ context.permissions=["workbench.store.orders.read"];
+ const orderRecord={storeId:id,syncId:id,id:"order-a",observedAt:"2026-10-09T01:00:00Z",order:{id:"order-a",site:"shein-us",status:2,stockMode:null,salesArea:area,type:null,tag:null,reasons:[],items:[],packages:[],amount:null,supplyCost:null,createdAt:"",updatedAt:"",issuedAt:"",needDeliveryAt:"",handoverAt:"",expectedCollectAt:""}};
+ vi.stubGlobal("fetch",vi.fn().mockImplementation((path:string)=>Promise.resolve(Response.json({organizationId:"org-a",userId:"actor-a",data:path.endsWith("/capabilities")?{available:true,runtimeReady:true,providerConfigured:true,canSync:false,kind:"orders",site:"shein-us",platformUrl:"https://sellerhub.shein.com/"}:path.includes("/records/")?orderRecord:{items:[orderRecord],next:"",summary:{total:1,active:0,offShelf:0,today:0,todayUnknown:1,pending:1,transit:0,exceptional:0,unknown:0},syncs:[],latest:[],complete:false}}))));
+ renderPage("orders");await userEvent.click(await screen.findByRole("button",{name:"详情 / 物流"}));
+ const term=await screen.findByText("销售范围");expect(term.nextElementSibling).toHaveTextContent(label);
+});
+
 it("opens native product facts with large IDs and separates raw review codes from sales",async()=>{
  const native={storeId:id,syncId:id,id:"9007199254740993",observedAt:"2026-10-12T01:00:00Z",temuProduct:{id:"9007199254740993",productId:"9007199254740993",entity:"local_goods",mode:"local",title:"Native Shoe",externalCode:"",imageUrl:"",saleState:"active",rawStatus:"Active",skus:[{id:"9007199254740994",externalCode:"",serialNumber:"platform-code",stock:"0",stockKind:"stock",specifications:[]}],sites:[],publishStatus:{status:"1",subStatus:"2"}}};
  const fetch=vi.fn(async(input:RequestInfo|URL)=>{const path=String(input);let data:unknown;

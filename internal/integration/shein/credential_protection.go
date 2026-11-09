@@ -19,17 +19,17 @@ func NewCredentialProtection(keyID string, key []byte) (*CredentialProtection, e
 	return &CredentialProtection{cipher: cipher}, nil
 }
 
-type sealedCredential struct{ AppID, OpenKeyID, SecretKey, SupplierID string }
+type sealedCredential struct{ AppID, OpenKeyID, SecretKey, SupplierID, SheinBusinessMode string }
 
 func associatedData(a storecenter.OfficialConnectionAttempt, keyID string) []byte {
 	data, _ := json.Marshal([]any{"shein-merchant-v1", a.OrganizationID, a.StoreID, a.AttemptID, a.AppID, a.AppVersion, a.ActorID, a.MemberID, a.ConnectionVersion, keyID})
 	return data
 }
 func (p *CredentialProtection) Seal(a storecenter.OfficialConnectionAttempt, c storecenter.OfficialMerchantCredential) (string, string, error) {
-	if c.Temu != nil || c.AppID != a.AppID || c.OpenKeyID == "" || c.SecretKey == "" || c.SupplierID == "" {
+	if c.Temu != nil || c.AppID != a.AppID || c.OpenKeyID == "" || c.SecretKey == "" || c.SupplierID == "" || !boundedBusinessMode(c.SheinBusinessMode) {
 		return "", "", storecenter.ErrOfficialExchangeUnknown
 	}
-	plain, err := json.Marshal(sealedCredential{c.AppID, c.OpenKeyID, c.SecretKey, c.SupplierID})
+	plain, err := json.Marshal(sealedCredential{c.AppID, c.OpenKeyID, c.SecretKey, c.SupplierID, c.SheinBusinessMode})
 	if err != nil {
 		return "", "", err
 	}
@@ -48,8 +48,8 @@ func (p *CredentialProtection) Open(a storecenter.OfficialConnectionAttempt, key
 	}
 	defer clear(plain)
 	var c sealedCredential
-	if err := json.Unmarshal(plain, &c); err != nil || c.AppID != a.AppID || c.OpenKeyID == "" || c.SecretKey == "" || c.SupplierID == "" {
+	if err := json.Unmarshal(plain, &c); err != nil || c.AppID != a.AppID || c.OpenKeyID == "" || c.SecretKey == "" || c.SupplierID == "" || !boundedBusinessMode(c.SheinBusinessMode) {
 		return storecenter.OfficialMerchantCredential{}, storecenter.ErrOfficialConnectionUnavailable
 	}
-	return storecenter.OfficialMerchantCredential{AppID: c.AppID, OpenKeyID: c.OpenKeyID, SecretKey: c.SecretKey, SupplierID: c.SupplierID}, nil
+	return storecenter.OfficialMerchantCredential{AppID: c.AppID, OpenKeyID: c.OpenKeyID, SecretKey: c.SecretKey, SupplierID: c.SupplierID, SheinBusinessMode: c.SheinBusinessMode}, nil
 }

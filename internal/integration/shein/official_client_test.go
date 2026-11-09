@@ -6,6 +6,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -67,6 +69,52 @@ func TestOfficialExchangeUsesAppSignatureAndValidatesReturnedBindings(t *testing
 	require.NoError(t, err)
 	require.Contains(t, url, "https://openapi-sem.sheincorp.com/#/empower?appid=test-app&")
 	require.Contains(t, url, "state=original-state")
+}
+
+func TestOfficialExchangePreservesBusinessModeEvidence(t *testing.T) {
+	for _, mode := range []any{nil, "", "POP-US", "POP-GLOBAL", "SFS", "FUTURE-MODE", true, " bad", "a\tb", strings.Repeat("X", 65)} {
+		t.Run(fmt.Sprint(mode), func(t *testing.T) {
+			info := map[string]any{"secretKey": wireEncryptedSecret(t, "merchant-secret"), "openKeyId": "open-key", "appid": "test-app", "state": "state", "supplierId": 123, "supplierBusinessMode": mode}
+			raw, err := json.Marshal(map[string]any{"code": "0", "info": info})
+			require.NoError(t, err)
+			client := testClient(t, roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(raw)), Header: make(http.Header)}, nil
+			}))
+			credential, err := client.Exchange(context.Background(), "temporary", "state")
+			value, ok := mode.(string)
+			invalid := mode != nil && !ok || ok && (value == " bad" || strings.Contains(value, "\t") || len(value) > 64)
+			if invalid {
+				require.ErrorIs(t, err, storecenter.ErrOfficialExchangeUnknown)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, value, credential.SheinBusinessMode)
+		})
+	}
+}
+
+func TestOfficialQueryDoesNotOverwriteAuthorizationBusinessMode(t *testing.T) {
+	for _, test := range []struct {
+		auth, query string
+		unavailable bool
+	}{{"", "", false}, {"POP-US", "", false}, {"POP-US", "POP-US", false}, {"", "POP-US", true}, {"POP-US", "SFS", true}, {"", " bad", true}} {
+		t.Run(test.auth+"/"+test.query, func(t *testing.T) {
+			raw, err := json.Marshal(map[string]any{"code": "0", "info": map[string]any{"storeInfo": map[string]any{"supplierId": 123, "supplierBusinessMode": test.query}}})
+			require.NoError(t, err)
+			client := testClient(t, roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(raw)), Header: make(http.Header)}, nil
+			}))
+			credential := goodsCredential()
+			credential.SheinBusinessMode = test.auth
+			_, err = client.QueryStore(context.Background(), credential)
+			if test.unavailable {
+				require.ErrorIs(t, err, storecenter.ErrOfficialConnectionUnavailable)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, test.auth, credential.SheinBusinessMode)
+		})
+	}
 }
 func TestOfficialQueryKeepsOptionalStoreFactsMissingAndBindsSupplierWhenPresent(t *testing.T) {
 	response := `{"code":"0","info":{"storeProductQuota":{"totalLimit":9999},"storeInfo":{"storeName":null,"storeStatus":null}}}`

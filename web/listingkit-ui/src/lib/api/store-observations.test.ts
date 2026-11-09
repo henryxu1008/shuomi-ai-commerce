@@ -7,6 +7,11 @@ import {
 } from "./store-observations";
 export const fixtureID = "d6f6ca0a-27e2-4c4a-b1aa-4505110ae635";
 
+it.each([undefined,null,1,2,99])("preserves optional native sales area %s without inferring local",salesArea=>{
+ const parsed=observationRecordSchema.parse({...fixtureOrderRecord,order:{...fixtureOrderRecord.order,salesArea}});
+ expect(parsed.order?.salesArea).toBe(salesArea);
+});
+
 it("preserves native goods and SKC identities and exact quantities without a SHEIN body",()=>{
  const native={storeId:fixtureID,syncId:fixtureID,id:"9007199254740993",observedAt:"2026-10-12T01:00:00Z",temuProduct:{id:"9007199254740993",productId:"9007199254740993",entity:"local_goods",mode:"local",title:"Official title",externalCode:"external",imageUrl:"",saleState:"active",rawStatus:"Active",skus:[{id:"9007199254740994",externalCode:"",serialNumber:"platform",stock:"0",stockKind:"stock",specifications:[]}],sites:[],publishStatus:{status:"1",subStatus:null}}};
  const parsed=observationRecordSchema.parse(native);expect(parsed.temuProduct?.id).toBe("9007199254740993");expect(parsed.temuProduct?.skus[0]?.stock).toBe("0");expect(parsed.product).toBeUndefined();

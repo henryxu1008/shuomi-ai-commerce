@@ -12,6 +12,14 @@ const headers = {
   cookie: WORKBENCH_COOKIE_NAME + "=org-a",
   Origin: "http://localhost:3000",
 };
+
+it.each([undefined,null,1,2,99])("keeps order sales area %s through the authorized BFF",async salesArea=>{
+ configure();
+ const record={storeId:id,syncId:id,id:"order-a",observedAt:"2026-10-09T01:00:00Z",order:{id:"order-a",site:"shein-us",status:2,stockMode:null,salesArea,type:null,tag:null,reasons:[],items:[],packages:[],amount:null,supplyCost:null,createdAt:"",updatedAt:"",issuedAt:"",needDeliveryAt:"",handoverAt:"",expectedCollectAt:""}};
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({organizationId:"org-a",userId:"actor-a",data:record})));
+ const response=await proxyStoreObservations(new Request(`http://localhost:3000/api/workbench/store-observations/orders/stores/${id}/syncs/${id}/records/order-a`,{headers}),"private","actor-a");
+ expect(response.status).toBe(200);expect((await response.json()).data.order.salesArea).toBe(salesArea);
+});
 const walmartRecord = {storeId:id,syncId:id,id:"SKU-1",observedAt:"2026-10-18T00:00:00Z",walmartProduct:{sku:"SKU-1",productName:"Saved Walmart product"}};
 it("reads native Walmart products through filtered, mixed list and detail endpoints",async()=>{
  configure();

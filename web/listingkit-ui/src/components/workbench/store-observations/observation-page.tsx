@@ -40,6 +40,7 @@ import {
   observationTracksSchema,
   ObservationError,
   orderStatus,
+  orderSalesArea,
   orderProblems,
   type ObservationKind,
   type ObservationRecord,
@@ -1028,6 +1029,8 @@ function Detail({
               <dl className={styles.facts}>
                 <dt>平台状态</dt>
                 <dd>{orderStatus(order.status)}</dd>
+                <dt>销售范围</dt>
+                <dd>{orderSalesArea(order.salesArea)}</dd>
                 <dt>订单金额</dt>
                 <dd>{price(order.amount)}</dd>
                 <dt>供货价</dt>
