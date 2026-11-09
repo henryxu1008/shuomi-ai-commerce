@@ -245,6 +245,7 @@
 - `cockpit-shein-self-operated-orders.md` — [SHEIN US 普通自运营消费者订单及来源事实](cockpit-shein-self-operated-orders.md)
 - `cockpit-shein-supply-orders.md` — [SHEIN 全托：按采购单号批次保存供货单与数量观察](cockpit-shein-supply-orders.md)
 - `cockpit-shein-supply-business-times.md` — [SHEIN 全托：业务时间原值、来源与缺失状态保存](cockpit-shein-supply-business-times.md)
+- `cockpit-shein-saved-supply-dates.md` — [已保存全托供货单按原始日期观察](cockpit-shein-saved-supply-dates.md)
 - `cockpit-walmart-order-amount.md` — [Walmart US 消费者订单保存与单店商品金额](cockpit-walmart-order-amount.md)
 - `cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](cockpit-tiktok-order-amount.md)
 - `cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md)

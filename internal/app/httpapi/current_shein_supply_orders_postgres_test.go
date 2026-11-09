@@ -122,6 +122,34 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 		return out.Data
 	}
 	saved := read(a)
+	readDates := func(store, start, end string) o.SupplyObservation {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/store-observations/supply-orders/observation?storeId="+store+"&startDate="+start+"&endDate="+end, nil)
+		req.Header.Set("Authorization", "Bearer offline")
+		req.Header.Set("X-Requested-Organization-ID", scope.OrganizationID)
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+		require.Equal(t, 200, res.Code, res.Body.String())
+		var out struct {
+			Data o.SupplyObservation `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &out))
+		return out.Data
+	}
+	originalDay := readDates(a, "2026-11-01", "2026-11-01")
+	require.Equal(t, saved.Source.SyncID, originalDay.Source.SyncID)
+	require.Equal(t, []string{"PO-A"}, originalDay.OriginalDates.Urgent.OrderIDs)
+	require.Equal(t, "5", *originalDay.OriginalDates.Urgent.Ordered.Value)
+	require.Len(t, originalDay.OriginalDates.Undated, 1)
+	require.Equal(t, []string{"JIT-MOTHER-A"}, originalDay.OriginalDates.MotherIDs)
+	require.Empty(t, originalDay.OriginalDates.Stock.OrderIDs)
+	require.Empty(t, readDates(a, "2026-11-02", "2026-11-08").OriginalDates.Urgent.OrderIDs)
+	require.Nil(t, saved.OriginalDates)
+	for _, query := range []string{"&startDate=2026-11-01", "&startDate=2026-02-30&endDate=2026-03-01", "&startDate=2026-11-02&endDate=2026-11-01", "&startDate=2026-11-01&endDate=2026-11-02&extra=x"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/workbench/store-observations/supply-orders/observation?storeId="+a+query, nil)
+		res := httptest.NewRecorder()
+		router.ServeHTTP(res, req)
+		require.Equal(t, 400, res.Code)
+	}
 	require.Equal(t, "saved", saved.Status)
 	require.Len(t, saved.SavedOrderIDs, 3)
 	require.Equal(t, 2, saved.Summary.OrderCount)
@@ -157,6 +185,11 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	begin(b, uuid.NewString(), []string{"PO-B-OLD"})
 	second := begin(b, uuid.NewString(), []string{"PO-B-1", "PO-B-MISSING", "PO-B-UNKNOWN"})
 	partial := read(b)
+	partialDates := readDates(b, "2026-11-01", "2026-11-08")
+	require.Equal(t, partial.Source.SyncID, partialDates.Source.SyncID)
+	require.Len(t, partialDates.OriginalDates.Undated, 1)
+	require.Equal(t, "unrecognized", partialDates.OriginalDates.Undated[0].State)
+	require.Equal(t, []string{"PO-B-UNKNOWN"}, partialDates.OriginalDates.UnknownMotherIDs)
 	require.Equal(t, "incomplete", partial.Status)
 	require.Equal(t, second.Syncs[0].ID, partial.Source.SyncID)
 	require.Equal(t, []string{"PO-B-MISSING"}, partial.Source.MissingIDs)
@@ -174,6 +207,14 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	var count int64
 	require.NoError(t, owner.Raw("SELECT count(*) FROM store_observations.records WHERE kind='supply-orders'").Scan(&count).Error)
 	require.EqualValues(t, 6, count)
+	// A separate supplemental batch exercises stock issuance, while the original
+	// six saved receipts above remain untouched. The local trial uses a separate shop.
+	f.supplyRows[a] = append(f.supplyRows[a], map[string]any{"orderNo": "PO-STOCK-DATE", "type": 2, "isJitMotherName": "No", "addTime": "2026-11-01 10:00:00", "allocateTime": "2026-11-03T23:30:00-05:00", "orderExtends": []map[string]any{{"skuCode": "stock-sku", "orderQuantity": 9}}})
+	begin(a, uuid.NewString(), []string{"PO-STOCK-DATE", "PO-STOCK-DATE"})
+	stockDay := readDates(a, "2026-11-03", "2026-11-03")
+	require.Equal(t, []string{"PO-STOCK-DATE"}, stockDay.OriginalDates.Stock.OrderIDs)
+	require.Equal(t, "9", *stockDay.OriginalDates.Stock.Ordered.Value)
+	require.Empty(t, readDates(a, "2026-11-04", "2026-11-04").OriginalDates.Stock.OrderIDs)
 	// A queued multi-chunk batch hides the older completed result. Only a
 	// successful original CAS page may advance its immutable ID checkpoint.
 	ids := []string{}
@@ -189,6 +230,9 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "running", pending.Status)
 	require.Nil(t, pending.Summary)
+	pendingDates, err := manual.SupplyObservationDates(ctx, scope, a, o.SupplyDateRange{StartDate: "2026-11-01", EndDate: "2026-11-03"})
+	require.NoError(t, err)
+	require.Nil(t, pendingDates.OriginalDates)
 	require.Empty(t, pending.SavedOrderIDs)
 	old := queued.Syncs[0]
 	badNext := old.Progress

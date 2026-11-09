@@ -20,6 +20,7 @@ type SupplyObservationSource struct {
 	ObservedAt *time.Time `json:"observedAt"`
 }
 type SupplyObservation struct {
+	OriginalDates *SupplyOriginalDates     `json:"originalDates,omitempty"`
 	StoreID       string                   `json:"storeId"`
 	Status        string                   `json:"status"`
 	CanSync       bool                     `json:"canSync"`
@@ -29,6 +30,17 @@ type SupplyObservation struct {
 }
 
 func (s *Service) SupplyObservation(ctx context.Context, scope Scope, store string) (SupplyObservation, error) {
+	return s.readSupplyObservation(ctx, scope, store, nil)
+}
+
+func (s *Service) SupplyObservationDates(ctx context.Context, scope Scope, store string, dates SupplyDateRange) (SupplyObservation, error) {
+	if !dates.Valid() {
+		return SupplyObservation{}, ErrInvalid
+	}
+	return s.readSupplyObservation(ctx, scope, store, &dates)
+}
+
+func (s *Service) readSupplyObservation(ctx context.Context, scope Scope, store string, dates *SupplyDateRange) (SupplyObservation, error) {
 	result := SupplyObservation{StoreID: store, Status: "not_synced", SavedOrderIDs: []string{}}
 	if !s.available() || !scope.Valid() || !ValidID(store) {
 		return result, ErrInvalid
@@ -84,6 +96,7 @@ func (s *Service) SupplyObservation(ctx context.Context, scope Scope, store stri
 			delete(allowed, id)
 		}
 		var accumulator supplySummaryAccumulator
+		var dateAccumulator supplyDateAccumulator
 		err := reader.VisitSupplyOrders(ctx, scope.OrganizationID, store, sync.ID, func(order SupplyOrder) error {
 			if !order.Valid() || !allowed[order.ID] || seen[order.ID] {
 				return ErrUnavailable
@@ -91,6 +104,9 @@ func (s *Service) SupplyObservation(ctx context.Context, scope Scope, store stri
 			seen[order.ID] = true
 			result.SavedOrderIDs = append(result.SavedOrderIDs, order.ID)
 			accumulator.add(order)
+			if dates != nil {
+				dateAccumulator.add(order, *dates)
+			}
 			return nil
 		})
 		if err != nil {
@@ -101,6 +117,10 @@ func (s *Service) SupplyObservation(ctx context.Context, scope Scope, store stri
 		}
 		summary := accumulator.result()
 		result.Summary = &summary
+		if dates != nil {
+			projection := dateAccumulator.result(*dates)
+			result.OriginalDates = &projection
+		}
 		if sync.Status == "completed" && p.Next == len(p.OrderIDs) && len(p.MissingIDs) == 0 && !sync.Progress.Incomplete {
 			result.Status = "saved"
 		}
