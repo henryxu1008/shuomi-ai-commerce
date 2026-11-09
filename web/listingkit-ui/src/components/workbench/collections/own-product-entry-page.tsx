@@ -87,10 +87,10 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
   setRows(prior=>prior.map((row,index)=>({...row,...(bulk.prefix?{sku:`${bulk.prefix.trim()}-${index+1}`}:{}) ,...(bulk.currency?{currency:bulk.currency}:{}) ,...(bulk.price.trim()?{price:bulk.price}:{}) ,...(bulk.stock.trim()?{stock:bulk.stock}:{})})));setError("");
  }
  const activeRows=mode==="single"?[single]:rows;
- function adoptIntake(candidate:IntakeCandidate,acceptImages:boolean,gallery:string[],confirmedPrices:ReadonlySet<number>){
+ function adoptIntake(candidate:IntakeCandidate,acceptImages:boolean,gallery:string[],confirmedPrices:ReadonlySet<number>,confirmedStocks:ReadonlySet<number>){
   if(gallery.length!==imagesRef.current.length||gallery.some((url,index)=>url!==imagesRef.current[index]))throw new Error("候选引用的图库已变化，请重新生成。");
   if(stale||mode==="multiple"&&!rows.length&&specs.some(spec=>spec.name.trim()||spec.values.trim())&&candidate.rows?.length)throw new Error("规格已修改，请先确认当前规格组合。");
-  const next=applyIntakeVariants(candidate,activeRows,imagesRef.current,acceptImages,removedIntakeRows.current,confirmedPrices);
+  const next=applyIntakeVariants(candidate,activeRows,imagesRef.current,acceptImages,removedIntakeRows.current,confirmedPrices,confirmedStocks);
   const added=Object.entries(candidate.attributes??{}).filter(([name])=>!attributes.some(row=>row.name.trim()===name));
   if(attributes.length+added.length>256)throw new Error("商品属性超过保存限制，请减少候选属性。");
   if(!title.trim()&&candidate.title)setTitle(candidate.title);

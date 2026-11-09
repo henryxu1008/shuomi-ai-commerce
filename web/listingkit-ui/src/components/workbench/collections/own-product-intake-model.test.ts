@@ -4,13 +4,13 @@ import {applyIntakeVariants} from "./own-product-intake-model";
 
 const blackM={颜色:"黑",尺码:"M"},blackL={颜色:"黑",尺码:"L"},whiteM={颜色:"白",尺码:"M"};
 const candidate={rows:[
- {attributes:blackM,sku:"BLK-M",evidence:"黑 M",stock:0},
+ {attributes:blackM,sku:"BLK-M",evidence:"黑 M",stockSuggestion:{quantity:0,evidence:"库存0"}},
  {attributes:blackL,sku:"BLK-L",evidence:"黑 L"},
  {attributes:whiteM,sku:"WHT-M",evidence:"白 M",image:2},
 ]};
 
 it("uses only explicit combinations and keeps omitted stock blank",()=>{
- const result=applyIntakeVariants(candidate,[newVariantRow()],["common","white"],true,new Set());
+ const result=applyIntakeVariants(candidate,[newVariantRow()],["common","white"],true,new Set(),new Set(),new Set([0]));
  expect(result.rows.map(row=>[row.sku,row.stock,row.image])).toEqual([["BLK-M","0",""],["BLK-L","",""],["WHT-M","","white"]]);
  expect([...result.assigned]).toEqual(["white"]);
 });
@@ -64,4 +64,31 @@ it("keeps removed variants removed and repeated adoption preserves existing pric
  expect(second.rows).toEqual(first.rows);
  expect(second.rows).toHaveLength(1);
  expect(second.rows[0]).toMatchObject({currency:"CNY",price:"10"});
+});
+
+it("requires independent per-row stock confirmation and keeps unknown distinct from zero",()=>{
+ const suggested={rows:[
+  {attributes:blackM,evidence:"黑 M",sku:"BLK-M",stockSuggestion:{quantity:0,evidence:"库存 0 或 5"},priceSuggestion:{amount:10,currency:"CNY",evidence:"价格 10"}},
+  {attributes:blackL,evidence:"黑 L",stockSuggestion:{quantity:5,evidence:"库存 5"}},
+  {attributes:whiteM,evidence:"白 M"},
+ ]};
+ const pending=applyIntakeVariants(suggested,[newVariantRow()],[],false,new Set(),new Set([0]));
+ expect(pending.rows.map(row=>row.stock)).toEqual(["","",""]);
+ expect(pending.rows[0]).toMatchObject({sku:"BLK-M",price:"10",currency:"CNY"});
+ const confirmed=applyIntakeVariants(suggested,[newVariantRow()],[],false,new Set(),new Set(),new Set([0,2]));
+ expect(confirmed.rows.map(row=>row.stock)).toEqual(["0","",""]);
+ expect(confirmed.rows[0]).toMatchObject({price:"",currency:""});
+});
+
+it.each(["0","8"])("preserves manual stock %s and removed variants across repeated adoption",stock=>{
+ const suggested={rows:[
+  {attributes:blackM,evidence:"黑 M",stockSuggestion:{quantity:5,evidence:"库存5"}},
+  {attributes:blackL,evidence:"黑 L",stockSuggestion:{quantity:5,evidence:"库存5"}},
+ ]};
+ const manual={...newVariantRow(blackM),stock};
+ const removed=new Set([variantCombinationKey(blackL)]),confirmed=new Set([0,1]);
+ const first=applyIntakeVariants(suggested,[manual],[],false,removed,new Set(),confirmed);
+ const second=applyIntakeVariants(suggested,first.rows,[],false,removed,new Set(),confirmed);
+ expect(first.rows).toEqual([manual]);
+ expect(second.rows).toEqual(first.rows);
 });

@@ -15,7 +15,7 @@ import type {CollectionScope} from "@/lib/api/product-collection";
 const namespace="own-product-intake";
 type Prepared={key:string;body:IntakeBody;signature:string;prepared:IntakePrepared};
 type Receipt={key:string;digest:string};
-type Pending={signature:string;notes:string;candidate:IntakeCandidate;confirmedPrices:ReadonlySet<number>};
+type Pending={signature:string;notes:string;candidate:IntakeCandidate;confirmedPrices:ReadonlySet<number>;confirmedStocks:ReadonlySet<number>};
 
 async function digest(text:string){
  const hash=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));
@@ -29,7 +29,7 @@ function originalReceipt(key:string):Receipt|null{
  }catch{return null}
 }
 
-export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}:{scope:CollectionScope;member:string;images:string[];uploaded:ReadonlySet<string>;disabled:boolean;onAdopt:(candidate:IntakeCandidate,acceptImages:boolean,gallery:string[],confirmedPrices:ReadonlySet<number>)=>void}){
+export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}:{scope:CollectionScope;member:string;images:string[];uploaded:ReadonlySet<string>;disabled:boolean;onAdopt:(candidate:IntakeCandidate,acceptImages:boolean,gallery:string[],confirmedPrices:ReadonlySet<number>,confirmedStocks:ReadonlySet<number>)=>void}){
  const storageKey=`own-intake:${JSON.stringify([scope.userId,scope.organizationId,member])}`;
  const [open,setOpen]=useState(false),[notes,setNotes]=useState(""),[image,setImage]=useState("");
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
@@ -43,7 +43,7 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
  // Merely hiding the candidate would let an old confirmation become active again.
  if(lastSignature!==signature){
   setLastSignature(signature);
-  if(result?.confirmedPrices.size)setResult({...result,confirmedPrices:new Set()});
+  if(result&&(result.confirmedPrices.size||result.confirmedStocks.size))setResult({...result,confirmedPrices:new Set(),confirmedStocks:new Set()});
  }
  useEffect(()=>{current.current=signature},[signature]);
  useEffect(()=>()=>flight.current?.abort(),[]);
@@ -96,7 +96,7 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
   setMissingRunKey(null);
   setPrepared(null);
   if(!response.candidate){setError(response.validationError?intakeValidationMessage(response.validationError):"本次生成没有通过校验，请核对资料后重新整理。");return}
-  setResult({signature:expected,notes:sourceNotes,candidate:response.candidate,confirmedPrices:new Set()});
+  setResult({signature:expected,notes:sourceNotes,candidate:response.candidate,confirmedPrices:new Set(),confirmedStocks:new Set()});
   setMessage("候选已生成。核对后可采纳到表单。");
  }
 
@@ -166,9 +166,16 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
     {candidate.brand?<p className="text-sm">品牌 · {candidate.brand.value}</p>:null}
     {Object.entries(candidate.attributes??{}).map(([key,fact])=><p key={key} className="break-words text-sm">{key} · {fact.value}</p>)}
     <ul className="space-y-2 text-sm">
-     {candidate.rows?.map((row,i)=><li key={i} className="space-y-1 break-words"><strong>{Object.values(row.attributes??{}).join(" / ")||"默认规格"}</strong> · {row.sku??"未填写 SKU"} · 库存 {row.stock??"未填写"}{row.image?` · 图片 ${row.image}`:""}
+     {candidate.rows?.map((row,i)=><li key={i} className="space-y-1 break-words"><strong>{Object.values(row.attributes??{}).join(" / ")||"默认规格"}</strong> · {row.sku??"未填写 SKU"}{row.image?` · 图片 ${row.image}`:""}
       <p className="text-xs text-muted-foreground">{row.evidence}</p>
-      {candidate.stockReviewRows?.includes(i)?<p className="text-sm text-muted-foreground">库存需核对，未填入。请在商品表单手工确认填写。</p>:null}
+      {row.stockSuggestion?<div className="space-y-1">
+       <p>待确认库存建议：{row.stockSuggestion.quantity}</p>
+       <p className="text-xs text-muted-foreground">库存来源：{row.stockSuggestion.evidence}</p>
+       <label className="flex items-center gap-2"><Checkbox disabled={busy||disabled} checked={result?.confirmedStocks.has(i)??false} onChange={e=>{
+        const checked=e.target.checked;
+        setResult(prior=>{if(!prior||prior.candidate!==candidate||prior.signature!==signature)return prior;const confirmedStocks=new Set(prior.confirmedStocks);if(checked)confirmedStocks.add(i);else confirmedStocks.delete(i);return {...prior,confirmedStocks}});
+       }}/>确认第 {i+1} 个 SKU 的库存数量</label>
+      </div>:<p className="text-muted-foreground">未提供库存建议，请在商品表单手工填写。</p>}
       {row.priceSuggestion?<div className="space-y-1">
        <p>待确认价格建议：{row.priceSuggestion.currency??"币种未填写"} {row.priceSuggestion.amount}</p>
        <p className="text-xs text-muted-foreground">价格来源：{row.priceSuggestion.evidence}</p>
@@ -180,13 +187,13 @@ export function OwnProductIntake({scope,member,images,uploaded,disabled,onAdopt}
       </div>:<p className="text-muted-foreground">未填写价格</p>}
      </li>)}
     </ul>
-    {candidate.rows?.some(row=>row.priceSuggestion)?<div className="space-y-2">
-     <p className="text-sm text-muted-foreground">AI 价格只是建议。请核对范围、否定、费用和规格归属；未勾选的价格不会填入，其他资料仍可采纳。已有人工金额或币种均保留，请在表单手动修改。</p>
+    {candidate.rows?.some(row=>row.priceSuggestion||row.stockSuggestion)?<div className="space-y-2">
+     <p className="text-sm text-muted-foreground">AI 价格和库存只是建议。请核对原说明及规格归属；未勾选的字段不会填入，其他资料仍可采纳。已有人工金额、币种或库存均保留，请在表单手动修改。</p>
      <details><summary className="cursor-pointer text-sm">查看本次完整原说明</summary><p className="whitespace-pre-wrap break-words text-sm">{result?.notes}</p></details>
     </div>:null}
     {candidate.questions?.map((question,i)=><p key={i} className="text-sm text-muted-foreground">{question}</p>)}
     {hasImages?<label className="flex items-center gap-2 text-sm"><Checkbox checked={confirmImages} onChange={e=>setConfirmImages(e.target.checked)}/>确认候选中的 SKU 图片归属</label>:null}
-    <Button type="button" disabled={disabled||busy} onClick={()=>{try{onAdopt(candidate,confirmImages,images,result?.confirmedPrices??new Set());setResult(null);setMessage("已填入表单。请检查后保存商品。");setError("")}catch(e){setError((e as Error).message)}}}>采纳到商品表单</Button>
+    <Button type="button" disabled={disabled||busy} onClick={()=>{try{onAdopt(candidate,confirmImages,images,result?.confirmedPrices??new Set(),result?.confirmedStocks??new Set());setResult(null);setMessage("已填入表单。请检查后保存商品。");setError("")}catch(e){setError((e as Error).message)}}}>采纳到商品表单</Button>
    </div>:null}
   </div>:null}
  </Card>;

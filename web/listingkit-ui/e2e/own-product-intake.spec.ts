@@ -83,6 +83,7 @@ test("uploads and adopts three SKUs; checks rejection before save or persists wh
  await expect(page.getByLabel("商品名称")).toHaveValue("");
  await preview.getByLabel("确认候选中的 SKU 图片归属").check();
  for(let i=1;i<=3;i++)await preview.getByLabel(`确认第 ${i} 个 SKU 的商品单价和币种`).check();
+ await preview.getByLabel("确认第 1 个 SKU 的库存数量").check();
  await preview.getByRole("button",{name:"采纳到商品表单"}).click();
  await expect(page.getByLabel("商品名称")).toHaveValue("隔离验收 三规格上衣");
  await expect(page.getByLabel(/^SKU \d$/)).toHaveCount(3);
@@ -97,12 +98,13 @@ test("uploads and adopts three SKUs; checks rejection before save or persists wh
   await page.getByRole("button",{name:"检查生成用量"}).click();
   await page.getByRole("button",{name:"确认生成候选"}).click();
   const review=page.getByRole("region",{name:"AI 生成候选"});
-  await expect(review.getByRole("listitem").nth(1)).toContainText("库存需核对，未填入");
+  await expect(review.getByLabel("确认第 2 个 SKU 的库存数量")).not.toBeChecked();
+  await expect(review.getByRole("listitem").nth(1)).toContainText("库存来源：库存未填写");
   await review.getByRole("button",{name:"采纳到商品表单"}).click();
   await expect(page.getByLabel("库存 1")).toHaveValue("0");
   await expect(page.getByLabel("库存 2")).toHaveValue("");
   await expect(page.getByLabel(/^SKU \d$/)).toHaveCount(3);
-  await page.screenshot({path:info.outputPath("rejected-stock-field-before-save.png"),fullPage:true});
+  await page.screenshot({path:info.outputPath("unconfirmed-stock-before-save.png"),fullPage:true});
   expect(saveRequests).toBe(0);
   return;
  }

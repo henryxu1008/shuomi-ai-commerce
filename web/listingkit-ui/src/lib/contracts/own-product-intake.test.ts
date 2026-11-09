@@ -26,9 +26,12 @@ it("accepts suggestions but rejects model-authored confirmation and old direct p
  ])expect(intakeResult.safeParse({...result,candidate:{rows:[invalid]}}).success).toBe(false);
 });
 
-it("accepts only stock review rows whose values are absent",()=>{
- const result={requestKey:"11111111-1111-4111-8111-111111111111",phase:"human_review_required",candidate:{rows:[{attributes:{},evidence:"库存未知"}],stockReviewRows:[0]}};
- expect(intakeResult.safeParse(result).success).toBe(true);
- for(const stockReviewRows of [[1],[-1],[0,0],[256]])expect(intakeResult.safeParse({...result,candidate:{...result.candidate,stockReviewRows}}).success).toBe(false);
- expect(intakeResult.safeParse({...result,candidate:{...result.candidate,rows:[{...result.candidate.rows[0],stock:0}]}}).success).toBe(false);
+it("requires a source-bearing safe-integer stock suggestion, rejecting retired fields",()=>{
+ const row={attributes:{},evidence:"库存未知",stockSuggestion:{quantity:0,evidence:"库存未知"}};
+ const result={requestKey:"11111111-1111-4111-8111-111111111111",phase:"human_review_required",candidate:{rows:[row]}};
+ expect(intakeResult.parse(result).candidate?.rows?.[0].stockSuggestion?.quantity).toBe(0);
+ for(const stockSuggestion of [{evidence:"库存未知"},{quantity:null,evidence:"库存未知"},{quantity:-1,evidence:"库存未知"},{quantity:0.5,evidence:"库存未知"},{quantity:Number.MAX_SAFE_INTEGER+1,evidence:"库存未知"},{quantity:0,evidence:""},{...row.stockSuggestion,confirmed:true}])
+  expect(intakeResult.safeParse({...result,candidate:{rows:[{...row,stockSuggestion}]}}).success).toBe(false);
+ expect(intakeResult.safeParse({...result,candidate:{rows:[{...row,stock:0}]}}).success).toBe(false);
+ expect(intakeResult.safeParse({...result,candidate:{...result.candidate,stockReviewRows:[0]}}).success).toBe(false);
 });
