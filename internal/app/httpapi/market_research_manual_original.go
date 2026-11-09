@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 	dataservicesapp "task-processor/internal/app/dataservices"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/research"
 )
@@ -71,4 +72,23 @@ func (a researchSources) manualMarket(ctx context.Context, scope collection.Scop
 		return research.SupplierMarket{}, research.ErrConflict
 	}
 	return fixtureMarketProjection(ref, entry), nil
+}
+
+func (o currentApplicationOptions) restrictManualOriginalTransfers(app *listingapp.Application) error {
+	b := o.researchManualOriginal
+	if b == nil {
+		return nil
+	}
+	if b.Validate() != nil {
+		return research.ErrInvalid
+	}
+	if app == nil || app.Preparations == nil {
+		return research.ErrUnavailable
+	}
+	configured, err := app.Preparations.WithManualOriginalExclusion(b.Scope, b.ItemID, b.PublicationID)
+	if err != nil {
+		return err
+	}
+	app.Preparations = configured
+	return nil
 }

@@ -1028,6 +1028,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if e != nil {
 			return nil, fmt.Errorf("build current supply chain: %w", e)
 		}
+		if e := supplied.restrictManualOriginalTransfers(module.app); e != nil {
+			return nil, e
+		}
 		modules = append(modules, module)
 		supplyRuntime = &module
 	}
@@ -1045,6 +1048,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if e != nil {
 			return nil, fmt.Errorf("build private draft trial: %w", e)
 		}
+		if e := supplied.restrictManualOriginalTransfers(module.app); e != nil {
+			return nil, e
+		}
 		modules = append(modules, module)
 		supplyRuntime = &module
 	}
@@ -1057,6 +1063,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		module, e := buildSourceMaterialsModule(ctx, supplied.productAcquisitionDB, supplied.sourceMaterialDB, *workbench.authDependencies, authorizer, planCollections, full)
 		if e != nil {
 			return nil, fmt.Errorf("compose current source materials: %w", e)
+		}
+		if e := supplied.restrictManualOriginalTransfers(module.app); e != nil {
+			return nil, e
 		}
 		modules = append(modules, module)
 		sourceMaterialsRuntime = &module
@@ -1072,6 +1081,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		module, e := composeCompletionDrafts(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, planCollections, full)
 		if e != nil {
 			return nil, fmt.Errorf("compose current completion drafts: %w", e)
+		}
+		if e := supplied.restrictManualOriginalTransfers(module.app); e != nil {
+			return nil, e
 		}
 		modules = append(modules, module)
 		completionRuntime = &module
@@ -1092,7 +1104,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		} else if sourceMaterialsRuntime != nil {
 			full = sourceMaterialsRuntime.app
 		}
-		module, e := composeAcquisitionPlans(ctx, module, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, planCollections, full)
+		module, e := composeAcquisitionPlans(ctx, module, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, planCollections, full, supplied.researchManualOriginal)
 		if e != nil {
 			return nil, fmt.Errorf("compose current acquisition plans: %w", e)
 		}

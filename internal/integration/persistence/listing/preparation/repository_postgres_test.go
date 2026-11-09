@@ -11,6 +11,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"sort"
 	"sync"
 	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/authidentity"
@@ -105,6 +106,53 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 	receipt, err := service.Transfer(actor, key, input)
 	require.NoError(t, err)
 	require.EqualValues(t, 205, receipt.Preparation.Count)
+
+	t.Run("manual original exclusion is atomic and preserves original receipts", func(t *testing.T) {
+		ordered := append([]string(nil), chosen...)
+		sort.Strings(ordered)
+		blocked := ordered[len(ordered)-1]
+		var publication string
+		require.NoError(t, db.Raw("SELECT publication_id FROM product_collection_items WHERE id=?", blocked).Scan(&publication).Error)
+		restricted, e := service.WithManualOriginalExclusion(scope, blocked, publication)
+		require.NoError(t, e)
+		// A committed pre-profile transfer is still an original-key read, never a new write.
+		old, e := restricted.Transfer(actor, key, input)
+		require.NoError(t, e)
+		require.True(t, old.Replayed)
+		require.Equal(t, receipt.Preparation, old.Preparation)
+		changed := input
+		changed.ItemIDs = []string{blocked}
+		_, e = restricted.Transfer(actor, key, changed)
+		require.ErrorIs(t, e, preparation.ErrConflict)
+		before := map[string]int64{}
+		for _, table := range []string{"listing_preparations", "listing_preparation_sources"} {
+			var count int64
+			require.NoError(t, db.Table(table).Count(&count).Error)
+			before[table] = count
+		}
+		for name, ids := range map[string][]string{"single": {blocked}, "whole batch": nil, "mixed subset": {ordered[0], blocked}} {
+			t.Run(name, func(t *testing.T) {
+				denied := input
+				denied.ItemIDs = ids
+				request := uuid.NewString()
+				_, e := restricted.Transfer(actor, request, denied)
+				require.ErrorIs(t, e, preparation.ErrForbidden)
+				_, e = restricted.ReadByKey(actor, request)
+				require.ErrorIs(t, e, preparation.ErrNotFound)
+				for table, count := range before {
+					var after int64
+					require.NoError(t, db.Table(table).Count(&after).Error)
+					require.Equal(t, count, after, table)
+				}
+			})
+		}
+		// Only an unrelated item is admitted; the old service itself stays unchanged.
+		normal := input
+		normal.ItemIDs = []string{ordered[0]}
+		good, e := restricted.Transfer(actor, uuid.NewString(), normal)
+		require.NoError(t, e)
+		require.EqualValues(t, 1, good.Preparation.Count)
+	})
 	// A whole-batch action persists all fixed source references before Temporal.
 	_, err = NewOperationRepository(ctx, db)
 	require.ErrorIs(t, err, preparation.ErrUnavailable, "serving never installs omitted operation schema")

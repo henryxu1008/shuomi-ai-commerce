@@ -15,13 +15,16 @@ import (
 	"gorm.io/gorm/logger"
 	pc "task-processor/internal/aiworkbench/projectcenter"
 	dataservicesapp "task-processor/internal/app/dataservices"
+	listingapp "task-processor/internal/app/listing"
 	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
+	prepstore "task-processor/internal/integration/persistence/listing/preparation"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	researchstore "task-processor/internal/integration/persistence/product/research"
 	kernel "task-processor/internal/kernel/module"
+	"task-processor/internal/listing/preparation"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/research"
 )
@@ -100,6 +103,32 @@ func TestResearchManualOriginalApplicationAssessmentRecoveryAndIsolation(t *test
 	require.Error(t, options.validateResearchManualOriginal("https://localhost:35444"))
 	options.researchFixture = nil
 	require.Error(t, options.validateResearchManualOriginal("https://identity.example.com"))
+
+	require.NoError(t, prepstore.InstallSchema(owner))
+	prepRepository, err := prepstore.NewRepository(ctx, owner)
+	require.NoError(t, err)
+	preps, err := preparation.NewService(prepRepository, collections, access)
+	require.NoError(t, err)
+	app := &listingapp.Application{Preparations: preps}
+	require.NoError(t, options.restrictManualOriginalTransfers(app))
+	sourceBatch, err := collections.ReadBatch(ctx, entry.Item.BatchID)
+	require.NoError(t, err)
+	for name, ids := range map[string][]string{"single manual item": {entry.Item.ID}, "whole original batch": nil} {
+		t.Run(name, func(t *testing.T) {
+			_, e := app.Preparations.Transfer(ctx, uuid.NewString(), preparation.TransferInput{BatchID: sourceBatch.ID, ExpectedRevision: sourceBatch.Revision, ItemIDs: ids})
+			require.ErrorIs(t, e, preparation.ErrForbidden)
+		})
+	}
+	var preparations, sourcesCount int64
+	require.NoError(t, owner.Table("listing_preparations").Count(&preparations).Error)
+	require.Zero(t, preparations)
+	require.NoError(t, owner.Table("listing_preparation_sources").Count(&sourcesCount).Error)
+	require.Zero(t, sourcesCount)
+	normalTransfer, err := app.Preparations.Transfer(ctx, uuid.NewString(), preparation.TransferInput{BatchID: sourceBatch.ID, ExpectedRevision: sourceBatch.Revision, ItemIDs: []string{batch.Amazon[0].Item.ID}})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, normalTransfer.Preparation.Count)
+	require.Error(t, options.restrictManualOriginalTransfers(nil))
+	require.NoError(t, (currentApplicationOptions{}).restrictManualOriginalTransfers(nil))
 	sources.fixture = nil
 	m := researchModule{service: svc, projects: projects}
 	require.NoError(t, m.enableManualOriginal(ctx, owner, binding))
