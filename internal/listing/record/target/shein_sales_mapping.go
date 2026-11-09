@@ -353,46 +353,68 @@ func deriveSheinSales(base goods.OfficialDraftInput, source catalog.ProductSnaps
 		}
 		out.Images = append(out.Images, slot)
 	}
-	// References outside the reordered arrays must still describe an actual row.
-	has := func(attribute, value int64) bool {
-		for _, g := range out.Product.SKCs {
-			for _, sku := range g.SKUs {
-				for _, v := range sku.SaleAttributes {
-					if v.AttributeID == attribute && v.AttributeValueID != nil && *v.AttributeValueID == value {
-						return true
-					}
-				}
+	// Bind dependent facts to the original source rows, not to any surviving
+	// numeric attribute value that may now name a different SKU.
+	hasValue := func(sku model.ProductSKU, attribute, value int64) bool {
+		for _, v := range sku.SaleAttributes {
+			if v.AttributeID == attribute && v.AttributeValueID != nil && *v.AttributeValueID == value {
+				return true
 			}
 		}
 		return false
 	}
 	for i, size := range out.Product.SizeAttributes {
-		if (size.RelatedSaleAttributeID == nil) != (size.RelatedSaleAttributeValueID == nil) || size.RelatedSaleAttributeID != nil && !has(*size.RelatedSaleAttributeID, *size.RelatedSaleAttributeValueID) {
-			return fail(fmt.Sprintf("size_attribute_list.%d", i), "尺码表关联未对应实际映射后的规格")
+		field := fmt.Sprintf("size_attribute_list.%d", i)
+		if (size.RelatedSaleAttributeID == nil) != (size.RelatedSaleAttributeValueID == nil) {
+			return fail(field, "尺码表关联规格不完整")
+		}
+		if size.RelatedSaleAttributeID == nil {
+			continue
+		}
+		any := false
+		for _, old := range oldRows {
+			next := dest[old]
+			before := hasValue(base.Product.SKCs[old.skc].SKUs[old.sku], *size.RelatedSaleAttributeID, *size.RelatedSaleAttributeValueID)
+			after := hasValue(out.Product.SKCs[next.skc].SKUs[next.sku], *size.RelatedSaleAttributeID, *size.RelatedSaleAttributeValueID)
+			if before != after {
+				return fail(field, "映射会改变尺码表关联的来源 SKU，请先明确原尺码表归属")
+			}
+			any = any || before
+		}
+		if !any {
+			return fail(field, "尺码表关联未对应原来源 SKU")
 		}
 	}
 	if sample := out.Product.Sample; sample != nil {
-		matched := false
-		for _, g := range out.Product.SKCs {
-			if g.SaleAttribute.AttributeID != sample.Spec.Main.AttributeID || g.SaleAttribute.AttributeValueID == nil || *g.SaleAttribute.AttributeValueID != sample.Spec.Main.ValueID {
-				continue
+		matches := func(group model.ProductSKC, sku model.ProductSKU) bool {
+			if group.SaleAttribute.AttributeID != sample.Spec.Main.AttributeID || group.SaleAttribute.AttributeValueID == nil || *group.SaleAttribute.AttributeValueID != sample.Spec.Main.ValueID {
+				return false
 			}
-			for _, sku := range g.SKUs {
-				all := true
-				for _, sub := range sample.Spec.Sub {
-					found := false
-					for _, v := range sku.SaleAttributes {
-						if strconv.FormatInt(v.AttributeID, 10) == sub.AttributeID && v.AttributeValueID != nil && strconv.FormatInt(*v.AttributeValueID, 10) == sub.ValueID {
-							found = true
-						}
+			for _, sub := range sample.Spec.Sub {
+				found := false
+				for _, v := range sku.SaleAttributes {
+					if strconv.FormatInt(v.AttributeID, 10) == sub.AttributeID && v.AttributeValueID != nil && strconv.FormatInt(*v.AttributeValueID, 10) == sub.ValueID {
+						found = true
 					}
-					all = all && found
 				}
-				matched = matched || all
+				if !found {
+					return false
+				}
+			}
+			return true
+		}
+		originals := []position{}
+		for _, old := range oldRows {
+			if matches(base.Product.SKCs[old.skc], base.Product.SKCs[old.skc].SKUs[old.sku]) {
+				originals = append(originals, old)
 			}
 		}
-		if !matched {
-			return fail("sample_info", "样品关联未对应实际映射后的 SKU")
+		if len(originals) != 1 {
+			return fail("sample_info", "样品无法对应唯一的原来源 SKU，请先核对样品规格")
+		}
+		next := dest[originals[0]]
+		if !matches(out.Product.SKCs[next.skc], out.Product.SKCs[next.skc].SKUs[next.sku]) {
+			return fail("sample_info", "映射会改变样品关联的来源 SKU，请先明确原样品归属")
 		}
 	}
 	return out, nil

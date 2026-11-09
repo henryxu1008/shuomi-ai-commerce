@@ -101,3 +101,31 @@ func TestSalesSelectionRejectsMissingZeroPositions(t *testing.T) {
 	var slot SheinSalesImage
 	require.Error(t, json.Unmarshal([]byte(`{}`), &slot))
 }
+
+func TestSalesMappingDoesNotReassignSampleOrSizeChartWhenValuesAreSwapped(t *testing.T) {
+	for _, kind := range []string{"sample", "size chart"} {
+		t.Run(kind, func(t *testing.T) {
+			b, s, c, sel, r, inv := salesFixture()
+			base, e := deriveSheinSales(b, s, c, sel, r, inv)
+			require.NoError(t, e)
+			sel.Rows[2].SKCIndex = 1
+			sel.Rows[2].SKUIndex = 0
+			if kind == "sample" {
+				base.Product.Sample = &model.SampleInfo{Spec: model.SampleSpec{Main: model.SampleMainSpec{AttributeID: 12, ValueID: 34}, Sub: []model.SampleSubSpec{{AttributeID: "13", ValueID: "36"}}}}
+			} else {
+				base.Product.SizeAttributes = []model.SizeAttribute{{AttributeID: 99, RelatedSaleAttributeID: importPtr(int64(13)), RelatedSaleAttributeValueID: importPtr(int64(36))}}
+			}
+			for i := range sel.Values {
+				if sel.Values[i].SourceName == "尺码" {
+					if sel.Values[i].SourceValue == "M" {
+						sel.Values[i].OptionID = 37
+					} else {
+						sel.Values[i].OptionID = 36
+					}
+				}
+			}
+			_, e = deriveSheinSales(base, s, c, sel, r, inv)
+			require.Error(t, e, "the old value still exists but now belongs to a different source row")
+		})
+	}
+}
