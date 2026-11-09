@@ -4,9 +4,9 @@ import {SheinImportPage} from "./shein-import-page";
 import Route from "@/app/workbench/listing/[stage]/[sourceId]/shein/page";
 import {sheinImportFixture,importIds as id} from "@/test/shein-import-fixture";
 import {SupplyAPIError,type SupplyIntent} from "@/lib/api/supply-chain";
-const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.supply.read","workbench.supply.manage","workbench.store.read"],supplyIntentReady:true,pendingSupplyIntent:null as SupplyIntent|null,setPendingSupplyIntent:vi.fn<(v:SupplyIntent|null)=>boolean>(),registerOrganizationSwitchGuard:()=>()=>{}},source:vi.fn(),head:vi.fn(),revision:vi.fn(),stores:vi.fn(),target:vi.fn(),record:vi.fn(),rules:vi.fn(),preview:vi.fn(),save:vi.fn(),verify:vi.fn()}));
+const f=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{id:"org"},permissions:["workbench.supply.read","workbench.supply.manage","workbench.store.read"],supplyIntentReady:true,pendingSupplyIntent:null as SupplyIntent|null,setPendingSupplyIntent:vi.fn<(v:SupplyIntent|null)=>boolean>(),registerOrganizationSwitchGuard:()=>()=>{}},source:vi.fn(),head:vi.fn(),revision:vi.fn(),stores:vi.fn(),target:vi.fn(),record:vi.fn(),replace:vi.fn(),rules:vi.fn(),preview:vi.fn(),save:vi.fn(),verify:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
-vi.mock("next/server",()=>({connection:async()=>{}}));vi.mock("next/navigation",()=>({notFound:()=>{throw new Error("NOT_FOUND")}}));
+vi.mock("next/server",()=>({connection:async()=>{}}));vi.mock("next/navigation",()=>({useRouter:()=>({replace:f.replace}),notFound:()=>{throw new Error("NOT_FOUND")}}));
 vi.mock("@/lib/api/workbench-stores",()=>({listWorkbenchStores:f.stores}));
 vi.mock("@/lib/api/supply-chain",async original=>({...await original<object>(),readSupplySource:f.source,readSupplyCompletionDraft:f.head,readCompletionRevision:f.revision,readSupplyTarget:f.target,readSupplyRecord:f.record,supplyRules:f.rules,previewSheinImport:f.preview,supplyCommand:f.save,readSupplyCommand:f.verify}));
 const props={sourceId:id.source,preparationId:id.batch,itemId:id.batch,revision:3,recordId:id.base};
@@ -103,4 +103,34 @@ it("keeps another store's original recovery receipt out of the current store nav
  expect(target.pathname).toBe("/workbench/listing/missing");
  expect(Object.fromEntries(target.searchParams)).toEqual({preparation:id.batch,store:secondStore,mode:"platform"});
  expect(f.save).toHaveBeenCalledTimes(1);
+});
+
+it("keeps a restored split command verifiable and retryable before a store or family is reopened",async()=>{
+ const original={userId:"actor",organizationId:"org",key:id.saved,route:"create-color-split",command:{request:{sourceId:id.source,baseRecordId:id.base}}} as unknown as SupplyIntent;
+ f.context.pendingSupplyIntent=original;
+ f.verify.mockRejectedValueOnce(new SupplyAPIError("NOT_FOUND",404));
+ f.save.mockRejectedValueOnce(new SupplyAPIError("OUTCOME_UNKNOWN",503));
+ render(<SheinImportPage {...props} recordId={undefined}/>);
+ await screen.findByText(/候选 R3/);
+ fireEvent.click(screen.getByRole("button",{name:"核实原操作"}));
+ await waitFor(()=>expect(f.verify).toHaveBeenCalledWith(original,expect.any(AbortSignal)));
+ fireEvent.click(await screen.findByRole("button",{name:"重试原请求"}));
+ await waitFor(()=>expect(f.save).toHaveBeenCalledWith(original,expect.any(AbortSignal)));
+ expect(f.context.pendingSupplyIntent?.key).toBe(original.key);
+ expect(screen.getByRole("combobox",{name:"SHEIN 店铺"})).toHaveValue("");
+});
+
+it("reopens the exact recovered split family without creating another command",async()=>{
+ const data=sheinImportFixture();
+ const original={userId:"actor",organizationId:"org",key:id.saved,route:"create-color-split",command:{request:{sourceId:id.source,baseRecordId:id.base}}} as unknown as SupplyIntent;
+ f.context.pendingSupplyIntent=original;
+ const familyId=id.saved;
+ const records=[id.saved,id.candidate].map((recordId,n)=>({...data.base,id:recordId,targetId:recordId,input:{...data.base.input,targetId:recordId,colorPartition:{familyId,partitionId:recordId,colorAttributeId:12,colorValueId:34+n,baseRecordId:id.base,completionDraft:{recordId:id.candidate,revision:3},members:[{sourceIndex:n,supplierSku:"target-sku",saleAttributes:[]}],localOnly:true}}}));
+ f.verify.mockResolvedValueOnce({familyId,records});
+ render(<SheinImportPage {...props} recordId={undefined}/>);
+ fireEvent.click(await screen.findByRole("button",{name:"核实原操作"}));
+ await waitFor(()=>expect(f.replace).toHaveBeenCalled());
+ const query=new URL(f.replace.mock.lastCall![0],"https://fixture.test").searchParams;
+ expect(query.get("target")).toBe(id.base);expect(query.get("family")).toBe(familyId);expect(query.get("revision")).toBe("3");
+ expect(f.context.pendingSupplyIntent).toBeNull();expect(f.save).not.toHaveBeenCalled();
 });

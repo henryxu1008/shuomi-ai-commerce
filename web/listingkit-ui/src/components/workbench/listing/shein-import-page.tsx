@@ -3,6 +3,8 @@ import {ColorSplitPanel} from "./color-split-panel";
 import {descriptionPlainText} from "@/lib/contracts/product-description";
 import {DescriptionView} from "../description-view";
 import Link from "next/link";
+import {useRouter} from "next/navigation";
+import {sheinImportHref} from "@/lib/contracts/shein-import-navigation";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
 import {Button} from "@/components/ui/button";
@@ -14,7 +16,7 @@ import {ListingCommandFeedback} from "./command-feedback";
 import {useListingCommand} from "./use-listing-command";
 import {listWorkbenchStores,type WorkbenchStore} from "@/lib/api/workbench-stores";
 import {readSupplySource,readSupplyCompletionDraft,readCompletionRevision,readSupplyRecord,readSupplyTarget,supplyRules,previewSheinImport,SupplyAPIError,type SupplyScope} from "@/lib/api/supply-chain";
-import {targetReceiptSchema,type SupplySourceDetail,type SupplyCompletionDraft,type SupplyTarget,type SupplyTargetInput,type SupplyRules,type SheinImportSelection} from "@/lib/contracts/supply-chain";
+import {colorSplitReceiptSchema,targetReceiptSchema,type SupplySourceDetail,type SupplyCompletionDraft,type SupplyTarget,type SupplyTargetInput,type SupplyRules,type SheinImportSelection} from "@/lib/contracts/supply-chain";
 import {completionDraftHref} from "@/lib/contracts/completion-draft-navigation";
 import {listingStageHref} from "@/lib/workbench/listing-navigation";
 
@@ -32,14 +34,22 @@ export function SheinImportPage(props:Props){
  return <ImportSource key={`${userId}:${organizationId}:${JSON.stringify(props)}`} {...props} scope={scope} canManage={context.permissions.includes("workbench.supply.manage")} canReadStores={context.permissions.includes("workbench.store.read")}/>;
 }
 function ImportSource({scope,canManage,canReadStores,...props}:Props&{scope:SupplyScope;canManage:boolean;canReadStores:boolean}){
+ const router=useRouter();
  const [data,setData]=useState<{detail:SupplySourceDetail;candidate:SupplyCompletionDraft;initialBase?:SupplyTarget}>(),[error,setError]=useState(false),[reload,setReload]=useState(0);
  const [storeId,setStoreId]=useState(""),[stores,setStores]=useState<WorkbenchStore[]>([]),[storePage,setStorePage]=useState(1),[storeTotal,setStoreTotal]=useState(0),[storeError,setStoreError]=useState(false);
  const [receipt,setReceipt]=useState<SupplyTarget>();
  const refreshSource=()=>{setData(undefined);setError(false);setStoreError(false);setReload(n=>n+1)};
  const loadStorePage=(next:number)=>{setStoreId("");setReceipt(undefined);setStores([]);setStoreError(false);setStorePage(next)};
+ const recoverColor=(saved:SupplyTarget)=>{
+  const partition=saved.input.colorPartition;
+  if(!partition||saved.source.id!==props.sourceId||storeId&&saved.input.storeId!==storeId)return;
+  router.replace(`${sheinImportHref(saved.source.id,saved.source.preparationId,saved.source.source.kind==="own"?saved.source.collectionItemId:undefined,partition.completionDraft.revision,partition.baseRecordId)}&family=${partition.familyId}`,{scroll:false});
+ };
  const command=useListingCommand(scope,(result,intent)=>{
+  if(intent.route==="create-color-split"){recoverColor(colorSplitReceiptSchema.parse(result).records[0]);return}
   if(intent.route!=="save-target")return;
   const saved=targetReceiptSchema.parse(result).record;
+  if("result" in saved&&saved.input.colorPartition){recoverColor(saved);return}
   if(saved.source.id===props.sourceId&&"result" in saved&&saved.input.storeId===storeId&&saved.input.sheinImport){
    setReceipt(saved);
   }
@@ -64,7 +74,7 @@ function ImportSource({scope,canManage,canReadStores,...props}:Props&{scope:Supp
  const list=`/workbench/listing/missing?preparation=${source.preparationId}`;
  const locked=command.busy||!!command.pending;
  return <ConsolePage title="SHEIN 带入预览" description="选定候选资料，预览覆盖结果，再确认保存为本地平台草稿的新版本。" breadcrumbs={[{label:"商品刊登",href:"/workbench/listing"},{label:"待补全",href:list},{label:"SHEIN 带入预览"}]} actions={<div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href={completionDraftHref(source.id,source.preparationId,item)}>返回草稿</Link></Button>{item?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${item}`}>返回商品</Link></Button>:null}<Button asChild variant="outline"><Link href={list}>返回待补全列表</Link></Button></div>}>
-  <div className="space-y-5">{!(command.pending?.route==="create-color-split"||(command.pending?.route==="save-target"&&typeof command.pending.command==="object"&&command.pending.command!==null&&"colorPartition" in command.pending.command))?<ListingCommandFeedback state={command}/>:null}{receipt?<Card role="status" className="space-y-2 p-5"><p>本次已保存 Target R{receipt.revision} · 使用候选 R{receipt.input.sheinImport?.completionDraft.revision}</p><p className="text-sm text-muted-foreground">这是本次操作的保存回执，可能已有后续版本。未执行发布；重新读取目标后才能再次带入。</p></Card>:null}
+  <div className="space-y-5"><ListingCommandFeedback state={command}/>{receipt?<Card role="status" className="space-y-2 p-5"><p>本次已保存 Target R{receipt.revision} · 使用候选 R{receipt.input.sheinImport?.completionDraft.revision}</p><p className="text-sm text-muted-foreground">这是本次操作的保存回执，可能已有后续版本。未执行发布；重新读取目标后才能再次带入。</p></Card>:null}
    <Card className="space-y-3 p-5"><p>候选 R{candidate.revision} · 固定来源 V{source.source.version}</p><p className="text-sm text-muted-foreground">当前候选后续保存不会改变本次选择。{candidate.content.structured?"属性和 SKU 取自此候选保存版本。":"此版本未保存结构化候选资料，仅能带入文字。"}</p><label className="grid gap-2 text-sm">SHEIN 店铺<Select aria-label="SHEIN 店铺" disabled={!canReadStores||locked} value={storeId} onChange={e=>{setStoreId(e.target.value);setReceipt(undefined)}}><option value="">选择目标店铺</option>{initialBase&&!stores.some(s=>s.id===initialBase.input.storeId)?<option value={initialBase.input.storeId}>已保存草稿的店铺 · {initialBase.input.storeId}</option>:null}{stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</Select></label>{!canReadStores?<p className="text-sm text-muted-foreground">当前身份没有店铺列表查看权限。</p>:storeError?<p role="alert">店铺列表读取失败。<Button variant="outline" onClick={refreshSource}>重新读取资料</Button></p>:!stores.length?<p className="text-sm text-muted-foreground">当前没有可选择的 SHEIN 店铺，请先在店铺中心配置。</p>:null}{storeTotal>100?<div className="flex gap-2"><Button variant="outline" disabled={storePage===1||locked} onClick={()=>loadStorePage(storePage-1)}>上一页店铺</Button><Button variant="outline" disabled={storePage*100>=storeTotal||locked} onClick={()=>loadStorePage(storePage+1)}>下一页店铺</Button></div>:null}</Card>
    {!canManage?<p role="alert" className="text-sm text-muted-foreground">当前身份没有供应链管理权限，不能预览或确认带入。</p>:null}
    {storeId?<ImportMapping familyId={props.familyId} key={`${storeId}:${reload}`} scope={scope} detail={detail} candidate={candidate} storeId={storeId} initialBase={initialBase?.input.storeId===storeId?initialBase:undefined} canManage={canManage} command={command} receipt={receipt} resetReceipt={()=>setReceipt(undefined)}/>:null}
