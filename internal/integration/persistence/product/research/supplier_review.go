@@ -116,6 +116,16 @@ func InstallSupplierReviewSchema(tx *gorm.DB) error {
 }
 
 func VerifySupplierReviewSchema(ctx context.Context, db *gorm.DB) error {
+	return verifySupplierReviewSchema(ctx, db, true)
+}
+
+// VerifySupplierReviewOwnerSchema is used only by explicit owner installation.
+// The serving check continues to reject a table-owner connection.
+func VerifySupplierReviewOwnerSchema(ctx context.Context, db *gorm.DB) error {
+	return verifySupplierReviewSchema(ctx, db, false)
+}
+
+func verifySupplierReviewSchema(ctx context.Context, db *gorm.DB, serving bool) error {
 	var verified bool
 	err := db.WithContext(ctx).Raw(`WITH expected(name, kind, cols, ref, refcols) AS (VALUES
  ('supplier_review_key','p',ARRAY['organization_id','actor_id','project_id','request_key'],NULL::text,NULL::text[]),
@@ -132,8 +142,8 @@ func VerifySupplierReviewSchema(ctx context.Context, db *gorm.DB) error {
  JOIN pg_attribute a ON a.attrelid=c.confrelid AND a.attnum=k.n ORDER BY k.i)=e.refcols))))
  AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(?) AND convalidated AND pg_get_constraintdef(oid)='CHECK ((candidate_revision > 0))')
  AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(?) AND convalidated AND pg_get_constraintdef(oid)='CHECK ((octet_length((record_json)::text) <= 16384))')
- AND EXISTS(SELECT 1 FROM pg_class WHERE oid=to_regclass(?) AND relkind='r' AND relowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user))`,
-		supplierTable, supplierTable, supplierTable, supplierTable).Scan(&verified).Error
+ AND EXISTS(SELECT 1 FROM pg_class WHERE oid=to_regclass(?) AND relkind='r' AND (? OR relowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user)))`,
+		supplierTable, supplierTable, supplierTable, supplierTable, !serving).Scan(&verified).Error
 	if err != nil || !verified {
 		return research.ErrUnavailable
 	}
