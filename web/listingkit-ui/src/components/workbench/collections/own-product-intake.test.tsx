@@ -38,9 +38,9 @@ it("shows only the three supplied variants and preserves zero versus missing bef
  vi.stubGlobal("crypto",webcrypto);
  const user=userEvent.setup(),adopt=vi.fn();
  const rows=[
-  {attributes:{颜色:"黑",尺码:"M"},evidence:"黑 M，库存明确为 0",sku:"BLK-M",stock:0},
+  {attributes:{颜色:"黑",尺码:"M"},evidence:"黑 M，库存明确为 0",sku:"BLK-M",stockSuggestion:{quantity:0,evidence:"库存明确为 0"}},
   {attributes:{颜色:"黑",尺码:"L"},evidence:"黑 L，库存未填写",sku:"BLK-L"},
-  {attributes:{颜色:"白",尺码:"M"},evidence:"白 M，库存为5",sku:"WHT-M",stock:5},
+  {attributes:{颜色:"白",尺码:"M"},evidence:"白 M，库存为5",sku:"WHT-M",stockSuggestion:{quantity:5,evidence:"库存为5"}},
  ];
  request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"human_review_required",candidate:{title:"黑白T恤",rows}}));
  render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
@@ -50,9 +50,9 @@ it("shows only the three supplied variants and preserves zero versus missing bef
  await user.click(await screen.findByRole("button",{name:"确认生成候选"}));
  const region=await screen.findByRole("region",{name:"AI 生成候选"});
  expect(region.querySelectorAll("li")).toHaveLength(3);
- expect(region.querySelectorAll("li")[0]).toHaveTextContent("库存 0");
- expect(region.querySelectorAll("li")[1]).toHaveTextContent("库存 未填写");
- expect(region.querySelectorAll("li")[2]).toHaveTextContent("库存 5");
+ expect(region.querySelectorAll("li")[0]).toHaveTextContent("待确认库存建议：0");
+ expect(region.querySelectorAll("li")[1]).toHaveTextContent("未提供库存建议");
+ expect(region.querySelectorAll("li")[2]).toHaveTextContent("待确认库存建议：5");
  expect(adopt).not.toHaveBeenCalled();
  expect(request).toHaveBeenCalledTimes(2);
 });
@@ -113,12 +113,12 @@ it("keeps an existing unknown run locked to readback",async()=>{
  expect(request).toHaveBeenCalledTimes(3);
 });
 
-const priceCandidate={title:"保留有效标题",stockReviewRows:[0],rows:[
- {attributes:{颜色:"黑",尺码:"M"},evidence:"黑 M",sku:"BLK-M",priceSuggestion:{amount:0,currency:"CNY",evidence:"CNY 0 或 CNY 10"}},
- {attributes:{颜色:"白",尺码:"M"},evidence:"白 M",priceSuggestion:{amount:10,currency:"USD",evidence:"USD 10"}},
+const priceCandidate={title:"保留有效标题",rows:[
+ {attributes:{颜色:"黑",尺码:"M"},evidence:"黑 M",sku:"BLK-M",stockSuggestion:{quantity:0,evidence:"库存 0 或 5"},priceSuggestion:{amount:0,currency:"CNY",evidence:"CNY 0 或 CNY 10"}},
+ {attributes:{颜色:"白",尺码:"M"},evidence:"白 M",stockSuggestion:{quantity:5,evidence:"库存5"},priceSuggestion:{amount:10,currency:"USD",evidence:"USD 10"}},
  {attributes:{颜色:"黑",尺码:"L"},evidence:"黑 L",priceSuggestion:{amount:20,evidence:"价格20"}},
 ]};
-const priceNotes="黑 M，CNY 0 或 CNY 10，尚未确认；白 M，USD 10；黑 L，价格20";
+const priceNotes="黑 M，CNY 0 或 CNY 10，尚未确认，库存 0 或 5；白 M，USD 10，库存5；黑 L，价格20";
 async function generatePriceCandidate(user:ReturnType<typeof userEvent.setup>){
  request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"human_review_required",candidate:priceCandidate}));
  await user.click(screen.getByRole("button",{name:"开始整理资料"}));
@@ -134,12 +134,13 @@ it("adopts valid fields without confirming any price and never dispatches for ad
  render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
  await generatePriceCandidate(user);
  expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(screen.getByLabelText("确认第 1 个 SKU 的库存数量")).not.toBeChecked();
  expect(screen.getByLabelText("确认第 3 个 SKU 的商品单价和币种")).toBeDisabled();
- expect(screen.getByText("库存需核对，未填入。请在商品表单手工确认填写。")).toBeVisible();
+ expect(screen.getByLabelText("确认第 1 个 SKU 的库存数量")).not.toBeChecked();
  await user.click(screen.getByText("查看本次完整原说明"));
  expect(screen.getByText(priceNotes,{selector:"p"})).toBeVisible();
  await user.click(screen.getByRole("button",{name:"采纳到商品表单"}));
- expect(adopt).toHaveBeenCalledWith(priceCandidate,false,[],new Set());
+ expect(adopt).toHaveBeenCalledWith(priceCandidate,false,[],new Set(),new Set());
  expect(request).toHaveBeenCalledTimes(2);
  expect(screen.queryByRole("button",{name:"采纳到商品表单"})).not.toBeInTheDocument();
 });
@@ -150,13 +151,14 @@ it("passes only the currently checked price rows, including explicit zero",async
  render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
  await generatePriceCandidate(user);
  await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的库存数量"));
  await user.click(screen.getByLabelText("确认第 2 个 SKU 的商品单价和币种"));
  await user.click(screen.getByLabelText("确认第 2 个 SKU 的商品单价和币种"));
  await user.click(screen.getByRole("button",{name:"收起整理资料"}));
  await user.click(screen.getByRole("button",{name:"开始整理资料"}));
  expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).toBeChecked();
  await user.click(screen.getByRole("button",{name:"采纳到商品表单"}));
- expect(adopt).toHaveBeenCalledWith(priceCandidate,false,[],new Set([0]));
+ expect(adopt).toHaveBeenCalledWith(priceCandidate,false,[],new Set([0]),new Set([0]));
  expect(request).toHaveBeenCalledTimes(2);
 });
 
@@ -167,15 +169,19 @@ it("does not revive price confirmation after input or gallery changes and restor
  const view=render(<OwnProductIntake {...props} images={[]}/>);
  await generatePriceCandidate(user);
  await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的库存数量"));
  await user.type(screen.getByLabelText("给 AI 的商品资料"),"修改");
  expect(screen.queryByRole("region",{name:"AI 生成候选"})).not.toBeInTheDocument();
  await user.clear(screen.getByLabelText("给 AI 的商品资料"));
  await user.type(screen.getByLabelText("给 AI 的商品资料"),priceNotes);
  expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(screen.getByLabelText("确认第 1 个 SKU 的库存数量")).not.toBeChecked();
  await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的库存数量"));
  view.rerender(<OwnProductIntake {...props} images={["https://example.test/new.png"]}/>);
  view.rerender(<OwnProductIntake {...props} images={[]}/>);
  expect(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(screen.getByLabelText("确认第 1 个 SKU 的库存数量")).not.toBeChecked();
  expect(request).toHaveBeenCalledTimes(2);
 });
 
@@ -185,10 +191,12 @@ it("resets confirmations when a new candidate replaces an unchanged input",async
  panel();
  await generatePriceCandidate(user);
  await user.click(screen.getByLabelText("确认第 1 个 SKU 的商品单价和币种"));
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的库存数量"));
  request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"human_review_required",candidate:priceCandidate}));
  await user.click(screen.getByRole("button",{name:"检查生成用量"}));
  await user.click(await screen.findByRole("button",{name:"确认生成候选"}));
  expect(await screen.findByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(screen.getByLabelText("确认第 1 个 SKU 的库存数量")).not.toBeChecked();
  expect(request).toHaveBeenCalledTimes(4);
 });
 
@@ -206,9 +214,36 @@ it("reads a pending candidate by the original key without confirming prices or d
  await user.type(screen.getByLabelText("给 AI 的商品资料"),priceNotes);
  await user.click(screen.getByRole("button",{name:"核实原生成结果"}));
  expect(await screen.findByLabelText("确认第 1 个 SKU 的商品单价和币种")).not.toBeChecked();
+ expect(screen.getByLabelText("确认第 1 个 SKU 的库存数量")).not.toBeChecked();
  expect(request).toHaveBeenCalledTimes(1);
  expect(request.mock.calls[0][1]).toBe(key);
  expect(request.mock.calls[0][4]).toBeUndefined();
  await user.click(screen.getByText("查看本次完整原说明"));
  expect(screen.getByText(priceNotes,{selector:"p"})).toBeVisible();
+});
+
+it("confirms stock independently, supports cancellation and shows full notes without any prices",async()=>{
+ vi.stubGlobal("crypto",webcrypto);
+ const user=userEvent.setup(),adopt=vi.fn();
+ const candidate={rows:[
+  {attributes:{颜色:"黑"},evidence:"黑",stockSuggestion:{quantity:0,evidence:"库存 0 或 5"}},
+  {attributes:{颜色:"白"},evidence:"白",stockSuggestion:{quantity:5,evidence:"库存5"}},
+ ]};
+ const notes="黑，库存 0 或 5 尚待核对；白，库存5";
+ request.mockResolvedValueOnce(prepared).mockImplementationOnce((_scope,key)=>Promise.resolve({requestKey:key.replace("/confirm",""),phase:"human_review_required",candidate}));
+ render(<OwnProductIntake scope={scope} member="member" images={[]} uploaded={new Set()} disabled={false} onAdopt={adopt}/>);
+ await user.click(screen.getByRole("button",{name:"开始整理资料"}));
+ await user.type(screen.getByLabelText("给 AI 的商品资料"),notes);
+ await user.click(screen.getByRole("button",{name:"检查生成用量"}));
+ await user.click(await screen.findByRole("button",{name:"确认生成候选"}));
+ expect(await screen.findByLabelText("确认第 1 个 SKU 的库存数量")).not.toBeChecked();
+ expect(screen.getByLabelText("确认第 2 个 SKU 的库存数量")).not.toBeChecked();
+ await user.click(screen.getByText("查看本次完整原说明"));
+ expect(screen.getByText(notes,{selector:"p"})).toBeVisible();
+ await user.click(screen.getByLabelText("确认第 1 个 SKU 的库存数量"));
+ await user.click(screen.getByLabelText("确认第 2 个 SKU 的库存数量"));
+ await user.click(screen.getByLabelText("确认第 2 个 SKU 的库存数量"));
+ await user.click(screen.getByRole("button",{name:"采纳到商品表单"}));
+ expect(adopt).toHaveBeenCalledWith(candidate,false,[],new Set(),new Set([0]));
+ expect(request).toHaveBeenCalledTimes(2);
 });

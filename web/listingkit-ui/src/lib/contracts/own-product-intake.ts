@@ -14,7 +14,6 @@ const validationIssue=z.object({
  code:z.enum(["invalid_json","invalid_schema","invalid_value","empty_candidate","source_evidence","duplicate_variant","duplicate_sku","price_evidence","stock_evidence","image_reference"]),
 }).strict();
 const candidate=z.object({
- stockReviewRows:z.array(z.number().int().nonnegative().max(255)).max(256).optional(),
  title:z.string().max(2000).optional(),
  description:z.string().max(8192).optional(),
  brand:fact.optional(),
@@ -25,13 +24,10 @@ const candidate=z.object({
    evidence:z.string().min(1).max(512),
    sku:z.string().max(200).optional(),
    priceSuggestion:z.object({amount:z.number().finite().nonnegative(),currency:z.string().regex(/^[A-Z]{3}$/).optional(),evidence:z.string().min(1).max(512)}).strict().optional(),
-   stock:z.number().int().nonnegative().optional(),
+   stockSuggestion:z.object({quantity:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),evidence:z.string().min(1).max(512)}).strict().optional(),
    image:positive.optional(),
  }).strict()).max(256).optional(),
-}).strict().refine(value=>(value.stockReviewRows??[]).every((row,index,all)=>{
- const target=value.rows?.[row];
- return !!target&&target.stock===undefined&&all.indexOf(row)===index;
-}));
+}).strict();
 export type IntakeCandidate=z.infer<typeof candidate>;
 export type IntakePrepared=z.infer<typeof intakePrepared>;
 export type IntakeBody=z.infer<typeof intakeBody>;

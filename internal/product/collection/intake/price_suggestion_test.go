@@ -65,34 +65,15 @@ func TestPriceSuggestionRejectsOldFactFields(t *testing.T) {
 	require.Equal(t, ValidationIssue{"candidate", "invalid_schema"}, err)
 }
 
-func TestPriceAmbiguityQuarantinesStockWithoutLosingValidFields(t *testing.T) {
+func TestPriceAmbiguityKeepsStockSuggestionAndOtherValidFields(t *testing.T) {
 	const notes = "黑 M，SKU BLK-M，CNY 10 或 CNY 20，尚未确认，库存明确为 0"
-	raw := []byte(`{"title":"保留标题","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"` + notes + `","sku":"BLK-M","stock":0,"priceSuggestion":{"amount":10,"currency":"CNY","evidence":"CNY 10 或 CNY 20，尚未确认"}}]}`)
+	raw := []byte(`{"title":"保留标题","rows":[{"attributes":{"颜色":"黑","尺码":"M"},"evidence":"` + notes + `","sku":"BLK-M","stockSuggestion":{"quantity":0,"evidence":"库存明确为 0"},"priceSuggestion":{"amount":10,"currency":"CNY","evidence":"CNY 10 或 CNY 20，尚未确认"}}]}`)
 	out, err := Decode(raw, Input{Notes: notes})
 	require.NoError(t, err)
 	require.Equal(t, "保留标题", out.Title)
 	require.Equal(t, "BLK-M", out.Rows[0].SKU)
-	require.Nil(t, out.Rows[0].Stock)
+	require.Equal(t, new(int64(0)), out.Rows[0].StockSuggestion.Quantity)
 	encoded, err := json.Marshal(out)
 	require.NoError(t, err)
-	require.Contains(t, string(encoded), `"stockReviewRows":[0]`)
-	require.Contains(t, string(encoded), `"priceSuggestion"`)
-	_, err = Decode([]byte(`{"title":"x","stockReviewRows":[0]}`), Input{Notes: notes})
-	require.Equal(t, ValidationIssue{"candidate", "invalid_schema"}, err)
-}
-
-func TestStockReviewProjectionPreservesInputAndRejectsInvalidNumbers(t *testing.T) {
-	c := Candidate{Rows: []Row{{Evidence: "库存未知", Stock: new(0)}, {Evidence: "库存明确为 0", Stock: new(0)}}}
-	first := c.ForReview()
-	require.Equal(t, new(0), c.Rows[0].Stock, "raw provider candidate must remain unchanged")
-	require.Nil(t, first.Rows[0].Stock)
-	require.Equal(t, new(0), first.Rows[1].Stock)
-	require.Equal(t, []int{0}, first.StockReviewRows)
-	require.Equal(t, first, c.ForReview(), "readback projection must be deterministic")
-	for _, stock := range []string{"-1", "9007199254740992", "0.5", "\"unknown\""} {
-		_, err := Decode([]byte(`{"rows":[{"attributes":{},"evidence":"库存未知","stock":`+stock+`}]}`), Input{Notes: "库存未知"})
-		require.ErrorIs(t, err, ErrInvalid, stock)
-	}
-	_, err := Decode([]byte(`{"rows":[{"attributes":{},"evidence":"伪造库存未知","stock":0}]}`), Input{Notes: "库存未知"})
-	require.Equal(t, ValidationIssue{"rows[0].evidence", "source_evidence"}, err)
+	require.JSONEq(t, string(raw), string(encoded))
 }

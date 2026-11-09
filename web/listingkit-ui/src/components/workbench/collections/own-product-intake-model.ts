@@ -1,7 +1,7 @@
 import type {IntakeCandidate} from "@/lib/contracts/own-product-intake";
 import {newVariantRow,variantCombinationKey,type VariantRow} from "./own-product-model";
 
-export function applyIntakeVariants(candidate:IntakeCandidate, active:VariantRow[], images:string[], acceptImages:boolean, removed:ReadonlySet<string>, confirmedPrices:ReadonlySet<number>=new Set()){
+export function applyIntakeVariants(candidate:IntakeCandidate, active:VariantRow[], images:string[], acceptImages:boolean, removed:ReadonlySet<string>, confirmedPrices:ReadonlySet<number>=new Set(), confirmedStocks:ReadonlySet<number>=new Set()){
  const incoming=candidate.rows??[];
  const onlyBlank=active.length===1&&!Object.keys(active[0].attributes).length&&!Object.values({
   sku:active[0].sku, currency:active[0].currency, price:active[0].price, stock:active[0].stock, image:active[0].image, ...active[0].packaging,
@@ -26,7 +26,7 @@ export function applyIntakeVariants(candidate:IntakeCandidate, active:VariantRow
    sku:prior.sku.trim()?prior.sku:suggested.sku??"",
    currency:acceptPrice?price!.currency!:prior.currency,
    price:acceptPrice?String(price!.amount):prior.price,
-   stock:prior.stock.trim()?prior.stock:suggested.stock===undefined?"":String(suggested.stock),
+   stock:!prior.stock.trim()&&confirmedStocks.has(suggestionIndex)&&suggested.stockSuggestion?String(suggested.stockSuggestion.quantity):prior.stock,
    image:prior.image|| (acceptImages?image:""),
   };
   if(!prior.image&&next.image)assigned.add(next.image);
