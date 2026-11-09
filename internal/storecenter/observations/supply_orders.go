@@ -45,14 +45,15 @@ type SupplyLine struct {
 	Defective *int64 `json:"defective"`
 }
 type SupplyOrder struct {
-	ID            string       `json:"id"`
-	Type          *int         `json:"type"`
-	Status        *int         `json:"status"`
-	Scene         *int         `json:"scene"`
-	CountryMarket *int         `json:"countryMarket"`
-	Mother        *bool        `json:"mother"`
-	MotherRaw     string       `json:"motherRaw"`
-	Lines         []SupplyLine `json:"lines"`
+	BusinessTimes SupplyBusinessTimes `json:"businessTimes"`
+	ID            string              `json:"id"`
+	Type          *int                `json:"type"`
+	Status        *int                `json:"status"`
+	Scene         *int                `json:"scene"`
+	CountryMarket *int                `json:"countryMarket"`
+	Mother        *bool               `json:"mother"`
+	MotherRaw     string              `json:"motherRaw"`
+	Lines         []SupplyLine        `json:"lines"`
 }
 
 func SupplyMother(raw string) *bool {
@@ -67,6 +68,9 @@ func SupplyMother(raw string) *bool {
 	return &yes
 }
 func (s SupplyOrder) Valid() bool {
+	if !s.BusinessTimes.Valid() {
+		return false
+	}
 	if _, e := NormalizeSupplyOrderIDs([]string{s.ID}); e != nil {
 		return false
 	}

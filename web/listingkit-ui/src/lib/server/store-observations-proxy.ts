@@ -1,5 +1,6 @@
 import { temuOrderAmountMetrics } from "@/lib/contracts/temu-order-amount";
 import {supplyObservationSchema} from "@/lib/contracts/shein-supply-orders";
+import {supplyTimeDetailSchema} from "@/lib/contracts/shein-supply-time-detail";
 import { z } from "zod";
 import { savedOrderAmountMetrics } from "@/lib/contracts/shein-order-amount";
 import { tiktokOrderAmountMetrics } from "@/lib/contracts/tiktok-order-amount";
@@ -67,7 +68,7 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
       if([...url.searchParams.keys()].length!==1||url.searchParams.getAll("storeId").length!==1||!observationID.safeParse(url.searchParams.get("storeId")).success)return null;
       e.store=url.searchParams.get("storeId")!;e.schema=supplyObservationSchema;return e;
     }
-    if(segments.length===1||segments.includes("stores"))return null;
+    if(segments.length===1)return null;
   }
   if(kind==="orders"&&segments.length===2&&["temu-saved-amount-metrics","saved-amount-metrics","walmart-saved-amount-metrics","tiktok-saved-amount-metrics"].includes(segments[1])&&method==="GET"){
     if(!isCockpitMetricsQuery(url,1))return null;
@@ -189,7 +190,7 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
     e.sync = segments[4];
     e.record = record;
     if (segments.length === 7) {
-      e.schema = observationRecordSchema;
+      e.schema = kind === "supply-orders" ? supplyTimeDetailSchema : observationRecordSchema;
       return e;
     }
     if (
@@ -218,6 +219,7 @@ function observationEndpoint(url: URL, method: string): Endpoint | null {
   return null;
 }
 function matches(e: Endpoint, data: unknown): boolean {
+  if(e.schema===supplyTimeDetailSchema){const v=supplyTimeDetailSchema.parse(data);return v.storeId===e.store&&v.syncId===e.sync&&v.id===e.record;}
   if (e.schema === supplyObservationSchema)
     return supplyObservationSchema.parse(data).storeId === e.store;
   if (e.schema === observationRecordSchema) {

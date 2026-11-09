@@ -62,11 +62,25 @@ func (c *OfficialClient) QueryObservedSupplyOrders(ctx context.Context, k storec
 	}
 	seen := map[string]o.SupplyOrder{}
 	conflict := map[string]bool{}
-	for _, row := range envelope.Info.List {
+	// Decode time tokens separately: typed scalar DTOs erase missing/null and
+	// numeric lexical form. Only the fixed domain fields are retained.
+	var timeEnvelope struct {
+		Info struct {
+			List []map[string]json.RawMessage `json:"list"`
+		} `json:"info"`
+	}
+	if json.Unmarshal(raw, &timeEnvelope) != nil || len(timeEnvelope.Info.List) != len(envelope.Info.List) {
+		return o.SupplyPage{}, o.ErrUnavailable
+	}
+	for index, row := range envelope.Info.List {
 		if !allowed[row.ID] {
 			return o.SupplyPage{}, o.ErrConflict
 		}
 		order := o.SupplyOrder{ID: row.ID, MotherRaw: row.Mother, Mother: o.SupplyMother(row.Mother), Lines: []o.SupplyLine{}}
+		order.BusinessTimes, e = o.ParseSupplyBusinessTimes(timeEnvelope.Info.List[index])
+		if e != nil {
+			return o.SupplyPage{}, o.ErrUnavailable
+		}
 		for _, pair := range []struct {
 			raw  json.RawMessage
 			dest **int

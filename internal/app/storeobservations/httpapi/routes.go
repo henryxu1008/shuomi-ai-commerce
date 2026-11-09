@@ -54,9 +54,6 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 		}
 		for _, spec := range specs {
 			if kind == o.SupplyOrders {
-				if spec.action == "detail" {
-					continue
-				}
 				if spec.action == "list" {
 					spec.path = "/observation"
 					spec.action = "supply-observation"

@@ -49,7 +49,7 @@ function configure() {
 it("binds supply observations to the exact store and rejects date-based or generic supply reads",async()=>{
  configure();const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
  const request=(path:string)=>proxyStoreObservations(new Request(`http://localhost:3000/api/workbench/store-observations/${path}`,{headers}),"private","actor-a");
- for(const path of ["supply-orders",`supply-orders/observation?storeId=${id}&startDate=2026-11-01`,`supply-orders/stores/${id}/syncs/${id}/records/A`])expect((await request(path)).status).toBe(400);
+ for(const path of ["supply-orders",`supply-orders/observation?storeId=${id}&startDate=2026-11-01`,`supply-orders/stores/${id}/syncs/${id}/records/A/packages/x/track`])expect((await request(path)).status).toBe(400);
  expect(fetch).not.toHaveBeenCalled();
  const payload={storeId:id,status:"not_synced",canSync:false,savedOrderIds:[]};
  fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:payload}));expect((await request(`supply-orders/observation?storeId=${id}`)).status).toBe(200);
