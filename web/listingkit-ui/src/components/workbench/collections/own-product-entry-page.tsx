@@ -160,10 +160,10 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
    </fieldset>
    <Card className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-4 border-border bg-card p-4 text-card-foreground shadow-lg"><div className="min-w-0"><p className="text-sm">{mode==="multiple"?`${rows.length} 个变体`:(single.sku?"1 个SKU":"基础商品资料")} · {commonImages.length} 张公共图片</p><p className="mt-1 text-xs text-muted-foreground">保存到自有商品库，图片在适配时由你确认。</p>{error?<p role="alert" className="mt-2 text-sm text-destructive">{error}</p>:null}</div><Button type="submit" disabled={disabled||stale||mediaBlocked}>{commands.busy?"正在保存…":edit?"保存新版本":"保存商品"}</Button></Card>
   </form>
-  {confirmation?<ResourceDialog title={confirmation==="leave"?"放弃未保存的修改？":"重新读取最新资料？"} onClose={()=>setConfirmation(null)} locked={commands.busy||mediaBlocked} initialFocusRef={keepEditingRef}>
+  {confirmation?<ResourceDialog title={confirmation==="leave"?"放弃未保存的修改？":"重新读取最新资料？"} onClose={()=>setConfirmation(null)} initialFocusRef={keepEditingRef}>
    <p className="text-sm text-muted-foreground">{confirmation==="leave"?"当前修改尚未保存。放弃后将返回商品详情，已保存的商品资料不会改变。":"重新读取会放弃当前未保存的修改，并加载最新资料。"}</p>
    <div className="flex flex-wrap justify-end gap-3">
-    <Button type="button" variant="outline" ref={keepEditingRef} disabled={commands.busy||mediaBlocked} onClick={()=>setConfirmation(null)}>{confirmation==="leave"?"继续编辑":"保留当前内容"}</Button>
+    <Button type="button" variant="outline" ref={keepEditingRef} onClick={()=>setConfirmation(null)}>{confirmation==="leave"?"继续编辑":"保留当前内容"}</Button>
     <Button type="button" variant="destructive" disabled={commands.busy||mediaBlocked} onClick={()=>{if(commands.busy||mediaBlocked)return;setConfirmation(null);if(confirmation==="reload")window.location.reload();else returnToDetail()}}>{confirmation==="leave"?"放弃修改":"放弃并重新读取"}</Button>
    </div>
   </ResourceDialog>:null}

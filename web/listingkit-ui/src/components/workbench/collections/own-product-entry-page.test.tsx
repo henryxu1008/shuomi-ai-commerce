@@ -1,4 +1,4 @@
-import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {OwnProductEntryPage} from "./own-product-entry-page";
@@ -132,10 +132,17 @@ it("keeps local changes after a conflict and asks before abandoning them",async(
  const dialog=screen.getByRole("dialog",{name:"放弃未保存的修改？"});
  await userEvent.click(within(dialog).getByRole("button",{name:"继续编辑"}));
  expect(screen.getByLabelText("商品名称")).toHaveValue("已有商品修改");expect(state.push).not.toHaveBeenCalled();expect(confirm).not.toHaveBeenCalled();
+ act(()=>state.block!(true));
  await userEvent.click(screen.getByRole("button",{name:"重新读取最新资料"}));
  expect(screen.getByRole("dialog",{name:"重新读取最新资料？"})).toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"放弃并重新读取"})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"保留当前内容"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"关闭"})).toBeEnabled();
  await userEvent.click(screen.getByRole("button",{name:"保留当前内容"}));
  expect(screen.getByLabelText("商品名称")).toHaveValue("已有商品修改");expect(state.mutate).toHaveBeenCalledOnce();expect(confirm).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole("button",{name:"重新读取最新资料"}));
+ fireEvent(screen.getByRole("dialog",{name:"重新读取最新资料？"}),new Event("cancel",{cancelable:true}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(screen.getByLabelText("商品名称")).toHaveValue("已有商品修改");
 });
 it("keeps unsaved input until explicit discard and never saves on either choice",async()=>{
  const confirm=vi.spyOn(window,"confirm").mockReturnValue(false);state.item.mockResolvedValue(savedDetail);
