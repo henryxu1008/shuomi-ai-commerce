@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { encode } from "@auth/core/jwt";
 import { expect, test } from "@playwright/test";
+import { initialListingDraft } from "../src/components/workbench/listing/draft-fields";
+import { rulesSchema, sheinTargetRecordSchema, type SupplySourceDetail } from "../src/lib/contracts/supply-chain";
+import { catalogEntrySchema, materialsTemplatesPageSchema } from "../src/lib/contracts/agent-configuration";
+import { executionModeViewSchema } from "../src/lib/contracts/execution-mode";
 
 // Use the regular Next development server and Auth.js with a synthetic session.
 // The browser only uses the loopback server and reads a fixture organization.
@@ -10,6 +14,90 @@ const client = "account-popover-fixture";
 const userId = "123456789";
 const displayName = "陈小明";
 test.skip(process.env.AUTH_SECRET !== secret, "Requires the explicit synthetic account popover environment.");
+
+for (const width of [1440, 390]) {
+  for (const theme of ["dark", "light"]) {
+    test(`materials selections and confirmation at ${width}px in ${theme}`, async ({ page }, info) => {
+      test.skip(process.env.LISTINGKIT_SUPPLY_CHAIN_ENABLED !== "true" || process.env.LISTINGKIT_PRODUCT_AGENT_ENABLED !== "true", "Requires isolated materials features.");
+      const id = "550e8400-e29b-41d4-a716-446655440000";
+      const storeId = "550e8400-e29b-41d4-a716-446655440002";
+      const at = "2026-11-09T00:00:00Z";
+      // Reuse the existing materials unit fixture's draft, scope and candidate categories.
+      const draft = initialListingDraft({ product: { title: "【合成验收】平台资料商品" } } as SupplySourceDetail);
+      const merchant = { organization_id: "org", store_id: storeId, site: "shein-us", store_version: 1, connection_revision: 1, application_revision: "1", application_id: "synthetic-app", application_type: "self_operated", supplier_identity_hash: "a".repeat(64), service_expires_at: "2027-01-01T00:00:00Z" };
+      const record = sheinTargetRecordSchema.parse({ id, targetId: id, revision: 1, effectiveVersion: "1", source: { id, preparationId: id, collectionItemId: id, collectionRevision: 1, source: { kind: "own", productKey: "own-materials-synthetic", publicationId: id, version: "1" } }, input: { sourceId: id, storeId, expectedRevision: 0, effectiveVersion: "1", draft }, merchant, productHash: "a".repeat(64), inventoryHash: "b".repeat(64), rulesHash: "c".repeat(64), result: { product: draft.product, images: [], ready_for_upload: false, issues: [] }, createdAt: at });
+      const rules = rulesSchema.parse({ merchant, rules: { application_type: "self_operated", categories: [{ category_id: 123, product_type_id: 456, parent_category_id: 0, category_name: "【合成】候选类目A", last_category: true, children: [] }, { category_id: 124, product_type_id: 457, parent_category_id: 0, category_name: "【合成】候选类目B", last_category: true, children: [] }], brands: [], sites: [], warehouses: [], fill: { fill_in_standard_list: [], currency: "CNY", default_language: "en", default_language_title_max_length: null, language_title_max_length_list: [], picture_config_list: [], supplier_code_in_spu_dimension: false, support_duplicate_sale_attr_value: false }, attributes: { product_type_id: 0, main_attribute_status: null, attribute_infos: [] }, linked: [] } });
+      const config = catalogEntrySchema.parse({ agent: { agentId: "listing.materials.agent", activation: "ENABLED", revision: "1", activationEpoch: "1", defaultTemplate: null, updatedAt: at }, name: "【合成】平台资料智能体", description: "仅用于隔离UI验证", definitionVersion: "v1", parameterSchema: "listing-materials-config-v1", canConfigure: false, canUse: true, canReadRuns: true, capabilities: [{ id: "listing.materials.inspect", support: "REQUIRED", readiness: "AVAILABLE", reason: "合成前置已就绪", observedAt: at }] });
+      const templates = materialsTemplatesPageSchema.parse({ items: [1, 2].map(n => ({ templateId: `550e8400-e29b-41d4-a716-44665544000${n + 2}`, agentId: "listing.materials.agent", lifecycle: "ACTIVE", revision: String(n), version: String(n), schemaVersion: "listing-materials-config-v1", name: `【合成】平台模板${n}`, targetPlatform: "shein", createdAt: at })), nextCursor: "" });
+      const mode = executionModeViewSchema.parse({ subject: { kind: "registered_agent", id: "listing.materials.agent" }, definition: { id: "listing.materials.agent", version: "v1" }, mode: "default", revision: "1", policyVersion: "agent-execution-policy-v1", canConfigure: false, updatedAt: at, updatedBy: "synthetic" });
+      const forbidden: string[] = [];
+      let categoryReads = 0;
+      await page.route("**/api/workbench/**", async route => {
+        const request = route.request(), path = new URL(request.url()).pathname;
+        if (path === "/api/workbench/supply-preparations/target-rules" && request.method() === "POST") {
+          const body = request.postDataJSON();
+          expect(body.sourceId).toBe(id); expect(body.storeId).toBe(storeId);
+          categoryReads++;
+          return route.fulfill({ json: rules });
+        }
+        if (request.method() !== "GET") { forbidden.push(`${request.method()} ${path}`); return route.abort(); }
+        if (path === "/api/workbench/context") return route.fulfill({ json: { user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId: "org", effectiveMemberId: "member", selectionRequired: false, organizations: [{ id: "org", name: "【合成】平台资料测试企业", roles: [], permissions: ["workbench.supply.read", "workbench.agent.use", "local_agent.write"] }] } });
+        if (path === `/api/workbench/supply-preparations/records/${id}`) return route.fulfill({ json: record });
+        if (path === "/api/workbench/agents/listing.materials.agent") return route.fulfill({ json: config });
+        if (path === "/api/workbench/agents/listing.materials.agent/templates") return route.fulfill({ json: templates });
+        if (path === "/api/workbench/agents/execution-modes/registered_agent/listing.materials.agent") return route.fulfill({ json: mode });
+        return route.fallback();
+      });
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`/workbench/listing/materials/${id}`);
+      await expect(page.getByRole("heading", { name: "平台上架资料", exact: true })).toBeVisible();
+      const preference = page.getByRole("combobox", { name: "显示主题", exact: true });
+      await preference.selectOption(theme);
+      const purpose = page.getByRole("combobox", { name: "本次用途", exact: true });
+      const template = page.getByRole("combobox", { name: "本次模板", exact: true });
+      await expect(page.getByRole("button", { name: "准备平台资料", exact: true })).toBeEnabled();
+      await purpose.press("ArrowDown");
+      await expect(purpose).toHaveValue("category-rules");
+      const category = page.getByRole("combobox", { name: "候选类目", exact: true });
+      await expect(category.getByRole("option", { name: "【合成】候选类目A" })).toHaveCount(1);
+      await purpose.press("Tab"); await expect(category).toBeFocused();
+      await category.press("ArrowDown"); await expect(category).toHaveValue("123");
+      await category.press("End"); await expect(category).toHaveValue("124");
+      await category.press("Tab"); await expect(template).toBeFocused();
+      await template.press("ArrowDown"); await expect(template).toHaveValue(templates.items[0].templateId);
+      await template.press("End"); await expect(template).toHaveValue(templates.items[1].templateId);
+      await preference.selectOption(theme === "dark" ? "light" : "dark");
+      await expect(purpose).toHaveValue("category-rules"); await expect(category).toHaveValue("124"); await expect(template).toHaveValue(templates.items[1].templateId);
+      await preference.selectOption(theme);
+      const selections = await page.getByRole("main").getByRole("combobox").evaluateAll(nodes => nodes.map(node => (node as HTMLSelectElement).value));
+      expect(selections).toEqual(["category-rules", "124", templates.items[1].templateId]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.screenshot({ path: info.outputPath(`materials-${width}-${theme}.png`) });
+      for (const candidate of [true, false]) {
+        if (!candidate) await purpose.selectOption("materials-edit");
+        const trigger = page.getByRole("button", { name: candidate ? "查询候选类目规则" : "准备平台资料", exact: true });
+        const dialog = page.getByRole("dialog", { name: candidate ? "确认查询候选类目规则" : "确认准备平台资料", exact: true });
+        await trigger.press("Enter"); await expect(dialog).toBeVisible();
+        const cancel = dialog.getByRole("button", { name: "取消", exact: true });
+        await expect(cancel).toBeFocused(); await expect(dialog).toContainText("【合成】平台模板2 · v2");
+        await expect(dialog).toHaveCSS("opacity", "1");
+        await expect(dialog).toHaveCSS("background-color", theme === "dark" ? "rgb(20, 34, 55)" : "rgb(255, 255, 255)");
+        if (candidate) await expect(dialog).toContainText("候选类目 【合成】候选类目B · 124");
+        expect(await dialog.evaluate(node => { const r = node.getBoundingClientRect(); return r.left >= 0 && r.right <= document.documentElement.clientWidth && r.top >= 0 && r.bottom <= innerHeight; })).toBe(true);
+        await page.screenshot({ path: info.outputPath(`materials-confirm-${candidate ? "rules" : "prepare"}-${width}-${theme}.png`) });
+        await cancel.press("Tab");
+        const confirm = dialog.getByRole("button", { name: candidate ? "确认查询并解释" : "确认生成建议", exact: true });
+        await expect(confirm).toBeFocused();
+        await confirm.press("Shift+Tab"); await expect(cancel).toBeFocused();
+        await cancel.press("Escape"); await expect(dialog).toBeHidden(); await expect(trigger).toBeFocused();
+        await trigger.press("Enter"); await cancel.press("Enter"); await expect(dialog).toBeHidden(); await expect(trigger).toBeFocused();
+        await expect(template).toHaveValue(templates.items[1].templateId);
+      }
+      await purpose.selectOption("category-rules"); await expect(category).toHaveValue("124");
+      expect(categoryReads).toBeGreaterThan(0); expect(forbidden).toEqual([]);
+    });
+  }
+}
 
 for (const width of [1440, 390]) {
   for (const theme of ["light", "dark"]) {
