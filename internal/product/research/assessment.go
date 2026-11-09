@@ -134,7 +134,7 @@ func (s *Service) assessmentDeadline(ctx context.Context) (context.Context, cont
 // checkAssessmentSources never substitutes the latest source or supplier review.
 // It is also the final authorization gate executed inside the original Research transaction.
 func (s *Service) checkAssessmentSources(ctx context.Context, scope collection.Scope, project, candidate string, rec AssessmentRecord, write bool) error {
-	if rec.MemberID != scope.MemberID {
+	if rec.MemberID != scope.MemberID || !s.manualEvidenceAllowed(scope, project, candidate, rec.LinkID, rec.Market.Selection) {
 		return ErrNotFound
 	}
 	if err := s.authorize(ctx, scope, project, write); err != nil {
@@ -194,6 +194,9 @@ func (s *Service) PrepareAssessment(ctx context.Context, scope collection.Scope,
 	}
 	if validation := Validate(c); validation != nil {
 		return AssessmentProof{}, validation
+	}
+	if err := s.authorizeManualCommand(ctx, scope, project, c); err != nil {
+		return AssessmentProof{}, err
 	}
 	if c.Action != SaveAssessment && c.AssessmentRef == nil {
 		return AssessmentProof{}, ErrInvalid

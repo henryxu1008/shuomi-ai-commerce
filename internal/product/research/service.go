@@ -127,6 +127,9 @@ func (s *Service) Execute(ctx context.Context, scope collection.Scope, project, 
 	if out, found, err := s.Store.Replay(ctx, scope, project, key, c); err != nil || found {
 		return out, err
 	}
+	if err := s.authorizeManualCommand(ctx, scope, project, c); err != nil {
+		return Receipt{}, err
+	}
 	if c.Action == RecordSupplierReview {
 		proof, validation := s.prepareSupplier(ctx, scope, project, c)
 		return s.Store.(SupplierReviewStore).CommitSupplier(ctx, scope, project, key, c, proof, validation)
@@ -239,7 +242,10 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 			if link.Removed {
 				continue
 			}
-			observation := read(link.Ref)
+			var observation *Observation
+			if s.manualEvidenceAllowed(scope, project, c.ID, link.ID, link.Ref.Selection) {
+				observation = read(link.Ref)
+			}
 			v.Evidence = append(v.Evidence, EvidenceView{ID: link.ID, Observation: observation})
 			if link.ID == c.SelectedLinkID && observation != nil {
 				v.Observation = observation
@@ -251,7 +257,7 @@ func (s *Service) List(ctx context.Context, scope collection.Scope, project, aft
 		}
 		for _, h := range c.History {
 			d := DecisionView{State: h.State, Revision: h.Revision, At: h.At}
-			allowed := read(h.Ref) != nil
+			allowed := s.manualEvidenceAllowed(scope, project, c.ID, c.SelectedLinkID, h.Ref.Selection) && read(h.Ref) != nil
 			if h.AssessmentRef != nil {
 				allowed = allowed && canReadAssessment(c.ID, h.AssessmentRef)
 				if allowed {

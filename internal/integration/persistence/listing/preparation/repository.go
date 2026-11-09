@@ -139,6 +139,9 @@ func (r *Repository) Transfer(ctx context.Context, commit preparation.TransferCo
 		return nil
 	}
 	count, err := reader.VisitSelection(ctx, proof, func(item collection.Item) error {
+		if err := commit.CheckManualOriginal(item); err != nil {
+			return err
+		}
 		// Admit only the source kinds covered by the current Preparation contract.
 		if !collection.ListingTransferKind(item.Source.Kind) {
 			return preparation.ErrInvalid

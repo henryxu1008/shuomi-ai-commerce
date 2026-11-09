@@ -39,6 +39,9 @@ func (a researchSources) ReadSupplierMarket(ctx context.Context, scope collectio
 		return research.SupplierMarket{}, supplierEvidenceFailure(err)
 	}
 	if collection.IsResearchFixtureProduct(item.Source.ProductKey) {
+		if a.manualOriginal != nil {
+			return a.manualMarket(ctx, scope, project, ref, item)
+		}
 		return a.fixtureMarket(ctx, scope, project, ref, item)
 	}
 	original, err := a.data.Provenance(ctx, dataacquisition.Principal{Scope: scope}, item.Source)

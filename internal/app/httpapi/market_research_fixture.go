@@ -224,9 +224,13 @@ func (a researchSources) fixtureMarket(ctx context.Context, scope collection.Sco
 	if err != nil || fixtureAmazonRef(batch.ID, entry, ref.Selection) != ref {
 		return research.SupplierMarket{}, research.ErrConflict
 	}
+	return fixtureMarketProjection(ref, entry), nil
+}
+
+func fixtureMarketProjection(ref research.EvidenceRef, entry dataservicesapp.ResearchFixtureItem) research.SupplierMarket {
 	o := entry.Original
-	return research.SupplierMarket{Ref: ref, Revision: item.Revision, ASIN: o.ID, Title: o.Title, FixtureVersion: o.ReferenceVersion,
-		Attributes: map[string]string{"width": o.Width, "installation": o.Installation, "pack": o.Pack}}, nil
+	return research.SupplierMarket{Ref: ref, Revision: entry.Item.Revision, ASIN: o.ID, Title: o.Title, FixtureVersion: o.ReferenceVersion,
+		Attributes: map[string]string{"width": o.Width, "installation": o.Installation, "pack": o.Pack}}
 }
 
 func (a researchSources) fixtureOffer(ctx context.Context, scope collection.Scope, project string, in collection.SelectionInput, bound *research.SupplierOriginal) (research.SupplierOffer, error) {

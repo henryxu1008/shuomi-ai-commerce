@@ -56,10 +56,11 @@ type TransferReceipt struct {
 // Commit can only be minted by the live transfer use case. The original
 // command is stored for exact replay before consulting mutable collections.
 type TransferCommit struct {
-	scope Scope
-	key   string
-	input TransferInput
-	proof collection.AuthorizedBatchSelection
+	manualOriginal *manualOriginalExclusion
+	scope          Scope
+	key            string
+	input          TransferInput
+	proof          collection.AuthorizedBatchSelection
 }
 
 func (c TransferCommit) Read(ctx context.Context) (Scope, string, TransferInput, collection.AuthorizedBatchSelection, error) {

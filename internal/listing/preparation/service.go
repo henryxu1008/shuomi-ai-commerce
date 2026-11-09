@@ -10,16 +10,17 @@ import (
 )
 
 type Service struct {
-	repository Repository
-	selections CollectionSelections
-	auth       Authorizer
+	manualOriginal *manualOriginalExclusion
+	repository     Repository
+	selections     CollectionSelections
+	auth           Authorizer
 }
 
 func NewService(repository Repository, selections CollectionSelections, auth Authorizer) (*Service, error) {
 	if repository == nil || selections == nil || auth == nil {
 		return nil, ErrUnavailable
 	}
-	return &Service{repository, selections, auth}, nil
+	return &Service{repository: repository, selections: selections, auth: auth}, nil
 }
 
 func (s *Service) authorize(ctx context.Context, purpose string) (Scope, error) {
@@ -67,7 +68,7 @@ func (s *Service) Transfer(ctx context.Context, key string, input TransferInput)
 	if err != nil || selectedScope != scope {
 		return TransferReceipt{}, ErrForbidden
 	}
-	return s.repository.Transfer(ctx, TransferCommit{scope: scope, key: key, input: input, proof: proof})
+	return s.repository.Transfer(ctx, TransferCommit{scope: scope, key: key, input: input, proof: proof, manualOriginal: s.manualOriginal})
 }
 
 func (s *Service) ReadByKey(ctx context.Context, key string) (TransferReceipt, error) {

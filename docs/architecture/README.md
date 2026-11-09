@@ -9,6 +9,7 @@
 - `research-supplier-review-v1.md` · [单候选人工核对已保存 1688 货源](research-supplier-review-v1.md) · #1074 独立设计候选，Admission NOT_READY。
 - `research-manual-cost-preview-v1.md` · [单候选人工费用参考试算](research-manual-cost-preview-v1.md) · #1074 独立设计候选。
 - `research-commercial-assessment-persistence-v1.md` — [保存经营评估与人工决定引用](research-commercial-assessment-persistence-v1.md)；#1205 D1–D3 已确认，冻结设计 IMPLEMENTATION_READY；原 PR #1209 实施及工程复核，运行/产品验收 NOT_RUN。
+- `research-existing-synthetic-read-candidate.md` — [已有合成原件的单件手工评估读取](research-existing-synthetic-read-candidate.md)；#1205 仅B000123457，隔离范围已确认，架构复核中/NOT_IMPLEMENTATION_READY；未实现，不开放AI、转入或发布。
 - `research-commercial-assessment-v1.md` — [市场调研与商业选品 V1：独立架构提案](research-commercial-assessment-v1.md)；#1074 设计阶段，来源与产品决定待定，Admission NOT_READY，不授权生产代码或真实调用。
 - `shein-us-one-page-trial-send.md` · [SHEIN 美国站一页试取单次发送](shein-us-one-page-trial-send.md) · #1074 的离线发送门禁、25 credits 上限与原单核账。
 - `zenrows-shein-us-trial-adapter.md` · [ZenRows 发送与原单用量查证](zenrows-shein-us-trial-adapter.md) · #1074 一页试取适配器设计。

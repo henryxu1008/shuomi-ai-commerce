@@ -12,6 +12,7 @@ import (
 	"net/url"
 	sigjson "sigs.k8s.io/json"
 	"strings"
+	dataservicesapp "task-processor/internal/app/dataservices"
 	listingapp "task-processor/internal/app/listing"
 	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/app/productsourcing"
@@ -33,7 +34,7 @@ func WithAcquisitionPlans() CurrentApplicationOption {
 }
 
 // Extend the current producer module, reusing the selected Preparation owner.
-func composeAcquisitionPlans(ctx context.Context, module productAcquisitionModule, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *listingapp.Application) (productAcquisitionModule, error) {
+func composeAcquisitionPlans(ctx context.Context, module productAcquisitionModule, db *gorm.DB, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, collections *collection.Service, full *listingapp.Application, manualOriginal ...*dataservicesapp.ResearchManualOriginalBinding) (productAcquisitionModule, error) {
 	if module.service == nil || collections == nil {
 		return module, sourcing.ErrAcquisitionUnavailable
 	}
@@ -61,6 +62,14 @@ func composeAcquisitionPlans(ctx context.Context, module productAcquisitionModul
 			return module, e
 		}
 		app = core.app
+	}
+	if len(manualOriginal) > 1 {
+		return module, preparation.ErrInvalid
+	}
+	if len(manualOriginal) == 1 {
+		if err := (currentApplicationOptions{researchManualOriginal: manualOriginal[0]}).restrictManualOriginalTransfers(app); err != nil {
+			return module, err
+		}
 	}
 	auth := productsourcing.PlanAuthority{Sourcing: sourceAuth, Collections: collectionAuth, Preparations: app.Authorization}
 	service, err := productsourcing.NewAcquisitionPlanService(repo, repo, module.service, collections, app.Preparations, auth, discover)
