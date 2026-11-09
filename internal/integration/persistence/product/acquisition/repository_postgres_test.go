@@ -65,6 +65,18 @@ func TestAcquisitionSchemaDriftFailsClosed(t *testing.T) {
 	}
 }
 
+func TestAcquisitionSchemaAfterLogicalRestore(t *testing.T) {
+	db := isolatedDatabase(t)
+	require.NoError(t, InstallSchema(db))
+	var definition string
+	require.NoError(t, db.Raw("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='public.product_acquisition_operations'::regclass AND conname='acq_state_command'").Scan(&definition).Error)
+	// pg_dump emits this definition; pg_restore parses it again. PostgreSQL
+	// distributes the varchar[] -> text[] coercion over its constant elements.
+	require.NoError(t, db.Exec("ALTER TABLE public.product_acquisition_operations DROP CONSTRAINT acq_state_command; ALTER TABLE public.product_acquisition_operations ADD CONSTRAINT acq_state_command "+definition).Error)
+	_, err := NewRepository(context.Background(), db)
+	require.NoError(t, err, "the owner's unchanged constraint must survive a logical restore")
+}
+
 func requestedOperation(t *testing.T, org, actor, key string) sourcing.AcquisitionOperation {
 	t.Helper()
 	source, err := sourcing.Canonical1688Source("981645030344")
