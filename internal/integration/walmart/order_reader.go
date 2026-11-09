@@ -8,6 +8,7 @@ import (
 	o "task-processor/internal/storecenter/observations"
 	auth "task-processor/internal/storecenter/walmart"
 	"time"
+	"unicode"
 )
 
 // Orders reads one page, never follows a provider URL or mutates an order.
@@ -17,7 +18,7 @@ func (c *OfficialClient) Orders(ctx context.Context, token auth.TokenSet, in o.W
 	}
 	q := url.Values{"createdStartDate": {in.Start.UTC().Format(time.RFC3339)}, "createdEndDate": {in.End.UTC().Format(time.RFC3339)}, "shipNodeType": {o.WalmartOrderPartitions[in.Partition]}, "limit": {"30"}, "replacementInfo": {"true"}}
 	if in.Cursor != "" {
-		if len(in.Cursor) > 8192 || !strings.HasPrefix(in.Cursor, "?") || strings.ContainsAny(in.Cursor, "\r\n\x00#") {
+		if len(in.Cursor) > 8192 || !strings.HasPrefix(in.Cursor, "?") || strings.Contains(in.Cursor, "#") || strings.ContainsFunc(in.Cursor, unicode.IsControl) {
 			return o.WalmartOrderPage{}, o.ErrUnavailable
 		}
 		next, e := url.ParseQuery(in.Cursor[1:])
@@ -25,7 +26,7 @@ func (c *OfficialClient) Orders(ctx context.Context, token auth.TokenSet, in o.W
 			return o.WalmartOrderPage{}, o.ErrUnavailable
 		}
 		for key, values := range next {
-			if len(values) != 1 || values[0] == "" || strings.ContainsAny(values[0], "\r\n\x00") {
+			if len(values) != 1 || values[0] == "" || strings.ContainsFunc(key, unicode.IsControl) || strings.ContainsFunc(values[0], unicode.IsControl) {
 				return o.WalmartOrderPage{}, o.ErrUnavailable
 			}
 			value := values[0]
