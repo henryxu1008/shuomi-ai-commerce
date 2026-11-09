@@ -30,7 +30,7 @@ it("requires a source-bearing safe-integer stock suggestion, rejecting retired f
  const row={attributes:{},evidence:"库存未知",stockSuggestion:{quantity:0,evidence:"库存未知"}};
  const result={requestKey:"11111111-1111-4111-8111-111111111111",phase:"human_review_required",candidate:{rows:[row]}};
  expect(intakeResult.parse(result).candidate?.rows?.[0].stockSuggestion?.quantity).toBe(0);
- for(const stockSuggestion of [{evidence:"库存未知"},{quantity:null,evidence:"库存未知"},{quantity:-1,evidence:"库存未知"},{quantity:0.5,evidence:"库存未知"},{quantity:Number.MAX_SAFE_INTEGER+1,evidence:"库存未知"},{quantity:0,evidence:""},{...row.stockSuggestion,confirmed:true}])
+ for(const stockSuggestion of [null,{evidence:"库存未知"},{quantity:null,evidence:"库存未知"},{quantity:-1,evidence:"库存未知"},{quantity:0.5,evidence:"库存未知"},{quantity:Number.MAX_SAFE_INTEGER+1,evidence:"库存未知"},{quantity:0,evidence:""},{...row.stockSuggestion,confirmed:true}])
   expect(intakeResult.safeParse({...result,candidate:{rows:[{...row,stockSuggestion}]}}).success).toBe(false);
  expect(intakeResult.safeParse({...result,candidate:{rows:[{...row,stock:0}]}}).success).toBe(false);
  expect(intakeResult.safeParse({...result,candidate:{...result.candidate,stockReviewRows:[0]}}).success).toBe(false);

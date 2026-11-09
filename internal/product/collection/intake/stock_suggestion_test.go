@@ -64,3 +64,8 @@ func TestStockSuggestionRejectsRetiredFields(t *testing.T) {
 		require.Equal(t, ValidationIssue{"candidate", "invalid_schema"}, err)
 	}
 }
+
+func TestStockSuggestionRejectsExplicitNullRatherThanErasingIt(t *testing.T) {
+	_, err := Decode([]byte(`{"rows":[{"attributes":{},"evidence":"库存未知","stockSuggestion":null}]}`), Input{Notes: "库存未知"})
+	require.Equal(t, ValidationIssue{"rows[0].stock", "invalid_value"}, err)
+}

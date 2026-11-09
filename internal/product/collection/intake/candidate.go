@@ -79,6 +79,21 @@ func Decode(raw []byte, in Input) (Candidate, error) {
 	if len(issues) != 0 {
 		return Candidate{}, ValidationIssue{"candidate", "invalid_schema"}
 	}
+	// A pointer alone loses the difference between omitted and explicit null.
+	// Inspect only presence after strict decoding has checked the full schema.
+	var presence struct {
+		Rows []struct {
+			Stock json.RawMessage `json:"stockSuggestion"`
+		} `json:"rows"`
+	}
+	if err := json.Unmarshal(raw, &presence); err != nil {
+		return Candidate{}, ValidationIssue{"candidate", "invalid_json"}
+	}
+	for i, row := range presence.Rows {
+		if strings.TrimSpace(string(row.Stock)) == "null" {
+			return Candidate{}, ValidationIssue{fmt.Sprintf("rows[%d].stock", i), "invalid_value"}
+		}
+	}
 	if err := out.Validate(in); err != nil {
 		return Candidate{}, err
 	}
