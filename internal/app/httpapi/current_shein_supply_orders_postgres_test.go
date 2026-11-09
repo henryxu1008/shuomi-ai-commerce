@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -187,6 +188,21 @@ func TestSheinSupplyOrdersBatchPostgres(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "21", *all.Summary.Quantities.Ordered.Value)
 	require.Len(t, all.SavedOrderIDs, 21)
+	// Worst accepted multibyte IDs may all be absent. The final JSONB progress,
+	// including both identity arrays and notes, still fits the original limit.
+	longIDs := []string{}
+	for i := 0; i < 78; i++ {
+		longIDs = append(longIDs, strings.Repeat("采", 125)+fmt.Sprintf("%03d", i))
+	}
+	longBatch, err := service.Begin(ctx, scope, uuid.NewString(), o.BeginInput{Kind: o.SupplyOrders, Stores: []string{a}, SupplyOrderIDs: longIDs})
+	require.NoError(t, err)
+	longResult, err := repo.ReadSync(ctx, scope.OrganizationID, longBatch.Syncs[0].ID)
+	require.NoError(t, err)
+	require.Equal(t, "partial", longResult.Status)
+	require.Len(t, longResult.Progress.SupplyOrders.MissingIDs, 78)
+	var checkpointBytes int
+	require.NoError(t, owner.Raw("SELECT octet_length(progress::text) FROM store_observations.syncs WHERE id=?", longResult.ID).Scan(&checkpointBytes).Error)
+	require.LessOrEqual(t, checkpointBytes, 65536)
 	// A current-boundary change invalidates the old result instead of returning stale facts.
 	changed := f.materials[a]
 	changed.StoreVersion++

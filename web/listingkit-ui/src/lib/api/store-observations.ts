@@ -238,11 +238,11 @@ export const observationCapabilitiesSchema = z
     runtimeReady: z.boolean(),
     providerConfigured: z.boolean(),
     kind: observationKindSchema,
-    site: z.enum(["shein-us","store-native"]),
+    site: z.enum(["shein-us","store-native","unknown"]),
     platformUrl: z.enum(["https://sellerhub.shein.com/",""]),
   })
   .strict()
-  .refine((v) => (!v.canSync || v.available) && (!v.available || (v.runtimeReady && v.providerConfigured)));
+  .refine((v) => (!v.canSync || v.available) && (!v.available || (v.runtimeReady && v.providerConfigured)) && (v.kind==="supply-orders"?v.site==="unknown"&&v.platformUrl==="":v.site!=="unknown"));
 export type ObservationRecord = z.infer<typeof observationRecordSchema>;
 export type ObservationSync = z.infer<typeof observationSyncSchema>;
 export type ObservationPrice = z.infer<typeof observationPriceSchema>;

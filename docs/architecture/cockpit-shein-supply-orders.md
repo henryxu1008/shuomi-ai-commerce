@@ -8,6 +8,8 @@ Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY. 
 
 用户确认的scope是明确单号集合，不建设时间窗口遍历或整店全量。单次仅一家店铺，最多200个原单号；固定排序/去重后成为命令输入。原始单号字段不接受逗号/控制字符/空白首尾，单号长度<=128。无自然日区间、金额、币种聚合、供货有效需求或结算收入推断。
 
+原 checkpoint 的64KiB预算在准入时按最坏 MissingIDs 重复全量单号计算；供货单进度的紧凑序列化最多60KiB，为JSONB文本空格、原字段及notes保留4KiB。多字节长单号须缩小批次，不能等保存漏返回进度时再失败。
+
 Out of Scope: 真实店铺授权、真实令牌/业务API；消费者订单全托准入；全平台成功率/GMV/原合成预览；ERP/采购/发货执行或地址；定时同步/Webhook；墨西哥特殊全托；迁移、fallback、双写或新同步框架。旧实例不更新，新增独立离线实例与新数据库。
 
 ## 业务依据与当前owner

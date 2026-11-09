@@ -55,6 +55,13 @@ it("binds supply observations to the exact store and rejects date-based or gener
  fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:payload}));expect((await request(`supply-orders/observation?storeId=${id}`)).status).toBe(200);
  fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:{...payload,storeId:"c0d81244-c016-442a-8184-3cac18dce4ee"}}));expect((await request(`supply-orders/observation?storeId=${id}`)).status).toBe(502);
 });
+it("accepts supply capabilities with unknown site and rejects an invented US site",async()=>{
+ configure();const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
+ const read=()=>proxyStoreObservations(new Request("http://localhost:3000/api/workbench/store-observations/supply-orders/capabilities",{headers}),"private","actor-a");
+ const data={kind:"supply-orders",site:"unknown",platformUrl:"",runtimeReady:true,providerConfigured:true,available:true,canSync:true};
+ fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data}));expect((await read()).status).toBe(200);
+ fetch.mockResolvedValueOnce(Response.json({organizationId:"org-a",userId:"actor-a",data:{...data,site:"shein-us"}}));expect((await read()).status).toBe(502);
+});
 
 it("forwards a native product platform filter and rejects unsupported order filters",async()=>{
  configure();

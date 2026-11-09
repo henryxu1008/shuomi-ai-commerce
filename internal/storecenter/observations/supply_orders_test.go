@@ -1,7 +1,10 @@
 package observations
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/require"
+	"strings"
 	"testing"
 )
 
@@ -13,6 +16,30 @@ func TestSupplyBatchCanonicalIdentityAndBounds(t *testing.T) {
 		_, err := NormalizeSupplyOrderIDs(ids)
 		require.Error(t, err)
 	}
+}
+
+func TestSupplyIdentityBudgetIncludesWorstCaseMissingIDs(t *testing.T) {
+	ids := func(n int, prefix string) []string {
+		out := []string{}
+		for i := 0; i < n; i++ {
+			out = append(out, prefix+fmt.Sprintf("%03d", i))
+		}
+		return out
+	}
+	ascii, err := NormalizeSupplyOrderIDs(ids(200, strings.Repeat("A", 125)))
+	require.NoError(t, err)
+	require.Len(t, ascii, 200)
+	_, err = NormalizeSupplyOrderIDs(ids(100, strings.Repeat("采", 125)))
+	require.ErrorIs(t, err, ErrInvalid, "a bounded Begin body must not admit an unfinishable missing-ID checkpoint")
+	bounded, err := NormalizeSupplyOrderIDs(ids(78, strings.Repeat("采", 125)))
+	require.NoError(t, err)
+	worst := Checkpoint{Page: 11, Pages: 10, Incomplete: true, SupplyOrders: &SupplyProgress{OrderIDs: bounded, Next: 78, MissingIDs: bounded}, Notes: []string{}}
+	for i := 0; i < 20; i++ {
+		worst.Notes = append(worst.Notes, strings.Repeat("N", 64))
+	}
+	raw, err := json.MarshalIndent(worst, "", " ")
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(raw), 65536)
 }
 
 func TestSupplyQuantitiesSeparateMotherAndUnknownAndNeverFillMissingWithZero(t *testing.T) {

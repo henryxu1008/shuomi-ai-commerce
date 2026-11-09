@@ -1,4 +1,4 @@
-import {cleanup,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import {afterEach,expect,it,vi} from "vitest";
@@ -36,4 +36,13 @@ it("resumes the same acknowledged sync without creating a new batch",async()=>{
  await userEvent.click(await screen.findByRole("button",{name:"继续原读取"}));
  expect(observationRequest).toHaveBeenCalledWith(`supply-orders/syncs/${b}/ensure`,scope,expect.anything(),undefined,{});
  expect(vi.mocked(observationRequest).mock.calls.some(c=>c[0]==="supply-orders/syncs")).toBe(false);
+});
+it("hides cached facts and read controls when the same shop's refresh fails",async()=>{
+ const quantity={value:"12",missingLines:0};
+ vi.mocked(observationRequest).mockResolvedValue({storeId:a,status:"saved",canSync:true,savedOrderIds:["PO-A"],source:{syncId:b,orderIds:["PO-A"],missingIds:[],notes:[]},summary:{orderCount:1,motherCount:0,unknownTypeCount:0,quantities:{ordered:quantity,delivered:quantity,received:quantity,stored:quantity,defective:quantity}}});
+ const view=render(<SheinSupplyOrders scope={scope} storeId={a} onApplicable={applicable}/>,{wrapper:wrapper()});
+ await screen.findByText("本批单号均已保存");expect(view.container.querySelectorAll("dd").length).toBe(8);
+ vi.mocked(observationRequest).mockRejectedValue(new Error("binding or authorization changed"));
+ await act(async()=>{await clients.at(-1)!.refetchQueries({queryKey:["shein-supply-orders",scope.organizationId,scope.userId,a]});});
+ await screen.findByRole("alert");expect(screen.queryByText("本批单号均已保存")).toBeNull();expect(view.container.querySelectorAll("dd").length).toBe(0);expect(screen.queryByRole("textbox")).toBeNull();
 });

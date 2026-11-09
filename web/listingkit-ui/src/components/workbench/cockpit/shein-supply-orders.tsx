@@ -51,7 +51,7 @@ export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:Observatio
       await observationRequest("supply-orders/syncs",scope,observationCommandSchema,undefined,original);
       sessionStorage.removeItem(storageKey);setIntent(undefined);
       await query.refetch();
-    }catch {setError("读取未确认。请重试原读取；不会重复创建另一批。每批最多 200 个采购单号。");}
+    }catch {setError("读取未确认。请重试原读取；不会重复创建另一批。每批最多 200 个采购单号，单号较长时请减少批量。");}
     finally {setBusy(false);}
   }
   async function resume(){
@@ -62,14 +62,15 @@ export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:Observatio
     catch {setError("继续读取尚未确认，请重试继续原读取。");}
     finally {setBusy(false);}
   }
-  if(query.data?.status==="not_applicable")return null;
-  const data=query.data,source=data?.source,summary=data?.summary;
+  if(!query.error&&!query.isFetching&&query.data?.status==="not_applicable")return null;
+  const data=query.error||query.isFetching||busy?undefined:query.data;
+  const source=intent?undefined:data?.source,summary=intent?undefined:data?.summary;
   return <Card className={styles.panel}>
     <header className={styles.panelHeader}><h2>SHEIN 全托供货单观察</h2><small>按采购单号批次</small></header>
     <p className={styles.panelNote}>仅观察本批采购单号，不代表店铺全量。日期口径待确认，不随首页日期变化；暂不统计金额。</p>
-    {query.isPending?<p role="status">正在读取供货单观察…</p>:query.error?<p role="alert">供货单观察暂不可用。<Button variant="outline" onClick={()=>void query.refetch()}>重新读取</Button></p>:null}
+    {query.isPending||query.isFetching||busy?<p role="status">正在确认供货单读取…</p>:query.error?<p role="alert">供货单观察暂不可用。<Button variant="outline" onClick={()=>void query.refetch()}>重新读取</Button></p>:null}
     {data&&<>
-      <p role="status">{data.status==="not_synced"?"尚无已保存批次":data.status==="running"?"本批正在读取，完成后自动更新":data.status==="saved"?"本批单号均已保存":"覆盖不足：仅展示本批已保存部分"}</p>
+      <p role="status">{intent?"原读取结果尚未确认，请重试原读取":data.status==="not_synced"?"尚无已保存批次":data.status==="running"?"本批正在读取，完成后自动更新":data.status==="saved"?"本批单号均已保存":"覆盖不足：仅展示本批已保存部分"}</p>
       {data.status==="running"&&data.canSync&&source&&<Button variant="outline" disabled={busy} onClick={()=>void resume()}>继续原读取</Button>}
       {source&&<p className={styles.panelNote}>本批 {source.orderIds.length} 个单号 · 已保存 {data.savedOrderIds.length} 个 · 未返回 {source.missingIds.length} 个</p>}
       {summary&&<>
@@ -81,7 +82,7 @@ export function SheinSupplyOrders({scope,storeId,onApplicable}:{scope:Observatio
       {data.canSync&&<form className="grid gap-3 p-3" onSubmit={e=>{e.preventDefault();void submit();}}>
         <label htmlFor="supply-order-ids">读取并保存采购单（每批最多 200 个单号，一行一个）</label>
         <Textarea id="supply-order-ids" value={text} onChange={e=>setText(e.target.value)} disabled={busy||!!intent||data.status==="running"} maxLength={26000}/>
-        <Button type="submit" disabled={!!restored.error||busy||data.status==="running"||(!intent&&!text.trim())}>{busy?"正在确认读取…":intent?"重试原读取":"读取并保存本批"}</Button>
+        <Button type="submit" disabled={!!restored.error||busy||(!intent&&data.status==="running")||(!intent&&!text.trim())}>{busy?"正在确认读取…":intent?"重试原读取":"读取并保存本批"}</Button>
       </form>}
     </>}
     {data&&error&&<p role="alert">{error}</p>}

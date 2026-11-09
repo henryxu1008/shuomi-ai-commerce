@@ -2,6 +2,7 @@ package observations
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"sort"
 	"strings"
@@ -26,6 +27,12 @@ func NormalizeSupplyOrderIDs(ids []string) ([]string, error) {
 		out = append(out, id)
 	}
 	sort.Strings(out)
+	// A missing receipt can repeat every identity in MissingIDs. Reserve 4 KiB
+	// of the original 64 KiB checkpoint for JSONB spacing, counters and notes.
+	worst, e := json.Marshal(SupplyProgress{OrderIDs: out, Next: len(out), MissingIDs: out})
+	if e != nil || len(worst) > 60<<10 {
+		return nil, ErrInvalid
+	}
 	return out, nil
 }
 
