@@ -70,6 +70,13 @@ func (c *OfficialStoreConnectionConfig) validate() error {
 	}
 	// Validate protocol/configuration without network calls or secret-file reads.
 	if app.Platform == storecenter.PlatformShein {
+		origin := "https://openapi.sheincorp.com"
+		if c.Type == storecenter.ApplicationFullyManaged {
+			origin = "https://openapi.sheincorp.cn"
+		}
+		if c.APIOrigin != origin {
+			return errors.New("SHEIN application mode and production API origin do not match")
+		}
 		_, err = shein.NewOfficialClient(shein.OfficialClientOptions{Application: app, AppSecret: strings.Repeat("0", 32), APIOrigin: c.APIOrigin})
 	} else {
 		_, err = temu.NewOfficialClient(temu.OfficialClientOptions{Application: app, AppSecret: strings.Repeat("0", 32)})

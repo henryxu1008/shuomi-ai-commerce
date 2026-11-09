@@ -13,6 +13,7 @@ import (
 	"net/netip"
 	"net/url"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -47,6 +48,7 @@ type semiOrderFixture struct {
 	mu         sync.Mutex
 	rows       map[string][]semiOrderReceipt
 	salesAreas map[string]*int
+	supplyRows map[string][]map[string]any
 	calls      int
 }
 
@@ -63,11 +65,16 @@ func newSheinOrderFixture(t *testing.T, scope o.Scope, stores []string, mode sto
 	t.Helper()
 	f := &semiOrderFixture{scope: scope, materials: map[string]storecenter.ProductExecutionMaterial{}, rows: map[string][]semiOrderReceipt{}, salesAreas: map[string]*int{}}
 	appID := "offline-semi-app"
+	origin := "https://openapi.sheincorp.com"
+	if mode == storecenter.ApplicationFullyManaged {
+		appID = "offline-full-app"
+		origin = "https://openapi.sheincorp.cn"
+	}
 	if mode == storecenter.ApplicationSelfOperated {
 		appID = "offline-self-app"
 	}
 	app := storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: appID, Version: storeapp.BoundOfficialRevision("offline-v1", mode), CallbackURL: "https://example.invalid/shein-callback"}
-	provider, err := shein.NewOfficialClient(shein.OfficialClientOptions{Application: app, AppSecret: "synthetic-app-secret-never-sent", APIOrigin: "https://openapi.sheincorp.com", HTTPClient: &http.Client{Transport: f}})
+	provider, err := shein.NewOfficialClient(shein.OfficialClientOptions{Application: app, AppSecret: "synthetic-app-secret-never-sent", APIOrigin: origin, HTTPClient: &http.Client{Transport: f}})
 	require.NoError(t, err)
 	protection, err := shein.NewCredentialProtection("offline-semi-key", bytes.Repeat([]byte{7}, 32))
 	require.NoError(t, err)
@@ -85,13 +92,13 @@ func newSheinOrderFixture(t *testing.T, scope o.Scope, stores []string, mode sto
 }
 
 func (f *semiOrderFixture) Authorize(_ context.Context, s o.Scope, k o.Kind, _ bool) error {
-	if s != f.scope || k != o.Orders {
+	if s != f.scope || (k != o.Orders && k != o.SupplyOrders) {
 		return o.ErrForbidden
 	}
 	return nil
 }
 func (f *semiOrderFixture) AuthorizeObservation(_ context.Context, s storecenter.ObservationSubject) (storecenter.ObservationAuthorization, error) {
-	if s.OrganizationID != f.scope.OrganizationID || s.ActorID != f.scope.ActorID || s.MemberID != f.scope.MemberID || s.Purpose != storecenter.ObservationPurposeOrders {
+	if s.OrganizationID != f.scope.OrganizationID || s.ActorID != f.scope.ActorID || s.MemberID != f.scope.MemberID || (s.Purpose != storecenter.ObservationPurposeOrders && s.Purpose != storecenter.ObservationPurposeSupplyOrders) {
 		return storecenter.ObservationAuthorization{}, o.ErrForbidden
 	}
 	return storecenter.ObservationAuthorization{}, nil
@@ -110,7 +117,11 @@ func (f *semiOrderFixture) Open(ctx context.Context, s o.Scope, store string, k 
 	if err := f.Authorize(ctx, s, k, write); err != nil {
 		return nil, err
 	}
-	return f.access.Authorize(ctx, storecenter.ObservationSubject{OrganizationID: s.OrganizationID, ActorID: s.ActorID, MemberID: s.MemberID, Purpose: storecenter.ObservationPurposeOrders, Sync: write}, store, expected)
+	purpose := storecenter.ObservationPurposeOrders
+	if k == o.SupplyOrders {
+		purpose = storecenter.ObservationPurposeSupplyOrders
+	}
+	return f.access.Authorize(ctx, storecenter.ObservationSubject{OrganizationID: s.OrganizationID, ActorID: s.ActorID, MemberID: s.MemberID, Purpose: purpose, Sync: write}, store, expected)
 }
 func (f *semiOrderFixture) ListStores(ctx context.Context, s o.Scope, k o.Kind, platform string) ([]string, error) {
 	if err := f.Authorize(ctx, s, k, false); err != nil {
@@ -131,6 +142,24 @@ func (f *semiOrderFixture) RoundTrip(r *http.Request) (*http.Response, error) {
 	defer f.mu.Unlock()
 	f.calls++
 	// There is deliberately no fallback transport, DNS lookup or socket dial.
+	if r.URL.Host == "openapi.sheincorp.cn" && r.Method == http.MethodGet && r.URL.Path == "/open-api/order/purchase-order-infos" && f.materials[r.Header.Get("x-lt-openKeyId")].Attempt.AppID == "offline-full-app" {
+		q := r.URL.Query()
+		if q.Get("pageNumber") != "1" || q.Get("pageSize") != "200" || q.Get("selectJitMother") != "1" || q.Has("pageNo") {
+			return nil, fmt.Errorf("incorrect offline supply batch query")
+		}
+		wanted := map[string]bool{}
+		for _, id := range strings.Split(q.Get("orderNos"), ",") {
+			wanted[id] = true
+		}
+		list := []map[string]any{}
+		for _, row := range f.supplyRows[r.Header.Get("x-lt-openKeyId")] {
+			if wanted[row["orderNo"].(string)] {
+				list = append(list, row)
+			}
+		}
+		raw, _ := json.Marshal(map[string]any{"code": "0", "info": map[string]any{"count": len(list), "list": list}})
+		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(bytes.NewReader(raw)), Request: r}, nil
+	}
 	if r.URL.Host != "openapi.sheincorp.com" || r.Method != http.MethodPost || f.materials[r.Header.Get("x-lt-openKeyId")].Attempt.AppID == "" {
 		return nil, fmt.Errorf("unexpected offline SHEIN request")
 	}

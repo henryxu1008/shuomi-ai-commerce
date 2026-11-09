@@ -129,6 +129,18 @@ func (s *Service) Begin(ctx context.Context, scope Scope, key string, in BeginIn
 	if in.Kind == Products && (in.Start != nil || in.End != nil) {
 		return Command{}, ErrInvalid
 	}
+	if in.Kind == SupplyOrders {
+		if len(in.Stores) != 1 || in.Start != nil || in.End != nil {
+			return Command{}, ErrInvalid
+		}
+		ids, err := NormalizeSupplyOrderIDs(in.SupplyOrderIDs)
+		if err != nil {
+			return Command{}, err
+		}
+		in.SupplyOrderIDs = ids
+	} else if len(in.SupplyOrderIDs) != 0 {
+		return Command{}, ErrInvalid
+	}
 	raw, _ := json.Marshal(in)
 	hash := sha256.Sum256(raw)
 	fingerprint := hex.EncodeToString(hash[:])
@@ -179,6 +191,9 @@ func (s *Service) Begin(ctx context.Context, scope Scope, key string, in BeginIn
 	e = forStores(ctx, len(stores), func(ctx context.Context, i int) error {
 		store := stores[i]
 		child := Sync{ID: uuid.NewString(), StoreID: store, Owner: scope, Kind: in.Kind, Key: ChildKey(key, store, in.Kind), Revision: 1, Status: "pending", CreatedAt: now, Progress: Checkpoint{Page: 1, Windows: append([]Window{}, windows...), Notes: []string{}}}
+		if in.Kind == SupplyOrders {
+			child.Progress.SupplyOrders = &SupplyProgress{OrderIDs: append([]string{}, in.SupplyOrderIDs...), MissingIDs: []string{}}
+		}
 		if in.Kind == Orders {
 			child.Range = &Window{*fixed.Start, *fixed.End}
 		}
@@ -366,6 +381,13 @@ func (s *Service) Step(ctx context.Context, org, id string) (Sync, error) {
 	}
 	if merchant.Binding() != sync.Binding {
 		return stop(ErrConflict)
+	}
+	if sync.Kind == SupplyOrders {
+		updated, err := s.stepSupplyOrders(ctx, sync, merchant)
+		if err != nil {
+			return stop(err)
+		}
+		return updated, nil
 	}
 	c := copyCheckpoint(sync.Progress)
 	records := []Record{}

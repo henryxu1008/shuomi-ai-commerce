@@ -25,7 +25,7 @@ const maxResponse = 2 << 20
 
 func Routes(a *app.Application, bind func(context.Context, string) (context.Context, error)) []httproute.Descriptor {
 	out := []httproute.Descriptor{}
-	for _, kind := range []o.Kind{o.Products, o.Orders} {
+	for _, kind := range []o.Kind{o.Products, o.Orders, o.SupplyOrders} {
 		specs := []struct {
 			method, path, action string
 			sync                 bool
@@ -53,6 +53,15 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 			}{"GET", "/stores/:store_id/syncs/:sync_id/records/:record_id/packages/:package_id/track", "track", false})
 		}
 		for _, spec := range specs {
+			if kind == o.SupplyOrders {
+				if spec.action == "detail" {
+					continue
+				}
+				if spec.action == "list" {
+					spec.path = "/observation"
+					spec.action = "supply-observation"
+				}
+			}
 			permission := o.ReadPermission(kind)
 			if spec.sync {
 				permission = o.SyncPermission(kind)
@@ -71,7 +80,7 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 						return
 					}
 				}
-				if spec.action != "list" && spec.action != "saved-amount-metrics" && spec.action != "walmart-saved-amount-metrics" && spec.action != "tiktok-saved-amount-metrics" && spec.action != "temu-saved-amount-metrics" && c.Request.URL.RawQuery != "" {
+				if spec.action != "list" && spec.action != "supply-observation" && spec.action != "saved-amount-metrics" && spec.action != "walmart-saved-amount-metrics" && spec.action != "tiktok-saved-amount-metrics" && spec.action != "temu-saved-amount-metrics" && c.Request.URL.RawQuery != "" {
 					failure(c, o.ErrInvalid)
 					return
 				}
@@ -113,6 +122,13 @@ func Routes(a *app.Application, bind func(context.Context, string) (context.Cont
 				}
 				var data any
 				switch spec.action {
+				case "supply-observation":
+					values, err := url.ParseQuery(c.Request.URL.RawQuery)
+					if err != nil || len(c.Request.URL.RawQuery) > 512 || len(values) != 1 || len(values["storeId"]) != 1 || !o.ValidID(values.Get("storeId")) {
+						failure(c, o.ErrInvalid)
+						return
+					}
+					data, e = a.Service.SupplyObservation(ctx, scope, values.Get("storeId"))
 				case "capabilities":
 					data, e = a.Capabilities(ctx, scope, kind)
 				case "temu-saved-amount-metrics", "saved-amount-metrics", "walmart-saved-amount-metrics", "tiktok-saved-amount-metrics":

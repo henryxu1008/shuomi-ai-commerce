@@ -34,7 +34,7 @@ const (
 	Orders   Kind = "orders"
 )
 
-func (k Kind) Valid() bool { return k == Products || k == Orders }
+func (k Kind) Valid() bool { return k == Products || k == Orders || k == SupplyOrders }
 func ReadPermission(k Kind) string {
 	if k == Products {
 		return "workbench.store.products.read"
@@ -189,6 +189,7 @@ func (w Window) Key() string {
 }
 
 type Checkpoint struct {
+	SupplyOrders    *SupplyProgress       `json:"supplyOrders,omitempty"`
 	TemuOrders      *TemuOrderProgress    `json:"temuOrders,omitempty"`
 	TikTokOrders    *TikTokOrderProgress  `json:"tiktokOrders,omitempty"`
 	WalmartOrders   *WalmartOrderProgress `json:"walmartOrders,omitempty"`
@@ -257,10 +258,11 @@ func (s Sync) Terminal() bool {
 }
 
 type BeginInput struct {
-	Kind   Kind       `json:"kind"`
-	Stores []string   `json:"stores"`
-	Start  *time.Time `json:"start"`
-	End    *time.Time `json:"end"`
+	SupplyOrderIDs []string   `json:"supplyOrderIds,omitempty"`
+	Kind           Kind       `json:"kind"`
+	Stores         []string   `json:"stores"`
+	Start          *time.Time `json:"start"`
+	End            *time.Time `json:"end"`
 }
 type Command struct {
 	ID        string     `json:"id"`
@@ -278,6 +280,7 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
+	SupplyOrder    *SupplyOrder     `json:"supplyOrder,omitempty"`
 	TemuOrder      *TemuOrder       `json:"temuOrder,omitempty"`
 	TikTokOrder    *TikTokOrder     `json:"tiktokOrder,omitempty"`
 	WalmartOrder   *WalmartOrder    `json:"walmartOrder,omitempty"`
