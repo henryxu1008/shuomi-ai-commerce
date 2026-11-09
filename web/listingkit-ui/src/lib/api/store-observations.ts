@@ -70,6 +70,7 @@ const order = z
     site: z.literal("shein-us"),
     status: code,
     stockMode: code,
+    salesArea: code.optional(),
     type: code,
     tag: code,
     reasons: z.array(z.number().int().min(0).max(1_000_000)).max(50),
@@ -243,6 +244,10 @@ export type ObservationRecord = z.infer<typeof observationRecordSchema>;
 export type ObservationSync = z.infer<typeof observationSyncSchema>;
 export type ObservationPrice = z.infer<typeof observationPriceSchema>;
 export type ObservationOrder = NonNullable<ObservationRecord["order"]>;
+
+export function orderSalesArea(value:number|null|undefined){
+ return value===1?"本土销售":value===2?"跨境销售":value==null?"未知（平台未提供）":`未识别 (${value})`;
+}
 export type ObservationScope = { organizationId: string; userId: string };
 export const observationEnvelopeSchema = (schema: z.ZodType) =>
   z

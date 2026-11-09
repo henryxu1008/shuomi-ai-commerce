@@ -41,12 +41,13 @@ import (
 // application registry, credential protection, read-only handle, parser, sync
 // service and PostgreSQL transaction/head/amount reader run without substitutes.
 type semiOrderFixture struct {
-	scope     o.Scope
-	access    *storeapp.OfficialObservationAccess
-	materials map[string]storecenter.ProductExecutionMaterial
-	mu        sync.Mutex
-	rows      map[string][]semiOrderReceipt
-	calls     int
+	scope      o.Scope
+	access     *storeapp.OfficialObservationAccess
+	materials  map[string]storecenter.ProductExecutionMaterial
+	mu         sync.Mutex
+	rows       map[string][]semiOrderReceipt
+	salesAreas map[string]*int
+	calls      int
 }
 
 type semiOrderReceipt struct {
@@ -55,20 +56,28 @@ type semiOrderReceipt struct {
 }
 
 func newSemiOrderFixture(t *testing.T, scope o.Scope, stores []string) *semiOrderFixture {
+	return newSheinOrderFixture(t, scope, stores, storecenter.ApplicationSemiManaged, nil)
+}
+
+func newSheinOrderFixture(t *testing.T, scope o.Scope, stores []string, mode storecenter.OfficialApplicationType, businessModes map[string]string) *semiOrderFixture {
 	t.Helper()
-	f := &semiOrderFixture{scope: scope, materials: map[string]storecenter.ProductExecutionMaterial{}, rows: map[string][]semiOrderReceipt{}}
-	app := storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: "offline-semi-app", Version: storeapp.BoundOfficialRevision("offline-v1", storecenter.ApplicationSemiManaged), CallbackURL: "https://example.invalid/shein-callback"}
+	f := &semiOrderFixture{scope: scope, materials: map[string]storecenter.ProductExecutionMaterial{}, rows: map[string][]semiOrderReceipt{}, salesAreas: map[string]*int{}}
+	appID := "offline-semi-app"
+	if mode == storecenter.ApplicationSelfOperated {
+		appID = "offline-self-app"
+	}
+	app := storecenter.OfficialApplication{Platform: storecenter.PlatformShein, AuthorizationMethod: storecenter.AuthorizationCallback, AppID: appID, Version: storeapp.BoundOfficialRevision("offline-v1", mode), CallbackURL: "https://example.invalid/shein-callback"}
 	provider, err := shein.NewOfficialClient(shein.OfficialClientOptions{Application: app, AppSecret: "synthetic-app-secret-never-sent", APIOrigin: "https://openapi.sheincorp.com", HTTPClient: &http.Client{Transport: f}})
 	require.NoError(t, err)
 	protection, err := shein.NewCredentialProtection("offline-semi-key", bytes.Repeat([]byte{7}, 32))
 	require.NoError(t, err)
 	for _, store := range stores {
 		attempt := storecenter.OfficialConnectionAttempt{OrganizationID: scope.OrganizationID, StoreID: store, AttemptID: uuid.NewString(), ActorID: scope.ActorID, MemberID: scope.MemberID, AppID: app.AppID, AppVersion: app.Version, ConnectionVersion: 1, State: "verified"}
-		attempt.KeyID, attempt.Ciphertext, err = protection.Seal(attempt, storecenter.OfficialMerchantCredential{AppID: app.AppID, SupplierID: "123", OpenKeyID: store, SecretKey: "synthetic-merchant-secret"})
+		attempt.KeyID, attempt.Ciphertext, err = protection.Seal(attempt, storecenter.OfficialMerchantCredential{AppID: app.AppID, SupplierID: "123", OpenKeyID: store, SecretKey: "synthetic-merchant-secret", SheinBusinessMode: businessModes[store]})
 		require.NoError(t, err)
 		f.materials[store] = storecenter.ProductExecutionMaterial{Platform: storecenter.PlatformShein, StoreVersion: 1, ServiceExpiresAt: time.Now().Add(24 * time.Hour), Attempt: attempt, Connection: storecenter.OfficialConnectionView{AttemptID: attempt.AttemptID, Version: 1, Status: storecenter.ConnectionStatusConnected}}
 	}
-	registry, err := storeapp.NewOfficialApplicationRegistry([]storeapp.OfficialApplicationRegistration{{Provider: provider, Protection: protection, Type: storecenter.ApplicationSemiManaged}})
+	registry, err := storeapp.NewOfficialApplicationRegistry([]storeapp.OfficialApplicationRegistration{{Provider: provider, Protection: protection, Type: mode}})
 	require.NoError(t, err)
 	f.access, err = storeapp.NewOfficialObservationAccess(f, f, registry)
 	require.NoError(t, err)
@@ -171,6 +180,9 @@ func (f *semiOrderFixture) RoundTrip(r *http.Request) (*http.Response, error) {
 				if row.amount != "" {
 					detail["productTotalPrice"] = row.amount
 				}
+				if area, ok := f.salesAreas[id]; ok {
+					detail["salesArea"] = area
+				}
 				list = append(list, detail)
 			}
 		}
@@ -201,11 +213,10 @@ func (w semiOrderWorker) Ensure(ctx context.Context, org, id string) error {
 }
 
 func seedSemiOrderReceipts(t *testing.T, repo *obspg.Repository, scope o.Scope, shopA, shopB string, today time.Time) (*o.Service, *semiOrderFixture) {
-	t.Helper()
-	f := newSemiOrderFixture(t, scope, []string{shopA, shopB})
-	service := &o.Service{Repository: repo, Access: f, Directory: f}
-	service.Starter = semiOrderWorker{service}
-	ctx := context.Background()
+	return seedSheinOrderReceipts(t, repo, scope, shopA, shopB, today, storecenter.ApplicationSemiManaged)
+}
+
+func sheinOrderFixtureHTTP(service *o.Service, scope o.Scope) *gin.Engine {
 	app := &obsapp.Application{Service: service, Ready: func() bool { return true }}
 	router := gin.New()
 	for _, route := range obshttp.Routes(app, func(ctx context.Context, _ string) (context.Context, error) {
@@ -213,6 +224,20 @@ func seedSemiOrderReceipts(t *testing.T, repo *obspg.Repository, scope o.Scope, 
 	}) {
 		router.Handle(route.Method, route.Path, route.Handler)
 	}
+	return router
+}
+
+func seedSheinOrderReceipts(t *testing.T, repo *obspg.Repository, scope o.Scope, shopA, shopB string, today time.Time, mode storecenter.OfficialApplicationType) (*o.Service, *semiOrderFixture) {
+	t.Helper()
+	f := newSheinOrderFixture(t, scope, []string{shopA, shopB}, mode, nil)
+	if mode == storecenter.ApplicationSelfOperated {
+		local, cross, unknown := 1, 2, 99
+		f.salesAreas = map[string]*int{"order-a-1": &local, "order-a-2": &cross, "order-a-boundary": &unknown, "order-a-old": nil, "order-a-cny": &cross, "order-b-1": &local}
+	}
+	service := &o.Service{Repository: repo, Access: f, Directory: f}
+	service.Starter = semiOrderWorker{service}
+	ctx := context.Background()
+	router := sheinOrderFixtureHTTP(service, scope)
 	recent := today.AddDate(0, 0, -1).Add(12 * time.Hour)
 	older := today.AddDate(0, 0, -10).Add(12 * time.Hour)
 	begin := func(store string, days int) {
@@ -256,6 +281,14 @@ func seedSemiOrderReceipts(t *testing.T, repo *obspg.Repository, scope o.Scope, 
 }
 
 func TestSheinSemiOrdersSyncToSavedAmountsPostgres(t *testing.T) {
+	testSheinOrdersSyncToSavedAmountsPostgres(t, storecenter.ApplicationSemiManaged)
+}
+
+func TestSheinSelfOperatedOrdersSyncToSavedAmountsPostgres(t *testing.T) {
+	testSheinOrdersSyncToSavedAmountsPostgres(t, storecenter.ApplicationSelfOperated)
+}
+
+func testSheinOrdersSyncToSavedAmountsPostgres(t *testing.T, mode storecenter.OfficialApplicationType) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	pg, err := tcpg.Run(ctx, "postgres:16-alpine", tcpg.WithDatabase("semi_orders"), tcpg.WithUsername("installer"), tcpg.WithPassword(uuid.NewString()), tcpg.BasicWaitStrategies(), testcontainers.WithHostConfigModifier(func(c *container.HostConfig) {
@@ -288,7 +321,7 @@ func TestSheinSemiOrdersSyncToSavedAmountsPostgres(t *testing.T) {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, zone)
 	scope := o.Scope{OrganizationID: "semi-org", ActorID: "semi-actor", MemberID: "semi-member"}
 	a, b := uuid.NewString(), uuid.NewString()
-	service, fixture := seedSemiOrderReceipts(t, repo, scope, a, b, today)
+	service, fixture := seedSheinOrderReceipts(t, repo, scope, a, b, today, mode)
 	before := fixture.calls
 	for _, test := range []struct {
 		name, store string
@@ -331,8 +364,40 @@ func TestSheinSemiOrdersSyncToSavedAmountsPostgres(t *testing.T) {
 	require.Len(t, heads, 1)
 	record, err := repo.Record(ctx, scope.OrganizationID, a, o.Orders, heads[0].ID, "order-a-1")
 	require.NoError(t, err)
-	require.Equal(t, storecenter.ApplicationSemiManaged, heads[0].Binding.ApplicationType)
+	require.Equal(t, mode, heads[0].Binding.ApplicationType)
 	require.Equal(t, "19.90", record.Order.Amount.Value)
 	require.Equal(t, "999.00", record.Order.SupplyCost.Value)
 	require.NotEqual(t, record.Order.CreatedAt, record.Order.IssuedAt, "detail time must not replace list cohort time")
+	if mode == storecenter.ApplicationSelfOperated {
+		router := sheinOrderFixtureHTTP(service, scope)
+		for id, want := range fixture.salesAreas {
+			if id == "order-b-1" {
+				continue
+			}
+			saved, e := repo.Record(ctx, scope.OrganizationID, a, o.Orders, heads[0].ID, id)
+			require.NoError(t, e)
+			require.Equal(t, want, saved.Order.SalesArea, "salesArea survives native persistence for %s", id)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, obshttp.BasePath+"/orders/stores/"+a+"/syncs/"+heads[0].ID+"/records/"+id, nil))
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			var envelope struct {
+				Data o.Record `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &envelope))
+			require.Equal(t, want, envelope.Data.Order.SalesArea, "salesArea survives original GET")
+		}
+		for _, businessMode := range []string{"POP-US", "POP-GLOBAL", "SFS", "FUTURE-MODE"} {
+			store := uuid.NewString()
+			access := newSheinOrderFixture(t, scope, []string{store}, mode, map[string]string{store: businessMode})
+			excluded := &o.Service{Repository: repo, Access: access, Directory: access}
+			excluded.Starter = semiOrderWorker{excluded}
+			start, end := today.AddDate(0, 0, -7), today.Add(-time.Second)
+			command, e := excluded.Begin(ctx, scope, uuid.NewString(), o.BeginInput{Kind: o.Orders, Stores: []string{store}, Start: &start, End: &end})
+			require.NoError(t, e)
+			require.Len(t, command.Syncs, 1)
+			require.Equal(t, "suspended", command.Syncs[0].Status)
+			require.Equal(t, "unsupported_application", command.Syncs[0].ErrorCode)
+			require.Zero(t, access.calls)
+		}
+	}
 }

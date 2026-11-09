@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	o "task-processor/internal/storecenter/observations"
 	"task-processor/internal/storecenter"
+	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 
@@ -333,15 +333,16 @@ type observedRawItem struct {
 	Exchange json.RawMessage `json:"goodsExchangeTag"`
 }
 type observedRawDetail struct {
-	ID       string            `json:"orderNo"`
-	Site     string            `json:"salesSite"`
-	Status   json.RawMessage   `json:"orderStatus"`
-	Stock    json.RawMessage   `json:"stockMode"`
-	Type     json.RawMessage   `json:"orderType"`
-	Tag      json.RawMessage   `json:"orderTag"`
-	Reasons  []int             `json:"unProcessReason"`
-	Items    []observedRawItem `json:"orderGoodsInfoList"`
-	Packages []struct {
+	ID        string            `json:"orderNo"`
+	Site      string            `json:"salesSite"`
+	Status    json.RawMessage   `json:"orderStatus"`
+	Stock     json.RawMessage   `json:"stockMode"`
+	SalesArea json.RawMessage   `json:"salesArea"`
+	Type      json.RawMessage   `json:"orderType"`
+	Tag       json.RawMessage   `json:"orderTag"`
+	Reasons   []int             `json:"unProcessReason"`
+	Items     []observedRawItem `json:"orderGoodsInfoList"`
+	Packages  []struct {
 		ID      string          `json:"packageNo"`
 		Waybill string          `json:"waybillNo"`
 		Carrier string          `json:"carrier"`
@@ -396,7 +397,7 @@ func (c *OfficialClient) QueryObservedOrderDetails(ctx context.Context, k storec
 		for _, pair := range []struct {
 			raw    json.RawMessage
 			target **int
-		}{{v.Status, &result.Status}, {v.Stock, &result.StockMode}, {v.Type, &result.Type}, {v.Tag, &result.Tag}} {
+		}{{v.Status, &result.Status}, {v.Stock, &result.StockMode}, {v.SalesArea, &result.SalesArea}, {v.Type, &result.Type}, {v.Tag, &result.Tag}} {
 			*pair.target, e = observedInt(pair.raw)
 			if e != nil {
 				return nil, e

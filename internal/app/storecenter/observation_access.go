@@ -79,6 +79,9 @@ func (a *OfficialObservationAccess) Authorize(ctx context.Context, s storecenter
 	if e != nil || !validOfficialMaterial(s.OrganizationID, store, m, k, entry, a.now()) {
 		return nil, o.ErrConflict
 	}
+	if s.Purpose == storecenter.ObservationPurposeOrders && entry.mode == storecenter.ApplicationSelfOperated && k.SheinBusinessMode != "" {
+		return nil, o.ErrUnsupported
+	}
 	binding := officialMerchantBinding(s.OrganizationID, store, m, k, entry.mode)
 	if expected != nil && *expected != binding {
 		return nil, o.ErrConflict
@@ -122,6 +125,9 @@ func (h *ObservationHandle) credential(ctx context.Context) (storecenter.Officia
 	}
 	if e != nil || !validOfficialMaterial(h.subject.OrganizationID, h.binding.StoreID, m, k, entry, h.owner.now()) || officialMerchantBinding(h.subject.OrganizationID, h.binding.StoreID, m, k, entry.mode) != h.binding {
 		return storecenter.OfficialMerchantCredential{}, o.ErrConflict
+	}
+	if h.subject.Purpose == storecenter.ObservationPurposeOrders && entry.mode == storecenter.ApplicationSelfOperated && k.SheinBusinessMode != "" {
+		return storecenter.OfficialMerchantCredential{}, o.ErrUnsupported
 	}
 	return k, nil
 }

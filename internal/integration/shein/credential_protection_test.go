@@ -1,6 +1,7 @@
 package shein
 
 import (
+	"encoding/json"
 	"strings"
 	"task-processor/internal/storecenter"
 	"testing"
@@ -12,7 +13,7 @@ func TestMerchantCredentialCiphertextBindsOriginalScopeAndKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := storecenter.OfficialConnectionAttempt{OrganizationID: "org-a", StoreID: "store-a", AttemptID: "attempt-a", AppID: "app-a", AppVersion: "version-a", ActorID: "actor-a", MemberID: "member-a", ConnectionVersion: 1}
-	credential := storecenter.OfficialMerchantCredential{AppID: a.AppID, OpenKeyID: "open-key", SecretKey: "synthetic-secret", SupplierID: "123"}
+	credential := storecenter.OfficialMerchantCredential{AppID: a.AppID, OpenKeyID: "open-key", SecretKey: "synthetic-secret", SupplierID: "123", SheinBusinessMode: "POP-US"}
 	key, encrypted, err := p.Seal(a, credential)
 	if err != nil || strings.Contains(encrypted, credential.SecretKey) {
 		t.Fatalf("seal: %v", err)
@@ -37,5 +38,27 @@ func TestMerchantCredentialCiphertextBindsOriginalScopeAndKey(t *testing.T) {
 	}
 	if _, err := NewCredentialProtection("key", make([]byte, 16)); err == nil {
 		t.Fatal("wrong deployment key length accepted")
+	}
+}
+
+func TestBusinessModeCipherRejectsMalformedSourceEvidence(t *testing.T) {
+	p, err := NewCredentialProtection("key", make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := storecenter.OfficialConnectionAttempt{AppID: "app"}
+	for _, mode := range []string{" bad", "bad ", "a\tb", "a\x00b", string([]byte{0xff}), strings.Repeat("X", 65)} {
+		_, _, err = p.Seal(a, storecenter.OfficialMerchantCredential{AppID: "app", OpenKeyID: "open", SecretKey: "secret", SupplierID: "123", SheinBusinessMode: mode})
+		if err == nil {
+			t.Fatalf("malformed business evidence accepted: %q", mode)
+		}
+	}
+	plain, _ := json.Marshal(sealedCredential{AppID: "app", OpenKeyID: "open", SecretKey: "secret", SupplierID: "123", SheinBusinessMode: " bad"})
+	encrypted, err := p.cipher.Seal(plain, associatedData(a, "key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = p.Open(a, "key", encrypted); err == nil {
+		t.Fatal("malformed encrypted business evidence accepted")
 	}
 }
