@@ -11,14 +11,14 @@ const intentSchema=z.object({key:observationID,input:observationBeginSchema}).st
 type Intent=z.infer<typeof intentSchema>;
 const active=(status:string)=>status==="pending"||status==="running";
 const labels:Record<string,string>={pending:"等待启动",running:"正在读取订单",completed:"遍历完成，已更新所选范围统计",partial:"覆盖不足：仅保存部分订单，请查看金额区提示",failed:"同步失败，未确认完整覆盖",suspended:"同步暂停，请检查店铺授权和订单权限"};
-function requestInput(storeId:string,startDate:string,endDate:string){
+function requestInput(platform:string,storeId:string,startDate:string,endDate:string){
  const next=new Date(`${endDate}T00:00:00Z`);next.setUTCDate(next.getUTCDate()+1);
- return observationBeginSchema.parse({kind:"orders",stores:[storeId],start:`${startDate}T00:00:00+08:00`,end:`${next.toISOString().slice(0,10)}T00:00:00+08:00`});
+ return observationBeginSchema.parse({kind:"orders",stores:[storeId],start:`${startDate}T00:00:00+08:00`,end:platform==="shein"?`${endDate}T23:59:59+08:00`:`${next.toISOString().slice(0,10)}T00:00:00+08:00`});
 }
 
-export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permissions}:{platform:"walmart"|"tiktokshop"|"temu";scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[]}){
+export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permissions,visible=true}:{platform:"walmart"|"tiktokshop"|"temu"|"shein";scope:ObservationScope;storeId:string;startDate:string;endDate:string;permissions:readonly string[];visible?:boolean}){
  const client=useQueryClient();
- const label=platform==="temu"?"Temu US":platform==="walmart"?"Walmart US":"TikTok Shop US";
+ const label=platform==="shein"?"SHEIN US":platform==="temu"?"Temu US":platform==="walmart"?"Walmart US":"TikTok Shop US";
  const storageKey=JSON.stringify([`${platform}-order-sync`,scope.organizationId,scope.userId,storeId]);
  const [intent,setIntent]=useState<Intent>();
  const [resolvedKey,setResolvedKey]=useState("");
@@ -53,13 +53,13 @@ export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permiss
   void client.invalidateQueries({queryKey:["operations-cockpit",scope.userId,scope.organizationId]});
   return ()=>{mounted=false;};
  },[terminal,intent,storageKey,client,scope.userId,scope.organizationId]);
- const canSync=!!caps.data?.canSync&&permissions.includes("workbench.store.orders.sync");
+ const canSync=visible&&!!caps.data?.canSync&&permissions.includes("workbench.store.orders.sync");
  async function submit(){
   setBusy(true);setError("");
   try{
    let original=intent;
    if(!original||terminal){
-    original={key:crypto.randomUUID(),input:requestInput(storeId,startDate,endDate)};
+    original={key:crypto.randomUUID(),input:requestInput(platform,storeId,startDate,endDate)};
     sessionStorage.setItem(storageKey,JSON.stringify(original));setIntent(original);
    }else{
     // A lost POST is first reconciled by the original identity; only a definite
@@ -74,8 +74,9 @@ export function StoreOrderSync({platform,scope,storeId,startDate,endDate,permiss
   finally{setBusy(false);}
  }
  async function ensure(){if(!sync)return;setBusy(true);setError("");try{await observationRequest(`orders/syncs/${sync.id}/ensure`,scope,observationSyncSchema,undefined,{});await receipt.refetch();}catch{setError("继续同步结果尚未确认，请继续原任务。");}finally{setBusy(false);}}
+ if(!visible)return null;
  return <section className={styles.bar} aria-label={`${label} 订单同步`}>
-  <div><strong>{label} 订单</strong><p>{platform==="temu"?"US 本土 / 半托管 · 按父订单读取":platform==="tiktokshop"?"仅当前支持的 US 跨境店":"仅手动读取所选店铺"} · {startDate} — {endDate}（UTC+8）</p>{intent&&<p>原任务日期：{intent.input.start?.slice(0,10)} — {new Date(new Date(intent.input.end!).getTime()-1).toLocaleDateString("sv-SE",{timeZone:"Asia/Shanghai"})}</p>}</div>
+  <div><strong>{label} 订单</strong><p>{platform==="shein"?"半托 / 普通自运营 · 按订单下发时间":platform==="temu"?"US 本土 / 半托管 · 按父订单读取":platform==="tiktokshop"?"仅当前支持的 US 跨境店":"仅手动读取所选店铺"} · {startDate} — {endDate}（UTC+8）</p>{intent&&<p>原任务日期：{intent.input.start?.slice(0,10)} — {new Date(new Date(intent.input.end!).getTime()-1).toLocaleDateString("sv-SE",{timeZone:"Asia/Shanghai"})}</p>}</div>
   <div className={styles.actions}>
    <Button variant="outline" disabled={!hydrated||storageError||busy||!canSync||!!sync&&active(sync.status)} onClick={()=>void submit()}>{busy?"正在确认同步…":intent&&!terminal?"确认原同步结果":"同步所选日期订单"}</Button>
    {sync&&active(sync.status)&&canSync&&<Button variant="outline" disabled={busy} onClick={()=>void ensure()}>继续原同步</Button>}

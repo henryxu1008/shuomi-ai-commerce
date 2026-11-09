@@ -47,3 +47,13 @@ status 为 complete / missing_fields / coverage_incomplete / limited。共同 ca
 有界集成测试 `TestSheinSemiOrdersSyncToSavedAmountsPostgres` 使用正式同步 POST、真实应用注册/凭据保护/签名客户端/响应解析及原 PostgreSQL 事务，外层 HTTP RoundTripper 仅返回离线官方形状回执，不含默认传输或网络拨号。IAM/Store 核验材料为测试替身，工作流启动器在测试内执行原 Step；不将其称为真实商家授权或 Temporal 集群验收。验证当前完整 generation、原命令重放、相邻闭区间窗口重复订单、商品/包裹不重复计价、列表时间与详情时间不同、供货成本不兜底，以及缺字段/覆盖不足。驾驶舱本地实例复用现有验收承载，不新增通用 runner 或验收平台。
 
 本轮不请求外部平台，不改全平台成功率、GMV 卡片或原合成预览。真实半托店的应用/接口权限、实际字段和完整销售覆盖仍需后续单独授权核对；离线通过不代表真实平台或产品验收通过。
+
+## 半托及普通自运营：首页手动同步复用
+
+用户2026-11-09明确批准在驾驶舱首页按所选店铺、完整日期手动同步，保存后金额自动更新；全托保留独立供货单面板。Design Basis: Reuse Existing Architecture，执行#1163，复用本合同、cockpit-shein-self-operated-orders.md及现有StoreOrderSync，不新增API、schema、权限规则、状态机、事务或恢复owner。
+
+SHEIN首次无head金额读取同样执行原Access.Open(orders,Sync=false)及Check，验证当前成员、店铺、应用模式和加密授权业务类型；无来源不表示消费者资格成立。原半托/普通self准入成功且本次读取已完成的金额响应才可显示消费者同步条；刷新、加载及失败期间隐藏控件，保留原回执恢复和终态清理hooks，不自动POST/ensure，不从US标签、供货单not_applicable或请求失败推断资格。全托及非空特殊self业务类型沿原准入拒绝，首页不显示消费者入口；后续POST仍由原Begin/Access独立复验，不以UI作为授权。
+
+共享组件增加独立shein-order-sync namespace。SHEIN时间读取是UTC+8闭区间，所以请求所选起日00:00:00至末日23:59:59；其他平台原半开窗口不变。按orderCreateTime下发日期/原orderNo/productTotalPrice+orderCurrency，原key与日期载荷固定，未确认只查询/重放原键，确认终态清理；完成失效原首页统计查询，当前筛选自动更新。换店/日期和迟到响应继续由原query key及AbortSignal隔离。
+
+独立本地新实例使用半托/普通self两组不同店铺与日期、缺字段、重复商品/包裹及全托/特殊类型测试回执，通过原真实SHEIN签名客户端、正式保存/HTTP/BFF验证首用、日期/店铺、原key去重、金额自动更新及全托面板独立。平台transport无网络fallback，IAM/Store/调度为明确测试替身；真实授权/业务API、生产部署及用户产品验收NOT_RUN。保留原所有实例、全平台成功率、GMV卡片和合成预览。

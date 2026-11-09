@@ -88,6 +88,18 @@ func (s *Service) SavedOrderAmounts(ctx context.Context, scope Scope, q OrderAmo
 	if len(heads) > 1 || len(latest) > 1 {
 		return OrderAmountMetrics{}, ErrUnavailable
 	}
+	if len(heads) == 0 {
+		// A first sync still requires the current consumer-order authority;
+		// an empty source does not establish an eligible SHEIN merchant mode.
+		handle, e = s.Access.Open(ctx, scope, q.StoreID, Orders, false, nil)
+		if e != nil {
+			return OrderAmountMetrics{}, e
+		}
+		binding := handle.Binding()
+		if binding.OrganizationID != scope.OrganizationID || binding.StoreID != q.StoreID || binding.Site != "shein-us" || (binding.Platform != "" && binding.Platform != storecenter.PlatformShein) {
+			return OrderAmountMetrics{}, ErrUnavailable
+		}
+	}
 	if len(heads) == 1 {
 		head := heads[0]
 		if !ValidID(head.ID) || head.StoreID != q.StoreID || head.Kind != Orders || head.Owner.OrganizationID != scope.OrganizationID {
