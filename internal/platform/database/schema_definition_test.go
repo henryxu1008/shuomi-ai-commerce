@@ -71,3 +71,21 @@ func TestSchemaDefinitionPreservesLiteralsAndOtherCasts(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaIndexLogicalRestore(t *testing.T) {
+	original := `CREATE UNIQUE INDEX organization_invitation_active_contact ON public.organization_member_invitations USING btree (project_id, organization_id, contact) WHERE ((state)::text = ANY ((ARRAY['pending'::character varying, 'accepting'::character varying])::text[]))`
+	restored := `CREATE UNIQUE INDEX organization_invitation_active_contact ON public.organization_member_invitations USING btree (project_id, organization_id, contact) WHERE ((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('accepting'::character varying)::text]))`
+	if !SchemaIndexEqual(original, restored) {
+		t.Fatal("partial index changed only by logical restore")
+	}
+	for _, different := range []string{
+		`CREATE INDEX organization_invitation_active_contact ON public.organization_member_invitations USING btree (project_id, organization_id, contact) WHERE ((state)::text = ANY (ARRAY['pending'::text,'accepting'::text]))`,
+		`CREATE UNIQUE INDEX organization_invitation_active_contact ON public.organization_member_invitations USING btree (project_id, organization_id, contact) WHERE true`,
+		`CREATE UNIQUE INDEX organization_invitation_active_contact ON public.organization_member_invitations USING btree (organization_id, project_id, contact) WHERE ((state)::text = ANY (ARRAY['pending'::text,'accepting'::text]))`,
+		`CREATE UNIQUE INDEX organization_invitation_active_contact ON public.organization_member_invitations USING btree (project_id, organization_id, contact) WHERE ((state)::text = ANY (ARRAY['pending'::text,'accepted'::text]))`,
+	} {
+		if SchemaIndexEqual(original, different) {
+			t.Errorf("index contract changed: %s", different)
+		}
+	}
+}

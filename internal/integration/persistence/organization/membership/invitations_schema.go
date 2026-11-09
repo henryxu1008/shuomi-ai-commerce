@@ -86,7 +86,17 @@ func verifyInvitations(ctx context.Context, db schemaReader) error {
 		if err = rows.Scan(&def); err != nil {
 			return err
 		}
-		delete(want, def)
+		matched := false
+		for expected := range want {
+			if platformdatabase.SchemaIndexEqual(def, expected) {
+				delete(want, expected)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return errors.New("invitation reservation index mismatch")
+		}
 	}
 	if err = rows.Err(); err != nil {
 		return err
