@@ -189,6 +189,7 @@ function commandResult(value:unknown,intent:SupplyIntent,mutates:boolean){
  if(intent.route==="save-target"){
   const input=c.targetInputSchema.parse(intent.command),result=c.targetReceiptSchema.parse(value).record;
   valid=result.source.id===input.sourceId&&result.merchant.store_id===input.storeId&&result.input.expectedRevision===input.expectedRevision&&result.effectiveVersion===input.effectiveVersion&&(result.applyReceiptId??"")===(input.applyReceiptId??"");
+  if("localTrial" in input&&input.localTrial)valid=valid&&!!result.localTrial&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
   if("colorPartition" in input&&input.colorPartition)valid=valid&&result.targetId===input.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
   if("sheinSalesMapping" in input&&input.sheinSalesMapping)valid=valid&&result.targetId===input.sheinSalesMapping.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);
   if("sheinImport" in input&&input.sheinImport)valid=valid&&result.targetId===input.sheinImport.targetId&&result.revision===input.expectedRevision+1&&JSON.stringify(c.targetInputSchema.parse(result.input))===JSON.stringify(input);

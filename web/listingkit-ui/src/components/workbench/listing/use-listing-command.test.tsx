@@ -17,7 +17,7 @@ beforeEach(()=>{
  f.context.setPendingSupplyIntent.mockImplementation(intent=>{if(!saveSupplyIntent(intent))return false;f.context.pendingSupplyIntent=intent;return true});
  f.read.mockResolvedValue(unresolvedLocalTargetFixture().receipt);
 });
-afterEach(()=>{cleanup();sessionStorage.clear()});
+afterEach(()=>{cleanup();sessionStorage.clear();vi.unstubAllGlobals()});
 
 it("holds the original UNKNOWN through reload and blocks new writes before purpose selection",async()=>{
  const prior=unresolvedLocalTargetFixture().intent;
@@ -48,6 +48,17 @@ it.each(["NOT_FOUND","DEPENDENCY_UNAVAILABLE"])("keeps an unresolved original ke
  expect(screen.getByRole("button",{name:"核实原操作"})).toBeEnabled();
  expect(screen.queryByRole("button",{name:"重试原请求"})).not.toBeInTheDocument();
  expect(f.read).toHaveBeenCalledTimes(1);expect(f.write).not.toHaveBeenCalled();expect(f.saved).not.toHaveBeenCalled();
+});
+it("retains the original intent when the real GET returns a different saved payload",async()=>{
+ const fixture=unresolvedLocalTargetFixture(),receipt=structuredClone(fixture.receipt);
+ receipt.record.input.draft.product.multi_language_name_list[0].name="another payload";
+ vi.stubGlobal("fetch",vi.fn().mockImplementation(()=>Promise.resolve(new Response(JSON.stringify(receipt),{headers:{"Content-Type":"application/json"}}))));
+ const api=await vi.importActual<typeof import("@/lib/api/supply-chain")>("@/lib/api/supply-chain");
+ f.read.mockImplementation(api.readSupplyCommand);
+ const {result}=renderHook(()=>useListingCommand({...actor,draftKind:"local",draftSourceId:importIds.source},f.saved));
+ await act(async()=>{result.current.verify()});
+ await waitFor(()=>expect(result.current.error).toBe("DEPENDENCY_UNAVAILABLE"));
+ expect(loadSupplyIntent()).toEqual(fixture.intent);expect(f.saved).not.toHaveBeenCalled();expect(f.write).not.toHaveBeenCalled();
 });
 it("keeps the existing explicitly scoped official retry on its original key",async()=>{
  const {localTrial:discarded,...command}=unresolvedLocalTargetFixture().intent.command;void discarded;
