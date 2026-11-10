@@ -7,9 +7,7 @@ import (
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/listing/submission"
 	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
 	"task-processor/internal/product/collection"
-	"task-processor/internal/product/description"
 	"task-processor/internal/storecenter"
 	"time"
 )
@@ -228,6 +226,9 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 	// invents a brand code, platform attribute ID, warehouse, stock or price.
 	head, e := a.Targets.ReadTargetHead(ctx, op.Owner, record.TargetIdentity(op.Owner, source.ID, op.Input.StoreID))
 	if e == nil {
+		if record.IsLocalTrial(head) {
+			return record.TargetReceipt{}, record.ErrForbidden
+		}
 		input = head.Input
 		input.ExpectedRevision = head.Revision
 		// Re-adaptation is a new command; retain imported values, not the
@@ -249,17 +250,7 @@ func (a *OperationActivities) adapt(ctx context.Context, op preparation.Operatio
 		if merchant.Platform == storecenter.PlatformTikTokShop {
 			return record.TargetReceipt{}, record.ErrNotReady
 		}
-		input.Draft.Product.Names = []model.LanguageContent{{Language: "en", Name: original.Snapshot.Title}}
-		input.Draft.Product.Descriptions = []model.LanguageContent{{Language: "en", Name: description.PlainText(original.Snapshot.Description, original.Snapshot.DescriptionFormat)}}
-		skc := model.ProductSKC{SKUs: []model.ProductSKU{}}
-		for _, variant := range original.Snapshot.Variants {
-			skc.SKUs = append(skc.SKUs, model.ProductSKU{SupplierSKU: variant.SKU, SaleAttributes: []model.AttributeValue{}})
-		}
-		if len(skc.SKUs) == 0 {
-			skc.SKUs = []model.ProductSKU{{SaleAttributes: []model.AttributeValue{}}}
-		}
-		input.Draft.Product.SKCs = []model.ProductSKC{skc}
-		input.Draft.Product.Attributes = []model.AttributeValue{}
+		input.Draft = record.InitialSheinDraft(original.Snapshot)
 	} else {
 		return record.TargetReceipt{}, e
 	}

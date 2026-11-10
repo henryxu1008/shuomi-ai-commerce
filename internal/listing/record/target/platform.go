@@ -17,6 +17,9 @@ import (
 // ValidPlatformRecord rejects ambiguous payloads at persistence boundaries.
 // The current qualified SHEIN path and the TEMU variant stay explicit.
 func ValidPlatformRecord(value TargetRecord) bool {
+	if value.LocalTrial != nil || value.Input.LocalTrial != nil {
+		return validLocalRecord(value)
+	}
 	if value.Input.WalmartRules != nil {
 		return false
 	}
@@ -47,6 +50,9 @@ func ValidPlatformRecord(value TargetRecord) bool {
 }
 
 func PublicationReady(value TargetRecord) bool {
+	if value.LocalTrial != nil || value.Input.LocalTrial != nil {
+		return false
+	}
 	if value.Input.ColorPartition != nil || !ValidPlatformRecord(value) {
 		return false
 	}
@@ -148,6 +154,16 @@ func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Sc
 	merchant, rules, err := s.dependencies.Rules.ReadTargetRules(ctx, scope, input.StoreID, input.Draft)
 	if err != nil {
 		return preparedPlatform{}, err
+	}
+	if s.localTrial != nil {
+		if !s.validLocalMerchant(scope, input, merchant, rules) || len(input.Draft.Images) > 0 {
+			return preparedPlatform{}, ErrForbidden
+		}
+		result := goods.AssessOfficial(input.Draft, rules, inventory, nil, nil).Native()
+		return preparedPlatform{merchant: merchant, rulesHash: collection.Digest(rules), shein: result, sheinRules: rules}, nil
+	}
+	if rules.Authority == "local_trial" {
+		return preparedPlatform{}, ErrForbidden
 	}
 	if merchant.OrganizationID != scope.OrganizationID || merchant.StoreID != input.StoreID || merchant.Site != "shein-us" || merchant.StoreVersion < 1 || merchant.ConnectionRevision < 1 || !merchant.ValidApplication() || string(rules.ApplicationMode) != string(merchant.ApplicationType) || len(merchant.SupplierIdentityHash) != 64 || !time.Now().Before(merchant.ServiceExpiresAt) {
 		return preparedPlatform{}, ErrNotReady

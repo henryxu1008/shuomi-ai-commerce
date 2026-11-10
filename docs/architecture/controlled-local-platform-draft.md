@@ -1,12 +1,14 @@
 # 原 35444：受控本地平台草稿接线
 
 Execution: [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)。Design Basis: **Independent Architecture**。
-Admission: **IMPLEMENTATION_READY / FROZEN**。2026-11-10 独立 R1 核对设计提交 `4cb47120bf54a59fa83ded7a714a595bd9b9cc1e`，0 设计 BLOCKER；具体接线 finding 已分类 IMPLEMENTATION_TEST，见 §9。正文澄清增量仍须独立复核；本提交只有设计，无生产代码、schema 或运行操作。
+Admission: **IMPLEMENTATION_READY / FROZEN**。2026-11-10 独立 R1 及文字增量复核完成，冻结设计为 `950b055d4ff77ec2c51015ee6dd97a797186c3cc`，0 设计 BLOCKER；具体接线 finding 已分类 IMPLEMENTATION_TEST，见 §9。后续实施依用户明确授权推进，设计准入本身不授权原实例操作。
 调查基线：`683d83b831020d9266ea06b636c7beced7d97453`，唯一 Writer `/root`，分支 `codex/issue1158-controlled-local-draft`。
 
 ## 1. 产品决定、结果与边界
 
 2026-11-10 用户明确授权：先设计原 35444 的受控本地平台草稿接线并做独立评审；复用合成店铺、规则、现有 Target 保存；同一份草稿保留黑 M、黑 L、白 M，库存 0 / 未填写 / 未填写，原商品、R1、图片保持。**不写生产代码、不改原实例、不调用模型、不保存或发布、不释放原预留。** 实现、隔离验证、合并和实例开通均待后续阶段授权。
+
+阶段更新：同日用户后续明确授权按冻结设计实现，并在原库隔离副本完成创建、带入、映射、保存、刷新和四项实施验证。仅副本可保存合成店铺及 Target；不改原 35444、不调用模型、不发布、不释放原预留，合并与原实例开通仍未授权。上段保留为设计阶段记录，不撤销后续实施授权。
 
 使用者是本地试用维护者/运营人员；当前阻塞操作是从现有已保存 R1 预览并保存一份绑定测试店铺的平台草稿。交付目标是“创建基础稿 → 带入 R1 文字/明确库存 → 映射销售规格 → 保存同一 Target 新版本 → 刷新重开”，明确标识**本地试用、合成规则、不可发布**。
 
@@ -124,3 +126,19 @@ R1/Store/规则/fixture/source/基线绑定漂移时拒绝，提示明确冲突�
 架构正常评审最多两轮；finding 先按当前 Must/后果分类。仅跨租户/越权、错误发布/扣费、数据丢失或核心路径无法完成等真实 BLOCKER 重开设计；实现细节转上述 IT，理论 hardening/backlog 不无限加机制。只有独立结论明确 **IMPLEMENTATION_READY** 才可在后续授权下正式实现。本轮不自签产品验收、不合并、不部署或关闭 Issue。
 
 R1 分类记录：T1 完整输入约束、SourceMaterials full 指针误判、local DTO/持续 provenance/停用 Query 接线均为 **IMPLEMENTATION_TEST，实施及合并前**；分别归入上述 IT-1/IT-3/IT-4，不作为已执行测试或已修生产代码。当前 0 设计 BLOCKER；独立增量确认后冻结，后续须在实现验证收敛这些 Must。
+
+## 10. 当前配置与操作入口
+
+仅供本轮获准的隔离副本；原实例不得据此自行开通。普通原有 manifest 不含 `controlledLocalDraft`，行为保持。副本开通时先用原 Store owner 的创建回执取得准确测试 StoreID，再增加 `controlledLocalDraft` 配置块：
+
+- `acknowledgment`: `CONTROLLED_LOCAL_DRAFT_NO_EXECUTION`；`enabled` 默认 false。
+- `organizationId` / `actorId` / `memberId`、`sourceId`、`productKey`、`completionRecordId` / `completionRevision`：必须等于 §3 固定引用，revision 必须为 1。`storeId` 必须为本次副本 native 回执 ID，拒绝原驾驶舱店铺；不得将副本 ID 回灌原实例。
+- `fixtureVersion`: `issue1158-local-draft-v1`；`fixtureHash` 为编译内 `listingapp.ControlledLocalRules()` 的当前完整 digest。没有任意 URL/规则 JSON/模型选择。
+- `assetDatabase`: 复用当前 `image_agent` owner 的 `supply_asset_runtime` 私密连接，连接上限 8；不得粘贴凭据到 Issue/PR/聊天。与已有 SourceMaterials/Agent 连接指向同一 Asset owner。
+- 前端仅另开 `LISTINGKIT_CONTROLLED_LOCAL_DRAFT_ENABLED=true`，保留普通 SupplyChain 开关 false。入口为固定 R1 页的「SHEIN 带入预览」；只有该 Source 展示本地入口。
+
+操作依次为：选择准确测试店铺 → 核对并创建基础草稿 → 重新读取目标 → 选择 R1 文字及黑 M 的 0 库存/本地 US 仓（不选 CNY 价格）→ 预览并保存 → 重新读取 → 明确选择颜色/尺码及三个枚举对应 → 核对三条真实 SKU → 确认映射并保存 → 刷新重开。页面单独展示已保存版本的 SKU/库存；原图仍属于原商品，平台图片继续待批准。
+
+未知保存结果保留原操作键，只使用原命令查询和重试。关闭时保留完整固定配置并设 `enabled=false`，服务端只保留 Target/head/record/原键 GET；不创建可写 TargetService，也不构造 Rules/provider 来读取。安装过完整 schema 后不得直接删除配置绕过 capability 校验。安装与回退仍按 §8，通过现有 owner 命令和匹配 checkpoint，不执行 Down、密码重置、原数据复制或预留释放。
+
+实现验证、准确候选、独立交付复核及运行入口记录于 #1158 / 同一主要 PR，区别离线、真实隔离副本和原实例阶段，不把本节说明作为产品验收结果。

@@ -314,6 +314,9 @@ func execute() error {
 			if t := features.PrivateDraftTrial; t != nil {
 				options = append(options, httpapi.WithPrivateDraftTrial(httpapi.PrivateDraftTrialDependencies{Scope: collection.Scope{OrganizationID: t.OrganizationID, ActorID: t.ActorID, MemberID: t.MemberID}, StoreID: t.StoreID}))
 			}
+			if t := features.ControlledLocalDraft; t != nil {
+				options = append(options, httpapi.WithControlledLocalDraft(httpapi.ControlledLocalDraftDependencies{Policy: t.Policy(), AssetDB: features.ApprovedAssetDB}))
+			}
 			if features.ListingWorkflow != nil {
 				options = append(options, httpapi.WithListing(httpapi.ListingDependencies{AssetDB: features.ApprovedAssetDB, Starter: listingoperation.TemporalOperationStarter{Client: features.ListingWorkflow}, NewWorker: listingoperation.WorkerFactory(features.ListingWorkflow), Worker: features.ListingWorker}))
 			}

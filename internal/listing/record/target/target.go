@@ -24,6 +24,7 @@ var ErrTargetUnknown = errors.New("listing target command outcome is unknown; re
 // Target records use the current private source selection. They neither wrap
 // the older local draft service nor accept ProductKey as read authority.
 type TargetInput struct {
+	LocalTrial        *LocalTrial               `json:"localTrial,omitempty"`
 	TargetID          string                    `json:"targetId,omitempty"`
 	ColorPartition    *ColorPartition           `json:"colorPartition,omitempty"`
 	WalmartRules      *walmart.RuleSelection    `json:"walmartRules,omitempty"`
@@ -43,6 +44,7 @@ type TargetInput struct {
 	SheinImport       *SheinImport              `json:"sheinImport,omitempty"`
 }
 type TargetRecord struct {
+	LocalTrial               *LocalTrial                           `json:"localTrial,omitempty"`
 	ID                       string                                `json:"id"`
 	TargetID                 string                                `json:"targetId"`
 	Revision                 int64                                 `json:"revision"`
@@ -175,15 +177,18 @@ type TargetTikTokImageReader interface {
 	ProbeTikTok(context.Context, asset.ApprovedAsset, string) (tiktok.ImageObservation, error)
 }
 
+type TargetQuery interface {
+	ReadTargetHead(context.Context, collection.Scope, string) (TargetRecord, error)
+	ReadTargetRecord(context.Context, collection.Scope, string) (TargetRecord, error)
+	ReadTargetCommand(context.Context, collection.Scope, string) (TargetReceipt, error)
+}
 type TargetRepository interface {
+	TargetQuery
 	FindTargetCommand(context.Context, collection.Scope, string, string) (TargetReceipt, error)
 	// SaveTarget replays an exact committed command before applying any new
 	// Agent write gate. New writes check CheckAgentCommit after CAS and again
 	// before commit, rolling back all record/head/command effects on denial.
 	SaveTarget(context.Context, TargetPrepared) (TargetReceipt, error)
-	ReadTargetHead(context.Context, collection.Scope, string) (TargetRecord, error)
-	ReadTargetRecord(context.Context, collection.Scope, string) (TargetRecord, error)
-	ReadTargetCommand(context.Context, collection.Scope, string) (TargetReceipt, error)
 }
 type TargetDependencies struct {
 	Sources                TargetSourceSelector
@@ -203,13 +208,16 @@ type TargetDependencies struct {
 	ExecutionSources       TargetExecutionSourceSelector
 	ExecutionAuthorization collection.ExecutionAuthorizer
 }
-type TargetService struct{ dependencies TargetDependencies }
+type TargetService struct {
+	dependencies TargetDependencies
+	localTrial   *LocalTrialPolicy
+}
 
 func NewTargetService(d TargetDependencies) (*TargetService, error) {
 	if d.Sources == nil || d.Products == nil || d.Assets == nil || d.Rules == nil || d.Records == nil || d.Authorizer == nil || d.Images == nil {
 		return nil, ErrUnavailable
 	}
-	return &TargetService{d}, nil
+	return &TargetService{dependencies: d}, nil
 }
 func TargetIdentity(scope collection.Scope, sourceID, storeID string) string {
 	return collection.StableID(scope.OrganizationID, scope.ActorID, "supply-target", sourceID, storeID)
@@ -221,7 +229,7 @@ func (s *TargetService) Create(ctx context.Context, key string, input TargetInpu
 // CreateForAgent only exposes the existing local Target owner. A nonnil guard
 // is mandatory and cannot be selected or supplied by an untrusted caller.
 func (s *TargetService) CreateForAgent(ctx context.Context, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
-	if guard == nil || input.ColorPartition != nil {
+	if guard == nil || input.ColorPartition != nil || input.LocalTrial != nil || s != nil && s.localTrial != nil {
 		return TargetReceipt{}, ErrForbidden
 	}
 	return s.createForRequest(ctx, key, input, guard)
@@ -261,6 +269,9 @@ func (s *TargetService) CreateForExecutionForAgent(ctx context.Context, scope co
 }
 
 func (s *TargetService) createForExecution(ctx context.Context, scope collection.Scope, key string, input TargetInput, guard TargetAgentGuard) (TargetReceipt, error) {
+	if input.LocalTrial != nil || s != nil && s.localTrial != nil {
+		return TargetReceipt{}, ErrForbidden
+	}
 	if input.ColorPartition != nil || ctx == nil || s == nil || scope.Validate() != nil || s.dependencies.ExecutionSources == nil || s.dependencies.ExecutionAuthorization == nil {
 		return TargetReceipt{}, ErrForbidden
 	}
@@ -281,6 +292,9 @@ func (s *TargetService) createForExecution(ctx context.Context, scope collection
 }
 
 func (s *TargetService) create(ctx context.Context, scope collection.Scope, key string, input TargetInput, selectSource func(context.Context, string) (preparation.AuthorizedSource, error), reauthorize func(context.Context) error, guard TargetAgentGuard) (TargetReceipt, error) {
+	if input.LocalTrial != nil && s.localTrial == nil || s.localTrial != nil && (scope != s.localTrial.Scope || input.LocalTrial == nil || *input.LocalTrial != s.localTrial.Binding) {
+		return TargetReceipt{}, ErrForbidden
+	}
 	if !ValidColorPartition(scope, input) {
 		return TargetReceipt{}, ErrInvalid
 	}
@@ -353,6 +367,12 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 		return TargetReceipt{}, ErrForbidden
 	}
 	var completionVersion func(context.Context) error
+	if s.localTrial != nil {
+		completionVersion = func(ctx context.Context) error { return s.validateLocalCandidate(ctx, scope, source) }
+		if err = completionVersion(ctx); err != nil {
+			return TargetReceipt{}, err
+		}
+	}
 	if input.CompletionDraft != nil {
 		if s.dependencies.CompletionVersions == nil {
 			return TargetReceipt{}, ErrUnavailable
@@ -374,6 +394,9 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	}
 	if product.Identity.TenantID != scope.OrganizationID || product.Identity.ProductKey != source.Source.ProductKey || product.Version != input.EffectiveVersion || product.PublicationID == "" {
 		return TargetReceipt{}, ErrNotReady
+	}
+	if err = s.validateLocalInput(scope, input, source, product); err != nil {
+		return TargetReceipt{}, err
 	}
 	platform := "shein"
 	if input.Temu != nil {
@@ -415,6 +438,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	}
 	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: RecordIdentity(scope, input), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
 	value.ImageObservations = prepared.images
+	value.LocalTrial = input.LocalTrial
 	value.ProofObservations = prepared.proofs
 	value.Temu, value.TemuRuleSnapshot = prepared.temu, prepared.temuRules
 	value.TemuImageObservations = prepared.temuImages

@@ -68,6 +68,9 @@ func (r ImageSetTargetRules) readTarget(ctx context.Context, identity imageagent
 	if err != nil {
 		return empty, err
 	}
+	if record.IsLocalTrial(target) {
+		return empty, imageagent.ErrCommandBlocked
+	}
 	if target.ID != input.RecordID || target.TargetID != record.TargetIdentity(scope, target.Source.ID, input.StoreID) || target.Source.ID != target.Input.SourceID || target.Input.StoreID != input.StoreID || target.Merchant.OrganizationID != scope.OrganizationID || target.Merchant.StoreID != input.StoreID || target.Merchant.Site != input.Site || target.Source.Source.ProductKey != source.ProductID || target.Source.Source.PublicationID != source.OriginalPublicationID || target.Source.Source.Version != source.OriginalVersion || target.EffectiveVersion != source.EffectiveVersion || target.ApplyReceiptID != source.ApplyReceiptID || target.Input.EffectiveVersion != source.EffectiveVersion || target.Input.ApplyReceiptID != source.ApplyReceiptID || target.Input.Draft.Product.CategoryID != input.CategoryID {
 		return empty, imageagent.ErrRevisionConflict
 	}

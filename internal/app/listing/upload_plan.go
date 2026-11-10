@@ -80,6 +80,9 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		return facts, err
 	}
 	if err == nil {
+		if record.IsLocalTrial(saved) {
+			return facts, record.ErrForbidden
+		}
 		if saved.Source.ID != source.ID || saved.Source.PreparationID != source.PreparationID || saved.Source.Source != source.Source || saved.Input.StoreID != plan.Input.StoreID || saved.TargetID != record.TargetIdentity(scope, source.ID, plan.Input.StoreID) {
 			return facts, record.ErrConflict
 		}

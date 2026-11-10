@@ -136,7 +136,7 @@ func (s *SheinPublicationService) load(ctx context.Context, sourceID, storeID, r
 		return out, record.ErrForbidden
 	}
 	saved, e := s.d.Records.ReadTargetRecord(ctx, scope, original.RecordID)
-	if e != nil || saved.Source != item || saved.Merchant != original.Binding || !goods.CorrelatesPublishedMembership(saved.Result.Product, original.Product) {
+	if e != nil || record.IsLocalTrial(saved) || saved.Source != item || saved.Merchant != original.Binding || !goods.CorrelatesPublishedMembership(saved.Result.Product, original.Product) {
 		return out, record.ErrConflict
 	}
 	purpose := storecenter.ProductPurposeStatus

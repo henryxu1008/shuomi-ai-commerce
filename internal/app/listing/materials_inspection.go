@@ -30,6 +30,9 @@ func (a *Application) InspectMaterialsRecord(ctx context.Context, id string) (ma
 	if err != nil {
 		return materials.Inspection{}, err
 	}
+	if record.IsLocalTrial(base) {
+		return materials.Inspection{}, record.ErrForbidden
+	}
 	selected, err := a.Sources.Select(ctx, base.Source.ID)
 	if err != nil {
 		return materials.Inspection{}, err
