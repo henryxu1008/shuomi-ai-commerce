@@ -8,13 +8,13 @@ import (
 // VerifyCurrentObservationsInstallBoundary is used only by the explicit owner
 // installer on its pinned transaction. Optional platform capabilities stay off.
 func VerifyCurrentObservationsInstallBoundary(ctx context.Context, q coreSchemaQueryer, database string, installed bool) error {
-	if err := verifyCurrentObservationsObjectBoundary(ctx, q, database, installed); err != nil {
+	if err := verifyCurrentObservationsObjectBoundary(ctx, q, database, installed, false); err != nil {
 		return err
 	}
 	return verifyStoreMaintenancePermissions(ctx, q, RuntimeCapabilities{Observations: installed})
 }
 
-func verifyCurrentObservationsObjectBoundary(ctx context.Context, q coreSchemaQueryer, database string, installed bool) error {
+func verifyCurrentObservationsObjectBoundary(ctx context.Context, q coreSchemaQueryer, database string, installed, retainedCockpit bool) error {
 	if ctx == nil || ctx.Err() != nil || q == nil || database == "" {
 		return errors.New("explicit current Store database required")
 	}
@@ -24,8 +24,8 @@ AND current_user='store_center_owner' AND session_user=current_user
 AND current_schema()='public' AND current_schemas(false)=ARRAY['public']::name[]
 AND (SELECT count(*)=2 AND bool_and(NOT(rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) FROM pg_roles WHERE rolname IN ('store_center_owner','store_center_runtime'))
 AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member IN (SELECT oid FROM pg_roles WHERE rolname IN ('store_center_owner','store_center_runtime')))
-AND NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname NOT IN ('public','information_schema') AND nspname !~ '^pg_' AND NOT($2 AND nspname='store_observations'))
-AND NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='store_observations' AND nspowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user))`, database, installed).Scan(&admitted)
+AND NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname NOT IN ('public','information_schema') AND nspname !~ '^pg_' AND NOT(($2 AND nspname='store_observations') OR ($3 AND nspname='operations_cockpit')))
+AND NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname IN('store_observations','operations_cockpit') AND nspowner<>(SELECT oid FROM pg_roles WHERE rolname=current_user))`, database, installed, retainedCockpit).Scan(&admitted)
 	if err != nil || !admitted {
 		return errors.New("current Store database, owner or namespace mismatch")
 	}
@@ -70,17 +70,27 @@ AND NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='store_observations' AND
 // effective privilege checks; the observation owner must separately verify its
 // complete A/B structure on the same pinned transaction before any DDL.
 func VerifyEmptyObservationsMaintenanceBoundary(ctx context.Context, q coreSchemaQueryer, database string) error {
-	if err := verifyCurrentObservationsObjectBoundary(ctx, q, database, true); err != nil {
+	var cockpit bool
+	if err := q.QueryRowContext(ctx, `SELECT to_regnamespace('operations_cockpit') IS NOT NULL`).Scan(&cockpit); err != nil {
+		return err
+	}
+	if err := verifyCurrentObservationsObjectBoundary(ctx, q, database, true, cockpit); err != nil {
 		return err
 	}
 	var versions string
 	if err := q.QueryRowContext(ctx, `SELECT string_agg(version_id::text,',' ORDER BY id) FROM public.goose_store_center_version`).Scan(&versions); err != nil || versions != "0,2026092801,2026101101,2026101601" {
 		return errors.New("empty observation maintenance requires exact original Store history")
 	}
-	if err := verifyStoreMaintenancePrivilegeCatalog(ctx, q, RuntimeCapabilities{Observations: true}); err != nil {
+	if err := verifyStoreMaintenancePrivilegeCatalog(ctx, q, RuntimeCapabilities{Observations: true, OperationsCockpit: cockpit}); err != nil {
 		return err
 	}
-	return verifyNativeCapabilityGrants(ctx, q, "store_observations")
+	if err := verifyNativeCapabilityGrants(ctx, q, "store_observations"); err != nil {
+		return err
+	}
+	if cockpit {
+		return verifyUnchangedCockpitForObservationMaintenance(ctx, q)
+	}
+	return nil
 }
 
 // ReadObservationsAlignmentCatalog exposes the existing immutable owner projection,

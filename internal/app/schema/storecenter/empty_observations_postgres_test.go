@@ -198,4 +198,14 @@ func TestEmptyObservationAlignmentPostgres(t *testing.T) {
 		require.NoError(t, tx.Rollback())
 		require.NoError(t, AlignEmptyObservationsContract(ctx, owner, "store_center"))
 	})
+	t.Run("IT1-retained-cockpit-is-verified-and-preserved", func(t *testing.T) {
+		resetEmptyObservationBaseline(t, owner)
+		require.NoError(t, InstallOperationsCockpit(ctx, owner))
+		require.NoError(t, AlignEmptyObservationsContract(ctx, owner, "store_center"))
+		resetEmptyObservationBaseline(t, owner)
+		require.NoError(t, owner.Exec(`GRANT DELETE ON operations_cockpit.commands TO store_center_runtime`).Error)
+		require.Error(t, AlignEmptyObservationsContract(ctx, owner, "store_center"), "existing cockpit is not a privilege bypass")
+		require.NoError(t, owner.Exec(`REVOKE DELETE ON operations_cockpit.commands FROM store_center_runtime; ALTER TABLE operations_cockpit.commands DROP CONSTRAINT commands_pkey`).Error)
+		require.Error(t, AlignEmptyObservationsContract(ctx, owner, "store_center"), "unchanged cockpit must match its entire native contract")
+	})
 }

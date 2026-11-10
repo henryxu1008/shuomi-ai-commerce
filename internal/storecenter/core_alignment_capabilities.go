@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"task-processor/internal/pkg/pgschema"
 )
 
 // Catalog contracts are read-only snapshots of the existing capability owners'
@@ -66,4 +67,52 @@ func verifyNativeCapabilityGrants(ctx context.Context, q coreSchemaQueryer, sche
 		return errors.New("retained Store capability runtime grants incomplete")
 	}
 	return nil
+}
+
+// Only the empty-observation maintenance entry uses parser equivalence for an
+// already-installed, otherwise unchanged cockpit. Original consumers stay strict.
+func verifyUnchangedCockpitForObservationMaintenance(ctx context.Context, q coreSchemaQueryer) error {
+	var raw string
+	if err := q.QueryRowContext(ctx, retainedCapabilityCatalogQuery, "operations_cockpit").Scan(&raw); err != nil {
+		return err
+	}
+	var got, want map[string]any
+	if json.Unmarshal([]byte(raw), &got) != nil || json.Unmarshal(retainedCockpitContract, &want) != nil {
+		return errors.New("retained cockpit contract unavailable")
+	}
+	for _, section := range []string{"constraints", "indexes"} {
+		a, okA := got[section].([]any)
+		b, okB := want[section].([]any)
+		if !okA || !okB || len(a) != len(b) {
+			return errors.New("retained cockpit object set differs")
+		}
+		for i := range a {
+			x, okX := a[i].([]any)
+			y, okY := b[i].([]any)
+			pos := 3
+			if section == "indexes" {
+				pos = 1
+			}
+			if !okX || !okY || len(x) != len(y) || len(x) <= pos {
+				return errors.New("retained cockpit shape differs")
+			}
+			av, okA := x[pos].(string)
+			bv, okB := y[pos].(string)
+			if !okA || !okB {
+				return errors.New("retained cockpit definition unavailable")
+			}
+			equal := pgschema.SchemaConstraintEqual(av, bv)
+			if section == "indexes" {
+				equal = pgschema.SchemaIndexEqual(av, bv)
+			}
+			if !equal {
+				return errors.New("retained cockpit definition differs")
+			}
+			x[pos] = bv
+		}
+	}
+	if !reflect.DeepEqual(got, want) {
+		return errors.New("retained cockpit structure differs")
+	}
+	return verifyNativeCapabilityGrants(ctx, q, "operations_cockpit")
 }

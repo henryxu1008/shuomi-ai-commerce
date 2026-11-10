@@ -78,10 +78,10 @@ func observationPreservation(ctx context.Context, tx *sql.Tx) (string, error) {
 	var fingerprint string
 	err := tx.QueryRowContext(ctx, `SELECT jsonb_build_object(
  'database',(SELECT to_jsonb(d)-'datfrozenxid'-'datminmxid' FROM pg_database d WHERE datname=current_database()),
- 'schemas',(SELECT jsonb_agg(to_jsonb(n) ORDER BY oid) FROM pg_namespace n WHERE nspname IN('public','store_observations')),
- 'tables',(SELECT jsonb_agg(jsonb_build_array(oid,relname,relowner,relacl) ORDER BY oid) FROM pg_class WHERE relnamespace IN('public'::regnamespace,'store_observations'::regnamespace)),
- 'columnACL',(SELECT jsonb_agg(jsonb_build_array(attrelid,attnum,attacl) ORDER BY attrelid,attnum) FROM pg_attribute WHERE attrelid IN(SELECT oid FROM pg_class WHERE relnamespace IN('public'::regnamespace,'store_observations'::regnamespace)) AND attnum>0 AND NOT attisdropped),
- 'constraints',(SELECT jsonb_agg(to_jsonb(k) ORDER BY oid) FROM pg_constraint k WHERE connamespace IN('public'::regnamespace,'store_observations'::regnamespace) AND NOT(connamespace='store_observations'::regnamespace AND conname IN('heads_kind_check','records_kind_check','syncs_kind_check','store_observation_record_variant'))),
+ 'schemas',(SELECT jsonb_agg(to_jsonb(n) ORDER BY oid) FROM pg_namespace n WHERE nspname IN('public','store_observations','operations_cockpit')),
+ 'tables',(SELECT jsonb_agg(jsonb_build_array(oid,relname,relowner,relacl) ORDER BY oid) FROM pg_class WHERE relnamespace IN(SELECT oid FROM pg_namespace WHERE nspname IN('public','store_observations','operations_cockpit'))),
+ 'columnACL',(SELECT jsonb_agg(jsonb_build_array(attrelid,attnum,attacl) ORDER BY attrelid,attnum) FROM pg_attribute WHERE attrelid IN(SELECT oid FROM pg_class WHERE relnamespace IN(SELECT oid FROM pg_namespace WHERE nspname IN('public','store_observations','operations_cockpit'))) AND attnum>0 AND NOT attisdropped),
+ 'constraints',(SELECT jsonb_agg(to_jsonb(k) ORDER BY oid) FROM pg_constraint k WHERE connamespace IN(SELECT oid FROM pg_namespace WHERE nspname IN('public','store_observations','operations_cockpit')) AND NOT(connamespace='store_observations'::regnamespace AND conname IN('heads_kind_check','records_kind_check','syncs_kind_check','store_observation_record_variant'))),
  'defaults',(SELECT jsonb_agg(to_jsonb(d) ORDER BY oid) FROM pg_default_acl d),
  'roles',(SELECT jsonb_agg(to_jsonb(r) ORDER BY rolname) FROM pg_roles r WHERE rolname IN('store_center_owner','store_center_runtime')),
  'members',(SELECT jsonb_agg(to_jsonb(m) ORDER BY oid) FROM pg_auth_members m WHERE member IN(SELECT oid FROM pg_roles WHERE rolname IN('store_center_owner','store_center_runtime'))),
