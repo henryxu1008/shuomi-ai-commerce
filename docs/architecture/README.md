@@ -156,6 +156,7 @@
 - `store-center-figma.md` — [Store Center：我的店铺完整 Figma 路径 v1](store-center-figma.md)
 - `store-center-platform-observations.md` — [店铺中心：平台商品与订单物流只读首版](store-center-platform-observations.md)
 - `store-observations-installation.md` — [在当前 Store 安装既有订单观察模块](store-observations-installation.md)
+- `store-empty-observations-contract-alignment.md` — [四张空 Store 观测表的最小合同对齐](store-empty-observations-contract-alignment.md) · #1231 设计与独立评审；原实例操作另行授权。
 - `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
 - `supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](supply-market-choice-eligibility.md)
 - `supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market.md)
