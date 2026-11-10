@@ -24,7 +24,7 @@ describe("original Amazon creation recovery without Collection read permission",
             writes.push({ body: String(init.body), key: headers.get("Idempotency-Key"), user: headers.get("X-Expected-User-ID"), org: headers.get("X-Expected-Organization-ID") });
             const failure = failures.shift();
             if (failure) return Response.json({ error: { code: failure === 503 ? "DATA_UNKNOWN" : "FORBIDDEN" } }, { status: failure });
-            return Response.json({ id: stored.key, commandKey: headers.get("Idempotency-Key"), query: JSON.parse(String(init.body)).query, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"},confirmedFen:"0", pendingFen:"0", createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" }, { status: 202 });
+            return Response.json({ id: stored.key, commandKey: headers.get("Idempotency-Key"), query: JSON.parse(String(init.body)).query, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, priceStatus:"FROZEN",price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"},confirmedFen:"0", pendingFen:"0", createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" }, { status: 202 });
         }));
         const { result } = renderHook(() => useDataCommand(scope));
         await act(async () => { await Promise.resolve(); });
