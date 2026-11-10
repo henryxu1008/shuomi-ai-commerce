@@ -1,7 +1,7 @@
 # 原 35444：受控本地平台草稿接线
 
 Execution: [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)。Design Basis: **Independent Architecture**。
-Admission: **NOT_READY — 待本轮独立架构评审**。本提交只有设计，无生产代码、schema 或运行操作。
+Admission: **IMPLEMENTATION_READY / FROZEN**。2026-11-10 独立 R1 核对设计提交 `4cb47120bf54a59fa83ded7a714a595bd9b9cc1e`，0 设计 BLOCKER；具体接线 finding 已分类 IMPLEMENTATION_TEST，见 §9。正文澄清增量仍须独立复核；本提交只有设计，无生产代码、schema 或运行操作。
 调查基线：`683d83b831020d9266ea06b636c7beced7d97453`，唯一 Writer `/root`，分支 `codex/issue1158-controlled-local-draft`。
 
 ## 1. 产品决定、结果与边界
@@ -54,7 +54,9 @@ R1 当前价格为 CNY 29；原文/币种不变。模拟自营规则仍按 USD �
 | 装配 | `currentapplication` 解析私密 controlledLocalDraft → 明确的本地 constructor → TargetDependencies；不创建 OfficialProductAccess/provider/Temporal/Submission |
 | UI/BFF/HTTP | 当前缺项页和带入页的窄分支，严格完整 DTO；服务器 route allowlist 和 Scope 决定准入，UI 开关只决定可见性 |
 
-配置必须 literal-loopback HTTPS，固定上述 Scope/Source/Product/R1 和准确测试 Store、trialId、fixtureVersion/hash、显式 acknowledgment。默认缺省关闭；与 full SupplyChain、PrivateDraftTrial、另一离线记录模式互斥；原 SourceMaterials/Agent/供应市场/数据服务保持可并存。不得为了接线而关闭原功能或取消其准入。模式字段、Scope 和规则均不由浏览器或模型决定。
+配置必须 literal-loopback HTTPS，固定上述 Scope/Source/Product/R1 和准确测试 Store、trialId、fixtureVersion/hash、显式 acknowledgment。`enabled` 缺省 false，仅控制本地预览/新写；配置块存在且 schema 已安装时，false 仍保留准确固定范围的只读 reader/原键核对及 native capability 声明。配置块缺省表示未开通；安装后完整删配置不是停用方式，须按既有 capability 拒绝不一致启动，或在明确回退窗口恢复匹配 checkpoint。与 full SupplyChain、PrivateDraftTrial、另一离线记录模式互斥；原 SourceMaterials/Agent/供应市场/数据服务保持可并存。不得为了接线而关闭原功能或取消其准入。模式字段、Scope 和规则均不由浏览器或模型决定。
+
+装配明确区分真正 full SupplyChain app 与 controlled app：后者不得作为 `buildSourceMaterialsModule` 的 non-nil full 参数。原 SourceMaterials 沿原 owner 的独立准入/`composeSourceApprovals` 装配，保留其原能力；Source/Preparation routes 由原模块拥有并准确去重，本地只补 Target 小集合。原模块本来可用的图片批准入口不等于本地 Target 白名单的批准能力，试用模块不能调用它或把本地 Target 传作执行输入。此为 R1 核实的具体接线义务，不新增另一套素材 owner。
 
 Store 每次 preview/new save 通过当前成员访问读取准确记录及版本，核对 SHEIN US、active record、pending_activation、未连接且没有 merchant binding。名称只是标签，不能成为唯一授权依据。创建 Store 不购买资源、不授予官方商户身份；普通成员仍要求原店铺 grant，管理员沿现有规则，不额外发明 grant。
 
@@ -65,6 +67,7 @@ Target 普通身份仍沿 `TargetIdentity(org,actor,source,store)`，purpose=sta
 新增可选的**typed `localTrial` 绑定**，贯通 TargetInput/TargetRecord、BFF/响应/历史/原键 intent。内容只含 contractVersion、trialId、固定 Source/Completion 引用、fixtureVersion/hash、准确 StoreID；Scope 由当前认证派生。预览/规则读取由服务端给出绑定，写入时与私密固定配置和已读事实精确重验。它不是权限 token；不得只相信客户端 `local=true`。
 
 - 所有本地写入必须有匹配绑定；record.localTrial 与 input.localTrial 相同，进入原完整 inputHash/bodyHash。仓储验证 typed 结构及原 Source/Store 身份，事务锁 head 后拒绝在本地/正式 provenance 间切换。已有本地 head 即使请求删掉标记，也不能被正常编辑、重新适配、材料建议或其他平台请求改成正式。
+- `localTrial` 是跨版本持续 provenance，不是一次性 SheinImport/SheinSalesMapping；清理旧操作绑定时不得清除它。Preview 当前返回新 TargetInput 字面量的路径必须承接/重验 provenance。严格 BFF 的本地 merchant/record 分支保留该完整字段，并允许明确的“无官方连接/无官方有效期”形状；不能为了通过现有 merchantSchema 的官方正数/日期要求而伪造值。普通无 marker 的字段保持可省略零值，不回填或重算既有 record/hash；未知 marker 拒绝。
 - 更新后的 `ValidPlatformRecord` 只在闭合 localTrial 分支接受本地记录，核对 provenance、非其他平台/非拆色、试用 rule authority、非 Ready、无 payload；普通分支保留原官方准入。本地 merchant projection 保留真实 StoreID/版本和 synthetic supplier hash，但官方 application/connection revision/expiry 不伪造为有效；它必须不满足正常 `ValidApplication`。
 - 现有 `validImportMerchant` 官方判断保持。TargetService 以**受信 constructor 的本地绑定**调用明确的本地上下文校验，然后复用原 derive/save；不得把“AppID 有 offline 前缀”设成全局官方判断的豁免。
 - 规则快照新增闭合 authority 标识：正常 RuleReader 为 official，本地 reader 为 local_trial；unknown 拒绝。该标识进入 rules hash。SHEIN native builder 对 local_trial 仍运行原结构/格式/库存/规格检查，但永远 `ReadyForUpload=false`、`SubmissionPayload` 为空；本地试用诊断明确不是官方规则/资格。不是仅 UI 隐藏上传按钮或生成 wire 后再隐藏。
@@ -80,6 +83,8 @@ Target 普通身份仍沿 `TargetIdentity(org,actor,source,store)`，purpose=sta
 2. **带入数值/文字 T2**：固定 Completion R1 和 T1 base record，复用 `POST shein-completion-preview`；选择标题/描述、只选择黑 M 的 stock=0、不选 CNY 价格。预览后确认，原 `POST targets` + expectedRevision=1 保存 revision 2；普通一次性绑定清理规则保持。
 3. **销售映射 T3**：对 T2 同一 Target，复用 `POST shein-sales-mapping-preview` 和已冻结 #1227 算法，用户确认源维度/值映射；原 POST/CAS 保存 revision 3，两个颜色组、三条 SKU、0/空/空。刷新/重开及历史仍是同一 Target。不是三个商品或三份草稿；预期 1 head、3 immutable records、0 split、0 submission。
 
+T1 在受信本地 constructor 内从固定 Catalog/Source 和 fixture 生成闭合 bootstrap 输入，保存前比较**完整**期望 input，不只比较 localTrial/来源等元数据。后续无 SheinImport/SheinSalesMapping 操作绑定的任意手工 edit 拒绝；T2/T3 继续原完整重派生，另核固定 R1、准确三行双射、无其他 SKU/平台/图片写入。复制 marker 不能添删 SKU、挪库存、夹带图片或改别的字段。这里是本地准入范围，不新增状态机或另一个保存协议。
+
 每次只读 preview 不创建 command/head/record，不调用 provider。编辑选项清除旧预览。保存按原完整请求、原 key、expectedRevision、TargetPrepared 源授权重验和 Product DB 单事务写 record/head/command；不改事务、增加跨库 Saga 或异步 Task。
 
 R1/Store/规则/fixture/source/基线绑定漂移时拒绝，提示明确冲突；不自动换 R1、店铺、类目或 key。R1 head 后续增加不改变显式选择的不可变 R1；来源归档/撤权沿原授权拒绝新写。Fixture 本轮冻结不做热更新；若版本变化，旧预览不可新写，须显式重新预览。重新配置合成 Scope/Store 不复用原 Target。
@@ -91,6 +96,8 @@ R1/Store/规则/fixture/source/基线绑定漂移时拒绝，提示明确冲突�
 只复用现有 supply-preparations 的当前来源/批次/记录/head/历史/command GET、`POST target-rules`（只读合成选择）、`POST shein-completion-preview`、`POST shein-sales-mapping-preview` 和 `POST targets`。每条路由继续原 permission + fixed scope/source/store 的服务端校验；其他 Source/Store 不可读写。基本稿仍用现有 Target 保存，不新增任务创建/适配 operation 接口。
 
 不挂载 operations/ensure/cancel、color-split、upload-plan、upload、resolve、发布/货架、Agent/图片生成/批准入口。原应用其他模块保留原路由，但不能消费本地 Target 作为执行/生成/发布输入。当前 `supplyChainAvailable` 不作为服务器权限；新增单独受控可见性让原 R1 页进入本地带入，不把 full SupplyChain 打开。
+
+本地只读 Query port 从原 Target 的 ReadHead/ReadRecord/ReadCommand 与同一 Repository 提取/复用，沿原授权并复验返回值的固定 Source/Store/typed marker；不构造带 Rules/provider 的可写服务来“凑”读取。现 `target-command` 直接依赖 app.Targets.ReadCommand，必须改为明确读 port；既有 PrivateDraftReadRoutes 没有该路由，不能误认为已覆盖。`enabled=false` 仍挂授权 GET/head/record/原键读取，不挂 POST；历史回执保留原 fixture 和 local 标记，不冒充当前规则/当前 head。正常 full TargetService 可实现同一 Query port，只有一个事实 owner，无 fallback/双读。
 
 不新增外部 endpoint/HTTP transport，合成 reader 无网络能力；不启动新的 Temporal worker。沿当前 2 MiB 请求/record、256 SKU/映射、10s Target deadline、原连接池上限。固定 fixture 有界、无输入规则文件解析器、无全库扫描或无限 cache。
 
@@ -109,9 +116,11 @@ R1/Store/规则/fixture/source/基线绑定漂移时拒绝，提示明确冲突�
 
 复用既有 Go/native PG/前端与浏览器测试，不建设 runner 或新的验收平台。已有 #1227 映射算法证据只对未变代码复用；本轮实现后必须收敛四项 **IMPLEMENTATION_TEST**：
 
-1. **准入与无副作用**：新模式缺省/非本机/Scope/Store/Source/R1错配拒绝；原 Agent/SourceMaterials 可并存；新增路由白名单与 live 撤权；本地 native 标记、官方无效 binding、rule authority 贯通，直接 native upload/worker/plan/Agent 尝试均在任何外部调用/账本写之前拒绝。包含合成“资料全齐”仍无 wire、去 marker/换 Store/停用配置的反例。
+1. **准入与无副作用**：新模式缺省/非本机/Scope/Store/Source/R1错配拒绝；原 Agent/SourceMaterials 可并存，controlled app 不冒充 full 导致原 SourceMaterials 少挂 approval/Preparation 能力；新增路由白名单与 live 撤权；本地 native 标记、官方无效 binding、rule authority 贯通，直接 native upload/worker/plan/Agent 尝试均在任何外部调用/账本写之前拒绝。包含合成“资料全齐”仍无 wire、去 marker/换 Store/停用新写而 GET 原键仍可核对的反例。
 2. **一份草稿与数据保持**：真实隔离 PG＋浏览器经原 T1/T2/T3 保存/刷新重开；恰好一 Target/三 records/零 split/零 submission，黑 M/黑 L/白 M，0/空/空；CNY 不变、Target 不冒写 USD；原商品、Source、R1、原图和批准库不写，原预留数量/结算及调用数不变。
-3. **保存协议**：同键/异载荷、并发创建/CAS、数据库中途失败原子回滚、commit ACK 丢失、重启后原键核对、预览后绑定/授权变化；完整 localTrial 字段/hash 贯通 BFF/仓储/历史/原键，不能只比元数据。原 key 已提交回执保持准确历史且不可作为发布许可。
+3. **保存协议**：T1完整 bootstrap 输入比较及直 POST 添删 SKU/夹带字段/无操作 edit 的拒绝；T2/T3 原完整派生和准确三行/0空验证。同键/异载荷、并发创建/CAS、数据库中途失败原子回滚、commit ACK 丢失、重启后原键核对、预览后绑定/授权变化；完整 localTrial 字段/hash 贯通预览新 Input、BFF local merchant/record 分支、仓储/历史/原键，不能只比元数据或清理一次性绑定时脱标。原 key 已提交回执保持准确历史且不可作为发布许可。
 4. **安装与退出**：同一保留副本通过完整 owner installer、capability 校验、新模式启动，原模块数据/角色/图/任务保持；关闭模式不升级记录，按 checkpoint 回退原业务能启动，备份与私密配置保留。原 35444 的部署和业务保存必须另获授权，不能以副本 PASS 代替。
 
 架构正常评审最多两轮；finding 先按当前 Must/后果分类。仅跨租户/越权、错误发布/扣费、数据丢失或核心路径无法完成等真实 BLOCKER 重开设计；实现细节转上述 IT，理论 hardening/backlog 不无限加机制。只有独立结论明确 **IMPLEMENTATION_READY** 才可在后续授权下正式实现。本轮不自签产品验收、不合并、不部署或关闭 Issue。
+
+R1 分类记录：T1 完整输入约束、SourceMaterials full 指针误判、local DTO/持续 provenance/停用 Query 接线均为 **IMPLEMENTATION_TEST，实施及合并前**；分别归入上述 IT-1/IT-3/IT-4，不作为已执行测试或已修生产代码。当前 0 设计 BLOCKER；独立增量确认后冻结，后续须在实现验证收敛这些 Must。
