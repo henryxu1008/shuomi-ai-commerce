@@ -49,16 +49,21 @@ func verifyRetainedCapabilityContracts(ctx context.Context, q coreSchemaQueryer,
 		if json.Unmarshal([]byte(raw), &got) != nil || json.Unmarshal(capability.contract, &want) != nil || !reflect.DeepEqual(got, want) {
 			return fmt.Errorf("retained Store capability structure mismatch: %s", capability.schema)
 		}
-		// The common allowlist rejects excess effective privileges. Explicitly
-		// require every native capability grant too, including cockpit's grants.
-		var complete bool
-		query := `SELECT coalesce(has_schema_privilege('store_center_runtime',to_regnamespace($1),'USAGE'),false) AND NOT EXISTS (
+		if err := verifyNativeCapabilityGrants(ctx, q, capability.schema); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func verifyNativeCapabilityGrants(ctx context.Context, q coreSchemaQueryer, schema string) error {
+	var complete bool
+	query := `SELECT coalesce(has_schema_privilege('store_center_runtime',to_regnamespace($1),'USAGE'),false) AND NOT EXISTS (
  SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='r' AND NOT (
  has_table_privilege('store_center_runtime',c.oid,'SELECT') AND has_table_privilege('store_center_runtime',c.oid,'INSERT') AND
  ((n.nspname='store_observations' AND c.relname='commands') OR (n.nspname='operations_cockpit' AND c.relname IN ('fact_versions','goal_versions','commands')) OR has_table_privilege('store_center_runtime',c.oid,'UPDATE'))))`
-		if err := q.QueryRowContext(ctx, query, capability.schema).Scan(&complete); err != nil || !complete {
-			return errors.New("retained Store capability runtime grants incomplete")
-		}
+	if err := q.QueryRowContext(ctx, query, schema).Scan(&complete); err != nil || !complete {
+		return errors.New("retained Store capability runtime grants incomplete")
 	}
 	return nil
 }

@@ -37,6 +37,14 @@ AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('store_observati
 // Shared catalog checks target the fixed serving role without SET ROLE or its
 // credential. The caller separately pins its own admitted object boundary.
 func verifyStoreMaintenancePermissions(ctx context.Context, q coreSchemaQueryer, capabilities RuntimeCapabilities) error {
+	if err := verifyStoreMaintenancePrivilegeCatalog(ctx, q, capabilities); err != nil {
+		return err
+	}
+	return verifyRetainedCapabilityContracts(ctx, q, capabilities)
+}
+
+// Shared fixed-role privilege checks; structural capability checks stay with each caller.
+func verifyStoreMaintenancePrivilegeCatalog(ctx context.Context, q coreSchemaQueryer, capabilities RuntimeCapabilities) error {
 	query := strings.Replace(storeRuntimePermissionQuery, coreRuntimeSubject, "(SELECT 'store_center_runtime'::text AS runtime_role) subject", 1)
 	var role string
 	var required, forbidden bool
@@ -56,7 +64,7 @@ func verifyStoreMaintenancePermissions(ctx context.Context, q coreSchemaQueryer,
 	if err != nil || grantable {
 		return errors.New("retained Store runtime grant options mismatch")
 	}
-	return verifyRetainedCapabilityContracts(ctx, q, capabilities)
+	return nil
 }
 
 // VerifyCoreAlignmentState accepts only the confirmed two-platform baseline A
