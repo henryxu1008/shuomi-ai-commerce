@@ -51,10 +51,12 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			"internal/app/productsourcing/shein_trial_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
 			// #1205: same explicit owner-only maintenance boundary; serving cannot install.
 			"internal/app/productsourcing/assessment_initialization.go": {"OpenExistingWritableContext", "Close", "Config"},
+			// #1233 frozen native price-column alignment; explicit owner only.
+			"internal/app/productsourcing/price_alignment.go": {"OpenExistingWritableContext", "Close", "Config"},
 		}},
 		// The retired HTTP provider has no admitted APIs, including siblings.
 		{"internal/integration/acquisition/a1688", issue398HTTP, nil},
-		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableListing", "EnableSHEINUSTrialLedger", "EnableResearchAssessments"}}},
+		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableListing", "EnableSHEINUSTrialLedger", "EnableResearchAssessments", "AlignAcquisitionPriceSnapshot"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
 		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
 		// #902/#903 frozen plugin design: only the free capture composition and
@@ -223,6 +225,9 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"assessment maintenance open", "internal/app/productsourcing/assessment_initialization.go", issue398Database, "OpenExistingWritableContext", true},
 		{"assessment maintenance wrong API", "internal/app/productsourcing/assessment_initialization.go", issue398Database, "OpenShared", false},
 		{"assessment maintenance sibling", "internal/app/productsourcing/child/assessment_initialization.go", issue398Database, "OpenExistingWritableContext", false},
+		{"price alignment owner open", "internal/app/productsourcing/price_alignment.go", issue398Database, "OpenExistingWritableContext", true},
+		{"price alignment owner wrong API", "internal/app/productsourcing/price_alignment.go", issue398Database, "OpenShared", false},
+		{"price alignment owner sibling", "internal/app/productsourcing/child/price_alignment.go", issue398Database, "OpenExistingWritableContext", false},
 		{"source media validator", "internal/app/runtime/currentapplication/source_media_storage.go", issue398HTTP, "ValidatePublicHTTPSURL", true},
 		{"source media legacy provider", "internal/app/runtime/currentapplication/source_media_storage.go", issue398HTTP, "NewProductImageDownloader", false},
 		{"source media sibling", "internal/app/productsourcing/other.go", issue398HTTP, "ValidatePublicHTTPSURL", false},
@@ -277,6 +282,9 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"assessment initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableResearchAssessments", true},
 		{"assessment initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableResearchAssessments", false},
 		{"serving cannot initialize assessments", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableResearchAssessments", false},
+		{"price alignment CLI", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", true},
+		{"price alignment CLI sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", false},
+		{"serving cannot align prices", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", false},
 		{"plan exact constructor", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionPlanService", true},
 		{"plan cannot open database", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
 		{"initializer target subpackage", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing/httpapi", "InitializeAcquisitionDatabase", false},
