@@ -1,6 +1,6 @@
 # 保留实例启动前置：OwnIntake v3 与采集价格快照
 
-Execution: #1233；关联 #1231 / PR #1232、#1158、#1178。Design Basis: **Independent Architecture**。状态：**NOT_READY，等待独立 Architecture Review**。
+Execution: #1233 / Draft PR #1234；关联 #1231 / PR #1232、#1158、#1178。Design Basis: **Independent Architecture**。状态：**IMPLEMENTATION_READY / FROZEN；独立R1通过，0设计BLOCKER**。实施与真实操作权限仍分别处理。
 
 本轮仅设计和评审。实现、配置修改、DDL、副本启动/还原、原实例更新均未获本轮授权；下文为后续实施合同，不是已执行结果。
 
@@ -73,7 +73,7 @@ Execution: #1233；关联 #1231 / PR #1232、#1158、#1178。Design Basis: **Ind
 
 新增原列 `price_snapshot jsonb`，无 DEFAULT、不 UPDATE 原行。原1job和1item的所有既有列逐字节/值保持；原job新列为SQL NULL，不是 JSON null、空对象或0价。不改变任何原状态，不新增墓碑/归档表。
 
-**有冻结快照**：原 `PriceSnapshot.Validate`、合法显式0价、原键/金额/计量规则保持。
+**有冻结快照**：在原 `PriceSnapshot.Validate` 之外，解码必须严格证明金额字段显式存在且格式正确，不能把Go零值当作存在证据；合法显式0价、原键/金额/计量规则保持。金额缺键/JSON null、空对象或解析失败均不能成为0价。
 
 **无冻结快照**：Amazon只允许受限 `FAILED` 终态只读。资格必须由原 owner 在一致快照中验证：job.quota_reserved=0；所有所属 item 均FAILED、terminal_evidence非空、无 reservation/charge_state/claim/lease/evidence/source/saved_at；无活动或已保存/待核实项；身份/FK/原intent的确定性结构、来源和作用域仍合格。不存在子项的FAILED也可在无预留/无结果/终态原事实齐全时只读。实际维护验收必须包含原1+1，不能以空库替代。
 
@@ -89,6 +89,8 @@ Execution: #1233；关联 #1231 / PR #1232、#1158、#1178。Design Basis: **Ind
 ### 5.2 读取与执行必须分开准入
 
 不能只让 `jobRow.job()` 跳过价格解析。当前Job可能被读和写路径共用；实现须让 `Read/List/ByCommand/Items/结果只读` 在同一个只读一致快照验证上述跨表资格，输出明确缺价状态。分页、overview及strict BFF也必须可解析，不让一条记录拖垮整个页面。
+
+这里“只读”是业务无写副作用，不要求盲目设置PG READ ONLY：原凭据读取含 `FOR SHARE` 撤权保护，必须保留其绑定事务和当前授权；以同一事务/连接形成一致快照，不回根连接池、不取消原key锁。原InputHash/intent只核确定的结构、身份、来源绑定，不用新PriceConfirmation或不存在的价格重算旧指纹。
 
 **任何执行/写入口**在使用价格、重算指纹、移动quota、写命令回执或调用provider/resource之前，必须从锁住的当前原行重验合法冻结价；不能信任传入Job字段。覆盖 Admit原键POST、Discover/FailDiscovery、Claim、BindReservation、PrepareEvidence、Publish、Fail/Cancel、ChargeIntent/ChargeProof、background恢复等同根因路径。缺价终态只允许GET原键读取，不允许原键POST重新准入或新价替换；返回可定位的冻结价缺失拒绝。涉及既有未知资源回调则返回原未知/拒绝语义，不产生bind/释放/结算。
 
@@ -144,3 +146,15 @@ Usage沿原按SAVED条目/原job冻结价聚合；这类FAILED无SAVED行，只�
 本设计选择“原记录不变 + 当前明确缺价失败终态只读 + 新执行严格冻结价”。它只保留当前系统已有事实，不赋予旧任务跨版本执行/恢复义务。不能把设计准入当作实施/原实例操作批准。
 
 架构评审按本轮Must/Threat Model判断BLOCKER；最多两轮正常审查，非阻塞细化列IMPLEMENTATION_TEST或BACKLOG。正式实现前必须达到IMPLEMENTATION_READY，并获得用户下一阶段实施/副本演练决定。当前生产代码、维护命令、副本验证、真实启动/用户验收全部NOT_RUN。
+
+### 独立R1结论及实施义务
+
+原独立Reviewer已核对准确候选 `a8d871f5d7c1c3188430a7506514d0520ffdea99`、当前源码/合同/Issue与只读事实，结论IMPLEMENTATION_READY，0设计BLOCKER。报告：`C:/Users/Henry/.codex/private/startup-prerequisites-design-20261110/architecture-review-r1.md`。本段只固定结论与当前Must的具体接线义务，不放宽冻结边界，不表示实现已通过。
+
+三项 finding 均分类 **IMPLEMENTATION_TEST，后续实现/合并前收敛**：
+
+1. **服务/资源回调旁路**：不能只修row decoder/withJob。实际 `Run → ProcessItem → Lookup / settle → Reconcile` 及 `ChargeProof → bind → FAILED proof`、RecordCharge等旁路也须先按当前原行拦住缺价，覆盖迟到/伪造Job、原receipt回调；不签未计费或可释放证明，不妨碍正常有价终态的幂等恢复。
+2. **FROZEN的显式金额**：现有int64零值和Validate无法证明unitPriceFen出现过；复用已有有界严格JSON/字段存在机制，正价/显式0通过，缺键/null/空对象/错误格式拒绝。SQL NULL仅走受限终态；strict前后端/BFF/金额渲染不得将null变0。
+3. **Windows私有文件ACL**：原manifest helper只检查非Windows的POSIX mode，新入口须复用 `internal/core/config.VerifyPrivateFiles`（现有Store CLI范例）实际核对Windows ACL及POSIX私有权限；覆盖manifest及所消费的配置临时/最终文件，宽权限须在连库前拒绝，不自动修复ACL、不新造权限工具。
+
+除上述三项，四组既定实施验证仍须真实执行，尤其A→DDL→B权限接线、绑定读事务与原凭据保护、全部现有列保留、副本独立Temporal/无原可写挂载及准确回退。本轮均NOT_RUN。冻结后的本次文字增量交原Reviewer仅复核增量，不重复全局审查。
