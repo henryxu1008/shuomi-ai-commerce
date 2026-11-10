@@ -40,6 +40,8 @@ type Application struct {
 	Targets                 *record.TargetService
 	Records                 record.TargetRepository
 	ValidateTargetInput     func(collection.Scope, record.TargetInput) error
+	LocalDraftBootstrap     func(context.Context, string, string) (record.TargetInput, error)
+	LocalDraftContext       func(context.Context, string, record.CompletionDraftSelection) (LocalDraftContext, error)
 	Products                record.EffectiveTargetProductReader
 	Rules                   record.TargetRuleReader
 	TemuRules               TemuTargetRuleReader
@@ -221,8 +223,8 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 	}
 	merchant, rules, err := a.Rules.ReadTargetRules(ctx, scope, in.StoreID, in.Draft)
 	result := TargetRules{Merchant: merchant, Rules: rules}
-	if err == nil && a.ValidateTargetInput != nil && a.Targets != nil && in.ExpectedRevision == 0 {
-		initial, e := a.Targets.LocalTrialBootstrap(ctx, in.SourceID, in.StoreID)
+	if err == nil && a.LocalDraftBootstrap != nil && in.ExpectedRevision == 0 {
+		initial, e := a.LocalDraftBootstrap(ctx, in.SourceID, in.StoreID)
 		if e != nil {
 			return TargetRules{}, e
 		}
@@ -336,4 +338,12 @@ func (a *Application) OperationByKey(ctx context.Context, key string) (preparati
 		return preparation.Operation{}, preparation.ErrInvalid
 	}
 	return a.Operations.Read(ctx, preparation.OperationCommandID(scope, key))
+}
+
+// LocalDraftContext is a read capability description, never an official binding.
+type LocalDraftContext struct {
+	SourceID        string                          `json:"sourceId"`
+	CompletionDraft record.CompletionDraftSelection `json:"completionDraft"`
+	StoreID         string                          `json:"storeId"`
+	WritesEnabled   bool                            `json:"writesEnabled"`
 }

@@ -1135,6 +1135,8 @@ linters-settings:
           - "task-processor/internal/listing/record/target$"
           - "task-processor/internal/listing/submission$"
           - "task-processor/internal/product/collection$"
+          # Pure PostgreSQL definition comparison; schema/grant authority stays here.
+          - "task-processor/internal/pkg/pgschema$"
 
       supply_official_goods_transport:
         # #605 IMPLEMENTATION_READY: only these current ports/DTOs; no legacy admission.

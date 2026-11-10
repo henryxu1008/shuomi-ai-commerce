@@ -6,8 +6,11 @@ import (
 	listingapp "task-processor/internal/app/listing"
 	listinghttp "task-processor/internal/app/listing/httpapi"
 	"task-processor/internal/authz"
+	"task-processor/internal/core/config"
+	"task-processor/internal/httproute"
 	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
 	assetstore "task-processor/internal/integration/persistence/product/asset"
+	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/listing/preparation"
 	record "task-processor/internal/listing/record/target"
 	"task-processor/internal/marketplace/shein/goods"
@@ -72,8 +75,22 @@ func (controlledNoImages) Probe(context.Context, asset.ApprovedAsset, int) (good
 	return goods.OfficialImageObservation{}, record.ErrForbidden
 }
 
-func buildControlledLocalDraftModule(ctx context.Context, productDB, storeDB *gorm.DB, d ControlledLocalDraftDependencies, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, features ...bool) (listingModule, error) {
-	var empty listingModule
+type controlledLocalDraftModule struct {
+	app    *listingapp.Application
+	routes []httproute.Descriptor
+}
+
+func (controlledLocalDraftModule) Name() string { return listinghttp.ControlledLocalDraftModule }
+func (controlledLocalDraftModule) Enabled(c *config.Config) bool {
+	return c != nil && c.Workbench.Enabled
+}
+func (m controlledLocalDraftModule) Register(r *kernelmodule.Registry) error {
+	r.AddRoutes(m.routes...)
+	return nil
+}
+
+func buildControlledLocalDraftModule(ctx context.Context, productDB, storeDB *gorm.DB, d ControlledLocalDraftDependencies, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, features ...bool) (controlledLocalDraftModule, error) {
+	var empty controlledLocalDraftModule
 	p := d.Policy
 	if p.Scope.Validate() != nil || !p.Binding.Valid() || d.AssetDB == nil || storeDB == nil {
 		return empty, record.ErrForbidden
@@ -96,13 +113,44 @@ func buildControlledLocalDraftModule(ctx context.Context, productDB, storeDB *go
 		_, err := stores.Get(ctx, scope.OrganizationID, p.Binding.StoreID)
 		return err
 	}
+
+	versions, e := completionstore.NewRepository(ctx, productDB)
+	if e != nil {
+		return empty, e
+	}
+	core.app.LocalDraftContext = func(ctx context.Context, sourceID string, selection record.CompletionDraftSelection) (listingapp.LocalDraftContext, error) {
+		denied := listingapp.LocalDraftContext{}
+		scope, e := core.app.Authorization.Authorize(ctx, preparation.PermissionRead)
+		if e != nil || scope != p.Scope || sourceID != p.Binding.SourceID || selection != p.Binding.CompletionDraft {
+			return denied, record.ErrForbidden
+		}
+		selected, e := (controlledSources{core.app.Sources, p}).Select(ctx, sourceID)
+		if e != nil {
+			return denied, e
+		}
+		owner, source, _, e := selected.Read(ctx)
+		if e != nil || owner != scope {
+			return denied, record.ErrForbidden
+		}
+		saved, e := versions.ReadVersion(ctx, scope, selection.RecordID)
+		if e != nil || saved.ID != selection.RecordID || saved.Revision != selection.Revision || saved.Source != source {
+			return denied, record.ErrForbidden
+		}
+		if _, e = stores.Get(ctx, scope.OrganizationID, p.Binding.StoreID); e != nil {
+			return denied, e
+		}
+		fresh, e := core.app.Authorization.Authorize(ctx, preparation.PermissionRead)
+		if e != nil || fresh != scope {
+			return denied, record.ErrForbidden
+		}
+		if _, _, _, e = selected.Read(ctx); e != nil {
+			return denied, e
+		}
+		return listingapp.LocalDraftContext{SourceID: sourceID, CompletionDraft: selection, StoreID: p.Binding.StoreID, WritesEnabled: p.Enabled}, nil
+	}
 	if p.Enabled {
 		rules := controlledRules{p, stores}
 		assets, e := assetstore.NewBoundedApprovedInventoryReader(d.AssetDB, record.MaxPayloadBytes)
-		if e != nil {
-			return empty, e
-		}
-		versions, e := completionstore.NewRepository(ctx, productDB)
 		if e != nil {
 			return empty, e
 		}
@@ -115,6 +163,7 @@ func buildControlledLocalDraftModule(ctx context.Context, productDB, storeDB *go
 			return empty, e
 		}
 		core.app.Targets = targets
+		core.app.LocalDraftBootstrap = targets.LocalTrialBootstrap
 		core.app.Rules = rules
 		core.app.ValidateTargetInput = func(scope collection.Scope, in record.TargetInput) error {
 			if scope != p.Scope || in.SourceID != p.Binding.SourceID || in.StoreID != p.Binding.StoreID || in.EffectiveVersion != p.ProductVersion || in.ApplyReceiptID != "" || in.ColorPartition != nil || in.Temu != nil || in.TikTok != nil || in.Walmart != nil || in.TemuRules != nil || in.TikTokRules != nil || in.WalmartRules != nil {
@@ -124,5 +173,5 @@ func buildControlledLocalDraftModule(ctx context.Context, productDB, storeDB *go
 		}
 	}
 	binder := productReviewCapabilityBinder{now: time.Now}
-	return listingModule{app: core.app, routes: listinghttp.ControlledLocalDraftRoutes(core.app, binder.Bind, p.Enabled)}, nil
+	return controlledLocalDraftModule{app: core.app, routes: listinghttp.ControlledLocalDraftRoutes(core.app, binder.Bind, p.Enabled)}, nil
 }

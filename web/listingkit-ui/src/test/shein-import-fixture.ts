@@ -1,5 +1,19 @@
 // Isolated unit/component data; never used by a running application.
 export const importIds={source:"11111111-1111-4111-8111-111111111111",batch:"22222222-2222-4222-8222-222222222222",store:"33333333-3333-4333-8333-333333333333",base:"44444444-4444-4444-8444-444444444444",candidate:"55555555-5555-4555-8555-555555555555",saved:"66666666-6666-4666-8666-666666666666"};
+export function colorSplitPlanFixture(){
+ const f=sheinImportFixture(),id=importIds,hash="a".repeat(64);
+ const completionDraft={recordId:id.candidate,revision:3};
+ const groups=[id.saved,id.candidate].map((targetId,n)=>({colorValueId:34+n,input:{...f.base.input,targetId,colorPartition:{familyId:id.batch,partitionId:targetId,colorAttributeId:12,colorValueId:34+n,baseRecordId:id.base,completionDraft,members:[{sourceIndex:n,supplierSku:"target-sku",saleAttributes:[]}],localOnly:true}},rulesHash:hash,merchantHash:hash,inventoryHash:hash,issues:[]}));
+ return {request:{sourceId:id.source,baseRecordId:id.base,completionDraft,selection:{colorAttributeId:12,skus:[{sourceIndex:0,skcIndex:0,skuIndex:0},{sourceIndex:1,skcIndex:1,skuIndex:0}],sharedImages:[]}},familyId:id.batch,groups,planHash:hash};
+}
+export function unresolvedLocalTargetFixture(){
+ const f=sheinImportFixture(),id=importIds;
+ const localTrial={contractVersion:1,trialId:"issue1158-local-draft-v1",sourceId:id.source,storeId:id.store,completionDraft:{recordId:id.candidate,revision:1},fixtureVersion:"issue1158-local-draft-v1",fixtureHash:"a".repeat(64)};
+ const command={...f.base.input,localTrial};
+ const intent={userId:"actor",organizationId:"org",key:id.saved,route:"save-target" as const,command};
+ const record={...f.base,input:command,localTrial,merchant:{...f.base.merchant,platform:"shein",connection_revision:0,application_id:"",application_revision:"",service_expires_at:"0001-01-01T00:00:00Z"}};
+ return {intent,receipt:{record,replayed:true}};
+}
 export function sheinImportFixture(){
  const id=importIds,time="2026-10-16T00:00:00Z",hash="a".repeat(64);
  const source={id:id.source,preparationId:id.batch,collectionItemId:id.batch,collectionRevision:1,source:{kind:"own",productKey:"fixed",publicationId:id.batch,version:"1"}};

@@ -9,6 +9,7 @@ import {
   WorkbenchContextProvider,
 } from "@/components/providers/workbench-context-provider";
 import { WORKBENCH_CONTEXT_QUERY_KEY } from "@/lib/api/workbench-context";
+import {unresolvedLocalTargetFixture,importIds} from "@/test/shein-import-fixture";
 
 const ORG_A_CONTEXT = {
   user: { id: "user-1" },
@@ -105,6 +106,22 @@ function createQueryClient() {
 }
 
 describe("WorkbenchContextProvider", () => {
+  it("hydrates an unresolved local save and refuses a replacement operation",async()=>{
+    const prior=unresolvedLocalTargetFixture().intent,raw=JSON.stringify(prior);
+    sessionStorage.setItem("listingkit.supply.intent",raw);
+    vi.stubGlobal("fetch",vi.fn<typeof fetch>().mockResolvedValue(Response.json(ORG_A_CONTEXT)));
+    function PendingProbe(){
+      const context=useWorkbenchContext();
+      return <><p>pending:{context.pendingSupplyIntent?.key??"none"}</p><p>ready:{String(context.supplyIntentReady)}</p><button onClick={()=>expect(context.setPendingSupplyIntent({...prior,key:importIds.base})).toBe(false)}>new save</button></>;
+    }
+    try{
+      render(<QueryClientProvider client={createQueryClient()}><WorkbenchContextProvider><PendingProbe/></WorkbenchContextProvider></QueryClientProvider>);
+      await screen.findByText(`pending:${prior.key}`);await screen.findByText("ready:true");
+      await userEvent.click(screen.getByRole("button",{name:"new save"}));
+      expect(sessionStorage.getItem("listingkit.supply.intent")).toBe(raw);
+      expect(screen.getByText(`pending:${prior.key}`)).toBeInTheDocument();
+    }finally{sessionStorage.clear()}
+  });
   it("selects the funding projection from the effective grant and replaces it after switching", async () => {
     const payload = { ...ORG_A_CONTEXT, organizations: ORG_A_CONTEXT.organizations.map((org, i) => ({ ...org, capabilities: { "workbench.source_account.manage": false, "workbench.chat.use": false, storeServiceEnterpriseFunding: i === 0 } })) };
     vi.stubGlobal("fetch", vi.fn<typeof fetch>()

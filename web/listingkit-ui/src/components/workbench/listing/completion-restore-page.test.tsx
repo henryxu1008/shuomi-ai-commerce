@@ -93,7 +93,7 @@ it("blocks new writes when browser intent storage is unavailable",async()=>{
 });
 it("keeps foreign-scope pending commands isolated and leaves live save authorization to the backend",async()=>{
  f.context.pendingSupplyIntent={userId:"another-actor",organizationId:"org",key:other,route:"save-completion-draft",command:{sourceId:id,expectedRevision:3,content:old.content}};
- const view=render(<CompletionRestorePage {...props}/>);await screen.findByText("当前已保存 R3");expect(screen.getByText("请回到原登录身份与企业后核实。")).toBeVisible();expect(confirm()).toBeDisabled();expect(screen.queryByRole("button",{name:"核实原操作"})).not.toBeInTheDocument();expect(f.verify).not.toHaveBeenCalled();view.unmount();
+ const view=render(<CompletionRestorePage {...props}/>);await screen.findByText("当前已保存 R3");expect(screen.getByText("请回到原登录身份、企业、来源和草稿用途后核实。")).toBeVisible();expect(confirm()).toBeDisabled();expect(screen.queryByRole("button",{name:"核实原操作"})).not.toBeInTheDocument();expect(f.verify).not.toHaveBeenCalled();view.unmount();
  f.context.pendingSupplyIntent=null;f.save.mockRejectedValueOnce(new SupplyAPIError("PERMISSION_DENIED",403));render(<CompletionRestorePage {...props}/>);await screen.findByText("当前已保存 R3");fireEvent.click(confirm());await screen.findByText("当前权限不足，请确认原身份与企业权限。");expect(screen.queryByText("已保存为 R4")).not.toBeInTheDocument();expect(f.context.pendingSupplyIntent).toBeNull();
 });
 it("refuses to present a receipt from a different draft as a successful restoration",async()=>{

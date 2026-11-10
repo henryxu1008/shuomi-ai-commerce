@@ -26,6 +26,10 @@ func TestControlledLocalDraftAdmissionAndDisabledReads(t *testing.T) {
 		c.ImageAgent = &ImageAgentConfig{Database: c.ControlledLocalDraft.AssetDatabase}
 		c.SupplyMarket = &SupplyMarketConfig{}
 		require.NoError(t, c.validateControlledLocalDraft())
+		c.SupplyChain = &SupplyChainConfig{AssetDatabase: c.ControlledLocalDraft.AssetDatabase}
+		require.NoError(t, c.validateControlledLocalDraft(), "coexistence retains one canonical Asset pool")
+		c.SupplyChain.AssetDatabase.Password = "different"
+		require.Error(t, c.validateControlledLocalDraft(), "shared pool requires the same narrow credentials/config")
 	}
 	for name, mutate := range map[string]func(*Config){
 		"ack":            func(c *Config) { c.ControlledLocalDraft.Acknowledgment = "" },
@@ -35,7 +39,6 @@ func TestControlledLocalDraftAdmissionAndDisabledReads(t *testing.T) {
 		"cockpit store":  func(c *Config) { c.ControlledLocalDraft.StoreID = "b6e4504f-c3db-4e1b-9c5f-2605dda4aea1" },
 		"fixture":        func(c *Config) { c.ControlledLocalDraft.FixtureHash = "a" },
 		"remote":         func(c *Config) { c.Identity.IssuerURL = "https://example.org" },
-		"full":           func(c *Config) { c.SupplyChain = &SupplyChainConfig{} },
 		"readonly other": func(c *Config) { c.PrivateDraftTrial = &PrivateDraftTrialConfig{} },
 		"offline":        func(c *Config) { c.SheinOfflineRecords = &SheinOfflineRecordsConfig{} },
 		"owner":          func(c *Config) { c.ControlledLocalDraft.AssetDatabase.User = "postgres" },

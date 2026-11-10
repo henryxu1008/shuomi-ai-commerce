@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 	"strings"
 	"task-processor/internal/listing/submission"
+	"task-processor/internal/pkg/pgschema"
 )
 
 const WalmartSKUStateTable = "listing_walmart_sku_bindings"
@@ -52,7 +53,7 @@ var walmartSchemaConstraints = []struct{ table, name, definition string }{
 func verifyWalmartSchema(ctx context.Context, db *gorm.DB) error {
 	for _, c := range walmartSchemaConstraints {
 		var definition string
-		if e := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=to_regclass(?) AND conname=? AND convalidated`, c.table, c.name).Row().Scan(&definition); e != nil || strings.Join(strings.Fields(definition), " ") != c.definition {
+		if e := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid=to_regclass(?) AND conname=? AND convalidated`, c.table, c.name).Row().Scan(&definition); e != nil || !pgschema.SchemaConstraintEqual(strings.Join(strings.Fields(definition), " "), c.definition) {
 			return submission.ErrExecutionUnavailable
 		}
 	}

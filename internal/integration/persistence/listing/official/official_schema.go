@@ -6,6 +6,7 @@ import (
 	recordstore "task-processor/internal/integration/persistence/listing/record"
 	submissionstore "task-processor/internal/integration/persistence/listing/submission"
 	"task-processor/internal/listing/submission"
+	"task-processor/internal/pkg/pgschema"
 )
 
 var OfficialTables = []string{"listing_submission_official_intents", "listing_submission_official_receipts", WalmartSKUStateTable, WalmartObservationTable}
@@ -44,11 +45,22 @@ func VerifyOfficialSchema(ctx context.Context, db *gorm.DB) error {
 			return submission.ErrExecutionUnavailable
 		}
 	}
-	var kindsReady bool
-	if db.WithContext(ctx).Raw(`SELECT count(DISTINCT c.conrelid)=2 FROM pg_constraint c
+	var kinds []struct {
+		Relation   string
+		Definition string
+	}
+	if db.WithContext(ctx).Raw(`SELECT c.conrelid::regclass::text AS relation, pg_get_constraintdef(c.oid) AS definition FROM pg_constraint c
  WHERE c.conrelid IN (to_regclass('listing_submission_official_intents'),to_regclass('listing_submission_official_receipts'))
- AND c.contype='c' AND c.convalidated AND NOT c.condeferrable AND pg_get_expr(c.conbin,c.conrelid)=?`,
-		`((kind)::text = ANY ((ARRAY['publish'::character varying, 'image'::character varying, 'global_create'::character varying, 'shelf_on'::character varying])::text[]))`).Scan(&kindsReady).Error != nil || !kindsReady {
+ AND c.contype='c' AND c.convalidated AND NOT c.condeferrable`).Scan(&kinds).Error != nil {
+		return submission.ErrExecutionUnavailable
+	}
+	kindTables := map[string]bool{}
+	for _, c := range kinds {
+		if pgschema.SchemaConstraintEqual(c.Definition, `CHECK (((kind)::text = ANY ((ARRAY['publish'::character varying, 'image'::character varying, 'global_create'::character varying, 'shelf_on'::character varying])::text[])))`) {
+			kindTables[c.Relation] = true
+		}
+	}
+	if len(kindTables) != 2 {
 		return submission.ErrExecutionUnavailable
 	}
 	var ready bool

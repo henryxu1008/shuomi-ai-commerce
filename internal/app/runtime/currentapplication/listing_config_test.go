@@ -39,6 +39,11 @@ func TestSupplyManifestRejectsIncompleteOwnerAssembly(t *testing.T) {
 
 func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure(t *testing.T) {
 	c := supplyRuntimeConfig(t)
+	c.Identity.IssuerURL = "https://localhost:18080"
+	c.Identity.AuthorizationAPIURL = "https://localhost:18080"
+	c.SupplyCompletionDrafts = true
+	c.ControlledLocalDraft = localDraftConfig().ControlledLocalDraft
+	c.ControlledLocalDraft.AssetDatabase = c.SupplyChain.AssetDatabase
 	c.SourceMedia = &coreconfig.ImageAgentArtifactStoreConfig{Enabled: true, Provider: "s3", PublicBase: "https://files.example.org/products", S3: coreconfig.ImageAgentArtifactStoreS3Config{Bucket: "products", Region: "us-east-1", AccessKeyID: "synthetic", SecretAccessKey: "synthetic", ArtifactMode: "aws"}}
 	app := c.StoreCenter.OfficialApplications[0]
 	require.NoError(t, os.WriteFile(app.AppSecretFile, []byte(strings.Repeat("synthetic", 4)), 0600))
@@ -48,6 +53,7 @@ func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure
 	source, product, owner, store, assets := &gorm.DB{}, &gorm.DB{}, emptyStorageCommercialOwner(t), &gorm.DB{}, &gorm.DB{}
 	workflow := &mocks.Client{}
 	closed := false
+	assetOpens := 0
 	var pools []*gorm.DB
 	err := Run(context.Background(), c, logrus.New(), Dependencies{
 		IdentityPreflight:      func(context.Context, IdentityConfig) error { return nil },
@@ -56,6 +62,7 @@ func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure
 		OpenCommercialOwner:    func(context.Context, DatabaseConfig) (*gorm.DB, error) { return owner, nil },
 		OpenStoreCenter:        func(context.Context, DatabaseConfig) (*gorm.DB, error) { return store, nil },
 		OpenApprovedAssets: func(_ context.Context, db DatabaseConfig) (*gorm.DB, error) {
+			assetOpens++
 			require.Equal(t, c.SupplyChain.AssetDatabase, db)
 			return assets, nil
 		},
@@ -64,6 +71,7 @@ func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure
 		},
 		CloseDatabase: func(db *gorm.DB) error { pools = append(pools, db); return nil },
 		NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, f ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
+			require.NotNil(t, f.ControlledLocalDraft)
 			require.Same(t, assets, f.ApprovedAssetDB)
 			require.Same(t, workflow, f.ListingWorkflow)
 			require.NotNil(t, f.ListingWorker)
@@ -74,7 +82,14 @@ func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure
 	})
 	require.ErrorContains(t, err, "fixture assembly failure")
 	require.True(t, closed)
-	require.Contains(t, pools, assets)
+	require.Equal(t, 1, assetOpens)
+	count := 0
+	for _, p := range pools {
+		if p == assets {
+			count++
+		}
+	}
+	require.Equal(t, 1, count)
 }
 
 func supplyRuntimeConfig(t *testing.T) *Config {
