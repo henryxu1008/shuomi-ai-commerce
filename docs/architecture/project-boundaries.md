@@ -57,6 +57,7 @@ Cached reads use the existing bounded grant cache. Mutations, organization switc
 - Model price, member/month scope, reservation and terminal result remain bound to the original attempt. UNKNOWN stays with the original owner and recovery path; cancellation or restart does not prove that no external effect occurred.
 - Money, resource quantities and audit tokens are different facts. Preserve debt-first settlement and original receipt/event identities; do not infer credit or release held funds from a local error.
 - Serving verifies schemas and grants. Schema creation/installation is explicit and owned by the existing installer; ordinary startup does not perform DDL.
+- PostgreSQL verifiers may reuse `internal/pkg/pgschema` for bounded definition comparison, including the official Listing persistence verifier. The helper has no database connection or repair authority; each owner retains its required constraint, validation, ownership and grant checks.
 
 ## Placement and review
 
