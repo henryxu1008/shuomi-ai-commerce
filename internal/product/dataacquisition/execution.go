@@ -15,6 +15,7 @@ type Principal struct {
 	CredentialRevision int64
 }
 type Job struct {
+	PriceStatus  string                      `json:"priceStatus"`
 	Price        PriceSnapshot               `json:"price"`
 	ID           string                      `json:"id"`
 	Scope        collection.Scope            `json:"-"`
@@ -116,6 +117,9 @@ func (s *Service) Start(ctx context.Context, p Principal, command string, q Quer
 	if err != nil {
 		return Job{}, err
 	}
+	if err = job.RequireFrozenPrice(); err != nil {
+		return Job{}, err
+	}
 	if job.State == "ADMITTED" || job.State == "RUNNING" {
 		if err = s.starter.EnsureExecution(ctx, job); err != nil {
 			return job, ErrUnknown
@@ -134,6 +138,9 @@ func (s *Service) read(ctx context.Context, p Principal, id string, repo ResultR
 		return Job{}, err
 	}
 	if job.State == "ADMITTED" || job.State == "RUNNING" {
+		if err = job.RequireFrozenPrice(); err != nil {
+			return Job{}, err
+		}
 		if err = s.starter.EnsureExecution(ctx, job); err != nil {
 			return job, ErrUnavailable
 		}
@@ -153,6 +160,17 @@ func (s *Service) check(ctx context.Context, job Job) error {
 // ProcessItem always looks up the original reservation before considering a new
 // reserve. Revocation permits only original binding, terminal fencing and settle.
 func (s *Service) ProcessItem(ctx context.Context, job Job, item Item, stopReason string) error {
+	current, err := s.repo.Read(ctx, job.Scope, job.ID)
+	if err != nil {
+		return err
+	}
+	if current.Scope != job.Scope || current.InputHash != job.InputHash {
+		return ErrConflict
+	}
+	if err = current.RequireFrozenPrice(); err != nil {
+		return err
+	}
+	job = current
 	chargeID := identity(job, item)
 	receipt, lookupErr := s.charges.Lookup(ctx, chargeID)
 	if lookupErr == nil {
@@ -271,6 +289,9 @@ func (s *Service) Run(ctx context.Context, scope collection.Scope, id string) er
 	}
 	if job.Scope != scope {
 		return ErrForbidden
+	}
+	if err = job.RequireFrozenPrice(); err != nil {
+		return err
 	}
 	stop := ""
 	if job.Canceled {

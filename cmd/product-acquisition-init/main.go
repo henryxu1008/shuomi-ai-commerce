@@ -18,13 +18,14 @@ func main() {
 	supply := flag.Bool("enable-supply-chain", false, "explicitly add current supply tables and exact grants to a confirmed nonempty Product database")
 	sheinTrial := flag.Bool("enable-shein-us-trial", false, "explicitly add only the SHEIN trial ledger and exact grants to the confirmed current Product database")
 	assessment := flag.Bool("enable-research-assessments", false, "explicitly add only the approved Research assessment table; preserve existing Product facts")
+	priceAlignment := flag.Bool("align-acquisition-price-snapshot", false, "explicit native owner price column alignment; preserve existing tasks and reject execution without frozen prices")
 	featureDatabase := flag.String("confirm-database", "", "exact existing dedicated Product database name for feature initialization")
 	flag.Parse()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	var err error
 	features := 0
-	for _, enabled := range []bool{*feature, *completion, *supply, *sheinTrial, *assessment} {
+	for _, enabled := range []bool{*feature, *completion, *supply, *sheinTrial, *assessment, *priceAlignment} {
 		if enabled {
 			features++
 		}
@@ -36,6 +37,8 @@ func main() {
 	} else if features == 1 {
 		if *confirmed != "" {
 			err = fmt.Errorf("empty-database confirmation cannot be combined with feature initialization")
+		} else if *priceAlignment {
+			err = productsourcing.AlignAcquisitionPriceSnapshot(ctx, *manifest, *featureDatabase)
 		} else if *assessment {
 			err = productsourcing.EnableResearchAssessments(ctx, *manifest, *featureDatabase)
 		} else if *sheinTrial {
@@ -56,7 +59,14 @@ func main() {
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		if *priceAlignment {
+			fmt.Fprintln(os.Stderr, "retain original backup/configuration; verify the original maintenance entry before retrying an unknown outcome")
+		}
 		os.Exit(1)
+	}
+	if *priceAlignment {
+		fmt.Println("Product acquisition price contract aligned; missing-price terminal tasks remain read only")
+		return
 	}
 	fmt.Println("Product acquisition schema and runtime grants initialized")
 }

@@ -17,7 +17,7 @@ const query = { site: "us", mode: "asin", asins: ["B000123456"], limit: 1 };
 const pricingFixtures = (amount: string) => {
     const price = { offerId: "offer", pricingVersion: "original-price", currency: "CNY", unitPriceFen: amount };
     const options = { sites: [], customSites: [], fields: [], price, maximumRows: 200, formats: [], acquisitionReady: false };
-    const job = { id, commandKey: id, query, price, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, confirmedFen: amount, pendingFen: amount, createdAt: "2026-11-08T00:00:00Z", deadline: "2026-11-08T00:30:00Z" };
+    const job = { id, commandKey: id, query, priceStatus:"FROZEN", price, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, confirmedFen: amount, pendingFen: amount, createdAt: "2026-11-08T00:00:00Z", deadline: "2026-11-08T00:30:00Z" };
     const overview = { options, keys: [], jobs: [job], keyQuotas: [{ keyId: id, dayConsumedRows: 0, dayReservedRows: 0, monthConsumedFen: amount, monthReservedFen: amount }], usage: { dayRows: 0, monthConfirmedFen: amount, monthPendingFen: amount, finishedJobs: 0, succeededJobs: 0, successRate: null, window: "UTC month" } };
     return { options, job, overview, request: { query, maximumRows: 1, maximumCostFen: amount, pricingVersion: price.pricingVersion } };
 };
