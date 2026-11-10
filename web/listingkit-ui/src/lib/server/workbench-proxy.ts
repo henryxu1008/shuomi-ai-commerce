@@ -585,12 +585,13 @@ export async function buildWorkbenchUpstreamRequest(
         body=JSON.stringify(checked.data);headers.set("Content-Type","application/json");if(key)headers.set("Idempotency-Key",key);
       }else{
         if(request.headers.has("Idempotency-Key") || ((action==="item-completion-drafts"||action.startsWith("completion-history"))&&request.headers.has("content-encoding")) || !(await requestHasNoBody(request)))return protocolError(400,"INVALID_REQUEST","Body or command key is not allowed");
-        const allowed=action==="completion-history"?new Set(["before","limit"]):["upload-plans","item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind","planId"]:action==="operations"?["storeId"]:action==="optimization-options"||action==="upload-plans"?[]:["keyword"]]):new Set<string>();
+        const allowed=action==="local-context"?new Set(["sourceId","completionRecordId","revision"]):action==="completion-history"?new Set(["before","limit"]):["upload-plans","item-completion-drafts","completion-drafts","list","sources","stages","operation-items","operations","optimization-options"].includes(action)?new Set(["limit","after",...action==="stages"?["storeId","stage","keyword","sourceKind","planId"]:action==="operations"?["storeId"]:action==="optimization-options"||action==="upload-plans"?[]:["keyword"]]):new Set<string>();
         if(/%(?![0-9A-Fa-f]{2})/.test(url.search)||(action==="operations"||action==="stages")&&!isAcquisitionUUID(url.searchParams.get("storeId")??"")||action==="stages"&&!["all","waiting","missing","ready","review","uploaded"].includes(url.searchParams.get("stage")??""))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         for(const key of url.searchParams.keys()){
           const values=url.searchParams.getAll(key);if(!allowed.has(key)||values.length!==1||!values[0])return protocolError(400,"INVALID_REQUEST","Supply query invalid");
           const value=values[0];if(key==="before"&&completionRevision(value)===null||key==="limit"&&(!/^[1-9][0-9]*$/.test(value)||Number(value)>100)||(key==="after"||key==="storeId"||key==="planId")&&!isAcquisitionUUID(value)||key==="sourceKind"&&!collectionSourceKindSchema.safeParse(value).success||key==="keyword"&&(new TextEncoder().encode(value).length>80||/[\0\r\n]/.test(value)))return protocolError(400,"INVALID_REQUEST","Supply query invalid");
         }
+        if(action==="local-context" && ([...url.searchParams.keys()].length!==3 || !isAcquisitionUUID(url.searchParams.get("sourceId")??"") || !isAcquisitionUUID(url.searchParams.get("completionRecordId")??"") || completionRevision(url.searchParams.get("revision"))===null))return protocolError(400,"INVALID_REQUEST","Local context invalid");
         query=url.search;
       }
     } else if (collectionContract) {
@@ -1055,6 +1056,7 @@ export async function buildWorkbenchUpstreamRequest(
     responseContract: route.responseContract,
     expectedStoreId:analysisContract?JSON.stringify(analysisBinding(path,headers.get("Idempotency-Key")??undefined)):route.requestContract==="ai-subject-read"?`${path[2]}:${path[3]}`: imageSetContract ? JSON.stringify(imageSetResponseBinding(path,route.requestContract.slice(10) as ImageSetRoute)) : expectedCollectionMedia ?? (
       route.requestContract.startsWith("supply-shein-")&&route.requestContract!=="supply-shein-completion-preview"&&route.requestContract!=="supply-shein-sales-mapping-preview"&&typeof body==="string"?JSON.stringify({...JSON.parse(body),key:headers.get("Idempotency-Key")??JSON.parse(body).key}):
+      route.requestContract==="supply-local-context"?`${new URL(request.url).searchParams.get("sourceId")}:${new URL(request.url).searchParams.get("completionRecordId")}:${new URL(request.url).searchParams.get("revision")}`:
       route.requestContract==="supply-color-split-list"?`${path[2]}:${path[4]}`:
  route.requestContract==="supply-color-split-family"?`${path[2]}:${path[4]}`:
  ["supply-color-split-preview","supply-create-color-split"].includes(route.requestContract)&&typeof body==="string"?body:

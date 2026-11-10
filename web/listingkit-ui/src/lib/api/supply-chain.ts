@@ -10,7 +10,7 @@ import { readBoundedStrictJSON } from "./strict-json-response";
 import { supplyReviewCommand,supplyReviewApplyCommandSchema,supplyReviewDecisionCommandSchema } from "./supply-review-command";
 import { SupplyAPIError } from "./supply-error";
 
-export type SupplyScope=CollectionScope;
+export type SupplyScope=CollectionScope & {draftKind?:c.DraftKind;draftSourceId?:string};
 export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"create-color-split"|"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
  if(route==="cancel-upload-plan")return plans.uploadPlanCancelIntentSchema;
@@ -21,6 +21,9 @@ export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
 }
 export {SupplyAPIError} from "./supply-error";
 const base="/api/workbench/supply-preparations";
+const draftBase=(scope:SupplyScope)=>scope.draftKind==="local"?"/api/workbench/local-platform-drafts":base;
+export const readLocalDraftContext=(scope:SupplyScope,sourceId:string,recordId:string,revision:number,signal?:AbortSignal)=>send(`/api/workbench/local-platform-drafts/context?${new URLSearchParams({sourceId:collectionID.parse(sourceId),completionRecordId:collectionID.parse(recordId),revision:String(revision)})}`,scope,c.localDraftContextSchema,signal);
+
 type Query={planId?:string;after?:string;keyword?:string;limit?:number;sourceKind?:CollectionSourceKind};
 const query=(q:Query)=>{const p=new URLSearchParams({limit:String(q.limit??50)});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.sourceKind)p.set("sourceKind",q.sourceKind);if(q.planId)p.set("planId",collectionID.parse(q.planId));return `?${p}`};
 export const listSupplyPreparations=(scope:SupplyScope,q:Query={},signal?:AbortSignal)=>send(base+query(q),scope,c.preparationPageSchema,signal);
@@ -61,7 +64,7 @@ export const listItemCompletionDrafts=async(scope:SupplyScope,id:string,q:Query=
  if(value.collectionItemId!==id||value.items.some(r=>r.source.collectionItemId!==id||r.source.source.kind!=="own"))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyTarget=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
-	const value=await send(`${base}/sources/${collectionID.parse(source)}/targets/${collectionID.parse(store)}`,scope,c.sheinTargetRecordSchema,signal);if(value.source.id!==source||value.merchant.store_id!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+	const value=await send(`${draftBase(scope)}/sources/${collectionID.parse(source)}/targets/${collectionID.parse(store)}`,scope,c.sheinTargetRecordSchema,signal);if(value.source.id!==source||value.merchant.store_id!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);if(!!value.localTrial!==(scope.draftKind==="local"))throw new SupplyAPIError("PERMISSION_DENIED",403);return value;
 };
 export const readSupplySavedTarget=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal)=>{
  const value=await send(`${base}/sources/${collectionID.parse(source)}/targets/${collectionID.parse(store)}`,scope,c.targetRecordSchema,signal);if(value.source.id!==source||value.merchant.store_id!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
@@ -73,15 +76,15 @@ export const readSupplyPublicationStatus=async(scope:SupplyScope,source:string,s
  const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status${receiptId?`/${collectionID.parse(receiptId)}`:""}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus&&!value.walmart&&!value.sheinStatus)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
-	const value=await send(`${base}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+	const value=await send(`${draftBase(scope)}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);if(!!value.localTrial!==(scope.draftKind==="local"))throw new SupplyAPIError("PERMISSION_DENIED",403);return value;
 };
-export const supplyRules=(scope:SupplyScope,input:c.SupplyTargetInput,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.rulesSchema,signal,{method:"POST",command:c.targetInputSchema.parse(input)});
+export const supplyRules=(scope:SupplyScope,input:c.SupplyTargetInput,signal?:AbortSignal)=>send(`${draftBase(scope)}/target-rules`,scope,c.rulesSchema,signal,{method:"POST",command:c.targetInputSchema.parse(input)});
 export async function previewSheinSalesMapping(scope:SupplyScope,request:SheinSalesRequest,signal?:AbortSignal){
- const input=sheinSalesRequestSchema.parse(request),result=await send(`${base}/shein-sales-mapping-preview`,scope,c.sheinSalesPreviewSchema,signal,{method:"POST",command:input});
+ const input=sheinSalesRequestSchema.parse(request),result=await send(`${draftBase(scope)}/shein-sales-mapping-preview`,scope,c.sheinSalesPreviewSchema,signal,{method:"POST",command:input});
  if(!c.matchesSheinSalesPreview(result,input))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
 }
 export async function previewSheinImport(scope:SupplyScope,request:c.SheinImportRequest,signal?:AbortSignal){
- const input=c.sheinImportRequestSchema.parse(request),result=await send(`${base}/shein-completion-preview`,scope,c.sheinImportPreviewSchema,signal,{method:"POST",command:input});
+ const input=c.sheinImportRequestSchema.parse(request),result=await send(`${draftBase(scope)}/shein-completion-preview`,scope,c.sheinImportPreviewSchema,signal,{method:"POST",command:input});
  if(!c.matchesSheinImportPreview(result,input))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
 }
 export const temuSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.temuRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.temuRulesSchema,signal,{method:"POST",command:c.temuRulesQuerySchema.parse(input)});
@@ -97,6 +100,8 @@ export async function prepareSheinShelf(scope:SupplyScope,input:c.SheinShelfInpu
  if(!c.matchesSheinResponse("shein-shelf-prepare",value,JSON.stringify({...command,key})))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 }
 export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(intent.draftKind==="local" && intent.route!=="save-target")throw new SupplyAPIError("INVALID_REQUEST",400);
+
  if(intent.route==="create-color-split"){const value=await send(`${base}/shein-color-splits`,intent,c.colorSplitReceiptSchema,signal,{method:"POST",command:c.colorSplitPlanSchema.parse(intent.command),key:intent.key,mutates:true});return commandResult(value,intent,true);}
  if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command);const value=await send(`${base}/upload-plans/${input.planId}/cancel`,intent,plans.uploadPlanSchema,signal,{method:"POST",command:{expectedRevision:input.expectedRevision},mutates:true});return commandResult(value,intent,true);}
 
@@ -104,7 +109,7 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
   const input=supplyIntentRequestSchema(intent.route)!.parse(intent.command);
   const suffix=intent.route==="create-upload-plan"?"upload-plans":`upload-plans/${plans.uploadPlanContinueIntentSchema.parse(input).planId}/continue`;
   const command=intent.route==="create-upload-plan"?input:plans.uploadPlanContinueSchema.parse(Object.fromEntries(Object.entries(input).filter(([k])=>k!=="planId")));
-  const value=await send(`${base}/${suffix}`,intent,c.supplyResponseSchema(intent.route),signal,{method:"POST",command,key:collectionID.parse(intent.key),mutates:true});return commandResult(value,intent,true);
+  const value=await send(`${draftBase(intent)}/${suffix}`,intent,c.supplyResponseSchema(intent.route),signal,{method:"POST",command,key:collectionID.parse(intent.key),mutates:true});return commandResult(value,intent,true);
  }
  if(intent.route==="shein-shelf-confirm"){const input=c.sheinShelfConfirmInputSchema.parse(intent.command),value=await send(base+"/shein-publication/confirm",intent,c.sheinShelfActionSchema,signal,{method:"POST",command:input,key:intent.key,mutates:true});if(!c.matchesSheinResponse(intent.route,value,JSON.stringify({...input,key:intent.key})))throw new SupplyAPIError("OUTCOME_UNKNOWN",503);return value;}
  if(intent.route==="resolve-upload"){
@@ -115,10 +120,12 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
 	if(intent.route==="review-decision"||intent.route==="review-apply")return supplyReviewCommand(intent,signal);
  const schema=c.supplyRequestSchema(intent.route);if(!schema)throw new SupplyAPIError("INVALID_REQUEST",400);
  const suffix=intent.route==="save-completion-draft"?"completion-drafts":intent.route==="transfer"?"transfer":intent.route==="save-target"?"targets":intent.route==="approve"?"images/approve":"operations";
- const value=await send(`${base}/${suffix}`,intent,c.supplyResponseSchema(intent.route),signal,{method:"POST",command:schema.parse(intent.command),key:collectionID.parse(intent.key),mutates:true});
+ const value=await send(`${draftBase(intent)}/${suffix}`,intent,c.supplyResponseSchema(intent.route),signal,{method:"POST",command:schema.parse(intent.command),key:collectionID.parse(intent.key),mutates:true});
  return commandResult(value,intent,true);
 }
 export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(intent.draftKind==="local" && intent.route!=="save-target")throw new SupplyAPIError("INVALID_REQUEST",400);
+
  if(intent.route==="create-color-split")return commandResult(await send(`${base}/shein-color-split-commands/${collectionID.parse(intent.key)}`,intent,c.colorSplitReceiptSchema,signal),intent,false);
  const key=collectionID.parse(intent.key);
  if(intent.route==="cancel-upload-plan"){const input=plans.uploadPlanCancelIntentSchema.parse(intent.command);return commandResult(await readUploadPlan(intent,input.planId,signal),intent,false);}
@@ -132,7 +139,7 @@ export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal)
  if(intent.route==="approve"||intent.route==="resolve-upload"||intent.route==="review-decision"||intent.route==="review-apply")return supplyCommand(intent,signal);
  const suffix=intent.route==="save-completion-draft"?`completion-drafts/commands/${key}`:intent.route==="transfer"?`transfers/by-key/${key}`:intent.route==="save-target"?`target-commands/${key}`:`operations/by-key/${key}`;
  const route=intent.route==="save-completion-draft"?"completion-command":intent.route==="transfer"?"transfer-read":intent.route==="save-target"?"target-command":"operation-key";
- const value=await send(`${base}/${suffix}`,intent,c.supplyResponseSchema(route),signal);
+ const value=await send(`${draftBase(intent)}/${suffix}`,intent,c.supplyResponseSchema(route),signal);
  return commandResult(value,intent,false);
 }
 export const readSupplyOperation=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{

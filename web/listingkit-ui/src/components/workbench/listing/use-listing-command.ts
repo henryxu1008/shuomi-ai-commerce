@@ -11,11 +11,12 @@ export function useListingCommand(scope:SupplyScope,onSaved:(result:unknown,inte
  const alive=useRef(true);const active=useRef(false);const abort=useRef<AbortController|null>(null);
  const saved=useRef(onSaved);
  useEffect(()=>{saved.current=onSaved},[onSaved]);
- const foreign=!!pending && (pending.userId!==scope.userId||pending.organizationId!==scope.organizationId);
+ const pendingSource=pending?.draftSourceId??(pending?.command as {sourceId?:string;request?:{sourceId?:string}}|undefined)?.sourceId??(pending?.command as {request?:{sourceId?:string}}|undefined)?.request?.sourceId;
+ const foreign=!!pending && (pending.userId!==scope.userId||pending.organizationId!==scope.organizationId||(pending.draftKind??"official")!==(scope.draftKind??"official")||!!scope.draftSourceId&&pendingSource!==scope.draftSourceId);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;abort.current?.abort()}},[]);
  useEffect(()=>context.registerOrganizationSwitchGuard(()=>!active.current),[context]);
  async function dispatch(intent:SupplyIntent,verify:boolean){
-  if(!alive.current||active.current||intent.userId!==scope.userId||intent.organizationId!==scope.organizationId)return;
+  if(foreign||!alive.current||active.current||intent.userId!==scope.userId||intent.organizationId!==scope.organizationId)return;
   if(!context.setPendingSupplyIntent(intent)){setError("BROWSER_STORAGE_UNAVAILABLE");return}
   setBusy(true);setError(null);active.current=true;
   const controller=new AbortController();abort.current=controller;

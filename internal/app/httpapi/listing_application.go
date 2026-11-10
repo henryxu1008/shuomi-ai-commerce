@@ -32,10 +32,12 @@ import (
 )
 
 type ListingDependencies struct {
-	AssetDB   *gorm.DB
-	Starter   listingapp.OperationStarter
-	NewWorker listingapp.OperationWorkerFactory
-	Worker    *listingapp.OperationWorker
+	// Injected before any execution/rules consumer captures Store access.
+	localDraftPolicy *record.LocalTrialPolicy
+	AssetDB          *gorm.DB
+	Starter          listingapp.OperationStarter
+	NewWorker        listingapp.OperationWorkerFactory
+	Worker           *listingapp.OperationWorker
 }
 
 func WithListing(d ListingDependencies) CurrentApplicationOption {
@@ -94,11 +96,15 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	if err != nil {
 		return empty, err
 	}
-	operations, err = operations.WithExecution(listingapp.OperationExecutionAuthorization{OrganizationExecutionAuthorizer: executionAuth, Stores: storeRepo})
+	var executionStores storecenter.ProductExecutionReader = storeRepo
+	if d.localDraftPolicy != nil {
+		executionStores = formalDraftStores{storeRepo, d.localDraftPolicy.Scope.OrganizationID, d.localDraftPolicy.Binding.StoreID}
+	}
+	operations, err = operations.WithExecution(listingapp.OperationExecutionAuthorization{OrganizationExecutionAuthorizer: executionAuth, Stores: executionStores})
 	if err != nil {
 		return empty, err
 	}
-	access, err := storeapp.NewOfficialProductAccess(storeRepo, executionAuth, apps)
+	access, err := storeapp.NewOfficialProductAccess(executionStores, executionAuth, apps)
 	if err != nil {
 		return empty, err
 	}
@@ -147,6 +153,7 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		return empty, err
 	}
 	app := &listingapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: listingapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: listingapp.OfficialTikTokRuleStore{Access: access}, WalmartRules: walmartRules, WalmartCatalog: walmartRules, WalmartStatusStores: walmartStores, WalmartResults: official, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: listingapp.OfficialRuleStore{Access: access}, TargetMerchants: listingapp.OfficialTargetMerchantStore{Access: access}}
+	app.ValidateDraftRead = formalDraftRead
 	app.WalmartFeedSource = official
 	app.WalmartFeedMerchant = func(ctx context.Context, scope collection.Scope, id string) (storecenter.ProductMerchantBinding, error) {
 		return access.ReadSavedWalmartFeedBinding(ctx, storecenter.ProductExecutionSubject{

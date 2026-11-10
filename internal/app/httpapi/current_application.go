@@ -1026,7 +1026,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 	}
 	if supplied.listing != nil {
-		module, e := buildListingModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.listing, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+		listingDependencies := *supplied.listing
+		if supplied.controlledLocalDraft != nil {
+			listingDependencies.localDraftPolicy = &supplied.controlledLocalDraft.Policy
+		}
+		module, e := buildListingModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, listingDependencies, *workbench.authDependencies, authorizer, supplied.officialStoreApplications, cfg, productRuntime, storeCapabilities, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply chain: %w", e)
 		}
@@ -1058,7 +1062,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	var sourceMaterialsRuntime *sourceMaterialsModule
 	if supplied.controlledLocalDraft != nil {
-		if supplied.controlledLocalDrafts != 1 || supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.offlineRecords > 0 || supplied.localTrials > 0 || supplied.listingCompletionDrafts != 1 || supplied.productCollections != 1 {
+		if supplied.controlledLocalDrafts != 1 || supplied.privateDraftTrials > 0 || supplied.offlineRecords > 0 || supplied.localTrials > 0 || supplied.listingCompletionDrafts != 1 || supplied.productCollections != 1 {
 			return nil, errors.New("invalid controlled local draft composition")
 		}
 		module, e := buildControlledLocalDraftModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.controlledLocalDraft, *workbench.authDependencies, authorizer, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
@@ -1698,7 +1702,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		}
 	}
 	if optional.ControlledLocalDraft {
-		if optional.SupplyChain || optional.PrivateDraftTrial || optional.OfflineRecords || !optional.Collections || !optional.CompletionDrafts {
+		if optional.PrivateDraftTrial || optional.OfflineRecords || !optional.Collections || !optional.CompletionDrafts {
 			return errors.New("invalid controlled local Target route composition")
 		}
 		for _, r := range listinghttp.ControlledLocalDraftRoutes(nil, nil, optional.ControlledLocalWrites) {
@@ -2092,6 +2096,21 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			if err := validateEcoservicesDescriptor(descriptor); err != nil {
 				return err
 			}
+		}
+		if strings.HasPrefix(descriptor.Path, listinghttp.ControlledLocalDraftBasePath+"/") {
+			if !optional.ControlledLocalDraft {
+				return errors.New("local drafts not admitted")
+			}
+			valid := false
+			for _, r := range listinghttp.ControlledLocalDraftRoutes(nil, nil, optional.ControlledLocalWrites) {
+				if descriptor.Method == r.Method && descriptor.Path == r.Path && descriptor.Module == r.Module && descriptor.Permission == r.Permission && descriptor.AuthPolicy == r.AuthPolicy && descriptor.OrganizationAccessPolicy == r.OrganizationAccessPolicy && descriptor.RequestTimeout == r.RequestTimeout && descriptor.Handler != nil && descriptor.OrganizationTargetResolver == nil {
+					valid = true
+				}
+			}
+			if !valid {
+				return errors.New("invalid local draft descriptor")
+			}
+			continue
 		}
 		if (descriptor.Path == listinghttp.ListingBasePath || strings.HasPrefix(descriptor.Path, listinghttp.ListingBasePath+"/")) && !strings.HasPrefix(descriptor.Path, listingImageSetBase) {
 			if strings.HasPrefix(descriptor.Path, listingMaterialsBase+"/") {
