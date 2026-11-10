@@ -2,7 +2,7 @@
 
 Execution: [#1231](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1231)；解除 #1158 / PR #1227 原 35444 更新的一个启动阻塞。
 
-Design Basis: **Independent Architecture**。Admission: **NOT_READY / 待独立评审**。
+Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**。R1 准确候选与实施义务见 §10；生产实现和副本/原实例操作仍未授权。
 
 ## 1. 用户结果、权限与设计依据
 
@@ -57,6 +57,8 @@ Threat Model：防误库/误身份、runtime 调用维护能力、未知或弱�
 | Store 边界 | 原 `internal/storecenter` 的当前 core/owner/runtime capability catalog 核对按本实例已安装能力复用，不触发 fresh 安装器或借 owner 身份充当 runtime |
 | PostgreSQL 定义比较 | 复用 #1225 的 `internal/pkg/pgschema`（基于已有 go-pgquery）；只容许其明确的 PostgreSQL 还原重写等价，缺失、弱化、不同常量/运算符/类型都拒绝 |
 | 消费者 | serving 仍只验证原 Store 模块；新 owner 模式不作为 HTTP/BFF/后台自动修复入口，不新增注入配置、表或公共 API |
+
+复用时必须落实的窄接线：现有 `VerifyCurrentObservationsInstallBoundary(installed=true) → verifyStoreMaintenancePermissions → verifyRetainedCapabilityContracts` 最后对 `core_alignment_observations.json` 做 raw `reflect.DeepEqual`，只认 B，且逻辑还原的等价表达式也可能不相等；`installed=false` 又不接受原观测权限。因此新入口不能整条调用该 helper 来验证 A，也不能把参数改成 false 跳过权限。本轮实施应在原 owner 内有界拆出/复用现有 owner/core 与有效权限检查 primitive，再由观测 owner 的完整 A/B + `pgschema` 比较承担本入口的观测 catalog 核对。原安装/核心维护等其他消费者保留其完整边界，不加全局 skip 开关、不全局放宽 raw contract，也不复制第二套权限 allowlist。此项列为 §10 IT-1，实施与合并前必须通过隔离 PG 验证。
 
 不新增 Goose 行或新的版本表。观测表原来由独立 owner 安装、完整物理合同已经足够判定本次两种状态；给 Store core 追加版本会牵连现有多个精确历史消费者，本轮无此必要。原 Goose provider/核心对齐/历史完全保留；采用已有观测安装的 GORM 事务原语，不造日志、任务、恢复 worker 或迁移平台。
 
@@ -135,4 +137,10 @@ Threat Model：防误库/误身份、runtime 调用维护能力、未知或弱�
 
 ## 10. 独立评审记录
 
-待 R1。Reviewer 必须读取本轮用户决定、Must/Out of Scope/Threat Model 和真实源码/文档差异；先分类 finding，再决定修订。只有当前安全/数据/核心路径/rollout 必须后果明确时可为 BLOCKER。目标为 IMPLEMENTATION_READY，最多两轮正常设计评审；非阻塞的具体事务/并发/权限场景归实施验证，不无限加版。
+独立 Architecture Review R1 已完成关键路径核对，准确候选 **`139a9ff01275f0e6f60708e194fbc79560be264e`**，结论 **IMPLEMENTATION_READY，0 BLOCKER**。Reviewer 实际核对真实源码、完整两文件文档差异、A/B schema 源 hash/四 CHECK 差异、原 owner/GORM/advisory key、pinned queryer、runtime/preparation 装配及既有还原证据；未改生产代码或操作原实例。本段及 §4 文字只记录该结论和明确其接线义务，不改变冻结的权限、事务、状态或副作用边界；最终文字增量核对另记 PR/Issue。
+
+| Finding | 当前 Must / 后果 | Classification / 层级 | Action |
+| --- | --- | --- | --- |
+| IT-1 不能整条复用仅认 B 的 raw retained-capability helper | 安全准入完整 A/B、还原等价、有效权限；直接套旧链会让核心路径无法执行，不能靠跳过权限解决 | IMPLEMENTATION_TEST，实施/合并前 | §4 明确窄 primitive 复用；A/B 完整合同交观测 owner + pgschema，原其他消费者边界不变；实施时验证 A 接线、还原后 A、B 只读重入和权限漂移拒绝 |
+
+R1 报告位于 `C:/Users/Henry/.codex/private/empty-observations-contract-design-20261110/architecture-review-r1.md`。§8 的事务、锁、并发、恢复、精确保留和副本回退仍是后续必须实际完成的实现验证，当前全部 **NOT_RUN**。架构 READY 不等于原实例 EXECUTION_READY、实现完成或用户产品验收。
