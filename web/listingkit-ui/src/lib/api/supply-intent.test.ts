@@ -1,12 +1,21 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { parseSupplyIntent, saveSupplyIntent, loadSupplyIntent } from "./supply-intent";
-import {unresolvedLocalTargetFixture} from "@/test/shein-import-fixture";
+import {colorSplitPlanFixture,unresolvedLocalTargetFixture,importIds} from "@/test/shein-import-fixture";
+import {colorSplitPlanSchema} from "@/lib/contracts/supply-chain";
 const id="550e8400-e29b-41d4-a716-446655440000";
 const intent={userId:"actor",organizationId:"org",key:id,route:"transfer" as const,command:{batchId:id,expectedRevision:1}};
 afterEach(()=>{sessionStorage.clear();vi.restoreAllMocks()});
 it("retains the same complete command and identity across a page reload",()=>{
  expect(saveSupplyIntent(intent)).toBe(true);expect(loadSupplyIntent()).toEqual(intent);
  expect(saveSupplyIntent(null)).toBe(true);expect(loadSupplyIntent()).toBeNull();
+});
+it("binds color-split intents to their validated nested request source",()=>{
+ const command=colorSplitPlanSchema.parse(colorSplitPlanFixture());
+ const pending={...intent,route:"create-color-split" as const,draftKind:"official" as const,draftSourceId:importIds.source,command};
+ expect(parseSupplyIntent(JSON.stringify(pending))).toEqual(pending);
+ expect(saveSupplyIntent(pending)).toBe(true);expect(loadSupplyIntent()).toEqual(pending);
+ expect(parseSupplyIntent(JSON.stringify({...pending,draftSourceId:importIds.batch}))).toBeNull();
+ expect(parseSupplyIntent(JSON.stringify({...pending,draftKind:"local"}))).toBeNull();
 });
 it("preserves an unresolved original local save without assigning purpose or replacing its key",()=>{
  const prior=unresolvedLocalTargetFixture().intent,raw=JSON.stringify(prior);

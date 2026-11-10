@@ -4,7 +4,7 @@ import {useListingCommand} from "./use-listing-command";
 import {ListingCommandFeedback} from "./command-feedback";
 import {loadSupplyIntent,saveSupplyIntent} from "@/lib/api/supply-intent";
 import {SupplyAPIError,type SupplyIntent,type SupplyScope} from "@/lib/api/supply-chain";
-import {unresolvedLocalTargetFixture,importIds} from "@/test/shein-import-fixture";
+import {colorSplitPlanFixture,unresolvedLocalTargetFixture,importIds} from "@/test/shein-import-fixture";
 
 const f=vi.hoisted(()=>({context:{pendingSupplyIntent:null as SupplyIntent|null,supplyIntentReady:true,setPendingSupplyIntent:vi.fn<(v:SupplyIntent|null)=>boolean>(),registerOrganizationSwitchGuard:()=>()=>{}},read:vi.fn(),write:vi.fn(),saved:vi.fn()}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
@@ -34,6 +34,17 @@ it("holds the original UNKNOWN through reload and blocks new writes before purpo
  await waitFor(()=>expect(f.saved).toHaveBeenCalled());
  expect(f.read).toHaveBeenCalledWith({...prior,draftKind:"local"},expect.any(AbortSignal));
  expect(f.write).not.toHaveBeenCalled();expect(loadSupplyIntent()).toBeNull();
+});
+it("sends a source-bound color split once and recovers its original nested-source intent",async()=>{
+ sessionStorage.clear();f.context.pendingSupplyIntent=null;
+ const command=colorSplitPlanFixture();
+ f.write.mockRejectedValue(new SupplyAPIError("OUTCOME_UNKNOWN",503));f.read.mockRejectedValue(new SupplyAPIError("NOT_FOUND",404));
+ const {result,rerender}=renderHook(({source}:{source:string})=>useListingCommand({...actor,draftKind:"official",draftSourceId:source},f.saved),{initialProps:{source:importIds.source}});
+ await act(async()=>{await result.current.execute("create-color-split",command,importIds.saved)});
+ expect(f.write).toHaveBeenCalledTimes(1);expect(loadSupplyIntent()).toMatchObject({key:importIds.saved,route:"create-color-split",command:{request:{sourceId:importIds.source}}});
+ rerender({source:importIds.batch});await act(async()=>{result.current.verify()});expect(f.read).not.toHaveBeenCalled();
+ rerender({source:importIds.source});await act(async()=>{result.current.verify()});await waitFor(()=>expect(result.current.error).toBe("NOT_FOUND"));
+ expect(f.read).toHaveBeenCalledWith(loadSupplyIntent(),expect.any(AbortSignal));expect(f.write).toHaveBeenCalledTimes(1);
 });
 
 it.each(["NOT_FOUND","DEPENDENCY_UNAVAILABLE"])("keeps an unresolved original key read-only after %s",async code=>{
