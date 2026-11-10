@@ -959,7 +959,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
 	}
 	if supplied.supplyMarket != nil {
-		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply market: %w", e)
 		}
