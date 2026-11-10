@@ -15,7 +15,7 @@ it("does not recover a test save through the official namespace or change purpos
  const f=sheinImportFixture();
  const localTrial={contractVersion:1,trialId:"issue1158-local-draft-v1",sourceId:importIds.source,storeId:importIds.store,completionDraft:{recordId:importIds.candidate,revision:1},fixtureVersion:"issue1158-local-draft-v1",fixtureHash:"a".repeat(64)};
  const intent={userId:"user",organizationId:"org",key:importIds.saved,route:"save-target",command:{...f.base.input,localTrial}};
- expect(parseSupplyIntent(JSON.stringify(intent))).toBeNull();
+ expect(parseSupplyIntent(JSON.stringify(intent))).toEqual(intent);
  expect(parseSupplyIntent(JSON.stringify({...intent,draftKind:"official"}))).toBeNull();
  expect(parseSupplyIntent(JSON.stringify({...intent,draftKind:"local"}))).toMatchObject({draftKind:"local",command:{localTrial}});
  expect(parseSupplyIntent(JSON.stringify({...intent,draftKind:"local",command:f.base.input}))).toBeNull();

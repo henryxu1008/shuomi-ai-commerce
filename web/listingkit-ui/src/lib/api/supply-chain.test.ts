@@ -1,11 +1,28 @@
 import { afterEach,expect,it,vi } from "vitest";
 import { supplyCommand,supplyInventory,readSupplyCommand,listSupplyOperationItems,type SupplyIntent } from "./supply-chain";
 import { titleProposalFixture } from "@/test/product-title-review-fixture";
+import {unresolvedLocalTargetFixture} from "@/test/shein-import-fixture";
 const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222";
 const intent:SupplyIntent={userId:"actor",organizationId:"org",key:id,route:"create-operation",command:{preparationId:id,expectedRevision:1,storeId:id,action:"adapt"}};
 const operation={id,input:intent.command,count:205,completed:0,status:"pending",execution:"pending",createdAt:"2026-10-08T00:00:00Z"};
 const reply=(v:unknown)=>new Response(JSON.stringify(v),{headers:{"Content-Type":"application/json"}});
 afterEach(()=>vi.unstubAllGlobals());
+it("requires an explicit purpose before sending or looking up an unresolved local save",async()=>{
+ const old=unresolvedLocalTargetFixture().intent;
+ const fetcher=vi.fn().mockRejectedValue(new Error("unexpected transport"));vi.stubGlobal("fetch",fetcher);
+ await expect(supplyCommand(old)).rejects.toMatchObject({code:"INVALID_REQUEST"});
+ await expect(readSupplyCommand(old)).rejects.toMatchObject({code:"INVALID_REQUEST"});
+ expect(fetcher).not.toHaveBeenCalled();
+});
+it("looks up the chosen local purpose with the unchanged original key and full command",async()=>{
+ const f=unresolvedLocalTargetFixture(),chosen={...f.intent,draftKind:"local" as const};
+ const fetcher=vi.fn().mockResolvedValue(reply(f.receipt));vi.stubGlobal("fetch",fetcher);
+ await expect(readSupplyCommand(chosen)).resolves.toMatchObject({record:{input:f.intent.command}});
+ expect(fetcher).toHaveBeenCalledTimes(1);
+ expect(fetcher.mock.calls[0][0]).toBe(`/api/workbench/local-platform-drafts/target-commands/${f.intent.key}`);
+ expect(fetcher.mock.calls[0][1]).toMatchObject({method:"GET",body:undefined});
+ expect(fetcher.mock.calls[0][1].headers.has("Idempotency-Key")).toBe(false);
+});
 
 it("confirms once with the prepared SHEIN key and recovers through a read-only original result",async()=>{
  const input={sourceId:id,storeId:other,receiptId:id,skc:"skc",token:other};

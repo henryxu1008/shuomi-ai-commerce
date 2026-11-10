@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { collectionID } from "../contracts/product-collection";
 import { SUPPLY_MAX_BYTES } from "../contracts/supply-chain";
-import { supplyIntentRequestSchema } from "./supply-chain";
+import { requiresDraftPurpose,supplyIntentRequestSchema } from "./supply-chain";
 import type { SupplyIntent } from "./supply-chain";
 
 const storageKey="listingkit.supply.intent";
@@ -13,7 +13,7 @@ export function parseSupplyIntent(raw:string|null):SupplyIntent|null{
   const value=envelope.safeParse(JSON.parse(raw));if(!value.success)return null;
   const schema=supplyIntentRequestSchema(value.data.route);const command=schema?.safeParse(value.data.command);if(!command?.success)return null;
   if(value.data.draftKind==="local" && value.data.route!=="save-target")return null;
-  if(value.data.route==="save-target" && (value.data.draftKind==="local")!==!!(command.data && "localTrial" in command.data && command.data.localTrial))return null;
+  if(value.data.route==="save-target" && value.data.draftKind!==undefined && (value.data.draftKind==="local")!==!!(command.data && "localTrial" in command.data && command.data.localTrial))return null;
   if(value.data.draftSourceId && (!("sourceId" in command.data) || command.data.sourceId!==value.data.draftSourceId))return null;
   if(value.data.route==="approve" && "actionId" in command.data && command.data.actionId && command.data.actionId!==value.data.key)return null;
   if(value.data.lookupOnly && (value.data.route!=="transfer" || !("itemIds" in command.data) || !Array.isArray(command.data.itemIds) || command.data.itemIds.length!==1))return null;
@@ -26,6 +26,9 @@ export function loadSupplyIntent():SupplyIntent|null{
 export function saveSupplyIntent(intent:SupplyIntent|null):boolean{
  try{
   if(intent===null){sessionStorage.removeItem(storageKey);return true}
-  const raw=JSON.stringify(intent);if(!parseSupplyIntent(raw))return false;sessionStorage.setItem(storageKey,raw);return true;
+  const raw=JSON.stringify(intent),next=parseSupplyIntent(raw);if(!next)return false;
+  const prior=parseSupplyIntent(sessionStorage.getItem(storageKey));
+  if(prior&&requiresDraftPurpose(prior)&&JSON.stringify(prior)!==JSON.stringify(next))return false;
+  sessionStorage.setItem(storageKey,raw);return true;
  }catch{return false}
 }

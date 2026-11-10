@@ -12,6 +12,11 @@ import { SupplyAPIError } from "./supply-error";
 
 export type SupplyScope=CollectionScope & {draftKind?:c.DraftKind;draftSourceId?:string};
 export type SupplyIntent=Readonly<SupplyScope & { key:string; route:"create-color-split"|"cancel-upload-plan"|"create-upload-plan"|"continue-upload-plan"|"shein-shelf-confirm"|"save-completion-draft"|"transfer"|"save-target"|"approve"|"create-operation"|"resolve-upload"|"review-decision"|"review-apply"; command:unknown; lookupOnly?:true }>;
+// An existing unresolved local command is retained without assigning a URL
+// namespace. Only an explicit matching page purpose may look up its key.
+export function requiresDraftPurpose(intent:SupplyIntent){
+ return intent.route==="save-target"&&intent.draftKind===undefined&&typeof intent.command==="object"&&intent.command!==null&&"localTrial" in intent.command&&!!intent.command.localTrial;
+}
 export function supplyIntentRequestSchema(route:SupplyIntent["route"]){
  if(route==="cancel-upload-plan")return plans.uploadPlanCancelIntentSchema;
  if(route==="continue-upload-plan")return plans.uploadPlanContinueIntentSchema;
@@ -100,6 +105,7 @@ export async function prepareSheinShelf(scope:SupplyScope,input:c.SheinShelfInpu
  if(!c.matchesSheinResponse("shein-shelf-prepare",value,JSON.stringify({...command,key})))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 }
 export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(requiresDraftPurpose(intent))throw new SupplyAPIError("INVALID_REQUEST",400);
  if(intent.draftKind==="local" && intent.route!=="save-target")throw new SupplyAPIError("INVALID_REQUEST",400);
 
  if(intent.route==="create-color-split"){const value=await send(`${base}/shein-color-splits`,intent,c.colorSplitReceiptSchema,signal,{method:"POST",command:c.colorSplitPlanSchema.parse(intent.command),key:intent.key,mutates:true});return commandResult(value,intent,true);}
@@ -124,6 +130,7 @@ export async function supplyCommand(intent:SupplyIntent,signal?:AbortSignal){
  return commandResult(value,intent,true);
 }
 export async function readSupplyCommand(intent:SupplyIntent,signal?:AbortSignal){
+ if(requiresDraftPurpose(intent))throw new SupplyAPIError("INVALID_REQUEST",400);
  if(intent.draftKind==="local" && intent.route!=="save-target")throw new SupplyAPIError("INVALID_REQUEST",400);
 
  if(intent.route==="create-color-split")return commandResult(await send(`${base}/shein-color-split-commands/${collectionID.parse(intent.key)}`,intent,c.colorSplitReceiptSchema,signal),intent,false);
