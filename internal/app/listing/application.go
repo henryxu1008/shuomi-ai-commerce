@@ -39,6 +39,7 @@ type Application struct {
 	Execution               OperationApplication
 	Targets                 *record.TargetService
 	Records                 record.TargetRepository
+	ValidateTargetInput     func(collection.Scope, record.TargetInput) error
 	Products                record.EffectiveTargetProductReader
 	Rules                   record.TargetRuleReader
 	TemuRules               TemuTargetRuleReader
@@ -90,6 +91,7 @@ func (a *Application) Source(ctx context.Context, id string) (SourceDetail, erro
 }
 
 type TargetRules struct {
+	InitialInput   *record.TargetInput                `json:"initialInput,omitempty"`
 	WalmartCatalog *walmart.RuleCatalog               `json:"walmartCatalog,omitempty"`
 	Merchant       storecenter.ProductMerchantBinding `json:"merchant"`
 	Rules          goods.OfficialRuleSnapshot         `json:"rules,omitzero"`
@@ -117,6 +119,11 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 	scope, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
 	if err != nil {
 		return TargetRules{}, err
+	}
+	if a.ValidateTargetInput != nil {
+		if err = a.ValidateTargetInput(scope, in); err != nil {
+			return TargetRules{}, err
+		}
 	}
 	selected, err := a.Sources.Select(ctx, in.SourceID)
 	if err != nil {
@@ -213,7 +220,43 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 		return TargetRules{}, record.ErrUnavailable
 	}
 	merchant, rules, err := a.Rules.ReadTargetRules(ctx, scope, in.StoreID, in.Draft)
-	return TargetRules{Merchant: merchant, Rules: rules}, err
+	result := TargetRules{Merchant: merchant, Rules: rules}
+	if err == nil && a.ValidateTargetInput != nil && a.Targets != nil && in.ExpectedRevision == 0 {
+		initial, e := a.Targets.LocalTrialBootstrap(ctx, in.SourceID, in.StoreID)
+		if e != nil {
+			return TargetRules{}, e
+		}
+		result.InitialInput = &initial
+	}
+	return result, err
+}
+
+func (a *Application) ReadTargetCommand(ctx context.Context, key string) (record.TargetReceipt, error) {
+	if a == nil || a.Records == nil || a.Authorization == nil || a.Sources == nil || !collection.ValidID(key) {
+		return record.TargetReceipt{}, record.ErrInvalid
+	}
+	scope, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)
+	if err != nil {
+		return record.TargetReceipt{}, err
+	}
+	value, err := a.Records.ReadTargetCommand(ctx, scope, key)
+	if err != nil {
+		return value, err
+	}
+	selected, err := a.Sources.Select(ctx, value.Record.Source.ID)
+	if err != nil {
+		return record.TargetReceipt{}, err
+	}
+	owner, source, _, err := selected.Read(ctx)
+	if err != nil || owner != scope || source != value.Record.Source {
+		return record.TargetReceipt{}, record.ErrForbidden
+	}
+	if a.ValidateDraftRead != nil {
+		if err = a.ValidateDraftRead(ctx, scope, value.Record); err != nil {
+			return record.TargetReceipt{}, err
+		}
+	}
+	return value, nil
 }
 func (a *Application) ReadTarget(ctx context.Context, sourceID, storeID string) (record.TargetRecord, error) {
 	scope, err := a.Authorization.Authorize(ctx, preparation.PermissionRead)

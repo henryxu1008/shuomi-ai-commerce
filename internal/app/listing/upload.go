@@ -195,7 +195,7 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	if err != nil {
 		return UploadResult{}, err
 	}
-	if saved.Input.ColorPartition != nil {
+	if saved.Input.ColorPartition != nil || record.IsLocalTrial(saved) {
 		return UploadResult{}, record.ErrForbidden
 	}
 	if _, err = s.source(ctx, scope, saved); err != nil {

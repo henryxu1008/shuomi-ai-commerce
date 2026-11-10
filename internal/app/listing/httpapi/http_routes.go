@@ -408,7 +408,7 @@ func ListingRoutes(app *listingapp.Application, bind func(context.Context, strin
 			case "record":
 				output, err = app.ReadRecord(ctx, c.Param("record_id"))
 			case "target-command":
-				output, err = app.Targets.ReadCommand(ctx, c.Param("key"))
+				output, err = app.ReadTargetCommand(ctx, c.Param("key"))
 			case "save-target", "rules":
 				var body listingTargetBody
 				key, e := listingBody(c.Request, &body, spec.action == "save-target")

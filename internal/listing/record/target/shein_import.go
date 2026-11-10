@@ -266,6 +266,13 @@ func (s *TargetService) readImport(ctx context.Context, scope collection.Scope, 
 	if base.ID != in.BaseRecordID || base.Revision < 1 || base.Source != source || source.ID != in.SourceID || base.TargetID != TargetIdentity(scope, source.ID, base.Input.StoreID) || base.Input.Temu != nil || base.Input.TikTok != nil || base.Input.TemuRules != nil || base.Input.TikTokRules != nil || base.Input.SourceID != source.ID || base.Merchant.Site != "shein-us" || candidate.Source != source || candidate.ID != in.CompletionDraft.RecordID || candidate.Revision != in.CompletionDraft.Revision {
 		return base, candidate, ErrConflict
 	}
+	if s.localTrial != nil {
+		if scope != s.localTrial.Scope || !SameLocalTrial(base.LocalTrial, &s.localTrial.Binding) || !SameLocalTrial(base.Input.LocalTrial, base.LocalTrial) || in.CompletionDraft != s.localTrial.Binding.CompletionDraft || base.Input.StoreID != s.localTrial.Binding.StoreID {
+			return base, candidate, ErrForbidden
+		}
+	} else if base.LocalTrial != nil || base.Input.LocalTrial != nil {
+		return base, candidate, ErrForbidden
+	}
 	return base, candidate, nil
 }
 
@@ -315,7 +322,7 @@ func (s *TargetService) PreviewSheinImport(ctx context.Context, in SheinImportRe
 	if err != nil {
 		return SheinImportPreview{}, err
 	}
-	if !validImportMerchant(scope, base.Input.StoreID, merchant, rules) {
+	if !s.validPreviewMerchant(scope, base, merchant, rules) {
 		return SheinImportPreview{}, ErrNotReady
 	}
 	recomputed, err := deriveSheinDraft(base.Input.Draft, candidate.Content, in.Selection, rules)
@@ -326,6 +333,7 @@ func (s *TargetService) PreviewSheinImport(ctx context.Context, in SheinImportRe
 		return SheinImportPreview{}, ErrConflict
 	}
 	input := TargetInput{SourceID: source.ID, StoreID: base.Input.StoreID, ExpectedRevision: base.Revision, EffectiveVersion: base.EffectiveVersion, ApplyReceiptID: base.ApplyReceiptID, Draft: draft, SheinImport: &SheinImport{TargetID: base.TargetID, BaseRecordID: base.ID, CompletionDraft: in.CompletionDraft, Selection: in.Selection, RulesHash: collection.Digest(rules), MerchantHash: collection.Digest(merchant)}}
+	input.LocalTrial = base.LocalTrial
 	if _, _, _, err = selected.Read(ctx); err != nil {
 		return SheinImportPreview{}, err
 	}

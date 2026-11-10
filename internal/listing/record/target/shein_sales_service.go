@@ -113,7 +113,7 @@ func (s *TargetService) PreviewSheinSalesMapping(ctx context.Context, in SheinSa
 	if err != nil {
 		return result, err
 	}
-	if !validImportMerchant(scope, base.Input.StoreID, merchant, rules) || rules.ApplicationMode != model.ModeSelfOperated {
+	if !s.validPreviewMerchant(scope, base, merchant, rules) || rules.ApplicationMode != model.ModeSelfOperated {
 		return result, ErrNotReady
 	}
 	recomputed, err := deriveSheinSales(base.Input.Draft, product.Snapshot, candidate.Content, in.Selection, rules, inventory)
@@ -125,6 +125,7 @@ func (s *TargetService) PreviewSheinSalesMapping(ctx context.Context, in SheinSa
 	}
 	result.Attributes = &rules.Attributes
 	result.Input = &TargetInput{SourceID: source.ID, StoreID: base.Input.StoreID, ExpectedRevision: base.Revision, EffectiveVersion: base.EffectiveVersion, ApplyReceiptID: base.ApplyReceiptID, Draft: draft, SheinSalesMapping: &SheinSalesMapping{Version: SheinSalesMappingVersion, TargetID: base.TargetID, BaseRecordID: base.ID, CompletionDraft: in.CompletionDraft, Selection: in.Selection, RulesHash: collection.Digest(rules), MerchantHash: collection.Digest(merchant), InventoryHash: collection.Digest(inventory)}}
+	result.Input.LocalTrial = base.LocalTrial
 	if _, _, _, err = selected.Read(ctx); err != nil {
 		return SheinSalesPreview{}, err
 	}

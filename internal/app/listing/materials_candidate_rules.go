@@ -43,6 +43,9 @@ func (a *Application) InspectCandidateRulesRecord(ctx context.Context, id, categ
 	if err != nil {
 		return materials.CandidateRulesDisclosure{}, err
 	}
+	if record.IsLocalTrial(base) {
+		return materials.CandidateRulesDisclosure{}, record.ErrForbidden
+	}
 	selected, err := a.Sources.Select(ctx, base.Source.ID)
 	if err != nil {
 		return materials.CandidateRulesDisclosure{}, err

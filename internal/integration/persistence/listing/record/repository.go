@@ -201,6 +201,15 @@ func (r *Repository) SaveTarget(ctx context.Context, proof record.TargetPrepared
 		return record.TargetReceipt{}, record.ErrUnavailable
 	}
 	existing := result.Error == nil
+	if existing {
+		_, prior, e := readRecord(tx, scope, head.CurrentRecordID)
+		if e != nil {
+			return record.TargetReceipt{}, e
+		}
+		if !record.SameLocalTrial(prior.LocalTrial, value.LocalTrial) {
+			return record.TargetReceipt{}, record.ErrForbidden
+		}
+	}
 	if existing && (head.MemberID != scope.MemberID || head.Revision != value.Input.ExpectedRevision) || !existing && value.Input.ExpectedRevision != 0 {
 		return record.TargetReceipt{}, record.ErrConflict
 	}

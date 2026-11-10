@@ -166,6 +166,8 @@ type currentApplicationOptions struct {
 	operationsCockpits           int
 	privateDraftTrials           int
 	privateDraftTrial            *PrivateDraftTrialDependencies
+	controlledLocalDrafts        int
+	controlledLocalDraft         *ControlledLocalDraftDependencies
 	agentCustomizations          int
 	agentCustomizationDB         *gorm.DB
 	toolMarketConfigs            int
@@ -597,7 +599,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if err != nil {
 				return nil, err
 			}
-			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+			return buildProductAcquisitionModule(ctx, productDB, dependencies, authorizer, provider, browserService, consumerCharges, supplied.productCollections > 0, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		}
 	}
 	if supplied.browserCaptures > 1 {
@@ -612,7 +614,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		browserDB := supplied.productAcquisitionDB
 		factories.buildBrowserCapture = func(authorizer *authz.ListingKitAuthorizer, dependencies routeAuthDependencies) (kernelmodule.Module, error) {
-			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+			return buildBrowserCaptureModule(ctx, browserDB, dependencies, authorizer, supplied.productCollections > 0, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		}
 	}
 	if supplied.imageAgents > 0 && supplied.fullImages == nil {
@@ -908,7 +910,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			}
 			supplied.collectionSourceMedia.Capacity = &storagecapacity.Meter{Writer: capacity, Namespace: ns}
 		}
-		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+		collections, err := buildProductCollectionModuleWithSourceMedia(ctx, supplied.productAcquisitionDB, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.collectionSourceMedia, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if err != nil {
 			return nil, fmt.Errorf("build current product collections: %w", err)
 		}
@@ -957,7 +959,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
 	}
 	if supplied.supplyMarket != nil {
-		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply market: %w", e)
 		}
@@ -1055,6 +1057,18 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		supplyRuntime = &module
 	}
 	var sourceMaterialsRuntime *sourceMaterialsModule
+	if supplied.controlledLocalDraft != nil {
+		if supplied.controlledLocalDrafts != 1 || supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.offlineRecords > 0 || supplied.localTrials > 0 || supplied.listingCompletionDrafts != 1 || supplied.productCollections != 1 {
+			return nil, errors.New("invalid controlled local draft composition")
+		}
+		module, e := buildControlledLocalDraftModule(ctx, supplied.productAcquisitionDB, supplied.storeCenterDB, *supplied.controlledLocalDraft, *workbench.authDependencies, authorizer, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+		if e != nil {
+			return nil, fmt.Errorf("build controlled local draft: %w", e)
+		}
+		// Keep this distinct from supplyRuntime: source/material/completion
+		// owners must retain their normal independent composition and routes.
+		modules = append(modules, module)
+	}
 	if supplied.sourceMaterials > 0 {
 		var full *listingapp.Application
 		if supplyRuntime != nil {
@@ -1327,7 +1341,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		return nil, errors.New("amazon capture requires Product pool and Collection capability")
 	}
 	if supplied.amazonBrowserCaptures == 1 {
-		capabilities, _, err := collectionAcquisitionOptions([]bool{true, supplied.listings > 0 || supplied.privateDraftTrials > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0})
+		capabilities, _, err := collectionAcquisitionOptions([]bool{true, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.supplyMarkets > 0, supplied.pods > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0})
 		if err != nil {
 			return nil, err
 		}
@@ -1432,6 +1446,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	fullListing, privateDraftTrial := supplied.listingRouteFeatures()
 	routeFeatures := currentApplicationOptionalRoutes{
+		ControlledLocalDraft:  supplied.controlledLocalDrafts == 1,
+		ControlledLocalWrites: supplied.controlledLocalDraft != nil && supplied.controlledLocalDraft.Policy.Enabled,
+
 		StorageCapacity:      cfg.StorageCapacity,
 		AmazonBrowserCapture: supplied.amazonBrowserCaptures == 1,
 		ReportCenter:         supplied.reportCenterDB != nil,
@@ -1544,6 +1561,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 }
 
 type currentApplicationOptionalRoutes struct {
+	ControlledLocalDraft  bool
+	ControlledLocalWrites bool
+
 	Fulfillment          bool
 	StorageCapacity      bool
 	AmazonBrowserCapture bool
@@ -1674,6 +1694,14 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.SupplyChain {
 		for _, r := range listinghttp.ListingRoutes(nil, nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.ControlledLocalDraft {
+		if optional.SupplyChain || optional.PrivateDraftTrial || optional.OfflineRecords || !optional.Collections || !optional.CompletionDrafts {
+			return errors.New("invalid controlled local Target route composition")
+		}
+		for _, r := range listinghttp.ControlledLocalDraftRoutes(nil, nil, optional.ControlledLocalWrites) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -2084,7 +2112,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				}
 				continue
 			}
-			if !optional.SupplyChain && !(optional.SourceMaterials && listinghttp.IsSourceMaterialRoute(descriptor.Method, descriptor.Path)) && (!(optional.AcquisitionPlans || optional.CompletionDrafts) || !listinghttp.IsPreparationRoute(descriptor.Method, descriptor.Path)) && (!optional.PrivateDraftTrial || !listinghttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) {
+			if !optional.SupplyChain && !(optional.SourceMaterials && listinghttp.IsSourceMaterialRoute(descriptor.Method, descriptor.Path)) && (!(optional.AcquisitionPlans || optional.CompletionDrafts) || !listinghttp.IsPreparationRoute(descriptor.Method, descriptor.Path)) && (!optional.PrivateDraftTrial || !listinghttp.IsPrivateDraftReadRoute(descriptor.Method, descriptor.Path)) && (!optional.ControlledLocalDraft || !listinghttp.IsControlledLocalDraftRoute(descriptor.Method, descriptor.Path, optional.ControlledLocalWrites)) {
 				return errors.New("supply chain feature not admitted")
 			}
 			if e := validateListingDescriptor(descriptor); e != nil {

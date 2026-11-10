@@ -15,6 +15,9 @@ import (
 )
 
 type OfficialRuleSnapshot struct {
+	// Empty is the existing official representation; keep it omitted so that
+	// persisted ordinary snapshots retain their exact digest.
+	Authority       string                  `json:"authority,omitempty"`
 	ApplicationMode model.ApplicationMode   `json:"application_type"`
 	Categories      []model.Category        `json:"categories"`
 	Sites           []model.MainSite        `json:"sites"`
@@ -247,6 +250,13 @@ func BuildOfficial(input OfficialDraftInput, rules OfficialRuleSnapshot, invento
 	b.validateLinkedRules()
 	allRemote := b.images(input.Images, observations)
 	b.fields()
+	// Apply authority before readiness and wire construction. Local data must
+	// never become a submission even when every other field is complete.
+	if rules.Authority == "local_trial" {
+		b.issue("rules.authority", "local_trial", "本地试用规则，仅可保存草稿，不可发布")
+	} else if rules.Authority != "" && rules.Authority != "official" {
+		b.issue("rules.authority", "rule_unavailable", "无法确认规则来源")
+	}
 	b.result.ReadyForUpload = len(b.result.Issues) == 0
 	if b.result.ReadyForUpload && allRemote {
 		payload, err := json.Marshal(b.result.Product)

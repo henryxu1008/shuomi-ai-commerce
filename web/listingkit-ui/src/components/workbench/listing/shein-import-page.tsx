@@ -1,4 +1,5 @@
 "use client";
+import {initialListingDraft} from "./draft-fields";
 import {SheinSalesPanel} from "./shein-sales-panel";
 import {ColorSplitPanel} from "./color-split-panel";
 import {descriptionPlainText} from "@/lib/contracts/product-description";
@@ -21,7 +22,7 @@ import {colorSplitReceiptSchema,targetReceiptSchema,type SupplySourceDetail,type
 import {completionDraftHref} from "@/lib/contracts/completion-draft-navigation";
 import {listingStageHref} from "@/lib/workbench/listing-navigation";
 
-type Props={familyId?:string;sourceId:string;preparationId?:string;itemId?:string;revision?:number;recordId?:string};
+type Props={localTrial?:boolean;familyId?:string;sourceId:string;preparationId?:string;itemId?:string;revision?:number;recordId?:string};
 const emptySelection=():SheinImportSelection=>({title:false,description:false,attributes:[],skus:[]});
 const failure=(e:unknown)=>e instanceof SupplyAPIError?e.code:"DEPENDENCY_UNAVAILABLE";
 const display=(value:unknown)=>typeof value==="string"?value:JSON.stringify(value??null,null,2);
@@ -51,7 +52,7 @@ function ImportSource({scope,canManage,canReadStores,...props}:Props&{scope:Supp
   if(intent.route!=="save-target")return;
   const saved=targetReceiptSchema.parse(result).record;
   if("result" in saved&&saved.input.colorPartition){recoverColor(saved);return}
-  if(saved.source.id===props.sourceId&&"result" in saved&&saved.input.storeId===storeId&&(saved.input.sheinImport||saved.input.sheinSalesMapping)){
+  if(saved.source.id===props.sourceId&&"result" in saved&&saved.input.storeId===storeId&&(saved.input.sheinImport||saved.input.sheinSalesMapping||saved.localTrial)){
    setReceipt(saved);
   }
  });
@@ -75,15 +76,16 @@ function ImportSource({scope,canManage,canReadStores,...props}:Props&{scope:Supp
  const list=`/workbench/listing/missing?preparation=${source.preparationId}`;
  const locked=command.busy||!!command.pending;
  return <ConsolePage title="SHEIN 带入预览" description="选定候选资料，预览覆盖结果，再确认保存为本地平台草稿的新版本。" breadcrumbs={[{label:"商品刊登",href:"/workbench/listing"},{label:"待补全",href:list},{label:"SHEIN 带入预览"}]} actions={<div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href={completionDraftHref(source.id,source.preparationId,item)}>返回草稿</Link></Button>{item?<Button asChild variant="outline"><Link href={`/workbench/data/mine/own/${item}`}>返回商品</Link></Button>:null}<Button asChild variant="outline"><Link href={list}>返回待补全列表</Link></Button></div>}>
-  <div className="space-y-5"><ListingCommandFeedback state={command}/>{receipt?<Card role="status" className="space-y-2 p-5"><p>本次已保存 Target R{receipt.revision} · 使用候选 R{(receipt.input.sheinImport??receipt.input.sheinSalesMapping)?.completionDraft.revision}</p><p className="text-sm text-muted-foreground">这是本次操作的保存回执，可能已有后续版本。未执行发布；重新读取目标后才能再次带入。</p></Card>:null}
+  <div className="space-y-5"><ListingCommandFeedback state={command}/>{receipt?<Card role="status" className="space-y-2 p-5"><p>本次已保存 Target R{receipt.revision}{receipt.input.sheinImport||receipt.input.sheinSalesMapping?` · 使用候选 R${(receipt.input.sheinImport??receipt.input.sheinSalesMapping)?.completionDraft.revision}`:" · 基础草稿"}</p><p className="text-sm text-muted-foreground">这是本次操作的保存回执，可能已有后续版本。未执行发布；重新读取目标后才能再次带入。</p></Card>:null}
    <Card className="space-y-3 p-5"><p>候选 R{candidate.revision} · 固定来源 V{source.source.version}</p><p className="text-sm text-muted-foreground">当前候选后续保存不会改变本次选择。{candidate.content.structured?"属性和 SKU 取自此候选保存版本。":"此版本未保存结构化候选资料，仅能带入文字。"}</p><label className="grid gap-2 text-sm">SHEIN 店铺<Select aria-label="SHEIN 店铺" disabled={!canReadStores||locked} value={storeId} onChange={e=>{setStoreId(e.target.value);setReceipt(undefined)}}><option value="">选择目标店铺</option>{initialBase&&!stores.some(s=>s.id===initialBase.input.storeId)?<option value={initialBase.input.storeId}>已保存草稿的店铺 · {initialBase.input.storeId}</option>:null}{stores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</Select></label>{!canReadStores?<p className="text-sm text-muted-foreground">当前身份没有店铺列表查看权限。</p>:storeError?<p role="alert">店铺列表读取失败。<Button variant="outline" onClick={refreshSource}>重新读取资料</Button></p>:!stores.length?<p className="text-sm text-muted-foreground">当前没有可选择的 SHEIN 店铺，请先在店铺中心配置。</p>:null}{storeTotal>100?<div className="flex gap-2"><Button variant="outline" disabled={storePage===1||locked} onClick={()=>loadStorePage(storePage-1)}>上一页店铺</Button><Button variant="outline" disabled={storePage*100>=storeTotal||locked} onClick={()=>loadStorePage(storePage+1)}>下一页店铺</Button></div>:null}</Card>
    {!canManage?<p role="alert" className="text-sm text-muted-foreground">当前身份没有供应链管理权限，不能预览或确认带入。</p>:null}
-   {storeId?<ImportMapping familyId={props.familyId} key={`${storeId}:${reload}`} scope={scope} detail={detail} candidate={candidate} storeId={storeId} initialBase={initialBase?.input.storeId===storeId?initialBase:undefined} canManage={canManage} command={command} receipt={receipt} resetReceipt={()=>setReceipt(undefined)}/>:null}
+   {storeId?<ImportMapping localTrial={props.localTrial} familyId={props.familyId} key={`${storeId}:${reload}`} scope={scope} detail={detail} candidate={candidate} storeId={storeId} initialBase={initialBase?.input.storeId===storeId?initialBase:undefined} canManage={canManage} command={command} receipt={receipt} resetReceipt={()=>setReceipt(undefined)}/>:null}
   </div>
  </ConsolePage>;
 }
 
-function ImportMapping({familyId,scope,detail,candidate,storeId,initialBase,canManage,command,receipt,resetReceipt}:{familyId?:string;scope:SupplyScope;detail:SupplySourceDetail;candidate:SupplyCompletionDraft;storeId:string;initialBase?:SupplyTarget;canManage:boolean;command:ReturnType<typeof useListingCommand>;receipt?:SupplyTarget;resetReceipt:()=>void}){
+function ImportMapping({localTrial=false,familyId,scope,detail,candidate,storeId,initialBase,canManage,command,receipt,resetReceipt}:{localTrial?:boolean;familyId?:string;scope:SupplyScope;detail:SupplySourceDetail;candidate:SupplyCompletionDraft;storeId:string;initialBase?:SupplyTarget;canManage:boolean;command:ReturnType<typeof useListingCommand>;receipt?:SupplyTarget;resetReceipt:()=>void}){
+ const [bootstrap,setBootstrap]=useState<SupplyTargetInput>();
  const [splitMode,setSplitMode]=useState(!!familyId);
  const [salesMode,setSalesMode]=useState(false);
  const [base,setBase]=useState<SupplyTarget>(),[rules,setRules]=useState<SupplyRules>(),[loading,setLoading]=useState(true),[error,setError]=useState<string>(),[reload,setReload]=useState(0);
@@ -93,18 +95,25 @@ function ImportMapping({familyId,scope,detail,candidate,storeId,initialBase,canM
  const conflict=command.error==="REVISION_CONFLICT"&&!conflictCleared||error==="REVISION_CONFLICT";
  const locked=!canManage||loading||command.busy||!!command.pending||!command.ready||!!receipt||conflict;
  const currentTarget=receipt??base;
- const platformHref=listingStageHref(error==="NOT_FOUND"||currentTarget?.result.ready_for_upload?"waiting":"missing",{preparation:detail.source.preparationId,store:storeId,mode:"platform"});
+ const platformHref=localTrial?completionDraftHref(detail.source.id,detail.source.preparationId,detail.source.collectionItemId):listingStageHref(error==="NOT_FOUND"||currentTarget?.result.ready_for_upload?"waiting":"missing",{preparation:detail.source.preparationId,store:storeId,mode:"platform"});
  useEffect(()=>{const c=new AbortController();let live=true;
-  void (async()=>{const target=reload===0&&initialBase?initialBase:await readSupplyTarget(scope,detail.source.id,storeId,c.signal);if(JSON.stringify(target.source)!==JSON.stringify(detail.source))throw new Error("Baseline differs");
+  void (async()=>{let target:SupplyTarget;
+   try{target=reload===0&&initialBase?initialBase:await readSupplyTarget(scope,detail.source.id,storeId,c.signal)}catch(e){
+    if(!localTrial||!canManage||!(e instanceof SupplyAPIError)||e.code!=="NOT_FOUND")throw e;
+    const rule=await supplyRules(scope,{sourceId:detail.source.id,storeId,expectedRevision:0,effectiveVersion:detail.source.source.version,draft:initialListingDraft(detail)},c.signal);
+    if(!rule.initialInput?.localTrial)throw new Error("Local bootstrap missing");
+    if(live){setBootstrap(rule.initialInput);setRules(rule)}return;
+   }
+   if(live)setBootstrap(undefined);if(JSON.stringify(target.source)!==JSON.stringify(detail.source))throw new Error("Baseline differs");
    const rule=canManage?await supplyRules(scope,{sourceId:detail.source.id,storeId,expectedRevision:target.revision,effectiveVersion:target.effectiveVersion,...target.applyReceiptId?{applyReceiptId:target.applyReceiptId}:{},draft:target.input.draft},c.signal):undefined;
    if(live){setBase(target);setRules(rule)}
   })().catch(e=>{if(live)setError(failure(e))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false;c.abort();cancelPreview()};
- },[scope,detail,candidate,storeId,initialBase,canManage,reload,cancelPreview]);
+ },[scope,detail,candidate,storeId,initialBase,canManage,reload,cancelPreview,localTrial]);
  function change(next:SheinImportSelection){epoch.current++;abort.current?.abort();setPreviewing(false);setPreview(undefined);setSelection(next);setError(undefined)}
  async function prepare(){if(locked||!base||!rules||previewing)return;const mine=++epoch.current,c=new AbortController();abort.current=c;setPreviewing(true);setPreview(undefined);setError(undefined);
   try{const result=await previewSheinImport(scope,{sourceId:detail.source.id,baseRecordId:base.id,completionDraft:{recordId:candidate.id,revision:candidate.revision},selection},c.signal);if(epoch.current===mine)setPreview(result.input)}catch(e){if(epoch.current===mine)setError(failure(e))}finally{if(epoch.current===mine)setPreviewing(false)}
  }
- function reread(){cancelPreview();setLoading(true);setError(undefined);setBase(undefined);setRules(undefined);setSelection({...emptySelection(),title:candidate.content.title.length>0});setPreviewing(false);setPreview(undefined);setConflictCleared(true);resetReceipt();setReload(n=>n+1)}
+ function reread(){cancelPreview();setLoading(true);setError(undefined);setBase(undefined);setBootstrap(undefined);setRules(undefined);setSelection({...emptySelection(),title:candidate.content.title.length>0});setPreviewing(false);setPreview(undefined);setConflictCleared(true);resetReceipt();setReload(n=>n+1)}
  const attrs=rules?.rules.attributes.attribute_infos.filter(a=>a.attribute_is_show===1&&a.attribute_status!==null&&a.attribute_status!==1&&(a.attribute_type===3||a.attribute_type===4)&&a.data_dimension===1&&a.attribute_mode!==null&&a.attribute_mode>=0&&a.attribute_mode<=4)??[];
  const targets=base?.input.draft.product.skc_list.flatMap((skc,i)=>skc.sku_list.map((sku,j)=>({key:`${i}:${j}`,label:`SKC ${i+1} / SKU ${j+1} · ${sku.supplier_sku||"未填写编码"} · ${sku.sale_attribute_list.map(a=>`${a.attribute_id}:${a.attribute_value_id??a.attribute_extra_value??""}`).join(" / ")}`})))??[];
  const warehouses=rules?.rules.application_type==="fully_managed"||rules?.rules.warehouses.length===0?[{id:"",label:"无仓总库存"}]:(rules?.rules.warehouses.filter(w=>w.warehouseType===1&&w.saleCountryList.includes("US")).map(w=>({id:w.warehouseCode,label:w.warehouseName}))??[]);
@@ -116,8 +125,8 @@ function ImportMapping({familyId,scope,detail,candidate,storeId,initialBase,canM
   for(const row of chosen.attributes)changes.push({label:`商品属性 ${row.attributeId}`,before:before.product_attribute_list.filter(v=>v.attribute_id===row.attributeId),after:after.product_attribute_list.filter(v=>v.attribute_id===row.attributeId)});
   for(const row of chosen.skus){const b=before.skc_list[row.skcIndex].sku_list[row.skuIndex],a=after.skc_list[row.skcIndex].sku_list[row.skuIndex],label=`SKC ${row.skcIndex+1} / SKU ${row.skuIndex+1}`;if(row.price)changes.push({label:`${label} ${rules?.rules.application_type==="self_operated"?"售价":"供货价"}`,before:rules?.rules.application_type==="self_operated"?b.price_info_list:b.cost_info,after:rules?.rules.application_type==="self_operated"?a.price_info_list:a.cost_info});if(row.stock)changes.push({label:`${label} 库存（保留其他仓）`,before:b.stock_info_list,after:a.stock_info_list})}
  }
- return <div className="space-y-5">{loading?<ConsoleState kind="loading" title="正在读取目标草稿与当前店铺规则"/>:null}{error?<Card className="space-y-3 p-5" role="alert"><p>{error==="REVISION_CONFLICT"?"目标版本或规则已变化，请重新读取并重新预览。":error==="NOT_FOUND"?"此店铺尚无已保存的平台草稿，请先准备分类、SKU 和图片并保存。":error==="NOT_READY"?"映射值与当前币种、仓库或属性规则不匹配，请调整选择后重新预览。":"当前目标草稿或规则不可用，请检查权限和店铺配置后重新读取。"}</p><Button asChild variant="outline"><Link href={platformHref}>前往平台草稿</Link></Button></Card>:null}{conflict&&command.error?<p role="alert" className="text-destructive">目标版本或规则已变化，请重新读取并重新预览。</p>:null}
-  {base?<><Card className="space-y-2 p-5"><h2 className="font-semibold">目标平台草稿 R{base.revision}</h2><Link className="text-sm text-primary underline" href={platformHref}>返回平台草稿</Link><p className="text-sm text-muted-foreground">目标有效商品 V{base.effectiveVersion} · 分类 {base.input.draft.product.category_id} · {rules?.rules.application_type==="self_operated"?"自营零售价":rules?.rules.application_type==="semi_managed"?"半托管供货价":rules?.rules.application_type==="fully_managed"?"全托管供货价":"尚未读取规则"} {currency??"币种未配置"}</p></Card>
+ return <div className="space-y-5">{localTrial?<Card className="space-y-3 p-5"><p className="font-semibold">本地试用 · 合成规则 · 不可发布</p><p className="text-sm text-muted-foreground">同一份草稿保留所有真实 SKU；原商品、R1 和图片保持不变，价格不自动换汇，平台图片仍待批准。</p><Button variant="outline" disabled={loading||command.busy||!!command.pending} onClick={reread}>重新读取目标草稿</Button></Card>:null}{bootstrap&&!loading?<Card className="space-y-3 p-5"><h2 className="font-semibold">创建基础平台草稿</h2><p>将原商品的三条 SKU 带入同一份本地草稿，库存和价格暂不填写。下一步再选择 R1 的文字和明确库存。</p><Button disabled={locked||!!receipt} onClick={()=>command.execute("save-target",bootstrap)}>确认创建基础草稿</Button></Card>:null}{loading?<ConsoleState kind="loading" title="正在读取目标草稿与当前店铺规则"/>:null}{error?<Card className="space-y-3 p-5" role="alert"><p>{error==="REVISION_CONFLICT"?"目标版本或规则已变化，请重新读取并重新预览。":error==="NOT_FOUND"?"此店铺尚无已保存的平台草稿，请先准备分类、SKU 和图片并保存。":error==="NOT_READY"?"映射值与当前币种、仓库或属性规则不匹配，请调整选择后重新预览。":"当前目标草稿或规则不可用，请检查权限和店铺配置后重新读取。"}</p><Button asChild variant="outline"><Link href={platformHref}>{localTrial?"返回候选草稿":"前往平台草稿"}</Link></Button></Card>:null}{conflict&&command.error?<p role="alert" className="text-destructive">目标版本或规则已变化，请重新读取并重新预览。</p>:null}
+  {base?<><Card className="space-y-2 p-5"><h2 className="font-semibold">目标平台草稿 R{base.revision}</h2><Link className="text-sm text-primary underline" href={platformHref}>{localTrial?"返回候选草稿":"返回平台草稿"}</Link><p className="text-sm text-muted-foreground">目标有效商品 V{base.effectiveVersion} · 分类 {base.input.draft.product.category_id} · {rules?.rules.application_type==="self_operated"?"自营零售价":rules?.rules.application_type==="semi_managed"?"半托管供货价":rules?.rules.application_type==="fully_managed"?"全托管供货价":"尚未读取规则"} {currency??"币种未配置"}</p>{base.localTrial?<><Table aria-label="已保存的平台草稿 SKU"><TableHeader><TableRow><TableHead>已保存 SKU</TableHead><TableHead>颜色组</TableHead><TableHead>库存</TableHead></TableRow></TableHeader><TableBody>{base.input.draft.product.skc_list.flatMap((group,i)=>group.sku_list.map((sku,j)=><TableRow key={`${i}:${j}`}><TableCell>{sku.supplier_sku}</TableCell><TableCell>{i+1}</TableCell><TableCell>{sku.stock_info_list.length?sku.stock_info_list.map(stock=>`${stock.inventory_num}（${stock.supplier_warehouse_name||stock.supplier_warehouse_id||"总库存"}）`).join(" / "):"未填写"}</TableCell></TableRow>))}</TableBody></Table><p className="text-sm text-muted-foreground">平台图片待批准；原商品图库和图片归属保持不变。</p></>:null}</Card>
    {familyId&&!salesMode?<ColorSplitPanel onOpenChange={setSplitMode} scope={scope} detail={detail} candidate={candidate} base={base} rules={rules} canManage={canManage} familyId={familyId}/>:null}
    {!splitMode&&rules?.rules.application_type==="self_operated"&&!base.input.colorPartition?<div className="flex flex-wrap gap-2"><Button variant="outline" disabled={locked||previewing} onClick={()=>{cancelPreview();setPreview(undefined);setSalesMode(v=>!v)}}>{salesMode?"返回文字与数值带入":"映射颜色与销售规格"}</Button></div>:null}
    {salesMode&&rules&&!splitMode?<SheinSalesPanel key={base.id} scope={scope} detail={detail} candidate={candidate} base={base} rules={rules} locked={locked} execute={input=>{setConflictCleared(false);void command.execute("save-target",input)}} onRefresh={reread} refreshBlocked={command.busy||!!command.pending}/>:null}

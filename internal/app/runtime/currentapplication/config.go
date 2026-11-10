@@ -35,6 +35,7 @@ const (
 var databaseNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,62}$`)
 
 type Config struct {
+	ControlledLocalDraft                 *ControlledLocalDraftConfig               `json:"controlledLocalDraft,omitempty"`
 	ResearchManualOriginal               *ResearchManualOriginalConfig             `json:"researchManualOriginal,omitempty"`
 	MarketResearch                       *ResearchConfig                           `json:"marketResearch,omitempty"`
 	ResearchFixture                      *ResearchFixtureConfig                    `json:"researchFixture,omitempty"`
@@ -495,6 +496,9 @@ func (cfg *Config) validate() error {
 		return errors.New("acquisition plans require Product Collections, the public collector and normal Preparation composition")
 	}
 	if err := cfg.validatePrivateDraftTrial(); err != nil {
+		return err
+	}
+	if err := cfg.validateControlledLocalDraft(); err != nil {
 		return err
 	}
 	if err := cfg.validateListing(); err != nil {
