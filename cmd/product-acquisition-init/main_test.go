@@ -27,6 +27,9 @@ func TestSupplyFeatureCommandRequiresExplicitExclusiveConfirmation(t *testing.T)
 		args []string
 		want string
 	}{
+		{"price exact database", []string{"--align-acquisition-price-snapshot", "--confirm-database", "wrong_product"}, "price snapshot alignment refused"},
+		{"price mixed mode", []string{"--align-acquisition-price-snapshot", "--enable-shein-us-trial"}, "mutually exclusive"},
+		{"price empty mode", []string{"--align-acquisition-price-snapshot", "--confirm-empty-database", "product_acquisition"}, "cannot be combined"},
 		{"explicit feature", []string{"--enable-supply-chain", "--confirm-database", "retained_product", "--config", filepath.Join(t.TempDir(), "missing.json")}, "supply chain initialization refused"},
 		{"empty database mode", []string{"--enable-supply-chain", "--confirm-empty-database", "retained_product"}, "cannot be combined"},
 		{"completion mode", []string{"--enable-supply-chain", "--enable-completion-drafts"}, "mutually exclusive"},

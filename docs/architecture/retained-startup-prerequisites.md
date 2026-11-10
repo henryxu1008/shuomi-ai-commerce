@@ -2,7 +2,9 @@
 
 Execution: #1233 / Draft PR #1234；关联 #1231 / PR #1232、#1158、#1178。Design Basis: **Independent Architecture**。状态：**IMPLEMENTATION_READY / FROZEN；独立R1通过，0设计BLOCKER**。实施与真实操作权限仍分别处理。
 
-本轮仅设计和评审。实现、配置修改、DDL、副本启动/还原、原实例更新均未获本轮授权；下文为后续实施合同，不是已执行结果。
+2026-11-10 最新实施窗口：用户已授权在 #1234 按本冻结方案实现，并在隔离副本验证原任务/明细保留、缺价只读、并发重试、新版启动及回退，补齐三项实施义务。此决定替代设计阶段“未授权实现/副本演练”的阶段限制；不授权原35444配置/数据/服务/会话变更、应用模型/provider调用、发布、原预留释放/结算、合并或关闭。下文冻结方案中的NOT_RUN是设计评审时点状态；当前实际证据和准确HEAD维护在 #1233 / #1234，不据设计元数据宣称运行通过。
+
+当前实现入口为原 `product-acquisition-init --config /private/owner.json --align-acquisition-price-snapshot --confirm-database product_acquisition`。私有manifest沿原格式、原acquisition_owner及完整已安装能力声明；新增模式不调用Grant/空库安装。配置对齐复用原LoadConfig/consumer/catalog准入，在任务私有副本原子替换四字段，不新建通用配置升级器。仍须完成独立最终代码复核和实际隔离运行证据。
 
 ## 1. 用户结果、产品决定和边界
 

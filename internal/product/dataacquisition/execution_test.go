@@ -14,9 +14,12 @@ import (
 
 type itemRepo struct {
 	Repository
+	job    Job
 	item   Item
 	fenced int
 }
+
+func (r *itemRepo) Read(context.Context, collection.Scope, string) (Job, error) { return r.job, nil }
 
 type outageStarter struct {
 	calls int
@@ -35,6 +38,7 @@ type admissionRepository struct {
 func TestZeroPriceAdmissionDoesNotRequireRetiredFiveFenPrice(t *testing.T) {
 	scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "original"}
 	repo := &admissionRepository{resultRepository: &resultRepository{job: Job{ID: uuid.NewString(), Scope: scope, State: "SUCCEEDED"}}}
+	repo.job.PriceStatus, repo.job.Price = PriceFrozen, PriceSnapshot{OfferID: "offer", Version: "v1", Currency: "CNY", UnitPriceFen: 0}
 	svc := &Service{repo: repo, live: &revokedAccess{}}
 	_, err := svc.Start(context.Background(), Principal{Scope: scope}, uuid.NewString(), Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1}, orgresource.FundingEnterprise, PriceConfirmation{Version: "test-price", MaximumCostFen: 0})
 	require.NoError(t, err, "admission repository must validate the frozen price, not a fixed five-fen constant")
@@ -49,6 +53,7 @@ func TestCommittedAdmissionPreservesUnknownAndTerminalReplaySkipsStartup(t *test
 	q := Query{Site: "us", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1}
 	command := uuid.NewString()
 	repo := &admissionRepository{resultRepository: &resultRepository{job: Job{ID: uuid.NewString(), Scope: scope, CommandKey: command, State: "ADMITTED"}}}
+	repo.job.PriceStatus, repo.job.Price = PriceFrozen, PriceSnapshot{OfferID: "offer", Version: "v1", Currency: "CNY", UnitPriceFen: 5}
 	starter := &outageStarter{err: ErrUnavailable}
 	svc := &Service{repo: repo, live: &revokedAccess{}, starter: starter}
 	job, err := svc.Start(context.Background(), Principal{Scope: scope}, command, q, orgresource.FundingEnterprise, PriceConfirmation{Version: "test-price", MaximumCostFen: 5})
@@ -76,6 +81,7 @@ func TestReadOnlyRestartsNonterminalJobsAndKeepsAccessChecks(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "original"}
 			repo := &resultRepository{job: Job{ID: uuid.NewString(), Scope: scope, CredentialID: uuid.NewString(), State: state}}
+			repo.job.PriceStatus, repo.job.Price = PriceFrozen, PriceSnapshot{OfferID: "offer", Version: "v1", Currency: "CNY", UnitPriceFen: 5}
 			starter := &outageStarter{err: ErrUnavailable}
 			access := &revokedAccess{}
 			svc := &Service{repo: repo, live: access, starter: starter}
@@ -157,6 +163,8 @@ func TestReserveResponseLossThenRevocationBindsOriginalAndReleasesWithoutFetch(t
 	a := &revokedAccess{}
 	s := &Service{repo: r, charges: c, live: a, now: time.Now}
 	job := Job{ID: uuid.NewString(), Scope: collection.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "original"}, Funding: orgresource.FundingEnterprise, Deadline: time.Now().Add(time.Hour)}
+	job.PriceStatus, job.Price = PriceFrozen, PriceSnapshot{OfferID: "offer", Version: "v1", Currency: "CNY", UnitPriceFen: 5}
+	r.job = job
 	if err := s.ProcessItem(context.Background(), job, r.item, ""); !errors.Is(err, ErrUnknown) {
 		t.Fatal(err)
 	}

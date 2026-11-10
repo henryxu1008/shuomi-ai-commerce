@@ -2,6 +2,7 @@ package dataacquisitionpersistence
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"time"
@@ -87,7 +88,7 @@ func (r *Repository) WithResultRead(ctx context.Context, p dataacquisition.Princ
 			return err
 		}
 		return check()
-	})
+	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 }
 
 // ConfigurePrices injects the Commercial reader; nil prevents new admission only.
@@ -110,6 +111,18 @@ func (row jobRow) job() (dataacquisition.Job, error) {
 	if json.Unmarshal(row.PriceJSON, &price) != nil || price.Validate() != nil {
 		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
 	}
+	job, err := row.identity()
+	if err != nil {
+		return dataacquisition.Job{}, err
+	}
+	if _, err := price.Cost(job.Query.Limit); err != nil {
+		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
+	}
+	job.Price, job.PriceStatus = price, dataacquisition.PriceFrozen
+	return job, nil
+}
+
+func (row jobRow) identity() (dataacquisition.Job, error) {
 	var q dataacquisition.Query
 	if json.Unmarshal(row.QueryJSON, &q) != nil {
 		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
@@ -118,10 +131,7 @@ func (row jobRow) job() (dataacquisition.Job, error) {
 	if err != nil || collection.Digest(normalized) != collection.Digest(q) {
 		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
 	}
-	if _, err := price.Cost(q.Limit); err != nil {
-		return dataacquisition.Job{}, dataacquisition.ErrUnavailable
-	}
-	return dataacquisition.Job{Price: price, ID: row.ID, Scope: collection.Scope{OrganizationID: row.OrganizationID, ActorID: row.ActorID, MemberID: row.MemberID}, CredentialID: row.CredentialID, CommandKey: row.CommandKey, InputHash: row.InputHash, Query: q, Funding: orgresource.ResourceFunding(row.Funding), State: row.State, Reason: row.Reason, Discovered: row.Discovered, Canceled: row.Canceled, CreatedAt: row.CreatedAt, Deadline: row.Deadline}, nil
+	return dataacquisition.Job{ID: row.ID, Scope: collection.Scope{OrganizationID: row.OrganizationID, ActorID: row.ActorID, MemberID: row.MemberID}, CredentialID: row.CredentialID, CommandKey: row.CommandKey, InputHash: row.InputHash, Query: q, Funding: orgresource.ResourceFunding(row.Funding), State: row.State, Reason: row.Reason, Discovered: row.Discovered, Canceled: row.Canceled, CreatedAt: row.CreatedAt, Deadline: row.Deadline}, nil
 }
 func readJob(db *gorm.DB, s collection.Scope, id string, lock bool) (jobRow, error) {
 	query := "SELECT " + jobColumns + " FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND id=? AND source_kind='amazon_data'"
@@ -143,9 +153,10 @@ type itemRow struct {
 	OrganizationID, ActorID, JobID, ID, ASIN, State, ClaimToken, ReservationID, ChargeState, Reason, TerminalEvidence string
 	IntentJSON, EvidenceJSON, SourceJSON                                                                              []byte
 	LeaseUntil                                                                                                        *time.Time
+	SavedAt                                                                                                           *time.Time
 }
 
-const itemColumns = "organization_id,actor_id,job_id,id,asin,state,COALESCE(claim_token::text,'') AS claim_token,lease_until,intent_json,evidence_json,source_json,COALESCE(terminal_evidence::text,'') AS terminal_evidence,COALESCE(reservation_id::text,'') AS reservation_id,charge_state,reason"
+const itemColumns = "organization_id,actor_id,job_id,id,asin,state,COALESCE(claim_token::text,'') AS claim_token,lease_until,intent_json,evidence_json,source_json,COALESCE(terminal_evidence::text,'') AS terminal_evidence,COALESCE(reservation_id::text,'') AS reservation_id,charge_state,reason,saved_at"
 
 func (row itemRow) item() (dataacquisition.Item, error) {
 	item := dataacquisition.Item{ID: row.ID, ASIN: row.ASIN, State: row.State, ClaimToken: row.ClaimToken, ReservationID: row.ReservationID, ChargeState: orgresource.ReservationState(row.ChargeState), Reason: row.Reason}
@@ -193,13 +204,24 @@ func itemRows(db *gorm.DB, job dataacquisition.Job) ([]itemRow, error) {
 	return rows, err
 }
 func summarize(db *gorm.DB, row jobRow) (dataacquisition.Job, error) {
-	job, err := row.job()
+	job, err := row.identity()
 	if err != nil {
 		return job, err
 	}
 	items, err := itemRows(db, job)
 	if err != nil {
 		return job, err
+	}
+	if len(row.PriceJSON) == 0 {
+		if err = unavailableTerminal(row, items); err != nil {
+			return dataacquisition.Job{}, err
+		}
+		job.PriceStatus = dataacquisition.PriceUnavailableTerminal
+	} else {
+		job, err = row.job()
+		if err != nil {
+			return dataacquisition.Job{}, err
+		}
 	}
 	for _, i := range items {
 		switch i.State {
@@ -229,29 +251,37 @@ func (r *Repository) Read(ctx context.Context, s collection.Scope, id string) (d
 	if s.Validate() != nil || !collection.ValidID(id) {
 		return dataacquisition.Job{}, dataacquisition.ErrInvalid
 	}
-	row, err := readJob(r.db.WithContext(ctx), s, id, false)
-	if err != nil {
-		return dataacquisition.Job{}, err
-	}
-	return summarize(r.db.WithContext(ctx), row)
+	var job dataacquisition.Job
+	err := r.readSnapshot(ctx, func(tx *gorm.DB) error {
+		row, err := readJob(tx, s, id, false)
+		if err != nil {
+			return err
+		}
+		job, err = summarize(tx, row)
+		return err
+	})
+	return job, err
 }
 func (r *Repository) List(ctx context.Context, s collection.Scope, limit int) ([]dataacquisition.Job, error) {
 	if s.Validate() != nil || limit < 1 || limit > 100 {
 		return nil, dataacquisition.ErrInvalid
 	}
-	var rows []jobRow
-	if err := r.db.WithContext(ctx).Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' ORDER BY created_at DESC,id LIMIT ?", s.OrganizationID, s.ActorID, limit).Scan(&rows).Error; err != nil {
-		return nil, err
-	}
 	jobs := []dataacquisition.Job{}
-	for _, row := range rows {
-		job, err := summarize(r.db.WithContext(ctx), row)
-		if err != nil {
-			return nil, err
+	err := r.readSnapshot(ctx, func(tx *gorm.DB) error {
+		var rows []jobRow
+		if err := tx.Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND source_kind='amazon_data' ORDER BY created_at DESC,id LIMIT ?", s.OrganizationID, s.ActorID, limit).Scan(&rows).Error; err != nil {
+			return err
 		}
-		jobs = append(jobs, job)
-	}
-	return jobs, nil
+		for _, row := range rows {
+			job, err := summarize(tx, row)
+			if err != nil {
+				return err
+			}
+			jobs = append(jobs, job)
+		}
+		return nil
+	})
+	return jobs, err
 }
 
 func lockKey(tx *gorm.DB, s collection.Scope, id string) (dataservice.Credential, error) {
@@ -378,6 +408,9 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 			return err
 		}
 		readOriginal := func(row jobRow) error {
+			if _, err := row.job(); err != nil {
+				return err
+			}
 			if err := checkCredential(); err != nil {
 				return err
 			}
@@ -653,22 +686,30 @@ func (r *Repository) Discover(ctx context.Context, job dataacquisition.Job, ids 
 	return committedJob(r.Read(ctx, job.Scope, job.ID))
 }
 func (r *Repository) Items(ctx context.Context, job dataacquisition.Job) ([]dataacquisition.Item, error) {
-	if _, err := r.Read(ctx, job.Scope, job.ID); err != nil {
-		return nil, err
-	}
-	rows, err := itemRows(r.db.WithContext(ctx), job)
-	if err != nil {
-		return nil, err
-	}
 	items := []dataacquisition.Item{}
-	for _, row := range rows {
-		i, err := row.item()
+	err := r.readSnapshot(ctx, func(tx *gorm.DB) error {
+		row, err := readJob(tx, job.Scope, job.ID, false)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		items = append(items, i)
-	}
-	return items, nil
+		current, err := summarize(tx, row)
+		if err != nil {
+			return err
+		}
+		rows, err := itemRows(tx, current)
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			i, err := row.item()
+			if err != nil {
+				return err
+			}
+			items = append(items, i)
+		}
+		return nil
+	})
+	return items, err
 }
 
 func (r *Repository) FailDiscovery(ctx context.Context, job dataacquisition.Job, reason string) (dataacquisition.Job, error) {

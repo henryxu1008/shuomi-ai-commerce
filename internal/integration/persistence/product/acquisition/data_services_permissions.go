@@ -102,6 +102,20 @@ func VerifyDataServicesOwnerPermissions(ctx context.Context, db *gorm.DB, requir
 }
 
 func verifyDataServicesPermissions(ctx context.Context, db *gorm.DB, asOwner, requireTrial bool) error {
+	if err := verifyDataServicesPermissionBoundary(ctx, db, asOwner, requireTrial); err != nil {
+		return err
+	}
+	return verifyDataServicesSchema(ctx, db)
+}
+
+// VerifyPriceAlignmentPermissions reuses the complete original effective grant
+// boundary; the acquisition owner independently proves fixed native A/B shape.
+// Ordinary consumers still call the unchanged full schema wrapper above.
+func VerifyPriceAlignmentPermissions(ctx context.Context, db *gorm.DB) error {
+	return verifyDataServicesPermissionBoundary(ctx, db, true, false)
+}
+
+func verifyDataServicesPermissionBoundary(ctx context.Context, db *gorm.DB, asOwner, requireTrial bool) error {
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
 		return dataservice.ErrUnavailable
 	}
@@ -135,5 +149,5 @@ func verifyDataServicesPermissions(ctx context.Context, db *gorm.DB, asOwner, re
 		facts.RoleName == "" || (facts.RoleName == DataServicesRuntimeRole) == asOwner {
 		return dataservice.ErrUnavailable
 	}
-	return verifyDataServicesSchema(ctx, db)
+	return nil
 }

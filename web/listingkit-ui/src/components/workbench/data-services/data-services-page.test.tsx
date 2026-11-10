@@ -14,7 +14,7 @@ vi.mock("@/components/workbench/collections/collection-page", () => ({ Collectio
     }) => <section role="dialog" aria-label={title}><button onClick={onClose}>关闭</button>{children}</section> }));
 const options = { sites: [{ code: "us", domain: "www.amazon.com", name: "美国" }], customSites: [{ code: "us", domain: "www.amazon.com", name: "美国" }], fields: ["asin", "title"], price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"}, maximumRows: 200, formats: ["csv", "json", "xlsx"], acquisitionReady: true };
 const id = "a233d58b-1fd3-40d7-a983-d35bbec45313";
-const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B000123456"], limit: 1, fields: ["asin", "title"] }, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"},confirmedFen:"0", pendingFen:"0", createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" };
+const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B000123456"], limit: 1, fields: ["asin", "title"] }, state: "ADMITTED", discovered: false, canceled: false, saved: 0, failed: 0, pending: 0, priceStatus:"FROZEN",price:{offerId:"test-offer",pricingVersion:"test-price",currency:"CNY",unitPriceFen:"5"},confirmedFen:"0", pendingFen:"0", createdAt: "2026-10-10T00:00:00Z", deadline: "2026-10-10T00:30:00Z" };
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe("data service product paths", () => {
@@ -55,6 +55,23 @@ describe("data service product paths", () => {
             expect(submit).toBeEnabled();
             expect(screen.queryByText(/请输入 1–200 的整数条数/)).not.toBeInTheDocument();
         }
+        expect(requests.mock.calls.every(([,init]) => !init?.method || init.method === "GET")).toBe(true);
+    });
+    it("keeps a missing-price terminal record readable without a zero-price label or writes", async () => {
+        const retained = { ...job, state: "FAILED", priceStatus: "UNAVAILABLE_TERMINAL", price: null, confirmedFen: null, pendingFen: null, failed: 1 };
+        const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => {
+            if (url.endsWith("/options")) return json(options);
+            if (url.endsWith("/jobs")) return json([retained]);
+            if (url.endsWith(`/jobs/${id}`)) return json(retained);
+            return json({ items: [{ id, state: "FAILED", reason: "resource_unavailable" }] });
+        });
+        vi.stubGlobal("fetch", requests);
+        render(<DataServicesPage mode="amazon"/>);
+        await screen.findByText("价格快照缺失，仅可查看");
+        fireEvent.click(screen.getByRole("button", { name: /Amazon US/ }));
+        const dialog = await screen.findByRole("dialog", { name: "采集任务与结果" });
+        expect(await within(dialog).findByText("价格快照缺失，仅可查看")).toBeVisible();
+        expect(within(dialog).queryByText(/¥0\.00/)).not.toBeInTheDocument();
         expect(requests.mock.calls.every(([,init]) => !init?.method || init.method === "GET")).toBe(true);
     });
     it("shows readable Amazon results and distinguishes failed page reads from empty results", async () => {

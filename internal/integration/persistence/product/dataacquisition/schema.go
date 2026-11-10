@@ -20,7 +20,7 @@ func InstallSchema(db *gorm.DB) error {
  source_kind varchar(32) NOT NULL DEFAULT 'amazon_data' CHECK(source_kind IN ('amazon_data','shein_us_data')),
  trial_binding char(64), command_key uuid NOT NULL,input_hash varchar(64) NOT NULL CHECK(input_hash ~ '^[0-9a-f]{64}$'),
  credential_id uuid,credential_revision bigint,query_json jsonb NOT NULL CHECK(octet_length(query_json::text)<=65536),
- price_snapshot jsonb CHECK((source_kind='amazon_data' AND price_snapshot IS NOT NULL AND jsonb_typeof(price_snapshot)='object' AND octet_length(price_snapshot::text)<=4096) OR (source_kind='shein_us_data' AND price_snapshot IS NULL)),
+ price_snapshot jsonb CONSTRAINT data_acquisition_price_snapshot CHECK((source_kind='amazon_data' AND ((price_snapshot IS NOT NULL AND jsonb_typeof(price_snapshot)='object' AND octet_length(price_snapshot::text)<=4096) OR (price_snapshot IS NULL AND state='FAILED' AND quota_reserved=0))) OR (source_kind='shein_us_data' AND price_snapshot IS NULL)),
  funding varchar(32) NOT NULL CHECK(funding IN ('enterprise_unallocated','member_allocated')),
  state varchar(24) NOT NULL CHECK(state IN ('ADMITTED','RUNNING','SUCCEEDED','PARTIAL','FAILED','CANCELED')),reason varchar(64) NOT NULL DEFAULT '',
  discovered boolean NOT NULL DEFAULT false,canceled boolean NOT NULL DEFAULT false,quota_reserved integer NOT NULL CHECK(quota_reserved BETWEEN 0 AND 200),
@@ -56,6 +56,10 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if db == nil || db.Dialector.Name() != "postgres" {
 		return dataacquisition.ErrUnavailable
 	}
+	current, err := PriceContractState(ctx, db)
+	if err != nil || !current {
+		return dataacquisition.ErrUnavailable
+	}
 	for _, q := range []string{
 		"SELECT organization_id,actor_id,member_id,id,command_key,input_hash,credential_id,credential_revision,query_json,price_snapshot,funding,state,reason,discovered,canceled,quota_reserved,day_window,month_window,created_at,deadline,source_kind,trial_binding FROM data_acquisition_jobs LIMIT 0",
 		"SELECT organization_id,actor_id,job_id,id,asin,state,intent_json,claim_token,lease_until,evidence_json,source_json,terminal_evidence,reservation_id,charge_state,reason,created_at,saved_at,source_kind,native_goods_id,source_position,evidence_checksum FROM data_acquisition_items LIMIT 0",
@@ -65,7 +69,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		}
 	}
 	var ready bool
-	err := db.WithContext(ctx).Raw(`WITH expected(relation,kind,columns,reference,reference_columns) AS (VALUES
+	err = db.WithContext(ctx).Raw(`WITH expected(relation,kind,columns,reference,reference_columns) AS (VALUES
  ('data_acquisition_jobs','p',ARRAY['organization_id','actor_id','id'],NULL::text,NULL::text[]),
  ('data_acquisition_jobs','u',ARRAY['organization_id','actor_id','command_key'],NULL,NULL),
  ('data_acquisition_jobs','u',ARRAY['organization_id','id'],NULL,NULL),
@@ -85,5 +89,5 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if err != nil || !ready {
 		return dataacquisition.ErrUnavailable
 	}
-	return nil
+	return VerifyMissingPriceFacts(ctx, db)
 }
