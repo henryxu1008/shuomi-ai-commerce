@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"task-processor/internal/pkg/pgschema"
 )
 
 // Catalog contracts are read-only snapshots of the existing capability owners'
@@ -49,16 +50,69 @@ func verifyRetainedCapabilityContracts(ctx context.Context, q coreSchemaQueryer,
 		if json.Unmarshal([]byte(raw), &got) != nil || json.Unmarshal(capability.contract, &want) != nil || !reflect.DeepEqual(got, want) {
 			return fmt.Errorf("retained Store capability structure mismatch: %s", capability.schema)
 		}
-		// The common allowlist rejects excess effective privileges. Explicitly
-		// require every native capability grant too, including cockpit's grants.
-		var complete bool
-		query := `SELECT coalesce(has_schema_privilege('store_center_runtime',to_regnamespace($1),'USAGE'),false) AND NOT EXISTS (
- SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='r' AND NOT (
- has_table_privilege('store_center_runtime',c.oid,'SELECT') AND has_table_privilege('store_center_runtime',c.oid,'INSERT') AND
- ((n.nspname='store_observations' AND c.relname='commands') OR (n.nspname='operations_cockpit' AND c.relname IN ('fact_versions','goal_versions','commands')) OR has_table_privilege('store_center_runtime',c.oid,'UPDATE'))))`
-		if err := q.QueryRowContext(ctx, query, capability.schema).Scan(&complete); err != nil || !complete {
-			return errors.New("retained Store capability runtime grants incomplete")
+		if err := verifyNativeCapabilityGrants(ctx, q, capability.schema); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func verifyNativeCapabilityGrants(ctx context.Context, q coreSchemaQueryer, schema string) error {
+	var complete bool
+	query := `SELECT coalesce(has_schema_privilege('store_center_runtime',to_regnamespace($1),'USAGE'),false) AND NOT EXISTS (
+ SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='r' AND NOT (
+ has_table_privilege('store_center_runtime',c.oid,'SELECT') AND has_table_privilege('store_center_runtime',c.oid,'INSERT') AND
+ ((n.nspname='store_observations' AND c.relname='commands') OR (n.nspname='operations_cockpit' AND c.relname IN ('fact_versions','goal_versions','commands')) OR has_table_privilege('store_center_runtime',c.oid,'UPDATE'))))`
+	if err := q.QueryRowContext(ctx, query, schema).Scan(&complete); err != nil || !complete {
+		return errors.New("retained Store capability runtime grants incomplete")
+	}
+	return nil
+}
+
+// Only the empty-observation maintenance entry uses parser equivalence for an
+// already-installed, otherwise unchanged cockpit. Original consumers stay strict.
+func verifyUnchangedCockpitForObservationMaintenance(ctx context.Context, q coreSchemaQueryer) error {
+	var raw string
+	if err := q.QueryRowContext(ctx, retainedCapabilityCatalogQuery, "operations_cockpit").Scan(&raw); err != nil {
+		return err
+	}
+	var got, want map[string]any
+	if json.Unmarshal([]byte(raw), &got) != nil || json.Unmarshal(retainedCockpitContract, &want) != nil {
+		return errors.New("retained cockpit contract unavailable")
+	}
+	for _, section := range []string{"constraints", "indexes"} {
+		a, okA := got[section].([]any)
+		b, okB := want[section].([]any)
+		if !okA || !okB || len(a) != len(b) {
+			return errors.New("retained cockpit object set differs")
+		}
+		for i := range a {
+			x, okX := a[i].([]any)
+			y, okY := b[i].([]any)
+			pos := 3
+			if section == "indexes" {
+				pos = 1
+			}
+			if !okX || !okY || len(x) != len(y) || len(x) <= pos {
+				return errors.New("retained cockpit shape differs")
+			}
+			av, okA := x[pos].(string)
+			bv, okB := y[pos].(string)
+			if !okA || !okB {
+				return errors.New("retained cockpit definition unavailable")
+			}
+			equal := pgschema.SchemaConstraintEqual(av, bv)
+			if section == "indexes" {
+				equal = pgschema.SchemaIndexEqual(av, bv)
+			}
+			if !equal {
+				return errors.New("retained cockpit definition differs")
+			}
+			x[pos] = bv
+		}
+	}
+	if !reflect.DeepEqual(got, want) {
+		return errors.New("retained cockpit structure differs")
+	}
+	return verifyNativeCapabilityGrants(ctx, q, "operations_cockpit")
 }

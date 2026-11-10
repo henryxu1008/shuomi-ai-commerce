@@ -37,6 +37,7 @@ func main() {
 	retainedCockpit := flag.Bool("retained-operations-cockpit", false, "declare already installed operations cockpit for --align-core-contract; no installation or grants")
 	browserWorkbench := flag.Bool("browser-workbench", false, "explicitly install only Store browser operation/report tables and SELECT/INSERT grants on a confirmed current Store")
 	currentObservations := flag.Bool("observations-current-store", false, "explicitly install absent observations on a confirmed current Store without changing existing facts or grants")
+	alignEmpty := flag.Bool("align-empty-observations-contract", false, "align only the four admitted CHECKs on existing empty observation tables; preserve facts, permissions and history")
 	confirmed := flag.String("confirm-database", "", "exact database name required for a selected current Store maintenance mode")
 	flag.Parse()
 	confirmationSet := false
@@ -55,6 +56,12 @@ func main() {
 		}
 		if retainedSet && !*align {
 			return errors.New("retained capability declarations require --align-core-contract")
+		}
+		if *alignEmpty {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align || *currentObservations {
+				return errors.New("empty observation alignment cannot be combined with another mode")
+			}
+			return alignEmptyObservations(*path, *confirmed)
 		}
 		if *currentObservations {
 			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align {
@@ -75,7 +82,7 @@ func main() {
 			return installBrowserWorkbench(*path, *confirmed)
 		}
 		if confirmationSet {
-			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench or --observations-current-store")
+			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench, --observations-current-store or --align-empty-observations-contract")
 		}
 		return runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart)
 	}()
@@ -83,7 +90,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *currentObservations {
+	if *alignEmpty {
+		fmt.Println("Empty observation CHECK contract verified; original facts, permissions and history retained")
+	} else if *currentObservations {
 		fmt.Println("Current Store observations installed atomically; existing facts, base permissions and history retained; verify serving role before enabling")
 	} else if *browserWorkbench {
 		fmt.Println("Store browser schema version and immutable grants verified; existing facts retained")
@@ -298,4 +307,25 @@ func loadOwnerConfig(path, role string) (*platformdatabase.Config, error) {
 		return nil, errors.New("schema-owner requires explicit loopback target, owner role and bounded credentials")
 	}
 	return &platformdatabase.Config{Host: config.Host, Port: config.Port, User: config.User, Password: config.Password, Database: config.Database, MaxConnections: config.MaxConnections, MaxIdleConnections: config.MaxIdleConnections}, nil
+}
+
+func alignEmptyObservations(path, confirmed string) error {
+	if confirmed == "" {
+		return errors.New("empty observation alignment requires exact database confirmation")
+	}
+	cfg, err := loadOwnerConfig(path, "store_center_owner")
+	if err != nil || cfg.Database != confirmed {
+		return errors.New("empty observation alignment requires private owner config and exact database confirmation")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
+	if err != nil {
+		return errors.New("Store observation owner database unavailable")
+	}
+	defer platformdatabase.Close(db)
+	if err = storeschema.AlignEmptyObservationsContract(ctx, db, confirmed); err != nil {
+		return fmt.Errorf("empty observation alignment failed; re-enter original command to inspect if commit is unknown: %w", err)
+	}
+	return nil
 }
