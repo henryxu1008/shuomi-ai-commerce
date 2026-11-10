@@ -87,8 +87,35 @@ func VerifyEmptyObservationsMaintenanceBoundary(ctx context.Context, q coreSchem
 	if err := verifyNativeCapabilityGrants(ctx, q, "store_observations"); err != nil {
 		return err
 	}
+	if err := verifyClosedMaintenanceACL(ctx, q, "store_observations"); err != nil {
+		return err
+	}
 	if cockpit {
+		if err := verifyClosedMaintenanceACL(ctx, q, "operations_cockpit"); err != nil {
+			return err
+		}
 		return verifyUnchangedCockpitForObservationMaintenance(ctx, q)
+	}
+	return nil
+}
+
+// These installed native modules admit only their owner and fixed runtime.
+// Keeping a before/after snapshot cannot authorize a pre-existing extra reader.
+// This check is local to empty-observation maintenance, never a grant repair.
+func verifyClosedMaintenanceACL(ctx context.Context, q coreSchemaQueryer, schema string) error {
+	var valid bool
+	err := q.QueryRowContext(ctx, `WITH native_roles AS (
+ SELECT oid FROM pg_roles WHERE rolname IN('store_center_owner','store_center_runtime')
+), owner_role AS (SELECT oid FROM pg_roles WHERE rolname='store_center_owner'), effective_acl AS (
+ SELECT a.* FROM pg_namespace n CROSS JOIN LATERAL aclexplode(n.nspacl) a WHERE n.nspname=$1
+ UNION ALL SELECT a.* FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE n.nspname=$1
+)
+SELECT NOT EXISTS(SELECT 1 FROM effective_acl WHERE grantee NOT IN(SELECT oid FROM native_roles) OR grantor<>(SELECT oid FROM owner_role))
+ AND NOT EXISTS(SELECT 1 FROM pg_attribute x JOIN pg_class c ON c.oid=x.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(x.attacl) a WHERE n.nspname=$1 AND x.attnum>0 AND NOT x.attisdropped)
+ AND NOT EXISTS(SELECT 1 FROM pg_default_acl d WHERE d.defaclnamespace=to_regnamespace($1) OR d.defaclnamespace=0 AND d.defaclrole IN(SELECT oid FROM native_roles))
+ AND NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member IN(SELECT oid FROM native_roles) OR roleid IN(SELECT oid FROM native_roles))`, schema).Scan(&valid)
+	if err != nil || !valid {
+		return errors.New("native Store maintenance ACL, default privileges or role membership differs")
 	}
 	return nil
 }

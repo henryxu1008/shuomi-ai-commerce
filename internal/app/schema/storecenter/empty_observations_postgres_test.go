@@ -85,6 +85,7 @@ func observationCheckIdentity(t *testing.T, db *gorm.DB) string {
 
 func TestEmptyObservationAlignmentPostgres(t *testing.T) {
 	ctx, owner, admin := emptyObservationFixture(t)
+	require.NoError(t, admin.Exec(`CREATE ROLE unexpected_reader NOLOGIN`).Error)
 	pool, _ := owner.DB()
 	t.Run("IT1-old-chain-refuses-A-new-chain-preserves", func(t *testing.T) {
 		tx, e := pool.BeginTx(ctx, nil)
@@ -128,6 +129,10 @@ func TestEmptyObservationAlignmentPostgres(t *testing.T) {
 			{"extra", `ALTER TABLE store_observations.heads ADD CONSTRAINT extra CHECK(sequence>0)`},
 			{"privilege", `GRANT DELETE ON store_observations.heads TO store_center_runtime`},
 			{"column-grant", `GRANT UPDATE(actor_id) ON store_observations.commands TO store_center_runtime`},
+			{"unexpected-reader", `GRANT SELECT ON store_observations.records TO unexpected_reader`},
+			{"unexpected-schema-reader", `GRANT USAGE ON SCHEMA store_observations TO unexpected_reader`},
+			{"unexpected-column-reader", `GRANT SELECT(payload) ON store_observations.records TO unexpected_reader`},
+			{"unexpected-default-privileges", `ALTER DEFAULT PRIVILEGES IN SCHEMA store_observations GRANT SELECT ON TABLES TO unexpected_reader`},
 			{"nonempty", `INSERT INTO store_observations.heads VALUES('org-a','d6f6ca0a-27e2-4c4a-b1aa-4505110ae635','products',1,NULL)`},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
@@ -148,6 +153,12 @@ func TestEmptyObservationAlignmentPostgres(t *testing.T) {
 		before := observationCheckIdentity(t, owner)
 		require.Error(t, AlignEmptyObservationsContract(ctx, admin, "store_center"))
 		require.Equal(t, before, observationCheckIdentity(t, owner))
+	})
+	t.Run("unexpected-role-member", func(t *testing.T) {
+		resetEmptyObservationBaseline(t, owner)
+		require.NoError(t, admin.Exec(`GRANT store_center_runtime TO unexpected_reader`).Error)
+		defer admin.Exec(`REVOKE store_center_runtime FROM unexpected_reader`)
+		require.Error(t, AlignEmptyObservationsContract(ctx, owner, "store_center"))
 	})
 	t.Run("DDL-failure-after-first-replacement", func(t *testing.T) {
 		resetEmptyObservationBaseline(t, owner)
@@ -203,6 +214,9 @@ func TestEmptyObservationAlignmentPostgres(t *testing.T) {
 		require.NoError(t, InstallOperationsCockpit(ctx, owner))
 		require.NoError(t, AlignEmptyObservationsContract(ctx, owner, "store_center"))
 		resetEmptyObservationBaseline(t, owner)
+		require.NoError(t, owner.Exec(`GRANT SELECT ON operations_cockpit.commands TO unexpected_reader`).Error)
+		require.Error(t, AlignEmptyObservationsContract(ctx, owner, "store_center"), "other retained capability cannot carry an unknown reader")
+		require.NoError(t, owner.Exec(`REVOKE SELECT ON operations_cockpit.commands FROM unexpected_reader`).Error)
 		require.NoError(t, owner.Exec(`GRANT DELETE ON operations_cockpit.commands TO store_center_runtime`).Error)
 		require.Error(t, AlignEmptyObservationsContract(ctx, owner, "store_center"), "existing cockpit is not a privilege bypass")
 		require.NoError(t, owner.Exec(`REVOKE DELETE ON operations_cockpit.commands FROM store_center_runtime; ALTER TABLE operations_cockpit.commands DROP CONSTRAINT commands_pkey`).Error)
