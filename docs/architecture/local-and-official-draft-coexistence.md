@@ -1,6 +1,6 @@
 # #1158 同一实例内测试草稿与正式刊登共存
 
-Design Basis: **Independent Architecture**。Admission: **ARCHITECTURE_REVIEW_PENDING**。
+Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**。
 本轮仅设计与独立 Architecture Review；不得修改正式生产路径、原 35444 配置或数据，不调用模型、不保存/发布、不释放原预留。实现、合并、实例开通及真实平台操作分别等待后续明确授权。
 
 调查基线：`main 34dcf084a4c6a92516cfdbba2c80cb2f6f90712e`。执行 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)，唯一 Writer `/root`，分支 `codex/issue1158-draft-coexistence-design`。
@@ -58,6 +58,8 @@ Threat Model：防止不可信 URL/表单/恢复 intent 选错分支、伪造/�
 
 两模块可各实例化原 app，但不注册重复 Method/Path/Module name，不重复装配 SourceMaterials/Completion routes，不给本地 app 注入 uploader、publication、Agent、workflow 或 execution authority。正式 `supplyRuntime` 指针始终指向正式 app，不能因为本地 app 存在而把它当作正式 full pointer。
 
+`Application.QueryRules` 当前以 `ValidateTargetInput != nil` 触发本地 bootstrap，这个隐式信号在共存接线中必须移除。本地 bootstrap 只由可信本地 app 显式注入的可选依赖/分支决定；正式用途 guard 非空也不能触发它。本地停写 context 对 Source/R1/Store 的核对使用独立只读依赖，Completion version reader 不再被本地 writer 的 `enabled` 分支挡住；不得为四 GET 构造 writer/rules/provider。
+
 ### Contract → implementation → injection → consumer
 
 | 事实/合同 owner | 现有实现及计划改动 | 注入/消费者闭环 |
@@ -85,6 +87,8 @@ Threat Model：防止不可信 URL/表单/恢复 intent 选错分支、伪造/�
 4. 不读取测试 Target.Input 作为正式源，不复制测试类目 123、颜色/尺码 ID、`trial-us` 仓库、图片批准、rulesHash 或 Ready 状态；原英文文字、三行编码及 0/空值由同一 R1 的既有带入合同负责。正式映射由当前官方值重新确认。
 5. 缺库存仍是空，黑 M 的 0 保持；正式用户后续可按现有编辑器明确填写真实售价、包装、库存、图片，不回写原商品/R1。CNY 不自动换成 USD。规格集合仍 `variant_set_unconfirmed` 时阻断发布，不擅自补/删 SKU 或拆稿。
 
+先确定用途，再读取 Target/规则或恢复写 intent。现有 `shein/page.tsx` 不能仅因 controlled 全局开关为 true 就把整页/所有 Source 限为试点；`SheinImportPage` 不能在用途选择前对 `props.recordId` 固定调用正式 `readSupplyRecord`。新记录链接携带明确用途，缺少用途时先选择，不猜 namespace/自动发请求；后端仍验证持久标记。L/context 对非试点调用者的 403/不可用只关闭本地入口，不能成为正式页面、记录读取或正常店铺操作的前置条件。
+
 共享列表/阶段投影沿原 record 的标记展示用途；测试保存不能显示成正式审核、提交或上架成功，也不计入这些正式结果。不新建统计 owner、汇总表或历史回填。
 
 这不是“一键升级测试稿”或新 transfer 协议：新正式 Target 的创建/原键重放由原正式操作负责，R1 的固定选择与后续确认由已存在的带入/映射端口负责。两者独立保存，没有“测试稿已升级”持久化状态，也不在两个 Target 之间做跨记录事务/补偿/同步。
@@ -99,6 +103,7 @@ Threat Model：防止不可信 URL/表单/恢复 intent 选错分支、伪造/�
 - `PublicationReady(local)` 永远 false；native `local_trial` 与未知 authority 不能生成 wire。现有正式 authority 表示/版本不改变，不能把浏览器空标记当官方证明。Uploader、prepare/confirm、plan继续、adapt、materials/image/Agent、worker/recovery 继续在任何 provider/工作流/账本写前拒绝本地记录；正式 dispatcher 也不接受本地结果。
 - 关闭本地新写不影响原键只读；旧 HTTP POST 超时/返回丢失也只能沿原 command 解决。授权撤销、Store 改变或固定 R1 不匹配时新写 fail closed，不能 fallback 到另一种服务。持久化历史读取按当前授权保留，不因凭据失效把历史改成正式记录。
 - 本地 policy 的正式目标拒绝只针对其准确 org/测试 Store，不能按共享 Source/R1 全局封锁正式流程。其他真实店铺的既有正式 pending/UNKNOWN/回执不回写，原恢复 owner 和当前权限检查不受本地写开关改变。
+- 该正式拒绝约束须在构造 TargetService/Uploader/merchant/execution 等消费者时就注入原有正式 access/reader 端口。`buildListingModule` 会把依赖以值或独立接口捕获多次，不能只在构造结束后替换 `app.Rules` 或过滤 UI；adapt、plan/material、worker 和 prepare/confirm 同样覆盖。只补既有端口的准确 org/Store 前置约束，不创建持久化 Store purpose 或新权限 owner。
 - 超时、最大输入/图片/SKU 量、规则/授权 expiry、单事务失败回滚、正式 UNKNOWN/retry owner均沿当前合同；本轮不新增任务、账本、定时恢复器或模型调用。
 
 ## 6. 配置、运行与保留
@@ -133,4 +138,12 @@ Legacy decision：N/A。保留的是本系统当前 durable records 与明确用
 
 ## 8. 独立评审状态
 
-待独立 R1，尚未达到 IMPLEMENTATION_READY。准确设计提交、finding 分类、必要修订与最终结论在本节及 #1158/关联 Draft PR 记录；设计通过也不授权实现、合并、部署或业务写入。
+独立 R1 已核对准确设计提交 `1b8b9f963357845d6a21f6e49bd3313931f941ed` 及真实配置/模块/HTTP/BFF/Target/仓储/执行 sibling paths；结论 **IMPLEMENTATION_READY，0 设计 BLOCKER**。本文件补充以下明确接线，保持冻结边界，不重开全局架构：
+
+| Finding | 当前 Must / 分类 / 阻塞层级 | 处理 |
+| --- | --- | --- |
+| R1-IT-A：bootstrap 隐式信号、停写 context 的 R1 reader | 正式独立可用、本地四 GET 无 writer；IMPLEMENTATION_TEST，后续实施/合并前 | §3 显式本地依赖和只读 reader，归 IT-1/3；正式新建规则查询和停写 context 正例须测 |
+| R1-IT-B：用途前预读 record / intent、context 403 耦合 | 不串稿/误发、非试点用户仍可正式使用；IMPLEMENTATION_TEST，后续实施/合并前 | §4/5 先确定用途、单 namespace、原键不改，归 IT-1/2/4 |
+| R1-IT-C：构造时已捕获的正式依赖 | 测试始终拒绝、其它真实 Store 原操作保持；IMPLEMENTATION_TEST，后续实施/合并前 | §5 注入时施加同一约束，覆盖所有消费者，归 IT-1/3；不新建 Store 状态/owner |
+
+R1 报告与最终文字增量复核的准确 SHA 在 #1158 / Draft PR #1236 维护。四项实施验证仍全部 **NOT_RUN**；本轮只完成设计准入，不授权实现、合并、部署或业务写入。
