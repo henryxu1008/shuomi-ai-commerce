@@ -20,4 +20,3 @@ it("does not recover a test save through the official namespace or change purpos
  expect(parseSupplyIntent(JSON.stringify({...intent,draftKind:"local"}))).toMatchObject({draftKind:"local",command:{localTrial}});
  expect(parseSupplyIntent(JSON.stringify({...intent,draftKind:"local",command:f.base.input}))).toBeNull();
 });
-
