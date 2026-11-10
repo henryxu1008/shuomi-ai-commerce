@@ -1,5 +1,7 @@
 # 原 35444：受控本地平台草稿接线
 
+> 2026-11-10 最新产品决定：同一实例应允许测试草稿与正式刊登共存，最小方案及独立评审见 [共存设计](local-and-official-draft-coexistence.md)。本文的实例级互斥条款在该新方案准入后由其替代；持续 localTrial、测试稿永久不可发布、固定试点范围和原数据保护仍有效。#1235 的实现、合并及原实例更新已完成，准确运行证据维护在 #1158；下方设计阶段授权/状态作为历史保留。本轮新授权仅含共存设计及评审，不授权修改原实例或生产代码。
+
 Execution: [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)。Design Basis: **Independent Architecture**。
 Admission: **IMPLEMENTATION_READY / FROZEN**。2026-11-10 独立 R1 及文字增量复核完成，冻结设计为 `950b055d4ff77ec2c51015ee6dd97a797186c3cc`，0 设计 BLOCKER；具体接线 finding 已分类 IMPLEMENTATION_TEST，见 §9。后续实施依用户明确授权推进，设计准入本身不授权原实例操作。
 调查基线：`683d83b831020d9266ea06b636c7beced7d97453`，唯一 Writer `/root`，分支 `codex/issue1158-controlled-local-draft`。
