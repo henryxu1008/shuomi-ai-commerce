@@ -148,11 +148,17 @@ func (d *Driver) prepareFresh(ctx context.Context, r setupcontrol.Request, dir s
 	if r.Profile == "unified" {
 		n.Expected = map[string]bool{"knowledge": true, "dataServices": true, "productCollections": true, "notificationCenterDatabase": true, "reportCenter": true, "toolMarket": true, "ecoservices": true, "projectCenter": true}
 	}
-	changes := []setupcontrol.Change{{Label: "新独立实例", Before: "不存在", After: r.Project}, {Label: "安装组合", Before: "未安装", After: r.Profile}, {Label: "准确版本", Before: "未安装", After: d.release.SourceCommit}, {Label: "应用入口", Before: "无", After: origin}, {Label: "私密登录资料", Before: "无", After: handoff}, {Label: "数据与外部服务", Before: "空项目", After: "只执行原生初始化；不生成业务样例，不调用外部平台或模型"}}
-	if r.NetworkSubnet != "" {
-		changes = append(changes, setupcontrol.Change{Label: "新项目网络地址段", Before: "未分配", After: r.NetworkSubnet + "（只在此段内划分本组合的网络；不更改Docker全局配置）"})
+	installationLabel := ""
+	for _, profile := range profiles() {
+		if profile.ID == r.Profile {
+			installationLabel = profile.Label
+		}
 	}
-	return setupcontrol.Prepared{Request: r, InstanceID: id, Before: before, Candidate: hash(marshal(n)), Services: []string{"原有Compose安装组合（含身份、schema及应用）"}, Changes: changes, Blocks: blocks, Data: marshal(n)}, nil
+	changes := []setupcontrol.Change{{Label: "安装名称", Before: "不存在", After: r.Project}, {Label: "安装哪些功能", Before: "未安装", After: installationLabel}, {Label: "安装版本", Before: "未安装", After: d.release.SourceCommit}, {Label: "应用入口", Before: "无", After: origin}, {Label: "私密登录资料", Before: "无", After: handoff}, {Label: "数据与外部服务", Before: "空项目", After: "建立新的空系统；不生成示例商品，不调用外部平台或AI"}}
+	if r.NetworkSubnet != "" {
+		changes = append(changes, setupcontrol.Change{Label: "网络地址范围", Before: "未分配", After: r.NetworkSubnet + "（仅用于本次安装，不更改其他Docker网络设置）"})
+	}
+	return setupcontrol.Prepared{Request: r, InstanceID: id, Before: before, Candidate: hash(marshal(n)), Services: []string{"登录、数据存储、应用及所选功能"}, Changes: changes, Blocks: blocks, Data: marshal(n)}, nil
 }
 func (d *Driver) handoff(ctx context.Context, project, dir string) error {
 	// The original bootstrap owns these credentials. Copy by a fixed private

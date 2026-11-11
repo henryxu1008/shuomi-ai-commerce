@@ -179,14 +179,14 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 	}
 	blocks := []string{}
 	if e = d.protectRuntimeFile(ctx, configFile); e != nil {
-		blocks = append(blocks, "候选文件的Docker私密权限未完成核对；原配置未改变")
+		blocks = append(blocks, "新配置文件的保护检查未通过；原配置未改变")
 	}
 	if coreconfig.VerifyPrivateFiles(ctx, []string{configFile}) != nil {
-		blocks = append(blocks, "候选配置未通过本机私密文件检查，原实例未改变")
+		blocks = append(blocks, "新配置文件的本机访问权限检查未通过，已有系统未改变")
 	}
 	mods, e := d.inspectModules(ctx, a, configFile)
 	if e != nil {
-		blocks = append(blocks, "候选配置的原生只读检测未完成；不会以启动业务进程替代检测")
+		blocks = append(blocks, "新配置的安装检查未完成；本次未启动业务操作")
 	}
 	blocks = append(blocks, candidatePermissionBlocks(mods, r.Enabled)...)
 	definitions := map[string]currentapplication.InstallModule{}
@@ -241,7 +241,7 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 				}
 			}
 			if !verified {
-				blocks = append(blocks, definition.Label+"：缺少合格的schema/运行权限核对；须由原owner现有维护入口处理，不能重跑新装")
+				blocks = append(blocks, definition.Label+"：必要的数据或访问权限尚未核实，请联系维护人员处理；已有系统不能重新执行首次安装")
 			}
 		}
 		changes = append(changes, setupcontrol.Change{Label: definition.Label, Before: previous, After: after})
@@ -282,7 +282,7 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 		return setupcontrol.Prepared{}, e
 	}
 	n := nativePlan{Project: v.Project, Mode: r.Mode, ComposeFile: composeFile, ComposeHash: hash(b), ManifestFile: configFile, ManifestHash: hash(candidate), Expected: r.Enabled, RuntimeBindings: bindings(cs), Origin: v.Origin}
-	return setupcontrol.Prepared{Request: r, InstanceID: r.InstanceID, Before: before, Candidate: hash(marshal(n)), Services: []string{"current-application", "listingkit-ui"}, Changes: changes, Blocks: blocks, Data: marshal(n)}, nil
+	return setupcontrol.Prepared{Request: r, InstanceID: r.InstanceID, Before: before, Candidate: hash(marshal(n)), Services: []string{"应用服务", "网页界面"}, Changes: changes, Blocks: blocks, Data: marshal(n)}, nil
 }
 
 // A private file reference cannot silently point a module at another identity

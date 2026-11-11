@@ -26,13 +26,13 @@ func candidatePermissionBlocks(modules []currentapplication.ModuleInspection, se
 		}
 		if productChanged && productOwnerModule(m.ID) {
 			if !productBlocked {
-				result = append(result, "商品资料共用运行权限与候选功能集合不一致；停用也不会自动修改原权限，须保留原配置并由原owner维护")
+				result = append(result, "所选商品功能与现有访问权限不匹配；即使停用也不能继续。请保留原配置并联系维护人员处理")
 				productBlocked = true
 			}
 			continue
 		}
 		if changed {
-			result = append(result, m.Label+"：候选的原生运行权限检查拒绝，原实例未改变")
+			result = append(result, m.Label+"：新设置的访问权限检查未通过，已有系统未改变")
 		}
 	}
 	return result

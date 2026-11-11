@@ -114,7 +114,7 @@ func (d *Driver) Snapshot(ctx context.Context) (setupcontrol.Snapshot, error) {
 	s := setupcontrol.Snapshot{Version: d.release.SourceCommit, Instances: []setupcontrol.Instance{}, Profiles: profiles(), Blocks: []string{}}
 	s.HostFreeBytes = availableSpace(d.source)
 	if d.images(ctx) != nil {
-		s.Blocks = append(s.Blocks, "此版本的准确后端或界面镜像尚未准备好")
+		s.Blocks = append(s.Blocks, "安装包所需文件尚未准备齐全，请联系维护人员补齐")
 	}
 	cs, e := d.containers(ctx, "")
 	if e != nil {
@@ -233,15 +233,15 @@ func (d *Driver) Inspect(ctx context.Context, id string) (setupcontrol.Instance,
 	a, aok := service(cs, "current-application")
 	u, uok := service(cs, "listingkit-ui")
 	if !aok || !uok || !a.State.Running {
-		v.Blocks = append(v.Blocks, "后端或界面不是唯一运行服务；无法安全管理")
+		v.Blocks = append(v.Blocks, "系统服务缺失、重复或未运行，请联系维护人员检查后再管理功能")
 		return v, nil
 	}
 	if _, e = d.effective(ctx, v.Project, cs); e != nil {
-		v.Blocks = append(v.Blocks, "无法核实当前服务与完整Compose组合一致；请先保留并恢复准确的部署文件")
+		v.Blocks = append(v.Blocks, "现有系统与安装记录不一致，请联系维护人员核对安装文件后重试")
 	}
 	mods, e := d.inspectModules(ctx, a, "")
 	if e != nil {
-		v.Blocks = append(v.Blocks, "原配置或原生只读检查无法完成；未启动业务运行流程")
+		v.Blocks = append(v.Blocks, "无法完成现有配置和安装状态检查；本次未启动业务操作")
 		return v, nil
 	}
 	for _, m := range mods {
@@ -348,7 +348,7 @@ func freePorts(r setupcontrol.Request) error {
 	return nil
 }
 func profiles() []setupcontrol.Profile {
-	return []setupcontrol.Profile{{ID: "base", Label: "基础账户与店铺中心", Note: "身份、企业、权限、资源、账户与店铺；外部服务需另行配置"}, {ID: "unified", Label: "现有原生模块组合", Note: "复用知识库、数据服务、商品资料、通知、工具市场、生态及存储安装组合；Chat等后置安装仍需原owner前置"}}
+	return []setupcontrol.Profile{{ID: "base", Label: "基础安装（账户与店铺）", Note: "包含登录、企业、账户、权限、使用额度和店铺管理。店铺连接等外部服务需要另行配置。"}, {ID: "unified", Label: "业务功能安装", Note: "包含基础安装，以及知识库、数据服务、自有商品与商品资料、项目中心、通知、报告、工具市场、生态服务和文件存储。AI对话等其他功能需另行开通；安装后仍需配置外部服务。"}}
 }
 
 // Files and manifests stay private; only a fixed public summary reaches HTTP.
