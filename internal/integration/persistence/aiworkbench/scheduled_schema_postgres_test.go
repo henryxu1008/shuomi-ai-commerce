@@ -134,3 +134,50 @@ func TestScheduledPlanCreateAndRegistrationCAS(t *testing.T) {
 	require.NoError(t, db.Raw("SELECT consumed_occurrences FROM ai_workbench.scheduled_plans WHERE id = ?", input.ID).Scan(&used).Error)
 	require.EqualValues(t, 1, used)
 }
+
+
+func TestScheduledPlanAcrossSlotsDoesNotOverlap(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	created := time.Date(2027, 3, 13, 0, 0, 0, 0, time.UTC)
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+	rule := aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily,
+		TimeZone: "Asia/Shanghai", Hour: 9, Minute: 0}
+	plan := aiworkbench.ScheduledPlanDraft{
+		ID: uuid.NewString(), Scope: scope, MemberID: "member-alice",
+		Selection: aiworkbench.TaskSelection{
+			Subject: aiworkbench.Subject{Kind: "own_product",
+				ID: "fa5a9456-c8cb-43bf-ad1c-57a3e9f5199a", CatalogVersion: "3",
+				PublicationID: "current-pub"},
+			Capability: aiworkbench.ContentTaskKind,
+			Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true},
+		},
+		GoalSummary: "Localize product", Rule: rule,
+		Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 3, PerRunUpperBoundMicros: 2500},
+		CreatedAt: created,
+	}
+	require.True(t, plan.Valid())
+	require.NoError(t, store.CreateScheduledPlan(ctx, plan))
+	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, plan.ID, 1))
+	first, err := rule.NextAfter(created)
+	require.NoError(t, err)
+	second, err := rule.NextAfter(first)
+	require.NoError(t, err)
+	one, replay, err := store.ClaimScheduledOccurrence(ctx, scope, plan.ID, first, first)
+	require.NoError(t, err)
+	require.False(t, replay)
+	require.Equal(t, "CLAIMED", one.State)
+	two, replay, err := store.ClaimScheduledOccurrence(ctx, scope, plan.ID, second, second)
+	require.NoError(t, err)
+	require.False(t, replay)
+	require.Equal(t, "SKIPPED", two.State)
+	replayed, replay, err := store.ClaimScheduledOccurrence(ctx, scope, plan.ID, second, second.Add(time.Second))
+	require.NoError(t, err)
+	require.True(t, replay)
+	require.Equal(t, two.ID, replayed.ID)
+	var consumed int64
+	require.NoError(t, db.Raw("SELECT consumed_occurrences FROM ai_workbench.scheduled_plans WHERE id=?", plan.ID).Scan(&consumed).Error)
+	require.EqualValues(t, 1, consumed, "skipped slot must never spend another execution allowance")
+}
