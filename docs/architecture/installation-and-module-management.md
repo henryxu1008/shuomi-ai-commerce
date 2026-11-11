@@ -1,6 +1,6 @@
 # 首次安装向导与实例模块管理
 
-Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**，依据§9独立R1；正式实现尚未开始，不表示界面已可用。
+Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**，依据§9独立R1；实施与运行进度见#1240和PR#1241，本设计状态不代替运行交付或用户验收。
 
 执行[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)，调查基线main `cea8e313b17f90f7b9208d15b239c8ee437ed59e`。用户2026-11-11确认首次安装和现有实例管理都需要；本文件不代表已实现界面或已获准更新原35444。
 

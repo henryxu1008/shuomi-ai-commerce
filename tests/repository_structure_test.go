@@ -14,6 +14,7 @@ import (
 // maintainedOperationalCommands is shared by classification, documentation and owner guards.
 func maintainedOperationalCommands() map[string]struct{} {
 	return map[string]struct{}{
+		"listingkit-setup":                    {},
 		"supply-asset-init":                   {},
 		"account-acceptance-fixture":          {},
 		"account-audit-ledger-schema-init":    {},

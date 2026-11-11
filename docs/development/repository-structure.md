@@ -9,6 +9,7 @@
 | 路径 | 职责 |
 | --- | --- |
 | `cmd/current-application` | 当前后端应用命令 |
+| `cmd/listingkit-setup` | 宿主显式启动的本机安装与模块管理；[构建和使用](../operations/local-installation-management.md)，不注入业务服务 |
 | `internal/app` | composition root、配置装配、HTTP、worker 与运行注入 |
 | `internal/product` | sourcing / catalog / asset / review / proposal，来源与商品事实 |
 | `internal/listing` | materials / completiondraft / preparation / record / submission |
@@ -67,6 +68,7 @@ Framework、Transport、Workflow、Persistence、Provider SDK、Marketplace Clie
     - `issue36-local-trial-init`
     - `knowledge-schema-init`
     - `local-ai-trial-grant`
+    - `listingkit-setup`
     - `model-invocation-recovery`
     - `notification-center-schema-init`
     - `organization-membership-schema-init`
