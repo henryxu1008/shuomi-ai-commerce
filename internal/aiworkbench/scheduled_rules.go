@@ -60,7 +60,7 @@ func (r ScheduleRule) Valid() bool {
 		if !r.AtUTC.IsZero() || r.Hour < 0 || r.Hour > 23 || r.Minute < 0 || r.Minute > 59 {
 			return false
 		}
-		return r.Frequency != ScheduleWeekly || r.Weekday <= time.Saturday
+		return r.Frequency != ScheduleWeekly || (r.Weekday >= time.Sunday && r.Weekday <= time.Saturday)
 	default:
 		return false
 	}
