@@ -3,6 +3,8 @@ package setup
 import (
 	"encoding/json"
 	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
 	"task-processor/internal/app/setupcontrol"
 	"testing"
 )
@@ -19,6 +21,16 @@ func TestCandidateOnlyChangesSelectedModuleAndPreservesOtherFacts(t *testing.T) 
 	require.ErrorIs(t, e, setupcontrol.ErrInvalid)
 	_, e = changeModules(original, nil, map[string]bool{"toolMarket": true})
 	require.ErrorIs(t, e, setupcontrol.ErrInvalid)
+}
+func TestReleasePathsAcceptNextRouteNamesAndRejectTraversal(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "src", "[...path]", "route.ts")
+	require.NoError(t, os.MkdirAll(filepath.Dir(file), 0700))
+	require.NoError(t, os.WriteFile(file, []byte("route"), 0600))
+	d := &Driver{source: root, release: Release{Files: map[string]string{"src/[...path]/route.ts": hash([]byte("route"))}}}
+	require.NoError(t, d.verifySource())
+	d.release.Files = map[string]string{"src/../outside": hash(nil)}
+	require.ErrorIs(t, d.verifySource(), setupcontrol.ErrInvalid)
 }
 func TestNewInstallRejectsRetainedResourcesBeforeDispatch(t *testing.T) {
 	require.ErrorIs(t, validateNew(setupcontrol.Request{Mode: "fresh", Project: "original", Profile: "base", ApplicationPort: 35444, IdentityPort: 35443, MailPort: 35425}, true), setupcontrol.ErrInvalid)

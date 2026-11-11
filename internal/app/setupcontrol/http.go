@@ -41,12 +41,13 @@ type Profile struct {
 	Note  string `json:"note"`
 }
 type Snapshot struct {
-	Pending     []Plan     `json:"pending"`
-	DockerReady bool       `json:"dockerReady"`
-	Version     string     `json:"version"`
-	Instances   []Instance `json:"instances"`
-	Profiles    []Profile  `json:"profiles"`
-	Blocks      []string   `json:"blocks"`
+	HostFreeBytes *uint64    `json:"hostFreeBytes"`
+	Pending       []Plan     `json:"pending"`
+	DockerReady   bool       `json:"dockerReady"`
+	Version       string     `json:"version"`
+	Instances     []Instance `json:"instances"`
+	Profiles      []Profile  `json:"profiles"`
+	Blocks        []string   `json:"blocks"`
 }
 type Catalog interface {
 	Snapshot(context.Context) (Snapshot, error)

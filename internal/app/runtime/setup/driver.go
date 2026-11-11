@@ -54,7 +54,7 @@ func (d *Driver) verifySource() error {
 		return setupcontrol.ErrInvalid
 	}
 	for path, want := range d.release.Files {
-		if filepath.IsAbs(path) || strings.Contains(path, "..") || strings.Contains(path, ":") {
+		if !filepath.IsLocal(path) || filepath.ToSlash(filepath.Clean(filepath.FromSlash(path))) != path || strings.ContainsAny(path, ":\\") {
 			return setupcontrol.ErrInvalid
 		}
 		b, e := readPrivate(filepath.Join(d.source, filepath.FromSlash(path)), 20*1024*1024)
@@ -112,6 +112,7 @@ func (d *Driver) Identity(ctx context.Context, r setupcontrol.Request) (string, 
 }
 func (d *Driver) Snapshot(ctx context.Context) (setupcontrol.Snapshot, error) {
 	s := setupcontrol.Snapshot{Version: d.release.SourceCommit, Instances: []setupcontrol.Instance{}, Profiles: profiles(), Blocks: []string{}}
+	s.HostFreeBytes = availableSpace(d.source)
 	if d.images(ctx) != nil {
 		s.Blocks = append(s.Blocks, "此版本的准确后端或界面镜像尚未准备好")
 	}

@@ -1,7 +1,7 @@
 export type Module = { id: string; label: string; configured: boolean; installed: string; enabled: boolean; uiEnabled: boolean | null; mutable: boolean; note: string };
 export type Instance = { id: string; project: string; origin: string; backendImage: string; uiImage: string; modules?: Module[]; blocks: string[]; pending?: Plan };
 export type Plan = { id: string; instanceId: string; mode: string; status: string; changes: { label: string; before: string; after: string }[]; blocks: string[]; services: string[]; updatedAt: string };
-export type Environment = { dockerReady: boolean; version: string; instances: Instance[]; profiles: { id: string; label: string; note: string }[]; blocks: string[]; pending: Plan[] };
+export type Environment = { dockerReady: boolean; hostFreeBytes: number | null; version: string; instances: Instance[]; profiles: { id: string; label: string; note: string }[]; blocks: string[]; pending: Plan[] };
 export type SetupRequest = { mode: "fresh" | "existing"; instanceId?: string; project?: string; profile?: string; applicationPort?: number; identityPort?: number; mailPort?: number; configurationFile?: string; toolReleaseDirectory?: string; enabled?: Record<string, boolean> };
 
 const messages: Record<string, string> = {
