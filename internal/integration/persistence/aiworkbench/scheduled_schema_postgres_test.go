@@ -10,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	reviewproposal "task-processor/internal/product/review/proposal"
+	"task-processor/internal/aiworkbench"
 	"gorm.io/gorm"
 )
 
@@ -67,4 +69,51 @@ func TestScheduledPlanRuntimePrivileges(t *testing.T) {
 		}
 		return VerifySchema(context.Background(), tx)
 	}))
+}
+
+
+func TestScheduledPlanCreateAndRegistrationCAS(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+	input := aiworkbench.ScheduledPlanDraft{
+		ID: uuid.NewString(), Scope: scope, MemberID: "member-alice",
+		Selection: aiworkbench.TaskSelection{
+			Subject: aiworkbench.Subject{Kind: "own_product",
+				ID: "fa5a9456-c8cb-43bf-ad1c-57a3e9f5199a",
+				CatalogVersion: "3", PublicationID: "current-pub"},
+			Capability: aiworkbench.ContentTaskKind,
+			Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true},
+		},
+		GoalSummary: "Localize this product",
+		Rule: aiworkbench.ScheduleRule{
+			Frequency: aiworkbench.ScheduleOnce, TimeZone: "Asia/Shanghai",
+			AtUTC: now.Add(5 * time.Minute),
+		},
+		Budget: aiworkbench.ScheduleBudget{
+			MaxOccurrences: 1, PerRunUpperBoundMicros: 1000,
+		},
+		CreatedAt: now,
+	}
+	require.True(t, input.Valid())
+	require.NoError(t, store.CreateScheduledPlan(ctx, input))
+	got, state, revision, err := store.GetScheduledPlan(ctx, scope, input.ID)
+	require.NoError(t, err)
+	require.Equal(t, "PENDING_REGISTRATION", state)
+	require.EqualValues(t, 1, revision)
+	require.Equal(t, input.Selection, got.Selection)
+	require.Equal(t, input.Rule.AtUTC, got.Rule.AtUTC)
+	_, _, _, err = store.GetScheduledPlan(ctx,
+		aiworkbench.Scope{OrganizationID: "org-a", ActorID: "bob"}, input.ID)
+	require.ErrorIs(t, err, aiworkbench.ErrNotFound)
+	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, input.ID, revision))
+	_, state, nextRevision, err := store.GetScheduledPlan(ctx, scope, input.ID)
+	require.NoError(t, err)
+	require.Equal(t, "ACTIVE", state)
+	require.EqualValues(t, 2, nextRevision)
+	require.ErrorIs(t, store.MarkScheduleRegistered(ctx, scope, input.ID, revision),
+		aiworkbench.ErrRevisionMismatch)
 }
