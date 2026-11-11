@@ -14,7 +14,7 @@ const navigationIcons: Record<string, LucideIcon> = {
   "/workbench/ai/chat": MessageSquare, "/workbench/ai/tasks": ListChecks,
   "/workbench/ai/projects": FolderKanban, "/workbench/ai/knowledge": BookOpen,
   "/workbench/agents/skills": Sparkles, "/workbench/ai/reports": FileChartColumn,
-  [onlineAcquisitionGroup]: ScanLine, "/workbench/supply/official": Building2,
+  [onlineAcquisitionHref]: ScanLine, "/workbench/supply/official": Building2,
   "/workbench/supply/selected": Star, "/workbench/supply/catalogs": Boxes,
   [listingHome]: GitBranch, "/workbench/supply/applications": ClipboardList,
   "/workbench/supply/operator": ClipboardCheck,
@@ -40,7 +40,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/
 import { useQuery } from "@tanstack/react-query";
 import { ecoPageSchema, ecoRequest } from "@/lib/api/ecoservices";
 import { listMarketRecords } from "@/lib/api/supply-market";
-import { consoleNavigation, findConsoleRoute, onlineAcquisitionGroup, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
+import { consoleNavigation, findConsoleRoute, onlineAcquisitionHref, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
 import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
 import { researchLocation, researchNavigationHref, researchWorkflows, type ResearchLocation } from "@/lib/workbench/research-navigation";
 
@@ -85,7 +85,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
  if(node.href === "/workbench/store-center") return {...node,children:node.children?.map(child => child.href === "/workbench/store-products" ? {...child,availability:storeProductsAvailable ? "connected" as const:"unavailable" as const} : child.href === "/workbench/store-orders" ? {...child,availability:storeOrdersAvailable ? "connected" as const:"unavailable" as const} :child)};
     if(node.href==="/workbench/services"&&ecoservicesAvailable)return {...node,availability:"connected" as const,children:node.children?.map(child=>({...child,availability:"connected" as const}))};
     if (node.href === "/workbench/supply") return { ...node, children: node.children?.flatMap(child => {
-      if (child.href === onlineAcquisitionGroup) {
+      if (child.href === onlineAcquisitionHref) {
         return productAcquisitionAvailable || dataServicesAvailable ? [child] : [];
       }
       return [supplyMarketAvailable && ["/workbench/supply/official", "/workbench/supply/selected", "/workbench/supply/catalogs", "/workbench/supply/applications"].includes(child.href)
