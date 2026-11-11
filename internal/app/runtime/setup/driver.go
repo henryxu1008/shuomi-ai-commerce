@@ -65,17 +65,25 @@ func (d *Driver) verifySource() error {
 	return nil
 }
 func (d *Driver) images(ctx context.Context) error {
-	for _, id := range []string{d.release.BackendImage, d.release.UIImage} {
+	if len(d.imageBlocks(ctx)) > 0 {
+		return setupcontrol.ErrUnavailable
+	}
+	return nil
+}
+func (d *Driver) imageBlocks(ctx context.Context) []string {
+	blocks := []string{}
+	for _, item := range []struct{ id, label string }{{d.release.BackendImage, "应用服务安装文件"}, {d.release.UIImage, "网页界面安装文件"}} {
+		id := item.id
 		b, e := d.run(ctx, "image", "inspect", id)
 		var values []struct {
 			ID     string `json:"Id"`
 			Config struct{ Labels map[string]string }
 		}
 		if e != nil || json.Unmarshal(b, &values) != nil || len(values) != 1 || values[0].ID != id || values[0].Config.Labels["org.opencontainers.image.revision"] != d.release.SourceCommit {
-			return setupcontrol.ErrUnavailable
+			blocks = append(blocks, item.label+"未就绪或与当前版本不匹配。请重新准备完整安装包，再点击“重新检查”。")
 		}
 	}
-	return nil
+	return blocks
 }
 func (d *Driver) identity(ctx context.Context, project string) (string, error) {
 	b, e := d.run(ctx, "info", "--format", "{{.ID}}")
@@ -113,9 +121,7 @@ func (d *Driver) Identity(ctx context.Context, r setupcontrol.Request) (string, 
 func (d *Driver) Snapshot(ctx context.Context) (setupcontrol.Snapshot, error) {
 	s := setupcontrol.Snapshot{Version: d.release.SourceCommit, Instances: []setupcontrol.Instance{}, Profiles: profiles(), Blocks: []string{}}
 	s.HostFreeBytes = availableSpace(d.source)
-	if d.images(ctx) != nil {
-		s.Blocks = append(s.Blocks, "安装包所需文件尚未准备齐全，请联系维护人员补齐")
-	}
+	s.Blocks = append(s.Blocks, d.imageBlocks(ctx)...)
 	cs, e := d.containers(ctx, "")
 	if e != nil {
 		s.Blocks = append(s.Blocks, "Docker未连接；请先在本机启动Docker引擎")
