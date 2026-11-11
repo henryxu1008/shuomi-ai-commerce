@@ -14,6 +14,7 @@ import (
 
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/app/productsourcing"
 	reportapp "task-processor/internal/app/reportcenter"
@@ -166,6 +167,20 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	}
 	if fullRuntime {
 		testFullChatApplicationComposition(t, f, m.application.config, deps, db, policy, operationID)
+	}
+	if fullRuntime && miniRuntime {
+		// A deployment descriptor has no frozen tariff; the shared price owner
+		// supplies it at use time. Startup must still admit its valid shape.
+		unpriced := policy
+		unpriced.Profile.OfficialTariff = aicapability.OfficialModelTariff{}
+		require.NoError(t, unpriced.ShapeProfile().ValidateShape())
+		require.Error(t, unpriced.ShapeProfile().Validate())
+		_, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": unpriced}}, m.application)
+		require.NoError(t, err, "a shape-valid planning descriptor must not need a frozen tariff at startup")
+		invalid := unpriced
+		invalid.Profile.MaximumOutputBytes = 0
+		_, err = buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": invalid}}, m.application)
+		require.Error(t, err, "invalid planning shape must still be rejected")
 	}
 	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}}, m.application)
 	require.NoError(t, err)
