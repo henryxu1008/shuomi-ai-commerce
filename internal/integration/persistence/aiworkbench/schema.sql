@@ -231,8 +231,8 @@ CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_plans (
     UNIQUE (id, organization_id, owner_user_id),
     CHECK (
       (frequency = 'once' AND once_at_utc IS NOT NULL AND local_hour IS NULL AND local_minute IS NULL AND local_weekday IS NULL) OR
-      (frequency = 'daily' AND once_at_utc IS NULL AND local_hour BETWEEN 0 AND 23 AND local_minute BETWEEN 0 AND 59 AND local_weekday IS NULL) OR
-      (frequency = 'weekly' AND once_at_utc IS NULL AND local_hour BETWEEN 0 AND 23 AND local_minute BETWEEN 0 AND 59 AND local_weekday BETWEEN 0 AND 6)
+      (frequency = 'daily' AND once_at_utc IS NULL AND local_hour IS NOT NULL AND local_minute IS NOT NULL AND local_hour BETWEEN 0 AND 23 AND local_minute BETWEEN 0 AND 59 AND local_weekday IS NULL) OR
+      (frequency = 'weekly' AND once_at_utc IS NULL AND local_hour IS NOT NULL AND local_minute IS NOT NULL AND local_weekday IS NOT NULL AND local_hour BETWEEN 0 AND 23 AND local_minute BETWEEN 0 AND 59 AND local_weekday BETWEEN 0 AND 6)
     ),
     CHECK (until_utc IS NULL OR once_at_utc IS NULL OR once_at_utc <= until_utc),
     CHECK (max_occurrences::numeric * per_run_upper_bound_micros::numeric = total_upper_bound_micros::numeric)
@@ -267,7 +267,17 @@ CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_occurrences (
 CREATE INDEX IF NOT EXISTS ai_workbench_scheduled_occurrences_plan
     ON ai_workbench.scheduled_occurrences (organization_id, owner_user_id, plan_id, scheduled_at_utc DESC);
 
-ALTER TABLE ai_workbench.scheduled_plans
-    ADD CONSTRAINT ai_workbench_plan_active_occurrence
-    FOREIGN KEY (active_occurrence_id, organization_id, owner_user_id, id)
-    REFERENCES ai_workbench.scheduled_occurrences (id, organization_id, owner_user_id, plan_id);
+DO $scheduled_plan$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'ai_workbench_plan_active_occurrence'
+          AND conrelid = 'ai_workbench.scheduled_plans'::regclass
+    ) THEN
+        ALTER TABLE ai_workbench.scheduled_plans
+            ADD CONSTRAINT ai_workbench_plan_active_occurrence
+            FOREIGN KEY (active_occurrence_id, organization_id, owner_user_id, id)
+            REFERENCES ai_workbench.scheduled_occurrences (id, organization_id, owner_user_id, plan_id);
+    END IF;
+END
+$scheduled_plan$;
