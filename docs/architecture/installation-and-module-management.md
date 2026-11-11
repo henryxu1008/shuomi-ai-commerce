@@ -1,6 +1,6 @@
 # 首次安装向导与实例模块管理
 
-Design Basis: **Independent Architecture**。Admission: **DESIGNING**，独立评审前不修改正式业务或安装路径。
+Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**，依据§9独立R1；正式实现尚未开始，不表示界面已可用。
 
 执行[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)，调查基线main `cea8e313b17f90f7b9208d15b239c8ee437ed59e`。用户2026-11-11确认首次安装和现有实例管理都需要；本文件不代表已实现界面或已获准更新原35444。
 
@@ -31,13 +31,15 @@ Out of Scope：远程集群/生产部署平台、任意脚本/SQL/Compose编辑�
 
 ## 3. 唯一控制边界与放置
 
-增加一个**显式由宿主操作者启动、仅本机可达的安装控制进程**，负责本轮安装会话，不放入普通业务serving进程。界面由该控制进程同源提供；复用现有React/设计系统表单、严格DTO和状态反馈。执行仍调用既有Compose/owner入口，不建设新的部署引擎。
+增加一个**显式由宿主操作者启动、仅本机可达的安装控制进程**，负责本轮安装会话，不放入普通业务serving进程。界面由该控制进程同源提供；复用现有React/设计系统表单、严格DTO和状态反馈。执行仍调用既有Compose/owner入口，不建设新的部署引擎。同一本机工具保留可启动的“安装与维护”入口，首次安装后再次打开进入实例模块管理，不要求用户手工编辑JSON或运行新空初始化。
 
 正常业务API、Next BFF和普通租户会话不获得Docker socket、shell、数据库owner或ZITADEL bootstrap凭据。业务工作台可向有资格的平台维护者展示安装管理入口说明；链接本身不提供安装权限。首版通过宿主启动的当前本机界面管理实例，不开放远端浏览器控制。
 
 首次业务身份尚不存在时，安装权限来自**宿主显式启动和一次性配对**，仅用于安装控制，不伪造业务user/org/member。ZITADEL始终是唯一业务身份owner，管理员创建沿原bootstrap；已有实例的企业管理员或platform_admin身份本身不能取得宿主维护权限。管理端不代用户执行企业启用、角色分配或provider授权。
 
 控制监听literal loopback、随机可用端口；绑定准确Host/Origin、独立短时安装会话、SameSite严格cookie、CSRF检查、禁止CORS/嵌入。配对秘密只在宿主交接，不放URL/query/history或业务页面；同源HTTPS就绪前不提交外部provider秘密。TLS与信任建立沿已有本机安装流程，证书确认仍由用户完成，不自动绕过浏览器安全提示。失效/退出后停止接受mutation。
+
+首次TLS/身份尚未就绪时，表单只收集非秘密结构字段及受限私密文件引用；新owner口令沿原bootstrap在本机生成，不经未就绪的业务表单传递。provider秘密在原HTTPS和正常凭据入口就绪后按原owner登记。原native-modules-init含psql变量携带ownerpassword进入argv的实现，不能声称直接复用就满足上述秘密边界；实施时须在本轮实际调用链改为私密stdin/file输入，并验证所有实际消费的bootstrap/owner入口，未消费的CLI不在此扩大改造。
 
 安装进程只持有所选实例的维护凭据，调用原installer后释放临时引用；runtime继续最小权限。秘密经原private文件/凭据owner登记，不进入sessionStorage/localStorage、日志、报告、命令参数或浏览器回显。界面只显示是否已登记及非敏感名称；模型/店铺等已有配置继续链接原正式配置页。
 
@@ -55,6 +57,8 @@ Out of Scope：远程集群/生产部署平台、任意脚本/SQL/Compose编辑�
 - 可使用/受阻：原健康、依赖、企业权限/配额/provider就绪；无法读到的范围标待核实。
 
 “缺少模型”“缺少官方店铺”“缺运行权限”“未开启”“仅本地测试”分别显示。查看页面、检查本机依赖和预览不执行付费调用、真实取数、provider授权或发布。无法安全只读验证的外部能力保持待配置/待用户验证，不能用一次真实调用当隐式安装测试。
+
+检测只用严格配置解析、Docker元数据和原owner明确的只读验证端口；不得调用完整runtime.Run（会装配并启动worker）、Compose up、bootstrap或installer来“探测”。没有合格只读端口时显示待核实，不能以试运行补证。保留实例的完整私密overlay及其env/命令是准确调用依据，不能用会cd自身目录、固定读取.env和组合的compose-modules.sh替换。
 
 ## 5. 两条完整操作路径
 
@@ -81,6 +85,8 @@ Out of Scope：远程集群/生产部署平台、任意脚本/SQL/Compose编辑�
 本机安装控制只新增一个有界安装操作记录：ID/key、准确instance identity、完整输入digest、原配置及候选配置hash、各原命令引用/结果、最终核对结果。记录保存在安装进程的私密工作目录，原manifest和owner数据仍是事实owner。凭据只存引用，结果严格脱敏。
 
 展示状态：待确认→执行中→已核对完成；执行失败或响应不明分别保留原结果/待核实。原子写入本机意图后才派发；同key同digest读同回执，同key不同digest拒绝。执行进程通过OS文件锁持有准确实例排他权，重启不把遗留执行中记录当新操作；不能因为PID消失就推断未执行。
+
+私密操作目录与锁绑定稳定的canonical实例身份（准确Docker context、project和已核实的实际资源绑定），不按浏览器会话、临时输出目录或新进程生成。所有控制会话和重启复用同一实例目录、原key和排他锁；配置路径/别名指向同一实际实例时也不能创建第二套操作记录。无法确定唯一实例身份或安全读取原记录时拒绝mutation，不允许换目录或key绕过。并发/重启测试必须跨控制进程，不能只在一个handler内用内存锁证明。
 
 配置文件使用新的私密候选目录，先完整校验与落盘，不逐字段覆盖当前manifest。原配置路径/镜像保留；Compose应用不是跨DB/多服务事务，不声称原子安装。当前原生installer已有的事务和中断拒绝合同继续有效。
 
@@ -115,3 +121,15 @@ Implementation cut按同一用户结果维护一个主要PR，先完成准入，
 4. 原key/并发/漂移/重启/失败：只派发一次，旧计划不足时拒绝，UNKNOWN只核实，按准确回退合同处理，不覆盖并发业务新写。
 
 原35444、真实provider/支付/发布、模型调用和用户验收均单独标NOT_RUN，不能由副本或CI绿推断。正式代码开工前须独立Architecture Review达到IMPLEMENTATION_READY。Legacy decision: N/A；这是当前系统显式安装/配置，不新增旧系统兼容或迁移。
+
+## 9. 独立架构评审与实施接线
+
+独立R1已按准确设计候选`f6bf46d3cc10c85aa2ca82489ad1d9e0bb4246c4`及真实Compose/bootstrap/native installer/Config/运行装配合同核对，结论IMPLEMENTATION_READY、0设计BLOCKER。上述补充只明确既有Must的调用边界，不新增产品范围或重新设计领域owner。
+
+| Finding / 当前Must | 分类 | 实施闭环（当前未执行） |
+| --- | --- | --- |
+| 准确组合和只读探测，不启动worker或重跑初始化 | IMPLEMENTATION_TEST | 配置→检测→预览消费者闭环；新装/保留分支及实际overlay接线，归IT-1/3 |
+| 跨会话稳定instance/key/锁和配置漂移 | IMPLEMENTATION_TEST | 跨进程并发/中断/重启只派发一次，原目录/原key恢复，归IT-4 |
+| 配对/TLS与秘密完整调用链，含既有argv差距 | IMPLEMENTATION_TEST | 首次非秘密配置→本机生成→HTTPS/原凭据登记；实际消费原脚本的私密stdin/file输入，归IT-1/2/4 |
+
+实施Must未通过仍阻止实现交付/合并；不把IMPLEMENTATION_READY写成安装执行、秘密修复或运行验收已通过。准确最终设计SHA及文字增量复核维护在#1240/PR#1241，冻结后非Blocker不重开架构。
