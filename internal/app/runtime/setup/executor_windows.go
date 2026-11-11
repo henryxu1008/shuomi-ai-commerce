@@ -34,10 +34,15 @@ func (d *Driver) desktopClientsIdle(ctx context.Context) (bool, error) {
 		return false, e
 	}
 	var info struct {
-		Os      string
-		Plugins []struct{ Name, Vendor, Path string }
+		Os, Context string
+		Plugins     []struct{ Name, Vendor, Path string }
 	}
-	if json.Unmarshal(b, &info) != nil || info.Os != "windows" {
+	if json.Unmarshal(b, &info) != nil || info.Os != "windows" || info.Context != d.dockerContext || d.dockerContext == "" {
+		return false, setupcontrol.ErrUnavailable
+	}
+	hostRaw, e := d.run(ctx, "context", "inspect", d.dockerContext, "--format", "{{json .Endpoints.docker.Host}}")
+	var host string
+	if e != nil || json.Unmarshal(hostRaw, &host) != nil || (host != "npipe:////./pipe/dockerDesktopLinuxEngine" && host != "npipe:////./pipe/docker_engine") {
 		return false, setupcontrol.ErrUnavailable
 	}
 	compose := false

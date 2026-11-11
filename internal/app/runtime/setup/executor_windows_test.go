@@ -4,17 +4,57 @@ package setup
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/windows"
 )
+
+type recoveryProfileRunner struct{ contextName, host, plugin string }
+
+func (r recoveryProfileRunner) Run(_ context.Context, _ string, args []string) ([]byte, error) {
+	if strings.Contains(strings.Join(args, " "), "context inspect") {
+		return json.Marshal(r.host)
+	}
+	return json.Marshal(map[string]any{"Os": "windows", "Context": r.contextName, "Plugins": []any{map[string]string{"Name": "compose", "Vendor": "Docker Inc.", "Path": r.plugin}}})
+}
+
+func TestRecoveryRequiresKnownLocalDesktopEndpoint(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "resources", "bin")
+	require.NoError(t, os.MkdirAll(bin, 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(bin, "docker.exe"), []byte("fixture"), 0600))
+	plugin := filepath.Join(root, "docker-compose.exe")
+	require.NoError(t, os.WriteFile(plugin, []byte("fixture"), 0600))
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, tc := range []struct {
+		name, actualContext, host string
+		allowed                   bool
+	}{
+		{"local Desktop", "desktop-linux", "npipe:////./pipe/dockerDesktopLinuxEngine", true},
+		{"remote daemon", "desktop-linux", "tcp://remote.example:2376", false},
+		{"changed context", "different", "npipe:////./pipe/dockerDesktopLinuxEngine", false},
+		{"unrecognised local pipe", "desktop-linux", "npipe:////./pipe/other", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := &Driver{dockerContext: "desktop-linux", runner: recoveryProfileRunner{tc.actualContext, tc.host, plugin}}
+			_, e := d.desktopClientsIdle(context.Background())
+			if tc.allowed {
+				require.NoError(t, e)
+			} else {
+				require.Error(t, e)
+			}
+		})
+	}
+}
 
 func TestRecoveryRejectsClientSurvivingControllerAndLauncher(t *testing.T) {
 	root := t.TempDir()

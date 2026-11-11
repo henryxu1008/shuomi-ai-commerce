@@ -29,6 +29,7 @@ func TestRecoveryDockerReadonlyVolumeAdmission(t *testing.T) {
 		require.NoError(t, e)
 		return strings.TrimSpace(string(b))
 	}
+	d.dockerContext = run("context", "show")
 	run("image", "inspect", "alpine:3.22")
 	volumes := map[string]any{}
 	names := []string{}
@@ -75,7 +76,7 @@ func TestRecoveryDockerReadonlyVolumeAdmission(t *testing.T) {
 	p := setupcontrol.Prepared{InstanceID: id, Request: setupcontrol.Request{Mode: "fresh", Project: project}, Data: marshal(nativePlan{Mode: "fresh", Project: project, ComposeFile: file, ComposeHash: hash(raw)})}
 	a, e := d.AuditRecovery(ctx, p, true)
 	require.NoError(t, e)
-	require.True(t, a.Empty)
+	require.True(t, a.Empty, "audit blockers: %v", a.Blocks)
 	require.Empty(t, a.Blocks)
 	run("create", "--pull", "never", "--network", "none", "--name", foreign, "--label", "io.shuomi.recovery-fixture="+project, "--mount", "type=volume,src="+names[0]+",dst=/source,readonly,volume-nocopy", "alpine:3.22", "true")
 	a, e = d.AuditRecovery(ctx, p, true)
@@ -83,6 +84,12 @@ func TestRecoveryDockerReadonlyVolumeAdmission(t *testing.T) {
 	require.False(t, a.Empty)
 	require.NotEmpty(t, a.Blocks)
 	run("rm", foreign)
+	fixtureRun := []string{"run", "--rm", "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL", "--mount", "type=volume,src=" + names[0] + ",dst=/data,volume-nocopy", "alpine:3.22", "sh", "-eu", "-c"}
+	run(append(fixtureRun, `touch "$1"`, "fixture", "/data/\n")...)
+	a, e = d.AuditRecovery(ctx, p, true)
+	require.NoError(t, e)
+	require.False(t, a.Empty, "a newline-only filename is still existing data")
+	run(append(fixtureRun, `rm -- "$1"`, "fixture", "/data/\n")...)
 	run("run", "--rm", "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL", "--mount", "type=volume,src="+names[0]+",dst=/data,volume-nocopy", "alpine:3.22", "sh", "-eu", "-c", `printf '%s' 'synthetic-fixture-state' > /data/.test-state`)
 	fileHash := func() string {
 		return run("run", "--rm", "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL", "--mount", "type=volume,src="+names[0]+",dst=/data,readonly,volume-nocopy", "alpine:3.22", "sha256sum", "/data/.test-state")
