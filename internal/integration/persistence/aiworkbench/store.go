@@ -178,7 +178,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if err := validateRuntimeRoleIdentity(db.WithContext(ctx), currentRole); err != nil {
 		return aiworkbench.ErrUnavailable
 	}
-	for _, name := range []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts"} {
+	for _, name := range []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences"} {
 		var exists bool
 		if err := db.WithContext(ctx).Raw("SELECT to_regclass(?) IS NOT NULL", "ai_workbench."+name).Scan(&exists).Error; err != nil || !exists {
 			return aiworkbench.ErrUnavailable
