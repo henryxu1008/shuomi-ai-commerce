@@ -14,6 +14,18 @@ const p={id,title:"原企业项目",goal:"长期目标",kind:"OTHER",dueDate:"",
 const metrics={activeProjects:35,todayUpdatedProjects:4,storeProjects:20,generalProjects:15,waitingTasks:2,timeZone:"Asia/Singapore",today:"2026-10-11",stores:[{id:"store-a",name:"授权一号店"}],storesAvailable:true};
 beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a"};f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.research.mockReset().mockResolvedValue({items:[],incomplete:false});f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
 afterEach(()=>{cleanup();sessionStorage.clear();});
+it.each(["active","recent","templates","archived"] as const)("exposes all project views and marks %s as current",async mode=>{
+ f.request.mockResolvedValue({projects:[],templates:[],next:""});
+ render(<ProjectPage mode={mode}/>);
+ const nav=screen.getByRole("navigation",{name:"项目视图"});
+ for(const [label,path] of [["进行中项目","active"],["最近访问","recent"],["项目模板","templates"],["已归档","archived"]]){
+  const link=within(nav).getByRole("link",{name:label});
+  expect(link).toHaveAttribute("href",`/workbench/ai/projects/${path}`);
+  if(path===mode) expect(link).toHaveAttribute("aria-current","page");
+  else expect(link).not.toHaveAttribute("aria-current");
+ }
+ await waitFor(()=>expect(f.request).toHaveBeenCalled());
+});
 it("shows full private metrics, scopes store filters and clears them on reset",async()=>{
  render(<ProjectPage/>);await screen.findByText("35");expect(screen.getByText("店铺 20 · 非店铺 15")).toBeVisible();expect(screen.getByRole("heading",{name:"进行中项目",level:1})).toBeVisible();
  const store=screen.getByRole("combobox",{name:"具体店铺"});expect(store).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:/^关联店铺$/}));expect(store).toBeEnabled();fireEvent.change(store,{target:{value:"store-a"}});

@@ -72,6 +72,11 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
   }
   const exact = visit(consoleNavigation, []);
   if (exact) return exact;
+  if (/^\/workbench\/ai\/projects\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pathname)) {
+    const parent = findConsoleRoute("/workbench/ai/projects")!;
+    const node: ConsoleNavNode = { label: "项目详情", href: pathname, availability: parent.node.availability };
+    return { node, trail: [...parent.trail, node] };
+  }
   if (pathname === amazonRealtimeAcquisitionHref) return findConsoleRoute(onlineAcquisitionHref);
   if (/^\/workbench\/(data\/research|supply\/selection)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pathname)) {
     const research=pathname.startsWith("/workbench/data/"),parent=findConsoleRoute(research?"/workbench/data/research":"/workbench/supply/selection")!;

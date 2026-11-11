@@ -242,6 +242,14 @@ it.each(["running", "pending", "completed", "errors", "pending/other", "complete
   expect(screen.queryByRole("button", { name: "展开任务中心" })).not.toBeInTheDocument();
 });
 
+it.each(["active", "recent", "templates", "archived", "550e8400-e29b-41d4-a716-446655440000"])("highlights the second-level project entry on %s", (path) => {
+  render(<ConsoleNavigation pathname={`/workbench/ai/projects/${path}`} ariaLabel="主导航" projectCenterAvailable />);
+  const entry = screen.getByRole("link", { name: "项目中心" });
+  expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+  expect(entry).toHaveAttribute("aria-current", "page");
+  expect(screen.queryByRole("button", { name: "展开项目中心" })).not.toBeInTheDocument();
+});
+
 it.each([
   [false, false], [true, false], [false, true], [true, true],
 ])("shows one second-level online acquisition entry by capability (1688: %s, Amazon: %s)", async (has1688, hasAmazon) => {
