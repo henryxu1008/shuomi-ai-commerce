@@ -5,9 +5,14 @@ const (
 	TitlePilotOpenAIEndpoint      = "https://api.openai.com/v1"
 	TitlePilotPromptTokens        = 16_384
 	TitlePilotCompletionTokens    = 2_048
+	OpenAIMiniTextAdapterPolicy   = "openai-mini-text-v1"
 )
 
 func validTitlePilotWire(raw []byte, modelID string) bool {
+	return validBoundedOpenAITextWire(raw, modelID, TitlePilotCompletionTokens)
+}
+
+func validBoundedOpenAITextWire(raw []byte, modelID string, maximumOutputTokens int) bool {
 	var body struct {
 		Model    string `json:"model"`
 		Messages []struct {
@@ -22,7 +27,7 @@ func validTitlePilotWire(raw []byte, modelID string) bool {
 		Stream              *bool  `json:"stream"`
 	}
 	return decodeClosedSingleImageJSON(raw, &body) &&
-		body.Model == modelID && body.MaxCompletionTokens == TitlePilotCompletionTokens &&
+		body.Model == modelID && body.MaxCompletionTokens == maximumOutputTokens && maximumOutputTokens > 0 &&
 		body.ReasoningEffort == "none" && body.ServiceTier == "default" && body.N == 1 &&
 		body.Store != nil && !*body.Store && (body.Stream == nil || !*body.Stream) &&
 		len(body.Messages) == 2 && body.Messages[0].Role == "system" && body.Messages[0].Content != "" &&

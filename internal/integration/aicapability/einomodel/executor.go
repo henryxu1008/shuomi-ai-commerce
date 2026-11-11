@@ -204,7 +204,7 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
-	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
+	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
 		// Keep the actual SDK wire and framing within the amount quoted and reserved.
 		guardCfg.MaximumRequestBytes = min(guardCfg.MaximumRequestBytes, quote.MaximumTokens-p.MaximumCompletionTokens-128)
 	}

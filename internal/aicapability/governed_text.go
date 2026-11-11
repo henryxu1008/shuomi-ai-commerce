@@ -124,6 +124,19 @@ func (p ModelProfile) MaximumCost() (int64, error) {
 	return p.CostFor(p.MaximumPromptTokens, p.MaximumCompletionTokens)
 }
 
+// CNYRatesCoverUSDTariff prevents a bounded agent cost from understating the
+// current official USD tariff and its published conversion rate.
+func (p ModelProfile) CNYRatesCoverUSDTariff() bool {
+	t := p.OfficialTariff
+	if p.Currency != "CNY" || t.Currency != "USD" || t.UsageVersion != "openai-text-v1" || t.CNYMicrosPerCurrencyUnit <= 0 || t.Rates.InputText <= 0 || t.Rates.OutputText <= 0 {
+		return false
+	}
+	covers := func(cny, usd int64) bool {
+		return new(big.Int).Mul(big.NewInt(cny), big.NewInt(1_000_000)).Cmp(new(big.Int).Mul(big.NewInt(usd), big.NewInt(t.CNYMicrosPerCurrencyUnit))) >= 0
+	}
+	return covers(p.InputMicrosPerMillion, t.Rates.InputText) && covers(p.OutputMicrosPerMillion, t.Rates.OutputText)
+}
+
 func (p ModelProfile) CostFor(promptTokens, completionTokens int64) (int64, error) {
 	if promptTokens < 0 || completionTokens < 0 || promptTokens > p.MaximumPromptTokens ||
 		completionTokens > p.MaximumCompletionTokens ||

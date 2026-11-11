@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"math/big"
 	"sort"
 	"task-processor/internal/agentconfig"
 	"time"
@@ -223,6 +222,10 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 				return q, nil
 			}
 			costLimit := def.MaximumCostMicros
+			if p.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy && !p.CNYRatesCoverUSDTariff() {
+				q.Reason = "COST_BOUND_MISSING"
+				return q, nil
+			}
 			if def.Scope.Capability == string(aicapability.OperationOwnProductIntake) &&
 				def.Channel == "openai-direct" && p.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
 				costLimit = min(costLimit, 300_000)
@@ -287,19 +290,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 // Mini's CNY quote must cover the same uncached input and output that the
 // resource owner reserves from the current USD tariff and its frozen FX.
 func miniIntakeRatesCoverTariff(p aicapability.ModelProfile) bool {
-	tariff := p.OfficialTariff
-	if p.Currency != "CNY" || tariff.Currency != "USD" ||
-		tariff.UsageVersion != "openai-text-v1" || tariff.Rates.InputText <= 0 || tariff.Rates.OutputText <= 0 {
-		return false
-	}
-	covers := func(cny, usd int64) bool {
-		// Comparing scaled integers enforces upward rounding without overflow.
-		configured := new(big.Int).Mul(big.NewInt(cny), big.NewInt(1_000_000))
-		required := new(big.Int).Mul(big.NewInt(usd), big.NewInt(tariff.CNYMicrosPerCurrencyUnit))
-		return configured.Cmp(required) >= 0
-	}
-	return covers(p.InputMicrosPerMillion, tariff.Rates.InputText) &&
-		covers(p.OutputMicrosPerMillion, tariff.Rates.OutputText)
+	return p.CNYRatesCoverUSDTariff()
 }
 
 func validVisionConsumer(capability string, p aicapability.ModelProfile) bool {
