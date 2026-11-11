@@ -35,6 +35,7 @@ type Request struct {
 	MailPort             int             `json:"mailPort,omitempty"`
 	ConfigurationFile    string          `json:"configurationFile,omitempty"`
 	ToolReleaseDirectory string          `json:"toolReleaseDirectory,omitempty"`
+	NetworkSubnet        string          `json:"networkSubnet,omitempty"`
 	Enabled              map[string]bool `json:"enabled,omitempty"`
 }
 type Change struct {

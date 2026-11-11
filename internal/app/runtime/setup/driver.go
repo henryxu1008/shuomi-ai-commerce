@@ -299,6 +299,9 @@ func changeModules(original, provided map[string]any, selected map[string]bool) 
 var projectPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{2,47}$`)
 
 func validateNew(r setupcontrol.Request, exists bool) error {
+	if e := validateSubnet(r.NetworkSubnet); e != nil {
+		return e
+	}
 	if exists || !projectPattern.MatchString(r.Project) || r.Mode != "fresh" || r.InstanceID != "" || r.ConfigurationFile != "" || len(r.Enabled) != 0 {
 		return setupcontrol.ErrInvalid
 	}

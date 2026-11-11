@@ -111,7 +111,7 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 	if r.Mode == "fresh" {
 		return d.prepareFresh(ctx, r, dir)
 	}
-	if r.Mode != "existing" || r.Project != "" || r.Profile != "" || r.ApplicationPort != 0 || r.IdentityPort != 0 || r.MailPort != 0 || r.ToolReleaseDirectory != "" {
+	if r.Mode != "existing" || r.Project != "" || r.Profile != "" || r.ApplicationPort != 0 || r.IdentityPort != 0 || r.MailPort != 0 || r.ToolReleaseDirectory != "" || r.NetworkSubnet != "" {
 		return setupcontrol.Prepared{}, setupcontrol.ErrInvalid
 	}
 	v, cs, e := d.find(ctx, r.InstanceID)

@@ -36,6 +36,9 @@ func (d *Driver) freshFingerprint(ctx context.Context, r setupcontrol.Request) (
 	if e = freePorts(r); e != nil {
 		return "", e
 	}
+	if e = d.checkSubnet(ctx, r.NetworkSubnet); e != nil {
+		return "", e
+	}
 	id, e := d.identity(ctx, r.Project)
 	if e != nil {
 		return "", e
@@ -99,6 +102,9 @@ func (d *Driver) prepareFresh(ctx context.Context, r setupcontrol.Request, dir s
 	if json.Unmarshal(raw, &effective) != nil {
 		return setupcontrol.Prepared{}, setupcontrol.ErrUnavailable
 	}
+	if e = configureNetworks(effective, r.NetworkSubnet); e != nil {
+		return setupcontrol.Prepared{}, e
+	}
 	services, ok := effective["services"].(map[string]any)
 	if !ok {
 		return setupcontrol.Prepared{}, setupcontrol.ErrUnavailable
@@ -139,6 +145,9 @@ func (d *Driver) prepareFresh(ctx context.Context, r setupcontrol.Request, dir s
 	handoff := filepath.Join(dir, "handoff")
 	n := nativePlan{Project: r.Project, Mode: r.Mode, ComposeFile: composeFile, ComposeHash: hash(b), BuildServices: build, Origin: origin, Handoff: handoff}
 	changes := []setupcontrol.Change{{Label: "新独立实例", Before: "不存在", After: r.Project}, {Label: "安装组合", Before: "未安装", After: r.Profile}, {Label: "准确版本", Before: "未安装", After: d.release.SourceCommit}, {Label: "应用入口", Before: "无", After: origin}, {Label: "私密登录资料", Before: "无", After: handoff}, {Label: "数据与外部服务", Before: "空项目", After: "只执行原生初始化；不生成业务样例，不调用外部平台或模型"}}
+	if r.NetworkSubnet != "" {
+		changes = append(changes, setupcontrol.Change{Label: "新项目网络地址段", Before: "未分配", After: r.NetworkSubnet + "（只在此段内划分本组合的网络；不更改Docker全局配置）"})
+	}
 	return setupcontrol.Prepared{Request: r, InstanceID: id, Before: before, Candidate: hash(marshal(n)), Services: []string{"原有Compose安装组合（含身份、schema及应用）"}, Changes: changes, Blocks: blocks, Data: marshal(n)}, nil
 }
 func (d *Driver) handoff(ctx context.Context, project, dir string) error {
