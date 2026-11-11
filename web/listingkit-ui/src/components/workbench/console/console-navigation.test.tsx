@@ -144,10 +144,18 @@ it("opens saved reports without an Agent only when the report runtime is configu
  expect(screen.queryByRole("link",{name:"最近报告"})).not.toBeInTheDocument();
  view.rerender(<ConsoleNavigation pathname="/workbench/ai/reports/recent" ariaLabel="主导航" reportCenterAvailable />);
  expect(screen.getByRole("link",{name:"我的报告"})).toHaveAttribute("title","我的报告");
- expect(screen.getByRole("link",{name:"最近报告"})).toHaveAttribute("aria-current","page");
- expect(screen.getByRole("link",{name:"收藏报告"})).toHaveAttribute("href","/workbench/ai/reports/favorites");
- expect(screen.getByRole("link",{name:"全部报告"})).toHaveAttribute("href","/workbench/ai/reports/all");
+ expect(screen.getByRole("link",{name:"我的报告"})).toHaveAttribute("aria-current","page");
+ expect(screen.queryByRole("button",{name:"展开我的报告"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:"最近报告"})).not.toBeInTheDocument();
  expect(screen.queryByRole("link",{name:"硕米Chat"})).not.toBeInTheDocument();
+});
+
+it.each(["recent", "favorites", "all"])("highlights the second-level report entry on %s", (path) => {
+ render(<ConsoleNavigation pathname={`/workbench/ai/reports/${path}`} ariaLabel="主导航" reportCenterAvailable />);
+ const entry=screen.getByRole("link",{name:"我的报告"});
+ expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+ expect(entry).toHaveAttribute("aria-current","page");
+ expect(screen.queryByRole("button",{name:"展开我的报告"})).not.toBeInTheDocument();
 });
 
 it("opens current market entries only with the serving feature",()=>{
