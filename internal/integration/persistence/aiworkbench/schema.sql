@@ -199,3 +199,75 @@ CREATE TABLE IF NOT EXISTS ai_workbench.task_action_receipts (
            (state = 'FAILED' AND finished_at IS NOT NULL AND error_code IS NOT NULL) OR
            (state = 'UNKNOWN' AND finished_at IS NOT NULL AND error_code IS NULL))
 );
+
+
+-- A scheduled plan owns only user-approved execution intent; business execution,
+-- review decisions and commercial usage remain with their existing owners.
+-- Installation is explicit and is never attempted by the serving constructor.
+CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_plans (
+    id uuid PRIMARY KEY,
+    organization_id text NOT NULL CHECK (octet_length(organization_id) BETWEEN 1 AND 128),
+    owner_user_id text NOT NULL CHECK (octet_length(owner_user_id) BETWEEN 1 AND 128),
+    member_id text NOT NULL CHECK (octet_length(member_id) BETWEEN 1 AND 128),
+    kind text NOT NULL CHECK (kind = 'product.content.localize'),
+    task_selection jsonb NOT NULL CHECK (jsonb_typeof(task_selection) = 'object' AND octet_length(task_selection::text) BETWEEN 2 AND 2048),
+    goal_summary text NOT NULL CHECK (octet_length(goal_summary) BETWEEN 1 AND 512),
+    frequency text NOT NULL CHECK (frequency IN ('once', 'daily', 'weekly')),
+    time_zone text NOT NULL CHECK (octet_length(time_zone) BETWEEN 1 AND 128),
+    once_at_utc timestamptz,
+    local_hour smallint,
+    local_minute smallint,
+    local_weekday smallint,
+    until_utc timestamptz,
+    max_occurrences bigint NOT NULL CHECK (max_occurrences BETWEEN 1 AND 9223372036854775807),
+    per_run_upper_bound_micros bigint NOT NULL CHECK (per_run_upper_bound_micros > 0),
+    total_upper_bound_micros bigint NOT NULL CHECK (total_upper_bound_micros > 0),
+    consumed_occurrences bigint NOT NULL DEFAULT 0 CHECK (consumed_occurrences >= 0 AND consumed_occurrences <= max_occurrences),
+    active_occurrence_id uuid,
+    state text NOT NULL CHECK (state IN ('PENDING_REGISTRATION','ACTIVE','PAUSED','CLOSED','REGISTRATION_UNKNOWN')),
+    revision bigint NOT NULL CHECK (revision > 0),
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    UNIQUE (id, organization_id, owner_user_id),
+    CHECK (
+      (frequency = 'once' AND once_at_utc IS NOT NULL AND local_hour IS NULL AND local_minute IS NULL AND local_weekday IS NULL) OR
+      (frequency = 'daily' AND once_at_utc IS NULL AND local_hour BETWEEN 0 AND 23 AND local_minute BETWEEN 0 AND 59 AND local_weekday IS NULL) OR
+      (frequency = 'weekly' AND once_at_utc IS NULL AND local_hour BETWEEN 0 AND 23 AND local_minute BETWEEN 0 AND 59 AND local_weekday BETWEEN 0 AND 6)
+    ),
+    CHECK (until_utc IS NULL OR once_at_utc IS NULL OR once_at_utc <= until_utc),
+    CHECK (max_occurrences::numeric * per_run_upper_bound_micros::numeric = total_upper_bound_micros::numeric)
+);
+
+CREATE INDEX IF NOT EXISTS ai_workbench_scheduled_plans_owner
+    ON ai_workbench.scheduled_plans (organization_id, owner_user_id, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS ai_workbench_scheduled_plans_status
+    ON ai_workbench.scheduled_plans (state, updated_at, id);
+
+-- An occurrence is unique per actual UTC slot, independent of retries and
+-- plan revisions. No occurrence result is ever an alternative AgentRun fact.
+CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_occurrences (
+    id uuid PRIMARY KEY,
+    organization_id text NOT NULL,
+    owner_user_id text NOT NULL,
+    plan_id uuid NOT NULL,
+    scheduled_at_utc timestamptz NOT NULL,
+    plan_revision bigint NOT NULL CHECK (plan_revision > 0),
+    payload_digest char(64) NOT NULL CHECK (payload_digest ~ '^[a-f0-9]{64}$'),
+    state text NOT NULL CHECK (state IN ('CLAIMED','DISPATCHED','SKIPPED','BLOCKED','UNKNOWN','RECONCILED')),
+    business_task_id uuid,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    UNIQUE (organization_id, plan_id, scheduled_at_utc),
+    UNIQUE (id, organization_id, owner_user_id, plan_id),
+    FOREIGN KEY (plan_id, organization_id, owner_user_id)
+        REFERENCES ai_workbench.scheduled_plans (id, organization_id, owner_user_id),
+    FOREIGN KEY (business_task_id, organization_id, owner_user_id)
+        REFERENCES ai_workbench.business_tasks (id, organization_id, owner_user_id)
+);
+CREATE INDEX IF NOT EXISTS ai_workbench_scheduled_occurrences_plan
+    ON ai_workbench.scheduled_occurrences (organization_id, owner_user_id, plan_id, scheduled_at_utc DESC);
+
+ALTER TABLE ai_workbench.scheduled_plans
+    ADD CONSTRAINT ai_workbench_plan_active_occurrence
+    FOREIGN KEY (active_occurrence_id, organization_id, owner_user_id, id)
+    REFERENCES ai_workbench.scheduled_occurrences (id, organization_id, owner_user_id, plan_id);
