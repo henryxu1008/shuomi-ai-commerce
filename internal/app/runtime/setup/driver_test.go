@@ -22,6 +22,12 @@ func TestCandidateOnlyChangesSelectedModuleAndPreservesOtherFacts(t *testing.T) 
 	_, e = changeModules(original, nil, map[string]bool{"toolMarket": true})
 	require.ErrorIs(t, e, setupcontrol.ErrInvalid)
 }
+func TestCandidatePreservesExactUnselectedJSONNumbers(t *testing.T) {
+	original := map[string]any{"knowledge": map[string]any{"enabled": true}, "unchanged": map[string]any{"revision": json.Number("9007199254740993"), "rate": json.Number("0.1234567890123456789")}}
+	next, e := changeModules(original, nil, map[string]bool{"knowledge": false})
+	require.NoError(t, e)
+	require.Equal(t, marshal(original["unchanged"]), marshal(next["unchanged"]))
+}
 func TestReleasePathsAcceptNextRouteNamesAndRejectTraversal(t *testing.T) {
 	root := t.TempDir()
 	file := filepath.Join(root, "src", "[...path]", "route.ts")

@@ -138,15 +138,22 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 	if e != nil {
 		return setupcontrol.Prepared{}, e
 	}
-	var fields map[string]any
-	if json.Unmarshal(original, &fields) != nil {
+	fields, e := documentMap(original)
+	if e != nil {
+		return setupcontrol.Prepared{}, setupcontrol.ErrInvalid
+	}
+	if _, e = currentapplication.DecodeConfigDocument(original); e != nil {
 		return setupcontrol.Prepared{}, setupcontrol.ErrInvalid
 	}
 	var provided map[string]any
 	if r.ConfigurationFile != "" {
 		b, e := readPrivate(r.ConfigurationFile, 65536)
-		if e != nil || json.Unmarshal(b, &provided) != nil {
+		if e != nil {
 			return setupcontrol.Prepared{}, setupcontrol.ErrInvalid
+		}
+		provided, e = documentMap(b)
+		if e != nil {
+			return setupcontrol.Prepared{}, e
 		}
 		if coreconfig.VerifyPrivateFiles(ctx, []string{r.ConfigurationFile}) != nil {
 			return setupcontrol.Prepared{}, setupcontrol.ErrInvalid

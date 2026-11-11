@@ -255,8 +255,10 @@ func (d *Driver) Inspect(ctx context.Context, id string) (setupcontrol.Instance,
 	return v, nil
 }
 func changeModules(original, provided map[string]any, selected map[string]bool) (map[string]any, error) {
-	var next map[string]any
-	_ = json.Unmarshal(marshal(original), &next)
+	next, e := documentMap(marshal(original))
+	if e != nil {
+		return nil, e
+	}
 	definitions := map[string]currentapplication.InstallModule{}
 	for _, m := range currentapplication.InstallationModules() {
 		definitions[m.ID] = m
