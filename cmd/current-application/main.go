@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
@@ -41,6 +42,7 @@ func main() {
 
 func execute() error {
 	manifestPath := flag.String("config", "", "absolute path to the private current-application JSON manifest")
+	inspectModules := flag.Bool("inspect-modules", false, "read-only native module schema and runtime privilege inspection; never starts workers")
 	shutdownFile := flag.String("shutdown-file", "", "optional absolute path to a private graceful-shutdown trigger")
 	flag.Parse()
 	if *manifestPath == "" {
@@ -49,6 +51,11 @@ func execute() error {
 	cfg, err := currentapplication.LoadConfig(*manifestPath)
 	if err != nil {
 		return err
+	}
+	if *inspectModules {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		return json.NewEncoder(os.Stdout).Encode(currentapplication.InspectModules(ctx, cfg, nil))
 	}
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.JSONFormatter{})

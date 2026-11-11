@@ -19,6 +19,7 @@
 
 # production
 /build
+/.setup-dist/
 
 # misc
 .DS_Store
