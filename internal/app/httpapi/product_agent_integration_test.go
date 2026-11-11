@@ -155,6 +155,8 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 }
 
 func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
+	fullRuntime := strings.HasPrefix(mode, "full runtime ")
+	mode = strings.TrimPrefix(mode, "full runtime ")
 	zeroReferenceUsage := mode == "research zero"
 	if zeroReferenceUsage {
 		mode = "research"
@@ -201,10 +203,10 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	require.NoError(t, configErr)
 	_, configErr = configuration.Execute(context.Background(), agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: "product.title.agent", Operation: "enable", Absent: true})
 	require.NoError(t, configErr)
-	if !contentTitleOnly && !chatTasks {
+	if !contentTitleOnly && (!chatTasks || fullRuntime) {
 		require.NoError(t, assetstore.AutoMigrate(f.owner))
 	}
-	if !contentTitleOnly && !chatTasks && rehearsal == nil {
+	if !contentTitleOnly && (!chatTasks || fullRuntime) && rehearsal == nil {
 		assets, err := assetstore.NewRepository(f.owner)
 		require.NoError(t, err)
 		version, err := strconv.ParseUint(op.CatalogVersion, 10, 64)
@@ -592,7 +594,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		policy.Profile.PromptVersion, policy.Profile.OutputSchemaVersion = agentconfig.ContentPromptVersion, agentconfig.ContentActionVersion
 		settings.ContentTextPolicies = map[string]governed.RoutePolicy{"B": policy}
 	}
-	if chatTasks {
+	if chatTasks && !fullRuntime {
 		settings.ContentOnly = true
 		settings.AssetDB = nil
 		settings.TextPolicies = nil
@@ -751,7 +753,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"))
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime)
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {

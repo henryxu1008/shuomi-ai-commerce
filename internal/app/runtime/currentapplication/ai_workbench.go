@@ -30,8 +30,8 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if !w.Enabled {
 		return w.Database.validate("aiWorkbench.database")
 	}
-	if w.ContentTasks && (!cfg.ProductCollections || w.ConversationOnly || cfg.ProductAgent == nil || !cfg.ProductAgent.Enabled || !cfg.ProductAgent.ContentOnly) || !w.ContentTasks && cfg.ProductAgent != nil && cfg.ProductAgent.ContentOnly && !w.ConversationOnly {
-		return errors.New("content tasks require explicit content-only execution")
+	if w.ContentTasks && (!cfg.ProductCollections || w.ConversationOnly || cfg.ProductAgent == nil || !cfg.ProductAgent.Enabled || len(cfg.ProductAgent.ContentTextPolicies) == 0) || !w.ContentTasks && cfg.ProductAgent != nil && cfg.ProductAgent.ContentOnly && !w.ConversationOnly {
+		return errors.New("content tasks require an explicit content execution consumer")
 	}
 	if w.ConversationOnly {
 		if cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly || len(w.PlanningTextPolicies) != 0 ||

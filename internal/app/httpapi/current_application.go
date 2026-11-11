@@ -539,8 +539,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			supplied.productAgent != nil && chat.DB == supplied.productAgent.RunDB ||
 			chat.ConversationOnly && len(chat.PlanningTextPolicies) != 0 ||
 			chat.ConversationOnly && supplied.productAgent != nil && !supplied.productAgent.ContentTitleOnly && !supplied.productAgent.ContentOnly ||
-			!chat.ConversationOnly && (supplied.productAgent == nil || supplied.productAgent.ContentTitleOnly || chat.ContentTasks != supplied.productAgent.ContentOnly) ||
-			chat.ContentTasks && (chat.ConversationOnly || supplied.productCollections != 1) {
+			!chat.ConversationOnly && (supplied.productAgent == nil || supplied.productAgent.ContentTitleOnly || supplied.productAgent.ContentOnly && !chat.ContentTasks) ||
+			chat.ContentTasks && (chat.ConversationOnly || supplied.productCollections != 1 || supplied.productAgent == nil || len(supplied.productAgent.ContentTextPolicies) == 0) {
 			return nil, errors.New("AI Workbench requires distinct bounded pool and explicit execution mode")
 		}
 	}

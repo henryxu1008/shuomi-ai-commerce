@@ -35,19 +35,24 @@ import (
 )
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
-	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access"} {
+	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access", "full runtime content flow chat", "full runtime own content chat"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, mode) })
 	}
 }
 
 // Uses the existing domain/HTTP fixture, task-owned PostgreSQL and local model;
 // no serving instance, real credentials or provider are involved.
-func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls *atomic.Int32, own, automatic bool) {
+func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls *atomic.Int32, own, automatic, fullRuntime bool) {
 	ctx := context.Background()
 	a := m.application.content
 	require.NotNil(t, a)
-	require.Nil(t, m.application.runtime)
-	require.Nil(t, m.application.assets)
+	if fullRuntime {
+		require.NotNil(t, m.application.runtime)
+		require.NotNil(t, m.application.assets)
+	} else {
+		require.Nil(t, m.application.runtime)
+		require.Nil(t, m.application.assets)
+	}
 	_, err := configuration.Execute(ctx, agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "enable", Absent: true})
 	require.NoError(t, err)
 	if automatic {

@@ -99,7 +99,7 @@ func (x workbenchExecution) AuthorizeReceipt(ctx context.Context, scope aiworkbe
 
 func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencies, a *productAgentApplication) (*aiWorkbenchApplication, error) {
 	if cfg.ContentTasks {
-		if cfg.ConversationOnly || a == nil || !a.config.ContentOnly || a.content == nil || a.content.ownProducts == nil {
+		if cfg.ConversationOnly || a == nil || a.content == nil || a.content.ownProducts == nil {
 			return nil, aiworkbench.ErrUnavailable
 		}
 		a = a.content
