@@ -42,7 +42,7 @@ func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
 
 // Uses the existing domain/HTTP fixture, task-owned PostgreSQL and local model;
 // no serving instance, real credentials or provider are involved.
-func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls *atomic.Int32, own, automatic, fullRuntime bool) {
+func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime bool) {
 	ctx := context.Background()
 	a := m.application.content
 	require.NotNil(t, a)
@@ -105,7 +105,10 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	var planningCalls atomic.Int32
+	planningCalls := &atomic.Int32{}
+	if fullRuntime {
+		planningCalls = sharedPlannerCalls
+	}
 	const projectID = "project-fixture"
 	var projectRevoked atomic.Bool
 	var failSend atomic.Bool
@@ -143,10 +146,21 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	policy.Profile.CredentialVersion = credential.reference
 	policy.AdmittedCredentialVersion = httpCredentialReference(*credential)
 	policy.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(credential.BaseURL)
-	reader, ok := a.config.CurrentTextPolicies.(syntheticCurrentTextPolicies)
-	require.True(t, ok)
-	reader.planning = map[string]governed.RoutePolicy{"B": policy}
-	a.config.CurrentTextPolicies = reader
+	if fullRuntime {
+		policy = a.config.ContentTextPolicies["B"]
+		policy.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
+		policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
+		policy.Profile.MaximumInputBytes = 128 << 10
+		policy.Profile.MaximumCompletionTokens = 4096
+	} else {
+		reader, ok := a.config.CurrentTextPolicies.(syntheticCurrentTextPolicies)
+		require.True(t, ok)
+		reader.planning = map[string]governed.RoutePolicy{"B": policy}
+		a.config.CurrentTextPolicies = reader
+	}
+	if fullRuntime {
+		testFullChatApplicationComposition(t, f, m.application.config, deps, db, policy, operationID)
+	}
 	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}}, m.application)
 	require.NoError(t, err)
 	app := wm.(aiWorkbenchModule).application

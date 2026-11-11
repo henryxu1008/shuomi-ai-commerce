@@ -233,8 +233,19 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	if mode == "no quota" {
 		require.NoError(t, f.owner.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 1 WHERE organization_id = 'B'").Error)
 	}
-	var calls atomic.Int32
+	var calls, plannerCalls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if fullRuntime && chatTasks {
+			raw, e := io.ReadAll(r.Body)
+			require.NoError(t, e)
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+			if strings.Contains(string(raw), "Plan one content suggestion for the exact server-selected subject") {
+				plannerCalls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"planner-fixture","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
+				return
+			}
+		}
 		if rehearsal != nil {
 			rehearsal.reply(w, r)
 			return
@@ -599,6 +610,14 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		settings.AssetDB = nil
 		settings.TextPolicies = nil
 	}
+	if chatTasks && fullRuntime {
+		planner := settings.ContentTextPolicies["B"]
+		planner.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
+		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
+		planner.Profile.MaximumInputBytes = 128 << 10
+		planner.Profile.MaximumCompletionTokens = 4096
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+	}
 	if contentTitleOnly {
 		settings.ContentTitleOnly, settings.AssetDB, settings.TextPolicies = true, nil, nil
 	}
@@ -753,7 +772,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime)
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime)
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {

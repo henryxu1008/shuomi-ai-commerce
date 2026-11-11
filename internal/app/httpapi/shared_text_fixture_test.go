@@ -74,7 +74,8 @@ func configuredSelectionSharedReader(t *testing.T, settings *ProductAgentDepende
 	}
 	catalog, err := qualified.NewCatalog(defs)
 	require.NoError(t, err)
-	service := &d.SharedModelService{Repository: repo, Catalog: &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}}
+	shared := &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}
+	service := &d.SharedModelService{Repository: repo, Catalog: shared}
 	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: connection.Channel, Text: d.ModelBindingReference{ID: "default", Version: "offline-shared-v1"}, Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"}}
 	_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection})
 	require.NoError(t, err)
@@ -85,6 +86,52 @@ func configuredSelectionSharedReader(t *testing.T, settings *ProductAgentDepende
 	_, _, err = service.ReadCategory(ctx, "B", d.ModelCategoryImage)
 	require.ErrorIs(t, err, d.ErrNeedsConfiguration, "saving choices never makes unopened image generation executable")
 	return qualified.SharedTextReader{Service: service}
+}
+
+// The Chat and content consumers use the same real current selection, channel
+// metadata, published fixture tariff and SharedTextReader; the provider is local.
+func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB, planner governed.RoutePolicy) qualified.SharedTextReader {
+	t.Helper()
+	ctx, now := context.Background(), time.Now().UTC()
+	connection, err := newHTTPChannelFixture(db).owner.Metadata(ctx, "B", "default")
+	require.NoError(t, err)
+	require.NoError(t, routestore.InstallSchema(ctx, db))
+	repo, err := routestore.New(db)
+	require.NoError(t, err)
+	prices := &d.PlatformPricesService{Repository: repo}
+	_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
+	require.NoError(t, err)
+	var defs []qualified.Definition
+	for op, policy := range map[aicapability.Operation]governed.RoutePolicy{aicapability.OperationAIWorkbenchChatPlan: planner, aicapability.OperationProductContentDecision: settings.ContentTextPolicies["B"]} {
+		copy := policy
+		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: settings.Limits.CostMicros})
+	}
+	catalog, err := qualified.NewCatalog(defs)
+	require.NoError(t, err)
+	shared := &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}
+	service := &d.SharedModelService{Repository: repo, Catalog: shared}
+	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: connection.Channel, Text: d.ModelBindingReference{ID: "default", Version: "chat-shared-v1"}, Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"}}
+	_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection})
+	require.NoError(t, err)
+	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)
+	require.NoError(t, err)
+	require.True(t, q.Ready, q.Reason)
+	require.Equal(t, q.TextProfiles[string(aicapability.OperationAIWorkbenchChatPlan)].OfficialTariff, q.TextProfiles[string(aicapability.OperationProductContentDecision)].OfficialTariff)
+	_, _, err = service.ReadCategory(ctx, "A", d.ModelCategoryText)
+	require.Error(t, err)
+	reader := qualified.SharedTextReader{Service: service}
+	plan, err := reader.ReadPolicy(ctx, governed.RouteKey{OrganizationID: "B", Operation: aicapability.OperationAIWorkbenchChatPlan})
+	require.NoError(t, err)
+	content, err := reader.ReadPolicy(ctx, governed.RouteKey{OrganizationID: "B", Operation: aicapability.OperationProductContentDecision})
+	require.NoError(t, err)
+	require.Equal(t, plan.Profile.ConnectionID, content.Profile.ConnectionID)
+	require.Equal(t, plan.Profile.RoutingPolicyVersion, content.Profile.RoutingPolicyVersion)
+	require.Equal(t, plan.Profile.OfficialTariff, content.Profile.OfficialTariff)
+	shared.Now = func() time.Time { return now.Add(2 * time.Hour) }
+	expired, err := reader.ReadPolicy(ctx, governed.RouteKey{OrganizationID: "B", Operation: aicapability.OperationAIWorkbenchChatPlan})
+	require.True(t, err != nil || expired.Profile.Validate() != nil, "expired published price cannot authorize Chat")
+	shared.Now = nil
+	return reader
 }
 
 func (f syntheticSelectionSharedCategory) ReadCategory(_ context.Context, org string, category d.ModelCategory) (d.ModelQualification, string, error) {
