@@ -147,7 +147,7 @@ function ProductDetail({ operationId,agentEnabled,knowledgeAvailable, product, b
 }
 
 function ResultState({ result,agentKind }: { result: AcquisitionResult;agentKind?:string|null }) {
-  if(result.outcome === "published") return <p role="status">操作 {result.operationId}：采集完成。 <Link href={productAgentOperationHref(result.operationId,agentKind)}>查看采集商品</Link></p>;
+  if(result.outcome === "published") return <p role="status">操作 {result.operationId}：采集完成。 <Link className="underline" prefetch={false} href={productAgentOperationHref(result.operationId,agentKind)}>查看采集商品</Link></p>;
   const labels: Record<AcquisitionResult["outcome"], string> = { acquiring: "正在采集", prepared: "正在发布", outcome_unknown: "结果待核实", published: "已发布，正在打开商品", failed: "采集失败" };
   return <p role="status">操作 {result.operationId}：{labels[result.outcome]}。</p>;
 }
