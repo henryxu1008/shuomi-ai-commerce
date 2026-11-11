@@ -23,6 +23,7 @@
 
 ## 系统边界与应用装配
 
+- `installation-and-module-management.md` — [首次安装向导与现有实例模块管理](installation-and-module-management.md) · #1240 统一设计；独立R1及文字增量复核见PR #1241，实施和原实例操作未执行。
 - `retained-startup-prerequisites.md` — [保留实例启动前置：OwnIntake v3 与采集价格快照](retained-startup-prerequisites.md) · #1233 最小方案独立R1通过，IMPLEMENTATION_READY / FROZEN；实施义务未执行，不授权原35444操作。
 - `app-assembly-boundaries.md` — [App Assembly Boundaries](app-assembly-boundaries.md)
 - `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
