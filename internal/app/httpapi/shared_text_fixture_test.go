@@ -127,6 +127,17 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	require.Equal(t, plan.Profile.ConnectionID, content.Profile.ConnectionID)
 	require.Equal(t, plan.Profile.RoutingPolicyVersion, content.Profile.RoutingPolicyVersion)
 	require.Equal(t, plan.Profile.OfficialTariff, content.Profile.OfficialTariff)
+	var contentOnly []qualified.Definition
+	for _, def := range defs {
+		if def.Scope.Capability == string(aicapability.OperationProductContentDecision) {
+			contentOnly = append(contentOnly, def)
+		}
+	}
+	partial, err := qualified.NewCatalog(contentOnly)
+	require.NoError(t, err)
+	partialReader := qualified.SharedTextReader{Service: &d.SharedModelService{Repository: repo, Catalog: &qualified.SharedCatalog{Catalog: partial, Credentials: repo, Prices: prices}}}
+	missing, err := partialReader.ReadPolicy(ctx, governed.RouteKey{OrganizationID: "B", Operation: aicapability.OperationAIWorkbenchChatPlan})
+	require.True(t, err != nil || missing.Profile.Validate() != nil, "a content binding alone cannot authorize planning")
 	shared.Now = func() time.Time { return now.Add(2 * time.Hour) }
 	expired, err := reader.ReadPolicy(ctx, governed.RouteKey{OrganizationID: "B", Operation: aicapability.OperationAIWorkbenchChatPlan})
 	require.True(t, err != nil || expired.Profile.Validate() != nil, "expired published price cannot authorize Chat")
