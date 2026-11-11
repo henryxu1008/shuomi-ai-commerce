@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -45,6 +46,51 @@ func TestContentTitleOnlyGlobalCompositionRejectsFullChatPlannerAndSharedPool(t 
 			require.Nil(t, server)
 			require.ErrorContains(t, err, "explicit execution mode")
 			require.False(t, built)
+		})
+	}
+}
+
+func TestContentChatFullProductAgentCompositionAdmission(t *testing.T) {
+	stop := errors.New("reached workbench construction")
+	for _, tc := range []struct {
+		name         string
+		content      bool
+		collections  bool
+		sharedPool   bool
+		wantAdmitted bool
+	}{
+		{"full runtime with content", true, true, false, true},
+		{"missing content consumer", false, true, false, false},
+		{"missing collections", true, false, false, false},
+		{"shared run pool", true, true, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run, chatDB := &gorm.DB{}, &gorm.DB{}
+			if tc.sharedPool {
+				chatDB = run
+			}
+			product := ProductAgentDependencies{Enabled: true, RunDB: run}
+			if tc.content {
+				product.ContentTextPolicies = map[string]governed.RoutePolicy{"org": {}}
+			}
+			chat := AIWorkbenchDependencies{DB: chatDB, ContentTasks: true}
+			factories := currentApplicationFactories{
+				buildWorkbench: func(*config.Config, *logrus.Logger) (workbenchContextBuildResult, error) {
+					return workbenchContextBuildResult{}, stop
+				},
+				buildSourceAccount: func(*gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) { return nil, nil },
+				buildCommercial:    func(*gorm.DB, *gorm.DB, *authz.ListingKitAuthorizer) (kernelmodule.Module, error) { return nil, nil },
+			}
+			options := []CurrentApplicationOption{WithProductAgent(product), WithProductAcquisition(&gorm.DB{}), WithAIWorkbench(chat)}
+			if tc.collections {
+				options = append(options, WithProductCollections())
+			}
+			_, err := buildCurrentApplication(context.Background(), &gorm.DB{}, currentApplicationTestConfig(), logrus.New(), factories, options...)
+			if tc.wantAdmitted {
+				require.ErrorContains(t, err, "resource consumers require their resource owner pool")
+			} else {
+				require.ErrorContains(t, err, "explicit execution mode")
+			}
 		})
 	}
 }

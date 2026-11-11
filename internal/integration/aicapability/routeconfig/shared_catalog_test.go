@@ -190,6 +190,39 @@ func TestSharedTextAdmissionRequiresAnImplementedOfficialUsageMapper(t *testing.
 	}
 }
 
+func TestChatAndContentUseOneEnterpriseTextBindingAndPrice(t *testing.T) {
+	now := time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC)
+	ref := d.ModelBindingReference{ID: "synthetic-text", Version: "synthetic-binding"}
+	p := aicapability.ModelProfile{ClientName: ref.ID, ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "synthetic-mini", EndpointIdentityDigest: "synthetic-endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "admission", AdapterPolicyVersion: "adapter", PromptVersion: "prompt", OutputSchemaVersion: "schema", UsageMappingVersion: "cost-usage", CostPricingVersion: "channel-cost", Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 100, MaximumCompletionTokens: 100, MaximumInputBytes: 1024, MaximumOutputBytes: 1024, DeadlineBound: time.Second}
+	var defs []Definition
+	for _, op := range []aicapability.Operation{aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationProductContentDecision} {
+		defs = append(defs, Definition{Manufacturer: "openai", Region: "global", ServiceType: "standard-sync", Channel: "synthetic-channel", PriceID: "synthetic-price", ReferenceVersion: ref.Version, BoundEvidenceVersion: "synthetic-bound", Scope: d.Scope{OrganizationID: "org", Capability: string(op)}, Text: &governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: "credential", AdmittedEndpointIdentityDigest: p.EndpointIdentityDigest}, MaximumCostMicros: 100})
+	}
+	catalog, err := NewCatalog(defs)
+	require.NoError(t, err)
+	prices, err := d.FreezePlatformPrices(d.PlatformPricesInput{Prices: []d.PublishedModelPrice{{ID: "synthetic-price", Region: "global", ServiceType: "standard-sync", Provider: "openai", Channel: "synthetic-channel", Model: p.ModelID, Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1000000, OutputText: 1000000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}, "synthetic-publication", nil, now)
+	require.NoError(t, err)
+	metadata := &sharedMetadataFixture{prices: prices, credential: d.Credential{OrganizationID: "org", EndpointDigest: p.EndpointIdentityDigest, Reference: "synthetic-reference", Enabled: true, KeyPresent: true}}
+	bindTestChannel(catalog, &metadata.credential)
+	shared := &SharedCatalog{Catalog: catalog, Credentials: metadata, Prices: &d.PlatformPricesService{Repository: metadata, Now: func() time.Time { return now }}, Now: func() time.Time { return now }}
+	q, err := shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+	require.NoError(t, err)
+	require.True(t, q.Ready, q.Reason)
+	plan := q.TextProfiles[string(aicapability.OperationAIWorkbenchChatPlan)]
+	content := q.TextProfiles[string(aicapability.OperationProductContentDecision)]
+	require.Equal(t, q.Price, plan.OfficialTariff)
+	require.Equal(t, plan.OfficialTariff, content.OfficialTariff)
+	require.Equal(t, plan.ConnectionID, content.ConnectionID)
+	require.Equal(t, plan.CredentialVersion, content.CredentialVersion)
+	scope := d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationAIWorkbenchChatPlan)}
+	changed := catalog.definitions[scope][ref.ID]
+	changed.PriceID = "other-price"
+	catalog.definitions[scope][ref.ID] = changed
+	q, err = shared.QualifyModel(context.Background(), "org", d.ModelCategoryText, ref)
+	require.NoError(t, err)
+	require.False(t, q.Ready)
+}
+
 func TestDeepSeekReferenceAdmissionUsesFrozenReferenceAndCurrentCredentials(t *testing.T) {
 	now := time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC)
 	ref := d.ModelBindingReference{ID: "synthetic-deepseek", Version: "synthetic-binding"}

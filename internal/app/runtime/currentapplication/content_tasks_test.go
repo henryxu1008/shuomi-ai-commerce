@@ -39,3 +39,14 @@ func TestContentTasksRequireExplicitBoundedContentConsumer(t *testing.T) {
 		t.Run(name, func(t *testing.T) { c := contentTasksConfig(t); change(c); require.Error(t, c.validate()) })
 	}
 }
+
+func TestContentTasksCoexistWithFullProductAgent(t *testing.T) {
+	c := contentTasksConfig(t)
+	full := agentRuntimeConfig().ProductAgent
+	c.ProductAgent.ContentOnly = false
+	c.ProductAgent.AssetDatabase = full.AssetDatabase
+	c.ProductAgent.TextPolicies = full.TextPolicies
+	require.NoError(t, c.validate())
+	c.ProductAgent.ContentTextPolicies = nil
+	require.Error(t, c.validate(), "content Chat requires its own content consumer")
+}
