@@ -15,10 +15,12 @@ create_role() {
   role_password=$(cat "$2")
   case "$role_password" in ''|*[!0-9a-f]*) echo 'invalid database credential file' >&2; exit 1 ;; esac
   test "${#role_password}" -eq 48
-  psql -X -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
-    -v "role=$1" -v "password=$role_password" <<'SQL'
+  {
+  printf "\\set password '%s'\n" "$role_password"
+  cat <<'SQL'
 CREATE ROLE :"role" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'password';
 SQL
+  } | psql -X -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -v "role=$1"
   case "$1" in *_runtime)
     psql -X -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres -v "role=$1" <<'SQL'
 ALTER ROLE :"role" SET statement_timeout='10s';

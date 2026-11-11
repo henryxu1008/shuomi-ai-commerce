@@ -144,6 +144,10 @@ func (d *Driver) prepareFresh(ctx context.Context, r setupcontrol.Request, dir s
 	}
 	handoff := filepath.Join(dir, "handoff")
 	n := nativePlan{Project: r.Project, Mode: r.Mode, ComposeFile: composeFile, ComposeHash: hash(b), BuildServices: build, Origin: origin, Handoff: handoff}
+	n.RequiredServices = requiredServices(services)
+	if r.Profile == "unified" {
+		n.Expected = map[string]bool{"knowledge": true, "dataServices": true, "productCollections": true, "notificationCenterDatabase": true, "reportCenter": true, "toolMarket": true, "ecoservices": true, "projectCenter": true}
+	}
 	changes := []setupcontrol.Change{{Label: "新独立实例", Before: "不存在", After: r.Project}, {Label: "安装组合", Before: "未安装", After: r.Profile}, {Label: "准确版本", Before: "未安装", After: d.release.SourceCommit}, {Label: "应用入口", Before: "无", After: origin}, {Label: "私密登录资料", Before: "无", After: handoff}, {Label: "数据与外部服务", Before: "空项目", After: "只执行原生初始化；不生成业务样例，不调用外部平台或模型"}}
 	if r.NetworkSubnet != "" {
 		changes = append(changes, setupcontrol.Change{Label: "新项目网络地址段", Before: "未分配", After: r.NetworkSubnet + "（只在此段内划分本组合的网络；不更改Docker全局配置）"})

@@ -23,3 +23,10 @@ test("new-install draft survives review/back and a blocked plan cannot dispatch"
   expect(screen.getByRole("textbox", { name: "新项目名称" })).toHaveValue("my-isolated-project");
   await waitFor(() => expect(calls.some(c => c.path.endsWith("/apply"))).toBe(false));
 });
+
+test("a durable running receipt can be reconciled after controller restart", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (path: string) => ({ ok: true, json: async () => path.endsWith("session") ? { csrf: "csrf" } : { dockerReady: true, version: "a".repeat(40), instances: [], profiles: [], blocks: [], pending: [{ id: "same.original-key", mode: "fresh", status: "running", changes: [], services: [], blocks: [] }] } })));
+  const user = userEvent.setup(); render(<SetupApp />);
+  await user.click(await screen.findByRole("button", { name: "查看原回执" }));
+  expect(screen.getByRole("button", { name: "核实原操作" })).toBeEnabled();
+});

@@ -10,10 +10,8 @@ import (
 	datastore "task-processor/internal/integration/persistence/dataservice"
 	ecostore "task-processor/internal/integration/persistence/ecoservices"
 	knowledgestore "task-processor/internal/integration/persistence/knowledge"
-	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
-	targetstore "task-processor/internal/integration/persistence/listing/record"
 	notificationstore "task-processor/internal/integration/persistence/notificationcenter"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
 	reportstore "task-processor/internal/integration/persistence/reportcenter"
 	toolstore "task-processor/internal/integration/persistence/toolmarket"
 	"task-processor/internal/platform/database"
@@ -147,21 +145,9 @@ func inspectionOwner(c *Config, id string) (*DatabaseConfig, func(context.Contex
 		if c.BrowserKernel != nil {
 			return &c.BrowserKernel.Database, kernelstore.VerifySchema
 		}
-	case "productCollections":
-		return c.ProductAcquisitionDatabase, collectionstore.VerifySchema
-	case "acquisitionPlans":
-		return c.ProductAcquisitionDatabase, preparationstore.VerifySchema
-	case "supplyCompletionDrafts":
-		return c.ProductAcquisitionDatabase, preparationstore.VerifySchema
-	case "supplyChain", "controlledLocalDraft":
+	case "productCollections", "acquisitionPlans", "supplyCompletionDrafts", "supplyChain", "controlledLocalDraft":
 		return c.ProductAcquisitionDatabase, func(ctx context.Context, d *gorm.DB) error {
-			if e := targetstore.VerifySchema(ctx, d); e != nil {
-				return e
-			}
-			if e := preparationstore.VerifyOperationSchema(ctx, d); e != nil {
-				return e
-			}
-			return preparationstore.VerifyUploadPlanSchema(ctx, d)
+			return acquisitionstore.VerifyRuntimePermissions(ctx, d, acquisitionstore.RuntimeCapabilities{Collections: c.ProductCollections, AcquisitionPlans: c.AcquisitionPlans, CompletionDrafts: c.SupplyCompletionDrafts, SupplyChain: c.SupplyChain != nil || c.PrivateDraftTrial != nil || c.ControlledLocalDraft != nil, SupplyMarket: c.SupplyMarket != nil, POD: c.POD != nil, ImageSets: c.ImageAgent != nil && c.ImageAgent.WorkerConfigFile != "", OfflineRecords: c.SheinOfflineRecords != nil})
 		}
 	}
 	return nil, nil

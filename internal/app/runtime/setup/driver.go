@@ -355,6 +355,7 @@ type nativePlan struct {
 	Expected                                                                    map[string]bool
 	RuntimeBindings                                                             string
 	BuildServices                                                               []string
+	RequiredServices                                                            map[string]string
 	Handoff                                                                     string
 }
 
@@ -410,6 +411,9 @@ func (d *Driver) Apply(ctx context.Context, p setupcontrol.Prepared) error {
 		if _, e = d.freshFingerprint(ctx, p.Request); e != nil {
 			return e
 		}
+		if _, e = d.compose(ctx, n.Project, []string{n.ComposeFile}, "pull", "--ignore-buildable", "--policy", "missing"); e != nil {
+			return e
+		}
 		if len(n.BuildServices) > 0 {
 			_, e = d.compose(ctx, n.Project, []string{n.ComposeFile}, append([]string{"build"}, n.BuildServices...)...)
 			if e != nil {
@@ -450,6 +454,9 @@ func (d *Driver) Verify(ctx context.Context, p setupcontrol.Prepared) error {
 	}
 	if n.Mode == "existing" && bindings(cs) != n.RuntimeBindings {
 		return setupcontrol.ErrDrift
+	}
+	if n.Mode == "fresh" && !requiredHealthy(cs, n.RequiredServices) {
+		return setupcontrol.ErrUnavailable
 	}
 	if n.ManifestFile != "" {
 		b, e := d.manifest(ctx, a)

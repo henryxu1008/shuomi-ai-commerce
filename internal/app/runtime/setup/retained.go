@@ -164,6 +164,9 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 		return setupcontrol.Prepared{}, e
 	}
 	blocks := []string{}
+	if e = d.protectRuntimeFile(ctx, configFile); e != nil {
+		blocks = append(blocks, "候选文件的Docker私密权限未完成核对；原配置未改变")
+	}
 	if _, e = currentapplication.LoadConfig(configFile); e != nil {
 		blocks = append(blocks, "候选配置未通过原Config校验；请核对所选模块及其依赖，原实例未改变")
 	}
@@ -249,7 +252,7 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 			filtered = append(filtered, m)
 		}
 	}
-	app["volumes"] = append(filtered, map[string]any{"type": "bind", "source": configFile, "target": target, "read_only": true, "bind": map[string]any{"create_host_path": false}})
+	app["volumes"] = append(filtered, map[string]any{"type": "bind", "source": strings.ReplaceAll(configFile, "$", "$$"), "target": target, "read_only": true, "bind": map[string]any{"create_host_path": false}})
 	// Pin the CURRENT image identities, including a separately previewed UI.
 	app["image"] = a.Image
 	ui["image"] = u.Image

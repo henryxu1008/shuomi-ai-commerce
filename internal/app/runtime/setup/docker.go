@@ -41,6 +41,7 @@ func (b *boundedBuffer) Write(v []byte) (int, error) {
 }
 func (Docker) Run(ctx context.Context, dir string, args []string) ([]byte, error) {
 	c := exec.CommandContext(ctx, "docker", args...)
+	c.Env = dockerEnvironment()
 	c.Dir = dir
 	c.Stderr = io.Discard
 	var out boundedBuffer
@@ -49,6 +50,24 @@ func (Docker) Run(ctx context.Context, dir string, args []string) ([]byte, error
 		return nil, setupcontrol.ErrUnavailable
 	}
 	return out.Bytes(), nil
+}
+
+// Compose interpolation and opt-in profiles come from the exact prepared
+// input, never a shell left over from another instance. Context is explicit;
+// unrelated provider secrets are not inherited by the Docker subprocess.
+func dockerEnvironment() []string {
+	result := []string{}
+	for _, v := range os.Environ() {
+		key, _, ok := strings.Cut(v, "=")
+		if !ok {
+			continue
+		}
+		switch strings.ToUpper(key) {
+		case "PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "COMSPEC", "TEMP", "TMP", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "COMMONPROGRAMFILES", "HOME", "HOMEDRIVE", "HOMEPATH", "USERNAME", "USERDOMAIN", "USER", "LOGNAME", "LANG", "LC_ALL", "DOCKER_CONFIG", "DOCKER_CLI_PLUGIN_EXTRA_DIRS", "TERM", "NO_COLOR":
+			result = append(result, v)
+		}
+	}
+	return result
 }
 
 type container struct {
@@ -172,26 +191,8 @@ func readPrivate(p string, limit int) ([]byte, error) {
 	return b, nil
 }
 
-// Compose consumes literal dollars once more even in a resolved JSON document.
-func escapeCompose(v any) any {
-	switch n := v.(type) {
-	case string:
-		return strings.ReplaceAll(n, "$", "$$")
-	case map[string]any:
-		r := map[string]any{}
-		for k, v := range n {
-			r[k] = escapeCompose(v)
-		}
-		return r
-	case []any:
-		r := make([]any, len(n))
-		for i, v := range n {
-			r[i] = escapeCompose(v)
-		}
-		return r
-	}
-	return v
-}
+// docker compose config emits a reusable document with dollar escaping already
+// preserved. Escaping that document again corrupts shell substitutions.
 func writeCompose(path string, v map[string]any) error {
-	return privatefile.Write(path, marshal(escapeCompose(v)))
+	return privatefile.Write(path, marshal(v))
 }
