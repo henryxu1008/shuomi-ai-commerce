@@ -110,6 +110,10 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 		copy := policy
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: settings.Limits.CostMicros})
 	}
+	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+		title := settings.TextPolicies["B"]
+		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &title, MaximumCostMicros: settings.Limits.CostMicros})
+	}
 	catalog, err := qualified.NewCatalog(defs)
 	require.NoError(t, err)
 	shared := &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}
@@ -120,6 +124,11 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)
 	require.NoError(t, err)
 	require.True(t, q.Ready, q.Reason)
+	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+		title := q.TextProfiles[string(aicapability.OperationProductAgentDecision)]
+		require.True(t, governed.ValidRouteProfile(title, aicapability.OperationProductAgentDecision), "the title route remains qualified with the same shared selection")
+		require.Equal(t, q.Price, title.OfficialTariff)
+	}
 	require.Equal(t, q.TextProfiles[string(aicapability.OperationAIWorkbenchChatPlan)].OfficialTariff, q.TextProfiles[string(aicapability.OperationProductContentDecision)].OfficialTariff)
 	_, _, err = service.ReadCategory(ctx, "A", d.ModelCategoryText)
 	require.Error(t, err)

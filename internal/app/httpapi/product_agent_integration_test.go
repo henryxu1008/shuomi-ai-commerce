@@ -635,7 +635,6 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	}
 	if chatTasks && miniRuntime {
 		settings.Limits.ModelCalls = 2
-		settings.TextPolicies = nil
 		settings.Limits.Tokens = 72000
 		settings.Limits.CostMicros = 300000
 		content := settings.ContentTextPolicies["B"]
@@ -660,6 +659,13 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		content.Profile.MaximumCompletionTokens = 512
 		content.Profile.MaximumInputBytes = 64 << 10
 		settings.ContentTextPolicies["B"] = content
+		title := content
+		title.Profile.AdapterPolicyVersion = governed.TitlePilotOpenAIAdapterPolicy
+		title.Profile.MaximumPromptTokens = governed.TitlePilotPromptTokens
+		title.Profile.MaximumCompletionTokens = governed.TitlePilotCompletionTokens
+		title.Profile.PromptVersion = "product-title-agent-v1"
+		title.Profile.OutputSchemaVersion = "product-title-action-v1"
+		settings.TextPolicies["B"] = title
 		planner := settings.ContentTextPolicies["B"]
 		planner.Profile.MaximumPromptTokens = 4096
 		planner.Profile.PromptVersion = "ai-workbench-chat-plan-v3"

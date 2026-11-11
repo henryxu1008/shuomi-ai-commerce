@@ -27,6 +27,8 @@
 
 复用 `openai-compatible` / Eino SDK、原 GuardedClient/Executor/Invocation/Resource 与同一企业连接，不新增 Key 保存。候选新增仅限 `openai`、准确模型 `gpt-5.4-mini-2026-03-17`、全球标准同步 `https://api.openai.com/v1`、`aiworkbench_chat_plan` 与 `product.content.decision` 的明确文本策略版本；其他模型、供应商、图像、标题 pilot 不变。现有组织 current 分别为两个用途提供匹配同一 text 模型定义、连接 revision、价格与 FX 的 profile，仍保留各自 prompt/schema；跨企业、缺任一用途、无有效价目或被撤销均拒绝，不能借单图/标题策略和默认 Key。
 
+共享文本 current 同时约束企业所有已开放的文本用途：现场必须逐一盘点并保留已有用途的合格绑定；同一选择缺任何已开放用途时不能宣称就绪。隔离场景还验证了原标题 pilot、规划和内容在同一引用、连接与价目下同时完成资格核对；这不证明现场所有其他用途已具备绑定或真实原标题调用通过。
+
 候选 wire 复用现有 SDK 构造与严格解析：每次一条 `system` 加一条 `user`，无工具/流式/重定向/自动重试，`max_completion_tokens` 为 profile 有界值、`reasoning_effort=none`、`service_tier=default`、`n=1`、`store=false`。对模型、endpoint、用途、输出上限和已知字段做精确校验，复用现有严格 JSON 和 OpenAI usage mapper；基本 P/C/T 和缓存拆分必须可验证，未知、超界或价格维度不完整沿原 UNKNOWN/预留处理。不得为模拟通过声称真实 Key、型号或服务可用；真实响应、计费和质量需用户另行授权后验证。
 
 两用途均走原冻结 Profile → Quote → 原 claim/预留 → fresh 身份/连接/价目复核 → 仅一次发送 → 原 usage/settlement；变更使旧未发送请求失效，已发送未知继续原键恢复。测试 exact SDK wire、串改字段/模型/输出、同键/并发、撤权/轮换、价目 FX 漂移、缺 usage、超上界、断链/超时，以及普通文本和现有单图/标题的邻近路径。不得因为另一个用途就绪而推断文本就绪。
