@@ -53,11 +53,62 @@
 
 **本节是设计候选而非已实施 schema**。独立审查应特别复核原复合外键、来源 CHECK、当前 `BusinessTask` DTO、原手动 Confirm 与 TaskProjection/TaskActionReceipt 的相容性、只读权限以及空库 installer。任何不能保持现有手动任务不变量的变更都是本批实施阻塞，不能以只做页面或调度脚本代替。
 
+## 3.2 四项独立评审 BLOCKER 的冻结处置（#1245，2026-11-11）
+
+本节是对准确提交 `bba71503` 的独立评审提出的四项实施级 BLOCKER 的最小设计修正；不以普通 Code Review 代替下一轮明确的架构准入结论。下面的硬约束高于前文仍在使用“建议/待定”的候选措辞。实现如无法满足，必须停止对应业务路径，而非退回只做调度或页面。
+
+### B1：定时来源一律只允许人工采用
+
+**冻结：首版只允许用户确认的 `default` 或 `read_only` 业务执行模式；对于 `auto_approve`、`full_access`，即使原权限准许，也不创建/恢复定时任务。** 本批不授权无人值守 Apply。创建计划、恢复计划、每次 Prepare、每次 Start/Resume 都检查其冻结模式与当前生效模式；如模式变化到不兼容，记录 BLOCKED，不自行降级、换模式或重发模型。业务请求冻结 `ManualReviewOnly=true`，原 Request/Run 序列化与指纹绑定该位，且 `checkManualReviewMode` 必须接入本来源首次运行和恢复；不允许客户端传 `false` 覆盖。即使运行产生可采用候选，完成阶段也必须拒绝所有定时来源自动 `policy.Adopt`，继续等待原人工 Review。用户后来显式打开详情进行人工 Apply，仍走原当前授权。原手动 Chat Confirm 的模式矩阵与自动采用行为不改。验收：default/read_only 可按原能力保存建议，auto_approve/full_access 四组合均没有定时发送或策略采用；模式在准备后改变时无新发送；重启后的 Run/Resume 不会剥离该位。
+
+依据：`product_agent_execution_mode.go` 的 `finishTitleCandidate` 会在 auto_approve/full_access 进入 `policy.Adopt`，不能仅依赖 Workbench `startTask` 的原路径默认为人工。依赖原 `agent.Request.ManualReviewOnly` 与 `checkManualReviewMode`，不新建审批引擎。
+
+### B2：真正的后台无 JWT 入口与可信授权
+
+**禁止定时 worker 调用 HTTP-only `workbenchExecution.Start` / `startTask` 并注入伪造的 HTTP context。** 该路径当前通过 `freshIdentity` 需要来自 HTTP 的身份、capability 与 bearer token，不能由定时任务直接调用。
+
+候选实际接线合同冻结为：
+
+`Temporal activity (only schedule ID, slot, revision) → aiworkbench ScheduledExecutionService.Dispatch(ctx, trustedOccurrenceRef) → Workbench PG exact occurrence/plan owner → trusted ExecutionIdentity{OrganizationID, ActorID, MemberID} → productAgentOriginAuthorization(ctx, identity) + 当前对象/来源/工作范围/Agent 配置权限端口 → 原 bounded AgentRequest 准备/Claim/Start/Resume → 原 Review/Resource owner`。
+
+- `Dispatch` 是 app 通过**本地服务端注入**给 worker 的窄端口，不暴露为可匿名 HTTP endpoint；仅接受 PG 中已领取且与调用源一致的 occurrence 句柄，worker 传入的 organization/actor/mode/资源不构成授权。
+- 实际身份由 Workbench PostgreSQL 计划和 occurrence 的有界不可变记录铸造，成员绑定不得从 Chat 缓存/过期 session/JWT/Temporal payload 派生。复用 `productAgentOriginAuthorization` 的服务身份令牌读取**准确企业授权及 member ID**、用户 active 状态与 `workbench.agent.use` 和商品写入权限；项目/店铺/商品/来源由原各领域端口按本次具体目的重新授权。
+- 将目前 `startTask` 中的 HTTP 身份获取与**原业务准备/原 run-store Claim/Start** 拆成窄的、显式接收已授权 `ExecutionIdentity` 的 application 层内核；手动 HTTP 入口提供原 `freshIdentity`，后台入口使用上面的 current service authorization。双方调用同一个受治理的模型、资源、配置和 Review 路径，不能复制一个不会复核原回执的独立 runner。
+- 在 Prepare、Start 及实际 Model/Tool 发送前使用既有对应 owner 的当前授权；若发送前权限变更，禁止新调用但保留已发送原键的 UNKNOWN/用量核实。服务 IAM 不可用一律 UNAVAILABLE，不因是预定任务而提升权限。任何 Run 恢复也必须重新校验计划当前状态及本次允许的身份、来源和模式；已在途调用不假装撤回。
+
+### B3：跨时间槽唯一占用、释放及 UNKNOWN
+
+**计划行有且仅有一个 `active_occurrence_id`（nullable），以及配套 CAS/修订，作为跨时间槽的持久占用。** 同一 Workbench PostgreSQL 事务必须完成计划行 `SELECT ... FOR UPDATE` 或条件更新、时间槽唯一检查、新 occurrence 创建、`active_occurrence_id` 的原子绑定及合法 BusinessTask 创建；持锁期间不调用 IAM、ProductDB、RunDB 或模型。非 ACTIVE 的计划或仍有 active occurrence 时，本槽记 SKIPPED（保留 slot 记录，不能偷偷重试为新 run）；不能因为 RunDB 查询失败、投影 ERROR 或 worker 重启就清空占用。
+
+占用自 `CLAIMED`（即使还无 Run）开始，直到已核实**业务 AgentRun 不会再产生运行/费用副作用**才可释放：
+- 正在准备/未证实派发、运行中、暂停/Interrupted 可 Resume、任何 `UNKNOWN`（包括 response lost、超时、usage/model/tool 未明）一律保持占用。
+- `HumanReviewRequired` 且原 Run 已明确停止发模型/Tool、原生成与用量结算已明确不再 UNKNOWN 时，**可释放执行占用**，即使 Review 仍等待用户决定；审核继续由原 Review owner 负责，下一周期不得自动 Apply。
+- `Stopped` 只有在准确原 Run/request/usage/receipt 证明无需再发外部请求、且预算已结算/受原 owner 持有时才能释放；`TaskProjection.State=ERROR` **不是**释放证明。
+- 恢复释放必须由单一 Workbench `ReconcileOccurrence` 入口执行：先按精确 occurrence→BusinessTask→AgentRun/invocation/资源回执只读核验，构造证明；再对同一 plan row + `active_occurrence_id` + 原 revision 用 CAS 清空并记录原证明摘要/决策。无法获取确切身份/凭据或读依赖失败保持占用和 `UNKNOWN`，必须允许可见的人工恢复/诊断，不自动换键重发。
+- 两个不同 slot 并发、暂停与到点竞态及多 worker 恢复，均在同一个 plan row 锁序列化；数据库唯一键保证同槽一个 occurrence，外部发送继续受原 AgentRun/invocation idempotency 保护。修订改变不释放已开始的 occurrence；已占用运行可完整读回。
+
+### B4：费用上限不依赖未经证实的累计扣费接口
+
+**V1 收窄为强制有限执行次数 `max_occurrences` 和经原 Agent/Commercial 许可的单次最坏费用上界 `per_run_upper_bound`，且必须同时保存 `max_occurrences * per_run_upper_bound` 作为用户确认的总理论上界。** 不提供“累计实际花费达到 XX 自动停”的承诺，不实现第二套计费账本。最多运行次数包括已认领并可能发送的 UNKNOWN，不能因为执行失败/HTTP 响应丢失而返还一次免费名额。最大次数和单次上界必须受现有限制并安全计算（定点数或严格整数，不能浮点溢出）；无法计算保守合法上界的模型或配置不得用于定时计划，显示真实限制，不捏造金额硬上限。
+
+每次正常执行沿原 Resource/Commercial owner 做准确配置、报价、预留、预算、实际 usage 与原调用回执；计划只持不可变 `per_run_upper_bound` 与配额次数、已占用次数和原 invocation refs 的窄投影，不拥有扣费结果。周期规则必须有明确截止日期或最大槽次数；如原调用只能估算不能证明硬上界，则 V1 不承诺跨周期金额上限而改为仅显示**参考估算+次数硬限制**，经用户单独明确确认后方能开放该类模型；未确认则 fail closed。UNKNOWN 保留原预留并占用计数与运行锁，不按零费用处理。
+
+## 3.3 明确的实施门禁
+
+上述四项均按本轮 reviewer 的 `BLOCKER` 分类。正式 Writer 还必须给出：
+- 同一个 Workbench 数据库/当前 installer 中的 source CHECK、复合 FK、唯一 slot + plan 占用 CAS 草案及测试；
+- 独立的后台 application 注入路径、原内容运行执行身份与最近发送门禁；
+- 模式矩阵及定时 `ManualReviewOnly` 防自动采用的运行验证；
+- 按原 Run/资源真实 receipt 核验的释放条件及 UNKNOWN 恢复；
+- 单次预算上界来源与有限次数的真实配置校验。
+
+架构评审需明确上面已冻结的选择是否覆盖现有 Must。**没有书面 `IMPLEMENTATION_READY` 结论时，本 PR 保持 design-only，不借 CI 通过提前加入业务代码。**
+
 ## 4. 输入、身份、快照和授权
 
 - **计划意图**：plan_id、organization_id、创建者及有效 member_id、工作范围、`ContentTaskKind`、有界 typed 商品选择、冻结的用户目标、来源/版本规则、每次运行参数和资源上限、计划限制、创建时授权确认摘要、schedule revision。
 - **每次运行的实际证据**：scheduled_at_utc、固定的 plan revision、最终解析的 Catalog publication/version/digest、模型配置和原预算快照引用、唯一 occurrence_id 和 BusinessTask_id。计划输入与每次实际证据不能混为一个“最新商品”事实。
-- 一次性预约初版使用**准确指定的商品及源版本**；每天／每周需要在保存时由用户明确选择“保持固定版本”或“每次按当前授权重新读取这件商品的最新已保存版本”。**禁止自动换商品、扩大数据范围或使用模型推断商品归属**。
+- 一次性预约初版使用**准确指定的商品及源版本**；每天／每周需要在保存时由用户明确选择“保持固定版本”或“每次按当前授权重新读取这件商品的最新已保存版本”；两种规则均受 §3.2 的有限次数和当前授权限制。**禁止自动换商品、扩大数据范围或使用模型推断商品归属**。
 - 每轮在创建执行意图前及原资源外部发送准入处分别复核实际当前授权：同企业/原成员仍有权、当前工作范围仍允许、商品及来源可读、Agent 当前允许、模型配置仍在准入范围、额度与时间预算有效。撤销权限或依赖不可用时 fail closed，保存真实阻断原因，不退回缓存授权或系统管理员权限。
 - 保存“允许在约定时间内重复执行有限任务”的明确用户授权；**计划创建不是允许无人审核 Apply/Publish**。新执行仍按原 Review/Apply 权限和流程，不能把旧确认当成未来任何动作的无限授权。
 - 身份证据仅保存有界稳定业务标识，不保存 access token、refresh token、provider credential 或重用用户 HTTP request；worker 使用原受控、无 JWT 的授权端口。
@@ -66,7 +117,7 @@
 
 ### 5.1 时间与状态
 
-时间规则：`once`（含 UTC 准确时间）、`daily` / `weekly`（明确 IANA 时区及本地时间、周几），起始/结束期限、最多执行次数或预算上限。所有计算出的 occurrence slot 使用 UTC，UI 展示时区和未来具体时间。设计及代码需证明 DST 缺失与重复本地时刻不会产生重复计费触发。
+时间规则：`once`（含 UTC 准确时间）、`daily` / `weekly`（明确 IANA 时区及本地时间、周几），起始/结束期限以及**必须配置的最大执行次数**；金额型累计停止条件不属于 V1。所有计算出的 occurrence slot 使用 UTC，UI 展示时区和未来具体时间。设计及代码需证明 DST 缺失与重复本地时刻不会产生重复计费触发。
 
 计划最小状态：`PENDING_REGISTRATION`, `ACTIVE`, `PAUSED`, `CLOSED`, `REGISTRATION_UNKNOWN`（名称可在实现时定稿）；**实际业务运行状态从原 AgentRun/Review 读取**。每次发生记录区分 `PENDING`, `CLAIMED`, `DISPATCHED`, `SKIPPED`, `BLOCKED`, `UNKNOWN`，只有已取到原结果的投影才能显示业务完成。编辑产生新 revision；更新中的旧修订触发不能绕过状态检查。
 
@@ -82,7 +133,7 @@
 
 发生记录领取、原 BusinessTask 构造和关联必须遵循当前 Workbench 的数据库事务与恢复口径。到 Agent 调度及付费模型的交接失败，按**原 Task/Run/invocation 证据**判定结果：仅证明尚未发生外部发送才可恢复原意图；`UNKNOWN` 不得换 key 重新发送、释放预算或按零费用结算。
 
-Temporal 的 overlap policy 只覆盖它追踪的 Workflow 生命周期。若 Workflow 提交 BusinessTask 后结束，后续 AgentRun 仍可能在运行；**真实不重叠必须通过 Workbench occurrence/原 AgentRun 判定**。首版建议同计划在前次仍运行时跳过并记录，本次不积压；`PENDING_REVIEW` 与 `UNKNOWN` 是否占用在独立评审中定稿。服务恢复按有效 catch-up 时间窗、预定次数与预算边界处理旧触发；过窗保留漏跑事实，不批量生成旧付费调用。
+Temporal 的 overlap policy 只覆盖它追踪的 Workflow 生命周期。若 Workflow 提交 BusinessTask 后结束，后续 AgentRun 仍可能在运行；**真实不重叠必须通过 Workbench occurrence/原 AgentRun 判定**。按 §3.2 B3 的计划行 CAS 锁约束，同计划前次实际执行仍占用时跳过本槽并记录，不积压；已确认不再发生新外部副作用且原用量可核实的 PENDING_REVIEW 可释放，所有 UNKNOWN 始终占用至原回执核实。服务恢复按有效 catch-up 时间窗、预定次数与预算边界处理旧触发；过窗保留漏跑事实，不批量生成旧付费调用。
 
 ## 6. API / UI 和交付路径
 
@@ -109,6 +160,6 @@ UI 在“AI 工作台 → 任务中心”提供计划区、创建/编辑表单�
 
 ## 8. 设计评审待定点 / 当前权限
 
-独立 reviewer 需冻结：一次性调度编辑/取消与 SDK 版本行为；计划/触发 schema 的约束、CAS 与唯一索引；计划授权有效期及每次预算累计的**真实原资源 owner**；周期的 latest/fixed 选择；真实 AgentRun 占用至何状态；跨 Workbench/Agent owner 的交接与 UNKNOWN；最小限度的 server-created BusinessTask 扩展及注入/consumer。
+独立 reviewer 需冻结：一次性调度编辑/取消与 SDK 版本行为；计划/触发 schema 的约束、CAS 与唯一索引；计划授权有效期及有限次数/单次最坏费用界的原资源事实依据；周期的 latest/fixed 选择；§3.2 B3 的原回执释放证明可执行性；跨 Workbench/Agent owner 的交接与 UNKNOWN；最小限度的 server-created BusinessTask 扩展及注入/consumer。
 
 Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久来源及原资源副作用；不扩大原 Accepted Risk、不建设第二权限体系。**当前状态 DESIGN_CANDIDATE / NOT_READY；没有独立架构评审批准，不能将本文件作为 Writer 改生产代码的授权。** 不授权真实模型调用、保留实例部署、真实业务数据修改、合并或 Issue 关闭。
