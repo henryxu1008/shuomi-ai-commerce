@@ -43,4 +43,16 @@
 
 独立评审确认对七表全空、无旧事实承接的当前 schema 作定向演进不构成旧业务数据迁移；现场仍须重核和另行授权。除上述事务边界修正外，owner 权限与 DDL/ACL、提交前回滚、提交后 runtime 拒绝、ACK 不明、并发/重复安装及写入互斥均属 `IMPLEMENTATION_TEST`，必须在隔离实现验证。42 点只是条件示例，不是预算批准或单次现金上限。
 
-实现阶段先按 TDD 覆盖目标缺陷，再用任务专属 PostgreSQL、原 SDK 和本地模型替身验证 schema 角色/失败/恢复、模型 wire 和 usage、共享 current/费用/预算、原产品 Agent 与 Chat 合成链。当前仅有非正式 POC；任何成功不代表真实 OpenAI、真实库存/模型账单、原实例或产品验收。代码/现场安装、统一 FX 发布、成员月限变更、实例切换和真实模型调用分别是独立动作，不由本文批准。
+实现阶段先按 TDD 覆盖目标缺陷，再用任务专属 PostgreSQL、原 SDK 和本地模型替身验证 schema 角色/失败/恢复、模型 wire 和 usage、共享 current/费用/预算、原产品 Agent 与 Chat 合成链。隔离 PostgreSQL、真实 SDK 配内存替身及合成业务链的测试结果以最终 PR 为准；任何成功不代表真实 OpenAI、真实库存/模型账单、原实例或产品验收。代码/现场安装、统一 FX 发布、成员月限变更、实例切换和真实模型调用分别是独立动作，不由本文批准。
+
+## 现场准备命令与顺序（待审核，不构成执行授权）
+
+空结构准备模式仅识别经隔离核对的 PostgreSQL 17 原始结构和角色；必须使用本次最终审核版本，owner 和 runtime DSN 由现有私密渠道分别提供，不能打印或写入仓库。IP 以数据库 `inet_server_addr()::text` 的当次只读结果为准，数据库、服务器及端口由操作者复核并显式提供。**本命令会执行 DDL，不得在未获现场操作授权时运行：**
+
+```powershell
+go run ./cmd/ai-workbench-schema-init --runtime-role ai_workbench_runtime --empty-scope-only --expected-database product_agent --expected-server-address <经核实的数据库IP> --expected-server-port <经核实的端口>
+```
+
+命令读取 `AI_WORKBENCH_SCHEMA_DSN` 和 `AI_WORKBENCH_RUNTIME_DSN`；不用命令行传密码。失败或提交回执不明确，Chat 保持关闭，先只读核对，不自动再次执行。前置包括当前一致备份及独立恢复、七表为空、结构与可检查依赖匹配、角色及精确目标复核、保留实例清单和全部业务卷；新旧版本的恢复窗口须事前确定，禁止旧备份覆盖之后新增的非 Chat 事实。
+
+现场方案的后续动作依次是：由统一价格 owner 核验并发布当前有效的官方价目与允许来源的 USD/CNY；为同一企业连接和同一个共享文本模型引用声明规划、内容两个用途；校验试用者和可用余额，按用户决定处理月限；在授权窗口内切换经验证的后端并启用该企业 Chat，保留 ProductAgent 与原有预留。配置预览需包含两个用途的 prompt/schema、输入输出上限、价格版本、FX 生效期及失败处理；任一缺失则保持关闭。真实发送一次消息与现场启用分开授权，其前不发生模型计费。

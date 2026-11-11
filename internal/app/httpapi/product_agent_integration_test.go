@@ -22,6 +22,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	aistore "task-processor/internal/aicapability/store"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -155,8 +156,12 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 }
 
 func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
+	miniRuntime := mode == "full runtime content flow chat mini"
 	fullRuntime := strings.HasPrefix(mode, "full runtime ")
 	mode = strings.TrimPrefix(mode, "full runtime ")
+	if miniRuntime {
+		mode = "content flow chat"
+	}
 	zeroReferenceUsage := mode == "research zero"
 	if zeroReferenceUsage {
 		mode = "research"
@@ -221,6 +226,9 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	limit, err := resourceadapter.NewGormMemberLimitRepository(f.owner, resourceadapter.TransactionConfig{})
 	require.NoError(t, err)
 	pointBudget := int64(10_000_000)
+	if miniRuntime {
+		pointBudget = 24_005_694
+	}
 	if mode == "own intake" {
 		pointBudget = 30_000_000
 	}
@@ -239,10 +247,19 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			raw, e := io.ReadAll(r.Body)
 			require.NoError(t, e)
 			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+			if miniRuntime {
+				var wire map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(raw, &wire))
+				require.JSONEq(t, `"gpt-5.4-mini-2026-03-17"`, string(wire["model"]))
+				require.JSONEq(t, `512`, string(wire["max_completion_tokens"]))
+				require.NotContains(t, wire, "max_tokens")
+				require.JSONEq(t, `"none"`, string(wire["reasoning_effort"]))
+				require.JSONEq(t, `false`, string(wire["store"]))
+			}
 			if strings.Contains(string(raw), "Plan one content suggestion for the exact server-selected subject") {
 				plannerCalls.Add(1)
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"id":"planner-fixture","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
+				_, _ = w.Write([]byte(`{"id":"planner-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 				return
 			}
 		}
@@ -459,9 +476,9 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			if strings.Contains(mode, " qualified") {
 				content = `{"Kind":"propose","DomainProposal":{"Kind":"listing-materials-v2","Payload":{"purpose":"materials-edit","proposal":{"images":[{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-main","sort":1,"type":1},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-detail","sort":3,"type":2},{"group":"skc","skc":0,"sku":0,"asset_id":"qualified-square","sort":2,"type":5}],"evidenceIds":["` + evidence + `"]}}}}`
 			}
-		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && (step-1)%3 == 0:
+		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && ((miniRuntime && (step-1)%2 == 0) || (!miniRuntime && (step-1)%3 == 0)):
 			content = `{"Kind":"tool","Tool":{"ID":"product.canonical.inspect","Version":"v2.0.0"}}`
-		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && (step-1)%3 == 1:
+		case (strings.HasPrefix(mode, "content flow") || strings.HasPrefix(mode, "own content ") || mode == "supply content") && !miniRuntime && (step-1)%3 == 1:
 			content = `{"Kind":"tool","Tool":{"ID":"product.source-evidence.inspect","Version":"v2.0.0"}}`
 		case strings.HasPrefix(mode, "own content "):
 			if chatTasks {
@@ -535,7 +552,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			_, _ = w.Write([]byte(`{"id":"offline-deepseek","model":"deepseek-v4.1-flash","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":` + usage + `}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"id":"isolated-grsai","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
+		_, _ = w.Write([]byte(`{"id":"isolated-grsai","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":` + string(encoded) + `},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
 	defer provider.Close()
 	credentials := newHTTPChannelFixture(f.owner)
@@ -563,7 +580,13 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			}
 		}
 	}
-	require.NoError(t, credentials.seed(context.Background(), credential))
+	if miniRuntime {
+		credential.BaseURL = "https://api.openai.com/v1"
+		_, err = credentials.owner.Publish(context.Background(), credentialcmdForFixture(credential))
+		require.NoError(t, err)
+	} else {
+		require.NoError(t, credentials.seed(context.Background(), credential))
+	}
 	row, err := credentials.record(context.Background(), "B", "", "default")
 	require.NoError(t, err)
 	require.NotNil(t, row)
@@ -610,7 +633,42 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		settings.AssetDB = nil
 		settings.TextPolicies = nil
 	}
-	if chatTasks && fullRuntime {
+	if chatTasks && miniRuntime {
+		settings.Limits.ModelCalls = 2
+		settings.TextPolicies = nil
+		settings.Limits.Tokens = 72000
+		settings.Limits.CostMicros = 300000
+		content := settings.ContentTextPolicies["B"]
+		settings.TextTransport = acquisitionHTTPTransport(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Scheme != "https" || req.URL.Host != "api.openai.com" || req.URL.Path != "/v1/chat/completions" {
+				return nil, errors.New("fixture refuses all non-synthetic destinations")
+			}
+			rec := httptest.NewRecorder()
+			provider.Config.Handler.ServeHTTP(rec, req)
+			return rec.Result(), nil
+		})
+		content.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest("https://api.openai.com/v1")
+		content.Profile.EndpointIdentityDigest = content.AdmittedEndpointIdentityDigest
+		content.Profile.AdapterPolicyVersion = governed.OpenAIMiniTextAdapterPolicy
+		content.Profile.UsageMappingVersion = "openai-text-v1"
+		content.Profile.ProviderID = "openai"
+		content.Profile.ModelID = "gpt-5.4-mini-2026-03-17"
+		content.Profile.OfficialTariff.Model = content.Profile.ModelID
+		content.Profile.InputMicrosPerMillion = 6000000
+		content.Profile.OutputMicrosPerMillion = 36000000
+		content.Profile.MaximumPromptTokens = 16000
+		content.Profile.MaximumCompletionTokens = 512
+		content.Profile.MaximumInputBytes = 64 << 10
+		settings.ContentTextPolicies["B"] = content
+		planner := settings.ContentTextPolicies["B"]
+		planner.Profile.MaximumPromptTokens = 4096
+		planner.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
+		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
+		planner.Profile.MaximumInputBytes = 64 << 10
+		planner.Profile.MaximumCompletionTokens = 512
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+	}
+	if chatTasks && fullRuntime && !miniRuntime {
 		planner := settings.ContentTextPolicies["B"]
 		planner.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
 		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
@@ -1508,4 +1566,8 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	code, raw, err = acquisitionHTTPRequest(server, "GET", path+"/"+key, "admin", "B", "", "")
 	require.NoError(t, err)
 	require.NotEqual(t, 200, code, string(raw))
+}
+
+func credentialcmdForFixture(f httpModelFixture) credential.Command {
+	return credential.Command{OrganizationID: f.TenantID, ActorID: "fixture", Key: uuid.NewString(), ConnectionID: f.ClientName, Provider: "openai", Channel: "openai-direct", Account: "fixture", Region: "global", BaseURL: f.BaseURL, Secret: f.APIKey, Enabled: true}
 }
