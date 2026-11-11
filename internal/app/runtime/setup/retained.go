@@ -91,7 +91,7 @@ func (d *Driver) retainedFingerprint(ctx context.Context, cs []container) (strin
 		}
 		values = append(values, running{c.ID, c.Image, c.Config, c.HostConfig, c.Mounts})
 	}
-	return hash(marshal([]any{effective, hash(manifest), values})), nil
+	return hash(marshal([]any{effective, hash(manifest), values, bindings(cs)})), nil
 }
 func bindings(cs []container) string {
 	rows := []string{}
