@@ -362,7 +362,7 @@ func (c *Control) PrepareRecovery(ctx context.Context, id, action, subnet string
 			result.Blocks = append(result.Blocks, "仍有相关资源或无法确认已清理，不能归档")
 		}
 		if action == "retry" && !retryAuditAllowed(r, audit) {
-			result.Blocks = append(result.Blocks, "尚未证明全部卷为空且未初始化，不能重新尝试")
+			result.Blocks = append(result.Blocks, "尚未确认所有存储都为空且尚未初始化，不能重新尝试")
 		}
 		path, err := c.previewPath(id, result.ID)
 		if err != nil {

@@ -113,6 +113,33 @@ func TestArchiveKeepsOriginalBytesAndUnknownResultAndGuard(t *testing.T) {
 	require.Zero(t, d.calls)
 }
 
+func TestFailedV1InspectionDoesNotAdoptOrAlterOriginalRecord(t *testing.T) {
+	d := &recoveryFixture{}
+	c, p, original := retainedUnknown(t, d)
+	dir, err := c.directory(p.ID)
+	require.NoError(t, err)
+	guard := filepath.Join(c.root, p.InstanceID, "active.json")
+	before, err := os.ReadFile(guard)
+	require.NoError(t, err)
+	_, err = c.Reconcile(context.Background(), p.ID)
+	require.ErrorIs(t, err, ErrUnresolved)
+	after, err := os.ReadFile(filepath.Join(dir, "receipt.json"))
+	require.NoError(t, err)
+	require.Equal(t, original, after)
+	after, err = os.ReadFile(guard)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	_, err = os.Stat(filepath.Join(dir, "original-receipt.json"))
+	require.True(t, os.IsNotExist(err), "an unsuccessful inspection must not adopt v1")
+	d.revision = "next"
+	got, err := c.Reconcile(context.Background(), p.ID)
+	require.NoError(t, err)
+	require.Equal(t, "succeeded", got.Status)
+	after, err = os.ReadFile(filepath.Join(dir, "original-receipt.json"))
+	require.NoError(t, err)
+	require.Equal(t, original, after)
+}
+
 func TestRetryStaysOnOriginalOperationAndRepeatedConfirmationDispatchesOnce(t *testing.T) {
 	d := &recoveryFixture{testDriver: testDriver{revision: "empty"}, audit: RecoveryAudit{Fingerprint: "empty", Empty: true}}
 	c, p, original := retainedUnknown(t, d)

@@ -310,9 +310,6 @@ func (c *Control) Reconcile(ctx context.Context, id string) (Plan, error) {
 				return r.Plan, err
 			}
 		}
-		if err = c.adopt(r); err != nil {
-			return r.Plan, err
-		}
 		if err = c.driver.Verify(ctx, r.current(), func(stage string) error {
 			if _, ok := stepNames[stage]; !ok {
 				return ErrInvalid
@@ -325,6 +322,11 @@ func (c *Control) Reconcile(ctx context.Context, id string) (Plan, error) {
 				}
 			}
 			return r.Plan, ErrUnresolved
+		}
+		// A failed observation of a v1 operation must remain read-only. Only a
+		// verified completion (or explicit recovery confirmation) may adopt it.
+		if err = c.adopt(r); err != nil {
+			return r.Plan, err
 		}
 		return c.finish(r, nil)
 	})
