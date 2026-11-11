@@ -4,6 +4,15 @@ import { afterEach, expect, test, vi } from "vitest";
 import { SetupApp } from "./setup-app";
 
 afterEach(() => vi.unstubAllGlobals());
+test("archived unknown records retain their result without suggesting an unavailable check", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (path: string) => ({ ok: true, json: async () => path.endsWith("session") ? { csrf: "csrf" } : { dockerReady: true, version: "a".repeat(40), instances: [], profiles: [], blocks: [], pending: [], history: [{ id: "same.archived", name: "旧测试安装", archived: true, mode: "fresh", status: "unknown", changes: [], services: [], blocks: [] }] } })));
+  const user = userEvent.setup(); render(<SetupApp />);
+  await user.click(await screen.findByText("历史安装记录"));
+  await user.click(screen.getByRole("button", { name: "查看操作记录" }));
+  expect(screen.getByText("相关资源已清理；原执行结果保留，记录已移入历史。")).toBeVisible();
+  expect(screen.queryByText(/点击“检查操作结果”/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "检查操作结果" })).not.toBeInTheDocument();
+});
 test("new-install draft survives review/back and a blocked plan cannot dispatch", async () => {
   const calls: { path: string; body?: Record<string, unknown> }[] = [];
   vi.stubGlobal("fetch", vi.fn(async (path: string, options: RequestInit) => {
