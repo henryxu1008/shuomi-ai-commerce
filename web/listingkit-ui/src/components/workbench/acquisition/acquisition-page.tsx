@@ -18,7 +18,7 @@ import { AcquisitionPlansPage } from "./acquisition-plans-page";
 
 type PendingIntent = PendingAcquisitionIntent;
 
-export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvailable=false,plansEnabled=false }: { operationId?: string;agentEnabled?:boolean;knowledgeAvailable?:boolean;plansEnabled?:boolean }) {
+export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvailable=false,plansEnabled=false,shouldAutoOpen }: { operationId?: string;agentEnabled?:boolean;knowledgeAvailable?:boolean;plansEnabled?:boolean;shouldAutoOpen?:()=>boolean }) {
   const context = useWorkbenchContext();
   const agentKind = useSearchParams().get("agent_kind");
   const scope = useMemo<AcquisitionContext | null>(() => {
@@ -35,10 +35,10 @@ export function AcquisitionPage({ operationId,agentEnabled=false,knowledgeAvaila
   if (plansEnabled && !operationId && !sameIntentScope) return <AcquisitionPlansPage key={`${scope.userId}:${scope.organizationId}`} scope={scope} agentKind={agentKind} />;
   // The shell preserves a submitted key through workbench navigation, but an
   // intent is rendered or replayed only after its verified scope is restored.
-  return <ScopedAcquisitionPage key={`${scope.userId}:${scope.organizationId}:${operationId ?? ""}`} operationId={operationId} agentEnabled={agentEnabled} knowledgeAvailable={knowledgeAvailable} scope={scope} initialIntent={sameIntentScope ? submittedIntent : null} foreignIntent={!!submittedIntent && !sameIntentScope} onIntentChange={context.setPendingAcquisitionIntent} agentKind={agentKind} />;
+  return <ScopedAcquisitionPage key={`${scope.userId}:${scope.organizationId}:${operationId ?? ""}`} operationId={operationId} agentEnabled={agentEnabled} knowledgeAvailable={knowledgeAvailable} scope={scope} initialIntent={sameIntentScope ? submittedIntent : null} foreignIntent={!!submittedIntent && !sameIntentScope} onIntentChange={context.setPendingAcquisitionIntent} agentKind={agentKind} shouldAutoOpen={shouldAutoOpen} />;
 }
 
-function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, scope, initialIntent, foreignIntent, onIntentChange, agentKind }: { operationId?: string;agentEnabled:boolean;knowledgeAvailable:boolean; scope: AcquisitionContext; initialIntent: PendingIntent | null; foreignIntent: boolean; onIntentChange: (intent: PendingIntent | null) => boolean; agentKind?: string | null }) {
+function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, scope, initialIntent, foreignIntent, onIntentChange, agentKind,shouldAutoOpen }: { operationId?: string;agentEnabled:boolean;knowledgeAvailable:boolean; scope: AcquisitionContext; initialIntent: PendingIntent | null; foreignIntent: boolean; onIntentChange: (intent: PendingIntent | null) => boolean; agentKind?: string | null;shouldAutoOpen?:()=>boolean }) {
   const router = useRouter();
   const context = useWorkbenchContext();
   const [source, setSource] = useState(initialIntent?.source ?? "");
@@ -90,7 +90,7 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
       } else {
         setPending(intent); setError("OUTCOME_UNKNOWN");
       }
-      if (next.outcome === "published") router.push(productAgentOperationHref(next.operationId, agentKind));
+      if (next.outcome === "published" && shouldAutoOpen?.() !== false) router.push(productAgentOperationHref(next.operationId, agentKind));
     } catch (failure) {
       if (!active.current) return;
       const code = codeOf(failure);
@@ -120,7 +120,7 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
       const next = await readAcquisition(recoveryID, scope, controller.signal);
       if (!active.current) return;
       setResult(next);
-      if (next.outcome === "published") router.push(productAgentOperationHref(next.operationId, agentKind));
+      if (next.outcome === "published" && shouldAutoOpen?.() !== false) router.push(productAgentOperationHref(next.operationId, agentKind));
     } catch (failure) {
       if (active.current) setError(codeOf(failure));
     } finally {
@@ -131,7 +131,7 @@ function ScopedAcquisitionPage({ operationId,agentEnabled,knowledgeAvailable, sc
   }
 
   return <ConsolePage title="1688采集" breadcrumbs={findConsoleRoute("/workbench/supply/acquisition")?.trail} description="提交公开商品页或 offer ID。系统仍按当前登录身份和企业授权；不需要源账号或 1688 登录。">
-    <Card className="space-y-4 p-5"><h2 className="text-base font-semibold">采集公开商品</h2>{foreignIntent ? <p role="status">另一个企业或身份下有尚未确认的采集请求。请恢复原上下文后使用原 key 核实。</p> : null}<form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}><label className="grid gap-2" htmlFor="acquisition-source"><span>1688 商品页或 offer ID</span><Input id="acquisition-source" value={source} onChange={(event) => setSource(event.target.value)} disabled={busy || !!pending || foreignIntent} placeholder="https://detail.1688.com/offer/123.html" /></label><div className="flex gap-2"><Button type="submit" disabled={busy || !!pending || foreignIntent}>提交采集</Button>{pending?.quotaPaused ? <Button type="button" variant="outline" disabled={busy || foreignIntent} onClick={() => void submit()}>补足额度后使用原 key 重试</Button> : pending && (error === "OUTCOME_UNKNOWN" || error === "ACQUISITION_INTENT_STORAGE_FAILED" || error === "ACQUISITION_CAPACITY") ? <><Button type="button" variant="outline" disabled={busy || foreignIntent} onClick={() => void submit(true)}>使用原 key 核实</Button><Button type="button" variant="outline" disabled={busy || foreignIntent} onClick={() => void submit()}>继续原请求</Button></> : null}</div></form>{result ? <ResultState result={result} /> : null}{error ? <Failure code={error} /> : null}</Card>
+    <Card className="space-y-4 p-5"><h2 className="text-base font-semibold">采集公开商品</h2>{foreignIntent ? <p role="status">另一个企业或身份下有尚未确认的采集请求。请恢复原上下文后使用原 key 核实。</p> : null}<form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void submit(); }}><label className="grid gap-2" htmlFor="acquisition-source"><span>1688 商品页或 offer ID</span><Input id="acquisition-source" value={source} onChange={(event) => setSource(event.target.value)} disabled={busy || !!pending || foreignIntent} placeholder="https://detail.1688.com/offer/123.html" /></label><div className="flex gap-2"><Button type="submit" disabled={busy || !!pending || foreignIntent}>提交采集</Button>{pending?.quotaPaused ? <Button type="button" variant="outline" disabled={busy || foreignIntent} onClick={() => void submit()}>补足额度后使用原 key 重试</Button> : pending && (error === "OUTCOME_UNKNOWN" || error === "ACQUISITION_INTENT_STORAGE_FAILED" || error === "ACQUISITION_CAPACITY") ? <><Button type="button" variant="outline" disabled={busy || foreignIntent} onClick={() => void submit(true)}>使用原 key 核实</Button><Button type="button" variant="outline" disabled={busy || foreignIntent} onClick={() => void submit()}>继续原请求</Button></> : null}</div></form>{result ? <ResultState result={result} agentKind={agentKind} /> : null}{error ? <Failure code={error} /> : null}</Card>
     <Card className="mt-5 space-y-3 p-5"><h2 className="text-base font-semibold">找回采集结果</h2><p className="text-sm text-muted-foreground">粘贴操作 ID 仅读取该 ID 在当前身份和企业下的结果；不会创建新操作。</p><form className="flex max-w-xl gap-2" onSubmit={(event) => { event.preventDefault(); void recover(); }}><Input aria-label="操作 ID" value={recoveryID} onChange={(event) => setRecoveryID(event.target.value)} disabled={busy} /><Button type="submit" variant="outline" disabled={busy}>读取</Button></form></Card>
   </ConsolePage>;
 }
@@ -146,7 +146,8 @@ function ProductDetail({ operationId,agentEnabled,knowledgeAvailable, product, b
   </ConsolePage>;
 }
 
-function ResultState({ result }: { result: AcquisitionResult }) {
+function ResultState({ result,agentKind }: { result: AcquisitionResult;agentKind?:string|null }) {
+  if(result.outcome === "published") return <p role="status">操作 {result.operationId}：采集完成。 <Link href={productAgentOperationHref(result.operationId,agentKind)}>查看采集商品</Link></p>;
   const labels: Record<AcquisitionResult["outcome"], string> = { acquiring: "正在采集", prepared: "正在发布", outcome_unknown: "结果待核实", published: "已发布，正在打开商品", failed: "采集失败" };
   return <p role="status">操作 {result.operationId}：{labels[result.outcome]}。</p>;
 }
