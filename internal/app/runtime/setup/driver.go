@@ -452,6 +452,28 @@ func (d *Driver) Apply(ctx context.Context, p setupcontrol.Prepared, report setu
 				return e
 			}
 		}
+		// Pull/build can take minutes. Their initial observation cannot authorize
+		// bootstrap after source, ports, networks or storage have since changed.
+		if e = d.candidateIntact(n); e != nil {
+			return e
+		}
+		if _, e = d.installationDriver(ctx, n); e != nil {
+			return e
+		}
+		if n.RecoveryFingerprint != "" {
+			if e = freePorts(p.Request); e != nil {
+				return e
+			}
+			if e = d.checkSubnet(ctx, p.Request.NetworkSubnet); e != nil {
+				return e
+			}
+			audit, err := d.AuditRecovery(ctx, p, true)
+			if err != nil || !audit.Empty || len(audit.Blocks) > 0 || audit.Fingerprint != n.RecoveryFingerprint {
+				return setupcontrol.ErrDrift
+			}
+		} else if _, e = d.freshFingerprint(ctx, p.Request); e != nil {
+			return e
+		}
 		if e = report("start"); e != nil {
 			return e
 		}

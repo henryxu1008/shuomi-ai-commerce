@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,90 @@ import (
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/app/setupcontrol"
 )
+
+type recoveryBuildRunner struct {
+	auditRunner
+	afterBuild func()
+	up         int
+	revision   string
+}
+
+func (r *recoveryBuildRunner) Run(ctx context.Context, dir string, args []string) ([]byte, error) {
+	if len(args) > 1 && args[0] == "--context" {
+		args = args[2:]
+	}
+	if args[0] == "context" {
+		return []byte("desktop-linux"), nil
+	}
+	if args[0] == "image" && args[2] != "alpine:3.22" {
+		return marshal([]any{map[string]any{"Id": args[2], "Config": map[string]any{"Labels": map[string]string{"org.opencontainers.image.revision": r.revision}}}}), nil
+	}
+	if args[0] == "compose" {
+		for _, a := range args {
+			if a == "build" && r.afterBuild != nil {
+				r.afterBuild()
+			}
+			if a == "up" {
+				r.up++
+			}
+		}
+		return nil, nil
+	}
+	return r.auditRunner.Run(ctx, dir, args)
+}
+func TestRecoveryRechecksConditionsAfterBuildBeforeStarting(t *testing.T) {
+	for _, mode := range []string{"nonempty", "reference", "source", "unchanged"} {
+		t.Run(mode, func(t *testing.T) {
+			r := &recoveryBuildRunner{revision: strings.Repeat("a", 40)}
+			d, p := auditFixture(t, &r.auditRunner)
+			d.runner = r
+			d.dockerContext = "desktop-linux"
+			root := t.TempDir()
+			source := filepath.Join(root, "source")
+			require.NoError(t, os.MkdirAll(source, 0700))
+			sentinel := filepath.Join(source, "sentinel")
+			require.NoError(t, os.WriteFile(sentinel, []byte("source"), 0600))
+			release := Release{SchemaVersion: 1, SourceCommit: r.revision, BackendImage: "sha256:backend", UIImage: "sha256:ui", Files: map[string]string{"sentinel": hash([]byte("source"))}}
+			require.NoError(t, os.WriteFile(filepath.Join(root, "release.json"), marshal(release), 0600))
+			d.source, d.release = source, release
+			var n nativePlan
+			require.NoError(t, json.Unmarshal(p.Data, &n))
+			doc, e := readPlanDocument(n)
+			require.NoError(t, e)
+			services := map[string]any{"current-application": map[string]any{"image": release.BackendImage}, "listingkit-ui": map[string]any{"image": release.UIImage}, "builder": map[string]any{"build": map[string]any{"context": filepath.ToSlash(source)}}}
+			doc["services"] = services
+			raw := marshal(doc)
+			require.NoError(t, os.WriteFile(n.ComposeFile, raw, 0600))
+			n.ComposeHash = hash(raw)
+			n.BuildServices = []string{"builder"}
+			n.RequiredServices = requiredServices(services)
+			p.Data = marshal(n)
+			a, e := d.AuditRecovery(context.Background(), p, true)
+			require.NoError(t, e)
+			require.True(t, a.Empty)
+			n.RecoveryFingerprint = a.Fingerprint
+			p.Data = marshal(n)
+			r.afterBuild = func() {
+				switch mode {
+				case "nonempty":
+					r.nonempty = true
+				case "reference":
+					r.foreign = true
+				case "source":
+					require.NoError(t, os.WriteFile(sentinel, []byte("changed"), 0600))
+				}
+			}
+			e = d.Apply(context.Background(), p, func(string) error { return nil })
+			if mode == "unchanged" {
+				require.NoError(t, e)
+				require.Equal(t, 1, r.up)
+			} else {
+				require.Error(t, e)
+				require.Zero(t, r.up, "must not initialise after build-time drift")
+			}
+		})
+	}
+}
 
 type auditRunner struct {
 	foreign, nonempty, missingSource bool
