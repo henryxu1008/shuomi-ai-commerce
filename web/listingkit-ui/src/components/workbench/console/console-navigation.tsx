@@ -40,7 +40,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/
 import { useQuery } from "@tanstack/react-query";
 import { ecoPageSchema, ecoRequest } from "@/lib/api/ecoservices";
 import { listMarketRecords } from "@/lib/api/supply-market";
-import { acquisition1688Href, amazonRealtimeAcquisitionHref, consoleNavigation, findConsoleRoute, onlineAcquisitionGroup, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
+import { consoleNavigation, findConsoleRoute, onlineAcquisitionGroup, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
 import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
 import { researchLocation, researchNavigationHref, researchWorkflows, type ResearchLocation } from "@/lib/workbench/research-navigation";
 
@@ -86,11 +86,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
     if(node.href==="/workbench/services"&&ecoservicesAvailable)return {...node,availability:"connected" as const,children:node.children?.map(child=>({...child,availability:"connected" as const}))};
     if (node.href === "/workbench/supply") return { ...node, children: node.children?.flatMap(child => {
       if (child.href === onlineAcquisitionGroup) {
-        const children = child.children?.filter(platform =>
-          (platform.href === acquisition1688Href && productAcquisitionAvailable) ||
-          (platform.href === amazonRealtimeAcquisitionHref && dataServicesAvailable)
-        );
-        return children?.length ? [{ ...child, children }] : [];
+        return productAcquisitionAvailable || dataServicesAvailable ? [child] : [];
       }
       return [supplyMarketAvailable && ["/workbench/supply/official", "/workbench/supply/selected", "/workbench/supply/catalogs", "/workbench/supply/applications"].includes(child.href)
         ? { ...child, availability: "connected" as const, children: child.children?.map(entry => ({ ...entry, availability: "connected" as const })) }

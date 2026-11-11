@@ -235,29 +235,28 @@ it("shows only the configured Task Center branch without AI Workbench", async ()
 
 it.each([
   [false, false], [true, false], [false, true], [true, true],
-])("shows online acquisition by deployment capability (1688: %s, Amazon: %s)", async (has1688, hasAmazon) => {
+])("shows one second-level online acquisition entry by capability (1688: %s, Amazon: %s)", async (has1688, hasAmazon) => {
   render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" productAcquisitionAvailable={has1688} dataServicesAvailable={hasAmazon} />);
   await userEvent.click(screen.getByRole("button", { name: "展开供应市场" }));
-  expect(screen.queryByRole("link", { name: "1688采集" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "1688 在线采集" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Amazon 在线采集" })).not.toBeInTheDocument();
   if (!has1688 && !hasAmazon) {
-    expect(screen.queryByRole("button", { name: "展开在线采集" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "在线采集" })).not.toBeInTheDocument();
     return;
   }
-
-  await userEvent.click(screen.getByRole("button", { name: "展开在线采集" }));
-  const a1688 = screen.queryByRole("link", { name: "1688 在线采集" });
-  const amazon = screen.queryByRole("link", { name: "Amazon 在线采集" });
-  if (has1688) expect(a1688).toHaveAttribute("href", "/workbench/supply/acquisition");
-  else expect(a1688).not.toBeInTheDocument();
-  if (hasAmazon) expect(amazon).toHaveAttribute("href", "/workbench/supply/acquisition/amazon");
-  else expect(amazon).not.toBeInTheDocument();
+  const entry=screen.getByRole("link", { name: "在线采集" });
+  expect(entry).toHaveAttribute("href", "/workbench/supply/acquisition");
+  expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+  expect(screen.queryByRole("button", { name: "展开在线采集" })).not.toBeInTheDocument();
 });
 
-it("keeps the 1688 entry selected on acquisition results", () => {
+it("keeps the unified entry selected on acquisition results and direct Amazon links", () => {
   const pathname = "/workbench/supply/acquisition/operation/11111111-1111-4111-8111-111111111111";
-  render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" productAcquisitionAvailable />);
-  expect(screen.getByRole("link", { name: "1688 在线采集" })).toHaveAttribute("aria-current", "page");
-  expect(findConsoleRoute(pathname)?.trail.map(node => node.label)).toEqual(["供应市场", "在线采集", "1688 在线采集", "采集结果"]);
+  const v=render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" productAcquisitionAvailable />);
+  expect(screen.getByRole("link", { name: "在线采集" })).toHaveAttribute("aria-current", "page");
+  expect(findConsoleRoute(pathname)?.trail.map(node => node.label)).toEqual(["供应市场", "在线采集", "采集结果"]);
+  v.rerender(<ConsoleNavigation pathname="/workbench/supply/acquisition/amazon" ariaLabel="主导航" dataServicesAvailable />);
+  expect(screen.getByRole("link", { name: "在线采集" })).toHaveAttribute("aria-current", "page");
 });
 
 it("reveals the selected account page after navigation from another module", async () => {
