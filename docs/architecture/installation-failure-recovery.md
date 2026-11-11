@@ -1,6 +1,6 @@
 # 安装失败说明、归档与安全重试
 
-Design Basis: **Independent Architecture**。Admission: **DESIGN_REVIEW_PENDING**。
+Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**，依据§9独立R1；设计准入不代表已获准实施或真实恢复。
 
 执行 [#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)，在同一 PR #1241 内补充当前安装管理的恢复合同。源码调查基线 `c9816108f0d7be2f7ec6b5205838a42792d80049`。本文件是设计，生产实现、真实归档、卷内容检查及重新安装均未执行。
 
@@ -89,7 +89,7 @@ v2原子replace是恢复决定/新尝试的提交点。guard更新只在可证�
 
 ### 6.1 先只读核对，再区分结果
 
-这35卷包括数据库、安装状态、配置/凭据/证书及邮件数据；不能只检查数据库卷或几个marker。沿原封存Compose枚举完整预期集合，逐项核对name、driver、options、准确project/volume标签、CreatedAt及挂载绑定，检查所有运行/停止容器的引用。额外/缺失/重建/改标签/foreign引用都作为漂移，不能凭名称前缀认领。
+这35卷包括数据库、安装状态、配置/凭据/证书及邮件数据；不能只检查数据库卷或几个marker。沿原封存Compose枚举完整预期集合，逐项核对name、driver、options、准确project/volume标签、CreatedAt及挂载绑定，检查全daemon所有运行/停止容器（包含无Compose标签容器）的引用；当前`d.containers`过滤Compose标签，不能直接当作完整无引用证明。额外/缺失/重建/改标签/foreign引用都作为漂移，不能凭名称前缀认领。
 
 在后续获准实施/检查时，卷内容检查只能读取：优先复用已有只读资源入口；若用固定、已校验的最小helper，必须无网络、只读root、cap-drop、受限时长/资源，读取Docker inspect返回的准确local卷Mountpoint，使用不自动创建源目录的**只读bind**；禁止用不存在时会自动创建卷的named-volume mount补证。仅接受本地无options卷、可信daemon返回路径；界面不能提交宿主路径。环境不支持安全读取即待人工核对，不能改权限或降级为猜测。
 
@@ -145,4 +145,12 @@ v2原子replace是恢复决定/新尝试的提交点。guard更新只在可证�
 
 ## 9. 独立评审
 
-待独立R1。findings按AGENTS分类；只由命中当前Must的BLOCKER重开设计。最多两轮正常评审，非阻塞项进入上述实施验证或Backlog，不追加通用平台。
+独立R1核对准确候选`7cf7e7dff37f1a7696060b5cc0ebdc24b21ab389`、当前Control/Driver/privatefile及原Compose/bootstrap/owner合同，结论 **IMPLEMENTATION_READY，0设计BLOCKER**。当前35卷内容仍未核实；上述真实操作限制不变。准确最终文字增量确认及独立报告索引维护在#1240/PR#1241。
+
+| Finding / 当前Must | 分类 | 实施收敛与停止条件 |
+| --- | --- | --- |
+| 全daemon引用证明及Docker Desktop只读卷内容核对，不能漏无标签容器或自动创建读取源 | IMPLEMENTATION_TEST | 对应§8-3；实现须使用完整资源观察，验证缺源/无标签foreign引用拒绝、安全只读bind和各卷保留；无法读取则继续阻断 |
+| v2、guard、原字节保留、旧工具及跨进程崩溃并发接线 | IMPLEMENTATION_TEST | 对应§8-2/4；原副本先保留、v2为唯一可写事实；旧工具失败关闭、一次派发、丢响应读同attempt；Must未通过仍阻止交付 |
+| 原安装release/source/build路径绑定和受控阶段诊断保密 | IMPLEMENTATION_TEST | 对应§8-1/4；不依赖显示文案或新controller替代原版本，真实调用链检查且假秘密不进入响应/日志；不能安全建立绑定则阻断 |
+
+三组均为本文件原有Must和四项实施验证的具体接线要求，不新增产品范围或Accepted Risk。冻结后仅新的BLOCKER重开设计；非阻塞完善不延长正常架构评审或建设通用平台。实施验证没有执行，不将此表写成运行PASS。
