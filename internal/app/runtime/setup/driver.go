@@ -431,6 +431,10 @@ func (d *Driver) Verify(ctx context.Context, p setupcontrol.Prepared) error {
 	if e != nil {
 		return e
 	}
+	instance, e := d.identity(ctx, n.Project)
+	if e != nil || instance != p.InstanceID {
+		return setupcontrol.ErrDrift
+	}
 	if e = d.candidateIntact(n); e != nil {
 		return e
 	}

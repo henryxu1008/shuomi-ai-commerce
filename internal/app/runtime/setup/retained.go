@@ -8,6 +8,7 @@ import (
 	"strings"
 	"task-processor/internal/app/runtime/currentapplication"
 	"task-processor/internal/app/setupcontrol"
+	coreconfig "task-processor/internal/core/config"
 	"task-processor/internal/platform/privatefile"
 )
 
@@ -17,7 +18,10 @@ func (d *Driver) matches(ctx context.Context, p string, files []string, s string
 		return false
 	}
 	parts := strings.Fields(string(b))
-	return len(parts) == 2 && parts[0] == s && parts[1] == c.Config.Labels["com.docker.compose.config-hash"]
+	if len(parts) == 2 && parts[0] == s && parts[1] == c.Config.Labels["com.docker.compose.config-hash"] {
+		return true
+	}
+	return d.runningHashMatches(ctx, p, files, s, c)
 }
 
 // Require one complete combination that reproduces BOTH live services. The UI
@@ -144,7 +148,10 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 		if e != nil || json.Unmarshal(b, &provided) != nil {
 			return setupcontrol.Prepared{}, setupcontrol.ErrInvalid
 		}
-		if _, e = currentapplication.LoadConfig(r.ConfigurationFile); e != nil {
+		if coreconfig.VerifyPrivateFiles(ctx, []string{r.ConfigurationFile}) != nil {
+			return setupcontrol.Prepared{}, setupcontrol.ErrInvalid
+		}
+		if _, e = currentapplication.DecodeConfigDocument(b); e != nil {
 			return setupcontrol.Prepared{}, setupcontrol.ErrInvalid
 		}
 		if !sameDeployment(fields, provided) {
@@ -167,8 +174,8 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 	if e = d.protectRuntimeFile(ctx, configFile); e != nil {
 		blocks = append(blocks, "候选文件的Docker私密权限未完成核对；原配置未改变")
 	}
-	if _, e = currentapplication.LoadConfig(configFile); e != nil {
-		blocks = append(blocks, "候选配置未通过原Config校验；请核对所选模块及其依赖，原实例未改变")
+	if coreconfig.VerifyPrivateFiles(ctx, []string{configFile}) != nil {
+		blocks = append(blocks, "候选配置未通过本机私密文件检查，原实例未改变")
 	}
 	mods, e := d.inspectModules(ctx, a, configFile)
 	if e != nil {
