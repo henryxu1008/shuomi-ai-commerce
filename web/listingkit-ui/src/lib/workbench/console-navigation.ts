@@ -8,10 +8,9 @@ export const amazonRealtimeAcquisitionAnchor = "amazon-realtime-acquisition";
 export const amazonRealtimeAcquisitionHref = "/workbench/supply/acquisition/amazon";
 const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow => ({
   label: workflow.label, href: workflow.root, availability: "unavailable",
-  children: workflow.phases.map(phase => ({
-    label: phase.label, href: `${workflow.root}#${phase.id}`, availability: "unavailable", disclosureOnly: true,
-    children: phase.steps.map(step => ({ label: step.label, href: `${workflow.root}?step=${step.id}`, availability: "unavailable" })),
-  })),
+  children: workflow.phases.flatMap(phase => phase.steps.map(step => ({
+    label: step.label, href: `${workflow.root}?step=${step.id}`, availability: "unavailable" as const,
+  }))),
 }));
 const pending = (label: string, href: string, children?: readonly ConsoleNavNode[]): ConsoleNavNode => ({ label, href: `/workbench/${href}`, availability: "unavailable", children });
 export const consoleNavigation: readonly ConsoleNavNode[] = [

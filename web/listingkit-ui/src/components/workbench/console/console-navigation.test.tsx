@@ -390,7 +390,8 @@ it("promotes research and selection to independent primary menus and keeps runti
  const v=render(<ConsoleNavigation pathname="/workbench/data/research" ariaLabel="主导航" marketResearchAvailable/>);
  expect(screen.getByRole("link",{name:"市场调研"})).toHaveAttribute("title","市场调研");
  expect(screen.getByRole("link",{name:"市场调研"}).closest("li")).toHaveClass("console-nav-level-1");
- expect(screen.getByRole("button",{name:"展开资料收集"}).closest("li")).toHaveClass("console-nav-level-2");
+ expect(screen.queryByRole("button",{name:"展开资料收集"})).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"收集与整理资料"}).closest("li")).toHaveClass("console-nav-level-2");
  expect(screen.queryByRole("link",{name:"资料收集"})).not.toBeInTheDocument();
  v.rerender(<ConsoleNavigation pathname="/workbench/supply/selection" ariaLabel="主导航" marketResearchAvailable/>);
  expect(screen.getByRole("link",{name:"智能选品"})).toHaveAttribute("title","智能选品");
@@ -400,16 +401,34 @@ it("promotes research and selection to independent primary menus and keeps runti
  expect(screen.getByRole("link",{name:"智能选品"})).toHaveAttribute("title","智能选品：业务暂未启用");
 });
 
-it("opens the selected workflow phase and keeps third-level links in the current project",()=>{
+it("keeps direct second-level workflow links in the current project",()=>{
  const id="11111111-1111-4111-8111-111111111111";
  query.value="step=evidence&mode=archived&search=收纳";
  render(<ConsoleNavigation pathname={`/workbench/data/research/${id}`} ariaLabel="主导航" marketResearchAvailable/>);
- expect(screen.getByRole("button",{name:"收起竞品研究"})).toHaveAttribute("aria-expanded","true");
+ expect(screen.queryByRole("button",{name:"收起竞品研究"})).not.toBeInTheDocument();
  const selected=screen.getByRole("link",{name:"查看商品资料"});
  expect(selected).toHaveAttribute("aria-current","page");
- expect(selected.closest("li")).toHaveClass("console-nav-level-3");
+ expect(selected.closest("li")).toHaveClass("console-nav-level-2");
  const target=new URL(screen.getByRole("link",{name:"比较重点商品"}).getAttribute("href")!,"https://test.invalid");
  expect(target.pathname).toBe(`/workbench/data/research/${id}`);
  expect(Object.fromEntries(target.searchParams)).toEqual({step:"summary",mode:"archived",search:"收纳"});
  expect(screen.queryByRole("link",{name:"市场调研中心"})).not.toBeInTheDocument();
+});
+
+it("keeps selection links at level two with the original sample and narrow-navigation callback",()=>{
+ const id="11111111-1111-4111-8111-111111111111",other="22222222-2222-4222-8222-222222222222";
+ const sample=JSON.stringify([id,other].map(candidateId=>({candidateId,expectedRevision:"2",linkId:candidateId,evidenceDigest:"a".repeat(64),selection:{itemId:candidateId,expectedRevision:"1",originalPublicationId:candidateId,originalVersion:"1"}})));
+ query.value=new URLSearchParams({step:"analysis",sample,candidateAfter:other,mode:"archived",search:"收纳"}).toString();
+ const onNavigate=vi.fn();
+ const v=render(<ConsoleNavigation pathname={`/workbench/supply/selection/${id}`} ariaLabel="移动导航" marketResearchAvailable onNavigate={onNavigate}/>);
+ const current=screen.getByRole("link",{name:"AI建议与记录"});
+ expect(current).toHaveAttribute("aria-current","page");
+ expect(current.closest("li")).toHaveClass("console-nav-level-2");
+ expect(screen.getByRole("link",{name:"智能选品"}).closest("li")!.querySelector(".console-nav-level-3")).toBeNull();
+ const next=screen.getByRole("link",{name:"评估与决定"}),target=new URL(next.getAttribute("href")!,"https://test.invalid");
+ expect(target.pathname).toBe(`/workbench/supply/selection/${id}`);
+ expect(Object.fromEntries(target.searchParams)).toEqual({step:"decisions",sample,candidateAfter:other,mode:"archived",search:"收纳"});
+ fireEvent.click(next);expect(onNavigate).toHaveBeenCalledTimes(1);
+ v.rerender(<ConsoleNavigation pathname={`/workbench/supply/selection/${id}`} ariaLabel="移动导航"/>);
+ expect(screen.getByRole("link",{name:"AI建议与记录"})).toHaveAttribute("title","AI建议与记录：业务暂未启用");
 });

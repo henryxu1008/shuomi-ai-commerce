@@ -1,4 +1,4 @@
-import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {ProjectPage} from "./project-page";
 import {ProjectError} from "@/lib/api/project-center";
@@ -96,6 +96,18 @@ it("asks for a project before a workflow function and preserves its step through
  await waitFor(()=>expect(f.push).toHaveBeenCalled());
  const created=new URL(f.push.mock.lastCall![0],"https://test.invalid");
  expect(created.pathname).toBe(href.pathname);expect(Object.fromEntries(created.searchParams)).toEqual(Object.fromEntries(href.searchParams));
+});
+
+it.each([
+ {center:"research",step:"evidence",label:"查看商品资料"},
+ {center:"selection",step:"analysis",label:"AI建议与记录"},
+] as const)("uses only center and step breadcrumbs for $center",async({center,step,label})=>{
+ Object.assign(f.context,{marketResearchAvailable:true});
+ render(<ProjectPage center={center} workflowStep={step}/>);
+ const trail=within(screen.getByRole("navigation",{name:"面包屑"}));
+ expect(trail.getAllByRole("listitem")).toHaveLength(2);
+ expect(trail.getAllByRole("listitem")[1]).toHaveTextContent(label);
+ await waitFor(()=>expect(f.request).toHaveBeenCalled());
 });
 
 it("keeps the live project panel, selected candidates and draft reasons when only the workflow step changes",async()=>{

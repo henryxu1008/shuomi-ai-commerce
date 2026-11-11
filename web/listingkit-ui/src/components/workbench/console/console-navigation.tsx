@@ -74,7 +74,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
     const node = { ...entry, availability: connected ? "connected" as const : "unavailable" as const };
     if (researchWorkflows.some(workflow => workflow.root === node.href)) {
       const availability = marketResearchAvailable ? "connected" as const : "unavailable" as const;
-      return { ...node, availability, children: node.children?.map(phase => ({ ...phase, availability, children: phase.children?.map(step => ({ ...step, availability })) })) };
+      return { ...node, availability, children: node.children?.map(step => ({ ...step, availability })) };
     }
     if (node.href === "/workbench" && operationsCockpitAvailable) return { ...node, availability: "connected" as const, children: node.children?.map(child => {
       const mode = child.href.split("/").at(-1), permission = mode === "stores" ? "workbench.cockpit.stores.read" : `workbench.cockpit.${mode}.read`;
