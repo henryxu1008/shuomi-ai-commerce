@@ -116,4 +116,21 @@ func TestScheduledPlanCreateAndRegistrationCAS(t *testing.T) {
 	require.EqualValues(t, 2, nextRevision)
 	require.ErrorIs(t, store.MarkScheduleRegistered(ctx, scope, input.ID, revision),
 		aiworkbench.ErrRevisionMismatch)
+	slot := input.Rule.AtUTC.UTC()
+	claimed, replay, err := store.ClaimScheduledOccurrence(ctx, scope, input.ID, slot, slot)
+	require.NoError(t, err)
+	require.False(t, replay)
+	require.Equal(t, "CLAIMED", claimed.State)
+	same, replay, err := store.ClaimScheduledOccurrence(ctx, scope, input.ID, slot, slot.Add(time.Second))
+	require.NoError(t, err)
+	require.True(t, replay)
+	require.Equal(t, claimed.ID, same.ID)
+	require.ErrorIs(t, func() error {
+		_, _, err := store.ClaimScheduledOccurrence(ctx,
+			aiworkbench.Scope{OrganizationID: "org-a", ActorID: "bob"}, input.ID, slot, slot)
+		return err
+	}(), aiworkbench.ErrNotFound)
+	var used int64
+	require.NoError(t, db.Raw("SELECT consumed_occurrences FROM ai_workbench.scheduled_plans WHERE id = ?", input.ID).Scan(&used).Error)
+	require.EqualValues(t, 1, used)
 }
