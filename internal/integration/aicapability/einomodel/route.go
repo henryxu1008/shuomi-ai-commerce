@@ -168,6 +168,11 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 			p.MaximumPromptTokens == TitlePilotPromptTokens && p.MaximumCompletionTokens == TitlePilotCompletionTokens &&
 			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint)
 	}
+	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
+		return (operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationProductContentDecision) &&
+			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint) && p.UsageMappingVersion == "openai-text-v1" &&
+			p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
+	}
 	if aicapability.VisionTextOperation(operation) {
 		return aicapability.SingleImageProfileShape(p)
 	}
@@ -187,6 +192,9 @@ var _ interface {
 } = (*OrganizationRouteResolver)(nil)
 
 func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
+	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy && (p.OfficialTariff.Channel != "openai-direct" || !p.CNYRatesCoverUSDTariff()) {
+		return false
+	}
 	return p.Validate() == nil && ValidRouteShape(p, operation) &&
 		((p.AdapterKind != string(AdapterGoogleGenerateContent) && p.AdapterKind != string(AdapterQwenCompatible) &&
 			p.AdapterPolicyVersion != aicapability.EinoClaudeTextPolicy && p.AdapterPolicyVersion != aicapability.EinoOpenAIImagePolicy) ||

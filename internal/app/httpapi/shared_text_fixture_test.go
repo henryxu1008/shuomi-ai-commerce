@@ -99,12 +99,20 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	repo, err := routestore.New(db)
 	require.NoError(t, err)
 	prices := &d.PlatformPricesService{Repository: repo}
-	_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
+	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "USD", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750000, CachedInputText: 75000, OutputText: 4500000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}, FX: []d.PublishedFXRate{{Currency: "USD", CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/", RateDate: now.Format("2006-01-02"), VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
+	} else {
+		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
+	}
 	require.NoError(t, err)
 	var defs []qualified.Definition
 	for op, policy := range map[aicapability.Operation]governed.RoutePolicy{aicapability.OperationAIWorkbenchChatPlan: planner, aicapability.OperationProductContentDecision: settings.ContentTextPolicies["B"]} {
 		copy := policy
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: settings.Limits.CostMicros})
+	}
+	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+		title := settings.TextPolicies["B"]
+		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &title, MaximumCostMicros: settings.Limits.CostMicros})
 	}
 	catalog, err := qualified.NewCatalog(defs)
 	require.NoError(t, err)
@@ -116,6 +124,11 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)
 	require.NoError(t, err)
 	require.True(t, q.Ready, q.Reason)
+	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+		title := q.TextProfiles[string(aicapability.OperationProductAgentDecision)]
+		require.True(t, governed.ValidRouteProfile(title, aicapability.OperationProductAgentDecision), "the title route remains qualified with the same shared selection")
+		require.Equal(t, q.Price, title.OfficialTariff)
+	}
 	require.Equal(t, q.TextProfiles[string(aicapability.OperationAIWorkbenchChatPlan)].OfficialTariff, q.TextProfiles[string(aicapability.OperationProductContentDecision)].OfficialTariff)
 	_, _, err = service.ReadCategory(ctx, "A", d.ModelCategoryText)
 	require.Error(t, err)

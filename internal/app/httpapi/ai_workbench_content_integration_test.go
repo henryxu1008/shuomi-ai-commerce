@@ -35,7 +35,7 @@ import (
 )
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
-	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access", "full runtime content flow chat", "full runtime own content chat"} {
+	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access", "full runtime content flow chat", "full runtime own content chat", "full runtime content flow chat mini"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, mode) })
 	}
 }
@@ -45,6 +45,7 @@ func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
 func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime bool) {
 	ctx := context.Background()
 	a := m.application.content
+	miniRuntime := a.config.ContentTextPolicies["B"].Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy
 	require.NotNil(t, a)
 	if fullRuntime {
 		require.NotNil(t, m.application.runtime)
@@ -152,6 +153,11 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 		policy.Profile.MaximumInputBytes = 128 << 10
 		policy.Profile.MaximumCompletionTokens = 4096
+		if miniRuntime {
+			policy.Profile.MaximumPromptTokens = 4096
+			policy.Profile.MaximumInputBytes = 64 << 10
+			policy.Profile.MaximumCompletionTokens = 512
+		}
 	} else {
 		reader, ok := a.config.CurrentTextPolicies.(syntheticCurrentTextPolicies)
 		require.True(t, ok)
@@ -271,11 +277,15 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	}
 	require.Equal(t, 1, createdCount, "different confirmation keys for one proposal must share the original T1 fence")
 	require.NotEmpty(t, confirmed.Task.ID)
-	require.EqualValues(t, 3, calls.Load())
+	expectedContentCalls := int32(3)
+	if miniRuntime {
+		expectedContentCalls = 2
+	}
+	require.EqualValues(t, expectedContentCalls, calls.Load())
 	call("POST", confirmPath, key, nil, 200)
-	require.EqualValues(t, 3, calls.Load())
+	require.EqualValues(t, expectedContentCalls, calls.Load())
 	call("POST", confirmPath, uuid.NewString(), nil, 409)
-	require.EqualValues(t, 3, calls.Load(), "a new browser key cannot execute the same confirmed proposal twice")
+	require.EqualValues(t, expectedContentCalls, calls.Load(), "a new browser key cannot execute the same confirmed proposal twice")
 	// A different browser has no sessionStorage confirmation key. The owner
 	// must still return its durable receipt, even if execution readiness changes.
 	var reopened struct {
@@ -356,10 +366,23 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, json.Unmarshal(call("GET", workbenchChatBase+"/"+created.Conversation.ID, "", nil, 200), &reopened))
 	require.Equal(t, confirmed.Task.ID, reopened.Proposals[0].ConfirmedTaskID, "a newer adopted product version does not erase the prior task receipt")
 	call("POST", confirmPath, key, nil, 200)
-	require.EqualValues(t, 3, calls.Load(), "receipt-first replay after Apply cannot dispatch again")
+	require.EqualValues(t, expectedContentCalls, calls.Load(), "receipt-first replay after Apply cannot dispatch again")
 	stale := call("POST", messagePath, uuid.NewString(), body, 409)
 	require.Contains(t, string(stale), "PROPOSAL_STALE")
 	require.EqualValues(t, 1, planningCalls.Load())
+	if miniRuntime {
+		var balance struct {
+			Reserved int64
+			Consumed int64
+		}
+		require.NoError(t, f.owner.Raw("SELECT reserved, consumed FROM saas_organization_resource_buckets WHERE organization_id = ? AND resource_type = ?", "B", "ai_point").Scan(&balance).Error)
+		require.Zero(t, balance.Reserved, "all three synthetic requests settle their own holds")
+		require.Greater(t, balance.Consumed, int64(0), "actual synthetic usage is charged by the original resource owner")
+		var settlements int64
+		require.NoError(t, f.owner.Raw("SELECT count(*) FROM saas_organization_resource_reservations WHERE organization_id = ? AND state = 'committed' AND settlement_operation_id IS NOT NULL", "B").Scan(&settlements).Error)
+		require.EqualValues(t, 3, settlements, "one planning plus two content calls")
+		t.Logf("synthetic resource owner: settled=%d consumed=%d micropoints reserved=%d", settlements, balance.Consumed, balance.Reserved)
+	}
 	require.NoError(t, json.Unmarshal(call("GET", "/api/v1/workbench/chat/subjects/"+binding.ContextKind+"/"+binding.ContextID, "", nil, 200), &sourcePreview))
 	require.Equal(t, strconv.FormatUint(applied.Receipt.ProductVersion, 10), sourcePreview.Subject.CatalogVersion)
 	require.Equal(t, applied.Receipt.PublicationID, sourcePreview.Subject.PublicationID)
@@ -373,7 +396,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	changedPath := workbenchChatBase + "/" + created.Conversation.ID + "/proposals/" + planned.ProposalID + "/confirm"
 	call("POST", changedPath, uuid.NewString(), nil, 409)
 	a.config.Limits = frozen
-	require.EqualValues(t, 3, calls.Load())
+	require.EqualValues(t, expectedContentCalls, calls.Load())
 	stored, err := app.store.GetTask(ctx, aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, confirmed.Task.ID)
 	require.NoError(t, err)
 	var request agent.Request
