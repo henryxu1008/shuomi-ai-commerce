@@ -59,10 +59,10 @@ it("removes closing menu links from keyboard and accessibility access and suppor
   expect(screen.getByRole("link", { name: "店铺商品" }).closest("ul")).not.toHaveAttribute("inert");
 });
 
-it("shows task status navigation independently of Chat using the existing run read permissions",()=>{
+it("shows the task center independently of Chat using the existing run read permissions",()=>{
  render(<ConsoleNavigation pathname="/workbench/ai/tasks" ariaLabel="主导航" nativeRunsAvailable cockpitPermissions={["workbench.agent.read","workbench.agent.use"]}/>);
  expect(screen.getByRole("link",{name:"任务中心"})).toBeVisible();
- for(const name of ["进行中","待确认","已完成","异常任务"])expect(screen.getByRole("link",{name})).toBeVisible();
+ expect(screen.queryByRole("button",{name:"展开任务中心"})).not.toBeInTheDocument();
  expect(screen.queryByRole("link",{name:"硕米Chat"})).not.toBeInTheDocument();
 });
 it("shows a single primary listing entry before Store Center and retains the selected context",()=>{
@@ -210,27 +210,36 @@ it("keeps independently available Review and history pages discoverable without 
   await userEvent.click(screen.getByRole("button", { name: "展开AI工作台" }));
   expect(screen.queryByRole("link", { name: "硕米Chat" })).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "任务中心" })).toHaveAttribute("href", "/workbench/ai/tasks");
-  await userEvent.click(screen.getByRole("button", { name: "展开任务中心" }));
-  expect(screen.getByRole("link", { name: "待确认" })).toBeVisible();
-  expect(screen.getByRole("link", { name: "已完成" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "展开任务中心" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "待确认" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "已完成" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "进行中" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "异常任务" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "标题审核" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "历史工作记录" })).not.toBeInTheDocument();
 });
 
-it("shows only the configured Task Center branch without AI Workbench", async () => {
+it("keeps the task center entry with either independent capability", async () => {
   for (const item of [
     { productReviewAvailable: true, sheinRecordsAvailable: false, visible: "待确认", hidden: "已完成" },
     { productReviewAvailable: false, sheinRecordsAvailable: true, visible: "已完成", hidden: "待确认" },
   ]) {
     const view = render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" aiWorkbenchAvailable={false} productReviewAvailable={item.productReviewAvailable} sheinRecordsAvailable={item.sheinRecordsAvailable} />);
     await userEvent.click(screen.getByRole("button", { name: "展开AI工作台" }));
-    await userEvent.click(screen.getByRole("button", { name: "展开任务中心" }));
-    expect(screen.getByRole("link", { name: item.visible })).toBeVisible();
+    expect(screen.getByRole("link", { name: "任务中心" })).toHaveAttribute("href", "/workbench/ai/tasks");
+    expect(screen.queryByRole("button", { name: "展开任务中心" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: item.visible })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: item.hidden })).not.toBeInTheDocument();
     view.unmount();
   }
+});
+
+it.each(["running", "pending", "completed", "errors", "pending/other", "completed/history"])("highlights the second-level task entry on %s", (path) => {
+  render(<ConsoleNavigation pathname={`/workbench/ai/tasks/${path}`} ariaLabel="主导航" aiWorkbenchAvailable />);
+  const entry = screen.getByRole("link", { name: "任务中心" });
+  expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+  expect(entry).toHaveAttribute("aria-current", "page");
+  expect(screen.queryByRole("button", { name: "展开任务中心" })).not.toBeInTheDocument();
 });
 
 it.each([
