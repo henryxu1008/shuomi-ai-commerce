@@ -1,6 +1,6 @@
 # AI 工作台定时任务 V1：计划、触发与原业务任务交接
 
-> **状态：DESIGN_CANDIDATE / NOT_READY**。Design Basis：Independent Architecture。跟踪 Issue [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244)。本文件是待独立架构评审的设计候选；**不构成 IMPLEMENTATION_READY、已实现、已部署或真实执行验收**。
+> **状态：IMPLEMENTATION_READY（架构准入）/ IMPLEMENTATION_IN_PROGRESS（实现待完成）**。Design Basis：Independent Architecture。跟踪 Issue [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244)。用户已明确裁定：准确 HEAD 的 Codex 独立评审完成、无新 findings 且 PR 获 Codex 👍 即视为通过。本文件在 HEAD `b1ff3377bbfae782fcafcebb665fbe250afe3294` 的第二轮评审无新发现，[PR #1245](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1245) 收到 bot 👍，准确 CI [42994325637](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/42994325637) SUCCESS；依用户本次明确决定，架构 **IMPLEMENTATION_READY**。这仅允许在原边界内开始实现，**不代表生产代码已实现、已部署或真实业务验收通过**。旧四条 BLOCKER 原始评论继续可追溯，设计修正在 §3.2，运行验证仍是实施义务。
 >
 > 源码调查基线：`main@58111fce176ee0974f8d4893dec0cf02b1e43fe3`（2026-11-11）。正式实施前核对已合入的业务与导航增量。
 
@@ -102,7 +102,7 @@
 - 按原 Run/资源真实 receipt 核验的释放条件及 UNKNOWN 恢复；
 - 单次预算上界来源与有限次数的真实配置校验。
 
-架构评审需明确上面已冻结的选择是否覆盖现有 Must。**没有书面 `IMPLEMENTATION_READY` 结论时，本 PR 保持 design-only，不借 CI 通过提前加入业务代码。**
+架构评审需明确上面已冻结的选择是否覆盖现有 Must。**架构已按用户批准的 👍 规则达到 `IMPLEMENTATION_READY`；可以在本 Delivery Batch 开始正式实现。** 所有实现期风险仍需实证验证，不能将 CI 或设计准入冒充真实执行成功。
 
 ## 4. 输入、身份、快照和授权
 
@@ -162,4 +162,4 @@ UI 在“AI 工作台 → 任务中心”提供计划区、创建/编辑表单�
 
 独立 reviewer 需冻结：一次性调度编辑/取消与 SDK 版本行为；计划/触发 schema 的约束、CAS 与唯一索引；计划授权有效期及有限次数/单次最坏费用界的原资源事实依据；周期的 latest/fixed 选择；§3.2 B3 的原回执释放证明可执行性；跨 Workbench/Agent owner 的交接与 UNKNOWN；最小限度的 server-created BusinessTask 扩展及注入/consumer。
 
-Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久来源及原资源副作用；不扩大原 Accepted Risk、不建设第二权限体系。**当前状态 DESIGN_CANDIDATE / NOT_READY；没有独立架构评审批准，不能将本文件作为 Writer 改生产代码的授权。** 不授权真实模型调用、保留实例部署、真实业务数据修改、合并或 Issue 关闭。
+Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久来源及原资源副作用；不扩大原 Accepted Risk、不建设第二权限体系。**当前架构状态 IMPLEMENTATION_READY（按用户本次确定的 👍 准入规则）；正式业务实现、运行和产品验收仍未完成。** 不授权真实模型调用、保留实例部署、真实业务数据修改、合并或 Issue 关闭。
