@@ -30,3 +30,23 @@ test("a durable running receipt can be reconciled after controller restart", asy
   await user.click(await screen.findByRole("button", { name: "查看操作记录" }));
   expect(screen.getByRole("button", { name: "检查操作结果" })).toBeEnabled();
 });
+
+test("a blocked retry explains the record and never confirms; changing input invalidates preview", async () => {
+  const calls: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (path: string) => {
+    calls.push(path);
+    const data = path.endsWith("session") ? { csrf: "csrf" } : path.endsWith("recovery-preview") ? { id: "preview", operationId: "same.original", action: "retry", changes: [], blocks: ["存储中已有内容，保持原样"], expiresAt: "2099-01-01T00:00:00Z" } : { dockerReady: true, version: "a".repeat(40), instances: [], profiles: [], blocks: [], pending: [{ id: "same.original", name: "我的安装", mode: "fresh", status: "unknown", stage: "start", reason: "启动安装服务未完成", createdAt: "2026-11-11T12:00:00Z", changes: [], services: [], blocks: [] }] };
+    return { ok: true, json: async () => data };
+  }));
+  const user = userEvent.setup(); render(<SetupApp />);
+  expect(await screen.findByRole("heading", { name: "我的安装" })).toBeVisible();
+  expect(screen.getByText("启动安装服务未完成")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "查看操作记录" }));
+  await user.click(screen.getByRole("button", { name: "检查能否重新尝试" }));
+  expect(await screen.findByText("存储中已有内容，保持原样")).toBeVisible();
+  expect(screen.getByRole("button", { name: "确认重新尝试" })).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "浅色" }));
+  await user.type(screen.getByRole("textbox", { name: "重试的网络地址范围" }), "10.251.128.0/24");
+  expect(screen.queryByRole("button", { name: "确认重新尝试" })).not.toBeInTheDocument();
+  expect(calls.some(c => c.endsWith("recovery-confirm") || c.endsWith("/apply"))).toBe(false);
+});

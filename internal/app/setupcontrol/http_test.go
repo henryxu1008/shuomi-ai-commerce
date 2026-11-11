@@ -2,6 +2,7 @@ package setupcontrol
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,43 @@ type testCatalog struct{}
 
 func (testCatalog) Snapshot(context.Context) (Snapshot, error) {
 	return Snapshot{DockerReady: true}, nil
+}
+
+func TestRecoveryHTTPRequiresCSRFAndOnlyExposesPublicPreview(t *testing.T) {
+	d := &recoveryFixture{audit: RecoveryAudit{Fingerprint: "removed", Removed: true}}
+	c, p, _ := retainedUnknown(t, d)
+	s := NewHTTP("127.0.0.1:39222", "code", c, testCatalog{}, http.NotFoundHandler())
+	call := func(path, body, csrf string, cookie *http.Cookie) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "http://127.0.0.1:39222/api/"+path, strings.NewReader(body))
+		r.Header.Set("Origin", "http://127.0.0.1:39222")
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("X-Setup-CSRF", csrf)
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		return w
+	}
+	paired := call("pair", `{"code":"code"}`, "", nil)
+	require.Equal(t, 200, paired.Code)
+	cookie := paired.Result().Cookies()[0]
+	path := "plans/" + p.ID + "/recovery-preview"
+	require.Equal(t, 403, call(path, `{"action":"archive"}`, "", cookie).Code)
+	require.Equal(t, 400, call(path, `{"action":"archive","command":"rm"}`, s.csrf, cookie).Code)
+	w := call(path, `{"action":"archive"}`, s.csrf, cookie)
+	require.Equal(t, 200, w.Code)
+	var preview RecoveryPreview
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &preview))
+	require.Equal(t, p.ID, preview.OperationID)
+	require.NotContains(t, w.Body.String(), "prepared")
+	require.NotContains(t, w.Body.String(), "originalDigest")
+	confirmed := call("plans/"+p.ID+"/recovery-confirm", string(mustJSON(map[string]string{"previewId": preview.ID})), s.csrf, cookie)
+	require.Equal(t, 200, confirmed.Code)
+	var got Plan
+	require.NoError(t, json.Unmarshal(confirmed.Body.Bytes(), &got))
+	require.True(t, got.Archived)
+	require.Zero(t, d.calls)
 }
 func (testCatalog) Inspect(context.Context, string) (Instance, error) { return Instance{}, nil }
 func TestPairingRequiresExactOriginAndDoesNotAcceptURLOrCrossSiteAuthority(t *testing.T) {

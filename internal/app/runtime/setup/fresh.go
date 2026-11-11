@@ -143,7 +143,7 @@ func (d *Driver) prepareFresh(ctx context.Context, r setupcontrol.Request, dir s
 		return setupcontrol.Prepared{}, e
 	}
 	handoff := filepath.Join(dir, "handoff")
-	n := nativePlan{Project: r.Project, Mode: r.Mode, ComposeFile: composeFile, ComposeHash: hash(b), BuildServices: build, Origin: origin, Handoff: handoff}
+	n := nativePlan{Project: r.Project, Mode: r.Mode, ComposeFile: composeFile, ComposeHash: hash(b), BuildServices: build, Origin: origin, Handoff: handoff, ReleaseFile: filepath.Join(filepath.Dir(d.source), "release.json")}
 	n.RequiredServices = requiredServices(services)
 	if r.Profile == "unified" {
 		n.Expected = map[string]bool{"knowledge": true, "dataServices": true, "productCollections": true, "notificationCenterDatabase": true, "reportCenter": true, "toolMarket": true, "ecoservices": true, "projectCenter": true}

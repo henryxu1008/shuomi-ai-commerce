@@ -27,6 +27,7 @@ type Driver struct {
 	source        string
 	release       Release
 	runner        Runner
+	clientsIdle   func(context.Context) (bool, error)
 }
 
 func New(source string, release Release, runner Runner) (*Driver, error) {
@@ -34,6 +35,7 @@ func New(source string, release Release, runner Runner) (*Driver, error) {
 		runner = Docker{}
 	}
 	d := &Driver{source: source, release: release, runner: runner}
+	d.clientsIdle = d.desktopClientsIdle
 	if !filepath.IsAbs(source) || release.SchemaVersion != 1 || !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(release.SourceCommit) || !strings.HasPrefix(release.BackendImage, "sha256:") || !strings.HasPrefix(release.UIImage, "sha256:") {
 		return nil, setupcontrol.ErrInvalid
 	}
@@ -365,6 +367,7 @@ type nativePlan struct {
 	BuildServices                                                               []string
 	RequiredServices                                                            map[string]string
 	Handoff                                                                     string
+	ReleaseFile, RecoveryFingerprint                                            string
 }
 
 func loadNative(p setupcontrol.Prepared) (nativePlan, error) {
@@ -404,7 +407,10 @@ func (d *Driver) candidateIntact(n nativePlan) error {
 	}
 	return d.verifySource()
 }
-func (d *Driver) Apply(ctx context.Context, p setupcontrol.Prepared) error {
+func (d *Driver) Apply(ctx context.Context, p setupcontrol.Prepared, report setupcontrol.Report) error {
+	if err := report("check"); err != nil {
+		return err
+	}
 	n, e := loadNative(p)
 	if e != nil {
 		return e
@@ -412,29 +418,56 @@ func (d *Driver) Apply(ctx context.Context, p setupcontrol.Prepared) error {
 	if e = d.candidateIntact(n); e != nil {
 		return e
 	}
-	if e = d.images(ctx); e != nil {
+	installer := d
+	if n.Mode == "fresh" {
+		installer, e = d.installationDriver(ctx, n)
+		if e != nil {
+			return e
+		}
+	}
+	if e = installer.images(ctx); e != nil {
 		return e
 	}
 	if n.Mode == "fresh" {
-		if _, e = d.freshFingerprint(ctx, p.Request); e != nil {
+		if n.RecoveryFingerprint != "" {
+			audit, err := d.AuditRecovery(ctx, p, true)
+			if err != nil || !audit.Empty || len(audit.Blocks) > 0 || audit.Fingerprint != n.RecoveryFingerprint {
+				return setupcontrol.ErrDrift
+			}
+		} else if _, e = d.freshFingerprint(ctx, p.Request); e != nil {
 			return e
 		}
-		if _, e = d.compose(ctx, n.Project, []string{n.ComposeFile}, "pull", "--ignore-buildable", "--policy", "missing"); e != nil {
+		if e = report("download"); e != nil {
+			return e
+		}
+		if _, e = installer.compose(ctx, n.Project, []string{n.ComposeFile}, "pull", "--ignore-buildable", "--policy", "missing"); e != nil {
 			return e
 		}
 		if len(n.BuildServices) > 0 {
-			_, e = d.compose(ctx, n.Project, []string{n.ComposeFile}, append([]string{"build"}, n.BuildServices...)...)
+			if e = report("build"); e != nil {
+				return e
+			}
+			_, e = installer.compose(ctx, n.Project, []string{n.ComposeFile}, append([]string{"build"}, n.BuildServices...)...)
 			if e != nil {
 				return e
 			}
 		}
-		_, e = d.compose(ctx, n.Project, []string{n.ComposeFile}, "up", "-d", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "1200")
+		if e = report("start"); e != nil {
+			return e
+		}
+		_, e = installer.compose(ctx, n.Project, []string{n.ComposeFile}, "up", "-d", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "1200")
+		return e
+	}
+	if e = report("start"); e != nil {
 		return e
 	}
 	_, e = d.compose(ctx, n.Project, []string{n.ComposeFile}, "up", "-d", "--no-deps", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "180", "current-application", "listingkit-ui")
 	return e
 }
-func (d *Driver) Verify(ctx context.Context, p setupcontrol.Prepared) error {
+func (d *Driver) Verify(ctx context.Context, p setupcontrol.Prepared, report setupcontrol.Report) error {
+	if err := report("verify"); err != nil {
+		return err
+	}
 	n, e := loadNative(p)
 	if e != nil {
 		return e
@@ -495,6 +528,12 @@ func (d *Driver) Verify(ctx context.Context, p setupcontrol.Prepared) error {
 		}
 	}
 	if n.Mode == "fresh" {
+		if _, e = d.installationDriver(ctx, n); e != nil {
+			return e
+		}
+		if e = report("handoff"); e != nil {
+			return e
+		}
 		return d.handoff(ctx, n.Project, n.Handoff)
 	}
 	return nil

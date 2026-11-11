@@ -1,10 +1,12 @@
 type Module = { id: string; label: string; configured: boolean; installed: string; enabled: boolean; uiEnabled: boolean | null; mutable: boolean; note: string };
 export type Instance = { id: string; project: string; origin: string; backendImage: string; uiImage: string; modules?: Module[]; blocks: string[]; pending?: Plan };
-export type Plan = { id: string; instanceId: string; mode: string; status: string; changes: { label: string; before: string; after: string }[]; blocks: string[]; services: string[]; updatedAt: string };
-export type Environment = { dockerReady: boolean; hostFreeBytes: number | null; version: string; instances: Instance[]; profiles: { id: string; label: string; note: string }[]; blocks: string[]; pending: Plan[] };
+export type Plan = { id: string; instanceId: string; name?: string; createdAt?: string; revision?: number; archived?: boolean; stage?: string; reason?: string; attempts?: { number: number; status: string; stage: string; reason: string; updatedAt: string }[]; mode: string; status: string; changes: { label: string; before: string; after: string }[]; blocks: string[]; services: string[]; updatedAt: string };
+export type RecoveryPreview = { id: string; operationId: string; action: "archive" | "retry"; changes: Plan["changes"]; blocks: string[]; expiresAt: string };
+export type Environment = { dockerReady: boolean; hostFreeBytes: number | null; version: string; instances: Instance[]; profiles: { id: string; label: string; note: string }[]; blocks: string[]; pending: Plan[]; history?: Plan[] };
 export type SetupRequest = { mode: "fresh" | "existing"; instanceId?: string; project?: string; profile?: string; applicationPort?: number; identityPort?: number; mailPort?: number; configurationFile?: string; toolReleaseDirectory?: string; networkSubnet?: string; enabled?: Record<string, boolean> };
 
 const messages: Record<string, string> = {
+	RECOVERY_PREVIEW_EXPIRED: "检查结果已过期。请重新检查这次安装，再确认操作。",
   INVALID_REQUEST: "设置未通过检查。请核对安装名称、端口、功能所需配置和配置文件。首次安装必须使用未被占用的新名称。",
   CONFIGURATION_CHANGED: "系统设置或安装版本已有变化，请重新检查并预览。本次未覆盖已有系统。",
   INSTANCE_BUSY: "另一个操作正在执行，请先查看它的操作记录。",

@@ -41,6 +41,7 @@ type Profile struct {
 	Note  string `json:"note"`
 }
 type Snapshot struct {
+	History       []Plan     `json:"history"`
 	HostFreeBytes *uint64    `json:"hostFreeBytes"`
 	Pending       []Plan     `json:"pending"`
 	DockerReady   bool       `json:"dockerReady"`
@@ -92,7 +93,7 @@ func problem(w http.ResponseWriter, e error) {
 	case errors.Is(e, ErrInvalid):
 		status = 400
 		code = e.Error()
-	case errors.Is(e, ErrDrift), errors.Is(e, ErrBusy), errors.Is(e, ErrUnresolved):
+	case errors.Is(e, ErrDrift), errors.Is(e, ErrBusy), errors.Is(e, ErrUnresolved), errors.Is(e, ErrExpired):
 		status = 409
 		code = e.Error()
 	}
@@ -189,6 +190,9 @@ func (s *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if e == nil {
 			v.Pending, e = s.control.Outstanding()
 		}
+		if e == nil {
+			v.History, e = s.control.History()
+		}
 		if e != nil {
 			problem(w, e)
 		} else {
@@ -224,6 +228,39 @@ func (s *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(parts) == 3 && parts[1] == "plans" && r.Method == "GET" {
 		p, e := s.control.Read(parts[2])
+		if e != nil {
+			problem(w, e)
+		} else {
+			output(w, 200, p)
+		}
+		return
+	}
+	if len(parts) == 4 && parts[1] == "plans" && r.Method == "POST" && parts[3] == "recovery-preview" {
+		var input struct {
+			Action        string `json:"action"`
+			NetworkSubnet string `json:"networkSubnet"`
+		}
+		if !decode(w, r, &input) {
+			return
+		}
+		p, e := s.control.PrepareRecovery(r.Context(), parts[2], input.Action, input.NetworkSubnet)
+		if e != nil {
+			problem(w, e)
+		} else {
+			output(w, 200, p)
+		}
+		return
+	}
+	if len(parts) == 4 && parts[1] == "plans" && r.Method == "POST" && parts[3] == "recovery-confirm" {
+		var input struct {
+			PreviewID string `json:"previewId"`
+		}
+		if !decode(w, r, &input) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
+		defer cancel()
+		p, e := s.control.ConfirmRecovery(ctx, parts[2], input.PreviewID)
 		if e != nil {
 			problem(w, e)
 		} else {

@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -46,8 +47,22 @@ func (Docker) Run(ctx context.Context, dir string, args []string) ([]byte, error
 	c.Stderr = io.Discard
 	var out boundedBuffer
 	c.Stdout = &out
-	if c.Run() != nil || out.overflow {
-		return nil, setupcontrol.ErrUnavailable
+	if err := c.Run(); err != nil {
+		if ctx.Err() != nil {
+			code := "interrupted"
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				code = "timeout"
+			}
+			return nil, &setupcontrol.CommandError{Code: code}
+		}
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			return nil, &setupcontrol.CommandError{Code: "command_failed", ExitCode: exit.ExitCode()}
+		}
+		return nil, &setupcontrol.CommandError{Code: "command_unavailable"}
+	}
+	if out.overflow {
+		return nil, &setupcontrol.CommandError{Code: "output_limit"}
 	}
 	return out.Bytes(), nil
 }
@@ -72,6 +87,7 @@ func dockerEnvironment() []string {
 
 type container struct {
 	ID     string `json:"Id"`
+	Name   string
 	Image  string
 	Config struct {
 		Image                string
@@ -112,6 +128,9 @@ func (d *Driver) containers(ctx context.Context, project string) ([]container, e
 	if project != "" {
 		args = append(args, "--filter", "label=com.docker.compose.project="+project)
 	}
+	return d.inspectContainers(ctx, args)
+}
+func (d *Driver) inspectContainers(ctx context.Context, args []string) ([]container, error) {
 	raw, e := d.run(ctx, args...)
 	if e != nil {
 		return nil, e

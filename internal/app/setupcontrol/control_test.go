@@ -14,6 +14,8 @@ type testDriver struct {
 	calls    int
 	revision string
 	fail     bool
+	stage    string
+	failure  error
 	release  chan struct{}
 }
 
@@ -24,7 +26,14 @@ func (d *testDriver) Prepare(_ context.Context, r Request, _ string) (Prepared, 
 	return Prepared{Request: r, InstanceID: "stable-instance", Before: d.revision, Candidate: "next", Services: []string{"listingkit-ui"}}, nil
 }
 func (d *testDriver) Fingerprint(context.Context, Prepared) (string, error) { return d.revision, nil }
-func (d *testDriver) Apply(context.Context, Prepared) error {
+func (d *testDriver) Apply(_ context.Context, _ Prepared, report Report) error {
+	stage := d.stage
+	if stage == "" {
+		stage = "start"
+	}
+	if err := report(stage); err != nil {
+		return err
+	}
 	d.mu.Lock()
 	d.calls++
 	d.mu.Unlock()
@@ -32,12 +41,18 @@ func (d *testDriver) Apply(context.Context, Prepared) error {
 		<-d.release
 	}
 	if d.fail {
+		if d.failure != nil {
+			return d.failure
+		}
 		return errors.New("unknown")
 	}
 	d.revision = "next"
 	return nil
 }
-func (d *testDriver) Verify(context.Context, Prepared) error {
+func (d *testDriver) Verify(_ context.Context, _ Prepared, report Report) error {
+	if err := report("verify"); err != nil {
+		return err
+	}
 	if d.revision != "next" {
 		return errors.New("not verified")
 	}
