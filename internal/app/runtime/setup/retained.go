@@ -174,6 +174,7 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 	if e != nil {
 		blocks = append(blocks, "候选配置的原生只读检测未完成；不会以启动业务进程替代检测")
 	}
+	blocks = append(blocks, candidatePermissionBlocks(mods, r.Enabled)...)
 	definitions := map[string]currentapplication.InstallModule{}
 	for _, m := range currentapplication.InstallationModules() {
 		definitions[m.ID] = m

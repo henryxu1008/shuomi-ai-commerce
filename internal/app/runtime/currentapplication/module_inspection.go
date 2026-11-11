@@ -41,11 +41,12 @@ func InstallationModules() []InstallModule {
 
 type ModuleInspection struct {
 	InstallModule
-	Configured bool   `json:"configured"`
-	Enabled    bool   `json:"enabled"`
-	Installed  string `json:"installed"`
-	Ready      bool   `json:"ready"`
-	Note       string `json:"note"`
+	Configured  bool   `json:"configured"`
+	Enabled     bool   `json:"enabled"`
+	Installed   string `json:"installed"`
+	Ready       bool   `json:"ready"`
+	Note        string `json:"note"`
+	CheckStatus string `json:"checkStatus"`
 }
 type ReadOnlyModuleOpener func(context.Context, DatabaseConfig) (*gorm.DB, func(), error)
 
@@ -71,7 +72,7 @@ func InspectModules(ctx context.Context, cfg *Config, open ReadOnlyModuleOpener)
 	result := []ModuleInspection{}
 	for _, definition := range InstallationModules() {
 		v := fields[definition.ID]
-		m := ModuleInspection{InstallModule: definition, Configured: len(v) > 0 && string(v) != "null", Installed: "unverified", Note: "尚未核实此模块的原生检查；启用不代替业务权限或外部配置"}
+		m := ModuleInspection{InstallModule: definition, Configured: len(v) > 0 && string(v) != "null", Installed: "unverified", CheckStatus: "unavailable", Note: "尚未核实此模块的原生检查；启用不代替业务权限或外部配置"}
 		if definition.Toggle == "boolean" {
 			m.Configured = cfg.ProductAcquisitionDatabase != nil
 			_ = json.Unmarshal(v, &m.Enabled)
@@ -98,10 +99,16 @@ func InspectModules(ctx context.Context, cfg *Config, open ReadOnlyModuleOpener)
 				closePool()
 			}
 			if err == nil {
+				m.CheckStatus = "passed"
 				m.Installed = "verified"
 				m.Ready = m.Enabled
 				m.Note = "原生schema及运行权限已核实；外部服务、模型预算和业务权限仍由原业务页校验"
+				if definition.Toggle == "boolean" && !m.Enabled {
+					m.Installed = "unverified"
+					m.Note = "当前运行权限核对通过；该模块未启用，功能表的安装状态仍待核实"
+				}
 			} else {
+				m.CheckStatus = "rejected"
 				m.Note = "原生只读检查未通过；缺表或权限时只能使用该owner已有维护入口"
 			}
 		}
