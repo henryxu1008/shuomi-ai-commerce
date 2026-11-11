@@ -40,6 +40,19 @@
 
 **建议在当前 Workbench owner 扩展一种 `schedule_occurrence` 类型的 server-created 业务意图**。仅后台可信端口能生成；每个发生记录携带已确认计划的精确修订、业务动作、商品身份、版本解析规则、源摘要、预算限制及原可追踪的运行父关联。原手动 Chat Confirm 的 proposal、message、同键与 T1/T2 不变量不变。对新增来源的 BusinessTask 必须使用明确的来源判别与约束，不允许创建无父凭证的任意任务。最终采用**同库单事务**确保 occurrence 与 BusinessTask 的绑定原子性；若原 BusinessTask/Agent Run 跨 owner，则采用原有 durable receipt/claim 协议，禁止伪造跨库原子性。
 
+### 3.1 当前 BusinessTask 数据模型的准入级问题与最小修正
+
+固定版本 `internal/integration/persistence/aiworkbench/schema.sql` 中，`business_tasks.conversation_id`、`source_message_id`、`proposal_id` 全是 `NOT NULL`，并有三条相关复合外键；`task_action_receipts` 又通过任务 `owner_user_id` 绑定原 actor。这不是可通过新增一个“计划表”就自然复用的入口。工作台当前 `ExecutionPort.Prepare(ctx, ExecutionProposal, key)` 依赖真实 Chat 提案内容，不能直接由无会话的 Cron 调用。
+
+候选方案（待独立审查与落实具体列级 DDL）：
+1. **先新增 `scheduled_plans` / `scheduled_occurrences`**，以不可由浏览器伪造的 `(organization_id, owner_user_id, plan_id, occurrence_id)` 保留已确认计划及准确当次执行祖先；发生记录对其计划有同租户/创建人复合 FK，且唯一约束按 `(organization_id, plan_id, scheduled_at_utc)`。计划中的业务动作、目标和允许的费用上界不可由 Temporal payload 改写。
+2. **在原 `business_tasks` 中加入显式互斥来源类型** `CHAT_PROPOSAL | SCHEDULE_OCCURRENCE`，并由 schema CHECK 约束：Chat 来源必须拥有原三个非空 Chat/Message/Proposal 祖先并延续现有复合 FK；Schedule 来源只能带有效 `scheduled_occurrence_id` 和其同企业/actor 的复合 FK，不带伪造的 Chat 祖先。为此将旧三列按受控来源允许 nullable（不移除原 Chat 的检查和外键）；不对旧行做迁移/回填，已有行仍由原默认/严格路径写入。具体缺省值、旧行为保持及约束组合须在正式评审中确定。
+3. 服务端新增窄 `PrepareScheduledOccurrence` 端口：只接可信已领取 occurrence 的冻结 typed 业务输入、实时授权及原来源/配置/预算引用，调用**原内容 Agent 的准入与 Start**。它不能接受浏览器自带的“已经审批”字段，也不能复用原 `Confirm` 绕过 `GetProposal`。与原提案对应的计划来源必须是显式确认的计划事实，而不是将计划保存等同于已运行的提案。
+4. `business_tasks` 中此来源的 `execution_request_key` 使用 occurrence 派生的稳定 UUID，用户重试和 Worker 重启不重新生成；原 Chat task action receipt 及投影只做最小分支扩展，不伪造 Conversation/Proposal 数据。读取需按来源走严格合法关联；不能直接把原 Chat 详情用 null 字段“凑出来”。
+5. 只在**同一个现有 Workbench PostgreSQL**中，以一个事务完成 occurrence 领取/校验、合法 BusinessTask 新建和准确关联；其它 RunDB/ProductDB 的副作用继续按原 owner 的持久回执、权限与 UNKNOWN 协议。若实际数据库装配不共享此事务，则必须先重新评估而非通过多阶段写入假称原子提交。
+
+**本节是设计候选而非已实施 schema**。独立审查应特别复核原复合外键、来源 CHECK、当前 `BusinessTask` DTO、原手动 Confirm 与 TaskProjection/TaskActionReceipt 的相容性、只读权限以及空库 installer。任何不能保持现有手动任务不变量的变更都是本批实施阻塞，不能以只做页面或调度脚本代替。
+
 ## 4. 输入、身份、快照和授权
 
 - **计划意图**：plan_id、organization_id、创建者及有效 member_id、工作范围、`ContentTaskKind`、有界 typed 商品选择、冻结的用户目标、来源/版本规则、每次运行参数和资源上限、计划限制、创建时授权确认摘要、schedule revision。
