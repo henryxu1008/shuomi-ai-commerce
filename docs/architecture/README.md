@@ -237,7 +237,7 @@
 - `ai-workbench-project-center.md` — [AI Workbench Project Center V1](ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
-- `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：独立架构候选](ai-workbench-scheduled-tasks.md) · #1244 DESIGN_CANDIDATE / NOT_READY；待独立评审，不授权正式实现。
+- `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY（用户确认 👍 为评审通过）；实现及真实运行验收未完成。
 - `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
