@@ -32,9 +32,9 @@ test("two separate browsers do not create a second initialization after a lost r
   for(const p of pages)await expect(p.getByRole("button",{name:"启用每周自动更新"})).toBeVisible();
   await pages[0].getByRole("button",{name:"启用每周自动更新"}).click();await expect(pages[0].getByText(/启用结果待核实/)).toBeVisible();
   await pages[1].getByRole("button",{name:"启用每周自动更新"}).click();await expect(pages[1].getByText(/启用结果待核实/)).toBeVisible();
-  expect(starts).toBe(2);expect(commits).toBe(1);
+  expect(starts).toBe(1);expect(commits).toBe(1);
   await Promise.all(pages.map(p=>p.reload()));
   for(const p of pages){await expect(p.getByText(/未启用或状态未知/)).toBeVisible();await expect(p.getByRole("button",{name:"启用每周自动更新"})).toHaveCount(0)}
-  expect(starts).toBe(2);expect(commits).toBe(1);
+  expect(starts).toBe(1);expect(commits).toBe(1);
  }finally{await Promise.all(contexts.map(c=>c.close()));await Promise.all([chrome.close(),edge.close()])}
 });

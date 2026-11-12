@@ -76,7 +76,7 @@ export function OfficialPriceEditor({scope,canPublish}:{scope:ModelRouteScope;ca
  async function startFX(){
   if(fxStartLock.current||!canPublish||fxStartState!=="ready"||automatic.data?.state!=="PREPARED")return;
   fxStartLock.current=true;setFxStartState("pending");
-  try{await modelRouteRequest(scope,"/platform-prices/automatic-fx/start",z.strictObject({state:z.literal("STARTED")}),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});setFxStartState("started");await automatic.refetch()}catch{setFxStartState("unknown")}
+  try{const current=await modelRouteRequest(scope,"/platform-prices/automatic-fx",automaticFXStatus);if(current.state!=="PREPARED"){setFxStartState("unknown");await automatic.refetch();return}await modelRouteRequest(scope,"/platform-prices/automatic-fx/start",z.strictObject({state:z.literal("STARTED")}),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});setFxStartState("started");await automatic.refetch()}catch{setFxStartState("unknown")}
  }
  const query=useQuery({queryKey:["official-model-prices",scope],queryFn:async({signal})=>{const[current,history]=await Promise.all([modelRouteRequest(scope,"/platform-prices",routeCurrent,{signal}),modelRouteRequest(scope,"/platform-prices/history",routeHistory,{signal})]);return{current,history}},retry:false,gcTime:0,refetchOnWindowFocus:false,refetchInterval:60000});
  const [draft,setDraft]=useState<PriceInput|null>(null),[preview,setPreview]=useState<{input:PriceInput;value:z.infer<typeof pricePreview>}|null>(null),[fieldError,setFieldError]=useState("");

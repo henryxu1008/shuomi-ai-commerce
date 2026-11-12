@@ -57,6 +57,13 @@ it("enables only a server-confirmed prepared schedule and keeps an unknown start
  expect(await screen.findByText(/启用结果待核实/)).toBeVisible();expect(screen.queryByRole("button",{name:"启用每周自动更新"})).not.toBeInTheDocument();
  expect(fetch.mock.calls.filter(([url])=>url.endsWith("/automatic-fx/start"))).toHaveLength(1);
 });
+it("rechecks the current status before starting from a stale browser",async()=>{
+ const fetch=fixture(),original=fetch.getMockImplementation()!;let reads=0;
+ fetch.mockImplementation(async(url,init={})=>url.endsWith("/automatic-fx")?Response.json({state:++reads===1?"PREPARED":"CHECKED",checkedAt:"2026-11-12T00:00:00Z",stopRequested:false}):original(url,init));
+ const user=userEvent.setup(),client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);render(<QueryClientProvider client={client}><OfficialPriceEditor scope={scope} canPublish/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"启用每周自动更新"}));expect(await screen.findByText(/启用结果待核实/)).toBeVisible();
+ expect(fetch.mock.calls.filter(([url])=>url.endsWith("/automatic-fx/start"))).toHaveLength(0);
+});
 it("never rebases an edited price draft onto a newly published revision",async()=>{
  const fetch=fixture(),original=fetch.getMockImplementation()!;let updated=false;
  fetch.mockImplementation(async(url,init={})=>updated&&url.endsWith("/platform-prices")?Response.json({status:"READY",preview:null,revision:{id:"new-revision",scope:{organizationId:"platform-ai-models",capability:"ai.models.official-prices"},parent:"NONE",schemaVersion:1,payload:{bindingId:"",credentialVersion:"",rates:{},platformPrices:{schemaVersion:1,unitVersion:"ai-micropoint-v1",prices:[],fx:[]}},digest:"digest",actorId:"admin",publishedAt:"2026-11-12T00:00:00Z",key:"key"}}):original(url,init));
