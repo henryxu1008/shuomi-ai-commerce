@@ -19,20 +19,26 @@ type taskScopeRow struct {
 	BusinessScope *aiworkbench.BusinessScope `gorm:"serializer:json;type:jsonb"`
 }
 
+// Scheduled tasks carry a genuine immutable scope reference, not a fabricated
+// Chat ancestor. Direct schedules without that reference remain unrecorded.
+const taskBusinessScopeSQL = "(CASE WHEN t.source_kind = 'SCHEDULE_OCCURRENCE' THEN f.frozen_scope->'Scope' ELSE c.business_scope END)"
+
 func (s *Store) scopedTasks(ctx context.Context, owner aiworkbench.Scope, filter aiworkbench.ScopeSelection) *gorm.DB {
 	q := s.db.WithContext(ctx).Table("ai_workbench.business_tasks AS t").
-		Select("t.*, c.business_scope").
-		Joins("JOIN ai_workbench.conversations AS c ON c.id = t.conversation_id AND c.organization_id = t.organization_id AND c.owner_user_id = t.owner_user_id").
+		Select("t.*, "+taskBusinessScopeSQL+" AS business_scope").
+		Joins("LEFT JOIN ai_workbench.conversations AS c ON c.id = t.conversation_id AND c.organization_id = t.organization_id AND c.owner_user_id = t.owner_user_id AND t.source_kind='CHAT_PROPOSAL'").
+		Joins("LEFT JOIN ai_workbench.commands AS f ON t.source_kind='SCHEDULE_OCCURRENCE' AND f.organization_id=t.organization_id AND f.actor_id=t.owner_user_id AND f.idempotency_key::text=t.execution_request->'WorkbenchContextRef'->>'CommandKey' AND f.conversation_id::text=t.execution_request->'WorkbenchContextRef'->>'ConversationID' AND f.scope_digest=t.execution_request->'WorkbenchContextRef'->>'Digest' AND f.operation=?", messageOperation).
+		Where("(t.source_kind='SCHEDULE_OCCURRENCE' OR c.id IS NOT NULL)").
 		Where("t.organization_id = ? AND t.owner_user_id = ?", owner.OrganizationID, owner.ActorID)
 	switch filter.Kind {
 	case "general":
-		q = q.Where("c.business_scope->>'kind' = 'general'")
+		q = q.Where(taskBusinessScopeSQL + "->>'kind' = 'general'")
 	case "project":
-		q = q.Where("c.business_scope->>'kind' = 'project' AND c.business_scope->>'projectId' = ?", filter.ProjectID)
+		q = q.Where(taskBusinessScopeSQL+"->>'kind' = 'project' AND "+taskBusinessScopeSQL+"->>'projectId' = ?", filter.ProjectID)
 	case "store":
-		q = q.Where("c.business_scope->>'kind' IN ('store','project') AND c.business_scope->>'storeId' = ?", filter.StoreID)
+		q = q.Where(taskBusinessScopeSQL+"->>'kind' IN ('store','project') AND "+taskBusinessScopeSQL+"->>'storeId' = ?", filter.StoreID)
 	case "unrecorded":
-		q = q.Where("c.business_scope IS NULL")
+		q = q.Where(taskBusinessScopeSQL + " IS NULL")
 	}
 	return q
 }

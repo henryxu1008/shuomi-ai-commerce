@@ -15,6 +15,7 @@ import (
 	listingoperation "task-processor/internal/app/runtime/listingoperation"
 	podruntime "task-processor/internal/app/runtime/pod"
 	observationruntime "task-processor/internal/app/runtime/storeobservations"
+	scheduledruntime "task-processor/internal/app/runtime/workbenchschedules"
 	"task-processor/internal/integration/sds"
 	"task-processor/internal/product/collection"
 	"time"
@@ -249,7 +250,12 @@ func execute() error {
 				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{TitlePilotOperator: operator, ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, ResearchTextPolicies: p.ResearchTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
 			}
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
-				options = append(options, httpapi.WithAIWorkbench(httpapi.AIWorkbenchDependencies{DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}))
+				chat := httpapi.AIWorkbenchDependencies{DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}
+				if features.AIWorkbenchScheduleClient != nil {
+					chat.Schedules = &scheduledruntime.Backend{Client: features.AIWorkbenchScheduleClient}
+					chat.ScheduleStop = features.AIWorkbenchScheduleStop
+				}
+				options = append(options, httpapi.WithAIWorkbench(chat))
 			}
 			if features.RuntimeContext != nil {
 				options = append(options, httpapi.WithRuntimeContext(features.RuntimeContext))

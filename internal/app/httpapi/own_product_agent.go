@@ -30,8 +30,24 @@ func (a *productAgentApplication) ownSource(ctx context.Context, i authidentity.
 	if a == nil || a.ownProducts == nil {
 		return contentagent.OwnSource{}, agent.ErrUnavailable
 	}
-	ctx = authidentity.WithAuthenticatedIdentity(ctx, i)
-	item, err := a.ownProducts.ReadItem(ctx, itemID)
+	var item collection.ItemDetail
+	var err error
+	if scheduledExecutionContext(ctx) {
+		reader, ok := a.ownProducts.(interface {
+			ReadItemForExecution(context.Context, collection.AuthorizedOwner, string) (collection.ItemDetail, error)
+		})
+		if !ok {
+			return contentagent.OwnSource{}, agent.ErrUnavailable
+		}
+		proof, e := (collection.ExecutionOwnerAuthority{Authorization: scheduledCollectionAuthorization{agent: a}}).AuthorizeExecutionOwner(ctx, collection.Scope{OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID})
+		if e != nil {
+			return contentagent.OwnSource{}, e
+		}
+		item, err = reader.ReadItemForExecution(ctx, proof, itemID)
+	} else {
+		ctx = authidentity.WithAuthenticatedIdentity(ctx, i)
+		item, err = a.ownProducts.ReadItem(ctx, itemID)
+	}
 	if err != nil {
 		return contentagent.OwnSource{}, err
 	}

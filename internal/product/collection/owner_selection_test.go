@@ -2,8 +2,10 @@ package collection
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/product/catalog"
 	"testing"
 	"time"
 )
@@ -65,4 +67,26 @@ func TestExecutionOwnerProofUsesLiveOriginalMembershipWithoutRequestIdentity(t *
 	require.ErrorIs(t, err, ErrForbidden)
 	_, err = owner.AuthorizeExecutionOwner(context.Background(), scope)
 	require.ErrorIs(t, err, ErrForbidden, "execution authority requires a bounded activity context")
+}
+
+func TestExecutionItemReadConsumesOwnerProofAndRechecksRevocation(t *testing.T) {
+	scope := Scope{"org-a", "actor-a", "member-a"}
+	current := &executionOwnerAuth{scope: scope}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	proof, err := (ExecutionOwnerAuthority{Authorization: current}).AuthorizeExecutionOwner(ctx, scope)
+	require.NoError(t, err)
+	item := Item{ID: uuid.NewString(), Source: Source{ProductKey: "product-a", PublicationID: "pub-a", Version: 1, Kind: "own"}}
+	reader := &snapshotFixture{snapshot: catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: "product-a"}, PublicationID: "pub-a", Version: 1}}
+	service, err := NewService(selectionStore{item: item}, &testAuth{err: ErrForbidden}, testSources{})
+	require.NoError(t, err)
+	service.WithSnapshots(reader)
+	got, err := service.ReadItemForExecution(ctx, proof, item.ID)
+	require.NoError(t, err)
+	require.Equal(t, item.ID, got.Item.ID)
+	current.denied = true
+	_, err = service.ReadItemForExecution(ctx, proof, item.ID)
+	require.ErrorIs(t, err, ErrForbidden)
+	_, err = service.ReadItemForExecution(ctx, AuthorizedOwner{}, item.ID)
+	require.ErrorIs(t, err, ErrForbidden)
 }

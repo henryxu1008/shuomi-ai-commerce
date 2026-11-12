@@ -62,7 +62,7 @@ type Binding struct {
 	StoreDiagnosis                                            StoreDiagnosisRef                         `json:",omitzero"`
 	ResearchSelection                                         ResearchSelectionRef                      `json:",omitzero"`
 	CandidateRules                                            CandidateRulesRef                         `json:",omitzero"`
-	OwnProductIntake                                         OwnProductIntakeRef                      `json:",omitzero"`
+	OwnProductIntake                                          OwnProductIntakeRef                       `json:",omitzero"`
 }
 
 func (b Binding) Valid() bool {
@@ -110,6 +110,7 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
+	ScheduledSource              ScheduledSourceRef              `json:",omitzero"`
 	WorkbenchContextRef          WorkbenchContextRef             `json:",omitzero"`
 	ManualReviewOnly             bool                            `json:",omitempty"`
 	SkillVersionRef              SkillVersionRef                 `json:",omitzero"`
@@ -125,6 +126,9 @@ type Request struct {
 }
 
 func (r Request) ValidContentSelection() bool {
+	if !r.ScheduledSource.Absent() && (!r.ScheduledSource.Valid() || !r.ManualReviewOnly || r.ScheduledSource.OccurrenceID != r.Key) {
+		return false
+	}
 	if r.ManualReviewOnly && r.PolicyVersion != reviewproposal.ContentPolicyVersion {
 		return false
 	}
@@ -136,7 +140,7 @@ func (r Request) ValidContentSelection() bool {
 
 // The caller can narrow automation, never replace the frozen permission mode.
 func (r Request) AllowsManualReviewMode(mode ExecutionMode) bool {
-	return !r.ManualReviewOnly || r.ValidContentSelection() && mode == ModeDefault
+	return !r.ManualReviewOnly || r.ValidContentSelection() && (mode == ModeDefault || mode == ModeReadOnly && r.ScheduledSource.Valid())
 }
 
 // Direct Product Agent requests have no Chat goal. Confirmed Chat requests

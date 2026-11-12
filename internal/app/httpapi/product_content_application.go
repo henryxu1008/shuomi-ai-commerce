@@ -74,6 +74,9 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		}
 		return route, err
 	}, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, input aicapability.TextInputIdentity) error {
+		if scheduledExecutionContext(ctx) {
+			return a.authorizeScheduledSend(ctx, input)
+		}
 		if listingAgentContext(ctx) {
 			return a.authorizeListingModel(ctx, input.OrganizationID, input.ActorID, input.MemberID)
 		}
@@ -123,6 +126,12 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		}
 	}
 	validator := contentagent.Validator{Authorization: a, Configuration: a.configuration, Identity: a.currentModeIdentity, Observed: contentCandidateEvidenceObserved, Review: func(ctx context.Context, input review.ContentValidationInput) (reviewproposal.Proposal, error) {
+		if scheduledExecutionContext(ctx) {
+			if a.scheduledReviews == nil {
+				return reviewproposal.Proposal{}, agent.ErrUnavailable
+			}
+			return a.scheduledReviews.ValidateContentCandidate(ctx, input)
+		}
 		if listingAgentContext(ctx) {
 			if a.executionReviews == nil {
 				return reviewproposal.Proposal{}, agent.ErrUnavailable

@@ -195,6 +195,9 @@ func (a *productAgentApplication) finishTitleCandidate(ctx context.Context, run 
 }
 
 func (a *productAgentApplication) currentModeIdentity(ctx context.Context) (agent.ExecutionIdentity, error) {
+	if scheduledExecutionContext(ctx) {
+		return a.resolveExecutionIdentity(ctx)
+	}
 	if listingAgentContext(ctx) {
 		return a.resolveExecutionIdentity(ctx)
 	}

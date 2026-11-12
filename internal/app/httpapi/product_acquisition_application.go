@@ -31,6 +31,18 @@ import (
 
 const productAcquisitionBase = "/api/v1/workbench/sourcing/1688/acquisitions"
 
+// Keep this scoped receipt constructor at its existing admitted composition
+// root. The scheduled consumer supplies current service authorization, while
+// the original source owner still reads the exact persisted publication.
+func (a *productAgentApplication) connectScheduledSourceReceipts(ctx context.Context, db *gorm.DB) error {
+	reader, err := productsourcing.NewScopedPublishedAcquisitionReader(ctx, db, scheduledSourceAuthorization{agent: a})
+	if err != nil {
+		return err
+	}
+	a.scheduledReceipts = reader
+	return nil
+}
+
 // acquisitionBodyReadTimeout is the share of the acquisition route budget
 // reserved for reading and authenticating the request body.
 //

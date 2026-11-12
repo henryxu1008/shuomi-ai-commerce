@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -81,8 +82,9 @@ func emptyScopeFixture(t *testing.T) (*gorm.DB, *gorm.DB, EmptyScopeTarget) {
 	require.NoError(t, err)
 	urlDSN.User = url.UserPassword("product_agent_owner", "fixture")
 	owner := open(urlDSN.String())
-	require.NoError(t, InstallSchema(owner))
-	require.NoError(t, GrantRuntime(owner, "ai_workbench_runtime"))
+	frozen, err := os.ReadFile("testdata/empty_scope_exact_target.sql")
+	require.NoError(t, err)
+	require.NoError(t, owner.Exec(string(frozen)).Error)
 	require.NoError(t, owner.Exec(`ALTER TABLE ai_workbench.conversations DROP COLUMN business_scope; ALTER TABLE ai_workbench.commands DROP COLUMN frozen_scope, DROP COLUMN scope_digest; ALTER TABLE ai_workbench.execution_proposals DROP COLUMN workbench_context_ref`).Error)
 	urlDSN.User = url.UserPassword("ai_workbench_runtime", "fixture")
 	runtime := open(urlDSN.String())
@@ -93,9 +95,10 @@ func emptyScopeFixture(t *testing.T) (*gorm.DB, *gorm.DB, EmptyScopeTarget) {
 
 func TestEmptyScopeInstallerIsAtomicAndRepeatable(t *testing.T) {
 	owner, runtime, target := emptyScopeFixture(t)
-	require.Error(t, VerifySchema(context.Background(), runtime))
+	require.Error(t, verifyEmptyScopePrepared(context.Background(), runtime))
 	require.NoError(t, InstallEmptyScope(context.Background(), owner, runtime, target))
-	require.NoError(t, VerifySchema(context.Background(), runtime))
+	require.NoError(t, verifyEmptyScopePrepared(context.Background(), runtime))
+	require.Error(t, VerifySchema(context.Background(), runtime), "exact empty-scope preparation is not the complete current serving schema")
 	require.NoError(t, InstallEmptyScope(context.Background(), owner, runtime, target))
 	require.NoError(t, owner.Exec(`INSERT INTO ai_workbench.conversations(id,organization_id,owner_user_id,lifecycle,metadata_revision,next_sequence,created_at,updated_at) VALUES ('00000000-0000-0000-0000-000000000003','org','owner','ACTIVE',1,1,now(),now())`).Error)
 	require.Error(t, InstallEmptyScope(context.Background(), owner, runtime, target), "even a current schema must not pass the empty preparation mode with existing Chat facts")
@@ -111,7 +114,7 @@ func TestEmptyScopeInstallerRejectsNonemptyOrWrongTarget(t *testing.T) {
 	require.NoError(t, owner.Exec(`DELETE FROM ai_workbench.conversations`).Error)
 	target.Database = "wrong"
 	require.Error(t, InstallEmptyScope(context.Background(), owner, runtime, target))
-	require.Error(t, VerifySchema(context.Background(), runtime))
+	require.Error(t, verifyEmptyScopePrepared(context.Background(), runtime))
 }
 
 func TestEmptyScopeInstallerRejectsSchemaOrPrivilegeDrift(t *testing.T) {
@@ -129,7 +132,7 @@ func TestEmptyScopeInstallerRejectsSchemaOrPrivilegeDrift(t *testing.T) {
 			owner, runtime, target := emptyScopeFixture(t)
 			require.NoError(t, owner.Exec(tc.drift).Error)
 			require.Error(t, InstallEmptyScope(context.Background(), owner, runtime, target))
-			require.Error(t, VerifySchema(context.Background(), runtime))
+			require.Error(t, verifyEmptyScopePrepared(context.Background(), runtime))
 		})
 	}
 }
@@ -146,7 +149,7 @@ func TestEmptyScopeInstallerRejectsDisabledForeignKeyTrigger(t *testing.T) {
 	defer raw.Close()
 	require.NoError(t, admin.Exec(`ALTER TABLE ai_workbench.messages DISABLE TRIGGER ALL`).Error)
 	require.Error(t, InstallEmptyScope(context.Background(), owner, runtime, target))
-	require.Error(t, VerifySchema(context.Background(), runtime))
+	require.Error(t, verifyEmptyScopePrepared(context.Background(), runtime))
 }
 
 func TestEmptyScopeInstallerSerializesConcurrentAttempts(t *testing.T) {
@@ -162,7 +165,7 @@ func TestEmptyScopeInstallerSerializesConcurrentAttempts(t *testing.T) {
 	for err := range errs {
 		require.NoError(t, err)
 	}
-	require.NoError(t, VerifySchema(context.Background(), runtime))
+	require.NoError(t, verifyEmptyScopePrepared(context.Background(), runtime))
 }
 
 func TestEmptyScopeInstallerLockTimeoutDoesNotInstall(t *testing.T) {
@@ -174,7 +177,7 @@ func TestEmptyScopeInstallerLockTimeoutDoesNotInstall(t *testing.T) {
 	defer cancel()
 	require.Error(t, InstallEmptyScope(ctx, owner, runtime, target))
 	require.NoError(t, holder.Rollback().Error)
-	require.Error(t, VerifySchema(context.Background(), runtime))
+	require.Error(t, verifyEmptyScopePrepared(context.Background(), runtime))
 }
 
 func TestEmptyScopeInstallerReportsPostCommitRuntimeFailure(t *testing.T) {
@@ -187,7 +190,7 @@ func TestEmptyScopeInstallerReportsPostCommitRuntimeFailure(t *testing.T) {
 	}))
 	require.Error(t, InstallEmptyScope(context.Background(), owner, runtime, target))
 	require.NoError(t, runtime.Callback().Row().Remove("fixture:reject-runtime-verification"))
-	require.NoError(t, VerifySchema(context.Background(), runtime), "committed columns stay in place after failed post-commit verification")
+	require.NoError(t, verifyEmptyScopePrepared(context.Background(), runtime), "committed columns stay in place after failed post-commit verification")
 	var sentinel string
 	require.NoError(t, owner.Raw(`SELECT value FROM unrelated.sentinel`).Scan(&sentinel).Error)
 	require.Equal(t, "preserve", sentinel)
@@ -203,7 +206,7 @@ func TestEmptyScopeInstallerRollsBackWhenFinalCheckFails(t *testing.T) {
 	}))
 	require.Error(t, InstallEmptyScope(context.Background(), owner, runtime, target))
 	require.NoError(t, owner.Callback().Row().Remove("fixture:fail-after-ddl"))
-	require.Error(t, VerifySchema(context.Background(), runtime))
+	require.Error(t, verifyEmptyScopePrepared(context.Background(), runtime))
 	fingerprint, err := emptyScopeFingerprint(owner)
 	require.NoError(t, err)
 	require.Equal(t, emptyScopeOldFingerprint, fingerprint)
@@ -219,7 +222,7 @@ func TestEmptyScopeInstallerWaitsForWriterThenRefusesNonempty(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	require.NoError(t, writer.Commit().Error)
 	require.Error(t, <-result)
-	require.Error(t, VerifySchema(context.Background(), runtime))
+	require.Error(t, verifyEmptyScopePrepared(context.Background(), runtime))
 	var count int64
 	require.NoError(t, owner.Table("ai_workbench.conversations").Count(&count).Error)
 	require.EqualValues(t, 1, count)
@@ -236,5 +239,5 @@ func TestEmptyScopeInstallerCommitAcknowledgmentUnknownDoesNotRetry(t *testing.T
 	})
 	require.Error(t, err)
 	require.EqualValues(t, 1, commits.Load(), "an uncertain acknowledgment never triggers a second commit")
-	require.NoError(t, VerifySchema(context.Background(), runtime), "a lost acknowledgment can follow a successful commit")
+	require.NoError(t, verifyEmptyScopePrepared(context.Background(), runtime), "a lost acknowledgment can follow a successful commit")
 }
