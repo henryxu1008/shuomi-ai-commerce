@@ -28,6 +28,7 @@ type Intent struct {
 	Publish bool
 	Attempt uint32
 	USDBase []d.PublishedFXRate
+	NextDue time.Time
 }
 type USDBase struct{ Rates []d.PublishedFXRate }
 type PublishResult struct {
@@ -44,6 +45,16 @@ type CoordinatorState struct {
 	StopRequested bool
 	RetryUSD      *USDBase
 	BlockedUSD    bool
+	DueAt         time.Time
+}
+
+func dueForIntent(intent Intent) time.Time {
+	for _, rate := range intent.Input.FX {
+		if rate.Currency == "USD" && rate.RateDate == intent.Day {
+			return rate.EffectiveUntil
+		}
+	}
+	return time.Time{}
 }
 
 type StatusSnapshot struct {
@@ -114,6 +125,7 @@ func CoordinatorWorkflow(ctx workflow.Context, state CoordinatorState) error {
 			state.StatusAt = workflow.Now(ctx)
 			var found bool
 			if err := workflow.ExecuteActivity(activityCtx, InspectActivity, *state.Pending).Get(ctx, &found); err == nil && found {
+				state.DueAt = dueForIntent(*state.Pending)
 				state.Pending = nil
 				state.Status = "PUBLISHED"
 			} else {
@@ -141,24 +153,48 @@ func CoordinatorWorkflow(ctx workflow.Context, state CoordinatorState) error {
 				}
 			}
 		} else {
+			if !state.DueAt.IsZero() && workflow.Now(ctx).Before(state.DueAt) {
+				state.Wake = false
+			}
 			if !state.Wake {
-				selector := workflow.NewSelector(ctx)
-				selector.AddReceive(stops, func(c workflow.ReceiveChannel, _ bool) {
-					var e struct{}
-					c.Receive(ctx, &e)
-					state.StopRequested = true
-				})
-				selector.AddReceive(ticks, func(c workflow.ReceiveChannel, _ bool) { var e struct{}; c.Receive(ctx, &e); state.Wake = true })
-				selector.Select(ctx)
-				if ctx.Err() != nil {
-					return ctx.Err()
+				if !state.DueAt.IsZero() && !workflow.Now(ctx).Before(state.DueAt) {
+					state.Wake = true
+				} else {
+					selector := workflow.NewSelector(ctx)
+					selector.AddReceive(stops, func(c workflow.ReceiveChannel, _ bool) {
+						var e struct{}
+						c.Receive(ctx, &e)
+						state.StopRequested = true
+					})
+					selector.AddReceive(ticks, func(c workflow.ReceiveChannel, _ bool) {
+						var e struct{}
+						c.Receive(ctx, &e)
+						if state.DueAt.IsZero() || !workflow.Now(ctx).Before(state.DueAt) {
+							state.Wake = true
+						}
+					})
+					var cancel workflow.CancelFunc
+					if !state.DueAt.IsZero() {
+						timerCtx, c := workflow.WithCancel(ctx)
+						cancel = c
+						selector.AddFuture(workflow.NewTimer(timerCtx, state.DueAt.Sub(workflow.Now(ctx))), func(workflow.Future) { state.Wake = true })
+						state.Status = "WAITING"
+					}
+					selector.Select(ctx)
+					if cancel != nil {
+						cancel()
+					}
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 				}
 			}
 			drainStops()
-			if state.StopRequested {
+			if state.StopRequested || !state.Wake {
 				continue
 			}
 			state.Wake = false
+			state.DueAt = time.Time{}
 			state.Status = "CHECKING"
 			state.StatusAt = workflow.Now(ctx)
 			var obs fx.Observation
@@ -177,6 +213,7 @@ func CoordinatorWorkflow(ctx workflow.Context, state CoordinatorState) error {
 					state.Status = "USD_CONFLICT"
 				} else if !intent.Publish {
 					state.RetryUSD = nil
+					state.DueAt = intent.NextDue
 					state.Status = "CHECKED"
 				} else {
 					state.RetryUSD = nil
@@ -208,6 +245,7 @@ func CoordinatorWorkflow(ctx workflow.Context, state CoordinatorState) error {
 							state.Status = "NOT_READY"
 							state.NextAttempt++
 						} else {
+							state.DueAt = dueForIntent(intent)
 							state.Status = "PUBLISHED"
 						}
 					} else {
@@ -221,7 +259,7 @@ func CoordinatorWorkflow(ctx workflow.Context, state CoordinatorState) error {
 		if cycles >= 100 && state.Pending == nil {
 			var event struct{}
 			for ticks.ReceiveAsync(&event) {
-				if !state.StopRequested {
+				if !state.StopRequested && (state.DueAt.IsZero() || !workflow.Now(ctx).Before(state.DueAt)) {
 					state.Wake = true
 				}
 			}

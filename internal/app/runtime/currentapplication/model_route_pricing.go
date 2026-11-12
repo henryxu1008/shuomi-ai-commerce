@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"task-processor/internal/aicapability"
 	d "task-processor/internal/aicapability/routeconfig"
-	fx "task-processor/internal/integration/aicapability/automaticfx"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	store "task-processor/internal/integration/persistence/routeconfig"
@@ -24,12 +23,10 @@ type ModelRoutePricingConfig struct {
 	AutomaticFX *AutomaticFXConfig     `json:"automaticFX,omitempty"`
 }
 
-// Omission leaves all automatic execution disabled. Calendar values are
-// operator-verified source coverage, never inferred from office holidays.
+// Omission leaves all automatic execution disabled.
 type AutomaticFXConfig struct {
-	TemporalAddress   string      `json:"temporalAddress"`
-	TemporalNamespace string      `json:"temporalNamespace"`
-	Calendar          fx.Calendar `json:"calendar"`
+	TemporalAddress   string `json:"temporalAddress"`
+	TemporalNamespace string `json:"temporalNamespace"`
 }
 
 func (c *AutomaticFXConfig) validate() error {

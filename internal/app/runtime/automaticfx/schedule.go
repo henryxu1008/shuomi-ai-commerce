@@ -19,13 +19,14 @@ type bootstrapOperations interface {
 	startCoordinator(context.Context) error
 	verifyCoordinator(context.Context) error
 	unpause(context.Context) error
+	initialTick(context.Context) error
 }
 
 func bootstrap(ctx context.Context, ops bootstrapOperations) error {
 	if ctx == nil || ops == nil {
 		return ErrControlUnknown
 	}
-	for _, step := range []func(context.Context) error{ops.createPaused, ops.startCoordinator, ops.verifyCoordinator, ops.unpause} {
+	for _, step := range []func(context.Context) error{ops.createPaused, ops.startCoordinator, ops.verifyCoordinator, ops.unpause, ops.initialTick} {
 		if step(ctx) != nil {
 			return ErrControlUnknown
 		}
@@ -40,7 +41,7 @@ type temporalBootstrap struct {
 }
 
 func (b *temporalBootstrap) createPaused(ctx context.Context) error {
-	h, err := b.client.ScheduleClient().Create(ctx, client.ScheduleOptions{ID: ScheduleID, Paused: true, Overlap: enums.SCHEDULE_OVERLAP_POLICY_SKIP, Spec: client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: time.Hour}}}, Action: &client.ScheduleWorkflowAction{ID: "platform-fx-tick-v1", Workflow: TickWorkflowName, TaskQueue: TaskQueue}})
+	h, err := b.client.ScheduleClient().Create(ctx, client.ScheduleOptions{ID: ScheduleID, Paused: true, Overlap: enums.SCHEDULE_OVERLAP_POLICY_SKIP, Spec: client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: 7 * 24 * time.Hour}}}, Action: &client.ScheduleWorkflowAction{ID: "platform-fx-tick-v1", Workflow: TickWorkflowName, TaskQueue: TaskQueue}})
 	if err != nil {
 		return err
 	}
@@ -70,6 +71,9 @@ func (b *temporalBootstrap) unpause(ctx context.Context) error {
 		return ErrControlUnknown
 	}
 	return b.handle.Unpause(ctx, client.ScheduleUnpauseOptions{Note: "explicit verified initial activation"})
+}
+func (b *temporalBootstrap) initialTick(ctx context.Context) error {
+	return b.client.SignalWorkflow(ctx, CoordinatorID, b.runID, TickSignal, struct{}{})
 }
 
 // BootstrapFresh is a deliberate state-changing operation only for a fresh,

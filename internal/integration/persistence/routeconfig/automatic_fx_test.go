@@ -3,7 +3,6 @@ package routeconfigstore
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 	"task-processor/internal/integration/aicapability/automaticfx"
 )
 
-func syntheticFXClock() (time.Time, string, string, automaticfx.Calendar) {
+func syntheticFXClock() (time.Time, string, string) {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	loc := time.FixedZone("Asia/Shanghai", 8*3600)
 	local := now.In(loc)
@@ -22,29 +21,16 @@ func syntheticFXClock() (time.Time, string, string, automaticfx.Calendar) {
 	if local.Before(day.Add(9*time.Hour + 15*time.Minute)) {
 		day = day.AddDate(0, 0, -1)
 	}
-	previous := day.AddDate(0, 0, -1).Format("2006-01-02")
-	years := map[int]automaticfx.YearCalendar{}
-	for _, y := range []int{day.Year(), local.Year(), day.AddDate(0, 0, 2).Year()} {
-		years[y] = automaticfx.YearCalendar{Source: "https://www.chinamoney.com.cn/fixture", CoverageFrom: fmt.Sprintf("%d-01-01", y), CoverageUntil: fmt.Sprintf("%d-12-31", y), ExceptionsComplete: true}
-	}
-	y := years[day.Year()]
-	y.Open = []string{day.Format("2006-01-02")}
-	years[day.Year()] = y
-	if day.Format("2006-01-02") != local.Format("2006-01-02") {
-		y = years[local.Year()]
-		y.Closed = append(y.Closed, local.Format("2006-01-02"))
-		years[local.Year()] = y
-	}
-	return now, day.Format("2006-01-02"), previous, automaticfx.Calendar{Years: years}
+	return now, day.Format("2006-01-02"), day.AddDate(0, 0, -1).Format("2006-01-02")
 }
 
 func TestAutomaticFXUsesPriceOwnerAndPreservesFrozenHistory(t *testing.T) {
 	_, repo := fixture(t)
 	ctx := context.Background()
-	now, day, previous, calendar := syntheticFXClock()
+	now, day, previous := syntheticFXClock()
 	owner := &d.PlatformPricesService{Repository: repo, Now: func() time.Time { return now }}
 	seed := d.PlatformPricesInput{ExpectedRevision: d.NoRevision,
-		Prices: []d.PublishedModelPrice{{ID: "fixture-price", Provider: "openai", Model: "fixture-model", Channel: "fixture-channel", Region: "global", ServiceType: "standard-sync", Currency: "USD", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750000, OutputText: 4500000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(48 * time.Hour)}},
+		Prices: []d.PublishedModelPrice{{ID: "fixture-price", Provider: "openai", Model: "fixture-model", Channel: "fixture-channel", Region: "global", ServiceType: "standard-sync", Currency: "USD", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750000, OutputText: 4500000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(14 * 24 * time.Hour)}},
 		FX: []d.PublishedFXRate{
 			{Currency: "USD", RateDate: previous, CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(time.Hour)},
 			{Currency: "EUR", RateDate: previous, CNYMicrosPerCurrencyUnit: 7800000, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(48 * time.Hour)},
@@ -54,7 +40,7 @@ func TestAutomaticFXUsesPriceOwnerAndPreservesFrozenHistory(t *testing.T) {
 	require.NoError(t, err)
 	before, err := old.Payload.PlatformPrices.Resolve("fixture-price", "fixture-model", "fixture-channel", now.Add(-time.Second))
 	require.NoError(t, err)
-	input, changed, err := automaticfx.PrepareVerifiedPublication(old.ID, *old.Payload.PlatformPrices, automaticfx.Observation{Date: day, CNYMicrosPerUSD: 6717400}, calendar, now)
+	input, changed, err := automaticfx.PrepareWeeklyPublication(old.ID, *old.Payload.PlatformPrices, automaticfx.Observation{Date: day, CNYMicrosPerUSD: 6717400}, now)
 	require.NoError(t, err)
 	require.True(t, changed)
 	newRev, err := automaticfx.PublishFirstAttempt(ctx, automaticfx.ServiceOwner{Service: owner}, day, 1, input)
@@ -71,6 +57,11 @@ func TestAutomaticFXUsesPriceOwnerAndPreservesFrozenHistory(t *testing.T) {
 	require.EqualValues(t, 6717400, after.CNYMicrosPerCurrencyUnit)
 	require.Equal(t, before.PriceVersion, after.PriceVersion)
 	require.NotEqual(t, before.FXVersion, after.FXVersion)
+	weekPrice, err := current.Payload.PlatformPrices.Resolve("fixture-price", "fixture-model", "fixture-channel", now.Add(7*24*time.Hour-time.Nanosecond))
+	require.NoError(t, err)
+	require.Equal(t, after.FXVersion, weekPrice.FXVersion)
+	_, err = current.Payload.PlatformPrices.Resolve("fixture-price", "fixture-model", "fixture-channel", now.Add(7*24*time.Hour))
+	require.Error(t, err, "new quotes must stop exactly at the end of the week")
 	oldAgain, err := repo.Revision(ctx, d.PlatformPricesScope(), old.ID)
 	require.NoError(t, err)
 	frozen, err := oldAgain.Payload.PlatformPrices.Resolve("fixture-price", "fixture-model", "fixture-channel", now)
@@ -82,7 +73,7 @@ func TestAutomaticFXUsesPriceOwnerAndPreservesFrozenHistory(t *testing.T) {
 func TestAutomaticFXReconcilesCommittedUnknownByOriginalKey(t *testing.T) {
 	_, repo := fixture(t)
 	ctx := context.Background()
-	now, day, _, _ := syntheticFXClock()
+	now, day, _ := syntheticFXClock()
 	service := &d.PlatformPricesService{Repository: repo, Now: func() time.Time { return now }}
 	input := d.PlatformPricesInput{ExpectedRevision: d.NoRevision, FX: []d.PublishedFXRate{{Currency: "USD", RateDate: day, CNYMicrosPerCurrencyUnit: 6717400, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now, EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)}}}
 	repo.commitTransaction = func(tx *gorm.DB) error {
@@ -102,13 +93,13 @@ func TestAutomaticFXReconcilesCommittedUnknownByOriginalKey(t *testing.T) {
 func TestAutomaticFXKnownStaleSnapshotAllowsNewAttemptKey(t *testing.T) {
 	_, repo := fixture(t)
 	ctx := context.Background()
-	now, day, previous, calendar := syntheticFXClock()
+	now, day, previous := syntheticFXClock()
 	service := &d.PlatformPricesService{Repository: repo, Now: func() time.Time { return now }}
 	seed := d.PlatformPricesInput{ExpectedRevision: d.NoRevision, FX: []d.PublishedFXRate{{Currency: "USD", RateDate: previous, CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Minute), EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}}
 	first, err := service.Publish(ctx, "fixture", "seed-manual", seed)
 	require.NoError(t, err)
 	obs := automaticfx.Observation{Date: day, CNYMicrosPerUSD: 6717400}
-	stale, changed, err := automaticfx.PrepareVerifiedPublication(first.ID, *first.Payload.PlatformPrices, obs, calendar, now)
+	stale, changed, err := automaticfx.PrepareWeeklyPublication(first.ID, *first.Payload.PlatformPrices, obs, now)
 	require.NoError(t, err)
 	require.True(t, changed)
 	manual := seed
@@ -118,7 +109,7 @@ func TestAutomaticFXKnownStaleSnapshotAllowsNewAttemptKey(t *testing.T) {
 	_, err = automaticfx.PublishFirstAttempt(ctx, automaticfx.ServiceOwner{Service: service}, obs.Date, 1, stale)
 	require.ErrorIs(t, err, d.ErrConflict)
 	require.ErrorIs(t, err, d.ErrStaleSnapshot)
-	fresh, changed, err := automaticfx.PrepareVerifiedPublication(updated.ID, *updated.Payload.PlatformPrices, obs, calendar, now)
+	fresh, changed, err := automaticfx.PrepareWeeklyPublication(updated.ID, *updated.Payload.PlatformPrices, obs, now)
 	require.NoError(t, err)
 	require.True(t, changed)
 	final, err := automaticfx.PublishFirstAttempt(ctx, automaticfx.ServiceOwner{Service: service}, obs.Date, 2, fresh)
@@ -130,7 +121,7 @@ func TestAutomaticFXKnownStaleSnapshotAllowsNewAttemptKey(t *testing.T) {
 func TestAutomaticFXStaleCASAfterLockIsProvenUncommitted(t *testing.T) {
 	db, repo := fixture(t)
 	ctx := context.Background()
-	now, day, previous, calendar := syntheticFXClock()
+	now, day, previous := syntheticFXClock()
 	service := &d.PlatformPricesService{Repository: repo, Now: func() time.Time { return now }}
 	seed := d.PlatformPricesInput{ExpectedRevision: d.NoRevision, FX: []d.PublishedFXRate{{Currency: "USD", RateDate: previous, CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Minute), EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}}
 	first, err := service.Publish(ctx, "fixture", "seed-race", seed)
@@ -140,7 +131,7 @@ func TestAutomaticFXStaleCASAfterLockIsProvenUncommitted(t *testing.T) {
 	second, err := service.Publish(ctx, "fixture", "manual-race", manual)
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("UPDATE public.ai_route_config_current SET revision_id=? WHERE organization_id=? AND capability=?", first.ID, d.PlatformPricesOrganization, d.PlatformPricesCapability).Error)
-	input, changed, err := automaticfx.PrepareVerifiedPublication(first.ID, *first.Payload.PlatformPrices, automaticfx.Observation{Date: day, CNYMicrosPerUSD: 6717400}, calendar, now)
+	input, changed, err := automaticfx.PrepareWeeklyPublication(first.ID, *first.Payload.PlatformPrices, automaticfx.Observation{Date: day, CNYMicrosPerUSD: 6717400}, now)
 	require.NoError(t, err)
 	require.True(t, changed)
 	lock := db.Begin()
