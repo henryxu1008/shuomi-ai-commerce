@@ -1,6 +1,7 @@
 import {z} from "zod";
 import {aiPointUnit} from "./ai-points";
 export const routeFact=z.string().min(1).max(128).regex(/^[^\s\x00-\x1f\x7f]+$/);
+export const automaticFXStatus=z.strictObject({state:z.string().max(64),checkedAt:z.iso.datetime({offset:true}),stopRequested:z.boolean()});
 
 const modelCategory=z.enum(["text","image-generation","multimodal"]);
 const nonnegative=z.number().int().min(0).max(1e12);

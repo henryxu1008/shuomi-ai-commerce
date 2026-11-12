@@ -173,7 +173,11 @@ func execute() error {
 		NewApplicationWithFeatures: func(ctx context.Context, source *gorm.DB, features currentapplication.ApplicationFeatures, cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
 			options := make([]httpapi.CurrentApplicationOption, 0, 6)
 			if features.SharedModels != nil {
-				options = append(options, httpapi.WithModelRoutePricing(httpapi.ModelRoutePricingDependencies{Shared: features.SharedModels, Prices: features.OfficialModelPrices, Credentials: features.ChannelCredentialManagement}))
+				pricing := httpapi.ModelRoutePricingDependencies{Shared: features.SharedModels, Prices: features.OfficialModelPrices, Credentials: features.ChannelCredentialManagement}
+				if features.AutomaticFX != nil {
+					pricing.AutomaticFX = features.AutomaticFX
+				}
+				options = append(options, httpapi.WithModelRoutePricing(pricing))
 			}
 			if features.AgentCustomizationDB != nil {
 				options = append(options, httpapi.WithAgentCustomization(features.AgentCustomizationDB))
