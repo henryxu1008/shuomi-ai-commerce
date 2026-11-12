@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {useSearchParams} from "next/navigation";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,8 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
 }) {
   const context = useWorkbenchContext(), client = useQueryClient();
   const [schedulesView,setSchedulesView]=useState(false);
-  useEffect(()=>{let active=true;queueMicrotask(()=>{if(active)setSchedulesView(new URLSearchParams(window.location.search).get("view")==="schedules")});return()=>{active=false}},[]);
+  const scheduleSearch=useSearchParams()?.toString()??(typeof window==="undefined"?"":window.location.search);
+  useEffect(()=>{let active=true;queueMicrotask(()=>{if(active)setSchedulesView(new URLSearchParams(scheduleSearch).get("view")==="schedules")});return()=>{active=false}},[scheduleSearch]);
   const schedules=useQuery({queryKey:["ai-schedule-availability",scope.userId,scope.organizationId,authorizationKey],enabled:tasksAvailable,queryFn:({signal})=>requestAIWorkbench({route:"schedule-availability",method:"GET",path:"schedules/availability",scope,signal}),retry:false,refetchOnWindowFocus:false});
   function showSchedules(value:boolean){setSchedulesView(value);const url=new URL(window.location.href);if(value)url.searchParams.set("view","schedules");else{url.searchParams.delete("view");url.searchParams.delete("schedule_id");url.searchParams.delete("schedule_proposal");}window.history.replaceState(null,"",url);}
   const [selection, setSelection] = useState<Selection | undefined>(initialProposalId ? {kind:"review", id:initialProposalId} : undefined);

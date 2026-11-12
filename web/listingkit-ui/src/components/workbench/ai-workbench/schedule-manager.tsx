@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {useSearchParams} from "next/navigation";
 import {useEffect,useState} from "react";
 import {useInfiniteQuery,useQuery,useQueryClient} from "@tanstack/react-query";
 import {Button} from "@/components/ui/button";
@@ -25,7 +26,9 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
  const client=useQueryClient(),[selected,setSelected]=useState<string>(),[form,setForm]=useState<"create"|"edit">(),[proposalId,setProposalId]=useState<string>();
  const [pending,setPending]=useState<Command>(),[busy,setBusy]=useState(false),[restored,setRestored]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const storageKey=`ai-workbench-schedule-command:${scope.userId}:${scope.organizationId}`;
- useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active)return;const params=new URLSearchParams(window.location.search);setSelected(params.get("schedule_id")??undefined);if(params.get("schedule_proposal")){setProposalId(params.get("schedule_proposal")!);setForm("create");}try{const wire=sessionStorage.getItem(storageKey);if(wire){const command:unknown=JSON.parse(wire);if(validCommand(command))setPending(command);else setError("保存的命令无法核实，请保留页面并联系维护者。");}}catch{setError("浏览器存储不可用，不能安全保存重试命令。");}setRestored(true);});return()=>{active=false};},[storageKey]);
+ const scheduleSearch=useSearchParams()?.toString()??(typeof window==="undefined"?"":window.location.search);
+ useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active)return;const params=new URLSearchParams(scheduleSearch);setSelected(params.get("schedule_id")??undefined);const proposal=params.get("schedule_proposal")??undefined;setProposalId(proposal);setForm(proposal?"create":undefined);});return()=>{active=false};},[scheduleSearch]);
+ useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active)return;try{const wire=sessionStorage.getItem(storageKey);if(wire){const command:unknown=JSON.parse(wire);if(validCommand(command))setPending(command);else setError("保存的命令无法核实，请保留页面并联系维护者。");}}catch{setError("浏览器存储不可用，不能安全保存重试命令。");}setRestored(true);});return()=>{active=false};},[storageKey]);
  const prefix=["ai-schedules",scope.userId,scope.organizationId,authorizationKey];
  const availability=useQuery({queryKey:[...prefix,"availability"],queryFn:({signal})=>requestAIWorkbench({route:"schedule-availability",method:"GET",path:"schedules/availability",scope,signal}),retry:false});
  const plans=useInfiniteQuery({queryKey:[...prefix,"list"],initialPageParam:"",queryFn:({signal,pageParam})=>requestAIWorkbench({route:"schedule-list",method:"GET",path:`schedules?limit=20${pageParam?`&after=${pageParam}`:""}`,scope,signal}),getNextPageParam:(last,_pages,lastParam)=>last.next&&last.next!==lastParam?last.next:undefined,retry:false,refetchOnWindowFocus:false});

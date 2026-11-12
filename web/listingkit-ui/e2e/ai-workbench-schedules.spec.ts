@@ -14,13 +14,15 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  const permissions=["workbench.task.read","workbench.agent.use","workbench.collection.read","local_agent.write"];
  const selection={subject:{kind:"own_product",id,catalogVersion:"1",publicationId:id},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}};
  const plan={id,revision:"2",state:"ACTIVE",registrationState:"MATCHED",detailsAvailable:true,goalSummary:"完善已保存商品的英语描述",selection,rule:{frequency:"once",timeZone:"Asia/Shanghai",atUtc:at,hour:0,minute:0,weekday:0},maxOccurrences:"1",consumedOccurrences:"0",unit:"ai-micropoint-v1",perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"19200000",nextAt:at,createdAt:"2026-11-12T00:00:00Z"};
+ const originalTask={id:taskID,conversationId:"",proposalId:"",scheduleId:id,scheduledOccurrenceId:taskID,title:"定时内容原任务",goalSummary:plan.goalSummary,createdAt:"2026-11-12T00:00:00Z",kind:"product.content.localize",projectionAvailable:true,state:"WAITING_CONFIRMATION",canStart:false,canReconcile:false,canResume:false,canReview:false,productDetailsAvailable:false};
  let created=false,creates=0,firstKey="",firstBody="",rejectNextControl=false;
  await page.route("**/*",async route=>{
   const req=route.request(),url=new URL(req.url());if(url.origin!==origin)return route.abort();
   if(!url.pathname.startsWith("/api/"))return route.continue();
   const json=(data:unknown,status=200)=>route.fulfill({status,contentType:"application/json",body:JSON.stringify(data)}),path=url.pathname;
   if(path==="/api/workbench/context")return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",organizations:[{id:"org",name:"定时任务隔离 UI",roles:["listingkit_admin"],permissions}]});
-  if(path==="/api/workbench/tasks")return json({tasks:[],next:""});
+  if(path==="/api/workbench/tasks")return json({tasks:[originalTask],next:""});
+  if(path===`/api/workbench/tasks/${taskID}`)return json({task:originalTask});
   if(path==="/api/workbench/schedules/availability")return json({enabled:true,ready:true});
   if(path==="/api/workbench/schedules/quote"){const body=req.postDataJSON();return json({confirmation:"a".repeat(64),selection,goalSummary:plan.goalSummary,rule:body.rule,maxOccurrences:body.maxOccurrences,unit:plan.unit,perRunUpperBoundMicros:plan.perRunUpperBoundMicros,totalUpperBoundMicros:plan.totalUpperBoundMicros,nextAt:body.rule.atUtc??at,executionMode:"default"});}
   if(path==="/api/workbench/schedules"&&req.method()==="POST"){
@@ -52,4 +54,7 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  await page.screenshot({path:info.outputPath("schedule-history-mobile.png"),fullPage:true});
  rejectNextControl=true;await page.getByRole("button",{name:"暂停未来执行"}).click();
  await expect(page.locator(".console-page").getByRole("alert")).toContainText("已核实原操作没有提交");await expect(page.getByRole("button",{name:"暂停未来执行"})).toBeEnabled();await expect(page.getByRole("heading",{name:"上次操作结果待核实"})).toHaveCount(0);
+ await page.getByRole("button",{name:"返回业务任务"}).click();await page.getByRole("button",{name:/定时内容原任务/}).click();
+ await page.getByRole("link",{name:"查看来源定时计划"}).click();
+ await expect(page.getByRole("heading",{name:"定时任务",exact:true})).toBeVisible();await expect(page.getByRole("heading",{name:plan.goalSummary,exact:true})).toBeVisible();
 });
