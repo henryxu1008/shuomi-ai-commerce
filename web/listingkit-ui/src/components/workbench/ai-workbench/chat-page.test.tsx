@@ -28,6 +28,256 @@ const conversation = { ID: conversationId, Scope: { OrganizationID: "org-a", Act
 let client: QueryClient;
 function tree() { return <QueryClientProvider client={client}><ChatPage mode="detail" conversationId={conversationId} /></QueryClientProvider>; }
 
+it("accepts a local draft before creating a general conversation without sending a message", async () => {
+  fixture.context.aiWorkbenchExecutionKind = "product.content.localize";
+  fixture.request.mockImplementation(async ({ route }) => route === "scope-options" ? scopeOptions : route === "conversation-create" ? { conversation } : Promise.reject(new Error("unexpected request")));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("需求"), { target: { value: "请整理商品描述" } });
+  await waitFor(() => expect(screen.getByRole("button", { name: "新建会话" })).toBeEnabled());
+  expect(screen.queryByLabelText("范围类型")).toBeNull();
+  expect(fixture.request.mock.calls.every(([input]) => input.route === "scope-options")).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "新建会话" }));
+  await waitFor(() => expect(fixture.push).toHaveBeenCalled());
+  expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
+});
+
+it("restores the unsent input after an unknown create and hands it to the same conversation", async () => {
+  fixture.context.aiWorkbenchExecutionKind = "product.content.localize";
+  let attempts = 0;
+  fixture.request.mockImplementation(async ({ route }) => {
+    if(route === "scope-options") return scopeOptions;
+    if(route === "conversation-read") return {conversation,messages:[],proposals:[],before:""};
+    if(route === "conversation-create") { if(attempts++ === 0) throw new AIWorkbenchError("OUTCOME_UNKNOWN"); return {conversation}; }
+    throw new Error("unexpected request");
+  });
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"请整理商品描述"}});
+  await waitFor(()=>expect(screen.getByRole("button",{name:"新建会话"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  await screen.findByRole("button",{name:"核对原创建请求"});
+  expect(screen.getByLabelText("需求")).toHaveValue("请整理商品描述");
+  fireEvent.click(screen.getByRole("button",{name:"核对原创建请求"}));
+  await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  const creates=fixture.request.mock.calls.map(([input])=>input).filter(input=>input.route==="conversation-create");
+  expect(creates[1].key).toBe(creates[0].key);
+  cleanup(); render(tree());
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("请整理商品描述"));
+  expect(fixture.request.mock.calls.every(([input])=>input.route!=="message")).toBe(true);
+});
+
+it.each(["project", "store"] as const)("uses only the authorized %s background without auto-sending", async kind => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const field=kind==="project"?"projectId":"storeId", value="fixture-one";
+  fixture.search.set(field,value);
+  const selection=kind==="project"?{kind,projectId:value}:{kind,storeId:value};
+  fixture.request.mockImplementation(async ({route})=>route==="scope-options"?{options:[{scope:{version:"workbench-scope-v1",...selection},confirmation:scopeConfirmation,...(kind==="project"?{projectName:"测试项目",storeName:"关联店铺"}:{storeName:"测试店铺"})}],next:"",incomplete:false}:route==="conversation-create"?{conversation}:Promise.reject(new Error("unexpected request")));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"请整理商品资料"}});
+  await screen.findByText(kind==="project"?"工作背景：测试项目 · 关联店铺":"工作背景：测试店铺");
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  const calls=fixture.request.mock.calls.map(([input])=>input);
+  expect(calls.find(input=>input.route==="scope-options").path).toContain(`${field}=${value}`);
+  expect(calls.find(input=>input.route==="conversation-create").body).toEqual({scopeSelection:selection,scopeConfirmation});
+  expect(calls.every(input=>input.route!=="message")).toBe(true);
+  fixture.search.delete(field);
+});
+
+it("keeps the input editable and does not create when browser storage fails", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  fixture.request.mockImplementation(async ({route})=>route==="scope-options"?scopeOptions:Promise.reject(new Error("unexpected request")));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留的文字"}});
+  await waitFor(()=>expect(screen.getByRole("button",{name:"新建会话"})).toBeEnabled());
+  const original=Storage.prototype.setItem;
+  const storage=vi.spyOn(Storage.prototype,"setItem").mockImplementation(function(this:Storage,key,value){if(key.includes("pending-create"))throw new Error("storage unavailable");return original.call(this,key,value);});
+  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  expect(await screen.findByText(/无法保存待恢复的请求/)).toBeVisible();
+  expect(screen.getByLabelText("需求")).toHaveValue("保留的文字");
+  expect(screen.getByLabelText("需求")).toBeEnabled();
+  expect(fixture.request.mock.calls.every(([input])=>input.route!=="conversation-create"&&input.route!=="message")).toBe(true);
+  storage.mockRestore();
+});
+
+it("retries an existing pre-update create with the original key", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const body={scopeSelection:{kind:"general"},scopeConfirmation};
+  sessionStorage.setItem("ai-workbench:pending-create:user-a:org-a",JSON.stringify({key:operationId,body}));
+  fixture.request.mockImplementation(async ({route})=>route==="scope-options"?scopeOptions:route==="conversation-create"?{conversation}:Promise.reject(new Error("unexpected request")));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  const button=await screen.findByRole("button",{name:"核对原创建请求"});
+  await waitFor(()=>expect(button).toBeEnabled()); fireEvent.click(button);
+  await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  expect(fixture.request.mock.calls.find(([input])=>input.route==="conversation-create")?.[0]).toMatchObject({key:operationId,body});
+});
+
+it("fails closed on an unreadable pending create record", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  sessionStorage.setItem("ai-workbench:pending-create:user-a:org-a","{");
+  fixture.request.mockImplementation(async ({route})=>route==="scope-options"?scopeOptions:Promise.reject(new Error("unexpected request")));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await screen.findByText(/原创建请求记录不可读取/);
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留需求"}});
+  expect(screen.getByRole("button",{name:"新建会话"})).toBeDisabled();
+  expect(sessionStorage.getItem("ai-workbench:pending-create:user-a:org-a")).toBe("{");
+  expect(fixture.request.mock.calls.every(([input])=>input.route!=="conversation-create")).toBe(true);
+});
+
+it("does not expose an ambiguous legacy pending record across colliding identities", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  fixture.context.user.id="u"; fixture.context.effectiveOrganization.id="o:x";
+  sessionStorage.setItem("ai-workbench:pending-create:u:o:x",JSON.stringify({key:operationId,body:{scopeSelection:{kind:"general"},scopeConfirmation},draft:"别人的私密需求",context:"general"}));
+  fixture.request.mockImplementation(async ({route})=>route==="scope-options"?scopeOptions:Promise.reject(new Error("unexpected request")));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await screen.findByText(/身份无法确认/);
+  expect(screen.queryByDisplayValue("别人的私密需求")).toBeNull();
+  expect(screen.getByRole("button",{name:"新建会话"})).toBeDisabled();
+  fixture.context.user.id="user-a";
+});
+
+it("does not reveal an ambiguous old pending message to a colliding identity", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  fixture.context.user.id="u";fixture.context.effectiveOrganization.id="o:x";
+  sessionStorage.setItem(`ai-workbench:pending-message:u:o:x:${conversationId}`,JSON.stringify({key:operationId,body:{content:"私密旧消息",operationId,targetPlatform:"shein"}}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:Promise.reject(new Error("unexpected request")));
+  render(tree());await screen.findByText(/原消息恢复记录不可读取或身份无法确认/);
+  expect(screen.queryByDisplayValue("私密旧消息")).toBeNull();
+  expect(fixture.request.mock.calls.every(([input])=>input.route!=="message")).toBe(true);
+  fixture.context.user.id="user-a";
+});
+
+it("preserves a newer unsent draft when an older pending message completes", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const draftKey=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  sessionStorage.setItem(draftKey,JSON.stringify({id:conversationId,text:"新草稿 Y"}));
+  sessionStorage.setItem(`ai-workbench:pending-message:user-a:org-a:${conversationId}`,JSON.stringify({key:operationId,body:{content:"旧消息 X",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:route==="message"?{state:"COMPLETE"}:Promise.reject(new Error("unexpected request")));
+  render(tree());
+  const button=await screen.findByRole("button",{name:"重试同一消息"}); fireEvent.click(button);
+  await screen.findByText("新草稿 Y");
+  fireEvent.click(screen.getByRole("button",{name:"使用保留的需求"}));
+  expect(screen.getByLabelText("需求")).toHaveValue("新草稿 Y");
+  expect(JSON.parse(sessionStorage.getItem(draftKey)!).text).toBe("新草稿 Y");
+});
+
+it.each(["COMPLETE","FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT","PLANNER_UNKNOWN"] as const)("keeps a separate same-text draft after pending message ends as %s", async state => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const key=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  sessionStorage.setItem(key,JSON.stringify({id:conversationId,text:"相同内容"}));
+  sessionStorage.setItem(`ai-workbench:pending-message:user-a:org-a:${conversationId}`,JSON.stringify({key:operationId,body:{content:"相同内容",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:route==="message"?{state}:Promise.reject(new Error("unexpected request")));
+  render(tree()); fireEvent.click(await screen.findByRole("button",{name:"重试同一消息"}));
+  await waitFor(()=>expect(screen.queryByRole("button",{name:"重试同一消息"})).toBeNull());
+  expect(JSON.parse(sessionStorage.getItem(key)!).id).toBe(conversationId);
+  if(state!=="COMPLETE"){
+    fireEvent.change(screen.getByLabelText("需求"),{target:{value:"旧需求的修改"}});
+    cleanup(); render(tree());
+    await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("旧需求的修改"));
+    expect(screen.getByText("相同内容")).toBeVisible();
+  }
+});
+
+it.each(["INVALID_REQUEST","PROPOSAL_STALE"] as const)("preserves both drafts after the old message is explicitly rejected with %s", async code => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const key=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  sessionStorage.setItem(key,JSON.stringify({id:conversationId,text:"相同内容"}));
+  sessionStorage.setItem(`ai-workbench:pending-message:user-a:org-a:${conversationId}`,JSON.stringify({key:operationId,body:{content:"相同内容",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:Promise.reject(new AIWorkbenchError(code,false)));
+  render(tree()); fireEvent.click(await screen.findByRole("button",{name:"重试同一消息"}));
+  await waitFor(()=>expect(screen.queryByRole("button",{name:"重试同一消息"})).toBeNull());
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修改旧需求"}});
+  cleanup(); render(tree());
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("修改旧需求"));
+  expect(screen.getByText("相同内容")).toBeVisible();
+  expect(JSON.parse(sessionStorage.getItem(key)!).id).toBe(conversationId);
+});
+
+it("keeps the original message key when completed draft cleanup fails", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const draftKey=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  const pendingKey=`ai-workbench:pending-message-v2:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  sessionStorage.setItem(draftKey,JSON.stringify({id:operationId,text:"待核对文字"}));
+  sessionStorage.setItem(pendingKey,JSON.stringify({key:conversationId,owner:{userId:"user-a",organizationId:"org-a"},conversationId,draftId:operationId,draftSlot:"handoff",body:{content:"待核对文字",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:route==="message"?{state:"COMPLETE"}:Promise.reject(new Error("unexpected request")));
+  render(tree()); const original=Storage.prototype.removeItem;
+  const storage=vi.spyOn(Storage.prototype,"removeItem").mockImplementation(function(this:Storage,k){if(k===draftKey)throw new Error("unavailable");return original.call(this,k);});
+  const button=await screen.findByRole("button",{name:"重试同一消息"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
+  await screen.findByText(/无法完成草稿清理/);
+  expect(JSON.parse(sessionStorage.getItem(pendingKey)!).key).toBe(conversationId);
+  storage.mockRestore();cleanup();render(tree());
+  expect(await screen.findByRole("button",{name:"重试同一消息"})).toBeVisible();
+});
+
+it("blocks retry while draft storage cannot be read and keeps the original message", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const key=`ai-workbench:pending-message:user-a:org-a:${conversationId}`;
+  const draftKey=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  sessionStorage.setItem(key,JSON.stringify({key:operationId,body:{content:"旧需求",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:Promise.reject(new Error("unexpected request")));
+  const original=Storage.prototype.getItem;
+  const storage=vi.spyOn(Storage.prototype,"getItem").mockImplementation(function(this:Storage,k){if(k===draftKey)throw new Error("unavailable");return original.call(this,k);});
+  render(tree());await screen.findByText(/本地草稿不可读取/);
+  expect(screen.getByRole("button",{name:"重试同一消息"})).toBeDisabled();
+  expect(sessionStorage.getItem(key)).not.toBeNull(); storage.mockRestore();
+  fireEvent.click(screen.getByRole("button",{name:"重新读取草稿"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"重试同一消息"})).toBeEnabled());
+  expect(fixture.request.mock.calls.every(([input])=>input.route!=="message")).toBe(true);
+});
+
+it("does not permit editing until an unreadable existing draft is recovered", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const key=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  sessionStorage.setItem(key,JSON.stringify({id:operationId,text:"保留的 Y"}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:Promise.reject(new Error("unexpected request")));
+  const original=Storage.prototype.getItem;
+  const storage=vi.spyOn(Storage.prototype,"getItem").mockImplementation(function(this:Storage,k){if(k===key)throw new Error("unavailable");return original.call(this,k);});
+  render(tree());await screen.findByText(/本地草稿不可读取/);
+  expect(screen.getByLabelText("需求")).toBeDisabled();storage.mockRestore();
+  fireEvent.click(screen.getByRole("button",{name:"重新读取草稿"}));
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("保留的 Y"));
+  expect(screen.getByLabelText("需求")).toBeEnabled();
+  expect(JSON.parse(sessionStorage.getItem(key)!).text).toBe("保留的 Y");
+});
+
+it.each(["FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT","PLANNER_UNKNOWN"] as const)("retains an old pending input after %s and refresh", async state => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  sessionStorage.setItem(`ai-workbench:pending-message:user-a:org-a:${conversationId}`,JSON.stringify({key:operationId,body:{content:"旧需求",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:route==="message"?{state}:Promise.reject(new Error("unexpected request")));
+  render(tree());const button=await screen.findByRole("button",{name:"重试同一消息"});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
+  await waitFor(()=>expect(screen.queryByRole("button",{name:"重试同一消息"})).toBeNull());
+  cleanup();render(tree());await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("旧需求"));
+});
+
+it("does not reveal a stored project name after its scope becomes unreadable", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  fixture.search.set("projectId","fixture-one");
+  sessionStorage.setItem(`ai-workbench:pending-create-v2:${JSON.stringify(["user-a","org-a"])}`,JSON.stringify({key:operationId,body:{scopeSelection:{kind:"project",projectId:"fixture-one"},scopeConfirmation},draft:"尚未发送",context:"project:fixture-one",owner:{userId:"user-a",organizationId:"org-a"},background:"保密项目名称"}));
+  fixture.request.mockRejectedValue(new AIWorkbenchError("FORBIDDEN"));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await screen.findByText(/工作背景暂不可用/);
+  expect(screen.queryByText(/保密项目名称/)).toBeNull();
+  expect(screen.getByText(/原请求待核对/)).toBeVisible();
+  fixture.search.delete("projectId");
+});
+
+it("warns if editing a handed-off draft cannot be stored", async () => {
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const key=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
+  sessionStorage.setItem(key,JSON.stringify({id:operationId,text:"原草稿"}));
+  fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:Promise.reject(new Error("unexpected request")));
+  render(tree()); await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("原草稿"));
+  const original=Storage.prototype.setItem;
+  const storage=vi.spyOn(Storage.prototype,"setItem").mockImplementation(function(this:Storage,k,v){if(k===key)throw new Error("quota");return original.call(this,k,v);});
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修改后的草稿"}});
+  expect(screen.getByText(/刷新会丢失修改/)).toBeVisible();
+  expect(screen.getByLabelText("需求")).toHaveValue("修改后的草稿");
+  expect(JSON.parse(sessionStorage.getItem(key)!).text).toBe("原草稿"); storage.mockRestore();
+});
+
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   fixture.context.effectiveOrganization = { id: "org-a", capabilities: { "workbench.chat.use": true } };
@@ -71,7 +321,7 @@ it("keeps new conversation creation separate from the history list", async () =>
     throw new AIWorkbenchError("INVALID_REQUEST");
   });
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
-  expect(screen.getByRole("heading", { name: "有什么想交给硕米？" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "开始商品任务会话" })).toBeVisible();
   expect(screen.queryByRole("region", { name: "会话列表" })).toBeNull();
   await selectGeneralScope();
   expect(fixture.request.mock.calls.every(([input])=>input.route === "scope-options")).toBe(true);
@@ -133,8 +383,8 @@ it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected 
  fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
  await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());expect(screen.getByLabelText("需求")).toHaveValue("保留需求");
  const first=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];
- view.unmount();render(tree());await screen.findByText("开始讨论");expect(screen.getByLabelText("需求")).toBeEnabled();
- fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修正需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ view.unmount();render(tree());await screen.findByText("开始讨论");await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
+ fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修正需求"}});await waitFor(()=>expect(screen.getByRole("button",{name:"发送消息"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
  expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0].key).not.toBe(first.key);
 });
@@ -433,6 +683,7 @@ it("keeps the exact message key and body across a lost response and page reload"
   await screen.findByRole("button", { name: "重试同一消息" });
   expect(screen.getByLabelText("需求")).toBeDisabled();
   expect(fixture.request.mock.calls.filter(call => call[0].route === "message")).toHaveLength(1);
+  await waitFor(()=>expect(screen.getByRole("button", { name: "重试同一消息" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "重试同一消息" }));
   await waitFor(() => expect(fixture.request.mock.calls.filter(call => call[0].route === "message")).toHaveLength(2));
   const second = fixture.request.mock.calls.filter(call => call[0].route === "message")[1][0];
@@ -590,6 +841,7 @@ it("creates content intent from a saved own product without an acquisition or ti
  expect(original.body).toEqual({content:"整理描述与卖点",taskSelection:{subject,capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}}});
  expect(screen.getByLabelText("目标语言")).toBeDisabled();expect(screen.getByRole("button",{name:"选择我的商品"})).toBeDisabled();
  view.unmount();render(tree());await screen.findByRole("button",{name:"重试同一消息"});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"重试同一消息"})).toBeEnabled());
  fireEvent.click(screen.getByRole("button",{name:"重试同一消息"}));
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
  expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0]).toMatchObject({key:original.key,body:original.body});

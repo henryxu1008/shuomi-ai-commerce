@@ -239,6 +239,7 @@
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
 - `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
+- `chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
 - `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
 - `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)
