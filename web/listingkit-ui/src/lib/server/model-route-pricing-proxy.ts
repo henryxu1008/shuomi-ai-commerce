@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {automaticFXStatus} from "../contracts/model-route-pricing";
 import {credentialConnections,credentialInput,credentialReceipt,matchesCredentialReceipt} from "../contracts/channel-credentials";
 import {withoutPublicationVersion,canonicalPriceFacts,routeFact,routeOptions,routeInput,priceInput,pricePreview,routeCurrent,routeReceipt,routePreview,routeHistory,routeCapabilities,type RouteRevision} from "../contracts/model-route-pricing";
 import {readBoundedStrictJSON} from "../api/strict-json-response";
@@ -22,6 +23,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  }
  else if(["enterprise","platform-prices"].includes(family)){
   if(parts.length===1&&request.method==="GET")output=routeCurrent;
+  else if(platform&&parts.length===2&&op==="automatic-fx"&&request.method==="GET")output=automaticFXStatus;
   else if(parts.length===2&&request.method==="GET"&&op==="history")output=routeHistory;
   else if(parts.length===2&&request.method==="GET"&&op==="options"&&!platform)output=routeOptions;
   else if(parts.length===3&&op==="receipts"&&routeFact.safeParse(parts[2]).success&&request.method==="GET")output=routeReceipt;

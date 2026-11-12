@@ -26,6 +26,10 @@ var (
 	ErrConflict           = errors.New("model route configuration conflict")
 	ErrNeedsConfiguration = errors.New("model route binding needs configuration")
 	ErrOutcomeUnknown     = errors.New("publication outcome unknown")
+	// ErrStaleSnapshot identifies the pre-write build check; it is also
+	// ErrConflict and does not classify later repository conflicts.
+	ErrStaleSnapshot      = errors.New("platform price snapshot stale before write")
+	ErrPublicationExpired = errors.New("platform price publication deadline passed")
 )
 
 const ImageCapability = "imageagent.generation"
@@ -220,6 +224,7 @@ type Command struct {
 	Scope                     Scope
 	ActorID, Key, Fingerprint string
 	Input                     Input
+	NotAfter                  time.Time
 }
 type Repository interface {
 	CredentialReader

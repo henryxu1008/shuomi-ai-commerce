@@ -11,9 +11,22 @@ const officialCFETSSource = "https://www.chinamoney.com.cn/chinese/bkccpr/"
 
 var ErrPublicationConflict = errors.New("automatic FX publication requires review")
 
-// PreparePublication constructs an input for the existing platform owner.
+// PrepareVerifiedPublication binds the accepted observation and its expiry to
+// the same verified calendar. Unknown or already expired dates fail closed.
+func PrepareVerifiedPublication(revision string, snapshot d.PlatformPricesSnapshot, observation Observation, calendar Calendar, now time.Time) (d.PlatformPricesInput, bool, error) {
+	if !calendar.Eligible(observation.Date, now) {
+		return d.PlatformPricesInput{}, false, ErrPublicationConflict
+	}
+	expiry, err := calendar.NextExpiry(observation.Date)
+	if err != nil || !now.Before(expiry) {
+		return d.PlatformPricesInput{}, false, ErrPublicationConflict
+	}
+	return preparePublication(revision, snapshot, observation, now, expiry)
+}
+
+// preparePublication constructs an input for the existing platform owner.
 // It does not write data or resolve an unknown earlier publication.
-func PreparePublication(revision string, snapshot d.PlatformPricesSnapshot, observation Observation, now, expiry time.Time) (d.PlatformPricesInput, bool, error) {
+func preparePublication(revision string, snapshot d.PlatformPricesSnapshot, observation Observation, now, expiry time.Time) (d.PlatformPricesInput, bool, error) {
 	var invalid d.PlatformPricesInput
 	day, err := time.Parse("2006-01-02", observation.Date)
 	local := now.In(time.FixedZone("Asia/Shanghai", 8*3600))

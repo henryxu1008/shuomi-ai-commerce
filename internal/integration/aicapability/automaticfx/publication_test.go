@@ -13,7 +13,7 @@ func TestPrepareRetainsOtherFactsAndCutsOverUSD(t *testing.T) {
 		{Version: "old-usd", Currency: "USD", RateDate: "2026-11-11", CNYMicrosPerCurrencyUnit: 6719100, EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(time.Hour)},
 		{Version: "keep-eur", Currency: "EUR", RateDate: "2026-11-11", CNYMicrosPerCurrencyUnit: 7800000, EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(time.Hour)},
 	}}
-	got, changed, err := PreparePublication("old-revision", s, Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}, now, now.Add(12*time.Hour))
+	got, changed, err := preparePublication("old-revision", s, Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}, now, now.Add(12*time.Hour))
 	if err != nil || !changed {
 		t.Fatalf("changed=%v err=%v", changed, err)
 	}
@@ -28,16 +28,16 @@ func TestPrepareRetainsOtherFactsAndCutsOverUSD(t *testing.T) {
 func TestPrepareRejectsRollbackCorrectionAndFutureConflict(t *testing.T) {
 	now := time.Date(2026, 11, 12, 2, 0, 0, 0, time.UTC)
 	base := d.PlatformPricesSnapshot{FX: []d.PublishedFXRate{{Currency: "USD", RateDate: "2026-11-12", CNYMicrosPerCurrencyUnit: 6717400, EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(time.Hour)}}}
-	if _, changed, err := PreparePublication("rev", base, Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}, now, now.Add(time.Hour)); err != nil || changed {
+	if _, changed, err := preparePublication("rev", base, Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}, now, now.Add(time.Hour)); err != nil || changed {
 		t.Fatalf("same observation: %v %v", changed, err)
 	}
 	for _, obs := range []Observation{{Date: "2026-11-11", CNYMicrosPerUSD: 6717400}, {Date: "2026-11-12", CNYMicrosPerUSD: 6719000}} {
-		if _, _, err := PreparePublication("rev", base, obs, now, now.Add(time.Hour)); err == nil {
+		if _, _, err := preparePublication("rev", base, obs, now, now.Add(time.Hour)); err == nil {
 			t.Fatal("expected rejection")
 		}
 	}
 	base.FX = append(base.FX, d.PublishedFXRate{Currency: "USD", RateDate: "2026-11-13", CNYMicrosPerCurrencyUnit: 6717400, EffectiveFrom: now.Add(2 * time.Hour), EffectiveUntil: now.Add(3 * time.Hour)})
-	if _, _, err := PreparePublication("rev", base, Observation{Date: "2026-11-13", CNYMicrosPerUSD: 6717400}, now, now.Add(4*time.Hour)); err == nil {
+	if _, _, err := preparePublication("rev", base, Observation{Date: "2026-11-13", CNYMicrosPerUSD: 6717400}, now, now.Add(4*time.Hour)); err == nil {
 		t.Fatal("expected future conflict")
 	}
 }
@@ -48,7 +48,7 @@ func TestPrepareSnapshotCapacityPreservesNonUSD(t *testing.T) {
 	for _, cur := range []string{"EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "SGD"} {
 		fx = append(fx, d.PublishedFXRate{Currency: cur, RateDate: "2026-11-11", EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(time.Hour)})
 	}
-	got, changed, err := PreparePublication("rev", d.PlatformPricesSnapshot{FX: fx}, Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}, now, now.Add(time.Hour))
+	got, changed, err := preparePublication("rev", d.PlatformPricesSnapshot{FX: fx}, Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}, now, now.Add(time.Hour))
 	if err != nil || !changed || len(got.FX) != 8 {
 		t.Fatalf("changed=%v err=%v count=%d", changed, err, len(got.FX))
 	}
@@ -59,5 +59,24 @@ func TestPrepareSnapshotCapacityPreservesNonUSD(t *testing.T) {
 	}
 	if len(fx) != 8 || !fx[0].EffectiveUntil.Equal(now.Add(time.Hour)) {
 		t.Fatal("original snapshot was modified")
+	}
+}
+
+func TestPrepareVerifiedUsesCalendarAndPublicationTime(t *testing.T) {
+	loc := time.FixedZone("Asia/Shanghai", 8*3600)
+	calendar := Calendar{Years: map[int]YearCalendar{2026: {Source: "https://www.chinamoney.com.cn/official", CoverageFrom: "2026-11-01", CoverageUntil: "2026-11-30", ExceptionsComplete: true}}}
+	obs := Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}
+	for _, tc := range []struct {
+		now   time.Time
+		valid bool
+	}{
+		{time.Date(2026, 11, 12, 9, 14, 59, 0, loc), false},
+		{time.Date(2026, 11, 12, 9, 15, 0, 0, loc), true},
+		{time.Date(2026, 11, 13, 9, 15, 0, 0, loc), false},
+	} {
+		_, _, err := PrepareVerifiedPublication("rev", d.PlatformPricesSnapshot{}, obs, calendar, tc.now)
+		if (err == nil) != tc.valid {
+			t.Fatalf("time %s: %v", tc.now, err)
+		}
 	}
 }

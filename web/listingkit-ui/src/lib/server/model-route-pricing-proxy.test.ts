@@ -1,5 +1,12 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {proxyModelRoutePricing} from "./model-route-pricing-proxy";
+
+it("reads automatic FX status through the authenticated platform path",async()=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({state:"CHECKED",checkedAt:"2026-11-12T00:00:00Z",stopRequested:false})));
+ const result=await proxyModelRoutePricing(request(undefined,{},"/platform-prices/automatic-fx","GET"),"token","maintainer");
+ expect(result.status).toBe(200);
+ expect((await result.json()).state).toBe("CHECKED");
+});
 const base="https://console.test/api/model-route-pricing";
 const selection={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"mini",version:"v1"},image:{id:"image",version:"v1"},multimodal:{id:"mini",version:"v1"}};
 const input={expectedRevision:"NONE",selection};
