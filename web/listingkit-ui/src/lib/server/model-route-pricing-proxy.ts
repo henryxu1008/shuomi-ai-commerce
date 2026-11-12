@@ -13,6 +13,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  if(!token||!userId)return routeFailure(401,"AUTHENTICATION_REQUIRED");
  if(request.headers.get("X-Expected-User-ID")!==userId)return routeFailure(409,"IDENTITY_CONTEXT_CHANGED");
  const url=new URL(request.url),path=url.pathname.slice("/api/model-route-pricing".length),parts=path.slice(1).split("/"),family=parts[0],op=parts[1]??"current",credentials=family==="connections",write=request.method==="POST",publish=write&&(credentials?parts[2]==="commands":op==="publish"),platform=family==="platform-prices";
+ const fxControl=platform&&write&&parts.length===3&&op==="automatic-fx"&&["start","prepare"].includes(parts[2]),uncertain=publish||fxControl;
  let output:z.ZodType;
  if(!path&&request.method==="GET")output=routeCapabilities;
  else if(credentials){
@@ -24,6 +25,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  else if(["enterprise","platform-prices"].includes(family)){
   if(parts.length===1&&request.method==="GET")output=routeCurrent;
   else if(platform&&parts.length===2&&op==="automatic-fx"&&request.method==="GET")output=automaticFXStatus;
+  else if(fxControl)output=z.strictObject({state:z.literal(parts[2]==="start"?"STARTED":"PREPARED")});
   else if(parts.length===2&&request.method==="GET"&&op==="history")output=routeHistory;
   else if(parts.length===2&&request.method==="GET"&&op==="options"&&!platform)output=routeOptions;
   else if(parts.length===3&&op==="receipts"&&routeFact.safeParse(parts[2]).success&&request.method==="GET")output=routeReceipt;
@@ -40,7 +42,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  try{
   const headers=new Headers({Accept:"application/json",Authorization:"Bearer "+token,"X-Requested-Organization-ID":org});let body:string|undefined;
   if(write){
-   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(credentials?credentialInput:platform?priceInput:routeInput).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
+   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(fxControl?z.strictObject({}):credentials?credentialInput:platform?priceInput:routeInput).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
    if(publish){const key=request.headers.get("Idempotency-Key");if(!routeFact.safeParse(key).success)return routeFailure(400,"INVALID");headers.set("Idempotency-Key",key!)}
    body=JSON.stringify(parsed.data);headers.set("Content-Type","application/json");
   }else if(!(await hasEmptyBody(request,controller.signal)))return routeFailure(400,"INVALID");
@@ -55,7 +57,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
    const parsed=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/)}).safeParse(payload);
    const statuses:Record<string,number>={FORBIDDEN:403,INVALID:400,NOT_FOUND:404,CONFLICT:409,NEEDS_CONFIGURATION:409,UNAVAILABLE:503,OUTCOME_UNKNOWN:503};
    const code=middleware?.code??(parsed.success&&statuses[parsed.data.code]===response.status?parsed.data.code:null);
-   return routeFailure(response.status>=400&&response.status<600?response.status:502,publish&&(response.status>=500||!code)?"OUTCOME_UNKNOWN":code??"UNAVAILABLE")
+   return routeFailure(response.status>=400&&response.status<600?response.status:502,uncertain&&(response.status>=500||!code)?"OUTCOME_UNKNOWN":code??"UNAVAILABLE")
   }
   const parsed=output.parse(payload) as Record<string,unknown>;
   if(credentials){
@@ -74,6 +76,6 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
   if(output===routePreview){const input=routeInput.parse(JSON.parse(body!)),p=routePreview.parse(parsed);if(p.expectedRevision!==input.expectedRevision||JSON.stringify(p.selection)!==JSON.stringify(input.selection))throw new Error()}
   if(output===pricePreview){const result=pricePreview.parse(parsed),input=priceInput.parse(JSON.parse(body!));if(result.expectedRevision!==input.expectedRevision||canonicalPriceFacts(result.snapshot)!==canonicalPriceFacts(input))throw new Error()}
   return Response.json(parsed,{headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
- }catch{return routeFailure(controller.signal.aborted?504:dispatched?502:400,publish&&dispatched?"OUTCOME_UNKNOWN":dispatched?"UNAVAILABLE":"INVALID")}
+ }catch{return routeFailure(controller.signal.aborted?504:dispatched?502:400,uncertain&&dispatched?"OUTCOME_UNKNOWN":dispatched?"UNAVAILABLE":"INVALID")}
  finally{clearTimeout(timer);request.signal.removeEventListener("abort",abort)}
 }

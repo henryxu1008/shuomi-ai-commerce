@@ -971,7 +971,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 				return errors.New("automatic FX Temporal unavailable")
 			}
 			fxWorker = worker.New(fxClient, automaticfxruntime.TaskQueue, worker.Options{})
-			fxControl = &automaticfxruntime.Control{Client: fxClient}
+			fxControl = &automaticfxruntime.Control{Client: fxClient, Namespace: fxConfig.TemporalNamespace}
 			if err := automaticfxruntime.RegisterWorker(fxWorker, priceManager, nil); err != nil {
 				return err
 			}
