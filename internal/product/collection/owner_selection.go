@@ -92,3 +92,24 @@ func (s *Service) AuthorizeOwner(ctx context.Context) (AuthorizedOwner, error) {
 	}
 	return AuthorizedOwner{proof: AuthorizedSelection{scope: scope, expiresAt: expires}}, nil
 }
+
+// ReadItemForExecution uses the existing short-lived owner capability. The
+// worker cannot substitute a product key or turn a durable identity into a
+// browser session. Scope is checked again after reading current owner facts.
+func (s *Service) ReadItemForExecution(ctx context.Context, proof AuthorizedOwner, itemID string) (ItemDetail, error) {
+	if s == nil || !ValidID(itemID) {
+		return ItemDetail{}, ErrInvalid
+	}
+	scope, err := proof.Scope(ctx)
+	if err != nil {
+		return ItemDetail{}, err
+	}
+	detail, err := s.readItem(ctx, scope, itemID)
+	if err != nil {
+		return ItemDetail{}, err
+	}
+	if _, err = proof.Scope(ctx); err != nil {
+		return ItemDetail{}, err
+	}
+	return detail, nil
+}

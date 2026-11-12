@@ -71,7 +71,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "empty-scope preparation not verified; do not enable Chat, inspect committed state read-only")
 			os.Exit(1)
 		}
-		fmt.Println("AI Workbench schema verified as runtime; no conversation or task created")
+		fmt.Println("Exact empty-scope preparation verified; no conversation or task created; current full serving schema readiness is not implied")
 		return
 	}
 	if *expectedDB != "" || *expectedAddress != "" || *expectedPort != 0 {

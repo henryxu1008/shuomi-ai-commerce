@@ -66,3 +66,25 @@ func TestAIWorkbenchRejectsSharedProductAgentRuntimeRole(t *testing.T) {
 		t.Fatal("shared Product Agent and AI Workbench runtime role admitted")
 	}
 }
+
+func TestScheduledWorkbenchRequiresExplicitExecutionAndTemporal(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	cfg.Identity.TenantDirectoryToken = "fixture-service-token"
+	w := AIWorkbenchConfig{Enabled: true, ContentTasks: true, Schedules: &AIWorkbenchSchedulesConfig{TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default"}}
+	if err := w.validateSchedules(cfg); err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range []func(*AIWorkbenchConfig){
+		func(c *AIWorkbenchConfig) { c.ConversationOnly = true },
+		func(c *AIWorkbenchConfig) { c.ContentTasks = false },
+		func(c *AIWorkbenchConfig) { c.Enabled = false },
+		func(c *AIWorkbenchConfig) { s := *c.Schedules; s.TemporalAddress = "0.0.0.0:7233"; c.Schedules = &s },
+		func(c *AIWorkbenchConfig) { s := *c.Schedules; s.TemporalNamespace = ""; c.Schedules = &s },
+	} {
+		copy := w
+		change(&copy)
+		if copy.validateSchedules(cfg) == nil {
+			t.Fatal("incomplete scheduled execution admitted")
+		}
+	}
+}

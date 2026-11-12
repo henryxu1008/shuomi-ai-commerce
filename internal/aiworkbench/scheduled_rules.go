@@ -18,21 +18,22 @@ const (
 )
 
 var (
-	ErrInvalidSchedule = errors.New("invalid workbench schedule")
-	ErrScheduleEnded   = errors.New("workbench schedule has no next occurrence")
+	ErrInvalidSchedule        = errors.New("invalid workbench schedule")
+	ErrScheduleEnded          = errors.New("workbench schedule has no next occurrence")
+	ErrScheduleCatchupPending = errors.New("workbench schedule missed-slot recording is incomplete")
 )
 
 // ScheduleRule describes wall-clock recurrence without using a process-local
 // timezone. For recurring rules, Weekday is consulted only for weekly cadence.
 // Daylight-saving gaps are skipped; ambiguous fall-back hours run once.
 type ScheduleRule struct {
-	Frequency ScheduleFrequency
-	TimeZone  string
-	AtUTC     time.Time
-	Hour      int
-	Minute    int
-	Weekday   time.Weekday
-	UntilUTC  time.Time
+	Frequency ScheduleFrequency `json:"frequency"`
+	TimeZone  string            `json:"timeZone"`
+	AtUTC     time.Time         `json:"atUtc,omitzero"`
+	Hour      int               `json:"hour"`
+	Minute    int               `json:"minute"`
+	Weekday   time.Weekday      `json:"weekday"`
+	UntilUTC  time.Time         `json:"untilUtc,omitzero"`
 }
 
 // Valid intentionally separates calendar shape from budget/permission admission.
@@ -113,6 +114,7 @@ func (r ScheduleRule) NextAfter(after time.Time) (time.Time, error) {
 // Per-run cost must already be a conservative bound supplied and accepted by
 // the existing AI/resource owner; estimated-only prices do not qualify.
 type ScheduleBudget struct {
+	Unit                   string
 	MaxOccurrences         uint64
 	PerRunUpperBoundMicros uint64
 }

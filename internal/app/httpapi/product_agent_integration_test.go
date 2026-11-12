@@ -176,7 +176,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	mode = strings.TrimPrefix(mode, "title-only ")
 	withSkill := strings.Contains(mode, "skill ")
 	mode = strings.Replace(mode, "skill ", "", 1)
-	chatTasks := mode == "content flow chat" || strings.HasPrefix(mode, "own content chat")
+	chatTasks := mode == "content flow chat" || mode == "content flow chat scheduled" || strings.HasPrefix(mode, "own content chat")
 	f := newAcquisitionHTTPFixture(t)
 	if withSkill {
 		pool, e := f.owner.DB()
@@ -730,6 +730,15 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		}
 		settings.Ledger = agentReserveHook{ProductAgentInvocationLedger: settings.Ledger, afterReserve: func() { f.grants.revoked.Store(true) }}
 	}
+	if mode == "own content scheduled revoked-before-send" {
+		settings.Ledger = agentReserveHook{ProductAgentInvocationLedger: settings.Ledger, afterReserve: func() { f.grants.revoked.Store(true) }}
+	}
+	if mode == "own content scheduled unknown" {
+		settings.TextTransport = acquisitionHTTPTransport(func(*http.Request) (*http.Response, error) {
+			calls.Add(1)
+			return nil, errors.New("synthetic response lost after dispatch")
+		})
+	}
 	if mode == "research" || mode == "selection" {
 		policies := settings.SelectionTextPolicies
 		if mode == "research" {
@@ -752,7 +761,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		require.LessOrEqual(t, 2*cost, int64(300000), "channel cost remains separately bounded by CNY 0.30")
 	}
 	var reviewIAM *contentReviewIAM
-	if strings.HasPrefix(mode, "content flow cross-admin ") {
+	if strings.HasPrefix(mode, "content flow cross-admin ") || strings.Contains(mode, "scheduled") {
 		reviewIAM = newContentReviewIAM(t, &memberReplaced)
 	}
 	if mode == "research" || mode == "selection" || mode == "diagnosis" {
@@ -836,10 +845,14 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime)
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"))
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {
+		if strings.HasPrefix(mode, "own content scheduled ") {
+			testScheduledContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, &calls, strings.TrimPrefix(mode, "own content scheduled "))
+			return
+		}
 		testOwnContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, agent.ExecutionMode(strings.TrimPrefix(mode, "own content ")), &calls)
 		return
 	}

@@ -49,7 +49,7 @@ const task = z.object({
  businessScope:scopeView.optional(),scopeUnavailable:z.boolean().optional(),
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),policyAdoption:z.union([titlePolicyAdoptionSchema,contentPolicyAdoptionSchema]).optional(),
-  id, conversationId: id, proposalId: id, title: z.string(), goalSummary: z.string(), createdAt: timestamp,
+  id, conversationId: z.union([id,z.literal("")]), proposalId: z.union([id,z.literal("")]), scheduleId:id.optional(), scheduledOccurrenceId:id.optional(), title: z.string(), goalSummary: z.string(), createdAt: timestamp,
   projectionAvailable: z.boolean(), state: z.enum(["RUNNING", "WAITING_CONFIRMATION", "COMPLETED", "ERROR", "PAUSED"]).optional(),
   reason: z.string().optional(), canStart: z.boolean(), canReconcile: z.boolean(), canResume: z.boolean(), canReview: z.boolean(),
   productDetailsAvailable: z.boolean(), operationId: z.string().optional(), productKey: z.string().optional(),
@@ -59,6 +59,8 @@ const task = z.object({
   usageStatus: z.string().optional(), reviewId: z.string().optional(), reviewState: z.string().optional(),
   knowledge: productKnowledgeSchema.optional(),
 }).superRefine((value,context)=>{
+ if(value.scheduleId||value.scheduledOccurrenceId){if(!value.scheduleId||!value.scheduledOccurrenceId||value.conversationId!==""||value.proposalId!=="")context.addIssue({code:"custom",message:"Scheduled source must be exclusive"});}
+ else if(!isAcquisitionUUID(value.conversationId)||!isAcquisitionUUID(value.proposalId))context.addIssue({code:"custom",message:"Chat source required"});
  const proof=value.policyAdoption;
  if(!proof)return;
  const content=proof.actionVersion==="product.content.policy-adopt-v1";
@@ -81,10 +83,35 @@ export const aiResumeBody = z.strictObject({ revision: z.string().regex(/^[1-9][
 export type AIConversation = z.infer<typeof conversation>;
 export type AIProposal = z.infer<typeof proposal>;
 
+const positiveDecimal=z.string().regex(/^[1-9][0-9]{0,18}$/);
+const decimal=z.string().regex(/^(0|[1-9][0-9]{0,18})$/);
+export const aiScheduleRule=z.strictObject({frequency:z.enum(["once","daily","weekly"]),timeZone:z.string().min(1).max(128),atUtc:timestamp.optional(),hour:z.number().int().min(0).max(23),minute:z.number().int().min(0).max(59),weekday:z.number().int().min(0).max(6),untilUtc:timestamp.optional()});
+export const aiScheduleInput=z.strictObject({proposalId:id.optional(),scheduleId:id.optional(),selection:aiTaskSelection.optional(),goalSummary:z.string().min(1).max(8192).optional(),rule:aiScheduleRule,maxOccurrences:positiveDecimal,confirmation:z.string().regex(/^[a-f0-9]{64}$/).optional()});
+export const aiScheduleControl=z.strictObject({expectedRevision:positiveDecimal});
+export const aiScheduleEdit=aiScheduleControl.extend({rule:aiScheduleRule,confirmation:z.string().regex(/^[a-f0-9]{64}$/)});
+const scheduleBudget={maxOccurrences:positiveDecimal,unit:z.literal("ai-micropoint-v1"),perRunUpperBoundMicros:positiveDecimal,totalUpperBoundMicros:positiveDecimal};
+const schedulePlan=z.object({id,revision:positiveDecimal,state:z.enum(["PENDING_REGISTRATION","ACTIVE","PAUSED","CLOSED","REGISTRATION_UNKNOWN"]),registrationState:z.enum(["PENDING","MATCHED","UNKNOWN"]),goalSummary:z.string().optional(),selection:aiTaskSelection.optional(),detailsAvailable:z.boolean(),rule:aiScheduleRule,...scheduleBudget,consumedOccurrences:decimal,nextAt:timestamp.optional(),activeOccurrenceId:id.optional(),createdAt:timestamp});
+export type AIScheduledPlan=z.infer<typeof schedulePlan>;
+export type AIScheduleInput=z.infer<typeof aiScheduleInput>;
+const scheduleQuote=z.object({confirmation:z.string().regex(/^[a-f0-9]{64}$/),selection:aiTaskSelection,goalSummary:z.string(),rule:aiScheduleRule,...scheduleBudget,nextAt:timestamp,executionMode:z.enum(["default","read_only"])});
+export type AIScheduleQuote=z.infer<typeof scheduleQuote>;
+const scheduledSave=z.object({plan:schedulePlan,planSaved:z.literal(true)});
+
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
-  "scope-options" | "task-scope-options" | "subject-read" | "message" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review";
+  "scope-options" | "task-scope-options" | "subject-read" | "message" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review" |
+  "schedule-availability"|"schedule-list"|"schedule-read"|"schedule-history"|"schedule-quote"|"schedule-create"|"schedule-edit"|"schedule-pause"|"schedule-resume"|"schedule-close";
 
 export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRoute | null {
+  if(path[0]==="schedules"){
+    if(path.length===1)return method==="GET"?"schedule-list":method==="POST"?"schedule-create":null;
+    if(path.length===2&&path[1]==="availability"&&method==="GET")return "schedule-availability";
+    if(path.length===2&&path[1]==="quote"&&method==="POST")return "schedule-quote";
+    if(!isAcquisitionUUID(path[1]??""))return null;
+    if(path.length===2)return method==="GET"?"schedule-read":method==="PATCH"?"schedule-edit":null;
+    if(path.length===3&&path[2]==="occurrences"&&method==="GET")return "schedule-history";
+    if(path.length===3&&method==="POST"&&["pause","resume","close"].includes(path[2]??""))return `schedule-${path[2]}` as AIWorkbenchRoute;
+    return null;
+  }
   if(method==="GET"&&path.length===4&&path[0]==="chat"&&path[1]==="subjects"&&["own_product","acquisition"].includes(path[2]??"")&&isAcquisitionUUID(path[3]??""))return "subject-read";
   if (path[0] === "chat" && path[1] === "conversations") {
     if (path.length === 2) return method === "GET" ? "conversation-list" : method === "POST" ? "conversation-create" : null;
@@ -110,6 +137,11 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
 }
 
 export const aiResponseSchemas = {
+ "schedule-availability":z.object({enabled:z.boolean(),ready:z.boolean()}),
+ "schedule-list":z.object({plans:z.array(schedulePlan),next:z.string()}),
+ "schedule-read":z.object({plan:schedulePlan}),
+ "schedule-history":z.object({occurrences:z.array(z.object({id,scheduledAt:timestamp,planRevision:positiveDecimal,state:z.enum(["CLAIMED","DISPATCHED","SKIPPED","BLOCKED","UNKNOWN","RECONCILED"]),reason:z.string().optional(),businessTaskId:id.optional()})),next:z.string()}),
+ "schedule-quote":scheduleQuote,"schedule-create":scheduledSave,"schedule-edit":scheduledSave,"schedule-pause":scheduledSave,"schedule-resume":scheduledSave,"schedule-close":scheduledSave,
  "task-cockpit-metrics": taskMetrics,
  "scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),
  "task-scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),

@@ -25,6 +25,7 @@ import (
 	"task-processor/internal/product/review"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	skill "task-processor/internal/skill"
+	"task-processor/internal/workbenchcontext"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -80,8 +81,16 @@ func buildProductAgentModule(ctx context.Context, productDB *gorm.DB, deps route
 		return nil, err
 	}
 	a.originExecution = productAgentOriginAuthorization(appCfg, auth)
+	a.originRoles = productAgentOriginRoles(appCfg, auth)
+	if current, ok := deps.organizationResolver.(interface {
+		BusinessStatusChecker() workbenchcontext.OrganizationBusinessStatusChecker
+	}); ok {
+		a.organizationStatus = current.BusinessStatusChecker()
+	}
 	if a.content != nil {
 		a.content.originExecution = a.originExecution
+		a.content.originRoles = a.originRoles
+		a.content.organizationStatus = a.organizationStatus
 	}
 	routes := productAgentProfileRoutes(a, agentCfg.ContentTitleOnly || agentCfg.ContentOnly)
 	// Candidate intake returns an ID understood by the existing review UI.

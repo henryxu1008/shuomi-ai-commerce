@@ -156,10 +156,22 @@ UI 在“AI 工作台 → 任务中心”提供计划区、创建/编辑表单�
 5. 第一次 AgentRun 未完成时下一槽不得产生并发模型运行；`UNKNOWN` 使用原执行身份查证，不自动付费重试。
 6. 实际执行的来源版本/摘要及配置、预算、用量回执可追溯；原任务中心可见且能打开原人工处理路径，派发成功不被误报为业务完成。
 7. 手动 Chat Confirm、原 Review/Apply、Catalog、Resource 不回归。不能通过计划选择扩大权限或自动对外刊登。
-8. 实施沿现有 installer、测试/CI，必要的真实隔离 PostgreSQL / Temporal 证据与代码级单元回归分别记录。当前全部为 **NOT_RUN**。
+8. 实施沿现有 installer、测试/CI，真实隔离 PostgreSQL / Temporal 证据与代码级单元回归分别记录；本批具体记录见 §9。真实 provider、部署与用户产品验收保持 **NOT_RUN**。
 
 ## 8. 设计评审待定点 / 当前权限
 
 独立 reviewer 需冻结：一次性调度编辑/取消与 SDK 版本行为；计划/触发 schema 的约束、CAS 与唯一索引；计划授权有效期及有限次数/单次最坏费用界的原资源事实依据；周期的 latest/fixed 选择；§3.2 B3 的原回执释放证明可执行性；跨 Workbench/Agent owner 的交接与 UNKNOWN；最小限度的 server-created BusinessTask 扩展及注入/consumer。
 
-Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久来源及原资源副作用；不扩大原 Accepted Risk、不建设第二权限体系。**当前架构状态 IMPLEMENTATION_READY（按用户本次确定的 👍 准入规则）；正式业务实现、运行和产品验收仍未完成。** 不授权真实模型调用、保留实例部署、真实业务数据修改、合并或 Issue 关闭。
+Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久来源及原资源副作用；不扩大原 Accepted Risk、不建设第二权限体系。**当前架构状态 IMPLEMENTATION_READY（按用户本次确定的 👍 准入规则）；实现候选及证据见 §9，产品验收未完成。** 不授权真实模型调用、保留实例部署、真实业务数据修改、合并或 Issue 关闭。
+
+## 9. 当前实现映射与验证边界（2026-11-12）
+
+- Workbench 单一事实 owner：`internal/integration/persistence/aiworkbench/scheduled_*`；计划、控制命令、发生记录及显式 `SCHEDULE_OCCURRENCE` BusinessTask 来源在原库事务内关联，双向组合 FK 防止同任务绑定另一个 occurrence。无伪造 Chat 祖先或第二账本。
+- Temporal adapter：`internal/app/runtime/workbenchschedules`，一次和周期统一使用 SDK Schedules；typed `TemporalScheduledStartTime` 和 `TemporalScheduledById` 绑定名义时刻，精确稳定 ID、revision 和意图摘要回读。使用 ALLOW_ALL 让每个名义回调交给 Workbench 作真实占用判断并保留跳过事实，不用 Temporal workflow 结束推断原 Run 结束。
+- 执行内核：`internal/app/httpapi/ai_workbench_scheduled_execution.go` 只接受进程内后台 capability，从持久计划取身份，经当前组织状态、原 service IAM、Scope/Collection/Source、配置与发送前 gate；调用与手动任务相同的 Prepare/Start、Agent、invocation、积分及 Review。`read_only` 只对合法定时来源开放原人工建议路径。
+- B3 释放：精确 task/request/run 绑定、无 pending/UNKNOWN、原 invocation 已知计量及原积分服务同键结算成功后才签发释放摘要。Run/计量未知不会清占用或返还次数。恢复扫描使用有界游标，不用释放未决任务换取扫描前进。
+- B4 上限使用原 `OfficialModelTariff.ReserveTextMicropoints` × 原 `ModelCalls`，固定 `ai-micropoint-v1` 单位并检查总量溢出；UI 以 AI 积分展示，不混用参考 USD/CNY 的 `CostMicros`。
+- API、BFF 与 UI：`ai_workbench_scheduled_routes.go`、`lib/contracts/ai-workbench.ts`、`schedule-manager.tsx` / `schedule-form.tsx`。创建及控制保存原操作键；503/超时/响应丢失不视为未提交。修改只允许时间规则，保留原 scope、来源、配置、模式、次数与预算。
+- 真 PostgreSQL 的原子失败回滚、来源约束、CAS、未决公平扫描、提交后最终读回 503、两种来源和 Chat 项目范围、撤权/停用及 UNKNOWN 测试已执行；真 Temporal dev server 已验证登记、暂停/恢复、准确 nominal slot 和旧 revision 不覆盖。模型 transport 为合成隔离 fixture，无真实 provider 调用。准确 HEAD、最终 CI 和独立增量复核记录在 PR。
+
+操作、显式 opt-in 配置及未开放能力见[定时任务运行说明](../operations/ai-workbench-scheduled-tasks.md)。本节不改变冻结架构准入，也不签发用户验收或实例部署结论。

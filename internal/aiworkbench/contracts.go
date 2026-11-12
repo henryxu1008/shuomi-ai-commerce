@@ -195,6 +195,7 @@ type ExecutionProposal struct {
 // BusinessTask is the durable confirmed intent and exact Agent handoff. Its
 // visible state is projected from Agent and Review owners, not stored here.
 type BusinessTask struct {
+	ScheduledOccurrenceID    string
 	WorkbenchContextRef      agent.WorkbenchContextRef
 	ID                       string
 	Scope                    Scope

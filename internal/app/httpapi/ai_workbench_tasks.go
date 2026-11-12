@@ -29,6 +29,8 @@ type workbenchTaskView struct {
 	ID                      string                     `json:"id"`
 	ConversationID          string                     `json:"conversationId"`
 	ProposalID              string                     `json:"proposalId"`
+	ScheduleID              string                     `json:"scheduleId,omitempty"`
+	ScheduledOccurrenceID   string                     `json:"scheduledOccurrenceId,omitempty"`
 	Title                   string                     `json:"title"`
 	GoalSummary             string                     `json:"goalSummary"`
 	CreatedAt               time.Time                  `json:"createdAt"`
@@ -98,6 +100,10 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 	var request agent.Request
 	if json.Unmarshal(task.ExecutionRequest, &request) != nil || request.Key != task.ExecutionRequestKey {
 		return workbenchTaskView{}, aiworkbench.ErrUnavailable
+	}
+	if !request.ScheduledSource.Absent() {
+		view.ScheduleID = request.ScheduledSource.PlanID
+		view.ScheduledOccurrenceID = task.ScheduledOccurrenceID
 	}
 	productErr := a.agent.workbenchAuthorizeBinding(ctx, identity, request.Binding)
 	if productErr == nil {

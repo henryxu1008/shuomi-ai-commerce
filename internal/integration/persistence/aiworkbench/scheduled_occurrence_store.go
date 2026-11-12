@@ -2,10 +2,10 @@ package aiworkbenchpersistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -14,37 +14,35 @@ import (
 
 // ScheduledOccurrence is a durable Workbench dispatch-intent receipt, not a
 // claim that the AgentRun has started or that paid usage is known.
-type ScheduledOccurrence struct {
-	ID             string
-	PlanID         string
-	Scope          aiworkbench.Scope
-	ScheduledAtUTC time.Time
-	PlanRevision   int64
-	PayloadDigest  string
-	State          string
-}
+type ScheduledOccurrence = aiworkbench.ScheduledOccurrence
 
 type scheduledOccurrenceRow struct {
-	ID             string
-	OrganizationID string
-	OwnerUserID    string
-	PlanID         string
-	ScheduledAtUTC time.Time
-	PlanRevision   int64
-	PayloadDigest  string
-	State          string
-	BusinessTaskID *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                   string
+	OrganizationID       string
+	OwnerUserID          string
+	PlanID               string
+	ScheduledAtUTC       time.Time
+	PlanRevision         int64
+	PayloadDigest        string
+	State                string
+	BusinessTaskID       *string
+	ReconciliationDigest *string
+	Reason               string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 func (scheduledOccurrenceRow) TableName() string { return "ai_workbench.scheduled_occurrences" }
 
 func occurrenceReceipt(row scheduledOccurrenceRow) ScheduledOccurrence {
-	return ScheduledOccurrence{ID: row.ID, PlanID: row.PlanID,
+	value := ScheduledOccurrence{ID: row.ID, PlanID: row.PlanID,
 		Scope:          aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.OwnerUserID},
 		ScheduledAtUTC: row.ScheduledAtUTC.UTC(), PlanRevision: row.PlanRevision,
-		PayloadDigest: row.PayloadDigest, State: row.State}
+		PayloadDigest: row.PayloadDigest, State: row.State, Reason: row.Reason}
+	if row.BusinessTaskID != nil {
+		value.BusinessTaskID = *row.BusinessTaskID
+	}
+	return value
 }
 
 // ClaimScheduledOccurrence performs no external owner operations under its
@@ -90,8 +88,13 @@ func (s *Store) ClaimScheduledOccurrence(ctx context.Context, scope aiworkbench.
 			scope.OrganizationID, scope.ActorID, planID).
 			Order("scheduled_at_utc DESC").Take(&previous).Error
 		anchor := policy.CreatedAt
+		if plan.RuleStartAt != nil {
+			anchor = plan.RuleStartAt.UTC()
+		}
 		if err == nil {
-			anchor = previous.ScheduledAtUTC
+			if previous.ScheduledAtUTC.After(anchor) {
+				anchor = previous.ScheduledAtUTC
+			}
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return unavailable(err)
 		}
@@ -134,6 +137,18 @@ func (s *Store) ClaimScheduledOccurrence(ctx context.Context, scope aiworkbench.
 			state = "CLAIMED"
 		}
 		row := newScheduledOccurrence(plan, policy, scheduledAtUTC, now, state)
+		if !claim {
+			switch {
+			case plan.State != "ACTIVE":
+				row.Reason = "PLAN_NOT_ACTIVE"
+			case plan.ActiveOccurrenceID != nil:
+				row.Reason = "PREVIOUS_RUN_ACTIVE"
+			case plan.ConsumedOccurrences >= plan.MaxOccurrences:
+				row.Reason = "MAX_OCCURRENCES"
+			default:
+				row.Reason = "CATCHUP_EXPIRED"
+			}
+		}
 		if err := tx.Create(&row).Error; err != nil {
 			return unavailable(err)
 		}
@@ -160,23 +175,28 @@ func (s *Store) ClaimScheduledOccurrence(ctx context.Context, scope aiworkbench.
 		return ScheduledOccurrence{}, false, err
 	}
 	if catchupPending {
-		return ScheduledOccurrence{}, false, aiworkbench.ErrUnavailable
+		return ScheduledOccurrence{}, false, errors.Join(aiworkbench.ErrUnavailable, aiworkbench.ErrScheduleCatchupPending)
 	}
 	return receipt, replay, nil
 }
 
 func newScheduledOccurrence(plan scheduledPlanRow, policy aiworkbench.ScheduledPlanDraft, slot, now time.Time, state string) scheduledOccurrenceRow {
-	return scheduledOccurrenceRow{
-		ID:             uuid.NewSHA1(uuid.NameSpaceOID, []byte(plan.OrganizationID+"\x1f"+plan.ID+"\x1f"+slot.UTC().Format(time.RFC3339Nano))).String(),
+	row := scheduledOccurrenceRow{
+		ID:             aiworkbench.ScheduledOccurrenceID(policy.Scope, plan.ID, slot),
 		OrganizationID: plan.OrganizationID, OwnerUserID: plan.OwnerUserID, PlanID: plan.ID,
 		ScheduledAtUTC: slot.UTC(), PlanRevision: plan.Revision,
 		PayloadDigest: digest(struct {
-			PlanID    string
-			Slot      time.Time
-			Revision  int64
-			Selection aiworkbench.TaskSelection
-			Budget    aiworkbench.ScheduleBudget
-		}{plan.ID, slot.UTC(), plan.Revision, policy.Selection, policy.Budget}),
+			PlanID        string
+			Slot          time.Time
+			Revision      int64
+			Selection     aiworkbench.TaskSelection
+			Budget        aiworkbench.ScheduleBudget
+			ExecutionSpec json.RawMessage
+		}{plan.ID, slot.UTC(), plan.Revision, policy.Selection, policy.Budget, policy.ExecutionSpec}),
 		State: state, CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
 	}
+	if state == "SKIPPED" {
+		row.Reason = "MISSED_TRIGGER"
+	}
+	return row
 }

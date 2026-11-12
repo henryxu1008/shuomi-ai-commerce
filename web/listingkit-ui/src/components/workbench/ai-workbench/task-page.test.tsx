@@ -63,7 +63,7 @@ it("clears loaded tasks when permissions change without changing the native role
   fixture.context.roles = ["sumi_role_0123456789abcdef0123456789abcdef_01"];
   fixture.context.permissions = ["workbench.task.read"];
   let reads = 0;
-  fixture.request.mockImplementation(() => ++reads === 1 ? Promise.resolve({ tasks: [{ id: taskId, conversationId: taskId, proposalId: taskId, title: "已授权任务", goalSummary: "原任务内容", createdAt: "2026-10-03T00:00:00Z", projectionAvailable: true, state: "COMPLETED", canStart: false, canReconcile: false, canResume: false, canReview: false, productDetailsAvailable: false }], next: "" }) : new Promise(() => {}));
+  fixture.request.mockImplementation((input) => input.route === "schedule-availability" ? Promise.resolve({enabled:false,ready:false}) : ++reads === 1 ? Promise.resolve({ tasks: [{ id: taskId, conversationId: taskId, proposalId: taskId, title: "已授权任务", goalSummary: "原任务内容", createdAt: "2026-10-03T00:00:00Z", projectionAvailable: true, state: "COMPLETED", canStart: false, canReconcile: false, canResume: false, canReview: false, productDetailsAvailable: false }], next: "" }) : new Promise(() => {}));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const tree = () => <QueryClientProvider client={client}><BusinessTaskPage /></QueryClientProvider>;
   const view = render(tree());
@@ -194,7 +194,7 @@ it("continues across unrelated Task pages before declaring a state view empty", 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><BusinessTaskPage mode="pending" /></QueryClientProvider>);
   expect(await screen.findByRole("button", { name: /Older pending/ })).toBeVisible();
-  expect(fixture.request).toHaveBeenCalledTimes(3);
+  expect(fixture.request.mock.calls.filter(([call])=>call.route==="task-list")).toHaveLength(3);
   expect(screen.queryByText("当前筛选无任务")).toBeNull();
   client.clear();
 });
@@ -226,7 +226,7 @@ it("shows an empty state only after every Task page has been checked", async () 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><BusinessTaskPage mode="running" /></QueryClientProvider>);
   expect(await screen.findByText("当前筛选无任务")).toBeVisible();
-  expect(fixture.request).toHaveBeenCalledTimes(2);
+  expect(fixture.request.mock.calls.filter(([call])=>call.route==="task-list")).toHaveLength(2);
   client.clear();
 });
 

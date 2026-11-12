@@ -109,6 +109,10 @@ func (s *listingProductAgent) current(ctx context.Context) (listingAgentPrincipa
 	return result, nil
 }
 func (a *productAgentApplication) resolveExecutionIdentity(ctx context.Context) (agent.ExecutionIdentity, error) {
+	if scheduledExecutionContext(ctx) {
+		i, _, err := a.scheduledPrincipal(ctx)
+		return i, err
+	}
 	if a == nil || a.listingExecution == nil {
 		return agent.ExecutionIdentity{}, review.ErrForbidden
 	}
@@ -139,6 +143,10 @@ func (a *productAgentApplication) authorizeListingBinding(ctx context.Context, b
 	return agent.Scope{OrganizationID: current.identity.OrganizationID, ActorID: current.identity.ActorID}, nil
 }
 func (a *productAgentApplication) requestOrExecutionScope(ctx context.Context) (agent.Scope, error) {
+	if scheduledExecutionContext(ctx) {
+		i, _, err := a.scheduledPrincipal(ctx)
+		return agent.Scope{OrganizationID: i.OrganizationID, ActorID: i.ActorID}, err
+	}
 	if listingAgentContext(ctx) {
 		i, err := a.resolveExecutionIdentity(ctx)
 		return agent.Scope{OrganizationID: i.OrganizationID, ActorID: i.ActorID}, err
@@ -159,6 +167,10 @@ func (r productAgentPrincipal) ResolvePrincipal(ctx context.Context) (commerceto
 	return r.ResolveFreshPrincipal(ctx)
 }
 func (r productAgentPrincipal) ResolveFreshPrincipal(ctx context.Context) (commercetool.Principal, error) {
+	if scheduledExecutionContext(ctx) {
+		i, roles, err := r.application.scheduledPrincipal(ctx)
+		return commercetool.Principal{TenantID: i.OrganizationID, UserID: i.ActorID, Roles: roles}, err
+	}
 	if listingAgentContext(ctx) {
 		if r.application == nil || r.application.listingExecution == nil {
 			return commercetool.Principal{}, review.ErrForbidden
@@ -178,6 +190,12 @@ type productAgentSourceGateway struct {
 }
 
 func (r productAgentSourceGateway) Read(ctx context.Context, id string) (sourcing.PersistedPublication, error) {
+	if scheduledExecutionContext(ctx) {
+		if r.application.scheduledSource == nil {
+			return sourcing.PersistedPublication{}, review.ErrUnavailable
+		}
+		return r.application.scheduledSource.Read(ctx, id)
+	}
 	if listingAgentContext(ctx) {
 		if r.application.executionSource == nil {
 			return sourcing.PersistedPublication{}, review.ErrForbidden
@@ -187,6 +205,12 @@ func (r productAgentSourceGateway) Read(ctx context.Context, id string) (sourcin
 	return r.request.Read(ctx, id)
 }
 func (r productAgentSourceGateway) AuthorizeRead(ctx context.Context) (context.Context, error) {
+	if scheduledExecutionContext(ctx) {
+		if r.application.scheduledSource == nil {
+			return ctx, review.ErrUnavailable
+		}
+		return r.application.scheduledSource.AuthorizeRead(ctx)
+	}
 	if listingAgentContext(ctx) {
 		if r.application.executionSource == nil {
 			return ctx, review.ErrForbidden
@@ -196,6 +220,12 @@ func (r productAgentSourceGateway) AuthorizeRead(ctx context.Context) (context.C
 	return r.request.AuthorizeRead(ctx)
 }
 func (r productAgentSourceGateway) AuthorizePublicationExecution(ctx context.Context, org, actor string) error {
+	if scheduledExecutionContext(ctx) {
+		if r.application == nil || r.application.scheduledSource == nil {
+			return review.ErrUnavailable
+		}
+		return r.application.scheduledSource.AuthorizePublicationExecution(ctx, org, actor)
+	}
 	if !listingAgentContext(ctx) || r.application == nil || r.application.executionSource == nil {
 		return review.ErrForbidden
 	}
@@ -209,6 +239,9 @@ func (r productAgentSourceGateway) ReadEffectiveSource(ctx context.Context, prin
 	var binding agent.Binding
 	var original sourcing.PublicationExecutionScope
 	var source review.SourcePublicationGateway = r.request
+	if scheduledExecutionContext(ctx) {
+		source = r.application.scheduledSource
+	}
 	if listingAgentContext(ctx) {
 		if r.application.listingExecution == nil || r.application.executionSource == nil {
 			return out, sourcing.ErrPublicationForbidden
@@ -240,7 +273,7 @@ func (r productAgentSourceGateway) ReadEffectiveSource(ctx context.Context, prin
 		if !ok || binding.ContextKind != "acquisition" && binding.ContextKind != "own_product" {
 			return out, sourcing.ErrPublicationForbidden
 		}
-		identity, err := r.application.freshIdentity(ctx)
+		identity, err := r.application.currentAgentIdentity(ctx)
 		if err != nil || identity.TenantID != principal.TenantID || identity.UserID != principal.UserID {
 			return out, sourcing.ErrPublicationForbidden
 		}

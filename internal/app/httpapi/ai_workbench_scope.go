@@ -18,13 +18,25 @@ import (
 )
 
 type workbenchScopeSources struct {
-	reader      aiworkbench.ScopeReader
-	storeRead   func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
-	projectPage func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
-	storePage   func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
+	scheduledStoreRead func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
+	reader             aiworkbench.ScopeReader
+	storeRead          func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
+	projectPage        func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
+	storePage          func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
 }
 
 func (a *aiWorkbenchApplication) scopeIdentity(ctx context.Context, owner aiworkbench.Scope, permission string) (context.Context, error) {
+	if scheduledExecutionContext(ctx) {
+		i, roles, err := a.agent.scheduledPrincipal(ctx)
+		if err != nil || i.OrganizationID != owner.OrganizationID || i.ActorID != owner.ActorID {
+			return nil, aiworkbench.ErrNotFound
+		}
+		allowed, err := authz.AuthorizeOrganization(ctx, a.agent.authorizer, i.ActorID, i.OrganizationID, roles, permission)
+		if err != nil || !allowed {
+			return nil, aiworkbench.ErrNotFound
+		}
+		return ctx, nil
+	}
 	i, err := a.freshWorkbenchIdentity(ctx, permission)
 	original, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if err != nil || !ok || i.TenantID != owner.OrganizationID || i.UserID != owner.ActorID ||
@@ -49,6 +61,12 @@ func (a *aiWorkbenchApplication) attachStoreScopes(stores *storecenter.MemberSco
 		ctx, err := a.scopeIdentity(ctx, owner, authz.PermissionWorkbenchStoreRead)
 		if err != nil {
 			return aiworkbench.StoreScopeFacts{}, err
+		}
+		if scheduledExecutionContext(ctx) {
+			if a.scopes.scheduledStoreRead == nil {
+				return aiworkbench.StoreScopeFacts{}, aiworkbench.ErrUnavailable
+			}
+			return a.scopes.scheduledStoreRead(ctx, owner.OrganizationID, id)
 		}
 		return a.scopes.storeRead(ctx, owner.OrganizationID, id)
 	}
@@ -229,6 +247,16 @@ func (a *aiWorkbenchApplication) authorizedFrozenScope(ctx context.Context, owne
 	f, err := a.store.ReadFrozenScope(ctx, owner, ref)
 	if err != nil {
 		return aiworkbench.FrozenScope{}, err
+	}
+	if scheduledExecutionContext(ctx) {
+		i, _, err := a.agent.scheduledPrincipal(ctx)
+		if err != nil || i.OrganizationID != owner.OrganizationID || i.ActorID != owner.ActorID {
+			return aiworkbench.FrozenScope{}, aiworkbench.ErrNotFound
+		}
+		if err = a.scopes.reader.Check(ctx, f, i.MemberID, freshInput); err != nil {
+			return aiworkbench.FrozenScope{}, err
+		}
+		return f, nil
 	}
 	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || i.TenantID != owner.OrganizationID || i.UserID != owner.ActorID {

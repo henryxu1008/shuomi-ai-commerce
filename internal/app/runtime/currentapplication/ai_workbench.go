@@ -2,6 +2,8 @@ package currentapplication
 
 import (
 	"errors"
+	"net"
+	"strconv"
 	"task-processor/internal/agent"
 	"task-processor/internal/aicapability"
 
@@ -11,6 +13,7 @@ import (
 // AIWorkbenchConfig uses the Product Agent's logical database with its own
 // least-privilege role. Planning policies never borrow title admission.
 type AIWorkbenchConfig struct {
+	Schedules              *AIWorkbenchSchedulesConfig     `json:"schedules,omitempty"`
 	Enabled                bool                            `json:"enabled"`
 	ContentTasks           bool                            `json:"contentTasks,omitempty"`
 	ConversationOnly       bool                            `json:"conversationOnly"`
@@ -22,6 +25,9 @@ type AIWorkbenchConfig struct {
 func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w == nil {
 		return nil
+	}
+	if err := w.validateSchedules(cfg); err != nil {
+		return err
 	}
 	if cfg.ProductAgent != nil && cfg.ProductAgent.ContentTitleOnly &&
 		(len(w.PlanningTextPolicies) != 0 || w.Enabled && !w.ConversationOnly) {
@@ -90,6 +96,26 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		if _, err := profile.CostFor(profile.MaximumPromptTokens, profile.MaximumCompletionTokens); err != nil {
 			return errors.New("AI Workbench planning price invalid")
 		}
+	}
+	return nil
+}
+
+type AIWorkbenchSchedulesConfig struct {
+	TemporalAddress   string `json:"temporalAddress"`
+	TemporalNamespace string `json:"temporalNamespace"`
+}
+
+func (w *AIWorkbenchConfig) validateSchedules(cfg *Config) error {
+	if w == nil || w.Schedules == nil {
+		return nil
+	}
+	if !w.Enabled || !w.ContentTasks || w.ConversationOnly || cfg == nil || cfg.ProductAgent == nil || !cfg.ProductAgent.Enabled || cfg.Identity.TenantDirectoryToken == "" {
+		return errors.New("scheduled Workbench requires content execution and exact service IAM")
+	}
+	host, port, err := net.SplitHostPort(w.Schedules.TemporalAddress)
+	value, portErr := strconv.Atoi(port)
+	if err != nil || portErr != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() || value < 1 || value > 65535 || !boundedValue(w.Schedules.TemporalNamespace, 128) {
+		return errors.New("scheduled Workbench requires explicit bounded loopback Temporal")
 	}
 	return nil
 }

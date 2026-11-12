@@ -1,6 +1,7 @@
 package aiworkbench
 
 import (
+	"encoding/json"
 	"math"
 	"time"
 
@@ -21,6 +22,11 @@ type ScheduledPlanDraft struct {
 	Rule        ScheduleRule
 	Budget      ScheduleBudget
 	CreatedAt   time.Time
+	// ExecutionSpec freezes the existing typed execution proposal/configuration.
+	// It is populated by the application owner after current authorization.
+	ExecutionSpec       json.RawMessage
+	RuleStartAt         time.Time
+	CreationFingerprint string
 }
 
 func (p ScheduledPlanDraft) Valid() bool {
@@ -30,7 +36,8 @@ func (p ScheduledPlanDraft) Valid() bool {
 		p.Scope.ActorID == "" || len(p.Scope.ActorID) > 128 ||
 		p.MemberID == "" || len(p.MemberID) > 128 ||
 		!p.Selection.Valid() || !agent.ValidGoalSummary(p.GoalSummary) ||
-		p.CreatedAt.IsZero() || !p.Rule.Valid() {
+		p.CreatedAt.IsZero() || !p.Rule.Valid() || len(p.ExecutionSpec) > 16384 ||
+		len(p.ExecutionSpec) != 0 && !json.Valid(p.ExecutionSpec) {
 		return false
 	}
 	total, err := p.Budget.TotalUpperBoundMicros()
@@ -44,4 +51,29 @@ func (p ScheduledPlanDraft) Valid() bool {
 	}
 	_, err = p.Rule.NextAfter(p.CreatedAt)
 	return err == nil // an expired rule cannot be registered as ACTIVE
+}
+
+type ScheduledPlan struct {
+	ScheduledPlanDraft
+	State               string
+	Revision            int64
+	ConsumedOccurrences uint64
+	ActiveOccurrenceID  string
+	RegistrationState   string
+}
+
+type ScheduledOccurrence struct {
+	ID             string
+	PlanID         string
+	Scope          Scope
+	ScheduledAtUTC time.Time
+	PlanRevision   int64
+	PayloadDigest  string
+	State          string
+	BusinessTaskID string
+	Reason         string
+}
+
+func ScheduledOccurrenceID(scope Scope, planID string, slot time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(scope.OrganizationID+"\x1f"+planID+"\x1f"+slot.UTC().Format(time.RFC3339Nano))).String()
 }

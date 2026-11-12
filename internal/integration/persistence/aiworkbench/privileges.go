@@ -57,6 +57,16 @@ func validateRuntimeRoleIdentity(db *gorm.DB, role string) error {
 // The initializer and serving startup use the same bounds. A later grant must
 // not silently turn the runtime login into a schema owner or mutation authority.
 func validateBoundedWorkbenchPrivileges(db *gorm.DB, role string) error {
+	return validateWorkbenchPrivilegeBounds(db, role, []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}, map[string][]string{
+		"conversations":         {"title", "favorite", "lifecycle", "metadata_revision", "next_sequence", "updated_at"},
+		"commands":              {"state", "assistant_message_id", "proposal_id", "terminal_digest", "mode", "committed_at"},
+		"task_action_receipts":  {"state", "error_code", "finished_at"},
+		"scheduled_plans":       {"state", "revision", "consumed_occurrences", "active_occurrence_id", "updated_at", "registration_state", "rule_start_at", "frequency", "time_zone", "once_at_utc", "local_hour", "local_minute", "local_weekday", "until_utc"},
+		"scheduled_occurrences": {"state", "business_task_id", "updated_at", "reason", "reconciliation_digest"},
+	})
+}
+
+func validateWorkbenchPrivilegeBounds(db *gorm.DB, role string, tables []string, mutable map[string][]string) error {
 	var unsafe bool
 	if err := db.Raw("SELECT has_schema_privilege(?,'ai_workbench','CREATE')", role).Scan(&unsafe).Error; err != nil || unsafe {
 		return aiworkbench.ErrInvalid
@@ -65,7 +75,7 @@ func validateBoundedWorkbenchPrivileges(db *gorm.DB, role string) error {
 	if err := db.Raw("SELECT has_schema_privilege(?,'ai_workbench','USAGE')", role).Scan(&required).Error; err != nil || !required {
 		return aiworkbench.ErrInvalid
 	}
-	for _, table := range []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences"} {
+	for _, table := range tables {
 		name := "ai_workbench." + table
 		for _, privilege := range []string{"SELECT", "INSERT"} {
 			if err := db.Raw("SELECT has_table_privilege(?,?,?)", role, name, privilege).Scan(&required).Error; err != nil || !required {
@@ -75,19 +85,13 @@ func validateBoundedWorkbenchPrivileges(db *gorm.DB, role string) error {
 		if err := db.Raw("SELECT has_table_privilege(?,?,'DELETE,TRUNCATE,REFERENCES,TRIGGER')", role, name).Scan(&unsafe).Error; err != nil || unsafe {
 			return aiworkbench.ErrInvalid
 		}
-		if table != "conversations" && table != "commands" && table != "task_action_receipts" && table != "scheduled_plans" && table != "scheduled_occurrences" {
+		if _, ok := mutable[table]; !ok {
 			if err := db.Raw("SELECT has_any_column_privilege(?,?,'UPDATE')", role, name).Scan(&unsafe).Error; err != nil || unsafe {
 				return aiworkbench.ErrInvalid
 			}
 		}
 	}
-	for table, columns := range map[string][]string{
-		"conversations":        {"title", "favorite", "lifecycle", "metadata_revision", "next_sequence", "updated_at"},
-		"commands":             {"state", "assistant_message_id", "proposal_id", "terminal_digest", "mode", "committed_at"},
-		"task_action_receipts": {"state", "error_code", "finished_at"},
-		"scheduled_plans": {"state", "revision", "consumed_occurrences", "active_occurrence_id", "updated_at"},
-		"scheduled_occurrences": {"state", "business_task_id", "updated_at"},
-	} {
+	for table, columns := range mutable {
 		allowed := "'" + strings.Join(columns, "','") + "'"
 		query := `SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='ai_workbench.` + table + `'::regclass AND attnum>0 AND NOT attisdropped AND attname NOT IN (` + allowed + `) AND has_column_privilege(?,attrelid,attname,'UPDATE'))`
 		if err := db.Raw(query, role).Scan(&unsafe).Error; err != nil || unsafe {
@@ -133,12 +137,12 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		"REVOKE ALL ON ALL TABLES IN SCHEMA ai_workbench FROM PUBLIC",
 		"REVOKE ALL ON ALL TABLES IN SCHEMA ai_workbench FROM " + quoted,
 		"GRANT USAGE ON SCHEMA ai_workbench TO " + quoted,
-		"GRANT SELECT, INSERT ON ai_workbench.conversations, ai_workbench.metadata_audit, ai_workbench.messages, ai_workbench.commands, ai_workbench.execution_proposals, ai_workbench.business_tasks, ai_workbench.task_action_receipts, ai_workbench.scheduled_plans, ai_workbench.scheduled_occurrences TO " + quoted,
+		"GRANT SELECT, INSERT ON ai_workbench.conversations, ai_workbench.metadata_audit, ai_workbench.messages, ai_workbench.commands, ai_workbench.execution_proposals, ai_workbench.business_tasks, ai_workbench.task_action_receipts, ai_workbench.scheduled_plans, ai_workbench.scheduled_occurrences, ai_workbench.scheduled_plan_commands TO " + quoted,
 		"GRANT UPDATE (title, favorite, lifecycle, metadata_revision, next_sequence, updated_at) ON ai_workbench.conversations TO " + quoted,
 		"GRANT UPDATE (state, assistant_message_id, proposal_id, terminal_digest, mode, committed_at) ON ai_workbench.commands TO " + quoted,
 		"GRANT UPDATE (state, error_code, finished_at) ON ai_workbench.task_action_receipts TO " + quoted,
-		"GRANT UPDATE (state, revision, consumed_occurrences, active_occurrence_id, updated_at) ON ai_workbench.scheduled_plans TO " + quoted,
-		"GRANT UPDATE (state, business_task_id, updated_at) ON ai_workbench.scheduled_occurrences TO " + quoted,
+		"GRANT UPDATE (state, revision, consumed_occurrences, active_occurrence_id, updated_at, registration_state, rule_start_at, frequency, time_zone, once_at_utc, local_hour, local_minute, local_weekday, until_utc) ON ai_workbench.scheduled_plans TO " + quoted,
+		"GRANT UPDATE (state, business_task_id, updated_at, reason, reconciliation_digest) ON ai_workbench.scheduled_occurrences TO " + quoted,
 	}
 	for _, sql := range statements {
 		if err := db.Exec(sql).Error; err != nil {

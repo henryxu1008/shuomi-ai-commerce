@@ -53,7 +53,7 @@ func (a *productAgentApplication) readContentWorkbenchContext(ctx context.Contex
 	preview, ok := ctx.Value(workbenchQuoteKey{}).(workbenchQuote)
 	if !ok || send || preview != (workbenchQuote{ref, key, binding}) {
 		task, err := w.store.TaskForExecution(ctx, owner, key)
-		if err != nil || task.ConversationID != ref.ConversationID || task.WorkbenchContextRef != ref {
+		if err != nil || task.ScheduledOccurrenceID == "" && task.ConversationID != ref.ConversationID || task.WorkbenchContextRef != ref {
 			return nil, agent.ErrUnavailable
 		}
 		var request agent.Request

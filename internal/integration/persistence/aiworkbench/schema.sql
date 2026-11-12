@@ -145,9 +145,13 @@ CREATE TABLE IF NOT EXISTS ai_workbench.business_tasks (
     id uuid PRIMARY KEY,
     organization_id text NOT NULL,
     owner_user_id text NOT NULL,
-    conversation_id uuid NOT NULL,
-    source_message_id uuid NOT NULL,
-    proposal_id uuid NOT NULL,
+    source_kind text NOT NULL DEFAULT 'CHAT_PROPOSAL' CHECK (source_kind IN ('CHAT_PROPOSAL','SCHEDULE_OCCURRENCE')),
+    scheduled_occurrence_id uuid,
+    conversation_id uuid,
+    source_message_id uuid,
+    proposal_id uuid,
+    CHECK ((source_kind = 'CHAT_PROPOSAL' AND conversation_id IS NOT NULL AND source_message_id IS NOT NULL AND proposal_id IS NOT NULL AND scheduled_occurrence_id IS NULL)
+      OR (source_kind = 'SCHEDULE_OCCURRENCE' AND conversation_id IS NULL AND source_message_id IS NULL AND proposal_id IS NULL AND scheduled_occurrence_id IS NOT NULL)),
     proposal_digest char(64) NOT NULL,
     confirmation_fingerprint char(64) NOT NULL,
     kind text NOT NULL,
@@ -169,6 +173,8 @@ CREATE TABLE IF NOT EXISTS ai_workbench.business_tasks (
     created_at timestamptz NOT NULL,
     UNIQUE (organization_id, owner_user_id, execution_request_key),
     UNIQUE (id, organization_id, owner_user_id),
+    UNIQUE (scheduled_occurrence_id, organization_id, owner_user_id),
+    UNIQUE (id, organization_id, owner_user_id, scheduled_occurrence_id),
     FOREIGN KEY (conversation_id, organization_id, owner_user_id)
         REFERENCES ai_workbench.conversations (id, organization_id, owner_user_id),
     FOREIGN KEY (proposal_id, organization_id, owner_user_id, conversation_id)
@@ -211,6 +217,10 @@ CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_plans (
     member_id text NOT NULL CHECK (octet_length(member_id) BETWEEN 1 AND 128),
     kind text NOT NULL CHECK (kind = 'product.content.localize'),
     task_selection jsonb NOT NULL CHECK (jsonb_typeof(task_selection) = 'object' AND octet_length(task_selection::text) BETWEEN 2 AND 2048),
+    execution_spec jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(execution_spec) = 'object' AND octet_length(execution_spec::text) <= 16384),
+    rule_start_at timestamptz,
+    registration_state text NOT NULL DEFAULT 'PENDING' CHECK (registration_state IN ('PENDING','MATCHED','UNKNOWN')),
+    creation_fingerprint char(64) NOT NULL DEFAULT repeat('0',64),
     goal_summary text NOT NULL CHECK (octet_length(goal_summary) BETWEEN 1 AND 512),
     frequency text NOT NULL CHECK (frequency IN ('once', 'daily', 'weekly')),
     time_zone text NOT NULL CHECK (octet_length(time_zone) BETWEEN 1 AND 128),
@@ -220,6 +230,7 @@ CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_plans (
     local_weekday smallint,
     until_utc timestamptz,
     max_occurrences bigint NOT NULL CHECK (max_occurrences BETWEEN 1 AND 9223372036854775807),
+    budget_unit text NOT NULL DEFAULT 'ai-micropoint-v1' CHECK (budget_unit = 'ai-micropoint-v1'),
     per_run_upper_bound_micros bigint NOT NULL CHECK (per_run_upper_bound_micros > 0),
     total_upper_bound_micros bigint NOT NULL CHECK (total_upper_bound_micros > 0),
     consumed_occurrences bigint NOT NULL DEFAULT 0 CHECK (consumed_occurrences >= 0 AND consumed_occurrences <= max_occurrences),
@@ -255,14 +266,17 @@ CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_occurrences (
     payload_digest char(64) NOT NULL CHECK (payload_digest ~ '^[a-f0-9]{64}$'),
     state text NOT NULL CHECK (state IN ('CLAIMED','DISPATCHED','SKIPPED','BLOCKED','UNKNOWN','RECONCILED')),
     business_task_id uuid,
+    reconciliation_digest char(64),
+    reason text NOT NULL DEFAULT '' CHECK (octet_length(reason) <= 128),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
     UNIQUE (organization_id, plan_id, scheduled_at_utc),
     UNIQUE (id, organization_id, owner_user_id, plan_id),
+    UNIQUE (id, organization_id, owner_user_id),
     FOREIGN KEY (plan_id, organization_id, owner_user_id)
         REFERENCES ai_workbench.scheduled_plans (id, organization_id, owner_user_id),
-    FOREIGN KEY (business_task_id, organization_id, owner_user_id)
-        REFERENCES ai_workbench.business_tasks (id, organization_id, owner_user_id)
+    FOREIGN KEY (business_task_id, organization_id, owner_user_id, id)
+        REFERENCES ai_workbench.business_tasks (id, organization_id, owner_user_id, scheduled_occurrence_id)
 );
 CREATE INDEX IF NOT EXISTS ai_workbench_scheduled_occurrences_plan
     ON ai_workbench.scheduled_occurrences (organization_id, owner_user_id, plan_id, scheduled_at_utc DESC);
@@ -281,3 +295,27 @@ BEGIN
     END IF;
 END
 $scheduled_plan$;
+
+DO $scheduled_task$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ai_workbench_task_scheduled_source'
+      AND conrelid = 'ai_workbench.business_tasks'::regclass) THEN
+        ALTER TABLE ai_workbench.business_tasks ADD CONSTRAINT ai_workbench_task_scheduled_source
+          FOREIGN KEY (scheduled_occurrence_id, organization_id, owner_user_id)
+          REFERENCES ai_workbench.scheduled_occurrences (id, organization_id, owner_user_id);
+    END IF;
+END
+$scheduled_task$;
+
+CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_plan_commands (
+    organization_id text NOT NULL,
+    owner_user_id text NOT NULL,
+    idempotency_key uuid NOT NULL,
+    plan_id uuid NOT NULL,
+    request_digest char(64) NOT NULL,
+    applied_revision bigint NOT NULL CHECK (applied_revision > 0),
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY (organization_id, owner_user_id, idempotency_key),
+    FOREIGN KEY (plan_id, organization_id, owner_user_id)
+      REFERENCES ai_workbench.scheduled_plans (id, organization_id, owner_user_id)
+);

@@ -15,6 +15,7 @@ import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { ConsolePage, ConsoleState } from "../console/console-page";
 import { ProposalSession, ReviewError, reviewQueryPolicy, reviewAccessDenied } from "../task-center/review-session";
 import { TaskDetail } from "./task-detail";
+import {ScheduleManager} from "./schedule-manager";
 import { errorText, filters, taskState, reasonText, type TaskMode } from "./task-presentation";
 import {useNativeRuns} from "./use-native-runs";
 import {NativeRunDetail,NativeRunReadStatus} from "./native-run-view";
@@ -29,6 +30,10 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   scope: AIScope; authorizationKey: string; mode: TaskMode; tasksAvailable: boolean; productReviewAvailable: boolean; sheinRecordsAvailable: boolean; nativeRunsAvailable?:boolean; nativeRunDestinations?:NativeRunDestinations; initialProposalId?: string;
 }) {
   const context = useWorkbenchContext(), client = useQueryClient();
+  const [schedulesView,setSchedulesView]=useState(false);
+  useEffect(()=>{let active=true;queueMicrotask(()=>{if(active)setSchedulesView(new URLSearchParams(window.location.search).get("view")==="schedules")});return()=>{active=false}},[]);
+  const schedules=useQuery({queryKey:["ai-schedule-availability",scope.userId,scope.organizationId,authorizationKey],enabled:tasksAvailable,queryFn:({signal})=>requestAIWorkbench({route:"schedule-availability",method:"GET",path:"schedules/availability",scope,signal}),retry:false,refetchOnWindowFocus:false});
+  function showSchedules(value:boolean){setSchedulesView(value);const url=new URL(window.location.href);if(value)url.searchParams.set("view","schedules");else{url.searchParams.delete("view");url.searchParams.delete("schedule_id");url.searchParams.delete("schedule_proposal");}window.history.replaceState(null,"",url);}
   const [selection, setSelection] = useState<Selection | undefined>(initialProposalId ? {kind:"review", id:initialProposalId} : undefined);
   const [search, setSearch] = useState("");
   const [filterKind,setFilterKind] = useState<"all"|"general"|"project"|"store"|"unrecorded">("all");
@@ -131,8 +136,10 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   if (selection?.kind === "review" && productReviewAvailable) detail = renderReview(selection.id);
   const selectedNative=selection?.kind==="native"?native.items.find(item=>item.key===selection.id):undefined;
   if(selectedNative)detail=<NativeRunDetail record={selectedNative} locked={locked} scope={scope} destinations={nativeRunDestinations}/>;
+  if(schedulesView&&tasksAvailable)return <ScheduleManager key={JSON.stringify([scope,authorizationKey])} scope={scope} authorizationKey={authorizationKey} canUse={context.permissions.includes("workbench.agent.use")} onBack={()=>showSchedules(false)}/>;
   return <ConsolePage title="任务中心" description="查看正在执行、等待确认和已经完成的业务任务。" breadcrumbs={findConsoleRoute(filters.find(item=>item.mode===mode)!.href)?.trail}
     actions={<>{<input className={styles.search} type="search" aria-label="搜索已加载记录" placeholder="搜索任务或商品" value={search} disabled={locked} onChange={event=>setSearch(event.target.value)} />}
+      {schedules.data?.enabled?<Button variant="outline" disabled={locked} onClick={()=>showSchedules(true)}>定时任务</Button>:null}
       {canChat ? <Button asChild><Link href="/workbench/ai/chat/new" prefetch={false} aria-disabled={locked || undefined} tabIndex={locked ? -1 : undefined} onClick={event=>{if(locked)event.preventDefault();}}>向硕米发起任务</Link></Button> : null}</>}>
     <div className={layout.metrics}>
       {metrics.map(metric=><Card className={layout.metric} key={metric.state}><span className={layout.swatch} aria-hidden="true" /><div><h2>{metric.label}</h2><p>已加载</p></div><strong className={styles.metricNumber} data-state={metric.state}>{metric.value ?? "—"}</strong></Card>)}

@@ -79,7 +79,13 @@ func emptyScopePrivileges(db *gorm.DB) error {
 	if err != nil || cross {
 		return aiworkbench.ErrUnavailable
 	}
-	if err = validateBoundedWorkbenchPrivileges(db, "ai_workbench_runtime"); err != nil {
+	// This exact operation has a frozen seven-table protocol. New serving
+	// capabilities must not silently become requirements or upgrade targets.
+	if err = validateWorkbenchPrivilegeBounds(db, "ai_workbench_runtime", []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts"}, map[string][]string{
+		"conversations":        {"title", "favorite", "lifecycle", "metadata_revision", "next_sequence", "updated_at"},
+		"commands":             {"state", "assistant_message_id", "proposal_id", "terminal_digest", "mode", "committed_at"},
+		"task_action_receipts": {"state", "error_code", "finished_at"},
+	}); err != nil {
 		return err
 	}
 	var unsafe bool
@@ -173,8 +179,28 @@ func installEmptyScopeOnConnections(ctx context.Context, owner, runtime *gorm.DB
 	if err := emptyScopeIdentity(runtime, target, "ai_workbench_runtime"); err != nil {
 		return fmt.Errorf("committed or unchanged; runtime identity unavailable: %w", err)
 	}
-	if err := VerifySchema(ctx, runtime); err != nil {
+	if err := verifyEmptyScopePrepared(ctx, runtime); err != nil {
 		return fmt.Errorf("committed or unchanged; runtime verification unavailable: %w", err)
+	}
+	return nil
+}
+
+// This proves only the precise #1246 preparation target, not current serving
+// readiness. VerifySchema remains strict about all current tables and columns.
+func verifyEmptyScopePrepared(ctx context.Context, db *gorm.DB) error {
+	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
+		return aiworkbench.ErrInvalid
+	}
+	var role string
+	if err := db.WithContext(ctx).Raw("SELECT current_user").Scan(&role).Error; err != nil || role != "ai_workbench_runtime" {
+		return aiworkbench.ErrUnavailable
+	}
+	if err := emptyScopePrivileges(db.WithContext(ctx)); err != nil {
+		return err
+	}
+	fingerprint, err := emptyScopeFingerprint(db.WithContext(ctx))
+	if err != nil || fingerprint != emptyScopeNewFingerprint {
+		return aiworkbench.ErrUnavailable
 	}
 	return nil
 }
