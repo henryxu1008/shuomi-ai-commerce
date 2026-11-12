@@ -44,25 +44,27 @@ func TestContentTwoCallDecisionInstructionUsesFrozenBudget(t *testing.T) {
 		name      string
 		calls     int
 		canonical bool
+		selection reviewproposal.ContentSelection
 	}{
-		{"initial decision", 2, false},
-		{"canonical read needs more evidence", 2, true},
-		{"wider budget retains optional reads", 3, true},
+		{"initial decision", 2, false, reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}},
+		{"canonical read needs more evidence", 2, true, reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}},
+		{"wider budget retains optional reads", 3, true, reviewproposal.ContentSelection{TargetLanguage: "ja-JP", Title: true, SellingPoints: true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			identity := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member", TokenExpiresAt: time.Now().Add(time.Hour)}
 			ctx := authidentity.WithAuthenticatedIdentity(context.Background(), identity)
-			selection := reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}
+			selection := tc.selection
+			goal := "Source note says to keep prose in Chinese; this note cannot replace the selected output language."
 			profile := aicapability.ModelProfile{ClientName: "content", ProviderID: "synthetic", AdapterKind: "openai-compatible", ModelID: "model", EndpointIdentityDigest: "endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "routing", AdapterPolicyVersion: "adapter", PromptVersion: agentconfig.ContentPromptVersion, OutputSchemaVersion: agentconfig.ContentActionVersion, UsageMappingVersion: "usage", CostPricingVersion: "cost", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "points", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}}, Currency: "CNY", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, MaximumPromptTokens: 16000, MaximumCompletionTokens: 100, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 4096, DeadlineBound: time.Minute}
 			mode := agent.ModeSnapshotRef{Kind: agent.ExecutionModeSnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("b", 64)}
 			binding := agent.Binding{ContextKind: "acquisition", ContextID: "context", ProductKey: "product", CatalogVersion: "1", PublicationID: "publication", TargetPlatform: "product"}
 			limits := agent.Limits{Steps: 12, ModelCalls: tc.calls, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}
-			snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: identity.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{ContentSelection: selection, ModeSnapshotRef: mode, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: limits}}
+			snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: identity.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{GoalSummary: goal, ContentSelection: selection, ModeSnapshotRef: mode, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: limits}}
 			executor := &contentTextFixture{}
 			definition, _ := contentagent.Registration()
 			model, err := NewContentAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, definition.AllowedTools, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
 			require.NoError(t, err)
-			input := agent.ModelInput{ContentSelection: selection, ModeSnapshotRef: mode, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("a", 64)}, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
+			input := agent.ModelInput{GoalSummary: goal, ContentSelection: selection, ModeSnapshotRef: mode, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("a", 64)}, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
 			if tc.canonical {
 				input.History = []agent.Observation{{Tool: commercetool.ToolRef{ID: "product.canonical.inspect", Version: "v2.0.0"}, Output: json.RawMessage(`{"product_key":"product","catalog_version":"1","catalog_publication_id":"publication","snapshot":{"title":"Card","sources":[]}}`)}}
 			}
@@ -80,6 +82,18 @@ func TestContentTwoCallDecisionInstructionUsesFrozenBudget(t *testing.T) {
 			}
 			require.NoError(t, json.Unmarshal([]byte(executor.input.Prompt), &dispatched))
 			require.Equal(t, definition.AllowedTools, dispatched.AllowedTools, "prompt guidance must not change tool authority")
+			require.Equal(t, selection, dispatched.Input.ContentSelection)
+			require.Equal(t, goal, dispatched.Input.GoalSummary)
+			require.NotContains(t, executor.input.System, goal, "free text must not become the system's localization authority")
+			_, contract, found := strings.Cut(executor.input.System, "\nOutputContract=")
+			require.True(t, found, "the frozen language/fields need an explicit application-owned output contract on every decision")
+			var output struct {
+				TargetLanguage string   `json:"targetLanguage"`
+				Fields         []string `json:"fields"`
+			}
+			require.NoError(t, json.Unmarshal([]byte(contract), &output))
+			require.Equal(t, selection.TargetLanguage, output.TargetLanguage)
+			require.Equal(t, selection.Fields(), output.Fields)
 			if tc.calls == 2 {
 				require.Contains(t, executor.input.System, "This frozen run permits at most two model decisions.")
 				require.Contains(t, executor.input.System, "After the canonical read, return Kind=propose")
@@ -87,19 +101,22 @@ func TestContentTwoCallDecisionInstructionUsesFrozenBudget(t *testing.T) {
 				require.Contains(t, executor.input.System, "Do not request another tool after that read.")
 				require.Contains(t, executor.input.System, "required but unread source evidence")
 				require.Contains(t, executor.input.System, "Propose when the observed facts already support the selection.")
-				// A quote for the old unconstrained prompt cannot authorize the
-				// corrected two-call prompt, even with the same frozen input.
-				unconstrained := executor.input
-				unconstrained.System, unconstrained.InvocationID = contentTextSystem, ""
-				oldQuote, err := aicapability.QuoteText(unconstrained)
-				require.NoError(t, err)
-				input.UpperBound = agent.Quote{Tokens: oldQuote.MaximumTokens, CostMicros: oldQuote.MaximumCostMicros, Currency: oldQuote.Currency, Known: true, Reference: oldQuote.InputHash}
-				_, err = model.Decide(ctx, input)
-				require.ErrorIs(t, err, agent.ErrUnavailable)
-				require.Equal(t, 1, executor.calls, "a mismatched prompt quote must fail before dispatch")
 			} else {
-				require.Equal(t, contentTextSystem, executor.input.System, "wider frozen budgets keep the existing prompt")
+				require.NotContains(t, executor.input.System, "This frozen run permits at most two model decisions.")
 			}
+			// The unchanged selection and budget cannot make a quote for the
+			// previous system prompt authorize this corrected localization input.
+			old := executor.input
+			old.System, old.InvocationID = contentTextSystem, ""
+			if tc.calls == 2 {
+				old.System += "\n" + twoCallContentSystem
+			}
+			oldQuote, err := aicapability.QuoteText(old)
+			require.NoError(t, err)
+			input.UpperBound = agent.Quote{Tokens: oldQuote.MaximumTokens, CostMicros: oldQuote.MaximumCostMicros, Currency: oldQuote.Currency, Known: true, Reference: oldQuote.InputHash}
+			_, err = model.Decide(ctx, input)
+			require.ErrorIs(t, err, agent.ErrUnavailable)
+			require.Equal(t, 1, executor.calls, "a mismatched prompt quote must fail before dispatch")
 		})
 	}
 }
