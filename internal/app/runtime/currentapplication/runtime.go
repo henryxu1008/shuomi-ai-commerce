@@ -11,6 +11,7 @@ import (
 	listingapp "task-processor/internal/app/listing"
 	podapp "task-processor/internal/app/pod"
 	"task-processor/internal/app/productsourcing"
+	automaticfxruntime "task-processor/internal/app/runtime/automaticfx"
 	dataservicesruntime "task-processor/internal/app/runtime/dataservices"
 	fulfillmentruntime "task-processor/internal/app/runtime/fulfillment"
 	observationruntime "task-processor/internal/app/runtime/storeobservations"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -103,6 +105,7 @@ type ApplicationFeatures struct {
 	BrowserKernel                                        *BrowserKernelConfig
 	SharedModels                                         *d.SharedModelService
 	OfficialModelPrices                                  *d.PlatformPricesService
+	AutomaticFX                                          *automaticfxruntime.Control
 	CurrentTextPolicies                                  governed.RoutePolicyReader
 	CurrentImagePolicies                                 d.SharedCategoryReader
 	DataServicesDB                                       *gorm.DB
@@ -923,6 +926,8 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		}
 	}
 	var priceManager *d.PlatformPricesService
+	var fxWorker worker.Worker
+	var fxControl *automaticfxruntime.Control
 	var titlePilotRouteWriter *gorm.DB
 	var imageReader d.SharedCategoryReader
 	var textReader governed.RoutePolicyReader
@@ -954,6 +959,23 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			return e
 		}
 		sharedManager, priceManager = manage, prices
+		if fxConfig := cfg.ModelRoutePricing.AutomaticFX; fxConfig != nil {
+			if dependencies.DialDataServicesWorkflow == nil {
+				return errors.New("automatic FX Temporal lifecycle unavailable")
+			}
+			fxClient, closeFX, dialErr := dependencies.DialDataServicesWorkflow(startupContext, fxConfig.TemporalAddress, fxConfig.TemporalNamespace)
+			if closeFX != nil {
+				defer func() { resultErr = errors.Join(resultErr, closeFX()) }()
+			}
+			if dialErr != nil || fxClient == nil || closeFX == nil {
+				return errors.New("automatic FX Temporal unavailable")
+			}
+			fxWorker = worker.New(fxClient, automaticfxruntime.TaskQueue, worker.Options{})
+			fxControl = &automaticfxruntime.Control{Client: fxClient}
+			if err := automaticfxruntime.RegisterWorker(fxWorker, priceManager, fxConfig.Calendar, nil); err != nil {
+				return err
+			}
+		}
 		textReader = qualified.SharedTextReader{Service: read}
 		imageReader = read
 		var credentialWriter *gorm.DB
@@ -1041,7 +1063,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 		dataWorkerSlot = &dataWorker
 	}
 	if dependencies.NewApplicationWithFeatures != nil {
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelCredentials: channelSecrets, SHEINUSTrial: sheinTrial, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, OfficialModelPrices: priceManager, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelCredentials: channelSecrets, SHEINUSTrial: sheinTrial, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, OfficialModelPrices: priceManager, AutomaticFX: fxControl, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {
@@ -1095,6 +1117,13 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			_ = listener.Close()
 			return errors.New("start data services worker failed")
 		}
+	}
+	if fxWorker != nil {
+		if err := fxWorker.Start(); err != nil {
+			_ = listener.Close()
+			return errors.New("start automatic FX worker failed")
+		}
+		defer fxWorker.Stop()
 	}
 	if cfg.POD != nil {
 		if podWorker == nil {
