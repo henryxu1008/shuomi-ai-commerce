@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery,useQuery } from "@tanstack/react-query";
+import { ArrowUp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ConsolePage, ConsoleState, ConsoleToolbar } from "../console/console-page";
 import { ChatIntroduction, NewConversationIntroduction } from "./chat-introduction";
+import { ChatVoiceInput } from "./chat-voice-input";
 import { requestAIWorkbench, type AIScope, AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { WorkScopePicker, scopeLabel, scopeSelection } from "./work-scope-picker";
@@ -90,6 +92,8 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const scopeContext = projectId ? `project:${projectId}` : storeId ? `store:${storeId}` : "general";
   const draftKey = composeDraftKey(scope, scopeContext);
   const [compose, setCompose] = useState("");
+  const composeInput = useRef<HTMLTextAreaElement>(null);
+  const [voiceActive, setVoiceActive] = useState(false);
   const [draftReady, setDraftReady] = useState("");
   const [draftError, setDraftError] = useState("");
   const scopePreview = useQuery({queryKey:["ai-compose-scope",scope.userId,scope.organizationId,authorizationKey,scopeContext],enabled:mode === "new" && directCompose && !invalidContext,
@@ -129,12 +133,26 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     });
   }, [conversations.data, mode]);
   const matching = visible.filter(item => (item.Title || "未命名会话").toLocaleLowerCase().includes(titleFilter.trim().toLocaleLowerCase()));
+  function updateCompose(value: string) {
+    setCompose(value);
+    try { sessionStorage.setItem(draftKey, value); setDraftError(""); }
+    catch { setDraftError("当前浏览器无法保存草稿，请检查浏览器存储设置。"); }
+  }
+  function insertVoiceText(text: string) {
+    const input = composeInput.current;
+    if (!input) return;
+    const position = input.selectionEnd;
+    input.setRangeText(text, position, position, "end");
+    // Synchronize React's controlled-input value tracker with the native edit.
+    input.value = input.value;
+    updateCompose(input.value);
+  }
   async function create() {
     if (mode !== "new") {
       router.push(`/workbench/ai/chat/new${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
       return;
     }
-    if (directCompose && (pendingChecked !== createStorageKey || pendingError)) return;
+    if (directCompose && (pendingChecked !== createStorageKey || pendingError || voiceActive)) return;
     const text = createIntent?.draft ?? compose;
     if (directCompose && !legacyCreate && (invalidContext || draftReady !== draftKey || draftError || !text.trim() || new TextEncoder().encode(text).length > 8192 || createIntent && createIntent.context !== scopeContext)) return;
     const selected = directCompose ? resolvedScope : selectedScope;
@@ -167,7 +185,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
     {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
       mode === "new" ? <NewConversationIntroduction directCompose={directCompose} canUse={canUse} createAction={canUse ? directCompose ? <>
-        <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea rows={5} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>{const value=event.target.value;setCompose(value);try{sessionStorage.setItem(draftKey,value);setDraftError("");}catch{setDraftError("当前浏览器无法保存草稿，请检查浏览器存储设置。");}}} placeholder="例如：根据已有商品资料整理英文描述" /></label>
+        <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea ref={composeInput} rows={5} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>updateCompose(event.target.value)} placeholder="例如：根据已有商品资料整理英文描述" /></label>
         {projectId || storeId ? <p>工作背景：{createIntent ? "原请求待核对" : resolvedScope ? scopeLabel(resolvedScope) : "正在核对或无法读取"}</p> : null}
         {invalidContext ? <p role="status">当前工作背景无效，无法创建会话。</p> : null}
         {scopePreview.isError || scopePreview.isSuccess && !resolvedScope ? <p role="status">工作背景暂不可用。<Button variant="outline" onClick={()=>void scopePreview.refetch()}>重新读取</Button></p> : null}
@@ -175,7 +193,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
         {draftError ? <p role="status">{draftError}</p> : null}
         {pendingError ? <p role="status">{pendingError}</p> : null}
         {new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 ? <p role="status">需求不能超过 8192 字节。</p> : null}
-        <div className={styles.composeFooter}><p>准备提示：梳理已有商品资料、重点内容与目标</p><Button onClick={create} disabled={creating || pendingChecked !== createStorageKey || !!pendingError || (!legacyCreate && (invalidContext || draftReady !== draftKey || !!draftError || !(createIntent?.draft ?? compose).trim() || new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 || !!createIntent && createIntent.context !== scopeContext || !resolvedScope && !createIntent))}>{creating ? "正在创建…" : createIntent ? "核对原创建请求" : "创建会话"}</Button></div>
+        <div className={styles.composeFooter}><div className={styles.voiceControl}><ChatVoiceInput identity={JSON.stringify([scope.userId,scope.organizationId,scopeContext])} disabled={creating || !!createIntent || draftReady !== draftKey || invalidContext} onText={insertVoiceText} onActiveChange={setVoiceActive} /></div><Button size="icon" onClick={create} aria-label={creating ? "正在创建" : createIntent ? "核对原创建请求" : "开始对话"} title={creating ? "正在创建" : createIntent ? "核对原创建请求" : "开始对话"} disabled={voiceActive || creating || pendingChecked !== createStorageKey || !!pendingError || (!legacyCreate && (invalidContext || draftReady !== draftKey || !!draftError || !(createIntent?.draft ?? compose).trim() || new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 || !!createIntent && createIntent.context !== scopeContext || !resolvedScope && !createIntent))}><ArrowUp size={18} aria-hidden="true" /></Button></div>
       </> : <>{fixedScopeEnabled ? <WorkScopePicker key={scopeGeneration} scope={scope} authorizationKey={authorizationKey} disabled={creating || !!createIntent} selected={selectedScope} onSelect={setSelectedScope} /> : null}<Button onClick={create} disabled={creating || fixedScopeEnabled && !selectedScope && !createIntent}>{creating ? "正在创建…" : createIntent ? "核对原创建请求" : "新建会话"}</Button></> : <p>当前企业仅可查看已有会话。</p>} /> :
       <ConsoleToolbar><div className={styles.collectionToolbar}><label className={styles.searchField}>筛选已加载的会话标题<Input type="search" value={titleFilter} onChange={event => setTitleFilter(event.target.value)} placeholder="输入会话标题" aria-describedby="chat-filter-scope" /></label>
       {titleFilter ? <Button variant="ghost" onClick={() => setTitleFilter("")}>清空筛选</Button> : null}

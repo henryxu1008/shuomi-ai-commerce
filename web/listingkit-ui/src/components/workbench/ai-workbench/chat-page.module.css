@@ -27,6 +27,7 @@
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .composeFooter { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; padding: .75rem .5rem 0; border-top: 1px solid var(--border); }
 .composeFooter p { flex: 1 1 16rem; }
+.voiceControl { display: flex; align-items: center; gap: .75rem; flex: 1 1 16rem; min-width: 0; color: var(--muted-foreground); font-size: var(--body-text-size); }
 .composeNote { text-align: center; }
 .newMain { display: grid; gap: 1.5rem; min-width: 0; }
 .newHeading { text-align: left; }
