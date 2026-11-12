@@ -102,6 +102,64 @@ func (l realStartLost) ExecuteWorkflow(ctx context.Context, options client.Start
 	return nil, errors.New("synthetic lost coordinator acknowledgement")
 }
 
+type lostLateStep struct {
+	*temporalBootstrap
+	stage        string
+	initialCalls int
+}
+
+func (b *lostLateStep) unpause(ctx context.Context) error {
+	err := b.temporalBootstrap.unpause(ctx)
+	if err == nil && b.stage == "unpause" {
+		return errors.New("synthetic lost unpause acknowledgement")
+	}
+	return err
+}
+func (b *lostLateStep) initialTick(ctx context.Context) error {
+	b.initialCalls++
+	err := b.temporalBootstrap.initialTick(ctx)
+	if err == nil && b.stage == "signal" {
+		return errors.New("synthetic lost signal acknowledgement")
+	}
+	return err
+}
+func exerciseIsolatedLostLateAcknowledgement(t *testing.T, stage string) {
+	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
+		t.Skip("requires dedicated isolated Temporal")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := client.Dial(client.Options{HostPort: "127.0.0.1:7233", Namespace: "default"})
+	require.NoError(t, err)
+	defer c.Close()
+	require.NoError(t, PrepareFresh(ctx, c, "default"))
+	b := &lostLateStep{temporalBootstrap: &temporalBootstrap{client: c, namespace: "default"}, stage: stage}
+	require.ErrorIs(t, bootstrap(ctx, b), ErrControlUnknown)
+	first, err := c.DescribeWorkflowExecution(ctx, CoordinatorID, "")
+	require.NoError(t, err)
+	runID := first.WorkflowExecutionInfo.Execution.RunId
+	require.NotEmpty(t, runID)
+	if stage == "unpause" {
+		require.Zero(t, b.initialCalls)
+	} else {
+		require.Equal(t, 1, b.initialCalls)
+	}
+	require.Eventually(t, func() bool {
+		d, e := c.ScheduleClient().GetHandle(ctx, ScheduleID).Describe(ctx)
+		return e == nil && !d.Schedule.State.Paused
+	}, 5*time.Second, 100*time.Millisecond)
+	require.ErrorIs(t, BootstrapFresh(ctx, c, "default"), ErrControlUnknown)
+	second, err := c.DescribeWorkflowExecution(ctx, CoordinatorID, "")
+	require.NoError(t, err)
+	require.Equal(t, runID, second.WorkflowExecutionInfo.Execution.RunId)
+}
+func TestIsolatedLostUnpauseAcknowledgementDoesNotRestart(t *testing.T) {
+	exerciseIsolatedLostLateAcknowledgement(t, "unpause")
+}
+func TestIsolatedLostInitialSignalAcknowledgementDoesNotRestart(t *testing.T) {
+	exerciseIsolatedLostLateAcknowledgement(t, "signal")
+}
+
 func TestIsolatedLostCoordinatorAcknowledgementDoesNotUnpauseOrRestart(t *testing.T) {
 	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
 		t.Skip("requires dedicated isolated Temporal")
