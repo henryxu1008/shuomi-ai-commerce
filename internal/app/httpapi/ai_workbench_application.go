@@ -168,7 +168,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		for _, admitted := range a.config.AllowedOrganizationIDs {
 			allowed = allowed || admitted == org
 		}
-		if !allowed || policy.ShapeProfile().Validate() != nil || policy.Profile.PromptVersion != promptVersion ||
+		if !allowed || policy.ShapeProfile().ValidateShape() != nil || policy.Profile.PromptVersion != promptVersion ||
 			policy.Profile.OutputSchemaVersion != "ai-workbench-plan-decision-v1" || policy.Profile.Currency != a.config.Limits.Currency {
 			return nil, aiworkbench.ErrUnavailable
 		}
@@ -178,7 +178,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	if err != nil {
 		return nil, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: resolver.Resolve,
+	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: resolver.Resolve, BaseTransport: a.config.TextTransport,
 		Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 			identity, err := a.freshChatIdentity(ctx)
 			if err != nil || identity.TenantID != in.OrganizationID || identity.UserID != in.ActorID || identity.EffectiveMemberID != in.MemberID {

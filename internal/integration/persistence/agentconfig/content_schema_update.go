@@ -60,7 +60,8 @@ func verifyContentSchemaShape(tx *gorm.DB) (bool, error) {
 		return false, agentconfig.ErrInvalid
 	}
 	for _, check := range checks {
-		if check.Definition != expected[check.Name] || !check.Valid || check.Inherited {
+		want, ok := expected[check.Name]
+		if !ok || !pgschema.SchemaConstraintEqual(check.Definition, want) || !check.Valid || check.Inherited {
 			return false, fmt.Errorf("%w: content constraint %s differs from current contract", agentconfig.ErrInvalid, check.Name)
 		}
 	}
