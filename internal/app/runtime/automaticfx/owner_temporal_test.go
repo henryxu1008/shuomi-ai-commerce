@@ -1,27 +1,88 @@
-package routeconfigstore
+package automaticfxruntime_test
 
 import (
 	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"task-processor/internal/aicapability"
 	d "task-processor/internal/aicapability/routeconfig"
 	runtime "task-processor/internal/app/runtime/automaticfx"
 	fx "task-processor/internal/integration/aicapability/automaticfx"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
+	store "task-processor/internal/integration/persistence/routeconfig"
 )
+
+func fixture(t *testing.T) (*gorm.DB, *store.Store) {
+	t.Helper()
+	u, err := url.Parse(os.Getenv("ISSUE830_TEST_DSN"))
+	require.NoError(t, err)
+	require.Equal(t, "127.0.0.1", u.Hostname())
+	root, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	name := "fxiso_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	require.NoError(t, root.Exec("DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='product_agent_owner') THEN CREATE ROLE product_agent_owner NOLOGIN; END IF; END $$").Error)
+	require.NoError(t, root.Exec("CREATE DATABASE "+name+" OWNER product_agent_owner").Error)
+	u.Path = "/" + name
+	db, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		r, _ := db.DB()
+		_ = r.Close()
+		_ = root.Exec("DROP DATABASE " + name + " WITH (FORCE)").Error
+		r, _ = root.DB()
+		_ = r.Close()
+	})
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		if e := tx.Exec("SET LOCAL ROLE product_agent_owner").Error; e != nil {
+			return e
+		}
+		return channelstore.EnsureSchema(context.Background(), tx)
+	}))
+	require.NoError(t, store.InstallSchema(context.Background(), db))
+	repo, err := store.New(db)
+	require.NoError(t, err)
+	return db, repo
+}
+
+func syntheticFXClock() (time.Time, string, string, fx.Calendar) {
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	loc := time.FixedZone("Asia/Shanghai", 8*3600)
+	local := now.In(loc)
+	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	if local.Before(day.Add(9*time.Hour + 15*time.Minute)) {
+		day = day.AddDate(0, 0, -1)
+	}
+	previous := day.AddDate(0, 0, -1).Format("2006-01-02")
+	years := map[int]fx.YearCalendar{}
+	for _, y := range []int{day.Year(), local.Year(), day.AddDate(0, 0, 2).Year()} {
+		years[y] = fx.YearCalendar{Source: "https://www.chinamoney.com.cn/fixture", CoverageFrom: fmt.Sprintf("%d-01-01", y), CoverageUntil: fmt.Sprintf("%d-12-31", y), ExceptionsComplete: true}
+	}
+	y := years[day.Year()]
+	y.Open = []string{day.Format("2006-01-02")}
+	years[day.Year()] = y
+	if day.Format("2006-01-02") != local.Format("2006-01-02") {
+		y = years[local.Year()]
+		y.Closed = append(y.Closed, local.Format("2006-01-02"))
+		years[local.Year()] = y
+	}
+	return now, day.Format("2006-01-02"), previous, fx.Calendar{Years: years}
+}
 
 type isolatedTransport func(*http.Request) (*http.Response, error)
 
@@ -133,7 +194,7 @@ func TestAutomaticFXIsolatedTemporalScheduleAndOwner(t *testing.T) {
 		t.Skip("requires explicitly isolated Temporal and PostgreSQL")
 	}
 	require.Equal(t, "127.0.0.1:7233", addr)
-	_, repo := fixture(t)
+	db, repo := fixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	c, err := client.Dial(client.Options{HostPort: addr, Namespace: "default"})
@@ -148,16 +209,10 @@ func TestAutomaticFXIsolatedTemporalScheduleAndOwner(t *testing.T) {
 	seed := d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "fx-iso", Provider: "openai", Model: "synthetic-model", Channel: "synthetic-channel", Region: "global", ServiceType: "standard-sync", Currency: "USD", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750000, OutputText: 4500000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(48 * time.Hour)}}, FX: []d.PublishedFXRate{{Currency: "USD", RateDate: previous, CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(time.Hour)}}}
 	initial, err := owner.Publish(ctx, "synthetic-operator", "synthetic-seed", seed)
 	require.NoError(t, err)
-	started, release := make(chan struct{}), make(chan struct{})
-	var releaseOnce sync.Once
-	var commitCalls atomic.Int32
-	repo.commitTransaction = func(tx *gorm.DB) error {
-		if commitCalls.Add(1) == 1 {
-			close(started)
-			<-release
-		}
-		return tx.Commit().Error
-	}
+	lock := db.Begin()
+	require.NoError(t, lock.Error)
+	defer lock.Rollback()
+	require.NoError(t, lock.Exec("SELECT 1 FROM public.ai_route_config_current WHERE organization_id=? AND capability=? FOR UPDATE", d.PlatformPricesOrganization, d.PlatformPricesCapability).Error)
 	transport := isolatedTransport(func(req *http.Request) (*http.Response, error) {
 		body := fmt.Sprintf(`{"date":%q,"base":"USD","quote":"CNY","rate":6.7174}`, day)
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
@@ -172,14 +227,13 @@ func TestAutomaticFXIsolatedTemporalScheduleAndOwner(t *testing.T) {
 	require.NoError(t, runtime.RegisterWorker(w2, owner, cal, transport))
 	require.NoError(t, w2.Start())
 	defer w2.Stop()
-	defer releaseOnce.Do(func() { close(release) })
 	require.NoError(t, runtime.BootstrapFresh(ctx, c))
 	require.NoError(t, c.ScheduleClient().GetHandle(ctx, runtime.ScheduleID).Trigger(ctx, client.ScheduleTriggerOptions{}))
-	select {
-	case <-started:
-	case <-ctx.Done():
-		t.Fatal("synthetic publication did not reach commit")
-	}
+	require.Eventually(t, func() bool {
+		var n int64
+		e := db.Raw("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%ai_route_config_current%' AND pid<>pg_backend_pid()").Scan(&n).Error
+		return e == nil && n > 0
+	}, 10*time.Second, 50*time.Millisecond)
 	require.NoError(t, c.ScheduleClient().GetHandle(ctx, runtime.ScheduleID).Trigger(ctx, client.ScheduleTriggerOptions{}))
 	require.ErrorIs(t, runtime.RequestStop(ctx, c), runtime.ErrControlUnknown)
 	stopped, stopErr := runtime.CheckStop(ctx, c)
@@ -189,8 +243,7 @@ func TestAutomaticFXIsolatedTemporalScheduleAndOwner(t *testing.T) {
 	beforeRelease, err := owner.Current(ctx)
 	require.NoError(t, err)
 	require.Equal(t, initial.ID, beforeRelease.ID)
-	require.EqualValues(t, 1, commitCalls.Load())
-	releaseOnce.Do(func() { close(release) })
+	require.NoError(t, lock.Commit().Error)
 	require.Eventually(t, func() bool { current, e := owner.Current(ctx); return e == nil && current.ID != initial.ID }, 25*time.Second, 250*time.Millisecond)
 	current, err := owner.Current(ctx)
 	require.NoError(t, err)
@@ -199,7 +252,9 @@ func TestAutomaticFXIsolatedTemporalScheduleAndOwner(t *testing.T) {
 	require.EqualValues(t, 6717400, tariff.CNYMicrosPerCurrencyUnit)
 	require.Eventually(t, func() bool { stopped, e := runtime.CheckStop(ctx, c); return e == nil && stopped }, 10*time.Second, 100*time.Millisecond)
 	time.Sleep(500 * time.Millisecond)
-	require.EqualValues(t, 1, commitCalls.Load(), "queued tick cannot duplicate the publication")
+	rows, err := repo.History(ctx, d.PlatformPricesScope(), "", 50)
+	require.NoError(t, err)
+	require.Len(t, rows, 2, "queued tick cannot duplicate the publication")
 	require.Error(t, runtime.BootstrapFresh(ctx, c), "existing marker must block reinitialization")
 	require.NoError(t, c.TerminateWorkflow(ctx, runtime.CoordinatorID, "", "synthetic termination"))
 	stopped, stopErr = runtime.CheckStop(ctx, c)
