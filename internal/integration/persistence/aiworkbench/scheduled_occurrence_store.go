@@ -81,52 +81,12 @@ func (s *Store) ClaimScheduledOccurrence(ctx context.Context, scope aiworkbench.
 		if err != nil {
 			return err
 		}
-		// A prior slot always advances the calendar sequence even if it was
-		// skipped due to pause/overlap. Do not invent missing paid catch-ups.
-		var previous scheduledOccurrenceRow
-		err = tx.Where("organization_id = ? AND owner_user_id = ? AND plan_id = ?",
-			scope.OrganizationID, scope.ActorID, planID).
-			Order("scheduled_at_utc DESC").Take(&previous).Error
-		anchor := policy.CreatedAt
-		if plan.RuleStartAt != nil {
-			anchor = plan.RuleStartAt.UTC()
-		}
-		if err == nil {
-			if previous.ScheduledAtUTC.After(anchor) {
-				anchor = previous.ScheduledAtUTC
-			}
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return unavailable(err)
-		}
-		// Verify the supplied slot before recording any missed dates. Temporal
-		// may omit callbacks while paused/offline; the next valid date remains
-		// eligible, but omitted dates must never become delayed paid calls.
-		validSlot, err := policy.Rule.NextAfter(scheduledAtUTC.Add(-time.Nanosecond))
-		if err != nil || !validSlot.Equal(scheduledAtUTC) || !scheduledAtUTC.After(anchor) {
-			return aiworkbench.ErrInvalid
-		}
-		expected, err := policy.Rule.NextAfter(anchor)
+		catchupPending, err = recordScheduledMissingBefore(tx, plan, policy, scheduledAtUTC, now)
 		if err != nil {
-			return aiworkbench.ErrInvalid
+			return err
 		}
-		// Persist bounded batches so a long outage cannot hold a plan lock for
-		// an unbounded number of inserts. Retry the same callback to continue.
-		for missed := 0; expected.Before(scheduledAtUTC); missed++ {
-			if missed == 256 {
-				catchupPending = true
-				return nil
-			}
-			row := newScheduledOccurrence(plan, policy, expected, now, "SKIPPED")
-			if err := tx.Create(&row).Error; err != nil {
-				return unavailable(err)
-			}
-			expected, err = policy.Rule.NextAfter(expected)
-			if err != nil {
-				return aiworkbench.ErrInvalid
-			}
-		}
-		if !expected.Equal(scheduledAtUTC) {
-			return aiworkbench.ErrInvalid
+		if catchupPending {
+			return nil
 		}
 
 		state := "SKIPPED"

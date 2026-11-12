@@ -11,3 +11,7 @@ it.each([false,undefined] as const)("preserves the explicit message acceptance e
  const request=requestAIWorkbench({route:"message",method:"POST",path:"chat/conversations/id/messages",scope:{userId:"actor",organizationId:"org"},key:"key",body:{}});
  await expect(request).rejects.toMatchObject({code:"INVALID_REQUEST",messageAccepted});
 });
+it.each([["SCHEDULE_COMMAND_REJECTED",409,false],["INVALID_REQUEST",400,undefined],["DEPENDENCY_UNAVAILABLE",503,undefined]] as const)("only accepts durable schedule rejection proof for %s",async(code,status,commandAccepted)=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({code,commandAccepted:false},{status})));
+ await expect(requestAIWorkbench({route:"schedule-create",method:"POST",path:"schedules",scope:{userId:"actor",organizationId:"org"},body:{}})).rejects.toMatchObject({code,commandAccepted});
+});

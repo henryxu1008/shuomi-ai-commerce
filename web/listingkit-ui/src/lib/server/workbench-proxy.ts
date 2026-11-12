@@ -1208,13 +1208,17 @@ export async function buildWorkbenchBrowserResponse(
     const code = typeof payload.code === "string" ? payload.code : standard.success ? standard.data.code : "";
     const statuses: Record<string, number> = { INVALID_REQUEST: 400, FORBIDDEN: 403, NOT_FOUND: 404,
       IDEMPOTENCY_CONFLICT: 409, PROPOSAL_STALE: 409, REVISION_MISMATCH: 409,
-      CONVERSATION_ARCHIVED: 409, MANUAL_REVIEW_REQUIRED:409, TASK_OUTCOME_UNKNOWN: 503, DEPENDENCY_UNAVAILABLE: 503,
+      CONVERSATION_ARCHIVED: 409, MANUAL_REVIEW_REQUIRED:409,SCHEDULE_COMMAND_REJECTED:409, TASK_OUTCOME_UNKNOWN: 503, DEPENDENCY_UNAVAILABLE: 503,
       AUTHENTICATION_REQUIRED: 401, ORGANIZATION_SELECTION_REQUIRED: 409, ORGANIZATION_ACCESS_DENIED: 403,
       ORGANIZATION_ACCESS_REVOKED: 403, ORGANIZATION_SUSPENDED: 403, PERMISSION_DENIED: 403,
       ORGANIZATION_CONTEXT_CHANGED: 409, IDENTITY_CONTEXT_CHANGED: 409, OUTCOME_UNKNOWN: 503,
       INPUT_TOO_LARGE: 413, DEADLINE_EXCEEDED: 504 };
     if (statuses[code] !== upstream.status) return unavailable();
     let response = protocolError(upstream.status, code, "AI Workbench request could not be completed", options.requestId ?? "");
+    if(code==="SCHEDULE_COMMAND_REJECTED"){
+      if(!contract.startsWith("ai-schedule-")||contract==="ai-schedule-quote"||payload.commandAccepted!==false)return unavailable();
+      response=new NextResponse(JSON.stringify({...await response.json(),commandAccepted:false}),{status:response.status,headers:response.headers});
+    }
     if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)){
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }

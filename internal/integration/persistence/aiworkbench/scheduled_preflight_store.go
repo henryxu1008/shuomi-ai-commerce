@@ -15,7 +15,8 @@ func (s *Store) RecordScheduledPreflightReceipt(ctx context.Context, scope aiwor
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || slot.IsZero() || slot.After(now.Add(5*time.Second)) || (state != "SKIPPED" && state != "BLOCKED") || reason == "" {
 		return aiworkbench.ErrInvalid
 	}
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	pending := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row scheduledPlanRow
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND organization_id=? AND owner_user_id=?", id, scope.OrganizationID, scope.ActorID).Take(&row).Error; err != nil {
 			return missing(err)
@@ -32,12 +33,19 @@ func (s *Store) RecordScheduledPreflightReceipt(ctx context.Context, scope aiwor
 		if err != nil {
 			return err
 		}
-		expected, err := policy.Rule.NextAfter(slot.Add(-time.Nanosecond))
-		if err != nil || !expected.Equal(slot) || !slot.After(policy.CreatedAt) {
-			return aiworkbench.ErrInvalid
+		pending, err = recordScheduledMissingBefore(tx, row, policy, slot, now)
+		if err != nil {
+			return err
+		}
+		if pending {
+			return nil
 		}
 		receipt := newScheduledOccurrence(row, policy, slot, now, state)
 		receipt.Reason = reason
 		return unavailable(tx.Create(&receipt).Error)
 	})
+	if err == nil && pending {
+		return errors.Join(aiworkbench.ErrUnavailable, aiworkbench.ErrScheduleCatchupPending)
+	}
+	return err
 }

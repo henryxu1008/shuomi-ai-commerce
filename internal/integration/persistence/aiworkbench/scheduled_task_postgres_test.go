@@ -4,14 +4,17 @@ package aiworkbenchpersistence
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aiworkbench"
@@ -74,20 +77,20 @@ func TestScheduledTaskHasOneDurableSourceAndAtomicClaim(t *testing.T) {
 	require.NoError(t, db.Create(&other).Error)
 	require.Error(t, db.Model(&scheduledOccurrenceRow{}).Where("id=?", other.ID).Update("business_task_id", task.ID).Error, "a task cannot be attached to another occurrence under the same actor")
 	controlKey := uuid.NewString()
-	paused, err := store.ChangeScheduledPlan(ctx, scope, plan.ID, controlKey, 2, "pause", nil, now)
+	paused, err := store.ChangeScheduledPlan(ctx, scope, plan.ID, controlKey, 2, "pause", nil, "", now)
 	require.NoError(t, err)
 	require.Equal(t, "PAUSED", paused.State)
 	require.Equal(t, occurrence.ID, paused.ActiveOccurrenceID, "pause only controls future admission")
-	_, err = store.ChangeScheduledPlan(ctx, scope, plan.ID, controlKey, 2, "close", nil, now)
+	_, err = store.ChangeScheduledPlan(ctx, scope, plan.ID, controlKey, 2, "close", nil, "", now)
 	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
-	repeated, err := store.ChangeScheduledPlan(ctx, scope, plan.ID, controlKey, 2, "pause", nil, now)
+	repeated, err := store.ChangeScheduledPlan(ctx, scope, plan.ID, controlKey, 2, "pause", nil, "", now)
 	require.NoError(t, err)
 	require.Equal(t, paused.Revision, repeated.Revision)
-	_, err = store.ChangeScheduledPlan(ctx, scope, plan.ID, uuid.NewString(), 2, "resume", nil, now)
+	_, err = store.ChangeScheduledPlan(ctx, scope, plan.ID, uuid.NewString(), 2, "resume", nil, "", now)
 	require.ErrorIs(t, err, aiworkbench.ErrRevisionMismatch)
-	closed, err := store.ChangeScheduledPlan(ctx, scope, plan.ID, uuid.NewString(), paused.Revision, "close", nil, now)
+	closed, err := store.ChangeScheduledPlan(ctx, scope, plan.ID, uuid.NewString(), paused.Revision, "close", nil, "", now)
 	require.NoError(t, err)
-	_, err = store.ChangeScheduledPlan(ctx, scope, plan.ID, uuid.NewString(), closed.Revision, "resume", nil, now)
+	_, err = store.ChangeScheduledPlan(ctx, scope, plan.ID, uuid.NewString(), closed.Revision, "resume", nil, "", now)
 	require.ErrorIs(t, err, aiworkbench.ErrRevisionMismatch, "closed plans cannot resume")
 }
 
@@ -101,10 +104,10 @@ func TestScheduledPreflightReceiptCannotBecomePaidAfterResume(t *testing.T) {
 	p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member-a", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: now.Add(time.Minute)}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 2500}, CreatedAt: now}
 	require.NoError(t, store.CreateScheduledPlan(ctx, p))
 	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
-	paused, err := store.ChangeScheduledPlan(ctx, scope, p.ID, uuid.NewString(), 2, "pause", nil, now)
+	paused, err := store.ChangeScheduledPlan(ctx, scope, p.ID, uuid.NewString(), 2, "pause", nil, "", now)
 	require.NoError(t, err)
 	require.NoError(t, store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, p.Rule.AtUTC, p.Rule.AtUTC, "SKIPPED", "PLAN_NOT_ACTIVE"))
-	_, err = store.ChangeScheduledPlan(ctx, scope, p.ID, uuid.NewString(), paused.Revision, "resume", nil, now)
+	_, err = store.ChangeScheduledPlan(ctx, scope, p.ID, uuid.NewString(), paused.Revision, "resume", nil, "", now)
 	require.NoError(t, err)
 	receipt, replay, err := store.ClaimScheduledOccurrence(ctx, scope, p.ID, p.Rule.AtUTC, p.Rule.AtUTC)
 	require.NoError(t, err)
@@ -161,13 +164,13 @@ func TestScheduledControlReplayAfterEditedSlotExpires(t *testing.T) {
 	rule := p.Rule
 	rule.AtUTC = now.Add(2 * time.Hour)
 	key := uuid.NewString()
-	edited, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, now)
+	edited, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, "", now)
 	require.NoError(t, err)
-	replayed, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, now.Add(3*time.Hour))
+	replayed, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, "", now.Add(3*time.Hour))
 	require.NoError(t, err)
 	require.Equal(t, edited.Revision, replayed.Revision)
 	rule.AtUTC = now.Add(4 * time.Hour)
-	_, err = store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, now.Add(3*time.Hour))
+	_, err = store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, "", now.Add(3*time.Hour))
 	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
 }
 
@@ -205,4 +208,161 @@ func TestScheduledRecoveryFindsUnreceivedOneTimePlan(t *testing.T) {
 	var count int64
 	require.NoError(t, db.Model(&scheduledOccurrenceRow{}).Count(&count).Error)
 	require.EqualValues(t, 1, count)
+}
+
+func TestScheduledPreflightPreservesEarlierMissingHistory(t *testing.T) {
+	for _, gap := range []int{2, 300} {
+		t.Run(fmt.Sprint(gap), func(t *testing.T) {
+			db := workbenchDB(t)
+			store, err := New(db)
+			require.NoError(t, err)
+			ctx := context.Background()
+			now := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+			scope := aiworkbench.Scope{OrganizationID: "org", ActorID: "alice"}
+			p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 3, PerRunUpperBoundMicros: 1}, CreatedAt: now}
+			require.NoError(t, store.CreateScheduledPlan(ctx, p))
+			require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
+			slot := now.AddDate(0, 0, gap).Add(time.Hour)
+			err = store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, slot, slot, "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
+			if gap > 256 {
+				require.ErrorIs(t, err, aiworkbench.ErrScheduleCatchupPending)
+				_, err = store.ReadScheduledOccurrence(ctx, scope, p.ID, slot)
+				require.ErrorIs(t, err, aiworkbench.ErrNotFound)
+				err = store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, slot, slot, "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
+			}
+			require.NoError(t, err)
+			var count int64
+			require.NoError(t, db.Model(&scheduledOccurrenceRow{}).Count(&count).Error)
+			require.EqualValues(t, gap+1, count)
+			first, err := store.ReadScheduledOccurrence(ctx, scope, p.ID, now.Add(time.Hour))
+			require.NoError(t, err)
+			require.Equal(t, "SKIPPED", first.State)
+			last, err := store.ReadScheduledOccurrence(ctx, scope, p.ID, slot)
+			require.NoError(t, err)
+			require.Equal(t, "BLOCKED", last.State)
+			current, err := store.ReadScheduledPlan(ctx, scope, p.ID)
+			require.NoError(t, err)
+			require.Zero(t, current.ConsumedOccurrences)
+			require.Empty(t, current.ActiveOccurrenceID)
+		})
+	}
+}
+
+func TestScheduledRejectedCreateSerializesWithOriginalCommit(t *testing.T) {
+	for _, rejectFirst := range []bool{false, true} {
+		t.Run(fmt.Sprint(rejectFirst), func(t *testing.T) {
+			db := workbenchDB(t)
+			store, err := New(db)
+			require.NoError(t, err)
+			ctx := context.Background()
+			now := time.Now().UTC().Truncate(time.Second)
+			scope := aiworkbench.Scope{OrganizationID: "org", ActorID: "alice"}
+			key := uuid.NewString()
+			p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member", GoalSummary: "Localize", CreationFingerprint: strings.Repeat("a", 64), Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: now.Add(time.Hour)}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 1}, CreatedAt: now}
+			if !rejectFirst {
+				require.NoError(t, store.CreateScheduledPlanForCommand(ctx, p, key))
+			}
+			result, rejected, err := store.RejectScheduledCreate(ctx, scope, p.ID, key, p.CreationFingerprint)
+			require.NoError(t, err)
+			require.Equal(t, rejectFirst, rejected)
+			if rejectFirst {
+				require.Empty(t, result.ID)
+				require.ErrorIs(t, store.CreateScheduledPlanForCommand(ctx, p, key), aiworkbench.ErrScheduleCommandRejected)
+			} else {
+				require.Equal(t, p.ID, result.ID)
+				require.NoError(t, store.CreateScheduledPlanForCommand(ctx, p, key))
+			}
+			var count int64
+			require.NoError(t, db.Model(&scheduledPlanRow{}).Count(&count).Error)
+			if rejectFirst {
+				require.Zero(t, count)
+			} else {
+				require.EqualValues(t, 1, count)
+			}
+			invalidOutcome := "REJECTED"
+			if rejectFirst {
+				invalidOutcome = "COMPLETED"
+			}
+			require.Error(t, db.Model(&scheduledControlRow{}).Where("organization_id=? AND owner_user_id=? AND idempotency_key=?", scope.OrganizationID, scope.ActorID, key).Update("outcome", invalidOutcome).Error, "mixed successful/rejected receipt facts must be rejected by PostgreSQL")
+			_, _, err = store.RejectScheduledCreate(ctx, scope, p.ID, key, strings.Repeat("b", 64))
+			require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
+		})
+	}
+}
+
+func TestScheduledCreateAndRejectionUseSameCommitLock(t *testing.T) {
+	for _, rejectFirst := range []bool{false, true} {
+		t.Run(fmt.Sprint(rejectFirst), func(t *testing.T) {
+			db := workbenchDB(t)
+			store, err := New(db)
+			require.NoError(t, err)
+			ctx := context.Background()
+			now := time.Now().UTC().Truncate(time.Second)
+			scope := aiworkbench.Scope{OrganizationID: "org", ActorID: "alice"}
+			key := uuid.NewString()
+			p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member", GoalSummary: "Localize", CreationFingerprint: strings.Repeat("a", 64), Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: now.Add(time.Hour)}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 1}, CreatedAt: now}
+			held := db.Begin()
+			require.NoError(t, held.Error)
+			defer held.Rollback()
+			owner := &Store{db: held}
+			type result struct {
+				plan     aiworkbench.ScheduledPlan
+				rejected bool
+				err      error
+			}
+			done := make(chan result, 1)
+			if rejectFirst {
+				_, rejected, err := owner.RejectScheduledCreate(ctx, scope, p.ID, key, p.CreationFingerprint)
+				require.NoError(t, err)
+				require.True(t, rejected)
+				go func() { done <- result{err: store.CreateScheduledPlanForCommand(ctx, p, key)} }()
+			} else {
+				require.NoError(t, owner.CreateScheduledPlanForCommand(ctx, p, key))
+				go func() {
+					plan, rejected, err := store.RejectScheduledCreate(ctx, scope, p.ID, key, p.CreationFingerprint)
+					done <- result{plan: plan, rejected: rejected, err: err}
+				}()
+			}
+			select {
+			case early := <-done:
+				t.Fatalf("competing decision escaped commit lock: %+v", early)
+			case <-time.After(100 * time.Millisecond):
+			}
+			require.NoError(t, held.Commit().Error)
+			select {
+			case settled := <-done:
+				if rejectFirst {
+					require.ErrorIs(t, settled.err, aiworkbench.ErrScheduleCommandRejected)
+				} else {
+					require.NoError(t, settled.err)
+					require.False(t, settled.rejected)
+					require.Equal(t, p.ID, settled.plan.ID)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("commit decision did not recover")
+			}
+		})
+	}
+}
+
+func TestScheduledRejectionCommitLossDoesNotProveNonacceptance(t *testing.T) {
+	db := workbenchDB(t)
+	ctx := context.Background()
+	scope := aiworkbench.Scope{OrganizationID: "org", ActorID: "alice"}
+	id, key := uuid.NewString(), uuid.NewString()
+	var commits atomic.Int32
+	err := db.Connection(func(tx *gorm.DB) error {
+		conn, ok := tx.Statement.ConnPool.(*sql.Conn)
+		require.True(t, ok)
+		tx.Statement.ConnPool = lostCommitPool{conn: conn, commits: &commits}
+		_, rejected, err := (&Store{db: tx}).RejectScheduledCreate(ctx, scope, id, key, strings.Repeat("a", 64))
+		require.False(t, rejected, "lost commit acknowledgement cannot expose a definitive negative proof")
+		return err
+	})
+	require.Error(t, err)
+	require.EqualValues(t, 1, commits.Load())
+	store, err := New(db)
+	require.NoError(t, err)
+	_, _, err = store.ReadScheduledCreateReceipt(ctx, scope, id, key, strings.Repeat("a", 64))
+	require.ErrorIs(t, err, aiworkbench.ErrScheduleCommandRejected, "only a subsequent durable read may prove rejection")
 }

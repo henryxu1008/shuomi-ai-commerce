@@ -69,7 +69,10 @@ func (a *aiWorkbenchApplication) validateScheduledProposal(ctx context.Context, 
 		return "", aiworkbench.ErrProposalStale
 	}
 	configuration, err := a.agent.configuration.ReadAgent(ctx, agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}, p.AgentID)
-	if err != nil || configuration.Activation != "ENABLED" || configuration.Revision != p.ObservedAgentRevision || configuration.ActivationEpoch != p.ObservedActivationEpoch {
+	if err != nil {
+		return "", err
+	}
+	if configuration.Activation != "ENABLED" || configuration.Revision != p.ObservedAgentRevision || configuration.ActivationEpoch != p.ObservedActivationEpoch {
 		return "", aiworkbench.ErrProposalStale
 	}
 	mode, err := a.agent.configuration.ReadExecutionMode(ctx, agent.ExecutionIdentity{OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID}, a.agent.modeSubject())
@@ -84,10 +87,13 @@ func (a *aiWorkbenchApplication) validateScheduledProposal(ctx context.Context, 
 		return "", aiworkbench.ErrUnavailable
 	}
 	current, err := a.agent.selectTitleProfile(ctx, i.TenantID)
+	if err != nil {
+		return "", err
+	}
 	if !p.WorkbenchContextRef.Absent() {
 		current = agentconfig.ScopedContentProfile(current)
 	}
-	if err != nil || current.Validate() != nil || current != frozen {
+	if current.Validate() != nil || current != frozen {
 		return "", aiworkbench.ErrProposalStale
 	}
 	if !p.WorkbenchContextRef.Absent() {

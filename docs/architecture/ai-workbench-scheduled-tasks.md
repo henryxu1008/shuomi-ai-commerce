@@ -172,6 +172,7 @@ Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久�
 - B3 释放：精确 task/request/run 绑定、无 pending/UNKNOWN、原 invocation 已知计量及原积分服务同键结算成功后才签发释放摘要。Run/计量未知不会清占用或返还次数。恢复扫描使用有界游标，不用释放未决任务换取扫描前进。
 - B4 上限使用原 `OfficialModelTariff.ReserveTextMicropoints` × 原 `ModelCalls`，固定 `ai-micropoint-v1` 单位并检查总量溢出；UI 以 AI 积分展示，不混用参考 USD/CNY 的 `CostMicros`。
 - API、BFF 与 UI：`ai_workbench_scheduled_routes.go`、`lib/contracts/ai-workbench.ts`、`schedule-manager.tsx` / `schedule-form.tsx`。创建及控制保存原操作键；503/超时/响应丢失不视为未提交。控制回执重放先于未来时间／执行配置重验，当前访问授权不绕过；遗漏回调由原恢复循环只补记过窗 SKIPPED，不付费补跑或释放占用。修改只允许时间规则，保留原 scope、来源、配置、模式、次数与预算。
+- 未提交命令的确定拒绝仍归原 `scheduled_plan_commands` owner：成功 create 与 `COMPLETED` 回执同事务、同 scope/key 锁保存；`REJECTED` 回执与成功提交竞争同一锁，阻止旧在途请求稍后提交。成功回执保留非空 plan/scoped FK/正 revision，拒绝回执只能空 plan/零 revision，不能伪造业务计划。只在拒绝决定已提交或已持久读回后返回 `commandAccepted:false`，提交回执未知不发证明；权限和依赖读取失败不写确定拒绝。前端只凭准确否定证明退休已有 unknown。拒绝及成功领取共用同锁的漏槽推进，256 槽尚未补齐时不提前写较晚 BLOCKED。
 - 真 PostgreSQL 的原子失败回滚、来源约束、CAS、未决公平扫描、提交后最终读回 503、两种来源和 Chat 项目范围、撤权/停用及 UNKNOWN 测试已执行；真 Temporal dev server 已验证登记、暂停/恢复、准确 nominal slot 和旧 revision 不覆盖。模型 transport 为合成隔离 fixture，无真实 provider 调用。准确 HEAD、最终 CI 和独立增量复核记录在 PR。
 
 操作、显式 opt-in 配置及未开放能力见[定时任务运行说明](../operations/ai-workbench-scheduled-tasks.md)。本节不改变冻结架构准入，也不签发用户验收或实例部署结论。

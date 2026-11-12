@@ -14,7 +14,7 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  const permissions=["workbench.task.read","workbench.agent.use","workbench.collection.read","local_agent.write"];
  const selection={subject:{kind:"own_product",id,catalogVersion:"1",publicationId:id},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}};
  const plan={id,revision:"2",state:"ACTIVE",registrationState:"MATCHED",detailsAvailable:true,goalSummary:"完善已保存商品的英语描述",selection,rule:{frequency:"once",timeZone:"Asia/Shanghai",atUtc:at,hour:0,minute:0,weekday:0},maxOccurrences:"1",consumedOccurrences:"0",unit:"ai-micropoint-v1",perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"19200000",nextAt:at,createdAt:"2026-11-12T00:00:00Z"};
- let created=false,creates=0,firstKey="",firstBody="";
+ let created=false,creates=0,firstKey="",firstBody="",rejectNextControl=false;
  await page.route("**/*",async route=>{
   const req=route.request(),url=new URL(req.url());if(url.origin!==origin)return route.abort();
   if(!url.pathname.startsWith("/api/"))return route.continue();
@@ -30,7 +30,7 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   if(path==="/api/workbench/schedules")return json({plans:created?[plan]:[],next:""});
   if(path===`/api/workbench/schedules/${id}/occurrences`)return json({occurrences:[{id:taskID,scheduledAt:"2026-11-12T00:00:00Z",planRevision:"2",state:"UNKNOWN",reason:"ORIGINAL_RUN_OUTCOME_UNRESOLVED",businessTaskId:taskID}],next:""});
   if(path===`/api/workbench/schedules/${id}`&&req.method()==="GET")return json({plan});
-  if(path.endsWith("/pause")||path.endsWith("/resume")){expect(req.postDataJSON().expectedRevision).toBe(plan.revision);plan.revision=String(Number(plan.revision)+2);plan.state=path.endsWith("/pause")?"PAUSED":"ACTIVE";return json({plan,planSaved:true});}
+  if(path.endsWith("/pause")||path.endsWith("/resume")){if(rejectNextControl){rejectNextControl=false;return json({code:"SCHEDULE_COMMAND_REJECTED",commandAccepted:false},409)}expect(req.postDataJSON().expectedRevision).toBe(plan.revision);plan.revision=String(Number(plan.revision)+2);plan.state=path.endsWith("/pause")?"PAUSED":"ACTIVE";return json({plan,planSaved:true});}
   if(path===`/api/workbench/schedules/${id}`&&req.method()==="PATCH"){plan.rule=req.postDataJSON().rule;plan.nextAt=plan.rule.atUtc;plan.revision=String(Number(plan.revision)+2);return json({plan,planSaved:true});}
   return json({code:"NOT_FOUND"},404);
  });
@@ -50,4 +50,6 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
  const accessibility=await new AxeBuilder({page}).include(".console-page").withTags(["wcag2a","wcag2aa"]).analyze();expect(accessibility.violations.filter(v=>v.impact==="critical"||v.impact==="serious")).toEqual([]);
  await page.screenshot({path:info.outputPath("schedule-history-mobile.png"),fullPage:true});
+ rejectNextControl=true;await page.getByRole("button",{name:"暂停未来执行"}).click();
+ await expect(page.locator(".console-page").getByRole("alert")).toContainText("已核实原操作没有提交");await expect(page.getByRole("button",{name:"暂停未来执行"})).toBeEnabled();await expect(page.getByRole("heading",{name:"上次操作结果待核实"})).toHaveCount(0);
 });

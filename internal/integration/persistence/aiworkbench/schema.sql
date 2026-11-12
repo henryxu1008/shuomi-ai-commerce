@@ -311,9 +311,12 @@ CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_plan_commands (
     organization_id text NOT NULL,
     owner_user_id text NOT NULL,
     idempotency_key uuid NOT NULL,
-    plan_id uuid NOT NULL,
+    plan_id uuid,
     request_digest char(64) NOT NULL,
-    applied_revision bigint NOT NULL CHECK (applied_revision > 0),
+    outcome text NOT NULL DEFAULT 'COMPLETED' CHECK (outcome IN ('COMPLETED','REJECTED')),
+    applied_revision bigint NOT NULL,
+    CHECK ((outcome='COMPLETED' AND plan_id IS NOT NULL AND applied_revision>0)
+      OR (outcome='REJECTED' AND plan_id IS NULL AND applied_revision=0)),
     created_at timestamptz NOT NULL,
     PRIMARY KEY (organization_id, owner_user_id, idempotency_key),
     FOREIGN KEY (plan_id, organization_id, owner_user_id)

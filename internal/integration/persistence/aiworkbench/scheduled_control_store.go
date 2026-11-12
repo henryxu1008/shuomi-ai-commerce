@@ -14,7 +14,8 @@ type scheduledControlRow struct {
 	OrganizationID  string
 	OwnerUserID     string
 	IdempotencyKey  string
-	PlanID          string
+	PlanID          string `gorm:"default:null"`
+	Outcome         string `gorm:"default:COMPLETED"`
 	RequestDigest   string
 	AppliedRevision int64
 	CreatedAt       time.Time
@@ -22,45 +23,34 @@ type scheduledControlRow struct {
 
 func (scheduledControlRow) TableName() string { return "ai_workbench.scheduled_plan_commands" }
 
-func scheduledControlDigest(id string, expected int64, action string, rule *aiworkbench.ScheduleRule) string {
+func scheduledControlDigest(id string, expected int64, action string, rule *aiworkbench.ScheduleRule, confirmation string) string {
 	return digest(struct {
-		Plan     string
-		Revision int64
-		Action   string
-		Rule     *aiworkbench.ScheduleRule
-	}{id, expected, action, rule})
+		Plan         string
+		Revision     int64
+		Action       string
+		Rule         *aiworkbench.ScheduleRule
+		Confirmation string
+	}{id, expected, action, rule, confirmation})
 }
 
 // ReadScheduledControlReceipt is a scoped read of an already committed command.
 // Current access authorization belongs to the caller; execution readiness is
 // deliberately not repeated for an immutable durable result.
-func (s *Store) ReadScheduledControlReceipt(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule) (aiworkbench.ScheduledPlan, bool, error) {
+func (s *Store) ReadScheduledControlReceipt(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule, confirmation string) (aiworkbench.ScheduledPlan, bool, error) {
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || !validKey(key) || expected < 1 {
 		return aiworkbench.ScheduledPlan{}, false, aiworkbench.ErrInvalid
 	}
-	var receipt scheduledControlRow
-	err := s.db.WithContext(ctx).Where("organization_id=? AND owner_user_id=? AND idempotency_key=?", scope.OrganizationID, scope.ActorID, key).Take(&receipt).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return aiworkbench.ScheduledPlan{}, false, nil
-	}
-	if err != nil {
-		return aiworkbench.ScheduledPlan{}, false, unavailable(err)
-	}
-	if receipt.PlanID != id || receipt.RequestDigest != scheduledControlDigest(id, expected, action, rule) {
-		return aiworkbench.ScheduledPlan{}, false, aiworkbench.ErrIdempotencyConflict
-	}
-	plan, err := s.ReadScheduledPlan(ctx, scope, id)
-	return plan, err == nil, err
+	return s.readScheduledCommand(ctx, scope, id, key, scheduledControlDigest(id, expected, action, rule, confirmation))
 }
 
 // ChangeScheduledPlan records a bounded control receipt in the same transaction
 // as the new desired configuration. Temporal is synchronized after commit.
-func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule, now time.Time) (aiworkbench.ScheduledPlan, error) {
+func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule, confirmation string, now time.Time) (aiworkbench.ScheduledPlan, error) {
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || !validKey(key) || expected < 1 || now.IsZero() ||
 		(action != "pause" && action != "resume" && action != "close" && action != "edit") || (action == "edit") != (rule != nil) {
 		return aiworkbench.ScheduledPlan{}, aiworkbench.ErrInvalid
 	}
-	fingerprint := scheduledControlDigest(id, expected, action, rule)
+	fingerprint := scheduledControlDigest(id, expected, action, rule, confirmation)
 	var result aiworkbench.ScheduledPlan
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := s.lockTaskKey(tx, scope, key); err != nil {
@@ -73,7 +63,13 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		var prior scheduledControlRow
 		err := tx.Where("organization_id=? AND owner_user_id=? AND idempotency_key=?", scope.OrganizationID, scope.ActorID, key).Take(&prior).Error
 		if err == nil {
-			if prior.PlanID != id || prior.RequestDigest != fingerprint {
+			if prior.RequestDigest != fingerprint {
+				return aiworkbench.ErrIdempotencyConflict
+			}
+			if prior.Outcome == "REJECTED" {
+				return aiworkbench.ErrScheduleCommandRejected
+			}
+			if prior.PlanID != id {
 				return aiworkbench.ErrIdempotencyConflict
 			}
 			result, err = scheduledPlanRecord(row)

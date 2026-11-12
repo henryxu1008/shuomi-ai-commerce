@@ -191,6 +191,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		{"business_tasks", "source_kind, scheduled_occurrence_id"},
 		{"scheduled_plans", "execution_spec, rule_start_at, registration_state, creation_fingerprint, budget_unit"},
 		{"scheduled_occurrences", "reason, reconciliation_digest"},
+		{"scheduled_plan_commands", "outcome"},
 	} {
 		rows, err := db.WithContext(ctx).Table("ai_workbench." + projection.table).Select(projection.columns).Limit(0).Rows()
 		if err != nil {

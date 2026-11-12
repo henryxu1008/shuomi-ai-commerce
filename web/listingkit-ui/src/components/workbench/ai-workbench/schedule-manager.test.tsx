@@ -64,3 +64,12 @@ it("retains an earlier unknown create through a later permission failure",async(
  await waitFor(()=>expect(screen.getByRole("button",{name:"核实原操作"})).toBeEnabled());expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual(command);
  await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await screen.findByRole("button",{name:"暂停未来执行"});expect(tries).toBe(2);expect(sessionStorage.getItem(storageKey)).toBeNull();
 });
+it("retires an unknown command only after an authoritative durable rejection",async()=>{
+ const body={proposalId:id,rule:{frequency:"once",timeZone:"UTC",atUtc:"2020-11-20T00:00:00Z",hour:0,minute:0,weekday:0},maxOccurrences:"1",confirmation:"a".repeat(64)};
+ const command={action:"create",path:"schedules",key:id,body};sessionStorage.setItem(storageKey,JSON.stringify(command));
+ const current=request.getMockImplementation()!;let tries=0;
+ request.mockImplementation(async input=>{if(input.route==="schedule-create")throw ++tries===1?new AIWorkbenchError("INVALID_REQUEST"):new AIWorkbenchError("SCHEDULE_COMMAND_REJECTED",undefined,undefined,false);return current(input)});
+ mount();await userEvent.click(await screen.findByRole("button",{name:"核实原操作"}));await waitFor(()=>expect(screen.getByRole("button",{name:"核实原操作"})).toBeEnabled());expect(sessionStorage.getItem(storageKey)).not.toBeNull();
+ await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await waitFor(()=>expect(screen.queryByRole("heading",{name:"上次操作结果待核实"})).toBeNull());
+ expect(sessionStorage.getItem(storageKey)).toBeNull();expect(screen.getByRole("button",{name:"创建定时任务"})).toBeEnabled();
+});

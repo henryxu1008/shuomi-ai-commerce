@@ -381,7 +381,10 @@ func (p *workbenchPlanner) buildProposal(ctx context.Context, c aiworkbench.Plan
 	}
 	scope := agent.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}
 	configuration, err := p.agent.configuration.ReadAgent(ctx, scope, p.agent.definition.ID)
-	if err != nil || configuration.Activation != "ENABLED" {
+	if err != nil {
+		return aiworkbench.ExecutionProposal{}, err
+	}
+	if configuration.Activation != "ENABLED" {
 		return aiworkbench.ExecutionProposal{}, agentconfig.ErrNotEnabled
 	}
 	profile, err := p.agent.selectTitleProfile(ctx, i.TenantID)

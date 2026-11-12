@@ -6,6 +6,12 @@ const scope = { cookie: "shuomi_effective_organization=org-b", "X-Expected-Organ
 
 describe("AI Workbench BFF boundary", () => {
   beforeEach(() => vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", "http://localhost"));
+  it("forwards only the durable scheduled rejection proof and never fabricates it",async()=>{
+    const accepted=await buildWorkbenchBrowserResponse(Response.json({code:"SCHEDULE_COMMAND_REJECTED",commandAccepted:false,secret:"hidden"},{status:409}),"ai-schedule-create",undefined,{sourceMutation:true});
+    expect(accepted.status).toBe(409);expect(await accepted.json()).toMatchObject({code:"SCHEDULE_COMMAND_REJECTED",commandAccepted:false});
+    const unknown=await buildWorkbenchBrowserResponse(Response.json({code:"SCHEDULE_COMMAND_REJECTED"},{status:409}),"ai-schedule-create",undefined,{sourceMutation:true});
+    expect(unknown.status).toBe(503);expect(await unknown.json()).not.toHaveProperty("commandAccepted");
+  });
   it("preserves scheduled control CAS and retry identity, and rejects forged owner fields",async()=>{
     const make=(body:object)=>new Request(`http://localhost/api/workbench/schedules/${id}/pause`,{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify(body)});
     const result=await buildWorkbenchUpstreamRequest(make({expectedRevision:"9007199254740993"}),["schedules",id,"pause"],"server-token","user-a");

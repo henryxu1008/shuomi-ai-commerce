@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"net/http/httptest"
 	"strings"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
 	"testing"
 	"time"
@@ -100,6 +101,34 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	call("POST", path+"/resume", resumeKey, control, 200)
 	call("POST", path+"/resume", uuid.NewString(), control, 409)
 	w.agent.config.Limits = limits
+	profileReader := w.agent.selectTitleProfile
+	failAgentRead := false
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("scheduled-agent-read-outage", func(tx *gorm.DB) {
+		if failAgentRead && tx.Statement.Table == "organization_agents" {
+			_ = tx.AddError(errors.New("synthetic agent configuration read unavailable"))
+		}
+	}))
+	t.Cleanup(func() { _ = db.Callback().Query().Remove("scheduled-agent-read-outage") })
+	for _, dependency := range []string{"agent", "profile"} {
+		input := map[string]any{"scheduleId": saved.Plan.ID, "maxOccurrences": "1", "rule": map[string]any{"frequency": "once", "timeZone": "UTC", "atUtc": time.Now().UTC().Truncate(time.Second).Add(5 * time.Minute)}}
+		require.NoError(t, json.Unmarshal(call("POST", workbenchScheduleBase+"/quote", "", input, 200), &quote))
+		command := map[string]any{"expectedRevision": saved.Plan.Revision, "rule": input["rule"], "confirmation": quote.Confirmation}
+		key := uuid.NewString()
+		if dependency == "agent" {
+			failAgentRead = true
+		} else {
+			w.agent.selectTitleProfile = func(context.Context, string) (aicapability.ModelProfile, error) {
+				return aicapability.ModelProfile{}, errors.New("synthetic profile read unavailable")
+			}
+		}
+		call("PATCH", path, key, command, 503)
+		failAgentRead = false
+		w.agent.selectTitleProfile = profileReader
+		var receipts int64
+		require.NoError(t, db.Table("ai_workbench.scheduled_plan_commands").Where("idempotency_key=?", key).Count(&receipts).Error)
+		require.Zero(t, receipts, "dependency failure must not retire the command")
+		require.NoError(t, json.Unmarshal(call("PATCH", path, key, command, 200), &saved))
+	}
 	editAt := time.Now().UTC().Truncate(time.Second).Add(3 * time.Second)
 	editInput := map[string]any{"scheduleId": saved.Plan.ID, "rule": map[string]any{"frequency": "once", "timeZone": "Asia/Shanghai", "atUtc": editAt}, "maxOccurrences": "1"}
 	require.NoError(t, json.Unmarshal(call("POST", workbenchScheduleBase+"/quote", "", editInput, 200), &quote))
@@ -109,7 +138,7 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	w.agent.config.Limits.Steps++
 	time.Sleep(time.Until(editAt.Add(50 * time.Millisecond)))
 	call("PATCH", path, editKey, edit, 200)
-	call("PATCH", path, uuid.NewString(), edit, 400)
+	call("PATCH", path, uuid.NewString(), edit, 409)
 	edit["confirmation"] = strings.Repeat("b", 64)
 	call("PATCH", path, editKey, edit, 409)
 	w.agent.config.Limits = limits
@@ -162,4 +191,22 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	var tasksAfter int64
 	require.NoError(t, db.Table("ai_workbench.business_tasks").Count(&tasksAfter).Error)
 	require.Equal(t, tasksBefore, tasksAfter, "expiry recovery must never dispatch paid work")
+
+	// A request that never committed can be safely retired only after the
+	// durable negative receipt also fences its older in-flight attempt.
+	invalidInput := map[string]any{"selection": selection, "goalSummary": "Localize product", "maxOccurrences": "1", "confirmation": strings.Repeat("a", 64), "rule": map[string]any{"frequency": "once", "timeZone": "UTC", "atUtc": time.Now().UTC().Add(-time.Minute)}}
+	rejectedKey := uuid.NewString()
+	var rejected struct {
+		Code            string
+		CommandAccepted *bool
+	}
+	require.NoError(t, json.Unmarshal(call("POST", workbenchScheduleBase, rejectedKey, invalidInput, 409), &rejected))
+	require.Equal(t, "SCHEDULE_COMMAND_REJECTED", rejected.Code)
+	require.NotNil(t, rejected.CommandAccepted)
+	require.False(t, *rejected.CommandAccepted)
+	call("POST", workbenchScheduleBase, rejectedKey, invalidInput, 409)
+	invalidInput["goalSummary"] = "Changed intent"
+	raw := call("POST", workbenchScheduleBase, rejectedKey, invalidInput, 409)
+	require.Contains(t, string(raw), "IDEMPOTENCY_CONFLICT")
+	require.NotContains(t, string(raw), "commandAccepted")
 }

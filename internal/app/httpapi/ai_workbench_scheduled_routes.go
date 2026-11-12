@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"net/http"
 	"strconv"
+	"task-processor/internal/agent"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -138,13 +139,20 @@ func (a *aiWorkbenchApplication) createScheduled(c *gin.Context, ctx context.Con
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	if saved, found, err := a.store.ReadScheduledCreateReceipt(ctx, owner, id, key, fingerprint); err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	} else if found {
+		a.replyScheduledSave(c, ctx, saved)
+		return
+	}
 	quote, p, budget, err := a.quoteScheduled(ctx, owner, input)
 	if err != nil {
-		writeAIWorkbenchError(c, err)
+		a.rejectScheduledCreate(c, ctx, owner, id, key, fingerprint, err)
 		return
 	}
 	if input.Confirmation == "" || input.Confirmation != quote.Confirmation {
-		writeAIWorkbenchError(c, aiworkbench.ErrRevisionMismatch)
+		a.rejectScheduledCreate(c, ctx, owner, id, key, fingerprint, aiworkbench.ErrRevisionMismatch)
 		return
 	}
 	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
@@ -159,10 +167,14 @@ func (a *aiWorkbenchApplication) createScheduled(c *gin.Context, ctx context.Con
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	draft := aiworkbench.ScheduledPlanDraft{ID: id, Scope: owner, MemberID: i.EffectiveMemberID, Selection: *p.Selection(), GoalSummary: p.GoalSummary, Rule: input.Rule, Budget: budget, CreatedAt: now, RuleStartAt: now, ExecutionSpec: spec, CreationFingerprint: fingerprint}
-	createErr := a.store.CreateScheduledPlan(ctx, draft)
+	createErr := a.store.CreateScheduledPlanForCommand(ctx, draft, key)
 	plan, err = a.store.ReadScheduledPlan(ctx, owner, id)
 	if err != nil {
-		writeAIWorkbenchError(c, errors.Join(createErr, err))
+		if createErr != nil && scheduledCommandDefinitivelyInvalid(createErr) {
+			a.rejectScheduledCreate(c, ctx, owner, id, key, fingerprint, createErr)
+		} else {
+			writeAIWorkbenchError(c, errors.Join(createErr, err))
+		}
 		return
 	}
 	if plan.CreationFingerprint != fingerprint {
@@ -204,7 +216,7 @@ func (a *aiWorkbenchApplication) changeScheduled(c *gin.Context, ctx context.Con
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 		return
 	}
-	if saved, found, err := a.store.ReadScheduledControlReceipt(ctx, owner, plan.ID, key, revision, action, body.Rule); err != nil {
+	if saved, found, err := a.store.ReadScheduledControlReceipt(ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation); err != nil {
 		writeAIWorkbenchError(c, err)
 		return
 	} else if found {
@@ -229,27 +241,59 @@ func (a *aiWorkbenchApplication) changeScheduled(c *gin.Context, ctx context.Con
 			return
 		}
 		if _, err = a.validateScheduledProposal(ctx, p); err != nil {
-			writeAIWorkbenchError(c, err)
+			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
 			return
 		}
 	}
 	if action == "edit" {
 		quote, _, _, err := a.quoteScheduled(ctx, owner, scheduledInput{ScheduleID: plan.ID, Rule: *body.Rule, MaxOccurrences: strconv.FormatUint(plan.Budget.MaxOccurrences, 10)})
 		if err != nil {
-			writeAIWorkbenchError(c, err)
+			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
 			return
 		}
 		if body.Confirmation != quote.Confirmation {
-			writeAIWorkbenchError(c, aiworkbench.ErrRevisionMismatch)
+			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, aiworkbench.ErrRevisionMismatch)
 			return
 		}
 	}
-	changed, err := a.store.ChangeScheduledPlan(ctx, owner, plan.ID, key, revision, action, body.Rule, time.Now().UTC())
+	changed, err := a.store.ChangeScheduledPlan(ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, time.Now().UTC())
+	if err != nil {
+		a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
+		return
+	}
+	a.replyScheduledSave(c, ctx, changed)
+}
+
+func scheduledCommandDefinitivelyInvalid(err error) bool {
+	return errors.Is(err, aiworkbench.ErrInvalid) || errors.Is(err, aiworkbench.ErrInvalidSchedule) || errors.Is(err, aiworkbench.ErrProposalStale) || errors.Is(err, aiworkbench.ErrRevisionMismatch) || errors.Is(err, aiworkbench.ErrConversationArchived) || errors.Is(err, agent.ErrManualReviewRequired)
+}
+
+func (a *aiWorkbenchApplication) rejectScheduledCreate(c *gin.Context, ctx context.Context, owner aiworkbench.Scope, id, key, fingerprint string, cause error) {
+	if !scheduledCommandDefinitivelyInvalid(cause) {
+		writeAIWorkbenchError(c, cause)
+		return
+	}
+	plan, rejected, err := a.store.RejectScheduledCreate(ctx, owner, id, key, fingerprint)
+	a.replyScheduledDecision(c, ctx, plan, rejected, err)
+}
+func (a *aiWorkbenchApplication) rejectScheduledControl(c *gin.Context, ctx context.Context, owner aiworkbench.Scope, id, key string, revision int64, action string, rule *aiworkbench.ScheduleRule, confirmation string, cause error) {
+	if !scheduledCommandDefinitivelyInvalid(cause) {
+		writeAIWorkbenchError(c, cause)
+		return
+	}
+	plan, rejected, err := a.store.RejectScheduledControl(ctx, owner, id, key, revision, action, rule, confirmation)
+	a.replyScheduledDecision(c, ctx, plan, rejected, err)
+}
+func (a *aiWorkbenchApplication) replyScheduledDecision(c *gin.Context, ctx context.Context, plan aiworkbench.ScheduledPlan, rejected bool, err error) {
 	if err != nil {
 		writeAIWorkbenchError(c, err)
 		return
 	}
-	a.replyScheduledSave(c, ctx, changed)
+	if rejected {
+		writeAIWorkbenchError(c, aiworkbench.ErrScheduleCommandRejected)
+		return
+	}
+	a.replyScheduledSave(c, ctx, plan)
 }
 
 func (a *aiWorkbenchApplication) listScheduled(c *gin.Context, ctx context.Context, owner aiworkbench.Scope) {

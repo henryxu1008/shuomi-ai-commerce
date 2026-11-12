@@ -11,14 +11,15 @@ import (
 )
 
 var (
-	ErrInvalid              = errors.New("invalid workbench request")
-	ErrNotFound             = errors.New("workbench item not found")
-	ErrUnavailable          = errors.New("workbench unavailable")
-	ErrIdempotencyConflict  = errors.New("workbench idempotency conflict")
-	ErrConversationArchived = errors.New("conversation archived")
-	ErrRevisionMismatch     = errors.New("conversation revision mismatch")
-	ErrProposalStale        = errors.New("workbench proposal stale")
-	ErrTaskOutcomeUnknown   = errors.New("workbench task action outcome unknown")
+	ErrInvalid                 = errors.New("invalid workbench request")
+	ErrNotFound                = errors.New("workbench item not found")
+	ErrUnavailable             = errors.New("workbench unavailable")
+	ErrIdempotencyConflict     = errors.New("workbench idempotency conflict")
+	ErrConversationArchived    = errors.New("conversation archived")
+	ErrRevisionMismatch        = errors.New("conversation revision mismatch")
+	ErrProposalStale           = errors.New("workbench proposal stale")
+	ErrTaskOutcomeUnknown      = errors.New("workbench task action outcome unknown")
+	ErrScheduleCommandRejected = errors.New("scheduled command durably rejected")
 )
 
 type Scope struct {
