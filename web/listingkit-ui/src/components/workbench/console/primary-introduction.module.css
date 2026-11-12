@@ -1,4 +1,5 @@
 .page.page { --intro-background: var(--background); }
+.skills.skills { --intro-blue:var(--primary); --intro-purple:var(--primary); --intro-green:var(--primary); --intro-blue-fill:var(--secondary); --intro-purple-fill:var(--secondary); }
 .orders.orders { gap:14px; padding:12px 32px 24px; }
 .orders > header { position:relative; padding:17px 185px 17px 20px; min-height:108px; border:1px solid var(--intro-border); border-radius:var(--radius); background:var(--intro-surface); }
 .orders > header > p:first-child { color:var(--intro-muted); font-size:var(--label-text-size); font-weight:400; }
@@ -87,7 +88,7 @@
 .skills > header > p:first-child { font-size: var(--label-text-size); line-height:20px; }
 .skills > header > p:last-child { font-size: var(--body-text-size); line-height:24px; }
 .skills .entries { grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); }
-.skills .entries > a { position:relative; min-height:178px; padding:26px 23px 18px; gap:16px; }
+.skills .entries > a { position:relative; min-height:178px; padding:24px 24px 20px; gap:16px; }
 .skills .entryHeading { gap:10px; min-height:28px; padding-right:118px; }
 .skills .entryHeading h2 { font-size: var(--card-title-size); line-height:28px; }
 .skills .entryNumber { min-width:26px; padding:0; color:var(--tone); font-size: var(--body-text-size); line-height:28px; font-weight:700; }

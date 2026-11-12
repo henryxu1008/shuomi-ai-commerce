@@ -19,7 +19,7 @@ export function AIWorkbenchEntry(props: Omit<AIWorkbenchEntryCapabilities, "aiWo
     { title: "硕米Chat", subtitle: "统一的AI业务入口", description: "管理真实会话、历史和收藏。模型、计价和预算配置就绪后，才可发送AI业务需求。", audience: "适用：选品分析、市场调研、店铺诊断和内容生成。", example: "分析Amazon美国站宠物市场，推荐5个适合现有供应链的商品。", href: "/workbench/ai/chat", available: context.aiWorkbenchAvailable, tone: "teal" },
     { title: "任务中心", subtitle: "复杂业务的执行管理", description: "追踪业务执行进度，在需要人工确认的节点查看并处理当前已开放任务。", audience: "适用：批量优化、竞品分析和资料处理。", example: "将商品优化拆成关键词分析、内容生成和人工确认。", href: taskHref, available: tasks, tone: "blue" },
     { title: "项目中心", subtitle: "长期业务的协同空间", description: "围绕店铺、品牌或创业计划长期保存资料、知识、任务和成果，让AI持续理解业务背景。", audience: "适用：店铺增长、品牌孵化和新市场拓展。", example: "建立Amazon美国站增长项目，持续跟踪选品、运营和利润目标。", href: "/workbench/ai/projects", available: context.projectCenterAvailable, tone: "purple" },
-    { title: "我的报告", subtitle: "AI成果的沉淀与复用", description: "集中保存市场分析、商品报告、店铺诊断和运营方案，并支持查阅、收藏与复用。", audience: "适用：成果归档、经营复盘和团队共享。", example: "打开已保存的宠物用品市场报告，复盘机会商品。", href: "/workbench/ai/reports", available: props.reportCenterAvailable, tone: "pink" },
+    { title: "我的报告", subtitle: "已保存成果的查阅与复用", description: "查看当前已开放来源的历史报告，收藏重要结果并下载。", audience: "适用：保存结果和回顾原始资料。", example: "打开已保存的商品资料，查看保存时的内容。", href: "/workbench/ai/reports", available: props.reportCenterAvailable, tone: "pink" },
   ];
   return <section className={styles.page} aria-labelledby="ai-workbench-home">
     <p className={styles.eyebrow}>AI工作台</p>
