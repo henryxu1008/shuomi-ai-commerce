@@ -15,13 +15,14 @@
 .stepHeading { display: flex; align-items: center; gap: .5rem; }
 .step h3, .newGuide h3, .createPanel h3 { font-size: var(--body-text-size); font-weight: 600; }
 .step p { margin-top: .5rem; }
-.newWorkspace { max-width: 60rem; padding-block: 1rem; }
+.newWorkspace { max-width: 60rem; margin-inline: auto; padding-block: 1rem; }
 .newMain { display: grid; gap: 1.5rem; min-width: 0; }
 .newHeading { text-align: left; }
 .newHeading h2 { font-size: var(--page-title-size); font-weight: 600; }
 .newHeading p { margin-top: .75rem; }
 .createPanel { padding: 1.5rem; display: grid; gap: 1rem; }
 .createAction { display: grid; gap: 1.25rem; justify-items: start; }
+.createAction > label { width: 100%; }
 .createAction > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; width: 100%; }
 .createAction label { display: grid; gap: .5rem; min-width: 0; color: var(--foreground); font-size: var(--body-text-size); }
 .createAction select { width: 100%; min-width: 0; min-height: 2.5rem; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--background); color: var(--foreground); }

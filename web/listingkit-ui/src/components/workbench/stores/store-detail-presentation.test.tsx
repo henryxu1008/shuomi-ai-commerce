@@ -2,15 +2,20 @@ import {render,screen,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,expect,it,vi} from "vitest";
 import type {CatalogItem} from "@/lib/api/store-center";
-const state=vi.hoisted(()=>({summary:{} as Record<string,unknown>}));
-vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},effectiveOrganization:{id:"org-a"},permissions:["workbench.store.read","workbench.store.update"],roles:[]})}));
+const state=vi.hoisted(()=>({summary:{} as Record<string,unknown>,chat:false}));
+vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},effectiveOrganization:{id:"org-a",capabilities:{"workbench.chat.use":state.chat}},aiWorkbenchAvailable:state.chat,aiWorkbenchExecutionKind:state.chat?"product.content.localize":undefined,permissions:["workbench.store.read","workbench.store.update"],roles:[]})}));
 vi.mock("@tanstack/react-query",()=>({useQueryClient:()=>({invalidateQueries:vi.fn()}),useQuery:({queryKey}:{queryKey:string[]})=>queryKey[0]==="store-summary"?state.summary:{data:{items:[]}}}));
 vi.mock("./store-catalog-dialogs",()=>({StoreCatalogDialogs:({dialog}:{dialog:{kind:string;initialKind?:string}})=> <div role="dialog">{dialog.kind==="sync"?`同步 ${dialog.initialKind}`:"归属设置"}</div>}));
 vi.mock("./store-official-connection",()=>({StoreOfficialConnection:()=> <div>当前店铺官方连接入口</div>}));
 import {StoreDetailPresentation} from "./store-detail-presentation";
 const metric={value:0,complete:true,unknown:0,reason:""};
 const item={id:"11111111-1111-4111-8111-111111111111",name:"A 店铺",region:"US",platform:"shein",version:1,recordStatus:"active",serviceStatus:"pending_activation",connectionStatus:"disconnected",profile:{storeId:"11111111-1111-4111-8111-111111111111",profileVersion:0,groupId:null,responsibleMemberId:null,lowStockThreshold:null,updatedAt:null},signals:{products:metric,orders:metric,inventory:metric,syncHealthy:false,observedAt:null},attention:"attention"} as CatalogItem;
-afterEach(()=>{state.summary={};window.history.replaceState(null,"",window.location.pathname)});
+afterEach(()=>{state.summary={};state.chat=false;window.history.replaceState(null,"",window.location.pathname)});
+it("links the current authorized store to a content chat",()=>{
+ state.chat=true;state.summary={data:item,isPending:false,isError:false};
+ render(<StoreDetailPresentation store={item} canUpdate onRefresh={vi.fn()} actions={null} editForm={null}/>);
+ expect(screen.getByRole("link",{name:"在硕米 Chat 中讨论"})).toHaveAttribute("href",`/workbench/ai/chat/new?storeId=${item.id}`);
+});
 it("keeps the selected store in both order record entry points",async()=>{
  state.summary={data:item,isPending:false,isError:false};
  render(<StoreDetailPresentation store={item} canUpdate onRefresh={vi.fn()} actions={null} editForm={null}/>);

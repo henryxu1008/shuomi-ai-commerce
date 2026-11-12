@@ -43,7 +43,7 @@ export function ChatIntroduction({ createAction, contentTasks }: { createAction:
 export function NewConversationIntroduction({ createAction }: { createAction: ReactNode }) {
   return <div className={styles.newWorkspace}>
     <section className={styles.newMain} aria-labelledby="chat-new-goal">
-      <header className={styles.newHeading}><h2 id="chat-new-goal">开始商品任务会话</h2><p>创建会话后，选择已有商品，描述要处理的内容。</p></header>
+      <header className={styles.newHeading}><h2 id="chat-new-goal">开始商品任务会话</h2><p>先输入需求，创建会话后选择已有商品并核对方案。</p></header>
       <Card className={styles.createPanel}><h3>创建会话</h3><p>会话会保存到当前账号与企业。任务方案在你核对并确认后才会执行。</p><div className={styles.createAction}>{createAction}</div></Card>
       <div className={styles.newGuide}><h3>开始前准备</h3><ol><li>选好要处理的已保存商品。</li><li>说明需要整理的内容与目标。</li><li>核对方案和额度上限后再确认执行。</li></ol></div>
     </section>

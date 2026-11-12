@@ -2,7 +2,7 @@ import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-libra
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {ProjectPage} from "./project-page";
 import {ProjectError} from "@/lib/api/project-center";
-const f=vi.hoisted(()=>({request:vi.fn(),research:vi.fn(),overview:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null,registerOrganizationSwitchGuard:()=>()=>{}}}));
+const f=vi.hoisted(()=>({request:vi.fn(),research:vi.fn(),overview:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"} as {id:string;capabilities?:{"workbench.chat.use":boolean}},aiWorkbenchAvailable:false,aiWorkbenchExecutionKind:undefined as "product.content.localize"|"product.title.optimize"|undefined,permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null,registerOrganizationSwitchGuard:()=>()=>{}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
 vi.mock("@/lib/api/project-center",async original=>({...await original<typeof import("@/lib/api/project-center")>(),projectRequest:f.request,projectOverviewRequest:f.overview}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:f.push})}));
@@ -12,8 +12,14 @@ const id="550e8400-e29b-41d4-a716-446655440000";
 const storageKey='project-center:intent:["user-a","org-a"]';
 const p={id,title:"原企业项目",goal:"长期目标",kind:"OTHER",dueDate:"",revision:1,archived:false,createdAt:"2026-10-09T00:00:00Z",updatedAt:"2026-10-09T00:00:00Z",storeScope:false,references:[],taskTotal:0,taskCompleted:0,taskPending:0,taskSummaryAvailable:true};
 const metrics={activeProjects:35,todayUpdatedProjects:4,storeProjects:20,generalProjects:15,waitingTasks:2,timeZone:"Asia/Singapore",today:"2026-10-11",stores:[{id:"store-a",name:"授权一号店"}],storesAvailable:true};
-beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a"};f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.research.mockReset().mockResolvedValue({items:[],incomplete:false});f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
+beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a",capabilities:undefined};f.context.aiWorkbenchAvailable=false;f.context.aiWorkbenchExecutionKind=undefined;f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.research.mockReset().mockResolvedValue({items:[],incomplete:false});f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
 afterEach(()=>{cleanup();sessionStorage.clear();});
+it("links the current authorized project to a content chat",async()=>{
+ f.context.aiWorkbenchAvailable=true;f.context.aiWorkbenchExecutionKind="product.content.localize";f.context.effectiveOrganization.capabilities={"workbench.chat.use":true};
+ f.request.mockImplementation(async(_scope,path)=>path.endsWith("visit")?{id,revision:1,replayed:false}:p);
+ render(<ProjectPage projectId={id}/>);
+ expect(await screen.findByRole("link",{name:"在硕米 Chat 中讨论"})).toHaveAttribute("href",`/workbench/ai/chat/new?projectId=${id}`);
+});
 it.each(["active","recent","templates","archived"] as const)("exposes all project views and marks %s as current",async mode=>{
  f.request.mockResolvedValue({projects:[],templates:[],next:""});
  render(<ProjectPage mode={mode}/>);
