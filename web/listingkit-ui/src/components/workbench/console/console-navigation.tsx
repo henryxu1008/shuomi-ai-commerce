@@ -14,7 +14,7 @@ const navigationIcons: Record<string, LucideIcon> = {
   "/workbench/ai/chat": MessageSquare, "/workbench/ai/tasks": ListChecks,
   "/workbench/ai/projects": FolderKanban, "/workbench/ai/knowledge": BookOpen,
   "/workbench/agents/skills": Sparkles, "/workbench/ai/reports": FileChartColumn,
-  [onlineAcquisitionGroup]: ScanLine, "/workbench/supply/official": Building2,
+  [onlineAcquisitionHref]: ScanLine, "/workbench/supply/official": Building2,
   "/workbench/supply/selected": Star, "/workbench/supply/catalogs": Boxes,
   [listingHome]: GitBranch, "/workbench/supply/applications": ClipboardList,
   "/workbench/supply/operator": ClipboardCheck,
@@ -40,7 +40,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/
 import { useQuery } from "@tanstack/react-query";
 import { ecoPageSchema, ecoRequest } from "@/lib/api/ecoservices";
 import { listMarketRecords } from "@/lib/api/supply-market";
-import { acquisition1688Href, amazonRealtimeAcquisitionHref, consoleNavigation, findConsoleRoute, onlineAcquisitionGroup, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
+import { consoleNavigation, findConsoleRoute, onlineAcquisitionHref, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
 import { firstConnectedConsoleEntry } from "@/lib/workbench/console-primary-entry";
 import { researchLocation, researchNavigationHref, researchWorkflows, type ResearchLocation } from "@/lib/workbench/research-navigation";
 
@@ -74,7 +74,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
     const node = { ...entry, availability: connected ? "connected" as const : "unavailable" as const };
     if (researchWorkflows.some(workflow => workflow.root === node.href)) {
       const availability = marketResearchAvailable ? "connected" as const : "unavailable" as const;
-      return { ...node, availability, children: node.children?.map(phase => ({ ...phase, availability, children: phase.children?.map(step => ({ ...step, availability })) })) };
+      return { ...node, availability, children: node.children?.map(step => ({ ...step, availability })) };
     }
     if (node.href === "/workbench" && operationsCockpitAvailable) return { ...node, availability: "connected" as const, children: node.children?.map(child => {
       const mode = child.href.split("/").at(-1), permission = mode === "stores" ? "workbench.cockpit.stores.read" : `workbench.cockpit.${mode}.read`;
@@ -85,12 +85,8 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
  if(node.href === "/workbench/store-center") return {...node,children:node.children?.map(child => child.href === "/workbench/store-products" ? {...child,availability:storeProductsAvailable ? "connected" as const:"unavailable" as const} : child.href === "/workbench/store-orders" ? {...child,availability:storeOrdersAvailable ? "connected" as const:"unavailable" as const} :child)};
     if(node.href==="/workbench/services"&&ecoservicesAvailable)return {...node,availability:"connected" as const,children:node.children?.map(child=>({...child,availability:"connected" as const}))};
     if (node.href === "/workbench/supply") return { ...node, children: node.children?.flatMap(child => {
-      if (child.href === onlineAcquisitionGroup) {
-        const children = child.children?.filter(platform =>
-          (platform.href === acquisition1688Href && productAcquisitionAvailable) ||
-          (platform.href === amazonRealtimeAcquisitionHref && dataServicesAvailable)
-        );
-        return children?.length ? [{ ...child, children }] : [];
+      if (child.href === onlineAcquisitionHref) {
+        return productAcquisitionAvailable || dataServicesAvailable ? [child] : [];
       }
       return [supplyMarketAvailable && ["/workbench/supply/official", "/workbench/supply/selected", "/workbench/supply/catalogs", "/workbench/supply/applications"].includes(child.href)
         ? { ...child, availability: "connected" as const, children: child.children?.map(entry => ({ ...entry, availability: "connected" as const })) }
@@ -100,10 +96,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
     if (node.href !== "/workbench/ai") return node;
     const children = (node.children ?? [])
       .filter(child => aiWorkbenchAvailable || child.href !== "/workbench/ai/chat" && (child.href !== "/workbench/ai/tasks" || independentTaskAvailable))
-      .map(child => child.href === "/workbench/ai/reports" ? {...child, availability:reportCenterAvailable ? "connected" as const:"unavailable" as const, children:reportCenterAvailable ? child.children?.map(entry=>({...entry,availability:"connected" as const})):undefined} : child.href === "/workbench/ai/projects" ? {...child,availability:projectCenterAvailable?"connected" as const:"unavailable" as const,children:projectCenterAvailable?child.children:undefined} : child.href === "/workbench/ai/tasks" && !aiWorkbenchAvailable && !nativeAvailable ? {
-        ...child,
-        children: child.children?.filter(entry => entry.href === "/workbench/ai/tasks/pending" && productReviewAvailable || entry.href === "/workbench/ai/tasks/completed" && sheinRecordsAvailable),
-      } : child.href === "/workbench/ai/knowledge" ? { ...child, availability: "connected" as const, children:child.children?.map(entry => ({...entry, availability:entry.href === "/workbench/ai/knowledge/official" || knowledgeAvailable ? "connected" as const : "unavailable" as const})) } : child);
+      .map(child => child.href === "/workbench/ai/reports" ? {...child, availability:reportCenterAvailable ? "connected" as const:"unavailable" as const, children:undefined} : child.href === "/workbench/ai/projects" ? {...child,availability:projectCenterAvailable?"connected" as const:"unavailable" as const,children:undefined} : child.href === "/workbench/ai/tasks" || child.href === "/workbench/ai/chat" ? { ...child, children: undefined } : child.href === "/workbench/ai/knowledge" ? { ...child, availability: "connected" as const, children:child.children?.map(entry => ({...entry, availability:entry.href === "/workbench/ai/knowledge/official" || knowledgeAvailable ? "connected" as const : "unavailable" as const})) } : child);
     return { ...node, availability: connected ? "connected" as const : "unavailable" as const, children };
   });
   return <nav aria-label={ariaLabel} className="console-nav"><ul>{nodes.map(node => supplyMarketAvailable && userId && node.href==="/workbench/supply" ? <MarketBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId}/> : ecoservicesAvailable && userId && node.href === "/workbench/services" ? <EcoservicesBranch key={`${pathname}:${node.href}`} node={node} pathname={pathname} trail={trail} onNavigate={onNavigate} userId={userId} /> : <NavBranch key={`${node.href==="/workbench/store-orders"?orderPath:researchPath}:${node.href}`} node={node} pathname={node.href==="/workbench/store-orders"?orderPath:researchPath} research={research} trail={trail} depth={1} onNavigate={onNavigate} listingQuery={listingQuery} orderQuery={node.href==="/workbench/store-orders"?orderSelection.toString():""} />)}</ul></nav>;

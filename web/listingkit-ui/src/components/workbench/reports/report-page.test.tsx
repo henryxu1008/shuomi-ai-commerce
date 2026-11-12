@@ -13,6 +13,20 @@ const source = { ref: { kind: "TITLE_REVIEW" as const, id: "550e8400-e29b-41d4-a
 const report: Report = { ...source, id: "550e8400-e29b-41d4-a716-446655440001", capturedAt: "2026-10-10T00:00:00Z", favorite: false, content: { schemaVersion: 1, sections: [{ title: "标题历史", fields: [{ label: "建议标题", value: "已保存的标题内容" }] }] }, digest: "a".repeat(64) };
 beforeEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); sessionStorage.clear(); fixture.context.user = { id: "actor-a" }; fixture.context.effectiveOrganization = { id: "org-a" }; fixture.context.permissions = ["workbench.report.read", "workbench.report.manage"]; fixture.sourceList.mockResolvedValue({ items: [{ proposal_id: source.ref.id }], next_cursor: null }); });
 const tree = (client: QueryClient, titleReviewAvailable = true) => <QueryClientProvider client={client}><ReportPage view="all" titleReviewAvailable={titleReviewAvailable} /></QueryClientProvider>;
+it.each(["overview", "recent", "favorites", "all"] as const)("exposes report views and marks %s current", view => {
+  fixture.context.permissions = [];
+  const client=new QueryClient();
+  const rendered=render(<QueryClientProvider client={client}><ReportPage view={view} /></QueryClientProvider>);
+  const nav=screen.getByRole("navigation",{name:"报告视图"});
+  for(const [mode,label,path] of [["overview","报告概览",""],["recent","最近报告","/recent"],["favorites","收藏报告","/favorites"],["all","全部报告","/all"]]){
+    const link=within(nav).getByRole("link",{name:label});
+    expect(link).toHaveAttribute("href",`/workbench/ai/reports${path}`);
+    if(mode===view) expect(link).toHaveAttribute("aria-current","page");
+    else expect(link).not.toHaveAttribute("aria-current");
+  }
+  expect(screen.getByText("报告尚不可用")).toBeVisible();
+  rendered.unmount();client.clear();
+});
 it("previews a native exact record without Review or legacy readers and saves only on explicit confirmation", async () => {
   fixture.context.permissions.push("workbench.supply.read");
   const native = { ...source, title: "SHEIN 已保存资料", ref: { kind: "SHEIN_TARGET_RECORD" as const, id: source.ref.id, version: `sha256:${"b".repeat(64)}` } };

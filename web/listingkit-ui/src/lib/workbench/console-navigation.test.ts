@@ -152,8 +152,21 @@ describe("Figma Console navigation contract", () => {
     expect(findConsoleRoute("/workbench/plans/orders/not%2Fvalid")).toBeUndefined();
     expect(consoleNavigation.find(node => node.label === "套餐与权益")?.children?.map(node => node.label)).toEqual(["套餐方案", "我的权益", "用量明细", "充值中心", "账单与订单"]);
   });
-  it("contains current Figma modules and the approved independent research, selection and Orders menus", () => {
+  it("contains the approved primary research, selection and Orders menus", () => {
     expect(consoleNavigation.map((item) => item.label)).toEqual(["运营驾驶舱", "AI工作台", "市场调研", "智能选品", "供应市场", "智能市场", "工具市场", "生态服务", "数据服务", "商品刊登", "店铺中心", "订单管理", "套餐与权益", "我的账户"]);
+  });
+  it("exposes every research and selection operation directly at the second level", () => {
+    for (const [label, steps] of [
+      ["市场调研",["projects","sources","evidence","summary"]],
+      ["智能选品",["candidates","comparison","analysis","decisions","transfer"]],
+    ] as const) {
+      const menu=consoleNavigation.find(node=>node.label===label)!;
+      expect(menu.children?.map(node=>node.href)).toEqual(steps.map(step=>`${menu.href}?step=${step}`));
+      for(const child of menu.children!) {
+        expect(child.children).toBeUndefined();expect(child.disclosureOnly).not.toBe(true);
+        expect(findConsoleRoute(child.href)?.trail.map(node=>node.label)).toEqual([label,child.label]);
+      }
+    }
   });
   it("resolves listing stages as page routes without adding sidebar children", () => {
     const parent = findConsoleRoute("/workbench/listing")!;
