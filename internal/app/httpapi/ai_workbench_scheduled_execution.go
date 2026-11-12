@@ -6,19 +6,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"gorm.io/gorm"
 	"time"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
-	"task-processor/internal/app/productsourcing"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
-	reviewstore "task-processor/internal/integration/persistence/product/review"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/review"
-	"task-processor/internal/product/sourcing"
 )
 
 // This capability is only constructed by the local application dispatch port.
@@ -172,66 +168,6 @@ func (a *aiWorkbenchApplication) prepareScheduledExecution(ctx context.Context, 
 		return aiworkbench.PreparedTask{}, aiworkbench.ErrInvalidSchedule
 	}
 	return (workbenchExecution{agent: a.agent, workbench: a}).prepareTask(ctx, p, key, true)
-}
-
-func (a *aiWorkbenchApplication) connectScheduledExecution(ctx context.Context, db, sourceDB *gorm.DB) error {
-	if a == nil || a.agent == nil || a.agent.originRoles == nil || db == nil || sourceDB == nil {
-		return aiworkbench.ErrUnavailable
-	}
-	consumer := a.agent
-	receipts, err := productsourcing.NewScopedPublishedAcquisitionReader(ctx, sourceDB, scheduledSourceAuthorization{agent: consumer})
-	if err != nil {
-		return err
-	}
-	consumer.scheduledReceipts = receipts
-	source, err := productsourcing.NewExecutionPublicationGateway(sourceDB, func(ctx context.Context) (sourcing.PublicationExecutionScope, error) {
-		i, _, err := consumer.scheduledPrincipal(ctx)
-		if err != nil {
-			return sourcing.PublicationExecutionScope{}, err
-		}
-		command := ctx.Value(scheduledExecutionKey{}).(scheduledExecutionCommand)
-		plan, err := a.store.ReadScheduledExecutionPlan(ctx, command.planID)
-		if err != nil {
-			return sourcing.PublicationExecutionScope{}, err
-		}
-		identity, err := consumer.currentAgentIdentity(ctx)
-		if err != nil {
-			return sourcing.PublicationExecutionScope{}, err
-		}
-		if plan.Selection.Subject.Kind == "acquisition" {
-			original, err := consumer.acquisitionSnapshot(ctx, identity, plan.Selection.Subject.ID)
-			if err != nil {
-				return sourcing.PublicationExecutionScope{}, err
-			}
-			return sourcing.PublicationExecutionScope{OrganizationID: i.OrganizationID, ActorID: i.ActorID, MemberID: i.MemberID, PublicationID: original.PublicationID, ProductKey: original.Identity.ProductKey, CatalogVersion: original.Version}, nil
-		}
-		if plan.Selection.Subject.Kind != "own_product" {
-			return sourcing.PublicationExecutionScope{}, aiworkbench.ErrInvalid
-		}
-		own, err := consumer.ownSource(ctx, identity, plan.Selection.Subject.ID, &ownSourceSelection{plan.Selection.Subject.CatalogVersion, plan.Selection.Subject.PublicationID})
-		if err != nil {
-			return sourcing.PublicationExecutionScope{}, err
-		}
-		return sourcing.PublicationExecutionScope{OrganizationID: i.OrganizationID, ActorID: i.ActorID, MemberID: i.MemberID, PublicationID: own.Original.PublicationID, ProductKey: own.Original.Identity.ProductKey, CatalogVersion: own.Original.Version}, nil
-	})
-	if err != nil {
-		return err
-	}
-	repository, err := reviewstore.NewRepository(db, func(tx *gorm.DB) (review.SourcePublicationReader, error) {
-		return productsourcing.NewTransactionReader(tx)
-	})
-	if err != nil {
-		return err
-	}
-	candidate, err := review.NewExecutionCandidateService(consumer.snapshots, source, repository, consumer.authorizer, func(ctx context.Context) (review.CandidateExecutionScope, error) {
-		i, _, err := consumer.scheduledPrincipal(ctx)
-		return review.CandidateExecutionScope{OrganizationID: i.OrganizationID, ActorID: i.ActorID, MemberID: i.MemberID}, err
-	})
-	if err != nil {
-		return err
-	}
-	consumer.scheduledSource, consumer.scheduledReviews = source, candidate
-	return nil
 }
 
 // DispatchScheduled is injected into the local Temporal activity only. It
