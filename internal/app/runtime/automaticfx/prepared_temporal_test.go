@@ -152,6 +152,24 @@ func exerciseIsolatedLostLateAcknowledgement(t *testing.T, stage string) {
 	second, err := c.DescribeWorkflowExecution(ctx, CoordinatorID, "")
 	require.NoError(t, err)
 	require.Equal(t, runID, second.WorkflowExecutionInfo.Execution.RunId)
+	wantSignals := 0
+	if stage == "signal" {
+		wantSignals = 1
+	}
+	require.Eventually(t, func() bool {
+		it := c.GetWorkflowHistory(ctx, CoordinatorID, runID, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+		count := 0
+		for it.HasNext() {
+			event, e := it.Next()
+			if e != nil {
+				return false
+			}
+			if signal := event.GetWorkflowExecutionSignaledEventAttributes(); signal != nil && signal.SignalName == TickSignal {
+				count++
+			}
+		}
+		return count == wantSignals
+	}, 5*time.Second, 100*time.Millisecond, "the original run must not receive a duplicate initial signal")
 }
 func TestIsolatedLostUnpauseAcknowledgementDoesNotRestart(t *testing.T) {
 	exerciseIsolatedLostLateAcknowledgement(t, "unpause")
