@@ -17,9 +17,11 @@ type taskRow struct {
 	ID                       string
 	OrganizationID           string
 	OwnerUserID              string
-	ConversationID           string
-	SourceMessageID          string
-	ProposalID               string
+	SourceKind               string `gorm:"default:CHAT_PROPOSAL"`
+	ScheduledOccurrenceID    *string
+	ConversationID           string `gorm:"default:null"`
+	SourceMessageID          string `gorm:"default:null"`
+	ProposalID               string `gorm:"default:null"`
 	ProposalDigest           string
 	ConfirmationFingerprint  string
 	Kind                     string
@@ -53,9 +55,23 @@ func canonicalRequest(raw []byte) ([]byte, agent.Request, error) {
 }
 
 func task(row taskRow) (aiworkbench.BusinessTask, error) {
+	occurrence := ""
+	if row.ScheduledOccurrenceID != nil {
+		occurrence = *row.ScheduledOccurrenceID
+	}
+	if row.SourceKind == "SCHEDULE_OCCURRENCE" {
+		if !validKey(occurrence) || row.ConversationID != "" || row.SourceMessageID != "" || row.ProposalID != "" {
+			return aiworkbench.BusinessTask{}, aiworkbench.ErrUnavailable
+		}
+	} else if row.SourceKind != "CHAT_PROPOSAL" || occurrence != "" || !validKey(row.ConversationID) || !validKey(row.SourceMessageID) || !validKey(row.ProposalID) {
+		return aiworkbench.BusinessTask{}, aiworkbench.ErrUnavailable
+	}
 	var config agent.ConfigurationSnapshotRef
 	var contextRef agent.ContextSnapshotRef
 	requestJSON, request, err := canonicalRequest(row.ExecutionRequest)
+	if row.SourceKind == "SCHEDULE_OCCURRENCE" && (request.ScheduledSource.OccurrenceID != occurrence || !request.ScheduledSource.Valid()) || row.SourceKind == "CHAT_PROPOSAL" && !request.ScheduledSource.Absent() {
+		return aiworkbench.BusinessTask{}, aiworkbench.ErrUnavailable
+	}
 	if err != nil || json.Unmarshal(row.ConfigurationSnapshotRef, &config) != nil ||
 		json.Unmarshal(row.ContextSnapshotRef, &contextRef) != nil ||
 		!config.ValidOrAbsent() || config.Absent() || !contextRef.ValidOrAbsent() ||
@@ -64,7 +80,7 @@ func task(row taskRow) (aiworkbench.BusinessTask, error) {
 		request.GoalSummary != row.GoalSummary || !request.WorkbenchContextRef.ValidOrAbsent() || !taskRequestMatchesRow(row, request) {
 		return aiworkbench.BusinessTask{}, aiworkbench.ErrUnavailable
 	}
-	return aiworkbench.BusinessTask{ID: row.ID, WorkbenchContextRef: request.WorkbenchContextRef,
+	return aiworkbench.BusinessTask{ID: row.ID, ScheduledOccurrenceID: occurrence, WorkbenchContextRef: request.WorkbenchContextRef,
 		Scope:          aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.OwnerUserID},
 		ConversationID: row.ConversationID, SourceMessageID: row.SourceMessageID,
 		ProposalID: row.ProposalID, ProposalDigest: row.ProposalDigest,
@@ -111,6 +127,7 @@ func validatePreparedTask(p aiworkbench.PreparedTask, proposal proposalRow, key 
 	}
 	canonical, request, err := canonicalRequest(p.ExecutionRequest)
 	if err != nil ||
+		!request.ScheduledSource.Absent() ||
 		!proposalDomainMatchesRequest(proposal, request) || request.WorkbenchContextRef != proposalValueRef(proposal) || request.Key != key || !request.Binding.Valid() || !request.Limits.Valid() ||
 		request.GoalSummary != proposal.GoalSummary || !agent.ValidGoalSummary(request.GoalSummary) ||
 		request.ConfigurationSnapshotRef != p.ConfigurationSnapshotRef ||

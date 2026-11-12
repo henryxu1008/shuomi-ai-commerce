@@ -67,6 +67,7 @@
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
 - `own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](own-intake-provider-unbilled-recovery.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
+- `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，用户决定改为周更，周更增量 IMPLEMENTATION_READY，现场启用须单独授权。
 - `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](bailian-deepseek-shared-text-admission.md)
 - `ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](ai-disabled-application-lifecycle.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
@@ -237,6 +238,7 @@
 - `ai-workbench-project-center.md` — [AI Workbench Project Center V1](ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
+- `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
 - `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
 - `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)

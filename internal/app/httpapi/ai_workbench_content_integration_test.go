@@ -43,7 +43,7 @@ func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
 
 // Uses the existing domain/HTTP fixture, task-owned PostgreSQL and local model;
 // no serving instance, real credentials or provider are involved.
-func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime bool) {
+func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime, scheduled bool) {
 	ctx := context.Background()
 	a := m.application.content
 	miniRuntime := a.config.ContentTextPolicies["B"].Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy
@@ -252,6 +252,10 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.EqualValues(t, 1, planningCalls.Load(), "same turn replay must not call planner again")
 	before := calls.Load()
 	require.Zero(t, before, "planning never starts a content run")
+	if scheduled {
+		testScheduleExistingChatProposal(t, ctx, f, app, planned.ProposalID, calls, &projectRevoked, deps)
+		return
+	}
 	confirmPath := workbenchChatBase + "/" + created.Conversation.ID + "/proposals/" + planned.ProposalID + "/confirm"
 	key := uuid.NewString()
 	goal.Store("changed while awaiting confirmation")

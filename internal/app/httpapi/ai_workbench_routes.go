@@ -173,7 +173,9 @@ func (a *aiWorkbenchApplication) bind(c *gin.Context, permission string) (contex
 func writeAIWorkbenchError(c *gin.Context, err error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
 	switch {
-	case errors.Is(err, aiworkbench.ErrInvalid), errors.Is(err, agent.ErrInvalid), errors.Is(err, agentconfig.ErrInvalid):
+	case errors.Is(err, aiworkbench.ErrScheduleCommandRejected):
+		status, code = http.StatusConflict, "SCHEDULE_COMMAND_REJECTED"
+	case errors.Is(err, aiworkbench.ErrInvalid), errors.Is(err, aiworkbench.ErrInvalidSchedule), errors.Is(err, agent.ErrInvalid), errors.Is(err, agentconfig.ErrInvalid):
 		status, code = http.StatusBadRequest, "INVALID_REQUEST"
 	case errors.Is(err, aiworkbench.ErrNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
@@ -183,6 +185,8 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "PROPOSAL_STALE"
 	case errors.Is(err, aiworkbench.ErrRevisionMismatch), errors.Is(err, agent.ErrConflict):
 		status, code = http.StatusConflict, "REVISION_MISMATCH"
+	case errors.Is(err, agent.ErrManualReviewRequired):
+		status, code = http.StatusConflict, "MANUAL_REVIEW_REQUIRED"
 	case errors.Is(err, aiworkbench.ErrConversationArchived):
 		status, code = http.StatusConflict, "CONVERSATION_ARCHIVED"
 	case errors.Is(err, aiworkbench.ErrTaskOutcomeUnknown):
@@ -192,6 +196,9 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 	}
 	c.Header("Cache-Control", "private, no-store")
 	body := gin.H{"code": code}
+	if code == "SCHEDULE_COMMAND_REJECTED" {
+		body["commandAccepted"] = false
+	}
 	var notAccepted *aiworkbench.MessageNotAcceptedError
 	if errors.As(err, &notAccepted) {
 		body["messageAccepted"] = false
@@ -399,7 +406,7 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 				}
 			}})
 	}
-	return routes
+	return append(routes, aiWorkbenchScheduleRoutes(a)...)
 }
 
 func (m aiWorkbenchModule) ExecutionKind() string {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery,useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
@@ -326,6 +326,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
 
 function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confirmedTaskId, onConfirm }: { proposal: AIProposal; scope: AIScope; canUse: boolean; titleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; disabled: boolean; confirmedTaskId?: string; onConfirm: () => void }) {
   const execution=useWorkbenchContext();
+  const schedules=useQuery({queryKey:["ai-schedule-availability",scope.userId,scope.organizationId,JSON.stringify([execution.roles,execution.permissions])],enabled:canUse&&proposal.kind==="product.content.localize"&&!proposal.knowledgeBaseId,queryFn:({signal})=>requestAIWorkbench({route:"schedule-availability",method:"GET",path:"schedules/availability",scope,signal}),retry:false,refetchOnWindowFocus:false});
   const content=proposal.kind==="product.content.localize";
   const readiness=content?(execution.aiWorkbenchExecutionKind===proposal.kind?execution.aiWorkbenchExecutionReadiness:"UNAVAILABLE"):titleReadiness;
   const ready=content?proposal.executionProfileReady:proposal.titleProfileReady;
@@ -340,5 +341,6 @@ function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confi
     {!confirmedTaskId && canUse && proposal.detailsAvailable && !proposal.executionAuthorized ? <p>{proposal.modeUnavailableReason==="EXECUTION_LIMITS_CHANGED"?"任务执行上限已变化，请重新提出方案。":"需要当前企业的执行权限；已有方案仍可查看。"}</p> : null}
     {confirmedTaskId ? <Button asChild><Link href={`/workbench/ai/tasks/${confirmedTaskId}`} prefetch={false}>查看已确认任务</Link></Button> :
       canUse ? <Button disabled={disabled || !proposal.detailsAvailable || readiness !== "AVAILABLE" || !ready || !proposal.executionAuthorized} onClick={onConfirm}>确认并创建任务</Button> : null}
+    {canUse&&content&&!proposal.knowledgeBaseId&&schedules.data?.enabled?<Button asChild variant="outline"><Link href={`/workbench/ai/tasks?view=schedules&schedule_proposal=${proposal.id}`} prefetch={false} aria-disabled={disabled||!schedules.data.ready||!proposal.executionAuthorized||!ready||undefined} onClick={event=>{if(disabled||!schedules.data?.ready||!proposal.executionAuthorized||!ready)event.preventDefault();}}>设为定时任务</Link></Button>:null}
   </Card>;
 }

@@ -117,7 +117,7 @@ func (a *productAgentApplication) startTextRequestWithSkill(ctx context.Context,
 }
 
 func (a *productAgentApplication) prepareTextRequest(ctx context.Context, binding agent.Binding, key, baseID, expectedRevisionSet string, template *agentconfig.TemplateRef, expectedProfile aicapability.ModelProfile, goalSummary, expectedModeRevision string, selection reviewproposal.ContentSelection, workbench agent.WorkbenchContextRef, method *productSkillSelection, manualOnly ...bool) (agent.Request, error) {
-	if len(manualOnly) > 1 || len(manualOnly) == 1 && manualOnly[0] && (a.definition.ID != agentconfig.ContentAgentID || goalSummary != "") {
+	if len(manualOnly) > 1 || len(manualOnly) == 1 && manualOnly[0] && a.definition.ID != agentconfig.ContentAgentID {
 		return agent.Request{}, agent.ErrInvalid
 	}
 	if err := a.checkContentTitleSelection(selection); err != nil {
@@ -138,6 +138,13 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 		request.Limits = slot.limits
 	}
 	request.ManualReviewOnly = len(manualOnly) == 1 && manualOnly[0]
+	if scheduledExecutionContext(ctx) {
+		command := ctx.Value(scheduledExecutionKey{}).(scheduledExecutionCommand)
+		request.ScheduledSource = agent.ScheduledSourceRef{PlanID: command.planID, OccurrenceID: key}
+		if !request.ManualReviewOnly || !request.ScheduledSource.Valid() {
+			return agent.Request{}, agent.ErrInvalid
+		}
+	}
 	content := a.definition.ID == agentconfig.ContentAgentID
 	if !workbench.ValidOrAbsent() || !workbench.Absent() && (!content || method != nil) {
 		return agent.Request{}, agent.ErrInvalid

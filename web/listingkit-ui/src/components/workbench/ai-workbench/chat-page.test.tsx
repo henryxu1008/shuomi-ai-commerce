@@ -479,7 +479,7 @@ it.each(["product.title.optimize", "product.content.localize"])("reads the commi
   expect(await screen.findByRole("link", { name: "查看已确认任务" })).toHaveAttribute("href", `/workbench/ai/tasks/${taskId}`);
   expect(screen.getByText("已确认的执行方案")).toBeVisible();
   expect(screen.queryByRole("button", { name: "确认并创建任务" })).toBeNull();
-  expect(fixture.request.mock.calls.every(([call]) => call.route === "conversation-read")).toBe(true);
+  expect(fixture.request.mock.calls.every(([call]) => ["conversation-read","schedule-availability"].includes(call.route))).toBe(true);
 });
 
 it("reuses the confirmation key after a lost response and links to the committed task", async () => {
