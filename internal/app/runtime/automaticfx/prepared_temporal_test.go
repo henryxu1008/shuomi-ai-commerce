@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,12 +13,122 @@ import (
 	"github.com/stretchr/testify/require"
 	enums "go.temporal.io/api/enums/v1"
 	schedulepb "go.temporal.io/api/schedule/v1"
+	"go.temporal.io/api/serviceerror"
 	servicepb "go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
+
+type realUpdateLost struct{ preparedService }
+
+type lostScheduleCreate struct{ client.ScheduleClient }
+
+func (l lostScheduleCreate) Create(ctx context.Context, options client.ScheduleOptions) (client.ScheduleHandle, error) {
+	h, err := l.ScheduleClient.Create(ctx, options)
+	if err != nil {
+		return h, err
+	}
+	return nil, errors.New("synthetic lost prepare acknowledgement")
+}
+
+type realPrepareLost struct{ client.Client }
+
+func (l realPrepareLost) ScheduleClient() client.ScheduleClient {
+	return lostScheduleCreate{l.Client.ScheduleClient()}
+}
+
+func TestIsolatedLostPrepareAcknowledgementNeedsReadOnlyVerification(t *testing.T) {
+	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
+		t.Skip("requires dedicated isolated Temporal")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := client.Dial(client.Options{HostPort: "127.0.0.1:7233", Namespace: "default"})
+	require.NoError(t, err)
+	defer c.Close()
+	err = PrepareFresh(ctx, realPrepareLost{c}, "default")
+	require.ErrorIs(t, err, ErrControlUnknown)
+	_, err = preparedDescription(ctx, c.WorkflowService(), "default")
+	require.NoError(t, err, "the original marker is established by read-only verification")
+	require.ErrorIs(t, PrepareFresh(ctx, c, "default"), ErrControlUnknown, "never create another schedule")
+	_, err = c.DescribeWorkflowExecution(ctx, CoordinatorID, "")
+	var missing *serviceerror.NotFound
+	require.ErrorAs(t, err, &missing)
+}
+
+func (l realUpdateLost) UpdateSchedule(ctx context.Context, req *servicepb.UpdateScheduleRequest, opts ...grpc.CallOption) (*servicepb.UpdateScheduleResponse, error) {
+	response, err := l.preparedService.UpdateSchedule(ctx, req, opts...)
+	if err != nil {
+		return response, err
+	}
+	return nil, errors.New("synthetic lost update acknowledgement")
+}
+
+func TestIsolatedLostClaimAcknowledgementIsNotReplayed(t *testing.T) {
+	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
+		t.Skip("requires dedicated isolated Temporal")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := client.Dial(client.Options{HostPort: "127.0.0.1:7233", Namespace: "default"})
+	require.NoError(t, err)
+	defer c.Close()
+	require.NoError(t, PrepareFresh(ctx, c, "default"))
+	err = claimPrepared(ctx, realUpdateLost{c.WorkflowService()}, "default")
+	require.ErrorIs(t, err, ErrControlUnknown)
+	require.Eventually(t, func() bool {
+		d, e := c.WorkflowService().DescribeSchedule(ctx, &servicepb.DescribeScheduleRequest{Namespace: "default", ScheduleId: ScheduleID})
+		return e == nil && strings.HasPrefix(d.Schedule.State.Notes, claimedNote+":")
+	}, 5*time.Second, 100*time.Millisecond)
+	require.ErrorIs(t, claimPrepared(ctx, c.WorkflowService(), "default"), ErrControlUnknown)
+	_, err = c.DescribeWorkflowExecution(ctx, CoordinatorID, "")
+	var missing *serviceerror.NotFound
+	require.ErrorAs(t, err, &missing)
+	d, err := c.ScheduleClient().GetHandle(ctx, ScheduleID).Describe(ctx)
+	require.NoError(t, err)
+	require.True(t, d.Schedule.State.Paused)
+}
+
+type realStartLost struct{ client.Client }
+
+func (l realStartLost) ExecuteWorkflow(ctx context.Context, options client.StartWorkflowOptions, w interface{}, args ...interface{}) (client.WorkflowRun, error) {
+	run, err := l.Client.ExecuteWorkflow(ctx, options, w, args...)
+	if err != nil {
+		return run, err
+	}
+	return nil, errors.New("synthetic lost coordinator acknowledgement")
+}
+
+func TestIsolatedLostCoordinatorAcknowledgementDoesNotUnpauseOrRestart(t *testing.T) {
+	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
+		t.Skip("requires dedicated isolated Temporal")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := client.Dial(client.Options{HostPort: "127.0.0.1:7233", Namespace: "default"})
+	require.NoError(t, err)
+	defer c.Close()
+	require.NoError(t, PrepareFresh(ctx, c, "default"))
+	err = BootstrapFresh(ctx, realStartLost{c}, "default")
+	require.ErrorIs(t, err, ErrControlUnknown)
+	first, err := c.DescribeWorkflowExecution(ctx, CoordinatorID, "")
+	require.NoError(t, err)
+	runID := first.WorkflowExecutionInfo.Execution.RunId
+	require.NotEmpty(t, runID)
+	d, err := c.ScheduleClient().GetHandle(ctx, ScheduleID).Describe(ctx)
+	require.NoError(t, err)
+	require.True(t, d.Schedule.State.Paused)
+	require.ErrorIs(t, BootstrapFresh(ctx, c, "default"), ErrControlUnknown)
+	second, err := c.DescribeWorkflowExecution(ctx, CoordinatorID, "")
+	require.NoError(t, err)
+	require.Equal(t, runID, second.WorkflowExecutionInfo.Execution.RunId)
+	d, err = c.ScheduleClient().GetHandle(ctx, ScheduleID).Describe(ctx)
+	require.NoError(t, err)
+	require.True(t, d.Schedule.State.Paused)
+}
 
 func TestIsolatedTemporalRejectsStaleScheduleToken(t *testing.T) {
 	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
