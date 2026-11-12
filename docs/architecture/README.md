@@ -67,7 +67,7 @@
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
 - `own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](own-intake-provider-unbilled-recovery.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
-- `automatic-usd-fx.md` — [平台美元参考汇率自动更新候选](automatic-usd-fx.md)；#1249，待独立架构评审，NOT_READY。
+- `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，独立架构增量复核后 IMPLEMENTATION_READY，实施及现场启用待完成。
 - `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](bailian-deepseek-shared-text-admission.md)
 - `ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](ai-disabled-application-lifecycle.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
