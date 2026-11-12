@@ -15,16 +15,21 @@
 .stepHeading { display: flex; align-items: center; gap: .5rem; }
 .step h3, .newGuide h3, .createPanel h3 { font-size: var(--body-text-size); font-weight: 600; }
 .step p { margin-top: .5rem; }
-.newWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) 10rem; align-items: start; gap: 1.5rem; padding-block: clamp(1rem, 5vh, 4rem); max-width: 70rem; margin-inline: auto; }
+.newWorkspace { max-width: 60rem; padding-block: 1rem; }
 .newMain { display: grid; gap: 1.5rem; min-width: 0; }
-.newHeading { text-align: center; }
+.newHeading { text-align: left; }
 .newHeading h2 { font-size: var(--page-title-size); font-weight: 600; }
 .newHeading p { margin-top: .75rem; }
 .createPanel { padding: 1.5rem; display: grid; gap: 1rem; }
-.createAction { display: flex; justify-content: end; }
-.newGuide { padding-inline: 1rem; }
+.createAction { display: grid; gap: 1.25rem; justify-items: start; }
+.createAction > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; width: 100%; }
+.createAction label { display: grid; gap: .5rem; min-width: 0; color: var(--foreground); font-size: var(--body-text-size); }
+.createAction select { width: 100%; min-width: 0; min-height: 2.5rem; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--background); color: var(--foreground); }
+.createAction select:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.createAction select:disabled { opacity: .5; cursor: not-allowed; }
+.createAction > div p { grid-column: 1 / -1; }
+.newGuide { padding-inline: 0; }
 .newGuide ol { list-style: decimal; padding-left: 1.25rem; display: grid; gap: .5rem; margin-top: .75rem; }
-.newNavigation { display: grid; gap: .65rem; padding-top: 5rem; }
 .collectionToolbar { display: flex; align-items: end; gap: .75rem; flex-wrap: wrap; width: 100%; }
 .searchField { display: grid; flex: 1 1 16rem; gap: .4rem; font-size: var(--body-text-size); color: var(--muted-foreground); }
 .filterNote { color: var(--muted-foreground); font-size: var(--body-text-size); line-height: 1.6; }
@@ -75,8 +80,6 @@
 @media (max-width: 70rem) {
   .landingGrid { grid-template-columns: 1fr; }
   .steps, .scenarios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .newWorkspace { grid-template-columns: 1fr; }
-  .newNavigation { display: flex; flex-wrap: wrap; padding-top: 0; }
 }
 @media (max-width: 40rem) {
   .steps, .scenarios, .formGrid { grid-template-columns: 1fr; }
@@ -86,6 +89,7 @@
   .conversationText { flex-basis: 100%; }
   .conversationLink time { flex: 1; }
   .newWorkspace { padding-block: 1rem; }
+  .createAction > div { grid-template-columns: 1fr; }
   .userMessage, .assistantMessage { max-width: 100%; }
   .proposal dl { grid-template-columns: 6rem minmax(0, 1fr); }
 }

@@ -71,7 +71,7 @@ it("keeps new conversation creation separate from the history list", async () =>
     throw new AIWorkbenchError("INVALID_REQUEST");
   });
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
-  expect(screen.getByRole("heading", { name: "有什么想交给硕米？" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "开始商品任务会话" })).toBeVisible();
   expect(screen.queryByRole("region", { name: "会话列表" })).toBeNull();
   await selectGeneralScope();
   expect(fixture.request.mock.calls.every(([input])=>input.route === "scope-options")).toBe(true);
