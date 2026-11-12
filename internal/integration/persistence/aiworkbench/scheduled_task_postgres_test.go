@@ -176,6 +176,70 @@ func TestScheduledResumeFencesUndeliveredPausedSlots(t *testing.T) {
 	}
 }
 
+func TestScheduledControlPreservesOldRuleElapsedSlots(t *testing.T) {
+	for _, action := range []string{"edit", "close"} {
+		for _, days := range []int{0, 300} {
+			t.Run(fmt.Sprintf("%s/%d", action, days), func(t *testing.T) {
+				db := workbenchDB(t)
+				store, err := New(db)
+				require.NoError(t, err)
+				ctx := context.Background()
+				scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+				created := time.Date(2027, 1, 1, 8, 58, 0, 0, time.UTC)
+				p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 3, PerRunUpperBoundMicros: 1}, CreatedAt: created}
+				require.NoError(t, store.CreateScheduledPlan(ctx, p))
+				require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
+				editAt := created.AddDate(0, 0, days).Add(22 * time.Minute)
+				key := uuid.NewString()
+				rule := aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 10}
+				var change *aiworkbench.ScheduleRule
+				if action == "edit" {
+					change = &rule
+				}
+				edited, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, action, change, "", editAt)
+				if days > 256 {
+					require.ErrorIs(t, err, aiworkbench.ErrScheduleCatchupPending)
+					unchanged, readErr := store.ReadScheduledPlan(ctx, scope, p.ID)
+					require.NoError(t, readErr)
+					require.Equal(t, p.Rule, unchanged.Rule)
+					require.EqualValues(t, 2, unchanged.Revision)
+					_, found, readErr := store.ReadScheduledControlReceipt(ctx, scope, p.ID, key, 2, action, change, "")
+					require.NoError(t, readErr)
+					require.False(t, found)
+					edited, err = store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, action, change, "", editAt)
+				}
+				require.NoError(t, err)
+				if action == "edit" {
+					require.Equal(t, rule, edited.Rule)
+				} else {
+					require.Equal(t, "CLOSED", edited.State)
+				}
+				oldSlot := time.Date(editAt.Year(), editAt.Month(), editAt.Day(), 9, 0, 0, 0, time.UTC)
+				receipt, err := store.ReadScheduledOccurrence(ctx, scope, p.ID, oldSlot)
+				require.NoError(t, err)
+				require.Equal(t, "SKIPPED", receipt.State)
+				require.Equal(t, "MISSED_TRIGGER", receipt.Reason)
+				require.EqualValues(t, 2, receipt.PlanRevision)
+				require.Zero(t, edited.ConsumedOccurrences)
+				require.Empty(t, edited.ActiveOccurrenceID)
+				receipt, replay, err := store.ClaimScheduledOccurrence(ctx, scope, p.ID, oldSlot, editAt)
+				require.NoError(t, err)
+				require.True(t, replay)
+				require.Equal(t, "SKIPPED", receipt.State)
+				if action == "close" {
+					return
+				}
+				require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, edited.Revision))
+				next, err := rule.NextAfter(editAt)
+				require.NoError(t, err)
+				receipt, _, err = store.ClaimScheduledOccurrence(ctx, scope, p.ID, next, next)
+				require.NoError(t, err)
+				require.Equal(t, "CLAIMED", receipt.State)
+			})
+		}
+	}
+}
+
 func TestScheduledRecoveryPassesTwentyUnresolvedPlans(t *testing.T) {
 	db := workbenchDB(t)
 	store, err := New(db)

@@ -50,10 +50,10 @@ func recordScheduledMissingBefore(tx *gorm.DB, plan scheduledPlanRow, policy aiw
 	return false, nil
 }
 
-// Resume holds the same plan lock as claims. Fence every elapsed calendar slot
-// before reopening admission, including callbacks never delivered while paused.
-// Bounded progress commits with the plan still PAUSED and without a command ack.
-func recordScheduledPausedSlots(tx *gorm.DB, plan scheduledPlanRow, policy aiworkbench.ScheduledPlanDraft, now time.Time) (bool, error) {
+// Controls hold the same plan lock as claims. Preserve every elapsed slot under
+// the old calendar before reopening admission or replacing that calendar.
+// Bounded progress retains the original state/rule without a command ack.
+func recordScheduledElapsedSlots(tx *gorm.DB, plan scheduledPlanRow, policy aiworkbench.ScheduledPlanDraft, now time.Time) (bool, error) {
 	anchor := policy.CreatedAt
 	if plan.RuleStartAt != nil {
 		anchor = plan.RuleStartAt.UTC()
@@ -79,7 +79,7 @@ func recordScheduledPausedSlots(tx *gorm.DB, plan scheduledPlanRow, policy aiwor
 			return true, nil
 		}
 		receipt := newScheduledOccurrence(plan, policy, slot, now, "SKIPPED")
-		if !slot.Before(plan.UpdatedAt) {
+		if plan.State == "PAUSED" && !slot.Before(plan.UpdatedAt) {
 			receipt.Reason = "PLAN_NOT_ACTIVE"
 		}
 		if err := tx.Create(&receipt).Error; err != nil {

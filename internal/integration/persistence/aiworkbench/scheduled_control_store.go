@@ -92,6 +92,14 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		case "pause":
 			updates["state"] = "PAUSED"
 		case "close":
+			policy, err := schedulePlanValue(row)
+			if err != nil {
+				return err
+			}
+			catchupPending, err = recordScheduledElapsedSlots(tx, row, policy, now)
+			if err != nil || catchupPending {
+				return err
+			}
 			updates["state"] = "CLOSED"
 		case "resume":
 			if row.State != "PAUSED" {
@@ -104,7 +112,7 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 			if _, err := policy.Rule.NextAfter(now); err != nil || row.ConsumedOccurrences >= row.MaxOccurrences {
 				return aiworkbench.ErrRevisionMismatch
 			}
-			catchupPending, err = recordScheduledPausedSlots(tx, row, policy, now)
+			catchupPending, err = recordScheduledElapsedSlots(tx, row, policy, now)
 			if err != nil || catchupPending {
 				// Commit only the bounded history progress. Admission and the
 				// command receipt remain paused until every past slot is fenced.
@@ -114,6 +122,14 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		case "edit":
 			if rule.Frequency == aiworkbench.ScheduleOnce && row.MaxOccurrences != 1 {
 				return aiworkbench.ErrInvalid
+			}
+			policy, err := schedulePlanValue(row)
+			if err != nil {
+				return err
+			}
+			catchupPending, err = recordScheduledElapsedSlots(tx, row, policy, now)
+			if err != nil || catchupPending {
+				return err // retain the old rule and command until history is complete
 			}
 			updates["frequency"], updates["time_zone"], updates["rule_start_at"] = string(rule.Frequency), rule.TimeZone, now.UTC()
 			updates["once_at_utc"], updates["until_utc"] = nil, nil

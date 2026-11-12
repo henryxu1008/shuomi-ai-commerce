@@ -225,6 +225,29 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	require.Empty(t, receipt.BusinessTaskID)
 	require.NoError(t, db.Table("ai_workbench.business_tasks").Count(&tasksAfter).Error)
 	require.Equal(t, tasksBefore, tasksAfter)
+	oldCalendar := daily
+	oldCalendar.ID = uuid.NewString()
+	require.NoError(t, w.store.CreateScheduledPlan(context.Background(), oldCalendar))
+	require.NoError(t, w.store.MarkScheduleRegistered(context.Background(), owner, oldCalendar.ID, 1))
+	newRule := aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: (now.Hour() + 1) % 24, Minute: now.Minute()}
+	quoteInput := map[string]any{"scheduleId": oldCalendar.ID, "rule": newRule, "maxOccurrences": "3"}
+	require.NoError(t, json.Unmarshal(call("POST", workbenchScheduleBase+"/quote", "", quoteInput, 200), &quote))
+	editCalendar := map[string]any{"expectedRevision": "2", "rule": newRule, "confirmation": quote.Confirmation}
+	calendarKey := uuid.NewString()
+	calendarPath := workbenchScheduleBase + "/" + oldCalendar.ID
+	call("PATCH", calendarPath, calendarKey, editCalendar, 503)
+	oldState, err := w.store.ReadScheduledPlan(context.Background(), owner, oldCalendar.ID)
+	require.NoError(t, err)
+	require.Equal(t, oldCalendar.Rule, oldState.Rule)
+	require.EqualValues(t, 2, oldState.Revision)
+	call("PATCH", calendarPath, calendarKey, editCalendar, 200)
+	call("PATCH", calendarPath, calendarKey, editCalendar, 200)
+	require.NoError(t, w.DispatchScheduled(context.Background(), oldCalendar.ID, pausedSlot))
+	receipt, err = w.store.ReadScheduledOccurrence(context.Background(), owner, oldCalendar.ID, pausedSlot)
+	require.NoError(t, err)
+	require.Equal(t, "SKIPPED", receipt.State)
+	require.Equal(t, "MISSED_TRIGGER", receipt.Reason)
+	require.Empty(t, receipt.BusinessTaskID)
 
 	// A request that never committed can be safely retired only after the
 	// durable negative receipt also fences its older in-flight attempt.
