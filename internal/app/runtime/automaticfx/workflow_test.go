@@ -150,7 +150,113 @@ func TestCoordinatorRetriesOnlyKnownUncommittedSnapshot(t *testing.T) {
 }
 
 func TestRegisterRejectsMissingDependencies(t *testing.T) {
-	require.Error(t, RegisterWorker(nil, nil, fx.Calendar{}, nil))
+	require.Error(t, RegisterWorker(nil, nil, nil))
+}
+
+func TestWeeklyEarlyTickWaitsThenRefetches(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	start := time.Date(2026, 11, 12, 2, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+	env.RegisterActivityWithOptions(func(context.Context) (fx.Observation, error) { return fx.Observation{}, nil }, activity.RegisterOptions{Name: FetchActivity})
+	env.RegisterActivityWithOptions(func(context.Context, fx.Observation) (Intent, error) { return Intent{}, nil }, activity.RegisterOptions{Name: PrepareActivity})
+	obs := fx.Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}
+	env.OnActivity(FetchActivity, mock.Anything).Return(obs, nil).Once()
+	env.OnActivity(PrepareActivity, mock.Anything, obs).Return(Intent{Publish: false}, nil).Once()
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(TickSignal, struct{}{}) }, time.Second)
+	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 20*time.Second)
+	env.ExecuteWorkflow(CoordinatorWorkflow, CoordinatorState{DueAt: start.Add(10 * time.Second)})
+	env.AssertExpectations(t)
+}
+
+func TestWeeklyRestoredWakeCannotBypassDueTime(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	start := time.Date(2026, 11, 12, 2, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+	env.RegisterActivityWithOptions(func(context.Context) (fx.Observation, error) { return fx.Observation{}, nil }, activity.RegisterOptions{Name: FetchActivity})
+	env.RegisterActivityWithOptions(func(context.Context, fx.Observation) (Intent, error) { return Intent{}, nil }, activity.RegisterOptions{Name: PrepareActivity})
+	obs := fx.Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}
+	env.OnActivity(FetchActivity, mock.Anything).Return(obs, nil).Once()
+	env.OnActivity(PrepareActivity, mock.Anything, obs).Return(Intent{Publish: false}, nil).Once()
+	env.RegisterDelayedCallback(func() {
+		v, e := env.QueryWorkflow("status")
+		require.NoError(t, e)
+		var s StatusSnapshot
+		require.NoError(t, v.Get(&s))
+		require.Equal(t, "WAITING", s.State)
+	}, 5*time.Second)
+	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 20*time.Second)
+	env.ExecuteWorkflow(CoordinatorWorkflow, CoordinatorState{Wake: true, DueAt: start.Add(10 * time.Second)})
+	env.AssertExpectations(t)
+}
+
+func TestWeeklyPublicationSchedulesNextCheckAtExpiry(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	start := time.Date(2026, 11, 12, 2, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+	env.RegisterActivityWithOptions(func(context.Context) (fx.Observation, error) { return fx.Observation{}, nil }, activity.RegisterOptions{Name: FetchActivity})
+	env.RegisterActivityWithOptions(func(context.Context, fx.Observation) (Intent, error) { return Intent{}, nil }, activity.RegisterOptions{Name: PrepareActivity})
+	env.RegisterActivityWithOptions(func(context.Context, Intent) (PublishResult, error) { return PublishResult{}, nil }, activity.RegisterOptions{Name: PublishActivity})
+	obs := fx.Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}
+	intent := Intent{Day: obs.Date, Publish: true, Input: d.PlatformPricesInput{FX: []d.PublishedFXRate{{Currency: "USD", RateDate: obs.Date, EffectiveUntil: start.Add(10 * time.Second)}}}}
+	dispatched := intent
+	dispatched.Attempt = 1
+	env.OnActivity(FetchActivity, mock.Anything).Return(obs, nil).Twice()
+	env.OnActivity(PrepareActivity, mock.Anything, obs).Return(intent, nil).Once()
+	env.OnActivity(PrepareActivity, mock.Anything, obs).Return(Intent{Publish: false}, nil).Once()
+	env.OnActivity(PublishActivity, mock.Anything, dispatched).Return(PublishResult{}, nil).Once()
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(TickSignal, struct{}{}) }, time.Second)
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(TickSignal, struct{}{}) }, 5*time.Second)
+	env.RegisterDelayedCallback(func() {
+		v, e := env.QueryWorkflow("status")
+		require.NoError(t, e)
+		var s StatusSnapshot
+		require.NoError(t, v.Get(&s))
+		require.Equal(t, "WAITING", s.State)
+	}, 6*time.Second)
+	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 20*time.Second)
+	env.ExecuteWorkflow(CoordinatorWorkflow, CoordinatorState{})
+	env.AssertExpectations(t)
+}
+
+func TestWeeklyExistingSameRateChecksAgainAtExpiry(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	start := time.Date(2026, 11, 12, 2, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+	env.RegisterActivityWithOptions(func(context.Context) (fx.Observation, error) { return fx.Observation{}, nil }, activity.RegisterOptions{Name: FetchActivity})
+	env.RegisterActivityWithOptions(func(context.Context, fx.Observation) (Intent, error) { return Intent{}, nil }, activity.RegisterOptions{Name: PrepareActivity})
+	obs := fx.Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}
+	env.OnActivity(FetchActivity, mock.Anything).Return(obs, nil).Twice()
+	env.OnActivity(PrepareActivity, mock.Anything, obs).Return(Intent{Publish: false, NextDue: start.Add(10 * time.Second)}, nil).Once()
+	env.OnActivity(PrepareActivity, mock.Anything, obs).Return(Intent{Publish: false}, nil).Once()
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(TickSignal, struct{}{}) }, time.Second)
+	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 20*time.Second)
+	env.ExecuteWorkflow(CoordinatorWorkflow, CoordinatorState{})
+	env.AssertExpectations(t)
+}
+
+func TestWeeklyStopInterruptsEarlyTickWait(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	start := time.Date(2026, 11, 12, 2, 0, 0, 0, time.UTC)
+	env.SetStartTime(start)
+	env.RegisterActivityWithOptions(func(context.Context) (fx.Observation, error) { return fx.Observation{}, nil }, activity.RegisterOptions{Name: FetchActivity})
+	env.RegisterActivityWithOptions(func(context.Context, fx.Observation) (Intent, error) { return Intent{}, nil }, activity.RegisterOptions{Name: PrepareActivity})
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(TickSignal, struct{}{}) }, time.Second)
+	env.RegisterDelayedCallback(func() { env.SignalWorkflow(StopSignal, struct{}{}) }, 2*time.Second)
+	env.RegisterDelayedCallback(func() {
+		v, e := env.QueryWorkflow("status")
+		require.NoError(t, e)
+		var s StatusSnapshot
+		require.NoError(t, v.Get(&s))
+		require.Equal(t, "QUIESCED", s.State)
+	}, 3*time.Second)
+	env.RegisterDelayedCallback(func() { env.CancelWorkflow() }, 4*time.Second)
+	env.ExecuteWorkflow(CoordinatorWorkflow, CoordinatorState{DueAt: start.Add(time.Hour)})
+	env.AssertExpectations(t)
 }
 
 func TestCoordinatorStopsIfUSDChangedAfterStaleConflict(t *testing.T) {

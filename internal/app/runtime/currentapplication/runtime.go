@@ -967,7 +967,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			}
 			fxWorker = worker.New(fxClient, automaticfxruntime.TaskQueue, worker.Options{})
 			fxControl = &automaticfxruntime.Control{Client: fxClient}
-			if err := automaticfxruntime.RegisterWorker(fxWorker, priceManager, fxConfig.Calendar, nil); err != nil {
+			if err := automaticfxruntime.RegisterWorker(fxWorker, priceManager, nil); err != nil {
 				return err
 			}
 		}

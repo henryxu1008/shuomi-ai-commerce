@@ -61,22 +61,3 @@ func TestPrepareSnapshotCapacityPreservesNonUSD(t *testing.T) {
 		t.Fatal("original snapshot was modified")
 	}
 }
-
-func TestPrepareVerifiedUsesCalendarAndPublicationTime(t *testing.T) {
-	loc := time.FixedZone("Asia/Shanghai", 8*3600)
-	calendar := Calendar{Years: map[int]YearCalendar{2026: {Source: "https://www.chinamoney.com.cn/official", CoverageFrom: "2026-11-01", CoverageUntil: "2026-11-30", ExceptionsComplete: true}}}
-	obs := Observation{Date: "2026-11-12", CNYMicrosPerUSD: 6717400}
-	for _, tc := range []struct {
-		now   time.Time
-		valid bool
-	}{
-		{time.Date(2026, 11, 12, 9, 14, 59, 0, loc), false},
-		{time.Date(2026, 11, 12, 9, 15, 0, 0, loc), true},
-		{time.Date(2026, 11, 13, 9, 15, 0, 0, loc), false},
-	} {
-		_, _, err := PrepareVerifiedPublication("rev", d.PlatformPricesSnapshot{}, obs, calendar, tc.now)
-		if (err == nil) != tc.valid {
-			t.Fatalf("time %s: %v", tc.now, err)
-		}
-	}
-}

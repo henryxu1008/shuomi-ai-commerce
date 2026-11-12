@@ -47,6 +47,7 @@ func (f *fakeBootstrap) createPaused(context.Context) error      { return f.step
 func (f *fakeBootstrap) startCoordinator(context.Context) error  { return f.step("start") }
 func (f *fakeBootstrap) verifyCoordinator(context.Context) error { return f.step("verify") }
 func (f *fakeBootstrap) unpause(context.Context) error           { return f.step("unpause") }
+func (f *fakeBootstrap) initialTick(context.Context) error       { return f.step("initial") }
 
 func TestBootstrapFailsClosedAtEveryAmbiguousStep(t *testing.T) {
 	for _, tc := range []struct {
@@ -57,7 +58,8 @@ func TestBootstrapFailsClosedAtEveryAmbiguousStep(t *testing.T) {
 		{"start", []string{"create", "start"}},
 		{"verify", []string{"create", "start", "verify"}},
 		{"unpause", []string{"create", "start", "verify", "unpause"}},
-		{"", []string{"create", "start", "verify", "unpause"}},
+		{"initial", []string{"create", "start", "verify", "unpause", "initial"}},
+		{"", []string{"create", "start", "verify", "unpause", "initial"}},
 	} {
 		f := &fakeBootstrap{fail: tc.fail}
 		err := bootstrap(context.Background(), f)
