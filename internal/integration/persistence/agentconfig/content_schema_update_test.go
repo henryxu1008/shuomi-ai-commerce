@@ -2,6 +2,7 @@ package agentconfigpersistence
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	"task-processor/internal/pkg/pgschema"
 )
 
 const priorContentSchema = `ALTER TABLE agent_configuration.template_revisions
@@ -25,6 +27,32 @@ func currentContentSchemaChecks(t *testing.T, db *gorm.DB) {
 	var checks []struct{ Name, Definition string }
 	require.NoError(t, db.Raw(`SELECT conname AS name, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='agent_configuration.template_revisions'::regclass AND conname IN ('template_revisions_check','template_revisions_schema_version_check') ORDER BY conname`).Scan(&checks).Error)
 	t.Log(checks)
+}
+
+func TestContentSchemaAcceptsEquivalentRestoredConstraints(t *testing.T) {
+	db, _, _ := fixture(t)
+	ctx := context.Background()
+	require.NoError(t, VerifyContentConfigurationSchema(ctx, db))
+	var checks []struct{ Name, Definition string }
+	require.NoError(t, db.Raw(`SELECT conname AS name, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='agent_configuration.template_revisions'::regclass AND conname IN ('template_revisions_check','template_revisions_schema_version_check') ORDER BY conname`).Scan(&checks).Error)
+	require.Len(t, checks, 2)
+	for _, c := range checks {
+		// The names and definitions are read only from this synthetic fixture.
+		require.NoError(t, db.Exec(fmt.Sprintf(`ALTER TABLE agent_configuration.template_revisions DROP CONSTRAINT %s, ADD CONSTRAINT %s %s`, c.Name, c.Name, c.Definition)).Error)
+	}
+	var restored []struct{ Name, Definition string }
+	require.NoError(t, db.Raw(`SELECT conname AS name, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='agent_configuration.template_revisions'::regclass AND conname IN ('template_revisions_check','template_revisions_schema_version_check') ORDER BY conname`).Scan(&restored).Error)
+	require.Len(t, restored, 2)
+	changed := false
+	for i, c := range checks {
+		require.Equal(t, c.Name, restored[i].Name)
+		require.True(t, pgschema.SchemaConstraintEqual(c.Definition, restored[i].Definition))
+		changed = changed || c.Definition != restored[i].Definition
+	}
+	require.True(t, changed, "fixture must reproduce PostgreSQL's restored expression form")
+	require.NoError(t, VerifyContentConfigurationSchema(ctx, db))
+	require.NoError(t, db.Exec(`ALTER TABLE agent_configuration.template_revisions DROP CONSTRAINT template_revisions_check, ADD CONSTRAINT template_revisions_check CHECK(true)`).Error)
+	require.ErrorIs(t, VerifyContentConfigurationSchema(ctx, db), agentconfig.ErrUnavailable)
 }
 
 func TestContentSchemaAbsentLeavesCurrentTitleConfigurationUsable(t *testing.T) {
