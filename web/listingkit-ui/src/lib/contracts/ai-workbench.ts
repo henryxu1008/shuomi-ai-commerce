@@ -85,7 +85,7 @@ export type AIProposal = z.infer<typeof proposal>;
 
 const positiveDecimal=z.string().regex(/^[1-9][0-9]{0,18}$/);
 const decimal=z.string().regex(/^(0|[1-9][0-9]{0,18})$/);
-export const aiScheduleRule=z.strictObject({frequency:z.enum(["once","daily","weekly"]),timeZone:z.string().min(1).max(128),atUtc:timestamp.optional(),hour:z.number().int().min(0).max(23),minute:z.number().int().min(0).max(59),weekday:z.number().int().min(0).max(6),untilUtc:timestamp.optional()});
+const aiScheduleRule=z.strictObject({frequency:z.enum(["once","daily","weekly"]),timeZone:z.string().min(1).max(128),atUtc:timestamp.optional(),hour:z.number().int().min(0).max(23),minute:z.number().int().min(0).max(59),weekday:z.number().int().min(0).max(6),untilUtc:timestamp.optional()});
 export const aiScheduleInput=z.strictObject({proposalId:id.optional(),scheduleId:id.optional(),selection:aiTaskSelection.optional(),goalSummary:z.string().min(1).max(8192).optional(),rule:aiScheduleRule,maxOccurrences:positiveDecimal,confirmation:z.string().regex(/^[a-f0-9]{64}$/).optional()});
 export const aiScheduleControl=z.strictObject({expectedRevision:positiveDecimal});
 export const aiScheduleEdit=aiScheduleControl.extend({rule:aiScheduleRule,confirmation:z.string().regex(/^[a-f0-9]{64}$/)});

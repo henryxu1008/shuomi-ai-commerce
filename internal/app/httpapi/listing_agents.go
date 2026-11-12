@@ -461,11 +461,9 @@ func (a *aiWorkbenchApplication) connectScheduledExecution(ctx context.Context, 
 		return aiworkbench.ErrUnavailable
 	}
 	consumer := a.agent
-	receipts, err := productsourcing.NewScopedPublishedAcquisitionReader(ctx, sourceDB, scheduledSourceAuthorization{agent: consumer})
-	if err != nil {
+	if err := consumer.connectScheduledSourceReceipts(ctx, sourceDB); err != nil {
 		return err
 	}
-	consumer.scheduledReceipts = receipts
 	source, err := productsourcing.NewExecutionPublicationGateway(sourceDB, func(ctx context.Context) (sourcing.PublicationExecutionScope, error) {
 		i, _, err := consumer.scheduledPrincipal(ctx)
 		if err != nil {
