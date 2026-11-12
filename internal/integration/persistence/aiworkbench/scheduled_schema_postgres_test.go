@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	reviewproposal "task-processor/internal/product/review/proposal"
-	"task-processor/internal/aiworkbench"
 	"gorm.io/gorm"
+	"task-processor/internal/aiworkbench"
+	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 // The existing Workbench installer owns this schema. It must be repeatable,
@@ -71,7 +71,6 @@ func TestScheduledPlanRuntimePrivileges(t *testing.T) {
 	}))
 }
 
-
 func TestScheduledPlanCreateAndRegistrationCAS(t *testing.T) {
 	db := workbenchDB(t)
 	store, err := New(db)
@@ -83,7 +82,7 @@ func TestScheduledPlanCreateAndRegistrationCAS(t *testing.T) {
 		ID: uuid.NewString(), Scope: scope, MemberID: "member-alice",
 		Selection: aiworkbench.TaskSelection{
 			Subject: aiworkbench.Subject{Kind: "own_product",
-				ID: "fa5a9456-c8cb-43bf-ad1c-57a3e9f5199a",
+				ID:             "fa5a9456-c8cb-43bf-ad1c-57a3e9f5199a",
 				CatalogVersion: "3", PublicationID: "current-pub"},
 			Capability: aiworkbench.ContentTaskKind,
 			Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true},
@@ -135,7 +134,6 @@ func TestScheduledPlanCreateAndRegistrationCAS(t *testing.T) {
 	require.EqualValues(t, 1, used)
 }
 
-
 func TestScheduledPlanAcrossSlotsDoesNotOverlap(t *testing.T) {
 	db := workbenchDB(t)
 	store, err := New(db)
@@ -155,7 +153,7 @@ func TestScheduledPlanAcrossSlotsDoesNotOverlap(t *testing.T) {
 			Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true},
 		},
 		GoalSummary: "Localize product", Rule: rule,
-		Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 3, PerRunUpperBoundMicros: 2500},
+		Budget:    aiworkbench.ScheduleBudget{MaxOccurrences: 3, PerRunUpperBoundMicros: 2500},
 		CreatedAt: created,
 	}
 	require.True(t, plan.Valid())
@@ -180,4 +178,86 @@ func TestScheduledPlanAcrossSlotsDoesNotOverlap(t *testing.T) {
 	var consumed int64
 	require.NoError(t, db.Raw("SELECT consumed_occurrences FROM ai_workbench.scheduled_plans WHERE id=?", plan.ID).Scan(&consumed).Error)
 	require.EqualValues(t, 1, consumed, "skipped slot must never spend another execution allowance")
+}
+
+func TestScheduledPlanMissingSlotsDoNotBlockFutureExecutions(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	created := time.Date(2026, 11, 10, 10, 0, 0, 0, time.UTC)
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+	rule := aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9}
+	plan := aiworkbench.ScheduledPlanDraft{
+		ID: uuid.NewString(), Scope: scope, MemberID: "member-alice",
+		Selection: aiworkbench.TaskSelection{
+			Subject:    aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "3", PublicationID: "current-pub"},
+			Capability: aiworkbench.ContentTaskKind,
+			Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true},
+		},
+		GoalSummary: "Localize product", Rule: rule,
+		Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 3, PerRunUpperBoundMicros: 2500}, CreatedAt: created,
+	}
+	require.NoError(t, store.CreateScheduledPlan(ctx, plan))
+	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, plan.ID, 1))
+	slot := time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)
+	_, _, err = store.ClaimScheduledOccurrence(ctx, scope, plan.ID, slot.Add(time.Minute), slot.Add(time.Minute))
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid, "an off-calendar callback cannot create skipped receipts")
+	var count int64
+	require.NoError(t, db.Model(&scheduledOccurrenceRow{}).Count(&count).Error)
+	require.Zero(t, count)
+	current, replay, err := store.ClaimScheduledOccurrence(ctx, scope, plan.ID, slot, slot)
+	require.NoError(t, err)
+	require.False(t, replay)
+	require.Equal(t, "CLAIMED", current.State)
+	for day := 11; day <= 12; day++ {
+		missedSlot := time.Date(2026, 11, day, 9, 0, 0, 0, time.UTC)
+		missed, replay, err := store.ClaimScheduledOccurrence(ctx, scope, plan.ID, missedSlot, slot)
+		require.NoError(t, err)
+		require.True(t, replay)
+		require.Equal(t, "SKIPPED", missed.State)
+	}
+	var consumed int64
+	require.NoError(t, db.Raw("SELECT consumed_occurrences FROM ai_workbench.scheduled_plans WHERE id=?", plan.ID).Scan(&consumed).Error)
+	require.EqualValues(t, 1, consumed)
+}
+
+func TestScheduledPlanLongOutageRecordsBoundedBatches(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	created := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+	plan := aiworkbench.ScheduledPlanDraft{
+		ID: uuid.NewString(), Scope: scope, MemberID: "member-alice",
+		Selection: aiworkbench.TaskSelection{
+			Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "3", PublicationID: "current-pub"},
+			Capability: aiworkbench.ContentTaskKind,
+			Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true},
+		},
+		GoalSummary: "Localize product",
+		Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9},
+		Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 2500}, CreatedAt: created,
+	}
+	require.NoError(t, store.CreateScheduledPlan(ctx, plan))
+	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, plan.ID, 1))
+	slot := created.AddDate(0, 0, 300).Add(-time.Hour)
+	_, _, err = store.ClaimScheduledOccurrence(ctx, scope, plan.ID, slot, slot)
+	require.ErrorIs(t, err, aiworkbench.ErrUnavailable)
+	var count, consumed int64
+	require.NoError(t, db.Model(&scheduledOccurrenceRow{}).Count(&count).Error)
+	require.EqualValues(t, 256, count, "the first batch commits missed receipts for same-key recovery")
+	require.NoError(t, db.Raw("SELECT consumed_occurrences FROM ai_workbench.scheduled_plans WHERE id=?", plan.ID).Scan(&consumed).Error)
+	require.Zero(t, consumed)
+	got, replay, err := store.ClaimScheduledOccurrence(ctx, scope, plan.ID, slot, slot)
+	require.NoError(t, err)
+	require.False(t, replay)
+	require.Equal(t, "CLAIMED", got.State)
+	same, replay, err := store.ClaimScheduledOccurrence(ctx, scope, plan.ID, slot, slot)
+	require.NoError(t, err)
+	require.True(t, replay)
+	require.Equal(t, got.ID, same.ID)
+	require.NoError(t, db.Raw("SELECT consumed_occurrences FROM ai_workbench.scheduled_plans WHERE id=?", plan.ID).Scan(&consumed).Error)
+	require.EqualValues(t, 1, consumed)
 }

@@ -71,6 +71,16 @@ func TestScheduleFallBackCreatesOneSlotPerDay(t *testing.T) {
 	}
 }
 
+func TestScheduledWeeklySkipsDSTGapWithoutEnding(t *testing.T) {
+	rule := ScheduleRule{Frequency: ScheduleWeekly, TimeZone: "America/New_York", Weekday: time.Sunday, Hour: 2, Minute: 30}
+	after := time.Date(2027, 3, 7, 7, 30, 0, 0, time.UTC)
+	got, err := rule.NextAfter(after)
+	want := time.Date(2027, 3, 21, 6, 30, 0, 0, time.UTC)
+	if err != nil || !got.Equal(want) {
+		t.Fatalf("weekly slot after DST gap = %s, %v, want %s", got, err, want)
+	}
+}
+
 func TestScheduledUntilAndInvalidZones(t *testing.T) {
 	rule := ScheduleRule{Frequency: ScheduleDaily, TimeZone: "UTC", Hour: 10,
 		UntilUTC: time.Date(2026, 11, 12, 10, 0, 0, 0, time.UTC)}

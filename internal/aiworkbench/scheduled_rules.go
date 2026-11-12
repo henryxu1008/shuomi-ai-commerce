@@ -83,9 +83,9 @@ func (r ScheduleRule) NextAfter(after time.Time) (time.Time, error) {
 	loc, _ := time.LoadLocation(r.TimeZone)
 	local := after.In(loc)
 	year, month, day := local.Date()
-	// Weekly cadence needs at most eight dates; ten protects a spring gap.
-	// Daily cadence needs at most two, yet the same bounded loop is clearer.
-	for offset := 0; offset <= 10; offset++ {
+	// A weekly slot can be missing at a spring transition. Include the next
+	// eligible week (fourteen days from a just-consumed weekly occurrence).
+	for offset := 0; offset <= 14; offset++ {
 		date := time.Date(year, month, day+offset, 12, 0, 0, 0, loc)
 		if r.Frequency == ScheduleWeekly && date.Weekday() != r.Weekday {
 			continue
@@ -113,7 +113,7 @@ func (r ScheduleRule) NextAfter(after time.Time) (time.Time, error) {
 // Per-run cost must already be a conservative bound supplied and accepted by
 // the existing AI/resource owner; estimated-only prices do not qualify.
 type ScheduleBudget struct {
-	MaxOccurrences       uint64
+	MaxOccurrences         uint64
 	PerRunUpperBoundMicros uint64
 }
 
