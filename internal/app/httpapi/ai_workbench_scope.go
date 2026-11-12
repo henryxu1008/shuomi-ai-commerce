@@ -208,7 +208,7 @@ func (a *aiWorkbenchApplication) listScopedTasks(c *gin.Context, ctx context.Con
 			return true
 		}
 		f, err := a.authorizedFrozenScope(ctx, owner, task.WorkbenchContextRef, false)
-		return err == nil && f.Scope == *s && f.ConversationID == task.ConversationID
+		return err == nil && f.Scope == *s && f.ConversationID == workbenchTaskScopeConversation(task)
 	})
 	if err != nil {
 		writeAIWorkbenchError(c, err)
@@ -225,6 +225,13 @@ func (a *aiWorkbenchApplication) listScopedTasks(c *gin.Context, ctx context.Con
 		views = append(views, view)
 	}
 	workbenchReply(c, http.StatusOK, gin.H{"tasks": views, "next": page.Next, "incomplete": page.Incomplete})
+}
+
+func workbenchTaskScopeConversation(task aiworkbench.BusinessTask) string {
+	if task.ScheduledOccurrenceID != "" {
+		return task.WorkbenchContextRef.ConversationID
+	}
+	return task.ConversationID
 }
 
 func (a *aiWorkbenchApplication) authorizedConversation(ctx context.Context, owner aiworkbench.Scope, conversation aiworkbench.Conversation) (aiworkbench.Conversation, bool) {

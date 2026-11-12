@@ -210,3 +210,34 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	require.Contains(t, string(raw), "IDEMPOTENCY_CONFLICT")
 	require.NotContains(t, string(raw), "commandAccepted")
 }
+
+func testScheduledTaskListing(t *testing.T, w *aiWorkbenchApplication, deps routeAuthDependencies, taskID, filter string, want bool) {
+	t.Helper()
+	server := httptest.NewServer(buildCurrentApplicationHTTPServer(aiWorkbenchRoutes(w), deps).Handler)
+	defer server.Close()
+	path := workbenchTaskBase + "?limit=50&scopeKind=" + filter
+	status, raw, err := acquisitionHTTPRequest(server, "GET", path, "admin", "B", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 200, status, string(raw))
+	var page struct {
+		Tasks      []workbenchTaskView
+		Incomplete bool
+	}
+	require.NoError(t, json.Unmarshal(raw, &page))
+	found := false
+	for _, task := range page.Tasks {
+		if task.ID == taskID {
+			found = true
+			require.NotEmpty(t, task.ScheduleID)
+			require.NotEmpty(t, task.ScheduledOccurrenceID)
+			require.Empty(t, task.ConversationID)
+		}
+	}
+	require.Equal(t, want, found, string(raw))
+	if !want {
+		require.True(t, page.Incomplete)
+	}
+	_, other, err := acquisitionHTTPRequest(server, "GET", path, "reviewer", "B", "", "")
+	require.NoError(t, err)
+	require.NotContains(t, string(other), taskID)
+}

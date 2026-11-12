@@ -56,6 +56,12 @@ func TestScheduledTaskHasOneDurableSourceAndAtomicClaim(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, replay)
 	require.Equal(t, occurrence.ID, task.ScheduledOccurrenceID)
+	for _, kind := range []string{"all", "unrecorded"} {
+		page, err := store.ListScopedTasks(ctx, scope, aiworkbench.ScopeSelection{Kind: kind}, "", 20, func(*aiworkbench.BusinessScope, aiworkbench.BusinessTask) bool { return true })
+		require.NoError(t, err)
+		require.Len(t, page.Tasks, 1, "scheduled source must be included in the task center's scoped query")
+		require.Equal(t, task.ID, page.Tasks[0].ID)
+	}
 	require.Empty(t, task.ConversationID)
 	require.Empty(t, task.ProposalID)
 	require.Equal(t, task.ID, occurrence.BusinessTaskID)
@@ -343,6 +349,78 @@ func TestScheduledCreateAndRejectionUseSameCommitLock(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestScheduledScopedStoreIndexPreservesOriginalMemberAndCursor(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	owner := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+	now := time.Now().UTC().Truncate(time.Second)
+	selection := aiworkbench.ScopeSelection{Kind: "store", StoreID: "shop"}
+	fixed := aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "store", StoreID: "shop"}
+	conversation, _, err := store.CreateScoped(ctx, owner, uuid.NewString(), aiworkbench.CreateInput{Selection: &selection, MemberID: "member-a"}, &fixed, nil)
+	require.NoError(t, err)
+	command, _, err := store.AppendUser(ctx, owner, conversation.ID, uuid.NewString(), aiworkbench.MessageInput{Content: "Localize", OperationID: uuid.NewString(), TargetPlatform: "shein"}, func(history []aiworkbench.Message, invocation string) (aiworkbench.PreparedPlan, error) {
+		prepared, err := testPlanPreparer(history, invocation)
+		prepared.FrozenScope = &aiworkbench.FrozenScope{Owner: owner, ConversationID: conversation.ID, MemberID: "member-a", Scope: fixed, StoreVersion: 1, ModelInput: aiworkbench.ScopeModelInput{StoreName: "Fixture shop"}}
+		return prepared, err
+	})
+	require.NoError(t, err)
+	ref := command.ScopeRef()
+	require.True(t, ref.Valid())
+	chosen := aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}
+	proposal := aiworkbench.ExecutionProposal{WorkbenchContextRef: ref, Kind: aiworkbench.ContentTaskKind, Scope: owner, GoalSummary: "Localize", ContextKind: "own_product", OperationID: chosen.Subject.ID, ProductKey: "product", CatalogVersion: "1", PublicationID: chosen.Subject.PublicationID, TargetPlatform: "product", AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, ContentSelection: chosen.Parameters, ExecutionLimits: agent.Limits{Steps: 3, ModelCalls: 2, Tokens: 1000, CostMicros: 2500, Currency: "USD", Runtime: time.Minute}}
+	spec, err := json.Marshal(proposal)
+	require.NoError(t, err)
+	slot := now.Add(time.Minute)
+	ids := []string{}
+	for n := 0; n < 2; n++ {
+		plan := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: owner, MemberID: "member-a", Selection: chosen, GoalSummary: proposal.GoalSummary, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: slot}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 1}, CreatedAt: now, ExecutionSpec: spec}
+		require.NoError(t, store.CreateScheduledPlan(ctx, plan))
+		require.NoError(t, store.MarkScheduleRegistered(ctx, owner, plan.ID, 1))
+		key := aiworkbench.ScheduledOccurrenceID(owner, plan.ID, slot)
+		configRef := agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("a", 64)}
+		request := agent.Request{Key: key, Binding: agent.Binding{ContextKind: "own_product", ContextID: proposal.OperationID, ProductKey: proposal.ProductKey, CatalogVersion: "1", PublicationID: proposal.PublicationID, TargetPlatform: "product"}, GoalSummary: proposal.GoalSummary, ContentSelection: proposal.ContentSelection, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ScopedContentPromptVersion, Limits: proposal.ExecutionLimits, ManualReviewOnly: true, ScheduledSource: agent.ScheduledSourceRef{PlanID: plan.ID, OccurrenceID: key}, ConfigurationSnapshotRef: configRef, WorkbenchContextRef: ref}
+		raw, err := json.Marshal(request)
+		require.NoError(t, err)
+		_, task, _, err := store.ClaimScheduledTask(ctx, owner, plan.ID, 2, slot, slot, aiworkbench.PreparedTask{ExecutionRequest: raw, ConfigurationSnapshotRef: configRef})
+		require.NoError(t, err)
+		ids = append(ids, task.ID)
+		require.Empty(t, task.ConversationID)
+	}
+	visible := func(scope *aiworkbench.BusinessScope, task aiworkbench.BusinessTask) bool {
+		require.Equal(t, &fixed, scope)
+		require.Equal(t, ref, task.WorkbenchContextRef)
+		return true
+	}
+	filter := aiworkbench.ScopeSelection{Kind: "store", StoreID: "shop"}
+	first, err := store.ListScopedTasks(ctx, owner, filter, "", 1, visible)
+	require.NoError(t, err)
+	require.Len(t, first.Tasks, 1)
+	require.NotEmpty(t, first.Next)
+	second, err := store.ListScopedTasks(ctx, owner, filter, first.Next, 1, visible)
+	require.NoError(t, err)
+	require.Len(t, second.Tasks, 1)
+	require.Empty(t, second.Next)
+	require.ElementsMatch(t, ids, []string{first.Tasks[0].ID, second.Tasks[0].ID})
+	tasks, err := store.ListNewStoreTasks(ctx, owner, "member-a", []string{"shop"}, now, slot.Add(time.Second), 10)
+	require.NoError(t, err)
+	require.Len(t, tasks, 2)
+	for _, member := range []string{"other-member"} {
+		tasks, err = store.ListNewStoreTasks(ctx, owner, member, []string{"shop"}, now, slot.Add(time.Second), 10)
+		require.NoError(t, err)
+		require.Empty(t, tasks)
+	}
+	tasks, err = store.ListNewStoreTasks(ctx, aiworkbench.Scope{OrganizationID: "other-org", ActorID: owner.ActorID}, "member-a", []string{"shop"}, now, slot.Add(time.Second), 10)
+	require.NoError(t, err)
+	require.Empty(t, tasks)
+	tasks, err = store.ListNewStoreTasks(ctx, owner, "member-a", []string{"other-shop"}, now, slot.Add(time.Second), 10)
+	require.NoError(t, err)
+	require.Empty(t, tasks)
+	_, err = store.ListScopedTasks(ctx, owner, filter, first.Next, 1, func(*aiworkbench.BusinessScope, aiworkbench.BusinessTask) bool { return false })
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid, "revoked cursor anchors cannot expose scheduled records")
 }
 
 func TestScheduledRejectionCommitLossDoesNotProveNonacceptance(t *testing.T) {

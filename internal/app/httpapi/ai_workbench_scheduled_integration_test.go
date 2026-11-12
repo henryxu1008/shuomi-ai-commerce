@@ -39,7 +39,7 @@ func TestScheduledChatContentKeepsScopeAndOriginalSourceOwners(t *testing.T) {
 	}
 }
 
-func testScheduleExistingChatProposal(t *testing.T, ctx context.Context, f *acquisitionHTTPFixture, w *aiWorkbenchApplication, proposalID string, calls *atomic.Int32, projectRevoked *atomic.Bool) {
+func testScheduleExistingChatProposal(t *testing.T, ctx context.Context, f *acquisitionHTTPFixture, w *aiWorkbenchApplication, proposalID string, calls *atomic.Int32, projectRevoked *atomic.Bool, deps routeAuthDependencies) {
 	require.NoError(t, w.connectScheduledExecution(ctx, w.agent.config.ReviewDB, f.db))
 	owner := aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}
 	p, err := w.store.GetProposal(ctx, owner, proposalID)
@@ -64,6 +64,10 @@ func testScheduleExistingChatProposal(t *testing.T, ctx context.Context, f *acqu
 	require.NoError(t, err)
 	require.Equal(t, p.WorkbenchContextRef, task.WorkbenchContextRef)
 	require.Empty(t, task.ConversationID)
+	testScheduledTaskListing(t, w, deps, task.ID, "all", true)
+	frozen, err := w.store.ReadFrozenScope(ctx, owner, task.WorkbenchContextRef)
+	require.NoError(t, err)
+	testScheduledTaskListing(t, w, deps, task.ID, "project&projectId="+frozen.Scope.ProjectID, true)
 	var request agent.Request
 	require.NoError(t, json.Unmarshal(task.ExecutionRequest, &request))
 	run, found, err := w.agent.store.Lookup(worker, agent.Scope{OrganizationID: "B", ActorID: "admin"}, request.Binding, request.Key)
@@ -73,6 +77,7 @@ func testScheduleExistingChatProposal(t *testing.T, ctx context.Context, f *acqu
 	before := calls.Load()
 	require.Positive(t, before)
 	projectRevoked.Store(true)
+	testScheduledTaskListing(t, w, deps, task.ID, "all", false)
 	plan.ID = uuid.NewString()
 	require.NoError(t, w.store.CreateScheduledPlan(ctx, plan))
 	require.NoError(t, w.store.MarkScheduleRegistered(ctx, owner, plan.ID, 1))
@@ -206,6 +211,10 @@ func testScheduledContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, 
 		require.Equal(t, agent.Stopped, run.State.Phase)
 		require.Zero(t, calls.Load(), "revocation after reservation must stop the final provider send")
 		return
+	}
+	if scenario == "default" {
+		testScheduledTaskListing(t, w, deps, task.ID, "all", true)
+		testScheduledTaskListing(t, w, deps, task.ID, "unrecorded", true)
 	}
 	complete, err := w.ReconcileScheduled(worker, plan.ID, plan.Rule.AtUTC)
 	require.NoError(t, err)
