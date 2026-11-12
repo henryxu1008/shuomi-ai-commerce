@@ -11,17 +11,20 @@ const officialCFETSSource = "https://www.chinamoney.com.cn/chinese/bkccpr/"
 
 var ErrPublicationConflict = errors.New("automatic FX publication requires review")
 
-// PrepareVerifiedPublication binds the accepted observation and its expiry to
-// the same verified calendar. Unknown or already expired dates fail closed.
-func PrepareVerifiedPublication(revision string, snapshot d.PlatformPricesSnapshot, observation Observation, calendar Calendar, now time.Time) (d.PlatformPricesInput, bool, error) {
-	if !calendar.Eligible(observation.Date, now) {
+// PrepareWeeklyPublication uses the observed official rate as a seven-day
+// reference; it does not claim that the official rate stays unchanged.
+func PrepareWeeklyPublication(revision string, snapshot d.PlatformPricesSnapshot, observation Observation, now time.Time) (d.PlatformPricesInput, bool, error) {
+	if now.IsZero() {
 		return d.PlatformPricesInput{}, false, ErrPublicationConflict
 	}
-	expiry, err := calendar.NextExpiry(observation.Date)
-	if err != nil || !now.Before(expiry) {
+	loc := time.FixedZone("Asia/Shanghai", 8*3600)
+	local := now.In(loc)
+	day, err := time.ParseInLocation("2006-01-02", observation.Date, loc)
+	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	if err != nil || day.Format("2006-01-02") != observation.Date || day.After(today) || day.Before(today.AddDate(0, 0, -7)) || day.Equal(today) && local.Before(today.Add(9*time.Hour+15*time.Minute)) {
 		return d.PlatformPricesInput{}, false, ErrPublicationConflict
 	}
-	return preparePublication(revision, snapshot, observation, now, expiry)
+	return preparePublication(revision, snapshot, observation, now, now.Add(7*24*time.Hour))
 }
 
 // preparePublication constructs an input for the existing platform owner.

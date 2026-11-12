@@ -17,7 +17,6 @@ const TaskQueue = "platform-fx-usd-v1"
 
 type activities struct {
 	prices    *d.PlatformPricesService
-	calendar  fx.Calendar
 	transport http.RoundTripper
 }
 
@@ -33,25 +32,31 @@ func (a activities) Prepare(ctx context.Context, obs fx.Observation) (Intent, er
 	if current.Payload.PlatformPrices == nil {
 		return Intent{}, d.ErrUnavailable
 	}
-	input, changed, err := fx.PrepareVerifiedPublication(current.ID, *current.Payload.PlatformPrices, obs, a.calendar, now)
-	if err != nil {
-		return Intent{}, err
-	}
-	if !changed {
-		valid := false
-		for _, rate := range current.Payload.PlatformPrices.FX {
-			if rate.Currency == "USD" && rate.RateDate == obs.Date && rate.CNYMicrosPerCurrencyUnit == obs.CNYMicrosPerUSD && !now.Before(rate.EffectiveFrom) && now.Before(rate.EffectiveUntil) {
-				valid = true
-			}
-		}
-		if !valid {
-			return Intent{}, d.ErrNeedsConfiguration
-		}
-	}
 	var usdBase []d.PublishedFXRate
 	for _, rate := range current.Payload.PlatformPrices.FX {
 		if rate.Currency == "USD" {
 			usdBase = append(usdBase, rate)
+		}
+	}
+	input, changed, err := fx.PrepareWeeklyPublication(current.ID, *current.Payload.PlatformPrices, obs, now)
+	if err != nil {
+		return Intent{}, err
+	}
+	if !changed {
+		var due time.Time
+		for _, rate := range current.Payload.PlatformPrices.FX {
+			if rate.Currency == "USD" && rate.RateDate == obs.Date && rate.CNYMicrosPerCurrencyUnit == obs.CNYMicrosPerUSD && !now.Before(rate.EffectiveFrom) && now.Before(rate.EffectiveUntil) {
+				due = rate.EffectiveUntil
+			}
+		}
+		if due.IsZero() {
+			return Intent{}, d.ErrNeedsConfiguration
+		}
+		return Intent{Day: obs.Date, USDBase: usdBase, NextDue: due}, nil
+	}
+	for _, rate := range usdBase {
+		if !now.Before(rate.EffectiveFrom) && now.Before(rate.EffectiveUntil) && rate.EffectiveUntil.Sub(rate.EffectiveFrom) == 7*24*time.Hour {
+			return Intent{Day: obs.Date, USDBase: usdBase, NextDue: rate.EffectiveUntil}, nil
 		}
 	}
 	return Intent{Day: obs.Date, Input: input, Publish: changed, USDBase: usdBase}, nil
@@ -89,11 +94,11 @@ func (a activities) Inspect(ctx context.Context, intent Intent) (bool, error) {
 
 // RegisterWorker only registers functions; it does not start a worker, create
 // a schedule, read a provider, or modify platform data.
-func RegisterWorker(w worker.Worker, prices *d.PlatformPricesService, calendar fx.Calendar, transport http.RoundTripper) error {
+func RegisterWorker(w worker.Worker, prices *d.PlatformPricesService, transport http.RoundTripper) error {
 	if w == nil || prices == nil || prices.Repository == nil {
 		return d.ErrUnavailable
 	}
-	a := activities{prices: prices, calendar: calendar, transport: transport}
+	a := activities{prices: prices, transport: transport}
 	w.RegisterWorkflowWithOptions(CoordinatorWorkflow, workflow.RegisterOptions{Name: CoordinatorWorkflowName})
 	w.RegisterWorkflowWithOptions(TickWorkflow, workflow.RegisterOptions{Name: TickWorkflowName})
 	w.RegisterActivityWithOptions(a.Fetch, activity.RegisterOptions{Name: FetchActivity})

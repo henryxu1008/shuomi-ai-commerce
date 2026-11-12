@@ -23,7 +23,6 @@ import (
 	"task-processor/internal/aicapability"
 	d "task-processor/internal/aicapability/routeconfig"
 	runtime "task-processor/internal/app/runtime/automaticfx"
-	fx "task-processor/internal/integration/aicapability/automaticfx"
 	channelstore "task-processor/internal/integration/persistence/channelcredential"
 	store "task-processor/internal/integration/persistence/routeconfig"
 )
@@ -60,7 +59,7 @@ func fixture(t *testing.T) (*gorm.DB, *store.Store) {
 	return db, repo
 }
 
-func syntheticFXClock() (time.Time, string, string, fx.Calendar) {
+func syntheticFXClock() (time.Time, string, string) {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	loc := time.FixedZone("Asia/Shanghai", 8*3600)
 	local := now.In(loc)
@@ -68,20 +67,7 @@ func syntheticFXClock() (time.Time, string, string, fx.Calendar) {
 	if local.Before(day.Add(9*time.Hour + 15*time.Minute)) {
 		day = day.AddDate(0, 0, -1)
 	}
-	previous := day.AddDate(0, 0, -1).Format("2006-01-02")
-	years := map[int]fx.YearCalendar{}
-	for _, y := range []int{day.Year(), local.Year(), day.AddDate(0, 0, 2).Year()} {
-		years[y] = fx.YearCalendar{Source: "https://www.chinamoney.com.cn/fixture", CoverageFrom: fmt.Sprintf("%d-01-01", y), CoverageUntil: fmt.Sprintf("%d-12-31", y), ExceptionsComplete: true}
-	}
-	y := years[day.Year()]
-	y.Open = []string{day.Format("2006-01-02")}
-	years[day.Year()] = y
-	if day.Format("2006-01-02") != local.Format("2006-01-02") {
-		y = years[local.Year()]
-		y.Closed = append(y.Closed, local.Format("2006-01-02"))
-		years[local.Year()] = y
-	}
-	return now, day.Format("2006-01-02"), previous, fx.Calendar{Years: years}
+	return now, day.Format("2006-01-02"), day.AddDate(0, 0, -1).Format("2006-01-02")
 }
 
 type isolatedTransport func(*http.Request) (*http.Response, error)
@@ -103,6 +89,51 @@ func (r *racingPriceRepository) Current(ctx context.Context, scope d.Scope) (d.R
 	return r.Repository.Current(ctx, scope)
 }
 
+func TestAutomaticFXIsolatedTemporalExistingRateChecksAtExpiry(t *testing.T) {
+	addr := os.Getenv("FX_ISOLATED_TEMPORAL")
+	if addr == "" || os.Getenv("ISSUE830_TEST_DSN") == "" {
+		t.Skip("requires isolated Temporal and PostgreSQL")
+	}
+	require.Equal(t, "127.0.0.1:7233", addr)
+	_, repo := fixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := client.Dial(client.Options{HostPort: addr, Namespace: "default"})
+	require.NoError(t, err)
+	defer c.Close()
+	now, day, previous := syntheticFXClock()
+	owner := &d.PlatformPricesService{Repository: repo}
+	seed := d.PlatformPricesInput{ExpectedRevision: d.NoRevision, FX: []d.PublishedFXRate{{Currency: "USD", RateDate: previous, CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Minute), EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(4 * time.Second)}}}
+	original, err := owner.Publish(ctx, "fixture-admin", "same-rate", seed)
+	require.NoError(t, err)
+	var fetches atomic.Int32
+	transport := isolatedTransport(func(req *http.Request) (*http.Response, error) {
+		dte := previous
+		rate := "6.7191"
+		if fetches.Add(1) > 1 {
+			dte = day
+			rate = "6.7174"
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"date":%q,"base":"USD","quote":"CNY","rate":%s}`, dte, rate))), Request: req}, nil
+	})
+	w := worker.New(c, runtime.TaskQueue, worker.Options{})
+	require.NoError(t, runtime.RegisterWorker(w, owner, transport))
+	require.NoError(t, w.Start())
+	defer w.Stop()
+	_, err = c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{ID: runtime.CoordinatorID, TaskQueue: runtime.TaskQueue}, runtime.CoordinatorWorkflowName, runtime.CoordinatorState{})
+	require.NoError(t, err)
+	require.NoError(t, c.SignalWorkflow(ctx, runtime.CoordinatorID, "", runtime.TickSignal, struct{}{}))
+	require.Eventually(t, func() bool { return fetches.Load() >= 1 }, 3*time.Second, 50*time.Millisecond)
+	before, err := owner.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, original.ID, before.ID)
+	require.Eventually(t, func() bool { r, e := owner.Current(ctx); return e == nil && r.ID != original.ID }, 12*time.Second, 100*time.Millisecond)
+	current, err := owner.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "fx-cfets-usd-v1:"+day+":1", current.Key)
+	require.NoError(t, c.TerminateWorkflow(ctx, runtime.CoordinatorID, "", "isolated fixture complete"))
+}
+
 func TestAutomaticFXIsolatedTemporalManualRace(t *testing.T) {
 	addr := os.Getenv("FX_ISOLATED_TEMPORAL")
 	if addr == "" || os.Getenv("ISSUE830_TEST_DSN") == "" {
@@ -120,7 +151,7 @@ func TestAutomaticFXIsolatedTemporalManualRace(t *testing.T) {
 			c, err := client.Dial(client.Options{HostPort: addr, Namespace: "default"})
 			require.NoError(t, err)
 			defer c.Close()
-			now, day, previous, calendar := syntheticFXClock()
+			now, day, previous := syntheticFXClock()
 			seed := d.PlatformPricesInput{ExpectedRevision: d.NoRevision, FX: []d.PublishedFXRate{
 				{Currency: "USD", RateDate: previous, CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Minute), EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)},
 				{Currency: "EUR", RateDate: previous, CNYMicrosPerCurrencyUnit: 7800000, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Minute), EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)},
@@ -144,7 +175,7 @@ func TestAutomaticFXIsolatedTemporalManualRace(t *testing.T) {
 				return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"date":%q,"base":"USD","quote":"CNY","rate":6.7174}`, day))), Request: req}, nil
 			})
 			w := worker.New(c, runtime.TaskQueue, worker.Options{})
-			require.NoError(t, runtime.RegisterWorker(w, &d.PlatformPricesService{Repository: wrapped}, calendar, transport))
+			require.NoError(t, runtime.RegisterWorker(w, &d.PlatformPricesService{Repository: wrapped}, transport))
 			require.NoError(t, w.Start())
 			defer w.Stop()
 			_, err = c.ExecuteWorkflow(ctx, client.StartWorkflowOptions{ID: runtime.CoordinatorID, TaskQueue: runtime.TaskQueue}, runtime.CoordinatorWorkflowName, runtime.CoordinatorState{})
@@ -155,6 +186,10 @@ func TestAutomaticFXIsolatedTemporalManualRace(t *testing.T) {
 				want = "USD_CONFLICT"
 			}
 			require.Eventually(t, func() bool {
+				if !tc.changeUSD {
+					r, e := manual.Current(ctx)
+					return e == nil && r.Key == "fx-cfets-usd-v1:"+day+":2"
+				}
 				v, e := c.QueryWorkflow(ctx, runtime.CoordinatorID, "", "status")
 				if e != nil {
 					return false
@@ -200,11 +235,7 @@ func TestAutomaticFXIsolatedTemporalScheduleAndOwner(t *testing.T) {
 	c, err := client.Dial(client.Options{HostPort: addr, Namespace: "default"})
 	require.NoError(t, err)
 	defer c.Close()
-	now := time.Now().UTC()
-	shanghai := time.FixedZone("Asia/Shanghai", 8*3600)
-	today := now.In(shanghai)
-	day := today.Format("2006-01-02")
-	previous := today.AddDate(0, 0, -1).Format("2006-01-02")
+	now, day, previous := syntheticFXClock()
 	owner := &d.PlatformPricesService{Repository: repo}
 	seed := d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "fx-iso", Provider: "openai", Model: "synthetic-model", Channel: "synthetic-channel", Region: "global", ServiceType: "standard-sync", Currency: "USD", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750000, OutputText: 4500000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(48 * time.Hour)}}, FX: []d.PublishedFXRate{{Currency: "USD", RateDate: previous, CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/chinese/bkccpr/", VerifiedAt: now.Add(-time.Hour), EffectiveFrom: now.Add(-time.Hour), EffectiveUntil: now.Add(time.Hour)}}}
 	initial, err := owner.Publish(ctx, "synthetic-operator", "synthetic-seed", seed)
@@ -217,18 +248,20 @@ func TestAutomaticFXIsolatedTemporalScheduleAndOwner(t *testing.T) {
 		body := fmt.Sprintf(`{"date":%q,"base":"USD","quote":"CNY","rate":6.7174}`, day)
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
 	})
-	year := today.Year()
-	cal := fx.Calendar{Years: map[int]fx.YearCalendar{year: {Source: "https://www.chinamoney.com.cn/synthetic", CoverageFrom: fmt.Sprintf("%d-01-01", year), CoverageUntil: fmt.Sprintf("%d-12-31", year), ExceptionsComplete: true}}}
 	w := worker.New(c, runtime.TaskQueue, worker.Options{})
-	require.NoError(t, runtime.RegisterWorker(w, owner, cal, transport))
+	require.NoError(t, runtime.RegisterWorker(w, owner, transport))
 	require.NoError(t, w.Start())
 	defer w.Stop()
 	w2 := worker.New(c, runtime.TaskQueue, worker.Options{})
-	require.NoError(t, runtime.RegisterWorker(w2, owner, cal, transport))
+	require.NoError(t, runtime.RegisterWorker(w2, owner, transport))
 	require.NoError(t, w2.Start())
 	defer w2.Stop()
 	require.NoError(t, runtime.BootstrapFresh(ctx, c))
-	require.NoError(t, c.ScheduleClient().GetHandle(ctx, runtime.ScheduleID).Trigger(ctx, client.ScheduleTriggerOptions{}))
+	schedule, err := c.ScheduleClient().GetHandle(ctx, runtime.ScheduleID).Describe(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, schedule.Schedule.Spec)
+	require.Len(t, schedule.Schedule.Spec.Intervals, 1)
+	require.Equal(t, 7*24*time.Hour, schedule.Schedule.Spec.Intervals[0].Every)
 	require.Eventually(t, func() bool {
 		var n int64
 		e := db.Raw("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%ai_route_config_current%' AND pid<>pg_backend_pid()").Scan(&n).Error
