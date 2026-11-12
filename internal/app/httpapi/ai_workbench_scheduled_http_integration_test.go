@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
@@ -191,6 +192,39 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	var tasksAfter int64
 	require.NoError(t, db.Table("ai_workbench.business_tasks").Count(&tasksAfter).Error)
 	require.Equal(t, tasksBefore, tasksAfter, "expiry recovery must never dispatch paid work")
+
+	// Temporal's pause acknowledgement/callback may never arrive. Resuming a
+	// long-paused calendar must keep the original command pending until every
+	// elapsed slot is durably skipped, even within today's catch-up window.
+	now := time.Now().UTC()
+	daily := current.ScheduledPlanDraft
+	daily.ID = uuid.NewString()
+	daily.Rule = aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: now.Hour(), Minute: now.Minute()}
+	daily.CreatedAt = now.AddDate(0, 0, -300).Add(-time.Hour)
+	daily.RuleStartAt = daily.CreatedAt
+	daily.Budget.MaxOccurrences = 3
+	require.NoError(t, w.store.CreateScheduledPlan(context.Background(), daily))
+	require.NoError(t, w.store.MarkScheduleRegistered(context.Background(), owner, daily.ID, 1))
+	dailyPaused, err := w.store.ChangeScheduledPlan(context.Background(), owner, daily.ID, uuid.NewString(), 2, "pause", nil, "", daily.CreatedAt.Add(time.Minute))
+	require.NoError(t, err)
+	dailyPath := workbenchScheduleBase + "/" + daily.ID
+	dailyKey := uuid.NewString()
+	dailyControl := map[string]any{"expectedRevision": strconv.FormatInt(dailyPaused.Revision, 10)}
+	rawPending := call("POST", dailyPath+"/resume", dailyKey, dailyControl, 503)
+	require.NotContains(t, string(rawPending), "commandAccepted")
+	stillPaused, err := w.store.ReadScheduledPlan(context.Background(), owner, daily.ID)
+	require.NoError(t, err)
+	require.Equal(t, "PAUSED", stillPaused.State)
+	call("POST", dailyPath+"/resume", dailyKey, dailyControl, 200)
+	call("POST", dailyPath+"/resume", dailyKey, dailyControl, 200)
+	pausedSlot := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, time.UTC)
+	require.NoError(t, w.DispatchScheduled(context.Background(), daily.ID, pausedSlot))
+	receipt, err = w.store.ReadScheduledOccurrence(context.Background(), owner, daily.ID, pausedSlot)
+	require.NoError(t, err)
+	require.Equal(t, "SKIPPED", receipt.State)
+	require.Empty(t, receipt.BusinessTaskID)
+	require.NoError(t, db.Table("ai_workbench.business_tasks").Count(&tasksAfter).Error)
+	require.Equal(t, tasksBefore, tasksAfter)
 
 	// A request that never committed can be safely retired only after the
 	// durable negative receipt also fences its older in-flight attempt.

@@ -52,6 +52,7 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 	}
 	fingerprint := scheduledControlDigest(id, expected, action, rule, confirmation)
 	var result aiworkbench.ScheduledPlan
+	var catchupPending bool
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := s.lockTaskKey(tx, scope, key); err != nil {
 			return err
@@ -103,6 +104,12 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 			if _, err := policy.Rule.NextAfter(now); err != nil || row.ConsumedOccurrences >= row.MaxOccurrences {
 				return aiworkbench.ErrRevisionMismatch
 			}
+			catchupPending, err = recordScheduledPausedSlots(tx, row, policy, now)
+			if err != nil || catchupPending {
+				// Commit only the bounded history progress. Admission and the
+				// command receipt remain paused until every past slot is fenced.
+				return err
+			}
 			updates["state"] = "PENDING_REGISTRATION"
 		case "edit":
 			if rule.Frequency == aiworkbench.ScheduleOnce && row.MaxOccurrences != 1 {
@@ -135,6 +142,9 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		result, err = (&Store{db: tx}).ReadScheduledPlan(ctx, scope, id)
 		return err
 	})
+	if err == nil && catchupPending {
+		err = errors.Join(aiworkbench.ErrUnavailable, aiworkbench.ErrScheduleCatchupPending)
+	}
 	return result, err
 }
 

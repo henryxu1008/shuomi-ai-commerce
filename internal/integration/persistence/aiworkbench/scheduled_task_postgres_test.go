@@ -125,6 +125,57 @@ func TestScheduledPreflightReceiptCannotBecomePaidAfterResume(t *testing.T) {
 	require.Empty(t, current.ActiveOccurrenceID)
 }
 
+func TestScheduledResumeFencesUndeliveredPausedSlots(t *testing.T) {
+	for _, days := range []int{0, 300} {
+		t.Run(fmt.Sprint(days), func(t *testing.T) {
+			db := workbenchDB(t)
+			store, err := New(db)
+			require.NoError(t, err)
+			ctx := context.Background()
+			scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+			created := time.Date(2027, 1, 1, 8, 58, 0, 0, time.UTC)
+			p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 3, PerRunUpperBoundMicros: 1}, CreatedAt: created}
+			require.NoError(t, store.CreateScheduledPlan(ctx, p))
+			require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
+			paused, err := store.ChangeScheduledPlan(ctx, scope, p.ID, uuid.NewString(), 2, "pause", nil, "", created.Add(time.Minute))
+			require.NoError(t, err)
+			// No callback or Temporal pause acknowledgement arrives before resume.
+			resumeAt := created.AddDate(0, 0, days).Add(7 * time.Minute)
+			key := uuid.NewString()
+			resumed, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, paused.Revision, "resume", nil, "", resumeAt)
+			if days > 256 {
+				require.ErrorIs(t, err, aiworkbench.ErrScheduleCatchupPending)
+				current, readErr := store.ReadScheduledPlan(ctx, scope, p.ID)
+				require.NoError(t, readErr)
+				require.Equal(t, "PAUSED", current.State)
+				require.Equal(t, paused.Revision, current.Revision)
+				_, found, readErr := store.ReadScheduledControlReceipt(ctx, scope, p.ID, key, paused.Revision, "resume", nil, "")
+				require.NoError(t, readErr)
+				require.False(t, found, "partial history progress must not acknowledge resume")
+				resumed, err = store.ChangeScheduledPlan(ctx, scope, p.ID, key, paused.Revision, "resume", nil, "", resumeAt)
+			}
+			require.NoError(t, err)
+			require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, resumed.Revision))
+			lastPausedSlot := time.Date(resumeAt.Year(), resumeAt.Month(), resumeAt.Day(), 9, 0, 0, 0, time.UTC)
+			receipt, replay, err := store.ClaimScheduledOccurrence(ctx, scope, p.ID, lastPausedSlot, resumeAt.Add(time.Minute))
+			require.NoError(t, err)
+			require.True(t, replay)
+			require.Equal(t, "SKIPPED", receipt.State)
+			require.Equal(t, "PLAN_NOT_ACTIVE", receipt.Reason)
+			current, err := store.ReadScheduledPlan(ctx, scope, p.ID)
+			require.NoError(t, err)
+			require.Zero(t, current.ConsumedOccurrences)
+			require.Empty(t, current.ActiveOccurrenceID)
+			next, err := p.Rule.NextAfter(resumeAt)
+			require.NoError(t, err)
+			receipt, replay, err = store.ClaimScheduledOccurrence(ctx, scope, p.ID, next, next)
+			require.NoError(t, err)
+			require.False(t, replay)
+			require.Equal(t, "CLAIMED", receipt.State, "resume must still admit future slots")
+		})
+	}
+}
+
 func TestScheduledRecoveryPassesTwentyUnresolvedPlans(t *testing.T) {
 	db := workbenchDB(t)
 	store, err := New(db)
