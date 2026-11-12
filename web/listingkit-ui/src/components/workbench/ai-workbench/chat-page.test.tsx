@@ -34,10 +34,10 @@ it("accepts a local draft before creating a general conversation without sending
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
   fireEvent.change(screen.getByLabelText("需求"), { target: { value: "请整理商品描述" } });
-  await waitFor(() => expect(screen.getByRole("button", { name: "新建会话" })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole("button", { name: "创建会话" })).toBeEnabled());
   expect(screen.queryByLabelText("范围类型")).toBeNull();
   expect(fixture.request.mock.calls.every(([input]) => input.route === "scope-options")).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "新建会话" }));
+  fireEvent.click(screen.getByRole("button", { name: "创建会话" }));
   await waitFor(() => expect(fixture.push).toHaveBeenCalled());
   expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
 });
@@ -54,8 +54,8 @@ it("restores the unsent input after an unknown create and hands it to the same c
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
   fireEvent.change(screen.getByLabelText("需求"),{target:{value:"请整理商品描述"}});
-  await waitFor(()=>expect(screen.getByRole("button",{name:"新建会话"})).toBeEnabled());
-  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"创建会话"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"创建会话"}));
   await screen.findByRole("button",{name:"核对原创建请求"});
   expect(screen.getByLabelText("需求")).toHaveValue("请整理商品描述");
   fireEvent.click(screen.getByRole("button",{name:"核对原创建请求"}));
@@ -77,7 +77,7 @@ it.each(["project", "store"] as const)("uses only the authorized %s background w
   await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
   fireEvent.change(screen.getByLabelText("需求"),{target:{value:"请整理商品资料"}});
   await screen.findByText(kind==="project"?"工作背景：测试项目 · 关联店铺":"工作背景：测试店铺");
-  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  fireEvent.click(screen.getByRole("button",{name:"创建会话"}));
   await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
   const calls=fixture.request.mock.calls.map(([input])=>input);
   expect(calls.find(input=>input.route==="scope-options").path).toContain(`${field}=${value}`);
@@ -92,10 +92,10 @@ it("keeps the input editable and does not create when browser storage fails", as
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
   fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留的文字"}});
-  await waitFor(()=>expect(screen.getByRole("button",{name:"新建会话"})).toBeEnabled());
+  await waitFor(()=>expect(screen.getByRole("button",{name:"创建会话"})).toBeEnabled());
   const original=Storage.prototype.setItem;
   const storage=vi.spyOn(Storage.prototype,"setItem").mockImplementation(function(this:Storage,key,value){if(key.includes("pending-create"))throw new Error("storage unavailable");return original.call(this,key,value);});
-  fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
+  fireEvent.click(screen.getByRole("button",{name:"创建会话"}));
   expect(await screen.findByText(/无法保存待恢复的请求/)).toBeVisible();
   expect(screen.getByLabelText("需求")).toHaveValue("保留的文字");
   expect(screen.getByLabelText("需求")).toBeEnabled();
@@ -122,7 +122,7 @@ it("fails closed on an unreadable pending create record", async () => {
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await screen.findByText(/原创建请求记录不可读取/);
   fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留需求"}});
-  expect(screen.getByRole("button",{name:"新建会话"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"创建会话"})).toBeDisabled();
   expect(sessionStorage.getItem("ai-workbench:pending-create:user-a:org-a")).toBe("{");
   expect(fixture.request.mock.calls.every(([input])=>input.route!=="conversation-create")).toBe(true);
 });
@@ -135,7 +135,7 @@ it("does not expose an ambiguous legacy pending record across colliding identiti
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await screen.findByText(/身份无法确认/);
   expect(screen.queryByDisplayValue("别人的私密需求")).toBeNull();
-  expect(screen.getByRole("button",{name:"新建会话"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"创建会话"})).toBeDisabled();
   fixture.context.user.id="user-a";
 });
 

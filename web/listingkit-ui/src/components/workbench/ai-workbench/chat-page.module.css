@@ -16,6 +16,18 @@
 .step h3, .newGuide h3, .createPanel h3 { font-size: var(--body-text-size); font-weight: 600; }
 .step p { margin-top: .5rem; }
 .newWorkspace { max-width: 60rem; margin-inline: auto; padding-block: 1rem; }
+.composeMain { display: grid; gap: 1.5rem; min-width: 0; padding-top: 1.5rem; }
+.composeHeading { text-align: center; }
+.composeHeading h2 { font-size: var(--page-title-size); font-weight: 600; }
+.composeHeading p { margin-top: .75rem; }
+.composePanel { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--card-radius, 0.75rem); background: var(--card); min-width: 0; }
+.composeLabel { display: block; min-width: 0; }
+.composeLabel textarea { width: 100%; min-height: 10rem; resize: vertical; border: 0; background: transparent; box-shadow: none; padding: .5rem; }
+.composeLabel textarea:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.composeFooter { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; padding: .75rem .5rem 0; border-top: 1px solid var(--border); }
+.composeFooter p { flex: 1 1 16rem; }
+.composeNote { text-align: center; }
 .newMain { display: grid; gap: 1.5rem; min-width: 0; }
 .newHeading { text-align: left; }
 .newHeading h2 { font-size: var(--page-title-size); font-weight: 600; }
@@ -90,6 +102,9 @@
   .conversationText { flex-basis: 100%; }
   .conversationLink time { flex: 1; }
   .newWorkspace { padding-block: 1rem; }
+  .composeMain { padding-top: .5rem; }
+  .composeHeading { text-align: left; }
+  .composeFooter button { margin-left: auto; }
   .createAction > div { grid-template-columns: 1fr; }
   .userMessage, .assistantMessage { max-width: 100%; }
   .proposal dl { grid-template-columns: 6rem minmax(0, 1fr); }

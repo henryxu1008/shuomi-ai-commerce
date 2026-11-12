@@ -24,9 +24,21 @@ test("retains the input through the original create retry without dispatching a 
     return json({code:"NOT_FOUND"},404);
   });
   await page.goto("/workbench/ai/chat/new");
+  for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
+    await page.setViewportSize(viewport);
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(value => localStorage.setItem("listingkit-theme", value), theme);
+      await page.reload();
+      await expect(page.locator("html")).toHaveClass(new RegExp(theme));
+      await expect(page.getByLabel("需求")).toBeVisible();
+      await expect(page.getByRole("button",{name:"创建会话",exact:true})).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({path:info.outputPath(`chat-compose-${viewport.width}-${theme}.png`)});
+    }
+  }
   await page.getByLabel("需求").fill("【合成测试】请整理商品描述");
   await page.screenshot({path:info.outputPath("chat-compose-desktop.png")});
-  await page.getByRole("button",{name:"新建会话",exact:true}).click();
+  await page.getByRole("button",{name:"创建会话",exact:true}).click();
   await expect(page.getByRole("button",{name:"核对原创建请求"})).toBeVisible();
   await page.reload(); await expect(page.getByLabel("需求")).toHaveValue("【合成测试】请整理商品描述");
   await page.getByRole("button",{name:"核对原创建请求"}).click();
