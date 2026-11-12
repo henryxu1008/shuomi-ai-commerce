@@ -82,6 +82,38 @@ func (b *stopBeforeUnpause) unpause(ctx context.Context) error {
 	return ErrControlUnknown
 }
 
+type stopAfterUnpause struct{ *temporalBootstrap }
+
+func (b *stopAfterUnpause) initialTick(ctx context.Context) error {
+	_ = RequestStop(ctx, b.client)
+	for until := time.Now().Add(5 * time.Second); time.Now().Before(until); time.Sleep(100 * time.Millisecond) {
+		s, e := readStatus(ctx, b.client)
+		if e == nil && s.StopRequested {
+			return b.temporalBootstrap.initialTick(ctx)
+		}
+	}
+	return ErrControlUnknown
+}
+
+func TestIsolatedStopAfterUnpauseCannotReportStarted(t *testing.T) {
+	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
+		t.Skip("requires dedicated isolated Temporal")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	c, err := client.Dial(client.Options{HostPort: "127.0.0.1:7233", Namespace: "default"})
+	require.NoError(t, err)
+	defer c.Close()
+	w := worker.New(c, TaskQueue, worker.Options{})
+	w.RegisterWorkflowWithOptions(CoordinatorWorkflow, workflow.RegisterOptions{Name: CoordinatorWorkflowName})
+	require.NoError(t, w.Start())
+	defer w.Stop()
+	require.NoError(t, PrepareFresh(ctx, c, "default"))
+	err = bootstrap(ctx, &stopAfterUnpause{&temporalBootstrap{client: c, namespace: "default"}})
+	require.ErrorIs(t, err, ErrControlUnknown)
+	require.Eventually(t, func() bool { s, e := readStatus(ctx, c); return e == nil && s.StopRequested && s.State == "QUIESCED" }, 5*time.Second, 100*time.Millisecond)
+}
+
 func TestIsolatedStopBeforeUnpauseCannotReportStarted(t *testing.T) {
 	if os.Getenv("FX_PREPARED_ISOLATED") != "1" {
 		t.Skip("requires dedicated isolated Temporal")
