@@ -45,6 +45,14 @@ func scheduledHash(value any) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func scheduledQuoteConfirmation(p aiworkbench.ExecutionProposal, rule aiworkbench.ScheduleRule, budget aiworkbench.ScheduleBudget) string {
+	return scheduledHash(struct {
+		Proposal aiworkbench.ExecutionProposal
+		Rule     aiworkbench.ScheduleRule
+		Budget   aiworkbench.ScheduleBudget
+	}{p, rule, budget})
+}
+
 func (a *aiWorkbenchApplication) validateScheduledProposal(ctx context.Context, p aiworkbench.ExecutionProposal) (agent.ExecutionMode, error) {
 	if a == nil || a.agent == nil || !p.ValidCapability() || p.Kind != aiworkbench.ContentTaskKind || p.KnowledgeBaseID != "" {
 		return "", aiworkbench.ErrUnavailable
@@ -148,11 +156,7 @@ func (a *aiWorkbenchApplication) quoteScheduled(ctx context.Context, owner aiwor
 		return scheduledQuote{}, p, budget, err
 	}
 	total, _ := budget.TotalUpperBoundMicros()
-	confirmation := scheduledHash(struct {
-		Proposal aiworkbench.ExecutionProposal
-		Rule     aiworkbench.ScheduleRule
-		Budget   aiworkbench.ScheduleBudget
-	}{p, input.Rule, budget})
+	confirmation := scheduledQuoteConfirmation(p, input.Rule, budget)
 	return scheduledQuote{Confirmation: confirmation, Selection: *p.Selection(), GoalSummary: p.GoalSummary, Rule: input.Rule, MaxOccurrences: input.MaxOccurrences, Unit: budget.Unit, PerRunUpperBoundMicros: strconv.FormatUint(budget.PerRunUpperBoundMicros, 10), TotalUpperBoundMicros: strconv.FormatUint(total, 10), NextAt: next, ExecutionMode: mode}, p, budget, nil
 }
 

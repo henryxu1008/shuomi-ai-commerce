@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"net/http/httptest"
+	"strings"
 	"task-processor/internal/aiworkbench"
 	"testing"
 	"time"
@@ -92,11 +93,26 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	require.Equal(t, paused.Plan.Revision, replayed.Plan.Revision)
 	call("POST", path+"/resume", uuid.NewString(), control, 409)
 	control["expectedRevision"] = paused.Plan.Revision
-	require.NoError(t, json.Unmarshal(call("POST", path+"/resume", uuid.NewString(), control, 200), &saved))
-	editInput := map[string]any{"scheduleId": saved.Plan.ID, "rule": map[string]any{"frequency": "once", "timeZone": "Asia/Shanghai", "atUtc": time.Now().UTC().Truncate(time.Second).Add(5 * time.Minute)}, "maxOccurrences": "1"}
+	resumeKey := uuid.NewString()
+	require.NoError(t, json.Unmarshal(call("POST", path+"/resume", resumeKey, control, 200), &saved))
+	limits := w.agent.config.Limits
+	w.agent.config.Limits.Steps++
+	call("POST", path+"/resume", resumeKey, control, 200)
+	call("POST", path+"/resume", uuid.NewString(), control, 409)
+	w.agent.config.Limits = limits
+	editAt := time.Now().UTC().Truncate(time.Second).Add(3 * time.Second)
+	editInput := map[string]any{"scheduleId": saved.Plan.ID, "rule": map[string]any{"frequency": "once", "timeZone": "Asia/Shanghai", "atUtc": editAt}, "maxOccurrences": "1"}
 	require.NoError(t, json.Unmarshal(call("POST", workbenchScheduleBase+"/quote", "", editInput, 200), &quote))
 	edit := map[string]any{"expectedRevision": saved.Plan.Revision, "rule": editInput["rule"], "confirmation": quote.Confirmation}
-	require.NoError(t, json.Unmarshal(call("PATCH", path, uuid.NewString(), edit, 200), &saved))
+	editKey := uuid.NewString()
+	require.NoError(t, json.Unmarshal(call("PATCH", path, editKey, edit, 200), &saved))
+	w.agent.config.Limits.Steps++
+	time.Sleep(time.Until(editAt.Add(50 * time.Millisecond)))
+	call("PATCH", path, editKey, edit, 200)
+	call("PATCH", path, uuid.NewString(), edit, 400)
+	edit["confirmation"] = strings.Repeat("b", 64)
+	call("PATCH", path, editKey, edit, 409)
+	w.agent.config.Limits = limits
 	control["expectedRevision"] = saved.Plan.Revision
 	call("POST", path+"/close", uuid.NewString(), control, 200)
 
@@ -121,4 +137,29 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	var after int64
 	require.NoError(t, db.Table("ai_workbench.scheduled_plans").Count(&after).Error)
 	require.Equal(t, before+1, after)
+	owner := aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}
+	current, err := w.store.ReadScheduledPlan(context.Background(), owner, saved.Plan.ID)
+	require.NoError(t, err)
+	expired := current.ScheduledPlanDraft
+	expired.ID = uuid.NewString()
+	expired.CreatedAt = time.Now().UTC().Add(-time.Hour)
+	expired.RuleStartAt = expired.CreatedAt
+	expired.Rule.AtUTC = time.Now().UTC().Truncate(time.Second).Add(-30 * time.Minute)
+	expired.CreationFingerprint = ""
+	require.NoError(t, w.store.CreateScheduledPlan(context.Background(), expired))
+	require.NoError(t, w.store.MarkScheduleRegistered(context.Background(), owner, expired.ID, 1))
+	var tasksBefore int64
+	require.NoError(t, db.Table("ai_workbench.business_tasks").Count(&tasksBefore).Error)
+	require.NoError(t, w.recoverScheduledPlans(context.Background()))
+	receipt, err := w.store.ReadScheduledOccurrence(context.Background(), owner, expired.ID, expired.Rule.AtUTC)
+	require.NoError(t, err)
+	require.Equal(t, "SKIPPED", receipt.State)
+	require.Empty(t, receipt.BusinessTaskID)
+	current, err = w.store.ReadScheduledPlan(context.Background(), owner, expired.ID)
+	require.NoError(t, err)
+	require.Equal(t, "CLOSED", current.State)
+	require.Zero(t, current.ConsumedOccurrences)
+	var tasksAfter int64
+	require.NoError(t, db.Table("ai_workbench.business_tasks").Count(&tasksAfter).Error)
+	require.Equal(t, tasksBefore, tasksAfter, "expiry recovery must never dispatch paid work")
 }

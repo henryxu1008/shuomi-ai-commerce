@@ -36,6 +36,13 @@ func (a *aiWorkbenchApplication) recoverScheduledPlans(ctx context.Context) erro
 		// Advance even when authorization/Run evidence remains unresolved;
 		// occupancy is untouched and the bounded scan wraps after the last page.
 		a.scheduleRecoveryAfter = plan.ID
+		// Temporal may omit an action outside its catch-up window entirely.
+		// Repair missed history without dispatching a replacement paid task.
+		plan, err = a.store.RecordExpiredScheduledSlots(ctx, plan.Scope, plan.ID, time.Now().UTC())
+		if err != nil {
+			failures = append(failures, err)
+			continue
+		}
 		if plan.RegistrationState != "MATCHED" {
 			err = a.synchronizeScheduledPlan(ctx, plan)
 			if err != nil {

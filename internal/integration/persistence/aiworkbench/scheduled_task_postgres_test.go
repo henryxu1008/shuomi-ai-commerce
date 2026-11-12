@@ -147,3 +147,62 @@ func TestScheduledRecoveryPassesTwentyUnresolvedPlans(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, current.ActiveOccurrenceID, "fairness never releases UNKNOWN occupancy")
 }
+
+func TestScheduledControlReplayAfterEditedSlotExpires(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+	p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: now.Add(time.Hour)}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 1}, CreatedAt: now}
+	require.NoError(t, store.CreateScheduledPlan(ctx, p))
+	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
+	rule := p.Rule
+	rule.AtUTC = now.Add(2 * time.Hour)
+	key := uuid.NewString()
+	edited, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, now)
+	require.NoError(t, err)
+	replayed, err := store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, now.Add(3*time.Hour))
+	require.NoError(t, err)
+	require.Equal(t, edited.Revision, replayed.Revision)
+	rule.AtUTC = now.Add(4 * time.Hour)
+	_, err = store.ChangeScheduledPlan(ctx, scope, p.ID, key, 2, "edit", &rule, now.Add(3*time.Hour))
+	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
+}
+
+func TestScheduledRecoveryFindsUnreceivedOneTimePlan(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "alice"}
+	p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: scope, MemberID: "member", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Title: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: now.Add(time.Minute)}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 1}, CreatedAt: now}
+	require.NoError(t, store.CreateScheduledPlan(ctx, p))
+	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
+	plans, _, err := store.DueScheduledRecovery(ctx, "", 20)
+	require.NoError(t, err)
+	require.Len(t, plans, 1, "matched and unoccupied cannot hide an unreceived slot")
+	withinWindow, err := store.RecordExpiredScheduledSlots(ctx, scope, p.ID, p.Rule.AtUTC.Add(14*time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, "ACTIVE", withinWindow.State)
+	_, err = store.ReadScheduledOccurrence(ctx, scope, p.ID, p.Rule.AtUTC)
+	require.ErrorIs(t, err, aiworkbench.ErrNotFound)
+	current, err := store.RecordExpiredScheduledSlots(ctx, scope, p.ID, p.Rule.AtUTC.Add(16*time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, "CLOSED", current.State)
+	require.Zero(t, current.ConsumedOccurrences)
+	require.Empty(t, current.ActiveOccurrenceID)
+	receipt, err := store.ReadScheduledOccurrence(ctx, scope, p.ID, p.Rule.AtUTC)
+	require.NoError(t, err)
+	require.Equal(t, "SKIPPED", receipt.State)
+	require.Equal(t, "CATCHUP_EXPIRED", receipt.Reason)
+	require.Empty(t, receipt.BusinessTaskID)
+	repeated, err := store.RecordExpiredScheduledSlots(ctx, scope, p.ID, p.Rule.AtUTC.Add(time.Hour))
+	require.NoError(t, err)
+	require.Equal(t, current.Revision, repeated.Revision)
+	var count int64
+	require.NoError(t, db.Model(&scheduledOccurrenceRow{}).Count(&count).Error)
+	require.EqualValues(t, 1, count)
+}

@@ -171,7 +171,7 @@ Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久�
 - 执行内核：`internal/app/httpapi/ai_workbench_scheduled_execution.go` 只接受进程内后台 capability，从持久计划取身份，经当前组织状态、原 service IAM、Scope/Collection/Source、配置与发送前 gate；调用与手动任务相同的 Prepare/Start、Agent、invocation、积分及 Review。`read_only` 只对合法定时来源开放原人工建议路径。
 - B3 释放：精确 task/request/run 绑定、无 pending/UNKNOWN、原 invocation 已知计量及原积分服务同键结算成功后才签发释放摘要。Run/计量未知不会清占用或返还次数。恢复扫描使用有界游标，不用释放未决任务换取扫描前进。
 - B4 上限使用原 `OfficialModelTariff.ReserveTextMicropoints` × 原 `ModelCalls`，固定 `ai-micropoint-v1` 单位并检查总量溢出；UI 以 AI 积分展示，不混用参考 USD/CNY 的 `CostMicros`。
-- API、BFF 与 UI：`ai_workbench_scheduled_routes.go`、`lib/contracts/ai-workbench.ts`、`schedule-manager.tsx` / `schedule-form.tsx`。创建及控制保存原操作键；503/超时/响应丢失不视为未提交。修改只允许时间规则，保留原 scope、来源、配置、模式、次数与预算。
+- API、BFF 与 UI：`ai_workbench_scheduled_routes.go`、`lib/contracts/ai-workbench.ts`、`schedule-manager.tsx` / `schedule-form.tsx`。创建及控制保存原操作键；503/超时/响应丢失不视为未提交。控制回执重放先于未来时间／执行配置重验，当前访问授权不绕过；遗漏回调由原恢复循环只补记过窗 SKIPPED，不付费补跑或释放占用。修改只允许时间规则，保留原 scope、来源、配置、模式、次数与预算。
 - 真 PostgreSQL 的原子失败回滚、来源约束、CAS、未决公平扫描、提交后最终读回 503、两种来源和 Chat 项目范围、撤权/停用及 UNKNOWN 测试已执行；真 Temporal dev server 已验证登记、暂停/恢复、准确 nominal slot 和旧 revision 不覆盖。模型 transport 为合成隔离 fixture，无真实 provider 调用。准确 HEAD、最终 CI 和独立增量复核记录在 PR。
 
 操作、显式 opt-in 配置及未开放能力见[定时任务运行说明](../operations/ai-workbench-scheduled-tasks.md)。本节不改变冻结架构准入，也不签发用户验收或实例部署结论。

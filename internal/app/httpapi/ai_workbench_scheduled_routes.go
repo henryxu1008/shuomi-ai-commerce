@@ -64,7 +64,7 @@ func aiWorkbenchScheduleRoutes(a *aiWorkbenchApplication) []httproute.Descriptor
 				return
 			}
 			if spec.action == "quote" || spec.action == "create" {
-				if !a.schedules.Ready() {
+				if spec.action == "quote" && !a.schedules.Ready() {
 					writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
 					return
 				}
@@ -202,6 +202,24 @@ func (a *aiWorkbenchApplication) changeScheduled(c *gin.Context, ctx context.Con
 	revision, err := strconv.ParseInt(body.ExpectedRevision, 10, 63)
 	if err != nil || revision < 1 || strconv.FormatInt(revision, 10) != body.ExpectedRevision || (action == "edit") != (body.Rule != nil) || action != "edit" && body.Confirmation != "" {
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	if saved, found, err := a.store.ReadScheduledControlReceipt(ctx, owner, plan.ID, key, revision, action, body.Rule); err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	} else if found {
+		if action == "edit" {
+			var p aiworkbench.ExecutionProposal
+			if json.Unmarshal(saved.ExecutionSpec, &p) != nil {
+				writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+				return
+			}
+			if body.Confirmation != scheduledQuoteConfirmation(p, *body.Rule, saved.Budget) {
+				writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
+				return
+			}
+		}
+		a.replyScheduledSave(c, ctx, saved)
 		return
 	}
 	if action == "resume" {

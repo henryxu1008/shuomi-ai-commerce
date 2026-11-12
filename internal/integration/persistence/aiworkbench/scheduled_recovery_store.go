@@ -11,7 +11,7 @@ func (s *Store) DueScheduledRecovery(ctx context.Context, after string, limit in
 		return nil, "", aiworkbench.ErrInvalid
 	}
 	var rows []scheduledPlanRow
-	query := s.db.WithContext(ctx).Where("(registration_state <> 'MATCHED' OR active_occurrence_id IS NOT NULL)")
+	query := s.db.WithContext(ctx).Where("(registration_state <> 'MATCHED' OR active_occurrence_id IS NOT NULL OR state = 'ACTIVE')")
 	if after != "" {
 		query = query.Where("id > ?", after)
 	}

@@ -12,7 +12,7 @@ import styles from "./schedules.module.css";
 
 const states:Record<string,string>={ACTIVE:"已启用",PAUSED:"已暂停",CLOSED:"已结束",PENDING_REGISTRATION:"等待调度登记",REGISTRATION_UNKNOWN:"调度登记待核实"};
 const occurrenceStates:Record<string,string>={CLAIMED:"已创建任务",DISPATCHED:"已交接执行",SKIPPED:"已跳过",BLOCKED:"执行前受阻",UNKNOWN:"执行结果待核实",RECONCILED:"原任务已核实"};
-const reasons:Record<string,string>={PLAN_NOT_ACTIVE:"计划当时未启用",PREVIOUS_RUN_ACTIVE:"前一次执行仍被占用",MAX_OCCURRENCES:"已达到次数上限",CATCHUP_EXPIRED:"已超过 15 分钟补触发窗口",MISSED_TRIGGER:"调度中断期间的历史时刻，不补付费执行",CURRENT_AUTHORIZATION_UNAVAILABLE:"当前企业、成员或操作权限校验未通过",FROZEN_EXECUTION_UNAVAILABLE:"冻结的商品、范围、配置或预算当前不可执行",EXECUTION_HANDOFF_UNRESOLVED:"已交接原任务，尚未确认执行结果",ORIGINAL_RUN_OUTCOME_UNRESOLVED:"原任务或计量结果尚未确认，继续保留占用"};
+const reasons:Record<string,string>={RUN_QUIESCENT:"原任务已停止自动执行，已知用量已核实；建议仍需人工处理",PLAN_NOT_ACTIVE:"计划当时未启用",PREVIOUS_RUN_ACTIVE:"前一次执行仍被占用",MAX_OCCURRENCES:"已达到次数上限",CATCHUP_EXPIRED:"已超过 15 分钟补触发窗口",MISSED_TRIGGER:"调度中断期间的历史时刻，不补付费执行",CURRENT_AUTHORIZATION_UNAVAILABLE:"当前企业、成员或操作权限校验未通过",FROZEN_EXECUTION_UNAVAILABLE:"冻结的商品、范围、配置或预算当前不可执行",EXECUTION_HANDOFF_UNRESOLVED:"已交接原任务，尚未确认执行结果",ORIGINAL_RUN_OUTCOME_UNRESOLVED:"原任务或计量结果尚未确认，继续保留占用"};
 type Command={action:"create"|"edit"|"pause"|"resume"|"close";path:string;key:string;body:object};
 function validCommand(value:unknown):value is Command{
  if(!value||typeof value!=="object")return false;

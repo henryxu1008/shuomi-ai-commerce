@@ -22,6 +22,37 @@ type scheduledControlRow struct {
 
 func (scheduledControlRow) TableName() string { return "ai_workbench.scheduled_plan_commands" }
 
+func scheduledControlDigest(id string, expected int64, action string, rule *aiworkbench.ScheduleRule) string {
+	return digest(struct {
+		Plan     string
+		Revision int64
+		Action   string
+		Rule     *aiworkbench.ScheduleRule
+	}{id, expected, action, rule})
+}
+
+// ReadScheduledControlReceipt is a scoped read of an already committed command.
+// Current access authorization belongs to the caller; execution readiness is
+// deliberately not repeated for an immutable durable result.
+func (s *Store) ReadScheduledControlReceipt(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule) (aiworkbench.ScheduledPlan, bool, error) {
+	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || !validKey(key) || expected < 1 {
+		return aiworkbench.ScheduledPlan{}, false, aiworkbench.ErrInvalid
+	}
+	var receipt scheduledControlRow
+	err := s.db.WithContext(ctx).Where("organization_id=? AND owner_user_id=? AND idempotency_key=?", scope.OrganizationID, scope.ActorID, key).Take(&receipt).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return aiworkbench.ScheduledPlan{}, false, nil
+	}
+	if err != nil {
+		return aiworkbench.ScheduledPlan{}, false, unavailable(err)
+	}
+	if receipt.PlanID != id || receipt.RequestDigest != scheduledControlDigest(id, expected, action, rule) {
+		return aiworkbench.ScheduledPlan{}, false, aiworkbench.ErrIdempotencyConflict
+	}
+	plan, err := s.ReadScheduledPlan(ctx, scope, id)
+	return plan, err == nil, err
+}
+
 // ChangeScheduledPlan records a bounded control receipt in the same transaction
 // as the new desired configuration. Temporal is synchronized after commit.
 func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule, now time.Time) (aiworkbench.ScheduledPlan, error) {
@@ -29,17 +60,7 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		(action != "pause" && action != "resume" && action != "close" && action != "edit") || (action == "edit") != (rule != nil) {
 		return aiworkbench.ScheduledPlan{}, aiworkbench.ErrInvalid
 	}
-	if rule != nil {
-		if _, err := rule.NextAfter(now); err != nil {
-			return aiworkbench.ScheduledPlan{}, aiworkbench.ErrInvalid
-		}
-	}
-	fingerprint := digest(struct {
-		Plan     string
-		Revision int64
-		Action   string
-		Rule     *aiworkbench.ScheduleRule
-	}{id, expected, action, rule})
+	fingerprint := scheduledControlDigest(id, expected, action, rule)
 	var result aiworkbench.ScheduledPlan
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := s.lockTaskKey(tx, scope, key); err != nil {
@@ -63,6 +84,11 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		}
 		if row.Revision != expected || row.State == "CLOSED" {
 			return aiworkbench.ErrRevisionMismatch
+		}
+		if rule != nil {
+			if _, err := rule.NextAfter(now); err != nil {
+				return aiworkbench.ErrInvalid
+			}
 		}
 		updates := map[string]any{"revision": expected + 1, "updated_at": now.UTC(), "registration_state": "PENDING"}
 		switch action {
