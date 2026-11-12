@@ -2,9 +2,9 @@
 .search:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 20px 0 12px; }
 .toolbar a[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
-.metricNumber { margin-left: auto; font-size: 24px; font-weight: 700; color: var(--primary); }
+.metricNumber { margin-left: auto; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--primary); }
 .metricNumber[data-state="WAITING_CONFIRMATION"] { color: var(--warning-foreground); }
-.metricNumber[data-state="COMPLETED"] { color: var(--console-purple); }
+.metricNumber[data-state="COMPLETED"] { color: var(--foreground); }
 .marker[data-state="WAITING_CONFIRMATION"] { background: var(--warning-foreground); }
 .marker[data-state="RUNNING"] { background: var(--primary); }
 .marker[data-state="ERROR"] { background: var(--destructive); }

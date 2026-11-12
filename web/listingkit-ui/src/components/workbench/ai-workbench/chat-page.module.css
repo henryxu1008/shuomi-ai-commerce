@@ -1,24 +1,24 @@
 .introduction, .introSection { display: grid; gap: 1rem; }
 .landingGrid, .scenarios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 .landingCard { display: flex; flex-direction: column; align-items: stretch; gap: 1rem; padding: 1.25rem; }
-.landingCard h2 { font-size: var(--card-title-size); font-weight: 700; }
+.landingCard h2 { font-size: var(--card-title-size); font-weight: 600; }
 .landingCard p, .step p, .newWorkspace p, .newGuide li { color: var(--muted-foreground); font-size: var(--body-text-size); line-height: 1.7; }
-.landingCard .subtitle { color: var(--primary); margin-top: .35rem; }
+.landingCard .subtitle { color: var(--foreground); margin-top: .25rem; }
 .entryActions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; margin-top: auto; }
-.tags { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-.example { padding: .85rem; border-radius: var(--radius); background: var(--secondary); font-size: var(--body-text-size); }
+.tags { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.example { padding: .75rem; border-radius: var(--control-radius); background: var(--secondary); font-size: var(--body-text-size); }
 .example strong { font-weight: 600; }
 .example p { margin-top: .4rem; }
 .introSection > h2 { font-size: var(--section-title-size); font-weight: 600; }
 .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; list-style: none; margin: 0; padding: 0; }
 .step { padding: 1rem; height: 100%; }
-.stepHeading { display: flex; align-items: center; gap: .6rem; }
+.stepHeading { display: flex; align-items: center; gap: .5rem; }
 .step h3, .newGuide h3, .createPanel h3 { font-size: var(--body-text-size); font-weight: 600; }
-.step p { margin-top: .6rem; }
+.step p { margin-top: .5rem; }
 .newWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) 10rem; align-items: start; gap: 1.5rem; padding-block: clamp(1rem, 5vh, 4rem); max-width: 70rem; margin-inline: auto; }
 .newMain { display: grid; gap: 1.5rem; min-width: 0; }
 .newHeading { text-align: center; }
-.newHeading h2 { font-size: var(--page-title-size); font-weight: 700; }
+.newHeading h2 { font-size: var(--page-title-size); font-weight: 600; }
 .newHeading p { margin-top: .75rem; }
 .createPanel { padding: 1.5rem; display: grid; gap: 1rem; }
 .createAction { display: flex; justify-content: end; }
@@ -32,7 +32,7 @@
 .viewNavigation { margin-bottom: 1rem; }
 .list { display: grid; gap: .75rem; }
 .conversationRows { overflow: hidden; }
-.conversationLink { display: flex; align-items: center; gap: 1.25rem; padding: 1rem 1.2rem; color: var(--foreground); }
+.conversationLink { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; color: var(--foreground); }
 .conversationLink + .conversationLink { border-top: 1px solid var(--border); }
 .conversationLink:hover { background: var(--secondary); }
 .conversationLink:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
