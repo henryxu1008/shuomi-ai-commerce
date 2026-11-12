@@ -5,7 +5,9 @@ import (
 	"errors"
 	"time"
 
+	commonpb "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	servicepb "go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 )
@@ -20,13 +22,14 @@ type bootstrapOperations interface {
 	verifyCoordinator(context.Context) error
 	unpause(context.Context) error
 	initialTick(context.Context) error
+	confirmRunning(context.Context) error
 }
 
 func bootstrap(ctx context.Context, ops bootstrapOperations) error {
 	if ctx == nil || ops == nil {
 		return ErrControlUnknown
 	}
-	for _, step := range []func(context.Context) error{ops.createPaused, ops.startCoordinator, ops.verifyCoordinator, ops.unpause, ops.initialTick} {
+	for _, step := range []func(context.Context) error{ops.createPaused, ops.startCoordinator, ops.verifyCoordinator, ops.unpause, ops.initialTick, ops.confirmRunning} {
 		if step(ctx) != nil {
 			return ErrControlUnknown
 		}
@@ -35,17 +38,17 @@ func bootstrap(ctx context.Context, ops bootstrapOperations) error {
 }
 
 type temporalBootstrap struct {
-	client client.Client
-	handle client.ScheduleHandle
-	runID  string
+	client    client.Client
+	namespace string
+	handle    client.ScheduleHandle
+	runID     string
 }
 
 func (b *temporalBootstrap) createPaused(ctx context.Context) error {
-	h, err := b.client.ScheduleClient().Create(ctx, client.ScheduleOptions{ID: ScheduleID, Paused: true, Overlap: enums.SCHEDULE_OVERLAP_POLICY_SKIP, Spec: client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: 7 * 24 * time.Hour}}}, Action: &client.ScheduleWorkflowAction{ID: "platform-fx-tick-v1", Workflow: TickWorkflowName, TaskQueue: TaskQueue}})
-	if err != nil {
-		return err
+	if err := claimPrepared(ctx, b.client.WorkflowService(), b.namespace); err != nil {
+		return ErrControlUnknown
 	}
-	b.handle = h
+	b.handle = b.client.ScheduleClient().GetHandle(ctx, ScheduleID)
 	return nil
 }
 func (b *temporalBootstrap) startCoordinator(ctx context.Context) error {
@@ -76,14 +79,76 @@ func (b *temporalBootstrap) initialTick(ctx context.Context) error {
 	return b.client.SignalWorkflow(ctx, CoordinatorID, b.runID, TickSignal, struct{}{})
 }
 
+func eligibleStartup(s StatusSnapshot) bool {
+	return !s.StopRequested && s.State != "" && s.State != "QUIESCED" && s.State != "DRAINING" && s.State != "UNKNOWN" && s.State != "USD_CONFLICT"
+}
+
+func (b *temporalBootstrap) confirmRunning(ctx context.Context) error {
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
+		desc, err := b.client.WorkflowService().DescribeSchedule(ctx, &servicepb.DescribeScheduleRequest{Namespace: b.namespace, ScheduleId: ScheduleID})
+		if err != nil || desc == nil || desc.Schedule == nil || desc.Schedule.State == nil {
+			return ErrControlUnknown
+		}
+		if validStatusSchedule(desc.Schedule, StatusSnapshot{}) {
+			if err = b.verifyCoordinator(ctx); err != nil {
+				return ErrControlUnknown
+			}
+			state, queryErr := readStatus(ctx, b.client)
+			if queryErr != nil {
+				return ErrControlUnknown
+			}
+			if state.StopRequested || state.State == "QUIESCED" || state.State == "DRAINING" {
+				return ErrControlUnknown
+			}
+			if eligibleStartup(state) {
+				if err = b.verifyCoordinator(ctx); err != nil {
+					return ErrControlUnknown
+				}
+				return nil
+			}
+			if state.State != "" {
+				return ErrControlUnknown
+			}
+		} else if !desc.Schedule.State.Paused {
+			return ErrControlUnknown
+		}
+		timer := time.NewTimer(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ErrControlUnknown
+		case <-timer.C:
+		}
+	}
+	return ErrControlUnknown
+}
+
 // BootstrapFresh is a deliberate state-changing operation only for a fresh,
 // separately authorized environment. Any ambiguous step remains UNKNOWN and
 // must never be blindly retried or interpreted as a fresh installation.
-func BootstrapFresh(ctx context.Context, c client.Client) error {
-	if c == nil {
+func BootstrapFresh(ctx context.Context, c client.Client, namespace string) error {
+	if c == nil || namespace == "" {
 		return ErrControlUnknown
 	}
-	return bootstrap(ctx, &temporalBootstrap{client: c})
+	return bootstrap(ctx, &temporalBootstrap{client: c, namespace: namespace})
+}
+
+// PrepareFresh creates the one durable paused marker only in a fresh target.
+// Any ambiguous outcome must be inspected and never blindly retried.
+func PrepareFresh(ctx context.Context, c client.Client, namespace string) error {
+	if ctx == nil || c == nil || namespace == "" {
+		return ErrControlUnknown
+	}
+	_, err := c.WorkflowService().DescribeWorkflowExecution(ctx, &servicepb.DescribeWorkflowExecutionRequest{Namespace: namespace, Execution: &commonpb.WorkflowExecution{WorkflowId: CoordinatorID}})
+	var missing *serviceerror.NotFound
+	if !errors.As(err, &missing) {
+		return ErrControlUnknown
+	}
+	_, err = c.ScheduleClient().Create(ctx, client.ScheduleOptions{ID: ScheduleID, Paused: true, Note: preparedNote, Overlap: enums.SCHEDULE_OVERLAP_POLICY_SKIP, Spec: client.ScheduleSpec{Intervals: []client.ScheduleIntervalSpec{{Every: 7 * 24 * time.Hour}}}, Action: &client.ScheduleWorkflowAction{ID: "platform-fx-tick-v1", Workflow: TickWorkflowName, TaskQueue: TaskQueue}})
+	if err != nil {
+		return ErrControlUnknown
+	}
+	return nil
 }
 
 // PauseSchedule stops future ticks but cannot prove all workers/transactions
@@ -160,13 +225,28 @@ func readStatus(ctx context.Context, c stopQueryClient) (StatusSnapshot, error) 
 
 // Control exposes only fixed operations; callers cannot choose actors,
 // endpoints, workflow identifiers, or publication parameters.
-type Control struct{ Client client.Client }
+type Control struct {
+	Client    client.Client
+	Namespace string
+}
 
 func (c Control) Status(ctx context.Context) (StatusSnapshot, error) {
-	if c.Client == nil {
+	if c.Client == nil || c.Namespace == "" {
 		return StatusSnapshot{}, ErrControlUnknown
 	}
-	return readStatus(ctx, c.Client)
+	if _, err := preparedDescription(ctx, c.Client.WorkflowService(), c.Namespace); err == nil {
+		return StatusSnapshot{State: "PREPARED"}, nil
+	}
+	desc, err := c.Client.WorkflowService().DescribeSchedule(ctx, &servicepb.DescribeScheduleRequest{Namespace: c.Namespace, ScheduleId: ScheduleID})
+	if err != nil || desc == nil {
+		return StatusSnapshot{}, ErrControlUnknown
+	}
+	state, err := readStatus(ctx, c.Client)
+	if err != nil || !validStatusSchedule(desc.Schedule, state) {
+		return StatusSnapshot{}, ErrControlUnknown
+	}
+	return state, nil
 }
-func (c Control) Start(ctx context.Context) error { return BootstrapFresh(ctx, c.Client) }
-func (c Control) Stop(ctx context.Context) error  { return RequestStop(ctx, c.Client) }
+func (c Control) Prepare(ctx context.Context) error { return PrepareFresh(ctx, c.Client, c.Namespace) }
+func (c Control) Start(ctx context.Context) error   { return BootstrapFresh(ctx, c.Client, c.Namespace) }
+func (c Control) Stop(ctx context.Context) error    { return RequestStop(ctx, c.Client) }

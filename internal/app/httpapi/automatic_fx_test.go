@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,13 +14,17 @@ import (
 	"task-processor/internal/authz"
 )
 
-type fakeFXControl struct{ starts int }
+type fakeFXControl struct {
+	starts   int
+	prepares int
+}
 
 func (f *fakeFXControl) Status(context.Context) (fx.StatusSnapshot, error) {
 	return fx.StatusSnapshot{State: "CHECKED"}, nil
 }
-func (f *fakeFXControl) Start(context.Context) error { f.starts++; return nil }
-func (f *fakeFXControl) Stop(context.Context) error  { return fx.ErrControlUnknown }
+func (f *fakeFXControl) Start(context.Context) error   { f.starts++; return nil }
+func (f *fakeFXControl) Prepare(context.Context) error { f.prepares++; return nil }
+func (f *fakeFXControl) Stop(context.Context) error    { return fx.ErrControlUnknown }
 
 func TestAutomaticFXControlRequiresPlatformAuthority(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -41,10 +46,18 @@ func TestAutomaticFXControlRequiresPlatformAuthority(t *testing.T) {
 		return w.Code
 	}
 	require.Equal(t, 403, request("POST", "/platform-prices/automatic-fx/start"))
+	require.Equal(t, 403, request("POST", "/platform-prices/automatic-fx/prepare"))
+	require.Zero(t, f.prepares)
 	require.Zero(t, f.starts)
 	id.UserID = "maintainer"
 	id.Roles = []string{"listingkit_admin"}
 	require.Equal(t, 200, request("GET", "/platform-prices/automatic-fx"))
+	injected := httptest.NewRecorder()
+	router.ServeHTTP(injected, httptest.NewRequest("POST", modelRouteBase+"/platform-prices/automatic-fx/prepare", strings.NewReader(`{"endpoint":"https://other.test"}`)))
+	require.Equal(t, 400, injected.Code)
+	require.Zero(t, f.prepares)
+	require.Equal(t, 200, request("POST", "/platform-prices/automatic-fx/prepare"))
+	require.Equal(t, 1, f.prepares)
 	require.Equal(t, 200, request("POST", "/platform-prices/automatic-fx/start"))
 	require.Equal(t, 1, f.starts)
 	require.Equal(t, 503, request("POST", "/platform-prices/automatic-fx/stop"))

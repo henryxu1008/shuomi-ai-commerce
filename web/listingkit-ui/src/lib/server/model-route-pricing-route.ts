@@ -36,7 +36,7 @@ export async function handleModelRoutePricing(request: NextRequest) {
   try {
     return (
       (await Promise.race([
-        authenticated(new NextRequest(request, { signal: controller.signal }), {
+        authenticated(new NextRequest(request.url, { method: request.method, headers: request.headers, body: request.body, signal: controller.signal }), {
           params: Promise.resolve({}),
         }),
         ended,

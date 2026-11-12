@@ -35,6 +35,7 @@ type ModelRoutePricingDependencies struct {
 
 type AutomaticFXControl interface {
 	Status(context.Context) (fx.StatusSnapshot, error)
+	Prepare(context.Context) error
 	Start(context.Context) error
 	Stop(context.Context) error
 }
@@ -56,7 +57,7 @@ func (m modelRoutePricingModule) Register(r *kernelmodule.Registry) error {
 }
 func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 	specs := []struct{ method, path, op string }{{"GET", "", "capabilities"}}
-	specs = append(specs, struct{ method, path, op string }{"GET", "/platform-prices/automatic-fx", "fx-status"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/start", "fx-start"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/stop", "fx-stop"})
+	specs = append(specs, struct{ method, path, op string }{"GET", "/platform-prices/automatic-fx", "fx-status"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/prepare", "fx-prepare"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/start", "fx-start"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/stop", "fx-stop"})
 	for _, family := range []string{"enterprise", "platform-prices"} {
 		specs = append(specs, struct{ method, path, op string }{"GET", "/" + family, "current"})
 		for _, op := range []string{"history", "receipts/:key"} {
@@ -141,7 +142,7 @@ func modelRouteDecode(c *gin.Context, target any) error {
 func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool) {
 	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
-	actor, org, err := sharedModelIdentity(ctx, m.authorizer, platform, op == "publish" || op == "fx-start" || op == "fx-stop")
+	actor, org, err := sharedModelIdentity(ctx, m.authorizer, platform, op == "publish" || op == "fx-prepare" || op == "fx-start" || op == "fx-stop")
 	if err != nil {
 		modelRouteFailure(c, err)
 		return
@@ -162,7 +163,30 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool)
 			modelRouteFailure(c, d.ErrUnavailable)
 			return
 		}
+		if op != "fx-status" {
+			body, e := io.ReadAll(io.LimitReader(c.Request.Body, 1025))
+			trimmed := strings.TrimSpace(string(body))
+			if e != nil || len(body) > 1024 {
+				modelRouteFailure(c, d.ErrInvalid)
+				return
+			}
+			if trimmed != "" {
+				var empty struct{}
+				violations, e := strict.UnmarshalStrict(body, &empty)
+				if !strings.HasPrefix(trimmed, "{") || e != nil || len(violations) != 0 {
+					modelRouteFailure(c, d.ErrInvalid)
+					return
+				}
+			}
+		}
 		switch op {
+		case "fx-prepare":
+			if e := m.services.AutomaticFX.Prepare(ctx); e != nil {
+				modelRouteFailure(c, d.ErrOutcomeUnknown)
+				return
+			}
+			c.JSON(200, gin.H{"state": "PREPARED"})
+			return
 		case "fx-status":
 			state, e := m.services.AutomaticFX.Status(ctx)
 			if e != nil {
