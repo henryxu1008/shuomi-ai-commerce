@@ -242,6 +242,14 @@ it("keeps the task center entry with either independent capability", async () =>
   }
 });
 
+it.each(["new", "recent", "saved", "archived", "550e8400-e29b-41d4-a716-446655440000"])("highlights the second-level chat entry on %s", (path) => {
+  render(<ConsoleNavigation pathname={`/workbench/ai/chat/${path}`} ariaLabel="主导航" aiWorkbenchAvailable />);
+  const entry=screen.getByRole("link",{name:"硕米Chat"});
+  expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+  expect(entry).toHaveAttribute("aria-current","page");
+  expect(screen.queryByRole("button",{name:"展开硕米Chat"})).not.toBeInTheDocument();
+});
+
 it.each(["running", "pending", "completed", "errors", "pending/other", "completed/history"])("highlights the second-level task entry on %s", (path) => {
   render(<ConsoleNavigation pathname={`/workbench/ai/tasks/${path}`} ariaLabel="主导航" aiWorkbenchAvailable />);
   const entry = screen.getByRole("link", { name: "任务中心" });

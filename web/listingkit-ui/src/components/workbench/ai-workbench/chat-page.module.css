@@ -29,6 +29,7 @@
 .searchField { display: grid; flex: 1 1 16rem; gap: .4rem; font-size: var(--body-text-size); color: var(--muted-foreground); }
 .filterNote { color: var(--muted-foreground); font-size: var(--body-text-size); line-height: 1.6; }
 .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; color: var(--muted-foreground); font-size: var(--body-text-size); }
+.viewNavigation { margin-bottom: 1rem; }
 .list { display: grid; gap: .75rem; }
 .conversationRows { overflow: hidden; }
 .conversationLink { display: flex; align-items: center; gap: 1.25rem; padding: 1rem 1.2rem; color: var(--foreground); }

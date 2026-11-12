@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { AIWorkbenchError } from "@/lib/api/ai-workbench";
@@ -44,6 +44,25 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); client.clear(); sessionStorage.clear(); });
+it("preserves a valid acquisition context across conversation view links", () => {
+  fixture.search.set("operationId",operationId);
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  const nav=within(screen.getByRole("navigation",{name:"会话视图"}));
+  for(const [view,label] of [["new","新建会话"],["recent","最近会话"],["saved","收藏会话"],["archived","归档会话"]]) expect(nav.getByRole("link",{name:label})).toHaveAttribute("href",`/workbench/ai/chat/${view}?operationId=${operationId}`);
+  fixture.search.delete("operationId");
+});
+it.each(["home", "new", "recent", "saved", "archived"] as const)("provides all conversation views from %s", mode => {
+  fixture.request.mockImplementation(async ({ route }) => route === "conversation-list" ? {conversations:[],next:""} : route === "scope-options" ? scopeOptions : Promise.reject(new AIWorkbenchError("INVALID_REQUEST")));
+  render(<QueryClientProvider client={client}><ChatPage mode={mode} /></QueryClientProvider>);
+  const nav = screen.getByRole("navigation", {name:"会话视图"});
+  for (const [view,label] of [["new","新建会话"],["recent","最近会话"],["saved","收藏会话"],["archived","归档会话"]]) {
+    const link=within(nav).getByRole("link",{name:label});
+    expect(link).toHaveAttribute("href",`/workbench/ai/chat/${view}`);
+    if (mode===view) expect(link).toHaveAttribute("aria-current","page");
+    else expect(link).not.toHaveAttribute("aria-current");
+  }
+  expect(fixture.request.mock.calls.every(([input]) => input.route !== "conversation-create")).toBe(true);
+});
 it("keeps new conversation creation separate from the history list", async () => {
   fixture.request.mockImplementation(async ({ route }) => {
     if (route === "conversation-list") return { conversations: [{ ...conversation, Title: "已有讨论" }], next: "" };
