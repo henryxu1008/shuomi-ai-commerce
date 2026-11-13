@@ -6,6 +6,20 @@ const secret = "codex-chat-compose-synthetic-ui-only";
 test.skip(process.env.CHAT_COMPOSE_UI_FIXTURE !== "1" || process.env.AUTH_SECRET !== secret, "requires the explicit isolated synthetic UI fixture");
 test("retains the input through the original create retry without dispatching a message", async ({page,context,baseURL},info) => {
   const origin=baseURL!,issuer="https://chat-compose.invalid",client="chat-compose-fixture";
+  await page.addInitScript(() => {
+    const target = window as unknown as {SpeechRecognition: unknown; webkitSpeechRecognition: unknown; voiceFixture: {starts: number; current?: {onresult?: (event: unknown) => void}}};
+    target.voiceFixture = {starts:0};
+    class FakeSpeechRecognition {
+      onresult?: (event: unknown) => void;
+      onend?: () => void;
+      constructor() { target.voiceFixture.current = this; }
+      start() { target.voiceFixture.starts++; }
+      stop() { setTimeout(() => this.onend?.(), 0); }
+      abort() {}
+    }
+    target.SpeechRecognition = FakeSpeechRecognition;
+    target.webkitSpeechRecognition = FakeSpeechRecognition;
+  });
   const namespace=createHash("sha256").update(JSON.stringify([origin,issuer,client])).digest("hex").slice(0,32),name=`shuomi.${namespace}.session-token`;
   const token=await encode({secret,salt:name,maxAge:600,token:{accessToken:"synthetic-chat-compose",expiresAt:Math.floor(Date.now()/1000)+600,identityVersion:3,identity:{tenantId:"org",userId:"user",userType:"zitadel",roles:[]}}});
   await context.addCookies([{name,value:token,url:origin,httpOnly:true,sameSite:"Lax"}]);
@@ -24,9 +38,31 @@ test("retains the input through the original create retry without dispatching a 
     return json({code:"NOT_FOUND"},404);
   });
   await page.goto("/workbench/ai/chat/new");
+  for (const viewport of [{width:1440,height:900},{width:390,height:844}]) {
+    await page.setViewportSize(viewport);
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(value => localStorage.setItem("listingkit-theme", value), theme);
+      await page.reload();
+      await expect(page.locator("html")).toHaveClass(new RegExp(theme));
+      await expect(page.getByLabel("需求")).toBeVisible();
+      await expect(page.getByRole("button",{name:"开始对话",exact:true})).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({path:info.outputPath(`chat-compose-${viewport.width}-${theme}.png`)});
+    }
+  }
+  await page.getByLabel("需求").fill("【合成测试】请整理商品描述");
+  expect(await page.evaluate(() => (window as unknown as {voiceFixture:{starts:number}}).voiceFixture.starts)).toBe(0);
+  await page.getByRole("button",{name:"开始语音输入"}).click();
+  await page.evaluate(() => {
+    const fixture = (window as unknown as {voiceFixture:{current:{onresult:(event:unknown)=>void}}}).voiceFixture;
+    const item = Object.assign([{transcript:"，补充卖点"}], {isFinal:true});
+    fixture.current.onresult({resultIndex:0,results:[item]});
+  });
+  await expect(page.getByLabel("需求")).toHaveValue("【合成测试】请整理商品描述，补充卖点");
+  await page.getByRole("button",{name:"停止语音输入"}).click();
   await page.getByLabel("需求").fill("【合成测试】请整理商品描述");
   await page.screenshot({path:info.outputPath("chat-compose-desktop.png")});
-  await page.getByRole("button",{name:"新建会话",exact:true}).click();
+  await page.getByRole("button",{name:"开始对话",exact:true}).click();
   await expect(page.getByRole("button",{name:"核对原创建请求"})).toBeVisible();
   await page.reload(); await expect(page.getByLabel("需求")).toHaveValue("【合成测试】请整理商品描述");
   await page.getByRole("button",{name:"核对原创建请求"}).click();

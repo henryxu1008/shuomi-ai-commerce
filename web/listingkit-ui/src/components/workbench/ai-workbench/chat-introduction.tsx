@@ -40,7 +40,14 @@ export function ChatIntroduction({ createAction, contentTasks }: { createAction:
   </div>;
 }
 
-export function NewConversationIntroduction({ createAction }: { createAction: ReactNode }) {
+export function NewConversationIntroduction({ createAction, directCompose, canUse }: { createAction: ReactNode; directCompose: boolean; canUse: boolean }) {
+  if (directCompose) return <div className={styles.newWorkspace}>
+    <section className={styles.composeMain} aria-labelledby="chat-new-goal">
+      <header className={styles.composeHeading}><h2 id="chat-new-goal">{canUse ? "描述你的商品任务" : "商品任务会话"}</h2><p>{canUse ? "输入需求，创建会话后再选择商品并核对方案" : "查看已有会话，继续跟进商品任务"}</p></header>
+      <div className={styles.composePanel}>{createAction}</div>
+      {canUse ? <p className={styles.composeNote}>创建后不会自动发送需求</p> : null}
+    </section>
+  </div>;
   return <div className={styles.newWorkspace}>
     <section className={styles.newMain} aria-labelledby="chat-new-goal">
       <header className={styles.newHeading}><h2 id="chat-new-goal">开始商品任务会话</h2><p>先输入需求，创建会话后选择已有商品并核对方案。</p></header>
