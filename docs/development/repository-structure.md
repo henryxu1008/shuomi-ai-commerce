@@ -60,6 +60,7 @@ Framework、Transport、Workflow、Persistence、Provider SDK、Marketplace Clie
     - `agent-configuration-schema-init`
     - `agent-customization-schema-init`
     - `ai-workbench-schema-init`
+    - `ai-workbench-retained-prepare`
     - `browser-kernel-schema-init`
     - `commercial-owner-schema-migrate`
     - `ecoservices-schema-init`
