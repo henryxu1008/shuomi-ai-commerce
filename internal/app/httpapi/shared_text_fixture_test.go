@@ -19,8 +19,9 @@ import (
 // Explicit synthetic shared reader for original isolated consumer regressions.
 // Production has no static per-operation fallback.
 type syntheticCurrentTextPolicies struct {
-	settings *ProductAgentDependencies
-	planning map[string]governed.RoutePolicy
+	settings   *ProductAgentDependencies
+	planning   map[string]governed.RoutePolicy
+	storeRoute map[string]governed.RoutePolicy
 }
 
 func (f syntheticCurrentTextPolicies) ReadPolicy(_ context.Context, key governed.RouteKey) (governed.RoutePolicy, error) {
@@ -28,6 +29,8 @@ func (f syntheticCurrentTextPolicies) ReadPolicy(_ context.Context, key governed
 	switch key.Operation {
 	case aicapability.OperationAIWorkbenchChatPlan:
 		policies = f.planning
+	case aicapability.OperationAIWorkbenchStoreRoute:
+		policies = f.storeRoute
 	case aicapability.OperationProductAgentDecision:
 		policies = f.settings.TextPolicies
 	case aicapability.OperationProductContentDecision:

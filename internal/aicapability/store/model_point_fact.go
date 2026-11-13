@@ -2,11 +2,41 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"gorm.io/gorm"
 	"strings"
 	"task-processor/internal/aicapability"
 )
+
+// HasInvocationID is an authoritative, unfiltered existence check on the
+// owner primary. It returns no cross-tenant data and never locks or writes.
+func (r *GormInvocationRecorder) HasInvocationID(ctx context.Context, id string) (bool, error) {
+	if r == nil || r.db == nil || ctx == nil || strings.TrimSpace(id) == "" {
+		return false, fmt.Errorf("invalid invocation identity")
+	}
+	var count int64
+	if r.db.Dialector.Name() != "postgres" {
+		if err := r.db.WithContext(ctx).Model(&invocationRow{}).Where("invocation_id = ?", id).Count(&count).Error; err != nil {
+			return false, err
+		}
+		return count != 0, nil
+	}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var authoritative bool
+		if err := tx.Raw(`SELECT NOT pg_is_in_recovery() AND current_schema()='public' AND NOT c.relrowsecurity AND c.relkind='r' AND has_table_privilege(current_user,c.oid,'SELECT') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='ai_invocations'`).Scan(&authoritative).Error; err != nil {
+			return err
+		}
+		if !authoritative {
+			return fmt.Errorf("invocation primary visibility is not authoritative")
+		}
+		return tx.Model(&invocationRow{}).Where("invocation_id = ?", id).Count(&count).Error
+	}, &sql.TxOptions{Isolation: sql.LevelReadCommitted, ReadOnly: true})
+	if err != nil {
+		return false, err
+	}
+	return count != 0, nil
+}
 
 // ReadModelInvocation reads admitted priced-text operations from the
 // existing AI invocation owner, never caller-supplied usage.
@@ -16,7 +46,7 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 	}
 	var row invocationRow
 	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND invocation_id = ? AND operation IN ?", org, id,
-		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake, aicapability.OperationAIWorkbenchChatPlan}).Take(&row).Error; err != nil {
+		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute}).Take(&row).Error; err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
 	fact, err := invocationRecordFromRow(row)

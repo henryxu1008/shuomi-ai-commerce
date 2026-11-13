@@ -169,7 +169,7 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint)
 	}
 	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
-		return (operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationProductContentDecision) &&
+		return (operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationProductContentDecision) &&
 			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint) && p.UsageMappingVersion == "openai-text-v1" &&
 			p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
 	}

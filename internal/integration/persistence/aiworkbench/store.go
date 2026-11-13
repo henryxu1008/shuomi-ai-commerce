@@ -62,14 +62,16 @@ type metadataAuditRow struct {
 func (metadataAuditRow) TableName() string { return "ai_workbench.metadata_audit" }
 
 type messageRow struct {
-	ID             string
-	OrganizationID string
-	OwnerUserID    string
-	ConversationID string
-	Sequence       uint64
-	AuthorKind     string
-	Content        string
-	CreatedAt      time.Time
+	ID               string
+	OrganizationID   string
+	OwnerUserID      string
+	ConversationID   string
+	Sequence         uint64
+	AuthorKind       string
+	Content          string
+	Kind             string  `gorm:"column:message_kind;default:TEXT"`
+	StoreQueryStatus *string `gorm:"column:store_query_status"`
+	CreatedAt        time.Time
 }
 
 func (messageRow) TableName() string { return "ai_workbench.messages" }
@@ -93,6 +95,8 @@ type commandRow struct {
 	PlannerModelProfile json.RawMessage `gorm:"type:jsonb"`
 	PlannerStartedAt    *time.Time
 	PlannerDeadline     *time.Time
+	RouteCommitDeadline *time.Time `gorm:"column:route_commit_deadline"`
+	RouteResult         *string    `gorm:"column:route_result"`
 	AssistantMessageID  *string
 	ProposalID          *string
 	TerminalDigest      *string
@@ -188,6 +192,8 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		return aiworkbench.ErrUnavailable
 	}
 	for _, projection := range []struct{ table, columns string }{
+		{"messages", "message_kind, store_query_status"},
+		{"commands", "route_commit_deadline, route_result"},
 		{"business_tasks", "source_kind, scheduled_occurrence_id"},
 		{"scheduled_plans", "execution_spec, rule_start_at, registration_state, creation_fingerprint, budget_unit"},
 		{"scheduled_occurrences", "reason, reconciliation_digest"},

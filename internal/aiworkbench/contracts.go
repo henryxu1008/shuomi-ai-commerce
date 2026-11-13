@@ -61,12 +61,14 @@ const (
 )
 
 type Message struct {
-	ID             string
-	ConversationID string
-	Sequence       uint64
-	Author         MessageAuthor
-	Content        string
-	CreatedAt      time.Time
+	ID               string
+	ConversationID   string
+	Sequence         uint64
+	Author           MessageAuthor
+	Content          string
+	Kind             string `json:"kind,omitempty"`
+	StoreQueryStatus string `json:"storeQueryStatus,omitempty"`
+	CreatedAt        time.Time
 }
 
 type MessageInput struct {

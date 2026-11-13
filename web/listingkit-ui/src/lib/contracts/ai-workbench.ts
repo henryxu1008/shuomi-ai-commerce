@@ -29,10 +29,12 @@ const conversation = z.object({
   MetadataRevision: z.number().int().positive(), NextSequence: z.number().int().positive(),
   CreatedAt: timestamp, UpdatedAt: timestamp,
 });
+const storeOverview = z.strictObject({total:z.number().int().nonnegative().safe(),platforms:z.record(z.string().min(1).max(64),z.number().int().nonnegative().safe()),statuses:z.record(z.string().min(1).max(64),z.number().int().nonnegative().safe()),operatingTypeUnknown:z.number().int().nonnegative().safe(),readStartedAt:timestamp});
 const message = z.object({
   ID: id, ConversationID: id, Sequence: z.number().int().positive(),
   Author: z.enum(["USER", "ASSISTANT"]), Content: z.string(), CreatedAt: timestamp,
-});
+  kind:z.enum(["TEXT","STORE_OVERVIEW_REF"]).optional(),storeQueryStatus:z.enum(["ALL_NON_DELETED","ACTIVE"]).optional(),currentStoreOverview:storeOverview.optional(),storeOverviewUnavailable:z.boolean().optional(),
+}).superRefine((m,ctx)=>{if(m.kind==="STORE_OVERVIEW_REF"){if(m.Author!=="ASSISTANT"||m.Content!=="店铺概况"||!m.storeQueryStatus||Boolean(m.currentStoreOverview)===Boolean(m.storeOverviewUnavailable))ctx.addIssue({code:"custom",message:"Invalid store reference"});}else if(m.storeQueryStatus||m.currentStoreOverview||m.storeOverviewUnavailable)ctx.addIssue({code:"custom",message:"Unexpected store projection"});});
 const proposal = z.object({
  businessScope:scopeView.optional(),
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),executionProfileReady:z.boolean().optional(),maximumSteps:z.number().int().positive().optional(),maximumModelCalls:z.number().int().positive().optional(),maximumRuntimeSeconds:z.number().int().positive().optional(),
@@ -76,6 +78,8 @@ const aiTitleMessageBody = z.strictObject({
   templateRevision: z.string().regex(/^[1-9][0-9]*$/).optional(), knowledgeBaseId: id.optional(),
 });
 export const aiMessageBody=z.union([aiTitleMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,taskSelection:aiTaskSelection,templateId:id.optional(),templateRevision:aiTitleMessageBody.shape.templateRevision,knowledgeBaseId:id.optional()})]).refine(value=>Boolean(value.templateId)===Boolean(value.templateRevision));
+export const aiStoreRouteBody=z.strictObject({content:aiTitleMessageBody.shape.content});
+export const aiStoreOverviewBody=z.strictObject({status:z.enum(["ALL_NON_DELETED","ACTIVE"])});
 export const aiMetadataBody = z.strictObject({ title: z.string().max(256).optional(), favorite: z.boolean().optional(), archived: z.boolean().optional() });
 export const aiResumeBody = z.strictObject({ revision: z.string().regex(/^[1-9][0-9]*$/),
   feedback: z.string().refine(v => new TextEncoder().encode(v).byteLength <= 8192) });
@@ -98,7 +102,7 @@ export type AIScheduleQuote=z.infer<typeof scheduleQuote>;
 const scheduledSave=z.object({plan:schedulePlan,planSaved:z.literal(true)});
 
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
-  "scope-options" | "task-scope-options" | "subject-read" | "message" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review" |
+  "scope-options" | "task-scope-options" | "subject-read" | "message" | "store-route" | "store-overview" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review" |
   "schedule-availability"|"schedule-list"|"schedule-read"|"schedule-history"|"schedule-quote"|"schedule-create"|"schedule-edit"|"schedule-pause"|"schedule-resume"|"schedule-close";
 
 export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRoute | null {
@@ -119,6 +123,8 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
     if (!isAcquisitionUUID(path[2] ?? "")) return null;
     if (path.length === 3) return method === "GET" ? "conversation-read" : method === "PATCH" ? "conversation-metadata" : null;
     if (path.length === 4 && path[3] === "messages" && method === "POST") return "message";
+    if (path.length === 4 && path[3] === "intent" && method === "POST") return "store-route";
+    if (path.length === 4 && path[3] === "store-overview" && method === "POST") return "store-overview";
     if (path.length === 6 && path[3] === "proposals" && isAcquisitionUUID(path[4] ?? "") && path[5] === "confirm" && method === "POST") return "confirm";
   }
   if (path[0] === "tasks") {
@@ -152,6 +158,8 @@ export const aiResponseSchemas = {
     "conversation-metadata": z.object({ conversation }),
     message: z.object({ state: z.enum(["READY_TO_DISPATCH", "COMPLETE", "FAILED_BEFORE_DISPATCH", "PLANNER_INVALID_OUTPUT", "PLANNER_UNKNOWN"]),
       userMessageId: id.optional(), sourceSequence: z.number().int().positive().optional(), assistantMessageId: z.string().optional(), proposalId: z.string().optional(), proposal: proposal.optional(),scopeUnavailable:z.boolean().optional() }),
+    "store-route":z.object({state:z.enum(["COMPLETE","ROUTING_RESULT_LOST","FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT"])}),
+    "store-overview":z.object({state:z.literal("COMPLETE"),replay:z.boolean()}),
     confirm: z.object({ task, replay: z.boolean() }),
     "task-list": z.object({ tasks: z.array(task), next: z.string(), incomplete:z.boolean().optional() }),
     "task-read": z.object({ task }),

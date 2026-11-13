@@ -8,6 +8,7 @@ import (
 	"task-processor/internal/aicapability"
 
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	"task-processor/internal/integration/aiworkbench/einorouter"
 )
 
 // AIWorkbenchConfig uses the Product Agent's logical database with its own
@@ -20,6 +21,7 @@ type AIWorkbenchConfig struct {
 	AllowedOrganizationIDs []string                        `json:"allowedOrganizationIds,omitempty"`
 	Database               DatabaseConfig                  `json:"database"`
 	PlanningTextPolicies   map[string]governed.RoutePolicy `json:"planningTextPolicies"`
+	StoreRouteTextPolicies map[string]governed.RoutePolicy `json:"storeRouteTextPolicies,omitempty"`
 }
 
 func (w *AIWorkbenchConfig) validate(cfg *Config) error {
@@ -30,7 +32,7 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		return err
 	}
 	if cfg.ProductAgent != nil && cfg.ProductAgent.ContentTitleOnly &&
-		(len(w.PlanningTextPolicies) != 0 || w.Enabled && !w.ConversationOnly) {
+		(len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 || w.Enabled && !w.ConversationOnly) {
 		return errors.New("content-title-only permits only storage-only Chat")
 	}
 	if !w.Enabled {
@@ -40,7 +42,7 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		return errors.New("content tasks require an explicit content execution consumer")
 	}
 	if w.ConversationOnly {
-		if cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly || len(w.PlanningTextPolicies) != 0 ||
+		if cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly || len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 ||
 			w.Database.validate("aiWorkbench.database") != nil || w.Database.User != "ai_workbench_runtime" ||
 			w.Database.User == cfg.ProductAgent.Database.User || w.Database.Host != cfg.ProductAgent.Database.Host ||
 			w.Database.Port != cfg.ProductAgent.Database.Port || w.Database.Database != cfg.ProductAgent.Database.Database ||
@@ -95,6 +97,18 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		}
 		if _, err := profile.CostFor(profile.MaximumPromptTokens, profile.MaximumCompletionTokens); err != nil {
 			return errors.New("AI Workbench planning price invalid")
+		}
+	}
+	if len(w.StoreRouteTextPolicies) > 64 {
+		return errors.New("AI Workbench store route policies invalid")
+	}
+	for org, policy := range w.StoreRouteTextPolicies {
+		profile := policy.ShapeProfile()
+		if !allowed[org] || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchStoreRoute) || profile.PromptVersion != einorouter.PromptVersion || profile.OutputSchemaVersion != einorouter.SchemaVersion || profile.Currency != cfg.ProductAgent.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens || profile.MaximumCompletionTokens > 4096 || profile.MaximumInputBytes > 128<<10 || profile.MaximumOutputBytes > 16<<10 {
+			return errors.New("AI Workbench store route policy invalid")
+		}
+		if _, err := profile.CostFor(profile.MaximumPromptTokens, profile.MaximumCompletionTokens); err != nil {
+			return errors.New("AI Workbench store route price invalid")
 		}
 	}
 	return nil
