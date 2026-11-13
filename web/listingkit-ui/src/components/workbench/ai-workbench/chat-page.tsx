@@ -231,7 +231,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [pendingOverview,setPendingOverview]=useState<string|null>(null);
   const [overviewReady,setOverviewReady]=useState(false);
   const [overviewBusy,setOverviewBusy]=useState(false);
-  useEffect(()=>{try{const key=sessionStorage.getItem(overviewKey);if(key!==null&&!isAcquisitionUUID(key))throw new Error("invalid original key");setPendingOverview(key);setOverviewReady(true)}catch{setError("原店铺查询记录不可读取，请检查浏览器存储。");setOverviewReady(false)}},[overviewKey]);
+  useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active)return;try{const key=sessionStorage.getItem(overviewKey);if(key!==null&&!isAcquisitionUUID(key))throw new Error("invalid original key");setPendingOverview(key);setOverviewReady(true)}catch{setError("原店铺查询记录不可读取，请检查浏览器存储。");setOverviewReady(false)}});return()=>{active=false}},[overviewKey]);
   const messageStorageKey = pendingMessageStorageKey(scope, id);
   const [activeMessageKey,setActiveMessageKey] = useState(messageStorageKey);
   const confirmationStorageKey = confirmStorageKey(scope, id);
