@@ -368,16 +368,18 @@ func (s *Store) CompleteStoreRoute(ctx context.Context, scope aiworkbench.Scope,
 			result, replay = routeCommand(row), true
 			return nil
 		}
+		conversation, e := s.lookupConversation(tx, scope, row.ConversationID, true)
+		if e != nil {
+			return e
+		}
+		// Both row locks can wait. Read the database clock only after acquiring
+		// the conversation lock so a late T1 cannot cross the commit fence.
 		var now time.Time
 		if e := tx.Raw("SELECT clock_timestamp()").Scan(&now).Error; e != nil {
 			return e
 		}
 		if row.State != string(aiworkbench.PlanningReadyToDispatch) || row.RouteCommitDeadline == nil || !aiworkbench.RouteCommitEligible(now, *row.RouteCommitDeadline) {
 			return aiworkbench.ErrUnavailable
-		}
-		conversation, e := s.lookupConversation(tx, scope, row.ConversationID, true)
-		if e != nil {
-			return e
 		}
 		message := messageRow{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID, ConversationID: row.ConversationID, Sequence: conversation.NextSequence, AuthorKind: string(aiworkbench.AuthorAssistant), Content: "请补充需求", CreatedAt: now.UTC()}
 		if decision.Kind == "STORE_OVERVIEW" {

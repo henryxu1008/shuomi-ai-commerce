@@ -508,3 +508,39 @@ func TestStoreRouteLockWaitAcrossDeadlineRejectsLateCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
 }
+
+func TestStoreRouteConversationLockWaitAcrossDeadlineRejectsLateCommit(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	scope := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "user-a"}
+	fixed := &aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "general"}
+	conversation, _, err := store.CreateScoped(ctx, scope, uuid.NewString(), aiworkbench.CreateInput{MemberID: "member-a"}, fixed, nil)
+	require.NoError(t, err)
+	key := uuid.NewString()
+	request := aiworkbench.StoreRouteRequest{Content: "店铺数量", MemberID: "member-a", InputHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ModelProfile: []byte(`{"version":"fixture"}`), ModelTimeout: time.Minute}
+	_, _, err = store.BeginStoreRoute(ctx, scope, conversation.ID, key, request)
+	require.NoError(t, err)
+	lock := db.Begin()
+	require.NoError(t, lock.Error)
+	defer lock.Rollback()
+	require.NoError(t, lock.Exec("UPDATE ai_workbench.conversations SET title=title WHERE id=?", conversation.ID).Error)
+	require.NoError(t, db.Exec("UPDATE ai_workbench.commands SET route_commit_deadline=clock_timestamp()+INTERVAL '2 seconds' WHERE idempotency_key=?", key).Error)
+	result := make(chan error, 1)
+	go func() {
+		_, _, e := store.CompleteStoreRoute(ctx, scope, key, aiworkbench.StoreRoute{Kind: "STORE_OVERVIEW", Status: "ACTIVE"})
+		result <- e
+	}()
+	require.Eventually(t, func() bool {
+		var waiting int64
+		err := db.Raw("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%ai_workbench%conversations%'").Scan(&waiting).Error
+		return err == nil && waiting > 0
+	}, 1500*time.Millisecond, 25*time.Millisecond, "the T1 writer must be blocked on the conversation row before the deadline")
+	time.Sleep(2300 * time.Millisecond)
+	require.NoError(t, lock.Commit().Error)
+	require.ErrorIs(t, <-result, aiworkbench.ErrUnavailable)
+	messages, _, err := store.ListMessagesPage(ctx, scope, conversation.ID, 0, 50)
+	require.NoError(t, err)
+	require.Len(t, messages, 1)
+}

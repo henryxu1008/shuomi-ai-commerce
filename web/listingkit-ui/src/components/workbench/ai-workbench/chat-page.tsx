@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useInfiniteQuery,useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery,useQuery,useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
@@ -201,6 +201,7 @@ function ConversationLink({ item }: { item: AIConversation }) {
 
 function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planningReadiness, titleReadiness, id }: { scope: AIScope; authorizationKey: string; canUse: boolean; canPlan: boolean; planningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; titleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; id: string }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const search = useSearchParams();
   const [operationId, setOperationId] = useState(search.get("operationId") ?? "");
   const execution=useWorkbenchContext();
@@ -247,10 +248,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   useEffect(()=>{if(detail.isSuccess&&!detail.isFetching&&!detail.isError&&!pageRevalidation.current&&verifiedGeneration.current===focusGeneration.current)setStoreProjectionFresh(true)},[detail.isSuccess,detail.isFetching,detail.isError,detail.dataUpdatedAt]);
   useEffect(()=>{
     const hide=()=>{focusGeneration.current++;setStoreProjectionFresh(false)};
-    const restore=()=>{const generation=++focusGeneration.current;setStoreProjectionFresh(false);void refetchDetail().then(result=>{if(generation===focusGeneration.current && result.isSuccess)setStoreProjectionFresh(true)});};
+    const restore=()=>{const generation=++focusGeneration.current;setStoreProjectionFresh(false);void (async()=>{await queryClient.cancelQueries({queryKey:["ai-chat",scope.userId,scope.organizationId,authorizationKey,id],exact:true});if(generation!==focusGeneration.current)return;const result=await refetchDetail();if(generation===focusGeneration.current && verifiedGeneration.current===generation && result.isSuccess)setStoreProjectionFresh(true)})();};
     window.addEventListener("blur",hide);window.addEventListener("focus",restore);
     return()=>{focusGeneration.current++;window.removeEventListener("blur",hide);window.removeEventListener("focus",restore)};
-  },[refetchDetail]);
+  },[refetchDetail,queryClient,scope.userId,scope.organizationId,authorizationKey,id]);
   const newest = detail.data?.pages[0];
   const current = newest?.conversation;
   const draftHandoff = useRef(false);
@@ -327,7 +328,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     if(older.isError || generation!==focusGeneration.current){pageRevalidation.current=false;return}
     const checked=await detail.refetch();
     pageRevalidation.current=false;
-    if(checked.isSuccess && generation===focusGeneration.current)setStoreProjectionFresh(true);
+    if(checked.isSuccess && generation===focusGeneration.current && verifiedGeneration.current===generation)setStoreProjectionFresh(true);
   }
   function preserveMessageInput(saved:PendingMessage): boolean {
     try {

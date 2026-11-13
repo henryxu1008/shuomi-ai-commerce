@@ -42,6 +42,22 @@ it("hides store counts on focus until the live history is reauthorized", async (
  expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
 });
 
+it("discards an initial history response started before the latest focus", async () => {
+ const stamp="2026-10-03T00:00:00Z";
+ const reference={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:3,platforms:{shein:3},statuses:{active:3},operatingTypeUnknown:3,readStartedAt:stamp}};
+ let resolveOld:(value:unknown)=>void=()=>{},resolveFresh:(value:unknown)=>void=()=>{};
+ fixture.request.mockImplementationOnce(()=>new Promise(resolve=>{resolveOld=resolve})).mockImplementationOnce(()=>new Promise(resolve=>{resolveFresh=resolve}));
+ render(tree());
+ await waitFor(()=>expect(fixture.request).toHaveBeenCalledTimes(1));
+ fireEvent.blur(window);fireEvent.focus(window);
+ await act(async()=>resolveOld({conversation,messages:[reference],proposals:[],before:""}));
+ await waitFor(()=>expect(fixture.request).toHaveBeenCalledTimes(2));
+ expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+ await act(async()=>resolveFresh({conversation,messages:[{...reference,currentStoreOverview:undefined,storeOverviewUnavailable:true}],proposals:[],before:""}));
+ expect(await screen.findByText(/当前无权查看或店铺数据暂不可用/)).toBeInTheDocument();
+ expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+});
+
 it.each(["project","store"] as const)("explains the store status breakdown and %s context boundary",async kind=>{
  const stamp="2026-10-03T00:00:00Z", fixed={...conversation,businessScope:{version:"workbench-scope-v1",kind,...(kind==="project"?{projectId:"project-a"}:{storeId:"store-a"})}};
  const reference={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:3,platforms:{shein:3},statuses:{active:1,disabled:1,deleting:1},operatingTypeUnknown:3,readStartedAt:stamp}};
