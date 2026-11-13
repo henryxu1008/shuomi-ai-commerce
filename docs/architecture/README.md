@@ -24,6 +24,7 @@
 ## 系统边界与应用装配
 
 - `chat-35444-retained-wiring-design.md` — [35444 保留库店铺查询接线设计](chat-35444-retained-wiring-design.md) · 独立架构评审 IMPLEMENTATION_READY；实施仅限获准的保留实例及其隔离副本，原实例更新仍需单独放行。
+- `chat-retained-minimal-admission-proposal.md` — [原 35444 Chat 接线的开发试用最小准入](chat-retained-minimal-admission-proposal.md) · 新用户决定及独立架构复核；复用已有证据，保留目标、数据、权限和原预留保护。
 - `chat-retained-1260-trial.md` — [保留试用实例隔离接线方案](chat-retained-1260-trial.md) · 隔离演练依据；不构成原实例更新授权。
 
 - `retained-startup-prerequisites.md` — [保留实例启动前置：OwnIntake v3 与采集价格快照](retained-startup-prerequisites.md) · #1233 最小方案独立R1通过，IMPLEMENTATION_READY / FROZEN；实施义务未执行，不授权原35444操作。
