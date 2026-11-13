@@ -37,6 +37,16 @@ func (a *aiWorkbenchApplication) notificationSources() []n.Source {
 		}
 		page := n.SourcePage{Items: []n.Item{}, Next: next}
 		for _, row := range rows {
+			view, viewErr := a.taskView(ctx, row.Scope, row, false)
+			if viewErr != nil || view.ScopeUnavailable {
+				return n.SourcePage{}, n.ErrUnavailable
+			}
+			if view.HistoryUnavailable {
+				revision := n.Digest([]any{row.ExecutionRequestKey, "product-history-unavailable"})
+				item := notificationItem("workbench-task", row.ID, "UNAVAILABLE", "任务内容暂不可查看", view.Title, scope.OrganizationID, revision, false, n.Target{Kind: "task", ID: row.ID})
+				page.Items = append(page.Items, item)
+				continue
+			}
 			if !row.WorkbenchContextRef.Absent() {
 				if _, err := a.authorizedFrozenScope(ctx, row.Scope, row.WorkbenchContextRef, false); err != nil {
 					return n.SourcePage{}, n.ErrUnavailable
@@ -56,7 +66,7 @@ func (a *aiWorkbenchApplication) notificationSources() []n.Source {
 				runID = projection.Run.State.RunID
 			}
 			revision := n.Digest([]any{row.ExecutionRequestKey, runID, state, projection.Reason, projection.Review.State, projection.Review.Revision})
-			item := notificationItem("workbench-task", row.ID, state, label, row.Title, scope.OrganizationID, revision, projection.State != aiworkbench.TaskCompleted, n.Target{Kind: "task", ID: row.ID})
+			item := notificationItem("workbench-task", row.ID, state, label, view.Title, scope.OrganizationID, revision, projection.State != aiworkbench.TaskCompleted, n.Target{Kind: "task", ID: row.ID})
 			item.OccurredAt = projection.Review.OccurredAt
 			if runID != "" && projection.Review.ID != "" {
 				item.Association = scope.OrganizationID + ":" + runID

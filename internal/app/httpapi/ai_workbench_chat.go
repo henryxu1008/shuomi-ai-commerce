@@ -143,6 +143,12 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	for index := range messages {
+		if messages[index].Author == aiworkbench.AuthorAssistant && messages[index].Kind != "STORE_OVERVIEW_REF" &&
+			a.productHistoryUnavailable(ctx, scope, id, messages[index].Sequence) {
+			messages[index].Content = "相关商品当前不可访问，无法显示此回复。"
+		}
+	}
 	// Only the latest proposal can match the latest USER turn and be confirmed.
 	// Older proposal cards are not rendered by the current Conversation view.
 	proposals, err := a.store.ListProposals(ctx, scope, id, 1)
@@ -152,6 +158,10 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 	}
 	cards := make([]workbenchProposalCard, 0, len(proposals))
 	for _, proposal := range proposals {
+		i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+		if !ok || a.proposalHistoryUnavailable(ctx, scope, proposal, i) {
+			continue
+		}
 		card, cardErr := a.proposalReceiptCard(ctx, scope, proposal)
 		if cardErr != nil {
 			writeAIWorkbenchError(c, cardErr)
@@ -331,6 +341,18 @@ func (a *aiWorkbenchApplication) postMessage(c *gin.Context, ctx context.Context
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	through := command.SourceSequence
+	if command.AssistantMessageID != "" {
+		through, err = a.store.AssistantSequence(ctx, scope, id, command.AssistantMessageID)
+		if err != nil {
+			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+			return
+		}
+	}
+	if through > 0 && a.productHistoryUnavailable(ctx, scope, id, through) {
+		workbenchReply(c, http.StatusAccepted, gin.H{"state": command.State, "scopeUnavailable": true})
+		return
+	}
 	if command.FrozenScope != nil {
 		if _, scopeErr := a.authorizedFrozenScope(ctx, scope, command.ScopeRef(), false); scopeErr != nil {
 			workbenchReply(c, http.StatusAccepted, gin.H{"state": command.State, "scopeUnavailable": true})
@@ -368,6 +390,12 @@ func (a *aiWorkbenchApplication) confirmProposal(c *gin.Context, ctx context.Con
 	conversationID, proposalID := c.Param("conversation_id"), c.Param("proposal_id")
 	if !acquisitionHTTPUUID(conversationID) || !acquisitionHTTPUUID(proposalID) || c.Request.URL.RawQuery != "" || workbenchEmptyBody(c) != nil {
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	proposal, err := a.store.GetProposal(ctx, scope, proposalID)
+	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if err != nil || !ok || proposal.ConversationID != conversationID || a.proposalHistoryUnavailable(ctx, scope, proposal, i) {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
 		return
 	}
 	key, err := workbenchKey(c)

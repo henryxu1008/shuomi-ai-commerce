@@ -243,6 +243,7 @@
 - `ai-workbench-project-center.md` — [AI Workbench Project Center V1](ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
+- `chat-selected-product-context.md` — [Chat 规划读取已选商品资料](chat-selected-product-context.md)
 - `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
 - `chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
 - `chat-voice-input.md` — [Chat 语音输入与会话入口](chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。

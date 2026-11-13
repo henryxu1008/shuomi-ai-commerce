@@ -61,6 +61,9 @@ func (a *aiWorkbenchApplication) validateScheduledProposal(ctx context.Context, 
 	if err != nil || p.Scope != (aiworkbench.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}) {
 		return "", review.ErrForbidden
 	}
+	if a.proposalHistoryUnavailable(ctx, p.Scope, p, i) {
+		return "", review.ErrForbidden
+	}
 	b, err := a.agent.workbenchProposalBinding(ctx, i, p)
 	if err != nil {
 		return "", err
@@ -196,7 +199,7 @@ func (a *aiWorkbenchApplication) scheduledView(ctx context.Context, plan aiworkb
 			_, err := a.authorizedFrozenScope(ctx, plan.Scope, p.WorkbenchContextRef, false)
 			readable = err == nil
 		}
-		if readable {
+		if readable && !a.proposalHistoryUnavailable(ctx, plan.Scope, p, i) {
 			view.GoalSummary = plan.GoalSummary
 			binding := agent.Binding{ContextKind: p.ContextKind, ContextID: p.OperationID, ProductKey: p.ProductKey, CatalogVersion: p.CatalogVersion, PublicationID: p.PublicationID, TargetPlatform: p.TargetPlatform}
 			if a.agent.workbenchAuthorizeBinding(ctx, i, binding) == nil {
