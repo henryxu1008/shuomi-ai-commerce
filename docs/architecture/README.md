@@ -237,8 +237,6 @@
 
 ## 工作台、项目与任务投影
 
-- `chat-cost-visibility.md` — [硕米 Chat 费用与状态展示](chat-cost-visibility.md) · IMPLEMENTATION_READY。
-
 - `chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](chat-visible-store-query.md) · #1259 独立架构评审通过；实施与试用尚未授权。
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
 - `ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](ai-workbench-conversation-runtime.md)

@@ -1,5 +1,4 @@
 import { AIWorkbenchError } from "@/lib/api/ai-workbench";
-import { formatMicropoints } from "@/lib/contracts/ai-points";
 
 export type TaskMode = "all" | "running" | "pending" | "completed" | "errors";
 export const filters: { mode: TaskMode; label: string; href: string }[] = [
@@ -22,12 +21,6 @@ export function taskReason(reason: string, kind: string | undefined): string | u
     if (reason === "AGENT_RESULT_NOT_REVIEWABLE") return "内容建议未通过验证，无法提交审核";
   }
   return reasonText[reason];
-}
-export function taskPoints(status: string | undefined, value: string | undefined): string {
-  if ((status === "settled" || status === "partial") && value !== undefined) {
-    return `${status === "partial" ? "截至当前已结算" : "已结算"} ${formatMicropoints(value)} AI 点`;
-  }
-  return "结算中或暂不可用";
 }
 export const errorText = (error: unknown) => error instanceof AIWorkbenchError ? ({
   TASK_OUTCOME_UNKNOWN: "操作结果暂无法确认。刷新原任务状态后，可用同一操作键重试查询原收据",

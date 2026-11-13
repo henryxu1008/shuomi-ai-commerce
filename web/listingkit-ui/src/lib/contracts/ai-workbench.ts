@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { micropoints } from "./ai-points";
 import { taskMetrics } from "./cockpit-metrics";
 import {sameContentSelection,contentSelectionSchema} from "./content-selection";
 import {collectionVersion} from "./product-collection";
@@ -60,7 +59,6 @@ const task = z.object({
   agentRevision: z.string().optional(), providerId: z.string().optional(), modelId: z.string().optional(),
   tokens: z.number().int().optional(), estimatedCostMicros: z.number().int().optional(), currency: z.string().optional(),
   usageStatus: z.string().optional(), reviewId: z.string().optional(), reviewState: z.string().optional(),
-  settledPointsMicros: micropoints.optional(), settledPointsStatus: z.enum(["settled", "partial", "unavailable"]).optional(),
   knowledge: productKnowledgeSchema.optional(),
 }).superRefine((value,context)=>{
  if(value.scheduleId||value.scheduledOccurrenceId){if(!value.scheduleId||!value.scheduledOccurrenceId||value.conversationId!==""||value.proposalId!=="")context.addIssue({code:"custom",message:"Scheduled source must be exclusive"});}
