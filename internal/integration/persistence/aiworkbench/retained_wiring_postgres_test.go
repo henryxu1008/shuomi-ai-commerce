@@ -34,7 +34,7 @@ func retainedFixture(t *testing.T) (*gorm.DB, RetainedTarget) {
 	raw, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = raw.Close() })
-	require.NoError(t, db.Exec(`CREATE ROLE product_agent_owner LOGIN; CREATE ROLE ai_workbench_runtime LOGIN; GRANT CREATE ON DATABASE retained_fixture TO product_agent_owner; SET ROLE product_agent_owner`).Error)
+	require.NoError(t, db.Exec(`CREATE ROLE product_agent_owner LOGIN; CREATE ROLE ai_workbench_runtime LOGIN; ALTER DATABASE retained_fixture OWNER TO product_agent_owner; REVOKE ALL ON DATABASE retained_fixture FROM PUBLIC; GRANT CONNECT ON DATABASE retained_fixture TO ai_workbench_runtime; SET ROLE product_agent_owner`).Error)
 	old, err := os.ReadFile("testdata/chat_retained_old.sql")
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(string(old)).Error)
@@ -57,11 +57,49 @@ RESET ROLE`).Error)
 	return db, target
 }
 
+func TestRetainedRejectsDatabasePrivilegeDrift(t *testing.T) {
+	db, target := retainedFixture(t)
+	require.NoError(t, db.Exec(`CREATE ROLE unrelated_fixture LOGIN`).Error)
+	for _, grant := range []string{
+		"GRANT CREATE ON DATABASE retained_fixture TO ai_workbench_runtime",
+		"GRANT TEMP ON DATABASE retained_fixture TO PUBLIC",
+		"GRANT CONNECT ON DATABASE retained_fixture TO ai_workbench_runtime WITH GRANT OPTION",
+		"GRANT CONNECT ON DATABASE retained_fixture TO unrelated_fixture",
+	} {
+		require.NoError(t, db.Exec(grant).Error)
+		_, err := InspectRetainedWorkbench(context.Background(), db, target)
+		require.Error(t, err, grant)
+		require.NoError(t, db.Exec(`REVOKE ALL ON DATABASE retained_fixture FROM PUBLIC, ai_workbench_runtime, unrelated_fixture; GRANT CONNECT ON DATABASE retained_fixture TO ai_workbench_runtime`).Error)
+	}
+	require.NoError(t, db.Exec(`ALTER DATABASE retained_fixture OWNER TO fixture_admin`).Error)
+	_, err := InspectRetainedWorkbench(context.Background(), db, target)
+	require.Error(t, err)
+	require.NoError(t, db.Exec(`ALTER DATABASE retained_fixture OWNER TO product_agent_owner`).Error)
+	require.NoError(t, db.Exec(`ALTER ROLE ai_workbench_runtime IN DATABASE retained_fixture SET default_transaction_read_only = on`).Error)
+	_, err = InspectRetainedWorkbench(context.Background(), db, target)
+	require.Error(t, err)
+	require.NoError(t, db.Exec(`ALTER ROLE ai_workbench_runtime IN DATABASE retained_fixture RESET default_transaction_read_only`).Error)
+}
+
 func TestRetainedWiringRejectsExpiredWindow(t *testing.T) {
 	db, target := retainedFixture(t)
 	target.NotAfter = time.Now().Add(-time.Second)
 	_, err := prepareRetainedWorkbench(context.Background(), db, target)
 	require.ErrorContains(t, err, "maintenance window")
+}
+
+func TestCaptureRetainedBaselineReadsOnlyRecognizedOldTarget(t *testing.T) {
+	db, target := retainedFixture(t)
+	wantFacts, wantACL := target.FactsDigest, target.PrivilegesDigest
+	target.FactsDigest = ""
+	target.PrivilegesDigest = ""
+	facts, acl, err := CaptureRetainedBaseline(context.Background(), db, target)
+	require.NoError(t, err)
+	require.Equal(t, wantFacts, facts)
+	require.Equal(t, wantACL, acl)
+	target.DatabaseOID = "0"
+	_, _, err = CaptureRetainedBaseline(context.Background(), db, target)
+	require.Error(t, err)
 }
 
 func TestRetainedWiringDoesNotWriteAfterWindowExpiresWaitingForLock(t *testing.T) {

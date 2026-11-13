@@ -55,6 +55,9 @@ func retainedIdentity(db *gorm.DB, want RetainedTarget) error {
 }
 
 func retainedPrivileges(db *gorm.DB, state RetainedState) error {
+	if err := validateRetainedDatabasePrivileges(db); err != nil {
+		return err
+	}
 	for _, role := range []string{"product_agent_owner", "ai_workbench_runtime"} {
 		var unsafe bool
 		err := db.Raw(`SELECT coalesce((SELECT rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR NOT rolcanlogin FROM pg_roles WHERE rolname=?),true)`, role).Scan(&unsafe).Error
@@ -92,6 +95,29 @@ func retainedPrivileges(db *gorm.DB, state RetainedState) error {
  )`).Scan(&extra).Error
 	if err != nil || extra {
 		return errors.New("unexpected grants or disabled internal trigger")
+	}
+	return nil
+}
+
+// The retained database has a bounded, independently observed set of owners
+// and consumers. Database ACLs are separate from schema/table privileges.
+func validateRetainedDatabasePrivileges(db *gorm.DB) error {
+	var ok bool
+	err := db.Raw(`SELECT pg_get_userbyid(d.datdba) = 'product_agent_owner'
+ AND has_database_privilege('ai_workbench_runtime', d.oid, 'CONNECT')
+ AND NOT has_database_privilege('ai_workbench_runtime', d.oid, 'CREATE')
+ AND NOT has_database_privilege('ai_workbench_runtime', d.oid, 'TEMP')
+ AND NOT has_database_privilege('ai_workbench_runtime', d.oid, 'CONNECT WITH GRANT OPTION')
+ AND NOT EXISTS (SELECT 1 FROM aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a
+   WHERE a.grantee <> d.datdba AND (a.grantee = 0 OR pg_get_userbyid(a.grantee) NOT IN ('product_agent_runtime','title_credential_writer','ai_channel_secret_reader','account_audit_product_reader','ai_workbench_runtime','model_route_config_writer') OR a.privilege_type <> 'CONNECT' OR a.is_grantable))
+ AND NOT coalesce((SELECT o.option_value::boolean FROM pg_db_role_setting s
+ JOIN pg_roles r ON r.rolname='ai_workbench_runtime'
+ CROSS JOIN LATERAL pg_options_to_table(s.setconfig) o
+ WHERE s.setrole IN (0,r.oid) AND s.setdatabase IN (0,d.oid) AND o.option_name='default_transaction_read_only'
+ ORDER BY (s.setrole=r.oid) DESC,(s.setdatabase=d.oid) DESC LIMIT 1),false)
+ FROM pg_database d WHERE d.datname=current_database()`).Scan(&ok).Error
+	if err != nil || !ok {
+		return errors.New("retained database privileges or runtime settings drift")
 	}
 	return nil
 }
@@ -161,6 +187,8 @@ func retainedDigests(db *gorm.DB) (string, string, error) {
  UNION ALL SELECT 'table|' || jsonb_build_array(c.relname,pg_get_userbyid(a.grantor),pg_get_userbyid(a.grantee),a.privilege_type,a.is_grantable)::text FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE n.nspname='ai_workbench' AND c.relkind IN ('r','p')
  UNION ALL SELECT 'column|' || jsonb_build_array(c.relname,col.attname,pg_get_userbyid(a.grantor),pg_get_userbyid(a.grantee),a.privilege_type,a.is_grantable)::text FROM pg_attribute col JOIN pg_class c ON c.oid=col.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(col.attacl) a WHERE n.nspname='ai_workbench' AND NOT(c.relname='commands' AND col.attname='route_result' AND pg_get_userbyid(a.grantee)='ai_workbench_runtime' AND a.privilege_type='UPDATE' AND NOT a.is_grantable)
  UNION ALL SELECT 'role|' || jsonb_build_array(rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolbypassrls,rolconnlimit,rolvaliduntil)::text FROM pg_roles WHERE rolname IN ('ai_workbench_runtime','product_agent_owner')
+ UNION ALL SELECT 'database|' || jsonb_build_array(pg_get_userbyid(d.datdba),pg_get_userbyid(a.grantor),pg_get_userbyid(a.grantee),a.privilege_type,a.is_grantable)::text FROM pg_database d CROSS JOIN LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a WHERE d.datname=current_database()
+ UNION ALL SELECT 'db-setting|' || jsonb_build_array(s.setrole::text,s.setdatabase::text,s.setconfig)::text FROM pg_db_role_setting s WHERE s.setrole IN (0,(SELECT oid FROM pg_roles WHERE rolname='ai_workbench_runtime'),(SELECT oid FROM pg_roles WHERE rolname='product_agent_owner')) AND s.setdatabase IN (0,(SELECT oid FROM pg_database WHERE datname=current_database()))
  UNION ALL SELECT 'member|' || jsonb_build_array(pg_get_userbyid(roleid),pg_get_userbyid(member),admin_option)::text FROM pg_auth_members WHERE roleid IN (SELECT oid FROM pg_roles WHERE rolname IN ('ai_workbench_runtime','product_agent_owner')) OR member IN (SELECT oid FROM pg_roles WHERE rolname IN ('ai_workbench_runtime','product_agent_owner'))
 ) SELECT fact FROM p ORDER BY fact COLLATE "C"`).Scan(&acl).Error
 	if err != nil {
@@ -168,6 +196,44 @@ func retainedDigests(db *gorm.DB) (string, string, error) {
 	}
 	sum := sha256.Sum256([]byte(strings.Join(acl, "\n")))
 	return hex.EncodeToString(facts.Sum(nil)), hex.EncodeToString(sum[:]), nil
+}
+
+// CaptureRetainedBaseline is read-only and only accepts the exact old schema
+// and privilege bounds. The operator must capture it within the owner freeze;
+// this function cannot establish or maintain a cross-owner freeze.
+func CaptureRetainedBaseline(ctx context.Context, db *gorm.DB, target RetainedTarget) (string, string, error) {
+	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
+		return "", "", errors.New("invalid connection")
+	}
+	var facts, acl string
+	err := db.WithContext(ctx).Connection(func(conn *gorm.DB) error {
+		var err error
+		facts, acl, err = captureRetainedOnConnection(conn, target)
+		return err
+	})
+	return facts, acl, err
+}
+
+func captureRetainedOnConnection(conn *gorm.DB, target RetainedTarget) (string, string, error) {
+	var facts, acl string
+	err := conn.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SET TRANSACTION READ ONLY, ISOLATION LEVEL REPEATABLE READ").Error; err != nil {
+			return err
+		}
+		if err := retainedIdentity(tx, target); err != nil {
+			return err
+		}
+		fingerprint, err := emptyScopeFingerprint(tx)
+		if err != nil || fingerprint != retainedOldFingerprint {
+			return errors.New("not the approved old baseline")
+		}
+		if err := retainedPrivileges(tx, RetainedOld); err != nil {
+			return err
+		}
+		facts, acl, err = retainedDigests(tx)
+		return err
+	})
+	return facts, acl, err
 }
 
 // InspectRetainedWorkbench does not write. UNKNOWN is returned as an error;

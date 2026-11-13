@@ -10,16 +10,17 @@ import (
 )
 
 type ModelInvocationReservation struct {
-	OrganizationID      string     `json:"organizationId"`
-	InvocationID        string     `json:"invocationId"`
-	MemberID            string     `json:"memberId"`
-	ReservationID       string     `json:"reservationId"`
-	DispatchFingerprint string     `json:"dispatchFingerprint"`
-	QuantityUnit        string     `json:"quantityUnit"`
-	Quantity            int64      `json:"quantity"`
-	MemberMonth         time.Time  `json:"memberMonth"`
-	State               string     `json:"state"`
-	SettledAt           *time.Time `json:"settledAt,omitempty"`
+	OrganizationID        string     `json:"organizationId"`
+	InvocationID          string     `json:"invocationId"`
+	MemberID              string     `json:"memberId"`
+	ReservationID         string     `json:"reservationId"`
+	DispatchFingerprint   string     `json:"dispatchFingerprint"`
+	QuantityUnit          string     `json:"quantityUnit"`
+	Quantity              int64      `json:"quantity"`
+	MemberMonth           time.Time  `json:"memberMonth"`
+	State                 string     `json:"state"`
+	SettledAt             *time.Time `json:"settledAt,omitempty"`
+	SettlementOperationID *string    `json:"settlementOperationId,omitempty"`
 }
 
 // InspectModelInvocationReservation reads the immutable original reservation
@@ -52,7 +53,7 @@ func (r *GormModelInvocationRepository) InspectModelInvocationReservation(ctx co
 	return ModelInvocationReservation{
 		OrganizationID: org, InvocationID: invocationID, MemberID: fact.MemberID, ReservationID: row.ReservationID,
 		DispatchFingerprint: fingerprint, QuantityUnit: row.QuantityUnit, Quantity: row.Quantity,
-		MemberMonth: *row.MemberMonthStart, State: row.State, SettledAt: row.SettledAt,
+		MemberMonth: *row.MemberMonthStart, State: row.State, SettledAt: row.SettledAt, SettlementOperationID: row.SettlementOperationID,
 	}, nil
 }
 

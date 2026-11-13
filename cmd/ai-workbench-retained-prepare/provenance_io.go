@@ -15,17 +15,20 @@ import (
 )
 
 type sourceRecord struct {
-	Kind        string `json:"kind"`
-	ContainerID string `json:"source_container_id"`
-	ImageID     string `json:"source_image_id"`
-	Network     string `json:"source_network_mode"`
-	Databases   map[string]struct {
-		SystemID string `json:"system_identifier"`
-		Database string `json:"database"`
-		OID      string `json:"database_oid"`
-		User     string `json:"session_user"`
-		DumpSHA  string `json:"dump_sha256"`
-	} `json:"databases"`
+	Kind               string                            `json:"kind"`
+	ContainerID        string                            `json:"source_container_id"`
+	ImageID            string                            `json:"source_image_id"`
+	Network            string                            `json:"source_network_mode"`
+	ApplicationID      string                            `json:"application_container_id"`
+	ApplicationImageID string                            `json:"application_image_id"`
+	Databases          map[string]observedSourceDatabase `json:"databases"`
+}
+type observedSourceDatabase struct {
+	SystemID string `json:"system_identifier"`
+	Database string `json:"database"`
+	OID      string `json:"database_oid"`
+	User     string `json:"session_user"`
+	DumpSHA  string `json:"dump_sha256"`
 }
 type restoreRecord struct {
 	RestoredAt  time.Time `json:"observed_at"`

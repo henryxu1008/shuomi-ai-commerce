@@ -25,12 +25,14 @@ import (
 
 type evidence struct{ Owner, Path, SHA256 string }
 type manifest struct {
-	Scope          string               `json:"scope"`
-	Instance       string               `json:"instance"`
-	OldRevision    string               `json:"old_revision"`
-	TargetRevision string               `json:"target_revision"`
-	Target         store.RetainedTarget `json:"target"`
-	Evidence       []evidence           `json:"evidence"`
+	Scope                  string               `json:"scope"`
+	Instance               string               `json:"instance"`
+	OldRevision            string               `json:"old_revision"`
+	TargetRevision         string               `json:"target_revision"`
+	ApprovedBinaryRevision string               `json:"approved_binary_revision"`
+	ApprovedBinaryTree     string               `json:"approved_binary_tree"`
+	Target                 store.RetainedTarget `json:"target"`
+	Evidence               []evidence           `json:"evidence"`
 }
 
 // Evidence files are operator records, not backups. Hashing prevents accidental
@@ -63,7 +65,13 @@ func verifyEvidence(entries []evidence) error {
 
 func run() error {
 	manifestPath := flag.String("manifest", "", "absolute path to the approved, non-secret target manifest")
-	mode := flag.String("mode", "inspect", "inspect, apply, or apply-isolated")
+	mode := flag.String("mode", "inspect", "inspect, capture-baseline, apply, or apply-isolated")
+	formalAnchorPath := flag.String("formal-anchor", "", "protected original target anchor")
+	formalAdmissionPath := flag.String("formal-admission", "", "protected owner admission")
+	formalSource := flag.String("formal-source", "", "pinned original observation")
+	formalRecovery := flag.String("formal-recovery-config", "", "protected inspect-only recovery config")
+	formalHelper := flag.String("formal-helper", "", "approved Linux maintenance helper")
+	confirmOriginal := flag.Bool("confirm-original-35444", false, "explicitly select the original 35444 maintenance target")
 	source := flag.String("isolated-source", "", "protected read-only source observation")
 	receipt := flag.String("isolated-receipt", "", "protected isolated restore receipt")
 	pin := flag.String("isolated-pin", "", "protected prior isolated container identity")
@@ -71,7 +79,7 @@ func run() error {
 	admissionPath := flag.String("isolated-admission", "", "protected isolated owner evidence")
 	helper := flag.String("isolated-helper", "", "prebuilt Linux helper")
 	flag.Parse()
-	if flag.NArg() != 0 || !filepath.IsAbs(*manifestPath) || (*mode != "inspect" && *mode != "apply" && *mode != "apply-isolated") {
+	if flag.NArg() != 0 || !filepath.IsAbs(*manifestPath) || (*mode != "inspect" && *mode != "capture-baseline" && *mode != "apply" && *mode != "apply-isolated") {
 		return errors.New("requires an absolute --manifest and an explicit supported mode")
 	}
 	if err := coreconfig.VerifyPrivateFiles(context.Background(), []string{*manifestPath}); err != nil {
@@ -96,10 +104,16 @@ func run() error {
 		return errors.New("unapproved scope or revision")
 	}
 	if *mode == "apply" {
-		// Disabled until the independently reviewed target provenance and
-		// owner attestations are bound to a trusted approval record. Hashing
-		// self-selected files alone is not sufficient to authorize DDL.
-		return errors.New("apply is not available: target provenance and owner evidence are not admitted")
+		if !*confirmOriginal || m.Instance != "35444" {
+			return errors.New("explicit original 35444 selection required")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer cancel()
+		if err := runFormalHost(ctx, m, formalPaths{Source: *formalSource, Anchor: *formalAnchorPath, Admission: *formalAdmissionPath, RecoveryConfig: *formalRecovery, Helper: *formalHelper}); err != nil {
+			return err
+		}
+		fmt.Println("ORIGINAL_PREPARATION_VERIFIED")
+		return nil
 	}
 	if *mode == "apply-isolated" {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -108,6 +122,32 @@ func run() error {
 			return err
 		}
 		fmt.Println("ISOLATED_READY")
+		return nil
+	}
+	if *mode == "capture-baseline" {
+		if !*confirmOriginal || m.Instance != "35444" {
+			return errors.New("explicit original 35444 selection required")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		result, err := runFormalReadOnlyHost(ctx, m, formalPaths{Source: *formalSource, Anchor: *formalAnchorPath, Admission: *formalAdmissionPath, Helper: *formalHelper}, originalObservationSHA256, "capture")
+		if err != nil {
+			return err
+		}
+		fmt.Println(result)
+		return nil
+	}
+	if *mode == "inspect" && *confirmOriginal {
+		if m.Instance != "35444" {
+			return errors.New("original target selection mismatch")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		state, err := runFormalReadOnlyHost(ctx, m, formalPaths{Source: *formalSource, Anchor: *formalAnchorPath, Admission: *formalAdmissionPath, Helper: *formalHelper}, originalObservationSHA256, "state")
+		if err != nil {
+			return err
+		}
+		fmt.Println(state)
 		return nil
 	}
 	dsn := os.Getenv("AI_WORKBENCH_RETAINED_DSN")
@@ -133,6 +173,23 @@ func run() error {
 	return nil
 }
 func main() {
+	if len(os.Args) == 3 && (os.Args[1] == "--internal-original-child" || os.Args[1] == "--internal-original-inspect-probe" || os.Args[1] == "--internal-original-state" || os.Args[1] == "--internal-original-capture") {
+		mode := "apply"
+		if os.Args[1] == "--internal-original-inspect-probe" {
+			mode = "probe"
+		}
+		if os.Args[1] == "--internal-original-state" {
+			mode = "state"
+		}
+		if os.Args[1] == "--internal-original-capture" {
+			mode = "capture"
+		}
+		if err := runFormalChild(os.Args[2], mode); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) == 3 && (os.Args[1] == "--internal-isolated-child" || os.Args[1] == "--internal-isolated-probe") {
 		if err := runIsolatedChild(os.Args[2], os.Args[1] == "--internal-isolated-probe"); err != nil {
 			fmt.Fprintln(os.Stderr, err)

@@ -59,6 +59,20 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	return resource, recorder, repo, auth, fact
 }
 
+func TestInvocationReservationInspectExposesUnexpectedSettlementOperation(t *testing.T) {
+	db, recorder, repo, _, fact := modelPointFixture(t, aicapability.OperationProductImageAnalysis)
+	ctx := context.Background()
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 5064, fact.StartedAt))
+	view, err := repo.InspectModelInvocationReservation(ctx, fact.TenantID, fact.InvocationID)
+	require.NoError(t, err)
+	require.Nil(t, view.SettlementOperationID)
+	require.NoError(t, db.Model(&organizationResourceReservationRow{}).Where("owner_attempt_id = ?", fact.InvocationID).Update("settlement_operation_id", "synthetic-unexpected").Error)
+	view, err = repo.InspectModelInvocationReservation(ctx, fact.TenantID, fact.InvocationID)
+	require.NoError(t, err)
+	require.NotNil(t, view.SettlementOperationID)
+	require.Equal(t, "synthetic-unexpected", *view.SettlementOperationID)
+}
+
 func TestSingleImagePointsUseOneOriginalReservationAndActualCachedUsage(t *testing.T) {
 	db, recorder, repo, _, fact := modelPointFixture(t, aicapability.OperationProductImageAnalysis)
 	ctx := context.Background()
