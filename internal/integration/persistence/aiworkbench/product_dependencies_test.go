@@ -10,7 +10,7 @@ import (
 )
 
 func TestProductDependenciesRejectMissingOrAmbiguousMessageOwners(t *testing.T) {
-	selection := &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: "99b8f948-84fd-5be8-a6b1-cafc071c7fe2", CatalogVersion: "1", PublicationID: "publication-1"}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}
+	selection := &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: "11111111-1111-4111-8111-111111111111", CatalogVersion: "1", PublicationID: "publication-1"}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}
 	work, err := json.Marshal(aiworkbench.WorkScope{TaskSelection: selection})
 	require.NoError(t, err)
 	id := "assistant-1"

@@ -64,7 +64,7 @@ func TestSelectedProductContextIsBoundToV4PlanningInput(t *testing.T) {
 	reader := aiworkbench.ScopeReader{}
 	frozen, err := reader.Freeze(context.Background(), scope, "conversation-1", "member-1", aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "general"})
 	require.NoError(t, err)
-	selection := &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: "99b8f948-84fd-5be8-a6b1-cafc071c7fe2", CatalogVersion: "1", PublicationID: "publication-1"}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}
+	selection := &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: "11111111-1111-4111-8111-111111111111", CatalogVersion: "1", PublicationID: "publication-1"}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}
 	request := Request{Scope: scope, MemberID: "member-1", InvocationID: "inv-1", TaskSelection: selection, Profile: profile, FrozenScope: &frozen, ProductContext: &ProductContext{Title: "Black and white T-shirt", Description: "Cotton short sleeves"}, History: []aiworkbench.Message{{ID: "message-1", ConversationID: "conversation-1", Sequence: 1, Author: aiworkbench.AuthorUser, Content: "Improve the description"}}}
 	original, err := Prepare(request)
 	require.NoError(t, err)
