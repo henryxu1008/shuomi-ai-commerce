@@ -8,4 +8,3 @@ describe("task reason", () => {
     expect(taskReason("HUMAN_REVIEW_REQUIRED", "product.title.optimize")).toBe("需要人工审核标题建议");
   });
 });
-
