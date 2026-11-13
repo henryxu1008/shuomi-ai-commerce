@@ -112,3 +112,39 @@ func (r *GormModelInvocationRepository) ReadSettledModelInvocationPoints(ctx con
 	points, _, err := modelPointTerminal(fact)
 	return points, err
 }
+
+// ReadSettledChatPlanningPoints verifies the command-bound planning identity.
+// Planning calls have no run and must never be read by an arbitrary client ID.
+func (r *GormModelInvocationRepository) ReadSettledChatPlanningPoints(ctx context.Context, org, actor, member, invocationID, inputHash string) (int64, error) {
+	fact, err := r.readFact(ctx, org, invocationID)
+	if err != nil || actor == "" || member == "" || inputHash == "" || fact.UserID != actor || fact.MemberID != member || fact.InputHash != inputHash || fact.Operation != aicapability.OperationAIWorkbenchChatPlan || fact.AgentRunID != "" || fact.BusinessTaskID != "" {
+		return 0, orgresource.ErrInvalidOwnerProof
+	}
+	if err := r.authorizer.AuthorizeModelInvocation(ctx, fact); err != nil {
+		return 0, err
+	}
+	points, noDispatch, err := modelPointTerminal(fact)
+	if err != nil {
+		return 0, err
+	}
+	fact.StartedAt = fact.StartedAt.UTC().Truncate(time.Microsecond)
+	fact.FinishedAt = fact.FinishedAt.UTC().Truncate(time.Microsecond)
+	proof := modelPointFactHash(fact)
+	state := string(orgresource.ReservationCommitted)
+	if noDispatch {
+		state = string(orgresource.ReservationReleased)
+	}
+	var final organizationResourceOperationRow
+	if err := r.db.WithContext(ctx).Where("organization_id = ? AND operation_id = ?", org, modelPointKey("finalize", invocationID)).Take(&final).Error; err != nil {
+		return 0, err
+	}
+	var result modelPointFinalResult
+	if final.State != "succeeded" || final.OperationType != "model_point_finalize" || final.RequestFingerprint != proof || final.CompletedAt == nil || json.Unmarshal([]byte(final.ImmutableResult), &result) != nil || result != (modelPointFinalResult{State: state, Proof: proof, Points: points}) {
+		return 0, orgresource.ErrInvalidOwnerProof
+	}
+	reservation, err := r.InspectModelInvocationReservation(ctx, org, invocationID)
+	if err != nil || reservation.MemberID != member || reservation.State != state || reservation.SettledAt == nil || reservation.SettledAt.IsZero() {
+		return 0, orgresource.ErrInvalidOwnerProof
+	}
+	return points, nil
+}

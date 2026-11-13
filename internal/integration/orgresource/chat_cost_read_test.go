@@ -35,3 +35,20 @@ func TestReadSettledModelInvocationPointsRequiresOriginalRunAndReceipt(t *testin
 	_, err = repo.ReadSettledModelInvocationPoints(ctx, fact.TenantID, fact.InvocationID, fact.AgentRunID)
 	require.Error(t, err, "a corrupted receipt must not yield an estimated charge")
 }
+
+func TestReadSettledChatPlanningPointsRequiresOriginalCommandIdentity(t *testing.T) {
+	_, recorder, repo, _, fact := modelPointFixture(t, aicapability.OperationAIWorkbenchChatPlan)
+	ctx := context.Background()
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
+	fact.Outcome, fact.UsageKnown, fact.FinishedAt = aicapability.InvocationSucceeded, true, fact.StartedAt.Add(time.Second)
+	fact.PromptTokens, fact.CompletionTokens, fact.TotalTokens = 3, 2, 5
+	fact.BillableUsage = syntheticUncachedUsage(3, 2)
+	require.NoError(t, recorder.RecordInvocation(ctx, fact))
+	points, err := repo.ReadSettledChatPlanningPoints(ctx, fact.TenantID, fact.UserID, fact.MemberID, fact.InvocationID, fact.InputHash)
+	require.NoError(t, err)
+	require.EqualValues(t, 7, points)
+	_, err = repo.ReadSettledChatPlanningPoints(ctx, fact.TenantID, "other", fact.MemberID, fact.InvocationID, fact.InputHash)
+	require.Error(t, err)
+	_, err = repo.ReadSettledChatPlanningPoints(ctx, fact.TenantID, fact.UserID, fact.MemberID, fact.InvocationID, "wrong-hash")
+	require.Error(t, err)
+}
