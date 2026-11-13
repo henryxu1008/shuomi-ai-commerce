@@ -133,6 +133,15 @@ it("uses a separate idempotent no-model store overview action", async () => {
  expect(fixture.request.mock.calls.every(([input])=>input.route!=="store-route" && input.route!=="message")).toBe(true);
 });
 
+it("does not carry a pending store query key into a different conversation",async()=>{
+ const secondId="33333333-3333-4333-8333-333333333333",pendingKey="44444444-4444-4444-8444-444444444444";
+ sessionStorage.setItem(`ai-workbench:store-overview:${JSON.stringify(["user-a","org-a",conversationId])}`,pendingKey);
+ fixture.request.mockImplementation(async({route,path})=>{if(route!=="conversation-read")throw new Error("unexpected");return {conversation:{...conversation,ID:path.includes(secondId)?secondId:conversationId,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""}});
+ const view=render(tree());expect(await screen.findByRole("button",{name:"核对原店铺查询"})).toBeEnabled();
+ view.rerender(<QueryClientProvider client={client}><ChatPage mode="detail" conversationId={secondId}/></QueryClientProvider>);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"查看店铺概况"})).toBeEnabled());expect(screen.queryByRole("button",{name:"核对原店铺查询"})).toBeNull();
+});
+
 it("accepts a local draft before creating a general conversation without sending a message", async () => {
   fixture.context.aiWorkbenchExecutionKind = "product.content.localize";
   fixture.request.mockImplementation(async ({ route }) => route === "scope-options" ? scopeOptions : route === "conversation-create" ? { conversation } : Promise.reject(new Error("unexpected request")));

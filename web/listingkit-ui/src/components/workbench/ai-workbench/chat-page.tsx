@@ -70,7 +70,7 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
 }
 
 function ScopedChat({ scope, authorizationKey, canUse, canPlan, planningReadiness, titleReadiness, mode, conversationId }: { scope: AIScope; authorizationKey: string; canUse: boolean; canPlan: boolean; planningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; titleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; mode: ChatMode | "detail"; conversationId?: string }) {
-  if (mode === "detail" && conversationId) return <ConversationDetail scope={scope} authorizationKey={authorizationKey} canUse={canUse} canPlan={canPlan} planningReadiness={planningReadiness} titleReadiness={titleReadiness} id={conversationId} />;
+  if (mode === "detail" && conversationId) return <ConversationDetail key={conversationId} scope={scope} authorizationKey={authorizationKey} canUse={canUse} canPlan={canPlan} planningReadiness={planningReadiness} titleReadiness={titleReadiness} id={conversationId} />;
   return <ChatCollection scope={scope} authorizationKey={authorizationKey} canUse={canUse} canPlan={canPlan} planningReadiness={planningReadiness} mode={mode === "detail" ? "home" : mode} />;
 }
 
