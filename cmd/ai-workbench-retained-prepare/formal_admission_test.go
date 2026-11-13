@@ -11,10 +11,66 @@ import (
 	"testing"
 	"time"
 
+	"task-processor/internal/aicapability"
 	recovery "task-processor/internal/app/modelinvocationrecovery"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	store "task-processor/internal/integration/persistence/aiworkbench"
 )
+
+func TestMinimalAdmissionReusesExistingBusinessRestore(t *testing.T) {
+	now := time.Now()
+	anchor, admission, target := formalFixture(now)
+	admission.Version = "chat-35444-original-admission-v2"
+	admission.Proofs = admission.Proofs[:1]
+	admission.Proofs[0].BackupAt = now.Add(-24 * time.Hour)
+	admission.Proofs[0].RestoredAt = now.Add(-23 * time.Hour)
+	admission.Proofs[0].Proof.VerifiedAt = now.Add(-22 * time.Hour)
+	if err := validateFormalAdmission(anchor, admission, target, strings.Repeat("a", 64), now); err != nil {
+		t.Fatalf("existing verified workbench restore should be reusable: %v", err)
+	}
+	admission.Proofs = nil
+	if err := validateFormalAdmission(anchor, admission, target, strings.Repeat("a", 64), now); err == nil {
+		t.Fatal("missing business backup accepted")
+	}
+}
+
+func TestMinimalRestoreBindsHistoricalSourceWithoutClaimingCurrentSnapshot(t *testing.T) {
+	anchor, admission, _ := formalFixture(time.Now())
+	proof := admission.Proofs[0]
+	proof.Proof.BackupSHA256 = strings.Repeat("b", 64)
+	receipt := restoreRecord{Kind: "isolated-restore-observation-v1", SourceSHA: strings.Repeat("c", 64), SourceDB: "product_agent", DumpSHA: proof.Proof.BackupSHA256, ContainerID: strings.Repeat("d", 64), ImageID: anchor.DBImageID, Network: "none", SystemID: "independent", ExitOnError: true}
+	receipt.Target.Database, receipt.Target.OID = "isolated", "123"
+	if err := validateMinimalRestore(anchor, proof, receipt, receipt.SourceSHA); err != nil {
+		t.Fatal(err)
+	}
+	receipt.SourceSHA = strings.Repeat("e", 64)
+	if validateMinimalRestore(anchor, proof, receipt, strings.Repeat("c", 64)) == nil {
+		t.Fatal("accepted restore of a different source")
+	}
+	receipt.SourceSHA = strings.Repeat("c", 64)
+	receipt.SystemID = anchor.Target.SystemIdentifier
+	if validateMinimalRestore(anchor, proof, receipt, receipt.SourceSHA) == nil {
+		t.Fatal("accepted original as isolated target")
+	}
+}
+
+func TestOriginalInvocationMustRemainDispatched(t *testing.T) {
+	anchor, a, _ := formalFixture(time.Now())
+	cfg := recovery.Config{OrganizationID: "fixture-org", MemberID: "fixture-member", InvocationID: "fixture-invocation", ReservationID: "fixture-reservation", ExpectedDispatchFingerprint: strings.Repeat("b", 64)}
+	identity := reservationIdentityDigest(cfg)
+	anchor.ReservationBindingSHA256, a.ReservationBindingSHA256 = identity, identity
+	anchor.InvocationBindingSHA256 = strings.Repeat("c", 64)
+	out := recovery.Output{InvocationID: cfg.InvocationID, BindingDigest: anchor.InvocationBindingSHA256, Outcome: aicapability.InvocationDispatched, Reservation: resourceadapter.ModelInvocationReservation{OrganizationID: cfg.OrganizationID, MemberID: cfg.MemberID, InvocationID: cfg.InvocationID, ReservationID: cfg.ReservationID, DispatchFingerprint: cfg.ExpectedDispatchFingerprint, QuantityUnit: "ai-micropoint-v1", Quantity: 15445282, State: "reserved"}}
+	if err := validateReservationInspection(anchor, a, cfg, out, identity); err != nil {
+		t.Fatal(err)
+	}
+	for _, outcome := range []aicapability.InvocationOutcome{aicapability.InvocationFailed, aicapability.InvocationSucceeded, ""} {
+		out.Outcome = outcome
+		if validateReservationInspection(anchor, a, cfg, out, identity) == nil {
+			t.Fatalf("accepted invocation outcome %q", outcome)
+		}
+	}
+}
 
 func formalFixture(now time.Time) (formalAnchor, formalAdmission, store.RetainedTarget) {
 	hash := strings.Repeat("a", 64)
@@ -137,7 +193,7 @@ func TestFormalReservationInspectionBindsOriginalInvocationAndReservation(t *tes
 	anchor.ReservationBindingSHA256 = identity
 	a.ReservationBindingSHA256 = identity
 	anchor.InvocationBindingSHA256 = strings.Repeat("c", 64)
-	out := recovery.Output{InvocationID: cfg.InvocationID, BindingDigest: anchor.InvocationBindingSHA256, Reservation: resourceadapter.ModelInvocationReservation{OrganizationID: cfg.OrganizationID, MemberID: cfg.MemberID, InvocationID: cfg.InvocationID, ReservationID: cfg.ReservationID, DispatchFingerprint: cfg.ExpectedDispatchFingerprint, QuantityUnit: "ai-micropoint-v1", Quantity: 15445282, State: "reserved"}}
+	out := recovery.Output{InvocationID: cfg.InvocationID, BindingDigest: anchor.InvocationBindingSHA256, Outcome: aicapability.InvocationDispatched, Reservation: resourceadapter.ModelInvocationReservation{OrganizationID: cfg.OrganizationID, MemberID: cfg.MemberID, InvocationID: cfg.InvocationID, ReservationID: cfg.ReservationID, DispatchFingerprint: cfg.ExpectedDispatchFingerprint, QuantityUnit: "ai-micropoint-v1", Quantity: 15445282, State: "reserved"}}
 	if err := validateReservationInspection(anchor, a, cfg, out, identity); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +216,7 @@ func TestFormalReservationCoordinatorOnlyInspects(t *testing.T) {
 	anchor.ReservationBindingSHA256 = identity
 	a.ReservationBindingSHA256 = identity
 	anchor.InvocationBindingSHA256 = strings.Repeat("c", 64)
-	out := recovery.Output{InvocationID: cfg.InvocationID, BindingDigest: anchor.InvocationBindingSHA256, Reservation: resourceadapter.ModelInvocationReservation{OrganizationID: cfg.OrganizationID, MemberID: cfg.MemberID, InvocationID: cfg.InvocationID, ReservationID: cfg.ReservationID, DispatchFingerprint: cfg.ExpectedDispatchFingerprint, QuantityUnit: "ai-micropoint-v1", Quantity: 15445282, State: "reserved"}}
+	out := recovery.Output{InvocationID: cfg.InvocationID, BindingDigest: anchor.InvocationBindingSHA256, Outcome: aicapability.InvocationDispatched, Reservation: resourceadapter.ModelInvocationReservation{OrganizationID: cfg.OrganizationID, MemberID: cfg.MemberID, InvocationID: cfg.InvocationID, ReservationID: cfg.ReservationID, DispatchFingerprint: cfg.ExpectedDispatchFingerprint, QuantityUnit: "ai-micropoint-v1", Quantity: 15445282, State: "reserved"}}
 	called := ""
 	err := inspectFormalReservation(context.Background(), anchor, a, cfg, identity, func(_ context.Context, _ recovery.Config, action string) (recovery.Output, error) {
 		called = action

@@ -105,7 +105,7 @@ func runFormalHost(ctx context.Context, m manifest, paths formalPaths) error {
 // independently created isolated observation without exposing a runtime flag.
 func runFormalHostWithSourcePin(ctx context.Context, m manifest, paths formalPaths, sourcePin string, inspectImage func(context.Context, string) (formalImage, error)) error {
 	target := m.Target
-	anchor, a, err := readFormalAdmission(ctx, paths.Anchor, paths.Admission, target, sourcePin, inspectImage)
+	anchor, a, err := readFormalAdmission(ctx, paths.Anchor, paths.Admission, paths.Source, target, sourcePin, inspectImage)
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func runFormalHostWithSourcePin(ctx context.Context, m manifest, paths formalPat
 	}
 	// Re-read independently protected inputs after copying and just before the
 	// one-time capability is created. Do not automatically retry on failure.
-	anchor2, a2, err := readFormalAdmission(ctx, paths.Anchor, paths.Admission, target, sourcePin, inspectImage)
+	anchor2, a2, err := readFormalAdmission(ctx, paths.Anchor, paths.Admission, paths.Source, target, sourcePin, inspectImage)
 	if err != nil {
 		return err
 	}

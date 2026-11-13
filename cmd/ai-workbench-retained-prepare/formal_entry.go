@@ -66,7 +66,7 @@ func verifyFormalAnchor(ctx context.Context, path string, target store.RetainedT
 	return validateFormalContainers(anchor, db, app)
 }
 
-func readFormalAdmission(ctx context.Context, anchorPath, admissionPath string, target store.RetainedTarget, originalPin string, inspectImage func(context.Context, string) (formalImage, error)) (formalAnchor, formalAdmission, error) {
+func readFormalAdmission(ctx context.Context, anchorPath, admissionPath, sourcePath string, target store.RetainedTarget, originalPin string, inspectImage func(context.Context, string) (formalImage, error)) (formalAnchor, formalAdmission, error) {
 	var anchor formalAnchor
 	var a formalAdmission
 	anchorRaw, err := loadProtected(ctx, anchorPath, &anchor)
@@ -86,8 +86,34 @@ func readFormalAdmission(ctx context.Context, anchorPath, admissionPath string, 
 	if err := verifyFormalBuildReceipt(ctx, anchor.CandidateBuild, inspectImage); err != nil {
 		return anchor, a, err
 	}
+	if err := verifyPinnedOriginalObservation(ctx, sourcePath, originalPin, anchor); err != nil {
+		return anchor, a, err
+	}
+	var source sourceRecord
+	if _, err := loadProtected(ctx, sourcePath, &source); err != nil {
+		return anchor, a, err
+	}
 	for _, item := range a.Proofs {
 		p := item.Proof
+		if a.Version == "chat-35444-original-admission-v2" {
+			if p.Owner != "business" || source.Databases["product_agent"].DumpSHA != p.BackupSHA256 || coreconfig.VerifyPrivateFiles(ctx, []string{p.BackupRef, p.RestoreRef}) != nil {
+				return anchor, a, errors.New("historical business evidence unavailable or not private")
+			}
+			if err := verifyOwnerFiles(p); err != nil {
+				return anchor, a, err
+			}
+			var receipt restoreRecord
+			if _, err := loadProtected(ctx, p.RestoreRef, &receipt); err != nil {
+				return anchor, a, err
+			}
+			if err := validateMinimalRestore(anchor, item, receipt, originalPin); err != nil {
+				return anchor, a, err
+			}
+			if receipt.ContainerID != a.RestoreContainerID || receipt.SystemID != a.RestoreSystemID || receipt.Target.OID != a.RestoreDatabaseOID || !receipt.RestoredAt.Equal(item.RestoredAt) {
+				return anchor, a, errors.New("historical business restore binding mismatch")
+			}
+			continue
+		}
 		var ownerAnchor formalOwnerAnchor
 		ownerRaw, err := loadProtected(ctx, anchor.OwnerAnchorPaths[p.Owner], &ownerAnchor)
 		if err != nil {

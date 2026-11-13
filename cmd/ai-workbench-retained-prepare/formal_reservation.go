@@ -9,6 +9,7 @@ import (
 
 	sigjson "sigs.k8s.io/json"
 
+	"task-processor/internal/aicapability"
 	recovery "task-processor/internal/app/modelinvocationrecovery"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	"task-processor/internal/ledger/orgresource"
@@ -81,7 +82,7 @@ func reservationIdentityDigest(cfg recovery.Config) string {
 
 func validateReservationInspection(anchor formalAnchor, a formalAdmission, cfg recovery.Config, out recovery.Output, pin string) error {
 	r := out.Reservation
-	if !validDigest(pin) || cfg.ResolveEnabled || cfg.ExpectedDispatchFingerprint == "" || reservationIdentityDigest(cfg) != pin || anchor.ReservationBindingSHA256 != pin || a.ReservationBindingSHA256 != pin || !validDigest(anchor.InvocationBindingSHA256) || out.BindingDigest != anchor.InvocationBindingSHA256 || out.InvocationID != cfg.InvocationID || r.OrganizationID != cfg.OrganizationID || r.MemberID != cfg.MemberID || r.InvocationID != cfg.InvocationID || r.ReservationID != cfg.ReservationID || r.DispatchFingerprint != cfg.ExpectedDispatchFingerprint || r.QuantityUnit != orgresource.AIPointQuantityUnitV1 || r.Quantity != 15445282 || r.State != "reserved" || r.SettledAt != nil || r.SettlementOperationID != nil || out.Settled || out.SettledMicropoints != nil {
+	if !validDigest(pin) || cfg.ResolveEnabled || cfg.ExpectedDispatchFingerprint == "" || reservationIdentityDigest(cfg) != pin || anchor.ReservationBindingSHA256 != pin || a.ReservationBindingSHA256 != pin || !validDigest(anchor.InvocationBindingSHA256) || out.BindingDigest != anchor.InvocationBindingSHA256 || out.InvocationID != cfg.InvocationID || out.Outcome != aicapability.InvocationDispatched || r.OrganizationID != cfg.OrganizationID || r.MemberID != cfg.MemberID || r.InvocationID != cfg.InvocationID || r.ReservationID != cfg.ReservationID || r.DispatchFingerprint != cfg.ExpectedDispatchFingerprint || r.QuantityUnit != orgresource.AIPointQuantityUnitV1 || r.Quantity != 15445282 || r.State != "reserved" || r.SettledAt != nil || r.SettlementOperationID != nil || out.Settled || out.SettledMicropoints != nil {
 		return errors.New("original invocation or reservation inspection mismatch")
 	}
 	return nil
