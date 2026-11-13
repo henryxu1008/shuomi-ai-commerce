@@ -65,5 +65,26 @@ func (a *productAgentApplication) readContentWorkbenchContext(ctx context.Contex
 	if err != nil || f.MemberID != identity.MemberID {
 		return nil, agent.ErrUnavailable
 	}
+	command, err := w.store.GetCommand(ctx, owner, ref.CommandKey)
+	if err != nil || command.ScopeRef() != ref || command.AssistantMessageID == "" {
+		return nil, agent.ErrUnavailable
+	}
+	seq, err := w.store.AssistantSequence(ctx, owner, ref.ConversationID, command.AssistantMessageID)
+	if err != nil {
+		return nil, agent.ErrUnavailable
+	}
+	var current authidentity.AuthenticatedIdentity
+	if scheduledExecutionContext(ctx) {
+		current, err = a.currentAgentIdentity(ctx)
+	} else {
+		var ok bool
+		current, ok = authidentity.AuthenticatedIdentityFromContext(ctx)
+		if !ok {
+			return nil, agent.ErrUnavailable
+		}
+	}
+	if err != nil || current.TenantID != owner.OrganizationID || current.UserID != owner.ActorID || current.EffectiveMemberID != identity.MemberID || w.authorizeProductHistory(ctx, owner, ref.ConversationID, seq, current) != nil {
+		return nil, agent.ErrUnavailable
+	}
 	return f.ModelInput, nil
 }

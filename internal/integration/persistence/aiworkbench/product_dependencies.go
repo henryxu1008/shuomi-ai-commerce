@@ -10,6 +10,21 @@ import (
 
 const productContextPromptVersion = "ai-workbench-chat-plan-v4"
 
+// AssistantSequence binds a durable reply to its owner and conversation.
+func (s *Store) AssistantSequence(ctx context.Context, scope aiworkbench.Scope, conversation, id string) (uint64, error) {
+	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(conversation) || !validKey(id) {
+		return 0, aiworkbench.ErrInvalid
+	}
+	var row messageRow
+	if err := s.db.WithContext(ctx).Where("organization_id=? AND owner_user_id=? AND conversation_id=? AND id=? AND author_kind=?", scope.OrganizationID, scope.ActorID, conversation, id, string(aiworkbench.AuthorAssistant)).Take(&row).Error; err != nil {
+		return 0, missing(err)
+	}
+	if row.Sequence == 0 {
+		return 0, aiworkbench.ErrUnavailable
+	}
+	return row.Sequence, nil
+}
+
 // ProductDependencies resolves each assistant message to exactly one original
 // command before extracting frozen product selections. Other tenants and users
 // are excluded by both queries. A malformed association fails closed.

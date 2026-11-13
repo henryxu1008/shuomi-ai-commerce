@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"unicode/utf8"
 
+	"task-processor/internal/agent"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/integration/aiworkbench/einoplanner"
@@ -19,12 +21,49 @@ func (p *workbenchPlanner) authorizeProductHistory(ctx context.Context, scope ai
 	if err != nil || i.TenantID != scope.OrganizationID || i.UserID != scope.ActorID {
 		return aiworkbench.ErrUnavailable
 	}
-	selections, err := p.workbench.store.ProductDependencies(ctx, scope, conversation, through)
+	return p.workbench.authorizeProductHistory(ctx, scope, conversation, through, i)
+}
+
+func (a *aiWorkbenchApplication) taskHistoryUnavailable(ctx context.Context, scope aiworkbench.Scope, task aiworkbench.BusinessTask, i authidentity.AuthenticatedIdentity) bool {
+	if task.Kind != aiworkbench.ContentTaskKind {
+		return false
+	}
+	var p aiworkbench.ExecutionProposal
+	if task.ScheduledOccurrenceID == "" {
+		if task.ProposalID == "" || a.store == nil {
+			return true
+		}
+		var err error
+		p, err = a.store.GetProposal(ctx, scope, task.ProposalID)
+		if err != nil || p.Digest != task.ProposalDigest || p.ConversationID != task.ConversationID {
+			return true
+		}
+	} else {
+		var request agent.Request
+		if json.Unmarshal(task.ExecutionRequest, &request) != nil || !request.ScheduledSource.Valid() {
+			return true
+		}
+		plan, err := a.store.ReadScheduledPlan(ctx, scope, request.ScheduledSource.PlanID)
+		if err != nil || json.Unmarshal(plan.ExecutionSpec, &p) != nil || p.GoalSummary != task.GoalSummary {
+			return true
+		}
+	}
+	return a.proposalHistoryUnavailable(ctx, scope, p, i)
+}
+
+func (a *aiWorkbenchApplication) authorizeProductHistory(ctx context.Context, scope aiworkbench.Scope, conversation string, through uint64, i authidentity.AuthenticatedIdentity) error {
+	if a == nil || a.store == nil || i.TenantID != scope.OrganizationID || i.UserID != scope.ActorID {
+		return aiworkbench.ErrUnavailable
+	}
+	selections, err := a.store.ProductDependencies(ctx, scope, conversation, through)
 	if err != nil {
 		return err
 	}
+	if len(selections) != 0 && (a.agent == nil || !a.agent.workbenchKind(aiworkbench.ContentTaskKind)) {
+		return aiworkbench.ErrUnavailable
+	}
 	for _, selection := range selections {
-		if _, err := p.agent.workbenchProductSnapshot(ctx, i, selection); err != nil {
+		if _, err := a.agent.workbenchProductSnapshot(ctx, i, selection); err != nil {
 			return err
 		}
 	}
@@ -37,11 +76,24 @@ func (a *aiWorkbenchApplication) productHistoryUnavailable(ctx context.Context, 
 	if a == nil || a.store == nil {
 		return true
 	}
-	if a.plan != nil && a.agent != nil && a.agent.workbenchKind(aiworkbench.ContentTaskKind) {
-		return a.plan.authorizeProductHistory(ctx, scope, conversation, through) != nil
+	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	return !ok || a.authorizeProductHistory(ctx, scope, conversation, through, i) != nil
+}
+
+// A directly authored schedule has no originating Chat message. A persisted
+// proposal must retain an exact scoped assistant-message association.
+func (a *aiWorkbenchApplication) proposalHistoryUnavailable(ctx context.Context, scope aiworkbench.Scope, p aiworkbench.ExecutionProposal, i authidentity.AuthenticatedIdentity) bool {
+	if p.Scope != scope {
+		return true
 	}
-	selections, err := a.store.ProductDependencies(ctx, scope, conversation, through)
-	return err != nil || len(selections) != 0
+	if p.ID == "" && p.ConversationID == "" && p.AssistantMessageID == "" && p.WorkbenchContextRef.Absent() {
+		return false
+	}
+	if a == nil || a.store == nil || p.ConversationID == "" || p.AssistantMessageID == "" {
+		return true
+	}
+	seq, err := a.store.AssistantSequence(ctx, scope, p.ConversationID, p.AssistantMessageID)
+	return err != nil || a.authorizeProductHistory(ctx, scope, p.ConversationID, seq, i) != nil
 }
 
 func projectWorkbenchProduct(p catalog.ProductSnapshot) *einoplanner.ProductContext {

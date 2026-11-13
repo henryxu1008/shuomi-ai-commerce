@@ -18,6 +18,7 @@ import (
 )
 
 type workbenchTaskView struct {
+	HistoryUnavailable      bool                       `json:"-"`
 	BusinessScope           *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	ScopeUnavailable        bool                       `json:"scopeUnavailable,omitempty"`
 	Kind                    string                     `json:"kind"`
@@ -93,6 +94,9 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 			return workbenchTaskView{ID: task.ID, ScopeUnavailable: true}, nil
 		}
 		view.BusinessScope = &scopeView
+	}
+	if a.taskHistoryUnavailable(ctx, scope, task, identity) {
+		return workbenchTaskView{ID: task.ID, Kind: task.Kind, CreatedAt: task.CreatedAt, Title: "相关商品当前不可访问", HistoryUnavailable: true}, nil
 	}
 	if a.agent == nil || !a.agent.workbenchKind(task.Kind) {
 		return view, nil
@@ -259,6 +263,11 @@ func (a *aiWorkbenchApplication) taskAction(c *gin.Context, ctx context.Context,
 	task, err := a.store.GetTask(ctx, scope, id)
 	if err != nil {
 		writeAIWorkbenchError(c, err)
+		return
+	}
+	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || a.taskHistoryUnavailable(ctx, scope, task, i) {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
 		return
 	}
 	if _, err := a.agent.freshIdentity(ctx); err != nil {

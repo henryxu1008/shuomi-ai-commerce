@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
+	pc "task-processor/internal/aiworkbench/projectcenter"
 	"task-processor/internal/app/productsourcing"
 	reportapp "task-processor/internal/app/reportcenter"
 	"task-processor/internal/authidentity"
@@ -26,11 +28,13 @@ import (
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	n "task-processor/internal/notificationcenter"
 	"task-processor/internal/product/collection"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	rc "task-processor/internal/reportcenter"
 	"task-processor/internal/storecenter"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -39,15 +43,34 @@ import (
 )
 
 type revocableOwnProductReader struct {
-	delegate ownProductReader
-	denied   atomic.Bool
+	delegate        ownProductReader
+	denied          atomic.Bool
+	deniedID        string
+	scheduledReads  atomic.Int32
+	scheduledDenyAt atomic.Int32
 }
 
 func (r *revocableOwnProductReader) ReadItem(ctx context.Context, id string) (collection.ItemDetail, error) {
-	if r.denied.Load() {
+	if r.denied.Load() && (r.deniedID == "" || r.deniedID == id) {
 		return collection.ItemDetail{}, collection.ErrForbidden
 	}
 	return r.delegate.ReadItem(ctx, id)
+}
+
+func (r *revocableOwnProductReader) ReadItemForExecution(ctx context.Context, proof collection.AuthorizedOwner, id string) (collection.ItemDetail, error) {
+	if r.denied.Load() && (r.deniedID == "" || r.deniedID == id) {
+		return collection.ItemDetail{}, collection.ErrForbidden
+	}
+	if r.deniedID == id && r.scheduledDenyAt.Load() > 0 && r.scheduledReads.Add(1) >= r.scheduledDenyAt.Load() {
+		return collection.ItemDetail{}, collection.ErrForbidden
+	}
+	reader, ok := r.delegate.(interface {
+		ReadItemForExecution(context.Context, collection.AuthorizedOwner, string) (collection.ItemDetail, error)
+	})
+	if !ok {
+		return collection.ItemDetail{}, collection.ErrUnavailable
+	}
+	return reader.ReadItemForExecution(ctx, proof, id)
 }
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
@@ -144,11 +167,13 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 			} `json:"messages"`
 		}
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
-		require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, binding.ContextID)
+		if !strings.Contains(wire.Messages[len(wire.Messages)-1].Content, "Synthetic product B") {
+			require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, binding.ContextID)
+		}
 		require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, goal.Load())
 		if os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
 			require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, `"product_context"`)
-			if own {
+			if own && !strings.Contains(wire.Messages[len(wire.Messages)-1].Content, "Synthetic product B") {
 				require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, "Saved own product description")
 			}
 		}
@@ -498,6 +523,14 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	}
 	require.Equal(t, 1, createdCount, "different confirmation keys for one proposal must share the original T1 fence")
 	require.NotEmpty(t, confirmed.Task.ID)
+	if own && os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
+		ownedProducts.denied.Store(true)
+		detail := call("GET", workbenchTaskBase+"/"+confirmed.Task.ID, "", nil, 200)
+		require.NotContains(t, string(detail), "整理商品内容", "revoked product facts cannot leak through task detail")
+		list := call("GET", workbenchTaskBase, "", nil, 200)
+		require.NotContains(t, string(list), "整理商品内容", "revoked product facts cannot leak through task list")
+		ownedProducts.denied.Store(false)
+	}
 	expectedContentCalls := int32(3)
 	if miniRuntime {
 		expectedContentCalls = 2
@@ -630,6 +663,155 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, json.Unmarshal(stored.ExecutionRequest, &request))
 	require.Equal(t, selection, request.ContentSelection)
 	require.Equal(t, binding, request.Binding)
+	if own && os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
+		var oldConversation struct{ Conversation aiworkbench.Conversation }
+		require.NoError(t, json.Unmarshal(call("POST", workbenchChatBase, uuid.NewString(), createPayload, 200), &oldConversation))
+		oldInput := aiworkbench.MessageInput{Content: "旧会话输入", TaskSelection: &selected}
+		oldPrepare, e := app.plan.Admission(actor, owner, oldConversation.Conversation.ID, oldInput)
+		require.NoError(t, e)
+		legacyPrepare := func(history []aiworkbench.Message, invocation string) (aiworkbench.PreparedPlan, error) {
+			prepared, err := oldPrepare(history, invocation)
+			if err != nil {
+				return prepared, err
+			}
+			var profile aicapability.ModelProfile
+			if err = json.Unmarshal(prepared.ModelProfile, &profile); err != nil {
+				return prepared, err
+			}
+			profile.PromptVersion = "ai-workbench-chat-plan-v3"
+			prepared.ModelProfile, err = json.Marshal(profile)
+			return prepared, err
+		}
+		oldKey := uuid.NewString()
+		_, _, e = app.store.AppendUser(actor, owner, oldConversation.Conversation.ID, oldKey, oldInput, legacyPrepare)
+		require.NoError(t, e)
+		_, _, e = app.store.CompletePlan(actor, owner, oldKey, aiworkbench.PlanTerminal{AssistantText: "原有历史回复", Mode: aiworkbench.PlanClarify})
+		require.NoError(t, e)
+		viewer, _ := authidentity.AuthenticatedIdentityFromContext(actor)
+		viewer.Roles = []string{"listingkit_viewer"}
+		require.True(t, auth.Authorize("", viewer.Roles, authz.PermissionWorkbenchChatRead))
+		require.False(t, auth.Authorize("", viewer.Roles, authz.PermissionWorkbenchChatUse))
+		recorder := httptest.NewRecorder()
+		ginCtx, _ := gin.CreateTestContext(recorder)
+		ginCtx.Request = httptest.NewRequest(http.MethodGet, workbenchChatBase+"/"+oldConversation.Conversation.ID, nil)
+		ginCtx.Params = gin.Params{{Key: "conversation_id", Value: oldConversation.Conversation.ID}}
+		app.getConversation(ginCtx, authidentity.WithAuthenticatedIdentity(actor, viewer), owner)
+		require.Equal(t, 200, recorder.Code)
+		require.Contains(t, recorder.Body.String(), "原有历史回复", "chat.read without chat.use must preserve unrelated v3 history")
+		other, e := collections.Mutate(actor, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "Synthetic product B", Description: "Synthetic B facts"}})
+		require.NoError(t, e)
+		i, _ := authidentity.AuthenticatedIdentityFromContext(actor)
+		otherSource, e := a.ownSource(actor, i, other.ItemID, nil)
+		require.NoError(t, e)
+		otherSelection := selected
+		otherSelection.Subject = aiworkbench.Subject{Kind: otherSource.Binding.ContextKind, ID: otherSource.Binding.ContextID, CatalogVersion: otherSource.Binding.CatalogVersion, PublicationID: otherSource.Binding.PublicationID}
+		var two struct{ Conversation aiworkbench.Conversation }
+		require.NoError(t, json.Unmarshal(call("POST", workbenchChatBase, uuid.NewString(), createPayload, 200), &two))
+		twoPath := workbenchChatBase + "/" + two.Conversation.ID + "/messages"
+		firstKey := uuid.NewString()
+		firstBody := map[string]any{"content": "整理商品 A", "taskSelection": selected}
+		call("POST", twoPath, firstKey, firstBody, 200)
+		secondBody := map[string]any{"content": "整理商品 B", "taskSelection": otherSelection}
+		secondKey := uuid.NewString()
+		var second struct{ ProposalID string }
+		require.NoError(t, json.Unmarshal(call("POST", twoPath, secondKey, secondBody, 200), &second))
+		require.NotEmpty(t, second.ProposalID)
+		var secondTask struct{ Task workbenchTaskView }
+		require.NoError(t, json.Unmarshal(call("POST", workbenchChatBase+"/"+two.Conversation.ID+"/proposals/"+second.ProposalID+"/confirm", uuid.NewString(), nil, 200), &secondTask))
+		secondProposal, e := app.store.GetProposal(ctx, owner, second.ProposalID)
+		require.NoError(t, e)
+		spec, e := json.Marshal(secondProposal)
+		require.NoError(t, e)
+		plan := aiworkbench.ScheduledPlan{ScheduledPlanDraft: aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: owner, MemberID: "member-B-admin", Selection: otherSelection, GoalSummary: secondProposal.GoalSummary, ExecutionSpec: spec, CreatedAt: time.Now()}}
+		var scheduledProfile aicapability.ModelProfile
+		require.NoError(t, json.Unmarshal(secondProposal.ExecutionModelProfile, &scheduledProfile))
+		plan.Budget, e = aiworkbench.BudgetForScheduledExecution(scheduledProfile, secondProposal.ExecutionLimits, 1)
+		require.NoError(t, e)
+		plan.CreatedAt = time.Now().UTC().Truncate(time.Second)
+		plan.Rule = aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: plan.CreatedAt.Add(time.Second)}
+		a.originRoles = func(_ context.Context, id agent.ExecutionIdentity) ([]string, error) {
+			if id != (agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}) {
+				return nil, collection.ErrForbidden
+			}
+			return []string{"listingkit_admin"}, nil
+		}
+		require.NoError(t, app.connectScheduledExecution(ctx, a.config.ReviewDB, f.db))
+		require.NoError(t, app.store.CreateScheduledPlan(ctx, plan.ScheduledPlanDraft))
+		require.NoError(t, app.store.MarkScheduleRegistered(ctx, owner, plan.ID, 1))
+		require.Equal(t, "整理商品内容", app.scheduledView(actor, plan).GoalSummary)
+		secondStored, e := app.store.GetTask(ctx, owner, secondTask.Task.ID)
+		require.NoError(t, e)
+		var secondRequest agent.Request
+		require.NoError(t, json.Unmarshal(secondStored.ExecutionRequest, &secondRequest))
+		executionIdentity := agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}
+		_, e = a.readContentWorkbenchContext(actor, executionIdentity, secondRequest.WorkbenchContextRef, secondRequest.Key, secondRequest.Binding, true)
+		require.NoError(t, e)
+		beforeReplays := planningCalls.Load()
+		ownedProducts.deniedID = other.ItemID
+		ownedProducts.denied.Store(true)
+		page := call("GET", workbenchChatBase+"/"+two.Conversation.ID, "", nil, 200)
+		require.Equal(t, 1, strings.Count(string(page), "请确认内容方案"), "the earlier A reply remains readable when only B is revoked")
+		require.Equal(t, 1, strings.Count(string(page), "相关商品当前不可访问"))
+		call("POST", twoPath, firstKey, firstBody, 200)
+		call("POST", twoPath, secondKey, secondBody, 202)
+		require.Equal(t, beforeReplays, planningCalls.Load(), "original-key receipts never redispatch")
+		ownedProducts.denied.Store(false)
+		ownedProducts.deniedID = selected.Subject.ID
+		ownedProducts.denied.Store(true)
+		view := call("GET", workbenchTaskBase+"/"+secondTask.Task.ID, "", nil, 200)
+		require.NotContains(t, string(view), "整理商品内容", "a B task inherits A's history permission")
+		notices, e := app.notificationSources()[0].ListVisible(actor, n.Scope{OrganizationID: "B", Subject: "admin"}, "", 50)
+		require.NoError(t, e)
+		var foundNotice bool
+		for _, notice := range notices.Items {
+			if notice.Ref.EntityID == secondTask.Task.ID {
+				foundNotice = true
+				require.NotContains(t, notice.Summary, "整理商品内容")
+			}
+		}
+		require.True(t, foundNotice, "the task notification stays available with a protected title")
+		projectRefs := &projectSources{resolver: deps.organizationResolver, policy: auth, chat: app}
+		projectView, e := projectRefs.Resolve(actor, pc.Scope{OrganizationID: "B", ActorID: "admin"}, pc.Reference{Kind: "BUSINESS_TASK", TargetID: secondTask.Task.ID})
+		require.NoError(t, e)
+		require.NotContains(t, projectView.Title, "整理商品内容")
+		projectRevoked.Store(true)
+		call("GET", workbenchTaskBase+"/"+secondTask.Task.ID, "", nil, 404)
+		_, e = app.notificationSources()[0].ListVisible(actor, n.Scope{OrganizationID: "B", Subject: "admin"}, "", 50)
+		require.Error(t, e, "a revoked work scope cannot leak a task placeholder through notifications")
+		_, e = projectRefs.Resolve(actor, pc.Scope{OrganizationID: "B", ActorID: "admin"}, pc.Reference{Kind: "BUSINESS_TASK", TargetID: secondTask.Task.ID})
+		require.Error(t, e, "a revoked work scope cannot leak a task placeholder through project references")
+		projectRevoked.Store(false)
+		require.Empty(t, app.scheduledView(actor, plan).GoalSummary, "scheduled view must hide inherited product facts")
+		_, e = app.validateScheduledProposal(actor, secondProposal)
+		require.Error(t, e, "a schedule quote cannot expose a revoked earlier product")
+		_, e = a.readContentWorkbenchContext(actor, executionIdentity, secondRequest.WorkbenchContextRef, secondRequest.Key, secondRequest.Binding, true)
+		require.Error(t, e, "the final execution gate must recheck inherited product authorization")
+		worker, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		beforeScheduled := calls.Load()
+		require.NoError(t, app.DispatchScheduled(worker, plan.ID, plan.Rule.AtUTC))
+		blocked, e := app.store.ReadScheduledOccurrence(worker, owner, plan.ID, plan.Rule.AtUTC)
+		require.NoError(t, e)
+		require.Equal(t, "BLOCKED", blocked.State)
+		require.Equal(t, beforeScheduled, calls.Load(), "a revoked earlier product blocks the scheduled provider")
+		require.Equal(t, beforeReplays, planningCalls.Load(), "authorization checks never call the planning model")
+		ownedProducts.denied.Store(false)
+		plan.ID = uuid.NewString()
+		require.NoError(t, app.store.CreateScheduledPlan(ctx, plan.ScheduledPlanDraft))
+		require.NoError(t, app.store.MarkScheduleRegistered(ctx, owner, plan.ID, 1))
+		ownedProducts.scheduledReads.Store(0)
+		ownedProducts.scheduledDenyAt.Store(4)
+		require.NoError(t, app.DispatchScheduled(worker, plan.ID, plan.Rule.AtUTC))
+		late, e := app.store.ReadScheduledOccurrence(worker, owner, plan.ID, plan.Rule.AtUTC)
+		require.NoError(t, e)
+		require.NotEmpty(t, late.BusinessTaskID, "state=%s reason=%s reads=%d", late.State, late.Reason, ownedProducts.scheduledReads.Load())
+		require.GreaterOrEqual(t, ownedProducts.scheduledReads.Load(), int32(4))
+		require.Equal(t, beforeScheduled, calls.Load(), "late revocation after claim prevents the scheduled provider call")
+		ownedProducts.scheduledDenyAt.Store(0)
+		ownedProducts.deniedID = ""
+		view = call("GET", workbenchTaskBase+"/"+secondTask.Task.ID, "", nil, 200)
+		require.Contains(t, string(view), "整理商品内容", "restoring A restores the same task")
+	}
 	require.NoError(t, f.owner.Exec(`ALTER TABLE ai_workbench.execution_proposals DROP CONSTRAINT ai_workbench_proposal_capability`).Error)
 	require.Error(t, workstore.VerifySchema(ctx, db), "missing capability check must stop serving")
 	require.NoError(t, f.owner.Exec(`ALTER TABLE ai_workbench.execution_proposals ADD CONSTRAINT ai_workbench_proposal_capability CHECK (true)`).Error)

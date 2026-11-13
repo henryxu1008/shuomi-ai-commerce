@@ -576,6 +576,9 @@ func (x workbenchExecution) prepareTask(ctx context.Context, p aiworkbench.Execu
 	if err != nil || p.Scope != (aiworkbench.Scope{OrganizationID: i.TenantID, ActorID: i.UserID}) {
 		return aiworkbench.PreparedTask{}, review.ErrForbidden
 	}
+	if x.workbench != nil && x.workbench.proposalHistoryUnavailable(ctx, p.Scope, p, i) {
+		return aiworkbench.PreparedTask{}, review.ErrForbidden
+	}
 	binding, err := a.workbenchProposalBinding(ctx, i, p)
 	if err != nil {
 		return aiworkbench.PreparedTask{}, err
