@@ -41,6 +41,10 @@ CREATE TABLE IF NOT EXISTS ai_workbench.messages (
     sequence bigint NOT NULL CHECK (sequence > 0),
     author_kind text NOT NULL CHECK (author_kind IN ('USER', 'ASSISTANT')),
     content text NOT NULL CHECK (octet_length(content) BETWEEN 1 AND 16384),
+    message_kind text NOT NULL DEFAULT 'TEXT' CHECK (message_kind IN ('TEXT','STORE_OVERVIEW_REF')),
+    store_query_status text,
+    CHECK (((message_kind = 'TEXT' AND store_query_status IS NULL) OR
+           (message_kind = 'STORE_OVERVIEW_REF' AND author_kind = 'ASSISTANT' AND content = '店铺概况' AND store_query_status IN ('ALL_NON_DELETED','ACTIVE'))) IS TRUE),
     created_at timestamptz NOT NULL,
     UNIQUE (organization_id, owner_user_id, conversation_id, sequence),
     UNIQUE (organization_id, owner_user_id, conversation_id, id),
@@ -55,10 +59,10 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
     organization_id text NOT NULL,
     actor_id text NOT NULL,
     idempotency_key uuid NOT NULL,
-    operation text NOT NULL CHECK (operation IN ('conversation_create', 'chat_message_plan')),
+    operation text NOT NULL CHECK (operation IN ('conversation_create', 'chat_message_plan', 'chat_intent_route', 'chat_store_overview')),
     request_fingerprint char(64) NOT NULL,
     conversation_id uuid NOT NULL,
-    state text NOT NULL CHECK (state IN ('READY_TO_DISPATCH', 'COMPLETE', 'FAILED_BEFORE_DISPATCH', 'PLANNER_INVALID_OUTPUT', 'PLANNER_UNKNOWN')),
+    state text NOT NULL CHECK (state IN ('READY_TO_DISPATCH', 'COMPLETE', 'FAILED_BEFORE_DISPATCH', 'PLANNER_INVALID_OUTPUT', 'PLANNER_UNKNOWN', 'ROUTING_RESULT_LOST')),
     user_message_id uuid,
     source_sequence bigint,
     planner_invocation_id char(64),
@@ -71,6 +75,8 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
     CONSTRAINT ai_workbench_frozen_scope CHECK ((frozen_scope IS NULL AND scope_digest IS NULL) OR (operation = 'chat_message_plan' AND frozen_scope IS NOT NULL AND jsonb_typeof(frozen_scope) = 'object' AND octet_length(frozen_scope::text) <= 16384 AND scope_digest IS NOT NULL AND scope_digest ~ '^[a-f0-9]{64}$')),
     planner_started_at timestamptz,
     planner_deadline timestamptz,
+    route_commit_deadline timestamptz,
+    route_result text CHECK (route_result IS NULL OR route_result IN ('STORE_OVERVIEW','PRODUCT_TASK','CLARIFY')),
     assistant_message_id uuid,
     proposal_id uuid,
     terminal_digest char(64),
@@ -87,13 +93,15 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
         REFERENCES ai_workbench.messages (organization_id, owner_user_id, conversation_id, id),
     CHECK ((operation = 'conversation_create' AND state = 'COMPLETE'
             AND user_message_id IS NULL AND planner_invocation_id IS NULL)
-        OR (operation = 'chat_message_plan' AND user_message_id IS NOT NULL
+        OR (operation IN ('chat_message_plan','chat_intent_route') AND user_message_id IS NOT NULL
             AND source_sequence IS NOT NULL AND planner_invocation_id IS NOT NULL
             AND member_id IS NOT NULL
             AND work_scope IS NOT NULL
             AND (state = 'FAILED_BEFORE_DISPATCH' OR
                 (planner_input_hash IS NOT NULL AND planner_model_profile IS NOT NULL
-                 AND planner_started_at IS NOT NULL AND planner_deadline IS NOT NULL))))
+                 AND planner_started_at IS NOT NULL AND planner_deadline IS NOT NULL)))
+        AND (operation <> 'chat_intent_route' OR route_commit_deadline IS NOT NULL OR (state='FAILED_BEFORE_DISPATCH' AND planner_model_profile IS NULL AND planner_input_hash IS NULL AND planner_started_at IS NULL AND planner_deadline IS NULL AND assistant_message_id IS NOT NULL))
+        OR (operation = 'chat_store_overview' AND state = 'COMPLETE' AND member_id IS NOT NULL AND user_message_id IS NOT NULL AND source_sequence IS NOT NULL AND assistant_message_id IS NOT NULL AND planner_invocation_id IS NULL AND planner_input_hash IS NULL AND planner_model_profile IS NULL AND route_result = 'STORE_OVERVIEW'))
 );
 
 CREATE TABLE IF NOT EXISTS ai_workbench.execution_proposals (

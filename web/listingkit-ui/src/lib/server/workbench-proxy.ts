@@ -7,7 +7,7 @@ import { planPath, planMethods, planRequestSchema, planResponseSchema, type Plan
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialConnectionRefreshSchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
 import {agentEmptyRequestSchema,agentStartRequestSchema,contentAgentStartRequestSchema,ownContentStartRequestSchema,ownContentSourceSchema,ownAgentPath,agentResumeRequestSchema,agentResultSchema,contentAgentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
-import { aiWorkbenchPath, aiCreateBody, aiMessageBody, aiMetadataBody, aiResumeBody, aiScheduleInput,aiScheduleControl,aiScheduleEdit, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
+import { aiWorkbenchPath, aiCreateBody, aiMessageBody, aiStoreRouteBody, aiStoreOverviewBody, aiMetadataBody, aiResumeBody, aiScheduleInput,aiScheduleControl,aiScheduleEdit, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
 import { NextResponse } from "next/server";
 import { COLLECTION_MAX_BYTES, COLLECTION_DETAIL_RESPONSE_MAX_BYTES, collectionPath, collectionCommandSchema, collectionSourceKindSchema, collectionVersion, parseCollectionResponse, type CollectionRoute } from "@/lib/contracts/product-collection";
 import {
@@ -342,7 +342,7 @@ const workbenchRouteAllowlist = [
   ...([
     ["GET","subject-read"], ["GET","scope-options"], ["GET", "conversation-list"], ["POST", "conversation-create"],
     ["GET", "conversation-read"], ["PATCH", "conversation-metadata"],
-    ["POST", "message"], ["POST", "confirm"],
+    ["POST", "message"], ["POST", "store-route"], ["POST", "store-overview"], ["POST", "confirm"],
     ["GET", "task-list"], ["GET", "task-cockpit-metrics"], ["GET", "task-read"], ["GET", "task-scope-options"],
     ["POST", "task-start"], ["POST", "task-resume"], ["POST", "task-review"],
     ["GET","schedule-availability"],["GET","schedule-list"],["GET","schedule-read"],["GET","schedule-history"],
@@ -677,7 +677,7 @@ export async function buildWorkbenchUpstreamRequest(
         } else {
           const assertion = validateSourceMutationBoundary(request, authenticatedActorSubject);
           if (assertion) return assertion;
-          if (["conversation-create", "message", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close"].includes(action)) {
+          if (["conversation-create", "message", "store-route", "store-overview", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close"].includes(action)) {
             const key = readCanonicalUUIDHeader(request.headers, "Idempotency-Key");
             if (!key) return protocolError(400, "INVALID_REQUEST", "Idempotency-Key is invalid");
             headers.set("Idempotency-Key", key);
@@ -695,7 +695,7 @@ export async function buildWorkbenchUpstreamRequest(
             const raw = await readRequestBody(request, 16 * 1024, "INPUT_TOO_LARGE");
             if (raw instanceof Response) return raw;
             const parsed = parseJSONBody(raw);
-            const schema = action==="schedule-quote"||action==="schedule-create"?aiScheduleInput:action==="schedule-edit"?aiScheduleEdit:action.startsWith("schedule-")?aiScheduleControl:action === "conversation-create" ? aiCreateBody : action === "message" ? aiMessageBody : action === "conversation-metadata" ? aiMetadataBody : aiResumeBody;
+            const schema = action==="schedule-quote"||action==="schedule-create"?aiScheduleInput:action==="schedule-edit"?aiScheduleEdit:action.startsWith("schedule-")?aiScheduleControl:action === "conversation-create" ? aiCreateBody : action === "message" ? aiMessageBody : action === "store-route" ? aiStoreRouteBody : action === "store-overview" ? aiStoreOverviewBody : action === "conversation-metadata" ? aiMetadataBody : aiResumeBody;
             const valid = schema.safeParse(parsed?.payload);
             if (!parsed || !valid.success) return protocolError(400, "INVALID_REQUEST", "Request body is invalid");
             body = JSON.stringify(valid.data);

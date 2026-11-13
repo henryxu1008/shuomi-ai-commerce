@@ -41,3 +41,32 @@ test("retains the input through the original create retry without dispatching a 
   await expect(page.getByText("工作背景：合成店铺")).toBeVisible();
   expect(messages).toBe(0); expect(creates).toBe(2);
 });
+
+test("routes a store question once and hides cached totals after revoked access",async({page,context,baseURL})=>{
+ const origin=baseURL!,issuer="https://chat-compose.invalid",client="chat-compose-fixture";
+ const namespace=createHash("sha256").update(JSON.stringify([origin,issuer,client])).digest("hex").slice(0,32),name=`shuomi.${namespace}.session-token`;
+ const token=await encode({secret,salt:name,maxAge:600,token:{accessToken:"synthetic-chat-compose",expiresAt:Math.floor(Date.now()/1000)+600,identityVersion:3,identity:{tenantId:"org",userId:"user",userType:"zitadel",roles:[]}}});
+ await context.addCookies([{name,value:token,url:origin,httpOnly:true,sameSite:"Lax"}]);
+ const id="11111111-1111-4111-8111-111111111111",messageId="22222222-2222-4222-8222-222222222222",stamp="2026-11-12T00:00:00Z";
+ const conversation={ID:id,Scope:{OrganizationID:"org",ActorID:"user"},Title:"",Favorite:false,Archived:false,MetadataRevision:1,NextSequence:1,CreatedAt:stamp,UpdatedAt:stamp,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+ let intentCalls=0,modelKey="",revoked=false,answered=false;
+ await page.route("**/*",async route=>{
+  const req=route.request(),url=new URL(req.url());if(url.origin!==origin)return route.abort();if(!url.pathname.startsWith("/api/"))return route.continue();
+  const json=(data:unknown,status=200)=>route.fulfill({status,contentType:"application/json",body:JSON.stringify(data)}),path=url.pathname;
+  if(path==="/api/workbench/context")return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchPlanningReadiness:"AVAILABLE",aiWorkbenchStoreRouteReadiness:"AVAILABLE",organizations:[{id:"org",name:"合成测试企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read","workbench.store.read"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}]});
+  if(path===`/api/workbench/chat/conversations/${id}`&&req.method()==="GET"){
+   const ref={ID:messageId,ConversationID:id,Sequence:2,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",...(revoked?{storeOverviewUnavailable:true}:{currentStoreOverview:{total:3,platforms:{shein:2,temu:1},statuses:{active:3},operatingTypeUnknown:3,readStartedAt:stamp}})};
+   return json({conversation,messages:answered?[ref]:[],proposals:[],before:""});
+  }
+  if(path===`/api/workbench/chat/conversations/${id}/intent`&&req.method()==="POST"){
+   intentCalls++;if(intentCalls===1){modelKey=req.headers()["idempotency-key"];return json({code:"OUTCOME_UNKNOWN"},503)}
+   expect(req.headers()["idempotency-key"]).toBe(modelKey);expect(req.postDataJSON()).toEqual({content:"我有几个店铺？"});answered=true;return json({state:"COMPLETE"});
+  }
+  return json({code:"NOT_FOUND"},404);
+ });
+ await page.goto(`/workbench/ai/chat/${id}`);await page.getByLabel("需求").fill("我有几个店铺？");expect(intentCalls).toBe(0);
+ await page.getByRole("button",{name:"发送消息"}).click();await page.getByRole("button",{name:"重试同一消息"}).click();
+ await expect(page.getByText("当前可查看 3 家店铺。")).toBeVisible();expect(intentCalls).toBe(2);
+ revoked=true;await page.evaluate(()=>{window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"));});
+ await expect(page.getByText("当前可查看 3 家店铺。")).toHaveCount(0);await expect(page.getByText("当前无权查看或店铺数据暂不可用。")).toBeVisible();
+});

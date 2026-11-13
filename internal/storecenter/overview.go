@@ -52,6 +52,7 @@ type VisibleStoreOverview struct {
 	Statuses             map[string]int64 `json:"statuses"`
 	OperatingTypeUnknown int64            `json:"operatingTypeUnknown"`
 	ReadStartedAt        time.Time        `json:"readStartedAt"`
+	ActivePlatforms      map[string]int64 `json:"-"`
 }
 
 // VisibleOverview reads only store identity, platform, and status. It never
@@ -83,7 +84,7 @@ func (c *Catalog) VisibleOverview(ctx context.Context, identity OverviewIdentity
 	if err != nil {
 		return empty, dependencyError(err)
 	}
-	out := VisibleStoreOverview{Platforms: map[string]int64{}, Statuses: map[string]int64{}, ReadStartedAt: readStartedAt}
+	out := VisibleStoreOverview{Platforms: map[string]int64{}, Statuses: map[string]int64{}, ActivePlatforms: map[string]int64{}, ReadStartedAt: readStartedAt}
 	for _, row := range records {
 		platform, platformErr := normalizePlatform(row.Platform)
 		status := RecordStatus(row.RecordStatus)
@@ -96,6 +97,9 @@ func (c *Catalog) VisibleOverview(ctx context.Context, identity OverviewIdentity
 		out.Total++
 		out.Platforms[string(platform)]++
 		out.Statuses[string(status)]++
+		if status == RecordStatusActive {
+			out.ActivePlatforms[string(platform)]++
+		}
 	}
 	out.OperatingTypeUnknown = out.Total
 	again, err := authorizeOverview(ctx, org, live)

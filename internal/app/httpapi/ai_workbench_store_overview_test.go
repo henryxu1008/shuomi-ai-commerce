@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/httproute"
@@ -16,17 +17,50 @@ import (
 )
 
 type changingOverviewResolver struct {
-	identity authidentity.AuthenticatedIdentity
-	calls    int
+	identity  authidentity.AuthenticatedIdentity
+	calls     int
+	denyAfter int
 }
 
 func (r *changingOverviewResolver) Resolve(_ context.Context, _ httproute.OrganizationAccessPolicy, _ workbenchcontext.ResolveInput) (authidentity.AuthenticatedIdentity, error) {
 	r.calls++
 	out := r.identity
-	if r.calls > 1 {
+	denyAfter := r.denyAfter
+	if denyAfter == 0 {
+		denyAfter = 1
+	}
+	if r.calls > denyAfter {
 		out.Roles = []string{"no-store-access"}
 	}
 	return out, nil
+}
+
+func TestStoreHistoryProjectionRealAdapterFailsClosedAfterSnapshot(t *testing.T) {
+	now := time.Now()
+	identity := authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", HomeOrganizationID: "home", EffectiveMemberID: "member", UserID: "actor", TokenExpiresAt: now.Add(time.Hour), Roles: []string{"listingkit_admin"}, OrganizationGrants: []authidentity.OrganizationGrant{{OrganizationID: "org", AuthorizationID: "member"}}}
+	ctx, err := (productReviewCapabilityBinder{now: func() time.Time { return now }}).Bind(authidentity.WithAuthenticatedIdentity(context.Background(), identity), "Bearer synthetic-token")
+	require.NoError(t, err)
+	resolver := &changingOverviewResolver{identity: identity, denyAfter: 2}
+	auth, err := authz.NewListingKitAuthorizer(nil, nil)
+	require.NoError(t, err)
+	app := &aiWorkbenchApplication{resolver: resolver, authorizer: auth, allowedOrganizationIDs: []string{"org"}}
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	raw, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = raw.Close() })
+	require.NoError(t, storecenter.AutoMigrateStoreRepository(db))
+	require.NoError(t, storecenter.AutoMigrateAuditRepository(db))
+	catalog, err := storecenter.NewCatalog(db, currentStoreMemberAuthorizer{authorizer: auth}, nil)
+	require.NoError(t, err)
+	app.attachStoreOverview(catalog)
+	messages := []aiworkbench.Message{{Kind: "STORE_OVERVIEW_REF", StoreQueryStatus: "ACTIVE"}, {Kind: "STORE_OVERVIEW_REF", StoreQueryStatus: "ALL_NON_DELETED"}}
+	projected := app.projectStoreMessages(ctx, aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, messages)
+	require.Equal(t, 3, resolver.calls)
+	for _, message := range projected {
+		require.Nil(t, message.StoreOverview)
+		require.True(t, message.StoreOverviewUnavailable)
+	}
 }
 
 func TestStoreOverviewActualResolverRevocationDuringReadFailsClosed(t *testing.T) {

@@ -59,7 +59,7 @@ func validateRuntimeRoleIdentity(db *gorm.DB, role string) error {
 func validateBoundedWorkbenchPrivileges(db *gorm.DB, role string) error {
 	return validateWorkbenchPrivilegeBounds(db, role, []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}, map[string][]string{
 		"conversations":         {"title", "favorite", "lifecycle", "metadata_revision", "next_sequence", "updated_at"},
-		"commands":              {"state", "assistant_message_id", "proposal_id", "terminal_digest", "mode", "committed_at"},
+		"commands":              {"state", "assistant_message_id", "proposal_id", "terminal_digest", "mode", "committed_at", "route_result"},
 		"task_action_receipts":  {"state", "error_code", "finished_at"},
 		"scheduled_plans":       {"state", "revision", "consumed_occurrences", "active_occurrence_id", "updated_at", "registration_state", "rule_start_at", "frequency", "time_zone", "once_at_utc", "local_hour", "local_minute", "local_weekday", "until_utc"},
 		"scheduled_occurrences": {"state", "business_task_id", "updated_at", "reason", "reconciliation_digest"},
@@ -139,7 +139,7 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		"GRANT USAGE ON SCHEMA ai_workbench TO " + quoted,
 		"GRANT SELECT, INSERT ON ai_workbench.conversations, ai_workbench.metadata_audit, ai_workbench.messages, ai_workbench.commands, ai_workbench.execution_proposals, ai_workbench.business_tasks, ai_workbench.task_action_receipts, ai_workbench.scheduled_plans, ai_workbench.scheduled_occurrences, ai_workbench.scheduled_plan_commands TO " + quoted,
 		"GRANT UPDATE (title, favorite, lifecycle, metadata_revision, next_sequence, updated_at) ON ai_workbench.conversations TO " + quoted,
-		"GRANT UPDATE (state, assistant_message_id, proposal_id, terminal_digest, mode, committed_at) ON ai_workbench.commands TO " + quoted,
+		"GRANT UPDATE (state, assistant_message_id, proposal_id, terminal_digest, mode, committed_at, route_result) ON ai_workbench.commands TO " + quoted,
 		"GRANT UPDATE (state, error_code, finished_at) ON ai_workbench.task_action_receipts TO " + quoted,
 		"GRANT UPDATE (state, revision, consumed_occurrences, active_occurrence_id, updated_at, registration_state, rule_start_at, frequency, time_zone, once_at_utc, local_hour, local_minute, local_weekday, until_utc) ON ai_workbench.scheduled_plans TO " + quoted,
 		"GRANT UPDATE (state, business_task_id, updated_at, reason, reconciliation_digest) ON ai_workbench.scheduled_occurrences TO " + quoted,

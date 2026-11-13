@@ -86,6 +86,17 @@ func (m aiWorkbenchModule) PlanningReadiness(ctx context.Context, organizationID
 	return string(governed.RouteNeedsConfiguration)
 }
 
+func (m aiWorkbenchModule) StoreRouteReadiness(ctx context.Context, organizationID string) string {
+	if m.application == nil || m.application.storeRoute == nil {
+		return string(governed.RouteUnavailable)
+	}
+	router, ok := m.application.storeRoute.Gateway.(*workbenchStoreRouter)
+	if !ok || router.routes == nil || !router.allowed[organizationID] {
+		return string(governed.RouteUnavailable)
+	}
+	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchStoreRoute}))
+}
+
 // TitleReadiness is the current execution route projection for an existing
 // proposal. It is independent of whether a new Chat plan may be started.
 func (m aiWorkbenchModule) TitleReadiness(ctx context.Context, organizationID string) string {
@@ -345,6 +356,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		{"GET", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatRead, "get-conversation", 15 * time.Second},
 		{"PATCH", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatUse, "metadata", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/messages", authz.PermissionWorkbenchChatUse, "message", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/intent", authz.PermissionWorkbenchChatUse, "store-route", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/store-overview", authz.PermissionWorkbenchChatUse, "store-overview", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/proposals/:proposal_id/confirm", authz.PermissionWorkbenchChatUse, "confirm", 2 * time.Minute},
 		{"GET", workbenchTaskBase + "/cockpit-metrics", authz.PermissionWorkbenchTaskRead, "task-cockpit-metrics", 12 * time.Second},
 		{"GET", workbenchTaskBase + "/scopes", authz.PermissionWorkbenchTaskRead, "task-scope-options", 15 * time.Second},
@@ -393,6 +406,10 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					a.changeConversation(c, ctx, scope)
 				case "message":
 					a.postMessage(c, ctx, scope)
+				case "store-route":
+					a.postStoreRoute(c, ctx, scope)
+				case "store-overview":
+					a.postExplicitStoreOverview(c, ctx, scope)
 				case "confirm":
 					a.confirmProposal(c, ctx, scope)
 				case "list-tasks":

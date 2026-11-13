@@ -6,8 +6,36 @@ import (
 )
 
 type StoreRoute struct {
-	Kind   string `json:"kind"`
-	Status string `json:"status"`
+	Kind      string `json:"kind"`
+	Status    string `json:"status"`
+	RawOutput string `json:"-"`
+}
+
+type StoreRouteRequest struct {
+	Content      string
+	MemberID     string
+	InputHash    string
+	ModelProfile []byte
+	ModelTimeout time.Duration
+	Unavailable  bool
+	// Prepare is pure and is called under the conversation transaction after
+	// allocating the original invocation ID. It must never perform I/O.
+	Prepare func(string) (StoreRoutePrepared, error)
+}
+
+type StoreRoutePrepared struct {
+	InputHash    string
+	ModelProfile []byte
+	ModelTimeout time.Duration
+}
+
+type StoreRouteCommand struct {
+	Scope                                                                                         Scope
+	ConversationID, IdempotencyKey, Fingerprint, UserMessageID, InvocationID, MemberID, InputHash string
+	State                                                                                         string
+	Content                                                                                       string
+	ModelProfile                                                                                  []byte
+	ModelDeadline, CommitDeadline                                                                 time.Time
 }
 
 // Call only while holding the routing command row lock, using a database

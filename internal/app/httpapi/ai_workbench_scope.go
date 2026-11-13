@@ -18,11 +18,13 @@ import (
 )
 
 type workbenchScopeSources struct {
-	scheduledStoreRead func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
-	reader             aiworkbench.ScopeReader
-	storeRead          func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
-	projectPage        func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
-	storePage          func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
+	storeOverview          func(context.Context, aiworkbench.Scope, storecenter.OverviewScope) (storecenter.VisibleStoreOverview, error)
+	storeOverviewAuthorize func(context.Context, aiworkbench.Scope, storecenter.VisibleStoreOverview) error
+	scheduledStoreRead     func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
+	reader                 aiworkbench.ScopeReader
+	storeRead              func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
+	projectPage            func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
+	storePage              func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
 }
 
 func (a *aiWorkbenchApplication) scopeIdentity(ctx context.Context, owner aiworkbench.Scope, permission string) (context.Context, error) {

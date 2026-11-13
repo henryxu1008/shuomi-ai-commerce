@@ -16,7 +16,7 @@ import { ChatIntroduction, NewConversationIntroduction } from "./chat-introducti
 import { requestAIWorkbench, type AIScope, AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { WorkScopePicker, scopeLabel, scopeSelection } from "./work-scope-picker";
-import { aiCreateBody, aiMessageBody, type WorkScopeOption, type WorkScopeSelection, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
+import { aiCreateBody, aiMessageBody, aiStoreRouteBody, type WorkScopeOption, type WorkScopeSelection, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
 import {ChatTaskSelection} from "./chat-task-selection";
@@ -25,8 +25,8 @@ import {contentSelectionLabel,type ContentSelection} from "@/lib/contracts/conte
 import styles from "./chat-page.module.css";
 
 type ChatMode = "home" | "new" | "recent" | "saved" | "archived";
-type MessageBody = ReturnType<typeof aiMessageBody.parse>;
-type PendingMessage = { key: string; body: MessageBody; draftId?: string; draftSlot?: "handoff" | "resolved"; owner?: AIScope; conversationId?: string };
+type MessageBody = ReturnType<typeof aiMessageBody.parse> | ReturnType<typeof aiStoreRouteBody.parse>;
+type PendingMessage = { key: string; body: MessageBody; route?: "message"|"store-route"; draftId?: string; draftSlot?: "handoff" | "resolved"; owner?: AIScope; conversationId?: string };
 type LocalDraft = { id:string; text:string };
 function readLocalDraft(raw:string | null): LocalDraft | null { if(raw===null)return null; const value:unknown=JSON.parse(raw); if(!value || typeof value!=="object" || !("id" in value) || typeof value.id!=="string" || !isAcquisitionUUID(value.id) || !("text" in value) || typeof value.text!=="string") throw new Error("invalid draft"); return {id:value.id,text:value.text}; }
 type ConfirmationReceipt = { key: string; taskId?: string };
@@ -58,7 +58,7 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const planningReadiness = context.aiWorkbenchPlanningReadiness;
   const titleReadiness = context.aiWorkbenchTitleReadiness;
   const canPlan = canUse && planningReadiness === "AVAILABLE";
-  const authorizationKey = `${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${titleReadiness}`;
+  const authorizationKey = `${context.effectiveMemberId ?? ""}:${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${context.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE"}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
   const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? "从已有商品与明确目标开始一项工作。" : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
   return <ConsolePage className="console-chat" title={title} breadcrumbs={route?.trail}
@@ -205,6 +205,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [operationId, setOperationId] = useState(search.get("operationId") ?? "");
   const execution=useWorkbenchContext();
   const contentTasks=execution.aiWorkbenchExecutionKind==="product.content.localize";
+  const canRoute=canUse && execution.aiWorkbenchStoreRouteReadiness==="AVAILABLE";
   const [subject,setSubject]=useState<AITaskSubject|null>(null);
   const [parameters,setParameters]=useState<ContentSelection>({targetLanguage:"en-US",description:true});
   const [platform, setPlatform] = useState<"shein" | "temu" | "amazon">("shein");
@@ -226,13 +227,30 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [confirmReceipts, setConfirmReceipts] = useState<Record<string, ConfirmationReceipt>>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const overviewKey = `ai-workbench:store-overview:${JSON.stringify([scope.userId,scope.organizationId,id])}`;
+  const [pendingOverview,setPendingOverview]=useState<string|null>(null);
+  const [overviewReady,setOverviewReady]=useState(false);
+  const [overviewBusy,setOverviewBusy]=useState(false);
+  useEffect(()=>{try{const key=sessionStorage.getItem(overviewKey);if(key!==null&&!isAcquisitionUUID(key))throw new Error("invalid original key");setPendingOverview(key);setOverviewReady(true)}catch{setError("原店铺查询记录不可读取，请检查浏览器存储。");setOverviewReady(false)}},[overviewKey]);
   const messageStorageKey = pendingMessageStorageKey(scope, id);
   const [activeMessageKey,setActiveMessageKey] = useState(messageStorageKey);
   const confirmationStorageKey = confirmStorageKey(scope, id);
+  const [storeProjectionFresh,setStoreProjectionFresh]=useState(false);
+  const focusGeneration=useRef(0);
+  const verifiedGeneration=useRef(-1);
+  const pageRevalidation=useRef(false);
   const detail = useInfiniteQuery({ queryKey: ["ai-chat", scope.userId, scope.organizationId, authorizationKey, id], initialPageParam: "",
-    queryFn: ({ signal, pageParam }) => requestAIWorkbench({ route: "conversation-read", method: "GET", path: `chat/conversations/${id}?limit=50${pageParam ? `&before=${pageParam}` : ""}`, scope, signal }),
+    queryFn: async ({ signal, pageParam }) => {const generation=focusGeneration.current;const result=await requestAIWorkbench({ route: "conversation-read", method: "GET", path: `chat/conversations/${id}?limit=50${pageParam ? `&before=${pageParam}` : ""}`, scope, signal });if(!signal.aborted)verifiedGeneration.current=generation;return result;},
     getNextPageParam: page => page.before || undefined,
     retry: false, staleTime: 0, refetchOnWindowFocus: false });
+  const refetchDetail=detail.refetch;
+  useEffect(()=>{if(detail.isSuccess&&!detail.isFetching&&!detail.isError&&!pageRevalidation.current&&verifiedGeneration.current===focusGeneration.current)setStoreProjectionFresh(true)},[detail.isSuccess,detail.isFetching,detail.isError,detail.dataUpdatedAt]);
+  useEffect(()=>{
+    const hide=()=>{focusGeneration.current++;setStoreProjectionFresh(false)};
+    const restore=()=>{const generation=++focusGeneration.current;setStoreProjectionFresh(false);void refetchDetail().then(result=>{if(generation===focusGeneration.current && result.isSuccess)setStoreProjectionFresh(true)});};
+    window.addEventListener("blur",hide);window.addEventListener("focus",restore);
+    return()=>{focusGeneration.current++;window.removeEventListener("blur",hide);window.removeEventListener("focus",restore)};
+  },[refetchDetail]);
   const newest = detail.data?.pages[0];
   const current = newest?.conversation;
   const draftHandoff = useRef(false);
@@ -255,16 +273,19 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       const value: unknown = JSON.parse(saved);
       if (!value || typeof value !== "object" || !("key" in value) || typeof value.key !== "string" || !isAcquisitionUUID(value.key) || !("body" in value)) throw new Error("invalid pending message");
       if(source===messageStorageKey && (!("owner" in value) || !value.owner || typeof value.owner!=="object" || !("userId" in value.owner) || value.owner.userId!==scope.userId || !("organizationId" in value.owner) || value.owner.organizationId!==scope.organizationId || !("conversationId" in value) || value.conversationId!==id)) throw new Error("invalid pending owner");
-      const checked = aiMessageBody.safeParse(value.body);
+      const route = "route" in value && value.route === "store-route" ? "store-route" : "message";
+      if ("route" in value && value.route !== "store-route" && value.route !== "message") throw new Error("invalid route");
+      const checked = route === "store-route" ? aiStoreRouteBody.safeParse(value.body) : aiMessageBody.safeParse(value.body);
       if (!checked.success) throw new Error("invalid pending body");
       const draftId="draftId" in value && typeof value.draftId === "string" && isAcquisitionUUID(value.draftId) ? value.draftId : undefined;
       const draftSlot="draftSlot" in value && (value.draftSlot === "handoff" || value.draftSlot === "resolved") ? value.draftSlot : undefined;
       if (("draftId" in value || "draftSlot" in value) && (!draftId || !draftSlot)) throw new Error("invalid draft identity");
-      setPendingMessage({ key: value.key, body: checked.data, draftId, draftSlot });
+      setPendingMessage({ key: value.key, body: checked.data, route, draftId, draftSlot });
       setContent(checked.data.content);
-      if("taskSelection" in checked.data){setSubject(checked.data.taskSelection.subject);setParameters(checked.data.taskSelection.parameters)}else{setOperationId(checked.data.operationId);setPlatform(checked.data.targetPlatform)}
-      setTemplateId(checked.data.templateId ?? ""); setTemplateRevision(checked.data.templateRevision ?? ""); setKnowledgeBaseId(checked.data.knowledgeBaseId ?? "");
-      if (checked.data.templateId || checked.data.templateRevision || checked.data.knowledgeBaseId) setContextExpanded(true);
+      if(route === "message") { const normal=aiMessageBody.parse(value.body);
+        if("taskSelection" in normal){setSubject(normal.taskSelection.subject);setParameters(normal.taskSelection.parameters)}else{setOperationId(normal.operationId);setPlatform(normal.targetPlatform)}
+        setTemplateId(normal.templateId ?? "");setTemplateRevision(normal.templateRevision ?? "");setKnowledgeBaseId(normal.knowledgeBaseId ?? "");if(normal.templateId || normal.templateRevision || normal.knowledgeBaseId)setContextExpanded(true);
+      }
       setMessageRecoveryError("");setMessageChecked(messageStorageKey);
       } catch { setMessageRecoveryError("原消息恢复记录不可读取或身份无法确认，请保留记录并联系管理员。");setMessageChecked(messageStorageKey); }
     });
@@ -292,6 +313,22 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     return () => { active = false; };
   }, [confirmationStorageKey]);
   useEffect(() => () => abort.current?.abort(), []);
+  async function explicitStoreOverview(){
+    if(!overviewReady||overviewBusy)return;
+    const key=pendingOverview ?? crypto.randomUUID();
+    try{sessionStorage.setItem(overviewKey,key)}catch{setError("无法保存店铺查询恢复记录，请检查浏览器存储。");return}
+    setPendingOverview(key);setOverviewBusy(true);setError("");
+    try{await requestAIWorkbench({route:"store-overview",method:"POST",path:`chat/conversations/${id}/store-overview`,scope,key,body:{status:"ALL_NON_DELETED"}});sessionStorage.removeItem(overviewKey);setPendingOverview(null);await detail.refetch()}
+    catch(cause){setError(errorText(cause))}finally{setOverviewBusy(false)}
+  }
+  async function loadEarlierMessages(){
+    const generation=++focusGeneration.current;pageRevalidation.current=true;setStoreProjectionFresh(false);
+    const older=await detail.fetchNextPage();
+    if(older.isError || generation!==focusGeneration.current){pageRevalidation.current=false;return}
+    const checked=await detail.refetch();
+    pageRevalidation.current=false;
+    if(checked.isSuccess && generation===focusGeneration.current)setStoreProjectionFresh(true);
+  }
   function preserveMessageInput(saved:PendingMessage): boolean {
     try {
       if(saved.draftId && saved.draftSlot){const key=saved.draftSlot==="handoff"?conversationDraftKey(scope,id):resolvedDraftKey(scope,id),existing=readLocalDraft(sessionStorage.getItem(key));if(existing && existing.id===saved.draftId && existing.text===saved.body.content){activeDraft.current={id:existing.id,slot:saved.draftSlot};return true;}}
@@ -302,30 +339,32 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   }
   async function send() {
     if(messageChecked!==messageStorageKey || messageRecoveryError || !draftHydrated || draftSaveError && !pendingMessage)return;
-    const draft = pendingMessage ?? { key: crypto.randomUUID(), body: {
+    const intentRoute = pendingMessage?.route === "store-route" || !pendingMessage && current?.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId));
+    const draft = pendingMessage ?? { key: crypto.randomUUID(), body: intentRoute ? {content} : {
       content, ...(contentTasks?{taskSelection:{subject,capability:"product.content.localize",parameters}}:{operationId,targetPlatform:platform}),
       ...(knowledgeBaseId ? { knowledgeBaseId } : {}), ...(templateId ? { templateId, templateRevision } : {}),
     } };
-    const checked = aiMessageBody.safeParse(draft.body);
+    const checked = intentRoute ? aiStoreRouteBody.safeParse(draft.body) : aiMessageBody.safeParse(draft.body);
     if (!checked.success) { setError("请选择有效商品、语言和字段，填写需求及模板修订号。"); return; }
-    const saved:PendingMessage = { key: draft.key, body: checked.data, owner:scope, conversationId:id, ...(pendingMessage?.draftId ? {draftId:pendingMessage.draftId,draftSlot:pendingMessage.draftSlot} : !pendingMessage && activeDraft.current ? {draftId:activeDraft.current.id,draftSlot:activeDraft.current.slot} : {}) };
+    const saved:PendingMessage = { key: draft.key, body: checked.data, route:intentRoute?"store-route":"message", owner:scope, conversationId:id, ...(pendingMessage?.draftId ? {draftId:pendingMessage.draftId,draftSlot:pendingMessage.draftSlot} : !pendingMessage && activeDraft.current ? {draftId:activeDraft.current.id,draftSlot:activeDraft.current.slot} : {}) };
     setPendingMessage(saved); setPending(true); setError("");
     try { sessionStorage.setItem(activeMessageKey, JSON.stringify(saved)); } catch { setPending(false);setDraftSaveError("无法保存消息恢复记录，请检查浏览器存储后重试。");return; }
     const controller = new AbortController(); abort.current = controller;
     try {
-      const result = await requestAIWorkbench({ route: "message", method: "POST", path: `chat/conversations/${id}/messages`, scope, key: saved.key, signal: controller.signal, body: saved.body });
+      const result = intentRoute ? await requestAIWorkbench({route:"store-route",method:"POST",path:`chat/conversations/${id}/intent`,scope,key:saved.key,signal:controller.signal,body:saved.body}) : await requestAIWorkbench({ route: "message", method: "POST", path: `chat/conversations/${id}/messages`, scope, key: saved.key, signal: controller.signal, body: saved.body });
       if (controller.signal.aborted) return;
-      if (result.scopeUnavailable) { setError("工作范围暂不可读。请核对当前权限。"); await detail.refetch(); return; }
-      if (result.state === "COMPLETE" || result.state === "FAILED_BEFORE_DISPATCH" || result.state === "PLANNER_INVALID_OUTPUT" || result.state === "PLANNER_UNKNOWN") {
+      if ("scopeUnavailable" in result && result.scopeUnavailable) { setError("工作范围暂不可读。请核对当前权限。"); await detail.refetch(); return; }
+      if (result.state === "COMPLETE" || result.state === "ROUTING_RESULT_LOST" || result.state === "FAILED_BEFORE_DISPATCH" || result.state === "PLANNER_INVALID_OUTPUT" || result.state === "PLANNER_UNKNOWN") {
         if(result.state!=="COMPLETE" && !preserveMessageInput(saved)){setDraftSaveError("无法保存原需求，请勿刷新，检查浏览器存储后重试。");return;}
         if(result.state==="COMPLETE" && saved.draftId && saved.draftSlot){try{const key=saved.draftSlot==="handoff"?conversationDraftKey(scope,id):resolvedDraftKey(scope,id),retained=readLocalDraft(sessionStorage.getItem(key));if(retained && retained.id===saved.draftId && retained.text===saved.body.content){sessionStorage.removeItem(key);activeDraft.current=null;}}catch{setDraftSaveError("无法完成草稿清理，请保留原消息并检查浏览器存储。");return;}}
         try { sessionStorage.removeItem(activeMessageKey); } catch { setDraftSaveError("无法更新消息恢复记录，请检查浏览器存储后重试。");return; }
         setPendingMessage(null);setActiveMessageKey(messageStorageKey);
         if (result.state === "COMPLETE") setContent("");
       }
-      if (result.state === "FAILED_BEFORE_DISPATCH") setError("规划尚未发送到模型。请检查当前企业的模型配置或联系管理员；修复后可用保留的需求发送新消息。");
+      if (result.state === "FAILED_BEFORE_DISPATCH") setError(intentRoute?"请求尚未发送到模型。请检查当前企业的模型配置；原额度状态由账本继续核对，需求已保留。":"规划尚未发送到模型。请检查当前企业的模型配置或联系管理员；修复后可用保留的需求发送新消息。");
       if (result.state === "PLANNER_INVALID_OUTPUT") setError("模型返回的规划内容格式无效；本轮已产生 AI 用量，不会自动重发。可修改保留的需求后发送新消息。");
       if (result.state === "PLANNER_UNKNOWN") setError("模型结果无法确认；本轮不会自动重发。请刷新查看收据。");
+      if (result.state === "ROUTING_RESULT_LOST") setError("识别结果未在期限内保存；已保留原需求，不会自动再次识别。");
       if (result.state === "READY_TO_DISPATCH") setError("本轮仍在处理，请使用相同操作键重试读取结果。");
       await detail.refetch();
     } catch (cause) { if (!controller.signal.aborted) {
@@ -378,14 +417,17 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
       {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div></Card> : null}
     <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : styles.assistantMessage}>
-      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p></Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
-      {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetchingNextPage} onClick={() => void detail.fetchNextPage()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div></Card>
+      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p>
+      {item.kind === "STORE_OVERVIEW_REF" ? !storeProjectionFresh || detail.isFetching || detail.isError ? <p>正在重新核对店铺权限…</p> : item.currentStoreOverview ? <div><p>当前可查看 {item.currentStoreOverview.total} 家店铺。</p><p>平台：{Object.entries(item.currentStoreOverview.platforms).map(([name,count])=>`${name} ${count} 家`).join("、") || "暂无"}。</p><p>状态：启用 {item.currentStoreOverview.statuses.active ?? 0} 家、停用 {item.currentStoreOverview.statuses.disabled ?? 0} 家、删除中 {item.currentStoreOverview.statuses.deleting ?? 0} 家。</p><p>经营类型未确认：{item.currentStoreOverview.operatingTypeUnknown} 家。读取开始时间：{new Date(item.currentStoreOverview.readStartedAt).toLocaleString("zh-CN")}</p><Link href="/workbench/stores">前往店铺中心</Link></div> : <p>当前无权查看或店铺数据暂不可用。</p> : null}</Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
+      {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetching} onClick={() => void loadEarlierMessages()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div></Card>
+    {canUse && !current.Archived && current.businessScope?.kind === "general" ? <Button variant="outline" disabled={!overviewReady||overviewBusy} onClick={()=>void explicitStoreOverview()}>{overviewBusy?"正在读取店铺概况…":pendingOverview?"核对原店铺查询":"查看店铺概况"}</Button> : null}
+    {current.businessScope && current.businessScope.kind !== "general" ? <p>查看当前企业所有可见店铺，请进入通用业务会话。<Link href="/workbench/ai/chat/new">新建通用会话</Link></p> : null}
     {activeProposal ? <ProposalCard proposal={activeProposal} scope={scope} canUse={canUse} titleReadiness={titleReadiness} disabled={pending || current.Archived}
       confirmedTaskId={activeProposal.confirmedTaskId ?? confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新收据</Button></ConsoleState> : null}
-    {!current.Archived && canUse && (canPlan || pendingMessage) ? <Card className={styles.composer}><h2>{contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
-      {contentTasks?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
-      {!contentTasks?<div className={styles.formGrid}><label>采集操作 ID<Input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
+    {!current.Archived && canUse && (canPlan || pendingMessage || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
+      {contentTasks&&canPlan?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
+      {!contentTasks&&canPlan?<div className={styles.formGrid}><label>采集操作 ID<Input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
         <label>目标平台<Select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></Select></label></div>:null}
       <label className={styles.promptLabel}>需求<Textarea disabled={Boolean(pendingMessage) || !draftHydrated} rows={4} value={content} onChange={e => {userEdited.current=true;setContent(e.target.value);try{if(activeDraft.current){const key=activeDraft.current.slot==="handoff"?conversationDraftKey(scope,id):resolvedDraftKey(scope,id);const currentDraft=readLocalDraft(sessionStorage.getItem(key));if(!currentDraft || currentDraft.id!==activeDraft.current.id)throw new Error("draft changed");sessionStorage.setItem(key,JSON.stringify({...currentDraft,text:e.target.value}));}setDraftSaveError("");}catch{setDraftSaveError("需求未能保存到本地，刷新会丢失修改；请检查浏览器存储。");}}} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>{draftSaveError ? <p role="status">{draftSaveError}</p> : null}
       <details className={styles.optionalContext} open={contextExpanded} onToggle={event => setContextExpanded(event.currentTarget.open)}><summary>模板与知识库（可选）</summary><div className={styles.formGrid}>
@@ -393,11 +435,11 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
         <label>模板修订号{templateId ? "" : "（可选）"}<Input disabled={Boolean(pendingMessage)} value={templateRevision} onChange={e => setTemplateRevision(e.target.value.trim())} /></label>
         <label>知识库 ID（可选）<Input disabled={Boolean(pendingMessage)} value={knowledgeBaseId} onChange={e => setKnowledgeBaseId(e.target.value.trim())} /></label></div></details>
       {pendingMessage ? <p>原消息结果待确认，字段已锁定；同键重试先核对收据，尚未受理的请求可能在配置就绪后首次发送。</p> : null}
-      <div className={styles.toolbar}><Button disabled={pending || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || (!pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : "发送消息"}</Button>
+      <div className={styles.toolbar}><Button disabled={pending || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || (!pendingMessage && current.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)) ? !canRoute : !pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : "发送消息"}</Button>
         <span>模型规划可能消耗 AI 额度；不会直接修改商品。</span></div></Card> : current.Archived ? <ConsoleState kind="unavailable" title="会话已归档">已保存的任务仍可从任务中心查看。</ConsoleState> :
       <><ConsoleState kind="unavailable" title="只读会话">{canUse ? planningStatus(planningReadiness) : "当前企业没有发送或确认权限，可查看已有对话和提案。"}</ConsoleState>{content ? <label className={styles.promptLabel}>保留的需求<Textarea rows={4} value={content} readOnly /></label> : null}</>}
     {!draftHydrated && draftSaveError ? <Button type="button" variant="outline" onClick={()=>setDraftRetry(value=>value+1)}>重新读取草稿</Button> : null}
-    {deferredDraft ? <Card className={styles.composer}><h2>另有保留的需求</h2><p>{deferredDraft.text}</p><Button type="button" variant="outline" disabled={pending || !!pendingMessage || !!content.trim() || !canUse || !canPlan} onClick={()=>{try{const existing=readLocalDraft(sessionStorage.getItem(conversationDraftKey(scope,id)));if(!existing || existing.id!==deferredDraft.id)throw new Error("draft changed");const prior=activeDraft.current;if(prior?.slot==="resolved"){const old=readLocalDraft(sessionStorage.getItem(resolvedDraftKey(scope,id)));if(old?.id===prior.id && old.text==="")sessionStorage.removeItem(resolvedDraftKey(scope,id));}activeDraft.current={id:existing.id,slot:"handoff"};setContent(existing.text);setDeferredDraft(null);}catch{setDraftSaveError("无法读取保留的需求，请检查浏览器存储。");}}}>使用保留的需求</Button></Card> : null}
+    {deferredDraft ? <Card className={styles.composer}><h2>另有保留的需求</h2><p>{deferredDraft.text}</p><Button type="button" variant="outline" disabled={pending || !!pendingMessage || !!content.trim() || !canUse || !canPlan && !(canRoute && current.businessScope?.kind === "general")} onClick={()=>{try{const existing=readLocalDraft(sessionStorage.getItem(conversationDraftKey(scope,id)));if(!existing || existing.id!==deferredDraft.id)throw new Error("draft changed");const prior=activeDraft.current;if(prior?.slot==="resolved"){const old=readLocalDraft(sessionStorage.getItem(resolvedDraftKey(scope,id)));if(old?.id===prior.id && old.text==="")sessionStorage.removeItem(resolvedDraftKey(scope,id));}activeDraft.current={id:existing.id,slot:"handoff"};setContent(existing.text);setDeferredDraft(null);}catch{setDraftSaveError("无法读取保留的需求，请检查浏览器存储。");}}}>使用保留的需求</Button></Card> : null}
   </div>;
 }
 

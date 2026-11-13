@@ -18,6 +18,7 @@ import (
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/aiworkbench/einoplanner"
+	"task-processor/internal/integration/aiworkbench/einorouter"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/product/review"
@@ -34,6 +35,7 @@ type AIWorkbenchDependencies struct {
 	resolver               organizationIdentityResolver
 	authorizer             *authz.ListingKitAuthorizer
 	PlanningTextPolicies   map[string]governed.RoutePolicy
+	StoreRouteTextPolicies map[string]governed.RoutePolicy
 }
 
 type aiWorkbenchApplication struct {
@@ -44,6 +46,7 @@ type aiWorkbenchApplication struct {
 	scopes                 workbenchScopeSources
 	store                  *workstore.Store
 	service                *aiworkbench.Service
+	storeRoute             *aiworkbench.StoreRouteService
 	agent                  *productAgentApplication
 	plan                   *workbenchPlanner
 	conversationOnly       bool
@@ -115,7 +118,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		return nil, aiworkbench.ErrUnavailable
 	}
 	if cfg.ConversationOnly {
-		if cfg.DB == nil || a != nil && (!a.config.ContentTitleOnly && !a.config.ContentOnly || cfg.DB == a.config.RunDB) || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
+		if cfg.DB == nil || a != nil && (!a.config.ContentTitleOnly && !a.config.ContentOnly || cfg.DB == a.config.RunDB) || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.StoreRouteTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
 			return nil, aiworkbench.ErrUnavailable
 		}
 		seen := map[string]bool{}
@@ -132,7 +135,9 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		if err != nil {
 			return nil, err
 		}
-		return &aiWorkbenchApplication{store: store, conversationOnly: true, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...), resolver: cfg.resolver, authorizer: cfg.authorizer}, nil
+		app := &aiWorkbenchApplication{store: store, conversationOnly: true, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...), resolver: cfg.resolver, authorizer: cfg.authorizer}
+		app.storeRoute = &aiworkbench.StoreRouteService{Store: store, Gateway: &workbenchStoreRouter{app: app}}
+		return app, nil
 	}
 	if cfg.DB == nil || a == nil || cfg.DB == a.config.RunDB || a.config.ContentTitleOnly || a.config.RunDB == nil || a.config.Ledger == nil || a.textAdmission == nil || len(cfg.PlanningTextPolicies) == 0 {
 		return nil, aiworkbench.ErrUnavailable
@@ -182,6 +187,26 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		}
 		routes[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchChatPlan}] = policy
 	}
+	if len(cfg.StoreRouteTextPolicies) > 64 {
+		return nil, aiworkbench.ErrUnavailable
+	}
+	for org, policy := range cfg.StoreRouteTextPolicies {
+		allowed := false
+		for _, admitted := range a.config.AllowedOrganizationIDs {
+			allowed = allowed || org == admitted
+		}
+		if cfg.ContentTasks {
+			allowed = false
+			for _, admitted := range cfg.AllowedOrganizationIDs {
+				allowed = allowed || org == admitted
+			}
+		}
+		profile := policy.ShapeProfile()
+		if !allowed || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchStoreRoute) || profile.PromptVersion != einorouter.PromptVersion || profile.OutputSchemaVersion != einorouter.SchemaVersion || profile.Currency != a.config.Limits.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > a.config.Limits.Tokens || profile.MaximumCompletionTokens > 4096 || profile.MaximumInputBytes > 128<<10 || profile.MaximumOutputBytes > 16<<10 {
+			return nil, aiworkbench.ErrUnavailable
+		}
+		routes[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchStoreRoute}] = policy
+	}
 	resolver, err := newProductTextRouteResolver(a.config, routes)
 	if err != nil {
 		return nil, err
@@ -198,6 +223,11 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
 	app := &aiWorkbenchApplication{store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
+	storeRouteAllowed := make(map[string]bool, len(cfg.StoreRouteTextPolicies))
+	for org := range cfg.StoreRouteTextPolicies {
+		storeRouteAllowed[org] = true
+	}
+	app.storeRoute = &aiworkbench.StoreRouteService{Store: store, Gateway: &workbenchStoreRouter{app: app, routes: resolver, executor: executor, allowed: storeRouteAllowed}}
 	planner.workbench = app
 	if cfg.ContentTasks {
 		a.workbenchScopes = app
