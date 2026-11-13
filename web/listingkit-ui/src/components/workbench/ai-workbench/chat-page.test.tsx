@@ -6,11 +6,13 @@ import { AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { ChatPage } from "./chat-page";
 
 const fixture = vi.hoisted(() => ({
-  request: vi.fn(), push: vi.fn(), search: new URLSearchParams(),
+  request: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
   context: { user: { id: "user-a" }, effectiveMemberId:"member-a", effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
     aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchStoreRouteReadiness:"AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
 }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof import("@/lib/api/ai-workbench")>(), requestAIWorkbench: fixture.request }));
+vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:fixture.templates}));
+vi.mock("@/lib/api/knowledge",async original=>({...await original<object>(),knowledgeRequest:fixture.knowledge}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,disabled}:{onSelect:(item:unknown)=>void;disabled:boolean})=><button disabled={disabled} onClick={()=>onSelect({id:operationId,title:"Imported own product",source:{kind:"own",productKey:"product",version:"1",publicationId:operationId}})}>选择我的商品</button>}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: fixture.push }), useSearchParams: () => fixture.search }));
@@ -460,7 +462,9 @@ beforeEach(() => {
   fixture.context.aiWorkbenchPlanningReadiness = "AVAILABLE";
   fixture.context.aiWorkbenchStoreRouteReadiness = "AVAILABLE";
   fixture.context.aiWorkbenchTitleReadiness = "AVAILABLE";
-  fixture.request.mockReset(); fixture.push.mockReset(); sessionStorage.clear();
+  fixture.request.mockReset(); fixture.push.mockReset(); fixture.templates.mockReset();fixture.knowledge.mockReset();sessionStorage.clear();
+  fixture.templates.mockResolvedValue({items:[],nextCursor:""});
+  fixture.knowledge.mockResolvedValue({items:[],pagination:{page:1,pageSize:100,total:0}});
   fixture.request.mockImplementation(async ({ route }) => {
     if (route === "conversation-read") return { conversation, messages: [], proposals: [], before: "" };
     throw new AIWorkbenchError("OUTCOME_UNKNOWN");
@@ -561,17 +565,34 @@ it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected 
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
  expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0].key).not.toBe(first.key);
 });
-it("keeps optional settings expanded when the last field is cleared", async () => {
+it("opens optional settings without asking for internal identifiers", async () => {
   render(tree());
   await screen.findByText("开始讨论");
   const summary = screen.getByText("模板与知识库（可选）");
   const disclosure = summary.closest("details")!;
   fireEvent.click(summary);
   await waitFor(() => expect(disclosure).toHaveAttribute("open"));
-  fireEvent.change(screen.getByLabelText("知识库 ID（可选）"), { target: { value: operationId } });
-  fireEvent.change(screen.getByLabelText("知识库 ID（可选）"), { target: { value: "" } });
   expect(disclosure).toHaveAttribute("open");
-  expect(screen.getByLabelText("知识库 ID（可选）")).toBeVisible();
+  expect(screen.getByLabelText("知识库")).toBeVisible();
+  expect(screen.queryByLabelText("知识库 ID（可选）")).not.toBeInTheDocument();
+});
+it("sends the chosen template version and knowledge without exposing their identifiers",async()=>{
+ const templateId="22222222-2222-4222-8222-222222222222",baseId="33333333-3333-4333-8333-333333333333";
+ fixture.templates.mockResolvedValue({items:[{templateId,agentId:"product.title.agent",name:"标题模板",version:"2",lifecycle:"ACTIVE",targetPlatform:"shein"}],nextCursor:""});
+ fixture.knowledge.mockResolvedValue({items:[{id:baseId,name:"品牌知识",state:"ACTIVE"}],pagination:{page:1,pageSize:100,total:1}});
+ render(tree());await screen.findByText("开始讨论");
+ fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});
+ fireEvent.change(screen.getByLabelText("需求"),{target:{value:"整理商品标题"}});
+ fireEvent.click(screen.getByText("模板与知识库（可选）"));
+ expect(await screen.findByRole("option",{name:"标题模板"})).toBeVisible();
+ expect(await screen.findByRole("option",{name:"品牌知识"})).toBeVisible();
+ fireEvent.change(screen.getByLabelText("模板"),{target:{value:`${templateId}@2`}});
+ fireEvent.change(screen.getByLabelText("知识库"),{target:{value:baseId}});
+ await waitFor(()=>expect(screen.getByRole("button",{name:"发送消息"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.some(([v])=>v.route==="message")).toBe(true));
+ expect(fixture.request.mock.calls.find(([v])=>v.route==="message")![0].body).toMatchObject({templateId,templateRevision:"2",knowledgeBaseId:baseId});
+ expect(screen.queryByText(templateId)).not.toBeInTheDocument();
 });
 it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("retains the original intent for %s without owner rejection evidence",async(code)=>{
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code)});
