@@ -13,6 +13,8 @@ const reasonText: Record<string, string> = { EXECUTION_MODE_CHANGED:"权限模�
   EXECUTION_PROFILE_UNAVAILABLE:"当前执行模型配置不可用，请检查配置。",
   TITLE_PROFILE_UNAVAILABLE: "原任务使用的标题模型配置已不可用，请检查企业配置",
   HUMAN_REVIEW_REQUIRED: "需要人工审核标题建议", AGENT_RESULT_NOT_REVIEWABLE: "标题建议未通过验证，无法提交审核",
+  budget_cost: "任务已达到费用上限，无法继续", budget_tokens: "任务已达到处理量上限，无法继续",
+  tool_error: "任务处理遇到问题，请稍后重试", dependency_unavailable: "相关服务暂不可用，请稍后重试",
   AGENT_INTERRUPTED_DEADLINE_EXPIRED: "原执行期限已过，不能继续此中断任务", invalid_model_output: "模型返回格式不符合要求，已记录实际用量",
   pending: "提案待审核", accepted: "提案已接受，待应用", applied: "提案已应用", rejected: "提案已拒绝" };
 export function taskReason(reason: string, kind: string | undefined): string | undefined {
