@@ -393,3 +393,22 @@ func TestExecutorFinalGateDenialHasNoNetworkSend(t *testing.T) {
 	require.Len(t, ledger.records, 2)
 	require.Equal(t, aicapability.InvocationFailed, ledger.records[1].Outcome)
 }
+
+func TestExecutorPreReservationGateStopsLateClaim(t *testing.T) {
+	sends := 0
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { sends++ }))
+	defer server.Close()
+	profile := testTextProfile(server.URL)
+	input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1", Operation: aicapability.OperationAIWorkbenchStoreRoute, InvocationID: "route-inv", System: "system", Prompt: "question", Profile: profile}
+	quote, err := aicapability.QuoteText(input)
+	require.NoError(t, err)
+	ledger := &recordingLedger{}
+	executor := Executor{Ledger: ledger, Admission: NewBoundedAdmission(), Resolve: func(context.Context, aicapability.TextInputIdentity) (QualifiedRoute, error) {
+		return QualifiedRoute{Profile: profile, Endpoint: server.URL, APIKey: "fixture"}, nil
+	}, Authorize: func(context.Context, aicapability.TextInputIdentity) error { return nil }}
+	_, err = executor.GenerateWithGates(context.Background(), input, quote, nil, func(context.Context) error { return errors.New("expired command") }, nil)
+	require.ErrorIs(t, err, ErrNotDispatched)
+	require.True(t, ledger.claimed)
+	require.False(t, ledger.reserved)
+	require.Zero(t, sends)
+}

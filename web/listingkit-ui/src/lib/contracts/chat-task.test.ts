@@ -1,7 +1,15 @@
 import {expect,it} from "vitest";
-import {aiMessageBody,parseAIWorkbenchResponse} from "./ai-workbench";
+import {aiMessageBody,aiWorkbenchPath,parseAIWorkbenchResponse} from "./ai-workbench";
 const id="11111111-1111-4111-8111-111111111111";
 const selection={subject:{kind:"own_product",id,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}};
+it("keeps only validated live store projections and the explicit intent route",()=>{
+ const stamp="2026-10-18T00:00:00Z", conversation={ID:id,Scope:{OrganizationID:"org",ActorID:"actor"},Title:"",Favorite:false,Archived:false,MetadataRevision:1,NextSequence:2,CreatedAt:stamp,UpdatedAt:stamp};
+ const currentStoreOverview={total:3,platforms:{shein:2,temu:1},statuses:{active:3},operatingTypeUnknown:3,readStartedAt:stamp};
+ const message={ID:id,ConversationID:id,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ACTIVE",currentStoreOverview};
+ expect(aiWorkbenchPath("POST",["chat","conversations",id,"intent"])).toBe("store-route");
+ expect(parseAIWorkbenchResponse("conversation-read",200,{conversation,messages:[message],proposals:[],before:""})).toMatchObject({messages:[{currentStoreOverview}]});
+ expect(parseAIWorkbenchResponse("conversation-read",200,{conversation,messages:[{...message,currentStoreOverview:{...currentStoreOverview,total:-1}}],proposals:[],before:""})).toBeNull();
+});
 it("accepts explicit source-neutral content and rejects mixed or model-selected authority",()=>{
  expect(aiMessageBody.safeParse({content:"Localize",taskSelection:selection}).success).toBe(true);
  for(const taskSelection of [{...selection,subject:{...selection.subject,kind:"unknown"}},{...selection,subject:{...selection.subject,catalogVersion:"03"}},{...selection,parameters:{targetLanguage:"und",title:true}},{...selection,parameters:{targetLanguage:"en-US"}},{...selection,providerId:"fake"}])expect(aiMessageBody.safeParse({content:"Localize",taskSelection}).success).toBe(false);

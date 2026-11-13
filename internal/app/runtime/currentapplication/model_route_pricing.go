@@ -105,6 +105,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		if c.AIWorkbench != nil && c.AIWorkbench.Enabled && !c.AIWorkbench.ConversationOnly {
 			add(aicapability.OperationAIWorkbenchChatPlan, c.AIWorkbench.PlanningTextPolicies)
+			add(aicapability.OperationAIWorkbenchStoreRoute, c.AIWorkbench.StoreRouteTextPolicies)
 		}
 		if len(anchors) == 0 && p.Enabled {
 			return nil, invalid

@@ -136,3 +136,40 @@ func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testin
 	_, err = r.ClaimInvocation(context.Background(), foreign)
 	require.Error(t, err)
 }
+
+func TestStoreRoutePricedInvocationHasItsOwnPurpose(t *testing.T) {
+	db := newInvocationLedgerDB(t)
+	r := NewGormInvocationRecorder(db)
+	fact := aicapability.InvocationRecord{
+		InvocationID: "route-invocation", TenantID: "org", UserID: "actor", MemberID: "member",
+		InputHash: "frozen-question", Operation: aicapability.OperationAIWorkbenchStoreRoute,
+		Capability: aicapability.CapabilityAIWorkbenchChatPlanning, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(),
+		MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, ModelID: "fixture-model", Currency: "CNY",
+	}
+	acquired, err := r.ClaimInvocation(context.Background(), fact)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	acquired, err = r.ClaimInvocation(context.Background(), fact)
+	require.NoError(t, err)
+	require.False(t, acquired)
+	read, err := r.ReadModelInvocation(context.Background(), "org", fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, aicapability.OperationAIWorkbenchStoreRoute, read.Operation)
+	fact.Operation = aicapability.OperationAIWorkbenchChatPlan
+	_, err = r.ClaimInvocation(context.Background(), fact)
+	require.Error(t, err, "a different purpose must not reuse the same invocation")
+}
+
+func TestInvocationExistenceChecksGlobalIdentityWithoutHidingConflicts(t *testing.T) {
+	r := NewGormInvocationRecorder(newInvocationLedgerDB(t))
+	ctx := context.Background()
+	fact := aicapability.InvocationRecord{InvocationID: "global-id", TenantID: "other-org", UserID: "actor", MemberID: "member", InputHash: "input", Operation: aicapability.OperationAIWorkbenchStoreRoute, Capability: aicapability.CapabilityAIWorkbenchChatPlanning, Outcome: aicapability.InvocationDispatched, StartedAt: time.Now().UTC(), MaximumPromptTokens: 100, MaximumCompletionTokens: 50, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "fixture-model", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}, ModelID: "fixture-model", Currency: "CNY"}
+	_, err := r.ClaimInvocation(ctx, fact)
+	require.NoError(t, err)
+	found, err := r.HasInvocationID(ctx, "global-id")
+	require.NoError(t, err)
+	require.True(t, found)
+	found, err = r.HasInvocationID(ctx, "not-present")
+	require.NoError(t, err)
+	require.False(t, found)
+}

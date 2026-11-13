@@ -1261,6 +1261,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				return nil, e
 			}
 			projectChat.attachStoreScopes(stores)
+			catalog, e := storecenter.NewCatalog(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer}, nil)
+			if e != nil {
+				return nil, e
+			}
+			projectChat.attachStoreOverview(catalog)
 			if projectChat.schedules != nil {
 				executionStores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, scheduledStoreMemberAuthorizer{app: projectChat})
 				if e != nil {
@@ -1279,6 +1284,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetAIWorkbenchAvailable(true)
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)
 			workbench.handler.SetAIWorkbenchPlanningReadiness(module.(aiWorkbenchModule).PlanningReadiness)
+			workbench.handler.SetAIWorkbenchStoreRouteReadiness(module.(aiWorkbenchModule).StoreRouteReadiness)
 			workbench.handler.SetAIWorkbenchTitleReadiness(module.(aiWorkbenchModule).TitleReadiness)
 			workbench.handler.SetAIWorkbenchExecution(module.(aiWorkbenchModule).ExecutionKind(), module.(aiWorkbenchModule).ExecutionReadiness)
 		}

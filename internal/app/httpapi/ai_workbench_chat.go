@@ -11,6 +11,7 @@ import (
 
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/storecenter"
 )
 
 func (a *aiWorkbenchApplication) listConversations(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
@@ -158,8 +159,9 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		}
 		cards = append(cards, card)
 	}
+	projected := a.projectStoreMessages(ctx, scope, messages)
 	for {
-		page := gin.H{"conversation": conversation, "messages": messages, "proposals": cards, "before": next}
+		page := gin.H{"conversation": conversation, "messages": projected, "proposals": cards, "before": next}
 		wire, marshalErr := json.Marshal(page)
 		if marshalErr != nil {
 			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
@@ -170,16 +172,90 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 			c.Data(http.StatusOK, "application/json; charset=utf-8", wire)
 			return
 		}
-		if len(messages) <= 1 {
+		if len(projected) <= 1 {
 			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
 			return
 		}
 		// The store returns ascending sequences. Omitted older messages must be
 		// reachable on the next page, even if the original 50-row page had no
 		// database cursor.
-		messages = messages[1:]
-		next = strconv.FormatUint(messages[0].Sequence, 10)
+		projected = projected[1:]
+		next = strconv.FormatUint(projected[0].Sequence, 10)
 	}
+}
+
+func (a *aiWorkbenchApplication) postStoreRoute(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
+	id := c.Param("conversation_id")
+	if !acquisitionHTTPUUID(id) || c.Request.URL.RawQuery != "" {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	key, err := workbenchKey(c)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	var body struct {
+		Content string `json:"content"`
+	}
+	if err = workbenchJSON(c, &body); err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || identity.EffectiveMemberID == "" || a.storeRoute == nil {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	command, err := a.storeRoute.Route(ctx, scope, id, key, identity.EffectiveMemberID, body.Content)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	workbenchReply(c, http.StatusOK, gin.H{"state": command.State})
+}
+
+func (a *aiWorkbenchApplication) postExplicitStoreOverview(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
+	id := c.Param("conversation_id")
+	if !acquisitionHTTPUUID(id) || c.Request.URL.RawQuery != "" {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	key, err := workbenchKey(c)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	var body struct {
+		Status string `json:"status"`
+	}
+	if err = workbenchJSON(c, &body); err != nil || body.Status != "ALL_NON_DELETED" && body.Status != "ACTIVE" {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || a.scopes.storeOverview == nil || a.store == nil || identity.EffectiveMemberID == "" {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	if err = a.store.ConversationMember(ctx, scope, id, identity.EffectiveMemberID); err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	if _, err = a.scopes.storeOverview(ctx, scope, storecenter.OverviewScope(body.Status)); err != nil {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	command, replay, err := a.store.ExplicitStoreOverview(ctx, scope, id, key, identity.EffectiveMemberID, body.Status)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	if _, err = a.scopes.storeOverview(ctx, scope, storecenter.OverviewScope(body.Status)); err != nil {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	workbenchReply(c, http.StatusOK, gin.H{"state": command.State, "replay": replay})
 }
 
 func (a *aiWorkbenchApplication) proposalReceiptCard(ctx context.Context, scope aiworkbench.Scope, proposal aiworkbench.ExecutionProposal) (workbenchProposalCard, error) {

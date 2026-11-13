@@ -21,12 +21,14 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	"task-processor/internal/integration/aiworkbench/einorouter"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"task-processor/internal/product/collection"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	rc "task-processor/internal/reportcenter"
+	"task-processor/internal/storecenter"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -182,9 +184,52 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		_, err = buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": invalid}}, m.application)
 		require.Error(t, err, "invalid planning shape must still be rejected")
 	}
-	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}}, m.application)
+	var routePolicies map[string]governed.RoutePolicy
+	var storeRouteCalls atomic.Int32
+	routeStarted, routeRelease := make(chan struct{}), make(chan struct{})
+	var releaseRoute, startRoute sync.Once
+	runStoreRoute := os.Getenv("CODEX_STORE_QUERY_FIXTURE") == "1" && !fullRuntime && !own && !scheduled
+	if runStoreRoute {
+		routeProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			storeRouteCalls.Add(1)
+			startRoute.Do(func() { close(routeStarted) })
+			<-routeRelease
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"route-fixture","choices":[{"message":{"content":"{\"kind\":\"STORE_OVERVIEW\",\"status\":\"ALL_NON_DELETED\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
+		}))
+		t.Cleanup(routeProvider.Close)
+		t.Cleanup(func() { releaseRoute.Do(func() { close(routeRelease) }) })
+		require.NoError(t, credentials.seed(ctx, httpModelFixture{TenantID: "B", ClientName: "store-router", APIKey: "fixture-only", BaseURL: routeProvider.URL + "/v1", Model: "route-fixture", APIStyle: "openai", Enabled: true, TimeoutSecond: 3}))
+		routeCredential, e := credentials.record(ctx, "B", "", "store-router")
+		require.NoError(t, e)
+		routePolicy := policy
+		routePolicy.Profile.ClientName = "store-router"
+		routePolicy.Profile.ConnectionID = "store-router"
+		routePolicy.Profile.ModelID = "route-fixture"
+		routePolicy.Profile.OfficialTariff.Model = "route-fixture"
+		routePolicy.Profile.PromptVersion = einorouter.PromptVersion
+		routePolicy.Profile.OutputSchemaVersion = einorouter.SchemaVersion
+		routePolicy.Profile.CredentialVersion = routeCredential.reference
+		routePolicy.AdmittedCredentialVersion = httpCredentialReference(*routeCredential)
+		routePolicy.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(routeCredential.BaseURL)
+		routePolicies = map[string]governed.RoutePolicy{"B": routePolicy}
+		reader, ok := a.config.CurrentTextPolicies.(syntheticCurrentTextPolicies)
+		require.True(t, ok)
+		reader.storeRoute = routePolicies
+		a.config.CurrentTextPolicies = reader
+	}
+	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}, StoreRouteTextPolicies: routePolicies}, m.application)
 	require.NoError(t, err)
 	app := wm.(aiWorkbenchModule).application
+	if runStoreRoute {
+		require.Equal(t, "AVAILABLE", wm.(aiWorkbenchModule).StoreRouteReadiness(ctx, "B"))
+		require.Equal(t, "UNAVAILABLE", wm.(aiWorkbenchModule).StoreRouteReadiness(ctx, "A"))
+		require.NoError(t, storecenter.AutoMigrateStoreRepository(f.owner))
+		require.NoError(t, storecenter.AutoMigrateAuditRepository(f.owner))
+		catalog, e := storecenter.NewCatalog(f.owner, currentStoreMemberAuthorizer{authorizer: auth}, nil)
+		require.NoError(t, e)
+		app.attachStoreOverview(catalog)
+	}
 	app.scopes.reader.Project = func(_ context.Context, owner aiworkbench.Scope, id string) (aiworkbench.ProjectScopeFacts, error) {
 		if owner != (aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}) || id != projectID || projectRevoked.Load() || failSend.Load() && projectReads.Add(1) == 2 {
 			return aiworkbench.ProjectScopeFacts{}, aiworkbench.ErrNotFound
@@ -207,6 +252,106 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.NoError(t, e)
 		require.Equal(t, status, code, string(raw))
 		return raw
+	}
+	if runStoreRoute {
+		var general struct{ Conversation aiworkbench.Conversation }
+		body := workbenchCreateFixtureBody(t, server, "admin", "B", aiworkbench.ScopeSelection{Kind: "general"}, false)
+		code, raw, e := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), body)
+		require.NoError(t, e)
+		require.Equal(t, 200, code, string(raw))
+		require.NoError(t, json.Unmarshal(raw, &general))
+		intentKey := uuid.NewString()
+		path := workbenchChatBase + "/" + general.Conversation.ID + "/intent"
+		question := `{"content":"我有几个店铺"}`
+		type routeResult struct {
+			code int
+			raw  []byte
+			err  error
+		}
+		first := make(chan routeResult, 1)
+		go func() {
+			code, raw, e := acquisitionHTTPRequest(server, "POST", path, "admin", "B", intentKey, question)
+			first <- routeResult{code, raw, e}
+		}()
+		select {
+		case <-routeStarted:
+		case <-time.After(5 * time.Second):
+			t.Fatal("controlled route was not dispatched")
+		}
+		code, raw, e = acquisitionHTTPRequest(server, "POST", path, "admin", "B", intentKey, question)
+		require.NoError(t, e)
+		require.Equal(t, 503, code, string(raw), "a concurrent original request must remain pending")
+		releaseRoute.Do(func() { close(routeRelease) })
+		initial := <-first
+		require.NoError(t, initial.err)
+		require.Equal(t, 200, initial.code, string(initial.raw))
+		require.Contains(t, string(initial.raw), `"COMPLETE"`)
+		code, raw, e = acquisitionHTTPRequest(server, "POST", path, "admin", "B", intentKey, question)
+		require.NoError(t, e)
+		require.Equal(t, 200, code, string(raw))
+		require.EqualValues(t, 1, storeRouteCalls.Load())
+		stored, found, e := app.store.ReplayStoreRoute(ctx, aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}, general.Conversation.ID, intentKey, "member-B-admin", "我有几个店铺")
+		require.NoError(t, e)
+		require.True(t, found)
+		fact, e := a.config.Ledger.ReadModelInvocation(ctx, "B", stored.InvocationID)
+		require.NoError(t, e)
+		require.Equal(t, aicapability.InvocationSucceeded, fact.Outcome)
+		settlement, e := a.points.InspectModelInvocationReservation(ctx, "B", stored.InvocationID)
+		require.NoError(t, e)
+		require.Equal(t, "committed", settlement.State)
+		t.Log("store route fixture: one local model response, same-key concurrent retry, original invocation settled")
+		code, raw, e = acquisitionHTTPRequest(server, "GET", workbenchChatBase+"/"+general.Conversation.ID, "admin", "B", "", "")
+		require.NoError(t, e)
+		require.Equal(t, 200, code, string(raw))
+		require.Contains(t, string(raw), `"currentStoreOverview"`)
+		require.Contains(t, string(raw), `"total":0`)
+		// Reproduce a settled model output lost before Chat T1; the durable AI
+		// owner stores only the output digest and must not dispatch it again.
+		var lostConversation struct{ Conversation aiworkbench.Conversation }
+		code, raw, e = acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), body)
+		require.NoError(t, e)
+		require.Equal(t, 200, code, string(raw))
+		require.NoError(t, json.Unmarshal(raw, &lostConversation))
+		owner := aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}
+		lostKey := uuid.NewString()
+		gateway := app.storeRoute.Gateway
+		admitted, e := gateway.Admit(actor, owner, lostConversation.Conversation.ID, "member-B-admin", "店铺情况")
+		require.NoError(t, e)
+		_, _, e = app.store.BeginStoreRoute(actor, owner, lostConversation.Conversation.ID, lostKey, admitted)
+		require.NoError(t, e)
+		frozen, found, e := app.store.ReplayStoreRoute(actor, owner, lostConversation.Conversation.ID, lostKey, "member-B-admin", "店铺情况")
+		require.NoError(t, e)
+		require.True(t, found)
+		decision, e := gateway.Decide(actor, frozen)
+		require.NoError(t, e)
+		require.NoError(t, gateway.VerifyDecision(actor, frozen, decision))
+		require.NoError(t, f.owner.Exec("UPDATE ai_workbench.commands SET planner_deadline=clock_timestamp()-INTERVAL '2 seconds',route_commit_deadline=clock_timestamp()-INTERVAL '1 second' WHERE idempotency_key=?", lostKey).Error)
+		lost, e := app.storeRoute.Route(actor, owner, lostConversation.Conversation.ID, lostKey, "member-B-admin", "店铺情况")
+		require.NoError(t, e)
+		require.Equal(t, "ROUTING_RESULT_LOST", lost.State)
+		lost, e = app.storeRoute.Route(actor, owner, lostConversation.Conversation.ID, lostKey, "member-B-admin", "店铺情况")
+		require.NoError(t, e)
+		require.Equal(t, "ROUTING_RESULT_LOST", lost.State)
+		require.EqualValues(t, 2, storeRouteCalls.Load())
+		lostMessages, _, e := app.store.ListMessagesPage(actor, owner, lostConversation.Conversation.ID, 0, 50)
+		require.NoError(t, e)
+		require.Len(t, lostMessages, 2)
+		require.Contains(t, lostMessages[1].Content, "未在期限内保存")
+		settlement, e = a.points.InspectModelInvocationReservation(ctx, "B", frozen.InvocationID)
+		require.NoError(t, e)
+		require.Equal(t, "committed", settlement.State)
+		t.Log("store route fixture: lost output recovered once after deadline without redispatch")
+		explicitKey := uuid.NewString()
+		explicitPath := workbenchChatBase + "/" + general.Conversation.ID + "/store-overview"
+		code, raw, e = acquisitionHTTPRequest(server, "POST", explicitPath, "admin", "B", explicitKey, `{"status":"ALL_NON_DELETED"}`)
+		require.NoError(t, e)
+		require.Equal(t, 200, code, string(raw))
+		code, raw, e = acquisitionHTTPRequest(server, "POST", explicitPath, "admin", "B", explicitKey, `{"status":"ALL_NON_DELETED"}`)
+		require.NoError(t, e)
+		require.Equal(t, 200, code, string(raw))
+		require.Contains(t, string(raw), `"replay":true`)
+		require.EqualValues(t, 2, storeRouteCalls.Load())
+		t.Log("store route fixture: explicit overview replayed without model call")
 	}
 	// Chat's explicit allowlist may be narrower than the shared content owner.
 	a.config.AllowedOrganizationIDs = []string{"A", "B"}

@@ -7,8 +7,8 @@ import { ChatPage } from "./chat-page";
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(), push: vi.fn(), search: new URLSearchParams(),
-  context: { user: { id: "user-a" }, effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
-    aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
+  context: { user: { id: "user-a" }, effectiveMemberId:"member-a", effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
+    aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchStoreRouteReadiness:"AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
 }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof import("@/lib/api/ai-workbench")>(), requestAIWorkbench: fixture.request }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
@@ -27,6 +27,136 @@ const conversation = { ID: conversationId, Scope: { OrganizationID: "org-a", Act
   Archived: false, MetadataRevision: 1, NextSequence: 1, CreatedAt: "2026-10-03T00:00:00Z", UpdatedAt: "2026-10-03T00:00:00Z" };
 let client: QueryClient;
 function tree() { return <QueryClientProvider client={client}><ChatPage mode="detail" conversationId={conversationId} /></QueryClientProvider>; }
+
+it("hides store counts on focus until the live history is reauthorized", async () => {
+ const stamp="2026-10-03T00:00:00Z";
+ const reference={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:3,platforms:{shein:3},statuses:{active:3},operatingTypeUnknown:3,readStartedAt:stamp}};
+ let resolveNext:(value:unknown)=>void=()=>{};
+ fixture.request.mockImplementationOnce(async()=>({conversation,messages:[reference],proposals:[],before:""})).mockImplementationOnce(()=>new Promise(resolve=>{resolveNext=resolve}));
+ render(tree());
+ expect(await screen.findByText(/当前可查看 3 家店铺/)).toBeInTheDocument();
+ fireEvent.blur(window); fireEvent.focus(window);
+ await waitFor(()=>expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull());
+ await act(async()=>resolveNext({conversation,messages:[{...reference,currentStoreOverview:undefined,storeOverviewUnavailable:true}],proposals:[],before:""}));
+ expect(await screen.findByText(/当前无权查看或店铺数据暂不可用/)).toBeInTheDocument();
+ expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+});
+
+it("discards an initial history response started before the latest focus", async () => {
+ const stamp="2026-10-03T00:00:00Z";
+ const reference={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:3,platforms:{shein:3},statuses:{active:3},operatingTypeUnknown:3,readStartedAt:stamp}};
+ let resolveOld:(value:unknown)=>void=()=>{},resolveFresh:(value:unknown)=>void=()=>{};
+ fixture.request.mockImplementationOnce(()=>new Promise(resolve=>{resolveOld=resolve})).mockImplementationOnce(()=>new Promise(resolve=>{resolveFresh=resolve}));
+ render(tree());
+ await waitFor(()=>expect(fixture.request).toHaveBeenCalledTimes(1));
+ fireEvent.blur(window);fireEvent.focus(window);
+ await act(async()=>resolveOld({conversation,messages:[reference],proposals:[],before:""}));
+ await waitFor(()=>expect(fixture.request).toHaveBeenCalledTimes(2));
+ expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+ await act(async()=>resolveFresh({conversation,messages:[{...reference,currentStoreOverview:undefined,storeOverviewUnavailable:true}],proposals:[],before:""}));
+ expect(await screen.findByText(/当前无权查看或店铺数据暂不可用/)).toBeInTheDocument();
+ expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+});
+
+it.each(["project","store"] as const)("explains the store status breakdown and %s context boundary",async kind=>{
+ const stamp="2026-10-03T00:00:00Z", fixed={...conversation,businessScope:{version:"workbench-scope-v1",kind,...(kind==="project"?{projectId:"project-a"}:{storeId:"store-a"})}};
+ const reference={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:3,platforms:{shein:3},statuses:{active:1,disabled:1,deleting:1},operatingTypeUnknown:3,readStartedAt:stamp}};
+ fixture.request.mockResolvedValue({conversation:fixed,messages:[reference],proposals:[],before:""});render(tree());
+ expect(await screen.findByText(/启用 1 家.*停用 1 家.*删除中 1 家/)).toBeInTheDocument();
+ expect(screen.getByText(/查看当前企业所有可见店铺，请进入通用业务会话/)).toBeInTheDocument();
+});
+
+it("displays zero for each status on an empty store snapshot",async()=>{
+ const stamp="2026-10-03T00:00:00Z";
+ const reference={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:0,platforms:{},statuses:{},operatingTypeUnknown:0,readStartedAt:stamp}};
+ fixture.request.mockResolvedValue({conversation,messages:[reference],proposals:[],before:""});render(tree());
+ expect(await screen.findByText(/启用 0 家.*停用 0 家.*删除中 0 家/)).toBeInTheDocument();
+});
+
+it("does not redisplay cached store counts when reopening fails", async () => {
+ const stamp="2026-10-03T00:00:00Z";
+ const reference={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:3,platforms:{shein:3},statuses:{active:3},operatingTypeUnknown:3,readStartedAt:stamp}};
+ fixture.request.mockResolvedValueOnce({conversation,messages:[reference],proposals:[],before:""});
+ render(tree());expect(await screen.findByText(/当前可查看 3 家店铺/)).toBeInTheDocument();
+ cleanup();
+ let rejectNext:(reason:unknown)=>void=()=>{};
+ fixture.request.mockImplementationOnce(()=>new Promise((_,reject)=>{rejectNext=reject}));
+ render(tree());
+ expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+ await act(async()=>rejectNext(new AIWorkbenchError("FORBIDDEN")));
+ expect(await screen.findByText(/会话不可用/)).toBeInTheDocument();
+ expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+});
+
+it("hides old store counts when the same user rejoins with a new membership",async()=>{
+ const stamp="2026-10-03T00:00:00Z",ref={ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"店铺概况",CreatedAt:stamp,kind:"STORE_OVERVIEW_REF",storeQueryStatus:"ALL_NON_DELETED",currentStoreOverview:{total:3,platforms:{shein:3},statuses:{active:3},operatingTypeUnknown:3,readStartedAt:stamp}};
+ let resolveNext:(value:unknown)=>void=()=>{};fixture.request.mockResolvedValueOnce({conversation,messages:[ref],proposals:[],before:""}).mockImplementationOnce(()=>new Promise(resolve=>{resolveNext=resolve}));
+ const view=render(tree());expect(await screen.findByText(/当前可查看 3 家店铺/)).toBeInTheDocument();fixture.context.effectiveMemberId="member-b";view.rerender(tree());expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull();
+ await act(async()=>resolveNext({conversation,messages:[{...ref,currentStoreOverview:undefined,storeOverviewUnavailable:true}],proposals:[],before:""}));expect(await screen.findByText(/当前无权查看或店铺数据暂不可用/)).toBeInTheDocument();
+});
+
+it("routes a general question only on send and retries the original key", async () => {
+ fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+ const general={...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+ let calls=0;
+ fixture.request.mockImplementation(async ({route})=>{
+   if(route==="conversation-read")return {conversation:general,messages:[],proposals:[],before:""};
+   if(route==="store-route"){if(calls++===0)throw new AIWorkbenchError("OUTCOME_UNKNOWN");return {state:"COMPLETE"};}
+   throw new Error("unexpected route");
+ });
+ render(tree());
+ await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
+ fireEvent.change(screen.getByLabelText("需求"),{target:{value:"我有几个店铺，分别是什么类型？"}});
+ expect(fixture.request.mock.calls.every(([input])=>input.route!=="store-route")).toBe(true);
+ fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await screen.findByRole("button",{name:"重试同一消息"});
+ fireEvent.click(screen.getByRole("button",{name:"重试同一消息"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.filter(([input])=>input.route==="store-route")).toHaveLength(2));
+ const sent=fixture.request.mock.calls.map(([input])=>input).filter(input=>input.route==="store-route");
+ expect(sent[1].key).toBe(sent[0].key);
+ expect(sent[0].body).toEqual({content:"我有几个店铺，分别是什么类型？"});
+});
+
+it("allows a configured store question when product planning is unavailable",async()=>{
+ fixture.context.aiWorkbenchExecutionKind="product.content.localize";fixture.context.aiWorkbenchPlanningReadiness="UNAVAILABLE";fixture.context.aiWorkbenchStoreRouteReadiness="AVAILABLE";
+ const general={...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+ fixture.request.mockImplementation(async({route})=>route==="conversation-read"?{conversation:general,messages:[],proposals:[],before:""}:route==="store-route"?{state:"COMPLETE"}:Promise.reject(new Error("unexpected")));
+ render(tree());await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());fireEvent.change(screen.getByLabelText("需求"),{target:{value:"我有几个店铺"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));await waitFor(()=>expect(fixture.request.mock.calls.some(([input])=>input.route==="store-route")).toBe(true));
+});
+
+it("unlocks the original question only after a definite unavailable-route receipt",async()=>{
+ fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+ const general={...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+ fixture.request.mockImplementation(async({route})=>route==="conversation-read"?{conversation:general,messages:[],proposals:[],before:""}:route==="store-route"?{state:"FAILED_BEFORE_DISPATCH"}:Promise.reject(new Error("unexpected")));
+ render(tree());await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());fireEvent.change(screen.getByLabelText("需求"),{target:{value:"我有几个店铺"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ expect(await screen.findByText(/请求尚未发送到模型/)).toBeInTheDocument();expect(screen.getByLabelText("需求")).toHaveValue("我有几个店铺");expect(screen.getByLabelText("需求")).toBeEnabled();
+});
+
+it("uses a separate idempotent no-model store overview action", async () => {
+ const general={...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+ let calls=0;
+ fixture.request.mockImplementation(async ({route})=>{
+   if(route==="conversation-read")return {conversation:general,messages:[],proposals:[],before:""};
+   if(route==="store-overview"){if(calls++===0)throw new AIWorkbenchError("OUTCOME_UNKNOWN");return {state:"COMPLETE",replay:true};}
+   throw new Error("unexpected model call");
+ });
+ render(tree());
+ fireEvent.click(await screen.findByRole("button",{name:"查看店铺概况"}));
+ fireEvent.click(await screen.findByRole("button",{name:"核对原店铺查询"}));
+ await waitFor(()=>expect(fixture.request.mock.calls.filter(([input])=>input.route==="store-overview")).toHaveLength(2));
+ const sent=fixture.request.mock.calls.map(([input])=>input).filter(input=>input.route==="store-overview");
+ expect(sent[1].key).toBe(sent[0].key);expect(sent[0].body).toEqual({status:"ALL_NON_DELETED"});
+ expect(fixture.request.mock.calls.every(([input])=>input.route!=="store-route" && input.route!=="message")).toBe(true);
+});
+
+it("does not carry a pending store query key into a different conversation",async()=>{
+ const secondId="33333333-3333-4333-8333-333333333333",pendingKey="44444444-4444-4444-8444-444444444444";
+ sessionStorage.setItem(`ai-workbench:store-overview:${JSON.stringify(["user-a","org-a",conversationId])}`,pendingKey);
+ fixture.request.mockImplementation(async({route,path})=>{if(route!=="conversation-read")throw new Error("unexpected");return {conversation:{...conversation,ID:path.includes(secondId)?secondId:conversationId,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""}});
+ const view=render(tree());expect(await screen.findByRole("button",{name:"核对原店铺查询"})).toBeEnabled();
+ view.rerender(<QueryClientProvider client={client}><ChatPage mode="detail" conversationId={secondId}/></QueryClientProvider>);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"查看店铺概况"})).toBeEnabled());expect(screen.queryByRole("button",{name:"核对原店铺查询"})).toBeNull();
+});
 
 it("accepts a local draft before creating a general conversation without sending a message", async () => {
   fixture.context.aiWorkbenchExecutionKind = "product.content.localize";
@@ -284,8 +414,10 @@ beforeEach(() => {
   fixture.context.roles = ["listingkit_operator"]; fixture.context.permissions = ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"];
   fixture.context.isSwitching = false;
   fixture.context.aiWorkbenchAvailable = true;
+  fixture.context.effectiveMemberId = "member-a";
   fixture.context.aiWorkbenchExecutionKind=undefined;fixture.context.aiWorkbenchExecutionReadiness="AVAILABLE";
   fixture.context.aiWorkbenchPlanningReadiness = "AVAILABLE";
+  fixture.context.aiWorkbenchStoreRouteReadiness = "AVAILABLE";
   fixture.context.aiWorkbenchTitleReadiness = "AVAILABLE";
   fixture.request.mockReset(); fixture.push.mockReset(); sessionStorage.clear();
   fixture.request.mockImplementation(async ({ route }) => {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	"task-processor/internal/integration/aiworkbench/einorouter"
 )
 
 func TestAIWorkbenchConversationOnlyNeedsNoModel(t *testing.T) {
@@ -44,6 +45,32 @@ func TestAIWorkbenchConversationOnlyNeedsNoModel(t *testing.T) {
 	cfg.ProductAgent.Enabled = true
 	if w.validate(cfg) == nil {
 		t.Fatal("conversation-only mode admitted alongside execution")
+	}
+}
+
+func TestStoreRoutePolicyNeedsItsOwnExplicitContract(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.Profile.ClientName = "chat"
+	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v1"
+	policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
+	policy.Profile.MaximumCompletionTokens = 1024
+	policy.Profile.MaximumInputBytes = 128 << 10
+	policy.Profile.MaximumOutputBytes = 16 << 10
+	w := &AIWorkbenchConfig{Enabled: true, Database: cfg.ProductAgent.Database, PlanningTextPolicies: map[string]governed.RoutePolicy{"org": policy}}
+	w.Database.User = "ai_workbench_runtime"
+	cfg.AIWorkbench = w
+	route := policy
+	route.Profile.PromptVersion = einorouter.PromptVersion
+	route.Profile.OutputSchemaVersion = einorouter.SchemaVersion
+	w.StoreRouteTextPolicies = map[string]governed.RoutePolicy{"org": route}
+	if err := w.validate(cfg); err != nil {
+		t.Fatal(err)
+	}
+	route.Profile.PromptVersion = policy.Profile.PromptVersion
+	w.StoreRouteTextPolicies["org"] = route
+	if err := w.validate(cfg); err == nil {
+		t.Fatal("planning prompt cannot qualify as route contract")
 	}
 }
 
