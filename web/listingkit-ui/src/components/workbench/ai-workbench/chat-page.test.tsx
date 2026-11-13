@@ -1019,12 +1019,13 @@ it("creates content intent from a saved own product without an acquisition or ti
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
  expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0]).toMatchObject({key:original.key,body:original.body});
 });
-it("confirms a content proposal using its content readiness and complete visible task limits",async()=>{
+it("confirms a content proposal without exposing internal execution units",async()=>{
  fixture.context.aiWorkbenchExecutionKind="product.content.localize";fixture.context.aiWorkbenchTitleReadiness="UNAVAILABLE";
  const proposal={id:operationId,digest:"a".repeat(64),sourceSequence:1,kind:"product.content.localize",goalSummary:"整理描述与卖点",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}},detailsAvailable:true,titleProfileReady:false,executionProfileReady:true,executionAuthorized:true,humanReviewRequired:true,maximumTokens:6000,maximumCostMicros:1000,currency:"CNY",maximumSteps:8,maximumModelCalls:3,maximumRuntimeSeconds:60};
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[{ID:operationId,Sequence:1,Author:"USER",Content:"需求",CreatedAt:conversation.CreatedAt}],proposals:[proposal],before:""};throw new AIWorkbenchError("OUTCOME_UNKNOWN")});
  render(tree());expect(await screen.findByRole("button",{name:"确认并创建任务"})).toBeEnabled();
- expect(screen.getByText("en-US · 描述、卖点")).toBeVisible();expect(screen.getByText("8 步 · 最多 3 次模型调用 · 60 秒")).toBeVisible();
+ expect(screen.getByText("en-US · 描述、卖点")).toBeVisible();
+ expect(screen.queryByText(/6000 tokens|1000 μCNY|3 次模型调用/)).not.toBeInTheDocument();
  fixture.context.aiWorkbenchExecutionReadiness="NEEDS_CONFIGURATION";
  cleanup();render(tree());expect(await screen.findByRole("button",{name:"确认并创建任务"})).toBeDisabled();
 });

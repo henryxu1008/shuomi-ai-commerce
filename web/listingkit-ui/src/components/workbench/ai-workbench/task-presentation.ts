@@ -23,7 +23,7 @@ export function taskReason(reason: string, kind: string | undefined): string | u
   return reasonText[reason];
 }
 export const errorText = (error: unknown) => error instanceof AIWorkbenchError ? ({
-  TASK_OUTCOME_UNKNOWN: "操作结果暂无法确认。刷新原任务状态后，可用同一操作键重试查询原收据",
-  OUTCOME_UNKNOWN: "网络结果暂无法确认。刷新原任务状态后，可用同一操作键重试查询原收据",
+  TASK_OUTCOME_UNKNOWN: "操作结果暂无法确认，请刷新任务状态后重试核实",
+  OUTCOME_UNKNOWN: "网络结果暂无法确认，请刷新任务状态后重试核实",
   REVISION_MISMATCH: "原任务状态已变化，请刷新后再操作",
-} as Record<string, string>)[error.code] ?? `请求未完成：${error.code}` : "任务服务暂不可用";
+} as Record<string, string>)[error.code] ?? "请求未完成，请稍后重试" : "任务服务暂不可用";

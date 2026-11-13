@@ -78,13 +78,13 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
       const saved = sessionStorage.getItem(storageKey);
       attempt = original ?? (saved ? JSON.parse(saved) as PendingTaskAction : { key: crypto.randomUUID(), revision, feedback: currentFeedback });
       if (!validAttempt(attempt)) {
-        setError("上次操作键不可用，暂不能安全提交"); setPending(false); return;
+        setError("上次操作记录不可用，暂时不能提交"); setPending(false); return;
       }
       if (attempt.revision !== revision || attempt.feedback !== currentFeedback) {
-        setUncertain({action,attempt}); setError("上次操作的输入仍待核实；请使用原操作键和原输入核实"); setPending(false); return;
+        setUncertain({action,attempt}); setError("上次操作的输入仍待核实，请先核实上次操作"); setPending(false); return;
       }
       sessionStorage.setItem(storageKey, JSON.stringify(attempt));
-    } catch { setError("无法保存操作键，暂不能安全提交"); setPending(false); return; }
+    } catch { setError("无法保存操作记录，暂时不能提交"); setPending(false); return; }
     const controller = new AbortController(); abort.current = controller;
     try {
       await requestAIWorkbench({ route: `task-${action}`, method: "POST", path: `tasks/${taskId}/${action}`, scope,
@@ -110,11 +110,11 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
   return <div className={styles.detail}>
     {!embedded ? <div className={styles.toolbar}><Button asChild variant="outline"><Link href="/workbench/ai/tasks" prefetch={false}>返回任务中心</Link></Button><Button variant="outline" onClick={() => void task.refetch()}>刷新状态</Button></div> : null}
     <Card className={styles.detailCard}><div className={styles.heading}><h2>{item.title}</h2><span className={styles.badge}>{item.projectionAvailable ? taskState[item.state ?? ""] ?? "状态未知" : "状态暂不可用"}</span></div>
-      <p>{item.goalSummary}</p><dl><dt>当前状态</dt><dd>{item.projectionAvailable ? taskReason(item.reason ?? "", item.kind) ?? item.reason ?? "" : "Owner 暂不可用，无法确认当前状态"}</dd>
+      <p>{item.goalSummary}</p><dl><dt>当前状态</dt><dd>{item.projectionAvailable ? taskReason(item.reason ?? "", item.kind) ?? "暂无更多状态信息" : "暂时无法获取当前状态"}</dd>
         <dt>企业</dt><dd>{scope.organizationId}</dd><dt>商品</dt><dd>{item.productDetailsAvailable ? item.productKey : "当前无权查看"}</dd>
         {item.taskSelection?<><dt>任务对象</dt><dd>{item.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · 版本 {item.taskSelection.subject.catalogVersion}</dd><dt>语言与字段</dt><dd>{contentSelectionLabel(item.taskSelection.parameters)}</dd></>:<><dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd></>}
         <dt>执行模型</dt><dd>{item.providerId && item.modelId ? `${item.providerId} / ${item.modelId}` : "尚无可用执行记录"}</dd>
-        <dt>用量</dt><dd>{item.usageStatus === "unknown_reserved" ? "结果未知，额度仍保留" : item.usageStatus === "observed" ? `${item.tokens ?? 0} tokens · ${item.estimatedCostMicros ?? 0} μ${item.currency ?? ""}` : "尚无可用用量"}</dd>
+        <dt>用量</dt><dd>{item.usageStatus === "unknown_reserved" ? "用量暂未确认，预留额度仍在" : item.usageStatus === "observed" ? "用量已记录" : "尚无可用用量"}</dd>
         <dt>执行权限</dt><dd>{item.executionMode?`${executionModeLabels[item.executionMode]} · 版本 ${item.modeRevision}`:"权限模式不可用"}</dd><dt>审核</dt><dd>{item.policyAdoption?"按策略采用，未经逐项人工审阅":item.reviewState || "尚未生成"}</dd>
         <dt>创建时间</dt><dd>{new Date(item.createdAt).toLocaleString("zh-CN")}</dd></dl>
       <KnowledgeCitations knowledge={item.knowledge} />

@@ -42,14 +42,14 @@ const conversationDraftKey = (scope: AIScope, id: string) => `ai-workbench:conve
 const resolvedDraftKey = (scope: AIScope, id: string) => `ai-workbench:resolved-draft:${JSON.stringify([scope.userId,scope.organizationId,id])}`;
 const confirmStorageKey = (scope: AIScope, id: string) => `ai-workbench:confirm:${scope.userId}:${scope.organizationId}:${id}`;
 const stateText: Record<string, string> = {
-  OUTCOME_UNKNOWN: "结果暂无法确认。可用相同操作键重试，系统会读取原收据。",
+  OUTCOME_UNKNOWN: "结果暂无法确认，请重试以核实之前的操作。",
   PROPOSAL_STALE: "商品或会话已变化，请刷新并重新提出方案。",
   REVISION_MISMATCH: "会话内容已变化，请刷新后重试当前编辑。",
   DEPENDENCY_UNAVAILABLE: "服务暂不可用，请稍后重试。",
   FORBIDDEN: "当前企业或权限已变化，请重新加载。",
   CONVERSATION_ARCHIVED: "该会话已归档，不能继续发送消息。",
 };
-function errorText(error: unknown) { return error instanceof AIWorkbenchError ? stateText[error.code] ?? `请求未完成：${error.code}` : "请求暂不可用，请稍后重试。"; }
+function errorText(error: unknown) { return error instanceof AIWorkbenchError ? stateText[error.code] ?? "请求未完成，请稍后重试。" : "请求暂不可用，请稍后重试。"; }
 
 export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; conversationId?: string }) {
   const context = useWorkbenchContext();
@@ -382,9 +382,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       }
       if (result.state === "FAILED_BEFORE_DISPATCH") setError(intentRoute?"请求尚未发送到模型。请检查当前企业的模型配置；原额度状态由账本继续核对，需求已保留。":"规划尚未发送到模型。请检查当前企业的模型配置或联系管理员；修复后可用保留的需求发送新消息。");
       if (result.state === "PLANNER_INVALID_OUTPUT") setError("模型返回的规划内容格式无效；本轮已产生 AI 用量，不会自动重发。可修改保留的需求后发送新消息。");
-      if (result.state === "PLANNER_UNKNOWN") setError("模型结果无法确认；本轮不会自动重发。请刷新查看收据。");
+      if (result.state === "PLANNER_UNKNOWN") setError("模型结果无法确认；本轮不会自动重发。请刷新查看状态。");
       if (result.state === "ROUTING_RESULT_LOST") setError("识别结果未在期限内保存；已保留原需求，不会自动再次识别。");
-      if (result.state === "READY_TO_DISPATCH") setError("本轮仍在处理，请使用相同操作键重试读取结果。");
+      if (result.state === "READY_TO_DISPATCH") setError("本次请求仍在处理，请重试查看结果。");
       await detail.refetch();
     } catch (cause) { if (!controller.signal.aborted) {
       if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(cause.code)){
@@ -443,7 +443,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {current.businessScope && current.businessScope.kind !== "general" ? <p>查看当前企业所有可见店铺，请进入通用业务会话。<Link href="/workbench/ai/chat/new">新建通用会话</Link></p> : null}
     {activeProposal ? <ProposalCard proposal={activeProposal} scope={scope} canUse={canUse} titleReadiness={titleReadiness} disabled={pending || current.Archived}
       confirmedTaskId={activeProposal.confirmedTaskId ?? confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
-    {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新收据</Button></ConsoleState> : null}
+    {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
     {!current.Archived && canUse && (canPlan || pendingMessage || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
       {contentTasks&&canPlan?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
       {!contentTasks&&canPlan?<div className={styles.formGrid}><label>采集操作 ID<Input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
@@ -453,7 +453,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
         <label>模板 ID（可选）<Input disabled={Boolean(pendingMessage)} value={templateId} onChange={e => setTemplateId(e.target.value.trim())} /></label>
         <label>模板修订号{templateId ? "" : "（可选）"}<Input disabled={Boolean(pendingMessage)} value={templateRevision} onChange={e => setTemplateRevision(e.target.value.trim())} /></label>
         <label>知识库 ID（可选）<Input disabled={Boolean(pendingMessage)} value={knowledgeBaseId} onChange={e => setKnowledgeBaseId(e.target.value.trim())} /></label></div></details>
-      {pendingMessage ? <p>原消息结果待确认，字段已锁定；同键重试先核对收据，尚未受理的请求可能在配置就绪后首次发送。</p> : null}
+      {pendingMessage ? <p>上次消息结果待确认，暂时不能修改；重试时系统会先核实，尚未开始的请求可能在准备就绪后发送。</p> : null}
       <div className={styles.toolbar}><Button disabled={pending || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || (!pendingMessage && current.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)) ? !canRoute : !pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : "发送消息"}</Button>
         <span>模型规划可能消耗 AI 额度；不会直接修改商品。</span></div></Card> : current.Archived ? <ConsoleState kind="unavailable" title="会话已归档">已保存的任务仍可从任务中心查看。</ConsoleState> :
       <><ConsoleState kind="unavailable" title="只读会话">{canUse ? planningStatus(planningReadiness) : "当前企业没有发送或确认权限，可查看已有对话和提案。"}</ConsoleState>{content ? <label className={styles.promptLabel}>保留的需求<Textarea rows={4} value={content} readOnly /></label> : null}</>}
@@ -472,8 +472,7 @@ function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confi
     <p>{proposal.goalSummary}</p><dl><dt>企业</dt><dd>{scope.organizationId}</dd>{proposal.businessScope ? <><dt>工作范围</dt><dd>{scopeLabel(proposal.businessScope)}</dd></> : null}<dt>商品</dt><dd>{proposal.detailsAvailable ? proposal.productKey : "当前无权查看"}</dd>
       {content?<><dt>任务对象</dt><dd>{proposal.taskSelection?`${proposal.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · ${proposal.taskSelection.subject.id} · 版本 ${proposal.taskSelection.subject.catalogVersion}`:"不可用"}</dd><dt>语言与字段</dt><dd>{proposal.taskSelection?contentSelectionLabel(proposal.taskSelection.parameters):"不可用"}</dd></>:<><dt>目标平台</dt><dd>{proposal.targetPlatform ?? "不可用"}</dd></>}<dt>模板</dt><dd>{proposal.templateId ? `${proposal.templateId} · 修订 ${proposal.templateRevision}` : "未选择"}</dd>
       <dt>知识库</dt><dd>{proposal.knowledgeBaseId || "未选择"}</dd><dt>执行模型</dt><dd>{proposal.providerId && proposal.modelId ? `${proposal.providerId} / ${proposal.modelId}` : "不可用"}</dd>
-      <dt>{content?"任务执行上限":"单次模型上限"}</dt><dd>{proposal.maximumTokens !== undefined ? `${proposal.maximumTokens} tokens` : "不可用"}{proposal.maximumCostMicros !== undefined ? ` · ${proposal.maximumCostMicros} μ${proposal.currency ?? ""}` : ""}</dd>
-      {content?<><dt>执行限制</dt><dd>{proposal.maximumSteps} 步 · 最多 {proposal.maximumModelCalls} 次模型调用 · {proposal.maximumRuntimeSeconds} 秒</dd></>:null}<dt>执行权限</dt><dd>{proposal.executionMode?`${executionModeLabels[proposal.executionMode]} · 版本 ${proposal.modeRevision}`:"权限模式不可用，请重新提出方案"}</dd><dt>结果处理</dt><dd>{proposal.executionMode?executionModeAdoptionText[proposal.executionMode]:"原提案仍可查看，暂不能执行"}</dd></dl>
+      <dt>执行权限</dt><dd>{proposal.executionMode?`${executionModeLabels[proposal.executionMode]} · 版本 ${proposal.modeRevision}`:"权限模式不可用，请重新提出方案"}</dd><dt>结果处理</dt><dd>{proposal.executionMode?executionModeAdoptionText[proposal.executionMode]:"原提案仍可查看，暂不能执行"}</dd></dl>
     {!confirmedTaskId && canUse && proposal.detailsAvailable && readiness !== "AVAILABLE" ? <p>执行模型需要配置；当前方案暂不能确认。</p> : null}
     {!confirmedTaskId && canUse && proposal.detailsAvailable && readiness === "AVAILABLE" && !ready ? <p>提案的执行配置已变化，请重新提出方案。</p> : null}
     {!confirmedTaskId && canUse && proposal.detailsAvailable && !proposal.executionAuthorized ? <p>{proposal.modeUnavailableReason==="EXECUTION_LIMITS_CHANGED"?"任务执行上限已变化，请重新提出方案。":"需要当前企业的执行权限；已有方案仍可查看。"}</p> : null}
