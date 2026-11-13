@@ -55,6 +55,8 @@ type workbenchTaskView struct {
 	EstimatedCostMicros     int64                      `json:"estimatedCostMicros,omitempty"`
 	Currency                string                     `json:"currency,omitempty"`
 	UsageStatus             string                     `json:"usageStatus,omitempty"`
+	SettledPointsMicros     string                     `json:"settledPointsMicros,omitempty"`
+	SettledPointsStatus     string                     `json:"settledPointsStatus,omitempty"`
 	ReviewID                string                     `json:"reviewId,omitempty"`
 	ReviewState             string                     `json:"reviewState,omitempty"`
 	Knowledge               *productKnowledgeDTO       `json:"knowledge,omitempty"`
@@ -174,6 +176,16 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 		}
 	}
 	if found && view.ProductDetailsAvailable {
+		if includeKnowledge && a.agent.points != nil {
+			view.SettledPointsStatus = "unavailable"
+			if points, err := settledRunPoints(ctx, run.State, a.agent.points.ReadSettledModelInvocationPoints); err == nil {
+				view.SettledPointsMicros = strconv.FormatInt(points, 10)
+				view.SettledPointsStatus = "settled"
+				if view.CanResume {
+					view.SettledPointsStatus = "partial"
+				}
+			}
+		}
 		if snapshot, err := a.agent.configuration.LoadSnapshot(ctx, run.State.Scope, run.State.Request.ConfigurationSnapshotRef); err == nil {
 			view.ProviderID, view.ModelID = snapshot.ExecutionModelProfile.ProviderID, snapshot.ExecutionModelProfile.ModelID
 		}

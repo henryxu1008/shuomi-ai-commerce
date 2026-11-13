@@ -17,7 +17,7 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 import { ProposalSession, ReviewError, reviewQueryPolicy, reviewAccessDenied } from "../task-center/review-session";
 import { TaskDetail } from "./task-detail";
 import {ScheduleManager} from "./schedule-manager";
-import { errorText, filters, taskState, reasonText, type TaskMode } from "./task-presentation";
+import { errorText, filters, taskState, taskReason, type TaskMode } from "./task-presentation";
 import {useNativeRuns} from "./use-native-runs";
 import {NativeRunDetail,NativeRunReadStatus} from "./native-run-view";
 import type {NativeRunDestinations} from "@/lib/agent-run-destination";
@@ -79,7 +79,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     mode === "completed" && state === "COMPLETED" || mode === "errors" && (state === "ERROR" || state === "PAUSED");
   const taskRows: Row[] = page.filter(item => matchesMode(item.state)).map(item => ({
     kind:"task",id:item.id,title:item.title,caption:item.businessScope ? scopeLabel(item.businessScope) : "未记录工作范围",
-    summary:item.projectionAvailable ? reasonText[item.reason ?? ""] ?? item.goalSummary ?? "" : "状态暂不可用",
+    summary:item.projectionAvailable ? taskReason(item.reason ?? "", item.kind) ?? item.goalSummary ?? "" : "状态暂不可用",
     state:item.state,available:item.projectionAvailable,
   }));
   // Correlation only removes a proposal when its task is actually in this visible page.

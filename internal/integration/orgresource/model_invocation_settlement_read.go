@@ -98,3 +98,17 @@ func (r *GormModelInvocationRepository) ConfirmModelInvocationSettlement(ctx con
 	}
 	return nil
 }
+
+// ReadSettledModelInvocationPoints returns only a verified original settlement;
+// a reservation or provider usage by itself does not prove a debit.
+func (r *GormModelInvocationRepository) ReadSettledModelInvocationPoints(ctx context.Context, org, invocationID, runID string) (int64, error) {
+	if err := r.ConfirmModelInvocationSettlement(ctx, org, invocationID, runID); err != nil {
+		return 0, err
+	}
+	fact, err := r.readFact(ctx, org, invocationID)
+	if err != nil || fact.AgentRunID != runID || runID == "" {
+		return 0, orgresource.ErrInvalidOwnerProof
+	}
+	points, _, err := modelPointTerminal(fact)
+	return points, err
+}

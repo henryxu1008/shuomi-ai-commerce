@@ -1,4 +1,5 @@
 import { AIWorkbenchError } from "@/lib/api/ai-workbench";
+import { formatMicropoints } from "@/lib/contracts/ai-points";
 
 export type TaskMode = "all" | "running" | "pending" | "completed" | "errors";
 export const filters: { mode: TaskMode; label: string; href: string }[] = [
@@ -15,6 +16,19 @@ export const reasonText: Record<string, string> = { EXECUTION_MODE_CHANGED:"权�
   HUMAN_REVIEW_REQUIRED: "需要人工审核标题建议", AGENT_RESULT_NOT_REVIEWABLE: "标题建议未通过验证，无法提交审核",
   AGENT_INTERRUPTED_DEADLINE_EXPIRED: "原执行期限已过，不能继续此中断任务", invalid_model_output: "模型返回格式不符合要求，已记录实际用量",
   pending: "提案待审核", accepted: "提案已接受，待应用", applied: "提案已应用", rejected: "提案已拒绝" };
+export function taskReason(reason: string, kind: string | undefined): string | undefined {
+  if (kind === "product.content.localize") {
+    if (reason === "HUMAN_REVIEW_REQUIRED") return "需要人工审核内容建议";
+    if (reason === "AGENT_RESULT_NOT_REVIEWABLE") return "内容建议未通过验证，无法提交审核";
+  }
+  return reasonText[reason];
+}
+export function taskPoints(status: string | undefined, value: string | undefined): string {
+  if ((status === "settled" || status === "partial") && value !== undefined) {
+    return `${status === "partial" ? "截至当前已结算" : "已结算"} ${formatMicropoints(value)} AI 点`;
+  }
+  return "结算中或暂不可用";
+}
 export const errorText = (error: unknown) => error instanceof AIWorkbenchError ? ({
   TASK_OUTCOME_UNKNOWN: "操作结果暂无法确认。刷新原任务状态后，可用同一操作键重试查询原收据",
   OUTCOME_UNKNOWN: "网络结果暂无法确认。刷新原任务状态后，可用同一操作键重试查询原收据",
