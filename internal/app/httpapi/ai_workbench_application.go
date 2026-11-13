@@ -181,7 +181,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		for _, admitted := range a.config.AllowedOrganizationIDs {
 			allowed = allowed || admitted == org
 		}
-		if !allowed || policy.ShapeProfile().ValidateShape() != nil || policy.Profile.PromptVersion != promptVersion ||
+		if !allowed || policy.ShapeProfile().ValidateShape() != nil || (policy.Profile.PromptVersion != promptVersion && !(cfg.ContentTasks && policy.Profile.PromptVersion == einoplanner.ProductContextPromptVersion)) ||
 			policy.Profile.OutputSchemaVersion != "ai-workbench-plan-decision-v1" || policy.Profile.Currency != a.config.Limits.Currency {
 			return nil, aiworkbench.ErrUnavailable
 		}
@@ -322,11 +322,19 @@ func (p *workbenchPlanner) admission(ctx context.Context, scope aiworkbench.Scop
 		return unavailable()
 	}
 	profile := route.Profile
+	var productContext *einoplanner.ProductContext
+	if profile.PromptVersion == einoplanner.ProductContextPromptVersion {
+		product, readErr := p.agent.workbenchProductSnapshot(ctx, identity, input.TaskSelection)
+		if readErr != nil {
+			return nil, readErr
+		}
+		productContext = projectWorkbenchProduct(product)
+	}
 	return func(history []aiworkbench.Message, invocationID string) (aiworkbench.PreparedPlan, error) {
 		prepared, err := einoplanner.Prepare(einoplanner.Request{Scope: scope, MemberID: identity.EffectiveMemberID,
 			InvocationID: invocationID, OperationID: input.OperationID, TargetPlatform: input.TargetPlatform, TaskSelection: input.TaskSelection,
 			TemplateID: input.TemplateID, TemplateRevision: input.TemplateRevision, KnowledgeBaseID: input.KnowledgeBaseID,
-			History: history, Profile: profile, FrozenScope: frozen})
+			History: history, Profile: profile, FrozenScope: frozen, ProductContext: productContext})
 		if err != nil {
 			return aiworkbench.PreparedPlan{}, err
 		}
@@ -365,10 +373,56 @@ func (p *workbenchPlanner) Decide(ctx context.Context, command aiworkbench.Plann
 		}
 	}
 	selected := command.WorkScope
+	if p.workbench != nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) {
+		if err := p.authorizeProductHistory(ctx, command.Scope, command.ConversationID, command.SourceSequence); err != nil {
+			return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+		}
+		priorGate := scopeGate
+		scopeGate = func(gateCtx context.Context) error {
+			if priorGate != nil {
+				if err := priorGate(gateCtx); err != nil {
+					return err
+				}
+			}
+			return p.authorizeProductHistory(gateCtx, command.Scope, command.ConversationID, command.SourceSequence)
+		}
+	}
+	var productContext *einoplanner.ProductContext
+	if profile.PromptVersion == einoplanner.ProductContextPromptVersion {
+		i, identityErr := p.agent.freshChatIdentity(ctx)
+		if identityErr != nil || i.TenantID != command.Scope.OrganizationID || i.UserID != command.Scope.ActorID || i.EffectiveMemberID != command.MemberID {
+			return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+		}
+		if _, err := p.agent.workbenchSelectionBinding(ctx, i, selected); err != nil {
+			return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+		}
+		product, readErr := p.agent.workbenchProductSnapshot(ctx, i, selected.TaskSelection)
+		if readErr != nil {
+			return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+		}
+		productContext = projectWorkbenchProduct(product)
+		priorGate := scopeGate
+		scopeGate = func(gateCtx context.Context) error {
+			if priorGate != nil {
+				if err := priorGate(gateCtx); err != nil {
+					return err
+				}
+			}
+			identity, err := p.agent.freshChatIdentity(gateCtx)
+			if err != nil || identity.TenantID != command.Scope.OrganizationID || identity.UserID != command.Scope.ActorID || identity.EffectiveMemberID != command.MemberID {
+				return review.ErrForbidden
+			}
+			if _, err = p.agent.workbenchSelectionBinding(gateCtx, identity, selected); err != nil {
+				return err
+			}
+			_, err = p.agent.workbenchProductSnapshot(gateCtx, identity, selected.TaskSelection)
+			return err
+		}
+	}
 	prepared, err := einoplanner.Prepare(einoplanner.Request{Scope: command.Scope, MemberID: command.MemberID,
 		InvocationID: command.PlannerInvocationID, OperationID: selected.OperationID, TargetPlatform: selected.TargetPlatform, TaskSelection: selected.TaskSelection,
 		TemplateID: selected.TemplateID, TemplateRevision: selected.TemplateRevision, KnowledgeBaseID: selected.KnowledgeBaseID,
-		History: history, Profile: profile, FrozenScope: frozen})
+		History: history, Profile: profile, FrozenScope: frozen, ProductContext: productContext})
 	if err != nil || prepared.Quote.InputHash != command.InputHash {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
 	}

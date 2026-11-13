@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -36,6 +37,18 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+type revocableOwnProductReader struct {
+	delegate ownProductReader
+	denied   atomic.Bool
+}
+
+func (r *revocableOwnProductReader) ReadItem(ctx context.Context, id string) (collection.ItemDetail, error) {
+	if r.denied.Load() {
+		return collection.ItemDetail{}, collection.ErrForbidden
+	}
+	return r.delegate.ReadItem(ctx, id)
+}
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
 	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access", "full runtime content flow chat", "full runtime own content chat", "full runtime content flow chat mini"} {
@@ -79,7 +92,11 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	collections, err := collection.NewService(repo, authority, published)
 	require.NoError(t, err)
 	collections.WithSnapshots(a.snapshots)
+	ownedProducts := &revocableOwnProductReader{delegate: collections}
 	a.ownProducts = collections
+	if own && os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
+		a.ownProducts = ownedProducts
+	}
 	var binding agent.Binding
 	if own {
 		saved, e := collections.Mutate(actor, uuid.NewString(), collection.Mutation{Action: "create_product", Product: &collection.OwnProduct{Title: "Saved own product", Description: "Saved own product description", Images: []string{"https://images.example.org/own.png"}}})
@@ -129,6 +146,12 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&wire))
 		require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, binding.ContextID)
 		require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, goal.Load())
+		if os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
+			require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, `"product_context"`)
+			if own {
+				require.Contains(t, wire.Messages[len(wire.Messages)-1].Content, "Saved own product description")
+			}
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":"planner-fixture","choices":[{"message":{"content":"{\"mode\":\"READY\",\"assistant_text\":\"请确认内容方案\",\"goal_summary\":\"整理商品内容\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
 	}))
@@ -166,6 +189,14 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.True(t, ok)
 		reader.planning = map[string]governed.RoutePolicy{"B": policy}
 		a.config.CurrentTextPolicies = reader
+	}
+	if os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
+		policy.Profile.PromptVersion = "ai-workbench-chat-plan-v4"
+		if !fullRuntime {
+			reader := a.config.CurrentTextPolicies.(syntheticCurrentTextPolicies)
+			reader.planning = map[string]governed.RoutePolicy{"B": policy}
+			a.config.CurrentTextPolicies = reader
+		}
 	}
 	if fullRuntime {
 		testFullChatApplicationComposition(t, f, m.application.config, deps, db, policy, operationID)
@@ -395,6 +426,32 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.Equal(t, a.config.Limits.ModelCalls, planned.Proposal.MaximumModelCalls)
 	call("POST", messagePath, messageKey, body, 200)
 	require.EqualValues(t, 1, planningCalls.Load(), "same turn replay must not call planner again")
+	var pendingConversation, pendingKey string
+	var pendingInput aiworkbench.MessageInput
+	if own && os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
+		owner := aiworkbench.Scope{OrganizationID: "B", ActorID: "admin"}
+		metadataOnly := *app
+		metadataOnly.plan, metadataOnly.agent = nil, nil
+		require.True(t, metadataOnly.productHistoryUnavailable(actor, owner, created.Conversation.ID, math.MaxInt64))
+		ownedProducts.denied.Store(true)
+		page := call("GET", workbenchChatBase+"/"+created.Conversation.ID, "", nil, 200)
+		require.NotContains(t, string(page), "请确认内容方案")
+		require.Contains(t, string(page), "相关商品当前不可访问")
+		replay := call("POST", messagePath, messageKey, body, 202)
+		require.NotContains(t, string(replay), "proposalId")
+		require.EqualValues(t, 1, planningCalls.Load(), "revocation cannot redispatch")
+		ownedProducts.denied.Store(false)
+		page = call("GET", workbenchChatBase+"/"+created.Conversation.ID, "", nil, 200)
+		require.Contains(t, string(page), "请确认内容方案")
+		var pending struct{ Conversation aiworkbench.Conversation }
+		require.NoError(t, json.Unmarshal(call("POST", workbenchChatBase, uuid.NewString(), createPayload, 200), &pending))
+		pendingConversation, pendingKey = pending.Conversation.ID, uuid.NewString()
+		pendingInput = aiworkbench.MessageInput{Content: "整理为英文内容", TaskSelection: &selected}
+		prepare, e := app.plan.Admission(actor, owner, pendingConversation, pendingInput)
+		require.NoError(t, e)
+		_, _, e = app.store.AppendUser(actor, owner, pendingConversation, pendingKey, pendingInput, prepare)
+		require.NoError(t, e)
+	}
 	before := calls.Load()
 	require.Zero(t, before, "planning never starts a content run")
 	if scheduled {
@@ -524,6 +581,12 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	accepted := titleDecision(t, server, view, "accept", "admin", "", 200)
 	applied := titleApply(t, server, accepted, uuid.NewString(), 200)
 	require.NotNil(t, applied.Receipt)
+	if pendingConversation != "" {
+		pending, e := app.service.Message(actor, owner, pendingConversation, pendingKey, pendingInput)
+		require.NoError(t, e)
+		require.Equal(t, aiworkbench.PlanningFailedBeforeDispatch, pending.State)
+		require.EqualValues(t, 1, planningCalls.Load(), "a newer product head must stop the original pending call")
+	}
 	var completed struct{ Task workbenchTaskView }
 	require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase+"/"+confirmed.Task.ID, "", nil, 200), &completed))
 	require.Equal(t, aiworkbench.TaskCompleted, completed.Task.State)

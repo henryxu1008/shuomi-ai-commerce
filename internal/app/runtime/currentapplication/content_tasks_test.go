@@ -24,6 +24,11 @@ func contentTasksConfig(t *testing.T) *Config {
 }
 func TestContentTasksRequireExplicitBoundedContentConsumer(t *testing.T) {
 	require.NoError(t, contentTasksConfig(t).validate())
+	v4 := contentTasksConfig(t)
+	policy := v4.AIWorkbench.PlanningTextPolicies["org"]
+	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v4"
+	v4.AIWorkbench.PlanningTextPolicies["org"] = policy
+	require.NoError(t, v4.validate(), "the product-context protocol must be admitted without weakening other bounds")
 	for name, change := range map[string]func(*Config){
 		"both profiles": func(c *Config) { c.ProductAgent.ContentTitleOnly = true },
 		"title policy":  func(c *Config) { c.ProductAgent.TextPolicies = agentRuntimeConfig().ProductAgent.TextPolicies },

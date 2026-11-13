@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -143,6 +144,14 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	productHistoryUnavailable := a.productHistoryUnavailable(ctx, scope, id, math.MaxInt64)
+	if productHistoryUnavailable {
+		for index := range messages {
+			if messages[index].Author == aiworkbench.AuthorAssistant && messages[index].Kind != "STORE_OVERVIEW_REF" {
+				messages[index].Content = "相关商品当前不可访问，无法显示此回复。"
+			}
+		}
+	}
 	// Only the latest proposal can match the latest USER turn and be confirmed.
 	// Older proposal cards are not rendered by the current Conversation view.
 	proposals, err := a.store.ListProposals(ctx, scope, id, 1)
@@ -151,6 +160,9 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		return
 	}
 	cards := make([]workbenchProposalCard, 0, len(proposals))
+	if productHistoryUnavailable {
+		proposals = nil
+	}
 	for _, proposal := range proposals {
 		card, cardErr := a.proposalReceiptCard(ctx, scope, proposal)
 		if cardErr != nil {
@@ -331,6 +343,10 @@ func (a *aiWorkbenchApplication) postMessage(c *gin.Context, ctx context.Context
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	if a.productHistoryUnavailable(ctx, scope, id, math.MaxInt64) {
+		workbenchReply(c, http.StatusAccepted, gin.H{"state": command.State, "scopeUnavailable": true})
+		return
+	}
 	if command.FrozenScope != nil {
 		if _, scopeErr := a.authorizedFrozenScope(ctx, scope, command.ScopeRef(), false); scopeErr != nil {
 			workbenchReply(c, http.StatusAccepted, gin.H{"state": command.State, "scopeUnavailable": true})
@@ -368,6 +384,10 @@ func (a *aiWorkbenchApplication) confirmProposal(c *gin.Context, ctx context.Con
 	conversationID, proposalID := c.Param("conversation_id"), c.Param("proposal_id")
 	if !acquisitionHTTPUUID(conversationID) || !acquisitionHTTPUUID(proposalID) || c.Request.URL.RawQuery != "" || workbenchEmptyBody(c) != nil {
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	if a.productHistoryUnavailable(ctx, scope, conversationID, math.MaxInt64) {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
 		return
 	}
 	key, err := workbenchKey(c)
