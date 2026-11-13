@@ -145,6 +145,15 @@ type formalOwnerRestoreReceipt struct {
 	Components                                                                              []formalRestoredComponent
 }
 
+// This is evidence that an earlier snapshot was independently restored, not
+// evidence of a current, cross-owner or frozen backup.
+func validateMinimalRestore(anchor formalAnchor, p formalOwnerProof, r restoreRecord, sourcePin string) error {
+	if !validDigest(sourcePin) || r.Kind != "isolated-restore-observation-v1" || r.SourceSHA != sourcePin || r.SourceDB != anchor.Target.Database || r.DumpSHA != p.Proof.BackupSHA256 || !validContainerID(r.ContainerID) || r.ContainerID == anchor.DBContainerID || r.ImageID != anchor.DBImageID || r.Network != "none" || r.SystemID == "" || r.SystemID == anchor.Target.SystemIdentifier || r.Target.Database == "" || r.Target.OID == "" || !r.ExitOnError {
+		return errors.New("historical isolated business restore mismatch")
+	}
+	return nil
+}
+
 func validateFormalOwnerRestore(anchor formalAnchor, a formalAdmission, p formalOwnerProof, r formalOwnerRestoreReceipt) error {
 	if r.Version != "chat-owner-restore-v1" || r.AnchorSHA256 != a.AnchorSHA256 || r.Window != a.Window || r.Owner != p.Proof.Owner || r.SourceResourceID != anchor.OwnerResourceIdentities[r.Owner] || r.SourceResourceID != p.Proof.ResourceIdentity || r.RestoreResourceID != p.RestoreResourceID || r.BackupSHA256 != p.Proof.BackupSHA256 || !r.BackupAt.Equal(p.BackupAt) || !r.RestoredAt.Equal(p.RestoredAt) || !r.Successful {
 		return errors.New("owner restoration receipt mismatch")
@@ -210,7 +219,8 @@ func validateFormalAdmission(anchor formalAnchor, a formalAdmission, target stor
 		return errors.New("approved original helper digest missing")
 	}
 	original := anchor.Target
-	if a.Version != "chat-35444-original-admission-v1" || a.Instance != "35444" || a.EvidenceKind != "owner-confirmed" || !validDigest(anchorSHA) || a.AnchorSHA256 != anchorSHA || a.ReservationBindingSHA256 != anchor.ReservationBindingSHA256 || a.ReservationQuantityMicros != 15445282 || a.ReservationState != "reserved" || !a.ReservationUnsettled || !a.NoRelatedRecoveryInFlight || a.Window == "" || a.Window != target.MaintenanceWindow || !validDigest(target.FactsDigest) || !validDigest(target.PrivilegesDigest) {
+	minimal := a.Version == "chat-35444-original-admission-v2"
+	if (!minimal && a.Version != "chat-35444-original-admission-v1") || a.Instance != "35444" || a.EvidenceKind != "owner-confirmed" || !validDigest(anchorSHA) || a.AnchorSHA256 != anchorSHA || a.ReservationBindingSHA256 != anchor.ReservationBindingSHA256 || a.ReservationQuantityMicros != 15445282 || a.ReservationState != "reserved" || !a.ReservationUnsettled || !a.NoRelatedRecoveryInFlight || a.Window == "" || a.Window != target.MaintenanceWindow || !validDigest(target.FactsDigest) || !validDigest(target.PrivilegesDigest) {
 		return errors.New("original owner or reservation admission invalid")
 	}
 	if a.RestoreSystemID == "" || a.RestoreSystemID == original.SystemIdentifier || a.RestoreDatabaseOID == "" || !validContainerID(a.RestoreContainerID) || a.RestoreContainerID == anchor.DBContainerID || a.RestoreContainerID == anchor.AppContainerID {
@@ -224,8 +234,11 @@ func validateFormalAdmission(anchor formalAnchor, a formalAdmission, target stor
 		deadline = a.FreezeExpiresAt
 	}
 	needed := map[string]bool{"business": false, "identity": false, "images": false, "temporal": false, "commercial": false}
+	if minimal {
+		needed = map[string]bool{"business": false}
+	}
 	for owner := range needed {
-		if strings.TrimSpace(anchor.OwnerAnchorPaths[owner]) == "" || !validDigest(anchor.OwnerAnchorSHA256[owner]) {
+		if !minimal && (strings.TrimSpace(anchor.OwnerAnchorPaths[owner]) == "" || !validDigest(anchor.OwnerAnchorSHA256[owner])) {
 			return errors.New("independent owner source anchor missing")
 		}
 	}
@@ -235,7 +248,7 @@ func validateFormalAdmission(anchor formalAnchor, a formalAdmission, target stor
 		if anchor.OwnerResourceIdentities[p.Owner] == "" || anchor.OwnerResourceIdentities[p.Owner] != p.ResourceIdentity {
 			return errors.New("owner source resource differs from trusted anchor")
 		}
-		if item.BackupAt.Before(a.FreezeStartedAt) {
+		if !minimal && item.BackupAt.Before(a.FreezeStartedAt) {
 			return errors.New("owner backup predates maintenance freeze")
 		}
 		if _, ok := needed[p.Owner]; !ok || needed[p.Owner] || p.Window != a.Window || p.SourceSystemID != original.SystemIdentifier || p.TargetSystemID != original.SystemIdentifier || p.TargetDatabaseOID != original.DatabaseOID || strings.TrimSpace(p.ResourceIdentity) == "" || resources[p.ResourceIdentity] || strings.TrimSpace(item.RestoreResourceID) == "" || item.RestoreResourceID == p.ResourceIdentity || strings.TrimSpace(p.BackupRef) == "" || !validDigest(p.BackupSHA256) || strings.TrimSpace(p.RestoreRef) == "" || !validDigest(p.RestoreSHA256) || strings.TrimSpace(p.VerifiedBy) == "" || p.FreezeRef != a.FreezeRef || !p.Frozen || item.BackupAt.IsZero() || item.RestoredAt.Before(item.BackupAt) || p.VerifiedAt.Before(item.RestoredAt) || p.VerifiedAt.After(now) || !p.ExpiresAt.After(now) {
