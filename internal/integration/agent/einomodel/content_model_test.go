@@ -21,8 +21,9 @@ import (
 
 // This executor observes only the fixed request/quote and never calls a model.
 type contentTextFixture struct {
-	input aicapability.TextInputIdentity
-	calls int
+	input    aicapability.TextInputIdentity
+	calls    int
+	response string
 }
 
 func (e *contentTextFixture) GenerateWithGate(ctx context.Context, input aicapability.TextInputIdentity, quote aicapability.TextQuote, validate func(string) error, gate func(context.Context) (func(), error)) (governed.TextOutput, error) {
@@ -35,7 +36,11 @@ func (e *contentTextFixture) GenerateWithGate(ctx context.Context, input aicapab
 	if release != nil {
 		defer release()
 	}
-	err = validate(`{"Kind":"interrupt","Tool":{"ID":"","Version":""},"Candidate":{"Changes":null},"Unresolved":["controlled missing evidence"],"Confidence":[]}`)
+	response := e.response
+	if response == "" {
+		response = `{"Kind":"interrupt","Tool":{"ID":"","Version":""},"Candidate":{"Changes":null},"Unresolved":["controlled missing evidence"],"Confidence":[]}`
+	}
+	err = validate(response)
 	return governed.TextOutput{Usage: governed.ObservedUsage{Known: true, PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15}}, err
 }
 
@@ -61,12 +66,15 @@ func TestContentTwoCallDecisionInstructionUsesFrozenBudget(t *testing.T) {
 			limits := agent.Limits{Steps: 12, ModelCalls: tc.calls, Tokens: 17000, CostMicros: 17000, Currency: "CNY", Runtime: time.Minute}
 			snapshot := agentconfig.Snapshot{AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, MemberID: identity.EffectiveMemberID, ExecutionModelProfile: profile, Request: agent.Request{GoalSummary: goal, ContentSelection: selection, ModeSnapshotRef: mode, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, Limits: limits}}
 			executor := &contentTextFixture{}
+			if tc.name == "canonical read needs more evidence" {
+				executor.response = `{"Kind":"propose","Candidate":{"Changes":[{"Field":"description","Value":"Three color and size combinations: black M, black L, and white M.","EvidenceIDs":["source-1"]}]},"Confidence":[]}`
+			}
 			definition, _ := contentagent.Registration()
 			model, err := NewContentAgentTextModel(executor, testSnapshotReader{snapshot}, func(context.Context, string) (aicapability.ModelProfile, error) { return profile, nil }, func(context.Context, string) TextRouteReadiness { return TextRouteAvailable }, definition.AllowedTools, func(context.Context) (authidentity.AuthenticatedIdentity, error) { return identity, nil })
 			require.NoError(t, err)
 			input := agent.ModelInput{GoalSummary: goal, ContentSelection: selection, ModeSnapshotRef: mode, ConfigurationSnapshotRef: agent.ConfigurationSnapshotRef{Kind: agentconfig.SnapshotKind, ID: uuid.NewString(), Digest: strings.Repeat("a", 64)}, Binding: binding, PolicyVersion: reviewproposal.ContentPolicyVersion, PromptVersion: agentconfig.ContentPromptVersion, AgentID: agentconfig.ContentAgentID, AgentVersion: agentconfig.ContentAgentVersion, AgentRunID: uuid.NewString()}
 			if tc.canonical {
-				input.History = []agent.Observation{{Tool: commercetool.ToolRef{ID: "product.canonical.inspect", Version: "v2.0.0"}, Output: json.RawMessage(`{"product_key":"product","catalog_version":"1","catalog_publication_id":"publication","snapshot":{"title":"Card","sources":[]}}`)}}
+				input.History = []agent.Observation{{Tool: commercetool.ToolRef{ID: "product.canonical.inspect", Version: "v2.0.0"}, Output: json.RawMessage(`{"product_key":"product","catalog_version":"1","catalog_publication_id":"publication","snapshot":{"title":"T-shirt","description":"三规格：黑M、黑L、白M","variants":[{"attributes":[{"name":"颜色","value":"黑"},{"name":"尺码","value":"M"}]},{"attributes":[{"name":"颜色","value":"黑"},{"name":"尺码","value":"L"}]},{"attributes":[{"name":"颜色","value":"白"},{"name":"尺码","value":"M"}]}],"sources":[{"detail":"source-1"}]}}`)}}
 			}
 			quote, err := model.Quote(ctx, input)
 			require.NoError(t, err)
@@ -74,7 +82,12 @@ func TestContentTwoCallDecisionInstructionUsesFrozenBudget(t *testing.T) {
 			input.UpperBound, input.InvocationID = quote, "controlled-invocation"
 			result, err := model.Decide(ctx, input)
 			require.NoError(t, err)
-			require.Equal(t, "interrupt", result.Action.Kind)
+			if executor.response != "" {
+				require.Equal(t, "propose", result.Action.Kind)
+				require.Equal(t, "Three color and size combinations: black M, black L, and white M.", result.Action.Candidate.Changes[0].Value)
+			} else {
+				require.Equal(t, "interrupt", result.Action.Kind)
+			}
 			require.Equal(t, limits, snapshot.Request.Limits, "the instruction must not raise a run limit")
 			var dispatched struct {
 				Input        agent.ModelInput
@@ -84,6 +97,11 @@ func TestContentTwoCallDecisionInstructionUsesFrozenBudget(t *testing.T) {
 			require.Equal(t, definition.AllowedTools, dispatched.AllowedTools, "prompt guidance must not change tool authority")
 			require.Equal(t, selection, dispatched.Input.ContentSelection)
 			require.Equal(t, goal, dispatched.Input.GoalSummary)
+			if tc.canonical {
+				require.Contains(t, string(dispatched.Input.History[0].Output), "黑M、黑L、白M")
+				require.Contains(t, executor.input.System, "variant combinations are not necessarily distinct sizes")
+				require.Contains(t, executor.input.System, "Do not infer the number of sizes from the number of variants")
+			}
 			require.NotContains(t, executor.input.System, goal, "free text must not become the system's localization authority")
 			_, contract, found := strings.Cut(executor.input.System, "\nOutputContract=")
 			require.True(t, found, "the frozen language/fields need an explicit application-owned output contract on every decision")
