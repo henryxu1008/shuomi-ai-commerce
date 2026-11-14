@@ -25,6 +25,19 @@ type prepareFailDriver struct {
 	testDriver
 	wrongIdentity bool
 }
+type publicationBlockDriver struct{ testDriver }
+
+func (d *publicationBlockDriver) Prepare(ctx context.Context, r Request, dir string) (Prepared, error) {
+	result, err := d.testDriver.Prepare(ctx, r, dir)
+	if err != nil {
+		return result, err
+	}
+	instance := filepath.Dir(filepath.Dir(dir))
+	if err := os.WriteFile(filepath.Join(instance, "pending-plans"), []byte("blocked"), 0600); err != nil {
+		return Prepared{}, err
+	}
+	return result, nil
+}
 
 func (d *prepareFailDriver) Prepare(_ context.Context, _ Request, dir string) (Prepared, error) {
 	if err := os.WriteFile(filepath.Join(dir, "candidate"), []byte("temporary"), 0600); err != nil {
@@ -75,9 +88,7 @@ func TestPublishedPlanWithMissingReceiptStillFailsClosed(t *testing.T) {
 func TestPublicationFailurePreservesCandidate(t *testing.T) {
 	root := t.TempDir()
 	instance := filepath.Join(root, "stable-instance")
-	require.NoError(t, os.MkdirAll(instance, 0700))
-	require.NoError(t, os.WriteFile(filepath.Join(instance, "pending-plans"), []byte("blocked"), 0600))
-	c := New(root, &testDriver{revision: "before"})
+	c := New(root, &publicationBlockDriver{testDriver{revision: "before"}})
 	_, err := c.Plan(context.Background(), Request{Mode: "existing"})
 	require.Error(t, err)
 	entries, err := os.ReadDir(filepath.Join(instance, "payloads"))
