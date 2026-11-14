@@ -33,6 +33,7 @@ export function firstConnectedConsoleEntry(pathname: string, capabilities: Conso
     case "/workbench/store-center": return "/workbench/store-center";
     case "/workbench/plans": return "/workbench/plans";
     case "/workbench/account": return "/workbench/account";
+    case "/workbench/settings": return "/workbench/settings";
     default: return null;
   }
 }

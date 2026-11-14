@@ -33,6 +33,14 @@ it("omits the official template subtitle", () => {
   expect(screen.getByRole("heading", {name: "官方模板", level: 1})).toBeVisible();
   expect(screen.queryByText("查找平台提供的技能模板。")).not.toBeInTheDocument();
 });
+it("shows official maintenance under system settings only to an authorized identity", async () => {
+  vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:true,canCreate:true,reason:""}:{items:[],nextCursor:""});
+  render(<SkillLibraryPage expectedUserId="alice" category="official" maintenance/>);
+  expect(screen.getByRole("heading",{name:"系统设置",level:1})).toBeVisible();
+  expect(await screen.findByRole("button",{name:"安装官方模板"})).toBeVisible();
+  expect(screen.queryByRole("navigation",{name:"技能库分类"})).toBeNull();
+  expect(vi.mocked(skillRequest).mock.calls.every(([,path])=>path!=="official/install")).toBe(true);
+});
 
 it("manages personal skills without an organization or a modal", async () => {
   render(<SkillLibraryPage expectedUserId="alice" category="mine"/>);
@@ -47,7 +55,7 @@ it("manages personal skills without an organization or a modal", async () => {
 it("reads official templates without an organization and shows an honest empty state", async () => {
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
   expect(await screen.findByText("当前暂无可读取的官方模板")).toBeInTheDocument();
-  expect(screen.getByText(/安装不会覆盖已有版本或状态/)).toBeInTheDocument();
+  expect(screen.getByText("暂无可用的官方模板。")).toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "新建技能"})).not.toBeInTheDocument();
   expect(vi.mocked(skillRequest).mock.calls.every(([, path]) => path.startsWith("official"))).toBe(true);
 });

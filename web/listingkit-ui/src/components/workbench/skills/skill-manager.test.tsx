@@ -1,11 +1,18 @@
 import {afterEach,beforeAll,expect,it,vi} from "vitest";
 import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {SkillManagerTrigger,SkillManager} from "./skill-manager";
-import {skillRequest} from "@/lib/api/skill";
+import {skillRequest,SkillError} from "@/lib/api/skill";
 import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
-vi.mock("@/lib/api/skill",()=>({skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
+vi.mock("@/lib/api/skill",async original=>({...await original<typeof import("@/lib/api/skill")>(),skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")}});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it("requires the existing maintainer capability for the settings installation entry",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:false,canInstallOfficial:false,reason:""}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"reader"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ expect(await screen.findByText("当前身份无权管理官方模板。")).toBeVisible();
+ expect(screen.queryByRole("button",{name:"安装官方模板"})).not.toBeInTheDocument();
+ expect(vi.mocked(skillRequest).mock.calls.every(([,path])=>path!=="official/install")).toBe(true);
+});
 it.each(["official","personal","organization"] as const)("keeps %s cards concise while showing meaningful limits",async space=>{
  const version={skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:7,state:"ENABLED",package:{name:"title-method",displayName:"标题整理",description:"整理标题",target:"product-title",digest:"a".repeat(64)}};
  const limited={...version,skill:{...version.skill,id:"22222222-2222-4222-8222-222222222222"},state:"DISABLED",package:{...version.package,name:"limited-method",displayName:"停用方法"}};
@@ -21,16 +28,14 @@ it.each(["official","personal","organization"] as const)("keeps %s cards concise
  expect(within(screen.getByRole("button",{name:/标题整理/})).queryByText("商品标题")).toBeNull();
  expect(screen.getByRole("button",{name:/停用方法/})).toHaveTextContent("不可复制");
 });
-it("keeps the skill manager open when cancelling its nested install dialog",async()=>{
+it("does not expose official installation in the skill library dialog",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:{items:[],nextCursor:""});
  render(<SkillManagerTrigger scope={{userId:"actor"}} space="personal"/>);
  fireEvent.click(screen.getByRole("button",{name:"我的技能"}));
  fireEvent.click(await screen.findByRole("button",{name:"官方模板"}));
- const trigger=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(trigger).toBeEnabled());fireEvent.click(trigger);
- const nested=await screen.findByRole("dialog",{name:"安装官方模板"});
- fireEvent(nested,new Event("cancel",{bubbles:true,cancelable:true}));
- expect(screen.queryByRole("dialog",{name:"安装官方模板"})).not.toBeInTheDocument();
- expect(screen.getByRole("dialog",{name:"官方模板"})).toBeInTheDocument();
+ await waitFor(()=>expect(screen.getByRole("button",{name:"刷新列表"})).toBeEnabled());
+ expect(screen.queryByRole("button",{name:"安装官方模板"})).not.toBeInTheDocument();
+ expect(vi.mocked(skillRequest).mock.calls.every(([,path])=>path!=="official/install")).toBe(true);
 });
 it.each(["official","personal","organization"] as const)("filters and searches all loaded pages in %s",async space=>{
  const first={skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:"title-method",displayName:"标题整理",description:"整理标题",target:"product-title",digest:"a".repeat(64)}};
@@ -68,6 +73,19 @@ it("opens an individual skill in a dialog and closes without copying it",async()
  expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path.endsWith("/copy"))).toBe(false);
  fireEvent(dialog,new Event("cancel",{cancelable:true}));expect(screen.queryByRole("dialog",{name:"商品标题整理"})).not.toBeInTheDocument();expect(trigger).toHaveFocus();
 });
+it("keeps official maintenance actions out of the skill library",async()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ const version={skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:"product-title-organize",displayName:"商品标题整理",description:"真实方法",target:"product-title",digest:"a".repeat(64)}};
+ const item={version,canUse:true,canCopy:true,canExport:true,canEdit:true,canPublish:true};
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path.endsWith("/versions/1")?item:path.endsWith("/versions")?{items:[version]}:{items:[item],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer",organizationId:"org"}} home="personal" initialSpace="official" presentation="page"/>);
+ const trigger=await screen.findByRole("button",{name:/商品标题整理/});await waitFor(()=>expect(trigger).toBeEnabled());fireEvent.click(trigger);
+ const dialog=await screen.findByRole("dialog",{name:"商品标题整理"});
+ expect(within(dialog).getByRole("link",{name:"处理已有商品"})).toBeVisible();
+ expect(within(dialog).getByRole("button",{name:"复制到本人"})).toBeVisible();
+ for(const name of ["保存为新版本","导出准确版本","停用该版本","撤销该版本"])expect(within(dialog).queryByRole("button",{name})).toBeNull();
+ expect(screen.queryByRole("button",{name:"安装官方模板"})).toBeNull();
+});
 it("closes the detail and focuses the error if another version cannot be read",async()=>{
  const id="11111111-1111-4111-8111-111111111111";
  const version={skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:2},version:1,state:"ENABLED",package:{name:"sample-skill",description:"真实方法",target:"product-title",digest:"a".repeat(64)}};
@@ -97,7 +115,7 @@ it("opens personal management without an effective organization and validates be
 
 it("installs the official release only through the maintainer action with no client packages",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path.endsWith("/install")?{installed:[],existing:[]}:{items:[],nextCursor:""});
- render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page"/>);
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
  const install=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(install).toBeEnabled());fireEvent.click(install);
  const dialog=await screen.findByRole("dialog",{name:"安装官方模板"});
  expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/install")).toBe(false);
@@ -107,9 +125,20 @@ it("installs the official release only through the maintainer action with no cli
 });
 it("closes the install dialog on Escape without installing",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:{items:[],nextCursor:""});
- render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page"/>);
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
  const trigger=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(trigger).toBeEnabled());trigger.focus();fireEvent.click(trigger);
  const dialog=await screen.findByRole("dialog",{name:"安装官方模板"});fireEvent(dialog,new Event("cancel",{cancelable:true}));
  expect(screen.queryByRole("dialog",{name:"安装官方模板"})).not.toBeInTheDocument();expect(trigger).toHaveFocus();
  expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/install")).toBe(false);
+});
+it("retries an uncertain installation with the original request key",async()=>{
+ let attempts=0;
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official/install"?(++attempts===1?Promise.reject(new SkillError("OUTCOME_UNKNOWN",true)):{installed:[],existing:[]}):{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ const install=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(install).toBeEnabled());fireEvent.click(install);
+ fireEvent.click(within(await screen.findByRole("dialog",{name:"安装官方模板"})).getByRole("button",{name:"确认安装"}));
+ const retry=await screen.findByRole("button",{name:"核实原操作"});expect(attempts).toBe(1);fireEvent.click(retry);
+ await waitFor(()=>expect(attempts).toBe(2));
+ const calls=vi.mocked(skillRequest).mock.calls.filter(([,path])=>path==="official/install");
+ expect(new Headers(calls[0][3]?.headers).get("Idempotency-Key")).toBe(new Headers(calls[1][3]?.headers).get("Idempotency-Key"));
 });
