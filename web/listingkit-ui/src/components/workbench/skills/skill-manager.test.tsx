@@ -186,7 +186,7 @@ it("closes the detail and focuses the error if another version cannot be read",a
  render(<SkillManager scope={{userId:"actor",organizationId:"org"}} home="personal" initialSpace="official" presentation="page"/>);
  fireEvent.click(await screen.findByRole("button",{name:/sample-skill/}));const dialog=await screen.findByRole("dialog",{name:"sample-skill"});
  fireEvent.change(within(dialog).getByLabelText("已保存版本"),{target:{value:"2"}});
- expect(await screen.findByRole("alert")).toHaveFocus();expect(screen.queryByRole("dialog",{name:"sample-skill"})).not.toBeInTheDocument();
+ const alert = await screen.findByRole("alert");await waitFor(() => expect(alert).toHaveFocus());expect(screen.queryByRole("dialog",{name:"sample-skill"})).not.toBeInTheDocument();
 });
 it.each(["product-title-organize","product-title-localize","product-title-shorten","product-image-standard","product-image-scene","product-image-details"])("opens %s using the selected exact version rather than its head",async name=>{
  const image=name.startsWith("product-image"),id="11111111-1111-4111-8111-111111111111";
