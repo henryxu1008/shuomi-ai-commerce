@@ -86,7 +86,7 @@ function ReportList({ scope, prefix, view, open, productSaveAvailable, canManage
       // prior pages first, using fresh cursors, rather than append to stale
       // report titles that the caller may no longer be allowed to see.
       const current = await reports.refetch();
-      if (current.isSuccess && current.hasNextPage) await reports.fetchNextPage();
+      if (current.isSuccess && current.data.pages.at(-1)?.next) await reports.fetchNextPage();
     } finally { setLoadingMore(false); }
   }
   const items = reports.data?.pages.flatMap(p => p.items) ?? [];
