@@ -369,7 +369,8 @@ it.each(["COMPLETE","FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT","PLANNER_U
   sessionStorage.setItem(key,JSON.stringify({id:conversationId,text:"相同内容"}));
   sessionStorage.setItem(`ai-workbench:pending-message:user-a:org-a:${conversationId}`,JSON.stringify({key:operationId,body:{content:"相同内容",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
   fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:route==="message"?{state}:Promise.reject(new Error("unexpected request")));
-  render(tree()); fireEvent.click(await screen.findByRole("button",{name:"重试同一消息"}));
+  render(tree()); const retry=await screen.findByRole("button",{name:"重试同一消息"});
+  await waitFor(()=>expect(retry).toBeEnabled()); fireEvent.click(retry);
   await waitFor(()=>expect(screen.queryByRole("button",{name:"重试同一消息"})).toBeNull());
   expect(JSON.parse(sessionStorage.getItem(key)!).id).toBe(conversationId);
   if(state!=="COMPLETE"){
@@ -386,7 +387,8 @@ it.each(["INVALID_REQUEST","PROPOSAL_STALE"] as const)("preserves both drafts af
   sessionStorage.setItem(key,JSON.stringify({id:conversationId,text:"相同内容"}));
   sessionStorage.setItem(`ai-workbench:pending-message:user-a:org-a:${conversationId}`,JSON.stringify({key:operationId,body:{content:"相同内容",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
   fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:Promise.reject(new AIWorkbenchError(code,false)));
-  render(tree()); fireEvent.click(await screen.findByRole("button",{name:"重试同一消息"}));
+  render(tree()); const retry=await screen.findByRole("button",{name:"重试同一消息"});
+  await waitFor(()=>expect(retry).toBeEnabled()); fireEvent.click(retry);
   await waitFor(()=>expect(screen.queryByRole("button",{name:"重试同一消息"})).toBeNull());
   fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修改旧需求"}});
   cleanup(); render(tree());
