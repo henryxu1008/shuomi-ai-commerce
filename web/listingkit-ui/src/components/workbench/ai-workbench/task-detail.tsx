@@ -10,7 +10,7 @@ import { KnowledgeCitations } from "../task-center/knowledge-citations";
 import { executionModeLabels } from "../agents/execution-mode-settings";
 import { taskState, taskReason, errorText } from "./task-presentation";
 import {contentSelectionLabel} from "@/lib/contracts/content-selection";
-import styles from "./task-page.module.css";
+import styles from "./task-detail.module.css";
 
 type TaskAction = "start" | "resume" | "review";
 type PendingTaskAction = { key: string; revision: string; feedback: string };
@@ -110,16 +110,20 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
   return <div className={styles.detail}>
     {!embedded ? <div className={styles.toolbar}><Button asChild variant="outline"><Link href="/workbench/ai/tasks" prefetch={false}>返回任务中心</Link></Button><Button variant="outline" onClick={() => void task.refetch()}>刷新状态</Button></div> : null}
     <Card className={styles.detailCard}><div className={styles.heading}><h2>{item.title}</h2><span className={styles.badge}>{item.projectionAvailable ? taskState[item.state ?? ""] ?? "状态未知" : "状态暂不可用"}</span></div>
-      <p>{item.goalSummary}</p><dl><dt>当前状态</dt><dd>{item.projectionAvailable ? taskReason(item.reason ?? "", item.kind) ?? "暂无更多状态信息" : "暂时无法获取当前状态"}</dd>
+      <dl className={styles.facts}><div><dt>当前进展</dt><dd>{item.projectionAvailable ? taskReason(item.reason ?? "", item.kind) ?? "暂无更多状态信息" : "暂时无法获取当前状态"}</dd></div>
+        {item.taskSelection?<><div><dt>任务对象</dt><dd>{item.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · 版本 {item.taskSelection.subject.catalogVersion}</dd></div><div><dt>处理内容</dt><dd>{contentSelectionLabel(item.taskSelection.parameters)}</dd></div></>:<div><dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd></div>}
+        <div><dt>创建时间</dt><dd><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("zh-CN")}</time></dd></div></dl>
+      <details className={styles.disclosure}><summary>查看完整需求</summary><p>{item.goalSummary}</p></details>
+      <details className={styles.disclosure}><summary>更多信息</summary><dl className={styles.records}>
         <dt>企业</dt><dd>当前企业</dd><dt>商品标识</dt><dd>{item.productDetailsAvailable ? item.productKey || "暂无商品标识" : "当前无权查看"}</dd>
-        {item.taskSelection?<><dt>任务对象</dt><dd>{item.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · 版本 {item.taskSelection.subject.catalogVersion}</dd><dt>语言与字段</dt><dd>{contentSelectionLabel(item.taskSelection.parameters)}</dd></>:<><dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd></>}
         <dt>执行模型</dt><dd>{item.providerId && item.modelId ? `${item.providerId} / ${item.modelId}` : "尚无可用执行记录"}</dd>
         <dt>用量</dt><dd>{item.usageStatus === "unknown_reserved" ? "用量暂未确认，预留额度仍在" : item.usageStatus === "observed" ? "用量已记录" : "尚无可用用量"}</dd>
         <dt>执行权限</dt><dd>{item.executionMode?`${executionModeLabels[item.executionMode]} · 版本 ${item.modeRevision}`:"权限模式不可用"}</dd><dt>审核</dt><dd>{item.policyAdoption?"按策略采用，未经逐项人工审阅":item.reviewState ? taskReason(item.reviewState,item.kind) ?? "状态暂不可用" : "尚未生成"}</dd>
-        <dt>创建时间</dt><dd>{new Date(item.createdAt).toLocaleString("zh-CN")}</dd></dl>
+        </dl></details>
       <KnowledgeCitations knowledge={item.knowledge} />
-      {item.scheduleId?<Button asChild variant="outline"><Link href={`/workbench/ai/tasks?view=schedules&schedule_id=${item.scheduleId}`} prefetch={false}>查看来源定时计划</Link></Button>:null}
+      <div className={styles.sourceActions}>{item.scheduleId?<Button asChild variant="outline"><Link href={`/workbench/ai/tasks?view=schedules&schedule_id=${item.scheduleId}`} prefetch={false}>查看来源定时计划</Link></Button>:null}
       {item.productDetailsAvailable && item.operationId ? <Button asChild variant="outline"><Link href={item.taskSelection?.subject.kind==="own_product"?`/workbench/data/mine/own/${item.taskSelection.subject.id}`:`/workbench/supply/acquisition/operation/${item.operationId}`} prefetch={false}>查看来源商品</Link></Button> : null}
+      </div>
     </Card>
     {result}
     <div className={styles.actions}>

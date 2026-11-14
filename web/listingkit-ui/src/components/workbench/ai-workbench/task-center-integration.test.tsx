@@ -61,6 +61,21 @@ it("reads Review directly in Task Center when Chat is unmounted", async () => {
   expect(screen.getByRole("region",{name:"任务详情"})).toBeVisible();
   expect(calls.decide).not.toHaveBeenCalled(); expect(calls.apply).not.toHaveBeenCalled();
 });
+it("keeps the full requirement and execution records readable without dispatching an action",async()=>{
+ calls.context.aiWorkbenchAvailable=true;
+ calls.tasks.mockImplementation(({route})=>Promise.resolve(route==="task-read"?{task:{...task,providerId:"openai",modelId:"test-model"}}:{tasks:[task],next:""}));
+ render(tree());
+ const row=await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/});
+ fireEvent.click(row);
+ const model=await screen.findByText("openai / test-model");
+ const requirement=within(screen.getByRole("region",{name:"任务详情"})).getByText(task.goalSummary);
+ expect(requirement).not.toBeVisible();expect(model).not.toBeVisible();
+ fireEvent.click(screen.getByText("查看完整需求"));expect(requirement).toBeVisible();
+ fireEvent.click(screen.getByText("更多信息"));expect(model).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"返回列表"}));expect(row).toHaveFocus();
+ expect(calls.tasks.mock.calls.every(([request])=>request.method==="GET")).toBe(true);
+ expect(calls.decide).not.toHaveBeenCalled();expect(calls.apply).not.toHaveBeenCalled();
+});
 it("keeps linked Review once and opens its existing controls inside the selected task", async () => {
   calls.context.aiWorkbenchAvailable = true;
   render(tree());

@@ -59,6 +59,13 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const listHeading = useRef<HTMLHeadingElement>(null);
   const rowButtons = useRef(new Map<string, HTMLButtonElement>());
+  const selectionFocus = useRef<"detail" | HTMLButtonElement | HTMLHeadingElement | null>(null);
+  useEffect(() => {
+    const target = selectionFocus.current;
+    selectionFocus.current = null;
+    if (target === "detail") detailHeading.current?.focus();
+    else target?.focus();
+  }, [selection]);
   const showReviews = (filterKind==="all"||filterKind==="unrecorded") && productReviewAvailable && (mode === "all" || mode === "pending");
   const tasks = useInfiniteQuery({
     queryKey: ["ai-tasks", scope.userId, scope.organizationId, authorizationKey, mode, generation,filterQuery.toString()], enabled: tasksAvailable && filterReady,
@@ -112,8 +119,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   const observeReview = useCallback((id?: string) => { if (id && !locked) setReviewRef(id); }, [locked, setReviewRef]);
   function select(next?: Selection) {
     if (locked) return;
-    if (next) detailHeading.current?.focus();
-    else (selection && rowButtons.current.get(selection.kind+selection.id) || listHeading.current)?.focus();
+    selectionFocus.current = next ? "detail" : selection && rowButtons.current.get(selection.kind+selection.id) || listHeading.current;
     setSelection(next); setReviewRef(next?.kind === "task" ? page.find(item=>item.id===next.id)?.reviewId : undefined);
     const url = new URL(window.location.href);
     if (next?.kind === "review") url.searchParams.set("proposal_id", next.id); else url.searchParams.delete("proposal_id");
@@ -162,7 +168,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     </div>
     {tasksAvailable&&(filterKind==="project"||filterKind==="store") ? <WorkScopePicker key={filterKind} initialKind={filterKind} fixedKind scope={scope} authorizationKey={authorizationKey} disabled={locked} selected={filterScope} onSelect={value=>{select();setFilterScope(value);}}/> : null}
     {!available ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
-    <div className={layout.columns}>
+    <div className={`${layout.columns} ${styles.columns}`} data-selected={!!selection}>
       <Card className={layout.list}><header className={layout.panelHeader}><h2 tabIndex={-1} ref={listHeading}>任务列表</h2><span>已显示 {rows.length} 项</span></header>
         {tasksAvailable && filterReady && tasks.isPending ? <ConsoleState kind="loading" title={mode==="all" ? "正在读取任务" : "正在查找符合筛选的任务"} /> : null}
         {tasksAvailable && tasks.isError ? <ConsoleState kind="error" title={tasks.data ? "部分任务读取失败" : "任务读取失败"}>{errorText(tasks.error)} <Button variant="outline" disabled={locked} onClick={()=>void(tasks.isFetchNextPageError ? tasks.fetchNextPage() : tasks.refetch())}>重试</Button></ConsoleState> : null}
