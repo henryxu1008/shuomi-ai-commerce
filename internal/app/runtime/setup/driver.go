@@ -222,7 +222,12 @@ func (d *Driver) inspectModules(ctx context.Context, a container, file string) (
 			args = append(args, "-e", key+"="+v)
 		}
 	}
-	args = append(args, "--entrypoint", "/usr/local/bin/current-application", d.release.BackendImage, "-config", path, "-inspect-modules")
+	// Retained instances restart their current immutable image, so that image's
+	// own validators must accept the candidate before it can be applied.
+	if a.Image == "" {
+		return nil, setupcontrol.ErrUnavailable
+	}
+	args = append(args, "--entrypoint", "/usr/local/bin/current-application", a.Image, "-config", path, "-inspect-modules")
 	b, e := d.run(ctx, args...)
 	if e != nil {
 		return nil, e
