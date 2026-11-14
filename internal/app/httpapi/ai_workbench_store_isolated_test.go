@@ -27,6 +27,7 @@ func TestChatStoreQueryIsolatedOwners(t *testing.T) {
 	t.Run("governed", func(t *testing.T) { testProductAgentOwners(t, "content flow chat") })
 	t.Run("unavailable", func(t *testing.T) { testConversationOnlyScopedCRUDAndNoExecution(t, nil) })
 	t.Run("scheduled chat", func(t *testing.T) { testProductAgentOwners(t, "content flow chat scheduled") })
+	t.Run("scheduled store authorization", func(t *testing.T) { testProductAgentOwners(t, "own content scheduled default") })
 	t.Run("selected product context", func(t *testing.T) {
 		t.Setenv("CODEX_PRODUCT_CONTEXT_FIXTURE", "1")
 		t.Run("acquisition", func(t *testing.T) { testProductAgentOwners(t, "content flow chat") })

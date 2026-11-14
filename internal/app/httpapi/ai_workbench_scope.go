@@ -5,12 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/aiworkbench"
 	pc "task-processor/internal/aiworkbench/projectcenter"
+	storeapp "task-processor/internal/app/storecenter"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	ps "task-processor/internal/integration/persistence/aiworkbench/projectcenter"
@@ -18,13 +20,14 @@ import (
 )
 
 type workbenchScopeSources struct {
-	storeOverview          func(context.Context, aiworkbench.Scope, storecenter.OverviewScope) (storecenter.VisibleStoreOverview, error)
-	storeOverviewAuthorize func(context.Context, aiworkbench.Scope, storecenter.VisibleStoreOverview) error
-	scheduledStoreRead     func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
-	reader                 aiworkbench.ScopeReader
-	storeRead              func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
-	projectPage            func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
-	storePage              func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
+	storeOverview           func(context.Context, aiworkbench.Scope, storecenter.OverviewScope) (storecenter.VisibleStoreOverview, error)
+	storeOverviewAuthorize  func(context.Context, aiworkbench.Scope, storecenter.VisibleStoreOverview) error
+	scheduledStoreRead      func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
+	scheduledConnectionRead func(context.Context, string, string) (aiworkbench.StoreConnectionFacts, error)
+	reader                  aiworkbench.ScopeReader
+	storeRead               func(context.Context, string, string) (aiworkbench.StoreScopeFacts, error)
+	projectPage             func(context.Context, aiworkbench.Scope, string, bool) ([]pc.Project, string, error)
+	storePage               func(context.Context, aiworkbench.Scope, int) (storecenter.StorePage, error)
 }
 
 func (a *aiWorkbenchApplication) scopeIdentity(ctx context.Context, owner aiworkbench.Scope, permission string) (context.Context, error) {
@@ -78,6 +81,39 @@ func (a *aiWorkbenchApplication) attachStoreScopes(stores *storecenter.MemberSco
 			return storecenter.StorePage{}, err
 		}
 		return stores.List(ctx, owner.OrganizationID, storecenter.StoreListQuery{Page: page, PageSize: 20})
+	}
+}
+
+// readStoreConnection uses only the store owner's recorded observation.
+func readStoreConnection(stores *storecenter.MemberScopedStoreRepository, connections *storeapp.OfficialConnections) func(context.Context, string, string) (aiworkbench.StoreConnectionFacts, error) {
+	return func(ctx context.Context, org, id string) (aiworkbench.StoreConnectionFacts, error) {
+		store, err := stores.Get(ctx, org, id)
+		if err != nil || store == nil {
+			return aiworkbench.StoreConnectionFacts{}, aiworkbench.ErrUnavailable
+		}
+		view, err := connections.Read(ctx, org, id)
+		if err != nil || view.Status != storecenter.ConnectionStatusConnected || view.Version <= 0 || view.ObservedAt == nil || view.CredentialExpiresAt != nil && !view.CredentialExpiresAt.After(time.Now()) {
+			return aiworkbench.StoreConnectionFacts{}, aiworkbench.ErrUnavailable
+		}
+		return aiworkbench.StoreConnectionFacts{Version: uint64(view.Version), ObservedAt: view.ObservedAt.UTC().Format(time.RFC3339Nano), Connected: true}, nil
+	}
+}
+
+// attachStoreConnectionScope never contacts the platform or updates observations.
+func (a *aiWorkbenchApplication) attachStoreConnectionScope(stores *storecenter.MemberScopedStoreRepository, connections *storeapp.OfficialConnections) {
+	regular := readStoreConnection(stores, connections)
+	a.scopes.reader.Connection = func(ctx context.Context, owner aiworkbench.Scope, id string) (aiworkbench.StoreConnectionFacts, error) {
+		ctx, err := a.scopeIdentity(ctx, owner, authz.PermissionWorkbenchStoreRead)
+		if err != nil {
+			return aiworkbench.StoreConnectionFacts{}, err
+		}
+		if scheduledExecutionContext(ctx) {
+			if a.scopes.scheduledConnectionRead == nil {
+				return aiworkbench.StoreConnectionFacts{}, aiworkbench.ErrUnavailable
+			}
+			return a.scopes.scheduledConnectionRead(ctx, owner.OrganizationID, id)
+		}
+		return regular(ctx, owner.OrganizationID, id)
 	}
 }
 

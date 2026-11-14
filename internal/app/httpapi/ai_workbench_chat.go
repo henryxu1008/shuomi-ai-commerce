@@ -279,6 +279,13 @@ func (a *aiWorkbenchApplication) proposalReceiptCard(ctx context.Context, scope 
 			return workbenchProposalCard{}, err
 		}
 		card.BusinessScope = &aiworkbench.ScopeView{Scope: f.Scope, ProjectName: f.ModelInput.ProjectTitle, StoreName: f.ModelInput.StoreName}
+		if f.StoreChoice != nil {
+			name := ""
+			if f.StoreChoice.Store != nil {
+				name = f.StoreChoice.Store.Name
+			}
+			card.SelectedStoreName = &name
+		}
 	}
 	task, found, err := a.store.LookupProposalTask(ctx, scope, proposal.ConversationID, proposal.ID)
 	if err != nil || found && task.ProposalDigest != proposal.Digest {

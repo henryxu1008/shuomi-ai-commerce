@@ -274,7 +274,17 @@ func (p *workbenchPlanner) admission(ctx context.Context, scope aiworkbench.Scop
 		if readErr != nil {
 			return nil, readErr
 		}
+		f.StoreChoice, readErr = p.workbench.scopes.reader.FreezeStoreChoice(ctx, scope, input.StoreChoice)
+		if readErr != nil {
+			return nil, readErr
+		}
+		if readErr = f.Validate(); readErr != nil {
+			return nil, readErr
+		}
 		frozen = &f
+	}
+	if fixed == nil && input.StoreChoice != nil {
+		return nil, aiworkbench.ErrUnavailable
 	}
 	if _, err = p.agent.workbenchSelectionBinding(ctx, identity, input.WorkScope()); err != nil {
 		return nil, err

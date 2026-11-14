@@ -79,3 +79,31 @@ func TestSelectedProductContextIsBoundToV4PlanningInput(t *testing.T) {
 	_, err = Prepare(request)
 	require.Error(t, err)
 }
+
+func TestStoreChoiceChangesOnlyTheCurrentTarget(t *testing.T) {
+	profile := testProfile()
+	profile.PromptVersion = ProductContextPromptVersion
+	owner := aiworkbench.Scope{OrganizationID: "org-1", ActorID: "actor-1"}
+	reader := aiworkbench.ScopeReader{Store: func(_ context.Context, _ aiworkbench.Scope, id string) (aiworkbench.StoreScopeFacts, error) {
+		return aiworkbench.StoreScopeFacts{ID: id, Name: "original-A", Platform: "shein", Region: "US", Version: 1}, nil
+	}}
+	frozen, err := reader.Freeze(context.Background(), owner, "conversation-1", "member-1", aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "store", StoreID: "store-a"})
+	require.NoError(t, err)
+	selection := &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: "11111111-1111-4111-8111-111111111111", CatalogVersion: "1", PublicationID: "publication-1"}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}
+	request := Request{Scope: owner, MemberID: "member-1", InvocationID: "inv-1", TaskSelection: selection, Profile: profile, FrozenScope: &frozen, ProductContext: &ProductContext{Title: "shirt"}, History: []aiworkbench.Message{{ID: "message-1", ConversationID: "conversation-1", Sequence: 1, Author: aiworkbench.AuthorUser, Content: "整理"}}}
+	old, err := Prepare(request)
+	require.NoError(t, err)
+	require.Contains(t, old.Identity.Prompt, "original-A")
+	frozen.StoreChoice = &aiworkbench.StoreChoiceScope{Kind: "store", Store: &aiworkbench.SelectedStoreScope{StoreID: "store-b", Name: "selected-B", Platform: "temu", Region: "US", StoreVersion: 1, ConnectionVersion: 1, ObservedAt: "2026-11-14T00:00:00Z"}}
+	changed, err := Prepare(request)
+	require.NoError(t, err)
+	require.Contains(t, changed.Identity.Prompt, "selected-B")
+	require.NotContains(t, changed.Identity.Prompt, "original-A")
+	require.NotEqual(t, old.Quote.InputHash, changed.Quote.InputHash)
+	frozen.StoreChoice = &aiworkbench.StoreChoiceScope{Kind: "none"}
+	cleared, err := Prepare(request)
+	require.NoError(t, err)
+	require.NotContains(t, cleared.Identity.Prompt, "original-A")
+	require.NotContains(t, cleared.Identity.Prompt, "selected-B")
+	require.NotEqual(t, changed.Quote.InputHash, cleared.Quote.InputHash)
+}

@@ -86,5 +86,5 @@ func (a *productAgentApplication) readContentWorkbenchContext(ctx context.Contex
 	if err != nil || current.TenantID != owner.OrganizationID || current.UserID != owner.ActorID || current.EffectiveMemberID != identity.MemberID || w.authorizeProductHistory(ctx, owner, ref.ConversationID, seq, current) != nil {
 		return nil, agent.ErrUnavailable
 	}
-	return f.ModelInput, nil
+	return f.EffectiveModelInput(), nil
 }
