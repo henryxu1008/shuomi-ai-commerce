@@ -152,9 +152,12 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
       {filters.filter(filter=>tasksAvailable || nativeRunsAvailable || filter.mode==="all" || filter.mode==="pending" && productReviewAvailable || filter.mode==="completed" && sheinRecordsAvailable).map(filter=><Link key={filter.mode} href={filter.href} aria-current={!pausedOnly && mode===filter.mode ? "page":undefined} aria-disabled={locked || undefined} tabIndex={locked ? -1 : undefined} prefetch={false} onClick={event=>{if(locked)event.preventDefault();}}>{filter.label}</Link>)}
       {tasksAvailable || nativeRunsAvailable ? <Button variant="outline" disabled={locked} aria-pressed={pausedOnly} onClick={()=>{select();setPausedOnly(value=>!value);}}>已暂停</Button> : null}
     </WorkbenchViewNav><Button variant="outline" disabled={locked} onClick={refresh}>刷新状态</Button></div>
-    {tasksAvailable ? <div><label>工作范围筛选 <select value={filterKind} disabled={locked} onChange={event=>{select();setFilterScope(undefined);setFilterKind(event.target.value as typeof filterKind);}}><option value="all">全部</option><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option><option value="unrecorded">未记录工作范围</option></select></label>
-      {filterKind==="project"||filterKind==="store" ? <WorkScopePicker key={filterKind} initialKind={filterKind} fixedKind scope={scope} authorizationKey={authorizationKey} disabled={locked} selected={filterScope} onSelect={value=>{select();setFilterScope(value);}}/> : null}</div> : null}
-    <p className={layout.coverage}>搜索和数量仅覆盖已加载且可判断的记录；待确认事项优先显示。运行完成不代表建议已采用或商品已发布，接受建议后仍需单独确认应用。</p>
+    <div className={styles.filterBar}>
+      {tasksAvailable ? <label className={styles.scopeFilter}>工作范围<select aria-label="工作范围筛选" value={filterKind} disabled={locked} onChange={event=>{select();setFilterScope(undefined);setFilterKind(event.target.value as typeof filterKind);}}><option value="all">全部范围</option><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option><option value="unrecorded">未记录工作范围</option></select></label> : null}
+      <span className={styles.filterHint}>待确认事项优先显示</span>
+      <details className={styles.filterHelp}><summary>查看说明</summary><div><p>搜索和数量仅包含当前已读取、状态可用的记录。可继续加载更早的任务。</p><p>任务完成后，如需将建议应用到商品或发布商品，仍需单独确认。</p></div></details>
+    </div>
+    {tasksAvailable&&(filterKind==="project"||filterKind==="store") ? <WorkScopePicker key={filterKind} initialKind={filterKind} fixedKind scope={scope} authorizationKey={authorizationKey} disabled={locked} selected={filterScope} onSelect={value=>{select();setFilterScope(value);}}/> : null}
     {!available ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
     <div className={layout.columns}>
       <Card className={layout.list}><header className={layout.panelHeader}><h2 tabIndex={-1} ref={listHeading}>任务列表</h2><span>已显示 {rows.length} 项</span></header>
