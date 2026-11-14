@@ -34,8 +34,8 @@ it.each(["active","recent","templates","archived"] as const)("exposes all projec
 });
 it("shows full private metrics, scopes store filters and clears them on reset",async()=>{
  render(<ProjectPage/>);await screen.findByText("35");expect(screen.getByText("店铺 20 · 非店铺 15")).toBeVisible();expect(screen.getByRole("heading",{name:"进行中项目",level:1})).toBeVisible();
- const store=screen.getByRole("combobox",{name:"具体店铺"});expect(store).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:/^关联店铺$/}));expect(store).toBeEnabled();fireEvent.change(store,{target:{value:"store-a"}});
- await waitFor(()=>expect(f.request.mock.calls.some(c=>new URLSearchParams(c[1].slice(1)).get("storeId")==="store-a")).toBe(true));fireEvent.click(screen.getByRole("button",{name:"重置"}));expect(store).toBeDisabled();
+ const store=screen.getByRole("combobox",{name:"关联店铺"});expect(store).toHaveValue("scope:all");fireEvent.change(store,{target:{value:"store:store-a"}});
+ await waitFor(()=>expect(f.request.mock.calls.some(c=>{const q=new URLSearchParams(c[1].slice(1));return q.get("storeId")==="store-a" && q.get("workScope")==="store";})).toBe(true));fireEvent.change(store,{target:{value:"scope:general"}});await waitFor(()=>expect(f.request.mock.calls.some(c=>{const q=new URLSearchParams(c[1].slice(1));return q.get("workScope")==="general" && q.get("storeId")==="";})).toBe(true));fireEvent.click(screen.getByRole("button",{name:"重置"}));expect(store).toHaveValue("scope:all");
  await waitFor(()=>expect(new URLSearchParams(f.request.mock.lastCall![1].slice(1)).get("storeId")).toBe(""));expect(screen.getAllByRole("heading",{name:"进行中项目",level:1})).toHaveLength(1);
 });
 it("keeps unknown metrics honest and does not reinstall stale overview after organization changes",async()=>{

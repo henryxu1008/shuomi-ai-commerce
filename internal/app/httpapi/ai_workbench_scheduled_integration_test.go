@@ -184,6 +184,24 @@ func testScheduledContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, 
 	require.NoError(t, store.CreateScheduledPlan(ctx, plan))
 	require.NoError(t, store.MarkScheduleRegistered(ctx, plan.Scope, plan.ID, 1))
 	executionCtx := context.WithValue(worker, scheduledExecutionKey{}, scheduledExecutionCommand{workbench: w, planID: plan.ID, slot: plan.Rule.AtUTC})
+	// A selected store uses the scheduled principal rather than a browser token.
+	w.attachStoreConnectionScope(nil, nil)
+	w.scopes.scheduledConnectionRead = func(_ context.Context, org, id string) (aiworkbench.StoreConnectionFacts, error) {
+		if org != "B" || id != "store-b" {
+			return aiworkbench.StoreConnectionFacts{}, aiworkbench.ErrNotFound
+		}
+		return aiworkbench.StoreConnectionFacts{Version: 1, ObservedAt: "2026-11-14T00:00:00Z", Connected: true}, nil
+	}
+	_, err = w.scopes.reader.Connection(executionCtx, plan.Scope, "store-b")
+	require.NoError(t, err)
+	_, err = (scheduledStoreMemberAuthorizer{app: w}).AuthorizeStoreMember(executionCtx, "B")
+	require.NoError(t, err)
+	revoked.Store(true)
+	_, err = w.scopes.reader.Connection(executionCtx, plan.Scope, "store-b")
+	require.Error(t, err)
+	_, err = (scheduledStoreMemberAuthorizer{app: w}).AuthorizeStoreMember(executionCtx, "B")
+	require.Error(t, err)
+	revoked.Store(false)
 	_, err = (productAgentSourceGateway{application: a}).ReadEffectiveSource(context.WithValue(executionCtx, productAgentSourceBindingKey{}, item.Binding), commercetool.Principal{TenantID: "B", UserID: "admin", Roles: []string{"listingkit_admin"}}, item.Effective)
 	require.NoError(t, err, "source evidence must authorize the same tokenless original owner")
 	err = w.DispatchScheduled(worker, plan.ID, plan.Rule.AtUTC)

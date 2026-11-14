@@ -234,22 +234,24 @@ func workbenchReply(c *gin.Context, status int, value any) {
 }
 
 type workbenchMessageBody struct {
-	TaskSelection    *aiworkbench.TaskSelection `json:"taskSelection,omitempty"`
-	Content          string                     `json:"content"`
-	OperationID      string                     `json:"operationId"`
-	TargetPlatform   string                     `json:"targetPlatform"`
-	TemplateID       string                     `json:"templateId,omitempty"`
-	TemplateRevision string                     `json:"templateRevision,omitempty"`
-	KnowledgeBaseID  string                     `json:"knowledgeBaseId,omitempty"`
+	TaskSelection    *aiworkbench.TaskSelection    `json:"taskSelection,omitempty"`
+	StoreChoice      *aiworkbench.StoreChoiceInput `json:"storeChoice,omitempty"`
+	Content          string                        `json:"content"`
+	OperationID      string                        `json:"operationId"`
+	TargetPlatform   string                        `json:"targetPlatform"`
+	TemplateID       string                        `json:"templateId,omitempty"`
+	TemplateRevision string                        `json:"templateRevision,omitempty"`
+	KnowledgeBaseID  string                        `json:"knowledgeBaseId,omitempty"`
 }
 
 func (b workbenchMessageBody) input() aiworkbench.MessageInput {
-	return aiworkbench.MessageInput{TaskSelection: b.TaskSelection, Content: b.Content, OperationID: b.OperationID,
+	return aiworkbench.MessageInput{TaskSelection: b.TaskSelection, StoreChoice: b.StoreChoice, Content: b.Content, OperationID: b.OperationID,
 		TargetPlatform: b.TargetPlatform, TemplateID: b.TemplateID,
 		TemplateRevision: b.TemplateRevision, KnowledgeBaseID: b.KnowledgeBaseID}
 }
 
 type workbenchProposalCard struct {
+	SelectedStoreName     *string                    `json:"selectedStoreName,omitempty"`
 	BusinessScope         *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	Kind                  string                     `json:"kind"`
 	TaskSelection         *aiworkbench.TaskSelection `json:"taskSelection,omitempty"`

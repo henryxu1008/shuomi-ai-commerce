@@ -17,6 +17,19 @@ func TestContentMessageFingerprintStaysStableAcrossOwnerExtraction(t *testing.T)
 	require.Equal(t, "d034f715f401089f760b245255e78377d26931bf9e13ba08fa9c58f7fbaf2506", messageFingerprint("conversation", input))
 }
 
+func TestMessageStoreChoiceBindsRetryFingerprint(t *testing.T) {
+	input := aiworkbench.MessageInput{Content: "Localize", TaskSelection: &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: "fa5a9456-c8cb-43bf-ad1c-57a3e9f5199a", CatalogVersion: "3", PublicationID: "current-pub"}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}}
+	legacy := messageFingerprint("conversation", input)
+	input.StoreChoice = &aiworkbench.StoreChoiceInput{Kind: "none"}
+	none := messageFingerprint("conversation", input)
+	require.NotEqual(t, legacy, none)
+	input.StoreChoice = &aiworkbench.StoreChoiceInput{Kind: "store", StoreID: "store-a", ScopeConfirmation: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ConnectionVersion: 1}
+	a := messageFingerprint("conversation", input)
+	require.NotEqual(t, none, a)
+	input.StoreChoice.StoreID = "store-b"
+	require.NotEqual(t, a, messageFingerprint("conversation", input))
+}
+
 func TestContentMessageFreezesSourceNeutralSelectionAndKeepsTitleFingerprint(t *testing.T) {
 	input := aiworkbench.MessageInput{Content: "Localize", TaskSelection: &aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: "fa5a9456-c8cb-43bf-ad1c-57a3e9f5199a", CatalogVersion: "3", PublicationID: "current-pub"}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}}
 	require.True(t, validMessage(input))

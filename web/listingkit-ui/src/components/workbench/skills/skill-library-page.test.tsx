@@ -1,6 +1,6 @@
 import {afterEach, beforeAll, beforeEach, expect, it, vi} from "vitest";
 import {cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
-import {skillRequest} from "@/lib/api/skill";
+import {skillRequest,SkillError} from "@/lib/api/skill";
 import type {SkillProjection} from "@/lib/contracts/skill";
 import {SkillLibraryPage} from "./skill-library-page";
 import {SkillManagerTrigger} from "./skill-manager";
@@ -141,6 +141,26 @@ it.each([["复制到本人", "personal/copy"], ["复制到当前企业", "organi
   expect(JSON.parse(String(call[3]?.body))).toEqual({source: {kind: "skill-version-v1", id: item.version.skill.id, ownerKind: "PLATFORM", ownerId: "official", version: 2, digest: "a".repeat(64), policyVersion: "skill-method-v1"}, allowCopy: false, allowExport: false});
 });
 
+it("keeps an unknown copy recoverable after closing the detail dialog", async () => {
+  Object.assign(context, {effectiveOrganization: {id:"org-a",name:"企业 A"},selectionRequired:false});
+  const item: SkillProjection = {version:{skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:1,revision:1,createdAt:"2026-10-17T00:00:00Z",updatedAt:"2026-10-17T00:00:00Z"},version:1,package:{name:"retry-skill",description:"Official method",digest:"a".repeat(64),files:[]},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:"2026-10-17T00:00:00Z"},canEdit:false,canPublish:false,canUse:true,canCopy:true,canExport:true};
+  vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:false,canCreate:true,reason:""}:path.endsWith("/versions/1")?item:path.endsWith("/versions")?{items:[item.version]}:path.endsWith("/copy")?Promise.reject(new SkillError("OUTCOME_UNKNOWN",true)):{items:[item],nextCursor:""});
+  render(<SkillLibraryPage expectedUserId="alice" category="official"/>);fireEvent.click(await screen.findByText("retry-skill"));
+  const dialog=await screen.findByRole("dialog",{name:"retry-skill"});fireEvent.click(within(dialog).getByRole("button",{name:"复制到本人"}));
+  await within(dialog).findByRole("button",{name:"核实原操作"});fireEvent(dialog,new Event("cancel",{cancelable:true}));
+  const retry=screen.getByRole("button",{name:"核实原操作"});expect(retry).toHaveFocus();fireEvent.click(retry);
+  await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.filter(([,path])=>path==="personal/copy")).toHaveLength(2));
+  const writes=vi.mocked(skillRequest).mock.calls.filter(([,path])=>path==="personal/copy");expect(writes[0][3]?.headers).toEqual(writes[1][3]?.headers);
+});
+it.each(["SKILL_FORBIDDEN","SKILL_NOT_FOUND","IDENTITY_CONTEXT_CHANGED","ORGANIZATION_CONTEXT_CHANGED"])("removes prior skill details when version access fails with %s", async code => {
+  Object.assign(context, {effectiveOrganization:{id:"org-a",name:"企业 A"},selectionRequired:false});
+  const item: SkillProjection = {version:{skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"PLATFORM",id:"official"},creator:"maintainer",headVersion:2,revision:1,createdAt:"2026-10-17T00:00:00Z",updatedAt:"2026-10-17T00:00:00Z"},version:1,package:{name:"permission-skill",description:"Private skill text",digest:"a".repeat(64),files:[]},state:"ENABLED",visibility:"SHARED",allowCopy:true,allowExport:true,createdAt:"2026-10-17T00:00:00Z"},canEdit:false,canPublish:false,canUse:true,canCopy:true,canExport:true};
+  vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:false,canCreate:true,reason:""}:path.endsWith("/versions/2")?Promise.reject(new SkillError(code)):path.endsWith("/versions/1")?item:path.endsWith("/versions")?{items:[item.version,{...item.version,version:2}]}:{items:[item],nextCursor:""});
+  render(<SkillLibraryPage expectedUserId="alice" category="official"/>);fireEvent.click(await screen.findByText("permission-skill"));
+  const dialog=await screen.findByRole("dialog",{name:"permission-skill"});fireEvent.change(within(dialog).getByLabelText("已保存版本"),{target:{value:"2"}});
+  expect(await screen.findByRole("alert")).toHaveFocus();expect(screen.queryByRole("dialog",{name:"permission-skill"})).not.toBeInTheDocument();expect(screen.queryByText("Private skill text")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"复制到本人"})).not.toBeInTheDocument();
+});
+
 it.each([[false, "page"], ["unavailable", "page"], [false, "dialog"], ["unavailable", "dialog"]])("hides organization copy when organization/info canCreate is %s in %s", async (allowed, presentation) => {
   Object.assign(context, {effectiveOrganization: {id: "org-a", name: "企业 A"}, selectionRequired: false, permissions: ["workbench.agent.read"]});
   const item = {
@@ -163,6 +183,6 @@ it.each([[false, "page"], ["unavailable", "page"], [false, "dialog"], ["unavaila
   }
   fireEvent.click(await screen.findByText("readable-official"));
   if (presentation === "page") expect(await screen.findByRole("button", {name: "复制到本人"})).toBeEnabled();
-  else await screen.findByRole("heading", {name: "readable-official · v1"});
+  else await screen.findByRole("dialog", {name: "readable-official"});
   expect(screen.queryByRole("button", {name: "复制到当前企业"})).not.toBeInTheDocument();
 });

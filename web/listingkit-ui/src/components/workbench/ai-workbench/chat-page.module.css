@@ -27,6 +27,7 @@
 .composeLabel textarea:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .composeFooter { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: flex-end; padding: .25rem; }
+.storeControl { flex: 1 1 auto; min-width: 0; }
 .composeFooter p { flex: 1 1 16rem; }
 .voiceControl { display: flex; align-items: center; gap: .5rem; min-width: 0; color: var(--muted-foreground); font-size: var(--body-text-size); }
 .voiceControl button { border-color: transparent; background: transparent; }

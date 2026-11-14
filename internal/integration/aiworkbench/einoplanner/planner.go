@@ -108,7 +108,8 @@ func Prepare(request Request) (Prepared, error) {
 				return Prepared{}, aiworkbench.ErrInvalid
 			}
 		}
-		scopeInput = &f.ModelInput
+		modelInput := f.EffectiveModelInput()
+		scopeInput = &modelInput
 	}
 	if request.Profile.PromptVersion == ProductContextPromptVersion {
 		p := request.ProductContext
@@ -181,18 +182,23 @@ func prepareEnvelope(request Request, scopeInput *aiworkbench.ScopeModelInput) (
 		}
 		history = compact
 	}
+	var selectedContextDigest string
+	if request.FrozenScope != nil && request.FrozenScope.StoreChoice != nil {
+		selectedContextDigest = request.FrozenScope.Digest()
+	}
 	prompt, err := json.Marshal(struct {
-		OperationID      string                       `json:"operation_id,omitempty"`
-		TargetPlatform   string                       `json:"target_platform,omitempty"`
-		TemplateID       string                       `json:"template_id,omitempty"`
-		TemplateRevision string                       `json:"template_revision,omitempty"`
-		KnowledgeBaseID  string                       `json:"knowledge_base_id,omitempty"`
-		WorkContext      *aiworkbench.ScopeModelInput `json:"work_context,omitempty"`
-		History          any                          `json:"history"`
-		TaskSelection    *aiworkbench.TaskSelection   `json:"task_selection,omitempty"`
-		ProductContext   *ProductContext              `json:"product_context,omitempty"`
+		OperationID           string                       `json:"operation_id,omitempty"`
+		TargetPlatform        string                       `json:"target_platform,omitempty"`
+		TemplateID            string                       `json:"template_id,omitempty"`
+		TemplateRevision      string                       `json:"template_revision,omitempty"`
+		KnowledgeBaseID       string                       `json:"knowledge_base_id,omitempty"`
+		WorkContext           *aiworkbench.ScopeModelInput `json:"work_context,omitempty"`
+		SelectedContextDigest string                       `json:"selected_context_digest,omitempty"`
+		History               any                          `json:"history"`
+		TaskSelection         *aiworkbench.TaskSelection   `json:"task_selection,omitempty"`
+		ProductContext        *ProductContext              `json:"product_context,omitempty"`
 	}{request.OperationID, request.TargetPlatform, request.TemplateID, request.TemplateRevision,
-		request.KnowledgeBaseID, scopeInput, history, request.TaskSelection, request.ProductContext})
+		request.KnowledgeBaseID, scopeInput, selectedContextDigest, history, request.TaskSelection, request.ProductContext})
 	if err != nil || scopeInput != nil && len(prompt) > 64<<10 {
 		return Prepared{}, aiworkbench.ErrInvalid
 	}

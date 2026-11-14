@@ -67,6 +67,19 @@ func (a *aiWorkbenchApplication) authorizeProductHistory(ctx context.Context, sc
 			return err
 		}
 	}
+	storeRefs, err := a.store.StoreDependencies(ctx, scope, conversation, through)
+	if err != nil {
+		return err
+	}
+	authorizationCtx := ctx
+	if !scheduledExecutionContext(ctx) {
+		authorizationCtx = authidentity.WithAuthenticatedIdentity(ctx, i)
+	}
+	for _, ref := range storeRefs {
+		if _, err := a.authorizedFrozenScope(authorizationCtx, scope, ref, false); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

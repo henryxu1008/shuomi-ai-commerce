@@ -32,3 +32,5 @@
 .knowledge-original-dialog .knowledge-actions{justify-content:flex-end;margin-top:20px}
 .knowledge-original-dialog .knowledge-original-warning{padding:12px;margin:12px 0 16px;border-radius:var(--radius);color:var(--destructive);background:color-mix(in srgb,var(--destructive) 9%,var(--card))}
 @media(max-width:760px){.knowledge-source-row{flex-direction:column;align-items:stretch}.knowledge-original-dialog{padding:18px}.knowledge-original-dialog .knowledge-original-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.knowledge-categories{margin-bottom:20px}

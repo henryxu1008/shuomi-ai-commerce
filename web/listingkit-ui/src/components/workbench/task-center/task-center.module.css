@@ -9,10 +9,7 @@
 .metric:nth-child(3) .swatch { background: color-mix(in srgb,var(--console-purple) 18%,var(--card)); }
 .scope { min-height: 88px; padding: 10px 16px; }
 .scope p { margin-top: 0; }
-.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; flex: 1; }
-.filters a { padding: 9px 20px; border: 1px solid var(--border); border-radius: var(--control-radius); min-height: 38px; font-size: var(--body-text-size); text-align: center; }
-.filters a[aria-current] { background: var(--accent); color: var(--accent-foreground); }
-.filters button { font-size: var(--label-text-size); }
+.viewNavigation { flex:1 1 auto; }
 .coverage { color: var(--muted-foreground); line-height: 1.65; margin: 0 0 16px; font-size: var(--label-text-size); }
 .columns { display: grid; grid-template-columns: minmax(0,758fr) minmax(0,356fr); gap: 24px; align-items: start; }
 .list, .detail { min-height: 240px; padding: 16px; border-radius: var(--radius); }
@@ -46,7 +43,5 @@
   .metric { padding: 12px; gap: 8px; }
   .swatch { width: 24px; height: 32px; }
   .metric h2 { font-size: var(--label-text-size); }
-  .filters { gap: 8px; }
-  .filters a { min-height: 44px; }
   .row { min-height: 126px; }
 }

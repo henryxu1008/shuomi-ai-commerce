@@ -54,3 +54,9 @@ it.each(['isLoading', 'isSwitching', 'selectionRequired'] as const)('clears the 
   expect(fixture.redirect).not.toHaveBeenCalled();
   expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
 });
+
+it("opens Chat directly from the AI workbench entry", () => {
+  fixture.context.aiWorkbenchAvailable = true;
+  render(<Page />);
+  expect(screen.getByRole("link", {name: /进入硕米Chat/})).toHaveAttribute("href", "/workbench/ai/chat/new");
+});

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"regexp"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -75,10 +76,17 @@ type StoreScopeFacts struct {
 	Version                    uint64
 }
 
+type StoreConnectionFacts struct {
+	Version    uint64
+	ObservedAt string
+	Connected  bool
+}
+
 // ScopeReader uses the current owners' private Project and member Store reads.
 type ScopeReader struct {
-	Project func(context.Context, Scope, string) (ProjectScopeFacts, error)
-	Store   func(context.Context, Scope, string) (StoreScopeFacts, error)
+	Project    func(context.Context, Scope, string) (ProjectScopeFacts, error)
+	Store      func(context.Context, Scope, string) (StoreScopeFacts, error)
+	Connection func(context.Context, Scope, string) (StoreConnectionFacts, error)
 }
 
 type ScopeModelInput struct {
@@ -97,6 +105,45 @@ type FrozenScope struct {
 	ProjectRevision uint64
 	StoreVersion    uint64
 	ModelInput      ScopeModelInput
+	StoreChoice     *StoreChoiceScope `json:",omitempty"`
+}
+
+// EffectiveModelInput projects the current store without changing the frozen base.
+func (f FrozenScope) EffectiveModelInput() ScopeModelInput {
+	result := f.ModelInput
+	if f.StoreChoice != nil {
+		result.StoreName, result.Platform, result.Region = "", "", ""
+		if selected := f.StoreChoice.Store; f.StoreChoice.Kind == "store" && selected != nil {
+			result.StoreName, result.Platform, result.Region = selected.Name, selected.Platform, selected.Region
+		}
+	}
+	return result
+}
+
+type StoreChoiceScope struct {
+	Kind  string
+	Store *SelectedStoreScope `json:",omitempty"`
+}
+
+func (s *StoreChoiceScope) Matches(input *StoreChoiceInput) bool {
+	if s == nil || input == nil {
+		return s == nil && input == nil
+	}
+	if !input.Valid() || s.Kind != input.Kind {
+		return false
+	}
+	if s.Kind == "none" {
+		return s.Store == nil
+	}
+	return s.Store != nil && s.Store.StoreID == input.StoreID && s.Store.ConnectionVersion == input.ConnectionVersion
+}
+
+// SelectedStoreScope is the exact owner-provided store observed for a single
+// command. Scope above remains the immutable conversation origin.
+type SelectedStoreScope struct {
+	StoreID, Name, Platform, Region string
+	StoreVersion, ConnectionVersion uint64
+	ObservedAt                      string
 }
 
 func (f FrozenScope) Validate() error {
@@ -109,6 +156,20 @@ func (f FrozenScope) Validate() error {
 		f.Scope.StoreID == "" && (f.ModelInput.StoreName != "" || f.ModelInput.Platform != "" || f.ModelInput.Region != "") ||
 		f.Scope.StoreID != "" && f.ModelInput.StoreName == "" {
 		return ErrInvalid
+	}
+	if choice := f.StoreChoice; choice != nil {
+		if choice.Kind == "none" && choice.Store != nil || choice.Kind == "store" && choice.Store == nil || choice.Kind != "none" && choice.Kind != "store" {
+			return ErrInvalid
+		}
+	}
+	if f.StoreChoice != nil && f.StoreChoice.Store != nil {
+		s := f.StoreChoice.Store
+		if !scopeIdentifier.MatchString(s.StoreID) || s.Name == "" || s.Platform == "" || s.StoreVersion == 0 || s.ConnectionVersion == 0 || len(s.Name) > 512 || len(s.Platform) > 128 || len(s.Region) > 128 || !utf8.ValidString(s.Name) || !utf8.ValidString(s.Platform) || !utf8.ValidString(s.Region) {
+			return ErrInvalid
+		}
+		if _, err := time.Parse(time.RFC3339Nano, s.ObservedAt); err != nil {
+			return ErrInvalid
+		}
 	}
 	for _, field := range []struct {
 		value string
@@ -195,6 +256,43 @@ func (r ScopeReader) Freeze(ctx context.Context, owner Scope, conversation, memb
 	return f, f.Validate()
 }
 
+// FreezeStoreChoice never calls a provider; Connection reads the owner-held
+// observation. No choice is distinct from an explicit clear.
+func (r ScopeReader) FreezeStoreChoice(ctx context.Context, owner Scope, choice *StoreChoiceInput) (*StoreChoiceScope, error) {
+	if choice == nil {
+		return nil, nil
+	}
+	if !choice.Valid() {
+		return nil, ErrInvalid
+	}
+	if choice.Kind == "none" {
+		return &StoreChoiceScope{Kind: "none"}, nil
+	}
+	if r.Store == nil || r.Connection == nil {
+		return nil, ErrUnavailable
+	}
+	view, confirmation, err := r.Preview(ctx, owner, ScopeSelection{Kind: "store", StoreID: choice.StoreID})
+	if err != nil {
+		return nil, err
+	}
+	if confirmation != choice.ScopeConfirmation {
+		return nil, ErrProposalStale
+	}
+	store, err := r.Store(ctx, owner, choice.StoreID)
+	if err != nil {
+		return nil, err
+	}
+	connection, err := r.Connection(ctx, owner, choice.StoreID)
+	if err != nil {
+		return nil, err
+	}
+	if store.ID != choice.StoreID || view.StoreName != store.Name || !connection.Connected || connection.Version != choice.ConnectionVersion {
+		return nil, ErrProposalStale
+	}
+	selected := &StoreChoiceScope{Kind: "store", Store: &SelectedStoreScope{StoreID: store.ID, Name: store.Name, Platform: store.Platform, Region: store.Region, StoreVersion: store.Version, ConnectionVersion: connection.Version, ObservedAt: connection.ObservedAt}}
+	return selected, nil
+}
+
 // View rechecks read permissions against the originally bound resources. A
 // rebind does not cause the historical scope to inherit the new store.
 func (r ScopeReader) View(ctx context.Context, owner Scope, scope BusinessScope) (ScopeView, error) {
@@ -218,6 +316,35 @@ func (r ScopeReader) Check(ctx context.Context, frozen FrozenScope, member strin
 	}
 	if freshInput && current.ModelInput != frozen.ModelInput {
 		return ErrProposalStale
+	}
+	if frozen.StoreChoice != nil && frozen.StoreChoice.Store != nil {
+		selected := frozen.StoreChoice.Store
+		if r.Store == nil {
+			return ErrUnavailable
+		}
+		currentStore, err := r.Store(ctx, frozen.Owner, selected.StoreID)
+		if err != nil {
+			return err
+		}
+		if currentStore.ID != selected.StoreID {
+			return ErrUnavailable
+		}
+		if freshInput && (currentStore.Name != selected.Name || currentStore.Platform != selected.Platform || currentStore.Region != selected.Region || currentStore.Version != selected.StoreVersion) {
+			return ErrProposalStale
+		}
+		if r.Connection == nil {
+			return ErrUnavailable
+		}
+		connection, err := r.Connection(ctx, frozen.Owner, selected.StoreID)
+		if err != nil {
+			return err
+		}
+		if !connection.Connected {
+			return ErrUnavailable
+		}
+		if freshInput && connection.Version != selected.ConnectionVersion {
+			return ErrProposalStale
+		}
 	}
 	return nil
 }

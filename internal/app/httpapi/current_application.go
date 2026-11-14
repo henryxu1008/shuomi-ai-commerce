@@ -1261,6 +1261,16 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				return nil, e
 			}
 			projectChat.attachStoreScopes(stores)
+			var chatConnections *storeapp.OfficialConnections
+			if supplied.officialStoreApplications == nil {
+				chatConnections, e = storeapp.NewUnconfiguredOfficialConnections(stores)
+			} else {
+				chatConnections, e = storeapp.NewOfficialConnections(stores, supplied.officialStoreApplications)
+			}
+			if e != nil {
+				return nil, e
+			}
+			projectChat.attachStoreConnectionScope(stores, chatConnections)
 			catalog, e := storecenter.NewCatalog(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer}, nil)
 			if e != nil {
 				return nil, e
@@ -1271,6 +1281,16 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				if e != nil {
 					return nil, e
 				}
+				var scheduledConnections *storeapp.OfficialConnections
+				if supplied.officialStoreApplications == nil {
+					scheduledConnections, e = storeapp.NewUnconfiguredOfficialConnections(executionStores)
+				} else {
+					scheduledConnections, e = storeapp.NewOfficialConnections(executionStores, supplied.officialStoreApplications)
+				}
+				if e != nil {
+					return nil, e
+				}
+				projectChat.scopes.scheduledConnectionRead = readStoreConnection(executionStores, scheduledConnections)
 				projectChat.scopes.scheduledStoreRead = func(ctx context.Context, org, id string) (aiworkbench.StoreScopeFacts, error) {
 					s, err := executionStores.Get(ctx, org, id)
 					if err != nil {

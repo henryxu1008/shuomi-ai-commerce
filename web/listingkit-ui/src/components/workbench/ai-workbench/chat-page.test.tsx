@@ -1,3 +1,6 @@
+// jsdom does not implement the browser modal dialog API.
+Object.defineProperty(HTMLDialogElement.prototype, "showModal", {configurable:true, value:function(this:HTMLDialogElement){this.open=true;}});
+Object.defineProperty(HTMLDialogElement.prototype, "close", {configurable:true, value:function(this:HTMLDialogElement){this.open=false;}});
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -6,7 +9,7 @@ import { AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { ChatPage } from "./chat-page";
 
 const fixture = vi.hoisted(() => ({
-  request: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
+  request: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), connection:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
   context: { user: { id: "user-a" }, effectiveMemberId:"member-a", effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
     aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchStoreRouteReadiness:"AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
 }));
@@ -14,6 +17,7 @@ vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof 
 vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:fixture.templates}));
 vi.mock("@/lib/api/knowledge",async original=>({...await original<object>(),knowledgeRequest:fixture.knowledge}));
 vi.mock("@/lib/api/account",async original=>({...await original<object>(),getAccountProfile:vi.fn().mockResolvedValue({displayName:null})}));
+vi.mock("@/lib/api/store-connection",async original=>({...await original<object>(),getStoreConnection:fixture.connection}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,disabled,isEligible}:{onSelect:(item:unknown)=>void;disabled:boolean;isEligible?:(item:{source:{kind:string;operationId?:string}})=>boolean})=>{const own={id:operationId,title:"Imported own product",source:{kind:"own",productKey:"product",version:"1",publicationId:operationId}},acquired={id:operationId,title:"采集商品",source:{kind:"acquisition",operationId,productKey:"product"}};return <>{(!isEligible||isEligible(own))&&<button disabled={disabled} onClick={()=>onSelect(own)}>选择我的商品</button>}{(!isEligible||isEligible(acquired))&&<button disabled={disabled} onClick={()=>onSelect(acquired)}>选择采集商品</button>}</>}}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: fixture.push }), useSearchParams: () => fixture.search }));
@@ -37,7 +41,7 @@ it("hides store counts on focus until the live history is reauthorized", async (
  let resolveNext:(value:unknown)=>void=()=>{};
  fixture.request.mockImplementationOnce(async()=>({conversation,messages:[reference],proposals:[],before:""})).mockImplementationOnce(()=>new Promise(resolve=>{resolveNext=resolve}));
  render(tree());
- expect(await screen.findByText(/当前可查看 3 家店铺/)).toBeInTheDocument();
+ expect(await screen.findByText(/全部可见店铺：当前可查看 3 家店铺/)).toBeInTheDocument();
  fireEvent.blur(window); fireEvent.focus(window);
  await waitFor(()=>expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull());
  await act(async()=>resolveNext({conversation,messages:[{...reference,currentStoreOverview:undefined,storeOverviewUnavailable:true}],proposals:[],before:""}));
@@ -144,7 +148,7 @@ it("uses a separate idempotent no-model store overview action", async () => {
    throw new Error("unexpected model call");
  });
  render(tree());
- fireEvent.click(await screen.findByRole("button",{name:"查看店铺概况"}));
+ fireEvent.click(await screen.findByRole("button",{name:"查看全部可见店铺概况"}));
  fireEvent.click(await screen.findByRole("button",{name:"核对原店铺查询"}));
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([input])=>input.route==="store-overview")).toHaveLength(2));
  const sent=fixture.request.mock.calls.map(([input])=>input).filter(input=>input.route==="store-overview");
@@ -158,7 +162,7 @@ it("does not carry a pending store query key into a different conversation",asyn
  fixture.request.mockImplementation(async({route,path})=>{if(route!=="conversation-read")throw new Error("unexpected");return {conversation:{...conversation,ID:path.includes(secondId)?secondId:conversationId,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""}});
  const view=render(tree());expect(await screen.findByRole("button",{name:"核对原店铺查询"})).toBeEnabled();
  view.rerender(<QueryClientProvider client={client}><ChatPage mode="detail" conversationId={secondId}/></QueryClientProvider>);
- await waitFor(()=>expect(screen.getByRole("button",{name:"查看店铺概况"})).toBeEnabled());expect(screen.queryByRole("button",{name:"核对原店铺查询"})).toBeNull();
+ await waitFor(()=>expect(screen.getByRole("button",{name:"查看全部可见店铺概况"})).toBeEnabled());expect(screen.queryByRole("button",{name:"核对原店铺查询"})).toBeNull();
 });
 
 it("inserts final speech at the current caret without losing edits or sending a message", async () => {
@@ -214,6 +218,27 @@ it("accepts a local draft before creating a general conversation without sending
   fireEvent.click(screen.getByRole("button", { name: "开始对话" }));
   await waitFor(() => expect(fixture.push).toHaveBeenCalled());
   expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
+});
+
+it("carries a selected store into the same new conversation without sending or querying business data",async()=>{
+  fixture.context.aiWorkbenchExecutionKind="product.content.localize";
+  const storeId="22222222-2222-4222-8222-222222222222",confirmation="b".repeat(64);
+  fixture.connection.mockResolvedValue({connectionStatus:"connected",version:2,observedAt:"2026-11-14T00:00:00Z"});
+  fixture.request.mockImplementation(async ({route,path})=>{
+   if(route==="scope-options"&&path.includes("kind=store"))return {options:[{scope:{version:"workbench-scope-v1",kind:"store",storeId},storeName:"测试店铺",confirmation}],next:"",incomplete:false};
+   if(route==="scope-options")return scopeOptions;
+   if(route==="conversation-create")return {conversation};
+   throw new Error("unexpected request");
+  });
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"请处理这家店"}});
+  fireEvent.click(screen.getByRole("button",{name:"选择店铺"}));fireEvent.click(await screen.findByRole("button",{name:"测试店铺"}));
+  expect(screen.getByLabelText("需求")).toHaveValue("请处理这家店");
+  expect(fixture.request.mock.calls.every(([v])=>v.route==="scope-options")).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"开始对话"}));await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
+  expect(JSON.parse(sessionStorage.getItem(`ai-workbench:store-choice:${JSON.stringify(["user-a","org-a",`conversation:${conversationId}`])}`)!)).toEqual({kind:"store",storeId,scopeConfirmation:confirmation,connectionVersion:2});
+  expect(fixture.request.mock.calls.every(([v])=>v.route==="scope-options"||v.route==="conversation-create")).toBe(true);
 });
 
 it("restores the unsent input after an unknown create and hands it to the same conversation", async () => {
@@ -465,7 +490,7 @@ beforeEach(() => {
   fixture.context.aiWorkbenchPlanningReadiness = "AVAILABLE";
   fixture.context.aiWorkbenchStoreRouteReadiness = "AVAILABLE";
   fixture.context.aiWorkbenchTitleReadiness = "AVAILABLE";
-  fixture.request.mockReset(); fixture.push.mockReset(); fixture.templates.mockReset();fixture.knowledge.mockReset();sessionStorage.clear();
+  fixture.request.mockReset(); fixture.push.mockReset(); fixture.templates.mockReset();fixture.knowledge.mockReset();fixture.connection.mockReset();sessionStorage.clear();
   fixture.templates.mockResolvedValue({items:[],nextCursor:""});
   fixture.knowledge.mockResolvedValue({items:[],pagination:{page:1,pageSize:100,total:0}});
   fixture.request.mockImplementation(async ({ route }) => {

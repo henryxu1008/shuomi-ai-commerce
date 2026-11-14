@@ -72,7 +72,8 @@ type Message struct {
 }
 
 type MessageInput struct {
-	TaskSelection    *TaskSelection `json:",omitempty"`
+	TaskSelection    *TaskSelection    `json:",omitempty"`
+	StoreChoice      *StoreChoiceInput `json:",omitempty"`
 	Content          string
 	OperationID      string
 	TargetPlatform   string
@@ -84,18 +85,36 @@ type MessageInput struct {
 // WorkScope is the exact server-authorized selection frozen with a planning
 // command. It contains no mutable provider or model-selected execution facts.
 type WorkScope struct {
-	OperationID      string         `json:"operation_id,omitempty"`
-	TargetPlatform   string         `json:"target_platform,omitempty"`
-	TaskSelection    *TaskSelection `json:"task_selection,omitempty"`
-	TemplateID       string         `json:"template_id,omitempty"`
-	TemplateRevision string         `json:"template_revision,omitempty"`
-	KnowledgeBaseID  string         `json:"knowledge_base_id,omitempty"`
+	OperationID      string            `json:"operation_id,omitempty"`
+	TargetPlatform   string            `json:"target_platform,omitempty"`
+	TaskSelection    *TaskSelection    `json:"task_selection,omitempty"`
+	TemplateID       string            `json:"template_id,omitempty"`
+	TemplateRevision string            `json:"template_revision,omitempty"`
+	KnowledgeBaseID  string            `json:"knowledge_base_id,omitempty"`
+	StoreChoice      *StoreChoiceInput `json:"store_choice,omitempty"`
+}
+
+type StoreChoiceInput struct {
+	Kind              string `json:"kind"`
+	StoreID           string `json:"storeId,omitempty"`
+	ScopeConfirmation string `json:"scopeConfirmation,omitempty"`
+	ConnectionVersion uint64 `json:"connectionVersion,omitempty"`
+}
+
+func (c *StoreChoiceInput) Valid() bool {
+	if c == nil {
+		return true
+	}
+	if c.Kind == "none" {
+		return c.StoreID == "" && c.ScopeConfirmation == "" && c.ConnectionVersion == 0
+	}
+	return c.Kind == "store" && scopeIdentifier.MatchString(c.StoreID) && len(c.ScopeConfirmation) == 64 && c.ConnectionVersion > 0
 }
 
 func (m MessageInput) WorkScope() WorkScope {
 	return WorkScope{OperationID: m.OperationID, TargetPlatform: m.TargetPlatform,
 		TaskSelection: m.TaskSelection,
-		TemplateID:    m.TemplateID, TemplateRevision: m.TemplateRevision, KnowledgeBaseID: m.KnowledgeBaseID}
+		TemplateID:    m.TemplateID, TemplateRevision: m.TemplateRevision, KnowledgeBaseID: m.KnowledgeBaseID, StoreChoice: m.StoreChoice}
 }
 
 type PreparedPlan struct {

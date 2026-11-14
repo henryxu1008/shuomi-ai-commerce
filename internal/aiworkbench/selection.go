@@ -33,6 +33,9 @@ func (s TaskSelection) Valid() bool {
 		s.Capability == ContentTaskKind && s.Parameters.Valid()
 }
 func (m MessageInput) ValidSelection() bool {
+	if !m.StoreChoice.Valid() {
+		return false
+	}
 	if m.TaskSelection != nil {
 		return m.OperationID == "" && m.TargetPlatform == "" && m.TaskSelection.Valid()
 	}

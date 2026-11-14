@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { baseSchema,basesSchema,sourcesSchema,previewSchema,resultSchema,knowledgeRequest,KnowledgeError,type KnowledgeScope,type KnowledgeSource } from "@/lib/api/knowledge";
 import { OriginalFileRemoval } from "./original-file-removal";
+import {workbenchViewPage} from "../console/workbench-view-nav";
+import { KnowledgeNavigation } from "./knowledge-navigation";
 import "./knowledge.css";
 
 const root="/workbench/ai/knowledge";
@@ -107,9 +109,10 @@ function KnowledgeContent({scope,baseId}:{scope:KnowledgeScope;baseId?:string}) 
  const listError=!baseId && list.error, detailError=baseId && base.error;
  const notice=message?<Card className="knowledge-notice" role={mutation.isError?"alert":"status"}><p>{message}</p>{intent && !mutation.isPending && readable?<Button onClick={()=>mutation.mutate(intent)}>重试同一次操作</Button>:null}</Card>:null;
  const refreshAccess=async()=>{const next=await context.retry();if(next?.user.id===scope.userId && next.effectiveOrganizationId===scope.organizationId){setReadAttempt(value=>value+1);setAuthorityError(null);}};
- if(!readable)return <ConsolePage title="我的知识库（当前企业）" description={description} breadcrumbs={mineBreadcrumbs}>{notice}<ConsoleState kind="unavailable" title={canRead?errorMessage(authorityError):"当前身份没有知识库读取权限"}><Button onClick={()=>void refreshAccess()}>重新确认</Button></ConsoleState></ConsolePage>;
- return <ConsolePage title={baseId?(base.data?.name??"知识库"):"我的知识库（当前企业）"} description={description} breadcrumbs={baseId?[...mineBreadcrumbs,{label:base.data?.name??"资料"}]:mineBreadcrumbs}
+ if(!readable)return <ConsolePage className={workbenchViewPage} title="我的知识库（当前企业）" description={description} breadcrumbs={mineBreadcrumbs}><KnowledgeNavigation current="mine" enterpriseAvailable/>{notice}<ConsoleState kind="unavailable" title={canRead?errorMessage(authorityError):"当前身份没有知识库读取权限"}><Button onClick={()=>void refreshAccess()}>重新确认</Button></ConsoleState></ConsolePage>;
+ return <ConsolePage className={workbenchViewPage} title={baseId?(base.data?.name??"知识库"):"我的知识库（当前企业）"} description={description} breadcrumbs={baseId?[...mineBreadcrumbs,{label:base.data?.name??"资料"}]:mineBreadcrumbs}
  actions={canManage?(!baseId?<Button onClick={()=>setEditing(true)} disabled={busy}>创建知识库</Button>:active?<Button variant="outline" disabled={busy} onClick={()=>{setName(base.data!.name);setEditing(true);}}>编辑名称</Button>:undefined):undefined}>
+ <KnowledgeNavigation current="mine" enterpriseAvailable/>
  {notice}
  {editing && canManage?<Card className="knowledge-form"><form onSubmit={e=>{e.preventDefault();run(baseId?"knowledge-bases/"+baseId:"knowledge-bases",baseId?"PUT":"POST",JSON.stringify({name}),base.data?.version);}}>
  <label htmlFor="knowledge-name">知识库名称</label><Input id="knowledge-name" value={name} onChange={e=>setName(e.target.value)} required disabled={busy} placeholder="例如：品牌资料" />
