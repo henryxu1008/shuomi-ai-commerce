@@ -27,4 +27,7 @@ it("retains the handoff token on the same project so the original gate remains a
   const url=new URL(screen.getByRole("link",{name:"评估与决定"}).getAttribute("href")!,"https://example.test");
   expect(url.pathname).toBe(`/workbench/supply/selection/${id}`);
   expect(url.searchParams.get("handoff")).toBe("original-token");
+  expect(screen.queryByRole("link",{name:"重点商品"})).toBeNull();
+  expect(screen.queryByRole("link",{name:"价格与特点比较"})).toBeNull();
+  expect(screen.queryByRole("link",{name:"AI建议与记录"})).toBeNull();
 });

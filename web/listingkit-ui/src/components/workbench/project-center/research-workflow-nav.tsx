@@ -8,7 +8,7 @@ export function ResearchWorkflowNav({center,projectId,step,mode,search,sample,ca
   const query=new URLSearchParams({mode,search,...(step?{step}:{}),...(sample?{sample}:{}),...(candidateAfter?{candidateAfter}:{})});
   const location=researchLocation(projectId ? `${workflow.root}/${projectId}` : workflow.root,query);
   return <WorkbenchViewNav className={styles.viewNavigation} label={`${workflow.label}步骤`}>
-    {workflow.phases.flatMap(phase=>phase.steps.map(item=>{
+    {workflow.phases.flatMap(phase=>phase.steps.filter(item=>researchToken===undefined || center!=="selection" || item.id==="decisions" || item.id==="transfer").map(item=>{
       const href=researchNavigationHref(`${workflow.root}?step=${item.id}`,location);
       const sameProjectHandoff=center==="selection" && !!location?.projectId && researchToken!==undefined;
       return <Link key={item.id} href={sameProjectHandoff ? `${href}&handoff=${encodeURIComponent(researchToken)}` : href} prefetch={false} aria-current={step===item.id?"page":undefined}>{item.label}</Link>;
