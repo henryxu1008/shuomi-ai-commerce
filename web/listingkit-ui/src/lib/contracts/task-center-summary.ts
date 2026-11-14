@@ -1,7 +1,7 @@
 import {z} from "zod";
 
-export const taskSummaryStates=["WAITING_CONFIRMATION","RUNNING","COMPLETED","ERROR","PAUSED"] as const;
-export type TaskSummaryState=typeof taskSummaryStates[number];
+const taskSummaryStates=["WAITING_CONFIRMATION","RUNNING","COMPLETED","ERROR","PAUSED"] as const;
+type TaskSummaryState=typeof taskSummaryStates[number];
 const count=z.number().int().nonnegative().max(5000);
 const counts=z.strictObject({WAITING_CONFIRMATION:count,RUNNING:count,COMPLETED:count,ERROR:count,PAUSED:count});
 export const taskCenterSummarySchema=z.strictObject({status:z.enum(["complete","partial"]),counts:counts.nullable(),excluded:count,capturedAt:z.string().datetime(),reasons:z.array(z.enum(["unavailable","limit","changed"])).max(3)}).refine(v=>(v.status==="complete")===(v.counts!==null));
