@@ -19,4 +19,12 @@
 .toolbar input:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .empty :global(.console-state){width:100%;padding:32px}
 .empty :global(.console-state button){margin-top:16px}
-@media(max-width:600px){.toolbar form{width:100%}.toolbar input{flex:1;min-width:0}.empty :global(.console-state){padding:24px}}
+@media(max-width:600px){
+ .toolbar form{width:100%}.toolbar input{flex:1;min-width:0}.empty :global(.console-state){padding:24px}
+ .list table{min-width:0;border-spacing:0}
+ .list thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+ .list tbody{display:grid;gap:16px}
+ .list tr{display:block;background:color-mix(in srgb,var(--muted) 55%,var(--card));border-radius:var(--radius);padding:12px}
+ .list td,.list td:first-child,.list td:last-child{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;width:auto;padding:6px 0;background:transparent;border-radius:0;font-size:var(--body-text-size);white-space:normal;overflow-wrap:anywhere}
+ .list td::before{content:attr(data-label);color:var(--muted-foreground)}
+}
