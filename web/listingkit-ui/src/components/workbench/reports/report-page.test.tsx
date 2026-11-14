@@ -324,3 +324,18 @@ it.each(["focus", "reconnect"] as const)("hides cached report data before %s rea
  expect(client.getQueryCache().findAll({queryKey:["reports"]}).filter(q=>["summary","detail","list"].some(key=>q.queryKey.includes(key))).every(q=>q.state.status==="error")).toBe(true);
  view.unmount();client.clear();focusManager.setFocused(undefined);onlineManager.setOnline(true);
 });
+
+it("rebuilds loaded pages before loading more after a store grant is revoked",async()=>{
+ const saved:Report={...report,ref:{kind:"STORE_DAILY_REPORT",id:source.ref.id,version:"1"},productKey:"",storeId:source.ref.id,title:"撤权前日报",scheduledOrigin:{organizationId:"org-a",actorId:"actor-a",memberId:"member-a",planId:source.ref.id,planRevision:2,occurrenceId:source.ref.id,scheduledAt:"2026-11-15T01:00:00Z",storeId:source.ref.id,day:"2026-11-14",rendererVersion:1}};
+ const {content,digest,...summary}=saved;void content;void digest;
+ let revoked=false;
+ const fetch=vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:revoked?0:1,recent:0,favorites:0,stores:revoked?0:1}):revoked?Response.json({items:[],nextCursor:""}):Response.json({items:[summary],nextCursor:"next-page"}));
+ vi.stubGlobal("fetch",fetch);
+ const client=new QueryClient(),view=render(tree(client));
+ await screen.findByRole("button",{name:"撤权前日报"});
+ revoked=true;fireEvent.click(screen.getByRole("button",{name:"加载更多"}));
+ await screen.findByText("当前范围暂无报告");
+ expect(screen.queryByRole("button",{name:"撤权前日报"})).not.toBeInTheDocument();
+ expect(fetch.mock.calls.filter(([path])=>!path.includes("cursor=")&&!path.endsWith("/summary")).length).toBe(2);
+ view.unmount();client.clear();
+});
