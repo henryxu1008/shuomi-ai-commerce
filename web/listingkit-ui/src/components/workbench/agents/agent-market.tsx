@@ -51,7 +51,6 @@ export function AgentMarket({ entries, research, catalogNotice }: { entries: rea
             <div className={styles.copy}>
               <h3 id={heading}>{title}</h3>
               <p className={styles.description} title={description}>{description}</p>
-              <p className={styles.summary}>{card.summary}</p>
             </div>
             <div className={styles.actions}>
               <span className={styles.activation} data-enabled={enabled > 0}>{status}</span>
