@@ -47,6 +47,8 @@ const scope = vi.hoisted(() => ({
   error: null,
   blockingError: null,
   selectionRequired: false,
+  marketResearchAvailable: false,
+  projectCenterAvailable: false,
   registerOrganizationSwitchGuard:()=>()=>{},
 }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({
@@ -83,6 +85,19 @@ afterEach(() => {
   scope.effectiveOrganization = { id: "org-a", name: "企业A" };
   scope.isSwitching = false;
   scope.permissions = [...initialPermissions];
+  scope.marketResearchAvailable = false;
+  scope.projectCenterAvailable = false;
+});
+
+it("keeps research workflows reachable when the agent catalog cannot be read", async () => {
+  scope.marketResearchAvailable = true;
+  scope.projectCenterAvailable = true;
+  scope.permissions.push("workbench.project.read", "workbench.collection.read");
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({code:"UNAVAILABLE"}, {status:503})));
+  render(<AgentPage mode="market"/>);
+  expect(screen.getByRole("link",{name:"市场调研"})).toHaveAttribute("href","/workbench/data/research");
+  expect(screen.getByRole("link",{name:"智能选品"})).toHaveAttribute("href","/workbench/supply/selection");
+  expect(await screen.findByText("智能体配置不可用")).toBeInTheDocument();
 });
 
 function modeFixture(agentId:string, canConfigure=true) {

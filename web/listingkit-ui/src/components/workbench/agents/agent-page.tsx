@@ -3,6 +3,7 @@ import {nativeRunDestination,type NativeRunDestinations} from "@/lib/agent-run-d
 import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
 import { AgentMarket } from "./agent-market";
+import { ResearchEntries } from "./research-entries";
 import { AgentMine } from "./agent-mine";
 import { AgentCapabilityPanel } from "./agent-capability-panel";
 import {ProductSelectionFlow} from "./product-selection-flow";
@@ -104,6 +105,8 @@ export function AgentPage({
       id={id}
       podAvailable={podAvailable}
       nativeRunDestinations={nativeRunDestinations}
+      researchEnabled={!!ctx.marketResearchAvailable && !!ctx.projectCenterAvailable}
+      permissions={ctx.permissions}
     />
   );
 }
@@ -114,6 +117,8 @@ function ScopedPage({
   id,
   podAvailable = false,
   nativeRunDestinations,
+  researchEnabled,
+  permissions,
 }: {
   scope: ConfigurationScope;
   organization: string;
@@ -121,6 +126,8 @@ function ScopedPage({
   id?: string;
   podAvailable?: boolean;
   nativeRunDestinations?:NativeRunDestinations;
+  researchEnabled:boolean;
+  permissions:readonly string[];
 }) {
   const agentId = id ?? "product.title.agent";
   const [after, setAfter] = useState(""),
@@ -280,6 +287,7 @@ function ScopedPage({
       actions={mode === "mine" ? <Button asChild variant="outline" size="sm"><Link href={id ? "/workbench/agents/mine" : "/workbench/agents/market"} prefetch={false}>{id ? "返回我的智能体" : "前往智能体市场"}</Link></Button> : <Link href="/workbench/agents/mine">我的智能体 →</Link>}
     >
 
+      {mode === "market" && !id ? <ResearchEntries enabled={researchEnabled} permissions={permissions} /> : null}
       {failure != null && (
         <div role="alert" className={styles.notice}>
           {configurationError(failure)}
