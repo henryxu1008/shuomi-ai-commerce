@@ -337,6 +337,9 @@ func validateNew(r setupcontrol.Request, exists bool) error {
 		seen[port] = true
 	}
 	for _, p := range []int{r.ApplicationPort, r.IdentityPort} {
+		if r.Profile == "unified" && (p == 9101 || p == 9102) {
+			return setupcontrol.ErrInvalid
+		}
 		switch p {
 		case 1025, 3000, 3001, 5432, 5433, 7233, 8025, 8080, 8085, 9000, 18080:
 			return setupcontrol.ErrInvalid

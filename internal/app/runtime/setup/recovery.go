@@ -248,6 +248,12 @@ func (d *Driver) installationDriver(ctx context.Context, n nativePlan) (*Driver,
 		return nil, setupcontrol.ErrUnavailable
 	}
 	var source string
+	if n.ReleaseFile != "" {
+		if !filepath.IsAbs(n.ReleaseFile) || filepath.Base(n.ReleaseFile) != "release.json" {
+			return nil, setupcontrol.ErrDrift
+		}
+		source = filepath.Join(filepath.Dir(n.ReleaseFile), "source")
+	}
 	for _, name := range n.BuildServices {
 		service, ok := services[name].(map[string]any)
 		if !ok {
@@ -262,10 +268,16 @@ func (d *Driver) installationDriver(ctx context.Context, n nativePlan) (*Driver,
 			return nil, setupcontrol.ErrInvalid
 		}
 		value = hostPath(value)
-		if !filepath.IsAbs(value) || source != "" && source != value {
+		if !filepath.IsAbs(value) {
 			return nil, setupcontrol.ErrDrift
 		}
-		source = value
+		if source == "" {
+			source = value
+		}
+		relative, err := filepath.Rel(source, value)
+		if err != nil || !filepath.IsLocal(relative) || privatefile.RejectPath(value) != nil {
+			return nil, setupcontrol.ErrDrift
+		}
 	}
 	if source == "" {
 		return nil, setupcontrol.ErrUnavailable

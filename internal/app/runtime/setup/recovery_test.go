@@ -44,7 +44,7 @@ func (r *recoveryBuildRunner) Run(ctx context.Context, dir string, args []string
 	return r.auditRunner.Run(ctx, dir, args)
 }
 func TestRecoveryRechecksConditionsAfterBuildBeforeStarting(t *testing.T) {
-	for _, mode := range []string{"nonempty", "reference", "source", "unchanged"} {
+	for _, mode := range []string{"nonempty", "reference", "source", "unchanged", "multiple-contexts", "outside-context"} {
 		t.Run(mode, func(t *testing.T) {
 			r := &recoveryBuildRunner{revision: strings.Repeat("a", 40)}
 			d, p := auditFixture(t, &r.auditRunner)
@@ -63,11 +63,23 @@ func TestRecoveryRechecksConditionsAfterBuildBeforeStarting(t *testing.T) {
 			doc, e := readPlanDocument(n)
 			require.NoError(t, e)
 			services := map[string]any{"current-application": map[string]any{"image": release.BackendImage}, "listingkit-ui": map[string]any{"image": release.UIImage}, "builder": map[string]any{"build": map[string]any{"context": filepath.ToSlash(source)}}}
+			if mode == "multiple-contexts" || mode == "outside-context" {
+				inside := filepath.Join(source, "deploy", "account-compose")
+				if mode == "outside-context" {
+					inside = filepath.Join(root, "outside")
+				}
+				require.NoError(t, os.MkdirAll(inside, 0700))
+				services["secondary-builder"] = map[string]any{"build": map[string]any{"context": filepath.ToSlash(inside)}}
+			}
 			doc["services"] = services
 			raw := marshal(doc)
 			require.NoError(t, os.WriteFile(n.ComposeFile, raw, 0600))
 			n.ComposeHash = hash(raw)
 			n.BuildServices = []string{"builder"}
+			if mode == "multiple-contexts" || mode == "outside-context" {
+				n.BuildServices = append(n.BuildServices, "secondary-builder")
+			}
+			n.ReleaseFile = filepath.Join(root, "release.json")
 			n.RequiredServices = requiredServices(services)
 			p.Data = marshal(n)
 			a, e := d.AuditRecovery(context.Background(), p, true)
@@ -86,7 +98,7 @@ func TestRecoveryRechecksConditionsAfterBuildBeforeStarting(t *testing.T) {
 				}
 			}
 			e = d.Apply(context.Background(), p, func(string) error { return nil })
-			if mode == "unchanged" {
+			if mode == "unchanged" || mode == "multiple-contexts" {
 				require.NoError(t, e)
 				require.Equal(t, 1, r.up)
 			} else {

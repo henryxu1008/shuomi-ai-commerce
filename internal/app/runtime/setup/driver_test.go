@@ -43,6 +43,19 @@ func TestNewInstallRejectsRetainedResourcesBeforeDispatch(t *testing.T) {
 	require.ErrorIs(t, validateNew(setupcontrol.Request{Mode: "fresh", Project: "new-project", Profile: "base", ApplicationPort: 35444, IdentityPort: 35444, MailPort: 35425}, false), setupcontrol.ErrInvalid)
 	require.NoError(t, validateNew(setupcontrol.Request{Mode: "fresh", Project: "new-project", Profile: "base", ApplicationPort: 45444, IdentityPort: 45443, MailPort: 45425}, false))
 }
+func TestUnifiedRejectsInternalObjectStoragePorts(t *testing.T) {
+	for _, port := range []int{9101, 9102} {
+		for _, identity := range []bool{false, true} {
+			r := setupcontrol.Request{Mode: "fresh", Project: "new-project", Profile: "unified", ApplicationPort: 45444, IdentityPort: 45443, MailPort: 45425}
+			if identity {
+				r.IdentityPort = port
+			} else {
+				r.ApplicationPort = port
+			}
+			require.ErrorIs(t, validateNew(r, false), setupcontrol.ErrInvalid)
+		}
+	}
+}
 func TestPrivateConfigurationCannotImportForeignIdentityOrDatabase(t *testing.T) {
 	original := map[string]any{"identity": map[string]any{"issuer": "https://localhost:45443"}, "sourceAccountDatabase": map[string]any{"host": "127.0.0.1", "port": float64(5433), "database": "source_accounts", "user": "source_runtime", "password": "private"}}
 	provided := map[string]any{}

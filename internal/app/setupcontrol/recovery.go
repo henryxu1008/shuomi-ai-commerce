@@ -194,7 +194,23 @@ func (c *Control) guardEnded(id string) bool {
 		return true
 	}
 	r, err := c.read(id)
-	return err == nil && (r.Plan.Archived || r.Plan.Status == "succeeded")
+	if err != nil {
+		return false
+	}
+	if r.Plan.Archived || r.Plan.Status == "succeeded" {
+		return true
+	}
+	// An existing-instance attempt that durably failed during its sole check
+	// has not dispatched a service change. Preserve it and allow a new preview.
+	if r.Version != 2 || r.Plan.Mode != "existing" || len(r.Attempts) != 1 {
+		return false
+	}
+	a := r.Attempts[0]
+	if a.Status != "failed" || a.Stage != "check" || len(a.Steps) != 1 {
+		return false
+	}
+	step := a.Steps[0]
+	return step.Stage == "check" && step.Status == "failed" && !step.StartedAt.IsZero() && !step.FinishedAt.IsZero()
 }
 func (c *Control) bindGuard(r *record, previous string) error {
 	active, err := c.active(r.Plan.InstanceID)

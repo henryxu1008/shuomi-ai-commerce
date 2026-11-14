@@ -150,6 +150,9 @@ func (c *Control) save(r *record) error {
 	if err != nil {
 		return err
 	}
+	return c.saveAt(r, dir)
+}
+func (c *Control) saveAt(r *record, dir string) error {
 	r.Plan.UpdatedAt = time.Now().UTC()
 	r.Plan.Revision++
 	r.project()
@@ -195,20 +198,46 @@ func (c *Control) Plan(ctx context.Context, req Request) (Plan, error) {
 		return Plan{}, ErrUnresolved
 	}
 	id := instance + "." + uuid.NewString()
-	dir, _ := c.directory(id)
-	if err = os.MkdirAll(dir, 0700); err != nil {
-		return Plan{}, err
-	}
-	prepared, err := c.driver.Prepare(ctx, req, dir)
+	dir, err := c.directory(id)
 	if err != nil {
 		return Plan{}, err
 	}
+	parts := strings.Split(id, ".")
+	payload := filepath.Join(c.root, instance, "payloads", parts[1])
+	staging := filepath.Join(c.root, instance, "pending-plans", parts[1])
+	if privatefile.RejectPath(payload) != nil || privatefile.RejectPath(staging) != nil {
+		return Plan{}, ErrUnavailable
+	}
+	if err = os.MkdirAll(filepath.Dir(payload), 0700); err != nil {
+		return Plan{}, err
+	}
+	if err = os.Mkdir(payload, 0700); err != nil {
+		return Plan{}, err
+	}
+	prepared, err := c.driver.Prepare(ctx, req, payload)
+	if err != nil {
+		// This exclusive directory was never published and has no guard.
+		_ = os.RemoveAll(payload)
+		return Plan{}, err
+	}
 	if prepared.InstanceID != instance {
+		_ = os.RemoveAll(payload)
 		return Plan{}, ErrDrift
 	}
 	r := record{Version: 2, Plan: Plan{ID: id, InstanceID: instance, Name: req.Project, CreatedAt: time.Now().UTC(), Mode: req.Mode, Status: "prepared", Changes: prepared.Changes, Blocks: prepared.Blocks, Services: prepared.Services}, Prepared: prepared, PreviousGuard: active, Attempts: []attempt{{AttemptView: AttemptView{Number: 0, Status: "prepared", Stage: "check"}, Key: id + ":0", Prepared: prepared}}}
 	r.Attempts[0].PayloadDigest = digest(mustJSON(prepared))
-	if err = c.save(&r); err != nil {
+	// Publish the receipt directory atomically only after it is complete. The
+	// candidate files retain their stable, separate absolute paths.
+	if err = os.MkdirAll(staging, 0700); err != nil {
+		return Plan{}, err
+	}
+	if err = c.saveAt(&r, staging); err != nil {
+		return Plan{}, err
+	}
+	if err = os.MkdirAll(filepath.Dir(dir), 0700); err != nil {
+		return Plan{}, err
+	}
+	if err = os.Rename(staging, dir); err != nil {
 		return Plan{}, err
 	}
 	return r.Plan, nil
