@@ -45,7 +45,7 @@ Threat Model：不信任浏览器传入的 org/member/role、计划成功或后�
 
 计划表最小扩展：新增 nullable typed `report_spec`；原 task_selection 仅报告 kind 可为空；kind-discriminated CHECK：内容 kind 必须原 Selection、原正数 AI budget、report_spec NULL；报告 kind 必须精确 report_spec、task_selection NULL、execution_spec 为空且无模型字段，budget_unit=`none`、两项预算严格为 0。未知 kind、混合载荷、日报带商品/AI预算、内容任务把预算置零均拒绝。**不放宽原 `ScheduleBudget` 的正数合同**，新增种类自己的 validator/limit projection。
 
-原 BusinessTask/Agent/Review schema 不增加假商品日报。日报 occurrence 持结果引用，business_task_id 必须 NULL；原内容 occurrence 的合法 BusinessTask 来源约束保持。新增 occurrence 附属 `report_execution`（同 Workbench DB，主键/同企业 owner FK 到 occurrence），只存冻结 report-spec、业务日期、计划修订、确定性 request fingerprint、结果报告引用/摘要和关闭证明，不存财务正文。此窄表是本次执行输入/回执，不是另一报告 owner。
+原 BusinessTask/Agent/Review schema 不增加假商品日报。日报 occurrence 持结果引用，business_task_id 必须 NULL；原内容 occurrence 的合法 BusinessTask 来源约束保持。新增 occurrence 附属 `report_execution`（同 Workbench DB，主键/同企业 owner FK 到 occurrence），只存冻结 report-spec、业务日期、计划修订、确定性 request fingerprint、capture_started、结果报告引用/摘要和关闭证明，不存财务正文。此窄表是本次执行输入/回执，不是另一报告 owner。
 
 无模型分支通过类型及注入限制，没有 Agent executor、Model gateway、OrgResource、平台 mutation 或通用工具端口。预算展示/报价在报告类型隐藏，核对只返回店铺、日期规则、下次时间、次数和保存授权，不生成报价/预留。报告启用不依赖模型 policy、商品资料或 AI 点余额；仍依赖原 Workbench/Temporal、Report DB、Store/Cockpit 和当前 IAM。
 
@@ -92,7 +92,7 @@ CaptureScheduledDaily 先按 fixed key/fingerprint 查原 receipt；若已保存
 ### 7.2 Workbench claim / report commit / finalize
 
 1. Workbench PG 事务：锁原 plan；先检查同槽是否已有 occurrence；验证精确 rule/revision、ACTIVE、registration MATCHED、catch-up、次数和无其它占用；原唯一 `(org,plan,slot)`；认领 occurrence + report_execution 的冻结输入 + active pointer + 次数。事务内不读 IAM/Store/Report DB，不造 BusinessTask。
-2. 事务外获取当前后台授权，调用 Report owner 的固定 key 捕获。首次认领后，不随计划改期/修订重算该次 spec、成员或统计日；到点后改计划不改变旧次输入。重复 callback 先读旧次，不能按新 revision 再认领。
+2. 事务外获取当前后台授权。调用 Report owner 前，先在 Workbench 同一 occurrence 锁下通过 `BeginReportCapture` CAS 将 capture_started 从 false 改为 true，绑定原 key/fingerprint；必须确认该标记已提交才能调用捕获。该位只升不降，重试仍用原 key。若要以“尚未写入”收敛明确权限拒绝，必须在同一锁内确认 capture_started=false 并原子终态关闭 report_execution/occurrence；后到或旧在途 worker 的 BeginReportCapture 将拒绝。不能用单个 worker 的内存标记证明所有并发 writer 都没发送。首次认领后，不随计划改期/修订重算该次 spec、成员或统计日；到点后改计划不改变旧次输入。重复 callback 先读旧次，不能按新 revision 再认领。
 3. Report DB 确认保存后，通过内部 `ReadScheduledCaptureReceipt` 核对同 org/actor/member/store/plan/revision/occurrence/slot/date/fingerprint。Workbench 事务 CAS 更新该 occurrence 为 RECONCILED、保存 reportID/digest/proof，并且只在 active pointer 仍指向自己时清空；绝不清空另一次占用。随后原计划页显示“已生成/资料不全”和查看报告入口。
 4. receipt 证明和既有报告不一致则保持 UNKNOWN/占用，报冲突。Report DB 的 NotFound、超时、计划投影 ERROR 或用户刷新均不是“肯定未保存”的证明。
 
@@ -101,7 +101,7 @@ CaptureScheduledDaily 先按 fixed key/fingerprint 查原 receipt；若已保存
 | 失败点 | 固定结果和后续动作 |
 | --- | --- |
 | claim 事务提交前失败 | 同槽正常重试；不存在半个 claim |
-| claim 后、尚未尝试写报告，明确权限拒绝 | 原次 BLOCKED + 确定未提交写入的本地证明，CAS 清本次占用；计次数不返还，不自动换店/放权 |
+| claim 后、尚未尝试写报告，明确权限拒绝 | 原 occurrence 锁内 capture_started=false 才可原子终态关闭为 BLOCKED 并清本次占用；该终态阻止后到 BeginCapture，计次数不返还，不自动换店/放权 |
 | Report DB 保存/响应结果不明 | UNKNOWN + 保持占用；原 key 查回执/重试捕获，只会得到同份报告；不换 key、不凭 NotFound 清占用 |
 | 报告已提交、回写 Workbench 失败/进程重启 | 原 Temporal retry 或原有界 recovery scan 调用类型专用 reconcile，读原 receipt 后补关联；不读取新数据覆盖原报告 |
 | 旧 writer 仍在途时暂停/结束/超时 | 保留 active occurrence，不能标“无结果”或清占用；只有 exact 保存证明，或尚未尝试写的确定证明可收敛 |
