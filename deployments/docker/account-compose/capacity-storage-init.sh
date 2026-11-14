@@ -17,7 +17,7 @@ if test -e /capacity-identity/deployment-id; then
 fi
 mc admin policy create local "$bucket-capacity-read" /init/capacity-policy.json >/dev/null
 mc admin policy attach local "$bucket-capacity-read" --user "$(cat "$secrets/access-key")" >/dev/null
-mc alias set capacity-runtime "$endpoint" "$(cat "$secrets/access-key")" "$(cat "$secrets/secret-key")" >/dev/null
+printf '%s\n%s\n' "$(cat "$secrets/access-key")" "$(cat "$secrets/secret-key")" | mc alias set capacity-runtime "$endpoint" >/dev/null
 mc admin info --json capacity-runtime > "$work/runtime-info.json"
 jq -er '.info.deploymentID' "$work/runtime-info.json" > "$work/runtime-id"
 cmp -s "$work/deployment-id" "$work/runtime-id" || { echo 'runtime capacity identity verification failed' >&2; exit 1; }

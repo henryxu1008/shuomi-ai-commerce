@@ -23,6 +23,8 @@
 
 ## 系统边界与应用装配
 
+- `installation-and-module-management.md` — [首次安装向导与现有实例模块管理](installation-and-module-management.md) · #1240 统一设计；独立评审、实施与运行证据见PR #1241。
+- `installation-failure-recovery.md` — [安装失败说明、归档与安全重试](installation-failure-recovery.md) · #1240 最小恢复增量；独立R1通过、IMPLEMENTATION_READY，实施及真实恢复另行授权。
 - `chat-35444-retained-wiring-design.md` — [35444 保留库店铺查询接线设计](chat-35444-retained-wiring-design.md) · 独立架构评审 IMPLEMENTATION_READY；实施仅限获准的保留实例及其隔离副本，原实例更新仍需单独放行。
 - `chat-retained-minimal-admission-proposal.md` — [原 35444 Chat 接线的开发试用最小准入](chat-retained-minimal-admission-proposal.md) · 新用户决定及独立架构复核；复用已有证据，保留目标、数据、权限和原预留保护。
 - `chat-retained-1260-trial.md` — [保留试用实例隔离接线方案](chat-retained-1260-trial.md) · 隔离演练依据；不构成原实例更新授权。

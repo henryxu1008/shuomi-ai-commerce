@@ -228,6 +228,23 @@ func LoadConfig(path string) (*Config, error) {
 	if len(data) > maximumManifestBytes {
 		return nil, errors.New("current application manifest exceeds size limit")
 	}
+	cfg, err := DecodeConfigDocument(data)
+	if err != nil {
+		return nil, err
+	}
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// DecodeConfigDocument checks the strict manifest document only. Paths and
+// domain readiness are validated by LoadConfig in the actual runtime OS; a
+// Windows installation controller must not reinterpret Linux private paths.
+func DecodeConfigDocument(data []byte) (*Config, error) {
+	if len(data) > maximumManifestBytes {
+		return nil, errors.New("current application manifest exceeds size limit")
+	}
 	if err := validateJSONShape(data); err != nil {
 		return nil, fmt.Errorf("parse current application manifest: %w", err)
 	}
@@ -239,9 +256,6 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if err := ensureJSONEOF(decoder); err != nil {
 		return nil, fmt.Errorf("decode current application manifest: %w", err)
-	}
-	if err := cfg.validate(); err != nil {
-		return nil, err
 	}
 	return &cfg, nil
 }

@@ -24,7 +24,11 @@ psql -X -v ON_ERROR_STOP=1 -d postgres -At -c "SELECT count(*) FROM pg_database 
 touch /state/.started
 openssl rand -hex 24 | tr -d '\n' > /state/owner-password
 openssl rand -hex 24 | tr -d '\n' > /state/runtime-password
-psql -X -v ON_ERROR_STOP=1 -d postgres -v ownerpassword="$(cat /state/owner-password)" -v runtimepassword="$(cat /state/runtime-password)" <<'SQL'
+test -s /state/owner-password && test -s /state/runtime-password
+{
+printf "\\set ownerpassword '%s'\n" "$(cat /state/owner-password)"
+printf "\\set runtimepassword '%s'\n" "$(cat /state/runtime-password)"
+cat <<'SQL'
 CREATE ROLE ecoservices_owner LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'ownerpassword';
 CREATE ROLE ecoservices_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'runtimepassword';
 ALTER ROLE ecoservices_runtime SET statement_timeout='10s';
@@ -32,6 +36,7 @@ CREATE DATABASE ecoservices OWNER ecoservices_owner;
 REVOKE ALL ON DATABASE ecoservices FROM PUBLIC;
 GRANT CONNECT ON DATABASE ecoservices TO ecoservices_runtime;
 SQL
+} | psql -X -v ON_ERROR_STOP=1 -d postgres
 psql -X -v ON_ERROR_STOP=1 -d ecoservices -c 'REVOKE CREATE ON SCHEMA public FROM PUBLIC;'
 ECOSERVICES_SCHEMA_DSN="host=127.0.0.1 port=5433 user=ecoservices_owner password=$(cat /state/owner-password) dbname=ecoservices sslmode=disable" ecoservices-schema-init
 openssl rand -hex 24 | tr -d '\n' > /object-root/root-password

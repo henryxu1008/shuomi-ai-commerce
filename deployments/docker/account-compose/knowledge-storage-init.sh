@@ -2,11 +2,11 @@
 set -eu
 umask 077
 export MC_CONFIG_DIR=/tmp/knowledge-mc
-mc alias set local http://knowledge-objects:9000 knowledge_local_root "$(cat /private/root-password)" >/dev/null
+printf '%s\n%s\n' knowledge_local_root "$(cat /private/root-password)" | mc alias set local http://knowledge-objects:9000 >/dev/null
 mc mb --ignore-existing local/knowledge >/dev/null
 mc anonymous set none local/knowledge >/dev/null
 mc admin policy create local knowledge-runtime /init/policy.json >/dev/null
-mc admin user add local "$(cat /private/access-key)" "$(cat /private/secret-key)" >/dev/null
+printf '%s\n%s\n' "$(cat /private/access-key)" "$(cat /private/secret-key)" | mc admin user add local >/dev/null
 mc admin policy attach local knowledge-runtime --user "$(cat /private/access-key)" >/dev/null
 if test "${ACCOUNT_STORAGE_CAPACITY_ENABLED:-}" = 1; then
  /bin/sh /init/capacity-storage-init.sh knowledge

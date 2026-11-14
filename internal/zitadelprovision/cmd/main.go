@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	privatefiles "task-processor/internal/platform/privatefile"
 
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/zitadelprovision"
@@ -492,35 +493,7 @@ func validateAcceptanceRuntimePath(path string) error {
 	return errors.New("runtime file must be under .local/image-agent-acceptance")
 }
 
-func rejectSymlinkPath(path string) error {
-	absolute, err := filepath.Abs(path)
-	if err != nil {
-		return errors.New("runtime file path is invalid")
-	}
-	current := filepath.VolumeName(absolute) + string(filepath.Separator)
-	remainder := strings.TrimPrefix(absolute, current)
-	for _, part := range strings.Split(remainder, string(filepath.Separator)) {
-		if part == "" {
-			continue
-		}
-		current = filepath.Join(current, part)
-		info, statErr := os.Lstat(current)
-		if statErr != nil {
-			if os.IsNotExist(statErr) {
-				continue
-			}
-			return fmt.Errorf("inspect runtime file path: %w", statErr)
-		}
-		unsafe, unsafeErr := isUnsafePathComponent(current, info)
-		if unsafeErr != nil {
-			return fmt.Errorf("inspect runtime file path safety: %w", unsafeErr)
-		}
-		if unsafe {
-			return errors.New("runtime file path must not contain symlinks or reparse points")
-		}
-	}
-	return nil
-}
+func rejectSymlinkPath(path string) error { return privatefiles.RejectPath(path) }
 
 func writeRuntimeEnv(path string, values map[string]string) error {
 	directory := filepath.Dir(path)

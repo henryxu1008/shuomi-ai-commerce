@@ -24,7 +24,11 @@ create_owner() {
  psql -X -v ON_ERROR_STOP=1 -d postgres -At -c "SELECT count(*) FROM pg_database WHERE datname='$1'" | grep -qx 0
  openssl rand -hex 24 | tr -d '\n' > "/state/$1-owner-password"
  openssl rand -hex 24 | tr -d '\n' > "/state/$1-runtime-password"
- psql -X -v ON_ERROR_STOP=1 -d postgres -v database="$1" -v owner="$2" -v runtime="$3" -v ownerpassword="$(cat /state/$1-owner-password)" -v runtimepassword="$(cat /state/$1-runtime-password)" <<'SQL'
+ test -s "/state/$1-owner-password" && test -s "/state/$1-runtime-password"
+ {
+ printf "\\set ownerpassword '%s'\n" "$(cat /state/$1-owner-password)"
+ printf "\\set runtimepassword '%s'\n" "$(cat /state/$1-runtime-password)"
+ cat <<'SQL'
 CREATE ROLE :"owner" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'ownerpassword';
 CREATE ROLE :"runtime" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'runtimepassword';
 ALTER ROLE :"runtime" SET statement_timeout='10s';
@@ -32,6 +36,7 @@ CREATE DATABASE :"database" OWNER :"owner";
 REVOKE ALL ON DATABASE :"database" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO :"runtime";
 SQL
+ } | psql -X -v ON_ERROR_STOP=1 -d postgres -v database="$1" -v owner="$2" -v runtime="$3"
  psql -X -v ON_ERROR_STOP=1 -d "$1" -c 'REVOKE CREATE ON SCHEMA public FROM PUBLIC;'
 }
 
@@ -47,11 +52,15 @@ printf 'host=127.0.0.1 port=5433 user=business_cluster_admin password=%s dbname=
 report-center-schema-init -dsn-file /state/reports-owner-dsn -confirm-database reports -install-empty-schema
 
 openssl rand -hex 24 | tr -d '\n' > /state/product-runtime-password
-psql -X -v ON_ERROR_STOP=1 -d postgres -v password="$(cat /state/product-runtime-password)" <<'SQL'
+test -s /state/product-runtime-password
+{
+printf "\\set password '%s'\n" "$(cat /state/product-runtime-password)"
+cat <<'SQL'
 CREATE ROLE product_agent_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'password';
 ALTER ROLE product_agent_runtime SET statement_timeout='10s';
 GRANT CONNECT ON DATABASE product_agent TO product_agent_runtime;
 SQL
+} | psql -X -v ON_ERROR_STOP=1 -d postgres
 psql -X -v ON_ERROR_STOP=1 -d product_agent -c 'GRANT SELECT ON public.ai_invocations TO product_agent_runtime;'
 AGENT_CONFIGURATION_SCHEMA_DSN="host=127.0.0.1 port=5433 user=business_cluster_admin password=$PGPASSWORD dbname=product_agent sslmode=disable" agent-configuration-schema-init --runtime-role product_agent_runtime
 

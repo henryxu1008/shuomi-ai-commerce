@@ -22,11 +22,15 @@ export PGPASSWORD="$(cat /secrets/admin/admin-password)"
 psql -X -v ON_ERROR_STOP=1 -d product_agent -At -c "SELECT (SELECT count(*) FROM pg_namespace WHERE nspname='ai_workbench')+(SELECT count(*) FROM pg_roles WHERE rolname='ai_workbench_runtime')" | grep -qx 0
 touch /state/.started
 openssl rand -hex 24 | tr -d '\n' > /state/runtime-password
-psql -X -v ON_ERROR_STOP=1 -d product_agent -v runtimepassword="$(cat /state/runtime-password)" <<'SQL'
+test -s /state/runtime-password
+{
+printf "\\set runtimepassword '%s'\n" "$(cat /state/runtime-password)"
+cat <<'SQL'
 CREATE ROLE ai_workbench_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'runtimepassword';
 ALTER ROLE ai_workbench_runtime SET statement_timeout='10s';
 GRANT CONNECT ON DATABASE product_agent TO ai_workbench_runtime;
 SQL
+} | psql -X -v ON_ERROR_STOP=1 -d product_agent
 unset PGPASSWORD
 AI_WORKBENCH_SCHEMA_DSN="host=127.0.0.1 port=5433 user=product_agent_owner password=$(cat /secrets/product-agent-owner/product-agent-db-password) dbname=product_agent sslmode=disable" ai-workbench-schema-init --runtime-role ai_workbench_runtime
 jq --argjson organizations "$organizations" --rawfile password /state/runtime-password '
