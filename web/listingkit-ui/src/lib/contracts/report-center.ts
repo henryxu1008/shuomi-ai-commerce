@@ -9,7 +9,7 @@ export const sourceRef = z.strictObject({ kind: reportKind, id: reportID, versio
 const metadata = { ref: sourceRef, title: text(256), productKey: text(128), storeId: z.union([z.literal(""), reportID]), sourceAt: timestamp.optional() };
 export const reportSourceSchema = z.strictObject(metadata);
 const summary = { ...metadata, id: reportID, capturedAt: timestamp, favorite: z.boolean() };
-export const reportSummarySchema = z.strictObject(summary);
+const reportSummarySchema = z.strictObject(summary);
 export type ReportSummary = z.infer<typeof reportSummarySchema>;
 const reportDocumentSchema = z.strictObject({ schemaVersion: z.literal(1), sections: z.array(z.strictObject({ title: text(256), fields: z.array(z.strictObject({ label: text(256), value: z.string().refine(v => bytes(v) <= 16000 && !/\p{Cc}/u.test(v.replace(/[\r\n\t]/g, ""))) })).min(1).max(256) })).min(1).max(16) }).refine(v => v.sections.reduce((n, s) => n + s.fields.length, 0) <= 256 && bytes(JSON.stringify(v)) <= 131072);
 export const reportSchema = z.strictObject({ ...summary, content: reportDocumentSchema, digest: z.string().regex(/^[0-9a-f]{64}$/) });
