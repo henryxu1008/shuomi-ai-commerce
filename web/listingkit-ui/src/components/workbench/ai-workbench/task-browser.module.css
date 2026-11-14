@@ -17,6 +17,7 @@
 .filterBar { display:flex;align-items:center;flex-wrap:wrap;gap:12px 20px;margin:0 0 20px;font-size:var(--label-text-size); }
 .scopeFilter { display:flex;align-items:center;gap:12px;color:var(--muted-foreground); }
 .scopeFilter select { min-height:40px;max-width:100%;padding:8px 32px 8px 12px;border:1px solid var(--border);border-radius:var(--control-radius);background:var(--card);color:var(--foreground);font-size:var(--body-text-size); }
+.scopeFilter select option { background:var(--popover);color:var(--popover-foreground); }
 .scopeFilter select:focus-visible,.filterHelp summary:focus-visible { outline:2px solid var(--ring);outline-offset:3px; }
 .scopeFilter select:disabled { opacity:.5;cursor:not-allowed; }
 .filterHint { color:var(--muted-foreground); }

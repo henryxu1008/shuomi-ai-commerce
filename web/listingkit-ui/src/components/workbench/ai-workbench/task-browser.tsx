@@ -163,10 +163,10 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
     </WorkbenchViewNav><Button variant="outline" disabled={locked} onClick={refresh}>刷新状态</Button></div>
     <div className={styles.filterBar}>
       {tasksAvailable ? <label className={styles.scopeFilter}>工作范围<select aria-label="工作范围筛选" value={filterKind} disabled={locked} onChange={event=>{select();setFilterScope(undefined);setFilterKind(event.target.value as typeof filterKind);}}><option value="all">全部范围</option><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option><option value="unrecorded">未记录工作范围</option></select></label> : null}
+      {tasksAvailable&&(filterKind==="project"||filterKind==="store") ? <WorkScopePicker key={filterKind} initialKind={filterKind} fixedKind scope={scope} authorizationKey={authorizationKey} disabled={locked} selected={filterScope} onSelect={value=>{select();setFilterScope(value);}}/> : null}
       <span className={styles.filterHint}>待确认事项优先显示</span>
       <details className={styles.filterHelp}><summary>查看说明</summary><div><p>状态统计覆盖当前权限和工作范围内的记录，不受列表分页影响；搜索只查找列表当前已加载的记录。</p><p>统计包含当前可读取的业务任务、待确认事项和智能体运行。研究分析和历史资料记录仍在各自入口查看。任务完成后，应用建议或发布商品仍需单独确认。</p></div></details>
     </div>
-    {tasksAvailable&&(filterKind==="project"||filterKind==="store") ? <WorkScopePicker key={filterKind} initialKind={filterKind} fixedKind scope={scope} authorizationKey={authorizationKey} disabled={locked} selected={filterScope} onSelect={value=>{select();setFilterScope(value);}}/> : null}
     {!available ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
     <div className={`${layout.columns} ${styles.columns}`} data-selected={!!selection}>
       <Card className={layout.list}><header className={layout.panelHeader}><h2 tabIndex={-1} ref={listHeading}>任务列表</h2><span>已显示 {rows.length} 项</span></header>
