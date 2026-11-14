@@ -66,7 +66,7 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const authorizationKey = `${context.effectiveMemberId ?? ""}:${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${context.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE"}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
   const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? undefined : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
-  return <ConsolePage className={`console-chat${mode === "new" ? ` ${styles.newChatPage}` : ""}`} title={title} breadcrumbs={route?.trail}
+  return <ConsolePage className={`console-chat${mode === "new" ? ` ${styles.newChatPage}` : ""}`} title={title} breadcrumbs={route?.trail.map(node => node.href === "/workbench/ai/chat" ? {...node, href: "/workbench/ai/chat/new"} : node)}
     description={description}>
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请先选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :

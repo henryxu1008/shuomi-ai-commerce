@@ -9,19 +9,20 @@ import {Card} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {KnowledgeError, type KnowledgeScope} from "@/lib/api/knowledge";
 import {readOfficialArticle, readOfficialList} from "@/lib/api/official-knowledge";
+import {KnowledgeNavigation} from "./knowledge-navigation";
 import "./knowledge.css";
 
 const root = "/workbench/ai/knowledge/official";
 const breadcrumbs = [{label: "AI工作台", href: "/workbench/ai"}, {label: "知识库", href: "/workbench/ai/knowledge"}, {label: "官方知识库", href: root}];
 const description = "由硕米维护的应用指南，查看正文、版本和内容依据。AI 引用尚未开放。";
-export function OfficialKnowledgePage({articleId, revision}: {articleId?: string; revision?: string}) {
+export function OfficialKnowledgePage({articleId, revision, enterpriseAvailable = false}: {articleId?: string; revision?: string; enterpriseAvailable?: boolean}) {
   const context = useWorkbenchContext();
   if (context.error || context.blockingError) return <ConsoleState kind="error" title="企业上下文不可用"><Button onClick={() => void context.retry()}>重新确认</Button></ConsoleState>;
   if (context.isLoading || context.isSwitching) return <ConsoleState kind="loading" title="正在确认当前企业"/>;
   if (!context.user || !context.effectiveOrganization) return <ConsoleState kind="unavailable" title="请先选择企业"/>;
-  if (!context.effectiveOrganization.permissions?.includes("workbench.knowledge.read")) return <ConsolePage title="官方知识库" description={description} breadcrumbs={breadcrumbs}><ConsoleState kind="unavailable" title="当前身份没有知识库读取权限"><Button onClick={() => void context.retry()}>重新确认</Button></ConsoleState></ConsolePage>;
+  if (!context.effectiveOrganization.permissions?.includes("workbench.knowledge.read")) return <ConsolePage title="官方知识库" description={description} breadcrumbs={breadcrumbs}><KnowledgeNavigation current="official" enterpriseAvailable={enterpriseAvailable}/><ConsoleState kind="unavailable" title="当前身份没有知识库读取权限"><Button onClick={() => void context.retry()}>重新确认</Button></ConsoleState></ConsolePage>;
   const scope = {userId: context.user.id, organizationId: context.effectiveOrganization.id};
-  return <OfficialContent key={`${scope.userId}:${scope.organizationId}:${articleId ?? "list"}:${revision ?? ""}`} scope={scope} articleId={articleId} revision={revision}/>;
+  return <OfficialContent key={`${scope.userId}:${scope.organizationId}:${articleId ?? "list"}:${revision ?? ""}`} scope={scope} articleId={articleId} revision={revision} enterpriseAvailable={enterpriseAvailable}/>;
 }
 function authorityFailure(error: unknown) {
   return error instanceof KnowledgeError && [401, 403, 409].includes(error.status);
@@ -35,7 +36,7 @@ function message(error: unknown) {
   }
   return "官方资料暂时无法读取";
 }
-function OfficialContent({scope, articleId, revision}: {scope: KnowledgeScope; articleId?: string; revision?: string}) {
+function OfficialContent({scope, articleId, revision, enterpriseAvailable}: {scope: KnowledgeScope; articleId?: string; revision?: string; enterpriseAvailable: boolean}) {
   const context = useWorkbenchContext(), client = useQueryClient();
   const [authorityError, setAuthorityError] = useState<unknown>(null);
   const key = useMemo(() => ["official-knowledge", scope.userId, scope.organizationId], [scope.userId, scope.organizationId]);
@@ -47,6 +48,7 @@ function OfficialContent({scope, articleId, revision}: {scope: KnowledgeScope; a
   const refresh = async () => {const next = await context.retry(); if (next?.user.id === scope.userId && next.effectiveOrganizationId === scope.organizationId) {setAuthorityError(null); await (articleId ? detail.refetch() : list.refetch());}};
   return <ConsolePage title={!error && detail.data ? detail.data.title : "官方知识库"} description={description} breadcrumbs={articleId ? [...breadcrumbs, {label: "资料版本"}] : breadcrumbs}
     actions={articleId ? <Button asChild variant="outline"><Link href={root} prefetch={false}>返回官方知识库</Link></Button> : undefined}>
+    <KnowledgeNavigation current="official" enterpriseAvailable={enterpriseAvailable}/>
     {error ? <ConsoleState kind="error" title={message(error)}><Button onClick={() => void (authorityError ? refresh() : articleId ? detail.refetch() : list.refetch())}>{authorityError ? "重新确认" : "重新读取"}</Button></ConsoleState> : articleId ? detail.isPending ? <ConsoleState kind="loading" title="正在读取资料版本"/> : detail.data ? <>
       <Card className="official-knowledge-metadata"><p>{detail.data.maintainedBy}维护 · v{detail.data.revision} · 更新于 {detail.data.updatedAt}</p><p className="console-description">{detail.data.summary}</p><p className="official-knowledge-digest">SHA-256：{detail.data.digest}</p></Card>
       <Card className="knowledge-preview official-knowledge-article" role="region" aria-label="官方资料正文"><pre>{detail.data.body}</pre></Card>

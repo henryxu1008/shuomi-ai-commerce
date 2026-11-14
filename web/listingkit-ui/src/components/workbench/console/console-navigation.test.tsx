@@ -78,14 +78,15 @@ it("shows a single primary listing entry before Store Center and retains the sel
   expect(screen.queryByRole("link",{name})).not.toBeInTheDocument();
  query.value="";
 });
-it("opens the skill library categories under AI workbench", () => {
-  render(<ConsoleNavigation pathname="/workbench/agents/skills/mine" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name:"技能库"})).toHaveAttribute("href", "/workbench/agents/skills");
-  expect(screen.getByRole("link", {name:"官方模板"})).toHaveAttribute("href", "/workbench/agents/skills/official");
-  expect(screen.getByRole("link", {name:"我的技能"})).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("link", {name:"团队技能"})).toHaveAttribute("href", "/workbench/agents/skills/team");
-  expect(findConsoleRoute("/workbench/agents/skills/mine")?.trail.map(node => node.label)).toEqual(["AI工作台", "技能库", "我的技能"]);
+it.each(["official", "mine", "team"]) ("keeps skill category %s under one second-level entry", category => {
+  render(<ConsoleNavigation pathname={`/workbench/agents/skills/${category}`} ariaLabel="主导航" />);
+  expect(screen.getByRole("link", {name:"技能库"})).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", {name:"技能库"})).toHaveAttribute("href", "/workbench/agents/skills/official");
+  expect(screen.queryByRole("button", {name:/展开技能库|收起技能库/})).not.toBeInTheDocument();
+  for (const name of ["官方模板", "我的技能", "团队技能"]) expect(screen.queryByRole("link", {name})).not.toBeInTheDocument();
+  expect(findConsoleRoute(`/workbench/agents/skills/${category}`)).toBeDefined();
 });
+
 it("uses the installed tool capability for both customization children", () => {
   const view=render(<ConsoleNavigation pathname="/workbench/tools/custom/new" ariaLabel="主导航" toolMarketAvailable />);
   expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("aria-current","page");
@@ -245,6 +246,7 @@ it("keeps the task center entry with either independent capability", async () =>
 it.each(["new", "recent", "saved", "archived", "550e8400-e29b-41d4-a716-446655440000"])("highlights the second-level chat entry on %s", (path) => {
   render(<ConsoleNavigation pathname={`/workbench/ai/chat/${path}`} ariaLabel="主导航" aiWorkbenchAvailable />);
   const entry=screen.getByRole("link",{name:"硕米Chat"});
+  expect(entry).toHaveAttribute("href","/workbench/ai/chat/new");
   expect(entry.closest("li")).toHaveClass("console-nav-level-2");
   expect(entry).toHaveAttribute("aria-current","page");
   expect(screen.queryByRole("button",{name:"展开硕米Chat"})).not.toBeInTheDocument();
@@ -357,15 +359,14 @@ it("preserves valid context and skips invalid or repeated listing parameters",()
  expect(screen.getByRole("link",{name:"商品刊登"})).toHaveAttribute("href","/workbench/listing?preparation="+id);
  query.value="";
 });
-it("opens official reading independently while retaining the enterprise knowledge gate", () => {
-  const view = render(<ConsoleNavigation pathname="/workbench/ai/knowledge/mine" ariaLabel="主导航" knowledgeAvailable />);
+it.each(["official", "mine"]) ("keeps knowledge category %s under one second-level entry", category => {
+  const view = render(<ConsoleNavigation pathname={`/workbench/ai/knowledge/${category}`} ariaLabel="主导航" knowledgeAvailable />);
+  expect(screen.getByRole("link", {name:"知识库"})).toHaveAttribute("aria-current", "page");
+  expect(screen.queryByRole("button", {name:/展开知识库|收起知识库/})).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", {name:"官方知识库"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", {name:"我的知识库"})).not.toBeInTheDocument();
+  view.rerender(<ConsoleNavigation pathname={`/workbench/ai/knowledge/${category}`} ariaLabel="主导航" />);
   expect(screen.getByRole("link", {name:"知识库"})).toHaveAttribute("title", "知识库");
-  expect(screen.getByRole("link", {name:"我的知识库"})).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("link", {name:"我的知识库"})).toHaveAttribute("title", "我的知识库");
-  expect(screen.getByRole("link", {name:"官方知识库"})).toHaveAttribute("title", "官方知识库");
-  view.rerender(<ConsoleNavigation pathname="/workbench/ai/knowledge/mine" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name:"知识库"})).toHaveAttribute("title", "知识库");
-  expect(screen.getByRole("link", {name:"我的知识库"})).toHaveAttribute("title", "我的知识库：业务暂未启用");
 });
 
 it.each([
