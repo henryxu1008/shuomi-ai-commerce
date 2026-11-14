@@ -46,7 +46,7 @@
 .empty p{margin:0;font-size: var(--body-text-size);line-height:22px}
 .catalog{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}
 .catalog li{padding:0;border-color:var(--intro-border);border-radius:var(--radius);min-width:0}
-.catalog button{grid-template-columns:minmax(0,1fr) auto;align-content:start;gap:6px 12px;min-height:156px;padding:16px;border-radius:var(--control-radius);overflow-wrap:anywhere}
+.catalog button{grid-template-columns:minmax(0,1fr) auto;align-content:start;gap:8px 12px;min-height:132px;padding:16px;border-radius:var(--control-radius);overflow-wrap:anywhere}
 .catalog button:hover{background:var(--intro-teal-fill)}
 .catalog button:focus-visible{outline:2px solid var(--intro-teal);outline-offset:3px}
 .catalog strong{font-size:var(--card-title-size);line-height:24px}

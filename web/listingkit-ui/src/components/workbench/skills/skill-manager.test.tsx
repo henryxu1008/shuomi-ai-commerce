@@ -6,6 +6,21 @@ import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
 vi.mock("@/lib/api/skill",()=>({skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")}});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it.each(["official","personal","organization"] as const)("keeps %s cards concise while showing meaningful limits",async space=>{
+ const version={skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:7,state:"ENABLED",package:{name:"title-method",displayName:"标题整理",description:"整理标题",target:"product-title",digest:"a".repeat(64)}};
+ const limited={...version,skill:{...version.skill,id:"22222222-2222-4222-8222-222222222222"},state:"DISABLED",package:{...version.package,name:"limited-method",displayName:"停用方法"}};
+ const projection=(value:typeof version,canCopy:boolean)=>({version:value,canUse:true,canCopy,canExport:false,canEdit:false,canPublish:false});
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:false,canInstallOfficial:false,reason:""}:path.endsWith("/admission")?{policy:{allowPersonal:false,revision:"0"},canConfigure:false}:{items:[projection(version,true),projection(limited,false)],nextCursor:""});
+ render(<SkillManager scope={{userId:"actor",organizationId:"org"}} home={space==="organization"?"organization":"personal"} initialSpace={space} presentation="page"/>);
+ const card=await screen.findByRole("button",{name:/标题整理/});
+ expect(within(card).getByText("商品标题")).toBeVisible();
+ expect(card).not.toHaveTextContent(/v7|已启用|可复制/);
+ const restricted=screen.getByRole("button",{name:/停用方法/});
+ expect(restricted).toHaveTextContent("已停用");expect(restricted).toHaveTextContent("不可复制");
+ fireEvent.click(screen.getByRole("button",{name:"商品标题"}));
+ expect(within(screen.getByRole("button",{name:/标题整理/})).queryByText("商品标题")).toBeNull();
+ expect(screen.getByRole("button",{name:/停用方法/})).toHaveTextContent("不可复制");
+});
 it("keeps the skill manager open when cancelling its nested install dialog",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:{items:[],nextCursor:""});
  render(<SkillManagerTrigger scope={{userId:"actor"}} space="personal"/>);

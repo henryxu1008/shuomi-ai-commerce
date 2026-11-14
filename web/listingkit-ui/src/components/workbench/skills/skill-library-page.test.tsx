@@ -28,6 +28,12 @@ beforeEach(() => {
 });
 afterEach(() => {cleanup(); vi.clearAllMocks()});
 
+it("omits the official template subtitle", () => {
+  render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
+  expect(screen.getByRole("heading", {name: "官方模板", level: 1})).toBeVisible();
+  expect(screen.queryByText("查找平台提供的技能模板。")).not.toBeInTheDocument();
+});
+
 it("manages personal skills without an organization or a modal", async () => {
   render(<SkillLibraryPage expectedUserId="alice" category="mine"/>);
   expect(await screen.findByRole("button", {name: "新建技能"})).toBeEnabled();
