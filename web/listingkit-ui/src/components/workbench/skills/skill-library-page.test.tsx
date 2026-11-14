@@ -37,7 +37,7 @@ it("shows official maintenance under system settings only to an authorized ident
   vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:true,canCreate:true,reason:""}:{items:[],nextCursor:""});
   render(<SkillLibraryPage expectedUserId="alice" category="official" maintenance/>);
   expect(screen.getByRole("heading",{name:"系统设置",level:1})).toBeVisible();
-  expect(await screen.findByRole("button",{name:"安装官方模板"})).toBeVisible();
+  expect(screen.queryByRole("button",{name:"安装官方模板"})).not.toBeInTheDocument();
   expect(screen.queryByRole("navigation",{name:"技能库分类"})).toBeNull();
   expect(vi.mocked(skillRequest).mock.calls.every(([,path])=>path!=="official/install")).toBe(true);
 });

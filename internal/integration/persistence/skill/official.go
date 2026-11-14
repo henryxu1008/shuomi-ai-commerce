@@ -15,8 +15,19 @@ import (
 // actor-derived. A declared successor appends only to its exact enabled original
 // head. Existing releases and manually advanced heads are never overwritten.
 func (s *Store) InstallOfficial(ctx context.Context, p d.Principal, resolve d.ResolvePrincipal) (d.OfficialInstallResult, error) {
+	return s.installOfficial(ctx, p, resolve, false)
+}
+
+// PrepareOfficial is called only by the trusted application startup path.
+// It never acts on behalf of a user and never modifies an existing skill.
+func (s *Store) PrepareOfficial(ctx context.Context) error {
+	_, err := s.installOfficial(ctx, d.Principal{UserID: "system:official-skills"}, nil, true)
+	return err
+}
+
+func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.ResolvePrincipal, automatic bool) (d.OfficialInstallResult, error) {
 	out := d.OfficialInstallResult{Installed: []agent.SkillVersionRef{}, Existing: []agent.SkillVersionRef{}}
-	if !p.PlatformMaintainer || !agent.ValidID(p.UserID) || resolve == nil {
+	if !automatic && (!p.PlatformMaintainer || !agent.ValidID(p.UserID) || resolve == nil) {
 		return out, d.ErrForbidden
 	}
 	packages, err := d.OfficialPackages()
@@ -24,18 +35,37 @@ func (s *Store) InstallOfficial(ctx context.Context, p d.Principal, resolve d.Re
 		return out, err
 	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		live, err := resolve(ctx)
-		if err != nil {
-			return err
-		}
-		if live != p || !live.PlatformMaintainer {
-			return d.ErrForbidden
+		live := p
+		if !automatic {
+			live, err = resolve(ctx)
+			if err != nil {
+				return err
+			}
+			if live != p || !live.PlatformMaintainer {
+				return d.ErrForbidden
+			}
 		}
 		if err = tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "skill:official-method-v1").Error; err != nil {
 			return err
 		}
 		for _, release := range packages {
 			id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+release.Key)).String()
+			if automatic {
+				var row skillRow
+				result := tx.Where("id=?", id).Take(&row)
+				if result.Error == nil {
+					if row.OwnerKind != d.PlatformOwner || row.OwnerID != d.PlatformID {
+						return d.ErrConflict
+					}
+					if _, err := readVersion(tx, id, 0, true); err != nil {
+						return d.ErrConflict
+					}
+					continue
+				}
+				if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+					return result.Error
+				}
+			}
 			existing, readErr := readVersion(tx, id, release.Version, true)
 			if readErr == nil {
 				if existing.Metadata.Owner != (d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}) || existing.Package.Digest != release.Package.Digest || existing.Source != nil {
@@ -63,12 +93,17 @@ func (s *Store) InstallOfficial(ctx context.Context, p d.Principal, resolve d.Re
 					return d.ErrConflict
 				}
 				original = d.Version{Metadata: d.Metadata{ID: id, Owner: d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}, Creator: p.UserID, HeadVersion: 1, Revision: 1, CreatedAt: now, UpdatedAt: now}, Number: 1, Package: basePackage, State: d.Draft, Visibility: d.Private, AllowCopy: true, AllowExport: true, CreatedAt: now}
-				for _, action := range []string{"publish", "enable"} {
-					original.State, original.Visibility, err = d.Transition(live, original, action)
-					if err != nil {
-						return err
+				if automatic {
+					original.State, original.Visibility = d.Enabled, d.Shared
+					original.Metadata.Revision += 2
+				} else {
+					for _, action := range []string{"publish", "enable"} {
+						original.State, original.Visibility, err = d.Transition(live, original, action)
+						if err != nil {
+							return err
+						}
+						original.Metadata.Revision++
 					}
-					original.Metadata.Revision++
 				}
 				row := skillRow{ID: id, OwnerKind: d.PlatformOwner, OwnerID: d.PlatformID, Creator: p.UserID, HeadVersion: 1, Revision: original.Metadata.Revision, CreatedAt: now, UpdatedAt: now}
 				if err = tx.Create(&row).Error; err != nil {
@@ -93,12 +128,17 @@ func (s *Store) InstallOfficial(ctx context.Context, p d.Principal, resolve d.Re
 			v := d.Version{Metadata: original.Metadata, Number: 2, Package: release.Package, State: d.Draft, Visibility: d.Private, AllowCopy: true, AllowExport: true, CreatedAt: now}
 			v.Metadata.HeadVersion, v.Metadata.UpdatedAt = 2, now
 			v.Metadata.Revision++
-			for _, action := range []string{"publish", "enable"} {
-				v.State, v.Visibility, err = d.Transition(live, v, action)
-				if err != nil {
-					return err
+			if automatic {
+				v.State, v.Visibility = d.Enabled, d.Shared
+				v.Metadata.Revision += 2
+			} else {
+				for _, action := range []string{"publish", "enable"} {
+					v.State, v.Visibility, err = d.Transition(live, v, action)
+					if err != nil {
+						return err
+					}
+					v.Metadata.Revision++
 				}
-				v.Metadata.Revision++
 			}
 			if err = insertVersion(tx, v); err != nil {
 				return err

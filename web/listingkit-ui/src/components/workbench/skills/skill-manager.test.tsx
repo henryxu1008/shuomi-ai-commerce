@@ -113,40 +113,4 @@ it("opens personal management without an effective organization and validates be
  expect(screen.queryByRole("button",{name:"生成建议"})).not.toBeInTheDocument();
 });
 
-it("installs the official release only through the maintainer action with no client packages",async()=>{
- vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path.endsWith("/install")?{installed:[],existing:[]}:{items:[],nextCursor:""});
- render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
- const install=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(install).toBeEnabled());fireEvent.click(install);
- const dialog=await screen.findByRole("dialog",{name:"安装官方模板"});
- expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/install")).toBe(false);
- fireEvent.click(within(dialog).getByRole("button",{name:"确认安装"}));
- await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path,,init])=>path==="official/install"&&init?.body==="{}")).toBe(true));
- expect(screen.queryByRole("button",{name:"新建技能"})).not.toBeInTheDocument();
-});
-it("closes the install dialog on Escape without installing",async()=>{
- vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:{items:[],nextCursor:""});
- render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
- const trigger=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(trigger).toBeEnabled());trigger.focus();fireEvent.click(trigger);
- const dialog=await screen.findByRole("dialog",{name:"安装官方模板"});fireEvent(dialog,new Event("cancel",{cancelable:true}));
- expect(screen.queryByRole("dialog",{name:"安装官方模板"})).not.toBeInTheDocument();expect(trigger).toHaveFocus();
- expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/install")).toBe(false);
-});
-it.each([[2,0,"已安装 2 个官方模板。"],[0,2,"官方模板已安装，无需重复安装。"],[1,2,"已安装 1 个官方模板，另外 2 个已存在。"]])("explains the installation result",async(installed,existing,expected)=>{
- const ref=(n:number)=>({kind:"skill-version-v1",id:`00000000-0000-4000-8000-${String(n).padStart(12,"0")}`,ownerKind:"PLATFORM",ownerId:"official",version:1,digest:"a".repeat(64),policyVersion:"skill-method-v1"});
- vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path.endsWith("/install")?{installed:Array.from({length:installed},(_,i)=>ref(i+1)),existing:Array.from({length:existing},(_,i)=>ref(i+10))}:{items:[],nextCursor:""});
- render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
- const trigger=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(trigger).toBeEnabled());fireEvent.click(trigger);
- fireEvent.click(within(await screen.findByRole("dialog",{name:"安装官方模板"})).getByRole("button",{name:"确认安装"}));
- expect(await screen.findByText(expected)).toBeVisible();
-});
-it("retries an uncertain installation with the original request key",async()=>{
- let attempts=0;
- vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official/install"?(++attempts===1?Promise.reject(new SkillError("OUTCOME_UNKNOWN",true)):{installed:[],existing:[]}):{items:[],nextCursor:""});
- render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
- const install=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(install).toBeEnabled());fireEvent.click(install);
- fireEvent.click(within(await screen.findByRole("dialog",{name:"安装官方模板"})).getByRole("button",{name:"确认安装"}));
- const retry=await screen.findByRole("button",{name:"核实原操作"});expect(attempts).toBe(1);fireEvent.click(retry);
- await waitFor(()=>expect(attempts).toBe(2));
- const calls=vi.mocked(skillRequest).mock.calls.filter(([,path])=>path==="official/install");
- expect(new Headers(calls[0][3]?.headers).get("Idempotency-Key")).toBe(new Headers(calls[1][3]?.headers).get("Idempotency-Key"));
-});
+
