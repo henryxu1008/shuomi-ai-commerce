@@ -7,6 +7,7 @@ import {ScheduleForm} from "./schedule-form";
 import {AIWorkbenchError,requestAIWorkbench} from "@/lib/api/ai-workbench";
 vi.mock("@/lib/api/ai-workbench",async original=>{const actual=await original<typeof import("@/lib/api/ai-workbench")>();return {...actual,requestAIWorkbench:vi.fn()};});
 vi.mock("./chat-task-selection",()=>({ChatTaskSelection:()=>null}));
+vi.mock("@/lib/api/store-center",()=>({catalogSchema:{},storeCenterRequest:vi.fn(async()=>({items:[{id:"33333333-3333-4333-8333-333333333333",name:"日报合成店",platform:"shein"}],pagination:{page:1,pageSize:100,total:1}}))}));
 const request=vi.mocked(requestAIWorkbench),scope={userId:"user",organizationId:"org"},id="11111111-1111-4111-8111-111111111111";
 const plan={id,revision:"2",state:"ACTIVE" as const,registrationState:"MATCHED" as const,detailsAvailable:true,goalSummary:"完善商品描述",rule:{frequency:"daily" as const,timeZone:"Asia/Shanghai",hour:9,minute:0,weekday:0},maxOccurrences:"3",consumedOccurrences:"1",unit:"ai-micropoint-v1" as const,perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"57600000",createdAt:"2026-11-01T00:00:00Z"};
 const storageKey="ai-workbench-schedule-command:user:org";
@@ -72,4 +73,16 @@ it("retires an unknown command only after an authoritative durable rejection",as
  mount();await userEvent.click(await screen.findByRole("button",{name:"核实原操作"}));await waitFor(()=>expect(screen.getByRole("button",{name:"核实原操作"})).toBeEnabled());expect(sessionStorage.getItem(storageKey)).not.toBeNull();
  await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await waitFor(()=>expect(screen.queryByRole("heading",{name:"上次操作结果待核实"})).toBeNull());
  expect(sessionStorage.getItem(storageKey)).toBeNull();expect(screen.getByRole("button",{name:"创建定时任务"})).toBeEnabled();
+});
+
+it("confirms a deterministic store report without product or model fields",async()=>{
+ const save=vi.fn(async(_input:unknown)=>{});
+ request.mockImplementation(async input=>{expect(input.route).toBe("schedule-quote");expect(input.body).not.toHaveProperty("selection");expect(input.body).not.toHaveProperty("proposalId");return {kind:"store.operating-daily-report",report:(input.body as {report:unknown}).report,confirmation:"a".repeat(64),goalSummary:"店铺经营日报",rule:(input.body as {rule:unknown}).rule,maxOccurrences:"1",unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0",nextAt:"2030-11-20T01:00:00Z"} as never;});
+ render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" disabled={false} dailyReportEnabled contentEnabled={false} onSave={save} onCancel={vi.fn()}/></QueryClientProvider>);
+ await screen.findByRole("option",{name:/日报合成店/});
+ await userEvent.selectOptions(await screen.findByLabelText("店铺"),"33333333-3333-4333-8333-333333333333");
+ await userEvent.type(screen.getByLabelText("执行日期与时间（本机时区）"),"2030-11-20T09:00");
+ await userEvent.click(screen.getByRole("button",{name:"核对计划"}));
+ await screen.findByText("每次执行自动保存一份个人报告");expect(save).not.toHaveBeenCalled();expect(screen.queryByText(/AI 积分/)).toBeNull();
+ await userEvent.click(screen.getByRole("button",{name:"确认并保存计划"}));expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).toMatchObject({kind:"store.operating-daily-report",report:{storeId:"33333333-3333-4333-8333-333333333333"}});
 });

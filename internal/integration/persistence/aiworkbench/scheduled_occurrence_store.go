@@ -158,5 +158,6 @@ func newScheduledOccurrence(plan scheduledPlanRow, policy aiworkbench.ScheduledP
 	if state == "SKIPPED" {
 		row.Reason = "MISSED_TRIGGER"
 	}
+	if policy.Report!=nil{row.PayloadDigest=digest(struct{PlanID string;Slot time.Time;Revision int64;Spec *aiworkbench.DailyReportSpec}{plan.ID,slot.UTC(),plan.Revision,policy.Report})}
 	return row
 }

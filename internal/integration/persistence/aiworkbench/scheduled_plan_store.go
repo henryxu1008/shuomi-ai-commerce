@@ -21,6 +21,7 @@ type scheduledPlanRow struct {
 	MemberID               string
 	Kind                   string
 	TaskSelection          json.RawMessage `gorm:"type:jsonb"`
+	ReportSpec             json.RawMessage `gorm:"type:jsonb"`
 	ExecutionSpec          json.RawMessage `gorm:"type:jsonb"`
 	RuleStartAt            *time.Time
 	RegistrationState      string `gorm:"default:PENDING"`
@@ -49,8 +50,15 @@ func (scheduledPlanRow) TableName() string { return "ai_workbench.scheduled_plan
 
 func schedulePlanValue(row scheduledPlanRow) (aiworkbench.ScheduledPlanDraft, error) {
 	var selection aiworkbench.TaskSelection
-	if json.Unmarshal(row.TaskSelection, &selection) != nil ||
-		row.MaxOccurrences <= 0 || row.PerRunUpperBoundMicros <= 0 || row.TotalUpperBoundMicros <= 0 {
+	var report *aiworkbench.DailyReportSpec
+	if row.Kind == aiworkbench.DailyReportKind {
+		if json.Unmarshal(row.ReportSpec, &report) != nil || report == nil || len(row.TaskSelection) != 0 && string(row.TaskSelection) != "null" {
+			return aiworkbench.ScheduledPlanDraft{}, aiworkbench.ErrUnavailable
+		}
+	} else if row.Kind != aiworkbench.ContentTaskKind || json.Unmarshal(row.TaskSelection, &selection) != nil || len(row.ReportSpec) != 0 && string(row.ReportSpec) != "null" {
+		return aiworkbench.ScheduledPlanDraft{}, aiworkbench.ErrUnavailable
+	}
+	if row.MaxOccurrences <= 0 || row.PerRunUpperBoundMicros < 0 || row.TotalUpperBoundMicros < 0 {
 		return aiworkbench.ScheduledPlanDraft{}, aiworkbench.ErrUnavailable
 	}
 	rule := aiworkbench.ScheduleRule{
@@ -73,6 +81,7 @@ func schedulePlanValue(row scheduledPlanRow) (aiworkbench.ScheduledPlanDraft, er
 		rule.UntilUTC = row.UntilUTC.UTC()
 	}
 	value := aiworkbench.ScheduledPlanDraft{
+		Report:   report,
 		ID:       row.ID,
 		Scope:    aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.OwnerUserID},
 		MemberID: row.MemberID, Selection: selection, GoalSummary: row.GoalSummary,
@@ -88,7 +97,7 @@ func schedulePlanValue(row scheduledPlanRow) (aiworkbench.ScheduledPlanDraft, er
 	if row.RuleStartAt != nil {
 		value.RuleStartAt = row.RuleStartAt.UTC()
 	}
-	total, err := value.Budget.TotalUpperBoundMicros()
+	total, err := value.TotalUpperBound()
 	if err != nil || total > math.MaxInt64 || int64(total) != row.TotalUpperBoundMicros || !value.Valid() {
 		return aiworkbench.ScheduledPlanDraft{}, aiworkbench.ErrUnavailable
 	}
@@ -107,14 +116,14 @@ func (s *Store) CreateScheduledPlan(ctx context.Context, input aiworkbench.Sched
 	if err != nil || len(raw) > 2048 {
 		return aiworkbench.ErrInvalid
 	}
-	total, err := input.Budget.TotalUpperBoundMicros()
+	total, err := input.TotalUpperBound()
 	if err != nil || total > math.MaxInt64 {
 		return aiworkbench.ErrInvalid
 	}
 	row := scheduledPlanRow{
 		ID: input.ID, OrganizationID: input.Scope.OrganizationID,
 		OwnerUserID: input.Scope.ActorID, MemberID: input.MemberID,
-		Kind: aiworkbench.ContentTaskKind, TaskSelection: raw,
+		Kind: input.Kind(), TaskSelection: raw,
 		ExecutionSpec:       input.ExecutionSpec,
 		CreationFingerprint: input.CreationFingerprint,
 		GoalSummary:         input.GoalSummary,
@@ -125,6 +134,13 @@ func (s *Store) CreateScheduledPlan(ctx context.Context, input aiworkbench.Sched
 		TotalUpperBoundMicros:  int64(total),
 		State:                  "PENDING_REGISTRATION", Revision: 1,
 		CreatedAt: input.CreatedAt.UTC(), UpdatedAt: input.CreatedAt.UTC(),
+	}
+	if input.Report != nil {
+		row.TaskSelection = nil
+		row.ReportSpec, err = json.Marshal(input.Report)
+		if err != nil {
+			return aiworkbench.ErrInvalid
+		}
 	}
 	start := input.CreatedAt.UTC()
 	if !input.RuleStartAt.IsZero() {
@@ -138,6 +154,7 @@ func (s *Store) CreateScheduledPlan(ctx context.Context, input aiworkbench.Sched
 			Rule      aiworkbench.ScheduleRule
 			Budget    aiworkbench.ScheduleBudget
 		}{input.Selection, input.GoalSummary, input.Rule, input.Budget})
+		if input.Report!=nil{row.CreationFingerprint=digest(input)}
 	}
 	if !validDigest(row.CreationFingerprint) {
 		return aiworkbench.ErrInvalid
@@ -160,7 +177,11 @@ func (s *Store) CreateScheduledPlan(ctx context.Context, input aiworkbench.Sched
 			row.LocalWeekday = &weekday
 		}
 	}
-	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
+	create := s.db.WithContext(ctx)
+	if input.Report == nil {
+		create = create.Omit("ReportSpec")
+	}
+	if err := create.Create(&row).Error; err != nil {
 		return unavailable(err)
 	}
 	return nil

@@ -45,12 +45,16 @@ import (
 
 // This fixture creates its own loopback-only, disposable PostgreSQL. It never
 // accepts a caller-provided DSN or connects to application/customer databases.
-func commercialPostgres(t *testing.T) (*gorm.DB, *config.DatabaseConfig) {
+func commercialPostgres(t *testing.T, imageOption ...string) (*gorm.DB, *config.DatabaseConfig) {
 	t.Helper()
+	image := "postgres:17.2-alpine"
+	if len(imageOption) == 1 {
+		image = imageOption[0]
+	}
 	name := "issue347-commercial-" + uuid.NewString()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, "docker", "run", "--rm", "-d", "--name", name, "-e", "POSTGRES_USER=issue347", "-e", "POSTGRES_PASSWORD=issue347-fixture", "-e", "POSTGRES_DB=issue347", "-p", "127.0.0.1::5432", "postgres:17.2-alpine").CombinedOutput()
+	output, err := exec.CommandContext(ctx, "docker", "run", "--rm", "-d", "--name", name, "-e", "POSTGRES_USER=issue347", "-e", "POSTGRES_PASSWORD=issue347-fixture", "-e", "POSTGRES_DB=issue347", "-p", "127.0.0.1::5432", image).CombinedOutput()
 	require.NoError(t, err, string(output))
 	t.Cleanup(func() {
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
