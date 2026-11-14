@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getAccountProfile } from "@/lib/api/account";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,16 +42,24 @@ export function ChatIntroduction({ createAction, contentTasks }: { createAction:
   </div>;
 }
 
-export function NewConversationIntroduction({ createAction, directCompose }: { createAction: ReactNode; directCompose: boolean; canUse: boolean }) {
+export function NewConversationIntroduction({ createAction, directCompose, userId }: { createAction: ReactNode; directCompose: boolean; canUse: boolean; userId: string }) {
+  const profile = useQuery({
+    queryKey: ["account", "chat-display-name", userId],
+    queryFn: ({signal}) => getAccountProfile({ expectedUserId: userId, signal }),
+    gcTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
+  });
+  const name = profile.isSuccess && !profile.isFetching ? profile.data.displayName?.trim() : "";
+  const displayName = name && name !== userId && !/^\d+$/.test(name) ? name : "";
+  const greeting = displayName ? `${displayName}，今天想做什么？` : "今天想做什么？";
   if (directCompose) return <div className={styles.newWorkspace}>
     <section className={styles.composeMain} aria-labelledby="chat-new-goal">
-      <header className={styles.composeHeading}><h2 id="chat-new-goal">今天想做什么？</h2></header>
+      <header className={styles.composeHeading}><h2 id="chat-new-goal">{greeting}</h2></header>
       <div className={styles.composePanel}>{createAction}</div>
     </section>
   </div>;
   return <div className={styles.newWorkspace}>
     <section className={styles.newMain} aria-labelledby="chat-new-goal">
-      <header className={styles.newHeading}><h2 id="chat-new-goal">今天想做什么？</h2></header>
+      <header className={styles.newHeading}><h2 id="chat-new-goal">{greeting}</h2></header>
       <Card className={styles.createPanel}><div className={styles.createAction}>{createAction}</div></Card>
     </section>
   </div>;

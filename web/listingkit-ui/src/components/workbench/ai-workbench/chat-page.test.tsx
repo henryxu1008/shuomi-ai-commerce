@@ -13,6 +13,7 @@ const fixture = vi.hoisted(() => ({
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof import("@/lib/api/ai-workbench")>(), requestAIWorkbench: fixture.request }));
 vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:fixture.templates}));
 vi.mock("@/lib/api/knowledge",async original=>({...await original<object>(),knowledgeRequest:fixture.knowledge}));
+vi.mock("@/lib/api/account",async original=>({...await original<object>(),getAccountProfile:vi.fn().mockResolvedValue({displayName:null})}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,disabled,isEligible}:{onSelect:(item:unknown)=>void;disabled:boolean;isEligible?:(item:{source:{kind:string;operationId?:string}})=>boolean})=>{const own={id:operationId,title:"Imported own product",source:{kind:"own",productKey:"product",version:"1",publicationId:operationId}},acquired={id:operationId,title:"采集商品",source:{kind:"acquisition",operationId,productKey:"product"}};return <>{(!isEligible||isEligible(own))&&<button disabled={disabled} onClick={()=>onSelect(own)}>选择我的商品</button>}{(!isEligible||isEligible(acquired))&&<button disabled={disabled} onClick={()=>onSelect(acquired)}>选择采集商品</button>}</>}}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: fixture.push }), useSearchParams: () => fixture.search }));
