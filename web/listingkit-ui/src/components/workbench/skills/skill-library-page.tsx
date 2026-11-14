@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
 import {Button} from "@/components/ui/button";
-import {Card} from "@/components/ui/card";
 import {ConsolePage, ConsoleState} from "../console/console-page";
 import {SkillManager} from "./skill-manager";
 import {WorkbenchViewNav,workbenchViewPage} from "../console/workbench-view-nav";
@@ -14,18 +13,9 @@ import homeStyles from "../console/primary-introduction.module.css";
 export type SkillCategory = "official" | "mine" | "team";
 const root = "/workbench/agents/skills";
 const categories = [
-  {id: "official", label: "官方模板", path: `${root}/official`, description: "查看已发布启用的标准方法，按当前版本许可复制与复用。", notes: [
-    ["许可与准确版本", "复制、导出与使用取决于当前版本许可；复制后生成独立技能。"],
-    ["执行边界", "技能提供方法与参考材料，执行继续使用现有智能体的权限、预算与审核。"],
-  ]},
-  {id: "mine", label: "我的技能", path: `${root}/mine`, description: "整理个人方法与参考材料，管理版本，需要时提交团队审核。", notes: [
-    ["个人归属与版本", "个人技能归属本人，不要求加入企业；保存新版本时保留已保存正文。"],
-    ["提交团队审核", "本人同意并提交指定版本后，由企业维护者审核并生成独立团队副本。"],
-  ]},
-  {id: "team", label: "团队技能", path: `${root}/team`, description: "维护当前企业可复用的业务方法，按已有权限审批与管理准入。", notes: [
-    ["当前企业范围", "团队技能属于当前企业；切换企业后重新读取，访问与管理按已有权限确认。"],
-    ["团队复用边界", "个人提交须经本人同意和维护者审核；组织副本与个人后续改动相互独立。"],
-  ]},
+  {id: "official", label: "官方模板", path: `${root}/official`, description: "查找平台提供的技能模板。"},
+  {id: "mine", label: "我的技能", path: `${root}/mine`, description: "管理个人技能，或提交团队审核。"},
+  {id: "team", label: "团队技能", path: `${root}/team`, description: "查看和管理当前企业的技能。"},
 ] as const;
 
 export function SkillLibraryPage({expectedUserId, category}: {expectedUserId: string; category: SkillCategory}) {
@@ -56,6 +46,5 @@ export function SkillLibraryPage({expectedUserId, category}: {expectedUserId: st
     breadcrumbs={[{label: "AI工作台", href: "/workbench/ai"}, {label: "技能库", href: `${root}/official`}, {label: current.label}]}>
     <WorkbenchViewNav label="技能库分类">{categories.map(item => <Link key={item.id} href={item.path} prefetch={false} aria-label={item.label} aria-current={item.id === category ? "page" : undefined}>{item.label}</Link>)}</WorkbenchViewNav>
     {content}
-    <aside className={styles.notes} aria-label={`${current.label}使用说明`}>{current.notes.map(([title, description]) => <Card key={title}><h2>{title}</h2><p>{description}</p></Card>)}</aside>
   </ConsolePage>;
 }
