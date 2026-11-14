@@ -765,7 +765,7 @@ func (s *Store) AppendUser(ctx context.Context, scope aiworkbench.Scope, convers
 		if row.BusinessScope != nil {
 			f := prepared.FrozenScope
 			if f == nil || f.Validate() != nil || f.Owner != scope || f.ConversationID != row.ID ||
-				f.Scope != *row.BusinessScope || f.MemberID != prepared.MemberID {
+				f.Scope != *row.BusinessScope || f.MemberID != prepared.MemberID || !f.StoreChoice.Matches(input.StoreChoice) {
 				return aiworkbench.ErrInvalid
 			}
 			scopeJSON, err = json.Marshal(f)

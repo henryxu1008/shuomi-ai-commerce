@@ -36,6 +36,7 @@ const message = z.object({
   kind:z.enum(["TEXT","STORE_OVERVIEW_REF"]).optional(),storeQueryStatus:z.enum(["ALL_NON_DELETED","ACTIVE"]).optional(),currentStoreOverview:storeOverview.optional(),storeOverviewUnavailable:z.boolean().optional(),
 }).superRefine((m,ctx)=>{if(m.kind==="STORE_OVERVIEW_REF"){if(m.Author!=="ASSISTANT"||m.Content!=="店铺概况"||!m.storeQueryStatus||Boolean(m.currentStoreOverview)===Boolean(m.storeOverviewUnavailable))ctx.addIssue({code:"custom",message:"Invalid store reference"});}else if(m.storeQueryStatus||m.currentStoreOverview||m.storeOverviewUnavailable)ctx.addIssue({code:"custom",message:"Unexpected store projection"});});
 const proposal = z.object({
+ selectedStoreName:z.string().max(512).optional(),
  businessScope:scopeView.optional(),
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),executionProfileReady:z.boolean().optional(),maximumSteps:z.number().int().positive().optional(),maximumModelCalls:z.number().int().positive().optional(),maximumRuntimeSeconds:z.number().int().positive().optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeUnavailableReason:z.string().optional(),
@@ -72,12 +73,13 @@ const task = z.object({
 });
 const scopedCreateBody = z.strictObject({ favorite: z.boolean().optional(), scopeSelection:workScopeSelection,scopeConfirmation:z.string().regex(/^[a-f0-9]{64}$/) });
 export const aiCreateBody = z.union([scopedCreateBody,z.strictObject({favorite:z.boolean().optional()})]);
+export const aiStoreChoice = z.discriminatedUnion("kind",[z.strictObject({kind:z.literal("none")}),z.strictObject({kind:z.literal("store"),storeId:id,scopeConfirmation:z.string().regex(/^[a-f0-9]{64}$/),connectionVersion:z.number().int().positive().max(Number.MAX_SAFE_INTEGER)})]);
 const aiTitleMessageBody = z.strictObject({
   content: z.string().min(1).refine(v => new TextEncoder().encode(v).length <= 8192), operationId: id,
   targetPlatform: z.enum(["shein", "temu", "amazon"]), templateId: id.optional(),
-  templateRevision: z.string().regex(/^[1-9][0-9]*$/).optional(), knowledgeBaseId: id.optional(),
+  templateRevision: z.string().regex(/^[1-9][0-9]*$/).optional(), knowledgeBaseId: id.optional(), storeChoice:aiStoreChoice.optional(),
 });
-export const aiMessageBody=z.union([aiTitleMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,taskSelection:aiTaskSelection,templateId:id.optional(),templateRevision:aiTitleMessageBody.shape.templateRevision,knowledgeBaseId:id.optional()})]).refine(value=>Boolean(value.templateId)===Boolean(value.templateRevision));
+export const aiMessageBody=z.union([aiTitleMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,taskSelection:aiTaskSelection,templateId:id.optional(),templateRevision:aiTitleMessageBody.shape.templateRevision,knowledgeBaseId:id.optional(),storeChoice:aiStoreChoice.optional()})]).refine(value=>Boolean(value.templateId)===Boolean(value.templateRevision));
 export const aiStoreRouteBody=z.strictObject({content:aiTitleMessageBody.shape.content});
 export const aiStoreOverviewBody=z.strictObject({status:z.enum(["ALL_NON_DELETED","ACTIVE"])});
 export const aiMetadataBody = z.strictObject({ title: z.string().max(256).optional(), favorite: z.boolean().optional(), archived: z.boolean().optional() });
