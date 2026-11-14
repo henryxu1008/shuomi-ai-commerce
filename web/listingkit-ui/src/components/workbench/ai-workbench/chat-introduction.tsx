@@ -42,12 +42,14 @@ export function ChatIntroduction({ createAction, contentTasks }: { createAction:
 
 export function NewConversationIntroduction({ createAction, directCompose }: { createAction: ReactNode; directCompose: boolean; canUse: boolean }) {
   if (directCompose) return <div className={styles.newWorkspace}>
-    <section className={styles.composeMain} aria-label="输入需求">
+    <section className={styles.composeMain} aria-labelledby="chat-new-goal">
+      <header className={styles.composeHeading}><h2 id="chat-new-goal">今天想做什么？</h2></header>
       <div className={styles.composePanel}>{createAction}</div>
     </section>
   </div>;
   return <div className={styles.newWorkspace}>
-    <section className={styles.newMain} aria-label="开始会话">
+    <section className={styles.newMain} aria-labelledby="chat-new-goal">
+      <header className={styles.newHeading}><h2 id="chat-new-goal">今天想做什么？</h2></header>
       <Card className={styles.createPanel}><div className={styles.createAction}>{createAction}</div></Card>
     </section>
   </div>;
