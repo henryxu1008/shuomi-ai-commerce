@@ -11,8 +11,39 @@ vi.mock("@/lib/api/product-title-review-client", () => ({ fetchProductTitlePropo
 vi.mock("@/lib/api/shein-records-client", () => ({ fetchSheinRecords: vi.fn() }));
 const source = { ref: { kind: "TITLE_REVIEW" as const, id: "550e8400-e29b-41d4-a716-446655440000", version: "2:accepted" }, title: "标题审核 · 商品A", productKey: "product-a", storeId: "" };
 const report: Report = { ...source, id: "550e8400-e29b-41d4-a716-446655440001", capturedAt: "2026-10-10T00:00:00Z", favorite: false, content: { schemaVersion: 1, sections: [{ title: "标题历史", fields: [{ label: "建议标题", value: "已保存的标题内容" }] }] }, digest: "a".repeat(64) };
-beforeEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); sessionStorage.clear(); fixture.context.user = { id: "actor-a" }; fixture.context.effectiveOrganization = { id: "org-a" }; fixture.context.permissions = ["workbench.report.read", "workbench.report.manage"]; fixture.sourceList.mockResolvedValue({ items: [{ proposal_id: source.ref.id }], next_cursor: null }); });
+beforeEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}}); Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}}); sessionStorage.clear(); fixture.context.user = { id: "actor-a" }; fixture.context.effectiveOrganization = { id: "org-a" }; fixture.context.permissions = ["workbench.report.read", "workbench.report.manage"]; fixture.sourceList.mockResolvedValue({ items: [{ proposal_id: source.ref.id }], next_cursor: null }); });
 const tree = (client: QueryClient, titleReviewAvailable = true) => <QueryClientProvider client={client}><ReportPage view="all" titleReviewAvailable={titleReviewAvailable} /></QueryClientProvider>;
+it("opens source selection as a modal and restores focus on Escape without saving", async () => {
+  const fetch = vi.fn(async (path: string, _init?: RequestInit) => path.includes("/sources/") ? Response.json(source) : path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" }));
+  vi.stubGlobal("fetch", fetch);
+  const client = new QueryClient(), view = render(tree(client));
+  const trigger = await screen.findByRole("button", {name:"添加已有结果"});
+  await waitFor(() => expect(trigger).toBeEnabled());
+  trigger.focus(); fireEvent.click(trigger);
+  const dialog = await screen.findByRole("dialog", {name:"添加已有结果"});
+  await within(dialog).findByRole("button", {name:"保存此版本"});
+  fireEvent(dialog, new Event("cancel", {bubbles:false, cancelable:true}));
+  expect(screen.queryByRole("dialog", {name:"添加已有结果"})).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+  expect(fetch.mock.calls.every(([,init]) => !init || init.method !== "POST")).toBe(true);
+  view.unmount(); client.clear();
+});
+it("moves focus to the recovery notice when closing after an unknown save result", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+    if (init?.method === "POST") throw new Error("response lost");
+    return path.includes("/sources/") ? Response.json(source) : path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" });
+  }));
+  const client = new QueryClient(), view = render(tree(client));
+  const trigger = await screen.findByRole("button", {name:"添加已有结果"});
+  await waitFor(() => expect(trigger).toBeEnabled());
+  trigger.focus(); fireEvent.click(trigger);
+  const dialog = await screen.findByRole("dialog", {name:"添加已有结果"});
+  fireEvent.click(await within(dialog).findByRole("button", {name:"保存此版本"}));
+  await within(dialog).findByRole("button", {name:"重试上次操作"});
+  fireEvent(dialog, new Event("cancel", {cancelable:true}));
+  expect(screen.getByRole("button", {name:"重试上次操作"}).closest('[role="status"]')).toHaveFocus();
+  view.unmount(); client.clear();
+});
 it("does not suggest adding reports to a read-only user", async () => {
   fixture.context.permissions = ["workbench.report.read"];
   vi.stubGlobal("fetch", vi.fn(async (path: string) => path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" })));

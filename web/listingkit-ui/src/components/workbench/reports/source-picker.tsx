@@ -3,7 +3,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ConsoleState } from "../console/console-page";
 import { fetchProductTitleProposals } from "@/lib/api/product-title-review-client";
 import { requestAIWorkbench } from "@/lib/api/ai-workbench";
@@ -30,8 +29,7 @@ export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAva
     for (let start = 0; start < refs.length; start += 4) { const batch = await Promise.allSettled(refs.slice(start, start + 4).map(ref => reportRequest(scope, `/sources/${ref.kind}/${ref.id}`, reportSourceSchema, signal))); for (const result of batch) { if (result.status === "fulfilled") sources.push(result.value); else if (!(result.reason instanceof ReportError && result.reason.code === "NOT_FOUND")) throw result.reason; } }
     signal.throwIfAborted(); return { sources, next };
   }, retry: false, gcTime: 0, staleTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false });
-  return <Card className={styles.picker}>
-    <h2>保存本人已有结果</h2>
+  return <div className={styles.picker}>
     <p>选择来源并手动保存当前展示版本。若来源在保存前变化，会拒绝本次保存。</p>
     <div className={styles.filters} role="group" aria-label="保存报告用途">
       <Button variant={mode!=="target"&&mode!=="offline"?"secondary":"outline"} aria-pressed={mode!=="target"&&mode!=="offline"} disabled={disabled||!titleReviewAvailable} onClick={()=>{setMode("review");setCursor("");}}>标题审核</Button>
@@ -54,5 +52,5 @@ export function ReportSourcePicker({ scope, authorizationKey, disabled, tasksAva
       {query.data.next && query.data.next !== cursor ? <Button variant="outline" disabled={disabled} onClick={() => setCursor(query.data.next)}>查看下一页来源</Button> : null}
       {cursor ? <Button variant="ghost" disabled={disabled} onClick={() => setCursor("")}>返回首批来源</Button> : null}
     </>}
-  </Card>;
+  </div>;
 }

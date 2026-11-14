@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, FileText, FolderOpen, Star } from "lucide-react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
@@ -10,6 +10,7 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 import { ReportError, readReportIntent, reportRequest, writeReportIntent } from "@/lib/api/report-center";
 import { reportResultSchema, reportSchema, reportsPageSchema, reportsSummarySchema, reportText, sourceHref, type Report, type ReportIntent, type ReportScope, type ReportSource } from "@/lib/contracts/report-center";
 import { ReportSourcePicker } from "./source-picker";
+import { ResourceDialog } from "../resources/resource-dialog";
 import {WorkbenchViewNav,workbenchViewPage} from "../console/workbench-view-nav";
 import {initialReportMerge,mergeReportPage,type ReportMergeState} from "./report-list-merge";
 import styles from "./report-page.module.css";
@@ -40,11 +41,18 @@ function ScopedReports({ scope, authorizationKey, view, manage, tasksAvailable, 
   }, onError: (e) => { setFeedback(errorText(e)); if (e instanceof ReportError && ["CONFLICT", "INVALID_REQUEST", "NOT_FOUND"].includes(e.code)) { try { writeReportIntent(scope, null); setIntent(null); } catch (storageError) { setFeedback(errorText(storageError)); } } } });
   function submit(command: ReportIntent) { if (!manage || mutation.isPending || intent || !intentReady) return; try { writeReportIntent(scope, command); setIntent(command); setFeedback(""); mutation.mutate(command); } catch (e) { setFeedback(errorText(e)); } }
   const busy = mutation.isPending || !!intent || !intentReady;
+  const showPicker = showSave && manage && (titleReviewAvailable || targetAvailable || offlineAvailable);
+  const previousPicker = useRef(false), feedbackRef = useRef<HTMLDivElement>(null), scopeRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (previousPicker.current && !showPicker && busy) (feedbackRef.current ?? scopeRef.current)?.focus();
+    previousPicker.current = !!showPicker;
+  }, [showPicker, busy]);
+  const feedbackNotice = notice ? <div ref={feedbackRef} tabIndex={-1} className={styles.feedback} role="status"><p>{notice}</p>{intent && !mutation.isPending && manage ? <Button variant="outline" onClick={() => mutation.mutate(intent)}>重试上次操作</Button> : null}</div> : null;
   return <>
-    <div className={styles.reportActions}>{manage ? <Button onClick={() => setShowSave(v => !v)} disabled={busy || !(titleReviewAvailable || targetAvailable || offlineAvailable)}>{showSave ? "收起添加" : "添加已有结果"}</Button> : null}<span>当前企业 · 本人的报告</span></div>
+    <div className={styles.reportActions}>{manage ? <Button aria-haspopup="dialog" onClick={() => setShowSave(true)} disabled={busy || !(titleReviewAvailable || targetAvailable || offlineAvailable)}>添加已有结果</Button> : null}<span ref={scopeRef} tabIndex={-1}>当前企业 · 本人的报告</span></div>
     {manage && !titleReviewAvailable ? <p>标题审核报告保存暂未开放；已保存的历史报告仍可查阅、收藏和下载。</p> : null}
-    {notice ? <div className={styles.feedback} role="status"><p>{notice}</p>{intent && !mutation.isPending && manage ? <Button variant="outline" onClick={() => mutation.mutate(intent)}>重试上次操作</Button> : null}</div> : null}
-    {showSave && manage && (titleReviewAvailable || targetAvailable || offlineAvailable) ? <ReportSourcePicker scope={scope} authorizationKey={authorizationKey} tasksAvailable={tasksAvailable} titleReviewAvailable={titleReviewAvailable} targetAvailable={targetAvailable} initialTargetRecord={initialTargetRecord} initialOfflineRecord={initialOfflineRecord} offlineAvailable={offlineAvailable} disabled={busy} save={(source: ReportSource) => submit({ operation: "save", key: crypto.randomUUID(), source: source.ref })} /> : null}
+    {!showPicker ? feedbackNotice : null}
+    {showPicker ? <ResourceDialog title="添加已有结果" locked={mutation.isPending} onClose={() => setShowSave(false)}>{feedbackNotice}<ReportSourcePicker scope={scope} authorizationKey={authorizationKey} tasksAvailable={tasksAvailable} titleReviewAvailable={titleReviewAvailable} targetAvailable={targetAvailable} initialTargetRecord={initialTargetRecord} initialOfflineRecord={initialOfflineRecord} offlineAvailable={offlineAvailable} disabled={busy} save={(source: ReportSource) => submit({ operation: "save", key: crypto.randomUUID(), source: source.ref })} /></ResourceDialog> : null}
     {view === "overview" ? <>
       {summary.isPending || summary.isFetching ? <ConsoleState kind="loading" title="正在读取报告汇总" /> : summary.isError ? <ConsoleState kind="error" title="汇总读取失败"><p>{errorText(summary.error)}</p><Button variant="outline" onClick={() => void summary.refetch()}>重试</Button></ConsoleState> : <div className={styles.summary}><strong>已保存 {summary.data.saved} 份报告</strong><span>近30天 {summary.data.recent} 份</span><span>收藏 {summary.data.favorites} 份</span><span>涉及 {summary.data.stores} 个店铺</span><span>项目关联暂未开放</span></div>}
       <div className={styles.cards}>{([

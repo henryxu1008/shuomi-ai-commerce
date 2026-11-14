@@ -10,6 +10,7 @@
 .technical{border-top:1px solid var(--border);margin-top:20px;padding-top:16px}.technical summary{cursor:pointer;color:var(--muted-foreground);font-weight:600}.technical summary:focus-visible{outline:2px solid var(--ring);outline-offset:3px}
 
 .viewNavigation { margin:16px 0 24px; }
+.picker{margin:0;padding:0}
 .reportActions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 24px}
 .reportActions span{color:var(--muted-foreground);font-size:var(--label-text-size)}
 .toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:16px 0 24px}
