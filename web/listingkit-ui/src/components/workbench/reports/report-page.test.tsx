@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ReportPage } from "./report-page";
 import { fetchSheinRecords } from "@/lib/api/shein-records-client";
@@ -299,4 +299,28 @@ it("reopens a scheduled operating report by its stable report link",async()=>{
  vi.stubGlobal("fetch",vi.fn(async()=>Response.json({code:"NOT_FOUND"},{status:404})));
  fireEvent.click(screen.getByRole("button",{name:"下载文本"}));
  await screen.findByText("当前无法下载这份报告，请刷新后重试。");expect(createURL).not.toHaveBeenCalled();view.unmount();client.clear();
+});
+
+
+it.each(["focus", "reconnect"] as const)("hides cached report data before %s reauthorization and keeps it hidden after denial", async event => {
+ const saved:Report={...report,ref:{kind:"STORE_DAILY_REPORT",id:source.ref.id,version:"1"},productKey:"",storeId:source.ref.id,title:"权限内日报",scheduledOrigin:{organizationId:"org-a",actorId:"actor-a",memberId:"member-a",planId:source.ref.id,planRevision:2,occurrenceId:source.ref.id,scheduledAt:"2026-11-15T01:00:00Z",storeId:source.ref.id,day:"2026-11-14",rendererVersion:1},content:{schemaVersion:1,sections:[{title:"经营财务",fields:[{label:"收入",value:"敏感财务正文"}]}]}};
+ const {content,digest,...savedSummary}=saved;void content;void digest;
+ let denied=false;const pending:Array<()=>void>=[];
+ vi.stubGlobal("fetch",vi.fn(async(path:string)=>{
+   if(denied){await new Promise<void>(resolve=>pending.push(resolve));return Response.json({code:"NOT_FOUND"},{status:404});}
+   return path.endsWith("/summary")?Response.json({saved:1,recent:1,favorites:1,stores:1}):path.endsWith("/"+report.id)?Response.json(saved):Response.json({items:[savedSummary],nextCursor:""});
+ }));
+ const client=new QueryClient(),view=render(<QueryClientProvider client={client}><ReportPage view="all" initialReport={report.id}/></QueryClientProvider>);
+ await screen.findByText("敏感财务正文");await screen.findByRole("button",{name:"权限内日报"});
+ denied=true;
+ if(event==="focus"){focusManager.setFocused(false);focusManager.setFocused(true);}else{onlineManager.setOnline(false);onlineManager.setOnline(true);}
+ await waitFor(()=>expect(pending.length).toBeGreaterThanOrEqual(3));
+ await waitFor(()=>expect(screen.queryByText("敏感财务正文")).not.toBeInTheDocument());
+ expect(screen.queryByRole("button",{name:"权限内日报"})).not.toBeInTheDocument();
+ for(const resolve of pending)resolve();
+ await screen.findByText("报告读取失败");await screen.findByText("报告列表读取失败");
+ expect(screen.queryByText("敏感财务正文")).not.toBeInTheDocument();
+ // The summary cache must have been rechecked too, even outside the overview.
+ expect(client.getQueryCache().findAll({queryKey:["reports"]}).filter(q=>["summary","detail","list"].some(key=>q.queryKey.includes(key))).every(q=>q.state.status==="error")).toBe(true);
+ view.unmount();client.clear();focusManager.setFocused(undefined);onlineManager.setOnline(true);
 });

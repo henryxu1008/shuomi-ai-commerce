@@ -77,15 +77,27 @@ func (s *Service) Favorite(ctx context.Context, scope Scope, key, id string, tar
 		ID     string
 		Target bool
 	}{id, target})
-	if _, e = s.Read(ctx, scope, id); e != nil {
+	report, e := s.Read(ctx, scope, id)
+	if e != nil {
 		return Result{}, e
 	}
 	result, e := s.Repository.Favorite(ctx, scope, key, fp, id, target, func(c context.Context) error {
 		if _, e := s.authorize(c, scope, true); e != nil {
 			return e
 		}
-		_, e := s.Read(c, scope, id)
-		return e
+		// Reports are immutable. Recheck current visibility against the report
+		// already read, without borrowing another Report DB connection from
+		// inside the repository transaction (including single-connection pools).
+		if report.Ref.Kind == StoreDailyReportKind {
+			fresh, e := s.dailyContext(c, scope)
+			if e != nil {
+				return e
+			}
+			if !dailyVisible(fresh, report) {
+				return ErrNotFound
+			}
+		}
+		return nil
 	})
 	result.CommandID = key
 	return result, e
