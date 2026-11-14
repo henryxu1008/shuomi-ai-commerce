@@ -198,6 +198,7 @@
 - `official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge.md)
 - `official-skill-product-entry.md` — [官方技能直接处理已有商品](official-skill-product-entry.md)
 - `official-skill-automatic-preparation.md` — [官方技能模板自动准备](official-skill-automatic-preparation.md)
+- `task-center-summary.md` — [任务中心统一统计](task-center-summary.md)
 - `issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](issue132-title-evaluation-admission.md)
 - `issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](issue132-title-pilot-local-entry.md)
 - `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)

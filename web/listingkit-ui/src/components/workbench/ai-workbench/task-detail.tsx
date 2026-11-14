@@ -42,7 +42,7 @@ function savedResumeFeedback(scope: AIScope, taskId: string): string {
   return "";
 }
 
-export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference, onLocked, embedded = false, interactionLocked = false }: { scope: AIScope; authorizationKey: string; taskId: string; onReviewReference?: (id?: string) => void; onLocked?: (locked: boolean) => void; embedded?: boolean; interactionLocked?: boolean }) {
+export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference, onLocked, onChanged, embedded = false, interactionLocked = false }: { scope: AIScope; authorizationKey: string; taskId: string; onChanged?:()=>void; onReviewReference?: (id?: string) => void; onLocked?: (locked: boolean) => void; embedded?: boolean; interactionLocked?: boolean }) {
   const [pending, setPending] = useState(false);
   const [uncertain, setUncertain] = useState<UncertainCommand>();
   const [restored, setRestored] = useState(false);
@@ -90,7 +90,7 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
       await requestAIWorkbench({ route: `task-${action}`, method: "POST", path: `tasks/${taskId}/${action}`, scope,
         key: attempt.key, signal: controller.signal, ...(action === "resume" ? { body: { revision, feedback: currentFeedback } } : {}) });
       try { sessionStorage.removeItem(storageKey); } catch { /* The server receipt is terminal. */ }
-      if (!controller.signal.aborted) { setUncertain(undefined); await task.refetch(); }
+      if (!controller.signal.aborted) { setUncertain(undefined); await task.refetch(); onChanged?.(); }
     } catch (cause) {
       if (cause instanceof AIWorkbenchError && cause.code !== "TASK_OUTCOME_UNKNOWN" && cause.code !== "OUTCOME_UNKNOWN") {
         try { sessionStorage.removeItem(storageKey); } catch { /* The next request may replay the known result. */ }
