@@ -125,7 +125,9 @@ function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node
 function NavBranch({ node, pathname, trail, depth, onNavigate, listingQuery = "", orderQuery = "", research }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; depth: number; onNavigate?: () => void; listingQuery?:string; orderQuery?:string; research?:ResearchLocation }) {
   const orderParameters=new URLSearchParams(node.href.split("?")[1]);
   if(node.href.startsWith("/workbench/store-orders/fulfill?"))for(const [key,value] of new URLSearchParams(orderQuery))orderParameters.set(key,value);
-  const originalHref=node.href.startsWith("/workbench/store-orders/fulfill?")
+  const originalHref = node.href === "/workbench/ai/chat" ? "/workbench/ai/chat/new"
+    : node.href === "/workbench/agents/skills" ? "/workbench/agents/skills/official"
+    : node.href.startsWith("/workbench/store-orders/fulfill?")
     ? `/workbench/store-orders/fulfill?${orderParameters}`
     : node.href===listingHome&&listingQuery ? node.href+listingQuery : node.href;
   const href = researchNavigationHref(originalHref, research);
