@@ -21,6 +21,13 @@ it("does not suggest adding reports to a read-only user", async () => {
   expect(screen.queryByRole("button", {name:"添加已有结果"})).not.toBeInTheDocument();
   view.unmount(); client.clear();
 });
+it("does not suggest favoriting reports to a read-only user", async () => {
+  fixture.context.permissions = ["workbench.report.read"];
+  vi.stubGlobal("fetch", vi.fn(async (path: string) => path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" })));
+  const client = new QueryClient(), view = render(<QueryClientProvider client={client}><ReportPage view="favorites" titleReviewAvailable /></QueryClientProvider>);
+  expect(await screen.findByText("暂无可查看的收藏报告。")).toBeVisible();
+  view.unmount(); client.clear();
+});
 it("explains an empty search and clears the applied filters", async () => {
   vi.stubGlobal("fetch", vi.fn(async (path: string) => path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" })));
   const client = new QueryClient(), view = render(tree(client));
