@@ -6,6 +6,17 @@ import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
 vi.mock("@/lib/api/skill",()=>({skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")}});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it("keeps the skill manager open when cancelling its nested install dialog",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:{items:[],nextCursor:""});
+ render(<SkillManagerTrigger scope={{userId:"actor"}} space="personal"/>);
+ fireEvent.click(screen.getByRole("button",{name:"我的技能"}));
+ fireEvent.click(await screen.findByRole("button",{name:"官方模板"}));
+ const trigger=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(trigger).toBeEnabled());fireEvent.click(trigger);
+ const nested=await screen.findByRole("dialog",{name:"安装官方模板"});
+ fireEvent(nested,new Event("cancel",{bubbles:true,cancelable:true}));
+ expect(screen.queryByRole("dialog",{name:"安装官方模板"})).not.toBeInTheDocument();
+ expect(screen.getByRole("dialog",{name:"官方模板"})).toBeInTheDocument();
+});
 it.each(["official","personal","organization"] as const)("filters and searches all loaded pages in %s",async space=>{
  const first={skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:"title-method",displayName:"标题整理",description:"整理标题",target:"product-title",digest:"a".repeat(64)}};
  const second={...first,skill:{...first.skill,id:"22222222-2222-4222-8222-222222222222"},package:{...first.package,name:"image-method",displayName:"图片编排",target:"product-image"}};
