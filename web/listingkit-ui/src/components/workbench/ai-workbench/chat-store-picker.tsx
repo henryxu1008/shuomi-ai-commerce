@@ -19,7 +19,7 @@ export type ChatStoreState={choice:ChatStoreChoice|undefined; ready:boolean};
 export function ChatStorePicker({scope,authorizationKey,context,disabled,baseStoreName,onChange}:{scope:AIScope;authorizationKey:string;context:string;disabled:boolean;baseStoreName?:string;onChange:(value:ChatStoreState)=>void}) {
  const [open,setOpen]=useState(false),[value,setValue]=useState<ChatStoreChoice>(),[name,setName]=useState(""),[error,setError]=useState("");
  const key=chatStoreChoiceKey(scope,context), generation=useRef(0),callback=useRef(onChange);
- callback.current=onChange;
+ useEffect(()=>{callback.current=onChange},[onChange]);
  const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
  async function verify(choice:Extract<ChatStoreChoice,{kind:"store"}>,signal:AbortSignal) {
   const query=new URLSearchParams({kind:"store",storeId:choice.storeId});
@@ -30,6 +30,8 @@ export function ChatStorePicker({scope,authorizationKey,context,disabled,baseSto
  }
  useEffect(()=>{
   const current=++generation.current,controller=new AbortController();
+  // Clear the previous identity before restoring browser storage so a stale choice cannot be used.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   setValue(undefined);setName("");setError("");callback.current({choice:undefined,ready:false});
   try {
    const raw=sessionStorage.getItem(key);

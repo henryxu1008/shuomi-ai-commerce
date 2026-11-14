@@ -39,9 +39,9 @@ require (
 	github.com/wasilibs/go-pgquery v0.0.0-20250409022910-10ac41983c07
 	github.com/wneessen/go-mail v0.8.1
 	github.com/yuin/goldmark v1.8.5
-	go.opentelemetry.io/otel v1.46.0
-	go.opentelemetry.io/otel/sdk v1.46.0
-	go.opentelemetry.io/otel/trace v1.46.0
+	go.opentelemetry.io/otel v1.47.0
+	go.opentelemetry.io/otel/sdk v1.47.0
+	go.opentelemetry.io/otel/trace v1.47.0
 	go.temporal.io/api v1.62.11
 	go.temporal.io/sdk v1.43.0
 	golang.org/x/image v0.44.0
@@ -80,6 +80,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tinylib/msgp v1.2.5 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 // indirect
+	go.opentelemetry.io/otel/log v1.47.0 // indirect
 )
 
 require (
@@ -249,7 +250,7 @@ require (
 	github.com/wasilibs/wazero-helpers v0.0.0-20240620070341-3dff1577cd52 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel/metric v1.46.0 // indirect
+	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
@@ -258,7 +259,7 @@ require (
 	golang.org/x/net v0.62.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
-	google.golang.org/grpc v1.83.2 // indirect
+	google.golang.org/grpc v1.83.2
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	modernc.org/libc v1.74.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
