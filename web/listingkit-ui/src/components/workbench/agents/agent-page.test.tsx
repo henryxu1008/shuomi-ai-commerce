@@ -100,6 +100,23 @@ it("keeps research workflows reachable when the agent catalog cannot be read", a
   expect(await screen.findByText("智能体配置不可用")).toBeInTheDocument();
 });
 
+it("places the two business workflows in the agent grid and includes them in the selection category",async()=>{
+ scope.marketResearchAvailable=true;
+ scope.projectCenterAvailable=true;
+ scope.permissions.push("workbench.project.read","workbench.collection.read");
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({items:marketEntries(),nextCursor:""})));
+ render(<AgentPage mode="market"/>);
+ await screen.findByRole("heading",{name:"智能体列表"});
+ const list=screen.getByRole("region",{name:"智能体列表"});
+ expect(within(list).getByRole("article",{name:"市场调研"})).toBeVisible();
+ expect(within(list).getByRole("article",{name:"智能选品"})).toBeVisible();
+ fireEvent.click(within(list).getByRole("button",{name:"商品"}));
+ expect(within(list).queryByRole("article",{name:"市场调研"})).toBeNull();
+ fireEvent.click(within(list).getByRole("button",{name:"选品"}));
+ expect(within(list).getByRole("article",{name:"市场调研"})).toBeVisible();
+ expect(within(list).getByRole("article",{name:"智能选品"})).toBeVisible();
+});
+
 function modeFixture(agentId:string, canConfigure=true) {
   return {subject:{kind:"registered_agent",id:agentId},definition:{id:agentId,version:"v1.0.0"},mode:"default",revision:"0",policyVersion:"agent-execution-policy-v1",canConfigure,updatedAt:"2026-10-17T00:00:00Z",updatedBy:""};
 }
@@ -419,7 +436,7 @@ it("offers both selection operations from one market responsibility without issu
   vi.stubGlobal("fetch",fetch);
   render(<AgentPage mode="market"/>);
   const card=await screen.findByRole("article",{name:"智能选品智能体"});
-  expect(screen.getAllByRole("article")).toHaveLength(1);
+  expect(screen.getAllByRole("article")).toHaveLength(3);
   expect(within(card).getByRole("link",{name:"项目资料分析"})).toHaveAttribute("href","/workbench/agents/mine/product.research.agent");
   expect(within(card).getByRole("link",{name:"独立商品对比"})).toHaveAttribute("href","/workbench/agents/mine/product.selection.agent");
   expect(screen.queryByRole("article",{name:"市场调研智能体"})).toBeNull();
@@ -523,20 +540,20 @@ it("opens saved products from the image agent instead of online acquisition", as
   expect(fetch.mock.calls.every(([, init]) => !init || !["POST","PUT","DELETE"].includes(init.method ?? "GET"))).toBe(true);
 });
 
-it("browses the original Figma categories without inventing agents in empty categories", async () => {
+it("browses categories without inventing agents in empty categories", async () => {
   const fetch = vi.fn(async () => Response.json({items:marketEntries(),nextCursor:""}));
   vi.stubGlobal("fetch", fetch);
   render(<AgentPage mode="market" />);
   await screen.findByRole("button", {name:"商品"});
   const categories = within(screen.getByRole("group", {name:"智能体业务分类"}));
   expect(categories.getAllByRole("button").map(button => button.textContent)).toEqual(["全部","商品","选品","运营","广告","客服","数据"]);
-  expect(screen.getAllByRole("article")).toHaveLength(6);
+  expect(screen.getAllByRole("article")).toHaveLength(8);
   expect(screen.getAllByRole("heading",{name:"商品内容与本地化"})).toHaveLength(1);
   fireEvent.click(categories.getByRole("button",{name:"商品"}));
   expect(screen.getAllByRole("article")).toHaveLength(4);
   expect(screen.queryByRole("heading",{name:"智能选品智能体"})).toBeNull();
   fireEvent.click(categories.getByRole("button",{name:"选品"}));
-  expect(screen.getAllByRole("article")).toHaveLength(1);
+  expect(screen.getAllByRole("article")).toHaveLength(3);
   expect(screen.getByRole("heading",{name:"智能选品智能体"})).toBeInTheDocument();
   fireEvent.click(categories.getByRole("button",{name:"运营"}));
   expect(screen.getByRole("heading",{name:"店铺经营诊断智能体"})).toBeInTheDocument();
@@ -546,7 +563,7 @@ it("browses the original Figma categories without inventing agents in empty cate
     expect(screen.getByRole("heading",{name:"该分类暂无智能体"})).toBeInTheDocument();
   }
   fireEvent.click(categories.getByRole("button",{name:"全部"}));
-  expect(screen.getAllByRole("article")).toHaveLength(6);
+  expect(screen.getAllByRole("article")).toHaveLength(8);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 

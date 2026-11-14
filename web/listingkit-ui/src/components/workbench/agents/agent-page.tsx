@@ -3,7 +3,6 @@ import {nativeRunDestination,type NativeRunDestinations} from "@/lib/agent-run-d
 import {ShopDiagnosisFlow} from "./shop-diagnosis-flow";
 import Link from "next/link";
 import { AgentMarket } from "./agent-market";
-import { ResearchEntries } from "./research-entries";
 import { AgentMine } from "./agent-mine";
 import { AgentCapabilityPanel } from "./agent-capability-panel";
 import {ProductSelectionFlow} from "./product-selection-flow";
@@ -287,7 +286,6 @@ function ScopedPage({
       actions={mode === "mine" ? <Button asChild variant="outline" size="sm"><Link href={id ? "/workbench/agents/mine" : "/workbench/agents/market"} prefetch={false}>{id ? "返回我的智能体" : "前往智能体市场"}</Link></Button> : <Link href="/workbench/agents/mine">我的智能体 →</Link>}
     >
 
-      {mode === "market" && !id ? <ResearchEntries enabled={researchEnabled} permissions={permissions} /> : null}
       {failure != null && (
         <div role="alert" className={styles.notice}>
           {configurationError(failure)}
@@ -309,7 +307,7 @@ function ScopedPage({
         </div>
       )}
       {message && <p role="status">{message}</p>}
-      {!data && !list.error ? (
+      {mode === "market" && !id ? <AgentMarket entries={list.error ? [] : entries} research={{enabled:researchEnabled,permissions}} catalogNotice={!data && !list.error ? <ConsoleState kind="loading" title="正在读取企业智能体" /> : list.error ? <ConsoleState kind="error" title="智能体配置不可用"><p>{configurationError(list.error)}</p><Button onClick={() => setNonce((n) => n + 1)}>重新读取</Button></ConsoleState> : undefined} /> : !data && !list.error ? (
         <ConsoleState kind="loading" title="正在读取企业智能体" />
       ) : list.error ? (
         <ConsoleState kind="error" title="智能体配置不可用">
@@ -654,8 +652,6 @@ function ScopedPage({
             )}
           </Card>}
         </>
-      ) : mode === "market" ? (
-        <AgentMarket entries={entries} />
       ) : (
         <AgentMine scope={scope} entries={entries} pageScoped={Boolean(after || (!id && data && "nextCursor" in data && data.nextCursor))} pagination={after || (data && "nextCursor" in data && data.nextCursor) ? <nav aria-label="智能体分页" className={styles.actions}>
           {after ? <Button variant="outline" onClick={()=>setAfter("")}>返回智能体首页</Button> : null}

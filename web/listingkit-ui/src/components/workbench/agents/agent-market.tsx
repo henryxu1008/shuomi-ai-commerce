@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,14 +11,16 @@ import styles from "./agent-market.module.css";
 
 import { agentCategories as categories, agentGroups as groups, groupActivation, type AgentCategory as Category } from "./agent-responsibilities";
 import { SelectionOperationLinks } from "./selection-operation-links";
+import { ResearchEntries } from "./research-entries";
 
-export function AgentMarket({ entries }: { entries: readonly CatalogEntry[] }) {
+export function AgentMarket({ entries, research, catalogNotice }: { entries: readonly CatalogEntry[]; research?:{enabled:boolean;permissions:readonly string[]}; catalogNotice?:ReactNode }) {
   const [category, setCategory] = useState<Category>("全部");
   const prefix = useId();
   const cards = groups.flatMap(group => {
     const operations = group.agentIds.flatMap(agentId => entries.filter(entry => entry.agent.agentId === agentId));
     return operations.length && (category === "全部" || category === group.category) ? [{ ...group, operations }] : [];
   });
+  const showResearch=!!research && (category==="全部" || category==="选品");
 
   return (
     <section className={styles.market} aria-label="智能体列表">
@@ -32,7 +34,9 @@ export function AgentMarket({ entries }: { entries: readonly CatalogEntry[] }) {
           </Button>
         ))}
       </div>
-      {cards.length ? <div className={styles.grid}>
+      {catalogNotice}
+      {cards.length || showResearch ? <div className={styles.grid}>
+        {showResearch && research ? <ResearchEntries enabled={research.enabled} permissions={research.permissions} /> : null}
         {cards.map(card => {
           const enabled = card.operations.filter(entry => entry.agent.activation === "ENABLED").length;
           const status = groupActivation({agentIds:card.agentIds,entries:card.operations}).label;
@@ -54,9 +58,9 @@ export function AgentMarket({ entries }: { entries: readonly CatalogEntry[] }) {
             </div>
           </Card>;
         })}
-      </div> : <ConsoleState kind="empty" title={category === "全部" ? "当前没有可展示的智能体" : "该分类暂无智能体"}>
+      </div> : !catalogNotice ? <ConsoleState kind="empty" title={category === "全部" ? "当前没有可展示的智能体" : "该分类暂无智能体"}>
         <p>请选择其他分类查看当前已提供的智能体。</p>
-      </ConsoleState>}
+      </ConsoleState> : null}
       <p className={styles.note}>在我的智能体中启用、配置并查看当前可用状态。</p>
     </section>
   );
