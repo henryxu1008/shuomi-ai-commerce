@@ -5,3 +5,4 @@
 .connect { margin-top: 12px; padding-top: 20px; border-top: 1px solid var(--border); }
 @keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .drawer[open] { animation: none; } }
+.drawer .content p { flex: 0 0 auto; }
