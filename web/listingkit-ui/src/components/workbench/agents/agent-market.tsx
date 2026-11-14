@@ -17,6 +17,7 @@ export function AgentMarket({ entries, research, catalogNotice }: { entries: rea
   const [category, setCategory] = useState<Category>("全部");
   const prefix = useId();
   const cards = groups.flatMap(group => {
+    if (research && group.id === "product-selection") return [];
     const operations = group.agentIds.flatMap(agentId => entries.filter(entry => entry.agent.agentId === agentId));
     return operations.length && (category === "全部" || category === group.category) ? [{ ...group, operations }] : [];
   });
@@ -36,7 +37,7 @@ export function AgentMarket({ entries, research, catalogNotice }: { entries: rea
       </div>
       {catalogNotice}
       {cards.length || showResearch ? <div className={styles.grid}>
-        {showResearch && research ? <ResearchEntries enabled={research.enabled} permissions={research.permissions} /> : null}
+        {showResearch && research ? <ResearchEntries enabled={research.enabled} permissions={research.permissions} entries={entries} /> : null}
         {cards.map(card => {
           const enabled = card.operations.filter(entry => entry.agent.activation === "ENABLED").length;
           const status = groupActivation({agentIds:card.agentIds,entries:card.operations}).label;

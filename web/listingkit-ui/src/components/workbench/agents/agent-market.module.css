@@ -24,3 +24,5 @@
 .operationLinks { display: flex; min-width: 0; flex-wrap: wrap; gap: 10px; color: var(--primary); font-size: var(--label-text-size); }
 .operationLinks a { display: inline-flex; align-items: center; min-height: var(--control-height-sm); }
 .operationLinks a:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.configLink { display: inline-flex; align-items: center; min-height: var(--control-height-sm); color: var(--primary); font-size: var(--label-text-size); }
+.configLink:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
