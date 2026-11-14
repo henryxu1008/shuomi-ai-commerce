@@ -11,8 +11,8 @@ const article = {...summary, body: "Human Review\n<script>unsafe()</script>", so
 afterEach(() => {cleanup(); vi.unstubAllGlobals(); fixture.context.effectiveOrganization = {id: "org-a", permissions: ["workbench.knowledge.read"]}; fixture.context.isSwitching = false; fixture.context.retry.mockReset();});
 function mount(id?: string, revision?: string) {
   const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
-  const view = render(<QueryClientProvider client={client}><OfficialKnowledgePage articleId={id} revision={revision}/></QueryClientProvider>);
-  return {...view, client, refresh: () => view.rerender(<QueryClientProvider client={client}><OfficialKnowledgePage articleId={id} revision={revision}/></QueryClientProvider>)};
+  const view = render(<QueryClientProvider client={client}><OfficialKnowledgePage articleId={id} revision={revision} enterpriseAvailable/></QueryClientProvider>);
+  return {...view, client, refresh: () => view.rerender(<QueryClientProvider client={client}><OfficialKnowledgePage articleId={id} revision={revision} enterpriseAvailable/></QueryClientProvider>)};
 }
 it("browses real versioned content independently of enterprise storage and offers no AI selection", async () => {
   const fetcher = vi.fn(async () => Response.json({items: [summary]})); vi.stubGlobal("fetch", fetcher);
@@ -54,4 +54,23 @@ it("cancels a late read on organization switch and never reveals revoked data", 
 it("does not substitute another version when the exact article is absent", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({code: "OFFICIAL_KNOWLEDGE_NOT_FOUND"}, {status: 404})));
   mount(article.id, "2"); await screen.findByText("此版本的官方资料不存在"); expect(screen.queryByText(article.body)).not.toBeInTheDocument();
+});
+
+it("offers direct navigation between knowledge categories", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({items: []})));
+  mount(); await screen.findByRole("heading", {name: "暂无已发布的官方资料"});
+  const nav = screen.getByRole("navigation", {name: "知识库分类"});
+  expect(nav.querySelector('a[href="/workbench/ai/knowledge/mine"]')).toBeVisible();
+  expect(nav.querySelector('a[href="/workbench/ai/knowledge/official"]')).toHaveAttribute("aria-current", "page");
+  expect(nav.querySelector('a[href="/workbench/ai/knowledge"]')).toBeVisible();
+});
+
+it("does not offer the enterprise library when it is not enabled", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({items: []})));
+  const client = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  render(<QueryClientProvider client={client}><OfficialKnowledgePage/></QueryClientProvider>);
+  await screen.findByRole("heading", {name: "暂无已发布的官方资料"});
+  const nav = screen.getByRole("navigation", {name: "知识库分类"});
+  expect(nav.querySelector('a[href="/workbench/ai/knowledge/mine"]')).toBeNull();
+  expect(nav).toHaveTextContent("我的知识库暂未开放");
 });

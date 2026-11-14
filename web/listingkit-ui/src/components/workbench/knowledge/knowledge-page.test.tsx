@@ -250,3 +250,12 @@ it("keeps the native file picker and original upload during UNKNOWN retry",async
  expect(picker.files).toHaveLength(1);expect(picker.value).toContain("brand.txt");expect(picker).toBeDisabled();expect(screen.getByRole("button",{name:"重新上传"})).toBeDisabled();
  await userEvent.click(screen.getByRole("button",{name:"重试同一次操作"}));await screen.findByText("操作已保存。");expect(keys).toHaveLength(2);expect(keys[1]).toBe(keys[0]);expect(bodies[1]).toBe(bodies[0]);expect((bodies[1].get("file") as File).name).toBe("brand.txt");expect(picker).toHaveValue("");expect(picker.files).toHaveLength(0);unmount();
 });
+
+it("offers direct access back to official knowledge and the library home",async()=>{
+ vi.stubGlobal("fetch",vi.fn(async(url:string)=>url==="/api/workbench/context"?Response.json(context):Response.json({items:[],pagination:{page:1,pageSize:20,total:0}})));
+ const unmount=mount();await screen.findByText("当前企业还没有知识库");
+ const nav=screen.getByRole("navigation",{name:"知识库分类"});
+ expect(nav.querySelector('a[href="/workbench/ai/knowledge/official"]')).toBeVisible();
+ expect(nav.querySelector('a[href="/workbench/ai/knowledge/mine"]')).toHaveAttribute("aria-current","page");
+ expect(nav.querySelector('a[href="/workbench/ai/knowledge"]')).toBeVisible();unmount();
+});
