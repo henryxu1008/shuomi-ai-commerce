@@ -6,6 +6,31 @@ import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
 vi.mock("@/lib/api/skill",()=>({skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")}});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it.each(["official","personal","organization"] as const)("filters and searches all loaded pages in %s",async space=>{
+ const first={skill:{id:"11111111-1111-4111-8111-111111111111",owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:"title-method",displayName:"标题整理",description:"整理标题",target:"product-title",digest:"a".repeat(64)}};
+ const second={...first,skill:{...first.skill,id:"22222222-2222-4222-8222-222222222222"},package:{...first.package,name:"image-method",displayName:"图片编排",target:"product-image"}};
+ const projection=(version:typeof first)=>({version,canUse:true,canCopy:false,canExport:false,canEdit:false,canPublish:false});
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:false,canInstallOfficial:false,reason:""}:path.endsWith("/admission")?{policy:{allowPersonal:false,revision:"0"},canConfigure:false}:path.includes("cursor=")?{items:[projection(second)],nextCursor:""}:{items:[projection(first)],nextCursor:"next"});
+ render(<SkillManager scope={{userId:"actor",organizationId:"org"}} home={space==="organization"?"organization":"personal"} initialSpace={space} presentation="page"/>);
+ await screen.findByRole("button",{name:/图片编排/});fireEvent.click(screen.getByRole("button",{name:"商品图片"}));
+ expect(screen.queryByRole("button",{name:/标题整理/})).not.toBeInTheDocument();expect(screen.getByRole("button",{name:/图片编排/})).toBeVisible();
+ fireEvent.change(screen.getByRole("searchbox",{name:"搜索技能名称"}),{target:{value:"不存在"}});expect(screen.getByText("没有找到符合条件的技能")).toBeVisible();
+ fireEvent.change(screen.getByRole("searchbox",{name:"搜索技能名称"}),{target:{value:"图片"}});expect(screen.getByRole("button",{name:/图片编排/})).toBeVisible();
+});
+it("makes the remaining pages explicit and adds them to search when requested",async()=>{
+ const item=(n:number)=>({version:{skill:{id:`skill-${n}`,owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:`skill-${n}`,displayName:`技能 ${n}`,description:"方法",target:"product-title",digest:"a".repeat(64)}},canUse:true,canCopy:false,canExport:false,canEdit:false,canPublish:false});
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>{if(path.endsWith("/info"))return {available:true,canCreate:false,canInstallOfficial:false,reason:""};const q=new URLSearchParams(path.split("?")[1]);const n=Number(q.get("cursor")||"1");return {items:[item(n)],nextCursor:n<6?String(n+1):""}});
+ render(<SkillManager scope={{userId:"actor"}} home="personal" initialSpace="official" presentation="page"/>);
+ const more=await screen.findByRole("button",{name:"加载更多技能"});expect(screen.getByText("还有更多技能，加载后可一起筛选和搜索。")).toBeVisible();expect(screen.queryByRole("button",{name:"商品图片"})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByRole("searchbox",{name:"搜索技能名称"}),{target:{value:"技能 6"}});expect(screen.getByText("没有找到符合条件的技能")).toBeVisible();
+ fireEvent.click(more);expect(await screen.findByRole("button",{name:/技能 6/})).toBeVisible();expect(screen.queryByRole("button",{name:"加载更多技能"})).not.toBeInTheDocument();
+});
+it("stops if a later batch returns an already visited cursor",async()=>{
+ const item=(n:number)=>({version:{skill:{id:`skill-${n}`,owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:`skill-${n}`,description:"方法",target:"product-title",digest:"a".repeat(64)}},canUse:true,canCopy:false,canExport:false,canEdit:false,canPublish:false});
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>{if(path.endsWith("/info"))return {available:true,canCreate:false,canInstallOfficial:false,reason:""};const q=new URLSearchParams(path.split("?")[1]);const n=Number(q.get("cursor")||"1");return {items:[item(n)],nextCursor:n===6?"2":String(n+1)}});
+ render(<SkillManager scope={{userId:"actor"}} home="personal" initialSpace="official" presentation="page"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"加载更多技能"}));expect(await screen.findByRole("alert")).toBeVisible();expect(screen.queryByRole("button",{name:"加载更多技能"})).not.toBeInTheDocument();
+});
 it("opens an individual skill in a dialog and closes without copying it",async()=>{
  const id="11111111-1111-4111-8111-111111111111";
  const version={skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:"product-title-organize",displayName:"商品标题整理",description:"真实方法",target:"product-title",digest:"a".repeat(64)}};

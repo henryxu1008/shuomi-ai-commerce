@@ -24,6 +24,11 @@
 .pageToolbar h2{margin:0;font-size: var(--section-title-size);line-height:27px;font-weight:700}
 .pageToolbar p{margin:2px 0 0;font-size: var(--label-text-size);line-height:20px}
 .toolbarActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.searchFilters{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0 8px}
+.purposeFilters{display:flex;flex-wrap:wrap;gap:8px}
+.searchFilters label{flex:0 1 240px;min-width:0}
+.searchFilters input{width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--control-radius);background:var(--background);color:var(--foreground)}
+.searchFilters input:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .pageManager button{font-size: var(--body-text-size);border-radius: var(--control-radius)}
 .admission{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px;margin-top:16px;border-radius: var(--radius);background:var(--intro-teal-fill)}
 .admission p{margin:0;color:var(--intro-text)}
@@ -59,4 +64,4 @@
 .notes h2{margin:0;font-size: var(--section-title-size);line-height:24px;font-weight:700}
 .notes p{margin:0;color:var(--intro-muted);font-size: var(--body-text-size);line-height:22px}
 @media(max-width:800px){.notes{grid-template-columns:1fr;gap:12px}.pageToolbar{align-items:flex-start}}
-@media(max-width:600px){.libraryPage.libraryPage{padding:20px 16px 32px;gap:16px}.pageManager{padding:16px}.pageToolbar,.toolbarActions{width:100%}.toolbarActions button{white-space:normal;height:auto;min-height:40px}.pageManager>.list button{grid-template-columns:minmax(0,1fr)}.versionAction{grid-row:4}.empty{padding:24px 8px}.notes>div{min-height:0}}
+@media(max-width:600px){.libraryPage.libraryPage{padding:20px 16px 32px;gap:16px}.pageManager{padding:16px}.pageToolbar,.toolbarActions{width:100%}.toolbarActions button{white-space:normal;height:auto;min-height:40px}.searchFilters label{flex:1 1 100%}.pageManager>.list button{grid-template-columns:minmax(0,1fr)}.versionAction{grid-row:4}.empty{padding:24px 8px}.notes>div{min-height:0}}
