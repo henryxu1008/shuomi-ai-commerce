@@ -35,7 +35,7 @@ export function WorkScopePicker({scope, authorizationKey, disabled, selected, on
     retry:false, gcTime:0,
   });
   const rows = options.data?.pages.flatMap(page=>page.options) ?? [];
-  return <div className={styles.picker}>
+  return <div className={`${styles.picker} ${fixedKind ? styles.fixedPicker : ""}`}>
     {!fixedKind ? <label>范围类型 <select value={kind} disabled={disabled} onChange={event=>{
       setKind(event.target.value as typeof kind); onSelect(undefined);
     }}><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option></select></label> : null}
