@@ -15,7 +15,7 @@ const titleReviewStateLabel = { pending: "待审核", accepted: "已接受，待
 export function TitleReviewDetail({ proposal: p }: { proposal: ProductTitleProposal }) {
   return <div className={styles.detailContent}>
     <h3>{p.policy === "product-content-review-v1" ? "完善与本地化标准商品内容" : "调整标准商品标题"}</h3><p className={p.state === "pending" ? styles.pending : styles.accepted}>{titleReviewStateLabel[p.state]}</p>
-    <dl><dt>目标商品标识</dt><dd>{p.input.product_key}</dd><dt>商品版本</dt><dd>{p.input.base_version}</dd></dl>
+    <details><summary>商品与版本</summary><dl><dt>目标商品标识</dt><dd>{p.input.product_key}</dd><dt>商品版本</dt><dd>{p.input.base_version}</dd></dl></details>
     {p.policy === "product-content-review-v1" ? <><ContentComparison proposal={p} /><p>本次权限：{p.execution_mode ? executionModeLabels[p.execution_mode.mode] : "无法读取本次权限，新采用不可用"}</p></> : <TitleComparison before={p.before} after={p.after} originalTitle={p.original_title} />}
     {p.policy==="product-content-review-v1"&&<SkillMethodSummary method={p.execution.skillVersionRef}/>}
     <KnowledgeCitations knowledge={p.knowledge} humanEdited={p.policy === "product-content-review-v1" ? (p.content.decisions??[]).some(d=>d.action==="edit") : p.after!==p.original_title || p.decisions.some(decision=>decision.action==="edit")}/>

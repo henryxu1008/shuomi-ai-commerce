@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it('keeps all four introduction cards and gates each business capability', () => {
+it('keeps all introduction cards and gates each business capability', () => {
   fixture.context.projectCenterAvailable = true;
   fixture.reports = true;
   render(<Page />);
@@ -46,7 +46,8 @@ it('keeps the AI introduction without optional services', () => {
   expect(screen.getByRole('heading', { name: '任务中心' })).toBeVisible();
   expect(screen.getByRole('heading', { name: '项目中心' })).toBeVisible();
   expect(screen.getByRole('heading', { name: '我的报告' })).toBeVisible();
-  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  expect(screen.getByRole('link', {name: /进入技能库/})).toHaveAttribute('href', '/workbench/agents/skills/official');
+  expect(screen.queryByRole('link', {name: /进入知识库/})).not.toBeInTheDocument();
 });
 it.each(['isLoading', 'isSwitching', 'selectionRequired'] as const)('clears the AI homepage during %s', flag => {
   fixture.context[flag] = true;
@@ -59,4 +60,13 @@ it("opens Chat directly from the AI workbench entry", () => {
   fixture.context.aiWorkbenchAvailable = true;
   render(<Page />);
   expect(screen.getByRole("link", {name: /进入硕米Chat/})).toHaveAttribute("href", "/workbench/ai/chat/new");
+});
+
+it("shows knowledge and skills entries at their existing destinations", () => {
+  fixture.knowledge = true;
+  render(<Page />);
+  expect(screen.getByRole("link", {name: /进入知识库/})).toHaveAttribute("href", "/workbench/ai/knowledge");
+  expect(screen.getByRole("link", {name: /进入技能库/})).toHaveAttribute("href", "/workbench/agents/skills/official");
+  expect(screen.getAllByRole("heading", {level: 2})).toHaveLength(6);
+  expect(screen.queryByText(/四个核心模块/)).not.toBeInTheDocument();
 });

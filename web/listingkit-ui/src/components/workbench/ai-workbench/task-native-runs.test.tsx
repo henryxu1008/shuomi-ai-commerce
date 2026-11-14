@@ -4,7 +4,8 @@ import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {BusinessTaskPage} from "./task-page";
 import {ConfigurationError} from "@/lib/api/agent-configuration";
 
-const f=vi.hoisted(()=>({request:vi.fn(),tasks:vi.fn(),context:{} as Record<string,unknown>}));
+const f=vi.hoisted(()=>({summary:vi.fn(),request:vi.fn(),tasks:vi.fn(),context:{} as Record<string,unknown>}));
+vi.mock("@/lib/api/task-center-summary",()=>({fetchTaskCenterSummary:f.summary}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
 vi.mock("@/lib/api/agent-configuration",async original=>({...await original<typeof import("@/lib/api/agent-configuration")>(),configurationRequest:f.request}));
 vi.mock("@/lib/api/ai-workbench",async original=>({...await original<typeof import("@/lib/api/ai-workbench")>(),requestAIWorkbench:f.tasks}));
@@ -16,6 +17,7 @@ const image={runId,contextKind:"supply",contextId:objectId,status:"completed",ta
 let client:QueryClient;
 const tree=(ownProduct=true)=> <QueryClientProvider client={client}><BusinessTaskPage {...{nativeRunsAvailable:true,nativeRunDestinations:{ownProduct}}} /></QueryClientProvider>;
 beforeEach(()=>{
+ f.summary.mockReset().mockResolvedValue({status:"partial",counts:null,excluded:0,capturedAt:"2026-11-14T00:00:00Z",reasons:["unavailable"]});
  client=new QueryClient({defaultOptions:{queries:{retry:false}}});
  f.context={user:{id:"owner"},effectiveOrganization:{id:"org"},roles:[],permissions:["workbench.agent.read","workbench.agent.use","local_agent.write","listingkit.image_agent.read"],aiWorkbenchAvailable:false};
  f.tasks.mockReset();f.request.mockReset().mockImplementation(async(_scope,path:string,schema)=>schema.parse(path.startsWith("market")?{items:[entry(),entry("product.image.agent","商品图片")],nextCursor:""}:path.startsWith("product.content")?{items:[content],nextCursor:""}:{items:[image],nextCursor:""}));
@@ -58,7 +60,7 @@ it("keeps successful sources visible when another source fails",async()=>{
  render(tree());
  expect(await screen.findByRole("button",{name:/商品内容与本地化.*我的水杯/})).toBeVisible();
  expect(await screen.findByText(/商品图片：/)).toBeVisible();
- expect(screen.getAllByText("—")).toHaveLength(3);
+ expect(await screen.findAllByText("暂不可用")).toHaveLength(5);
 });
 it("never requests runs denied by the authoritative catalog",async()=>{
  f.request.mockResolvedValue({items:[{...entry(),canReadRuns:false}],nextCursor:""});
@@ -98,7 +100,7 @@ it("does not label generated text as an unresolved review or an applied product"
  f.request.mockImplementation((scope,path:string,schema,init)=>path.startsWith("product.content")?Promise.resolve(schema.parse({items:[{...content,phase:"human_review_required"}],nextCursor:""})):original(scope,path,schema,init));
  render(tree());expect(await screen.findByRole("button",{name:/商品内容与本地化.*建议已生成/})).toBeVisible();
  expect(screen.queryByRole("button",{name:/商品内容与本地化.*待确认/})).not.toBeInTheDocument();
- expect(screen.getAllByText("—")).toHaveLength(3);
+ expect(await screen.findAllByText("暂不可用")).toHaveLength(5);
 });
 it("does not attempt discovery without the existing use permission",async()=>{
  f.context={...f.context,permissions:["workbench.agent.read"]};render(tree());
