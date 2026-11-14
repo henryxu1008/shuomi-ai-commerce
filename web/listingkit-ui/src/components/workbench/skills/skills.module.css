@@ -8,6 +8,7 @@
 .list{display:grid;gap:10px;margin:16px 0;list-style:none;padding:0}.list li{border:1px solid var(--border);border-radius:var(--radius);padding:12px}.list button{cursor:pointer;text-align:start;display:grid;gap:6px;width:100%}.list button:disabled{opacity:.6;cursor:default}.list small{color:var(--muted-foreground)}
 .form{display:grid;gap:16px}.form label,.detail label{display:grid;gap:6px}.form input:not([type=checkbox]),.form textarea,.detail select{border:1px solid var(--border);border-radius: var(--control-radius);background:var(--background);color:var(--foreground);padding:10px;width:100%}.form textarea{font-family:var(--font-mono),monospace;font-size: var(--body-text-size)}
 .notice,.detail{border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px}.digest{overflow-wrap:anywhere}.detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:12px;background:var(--secondary);font-size: var(--body-text-size)}.detail details{margin:10px 0}.detail summary{cursor:pointer}
+.skillDetailDialog .detail{border:0;padding:0;margin:0}
 @media(max-width:600px){.dialog,.manager{padding:16px}.actions{gap:8px}.dialog button,.manager button{min-height:40px}}
 
 .libraryPage.libraryPage{--intro-text: var(--foreground);gap:20px;font-size: var(--body-text-size);line-height:22px}

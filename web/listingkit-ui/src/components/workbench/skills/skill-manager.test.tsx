@@ -6,6 +6,27 @@ import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
 vi.mock("@/lib/api/skill",()=>({skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")}});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it("opens an individual skill in a dialog and closes without copying it",async()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ const version={skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:1},version:1,state:"ENABLED",package:{name:"product-title-organize",displayName:"商品标题整理",description:"真实方法",target:"product-title",digest:"a".repeat(64)}};
+ const projection={version,canUse:true,canCopy:true,canExport:false,canEdit:false,canPublish:false};
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:false,reason:""}:path.endsWith("/versions/1")?projection:path.endsWith("/versions")?{items:[version]}:{items:[projection],nextCursor:""});
+ render(<SkillManager scope={{userId:"actor",organizationId:"org"}} home="personal" initialSpace="official" presentation="page"/>);
+ const trigger=await screen.findByRole("button",{name:/商品标题整理/});await waitFor(()=>expect(trigger).toBeEnabled());trigger.focus();fireEvent.click(trigger);
+ const dialog=await screen.findByRole("dialog",{name:"商品标题整理"});expect(within(dialog).getByRole("button",{name:"复制到本人"})).toBeEnabled();
+ expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path.endsWith("/copy"))).toBe(false);
+ fireEvent(dialog,new Event("cancel",{cancelable:true}));expect(screen.queryByRole("dialog",{name:"商品标题整理"})).not.toBeInTheDocument();expect(trigger).toHaveFocus();
+});
+it("closes the detail and focuses the error if another version cannot be read",async()=>{
+ const id="11111111-1111-4111-8111-111111111111";
+ const version={skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:2},version:1,state:"ENABLED",package:{name:"sample-skill",description:"真实方法",target:"product-title",digest:"a".repeat(64)}};
+ const projection={version,canUse:true,canCopy:false,canExport:false,canEdit:false,canPublish:false};
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:false,canInstallOfficial:false,reason:""}:path.endsWith("/versions/2")?Promise.reject(new Error("offline")):path.endsWith("/versions/1")?projection:path.endsWith("/versions")?{items:[version,{...version,version:2}]}:{items:[projection],nextCursor:""});
+ render(<SkillManager scope={{userId:"actor",organizationId:"org"}} home="personal" initialSpace="official" presentation="page"/>);
+ fireEvent.click(await screen.findByRole("button",{name:/sample-skill/}));const dialog=await screen.findByRole("dialog",{name:"sample-skill"});
+ fireEvent.change(within(dialog).getByLabelText("已保存版本"),{target:{value:"2"}});
+ expect(await screen.findByRole("alert")).toHaveFocus();expect(screen.queryByRole("dialog",{name:"sample-skill"})).not.toBeInTheDocument();
+});
 it.each(["product-title-organize","product-title-localize","product-title-shorten","product-image-standard","product-image-scene","product-image-details"])("opens %s using the selected exact version rather than its head",async name=>{
  const image=name.startsWith("product-image"),id="11111111-1111-4111-8111-111111111111";
  const version={skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:9},version:image?2:1,state:"ENABLED",package:{name,description:"真实方法",target:image?"product-image":"product-title",digest:"a".repeat(64)}};
