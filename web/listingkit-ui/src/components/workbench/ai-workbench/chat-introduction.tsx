@@ -50,7 +50,7 @@ export function NewConversationIntroduction({ createAction, directCompose, userI
   });
   const name = profile.isSuccess && !profile.isFetching ? profile.data.displayName?.trim() : "";
   const displayName = name && name !== userId && !/^\d+$/.test(name) ? name : "";
-  const greeting = displayName ? `${displayName}，今天想做什么？` : "今天想做什么？";
+  const greeting = displayName ? `Hi ${displayName}，今天想做什么？` : "今天想做什么？";
   if (directCompose) return <div className={styles.newWorkspace}>
     <section className={styles.composeMain} aria-labelledby="chat-new-goal">
       <header className={styles.composeHeading}><h2 id="chat-new-goal">{greeting}</h2></header>
