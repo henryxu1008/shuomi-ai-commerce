@@ -41,7 +41,7 @@ it("hides store counts on focus until the live history is reauthorized", async (
  let resolveNext:(value:unknown)=>void=()=>{};
  fixture.request.mockImplementationOnce(async()=>({conversation,messages:[reference],proposals:[],before:""})).mockImplementationOnce(()=>new Promise(resolve=>{resolveNext=resolve}));
  render(tree());
- expect(await screen.findByText(/当前可查看 3 家店铺/)).toBeInTheDocument();
+ expect(await screen.findByText(/全部可见店铺：当前可查看 3 家店铺/)).toBeInTheDocument();
  fireEvent.blur(window); fireEvent.focus(window);
  await waitFor(()=>expect(screen.queryByText(/当前可查看 3 家店铺/)).toBeNull());
  await act(async()=>resolveNext({conversation,messages:[{...reference,currentStoreOverview:undefined,storeOverviewUnavailable:true}],proposals:[],before:""}));
@@ -148,7 +148,7 @@ it("uses a separate idempotent no-model store overview action", async () => {
    throw new Error("unexpected model call");
  });
  render(tree());
- fireEvent.click(await screen.findByRole("button",{name:"查看店铺概况"}));
+ fireEvent.click(await screen.findByRole("button",{name:"查看全部可见店铺概况"}));
  fireEvent.click(await screen.findByRole("button",{name:"核对原店铺查询"}));
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([input])=>input.route==="store-overview")).toHaveLength(2));
  const sent=fixture.request.mock.calls.map(([input])=>input).filter(input=>input.route==="store-overview");
@@ -162,7 +162,7 @@ it("does not carry a pending store query key into a different conversation",asyn
  fixture.request.mockImplementation(async({route,path})=>{if(route!=="conversation-read")throw new Error("unexpected");return {conversation:{...conversation,ID:path.includes(secondId)?secondId:conversationId,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""}});
  const view=render(tree());expect(await screen.findByRole("button",{name:"核对原店铺查询"})).toBeEnabled();
  view.rerender(<QueryClientProvider client={client}><ChatPage mode="detail" conversationId={secondId}/></QueryClientProvider>);
- await waitFor(()=>expect(screen.getByRole("button",{name:"查看店铺概况"})).toBeEnabled());expect(screen.queryByRole("button",{name:"核对原店铺查询"})).toBeNull();
+ await waitFor(()=>expect(screen.getByRole("button",{name:"查看全部可见店铺概况"})).toBeEnabled());expect(screen.queryByRole("button",{name:"核对原店铺查询"})).toBeNull();
 });
 
 it("inserts final speech at the current caret without losing edits or sending a message", async () => {
