@@ -2,11 +2,6 @@
 .dialog::backdrop{background:var(--overlay)}
 .manager{padding:24px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--foreground);overflow-wrap:anywhere}
 .manager h2{font-size:var(--section-title-size);font-weight:600;margin:12px 0}.manager h3{font-size:var(--card-title-size);font-weight:600;margin:12px 0}.manager p{margin:10px 0;color:var(--muted-foreground)}
-.categories{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--intro-border)}
-.categories a{display:flex;align-items:center;justify-content:center;flex:0 0 120px;min-width:0;min-height:44px;margin-bottom:-1px;padding:8px 16px;border-bottom:2px solid transparent;border-radius:8px 8px 0 0;color:var(--intro-muted);font-size: var(--body-text-size);line-height:22px;font-weight:600;white-space:nowrap;text-decoration:none}
-.categories a[aria-current=page]{background:var(--intro-teal-fill);border-bottom-color:var(--intro-teal);color:var(--intro-teal)}
-.categories a:hover{color:var(--intro-teal)}
-.categories a:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
 .dialog>header{justify-content:space-between;align-items:flex-start;flex-wrap:nowrap}.dialog>header>div{min-width:0}.dialog>header>button{flex-shrink:0}
 .dialog h2{font-size:var(--dialog-title-size);font-weight:600;margin:12px 0}.dialog h3{font-size:var(--card-title-size);font-weight:600;margin:12px 0}.dialog p{margin:10px 0;color:var(--muted-foreground)}
 .actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:12px 0}
@@ -63,4 +58,4 @@
 .notes h2{margin:0;font-size: var(--section-title-size);line-height:24px;font-weight:700}
 .notes p{margin:0;color:var(--intro-muted);font-size: var(--body-text-size);line-height:22px}
 @media(max-width:800px){.notes{grid-template-columns:1fr;gap:12px}.pageToolbar{align-items:flex-start}}
-@media(max-width:600px){.libraryPage.libraryPage{padding:20px 16px 32px;gap:16px}.categories a{flex:1;padding:10px 8px}.pageManager{padding:16px}.pageToolbar,.toolbarActions{width:100%}.toolbarActions button{white-space:normal;height:auto;min-height:40px}.pageManager>.list button{grid-template-columns:minmax(0,1fr)}.versionAction{grid-row:4}.empty{padding:24px 8px}.notes>div{min-height:0}}
+@media(max-width:600px){.libraryPage.libraryPage{padding:20px 16px 32px;gap:16px}.pageManager{padding:16px}.pageToolbar,.toolbarActions{width:100%}.toolbarActions button{white-space:normal;height:auto;min-height:40px}.pageManager>.list button{grid-template-columns:minmax(0,1fr)}.versionAction{grid-row:4}.empty{padding:24px 8px}.notes>div{min-height:0}}

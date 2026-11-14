@@ -10,6 +10,7 @@ import { ConsolePage, ConsoleState } from "../console/console-page";
 import { ReportError, readReportIntent, reportRequest, writeReportIntent } from "@/lib/api/report-center";
 import { reportResultSchema, reportSchema, reportsPageSchema, reportsSummarySchema, reportText, sourceHref, type Report, type ReportIntent, type ReportScope, type ReportSource } from "@/lib/contracts/report-center";
 import { ReportSourcePicker } from "./source-picker";
+import {WorkbenchViewNav,workbenchViewPage} from "../console/workbench-view-nav";
 import {initialReportMerge,mergeReportPage,type ReportMergeState} from "./report-list-merge";
 import styles from "./report-page.module.css";
 type View = "overview" | "recent" | "favorites" | "all";
@@ -21,8 +22,8 @@ export function ReportPage({ view = "overview", titleReviewAvailable = false, sh
   const context = useWorkbenchContext();
   const scope = context.user && context.effectiveOrganization && !context.selectionRequired && !context.isSwitching && !context.isLoading && !context.error && !context.blockingError ? { userId: context.user.id, organizationId: context.effectiveOrganization.id } : null;
   const authorizationKey = JSON.stringify([context.roles, context.permissions]);
-  return <ConsolePage title={labels[view]} description={view === "overview" ? "AI成果沉淀与复用，保留本人当前企业的历史结果。" : "查阅已手动保存的只读报告，收藏重要结果并下载复用。"} breadcrumbs={[{ label: "AI工作台" }, { label: "我的报告", href: "/workbench/ai/reports" }, ...(view === "overview" ? [] : [{ label: labels[view] }])]}>
-    <nav className={styles.filters} aria-label="报告视图">{(["overview", "recent", "favorites", "all"] as const).map(item => <Button key={item} asChild variant={view === item ? "secondary" : "outline"}><Link href={item === "overview" ? "/workbench/ai/reports" : `/workbench/ai/reports/${item}`} prefetch={false} aria-current={view === item ? "page" : undefined}>{item === "overview" ? "报告概览" : labels[item]}</Link></Button>)}</nav>
+  return <ConsolePage className={workbenchViewPage} title={labels[view]} description={view === "overview" ? "AI成果沉淀与复用，保留本人当前企业的历史结果。" : "查阅已手动保存的只读报告，收藏重要结果并下载复用。"} breadcrumbs={[{ label: "AI工作台" }, { label: "我的报告", href: "/workbench/ai/reports" }, ...(view === "overview" ? [] : [{ label: labels[view] }])]}>
+    <WorkbenchViewNav className={styles.viewNavigation} label="报告视图">{(["overview", "recent", "favorites", "all"] as const).map(item => <Link key={item} href={item === "overview" ? "/workbench/ai/reports" : `/workbench/ai/reports/${item}`} prefetch={false} aria-current={view === item ? "page" : undefined}>{item === "overview" ? "报告概览" : labels[item]}</Link>)}</WorkbenchViewNav>
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请选择可访问的企业并登录。</ConsoleState> : !context.permissions.includes("workbench.report.read") ? <ConsoleState kind="unavailable" title="报告尚不可用">当前企业尚未启用报告，或当前用户没有查看权限。</ConsoleState> : <ScopedReports key={JSON.stringify([scope.userId, scope.organizationId, authorizationKey, initialTargetRecord, initialOfflineRecord,titleReviewAvailable, sheinTargetSourcesAvailable,sheinOfflineSourcesAvailable])} scope={scope} authorizationKey={authorizationKey} view={view} manage={context.permissions.includes("workbench.report.manage")} tasksAvailable={context.aiWorkbenchAvailable} titleReviewAvailable={titleReviewAvailable} targetAvailable={sheinTargetSourcesAvailable && context.permissions.includes("workbench.supply.read")} initialTargetRecord={initialTargetRecord} initialOfflineRecord={initialOfflineRecord} offlineAvailable={sheinOfflineSourcesAvailable&&context.permissions.includes("listingkit.admin.read")} />}
   </ConsolePage>;
 }

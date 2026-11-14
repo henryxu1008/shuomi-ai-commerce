@@ -23,6 +23,7 @@ import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
 import {ChatTaskSelection} from "./chat-task-selection";
 import {ChatContextPicker} from "./chat-context-picker";
+import {WorkbenchViewNav,workbenchViewPage} from "../console/workbench-view-nav";
 import {ChatStorePicker,chatStoreChoiceKey,type ChatStoreChoice,type ChatStoreState} from "./chat-store-picker";
 import {CollectionPicker} from "../pod/collection-picker";
 import {aiTaskSelection,type AITaskSubject} from "@/lib/contracts/ai-workbench";
@@ -66,7 +67,7 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const authorizationKey = `${context.effectiveMemberId ?? ""}:${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${context.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE"}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
   const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? undefined : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
-  return <ConsolePage className={`console-chat${mode === "new" ? ` ${styles.newChatPage}` : ""}`} title={title} breadcrumbs={route?.trail.map(node => node.href === "/workbench/ai/chat" ? {...node, href: "/workbench/ai/chat/new"} : node)}
+  return <ConsolePage className={`console-chat ${workbenchViewPage}${mode === "new" ? ` ${styles.newChatPage}` : ""}`} title={title} breadcrumbs={route?.trail.map(node => node.href === "/workbench/ai/chat" ? {...node, href: "/workbench/ai/chat/new"} : node)}
     description={description}>
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请先选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
@@ -185,7 +186,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     finally { if (!controller.signal.aborted) setCreating(false); abort.current = null; }
   }
   return <>
-    <nav className={`${styles.toolbar} ${styles.viewNavigation}`} aria-label="会话视图">{([ ["new", "新建会话"], ["recent", "最近会话"], ["saved", "收藏会话"], ["archived", "归档会话"] ] as const).map(([view,label]) => <Button asChild key={view} variant={mode === view ? "secondary" : "outline"}><Link href={`/workbench/ai/chat/${view}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${encodeURIComponent(selectedOperationId)}` : ""}`} prefetch={false} aria-current={mode === view ? "page" : undefined}>{label}</Link></Button>)}</nav>
+    <WorkbenchViewNav className={styles.viewNavigation} label="会话视图">{([ ["new", "新建会话"], ["recent", "最近会话"], ["saved", "收藏会话"], ["archived", "归档会话"] ] as const).map(([view,label]) => <Link key={view} href={`/workbench/ai/chat/${view}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${encodeURIComponent(selectedOperationId)}` : ""}`} prefetch={false} aria-current={mode === view ? "page" : undefined}>{label}</Link>)}</WorkbenchViewNav>
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
     {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
       mode === "new" ? <NewConversationIntroduction userId={scope.userId} directCompose={directCompose} canUse={canUse} createAction={canUse ? directCompose ? <>

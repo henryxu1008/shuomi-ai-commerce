@@ -6,6 +6,7 @@ import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {ConsolePage, ConsoleState} from "../console/console-page";
 import {SkillManager} from "./skill-manager";
+import {WorkbenchViewNav,workbenchViewPage} from "../console/workbench-view-nav";
 import styles from "./skills.module.css";
 import introStyles from "../data-services/data-services-overview.module.css";
 import homeStyles from "../console/primary-introduction.module.css";
@@ -51,9 +52,9 @@ export function SkillLibraryPage({expectedUserId, category}: {expectedUserId: st
       canConfigure={organizationReady && ctx.permissions.includes("workbench.agent.configure")}
       presentation="page"/>;
   }
-  return <ConsolePage className={`${introStyles.page} ${homeStyles.page} ${styles.libraryPage}`} title={current.label} description={<>{current.description}{category === "team" && organization && <span className={styles.organization}>当前企业：{organization.name}</span>}</>}
+  return <ConsolePage className={`${introStyles.page} ${homeStyles.page} ${styles.libraryPage} ${workbenchViewPage}`} title={current.label} description={<>{current.description}{category === "team" && organization && <span className={styles.organization}>当前企业：{organization.name}</span>}</>}
     breadcrumbs={[{label: "AI工作台", href: "/workbench/ai"}, {label: "技能库", href: `${root}/official`}, {label: current.label}]}>
-    <nav className={styles.categories} aria-label="技能库分类">{categories.map(item => <Link key={item.id} href={item.path} prefetch={false} aria-label={item.label} aria-current={item.id === category ? "page" : undefined}>{item.label}</Link>)}</nav>
+    <WorkbenchViewNav label="技能库分类">{categories.map(item => <Link key={item.id} href={item.path} prefetch={false} aria-label={item.label} aria-current={item.id === category ? "page" : undefined}>{item.label}</Link>)}</WorkbenchViewNav>
     {content}
     <aside className={styles.notes} aria-label={`${current.label}使用说明`}>{current.notes.map(([title, description]) => <Card key={title}><h2>{title}</h2><p>{description}</p></Card>)}</aside>
   </ConsolePage>;

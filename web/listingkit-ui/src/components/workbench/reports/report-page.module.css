@@ -8,3 +8,5 @@
 @media(max-width:1050px){.cards{grid-template-columns:1fr}.feature{min-height:0}.filters form{margin-left:0}.summary{gap:12px}.section dl>div{grid-template-columns:1fr}.sources li{align-items:flex-start;flex-direction:column}}
 
 .technical{border-top:1px solid var(--border);margin-top:20px;padding-top:16px}.technical summary{cursor:pointer;color:var(--muted-foreground);font-weight:600}.technical summary:focus-visible{outline:2px solid var(--ring);outline-offset:3px}
+
+.viewNavigation { margin:16px 0 24px; }

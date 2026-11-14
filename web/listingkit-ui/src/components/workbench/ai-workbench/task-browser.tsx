@@ -14,6 +14,7 @@ import { fetchProductTitleProposals } from "@/lib/api/product-title-review-clien
 import { contentSelectionLabel } from "@/lib/contracts/content-selection";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import { ConsolePage, ConsoleState } from "../console/console-page";
+import {WorkbenchViewNav,workbenchViewPage} from "../console/workbench-view-nav";
 import { ProposalSession, ReviewError, reviewQueryPolicy, reviewAccessDenied } from "../task-center/review-session";
 import { TaskDetail } from "./task-detail";
 import {ScheduleManager} from "./schedule-manager";
@@ -139,7 +140,7 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
   const selectedNative=selection?.kind==="native"?native.items.find(item=>item.key===selection.id):undefined;
   if(selectedNative)detail=<NativeRunDetail record={selectedNative} locked={locked} scope={scope} destinations={nativeRunDestinations}/>;
   if(schedulesView&&tasksAvailable)return <ScheduleManager key={JSON.stringify([scope,authorizationKey])} scope={scope} authorizationKey={authorizationKey} canUse={context.permissions.includes("workbench.agent.use")} onBack={()=>showSchedules(false)}/>;
-  return <ConsolePage title="任务中心" description="查看正在执行、等待确认和已经完成的业务任务。" breadcrumbs={findConsoleRoute(filters.find(item=>item.mode===mode)!.href)?.trail}
+  return <ConsolePage className={workbenchViewPage} title="任务中心" description="查看正在执行、等待确认和已经完成的业务任务。" breadcrumbs={findConsoleRoute(filters.find(item=>item.mode===mode)!.href)?.trail}
     actions={<>{<input className={styles.search} type="search" aria-label="搜索已加载记录" placeholder="搜索任务或商品" value={search} disabled={locked} onChange={event=>setSearch(event.target.value)} />}
       {schedules.data?.enabled?<Button variant="outline" disabled={locked} onClick={()=>showSchedules(true)}>定时任务</Button>:null}
       {canChat ? <Button asChild><Link href="/workbench/ai/chat/new" prefetch={false} aria-disabled={locked || undefined} tabIndex={locked ? -1 : undefined} onClick={event=>{if(locked)event.preventDefault();}}>向硕米发起任务</Link></Button> : null}</>}>
@@ -147,10 +148,10 @@ export function TaskBrowser({ scope, authorizationKey, mode, tasksAvailable, pro
       {metrics.map(metric=><Card className={layout.metric} key={metric.state}><span className={layout.swatch} aria-hidden="true" /><div><h2>{metric.label}</h2><p>已加载</p></div><strong className={styles.metricNumber} data-state={metric.state}>{metric.value ?? "—"}</strong></Card>)}
       <Card className={layout.scope}><p>工作范围</p><h2>当前企业</h2><p>本人业务任务与智能体运行 · 审核事项沿原业务权限</p></Card>
     </div>
-    <div className={styles.toolbar}><nav className={layout.filters} aria-label="任务状态">
+    <div className={styles.toolbar}><WorkbenchViewNav className={layout.viewNavigation} label="任务状态">
       {filters.filter(filter=>tasksAvailable || nativeRunsAvailable || filter.mode==="all" || filter.mode==="pending" && productReviewAvailable || filter.mode==="completed" && sheinRecordsAvailable).map(filter=><Link key={filter.mode} href={filter.href} aria-current={!pausedOnly && mode===filter.mode ? "page":undefined} aria-disabled={locked || undefined} tabIndex={locked ? -1 : undefined} prefetch={false} onClick={event=>{if(locked)event.preventDefault();}}>{filter.label}</Link>)}
       {tasksAvailable || nativeRunsAvailable ? <Button variant="outline" disabled={locked} aria-pressed={pausedOnly} onClick={()=>{select();setPausedOnly(value=>!value);}}>已暂停</Button> : null}
-    </nav><Button variant="outline" disabled={locked} onClick={refresh}>刷新状态</Button></div>
+    </WorkbenchViewNav><Button variant="outline" disabled={locked} onClick={refresh}>刷新状态</Button></div>
     {tasksAvailable ? <div><label>工作范围筛选 <select value={filterKind} disabled={locked} onChange={event=>{select();setFilterScope(undefined);setFilterKind(event.target.value as typeof filterKind);}}><option value="all">全部</option><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option><option value="unrecorded">未记录工作范围</option></select></label>
       {filterKind==="project"||filterKind==="store" ? <WorkScopePicker key={filterKind} initialKind={filterKind} fixedKind scope={scope} authorizationKey={authorizationKey} disabled={locked} selected={filterScope} onSelect={value=>{select();setFilterScope(value);}}/> : null}</div> : null}
     <p className={layout.coverage}>搜索和数量仅覆盖已加载且可判断的记录；待确认事项优先显示。运行完成不代表建议已采用或商品已发布，接受建议后仍需单独确认应用。</p>
