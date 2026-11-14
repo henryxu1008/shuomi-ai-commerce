@@ -64,9 +64,9 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const canPlan = canUse && planningReadiness === "AVAILABLE";
   const authorizationKey = `${context.effectiveMemberId ?? ""}:${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${context.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE"}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
-  const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? "从已有商品与明确目标开始一项工作。" : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
+  const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? undefined : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
   return <ConsolePage className="console-chat" title={title} breadcrumbs={route?.trail}
-    description={mode === "new" && context.aiWorkbenchExecutionKind === "product.content.localize" ? undefined : description}>
+    description={description}>
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请先选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
       <ScopedChat key={`${scope.userId}:${scope.organizationId}:${authorizationKey}`} scope={scope} authorizationKey={authorizationKey} canUse={canUse} canPlan={canPlan} planningReadiness={planningReadiness} titleReadiness={titleReadiness} mode={mode} conversationId={conversationId} />}
@@ -187,7 +187,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
     {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
       mode === "new" ? <NewConversationIntroduction directCompose={directCompose} canUse={canUse} createAction={canUse ? directCompose ? <>
-        <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea ref={composeInput} rows={5} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>updateCompose(event.target.value)} placeholder="例如：根据已有商品资料整理英文描述" /></label>
+        <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea ref={composeInput} rows={5} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>updateCompose(event.target.value)} placeholder="输入你的需求" /></label>
         {projectId || storeId ? <p>工作背景：{createIntent ? "原请求待核对" : resolvedScope ? scopeLabel(resolvedScope) : "正在核对或无法读取"}</p> : null}
         {invalidContext ? <p role="status">当前工作背景无效，无法创建会话。</p> : null}
         {scopePreview.isError || scopePreview.isSuccess && !resolvedScope ? <p role="status">工作背景暂不可用。<Button variant="outline" onClick={()=>void scopePreview.refetch()}>重新读取</Button></p> : null}
