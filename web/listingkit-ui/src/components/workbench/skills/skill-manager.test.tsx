@@ -6,6 +6,96 @@ import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
 vi.mock("@/lib/api/skill",async original=>({...await original<typeof import("@/lib/api/skill")>(),skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")}});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it("lets a maintainer create, check and save an official draft without exposing creation in the library",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official/validate"?{valid:true,name:"new-skill",description:"description",digest:"a".repeat(64),fileCount:1}:path==="official"?{id:"11111111-1111-4111-8111-111111111111",version:1,revision:1,operation:"create",at:"2026-11-14T00:00:00Z"}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建或导入官方技能"}));
+ fireEvent.change(screen.getByLabelText("技能名称（小写标识）"),{target:{value:"new-skill"}});
+ fireEvent.change(screen.getByLabelText("技能简介"),{target:{value:"description"}});
+ fireEvent.change(screen.getByLabelText("方法内容"),{target:{value:"Write a useful method."}});
+ fireEvent.click(screen.getByRole("button",{name:"检查格式"}));
+ await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/validate")).toBe(true));
+ fireEvent.click(await screen.findByRole("button",{name:"保存草稿"}));
+ await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path,,init])=>path==="official"&&init?.method==="POST")).toBe(true));
+ const request=vi.mocked(skillRequest).mock.calls.find(([,path,,init])=>path==="official"&&init?.method==="POST");
+ expect(JSON.parse(String(request?.[3]?.body)).files[0].text).toContain('listingkit-method-v1: "product-title"');
+});
+it("uses the image skill contract and requires an image brief for checking",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official/validate"?{valid:true,name:"image-skill",description:"description",digest:"a".repeat(64),fileCount:2}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建或导入官方技能"}));
+ fireEvent.change(screen.getByLabelText("技能名称"),{target:{value:"图片技能"}});fireEvent.change(screen.getByLabelText("技能名称（小写标识）"),{target:{value:"image-skill"}});
+ fireEvent.change(screen.getByLabelText("技能用途"),{target:{value:"product-image"}});
+ fireEvent.click(screen.getByRole("button",{name:"检查格式"}));expect(await screen.findByRole("alert")).toHaveTextContent("请填写图片生成说明");
+ expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/validate")).toBe(false);
+ fireEvent.change(screen.getByLabelText("图片生成说明"),{target:{value:"Keep the original product appearance."}});fireEvent.click(screen.getByRole("button",{name:"检查格式"}));
+ await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/validate")).toBe(true));
+ const request=vi.mocked(skillRequest).mock.calls.find(([,path])=>path==="official/validate");const files=JSON.parse(String(request?.[3]?.body)).files;
+ expect(files.find((f:{path:string})=>f.path==="SKILL.md").text).toContain('listingkit-method-v1: "product-image"');
+ expect(files.find((f:{path:string})=>f.path==="SKILL.md").text).toContain('listingkit-display-name: "图片技能"');
+ expect(files.find((f:{path:string})=>f.path==="references/visual-brief.md").text).toBe("Keep the original product appearance.");
+ expect(screen.queryByLabelText("文件内容")).not.toBeInTheDocument();
+});
+it.each(["product-image","product-title"])("saves a draft without adding an empty image brief after selecting %s",async finalTarget=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path,_schema,init)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official"&&init?.method==="POST"?{skillId:"11111111-1111-4111-8111-111111111111",version:1,revision:1,operation:"create",at:"2026-11-14T00:00:00Z"}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建或导入官方技能"}));fireEvent.change(screen.getByLabelText("技能名称（小写标识）"),{target:{value:"test-skill"}});
+ fireEvent.change(screen.getByLabelText("技能简介"),{target:{value:"Description"}});fireEvent.change(screen.getByLabelText("方法内容"),{target:{value:"A valid method."}});
+ fireEvent.change(screen.getByLabelText("技能用途"),{target:{value:"product-image"}});if(finalTarget==="product-title")fireEvent.change(screen.getByLabelText("技能用途"),{target:{value:finalTarget}});
+ fireEvent.click(screen.getByRole("button",{name:"保存草稿"}));
+ await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path,,init])=>path==="official"&&init?.method==="POST")).toBe(true));
+ const request=vi.mocked(skillRequest).mock.calls.find(([,path,,init])=>path==="official"&&init?.method==="POST");
+ expect(JSON.parse(String(request?.[3]?.body)).files.every((f:{text:string})=>f.text.trim().length>0)).toBe(true);
+});
+it("does not publish an image draft without its image brief",async()=>{
+ const id="11111111-1111-4111-8111-111111111111";const version={skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:1,revision:1},version:1,state:"DRAFT",package:{name:"image-skill",description:"图片方法",target:"product-image",digest:"a".repeat(64),files:[{path:"SKILL.md",text:"content"}]}};
+ const projection={version,canUse:false,canCopy:false,canExport:false,canEdit:true,canPublish:true};
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path.endsWith("/versions/1")?projection:path.endsWith("/versions")?{items:[version]}:{items:[projection],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:/image-skill/}));expect(await screen.findByText("请先补充图片生成说明，再发布或启用。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"发布该版本"})).toBeDisabled();
+});
+it.each(["image","title"])("preserves the imported image brief in %s mode",async mode=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path,_schema,init)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official"&&init?.method==="POST"?{skillId:"11111111-1111-4111-8111-111111111111",version:1,revision:1,operation:"create",at:"2026-11-14T00:00:00Z"}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建或导入官方技能"}));
+ fireEvent.change(screen.getByLabelText("技能名称（小写标识）"),{target:{value:"test-skill"}});fireEvent.change(screen.getByLabelText("技能简介"),{target:{value:"Description"}});fireEvent.change(screen.getByLabelText("方法内容"),{target:{value:"A valid method."}});
+ if(mode==="image"){fireEvent.change(screen.getByLabelText("技能用途"),{target:{value:"product-image"}});fireEvent.change(screen.getByLabelText("图片生成说明"),{target:{value:"old brief"}})}
+ const file=new File(["ignored"],"visual-brief.md",{type:"text/markdown"});Object.defineProperty(file,"text",{value:async()=>"imported brief"});fireEvent.change(screen.getByLabelText("添加参考文本或模板"),{target:{files:[file]}});
+ if(mode==="image")expect(await screen.findByDisplayValue("imported brief")).toBeVisible();else{const field=await screen.findByLabelText("文件内容");fireEvent.change(field,{target:{value:"edited imported brief"}});fireEvent.change(screen.getByLabelText("技能用途"),{target:{value:"product-image"}});expect(screen.getByLabelText("图片生成说明")).toHaveValue("edited imported brief")}
+ fireEvent.click(screen.getByRole("button",{name:"保存草稿"}));await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path,,init])=>path==="official"&&init?.method==="POST")).toBe(true));
+ const request=vi.mocked(skillRequest).mock.calls.find(([,path,,init])=>path==="official"&&init?.method==="POST");const files=JSON.parse(String(request?.[3]?.body)).files;
+ expect(files.filter((f:{path:string})=>f.path==="references/visual-brief.md")).toEqual([{path:"references/visual-brief.md",text:mode==="image"?"imported brief":"edited imported brief"}]);
+});
+it("imports a skill into the draft editor without saving it",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建或导入官方技能"}));
+ const file=new File(["ignored"],"SKILL.md",{type:"text/markdown"});Object.defineProperty(file,"text",{value:async()=>"---\nname: imported-skill\ndescription: Imported description\n---\nUseful method."});
+ fireEvent.change(screen.getByLabelText("导入 SKILL.md / 文本包"),{target:{files:[file]}});
+ expect(await screen.findByDisplayValue(/imported-skill/)).toBeVisible();
+ expect(vi.mocked(skillRequest).mock.calls.some(([,path,,init])=>path==="official"&&init?.method==="POST")).toBe(false);
+});
+it("publishes and then enables an official draft through existing version actions",async()=>{
+ const id="11111111-1111-4111-8111-111111111111";let state="DRAFT",revision=1;
+ const version=()=>({skill:{id,owner:{kind:"PLATFORM",id:"official"},headVersion:1,revision},version:1,state,package:{name:"new-skill",displayName:"新技能",description:"技能说明",target:"product-title",digest:"a".repeat(64)}});
+ const projection=()=>({version:version(),canUse:state==="ENABLED",canCopy:false,canExport:false,canEdit:true,canPublish:true});
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>{if(path.endsWith("/info"))return {available:true,canCreate:true,canInstallOfficial:true,reason:""};if(path.endsWith("/publish")){state="READY";revision++;return {}}if(path.endsWith("/enable")){state="ENABLED";revision++;return {}}if(path.endsWith("/versions/1"))return projection();if(path.endsWith("/versions"))return {items:[version()]};return {items:[projection()],nextCursor:""}});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:/新技能/}));fireEvent.click(await screen.findByRole("button",{name:"发布该版本"}));
+ await waitFor(()=>expect(state).toBe("READY"));const card=await screen.findByRole("button",{name:/新技能/});await waitFor(()=>expect(card).toBeEnabled());fireEvent.click(card);
+ fireEvent.click(await screen.findByRole("button",{name:"启用该版本"}));await waitFor(()=>expect(state).toBe("ENABLED"));
+ const actions=vi.mocked(skillRequest).mock.calls.filter(([,path])=>path.endsWith("/publish")||path.endsWith("/enable"));
+ expect(actions.map(([,, ,init])=>new Headers(init?.headers).get("If-Match"))).toEqual(['"1"','"2"']);
+});
+it("retains official draft inputs when saving fails",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path,_schema,init)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official"&&init?.method==="POST"?Promise.reject(new SkillError("SKILL_FORBIDDEN")):{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建或导入官方技能"}));
+ fireEvent.change(screen.getByLabelText("技能名称（小写标识）"),{target:{value:"kept-skill"}});
+ fireEvent.click(screen.getByRole("button",{name:"保存草稿"}));
+ expect(await screen.findByRole("alert")).toBeVisible();expect(screen.getByLabelText("技能名称（小写标识）")).toHaveValue("kept-skill");
+});
 it("requires the existing maintainer capability for the settings installation entry",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:false,canInstallOfficial:false,reason:""}:{items:[],nextCursor:""});
  render(<SkillManager scope={{userId:"reader"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
@@ -85,6 +175,7 @@ it("keeps official maintenance actions out of the skill library",async()=>{
  expect(within(dialog).getByRole("button",{name:"复制到本人"})).toBeVisible();
  for(const name of ["保存为新版本","导出准确版本","停用该版本","撤销该版本"])expect(within(dialog).queryByRole("button",{name})).toBeNull();
  expect(screen.queryByRole("button",{name:"安装官方模板"})).toBeNull();
+ expect(screen.queryByRole("button",{name:"新建或导入官方技能"})).toBeNull();
 });
 it("closes the detail and focuses the error if another version cannot be read",async()=>{
  const id="11111111-1111-4111-8111-111111111111";
