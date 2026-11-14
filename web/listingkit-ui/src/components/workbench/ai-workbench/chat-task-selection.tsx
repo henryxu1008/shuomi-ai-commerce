@@ -34,7 +34,7 @@ export function ChatTaskSelection({scope,subject,parameters,onSubject,onParamete
   <CollectionPicker authorizationKey={authorizationKey} scope={scope} kind="product" isEligible={item=>contentSubject(item)!==null} emptyMessage="当前页没有可用于内容任务的自有商品或已保存源商品。" disabled={disabled||loading} onSelect={item=>void select(item)}/>
   {loading?<p role="status">正在确认商品当前版本…</p>:null}
   {error?<p role="alert">{error}</p>:null}
-  {subject?<p>已选择{subject.kind==="own_product"?"自有商品":"源商品"} · 版本 {subject.catalogVersion}</p>:<p>从我的数据选择商品，来源信息由原商品记录保留。</p>}
+  {subject?<p>已选择{subject.kind==="own_product"?"自有商品":"源商品"} · 商品标识 {subject.id} · 版本 {subject.catalogVersion}</p>:<p>从我的数据选择商品，来源信息由原商品记录保留。</p>}
   <ContentSelectionFields value={parameters} onChange={onParameters} disabled={disabled||loading}/>
  </fieldset>;
 }
