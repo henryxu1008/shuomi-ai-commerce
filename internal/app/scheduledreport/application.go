@@ -21,15 +21,17 @@ import (
 )
 
 type Dependencies struct {
-	Observations       *observations.Service
-	Applications       *storeapp.OfficialApplicationRegistry
-	StoreDB            *gorm.DB
-	ReportDB           *gorm.DB
-	IAM                dataserviceauth.ExactReader
-	Users              dataserviceauth.ActiveUserReader
-	ServiceToken       func(context.Context) (string, error)
-	ProjectID          string
-	Policy             *authz.ListingKitAuthorizer
+	Observations *observations.Service
+	Applications *storeapp.OfficialApplicationRegistry
+	StoreDB      *gorm.DB
+	ReportDB     *gorm.DB
+	IAM          dataserviceauth.ExactReader
+	Users        dataserviceauth.ActiveUserReader
+	ServiceToken func(context.Context) (string, error)
+	ProjectID    string
+	Policy       *authz.ListingKitAuthorizer
+	// Optional deny-only overlay, shared with the current Workbench resolver.
+	// Nil means no additional local suspension policy is configured.
 	OrganizationStatus workbenchcontext.OrganizationBusinessStatusChecker
 }
 type Application struct {
@@ -40,7 +42,7 @@ type Application struct {
 type originKey struct{}
 
 func New(ctx context.Context, d Dependencies) (*Application, error) {
-	if d.StoreDB == nil || d.ReportDB == nil || d.IAM == nil || d.Users == nil || d.ServiceToken == nil || d.ProjectID == "" || d.Policy == nil || d.OrganizationStatus == nil {
+	if d.StoreDB == nil || d.ReportDB == nil || d.IAM == nil || d.Users == nil || d.ServiceToken == nil || d.ProjectID == "" || d.Policy == nil {
 		return nil, rc.ErrUnavailable
 	}
 	if e := reportstore.VerifyDailyReportSchema(ctx, d.ReportDB); e != nil {
@@ -87,12 +89,14 @@ func (a *Application) current(ctx context.Context, o rc.ScheduledOrigin, generat
 	if !active {
 		return storecenter.StoreMemberAccess{}, rc.ErrForbidden
 	}
-	suspended, e := a.d.OrganizationStatus.IsOrganizationSuspended(ctx, o.OrganizationID)
-	if e != nil {
-		return storecenter.StoreMemberAccess{}, rc.ErrUnavailable
-	}
-	if suspended {
-		return storecenter.StoreMemberAccess{}, rc.ErrForbidden
+	if a.d.OrganizationStatus != nil {
+		suspended, e := a.d.OrganizationStatus.IsOrganizationSuspended(ctx, o.OrganizationID)
+		if e != nil {
+			return storecenter.StoreMemberAccess{}, rc.ErrUnavailable
+		}
+		if suspended {
+			return storecenter.StoreMemberAccess{}, rc.ErrForbidden
+		}
 	}
 	permissions := []string{rc.ReadPermission, authz.PermissionCockpitStoresRead, authz.PermissionWorkbenchStoreRead}
 	if generate {
