@@ -11,7 +11,7 @@ export function SkillMethodSummary({method}:{method?:z.infer<typeof skillRefSche
 }
 function SummaryWithContext({method}:{method:z.infer<typeof skillRefSchema>}){
  const c=useWorkbenchContext(),user=c.user?.id,org=c.effectiveOrganization?.id;
- return <section><p className="break-all">采用技能：{method.ownerKind==="USER"?"个人":method.ownerKind==="ORGANIZATION"?"组织":"官方"} · {method.id} · v{method.version} · 摘要 {method.digest}</p>{user&&!c.isSwitching&&!c.isLoading&&!c.error&&!c.blockingError&&(method.ownerKind!=="USER"||method.ownerId===user)&&(method.ownerKind!=="ORGANIZATION"||method.ownerId===org)&&<MethodBody key={`${user}:${org}:${c.permissions.join(",")}:${method.id}:${method.version}`} user={user} org={org} method={method}/>}</section>;
+ return <section><p>已使用{method.ownerKind==="USER"?"个人":method.ownerKind==="ORGANIZATION"?"企业":"官方"}技能辅助。</p>{user&&!c.isSwitching&&!c.isLoading&&!c.error&&!c.blockingError&&(method.ownerKind!=="USER"||method.ownerId===user)&&(method.ownerKind!=="ORGANIZATION"||method.ownerId===org)&&<MethodBody key={`${user}:${org}:${c.permissions.join(",")}:${method.id}:${method.version}`} user={user} org={org} method={method}/>}</section>;
 }
 function MethodBody({user,org,method}:{user:string;org?:string;method:z.infer<typeof skillRefSchema>}){
  const [value,setValue]=useState<SkillProjection|null>(null),[failure,setFailure]=useState(""),[busy,setBusy]=useState(false),request=useRef<AbortController|null>(null);

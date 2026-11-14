@@ -17,6 +17,31 @@ vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof 
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
 
 afterEach(() => { cleanup(); sessionStorage.clear(); fixture.request.mockReset(); fixture.context.aiWorkbenchAvailable = true; fixture.context.aiWorkbenchPlanningReadiness = "AVAILABLE"; fixture.context.effectiveOrganization.capabilities["workbench.chat.use"] = true; });
+it("shows content review status in both the task list and its detail", async () => {
+ const taskId="550e8400-e29b-41d4-a716-446655440000";
+ const item={id:taskId,conversationId:taskId,proposalId:taskId,kind:"product.content.localize",title:"描述任务",goalSummary:"整理英文描述",createdAt:"2026-10-03T00:00:00Z",projectionAvailable:true,state:"WAITING_CONFIRMATION",reason:"HUMAN_REVIEW_REQUIRED",canStart:false,canReconcile:false,canResume:false,canReview:false,productDetailsAvailable:true};
+ fixture.request.mockImplementation(async ({route})=>route==="task-read"?{task:item}:{tasks:[item],next:""});
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ const list=render(<QueryClientProvider client={client}><BusinessTaskPage /></QueryClientProvider>);
+ expect(await screen.findByText("需要人工审核内容建议")).toBeVisible();
+ expect(screen.queryByText("需要人工审核标题建议")).not.toBeInTheDocument();
+ list.unmount();
+ render(<QueryClientProvider client={client}><BusinessTaskPage taskId={taskId} /></QueryClientProvider>);
+ expect(await screen.findByText("需要人工审核内容建议")).toBeVisible();
+ expect(screen.queryByText("需要人工审核标题建议")).not.toBeInTheDocument();
+ client.clear();
+});
+it("uses plain language for task usage and an unavailable task status", async () => {
+ const taskId="550e8400-e29b-41d4-a716-446655440000";
+ const item={id:taskId,conversationId:taskId,proposalId:taskId,title:"描述任务",goalSummary:"整理英文描述",createdAt:"2026-10-03T00:00:00Z",projectionAvailable:false,canStart:false,canReconcile:false,canResume:false,canReview:false,productDetailsAvailable:false,usageStatus:"observed",tokens:4503,estimatedCostMicros:31758,currency:"CNY"};
+ fixture.request.mockResolvedValue({task:item});
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}><BusinessTaskPage taskId={taskId}/></QueryClientProvider>);
+ expect(await screen.findByText("暂时无法获取当前状态")).toBeVisible();
+ expect(screen.getByText("用量已记录")).toBeVisible();
+ expect(screen.queryByText(/Owner|tokens|μCNY/)).not.toBeInTheDocument();
+ client.clear();
+});
 it("does not present unread task counts as zero when the read fails", async () => {
  fixture.request.mockRejectedValue(new Error("unavailable"));
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});

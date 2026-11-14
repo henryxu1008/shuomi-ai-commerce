@@ -46,7 +46,7 @@ it("discovers the real collection, GETs only the selected proposal and keeps exa
   expect(calls.list).toHaveBeenCalledOnce(); expect(calls.get).toHaveBeenCalledOnce();
   expect(calls.get.mock.calls[0][0]).toMatchObject({ organizationId: "200", proposalId: proposal().proposal_id });
   expect(screen.getAllByText("9007199254740993").length).toBeGreaterThan(0);
-  expect(screen.getByText("sha256:sample")).toBeInTheDocument();
+  expect(screen.queryByText("sha256:sample")).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /sha256|evidence/ })).not.toBeInTheDocument();
 });
 

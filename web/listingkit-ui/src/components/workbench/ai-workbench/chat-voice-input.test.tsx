@@ -22,7 +22,8 @@ function setup(identity = '["u","o","general"]') {
 }
 it("does not start without a click and joins each final result once", async () => {
   const {onText}=setup();
-  expect(screen.getByText("浏览器可能将语音发送给其服务商识别")).toBeVisible();
+  expect(screen.queryByText("浏览器可能将语音发送给其服务商识别")).toBeNull();
+  expect(screen.getByRole("button", {name:"开始语音输入"})).toHaveAttribute("aria-description", "语音可能由浏览器服务商识别");
   await waitFor(()=>expect(screen.getByRole("button", {name:"开始语音输入"})).toBeEnabled());
   fireEvent.click(screen.getByRole("button", {name:"开始语音输入"}));
   expect(last.start).toHaveBeenCalledTimes(1);
@@ -45,7 +46,7 @@ it("shows permission errors and allows a new attempt", async () => {
   setup(); await waitFor(()=>expect(screen.getByRole("button", {name:"开始语音输入"})).toBeEnabled()); fireEvent.click(screen.getByRole("button", {name:"开始语音输入"}));
   act(()=>last.onerror?.({error:"not-allowed"}));
   expect(screen.getByText(/未获授权/)).toBeVisible();
-  expect(screen.getByText(/浏览器可能将语音发送/)).toBeVisible();
+  expect(screen.getByRole("button", {name:"开始语音输入"})).toHaveAttribute("aria-description", "语音可能由浏览器服务商识别");
   fireEvent.click(screen.getByRole("button", {name:"开始语音输入"}));
   expect(last.start).toHaveBeenCalledTimes(1);
 });
