@@ -7,6 +7,7 @@ import { parseAIWorkbenchResponse } from "@/lib/contracts/ai-workbench";
 import { BusinessTaskPage } from "./task-page";
 
 vi.mock("@/lib/api/product-title-review-client", async original => ({ ...await original<object>(), fetchProductTitleProposals: vi.fn().mockResolvedValue({schema_version:1,coverage:"product-title-proposals-only",items:[],next_cursor:null}) }));
+vi.mock("@/lib/api/task-center-summary",()=>({fetchTaskCenterSummary:vi.fn().mockRejectedValue(new Error("unavailable"))}));
 
 const fixture = vi.hoisted(() => ({
   request: vi.fn(),
@@ -38,6 +39,7 @@ it("uses plain language for task usage and an unavailable task status", async ()
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
  render(<QueryClientProvider client={client}><BusinessTaskPage taskId={taskId}/></QueryClientProvider>);
  expect(await screen.findByText("暂时无法获取当前状态")).toBeVisible();
+ fireEvent.click(screen.getByText("更多信息"));
  expect(screen.getByText("用量已记录")).toBeVisible();
  expect(screen.queryByText(/Owner|tokens|μCNY/)).not.toBeInTheDocument();
  client.clear();
@@ -48,7 +50,7 @@ it("does not present unread task counts as zero when the read fails", async () =
  render(<QueryClientProvider client={client}><BusinessTaskPage mode="running"/></QueryClientProvider>);
  await screen.findByText("任务读取失败");
  expect(screen.queryAllByText("0")).toHaveLength(0);
- expect(screen.getAllByText("—")).toHaveLength(3);
+  await waitFor(()=>expect(screen.getAllByText("暂不可用")).toHaveLength(5));
  client.clear();
 });
 it.each(["pending","completed"] as const)("does not advertise an unmounted secondary owner in %s", async mode => {

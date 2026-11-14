@@ -6,7 +6,7 @@ export const filters: { mode: TaskMode; label: string; href: string }[] = [
   { mode: "pending", label: "待确认", href: "/workbench/ai/tasks/pending" },
   { mode: "running", label: "执行中", href: "/workbench/ai/tasks/running" },
   { mode: "completed", label: "已完成", href: "/workbench/ai/tasks/completed" },
-  { mode: "errors", label: "异常任务", href: "/workbench/ai/tasks/errors" },
+  { mode: "errors", label: "异常", href: "/workbench/ai/tasks/errors" },
 ];
 export const taskState: Record<string, string> = { RUNNING: "执行中", WAITING_CONFIRMATION: "待确认", COMPLETED: "已完成", ERROR: "异常", PAUSED: "已暂停" };
 const reasonText: Record<string, string> = { EXECUTION_MODE_CHANGED:"权限模式或准入已变化，保留原任务并重新确认新运行", START_NOT_CLAIMED: "执行尚未启动，可使用原任务启动", EXECUTION_OUTCOME_UNKNOWN: "执行结果无法确认，不会自动重发模型请求",

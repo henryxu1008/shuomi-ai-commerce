@@ -1235,6 +1235,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, e
 			}
+			prepareOfficialSkills(ctx, repo, logger)
 			h.Service, e = skill.NewService(repo, access.Resolve)
 			if e != nil {
 				return nil, e

@@ -7,7 +7,8 @@ import { titleProposalFixture } from "@/test/product-title-review-fixture";
 import { ProductTitleReviewError } from "@/lib/api/product-title-review-client";
 import { AIWorkbenchError } from "@/lib/api/ai-workbench";
 
-const calls = vi.hoisted(() => ({ native:vi.fn(), tasks: vi.fn(), list: vi.fn(), get: vi.fn(), decide: vi.fn(), apply: vi.fn(), context: {} as Record<string, unknown> }));
+const calls = vi.hoisted(() => ({summary:vi.fn(), native:vi.fn(), tasks: vi.fn(), list: vi.fn(), get: vi.fn(), decide: vi.fn(), apply: vi.fn(), context: {} as Record<string, unknown> }));
+vi.mock("@/lib/api/task-center-summary",()=>({fetchTaskCenterSummary:calls.summary}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => calls.context }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<object>(), requestAIWorkbench: calls.tasks }));
@@ -20,6 +21,7 @@ const task = { id: "550e8400-e29b-41d4-a716-446655440001", conversationId: "550e
 let client: QueryClient;
 const tree = () => <QueryClientProvider client={client}><BusinessTaskPage productReviewAvailable /></QueryClientProvider>;
 beforeEach(() => {
+ calls.summary.mockReset().mockResolvedValue({status:"partial",counts:null,excluded:0,capturedAt:"2026-11-14T00:00:00Z",reasons:["unavailable"]});
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   calls.context = { user: { id: "owner" }, effectiveOrganization: { id: "200" }, roles: [], permissions: ["listingkit.admin.read", "listingkit.admin.write"], aiWorkbenchAvailable: false };
   calls.tasks.mockReset().mockImplementation(({route}) => Promise.resolve(route === "task-read" ? {task} : {tasks:[task],next:""}));
@@ -27,6 +29,28 @@ beforeEach(() => {
   calls.get.mockReset().mockResolvedValue(proposal); calls.decide.mockReset(); calls.apply.mockReset();
 });
 afterEach(() => { cleanup(); client.clear(); sessionStorage.clear(); });
+it("uses server totals independent of loaded rows and search",async()=>{
+ calls.context.aiWorkbenchAvailable=true;
+ calls.summary.mockResolvedValue({status:"complete",counts:{WAITING_CONFIRMATION:37,RUNNING:12,COMPLETED:84,ERROR:3,PAUSED:9},excluded:2,capturedAt:"2026-11-14T00:00:00Z",reasons:[]});
+ render(tree());await screen.findByText("37");
+ expect(screen.getByText("84")).toBeVisible();expect(screen.queryByRole("heading",{name:"当前企业"})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByRole("searchbox",{name:"搜索已加载记录"}),{target:{value:"no match"}});
+ expect(screen.getByText("37")).toBeVisible();expect(calls.summary).toHaveBeenCalledTimes(1);
+ expect(await screen.findByText(/另有 2 条/)).toBeVisible();
+});
+it("keeps paused tasks out of the error filter",async()=>{
+ calls.context.aiWorkbenchAvailable=true;calls.tasks.mockImplementation(({route})=>Promise.resolve(route==="task-list"?{tasks:[{...task,id:"550e8400-e29b-41d4-a716-446655440011",title:"Paused task",state:"PAUSED"},{...task,title:"Failed task",state:"ERROR"}],next:""}:{}));
+ render(<QueryClientProvider client={client}><BusinessTaskPage mode="errors"/></QueryClientProvider>);
+ expect(await screen.findByRole("button",{name:/Failed task/})).toBeVisible();expect(screen.queryByRole("button",{name:/Paused task/})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"已暂停"}));expect(await screen.findByRole("button",{name:/Paused task/})).toBeVisible();
+});
+it("continues past a first page without paused tasks",async()=>{
+ calls.context.aiWorkbenchAvailable=true;
+ calls.tasks.mockImplementation(({route,path})=>Promise.resolve(route==="task-list"?(path.includes("after=")?{tasks:[{...task,title:"Later paused task",state:"PAUSED"}],next:""}:{tasks:[{...task,id:"550e8400-e29b-41d4-a716-446655440011",title:"Running task",state:"RUNNING"}],next:"550e8400-e29b-41d4-a716-446655440012"}):{}));
+ render(tree());await screen.findByRole("button",{name:/Running task/});fireEvent.click(screen.getByRole("button",{name:"已暂停"}));
+ expect(await screen.findByRole("button",{name:/Later paused task/})).toBeVisible();
+ fireEvent.click(screen.getByRole("link",{name:"全部"}));expect(await screen.findByRole("button",{name:/Running task/})).toBeVisible();
+});
 it("reads Review directly in Task Center when Chat is unmounted", async () => {
   render(tree());
   const row = await screen.findByRole("button", {name:/调整标准商品标题.*blue-cup/});
@@ -36,6 +60,21 @@ it("reads Review directly in Task Center when Chat is unmounted", async () => {
   expect(await screen.findByText("Original title")).toBeVisible();
   expect(screen.getByRole("region",{name:"任务详情"})).toBeVisible();
   expect(calls.decide).not.toHaveBeenCalled(); expect(calls.apply).not.toHaveBeenCalled();
+});
+it("keeps the full requirement and execution records readable without dispatching an action",async()=>{
+ calls.context.aiWorkbenchAvailable=true;
+ calls.tasks.mockImplementation(({route})=>Promise.resolve(route==="task-read"?{task:{...task,providerId:"openai",modelId:"test-model"}}:{tasks:[task],next:""}));
+ render(tree());
+ const row=await screen.findByRole("button",{name:/蓝色水杯标题优化.*查看详情/});
+ fireEvent.click(row);
+ const model=await screen.findByText("openai / test-model");
+ const requirement=within(screen.getByRole("region",{name:"任务详情"})).getByText(task.goalSummary);
+ expect(requirement).not.toBeVisible();expect(model).not.toBeVisible();
+ fireEvent.click(screen.getByText("查看完整需求"));expect(requirement).toBeVisible();
+ fireEvent.click(screen.getByText("更多信息"));expect(model).toBeVisible();
+ fireEvent.click(screen.getByRole("button",{name:"返回列表"}));expect(row).toHaveFocus();
+ expect(calls.tasks.mock.calls.every(([request])=>request.method==="GET")).toBe(true);
+ expect(calls.decide).not.toHaveBeenCalled();expect(calls.apply).not.toHaveBeenCalled();
 });
 it("keeps linked Review once and opens its existing controls inside the selected task", async () => {
   calls.context.aiWorkbenchAvailable = true;
@@ -105,7 +144,7 @@ it("keeps loaded but unprojectable task counts unknown", async () => {
   calls.list.mockResolvedValue({items:[],next_cursor:null});
   render(tree());
   await screen.findByRole("button",{name:/蓝色水杯标题优化/});
-  expect(screen.getAllByText("—")).toHaveLength(3);
+  expect(await screen.findAllByText("暂不可用")).toHaveLength(5);
 });
 
 it("restores keyboard focus to the selected row when closing detail", async () => {

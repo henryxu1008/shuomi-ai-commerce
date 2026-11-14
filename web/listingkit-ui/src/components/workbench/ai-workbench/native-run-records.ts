@@ -37,14 +37,14 @@ function imageRecord(entry:CatalogEntry,run:ImageRun):NativeRunRecord{
  const phase=imagePhases[run.status]??{label:"状态未知"};
  return {key:`${entry.agent.agentId}:${run.runId}`,runId:run.runId,agentId:entry.agent.agentId,title:entry.name,caption:contexts[run.contextKind]??"原业务上下文",summary:phase.label,...phase,contextKind:run.contextKind,contextId:run.contextId,targetPlatform:run.targetPlatform,at:run.createdAt};
 }
-export async function readNativeRunPage(scope:ConfigurationScope,entry:CatalogEntry,cursor:string,signal:AbortSignal):Promise<NativeRunPage>{
+export async function readNativeRunPage(scope:ConfigurationScope,entry:CatalogEntry,cursor:string,signal:AbortSignal,read:typeof configurationRequest=configurationRequest):Promise<NativeRunPage>{
  const path=`${entry.agent.agentId}/recent-runs?pageSize=20${cursor?`&cursor=${encodeURIComponent(cursor)}`:""}`;
  switch(entry.parameterSchema){
-  case "image-config-v1":{const p=await configurationRequest(scope,path,imageSetRecentSchema,{signal});return {...p,items:p.items.map(r=>imageRecord(entry,r))};}
-  case "pod-artwork-config-v1":{const p=await configurationRequest(scope,path,artworkRecentSchema,{signal});return {...p,items:p.items.map(r=>imageRecord(entry,r))};}
-  case "product-selection-config-v1":{const p=await configurationRequest(scope,path,selectionRecentSchema,{signal});return {...p,items:p.items.map(r=>textRecord(entry,r))};}
-  case "shop-operations-diagnosis-config-v1":{const p=await configurationRequest(scope,path,diagnosisRecentSchema,{signal});return {...p,items:p.items.map(r=>textRecord(entry,r))};}
-  default:{const p=await configurationRequest(scope,path,recentRunsSchema,{signal});return {...p,items:p.items.map(r=>textRecord(entry,r))};}
+  case "image-config-v1":{const p=await read(scope,path,imageSetRecentSchema,{signal});return {...p,items:p.items.map(r=>imageRecord(entry,r))};}
+  case "pod-artwork-config-v1":{const p=await read(scope,path,artworkRecentSchema,{signal});return {...p,items:p.items.map(r=>imageRecord(entry,r))};}
+  case "product-selection-config-v1":{const p=await read(scope,path,selectionRecentSchema,{signal});return {...p,items:p.items.map(r=>textRecord(entry,r))};}
+  case "shop-operations-diagnosis-config-v1":{const p=await read(scope,path,diagnosisRecentSchema,{signal});return {...p,items:p.items.map(r=>textRecord(entry,r))};}
+  default:{const p=await read(scope,path,recentRunsSchema,{signal});return {...p,items:p.items.map(r=>textRecord(entry,r))};}
  }
 }
 export const nativeContextLabel=(kind:string)=>contexts[kind]??"原业务上下文";

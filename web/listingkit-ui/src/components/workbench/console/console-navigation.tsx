@@ -30,7 +30,7 @@ const navigationIcons: Record<string, LucideIcon> = {
   "/workbench/plans/usage": ChartNoAxesCombined, "/workbench/plans/top-up": Wallet,
   "/workbench/plans/orders": ReceiptText,
   "/workbench/account/profile": IdCard, "/workbench/account/organization": Building2,
-  "/workbench/account/referrals": Megaphone,
+  "/workbench/account/referrals": Megaphone, "/workbench/settings": Settings2,
 };
 import {useSearchParams} from "next/navigation";
 import {collectionID} from "@/lib/contracts/product-collection";
