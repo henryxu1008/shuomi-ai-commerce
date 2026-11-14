@@ -42,10 +42,11 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		return errors.New("content tasks require an explicit content execution consumer")
 	}
 	if w.ConversationOnly {
-		reportOnly := w.Schedules != nil && w.Schedules.StoreDailyReports && cfg.ProductAgent == nil
-		if !reportOnly && (cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly) || len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 ||
+		// Storage and history remain available when new daily capture is disabled.
+		standaloneStorage := cfg.ProductAgent == nil
+		if !standaloneStorage && (cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly) || len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 ||
 			w.Database.validate("aiWorkbench.database") != nil || w.Database.User != "ai_workbench_runtime" ||
-			!reportOnly && (w.Database.User == cfg.ProductAgent.Database.User || w.Database.Host != cfg.ProductAgent.Database.Host ||
+			!standaloneStorage && (w.Database.User == cfg.ProductAgent.Database.User || w.Database.Host != cfg.ProductAgent.Database.Host ||
 				w.Database.Port != cfg.ProductAgent.Database.Port || w.Database.Database != cfg.ProductAgent.Database.Database) ||
 			w.Database.MaxConnections > 8 || len(w.AllowedOrganizationIDs) == 0 || len(w.AllowedOrganizationIDs) > 64 {
 			return errors.New("conversation-only Chat requires scoped storage without model execution")
@@ -127,8 +128,9 @@ func (w *AIWorkbenchConfig) validateSchedules(cfg *Config) error {
 	}
 	content := cfg != nil && w.ContentTasks && !w.ConversationOnly && cfg.ProductAgent != nil && cfg.ProductAgent.Enabled
 	report := cfg != nil && w.Schedules.StoreDailyReports && cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit && cfg.ReportCenter != nil
-	if !w.Enabled || (!content && !report) || cfg == nil || cfg.Identity.TenantDirectoryToken == "" || w.Schedules.StoreDailyReports && !report {
-		return errors.New("scheduled Workbench requires content execution and exact service IAM")
+	storageOnly := cfg != nil && w.ConversationOnly && !w.ContentTasks
+	if !w.Enabled || (!content && !report && !storageOnly) || cfg == nil || cfg.Identity.TenantDirectoryToken == "" || w.Schedules.StoreDailyReports && !report {
+		return errors.New("scheduled Workbench requires an admitted execution or storage consumer and exact service IAM")
 	}
 	host, port, err := net.SplitHostPort(w.Schedules.TemporalAddress)
 	value, portErr := strconv.Atoi(port)

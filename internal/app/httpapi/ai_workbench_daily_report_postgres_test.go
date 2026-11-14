@@ -283,6 +283,46 @@ func TestScheduledDailyReportHTTPAndRecovery(t *testing.T) {
 		require.NoError(t, e)
 		require.Equal(t, finished, replayed)
 	})
+	t.Run("feature off startup retains receipt recovery without capturing", func(t *testing.T) {
+		readOnly, err := buildAIWorkbenchApplication(ctx, AIWorkbenchDependencies{DB: workDB, ConversationOnly: true, StoreDailyReports: false, Schedules: &scheduledBackendFixture{}, AllowedOrganizationIDs: []string{identity.TenantID}, resolver: resolver, authorizer: policy}, nil)
+		require.NoError(t, err)
+		readOnly.attachDailyReports(ctx, daily)
+		require.NotNil(t, readOnly.schedules, "feature-off startup must retain the existing recovery worker backend")
+		require.False(t, readOnly.dailyReportReady())
+		require.False(t, readOnly.contentSchedulesEnabled())
+		require.Nil(t, readOnly.agent)
+		for _, captured := range []bool{true, false} {
+			slot := now.Add(-45 * time.Minute)
+			p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: plan.Scope, MemberID: identity.EffectiveMemberID, Report: &day, GoalSummary: "店铺经营日报", CreatedAt: slot.Add(-time.Minute), Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "Asia/Shanghai", AtUTC: slot}, Budget: aiworkbench.ScheduleBudget{Unit: "none", MaxOccurrences: 1}}
+			require.NoError(t, app.store.CreateScheduledPlan(ctx, p))
+			require.NoError(t, app.store.MarkScheduleRegistered(ctx, p.Scope, p.ID, 1))
+			o, x, err := app.store.ClaimScheduledReport(ctx, p.Scope, p.ID, 2, slot, slot)
+			require.NoError(t, err)
+			require.NoError(t, app.store.BeginReportCapture(ctx, x.Origin))
+			if captured {
+				_, err = daily.Capture.CaptureScheduledDaily(ctx, x.Origin)
+				require.NoError(t, err)
+			}
+			var before, after int64
+			require.NoError(t, reportOwner.Table("report_center.saved_reports").Count(&before).Error)
+			err = readOnly.recoverScheduledPlans(ctx)
+			require.NoError(t, reportOwner.Table("report_center.saved_reports").Count(&after).Error)
+			require.Equal(t, before, after, "disabled reports must never create another snapshot")
+			stored, readErr := app.store.ReadScheduledPlan(ctx, p.Scope, p.ID)
+			require.NoError(t, readErr)
+			if captured {
+				require.NoError(t, err)
+				require.Empty(t, stored.ActiveOccurrenceID)
+				execution, readErr := app.store.ReadReportExecution(ctx, p.Scope, o.ID)
+				require.NoError(t, readErr)
+				require.NotEmpty(t, execution.ReportID)
+			} else {
+				require.Error(t, err)
+				require.Equal(t, o.ID, stored.ActiveOccurrenceID, "unconfirmed occupancy must remain")
+			}
+		}
+		request("GET", reporthttp.Base+"/"+reportID, "", nil, 200)
+	})
 	if dir := os.Getenv("SCHEDULED_REPORT_BROWSER_FIXTURE_DIR"); dir != "" {
 		require.True(t, filepath.IsAbs(dir))
 		control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

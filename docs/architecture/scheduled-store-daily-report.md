@@ -158,7 +158,7 @@ Finding：BeginCapture 已提交而 Report 调用前崩溃，若 Temporal 重试
 上文“本轮不派 Writer”描述设计评审阶段；用户随后明确授权在同一 #1280 实施本方案。新增代码沿用 Workbench / Store / Cockpit / Report 的现有 owner，不包含模型、平台同步或刊登调用。
 
 - `internal/app/scheduledreport` 是有界组合消费者：exact IAM + active user + 企业状态、当前单店授权、Cockpit 只读 Snapshot、Report Capture。Report Center 的日报历史权限接线独立于 Chat/模型是否启用；执行端仍只有原 Temporal plan/slot 回调与原 30 秒恢复扫描。
-- 配置在既有 `aiWorkbench.schedules` 下显式设置 `storeDailyReports: true`。无模型模式仍使用 `conversationOnly: true`，不填规划或内容模型策略；既有完整内容模式可与日报共存。两库扩展、权限或端口未准备好，只不开放新日报创建，不关闭既有内容、Chat 或报告能力。关闭新类型后只回查该次已保存回执，不再次捕获。
+- 配置在既有 `aiWorkbench.schedules` 下显式设置 `storeDailyReports: true`。无模型模式仍使用 `conversationOnly: true`，不填规划或内容模型策略；既有完整内容模式可与日报共存。两库扩展、权限或端口未准备好，只不开放新日报创建，不关闭既有内容、Chat 或报告能力。关闭新类型后只回查该次已保存回执，不再次捕获。`conversationOnly` 的无模型存储启动不依赖此开关；保留已有 `schedules` 配置时仍接入原 worker 做回执核对，移除整个配置块时仅保留会话存储及报告读取，不另建恢复 worker。
 - Workbench owner 复用 `ai-workbench-schema-init --store-daily-report-only --runtime-role ai_workbench_runtime --expected-database <当前库名> --expected-server-address <数据库实际地址> --expected-server-port <数据库实际端口>`。使用既有私密 `AI_WORKBENCH_SCHEMA_DSN` 交接；入口核对准确目标，事务内增加当前原生 schema 分支及新表权限，不改计划、任务或余额，不重登记现有计划。
 - Report owner 复用 `report-center-schema-init --store-daily-report-only --dsn-file <本机私密 owner DSN 文件> --confirm-database reports`。仅安装当前 Report schema 的类型与来源扩展，保持原报告及既有权限；serving 不运行 DDL。
 - 新报告执行的 key 仅由原 occurrence 身份生成。Report DB 的事务在原键锁后先回查胜出结果，再检查权限、移除已失权的可选来源、重算最终正文摘要并提交；失败重试不能用临时读取的更新正文覆盖旧报告。Workbench 先提交 capture_started，再调用 Report；原扫描能够继续崩溃前已认领但尚未调用 Report 的执行。

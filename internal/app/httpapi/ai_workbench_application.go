@@ -140,10 +140,10 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 			return nil, err
 		}
 		app := &aiWorkbenchApplication{store: store, conversationOnly: true, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...), resolver: cfg.resolver, authorizer: cfg.authorizer}
-		if cfg.StoreDailyReports {
-			app.schedules, app.scheduleStop = cfg.Schedules, cfg.ScheduleStop
-			app.dailyReportsEnabled = true
-		}
+		// Keep the existing worker/receipt recovery connection when capture is
+		// disabled. Readiness still gates all new captures independently.
+		app.schedules, app.scheduleStop = cfg.Schedules, cfg.ScheduleStop
+		app.dailyReportsEnabled = cfg.StoreDailyReports
 		app.storeRoute = &aiworkbench.StoreRouteService{Store: store, Gateway: &workbenchStoreRouter{app: app}}
 		return app, nil
 	}
