@@ -222,3 +222,9 @@ it("shows saved product issues without exposing source identifiers by default",a
  expect(screen.getByText("record-private-id")).not.toBeVisible();expect(screen.getByText("brand · required")).not.toBeVisible();
  fireEvent.click(screen.getByText("来源与技术信息"));expect(screen.getByText("record-private-id")).toBeVisible();view.unmount();client.clear();
 });
+
+it("does not suggest saving product reports when their source is unavailable", async()=>{
+ vi.stubGlobal("fetch",vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:0,recent:0,favorites:0,stores:0}):Response.json({items:[],nextCursor:""})));
+ const client=new QueryClient(),view=render(tree(client));fireEvent.click(await screen.findByRole("button",{name:"商品资料"}));
+ expect(await screen.findByText("当前无法保存商品资料报告，已有历史报告仍可查看。")).toBeVisible();view.unmount();client.clear();
+});
