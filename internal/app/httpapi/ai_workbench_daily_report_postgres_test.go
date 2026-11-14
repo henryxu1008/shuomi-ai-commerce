@@ -5,6 +5,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -24,12 +25,14 @@ import (
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/authz"
+	coreconfig "task-processor/internal/core/config"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	cockpitstore "task-processor/internal/integration/persistence/operationscockpit"
 	reportstore "task-processor/internal/integration/persistence/reportcenter"
 	rc "task-processor/internal/reportcenter"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"task-processor/internal/storecenter"
+	"task-processor/internal/workbenchcontext"
 	"testing"
 	"time"
 )
@@ -39,6 +42,7 @@ type dailyIAM struct {
 	member            string
 	active, suspended bool
 	modules           []string
+	statusErr         error
 }
 
 func (d *dailyIAM) ReadExactServiceProjectAuthorization(_ context.Context, token, actor, project, org string) (zitadel.ExactServiceProjectAuthorization, error) {
@@ -57,7 +61,7 @@ func (d *dailyIAM) IsUserActive(context.Context, string, string) (bool, error) {
 func (d *dailyIAM) IsOrganizationSuspended(context.Context, string) (bool, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.suspended, nil
+	return d.suspended, d.statusErr
 }
 func (d *dailyIAM) RoleModules(_ context.Context, org string, keys []string) (map[string][]string, error) {
 	d.mu.Lock()
@@ -146,6 +150,42 @@ func TestScheduledDailyReportHTTPAndRecovery(t *testing.T) {
 	require.True(t, app.dailyReportReady())
 	reports, e := reportapp.New(ctx, reportapp.Dependencies{DB: reportDB, Resolver: resolver, Policy: policy})
 	require.NoError(t, e)
+	t.Run("normal factory accepts no optional organization overlay", func(t *testing.T) {
+		cfg := &coreconfig.Config{}
+		cfg.ListingKit.Zitadel.AuthorizationAPIURL = "http://127.0.0.1:12345"
+		cfg.ListingKit.Zitadel.ProjectID = "project"
+		cfg.ListingKit.Zitadel.TenantDirectoryToken = "synthetic"
+		current := workbenchcontext.NewResolver(nil, "project", "v1", nil)
+		composed := buildCurrentDailyReports(ctx, cfg, current, policy, storeDB, reportDB, true, reports.Service, nil, nil)
+		require.NotNil(t, composed, "normal resolver has no additional local suspension policy")
+		require.NotNil(t, reports.Service.DailyVisibility)
+		app.attachDailyReports(ctx, composed)
+		require.True(t, app.dailyReportReady(), "the normal factory and addon readiness must expose the report kind")
+		app.attachDailyReports(ctx, daily)
+	})
+	t.Run("nil overlay keeps exact IAM and configured overlay failures", func(t *testing.T) {
+		without, err := scheduledreport.New(ctx, scheduledreport.Dependencies{StoreDB: storeDB, ReportDB: reportDB, IAM: iam, Users: iam, ServiceToken: func(context.Context) (string, error) { return "synthetic", nil }, ProjectID: "project", Policy: policy})
+		require.NoError(t, err)
+		o := rc.ScheduledOrigin{OrganizationID: identity.TenantID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID, StoreID: store.ID()}
+		require.NoError(t, without.Authorize(ctx, o, true))
+		iam.mu.Lock()
+		iam.member = "replaced"
+		iam.mu.Unlock()
+		require.ErrorIs(t, without.Authorize(ctx, o, true), rc.ErrForbidden)
+		iam.mu.Lock()
+		iam.member = identity.EffectiveMemberID
+		iam.statusErr = errors.New("status service unavailable")
+		iam.mu.Unlock()
+		require.ErrorIs(t, daily.Authorize(ctx, o, true), rc.ErrUnavailable)
+		iam.mu.Lock()
+		iam.statusErr = nil
+		iam.suspended = true
+		iam.mu.Unlock()
+		require.ErrorIs(t, daily.Authorize(ctx, o, true), rc.ErrForbidden)
+		iam.mu.Lock()
+		iam.suspended = false
+		iam.mu.Unlock()
+	})
 	reports.Service.DailyVisibility = daily.Visibility
 	routes := append(aiWorkbenchScheduleRoutes(app), reporthttp.Routes(reports)...)
 	running := httptest.NewServer(buildCurrentApplicationHTTPServer(routes, deps).Handler)
