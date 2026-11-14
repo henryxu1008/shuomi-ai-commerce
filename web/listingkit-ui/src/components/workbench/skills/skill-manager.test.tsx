@@ -95,6 +95,7 @@ it("retains official draft inputs when saving fails",async()=>{
  fireEvent.change(screen.getByLabelText("技能名称（小写标识）"),{target:{value:"kept-skill"}});
  fireEvent.click(screen.getByRole("button",{name:"保存草稿"}));
  expect(await screen.findByRole("alert")).toBeVisible();expect(screen.getByLabelText("技能名称（小写标识）")).toHaveValue("kept-skill");
+ fireEvent.click(screen.getByRole("button",{name:"取消编辑"}));expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 it("requires the existing maintainer capability for the settings installation entry",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:false,canInstallOfficial:false,reason:""}:{items:[],nextCursor:""});
