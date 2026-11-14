@@ -272,16 +272,50 @@ func (s *PlatformPricesService) Current(ctx context.Context) (Revision, error) {
 	}
 	return r, nil
 }
+
+// PlatformPricesFingerprint is the canonical receipt identity for an exact
+// platform publication, including actor, expected revision and full input.
+func PlatformPricesFingerprint(actor string, input PlatformPricesInput) (string, error) {
+	return sharedDigest(struct {
+		Scope Scope
+		Actor string
+		Input PlatformPricesInput
+	}{PlatformPricesScope(), actor, input})
+}
+
+// PlatformPricesDeadlineFingerprint binds an automatic publication deadline to
+// the same original request and receipt. Manual publication remains unchanged.
+func PlatformPricesDeadlineFingerprint(actor string, input PlatformPricesInput, notAfter time.Time) (string, error) {
+	return sharedDigest(struct {
+		Scope    Scope
+		Actor    string
+		Input    PlatformPricesInput
+		NotAfter time.Time
+	}{PlatformPricesScope(), actor, input, notAfter.UTC()})
+}
+
 func (s *PlatformPricesService) Publish(ctx context.Context, actor, key string, input PlatformPricesInput) (Revision, error) {
+	return s.publish(ctx, actor, key, input, time.Time{})
+}
+
+// PublishBefore is reserved for trusted server-side automatic FX publication.
+// The deadline is persisted in the original request fingerprint.
+func (s *PlatformPricesService) PublishBefore(ctx context.Context, actor, key string, input PlatformPricesInput, notAfter time.Time) (Revision, error) {
+	if notAfter.IsZero() {
+		return Revision{}, ErrInvalid
+	}
+	return s.publish(ctx, actor, key, input, notAfter.UTC())
+}
+
+func (s *PlatformPricesService) publish(ctx context.Context, actor, key string, input PlatformPricesInput, notAfter time.Time) (Revision, error) {
 	if s == nil || s.Repository == nil || ctx == nil || ctx.Err() != nil || !ValidFact(actor, 128) || !ValidFact(key, 128) || !ValidFact(input.ExpectedRevision, 128) {
 		return Revision{}, ErrInvalid
 	}
 	scope := PlatformPricesScope()
-	fingerprint, err := sharedDigest(struct {
-		Scope Scope
-		Actor string
-		Input PlatformPricesInput
-	}{scope, actor, input})
+	fingerprint, err := PlatformPricesFingerprint(actor, input)
+	if !notAfter.IsZero() {
+		fingerprint, err = PlatformPricesDeadlineFingerprint(actor, input, notAfter)
+	}
 	if err != nil {
 		return Revision{}, err
 	}
@@ -292,7 +326,7 @@ func (s *PlatformPricesService) Publish(ctx context.Context, actor, key string, 
 	if readErr == nil {
 		old = previous.Payload.PlatformPrices
 	}
-	cmd := Command{Scope: scope, ActorID: actor, Key: key, Fingerprint: fingerprint, Input: Input{ExpectedRevision: input.ExpectedRevision}}
+	cmd := Command{Scope: scope, ActorID: actor, Key: key, Fingerprint: fingerprint, Input: Input{ExpectedRevision: input.ExpectedRevision}, NotAfter: notAfter}
 	return s.Repository.Publish(ctx, cmd, func(_ CredentialReader, revision string) (Payload, error) {
 		if readErr != nil && !errors.Is(readErr, ErrNotFound) {
 			return Payload{}, readErr
@@ -302,7 +336,7 @@ func (s *PlatformPricesService) Publish(ctx context.Context, actor, key string, 
 			expected = NoRevision
 		}
 		if input.ExpectedRevision != expected {
-			return Payload{}, ErrConflict
+			return Payload{}, errors.Join(ErrConflict, ErrStaleSnapshot)
 		}
 		now := time.Now().UTC()
 		if s.Now != nil {

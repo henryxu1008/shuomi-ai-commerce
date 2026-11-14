@@ -80,7 +80,7 @@ func (a *aiWorkbenchApplication) readTaskCockpitMetrics(ctx context.Context, own
 		reader.Now = func() time.Time { return now }
 		for _, task := range tasks {
 			frozen, err := a.store.ReadFrozenScope(ctx, owner, task.WorkbenchContextRef)
-			if err != nil || frozen.Owner != owner || frozen.ConversationID != task.ConversationID || stores[frozen.Scope.StoreID].ID == "" {
+			if err != nil || frozen.Owner != owner || frozen.ConversationID != workbenchTaskScopeConversation(task) || stores[frozen.Scope.StoreID].ID == "" {
 				return nil, aiworkbench.ErrUnavailable
 			}
 			if frozen.MemberID != original.EffectiveMemberID {

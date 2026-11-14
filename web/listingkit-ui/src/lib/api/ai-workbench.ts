@@ -2,7 +2,7 @@ import { aiResponseSchemas, parseAIWorkbenchResponse, type AIWorkbenchRoute } fr
 import { readBoundedStrictJSON } from "./strict-json-response";
 
 export class AIWorkbenchError extends Error {
-  constructor(public code: string,public readonly messageAccepted?:false,public readonly conversationAccepted?:false) { super(code); }
+  constructor(public code: string,public readonly messageAccepted?:false,public readonly conversationAccepted?:false,public readonly commandAccepted?:false) { super(code); }
 }
 export type AIScope = { userId: string; organizationId: string };
 
@@ -31,7 +31,8 @@ export async function requestAIWorkbench<R extends AIWorkbenchRoute>(input: AIRe
     const code = payload && typeof payload === "object" && "code" in payload && typeof payload.code === "string" ? payload.code : "DEPENDENCY_UNAVAILABLE";
     const notAccepted=input.route==="message"&&payload&&typeof payload==="object"&&"messageAccepted" in payload&&payload.messageAccepted===false;
     const createRejected=input.route==="conversation-create"&&payload&&typeof payload==="object"&&"conversationAccepted" in payload&&payload.conversationAccepted===false;
-    throw new AIWorkbenchError(code,notAccepted?false:undefined,createRejected?false:undefined);
+    const commandRejected=input.route.startsWith("schedule-")&&input.route!=="schedule-quote"&&code==="SCHEDULE_COMMAND_REJECTED"&&payload&&typeof payload==="object"&&"commandAccepted" in payload&&payload.commandAccepted===false;
+    throw new AIWorkbenchError(code,notAccepted?false:undefined,createRejected?false:undefined,commandRejected?false:undefined);
   }
   const checked = parseAIWorkbenchResponse(input.route, response.status, payload);
   if (!checked) throw new AIWorkbenchError(input.method === "GET" ? "DEPENDENCY_UNAVAILABLE" : "OUTCOME_UNKNOWN");

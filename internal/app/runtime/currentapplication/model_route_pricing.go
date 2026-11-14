@@ -3,7 +3,9 @@ package currentapplication
 import (
 	"context"
 	"errors"
+	"net"
 	"slices"
+	"strconv"
 	"task-processor/internal/aicapability"
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
@@ -16,8 +18,28 @@ import (
 // Opt-in per database. Bindings are private, deployment-admitted descriptors;
 // they do not select a current route. No credentials or published rates live here.
 type ModelRoutePricingConfig struct {
-	Writer   *DatabaseConfig        `json:"writer,omitempty"`
-	Bindings []qualified.Definition `json:"bindings,omitempty"`
+	Writer      *DatabaseConfig        `json:"writer,omitempty"`
+	Bindings    []qualified.Definition `json:"bindings,omitempty"`
+	AutomaticFX *AutomaticFXConfig     `json:"automaticFX,omitempty"`
+}
+
+// Omission leaves all automatic execution disabled.
+type AutomaticFXConfig struct {
+	TemporalAddress   string `json:"temporalAddress"`
+	TemporalNamespace string `json:"temporalNamespace"`
+}
+
+func (c *AutomaticFXConfig) validate() error {
+	if c == nil {
+		return nil
+	}
+	host, port, err := net.SplitHostPort(c.TemporalAddress)
+	p, perr := strconv.Atoi(port)
+	ip := net.ParseIP(host)
+	if err != nil || perr != nil || ip == nil || !ip.IsLoopback() || p < 1 || p > 65535 || !boundedValue(c.TemporalNamespace, 128) {
+		return errors.New("automatic FX requires bounded loopback Temporal")
+	}
+	return nil
 }
 
 func (m *ModelRoutePricingConfig) writerConnections(target DatabaseConfig) int {
@@ -34,6 +56,9 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	m := c.ModelRoutePricing
 	if m == nil {
 		return nil, nil
+	}
+	if err := m.AutomaticFX.validate(); err != nil {
+		return nil, err
 	}
 	invalid := errors.New("model route pricing requires original consumer metadata, same database and bounded dedicated writer")
 	if m.Writer == nil {
@@ -80,6 +105,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		if c.AIWorkbench != nil && c.AIWorkbench.Enabled && !c.AIWorkbench.ConversationOnly {
 			add(aicapability.OperationAIWorkbenchChatPlan, c.AIWorkbench.PlanningTextPolicies)
+			add(aicapability.OperationAIWorkbenchStoreRoute, c.AIWorkbench.StoreRouteTextPolicies)
 		}
 		if len(anchors) == 0 && p.Enabled {
 			return nil, invalid

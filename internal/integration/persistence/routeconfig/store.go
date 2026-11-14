@@ -291,7 +291,22 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 	if current != cmd.Input.ExpectedRevision {
 		// A duplicate may have committed while this transaction waited for
 		// current. Recover its receipt before classifying a stale CAS.
+		if !cmd.NotAfter.IsZero() {
+			return s.automaticStaleConflict(ctx, tx, cmd)
+		}
 		return s.conflict(ctx, tx, cmd, nil)
+	}
+	if !cmd.NotAfter.IsZero() {
+		var allowed bool
+		if tx.Raw("SELECT clock_timestamp() < ?", cmd.NotAfter.UTC()).Scan(&allowed).Error != nil {
+			return d.Revision{}, d.ErrUnavailable
+		}
+		if !allowed {
+			if tx.Rollback().Error != nil {
+				return d.Revision{}, d.ErrOutcomeUnknown
+			}
+			return d.Revision{}, d.ErrPublicationExpired
+		}
 	}
 	raw, e := json.Marshal(payload)
 	if e != nil {
@@ -327,6 +342,26 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 	}
 	return r, nil
 }
+
+// automaticStaleConflict only classifies this transaction's pre-write CAS
+// failure. Its caller must independently exclude another same-key activity.
+func (s *Store) automaticStaleConflict(ctx context.Context, tx *gorm.DB, cmd d.Command) (d.Revision, error) {
+	if tx.Rollback().Error != nil {
+		return d.Revision{}, d.ErrOutcomeUnknown
+	}
+	prior, err := s.Receipt(ctx, cmd.Scope, cmd.Key)
+	if err == nil {
+		if prior.Fingerprint == cmd.Fingerprint {
+			return prior, nil
+		}
+		return d.Revision{}, d.ErrConflict
+	}
+	if !errors.Is(err, d.ErrNotFound) {
+		return d.Revision{}, d.ErrOutcomeUnknown
+	}
+	return d.Revision{}, errors.Join(d.ErrConflict, d.ErrStaleSnapshot)
+}
+
 func (s *Store) conflict(ctx context.Context, tx *gorm.DB, cmd d.Command, cause error) (d.Revision, error) {
 	_ = tx.Rollback().Error
 	var pg *pgconn.PgError

@@ -120,7 +120,7 @@ func (a *projectSources) Resolve(ctx context.Context, s pc.Scope, r pc.Reference
 		if e != nil {
 			return pc.ReferenceView{}, e
 		}
-		v.Title = item.Title
+		v.Title = projection.Title
 		v.Href = "/workbench/ai/tasks/" + r.TargetID
 		if projection.ProjectionAvailable {
 			v.TaskState = string(projection.State)

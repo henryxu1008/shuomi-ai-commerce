@@ -88,8 +88,8 @@ it("filters only loaded rows without dispatching an execution", async () => {
 it("puts direct proposal navigation under Task Center pending instead of a parallel module", () => {
   render(<ConsoleNavigation pathname="/workbench/ai/tasks/pending/other" ariaLabel="主导航" productReviewAvailable />);
   expect(screen.queryByRole("link",{name:"标题审核"})).not.toBeInTheDocument();
-  expect(screen.getByRole("link",{name:"任务中心"})).toBeVisible();
-  expect(screen.getByRole("link",{name:"待确认"})).toHaveAttribute("aria-current","page");
+  expect(screen.getByRole("link",{name:"任务中心"})).toHaveAttribute("aria-current","page");
+  expect(screen.queryByRole("link",{name:"待确认"})).not.toBeInTheDocument();
 });
 
 it("can find a linked suggestion by its review title after its task is filtered out", async () => {

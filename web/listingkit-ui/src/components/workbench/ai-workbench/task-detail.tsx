@@ -118,6 +118,7 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
         <dt>执行权限</dt><dd>{item.executionMode?`${executionModeLabels[item.executionMode]} · 版本 ${item.modeRevision}`:"权限模式不可用"}</dd><dt>审核</dt><dd>{item.policyAdoption?"按策略采用，未经逐项人工审阅":item.reviewState || "尚未生成"}</dd>
         <dt>创建时间</dt><dd>{new Date(item.createdAt).toLocaleString("zh-CN")}</dd></dl>
       <KnowledgeCitations knowledge={item.knowledge} />
+      {item.scheduleId?<Button asChild variant="outline"><Link href={`/workbench/ai/tasks?view=schedules&schedule_id=${item.scheduleId}`} prefetch={false}>查看来源定时计划</Link></Button>:null}
       {item.productDetailsAvailable && item.operationId ? <Button asChild variant="outline"><Link href={item.taskSelection?.subject.kind==="own_product"?`/workbench/data/mine/own/${item.taskSelection.subject.id}`:`/workbench/supply/acquisition/operation/${item.operationId}`} prefetch={false}>查看来源商品</Link></Button> : null}
     </Card>
     {result}

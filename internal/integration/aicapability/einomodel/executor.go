@@ -93,7 +93,7 @@ func capabilityFor(operation aicapability.Operation) aicapability.Capability {
 	if operation == aicapability.OperationProductImageAnalysis {
 		return aicapability.CapabilityProductImageAnalysis
 	}
-	if operation == aicapability.OperationAIWorkbenchChatPlan {
+	if operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute {
 		return aicapability.CapabilityAIWorkbenchChatPlanning
 	}
 	return aicapability.CapabilityProductEnrichText
@@ -152,6 +152,13 @@ func (e *Executor) Generate(ctx context.Context, input aicapability.TextInputIde
 // at the final transport handoff. cleanup runs after every model outcome.
 func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.TextInputIdentity, expected aicapability.TextQuote,
 	validate func(string) error, beforeSend func(context.Context) (func(), error)) (TextOutput, error) {
+	return e.GenerateWithGates(ctx, input, expected, validate, nil, beforeSend)
+}
+
+// GenerateWithGates adds an optional owner check after the durable claim but
+// before resource reservation. Both gates must be bounded and side-effect free.
+func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.TextInputIdentity, expected aicapability.TextQuote,
+	validate func(string) error, beforeReserve func(context.Context) error, beforeSend func(context.Context) (func(), error)) (TextOutput, error) {
 	if input.Image != nil {
 		frozen := *input.Image
 		input.Image = &frozen
@@ -260,6 +267,18 @@ func (e *Executor) GenerateWithGate(ctx context.Context, input aicapability.Text
 		// duplicate also has an existing durable fact. Neither proves a
 		// terminal no-send outcome or permits another provider attempt.
 		return TextOutput{}, ErrOutcomeUnknown
+	}
+	if beforeReserve != nil {
+		if gateErr := beforeReserve(ctx); gateErr != nil {
+			record.Outcome = aicapability.InvocationFailed
+			record.FinishedAt = time.Now().UTC()
+			record.ErrorCode = "rejected_before_dispatch"
+			record.UsageKnown, record.EstimatedCostKnown = true, true
+			if e.terminal(ctx, record) != nil {
+				return TextOutput{}, ErrOutcomeUnknown
+			}
+			return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
+		}
 	}
 	if err := e.Ledger.ReserveAIInvocationUsage(ctx, record.TenantID, record.MemberID, record.InvocationID, quote.MaximumTokens, now); err != nil {
 		diagnostic.emit(ctx, "reservation", "reserve_failed")

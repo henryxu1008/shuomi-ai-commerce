@@ -1,8 +1,8 @@
-import {act,cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 import {ProjectPage} from "./project-page";
 import {ProjectError} from "@/lib/api/project-center";
-const f=vi.hoisted(()=>({request:vi.fn(),research:vi.fn(),overview:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null,registerOrganizationSwitchGuard:()=>()=>{}}}));
+const f=vi.hoisted(()=>({request:vi.fn(),research:vi.fn(),overview:vi.fn(),push:vi.fn(),context:{user:{id:"user-a"},effectiveOrganization:{id:"org-a"} as {id:string;capabilities?:{"workbench.chat.use":boolean}},aiWorkbenchAvailable:false,aiWorkbenchExecutionKind:undefined as "product.content.localize"|"product.title.optimize"|undefined,permissions:["workbench.project.read","workbench.project.manage"],projectCenterAvailable:true,isLoading:false,isSwitching:false,selectionRequired:false,error:null,blockingError:null,registerOrganizationSwitchGuard:()=>()=>{}}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>f.context}));
 vi.mock("@/lib/api/project-center",async original=>({...await original<typeof import("@/lib/api/project-center")>(),projectRequest:f.request,projectOverviewRequest:f.overview}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:f.push})}));
@@ -12,8 +12,26 @@ const id="550e8400-e29b-41d4-a716-446655440000";
 const storageKey='project-center:intent:["user-a","org-a"]';
 const p={id,title:"原企业项目",goal:"长期目标",kind:"OTHER",dueDate:"",revision:1,archived:false,createdAt:"2026-10-09T00:00:00Z",updatedAt:"2026-10-09T00:00:00Z",storeScope:false,references:[],taskTotal:0,taskCompleted:0,taskPending:0,taskSummaryAvailable:true};
 const metrics={activeProjects:35,todayUpdatedProjects:4,storeProjects:20,generalProjects:15,waitingTasks:2,timeZone:"Asia/Singapore",today:"2026-10-11",stores:[{id:"store-a",name:"授权一号店"}],storesAvailable:true};
-beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a"};f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.research.mockReset().mockResolvedValue({items:[],incomplete:false});f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
+beforeEach(()=>{f.context.user={id:"user-a"};f.context.effectiveOrganization={id:"org-a",capabilities:undefined};f.context.aiWorkbenchAvailable=false;f.context.aiWorkbenchExecutionKind=undefined;f.context.isSwitching=false;f.context.projectCenterAvailable=true;f.context.permissions=["workbench.project.read","workbench.project.manage"];f.overview.mockReset();f.overview.mockResolvedValue(metrics);f.request.mockReset();f.research.mockReset().mockResolvedValue({items:[],incomplete:false});f.push.mockReset();sessionStorage.clear();f.request.mockResolvedValue({projects:[],next:""});HTMLDialogElement.prototype.showModal=vi.fn();HTMLDialogElement.prototype.close=vi.fn();});
 afterEach(()=>{cleanup();sessionStorage.clear();});
+it("links the current authorized project to a content chat",async()=>{
+ f.context.aiWorkbenchAvailable=true;f.context.aiWorkbenchExecutionKind="product.content.localize";f.context.effectiveOrganization.capabilities={"workbench.chat.use":true};
+ f.request.mockImplementation(async(_scope,path)=>path.endsWith("visit")?{id,revision:1,replayed:false}:p);
+ render(<ProjectPage projectId={id}/>);
+ expect(await screen.findByRole("link",{name:"在硕米 Chat 中讨论"})).toHaveAttribute("href",`/workbench/ai/chat/new?projectId=${id}`);
+});
+it.each(["active","recent","templates","archived"] as const)("exposes all project views and marks %s as current",async mode=>{
+ f.request.mockResolvedValue({projects:[],templates:[],next:""});
+ render(<ProjectPage mode={mode}/>);
+ const nav=screen.getByRole("navigation",{name:"项目视图"});
+ for(const [label,path] of [["进行中项目","active"],["最近访问","recent"],["项目模板","templates"],["已归档","archived"]]){
+  const link=within(nav).getByRole("link",{name:label});
+  expect(link).toHaveAttribute("href",`/workbench/ai/projects/${path}`);
+  if(path===mode) expect(link).toHaveAttribute("aria-current","page");
+  else expect(link).not.toHaveAttribute("aria-current");
+ }
+ await waitFor(()=>expect(f.request).toHaveBeenCalled());
+});
 it("shows full private metrics, scopes store filters and clears them on reset",async()=>{
  render(<ProjectPage/>);await screen.findByText("35");expect(screen.getByText("店铺 20 · 非店铺 15")).toBeVisible();expect(screen.getByRole("heading",{name:"进行中项目",level:1})).toBeVisible();
  const store=screen.getByRole("combobox",{name:"具体店铺"});expect(store).toBeDisabled();fireEvent.click(screen.getByRole("button",{name:/^关联店铺$/}));expect(store).toBeEnabled();fireEvent.change(store,{target:{value:"store-a"}});
@@ -96,6 +114,18 @@ it("asks for a project before a workflow function and preserves its step through
  await waitFor(()=>expect(f.push).toHaveBeenCalled());
  const created=new URL(f.push.mock.lastCall![0],"https://test.invalid");
  expect(created.pathname).toBe(href.pathname);expect(Object.fromEntries(created.searchParams)).toEqual(Object.fromEntries(href.searchParams));
+});
+
+it.each([
+ {center:"research",step:"evidence",label:"查看商品资料"},
+ {center:"selection",step:"analysis",label:"AI建议与记录"},
+] as const)("uses only center and step breadcrumbs for $center",async({center,step,label})=>{
+ Object.assign(f.context,{marketResearchAvailable:true});
+ render(<ProjectPage center={center} workflowStep={step}/>);
+ const trail=within(screen.getByRole("navigation",{name:"面包屑"}));
+ expect(trail.getAllByRole("listitem")).toHaveLength(2);
+ expect(trail.getAllByRole("listitem")[1]).toHaveTextContent(label);
+ await waitFor(()=>expect(f.request).toHaveBeenCalled());
 });
 
 it("keeps the live project panel, selected candidates and draft reasons when only the workflow step changes",async()=>{

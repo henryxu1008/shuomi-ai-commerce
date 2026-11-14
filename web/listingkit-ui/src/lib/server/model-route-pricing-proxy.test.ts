@@ -1,5 +1,32 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {proxyModelRoutePricing} from "./model-route-pricing-proxy";
+
+it("reads automatic FX status through the authenticated platform path",async()=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({state:"CHECKED",checkedAt:"2026-11-12T00:00:00Z",stopRequested:false})));
+ const result=await proxyModelRoutePricing(request(undefined,{},"/platform-prices/automatic-fx","GET"),"token","maintainer");
+ expect(result.status).toBe(200);
+ expect((await result.json()).state).toBe("CHECKED");
+});
+it("forwards the one-time FX start through the authorized same-origin path",async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json({state:"STARTED"}));vi.stubGlobal("fetch",fetch);
+ const result=await proxyModelRoutePricing(request({}, {},"/platform-prices/automatic-fx/start"),"token","maintainer");
+ expect(result.status).toBe(200);expect(fetch).toHaveBeenCalledTimes(1);
+ expect(fetch.mock.calls[0][0]).toBe("http://localhost:9000/api/v1/model-route-pricing/platform-prices/automatic-fx/start");
+ expect(new Headers(fetch.mock.calls[0][1].headers).get("Authorization")).toBe("Bearer token");
+});
+it("forwards FX preparation through the authorized platform path",async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json({state:"PREPARED"}));vi.stubGlobal("fetch",fetch);
+ const result=await proxyModelRoutePricing(request({}, {},"/platform-prices/automatic-fx/prepare"),"token","maintainer");
+ expect(result.status).toBe(200);expect(fetch).toHaveBeenCalledTimes(1);
+ expect(fetch.mock.calls[0][0]).toBe("http://localhost:9000/api/v1/model-route-pricing/platform-prices/automatic-fx/prepare");
+});
+it("rejects unsafe FX start input and reports a lost response as unknown",async()=>{
+ const fetch=vi.fn();vi.stubGlobal("fetch",fetch);
+ expect((await proxyModelRoutePricing(request({url:"https://other.test"},{},"/platform-prices/automatic-fx/start"),"token","maintainer")).status).toBe(400);
+ expect((await proxyModelRoutePricing(request({},{Origin:"https://other.test"},"/platform-prices/automatic-fx/start"),"token","maintainer")).status).toBe(403);
+ expect(fetch).not.toHaveBeenCalled();fetch.mockRejectedValue(new Error("lost response"));
+ expect(await (await proxyModelRoutePricing(request({}, {},"/platform-prices/automatic-fx/start"),"token","maintainer")).json()).toEqual({code:"OUTCOME_UNKNOWN"});
+});
 const base="https://console.test/api/model-route-pricing";
 const selection={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"mini",version:"v1"},image:{id:"image",version:"v1"},multimodal:{id:"mini",version:"v1"}};
 const input={expectedRevision:"NONE",selection};

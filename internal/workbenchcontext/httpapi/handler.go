@@ -20,19 +20,20 @@ const switchOrganizationRequestBodyMaxBytes = 4096
 
 // Handler exposes only the verified, resolved workbench identity projection.
 type Handler struct {
-	workbenchAuthorizer           *authz.ListingKitAuthorizer
-	profileReader                 authidentity.SelfProfileReader
-	storeObservationsReadiness    func() bool
-	operationsCockpitAvailable    bool
-	aiWorkbenchAvailable          bool
-	marketResearchAvailable       bool
-	projectCenterAvailable        bool
-	storageCapacityAvailable      bool
-	aiWorkbenchAdmission          func(string) bool
-	aiWorkbenchPlanningReadiness  func(context.Context, string) string
-	aiWorkbenchTitleReadiness     func(context.Context, string) string
-	aiWorkbenchExecutionKind      string
-	aiWorkbenchExecutionReadiness func(context.Context, string) string
+	workbenchAuthorizer            *authz.ListingKitAuthorizer
+	profileReader                  authidentity.SelfProfileReader
+	storeObservationsReadiness     func() bool
+	operationsCockpitAvailable     bool
+	aiWorkbenchAvailable           bool
+	marketResearchAvailable        bool
+	projectCenterAvailable         bool
+	storageCapacityAvailable       bool
+	aiWorkbenchAdmission           func(string) bool
+	aiWorkbenchPlanningReadiness   func(context.Context, string) string
+	aiWorkbenchStoreRouteReadiness func(context.Context, string) string
+	aiWorkbenchTitleReadiness      func(context.Context, string) string
+	aiWorkbenchExecutionKind       string
+	aiWorkbenchExecutionReadiness  func(context.Context, string) string
 }
 
 func (h *Handler) SetStorageCapacityAvailable(v bool) {
@@ -86,6 +87,12 @@ func (h *Handler) SetAIWorkbenchAdmission(admitted func(string) bool) {
 func (h *Handler) SetAIWorkbenchPlanningReadiness(read func(context.Context, string) string) {
 	if h != nil {
 		h.aiWorkbenchPlanningReadiness = read
+	}
+}
+
+func (h *Handler) SetAIWorkbenchStoreRouteReadiness(read func(context.Context, string) string) {
+	if h != nil {
+		h.aiWorkbenchStoreRouteReadiness = read
 	}
 }
 
@@ -210,6 +217,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 	}
 	executionKind, executionReadiness := "", ""
 	planningReadiness := ""
+	storeRouteReadiness := ""
 	titleReadiness := ""
 	available := false
 	if h.aiWorkbenchAvailable {
@@ -228,11 +236,18 @@ func (h *Handler) writeContext(c *gin.Context) {
 					}
 				}
 				planningReadiness = "UNAVAILABLE"
+				storeRouteReadiness = "UNAVAILABLE"
 				titleReadiness = "UNAVAILABLE"
 				if h.aiWorkbenchPlanningReadiness != nil {
 					candidate := h.aiWorkbenchPlanningReadiness(c.Request.Context(), organization.ID)
 					if candidate == "AVAILABLE" || candidate == "NEEDS_CONFIGURATION" {
 						planningReadiness = candidate
+					}
+				}
+				if h.aiWorkbenchStoreRouteReadiness != nil {
+					candidate := h.aiWorkbenchStoreRouteReadiness(c.Request.Context(), organization.ID)
+					if candidate == "AVAILABLE" || candidate == "NEEDS_CONFIGURATION" {
+						storeRouteReadiness = candidate
 					}
 				}
 				if h.aiWorkbenchTitleReadiness != nil {
@@ -255,21 +270,22 @@ func (h *Handler) writeContext(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, contextResponse{
-		OperationsCockpitAvailable:   h.operationsCockpitAvailable && effectiveOrganizationID != nil,
-		StoreObservationsAvailable:   observationsAvailable,
-		User:                         userResponse{ID: identity.UserID},
-		HomeOrganizationID:           identity.HomeOrganizationID,
-		EffectiveOrganizationID:      effectiveOrganizationID,
-		EffectiveMemberID:            identity.EffectiveMemberID,
-		SelectionRequired:            effectiveOrganizationID == nil && len(organizations) > 1,
-		Organizations:                organizations,
-		AIWorkbenchAvailable:         available,
-		ProjectCenterAvailable:       h.projectCenterAvailable,
-		MarketResearchAvailable:      h.marketResearchAvailable,
-		StorageCapacityAvailable:     h.storageCapacityAvailable && effectiveOrganizationID != nil,
-		AIWorkbenchPlanningReadiness: planningReadiness,
-		AIWorkbenchTitleReadiness:    titleReadiness,
-		AIWorkbenchExecutionKind:     executionKind, AIWorkbenchExecutionReadiness: executionReadiness,
+		OperationsCockpitAvailable:     h.operationsCockpitAvailable && effectiveOrganizationID != nil,
+		StoreObservationsAvailable:     observationsAvailable,
+		User:                           userResponse{ID: identity.UserID},
+		HomeOrganizationID:             identity.HomeOrganizationID,
+		EffectiveOrganizationID:        effectiveOrganizationID,
+		EffectiveMemberID:              identity.EffectiveMemberID,
+		SelectionRequired:              effectiveOrganizationID == nil && len(organizations) > 1,
+		Organizations:                  organizations,
+		AIWorkbenchAvailable:           available,
+		ProjectCenterAvailable:         h.projectCenterAvailable,
+		MarketResearchAvailable:        h.marketResearchAvailable,
+		StorageCapacityAvailable:       h.storageCapacityAvailable && effectiveOrganizationID != nil,
+		AIWorkbenchPlanningReadiness:   planningReadiness,
+		AIWorkbenchStoreRouteReadiness: storeRouteReadiness,
+		AIWorkbenchTitleReadiness:      titleReadiness,
+		AIWorkbenchExecutionKind:       executionKind, AIWorkbenchExecutionReadiness: executionReadiness,
 	})
 }
 
@@ -283,22 +299,23 @@ func containsRole(roles []string, want string) bool {
 }
 
 type contextResponse struct {
-	EffectiveMemberID             string                 `json:"effectiveMemberId,omitempty"`
-	AIWorkbenchExecutionKind      string                 `json:"aiWorkbenchExecutionKind,omitempty"`
-	AIWorkbenchExecutionReadiness string                 `json:"aiWorkbenchExecutionReadiness,omitempty"`
-	OperationsCockpitAvailable    bool                   `json:"operationsCockpitAvailable,omitempty"`
-	StoreObservationsAvailable    bool                   `json:"storeObservationsAvailable,omitempty"`
-	User                          userResponse           `json:"user"`
-	HomeOrganizationID            string                 `json:"homeOrganizationId"`
-	EffectiveOrganizationID       *string                `json:"effectiveOrganizationId"`
-	SelectionRequired             bool                   `json:"selectionRequired"`
-	Organizations                 []organizationResponse `json:"organizations"`
-	ProjectCenterAvailable        bool                   `json:"projectCenterAvailable,omitempty"`
-	MarketResearchAvailable       bool                   `json:"marketResearchAvailable,omitempty"`
-	StorageCapacityAvailable      bool                   `json:"storageCapacityAvailable,omitempty"`
-	AIWorkbenchAvailable          bool                   `json:"aiWorkbenchAvailable,omitempty"`
-	AIWorkbenchPlanningReadiness  string                 `json:"aiWorkbenchPlanningReadiness,omitempty"`
-	AIWorkbenchTitleReadiness     string                 `json:"aiWorkbenchTitleReadiness,omitempty"`
+	EffectiveMemberID              string                 `json:"effectiveMemberId,omitempty"`
+	AIWorkbenchExecutionKind       string                 `json:"aiWorkbenchExecutionKind,omitempty"`
+	AIWorkbenchExecutionReadiness  string                 `json:"aiWorkbenchExecutionReadiness,omitempty"`
+	OperationsCockpitAvailable     bool                   `json:"operationsCockpitAvailable,omitempty"`
+	StoreObservationsAvailable     bool                   `json:"storeObservationsAvailable,omitempty"`
+	User                           userResponse           `json:"user"`
+	HomeOrganizationID             string                 `json:"homeOrganizationId"`
+	EffectiveOrganizationID        *string                `json:"effectiveOrganizationId"`
+	SelectionRequired              bool                   `json:"selectionRequired"`
+	Organizations                  []organizationResponse `json:"organizations"`
+	ProjectCenterAvailable         bool                   `json:"projectCenterAvailable,omitempty"`
+	MarketResearchAvailable        bool                   `json:"marketResearchAvailable,omitempty"`
+	StorageCapacityAvailable       bool                   `json:"storageCapacityAvailable,omitempty"`
+	AIWorkbenchAvailable           bool                   `json:"aiWorkbenchAvailable,omitempty"`
+	AIWorkbenchPlanningReadiness   string                 `json:"aiWorkbenchPlanningReadiness,omitempty"`
+	AIWorkbenchStoreRouteReadiness string                 `json:"aiWorkbenchStoreRouteReadiness,omitempty"`
+	AIWorkbenchTitleReadiness      string                 `json:"aiWorkbenchTitleReadiness,omitempty"`
 }
 
 type userResponse struct {

@@ -21,6 +21,7 @@ func maintainedOperationalCommands() map[string]struct{} {
 		"agent-configuration-schema-init":     {},
 		"agent-customization-schema-init":     {},
 		"ai-workbench-schema-init":            {},
+		"ai-workbench-retained-prepare":       {},
 		"market-research-schema-init":         {},
 		"project-center-schema-init":          {},
 		"report-center-schema-init":           {},

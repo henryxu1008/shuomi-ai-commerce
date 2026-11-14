@@ -332,6 +332,16 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 	if p.skill != nil {
 		system += "\n" + skillMethodSystem
 	}
+	if m.content {
+		contract, err := json.Marshal(struct {
+			TargetLanguage string   `json:"targetLanguage"`
+			Fields         []string `json:"fields"`
+		}{in.ContentSelection.TargetLanguage, in.ContentSelection.Fields()})
+		if err != nil {
+			return p, agent.ErrInvalid
+		}
+		system += "\n" + contentLocalizationSystem + "\nOutputContract=" + string(contract)
+	}
 	p.text = aicapability.TextInputIdentity{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID,
 		MemberID: identity.MemberID, Operation: operation,
 		AgentRunID: in.AgentRunID,

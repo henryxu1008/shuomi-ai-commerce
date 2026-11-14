@@ -109,6 +109,8 @@ type productAgentApplication struct {
 	receipts                sourcing.PublishedAcquisitionReader
 	resolver                organizationIdentityResolver
 	originExecution         func(context.Context, agent.ExecutionIdentity) error
+	originRoles             func(context.Context, agent.ExecutionIdentity) ([]string, error)
+	organizationStatus      workbenchcontext.OrganizationBusinessStatusChecker
 	authorizer              *authz.ListingKitAuthorizer
 	config                  ProductAgentDependencies
 	canonical               *canonicalinspect.Invoker
@@ -120,6 +122,9 @@ type productAgentApplication struct {
 	textAdmission           *governed.BoundedAdmission
 	listingExecution        *listingProductAgent
 	executionSource         *sourcing.ExecutionPublicationGateway
+	scheduledSource         *sourcing.ExecutionPublicationGateway
+	scheduledReceipts       sourcing.PublishedAcquisitionReader
+	scheduledReviews        *review.ExecutionCandidateService
 	executionReviews        *review.ExecutionCandidateService
 	executionReviewLookup   review.AppliedPublicationLookup
 }
@@ -358,12 +363,22 @@ func buildProductAgentApplication(ctx context.Context, productDB *gorm.DB, recei
 }
 
 func (a *productAgentApplication) AuthorizeModelInvocation(ctx context.Context, fact aicapability.InvocationRecord) error {
+	if scheduledExecutionContext(ctx) {
+		i, _, err := a.scheduledPrincipal(ctx)
+		if err != nil {
+			return err
+		}
+		if i.OrganizationID != fact.TenantID || i.ActorID != fact.UserID || i.MemberID != fact.MemberID {
+			return review.ErrForbidden
+		}
+		return nil
+	}
 	if listingAgentContext(ctx) {
 		return a.authorizeListingModel(ctx, fact.TenantID, fact.UserID, fact.MemberID)
 	}
 	var i authidentity.AuthenticatedIdentity
 	var err error
-	if fact.Operation == aicapability.OperationAIWorkbenchChatPlan {
+	if fact.Operation == aicapability.OperationAIWorkbenchChatPlan || fact.Operation == aicapability.OperationAIWorkbenchStoreRoute {
 		i, err = a.freshChatIdentity(ctx)
 	} else {
 		i, err = a.freshIdentity(ctx)
@@ -489,7 +504,17 @@ func (a *productAgentApplication) bindingForIdentity(ctx context.Context, i auth
 }
 
 func (a *productAgentApplication) acquisitionSnapshot(ctx context.Context, i authidentity.AuthenticatedIdentity, operationID string) (catalog.PublishedSnapshot, error) {
-	p, err := a.receipts.ReadPublished(authidentity.WithAuthenticatedIdentity(ctx, i), operationID)
+	reader := a.receipts
+	readCtx := ctx
+	if scheduledExecutionContext(ctx) {
+		reader = a.scheduledReceipts
+		if reader == nil {
+			return catalog.PublishedSnapshot{}, agent.ErrUnavailable
+		}
+	} else {
+		readCtx = authidentity.WithAuthenticatedIdentity(ctx, i)
+	}
+	p, err := reader.ReadPublished(readCtx, operationID)
 	if err != nil {
 		return catalog.PublishedSnapshot{}, err
 	}
@@ -515,7 +540,7 @@ func (a *productAgentApplication) Authorize(ctx context.Context, binding agent.B
 	if binding.ContextKind != "acquisition" && binding.ContextKind != contentagent.OwnProductContext {
 		return agent.Scope{}, agent.ErrInvalid
 	}
-	i, err := a.freshIdentity(ctx)
+	i, err := a.currentAgentIdentity(ctx)
 	if err != nil {
 		return agent.Scope{}, err
 	}
@@ -534,7 +559,7 @@ func (a *productAgentApplication) Invoke(ctx context.Context, ref commercetool.T
 	if _, err := a.Authorize(ctx, b); err != nil {
 		return commercetool.Result{}, err
 	}
-	if !listingAgentContext(ctx) {
+	if !listingAgentContext(ctx) && !scheduledExecutionContext(ctx) {
 		i, err := a.freshIdentity(ctx)
 		if err != nil {
 			return commercetool.Result{}, err

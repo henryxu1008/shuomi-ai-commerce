@@ -18,6 +18,7 @@ import (
 )
 
 type workbenchTaskView struct {
+	HistoryUnavailable      bool                       `json:"-"`
 	BusinessScope           *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	ScopeUnavailable        bool                       `json:"scopeUnavailable,omitempty"`
 	Kind                    string                     `json:"kind"`
@@ -29,6 +30,8 @@ type workbenchTaskView struct {
 	ID                      string                     `json:"id"`
 	ConversationID          string                     `json:"conversationId"`
 	ProposalID              string                     `json:"proposalId"`
+	ScheduleID              string                     `json:"scheduleId,omitempty"`
+	ScheduledOccurrenceID   string                     `json:"scheduledOccurrenceId,omitempty"`
 	Title                   string                     `json:"title"`
 	GoalSummary             string                     `json:"goalSummary"`
 	CreatedAt               time.Time                  `json:"createdAt"`
@@ -92,12 +95,19 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 		}
 		view.BusinessScope = &scopeView
 	}
+	if a.taskHistoryUnavailable(ctx, scope, task, identity) {
+		return workbenchTaskView{ID: task.ID, Kind: task.Kind, CreatedAt: task.CreatedAt, Title: "相关商品当前不可访问", HistoryUnavailable: true}, nil
+	}
 	if a.agent == nil || !a.agent.workbenchKind(task.Kind) {
 		return view, nil
 	}
 	var request agent.Request
 	if json.Unmarshal(task.ExecutionRequest, &request) != nil || request.Key != task.ExecutionRequestKey {
 		return workbenchTaskView{}, aiworkbench.ErrUnavailable
+	}
+	if !request.ScheduledSource.Absent() {
+		view.ScheduleID = request.ScheduledSource.PlanID
+		view.ScheduledOccurrenceID = task.ScheduledOccurrenceID
 	}
 	productErr := a.agent.workbenchAuthorizeBinding(ctx, identity, request.Binding)
 	if productErr == nil {
@@ -253,6 +263,11 @@ func (a *aiWorkbenchApplication) taskAction(c *gin.Context, ctx context.Context,
 	task, err := a.store.GetTask(ctx, scope, id)
 	if err != nil {
 		writeAIWorkbenchError(c, err)
+		return
+	}
+	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || a.taskHistoryUnavailable(ctx, scope, task, i) {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
 		return
 	}
 	if _, err := a.agent.freshIdentity(ctx); err != nil {

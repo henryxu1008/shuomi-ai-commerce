@@ -42,6 +42,7 @@ type WorkbenchContextValue = {
   storeObservationsAvailable: boolean;
   operationsCockpitAvailable: boolean;
   aiWorkbenchPlanningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
+  aiWorkbenchStoreRouteReadiness?: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
   aiWorkbenchExecutionKind?:"product.content.localize"|"product.title.optimize";
   aiWorkbenchExecutionReadiness?:"AVAILABLE"|"NEEDS_CONFIGURATION"|"UNAVAILABLE";
   aiWorkbenchTitleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
@@ -238,6 +239,7 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
       storeObservationsAvailable: currentContext?.storeObservationsAvailable === true,
       operationsCockpitAvailable: currentContext?.operationsCockpitAvailable === true,
       aiWorkbenchPlanningReadiness: currentContext?.aiWorkbenchPlanningReadiness ?? "UNAVAILABLE",
+      aiWorkbenchStoreRouteReadiness: currentContext?.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE",
       aiWorkbenchExecutionKind:currentContext?.aiWorkbenchExecutionKind,
       aiWorkbenchExecutionReadiness:currentContext?.aiWorkbenchExecutionReadiness,
       aiWorkbenchTitleReadiness: currentContext?.aiWorkbenchTitleReadiness ?? "UNAVAILABLE",

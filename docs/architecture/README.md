@@ -25,6 +25,10 @@
 
 - `installation-and-module-management.md` — [首次安装向导与现有实例模块管理](installation-and-module-management.md) · #1240 统一设计；独立评审、实施与运行证据见PR #1241。
 - `installation-failure-recovery.md` — [安装失败说明、归档与安全重试](installation-failure-recovery.md) · #1240 最小恢复增量；独立R1通过、IMPLEMENTATION_READY，实施及真实恢复另行授权。
+- `chat-35444-retained-wiring-design.md` — [35444 保留库店铺查询接线设计](chat-35444-retained-wiring-design.md) · 独立架构评审 IMPLEMENTATION_READY；实施仅限获准的保留实例及其隔离副本，原实例更新仍需单独放行。
+- `chat-retained-minimal-admission-proposal.md` — [原 35444 Chat 接线的开发试用最小准入](chat-retained-minimal-admission-proposal.md) · 新用户决定及独立架构复核；复用已有证据，保留目标、数据、权限和原预留保护。
+- `chat-retained-1260-trial.md` — [保留试用实例隔离接线方案](chat-retained-1260-trial.md) · 隔离演练依据；不构成原实例更新授权。
+
 - `retained-startup-prerequisites.md` — [保留实例启动前置：OwnIntake v3 与采集价格快照](retained-startup-prerequisites.md) · #1233 最小方案独立R1通过，IMPLEMENTATION_READY / FROZEN；实施义务未执行，不授权原35444操作。
 - `app-assembly-boundaries.md` — [App Assembly Boundaries](app-assembly-boundaries.md)
 - `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
@@ -69,6 +73,7 @@
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
 - `own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](own-intake-provider-unbilled-recovery.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
+- `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，用户决定改为周更，周更增量 IMPLEMENTATION_READY，现场启用须单独授权。
 - `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](bailian-deepseek-shared-text-admission.md)
 - `ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](ai-disabled-application-lifecycle.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
@@ -234,11 +239,16 @@
 
 ## 工作台、项目与任务投影
 
+- `chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](chat-visible-store-query.md) · #1259 独立架构评审通过；实施与试用尚未授权。
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
 - `ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](ai-workbench-conversation-runtime.md)
 - `ai-workbench-project-center.md` — [AI Workbench Project Center V1](ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
+- `chat-selected-product-context.md` — [Chat 规划读取已选商品资料](chat-selected-product-context.md)
+- `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
+- `chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
+- `chat-voice-input.md` — [Chat 语音输入与会话入口](chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
 - `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
 - `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)

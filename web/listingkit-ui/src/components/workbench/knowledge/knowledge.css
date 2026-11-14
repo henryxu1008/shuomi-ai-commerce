@@ -4,12 +4,11 @@
 .knowledge-upload input[type=file]:focus-visible{border-radius: var(--control-radius);outline:2px solid var(--ring);outline-offset:2px}
 .knowledge-upload input[type=file]:disabled{opacity:.5}
 .knowledge-upload input[type=file]:disabled::file-selector-button{cursor:not-allowed}
-.knowledge-overview-notice{padding:18px 20px;color:var(--primary);border-color:color-mix(in srgb,var(--primary) 35%,var(--border));background:color-mix(in srgb,var(--primary) 8%,var(--card));font-size: var(--body-text-size)}
+.knowledge-overview-notice{padding:16px 20px;color:var(--foreground);border-color:var(--border);background:var(--secondary);font-size:var(--body-text-size)}
 .knowledge-entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:24px}
 .knowledge-entry-card{display:flex;flex-direction:column;gap:16px;padding:24px;border-radius: var(--radius);min-height:190px}
 .knowledge-entry-card h2{font-size: var(--card-title-size);font-weight:600}
-.knowledge-entry-card[data-kind=official]{border-color:color-mix(in srgb,var(--primary) 50%,var(--border));background:color-mix(in srgb,var(--primary) 9%,var(--card))}
-.knowledge-entry-card[data-kind=mine]{border-color:color-mix(in srgb,var(--console-blue) 45%,var(--border));background:color-mix(in srgb,var(--console-blue) 9%,var(--card))}
+.knowledge-entry-card[data-kind=official],.knowledge-entry-card[data-kind=mine]{border-color:var(--border);background:var(--card)}
 .knowledge-entry-actions{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:auto}
 @media(max-width:760px){.knowledge-entry-grid{grid-template-columns:1fr}.knowledge-entry-card{padding:20px}}
 .official-knowledge-metadata,.official-knowledge-sources{padding:24px;display:grid;gap:16px}.official-knowledge-digest{font-size: var(--label-text-size);overflow-wrap:anywhere;color:var(--muted-foreground)}.official-knowledge-article pre{max-height:none}.official-knowledge-sources{margin-top:20px}.official-knowledge-sources h2{font-size: var(--section-title-size);font-weight:600}.official-knowledge-sources ul{display:grid;gap:12px;padding-left:20px;list-style:disc}.official-knowledge-sources a{color:var(--primary);text-decoration:underline;overflow-wrap:anywhere}.official-knowledge-sources a:focus-visible{outline:2px solid var(--ring);outline-offset:3px}@media(max-width:760px){.official-knowledge-metadata,.official-knowledge-sources{padding:18px}}

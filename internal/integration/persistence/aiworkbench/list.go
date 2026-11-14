@@ -110,7 +110,10 @@ func (s *Store) ListMessagesPage(ctx context.Context, scope aiworkbench.Scope, c
 	result := make([]aiworkbench.Message, len(rows))
 	for i, row := range rows {
 		result[len(rows)-i-1] = aiworkbench.Message{ID: row.ID, ConversationID: row.ConversationID, Sequence: row.Sequence,
-			Author: aiworkbench.MessageAuthor(row.AuthorKind), Content: row.Content, CreatedAt: row.CreatedAt.UTC()}
+			Author: aiworkbench.MessageAuthor(row.AuthorKind), Content: row.Content, Kind: row.Kind, CreatedAt: row.CreatedAt.UTC()}
+		if row.StoreQueryStatus != nil {
+			result[len(rows)-i-1].StoreQueryStatus = *row.StoreQueryStatus
+		}
 	}
 	return result, next, nil
 }

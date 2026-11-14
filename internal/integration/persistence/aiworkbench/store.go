@@ -62,14 +62,16 @@ type metadataAuditRow struct {
 func (metadataAuditRow) TableName() string { return "ai_workbench.metadata_audit" }
 
 type messageRow struct {
-	ID             string
-	OrganizationID string
-	OwnerUserID    string
-	ConversationID string
-	Sequence       uint64
-	AuthorKind     string
-	Content        string
-	CreatedAt      time.Time
+	ID               string
+	OrganizationID   string
+	OwnerUserID      string
+	ConversationID   string
+	Sequence         uint64
+	AuthorKind       string
+	Content          string
+	Kind             string  `gorm:"column:message_kind;default:TEXT"`
+	StoreQueryStatus *string `gorm:"column:store_query_status"`
+	CreatedAt        time.Time
 }
 
 func (messageRow) TableName() string { return "ai_workbench.messages" }
@@ -93,6 +95,8 @@ type commandRow struct {
 	PlannerModelProfile json.RawMessage `gorm:"type:jsonb"`
 	PlannerStartedAt    *time.Time
 	PlannerDeadline     *time.Time
+	RouteCommitDeadline *time.Time `gorm:"column:route_commit_deadline"`
+	RouteResult         *string    `gorm:"column:route_result"`
 	AssistantMessageID  *string
 	ProposalID          *string
 	TerminalDigest      *string
@@ -178,7 +182,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if err := validateRuntimeRoleIdentity(db.WithContext(ctx), currentRole); err != nil {
 		return aiworkbench.ErrUnavailable
 	}
-	for _, name := range []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts"} {
+	for _, name := range []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"} {
 		var exists bool
 		if err := db.WithContext(ctx).Raw("SELECT to_regclass(?) IS NOT NULL", "ai_workbench."+name).Scan(&exists).Error; err != nil || !exists {
 			return aiworkbench.ErrUnavailable
@@ -186,6 +190,20 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	}
 	if err := validateBoundedWorkbenchPrivileges(db.WithContext(ctx), currentRole); err != nil {
 		return aiworkbench.ErrUnavailable
+	}
+	for _, projection := range []struct{ table, columns string }{
+		{"messages", "message_kind, store_query_status"},
+		{"commands", "route_commit_deadline, route_result"},
+		{"business_tasks", "source_kind, scheduled_occurrence_id"},
+		{"scheduled_plans", "execution_spec, rule_start_at, registration_state, creation_fingerprint, budget_unit"},
+		{"scheduled_occurrences", "reason, reconciliation_digest"},
+		{"scheduled_plan_commands", "outcome"},
+	} {
+		rows, err := db.WithContext(ctx).Table("ai_workbench." + projection.table).Select(projection.columns).Limit(0).Rows()
+		if err != nil {
+			return aiworkbench.ErrUnavailable
+		}
+		_ = rows.Close()
 	}
 	if err := db.WithContext(ctx).Table("ai_workbench.execution_proposals").Select("observed_mode_revision, context_kind, content_selection, execution_limits").Limit(0).Find(&[]proposalRow{}).Error; err != nil {
 		return aiworkbench.ErrUnavailable

@@ -11,6 +11,7 @@ import (
 
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/storecenter"
 )
 
 func (a *aiWorkbenchApplication) listConversations(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
@@ -142,6 +143,12 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	for index := range messages {
+		if messages[index].Author == aiworkbench.AuthorAssistant && messages[index].Kind != "STORE_OVERVIEW_REF" &&
+			a.productHistoryUnavailable(ctx, scope, id, messages[index].Sequence) {
+			messages[index].Content = "相关商品当前不可访问，无法显示此回复。"
+		}
+	}
 	// Only the latest proposal can match the latest USER turn and be confirmed.
 	// Older proposal cards are not rendered by the current Conversation view.
 	proposals, err := a.store.ListProposals(ctx, scope, id, 1)
@@ -151,6 +158,10 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 	}
 	cards := make([]workbenchProposalCard, 0, len(proposals))
 	for _, proposal := range proposals {
+		i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+		if !ok || a.proposalHistoryUnavailable(ctx, scope, proposal, i) {
+			continue
+		}
 		card, cardErr := a.proposalReceiptCard(ctx, scope, proposal)
 		if cardErr != nil {
 			writeAIWorkbenchError(c, cardErr)
@@ -158,8 +169,9 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		}
 		cards = append(cards, card)
 	}
+	projected := a.projectStoreMessages(ctx, scope, messages)
 	for {
-		page := gin.H{"conversation": conversation, "messages": messages, "proposals": cards, "before": next}
+		page := gin.H{"conversation": conversation, "messages": projected, "proposals": cards, "before": next}
 		wire, marshalErr := json.Marshal(page)
 		if marshalErr != nil {
 			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
@@ -170,16 +182,90 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 			c.Data(http.StatusOK, "application/json; charset=utf-8", wire)
 			return
 		}
-		if len(messages) <= 1 {
+		if len(projected) <= 1 {
 			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
 			return
 		}
 		// The store returns ascending sequences. Omitted older messages must be
 		// reachable on the next page, even if the original 50-row page had no
 		// database cursor.
-		messages = messages[1:]
-		next = strconv.FormatUint(messages[0].Sequence, 10)
+		projected = projected[1:]
+		next = strconv.FormatUint(projected[0].Sequence, 10)
 	}
+}
+
+func (a *aiWorkbenchApplication) postStoreRoute(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
+	id := c.Param("conversation_id")
+	if !acquisitionHTTPUUID(id) || c.Request.URL.RawQuery != "" {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	key, err := workbenchKey(c)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	var body struct {
+		Content string `json:"content"`
+	}
+	if err = workbenchJSON(c, &body); err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || identity.EffectiveMemberID == "" || a.storeRoute == nil {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	command, err := a.storeRoute.Route(ctx, scope, id, key, identity.EffectiveMemberID, body.Content)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	workbenchReply(c, http.StatusOK, gin.H{"state": command.State})
+}
+
+func (a *aiWorkbenchApplication) postExplicitStoreOverview(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {
+	id := c.Param("conversation_id")
+	if !acquisitionHTTPUUID(id) || c.Request.URL.RawQuery != "" {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	key, err := workbenchKey(c)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	var body struct {
+		Status string `json:"status"`
+	}
+	if err = workbenchJSON(c, &body); err != nil || body.Status != "ALL_NON_DELETED" && body.Status != "ACTIVE" {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if !ok || a.scopes.storeOverview == nil || a.store == nil || identity.EffectiveMemberID == "" {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	if err = a.store.ConversationMember(ctx, scope, id, identity.EffectiveMemberID); err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	if _, err = a.scopes.storeOverview(ctx, scope, storecenter.OverviewScope(body.Status)); err != nil {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	command, replay, err := a.store.ExplicitStoreOverview(ctx, scope, id, key, identity.EffectiveMemberID, body.Status)
+	if err != nil {
+		writeAIWorkbenchError(c, err)
+		return
+	}
+	if _, err = a.scopes.storeOverview(ctx, scope, storecenter.OverviewScope(body.Status)); err != nil {
+		writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+		return
+	}
+	workbenchReply(c, http.StatusOK, gin.H{"state": command.State, "replay": replay})
 }
 
 func (a *aiWorkbenchApplication) proposalReceiptCard(ctx context.Context, scope aiworkbench.Scope, proposal aiworkbench.ExecutionProposal) (workbenchProposalCard, error) {
@@ -255,6 +341,18 @@ func (a *aiWorkbenchApplication) postMessage(c *gin.Context, ctx context.Context
 		writeAIWorkbenchError(c, err)
 		return
 	}
+	through := command.SourceSequence
+	if command.AssistantMessageID != "" {
+		through, err = a.store.AssistantSequence(ctx, scope, id, command.AssistantMessageID)
+		if err != nil {
+			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+			return
+		}
+	}
+	if through > 0 && a.productHistoryUnavailable(ctx, scope, id, through) {
+		workbenchReply(c, http.StatusAccepted, gin.H{"state": command.State, "scopeUnavailable": true})
+		return
+	}
 	if command.FrozenScope != nil {
 		if _, scopeErr := a.authorizedFrozenScope(ctx, scope, command.ScopeRef(), false); scopeErr != nil {
 			workbenchReply(c, http.StatusAccepted, gin.H{"state": command.State, "scopeUnavailable": true})
@@ -292,6 +390,12 @@ func (a *aiWorkbenchApplication) confirmProposal(c *gin.Context, ctx context.Con
 	conversationID, proposalID := c.Param("conversation_id"), c.Param("proposal_id")
 	if !acquisitionHTTPUUID(conversationID) || !acquisitionHTTPUUID(proposalID) || c.Request.URL.RawQuery != "" || workbenchEmptyBody(c) != nil {
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
+	proposal, err := a.store.GetProposal(ctx, scope, proposalID)
+	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
+	if err != nil || !ok || proposal.ConversationID != conversationID || a.proposalHistoryUnavailable(ctx, scope, proposal, i) {
+		writeAIWorkbenchError(c, aiworkbench.ErrNotFound)
 		return
 	}
 	key, err := workbenchKey(c)

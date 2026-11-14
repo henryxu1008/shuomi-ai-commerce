@@ -75,6 +75,20 @@ func TestGovernedTextQuoteBindsCompleteInputAndReservesCeiling(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestStoreRouteQuoteUsesDistinctBoundedChatOperation(t *testing.T) {
+	input := TextInputIdentity{OrganizationID: "org", ActorID: "user", MemberID: "member", Operation: Operation("aiworkbench_store_route"), InvocationID: "invocation", System: "route only", Prompt: "question", Profile: testTextProfile()}
+	quote, err := QuoteText(input)
+	require.NoError(t, err)
+	input.Operation = OperationAIWorkbenchChatPlan
+	planning, err := QuoteText(input)
+	require.NoError(t, err)
+	require.NotEqual(t, quote.InputHash, planning.InputHash)
+	input.Operation = Operation("aiworkbench_store_route")
+	input.AgentRunID = "should-not-be-present"
+	_, err = QuoteText(input)
+	require.Error(t, err)
+}
+
 func TestModelProfileCostRoundsInputAndOutputSeparately(t *testing.T) {
 	profile := testTextProfile()
 	profile.InputMicrosPerMillion = 400000

@@ -29,7 +29,7 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	if len(operations) == 1 {
 		fact.Operation = operations[0]
 	}
-	if len(operations) == 1 && operations[0] == aicapability.OperationAIWorkbenchChatPlan {
+	if len(operations) == 1 && (operations[0] == aicapability.OperationAIWorkbenchChatPlan || operations[0] == aicapability.OperationAIWorkbenchStoreRoute) {
 		fact.Operation = operations[0]
 		fact.Capability = aicapability.CapabilityAIWorkbenchChatPlanning
 		fact.AgentRunID = ""
@@ -57,6 +57,20 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	require.NoError(t, resource.Omit("Reservations", "Debts").Create(&organizationResourceBucketRow{QuantityUnit: resourceQuantityUnit("ai_point"), OrganizationID: "org", ResourceType: "ai_point", Available: balance}).Error)
 	recorder.SetUsageSettler(repo)
 	return resource, recorder, repo, auth, fact
+}
+
+func TestInvocationReservationInspectExposesUnexpectedSettlementOperation(t *testing.T) {
+	db, recorder, repo, _, fact := modelPointFixture(t, aicapability.OperationProductImageAnalysis)
+	ctx := context.Background()
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 5064, fact.StartedAt))
+	view, err := repo.InspectModelInvocationReservation(ctx, fact.TenantID, fact.InvocationID)
+	require.NoError(t, err)
+	require.Nil(t, view.SettlementOperationID)
+	require.NoError(t, db.Model(&organizationResourceReservationRow{}).Where("owner_attempt_id = ?", fact.InvocationID).Update("settlement_operation_id", "synthetic-unexpected").Error)
+	view, err = repo.InspectModelInvocationReservation(ctx, fact.TenantID, fact.InvocationID)
+	require.NoError(t, err)
+	require.NotNil(t, view.SettlementOperationID)
+	require.Equal(t, "synthetic-unexpected", *view.SettlementOperationID)
 }
 
 func TestSingleImagePointsUseOneOriginalReservationAndActualCachedUsage(t *testing.T) {
@@ -319,6 +333,51 @@ func TestModelPointsReleaseRequiresNativeNoDispatchAndFencesLateReserve(t *testi
 			}
 		})
 	}
+}
+
+func TestConfirmNoDispatchRequiresDurableRelease(t *testing.T) {
+	for _, held := range []bool{false, true} {
+		t.Run(fmt.Sprint(held), func(t *testing.T) {
+			db, recorder, r, _, fact := modelPointFixture(t, aicapability.OperationAIWorkbenchStoreRoute)
+			ctx := context.Background()
+			if held {
+				require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 20, fact.StartedAt))
+			}
+			require.Error(t, r.ConfirmModelInvocationNoDispatchRelease(ctx, "org", fact.InvocationID))
+			fact.Outcome = aicapability.InvocationFailed
+			fact.FinishedAt = fact.StartedAt.Add(time.Second)
+			fact.UsageKnown = true
+			fact.ErrorCode = "rejected_before_dispatch"
+			require.NoError(t, recorder.RecordInvocation(ctx, fact))
+			require.NoError(t, r.ConfirmModelInvocationNoDispatchRelease(ctx, "org", fact.InvocationID))
+			require.NoError(t, db.Exec("UPDATE saas_organization_resource_operations SET state='processing' WHERE operation_id=?", modelPointKey("finalize", fact.InvocationID)).Error)
+			require.Error(t, r.ConfirmModelInvocationNoDispatchRelease(ctx, "org", fact.InvocationID))
+		})
+	}
+}
+
+func TestNoDispatchFactDoesNotProveReleaseWhenFinalizationFails(t *testing.T) {
+	db, recorder, r, _, fact := modelPointFixture(t, aicapability.OperationAIWorkbenchStoreRoute)
+	ctx := context.Background()
+	require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, "org", "member", fact.InvocationID, 20, fact.StartedAt))
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register("reject_no_dispatch_audit", func(tx *gorm.DB) {
+		if tx.Statement.Table == "saas_organization_resource_audit_logs" {
+			tx.AddError(errors.New("synthetic release failure"))
+		}
+	}))
+	fact.Outcome = aicapability.InvocationFailed
+	fact.FinishedAt = fact.StartedAt.Add(time.Second)
+	fact.UsageKnown = true
+	fact.ErrorCode = "rejected_before_dispatch"
+	require.Error(t, recorder.RecordInvocation(ctx, fact))
+	read, err := recorder.ReadModelInvocation(ctx, "org", fact.InvocationID)
+	require.NoError(t, err)
+	require.Equal(t, aicapability.InvocationFailed, read.Outcome)
+	require.Error(t, r.ConfirmModelInvocationNoDispatchRelease(ctx, "org", fact.InvocationID))
+	var bucket organizationResourceBucketRow
+	require.NoError(t, db.Take(&bucket).Error)
+	require.Greater(t, bucket.Reserved, int64(0))
+	require.NoError(t, db.Callback().Create().Remove("reject_no_dispatch_audit"))
 }
 
 func TestModelPointsRecoverPersistedTerminalAfterSettlementRollback(t *testing.T) {

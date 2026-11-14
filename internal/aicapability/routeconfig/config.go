@@ -26,6 +26,10 @@ var (
 	ErrConflict           = errors.New("model route configuration conflict")
 	ErrNeedsConfiguration = errors.New("model route binding needs configuration")
 	ErrOutcomeUnknown     = errors.New("publication outcome unknown")
+	// ErrStaleSnapshot identifies the pre-write build check; it is also
+	// ErrConflict and does not classify later repository conflicts.
+	ErrStaleSnapshot      = errors.New("platform price snapshot stale before write")
+	ErrPublicationExpired = errors.New("platform price publication deadline passed")
 )
 
 const ImageCapability = "imageagent.generation"
@@ -44,7 +48,7 @@ func (s Scope) Valid() bool {
 		return false
 	}
 	switch aicapability.Operation(s.Capability) {
-	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake:
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake:
 		return true
 	}
 	return s.Capability == ImageCapability || s.Capability == SharedModelCapability || s.Capability == PlatformPricesCapability && s.OrganizationID == PlatformPricesOrganization
@@ -220,6 +224,7 @@ type Command struct {
 	Scope                     Scope
 	ActorID, Key, Fingerprint string
 	Input                     Input
+	NotAfter                  time.Time
 }
 type Repository interface {
 	CredentialReader

@@ -13,6 +13,7 @@ import (
 	"task-processor/internal/aicapability"
 	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
+	fx "task-processor/internal/app/runtime/automaticfx"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/core/config"
@@ -29,6 +30,14 @@ type ModelRoutePricingDependencies struct {
 	Shared      *d.SharedModelService
 	Prices      *d.PlatformPricesService
 	Credentials *credential.Management
+	AutomaticFX AutomaticFXControl
+}
+
+type AutomaticFXControl interface {
+	Status(context.Context) (fx.StatusSnapshot, error)
+	Prepare(context.Context) error
+	Start(context.Context) error
+	Stop(context.Context) error
 }
 
 func WithModelRoutePricing(deps ModelRoutePricingDependencies) CurrentApplicationOption {
@@ -48,6 +57,7 @@ func (m modelRoutePricingModule) Register(r *kernelmodule.Registry) error {
 }
 func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 	specs := []struct{ method, path, op string }{{"GET", "", "capabilities"}}
+	specs = append(specs, struct{ method, path, op string }{"GET", "/platform-prices/automatic-fx", "fx-status"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/prepare", "fx-prepare"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/start", "fx-start"}, struct{ method, path, op string }{"POST", "/platform-prices/automatic-fx/stop", "fx-stop"})
 	for _, family := range []string{"enterprise", "platform-prices"} {
 		specs = append(specs, struct{ method, path, op string }{"GET", "/" + family, "current"})
 		for _, op := range []string{"history", "receipts/:key"} {
@@ -65,7 +75,7 @@ func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 		if platform {
 			permission = authz.PermissionListingKitPlatformAdm
 		}
-		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET", Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
+		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET" || strings.HasPrefix(spec.op, "fx-"), Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
 	}
 	return append(out, m.credentialRoutes()...)
 }
@@ -132,7 +142,7 @@ func modelRouteDecode(c *gin.Context, target any) error {
 func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool) {
 	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
-	actor, org, err := sharedModelIdentity(ctx, m.authorizer, platform, op == "publish")
+	actor, org, err := sharedModelIdentity(ctx, m.authorizer, platform, op == "publish" || op == "fx-prepare" || op == "fx-start" || op == "fx-stop")
 	if err != nil {
 		modelRouteFailure(c, err)
 		return
@@ -145,6 +155,59 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool)
 	for key, values := range query {
 		if op != "history" || (key != "limit" && key != "cursor") || len(values) != 1 {
 			modelRouteFailure(c, d.ErrInvalid)
+			return
+		}
+	}
+	if strings.HasPrefix(op, "fx-") {
+		if m.services.AutomaticFX == nil {
+			modelRouteFailure(c, d.ErrUnavailable)
+			return
+		}
+		if op != "fx-status" {
+			body, e := io.ReadAll(io.LimitReader(c.Request.Body, 1025))
+			trimmed := strings.TrimSpace(string(body))
+			if e != nil || len(body) > 1024 {
+				modelRouteFailure(c, d.ErrInvalid)
+				return
+			}
+			if trimmed != "" {
+				var empty struct{}
+				violations, e := strict.UnmarshalStrict(body, &empty)
+				if !strings.HasPrefix(trimmed, "{") || e != nil || len(violations) != 0 {
+					modelRouteFailure(c, d.ErrInvalid)
+					return
+				}
+			}
+		}
+		switch op {
+		case "fx-prepare":
+			if e := m.services.AutomaticFX.Prepare(ctx); e != nil {
+				modelRouteFailure(c, d.ErrOutcomeUnknown)
+				return
+			}
+			c.JSON(200, gin.H{"state": "PREPARED"})
+			return
+		case "fx-status":
+			state, e := m.services.AutomaticFX.Status(ctx)
+			if e != nil {
+				modelRouteFailure(c, d.ErrOutcomeUnknown)
+				return
+			}
+			c.JSON(200, gin.H{"state": state.State, "checkedAt": state.CheckedAt, "stopRequested": state.StopRequested})
+			return
+		case "fx-start":
+			if e := m.services.AutomaticFX.Start(ctx); e != nil {
+				modelRouteFailure(c, d.ErrOutcomeUnknown)
+				return
+			}
+			c.JSON(200, gin.H{"state": "STARTED"})
+			return
+		case "fx-stop":
+			if e := m.services.AutomaticFX.Stop(ctx); e != nil {
+				modelRouteFailure(c, d.ErrOutcomeUnknown)
+				return
+			}
+			c.JSON(200, gin.H{"state": "QUIESCED"})
 			return
 		}
 	}

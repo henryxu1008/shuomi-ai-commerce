@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	"task-processor/internal/integration/aiworkbench/einorouter"
 )
 
 func TestAIWorkbenchConversationOnlyNeedsNoModel(t *testing.T) {
@@ -47,6 +48,32 @@ func TestAIWorkbenchConversationOnlyNeedsNoModel(t *testing.T) {
 	}
 }
 
+func TestStoreRoutePolicyNeedsItsOwnExplicitContract(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.Profile.ClientName = "chat"
+	policy.Profile.PromptVersion = "ai-workbench-chat-plan-v1"
+	policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
+	policy.Profile.MaximumCompletionTokens = 1024
+	policy.Profile.MaximumInputBytes = 128 << 10
+	policy.Profile.MaximumOutputBytes = 16 << 10
+	w := &AIWorkbenchConfig{Enabled: true, Database: cfg.ProductAgent.Database, PlanningTextPolicies: map[string]governed.RoutePolicy{"org": policy}}
+	w.Database.User = "ai_workbench_runtime"
+	cfg.AIWorkbench = w
+	route := policy
+	route.Profile.PromptVersion = einorouter.PromptVersion
+	route.Profile.OutputSchemaVersion = einorouter.SchemaVersion
+	w.StoreRouteTextPolicies = map[string]governed.RoutePolicy{"org": route}
+	if err := w.validate(cfg); err != nil {
+		t.Fatal(err)
+	}
+	route.Profile.PromptVersion = policy.Profile.PromptVersion
+	w.StoreRouteTextPolicies["org"] = route
+	if err := w.validate(cfg); err == nil {
+		t.Fatal("planning prompt cannot qualify as route contract")
+	}
+}
+
 func TestAIWorkbenchRejectsSharedProductAgentRuntimeRole(t *testing.T) {
 	cfg := agentRuntimeConfig()
 	planning := cfg.ProductAgent.TextPolicies["org"]
@@ -64,5 +91,27 @@ func TestAIWorkbenchRejectsSharedProductAgentRuntimeRole(t *testing.T) {
 	cfg.ProductAgent.Database.User = cfg.AIWorkbench.Database.User
 	if err := cfg.AIWorkbench.validate(cfg); err == nil {
 		t.Fatal("shared Product Agent and AI Workbench runtime role admitted")
+	}
+}
+
+func TestScheduledWorkbenchRequiresExplicitExecutionAndTemporal(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	cfg.Identity.TenantDirectoryToken = "fixture-service-token"
+	w := AIWorkbenchConfig{Enabled: true, ContentTasks: true, Schedules: &AIWorkbenchSchedulesConfig{TemporalAddress: "127.0.0.1:7233", TemporalNamespace: "default"}}
+	if err := w.validateSchedules(cfg); err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range []func(*AIWorkbenchConfig){
+		func(c *AIWorkbenchConfig) { c.ConversationOnly = true },
+		func(c *AIWorkbenchConfig) { c.ContentTasks = false },
+		func(c *AIWorkbenchConfig) { c.Enabled = false },
+		func(c *AIWorkbenchConfig) { s := *c.Schedules; s.TemporalAddress = "0.0.0.0:7233"; c.Schedules = &s },
+		func(c *AIWorkbenchConfig) { s := *c.Schedules; s.TemporalNamespace = ""; c.Schedules = &s },
+	} {
+		copy := w
+		change(&copy)
+		if copy.validateSchedules(cfg) == nil {
+			t.Fatal("incomplete scheduled execution admitted")
+		}
 	}
 }

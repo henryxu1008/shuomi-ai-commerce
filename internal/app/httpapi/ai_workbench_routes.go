@@ -86,6 +86,17 @@ func (m aiWorkbenchModule) PlanningReadiness(ctx context.Context, organizationID
 	return string(governed.RouteNeedsConfiguration)
 }
 
+func (m aiWorkbenchModule) StoreRouteReadiness(ctx context.Context, organizationID string) string {
+	if m.application == nil || m.application.storeRoute == nil {
+		return string(governed.RouteUnavailable)
+	}
+	router, ok := m.application.storeRoute.Gateway.(*workbenchStoreRouter)
+	if !ok || router.routes == nil || !router.allowed[organizationID] {
+		return string(governed.RouteUnavailable)
+	}
+	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchStoreRoute}))
+}
+
 // TitleReadiness is the current execution route projection for an existing
 // proposal. It is independent of whether a new Chat plan may be started.
 func (m aiWorkbenchModule) TitleReadiness(ctx context.Context, organizationID string) string {
@@ -173,7 +184,9 @@ func (a *aiWorkbenchApplication) bind(c *gin.Context, permission string) (contex
 func writeAIWorkbenchError(c *gin.Context, err error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
 	switch {
-	case errors.Is(err, aiworkbench.ErrInvalid), errors.Is(err, agent.ErrInvalid), errors.Is(err, agentconfig.ErrInvalid):
+	case errors.Is(err, aiworkbench.ErrScheduleCommandRejected):
+		status, code = http.StatusConflict, "SCHEDULE_COMMAND_REJECTED"
+	case errors.Is(err, aiworkbench.ErrInvalid), errors.Is(err, aiworkbench.ErrInvalidSchedule), errors.Is(err, agent.ErrInvalid), errors.Is(err, agentconfig.ErrInvalid):
 		status, code = http.StatusBadRequest, "INVALID_REQUEST"
 	case errors.Is(err, aiworkbench.ErrNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
@@ -183,6 +196,8 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "PROPOSAL_STALE"
 	case errors.Is(err, aiworkbench.ErrRevisionMismatch), errors.Is(err, agent.ErrConflict):
 		status, code = http.StatusConflict, "REVISION_MISMATCH"
+	case errors.Is(err, agent.ErrManualReviewRequired):
+		status, code = http.StatusConflict, "MANUAL_REVIEW_REQUIRED"
 	case errors.Is(err, aiworkbench.ErrConversationArchived):
 		status, code = http.StatusConflict, "CONVERSATION_ARCHIVED"
 	case errors.Is(err, aiworkbench.ErrTaskOutcomeUnknown):
@@ -192,6 +207,9 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 	}
 	c.Header("Cache-Control", "private, no-store")
 	body := gin.H{"code": code}
+	if code == "SCHEDULE_COMMAND_REJECTED" {
+		body["commandAccepted"] = false
+	}
 	var notAccepted *aiworkbench.MessageNotAcceptedError
 	if errors.As(err, &notAccepted) {
 		body["messageAccepted"] = false
@@ -338,6 +356,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		{"GET", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatRead, "get-conversation", 15 * time.Second},
 		{"PATCH", workbenchChatBase + "/:conversation_id", authz.PermissionWorkbenchChatUse, "metadata", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/messages", authz.PermissionWorkbenchChatUse, "message", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/intent", authz.PermissionWorkbenchChatUse, "store-route", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/store-overview", authz.PermissionWorkbenchChatUse, "store-overview", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/proposals/:proposal_id/confirm", authz.PermissionWorkbenchChatUse, "confirm", 2 * time.Minute},
 		{"GET", workbenchTaskBase + "/cockpit-metrics", authz.PermissionWorkbenchTaskRead, "task-cockpit-metrics", 12 * time.Second},
 		{"GET", workbenchTaskBase + "/scopes", authz.PermissionWorkbenchTaskRead, "task-scope-options", 15 * time.Second},
@@ -386,6 +406,10 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					a.changeConversation(c, ctx, scope)
 				case "message":
 					a.postMessage(c, ctx, scope)
+				case "store-route":
+					a.postStoreRoute(c, ctx, scope)
+				case "store-overview":
+					a.postExplicitStoreOverview(c, ctx, scope)
 				case "confirm":
 					a.confirmProposal(c, ctx, scope)
 				case "list-tasks":
@@ -399,7 +423,7 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 				}
 			}})
 	}
-	return routes
+	return append(routes, aiWorkbenchScheduleRoutes(a)...)
 }
 
 func (m aiWorkbenchModule) ExecutionKind() string {

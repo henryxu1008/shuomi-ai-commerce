@@ -1,0 +1,162 @@
+package aiworkbenchpersistence
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"task-processor/internal/aiworkbench"
+)
+
+// ScheduledOccurrence is a durable Workbench dispatch-intent receipt, not a
+// claim that the AgentRun has started or that paid usage is known.
+type ScheduledOccurrence = aiworkbench.ScheduledOccurrence
+
+type scheduledOccurrenceRow struct {
+	ID                   string
+	OrganizationID       string
+	OwnerUserID          string
+	PlanID               string
+	ScheduledAtUTC       time.Time
+	PlanRevision         int64
+	PayloadDigest        string
+	State                string
+	BusinessTaskID       *string
+	ReconciliationDigest *string
+	Reason               string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+func (scheduledOccurrenceRow) TableName() string { return "ai_workbench.scheduled_occurrences" }
+
+func occurrenceReceipt(row scheduledOccurrenceRow) ScheduledOccurrence {
+	value := ScheduledOccurrence{ID: row.ID, PlanID: row.PlanID,
+		Scope:          aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.OwnerUserID},
+		ScheduledAtUTC: row.ScheduledAtUTC.UTC(), PlanRevision: row.PlanRevision,
+		PayloadDigest: row.PayloadDigest, State: row.State, Reason: row.Reason}
+	if row.BusinessTaskID != nil {
+		value.BusinessTaskID = *row.BusinessTaskID
+	}
+	return value
+}
+
+// ClaimScheduledOccurrence performs no external owner operations under its
+// plan row lock. It is a narrow persistence primitive invoked only after a
+// trusted Temporal callback has been checked by the application owner.
+// The returned CLAIMED state is NOT permission to send AI requests: the
+// original Agent/Resource owners must still authorize and bind one BusinessTask.
+func (s *Store) ClaimScheduledOccurrence(ctx context.Context, scope aiworkbench.Scope, planID string, scheduledAtUTC, now time.Time) (ScheduledOccurrence, bool, error) {
+	if s == nil || s.db == nil || ctx == nil || !validScope(scope) ||
+		!validKey(planID) || scheduledAtUTC.IsZero() || now.IsZero() ||
+		scheduledAtUTC.After(now.Add(5*time.Second)) {
+		return ScheduledOccurrence{}, false, aiworkbench.ErrInvalid
+	}
+	scheduledAtUTC = scheduledAtUTC.UTC()
+	var receipt ScheduledOccurrence
+	replay := false
+	catchupPending := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var plan scheduledPlanRow
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND organization_id = ? AND owner_user_id = ?",
+				planID, scope.OrganizationID, scope.ActorID).Take(&plan).Error; err != nil {
+			return missing(err)
+		}
+		var existing scheduledOccurrenceRow
+		err := tx.Where("organization_id = ? AND owner_user_id = ? AND plan_id = ? AND scheduled_at_utc = ?",
+			scope.OrganizationID, scope.ActorID, planID, scheduledAtUTC).Take(&existing).Error
+		if err == nil {
+			receipt, replay = occurrenceReceipt(existing), true
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return unavailable(err)
+		}
+		policy, err := schedulePlanValue(plan)
+		if err != nil {
+			return err
+		}
+		catchupPending, err = recordScheduledMissingBefore(tx, plan, policy, scheduledAtUTC, now)
+		if err != nil {
+			return err
+		}
+		if catchupPending {
+			return nil
+		}
+
+		state := "SKIPPED"
+		claim := plan.State == "ACTIVE" && plan.ActiveOccurrenceID == nil &&
+			plan.ConsumedOccurrences < plan.MaxOccurrences &&
+			!scheduledAtUTC.Before(now.Add(-15*time.Minute))
+		if claim {
+			state = "CLAIMED"
+		}
+		row := newScheduledOccurrence(plan, policy, scheduledAtUTC, now, state)
+		if !claim {
+			switch {
+			case plan.State != "ACTIVE":
+				row.Reason = "PLAN_NOT_ACTIVE"
+			case plan.ActiveOccurrenceID != nil:
+				row.Reason = "PREVIOUS_RUN_ACTIVE"
+			case plan.ConsumedOccurrences >= plan.MaxOccurrences:
+				row.Reason = "MAX_OCCURRENCES"
+			default:
+				row.Reason = "CATCHUP_EXPIRED"
+			}
+		}
+		if err := tx.Create(&row).Error; err != nil {
+			return unavailable(err)
+		}
+		if claim {
+			res := tx.Model(&scheduledPlanRow{}).
+				Where("id = ? AND organization_id = ? AND owner_user_id = ? AND state = 'ACTIVE' AND active_occurrence_id IS NULL AND consumed_occurrences < max_occurrences",
+					planID, scope.OrganizationID, scope.ActorID).
+				Updates(map[string]any{
+					"active_occurrence_id": row.ID,
+					"consumed_occurrences": gorm.Expr("consumed_occurrences + 1"),
+					"updated_at":           now.UTC(),
+				})
+			if res.Error != nil {
+				return unavailable(res.Error)
+			}
+			if res.RowsAffected != 1 {
+				return aiworkbench.ErrRevisionMismatch
+			}
+		}
+		receipt = occurrenceReceipt(row)
+		return nil
+	})
+	if err != nil {
+		return ScheduledOccurrence{}, false, err
+	}
+	if catchupPending {
+		return ScheduledOccurrence{}, false, errors.Join(aiworkbench.ErrUnavailable, aiworkbench.ErrScheduleCatchupPending)
+	}
+	return receipt, replay, nil
+}
+
+func newScheduledOccurrence(plan scheduledPlanRow, policy aiworkbench.ScheduledPlanDraft, slot, now time.Time, state string) scheduledOccurrenceRow {
+	row := scheduledOccurrenceRow{
+		ID:             aiworkbench.ScheduledOccurrenceID(policy.Scope, plan.ID, slot),
+		OrganizationID: plan.OrganizationID, OwnerUserID: plan.OwnerUserID, PlanID: plan.ID,
+		ScheduledAtUTC: slot.UTC(), PlanRevision: plan.Revision,
+		PayloadDigest: digest(struct {
+			PlanID        string
+			Slot          time.Time
+			Revision      int64
+			Selection     aiworkbench.TaskSelection
+			Budget        aiworkbench.ScheduleBudget
+			ExecutionSpec json.RawMessage
+		}{plan.ID, slot.UTC(), plan.Revision, policy.Selection, policy.Budget, policy.ExecutionSpec}),
+		State: state, CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
+	}
+	if state == "SKIPPED" {
+		row.Reason = "MISSED_TRIGGER"
+	}
+	return row
+}

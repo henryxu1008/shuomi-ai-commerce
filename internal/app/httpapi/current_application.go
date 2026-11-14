@@ -26,6 +26,7 @@ import (
 
 	confighttp "task-processor/internal/agentconfig/httpapi"
 	customhttp "task-processor/internal/agentcustomization/httpapi"
+	"task-processor/internal/aiworkbench"
 	ph "task-processor/internal/aiworkbench/projectcenter/httpapi"
 	dataservicesapp "task-processor/internal/app/dataservices"
 	registration "task-processor/internal/app/referralregistration"
@@ -1247,6 +1248,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.aiWorkbench != nil {
 		chatConfig := *supplied.aiWorkbench
 		chatConfig.resolver, chatConfig.authorizer = workbench.authDependencies.organizationResolver, authorizer
+		chatConfig.ScheduleSourceDB = supplied.productAcquisitionDB
 		module, e := buildAIWorkbenchModule(ctx, chatConfig, productRuntime)
 		if e != nil {
 			return nil, fmt.Errorf("build AI Workbench: %w", e)
@@ -1259,11 +1261,30 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				return nil, e
 			}
 			projectChat.attachStoreScopes(stores)
+			catalog, e := storecenter.NewCatalog(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer}, nil)
+			if e != nil {
+				return nil, e
+			}
+			projectChat.attachStoreOverview(catalog)
+			if projectChat.schedules != nil {
+				executionStores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, scheduledStoreMemberAuthorizer{app: projectChat})
+				if e != nil {
+					return nil, e
+				}
+				projectChat.scopes.scheduledStoreRead = func(ctx context.Context, org, id string) (aiworkbench.StoreScopeFacts, error) {
+					s, err := executionStores.Get(ctx, org, id)
+					if err != nil {
+						return aiworkbench.StoreScopeFacts{}, err
+					}
+					return aiworkbench.StoreScopeFacts{ID: s.ID(), Name: s.Name(), Platform: string(s.Platform()), Region: s.Region(), Version: uint64(s.Version())}, nil
+				}
+			}
 		}
 		if workbench.handler != nil {
 			workbench.handler.SetAIWorkbenchAvailable(true)
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)
 			workbench.handler.SetAIWorkbenchPlanningReadiness(module.(aiWorkbenchModule).PlanningReadiness)
+			workbench.handler.SetAIWorkbenchStoreRouteReadiness(module.(aiWorkbenchModule).StoreRouteReadiness)
 			workbench.handler.SetAIWorkbenchTitleReadiness(module.(aiWorkbenchModule).TitleReadiness)
 			workbench.handler.SetAIWorkbenchExecution(module.(aiWorkbenchModule).ExecutionKind(), module.(aiWorkbenchModule).ExecutionReadiness)
 		}
@@ -1514,6 +1535,21 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		workbench.handler.SetStorageCapacityAvailable(cfg.StorageCapacity)
 	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
+	if projectChat != nil && projectChat.schedules != nil {
+		stop, err := projectChat.schedules.Start(projectChat)
+		if err != nil || stop == nil {
+			return nil, fmt.Errorf("start Workbench scheduled worker: %w", errors.Join(aiworkbench.ErrUnavailable, err))
+		}
+		if projectChat.scheduleStop != nil {
+			*projectChat.scheduleStop = stop
+		}
+		server.RegisterOnShutdown(stop)
+		runtimeContext := supplied.runtimeContext
+		if runtimeContext == nil {
+			runtimeContext = context.Background()
+		}
+		startCommercialRecoveryLoop(runtimeContext, server, projectChat.recoverScheduledPlans, scheduledRecoveryInterval, "workbench scheduled execution", logger)
+	}
 	if ecoservicesRecovery != nil {
 		runtimeContext := supplied.runtimeContext
 		if runtimeContext == nil {

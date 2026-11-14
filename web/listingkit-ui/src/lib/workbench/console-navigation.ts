@@ -2,16 +2,14 @@
 import { researchWorkflows } from "./research-navigation";
 import { listingHome, listingStages } from "./listing-navigation";
 export type ConsoleNavNode = { label: string; href: string; availability: "connected" | "unavailable"; children?: readonly ConsoleNavNode[]; disclosureOnly?: boolean };
-export const onlineAcquisitionGroup = "/workbench/supply#acquisition";
-export const acquisition1688Href = "/workbench/supply/acquisition";
+export const onlineAcquisitionHref = "/workbench/supply/acquisition";
 export const amazonRealtimeAcquisitionAnchor = "amazon-realtime-acquisition";
 export const amazonRealtimeAcquisitionHref = "/workbench/supply/acquisition/amazon";
 const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow => ({
   label: workflow.label, href: workflow.root, availability: "unavailable",
-  children: workflow.phases.map(phase => ({
-    label: phase.label, href: `${workflow.root}#${phase.id}`, availability: "unavailable", disclosureOnly: true,
-    children: phase.steps.map(step => ({ label: step.label, href: `${workflow.root}?step=${step.id}`, availability: "unavailable" })),
-  })),
+  children: workflow.phases.flatMap(phase => phase.steps.map(step => ({
+    label: step.label, href: `${workflow.root}?step=${step.id}`, availability: "unavailable" as const,
+  }))),
 }));
 const pending = (label: string, href: string, children?: readonly ConsoleNavNode[]): ConsoleNavNode => ({ label, href: `/workbench/${href}`, availability: "unavailable", children });
 export const consoleNavigation: readonly ConsoleNavNode[] = [
@@ -23,10 +21,7 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
   ]),
   ...researchMenus,
   pending("供应市场", "supply", [
-    { label: "在线采集", href: onlineAcquisitionGroup, availability: "connected", disclosureOnly: true, children: [
-      { label: "1688 在线采集", href: acquisition1688Href, availability: "connected" },
-      { label: "Amazon 在线采集", href: amazonRealtimeAcquisitionHref, availability: "connected" },
-    ] },
+    { label: "在线采集", href: onlineAcquisitionHref, availability: "connected" },
     pending("硕米自营", "supply/official"), pending("硕米优选", "supply/selected"), pending("货盘集成", "supply/catalogs", [pending("货盘选品", "supply/catalogs/selection"), pending("申请对接", "supply/catalogs/apply")]), pending("优选申请", "supply/applications", [pending("发起申请", "supply/applications/new"), pending("申请进度", "supply/applications/progress"), pending("申请记录", "supply/applications/records")]),
   ]),
   pending("智能市场", "agents", [{label:"智能体市场",href:"/workbench/agents/market",availability:"connected"},{label:"我的智能体",href:"/workbench/agents/mine",availability:"connected"},{label:"智能体定制",href:"/workbench/agents/custom",availability:"connected",children:[{label:"提交定制需求",href:"/workbench/agents/custom/new",availability:"connected"},{label:"定制进度",href:"/workbench/agents/custom/progress",availability:"connected"}]}]),
@@ -77,6 +72,12 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
   }
   const exact = visit(consoleNavigation, []);
   if (exact) return exact;
+  if (/^\/workbench\/ai\/projects\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pathname)) {
+    const parent = findConsoleRoute("/workbench/ai/projects")!;
+    const node: ConsoleNavNode = { label: "项目详情", href: pathname, availability: parent.node.availability };
+    return { node, trail: [...parent.trail, node] };
+  }
+  if (pathname === amazonRealtimeAcquisitionHref) return findConsoleRoute(onlineAcquisitionHref);
   if (/^\/workbench\/(data\/research|supply\/selection)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pathname)) {
     const research=pathname.startsWith("/workbench/data/"),parent=findConsoleRoute(research?"/workbench/data/research":"/workbench/supply/selection")!;
     const node:ConsoleNavNode={label:research?"项目研究":"项目评审",href:pathname,availability:parent.node.availability};return {node,trail:[...parent.trail,node]};
@@ -178,7 +179,7 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     return { node, trail: [...parent.trail, node] };
   }
   if (/^\/workbench\/supply\/acquisition\/operation\/[0-9a-f-]+$/.test(pathname)) {
-    const parent = findConsoleRoute(acquisition1688Href)!;
+    const parent = findConsoleRoute(onlineAcquisitionHref)!;
     const node: ConsoleNavNode = { label: "采集结果", href: pathname, availability: "connected" };
     return { node, trail: [...parent.trail, node] };
   }

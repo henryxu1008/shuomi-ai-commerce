@@ -32,3 +32,15 @@ func TestManualReviewOnlyAllowsOnlyFrozenDefaultMode(t *testing.T) {
 		require.Equal(t, mode == ModeDefault, r.AllowsManualReviewMode(mode), string(mode))
 	}
 }
+
+func TestScheduledSourceAllowsOnlyFrozenManualModes(t *testing.T) {
+	r := Request{Key: "c93e6a9a-7e23-5ca1-b43e-96049ee01cf8", ScheduledSource: ScheduledSourceRef{PlanID: "fe865313-b1b8-4ea9-9e01-ea3f359295f3", OccurrenceID: "c93e6a9a-7e23-5ca1-b43e-96049ee01cf8"}, ManualReviewOnly: true, PolicyVersion: reviewproposal.ContentPolicyVersion, ContentSelection: reviewproposal.ContentSelection{TargetLanguage: "en", Title: true}}
+	for _, mode := range []ExecutionMode{ModeDefault, ModeReadOnly, ModeAutoApprove, ModeFullAccess} {
+		require.Equal(t, mode == ModeDefault || mode == ModeReadOnly, r.AllowsManualReviewMode(mode), string(mode))
+	}
+	r.ManualReviewOnly = false
+	require.False(t, r.ValidContentSelection(), "a scheduled source cannot remove the manual restriction")
+	r.ManualReviewOnly = true
+	r.ScheduledSource.OccurrenceID = ""
+	require.False(t, r.ValidContentSelection(), "partial scheduled ancestry is invalid")
+}
