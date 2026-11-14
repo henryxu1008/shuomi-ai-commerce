@@ -13,6 +13,28 @@ const source = { ref: { kind: "TITLE_REVIEW" as const, id: "550e8400-e29b-41d4-a
 const report: Report = { ...source, id: "550e8400-e29b-41d4-a716-446655440001", capturedAt: "2026-10-10T00:00:00Z", favorite: false, content: { schemaVersion: 1, sections: [{ title: "标题历史", fields: [{ label: "建议标题", value: "已保存的标题内容" }] }] }, digest: "a".repeat(64) };
 beforeEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); sessionStorage.clear(); fixture.context.user = { id: "actor-a" }; fixture.context.effectiveOrganization = { id: "org-a" }; fixture.context.permissions = ["workbench.report.read", "workbench.report.manage"]; fixture.sourceList.mockResolvedValue({ items: [{ proposal_id: source.ref.id }], next_cursor: null }); });
 const tree = (client: QueryClient, titleReviewAvailable = true) => <QueryClientProvider client={client}><ReportPage view="all" titleReviewAvailable={titleReviewAvailable} /></QueryClientProvider>;
+it("does not suggest adding reports to a read-only user", async () => {
+  fixture.context.permissions = ["workbench.report.read"];
+  vi.stubGlobal("fetch", vi.fn(async (path: string) => path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" })));
+  const client = new QueryClient(), view = render(tree(client));
+  expect(await screen.findByText("暂无可查看的报告。")).toBeVisible();
+  expect(screen.queryByRole("button", {name:"添加已有结果"})).not.toBeInTheDocument();
+  view.unmount(); client.clear();
+});
+it("explains an empty search and clears the applied filters", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (path: string) => path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" })));
+  const client = new QueryClient(), view = render(tree(client));
+  await screen.findByText("当前范围暂无报告");
+  fireEvent.click(within(screen.getByRole("group", {name:"报告用途"})).getByRole("button", {name:"标题审核"}));
+  fireEvent.change(screen.getByRole("textbox", {name:"报告标题或商品关键词"}), {target:{value:"不存在的报告"}});
+  fireEvent.click(screen.getByRole("button", {name:"搜索"}));
+  await screen.findByText("没有找到符合条件的报告");
+  fireEvent.click(screen.getByRole("button", {name:"清除筛选"}));
+  expect(screen.getByRole("textbox", {name:"报告标题或商品关键词"})).toHaveValue("");
+  expect(within(screen.getByRole("group", {name:"报告用途"})).getByRole("button", {name:"全部"})).toHaveAttribute("aria-pressed", "true");
+  await screen.findByText("当前范围暂无报告");
+  view.unmount(); client.clear();
+});
 it.each(["overview", "recent", "favorites", "all"] as const)("exposes report views and marks %s current", view => {
   fixture.context.permissions = [];
   const client=new QueryClient();
@@ -72,13 +94,13 @@ it("clears pending component state when valid colon scopes switch", async () => 
     return path.endsWith("/summary") ? Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }) : Response.json({ items: [], nextCursor: "" });
   }));
   const client = new QueryClient(), view = render(tree(client));
-  await waitFor(() => expect(screen.getByRole("button", { name: "保存报告" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "保存报告" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "添加已有结果" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "添加已有结果" }));
   fireEvent.click(await screen.findByRole("button", { name: "保存此版本" }));
   await screen.findByText(/操作结果尚未确认/);
   fixture.context.user = { id: "a" }; fixture.context.effectiveOrganization = { id: "b:c" };
   view.rerender(tree(client));
-  await waitFor(() => expect(screen.getByRole("button", { name: "保存报告" })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole("button", { name: "添加已有结果" })).toBeEnabled());
   expect(screen.queryByRole("button", { name: "重试上次操作" })).not.toBeInTheDocument();
   view.unmount(); client.clear();
 });
@@ -94,9 +116,9 @@ it("disables unmounted title capture while saved reports stay readable and downl
   const client = new QueryClient(), view = render(tree(client, false));
   fireEvent.click(await screen.findByRole("button", { name: source.title }));
   await screen.findByText("已保存的标题内容");
-  expect(screen.getByRole("button", { name: "保存报告" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "添加已有结果" })).toBeDisabled();
   expect(screen.getByText(/标题审核报告保存暂未开放/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "保存报告" }));
+  fireEvent.click(screen.getByRole("button", { name: "添加已有结果" }));
   expect(screen.queryByRole("button", { name: "已有审核详情" })).not.toBeInTheDocument();
   expect(fixture.sourceList).not.toHaveBeenCalled();
   expect(fetch.mock.calls.some(([path]) => path.includes("/sources/"))).toBe(false);
@@ -115,9 +137,9 @@ it("clearly disables unmounted SHEIN capture without fetching it and still reads
   const client = new QueryClient(), view = render(tree(client));
   fireEvent.click(await screen.findByRole("button", { name: source.title }));
   await screen.findByText("已保存的标题内容");
-  fireEvent.click(screen.getByRole("button", { name: "保存报告" }));
+  fireEvent.click(screen.getByRole("button", { name: "添加已有结果" }));
   expect(within(screen.getByRole("group",{name:"保存报告用途"})).getByRole("button", { name: "商品资料" })).toBeDisabled();
-  expect(screen.getByText(/可查阅已保存的历史报告/)).toBeInTheDocument();
+  expect(screen.getByText("已保存的标题内容")).toBeVisible();
   expect(fetchSheinRecords).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("来源与技术信息"));
   expect(screen.getByRole("button", { name: "下载原始数据" })).toBeEnabled();
@@ -136,8 +158,8 @@ it.each(["applied", "rejected"])("saves a %s Review from its existing detail lin
   }));
   const client = new QueryClient(), view = render(tree(client));
   await screen.findByText("当前范围暂无报告");
-  await waitFor(() => expect(screen.getByRole("button", { name: "保存报告" })).toBeEnabled());
-  fireEvent.click(await screen.findByRole("button", { name: "保存报告" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "添加已有结果" })).toBeEnabled());
+  fireEvent.click(await screen.findByRole("button", { name: "添加已有结果" }));
   fireEvent.click(screen.getByRole("button", { name: "已有审核详情" }));
   const input = screen.getByLabelText("标题审核详情链接或 ID");
   fireEvent.change(input, { target: { value: "/workbench/ai/tasks/pending/other?proposal_id=550e8400-e29b-41d4-a716-446655440099" } });
@@ -161,7 +183,7 @@ it("manually saves an exact version, reads it, favorites it and downloads the sa
   }));
   const create = vi.fn<(blob: Blob) => string>(() => "blob:report"); Object.defineProperty(URL, "createObjectURL", { configurable: true, value: create }); Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() }); vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   const client = new QueryClient(), view = render(tree(client));
-  await screen.findByText("当前范围暂无报告"); fireEvent.click(screen.getByRole("button", { name: "保存报告" })); fireEvent.click(await screen.findByRole("button", { name: "保存此版本" }));
+  await screen.findByText("当前范围暂无报告"); fireEvent.click(screen.getByRole("button", { name: "添加已有结果" })); fireEvent.click(await screen.findByRole("button", { name: "保存此版本" }));
   const region = await screen.findByRole("region", { name: "报告详情" }); await within(region).findByText("已保存的标题内容"); expect(within(region).getByText("2:accepted")).toBeInTheDocument(); expect(bodies[0].body).toEqual({ source: source.ref });
   fireEvent.click(within(region).getByRole("button", { name: "收藏报告" })); await within(region).findByRole("button", { name: "取消收藏" }); expect(bodies[1].body).toEqual({ favorite: true }); expect(bodies[1].key).not.toBe(bodies[0].key);
   fireEvent.click(within(region).getByText("来源与技术信息")); fireEvent.click(within(region).getByRole("button", { name: "下载原始数据" })); fireEvent.click(within(region).getByRole("button", { name: "下载文本" })); expect(create).toHaveBeenCalledTimes(2); expect((create.mock.calls[0][0] as Blob).type).toBe("application/json;charset=utf-8");
@@ -174,12 +196,12 @@ it("hides historical content immediately when enterprise or report permission ch
   }));
   const client = new QueryClient(), view = render(tree(client)); fireEvent.click(await screen.findByRole("button", { name: source.title })); await screen.findByText("已保存的标题内容");
   fixture.context.effectiveOrganization = { id: "org-b" }; view.rerender(tree(client)); expect(screen.queryByText("已保存的标题内容")).not.toBeInTheDocument(); await screen.findByText("当前范围暂无报告");
-  fixture.context.permissions = []; view.rerender(tree(client)); expect(screen.getByText("报告尚不可用")).toBeInTheDocument(); expect(screen.queryByRole("button", { name: "保存报告" })).not.toBeInTheDocument(); view.unmount(); client.clear();
+  fixture.context.permissions = []; view.rerender(tree(client)); expect(screen.getByText("报告尚不可用")).toBeInTheDocument(); expect(screen.queryByRole("button", { name: "添加已有结果" })).not.toBeInTheDocument(); view.unmount(); client.clear();
 });
 it("recovers a saved unknown intent with its original key after remount", async () => {
   const key = "550e8400-e29b-41d4-a716-446655440002"; const intent = { operation: "save" as const, key, source: source.ref }; const scope = { userId: "actor-a", organizationId: "org-a" }; writeReportIntent(scope, intent);
   const fetch = vi.fn(async (path: string, init: RequestInit) => { if (init.method === "POST") throw new Error("lost"); if (path.endsWith("/summary")) return Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }); return Response.json({ items: [], nextCursor: "" }); }); vi.stubGlobal("fetch", fetch);
-  const client = new QueryClient(), view = render(tree(client)); fireEvent.click(await screen.findByRole("button", { name: "重试上次操作" })); await screen.findByText(/操作结果尚未确认/); expect(screen.getByRole("button", { name: "保存报告" })).toBeDisabled();
+  const client = new QueryClient(), view = render(tree(client)); fireEvent.click(await screen.findByRole("button", { name: "重试上次操作" })); await screen.findByText(/操作结果尚未确认/); expect(screen.getByRole("button", { name: "添加已有结果" })).toBeDisabled();
   await waitFor(() => expect(fetch.mock.calls.some(([,init]) => init.method === "POST")).toBe(true)); const posted = fetch.mock.calls.find(([,init]) => init.method === "POST")![1]; expect(new Headers(posted.headers).get("Idempotency-Key")).toBe(key); expect(JSON.parse(String(posted.body))).toEqual({ source: source.ref }); expect(readReportIntent(scope)).toEqual(intent); view.unmount(); client.clear();
 });
 
