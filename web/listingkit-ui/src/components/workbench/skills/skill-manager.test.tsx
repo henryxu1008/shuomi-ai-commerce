@@ -1,5 +1,5 @@
 import {afterEach,beforeAll,expect,it,vi} from "vitest";
-import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/react";
 import {SkillManagerTrigger,SkillManager} from "./skill-manager";
 import {skillRequest} from "@/lib/api/skill";
 import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
@@ -26,7 +26,18 @@ it("opens personal management without an effective organization and validates be
 it("installs the official release only through the maintainer action with no client packages",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path.endsWith("/install")?{installed:[],existing:[]}:{items:[],nextCursor:""});
  render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page"/>);
- const install=await screen.findByRole("button",{name:"安装官方模板"});fireEvent.click(install);
+ const install=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(install).toBeEnabled());fireEvent.click(install);
+ const dialog=await screen.findByRole("dialog",{name:"安装官方模板"});
+ expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/install")).toBe(false);
+ fireEvent.click(within(dialog).getByRole("button",{name:"确认安装"}));
  await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path,,init])=>path==="official/install"&&init?.body==="{}")).toBe(true));
  expect(screen.queryByRole("button",{name:"新建技能"})).not.toBeInTheDocument();
+});
+it("closes the install dialog on Escape without installing",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page"/>);
+ const trigger=await screen.findByRole("button",{name:"安装官方模板"});await waitFor(()=>expect(trigger).toBeEnabled());trigger.focus();fireEvent.click(trigger);
+ const dialog=await screen.findByRole("dialog",{name:"安装官方模板"});fireEvent(dialog,new Event("cancel",{cancelable:true}));
+ expect(screen.queryByRole("dialog",{name:"安装官方模板"})).not.toBeInTheDocument();expect(trigger).toHaveFocus();
+ expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="official/install")).toBe(false);
 });
