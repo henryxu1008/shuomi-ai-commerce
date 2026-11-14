@@ -71,10 +71,9 @@ export function ChatVoiceInput({ identity, disabled, onText, onActiveChange }: {
     catch { session.current = null; setActive(false); current.current.onActiveChange(false); setNotice("无法启动语音输入，请检查浏览器权限或使用键盘输入。"); }
   }
   return <>
-    <Button size="icon" variant="outline" onClick={active ? stop : start} disabled={disabled || supported !== true || stopping} aria-label={stopping ? "正在结束语音输入" : active ? "停止语音输入" : "开始语音输入"} aria-pressed={active} title={stopping ? "正在结束语音输入" : active ? "停止语音输入" : "开始语音输入"}>
+    <Button size="icon" variant="outline" onClick={active ? stop : start} disabled={disabled || supported !== true || stopping} aria-label={stopping ? "正在结束语音输入" : active ? "停止语音输入" : "开始语音输入"} aria-description="语音可能由浏览器服务商识别" aria-pressed={active} title={stopping ? "正在结束语音输入" : active ? "停止语音输入" : "语音输入（语音可能由浏览器服务商识别）"}>
       {active ? <MicOff size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
     </Button>
-    <span>浏览器可能将语音发送给其服务商识别</span>
     <span aria-live="polite">{notice || (stopping ? "正在完成语音识别" : active ? "正在听写，点击停止" : supported === false ? "当前浏览器不支持语音输入" : "")}</span>
   </>;
 }

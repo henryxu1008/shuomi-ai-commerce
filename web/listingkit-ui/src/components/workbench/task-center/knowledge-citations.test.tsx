@@ -7,7 +7,7 @@ const citation={id,sourceId:id,revisionId:id,name:"品牌表达",location:"text"
 afterEach(cleanup);
 it("separates original AI support from edited title and renders protected text as plain text",()=>{
  render(<KnowledgeCitations knowledge={{status:"available",originAgentRunId:id,citations:[citation]}} humanEdited/>);
- expect(screen.getByText("以下出处属于原 AI 建议，未重新证明人工编辑后的标题。")).toBeInTheDocument();expect(screen.getByText("品牌表达 · 部分解析可用")).toBeInTheDocument();expect(document.querySelector("script")).toBeNull();
+ expect(screen.getByText("以下出处属于原 AI 建议，不能直接证明人工编辑后的内容。")).toBeInTheDocument();expect(screen.getByText("品牌表达 · 部分内容可用")).toBeInTheDocument();expect(screen.queryByText(id)).toBeNull();expect(document.querySelector("script")).toBeNull();
 });
 it("unavailable has no protected projection and unannotated output claims no citation",()=>{
  expect(productKnowledgeSchema.safeParse({status:"unavailable",originAgentRunId:id,citations:[citation]}).success).toBe(false);

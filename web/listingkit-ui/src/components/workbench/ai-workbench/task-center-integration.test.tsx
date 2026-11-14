@@ -126,7 +126,7 @@ it.each(["failed", "redacted"])("retains an uncertain Review session when its li
   calls.tasks.mockImplementation(({route})=>route==="task-read" ? outcome === "failed" ? Promise.reject(new Error("offline")) : Promise.resolve({task:{...task,projectionAvailable:false,reviewId:undefined}}) : Promise.resolve({tasks:[task],next:""}));
   await act(async()=>{await client.invalidateQueries({queryKey:["ai-task"]});});
   if(outcome === "failed") expect(await screen.findByText("任务不可用")).toBeVisible();
-  else expect(await screen.findByText("Owner 暂不可用，无法确认当前状态")).toBeVisible();
+  else expect(await screen.findByText("暂时无法获取当前状态")).toBeVisible();
   expect(screen.getByText("结果待核实")).toBeVisible();
   expect(screen.getByRole("button",{name:"刷新状态"})).toBeDisabled();
   expect(calls.decide).toHaveBeenCalledOnce();

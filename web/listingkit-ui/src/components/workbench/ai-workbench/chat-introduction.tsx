@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getAccountProfile } from "@/lib/api/account";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,19 +42,25 @@ export function ChatIntroduction({ createAction, contentTasks }: { createAction:
   </div>;
 }
 
-export function NewConversationIntroduction({ createAction, directCompose, canUse }: { createAction: ReactNode; directCompose: boolean; canUse: boolean }) {
+export function NewConversationIntroduction({ createAction, directCompose, userId }: { createAction: ReactNode; directCompose: boolean; canUse: boolean; userId: string }) {
+  const profile = useQuery({
+    queryKey: ["account", "chat-display-name", userId],
+    queryFn: ({signal}) => getAccountProfile({ expectedUserId: userId, signal }),
+    gcTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false,
+  });
+  const name = profile.isSuccess && !profile.isFetching ? profile.data.displayName?.trim() : "";
+  const displayName = name && name !== userId && !/^\d+$/.test(name) ? name : "";
+  const greeting = displayName ? `Hi ${displayName}，今天想做什么？` : "今天想做什么？";
   if (directCompose) return <div className={styles.newWorkspace}>
     <section className={styles.composeMain} aria-labelledby="chat-new-goal">
-      <header className={styles.composeHeading}><h2 id="chat-new-goal">{canUse ? "描述你的商品任务" : "商品任务会话"}</h2><p>{canUse ? "输入需求，创建会话后再选择商品并核对方案" : "查看已有会话，继续跟进商品任务"}</p></header>
+      <header className={styles.composeHeading}><h2 id="chat-new-goal">{greeting}</h2></header>
       <div className={styles.composePanel}>{createAction}</div>
-      {canUse ? <p className={styles.composeNote}>创建后不会自动发送需求</p> : null}
     </section>
   </div>;
   return <div className={styles.newWorkspace}>
     <section className={styles.newMain} aria-labelledby="chat-new-goal">
-      <header className={styles.newHeading}><h2 id="chat-new-goal">开始商品任务会话</h2><p>先输入需求，创建会话后选择已有商品并核对方案。</p></header>
-      <Card className={styles.createPanel}><h3>创建会话</h3><p>会话会保存到当前账号与企业。任务方案在你核对并确认后才会执行。</p><div className={styles.createAction}>{createAction}</div></Card>
-      <div className={styles.newGuide}><h3>开始前准备</h3><ol><li>选好要处理的已保存商品。</li><li>说明需要整理的内容与目标。</li><li>核对方案和额度上限后再确认执行。</li></ol></div>
+      <header className={styles.newHeading}><h2 id="chat-new-goal">{greeting}</h2></header>
+      <Card className={styles.createPanel}><div className={styles.createAction}>{createAction}</div></Card>
     </section>
   </div>;
 }
