@@ -5,6 +5,15 @@ import { contentProposalFixture } from "@/test/product-content-review-fixture";
 import { parseProductTitleProposal } from "@/lib/api/product-title-review";
 
 afterEach(cleanup);
+it("presents source and comparison without internal identifiers", () => {
+  const f = contentProposalFixture();
+  const p = parseProductTitleProposal({ ...f, evidence: [{ id: "evidence-secret", reference_type: "user_input", reference_id: "ref-secret", snapshot_id: "snapshot-secret", checksum: "sha256:secret" }] })!;
+  render(<TitleReviewDetail proposal={p} />);
+  expect(screen.getByText("用户提供的资料")).toBeInTheDocument();
+  expect(screen.getByText("Original description")).toBeInTheDocument();
+  expect(screen.getByText("Suggested description")).toBeInTheDocument();
+  expect(screen.queryByText(/evidence-secret|ref-secret|snapshot-secret|sha256:secret|product-content-review-v1/)).not.toBeInTheDocument();
+});
 it("compares all selected text fields and sends an edit of the whole frozen set", () => {
   const p = parseProductTitleProposal(contentProposalFixture())!;
   const decide = vi.fn();

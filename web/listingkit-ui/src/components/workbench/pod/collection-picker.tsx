@@ -19,7 +19,7 @@ export function CollectionPicker({scope,kind,onSelect,disabled=false,authorizati
  <div className="flex gap-2">{batchesAfter?<Button variant="outline" disabled={disabled} onClick={()=>{setBatchesAfter(undefined);setBatch("")}}>批次首页</Button>:null}{visibleBatches?.nextCursor?<Button variant="outline" disabled={disabled} onClick={()=>{setBatchesAfter(batches.data!.nextCursor);setBatch("")}}>下一页批次</Button>:null}</div>
  {batch&&items.isPending?<p role="status">正在读取商品…</p>:null}{items.error?<ConsoleState kind="error" title="无法读取批次商品"><Button variant="outline" onClick={()=>void items.refetch()}>重新读取</Button></ConsoleState>:null}
  {available?.length===0?<p>{emptyMessage??`当前页没有${kind==="product"?"可比较商品":kind==="template"?"已保存的 SDS 模板":"可用图案商品"}。`}</p>:null}
- <div className="grid gap-2 sm:grid-cols-2">{available?.map(i=><Button variant="outline" className="h-auto justify-start whitespace-normal p-3 text-left" key={i.id} disabled={disabled} onClick={()=>onSelect(i)}>{i.title||i.source.productKey}</Button>)}</div>
+ <div className="grid gap-2 sm:grid-cols-2">{available?.map(i=><Button variant="outline" className="h-auto justify-start whitespace-normal p-3 text-left" key={i.id} disabled={disabled} onClick={()=>onSelect(i)}>{i.title||"未命名商品"}</Button>)}</div>
  <div className="flex gap-2">{itemsAfter?<Button variant="outline" disabled={disabled} onClick={()=>setItemsAfter(undefined)}>商品首页</Button>:null}{visibleItems?.nextCursor?<Button variant="outline" disabled={disabled} onClick={()=>setItemsAfter(items.data!.nextCursor)}>下一页商品</Button>:null}</div>
  </div>;
 }

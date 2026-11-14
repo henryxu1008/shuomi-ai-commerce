@@ -14,7 +14,7 @@ vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof 
 vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:fixture.templates}));
 vi.mock("@/lib/api/knowledge",async original=>({...await original<object>(),knowledgeRequest:fixture.knowledge}));
 vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkbenchContext: () => fixture.context }));
-vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,disabled}:{onSelect:(item:unknown)=>void;disabled:boolean})=><button disabled={disabled} onClick={()=>onSelect({id:operationId,title:"Imported own product",source:{kind:"own",productKey:"product",version:"1",publicationId:operationId}})}>选择我的商品</button>}));
+vi.mock("../pod/collection-picker",()=>({CollectionPicker:({onSelect,disabled,isEligible}:{onSelect:(item:unknown)=>void;disabled:boolean;isEligible?:(item:{source:{kind:string;operationId?:string}})=>boolean})=>{const own={id:operationId,title:"Imported own product",source:{kind:"own",productKey:"product",version:"1",publicationId:operationId}},acquired={id:operationId,title:"采集商品",source:{kind:"acquisition",operationId,productKey:"product"}};return <>{(!isEligible||isEligible(own))&&<button disabled={disabled} onClick={()=>onSelect(own)}>选择我的商品</button>}{(!isEligible||isEligible(acquired))&&<button disabled={disabled} onClick={()=>onSelect(acquired)}>选择采集商品</button>}</>}}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: fixture.push }), useSearchParams: () => fixture.search }));
 
 const conversationId = "550e8400-e29b-41d4-a716-446655440000";
@@ -556,12 +556,12 @@ it.each(["recent", "saved"] as const)("filters only loaded %s titles while retai
 it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("releases a definitively rejected %s message for correction with a new key",async(code)=>{
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code,false)});
  const view=render(tree());await screen.findByText("开始讨论");
- fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留需求"}});
+ fireEvent.click(screen.getByRole("button",{name:"选择采集商品"}));fireEvent.change(screen.getByLabelText("需求"),{target:{value:"保留需求"}});
  fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
  await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());expect(screen.getByLabelText("需求")).toHaveValue("保留需求");
  const first=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];
  view.unmount();render(tree());await screen.findByText("开始讨论");await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
- fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修正需求"}});await waitFor(()=>expect(screen.getByRole("button",{name:"发送消息"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ fireEvent.click(screen.getByRole("button",{name:"选择采集商品"}));fireEvent.change(screen.getByLabelText("需求"),{target:{value:"修正需求"}});await waitFor(()=>expect(screen.getByRole("button",{name:"发送消息"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));
  expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0].key).not.toBe(first.key);
 });
@@ -581,7 +581,10 @@ it("sends the chosen template version and knowledge without exposing their ident
  fixture.templates.mockResolvedValue({items:[{templateId,agentId:"product.title.agent",name:"标题模板",version:"2",lifecycle:"ACTIVE",targetPlatform:"shein"}],nextCursor:""});
  fixture.knowledge.mockResolvedValue({items:[{id:baseId,name:"品牌知识",state:"ACTIVE"}],pagination:{page:1,pageSize:100,total:1}});
  render(tree());await screen.findByText("开始讨论");
- fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});
+ expect(screen.queryByLabelText("采集操作 ID")).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"选择我的商品"})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"选择采集商品"}));
+ expect(screen.getByText("已选择：采集商品")).toBeVisible();
  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"整理商品标题"}});
  fireEvent.click(screen.getByText("模板与知识库（可选）"));
  expect(await screen.findByRole("option",{name:"标题模板"})).toBeVisible();
@@ -591,12 +594,12 @@ it("sends the chosen template version and knowledge without exposing their ident
  await waitFor(()=>expect(screen.getByRole("button",{name:"发送消息"})).toBeEnabled());
  fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
  await waitFor(()=>expect(fixture.request.mock.calls.some(([v])=>v.route==="message")).toBe(true));
- expect(fixture.request.mock.calls.find(([v])=>v.route==="message")![0].body).toMatchObject({templateId,templateRevision:"2",knowledgeBaseId:baseId});
+ expect(fixture.request.mock.calls.find(([v])=>v.route==="message")![0].body).toMatchObject({operationId,templateId,templateRevision:"2",knowledgeBaseId:baseId});
  expect(screen.queryByText(templateId)).not.toBeInTheDocument();
 });
 it.each(["INVALID_REQUEST","PROPOSAL_STALE"])("retains the original intent for %s without owner rejection evidence",async(code)=>{
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};throw new AIWorkbenchError(code)});
- render(tree());await screen.findByText("开始讨论");fireEvent.change(screen.getByLabelText("采集操作 ID"),{target:{value:operationId}});fireEvent.change(screen.getByLabelText("需求"),{target:{value:"原需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ render(tree());await screen.findByText("开始讨论");fireEvent.click(screen.getByRole("button",{name:"选择采集商品"}));fireEvent.change(screen.getByLabelText("需求"),{target:{value:"原需求"}});fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
  await screen.findByRole("button",{name:"重试同一消息"});expect(screen.getByLabelText("需求")).toBeDisabled();
  const original=fixture.request.mock.calls.find(([v])=>v.route==="message")![0];fireEvent.click(screen.getByRole("button",{name:"重试同一消息"}));
  await waitFor(()=>expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")).toHaveLength(2));expect(fixture.request.mock.calls.filter(([v])=>v.route==="message")[1][0]).toMatchObject({key:original.key,body:original.body});
@@ -838,7 +841,7 @@ it("explains a terminal plan failure before dispatch and keeps the goal for a ne
   });
   render(tree());
   await screen.findByText("开始讨论");
-  fireEvent.change(screen.getByLabelText("采集操作 ID"), { target: { value: operationId } });
+  fireEvent.click(screen.getByRole("button", { name: "选择采集商品" }));
   fireEvent.change(screen.getByLabelText("需求"), { target: { value: "优化标题" } });
   fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
   expect(await screen.findByText(/规划尚未发送到模型/)).toBeInTheDocument();
@@ -854,7 +857,7 @@ it("explains a settled invalid planner response and releases the composer for a 
   });
   render(tree());
   await screen.findByText("开始讨论");
-  fireEvent.change(screen.getByLabelText("采集操作 ID"), { target: { value: operationId } });
+  fireEvent.click(screen.getByRole("button", { name: "选择采集商品" }));
   fireEvent.change(screen.getByLabelText("需求"), { target: { value: "优化标题" } });
   fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
   expect(await screen.findByText(/模型返回的规划内容格式无效/)).toBeInTheDocument();
@@ -865,7 +868,7 @@ it("explains a settled invalid planner response and releases the composer for a 
 it("keeps the exact message key and body across a lost response and page reload", async () => {
   const view = render(tree());
   await screen.findByText("开始讨论");
-  fireEvent.change(screen.getByLabelText("采集操作 ID"), { target: { value: operationId } });
+  fireEvent.click(screen.getByRole("button", { name: "选择采集商品" }));
   fireEvent.change(screen.getByLabelText("需求"), { target: { value: "优化标题" } });
   fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
   await screen.findByText(/结果暂无法确认/);
@@ -888,7 +891,7 @@ it("keeps the exact message key and body across a lost response and page reload"
 it("unmounts the old organization view and never sends its pending draft to the new organization", async () => {
   const view = render(tree());
   await screen.findByText("开始讨论");
-  fireEvent.change(screen.getByLabelText("采集操作 ID"), { target: { value: operationId } });
+  fireEvent.click(screen.getByRole("button", { name: "选择采集商品" }));
   fireEvent.change(screen.getByLabelText("需求"), { target: { value: "企业甲内容" } });
   fireEvent.click(screen.getByRole("button", { name: "发送消息" }));
   await screen.findByText(/结果暂无法确认/);

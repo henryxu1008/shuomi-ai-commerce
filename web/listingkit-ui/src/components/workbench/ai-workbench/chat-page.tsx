@@ -23,6 +23,7 @@ import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
 import {ChatTaskSelection} from "./chat-task-selection";
 import {ChatContextPicker} from "./chat-context-picker";
+import {CollectionPicker} from "../pod/collection-picker";
 import {aiTaskSelection,type AITaskSubject} from "@/lib/contracts/ai-workbench";
 import {contentSelectionLabel,type ContentSelection} from "@/lib/contracts/content-selection";
 import styles from "./chat-page.module.css";
@@ -223,6 +224,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const queryClient = useQueryClient();
   const search = useSearchParams();
   const [operationId, setOperationId] = useState(search.get("operationId") ?? "");
+  const [selectedProductName, setSelectedProductName] = useState("");
   const execution=useWorkbenchContext();
   const contentTasks=execution.aiWorkbenchExecutionKind==="product.content.localize";
   const canRoute=canUse && execution.aiWorkbenchStoreRouteReadiness==="AVAILABLE";
@@ -304,7 +306,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       setPendingMessage({ key: value.key, body: checked.data, route, draftId, draftSlot });
       setContent(checked.data.content);
       if(route === "message") { const normal=aiMessageBody.parse(value.body);
-        if("taskSelection" in normal){setSubject(normal.taskSelection.subject);setParameters(normal.taskSelection.parameters)}else{setOperationId(normal.operationId);setPlatform(normal.targetPlatform)}
+        if("taskSelection" in normal){setSubject(normal.taskSelection.subject);setParameters(normal.taskSelection.parameters)}else{setOperationId(normal.operationId);setSelectedProductName("");setPlatform(normal.targetPlatform)}
         setTemplateId(normal.templateId ?? "");setTemplateRevision(normal.templateRevision ?? "");setKnowledgeBaseId(normal.knowledgeBaseId ?? "");if(normal.templateId || normal.templateRevision || normal.knowledgeBaseId)setContextExpanded(true);
       }
       setMessageRecoveryError("");setMessageChecked(messageStorageKey);
@@ -448,7 +450,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
     {!current.Archived && canUse && (canPlan || pendingMessage || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
       {contentTasks&&canPlan?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} onSubject={setSubject} onParameters={setParameters} disabled={pending||Boolean(pendingMessage)}/>:null}
-      {!contentTasks&&canPlan?<div className={styles.formGrid}><label>采集操作 ID<Input disabled={Boolean(pendingMessage)} value={operationId} onChange={e => setOperationId(e.target.value.trim())} placeholder="从已保存商品采集结果复制操作 ID" /></label>
+      {!contentTasks&&canPlan?<div className={styles.formGrid}><fieldset disabled={pending||Boolean(pendingMessage)}><legend>选择商品</legend><CollectionPicker authorizationKey={authorizationKey} scope={scope} kind="product" disabled={pending||Boolean(pendingMessage)} isEligible={item=>item.source.kind==="acquisition"&&isAcquisitionUUID(item.source.operationId??"")} emptyMessage="当前页没有可用于标题任务的采集商品。" onSelect={item=>{setOperationId(item.source.operationId??"");setSelectedProductName(item.title||"未命名商品")}}/>{operationId?<p>已选择：{selectedProductName||"已保存商品"}</p>:<p>请选择已保存的采集商品。</p>}</fieldset>
         <label>目标平台<Select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></Select></label></div>:null}
       <label className={styles.promptLabel}>需求<Textarea disabled={Boolean(pendingMessage) || !draftHydrated} rows={4} value={content} onChange={e => {userEdited.current=true;setContent(e.target.value);try{if(activeDraft.current){const key=activeDraft.current.slot==="handoff"?conversationDraftKey(scope,id):resolvedDraftKey(scope,id);const currentDraft=readLocalDraft(sessionStorage.getItem(key));if(!currentDraft || currentDraft.id!==activeDraft.current.id)throw new Error("draft changed");sessionStorage.setItem(key,JSON.stringify({...currentDraft,text:e.target.value}));}setDraftSaveError("");}catch{setDraftSaveError("需求未能保存到本地，刷新会丢失修改；请检查浏览器存储。");}}} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>{draftSaveError ? <p role="status">{draftSaveError}</p> : null}
       <details className={styles.optionalContext} open={contextExpanded} onToggle={event => setContextExpanded(event.currentTarget.open)}><summary>模板与知识库（可选）</summary>
