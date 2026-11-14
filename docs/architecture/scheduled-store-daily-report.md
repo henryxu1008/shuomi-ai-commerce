@@ -139,8 +139,30 @@ CaptureScheduledDaily 先按 fixed key/fingerprint 查原 receipt；若已保存
 
 ## 11. 独立评审记录
 
+### 实施增量：SHEIN 可选已保存订单观察（2026-11-14）
+
+依据 [当前用户决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1279#issuecomment-6877937169)，本批将 `observations.Service.SavedOrderAmounts` 的现有只读结果投影进独立“已保存订单观察”章节，不使用 NativeReader 不按日的订单摘要。该来源仍由 Store Observations 负责，限 SHEIN 美国站半托管/普通自营；按原槽 UTC+8 前一天半开区间、订单列表创建时间和订单号去重，包含原状态，金额只取 productTotalPrice/orderCurrency 原币分组，不换汇、不充当销售额/实收/利润。沿用现有 250 候选上限及 complete / missing_fields / coverage_incomplete / limited 结果，不扩容。
+
+后台复用现有 `storeobservationsapp.Authorization`、`OfficialObservationAccess` 和 MemberScopedStoreRepository：以原 frozen org/actor/member 重新读取 exact IAM，并要求既有订单只读权限；只构造同一店铺的 Directory（不会列举其它店铺）。先核对当前核心权限和 Store 平台为 SHEIN，才进入该来源；不进入 TEMU QueryStore 或其它平台分支。`SavedOrderAmounts` 只调用 Repository / Access.Open(sync=false) / handle.Check，不调用 QueryObservedOrders、Starter、Sync 或平台 API；新注入只暴露此读取函数，没有同步入口。原凭据仅在现有 OfficialObservationAccess 内解密并验证，不进入报告。
+
+源失权、未配置、未同步、覆盖不足、最新同步未完成、未知时间、金额/币种缺失、超限都明确标记该可选来源不可用/不完整；不让它阻断具有核心权限的财务日报。只有 complete 才显示完整当日计数和原币总额；缺时间时不把 matched 数标完整，缺金额/币种不显示完整金额。保存前再次读取源当前权限；若已失权则去除临时订单数据，改为不可用提示，再执行核心权限的保存闸门。历史读取仍按本设计核心权限规则，不新增另一历史事实源或资金口径。本窄增量需独立复核后才进入正式接线，原设计其余部分冻结不变。
+
 2026-11-14 第一轮，独立 Reviewer `daily_report_architecture_review` 只读核对设计候选 `920de860697a32f6859f4e3d6d4db6e0db2c0ae0` 及当前实际 ScheduledPlan/Temporal、HTTP-only report/cockpit authorizer、Report DB 事务和原内容预算约束。结论 **IMPLEMENTATION_READY**，BLOCKER=0、IMPLEMENTATION_TEST=1，无其它有效 finding。
 
 Finding：BeginCapture 已提交而 Report 调用前崩溃，若 Temporal 重试窗口耗尽，单纯查 receipt 的恢复扫描无法完成本次报告。Product requirement affected：本次已认领执行可在崩溃/重启后恢复，不能永久卡住核心路径。Classification：**IMPLEMENTATION_TEST**，属于原固定身份/幂等协议内的恢复接线细化，无需新恢复器或重开全局架构。Action：§7 明确原扫描按当前授权/开关和原 frozen occurrence/key 继续同次 Capture；§10第3组补上该崩溃窗口。Reviewer 已读取该两段实际增量，确认覆盖且无新 finding，维持 IMPLEMENTATION_READY。运行验证仍是实施阶段义务，不记为本轮 PASS。
 
 该设计现冻结。按 AGENTS finding 分类及停止规则，只有新实证 BLOCKER 可重开；实施细节在上述四组验证收敛，不因普通 main/元数据变化重复审核未变设计。本轮不派 Writer 写生产代码。准确最终 HEAD、CI 和独立评审证据继续记录在设计 PR，不在本文滚动更新。
+
+## 12. 本批实施接线与启用入口
+
+上文“本轮不派 Writer”描述设计评审阶段；用户随后明确授权在同一 #1280 实施本方案。新增代码沿用 Workbench / Store / Cockpit / Report 的现有 owner，不包含模型、平台同步或刊登调用。
+
+- `internal/app/scheduledreport` 是有界组合消费者：exact IAM + active user + 企业状态、当前单店授权、Cockpit 只读 Snapshot、Report Capture。Report Center 的日报历史权限接线独立于 Chat/模型是否启用；执行端仍只有原 Temporal plan/slot 回调与原 30 秒恢复扫描。
+- 配置在既有 `aiWorkbench.schedules` 下显式设置 `storeDailyReports: true`。无模型模式仍使用 `conversationOnly: true`，不填规划或内容模型策略；既有完整内容模式可与日报共存。两库扩展、权限或端口未准备好，只不开放新日报创建，不关闭既有内容、Chat 或报告能力。关闭新类型后只回查该次已保存回执，不再次捕获。
+- Workbench owner 复用 `ai-workbench-schema-init --store-daily-report-only --runtime-role ai_workbench_runtime --expected-database <当前库名> --expected-server-address <数据库实际地址> --expected-server-port <数据库实际端口>`。使用既有私密 `AI_WORKBENCH_SCHEMA_DSN` 交接；入口核对准确目标，事务内增加当前原生 schema 分支及新表权限，不改计划、任务或余额，不重登记现有计划。
+- Report owner 复用 `report-center-schema-init --store-daily-report-only --dsn-file <本机私密 owner DSN 文件> --confirm-database reports`。仅安装当前 Report schema 的类型与来源扩展，保持原报告及既有权限；serving 不运行 DDL。
+- 新报告执行的 key 仅由原 occurrence 身份生成。Report DB 的事务在原键锁后先回查胜出结果，再检查权限、移除已失权的可选来源、重算最终正文摘要并提交；失败重试不能用临时读取的更新正文覆盖旧报告。Workbench 先提交 capture_started，再调用 Report；原扫描能够继续崩溃前已认领但尚未调用 Report 的执行。
+- 日报来源权限适用于历史列表、搜索、统计、详情、收藏与下载。下载日报前重新读取报告，不直接导出已失权的页面缓存。既有三类报告保持原来源合同；时间统一按原 UTC 接口格式输出。
+- 复用既有 Postgres/HTTP/Playwright 夹具验证；浏览器夹具的身份会话与名义 Temporal 回调受控，保存、当前单店权限、财务读取、两库事务及结果回查走真实代码。正式 Temporal 调度器未更改，沿用已完成的原调度验证；真实平台接入及原35444启用均不属于本批执行授权。
+
+SHEIN 可选来源的独立增量复核结论为 IMPLEMENTATION_READY，0 BLOCKER。原 reviewer 的两项 IMPLEMENTATION_TEST 均纳入实现：保存前 `orders.read` + 原店铺/连接 binding 的实时检查及最终字节脱敏；不按状态额外过滤、不改原订单状态，不承诺没有提供的状态分组。正文独立保留同步记录、原范围、取得时间及完整性，原币不换汇；缺失与超限不当作零。

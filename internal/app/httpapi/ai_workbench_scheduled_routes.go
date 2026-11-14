@@ -52,11 +52,12 @@ func aiWorkbenchScheduleRoutes(a *aiWorkbenchApplication) []httproute.Descriptor
 					writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 					return
 				}
-				enabled := a.schedules != nil && a.agent != nil && !a.conversationOnly
-				workbenchReply(c, 200, gin.H{"enabled": enabled, "ready": enabled && a.schedules.Ready()})
+				content := a.schedules != nil && a.contentSchedulesEnabled()
+				enabled := content || a.dailyReportReady()
+				workbenchReply(c, 200, gin.H{"enabled": enabled, "ready": enabled && a.schedules.Ready(), "contentEnabled": content, "storeDailyReportEnabled": a.dailyReportReady()})
 				return
 			}
-			if a.schedules == nil || a.agent == nil || a.conversationOnly {
+			if a.schedules == nil {
 				writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
 				return
 			}
@@ -166,7 +167,17 @@ func (a *aiWorkbenchApplication) createScheduled(c *gin.Context, ctx context.Con
 		return
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
-	draft := aiworkbench.ScheduledPlanDraft{ID: id, Scope: owner, MemberID: i.EffectiveMemberID, Selection: *p.Selection(), GoalSummary: p.GoalSummary, Rule: input.Rule, Budget: budget, CreatedAt: now, RuleStartAt: now, ExecutionSpec: spec, CreationFingerprint: fingerprint}
+	draft := aiworkbench.ScheduledPlanDraft{ID: id, Scope: owner, MemberID: i.EffectiveMemberID, GoalSummary: p.GoalSummary, Rule: input.Rule, Budget: budget, CreatedAt: now, RuleStartAt: now, ExecutionSpec: spec, CreationFingerprint: fingerprint}
+	if input.Report != nil {
+		draft.Report = input.Report
+		draft.GoalSummary = "店铺经营日报"
+		draft.ExecutionSpec = json.RawMessage(`{}`)
+	} else if p.Selection() != nil {
+		draft.Selection = *p.Selection()
+	} else {
+		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+		return
+	}
 	createErr := a.store.CreateScheduledPlanForCommand(ctx, draft, key)
 	plan, err = a.store.ReadScheduledPlan(ctx, owner, id)
 	if err != nil {
@@ -185,7 +196,7 @@ func (a *aiWorkbenchApplication) createScheduled(c *gin.Context, ctx context.Con
 }
 
 func (a *aiWorkbenchApplication) replyScheduledSave(c *gin.Context, ctx context.Context, plan aiworkbench.ScheduledPlan) {
-	if plan.RegistrationState != "MATCHED" {
+	if plan.RegistrationState != "MATCHED" && (plan.Report != nil && a.dailyReportReady() || plan.Report == nil && a.contentSchedulesEnabled()) {
 		_ = a.synchronizeScheduledPlan(ctx, plan)
 	}
 	current, err := a.store.ReadScheduledPlan(ctx, plan.Scope, plan.ID)
@@ -221,28 +232,46 @@ func (a *aiWorkbenchApplication) changeScheduled(c *gin.Context, ctx context.Con
 		return
 	} else if found {
 		if action == "edit" {
-			var p aiworkbench.ExecutionProposal
-			if json.Unmarshal(saved.ExecutionSpec, &p) != nil {
-				writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
-				return
-			}
-			if body.Confirmation != scheduledQuoteConfirmation(p, *body.Rule, saved.Budget) {
-				writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
-				return
+			if saved.Report != nil {
+				if body.Confirmation != dailyConfirmation(*saved.Report, *body.Rule, saved.Budget.MaxOccurrences) {
+					writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
+					return
+				}
+			} else {
+				var p aiworkbench.ExecutionProposal
+				if json.Unmarshal(saved.ExecutionSpec, &p) != nil {
+					writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+					return
+				}
+				if body.Confirmation != scheduledQuoteConfirmation(p, *body.Rule, saved.Budget) {
+					writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
+					return
+				}
 			}
 		}
 		a.replyScheduledSave(c, ctx, saved)
 		return
 	}
 	if action == "resume" {
-		var p aiworkbench.ExecutionProposal
-		if json.Unmarshal(plan.ExecutionSpec, &p) != nil {
-			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
-			return
-		}
-		if _, err = a.validateScheduledProposal(ctx, p); err != nil {
-			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
-			return
+		if plan.Report != nil {
+			if !a.dailyReportReady() {
+				writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+				return
+			}
+			if err = a.dailyReports.Authorize(ctx, reportOriginForPlan(plan), true); err != nil {
+				writeAIWorkbenchError(c, err)
+				return
+			}
+		} else {
+			var p aiworkbench.ExecutionProposal
+			if json.Unmarshal(plan.ExecutionSpec, &p) != nil {
+				writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+				return
+			}
+			if _, err = a.validateScheduledProposal(ctx, p); err != nil {
+				a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
+				return
+			}
 		}
 	}
 	if action == "edit" {
@@ -298,7 +327,7 @@ func (a *aiWorkbenchApplication) replyScheduledDecision(c *gin.Context, ctx cont
 
 func (a *aiWorkbenchApplication) listScheduled(c *gin.Context, ctx context.Context, owner aiworkbench.Scope) {
 	for name, values := range c.Request.URL.Query() {
-		if len(values) != 1 || (name != "limit" && name != "after") {
+		if len(values) != 1 || (name != "limit" && name != "after" && name != "kind") {
 			writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 			return
 		}
@@ -308,7 +337,7 @@ func (a *aiWorkbenchApplication) listScheduled(c *gin.Context, ctx context.Conte
 		writeAIWorkbenchError(c, err)
 		return
 	}
-	plans, next, err := a.store.ListScheduledPlans(ctx, owner, c.Query("after"), limit)
+	plans, next, err := a.store.ListScheduledPlans(ctx, owner, c.Query("after"), limit, c.Query("kind"))
 	if err != nil {
 		writeAIWorkbenchError(c, err)
 		return
@@ -338,6 +367,7 @@ func (a *aiWorkbenchApplication) scheduledHistory(c *gin.Context, ctx context.Co
 		return
 	}
 	type occurrenceView struct {
+		ReportID       string    `json:"reportId,omitempty"`
 		ID             string    `json:"id"`
 		ScheduledAt    time.Time `json:"scheduledAt"`
 		PlanRevision   string    `json:"planRevision"`
@@ -347,7 +377,13 @@ func (a *aiWorkbenchApplication) scheduledHistory(c *gin.Context, ctx context.Co
 	}
 	views := make([]occurrenceView, 0, len(items))
 	for _, item := range items {
-		views = append(views, occurrenceView{ID: item.ID, ScheduledAt: item.ScheduledAtUTC, PlanRevision: strconv.FormatInt(item.PlanRevision, 10), State: item.State, Reason: item.Reason, BusinessTaskID: item.BusinessTaskID})
+		view := occurrenceView{ID: item.ID, ScheduledAt: item.ScheduledAtUTC, PlanRevision: strconv.FormatInt(item.PlanRevision, 10), State: item.State, Reason: item.Reason, BusinessTaskID: item.BusinessTaskID}
+		if a.dailyReports != nil {
+			if e, err := a.store.ReadReportExecution(ctx, owner, item.ID); err == nil && a.dailyReports.Authorize(ctx, e.Origin, false) == nil {
+				view.ReportID = e.ReportID
+			}
+		}
+		views = append(views, view)
 	}
 	workbenchReply(c, 200, gin.H{"occurrences": views, "next": next})
 }

@@ -109,13 +109,20 @@ func VerifyTargetSourceSchema(ctx context.Context, db *gorm.DB) error {
 	err := db.WithContext(ctx).Raw(`SELECT pg_get_constraintdef(c.oid) AS definition,c.convalidated AS validated
  FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=ANY(c.conkey)
  WHERE c.conrelid=to_regclass('report_center.saved_reports') AND c.contype='c' AND a.attname='kind'`).Scan(&checks).Error
-	if err != nil || len(checks) != 1 || !checks[0].Validated || !pgschema.SchemaConstraintEqual(checks[0].Definition, definition) {
+	if err != nil {
+		return rc.ErrUnavailable
+	}
+	if len(checks) == 2 && VerifyDailyReportSchema(ctx, db) == nil {
+		return nil
+	}
+	if len(checks) != 1 || !checks[0].Validated || !pgschema.SchemaConstraintEqual(checks[0].Definition, definition) {
 		return rc.ErrUnavailable
 	}
 	return nil
 }
 
 type reportRow struct {
+	ScheduledOrigin                                                                        json.RawMessage `gorm:"type:jsonb"`
 	ID, OrganizationID, ActorID, Kind, SourceID, SourceVersion, Title, ProductKey, StoreID string
 	SourceAt                                                                               *time.Time
 	CapturedAt                                                                             time.Time
@@ -160,7 +167,16 @@ func (s *Store) Lookup(ctx context.Context, scope rc.Scope, key, fp string) (str
 	return lookup(s.db.WithContext(ctx), scope, key, fp)
 }
 func rowSummary(r reportRow, favorite bool) rc.ReportSummary {
-	return rc.ReportSummary{ID: r.ID, SourceInfo: rc.SourceInfo{Ref: rc.SourceRef{Kind: r.Kind, ID: r.SourceID, Version: r.SourceVersion}, Title: r.Title, ProductKey: r.ProductKey, StoreID: r.StoreID, SourceAt: r.SourceAt}, CapturedAt: r.CapturedAt, Favorite: favorite}
+	if r.SourceAt != nil {
+		utc := r.SourceAt.UTC()
+		r.SourceAt = &utc
+	}
+	r.CapturedAt = r.CapturedAt.UTC()
+	var origin *rc.ScheduledOrigin
+	if len(r.ScheduledOrigin) != 0 {
+		_ = json.Unmarshal(r.ScheduledOrigin, &origin)
+	}
+	return rc.ReportSummary{ID: r.ID, SourceInfo: rc.SourceInfo{ScheduledOrigin: origin, Ref: rc.SourceRef{Kind: r.Kind, ID: r.SourceID, Version: r.SourceVersion}, Title: r.Title, ProductKey: r.ProductKey, StoreID: r.StoreID, SourceAt: r.SourceAt}, CapturedAt: r.CapturedAt, Favorite: favorite}
 }
 func read(db *gorm.DB, scope rc.Scope, id string) (rc.Report, error) {
 	var r reportRow
@@ -215,7 +231,7 @@ func (s *Store) Save(ctx context.Context, scope rc.Scope, key, fp string, snap r
 			return e
 		}
 		r := reportRow{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, Kind: snap.Ref.Kind, SourceID: snap.Ref.ID, SourceVersion: snap.Ref.Version, Title: snap.Title, ProductKey: snap.ProductKey, StoreID: snap.StoreID, SourceAt: snap.SourceAt, CapturedAt: time.Now().UTC(), Content: body, Digest: digest}
-		if e := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&r).Error; e != nil {
+		if e := tx.Omit("ScheduledOrigin").Clauses(clause.OnConflict{DoNothing: true}).Create(&r).Error; e != nil {
 			return e
 		}
 		var existing reportRow
@@ -311,6 +327,7 @@ func pageQuery(db *gorm.DB, scope rc.Scope, f rc.Filter) (*gorm.DB, error) {
 		return nil, rc.ErrInvalid
 	}
 	q := db.Table("report_center.saved_reports AS r").Joins("JOIN report_center.favorites AS f ON f.report_id=r.id AND f.organization_id=r.organization_id AND f.actor_id=r.actor_id").Where("r.organization_id=? AND r.actor_id=?", scope.OrganizationID, scope.ActorID)
+	q = dailyVisibleQuery(q, db.Statement.Context)
 	if f.View == "favorites" {
 		q = q.Where("f.favorite=TRUE")
 	}
@@ -344,7 +361,7 @@ func (s *Store) List(ctx context.Context, scope rc.Scope, f rc.Filter) (rc.Page,
 		Report   reportRow `gorm:"embedded"`
 		Favorite bool
 	}
-	e = q.Select("r.id,r.kind,r.source_id,r.source_version,r.title,r.product_key,r.store_id,r.source_at,r.captured_at,f.favorite").Order("r.captured_at DESC,r.id DESC").Limit(f.Limit + 1).Scan(&rows).Error
+	e = q.Select("r.id,r.kind,r.source_id,r.source_version,r.title,r.product_key,r.store_id,r.source_at,r.captured_at,to_jsonb(r)->'scheduled_origin' AS scheduled_origin,f.favorite").Order("r.captured_at DESC,r.id DESC").Limit(f.Limit + 1).Scan(&rows).Error
 	if e != nil {
 		return result, e
 	}
@@ -364,6 +381,15 @@ func (s *Store) Summary(ctx context.Context, scope rc.Scope) (rc.Summary, error)
 	if !scope.Valid() {
 		return result, rc.ErrInvalid
 	}
-	e := s.db.WithContext(ctx).Raw(`SELECT count(*) AS saved,count(*) FILTER(WHERE r.captured_at>=?) AS recent,count(*) FILTER(WHERE f.favorite) AS favorites,count(DISTINCT nullif(r.store_id,'')) AS stores FROM report_center.saved_reports r JOIN report_center.favorites f ON f.report_id=r.id AND f.organization_id=r.organization_id AND f.actor_id=r.actor_id WHERE r.organization_id=? AND r.actor_id=?`, time.Now().UTC().AddDate(0, 0, -30), scope.OrganizationID, scope.ActorID).Scan(&result).Error
+	q := dailyVisibleQuery(s.db.WithContext(ctx).Table("report_center.saved_reports r").Joins("JOIN report_center.favorites f ON f.report_id=r.id AND f.organization_id=r.organization_id AND f.actor_id=r.actor_id").Where("r.organization_id=? AND r.actor_id=?", scope.OrganizationID, scope.ActorID), ctx)
+	e := q.Select("count(*) AS saved,count(*) FILTER(WHERE r.captured_at>=?) AS recent,count(*) FILTER(WHERE f.favorite) AS favorites,count(DISTINCT nullif(r.store_id,'')) AS stores", time.Now().UTC().AddDate(0, 0, -30)).Scan(&result).Error
 	return result, e
+}
+
+func dailyVisibleQuery(q *gorm.DB, ctx context.Context) *gorm.DB {
+	v := rc.DailyVisibilityFromContext(ctx)
+	if v.MemberID == "" || len(v.StoreIDs) == 0 {
+		return q.Where("r.kind<>?", rc.StoreDailyReportKind)
+	}
+	return q.Where("(r.kind<>? OR ((to_jsonb(r)->'scheduled_origin'->>'memberId')=? AND r.store_id IN ?))", rc.StoreDailyReportKind, v.MemberID, v.StoreIDs)
 }

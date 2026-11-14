@@ -27,6 +27,7 @@ import (
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/product/review"
+	rc "task-processor/internal/reportcenter"
 )
 
 const workbenchChatBase = "/api/v1/workbench/chat/conversations"
@@ -186,9 +187,9 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, aiworkbench.ErrScheduleCommandRejected):
 		status, code = http.StatusConflict, "SCHEDULE_COMMAND_REJECTED"
-	case errors.Is(err, aiworkbench.ErrInvalid), errors.Is(err, aiworkbench.ErrInvalidSchedule), errors.Is(err, agent.ErrInvalid), errors.Is(err, agentconfig.ErrInvalid):
+	case errors.Is(err, rc.ErrInvalid), errors.Is(err, aiworkbench.ErrInvalid), errors.Is(err, aiworkbench.ErrInvalidSchedule), errors.Is(err, agent.ErrInvalid), errors.Is(err, agentconfig.ErrInvalid):
 		status, code = http.StatusBadRequest, "INVALID_REQUEST"
-	case errors.Is(err, aiworkbench.ErrNotFound):
+	case errors.Is(err, rc.ErrNotFound), errors.Is(err, aiworkbench.ErrNotFound):
 		status, code = http.StatusNotFound, "NOT_FOUND"
 	case errors.Is(err, aiworkbench.ErrIdempotencyConflict), errors.Is(err, agentconfig.ErrConflict):
 		status, code = http.StatusConflict, "IDEMPOTENCY_CONFLICT"
@@ -202,7 +203,7 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "CONVERSATION_ARCHIVED"
 	case errors.Is(err, aiworkbench.ErrTaskOutcomeUnknown):
 		status, code = http.StatusServiceUnavailable, "TASK_OUTCOME_UNKNOWN"
-	case errors.Is(err, review.ErrForbidden), errors.Is(err, agentconfig.ErrForbidden):
+	case errors.Is(err, rc.ErrForbidden), errors.Is(err, review.ErrForbidden), errors.Is(err, agentconfig.ErrForbidden):
 		status, code = http.StatusForbidden, "FORBIDDEN"
 	}
 	c.Header("Cache-Control", "private, no-store")

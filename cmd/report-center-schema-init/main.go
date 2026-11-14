@@ -23,18 +23,20 @@ func main() {
 	path := flag.String("dsn-file", "", "absolute private Report owner DSN file")
 	database := flag.String("confirm-database", "", "exact dedicated Report database")
 	install := flag.Bool("install-empty-schema", false, "install current Report schema only in an empty dedicated database")
+	daily := flag.Bool("store-daily-report-only", false, "install the daily report extension in the confirmed current reports database")
 	flag.Parse()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if flag.NArg() != 0 || initialize(ctx, *path, *database, *install) != nil {
+	if flag.NArg() != 0 || initialize(ctx, *path, *database, *install, *daily) != nil {
 		fmt.Fprintln(os.Stderr, "Report initialization refused; require a private owner file, confirmed dedicated database and pre-provisioned report_center_runtime role")
 		os.Exit(1)
 	}
 	fmt.Println("Current Report schema and report grants ready")
 }
-func initialize(ctx context.Context, path, confirmed string, install bool) error {
+func initialize(ctx context.Context, path, confirmed string, install bool, dailyOption ...bool) error {
+	daily := len(dailyOption) == 1 && dailyOption[0]
 	refused := errors.New("Report initialization refused")
-	if ctx == nil || !filepath.IsAbs(path) || confirmed != "reports" || !install || coreconfig.VerifyPrivateFiles(ctx, []string{path}) != nil {
+	if ctx == nil || !filepath.IsAbs(path) || confirmed != "reports" || install == daily || len(dailyOption) > 1 || coreconfig.VerifyPrivateFiles(ctx, []string{path}) != nil {
 		return refused
 	}
 	info, err := os.Lstat(path)
@@ -86,6 +88,9 @@ func initialize(ctx context.Context, path, confirmed string, install bool) error
 			if reportstore.InstallSchema(tx) != nil {
 				return refused
 			}
+		}
+		if daily {
+			return reportstore.InstallDailyReportSchema(tx)
 		}
 		return reportstore.GrantRuntime(tx, "report_center_runtime")
 	})

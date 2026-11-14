@@ -288,3 +288,15 @@ it("does not suggest saving product reports when their source is unavailable", a
  const client=new QueryClient(),view=render(tree(client));fireEvent.click(await screen.findByRole("button",{name:"商品资料"}));
  expect(await screen.findByText("当前无法保存商品资料报告，已有历史报告仍可查看。")).toBeVisible();view.unmount();client.clear();
 });
+
+it("reopens a scheduled operating report by its stable report link",async()=>{
+ const saved:Report={...report,ref:{kind:"STORE_DAILY_REPORT",id:source.ref.id,version:"1"},productKey:"",storeId:source.ref.id,title:"店铺经营日报 · 2026-11-14",scheduledOrigin:{organizationId:"org-a",actorId:"actor-a",memberId:"member-a",planId:source.ref.id,planRevision:2,occurrenceId:source.ref.id,scheduledAt:"2026-11-15T01:00:00Z",storeId:source.ref.id,day:"2026-11-14",rendererVersion:1},content:{schemaVersion:1,sections:[{title:"经营财务",fields:[{label:"收入",value:"0.00 元"}]}]}};
+ vi.stubGlobal("fetch",vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:1,recent:1,favorites:0,stores:1}):path.endsWith("/"+report.id)?Response.json(saved):Response.json({items:[saved],nextCursor:""})));
+ const client=new QueryClient(),view=render(<QueryClientProvider client={client}><ReportPage view="all" initialReport={report.id}/></QueryClientProvider>);
+ await screen.findByText("0.00 元");expect(screen.getByRole("link",{name:"打开原来源"})).toHaveAttribute("href",`/workbench/ai/tasks?view=schedules&schedule_id=${source.ref.id}`);
+ expect(screen.getByRole("button",{name:"经营报告"})).toBeVisible();
+ const createURL=vi.fn(()=>"blob:test");Object.defineProperty(URL,"createObjectURL",{configurable:true,value:createURL});
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({code:"NOT_FOUND"},{status:404})));
+ fireEvent.click(screen.getByRole("button",{name:"下载文本"}));
+ await screen.findByText("当前无法下载这份报告，请刷新后重试。");expect(createURL).not.toHaveBeenCalled();view.unmount();client.clear();
+});

@@ -3,6 +3,7 @@ import { serverAuth } from "@/auth";
 import { readZitadelIdentityFromSession } from "@/lib/server/zitadel-auth";
 import { readZitadelServerAccessToken } from "@/lib/server/zitadel-server-token";
 import { proxyReportCenter, reportFailure } from "@/lib/server/report-center-proxy";
+export const dynamic="force-dynamic";
 const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown }) => proxyReportCenter(request, readZitadelServerAccessToken(request.auth as never), String(readZitadelIdentityFromSession(request.auth as never)?.userId ?? "")));
 async function handle(request: NextRequest) {
   const controller = new AbortController(), abort = () => controller.abort();

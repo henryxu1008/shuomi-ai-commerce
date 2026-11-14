@@ -14,6 +14,7 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
+	"task-processor/internal/app/scheduledreport"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	governed "task-processor/internal/integration/aicapability/einomodel"
@@ -25,6 +26,7 @@ import (
 )
 
 type AIWorkbenchDependencies struct {
+	StoreDailyReports      bool
 	ScheduleStop           *func()
 	ScheduleSourceDB       *gorm.DB
 	Schedules              aiworkbench.ScheduleBackend
@@ -39,6 +41,8 @@ type AIWorkbenchDependencies struct {
 }
 
 type aiWorkbenchApplication struct {
+	dailyReports           *scheduledreport.Application
+	dailyReportsEnabled    bool
 	scheduleRecoveryMu     sync.Mutex
 	scheduleRecoveryAfter  string
 	scheduleStop           *func()
@@ -136,6 +140,10 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 			return nil, err
 		}
 		app := &aiWorkbenchApplication{store: store, conversationOnly: true, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...), resolver: cfg.resolver, authorizer: cfg.authorizer}
+		if cfg.StoreDailyReports {
+			app.schedules, app.scheduleStop = cfg.Schedules, cfg.ScheduleStop
+			app.dailyReportsEnabled = true
+		}
 		app.storeRoute = &aiworkbench.StoreRouteService{Store: store, Gateway: &workbenchStoreRouter{app: app}}
 		return app, nil
 	}
@@ -223,6 +231,8 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
 	app := &aiWorkbenchApplication{store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
+	app.dailyReportsEnabled = cfg.StoreDailyReports
+	app.resolver, app.authorizer = cfg.resolver, cfg.authorizer
 	storeRouteAllowed := make(map[string]bool, len(cfg.StoreRouteTextPolicies))
 	for org := range cfg.StoreRouteTextPolicies {
 		storeRouteAllowed[org] = true
@@ -234,13 +244,13 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	}
 	app.service = &aiworkbench.Service{Store: store, Plan: planner, Execute: workbenchExecution{agent: a, workbench: app}}
 	if cfg.Schedules != nil {
-		if !a.workbenchKind(aiworkbench.ContentTaskKind) || a.config.ContentTitleOnly {
+		app.schedules, app.scheduleStop = cfg.Schedules, cfg.ScheduleStop
+		if app.contentSchedulesEnabled() {
+			if err := app.connectScheduledExecution(ctx, a.config.ReviewDB, cfg.ScheduleSourceDB); err != nil {
+				return nil, err
+			}
+		} else if !cfg.StoreDailyReports {
 			return nil, aiworkbench.ErrUnavailable
-		}
-		app.schedules = cfg.Schedules
-		app.scheduleStop = cfg.ScheduleStop
-		if err := app.connectScheduledExecution(ctx, a.config.ReviewDB, cfg.ScheduleSourceDB); err != nil {
-			return nil, err
 		}
 	}
 	return app, nil
