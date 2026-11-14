@@ -1,3 +1,6 @@
+// jsdom does not implement the browser modal dialog API.
+Object.defineProperty(HTMLDialogElement.prototype, "showModal", {configurable:true, value:function(this:HTMLDialogElement){this.open=true;}});
+Object.defineProperty(HTMLDialogElement.prototype, "close", {configurable:true, value:function(this:HTMLDialogElement){this.open=false;}});
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";

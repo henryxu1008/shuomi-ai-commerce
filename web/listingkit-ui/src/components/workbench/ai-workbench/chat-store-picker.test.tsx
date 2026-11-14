@@ -1,3 +1,6 @@
+// jsdom does not implement the browser modal dialog API.
+Object.defineProperty(HTMLDialogElement.prototype, "showModal", {configurable:true, value:function(this:HTMLDialogElement){this.open=true;}});
+Object.defineProperty(HTMLDialogElement.prototype, "close", {configurable:true, value:function(this:HTMLDialogElement){this.open=false;}});
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,expect,it,vi} from "vitest";
@@ -44,4 +47,15 @@ it("switches and clears in the same conversation without changing the saved draf
  fireEvent.click(screen.getByRole("button",{name:"取消选择"}));
  expect(JSON.parse(sessionStorage.getItem(chatStoreChoiceKey(scope,"conversation:one"))!)).toEqual({kind:"none"});
  expect(sessionStorage.getItem("unrelated-draft")).toBe("保留原文");
+});
+
+it("opens an accessible drawer and restores focus after Escape",async()=>{
+ calls.scope.mockResolvedValue({options:[],next:"",incomplete:false});
+ render(wrapper(vi.fn()));
+ const trigger=screen.getByRole("button",{name:"选择店铺"});trigger.focus();fireEvent.click(trigger);
+ const dialog=await screen.findByRole("dialog",{name:"选择店铺"});
+ expect(screen.getByRole("button",{name:"关闭选择店铺"})).toHaveFocus();
+ fireEvent(dialog,new Event("cancel",{cancelable:true}));
+ await waitFor(()=>expect(screen.queryByRole("dialog",{name:"选择店铺"})).toBeNull());
+ expect(trigger).toHaveFocus();
 });

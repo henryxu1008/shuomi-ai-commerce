@@ -4,6 +4,8 @@ import {useEffect,useRef,useState} from "react";
 import {useInfiniteQuery} from "@tanstack/react-query";
 import Link from "next/link";
 import {Button} from "@/components/ui/button";
+import {AccountDialog} from "@/components/workbench/account/account-dialog";
+import styles from "./chat-store-picker.module.css";
 import {getStoreConnection} from "@/lib/api/store-connection";
 import {requestAIWorkbench,type AIScope} from "@/lib/api/ai-workbench";
 import {aiStoreChoice,type WorkScopeOption} from "@/lib/contracts/ai-workbench";
@@ -73,16 +75,16 @@ export function ChatStorePicker({scope,authorizationKey,context,disabled,baseSto
  }
  const visible=!rows.isFetching&&!rows.isError?rows.data?.pages.flatMap(page=>page.items):undefined;
  return <div>
-  <Button type="button" variant="outline" disabled={disabled} onClick={()=>setOpen(!open)} aria-expanded={open}>{value?.kind==="store"?(name||"店铺待确认"):!value&&baseStoreName?baseStoreName:"选择店铺"}</Button>
+  <Button type="button" variant="outline" disabled={disabled} onClick={()=>setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>{value?.kind==="store"?(name||"店铺待确认"):!value&&baseStoreName?baseStoreName:"选择店铺"}</Button>
   {value?.kind==="store"||!value&&baseStoreName?<Button type="button" variant="ghost" disabled={disabled} onClick={()=>save({kind:"none"},"")}>取消选择</Button>:null}
   {error?<p role="status">{error}</p>:null}
-  {open?<div aria-label="已连接店铺"><p>选择已连接店铺</p>
+  {open?<AccountDialog title="选择店铺" drawer className={styles.drawer} onClose={()=>setOpen(false)}><div className={styles.content}><p className={styles.intro}>选择已连接的店铺，为接下来的对话提供背景。</p>
    {rows.isPending||rows.isFetching?<p role="status">正在读取店铺…</p>:rows.isError?<p role="status">无法读取店铺，请重试。</p>:visible?.length===0?<p>{rows.data?.pages.some(page=>page.incomplete)?"暂未找到可选择的店铺。":"当前没有可选择的已连接店铺。"}</p>:null}
    {rows.data?.pages.some(page=>page.incomplete)?<p role="status">部分店铺暂无法确认连接状态。</p>:null}
-   {visible?.map(({option,version}:StoreRow)=><Button key={option.scope.storeId} type="button" variant="ghost" disabled={disabled} onClick={()=>save({kind:"store",storeId:option.scope.storeId!,scopeConfirmation:option.confirmation,connectionVersion:version},option.storeName||"已连接店铺")}>{option.storeName||"已连接店铺"}</Button>)}
+   {visible?.map(({option,version}:StoreRow)=><Button className={styles.store} key={option.scope.storeId} type="button" variant="ghost" disabled={disabled} onClick={()=>save({kind:"store",storeId:option.scope.storeId!,scopeConfirmation:option.confirmation,connectionVersion:version},option.storeName||"已连接店铺")}>{option.storeName||"已连接店铺"}</Button>)}
    {rows.isError?<Button type="button" variant="outline" onClick={()=>void rows.refetch()}>重新读取</Button>:null}
    {rows.hasNextPage?<Button type="button" variant="outline" disabled={rows.isFetching} onClick={()=>void rows.fetchNextPage()}>加载更多</Button>:null}
-   <Button asChild variant="outline"><Link href="/workbench/stores">连接新店铺</Link></Button>
-  </div>:null}
+   <div className={styles.connect}><Button asChild variant="outline"><Link href="/workbench/stores">连接新店铺</Link></Button></div>
+  </div></AccountDialog>:null}
  </div>;
 }
