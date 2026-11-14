@@ -79,7 +79,7 @@ it("clears pending component state when valid colon scopes switch", async () => 
   fixture.context.user = { id: "a" }; fixture.context.effectiveOrganization = { id: "b:c" };
   view.rerender(tree(client));
   await waitFor(() => expect(screen.getByRole("button", { name: "保存报告" })).toBeEnabled());
-  expect(screen.queryByRole("button", { name: "恢复原请求" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "重试上次操作" })).not.toBeInTheDocument();
   view.unmount(); client.clear();
 });
 it("disables unmounted title capture while saved reports stay readable and downloadable", async () => {
@@ -100,7 +100,8 @@ it("disables unmounted title capture while saved reports stay readable and downl
   expect(screen.queryByRole("button", { name: "已有审核详情" })).not.toBeInTheDocument();
   expect(fixture.sourceList).not.toHaveBeenCalled();
   expect(fetch.mock.calls.some(([path]) => path.includes("/sources/"))).toBe(false);
-  expect(screen.getByRole("button", { name: "下载 JSON" })).toBeEnabled();
+  fireEvent.click(screen.getByText("来源与技术信息"));
+  expect(screen.getByRole("button", { name: "下载原始数据" })).toBeEnabled();
   await waitFor(() => expect(screen.getByRole("button", { name: "收藏报告" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "收藏报告" }));
   await screen.findByRole("button", { name: "取消收藏" });
@@ -115,10 +116,11 @@ it("clearly disables unmounted SHEIN capture without fetching it and still reads
   fireEvent.click(await screen.findByRole("button", { name: source.title }));
   await screen.findByText("已保存的标题内容");
   fireEvent.click(screen.getByRole("button", { name: "保存报告" }));
-  expect(screen.getByRole("button", { name: "SHEIN资料与保存时诊断" })).toBeDisabled();
-  expect(screen.getByText(/SHEIN资料报告保存暂未开放/)).toBeInTheDocument();
+  expect(within(screen.getByRole("group",{name:"保存报告用途"})).getByRole("button", { name: "商品资料" })).toBeDisabled();
+  expect(screen.getByText(/可查阅已保存的历史报告/)).toBeInTheDocument();
   expect(fetchSheinRecords).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "下载 JSON" })).toBeEnabled();
+  fireEvent.click(screen.getByText("来源与技术信息"));
+  expect(screen.getByRole("button", { name: "下载原始数据" })).toBeEnabled();
   view.unmount(); client.clear();
 });
 it.each(["applied", "rejected"])("saves a %s Review from its existing detail link after it leaves the actionable collection", async state => {
@@ -162,7 +164,7 @@ it("manually saves an exact version, reads it, favorites it and downloads the sa
   await screen.findByText("当前范围暂无报告"); fireEvent.click(screen.getByRole("button", { name: "保存报告" })); fireEvent.click(await screen.findByRole("button", { name: "保存此版本" }));
   const region = await screen.findByRole("region", { name: "报告详情" }); await within(region).findByText("已保存的标题内容"); expect(within(region).getByText("2:accepted")).toBeInTheDocument(); expect(bodies[0].body).toEqual({ source: source.ref });
   fireEvent.click(within(region).getByRole("button", { name: "收藏报告" })); await within(region).findByRole("button", { name: "取消收藏" }); expect(bodies[1].body).toEqual({ favorite: true }); expect(bodies[1].key).not.toBe(bodies[0].key);
-  fireEvent.click(within(region).getByRole("button", { name: "下载 JSON" })); fireEvent.click(within(region).getByRole("button", { name: "下载文本" })); expect(create).toHaveBeenCalledTimes(2); expect((create.mock.calls[0][0] as Blob).type).toBe("application/json;charset=utf-8");
+  fireEvent.click(within(region).getByText("来源与技术信息")); fireEvent.click(within(region).getByRole("button", { name: "下载原始数据" })); fireEvent.click(within(region).getByRole("button", { name: "下载文本" })); expect(create).toHaveBeenCalledTimes(2); expect((create.mock.calls[0][0] as Blob).type).toBe("application/json;charset=utf-8");
   expect(within(region).getByRole("link", { name: "打开原来源" })).toHaveAttribute("href", `/workbench/ai/tasks/pending/other?proposal_id=${source.ref.id}`); expect(sessionStorage.length).toBe(0); view.unmount(); client.clear();
 });
 it("hides historical content immediately when enterprise or report permission changes", async () => {
@@ -177,7 +179,7 @@ it("hides historical content immediately when enterprise or report permission ch
 it("recovers a saved unknown intent with its original key after remount", async () => {
   const key = "550e8400-e29b-41d4-a716-446655440002"; const intent = { operation: "save" as const, key, source: source.ref }; const scope = { userId: "actor-a", organizationId: "org-a" }; writeReportIntent(scope, intent);
   const fetch = vi.fn(async (path: string, init: RequestInit) => { if (init.method === "POST") throw new Error("lost"); if (path.endsWith("/summary")) return Response.json({ saved: 0, recent: 0, favorites: 0, stores: 0 }); return Response.json({ items: [], nextCursor: "" }); }); vi.stubGlobal("fetch", fetch);
-  const client = new QueryClient(), view = render(tree(client)); fireEvent.click(await screen.findByRole("button", { name: "恢复原请求" })); await screen.findByText(/操作结果尚未确认/); expect(screen.getByRole("button", { name: "保存报告" })).toBeDisabled();
+  const client = new QueryClient(), view = render(tree(client)); fireEvent.click(await screen.findByRole("button", { name: "重试上次操作" })); await screen.findByText(/操作结果尚未确认/); expect(screen.getByRole("button", { name: "保存报告" })).toBeDisabled();
   await waitFor(() => expect(fetch.mock.calls.some(([,init]) => init.method === "POST")).toBe(true)); const posted = fetch.mock.calls.find(([,init]) => init.method === "POST")![1]; expect(new Headers(posted.headers).get("Idempotency-Key")).toBe(key); expect(JSON.parse(String(posted.body))).toEqual({ source: source.ref }); expect(readReportIntent(scope)).toEqual(intent); view.unmount(); client.clear();
 });
 
@@ -188,4 +190,35 @@ it("previews the exact saved offline source and keeps an explicit save intent on
  const client=new QueryClient(),view=render(<QueryClientProvider client={client}><ReportPage view="all" sheinOfflineSourcesAvailable initialOfflineRecord={saved.ref.id}/></QueryClientProvider>);
  const button=await screen.findByRole("button",{name:"保存此版本"});await waitFor(()=>expect(button).toBeEnabled());expect(posts).toHaveLength(0);expect(fetchSheinRecords).not.toHaveBeenCalled();
  fireEvent.click(button);await screen.findByText(/操作结果尚未确认/);expect(posts).toEqual([{source:saved.ref}]);expect(readReportIntent({userId:"actor-a",organizationId:"org-a"})).toMatchObject({source:saved.ref});view.unmount();client.clear();
+});
+
+it("filters product reports from both SHEIN sources by purpose and platform",async()=>{
+ const target={...report,id:"550e8400-e29b-41d4-a716-446655440002",title:"商品资料 A",ref:{...report.ref,kind:"SHEIN_TARGET_RECORD",version:`sha256:${"b".repeat(64)}`}};
+ const offline={...report,id:"550e8400-e29b-41d4-a716-446655440003",title:"商品资料 B",ref:{...report.ref,kind:"SHEIN_RECORD",version:`sha256:${"c".repeat(64)}`}};
+ const summary=(r:typeof report)=>{const {content,digest,...rest}=r;void content;void digest;return rest;};
+ const fetch=vi.fn(async(path:string)=>{if(path.endsWith("/summary"))return Response.json({saved:3,recent:3,favorites:0,stores:0});const url=new URL(path,"https://example.test");const kind=url.searchParams.get("kind");const items=[report,target,offline].filter(r=>!kind||r.ref.kind===kind).map(r=>summary(r as typeof report));return Response.json({items,nextCursor:""});});
+ vi.stubGlobal("fetch",fetch);const client=new QueryClient(),view=render(tree(client));
+ await screen.findByRole("button",{name:"标题审核 · 商品A"});fireEvent.click(screen.getByRole("button",{name:"商品资料"}));
+ expect(await screen.findByRole("button",{name:"商品资料 A"})).toBeVisible();expect(screen.getByRole("button",{name:"商品资料 B"})).toBeVisible();
+ expect(screen.queryByRole("button",{name:"标题审核 · 商品A"})).not.toBeInTheDocument();
+ expect(screen.getByRole("button",{name:"SHEIN"})).toHaveAttribute("aria-pressed","true");
+ expect(screen.queryByRole("button",{name:/TEMU|TikTok/i})).not.toBeInTheDocument();
+ expect(fetch.mock.calls.some(([p])=>p.includes("kind=SHEIN_RECORD"))).toBe(true);
+ expect(fetch.mock.calls.some(([p])=>p.includes("kind=SHEIN_TARGET_RECORD"))).toBe(true);view.unmount();client.clear();
+});
+it("keeps technical details collapsed while preserving the business content",async()=>{
+ const {content,digest,...summary}=report;void content;void digest;
+ vi.stubGlobal("fetch",vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:1,recent:1,favorites:0,stores:0}):path.endsWith(report.id)?Response.json(report):Response.json({items:[summary],nextCursor:""})));
+ const client=new QueryClient(),view=render(tree(client));fireEvent.click(await screen.findByRole("button",{name:source.title}));await screen.findByText("已保存的标题内容");
+ const details=screen.getByText("来源与技术信息").closest("details")!;expect(details).not.toHaveAttribute("open");expect(within(details).getByText(report.digest)).toBeInTheDocument();view.unmount();client.clear();
+});
+
+it("shows saved product issues without exposing source identifiers by default",async()=>{
+ const target:Report={...report,title:"测试商品资料",ref:{...report.ref,kind:"SHEIN_TARGET_RECORD",version:`sha256:${"b".repeat(64)}`},content:{schemaVersion:1,sections:[{title:"保存时资料身份",fields:[{label:"资料记录 ID",value:"record-private-id"},{label:"站点",value:"US"}]},{title:"保存时构建结果（不代表当前上传许可或离线诊断）",fields:[{label:"保存时 ReadyForUpload",value:"false"},{label:"brand · required",value:"请填写品牌"}]}]}};
+ const {content,digest,...summary}=target;void content;void digest;
+ vi.stubGlobal("fetch",vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:1,recent:1,favorites:0,stores:0}):path.endsWith(target.id)?Response.json(target):Response.json({items:[summary],nextCursor:""})));
+ const client=new QueryClient(),view=render(tree(client));fireEvent.click(await screen.findByRole("button",{name:target.title}));
+ expect((await screen.findAllByText("请填写品牌"))[0]).toBeVisible();expect(screen.getByText("待处理项")).toBeVisible();
+ expect(screen.getByText("record-private-id")).not.toBeVisible();expect(screen.getByText("brand · required")).not.toBeVisible();
+ fireEvent.click(screen.getByText("来源与技术信息"));expect(screen.getByText("record-private-id")).toBeVisible();view.unmount();client.clear();
 });
