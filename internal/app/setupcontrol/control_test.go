@@ -32,6 +32,9 @@ func (d *publicationBlockDriver) Prepare(ctx context.Context, r Request, dir str
 	if err != nil {
 		return result, err
 	}
+	if err := os.WriteFile(filepath.Join(dir, "candidate"), []byte("preserved"), 0600); err != nil {
+		return Prepared{}, err
+	}
 	instance := filepath.Dir(filepath.Dir(dir))
 	if err := os.WriteFile(filepath.Join(instance, "pending-plans"), []byte("blocked"), 0600); err != nil {
 		return Prepared{}, err
@@ -94,6 +97,9 @@ func TestPublicationFailurePreservesCandidate(t *testing.T) {
 	entries, err := os.ReadDir(filepath.Join(instance, "payloads"))
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
+	data, err := os.ReadFile(filepath.Join(instance, "payloads", entries[0].Name(), "candidate"))
+	require.NoError(t, err)
+	require.Equal(t, "preserved", string(data))
 	_, err = c.History()
 	require.NoError(t, err)
 }
