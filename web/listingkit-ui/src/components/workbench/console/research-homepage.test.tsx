@@ -59,7 +59,8 @@ it("keeps the workflow introduction with inactive entries when research is not i
   fixture.context.marketResearchAvailable = false;
   render(await ResearchPage({ searchParams: Promise.resolve({}) }));
   expect(screen.getByRole("heading", { name: "市场调研业务流程" })).toBeVisible();
-  expect(screen.queryAllByRole("link")).toHaveLength(0);
+  expect(screen.getByRole("link", {name: "返回智能体市场"})).toHaveAttribute("href", "/workbench/agents/market");
+  expect(screen.queryByRole("link", {name: /开始调研/})).toBeNull();
   expect(screen.getByRole("status")).toHaveTextContent("当前暂未开放调研与选品功能");
   expect(fixture.project).not.toHaveBeenCalled();
 });

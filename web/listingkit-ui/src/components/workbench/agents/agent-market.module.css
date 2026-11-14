@@ -9,8 +9,7 @@
 .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--section-gap); }
 .card { min-height: 174px; padding: var(--card-padding); border-radius: var(--radius); display: flex; flex-direction: column; justify-content: space-between; gap: 16px; box-shadow: none; }
 .copy h3 { font-size: var(--card-title-size); font-weight: 700; line-height: 23px; }
-.description { margin-top: 3px; font-size: var(--body-text-size); line-height: 20px; color: var(--muted-foreground); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.summary { margin-top: 4px; font-size: var(--label-text-size); line-height: 20px; color: var(--console-blue); }
+.description { margin-top: 8px; font-size: var(--body-text-size); line-height: 20px; color: var(--muted-foreground); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .activation { color: var(--muted-foreground); font-size: var(--label-text-size); white-space: nowrap; }
 .activation[data-enabled="true"] { color: var(--success-foreground); }
@@ -24,3 +23,5 @@
 .operationLinks { display: flex; min-width: 0; flex-wrap: wrap; gap: 10px; color: var(--primary); font-size: var(--label-text-size); }
 .operationLinks a { display: inline-flex; align-items: center; min-height: var(--control-height-sm); }
 .operationLinks a:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.configLink { display: inline-flex; align-items: center; min-height: var(--control-height-sm); color: var(--primary); font-size: var(--label-text-size); }
+.configLink:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }

@@ -104,6 +104,8 @@ export function AgentPage({
       id={id}
       podAvailable={podAvailable}
       nativeRunDestinations={nativeRunDestinations}
+      researchEnabled={!!ctx.marketResearchAvailable && !!ctx.projectCenterAvailable}
+      permissions={ctx.permissions}
     />
   );
 }
@@ -114,6 +116,8 @@ function ScopedPage({
   id,
   podAvailable = false,
   nativeRunDestinations,
+  researchEnabled,
+  permissions,
 }: {
   scope: ConfigurationScope;
   organization: string;
@@ -121,6 +125,8 @@ function ScopedPage({
   id?: string;
   podAvailable?: boolean;
   nativeRunDestinations?:NativeRunDestinations;
+  researchEnabled:boolean;
+  permissions:readonly string[];
 }) {
   const agentId = id ?? "product.title.agent";
   const [after, setAfter] = useState(""),
@@ -301,7 +307,7 @@ function ScopedPage({
         </div>
       )}
       {message && <p role="status">{message}</p>}
-      {!data && !list.error ? (
+      {mode === "market" && !id ? <AgentMarket entries={list.error ? [] : entries} research={{enabled:researchEnabled,permissions}} catalogNotice={!data && !list.error ? <ConsoleState kind="loading" title="正在读取企业智能体" /> : list.error ? <ConsoleState kind="error" title="智能体配置不可用"><p>{configurationError(list.error)}</p><Button onClick={() => setNonce((n) => n + 1)}>重新读取</Button></ConsoleState> : undefined} /> : !data && !list.error ? (
         <ConsoleState kind="loading" title="正在读取企业智能体" />
       ) : list.error ? (
         <ConsoleState kind="error" title="智能体配置不可用">
@@ -646,8 +652,6 @@ function ScopedPage({
             )}
           </Card>}
         </>
-      ) : mode === "market" ? (
-        <AgentMarket entries={entries} />
       ) : (
         <AgentMine scope={scope} entries={entries} pageScoped={Boolean(after || (!id && data && "nextCursor" in data && data.nextCursor))} pagination={after || (data && "nextCursor" in data && data.nextCursor) ? <nav aria-label="智能体分页" className={styles.actions}>
           {after ? <Button variant="outline" onClick={()=>setAfter("")}>返回智能体首页</Button> : null}
