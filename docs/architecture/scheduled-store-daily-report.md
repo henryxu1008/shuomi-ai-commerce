@@ -1,6 +1,6 @@
 # 定时生成单店经营日报：无模型执行与幂等保存
 
-状态：**DESIGN_REVIEW / NOT_READY**。Design Basis：Independent Architecture。执行 Issue [#1279](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1279)。本轮只交付设计与独立评审，不写生产代码、不执行 schema、不更改原 35444、不调用模型、不发布商品、不处理或释放原预留。
+状态：**IMPLEMENTATION_READY（独立架构准入）/ DESIGN_ONLY（未实现）**。Design Basis：Independent Architecture。执行 Issue [#1279](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1279)。本轮只交付设计与独立评审，不写生产代码、不执行 schema、不更改原 35444、不调用模型、不发布商品、不处理或释放原预留。准入通过不扩大用户本轮授权，正式实施仍待后续任务。
 
 ## 1. 产品决定、范围与验收结果
 
@@ -108,7 +108,7 @@ CaptureScheduledDaily 先按 fixed key/fingerprint 查原 receipt；若已保存
 | 已尝试写后被撤权，尚无可核对 receipt | 不再创建报告；保留 UNKNOWN/占用；内部只读 metadata 核实可继续，不能用失权当取消证明 |
 | 同槽并发/重试/稍后源财务变更 | 一次 occurrence、一次 Report DB command、同一 report；首个成功快照保持，未来新槽读新数据 |
 
-复用原30秒有界恢复扫描/游标和 Temporal 重试，不新增调度器或全库扫描。新报告类型被 feature-disable 后仍能只读核实已提交报告；不能再认领/捕获新报告。原跨槽占用、15分钟补触发窗口、过期槽记录跳过、不追补历史和次数语义保持。
+复用原30秒有界恢复扫描/游标和 Temporal 重试，不新增调度器或全库扫描。新类型 scan 先按 exact key/fingerprint 读 Report receipt；已提交则只补原关联，无 receipt/可重试未终态且当前生成授权仍有效、新类型仍启用时，使用原 frozen occurrence / report key 继续 CaptureScheduledDaily，包括 BeginCapture 已提交但进程在调用 Report 前崩溃、超过 Temporal 重试窗口的情况。这是恢复已经认领的一次执行，不是创建过期新槽或重新计次数；仍不能由 NotFound 推断无在途写或清占用。权限拒绝/依赖未知时保持占用并记录安全原因。新报告类型被 feature-disable 后仍能只读核实已提交报告；不能再认领/捕获新报告。原跨槽占用、15分钟补触发窗口、过期槽记录跳过、不追补历史和次数语义保持。
 
 ## 8. 现有计划保留与显式安装边界
 
@@ -132,11 +132,15 @@ CaptureScheduledDaily 先按 fixed key/fingerprint 查原 receipt；若已保存
 
 1. **权限与无模型**：HTTP不能伪造后台身份；exact member变更/企业停用/单店撤权/报告管理撤权阻断新保存；无商品/模型权限仍可在报告权限下生成；无 ProductAgent 配置仍 readiness 正确；Spy/受控注入证明模型、平台 mutation、AI ledger调用均0。历史列表/搜索/计数/详情/下载撤权不泄露；旧报告类型无变化。
 2. **约束与计划保留**：真实PG拒绝混合载荷/报告预算非0/旧内容预算0/假商品；保留已有一次/每天/每周、暂停、UNKNOWN 内容计划的全部ID/规则/摘要/登记hash和原active占用。验证内容字节不变、没有全量重登记、原预留不触碰；两库安装/能力关闭不误关既有模块。
-3. **跨库与恢复**：同槽并发、Report提交后丢响应、Workbench finalize失败/重启、源数据在并发读取间变化、改期与老次重试、撤权后只读核实、旧写仍在途不清占用；必须一 occurrence/一 report、首个snapshot不变、仅精确本次CAS；实际两库事务与原稳定receipt，不能用mock“全局提交”替代。
+3. **跨库与恢复**：同槽并发、Report提交后丢响应、Workbench finalize失败/重启、BeginCapture提交后调用Report前崩溃且超过Temporal重试窗口、源数据在并发读取间变化、改期与老次重试、撤权后只读核实、旧写仍在途不清占用；必须一 occurrence/一 report、首个snapshot不变、仅精确本次CAS；实际两库事务与原稳定receipt，不能用mock“全局提交”替代。
 4. **用户路径与口径**：浏览器一次/每日单店核对 → 原后台触发 → 计划历史同份报告 → 我的报告刷新/下载；UTC+8前一天、跨午夜重试、显式0/缺失/部分覆盖与观察原周期。隔离验证用已有夹具/已有环境，不调用模型或发布商品；原35444启用/数据验证需后续授权，本轮 NOT_RUN。
 
 实施前仅能声明设计准入；实现结束为 In Review，用户/指定验证者确认产品可用。实现、合并、部署和产品验收分开，不用CI或设计评审冒充运行通过。
 
 ## 11. 独立评审记录
 
-第一轮：待独立 Reviewer，只读检查本设计与当前真实 owner。必须按 BLOCKER / IMPLEMENTATION_TEST / BACKLOG / ACCEPTED_RISK / NOT_APPLICABLE 分类；BLOCKER须指向本期Must与AGENTS列明后果。最多两轮正常架构评审，达到 IMPLEMENTATION_READY 后冻结，非阻塞实施细节在上面四组验证收敛。本轮不派 Writer 写生产代码。
+2026-11-14 第一轮，独立 Reviewer `daily_report_architecture_review` 只读核对设计候选 `920de860697a32f6859f4e3d6d4db6e0db2c0ae0` 及当前实际 ScheduledPlan/Temporal、HTTP-only report/cockpit authorizer、Report DB 事务和原内容预算约束。结论 **IMPLEMENTATION_READY**，BLOCKER=0、IMPLEMENTATION_TEST=1，无其它有效 finding。
+
+Finding：BeginCapture 已提交而 Report 调用前崩溃，若 Temporal 重试窗口耗尽，单纯查 receipt 的恢复扫描无法完成本次报告。Product requirement affected：本次已认领执行可在崩溃/重启后恢复，不能永久卡住核心路径。Classification：**IMPLEMENTATION_TEST**，属于原固定身份/幂等协议内的恢复接线细化，无需新恢复器或重开全局架构。Action：§7 明确原扫描按当前授权/开关和原 frozen occurrence/key 继续同次 Capture；§10第3组补上该崩溃窗口。Reviewer 已读取该两段实际增量，确认覆盖且无新 finding，维持 IMPLEMENTATION_READY。运行验证仍是实施阶段义务，不记为本轮 PASS。
+
+该设计现冻结。按 AGENTS finding 分类及停止规则，只有新实证 BLOCKER 可重开；实施细节在上述四组验证收敛，不因普通 main/元数据变化重复审核未变设计。本轮不派 Writer 写生产代码。准确最终 HEAD、CI 和独立评审证据继续记录在设计 PR，不在本文滚动更新。
