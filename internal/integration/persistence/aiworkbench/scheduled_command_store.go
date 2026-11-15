@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"task-processor/internal/aiworkbench"
 	"time"
 )
@@ -55,6 +56,22 @@ func (s *Store) CreateScheduledPlanForCommand(ctx context.Context, p aiworkbench
 		_, found, err := store.ReadScheduledCreateReceipt(ctx, p.Scope, p.ID, key, p.CreationFingerprint)
 		if err != nil || found {
 			return err
+		}
+		if source := p.CopySource; source != nil {
+			if !validKey(source.ID) || source.ID == p.ID || source.Revision < 1 || !validDigest(source.Digest) {
+				return aiworkbench.ErrInvalid
+			}
+			var row scheduledPlanRow
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND organization_id=? AND owner_user_id=?", source.ID, p.Scope.OrganizationID, p.Scope.ActorID).Take(&row).Error; err != nil {
+				return missing(err)
+			}
+			original, err := scheduledPlanRecord(row)
+			if err != nil {
+				return err
+			}
+			if original.Deleted || original.Revision != source.Revision || original.MemberID != p.MemberID || original.Kind() != p.Kind() || aiworkbench.ScheduledPlanSourceDigest(original.ScheduledPlanDraft) != source.Digest {
+				return aiworkbench.ErrRevisionMismatch
+			}
 		}
 		if err = store.CreateScheduledPlan(ctx, p); err != nil {
 			return err

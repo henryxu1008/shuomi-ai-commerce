@@ -1,6 +1,6 @@
 # 定时任务：编辑计划与复制新建
 
-Issue #1297。Design Basis: Independent Architecture。状态：DESIGNING，等待本轮增量边界评审；不得据此提前修改生产路径。
+Issue #1297。Design Basis: Independent Architecture。状态：IMPLEMENTATION_READY。独立第二轮增量评审已核对设计提交`38eeca5ea63fd4f0d40bcba2fdde56e08f53a778`，关闭最小权限/回退的设计阻塞；下列IMPLEMENTATION_TEST在本批实现和必要验证中收敛，不重开全局设计。
 
 ## 用户结果与范围
 
@@ -60,11 +60,11 @@ Issue #1297。Design Basis: Independent Architecture。状态：DESIGNING，等�
 
 ## 必需列权限与受控接线
 
-当前runtime只允许修改时间/状态列，完整编辑不能沿用原权限声称可用。保持同一个owner与列级权限，新增且仅新增`scheduled_plans`的UPDATE列：`task_selection, goal_summary, execution_spec, report_spec, max_occurrences, per_run_upper_bound_micros, total_upper_bound_micros`。类型、owner/member、创建身份/指纹、budget_unit均不可改，不授表级UPDATE或跨库权限。
+当前runtime只允许修改时间/状态列，完整编辑不能沿用原权限声称可用。保持同一个owner与列级权限：内容任务基表需要`task_selection, goal_summary, execution_spec, max_occurrences, per_run_upper_bound_micros, total_upper_bound_micros`六列；仅已完整安装现有可选日报扩展（该扩展才增加report_spec）时，再加入`report_spec`这一列。沿既有日报schema/约束验证完整性，部分安装拒绝。原35444已启用日报，因此为七列。类型、owner/member、创建身份/指纹、budget_unit均不可改，不授表级UPDATE或跨库权限；内容更新不写可选report_spec。
 
-- 新装`GrantRuntime`和启动`VerifyRuntime`的准确列界限同步加入这7列；缺列/多列、表级UPDATE、角色或跨owner漂移仍拒绝。
+- 新装`GrantRuntime`和启动`VerifyRuntime`的准确列界限按已安装能力同步加入上述六/七列；缺列/多列、表级UPDATE、角色或跨owner漂移仍拒绝。
 - 复用`ai-workbench-schema-init`增加有界`--schedule-edit-permissions enable|disable`操作，要求原ai_workbench_runtime角色和现有expected-database/address/port准确目标；不运行InstallSchema、不建表、不修改业务行。
-- owner事务内沿已有角色/跨owner检查及事务锁，识别“完整旧权限”或“完整新权限”两个明确安装状态，部分新增权限或其他漂移拒绝；enable仅授上述7列，disable仅收回这7列，前后按相应准确权限集合验证。并发/重复同一目标操作幂等，不做泛化权限重装。
+- owner事务内沿已有角色/跨owner检查及事务锁，识别“完整旧权限”或“完整新权限”两个明确安装状态，部分新增权限或其他漂移拒绝；enable仅授上述已安装能力所需列，disable仅收回这些列，前后按相应准确权限集合验证。并发/重复同一目标操作幂等，不做泛化权限重装。
 - 原35444更新只短暂停止必要后台服务，保留配置/卷/身份，执行该原owner最小授权后启动新镜像；先只读核对无可触发真实模型的活跃计划，原预留恢复条件不变。不通过关闭已有功能掩盖启动问题，不运行全量备份或新环境演练。
 
 ## 必要验证及回退
@@ -76,12 +76,14 @@ Issue #1297。Design Basis: Independent Architecture。状态：DESIGNING，等�
 3. 提交/响应丢失、后续再次编辑、同键并发与不同载荷重试；原回执可恢复，同key只一次有效变更。
 4. 复制不自动保存，显式保存只新建一份，计数0、无历史/原预留；重复原key不多建，跨权限来源拒绝。
 5. UI回填/重新核对、失败输入保留、窄屏/主题/键盘；现有已通过且未变的调度/资源矩阵引用，不重复。
-6. 在原PG夹具使用真实受限runtime角色完成完整编辑；允许上述7列、拒绝身份/类型/创建字段及表级UPDATE；部分授权/额外权限拒绝。enable/disable重复及并发不改业务行；disable后按旧准确权限验证，旧版启动校验可通过。
+6. 在原PG夹具使用真实受限runtime角色完成完整编辑；允许上述已安装能力的六/七列、拒绝身份/类型/创建字段及表级UPDATE；部分授权/额外权限拒绝。enable/disable重复及并发不改业务行；disable后按旧准确权限验证，旧版启动校验可通过。
 
-无schema变更，原数据不迁移，installer仅增加上述最小权限操作。部署复用原实例配置/卷，先固定现行镜像和配置。回退须停止新后台，通过原owner收回本轮7列UPDATE并验证旧准确权限，再恢复原后台/UI镜像；不能只换镜像让旧启动校验拒绝。编辑后的计划/回执仍符合原schema，不回滚事实、不删除新计划、不撤销在途任务。旧UI不能解析新完整PATCH时保留待核对状态，不能另造新key或假称旧请求成功；需要时恢复新版沿原key核对。原预留保护与恢复条件不变，并以原记录只读核对证明。
+无schema变更，原数据不迁移，installer仅增加上述最小权限操作。部署复用原实例配置/卷，先固定现行镜像和配置。回退须停止新后台，通过原owner收回本轮本轮列级UPDATE并验证旧准确权限，再恢复原后台/UI镜像；不能只换镜像让旧启动校验拒绝。编辑后的计划/回执仍符合原schema，不回滚事实、不删除新计划、不撤销在途任务。未知新编辑命令应先由新版沿原key核实，核实前不降级；旧UI不能解析新完整PATCH，不另造新key或假称旧请求成功。原预留保护与恢复条件不变，并以原记录只读核对证明。
 
 ## 第一轮评审处置
 
 - Finding：runtime缺少完整编辑列权限，原“grants不变/仅换镜像回退”不可运行。Classification: BLOCKER（核心编辑/rollout无法完成）。Action：按上节7列最小授权、真实runtime验证及先撤回权限后退镜像处理；不扩为数据库治理工程。
 - Finding：旧revision准备失败可能写入新修订同一slot。Classification: IMPLEMENTATION_TEST（本批交付前必须收敛）。Action：补同一事务的revision fence与原回执优先重放，复用PG竞态验证。
 - Finding：复制检查后到创建前来源可能被改动。Classification: IMPLEMENTATION_TEST（本批交付前必须收敛）。Action：在原创建事务锁源行重核来源身份/类型/revision/指纹，复用原回执和拒绝栅栏。
+
+实施期新增BLOCKER处置：内容基表无report_spec，已由独立Reviewer确认六个核心编辑列＋完整日报能力的第七列可IMPLEMENTATION_READY；部分安装仍拒绝，不新增schema或通用安装框架。

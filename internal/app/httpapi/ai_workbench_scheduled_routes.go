@@ -122,7 +122,7 @@ func aiWorkbenchScheduleRoutes(a *aiWorkbenchApplication) []httproute.Descriptor
 
 func (a *aiWorkbenchApplication) createScheduled(c *gin.Context, ctx context.Context, owner aiworkbench.Scope, input scheduledInput) {
 	key, err := workbenchKey(c)
-	if err != nil || input.ScheduleID != "" {
+	if err != nil || input.ScheduleID != "" || input.ExpectedRevision != "" {
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 		return
 	}
@@ -179,6 +179,13 @@ func (a *aiWorkbenchApplication) createScheduled(c *gin.Context, ctx context.Con
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 		return
 	}
+	if input.SourceScheduleID != "" {
+		if quote.source == nil {
+			writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+			return
+		}
+		draft.CopySource = &aiworkbench.ScheduledPlanCopySource{ID: quote.source.ID, Revision: quote.source.Revision, Digest: aiworkbench.ScheduledPlanSourceDigest(quote.source.ScheduledPlanDraft)}
+	}
 	createErr := a.store.CreateScheduledPlanForCommand(ctx, draft, key)
 	plan, err = a.store.ReadScheduledPlan(ctx, owner, id)
 	if err != nil {
@@ -215,6 +222,7 @@ func (a *aiWorkbenchApplication) changeScheduled(c *gin.Context, ctx context.Con
 		return
 	}
 	var body struct {
+		Changes          *scheduledChanges         `json:"changes,omitempty"`
 		ExpectedRevision string                    `json:"expectedRevision"`
 		Rule             *aiworkbench.ScheduleRule `json:"rule,omitempty"`
 		Confirmation     string                    `json:"confirmation,omitempty"`
@@ -224,32 +232,18 @@ func (a *aiWorkbenchApplication) changeScheduled(c *gin.Context, ctx context.Con
 		return
 	}
 	revision, err := strconv.ParseInt(body.ExpectedRevision, 10, 63)
-	if err != nil || revision < 1 || strconv.FormatInt(revision, 10) != body.ExpectedRevision || (action == "edit") != (body.Rule != nil) || action != "edit" && body.Confirmation != "" {
+	if err != nil || revision < 1 || strconv.FormatInt(revision, 10) != body.ExpectedRevision || (action == "edit") != (body.Rule != nil) || action != "edit" && (body.Confirmation != "" || body.Changes != nil) {
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 		return
 	}
-	if saved, found, err := a.store.ReadScheduledControlReceipt(ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation); err != nil {
+	commandConfirmation := body.Confirmation
+	if body.Changes != nil {
+		commandConfirmation = scheduledHash(body)
+	}
+	if saved, found, err := a.store.ReadScheduledControlReceipt(ctx, owner, plan.ID, key, revision, action, body.Rule, commandConfirmation); err != nil {
 		writeAIWorkbenchError(c, err)
 		return
 	} else if found {
-		if action == "edit" {
-			if saved.Report != nil {
-				if body.Confirmation != dailyConfirmation(*saved.Report, *body.Rule, saved.Budget.MaxOccurrences) {
-					writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
-					return
-				}
-			} else {
-				var p aiworkbench.ExecutionProposal
-				if json.Unmarshal(saved.ExecutionSpec, &p) != nil {
-					writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
-					return
-				}
-				if body.Confirmation != scheduledQuoteConfirmation(p, *body.Rule, saved.Budget) {
-					writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
-					return
-				}
-			}
-		}
 		a.replyScheduledSave(c, ctx, saved)
 		return
 	}
@@ -270,25 +264,55 @@ func (a *aiWorkbenchApplication) changeScheduled(c *gin.Context, ctx context.Con
 				return
 			}
 			if _, err = a.validateScheduledProposal(ctx, p); err != nil {
-				a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
+				a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, commandConfirmation, err)
 				return
 			}
 		}
 	}
+	var replacements []aiworkbench.ScheduledPlanReplacement
 	if action == "edit" {
-		quote, _, _, err := a.quoteScheduled(ctx, owner, scheduledInput{ScheduleID: plan.ID, Rule: *body.Rule, MaxOccurrences: strconv.FormatUint(plan.Budget.MaxOccurrences, 10)})
-		if err != nil {
-			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
+		input := scheduledInput{ScheduleID: plan.ID, Rule: *body.Rule, MaxOccurrences: strconv.FormatUint(plan.Budget.MaxOccurrences, 10)}
+		if changes := body.Changes; changes != nil {
+			input.ExpectedRevision = body.ExpectedRevision
+			input.Selection = changes.Selection
+			input.Report = changes.Report
+			input.GoalSummary = changes.GoalSummary
+			input.MaxOccurrences = changes.MaxOccurrences
+		}
+		quote, p, budget, e := a.quoteScheduled(ctx, owner, input)
+		if e != nil {
+			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, commandConfirmation, e)
 			return
 		}
 		if body.Confirmation != quote.Confirmation {
-			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, aiworkbench.ErrRevisionMismatch)
+			a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, commandConfirmation, aiworkbench.ErrRevisionMismatch)
 			return
 		}
+		if body.Changes != nil {
+			spec, e := json.Marshal(p)
+			if e != nil || quote.source == nil {
+				writeAIWorkbenchError(c, aiworkbench.ErrUnavailable)
+				return
+			}
+			now := time.Now().UTC().Truncate(time.Microsecond)
+			draft := aiworkbench.ScheduledPlanDraft{ID: plan.ID, Scope: owner, MemberID: plan.MemberID, Rule: *body.Rule, Budget: budget, GoalSummary: p.GoalSummary, ExecutionSpec: spec, CreatedAt: now}
+			if quote.Report != nil {
+				draft.Report = quote.Report
+				draft.GoalSummary = "店铺经营日报"
+				draft.ExecutionSpec = json.RawMessage(`{}`)
+			} else if p.Selection() != nil {
+				draft.Selection = *p.Selection()
+			} else {
+				writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
+				return
+			}
+			replacements = []aiworkbench.ScheduledPlanReplacement{{Draft: draft, ConsumedOccurrences: quote.source.ConsumedOccurrences}}
+		}
 	}
-	changed, err := a.store.ChangeScheduledPlan(ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, time.Now().UTC())
+
+	changed, err := a.store.ChangeScheduledPlan(ctx, owner, plan.ID, key, revision, action, body.Rule, commandConfirmation, time.Now().UTC(), replacements...)
 	if err != nil {
-		a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, body.Confirmation, err)
+		a.rejectScheduledControl(c, ctx, owner, plan.ID, key, revision, action, body.Rule, commandConfirmation, err)
 		return
 	}
 	a.replyScheduledSave(c, ctx, changed)

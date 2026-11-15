@@ -81,7 +81,7 @@ func (a *aiWorkbenchApplication) quoteDailyReport(ctx context.Context, owner aiw
 		if e != nil {
 			return scheduledQuote{}, e
 		}
-		if p.Report == nil || *p.Report != *input.Report || p.Budget.MaxOccurrences != count || p.MemberID != id.EffectiveMemberID {
+		if p.Report == nil || p.MemberID != id.EffectiveMemberID || input.ExpectedRevision == "" && (*p.Report != *input.Report || p.Budget.MaxOccurrences != count) || input.ExpectedRevision != "" && (input.ExpectedRevision != strconv.FormatInt(p.Revision, 10) || count <= p.ConsumedOccurrences) {
 			return scheduledQuote{}, aiworkbench.ErrInvalid
 		}
 	}

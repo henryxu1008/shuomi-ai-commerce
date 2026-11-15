@@ -26,7 +26,7 @@ function validCommand(value:unknown):value is Command{
 
 export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AIScope;authorizationKey:string;canUse:boolean;onBack:()=>void}){
  const [kindFilter,setKindFilter]=useState("");
- const client=useQueryClient(),[selected,setSelected]=useState<string>(),[form,setForm]=useState<"create"|"edit">(),[proposalId,setProposalId]=useState<string>();
+ const client=useQueryClient(),[selected,setSelected]=useState<string>(),[form,setForm]=useState<"create"|"edit"|"copy">(),[proposalId,setProposalId]=useState<string>();
  const [pending,setPending]=useState<Command>(),[busy,setBusy]=useState(false),[restored,setRestored]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [confirmation,setConfirmation]=useState<{action:"close"|"delete";plan:AIScheduledPlan}>();
  const cancelRef=useRef<HTMLButtonElement>(null);
@@ -40,7 +40,7 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
  const detail=useQuery({queryKey:[...prefix,selected],enabled:!!selected,queryFn:({signal})=>requestAIWorkbench({route:"schedule-read",method:"GET",path:`schedules/${selected}`,scope,signal}),retry:false,refetchOnWindowFocus:false});
  const history=useInfiniteQuery({queryKey:[...prefix,selected,"history"],enabled:!!selected,initialPageParam:"",queryFn:({signal,pageParam})=>requestAIWorkbench({route:"schedule-history",method:"GET",path:`schedules/${selected}/occurrences?limit=20${pageParam?`&after=${pageParam}`:""}`,scope,signal}),getNextPageParam:(last,_pages,lastParam)=>last.next&&last.next!==lastParam?last.next:undefined,retry:false,refetchOnWindowFocus:false});
  const locked=!restored||busy||!!pending;
- const plan=detail.isSuccess&&(!detail.isFetching||form==="edit")?detail.data.plan:undefined;
+ const plan=detail.isSuccess&&(!detail.isFetching||form==="edit"||form==="copy")?detail.data.plan:undefined;
  const planTitle=plan?`${plan.storeName?`${plan.storeName} · `:""}${plan.goalSummary??"当前无权查看任务内容"}`:"";
  function open(id?:string){setForm(undefined);setProposalId(undefined);setSelected(id);setError("");const url=new URL(window.location.href);url.searchParams.delete("schedule_proposal");if(id)url.searchParams.set("schedule_id",id);else url.searchParams.delete("schedule_id");window.history.replaceState(null,"",url);}
  async function execute(command:Command){
@@ -59,7 +59,7 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
    setError(err instanceof AIWorkbenchError?err.commandAccepted===false?"已核实原操作没有提交；可以调整内容后重新保存。":err.code==="REVISION_MISMATCH"?"计划已被更新。已重新读取最新状态，请核对后重新操作。":err.code==="MANUAL_REVIEW_REQUIRED"?"请先把智能体切换为默认或只读模式，并重新核对方案。":errorText(err):"暂时无法记录或恢复这次操作，请检查浏览器设置。");
   }finally{setBusy(false);}
  }
- async function save(input:AIScheduleInput){if(locked||!canUse)return;if(form==="edit"&&plan)await execute({action:"edit",path:`schedules/${plan.id}`,key:crypto.randomUUID(),body:{expectedRevision:plan.revision,rule:input.rule,confirmation:input.confirmation}});else await execute({action:"create",path:"schedules",key:crypto.randomUUID(),body:input});}
+ async function save(input:AIScheduleInput){if(locked||!canUse)return;if(form==="edit"&&plan)await execute({action:"edit",path:`schedules/${plan.id}`,key:crypto.randomUUID(),body:{expectedRevision:input.expectedRevision,rule:input.rule,confirmation:input.confirmation,changes:{selection:input.selection,report:input.report,goalSummary:input.goalSummary,maxOccurrences:input.maxOccurrences}}});else await execute({action:"create",path:"schedules",key:crypto.randomUUID(),body:input});}
  function control(action:"pause"|"resume"|"close"|"delete",current:AIScheduledPlan){void execute({action,path:`schedules/${current.id}/${action}`,key:crypto.randomUUID(),body:{expectedRevision:current.revision}});}
  const items=Array.from(new Map(plans.data?.pages.flatMap(p=>p.plans).map(p=>[p.id,p])??[]).values());
  return <ConsolePage className={styles.page} title="定时任务" description="安排业务执行时间，查看每次处理结果" actions={<Button variant="outline" disabled={locked} onClick={onBack}>返回任务中心</Button>}>
@@ -72,7 +72,7 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
    {error?<p className={styles.error} role="alert">{error}</p>:null}{notice?<p className={styles.notice} role="status">{notice}</p>:null}
    {pending?<section className={styles.recovery}><div><h2>上次操作结果待核实</h2><p>请先核实上次操作的结果，再继续修改计划</p></div><Button disabled={busy} onClick={()=>void execute(pending)}>{busy?"正在核实…":"核实原操作"}</Button></section>:null}
    {availability.data&&!availability.data.ready?<p className={styles.warning}>暂时无法新建或恢复计划，已有计划仍可查看和暂停</p>:null}
-   {form?(form==="edit"&&!plan?<ConsoleState kind={detail.isError?"error":"loading"} title="当前计划暂不可编辑"><Button variant="outline" onClick={()=>open(selected)}>返回计划</Button></ConsoleState>:<ScheduleForm key={`${form}:${selected??proposalId??"new"}`} scope={scope} authorizationKey={authorizationKey} plan={form==="edit"?plan:undefined} proposalId={proposalId} dailyReportEnabled={availability.data?.storeDailyReportEnabled} contentEnabled={availability.data?.contentEnabled??true} disabled={locked||detail.isFetching||!canUse||!availability.data?.ready} onSave={save} onCancel={()=>open(selected)}/>):selected?<>
+   {form?(form!=="create"&&!plan?<ConsoleState kind={detail.isError?"error":"loading"} title="当前计划暂不可编辑"><Button variant="outline" onClick={()=>open(selected)}>返回计划</Button></ConsoleState>:<ScheduleForm key={`${form}:${selected??proposalId??"new"}`} scope={scope} authorizationKey={authorizationKey} plan={form==="edit"?plan:undefined} copyFrom={form==="copy"?plan:undefined} proposalId={proposalId} dailyReportEnabled={availability.data?.storeDailyReportEnabled} contentEnabled={availability.data?.contentEnabled??true} disabled={locked||detail.isFetching||!canUse||!availability.data?.ready} onSave={save} onStale={()=>void client.invalidateQueries({queryKey:[...prefix,selected],exact:true})} onCancel={()=>open(selected)}/>):selected?<>
     <div className={styles.backRow}><Button variant="ghost" disabled={locked} onClick={()=>open()}>返回定时列表</Button></div>
     {detail.isPending||detail.isFetching?<ConsoleState kind="loading" title="正在读取计划"/>:detail.isError?<ConsoleState kind="error" title="计划读取失败">{errorText(detail.error)}<Button variant="outline" onClick={()=>void detail.refetch()}>重试</Button></ConsoleState>:plan?<section className={styles.detail} aria-label="计划信息">
      <header className={styles.detailHeading}><div className={styles.planIdentity}><p className={styles.eyebrow}>{plan.kind==="store.operating-daily-report"?"店铺经营日报":"商品内容计划"}</p><h2 className={planTitle.length>100?styles.longTitle:undefined}>{planTitle}</h2></div><span className={styles.state} data-state={plan.deleted?"CLOSED":plan.state}><span aria-hidden="true"/>{plan.deleted?"已删除":states[plan.state]}</span></header>
@@ -86,7 +86,7 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
      {plan.activeOccurrenceId?<p className={styles.warning}>上一次任务仍在处理中，结果确认前会跳过后续执行。暂停、结束或删除计划不会取消已开始的任务。</p>:null}
      {plan.registrationState!=="MATCHED"?<p className={styles.warning}>计划已保存，启用状态仍在确认，请勿重复创建</p>:null}
      {canUse&&!plan.deleted?<div className={styles.detailActions}>
-      {plan.state!=="CLOSED"?<div className={styles.actions}><Button variant="outline" disabled={locked||!plan.detailsAvailable||!availability.data?.ready} onClick={()=>setForm("edit")}>修改时间</Button>{plan.state==="PAUSED"?<Button variant="outline" disabled={locked||!availability.data?.ready} onClick={()=>control("resume",plan)}>恢复未来执行</Button>:<Button variant="outline" disabled={locked} onClick={()=>control("pause",plan)}>暂停未来执行</Button>}</div>:null}
+      <div className={styles.actions}>{plan.state!=="CLOSED"?<><Button variant="outline" disabled={locked||!plan.detailsAvailable||!availability.data?.ready} onClick={()=>setForm("edit")}>编辑计划</Button>{plan.state==="PAUSED"?<Button variant="outline" disabled={locked||!availability.data?.ready} onClick={()=>control("resume",plan)}>恢复未来执行</Button>:<Button variant="outline" disabled={locked} onClick={()=>control("pause",plan)}>暂停未来执行</Button>}</>:null}<Button variant="outline" disabled={locked||!plan.detailsAvailable||!availability.data?.ready} onClick={()=>setForm("copy")}>复制新建</Button></div>
       <div className={styles.secondaryActions}>{plan.state!=="CLOSED"?<Button variant="ghost" disabled={locked} onClick={()=>setConfirmation({action:"close",plan})}>结束计划</Button>:null}<Button variant="ghost" className={styles.deleteAction} disabled={locked} onClick={()=>setConfirmation({action:"delete",plan})}>删除计划</Button></div>
      </div>:null}
     </section>:null}

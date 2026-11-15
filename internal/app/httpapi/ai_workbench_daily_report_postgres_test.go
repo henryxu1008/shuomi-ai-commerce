@@ -17,6 +17,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"task-processor/internal/aiworkbench"
@@ -372,6 +373,53 @@ func TestScheduledDailyReportHTTPAndRecovery(t *testing.T) {
 			}
 		}
 		request("GET", reporthttp.Base+"/"+reportID, "", nil, 200)
+	})
+	t.Run("edit future store keeps original report execution and copies once", func(t *testing.T) {
+		other, e := storecenter.NewStore(storecenter.CreateStoreInput{ID: uuid.NewString(), OrganizationID: identity.TenantID, ActorSubject: identity.UserID, Name: "编辑后的合成店铺", Platform: "shein", Region: "US", CreateIdempotencyKey: uuid.NewString(), OccurredAt: now})
+		require.NoError(t, e)
+		_, _, e = base.CreateOrReplay(ctx, identity.TenantID, other)
+		require.NoError(t, e)
+		editInput := scheduledInput{Kind: aiworkbench.DailyReportKind, Report: &day, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "Asia/Shanghai", Hour: 9}, MaxOccurrences: "2"}
+		var q scheduledQuote
+		require.NoError(t, json.Unmarshal(request("POST", workbenchScheduleBase+"/quote", "", editInput, 200), &q))
+		editInput.Confirmation = q.Confirmation
+		var saved struct{ Plan scheduledPlanView }
+		require.NoError(t, json.Unmarshal(request("POST", workbenchScheduleBase, uuid.NewString(), editInput, 200), &saved))
+		current, e := app.store.ReadScheduledPlan(ctx, plan.Scope, saved.Plan.ID)
+		require.NoError(t, e)
+		o, x, e := app.store.ClaimScheduledReport(ctx, current.Scope, current.ID, current.Revision, q.NextAt, q.NextAt)
+		require.NoError(t, e)
+		nextDay := day
+		nextDay.StoreID = other.ID()
+		editInput.Report = &nextDay
+		editInput.ScheduleID = current.ID
+		editInput.ExpectedRevision = strconv.FormatInt(current.Revision, 10)
+		editInput.MaxOccurrences = "3"
+		editInput.Confirmation = ""
+		require.NoError(t, json.Unmarshal(request("POST", workbenchScheduleBase+"/quote", "", editInput, 200), &q))
+		require.Equal(t, "1", q.ConsumedOccurrences)
+		patch := map[string]any{"expectedRevision": editInput.ExpectedRevision, "rule": editInput.Rule, "confirmation": q.Confirmation, "changes": map[string]any{"report": nextDay, "maxOccurrences": "3"}}
+		key := uuid.NewString()
+		require.NoError(t, json.Unmarshal(request("PATCH", workbenchScheduleBase+"/"+current.ID, key, patch, 200), &saved))
+		request("PATCH", workbenchScheduleBase+"/"+current.ID, key, patch, 200)
+		require.Equal(t, other.ID(), saved.Plan.Report.StoreID)
+		require.Equal(t, "3", saved.Plan.MaxOccurrences)
+		require.Equal(t, "1", saved.Plan.ConsumedOccurrences)
+		require.Equal(t, o.ID, saved.Plan.ActiveOccurrenceID)
+		original, e := app.store.ReadReportExecution(ctx, current.Scope, o.ID)
+		require.NoError(t, e)
+		require.Equal(t, x, original)
+		request("POST", workbenchScheduleBase+"/"+current.ID+"/close", uuid.NewString(), map[string]string{"expectedRevision": saved.Plan.Revision}, 200)
+		copyInput := scheduledInput{SourceScheduleID: current.ID, Kind: aiworkbench.DailyReportKind, Report: &nextDay, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "Asia/Shanghai", AtUTC: now.Add(time.Hour)}, MaxOccurrences: "1"}
+		require.NoError(t, json.Unmarshal(request("POST", workbenchScheduleBase+"/quote", "", copyInput, 200), &q))
+		copyInput.Confirmation = q.Confirmation
+		key = uuid.NewString()
+		saved.Plan = scheduledPlanView{}
+		require.NoError(t, json.Unmarshal(request("POST", workbenchScheduleBase, key, copyInput, 200), &saved))
+		request("POST", workbenchScheduleBase, key, copyInput, 200)
+		require.NotEqual(t, current.ID, saved.Plan.ID)
+		require.Equal(t, "0", saved.Plan.ConsumedOccurrences)
+		require.Empty(t, saved.Plan.ActiveOccurrenceID)
 	})
 	if dir := os.Getenv("SCHEDULED_REPORT_BROWSER_FIXTURE_DIR"); dir != "" {
 		require.True(t, filepath.IsAbs(dir))

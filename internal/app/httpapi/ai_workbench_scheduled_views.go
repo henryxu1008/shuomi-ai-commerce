@@ -17,18 +17,22 @@ import (
 )
 
 type scheduledInput struct {
-	Kind           string                       `json:"kind,omitempty"`
-	Report         *aiworkbench.DailyReportSpec `json:"report,omitempty"`
-	ProposalID     string                       `json:"proposalId,omitempty"`
-	ScheduleID     string                       `json:"scheduleId,omitempty"`
-	Selection      *aiworkbench.TaskSelection   `json:"selection,omitempty"`
-	GoalSummary    string                       `json:"goalSummary,omitempty"`
-	Rule           aiworkbench.ScheduleRule     `json:"rule"`
-	MaxOccurrences string                       `json:"maxOccurrences"`
-	Confirmation   string                       `json:"confirmation,omitempty"`
+	Kind             string                       `json:"kind,omitempty"`
+	Report           *aiworkbench.DailyReportSpec `json:"report,omitempty"`
+	ProposalID       string                       `json:"proposalId,omitempty"`
+	ScheduleID       string                       `json:"scheduleId,omitempty"`
+	SourceScheduleID string                       `json:"sourceScheduleId,omitempty"`
+	ExpectedRevision string                       `json:"expectedRevision,omitempty"`
+	Selection        *aiworkbench.TaskSelection   `json:"selection,omitempty"`
+	GoalSummary      string                       `json:"goalSummary,omitempty"`
+	Rule             aiworkbench.ScheduleRule     `json:"rule"`
+	MaxOccurrences   string                       `json:"maxOccurrences"`
+	Confirmation     string                       `json:"confirmation,omitempty"`
 }
 
 type scheduledQuote struct {
+	ConsumedOccurrences    string `json:"consumedOccurrences,omitempty"`
+	source                 *aiworkbench.ScheduledPlan
 	StoreName              string                       `json:"storeName,omitempty"`
 	Kind                   string                       `json:"kind,omitempty"`
 	Report                 *aiworkbench.DailyReportSpec `json:"report,omitempty"`
@@ -120,27 +124,34 @@ func (a *aiWorkbenchApplication) validateScheduledProposal(ctx context.Context, 
 }
 
 func (a *aiWorkbenchApplication) quoteScheduled(ctx context.Context, owner aiworkbench.Scope, input scheduledInput) (scheduledQuote, aiworkbench.ExecutionProposal, aiworkbench.ScheduleBudget, error) {
+	source, err := a.scheduledInputSource(ctx, owner, input)
+	if err != nil {
+		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, err
+	}
+	if source != nil && source.Report != nil {
+		if input.Report == nil {
+			input.Report = source.Report
+		}
+		input.Kind = aiworkbench.DailyReportKind
+	}
+	count, err := strconv.ParseUint(input.MaxOccurrences, 10, 63)
+	if err != nil || count == 0 || strconv.FormatUint(count, 10) != input.MaxOccurrences {
+		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, aiworkbench.ErrInvalid
+	}
+	if source != nil && input.ScheduleID != "" && input.ExpectedRevision != "" && count <= source.ConsumedOccurrences {
+		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, aiworkbench.ErrRevisionMismatch
+	}
 	if input.Report != nil || input.Kind == aiworkbench.DailyReportKind {
 		q, e := a.quoteDailyReport(ctx, owner, input)
-		count, _ := strconv.ParseUint(input.MaxOccurrences, 10, 63)
-		return q, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{Unit: "none", MaxOccurrences: count}, e
+		return scheduledSourceConfirmation(q, input, source), aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{Unit: "none", MaxOccurrences: count}, e
 	}
 	if input.Kind != "" && input.Kind != aiworkbench.ContentTaskKind {
 		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, aiworkbench.ErrInvalid
 	}
-	if input.ScheduleID != "" {
-		if p, e := a.store.ReadScheduledPlan(ctx, owner, input.ScheduleID); e == nil && p.Report != nil {
-			input.Report = p.Report
-			input.Kind = aiworkbench.DailyReportKind
-			q, e := a.quoteDailyReport(ctx, owner, input)
-			return q, aiworkbench.ExecutionProposal{}, p.Budget, e
-		}
-	}
 	if a == nil || a.agent == nil || a.schedules == nil || !a.schedules.Ready() {
 		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, aiworkbench.ErrUnavailable
 	}
-	count, err := strconv.ParseUint(input.MaxOccurrences, 10, 63)
-	if err != nil || count == 0 || strconv.FormatUint(count, 10) != input.MaxOccurrences || !input.Rule.Valid() || input.Rule.Frequency == aiworkbench.ScheduleOnce && (count != 1 || input.Rule.AtUTC.Nanosecond() != 0) {
+	if !input.Rule.Valid() || input.Rule.Frequency == aiworkbench.ScheduleOnce && (count != 1 || input.Rule.AtUTC.Nanosecond() != 0) {
 		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, aiworkbench.ErrInvalid
 	}
 	next, err := input.Rule.NextAfter(time.Now().UTC())
@@ -149,17 +160,8 @@ func (a *aiWorkbenchApplication) quoteScheduled(ctx context.Context, owner aiwor
 	}
 	var p aiworkbench.ExecutionProposal
 	switch {
-	case input.ScheduleID != "":
-		if input.ProposalID != "" || input.Selection != nil || input.GoalSummary != "" {
-			return scheduledQuote{}, p, aiworkbench.ScheduleBudget{}, aiworkbench.ErrInvalid
-		}
-		plan, err := a.store.ReadScheduledPlan(ctx, owner, input.ScheduleID)
-		if err != nil {
-			return scheduledQuote{}, p, aiworkbench.ScheduleBudget{}, err
-		}
-		if count != plan.Budget.MaxOccurrences || json.Unmarshal(plan.ExecutionSpec, &p) != nil {
-			return scheduledQuote{}, p, aiworkbench.ScheduleBudget{}, aiworkbench.ErrInvalid
-		}
+	case source != nil:
+		p, err = a.replanScheduledContent(ctx, owner, source, input)
 	case input.ProposalID != "":
 		if input.Selection != nil || input.GoalSummary != "" {
 			return scheduledQuote{}, p, aiworkbench.ScheduleBudget{}, aiworkbench.ErrInvalid
@@ -186,8 +188,8 @@ func (a *aiWorkbenchApplication) quoteScheduled(ctx context.Context, owner aiwor
 		return scheduledQuote{}, p, budget, err
 	}
 	total, _ := budget.TotalUpperBoundMicros()
-	confirmation := scheduledQuoteConfirmation(p, input.Rule, budget)
-	return scheduledQuote{Confirmation: confirmation, Selection: p.Selection(), GoalSummary: p.GoalSummary, Rule: input.Rule, MaxOccurrences: input.MaxOccurrences, Unit: budget.Unit, PerRunUpperBoundMicros: strconv.FormatUint(budget.PerRunUpperBoundMicros, 10), TotalUpperBoundMicros: strconv.FormatUint(total, 10), NextAt: next, ExecutionMode: mode}, p, budget, nil
+	q := scheduledQuote{Confirmation: scheduledQuoteConfirmation(p, input.Rule, budget), Selection: p.Selection(), GoalSummary: p.GoalSummary, Rule: input.Rule, MaxOccurrences: input.MaxOccurrences, Unit: budget.Unit, PerRunUpperBoundMicros: strconv.FormatUint(budget.PerRunUpperBoundMicros, 10), TotalUpperBoundMicros: strconv.FormatUint(total, 10), NextAt: next, ExecutionMode: mode}
+	return scheduledSourceConfirmation(q, input, source), p, budget, nil
 }
 
 type scheduledPlanView struct {

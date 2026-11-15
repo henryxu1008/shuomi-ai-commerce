@@ -207,18 +207,18 @@ func (a *aiWorkbenchApplication) DispatchScheduled(ctx context.Context, planID s
 		return err
 	} else {
 		if plan.State == "PAUSED" || plan.State == "CLOSED" {
-			return a.store.RecordScheduledPreflightReceipt(ctx, plan.Scope, plan.ID, slot, time.Now().UTC(), "SKIPPED", "PLAN_NOT_ACTIVE")
+			return a.store.RecordScheduledPreflightReceipt(ctx, plan.Scope, plan.ID, plan.Revision, slot, time.Now().UTC(), "SKIPPED", "PLAN_NOT_ACTIVE")
 		}
 		if plan.State != "ACTIVE" || plan.RegistrationState != "MATCHED" {
 			return aiworkbench.ErrUnavailable
 		}
 		if _, _, err = a.agent.scheduledPrincipal(ctx); err != nil {
-			return a.store.RecordScheduledPreflightReceipt(ctx, plan.Scope, plan.ID, slot, time.Now().UTC(), "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
+			return a.store.RecordScheduledPreflightReceipt(ctx, plan.Scope, plan.ID, plan.Revision, slot, time.Now().UTC(), "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
 		}
 		key := aiworkbench.ScheduledOccurrenceID(plan.Scope, plan.ID, slot)
 		prepared, err := a.prepareScheduledExecution(ctx, plan, key)
 		if err != nil {
-			return a.store.RecordScheduledPreflightReceipt(ctx, plan.Scope, plan.ID, slot, time.Now().UTC(), "BLOCKED", "FROZEN_EXECUTION_UNAVAILABLE")
+			return a.store.RecordScheduledPreflightReceipt(ctx, plan.Scope, plan.ID, plan.Revision, slot, time.Now().UTC(), "BLOCKED", "FROZEN_EXECUTION_UNAVAILABLE")
 		}
 		_, task, _, err = a.store.ClaimScheduledTask(ctx, plan.Scope, plan.ID, plan.Revision, slot, time.Now().UTC(), prepared)
 		if err != nil {

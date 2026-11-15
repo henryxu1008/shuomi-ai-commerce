@@ -2,6 +2,7 @@ package aiworkbenchpersistence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -45,9 +46,9 @@ func (s *Store) ReadScheduledControlReceipt(ctx context.Context, scope aiworkben
 
 // ChangeScheduledPlan records a bounded control receipt in the same transaction
 // as the new desired configuration. Temporal is synchronized after commit.
-func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule, confirmation string, now time.Time) (aiworkbench.ScheduledPlan, error) {
+func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule, confirmation string, now time.Time, replacements ...aiworkbench.ScheduledPlanReplacement) (aiworkbench.ScheduledPlan, error) {
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || !validKey(key) || expected < 1 || now.IsZero() ||
-		(action != "pause" && action != "resume" && action != "close" && action != "delete" && action != "edit") || (action == "edit") != (rule != nil) {
+		(action != "pause" && action != "resume" && action != "close" && action != "delete" && action != "edit") || (action == "edit") != (rule != nil) || len(replacements) > 1 || len(replacements) > 0 && action != "edit" {
 		return aiworkbench.ScheduledPlan{}, aiworkbench.ErrInvalid
 	}
 	fingerprint := scheduledControlDigest(id, expected, action, rule, confirmation)
@@ -132,12 +133,46 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 			}
 			updates["state"] = "PENDING_REGISTRATION"
 		case "edit":
-			if rule.Frequency == aiworkbench.ScheduleOnce && row.MaxOccurrences != 1 {
+			if len(replacements) == 0 && rule.Frequency == aiworkbench.ScheduleOnce && row.MaxOccurrences != 1 {
 				return aiworkbench.ErrInvalid
 			}
 			policy, err := schedulePlanValue(row)
 			if err != nil {
 				return err
+			}
+			if len(replacements) == 1 {
+				r := replacements[0]
+				desired := r.Draft
+				if !desired.Valid() || desired.ID != id || desired.Scope != scope || desired.MemberID != row.MemberID || desired.Kind() != policy.Kind() || desired.Budget.Unit != row.BudgetUnit || desired.Rule != *rule || desired.CopySource != nil {
+					return aiworkbench.ErrInvalid
+				}
+				if uint64(row.ConsumedOccurrences) != r.ConsumedOccurrences || desired.Budget.MaxOccurrences <= uint64(row.ConsumedOccurrences) {
+					return aiworkbench.ErrRevisionMismatch
+				}
+				total, err := desired.TotalUpperBound()
+				if err != nil {
+					return err
+				}
+				selection, err := json.Marshal(desired.Selection)
+				if err != nil {
+					return aiworkbench.ErrInvalid
+				}
+				var report any
+				if desired.Report != nil {
+					raw, e := json.Marshal(desired.Report)
+					if e != nil {
+						return aiworkbench.ErrInvalid
+					}
+					report = json.RawMessage(raw)
+					selection = nil
+				}
+				if desired.Report != nil {
+					updates["report_spec"] = report
+				} else {
+					updates["task_selection"] = json.RawMessage(selection)
+				}
+				updates["goal_summary"], updates["execution_spec"] = desired.GoalSummary, desired.ExecutionSpec
+				updates["max_occurrences"], updates["per_run_upper_bound_micros"], updates["total_upper_bound_micros"] = int64(desired.Budget.MaxOccurrences), int64(desired.Budget.PerRunUpperBoundMicros), int64(total)
 			}
 			catchupPending, err = recordScheduledElapsedSlots(tx, row, policy, now)
 			if err != nil || catchupPending {

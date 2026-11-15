@@ -17,7 +17,9 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  const selection={subject:{kind:"own_product",id,catalogVersion:"1",publicationId:id},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}};
  const plan={id,deleted:false,revision:"2",state:"ACTIVE",registrationState:"MATCHED",detailsAvailable:true,goalSummary:"完善已保存商品的英语描述",selection,rule:{frequency:"once",timeZone:"Asia/Shanghai",atUtc:at,hour:0,minute:0,weekday:0},maxOccurrences:"1",consumedOccurrences:"0",unit:"ai-micropoint-v1",perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"19200000",nextAt:at,createdAt:"2026-11-12T00:00:00Z"};
  const originalTask={id:taskID,conversationId:"",proposalId:"",scheduleId:id,scheduledOccurrenceId:taskID,title:"定时内容原任务",goalSummary:plan.goalSummary,createdAt:"2026-11-12T00:00:00Z",kind:"product.content.localize",projectionAvailable:true,state:"WAITING_CONFIRMATION",canStart:false,canReconcile:false,canResume:false,canReview:false,productDetailsAvailable:false};
- let created=false,creates=0,firstKey="",firstBody="",rejectNextControl=false;
+ let created=false,creates=0,firstKey="",firstBody="",rejectNextControl=false,edits=0,editKey="",editBody="";
+ let copied:typeof plan|undefined;
+ const copyID="33333333-3333-4333-8333-333333333333";
  await page.route("**/*",async route=>{
   const req=route.request(),url=new URL(req.url());if(url.origin!==origin)return route.abort();
   if(!url.pathname.startsWith("/api/"))return route.continue();
@@ -28,16 +30,19 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   if(path==="/api/workbench/collections/batches")return json({items:[],total:0});
   if(path==="/api/workbench/store-center/catalog")return json({schemaVersion:"store-center-v1",organizationId:"org",userId:"user",data:{items:[store],pagination:{page:1,pageSize:100,total:1},metrics:{total:1,normal:null,attention:null,syncHealthy:null,unknown:1,complete:false,observedAt:at},facets:{regions:["US"],applicationTypes:[],groups:[],canManageGroups:false}}});
   if(path==="/api/workbench/schedules/availability")return json({enabled:true,ready:true,contentEnabled:true,storeDailyReportEnabled:true});
-  if(path==="/api/workbench/schedules/quote"){const body=req.postDataJSON();return json({confirmation:"a".repeat(64),...(body.kind==="store.operating-daily-report"?{kind:body.kind,report:body.report,storeName:store.name,unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0"}:{selection,unit:plan.unit,perRunUpperBoundMicros:plan.perRunUpperBoundMicros,totalUpperBoundMicros:plan.totalUpperBoundMicros,executionMode:"default"}),goalSummary:plan.goalSummary,rule:body.rule,maxOccurrences:body.maxOccurrences,nextAt:body.rule.atUtc??at});}
+  if(path==="/api/workbench/schedules/quote"){const body=req.postDataJSON();return json({confirmation:"a".repeat(64),consumedOccurrences:body.scheduleId?plan.consumedOccurrences:"0",...(body.kind==="store.operating-daily-report"?{kind:body.kind,report:body.report,storeName:store.name,unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0"}:{selection:body.selection??selection,unit:plan.unit,perRunUpperBoundMicros:plan.perRunUpperBoundMicros,totalUpperBoundMicros:(BigInt(plan.perRunUpperBoundMicros)*BigInt(body.maxOccurrences)).toString(),executionMode:"default"}),goalSummary:body.goalSummary??plan.goalSummary,rule:body.rule,maxOccurrences:body.maxOccurrences,nextAt:body.rule.atUtc??at});}
   if(path==="/api/workbench/schedules"&&req.method()==="POST"){
    creates++;if(creates===1){firstKey=req.headers()["idempotency-key"];firstBody=req.postData()!;created=true;return json({code:"DEPENDENCY_UNAVAILABLE"},503);}
+   if(req.postDataJSON().sourceScheduleId){const body=req.postDataJSON();expect(body.sourceScheduleId).toBe(id);expect(req.headers()['idempotency-key']).not.toBe(firstKey);copied={...plan,id:copyID,state:"ACTIVE",revision:"2",rule:body.rule,consumedOccurrences:"0"};return json({plan:copied,planSaved:true})}
    expect(req.headers()["idempotency-key"]).toBe(firstKey);expect(req.postData()).toBe(firstBody);return json({plan,planSaved:true});
   }
-  if(path==="/api/workbench/schedules")return json({plans:created?[plan]:[],next:""});
+  if(path==="/api/workbench/schedules")return json({plans:created?[plan,...(copied?[copied]:[])]:[],next:""});
+  if(path===`/api/workbench/schedules/${copyID}`)return json({plan:copied});
+  if(path===`/api/workbench/schedules/${copyID}/occurrences`)return json({occurrences:[],next:""});
   if(path===`/api/workbench/schedules/${id}/occurrences`)return json({occurrences:[{id:taskID,scheduledAt:"2026-11-12T00:00:00Z",planRevision:"2",state:"UNKNOWN",reason:"ORIGINAL_RUN_OUTCOME_UNRESOLVED",businessTaskId:taskID}],next:""});
   if(path===`/api/workbench/schedules/${id}`&&req.method()==="GET")return json({plan});
   if(path.endsWith("/pause")||path.endsWith("/resume")){if(rejectNextControl){rejectNextControl=false;return json({code:"SCHEDULE_COMMAND_REJECTED",commandAccepted:false},409)}expect(req.postDataJSON().expectedRevision).toBe(plan.revision);plan.revision=String(Number(plan.revision)+2);plan.state=path.endsWith("/pause")?"PAUSED":"ACTIVE";return json({plan,planSaved:true});}
-  if(path===`/api/workbench/schedules/${id}`&&req.method()==="PATCH"){plan.rule=req.postDataJSON().rule;plan.nextAt=plan.rule.atUtc;plan.revision=String(Number(plan.revision)+2);return json({plan,planSaved:true});}
+  if(path===`/api/workbench/schedules/${id}`&&req.method()==="PATCH"){if(++edits===1){editKey=req.headers()['idempotency-key'];editBody=req.postData()!;const body=req.postDataJSON();expect(body.changes).toMatchObject({goalSummary:'修改后的法语商品描述',maxOccurrences:'1'});plan.goalSummary=body.changes.goalSummary;plan.selection=body.changes.selection;plan.rule=body.rule;plan.nextAt=plan.rule.atUtc;plan.revision=String(Number(plan.revision)+2);return json({code:'DEPENDENCY_UNAVAILABLE'},503)}expect(req.headers()['idempotency-key']).toBe(editKey);expect(req.postData()).toBe(editBody);return json({plan,planSaved:true});}
   return json({code:"NOT_FOUND"},404);
  });
  await page.goto('/workbench/ai/tasks?view=schedules');
@@ -88,7 +93,8 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  await expect(page.getByRole("link",{name:"查看原任务与人工审核"})).toHaveAttribute("href",`/workbench/ai/tasks/${taskID}`);
  await page.getByRole("button",{name:"暂停未来执行"}).click();await expect(page.getByRole("button",{name:"恢复未来执行"})).toBeVisible();
  await page.getByRole("button",{name:"恢复未来执行"}).click();await expect(page.getByRole("button",{name:"暂停未来执行"})).toBeVisible();
- await page.getByRole("button",{name:"修改时间"}).click();await page.getByLabel("执行日期与时间（本机时区）").fill("2030-11-21T10:00");await page.getByRole("button",{name:"核对时间与预算"}).click();await page.getByRole("button",{name:"确认修改时间"}).click();
+ await page.getByRole("button",{name:"编辑计划",exact:true}).click();await page.getByRole('textbox',{name:'任务目标',exact:true}).fill('修改后的法语商品描述');await page.getByRole('textbox',{name:'目标语言',exact:true}).fill('fr-FR');await page.getByLabel("执行日期与时间（本机时区）").fill("2030-11-21T10:00");await page.getByRole("button",{name:"核对时间与预算"}).click();await page.screenshot({path:info.outputPath('schedule-edit-confirm.png'),fullPage:true});await page.getByRole("button",{name:"确认修改计划"}).click();
+ await expect(page.getByRole('textbox',{name:'任务目标',exact:true})).toHaveValue('修改后的法语商品描述');await page.reload();await page.getByRole('button',{name:'核实原操作',exact:true}).click();expect(edits).toBe(2);
  await expect(page.getByRole("heading",{name:plan.goalSummary})).toBeVisible();
  for(const width of [1440,390])for(const theme of ['light','dark']){
   await page.setViewportSize({width,height:900});
@@ -125,4 +131,9 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  await page.getByRole("button",{name:"返回任务中心"}).click();await page.getByRole("button",{name:/定时内容原任务/}).click();
  await page.getByRole("link",{name:"查看来源定时计划"}).click();
  await expect(page.getByRole("heading",{name:"定时任务",exact:true})).toBeVisible();await expect(page.getByRole("heading",{name:plan.goalSummary,exact:true})).toBeVisible();
+ plan.state='CLOSED';await page.reload();await expect(page.getByRole('button',{name:'编辑计划',exact:true})).toHaveCount(0);
+ const sourceBefore=JSON.stringify(plan),createsBefore=creates;await page.getByRole('button',{name:'复制新建',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'复制新建定时任务'})).toBeVisible();await expect(page.getByRole('textbox',{name:'任务目标',exact:true})).toHaveValue(plan.goalSummary);await expect(page.getByLabel('执行日期与时间（本机时区）')).toHaveValue('');expect(creates).toBe(createsBefore);
+ await page.getByLabel('执行日期与时间（本机时区）').fill('2030-11-22T10:00');await page.getByRole('button',{name:'核对时间与预算'}).click();await page.screenshot({path:info.outputPath('schedule-copy-confirm-mobile.png'),fullPage:true});await page.getByRole('button',{name:'确认并保存计划'}).click();
+ await expect(page.getByText('尚无触发记录',{exact:true})).toBeVisible();expect(creates).toBe(createsBefore+1);expect(JSON.stringify(plan)).toBe(sourceBefore);await page.reload();await expect(page.getByText('尚无触发记录',{exact:true})).toBeVisible();expect(creates).toBe(createsBefore+1);
 });

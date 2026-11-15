@@ -80,6 +80,7 @@ func testScheduledHTTPManagement(t *testing.T, w *aiWorkbenchApplication, deps r
 	input["goalSummary"] = "A different goal"
 	call("POST", workbenchScheduleBase, key, input, 409)
 	path := workbenchScheduleBase + "/" + saved.Plan.ID
+	testScheduledPlanEditAndCopy(t, call, selection, db, w)
 	code, _, err := acquisitionHTTPRequest(server, "GET", path, "reviewer", "B", "", "")
 	require.NoError(t, err)
 	require.NotEqual(t, 200, code)

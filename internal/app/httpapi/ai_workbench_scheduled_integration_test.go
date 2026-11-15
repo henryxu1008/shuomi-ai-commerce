@@ -76,6 +76,23 @@ func testScheduleExistingChatProposal(t *testing.T, ctx context.Context, f *acqu
 	require.Equal(t, agent.HumanReviewRequired, run.State.Phase, "stop=%s", run.State.StopReason)
 	before := calls.Load()
 	require.Positive(t, before)
+	previousBackend := w.schedules
+	w.schedules = &scheduledBackendFixture{}
+	selected := *p.Selection()
+	quoteInput := scheduledInput{ScheduleID: plan.ID, ExpectedRevision: "2", Selection: &selected, GoalSummary: "Updated scoped content", Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9}, MaxOccurrences: "2"}
+	quoted, replanned, _, quoteErr := w.quoteScheduled(ctx, owner, quoteInput)
+	require.NoError(t, quoteErr)
+	require.Equal(t, p.WorkbenchContextRef, replanned.WorkbenchContextRef)
+	require.Equal(t, "1", quoted.ConsumedOccurrences)
+	quoteInput.ScheduleID = ""
+	quoteInput.ExpectedRevision = ""
+	quoteInput.SourceScheduleID = plan.ID
+	quoteInput.MaxOccurrences = "1"
+	_, copied, _, quoteErr := w.quoteScheduled(ctx, owner, quoteInput)
+	require.NoError(t, quoteErr)
+	require.Equal(t, p.WorkbenchContextRef, copied.WorkbenchContextRef)
+	require.Equal(t, before, calls.Load(), "editing and copying quote must not call the model")
+	w.schedules = previousBackend
 	projectRevoked.Store(true)
 	testScheduledTaskListing(t, w, deps, task.ID, "all", false)
 	plan.ID = uuid.NewString()

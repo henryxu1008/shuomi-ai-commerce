@@ -121,7 +121,7 @@ it("retires an unknown command only after an authoritative durable rejection",as
 });
 
 it("confirms a deterministic store report without product or model fields",async()=>{
- const save=vi.fn(async(_input:unknown)=>{});
+ const save=vi.fn<(input:unknown)=>Promise<void>>(async()=>{});
  request.mockImplementation(async input=>{expect(input.route).toBe("schedule-quote");expect(input.body).not.toHaveProperty("selection");expect(input.body).not.toHaveProperty("proposalId");return {kind:"store.operating-daily-report",report:(input.body as {report:unknown}).report,confirmation:"a".repeat(64),goalSummary:"店铺经营日报",rule:(input.body as {rule:unknown}).rule,maxOccurrences:"1",unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0",nextAt:"2030-11-20T01:00:00Z"} as never;});
  render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" disabled={false} dailyReportEnabled contentEnabled={false} onSave={save} onCancel={vi.fn()}/></QueryClientProvider>);
  await screen.findByRole("option",{name:/日报合成店/});
@@ -130,4 +130,41 @@ it("confirms a deterministic store report without product or model fields",async
  await userEvent.click(screen.getByRole("button",{name:"核对计划"}));
  await screen.findByText("每次执行自动保存一份个人报告");expect(save).not.toHaveBeenCalled();expect(screen.queryByText(/AI 积分/)).toBeNull();
  await userEvent.click(screen.getByRole("button",{name:"确认并保存计划"}));expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).toMatchObject({kind:"store.operating-daily-report",report:{storeId:"33333333-3333-4333-8333-333333333333"}});
+});
+
+it("opens a full plan editor without changing the plan or starting a task",async()=>{
+ mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
+ await userEvent.click(await screen.findByRole("button",{name:"编辑计划"}));
+ expect(await screen.findByRole("heading",{name:"编辑计划"})).toBeVisible();
+ expect(screen.getByRole("textbox",{name:"任务目标"})).toHaveValue(plan.goalSummary);
+ expect(request.mock.calls.some(([input])=>input.method!=="GET")).toBe(false);
+});
+
+it("copies an ended plan into an unsaved form with its settings and a fresh date",async()=>{
+ const current=request.getMockImplementation()!;
+ request.mockImplementation(async input=>input.route==="schedule-read"?{plan:{...plan,state:"CLOSED",rule:{...plan.rule,frequency:"once",atUtc:"2026-11-01T01:00:00Z"}}} as never:current(input));
+ mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
+ await userEvent.click(await screen.findByRole("button",{name:"复制新建"}));
+ expect(await screen.findByRole("heading",{name:"复制新建定时任务"})).toBeVisible();
+ expect(screen.getByRole("textbox",{name:"任务目标"})).toHaveValue(plan.goalSummary);
+ expect(screen.getByLabelText("执行日期与时间（本机时区）")).toHaveValue("");
+ expect(request.mock.calls.some(([input])=>input.method!=="GET")).toBe(false);
+});
+
+it("requotes all future settings and distinguishes remaining budget from past runs",async()=>{
+ const save=vi.fn(async()=>{}),selection={subject:{kind:"own_product" as const,id,catalogVersion:"1",publicationId:id},capability:"product.content.localize" as const,parameters:{targetLanguage:"en-US",description:true}};
+ request.mockImplementation(async input=>{expect(input.route).toBe("schedule-quote");expect(input.body).toMatchObject({scheduleId:id,expectedRevision:"2",goalSummary:"Updated future description",maxOccurrences:"4",selection});return {selection,confirmation:"a".repeat(64),goalSummary:"Updated future description",rule:plan.rule,maxOccurrences:"4",consumedOccurrences:"1",unit:plan.unit,perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"76800000",nextAt:"2030-11-20T01:00:00Z",executionMode:"default"} as never;});
+ render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" plan={{...plan,deleted:false,selection}} disabled={false} onSave={save} onCancel={vi.fn()}/></QueryClientProvider>);
+ await userEvent.clear(screen.getByRole("textbox",{name:"任务目标"}));await userEvent.type(screen.getByRole("textbox",{name:"任务目标"}),"Updated future description");
+ await userEvent.clear(screen.getByLabelText("最多执行次数"));await userEvent.type(screen.getByLabelText("最多执行次数"),"4");
+ await userEvent.click(screen.getByRole("button",{name:"核对时间与预算"}));
+ await screen.findByText("已执行 1 次，后续可执行 3 次");expect(screen.getByText("57.6 AI 积分")).toBeVisible();expect(save).not.toHaveBeenCalled();
+ await userEvent.clear(screen.getByLabelText("最多执行次数"));await userEvent.type(screen.getByLabelText("最多执行次数"),"5");
+ expect(screen.queryByRole("button",{name:"确认修改计划"})).toBeNull();expect(screen.getByRole("textbox",{name:"任务目标"})).toHaveValue("Updated future description");
+});
+
+it("rejects a count already consumed before requesting a quote",async()=>{
+ render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" plan={{...plan,deleted:false}} disabled={false} onSave={vi.fn()} onCancel={vi.fn()}/></QueryClientProvider>);
+ await userEvent.clear(screen.getByLabelText("最多执行次数"));await userEvent.type(screen.getByLabelText("最多执行次数"),"1");await userEvent.click(screen.getByRole("button",{name:"核对时间与预算"}));
+ expect(screen.getByRole("alert")).toHaveTextContent("次数上限需大于已执行的 1 次");expect(request).not.toHaveBeenCalled();
 });
