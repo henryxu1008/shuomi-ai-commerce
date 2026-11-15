@@ -2,6 +2,8 @@ package skillsandbox
 
 import (
 	"context"
+	"encoding/base32"
+	"encoding/hex"
 	"encoding/json"
 	osb "github.com/alibaba/OpenSandbox/sdks/sandbox/go"
 	"net/http"
@@ -42,6 +44,7 @@ func testLifecycle(t *testing.T, output, outcome string, unprotected bool) {
 	}
 	const id = "d68f289c-2e45-4d0a-9a13-d53db4425739"
 	token := ""
+	profile := ""
 	created, commands, denied := 0, 0, 0
 	deleted := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +56,15 @@ func testLifecycle(t *testing.T, output, outcome string, unprotected bool) {
 			created++
 			var request osb.CreateSandboxRequest
 			_ = json.NewDecoder(r.Body).Decode(&request)
+			profile = request.Metadata["skill_profile"]
+			if len(profile) > 63 {
+				http.Error(w, `{"message":"metadata value exceeds 63 characters"}`, http.StatusBadRequest)
+				return
+			}
+			decoded, decodeErr := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(profile)
+			if decodeErr != nil || hex.EncodeToString(decoded) != descriptor.Digest() {
+				t.Error("profile label did not preserve the complete descriptor digest")
+			}
 			token = request.Env["EXECD_ACCESS_TOKEN"]
 			if len(token) < 32 {
 				t.Error("execd starts without private per-instance credential")
@@ -70,7 +82,7 @@ func testLifecycle(t *testing.T, output, outcome string, unprotected bool) {
 				http.Error(w, `{"message":"absent"}`, 404)
 				return
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "image": map[string]string{"uri": descriptor.ImageDigest}, "metadata": map[string]string{"skill_profile": descriptor.Digest()}})
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "image": map[string]string{"uri": descriptor.ImageDigest}, "metadata": map[string]string{"skill_profile": profile}})
 		case strings.HasSuffix(r.URL.Path, "/ping"):
 			_, _ = w.Write([]byte(`{}`))
 		default:

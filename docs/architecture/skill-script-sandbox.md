@@ -1,7 +1,7 @@
 # 技能脚本执行：Linux Docker + OpenSandbox + gVisor 接入设计
 
 > Design Basis: **Independent Architecture**。
-> Status: **APPROVED / IMPLEMENTATION_READY / D_IT1_TRIAL_GATE_PENDING**。用户于 2026-11-15 批准 §21 三组范围与准入，随后明确授权 #1293 正式实现（§22）。滚动实现/评审状态见执行 Issue/PR；此文保留冻结设计和阶段证据。D-IT1 是对应部署 profile 开放试用前的 IMPLEMENTATION_TEST，不降级为 PASS，不签发产品/生产验收。
+> Status: **APPROVED / IMPLEMENTATION_READY**。§23 已补独立 WSL profile 的 D-IT1 与真实 init/proc 验证；结论只适用于该环境，业务部署对应门槛仍待核对。用户于 2026-11-15 批准 §21 范围、§22 正式实现及后续有界真实验证。滚动实现/CI/评审见 #1293/PR #1298；不签发产品验收或自动开放试用。
 > 日期：2026-11-14；最近独立增量复核：2026-11-15；调查基线：main `cbaadd5efd9bc6ef2f8204550f926929deecf566`。
 > 初始授权：按 OpenSandbox + gVisor 设计接入现有技能库、尽量复用 Eino 和工具链，明确“先别改生产代码”。初始设计与独立评审阶段未执行安装/部署；后续获准的独立测试环境安装和 POC 见 §19，生产代码/依赖、真实模型及业务数据仍未改动；作者自检不替代独立评审。
 > 正式执行 Issue：[#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，状态唯一来源为 Issue 正文。设计分支 codex/skill-opensandbox-design 只承载前阶段文档；正式实现使用独立 codex/1293-skill-script。
@@ -707,3 +707,43 @@ I-B1 保持已批准的 private Traefik → server-proxy → execd 控制链，�
 结果获取：脚本明确退出成功后，固定受信 collector 以隔离标准库执行 `O_NOFOLLOW|O_NONBLOCK + fstat`，只读普通文件且最多8193字节，超过8192拒绝；复制到 root-only 目录后再由官方 SDK 下载。避免 stat 与下载间的 symlink/FIFO 竞态；无用户参数、Shell、用户 import path 或业务凭据。脚本退出、collector、下载/格式校验均合格才 succeeded，清理不改写结果。收集仍在整步30秒内，清理另给独立5秒，不承诺 exactly-once 或新增后台恢复。
 
 部署 runtime/PID/quota/挂载/netfilter 与 init/proc 约束仍属 §8.3.4 owner，guest 自报和生命周期 metadata 不能证明正确。配置默认关闭；只有 owner 完成适用真实检查并将记录 hash 写入私有 `trialEvidence` 才能开放。它是明确的管理准入引用，不是签名证明或自动检测系统；缺失关闭，不以旧 POC、合成 HTTP fixture 或任意 hash 冒充验收。首版采用一个后端实例/专用 worker，adapter 串行和创建前存量检查不冒充多副本分布式容量分配器。
+
+## 23. 独立 WSL profile 的剩余真实验证（2026-11-15）
+
+用户授权复用独立 WSL2 环境，补 D-IT1 与 execd init/proc 检查、判断内部试用条件，禁止操作业务实例、合并或部署到业务环境。本次复用 `skill-sandbox-poc`/原 Engine、镜像、私有 Traefik/Server 和四个合成 helper，不新建业务栈、认证/执行/验收平台，不调用模型或业务 API。现有应用编排/用户权限/Review 组合测试与 §19 未变认证失效、换密、TTL 等证据按原范围复用。
+
+### 范围与真实发现
+
+实际组合：Engine29.9.3、runsc release-20261109.0、Server/execd1.2.1、Traefik3.6.8、SDK1.2.1；Python/execd/Traefik 不可变 ID 与 §19 一致。共享初始 netns 为 `4026531833`，控制面私有 netns 为 `4026532371`；仅在后者操作 Docker/规则。后端角色是运行**正式 skillsandbox adapter** 的受限验证进程，与无凭据客户端共享原 app namespace；不是已部署的 current-application 业务实例。
+
+**R-IT1：真实 adapter 创建被400拒绝。**
+
+- Finding：原 metadata `skill_profile` 使用64字符十六进制摘要，上游即使在 Docker 模式也执行 label 值≤63字符校验；HTTP fixture 未模拟该限制，不能用其 PASS 推导真实 happy path。
+- Product requirement affected：准确 descriptor 绑定与真实控制链可完成。
+- Classification：**BLOCKER（该候选的试用：核心 happy path 无法完成）**；不改变架构/状态/权限/恢复合同。
+- Action：先将同版63字符限制加入 SDK fixture，确认原实现 RED；复用标准库无 padding Base32，将完整256位摘要无损编码为52个字母数字字符，创建与读回使用同一值，Run/receipt/provenance 摘要仍是完整原 SHA-256。增加解码还原原摘要断言，测试 GREEN；真实 adapter 随后成功。没有截短摘要、fork SDK、变更 UNKNOWN 或重新派发原业务 Run。上游依据为同一固定提交的 [validators.py](https://github.com/alibaba/OpenSandbox/blob/db708c218771a8d311356f0e96552c15df6e097a/server/opensandbox_server/services/validators.py)。
+
+init 检查的首次脚本还错误地要求 bootstrap 删除全部 `JUPYTER_TOKEN/EXECD_ENVS` 名称；同版上游明确允许 entrypoint 保留这些 bootstrap 设置（EXECD_ENVS 为配置路径），实际需剥离的控制凭据/transport 列表见 [bootstrapStripEnv](https://github.com/alibaba/OpenSandbox/blob/db708c218771a8d311356f0e96552c15df6e097a/components/execd/pkg/runtime/initmode_linux.go#L315)。修正的是检查范围，未降低控制凭据要求：正式 create 只注入逐实例 execd token，不提供 Jupyter/业务凭据；入口验证控制凭据不继承，**每条脚本和 collector 命令仍将三个环境变量都空覆盖**。
+
+### D-IT1 / init-proc 实测映射
+
+| 当前 Must / 场景 | 本次实际证据与准确结论 |
+| --- | --- |
+| 正式控制链与准确实例 | 正式 `skillsandbox.New/Execute` 经真实 CA/TLS/BasicAuth/Server/proxy/execd 完成上传、UID65534 Argv、明确终态、受信 collector、结果下载与删除，receipt 为 succeeded/completed。可信 inspect 捕获实例 `e8049d50-88db-4802-b95f-8e4d684187bc`：runsc、1CPU、268435456内存、PID64、134217728写层、单 internal/IPv4-only guest网络、no-new-privileges/cap drop；guest无挂载，44772/8080均未发布宿主端口。删除后无对应容器，不以 guest uname 代证 |
+| 真实后端路径与秘密挂载 | 正式 adapter 验证进程 UID65534、只读 rootfs、network_mode=container:原appns；私有 CA/凭据/测试配置仅在其 `/private` 只读挂载，无 Docker socket。共享 UI-like 客户端无该挂载，guest inspect 及脚本均确认无 `/private`。缺凭据文件时 New 拒绝，未创建沙箱。这里验证的是独立角色接线，未冒充已部署业务应用挂载 |
+| proxy 与共享 IP 认证 | 对**真实已存在实例**的 files/info：缺/错 Basic均401；合格Basic缺execd token仍401；合格Basic+有效execd token即使lifecycle Key错误也200，符合单租户proxy职责。lifecycle错Key拒绝沿§19证据；匿名共享客户端的health/lifecycle读取401，伪造Forwarded头无效。endpoint同一固定origin和准确proxy/44772路径 |
+| 宿主其他地址/原始端口 | 对宿主四个固定IPv4地址的18080/18443检查：共享app仅准确M:P可连接，raw S拒绝；同bridge错误来源及独立管理/canary网络均不可进入控制入口。实际INPUT计数增加；共享app到guest-peer因无路由拒绝，管理网络路由到peer被FORWARD拒绝，计数命中；可信宿主到同一peer/HTTP canary可达，避免将未监听误报隔离 |
+| IPv6 | 原guest网络IPv6=false、无IPv6默认路由/地址，控制面无IPv6监听。额外在**私有测试namespace**临时设置受控ULA/TCP canary，19091正对照可连接，18080/18443超时且INPUT6拒绝计数2；随后删除ULA并恢复测试客户端IPv6关闭。未改共享namespace或添加真实第二API监听 |
+| DNS与外联 | 单internal runsc验证guest以宿主可达的合成DNS canary作显式上游挑战：宿主查询收到响应，guest直接IP无路由，127.0.0.11查询超时，canary包计数1→1，无外部转发。正式adapter脚本另验证多个宿主地址、业务/外网代用canary与同桥peer不可主动连接。无公网默认路由，未把公网请求失败当证据；没有请求互联网或真实metadata服务 |
+| TLS/HTTP/头用途 | 正确CA/域名实际SDK成功，错误CA/域名证书拒绝；明文HTTP404、不重定向到匿名上游。removeHeader/file-provider固定配置与同版源码保持，敏感头剥离沿§18合成头/真实Traefik证据及§19锁定proxy源码复用；没有抓包保存秘密。服务身份不替代用户/use权限 |
+| init与proc | 独立已认证控制实例 `f0b07dd4-1ac9-49a1-b093-cc2fafe6bb79` 中，受信检查确认PID1为execd、tail入口无控制凭据；drop SYS_PTRACE 的root命令读取PID1 environ亦PermissionError，符合non-dumpable保护。正式adapter脚本实际UID65534，三个环境变量均空，PID1 environ/mem拒绝，guest本地匿名控制API401。所有检查只返回布尔/状态，不打印环境或凭据值 |
+| 既有公网入口 | **本测试profile不适用**：私有netns仅lo/Docker桥，无对外网卡/路由，无0.0.0.0或IPv6控制监听；共享初始namespace无本单18080/18443监听，未新建公网路由。仓库既有公网配置未添加sandbox转发，未修改/探测真实业务公网服务。未来业务部署的实际公网入口仍须目标owner核对，不能继承本行N/A为PASS |
+| 失效/恢复 | 本次按原resume入口恢复规则→Server→Traefik，认证/正式adapter实际可用；本次补缺后端私密文件拒绝。usersFile/middleware/证书缺失、换密、取消不重POST及TTL复用§18–20未变代码/组合证据，不额外重复完整演练。临时IPv6/DNS helper均退出，规则没有因此放宽 |
+
+### 结论与证据边界
+
+该**独立 WSL 执行 profile 的适用 D-IT1 与 init/proc 技术检查已完成**，R-IT1修复后真实 adapter 可完成受控计算；具备进入受控内部试用的执行环境技术条件。**尚未对用户开放产品试用**，未部署 current-application/UI、接入真实企业/用户或模型。未来业务环境的真实后端挂载/公网路由/网络身份须在实际目标另行核对，D-IT1 不作跨部署全局关闭；默认产品配置仍关闭，不将本次测试引用写进业务manifest。
+
+所有临时配置明确 `NONPRODUCTION validation-only`：其中 trialEvidence 是测试 fixture 值，不是正式试用准入记录。完整证据经核对后可由目标部署owner引用适用记录，不能直接复用测试值。原Run/HTTP/PG/Review/界面证据只按其原范围复用，不把本次执行器计算等同完整用户验收。后续独立增量复核与准确源码/CI绑定维护在PR #1298；不得合并、关闭Issue或部署业务实例。
+
+公开脱敏材料保留在实现worktree忽略目录 `.local/issue1293-trial/evidence/`，私密文件仅在独立WSL的root保护目录。最终检查工具hash `a795cd6aeaffb040667ecfca0388faed01b21721910904f78a7ada85f7786d38`；init函数在追加3秒inspect等待前已执行，相关函数未变，不冒充同一最终二进制重跑。真实adapter+inspect日志SHA256 `4211170cdcccf0919f991aca3ce5b781ca1eb6700dbe030f964231a192ce25ce`，runtime inspect `b7ca4219a35925f000e0f052903ba62f17e024d19bdff89e7bde15f66e9953d2`，init日志 `572351402bcabd493b57d20729da796a47058d6e9f9c39dc903eddc4e2f7af93`，backend mounts `237c36fd7a6f1c21bd9f0685bfdae49263c14043bbf45f93c2c09b5033e6f77d`，共享客户端网络日志 `fd661a35db0b96a4d60a4873e264239547821905ccf3fcea9dbedd51bf706d18`。DNS/IPv6另保留工具执行转录与原计数，不将转录冒充新的实际执行。

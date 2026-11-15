@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base32"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -76,10 +77,14 @@ func (e *Executor) Execute(parent context.Context, task agent.ScriptTask) (resul
 		return result, nil
 	}
 	execdToken := hex.EncodeToString(nonce[:])
+	// OpenSandbox metadata uses label values (at most 63 characters). Encode
+	// all 256 digest bits in 52 alphanumeric characters; never truncate them.
+	profileDigest, _ := hex.DecodeString(e.descriptor.Digest())
+	profileLabel := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(profileDigest)
 	result.Receipt.Outcome = "outcome_unknown"
 	result.Receipt.Cleanup = "pending"
 	result.Receipt.Reason = "create_unconfirmed"
-	sandbox, createErr := e.lifecycle.CreateSandbox(ctx, osb.CreateSandboxRequest{Image: &osb.ImageSpec{URI: e.descriptor.ImageDigest}, Timeout: &ttl, Env: map[string]string{"EXECD_ACCESS_TOKEN": execdToken}, ResourceLimits: osb.ResourceLimits{"cpu": "1", "memory": "256Mi", "disk": "128Mi"}, Entrypoint: []string{"tail", "-f", "/dev/null"}, Metadata: map[string]string{"skill_profile": e.descriptor.Digest()}})
+	sandbox, createErr := e.lifecycle.CreateSandbox(ctx, osb.CreateSandboxRequest{Image: &osb.ImageSpec{URI: e.descriptor.ImageDigest}, Timeout: &ttl, Env: map[string]string{"EXECD_ACCESS_TOKEN": execdToken}, ResourceLimits: osb.ResourceLimits{"cpu": "1", "memory": "256Mi", "disk": "128Mi"}, Entrypoint: []string{"tail", "-f", "/dev/null"}, Metadata: map[string]string{"skill_profile": profileLabel}})
 	if createErr != nil || sandbox == nil {
 		e.unknownUntil = time.Now().Add(120 * time.Second)
 		return result, nil
@@ -110,7 +115,7 @@ func (e *Executor) Execute(parent context.Context, task agent.ScriptTask) (resul
 	// Lifecycle readback ties private input to the returned instance and exact
 	// immutable image/profile. Runtime/firewall enforcement stays deployment-owned.
 	info, infoErr := e.lifecycle.GetSandbox(ctx, sandbox.ID)
-	if infoErr != nil || info.ID != sandbox.ID || info.Image == nil || info.Image.URI != e.descriptor.ImageDigest || info.Metadata["skill_profile"] != e.descriptor.Digest() {
+	if infoErr != nil || info.ID != sandbox.ID || info.Image == nil || info.Image.URI != e.descriptor.ImageDigest || info.Metadata["skill_profile"] != profileLabel {
 		result.Receipt.Reason = "instance_mismatch"
 		return result, nil
 	}
