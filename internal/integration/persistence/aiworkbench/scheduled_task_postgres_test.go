@@ -151,7 +151,7 @@ func TestScheduledPreflightReceiptCannotBecomePaidAfterResume(t *testing.T) {
 	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
 	paused, err := store.ChangeScheduledPlan(ctx, scope, p.ID, uuid.NewString(), 2, "pause", nil, "", now)
 	require.NoError(t, err)
-	require.NoError(t, store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, p.Rule.AtUTC, p.Rule.AtUTC, "SKIPPED", "PLAN_NOT_ACTIVE"))
+	require.NoError(t, store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, paused.Revision, p.Rule.AtUTC, p.Rule.AtUTC, "SKIPPED", "PLAN_NOT_ACTIVE"))
 	_, err = store.ChangeScheduledPlan(ctx, scope, p.ID, uuid.NewString(), paused.Revision, "resume", nil, "", now)
 	require.NoError(t, err)
 	receipt, replay, err := store.ClaimScheduledOccurrence(ctx, scope, p.ID, p.Rule.AtUTC, p.Rule.AtUTC)
@@ -383,12 +383,12 @@ func TestScheduledPreflightPreservesEarlierMissingHistory(t *testing.T) {
 			require.NoError(t, store.CreateScheduledPlan(ctx, p))
 			require.NoError(t, store.MarkScheduleRegistered(ctx, scope, p.ID, 1))
 			slot := now.AddDate(0, 0, gap).Add(time.Hour)
-			err = store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, slot, slot, "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
+			err = store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, 2, slot, slot, "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
 			if gap > 256 {
 				require.ErrorIs(t, err, aiworkbench.ErrScheduleCatchupPending)
 				_, err = store.ReadScheduledOccurrence(ctx, scope, p.ID, slot)
 				require.ErrorIs(t, err, aiworkbench.ErrNotFound)
-				err = store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, slot, slot, "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
+				err = store.RecordScheduledPreflightReceipt(ctx, scope, p.ID, 2, slot, slot, "BLOCKED", "CURRENT_AUTHORIZATION_UNAVAILABLE")
 			}
 			require.NoError(t, err)
 			var count int64

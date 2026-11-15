@@ -480,7 +480,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	before := calls.Load()
 	require.Zero(t, before, "planning never starts a content run")
 	if scheduled {
-		testScheduleExistingChatProposal(t, ctx, f, app, planned.ProposalID, calls, &projectRevoked, deps)
+		testScheduleExistingChatProposal(t, actor, f, app, planned.ProposalID, calls, &projectRevoked, deps)
 		return
 	}
 	confirmPath := workbenchChatBase + "/" + created.Conversation.ID + "/proposals/" + planned.ProposalID + "/confirm"

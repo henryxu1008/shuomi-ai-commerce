@@ -36,29 +36,37 @@ func GrantDailyReportRuntime(db *gorm.DB, role string) error {
 	if db == nil || !roleName.MatchString(role) {
 		return aiworkbench.ErrInvalid
 	}
-	if err := validateRuntimeRoleIdentity(db, role); err != nil {
-		return err
-	}
-	if member, e := hasRoleMembership(db, role); e != nil || member {
-		return aiworkbench.ErrInvalid
-	}
-	if cross, e := hasCrossOwnerRelationPrivilege(db, role); e != nil || cross {
-		return aiworkbench.ErrInvalid
-	}
-	if err := validateBoundedWorkbenchPrivileges(db, role); err != nil {
-		return err
-	}
-	quoted := `"` + role + `"`
-	for _, sql := range []string{
-		"REVOKE ALL ON ai_workbench.report_execution FROM " + quoted,
-		"GRANT SELECT, INSERT ON ai_workbench.report_execution TO " + quoted,
-		"GRANT UPDATE(capture_started,closed_no_write,report_id,report_digest,proof) ON ai_workbench.report_execution TO " + quoted,
-	} {
-		if err := db.Exec(sql).Error; err != nil {
+	return db.Transaction(func(db *gorm.DB) error {
+		if err := validateRuntimeRoleIdentity(db, role); err != nil {
 			return err
 		}
-	}
-	return nil
+		if member, e := hasRoleMembership(db, role); e != nil || member {
+			return aiworkbench.ErrInvalid
+		}
+		if cross, e := hasCrossOwnerRelationPrivilege(db, role); e != nil || cross {
+			return aiworkbench.ErrInvalid
+		}
+		if _, err := scheduledEditColumnsFor(db); err != nil {
+			return err
+		}
+		if err := db.Exec(`GRANT UPDATE(report_spec) ON ai_workbench.scheduled_plans TO "` + role + `"`).Error; err != nil {
+			return err
+		}
+		if err := validateBoundedWorkbenchPrivileges(db, role); err != nil {
+			return err
+		}
+		quoted := `"` + role + `"`
+		for _, sql := range []string{
+			"REVOKE ALL ON ai_workbench.report_execution FROM " + quoted,
+			"GRANT SELECT, INSERT ON ai_workbench.report_execution TO " + quoted,
+			"GRANT UPDATE(capture_started,closed_no_write,report_id,report_digest,proof) ON ai_workbench.report_execution TO " + quoted,
+		} {
+			if err := db.Exec(sql).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func VerifyDailyReportSchema(ctx context.Context, db *gorm.DB) error {

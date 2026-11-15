@@ -5,6 +5,11 @@ import {ChatTaskSelection} from "./chat-task-selection";
 const read=vi.hoisted(()=>vi.fn());
 vi.mock("@/lib/api/product-collection",()=>({listCollectionBatches:read,listCollectionItems:read}));
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it("identifies a prefilled schedule product even without its display name",()=>{
+ const client=new QueryClient();read.mockResolvedValue({items:[],total:0});
+ render(<QueryClientProvider client={client}><ChatTaskSelection compactSummary scope={{userId:"actor",organizationId:"org"}} authorizationKey="current" subject={{kind:"own_product",id:"11111111-1111-4111-8111-111111111111",catalogVersion:"1",publicationId:"22222222-2222-4222-8222-222222222222"}} parameters={{targetLanguage:"en-US",description:true}} onSubject={vi.fn()} onParameters={vi.fn()} disabled={false}/></QueryClientProvider>);
+ expect(screen.getByText(/商品标识 11111111-1111-4111-8111-111111111111/)).toBeVisible();client.clear();
+});
 it("does not expose cached product names after permissions change for the same actor and organization",async()=>{
  const client=new QueryClient({defaultOptions:{queries:{retry:false,staleTime:30000}}});
  const old={items:[{id:"11111111-1111-4111-8111-111111111111",name:"Private imported products",count:1}],total:1};

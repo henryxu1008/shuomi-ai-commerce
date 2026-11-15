@@ -71,33 +71,50 @@
 .resultLinks a:focus-visible,.request summary:focus-visible{outline:2px solid var(--ring);outline-offset:4px;border-radius:4px}
 .emptyHistory{display:grid;gap:8px;padding:24px 0;border-block:1px solid var(--border);font-size:14px}
 .loadMore{justify-self:start}
-.form{display:grid;gap:24px;min-width:0}
-.formHeading{display:grid;gap:8px}
-.formHeading h2{font-size:20px;line-height:28px}
-.formHeading p{max-width:72ch;color:var(--muted-foreground);font-size:14px;line-height:24px}
+.editorPage{max-width:none}
+.form{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;gap:24px;min-width:0;isolation:isolate}
+.formBody{container-type:inline-size;display:grid;gap:24px;min-width:0;padding:24px;border:1px solid var(--border);border-radius:12px;background:var(--card)}
 .field,.kindField{display:grid;align-content:start;gap:8px;min-width:0;font-size:14px;line-height:24px}
-.kindField{max-width:360px}
+.kindField{max-width:320px}
 .form textarea{resize:vertical}
 .form input,.form select,.form textarea{min-width:0}
 .formSection{display:grid;gap:16px;min-width:0;padding:24px 0 0;border-top:1px solid var(--border)}
 .formSection>legend{padding:0;margin-bottom:16px;font-size:16px;line-height:24px;font-weight:500}
-.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;min-width:0}
-.selectedSummary{display:grid;gap:8px;padding:16px 20px;border-left:2px solid var(--border);background:var(--muted);overflow-wrap:anywhere;font-size:14px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px;max-width:1000px;min-width:0}
+.dateField{grid-column:auto}
+.selectedSummary{display:grid;gap:8px;padding:16px;border-left:2px solid var(--border);background:var(--muted);overflow-wrap:anywhere;font-size:14px}
 .selectedSummary .eyebrow{margin-bottom:0}
-.subjectGroup{min-width:0;padding-top:24px;border-top:1px solid var(--border)}
+.subjectGroup{display:grid;gap:16px;min-width:0}
+.subjectGroup h2,.subjectGroup legend{font-size:16px;font-weight:500;line-height:24px}
 .subjectGroup>fieldset{display:grid;gap:16px;min-width:0}
-.subjectGroup>fieldset>*{margin-block:0}
-.subjectGroup legend{font-weight:500;line-height:24px}
+.subjectGroup :global(.space-y-3),.subjectGroup :global(.space-y-4){display:grid;gap:16px}
+.subjectGroup :global(.space-y-3)>*,.subjectGroup :global(.space-y-4)>*{margin-block:0}
+.subjectGroup :where(div):empty{display:none}
+.subjectGroup>fieldset>fieldset{padding-top:24px;border-top:1px solid var(--border)}
+.subjectGroup>fieldset>fieldset>legend{margin-bottom:16px}
 .subjectGroup label:has(>select),.subjectGroup label:has(>input:not([type="checkbox"])){display:grid;gap:8px;min-width:0;font-size:14px}
+.subjectGroup label:has(>input:not([type="checkbox"])){max-width:320px}
 .subjectGroup :where(select){width:100%;min-width:0;height:40px;margin-top:0;padding:8px 12px;border:1px solid var(--input);border-radius:var(--control-radius);color:var(--foreground);background:var(--control-background,var(--background));font-size:14px}
-.subjectGroup :where(input[type="checkbox"]){width:16px;height:16px;margin:0;accent-color:var(--primary)}
+.subjectGroup fieldset>fieldset>fieldset{gap:8px}
+.subjectGroup fieldset>fieldset>fieldset>legend{margin-bottom:8px;font-size:14px}
+.subjectGroup label:has(>input[type="checkbox"]){display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 12px;border:1px solid var(--input);border-radius:8px;background:var(--background);font-size:14px;line-height:20px;cursor:pointer}
+.subjectGroup label:has(>input[type="checkbox"]:checked){border-color:var(--primary)}
+.subjectGroup :where(input[type="checkbox"]){flex-shrink:0;width:16px;height:16px;margin:0;accent-color:var(--primary)}
 .subjectGroup :where(select,input[type="checkbox"]):focus-visible{outline:2px solid var(--ring);outline-offset:2px}
-.subjectGroup p{color:var(--muted-foreground);font-size:13px;line-height:20px}
+.subjectGroup p{color:var(--muted-foreground);font-size:13px;line-height:20px;overflow-wrap:anywhere}
 .storeField{display:grid;gap:12px}
-.formActions{padding-top:20px;border-top:1px solid var(--border)}
+.summaryRail{position:sticky;top:24px;min-width:0}
+.summaryRail:has(details[open]){position:static}
 .confirm{display:grid;gap:20px;padding:24px;border:1px solid var(--border);border-radius:12px;background:var(--card)}
-.confirmTitle{font-size:16px;line-height:24px;font-weight:500;overflow-wrap:anywhere}
-.confirmFacts{grid-template-columns:repeat(3,minmax(0,1fr));padding:20px 0;border-block:1px solid var(--border)}
+.confirmTitle{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden;font-size:14px;line-height:24px;font-weight:500;overflow-wrap:anywhere}
+.confirmFacts{grid-template-columns:1fr;gap:20px;padding:20px 0;border-block:1px solid var(--border)}
+.confirmFacts .nextExecution dd:first-of-type{font-size:20px;line-height:28px;color:var(--foreground);font-weight:500}
+.nextExecution{padding-left:12px;border-left:2px solid var(--primary)}
+.formActions{position:sticky;bottom:0;z-index:5;grid-column:1 / -1;justify-content:space-between;gap:16px;min-width:0;margin-top:0;padding:16px 0 calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--background)}
+.footerMessage{flex:1;min-width:0}
+.footerMessage .error{padding:0;border:0;border-radius:0;background:transparent;color:var(--destructive)}
+.formActions>.actions{flex-shrink:0}
+.formActions button{min-height:40px}
 .notice,.error,.warning{margin:0;padding:12px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:14px;line-height:24px;overflow-wrap:anywhere}
 .notice{border-left:3px solid var(--primary)}
 .error{border-left:3px solid var(--destructive)}
@@ -108,9 +125,21 @@
 .dialog h2{font-size:20px;line-height:28px;font-weight:600}
 .dialogDescription{font-size:15px;line-height:24px}
 .dialog .dialogActions{justify-content:flex-end;margin-top:24px}
+@container(min-width:640px){
+ .subjectGroup>fieldset>fieldset{grid-template-columns:minmax(0,320px) minmax(0,1fr);column-gap:24px;align-items:start}
+ .subjectGroup>fieldset>fieldset>label{grid-column:1;grid-row:1}
+ .subjectGroup>fieldset>fieldset>p{grid-column:1;grid-row:2}
+ .subjectGroup>fieldset>fieldset>fieldset{grid-column:2;grid-row:1 / 3}
+}
 @media(max-width:1100px){
  .listHeading,.row{grid-template-columns:minmax(0,1fr) 180px 112px 80px;gap:16px}
- .facts,.fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:1000px){
+ .form{grid-template-columns:1fr}
+ .summaryRail{position:static}
+ .confirmFacts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .formActions{grid-column:1}
 }
 @media(max-width:800px){
  .listHeading{display:none}
@@ -131,7 +160,7 @@
  .filter select{flex:1;max-width:240px}
  .toolbar>.actions{width:100%;margin-left:0}
  .toolbar>.actions>button{flex:1}
- .detail,.confirm{padding:20px}
+ .detail,.confirm,.formBody{padding:20px}
  .detailHeading{flex-direction:column;gap:12px}
  .planIdentity h2{font-size:18px;line-height:28px}
  .detailHeading>.state{margin-top:0}
@@ -139,8 +168,13 @@
  .kindField{max-width:none}
  .detailActions,.secondaryActions{width:100%;margin-left:0}
  .detailActions>.actions{width:100%}
- .detailActions button,.formActions button,.dialogActions button{flex:1}
- .formActions{flex-wrap:nowrap}
+ .detailActions button,.dialogActions button{flex:1}
+ .formActions{gap:8px;align-items:stretch}
+ .footerMessage{flex-basis:100%}
+ .formActions>.actions{display:flex;width:100%;gap:8px}
+ .formActions>.actions>button:first-child{flex:0 0 80px}
+ .formActions>.actions>button:last-child{flex:1}
+ .subjectGroup label:has(>input:not([type="checkbox"])){max-width:none}
  .recovery>button,.loadMore{width:100%}
  .recovery{align-items:flex-start}
 }
