@@ -15,7 +15,7 @@ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true
 Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
 function mount(){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ScheduleManager scope={scope} authorizationKey="roles" canUse onBack={vi.fn()}/></QueryClientProvider>)}
 beforeEach(()=>{cleanup();sessionStorage.clear();window.history.replaceState(null,"","/?view=schedules");request.mockReset();request.mockImplementation(async input=>{
- if(input.route==="schedule-availability")return {enabled:true,ready:true} as never;
+ if(input.route==="schedule-availability")return {enabled:true,ready:true,storeDailyReportEnabled:true} as never;
  if(input.route==="schedule-list")return {plans:[plan],next:""} as never;
  if(input.route==="schedule-read")return {plan} as never;
  if(input.route==="schedule-history")return {occurrences:[],next:""} as never;
@@ -54,7 +54,7 @@ it("restores an uncertain pause after reload and retries the exact original vers
  expect(screen.getByRole("button",{name:"创建定时任务"})).toBeDisabled();
  request.mockImplementation(async input=>{
   if(input.route==="schedule-pause"){expect(input.key).toBe(id);expect(input.body).toEqual({expectedRevision:"2"});return {plan:{...plan,state:"PAUSED"},planSaved:true} as never;}
-  if(input.route==="schedule-availability")return {enabled:true,ready:true} as never;
+  if(input.route==="schedule-availability")return {enabled:true,ready:true,storeDailyReportEnabled:true} as never;
   if(input.route==="schedule-list")return {plans:[plan],next:""} as never;
   if(input.route==="schedule-read")return {plan:{...plan,state:"PAUSED"}} as never;
   return {occurrences:[],next:""} as never;
@@ -94,7 +94,7 @@ it.each(["OUTCOME_UNKNOWN","DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED","TASK_OU
 });
 it("retains time inputs after a quote failure and requires a fresh successful quote before saving",async()=>{
  request.mockRejectedValue(new AIWorkbenchError("PROPOSAL_STALE"));const save=vi.fn();
- render(<ScheduleForm scope={scope} authorizationKey="roles" proposalId={id} disabled={false} onSave={save} onCancel={vi.fn()}/>);
+ render(<ScheduleForm scope={scope} authorizationKey="roles" plan={{...plan,deleted:false,selection:{subject:{kind:"own_product",id,catalogVersion:"1",publicationId:id},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}},rule:{...plan.rule,frequency:"once",atUtc:"2030-11-20T01:00:00Z"},consumedOccurrences:"0"}} disabled={false} onSave={save} onCancel={vi.fn()}/>);
  const at=screen.getByLabelText("执行日期与时间（本机时区）");await userEvent.type(at,"2030-11-20T09:00");
  // Native datetime controls are not text inputs in all test environments.
  const {fireEvent}=await import("@testing-library/react");fireEvent.change(at,{target:{value:"2030-11-20T09:00"}});
@@ -123,7 +123,7 @@ it("retires an unknown command only after an authoritative durable rejection",as
 it("confirms a deterministic store report without product or model fields",async()=>{
  const save=vi.fn<(input:unknown)=>Promise<void>>(async()=>{});
  request.mockImplementation(async input=>{expect(input.route).toBe("schedule-quote");expect(input.body).not.toHaveProperty("selection");expect(input.body).not.toHaveProperty("proposalId");return {storeName:"合成测试长店铺名称".repeat(20),kind:"store.operating-daily-report",report:(input.body as {report:unknown}).report,confirmation:"a".repeat(64),goalSummary:"店铺经营日报",rule:(input.body as {rule:unknown}).rule,maxOccurrences:"1",unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0",nextAt:"2030-11-20T01:00:00Z"} as never;});
- render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" disabled={false} dailyReportEnabled contentEnabled={false} onSave={save} onCancel={vi.fn()}/></QueryClientProvider>);
+ render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" disabled={false} dailyReportEnabled onSave={save} onCancel={vi.fn()}/></QueryClientProvider>);
  await screen.findByRole("option",{name:/日报合成店/});
  await userEvent.selectOptions(await screen.findByLabelText("店铺"),"33333333-3333-4333-8333-333333333333");
  await userEvent.type(screen.getByLabelText("执行日期与时间（本机时区）"),"2030-11-20T09:00");
@@ -142,14 +142,45 @@ it("opens a full plan editor without changing the plan or starting a task",async
  expect(request.mock.calls.some(([input])=>input.method!=="GET")).toBe(false);
 });
 
-it("copies an ended plan into an unsaved form with its settings and a fresh date",async()=>{
+it("keeps ended content history readable without offering another content plan",async()=>{
  const current=request.getMockImplementation()!;
  request.mockImplementation(async input=>input.route==="schedule-read"?{plan:{...plan,state:"CLOSED",rule:{...plan.rule,frequency:"once",atUtc:"2026-11-01T01:00:00Z"}}} as never:current(input));
  mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
- await userEvent.click(await screen.findByRole("button",{name:"复制新建"}));
- expect(await screen.findByRole("heading",{name:"复制新建定时任务"})).toBeVisible();
- expect(screen.getByRole("textbox",{name:"任务目标"})).toHaveValue(plan.goalSummary);
- expect(screen.getByLabelText("执行日期与时间（本机时区）")).toHaveValue("");
+ await screen.findByRole("heading",{name:plan.goalSummary});
+ expect(screen.queryByRole("button",{name:"复制新建"})).toBeNull();
+ expect(screen.getByRole("heading",{name:"执行历史"})).toBeVisible();
+ expect(request.mock.calls.some(([input])=>input.method!=="GET")).toBe(false);
+});
+
+it("opens only a store report from the new schedule entry",async()=>{
+ const current=request.getMockImplementation()!;request.mockImplementation(async input=>input.route==="schedule-availability"?{enabled:true,ready:true,contentEnabled:true,storeDailyReportEnabled:true} as never:current(input));
+ mount();await userEvent.click(await screen.findByRole("button",{name:"创建定时任务"}));
+ expect(await screen.findByLabelText("店铺")).toBeVisible();
+ expect(screen.queryByLabelText("任务目标")).toBeNull();expect(screen.queryByLabelText("任务类型")).toBeNull();
+ expect(request.mock.calls.some(([input])=>input.method!=="GET")).toBe(false);
+});
+
+it("does not fall back to content creation when reports are unavailable and keeps existing controls",async()=>{
+ const current=request.getMockImplementation()!;request.mockImplementation(async input=>input.route==="schedule-availability"?{enabled:true,ready:true,contentEnabled:true,storeDailyReportEnabled:false} as never:current(input));
+ mount();await screen.findByText("店铺经营日报暂不可新建，已有计划仍可查看和管理");
+ expect(screen.getByRole("button",{name:"创建定时任务"})).toBeDisabled();
+ await userEvent.click(screen.getByRole("button",{name:/完善商品描述/}));
+ expect(await screen.findByRole("button",{name:"暂停未来执行"})).toBeEnabled();
+ expect(screen.getByRole("button",{name:"编辑计划"})).toBeEnabled();
+ expect(screen.queryByRole("button",{name:"复制新建"})).toBeNull();
+ expect(request.mock.calls.some(([input])=>input.method!=="GET")).toBe(false);
+});
+
+it("refuses a direct content copy form without quoting or saving",()=>{
+ render(<ScheduleForm scope={scope} authorizationKey="auth" copyFrom={{...plan,deleted:false}} dailyReportEnabled disabled={false} onSave={vi.fn()} onCancel={vi.fn()}/>);
+ expect(screen.getByText("商品内容不再提供新建定时计划，已有计划和执行记录仍可查看")).toBeVisible();
+ expect(screen.queryByRole("button",{name:"核对时间与预算"})).toBeNull();expect(request).not.toHaveBeenCalled();
+});
+
+it.each([id,""])("rejects an old Chat schedule link without preparing or saving a content plan (%s)",async proposal=>{
+ window.history.replaceState(null,"",`/?view=schedules&schedule_proposal=${proposal}`);
+ mount();await screen.findByText("商品内容不再提供新建定时计划，已有计划和执行记录仍可查看");
+ expect(screen.queryByRole("button",{name:"核对时间与预算"})).toBeNull();
  expect(request.mock.calls.some(([input])=>input.method!=="GET")).toBe(false);
 });
 

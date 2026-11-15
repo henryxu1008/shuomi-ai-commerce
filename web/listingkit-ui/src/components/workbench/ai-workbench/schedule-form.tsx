@@ -10,15 +10,16 @@ import type {ContentSelection} from "@/lib/contracts/content-selection";
 import {contentSelectionLabel} from "@/lib/contracts/content-selection";
 import {ChatTaskSelection} from "./chat-task-selection";
 import {errorText} from "./task-presentation";
+import {ConsoleState} from "../console/console-page";
 import {DailyReportStoreSelect} from "./daily-report-store-select";
 import styles from "./schedules.module.css";
 
 export function schedulePoints(micros:string){const n=BigInt(micros),unit=BigInt(1000000);return `${n/unit}${n%unit?`.${String(n%unit).padStart(6,"0").replace(/0+$/,"")}`:""}`;}
 export function scheduleTime(at:string,zone:string){return new Intl.DateTimeFormat("zh-CN",{timeZone:zone,dateStyle:"medium",timeStyle:"short"}).format(new Date(at));}
 
-export function ScheduleForm({scope,authorizationKey,plan,copyFrom,proposalId,disabled,onSave,onCancel,onStale,dailyReportEnabled=false,contentEnabled=true}:{scope:AIScope;authorizationKey:string;dailyReportEnabled?:boolean;contentEnabled?:boolean;plan?:AIScheduledPlan;copyFrom?:AIScheduledPlan;proposalId?:string;disabled:boolean;onSave:(input:AIScheduleInput)=>Promise<void>;onCancel:()=>void;onStale?:()=>void}){
+export function ScheduleForm({scope,authorizationKey,plan,copyFrom,disabled,onSave,onCancel,onStale,dailyReportEnabled=false}:{scope:AIScope;authorizationKey:string;dailyReportEnabled?:boolean;plan?:AIScheduledPlan;copyFrom?:AIScheduledPlan;disabled:boolean;onSave:(input:AIScheduleInput)=>Promise<void>;onCancel:()=>void;onStale?:()=>void}){
  const initial=plan??copyFrom;
- const [kind,setKind]=useState(initial?.kind??(initial||proposalId||contentEnabled?"product.content.localize":"store.operating-daily-report"));
+ const kind=initial?.kind??(initial?"product.content.localize":"store.operating-daily-report");
  const report=kind==="store.operating-daily-report";
  const [storeId,setStoreId]=useState(initial?.report?.storeId??"");
  const [subject,setSubject]=useState<AITaskSubject|null>(initial?.selection?.subject??null),[parameters,setParameters]=useState<ContentSelection>(initial?.selection?.parameters??{targetLanguage:"en-US",description:true});
@@ -36,7 +37,7 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,proposalId,di
   try{
    const [hour,minute]=time.split(":").map(Number);
    const rule={frequency,timeZone:report?"Asia/Shanghai":zone,hour:frequency==="once"?0:hour,minute:frequency==="once"?0:minute,weekday:frequency==="weekly"?weekday:0,...(frequency==="once"?{atUtc:new Date(at).toISOString()}:{}),...(until?{untilUtc:new Date(until).toISOString()}: {})};
-   const input=aiScheduleInput.parse({...(plan?{scheduleId:plan.id,expectedRevision:plan.revision}:copyFrom?{sourceScheduleId:copyFrom.id}:{}),...(proposalId?{proposalId}:report?{kind,report:{storeId,version:1,periodPolicy:"previous_natural_day",businessZone:"Asia/Shanghai"}}:{goalSummary:goal,selection:subject?{subject,capability:"product.content.localize",parameters}:undefined}),rule,maxOccurrences:frequency==="once"?"1":count});
+   const input=aiScheduleInput.parse({...(plan?{scheduleId:plan.id,expectedRevision:plan.revision}:copyFrom?{sourceScheduleId:copyFrom.id}:{}),...(report?{kind,report:{storeId,version:1,periodPolicy:"previous_natural_day",businessZone:"Asia/Shanghai"}}:{goalSummary:goal,selection:subject?{subject,capability:"product.content.localize",parameters}:undefined}),rule,maxOccurrences:frequency==="once"?"1":count});
    if(plan&&BigInt(input.maxOccurrences)<=BigInt(plan.consumedOccurrences)){setError(`次数上限需大于已执行的 ${plan.consumedOccurrences} 次，请调整后重新核对。`);return}
    const controller=new AbortController();abort.current=controller;setQuoting(true);
    const value=await requestAIWorkbench({route:"schedule-quote",method:"POST",path:"schedules/quote",scope,body:input,signal:controller.signal});
@@ -48,10 +49,11 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,proposalId,di
  const remaining=quote?BigInt(quote.value.maxOccurrences)-BigInt(quotedConsumed):BigInt(0);
  const futureUpperBound=quote?(BigInt(quote.value.perRunUpperBoundMicros)*remaining).toString():"0";
  const frequencyLabel=frequency==="once"?"仅一次":frequency==="daily"?"每天":"每周";
+ if(copyFrom&&kind!=="store.operating-daily-report")return <ConsoleState kind="unavailable" title="当前无法新建这类定时计划">商品内容不再提供新建定时计划，已有计划和执行记录仍可查看<Button variant="outline" onClick={onCancel}>返回定时任务</Button></ConsoleState>;
+ if(!initial&&!dailyReportEnabled)return <ConsoleState kind="unavailable" title="店铺经营日报暂不可新建">请先确认店铺经营日报已开通，已有计划仍可查看和管理<Button variant="outline" onClick={onCancel}>返回定时任务</Button></ConsoleState>;
  return <div className={styles.form}>
   <div className={styles.formBody}>
-   {!initial&&!proposalId&&dailyReportEnabled&&contentEnabled?<label className={styles.kindField}>任务类型<Select disabled={locked} value={kind} onChange={e=>change(()=>{setKind(e.target.value as typeof kind);if(e.target.value==="store.operating-daily-report"&&frequency==="weekly")setFrequency("daily")})}><option value="product.content.localize">商品内容</option><option value="store.operating-daily-report">店铺经营日报</option></Select></label>:null}
-   {proposalId?<p className={styles.selectedSummary}>沿用 Chat 方案的商品、目标和设置，确认后安排执行时间</p>:report?<section className={styles.subjectGroup} aria-label="报告店铺"><h2>报告店铺</h2><DailyReportStoreSelect initialStore={initial?.report?{id:initial.report.storeId,name:initial.storeName||`店铺标识 ${initial.report.storeId}`}:undefined} scope={scope} authorizationKey={authorizationKey} value={storeId} disabled={locked} onChange={id=>change(()=>setStoreId(id))}/><p className={styles.hint}>整理所选店铺前一天的已保存资料，自动保存到我的报告</p></section>:<>
+   {report?<section className={styles.subjectGroup} aria-label="报告店铺"><h2>报告店铺</h2><DailyReportStoreSelect initialStore={initial?.report?{id:initial.report.storeId,name:initial.storeName||`店铺标识 ${initial.report.storeId}`}:undefined} scope={scope} authorizationKey={authorizationKey} value={storeId} disabled={locked} onChange={id=>change(()=>setStoreId(id))}/><p className={styles.hint}>整理所选店铺前一天的已保存资料，自动保存到我的报告</p></section>:<>
     <div className={styles.subjectGroup}><ChatTaskSelection compactSummary scope={scope} authorizationKey={authorizationKey} disabled={locked} subject={subject} parameters={parameters} onSubject={value=>change(()=>setSubject(value))} onParameters={value=>change(()=>setParameters(value))}/></div>
     <label className={styles.field}>任务目标<Textarea rows={4} maxLength={8192} value={goal} disabled={locked} placeholder="说明希望处理的内容与目标" onChange={event=>change(()=>setGoal(event.target.value))}/></label>
    </>}
@@ -88,12 +90,12 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,proposalId,di
     </>:<>
      <dl className={styles.confirmFacts}>
       <div><dt>业务</dt><dd>{report?"店铺经营日报":"商品内容"}</dd></div>
-      <div><dt>{report?"报告店铺":"任务对象"}</dt><dd>{proposalId?"沿用 Chat 方案":report?storeId?(storeId===initial?.report?.storeId&&initial.storeName?initial.storeName:"已选择店铺"):"待选择":subject?"已选择商品":"待选择"}</dd></div>
+      <div><dt>{report?"报告店铺":"任务对象"}</dt><dd>{report?storeId?(storeId===initial?.report?.storeId&&initial.storeName?initial.storeName:"已选择店铺"):"待选择":subject?"已选择商品":"待选择"}</dd></div>
       <div><dt>执行安排</dt><dd>{frequencyLabel}{frequency!=="once"&&time?` · ${time}`:""}</dd><dd className={styles.hint}>{report?"Asia/Shanghai":zone||"待填写时区"}</dd></div>
       <div className={styles.nextExecution}><dt>下一次执行</dt><dd>核对后显示</dd></div>
       <div><dt>{report?"计划状态":"执行预算"}</dt><dd>待核对</dd></div>
      </dl>
-     <p className={styles.hint}>{report?"确认后按计划生成报告，不调用模型": "核对当前商品、执行时间和积分上限后，再确认保存"}</p>
+     <p className={styles.hint}>{report?"确认后按计划生成报告，保存到我的报告": "核对当前商品、执行时间和积分上限后，再确认保存"}</p>
     </>}
    </section>
   </aside>

@@ -450,7 +450,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetching} onClick={() => void loadEarlierMessages()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div></Card>
     {canUse && !current.Archived && current.businessScope?.kind === "general" ? <Button variant="outline" disabled={!overviewReady||overviewBusy} onClick={()=>void explicitStoreOverview()}>{overviewBusy?"正在读取店铺概况…":pendingOverview?"核对原店铺查询":"查看全部可见店铺概况"}</Button> : null}
     {current.businessScope && current.businessScope.kind !== "general" ? <p>查看当前企业所有可见店铺，请进入通用业务会话。<Link href="/workbench/ai/chat/new">新建通用会话</Link></p> : null}
-    {activeProposal ? <ProposalCard proposal={activeProposal} scope={scope} canUse={canUse} titleReadiness={titleReadiness} disabled={pending || current.Archived}
+    {activeProposal ? <ProposalCard proposal={activeProposal} canUse={canUse} titleReadiness={titleReadiness} disabled={pending || current.Archived}
       confirmedTaskId={activeProposal.confirmedTaskId ?? confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal)} /> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
     {!current.Archived && canUse && (canPlan || pendingMessage || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
@@ -471,9 +471,8 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   </div>;
 }
 
-function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confirmedTaskId, onConfirm }: { proposal: AIProposal; scope: AIScope; canUse: boolean; titleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; disabled: boolean; confirmedTaskId?: string; onConfirm: () => void }) {
+function ProposalCard({ proposal, canUse, titleReadiness, disabled, confirmedTaskId, onConfirm }: { proposal: AIProposal; canUse: boolean; titleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE"; disabled: boolean; confirmedTaskId?: string; onConfirm: () => void }) {
   const execution=useWorkbenchContext();
-  const schedules=useQuery({queryKey:["ai-schedule-availability",scope.userId,scope.organizationId,JSON.stringify([execution.roles,execution.permissions])],enabled:canUse&&proposal.kind==="product.content.localize"&&!proposal.knowledgeBaseId,queryFn:({signal})=>requestAIWorkbench({route:"schedule-availability",method:"GET",path:"schedules/availability",scope,signal}),retry:false,refetchOnWindowFocus:false});
   const content=proposal.kind==="product.content.localize";
   const readiness=content?(execution.aiWorkbenchExecutionKind===proposal.kind?execution.aiWorkbenchExecutionReadiness:"UNAVAILABLE"):titleReadiness;
   const ready=content?proposal.executionProfileReady:proposal.titleProfileReady;
@@ -487,6 +486,5 @@ function ProposalCard({ proposal, scope, canUse, titleReadiness, disabled, confi
     {!confirmedTaskId && canUse && proposal.detailsAvailable && !proposal.executionAuthorized ? <p>{proposal.modeUnavailableReason==="EXECUTION_LIMITS_CHANGED"?"任务执行上限已变化，请重新提出方案。":"需要当前企业的执行权限；已有方案仍可查看。"}</p> : null}
     {confirmedTaskId ? <Button asChild><Link href={`/workbench/ai/tasks/${confirmedTaskId}`} prefetch={false}>查看已确认任务</Link></Button> :
       canUse ? <Button disabled={disabled || !proposal.detailsAvailable || readiness !== "AVAILABLE" || !ready || !proposal.executionAuthorized} onClick={onConfirm}>确认并创建任务</Button> : null}
-    {canUse&&content&&!proposal.knowledgeBaseId&&schedules.data?.enabled?<Button asChild variant="outline"><Link href={`/workbench/ai/tasks?view=schedules&schedule_proposal=${proposal.id}`} prefetch={false} aria-disabled={disabled||!schedules.data.ready||!proposal.executionAuthorized||!ready||undefined} onClick={event=>{if(disabled||!schedules.data?.ready||!proposal.executionAuthorized||!ready)event.preventDefault();}}>设为定时任务</Link></Button>:null}
   </Card>;
 }
