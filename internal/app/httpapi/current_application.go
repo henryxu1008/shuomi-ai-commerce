@@ -13,11 +13,13 @@ import (
 	listingapp "task-processor/internal/app/listing"
 	listinghttp "task-processor/internal/app/listing/httpapi"
 	podhttp "task-processor/internal/app/pod/httpapi"
+	"task-processor/internal/app/scheduledreport"
 	imageworker "task-processor/internal/app/worker/imageagent"
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/pkg/appenv"
 	"task-processor/internal/product/collection"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
+	"task-processor/internal/reportcenter"
 	"task-processor/internal/shopdiagnosis"
 	"time"
 
@@ -793,6 +795,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, trial)
 	}
 	var cockpitReads *shopdiagnosis.NativeReader
+	var dailyReportService *reportcenter.Service
+	var dailyReports *scheduledreport.Application
 	var cockpitBind func(context.Context, string) (context.Context, error)
 	if supplied.operationsCockpits > 0 {
 		module, err := buildOperationsCockpit(ctx, supplied.storeCenterDB, *workbench.authDependencies, authorizer, storeCapabilities, savedObservations)
@@ -1147,6 +1151,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if err != nil {
 			return nil, fmt.Errorf("build current report center: %w", err)
 		}
+		dailyReportService = module.(reportCenterModule).service
+		dailyReports = buildCurrentDailyReports(ctx, cfg, workbench.authDependencies.organizationResolver, authorizer, supplied.storeCenterDB, supplied.reportCenterDB, cockpitReads != nil, dailyReportService, savedObservations, supplied.officialStoreApplications)
 		modules = append(modules, module)
 	}
 	var modePrivateDeliveries privateModeDeliveryReader
@@ -1256,6 +1262,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 		projectChat = module.(aiWorkbenchModule).application
+		projectChat.attachDailyReports(ctx, dailyReports)
 		if supplied.storeCenterDB != nil {
 			stores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer})
 			if e != nil {
@@ -1277,7 +1284,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 				return nil, e
 			}
 			projectChat.attachStoreOverview(catalog)
-			if projectChat.schedules != nil {
+			if projectChat.schedules != nil && projectChat.agent != nil {
 				executionStores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, scheduledStoreMemberAuthorizer{app: projectChat})
 				if e != nil {
 					return nil, e

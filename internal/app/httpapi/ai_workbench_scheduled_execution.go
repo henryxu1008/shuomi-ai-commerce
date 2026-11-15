@@ -174,7 +174,7 @@ func (a *aiWorkbenchApplication) prepareScheduledExecution(ctx context.Context, 
 // reloads the identity and frozen specification from Workbench PostgreSQL,
 // persists one legal BusinessTask and calls the original guarded Start kernel.
 func (a *aiWorkbenchApplication) DispatchScheduled(ctx context.Context, planID string, slot time.Time) error {
-	if a == nil || a.store == nil || a.agent == nil || ctx == nil {
+	if a == nil || a.store == nil || ctx == nil {
 		return aiworkbench.ErrUnavailable
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
@@ -185,6 +185,12 @@ func (a *aiWorkbenchApplication) DispatchScheduled(ctx context.Context, planID s
 	plan, err := a.store.ReadScheduledExecutionPlan(ctx, planID)
 	if err != nil {
 		return err
+	}
+	if plan.Report != nil {
+		return a.dispatchDailyReport(ctx, plan, slot)
+	}
+	if !a.contentSchedulesEnabled() {
+		return aiworkbench.ErrUnavailable
 	}
 	ctx = context.WithValue(ctx, scheduledExecutionKey{}, scheduledExecutionCommand{workbench: a, planID: planID, slot: slot.UTC()})
 	occurrence, err := a.store.ReadScheduledOccurrence(ctx, plan.Scope, plan.ID, slot)
@@ -230,11 +236,25 @@ func (a *aiWorkbenchApplication) DispatchScheduled(ctx context.Context, planID s
 }
 
 func (a *aiWorkbenchApplication) ReconcileScheduled(ctx context.Context, planID string, slot time.Time) (bool, error) {
-	if a == nil || a.agent == nil || a.store == nil || ctx == nil {
+	if a == nil || a.store == nil || ctx == nil {
 		return false, aiworkbench.ErrUnavailable
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
+	plan, readErr := a.store.ReadScheduledExecutionPlan(ctx, planID)
+	if readErr != nil {
+		return false, readErr
+	}
+	if plan.Report != nil {
+		if e := a.dispatchDailyReport(ctx, plan, slot); e != nil {
+			return false, e
+		}
+		o, e := a.store.ReadScheduledOccurrence(ctx, plan.Scope, planID, slot)
+		return e == nil && (o.State == "RECONCILED" || o.State == "BLOCKED" || o.State == "SKIPPED"), e
+	}
+	if !a.contentSchedulesEnabled() {
+		return false, aiworkbench.ErrUnavailable
+	}
 	ctx = context.WithValue(ctx, scheduledExecutionKey{}, scheduledExecutionCommand{workbench: a, planID: planID, slot: slot.UTC()})
 	i, _, err := a.agent.scheduledPrincipal(ctx)
 	if err != nil {

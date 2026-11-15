@@ -4,6 +4,7 @@ package reportcenterpersistence
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -117,6 +118,30 @@ func TestPersonalReportPersistenceAndRuntimeBoundary(t *testing.T) {
 	require.NoError(t, e)
 	require.True(t, replay.Replayed)
 	require.False(t, replay.Report.Favorite)
+	// Service authorization must not borrow a second Report DB connection while
+	// Favorite already owns a transaction. Exercise the supported single pool
+	// connection and a saturated pool through the real service/repository path.
+	for _, connections := range []int{1, 4} {
+		t.Run(fmt.Sprintf("favorite with %d connections", connections), func(t *testing.T) {
+			runtimeRaw.SetMaxOpenConns(connections)
+			service := &rc.Service{Repository: s, Authorize: func(c context.Context, _ rc.Scope, _ bool) (context.Context, error) { return c, nil }}
+			errs := make([]error, 8)
+			var favoriteWG sync.WaitGroup
+			for i := range errs {
+				favoriteWG.Add(1)
+				go func(i int) {
+					defer favoriteWG.Done()
+					bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
+					defer cancel()
+					_, errs[i] = service.Favorite(bounded, scope, uuid.NewString(), first.Report.ID, false)
+				}(i)
+			}
+			favoriteWG.Wait()
+			for _, err := range errs {
+				require.NoError(t, err)
+			}
+		})
+	}
 	second, e := New(runtime.Session(&gorm.Session{NewDB: true}))
 	require.NoError(t, e)
 	stored, e := second.Read(ctx, scope, first.Report.ID)

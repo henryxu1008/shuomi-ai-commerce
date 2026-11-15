@@ -172,7 +172,7 @@ it.each(["SKILL_FORBIDDEN","SKILL_NOT_FOUND","IDENTITY_CONTEXT_CHANGED","ORGANIZ
   vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:false,canCreate:true,reason:""}:path.endsWith("/versions/2")?Promise.reject(new SkillError(code)):path.endsWith("/versions/1")?item:path.endsWith("/versions")?{items:[item.version,{...item.version,version:2}]}:{items:[item],nextCursor:""});
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);fireEvent.click(await screen.findByText("permission-skill"));
   const dialog=await screen.findByRole("dialog",{name:"permission-skill"});fireEvent.change(within(dialog).getByLabelText("已保存版本"),{target:{value:"2"}});
-  expect(await screen.findByRole("alert")).toHaveFocus();expect(screen.queryByRole("dialog",{name:"permission-skill"})).not.toBeInTheDocument();expect(screen.queryByText("Private skill text")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"复制到本人"})).not.toBeInTheDocument();
+  const alert = await screen.findByRole("alert");await waitFor(() => expect(alert).toHaveFocus());expect(screen.queryByRole("dialog",{name:"permission-skill"})).not.toBeInTheDocument();expect(screen.queryByText("Private skill text")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"复制到本人"})).not.toBeInTheDocument();
 });
 
 it.each([[false, "page"], ["unavailable", "page"], [false, "dialog"], ["unavailable", "dialog"]])("hides organization copy when organization/info canCreate is %s in %s", async (allowed, presentation) => {

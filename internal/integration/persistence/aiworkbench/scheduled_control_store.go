@@ -164,11 +164,24 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 	return result, err
 }
 
-func (s *Store) ListScheduledPlans(ctx context.Context, scope aiworkbench.Scope, after string, limit int) ([]aiworkbench.ScheduledPlan, string, error) {
+func (s *Store) ListScheduledPlans(ctx context.Context, scope aiworkbench.Scope, after string, limit int, kindOption ...string) ([]aiworkbench.ScheduledPlan, string, error) {
+	kind := ""
+	if len(kindOption) > 1 {
+		return nil, "", aiworkbench.ErrInvalid
+	}
+	if len(kindOption) == 1 {
+		kind = kindOption[0]
+	}
+	if kind != "" && kind != aiworkbench.ContentTaskKind && kind != aiworkbench.DailyReportKind {
+		return nil, "", aiworkbench.ErrInvalid
+	}
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || limit < 1 || limit > 50 || after != "" && !validKey(after) {
 		return nil, "", aiworkbench.ErrInvalid
 	}
 	query := s.db.WithContext(ctx).Where("organization_id=? AND owner_user_id=?", scope.OrganizationID, scope.ActorID)
+	if kind != "" {
+		query = query.Where("kind=?", kind)
+	}
 	if after != "" {
 		query = query.Where("id > ?", after)
 	}

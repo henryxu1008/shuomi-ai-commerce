@@ -14,6 +14,7 @@ import (
 // membership, source binding, mode and cost limits must be verified by the
 // existing domain owners before the application calls the persistence port.
 type ScheduledPlanDraft struct {
+	Report      *DailyReportSpec `json:",omitempty"`
 	ID          string
 	Scope       Scope
 	MemberID    string
@@ -35,9 +36,19 @@ func (p ScheduledPlanDraft) Valid() bool {
 		p.Scope.OrganizationID == "" || len(p.Scope.OrganizationID) > 128 ||
 		p.Scope.ActorID == "" || len(p.Scope.ActorID) > 128 ||
 		p.MemberID == "" || len(p.MemberID) > 128 ||
-		!p.Selection.Valid() || !agent.ValidGoalSummary(p.GoalSummary) ||
+		!agent.ValidGoalSummary(p.GoalSummary) ||
 		p.CreatedAt.IsZero() || !p.Rule.Valid() || len(p.ExecutionSpec) > 16384 ||
 		len(p.ExecutionSpec) != 0 && !json.Valid(p.ExecutionSpec) {
+		return false
+	}
+	if p.Report != nil {
+		return p.Report.Valid() && p.Selection == (TaskSelection{}) &&
+			(len(p.ExecutionSpec) == 0 || string(p.ExecutionSpec) == "{}") &&
+			p.Budget.Unit == "none" && p.Budget.PerRunUpperBoundMicros == 0 && p.Budget.MaxOccurrences > 0 && p.Budget.MaxOccurrences <= math.MaxInt64 &&
+			p.Rule.TimeZone == "Asia/Shanghai" && (p.Rule.Frequency == ScheduleDaily || p.Rule.Frequency == ScheduleOnce && p.Budget.MaxOccurrences == 1) &&
+			func() bool { _, err := p.Rule.NextAfter(p.CreatedAt); return err == nil }()
+	}
+	if !p.Selection.Valid() {
 		return false
 	}
 	total, err := p.Budget.TotalUpperBoundMicros()

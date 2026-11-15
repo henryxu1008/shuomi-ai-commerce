@@ -1,0 +1,31 @@
+package aiworkbenchpersistence
+
+// Native PostgreSQL definitions of the explicitly installed daily-report contract.
+var dailyReportConstraints = map[string]string{
+	"ai_workbench_plan_active_occurrence":                             `FOREIGN KEY (active_occurrence_id, organization_id, owner_user_id, id) REFERENCES ai_workbench.scheduled_occurrences(id, organization_id, owner_user_id, plan_id)`,
+	"scheduled_plans_check":                                           `CHECK (((consumed_occurrences >= 0) AND (consumed_occurrences <= max_occurrences)))`,
+	"scheduled_plans_check1":                                          `CHECK ((((frequency = 'once'::text) AND (once_at_utc IS NOT NULL) AND (local_hour IS NULL) AND (local_minute IS NULL) AND (local_weekday IS NULL)) OR ((frequency = 'daily'::text) AND (once_at_utc IS NULL) AND (local_hour IS NOT NULL) AND (local_minute IS NOT NULL) AND ((local_hour >= 0) AND (local_hour <= 23)) AND ((local_minute >= 0) AND (local_minute <= 59)) AND (local_weekday IS NULL)) OR ((frequency = 'weekly'::text) AND (once_at_utc IS NULL) AND (local_hour IS NOT NULL) AND (local_minute IS NOT NULL) AND (local_weekday IS NOT NULL) AND ((local_hour >= 0) AND (local_hour <= 23)) AND ((local_minute >= 0) AND (local_minute <= 59)) AND ((local_weekday >= 0) AND (local_weekday <= 6)))))`,
+	"scheduled_plans_check2":                                          `CHECK (((until_utc IS NULL) OR (once_at_utc IS NULL) OR (once_at_utc <= until_utc)))`,
+	"scheduled_plans_check3":                                          `CHECK ((((max_occurrences)::numeric * (per_run_upper_bound_micros)::numeric) = (total_upper_bound_micros)::numeric))`,
+	"scheduled_plans_execution_spec_check":                            `CHECK (((jsonb_typeof(execution_spec) = 'object'::text) AND (octet_length((execution_spec)::text) <= 16384)))`,
+	"scheduled_plans_frequency_check":                                 `CHECK ((frequency = ANY (ARRAY['once'::text, 'daily'::text, 'weekly'::text])))`,
+	"scheduled_plans_goal_summary_check":                              `CHECK (((octet_length(goal_summary) >= 1) AND (octet_length(goal_summary) <= 512)))`,
+	"scheduled_plans_id_organization_id_owner_user_id_key":            `UNIQUE (id, organization_id, owner_user_id)`,
+	"scheduled_plans_max_occurrences_check":                           `CHECK (((max_occurrences >= 1) AND (max_occurrences <= '9223372036854775807'::bigint)))`,
+	"scheduled_plans_member_id_check":                                 `CHECK (((octet_length(member_id) >= 1) AND (octet_length(member_id) <= 128)))`,
+	"scheduled_plans_organization_id_check":                           `CHECK (((octet_length(organization_id) >= 1) AND (octet_length(organization_id) <= 128)))`,
+	"scheduled_plans_owner_user_id_check":                             `CHECK (((octet_length(owner_user_id) >= 1) AND (octet_length(owner_user_id) <= 128)))`,
+	"scheduled_plans_pkey":                                            `PRIMARY KEY (id)`,
+	"scheduled_plans_registration_state_check":                        `CHECK ((registration_state = ANY (ARRAY['PENDING'::text, 'MATCHED'::text, 'UNKNOWN'::text])))`,
+	"scheduled_plans_revision_check":                                  `CHECK ((revision > 0))`,
+	"scheduled_plans_state_check":                                     `CHECK ((state = ANY (ARRAY['PENDING_REGISTRATION'::text, 'ACTIVE'::text, 'PAUSED'::text, 'CLOSED'::text, 'REGISTRATION_UNKNOWN'::text])))`,
+	"scheduled_plans_task_selection_check":                            `CHECK (((jsonb_typeof(task_selection) = 'object'::text) AND ((octet_length((task_selection)::text) >= 2) AND (octet_length((task_selection)::text) <= 2048))))`,
+	"scheduled_plans_time_zone_check":                                 `CHECK (((octet_length(time_zone) >= 1) AND (octet_length(time_zone) <= 128)))`,
+	"scheduled_report_capability":                                     `CHECK ((((kind = 'product.content.localize'::text) AND (task_selection IS NOT NULL) AND (report_spec IS NULL) AND (budget_unit = 'ai-micropoint-v1'::text) AND (per_run_upper_bound_micros > 0) AND (total_upper_bound_micros > 0)) OR ((kind = 'store.operating-daily-report'::text) AND (task_selection IS NULL) AND (report_spec IS NOT NULL) AND (jsonb_typeof(report_spec) = 'object'::text) AND ((report_spec - 'storeId'::text) = '{"version": 1, "businessZone": "Asia/Shanghai", "periodPolicy": "previous_natural_day"}'::jsonb) AND (report_spec ? 'storeId'::text) AND (jsonb_typeof((report_spec -> 'storeId'::text)) = 'string'::text) AND ((report_spec ->> 'storeId'::text) ~ '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'::text) AND ((report_spec ->> 'storeId'::text) <> '00000000-0000-0000-0000-000000000000'::text) AND (execution_spec = '{}'::jsonb) AND (budget_unit = 'none'::text) AND (per_run_upper_bound_micros = 0) AND (total_upper_bound_micros = 0) AND (time_zone = 'Asia/Shanghai'::text) AND ((frequency = 'daily'::text) OR ((frequency = 'once'::text) AND (max_occurrences = 1))))))`,
+	"report_execution_check":                                          `CHECK ((NOT (capture_started AND closed_no_write)))`,
+	"report_execution_check1":                                         `CHECK ((((report_id IS NULL) AND (report_digest IS NULL) AND (proof IS NULL)) OR (capture_started AND (report_id IS NOT NULL) AND (report_digest IS NOT NULL) AND (proof IS NOT NULL) AND (report_digest ~ '^[a-f0-9]{64}$'::text) AND (proof ~ '^[a-f0-9]{64}$'::text))))`,
+	"report_execution_fingerprint_check":                              `CHECK ((fingerprint ~ '^[a-f0-9]{64}$'::text))`,
+	"report_execution_intent_check":                                   `CHECK (((jsonb_typeof(intent) = 'object'::text) AND ((octet_length((intent)::text) >= 2) AND (octet_length((intent)::text) <= 4096))))`,
+	"report_execution_occurrence_id_organization_id_owner_user__fkey": `FOREIGN KEY (occurrence_id, organization_id, owner_user_id) REFERENCES ai_workbench.scheduled_occurrences(id, organization_id, owner_user_id)`,
+	"report_execution_pkey":                                           `PRIMARY KEY (occurrence_id)`,
+}

@@ -3,16 +3,19 @@ export const reportID = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[
 const bytes = (v: string) => new TextEncoder().encode(v).length;
 const text = (n: number) => z.string().min(1).refine(v => bytes(v) <= n && !/\p{Cc}/u.test(v));
 const timestamp = z.iso.datetime().refine(v => !v.startsWith("0001-"));
-const reportKind = z.enum(["TITLE_REVIEW", "SHEIN_RECORD", "SHEIN_TARGET_RECORD"]);
+const reportKind = z.enum(["TITLE_REVIEW", "SHEIN_RECORD", "SHEIN_TARGET_RECORD", "STORE_DAILY_REPORT"]);
 export const sourceRef = z.strictObject({ kind: reportKind, id: reportID, version: z.string().max(96) }).refine(v =>
-  v.kind !== "TITLE_REVIEW" ? /^sha256:[0-9a-f]{64}$/.test(v.version) : /^[1-9][0-9]{0,18}:(pending|accepted|rejected|applied)$/.test(v.version) && BigInt(v.version.split(":")[0]) <= BigInt("9223372036854775807"));
-const metadata = { ref: sourceRef, title: text(256), productKey: text(128), storeId: z.union([z.literal(""), reportID]), sourceAt: timestamp.optional() };
-export const reportSourceSchema = z.strictObject(metadata);
+  v.kind === "STORE_DAILY_REPORT" ? v.version==="1" : v.kind !== "TITLE_REVIEW" ? /^sha256:[0-9a-f]{64}$/.test(v.version) : /^[1-9][0-9]{0,18}:(pending|accepted|rejected|applied)$/.test(v.version) && BigInt(v.version.split(":")[0]) <= BigInt("9223372036854775807"));
+const scheduledOrigin=z.strictObject({organizationId:text(128),actorId:text(128),memberId:text(128),planId:reportID,planRevision:z.number().int().positive(),occurrenceId:reportID,scheduledAt:timestamp,storeId:reportID,day:z.iso.date(),rendererVersion:z.literal(1)});
+const metadata = { scheduledOrigin:scheduledOrigin.optional(),ref: sourceRef, title: text(256), productKey: z.union([z.literal(""),text(128)]), storeId: z.union([z.literal(""), reportID]), sourceAt: timestamp.optional() };
+const validSource=(v:z.infer<ReturnType<typeof sourceMetadataSchema>>)=>v.ref.kind==="STORE_DAILY_REPORT"?v.productKey===""&&!!v.scheduledOrigin&&v.scheduledOrigin.storeId===v.storeId&&v.scheduledOrigin.occurrenceId===v.ref.id:v.productKey!==""&&v.scheduledOrigin===undefined;
+function sourceMetadataSchema(){return z.strictObject(metadata)}
+export const reportSourceSchema = sourceMetadataSchema().refine(validSource);
 const summary = { ...metadata, id: reportID, capturedAt: timestamp, favorite: z.boolean() };
-const reportSummarySchema = z.strictObject(summary);
+const reportSummarySchema = z.strictObject(summary).refine(validSource);
 export type ReportSummary = z.infer<typeof reportSummarySchema>;
 const reportDocumentSchema = z.strictObject({ schemaVersion: z.literal(1), sections: z.array(z.strictObject({ title: text(256), fields: z.array(z.strictObject({ label: text(256), value: z.string().refine(v => bytes(v) <= 16000 && !/\p{Cc}/u.test(v.replace(/[\r\n\t]/g, ""))) })).min(1).max(256) })).min(1).max(16) }).refine(v => v.sections.reduce((n, s) => n + s.fields.length, 0) <= 256 && bytes(JSON.stringify(v)) <= 131072);
-export const reportSchema = z.strictObject({ ...summary, content: reportDocumentSchema, digest: z.string().regex(/^[0-9a-f]{64}$/) });
+export const reportSchema = z.strictObject({ ...summary, content: reportDocumentSchema, digest: z.string().regex(/^[0-9a-f]{64}$/) }).refine(validSource);
 export const reportsPageSchema = z.strictObject({ items: z.array(reportSummarySchema).max(50), nextCursor: z.string().max(512).regex(/^[A-Za-z0-9_-]*$/) }).refine(v => new Set(v.items.map(i => i.id)).size === v.items.length);
 export const reportsSummarySchema = z.strictObject({ saved: z.number().int().nonnegative(), recent: z.number().int().nonnegative(), favorites: z.number().int().nonnegative(), stores: z.number().int().nonnegative() });
 export const reportResultSchema = z.strictObject({ commandId: reportID, report: reportSchema, replayed: z.boolean() });
@@ -41,7 +44,7 @@ export function reportEndpoint(url: URL, method: string) {
   if (parts.length === 2 && parts[1] === "favorite" && method === "POST") return { suffix, output: reportResultSchema, input: reportFavoriteBody, operation: "favorite" };
   return null;
 }
-export const sourceHref = (ref: ReportSource["ref"]) => ref.kind === "TITLE_REVIEW" ? `/workbench/ai/tasks/pending/other?proposal_id=${ref.id}` : ref.kind === "SHEIN_TARGET_RECORD" ? `/workbench/listing/ready?record=${ref.id}` : `/workbench/shein-records/${ref.id}/diagnostic`;
+export const sourceHref = (ref: ReportSource["ref"]) => ref.kind === "STORE_DAILY_REPORT" ? `/workbench/ai/tasks?view=schedules` : ref.kind === "TITLE_REVIEW" ? `/workbench/ai/tasks/pending/other?proposal_id=${ref.id}` : ref.kind === "SHEIN_TARGET_RECORD" ? `/workbench/listing/ready?record=${ref.id}` : `/workbench/shein-records/${ref.id}/diagnostic`;
 export const targetReportHref = (id: string) => `/workbench/ai/reports?sourceKind=SHEIN_TARGET_RECORD&sourceId=${reportID.parse(id)}`;
 export function reportTargetQuery(query: Record<string, string | string[] | undefined>): string | null | undefined {
   if (query.sourceKind === undefined && query.sourceId === undefined) return undefined;

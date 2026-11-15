@@ -20,6 +20,7 @@ import (
 func main() {
 	role := flag.String("runtime-role", "", "existing restricted PostgreSQL runtime role")
 	modeOnly := flag.Bool("execution-mode-only", false, "add only nullable execution-mode metadata; retain historical proposals and grants")
+	dailyOnly := flag.Bool("store-daily-report-only", false, "install the bounded deterministic report extension; retain all existing plans and grants")
 	emptyScopeOnly := flag.Bool("empty-scope-only", false, "upgrade only the recognized empty Workbench baseline")
 	expectedDB := flag.String("expected-database", "", "explicit approved database name")
 	expectedAddress := flag.String("expected-server-address", "", "explicit approved PostgreSQL server IP")
@@ -46,6 +47,29 @@ func main() {
 		os.Exit(1)
 	}
 	defer raw.Close()
+	if *dailyOnly {
+		if *modeOnly || *emptyScopeOnly || *role != "ai_workbench_runtime" || *expectedDB == "" || *expectedAddress == "" || *expectedPort < 1 {
+			fmt.Fprintln(os.Stderr, "daily-report extension requires exact target and existing ai_workbench_runtime role")
+			os.Exit(2)
+		}
+		var matches bool
+		if db.WithContext(ctx).Raw("SELECT current_database()=? AND inet_server_addr()::text=? AND inet_server_port()=?", *expectedDB, *expectedAddress, *expectedPort).Scan(&matches).Error != nil || !matches {
+			fmt.Fprintln(os.Stderr, "daily-report target does not match")
+			os.Exit(1)
+		}
+		err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if e := store.InstallDailyReportSchema(tx); e != nil {
+				return e
+			}
+			return store.GrantDailyReportRuntime(tx, *role)
+		})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "daily-report extension not installed")
+			os.Exit(1)
+		}
+		fmt.Println("Daily-report extension installed; existing plans and tasks unchanged; serving readiness must verify both owners")
+		return
+	}
 	if *emptyScopeOnly {
 		if *modeOnly || *role != "ai_workbench_runtime" || *expectedDB == "" || *expectedAddress == "" || *expectedPort <= 0 {
 			fmt.Fprintln(os.Stderr, "empty-scope mode requires exact target and ai_workbench_runtime role")

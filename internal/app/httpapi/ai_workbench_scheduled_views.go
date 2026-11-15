@@ -17,26 +17,31 @@ import (
 )
 
 type scheduledInput struct {
-	ProposalID     string                     `json:"proposalId,omitempty"`
-	ScheduleID     string                     `json:"scheduleId,omitempty"`
-	Selection      *aiworkbench.TaskSelection `json:"selection,omitempty"`
-	GoalSummary    string                     `json:"goalSummary,omitempty"`
-	Rule           aiworkbench.ScheduleRule   `json:"rule"`
-	MaxOccurrences string                     `json:"maxOccurrences"`
-	Confirmation   string                     `json:"confirmation,omitempty"`
+	Kind           string                       `json:"kind,omitempty"`
+	Report         *aiworkbench.DailyReportSpec `json:"report,omitempty"`
+	ProposalID     string                       `json:"proposalId,omitempty"`
+	ScheduleID     string                       `json:"scheduleId,omitempty"`
+	Selection      *aiworkbench.TaskSelection   `json:"selection,omitempty"`
+	GoalSummary    string                       `json:"goalSummary,omitempty"`
+	Rule           aiworkbench.ScheduleRule     `json:"rule"`
+	MaxOccurrences string                       `json:"maxOccurrences"`
+	Confirmation   string                       `json:"confirmation,omitempty"`
 }
 
 type scheduledQuote struct {
-	Confirmation           string                    `json:"confirmation"`
-	Selection              aiworkbench.TaskSelection `json:"selection"`
-	GoalSummary            string                    `json:"goalSummary"`
-	Rule                   aiworkbench.ScheduleRule  `json:"rule"`
-	MaxOccurrences         string                    `json:"maxOccurrences"`
-	Unit                   string                    `json:"unit"`
-	PerRunUpperBoundMicros string                    `json:"perRunUpperBoundMicros"`
-	TotalUpperBoundMicros  string                    `json:"totalUpperBoundMicros"`
-	NextAt                 time.Time                 `json:"nextAt"`
-	ExecutionMode          agent.ExecutionMode       `json:"executionMode"`
+	StoreName              string                       `json:"storeName,omitempty"`
+	Kind                   string                       `json:"kind,omitempty"`
+	Report                 *aiworkbench.DailyReportSpec `json:"report,omitempty"`
+	Confirmation           string                       `json:"confirmation"`
+	Selection              *aiworkbench.TaskSelection   `json:"selection,omitempty"`
+	GoalSummary            string                       `json:"goalSummary"`
+	Rule                   aiworkbench.ScheduleRule     `json:"rule"`
+	MaxOccurrences         string                       `json:"maxOccurrences"`
+	Unit                   string                       `json:"unit"`
+	PerRunUpperBoundMicros string                       `json:"perRunUpperBoundMicros"`
+	TotalUpperBoundMicros  string                       `json:"totalUpperBoundMicros"`
+	NextAt                 time.Time                    `json:"nextAt"`
+	ExecutionMode          agent.ExecutionMode          `json:"executionMode,omitempty"`
 }
 
 func scheduledHash(value any) string {
@@ -115,6 +120,22 @@ func (a *aiWorkbenchApplication) validateScheduledProposal(ctx context.Context, 
 }
 
 func (a *aiWorkbenchApplication) quoteScheduled(ctx context.Context, owner aiworkbench.Scope, input scheduledInput) (scheduledQuote, aiworkbench.ExecutionProposal, aiworkbench.ScheduleBudget, error) {
+	if input.Report != nil || input.Kind == aiworkbench.DailyReportKind {
+		q, e := a.quoteDailyReport(ctx, owner, input)
+		count, _ := strconv.ParseUint(input.MaxOccurrences, 10, 63)
+		return q, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{Unit: "none", MaxOccurrences: count}, e
+	}
+	if input.Kind != "" && input.Kind != aiworkbench.ContentTaskKind {
+		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, aiworkbench.ErrInvalid
+	}
+	if input.ScheduleID != "" {
+		if p, e := a.store.ReadScheduledPlan(ctx, owner, input.ScheduleID); e == nil && p.Report != nil {
+			input.Report = p.Report
+			input.Kind = aiworkbench.DailyReportKind
+			q, e := a.quoteDailyReport(ctx, owner, input)
+			return q, aiworkbench.ExecutionProposal{}, p.Budget, e
+		}
+	}
 	if a == nil || a.agent == nil || a.schedules == nil || !a.schedules.Ready() {
 		return scheduledQuote{}, aiworkbench.ExecutionProposal{}, aiworkbench.ScheduleBudget{}, aiworkbench.ErrUnavailable
 	}
@@ -166,45 +187,60 @@ func (a *aiWorkbenchApplication) quoteScheduled(ctx context.Context, owner aiwor
 	}
 	total, _ := budget.TotalUpperBoundMicros()
 	confirmation := scheduledQuoteConfirmation(p, input.Rule, budget)
-	return scheduledQuote{Confirmation: confirmation, Selection: *p.Selection(), GoalSummary: p.GoalSummary, Rule: input.Rule, MaxOccurrences: input.MaxOccurrences, Unit: budget.Unit, PerRunUpperBoundMicros: strconv.FormatUint(budget.PerRunUpperBoundMicros, 10), TotalUpperBoundMicros: strconv.FormatUint(total, 10), NextAt: next, ExecutionMode: mode}, p, budget, nil
+	return scheduledQuote{Confirmation: confirmation, Selection: p.Selection(), GoalSummary: p.GoalSummary, Rule: input.Rule, MaxOccurrences: input.MaxOccurrences, Unit: budget.Unit, PerRunUpperBoundMicros: strconv.FormatUint(budget.PerRunUpperBoundMicros, 10), TotalUpperBoundMicros: strconv.FormatUint(total, 10), NextAt: next, ExecutionMode: mode}, p, budget, nil
 }
 
 type scheduledPlanView struct {
-	ID                     string                     `json:"id"`
-	Revision               string                     `json:"revision"`
-	State                  string                     `json:"state"`
-	RegistrationState      string                     `json:"registrationState"`
-	GoalSummary            string                     `json:"goalSummary,omitempty"`
-	Selection              *aiworkbench.TaskSelection `json:"selection,omitempty"`
-	DetailsAvailable       bool                       `json:"detailsAvailable"`
-	Rule                   aiworkbench.ScheduleRule   `json:"rule"`
-	MaxOccurrences         string                     `json:"maxOccurrences"`
-	ConsumedOccurrences    string                     `json:"consumedOccurrences"`
-	Unit                   string                     `json:"unit"`
-	PerRunUpperBoundMicros string                     `json:"perRunUpperBoundMicros"`
-	TotalUpperBoundMicros  string                     `json:"totalUpperBoundMicros"`
-	NextAt                 *time.Time                 `json:"nextAt,omitempty"`
-	ActiveOccurrenceID     string                     `json:"activeOccurrenceId,omitempty"`
-	CreatedAt              time.Time                  `json:"createdAt"`
+	StoreName              string                       `json:"storeName,omitempty"`
+	Kind                   string                       `json:"kind,omitempty"`
+	Report                 *aiworkbench.DailyReportSpec `json:"report,omitempty"`
+	ID                     string                       `json:"id"`
+	Revision               string                       `json:"revision"`
+	State                  string                       `json:"state"`
+	RegistrationState      string                       `json:"registrationState"`
+	GoalSummary            string                       `json:"goalSummary,omitempty"`
+	Selection              *aiworkbench.TaskSelection   `json:"selection,omitempty"`
+	DetailsAvailable       bool                         `json:"detailsAvailable"`
+	Rule                   aiworkbench.ScheduleRule     `json:"rule"`
+	MaxOccurrences         string                       `json:"maxOccurrences"`
+	ConsumedOccurrences    string                       `json:"consumedOccurrences"`
+	Unit                   string                       `json:"unit"`
+	PerRunUpperBoundMicros string                       `json:"perRunUpperBoundMicros"`
+	TotalUpperBoundMicros  string                       `json:"totalUpperBoundMicros"`
+	NextAt                 *time.Time                   `json:"nextAt,omitempty"`
+	ActiveOccurrenceID     string                       `json:"activeOccurrenceId,omitempty"`
+	CreatedAt              time.Time                    `json:"createdAt"`
 }
 
 func (a *aiWorkbenchApplication) scheduledView(ctx context.Context, plan aiworkbench.ScheduledPlan) scheduledPlanView {
-	total, _ := plan.Budget.TotalUpperBoundMicros()
+	total, _ := plan.TotalUpperBound()
 	view := scheduledPlanView{ID: plan.ID, Revision: strconv.FormatInt(plan.Revision, 10), State: plan.State, RegistrationState: plan.RegistrationState, Rule: plan.Rule, MaxOccurrences: strconv.FormatUint(plan.Budget.MaxOccurrences, 10), ConsumedOccurrences: strconv.FormatUint(plan.ConsumedOccurrences, 10), Unit: plan.Budget.Unit, PerRunUpperBoundMicros: strconv.FormatUint(plan.Budget.PerRunUpperBoundMicros, 10), TotalUpperBoundMicros: strconv.FormatUint(total, 10), ActiveOccurrenceID: plan.ActiveOccurrenceID, CreatedAt: plan.CreatedAt}
 	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	var p aiworkbench.ExecutionProposal
-	if ok && json.Unmarshal(plan.ExecutionSpec, &p) == nil && i.TenantID == plan.Scope.OrganizationID && i.UserID == plan.Scope.ActorID {
-		readable := true
-		if !p.WorkbenchContextRef.Absent() {
-			_, err := a.authorizedFrozenScope(ctx, plan.Scope, p.WorkbenchContextRef, false)
-			readable = err == nil
-		}
-		if readable && !a.proposalHistoryUnavailable(ctx, plan.Scope, p, i) {
-			view.GoalSummary = plan.GoalSummary
-			binding := agent.Binding{ContextKind: p.ContextKind, ContextID: p.OperationID, ProductKey: p.ProductKey, CatalogVersion: p.CatalogVersion, PublicationID: p.PublicationID, TargetPlatform: p.TargetPlatform}
-			if a.agent.workbenchAuthorizeBinding(ctx, i, binding) == nil {
+	if plan.Report != nil {
+		view.Kind = aiworkbench.DailyReportKind
+		if ok && a.dailyReports != nil && i.EffectiveMemberID == plan.MemberID {
+			if store, e := a.dailyReports.Store(ctx, reportOriginForPlan(plan), false); e == nil {
 				view.DetailsAvailable = true
-				view.Selection = &plan.Selection
+				view.StoreName = store.Name()
+				view.Report = plan.Report
+				view.GoalSummary = plan.GoalSummary
+			}
+		}
+	} else if a.agent != nil {
+		var p aiworkbench.ExecutionProposal
+		if ok && json.Unmarshal(plan.ExecutionSpec, &p) == nil && i.TenantID == plan.Scope.OrganizationID && i.UserID == plan.Scope.ActorID {
+			readable := true
+			if !p.WorkbenchContextRef.Absent() {
+				_, err := a.authorizedFrozenScope(ctx, plan.Scope, p.WorkbenchContextRef, false)
+				readable = err == nil
+			}
+			if readable && !a.proposalHistoryUnavailable(ctx, plan.Scope, p, i) {
+				view.GoalSummary = plan.GoalSummary
+				binding := agent.Binding{ContextKind: p.ContextKind, ContextID: p.OperationID, ProductKey: p.ProductKey, CatalogVersion: p.CatalogVersion, PublicationID: p.PublicationID, TargetPlatform: p.TargetPlatform}
+				if a.agent.workbenchAuthorizeBinding(ctx, i, binding) == nil {
+					view.DetailsAvailable = true
+					view.Selection = &plan.Selection
+				}
 			}
 		}
 	}
