@@ -119,12 +119,13 @@ it("asks for a project before a workflow function and preserves its step through
 it.each([
  {center:"research",step:"evidence",label:"查看商品资料"},
  {center:"selection",step:"analysis",label:"AI建议与记录"},
-] as const)("uses only center and step breadcrumbs for $center",async({center,step,label})=>{
+] as const)("offers a market return path and center breadcrumbs for $center",async({center,step,label})=>{
  Object.assign(f.context,{marketResearchAvailable:true});
  render(<ProjectPage center={center} workflowStep={step}/>);
  const trail=within(screen.getByRole("navigation",{name:"面包屑"}));
- expect(trail.getAllByRole("listitem")).toHaveLength(2);
- expect(trail.getAllByRole("listitem")[1]).toHaveTextContent(label);
+ expect(trail.getAllByRole("listitem")).toHaveLength(3);
+ expect(trail.getByRole("link",{name:"智能体市场"})).toHaveAttribute("href","/workbench/agents/market");
+ expect(trail.getAllByRole("listitem")[2]).toHaveTextContent(label);
  await waitFor(()=>expect(f.request).toHaveBeenCalled());
 });
 
