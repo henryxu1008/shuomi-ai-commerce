@@ -191,6 +191,7 @@ func (a *aiWorkbenchApplication) quoteScheduled(ctx context.Context, owner aiwor
 }
 
 type scheduledPlanView struct {
+	Deleted                bool                         `json:"deleted"`
 	StoreName              string                       `json:"storeName,omitempty"`
 	Kind                   string                       `json:"kind,omitempty"`
 	Report                 *aiworkbench.DailyReportSpec `json:"report,omitempty"`
@@ -215,6 +216,7 @@ type scheduledPlanView struct {
 func (a *aiWorkbenchApplication) scheduledView(ctx context.Context, plan aiworkbench.ScheduledPlan) scheduledPlanView {
 	total, _ := plan.TotalUpperBound()
 	view := scheduledPlanView{ID: plan.ID, Revision: strconv.FormatInt(plan.Revision, 10), State: plan.State, RegistrationState: plan.RegistrationState, Rule: plan.Rule, MaxOccurrences: strconv.FormatUint(plan.Budget.MaxOccurrences, 10), ConsumedOccurrences: strconv.FormatUint(plan.ConsumedOccurrences, 10), Unit: plan.Budget.Unit, PerRunUpperBoundMicros: strconv.FormatUint(plan.Budget.PerRunUpperBoundMicros, 10), TotalUpperBoundMicros: strconv.FormatUint(total, 10), ActiveOccurrenceID: plan.ActiveOccurrenceID, CreatedAt: plan.CreatedAt}
+	view.Deleted = plan.Deleted
 	i, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if plan.Report != nil {
 		view.Kind = aiworkbench.DailyReportKind

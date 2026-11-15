@@ -47,7 +47,7 @@ func (s *Store) ReadScheduledControlReceipt(ctx context.Context, scope aiworkben
 // as the new desired configuration. Temporal is synchronized after commit.
 func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope, id, key string, expected int64, action string, rule *aiworkbench.ScheduleRule, confirmation string, now time.Time) (aiworkbench.ScheduledPlan, error) {
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || !validKey(key) || expected < 1 || now.IsZero() ||
-		(action != "pause" && action != "resume" && action != "close" && action != "edit") || (action == "edit") != (rule != nil) {
+		(action != "pause" && action != "resume" && action != "close" && action != "delete" && action != "edit") || (action == "edit") != (rule != nil) {
 		return aiworkbench.ScheduledPlan{}, aiworkbench.ErrInvalid
 	}
 	fingerprint := scheduledControlDigest(id, expected, action, rule, confirmation)
@@ -79,8 +79,17 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return unavailable(err)
 		}
-		if row.Revision != expected || row.State == "CLOSED" {
+		if row.Revision != expected || (row.State == "CLOSED" && action != "delete") {
 			return aiworkbench.ErrRevisionMismatch
+		}
+		if row.Deleted {
+			// A fresh key for the same already-deleted revision still needs a
+			// durable receipt so a lost response can be recovered by that key.
+			if err := tx.Create(&scheduledControlRow{OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID, IdempotencyKey: key, PlanID: id, RequestDigest: fingerprint, AppliedRevision: row.Revision, CreatedAt: now.UTC()}).Error; err != nil {
+				return unavailable(err)
+			}
+			result, err = scheduledPlanRecord(row)
+			return err
 		}
 		if rule != nil {
 			if _, err := rule.NextAfter(now); err != nil {
@@ -91,7 +100,7 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 		switch action {
 		case "pause":
 			updates["state"] = "PAUSED"
-		case "close":
+		case "close", "delete":
 			policy, err := schedulePlanValue(row)
 			if err != nil {
 				return err
@@ -101,6 +110,9 @@ func (s *Store) ChangeScheduledPlan(ctx context.Context, scope aiworkbench.Scope
 				return err
 			}
 			updates["state"] = "CLOSED"
+			if action == "delete" {
+				updates["deleted"] = true
+			}
 		case "resume":
 			if row.State != "PAUSED" {
 				return aiworkbench.ErrRevisionMismatch
@@ -178,7 +190,7 @@ func (s *Store) ListScheduledPlans(ctx context.Context, scope aiworkbench.Scope,
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || limit < 1 || limit > 50 || after != "" && !validKey(after) {
 		return nil, "", aiworkbench.ErrInvalid
 	}
-	query := s.db.WithContext(ctx).Where("organization_id=? AND owner_user_id=?", scope.OrganizationID, scope.ActorID)
+	query := s.db.WithContext(ctx).Where("organization_id=? AND owner_user_id=? AND deleted=false", scope.OrganizationID, scope.ActorID)
 	if kind != "" {
 		query = query.Where("kind=?", kind)
 	}

@@ -346,7 +346,7 @@ const workbenchRouteAllowlist = [
     ["GET", "task-list"], ["GET", "task-cockpit-metrics"], ["GET", "task-read"], ["GET", "task-scope-options"],
     ["POST", "task-start"], ["POST", "task-resume"], ["POST", "task-review"],
     ["GET","schedule-availability"],["GET","schedule-list"],["GET","schedule-read"],["GET","schedule-history"],
-    ["POST","schedule-quote"],["POST","schedule-create"],["PATCH","schedule-edit"],["POST","schedule-pause"],["POST","schedule-resume"],["POST","schedule-close"],
+    ["POST","schedule-quote"],["POST","schedule-create"],["PATCH","schedule-edit"],["POST","schedule-pause"],["POST","schedule-resume"],["POST","schedule-close"],["POST","schedule-delete"],
   ] as const).map(([method, name]) => routeDefinition(method, `ai-${name}`, `ai-${name}`,
     path => aiWorkbenchPath(method, path) === name ? path.join("/") : null)),
   routeDefinition("POST", "browser-capture-create", "product-acquisition", (path) =>
@@ -677,7 +677,7 @@ export async function buildWorkbenchUpstreamRequest(
         } else {
           const assertion = validateSourceMutationBoundary(request, authenticatedActorSubject);
           if (assertion) return assertion;
-          if (["conversation-create", "message", "store-route", "store-overview", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close"].includes(action)) {
+          if (["conversation-create", "message", "store-route", "store-overview", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close","schedule-delete"].includes(action)) {
             const key = readCanonicalUUIDHeader(request.headers, "Idempotency-Key");
             if (!key) return protocolError(400, "INVALID_REQUEST", "Idempotency-Key is invalid");
             headers.set("Idempotency-Key", key);

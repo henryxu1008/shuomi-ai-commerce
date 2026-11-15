@@ -41,6 +41,7 @@ type scheduledPlanRow struct {
 	ConsumedOccurrences    int64
 	ActiveOccurrenceID     *string
 	State                  string
+	Deleted                bool
 	Revision               int64
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
@@ -154,7 +155,9 @@ func (s *Store) CreateScheduledPlan(ctx context.Context, input aiworkbench.Sched
 			Rule      aiworkbench.ScheduleRule
 			Budget    aiworkbench.ScheduleBudget
 		}{input.Selection, input.GoalSummary, input.Rule, input.Budget})
-		if input.Report!=nil{row.CreationFingerprint=digest(input)}
+		if input.Report != nil {
+			row.CreationFingerprint = digest(input)
+		}
 	}
 	if !validDigest(row.CreationFingerprint) {
 		return aiworkbench.ErrInvalid
