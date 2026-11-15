@@ -84,6 +84,34 @@ func TestMarketReceiverUsesActualSourceCatalogCollectionUoWAndKeepsVariantImages
 	require.Nil(t, saved.Snapshot.Review)
 	_, err = selected.ReadItem(ctx, collection.Scope{"org-b", "another", "another-member"}, received.ItemID)
 	require.ErrorIs(t, err, collection.ErrNotFound)
+	t.Run("market presence follows current batch and original member", func(t *testing.T) {
+		check := func(s collection.Scope, lock bool) (map[string]collection.Receipt, error) {
+			var value map[string]collection.Receipt
+			e := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				var inner error
+				value, inner = collectionstore.VisibleMarketItems(ctx, tx, s, []collection.Receipt{received}, lock)
+				return inner
+			})
+			return value, e
+		}
+		visible, e := check(scope, false)
+		require.NoError(t, e)
+		require.Contains(t, visible, received.ItemID)
+		foreign, e := check(collection.Scope{scope.OrganizationID, scope.ActorID, "another-member"}, false)
+		require.NoError(t, e)
+		require.Empty(t, foreign)
+		currentBatch := uuid.NewString()
+		require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,?)", scope.OrganizationID, scope.ActorID, scope.MemberID, currentBatch, "移动目标", time.Now()).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET batch_id=?,revision=revision+1 WHERE id=?", currentBatch, received.ItemID).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_batches SET archived_at=? WHERE id=?", time.Now(), received.BatchID).Error)
+		visible, e = check(scope, true)
+		require.NoError(t, e)
+		require.Equal(t, currentBatch, visible[received.ItemID].BatchID)
+		require.NoError(t, db.Exec("UPDATE product_collection_batches SET archived_at=? WHERE id=?", time.Now(), currentBatch).Error)
+		visible, e = check(scope, false)
+		require.NoError(t, e)
+		require.Empty(t, visible)
+	})
 	t.Run("SDS template and finished imports use current owners", func(t *testing.T) {
 		template := pod.Template{ID: "95146", Name: "SDS 模板", Images: []string{"https://cdn.sdspod.com/images/test/template.jpg"}, Variants: []pod.TemplateVariant{{ID: "95147", Name: "竖版", Type: "FREE", Images: []string{"https://cdn.sdspod.com/images/test/variant.jpg"}}}}
 		for _, kind := range []string{"sds_template", "sds_finished"} {

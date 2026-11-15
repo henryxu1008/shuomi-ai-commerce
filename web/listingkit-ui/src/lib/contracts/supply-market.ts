@@ -38,6 +38,11 @@ export const marketReceiptSchema=z.object({operationId:marketID,recordId:marketI
 export const marketFileSchema=z.object({id:marketID,contentType:z.enum(["image/jpeg","image/png","application/pdf"]),sha256:z.string().regex(/^[a-f0-9]{64}$/),size:revision.max(20*1024*1024),createdAt:time}).strict();
 const page=<T extends z.ZodType>(schema:T)=>z.object({items:z.array(schema).max(50).nullable().transform(v=>v??[]),total:count,nextCursor:marketID.optional()}).strict();
 export const marketReleasesSchema=page(marketReleaseSchema),marketRecordsSchema=page(marketRecordSchema),marketEventsSchema=page(marketEventSchema);
+const priceRangeSchema=z.object({currency:text(16,1),minimum:z.number().finite().nonnegative(),maximum:z.number().finite().nonnegative()}).strict().refine(p=>p.minimum<=p.maximum);
+const merchantSchema=z.discriminatedUnion("state",[z.object({state:z.literal("verified"),name:text(256,1)}).strict(),z.object({state:z.literal("unverified")}).strict(),z.object({state:z.literal("unavailable")}).strict()]);
+export const marketBrowseItemSchema=marketReleaseSchema.extend({prices:z.array(priceRangeSchema).max(256),added:z.boolean().nullable(),merchant:merchantSchema.optional()}).refine(p=>p.channel!=="selected"||p.merchant!==undefined);
+export const marketBrowsePageSchema=page(marketBrowseItemSchema);
+export type MarketView=z.infer<typeof marketBrowseItemSchema>;
 export type MarketReceipt=z.infer<typeof marketReceiptSchema>;
 export const marketChoiceSchema=z.union([
  z.object({selection:marketSelectionSchema,product:marketProductSchema,optimized:z.literal(true),ineligibleReason:z.never().optional()}).strict(),
@@ -51,8 +56,8 @@ export function marketEndpoint(url:URL,method:string){
  if(method==="POST"&&!url.search&&["commands",...(!admin?["select","uploads"]:[])].includes(path)){upload=path==="uploads";output=upload?marketFileSchema:marketReceiptSchema}
  if(method==="GET"){
   if(!admin&&path==="application-overview")output=applicationOverviewSchema;
-  if(!admin&&path==="releases")output=marketReleasesSchema;
-  if(!admin&&/^releases\/[a-f0-9-]{36}$/.test(path)&&marketID.safeParse(path.split("/")[1]).success)output=marketReleaseSchema;
+  if(!admin&&path==="releases")output=marketBrowsePageSchema;
+  if(!admin&&/^releases\/[a-f0-9-]{36}$/.test(path)&&marketID.safeParse(path.split("/")[1]).success)output=marketBrowseItemSchema;
   if(!admin&&/^choices\/[a-f0-9-]{36}$/.test(path)&&marketID.safeParse(path.split("/")[1]).success)output=marketChoiceSchema;
   if(path==="records")output=marketRecordsSchema;
   if(/^records\/[a-f0-9-]{36}\/releases$/.test(path)&&marketID.safeParse(path.split("/")[1]).success)output=marketReleasesSchema;

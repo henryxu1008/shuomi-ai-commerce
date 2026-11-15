@@ -17,6 +17,7 @@ import (
 	store "task-processor/internal/integration/persistence/subjectverification"
 	"task-processor/internal/integration/tencentesign"
 	kernelmodule "task-processor/internal/kernel/module"
+	"task-processor/internal/product/supplymarket"
 	domain "task-processor/internal/subjectverification"
 	verificationhttp "task-processor/internal/subjectverification/httpapi"
 )
@@ -27,6 +28,7 @@ type subjectVerificationModule struct {
 	handler     verificationhttp.Handler
 	personal    verificationhttp.PersonalHandler
 	personalKYC personalKYCReader
+	merchants   supplymarket.VerifiedMerchantReader
 }
 
 func (subjectVerificationModule) Name() string { return "subject-verification" }
@@ -104,6 +106,8 @@ func buildSubjectVerificationModule(ctx context.Context, db *gorm.DB, cfg *confi
 	if err != nil {
 		return nil, err
 	}
-	m.handler = verificationhttp.Handler{Service: &domain.Service{Store: repository, Provider: client, Protection: protection, Scope: values.Scope}, Callback: callback, Profile: zitadel.NewUserInfoClient(cfg.ListingKit.Zitadel.IssuerURL, &http.Client{})}
+	service := &domain.Service{Store: repository, Provider: client, Protection: protection, Scope: values.Scope}
+	m.handler = verificationhttp.Handler{Service: service, Callback: callback, Profile: zitadel.NewUserInfoClient(cfg.ListingKit.Zitadel.IssuerURL, &http.Client{})}
+	m.merchants = verifiedMarketMerchant{service}
 	return m, nil
 }

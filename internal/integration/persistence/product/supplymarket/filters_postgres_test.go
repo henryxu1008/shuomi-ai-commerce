@@ -10,6 +10,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"task-processor/internal/product/collection"
 	"task-processor/internal/product/supplymarket"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ func TestMarketFiltersBeforeCountAndPaging(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, InstallSchema(db))
-	r := &Repository{db: db}
+	r := &Repository{db: db, deps: Dependencies{Receiver: func(tx *gorm.DB) (Receiver, error) { return receiverFixture{tx: tx}, nil }}}
 	id := func(n int) string { return fmt.Sprintf("00000000-0000-4000-8000-%012d", n) }
 	variant := func(currency string, price float64) supplymarket.PublicVariant {
 		return supplymarket.PublicVariant{Currency: currency, Price: &price}
@@ -57,6 +58,12 @@ func TestMarketFiltersBeforeCountAndPaging(t *testing.T) {
 	seed(8, "official", "浙江省", 2, 0, false, variant("CNY", 50))
 	seed(9, "official", "浙江省", 2, 0, true, variant("CNY", 10), variant("USD", 50))
 	seed(10, "official", "浙江省", 2, 0, true, variant("CNY", 55))
+	viewData, viewErr := r.ReadMarketData(ctx, collection.Scope{"org-a", "actor-a", "member-a"}, []string{id(1), id(3), id(6), id(7)})
+	require.NoError(t, viewErr)
+	require.Equal(t, []supplymarket.PriceRange{{Currency: "CNY", Minimum: 10, Maximum: 100}}, viewData[id(1)].Prices)
+	require.Equal(t, []supplymarket.PriceRange{{Currency: "USD", Minimum: 50, Maximum: 50}}, viewData[id(3)].Prices)
+	require.Equal(t, []supplymarket.PriceRange{{Currency: "CNY", Minimum: 0, Maximum: 0}}, viewData[id(6)].Prices)
+	require.Empty(t, viewData[id(7)].Prices)
 	q := supplymarket.Query{Kind: "official", Limit: 1, Filters: supplymarket.MarketFilters{Province: "浙江省", MinPrice: new(40.0), MaxPrice: new(60.0), PriceCurrency: "CNY", MaxMOQ: new(2), MaxLeadDays: new(0)}}
 	first, err := r.ListReleases(ctx, q)
 	require.NoError(t, err)

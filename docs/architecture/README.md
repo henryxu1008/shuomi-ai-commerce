@@ -173,6 +173,7 @@
 - `store-empty-observations-contract-alignment.md` — [四张空 Store 观测表的最小合同对齐](store-empty-observations-contract-alignment.md) · #1231 架构 IMPLEMENTATION_READY；实现/副本/原实例操作另行授权。
 - `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
 - `supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](supply-market-choice-eligibility.md)
+- `supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
 - `supply-market-filters.md` — [自营与优选商品筛选](supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
 - `supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market.md)
 - `temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](temu-official-contract-evidence.md)

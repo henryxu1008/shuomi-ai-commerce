@@ -31,6 +31,32 @@ type receiverFixture struct {
 	fail bool
 }
 
+type restrictedReceiverFixture struct {
+	receiverFixture
+	readError error
+}
+
+func (r restrictedReceiverFixture) Visible(ctx context.Context, scope collection.Scope, refs []collection.Receipt, lock bool) (map[string]collection.Receipt, error) {
+	if !lock && r.readError != nil {
+		return nil, r.readError
+	}
+	return r.receiverFixture.Visible(ctx, scope, refs, lock)
+}
+
+func (r receiverFixture) Visible(_ context.Context, scope collection.Scope, refs []collection.Receipt, _ bool) (map[string]collection.Receipt, error) {
+	result := map[string]collection.Receipt{}
+	for _, ref := range refs {
+		var count int64
+		if e := r.tx.Raw("SELECT count(*) FROM receiver_test WHERE operation_id=? AND organization_id=? AND actor_id=?", ref.OperationID, scope.OrganizationID, scope.ActorID).Scan(&count).Error; e != nil {
+			return nil, e
+		}
+		if count == 1 {
+			result[ref.ItemID] = ref
+		}
+	}
+	return result, nil
+}
+
 func (r receiverFixture) Receive(_ context.Context, scope collection.Scope, operation string, release supplymarket.Release) (collection.Receipt, error) {
 	if err := r.tx.Exec("INSERT INTO receiver_test(operation_id,organization_id,actor_id) VALUES(?,?,?)", operation, scope.OrganizationID, scope.ActorID).Error; err != nil {
 		return collection.Receipt{}, err
@@ -65,6 +91,7 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	require.NoError(t, db.Exec("CREATE TABLE receiver_test(operation_id uuid PRIMARY KEY,organization_id text NOT NULL,actor_id text NOT NULL)").Error)
 	receiverFails := false
 	verifierFails := false
+	var receiverReadError error
 	r, err := NewRepository(ctx, db, Dependencies{
 		Disclosure: func(*gorm.DB) (DisclosureVerifier, error) {
 			if verifierFails {
@@ -72,8 +99,10 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 			}
 			return verifierFixture{}, nil
 		},
-		Files:    func(*gorm.DB) (FileVerifier, error) { return filesFixture{}, nil },
-		Receiver: func(tx *gorm.DB) (Receiver, error) { return receiverFixture{tx, receiverFails}, nil },
+		Files: func(*gorm.DB) (FileVerifier, error) { return filesFixture{}, nil },
+		Receiver: func(tx *gorm.DB) (Receiver, error) {
+			return restrictedReceiverFixture{receiverFixture{tx, receiverFails}, receiverReadError}, nil
+		},
 	})
 	require.NoError(t, err)
 	scope := collection.Scope{"org-a", "actor-a", "member-a"}
@@ -141,6 +170,47 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	require.NotNil(t, selected.Collection)
 	require.NoError(t, db.Raw("SELECT count(*) FROM receiver_test").Scan(&count).Error)
 	require.Equal(t, int64(1), count)
+	// Different browser keys for the same exact release must reuse the owned item.
+	type concurrentResult struct {
+		receipt supplymarket.Receipt
+		err     error
+	}
+	done := make(chan concurrentResult, 2)
+	for range 2 {
+		go func() {
+			value, e := r.Execute(ctx, command(consumer, "", supplymarket.Mutation{Action: "select_release", ID: published.ReleaseID, ExpectedRevision: 1}), guard)
+			done <- concurrentResult{value, e}
+		}()
+	}
+	for range 2 {
+		value := <-done
+		require.NoError(t, value.err)
+		require.Equal(t, selected.Collection.ItemID, value.receipt.Collection.ItemID)
+	}
+	require.NoError(t, db.Raw("SELECT count(*) FROM receiver_test").Scan(&count).Error)
+	require.EqualValues(t, 1, count)
+	data, e := r.ReadMarketData(ctx, consumer, []string{published.ReleaseID})
+	require.NoError(t, e)
+	require.NotNil(t, data[published.ReleaseID].Added)
+	require.True(t, *data[published.ReleaseID].Added)
+	foreign, e := r.ReadMarketData(ctx, collection.Scope{consumer.OrganizationID, consumer.ActorID, "another-member"}, []string{published.ReleaseID})
+	require.NoError(t, e)
+	require.False(t, *foreign[published.ReleaseID].Added)
+	// A denied status read is unknown. It does not become a new permission
+	// prerequisite for the existing manage-authorized selection command.
+	receiverReadError = collection.ErrForbidden
+	unknown, e := r.ReadMarketData(ctx, consumer, []string{published.ReleaseID})
+	require.NoError(t, e)
+	require.Nil(t, unknown[published.ReleaseID].Added)
+	reused, e := r.Execute(ctx, command(consumer, "", supplymarket.Mutation{Action: "select_release", ID: published.ReleaseID, ExpectedRevision: 1}), guard)
+	require.NoError(t, e)
+	require.Equal(t, selected.Collection.ItemID, reused.Collection.ItemID)
+	require.NoError(t, db.Raw("SELECT count(*) FROM receiver_test").Scan(&count).Error)
+	require.EqualValues(t, 1, count)
+	receiverReadError = errors.New("collection store unavailable")
+	_, e = r.ReadMarketData(ctx, consumer, []string{published.ReleaseID})
+	require.ErrorIs(t, e, receiverReadError, "dependency failure must not be disguised as an unselected item")
+	receiverReadError = nil
 	revoke := command(collection.Scope{}, "platform-a", supplymarket.Mutation{Action: "revoke", ID: published.ReleaseID, ExpectedRevision: 1})
 	_, err = r.Execute(ctx, revoke, guard)
 	require.NoError(t, err)

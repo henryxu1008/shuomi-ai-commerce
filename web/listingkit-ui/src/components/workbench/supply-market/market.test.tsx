@@ -5,7 +5,7 @@ import {SupplyMarketPage,SupplyProductPage} from "./market";
 const calls=vi.hoisted(()=>({list:vi.fn(),read:vi.fn(),execute:vi.fn()}));
 vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:calls.list,readMarket:calls.read}));
 vi.mock("./shared",async original=>({...await original<object>(),MarketBoundary:({children}:{children:(scope:{userId:string;organizationId:string})=>unknown})=>children({userId:"actor",organizationId:"org"}),useMarketCommands:()=>({execute:calls.execute,locked:false,saved:null,notice:null})}));
-const sample={id:"11111111-1111-4111-8111-111111111111",revision:3,active:true,publishedAt:"2026-11-15T00:00:00Z",product:{title:"【合成示例】折叠收纳箱",description:"仅供流程试用",images:["https://example.com/sample.png"]},supply:{province:"浙江省",city:"杭州市",stock:60,minimumQuantity:2,leadDays:3}};
+const sample={added:false,prices:[],merchant:{state:"unverified"},id:"11111111-1111-4111-8111-111111111111",revision:3,active:true,publishedAt:"2026-11-15T00:00:00Z",product:{title:"【合成示例】折叠收纳箱",description:"仅供流程试用",images:["https://example.com/sample.png"]},supply:{province:"浙江省",city:"杭州市",stock:60,minimumQuantity:2,leadDays:3}};
 function show(node:React.ReactNode){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{node}</QueryClientProvider>)}
 beforeEach(()=>{vi.clearAllMocks();calls.list.mockResolvedValue({items:[],total:0});});
 afterEach(cleanup);
@@ -33,6 +33,31 @@ it("explains empty searches and clears the filter without changing channels",asy
  await screen.findByText("没有找到匹配商品");fireEvent.click(screen.getByRole("button",{name:"清除筛选"}));
  await waitFor(()=>expect(screen.getByRole("textbox",{name:"商品关键词"})).toHaveValue(""));
  expect(within(screen.getByRole("navigation",{name:"货源渠道"})).getByRole("link",{name:"硕米优选"})).toHaveAttribute("aria-current","page");
+});
+it.each(["official","selected"] as const)("shows price and directly adds the exact %s release",async channel=>{
+ calls.list.mockResolvedValue({items:[{...sample,channel,prices:[{currency:"CNY",minimum:22,maximum:37}],added:false,merchant:{state:"unverified"}}],total:1});
+ calls.execute.mockResolvedValue({releaseId:sample.id,collection:{itemId:sample.id}});
+ show(<SupplyMarketPage channel={channel}/>);
+ expect(await screen.findByText("¥22.00 – ¥37.00")).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("button",{name:"加入我的数据"}));
+ await waitFor(()=>expect(calls.execute).toHaveBeenCalledWith({action:"select_release",id:sample.id,expectedRevision:sample.revision}));
+ expect(await screen.findByRole("link",{name:"查看我的数据"})).toHaveAttribute("href","/workbench/data/mine");
+});
+it("shows confirmed membership and verified merchant name without another add button",async()=>{
+ calls.list.mockResolvedValue({items:[{...sample,channel:"selected",prices:[{currency:"CNY",minimum:22,maximum:22}],added:true,merchant:{state:"verified",name:"已认证示例企业"}}],total:1});
+ show(<SupplyMarketPage channel="selected"/>);
+ expect(await screen.findByText("已认证示例企业")).toBeInTheDocument();
+ expect(screen.getByText("已加入我的数据")).toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"查看我的数据"})).toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"加入我的数据"})).not.toBeInTheDocument();
+ expect(calls.execute).not.toHaveBeenCalled();
+});
+it("does not present an unknown membership or unavailable merchant as a confirmed fact",async()=>{
+ calls.list.mockResolvedValue({items:[{...sample,channel:"selected",prices:[],added:null,merchant:{state:"unavailable"}}],total:1});
+ show(<SupplyMarketPage channel="selected"/>);
+ expect(await screen.findByRole("button",{name:"暂不可加入"})).toBeDisabled();
+ expect(screen.getByText("商家信息暂不可用")).toBeInTheDocument();
+ expect(screen.getByText("价格待确认")).toBeInTheDocument();
 });
 it("applies supply filters together, preserves zero days and resets paging when cleared",async()=>{
  calls.list.mockImplementation(async(_scope,q)=>({items:[],total:2,...(!q.after?{nextCursor:sample.id}:{})}));

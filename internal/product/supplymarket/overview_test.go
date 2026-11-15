@@ -117,7 +117,7 @@ func overviewFixture(t *testing.T, n int) (*Service, *testAuthority, *overviewCo
 		selected.pages = append(selected.pages, p)
 	}
 	repo := &overviewRepository{counts: ApplicationCounts{Reviewing: 27, SupplementRequired: 4, Approved: 7}}
-	s, e := NewService(a, selected, eff, repo)
+	s, e := NewService(a, selected, eff, repo, nil)
 	require.NoError(t, e)
 	return s, a, selected, repo, ctx, items
 }

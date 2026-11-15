@@ -1,0 +1,15 @@
+.card { display:flex; flex-direction:column; overflow:hidden; padding:0; }
+.image { width:100%; aspect-ratio:4/3; object-fit:contain; background:var(--muted); }
+.body { display:flex; flex-direction:column; flex:1; gap:12px; padding:16px; min-width:0; }
+.body h2 { font-size:15px; line-height:24px; font-weight:500; overflow-wrap:anywhere; }
+.merchant { display:flex; flex-wrap:wrap; gap:4px 8px; font-size:13px; line-height:20px; color:var(--muted-foreground); overflow-wrap:anywhere; }
+.verified { color:var(--foreground); }
+.location { font-size:13px; line-height:20px; color:var(--muted-foreground); overflow-wrap:anywhere; }
+.facts { display:flex; flex-wrap:wrap; gap:4px 12px; padding:12px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); font-size:13px; line-height:20px; }
+.footer { display:grid; gap:8px; margin-top:auto; padding-top:8px; }
+.prices { font-size:20px; line-height:28px; font-weight:500; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.noPrice { font-size:14px; line-height:24px; font-weight:400; color:var(--muted-foreground); }
+.added { font-size:13px; line-height:20px; color:var(--muted-foreground); }
+.details { justify-self:center; padding:4px 8px; font-size:13px; line-height:20px; color:var(--muted-foreground); text-decoration:underline; text-underline-offset:4px; border-radius:4px; }
+.details:hover { color:var(--foreground); }
+.details:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }

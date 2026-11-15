@@ -17,10 +17,10 @@ type filterService struct {
 	query supplymarket.Query
 }
 
-func (s *filterService) ListMarket(_ context.Context, q supplymarket.Query) (supplymarket.Page[supplymarket.Release], error) {
+func (s *filterService) ListMarket(_ context.Context, q supplymarket.Query) (supplymarket.Page[supplymarket.MarketView], error) {
 	s.calls++
 	s.query = q
-	return supplymarket.Page[supplymarket.Release]{Items: []supplymarket.Release{}}, nil
+	return supplymarket.Page[supplymarket.MarketView]{Items: []supplymarket.MarketView{}}, nil
 }
 func TestMarketFilterQueryIsValidatedAndMarketOnly(t *testing.T) {
 	gin.SetMode(gin.TestMode)

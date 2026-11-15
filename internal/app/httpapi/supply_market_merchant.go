@@ -1,0 +1,20 @@
+package httpapi
+
+import (
+	"context"
+	"task-processor/internal/product/supplymarket"
+	"task-processor/internal/subjectverification"
+)
+
+type verifiedMarketMerchant struct{ service *subjectverification.Service }
+
+func (r verifiedMarketMerchant) ReadVerifiedMerchant(ctx context.Context, organizationID string) (supplymarket.Merchant, error) {
+	name, err := r.service.VerifiedCompanyName(ctx, organizationID)
+	if err != nil {
+		return supplymarket.Merchant{}, err
+	}
+	if name == "" {
+		return supplymarket.Merchant{State: "unverified"}, nil
+	}
+	return supplymarket.Merchant{State: "verified", Name: name}, nil
+}
