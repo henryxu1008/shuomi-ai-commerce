@@ -1,17 +1,17 @@
 # 技能脚本执行：Linux Docker + OpenSandbox + gVisor 接入设计
 
 > Design Basis: **Independent Architecture**。
-> Status: **APPROVED / IMPLEMENTATION_READY / READY_NOT_STARTED / D_IT1_TRIAL_GATE_PENDING / NOT_IMPLEMENTED**。用户于 2026-11-15 批准 §21 的三组最小产品范围，并要求完成设计与正式 Issue 准入、先不改生产代码。§20 独立复核无新增架构 BLOCKER；两项 SDK IT 的方法证据有效，D-IT1 保留部署 profile 开放试用前的 IMPLEMENTATION_TEST，不降级为 PASS。Ready 不自动启动开发或授权部署，不签发产品/生产验收。
+> Status: **APPROVED / IMPLEMENTATION_READY / D_IT1_TRIAL_GATE_PENDING**。用户于 2026-11-15 批准 §21 三组范围与准入，随后明确授权 #1293 正式实现（§22）。滚动实现/评审状态见执行 Issue/PR；此文保留冻结设计和阶段证据。D-IT1 是对应部署 profile 开放试用前的 IMPLEMENTATION_TEST，不降级为 PASS，不签发产品/生产验收。
 > 日期：2026-11-14；最近独立增量复核：2026-11-15；调查基线：main `cbaadd5efd9bc6ef2f8204550f926929deecf566`。
 > 初始授权：按 OpenSandbox + gVisor 设计接入现有技能库、尽量复用 Eino 和工具链，明确“先别改生产代码”。初始设计与独立评审阶段未执行安装/部署；后续获准的独立测试环境安装和 POC 见 §19，生产代码/依赖、真实模型及业务数据仍未改动；作者自检不替代独立评审。
-> 正式执行 Issue：[#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，状态唯一来源为 Issue 正文 **Ready**；正式实现未接单，无实现 PR。设计分支 codex/skill-opensandbox-design 只承载文档。
-> 当前授权：记录已批准产品决定、提交/推送设计文档并维护正式 Issue/准入；用户明确“先别改生产代码”。不自动启动 Writer、不部署、不操作 Docker Desktop/业务实例、真实模型或数据。前阶段独立 WSL2 POC 的环境授权与证据保留于 §19，不扩大为本轮环境操作授权。Linux Docker + gVisor 优先，Kubernetes 非前置。
+> 正式执行 Issue：[#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，状态唯一来源为 Issue 正文。设计分支 codex/skill-opensandbox-design 只承载前阶段文档；正式实现使用独立 codex/1293-skill-script。
+> 当前授权：按批准设计正式实现、必要隔离验证、提交/推送及维护一个主要 PR；先不合并或部署，不操作既有业务实例、真实模型或业务数据。复用独立 WSL 测试 Engine，不改变 Docker Desktop 配置或业务容器。Linux Docker + gVisor 优先，Kubernetes 非前置。§12–21 中“本轮不改生产代码/未接单”等措辞为各阶段历史停止点，由本段及 §22 的后续授权替代。
 
 ## 1. 已批准产品决定、用户结果和首版范围
 
 ### 已确认的边界
 
-产品决定 **PD-SKILL-SCRIPT-TITLE-V1-2026-11-15**：用户明确批准 §20 的三组最小范围，批准记录与准入映射见 §21，正式执行为 #1293。现有 [Skill V1](skill-capability.md) 的文本合同继续有效；本决定只在本设计的显式新脚本策略、标题消费者和准入下局部解除其脚本 Out of Scope，不授予任意脚本权限，不改变其他消费者或原四模式的一般合同。当前为设计批准/Ready，业务能力尚未实现或开放。
+产品决定 **PD-SKILL-SCRIPT-TITLE-V1-2026-11-15**：用户明确批准 §20 的三组最小范围，批准记录与准入映射见 §21，正式执行为 #1293。现有 [Skill V1](skill-capability.md) 的文本合同继续有效；本决定只在本设计的显式新脚本策略、标题消费者和准入下局部解除其脚本 Out of Scope，不授予任意脚本权限，不改变其他消费者或原四模式的一般合同。当前已授权正式实现，尚未开放试用或部署。
 
 首版让现有技能库用户完成一条明确操作：在“我的技能 / 团队技能”保存包含 Python 脚本的准确版本；处理当前企业已保存商品的标题时显式选择它；模型形成标题候选后，脚本做确定性排版或结构转换；用户查看执行状态、处理前后标题和所用版本，再沿原 Review/Catalog 路径人工采用。例子是统一空白和标点、应用明确的标题字段拼接格式，不把脚本计算结果当作品牌、材质、认证等商品事实。
 
@@ -688,3 +688,22 @@ Desktop 全程只读查询/导出缓存镜像。执行前 21 个既有容器对�
 | 对应profile试用开放 | **D-IT1 / POC-F1：IMPLEMENTATION_TEST，Must未完成**；部署owner在开放前完成§8.3.4剩余其他宿主地址/IPv6/既有公网入口、正式后端专用私密挂载/真实路由、proxy路径鉴权/原始端口绕行和敏感头用途核对。缺项/未知配置fail closed，不写PASS；复用现成检查与§19准确子集，不阻塞获准编码、不新建平台 |
 
 当前授权仅写入设计/Issue、必要文档提交与推送、完成准入；不包含生产实现、合并、关闭Issue、部署、启动测试环境、Docker Desktop/业务实例或真实模型/平台/数据操作。原独立 WSL 环境保持停止与保留。后续部署、真实调用和用户验收仍按具体授权分别记录，Ready不等于已实现、已开放或产品验收。
+
+## 22. 正式实现授权与高风险边界收敛（2026-11-15）
+
+用户随后明确授权：“开始处理 #1293，按已批准设计完成正式实现，尽量复用 Eino 和现有工具链；D-IT1 剩余检查仍作为试用开放前必须完成，不动现有业务实例，先别合并或部署。” 这替代 §21 历史停止点；一个 Writer、独立 worktree、一个主要 PR，不改变产品范围、事实 owner、恢复责任或部署授权。实现、CI、最终独立检查的滚动证据记在 #1293/其 PR，配置与用户步骤见[操作说明](../operations/skill-script-sandbox.md)。
+
+高风险边界检查由独立 `skill1293_boundary_check` 只读检查当前设计、相关完整 diff、官方同版源码，未运行漏洞复现或操作真实环境。发现先分类，再局部修正：
+
+| Finding / 受影响 Must | 分类、层级与处理 |
+| --- | --- |
+| I-B1：guest loopback 上的 root execd 不能仅由外层 netfilter 和 UID 65534 隔离；缺少控制 API 认证会绕过明确访问控制 | **BLOCKER（实施：错误授权/权限提升）**。复用同版 execd 逐实例 `EXECD_ACCESS_TOKEN` 与官方 `NewExecdClient`，不新增 IAM。每次 create 以 crypto/rand 生成私有值，所有脚本和受信 collector 命令在 exec/setuid 前通过官方 Envs overlay 将 `EXECD_ACCESS_TOKEN`、`EXECD_ENVS`、`JUPYTER_TOKEN` 设为空。上传私有输入前同一路由匿名只读 GetFileInfo 必须401，否则停止并清理，不派发脚本。测试验证完整 SDK 请求及拒绝路径。部署 profile **必须**启用 `execd_run_as_init=true`，验证 entrypoint 环境已剥离凭据、daemon non-dumpable，UID65534 不能从实际 `/proc`/私密挂载读到秘密；真实验证尚未执行，随 D-IT1 保留为开放试用 Must。 |
+| I-T1：gateway 返回体应先限16KiB再解码，并绑定当前 input/descriptor | **IMPLEMENTATION_TEST（本片合并）**。节点先限额、strict decode、核对两个摘要；错误摘要/超限停止，原运行不重派。 |
+| I-T2：明确 failed/not_dispatched 不应统一显示 UNKNOWN | **IMPLEMENTATION_TEST（本片合并）**。执行与 cleanup 分别记录；已知失败使用工具失败停止，模糊派发/缺失或冲突终态保留 UNKNOWN，均不 repair/自动重试。 |
+| I-T3：diagnostics 缺失/null、原始无效 UTF-8 不应被当作合格结果 | **IMPLEMENTATION_TEST（本片合并）**。严格 JSON、原始 UTF-8 和诊断数组一起校验，不能由替换字符修复输入。 |
+
+I-B1 保持已批准的 private Traefik → server-proxy → execd 控制链，不引入新平台或第二 owner；这是当前安全不变量的必要实现修正。上游不可变证据为 OpenSandbox 1.2.1 commit `db708c218771a8d311356f0e96552c15df6e097a` 的 [flag/parser.go](https://github.com/alibaba/OpenSandbox/blob/db708c218771a8d311356f0e96552c15df6e097a/components/execd/pkg/flag/parser.go)、[command_argv.go](https://github.com/alibaba/OpenSandbox/blob/db708c218771a8d311356f0e96552c15df6e097a/components/execd/pkg/runtime/command_argv.go)、[env.go](https://github.com/alibaba/OpenSandbox/blob/db708c218771a8d311356f0e96552c15df6e097a/components/execd/pkg/runtime/env.go)、[initmode_linux.go](https://github.com/alibaba/OpenSandbox/blob/db708c218771a8d311356f0e96552c15df6e097a/components/execd/pkg/runtime/initmode_linux.go)。`X-EXECD-ACCESS-TOKEN` 与 secure-access header 不同；Docker 不支持的 secureAccess 不作为依赖，也不将共享网络 IP 当服务身份。
+
+结果获取：脚本明确退出成功后，固定受信 collector 以隔离标准库执行 `O_NOFOLLOW|O_NONBLOCK + fstat`，只读普通文件且最多8193字节，超过8192拒绝；复制到 root-only 目录后再由官方 SDK 下载。避免 stat 与下载间的 symlink/FIFO 竞态；无用户参数、Shell、用户 import path 或业务凭据。脚本退出、collector、下载/格式校验均合格才 succeeded，清理不改写结果。收集仍在整步30秒内，清理另给独立5秒，不承诺 exactly-once 或新增后台恢复。
+
+部署 runtime/PID/quota/挂载/netfilter 与 init/proc 约束仍属 §8.3.4 owner，guest 自报和生命周期 metadata 不能证明正确。配置默认关闭；只有 owner 完成适用真实检查并将记录 hash 写入私有 `trialEvidence` 才能开放。它是明确的管理准入引用，不是签名证明或自动检测系统；缺失关闭，不以旧 POC、合成 HTTP fixture 或任意 hash 冒充验收。首版采用一个后端实例/专用 worker，adapter 串行和创建前存量检查不冒充多副本分布式容量分配器。

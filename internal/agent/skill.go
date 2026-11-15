@@ -22,5 +22,5 @@ func (r SkillVersionRef) ValidOrAbsent() bool { return r.Absent() || r.Valid() }
 func (r SkillVersionRef) Valid() bool {
 	id, e := uuid.Parse(r.ID)
 	digest, de := hex.DecodeString(r.Digest)
-	return r.Kind == "skill-version-v1" && e == nil && id != uuid.Nil && id.String() == r.ID && r.Version > 0 && r.Version < 1<<63 && ((r.OwnerKind == "USER" || r.OwnerKind == "ORGANIZATION") && ValidID(r.OwnerID) || r.OwnerKind == "PLATFORM" && r.OwnerID == "official") && de == nil && len(digest) == 32 && hex.EncodeToString(digest) == r.Digest && r.PolicyVersion == "skill-method-v1"
+	return r.Kind == "skill-version-v1" && e == nil && id != uuid.Nil && id.String() == r.ID && r.Version > 0 && r.Version < 1<<63 && ((r.OwnerKind == "USER" || r.OwnerKind == "ORGANIZATION") && ValidID(r.OwnerID) || r.OwnerKind == "PLATFORM" && r.OwnerID == "official") && de == nil && len(digest) == 32 && hex.EncodeToString(digest) == r.Digest && (r.PolicyVersion == "skill-method-v1" || r.PolicyVersion == "skill-script-method-v1")
 }

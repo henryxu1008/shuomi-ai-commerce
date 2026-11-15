@@ -38,12 +38,13 @@ type File struct {
 	Text string `json:"text"`
 }
 type Package struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Target      string `json:"target,omitempty"`
-	DisplayName string `json:"displayName,omitempty"`
-	Digest      string `json:"digest"`
-	Files       []File `json:"files"`
+	Execution   *ExecutionManifest `json:"execution,omitempty"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Target      string             `json:"target,omitempty"`
+	DisplayName string             `json:"displayName,omitempty"`
+	Digest      string             `json:"digest"`
+	Files       []File             `json:"files"`
 }
 type manifest struct {
 	Name        string            `yaml:"name"`
@@ -55,20 +56,23 @@ type manifest struct {
 var namePattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 func supportedPath(p string) bool {
-	if p == "SKILL.md" {
+	if p == "SKILL.md" || p == "execution.json" {
 		return true
 	}
 	parts := strings.Split(p, "/")
 	if len(parts) != 2 || parts[1] == "" || strings.ContainsAny(p, "\\:%?#") || path.Clean(p) != p {
 		return false
 	}
-	if parts[0] != "references" && parts[0] != "assets" {
+	if parts[0] != "references" && parts[0] != "assets" && parts[0] != "scripts" {
 		return false
 	}
 	if len(p) > 256 || !utf8.ValidString(p) || strings.IndexFunc(p, unicode.IsControl) >= 0 {
 		return false
 	}
 	ext := path.Ext(parts[1])
+	if parts[0] == "scripts" {
+		return ext == ".py"
+	}
 	return ext == ".md" || ext == ".txt" || parts[0] == "assets" && ext == ".json"
 }
 func textOK(s string) bool {
@@ -226,6 +230,9 @@ func ValidatePackage(files []File) (Package, error) {
 				return Package{}, e
 			}
 		}
+	}
+	if err := p.validateExecution(); err != nil {
+		return Package{}, err
 	}
 	raw, e := json.Marshal(p.Files)
 	if e != nil || len(raw) > MaxPackageBytes {

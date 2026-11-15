@@ -13,6 +13,7 @@ import (
 )
 
 type shareRow struct {
+	Script                                                              bool `gorm:"-"`
 	ID, SourceSkillID, SourceDigest, SubmittedBy, OrganizationID, State string
 	SourceVersion                                                       uint64
 	Consent                                                             bool
@@ -22,11 +23,29 @@ type shareRow struct {
 
 func (shareRow) TableName() string { return "skill_capability.share_requests" }
 func (r shareRow) view() d.ShareRequest {
+	policy := d.MethodPolicyVersion
+	if r.Script {
+		policy = d.ScriptPolicyVersion
+	}
 	result := ""
 	if r.ResultSkillID != nil {
 		result = *r.ResultSkillID
 	}
-	return d.ShareRequest{ID: r.ID, Source: agent.SkillVersionRef{Kind: "skill-version-v1", ID: r.SourceSkillID, OwnerKind: d.UserOwner, OwnerID: r.SubmittedBy, Version: r.SourceVersion, Digest: r.SourceDigest, PolicyVersion: d.MethodPolicyVersion}, SubmittedBy: r.SubmittedBy, OrganizationID: r.OrganizationID, Consent: r.Consent, State: r.State, ResultID: result, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	return d.ShareRequest{ID: r.ID, Source: agent.SkillVersionRef{Kind: "skill-version-v1", ID: r.SourceSkillID, OwnerKind: d.UserOwner, OwnerID: r.SubmittedBy, Version: r.SourceVersion, Digest: r.SourceDigest, PolicyVersion: policy}, SubmittedBy: r.SubmittedBy, OrganizationID: r.OrganizationID, Consent: r.Consent, State: r.State, ResultID: result, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+}
+
+// Derive policy from the canonical immutable version; share_requests does not
+// become another source of package facts or need a schema column.
+func hydrateSharePolicy(db *gorm.DB, row *shareRow) error {
+	source, err := readVersion(db, row.SourceSkillID, row.SourceVersion, false)
+	if err != nil {
+		return err
+	}
+	if source.Metadata.Owner != (d.Owner{Kind: d.UserOwner, ID: row.SubmittedBy}) || source.Package.Digest != row.SourceDigest {
+		return d.ErrConflict
+	}
+	row.Script = source.Package.Execution != nil
+	return nil
 }
 func readShare(db *gorm.DB, id string, lock bool) (shareRow, error) {
 	var row shareRow
@@ -40,6 +59,9 @@ func readShare(db *gorm.DB, id string, lock bool) (shareRow, error) {
 	}
 	if q.RowsAffected != 1 {
 		return row, d.ErrNotFound
+	}
+	if err := hydrateSharePolicy(db, &row); err != nil {
+		return row, err
 	}
 	if !row.view().Source.Valid() || !row.Consent {
 		return row, d.ErrUnavailable
@@ -106,7 +128,7 @@ func (s *Store) Share(ctx context.Context, p d.Principal, key, id string, versio
 			return d.ShareRequest{}, d.ErrForbidden
 		}
 		now := time.Now().UTC()
-		row := shareRow{ID: requestID, SourceSkillID: id, SourceVersion: version, SourceDigest: source.Package.Digest, SubmittedBy: p.UserID, OrganizationID: p.OrganizationID, Consent: true, State: "SUBMITTED", CreatedAt: now, UpdatedAt: now}
+		row := shareRow{Script: source.Package.Execution != nil, ID: requestID, SourceSkillID: id, SourceVersion: version, SourceDigest: source.Package.Digest, SubmittedBy: p.UserID, OrganizationID: p.OrganizationID, Consent: true, State: "SUBMITTED", CreatedAt: now, UpdatedAt: now}
 		return row.view(), tx.Create(&row).Error
 	})
 }
@@ -230,6 +252,9 @@ func (s *Store) Shares(ctx context.Context, p d.Principal, organization bool) ([
 	}
 	out := make([]d.ShareRequest, 0, len(rows))
 	for _, row := range rows {
+		if err := hydrateSharePolicy(s.db.WithContext(ctx), &row); err != nil {
+			return nil, err
+		}
 		out = append(out, row.view())
 	}
 	return out, nil

@@ -83,8 +83,12 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	if !found || run.State.RunID != p.RunID || !agentRunReviewable(run.State) || *agentExecutionProvenance(run.State) != p {
 		return nil, review.ErrConflict
 	}
-	if _, e = a.configuration.CheckRegisteredTextExecutionMode(ctx, origin, p.Configuration, p.Mode); e != nil {
+	mode, e := a.configuration.CheckRegisteredTextExecutionMode(ctx, origin, p.Configuration, p.Mode)
+	if e != nil {
 		return nil, e
+	}
+	if p.SkillVersionRef.PolicyVersion == d.ScriptPolicyVersion && mode.Mode != agent.ModeDefault {
+		return nil, review.ErrForbidden
 	}
 	consumer := a
 	if a.definition.ID != agentconfig.ContentAgentID {

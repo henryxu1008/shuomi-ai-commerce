@@ -198,6 +198,7 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 				return agent.Request{}, agentconfig.ErrConflict
 			}
 			input.Request.SkillVersionRef = ref
+			input.Request.ScriptDescriptor = existing.State.Request.ScriptDescriptor
 		}
 		frozen, err := a.configuration.Match(ctx, input, existing.State.Request.ConfigurationSnapshotRef)
 		if err != nil {
@@ -234,6 +235,12 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 			return agent.Request{}, e
 		}
 		input.Request.SkillVersionRef = ref
+		if input.Request.ScriptSelected() {
+			if a.script == nil || !a.scriptDescriptor.Valid() || !input.Request.ScheduledSource.Absent() {
+				return agent.Request{}, agent.ErrUnavailable
+			}
+			input.Request.ScriptDescriptor = a.scriptDescriptor
+		}
 	}
 	if a.selectTitleProfile == nil {
 		return agent.Request{}, agent.ErrUnavailable

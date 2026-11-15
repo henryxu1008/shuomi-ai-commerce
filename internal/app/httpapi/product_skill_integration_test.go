@@ -89,10 +89,17 @@ func skillHTTP(t *testing.T, server *httptest.Server, method, path, actor, org, 
 	require.Equal(t, status, response.StatusCode, string(raw))
 	return raw
 }
-func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httptest.Server, cfg *configstore.Store, app *productAgentApplication, operationID, mode, modeRevision string, iam *contentReviewIAM, replaced *atomic.Bool, calls *atomic.Int32, crossChange string) {
+func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httptest.Server, cfg *configstore.Store, app *productAgentApplication, operationID, mode, modeRevision string, iam *contentReviewIAM, replaced *atomic.Bool, calls *atomic.Int32, crossChange string, script ...bool) {
 	t.Helper()
 	require.NotNil(t, app.skills)
 	input := map[string]any{"files": []d.File{{Path: "SKILL.md", Text: "---\nname: product-title-normalization\ndescription: Normalize exact saved facts.\n---\nNormalize exact saved facts, using [style](references/style.md).\n"}, {Path: "references/style.md", Text: "Keep supported attributes and never invent facts.\n"}}, "allowCopy": true, "allowExport": true}
+	withScript := len(script) == 1 && script[0]
+	if withScript {
+		files := input["files"].([]d.File)
+		files[0].Text = strings.Replace(files[0].Text, "description: Normalize exact saved facts.\n", "description: Normalize exact saved facts.\nmetadata:\n  listingkit-method-v1: product-title\n", 1)
+		files = append(files, d.File{Path: "execution.json", Text: `{"schemaVersion":"skill-script-v1","profile":"python-title-json-v1","entrypoint":"scripts/main.py","phase":"title-candidate-postprocess","inputContract":"title-candidate-v1","outputContract":"title-result-v1"}`}, d.File{Path: "scripts/main.py", Text: "# SCRIPT_PRIVATE_MARKER\nprint('format saved candidate')\n"})
+		input["files"] = files
+	}
 	var official d.Receipt
 	raw := skillHTTP(t, server, "POST", "/api/v1/workbench/skills/official", "admin", "", uuid.NewString(), "", input, 200)
 	require.NoError(t, json.Unmarshal(raw, &official))
@@ -129,12 +136,23 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 	_, e := cfg.SetSkillAdmission(context.Background(), agentconfig.SkillAdmissionCommand{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AllowPersonal: true}, func(context.Context) error { return nil })
 	require.NoError(t, e)
 	key := uuid.NewString()
+	if withScript && (mode == "auto_approve" || mode == "full_access") {
+		skillHTTP(t, server, "POST", path, "admin", "B", key, "", request, 409)
+		require.Zero(t, calls.Load())
+		return
+	}
 	raw = skillHTTP(t, server, "POST", path, "admin", "B", key, "", request, 200)
 	var result productAgentResultDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
 	require.Equal(t, ref, result.SkillVersionRef)
 	require.Len(t, result.Candidate.Changes, 1)
 	require.Equal(t, agent.HumanReviewRequired, result.Phase)
+	if withScript {
+		require.NotNil(t, result.ScriptReceipt)
+		require.Equal(t, "succeeded", result.ScriptReceipt.Outcome)
+		require.Equal(t, "Localized bottle title", result.ScriptOriginalTitle)
+		require.Equal(t, "Formatted bottle title", result.Candidate.Changes[0].Value)
+	}
 	before := calls.Load()
 	skillHTTP(t, server, "POST", path, "admin", "B", key, "", request, 200)
 	require.Equal(t, before, calls.Load(), "exact replay must not resend")
@@ -145,6 +163,11 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 	altered["skillSelection"] = map[string]any{"skillId": ref.ID, "version": ref.Version, "digest": strings.Repeat("0", 64)}
 	skillHTTP(t, server, "POST", path, "admin", "B", key, "", altered, 409)
 	require.Equal(t, before, calls.Load())
+	if withScript && mode == "read_only" {
+		require.False(t, result.CanSubmitReview)
+		skillHTTP(t, server, "POST", path+"/"+key+"/review", "admin", "B", "", "", map[string]any{}, 403)
+		return
+	}
 	raw = skillHTTP(t, server, "POST", path+"/"+key+"/review", "admin", "B", "", "", map[string]any{}, 200)
 	var link struct {
 		ProposalID string `json:"proposalId"`
@@ -152,6 +175,9 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 	require.NoError(t, json.Unmarshal(raw, &link))
 	view := titleCall(t, server, "GET", titleBasePath+"/"+link.ProposalID, "admin", "B", "", "", 200)
 	require.Equal(t, ref, view.Execution.SkillVersionRef)
+	if withScript {
+		require.Equal(t, app.scriptDescriptor, view.Execution.ScriptDescriptor)
+	}
 	require.Len(t, view.Content.After, 1)
 	if iam != nil {
 		if crossChange == "version revoked before apply" {

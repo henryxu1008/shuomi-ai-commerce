@@ -20,6 +20,7 @@ const ContentPolicyAdoptionVersion = "product.content.policy-adopt-v1"
 // Metadata explains the exact original Agent. Only the injected live resolver
 // can turn it into authority; no HTTP route accepts a policy approval field.
 type ExecutionProvenance struct {
+	ScriptDescriptor    agent.ScriptDescriptor          `json:"scriptDescriptor,omitzero"`
 	WorkbenchContextRef agent.WorkbenchContextRef       `json:"workbenchContextRef,omitzero"`
 	SkillVersionRef     agent.SkillVersionRef           `json:"skillVersionRef,omitzero"`
 	ContentSelection    reviewproposal.ContentSelection `json:",omitzero"`
@@ -32,6 +33,9 @@ type ExecutionProvenance struct {
 }
 
 func (p *ExecutionProvenance) Valid() bool {
+	if p != nil && (p.SkillVersionRef.PolicyVersion == "skill-script-method-v1" && !p.ScriptDescriptor.Valid() || p.SkillVersionRef.PolicyVersion != "skill-script-method-v1" && !p.ScriptDescriptor.Absent()) {
+		return false
+	}
 	return p == nil || p.WorkbenchContextRef.ValidOrAbsent() && p.SkillVersionRef.ValidOrAbsent() && (p.SkillVersionRef.Absent() || p.ContentSelection.TitleOnly()) && (p.ContentSelection.Absent() || p.ContentSelection.Valid()) && agent.ValidID(p.Scope.OrganizationID) && agent.ValidID(p.Scope.ActorID) && validID(p.RunID) && validID(p.RequestKey) && p.Binding.Valid() && !p.Configuration.Absent() && p.Configuration.ValidOrAbsent() && p.Mode.Valid()
 }
 
