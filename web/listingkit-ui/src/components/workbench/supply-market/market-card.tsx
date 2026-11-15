@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
-import {Flag} from "lucide-react";
+import {Bookmark} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import type {MarketView} from "@/lib/contracts/supply-market";
@@ -14,7 +14,7 @@ export function MarketCard({product:p,locked,adding,onAdd}:{product:MarketView;l
  return <Card className={styles.card}>
   <div className={styles.imageWrap}>
    <Link href={"/workbench/supply/products/"+p.id} prefetch={false} aria-label="查看商品" className={styles.imageLink}><img src={p.product.images[0]} alt={p.product.title} loading="lazy" className={styles.image}/></Link>
-   {p.added===true?<span className={styles.flag} role="img" aria-label="已加入我的数据" title="已加入我的数据" tabIndex={0}><Flag size={16} strokeWidth={1.5} aria-hidden="true"/></span>:null}
+   {p.added===true?<span className={styles.flag} role="img" aria-label="已加入我的数据" title="已加入我的数据" tabIndex={0}><Bookmark size={16} strokeWidth={1.5} fill="currentColor" aria-hidden="true"/></span>:null}
   </div>
   <div className={styles.body}>
    <h2>{p.product.title}</h2>
