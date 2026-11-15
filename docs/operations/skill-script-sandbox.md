@@ -1,6 +1,6 @@
 # 标题技能脚本：使用与私有执行配置
 
-对应 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293) 与[批准设计](../architecture/skill-script-sandbox.md)。代码交付不表示已部署或开放试用。默认没有 `productAgent.scriptSandbox`，执行环境关闭；编辑/导入/检查/分享/复制独立可用。设计§23已完成独立WSL执行profile的适用D-IT1/init-proc验证，真实adapter可完成计算；不外推业务部署检查已通过。本轮不更新 Account Compose 或保留业务实例。
+对应 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293) 与[批准设计](../architecture/skill-script-sandbox.md)。默认没有 `productAgent.scriptSandbox`，执行环境关闭；编辑/导入/检查/分享/复制独立可用。设计§23完成独立WSL执行profile的适用D-IT1/init-proc验证；§24另记录用户授权的保留current-application/UI受控内部试用，已走通标题脚本到人工采用。只对该独立组合成立，不外推业务部署或用户验收。本轮不更新 Account Compose 或保留业务实例。
 
 ## 用户操作
 
@@ -45,5 +45,7 @@
 开放前完成设计 §8.3.4 的其他宿主地址/IPv6/既有公网入口、共享网络调用者、真实后端挂载/路由、proxy鉴权/raw端口绕行等余项，以及 §22 实际 init/proc 拒绝证据；不能只凭公网连接失败、guest uname、合成401或旧 POC。记录适用镜像/profile/network 与完整证据后，才填写 trialEvidence；任意摘要不能替代验收，变更相应边界后核对受影响证据。
 
 复用§23独立WSL证据时必须保持同一受信拓扑、镜像/execd/runtime与准入边界。该环境没有业务公网入口，backend角色为正式adapter验证进程；未来current-application真实挂载/路由/公网配置在目标部署中检查，不能把N/A或validation-only fixture值提升为PASS。init会剥离控制凭据，bootstrap的EXECD_ENVS配置路径可以存在；业务profile不提供Jupyter/业务凭据，每条脚本/collector仍空覆盖三个敏感环境变量。provider metadata中的descriptor摘要使用无padding Base32（52字符）满足上游label限制，Run/receipt完整SHA-256不变。
+
+§24的保留应用组合另有实际后端挂载/路由增量记录，使用该组合自己的trialEvidence，未直接复用validation-only值。试用UI与身份/API入口仅本机回环；模型响应、usage及价目为明确的本地合成数据，无外部模型调用。保留环境使用正常登录和当前Skill/Run/Review/Catalog owner，操作入口、私密登录交接与按归属停止命令见worktree忽略目录`.local/issue1293-app/HANDOFF.md`。本机开发UI首次编译曾触及默认堆上限，当前以8GiB上限运行并保留独立缓存；UI重启后读取原提案，不重新执行脚本。
 
 未配置无可执行 profile；不完整配置启动失败，不静默改成 runc/文本执行。撤下 profile 后原 Run/receipt 仍可查询，不自动恢复 Running/UNKNOWN。测试继续使用指定独立 WSL Engine/socket；停止自有资源与操作业务实例分别授权，不通用 prune、WSL shutdown 或删除业务卷。

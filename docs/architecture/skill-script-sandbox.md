@@ -747,3 +747,29 @@ init 检查的首次脚本还错误地要求 bootstrap 删除全部 `JUPYTER_TOK
 所有临时配置明确 `NONPRODUCTION validation-only`：其中 trialEvidence 是测试 fixture 值，不是正式试用准入记录。完整证据经核对后可由目标部署owner引用适用记录，不能直接复用测试值。原Run/HTTP/PG/Review/界面证据只按其原范围复用，不把本次执行器计算等同完整用户验收。后续独立增量复核与准确源码/CI绑定维护在PR #1298；不得合并、关闭Issue或部署业务实例。
 
 公开脱敏材料保留在实现worktree忽略目录 `.local/issue1293-trial/evidence/`，私密文件仅在独立WSL的root保护目录。最终检查工具hash `a795cd6aeaffb040667ecfca0388faed01b21721910904f78a7ada85f7786d38`；init函数在追加3秒inspect等待前已执行，相关函数未变，不冒充同一最终二进制重跑。真实adapter+inspect日志SHA256 `4211170cdcccf0919f991aca3ce5b781ca1eb6700dbe030f964231a192ce25ce`，runtime inspect `b7ca4219a35925f000e0f052903ba62f17e024d19bdff89e7bde15f66e9953d2`，init日志 `572351402bcabd493b57d20729da796a47058d6e9f9c39dc903eddc4e2f7af93`，backend mounts `237c36fd7a6f1c21bd9f0685bfdae49263c14043bbf45f93c2c09b5033e6f77d`，共享客户端网络日志 `fd661a35db0b96a4d60a4873e264239547821905ccf3fcea9dbedd51bf706d18`。DNS/IPv6另保留工具执行转录与原计数，不将转录冒充新的实际执行。
+
+## 24. 保留 current-application / UI 内部试用（2026-11-15）
+
+本节记录用户随后授权的产品接线试用，更新§23当时“尚未部署应用/UI”的阶段状态，不改变冻结设计。生产代码为 `fa9c13ebf0bef02527bba0e3e9ad5c0de651153b`。只复用独立 `skill-sandbox-poc` Engine、原控制面和缓存镜像；普通 `current-application` 二进制在受限容器运行，UI使用同一候选源码的独立副本、缓存和本机Node进程。身份、业务数据库及数据均属于这次试用。没有更新Docker Desktop业务容器、合并或部署业务环境。
+
+### 组合和准入增量
+
+- 真实ZITADEL 4.17.1 / 官方login创建测试企业及admin/viewer，正常OIDC/API客户端登录，不使用测试身份HTTP服务器或鉴权旁路。原生schema命令与现有Review安装能力准备当前owner；安装凭据与bootstrap PAT不进入服务运行投影。测试点数、成员月限和模型配置经现有owner准备，未新增表、认证或执行平台。
+- 用户明确选择受控本地模型。Eino走正常OpenAI-compatible协议、权限、预算、调用ledger和证据工具；模型只返回受控工具请求和候选，脚本回执来自真实OpenSandbox。模型、usage和价目为合成试用输入，不是外部模型效果、真实厂商价格/账单或财务验收。
+- 后端实际使用UID/GID65534、只读根文件系统、cap-drop/no-new-privileges，三个只读挂载为应用程序、专用private投影和hosts；无Docker socket、schema owner或安装目录。控制凭据不提供给UI或受控模型容器。
+- 在实际保留app namespace重验匿名共享调用401（伪造Forwarded无效）、TLS域名/CA拒绝、其他宿主地址/原始端口和管理网络拒绝；活跃runsc guest作正对照，app/管理通路不可直连该guest。共享WSL初始iptables/ip6tables快照未变。沿用§23未变的IPv6/DNS/execd init-proc证据，不冒充本轮重跑。
+- 本地identity/API/UI仅回环入口；无业务公网入口。本组合的准入记录摘要为 `f32afcfe0321a63ae7016154838360da4534415d87cc863cbd9241a80050a000`，仅用于本保留组合。Server仍明确配置`secure_runtime.type=gvisor`、`docker_runtime=runsc`和`execd_run_as_init=true`；Engine默认runc不作为沙箱runtime依据。未来其他目标部署仍需核对其实际挂载、网络身份和公网入口。
+
+### 实际页面路径和持久化结果
+
+测试admin从页面保存自有商品原始资料v1，导入含SKILL.md / execution.json / scripts/main.py的团队技能，检查格式、保存、发布、启用v1。在商品“优化商品内容”入口确认en/仅标题/default模式和准确技能摘要后启动。
+
+成功Run `f362db51-d16c-4763-a226-052a6fac865e`（原请求编号 `6e03bf46-d33d-4333-ba8c-0e63dd940516`）读取已保存的商品证据，受控模型提出`  Skill1293   Controlled Bottle  `；真实脚本只规范空白，输出`Skill1293 Controlled Bottle`。回执为`succeeded / cleanup completed`，输入摘要`b0383684907dd79edf1552e37bcb7a0e1a1b238b83e234260bd0f8cccc300329`、输出摘要`97868ba824a0e39c72afe2ffb0ad61ab037ce36e0378fdaf2d3f7beffefdc8b6`。Docker事件记录同一sandbox的一次create/destroy；原编号GET读取及后续Review没有再次创建沙箱。
+
+页面提交原Review后，提案`7953ed46-1037-4789-8a7e-9765ab13f526`先人工接受，再单独“确认应用”，形成标准商品v2。刷新优化页读回新标题及“已保存版本1 / 本次可优化版本2”，原始资料未覆盖。此为自动化操作真实页面的技术试用记录，不能替代用户对产品和标题语义的最终验收。
+
+独立viewer会话通过真实OIDC登录，仅有原只读角色；团队技能页不提供新建/启用，真实标题脚本启动请求被现有BFF返回403。HTTP状态取自实际请求日志，未保存错误响应body；不将其写成完整错误body契约测试。该检查未产生额外模型/沙箱执行。
+
+首次Run `4c34fc04-6aa4-4e98-a2e8-1ae972ceecda`因测试成员尚无月限而在reservation阶段停止，handoffs=0，无模型/沙箱派发；保留该失败记录，经现有资源owner补齐测试月限后由页面重新确认新请求，未重试原Run。开发UI首次编译审核路由时触及默认4GiB Node堆上限；仅将该UI进程上限调到8GiB并复用缓存重启，从原提案继续，未重跑脚本。该调整是本机开发运行参数，不改变产品协议或业务实例。
+
+材料保存在worktree忽略目录`.local/issue1293-app/evidence/`，登录交接文件位于私密`.local/issue1293-app/ui-runtime/`，不提交凭据、数据库或浏览器会话。试用实例及测试数据保留；仍不授权合并、业务部署、真实平台写入或对外开放。
