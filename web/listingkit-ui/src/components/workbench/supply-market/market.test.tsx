@@ -34,3 +34,24 @@ it("explains empty searches and clears the filter without changing channels",asy
  await waitFor(()=>expect(screen.getByRole("textbox",{name:"商品关键词"})).toHaveValue(""));
  expect(within(screen.getByRole("navigation",{name:"货源渠道"})).getByRole("link",{name:"硕米优选"})).toHaveAttribute("aria-current","page");
 });
+it("highlights variant prices as ranges within each currency",async()=>{
+ calls.read.mockResolvedValue({...sample,channel:"official",product:{...sample.product,variants:[{currency:"CNY",price:22},{currency:"CNY",price:37},{currency:"USD",price:9},{currency:"CNY"}]}});
+ show(<SupplyProductPage id={sample.id}/>);
+ const prices=await screen.findByRole("group",{name:"商品价格"});
+ expect(within(prices).getByText("¥22.00 – ¥37.00")).toBeInTheDocument();
+ expect(within(prices).getByText("US$9.00")).toBeInTheDocument();
+ expect(calls.execute).not.toHaveBeenCalled();
+});
+it("keeps a zero price and displays an unfamiliar currency without guessing",async()=>{
+ calls.read.mockResolvedValue({...sample,channel:"selected",product:{...sample.product,variants:[{currency:"CNY",price:0},{currency:"积分",price:12}]}});
+ show(<SupplyProductPage id={sample.id}/>);
+ const prices=await screen.findByRole("group",{name:"商品价格"});
+ expect(within(prices).getByText("¥0.00")).toBeInTheDocument();
+ expect(within(prices).getByText("积分 12.00")).toBeInTheDocument();
+});
+it.each(["500件起订，价格另议",undefined])("shows the original note or no-price text without interpreting numbers: %s",async(priceNote)=>{
+ calls.read.mockResolvedValue({...sample,channel:"official",supply:{...sample.supply,priceNote}});
+ show(<SupplyProductPage id={sample.id}/>);
+ const prices=await screen.findByRole("group",{name:"商品价格"});
+ expect(within(prices).getByText(priceNote??"暂未提供")).toBeInTheDocument();
+});

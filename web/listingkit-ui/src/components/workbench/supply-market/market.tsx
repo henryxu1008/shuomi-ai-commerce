@@ -15,6 +15,15 @@ type Channel="official"|"selected";
 const channels={official:{title:"硕米自营",href:"/workbench/supply/official"},selected:{title:"硕米优选",href:"/workbench/supply/selected"}};
 function MyDataLink(){return <Button variant="outline" asChild><Link href="/workbench/data/mine" prefetch={false}>我的数据</Link></Button>}
 function ChannelNavigation({channel}:{channel:Channel}){return <WorkbenchViewNav label="货源渠道" className="mb-6">{(Object.keys(channels) as Channel[]).map(key=><Link key={key} href={channels[key].href} prefetch={false} aria-current={channel===key?"page":undefined}>{channels[key].title}</Link>)}</WorkbenchViewNav>}
+function priceText(value:number,currency:string){
+ try{return new Intl.NumberFormat("zh-CN",{style:"currency",currency,minimumFractionDigits:2,maximumFractionDigits:20}).format(value)}
+ catch{return `${currency} ${new Intl.NumberFormat("zh-CN",{minimumFractionDigits:2,maximumFractionDigits:20}).format(value)}`}
+}
+function ProductPrice({variants,note}:{variants?:readonly {currency?:string;price?:number}[];note?:string}){
+ const groups=new Map<string,number[]>();
+ for(const variant of variants??[]){if(variant.currency&&variant.price!==undefined){const values=groups.get(variant.currency)??[];values.push(variant.price);groups.set(variant.currency,values)}}
+ return <div className={styles.price} role="group" aria-label="商品价格"><p className={styles.note}>价格</p>{groups.size?[...groups].map(([currency,values])=>{const low=Math.min(...values),high=Math.max(...values);return <p key={currency} className={styles.priceValue}>{low===high?priceText(low,currency):`${priceText(low,currency)} – ${priceText(high,currency)}`}</p>}):<p className={styles.priceDescription}>{note||"暂未提供"}</p>}</div>
+}
 export function SupplyMarketPage({channel}:{channel:"official"|"selected"}){return <MarketBoundary>{scope=><MarketList scope={scope} channel={channel}/>}</MarketBoundary>}
 function MarketList({scope,channel}:{scope:MarketScope;channel:"official"|"selected"}){
  const [keyword,setKeyword]=useState(""),[filter,setFilter]=useState(""),[after,setAfter]=useState<string>();
@@ -53,8 +62,9 @@ function MarketProduct({scope,id}:{scope:MarketScope;id:string}){
      </dl>
      <p className={styles.note}>库存由供货方提供，实际供货以确认结果为准</p>
      <div className={styles.selection}>
+      <ProductPrice variants={p.product.variants} note={p.supply.priceNote}/>
       <Button className={styles.selectButton} disabled={commands.locked||!!commands.saved?.collection} onClick={()=>void commands.execute({action:"select_release",id:p.id,expectedRevision:p.revision})}>加入我的数据</Button>
-      <p className={styles.note}>你可以先保存商品、准备上架资料，暂不支持在线下单</p>
+      <p className={`${styles.note} ${styles.selectionNote}`}>你可以先保存商品、准备上架资料，暂不支持在线下单</p>
      </div>
     </Card>
    </div>

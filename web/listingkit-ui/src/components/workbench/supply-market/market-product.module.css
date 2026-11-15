@@ -19,8 +19,12 @@
 .fields dt,.attributes dt { color:var(--muted-foreground); }
 .fields dd { white-space:pre-wrap; overflow-wrap:anywhere; }
 .note { font-size:13px; line-height:20px; color:var(--muted-foreground); }
-.selection { display:grid; gap:12px; padding-top:24px; border-top:1px solid var(--border); }
-.selectButton { width:100%; max-width:320px; min-height:44px; font-size:15px; }
+.selection { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px 24px; padding-top:24px; border-top:1px solid var(--border); }
+.price { display:grid; gap:4px; flex:1 1 200px; min-width:0; }
+.priceValue { font-size:32px; line-height:40px; font-weight:500; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.priceDescription { font-size:18px; line-height:28px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.selectButton { flex:0 1 240px; width:100%; min-height:44px; font-size:15px; }
+.selectionNote { flex-basis:100%; }
 .saved { display:grid; gap:8px; padding:20px 24px; border-radius:12px; font-size:14px; line-height:24px; }
 .saved a { display:inline-block; margin-left:12px; text-decoration:underline; text-underline-offset:4px; }
 .saved p { color:var(--muted-foreground); }
@@ -45,5 +49,7 @@
  .metrics { gap:12px; padding-bottom:20px; }
  .metrics dd { gap:4px; font-size:24px; line-height:32px; }
  .fields > div { grid-template-columns:64px minmax(0,1fr); gap:12px; }
- .selectButton { max-width:none; }
+ .price { flex-basis:100%; }
+ .priceValue { font-size:28px; line-height:36px; }
+ .selectButton { flex-basis:100%; }
 }
