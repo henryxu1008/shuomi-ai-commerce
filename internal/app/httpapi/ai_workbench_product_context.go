@@ -28,6 +28,9 @@ func (a *aiWorkbenchApplication) taskHistoryUnavailable(ctx context.Context, sco
 	if task.Kind != aiworkbench.ContentTaskKind {
 		return false
 	}
+	if a == nil || a.store == nil || task.Scope != scope || i.TenantID != scope.OrganizationID || i.UserID != scope.ActorID {
+		return true
+	}
 	var p aiworkbench.ExecutionProposal
 	if task.ScheduledOccurrenceID == "" {
 		if task.ProposalID == "" || a.store == nil {
@@ -40,13 +43,26 @@ func (a *aiWorkbenchApplication) taskHistoryUnavailable(ctx context.Context, sco
 		}
 	} else {
 		var request agent.Request
-		if json.Unmarshal(task.ExecutionRequest, &request) != nil || !request.ScheduledSource.Valid() {
+		if json.Unmarshal(task.ExecutionRequest, &request) != nil || !request.ScheduledSource.Valid() ||
+			!request.ManualReviewOnly || !request.ValidContentSelection() || request.Key != task.ExecutionRequestKey ||
+			request.ScheduledSource.OccurrenceID != task.ScheduledOccurrenceID || request.GoalSummary != task.GoalSummary ||
+			request.WorkbenchContextRef != task.WorkbenchContextRef || !request.WorkbenchContextRef.ValidOrAbsent() {
 			return true
 		}
-		plan, err := a.store.ReadScheduledPlan(ctx, scope, request.ScheduledSource.PlanID)
-		if err != nil || json.Unmarshal(plan.ExecutionSpec, &p) != nil || p.GoalSummary != task.GoalSummary {
+		// Future plan settings are mutable. A historical task keeps its original
+		// request and (for Chat) command provenance; the existing context reader
+		// rechecks that command's history and current permissions. Directly
+		// authored schedules have no Chat history; taskView/taskAction still
+		// authorize their frozen product binding through the original owner.
+		if request.WorkbenchContextRef.Absent() {
+			return false
+		}
+		if a.agent == nil {
 			return true
 		}
+		_, err := a.agent.readContentWorkbenchContext(ctx, agent.ExecutionIdentity{OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID},
+			request.WorkbenchContextRef, request.Key, request.Binding, false)
+		return err != nil
 	}
 	return a.proposalHistoryUnavailable(ctx, scope, p, i)
 }

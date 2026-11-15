@@ -45,6 +45,7 @@ Issue #1297。Design Basis: Independent Architecture。状态：IMPLEMENTATION_R
 - 单次事务更新未来selection/report、目标、服务端ExecutionSpec、规则及预算/次数，递增revision并待Temporal核实；PAUSED继续PAUSED，其他合法未结束状态沿原PENDING_REGISTRATION。createdAt、creationFingerprint、consumed、activeOccurrenceId保持。
 - Claim与编辑共用plan行锁和revision：Claim先提交会改变consumed，编辑保存拒绝旧观察；编辑先提交，旧revision的新Claim拒绝。原已绑定slot的重放先读occurrence/BusinessTask，不创建新任务。
 - 同根因的准备失败路径`RecordScheduledPreflightReceipt`必须显式携带读取时revision；行锁后先回放已有occurrence，无回执时拒绝旧revision，再沿原`recordScheduledMissingBefore`校验规则/slot。迟到的旧准备失败不得按新内容写BLOCKED/SKIPPED占槽。
+- 历史商品任务的详情与操作同样按已保存ExecutionRequest及原WorkbenchContextRef命令背景重新授权，不拿未来计划的目标/商品/语言反向校验旧任务。直接创建的计划没有Chat历史；原商品绑定仍由商品owner校验，Chat来源继续检查原命令之前的商品/店铺历史与当前成员权限。
 - 在途商品任务用其已保存ExecutionRequest恢复；日报用已保存report_execution.Origin恢复。类型、owner、member不变，所以原Dispatch/Reconcile分支与身份仍正确；切换未来商品/店铺不改旧任务原请求，也不清理其占用。
 - 同一UTC槽仍只有原唯一身份，改期不生成第二次任务。未知结果保持activeOccurrence和资源预留；编辑不构成任何释放证明。
 

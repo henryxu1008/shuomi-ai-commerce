@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http/httptest"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -93,6 +96,7 @@ func testScheduleExistingChatProposal(t *testing.T, ctx context.Context, f *acqu
 	require.Equal(t, p.WorkbenchContextRef, copied.WorkbenchContextRef)
 	require.Equal(t, before, calls.Load(), "editing and copying quote must not call the model")
 	w.schedules = previousBackend
+	testScheduledHistoryAfterGoalEdit(t, w, deps, task, request)
 	projectRevoked.Store(true)
 	testScheduledTaskListing(t, w, deps, task.ID, "all", false)
 	plan.ID = uuid.NewString()
@@ -248,6 +252,7 @@ func testScheduledContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, 
 		return
 	}
 	if scenario == "default" {
+		testScheduledHistoryAfterGoalEdit(t, w, deps, task, request)
 		testScheduledTaskListing(t, w, deps, task.ID, "all", true)
 		testScheduledTaskListing(t, w, deps, task.ID, "unrecorded", true)
 	}
@@ -277,4 +282,61 @@ func testScheduledContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, 
 	revoked.Store(true)
 	require.Error(t, w.DispatchScheduled(worker, plan.ID, plan.Rule.AtUTC))
 	require.Equal(t, before, calls.Load())
+}
+
+// A future edit cannot reinterpret a task's already frozen intent or hide its
+// review/action entry. This runs for both direct and Chat-originated schedules.
+func testScheduledHistoryAfterGoalEdit(t *testing.T, w *aiWorkbenchApplication, deps routeAuthDependencies, task aiworkbench.BusinessTask, request agent.Request) {
+	t.Helper()
+	previousBackend := w.schedules
+	w.schedules = &scheduledBackendFixture{}
+	defer func() { w.schedules = previousBackend }()
+	server := httptest.NewServer(buildCurrentApplicationHTTPServer(aiWorkbenchRoutes(w), deps).Handler)
+	defer server.Close()
+	call := func(method, path, key string, input any, want int) []byte {
+		var body []byte
+		var err error
+		if input != nil {
+			body, err = json.Marshal(input)
+			require.NoError(t, err)
+		}
+		code, raw, err := acquisitionHTTPRequest(server, method, path, "admin", "B", key, string(body))
+		require.NoError(t, err)
+		require.Equal(t, want, code, string(raw))
+		return raw
+	}
+	current, err := w.store.ReadScheduledPlan(context.Background(), task.Scope, request.ScheduledSource.PlanID)
+	require.NoError(t, err)
+	selected := current.Selection
+	selected.Parameters.TargetLanguage = "de-DE"
+	input := scheduledInput{ScheduleID: current.ID, ExpectedRevision: strconv.FormatInt(current.Revision, 10), Selection: &selected, GoalSummary: "Different future objective", Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9}, MaxOccurrences: "2"}
+	var quote scheduledQuote
+	require.NoError(t, json.Unmarshal(call("POST", workbenchScheduleBase+"/quote", "", input, 200), &quote))
+	require.NotEmpty(t, quote.Confirmation)
+	call("PATCH", workbenchScheduleBase+"/"+current.ID, uuid.NewString(), map[string]any{"expectedRevision": input.ExpectedRevision, "rule": input.Rule, "confirmation": quote.Confirmation, "changes": scheduledChanges{Selection: input.Selection, GoalSummary: input.GoalSummary, MaxOccurrences: input.MaxOccurrences}}, 200)
+	edited, err := w.store.ReadScheduledPlan(context.Background(), task.Scope, current.ID)
+	require.NoError(t, err)
+	require.Equal(t, input.GoalSummary, edited.GoalSummary)
+	require.NotEqual(t, task.GoalSummary, edited.GoalSummary)
+	stored, err := w.store.GetTask(context.Background(), task.Scope, task.ID)
+	require.NoError(t, err)
+	require.Equal(t, task, stored, "editing future settings must not rewrite the historical task")
+	var detail struct{ Task workbenchTaskView }
+	require.NoError(t, json.Unmarshal(call("GET", workbenchTaskBase+"/"+task.ID, "", nil, 200), &detail))
+	require.Equal(t, task.GoalSummary, detail.Task.GoalSummary)
+	require.True(t, detail.Task.ProductDetailsAvailable)
+	require.NotNil(t, detail.Task.TaskSelection)
+	require.Equal(t, request.ContentSelection, detail.Task.TaskSelection.Parameters)
+	identity := authidentity.AuthenticatedIdentity{TenantID: task.Scope.OrganizationID, UserID: task.Scope.ActorID, EffectiveMemberID: current.MemberID}
+	wrongOccurrence := task
+	wrongOccurrence.ScheduledOccurrenceID = uuid.NewString()
+	require.True(t, w.taskHistoryUnavailable(context.Background(), task.Scope, wrongOccurrence, identity), "frozen occurrence must match the task")
+	wrongOrigin := task
+	wrongOrigin.WorkbenchContextRef = agent.WorkbenchContextRef{Contract: agent.WorkbenchContextContract, ConversationID: uuid.NewString(), CommandKey: uuid.NewString(), Digest: strings.Repeat("a", 64)}
+	require.True(t, w.taskHistoryUnavailable(context.Background(), task.Scope, wrongOrigin, identity), "frozen origin must match the task")
+	identity.TenantID = "other-tenant"
+	require.True(t, w.taskHistoryUnavailable(context.Background(), task.Scope, task, identity), "history cannot cross tenants")
+	// An invalid resume stops at ordinary body validation, after authorization,
+	// without dispatching a model, creating a review, or changing task state.
+	call("POST", workbenchTaskBase+"/"+task.ID+"/resume", uuid.NewString(), map[string]any{}, 400)
 }
