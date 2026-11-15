@@ -22,6 +22,7 @@ async function start(){await userEvent.click(await screen.findByRole("button",{n
 it("shows the 1688 plan list before the user opens the capture form", async () => {
  render(<AcquisitionPage plansEnabled/>);
  await screen.findByText("还没有采集计划。");
+ expect(within(screen.getByRole("group",{name:"页面操作"})).getByRole("link",{name:"我的数据"})).toHaveAttribute("href","/workbench/data/mine");
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
  expect(screen.queryByRole("heading",{name:"找回单商品采集结果"})).not.toBeInTheDocument();
  expect(screen.queryByRole("textbox",{name:"操作 ID"})).not.toBeInTheDocument();

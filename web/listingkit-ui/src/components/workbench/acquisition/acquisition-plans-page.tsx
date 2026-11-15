@@ -114,7 +114,7 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
   finally{if(alive.current){setBusy(false);running.current=false;}}
  }
  function pause(){running.current=false;controller.current?.abort();setBusy(false);setError("已停止发出新步骤；已发出的操作请读取原计划确认。");}
- return <ConsolePage title="1688 在线采集" breadcrumbs={findConsoleRoute("/workbench/supply/acquisition")?.trail} description="采集成功的商品保存到我的数据，按需转入待上传。" actions={<Button disabled={loading||busy||!!pending} onClick={()=>{setError(null);setOpen(true);}}>新建采集任务</Button>}>
+ return <ConsolePage title="1688 在线采集" breadcrumbs={findConsoleRoute("/workbench/supply/acquisition")?.trail} description="采集成功的商品保存到我的数据，按需转入待上传。" actions={<><Button disabled={loading||busy||!!pending} onClick={()=>{setError(null);setOpen(true);}}>新建采集任务</Button><Button variant="outline" asChild><Link href="/workbench/data/mine">我的数据</Link></Button></>}>
   {error&&!open&&!ruleOpen?<p role="alert" className={styles.feedback}>{error}</p>:null}
   {pending?<Card className="mb-4 space-y-3 p-5"><h2>创建结果待核实</h2><p className="text-sm text-muted-foreground">原请求标识：{pending.key}。读取不会开始采集。</p><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={()=>void recoverCreation()}>读取原计划</Button><Button variant="outline" disabled={busy} onClick={()=>void recoverCreation(true)}>使用原请求确认创建</Button></div></Card>:null}
   <Card className="space-y-4 p-5"><div className="flex items-center justify-between"><h2 ref={planHeading} tabIndex={-1} className="font-semibold">采集计划</h2>{busy?<Button variant="outline" onClick={pause}>暂停</Button>:null}</div>
