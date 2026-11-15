@@ -16,7 +16,7 @@ function marketRequest<T>(scope:MarketScope,path:string,schema:z.ZodType<T>,sign
  })();
 }
 export type MarketQuery={after?:string;keyword?:string;kind?:"official"|"selected"|"connection";ended?:boolean}&c.MarketFilters;
-const query=(q:MarketQuery)=>{const p=new URLSearchParams({limit:"20"});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.kind)p.set("kind",q.kind);if(q.ended!==undefined)p.set("ended",String(q.ended));for(const key of ["province","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"] as const){if(q[key]!==undefined)p.set(key,String(q[key]))}return "?"+p};
+const query=(q:MarketQuery)=>{const p=new URLSearchParams({limit:"20"});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.kind)p.set("kind",q.kind);if(q.ended!==undefined)p.set("ended",String(q.ended));for(const key of ["province","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"] as const){const value=q[key];if(value!==undefined)p.set(key,typeof value==="number"?c.marketFilterNumber(value):value)}return "?"+p};
 export const listMarket=(s:MarketScope,q:MarketQuery,signal?:AbortSignal)=>marketRequest(s,"releases"+query(q),c.marketReleasesSchema,signal);
 export const readMarket=(s:MarketScope,id:string,signal?:AbortSignal)=>marketRequest(s,"releases/"+c.marketID.parse(id),c.marketReleaseSchema,signal);
 export const listMarketRecords=(s:MarketScope,q:MarketQuery,admin=false,signal?:AbortSignal)=>marketRequest(s,"records"+query(q),c.marketRecordsSchema,signal,admin);
