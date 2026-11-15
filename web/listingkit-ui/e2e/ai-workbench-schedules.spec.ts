@@ -11,9 +11,11 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  const namespace=createHash("sha256").update(JSON.stringify([origin,issuer,client])).digest("hex").slice(0,32),name=`shuomi.${namespace}.session-token`;
  const token=await encode({secret,salt:name,maxAge:600,token:{accessToken:"synthetic-scheduled-ui",expiresAt:Math.floor(Date.now()/1000)+600,identityVersion:3,identity:{tenantId:"org",userId:"user",userType:"zitadel",roles:[]}}});
  await context.addCookies([{name,value:token,url:origin,httpOnly:true,sameSite:"Lax"}]);
- const permissions=["workbench.task.read","workbench.agent.use","workbench.collection.read","local_agent.write"];
+ const permissions=["workbench.task.read","workbench.agent.use","workbench.collection.read","local_agent.write","workbench.store.read","workbench.cockpit.stores.read"];
+ const metric={value:null,unknown:1,complete:false,reason:"not_synced"};
+ const store={id,name:"合成测试店",platform:"shein",region:"US",externalStoreId:"",recordStatus:"active",serviceStatus:"pending_activation",serviceStartedAt:null,serviceExpiresAt:null,connectionStatus:"disconnected",version:1,createdAt:at,updatedAt:at,profile:{storeId:id,groupId:null,responsibleMemberId:null,lowStockThreshold:null,profileVersion:0,updatedAt:null},attention:"unknown",signals:{connectionStatus:"disconnected",applicationType:"",products:metric,orders:metric,inventory:metric,productSync:"",orderSync:"",syncHealthy:false,observedAt:null,reason:"not_synced"}};
  const selection={subject:{kind:"own_product",id,catalogVersion:"1",publicationId:id},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}};
- const plan={id,revision:"2",state:"ACTIVE",registrationState:"MATCHED",detailsAvailable:true,goalSummary:"完善已保存商品的英语描述",selection,rule:{frequency:"once",timeZone:"Asia/Shanghai",atUtc:at,hour:0,minute:0,weekday:0},maxOccurrences:"1",consumedOccurrences:"0",unit:"ai-micropoint-v1",perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"19200000",nextAt:at,createdAt:"2026-11-12T00:00:00Z"};
+ const plan={id,deleted:false,revision:"2",state:"ACTIVE",registrationState:"MATCHED",detailsAvailable:true,goalSummary:"完善已保存商品的英语描述",selection,rule:{frequency:"once",timeZone:"Asia/Shanghai",atUtc:at,hour:0,minute:0,weekday:0},maxOccurrences:"1",consumedOccurrences:"0",unit:"ai-micropoint-v1",perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"19200000",nextAt:at,createdAt:"2026-11-12T00:00:00Z"};
  const originalTask={id:taskID,conversationId:"",proposalId:"",scheduleId:id,scheduledOccurrenceId:taskID,title:"定时内容原任务",goalSummary:plan.goalSummary,createdAt:"2026-11-12T00:00:00Z",kind:"product.content.localize",projectionAvailable:true,state:"WAITING_CONFIRMATION",canStart:false,canReconcile:false,canResume:false,canReview:false,productDetailsAvailable:false};
  let created=false,creates=0,firstKey="",firstBody="",rejectNextControl=false;
  await page.route("**/*",async route=>{
@@ -23,8 +25,10 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   if(path==="/api/workbench/context")return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",organizations:[{id:"org",name:"定时任务隔离 UI",roles:["listingkit_admin"],permissions}]});
   if(path==="/api/workbench/tasks")return json({tasks:[originalTask],next:""});
   if(path===`/api/workbench/tasks/${taskID}`)return json({task:originalTask});
-  if(path==="/api/workbench/schedules/availability")return json({enabled:true,ready:true});
-  if(path==="/api/workbench/schedules/quote"){const body=req.postDataJSON();return json({confirmation:"a".repeat(64),selection,goalSummary:plan.goalSummary,rule:body.rule,maxOccurrences:body.maxOccurrences,unit:plan.unit,perRunUpperBoundMicros:plan.perRunUpperBoundMicros,totalUpperBoundMicros:plan.totalUpperBoundMicros,nextAt:body.rule.atUtc??at,executionMode:"default"});}
+  if(path==="/api/workbench/collections/batches")return json({items:[],total:0});
+  if(path==="/api/workbench/store-center/catalog")return json({schemaVersion:"store-center-v1",organizationId:"org",userId:"user",data:{items:[store],pagination:{page:1,pageSize:100,total:1},metrics:{total:1,normal:null,attention:null,syncHealthy:null,unknown:1,complete:false,observedAt:at},facets:{regions:["US"],applicationTypes:[],groups:[],canManageGroups:false}}});
+  if(path==="/api/workbench/schedules/availability")return json({enabled:true,ready:true,contentEnabled:true,storeDailyReportEnabled:true});
+  if(path==="/api/workbench/schedules/quote"){const body=req.postDataJSON();return json({confirmation:"a".repeat(64),...(body.kind==="store.operating-daily-report"?{kind:body.kind,report:body.report,storeName:store.name,unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0"}:{selection,unit:plan.unit,perRunUpperBoundMicros:plan.perRunUpperBoundMicros,totalUpperBoundMicros:plan.totalUpperBoundMicros,executionMode:"default"}),goalSummary:plan.goalSummary,rule:body.rule,maxOccurrences:body.maxOccurrences,nextAt:body.rule.atUtc??at});}
   if(path==="/api/workbench/schedules"&&req.method()==="POST"){
    creates++;if(creates===1){firstKey=req.headers()["idempotency-key"];firstBody=req.postData()!;created=true;return json({code:"DEPENDENCY_UNAVAILABLE"},503);}
    expect(req.headers()["idempotency-key"]).toBe(firstKey);expect(req.postData()).toBe(firstBody);return json({plan,planSaved:true});
@@ -36,11 +40,48 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   if(path===`/api/workbench/schedules/${id}`&&req.method()==="PATCH"){plan.rule=req.postDataJSON().rule;plan.nextAt=plan.rule.atUtc;plan.revision=String(Number(plan.revision)+2);return json({plan,planSaved:true});}
   return json({code:"NOT_FOUND"},404);
  });
+ await page.goto('/workbench/ai/tasks?view=schedules');
+ await page.getByRole('button',{name:'创建定时任务',exact:true}).click();
+ const checkboxLabel=page.getByRole('checkbox',{name:'描述',exact:true}).locator('..');
+ const alignment=await checkboxLabel.evaluate(label=>{
+  const input=label.querySelector('input')!.getBoundingClientRect();
+  const text=Array.from(label.childNodes).find(node=>node.nodeType===Node.TEXT_NODE&&node.textContent?.trim())!;
+  const range=document.createRange();range.selectNodeContents(text);const caption=range.getBoundingClientRect();
+  return Math.abs(input.y+input.height/2-caption.y-caption.height/2);
+ });
+ expect(alignment,'checkbox and its caption must share the same visual line').toBeLessThan(4);
+ await page.getByRole('textbox',{name:'任务目标',exact:true}).fill('保留已经填写的任务需求');
+ for(const width of [1440,390])for(const theme of ['light','dark']){
+  await page.setViewportSize({width,height:900});
+  await page.getByRole('combobox',{name:'显示主题'}).selectOption(theme);
+  await expect(page.locator('html')).toHaveClass(new RegExp(theme));
+  await expect(page.getByRole('textbox',{name:'任务目标',exact:true})).toHaveValue('保留已经填写的任务需求');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ }
+ await page.getByRole('combobox',{name:'任务类型',exact:true}).selectOption('store.operating-daily-report');
+ await page.getByRole('combobox',{name:'店铺',exact:true}).selectOption(id);
+ await page.getByRole('combobox',{name:'频率',exact:true}).selectOption('daily');
+ await page.getByLabel('最多执行次数',{exact:true}).fill('3');
+ await page.getByRole('combobox',{name:'显示主题'}).selectOption('light');
+ await expect(page.getByRole('combobox',{name:'店铺',exact:true})).toHaveValue(id);
+ await expect(page.getByLabel('最多执行次数',{exact:true})).toHaveValue('3');
+ await page.screenshot({path:info.outputPath('schedule-report-form-light-mobile.png'),fullPage:true});
+ await page.getByRole('button',{name:'核对计划',exact:true}).click();
+ for(const width of [1440,390])for(const theme of ['light','dark']){
+  await page.setViewportSize({width,height:900});await page.getByRole('combobox',{name:'显示主题'}).selectOption(theme);
+  await expect(page.getByText('每次执行自动保存一份个人报告')).toBeVisible();
+  await expect(page.getByRole('combobox',{name:'店铺',exact:true})).toHaveValue(id);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ }
+ expect(creates).toBe(0);
+ await page.setViewportSize({width:1440,height:900});
  await page.goto(`/workbench/ai/tasks?view=schedules&schedule_proposal=${id}`);
  await expect(page.getByRole("heading",{name:"将 Chat 方案设为定时任务"})).toBeVisible();
  await page.getByLabel("执行日期与时间（本机时区）").fill("2030-11-20T09:00");
  await page.getByRole("button",{name:"核对时间与预算"}).click();
  await expect(page.getByText("19.2 AI 积分").first()).toBeVisible();expect(creates).toBe(0);
+ await page.getByText('查看所选商品资料',{exact:true}).click();
+ await expect(page.getByText('资料版本 1',{exact:true})).toBeVisible();
  await page.screenshot({path:info.outputPath("schedule-confirm-desktop.png"),fullPage:true});
  await page.getByRole("button",{name:"确认并保存计划"}).click();await expect(page.getByRole("heading",{name:"上次操作结果待核实"})).toBeVisible();
  await page.reload();await page.getByRole("button",{name:"核实原操作"}).click();await expect(page.getByRole("heading",{name:plan.goalSummary})).toBeVisible();expect(creates).toBe(2);
@@ -49,12 +90,39 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  await page.getByRole("button",{name:"恢复未来执行"}).click();await expect(page.getByRole("button",{name:"暂停未来执行"})).toBeVisible();
  await page.getByRole("button",{name:"修改时间"}).click();await page.getByLabel("执行日期与时间（本机时区）").fill("2030-11-21T10:00");await page.getByRole("button",{name:"核对时间与预算"}).click();await page.getByRole("button",{name:"确认修改时间"}).click();
  await expect(page.getByRole("heading",{name:plan.goalSummary})).toBeVisible();
+ for(const width of [1440,390])for(const theme of ['light','dark']){
+  await page.setViewportSize({width,height:900});
+  await page.getByRole('combobox',{name:'显示主题'}).selectOption(theme);
+  await expect(page.locator('html')).toHaveClass(new RegExp(theme));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  const check=await new AxeBuilder({page}).include('.console-page').withTags(['wcag2a','wcag2aa']).analyze();
+  expect(check.violations.filter(v=>v.impact==='critical'||v.impact==='serious')).toEqual([]);
+  await page.screenshot({path:info.outputPath(`schedule-detail-${theme}-${width}.png`),fullPage:true});
+  for(const action of ['结束计划','删除计划']){
+   const trigger=page.getByRole('button',{name:action,exact:true});await trigger.click();
+   const dialog=page.getByRole('dialog');await expect(dialog.getByRole('heading',{name:action})).toBeVisible();
+   await expect(dialog.getByRole('button',{name:'取消'})).toBeFocused();
+   if(action==='结束计划')await page.keyboard.press('Escape');else await dialog.getByRole('button',{name:'取消'}).click();
+   await expect(dialog).toHaveCount(0);await expect(trigger).toBeFocused();
+  }
+ }
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
  const accessibility=await new AxeBuilder({page}).include(".console-page").withTags(["wcag2a","wcag2aa"]).analyze();expect(accessibility.violations.filter(v=>v.impact==="critical"||v.impact==="serious")).toEqual([]);
  await page.screenshot({path:info.outputPath("schedule-history-mobile.png"),fullPage:true});
  rejectNextControl=true;await page.getByRole("button",{name:"暂停未来执行"}).click();
  await expect(page.locator(".console-page").getByRole("alert")).toContainText("已核实原操作没有提交");await expect(page.getByRole("button",{name:"暂停未来执行"})).toBeEnabled();await expect(page.getByRole("heading",{name:"上次操作结果待核实"})).toHaveCount(0);
- await page.getByRole("button",{name:"返回业务任务"}).click();await page.getByRole("button",{name:/定时内容原任务/}).click();
+ const originalGoal=plan.goalSummary;plan.goalSummary='请根据已保存的黑白两色商品资料整理英文描述，准确保留三种规格组合和两个尺码，不把规格组合写成尺码数量，也不补充没有依据的商品事实。';
+ await page.reload();const heading=page.getByRole('heading',{name:plan.goalSummary,exact:true});await expect(heading).toBeVisible();
+ expect(await heading.evaluate(el=>el.scrollHeight-el.clientHeight),'shorter goals must not be visually clipped on mobile').toBeLessThan(2);
+ const longTitle={...plan,storeName:'合成测试店铺名称'.repeat(10)};
+ await page.route(`**/api/workbench/schedules/${id}`,route=>route.fulfill({json:{plan:longTitle}}));
+ await page.reload();await page.getByText('查看完整计划内容',{exact:true}).click();
+ await expect(page.locator('details[open] p')).toHaveText(`${longTitle.storeName} · ${plan.goalSummary}`);
+ await page.unroute(`**/api/workbench/schedules/${id}`);plan.goalSummary=originalGoal;
+ await page.reload();await page.getByRole('button',{name:'返回定时列表',exact:true}).click();
+ await expect(page.getByRole('button',{name:new RegExp(originalGoal)})).toBeVisible();
+ await page.setViewportSize({width:1440,height:900});await page.screenshot({path:info.outputPath('schedule-list-desktop.png'),fullPage:true});
+ await page.getByRole("button",{name:"返回任务中心"}).click();await page.getByRole("button",{name:/定时内容原任务/}).click();
  await page.getByRole("link",{name:"查看来源定时计划"}).click();
  await expect(page.getByRole("heading",{name:"定时任务",exact:true})).toBeVisible();await expect(page.getByRole("heading",{name:plan.goalSummary,exact:true})).toBeVisible();
 });
