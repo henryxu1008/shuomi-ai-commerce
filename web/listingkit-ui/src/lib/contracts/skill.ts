@@ -7,14 +7,17 @@ const digest=z.string().regex(/^[0-9a-f]{64}$/);
 const time=z.string().datetime({offset:true});
 export const skillScopeSchema=z.enum(["personal","organization","official"]);
 export type SkillSpace=z.infer<typeof skillScopeSchema>;
-export const skillRefSchema=z.strictObject({kind:z.literal("skill-version-v1"),id,ownerKind:z.enum(["USER","ORGANIZATION","PLATFORM"]),ownerId:subject,version:number,digest,policyVersion:z.literal("skill-method-v1")}).refine(v=>v.ownerKind!=="PLATFORM"||v.ownerId==="official");
+export const skillRefSchema=z.strictObject({kind:z.literal("skill-version-v1"),id,ownerKind:z.enum(["USER","ORGANIZATION","PLATFORM"]),ownerId:subject,version:number,digest,policyVersion:z.enum(["skill-method-v1","skill-script-method-v1"])}).refine(v=>v.ownerKind!=="PLATFORM"||v.ownerId==="official");
 export const skillSelectionSchema=z.strictObject({skillId:id,version:number,digest});
 export const skillTargetSchema=z.enum(["product-title","product-image"]);
 export type SkillSelection=z.infer<typeof skillSelectionSchema>;
 export const skillFileSchema=z.strictObject({path:z.string().min(1).refine(v=>new TextEncoder().encode(v).length<=256),text:z.string().refine(v=>new TextEncoder().encode(v).length<=16384)});
 export const skillFilesSchema=z.array(skillFileSchema).min(1).max(16).refine(v=>new TextEncoder().encode(JSON.stringify(v)).length<=49152);
 export const skillInputSchema=z.strictObject({files:skillFilesSchema,allowCopy:z.boolean(),allowExport:z.boolean()});
-export const skillPackageSchema=z.strictObject({name:z.string().min(1).max(64),description:z.string().min(1).refine(v=>[...v].length<=1024),target:skillTargetSchema.optional(),displayName:z.string().refine(v=>new TextEncoder().encode(v).length<=512).optional(),digest,files:skillFilesSchema.nullable()});
+const scriptExecutionSchema=z.strictObject({schemaVersion:z.literal("skill-script-v1"),profile:z.literal("python-title-json-v1"),entrypoint:z.string().min(1).max(256),phase:z.literal("title-candidate-postprocess"),inputContract:z.literal("title-candidate-v1"),outputContract:z.literal("title-result-v1")});
+export const scriptDescriptorSchema=z.strictObject({profile:z.literal("python-title-json-v1"),revision:subject,imageDigest:z.string().regex(/^sha256:[0-9a-f]{64}$/),execdDigest:z.string().regex(/^sha256:[0-9a-f]{64}$/),networkRevision:subject,toolVersion:z.literal("v1.0.0")});
+export const scriptReceiptSchema=z.strictObject({outcome:z.enum(["succeeded","failed","outcome_unknown","not_dispatched"]),cleanup:z.enum(["completed","pending","not_needed"]),reason:z.string().max(64),inputDigest:z.union([digest,z.literal("")]),outputDigest:z.union([digest,z.literal("")]),descriptorDigest:digest});
+export const skillPackageSchema=z.strictObject({execution:scriptExecutionSchema.optional(),name:z.string().min(1).max(64),description:z.string().min(1).refine(v=>[...v].length<=1024),target:skillTargetSchema.optional(),displayName:z.string().refine(v=>new TextEncoder().encode(v).length<=512).optional(),digest,files:skillFilesSchema.nullable()});
 export const skillVersionSchema=z.strictObject({skill:z.strictObject({id,owner:z.strictObject({kind:z.enum(["USER","ORGANIZATION","PLATFORM"]),id:subject}),creator:subject,headVersion:number,revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),createdAt:time,updatedAt:time}),version:number,package:skillPackageSchema,state:z.enum(["DRAFT","READY","ENABLED","DISABLED","REVOKED"]),visibility:z.enum(["PRIVATE","SHARED"]),allowCopy:z.boolean(),allowExport:z.boolean(),source:skillRefSchema.optional(),createdAt:time});
 export const skillProjectionSchema=z.strictObject({version:skillVersionSchema,canEdit:z.boolean(),canPublish:z.boolean(),canUse:z.boolean(),canCopy:z.boolean(),canExport:z.boolean()});
 export const skillPageSchema=z.strictObject({items:z.array(skillProjectionSchema).max(50),nextCursor:z.string().max(1400)});
@@ -29,5 +32,5 @@ export const skillSharesSchema=z.strictObject({items:z.array(skillShareSchema).m
 export const skillAdmissionSchema=z.strictObject({policy:z.strictObject({allowPersonal:z.boolean(),revision:z.string().regex(/^(0|[1-9][0-9]{0,18})$/)}),canConfigure:z.boolean()});
 export type SkillVersion=z.infer<typeof skillVersionSchema>;
 export type SkillProjection=z.infer<typeof skillProjectionSchema>;
-export function skillRef(v:SkillVersion):z.infer<typeof skillRefSchema>{return {kind:"skill-version-v1",id:v.skill.id,ownerKind:v.skill.owner.kind,ownerId:v.skill.owner.id,version:v.version,digest:v.package.digest,policyVersion:"skill-method-v1"}}
+export function skillRef(v:SkillVersion):z.infer<typeof skillRefSchema>{return {kind:"skill-version-v1",id:v.skill.id,ownerKind:v.skill.owner.kind,ownerId:v.skill.owner.id,version:v.version,digest:v.package.digest,policyVersion:v.package.execution?"skill-script-method-v1":"skill-method-v1"}}
 export function sameSkill(a?:SkillSelection,b?:SkillSelection){return a?.skillId===b?.skillId&&a?.version===b?.version&&a?.digest===b?.digest}

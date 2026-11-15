@@ -4,6 +4,8 @@
 
 Design Basis：[已批准设计](../architecture/skill-capability.md)。本文件交接正常安装和使用方式；不签发共享安装、真实模型或用户验收。
 
+截至 2026-11-15，[Linux Docker + OpenSandbox + gVisor 脚本扩展 §21](../architecture/skill-script-sandbox.md#21-已批准三组产品范围与正式-ready-准入2026-11-15)的三组产品范围已获批准，正式执行 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，IMPLEMENTATION_READY / Ready（未启动）。真实WSL2 POC及独立复核证据复用，D-IT1剩余部署检查仍为对应profile试用开放前Must，不写PASS。正式业务未实现，本轮不改生产代码；以下操作仍不支持脚本。独立测试环境保持停止与保留，Ready不授权启动、部署、修改现有业务实例或真实数据。
+
 ## 入口和操作
 
 1. 登录后进入 **我的账户 → 账户资料**（`/workbench/account/profile`），点击“我的技能”。没有当前企业也能创建、导入、检查格式、保存版本、启停和导出本人技能。新建默认提供 `product-title-normalization` 方法文本；它只用已保存事实，不猜品牌、材质、认证、销量或利润。格式通过只表示包符合受支持格式。

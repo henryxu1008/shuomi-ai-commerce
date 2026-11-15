@@ -44,6 +44,9 @@ func (v Validator) Validate(ctx context.Context, request agent.Request, candidat
 		return result, err
 	}
 	frozen := snapshot.Request
+	if frozen.SkillVersionRef != request.SkillVersionRef || frozen.ScriptDescriptor != request.ScriptDescriptor || !request.ValidScript() {
+		return result, agent.ErrConflict
+	}
 	if snapshot.Scope != scope || snapshot.MemberID != identity.MemberID || snapshot.AgentID != agentconfig.ContentAgentID || snapshot.AgentVersion != agentconfig.ContentAgentVersion || frozen.Key != request.Key || frozen.Binding != request.Binding || frozen.PolicyVersion != request.PolicyVersion || frozen.PromptVersion != request.PromptVersion || frozen.ContentSelection != request.ContentSelection || frozen.ModeSnapshotRef != request.ModeSnapshotRef || frozen.GoalSummary != request.GoalSummary || frozen.Limits != request.Limits {
 		return result, agent.ErrConflict
 	}

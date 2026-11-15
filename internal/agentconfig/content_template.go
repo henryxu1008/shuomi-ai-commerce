@@ -4,7 +4,7 @@ import reviewproposal "task-processor/internal/product/review/proposal"
 
 const (
 	ContentAgentID             = "product.content.agent"
-	ContentAgentVersion        = "v1.0.0"
+	ContentAgentVersion        = "v1.1.0"
 	ContentParameterSchema     = "content-config-v1"
 	ContentPromptVersion       = "product-content-agent-v1"
 	ScopedContentPromptVersion = "product-content-scoped-agent-v1"

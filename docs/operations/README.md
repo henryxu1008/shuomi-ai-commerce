@@ -8,6 +8,7 @@
 
 - 新建独立本地环境：[Account Compose](../../deployments/docker/account-compose/README.md)、[模块组合](../../deployments/docker/account-compose/modules.md)。
 - 当前后端命令与 owner：[Repository Structure](../development/repository-structure.md#current-entrypoint-map)。
+- 标题技能脚本：[使用与私有执行配置](skill-script-sandbox.md)；默认关闭，D-IT1/execd init-proc 检查是试用开放前置。
 - 镜像构建：[显式 Git 版本构建](application-image-build.md)。
 - 登录隔离：[实例 cookie 隔离](auth-instance-cookie-isolation.md)。
 - 模型治理：[模型与费率管理](model-route-pricing.md)。

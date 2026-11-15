@@ -16,6 +16,9 @@ import (
 )
 
 func validTextConfigurationRequest(id string, request agent.Request) bool {
+	if !request.ValidScript() || request.ScriptSelected() && id != agentconfig.ContentAgentID {
+		return false
+	}
 	if id == agentconfig.OwnIntakeAgentID {
 		return agentconfig.OwnIntakeRequest(request)
 	}
@@ -188,8 +191,9 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		MemberID, ExpectedModeRevision string
 		ContentSelection               reviewproposal.ContentSelection         `json:",omitzero"`
 		SkillVersionRef                agent.SkillVersionRef                   `json:",omitzero"`
+		ScriptDescriptor               agent.ScriptDescriptor                  `json:",omitzero"`
 		ImageAnalysis                  *agentconfig.ImageAnalysisConfiguration `json:",omitempty"`
-	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision, c.Request.ContentSelection, c.Request.SkillVersionRef, c.ImageAnalysis})
+	}{c.AgentID, c.AgentVersion, c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.ExecutionModelProfile, c.MemberID, c.ExpectedModeRevision, c.Request.ContentSelection, c.Request.SkillVersionRef, c.Request.ScriptDescriptor, c.ImageAnalysis})
 	if e != nil {
 		return agentconfig.Snapshot{}, e
 	}
@@ -244,6 +248,9 @@ func (s *Store) Prepare(ctx context.Context, c agentconfig.StartCommand) (agentc
 		}
 		if c.AgentID == agentconfig.OwnIntakeAgentID && mode.Mode != agent.ModeDefault && mode.Mode != agent.ModeReadOnly {
 			return agentconfig.ErrInvalid
+		}
+		if c.Request.ScriptSelected() && mode.Mode != agent.ModeDefault && mode.Mode != agent.ModeReadOnly {
+			return agent.ErrManualReviewRequired
 		}
 		request := c.Request
 		request.ModeSnapshotRef = mode.Ref()
@@ -322,8 +329,9 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		Base             string
 		ContentSelection reviewproposal.ContentSelection         `json:",omitzero"`
 		SkillVersionRef  agent.SkillVersionRef                   `json:",omitzero"`
+		ScriptDescriptor agent.ScriptDescriptor                  `json:",omitzero"`
 		ImageAnalysis    *agentconfig.ImageAnalysisConfiguration `json:",omitempty"`
-	}{snap.Request.Binding, snap.Request.GoalSummary, snap.Template, snap.KnowledgeBaseID, snap.Request.ContentSelection, snap.Request.SkillVersionRef, snap.ImageAnalysis})
+	}{snap.Request.Binding, snap.Request.GoalSummary, snap.Template, snap.KnowledgeBaseID, snap.Request.ContentSelection, snap.Request.SkillVersionRef, snap.Request.ScriptDescriptor, snap.ImageAnalysis})
 	b, _ := hash(struct {
 		Binding          agent.Binding
 		GoalSummary      string
@@ -331,8 +339,9 @@ func (s *Store) Match(ctx context.Context, c agentconfig.StartCommand, ref agent
 		Base             string
 		ContentSelection reviewproposal.ContentSelection         `json:",omitzero"`
 		SkillVersionRef  agent.SkillVersionRef                   `json:",omitzero"`
+		ScriptDescriptor agent.ScriptDescriptor                  `json:",omitzero"`
 		ImageAnalysis    *agentconfig.ImageAnalysisConfiguration `json:",omitempty"`
-	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.Request.ContentSelection, c.Request.SkillVersionRef, c.ImageAnalysis})
+	}{c.Request.Binding, c.Request.GoalSummary, c.Template, c.KnowledgeBaseID, c.Request.ContentSelection, c.Request.SkillVersionRef, c.Request.ScriptDescriptor, c.ImageAnalysis})
 	if a != b || snap.AgentID != c.AgentID || snap.AgentVersion != c.AgentVersion || snap.Request.Key != c.Request.Key || snap.MemberID != c.MemberID || snap.ExpectedModeRevision != c.ExpectedModeRevision || !snap.Request.ModeSnapshotRef.Valid() {
 		return snap, agentconfig.ErrConflict
 	}

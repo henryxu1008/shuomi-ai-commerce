@@ -6,6 +6,19 @@ import {parseSkillLaunch} from "@/lib/contracts/skill-launch";
 vi.mock("@/lib/api/skill",async original=>({...await original<typeof import("@/lib/api/skill")>(),skillRequest:vi.fn(),skillError:()=>"技能服务不可用"}));
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.setAttribute("open","")};HTMLDialogElement.prototype.close=function(){this.removeAttribute("open")}});
 afterEach(()=>{cleanup();vi.clearAllMocks()});
+it("imports the saved Python entry and manifest together without executing them",async()=>{
+ vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,reason:""}:path.endsWith("/validate")?{valid:true,name:"saved-title",description:"Format title",digest:"a".repeat(64),fileCount:3}:{items:[],nextCursor:""});
+ render(<SkillManager scope={{userId:"actor"}} home="personal" initialSpace="personal" presentation="page"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"新建技能"}));
+ const source=[{name:"SKILL.md",text:"---\nname: saved-title\ndescription: Format title\nmetadata:\n  listingkit-method-v1: product-title\n---\nFormat the saved candidate.\n"},{name:"execution.json",text:JSON.stringify({schemaVersion:"skill-script-v1",profile:"python-title-json-v1",entrypoint:"scripts/main.py",phase:"title-candidate-postprocess",inputContract:"title-candidate-v1",outputContract:"title-result-v1"})},{name:"main.py",text:"print('saved code')\n"}];
+ fireEvent.change(screen.getByLabelText("导入 SKILL.md / 文本包"),{target:{files:source.map(f=>({name:f.name,size:f.text.length,text:async()=>f.text}))}});
+ await screen.findByDisplayValue("scripts/main.py");
+ fireEvent.click(screen.getByRole("button",{name:"检查格式"}));
+ await waitFor(()=>expect(vi.mocked(skillRequest).mock.calls.some(([,path])=>path==="personal/validate")).toBe(true));
+ const request=vi.mocked(skillRequest).mock.calls.find(([,path])=>path==="personal/validate");
+ expect(JSON.parse(String(request?.[3]?.body)).files.map((f:{path:string})=>f.path)).toEqual(["SKILL.md","execution.json","scripts/main.py"]);
+ expect(vi.mocked(skillRequest).mock.calls.every(([,path])=>!path.includes("runs")&&!path.includes("execute"))).toBe(true);
+});
 it("lets a maintainer create, check and save an official draft without exposing creation in the library",async()=>{
  vi.mocked(skillRequest).mockImplementation(async(_scope,path)=>path.endsWith("/info")?{available:true,canCreate:true,canInstallOfficial:true,reason:""}:path==="official/validate"?{valid:true,name:"new-skill",description:"description",digest:"a".repeat(64),fileCount:1}:path==="official"?{id:"11111111-1111-4111-8111-111111111111",version:1,revision:1,operation:"create",at:"2026-11-14T00:00:00Z"}:{items:[],nextCursor:""});
  render(<SkillManager scope={{userId:"maintainer"}} home="personal" initialSpace="official" presentation="page" maintenance/>);
