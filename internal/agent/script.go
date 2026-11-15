@@ -6,10 +6,19 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"task-processor/internal/commercetool"
 	reviewproposal "task-processor/internal/product/review/proposal"
+)
+
+const (
+	ScriptStepTimeout    = 30 * time.Second
+	ScriptCleanupTimeout = 5 * time.Second
+	// The current Commerce audit has a 2s bound; keep another second for
+	// schema validation and returning the receipt to the fixed Graph node.
+	ScriptReceiptReserve = 3 * time.Second
 )
 
 // ScriptDescriptor is deployment-owned, comparable and frozen before Claim.

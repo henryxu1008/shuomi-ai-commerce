@@ -48,7 +48,19 @@ func (e *Executor) Execute(parent context.Context, task agent.ScriptTask) (resul
 		result.Receipt.Reason = "invalid_package"
 		return result, nil
 	}
-	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
+	// Computation (including gate wait) must finish before the enclosing
+	// Commerce/Graph deadline. Otherwise Commerce correctly discards even a
+	// known receipt as a late tool output. Cleanup keeps its independent budget.
+	deadline := time.Now().Add(agent.ScriptStepTimeout)
+	if caller, ok := parent.Deadline(); ok && caller.Before(deadline) {
+		deadline = caller
+	}
+	deadline = deadline.Add(-agent.ScriptCleanupTimeout - agent.ScriptReceiptReserve)
+	if !time.Now().Before(deadline) {
+		result.Receipt.Reason = "deadline"
+		return result, nil
+	}
+	ctx, cancel := context.WithDeadline(parent, deadline)
 	defer cancel()
 	select {
 	case e.gate <- struct{}{}:
@@ -98,7 +110,7 @@ func (e *Executor) Execute(parent context.Context, task agent.ScriptTask) (resul
 	execdURL := e.origin + "/v1/sandboxes/" + sandbox.ID + "/proxy/44772"
 	execd := osb.NewExecdClient(execdURL, execdToken, osb.WithHTTPClient(e.client), osb.WithHeaders(e.headers))
 	defer func() {
-		cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), agent.ScriptCleanupTimeout)
 		defer stop()
 		if commandID != "" {
 			_ = execd.InterruptCommand(cleanup, commandID)
@@ -182,7 +194,13 @@ func (e *Executor) Execute(parent context.Context, task agent.ScriptTask) (resul
 	root := int32(0)
 	var collected observation
 	collectErr := execd.RunCommand(ctx, osb.RunCommandRequest{Argv: []string{"/usr/local/bin/python3", "-I", "-S", "-c", collectResult}, Cwd: "/", UID: &root, GID: &root, Timeout: 2000, Envs: workloadEnvironment()}, collected.observe)
-	if collected.outcome(collectErr) != "succeeded" {
+	switch collected.outcome(collectErr) {
+	case "failed":
+		result.Receipt.Outcome = "failed"
+		result.Receipt.Reason = "invalid_result"
+		return result, nil
+	case "succeeded":
+	default:
 		return result, nil
 	}
 	data, dataErr := execd.DownloadFile(ctx, "/workspace/collected/result.json", "")

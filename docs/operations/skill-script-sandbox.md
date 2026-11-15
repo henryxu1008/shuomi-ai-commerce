@@ -42,6 +42,8 @@
 
 部署固定 Linux Docker/runsc、专用 worker、批准镜像/execd、PID64、1CPU/256MiB/写层128MiB、TTL120秒、命令10秒、整步30秒，无续期/降级。单实例串行，创建前检查专用 worker 存量小于2；首版一个后端实例/专用 worker，不自行横向扩副本。metadata 只核对实例身份/描述，不能证明 runtime/firewall。execd 必须启用 init 模式及 §22 内层凭据保护。server-proxy 维护模式按锁定版本和原试用边界使用，升级核对受影响契约。
 
+计算和等待槽在整步预算内提前预留独立清理5秒、当前Commerce审计2秒及回执返回1秒，避免明确回执在外层期限耗尽后被丢弃。更早的调用者deadline优先；不足以执行时返回not_dispatched，不增加总时间。可信collector确认失败（如缺少结果、文件超限或安全文件检查拒绝）显示failed/invalid_result；缺失/冲突终态或断流仍为UNKNOWN。计算结果与cleanup completed/pending分别保留，均不自动重试。
+
 开放前完成设计 §8.3.4 的其他宿主地址/IPv6/既有公网入口、共享网络调用者、真实后端挂载/路由、proxy鉴权/raw端口绕行等余项，以及 §22 实际 init/proc 拒绝证据；不能只凭公网连接失败、guest uname、合成401或旧 POC。记录适用镜像/profile/network 与完整证据后，才填写 trialEvidence；任意摘要不能替代验收，变更相应边界后核对受影响证据。
 
 复用§23独立WSL证据时必须保持同一受信拓扑、镜像/execd/runtime与准入边界。该环境没有业务公网入口，backend角色为正式adapter验证进程；未来current-application真实挂载/路由/公网配置在目标部署中检查，不能把N/A或validation-only fixture值提升为PASS。init会剥离控制凭据，bootstrap的EXECD_ENVS配置路径可以存在；业务profile不提供Jupyter/业务凭据，每条脚本/collector仍空覆盖三个敏感环境变量。provider metadata中的descriptor摘要使用无padding Base32（52字符）满足上游label限制，Run/receipt完整SHA-256不变。

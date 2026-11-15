@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	osb "github.com/alibaba/OpenSandbox/sdks/sandbox/go"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"task-processor/internal/agent"
 	"task-processor/internal/skill"
 	"testing"
+	"time"
 )
 
 func TestOfficialSDKLifecycleKeepsExecdCredentialOutOfWorkload(t *testing.T) {
@@ -31,6 +33,32 @@ func TestOfficialSDKLifecycleKeepsExecdCredentialOutOfWorkload(t *testing.T) {
 }
 
 func testLifecycle(t *testing.T, output, outcome string, unprotected bool) {
+	t.Helper()
+	executor, task, counts := lifecycleFixture(t, output, unprotected, lifecycleOptions{})
+	result, err := executor.Execute(context.Background(), task)
+	created, commands, denied := counts()
+	expectedCommands := 2
+	if unprotected {
+		expectedCommands = 0
+	}
+	if err != nil || result.Receipt.Outcome != outcome || result.Receipt.Cleanup != "completed" || created != 1 || commands != expectedCommands || denied != 1 || (outcome == "succeeded" && result.Title != "after") || (outcome != "succeeded" && result.Title != "") {
+		t.Fatalf("lifecycle outcome=%+v created=%d commands=%d denied=%d err=%v", result, created, commands, denied, err)
+	}
+}
+
+type lifecycleOptions struct {
+	collectorEvents       string
+	nearDeadlineCollector bool
+	cleanupDelay          time.Duration
+}
+
+type lifecycleTransport func(*http.Request) (*http.Response, error)
+
+func (f lifecycleTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// The same official-SDK fixture is used directly and through the real Commerce
+// registry. No test-only timeout fields are added to the production executor.
+func lifecycleFixture(t *testing.T, output string, unprotected bool, options lifecycleOptions) (*Executor, agent.ScriptTask, func() (int, int, int)) {
 	t.Helper()
 	descriptor := agent.ScriptDescriptor{Profile: "python-title-json-v1", Revision: "1", NetworkRevision: "1", ToolVersion: "v1.0.0", ImageDigest: "sha256:" + strings.Repeat("a", 64), ExecdDigest: "sha256:" + strings.Repeat("b", 64)}
 	files := []skill.File{{Path: "SKILL.md", Text: "---\nname: synthetic-title\ndescription: Saved formatting\nmetadata:\n  listingkit-method-v1: product-title\n---\nFormat the candidate.\n"}, {Path: "execution.json", Text: `{"schemaVersion":"skill-script-v1","profile":"python-title-json-v1","entrypoint":"scripts/main.py","phase":"title-candidate-postprocess","inputContract":"title-candidate-v1","outputContract":"title-result-v1"}`}, {Path: "scripts/main.py", Text: "print('synthetic')\n"}}
@@ -110,6 +138,10 @@ func testLifecycle(t *testing.T, output, outcome string, unprotected bool) {
 					t.Error("script is privileged")
 				}
 				w.Header().Set("Content-Type", "text/event-stream")
+				if commands == 2 && options.collectorEvents != "" {
+					_, _ = io.WriteString(w, options.collectorEvents)
+					return
+				}
 				_, _ = w.Write([]byte("{\"type\":\"init\",\"text\":\"command-id\"}\n\n{\"type\":\"execution_complete\",\"exit_code\":0}\n\n"))
 				return
 			}
@@ -120,15 +152,37 @@ func testLifecycle(t *testing.T, output, outcome string, unprotected bool) {
 			_, _ = w.Write([]byte(`{}`))
 		}
 	}))
-	defer server.Close()
-	client := &http.Client{Transport: boundedTransport{base: http.DefaultTransport, origin: server.URL}}
+	t.Cleanup(server.Close)
+	transport := lifecycleTransport(func(r *http.Request) (*http.Response, error) {
+		var delay time.Duration
+		if options.nearDeadlineCollector && r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/command") {
+			raw, err := io.ReadAll(r.Body)
+			if err != nil {
+				return nil, err
+			}
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+			var command osb.RunCommandRequest
+			_ = json.Unmarshal(raw, &command)
+			if len(command.Argv) > 3 && command.Argv[3] == "-c" {
+				deadline, _ := r.Context().Deadline()
+				delay = time.Until(deadline) - 500*time.Millisecond
+			}
+		}
+		if r.Method == http.MethodDelete && r.URL.Path == "/v1/sandboxes/"+id {
+			delay = options.cleanupDelay
+		}
+		if delay > 0 {
+			timer := time.NewTimer(delay)
+			defer timer.Stop()
+			select {
+			case <-timer.C:
+			case <-r.Context().Done():
+				return nil, r.Context().Err()
+			}
+		}
+		return http.DefaultTransport.RoundTrip(r)
+	})
+	client := &http.Client{Transport: boundedTransport{base: transport, origin: server.URL}}
 	executor := &Executor{descriptor: descriptor, lifecycle: osb.NewLifecycleClient(server.URL+"/v1", "", osb.WithHTTPClient(client)), client: client, origin: server.URL, gate: make(chan struct{}, 1)}
-	result, err := executor.Execute(context.Background(), task)
-	expectedCommands := 2
-	if unprotected {
-		expectedCommands = 0
-	}
-	if err != nil || result.Receipt.Outcome != outcome || result.Receipt.Cleanup != "completed" || created != 1 || commands != expectedCommands || denied != 1 || (outcome == "succeeded" && result.Title != "after") || (outcome != "succeeded" && result.Title != "") {
-		t.Fatalf("lifecycle outcome=%+v created=%d commands=%d denied=%d err=%v", result, created, commands, denied, err)
-	}
+	return executor, task, func() (int, int, int) { return created, commands, denied }
 }

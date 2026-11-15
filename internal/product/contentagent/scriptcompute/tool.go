@@ -5,7 +5,6 @@ package scriptcompute
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"task-processor/internal/agent"
 	"task-processor/internal/authz"
@@ -17,7 +16,7 @@ func Definition() commercetool.Definition {
 		Ref: commercetool.ToolRef{ID: "skill.script.compute", Version: "v1.0.0"}, Capability: "skill.script.compute", Owner: "product.content", Description: "Fixed offline postprocessing of one authorized frozen title candidate.",
 		InputSchema:  json.RawMessage(`{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["inputDigest","packageDigest","descriptorDigest"],"properties":{"inputDigest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"packageDigest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"descriptorDigest":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}`),
 		OutputSchema: json.RawMessage(`{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["title","receipt"],"properties":{"title":{"type":"string","maxLength":8192},"receipt":{"type":"object","additionalProperties":false,"required":["outcome","cleanup","reason","inputDigest","outputDigest","descriptorDigest"],"properties":{"outcome":{"type":"string","enum":["succeeded","failed","outcome_unknown","not_dispatched"]},"cleanup":{"type":"string","enum":["completed","pending","not_needed"]},"reason":{"type":"string","maxLength":64},"inputDigest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"outputDigest":{"type":"string","pattern":"^(?:|[0-9a-f]{64})$"},"descriptorDigest":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}}}`),
-		Risk:         commercetool.RiskCompute, Permission: commercetool.PermissionRequirement{Permission: authz.PermissionLocalAgentWrite}, SideEffects: commercetool.SideEffectPolicy{Mode: commercetool.SideEffectNone}, Idempotency: commercetool.IdempotencyPolicy{Mode: commercetool.IdempotencyDeterministic}, Timeout: commercetool.TimeoutPolicy{Duration: 30 * time.Second}, Retry: commercetool.RetryPolicy{Owner: commercetool.RetryOwnerCaller}, Usage: commercetool.UsagePolicy{Owner: commercetool.UsageOwnerUnmetered},
+		Risk:         commercetool.RiskCompute, Permission: commercetool.PermissionRequirement{Permission: authz.PermissionLocalAgentWrite}, SideEffects: commercetool.SideEffectPolicy{Mode: commercetool.SideEffectNone}, Idempotency: commercetool.IdempotencyPolicy{Mode: commercetool.IdempotencyDeterministic}, Timeout: commercetool.TimeoutPolicy{Duration: agent.ScriptStepTimeout}, Retry: commercetool.RetryPolicy{Owner: commercetool.RetryOwnerCaller}, Usage: commercetool.UsagePolicy{Owner: commercetool.UsageOwnerUnmetered},
 	}
 }
 
