@@ -122,13 +122,14 @@ it("retires an unknown command only after an authoritative durable rejection",as
 
 it("confirms a deterministic store report without product or model fields",async()=>{
  const save=vi.fn<(input:unknown)=>Promise<void>>(async()=>{});
- request.mockImplementation(async input=>{expect(input.route).toBe("schedule-quote");expect(input.body).not.toHaveProperty("selection");expect(input.body).not.toHaveProperty("proposalId");return {kind:"store.operating-daily-report",report:(input.body as {report:unknown}).report,confirmation:"a".repeat(64),goalSummary:"店铺经营日报",rule:(input.body as {rule:unknown}).rule,maxOccurrences:"1",unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0",nextAt:"2030-11-20T01:00:00Z"} as never;});
+ request.mockImplementation(async input=>{expect(input.route).toBe("schedule-quote");expect(input.body).not.toHaveProperty("selection");expect(input.body).not.toHaveProperty("proposalId");return {storeName:"合成测试长店铺名称".repeat(20),kind:"store.operating-daily-report",report:(input.body as {report:unknown}).report,confirmation:"a".repeat(64),goalSummary:"店铺经营日报",rule:(input.body as {rule:unknown}).rule,maxOccurrences:"1",unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0",nextAt:"2030-11-20T01:00:00Z"} as never;});
  render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" disabled={false} dailyReportEnabled contentEnabled={false} onSave={save} onCancel={vi.fn()}/></QueryClientProvider>);
  await screen.findByRole("option",{name:/日报合成店/});
  await userEvent.selectOptions(await screen.findByLabelText("店铺"),"33333333-3333-4333-8333-333333333333");
  await userEvent.type(screen.getByLabelText("执行日期与时间（本机时区）"),"2030-11-20T09:00");
  await userEvent.click(screen.getByRole("button",{name:"核对计划"}));
  await screen.findByText("每次执行自动保存一份个人报告");expect(save).not.toHaveBeenCalled();expect(screen.queryByText(/AI 积分/)).toBeNull();
+ await userEvent.click(screen.getByText("查看完整计划内容"));expect(screen.getByText(`${"合成测试长店铺名称".repeat(20)} · 店铺经营日报`,{selector:"details p"})).toBeVisible();
  await userEvent.click(screen.getByRole("button",{name:"确认并保存计划"}));expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).toMatchObject({kind:"store.operating-daily-report",report:{storeId:"33333333-3333-4333-8333-333333333333"}});
 });
 

@@ -72,6 +72,7 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,proposalId,di
     <header className={styles.sectionHeading}><h2>{quote?"确认执行范围":"计划摘要"}</h2><p>{quote?"核对以下内容，确认后保存计划":"随填写更新，核对后才能保存"}</p></header>
     {quote?<>
      <p className={styles.confirmTitle}>{quote.value.storeName?`${quote.value.storeName} · `:""}{quote.value.goalSummary}</p>
+     <details className={styles.request}><summary>查看完整计划内容</summary><p>{quote.value.storeName?`${quote.value.storeName} · `:""}{quote.value.goalSummary}</p></details>
      {quote.value.selection?<p className={styles.hint}>{contentSelectionLabel(quote.value.selection.parameters)}</p>:<p className={styles.hint}>统计 UTC+8 前一天的已保存资料；缺少数据时会明确说明，不会显示成零。</p>}
      {quote.value.selection?<details className={styles.request}><summary>查看所选商品资料</summary><p>商品标识 {quote.value.selection.subject.id}</p><p>资料版本 {quote.value.selection.subject.catalogVersion}</p></details>:null}
      <dl className={styles.confirmFacts}>
