@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ReportPage } from "./report-page";
 import { fetchSheinRecords } from "@/lib/api/shein-records-client";
@@ -287,4 +287,55 @@ it("does not suggest saving product reports when their source is unavailable", a
  vi.stubGlobal("fetch",vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:0,recent:0,favorites:0,stores:0}):Response.json({items:[],nextCursor:""})));
  const client=new QueryClient(),view=render(tree(client));fireEvent.click(await screen.findByRole("button",{name:"商品资料"}));
  expect(await screen.findByText("当前无法保存商品资料报告，已有历史报告仍可查看。")).toBeVisible();view.unmount();client.clear();
+});
+
+it("reopens a scheduled operating report by its stable report link",async()=>{
+ const saved:Report={...report,ref:{kind:"STORE_DAILY_REPORT",id:source.ref.id,version:"1"},productKey:"",storeId:source.ref.id,title:"店铺经营日报 · 2026-11-14",scheduledOrigin:{organizationId:"org-a",actorId:"actor-a",memberId:"member-a",planId:source.ref.id,planRevision:2,occurrenceId:source.ref.id,scheduledAt:"2026-11-15T01:00:00Z",storeId:source.ref.id,day:"2026-11-14",rendererVersion:1},content:{schemaVersion:1,sections:[{title:"经营财务",fields:[{label:"收入",value:"0.00 元"}]}]}};
+ vi.stubGlobal("fetch",vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:1,recent:1,favorites:0,stores:1}):path.endsWith("/"+report.id)?Response.json(saved):Response.json({items:[saved],nextCursor:""})));
+ const client=new QueryClient(),view=render(<QueryClientProvider client={client}><ReportPage view="all" initialReport={report.id}/></QueryClientProvider>);
+ await screen.findByText("0.00 元");expect(screen.getByRole("link",{name:"打开原来源"})).toHaveAttribute("href",`/workbench/ai/tasks?view=schedules&schedule_id=${source.ref.id}`);
+ expect(screen.getByRole("button",{name:"经营报告"})).toBeVisible();
+ const createURL=vi.fn(()=>"blob:test");Object.defineProperty(URL,"createObjectURL",{configurable:true,value:createURL});
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({code:"NOT_FOUND"},{status:404})));
+ fireEvent.click(screen.getByRole("button",{name:"下载文本"}));
+ await screen.findByText("当前无法下载这份报告，请刷新后重试。");expect(createURL).not.toHaveBeenCalled();view.unmount();client.clear();
+});
+
+
+it.each(["focus", "reconnect"] as const)("hides cached report data before %s reauthorization and keeps it hidden after denial", async event => {
+ const saved:Report={...report,ref:{kind:"STORE_DAILY_REPORT",id:source.ref.id,version:"1"},productKey:"",storeId:source.ref.id,title:"权限内日报",scheduledOrigin:{organizationId:"org-a",actorId:"actor-a",memberId:"member-a",planId:source.ref.id,planRevision:2,occurrenceId:source.ref.id,scheduledAt:"2026-11-15T01:00:00Z",storeId:source.ref.id,day:"2026-11-14",rendererVersion:1},content:{schemaVersion:1,sections:[{title:"经营财务",fields:[{label:"收入",value:"敏感财务正文"}]}]}};
+ const {content,digest,...savedSummary}=saved;void content;void digest;
+ let denied=false;const pending:Array<()=>void>=[];
+ vi.stubGlobal("fetch",vi.fn(async(path:string)=>{
+   if(denied){await new Promise<void>(resolve=>pending.push(resolve));return Response.json({code:"NOT_FOUND"},{status:404});}
+   return path.endsWith("/summary")?Response.json({saved:1,recent:1,favorites:1,stores:1}):path.endsWith("/"+report.id)?Response.json(saved):Response.json({items:[savedSummary],nextCursor:""});
+ }));
+ const client=new QueryClient(),view=render(<QueryClientProvider client={client}><ReportPage view="all" initialReport={report.id}/></QueryClientProvider>);
+ await screen.findByText("敏感财务正文");await screen.findByRole("button",{name:"权限内日报"});
+ denied=true;
+ if(event==="focus"){focusManager.setFocused(false);focusManager.setFocused(true);}else{onlineManager.setOnline(false);onlineManager.setOnline(true);}
+ await waitFor(()=>expect(pending.length).toBeGreaterThanOrEqual(3));
+ await waitFor(()=>expect(screen.queryByText("敏感财务正文")).not.toBeInTheDocument());
+ expect(screen.queryByRole("button",{name:"权限内日报"})).not.toBeInTheDocument();
+ for(const resolve of pending)resolve();
+ await screen.findByText("报告读取失败");await screen.findByText("报告列表读取失败");
+ expect(screen.queryByText("敏感财务正文")).not.toBeInTheDocument();
+ // The summary cache must have been rechecked too, even outside the overview.
+ expect(client.getQueryCache().findAll({queryKey:["reports"]}).filter(q=>["summary","detail","list"].some(key=>q.queryKey.includes(key))).every(q=>q.state.status==="error")).toBe(true);
+ view.unmount();client.clear();focusManager.setFocused(undefined);onlineManager.setOnline(true);
+});
+
+it("rebuilds loaded pages before loading more after a store grant is revoked",async()=>{
+ const saved:Report={...report,ref:{kind:"STORE_DAILY_REPORT",id:source.ref.id,version:"1"},productKey:"",storeId:source.ref.id,title:"撤权前日报",scheduledOrigin:{organizationId:"org-a",actorId:"actor-a",memberId:"member-a",planId:source.ref.id,planRevision:2,occurrenceId:source.ref.id,scheduledAt:"2026-11-15T01:00:00Z",storeId:source.ref.id,day:"2026-11-14",rendererVersion:1}};
+ const {content,digest,...summary}=saved;void content;void digest;
+ let revoked=false;
+ const fetch=vi.fn(async(path:string)=>path.endsWith("/summary")?Response.json({saved:revoked?0:1,recent:0,favorites:0,stores:revoked?0:1}):revoked?Response.json({items:[],nextCursor:""}):Response.json({items:[summary],nextCursor:"next-page"}));
+ vi.stubGlobal("fetch",fetch);
+ const client=new QueryClient(),view=render(tree(client));
+ await screen.findByRole("button",{name:"撤权前日报"});
+ revoked=true;fireEvent.click(screen.getByRole("button",{name:"加载更多"}));
+ await screen.findByText("当前范围暂无报告");
+ expect(screen.queryByRole("button",{name:"撤权前日报"})).not.toBeInTheDocument();
+ expect(fetch.mock.calls.filter(([path])=>!path.includes("cursor=")&&!path.endsWith("/summary")).length).toBe(2);
+ view.unmount();client.clear();
 });

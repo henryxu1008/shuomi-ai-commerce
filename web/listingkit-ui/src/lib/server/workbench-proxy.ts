@@ -346,7 +346,7 @@ const workbenchRouteAllowlist = [
     ["GET", "task-list"], ["GET", "task-cockpit-metrics"], ["GET", "task-read"], ["GET", "task-scope-options"],
     ["POST", "task-start"], ["POST", "task-resume"], ["POST", "task-review"],
     ["GET","schedule-availability"],["GET","schedule-list"],["GET","schedule-read"],["GET","schedule-history"],
-    ["POST","schedule-quote"],["POST","schedule-create"],["PATCH","schedule-edit"],["POST","schedule-pause"],["POST","schedule-resume"],["POST","schedule-close"],
+    ["POST","schedule-quote"],["POST","schedule-create"],["PATCH","schedule-edit"],["POST","schedule-pause"],["POST","schedule-resume"],["POST","schedule-close"],["POST","schedule-delete"],
   ] as const).map(([method, name]) => routeDefinition(method, `ai-${name}`, `ai-${name}`,
     path => aiWorkbenchPath(method, path) === name ? path.join("/") : null)),
   routeDefinition("POST", "browser-capture-create", "product-acquisition", (path) =>
@@ -656,13 +656,13 @@ export async function buildWorkbenchUpstreamRequest(
         const url = new URL(request.url);
         const allowed = action === "conversation-read" ? new Set(["limit", "before"])
           : action === "conversation-list" ? new Set(["limit", "after", "saved", "archived"])
-          : scopeOptions ? new Set(["kind", "projectId", "storeId", "after"]) : action.startsWith("schedule-")?new Set(["limit","after"]):new Set(["limit", "after", "scopeKind", "projectId", "storeId"]);
+          : scopeOptions ? new Set(["kind", "projectId", "storeId", "after"]) : action.startsWith("schedule-")?new Set(["limit","after",...(action==="schedule-list"?["kind"]:[])]):new Set(["limit", "after", "scopeKind", "projectId", "storeId"]);
         const selected = new URLSearchParams();
         for (const [name, value] of url.searchParams) {
           if (!allowed.has(name) || selected.has(name) || !value ||
             (name === "limit" && (!/^[1-9][0-9]?$/.test(value) || Number(value) > 50)) ||
             (name === "after" && !(action === "conversation-list" ? /^[A-Za-z0-9_-]{32}$/.test(value) : scopeOptions || url.searchParams.has("scopeKind") ? /^[A-Za-z0-9_-]{1,512}$/.test(value) : isAcquisitionUUID(value))) ||
-            ((name === "kind" || name === "scopeKind") && !["all","general","project","store","unrecorded"].includes(value)) ||
+            ((name === "kind" || name === "scopeKind") && !(action==="schedule-list"&&name==="kind"?["product.content.localize","store.operating-daily-report"]:["all","general","project","store","unrecorded"]).includes(value)) ||
             ((name === "projectId" || name === "storeId") && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) ||
             ((name === "saved" || name === "archived") && value !== "true") ||
             (name === "before" && !/^[1-9][0-9]*$/.test(value))) return protocolError(400, "INVALID_REQUEST", "Query is invalid");
@@ -677,7 +677,7 @@ export async function buildWorkbenchUpstreamRequest(
         } else {
           const assertion = validateSourceMutationBoundary(request, authenticatedActorSubject);
           if (assertion) return assertion;
-          if (["conversation-create", "message", "store-route", "store-overview", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close"].includes(action)) {
+          if (["conversation-create", "message", "store-route", "store-overview", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close","schedule-delete"].includes(action)) {
             const key = readCanonicalUUIDHeader(request.headers, "Idempotency-Key");
             if (!key) return protocolError(400, "INVALID_REQUEST", "Idempotency-Key is invalid");
             headers.set("Idempotency-Key", key);

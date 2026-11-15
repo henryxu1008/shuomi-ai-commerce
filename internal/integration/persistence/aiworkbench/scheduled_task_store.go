@@ -119,7 +119,7 @@ func (s *Store) ReadScheduledPlan(ctx context.Context, scope aiworkbench.Scope, 
 
 func scheduledPlanRecord(row scheduledPlanRow) (aiworkbench.ScheduledPlan, error) {
 	draft, err := schedulePlanValue(row)
-	value := aiworkbench.ScheduledPlan{ScheduledPlanDraft: draft, State: row.State, Revision: row.Revision, RegistrationState: row.RegistrationState, ConsumedOccurrences: uint64(row.ConsumedOccurrences)}
+	value := aiworkbench.ScheduledPlan{ScheduledPlanDraft: draft, Deleted: row.Deleted, State: row.State, Revision: row.Revision, RegistrationState: row.RegistrationState, ConsumedOccurrences: uint64(row.ConsumedOccurrences)}
 	if row.ActiveOccurrenceID != nil {
 		value.ActiveOccurrenceID = *row.ActiveOccurrenceID
 	}

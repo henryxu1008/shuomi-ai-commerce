@@ -11,6 +11,7 @@ import (
 	"task-processor/internal/httproute"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/listing/record"
+	"task-processor/internal/reportcenter"
 	reporthttp "task-processor/internal/reportcenter/httpapi"
 )
 
@@ -65,7 +66,10 @@ func validateReportCenterPool(o currentApplicationOptions, source *gorm.DB) erro
 	return nil
 }
 
-type reportCenterModule struct{ routes []httproute.Descriptor }
+type reportCenterModule struct {
+	routes  []httproute.Descriptor
+	service *reportcenter.Service
+}
 
 func (reportCenterModule) Name() string                  { return reporthttp.ModuleName }
 func (reportCenterModule) Enabled(c *config.Config) bool { return c != nil && c.Workbench.Enabled }
@@ -114,5 +118,5 @@ func buildReportCenter(ctx context.Context, db *gorm.DB, deps routeAuthDependenc
 	if err != nil {
 		return nil, err
 	}
-	return reportCenterModule{routes: routes}, nil
+	return reportCenterModule{routes: routes, service: h.Service}, nil
 }

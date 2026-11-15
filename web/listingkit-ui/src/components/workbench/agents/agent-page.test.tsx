@@ -47,6 +47,8 @@ const scope = vi.hoisted(() => ({
   error: null,
   blockingError: null,
   selectionRequired: false,
+  marketResearchAvailable: false,
+  projectCenterAvailable: false,
   registerOrganizationSwitchGuard:()=>()=>{},
 }));
 vi.mock("@/components/providers/workbench-context-provider", () => ({
@@ -83,6 +85,38 @@ afterEach(() => {
   scope.effectiveOrganization = { id: "org-a", name: "企业A" };
   scope.isSwitching = false;
   scope.permissions = [...initialPermissions];
+  scope.marketResearchAvailable = false;
+  scope.projectCenterAvailable = false;
+});
+
+it("keeps research workflows reachable when the agent catalog cannot be read", async () => {
+  scope.marketResearchAvailable = true;
+  scope.projectCenterAvailable = true;
+  scope.permissions.push("workbench.project.read", "workbench.collection.read");
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({code:"UNAVAILABLE"}, {status:503})));
+  render(<AgentPage mode="market"/>);
+  expect(screen.getByRole("link",{name:"市场调研"})).toHaveAttribute("href","/workbench/data/research");
+  expect(screen.getByRole("link",{name:"智能选品"})).toHaveAttribute("href","/workbench/supply/selection");
+  expect(await screen.findByText("智能体配置不可用")).toBeInTheDocument();
+  expect(screen.getAllByText("状态待核实")).toHaveLength(2);
+  expect(screen.queryByRole("link",{name:"智能体配置"})).toBeNull();
+});
+
+it("places the two business workflows in the agent grid and includes them in the selection category",async()=>{
+ scope.marketResearchAvailable=true;
+ scope.projectCenterAvailable=true;
+ scope.permissions.push("workbench.project.read","workbench.collection.read");
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({items:marketEntries(),nextCursor:""})));
+ render(<AgentPage mode="market"/>);
+ await screen.findByRole("heading",{name:"智能体列表"});
+ const list=screen.getByRole("region",{name:"智能体列表"});
+ expect(within(list).getByRole("article",{name:"市场调研智能体"})).toBeVisible();
+ expect(within(list).getByRole("article",{name:"智能选品智能体"})).toBeVisible();
+ fireEvent.click(within(list).getByRole("button",{name:"商品"}));
+ expect(within(list).queryByRole("article",{name:"市场调研智能体"})).toBeNull();
+ fireEvent.click(within(list).getByRole("button",{name:"选品"}));
+ expect(within(list).getByRole("article",{name:"市场调研智能体"})).toBeVisible();
+ expect(within(list).getByRole("article",{name:"智能选品智能体"})).toBeVisible();
 });
 
 function modeFixture(agentId:string, canConfigure=true) {
@@ -399,15 +433,22 @@ function selectionOperations() {
   return [research,comparison];
 }
 
-it("offers both selection operations from one market responsibility without issuing enable commands",async()=>{
-  const fetch=vi.fn(async(_url:unknown,init?:RequestInit)=>{void init;return Response.json({items:selectionOperations(),nextCursor:""});});
+it("displays the existing research and selection agents separately with their own status and workflow",async()=>{
+  scope.marketResearchAvailable=true;scope.projectCenterAvailable=true;
+  scope.permissions.push("workbench.project.read","workbench.collection.read");
+  const [research,selection]=selectionOperations();
+  const fetch=vi.fn(async(_url:unknown,init?:RequestInit)=>{void init;return Response.json({items:[{...research,agent:{...research.agent,activation:"ENABLED",revision:"1",activationEpoch:"1"}},selection],nextCursor:""});});
   vi.stubGlobal("fetch",fetch);
   render(<AgentPage mode="market"/>);
-  const card=await screen.findByRole("article",{name:"智能选品智能体"});
-  expect(screen.getAllByRole("article")).toHaveLength(1);
-  expect(within(card).getByRole("link",{name:"项目资料分析"})).toHaveAttribute("href","/workbench/agents/mine/product.research.agent");
-  expect(within(card).getByRole("link",{name:"独立商品对比"})).toHaveAttribute("href","/workbench/agents/mine/product.selection.agent");
-  expect(screen.queryByRole("article",{name:"市场调研智能体"})).toBeNull();
+  const researchCard=await screen.findByRole("article",{name:"市场调研智能体"});
+  const selectionCard=screen.getByRole("article",{name:"智能选品智能体"});
+  await waitFor(()=>expect(within(researchCard).getByText("已启用")).toBeVisible());
+  expect(within(selectionCard).getByText("尚未启用")).toBeVisible();
+  expect(within(researchCard).getByRole("link",{name:"智能体配置"})).toHaveAttribute("href","/workbench/agents/mine/product.research.agent");
+  expect(within(selectionCard).getByRole("link",{name:"智能体配置"})).toHaveAttribute("href","/workbench/agents/mine/product.selection.agent");
+  expect(within(researchCard).getByRole("link",{name:"市场调研"})).toHaveAttribute("href","/workbench/data/research");
+  expect(within(selectionCard).getByRole("link",{name:"智能选品"})).toHaveAttribute("href","/workbench/supply/selection");
+  expect(screen.getAllByRole("article")).toHaveLength(2);
   expect(fetch.mock.calls.every(([,init])=>!init?.method||init.method==="GET")).toBe(true);
 });
 
@@ -508,20 +549,20 @@ it("opens saved products from the image agent instead of online acquisition", as
   expect(fetch.mock.calls.every(([, init]) => !init || !["POST","PUT","DELETE"].includes(init.method ?? "GET"))).toBe(true);
 });
 
-it("browses the original Figma categories without inventing agents in empty categories", async () => {
+it("browses categories without inventing agents in empty categories", async () => {
   const fetch = vi.fn(async () => Response.json({items:marketEntries(),nextCursor:""}));
   vi.stubGlobal("fetch", fetch);
   render(<AgentPage mode="market" />);
   await screen.findByRole("button", {name:"商品"});
   const categories = within(screen.getByRole("group", {name:"智能体业务分类"}));
   expect(categories.getAllByRole("button").map(button => button.textContent)).toEqual(["全部","商品","选品","运营","广告","客服","数据"]);
-  expect(screen.getAllByRole("article")).toHaveLength(6);
+  expect(screen.getAllByRole("article")).toHaveLength(7);
   expect(screen.getAllByRole("heading",{name:"商品内容与本地化"})).toHaveLength(1);
   fireEvent.click(categories.getByRole("button",{name:"商品"}));
   expect(screen.getAllByRole("article")).toHaveLength(4);
   expect(screen.queryByRole("heading",{name:"智能选品智能体"})).toBeNull();
   fireEvent.click(categories.getByRole("button",{name:"选品"}));
-  expect(screen.getAllByRole("article")).toHaveLength(1);
+  expect(screen.getAllByRole("article")).toHaveLength(2);
   expect(screen.getByRole("heading",{name:"智能选品智能体"})).toBeInTheDocument();
   fireEvent.click(categories.getByRole("button",{name:"运营"}));
   expect(screen.getByRole("heading",{name:"店铺经营诊断智能体"})).toBeInTheDocument();
@@ -531,7 +572,7 @@ it("browses the original Figma categories without inventing agents in empty cate
     expect(screen.getByRole("heading",{name:"该分类暂无智能体"})).toBeInTheDocument();
   }
   fireEvent.click(categories.getByRole("button",{name:"全部"}));
-  expect(screen.getAllByRole("article")).toHaveLength(6);
+  expect(screen.getAllByRole("article")).toHaveLength(7);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
@@ -543,7 +584,7 @@ it("keeps market browsing read-only and sends configuration and capability detai
   const card = await screen.findByRole("article",{name:"平台上架资料智能体"});
   expect(within(card).getByRole("link",{name:"前往启用"})).toHaveAttribute("href","/workbench/agents/mine/listing.materials.agent");
   expect(screen.queryByText("需要独立模型路由与预算配置")).toBeNull();
-  expect(screen.queryByRole("link",{name:/配置|历史|查看商品事实|查看经营事实/})).toBeNull();
+  expect(within(card).queryByRole("link",{name:/配置|历史|查看商品事实|查看经营事实/})).toBeNull();
   expect(screen.queryByRole("button",{name:"启用到当前企业"})).toBeNull();
   expect(fetch.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
 });

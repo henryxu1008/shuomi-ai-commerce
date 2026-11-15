@@ -6,6 +6,10 @@
 
 ## 研究与商业评估规划
 
+- `scheduled-plan-deletion.md` — [定时计划删除](scheduled-plan-deletion.md)；#1288，保留结果与在途任务的列表移除；独立检查 IMPLEMENTATION_READY，沿用计划控制与恢复。
+
+- `scheduled-store-daily-report.md` — [定时生成单店经营日报](scheduled-store-daily-report.md)；#1279 独立架构及恢复增量复核 IMPLEMENTATION_READY；仅设计、未实现，不开放模型或平台发布。
+
 - `research-supplier-review-v1.md` · [单候选人工核对已保存 1688 货源](research-supplier-review-v1.md) · #1074 独立设计候选，Admission NOT_READY。
 - `research-manual-cost-preview-v1.md` · [单候选人工费用参考试算](research-manual-cost-preview-v1.md) · #1074 独立设计候选。
 - `research-commercial-assessment-persistence-v1.md` — [保存经营评估与人工决定引用](research-commercial-assessment-persistence-v1.md)；#1205 D1–D3 已确认，冻结设计 IMPLEMENTATION_READY；原 PR #1209 实施及工程复核，运行/产品验收 NOT_RUN。
@@ -197,6 +201,8 @@
 - `official-knowledge-provenance.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](official-knowledge-provenance.md)
 - `official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge.md)
 - `official-skill-product-entry.md` — [官方技能直接处理已有商品](official-skill-product-entry.md)
+- `official-skill-automatic-preparation.md` — [官方技能模板自动准备](official-skill-automatic-preparation.md)
+- `task-center-summary.md` — [任务中心统一统计](task-center-summary.md)
 - `issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](issue132-title-evaluation-admission.md)
 - `issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](issue132-title-pilot-local-entry.md)
 - `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)

@@ -2,6 +2,7 @@ package skillpersistence
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -136,4 +137,88 @@ func TestOfficialInstallConcurrentAndConflictRollsBackEntireRelease(t *testing.T
 	var count int64
 	require.NoError(t, db.Raw("SELECT count(*) FROM skill_capability.skills").Scan(&count).Error)
 	require.EqualValues(t, 1, count)
+}
+
+func TestAutomaticOfficialPreparationIsRepeatableAndPreservesExisting(t *testing.T) {
+	db, s := fixture(t)
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	errs := make(chan error, 3)
+	for range 3 {
+		wg.Add(1)
+		go func() { defer wg.Done(); errs <- s.PrepareOfficial(ctx) }()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+	var skills []skillRow
+	var versions []versionRow
+	require.NoError(t, db.Order("id").Find(&skills).Error)
+	require.NoError(t, db.Order("skill_id,version").Find(&versions).Error)
+	require.Len(t, skills, 6)
+	require.Len(t, versions, 9)
+	for _, row := range skills {
+		require.Equal(t, "system:official-skills", row.Creator)
+	}
+	require.NoError(t, db.Model(&versionRow{}).Where("skill_id = ? AND version = ?", versions[0].SkillID, versions[0].Version).Update("state", d.Disabled).Error)
+	require.NoError(t, db.Model(&versionRow{}).Where("skill_id = ? AND version = ?", versions[1].SkillID, versions[1].Version).Update("state", d.Revoked).Error)
+	require.NoError(t, db.Order("skill_id,version").Find(&versions).Error)
+	require.NoError(t, s.PrepareOfficial(ctx))
+	var after []versionRow
+	require.NoError(t, db.Order("skill_id,version").Find(&after).Error)
+	require.Equal(t, versions, after)
+	var skillsAfter []skillRow
+	require.NoError(t, db.Order("id").Find(&skillsAfter).Error)
+	require.Equal(t, skills, skillsAfter)
+}
+
+func TestAutomaticOfficialPreparationRollsBackIdentityConflict(t *testing.T) {
+	db, s := fixture(t)
+	releases, err := d.OfficialPackages()
+	require.NoError(t, err)
+	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+releases[len(releases)-1].Key)).String()
+	now := time.Now().UTC()
+	require.NoError(t, db.Create(&skillRow{ID: id, OwnerKind: d.UserOwner, OwnerID: "other", Creator: "other", HeadVersion: 1, Revision: 1, CreatedAt: now, UpdatedAt: now}).Error)
+	require.ErrorIs(t, s.PrepareOfficial(context.Background()), d.ErrConflict)
+	var count int64
+	require.NoError(t, db.Model(&skillRow{}).Count(&count).Error)
+	require.EqualValues(t, 1, count)
+}
+
+func TestAutomaticOfficialPreparationWithRuntimePrivileges(t *testing.T) {
+	db, _ := fixture(t)
+	ctx := context.Background()
+	role := "skill_runtime_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
+	require.NoError(t, db.Exec("CREATE ROLE "+role+" NOLOGIN").Error)
+	t.Cleanup(func() { _ = db.Exec("DROP OWNED BY " + role).Error; _ = db.Exec("DROP ROLE " + role).Error })
+	require.NoError(t, GrantRuntime(ctx, db, role))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	require.NoError(t, db.Exec("SET ROLE "+role).Error)
+	t.Cleanup(func() { _ = db.Exec("RESET ROLE").Error })
+	s, err := New(db)
+	require.NoError(t, err)
+	require.NoError(t, s.PrepareOfficial(ctx))
+	var count int64
+	require.NoError(t, db.Model(&skillRow{}).Count(&count).Error)
+	require.EqualValues(t, 6, count)
+}
+
+func TestAutomaticOfficialPreparationLockWaitCancelsWithoutWrites(t *testing.T) {
+	db, s := fixture(t)
+	tx := db.Begin()
+	require.NoError(t, tx.Error)
+	defer tx.Rollback()
+	require.NoError(t, tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "skill:official-method-v1").Error)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	require.Error(t, s.PrepareOfficial(ctx))
+	require.Less(t, time.Since(start), 2*time.Second)
+	var count int64
+	require.NoError(t, db.Model(&skillRow{}).Count(&count).Error)
+	require.Zero(t, count)
 }

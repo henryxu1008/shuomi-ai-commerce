@@ -259,6 +259,7 @@ func execute() error {
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
 				chat := httpapi.AIWorkbenchDependencies{DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, StoreRouteTextPolicies: features.AIWorkbench.StoreRouteTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}
 				if features.AIWorkbenchScheduleClient != nil {
+					chat.StoreDailyReports = features.AIWorkbench.Schedules != nil && features.AIWorkbench.Schedules.StoreDailyReports
 					chat.Schedules = &scheduledruntime.Backend{Client: features.AIWorkbenchScheduleClient}
 					chat.ScheduleStop = features.AIWorkbenchScheduleStop
 				}

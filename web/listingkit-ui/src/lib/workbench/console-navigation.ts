@@ -44,6 +44,7 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
     { label: "充值中心", href: "/workbench/plans/top-up", availability: "connected" },
     { label: "账单与订单", href: "/workbench/plans/orders", availability: "connected" },
   ] },
+  { label: "系统设置", href: "/workbench/settings", availability: "connected" },
   { label: "我的账户", href: "/workbench/account", availability: "connected", children: [
     { label: "账户资料", href: "/workbench/account/profile", availability: "connected", children: [
       { label: "账户设置", href: "/workbench/account/profile/settings", availability: "connected" },

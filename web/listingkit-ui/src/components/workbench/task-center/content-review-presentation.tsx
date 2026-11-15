@@ -22,7 +22,7 @@ function ValueDisplay({ field, value }: ContentValue) {
 export function ContentComparison({ proposal: p }: { proposal: ProductContentProposal }) {
   const original = p.content.decisions?.[0]?.before ?? p.content.after;
   return <section aria-label="内容修改前后对比"><p>{contentSelectionLabel(p.content.selection)}</p>
-    {p.content.after.map((after, i) => <section key={after.field} className={styles.comparison} aria-label={`${contentValueLabels[after.field]}修改`}>
+    {p.content.after.map((after, i) => <section key={after.field} className={`${styles.comparison} ${styles.comparisonGrid}`} aria-label={`${contentValueLabels[after.field]}修改`}>
       <h3>{contentValueLabels[after.field]}</h3>
       <div className={styles.before}><h4>修改前</h4><ValueDisplay {...p.content.before[i]} /></div>
       <div className={styles.after}><h4>当前建议</h4><ValueDisplay {...after} /></div>

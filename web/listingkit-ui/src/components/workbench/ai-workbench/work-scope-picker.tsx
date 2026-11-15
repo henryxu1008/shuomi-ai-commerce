@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { requestAIWorkbench, type AIScope } from "@/lib/api/ai-workbench";
 import type { WorkScopeOption, WorkScopeSelection } from "@/lib/contracts/ai-workbench";
+import styles from "./work-scope-picker.module.css";
 
 export function scopeLabel(value: Omit<WorkScopeOption,"confirmation"> | undefined): string {
   if (!value) return "未记录工作范围";
@@ -34,11 +35,11 @@ export function WorkScopePicker({scope, authorizationKey, disabled, selected, on
     retry:false, gcTime:0,
   });
   const rows = options.data?.pages.flatMap(page=>page.options) ?? [];
-  return <div>
+  return <div className={`${styles.picker} ${fixedKind ? styles.fixedPicker : ""}`}>
     {!fixedKind ? <label>范围类型 <select value={kind} disabled={disabled} onChange={event=>{
       setKind(event.target.value as typeof kind); onSelect(undefined);
     }}><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option></select></label> : null}
-    <label>工作范围 <select value={selected?.confirmation ?? ""} disabled={disabled || options.isPending || options.isError}
+    <label>{fixedKind ? kind === "project" ? "项目" : kind === "store" ? "店铺" : "工作范围" : "工作范围"} <select value={selected?.confirmation ?? ""} disabled={disabled || options.isPending || options.isError}
       onChange={event=>onSelect(rows.find(row=>row.confirmation===event.target.value))}>
       <option value="">{options.isPending ? "正在读取…" : "请选择"}</option>
       {rows.map(row=><option key={row.confirmation} value={row.confirmation}>{scopeLabel(row)}</option>)}

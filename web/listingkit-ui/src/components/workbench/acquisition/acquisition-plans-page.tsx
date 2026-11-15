@@ -114,7 +114,7 @@ export function AcquisitionPlansPage({scope,agentKind}:{scope:AcquisitionContext
   finally{if(alive.current){setBusy(false);running.current=false;}}
  }
  function pause(){running.current=false;controller.current?.abort();setBusy(false);setError("已停止发出新步骤；已发出的操作请读取原计划确认。");}
- return <ConsolePage title="1688在线采集" breadcrumbs={findConsoleRoute("/workbench/supply/acquisition")?.trail} description="采集成功的商品保存到我的数据，按需转入待上传。" actions={<Button disabled={loading||busy||!!pending} onClick={()=>{setError(null);setOpen(true);}}>1688在线采集</Button>}>
+ return <ConsolePage title="1688 在线采集" breadcrumbs={findConsoleRoute("/workbench/supply/acquisition")?.trail} description="采集成功的商品保存到我的数据，按需转入待上传。" actions={<><Button disabled={loading||busy||!!pending} onClick={()=>{setError(null);setOpen(true);}}>新建采集任务</Button><Button variant="outline" asChild><Link href="/workbench/data/mine">我的数据</Link></Button></>}>
   {error&&!open&&!ruleOpen?<p role="alert" className={styles.feedback}>{error}</p>:null}
   {pending?<Card className="mb-4 space-y-3 p-5"><h2>创建结果待核实</h2><p className="text-sm text-muted-foreground">原请求标识：{pending.key}。读取不会开始采集。</p><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={()=>void recoverCreation()}>读取原计划</Button><Button variant="outline" disabled={busy} onClick={()=>void recoverCreation(true)}>使用原请求确认创建</Button></div></Card>:null}
   <Card className="space-y-4 p-5"><div className="flex items-center justify-between"><h2 ref={planHeading} tabIndex={-1} className="font-semibold">采集计划</h2>{busy?<Button variant="outline" onClick={pause}>暂停</Button>:null}</div>
@@ -250,8 +250,8 @@ function CaptureDialog({closeLocked,rules,canTransfer,disabled,error,onClose,onR
  const [mode,setMode]=useState<CreatePlan["mode"]>("product"),[values,setValues]=useState<Record<string,string>>({product:"",page:"",keyword:""}),[auto,setAuto]=useState(false),[ruleID,setRuleID]=useState(""),[inputError,setInputError]=useState<string|null>(null);
  const selected=modes.find(m=>m.id===mode)!;
  function start(){const template=rules.find(r=>r.id===ruleID);const parsed=createPlanSchema.safeParse({mode,inputs:values[mode]!.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),autoTransfer:auto, ...(template?{templateId:template.id,templateRevision:template.revision}:{})});if(!parsed.success){setInputError("请填写 1–20 行有效输入；关键词最多 200 字节，商品需提供公开链接或 offer ID。");return;}setInputError(null);onSubmit(parsed.data);}
- return <NativeDialog title="1688在线采集" className={styles.captureDialog} onClose={onClose}><form className={`${styles.capture} ${error||inputError?styles.withError:""}`} onSubmit={e=>{e.preventDefault();start();}}>
-  <header><h2>1688在线采集</h2><span className={styles.billing}>1688 · 按数据量计费</span><p>支持指定商品、按页、按关键词三种采集方式。</p></header>
+ return <NativeDialog title="新建 1688 采集任务" className={styles.captureDialog} onClose={onClose}><form className={`${styles.capture} ${error||inputError?styles.withError:""}`} onSubmit={e=>{e.preventDefault();start();}}>
+  <header><h2>新建 1688 采集任务</h2><span className={styles.billing}>1688 · 按数据量计费</span><p>支持指定商品、按页、按关键词三种采集方式。</p></header>
   <section className={styles.config}><span>采集方式</span><div role="tablist" aria-label="采集方式">{modes.map(m=><button key={m.id} type="button" role="tab" aria-selected={mode===m.id} disabled={disabled} onClick={()=>setMode(m.id)}>{m.label}</button>)}</div></section>
   <div className={styles.source}><label htmlFor="capture-input">{selected.field}</label><Textarea id="capture-input" value={values[mode]} onChange={e=>setValues(v=>({...v,[mode]:e.target.value}))} disabled={disabled} placeholder={selected.placeholder}/><p>最多 20 行输入、200 个去重商品；{mode==="product"?"每行一条。":"仅当前页可见商品，不自动翻页。"}</p></div>
   <p className={styles.charge}>按实际采集成功的数据条数扣除数据额度；采集规则不影响计费。</p>

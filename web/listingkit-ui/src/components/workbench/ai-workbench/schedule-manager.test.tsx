@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from "vitest";
-import {render,screen,waitFor,cleanup} from "@testing-library/react";
+import {render,screen,waitFor,cleanup,within,fireEvent} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {ScheduleManager} from "./schedule-manager";
@@ -7,9 +7,12 @@ import {ScheduleForm} from "./schedule-form";
 import {AIWorkbenchError,requestAIWorkbench} from "@/lib/api/ai-workbench";
 vi.mock("@/lib/api/ai-workbench",async original=>{const actual=await original<typeof import("@/lib/api/ai-workbench")>();return {...actual,requestAIWorkbench:vi.fn()};});
 vi.mock("./chat-task-selection",()=>({ChatTaskSelection:()=>null}));
+vi.mock("@/lib/api/store-center",()=>({catalogSchema:{},storeCenterRequest:vi.fn(async()=>({items:[{id:"33333333-3333-4333-8333-333333333333",name:"日报合成店",platform:"shein"}],pagination:{page:1,pageSize:100,total:1}}))}));
 const request=vi.mocked(requestAIWorkbench),scope={userId:"user",organizationId:"org"},id="11111111-1111-4111-8111-111111111111";
 const plan={id,revision:"2",state:"ACTIVE" as const,registrationState:"MATCHED" as const,detailsAvailable:true,goalSummary:"完善商品描述",rule:{frequency:"daily" as const,timeZone:"Asia/Shanghai",hour:9,minute:0,weekday:0},maxOccurrences:"3",consumedOccurrences:"1",unit:"ai-micropoint-v1" as const,perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"57600000",createdAt:"2026-11-01T00:00:00Z"};
 const storageKey="ai-workbench-schedule-command:user:org";
+Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
+Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
 function mount(){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ScheduleManager scope={scope} authorizationKey="roles" canUse onBack={vi.fn()}/></QueryClientProvider>)}
 beforeEach(()=>{cleanup();sessionStorage.clear();window.history.replaceState(null,"","/?view=schedules");request.mockReset();request.mockImplementation(async input=>{
  if(input.route==="schedule-availability")return {enabled:true,ready:true} as never;
@@ -18,6 +21,31 @@ beforeEach(()=>{cleanup();sessionStorage.clear();window.history.replaceState(nul
  if(input.route==="schedule-history")return {occurrences:[],next:""} as never;
  throw new Error("unexpected mutation");
 });});
+it.each(["结束计划","删除计划"])("confirms %s in the shared dialog, supports cancel and Esc, and restores focus",async label=>{
+ mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
+ const trigger=await screen.findByRole("button",{name:label});await userEvent.click(trigger);
+ let dialog=screen.getByRole("dialog");expect(within(dialog).getByRole("button",{name:"取消"})).toHaveFocus();
+ expect(request.mock.calls.some(([input])=>input.method==="POST")).toBe(false);
+ await userEvent.click(within(dialog).getByRole("button",{name:"取消"}));expect(trigger).toHaveFocus();
+ await userEvent.click(trigger);dialog=screen.getByRole("dialog");fireEvent(dialog,new Event("cancel",{cancelable:true}));
+ expect(screen.queryByRole("dialog")).toBeNull();expect(trigger).toHaveFocus();
+ expect(request.mock.calls.some(([input])=>input.method==="POST")).toBe(false);
+});
+it("deletes an ended plan only after confirmation and removes it from the list",async()=>{
+ let removed=false;const current=request.getMockImplementation()!;
+ request.mockImplementation(async input=>{
+  if(input.route==="schedule-list")return {plans:removed?[]:[{...plan,state:"CLOSED"}],next:""} as never;
+  if(input.route==="schedule-read")return {plan:{...plan,state:"CLOSED"}} as never;
+  if(String(input.route)==="schedule-delete"){removed=true;expect(input.body).toEqual({expectedRevision:"2"});return {plan:{...plan,state:"CLOSED",deleted:true},planSaved:true} as never;}
+  return current(input);
+ });
+ mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
+ await userEvent.click(await screen.findByRole("button",{name:"删除计划"}));
+ await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:"删除计划"}));
+ await screen.findByText("计划已删除，已有结果和执行记录仍保留。");
+ await screen.findByRole("heading",{name:"还没有定时任务"});
+ expect(request.mock.calls.filter(([input])=>String(input.route)==="schedule-delete")).toHaveLength(1);
+});
 it("restores an uncertain pause after reload and retries the exact original version and key",async()=>{
  const command={action:"pause",path:`schedules/${id}/pause`,key:id,body:{expectedRevision:"2"}};
  sessionStorage.setItem(storageKey,JSON.stringify(command));
@@ -33,6 +61,24 @@ it("restores an uncertain pause after reload and retries the exact original vers
  });
  await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));
  await screen.findByRole("button",{name:"恢复未来执行"});expect(sessionStorage.getItem(storageKey)).toBeNull();
+});
+it("recovers an uncertain deletion with the same key after reload without losing the original command",async()=>{
+ const command={action:"delete",path:`schedules/${id}/delete`,key:id,body:{expectedRevision:"2"}};
+ sessionStorage.setItem(storageKey,JSON.stringify(command));const current=request.getMockImplementation()!;let tries=0;
+ request.mockImplementation(async input=>{
+  if(input.route==="schedule-delete"){
+   expect(input.key).toBe(command.key);expect(input.body).toEqual(command.body);
+   if(++tries===1)throw new AIWorkbenchError("OUTCOME_UNKNOWN");
+   return {plan:{...plan,state:"CLOSED",deleted:true},planSaved:true} as never;
+  }
+  if(input.route==="schedule-list"&&tries>1)return {plans:[],next:""} as never;
+  return current(input);
+ });
+ mount();await userEvent.click(await screen.findByRole("button",{name:"核实原操作"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原操作"})).toBeEnabled());
+ expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual(command);
+ await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));
+ await screen.findByText("计划已删除，已有结果和执行记录仍保留。");expect(sessionStorage.getItem(storageKey)).toBeNull();expect(tries).toBe(2);
 });
 it.each(["OUTCOME_UNKNOWN","DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED","TASK_OUTCOME_UNKNOWN"])("keeps the original command when %s cannot prove rejection",async code=>{
  mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
@@ -72,4 +118,16 @@ it("retires an unknown command only after an authoritative durable rejection",as
  mount();await userEvent.click(await screen.findByRole("button",{name:"核实原操作"}));await waitFor(()=>expect(screen.getByRole("button",{name:"核实原操作"})).toBeEnabled());expect(sessionStorage.getItem(storageKey)).not.toBeNull();
  await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));await waitFor(()=>expect(screen.queryByRole("heading",{name:"上次操作结果待核实"})).toBeNull());
  expect(sessionStorage.getItem(storageKey)).toBeNull();expect(screen.getByRole("button",{name:"创建定时任务"})).toBeEnabled();
+});
+
+it("confirms a deterministic store report without product or model fields",async()=>{
+ const save=vi.fn(async(_input:unknown)=>{});
+ request.mockImplementation(async input=>{expect(input.route).toBe("schedule-quote");expect(input.body).not.toHaveProperty("selection");expect(input.body).not.toHaveProperty("proposalId");return {kind:"store.operating-daily-report",report:(input.body as {report:unknown}).report,confirmation:"a".repeat(64),goalSummary:"店铺经营日报",rule:(input.body as {rule:unknown}).rule,maxOccurrences:"1",unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0",nextAt:"2030-11-20T01:00:00Z"} as never;});
+ render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" disabled={false} dailyReportEnabled contentEnabled={false} onSave={save} onCancel={vi.fn()}/></QueryClientProvider>);
+ await screen.findByRole("option",{name:/日报合成店/});
+ await userEvent.selectOptions(await screen.findByLabelText("店铺"),"33333333-3333-4333-8333-333333333333");
+ await userEvent.type(screen.getByLabelText("执行日期与时间（本机时区）"),"2030-11-20T09:00");
+ await userEvent.click(screen.getByRole("button",{name:"核对计划"}));
+ await screen.findByText("每次执行自动保存一份个人报告");expect(save).not.toHaveBeenCalled();expect(screen.queryByText(/AI 积分/)).toBeNull();
+ await userEvent.click(screen.getByRole("button",{name:"确认并保存计划"}));expect(save).toHaveBeenCalledOnce();expect(save.mock.calls[0][0]).toMatchObject({kind:"store.operating-daily-report",report:{storeId:"33333333-3333-4333-8333-333333333333"}});
 });

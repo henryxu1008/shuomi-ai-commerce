@@ -8,7 +8,7 @@ import { contentSelectionLabel, type ContentSelection } from "@/lib/contracts/co
 
 // Presentation props only. The #344 consumer supplies validated values.
 export function TitleComparison({ before, after, originalTitle }: { before: string; after: string; originalTitle: string }) {
-  return <section className={styles.comparison} aria-label="标题修改前后对比">
+  return <section className={`${styles.comparison} ${styles.comparisonGrid}`} aria-label="标题修改前后对比">
     <h3>标题修改</h3>
     <div className={styles.before}><h4>修改前</h4><p>{before}</p></div>
     <div className={styles.after}><h4>修改后</h4><p>{after}</p></div>

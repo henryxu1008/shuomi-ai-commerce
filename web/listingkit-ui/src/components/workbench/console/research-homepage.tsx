@@ -1,6 +1,7 @@
 "use client";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { researchLocation, researchNavigationHref, researchWorkflow, type ResearchCenter } from "@/lib/workbench/research-navigation";
 import { ConsoleState } from "./console-page";
 import { PrimaryIntroduction } from "./primary-introduction";
@@ -19,5 +20,5 @@ export function ResearchHomepage({ center, mode = "active", initialSearch = "" }
   const root = researchWorkflow(center).root;
   const location = researchLocation(root, new URLSearchParams({ mode, search: initialSearch }));
   const steps = center === "research" ? ["projects", "sources", "summary"] : ["candidates", "analysis", "transfer"];
-  return <PrimaryIntroduction kind={center} available={available} notice={notice} entryHrefs={steps.map(step => researchNavigationHref(`${root}?step=${step}`, location))} />;
+  return <PrimaryIntroduction kind={center} available={available} notice={notice} entryHrefs={steps.map(step => researchNavigationHref(`${root}?step=${step}`, location))} actions={<Button asChild variant="outline"><Link href="/workbench/agents/market">返回智能体市场</Link></Button>} />;
 }

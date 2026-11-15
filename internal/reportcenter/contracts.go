@@ -42,11 +42,14 @@ type SourceRef struct {
 }
 
 func KindValid(k string) bool {
-	return k == "TITLE_REVIEW" || k == "SHEIN_RECORD" || k == "SHEIN_TARGET_RECORD"
+	return k == "TITLE_REVIEW" || k == "SHEIN_RECORD" || k == "SHEIN_TARGET_RECORD" || k == StoreDailyReportKind
 }
 func (r SourceRef) Valid() bool {
 	if !KindValid(r.Kind) || !UUID(r.ID) {
 		return false
+	}
+	if r.Kind == StoreDailyReportKind {
+		return r.Version == "1"
 	}
 	if r.Kind == "SHEIN_RECORD" || r.Kind == "SHEIN_TARGET_RECORD" {
 		value, canonical := strings.CutPrefix(r.Version, "sha256:")
@@ -74,11 +77,12 @@ type Document struct {
 	Sections      []Section `json:"sections"`
 }
 type SourceInfo struct {
-	Ref        SourceRef  `json:"ref"`
-	Title      string     `json:"title"`
-	ProductKey string     `json:"productKey"`
-	StoreID    string     `json:"storeId"`
-	SourceAt   *time.Time `json:"sourceAt,omitempty"`
+	ScheduledOrigin *ScheduledOrigin `json:"scheduledOrigin,omitempty"`
+	Ref             SourceRef        `json:"ref"`
+	Title           string           `json:"title"`
+	ProductKey      string           `json:"productKey"`
+	StoreID         string           `json:"storeId"`
+	SourceAt        *time.Time       `json:"sourceAt,omitempty"`
 }
 type Snapshot struct {
 	SourceInfo
@@ -91,7 +95,11 @@ func textValid(s string, limit int, multiline bool) bool {
 	}) < 0
 }
 func (s Snapshot) Bytes() ([]byte, string, error) {
-	if !s.Ref.Valid() || !textValid(s.Title, 256, false) || !textValid(s.ProductKey, 128, false) || (s.StoreID != "" && !UUID(s.StoreID)) || (s.SourceAt != nil && s.SourceAt.IsZero()) || s.Content.SchemaVersion != 1 || len(s.Content.Sections) == 0 || len(s.Content.Sections) > 16 {
+	productValid := textValid(s.ProductKey, 128, false) && s.ScheduledOrigin == nil
+	if s.Ref.Kind == StoreDailyReportKind {
+		productValid = s.ProductKey == "" && s.ScheduledOrigin != nil && s.ScheduledOrigin.Valid() && s.ScheduledOrigin.OccurrenceID == s.Ref.ID && s.ScheduledOrigin.StoreID == s.StoreID
+	}
+	if !s.Ref.Valid() || !textValid(s.Title, 256, false) || !productValid || (s.StoreID != "" && !UUID(s.StoreID)) || (s.SourceAt != nil && s.SourceAt.IsZero()) || s.Content.SchemaVersion != 1 || len(s.Content.Sections) == 0 || len(s.Content.Sections) > 16 {
 		return nil, "", ErrUnavailable
 	}
 	fields := 0
@@ -167,9 +175,10 @@ type Repository interface {
 // Authorize returns the currently resolved identity context for source readers.
 type Authorize func(context.Context, Scope, bool) (context.Context, error)
 type Service struct {
-	Repository Repository
-	Sources    SourceReader
-	Authorize  Authorize
+	DailyVisibility func(context.Context, Scope) (DailyVisibility, error)
+	Repository      Repository
+	Sources         SourceReader
+	Authorize       Authorize
 }
 
 func Fingerprint(operation string, intent any) string {

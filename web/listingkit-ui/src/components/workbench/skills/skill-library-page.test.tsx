@@ -28,6 +28,20 @@ beforeEach(() => {
 });
 afterEach(() => {cleanup(); vi.clearAllMocks()});
 
+it("omits the official template subtitle", () => {
+  render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
+  expect(screen.getByRole("heading", {name: "官方模板", level: 1})).toBeVisible();
+  expect(screen.queryByText("查找平台提供的技能模板。")).not.toBeInTheDocument();
+});
+it("shows official maintenance under system settings only to an authorized identity", async () => {
+  vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:true,canCreate:true,reason:""}:{items:[],nextCursor:""});
+  render(<SkillLibraryPage expectedUserId="alice" category="official" maintenance/>);
+  expect(screen.getByRole("heading",{name:"系统设置",level:1})).toBeVisible();
+  expect(screen.queryByRole("button",{name:"安装官方模板"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("navigation",{name:"技能库分类"})).toBeNull();
+  expect(vi.mocked(skillRequest).mock.calls.every(([,path])=>path!=="official/install")).toBe(true);
+});
+
 it("manages personal skills without an organization or a modal", async () => {
   render(<SkillLibraryPage expectedUserId="alice" category="mine"/>);
   expect(await screen.findByRole("button", {name: "新建技能"})).toBeEnabled();
@@ -41,7 +55,7 @@ it("manages personal skills without an organization or a modal", async () => {
 it("reads official templates without an organization and shows an honest empty state", async () => {
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
   expect(await screen.findByText("当前暂无可读取的官方模板")).toBeInTheDocument();
-  expect(screen.getByText(/安装不会覆盖已有版本或状态/)).toBeInTheDocument();
+  expect(screen.getByText("暂无可用的官方模板。")).toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "新建技能"})).not.toBeInTheDocument();
   expect(vi.mocked(skillRequest).mock.calls.every(([, path]) => path.startsWith("official"))).toBe(true);
 });
@@ -158,7 +172,7 @@ it.each(["SKILL_FORBIDDEN","SKILL_NOT_FOUND","IDENTITY_CONTEXT_CHANGED","ORGANIZ
   vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:false,canCreate:true,reason:""}:path.endsWith("/versions/2")?Promise.reject(new SkillError(code)):path.endsWith("/versions/1")?item:path.endsWith("/versions")?{items:[item.version,{...item.version,version:2}]}:{items:[item],nextCursor:""});
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);fireEvent.click(await screen.findByText("permission-skill"));
   const dialog=await screen.findByRole("dialog",{name:"permission-skill"});fireEvent.change(within(dialog).getByLabelText("已保存版本"),{target:{value:"2"}});
-  expect(await screen.findByRole("alert")).toHaveFocus();expect(screen.queryByRole("dialog",{name:"permission-skill"})).not.toBeInTheDocument();expect(screen.queryByText("Private skill text")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"复制到本人"})).not.toBeInTheDocument();
+  const alert = await screen.findByRole("alert");await waitFor(() => expect(alert).toHaveFocus());expect(screen.queryByRole("dialog",{name:"permission-skill"})).not.toBeInTheDocument();expect(screen.queryByText("Private skill text")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"复制到本人"})).not.toBeInTheDocument();
 });
 
 it.each([[false, "page"], ["unavailable", "page"], [false, "dialog"], ["unavailable", "dialog"]])("hides organization copy when organization/info canCreate is %s in %s", async (allowed, presentation) => {
