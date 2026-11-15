@@ -159,8 +159,19 @@ it("requotes all future settings and distinguishes remaining budget from past ru
  await userEvent.clear(screen.getByLabelText("最多执行次数"));await userEvent.type(screen.getByLabelText("最多执行次数"),"4");
  await userEvent.click(screen.getByRole("button",{name:"核对时间与预算"}));
  await screen.findByText("已执行 1 次，后续可执行 3 次");expect(screen.getByText("57.6 AI 积分")).toBeVisible();expect(save).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByText("查看所选商品资料"));
+ expect(within(screen.getByRole("region",{name:"确认定时计划"})).getByText(`商品标识 ${id}`)).toBeVisible();
  await userEvent.clear(screen.getByLabelText("最多执行次数"));await userEvent.type(screen.getByLabelText("最多执行次数"),"5");
  expect(screen.queryByRole("button",{name:"确认修改计划"})).toBeNull();expect(screen.getByRole("textbox",{name:"任务目标"})).toHaveValue("Updated future description");
+});
+
+it("keeps the authorized original store identifiable when outside loaded catalog pages",async()=>{
+ const storeId="44444444-4444-4444-8444-444444444444";
+ render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" copyFrom={{...plan,deleted:false,kind:"store.operating-daily-report",storeName:"原计划授权店铺",report:{storeId,version:1,periodPolicy:"previous_natural_day",businessZone:"Asia/Shanghai"}}} disabled={false} onSave={vi.fn()} onCancel={vi.fn()}/></QueryClientProvider>);
+ await screen.findByRole("option",{name:/日报合成店/});
+ expect(screen.getByRole("option",{name:/原计划授权店铺/})).toHaveAttribute("value",storeId);
+ expect(screen.getByLabelText("店铺")).toHaveDisplayValue("原计划授权店铺");
+ expect(request).not.toHaveBeenCalled();
 });
 
 it("rejects a count already consumed before requesting a quote",async()=>{
