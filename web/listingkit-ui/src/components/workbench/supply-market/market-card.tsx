@@ -24,13 +24,13 @@ export function MarketCard({product:p,locked,adding,onAdd}:{product:MarketView;l
     <div><dt>{p.supply.stock>0?"库存":"供货能力"}</dt><dd>{p.supply.stock>0?`${p.supply.stock} 件`:p.supply.capacity}</dd></div>
    </dl>
    <div className={styles.footer}>
+    <div className={styles.footerTop}>
+     {p.added===true?<p className={styles.added}>已加入我的数据</p>:null}
+     <Link className={styles.details} href={"/workbench/supply/products/"+p.id} prefetch={false}>查看商品</Link>
+    </div>
     <div className={styles.priceRow}>
      <div className={styles.prices} aria-label="商品价格">{p.prices.length?p.prices.map(price=><p key={price.currency}>{price.minimum===price.maximum?formatMarketPrice(price.minimum,price.currency):`${formatMarketPrice(price.minimum,price.currency)} – ${formatMarketPrice(price.maximum,price.currency)}`}</p>):<p className={styles.noPrice}>价格待确认</p>}</div>
-     {p.added===true?<p className={styles.added}>已加入我的数据</p>:null}
-    </div>
-    <div className={styles.actions}>
      {p.added===true?<Button variant="secondary" asChild><Link href="/workbench/data/mine" prefetch={false}>查看我的数据</Link></Button>:<Button disabled={locked||p.added!==false} onClick={onAdd}>{adding?"正在加入…":p.added===false?"加入我的数据":"暂不可加入"}</Button>}
-     <Link className={styles.details} href={"/workbench/supply/products/"+p.id} prefetch={false}>查看商品</Link>
     </div>
    </div>
   </div>
