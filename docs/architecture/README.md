@@ -6,7 +6,7 @@
 
 ## 研究与商业评估规划
 
-- [定时计划删除](scheduled-plan-deletion.md) — #1288，保留结果与在途任务的列表移除；独立检查 IMPLEMENTATION_READY，沿用计划控制与恢复。
+- `scheduled-plan-deletion.md` — [定时计划删除](scheduled-plan-deletion.md)；#1288，保留结果与在途任务的列表移除；独立检查 IMPLEMENTATION_READY，沿用计划控制与恢复。
 
 - `scheduled-store-daily-report.md` — [定时生成单店经营日报](scheduled-store-daily-report.md)；#1279 独立架构及恢复增量复核 IMPLEMENTATION_READY；仅设计、未实现，不开放模型或平台发布。
 

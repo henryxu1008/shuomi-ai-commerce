@@ -63,7 +63,7 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
  return <ConsolePage title="定时任务" description="按业务安排执行时间，查看计划和已生成的结果。" actions={<Button variant="outline" disabled={locked} onClick={onBack}>返回业务任务</Button>}>
   {confirmation?<ResourceDialog title={confirmation.action==="delete"?"删除计划":"结束计划"} onClose={()=>setConfirmation(undefined)} initialFocusRef={cancelRef}>
    <p>{confirmation.action==="delete"?"删除后，此计划不再执行，也不再显示在定时列表中。":"结束后，此计划不再执行，且不能恢复。"}</p>
-   <p>已经开始的任务会继续执行，已有报告和执行记录保留，费用与预留不受影响。</p>
+   <p>已经开始的任务会继续执行，已有报告和执行记录会保留。</p>
    <div className={styles.actions}><Button ref={cancelRef} variant="outline" onClick={()=>setConfirmation(undefined)}>取消</Button><Button disabled={locked} onClick={()=>{const current=confirmation;setConfirmation(undefined);control(current.action,current.plan);}}>{confirmation.action==="delete"?"删除计划":"结束计划"}</Button></div>
   </ResourceDialog>:null}
   {error?<p role="alert">{error}</p>:null}{notice?<p role="status">{notice}</p>:null}

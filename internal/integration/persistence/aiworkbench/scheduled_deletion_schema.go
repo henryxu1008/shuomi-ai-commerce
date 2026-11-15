@@ -48,7 +48,7 @@ func InstallScheduledDeletionSchema(db *gorm.DB, role string) error {
 		if err := validateBoundedWorkbenchPrivileges(tx, role); err != nil {
 			return err
 		}
-		return verifyScheduledDeletionSchema(context.Background(), tx)
+		return verifyScheduledDeletionSchema(tx.Statement.Context, tx)
 	})
 }
 
