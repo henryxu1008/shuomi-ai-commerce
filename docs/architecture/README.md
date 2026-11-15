@@ -209,6 +209,7 @@
 - `product-selection-comparison-agent.md` — [Product selection comparison Agent v1](product-selection-comparison-agent.md)
 - `shop-operations-diagnosis-agent.md` — [Shop operations diagnosis Agent v1](shop-operations-diagnosis-agent.md)
 - `skill-capability.md` — [Skill V1：三层归属与现有商品内容 Agent 接入](skill-capability.md)
+- `skill-script-sandbox.md` — [技能脚本执行：Linux Docker + OpenSandbox + gVisor 接入设计](skill-script-sandbox.md) · §21 三组产品范围已批准，正式执行 #1293，IMPLEMENTATION_READY / Ready（未启动）；独立复核0新架构BLOCKER，两项SDK方法证据复用，D-IT1余项为试用开放Must。正式业务未实现，本轮不改生产代码；Kubernetes非前置。
 - `tool-customization-figma.md` — [工具定制完整 Figma 表单与私有参考资料](tool-customization-figma.md)
 - `tool-market.md` — [工具市场 v1 — 企业启用与人工定制需求](tool-market.md)
 
