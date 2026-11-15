@@ -2,9 +2,11 @@ package supplymarket
 
 import (
 	"context"
+	"errors"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/collection"
+	"task-processor/internal/product/sourcing"
 	"testing"
 	"time"
 
@@ -12,6 +14,24 @@ import (
 )
 
 type liveRoles struct{}
+
+type failingLiveRoles struct{ err error }
+
+func (f failingLiveRoles) ResolveLiveRoles(context.Context, string, string) ([]string, error) {
+	return nil, f.err
+}
+
+func TestMarketStatusAuthorizationDistinguishesLiveDependencyFailure(t *testing.T) {
+	permissions, err := authz.NewListingKitAuthorizer(nil, nil)
+	require.NoError(t, err)
+	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: "org", EffectiveOrganizationID: "org", UserID: "actor", EffectiveMemberID: "member", TokenExpiresAt: time.Now().Add(time.Minute)})
+	for _, test := range []struct{ cause, expected error }{{sourcing.ErrPublicationForbidden, ErrForbidden}, {sourcing.ErrSourcePublicationUnavailable, ErrUnavailable}, {errors.New("role store failed"), ErrUnavailable}} {
+		a, e := NewContextAuthorizer(failingLiveRoles{test.cause}, permissions)
+		require.NoError(t, e)
+		_, e = a.Authorize(ctx, collection.PermissionRead)
+		require.ErrorIs(t, e, test.expected)
+	}
+}
 
 func (liveRoles) ResolveLiveRoles(context.Context, string, string) ([]string, error) {
 	return []string{"owner"}, nil

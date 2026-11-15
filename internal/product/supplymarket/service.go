@@ -133,19 +133,21 @@ type Repository interface {
 	ListRecordReleases(context.Context, collection.Scope, string, string, Query) (Page[Release], error)
 	ListReleases(context.Context, Query) (Page[Release], error)
 	ReadRelease(context.Context, string) (Release, error)
+	ReadMarketData(context.Context, collection.Scope, []string) (map[string]MarketData, error)
 }
 type Service struct {
 	auth       Authorizer
 	selected   SelectionReader
 	effective  EffectiveProductReader
 	repository Repository
+	merchants  VerifiedMerchantReader
 }
 
-func NewService(auth Authorizer, selected SelectionReader, effective EffectiveProductReader, repository Repository) (*Service, error) {
+func NewService(auth Authorizer, selected SelectionReader, effective EffectiveProductReader, repository Repository, merchants VerifiedMerchantReader) (*Service, error) {
 	if auth == nil || selected == nil || effective == nil || repository == nil {
 		return nil, ErrUnavailable
 	}
-	return &Service{auth, selected, effective, repository}, nil
+	return &Service{auth: auth, selected: selected, effective: effective, repository: repository, merchants: merchants}, nil
 }
 
 func (s *Service) ExecuteMember(ctx context.Context, key string, input Mutation) (Receipt, error) {
@@ -308,49 +310,57 @@ func validateMutation(i Mutation, platform bool) error {
 	return nil
 }
 
-func (s *Service) ListMarket(ctx context.Context, q Query) (Page[Release], error) {
+func (s *Service) ListMarket(ctx context.Context, q Query) (Page[MarketView], error) {
 	if ctx == nil || s == nil {
-		return Page[Release]{}, ErrForbidden
+		return Page[MarketView]{}, ErrForbidden
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
 	if q.Validate() != nil || q.Kind == "connection" {
-		return Page[Release]{}, ErrInvalid
+		return Page[MarketView]{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, false)
 	if err != nil {
-		return Page[Release]{}, ErrForbidden
+		return Page[MarketView]{}, ErrForbidden
 	}
 	value, err := s.repository.ListReleases(ctx, q)
 	if err != nil {
-		return Page[Release]{}, err
+		return Page[MarketView]{}, err
+	}
+	items, viewErr := s.views(ctx, scope, value.Items)
+	if viewErr != nil {
+		return Page[MarketView]{}, viewErr
 	}
 	if err = s.verifyReadPrincipal(ctx, scope, actor, false); err != nil {
-		return Page[Release]{}, err
+		return Page[MarketView]{}, err
 	}
-	return value, nil
+	return Page[MarketView]{Items: items, NextCursor: value.NextCursor, Total: value.Total}, nil
 }
-func (s *Service) ReadMarket(ctx context.Context, id string) (Release, error) {
+func (s *Service) ReadMarket(ctx context.Context, id string) (MarketView, error) {
 	if ctx == nil || s == nil {
-		return Release{}, ErrForbidden
+		return MarketView{}, ErrForbidden
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
 	if !collection.ValidID(id) {
-		return Release{}, ErrInvalid
+		return MarketView{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, false)
 	if err != nil {
-		return Release{}, ErrForbidden
+		return MarketView{}, ErrForbidden
 	}
 	value, err := s.repository.ReadRelease(ctx, id)
 	if err != nil {
-		return Release{}, err
+		return MarketView{}, err
+	}
+	items, viewErr := s.views(ctx, scope, []Release{value})
+	if viewErr != nil {
+		return MarketView{}, viewErr
 	}
 	if err = s.verifyReadPrincipal(ctx, scope, actor, false); err != nil {
-		return Release{}, err
+		return MarketView{}, err
 	}
-	return value, nil
+	return items[0], nil
 }
 func (s *Service) ListApplications(ctx context.Context, q Query, platform bool) (Page[Record], error) {
 	if ctx == nil || s == nil {
@@ -358,7 +368,7 @@ func (s *Service) ListApplications(ctx context.Context, q Query, platform bool) 
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	if q.Validate() != nil {
+	if q.Validate() != nil || !q.Filters.Empty() {
 		return Page[Record]{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, platform)
@@ -402,7 +412,7 @@ func (s *Service) Events(ctx context.Context, id string, q Query, platform bool)
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	if !collection.ValidID(id) || q.Validate() != nil {
+	if !collection.ValidID(id) || q.Validate() != nil || !q.Filters.Empty() {
 		return Page[Event]{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, platform)
@@ -446,7 +456,7 @@ func (s *Service) RecordReleases(ctx context.Context, id string, q Query, platfo
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	if !collection.ValidID(id) || q.Validate() != nil {
+	if !collection.ValidID(id) || q.Validate() != nil || !q.Filters.Empty() {
 		return Page[Release]{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, platform)

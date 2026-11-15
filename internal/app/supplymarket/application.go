@@ -19,6 +19,7 @@ type Dependencies struct {
 	Collections           *collection.Service
 	PrivateStorage        supplymarket.PrivateFileStorage
 	Receiver              func(*gorm.DB) (marketstore.Receiver, error)
+	Merchants             supplymarket.VerifiedMerchantReader
 }
 type Application struct {
 	Market *supplymarket.Service
@@ -55,7 +56,7 @@ func NewApplication(ctx context.Context, d Dependencies) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	service, err := supplymarket.NewService(d.Authorization, d.Collections, EffectiveProductReader{snapshots, applied}, repo)
+	service, err := supplymarket.NewService(d.Authorization, d.Collections, EffectiveProductReader{snapshots, applied}, repo, d.Merchants)
 	if err != nil {
 		return nil, err
 	}

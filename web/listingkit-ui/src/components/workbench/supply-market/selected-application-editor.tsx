@@ -29,7 +29,7 @@ export function SelectedApplicationEditor({scope,drafts,onDraft,common,onCommon,
   const update=(patch:Partial<SelectedDraft>)=>onDraft(active.selection.itemId,patch);
   return <form onSubmit={e=>{e.preventDefault();if(!locked&&!uploadLocked)onReview()}}>
     <fieldset disabled={locked} className={styles.fields}>
-      <Card className={styles.formCard}><h2>公共信息</h2><p>作为默认值，商品可分别取消继承。库存、起订量、交期和价格须逐件填写。</p>
+      <Card className={styles.formCard}><h2>公共信息</h2><p>商品上的商家名称以本企业认证资料为准</p><p>作为默认值，商品可分别取消继承。库存、起订量、交期和价格须逐件填写。</p>
         <div className={styles.inputGrid}><SupplyLocationFields {...common} required={drafts.some(d=>d.inheritLocation)} onChange={location=>onCommon({...common,...location})}/></div>
         <label>公共售后政策<Textarea maxLength={4000} value={common.afterSaleNote} onChange={e=>onCommon({...common,afterSaleNote:e.target.value})}/></label>
         <div className={styles.upload}><h3>通用资质附件</h3><Qualifications scope={scope} ids={commonFiles} onIDs={onCommonFiles} onLocked={setCommonLocked}/></div>

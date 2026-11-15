@@ -71,3 +71,27 @@ func TestSupplyDeclarationMustStateStockOrCapacity(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestPublicPriceDistinguishesZeroFromMissing(t *testing.T) {
+	snapshot := catalog.ProductSnapshot{Title: "价格样本", Images: []catalog.Image{{URL: "https://images.example/product.png"}}, Variants: []catalog.Variant{{SourceID: "zero", Price: &catalog.Price{Currency: "CNY", Amount: 0}}, {SourceID: "missing"}}}
+	product, err := PublicProjection(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(product)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value struct {
+		Variants []map[string]any `json:"variants"`
+	}
+	if err = json.Unmarshal(raw, &value); err != nil {
+		t.Fatal(err)
+	}
+	if price, ok := value.Variants[0]["price"]; !ok || price != float64(0) {
+		t.Fatalf("zero price was dropped: %s", raw)
+	}
+	if _, ok := value.Variants[1]["price"]; ok {
+		t.Fatalf("missing price became zero: %s", raw)
+	}
+}

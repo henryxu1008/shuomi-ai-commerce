@@ -15,10 +15,10 @@ function marketRequest<T>(scope:MarketScope,path:string,schema:z.ZodType<T>,sign
   }catch(e){if(e instanceof MarketAPIError)throw e;throw new MarketAPIError(write&&sent?"OUTCOME_UNKNOWN":"DEPENDENCY_UNAVAILABLE",502)}finally{clearTimeout(timer);signal?.removeEventListener("abort",abort)}
  })();
 }
-export type MarketQuery={after?:string;keyword?:string;kind?:"official"|"selected"|"connection";ended?:boolean};
-const query=(q:MarketQuery)=>{const p=new URLSearchParams({limit:"20"});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.kind)p.set("kind",q.kind);if(q.ended!==undefined)p.set("ended",String(q.ended));return "?"+p};
-export const listMarket=(s:MarketScope,q:MarketQuery,signal?:AbortSignal)=>marketRequest(s,"releases"+query(q),c.marketReleasesSchema,signal);
-export const readMarket=(s:MarketScope,id:string,signal?:AbortSignal)=>marketRequest(s,"releases/"+c.marketID.parse(id),c.marketReleaseSchema,signal);
+export type MarketQuery={after?:string;keyword?:string;kind?:"official"|"selected"|"connection";ended?:boolean}&c.MarketFilters;
+const query=(q:MarketQuery)=>{const p=new URLSearchParams({limit:"20"});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.kind)p.set("kind",q.kind);if(q.ended!==undefined)p.set("ended",String(q.ended));for(const key of ["province","city","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"] as const){const value=q[key];if(value!==undefined)p.set(key,typeof value==="number"?c.marketFilterNumber(value):value)}return "?"+p};
+export const listMarket=(s:MarketScope,q:MarketQuery,signal?:AbortSignal)=>marketRequest(s,"releases"+query(q),c.marketBrowsePageSchema,signal);
+export const readMarket=(s:MarketScope,id:string,signal?:AbortSignal)=>marketRequest(s,"releases/"+c.marketID.parse(id),c.marketBrowseItemSchema,signal);
 export const listMarketRecords=(s:MarketScope,q:MarketQuery,admin=false,signal?:AbortSignal)=>marketRequest(s,"records"+query(q),c.marketRecordsSchema,signal,admin);
 export const readMarketRecord=(s:MarketScope,id:string,admin=false,signal?:AbortSignal)=>marketRequest(s,"records/"+c.marketID.parse(id),c.marketRecordSchema,signal,admin);
 export const listMarketEvents=(s:MarketScope,id:string,after?:string,admin=false,signal?:AbortSignal)=>marketRequest(s,"records/"+c.marketID.parse(id)+"/events"+query({after}),c.marketEventsSchema,signal,admin);
