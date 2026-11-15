@@ -1,10 +1,10 @@
 .card { display:flex; flex-direction:column; overflow:hidden; padding:0; container-type:inline-size; }
 .imageWrap { position:relative; }
-.flag { position:absolute; top:8px; right:8px; display:grid; place-items:center; width:28px; height:28px; border:1px solid var(--border); border-radius:4px; background:var(--card); color:var(--primary); }
-.flag:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
+.savedMarker { position:absolute; top:8px; right:8px; display:grid; place-items:center; width:28px; height:28px; border:1px solid var(--border); border-radius:4px; background:var(--card); color:var(--primary); }
+.savedMarker:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
 .imageLink { display:block; flex-shrink:0; }
 .imageLink:focus-visible { outline:2px solid var(--ring); outline-offset:-2px; }
-.image { display:block; width:100%; aspect-ratio:16/10; object-fit:contain; background:var(--muted); }
+.image { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; background:var(--muted); }
 .body { display:flex; flex-direction:column; flex:1; gap:8px; padding:12px; min-width:0; }
 .body h2 { font-size:14px; line-height:20px; font-weight:500; overflow-wrap:anywhere; }
 .supplier { display:flex; flex-wrap:wrap; gap:4px 12px; }
