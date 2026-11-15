@@ -168,6 +168,32 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 		skillHTTP(t, server, "POST", path+"/"+key+"/review", "admin", "B", "", "", map[string]any{}, 403)
 		return
 	}
+	checkScriptProfile := func(effect func()) {
+		t.Helper()
+		worker, descriptor := app.script, app.scriptDescriptor
+		readOnlyReceipt := func() {
+			var retained productAgentResultDTO
+			raw := skillHTTP(t, server, "GET", path+"/"+key, "admin", "B", "", "", nil, 200)
+			require.NoError(t, json.Unmarshal(raw, &retained))
+			require.False(t, retained.CanSubmitReview)
+			require.Equal(t, result.ScriptReceipt, retained.ScriptReceipt)
+		}
+		app.script = nil
+		readOnlyReceipt()
+		effect()
+		app.script = worker
+		app.scriptDescriptor.NetworkRevision = "withdrawn-network"
+		readOnlyReceipt()
+		effect()
+		app.scriptDescriptor = descriptor
+		skillHTTP(t, server, "GET", path+"/"+key, "admin", "B", "", "", nil, 200)
+		require.Equal(t, before, calls.Load(), "profile changes must not resend")
+	}
+	if withScript {
+		checkScriptProfile(func() {
+			skillHTTP(t, server, "POST", path+"/"+key+"/review", "admin", "B", "", "", map[string]any{}, 409)
+		})
+	}
 	raw = skillHTTP(t, server, "POST", path+"/"+key+"/review", "admin", "B", "", "", map[string]any{}, 200)
 	var link struct {
 		ProposalID string `json:"proposalId"`
@@ -201,7 +227,15 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 		require.False(t, result.HumanReviewRequired)
 	} else {
 		require.Equal(t, "default", mode, "title-only auto approval preserves the existing programmatic gate")
+		if withScript {
+			checkScriptProfile(func() { titleDecision(t, server, view, "accept", "admin", "", 409) })
+		}
 		accepted := titleDecision(t, server, view, "accept", "admin", "", 200)
+		if withScript {
+			checkScriptProfile(func() {
+				titleCall(t, server, "POST", titleBasePath+"/"+view.ID+"/apply", "admin", "B", uuid.NewString(), fmt.Sprintf(`{"expected_revision":%d}`, accepted.Revision), 409)
+			})
+		}
 		view = titleApply(t, server, accepted, uuid.NewString(), 200)
 		require.Equal(t, "applied", view.State)
 	}

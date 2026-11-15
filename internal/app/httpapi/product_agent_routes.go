@@ -427,6 +427,9 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 			}
 			result.SkillVersionRef = state.Request.SkillVersionRef
 			result.ScriptReceipt, result.ScriptOriginalTitle = state.ScriptReceipt, state.ScriptOriginalTitle
+			if state.Request.ScriptSelected() && (a.script == nil || a.scriptDescriptor != state.Request.ScriptDescriptor) {
+				result.CanSubmitReview = false
+			}
 			if content {
 				result.Unresolved = contentRunDiagnostics(state)
 			}

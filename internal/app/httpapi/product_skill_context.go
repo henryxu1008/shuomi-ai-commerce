@@ -56,7 +56,7 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	if e != nil {
 		return nil, e
 	}
-	if snapshot.AgentID != agentconfig.ContentAgentID || snapshot.Request.SkillVersionRef != p.SkillVersionRef || snapshot.Request.ContentSelection != p.ContentSelection || !p.ContentSelection.TitleOnly() {
+	if snapshot.AgentID != agentconfig.ContentAgentID || snapshot.Request.SkillVersionRef != p.SkillVersionRef || snapshot.Request.ScriptDescriptor != p.ScriptDescriptor || snapshot.Request.ContentSelection != p.ContentSelection || !p.ContentSelection.TitleOnly() {
 		return nil, review.ErrConflict
 	}
 	current, e := a.currentModeIdentity(ctx)
@@ -96,6 +96,9 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	}
 	if consumer == nil || consumer.skills == nil {
 		return nil, d.ErrUnavailable
+	}
+	if p.SkillVersionRef.PolicyVersion == d.ScriptPolicyVersion && (consumer.script == nil || consumer.scriptDescriptor != p.ScriptDescriptor) {
+		return nil, review.ErrConflict
 	}
 	// The reviewer never receives the original user's method body. Exact live
 	// origin access is required; the existing reviewer checks still run in UoW.
