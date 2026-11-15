@@ -10,6 +10,7 @@ import {Card} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {listMarket,readMarket,type MarketScope} from "@/lib/api/supply-market";
 import {MarketBoundary,MarketReadError,CursorButtons,useMarketCommands} from "./shared";
+import styles from "./market-product.module.css";
 type Channel="official"|"selected";
 const channels={official:{title:"硕米自营",href:"/workbench/supply/official"},selected:{title:"硕米优选",href:"/workbench/supply/selected"}};
 function MyDataLink(){return <Button variant="outline" asChild><Link href="/workbench/data/mine" prefetch={false}>我的数据</Link></Button>}
@@ -28,8 +29,48 @@ function MarketProduct({scope,id}:{scope:MarketScope;id:string}){
  const q=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"release",id],queryFn:({signal})=>readMarket(scope,id,signal),retry:false}),commands=useMarketCommands(scope);
  if(q.isPending)return <ConsoleState kind="loading" title="正在加载商品"/>;if(q.error)return <MarketReadError error={q.error} retry={()=>void q.refetch()}/>;const p=q.data;
  const channel=channels[p.channel];
- return <ConsolePage className={workbenchViewPage} title={p.product.title} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:channel.title,href:channel.href},{label:"商品详情"}]} description="查看商品和供货信息，加入我的数据后可继续编辑。" actions={<><Button variant="outline" asChild><Link href={channel.href} prefetch={false}>返回{channel.title}</Link></Button><MyDataLink/></>}>{commands.notice}{commands.saved?.collection?<Card className="p-4" role="status">已加入我的数据。<Link href="/workbench/data/mine" prefetch={false}>打开我的数据</Link><p>可在“我的数据”中转入待上传，继续完善商品资料。</p></Card>:null}
-  <div className="grid gap-6 lg:grid-cols-2"><Card className="p-4"><div className="grid grid-cols-2 gap-3">{p.product.images.map((src,i)=><img key={src} src={src} alt={p.product.title+" 商品图 "+(i+1)} className="aspect-square w-full object-contain"/>)}</div></Card><Card className="space-y-4 p-6"><h2>供货信息</h2><p>发货地：{p.supply.province} {p.supply.city}</p><p>库存：{p.supply.stock} 件；生产能力：{p.supply.capacity||"未填写"}</p><p className="text-sm text-muted-foreground">库存由供货方提供，实际供货以确认结果为准。</p><p>起订量：{p.supply.minimumQuantity} 件；供货周期：{p.supply.leadDays} 天</p><p>{p.supply.priceNote}</p><p>{p.supply.afterSaleNote}</p><Button disabled={commands.locked||!!commands.saved?.collection} onClick={()=>void commands.execute({action:"select_release",id:p.id,expectedRevision:p.revision})}>加入我的数据</Button><p className="text-sm text-muted-foreground">你可以先保存商品、准备上架资料，暂不支持在线下单。</p></Card></div>
-  <Card className="space-y-3 p-6"><h2>商品详情</h2><p className="whitespace-pre-wrap">{p.product.description}</p>{p.product.brand?<p>品牌：{p.product.brand}</p>:null}<dl className="grid grid-cols-2 gap-2">{Object.entries(p.product.attributes??{}).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>{p.product.variants?.map((v,i)=><div key={i} className="border-t pt-3"><h3>{v.title||v.sku||"款式 "+(i+1)}</h3><p>{Object.entries(v.attributes??{}).map(([k,x])=>k+"："+x).join("，")}</p>{v.currency?<p>{v.currency} {v.price}</p>:null}<div className="flex gap-2">{v.images?.map(src=><img key={src} src={src} alt="款式图" className="h-24 w-24 object-contain"/>)}</div></div>)}</Card>
+ return <ConsolePage className={`${workbenchViewPage} ${styles.page}`} title={p.product.title} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:channel.title,href:channel.href},{label:"商品详情"}]} description="查看商品和供货信息，加入我的数据后可继续编辑" actions={<><Button variant="ghost" asChild><Link href={channel.href} prefetch={false}>返回{channel.title}</Link></Button><MyDataLink/></>}>
+  <div className={styles.content}>
+   {commands.notice}
+   {commands.saved?.collection?<Card className={styles.saved} role="status"><div>已加入我的数据 <Link href="/workbench/data/mine" prefetch={false}>打开我的数据</Link></div><p>可在“我的数据”中转入待上传，继续完善商品资料</p></Card>:null}
+   <div className={styles.overview}>
+    <Card className={styles.gallery}>
+     <img src={p.product.images[0]} alt={p.product.title+" 商品图 1"} className={styles.mainImage}/>
+     {p.product.images.length>1?<div className={styles.moreImages}>{p.product.images.slice(1).map((src,i)=><img key={src} src={src} alt={p.product.title+" 商品图 "+(i+2)} loading="lazy"/>)}</div>:null}
+    </Card>
+    <Card className={styles.supply}>
+     <h2>供货信息</h2>
+     <dl className={styles.metrics}>
+      <div><dt>库存</dt><dd>{p.supply.stock}<span>件</span></dd></div>
+      <div><dt>起订量</dt><dd>{p.supply.minimumQuantity}<span>件</span></dd></div>
+      <div><dt>供货周期</dt><dd>{p.supply.leadDays}<span>天</span></dd></div>
+     </dl>
+     <dl className={styles.fields}>
+      <div><dt>发货地</dt><dd>{p.supply.province} {p.supply.city}</dd></div>
+      <div><dt>生产能力</dt><dd>{p.supply.capacity||"未填写"}</dd></div>
+      {p.supply.priceNote?<div><dt>价格说明</dt><dd>{p.supply.priceNote}</dd></div>:null}
+      {p.supply.afterSaleNote?<div><dt>售后说明</dt><dd>{p.supply.afterSaleNote}</dd></div>:null}
+     </dl>
+     <p className={styles.note}>库存由供货方提供，实际供货以确认结果为准</p>
+     <div className={styles.selection}>
+      <Button className={styles.selectButton} disabled={commands.locked||!!commands.saved?.collection} onClick={()=>void commands.execute({action:"select_release",id:p.id,expectedRevision:p.revision})}>加入我的数据</Button>
+      <p className={styles.note}>你可以先保存商品、准备上架资料，暂不支持在线下单</p>
+     </div>
+    </Card>
+   </div>
+   <Card className={styles.details}>
+    <h2>商品详情</h2>
+    {p.product.description?<p className={styles.description}>{p.product.description}</p>:null}
+    <dl className={styles.attributes}>
+     {p.product.brand?<div><dt>品牌</dt><dd>{p.product.brand}</dd></div>:null}
+     {Object.entries(p.product.attributes??{}).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+    </dl>
+    {p.product.variants?.map((v,i)=><div key={i} className={styles.variant}>
+     <div className={styles.variantHeading}><h3>{v.title||v.sku||"款式 "+(i+1)}</h3>{v.currency?<p className="tabular-nums">{v.currency} {v.price}</p>:null}</div>
+     <dl className={styles.attributes}>{Object.entries(v.attributes??{}).map(([k,x])=><div key={k}><dt>{k}</dt><dd>{x}</dd></div>)}</dl>
+     {v.images?.length?<div className={styles.variantImages}>{v.images.map(src=><img key={src} src={src} alt="款式图" loading="lazy"/>)}</div>:null}
+    </div>)}
+   </Card>
+  </div>
  </ConsolePage>;
 }

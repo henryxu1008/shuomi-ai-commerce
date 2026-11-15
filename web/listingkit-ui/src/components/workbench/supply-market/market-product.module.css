@@ -1,0 +1,49 @@
+/* Detail polish guided by unslop by Damir Sokolovsky (@heydamir), CC BY 4.0.
+   https://heydamir.design/unslop — existing product palette and components retained. */
+.page :global(.console-page-header) { margin-bottom:24px; }
+.content { display:grid; gap:32px; min-width:0; }
+.overview { display:grid; gap:24px; align-items:start; min-width:0; }
+.gallery { padding:16px; border-radius:16px; overflow:hidden; }
+.mainImage { display:block; width:100%; height:auto; aspect-ratio:4/3; max-height:480px; object-fit:contain; border-radius:8px; background:var(--muted); }
+.moreImages { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:16px; }
+.moreImages img { width:100%; aspect-ratio:4/3; object-fit:contain; background:var(--muted); border-radius:8px; }
+.supply { display:grid; gap:24px; padding:24px; border-radius:16px; }
+.supply h2,.details h2 { font-size:18px; line-height:24px; font-weight:500; }
+.metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; padding-bottom:24px; border-bottom:1px solid var(--border); }
+.metrics > div { display:grid; gap:8px; align-content:start; min-width:0; }
+.metrics dt { font-size:14px; line-height:20px; color:var(--muted-foreground); }
+.metrics dd { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px; font-size:28px; line-height:32px; font-weight:500; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.metrics dd span { font-size:14px; line-height:20px; font-weight:400; color:var(--muted-foreground); }
+.fields { display:grid; gap:16px; }
+.fields > div { display:grid; grid-template-columns:80px minmax(0,1fr); gap:16px; font-size:14px; line-height:24px; }
+.fields dt,.attributes dt { color:var(--muted-foreground); }
+.fields dd { white-space:pre-wrap; overflow-wrap:anywhere; }
+.note { font-size:13px; line-height:20px; color:var(--muted-foreground); }
+.selection { display:grid; gap:12px; padding-top:24px; border-top:1px solid var(--border); }
+.selectButton { width:100%; max-width:320px; min-height:44px; font-size:15px; }
+.saved { display:grid; gap:8px; padding:20px 24px; border-radius:12px; font-size:14px; line-height:24px; }
+.saved a { display:inline-block; margin-left:12px; text-decoration:underline; text-underline-offset:4px; }
+.saved p { color:var(--muted-foreground); }
+.details { display:grid; gap:24px; padding:24px; border-radius:16px; min-width:0; }
+.description { max-width:84ch; font-size:15px; line-height:28px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.attributes { display:grid; grid-template-columns:minmax(0,1fr); gap:0 32px; }
+.attributes:empty { display:none; }
+.attributes > div { display:grid; grid-template-columns:minmax(80px,1fr) minmax(0,3fr); gap:16px; padding:12px 0; border-bottom:1px solid var(--border); font-size:14px; line-height:24px; overflow-wrap:anywhere; }
+.variant { display:grid; gap:16px; padding-top:24px; border-top:1px solid var(--border); }
+.variantHeading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:12px 24px; }
+.variantHeading h3 { font-size:16px; line-height:24px; font-weight:500; overflow-wrap:anywhere; }
+.variantHeading p { font-size:15px; }
+.variantImages { display:flex; flex-wrap:wrap; gap:12px; }
+.variantImages img { width:96px; height:96px; object-fit:contain; border-radius:8px; background:var(--muted); }
+@media (min-width:768px) { .attributes { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (min-width:1024px) { .overview { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:600px) {
+ .content { gap:24px; }
+ .overview { gap:16px; }
+ .gallery { padding:12px; }
+ .supply,.details { padding:20px; gap:20px; }
+ .metrics { gap:12px; padding-bottom:20px; }
+ .metrics dd { gap:4px; font-size:24px; line-height:32px; }
+ .fields > div { grid-template-columns:64px minmax(0,1fr); gap:12px; }
+ .selectButton { max-width:none; }
+}
