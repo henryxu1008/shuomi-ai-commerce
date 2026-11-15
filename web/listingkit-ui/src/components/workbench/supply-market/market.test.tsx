@@ -43,8 +43,8 @@ it("applies supply filters together, preserves zero days and resets paging when 
  fireEvent.change(screen.getByRole("combobox",{name:"发货城市"}),{target:{value:"杭州市"}});
  fireEvent.change(screen.getByRole("combobox",{name:"发货省份"}),{target:{value:"广东省"}});
  expect(screen.getByRole("combobox",{name:"发货城市"})).toHaveValue("");
- expect(screen.getByRole("option",{name:"深圳市",exact:true})).toBeInTheDocument();
- expect(screen.queryByRole("option",{name:"杭州市",exact:true})).not.toBeInTheDocument();
+ expect(screen.getByRole("option",{name:"深圳市"})).toBeInTheDocument();
+ expect(screen.queryByRole("option",{name:"杭州市"})).not.toBeInTheDocument();
  fireEvent.change(screen.getByRole("combobox",{name:"发货省份"}),{target:{value:"浙江省"}});
  fireEvent.change(screen.getByRole("combobox",{name:"发货城市"}),{target:{value:"杭州市"}});
  fireEvent.change(screen.getByRole("spinbutton",{name:"最低价格"}),{target:{value:"0"}});
