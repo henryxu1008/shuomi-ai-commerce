@@ -30,7 +30,7 @@ export const marketCommandSchema=z.discriminatedUnion("action",[
  z.object({action:z.enum(["publish","revoke"]),id:marketID,expectedRevision:revision,note:text(2000).optional()}).strict(),
 ]);
 export type MarketCommand=z.infer<typeof marketCommandSchema>;
-export const marketReleaseSchema=z.object({id:marketID,channel:z.enum(["official","selected"]),product:marketProductSchema,supply:marketSupplySchema,revision,active:z.boolean(),publishedAt:time}).strict();
+const marketReleaseSchema=z.object({id:marketID,channel:z.enum(["official","selected"]),product:marketProductSchema,supply:marketSupplySchema,revision,active:z.boolean(),publishedAt:time}).strict();
 const marketStageSchema=z.enum(["DRAFT","SUBMITTED","EVALUATING","SUPPLEMENT_REQUIRED","APPROVED","REJECTED","PLAN_CONFIRMED","CLOSED"]);
 export const marketRecordSchema=z.object({id:marketID,kind:z.enum(["official","selected","connection"]),source:z.object({itemId:marketID,itemRevision:revision,productKey:text(128,1),originalPublicationId:text(128,1),originalVersion:version,publicationId:text(128,1),version,applyId:marketID.optional()}).strict().optional(),product:marketProductSchema.optional(),supply:marketSupplySchema.optional(),connection:marketConnectionSchema.optional(),fileIds:files.optional(),disclosure:z.boolean(),stage:marketStageSchema,revision,cooperationConfirmed:z.boolean(),createdAt:time}).strict();
 const marketEventSchema=z.object({id:marketID,recordId:marketID,actorId:text(128,1),action:text(64,1),note:text(2000),fileIds:files.optional(),stage:marketStageSchema,createdAt:time}).strict();
