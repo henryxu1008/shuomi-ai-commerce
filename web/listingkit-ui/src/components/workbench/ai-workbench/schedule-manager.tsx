@@ -62,7 +62,8 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
  async function save(input:AIScheduleInput){if(locked||!canUse)return;if(form==="edit"&&plan)await execute({action:"edit",path:`schedules/${plan.id}`,key:crypto.randomUUID(),body:{expectedRevision:input.expectedRevision,rule:input.rule,confirmation:input.confirmation,changes:{selection:input.selection,report:input.report,goalSummary:input.goalSummary,maxOccurrences:input.maxOccurrences}}});else await execute({action:"create",path:"schedules",key:crypto.randomUUID(),body:input});}
  function control(action:"pause"|"resume"|"close"|"delete",current:AIScheduledPlan){void execute({action,path:`schedules/${current.id}/${action}`,key:crypto.randomUUID(),body:{expectedRevision:current.revision}});}
  const items=Array.from(new Map(plans.data?.pages.flatMap(p=>p.plans).map(p=>[p.id,p])??[]).values());
- return <ConsolePage className={styles.page} title="定时任务" description="安排业务执行时间，查看每次处理结果" actions={<Button variant="outline" disabled={locked} onClick={onBack}>返回任务中心</Button>}>
+ const formTitle=form==="edit"?"编辑计划":form==="copy"?"复制新建定时任务":proposalId?"将 Chat 方案设为定时任务":"创建定时任务";
+ return <ConsolePage className={`${styles.page} ${form?styles.editorPage:""}`} title={form?formTitle:"定时任务"} description={form?form==="edit"?"调整后续安排，已经开始的任务和历史记录保持不变":form==="copy"?"带入原计划设置，核对新的执行时间后保存":"选择业务和对象，安排执行时间":"安排业务执行时间，查看每次处理结果"} actions={<Button variant="ghost" disabled={locked} onClick={form?()=>open(selected):onBack}>{form?"返回定时任务":"返回任务中心"}</Button>}>
   {confirmation?<ResourceDialog className={styles.dialog} title={confirmation.action==="delete"?"删除计划":"结束计划"} onClose={()=>setConfirmation(undefined)} initialFocusRef={cancelRef}>
    <p className={styles.dialogDescription}>{confirmation.action==="delete"?"删除后，此计划不再执行，也不再显示在定时列表中。":"结束后，此计划不再执行，且不能恢复。"}</p>
    <p className={styles.hint}>已经开始的任务会继续执行，已有报告和执行记录会保留。</p>

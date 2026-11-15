@@ -17,7 +17,7 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  const selection={subject:{kind:"own_product",id,catalogVersion:"1",publicationId:id},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}};
  const plan={id,deleted:false,revision:"2",state:"ACTIVE",registrationState:"MATCHED",detailsAvailable:true,goalSummary:"完善已保存商品的英语描述",selection,rule:{frequency:"once",timeZone:"Asia/Shanghai",atUtc:at,hour:0,minute:0,weekday:0},maxOccurrences:"1",consumedOccurrences:"0",unit:"ai-micropoint-v1",perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"19200000",nextAt:at,createdAt:"2026-11-12T00:00:00Z"};
  const originalTask={id:taskID,conversationId:"",proposalId:"",scheduleId:id,scheduledOccurrenceId:taskID,title:"定时内容原任务",goalSummary:plan.goalSummary,createdAt:"2026-11-12T00:00:00Z",kind:"product.content.localize",projectionAvailable:true,state:"WAITING_CONFIRMATION",canStart:false,canReconcile:false,canResume:false,canReview:false,productDetailsAvailable:false};
- let created=false,creates=0,firstKey="",firstBody="",rejectNextControl=false,edits=0,editKey="",editBody="";
+ let quoteUnavailable=false,created=false,creates=0,firstKey="",firstBody="",rejectNextControl=false,edits=0,editKey="",editBody="";
  let copied:typeof plan|undefined;
  const copyID="33333333-3333-4333-8333-333333333333";
  await page.route("**/*",async route=>{
@@ -30,7 +30,7 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   if(path==="/api/workbench/collections/batches")return json({items:[],total:0});
   if(path==="/api/workbench/store-center/catalog")return json({schemaVersion:"store-center-v1",organizationId:"org",userId:"user",data:{items:[store],pagination:{page:1,pageSize:100,total:1},metrics:{total:1,normal:null,attention:null,syncHealthy:null,unknown:1,complete:false,observedAt:at},facets:{regions:["US"],applicationTypes:[],groups:[],canManageGroups:false}}});
   if(path==="/api/workbench/schedules/availability")return json({enabled:true,ready:true,contentEnabled:true,storeDailyReportEnabled:true});
-  if(path==="/api/workbench/schedules/quote"){const body=req.postDataJSON();return json({confirmation:"a".repeat(64),consumedOccurrences:body.scheduleId?plan.consumedOccurrences:"0",...(body.kind==="store.operating-daily-report"?{kind:body.kind,report:body.report,storeName:store.name,unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0"}:{selection:body.selection??selection,unit:plan.unit,perRunUpperBoundMicros:plan.perRunUpperBoundMicros,totalUpperBoundMicros:(BigInt(plan.perRunUpperBoundMicros)*BigInt(body.maxOccurrences)).toString(),executionMode:"default"}),goalSummary:body.goalSummary??plan.goalSummary,rule:body.rule,maxOccurrences:body.maxOccurrences,nextAt:body.rule.atUtc??at});}
+  if(path==="/api/workbench/schedules/quote"){if(quoteUnavailable)return json({code:"DEPENDENCY_UNAVAILABLE"},503);const body=req.postDataJSON();return json({confirmation:"a".repeat(64),consumedOccurrences:body.scheduleId?plan.consumedOccurrences:"0",...(body.kind==="store.operating-daily-report"?{kind:body.kind,report:body.report,storeName:store.name,unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0"}:{selection:body.selection??selection,unit:plan.unit,perRunUpperBoundMicros:plan.perRunUpperBoundMicros,totalUpperBoundMicros:(BigInt(plan.perRunUpperBoundMicros)*BigInt(body.maxOccurrences)).toString(),executionMode:"default"}),goalSummary:body.goalSummary??plan.goalSummary,rule:body.rule,maxOccurrences:body.maxOccurrences,nextAt:body.rule.atUtc??at});}
   if(path==="/api/workbench/schedules"&&req.method()==="POST"){
    creates++;if(creates===1){firstKey=req.headers()["idempotency-key"];firstBody=req.postData()!;created=true;return json({code:"DEPENDENCY_UNAVAILABLE"},503);}
    if(req.postDataJSON().sourceScheduleId){const body=req.postDataJSON();expect(body.sourceScheduleId).toBe(id);expect(req.headers()['idempotency-key']).not.toBe(firstKey);copied={...plan,id:copyID,state:"ACTIVE",revision:"2",rule:body.rule,consumedOccurrences:"0"};return json({plan:copied,planSaved:true})}
@@ -62,6 +62,11 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   await expect(page.locator('html')).toHaveClass(new RegExp(theme));
   await expect(page.getByRole('textbox',{name:'任务目标',exact:true})).toHaveValue('保留已经填写的任务需求');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  const formBox=await page.getByRole('textbox',{name:'任务目标',exact:true}).boundingBox(),summaryBox=await page.getByRole('region',{name:'计划摘要',exact:true}).boundingBox();
+  if(width===1440)expect(summaryBox!.x).toBeGreaterThan(formBox!.x+formBox!.width);else expect(summaryBox!.y).toBeGreaterThan(formBox!.y);
+  await expect(page.getByRole('heading',{name:'创建定时任务',exact:true,level:1})).toBeVisible();
+  const footer=await page.getByRole('group',{name:'计划操作',exact:true}).boundingBox();expect(footer!.y+footer!.height).toBeLessThanOrEqual(901);
+  if(width===1440&&theme==='dark')await page.screenshot({path:info.outputPath('schedule-layout-desktop.png'),fullPage:true});
  }
  await page.getByRole('combobox',{name:'任务类型',exact:true}).selectOption('store.operating-daily-report');
  await page.getByRole('combobox',{name:'店铺',exact:true}).selectOption(id);
@@ -83,7 +88,11 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  await page.goto(`/workbench/ai/tasks?view=schedules&schedule_proposal=${id}`);
  await expect(page.getByRole("heading",{name:"将 Chat 方案设为定时任务"})).toBeVisible();
  await page.getByLabel("执行日期与时间（本机时区）").fill("2030-11-20T09:00");
- await page.getByRole("button",{name:"核对时间与预算"}).click();
+ quoteUnavailable=true;await page.getByRole("button",{name:"核对时间与预算"}).click();
+ await expect(page.getByRole('group',{name:'计划操作'}).getByRole('alert')).toBeVisible();
+ await expect(page.getByLabel("执行日期与时间（本机时区）")).toHaveValue("2030-11-20T09:00");
+ await expect(page.getByRole('button',{name:'确认并保存计划'})).toHaveCount(0);
+ quoteUnavailable=false;await page.getByRole("button",{name:"核对时间与预算"}).click();
  await expect(page.getByText("19.2 AI 积分").first()).toBeVisible();expect(creates).toBe(0);
  await page.getByText('查看所选商品资料',{exact:true}).click();
  await expect(page.getByText('资料版本 1',{exact:true})).toBeVisible();
@@ -101,6 +110,7 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   await page.getByRole('combobox',{name:'显示主题'}).selectOption(theme);
   await expect(page.locator('html')).toHaveClass(new RegExp(theme));
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await page.evaluate(async()=>{await Promise.all(document.getAnimations().filter(a=>a instanceof CSSTransition).map(a=>a.finished.catch(()=>{})))});
   const check=await new AxeBuilder({page}).include('.console-page').withTags(['wcag2a','wcag2aa']).analyze();
   expect(check.violations.filter(v=>v.impact==='critical'||v.impact==='serious')).toEqual([]);
   await page.screenshot({path:info.outputPath(`schedule-detail-${theme}-${width}.png`),fullPage:true});
