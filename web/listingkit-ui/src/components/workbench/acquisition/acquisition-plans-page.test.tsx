@@ -17,7 +17,7 @@ beforeEach(()=>{sessionStorage.clear();vi.clearAllMocks();calls.rules.mockResolv
 afterEach(()=>vi.restoreAllMocks());
 afterEach(cleanup);
 const scope={userId:"actor",organizationId:"org-A"};
-async function start(){await userEvent.click(await screen.findByRole("button",{name:"1688在线采集"}));await userEvent.type(screen.getByLabelText("1688 商品链接"),"123");await userEvent.click(screen.getByRole("button",{name:"开始采集"}));}
+async function start(){await userEvent.click(await screen.findByRole("button",{name:"新建采集任务"}));await userEvent.type(screen.getByLabelText("1688 商品链接"),"123");await userEvent.click(screen.getByRole("button",{name:"开始采集"}));}
 
 it("shows the 1688 plan list before the user opens the capture form", async () => {
  render(<AcquisitionPage plansEnabled/>);
@@ -26,9 +26,9 @@ it("shows the 1688 plan list before the user opens the capture form", async () =
  expect(screen.queryByRole("heading",{name:"找回单商品采集结果"})).not.toBeInTheDocument();
  expect(screen.queryByRole("textbox",{name:"操作 ID"})).not.toBeInTheDocument();
 
- const trigger=screen.getByRole("button",{name:"1688在线采集"});
+ const trigger=screen.getByRole("button",{name:"新建采集任务"});
  await userEvent.click(trigger);
- expect(screen.getByRole("dialog",{name:"1688在线采集"})).toBeVisible();
+ expect(screen.getByRole("dialog",{name:"新建 1688 采集任务"})).toBeVisible();
  await userEvent.click(screen.getByRole("button",{name:"取消"}));
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
  expect(trigger).toBeEnabled();
@@ -133,7 +133,7 @@ for(const action of ["create","update","rename","archive","replay"] as const){
   if(action!=="create"&&action!=="replay")calls.rules.mockResolvedValue({rules:[{id,name:"原模板",revision:1,rule:{},archived:false}]});
   if(action==="replay")sessionStorage.setItem(`listingkit:acquisition:rule:${scope.userId}:${scope.organizationId}`,JSON.stringify({key,input:{action:"create",name:"原模板",rule:{}}}));
   render(<AcquisitionPlansPage scope={scope}/>);
-  await userEvent.click(await screen.findByRole("button",{name:"1688在线采集"}));
+  await userEvent.click(await screen.findByRole("button",{name:"新建采集任务"}));
   await userEvent.click(screen.getByRole("button",{name:"设置规则"}));
   if(action==="create")await userEvent.type(screen.getByLabelText("模板名称"),"新模板");
   const storageBefore=sessionStorage.getItem(`listingkit:acquisition:rule:${scope.userId}:${scope.organizationId}`);
