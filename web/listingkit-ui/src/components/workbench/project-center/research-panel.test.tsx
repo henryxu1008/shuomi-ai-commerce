@@ -5,6 +5,7 @@ import {ResearchPanel} from "./research-panel";
 import {ResearchError} from "@/lib/api/market-research";
 import {researchPage} from "@/lib/contracts/market-research";
 import {blankCostDraft} from "@/lib/workbench/research-cost-preview";
+vi.mock("next/navigation",async original=>({...await original<object>(),useRouter:()=>({push:vi.fn()})}));
 
 import {parseCollectionResponse,type CollectionItem} from "@/lib/contracts/product-collection";
 const mock=vi.hoisted(()=>({read:vi.fn(),pickerItem:undefined as CollectionItem|undefined,context:{permissions:["workbench.collection.read","workbench.project.manage"],registerOrganizationSwitchGuard:()=>()=>{}}}));
@@ -173,6 +174,16 @@ it("focuses the requested function while keeping selected candidates and avoidin
  view.rerender(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection" workflowStep="transfer"/>);
  await waitFor(()=>expect(document.getElementById("research-transfer")).toHaveFocus());
  expect(screen.getByRole("checkbox")).toBeChecked();expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);
+});
+it("focuses the visible handoff sections without showing ordinary analysis",async()=>{
+ const scope={userId:"u",organizationId:"o"};
+ const view=render(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection" researchToken="token" workflowStep="decisions"/>);
+ await waitFor(()=>expect(document.getElementById("research-decisions")).toHaveFocus());
+ expect(document.getElementById("research-evidence")).toBeNull();
+ expect(screen.queryByText("AI分析建议")).toBeNull();
+ view.rerender(<ResearchPanel scope={scope} projectId={id} archived={false} view="selection" researchToken="token" workflowStep="transfer"/>);
+ await waitFor(()=>expect(document.getElementById("research-transfer")).toHaveFocus());
+ expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);
 });
 it("keeps the original unknown write and recovers it by readonly key lookup",async()=>{mock.read.mockImplementation(async(_s,_p,_z,_a,options)=>{if(options?.intent)throw new ResearchError("OUTCOME_UNKNOWN");if(options?.lookup)return {key:options.lookup,candidateIds:[id],replayed:true};return {items:[candidate],incomplete:false};});render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);fireEvent.click(await screen.findByRole("button",{name:"开始评估"}));await screen.findByRole("button",{name:"查询操作结果"});const original=mock.read.mock.calls.find(c=>c[4]?.intent)?.[4].intent;fireEvent.click(screen.getByRole("button",{name:"查询操作结果"}));await waitFor(()=>expect(mock.read.mock.calls.some(c=>c[4]?.lookup===original.key)).toBe(true));expect(mock.read.mock.calls.filter(c=>c[4]?.intent)).toHaveLength(1);});
 it("masks unavailable evidence and keeps archived projects readonly",async()=>{mock.read.mockResolvedValue({items:[{...candidate,observation:undefined,evidenceDigest:undefined}],incomplete:false});render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived/>);expect(await screen.findByText("这份资料暂时无法查看")).toBeInTheDocument();expect(screen.queryByText("真实保存商品")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"开始评估"})).not.toBeInTheDocument();});
