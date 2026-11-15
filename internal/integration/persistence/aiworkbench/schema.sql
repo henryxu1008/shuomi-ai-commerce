@@ -244,6 +244,7 @@ CREATE TABLE IF NOT EXISTS ai_workbench.scheduled_plans (
     consumed_occurrences bigint NOT NULL DEFAULT 0 CHECK (consumed_occurrences >= 0 AND consumed_occurrences <= max_occurrences),
     active_occurrence_id uuid,
     state text NOT NULL CHECK (state IN ('PENDING_REGISTRATION','ACTIVE','PAUSED','CLOSED','REGISTRATION_UNKNOWN')),
+    deleted boolean NOT NULL DEFAULT false CONSTRAINT scheduled_plans_deleted_closed CHECK (NOT deleted OR state='CLOSED'),
     revision bigint NOT NULL CHECK (revision > 0),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,

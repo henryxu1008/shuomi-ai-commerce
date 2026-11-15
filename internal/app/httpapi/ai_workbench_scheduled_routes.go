@@ -31,6 +31,7 @@ func aiWorkbenchScheduleRoutes(a *aiWorkbenchApplication) []httproute.Descriptor
 		{http.MethodPost, workbenchScheduleBase + "/:schedule_id/pause", "pause", authz.PermissionWorkbenchAgentUse},
 		{http.MethodPost, workbenchScheduleBase + "/:schedule_id/resume", "resume", authz.PermissionWorkbenchAgentUse},
 		{http.MethodPost, workbenchScheduleBase + "/:schedule_id/close", "close", authz.PermissionWorkbenchAgentUse},
+		{http.MethodPost, workbenchScheduleBase + "/:schedule_id/delete", "delete", authz.PermissionWorkbenchAgentUse},
 	} {
 		spec := spec
 		routes = append(routes, httproute.Descriptor{Method: spec.method, Path: spec.path, Module: "ai-workbench", Permission: spec.permission, AuthPolicy: httproute.AuthPolicyVerifiedIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 30 * time.Second, Handler: func(c *gin.Context) {

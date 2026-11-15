@@ -2,6 +2,7 @@ package aiworkbenchpersistence
 
 // Native PostgreSQL definitions of the explicitly installed daily-report contract.
 var dailyReportConstraints = map[string]string{
+	"scheduled_plans_deleted_closed":                                  `CHECK (((NOT deleted) OR (state = 'CLOSED'::text)))`,
 	"ai_workbench_plan_active_occurrence":                             `FOREIGN KEY (active_occurrence_id, organization_id, owner_user_id, id) REFERENCES ai_workbench.scheduled_occurrences(id, organization_id, owner_user_id, plan_id)`,
 	"scheduled_plans_check":                                           `CHECK (((consumed_occurrences >= 0) AND (consumed_occurrences <= max_occurrences)))`,
 	"scheduled_plans_check1":                                          `CHECK ((((frequency = 'once'::text) AND (once_at_utc IS NOT NULL) AND (local_hour IS NULL) AND (local_minute IS NULL) AND (local_weekday IS NULL)) OR ((frequency = 'daily'::text) AND (once_at_utc IS NULL) AND (local_hour IS NOT NULL) AND (local_minute IS NOT NULL) AND ((local_hour >= 0) AND (local_hour <= 23)) AND ((local_minute >= 0) AND (local_minute <= 59)) AND (local_weekday IS NULL)) OR ((frequency = 'weekly'::text) AND (once_at_utc IS NULL) AND (local_hour IS NOT NULL) AND (local_minute IS NOT NULL) AND (local_weekday IS NOT NULL) AND ((local_hour >= 0) AND (local_hour <= 23)) AND ((local_minute >= 0) AND (local_minute <= 59)) AND ((local_weekday >= 0) AND (local_weekday <= 6)))))`,
