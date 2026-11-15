@@ -57,7 +57,7 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
  });
  expect(alignment,'checkbox and its caption must share the same visual line').toBeLessThan(4);
  await page.getByRole('textbox',{name:'任务目标',exact:true}).fill('保留已经填写的任务需求');
- for(const width of [1440,390])for(const theme of ['light','dark']){
+ for(const width of [1440,1920,390])for(const theme of ['light','dark']){
   await page.setViewportSize({width,height:900});
   await page.getByRole('combobox',{name:'显示主题'}).selectOption(theme);
   await expect(page.locator('html')).toHaveClass(new RegExp(theme));
@@ -66,10 +66,19 @@ test("confirms a Chat schedule, recovers a 503 with the same key, and manages fu
   await settleTheme();
   const formAccessibility=await new AxeBuilder({page}).include('.console-page').withTags(['wcag2a','wcag2aa']).analyze();expect(formAccessibility.violations.filter(v=>v.impact==='critical'||v.impact==='serious')).toEqual([]);
   const formBox=await page.getByRole('textbox',{name:'任务目标',exact:true}).boundingBox(),summaryBox=await page.getByRole('region',{name:'计划摘要',exact:true}).boundingBox();
-  if(width===1440)expect(summaryBox!.x).toBeGreaterThan(formBox!.x+formBox!.width);else expect(summaryBox!.y).toBeGreaterThan(formBox!.y);
+  if(width>=1440){
+   expect(summaryBox!.x).toBeGreaterThan(formBox!.x+formBox!.width);
+   const workspace=await page.getByRole('main').boundingBox();
+   expect(workspace!.x+workspace!.width-summaryBox!.x-summaryBox!.width,'summary should reach the work area edge with only the page gutter').toBeLessThanOrEqual(32);
+   expect(summaryBox!.width).toBeGreaterThanOrEqual(319);expect(summaryBox!.width).toBeLessThanOrEqual(321);
+   const frequencyBox=await page.getByRole('combobox',{name:'频率',exact:true}).boundingBox();
+   expect(frequencyBox!.width,'short execution controls should stay compact').toBeLessThanOrEqual(360);
+   const languageBox=await page.getByRole('textbox',{name:'目标语言',exact:true}).boundingBox(),contentBox=await page.getByRole('group',{name:'待处理字段',exact:true}).boundingBox();
+   expect(contentBox!.x).toBeGreaterThan(languageBox!.x+languageBox!.width);
+  }else expect(summaryBox!.y).toBeGreaterThan(formBox!.y);
   await expect(page.getByRole('heading',{name:'创建定时任务',exact:true,level:1})).toBeVisible();
   const footer=await page.getByRole('group',{name:'计划操作',exact:true}).boundingBox();expect(footer!.y+footer!.height).toBeLessThanOrEqual(901);
-  if(width===1440&&theme==='dark'){await settleTheme();await page.screenshot({path:info.outputPath('schedule-layout-desktop.png'),fullPage:true});}
+  if(width===1920&&theme==='dark'){await settleTheme();await page.screenshot({path:info.outputPath('schedule-fluid-desktop.png'),fullPage:true});}
  }
  await page.getByRole('combobox',{name:'任务类型',exact:true}).selectOption('store.operating-daily-report');
  await page.getByRole('combobox',{name:'店铺',exact:true}).selectOption(id);
