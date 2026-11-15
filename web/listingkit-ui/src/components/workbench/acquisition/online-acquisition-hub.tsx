@@ -1,7 +1,7 @@
 "use client";
 
 import {useRef,useState} from "react";
-import {Button} from "@/components/ui/button";
+import {WorkbenchViewNav} from "../console/workbench-view-nav";
 import {AcquisitionPage} from "./acquisition-page";
 import {DataServicesPage} from "../data-services/data-services-page";
 
@@ -14,10 +14,10 @@ export function OnlineAcquisitionHub({has1688,hasAmazon,initial,plansEnabled=fal
   activeRef.current=platform;setVisited(previous=>({...previous,[platform]:true}));setActive(platform);
  }
  return <div>
-  <nav aria-label="采集平台" className="flex flex-wrap gap-2 px-4 pt-4 sm:px-6">
-   {has1688?<Button type="button" variant={active==="1688"?"default":"outline"} aria-pressed={active==="1688"} onClick={()=>choose("1688")}>1688</Button>:null}
-   {hasAmazon?<Button type="button" variant={active==="amazon"?"default":"outline"} aria-pressed={active==="amazon"} onClick={()=>choose("amazon")}>Amazon</Button>:null}
-  </nav>
+  <WorkbenchViewNav label="采集平台" className="mx-4 pt-4 sm:mx-6">
+   {has1688?<button type="button" aria-pressed={active==="1688"} onClick={()=>choose("1688")}>1688</button>:null}
+   {hasAmazon?<button type="button" aria-pressed={active==="amazon"} onClick={()=>choose("amazon")}>Amazon</button>:null}
+  </WorkbenchViewNav>
   {has1688&&visited["1688"]?<div hidden={active!=="1688"}><AcquisitionPage plansEnabled={plansEnabled} shouldAutoOpen={()=>activeRef.current==="1688"}/></div>:null}
   {hasAmazon&&visited.amazon?<div hidden={active!=="amazon"}><DataServicesPage mode="amazon"/></div>:null}
  </div>;
