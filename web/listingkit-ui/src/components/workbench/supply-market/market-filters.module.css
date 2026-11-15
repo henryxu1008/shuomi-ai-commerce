@@ -7,4 +7,4 @@
 .priceInputs { display:grid; grid-template-columns:88px minmax(0,1fr) auto minmax(0,1fr); gap:8px; align-items:center; }
 .error { color:var(--destructive); font-size:14px; line-height:20px; }
 @media (min-width:768px) { .fields { grid-template-columns:repeat(2,minmax(0,1fr)); } .price { grid-column:span 2; } }
-@media (min-width:1280px) { .fields { grid-template-columns:repeat(5,minmax(0,1fr)); } }
+@media (min-width:1280px) { .fields { grid-template-columns:repeat(6,minmax(0,1fr)); } }

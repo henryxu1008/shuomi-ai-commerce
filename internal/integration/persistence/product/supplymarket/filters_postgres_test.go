@@ -37,7 +37,11 @@ func TestMarketFiltersBeforeCountAndPaging(t *testing.T) {
 	seed := func(n int, channel, province string, moq, days int, active bool, variants ...supplymarket.PublicVariant) {
 		record := uuid.NewString()
 		now := time.Now().UTC()
-		release := supplymarket.Release{ID: id(n), Channel: channel, Revision: 1, Active: active, PublishedAt: now, Product: supplymarket.PublicProduct{Title: "筛选商品", Images: []string{"https://images.example/product.png"}, Variants: variants}, Supply: supplymarket.SupplyDeclaration{Stock: 10, Province: province, City: "示例城市", MinimumQuantity: moq, LeadDays: days, PriceNote: "50元仅为说明，不替代款式价格"}}
+		city := "杭州市"
+		if n == 10 {
+			city = "金华市"
+		}
+		release := supplymarket.Release{ID: id(n), Channel: channel, Revision: 1, Active: active, PublishedAt: now, Product: supplymarket.PublicProduct{Title: "筛选商品", Images: []string{"https://images.example/product.png"}, Variants: variants}, Supply: supplymarket.SupplyDeclaration{Stock: 10, Province: province, City: city, MinimumQuantity: moq, LeadDays: days, PriceNote: "50元仅为说明，不替代款式价格"}}
 		raw, e := json.Marshal(release)
 		require.NoError(t, e)
 		require.NoError(t, db.Exec("INSERT INTO supply_market_records(id,organization_id,actor_id,member_id,kind,stage,revision,record_json,created_at) VALUES(?,'org-a','actor-a','member-a',?,'APPROVED',1,'{}',?)", record, channel, now).Error)
@@ -74,6 +78,8 @@ func TestMarketFiltersBeforeCountAndPaging(t *testing.T) {
 		filters supplymarket.MarketFilters
 		ids     []string
 	}{
+		{"city participates in count and paging", supplymarket.MarketFilters{Province: "浙江省", City: "杭州市", MinPrice: new(40.0), MaxPrice: new(60.0), PriceCurrency: "CNY"}, []string{id(2)}},
+		{"province and city must both match", supplymarket.MarketFilters{Province: "广东省", City: "金华市"}, []string{}},
 		{"zero is a price", supplymarket.MarketFilters{MinPrice: new(0.0), MaxPrice: new(0.0), PriceCurrency: "CNY"}, []string{id(6)}},
 		{"currency belongs to the same matching variant", supplymarket.MarketFilters{MinPrice: new(50.0), MaxPrice: new(50.0), PriceCurrency: "USD"}, []string{id(3), id(9)}},
 		{"no-price records can match non-price filters", supplymarket.MarketFilters{Province: "浙江省", MaxMOQ: new(2), MaxLeadDays: new(0)}, []string{id(1), id(2), id(3), id(6), id(7), id(9), id(10)}},

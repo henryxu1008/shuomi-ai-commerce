@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"task-processor/internal/product/supplymarket"
 	"testing"
 )
@@ -28,12 +29,12 @@ func TestMarketFilterQueryIsValidatedAndMarketOnly(t *testing.T) {
 	for _, route := range Routes(service, nil, func(ctx context.Context, _ string) (context.Context, error) { return ctx, nil }) {
 		router.Handle(route.Method, route.Path, route.Handler)
 	}
-	values := url.Values{"kind": {"official"}, "province": {"浙江省"}, "minPrice": {"0"}, "maxPrice": {"50.25"}, "priceCurrency": {"CNY"}, "maxMOQ": {"2"}, "maxLeadDays": {"0"}}
+	values := url.Values{"kind": {"official"}, "province": {"浙江省"}, "city": {"杭州市"}, "minPrice": {"0"}, "maxPrice": {"50.25"}, "priceCurrency": {"CNY"}, "maxMOQ": {"2"}, "maxLeadDays": {"0"}}
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, BasePath+"/releases?"+values.Encode(), nil))
 	require.Equal(t, 200, response.Code, response.Body.String())
 	require.Equal(t, 1, service.calls)
-	require.Equal(t, supplymarket.MarketFilters{Province: "浙江省", PriceCurrency: "CNY", MinPrice: new(0.0), MaxPrice: new(50.25), MaxMOQ: new(2), MaxLeadDays: new(0)}, service.query.Filters)
+	require.Equal(t, supplymarket.MarketFilters{Province: "浙江省", City: "杭州市", PriceCurrency: "CNY", MinPrice: new(0.0), MaxPrice: new(50.25), MaxMOQ: new(2), MaxLeadDays: new(0)}, service.query.Filters)
 	for _, query := range []string{"minPrice=-1&priceCurrency=CNY", "minPrice=10&maxPrice=2&priceCurrency=CNY", "minPrice=NaN&priceCurrency=CNY", "minPrice=Inf&priceCurrency=CNY", "minPrice=1e2&priceCurrency=CNY", "minPrice=0", "priceCurrency=CNY", "maxMOQ=0", "maxMOQ=1.5", "maxLeadDays=3651", "maxLeadDays=1&maxLeadDays=2", "province=a&province=b", "minPrice=999999999999999999999999999999999&priceCurrency=CNY"} {
 		response = httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, BasePath+"/releases?"+query, nil))
@@ -43,6 +44,11 @@ func TestMarketFilterQueryIsValidatedAndMarketOnly(t *testing.T) {
 		response = httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, BasePath+path, nil))
 		require.Equal(t, 400, response.Code, path)
+	}
+	for _, query := range []string{"city=" + url.QueryEscape("杭州市"), "province=x&city=a&city=b", "province=x&city=" + strings.Repeat("a", 101)} {
+		response = httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, BasePath+"/releases?"+query, nil))
+		require.Equal(t, 400, response.Code, query)
 	}
 	require.Equal(t, 1, service.calls)
 }

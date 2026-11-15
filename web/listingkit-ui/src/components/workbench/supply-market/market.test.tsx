@@ -40,15 +40,24 @@ it("applies supply filters together, preserves zero days and resets paging when 
  await screen.findByText("暂无商品");fireEvent.click(screen.getByRole("button",{name:"下一页"}));
  await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1].after).toBe(sample.id));
  fireEvent.change(screen.getByRole("combobox",{name:"发货省份"}),{target:{value:"浙江省"}});
+ fireEvent.change(screen.getByRole("combobox",{name:"发货城市"}),{target:{value:"杭州市"}});
+ fireEvent.change(screen.getByRole("combobox",{name:"发货省份"}),{target:{value:"广东省"}});
+ expect(screen.getByRole("combobox",{name:"发货城市"})).toHaveValue("");
+ expect(screen.getByRole("option",{name:"深圳市",exact:true})).toBeInTheDocument();
+ expect(screen.queryByRole("option",{name:"杭州市",exact:true})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByRole("combobox",{name:"发货省份"}),{target:{value:"浙江省"}});
+ fireEvent.change(screen.getByRole("combobox",{name:"发货城市"}),{target:{value:"杭州市"}});
  fireEvent.change(screen.getByRole("spinbutton",{name:"最低价格"}),{target:{value:"0"}});
  fireEvent.change(screen.getByRole("spinbutton",{name:"最高价格"}),{target:{value:"50"}});
  fireEvent.change(screen.getByRole("spinbutton",{name:"起订量不超过（件）"}),{target:{value:"2"}});
  fireEvent.change(screen.getByRole("spinbutton",{name:"供货周期不超过（天）"}),{target:{value:"0"}});
  fireEvent.click(screen.getByRole("button",{name:"搜索"}));
- await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"selected",keyword:"",province:"浙江省",minPrice:0,maxPrice:50,priceCurrency:"CNY",maxMOQ:2,maxLeadDays:0,after:undefined}));
+ await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"selected",keyword:"",province:"浙江省",city:"杭州市",minPrice:0,maxPrice:50,priceCurrency:"CNY",maxMOQ:2,maxLeadDays:0,after:undefined}));
  fireEvent.click(screen.getByRole("button",{name:"清除筛选"}));
  await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"selected",keyword:"",after:undefined}));
  expect(screen.getByRole("combobox",{name:"发货省份"})).toHaveValue("");
+ expect(screen.getByRole("combobox",{name:"发货城市"})).toHaveValue("");
+ expect(screen.getByRole("combobox",{name:"发货城市"})).toBeDisabled();
  expect(screen.getByRole("spinbutton",{name:"最低价格"})).toHaveValue(null);
 });
 it("highlights variant prices as ranges within each currency",async()=>{

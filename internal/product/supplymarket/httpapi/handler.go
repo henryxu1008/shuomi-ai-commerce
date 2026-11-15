@@ -226,13 +226,15 @@ func readQuery(raw string, market bool) (supplymarket.Query, error) {
 				return q, supplymarket.ErrInvalid
 			}
 			q.Ended = value[0] == "true"
-		case "province", "priceCurrency", "minPrice", "maxPrice", "maxMOQ", "maxLeadDays":
+		case "province", "city", "priceCurrency", "minPrice", "maxPrice", "maxMOQ", "maxLeadDays":
 			if !market {
 				return q, supplymarket.ErrInvalid
 			}
 			switch key {
 			case "province":
 				q.Filters.Province = value[0]
+			case "city":
+				q.Filters.City = value[0]
 			case "priceCurrency":
 				if value[0] == "" {
 					return q, supplymarket.ErrInvalid

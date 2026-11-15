@@ -265,6 +265,9 @@ func (r *Repository) ListReleases(ctx context.Context, q supplymarket.Query) (su
 	if f.Province != "" {
 		query = query.Where("release_json->'supply'->>'province'=?", f.Province)
 	}
+	if f.City != "" {
+		query = query.Where("release_json->'supply'->>'city'=?", f.City)
+	}
 	if f.MaxMOQ != nil {
 		query = query.Where("(release_json->'supply'->>'minimumQuantity')::numeric<=?", *f.MaxMOQ)
 	}

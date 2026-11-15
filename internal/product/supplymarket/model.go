@@ -305,16 +305,16 @@ type Query struct {
 }
 
 type MarketFilters struct {
-	Province, PriceCurrency string
-	MinPrice, MaxPrice      *float64
-	MaxMOQ, MaxLeadDays     *int
+	Province, City, PriceCurrency string
+	MinPrice, MaxPrice            *float64
+	MaxMOQ, MaxLeadDays           *int
 }
 
 func (f MarketFilters) Empty() bool {
-	return f.Province == "" && f.PriceCurrency == "" && f.MinPrice == nil && f.MaxPrice == nil && f.MaxMOQ == nil && f.MaxLeadDays == nil
+	return f.Province == "" && f.City == "" && f.PriceCurrency == "" && f.MinPrice == nil && f.MaxPrice == nil && f.MaxMOQ == nil && f.MaxLeadDays == nil
 }
 func (f MarketFilters) Validate() error {
-	if !text(f.Province, 0, 100) || !text(f.PriceCurrency, 0, 16) {
+	if !text(f.Province, 0, 100) || !text(f.City, 0, 100) || f.City != "" && !text(f.Province, 1, 100) || !text(f.PriceCurrency, 0, 16) {
 		return ErrInvalid
 	}
 	priced := f.MinPrice != nil || f.MaxPrice != nil

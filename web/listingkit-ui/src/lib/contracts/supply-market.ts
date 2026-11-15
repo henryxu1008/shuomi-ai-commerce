@@ -11,7 +11,7 @@ const image=https.refine(s=>!new URL(s).search);
 const filterNumberFormat=new Intl.NumberFormat("en-US",{useGrouping:false,maximumSignificantDigits:21});
 export const marketFilterNumber=(value:number)=>filterNumberFormat.format(value===0?0:value);
 const filterPrice=z.number().finite().nonnegative().refine(value=>marketFilterNumber(value).length<=32);
-export const marketFiltersSchema=z.object({province:text(100).optional(),priceCurrency:text(16,1).optional(),minPrice:filterPrice.optional(),maxPrice:filterPrice.optional(),maxMOQ:z.number().int().min(1).max(1e9).optional(),maxLeadDays:z.number().int().min(0).max(3650).optional()}).strict().refine(f=>(f.minPrice!==undefined||f.maxPrice!==undefined)?!!f.priceCurrency:f.priceCurrency===undefined).refine(f=>f.minPrice===undefined||f.maxPrice===undefined||f.minPrice<=f.maxPrice);
+export const marketFiltersSchema=z.object({province:text(100).optional(),city:text(100).optional(),priceCurrency:text(16,1).optional(),minPrice:filterPrice.optional(),maxPrice:filterPrice.optional(),maxMOQ:z.number().int().min(1).max(1e9).optional(),maxLeadDays:z.number().int().min(0).max(3650).optional()}).strict().refine(f=>!f.city||!!f.province?.trim()).refine(f=>(f.minPrice!==undefined||f.maxPrice!==undefined)?!!f.priceCurrency:f.priceCurrency===undefined).refine(f=>f.minPrice===undefined||f.maxPrice===undefined||f.minPrice<=f.maxPrice);
 export type MarketFilters=z.infer<typeof marketFiltersSchema>;
 const attrs=z.record(text(200,1),text(4000)).refine(v=>Object.keys(v).length<=256);
 const marketProductSchema=z.object({title:text(2000,1),description:text(8192).optional(),brand:text(1000).optional(),attributes:attrs.optional(),images:z.array(image).min(1).max(40),variants:z.array(z.object({sourceId:text(128),title:text(2000).optional(),sku:text(1000).optional(),attributes:attrs.optional(),currency:text(16,1).optional(),price:z.number().finite().nonnegative().optional(),stock:count,images:z.array(image).max(40).optional()}).strict()).max(256).optional()}).strict();
@@ -63,9 +63,9 @@ export function marketEndpoint(url:URL,method:string){
   const filters:Record<string,string|number>={};
   for(const [k,v] of url.searchParams){
    if(url.searchParams.getAll(k).length!==1)return null;
-   if(["province","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"].includes(k)){
+   if(["province","city","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"].includes(k)){
     if(admin||path!=="releases")return null;
-    if(k==="province"||k==="priceCurrency")filters[k]=v;
+    if(k==="province"||k==="city"||k==="priceCurrency")filters[k]=v;
     else{if(v.length>32||!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(v)||(k==="maxMOQ"||k==="maxLeadDays")&&!/^(0|[1-9][0-9]*)$/.test(v))return null;filters[k]=Number(v)}
     continue;
    }

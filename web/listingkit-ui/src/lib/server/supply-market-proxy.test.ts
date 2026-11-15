@@ -7,10 +7,10 @@ describe("market BFF disclosure and uncertain writes",()=>{
  afterEach(()=>vi.unstubAllGlobals());
  it("forwards valid market filters and rejects invalid or non-market filters",async()=>{
   const fetcher=vi.fn(async()=>Response.json({items:[],total:0}));vi.stubGlobal("fetch",fetcher);
-  const query=new URLSearchParams({kind:"selected",province:"浙江省",minPrice:"0",maxPrice:"50.25",priceCurrency:"CNY",maxMOQ:"2",maxLeadDays:"0"});
+  const query=new URLSearchParams({kind:"selected",province:"浙江省",city:"杭州市",minPrice:"0",maxPrice:"50.25",priceCurrency:"CNY",maxMOQ:"2",maxLeadDays:"0"});
   expect((await proxySupplyMarket(request("releases?"+query),"private-token","user-a")).status).toBe(200);
   expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("maxLeadDays=0"),expect.any(Object));
-  for(const q of ["minPrice=-1&priceCurrency=CNY","minPrice=10&maxPrice=2&priceCurrency=CNY","minPrice=NaN&priceCurrency=CNY","minPrice=1e2&priceCurrency=CNY","minPrice=0","priceCurrency=CNY","maxMOQ=0","maxMOQ=1.5","maxMOQ=1.0","maxLeadDays=0.0","maxLeadDays=3651","maxLeadDays=1&maxLeadDays=2","province=a&province=b"]){expect((await proxySupplyMarket(request("releases?"+q),"private-token","user-a")).status).toBe(400)}
+  for(const q of ["city=a","province=x&city=a&city=b","minPrice=-1&priceCurrency=CNY","minPrice=10&maxPrice=2&priceCurrency=CNY","minPrice=NaN&priceCurrency=CNY","minPrice=1e2&priceCurrency=CNY","minPrice=0","priceCurrency=CNY","maxMOQ=0","maxMOQ=1.5","maxMOQ=1.0","maxLeadDays=0.0","maxLeadDays=3651","maxLeadDays=1&maxLeadDays=2","province=a&province=b"]){expect((await proxySupplyMarket(request("releases?"+q),"private-token","user-a")).status).toBe(400)}
   expect((await proxySupplyMarket(request("records?province=x"),"private-token","user-a")).status).toBe(400);
   expect(fetcher).toHaveBeenCalledTimes(1);
  });
