@@ -28,7 +28,7 @@ it.each([["official","硕米自营"],["selected","硕米优选"]] as const)("ret
  expect(calls.execute).toHaveBeenCalledWith({action:"select_release",id:sample.id,expectedRevision:sample.revision});
 });
 it("explains empty searches and clears the filter without changing channels",async()=>{
- show(<SupplyMarketPage channel="selected"/>);await screen.findByText("暂无已发布商品");
+ show(<SupplyMarketPage channel="selected"/>);await screen.findByText("暂无商品");
  fireEvent.change(screen.getByRole("textbox",{name:"商品关键词"}),{target:{value:"不存在"}});fireEvent.click(screen.getByRole("button",{name:"搜索"}));
  await screen.findByText("没有找到匹配商品");fireEvent.click(screen.getByRole("button",{name:"清除筛选"}));
  await waitFor(()=>expect(screen.getByRole("textbox",{name:"商品关键词"})).toHaveValue(""));
