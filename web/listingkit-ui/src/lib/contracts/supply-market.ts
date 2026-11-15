@@ -8,6 +8,8 @@ const version=z.string().regex(/^[1-9][0-9]{0,18}$/).refine(s=>BigInt(s)<=BigInt
 const time=z.iso.datetime({offset:true});
 const https=text(2048,1).refine(s=>{try{const u=new URL(s);return u.protocol==="https:"&&!!u.hostname&&!u.username&&!u.password&&!u.hash}catch{return false}});
 const image=https.refine(s=>!new URL(s).search);
+export const marketFiltersSchema=z.object({province:text(100).optional(),priceCurrency:text(16,1).optional(),minPrice:z.number().finite().nonnegative().optional(),maxPrice:z.number().finite().nonnegative().optional(),maxMOQ:z.number().int().min(1).max(1e9).optional(),maxLeadDays:z.number().int().min(0).max(3650).optional()}).strict().refine(f=>(f.minPrice!==undefined||f.maxPrice!==undefined)?!!f.priceCurrency:f.priceCurrency===undefined).refine(f=>f.minPrice===undefined||f.maxPrice===undefined||f.minPrice<=f.maxPrice);
+export type MarketFilters=z.infer<typeof marketFiltersSchema>;
 const attrs=z.record(text(200,1),text(4000)).refine(v=>Object.keys(v).length<=256);
 const marketProductSchema=z.object({title:text(2000,1),description:text(8192).optional(),brand:text(1000).optional(),attributes:attrs.optional(),images:z.array(image).min(1).max(40),variants:z.array(z.object({sourceId:text(128),title:text(2000).optional(),sku:text(1000).optional(),attributes:attrs.optional(),currency:text(16,1).optional(),price:z.number().finite().nonnegative().optional(),stock:count,images:z.array(image).max(40).optional()}).strict()).max(256).optional()}).strict();
 const marketSupplySchema=z.object({stock:count.max(1e9),capacity:text(4000).optional(),minimumQuantity:revision.max(1e9),leadDays:count.max(3650),province:text(100,1),city:text(100,1),priceNote:text(4000).optional(),afterSaleNote:text(4000).optional()}).strict().refine(s=>s.stock>0||!!s.capacity?.trim());
@@ -55,7 +57,18 @@ export function marketEndpoint(url:URL,method:string){
   if(/^records\/[a-f0-9-]{36}\/files\/[a-f0-9-]{36}$/.test(path)&&marketID.safeParse(path.split("/")[1]).success&&marketID.safeParse(path.split("/")[3]).success){output=marketFileSchema;download=true}
   if(/^by-key\/[a-f0-9-]{36}$/.test(path)&&marketID.safeParse(path.split("/")[1]).success)output=marketReceiptSchema;
   const listing=path==="records"||path==="releases"||path.endsWith("/events")||path.endsWith("/releases");
-  for(const [k,v] of url.searchParams){if(!listing||url.searchParams.getAll(k).length!==1||!(["after","keyword","kind","limit","ended"].includes(k))||k==="after"&&!marketID.safeParse(v).success||k==="keyword"&&!text(80).safeParse(v).success||k==="kind"&&!["official","selected","connection"].includes(v)||k==="limit"&&!/^(?:[1-9]|[1-4][0-9]|50)$/.test(v)||k==="ended"&&!["true","false"].includes(v))return null}
+  const filters:Record<string,string|number>={};
+  for(const [k,v] of url.searchParams){
+   if(url.searchParams.getAll(k).length!==1)return null;
+   if(["province","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"].includes(k)){
+    if(admin||path!=="releases")return null;
+    if(k==="province"||k==="priceCurrency")filters[k]=v;
+    else{if(v.length>32||!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(v))return null;filters[k]=Number(v)}
+    continue;
+   }
+   if(!listing||!(["after","keyword","kind","limit","ended"].includes(k))||k==="after"&&!marketID.safeParse(v).success||k==="keyword"&&!text(80).safeParse(v).success||k==="kind"&&!["official","selected","connection"].includes(v)||k==="limit"&&!/^(?:[1-9]|[1-4][0-9]|50)$/.test(v)||k==="ended"&&!["true","false"].includes(v))return null;
+  }
+  if(!marketFiltersSchema.safeParse(filters).success)return null;
  }
  return output?{path,admin,output,upload,download}:null;
 }

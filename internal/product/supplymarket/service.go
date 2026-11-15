@@ -358,7 +358,7 @@ func (s *Service) ListApplications(ctx context.Context, q Query, platform bool) 
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	if q.Validate() != nil {
+	if q.Validate() != nil || !q.Filters.Empty() {
 		return Page[Record]{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, platform)
@@ -402,7 +402,7 @@ func (s *Service) Events(ctx context.Context, id string, q Query, platform bool)
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	if !collection.ValidID(id) || q.Validate() != nil {
+	if !collection.ValidID(id) || q.Validate() != nil || !q.Filters.Empty() {
 		return Page[Event]{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, platform)
@@ -446,7 +446,7 @@ func (s *Service) RecordReleases(ctx context.Context, id string, q Query, platfo
 	}
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
-	if !collection.ValidID(id) || q.Validate() != nil {
+	if !collection.ValidID(id) || q.Validate() != nil || !q.Filters.Empty() {
 		return Page[Release]{}, ErrInvalid
 	}
 	scope, actor, err := s.readPrincipal(ctx, platform)

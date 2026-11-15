@@ -109,7 +109,7 @@ func (r *Repository) ReadRelease(ctx context.Context, id string) (supplymarket.R
 }
 func (r *Repository) ListRecordReleases(ctx context.Context, scope collection.Scope, platform, id string, q supplymarket.Query) (supplymarket.Page[supplymarket.Release], error) {
 	var page supplymarket.Page[supplymarket.Release]
-	if q.Validate() != nil {
+	if q.Validate() != nil || !q.Filters.Empty() {
 		return page, supplymarket.ErrInvalid
 	}
 	db := r.db.WithContext(ctx)
@@ -169,7 +169,7 @@ func keyword(value string) string {
 }
 func (r *Repository) ListRecords(ctx context.Context, scope collection.Scope, platform string, q supplymarket.Query) (supplymarket.Page[supplymarket.Record], error) {
 	page := supplymarket.Page[supplymarket.Record]{Items: []supplymarket.Record{}}
-	if q.Validate() != nil {
+	if q.Validate() != nil || !q.Filters.Empty() {
 		return page, supplymarket.ErrInvalid
 	}
 	if _, _, _, err := principal(scope, platform); err != nil {
@@ -216,7 +216,7 @@ func (r *Repository) ListRecords(ctx context.Context, scope collection.Scope, pl
 }
 func (r *Repository) ListEvents(ctx context.Context, scope collection.Scope, platform, id string, q supplymarket.Query) (supplymarket.Page[supplymarket.Event], error) {
 	page := supplymarket.Page[supplymarket.Event]{Items: []supplymarket.Event{}}
-	if q.Validate() != nil || q.Keyword != "" || q.Kind != "" || q.Ended {
+	if q.Validate() != nil || !q.Filters.Empty() || q.Keyword != "" || q.Kind != "" || q.Ended {
 		return page, supplymarket.ErrInvalid
 	}
 	if _, err := r.ReadRecord(ctx, scope, platform, id); err != nil {
@@ -260,6 +260,30 @@ func (r *Repository) ListReleases(ctx context.Context, q supplymarket.Query) (su
 	}
 	if q.Keyword != "" {
 		query = query.Where("release_json->'product'->>'title' ILIKE ?", keyword(q.Keyword))
+	}
+	f := q.Filters
+	if f.Province != "" {
+		query = query.Where("release_json->'supply'->>'province'=?", f.Province)
+	}
+	if f.MaxMOQ != nil {
+		query = query.Where("(release_json->'supply'->>'minimumQuantity')::numeric<=?", *f.MaxMOQ)
+	}
+	if f.MaxLeadDays != nil {
+		query = query.Where("(release_json->'supply'->>'leadDays')::numeric<=?", *f.MaxLeadDays)
+	}
+	if f.MinPrice != nil || f.MaxPrice != nil {
+		predicate := "EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(release_json->'product'->'variants','[]'::jsonb)) AS variant WHERE variant->>'currency'=? AND jsonb_typeof(variant->'price')='number'"
+		args := []any{f.PriceCurrency}
+		amount := "CASE WHEN jsonb_typeof(variant->'price')='number' THEN (variant->>'price')::numeric END"
+		if f.MinPrice != nil {
+			predicate += " AND " + amount + ">=?"
+			args = append(args, *f.MinPrice)
+		}
+		if f.MaxPrice != nil {
+			predicate += " AND " + amount + "<=?"
+			args = append(args, *f.MaxPrice)
+		}
+		query = query.Where(predicate+")", args...)
 	}
 	if err := query.Count(&page.Total).Error; err != nil {
 		return page, err

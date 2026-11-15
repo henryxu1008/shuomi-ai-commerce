@@ -34,6 +34,23 @@ it("explains empty searches and clears the filter without changing channels",asy
  await waitFor(()=>expect(screen.getByRole("textbox",{name:"商品关键词"})).toHaveValue(""));
  expect(within(screen.getByRole("navigation",{name:"货源渠道"})).getByRole("link",{name:"硕米优选"})).toHaveAttribute("aria-current","page");
 });
+it("applies supply filters together, preserves zero days and resets paging when cleared",async()=>{
+ calls.list.mockImplementation(async(_scope,q)=>({items:[],total:2,...(!q.after?{nextCursor:sample.id}:{})}));
+ show(<SupplyMarketPage channel="selected"/>);
+ await screen.findByText("暂无商品");fireEvent.click(screen.getByRole("button",{name:"下一页"}));
+ await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1].after).toBe(sample.id));
+ fireEvent.change(screen.getByRole("combobox",{name:"发货省份"}),{target:{value:"浙江省"}});
+ fireEvent.change(screen.getByRole("spinbutton",{name:"最低价格"}),{target:{value:"0"}});
+ fireEvent.change(screen.getByRole("spinbutton",{name:"最高价格"}),{target:{value:"50"}});
+ fireEvent.change(screen.getByRole("spinbutton",{name:"起订量不超过（件）"}),{target:{value:"2"}});
+ fireEvent.change(screen.getByRole("spinbutton",{name:"供货周期不超过（天）"}),{target:{value:"0"}});
+ fireEvent.click(screen.getByRole("button",{name:"搜索"}));
+ await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"selected",keyword:"",province:"浙江省",minPrice:0,maxPrice:50,priceCurrency:"CNY",maxMOQ:2,maxLeadDays:0,after:undefined}));
+ fireEvent.click(screen.getByRole("button",{name:"清除筛选"}));
+ await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"selected",keyword:"",after:undefined}));
+ expect(screen.getByRole("combobox",{name:"发货省份"})).toHaveValue("");
+ expect(screen.getByRole("spinbutton",{name:"最低价格"})).toHaveValue(null);
+});
 it("highlights variant prices as ranges within each currency",async()=>{
  calls.read.mockResolvedValue({...sample,channel:"official",product:{...sample.product,variants:[{currency:"CNY",price:22},{currency:"CNY",price:37},{currency:"USD",price:9},{currency:"CNY"}]}});
  show(<SupplyProductPage id={sample.id}/>);

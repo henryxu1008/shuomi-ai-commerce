@@ -40,7 +40,7 @@ func TestMarketReceiverUsesActualSourceCatalogCollectionUoWAndKeepsVariantImages
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, InstallSchema(db))
 	require.NoError(t, collectionstore.InstallSchema(db))
-	release := supplymarket.Release{ID: uuid.NewString(), Channel: "selected", Revision: 1, Active: true, PublishedAt: time.Now(), Product: supplymarket.PublicProduct{Title: "已发布商品", Images: []string{"https://images.example.org/main.png"}, Variants: []supplymarket.PublicVariant{{SourceID: "blue", Title: "蓝色", Currency: "CNY", Price: 10, Stock: 20, Images: []string{"https://images.example.org/blue.png"}}}}}
+	release := supplymarket.Release{ID: uuid.NewString(), Channel: "selected", Revision: 1, Active: true, PublishedAt: time.Now(), Product: supplymarket.PublicProduct{Title: "已发布商品", Images: []string{"https://images.example.org/main.png"}, Variants: []supplymarket.PublicVariant{{SourceID: "blue", Title: "蓝色", Currency: "CNY", Price: new(10.0), Stock: 20, Images: []string{"https://images.example.org/blue.png"}}}}}
 	scope := collection.Scope{"org-b", "actor-b", "member-b"}
 	op := uuid.NewString()
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

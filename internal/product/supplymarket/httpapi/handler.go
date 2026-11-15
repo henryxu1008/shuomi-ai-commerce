@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"task-processor/internal/authz"
@@ -100,7 +101,7 @@ func Routes(service Service, files Files, bind func(context.Context, string) (co
 				}
 				value, err = service.ApplicationOverview(ctx)
 			case "market", "records", "events", "record-releases":
-				q, e := readQuery(c.Request.URL.RawQuery)
+				q, e := readQuery(c.Request.URL.RawQuery, spec.action == "market")
 				if e != nil {
 					writeError(c, e)
 					return
@@ -195,7 +196,10 @@ func Routes(service Service, files Files, bind func(context.Context, string) (co
 	}
 	return routes
 }
-func readQuery(raw string) (supplymarket.Query, error) {
+
+var filterNumber = regexp.MustCompile(`^(0|[1-9][0-9]*)(\.[0-9]+)?$`)
+
+func readQuery(raw string, market bool) (supplymarket.Query, error) {
 	values, err := url.ParseQuery(raw)
 	if err != nil {
 		return supplymarket.Query{}, supplymarket.ErrInvalid
@@ -222,6 +226,44 @@ func readQuery(raw string) (supplymarket.Query, error) {
 				return q, supplymarket.ErrInvalid
 			}
 			q.Ended = value[0] == "true"
+		case "province", "priceCurrency", "minPrice", "maxPrice", "maxMOQ", "maxLeadDays":
+			if !market {
+				return q, supplymarket.ErrInvalid
+			}
+			switch key {
+			case "province":
+				q.Filters.Province = value[0]
+			case "priceCurrency":
+				if value[0] == "" {
+					return q, supplymarket.ErrInvalid
+				}
+				q.Filters.PriceCurrency = value[0]
+			default:
+				if len(value[0]) > 32 || !filterNumber.MatchString(value[0]) {
+					return q, supplymarket.ErrInvalid
+				}
+				if key == "minPrice" || key == "maxPrice" {
+					v, e := strconv.ParseFloat(value[0], 64)
+					if e != nil {
+						return q, supplymarket.ErrInvalid
+					}
+					if key == "minPrice" {
+						q.Filters.MinPrice = &v
+					} else {
+						q.Filters.MaxPrice = &v
+					}
+				} else {
+					v, e := strconv.Atoi(value[0])
+					if e != nil {
+						return q, supplymarket.ErrInvalid
+					}
+					if key == "maxMOQ" {
+						q.Filters.MaxMOQ = &v
+					} else {
+						q.Filters.MaxLeadDays = &v
+					}
+				}
+			}
 		default:
 			return q, supplymarket.ErrInvalid
 		}
