@@ -53,7 +53,7 @@ it("shows confirmed membership and verified merchant name without another add bu
  calls.list.mockResolvedValue({items:[{...sample,channel:"selected",prices:[{currency:"CNY",minimum:22,maximum:22}],added:true,merchant:{state:"verified",name:"已认证示例企业"}}],total:1});
  show(<SupplyMarketPage channel="selected"/>);
  expect(await screen.findByText("已认证示例企业")).toBeInTheDocument();
- expect(screen.getByText("已加入我的数据")).toBeInTheDocument();
+ expect(screen.getByRole("img",{name:"已加入我的数据"})).toHaveAttribute("title","已加入我的数据");
  expect(screen.getByRole("link",{name:"查看我的数据"})).toBeInTheDocument();
  expect(screen.queryByRole("button",{name:"加入我的数据"})).not.toBeInTheDocument();
  expect(calls.execute).not.toHaveBeenCalled();
@@ -64,6 +64,7 @@ it("does not present an unknown membership or unavailable merchant as a confirme
  expect(await screen.findByRole("button",{name:"暂不可加入"})).toBeDisabled();
  expect(screen.getByText("商家信息暂不可用")).toBeInTheDocument();
  expect(screen.getByText("价格待确认")).toBeInTheDocument();
+ expect(screen.queryByRole("img",{name:"已加入我的数据"})).not.toBeInTheDocument();
 });
 it("applies supply filters together, preserves zero days and resets paging when cleared",async()=>{
  calls.list.mockImplementation(async(_scope,q)=>({items:[],total:2,...(!q.after?{nextCursor:sample.id}:{})}));

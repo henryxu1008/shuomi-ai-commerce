@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import {Flag} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import type {MarketView} from "@/lib/contracts/supply-market";
@@ -11,12 +12,12 @@ export function MarketMerchant({merchant}:{merchant:MarketView["merchant"]}){
 }
 export function MarketCard({product:p,locked,adding,onAdd}:{product:MarketView;locked:boolean;adding:boolean;onAdd:()=>void}){
  return <Card className={styles.card}>
-  <Link href={"/workbench/supply/products/"+p.id} prefetch={false} aria-label="查看商品" className={styles.imageLink}><img src={p.product.images[0]} alt={p.product.title} loading="lazy" className={styles.image}/></Link>
+  <div className={styles.imageWrap}>
+   <Link href={"/workbench/supply/products/"+p.id} prefetch={false} aria-label="查看商品" className={styles.imageLink}><img src={p.product.images[0]} alt={p.product.title} loading="lazy" className={styles.image}/></Link>
+   {p.added===true?<span className={styles.flag} role="img" aria-label="已加入我的数据" title="已加入我的数据" tabIndex={0}><Flag size={16} strokeWidth={1.5} aria-hidden="true"/></span>:null}
+  </div>
   <div className={styles.body}>
-   <div className={styles.heading}>
-    <h2>{p.product.title}</h2>
-    {p.added===true?<p className={styles.added}>已加入我的数据</p>:null}
-   </div>
+   <h2>{p.product.title}</h2>
    <div className={styles.supplier}>
     {p.channel==="selected"?<MarketMerchant merchant={p.merchant}/>:null}
     <p className={styles.location}>{p.supply.province} · {p.supply.city}</p>

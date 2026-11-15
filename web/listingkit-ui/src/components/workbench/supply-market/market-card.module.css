@@ -1,9 +1,11 @@
 .card { display:flex; flex-direction:column; overflow:hidden; padding:0; container-type:inline-size; }
+.imageWrap { position:relative; }
+.flag { position:absolute; top:8px; right:8px; display:grid; place-items:center; width:28px; height:28px; border:1px solid var(--border); border-radius:4px; background:var(--card); color:var(--primary); }
+.flag:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
 .imageLink { display:block; flex-shrink:0; }
 .imageLink:focus-visible { outline:2px solid var(--ring); outline-offset:-2px; }
 .image { display:block; width:100%; aspect-ratio:16/10; object-fit:contain; background:var(--muted); }
 .body { display:flex; flex-direction:column; flex:1; gap:8px; padding:12px; min-width:0; }
-.heading { display:grid; gap:4px; }
 .body h2 { font-size:14px; line-height:20px; font-weight:500; overflow-wrap:anywhere; }
 .supplier { display:flex; flex-wrap:wrap; gap:4px 12px; }
 .supplier .merchant { font-size:12px; }
@@ -19,7 +21,6 @@
 .priceRow { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; min-height:40px; }
 .prices { min-width:0; font-size:24px; line-height:32px; font-weight:500; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
 .noPrice { font-size:14px; line-height:24px; font-weight:400; color:var(--muted-foreground); }
-.added { font-size:12px; line-height:16px; color:var(--muted-foreground); }
 .priceRow > [data-slot="button"] { min-width:0; padding-inline:12px; }
 @container (max-width:240px) {
  .priceRow { gap:8px; }
