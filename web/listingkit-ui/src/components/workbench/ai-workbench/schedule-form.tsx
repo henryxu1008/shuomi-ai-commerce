@@ -26,7 +26,7 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,disabled,onSa
  const [goal,setGoal]=useState(initial?.goalSummary??""),[frequency,setFrequency]=useState<"once"|"daily"|"weekly">(initial?.rule.frequency??"once");
  const [zone,setZone]=useState(initial?.rule.timeZone??Intl.DateTimeFormat().resolvedOptions().timeZone);
  const [at,setAt]=useState(plan?.rule.atUtc?new Date(plan.rule.atUtc).toLocaleString("sv-SE").slice(0,16).replace(" ","T"):""),[time,setTime]=useState(initial?`${String(initial.rule.hour).padStart(2,"0")}:${String(initial.rule.minute).padStart(2,"0")}`:"09:00"),[weekday,setWeekday]=useState(initial?.rule.weekday??1);
- const [count,setCount]=useState(initial?.maxOccurrences??"1"),[until,setUntil]=useState(plan?.rule.untilUtc??"");
+ const [count,setCount]=useState(initial?.maxOccurrences??(report?"30":"1")),[until,setUntil]=useState(plan?.rule.untilUtc??"");
  const [quote,setQuote]=useState<{value:AIScheduleQuote;input:AIScheduleInput}>(),[quoting,setQuoting]=useState(false),[error,setError]=useState("");
  const abort=useRef<AbortController|null>(null);useEffect(()=>()=>abort.current?.abort(),[]);
  const revision=plan?.revision;useEffect(()=>{let active=true;queueMicrotask(()=>{if(active)setQuote(undefined)});return()=>{active=false}},[revision]);
@@ -63,10 +63,17 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,disabled,onSa
     {frequency==="once"?<label className={`${styles.field} ${styles.dateField}`}>执行日期与时间（本机时区）<Input type="datetime-local" value={at} onChange={event=>change(()=>setAt(event.target.value))}/></label>:<>
      <label className={styles.field}>执行时刻（计划时区）<Input type="time" value={time} onChange={event=>change(()=>setTime(event.target.value))}/></label>
      {frequency==="weekly"?<label className={styles.field}>星期<Select value={weekday} onChange={event=>change(()=>setWeekday(Number(event.target.value)))}>{["日","一","二","三","四","五","六"].map((day,i)=><option value={i} key={i}>星期{day}</option>)}</Select></label>:null}
-     <label className={styles.field}>最多执行次数<Input inputMode="numeric" value={count} onChange={event=>change(()=>setCount(event.target.value))}/></label>
-     <label className={`${styles.field} ${styles.dateField}`}>截止时间（可选，本机时区）<Input type="datetime-local" value={until?new Date(until).toLocaleString("sv-SE").slice(0,16).replace(" ","T"):""} onChange={event=>change(()=>setUntil(event.target.value?new Date(event.target.value).toISOString():""))}/></label>
+     {!report?<><label className={styles.field}>最多执行次数<Input inputMode="numeric" value={count} onChange={event=>change(()=>setCount(event.target.value))}/></label>
+     <label className={`${styles.field} ${styles.dateField}`}>截止时间（可选，本机时区）<Input type="datetime-local" value={until?new Date(until).toLocaleString("sv-SE").slice(0,16).replace(" ","T"):""} onChange={event=>change(()=>setUntil(event.target.value?new Date(event.target.value).toISOString():""))}/></label></>:null}
     </>}
    </div></fieldset>
+   {report&&frequency==="daily"?<fieldset className={styles.formSection} disabled={locked}><legend>执行期限</legend>
+    <div className={styles.termChoices} role="group" aria-label="快速选择执行次数">{["7","30"].map(value=><Button key={value} type="button" variant="outline" aria-label={`最多${value}次`} aria-pressed={count===value} onClick={()=>change(()=>setCount(value))}>最多 {value} 次</Button>)}</div>
+    <div className={styles.fields}>
+     <label className={styles.field}>最多执行次数<Input inputMode="numeric" value={count} onChange={event=>change(()=>setCount(event.target.value))}/></label>
+     <label className={`${styles.field} ${styles.dateField}`}>截止时间（可选，本机时区）<Input type="datetime-local" value={until?new Date(until).toLocaleString("sv-SE").slice(0,16).replace(" ","T"):""} onChange={event=>change(()=>setUntil(event.target.value?new Date(event.target.value).toISOString():""))}/></label>
+    </div><p className={styles.hint}>按实际启动次数计数，暂停和跳过不计次数。先达到次数上限或截止时间时结束</p>
+   </fieldset>:null}
    {plan?<p className={styles.hint}>已执行 {plan.consumedOccurrences} 次，次数上限应大于已执行次数。{plan.state==="PAUSED"?"保存后仍保持暂停。":""}</p>:null}
   </div>
   <aside className={styles.summaryRail}>
@@ -80,6 +87,7 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,disabled,onSa
      <dl className={styles.confirmFacts}>
       <div className={styles.nextExecution}><dt>下一次执行</dt><dd>{scheduleTime(quote.value.nextAt,quote.value.rule.timeZone)}</dd><dd className={styles.hint}>{quote.value.rule.timeZone}</dd></div>
       <div><dt>最多执行</dt><dd>{quote.value.maxOccurrences} 次</dd>{plan?<dd className={styles.hint}>已执行 {quotedConsumed} 次，后续可执行 {remaining.toString()} 次</dd>:null}</div>
+      {report&&quote.value.rule.frequency==="daily"?<div><dt>结束条件</dt>{quote.value.rule.untilUtc?<><dd>截止至 {scheduleTime(quote.value.rule.untilUtc,quote.value.rule.timeZone)}</dd><dd className={styles.hint}>先达到次数上限或截止时间时结束</dd></>:<dd>执行到次数上限后结束</dd>}</div>:null}
       {report?<div><dt>报告保存</dt><dd>每次执行自动保存一份个人报告</dd></div>:<>
        <div><dt>单次积分上限</dt><dd>{schedulePoints(quote.value.perRunUpperBoundMicros)} AI 积分</dd></div>
        <div><dt>{plan?"后续执行积分上限":"整个计划积分上限"}</dt><dd>{schedulePoints(plan?futureUpperBound:quote.value.totalUpperBoundMicros)} AI 积分</dd></div>
@@ -92,6 +100,7 @@ export function ScheduleForm({scope,authorizationKey,plan,copyFrom,disabled,onSa
       <div><dt>业务</dt><dd>{report?"店铺经营日报":"商品内容"}</dd></div>
       <div><dt>{report?"报告店铺":"任务对象"}</dt><dd>{report?storeId?(storeId===initial?.report?.storeId&&initial.storeName?initial.storeName:"已选择店铺"):"待选择":subject?"已选择商品":"待选择"}</dd></div>
       <div><dt>执行安排</dt><dd>{frequencyLabel}{frequency!=="once"&&time?` · ${time}`:""}</dd><dd className={styles.hint}>{report?"Asia/Shanghai":zone||"待填写时区"}</dd></div>
+      {report?<div><dt>执行期限</dt><dd>{frequency==="once"?"仅执行 1 次":`${plan?"总计最多执行":"最多执行"} ${count||"待填写"} 次`}</dd>{frequency==="daily"&&until?<dd className={styles.hint}>截止至 {scheduleTime(until,"Asia/Shanghai")}</dd>:null}</div>:null}
       <div className={styles.nextExecution}><dt>下一次执行</dt><dd>核对后显示</dd></div>
       <div><dt>{report?"计划状态":"执行预算"}</dt><dd>待核对</dd></div>
      </dl>

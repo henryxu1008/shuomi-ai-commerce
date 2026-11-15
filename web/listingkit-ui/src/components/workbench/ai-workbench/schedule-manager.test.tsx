@@ -11,6 +11,16 @@ vi.mock("@/lib/api/store-center",()=>({catalogSchema:{},storeCenterRequest:vi.fn
 const request=vi.mocked(requestAIWorkbench),scope={userId:"user",organizationId:"org"},id="11111111-1111-4111-8111-111111111111";
 const plan={id,revision:"2",state:"ACTIVE" as const,registrationState:"MATCHED" as const,detailsAvailable:true,goalSummary:"完善商品描述",rule:{frequency:"daily" as const,timeZone:"Asia/Shanghai",hour:9,minute:0,weekday:0},maxOccurrences:"3",consumedOccurrences:"1",unit:"ai-micropoint-v1" as const,perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"57600000",createdAt:"2026-11-01T00:00:00Z"};
 const storageKey="ai-workbench-schedule-command:user:org";
+const dailyPlan={...plan,deleted:false,kind:"store.operating-daily-report" as const,storeName:"日报合成店",goalSummary:"店铺经营日报",report:{storeId:"33333333-3333-4333-8333-333333333333",version:1 as const,periodPolicy:"previous_natural_day" as const,businessZone:"Asia/Shanghai" as const},unit:"none" as const,perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0"};
+const latest={id:"55555555-5555-4555-8555-555555555555",scheduledAt:"2026-11-15T01:00:00Z",planRevision:"2",state:"RECONCILED",reason:"REPORT_SAVED",reportId:"66666666-6666-4666-8666-666666666666"};
+function withDailyHistory(read:()=>Promise<unknown>){
+ const current=request.getMockImplementation()!;
+ request.mockImplementation(async input=>{
+  if(input.route==="schedule-list")return {plans:[dailyPlan],next:""} as never;
+  if(input.route==="schedule-history")return await read() as never;
+  return current(input);
+ });
+}
 Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
 Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
 function mount(){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ScheduleManager scope={scope} authorizationKey="roles" canUse onBack={vi.fn()}/></QueryClientProvider>)}
@@ -216,4 +226,79 @@ it("rejects a count already consumed before requesting a quote",async()=>{
  render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" plan={{...plan,deleted:false}} disabled={false} onSave={vi.fn()} onCancel={vi.fn()}/></QueryClientProvider>);
  await userEvent.clear(screen.getByLabelText("最多执行次数"));await userEvent.type(screen.getByLabelText("最多执行次数"),"1");await userEvent.click(screen.getByRole("button",{name:"核对时间与预算"}));
  expect(screen.getByRole("alert")).toHaveTextContent("次数上限需大于已执行的 1 次");expect(request).not.toHaveBeenCalled();
+});
+
+it("sets fresh daily terms, keeps an optional deadline, and invalidates the old quote",async()=>{
+ const current=request.getMockImplementation()!;
+ request.mockImplementation(async input=>input.route==="schedule-quote"?{...input.body,confirmation:"a".repeat(64),goalSummary:"店铺经营日报",storeName:"日报合成店",unit:"none",perRunUpperBoundMicros:"0",totalUpperBoundMicros:"0",nextAt:"2030-01-01T01:00:00Z"} as never:current(input));
+ mount();await userEvent.click(await screen.findByRole("button",{name:"创建定时任务"}));
+ await screen.findByRole("option",{name:/日报合成店/});
+ await userEvent.selectOptions(screen.getByLabelText("店铺"),dailyPlan.report.storeId);
+ await userEvent.selectOptions(screen.getByLabelText("频率"),"daily");
+ expect(screen.getByRole("group",{name:"执行期限"})).toBeVisible();
+ expect(screen.getByLabelText("最多执行次数")).toHaveValue("30");
+ await userEvent.click(screen.getByRole("button",{name:"最多7次"}));
+ expect(screen.getByLabelText("最多执行次数")).toHaveValue("7");
+ expect(within(screen.getByRole("region",{name:"计划摘要"})).getByText("最多执行 7 次")).toBeVisible();
+ fireEvent.change(screen.getByLabelText("截止时间（可选，本机时区）"),{target:{value:"2030-12-31T23:00"}});
+ expect(request.mock.calls.some(([input])=>input.method==="POST")).toBe(false);
+ await userEvent.click(screen.getByRole("button",{name:"核对计划"}));
+ await screen.findByRole("button",{name:"确认并保存计划"});
+ const quoted=request.mock.calls.find(([input])=>input.route==="schedule-quote")![0].body as {maxOccurrences:string;rule:{untilUtc:string}};
+ expect(quoted.maxOccurrences).toBe("7");expect(quoted.rule.untilUtc).toBe(new Date("2030-12-31T23:00").toISOString());
+ expect(within(screen.getByRole("region",{name:"确认定时计划"})).getByText("先达到次数上限或截止时间时结束")).toBeVisible();
+ await userEvent.click(screen.getByRole("button",{name:"最多30次"}));
+ expect(screen.queryByRole("button",{name:"确认并保存计划"})).toBeNull();
+ expect(screen.getByLabelText("最多执行次数")).toHaveValue("30");
+ expect(screen.getByLabelText("截止时间（可选，本机时区）")).toHaveValue("2030-12-31T23:00");
+ await userEvent.clear(screen.getByLabelText("最多执行次数"));await userEvent.type(screen.getByLabelText("最多执行次数"),"9");
+ expect(within(screen.getByRole("region",{name:"计划摘要"})).getByText("最多执行 9 次")).toBeVisible();
+ expect(request.mock.calls.filter(([input])=>input.method==="POST")).toHaveLength(1);
+});
+it.each(["edit","copy"])("retains original daily count when opening %s",async mode=>{
+ const original={...dailyPlan,maxOccurrences:"1",consumedOccurrences:"0",rule:{...dailyPlan.rule,untilUtc:"2030-01-03T01:00:00Z"}};
+ render(<QueryClientProvider client={new QueryClient()}><ScheduleForm scope={scope} authorizationKey="auth" {...(mode==="edit"?{plan:original}:{copyFrom:original})} disabled={false} onSave={vi.fn()} onCancel={vi.fn()}/></QueryClientProvider>);
+ expect(screen.getByLabelText("最多执行次数")).toHaveValue("1");
+ expect(screen.getByLabelText("截止时间（可选，本机时区）")).toHaveValue(mode==="edit"?new Date(original.rule.untilUtc).toLocaleString("sv-SE").slice(0,16).replace(" ","T"):"");
+ expect(request).not.toHaveBeenCalled();
+});
+it("shows the authorized latest report as a separate keyboard link, using one occurrence",async()=>{
+ withDailyHistory(async()=>({occurrences:[latest],next:"older"}));mount();
+ const link=await screen.findByRole("link",{name:"查看日报"});
+ expect(link).toHaveAttribute("href",`/workbench/ai/reports?reportId=${latest.reportId}`);
+ expect(link.closest("button")).toBeNull();link.focus();expect(link).toHaveFocus();
+ expect(screen.getByText("日报已生成")).toBeVisible();expect(screen.queryByText("资料完整")).toBeNull();
+ expect(request.mock.calls.some(([input])=>input.route==="schedule-history"&&input.path===`schedules/${id}/occurrences?limit=1`)).toBe(true);
+ expect(request.mock.calls.every(([input])=>input.method==="GET")).toBe(true);
+});
+it.each([["BLOCKED","CURRENT_AUTHORIZATION_UNAVAILABLE","执行受阻"],["UNKNOWN","REPORT_CAPTURE_UNRESOLVED","结果待确认"],["SKIPPED","PREVIOUS_RUN_ACTIVE","已跳过"],["CLAIMED","","正在处理"]])("shows %s without inventing a report link",async(state,reason,label)=>{
+ withDailyHistory(async()=>({occurrences:[{...latest,state,reason,reportId:undefined}],next:""}));mount();
+ expect(await screen.findByText(label)).toBeVisible();expect(screen.queryByRole("link",{name:"查看日报"})).toBeNull();
+});
+it("distinguishes no execution from an unavailable result",async()=>{
+ withDailyHistory(async()=>({occurrences:[],next:""}));mount();expect(await screen.findByText("尚未执行")).toBeVisible();
+});
+it("hides stale report links while refreshing and after a failed authorization read",async()=>{
+ let rejectRead:((error:Error)=>void)|undefined,calls=0;
+ withDailyHistory(async()=>++calls===1?{occurrences:[latest],next:""}:new Promise((_resolve,reject)=>{rejectRead=reject;}));
+ mount();await screen.findByRole("link",{name:"查看日报"});
+ await userEvent.click(screen.getByRole("button",{name:"刷新状态"}));
+ await waitFor(()=>expect(rejectRead).toBeDefined());expect(screen.queryByRole("link",{name:"查看日报"})).toBeNull();
+ rejectRead!(new Error("revoked history"));
+ expect(await screen.findByText("结果暂不可用")).toBeVisible();expect(screen.queryByRole("link",{name:"查看日报"})).toBeNull();
+});
+
+it("removes an old report link when a fresh history response withdraws its report reference",async()=>{
+ let readable=true;
+ withDailyHistory(async()=>({occurrences:[readable?latest:{...latest,reportId:undefined}],next:""}));
+ mount();await screen.findByRole("link",{name:"查看日报"});readable=false;
+ await userEvent.click(screen.getByRole("button",{name:"刷新状态"}));
+ await waitFor(()=>expect(screen.queryByRole("link",{name:"查看日报"})).toBeNull());
+ expect(await screen.findByText("日报已生成")).toBeVisible();expect(screen.queryByRole("link",{name:"查看日报"})).toBeNull();
+});
+it("does not read recent execution facts when the plan details are unavailable",async()=>{
+ const current=request.getMockImplementation()!;
+ request.mockImplementation(async input=>input.route==="schedule-list"?{plans:[{...dailyPlan,detailsAvailable:false,goalSummary:undefined,storeName:undefined}],next:""} as never:current(input));
+ mount();expect(await screen.findByText("当前不可查看")).toBeVisible();
+ expect(request.mock.calls.some(([input])=>input.route==="schedule-history")).toBe(false);
 });

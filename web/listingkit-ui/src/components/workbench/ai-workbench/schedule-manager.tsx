@@ -11,11 +11,11 @@ import {requestAIWorkbench,AIWorkbenchError,type AIScope} from "@/lib/api/ai-wor
 import {aiScheduleInput,aiScheduleControl,aiScheduleEdit,aiWorkbenchPath,type AIScheduleInput,type AIScheduledPlan} from "@/lib/contracts/ai-workbench";
 import {ScheduleForm,schedulePoints,scheduleTime} from "./schedule-form";
 import {errorText} from "./task-presentation";
+import {occurrenceStates,reasons} from "./schedule-presentation";
+import {ScheduleRecentResult} from "./schedule-recent-result";
 import styles from "./schedules.module.css";
 
 const states:Record<string,string>={ACTIVE:"已启用",PAUSED:"已暂停",CLOSED:"已结束",PENDING_REGISTRATION:"正在准备",REGISTRATION_UNKNOWN:"启用状态待确认"};
-const occurrenceStates:Record<string,string>={CLAIMED:"已开始处理",DISPATCHED:"已交接执行",SKIPPED:"已跳过",BLOCKED:"执行前受阻",UNKNOWN:"执行结果待核实",RECONCILED:"已完成"};
-const reasons:Record<string,string>={REPORT_SAVED:"经营日报已保存，可在我的报告中查看。",REPORT_CAPTURE_UNRESOLVED:"正在核对报告保存结果，请勿重复创建。",RUN_QUIESCENT:"本次执行已结束，生成的建议仍需审核",PLAN_NOT_ACTIVE:"计划当时未启用",PREVIOUS_RUN_ACTIVE:"上一次任务尚未处理完成，本次未启动",MAX_OCCURRENCES:"已达到次数上限",CATCHUP_EXPIRED:"已错过执行时间，本次未启动",MISSED_TRIGGER:"该时刻未能启动，不再补执行",CURRENT_AUTHORIZATION_UNAVAILABLE:"当前账号暂时无权执行这项计划",FROZEN_EXECUTION_UNAVAILABLE:"计划所需的商品、设置或额度暂不可用",EXECUTION_HANDOFF_UNRESOLVED:"任务已提交，执行结果仍在确认",ORIGINAL_RUN_OUTCOME_UNRESOLVED:"上一次执行的结果仍在确认，暂不启动下一次"};
 type Command={action:"create"|"edit"|"pause"|"resume"|"close"|"delete";path:string;key:string;body:object};
 function validCommand(value:unknown):value is Command{
  if(!value||typeof value!=="object")return false;
@@ -103,11 +103,11 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
    </>:<>
     <div className={styles.toolbar}><label className={styles.filter}>任务类型<Select value={kindFilter} disabled={locked} onChange={e=>setKindFilter(e.target.value)}><option value="">全部</option><option value="product.content.localize">商品内容</option><option value="store.operating-daily-report">店铺经营日报</option></Select></label><div className={styles.actions}>{canUse?<Button disabled={locked||!creationReady} onClick={()=>{setForm("create");setNotice("");}}>创建定时任务</Button>:null}<Button variant="outline" disabled={locked||plans.isFetching} onClick={()=>void client.invalidateQueries({queryKey:prefix})}>刷新状态</Button></div></div>
     {plans.isPending?<ConsoleState kind="loading" title="正在读取定时任务"/>:plans.isError?<ConsoleState kind="error" title="定时任务读取失败">{errorText(plans.error)}</ConsoleState>:!items.length?<ConsoleState kind="empty" title="还没有定时任务">选择要安排的业务和执行时间，创建计划</ConsoleState>:null}
-    {items.length?<div className={styles.planList}><div className={styles.listHeading} aria-hidden="true"><span>计划</span><span>执行时间</span><span>状态</span><span>执行次数</span></div><ul className={styles.rows}>{items.map(item=><li key={item.id}><button disabled={locked} className={styles.row} onClick={()=>open(item.id)}>
+    {items.length?<div className={styles.planList}><div className={styles.listHeader} aria-hidden="true"><div className={styles.listHeading}><span>计划</span><span>执行时间</span><span>状态</span><span>执行次数</span></div><span className={styles.recentHeading}>最近执行结果</span></div><ul className={styles.rows}>{items.map(item=><li key={item.id} className={styles.planEntry}><button disabled={locked} className={styles.row} onClick={()=>open(item.id)}>
      <span className={styles.rowIdentity}><strong>{item.storeName?`${item.storeName} · `:""}{item.goalSummary??"当前无权查看任务内容"}</strong><small>{item.kind==="store.operating-daily-report"?"店铺经营日报":"商品内容"} · {item.rule.frequency==="once"?"仅一次":item.rule.frequency==="daily"?"每天":"每周"}</small></span>
      <span className={styles.rowTime}>{item.nextAt?scheduleTime(item.nextAt,item.rule.timeZone):item.state==="CLOSED"?"不再安排执行":item.state==="PAUSED"?"已暂停":"执行时间待确认"}<small>{item.rule.timeZone}</small></span>
      <span className={styles.state} data-state={item.state}><span aria-hidden="true"/>{states[item.state]}</span><span className={styles.rowCount}>{item.consumedOccurrences} <small>/ {item.maxOccurrences} 次</small></span>
-    </button></li>)}</ul></div>:null}
+    </button><ScheduleRecentResult plan={item} scope={scope} authorizationKey={authorizationKey} refreshing={plans.isFetching}/></li>)}</ul></div>:null}
     {plans.hasNextPage?<Button className={styles.loadMore} variant="outline" disabled={locked||plans.isFetching} onClick={()=>void plans.fetchNextPage()}>加载更多计划</Button>:null}
    </>}
   </div>

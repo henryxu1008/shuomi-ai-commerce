@@ -16,7 +16,16 @@
 .filter{display:flex;align-items:center;gap:12px;font-size:14px}
 .filter select{width:180px}
 .toolbar>.actions{margin-left:auto}
-.planList{min-width:0}
+.planList{min-width:0;container-type:inline-size}
+.listHeader,.planEntry{display:grid;grid-template-columns:minmax(0,1fr) 240px;min-width:0}
+.recentHeading{padding:0 20px 12px;color:var(--muted-foreground);font-size:12px;line-height:16px}
+.recentResult{display:grid;align-content:center;justify-items:start;gap:8px;min-width:0;padding:20px;border-left:1px solid var(--border);font-size:14px;overflow-wrap:anywhere}
+.recentResult time{font-variant-numeric:tabular-nums}
+.recentResult a{color:var(--primary);text-underline-offset:4px}
+.recentResult a:hover{text-decoration:underline}
+.recentResult a:focus-visible{outline:2px solid var(--ring);outline-offset:4px;border-radius:4px}
+.termChoices{display:flex;flex-wrap:wrap;gap:8px}
+.termChoices button[aria-pressed="true"]{border-color:var(--primary);background:var(--accent)}
 .listHeading,.row{display:grid;grid-template-columns:minmax(0,1fr) 220px 128px 96px;gap:24px;align-items:center}
 .listHeading{padding:0 20px 12px;color:var(--muted-foreground);font-size:12px;line-height:16px}
 .listHeading>:last-child{text-align:right}
@@ -130,6 +139,18 @@
  .subjectGroup>fieldset>fieldset>label{grid-column:1;grid-row:1}
  .subjectGroup>fieldset>fieldset>p{grid-column:1;grid-row:2}
  .subjectGroup>fieldset>fieldset>fieldset{grid-column:2;grid-row:1 / 3}
+}
+@container(max-width:1100px){
+ .listHeader{display:none}
+ .planEntry{grid-template-columns:1fr}
+ .recentResult{border-left:0;border-top:1px solid var(--border);margin:0 20px 20px;padding:16px 0 0}
+}
+@container(max-width:750px){
+ .row{grid-template-columns:minmax(0,1fr) auto;gap:16px}
+ .rowIdentity{grid-column:1 / -1}
+ .rowTime{grid-column:1;grid-row:2 / 4}
+ .row>.state{grid-column:2;grid-row:2;justify-self:end}
+ .rowCount{grid-column:2;grid-row:3}
 }
 @media(max-width:1100px){
  .listHeading,.row{grid-template-columns:minmax(0,1fr) 180px 112px 80px;gap:16px}
