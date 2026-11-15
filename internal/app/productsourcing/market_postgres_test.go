@@ -112,6 +112,39 @@ func TestMarketReceiverUsesActualSourceCatalogCollectionUoWAndKeepsVariantImages
 		require.NoError(t, e)
 		require.Empty(t, visible)
 	})
+	t.Run("concurrent move and old batch archive cannot look unselected", func(t *testing.T) {
+		// Isolated fixture restores the item, then holds its original batch while
+		// the selection check observes it and waits for that same owner lock.
+		require.NoError(t, db.Exec("UPDATE product_collection_batches SET archived_at=NULL WHERE id=?", received.BatchID).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET batch_id=? WHERE id=?", received.BatchID, received.ItemID).Error)
+		target := uuid.NewString()
+		require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,?)", scope.OrganizationID, scope.ActorID, scope.MemberID, target, "并发移动目标", time.Now()).Error)
+		moving := db.WithContext(ctx).Begin()
+		t.Cleanup(func() { moving.Rollback() })
+		require.NoError(t, moving.Exec("SELECT id FROM product_collection_batches WHERE id=? FOR UPDATE", received.BatchID).Error)
+		pid := make(chan int, 1)
+		done := make(chan error, 1)
+		go func() {
+			done <- db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				var backend int
+				if e := tx.Raw("SELECT pg_backend_pid()").Scan(&backend).Error; e != nil {
+					return e
+				}
+				pid <- backend
+				_, e := collectionstore.VisibleMarketItems(ctx, tx, scope, []collection.Receipt{received}, true)
+				return e
+			})
+		}()
+		backend := <-pid
+		require.Eventually(t, func() bool {
+			var waiting bool
+			return db.Raw("SELECT COALESCE(wait_event_type='Lock',false) FROM pg_stat_activity WHERE pid=?", backend).Scan(&waiting).Error == nil && waiting
+		}, 5*time.Second, 10*time.Millisecond)
+		require.NoError(t, moving.Exec("UPDATE product_collection_items SET batch_id=? WHERE id=?", target, received.ItemID).Error)
+		require.NoError(t, moving.Exec("UPDATE product_collection_batches SET archived_at=? WHERE id=?", time.Now(), received.BatchID).Error)
+		require.NoError(t, moving.Commit().Error)
+		require.ErrorIs(t, <-done, collection.ErrConflict, "a concurrent owner change must not authorize a duplicate receive")
+	})
 	t.Run("SDS template and finished imports use current owners", func(t *testing.T) {
 		template := pod.Template{ID: "95146", Name: "SDS 模板", Images: []string{"https://cdn.sdspod.com/images/test/template.jpg"}, Variants: []pod.TemplateVariant{{ID: "95147", Name: "竖版", Type: "FREE", Images: []string{"https://cdn.sdspod.com/images/test/variant.jpg"}}}}
 		for _, kind := range []string{"sds_template", "sds_finished"} {

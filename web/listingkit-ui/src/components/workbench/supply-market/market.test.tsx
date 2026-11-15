@@ -2,12 +2,12 @@ import {cleanup,fireEvent,render,screen,waitFor,within} from "@testing-library/r
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {SupplyMarketPage,SupplyProductPage} from "./market";
-const calls=vi.hoisted(()=>({list:vi.fn(),read:vi.fn(),execute:vi.fn()}));
+const calls=vi.hoisted(()=>({list:vi.fn(),read:vi.fn(),execute:vi.fn(),saved:null as null|{releaseId:string;collection:object}}));
 vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:calls.list,readMarket:calls.read}));
-vi.mock("./shared",async original=>({...await original<object>(),MarketBoundary:({children}:{children:(scope:{userId:string;organizationId:string})=>unknown})=>children({userId:"actor",organizationId:"org"}),useMarketCommands:()=>({execute:calls.execute,locked:false,saved:null,notice:null})}));
+vi.mock("./shared",async original=>({...await original<object>(),MarketBoundary:({children}:{children:(scope:{userId:string;organizationId:string})=>unknown})=>children({userId:"actor",organizationId:"org"}),useMarketCommands:()=>({execute:calls.execute,locked:false,saved:calls.saved,notice:null})}));
 const sample={added:false,prices:[],merchant:{state:"unverified"},id:"11111111-1111-4111-8111-111111111111",revision:3,active:true,publishedAt:"2026-11-15T00:00:00Z",product:{title:"【合成示例】折叠收纳箱",description:"仅供流程试用",images:["https://example.com/sample.png"]},supply:{province:"浙江省",city:"杭州市",stock:60,minimumQuantity:2,leadDays:3}};
 function show(node:React.ReactNode){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{node}</QueryClientProvider>)}
-beforeEach(()=>{vi.clearAllMocks();calls.list.mockResolvedValue({items:[],total:0});});
+beforeEach(()=>{vi.clearAllMocks();calls.saved=null;calls.list.mockResolvedValue({items:[],total:0});});
 afterEach(cleanup);
 it.each([["official","硕米自营"],["selected","硕米优选"]] as const)("shows focused channel navigation and My Data for %s",async(channel,title)=>{
  calls.list.mockResolvedValue({items:[{...sample,channel}],total:1});show(<SupplyMarketPage channel={channel}/>);
@@ -33,6 +33,12 @@ it("explains empty searches and clears the filter without changing channels",asy
  await screen.findByText("没有找到匹配商品");fireEvent.click(screen.getByRole("button",{name:"清除筛选"}));
  await waitFor(()=>expect(screen.getByRole("textbox",{name:"商品关键词"})).toHaveValue(""));
  expect(within(screen.getByRole("navigation",{name:"货源渠道"})).getByRole("link",{name:"硕米优选"})).toHaveAttribute("aria-current","page");
+});
+it("does not mark another product as joined from a recovered selection receipt",async()=>{
+ calls.saved={releaseId:"22222222-2222-4222-8222-222222222222",collection:{}};
+ calls.read.mockResolvedValue({...sample,channel:"official"});show(<SupplyProductPage id={sample.id}/>);
+ expect(await screen.findByRole("button",{name:"加入我的数据"})).toBeEnabled();
+ expect(screen.queryByText("已加入我的数据")).not.toBeInTheDocument();
 });
 it.each(["official","selected"] as const)("shows price and directly adds the exact %s release",async channel=>{
  calls.list.mockResolvedValue({items:[{...sample,channel,prices:[{currency:"CNY",minimum:22,maximum:37}],added:false,merchant:{state:"unverified"}}],total:1});

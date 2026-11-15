@@ -45,7 +45,7 @@ export function SupplyProductPage({id}:{id:string}){return <MarketBoundary>{scop
 function MarketProduct({scope,id}:{scope:MarketScope;id:string}){
  const q=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"release",id],queryFn:({signal})=>readMarket(scope,id,signal),retry:false}),commands=useMarketCommands(scope);
  if(q.isPending)return <ConsoleState kind="loading" title="正在加载商品"/>;if(q.error)return <MarketReadError error={q.error} retry={()=>void q.refetch()}/>;const p=q.data;
- const channel=channels[p.channel],joined=p.added===true||!!commands.saved?.collection;
+ const channel=channels[p.channel],joined=p.added===true||(commands.saved?.releaseId===p.id&&!!commands.saved?.collection);
  return <ConsolePage className={`${workbenchViewPage} ${styles.page}`} title={p.product.title} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:channel.title,href:channel.href},{label:"商品详情"}]} description="查看商品和供货信息，加入我的数据后可继续编辑" actions={<><Button variant="ghost" asChild><Link href={channel.href} prefetch={false}>返回{channel.title}</Link></Button><MyDataLink/></>}>
   <div className={styles.content}>
    {commands.notice}

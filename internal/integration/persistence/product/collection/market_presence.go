@@ -56,7 +56,9 @@ func VisibleMarketItems(ctx context.Context, tx *gorm.DB, scope collection.Scope
 		if lock {
 			batch, e := lockBatch(tx.WithContext(ctx), scope, item.BatchID, 0)
 			if errors.Is(e, collection.ErrNotFound) {
-				continue
+				// This batch was visible in the initial join. Its disappearance
+				// may follow a move, so absence cannot authorize another receive.
+				return nil, collection.ErrConflict
 			}
 			if e != nil {
 				return nil, e
