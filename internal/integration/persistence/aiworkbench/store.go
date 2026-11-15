@@ -195,7 +195,7 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		{"messages", "message_kind, store_query_status"},
 		{"commands", "route_commit_deadline, route_result"},
 		{"business_tasks", "source_kind, scheduled_occurrence_id"},
-		{"scheduled_plans", "execution_spec, rule_start_at, registration_state, creation_fingerprint, budget_unit"},
+		{"scheduled_plans", "execution_spec, rule_start_at, registration_state, creation_fingerprint, budget_unit, deleted"},
 		{"scheduled_occurrences", "reason, reconciliation_digest"},
 		{"scheduled_plan_commands", "outcome"},
 	} {
@@ -222,6 +222,9 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
 		}
 	}
 
+	if err := verifyScheduledDeletionSchema(ctx, db); err != nil {
+		return err
+	}
 	if err := verifyBusinessScopeSchema(ctx, db); err != nil {
 		return err
 	}

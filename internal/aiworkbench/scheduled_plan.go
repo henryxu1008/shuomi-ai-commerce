@@ -66,6 +66,7 @@ func (p ScheduledPlanDraft) Valid() bool {
 
 type ScheduledPlan struct {
 	ScheduledPlanDraft
+	Deleted             bool
 	State               string
 	Revision            int64
 	ConsumedOccurrences uint64

@@ -1,5 +1,5 @@
 import {beforeEach,expect,it,vi} from "vitest";
-import {render,screen,waitFor,cleanup} from "@testing-library/react";
+import {render,screen,waitFor,cleanup,within,fireEvent} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {ScheduleManager} from "./schedule-manager";
@@ -11,6 +11,8 @@ vi.mock("@/lib/api/store-center",()=>({catalogSchema:{},storeCenterRequest:vi.fn
 const request=vi.mocked(requestAIWorkbench),scope={userId:"user",organizationId:"org"},id="11111111-1111-4111-8111-111111111111";
 const plan={id,revision:"2",state:"ACTIVE" as const,registrationState:"MATCHED" as const,detailsAvailable:true,goalSummary:"完善商品描述",rule:{frequency:"daily" as const,timeZone:"Asia/Shanghai",hour:9,minute:0,weekday:0},maxOccurrences:"3",consumedOccurrences:"1",unit:"ai-micropoint-v1" as const,perRunUpperBoundMicros:"19200000",totalUpperBoundMicros:"57600000",createdAt:"2026-11-01T00:00:00Z"};
 const storageKey="ai-workbench-schedule-command:user:org";
+Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
+Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
 function mount(){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ScheduleManager scope={scope} authorizationKey="roles" canUse onBack={vi.fn()}/></QueryClientProvider>)}
 beforeEach(()=>{cleanup();sessionStorage.clear();window.history.replaceState(null,"","/?view=schedules");request.mockReset();request.mockImplementation(async input=>{
  if(input.route==="schedule-availability")return {enabled:true,ready:true} as never;
@@ -19,6 +21,31 @@ beforeEach(()=>{cleanup();sessionStorage.clear();window.history.replaceState(nul
  if(input.route==="schedule-history")return {occurrences:[],next:""} as never;
  throw new Error("unexpected mutation");
 });});
+it.each(["结束计划","删除计划"])("confirms %s in the shared dialog, supports cancel and Esc, and restores focus",async label=>{
+ mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
+ const trigger=await screen.findByRole("button",{name:label});await userEvent.click(trigger);
+ let dialog=screen.getByRole("dialog");expect(within(dialog).getByRole("button",{name:"取消"})).toHaveFocus();
+ expect(request.mock.calls.some(([input])=>input.method==="POST")).toBe(false);
+ await userEvent.click(within(dialog).getByRole("button",{name:"取消"}));expect(trigger).toHaveFocus();
+ await userEvent.click(trigger);dialog=screen.getByRole("dialog");fireEvent(dialog,new Event("cancel",{cancelable:true}));
+ expect(screen.queryByRole("dialog")).toBeNull();expect(trigger).toHaveFocus();
+ expect(request.mock.calls.some(([input])=>input.method==="POST")).toBe(false);
+});
+it("deletes an ended plan only after confirmation and removes it from the list",async()=>{
+ let removed=false;const current=request.getMockImplementation()!;
+ request.mockImplementation(async input=>{
+  if(input.route==="schedule-list")return {plans:removed?[]:[{...plan,state:"CLOSED"}],next:""} as never;
+  if(input.route==="schedule-read")return {plan:{...plan,state:"CLOSED"}} as never;
+  if(String(input.route)==="schedule-delete"){removed=true;expect(input.body).toEqual({expectedRevision:"2"});return {plan:{...plan,state:"CLOSED",deleted:true},planSaved:true} as never;}
+  return current(input);
+ });
+ mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
+ await userEvent.click(await screen.findByRole("button",{name:"删除计划"}));
+ await userEvent.click(within(screen.getByRole("dialog")).getByRole("button",{name:"删除计划"}));
+ await screen.findByText("计划已删除，已有结果和执行记录仍保留。");
+ await screen.findByRole("heading",{name:"还没有定时任务"});
+ expect(request.mock.calls.filter(([input])=>String(input.route)==="schedule-delete")).toHaveLength(1);
+});
 it("restores an uncertain pause after reload and retries the exact original version and key",async()=>{
  const command={action:"pause",path:`schedules/${id}/pause`,key:id,body:{expectedRevision:"2"}};
  sessionStorage.setItem(storageKey,JSON.stringify(command));
@@ -34,6 +61,24 @@ it("restores an uncertain pause after reload and retries the exact original vers
  });
  await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));
  await screen.findByRole("button",{name:"恢复未来执行"});expect(sessionStorage.getItem(storageKey)).toBeNull();
+});
+it("recovers an uncertain deletion with the same key after reload without losing the original command",async()=>{
+ const command={action:"delete",path:`schedules/${id}/delete`,key:id,body:{expectedRevision:"2"}};
+ sessionStorage.setItem(storageKey,JSON.stringify(command));const current=request.getMockImplementation()!;let tries=0;
+ request.mockImplementation(async input=>{
+  if(input.route==="schedule-delete"){
+   expect(input.key).toBe(command.key);expect(input.body).toEqual(command.body);
+   if(++tries===1)throw new AIWorkbenchError("OUTCOME_UNKNOWN");
+   return {plan:{...plan,state:"CLOSED",deleted:true},planSaved:true} as never;
+  }
+  if(input.route==="schedule-list"&&tries>1)return {plans:[],next:""} as never;
+  return current(input);
+ });
+ mount();await userEvent.click(await screen.findByRole("button",{name:"核实原操作"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"核实原操作"})).toBeEnabled());
+ expect(JSON.parse(sessionStorage.getItem(storageKey)!)).toEqual(command);
+ await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));
+ await screen.findByText("计划已删除，已有结果和执行记录仍保留。");expect(sessionStorage.getItem(storageKey)).toBeNull();expect(tries).toBe(2);
 });
 it.each(["OUTCOME_UNKNOWN","DEPENDENCY_UNAVAILABLE","DEADLINE_EXCEEDED","TASK_OUTCOME_UNKNOWN"])("keeps the original command when %s cannot prove rejection",async code=>{
  mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));

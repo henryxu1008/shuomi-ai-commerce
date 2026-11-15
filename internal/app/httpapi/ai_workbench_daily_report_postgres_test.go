@@ -233,6 +233,13 @@ func TestScheduledDailyReportHTTPAndRecovery(t *testing.T) {
 	_, execution, e := app.store.ClaimScheduledReport(ctx, plan.Scope, id, plan.Revision, input.Rule.AtUTC, input.Rule.AtUTC)
 	require.NoError(t, e)
 	require.NoError(t, app.store.BeginReportCapture(ctx, execution.Origin))
+	// Delete after capture began, before the response/result was recovered.
+	current, e := app.store.ReadScheduledPlan(ctx, plan.Scope, id)
+	require.NoError(t, e)
+	deleteKey := uuid.NewString()
+	deleted := request("POST", workbenchScheduleBase+"/"+id+"/delete", deleteKey, map[string]string{"expectedRevision": fmt.Sprint(current.Revision)}, 200)
+	require.Contains(t, string(deleted), `"deleted":true`)
+	request("POST", workbenchScheduleBase+"/"+id+"/delete", deleteKey, map[string]string{"expectedRevision": fmt.Sprint(current.Revision)}, 200)
 	// Crash before Report call, beyond Temporal retry lifetime: the ordinary scan
 	// resumes this same frozen occurrence rather than creating a new one.
 	require.NoError(t, app.recoverScheduledPlans(ctx))
@@ -251,6 +258,9 @@ func TestScheduledDailyReportHTTPAndRecovery(t *testing.T) {
 	saved := request("GET", reporthttp.Base+"/"+reportID, "", nil, 200)
 	require.Contains(t, string(saved), "0.00 元")
 	require.Contains(t, string(saved), period)
+	require.NotContains(t, string(request("GET", workbenchScheduleBase+"?limit=20", "", nil, 200)), id)
+	require.Contains(t, string(request("GET", workbenchScheduleBase+"/"+id, "", nil, 200)), `"deleted":true`)
+	require.Contains(t, string(request("GET", workbenchScheduleBase+"/"+id+"/occurrences", "", nil, 200)), reportID)
 	request("GET", reporthttp.Base+"?view=all&limit=20&kind=STORE_DAILY_REPORT", "", nil, 200)
 	// Revocation affects list/search/count/detail/favorite, even an already saved
 	// personal report. Exact metadata reconciliation remains available internally.

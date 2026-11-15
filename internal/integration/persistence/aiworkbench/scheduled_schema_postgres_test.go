@@ -5,6 +5,7 @@ package aiworkbenchpersistence
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +15,132 @@ import (
 	"task-processor/internal/aiworkbench"
 	reviewproposal "task-processor/internal/product/review/proposal"
 )
+
+func TestScheduledDeletionConcurrencyAndListPagination(t *testing.T) {
+	db := workbenchDB(t)
+	store, err := New(db)
+	require.NoError(t, err)
+	ctx := context.Background()
+	scope := aiworkbench.Scope{OrganizationID: "org-delete", ActorID: "alice"}
+	now := time.Now().UTC().Truncate(time.Second)
+	create := func(id string) aiworkbench.ScheduledPlan {
+		p := aiworkbench.ScheduledPlanDraft{ID: id, Scope: scope, MemberID: "member", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: now.Add(time.Minute)}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 1}, CreatedAt: now}
+		require.NoError(t, store.CreateScheduledPlan(ctx, p))
+		require.NoError(t, store.MarkScheduleRegistered(ctx, scope, id, 1))
+		plan, e := store.ReadScheduledPlan(ctx, scope, id)
+		require.NoError(t, e)
+		return plan
+	}
+	p := create("11111111-1111-4111-8111-111111111111")
+	keep := create("22222222-2222-4222-8222-222222222222")
+	require.Error(t, db.Exec("UPDATE ai_workbench.scheduled_plans SET deleted=true WHERE id=?", keep.ID).Error, "deleted plans must be closed atomically")
+	key := uuid.NewString()
+	var wg sync.WaitGroup
+	errs := make(chan error, 8)
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, e := store.ChangeScheduledPlan(ctx, scope, p.ID, key, p.Revision, "delete", nil, "", now)
+			errs <- e
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		require.NoError(t, e)
+	}
+	deleted, err := store.ReadScheduledPlan(ctx, scope, p.ID)
+	require.NoError(t, err)
+	require.True(t, deleted.Deleted)
+	require.Equal(t, p.Revision+1, deleted.Revision)
+	// A new key on the current deleted revision must also have its own receipt.
+	newKey := uuid.NewString()
+	noOp, err := store.ChangeScheduledPlan(ctx, scope, p.ID, newKey, deleted.Revision, "delete", nil, "", now)
+	require.NoError(t, err)
+	require.Equal(t, deleted.Revision, noOp.Revision)
+	receipt, found, err := store.ReadScheduledControlReceipt(ctx, scope, p.ID, newKey, deleted.Revision, "delete", nil, "")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, noOp, receipt)
+	_, err = store.ChangeScheduledPlan(ctx, scope, p.ID, newKey, deleted.Revision, "delete", nil, "", now)
+	require.NoError(t, err)
+	listed, next, err := store.ListScheduledPlans(ctx, scope, "", 1)
+	require.NoError(t, err)
+	require.Empty(t, next)
+	require.Len(t, listed, 1)
+	require.Equal(t, keep.ID, listed[0].ID)
+	// Delete wins before the callback: the new slot is skipped, no quota claimed.
+	occ, _, err := store.ClaimScheduledOccurrence(ctx, scope, p.ID, p.Rule.AtUTC, p.Rule.AtUTC)
+	require.NoError(t, err)
+	require.Equal(t, "SKIPPED", occ.State)
+	deleted, err = store.ReadScheduledPlan(ctx, scope, p.ID)
+	require.NoError(t, err)
+	require.Zero(t, deleted.ConsumedOccurrences)
+	require.Empty(t, deleted.ActiveOccurrenceID)
+	// Different keys at the same prior revision serialize to one mutation.
+	errs = make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, e := store.ChangeScheduledPlan(ctx, scope, keep.ID, uuid.NewString(), keep.Revision, "delete", nil, "", now)
+			errs <- e
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	succeeded := 0
+	for e := range errs {
+		if e == nil {
+			succeeded++
+		} else {
+			require.ErrorIs(t, e, aiworkbench.ErrRevisionMismatch)
+		}
+	}
+	require.Equal(t, 1, succeeded)
+}
+
+func TestScheduledDeletionSchemaAndRuntimeBounds(t *testing.T) {
+	db := workbenchDB(t)
+	const role = "scheduled_deletion_runtime"
+	require.NoError(t, db.Exec("CREATE ROLE "+role+" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS").Error)
+	require.NoError(t, GrantRuntime(db, role))
+	// A valid existing plan survives the bounded extension unchanged.
+	now := time.Now().UTC().Truncate(time.Second)
+	p := aiworkbench.ScheduledPlanDraft{ID: uuid.NewString(), Scope: aiworkbench.Scope{OrganizationID: "org-existing", ActorID: "alice"}, MemberID: "member", GoalSummary: "Localize", Selection: aiworkbench.TaskSelection{Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "1", PublicationID: uuid.NewString()}, Capability: aiworkbench.ContentTaskKind, Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true}}, Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleOnce, TimeZone: "UTC", AtUTC: now.Add(time.Minute)}, Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 1}, CreatedAt: now}
+	store, err := New(db)
+	require.NoError(t, err)
+	require.NoError(t, store.CreateScheduledPlan(context.Background(), p))
+	var before, after string
+	fingerprintSQL := "SELECT md5((to_jsonb(p)-'deleted')::text) FROM ai_workbench.scheduled_plans p WHERE id=?"
+	require.NoError(t, db.Raw(fingerprintSQL, p.ID).Scan(&before).Error)
+	// Model the pre-extension schema using this existing disposable fixture.
+	require.NoError(t, db.Exec("ALTER TABLE ai_workbench.scheduled_plans DROP COLUMN deleted").Error)
+	verify := func() error {
+		return db.Transaction(func(tx *gorm.DB) error {
+			if e := tx.Exec("SET LOCAL ROLE " + role).Error; e != nil {
+				return e
+			}
+			return VerifySchema(context.Background(), tx)
+		})
+	}
+	require.Error(t, verify(), "startup must reject a missing extension")
+	require.NoError(t, InstallScheduledDeletionSchema(db, role))
+	require.NoError(t, InstallScheduledDeletionSchema(db, role))
+	require.NoError(t, verify())
+	require.NoError(t, db.Raw(fingerprintSQL, p.ID).Scan(&after).Error)
+	require.Equal(t, before, after)
+	var allowed, unsafe bool
+	require.NoError(t, db.Raw("SELECT has_column_privilege(?,'ai_workbench.scheduled_plans','deleted','UPDATE')", role).Scan(&allowed).Error)
+	require.True(t, allowed)
+	require.NoError(t, db.Raw("SELECT has_table_privilege(?,'ai_workbench.scheduled_plans','UPDATE,DELETE')", role).Scan(&unsafe).Error)
+	require.False(t, unsafe)
+	// Same-name relaxed constraints must be rejected, never silently replaced.
+	require.NoError(t, db.Exec("ALTER TABLE ai_workbench.scheduled_plans DROP CONSTRAINT scheduled_plans_deleted_closed; ALTER TABLE ai_workbench.scheduled_plans ADD CONSTRAINT scheduled_plans_deleted_closed CHECK (true)").Error)
+	require.Error(t, InstallScheduledDeletionSchema(db, role))
+	require.Error(t, verify())
+}
 
 // The existing Workbench installer owns this schema. It must be repeatable,
 // tenant-scoped and refuse cross-plan occurrence pointers.
@@ -232,13 +359,13 @@ func TestScheduledPlanLongOutageRecordsBoundedBatches(t *testing.T) {
 	plan := aiworkbench.ScheduledPlanDraft{
 		ID: uuid.NewString(), Scope: scope, MemberID: "member-alice",
 		Selection: aiworkbench.TaskSelection{
-			Subject: aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "3", PublicationID: "current-pub"},
+			Subject:    aiworkbench.Subject{Kind: "own_product", ID: uuid.NewString(), CatalogVersion: "3", PublicationID: "current-pub"},
 			Capability: aiworkbench.ContentTaskKind,
 			Parameters: reviewproposal.ContentSelection{TargetLanguage: "en-US", Description: true},
 		},
 		GoalSummary: "Localize product",
-		Rule: aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9},
-		Budget: aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 2500}, CreatedAt: created,
+		Rule:        aiworkbench.ScheduleRule{Frequency: aiworkbench.ScheduleDaily, TimeZone: "UTC", Hour: 9},
+		Budget:      aiworkbench.ScheduleBudget{MaxOccurrences: 1, PerRunUpperBoundMicros: 2500}, CreatedAt: created,
 	}
 	require.NoError(t, store.CreateScheduledPlan(ctx, plan))
 	require.NoError(t, store.MarkScheduleRegistered(ctx, scope, plan.ID, 1))

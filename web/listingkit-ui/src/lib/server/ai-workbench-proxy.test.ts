@@ -12,12 +12,12 @@ describe("AI Workbench BFF boundary", () => {
     const unknown=await buildWorkbenchBrowserResponse(Response.json({code:"SCHEDULE_COMMAND_REJECTED"},{status:409}),"ai-schedule-create",undefined,{sourceMutation:true});
     expect(unknown.status).toBe(503);expect(await unknown.json()).not.toHaveProperty("commandAccepted");
   });
-  it("preserves scheduled control CAS and retry identity, and rejects forged owner fields",async()=>{
-    const make=(body:object)=>new Request(`http://localhost/api/workbench/schedules/${id}/pause`,{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify(body)});
-    const result=await buildWorkbenchUpstreamRequest(make({expectedRevision:"9007199254740993"}),["schedules",id,"pause"],"server-token","user-a");
+  it.each(["pause","close","delete"])("preserves scheduled %s CAS and retry identity, and rejects forged owner fields",async action=>{
+    const make=(body:object)=>new Request(`http://localhost/api/workbench/schedules/${id}/${action}`,{method:"POST",headers:{...scope,Origin:"http://localhost","Content-Type":"application/json","Idempotency-Key":id},body:JSON.stringify(body)});
+    const result=await buildWorkbenchUpstreamRequest(make({expectedRevision:"9007199254740993"}),["schedules",id,action],"server-token","user-a");
     expect(result).not.toBeInstanceOf(Response);
     if(!(result instanceof Response)){expect(result.init.body).toBe('{"expectedRevision":"9007199254740993"}');expect(new Headers(result.init.headers).get("Idempotency-Key")).toBe(id);expect(result.sourceMutation).toBe(true);}
-    const forged=await buildWorkbenchUpstreamRequest(make({expectedRevision:"2",actorId:"other"}),["schedules",id,"pause"],"server-token","user-a");
+    const forged=await buildWorkbenchUpstreamRequest(make({expectedRevision:"2",actorId:"other"}),["schedules",id,action],"server-token","user-a");
     expect(forged).toBeInstanceOf(Response);if(forged instanceof Response)expect(forged.status).toBe(400);
   });
   it("allows a scoped Chat create and strips browser identity claims", async () => {

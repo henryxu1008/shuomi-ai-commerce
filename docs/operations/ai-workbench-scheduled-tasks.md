@@ -53,3 +53,11 @@ go run ./cmd/current-application -config C:\private\current-application.json
 本期只开放原商品内容任务，生成待人工审核建议；支持默认与只读模式，拒绝自动批准／完全访问。含知识库的 Chat 提案暂不提供定时入口，服务端也明确拒绝；不自动换成无知识库执行。来源版本或配置变化后阻断原计划，需要用户重新确认当前方案。没有新增平台发布、批量旧任务补跑、金额阈值调度、任意 Agent 调用或新的账务 owner。
 
 真实模型、真实业务数据、保留实例部署和用户产品验收仍为 **NOT_RUN**。具体准确 HEAD、CI、独立复核及浏览器执行结果记录在 PR。
+# 删除计划
+
+任务中心 → 定时任务 → 打开计划 → 删除计划。确认后不再安排后续执行，计划从默认列表移除；已经开始的任务继续处理，报告和执行记录保留，费用及预留不因删除变化。已结束的计划也能删除。结束和删除均使用统一确认弹窗，取消或 Esc 不提交操作。
+
+已有开发实例启用此版本前，由原 Workbench schema owner 使用现有 `ai-workbench-schema-init --schedule-deletion-only --runtime-role ai_workbench_runtime` 入口，并显式传入 `--expected-database`、`--expected-server-address`、`--expected-server-port`；连接凭据仍通过本机受控环境变量 `AI_WORKBENCH_SCHEMA_DSN` 注入，不写入日志或页面。该入口只添加删除标记、约束和该列的有限更新权限，不删除业务数据。运行服务只读校验，不自动安装；无扩展时不会误报可用。
+
+本轮 #1288 只交付实现及既有夹具验证，不包含原 35444 更新或实际计划删除。不重复创建环境、计划或备份；已删除计划不提供还原，按 ID 查看历史仍受原权限约束。
+

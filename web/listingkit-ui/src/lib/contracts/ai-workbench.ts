@@ -97,7 +97,7 @@ export const aiScheduleInput=z.strictObject({kind:z.enum(["product.content.local
 export const aiScheduleControl=z.strictObject({expectedRevision:positiveDecimal});
 export const aiScheduleEdit=aiScheduleControl.extend({rule:aiScheduleRule,confirmation:z.string().regex(/^[a-f0-9]{64}$/)});
 const scheduleBudget={maxOccurrences:positiveDecimal,unit:z.enum(["ai-micropoint-v1","none"]),perRunUpperBoundMicros:decimal,totalUpperBoundMicros:decimal};
-const schedulePlan=z.object({storeName:z.string().optional(),kind:z.enum(["product.content.localize","store.operating-daily-report"]).optional(),report:dailyReportSpec.optional(),id,revision:positiveDecimal,state:z.enum(["PENDING_REGISTRATION","ACTIVE","PAUSED","CLOSED","REGISTRATION_UNKNOWN"]),registrationState:z.enum(["PENDING","MATCHED","UNKNOWN"]),goalSummary:z.string().optional(),selection:aiTaskSelection.optional(),detailsAvailable:z.boolean(),rule:aiScheduleRule,...scheduleBudget,consumedOccurrences:decimal,nextAt:timestamp.optional(),activeOccurrenceId:id.optional(),createdAt:timestamp});
+const schedulePlan=z.object({deleted:z.boolean().optional(),storeName:z.string().optional(),kind:z.enum(["product.content.localize","store.operating-daily-report"]).optional(),report:dailyReportSpec.optional(),id,revision:positiveDecimal,state:z.enum(["PENDING_REGISTRATION","ACTIVE","PAUSED","CLOSED","REGISTRATION_UNKNOWN"]),registrationState:z.enum(["PENDING","MATCHED","UNKNOWN"]),goalSummary:z.string().optional(),selection:aiTaskSelection.optional(),detailsAvailable:z.boolean(),rule:aiScheduleRule,...scheduleBudget,consumedOccurrences:decimal,nextAt:timestamp.optional(),activeOccurrenceId:id.optional(),createdAt:timestamp});
 const validScheduleBudget=(v:{kind?:string;unit:string;perRunUpperBoundMicros:string;totalUpperBoundMicros:string;maxOccurrences:string})=>v.kind==="store.operating-daily-report"?v.unit==="none"&&v.perRunUpperBoundMicros==="0"&&v.totalUpperBoundMicros==="0":v.unit==="ai-micropoint-v1"&&BigInt(v.perRunUpperBoundMicros)>0&&BigInt(v.totalUpperBoundMicros)===BigInt(v.maxOccurrences)*BigInt(v.perRunUpperBoundMicros);
 export type AIScheduledPlan=z.infer<typeof schedulePlan>;
 export type AIScheduleInput=z.infer<typeof aiScheduleInput>;
@@ -107,7 +107,7 @@ const scheduledSave=z.object({plan:schedulePlan.refine(validScheduleBudget),plan
 
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
   "scope-options" | "task-scope-options" | "subject-read" | "message" | "store-route" | "store-overview" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review" |
-  "schedule-availability"|"schedule-list"|"schedule-read"|"schedule-history"|"schedule-quote"|"schedule-create"|"schedule-edit"|"schedule-pause"|"schedule-resume"|"schedule-close";
+  "schedule-availability"|"schedule-list"|"schedule-read"|"schedule-history"|"schedule-quote"|"schedule-create"|"schedule-edit"|"schedule-pause"|"schedule-resume"|"schedule-close"|"schedule-delete";
 
 export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRoute | null {
   if(path[0]==="schedules"){
@@ -117,7 +117,7 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
     if(!isAcquisitionUUID(path[1]??""))return null;
     if(path.length===2)return method==="GET"?"schedule-read":method==="PATCH"?"schedule-edit":null;
     if(path.length===3&&path[2]==="occurrences"&&method==="GET")return "schedule-history";
-    if(path.length===3&&method==="POST"&&["pause","resume","close"].includes(path[2]??""))return `schedule-${path[2]}` as AIWorkbenchRoute;
+    if(path.length===3&&method==="POST"&&["pause","resume","close","delete"].includes(path[2]??""))return `schedule-${path[2]}` as AIWorkbenchRoute;
     return null;
   }
   if(method==="GET"&&path.length===4&&path[0]==="chat"&&path[1]==="subjects"&&["own_product","acquisition"].includes(path[2]??"")&&isAcquisitionUUID(path[3]??""))return "subject-read";
@@ -151,7 +151,7 @@ export const aiResponseSchemas = {
  "schedule-list":z.object({plans:z.array(schedulePlan.refine(validScheduleBudget)),next:z.string()}),
  "schedule-read":z.object({plan:schedulePlan.refine(validScheduleBudget)}),
  "schedule-history":z.object({occurrences:z.array(z.object({id,scheduledAt:timestamp,planRevision:positiveDecimal,state:z.enum(["CLAIMED","DISPATCHED","SKIPPED","BLOCKED","UNKNOWN","RECONCILED"]),reason:z.string().optional(),businessTaskId:id.optional(),reportId:id.optional()})),next:z.string()}),
- "schedule-quote":scheduleQuote.refine(v=>validScheduleBudget(v)&&(v.kind==="store.operating-daily-report"?!!v.report&&!v.selection&&!v.executionMode:!!v.selection&&!!v.executionMode)),"schedule-create":scheduledSave,"schedule-edit":scheduledSave,"schedule-pause":scheduledSave,"schedule-resume":scheduledSave,"schedule-close":scheduledSave,
+ "schedule-quote":scheduleQuote.refine(v=>validScheduleBudget(v)&&(v.kind==="store.operating-daily-report"?!!v.report&&!v.selection&&!v.executionMode:!!v.selection&&!!v.executionMode)),"schedule-create":scheduledSave,"schedule-edit":scheduledSave,"schedule-pause":scheduledSave,"schedule-resume":scheduledSave,"schedule-close":scheduledSave,"schedule-delete":scheduledSave,
  "task-cockpit-metrics": taskMetrics,
  "scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),
  "task-scope-options":z.strictObject({options:z.array(scopeOption).max(20),next:z.string(),incomplete:z.boolean()}),

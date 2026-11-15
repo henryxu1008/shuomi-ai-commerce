@@ -39,4 +39,4 @@ aiworkbench 仍唯一拥有计划、发生记录及控制回执；reportcenter �
 
 只扩展既有 PostgreSQL / HTTP / ScheduleManager / BFF 合同测试，TDD：先证明现状不支持删除，再实现。覆盖：进行中及 CLOSED 删除；默认列表含分页不返回删除项；原报告/历史/任务/占用及预算不变；跨 scope 拒绝；同键重放/并发/响应丢失恢复；在途能完成/未来拒绝；schema 约束与 runtime 权限；确认、取消、Esc、焦点恢复。复用未改变调度与模型保护的已有证据，不新增测试平台、真实模型调用或部署。
 
-Architecture Review：待独立检查；Admission Status: NOT_READY。实施必须在独立复核确认 IMPLEMENTATION_READY 后开始。
+Architecture Review：daily_report_architecture_review 已独立核对 e57c139c6 设计与实际事务、领取、恢复及投影路径，无 BLOCKER；Admission Status: IMPLEMENTATION_READY。新键重复删除仍保存回执、schema/权限接线和到点竞争在本批既有夹具内完成实施验证。
