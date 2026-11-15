@@ -11,11 +11,11 @@ export function MarketMerchant({merchant}:{merchant:MarketView["merchant"]}){
 }
 export function MarketCard({product:p,locked,adding,onAdd}:{product:MarketView;locked:boolean;adding:boolean;onAdd:()=>void}){
  return <Card className={styles.card}>
-  <img src={p.product.images[0]} alt={p.product.title} loading="lazy" className={styles.image}/>
+  <Link href={"/workbench/supply/products/"+p.id} prefetch={false} aria-label="查看商品" className={styles.imageLink}><img src={p.product.images[0]} alt={p.product.title} loading="lazy" className={styles.image}/></Link>
   <div className={styles.body}>
    <div className={styles.heading}>
-    <div className={styles.headingText}><h2>{p.product.title}</h2>{p.added===true?<p className={styles.added}>已加入我的数据</p>:null}</div>
-    <Link className={styles.details} href={"/workbench/supply/products/"+p.id} prefetch={false}>查看商品</Link>
+    <h2>{p.product.title}</h2>
+    {p.added===true?<p className={styles.added}>已加入我的数据</p>:null}
    </div>
    <div className={styles.supplier}>
     {p.channel==="selected"?<MarketMerchant merchant={p.merchant}/>:null}
