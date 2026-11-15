@@ -18,6 +18,7 @@ import (
 	billinghttp "task-processor/internal/commercial/billing/httpapi"
 	"task-processor/internal/pkg/appenv"
 	"task-processor/internal/product/collection"
+	marketdomain "task-processor/internal/product/supplymarket"
 	markethttp "task-processor/internal/product/supplymarket/httpapi"
 	"task-processor/internal/reportcenter"
 	"task-processor/internal/shopdiagnosis"
@@ -852,6 +853,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	var referralMaturity func(context.Context, time.Time) error
 	var personalKYC personalKYCReader
+	var merchantNames marketdomain.VerifiedMerchantReader
 	if factories.buildSubjectVerification != nil {
 		verification, err := factories.buildSubjectVerification(sourceAccountDB, cfg)
 		if err != nil {
@@ -863,6 +865,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, verification)
 		if verificationModule, ok := verification.(subjectVerificationModule); ok {
 			personalKYC = verificationModule.personalKYC
+			merchantNames = verificationModule.merchants
 		}
 	}
 	includeAccountProfile := factories.buildAccountProfile != nil
@@ -964,7 +967,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		supplied.pod.SourceApprovalGuard = guard.AuthorizeSourceApproval
 	}
 	if supplied.supplyMarket != nil {
-		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, *supplied.supplyMarket, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
+		marketDependencies := *supplied.supplyMarket
+		marketDependencies.Merchants = merchantNames
+		module, e := buildSupplyMarketModule(ctx, supplied.productAcquisitionDB, marketDependencies, supplied.pod, *workbench.authDependencies, authorizer, cfg, supplied.listings > 0 || supplied.privateDraftTrials > 0 || supplied.controlledLocalDrafts > 0, supplied.fullImages != nil, supplied.acquisitionPlans > 0, supplied.listingCompletionDrafts > 0, supplied.offlineRecords > 0)
 		if e != nil {
 			return nil, fmt.Errorf("build current supply market: %w", e)
 		}

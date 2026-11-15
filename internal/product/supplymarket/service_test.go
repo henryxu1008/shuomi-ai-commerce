@@ -40,6 +40,14 @@ type serviceRepository struct {
 	selected *SelectedProduct
 }
 
+func (r *serviceRepository) ReadMarketData(_ context.Context, _ collection.Scope, ids []string) (map[string]MarketData, error) {
+	result := map[string]MarketData{}
+	for _, id := range ids {
+		result[id] = MarketData{Prices: []PriceRange{}, Added: new(false)}
+	}
+	return result, nil
+}
+
 func (r *serviceRepository) Execute(ctx context.Context, c Command, g Guard) (Receipt, error) {
 	if r.before != nil {
 		r.before()
@@ -106,7 +114,7 @@ func serviceFixture(t *testing.T) (*Service, *testAuthority, *selectionRepositor
 	require.NoError(t, err)
 	c.WithSnapshots(snapshots{published: catalog.PublishedSnapshot{Identity: catalog.SnapshotIdentity{TenantID: a.scope.OrganizationID, ProductKey: selected.item.Source.ProductKey}, PublicationID: selected.item.Source.PublicationID, Version: 1, Snapshot: catalog.ProductSnapshot{Title: "本人商品", Images: []catalog.Image{{URL: "https://images.example.org/art.png"}}}}})
 	r := &serviceRepository{}
-	s, err := NewService(a, c, effectiveFixture{}, r)
+	s, err := NewService(a, c, effectiveFixture{}, r, nil)
 	require.NoError(t, err)
 	ctx := authidentity.WithAuthenticatedIdentity(context.Background(), authidentity.AuthenticatedIdentity{TenantID: a.scope.OrganizationID, EffectiveOrganizationID: a.scope.OrganizationID, UserID: a.scope.ActorID, EffectiveMemberID: a.scope.MemberID, TokenExpiresAt: time.Now().Add(time.Minute)})
 	i := Mutation{Action: "create_official_draft", Selection: &SelectionInput{ItemID: selected.item.ID, ExpectedRevision: 1, OriginalPublicationID: "own-publication", OriginalVersion: 1, EffectiveVersion: 1}, Supply: &SupplyDeclaration{Stock: 10, MinimumQuantity: 1, Province: "浙江", City: "杭州"}, Disclosure: true}

@@ -40,7 +40,7 @@ func TestMarketReceiverUsesActualSourceCatalogCollectionUoWAndKeepsVariantImages
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, InstallSchema(db))
 	require.NoError(t, collectionstore.InstallSchema(db))
-	release := supplymarket.Release{ID: uuid.NewString(), Channel: "selected", Revision: 1, Active: true, PublishedAt: time.Now(), Product: supplymarket.PublicProduct{Title: "已发布商品", Images: []string{"https://images.example.org/main.png"}, Variants: []supplymarket.PublicVariant{{SourceID: "blue", Title: "蓝色", Currency: "CNY", Price: 10, Stock: 20, Images: []string{"https://images.example.org/blue.png"}}}}}
+	release := supplymarket.Release{ID: uuid.NewString(), Channel: "selected", Revision: 1, Active: true, PublishedAt: time.Now(), Product: supplymarket.PublicProduct{Title: "已发布商品", Images: []string{"https://images.example.org/main.png"}, Variants: []supplymarket.PublicVariant{{SourceID: "blue", Title: "蓝色", Currency: "CNY", Price: new(10.0), Stock: 20, Images: []string{"https://images.example.org/blue.png"}}}}}
 	scope := collection.Scope{"org-b", "actor-b", "member-b"}
 	op := uuid.NewString()
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -84,6 +84,67 @@ func TestMarketReceiverUsesActualSourceCatalogCollectionUoWAndKeepsVariantImages
 	require.Nil(t, saved.Snapshot.Review)
 	_, err = selected.ReadItem(ctx, collection.Scope{"org-b", "another", "another-member"}, received.ItemID)
 	require.ErrorIs(t, err, collection.ErrNotFound)
+	t.Run("market presence follows current batch and original member", func(t *testing.T) {
+		check := func(s collection.Scope, lock bool) (map[string]collection.Receipt, error) {
+			var value map[string]collection.Receipt
+			e := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				var inner error
+				value, inner = collectionstore.VisibleMarketItems(ctx, tx, s, []collection.Receipt{received}, lock)
+				return inner
+			})
+			return value, e
+		}
+		visible, e := check(scope, false)
+		require.NoError(t, e)
+		require.Contains(t, visible, received.ItemID)
+		foreign, e := check(collection.Scope{scope.OrganizationID, scope.ActorID, "another-member"}, false)
+		require.NoError(t, e)
+		require.Empty(t, foreign)
+		currentBatch := uuid.NewString()
+		require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,?)", scope.OrganizationID, scope.ActorID, scope.MemberID, currentBatch, "移动目标", time.Now()).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET batch_id=?,revision=revision+1 WHERE id=?", currentBatch, received.ItemID).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_batches SET archived_at=? WHERE id=?", time.Now(), received.BatchID).Error)
+		visible, e = check(scope, true)
+		require.NoError(t, e)
+		require.Equal(t, currentBatch, visible[received.ItemID].BatchID)
+		require.NoError(t, db.Exec("UPDATE product_collection_batches SET archived_at=? WHERE id=?", time.Now(), currentBatch).Error)
+		visible, e = check(scope, false)
+		require.NoError(t, e)
+		require.Empty(t, visible)
+	})
+	t.Run("concurrent move and old batch archive cannot look unselected", func(t *testing.T) {
+		// Isolated fixture restores the item, then holds its original batch while
+		// the selection check observes it and waits for that same owner lock.
+		require.NoError(t, db.Exec("UPDATE product_collection_batches SET archived_at=NULL WHERE id=?", received.BatchID).Error)
+		require.NoError(t, db.Exec("UPDATE product_collection_items SET batch_id=? WHERE id=?", received.BatchID, received.ItemID).Error)
+		target := uuid.NewString()
+		require.NoError(t, db.Exec("INSERT INTO product_collection_batches(organization_id,actor_id,member_id,id,name,kind,revision,created_at) VALUES(?,?,?,?,?,'manual',1,?)", scope.OrganizationID, scope.ActorID, scope.MemberID, target, "并发移动目标", time.Now()).Error)
+		moving := db.WithContext(ctx).Begin()
+		t.Cleanup(func() { moving.Rollback() })
+		require.NoError(t, moving.Exec("SELECT id FROM product_collection_batches WHERE id=? FOR UPDATE", received.BatchID).Error)
+		pid := make(chan int, 1)
+		done := make(chan error, 1)
+		go func() {
+			done <- db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				var backend int
+				if e := tx.Raw("SELECT pg_backend_pid()").Scan(&backend).Error; e != nil {
+					return e
+				}
+				pid <- backend
+				_, e := collectionstore.VisibleMarketItems(ctx, tx, scope, []collection.Receipt{received}, true)
+				return e
+			})
+		}()
+		backend := <-pid
+		require.Eventually(t, func() bool {
+			var waiting bool
+			return db.Raw("SELECT COALESCE(wait_event_type='Lock',false) FROM pg_stat_activity WHERE pid=?", backend).Scan(&waiting).Error == nil && waiting
+		}, 5*time.Second, 10*time.Millisecond)
+		require.NoError(t, moving.Exec("UPDATE product_collection_items SET batch_id=? WHERE id=?", target, received.ItemID).Error)
+		require.NoError(t, moving.Exec("UPDATE product_collection_batches SET archived_at=? WHERE id=?", time.Now(), received.BatchID).Error)
+		require.NoError(t, moving.Commit().Error)
+		require.ErrorIs(t, <-done, collection.ErrConflict, "a concurrent owner change must not authorize a duplicate receive")
+	})
 	t.Run("SDS template and finished imports use current owners", func(t *testing.T) {
 		template := pod.Template{ID: "95146", Name: "SDS 模板", Images: []string{"https://cdn.sdspod.com/images/test/template.jpg"}, Variants: []pod.TemplateVariant{{ID: "95147", Name: "竖版", Type: "FREE", Images: []string{"https://cdn.sdspod.com/images/test/variant.jpg"}}}}
 		for _, kind := range []string{"sds_template", "sds_finished"} {

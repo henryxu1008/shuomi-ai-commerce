@@ -162,7 +162,7 @@ type PublicVariant struct {
 	SKU        string            `json:"sku,omitempty"`
 	Attributes map[string]string `json:"attributes,omitempty"`
 	Currency   string            `json:"currency,omitempty"`
-	Price      float64           `json:"price,omitempty"`
+	Price      *float64          `json:"price,omitempty"`
 	Stock      int               `json:"stock"`
 	Images     []string          `json:"images,omitempty"`
 }
@@ -199,7 +199,8 @@ func PublicProjection(snapshot catalog.ProductSnapshot) (PublicProduct, error) {
 			if !text(v.Price.Currency, 1, 16) || v.Price.Amount < 0 || math.IsNaN(v.Price.Amount) || math.IsInf(v.Price.Amount, 0) {
 				return PublicProduct{}, ErrInvalid
 			}
-			item.Currency, item.Price = v.Price.Currency, v.Price.Amount
+			amount := v.Price.Amount
+			item.Currency, item.Price = v.Price.Currency, &amount
 		}
 		for _, image := range v.Images {
 			if !publicImage(image.URL) {
@@ -300,10 +301,39 @@ type Query struct {
 	After, Keyword, Kind string
 	Limit                int
 	Ended                bool
+	Filters              MarketFilters
+}
+
+type MarketFilters struct {
+	Province, City, PriceCurrency string
+	MinPrice, MaxPrice            *float64
+	MaxMOQ, MaxLeadDays           *int
+}
+
+func (f MarketFilters) Empty() bool {
+	return f.Province == "" && f.City == "" && f.PriceCurrency == "" && f.MinPrice == nil && f.MaxPrice == nil && f.MaxMOQ == nil && f.MaxLeadDays == nil
+}
+func (f MarketFilters) Validate() error {
+	if !text(f.Province, 0, 100) || !text(f.City, 0, 100) || f.City != "" && !text(f.Province, 1, 100) || !text(f.PriceCurrency, 0, 16) {
+		return ErrInvalid
+	}
+	priced := f.MinPrice != nil || f.MaxPrice != nil
+	if priced && !text(f.PriceCurrency, 1, 16) || !priced && f.PriceCurrency != "" {
+		return ErrInvalid
+	}
+	for _, v := range []*float64{f.MinPrice, f.MaxPrice} {
+		if v != nil && (*v < 0 || math.IsNaN(*v) || math.IsInf(*v, 0)) {
+			return ErrInvalid
+		}
+	}
+	if f.MinPrice != nil && f.MaxPrice != nil && *f.MinPrice > *f.MaxPrice || f.MaxMOQ != nil && (*f.MaxMOQ < 1 || *f.MaxMOQ > 1_000_000_000) || f.MaxLeadDays != nil && (*f.MaxLeadDays < 0 || *f.MaxLeadDays > 3650) {
+		return ErrInvalid
+	}
+	return nil
 }
 
 func (q Query) Validate() error {
-	if q.Limit < 1 || q.Limit > 50 || !text(q.Keyword, 0, 80) || q.After != "" && !collection.ValidID(q.After) || q.Kind != "" && q.Kind != "official" && q.Kind != "selected" && q.Kind != "connection" {
+	if q.Filters.Validate() != nil || q.Limit < 1 || q.Limit > 50 || !text(q.Keyword, 0, 80) || q.After != "" && !collection.ValidID(q.After) || q.Kind != "" && q.Kind != "official" && q.Kind != "selected" && q.Kind != "connection" {
 		return ErrInvalid
 	}
 	return nil

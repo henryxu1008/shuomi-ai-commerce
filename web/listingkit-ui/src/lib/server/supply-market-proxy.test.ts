@@ -5,6 +5,22 @@ const request=(path:string,init:RequestInit={})=>new Request("https://console.ex
 describe("market BFF disclosure and uncertain writes",()=>{
  beforeEach(()=>{vi.stubEnv("LISTINGKIT_SERVICE_API_BASE","https://api.example/api/v1");vi.stubEnv("LISTINGKIT_SUPPLY_MARKET_ENABLED","true");vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","https://console.example")});
  afterEach(()=>vi.unstubAllGlobals());
+ it("accepts verified merchant names and recipient state but rejects private certification fields",async()=>{
+  const item={id,channel:"selected",revision:1,active:true,publishedAt:"2026-10-10T00:00:00Z",product:{title:"商品",images:["https://images.example/p.png"]},supply:{stock:1,minimumQuantity:1,leadDays:1,province:"浙江省",city:"杭州市"},prices:[{currency:"CNY",minimum:0,maximum:10}],added:true,merchant:{state:"verified",name:"认证企业名称"}};
+  const fetcher=vi.fn().mockResolvedValueOnce(Response.json({items:[item],total:1})).mockResolvedValueOnce(Response.json({items:[{...item,added:null,merchant:{state:"unavailable"}}],total:1})).mockResolvedValueOnce(Response.json({items:[{...item,merchant:{...item.merchant,creditCode:"PRIVATE_CERTIFICATE"}}],total:1}));vi.stubGlobal("fetch",fetcher);
+  const valid=await proxySupplyMarket(request("releases"),"private-token","user-a");expect(valid.status).toBe(200);expect((await valid.json()).items[0].merchant.name).toBe("认证企业名称");
+  expect((await proxySupplyMarket(request("releases"),"private-token","user-a")).status).toBe(200);
+  const rejected=await proxySupplyMarket(request("releases"),"private-token","user-a");expect(rejected.status).toBe(502);expect(await rejected.text()).not.toContain("PRIVATE_CERTIFICATE");
+ });
+ it("forwards valid market filters and rejects invalid or non-market filters",async()=>{
+  const fetcher=vi.fn(async()=>Response.json({items:[],total:0}));vi.stubGlobal("fetch",fetcher);
+  const query=new URLSearchParams({kind:"selected",province:"浙江省",city:"杭州市",minPrice:"0",maxPrice:"50.25",priceCurrency:"CNY",maxMOQ:"2",maxLeadDays:"0"});
+  expect((await proxySupplyMarket(request("releases?"+query),"private-token","user-a")).status).toBe(200);
+  expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("maxLeadDays=0"),expect.any(Object));
+  for(const q of ["city=a","province=x&city=a&city=b","minPrice=-1&priceCurrency=CNY","minPrice=10&maxPrice=2&priceCurrency=CNY","minPrice=NaN&priceCurrency=CNY","minPrice=1e2&priceCurrency=CNY","minPrice=0","priceCurrency=CNY","maxMOQ=0","maxMOQ=1.5","maxMOQ=1.0","maxLeadDays=0.0","maxLeadDays=3651","maxLeadDays=1&maxLeadDays=2","province=a&province=b"]){expect((await proxySupplyMarket(request("releases?"+q),"private-token","user-a")).status).toBe(400)}
+  expect((await proxySupplyMarket(request("records?province=x"),"private-token","user-a")).status).toBe(400);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+ });
  it("proxies the member overview with strict facts and rejects query/admin/private fields",async()=>{
   const overview={eligibleProducts:54,reviewing:27,supplementRequired:4,approved:7,products:[]};const fetcher=vi.fn(async()=>Response.json(overview));vi.stubGlobal("fetch",fetcher);
   const result=await proxySupplyMarket(request("application-overview"),"private-token","user-a");expect(result.status).toBe(200);expect(await result.json()).toEqual(overview);

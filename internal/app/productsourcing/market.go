@@ -17,6 +17,21 @@ type marketReceiver struct {
 	authorization collection.Authorizer
 }
 
+func (r marketReceiver) Visible(ctx context.Context, scope collection.Scope, refs []collection.Receipt, lock bool) (map[string]collection.Receipt, error) {
+	permission := collection.PermissionRead
+	if lock {
+		permission = collection.PermissionManage
+	}
+	current, err := r.authorization.Authorize(ctx, permission)
+	if err != nil {
+		return nil, err
+	}
+	if current != scope {
+		return nil, supplymarket.ErrForbidden
+	}
+	return collectionstore.VisibleMarketItems(ctx, r.tx, scope, refs, lock)
+}
+
 func NewMarketReceiver(tx *gorm.DB, authorization collection.Authorizer) (marketstore.Receiver, error) {
 	if tx == nil || authorization == nil {
 		return nil, supplymarket.ErrUnavailable
