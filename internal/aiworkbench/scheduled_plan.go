@@ -28,6 +28,9 @@ type ScheduledPlanDraft struct {
 	ExecutionSpec       json.RawMessage
 	RuleStartAt         time.Time
 	CreationFingerprint string
+	// CopySource is a transient, server-authorized commit precondition. It does
+	// not create a second durable source or copy execution history.
+	CopySource *ScheduledPlanCopySource `json:"-"`
 }
 
 func (p ScheduledPlanDraft) Valid() bool {

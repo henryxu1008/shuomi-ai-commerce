@@ -11,8 +11,8 @@ import (
 
 // RecordScheduledPreflightReceipt makes a rejected nominal callback terminal
 // without claiming quota or changing an existing task's durable occupancy.
-func (s *Store) RecordScheduledPreflightReceipt(ctx context.Context, scope aiworkbench.Scope, id string, slot, now time.Time, state, reason string) error {
-	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || slot.IsZero() || slot.After(now.Add(5*time.Second)) || (state != "SKIPPED" && state != "BLOCKED") || reason == "" {
+func (s *Store) RecordScheduledPreflightReceipt(ctx context.Context, scope aiworkbench.Scope, id string, revision int64, slot, now time.Time, state, reason string) error {
+	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) || revision < 1 || slot.IsZero() || slot.After(now.Add(5*time.Second)) || (state != "SKIPPED" && state != "BLOCKED") || reason == "" {
 		return aiworkbench.ErrInvalid
 	}
 	pending := false
@@ -28,6 +28,9 @@ func (s *Store) RecordScheduledPreflightReceipt(ctx context.Context, scope aiwor
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return unavailable(err)
+		}
+		if row.Revision != revision {
+			return aiworkbench.ErrRevisionMismatch
 		}
 		policy, err := schedulePlanValue(row)
 		if err != nil {

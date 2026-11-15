@@ -57,13 +57,25 @@ func validateRuntimeRoleIdentity(db *gorm.DB, role string) error {
 // The initializer and serving startup use the same bounds. A later grant must
 // not silently turn the runtime login into a schema owner or mutation authority.
 func validateBoundedWorkbenchPrivileges(db *gorm.DB, role string) error {
-	return validateWorkbenchPrivilegeBounds(db, role, []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}, map[string][]string{
+	return validateWorkbenchPrivilegesForEdit(db, role, true)
+}
+
+func validateWorkbenchPrivilegesForEdit(db *gorm.DB, role string, enable bool) error {
+	columns := map[string][]string{
 		"conversations":         {"title", "favorite", "lifecycle", "metadata_revision", "next_sequence", "updated_at"},
 		"commands":              {"state", "assistant_message_id", "proposal_id", "terminal_digest", "mode", "committed_at", "route_result"},
 		"task_action_receipts":  {"state", "error_code", "finished_at"},
 		"scheduled_plans":       {"deleted", "state", "revision", "consumed_occurrences", "active_occurrence_id", "updated_at", "registration_state", "rule_start_at", "frequency", "time_zone", "once_at_utc", "local_hour", "local_minute", "local_weekday", "until_utc"},
 		"scheduled_occurrences": {"state", "business_task_id", "updated_at", "reason", "reconciliation_digest"},
-	})
+	}
+	if enable {
+		editable, err := scheduledEditColumnsFor(db)
+		if err != nil {
+			return err
+		}
+		columns["scheduled_plans"] = append(columns["scheduled_plans"], editable...)
+	}
+	return validateWorkbenchPrivilegeBounds(db, role, []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}, columns)
 }
 
 func validateWorkbenchPrivilegeBounds(db *gorm.DB, role string, tables []string, mutable map[string][]string) error {
@@ -131,6 +143,10 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		return aiworkbench.ErrInvalid
 	}
 	quoted := `"` + role + `"`
+	editable, err := scheduledEditColumnsFor(db)
+	if err != nil {
+		return err
+	}
 	statements := []string{
 		"REVOKE ALL ON SCHEMA ai_workbench FROM PUBLIC",
 		"REVOKE ALL ON SCHEMA ai_workbench FROM " + quoted,
@@ -141,8 +157,11 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		"GRANT UPDATE (title, favorite, lifecycle, metadata_revision, next_sequence, updated_at) ON ai_workbench.conversations TO " + quoted,
 		"GRANT UPDATE (state, assistant_message_id, proposal_id, terminal_digest, mode, committed_at, route_result) ON ai_workbench.commands TO " + quoted,
 		"GRANT UPDATE (state, error_code, finished_at) ON ai_workbench.task_action_receipts TO " + quoted,
-		"GRANT UPDATE (deleted, state, revision, consumed_occurrences, active_occurrence_id, updated_at, registration_state, rule_start_at, frequency, time_zone, once_at_utc, local_hour, local_minute, local_weekday, until_utc) ON ai_workbench.scheduled_plans TO " + quoted,
+		"GRANT UPDATE (task_selection, goal_summary, execution_spec, max_occurrences, per_run_upper_bound_micros, total_upper_bound_micros, deleted, state, revision, consumed_occurrences, active_occurrence_id, updated_at, registration_state, rule_start_at, frequency, time_zone, once_at_utc, local_hour, local_minute, local_weekday, until_utc) ON ai_workbench.scheduled_plans TO " + quoted,
 		"GRANT UPDATE (state, business_task_id, updated_at, reason, reconciliation_digest) ON ai_workbench.scheduled_occurrences TO " + quoted,
+	}
+	if len(editable) > len(scheduledEditColumns) {
+		statements = append(statements, "GRANT UPDATE(report_spec) ON ai_workbench.scheduled_plans TO "+quoted)
 	}
 	for _, sql := range statements {
 		if err := db.Exec(sql).Error; err != nil {

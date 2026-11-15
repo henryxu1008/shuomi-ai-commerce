@@ -20,6 +20,7 @@ type FileVerifier interface {
 }
 type Receiver interface {
 	Receive(context.Context, collection.Scope, string, supplymarket.Release) (collection.Receipt, error)
+	Visible(context.Context, collection.Scope, []collection.Receipt, bool) (map[string]collection.Receipt, error)
 }
 type Dependencies struct {
 	Disclosure func(*gorm.DB) (DisclosureVerifier, error)
@@ -147,6 +148,27 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 			receiver, err := r.deps.Receiver(tx)
 			if err != nil || receiver == nil {
 				return supplymarket.ErrUnavailable
+			}
+			refs, e := selectionRefs(ctx, tx, c.Scope, []string{release.ID})
+			if e != nil {
+				return e
+			}
+			previous := make([]collection.Receipt, 0, len(refs))
+			for _, ref := range refs {
+				previous = append(previous, ref.Receipt)
+			}
+			visible, e := receiver.Visible(ctx, c.Scope, previous, true)
+			if e != nil {
+				return e
+			}
+			for _, ref := range refs {
+				if existing, ok := visible[ref.Receipt.ItemID]; ok {
+					receipt.ReleaseID, receipt.Collection, receipt.Revision = release.ID, &existing, release.Revision
+					break
+				}
+			}
+			if receipt.Collection != nil {
+				break
 			}
 			received, err := receiver.Receive(ctx, c.Scope, c.OperationID, release)
 			if err != nil {

@@ -2,6 +2,7 @@ package supplymarket
 
 import (
 	"context"
+	"errors"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
 	"task-processor/internal/product/collection"
@@ -34,7 +35,10 @@ func (a *ContextAuthorizer) Authorize(ctx context.Context, permission string) (c
 	}
 	roles, err := a.live.ResolveLiveRoles(ctx, scope.OrganizationID, scope.ActorID)
 	if err != nil {
-		return collection.Scope{}, ErrForbidden
+		if errors.Is(err, sourcing.ErrPublicationForbidden) {
+			return collection.Scope{}, ErrForbidden
+		}
+		return collection.Scope{}, ErrUnavailable
 	}
 	allowed, err := authz.AuthorizeOrganization(ctx, a.permissions, scope.ActorID, scope.OrganizationID, roles, permission)
 	if err != nil {

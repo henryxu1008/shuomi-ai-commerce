@@ -32,7 +32,10 @@ func ReleasedEnvelope(scope collection.Scope, operation string, release Release)
 		e.AssetCandidates = append(e.AssetCandidates, sourcing.AssetCandidate{SourceID: collection.StableID(source, image), URL: image, MediaType: "image", Role: map[bool]string{true: "main", false: "detail"}[len(e.AssetCandidates) == 0]})
 	}
 	for _, v := range release.Product.Variants {
-		candidate := sourcing.ProductVariantCandidate{SourceID: v.SourceID, Title: v.Title, SKU: v.SKU, Attributes: v.Attributes, Currency: v.Currency, Price: v.Price, Stock: v.Stock}
+		candidate := sourcing.ProductVariantCandidate{SourceID: v.SourceID, Title: v.Title, SKU: v.SKU, Attributes: v.Attributes, Currency: v.Currency, Stock: v.Stock}
+		if v.Price != nil {
+			candidate.Price = *v.Price
+		}
 		for _, image := range v.Images {
 			if !publicImage(image) {
 				return sourcing.SourceEnvelope{}, ErrInvalid

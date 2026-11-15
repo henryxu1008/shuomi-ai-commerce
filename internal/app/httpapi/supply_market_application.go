@@ -35,7 +35,8 @@ import (
 )
 
 type SupplyMarketDependencies struct {
-	Storage supplymarket.PrivateFileStorage
+	Storage   supplymarket.PrivateFileStorage
+	Merchants supplymarket.VerifiedMerchantReader
 }
 type PODDependencies struct {
 	GeneratedArtworkBytes func(context.Context, collection.Scope, pod.ArtworkReference, asset.ApprovedAsset, int64) ([]byte, bool, error)
@@ -87,7 +88,7 @@ func buildSupplyMarketModule(ctx context.Context, db *gorm.DB, d SupplyMarketDep
 		return empty, e
 	}
 	original := listingapp.OrganizationExecutionAuthorizer{Client: zitadel.NewAuthorizationClient(cfg.ListingKit.Zitadel.AuthorizationAPIURL, &http.Client{Timeout: 5 * time.Second}), ServiceToken: func(context.Context) (string, error) { return cfg.ListingKit.Zitadel.TenantDirectoryToken, nil }, ProjectID: cfg.ListingKit.Zitadel.ProjectID, Permissions: a, OrganizationStatus: resolver.BusinessStatusChecker()}
-	app, e := marketapp.NewApplication(ctx, marketapp.Dependencies{ProductDB: db, Authorization: auth, OriginalAuthorization: original, Collections: collections, PrivateStorage: d.Storage, Receiver: func(tx *gorm.DB) (marketstore.Receiver, error) { return productsourcing.NewMarketReceiver(tx, auth) }})
+	app, e := marketapp.NewApplication(ctx, marketapp.Dependencies{ProductDB: db, Authorization: auth, OriginalAuthorization: original, Collections: collections, PrivateStorage: d.Storage, Merchants: d.Merchants, Receiver: func(tx *gorm.DB) (marketstore.Receiver, error) { return productsourcing.NewMarketReceiver(tx, auth) }})
 	if e != nil {
 		return empty, e
 	}

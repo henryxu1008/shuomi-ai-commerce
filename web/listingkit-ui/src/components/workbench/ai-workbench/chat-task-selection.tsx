@@ -13,9 +13,10 @@ function contentSubject(item:CollectionItem){
  return null;
 }
 
-export function ChatTaskSelection({scope,subject,parameters,onSubject,onParameters,disabled,authorizationKey}:{scope:AIScope;subject:AITaskSubject|null;parameters:ContentSelection;onSubject:(subject:AITaskSubject|null)=>void;onParameters:(parameters:ContentSelection)=>void;disabled:boolean;authorizationKey:string}) {
+export function ChatTaskSelection({scope,subject,parameters,onSubject,onParameters,disabled,authorizationKey,compactSummary=false}:{scope:AIScope;subject:AITaskSubject|null;parameters:ContentSelection;onSubject:(subject:AITaskSubject|null)=>void;onParameters:(parameters:ContentSelection)=>void;disabled:boolean;authorizationKey:string;compactSummary?:boolean}) {
  const abort=useRef<AbortController|null>(null);
  const [loading,setLoading]=useState(false),[error,setError]=useState("");
+ const [selectedLabel,setSelectedLabel]=useState({key:"",title:""});
  useEffect(()=>()=>abort.current?.abort(),[]);
  async function select(item:CollectionItem) {
   abort.current?.abort();setLoading(false);onSubject(null);setError("");
@@ -28,13 +29,14 @@ export function ChatTaskSelection({scope,subject,parameters,onSubject,onParamete
    if(controller.signal.aborted)return;
    if(result.subject.kind!==kind||result.subject.id!==id)throw new Error("source changed");
    onSubject(result.subject);
+   setSelectedLabel({key:`${result.subject.kind}:${result.subject.id}`,title:item.title??""});
   } catch {if(!controller.signal.aborted)setError("无法确认当前商品版本，请重新选择。")} finally {if(!controller.signal.aborted)setLoading(false)}
  }
  return <fieldset disabled={disabled} className="space-y-4"><legend>任务对象</legend>
   <CollectionPicker authorizationKey={authorizationKey} scope={scope} kind="product" isEligible={item=>contentSubject(item)!==null} emptyMessage="当前页没有可用于内容任务的自有商品或已保存源商品。" disabled={disabled||loading} onSelect={item=>void select(item)}/>
   {loading?<p role="status">正在确认商品当前版本…</p>:null}
   {error?<p role="alert">{error}</p>:null}
-  {subject?<p>已选择{subject.kind==="own_product"?"自有商品":"源商品"} · 商品标识 {subject.id} · 版本 {subject.catalogVersion}</p>:<p>从我的数据选择商品，来源信息由原商品记录保留。</p>}
+  {subject?<p>{compactSummary?(selectedLabel.key===`${subject.kind}:${subject.id}`?`已选择：${selectedLabel.title||`商品标识 ${subject.id}`}`:`已选择：商品标识 ${subject.id}`):<>已选择{subject.kind==="own_product"?"自有商品":"源商品"} · 商品标识 {subject.id} · 版本 {subject.catalogVersion}</>}</p>:<p>从我的数据选择商品，来源信息由原商品记录保留。</p>}
   <ContentSelectionFields value={parameters} onChange={onParameters} disabled={disabled||loading}/>
  </fieldset>;
 }
