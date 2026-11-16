@@ -352,13 +352,13 @@ function ScopedPage({
       <Link href="/workbench/tools/custom">返回工具定制</Link>
     ) : mode === "submit" ? (
       <Button asChild variant="outline">
-        <Link href="/workbench/tools/custom/progress">查看定制进度</Link>
+        <Link href="/workbench/tools/custom/progress">定制进度</Link>
       </Button>
     ) : (
       <>
         {mode === "custom" ? (
           <Button asChild variant="outline">
-            <Link href="/workbench/tools/custom/progress">查看定制进度</Link>
+            <Link href="/workbench/tools/custom/progress">定制进度</Link>
           </Button>
         ) : null}
         <Button asChild>

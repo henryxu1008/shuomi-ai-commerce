@@ -9,12 +9,13 @@ import type {ApplicationResult} from "./use-selected-batch";
 import type {MarketReceipt} from "@/lib/contracts/supply-market";
 
 const state = vi.hoisted(() => ({
-  context:{user:{id:"member-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,error:null,blockingError:null},
+  context:{user:{id:"member-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,error:null,blockingError:null,permissions:["workbench.collection.read","workbench.collection.manage","workbench.supply-market.apply"]},
   execute:vi.fn(),start:vi.fn(),locked:false,finishIDs:null as ((ids:string[])=>void)|null,results:[] as ApplicationResult[],saved:null as MarketReceipt|null,
 }));
+vi.mock("next/navigation",()=>({useRouter:()=>({push:vi.fn()})}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("@/lib/api/product-collection",()=>({listOwnProducts:vi.fn(),readCollectionBatch:vi.fn()}));
-vi.mock("@/lib/api/supply-market",async original=>({...await original<typeof import("@/lib/api/supply-market")>(),readMarketChoice:vi.fn()}));
+vi.mock("@/lib/api/supply-market",async original=>({...await original<typeof import("@/lib/api/supply-market")>(),readMarketChoice:vi.fn(),listMarketRecords:async()=>({items:[],total:0})}));
 vi.mock("./shared",async original=>({...await original<typeof import("./shared")>(),useMarketCommands:()=>({execute:state.execute,locked:state.locked,saved:state.saved,notice:null})}));
 vi.mock("./use-selected-batch",()=>({useSelectedBatch:()=>({start:state.start,reset:()=>{state.results=[]},locked:state.locked,journal:null,results:state.results,error:null,pendingError:false,busy:false})}));
 vi.mock("./qualifications",()=>({Qualifications:({onIDs,onLocked}:{onIDs:(ids:string[])=>void;onLocked:(locked:boolean)=>void})=><><button type="button" onClick={()=>onIDs([fileId])}>保存测试资质</button><button type="button" onClick={()=>{state.finishIDs=onIDs}}>保存延迟测试资质</button><button type="button" onClick={()=>onLocked(true)}>暂存附件待确认</button><button type="button" onClick={()=>onLocked(false)}>继续确认原附件</button></>}));
@@ -260,9 +261,9 @@ it("aborts the candidate read and removes the old page during an enterprise swit
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
 });
 it("retains the separate platform official-draft entry",async()=>{
-  page(true);await screen.findByRole("combobox",{name:"申请商品"});
-  expect(screen.getByRole("heading",{level:1,name:"建立自营发布草稿"})).toBeVisible();
-  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeDisabled();
+  page(true);await screen.findByRole("combobox",{name:"自有商品"});
+  expect(screen.getByRole("heading",{level:1,name:"添加自营商品"})).toBeVisible();
+  expect(screen.getByRole("button",{name:"保存草稿并预览"})).toBeDisabled();
   expect(screen.queryByRole("button",{name:"下一步：填写供货信息"})).not.toBeInTheDocument();
 });
 it.each(["not_optimized","incomplete_product"] as const)("keeps a no-image %s product visible beside an eligible own product",async(reason)=>{
@@ -287,32 +288,32 @@ it("blocks an open supply form when the same exact optimized choice loses comple
 });
 it("keeps unoptimized complete products usable for the official draft only",async()=>{
   vi.mocked(readMarketChoice).mockResolvedValue(choice(other,false));page(true);const user=userEvent.setup();
-  await user.selectOptions(await screen.findByRole("combobox",{name:"申请商品"}),other);
+  await user.selectOptions(await screen.findByRole("combobox",{name:"自有商品"}),other);
   await screen.findByText("自有商品原始资料");
   await user.clear(screen.getByLabelText("现有库存（件）"));await user.type(screen.getByLabelText("现有库存（件）"),"12");
   await user.selectOptions(screen.getByRole("combobox",{name:"发货省份"}),"上海市");
   await user.selectOptions(screen.getByRole("combobox",{name:"发货城市"}),"上海市");
   await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
-  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeEnabled();
-  await user.click(screen.getByRole("button",{name:"保存发布草稿"}));
+  expect(screen.getByRole("button",{name:"保存草稿并预览"})).toBeEnabled();
+  await user.click(screen.getByRole("button",{name:"保存草稿并预览"}));
   expect(state.execute).toHaveBeenCalledExactlyOnceWith({action:"create_official_draft",selection:{...selection,itemId:other,effectiveVersion:"1",applyId:undefined},supply:{stock:12,capacity:"",minimumQuantity:1,leadDays:0,province:"上海市",city:"上海市",priceNote:"",afterSaleNote:""},disclosure:true});
 });
 it("shows an incomplete official candidate without crashing or allowing save",async()=>{
   vi.mocked(readMarketChoice).mockResolvedValue({selection:{...selection,itemId:other,effectiveVersion:"1",applyId:undefined},optimized:false,ineligibleReason:"not_optimized"});
-  page(true);const user=userEvent.setup();await user.selectOptions(await screen.findByRole("combobox",{name:"申请商品"}),other);
+  page(true);const user=userEvent.setup();await user.selectOptions(await screen.findByRole("combobox",{name:"自有商品"}),other);
   await screen.findByText("商品资料不符合发布要求，请先完善自有商品。");
   await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
-  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"保存草稿并预览"})).toBeDisabled();
   expect(state.execute).not.toHaveBeenCalled();
 });
 it("blocks an official cached choice after a failed refresh",async()=>{
   vi.mocked(readMarketChoice).mockResolvedValue(choice(other,false));const {client}=page(true);const user=userEvent.setup();
-  await user.selectOptions(await screen.findByRole("combobox",{name:"申请商品"}),other);await screen.findByText("自有商品原始资料");
+  await user.selectOptions(await screen.findByRole("combobox",{name:"自有商品"}),other);await screen.findByText("自有商品原始资料");
   await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
-  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeEnabled();
+  expect(screen.getByRole("button",{name:"保存草稿并预览"})).toBeEnabled();
   vi.mocked(readMarketChoice).mockRejectedValue(new Error("unavailable"));
   await client.invalidateQueries({queryKey:["supply-market","member-a","org-a","choice",other]});
   await screen.findByRole("button",{name:"重新读取"});
-  expect(screen.getByRole("button",{name:"保存发布草稿"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"保存草稿并预览"})).toBeDisabled();
   expect(state.execute).not.toHaveBeenCalled();
 });

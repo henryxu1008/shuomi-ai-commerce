@@ -105,7 +105,7 @@ function ScopedPage({ mode, scope, organizationName }: {
     organizationName: string;
 }) {
     const title = { intro: "智能体定制", new: "提交定制需求", progress: "定制进度", admin: "智能体定制工作台" }[mode];
-    return <ConsolePage className={styles.page} title={title} description={scope.admin ? "硕米平台专员跟进需求评估、方案报价与开发交付。平台权限由服务端独立核实。" : `为业务场景定制智能体能力 · 当前企业：${organizationName}`} breadcrumbs={mode === "intro" ? [{ label: "智能市场" }, { label: title }] : [{ label: "智能市场" }, { label: "智能体定制", href: base }, { label: title }]} actions={mode === "new" ? <Link href={base + "/progress"}>查看定制进度 →</Link> : mode !== "admin" ? <div className={styles.actions}><Button asChild variant="outline"><Link href={base + "/progress"}>查看定制进度</Link></Button><Button asChild><Link href={base + "/new"}>提交定制需求</Link></Button></div> : null}>
+    return <ConsolePage className={styles.page} title={title} description={scope.admin ? "硕米平台专员跟进需求评估、方案报价与开发交付。平台权限由服务端独立核实。" : `为业务场景定制智能体能力 · 当前企业：${organizationName}`} breadcrumbs={mode === "intro" ? [{ label: "智能市场" }, { label: title }] : [{ label: "智能市场" }, { label: "智能体定制", href: base }, { label: title }]} actions={mode === "new" ? <Link href={base + "/progress"}>定制进度</Link> : mode !== "admin" ? <div className={styles.actions}><Button asChild variant="outline"><Link href={base + "/progress"}>定制进度</Link></Button><Button asChild><Link href={base + "/new"}>提交定制需求</Link></Button></div> : null}>
   {mode === "intro" ? <Introduction /> : mode === "new" ? <RequestForm scope={scope}/> : <Progress scope={scope}/>}
  </ConsolePage>;
 }

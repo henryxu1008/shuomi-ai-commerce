@@ -3,7 +3,8 @@ import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {SupplyMarketPage,SupplyProductPage} from "./market";
 const calls=vi.hoisted(()=>({list:vi.fn(),read:vi.fn(),execute:vi.fn(),saved:null as null|{releaseId:string;collection:object}}));
-vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:calls.list,readMarket:calls.read}));
+vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},permissions:[]})}));
+vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:calls.list,readMarket:calls.read,listMarketRecords:async()=>{throw new Error("no platform access")}}));
 vi.mock("./shared",async original=>({...await original<object>(),MarketBoundary:({children}:{children:(scope:{userId:string;organizationId:string})=>unknown})=>children({userId:"actor",organizationId:"org"}),useMarketCommands:()=>({execute:calls.execute,locked:false,saved:calls.saved,notice:null})}));
 const sample={added:false,prices:[],merchant:{state:"unverified"},id:"11111111-1111-4111-8111-111111111111",revision:3,active:true,publishedAt:"2026-11-15T00:00:00Z",product:{title:"【合成示例】折叠收纳箱",description:"仅供流程试用",images:["https://example.com/sample.png"]},supply:{province:"浙江省",city:"杭州市",stock:60,minimumQuantity:2,leadDays:3}};
 function show(node:React.ReactNode){return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{node}</QueryClientProvider>)}
