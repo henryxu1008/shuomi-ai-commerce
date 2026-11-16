@@ -28,6 +28,20 @@ afterEach(() => {
 });
 
 describe("ReferralsPage", () => {
+  it("keeps the overview links available when the referral summary cannot load", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({}, { status: 503 })));
+    mount();
+    await screen.findByRole("alert");
+    const nav = within(screen.getByRole("navigation", { name: "推广管理入口" }));
+    for (const [name, path] of [
+      ["查看推广", "center"],
+      ["查看收益明细", "earnings"],
+      ["管理提现", "withdrawals"],
+      ["查看推广规则", "rules"],
+    ]) {
+      expect(nav.getByRole("link", { name })).toHaveAttribute("href", `/workbench/account/referrals/${path}`);
+    }
+  });
   it("cancels a second requested withdrawal after the first completes",async()=>{
     const projection={code:"CODE1234",codeAvailability:"available",count:1,generatedAt:"2026-09-13T10:00:00Z",earnings:{availability:"available",currency:"CNY",pendingMinor:"0",availableMinor:"12000",reservedMinor:"20000",adjustmentMinor:"0",version:"1",updatedAt:"2026-09-13T10:00:00Z"}};
     const row={id:"withdrawal-A",currency:"CNY",method:"ALIPAY",payoutMethodId:"method-1",amountMinor:"10000",status:"REQUESTED",payoutReference:"",version:"2",createdAt:"2026-09-13T10:01:00Z",updatedAt:"2026-09-13T10:01:00Z"};
