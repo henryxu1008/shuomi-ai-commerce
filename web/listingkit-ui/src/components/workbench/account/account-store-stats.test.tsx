@@ -42,7 +42,7 @@ it("shows the full Store owner total through the current nonempty DTO instead of
   });
   vi.stubGlobal("fetch", fetcher);
   mount();
-  const metric = screen.getByText("已绑定店铺").closest("article")!;
+  const metric = screen.getByText("已绑定店铺").closest("dt")!.parentElement!;
   expect(await within(metric).findByText("37")).toBeVisible();
   expect(within(metric).queryByText("1")).not.toBeInTheDocument();
   const [url, init] = fetcher.mock.calls.find(([input]) => String(input).startsWith("/api/workbench/stores?"))!;
@@ -55,7 +55,7 @@ it("shows the full Store owner total through the current nonempty DTO instead of
 it("keeps an unavailable Store owner explicit instead of displaying a false zero", async () => {
   vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(unavailable())));
   mount();
-  const metric = screen.getByText("已绑定店铺").closest("article")!;
+  const metric = screen.getByText("已绑定店铺").closest("dt")!.parentElement!;
   expect(await within(metric).findByText("暂不可用")).toBeVisible();
   expect(within(metric).queryByText("0")).not.toBeInTheDocument();
 });

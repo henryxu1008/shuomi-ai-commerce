@@ -18,34 +18,32 @@
 .verificationCards article strong { font-size: var(--body-text-size); }
 .verificationCards article span { width: fit-content; padding: 3px 9px; border-radius: 999px; background: var(--background); color: var(--muted-foreground); font-size: var(--label-text-size); }
 .verificationCards article small { color: var(--muted-foreground); font-size: var(--label-text-size); line-height: 1.5; }
-.organizationIdentity { display: flex; align-items: center; gap: 20px; min-width: 0; }
+.enterpriseHeader { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.organizationIdentity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .organizationIdentity img { flex-shrink: 0; }
-.organizationIdentity > div { min-width: 0; }
-.enterpriseSummary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin: 16px 0 24px; font-size: var(--label-text-size); color: var(--muted-foreground); overflow-wrap: anywhere; }
-.role { display: inline-block; border: 1px solid var(--border); padding: 2px 8px; border-radius: 6px; margin: 2px 4px; overflow-wrap: anywhere; max-width: 100%; }
-.sectionTitle { margin-bottom: 16px; }
-.managementGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-.managementGrid .panel { min-height: 126px; }
-.resources { margin: 24px 0; min-height: 92px; }
-.unavailable { color: var(--muted-foreground); font-size: var(--body-text-size); min-height: 92px; display: grid; place-items: center; text-align: center; padding: 24px 0; }
-.enterpriseMetrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 16px 0 24px; }
-.enterpriseMetrics article { display: grid; gap: 8px; min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
-.enterpriseMetrics span, .enterpriseMetrics small, .enterpriseResources span, .allocationLine small { color: var(--muted-foreground); font-size: var(--label-text-size); }
-.enterpriseMetrics strong { font-size: var(--dialog-title-size); overflow-wrap: anywhere; }
+.organizationIdentity h2 { font-size: var(--section-title-size); font-weight: 600; overflow-wrap: anywhere; }
+.organizationIdentity p { margin-top: 4px; color: var(--muted-foreground); font-size: var(--body-text-size); overflow-wrap: anywhere; }
+.enterpriseDetails { min-width: 0; color: var(--muted-foreground); font-size: var(--label-text-size); }
+.enterpriseDetails summary { width: fit-content; padding-block: 4px; cursor: pointer; }
+.enterpriseDetails dl { display: grid; gap: 8px; margin-top: 8px; }
+.enterpriseDetails dd { margin: 0; color: var(--foreground); overflow-wrap: anywhere; }
+.sectionTitle { margin-bottom: 12px; }
+.enterpriseResources span { color: var(--muted-foreground); font-size: var(--label-text-size); }
 .enterpriseResources { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .enterpriseResources > div { display: grid; gap: 8px; min-width: 0; }
 .enterpriseResources strong { overflow-wrap: anywhere; }
-.allocationPreview { overflow-x: auto; }
-.allocationHead, .allocationLine { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(80px, .6fr)); gap: 12px; align-items: center; min-width: 600px; padding: 12px 14px; }
-.allocationHead { border-radius: var(--radius); background: var(--muted); color: var(--muted-foreground); font-size: var(--label-text-size); }
-.allocationLine { border-bottom: 1px solid var(--border); font-size: var(--body-text-size); }
-.allocationLine > span:first-child { min-width: 0; }
-.allocationLine strong, .allocationLine small { display: block; overflow-wrap: anywhere; }
-.allocationLine small { margin-top: 4px; }
-.auditPreview { list-style: none; margin: 0; padding: 0; }
-.auditPreview li { display: grid; grid-template-columns: 150px minmax(100px, .7fr) minmax(160px, 1.6fr); gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: var(--body-text-size); }
-.auditPreview time, .auditPreview span { color: var(--muted-foreground); }
-.auditPreview strong { overflow-wrap: anywhere; }
+.allocationPreview { overflow-x: auto; margin-block: 12px 16px; }
+.allocationPreview:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.allocationPreview table { width: 100%; min-width: 36rem; border-collapse: collapse; font-size: var(--body-text-size); }
+.allocationPreview th, .allocationPreview td { padding: 12px; text-align: start; border-bottom: 1px solid var(--border); }
+.allocationPreview thead { background: var(--muted); color: var(--muted-foreground); }
+.allocationPreview tbody th { font-weight: 600; overflow-wrap: anywhere; }
+.allocationPreview small { display: block; color: var(--muted-foreground); font-weight: 400; }
+.allocationPreview td { font-variant-numeric: tabular-nums; }
+.enterpriseWorkspace > .provenance { margin-top: 0; }
+.maintenanceGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 16px; }
+.maintenanceGrid:empty { display: none; }
+.maintenanceGrid h2 { font-size: var(--card-title-size); font-weight: 600; line-height: 24px; }
 .provenance { color: var(--muted-foreground); font-size: var(--label-text-size); margin-top: 20px; overflow-wrap: anywhere; }
 .provenance summary { cursor: pointer; width: fit-content; }
 .provenance p { margin-top: 8px; }
@@ -186,8 +184,8 @@
 .formActions { display: flex; align-items: center; gap: 12px; grid-column: 1 / -1; }
 .successText { color: var(--success-foreground); font-size: var(--label-text-size); }
 .errorText { color: var(--destructive); font-size: var(--label-text-size); }
-@media (max-width: 767px) { .identity { align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px; } .identityStatus { justify-items: start; text-align: left; } .managementGrid { grid-template-columns: 1fr; } .verificationCards { grid-template-columns: 1fr; } .panel { padding: 20px; } .fields { gap: 20px; } .organizationIdentity { gap: 12px; } .organizationIdentity img { width: 48px; height: 48px; } }
-@media (max-width: 767px) { .overview, .overviewLinks { grid-template-columns: 1fr; } .overviewMetric { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); } .profileForm { grid-template-columns: 1fr; } .enterpriseMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .enterpriseResources { grid-template-columns: repeat(2, minmax(0, 1fr)); } .auditPreview li { grid-template-columns: 1fr; gap: 6px; } }
+@media (max-width: 767px) { .identity { align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px; } .identityStatus { justify-items: start; text-align: left; } .verificationCards { grid-template-columns: 1fr; } .panel { padding: 20px; } .fields { gap: 20px; } .organizationIdentity { gap: 12px; } .organizationIdentity img { width: 48px; height: 48px; } }
+@media (max-width: 767px) { .overview, .overviewLinks { grid-template-columns: 1fr; } .overviewMetric { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); } .profileForm { grid-template-columns: 1fr; } .enterpriseResources { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .status .fields { grid-template-columns: 1fr; } .status .fields > div { min-height: 80px; } }
 
 /* V1.3 summary: existing editors remain on their dedicated account leaves. */
