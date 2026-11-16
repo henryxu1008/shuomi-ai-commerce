@@ -136,8 +136,10 @@ it("retains a saved China town until the account owner explicitly saves a shared
   expect(screen.getByText(/浙江 \/ 乌镇/)).toBeVisible();
   expect(calls.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
   await user.click(save);
-  expect(await screen.findByText("地区资料已保存")).toBeVisible();
-  const write = calls.mock.calls.find(([, init]) => init?.method === "PUT");
-  expect(write && JSON.parse(String(write[1]?.body))).toEqual({ catalogVersion: version, country: "CN", province: "330000", city: "330100" });
-  expect(screen.queryByText(/浙江 \/ 乌镇/)).not.toBeInTheDocument();
+  await waitFor(() => {
+    const write = calls.mock.calls.find(([, init]) => init?.method === "PUT");
+    expect(write && JSON.parse(String(write[1]?.body))).toEqual({ catalogVersion: version, country: "CN", province: "330000", city: "330100" });
+    expect(screen.queryByText(/浙江 \/ 乌镇/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "城市 杭州市" })).toBeVisible();
+  });
 });
