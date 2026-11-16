@@ -103,8 +103,11 @@ function RegionForm({ data }: { data: AccountPreferences }) {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const savedCountry = index.data?.countries.find(option => option.name === data.country)?.id ?? "";
-  const countryId = draft?.country ?? savedCountry;
+  const savedLabel = [data.country, data.province, data.city].filter(Boolean).join(" / ");
+  const initialCountry = index.data?.countries.find(option =>
+    savedLabel ? option.name === data.country : option.id === "CN",
+  )?.id ?? "";
+  const countryId = draft?.country ?? initialCountry;
   const detail = useQuery({
     queryKey: ["region-catalog", subject, index.data?.version, countryId],
     queryFn: ({ signal }) => getRegionCountry(subject, countryId, signal),
@@ -116,7 +119,6 @@ function RegionForm({ data }: { data: AccountPreferences }) {
   const country = versionMismatch ? undefined : detail.data?.country;
   const savedSelection = matchSavedRegion(data, country);
   const selection = draft ?? savedSelection ?? { ...emptyRegion, country: countryId };
-  const savedLabel = [data.country, data.province, data.city].filter(Boolean).join(" / ");
 
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {

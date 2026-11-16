@@ -58,6 +58,8 @@ it("searches preset countries, clears descendants on changes and saves IDs after
   const user = userEvent.setup();
   const country = await screen.findByRole("button", { name: /^国家／地区 / });
   const save = screen.getByRole("button", { name: "保存地区资料" });
+  await waitFor(() => expect(country).toHaveAccessibleName("国家／地区 中国"));
+  expect(save).toBeDisabled();
   expect(screen.queryByRole("searchbox", { name: "搜索国家／地区" })).not.toBeInTheDocument();
   await waitFor(() => expect(country).toBeEnabled());
   await user.click(country);
@@ -101,6 +103,7 @@ it("preserves unmatched saved text until explicitly cleared", async () => {
   const calls = mountRegion({ ...initial, country: "旧国家名", province: "旧省", city: "旧城市" });
   const user = userEvent.setup();
   expect(await screen.findByText(/旧国家名 \/ 旧省 \/ 旧城市/)).toBeVisible();
+  expect(screen.getByRole("button", { name: "国家／地区 请选择国家／地区" })).toBeVisible();
   const save = screen.getByRole("button", { name: "保存地区资料" });
   expect(save).toBeDisabled();
   expect(calls.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
@@ -110,4 +113,10 @@ it("preserves unmatched saved text until explicitly cleared", async () => {
     const write = calls.mock.calls.find(([, init]) => init?.method === "PUT");
     expect(write && JSON.parse(String(write[1]?.body))).toEqual({ catalogVersion: version, country: "", province: "", city: "" });
   });
+});
+
+it("keeps the saved country selected instead of applying the new default", async () => {
+  mountRegion({ ...initial, country: "Singapore", city: "Singapore" });
+  expect(await screen.findByRole("button", { name: "国家／地区 新加坡" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "城市 Singapore" })).toBeVisible();
 });
