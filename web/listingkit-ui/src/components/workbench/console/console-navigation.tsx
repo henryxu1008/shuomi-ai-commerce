@@ -49,7 +49,8 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
   const research = researchLocation(pathname, new URLSearchParams(query?.toString()));
   const researchPath = research?.step ? `${research.workflow.root}?step=${research.step.id}` : pathname;
   const inListing = pathname === listingHome || pathname.startsWith(listingHome + "/");
-  const trail = research ? ["/workbench/agents", "/workbench/agents/market"] : findConsoleRoute(researchPath)?.trail.map(node=>node.href) ?? (inListing ? [listingHome] : []);
+  const navigationPath = pathname.startsWith("/workbench/supply/catalogs/") ? "/workbench/supply/catalogs" : researchPath;
+  const trail = research ? ["/workbench/agents", "/workbench/agents/market"] : findConsoleRoute(navigationPath)?.trail.map(node=>node.href) ?? (inListing ? [listingHome] : []);
   if(inListing){
     for(const key of ["preparation","store","operation","plan"]){
       const values=query?.getAll(key);

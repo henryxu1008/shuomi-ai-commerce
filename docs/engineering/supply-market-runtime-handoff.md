@@ -90,6 +90,8 @@ OSS hosts 都完成配置后才设置 `LISTINGKIT_SDS_POD_ENABLED=true`。沿既
 - `/workbench/supply/official`、`/selected`：查看真实已发布商品，选择并保存到本人
   Collection。空市场显示空状态，不 seed 假发布。
 - `/workbench/supply/catalogs`：沿已有 1688 采集、SDS 模板及人工货盘申请入口。
+  侧栏只显示「供应市场 → 货盘集成」两级；货盘选品、申请对接和对接记录从现有
+  货盘集成概览页进入。进入选品、申请或 SDS 页面后，侧栏仍选中「货盘集成」。
 - `/workbench/supply/applications`：本人申请、资料补充和进度。优选申请继续要求
   本人自有商品及实际 Apply lineage。
 - `/workbench/supply/catalogs/sds`：选模板/款式和本人已批准图案，配置设计；核实

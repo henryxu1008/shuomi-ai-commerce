@@ -98,20 +98,16 @@ it.each(["运营驾驶舱", "AI工作台", "智能市场", "工具市场", "数�
   render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" />);
   expect(screen.getByRole("link", { name: label })).toHaveAttribute("title", label);
 });
-it.each([
-  ["/workbench/supply/catalogs/selection", "货盘选品"],
-  ["/workbench/supply/catalogs/apply", "申请对接"],
-])("opens the catalog hierarchy at %s only with its installed runtime", (pathname, label) => {
+it.each(["/workbench/supply/catalogs", "/workbench/supply/catalogs/selection", "/workbench/supply/catalogs/apply", "/workbench/supply/catalogs/sds"])("keeps catalog page %s under one second-level entry", pathname => {
   const view=render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" supplyMarketAvailable/>);
-  expect(screen.getByRole("button", {name:"收起货盘集成"})).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByRole("link", {name:label})).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("link", {name:label}).closest("li")).toHaveClass("console-nav-level-3");
-  for (const child of ["货盘选品", "申请对接"]) {
-    expect(screen.getByRole("link", {name:child})).toHaveAttribute("title", child);
-    if(child!==label)expect(screen.getByRole("link", {name:child})).not.toHaveAttribute("aria-current");
-  }
+  const catalog=screen.getByRole("link",{name:"货盘集成"});
+  expect(catalog).toHaveAttribute("aria-current","page");
+  expect(catalog.closest("li")).toHaveClass("console-nav-level-2");
+  expect(screen.queryByRole("button",{name:/货盘集成/})).not.toBeInTheDocument();
+  expect(screen.queryByRole("link",{name:"货盘选品"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("link",{name:"申请对接"})).not.toBeInTheDocument();
   view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航"/>);
-  expect(screen.getByRole("link", {name:label})).toHaveAttribute("title", `${label}：业务暂未启用`);
+  expect(screen.getByRole("link",{name:"货盘集成"})).toHaveAttribute("title","货盘集成：业务暂未启用");
 });
 it.each(["productAcquisitionAvailable", "supplyMarketAvailable", "supplyChainAvailable"])("keeps the Supply homepage with %s", capability => {
   const view = render(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" />);

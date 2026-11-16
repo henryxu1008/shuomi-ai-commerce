@@ -37,16 +37,13 @@ describe("Figma Console navigation contract", () => {
     const draft=findConsoleRoute(`/workbench/listing/missing/${id}`);
     expect(draft?.node.label).toBe("待补全草稿");expect(draft?.trail.map(node=>node.label)).toContain("商品刊登");
   });
-  it("keeps the two catalog entries under their Figma parent and real pages", () => {
+  it("keeps catalog pages registered without turning them into sidebar children", () => {
     const parent = findConsoleRoute("/workbench/supply/catalogs")!;
-    expect(parent.node.children?.map(node => [node.label, node.href])).toEqual([
-      ["货盘选品", "/workbench/supply/catalogs/selection"],
-      ["申请对接", "/workbench/supply/catalogs/apply"],
-    ]);
-    for (const child of parent.node.children ?? []) {
-      expect(findConsoleRoute(child.href)?.node).toBe(child);
-      expect(findConsoleRoute(child.href)?.trail.map(node => node.label)).toEqual(["供应市场", "货盘集成", child.label]);
-      expect(existsSync(join(process.cwd(), "src/app", child.href.slice(1), "page.tsx"))).toBe(true);
+    expect(parent.node.children).toBeUndefined();
+    for (const [label, href] of [["货盘选品","/workbench/supply/catalogs/selection"],["申请对接","/workbench/supply/catalogs/apply"]]) {
+      expect(findConsoleRoute(href)?.node.label).toBe(label);
+      expect(findConsoleRoute(href)?.trail.map(node=>node.label)).toEqual(["供应市场","货盘集成",label]);
+      expect(existsSync(join(process.cwd(),"src/app",href.slice(1),"page.tsx"))).toBe(true);
     }
   });
   it("keeps the three selected-application entries and shared detail under their real parent", () => {
