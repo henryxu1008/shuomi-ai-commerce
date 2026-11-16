@@ -44,7 +44,7 @@ export function AccountPage({ page, expectedUserId }: { page: AccountPageKind; e
   else if ((context.isSwitching && page !== "profile-verification") || ((page === "organization" || page === "overview" || page === "profile-business") && context.isLoading)) content = <ConsoleState kind="loading" title="正在确认当前上下文">旧资料已清除。</ConsoleState>;
   else if ((page === "organization" || page === "overview" || page === "profile-business") && (context.error || context.blockingError || !context.user || !organization || context.selectionRequired)) content = <ReadError code={context.blockingError?.code ?? context.error?.code ?? "ORGANIZATION_SELECTION_REQUIRED"} page={page} />;
   else content = <ScopedAccount key={`${page}:${scope}`} page={page} scope={scope} expectedUserId={expectedUserId} organizationId={page === "profile-verification" && (context.isSwitching || context.isLoading || context.selectionRequired || context.error || context.blockingError) ? undefined : organization?.id} />;
-  return <AccountShell actions={page === "profile" ? <Button asChild><Link href="/workbench/account/profile/settings" prefetch={false}>编辑资料</Link></Button> : undefined} pathname={accountPagePath(page)} title={title} description={page === "overview" ? "查看当前账户、企业与收益状态" : page === "profile" ? "查看你的账户信息与当前资料状态" : page === "profile-settings" ? "管理账户信息、联系方式与登录安全" : page === "profile-business" ? "维护用于业务服务匹配的经营画像" : page === "profile-verification" ? "查看身份与企业授权认证状态" : "查看当前企业信息与项目访问权限"}>{content}</AccountShell>;
+  return <AccountShell actions={page === "profile" ? <Button asChild><Link href="/workbench/account/profile/settings" prefetch={false}>编辑资料</Link></Button> : undefined} pathname={accountPagePath(page)} title={title} description={page === "overview" ? "查看当前账户、企业与收益状态" : page === "profile" ? "查看你的账户信息与当前资料状态" : page === "profile-settings" ? "管理账户信息、联系方式与登录安全" : page === "profile-business" ? "填写经营情况，帮助我们匹配适合你的业务服务" : page === "profile-verification" ? "查看身份与企业授权认证状态" : "查看当前企业信息与项目访问权限"}>{content}</AccountShell>;
 }
 
 function ScopedAccount({ page, scope, expectedUserId, organizationId }: { page: AccountPageKind; scope: string; expectedUserId: string; organizationId?: string }) {
@@ -79,7 +79,13 @@ function AccountRequest({ page, scope, expectedUserId, organizationId, sequence,
   }, gcTime: 0, staleTime: 0, retry: false, refetchOnWindowFocus: true, refetchOnReconnect: true });
   if (response.isPending || response.isFetching) return <ConsoleState kind="loading" title="正在读取资料">正在确认当前身份和访问权限。</ConsoleState>;
   if (response.isError) return <ReadError code={response.error instanceof AccountReadError ? response.error.code : "UNKNOWN"} page={page} />;
-  if (response.data.kind === "organization") return <OrganizationView data={response.data.organization} scope={scope} platformMaintenance={<><ModelRoutePricingEntry scope={{userId:expectedUserId,organizationId:response.data.organization.effectiveOrganizationId}}/><DataRowPricingEntry/><KernelReleasesEntry/></>} />;
+  if (response.data.kind === "organization") return <OrganizationView data={response.data.organization} scope={scope} platformMaintenance={
+    <div className={styles.maintenanceGrid}>
+      <ModelRoutePricingEntry scope={{ userId: expectedUserId, organizationId: response.data.organization.effectiveOrganizationId }} />
+      <KernelReleasesEntry />
+      <DataRowPricingEntry />
+    </div>
+  } />;
   if (response.data.kind === "overview") return <AccountOverviewView profile={response.data.profile} business={response.data.business} organization={response.data.organization} />;
   return <ProfileView data={response.data.profile} business={response.data.business} organization={response.data.organization} organizationId={organizationId} section={profileSection(page)} identityVerificationOutcomeUnknown={identityVerificationOutcomeUnknown} onIdentityVerificationOutcomeUnknown={onIdentityVerificationOutcomeUnknown} identityContactOutcomeUnknown={identityContactOutcomeUnknown} onIdentityContactOutcomeUnknown={onIdentityContactOutcomeUnknown} />;
 }

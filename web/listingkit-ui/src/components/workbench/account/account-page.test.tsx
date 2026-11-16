@@ -28,7 +28,7 @@ describe("AccountPage read-only projection", () => {
     expect(screen.getByRole("link", { name: "编辑经营画像" })).toHaveAttribute("href", "/workbench/account/profile/business");
     expect(screen.getByRole("link", { name: "前往账户设置" })).toHaveAttribute("href", "/workbench/account/profile/settings");
     expect(screen.getByRole("link", { name: "查看身份认证" })).toHaveAttribute("href", "/workbench/account/profile/verification");
-    expect(screen.queryByRole("button", { name: "保存修改" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存经营画像" })).not.toBeInTheDocument();
   });
   it.each(["profile", "profile-business", "profile-verification"] as const)("removes the duplicate personal skill manager from %s", async page => {
     const business = {schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "", shopSituation: "", factorySituation: "", platforms: [], sites: [], shopType: "", services: [], source: "account_profile", updatedAt: null, readAt: profile.readAt};
@@ -51,48 +51,74 @@ describe("AccountPage read-only projection", () => {
   });
   it("shows all three entry cards without turning links into management authority", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "管理成员" })).toHaveAttribute("href", "/workbench/account/organization/members");
-    expect(screen.getByRole("link", { name: "管理资源" })).toHaveAttribute("href", "/workbench/account/organization/resources");
-    expect(screen.getByRole("link", { name: "查看记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
-    expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
-    expect(screen.getByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
-    expect(screen.getByText("角色与可执行操作以当前组织授权 owner 为准。")).toBeVisible();
-    expect(screen.getByText("只展示已提交成功的业务事件。")).toBeVisible();
+    expect(await screen.findByRole("link", { name: "成员与权限" })).toHaveAttribute("href", "/workbench/account/organization/members");
+    expect(screen.getByRole("link", { name: "资源与额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
+    expect(screen.getByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
+    for (const name of ["管理成员额度", "查看钱包与充值状态", "查看完整分配"]) {
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+    for (const name of ["成员与权限", "资源与额度", "操作记录"]) {
+      expect(screen.getByRole("link", { name })).toHaveAttribute("data-slot", "button");
+    }
+    for (const name of ["模型与费率", "内核发行管理", "查看价格"]) {
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole("heading", { name: "数据条数价格" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /邀请|移除/ })).not.toBeInTheDocument();
+  });
+  it("groups the model, browser kernel, and data pricing cards", async () => {
+    state.context.permissions = ["workbench.agent.configure", "listingkit.platform_admin"] as never[];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url === "/api/account/organization") return Response.json(organization);
+      if (url === "/api/model-route-pricing") return Response.json({ organizationId: "B", unitVersion: "ai-micropoint-v1", available: true, canMaintainPrices: true });
+      return Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 });
+    }));
+    mount("organization");
+    const model = await screen.findByRole("heading", { name: "企业 AI 模型" });
+    const kernel = screen.getByRole("heading", { name: "浏览器内核" });
+    const pricing = screen.getByRole("heading", { name: "数据条数价格" });
+    expect(model.parentElement?.parentElement).toBe(kernel.parentElement?.parentElement);
+    expect(model.parentElement?.parentElement).toBe(pricing.parentElement?.parentElement);
+    for (const [name, route] of [
+      ["模型与费率", "model-route-pricing"],
+      ["内核发行管理", "kernel-releases"],
+      ["查看价格", "data-row-pricing"],
+    ]) {
+      const link = screen.getByRole("link", { name });
+      expect(link).toHaveAttribute("data-slot", "button");
+      expect(link).toHaveAttribute("href", "/workbench/account/organization/" + route);
+    }
   });
   it("links members with permission-qualified wording alongside delivered sibling cards", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "管理成员" })).toHaveAttribute("href", "/workbench/account/organization/members");
-    expect(screen.getByText("查看企业成员；获准管理员可邀请成员、调整角色和移除成员")).toBeVisible();
-    expect(screen.getByText("角色与可执行操作以当前组织授权 owner 为准。")).toBeVisible();
+    expect(await screen.findByRole("link", { name: "成员与权限" })).toHaveAttribute("href", "/workbench/account/organization/members");
+    expect(screen.getByText("查看成员和角色，有权限的管理员可邀请成员")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "管理成员额度" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "查看操作记录" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "资源与额度" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "操作记录" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /邀请|移除/ })).not.toBeInTheDocument();
   });
   it("keeps resources and bounded audit cards available together alongside the permission-qualified member entry", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
-    expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
-    expect(screen.getByText("只展示已提交成功的业务事件。")).toBeVisible();
+    expect(await screen.findByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
+    expect(screen.getByRole("link", { name: "资源与额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByText("AI 点数按配置费率扣减；模型 Token 单独记录用量，钱包资金用于购买点数。")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "管理成员" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "成员与权限" })).toBeVisible();
   });
   it("links the delivered audit slice with its bounded scope and retains the member entry", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
-    expect(screen.getByText("查看账户资料、成员、额度与源账号的已提交事件")).toBeVisible();
-    expect(screen.getByText("只展示已提交成功的业务事件。")).toBeVisible();
+    expect(await screen.findByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
+    expect(screen.getByText("查看账户资料、成员、额度和源账号的变动")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "管理成员" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "成员与权限" })).toBeVisible();
   });
   it("links the available resource page without claiming balances", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
+    expect(await screen.findByRole("link", { name: "资源与额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByText("AI 点数按配置费率扣减；模型 Token 单独记录用量，钱包资金用于购买点数。")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "管理成员" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "成员与权限" })).toBeVisible();
   });
   it("offers an account return link in the breadcrumb", async () => {
     const fetcher = vi.fn().mockResolvedValue(Response.json(profile)); vi.stubGlobal("fetch",withSelfReads(fetcher)); mount();
@@ -280,17 +306,17 @@ describe("AccountPage read-only projection", () => {
     vi.stubGlobal("fetch",withSelfReads(fetcher));
     mount("profile-business");
     expect(await screen.findByRole("alert")).toHaveTextContent("企业访问已撤销");
-    expect(screen.queryByText("业务档案服务暂未接入")).not.toBeInTheDocument();
+    expect(screen.queryByText("暂时无法读取经营画像")).not.toBeInTheDocument();
   });
-  it("groups existing business-profile fields into the five Figma sections without changing owner fields", async () => {
-    const business = { schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "跨境电商卖家", shopSituation: "已有店铺", factorySituation: "有长期合作工厂", platforms: ["Amazon"], sites: ["美国站"], shopType: "自营店", services: ["商品采集与刊登"], source: "account_profile", updatedAt: null, readAt: profile.readAt };
+  it("shows five business profile sections in reading order and expands saved supplements", async () => {
+    const business = { schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "跨境电商卖家", shopSituation: "已有店铺", factorySituation: "有长期合作工厂", platforms: ["Amazon"], sites: ["美国站", "澳大利亚站"], shopType: "自营店", services: ["商品采集与刊登"], source: "account_profile", updatedAt: null, readAt: profile.readAt };
     vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(url === "/api/account/profile" ? Response.json(profile) : url === "/api/account/business-profile" ? Response.json(business) : Response.json(organization))));
     mount("profile-business");
     expect(await screen.findByRole("region", { name: "经营角色" })).toBeVisible();
     const shops = screen.getByRole("region", { name: "店铺情况" });
-    const platforms = screen.getByRole("region", { name: "选择店铺平台、经营站点与店铺类型" });
-    const factory = screen.getByRole("region", { name: "你是否拥有工厂或供应链？" });
-    const services = screen.getByRole("region", { name: "你目前需要什么服务？" });
+    const platforms = screen.getByRole("region", { name: "平台与站点" });
+    const factory = screen.getByRole("region", { name: "工厂与供应链" });
+    const services = screen.getByRole("region", { name: "所需服务" });
     expect(within(shops).getByText("已有店铺")).toBeVisible();
     expect(within(shops).queryByText("自营店")).not.toBeInTheDocument();
     expect(within(platforms).getByText("Amazon")).toBeVisible();
@@ -299,20 +325,27 @@ describe("AccountPage read-only projection", () => {
     expect(within(factory).getByText("有长期合作工厂")).toBeVisible();
     expect(within(factory).queryByText("商品采集与刊登")).not.toBeInTheDocument();
     expect(within(services).getByText("商品采集与刊登")).toBeVisible();
-    expect(screen.getByText("身份联系方式仍由登录服务管理；经营画像由账户中心持久化。")).toBeVisible();
+    expect(screen.getAllByRole("heading", { level: 2 }).filter(heading => heading.closest("form")).map(heading => heading.textContent))
+      .toEqual(["经营角色", "店铺情况", "平台与站点", "工厂与供应链", "所需服务"]);
+    expect(within(platforms).getByRole("button", { name: "Amazon" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(platforms).getByRole("button", { name: "补充填写：经营站点" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(platforms).getByRole("textbox", { name: "其他选项（逗号分隔）" })).toHaveValue("澳大利亚站");
+    expect(within(shops).getByRole("button", { name: "补充填写：店铺情况" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(shops).queryByRole("textbox")).not.toBeInTheDocument();
   });
   it("prevents custom service entries from exceeding the owner limit after all predefined choices are selected", async () => {
     const business = { schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "", shopSituation: "", factorySituation: "", platforms: [], sites: [], shopType: "", services: [], source: "account_profile", updatedAt: null, readAt: profile.readAt };
     vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(url === "/api/account/profile" ? Response.json(profile) : url === "/api/account/business-profile" ? Response.json(business) : Response.json(organization))));
     const user = userEvent.setup();
     mount("profile-business");
-    const services = await screen.findByRole("region", { name: "你目前需要什么服务？" });
+    const services = await screen.findByRole("region", { name: "所需服务" });
     const options = ["AI选品与市场分析", "商品采集与刊登", "商品图片与内容生成", "POD商品定制", "供应链与货盘对接", "店铺智能运营", "广告投放与优化", "客服自动化", "订单库存与ERP", "多店铺矩阵管理", "创业培训与陪跑", "店铺联合运营", "品牌出海", "企业功能定制", "OPC电商社区落地", "暂时不确定"];
     for (const option of options) await user.click(within(services).getByRole("button", { name: option }));
     expect(within(services).getAllByRole("button", { pressed: true })).toHaveLength(16);
+    await user.click(within(services).getByRole("button", { name: "补充填写：服务选项" }));
     expect(within(services).getByRole("textbox", { name: "其他选项（逗号分隔）" })).toBeDisabled();
   });
-  it("deduplicates custom business-profile values against selected predefined values before saving", async () => {
+  it("keeps typed separators and deduplicates custom business-profile values before saving", async () => {
     const business = { schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "", shopSituation: "", factorySituation: "", platforms: [], sites: [], shopType: "", services: [], source: "account_profile", updatedAt: null, readAt: profile.readAt };
     const fetcher = vi.fn((input: string, init?: RequestInit) => {
       const path = String(input);
@@ -324,13 +357,17 @@ describe("AccountPage read-only projection", () => {
     vi.stubGlobal("fetch",withSelfReads(fetcher));
     const user = userEvent.setup();
     mount("profile-business");
-    const platforms = await screen.findByRole("region", { name: "选择店铺平台、经营站点与店铺类型" });
+    const platforms = await screen.findByRole("region", { name: "平台与站点" });
     await user.click(within(platforms).getByRole("button", { name: "Amazon" }));
-    await user.type(within(platforms).getAllByRole("textbox", { name: "其他选项（逗号分隔）" })[0]!, "Amazon");
-    await user.click(screen.getByRole("button", { name: "保存修改" }));
-    await screen.findByText("已保存");
+    const disclosure = within(platforms).getByRole("button", { name: "补充填写：店铺平台" });
+    disclosure.focus();
+    await user.keyboard("{Enter}");
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    await user.type(within(platforms).getByRole("textbox", { name: "其他选项（逗号分隔）" }), "Amazon, Mercado Libre, Faire");
+    await user.click(screen.getByRole("button", { name: "保存经营画像" }));
+    expect(await screen.findByText("经营画像已保存")).toHaveAttribute("role", "status");
     const save = fetcher.mock.calls.find(([url, init]) => url === "/api/account/business-profile" && init?.method === "PUT");
-    expect(JSON.parse(String(save?.[1]?.body)).platforms).toEqual(["Amazon"]);
+    expect(JSON.parse(String(save?.[1]?.body)).platforms).toEqual(["Amazon", "Mercado Libre", "Faire"]);
   });
   it("retries a dependency failure only after user action and rereads facts", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 })).mockImplementation(() => Promise.resolve(Response.json(profile)));
@@ -351,33 +388,58 @@ describe("AccountPage read-only projection", () => {
     expect(screen.queryByText("未绑定")).not.toBeInTheDocument(); expect(screen.queryByRole("button", { name: /保存|修改|认证/ })).not.toBeInTheDocument();
   });
   it("keeps Home and Effective and project roles separate, with no fabricated commercial facts", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
+    const customRole = `sumi_role_${"a".repeat(32)}_01`;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...organization, roles: ["viewer", customRole] }))); mount("organization");
     expect(await screen.findByRole("heading", { name: "企业乙" })).toBeVisible();
-    expect(screen.getByText("归属企业（Home）：A")).toBeVisible(); expect(screen.getByText("当前有效企业：B")).toBeVisible();
-    expect(screen.getByText("当前组织角色：viewer")).toBeVisible(); expect(screen.queryByText("8,650")).not.toBeInTheDocument();
+    expect(screen.getByText("当前角色：查看者、自定义角色")).toBeVisible();
+    const overview = screen.getByRole("region", { name: "当前企业信息" });
+    expect(within(overview).getByRole("heading", { name: "企业乙" })).toBeVisible();
+    expect(within(overview).getByText("企业成员")).toBeVisible();
+    expect(screen.queryByText(customRole, { exact: false })).not.toBeInTheDocument();
+    expect(screen.getByText("当前企业编号")).not.toBeVisible();
+    await userEvent.click(screen.getByText("企业编号"));
+    expect(screen.getByText("当前企业编号")).toBeVisible();
+    expect(screen.getByText("归属企业编号")).toBeVisible();
+    expect(screen.getByText("A")).toBeVisible();
+    expect(screen.getByText("B")).toBeVisible(); expect(screen.queryByText("8,650")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /管理成员|管理资源|邀请/ })).not.toBeInTheDocument();
   });
   it("renders returned enterprise owner facts and labels a failed commercial read unavailable", async () => {
-    const memberList = { schemaVersion: "membership-v1", userId: "u1", organizationId: "B", items: [{ id: "member-1", userId: "member-user", organizationId: "B", projectId: "project-1", displayName: "成员甲", loginName: "member@example.test", roles: ["listingkit_viewer"], state: "active", createdAt: "2026-09-12T00:00:00Z", changedAt: "2026-09-12T00:00:00Z", observedVersion: "a".repeat(64), canChangeRole: false, canRemove: false, permissions: [] }], total: 8, canManage: false, assignableRoles: [] };
-    const audit = { schemaVersion: "account-audit-v1", userId: "u1", effectiveOrganizationId: "B", source: "source_account_committed_operations+account_business_profile_audit", items: [{ eventType: "account_business_profile.updated", actor: "operator-B", time: "2026-09-12T00:00:00Z", objectType: "account_business_profile", objectReference: "u1", operation: "update", result: "succeeded", relation: { type: "account_business_profile_version", reference: "u1", version: "1" } }], nextCursor: null };
+    const position = { free: "0", reserved: "0", consumed: "0", version: "1", recorded: true };
+    const unrecorded = { ...position, version: "0", recorded: false };
+    const member = { memberId: "member-1", userId: "u1", state: "active", roles: ["listingkit_viewer"], displayName: "成员甲", loginName: "", storeCount: "2", periods: position, dataRows: { ...position, free: "50000" } };
+    const secondMember = { ...member, memberId: "member-2", displayName: "成员乙", storeCount: null, periods: unrecorded, dataRows: unrecorded };
+    const directory = { schemaVersion: "member-resource-directory-v1", organizationId: "B", observedAt: profile.readAt, members: [member, secondMember] };
+    const limits = { schemaVersion: "member-ai-point-monthly-limit-v1", organizationId: "B", resourceType: "ai_point", timezone: "UTC", members: [
+      { memberId: "member-1", organizationId: "B", roles: ["listingkit_viewer"], displayName: "成员甲", loginName: "", unitVersion: "ai-micropoint-v1", configured: true, monthlyLimit: "20", reserved: "1", consumed: "6.5", remaining: "12.5", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" },
+    ] };
     const fetcher = vi.fn((input: string) => {
       const path = String(input);
       if (path === "/api/account/organization") return Promise.resolve(Response.json(organization));
       if (path === "/api/account/members/summary") return Promise.resolve(Response.json({schemaVersion:"membership-summary-v1",userId:"u1",organizationId:"B",total:8,active:7,administrators:1,inactive:1,source:"zitadel_authorization_v2",readAt:profile.readAt}));
       if (path === "/api/workbench/commercial/overview") return Promise.resolve(Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 }));
-      if (path.startsWith("/api/account/audit?")) return Promise.resolve(Response.json(audit));
+      if (path === "/api/account/member-resources") return Promise.resolve(Response.json(directory));
+      if (path === "/api/account/member-ai-point-limits") return Promise.resolve(Response.json(limits));
       throw new Error(`unexpected fetch: ${path}`);
     });
     vi.stubGlobal("fetch",withSelfReads(fetcher)); mount("organization");
 
     expect(await screen.findByText("8")).toBeVisible();
-    expect(screen.getByText("全部有效成员 7 人")).toBeVisible();
+    expect(screen.getByText("有效成员 7 人")).toBeVisible();
     expect(screen.getByText("店铺按期收费，AI 与数据资源预付使用")).toBeVisible();
     expect(screen.getAllByText("暂不可用").length).toBeGreaterThan(0);
     expect(screen.getByRole("region",{name:"AI 点数余额"})).toBeVisible();
-    expect(screen.getByText("operator-B")).toBeVisible();
-    expect(screen.getByText("update · u1")).toBeVisible();
-    expect(fetcher).toHaveBeenCalledTimes(7);
+    const allocation = await screen.findByRole("table", { name: "成员资源分配" });
+    const first = within(allocation).getByRole("row", { name: /成员甲/ });
+    const second = within(allocation).getByRole("row", { name: /成员乙/ });
+    for (const value of ["2 家", "0 期", "12.5 点", "50,000 条"]) {
+      expect(await within(first).findByText(value)).toBeVisible();
+    }
+    expect(within(second).getAllByText("暂无记录")).toHaveLength(2);
+    expect(within(second).getAllByText("暂不可用")).toHaveLength(2);
+    expect(screen.queryByRole("heading", { name: "最近操作记录" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "查看完整分配" })).not.toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledTimes(8);
   });
   it("reads the fixed base plan from the current commercial contract",async()=>{const fetcher=vi.fn((input:string)=>String(input)==="/api/workbench/commercial/overview"?Promise.resolve(Response.json(commercialOverviewFixture("B"))):String(input)==="/api/account/organization"?Promise.resolve(Response.json(organization)):Promise.resolve(Response.json({code:"DEPENDENCY_UNAVAILABLE",message:"",requestId:"",fieldErrors:[]},{status:503})));vi.stubGlobal("fetch",withSelfReads(fetcher));mount("organization");expect(await screen.findByText("基础方案")).toBeVisible();expect(screen.getByText("店铺按期收费，AI 与数据资源预付使用")).toBeVisible();});
   it.each(["AUTHENTICATION_REQUIRED", "IDENTITY_CONTEXT_CHANGED", "ACCOUNT_NOT_CONFIGURED", "DEPENDENCY_UNAVAILABLE", "DEADLINE_EXCEEDED", "PERMISSION_DENIED", "ORGANIZATION_ACCESS_REVOKED", "unexpected"])("shows a safe %s state without data or raw error", async code => {

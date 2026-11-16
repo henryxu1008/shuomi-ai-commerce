@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import {useEffect,useRef,useState} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {z} from "zod";
@@ -10,10 +9,15 @@ import {Input} from "@/components/ui/input";
 import {ConsolePage,ConsoleState} from "../console/console-page";
 import {useResourcePending} from "../resources/resource-pending";
 import {dataRowPriceInput,dataRowPriceOffer,dataRowPriceReceipt,dataRowPriceHistory,dataRowPriceRequest,type PriceScope} from "@/lib/api/data-row-pricing";
+import { MaintenanceEntryCard } from "./maintenance-entry-card";
 const path="/workbench/account/organization/data-row-pricing";
 const intentSchema=z.object({key:z.uuid(),input:dataRowPriceInput}).strict();
 const money=(v:string)=>{const n=BigInt(v);return `¥${n/BigInt(100)}.${(n%BigInt(100)).toString().padStart(2,"0")}`};
-export function DataRowPricingEntry(){const context=useWorkbenchContext();return context.permissions.includes("listingkit.platform_admin")?<Link href={path} prefetch={false}>数据条数价格</Link>:null}
+export function DataRowPricingEntry() {
+  const context = useWorkbenchContext();
+  if (!context.permissions.includes("listingkit.platform_admin")) return null;
+  return <MaintenanceEntryCard title="数据条数价格" description="管理企业购买数据条数时使用的价格" action="查看价格" href={path} />;
+}
 export function DataRowPricingPage({expectedUserId}:{expectedUserId:string}){
  const c=useWorkbenchContext(),org=c.effectiveOrganization;
  const allowed=c.permissions.includes("listingkit.platform_admin");
