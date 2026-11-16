@@ -1,6 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
+    // Generates the shipping directory bundled with the backend.
+    "scripts/generate-shipping-regions.mjs",
     "src/**/*.type-test.{ts,tsx}",
     "src/**/*.test.{ts,tsx}",
     // Next App Router files are runtime entry points, not imported by another module.
