@@ -53,7 +53,7 @@ const referralTitles: Record<ReferralView, string> = { overview: "推广与收�
 function ReferralManagementLinks() {
   const links = [
     ["center", "查看推广码和邀请人数", "查看推广"],
-    ["earnings", "查看每笔收益和结算状态", "查看收益明细"],
+    ["earnings", "查看近期收益和结算状态", "查看收益明细"],
     ["withdrawals", "管理收款方式和提现申请", "管理提现"],
     ["rules", "了解收益结算和提现条件", "查看推广规则"],
   ] as const;
@@ -296,7 +296,7 @@ function ScopedReferrals({ mode, view, expectedUserId, registrationAvailable }: 
     </section> : null}
     {showOverview ? <section className={styles.overviewSections} aria-label="推广与收益管理">
       {view === "complete" ? <ReferralManagementLinks /> : null}
-      <div className={styles.activityGrid} aria-label="收益和提现记录"><article className={styles.activityTableCard}><div><h2>近期收益动态</h2><p>每笔收益的金额和时间可在收益明细查看。</p></div><div className={styles.earningsTableWrap} role="region" aria-label="近期收益动态表格，可横向滚动" tabIndex={0}><table className={styles.earningsTable}><thead><tr><th>时间</th><th>事件</th><th>来源</th><th>金额</th><th>状态</th></tr></thead><tbody><tr><td colSpan={5} className={styles.emptyCell}>总览暂不显示近期收益记录。</td></tr></tbody></table></div><Button asChild variant="outline"><Link href={referralPaths.earnings} prefetch={false}>查看收益</Link></Button></article>
+      <div className={styles.activityGrid} aria-label="收益和提现记录"><article className={styles.activityTableCard}><div><h2>近期收益动态</h2><p>收益明细最多显示最近 100 条记录。</p></div><div className={styles.earningsTableWrap} role="region" aria-label="近期收益动态表格，可横向滚动" tabIndex={0}><table className={styles.earningsTable}><thead><tr><th>时间</th><th>事件</th><th>来源</th><th>金额</th><th>状态</th></tr></thead><tbody><tr><td colSpan={5} className={styles.emptyCell}>总览暂不显示近期收益记录。</td></tr></tbody></table></div><Button asChild variant="outline"><Link href={referralPaths.earnings} prefetch={false}>查看收益</Link></Button></article>
       {view !== "complete" ? <article className={styles.entryCard}><div><h2>提现状态</h2>{withdrawalHistory.isPending ? <p>正在加载提现记录…</p> : withdrawalHistory.isError ? <p role="alert">提现记录暂不可用，请稍后重试。</p> : withdrawalHistory.data?.withdrawals.length === 0 ? <p>暂无提现申请。</p> : <ul>{withdrawalHistory.data?.withdrawals.slice(0, 3).map(item => <li key={item.id}>{formatMinor(item.amountMinor)} · {withdrawalStatusLabel[item.status]} · {formatTime(item.updatedAt)}</li>)}</ul>}</div><Button asChild variant="outline"><Link href={referralPaths.withdrawals} prefetch={false}>管理提现</Link></Button></article> : null}</div>
     </section> : null}
     {showCenter ? <>
