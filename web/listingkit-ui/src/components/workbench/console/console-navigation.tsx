@@ -99,7 +99,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
 }
 function MarketBranch({node,pathname,trail,onNavigate,userId}:{node:ConsoleNavNode;pathname:string;trail:readonly string[];onNavigate?:()=>void;userId:string}){
  const authorized=useQuery({queryKey:["supply-market",userId,"","records",true,"selected",false,undefined],queryFn:({signal})=>listMarketRecords({userId,organizationId:""},{kind:"selected",ended:false},true,signal),retry:false});
- const branch=authorized.isSuccess&&!authorized.isError ? {...node,children:[...(node.children??[]),{label:"发布管理/处理申请",href:"/workbench/supply/operator",availability:"connected" as const}]}:node;
+ const branch=authorized.isSuccess&&!authorized.isError ? {...node,children:[...(node.children??[]),{label:"发布管理",href:"/workbench/supply/operator",availability:"connected" as const}]}:node;
  const currentTrail=pathname==="/workbench/supply/operator" || pathname.startsWith("/workbench/supply/operator/") ? [...trail,node.href,"/workbench/supply/operator"]:trail;
  return <NavBranch node={branch} pathname={pathname} trail={currentTrail} depth={1} onNavigate={onNavigate}/>;
 }
