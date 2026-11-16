@@ -41,6 +41,8 @@ transport; production SMTP configuration is separate. No fake sent state.
 | Resource balances | Commercial owner | Reuse #550 enterprise resource read and display |
 | Pending invitation count/status | Membership invitation protocol | New invitation repository, separate from provider membership directory |
 
+地区资料的后续保存约束见 [预置地区目录 V1](account-region-catalog.md)。目录是校验和显示资料，用户已保存的地区仍归账户偏好负责。
+
 Pinned provider authority: ZITADEL v4.17.1 `proto/zitadel/auth.proto` declares
 `user.details.creation_date` and `last_login`, but the actual
 [`internal/api/grpc/auth/user.go`](https://github.com/zitadel/zitadel/blob/v4.17.1/internal/api/grpc/auth/user.go)
