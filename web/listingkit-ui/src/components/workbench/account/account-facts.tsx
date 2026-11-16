@@ -61,24 +61,6 @@ function usePreferences(subject: string) {
     staleTime: 0,
   });
 }
-export function RegionValue({
-  subject,
-  field,
-}: {
-  subject: string;
-  field: keyof RegionSelection;
-}) {
-  const query = usePreferences(subject);
-  return (
-    <>
-      {query.isPending || query.isFetching
-        ? "正在读取"
-        : query.isError
-          ? "暂不可用"
-          : query.data[field] || "未设置"}
-    </>
-  );
-}
 export function RegionSettings({ subject }: { subject: string }) {
   const query = usePreferences(subject);
   if (query.isPending || query.isFetching)
