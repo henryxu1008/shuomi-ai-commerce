@@ -36,6 +36,25 @@ const referralPaths: Record<ReferralView, string> = {
 };
 const referralTitles: Record<ReferralView, string> = { overview: "推广与收益", complete: "完成注册", center: "推广中心", earnings: "收益明细", withdrawals: "提现管理", rules: "推广规则" };
 
+function ReferralManagementLinks() {
+  const links = [
+    ["center", "查看推广码和邀请记录", "查看推广"],
+    ["earnings", "查看每笔收益和结算状态", "查看收益明细"],
+    ["withdrawals", "管理收款方式和提现申请", "管理提现"],
+    ["rules", "了解收益结算和提现条件", "查看推广规则"],
+  ] as const;
+  return (
+    <nav className={styles.entryGrid} aria-label="推广管理入口">
+      {links.map(([view, description, action]) => (
+        <article className={styles.entryCard} key={view}>
+          <div><h2>{referralTitles[view]}</h2><p>{description}</p></div>
+          <Button asChild variant="outline"><Link href={referralPaths[view]} prefetch={false}>{action}</Link></Button>
+        </article>
+      ))}
+    </nav>
+  );
+}
+
 export function ReferralsPage({ mode, view = mode, expectedUserId, registrationAvailable = true }: { mode: "overview" | "complete"; view?: ReferralView; expectedUserId: string; registrationAvailable?: boolean }) {
   const context = useWorkbenchContext();
   const [leaving, setLeaving] = useState(false);
@@ -52,10 +71,18 @@ export function ReferralsPage({ mode, view = mode, expectedUserId, registrationA
   const description = view === "complete" ? "用当前登录身份确认这次新注册，并完成不可变推广关系。" : view === "center" ? "查看推广码、推广关系与邀请入口。" : view === "earnings" ? "查看来自权威支付事实的收益汇总。" : view === "withdrawals" ? "登记收款方式并管理人工提现申请。" : view === "rules" ? "当前有效的推广、收益、结算与提现规则统一在本页说明。" : "查看你的推广码、真实关系数量与当前可用汇总。";
   const authError = [context.error, context.blockingError].some((error) => error?.code === "AUTHENTICATION_REQUIRED");
   const identityChanged = Boolean(context.user && context.user.id !== expectedUserId);
-  let content: React.ReactNode;
-  if (leaving || authError || identityChanged) content = <IdentityError returnTo={pathname} />;
-  else content = <ScopedReferrals key={`${view}:${expectedUserId}`} mode={mode} view={view} expectedUserId={expectedUserId} registrationAvailable={registrationAvailable} />;
-  return <AccountShell pathname={pathname} title={title} description={description}>{content}</AccountShell>;
+  if (leaving || authError || identityChanged)
+    return <AccountShell pathname={pathname} title={title} description={description}><IdentityError returnTo={pathname} /></AccountShell>;
+
+  const actions = view === "earnings" || view === "withdrawals"
+    ? <Button asChild variant="outline"><Link href={referralPaths.rules} prefetch={false}>查看推广规则</Link></Button>
+    : undefined;
+  const content = <ScopedReferrals key={`${view}:${expectedUserId}`} mode={mode} view={view} expectedUserId={expectedUserId} registrationAvailable={registrationAvailable} />;
+  return (
+    <AccountShell pathname={pathname} title={title} description={description} actions={actions}>
+      {view === "overview" ? <div className={styles.pageBody}><ReferralManagementLinks />{content}</div> : content}
+    </AccountShell>
+  );
 }
 
 function ScopedReferrals({ mode, view, expectedUserId, registrationAvailable }: { mode: "overview" | "complete"; view: ReferralView; expectedUserId: string; registrationAvailable: boolean }) {
@@ -253,7 +280,7 @@ function ScopedReferrals({ mode, view, expectedUserId, registrationAvailable }: 
       {showWithdrawals ? <article className={styles.metric}><span>累计提现</span><strong className={styles.unavailable}>未提供</strong><small>当前提现 owner 未返回累计金额</small></article> : null}
     </section> : null}
     {showOverview ? <section className={styles.overviewSections} aria-label="推广与收益管理">
-      <div className={styles.entryGrid} aria-label="推广管理入口">{([["推广中心", "推广码与可用关系数据", referralPaths.center], ["收益明细", "来自权威支付事实的收益 projection", referralPaths.earnings], ["提现管理", "收款方式与人工提现申请", referralPaths.withdrawals], ["推广规则", "当前有效的收益与结算规则", referralPaths.rules]] as const).map(([title, description, href]) => <article className={styles.entryCard} key={href}><div><h2>{title}</h2><p>{description}</p></div><Button asChild variant="outline"><Link href={href} prefetch={false}>查看详情</Link></Button></article>)}</div>
+      {view === "complete" ? <ReferralManagementLinks /> : null}
       <div className={styles.activityGrid} aria-label="收益和提现记录"><article className={styles.activityTableCard}><div><h2>近期收益动态</h2><p>当前账户页面没有独立收益动态汇总；逐笔事实见收益明细。</p></div><div className={styles.earningsTableWrap} role="region" aria-label="近期收益动态表格，可横向滚动" tabIndex={0}><table className={styles.earningsTable}><thead><tr><th>时间</th><th>事件</th><th>来源</th><th>金额</th><th>状态</th></tr></thead><tbody><tr><td colSpan={5} className={styles.emptyCell}>当前 owner 未提供近期收益事件。</td></tr></tbody></table></div><Button asChild variant="outline"><Link href={referralPaths.earnings} prefetch={false}>查看收益</Link></Button></article>
       {view !== "complete" ? <article className={styles.entryCard}><div><h2>提现状态</h2>{withdrawalHistory.isPending ? <p>正在读取提现记录…</p> : withdrawalHistory.isError ? <p role="alert">提现记录暂不可用，请稍后重试。</p> : withdrawalHistory.data?.withdrawals.length === 0 ? <p>暂无提现申请。</p> : <ul>{withdrawalHistory.data?.withdrawals.slice(0, 3).map(item => <li key={item.id}>{formatMinor(item.amountMinor)} · {item.status} · {formatTime(item.updatedAt)}</li>)}</ul>}</div><Button asChild variant="outline"><Link href={referralPaths.withdrawals} prefetch={false}>管理提现</Link></Button></article> : null}</div>
     </section> : null}

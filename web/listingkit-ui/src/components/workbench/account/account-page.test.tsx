@@ -27,6 +27,7 @@ describe("AccountPage read-only projection", () => {
     expect(screen.getByText("跨境卖家")).toBeVisible();
     expect(screen.getByRole("link", { name: "编辑经营画像" })).toHaveAttribute("href", "/workbench/account/profile/business");
     expect(screen.getByRole("link", { name: "前往账户设置" })).toHaveAttribute("href", "/workbench/account/profile/settings");
+    expect(screen.getByRole("link", { name: "查看身份认证" })).toHaveAttribute("href", "/workbench/account/profile/verification");
     expect(screen.queryByRole("button", { name: "保存修改" })).not.toBeInTheDocument();
   });
   it.each(["profile", "profile-business", "profile-verification"] as const)("removes the duplicate personal skill manager from %s", async page => {
@@ -51,6 +52,8 @@ describe("AccountPage read-only projection", () => {
   it("shows all three entry cards without turning links into management authority", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
     expect(await screen.findByRole("link", { name: "管理成员" })).toHaveAttribute("href", "/workbench/account/organization/members");
+    expect(screen.getByRole("link", { name: "管理资源" })).toHaveAttribute("href", "/workbench/account/organization/resources");
+    expect(screen.getByRole("link", { name: "查看记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     expect(screen.getByText("角色与可执行操作以当前组织授权 owner 为准。")).toBeVisible();

@@ -52,6 +52,7 @@
 .centerWorkspace > section { min-width: 0; }
 .entryCard, .ruleCard, .ruleNotice { min-width: 0; border: 1px solid var(--border); border-radius: .8rem; background: var(--card); padding: 1.25rem; }
 .entryCard { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.entryGrid .entryCard { flex-direction: column; align-items: flex-start; }
 .activityTableCard { display: grid; align-content: start; gap: .75rem; min-width: 0; border: 1px solid var(--border); border-radius: .8rem; background: var(--card); padding: 1.25rem; }
 .activityTableCard h2 { margin: 0 0 .65rem; font-size: var(--card-title-size, 1.05rem); }
 .activityTableCard p { margin: 0; color: var(--muted-foreground); line-height: 1.65; }

@@ -1,3 +1,6 @@
+import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import {shippingRegions} from "@/test/fixtures/shipping-regions";
+import {useShippingLocations} from "./supply-location-fields";
 import {cleanup,render,screen,waitFor,act} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
@@ -39,8 +42,10 @@ it("preserves the existing common namespace for a pending upload",async()=>{
 it("observes every selected item's pending upload and offers its exact recovery target",async()=>{
   const ids=[crypto.randomUUID(),crypto.randomUUID()],drafts:SelectedDraft[]=ids.map((id,index)=>({title:"商品"+index,selection:{itemId:id,expectedRevision:1,originalPublicationId:"publication",originalVersion:"1",effectiveVersion:"2"},supply:emptySupply(),fileIds:[],inheritLocation:true,inheritAfterSale:true,useCommonFiles:true}));
   const review=vi.fn();
-  function Editor(){const [locked,setLocked]=useState(false);return <SelectedApplicationEditor scope={scope} drafts={drafts} onDraft={vi.fn()} common={{province:"",city:"",afterSaleNote:""}} onCommon={vi.fn()} commonFiles={[]} onCommonFiles={vi.fn()} locked={false} uploadLocked={locked} onUploadLocked={setLocked} onReview={review} onBack={vi.fn()}/>}
-  render(<Editor/>);const user=userEvent.setup();await user.selectOptions(screen.getByRole("combobox",{name:"正在编辑商品"}),ids[1]!);
+  function Editor(){const [locked,setLocked]=useState(false);return <SelectedApplicationEditor scope={scope} locations={useShippingLocations(scope.userId)} drafts={drafts} onDraft={vi.fn()} common={{province:"",city:"",afterSaleNote:""}} onCommon={vi.fn()} commonFiles={[]} onCommonFiles={vi.fn()} locked={false} uploadLocked={locked} onUploadLocked={setLocked} onReview={review} onBack={vi.fn()}/>}
+  const client=new QueryClient();
+  client.setQueryData(["region-catalog",scope.userId,"shipping","CN"],shippingRegions);
+  render(<QueryClientProvider client={client}><Editor/></QueryClientProvider>);const user=userEvent.setup();await user.selectOptions(screen.getByRole("combobox",{name:"正在编辑商品"}),ids[1]!);
   await act(async()=>{localStorage.setItem(`resource.pending:${JSON.stringify(["u","o","supply-market","qualification-item-"+ids[0]])}`,JSON.stringify({key:crypto.randomUUID(),hash:"a".repeat(64),size:4,type:"image/jpeg"}));window.dispatchEvent(new Event("storage"))});
   expect(screen.getByRole("button",{name:"核对本批申请"})).toBeDisabled();expect(screen.getByRole("combobox",{name:"正在编辑商品"})).toBeDisabled();
   await user.click(screen.getByRole("button",{name:"继续处理 商品0 的原附件"}));

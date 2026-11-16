@@ -100,6 +100,7 @@ var currentWorkbenchApplicationRoutes = []currentApplicationRoute{
 
 var currentAccountProfileApplicationRoutes = []currentApplicationRoute{
 	{Method: http.MethodGet, Path: "/api/v1/account/preferences"},
+	{Method: http.MethodGet, Path: accountRegionCatalogPath},
 	{Method: http.MethodPut, Path: "/api/v1/account/preferences"},
 	{Method: http.MethodGet, Path: "/api/v1/account/identity/facts"},
 	{Method: http.MethodGet, Path: accountBusinessProfilePath},

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -302,16 +302,22 @@ it("keeps the unified entry selected on acquisition results and direct Amazon li
   expect(screen.getByRole("link", { name: "在线采集" })).toHaveAttribute("aria-current", "page");
 });
 
-it("reveals the selected account page after navigation from another module", async () => {
+it("keeps only three account sections and selects the parent when opening a detail", () => {
   const view = render(<ConsoleNavigation pathname="/workbench/stores" ariaLabel="主导航" />);
-  view.rerender(<ConsoleNavigation pathname="/workbench/account/organization/members" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", { name: "成员与权限" })).toHaveAttribute("aria-current", "page");
-  await userEvent.click(screen.getByRole("button", { name: "收起企业空间" }));
-  expect(screen.queryByRole("link", { name: "成员与权限" })).not.toBeInTheDocument();
-  view.rerender(<ConsoleNavigation pathname="/workbench/account/organization/audit" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", { name: "操作记录" })).toHaveAttribute("aria-current", "page");
-  view.rerender(<ConsoleNavigation pathname="/workbench/account/organization/members" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", { name: "成员与权限" })).toHaveAttribute("aria-current", "page");
+  for (const [path, parent] of [
+    ["profile/settings", "账户资料"],
+    ["organization/members", "企业空间"],
+    ["organization/resources/source-accounts", "企业空间"],
+    ["referrals/withdrawals", "推广与收益"],
+  ]) {
+    view.rerender(<ConsoleNavigation pathname={`/workbench/account/${path}`} ariaLabel="主导航" />);
+    const account = screen.getByRole("link", { name: "我的账户" }).closest("li")!;
+    const [overview, ...sections] = within(account).getAllByRole("link");
+    expect(overview).toHaveAttribute("href", "/workbench/account");
+    expect(sections.map(link => link.textContent)).toEqual(["账户资料", "企业空间", "推广与收益"]);
+    expect(within(account).getAllByRole("button")).toHaveLength(1);
+    expect(within(account).getByRole("link", { name: parent })).toHaveAttribute("aria-current", "page");
+  }
 });
 
 it("keeps the plans module as a connected five-page tree", () => {

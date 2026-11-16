@@ -73,6 +73,10 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
   const nodes = consoleNavigation.filter(entry => !researchWorkflows.some(workflow => workflow.root === entry.href)).map(entry => {
     const connected = entry.href === "/workbench" && operationsCockpitAvailable || firstConnectedConsoleEntry(entry.href, entryCapabilities) !== null;
     const node = { ...entry, availability: connected ? "connected" as const : "unavailable" as const };
+    if (node.href === "/workbench/account") {
+      // Keep the full route trail for detail breadcrumbs and section highlighting.
+      return { ...node, children: node.children?.map(child => ({ ...child, children: undefined })) };
+    }
     if (node.href === "/workbench" && operationsCockpitAvailable) return { ...node, availability: "connected" as const, children: node.children?.map(child => {
       const mode = child.href.split("/").at(-1), permission = mode === "stores" ? "workbench.cockpit.stores.read" : `workbench.cockpit.${mode}.read`;
       return { ...child, availability: cockpitPermissions.includes(permission) ? "connected" as const : "unavailable" as const };

@@ -49,6 +49,7 @@
 - `account-audit-filters.md` — [Account Audit 完整历史筛选 V1](account-audit-filters.md)
 - `account-audit-summary.md` — [Account Audit 四项真实汇总 V1](account-audit-summary.md)
 - `account-audit-usage-readers.md` — [Account Audit 只读用量来源接线 V1](account-audit-usage-readers.md)
+- `account-region-catalog.md` — [编辑资料预置地区目录 V1](account-region-catalog.md)
 - `account-facts-invitations.md` — [Account facts and invitations v1](account-facts-invitations.md)
 - `auth-and-tenancy.md` — [Authentication and Organization Scope](auth-and-tenancy.md)
 - `auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](auth-instance-cookie-isolation.md)
@@ -174,6 +175,7 @@
 - `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
 - `supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](supply-market-choice-eligibility.md)
 - `supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
+- `supply-region-catalog.md` — [账户资料与供应市场共用中国省市目录](supply-region-catalog.md)
 - `supply-market-filters.md` — [自营与优选商品筛选](supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
 - `supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market.md)
 - `temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](temu-official-contract-evidence.md)

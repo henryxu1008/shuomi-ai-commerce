@@ -15,6 +15,7 @@ import type {CollectionItem} from "@/lib/contracts/product-collection";
 import {MarketReadError,CursorButtons,marketError,useMarketCommands} from "./shared";
 import {emptySupply,finalCommand,selectionKey,selectedBatchLimit,type CommonSupply,type SelectedDraft,type SelectedCommand} from "./selected-batch-intent";
 import {SelectedApplicationEditor} from "./selected-application-editor";
+import {isShippingLocation,useShippingLocations} from "./supply-location-fields";
 import {useSelectedBatch} from "./use-selected-batch";
 import styles from "./selected-application-form.module.css";
 
@@ -45,6 +46,7 @@ async function readCandidates(scope:MarketScope,keyword:string,after:string|unde
 export function SelectedApplicationForm({scope}:{scope:MarketScope}){
   const [search,setSearch]=useState(""),[keyword,setKeyword]=useState(""),[after,setAfter]=useState<string>();
   const [drafts,setDrafts]=useState<SelectedDraft[]>([]),[step,setStep]=useState<"select"|"supply"|"review">("select");
+  const locations=useShippingLocations(scope.userId,step==="supply");
   const [common,setCommon]=useState<CommonSupply>({province:"",city:"",afterSaleNote:""}),[commonFiles,setCommonFiles]=useState<string[]>([]);
   const [uploadLocked,setUploadLocked]=useState(false),[checking,setChecking]=useState(false),[disclosure,setDisclosure]=useState(false),[issues,setIssues]=useState<string[]>([]);
   const [reviewed,setReviewed]=useState<{title:string;command:SelectedCommand}[]>([]);
@@ -59,11 +61,13 @@ export function SelectedApplicationForm({scope}:{scope:MarketScope}){
   function updateDraft(id:string,patch:Partial<SelectedDraft>){changed();setDrafts(previous=>previous.map(d=>d.selection.itemId===id?{...d,...patch}:d))}
   function toggle(row:EligibleCandidate){changed();setDrafts(previous=>previous.some(d=>d.selection.itemId===row.item.id)?previous.filter(d=>d.selection.itemId!==row.item.id):previous.length>=selectedBatchLimit?previous:[...previous,{title:row.choice.product.title,selection:row.choice.selection,supply:emptySupply(),inheritLocation:true,inheritAfterSale:true,useCommonFiles:true,fileIds:[]}])}
   async function review(){
-    if(locked||!validSelection)return;setChecking(true);setIssues([]);setDisclosure(false);const errors:string[]=[],commands:{title:string;command:SelectedCommand}[]=[];
+    if(locked||!validSelection||!locations.data)return;setChecking(true);setIssues([]);setDisclosure(false);const errors:string[]=[],commands:{title:string;command:SelectedCommand}[]=[];
     try{for(const draft of drafts){
       const choice=await readMarketChoice(scope,draft.selection.itemId);
       if(!choice.optimized||choice.ineligibleReason||!choice.product||selectionKey(choice.selection)!==selectionKey(draft.selection)){errors.push(draft.title+"：商品或申请资格已变化，请返回选择商品并重新确认。");continue}
-      const command=marketCommandSchema.safeParse(finalCommand(draft,common,commonFiles));
+      const proposed=finalCommand(draft,common,commonFiles);
+      if(!isShippingLocation(locations.data.country,proposed.supply)){errors.push(draft.title+"：请重新选择发货省份和城市。");continue}
+      const command=marketCommandSchema.safeParse(proposed);
       if(!command.success||command.data.action!=="submit_selected"){errors.push(draft.title+"：请检查库存/产能、起订量、交期、发货地及合并后的 1–6 件资质附件。");continue}
       commands.push({title:draft.title,command:command.data});
     }
@@ -98,7 +102,7 @@ export function SelectedApplicationForm({scope}:{scope:MarketScope}){
       <Card className={styles.summary}><strong>已选择 {drafts.length} 件自有商品</strong><Button variant="ghost" disabled={locked} onClick={()=>{changed();setStep("select")}}>返回修改商品</Button></Card>
       {!validSelection?<div className={styles.state} role="status"><p>{query.isFetching?"正在重新核对商品资格":"商品或申请资格已变化，请返回选择商品并重新确认。"}</p>{query.error?<MarketReadError error={query.error} retry={()=>void query.refetch()}/>:null}</div>:null}
       {issues.length?<Card className="p-4" role="alert">{issues.map((issue,index)=><p key={index}>{issue}</p>)}</Card>:null}
-      {step==="supply"?<SelectedApplicationEditor scope={scope} drafts={drafts} onDraft={updateDraft} common={common} onCommon={value=>{changed();setCommon(value)}} commonFiles={commonFiles} onCommonFiles={ids=>{changed();setCommonFiles(ids)}} locked={interactionLocked||!validSelection} uploadLocked={uploadLocked} onUploadLocked={setUploadLocked} onReview={()=>void review()} onBack={()=>{changed();setStep("select")}}/>:<>
+      {step==="supply"?<SelectedApplicationEditor scope={scope} locations={locations} drafts={drafts} onDraft={updateDraft} common={common} onCommon={value=>{changed();setCommon(value)}} commonFiles={commonFiles} onCommonFiles={ids=>{changed();setCommonFiles(ids)}} locked={interactionLocked||!validSelection} uploadLocked={uploadLocked} onUploadLocked={setUploadLocked} onReview={()=>void review()} onBack={()=>{changed();setStep("select")}}/>:<>
         <Card className={styles.list}><Table aria-label="本批最终供货信息"><TableHeader><TableRow><TableHead>商品</TableHead><TableHead>供货差异</TableHead><TableHead>交付与资质</TableHead></TableRow></TableHeader><TableBody>{reviewed.map(({title,command},index)=><TableRow key={command.selection.itemId}><TableCell>{title}<small>逐件独立审核</small></TableCell><TableCell>库存 {command.supply.stock} 件；产能 {command.supply.capacity||"未填写"}；起订 {command.supply.minimumQuantity} 件；交期 {command.supply.leadDays} 天<br/>价格：{command.supply.priceNote||"待专员确认"}</TableCell><TableCell>{command.supply.province} {command.supply.city}（{drafts[index]?.inheritLocation?"继承公共":"单独填写"}）<br/>售后：{command.supply.afterSaleNote||"未填写"}（{drafts[index]?.inheritAfterSale?"继承公共":"单独填写"}）<br/>资质 {command.fileIds.length} 件（{drafts[index]?.useCommonFiles?"引用通用及商品专属":"仅商品专属"}）</TableCell></TableRow>)}</TableBody></Table></Card>
         <label className={styles.disclosure}><input type="checkbox" checked={disclosure} disabled={locked||!validSelection} onChange={e=>setDisclosure(e.target.checked)}/>我确认以上 {reviewed.length} 件均为本人/企业自有商品，逐件供货及资质资料准确，并允许平台独立评估；仅明确发布后，商品、供货信息及本企业认证名称可供其他获授权企业查看。</label>
         <Card className={styles.footer}><p>逐件提交；明确失败独立显示，未知结果会暂停后续。提交后不可直接修改。</p><div><Button variant="outline" disabled={locked} onClick={()=>{changed();setStep("supply")}}>返回修改供货信息</Button><Button disabled={locked||!validSelection||!disclosure||!reviewed.length} onClick={()=>void batch.start(reviewed)}>提交 {reviewed.length} 件申请</Button></div></Card>

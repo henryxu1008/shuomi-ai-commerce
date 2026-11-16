@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"task-processor/internal/authidentity"
+	"task-processor/internal/geography"
 	store "task-processor/internal/integration/persistence/accountprofile"
 	"time"
 	"unicode"
@@ -34,6 +35,7 @@ func (m accountProfileModule) preferences(c *gin.Context) {
 		result, err = m.repository.ReadPreferences(c.Request.Context(), identity.UserID)
 	} else {
 		var input struct {
+			Version  string `json:"catalogVersion"`
 			Country  string `json:"country"`
 			Province string `json:"province"`
 			City     string `json:"city"`
@@ -54,7 +56,7 @@ func (m accountProfileModule) preferences(c *gin.Context) {
 			writeAccountProfileError(c, 400, "INVALID_REQUEST")
 			return
 		}
-		for _, value := range []string{input.Country, input.Province, input.City} {
+		for _, value := range []string{input.Version, input.Country, input.Province, input.City} {
 			if len(value) > 128 || !utf8.ValidString(value) {
 				writeAccountProfileError(c, 400, "INVALID_REQUEST")
 				return
@@ -66,7 +68,17 @@ func (m accountProfileModule) preferences(c *gin.Context) {
 				}
 			}
 		}
-		result, err = m.repository.SavePreferences(c.Request.Context(), store.UserPreferences{UserID: identity.UserID, Country: input.Country, Province: input.Province, City: input.City})
+		catalog, catalogErr := geography.Bundled()
+		if catalogErr != nil {
+			writeAccountProfileError(c, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			return
+		}
+		labels, selectionErr := catalog.Resolve(input.Version, input.Country, input.Province, input.City)
+		if selectionErr != nil {
+			writeAccountProfileError(c, http.StatusBadRequest, "INVALID_REQUEST")
+			return
+		}
+		result, err = m.repository.SavePreferences(c.Request.Context(), store.UserPreferences{UserID: identity.UserID, Country: labels.Country, Province: labels.Province, City: labels.City})
 	}
 	if err != nil {
 		writeAccountProfileError(c, 503, "DEPENDENCY_UNAVAILABLE")
@@ -89,7 +101,7 @@ func validRegionJSON(raw []byte) bool {
 	for decoder.More() {
 		token, err = decoder.Token()
 		key, ok := token.(string)
-		if err != nil || !ok || seen[key] || (key != "country" && key != "province" && key != "city") {
+		if err != nil || !ok || seen[key] || (key != "catalogVersion" && key != "country" && key != "province" && key != "city") {
 			return false
 		}
 		seen[key] = true
@@ -99,7 +111,7 @@ func validRegionJSON(raw []byte) bool {
 		}
 	}
 	token, err = decoder.Token()
-	if err != nil || token != json.Delim('}') || len(seen) != 3 {
+	if err != nil || token != json.Delim('}') || len(seen) != 4 {
 		return false
 	}
 	_, err = decoder.Token()
