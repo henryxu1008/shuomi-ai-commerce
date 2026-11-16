@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +18,7 @@ import {getInvitationSummary} from "@/lib/api/invitations";
 import {listWorkbenchStores} from "@/lib/api/workbench-stores";
 import {EnterpriseResources} from "../commercial/enterprise-resources";
 import styles from "./account.module.css";
+import overviewStyles from "../console/primary-overview.module.css";
 import { AccountOverview } from "./account-overview";
 import { ConsoleState } from "../console/console-page";
 import { SubjectVerification } from "./subject-verification";
@@ -268,13 +268,13 @@ export function OrganizationView({ data, scope,platformMaintenance }: { data: Ac
     { title: "操作记录", description: "查看账户资料、成员、额度和源账号的变动", href: "/workbench/account/organization/audit" },
   ];
   const metrics = [
-    { label: "企业成员", value: metric(members, members.data?.total, "暂不可用"), detail: activeMembers === undefined ? undefined : `有效成员 ${activeMembers} 人` },
-    { label: "已绑定店铺", value: metric(stores, stores.data?.pagination.total, "暂不可用") },
-    { label: "待处理邀请", value: metric(invites, invites.data?.pending, "暂不可用"), detail: "尚未结束且未过期" },
-    { label: "当前方案", value: metric(commercial, commercial.data?.base_plan.name, "暂不可用"), detail: "店铺按期收费，AI 与数据资源预付使用" },
+    { label: "企业成员", tone: "blue", value: metric(members, members.data?.total, "暂不可用"), detail: activeMembers === undefined ? undefined : `有效成员 ${activeMembers} 人` },
+    { label: "已绑定店铺", tone: "teal", value: metric(stores, stores.data?.pagination.total, "暂不可用") },
+    { label: "待处理邀请", tone: "orange", value: metric(invites, invites.data?.pending, "暂不可用"), detail: "尚未结束且未过期" },
+    { label: "当前方案", tone: "purple", value: metric(commercial, commercial.data?.base_plan.name, "暂不可用"), detail: "店铺按期收费，AI 与数据资源预付使用" },
   ];
 
-  return <div className={styles.enterpriseWorkspace}>
+  return <div className={`${overviewStyles.stack} ${styles.enterpriseWorkspace}`}>
     <Card className={styles.enterpriseHeader}>
       <div className={styles.organizationIdentity}>
         <Image src="/console/account/organization-avatar.svg" width={48} height={48} alt="" unoptimized />
@@ -287,22 +287,24 @@ export function OrganizationView({ data, scope,platformMaintenance }: { data: Ac
     </Card>
     <section aria-label="企业管理">
       <h2 className={styles.sectionTitle}>企业管理</h2>
-      <ul className={styles.managementGrid}>
-        {management.map(({ title, description, href }) => <li key={href}>
-          <Link href={href} prefetch={false} aria-label={title} aria-describedby={`enterprise-management-${href.split("/").at(-1)}`}>
-            <div><h3>{title}</h3><p id={`enterprise-management-${href.split("/").at(-1)}`}>{description}</p></div><ChevronRight size={16} aria-hidden="true" />
-          </Link>
-        </li>)}
-      </ul>
+      <div className={`${overviewStyles.entriesThree} ${overviewStyles.entriesCompact}`}>
+        {management.map(({ title, description, href }) => <Card key={href} className={overviewStyles.entry}>
+          <h3>{title}</h3>
+          <p className={overviewStyles.description}>{description}</p>
+          <Button asChild size="sm" variant="outline"><Link href={href} prefetch={false}>{title}</Link></Button>
+        </Card>)}
+      </div>
     </section>
-    <section aria-label="当前企业信息">
-      <h2 className={styles.sectionTitle}>企业概览</h2>
-      <dl className={styles.enterpriseMetrics}>
-        {metrics.map(({ label, value, detail }) => <div key={label}><dt>{label}</dt><dd><strong>{value}</strong>{detail ? <small>{detail}</small> : null}</dd></div>)}
+    <Card role="region" aria-label="当前企业信息" className={overviewStyles.panel}>
+      <h2>企业概览</h2>
+      <dl className={`${overviewStyles.metrics} ${overviewStyles.metricsFour}`}>
+        {metrics.map(({ label, tone, value, detail }) => <div key={label} data-tone={tone}>
+          <dt>{label}</dt><dd><strong>{value}</strong>{detail ? <small>{detail}</small> : null}</dd>
+        </div>)}
       </dl>
-    </section>
+    </Card>
     {platformMaintenance}
-    <Panel title="企业资源"><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0}/></Panel>
+    <Panel title="企业资源"><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0} actionsAsButtons /></Panel>
     <Panel title="最近操作记录">
       {audit.isPending ? <p className={styles.note}>正在读取操作记录…</p> : audit.isError ? <p className={styles.note} role="status">暂时无法读取操作记录</p> : audit.data.items.length === 0 ? <p className={styles.note} role="status">暂无操作记录</p> :
         <ul className={styles.auditPreview}>{audit.data.items.slice(0, 4).map(item => <li key={`${item.eventType}:${item.relation.type}:${item.relation.reference}:${item.relation.version}:${item.actor}`}>

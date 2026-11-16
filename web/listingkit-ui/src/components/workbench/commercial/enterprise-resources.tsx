@@ -4,6 +4,7 @@ import {formatMicropoints,parseDisplayPoints} from "@/lib/contracts/ai-points";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getCommercialResources, type CommercialResources } from "@/lib/api/commercial-billing";
 import styles from "./commercial.module.css";
@@ -14,7 +15,7 @@ const definitions = [
   { type: "data_row", name: "数据额度", color: "purple", unit: "条", note: "按数据条数计量，不以操作次数或存储字节替代。" },
 ] as const;
 
-export function EnterpriseResources({ userId, organizationId, scope, sequence, showSummary = false }: { userId: string; organizationId: string; scope: string; sequence: number; showSummary?: boolean }) {
+export function EnterpriseResources({ userId, organizationId, scope, sequence, showSummary = false, actionsAsButtons = false }: { userId: string; organizationId: string; scope: string; sequence: number; showSummary?: boolean; actionsAsButtons?: boolean }) {
   const response = useQuery({ queryKey: ["workbench", "commercial-resources", userId, organizationId, scope, sequence], queryFn: ({ signal }) => getCommercialResources(userId, organizationId, signal), gcTime: 0, staleTime: 0, retry: false, refetchOnWindowFocus: false, refetchOnReconnect: false });
   const loading = response.isPending || response.isFetching;
   const data = !loading && !response.isError && response.data?.organization_id === organizationId ? response.data : undefined;
@@ -26,6 +27,8 @@ export function EnterpriseResources({ userId, organizationId, scope, sequence, s
     const resource = balance(definition.type);
     return { ...definition, resource, value: resource?.state === "recorded" ? `${resource.resource_type==="ai_point"?formatMicropoints(parseDisplayPoints(resource.available)+parseDisplayPoints(resource.allocated)):BigInt(resource.available)+BigInt(resource.allocated)} ${definition.unit}` : resource?.state === "not_recorded" ? "尚无资源记录" : fallback };
   });
+  const manage = <Link href="/workbench/account/organization/resources" prefetch={false}>管理成员额度</Link>;
+  const wallet = <Link href="/workbench/plans/top-up" prefetch={false}>查看钱包与充值状态</Link>;
   return <div className={styles.stack}>
     {loading ? <p role="status">正在读取当前企业资源余额</p> : !data ? <p role="alert">{errors[code] ?? "资源响应无效"}：本次未取得余额，请确认企业后刷新。</p> : <p className={styles.observation}>资源观察时间：<time dateTime={data.observed_at}>{data.observed_at.replace("T", " ").replace(/Z$/, " UTC")}</time></p>}
     {showSummary ? <Card role="region" aria-label="企业总权益" className={`${styles.panel} ${styles.summary}`}><h2>企业总权益</h2><p className={styles.subtle}>企业可用资源余额；成员月度消费上限与店铺服务期分别展示。</p><div className={styles.resourceSummary}>{values.map(card => <div className={styles[card.color]} key={card.type}><p>{card.name}余额</p><strong>{card.value}</strong><small>{card.resource?.state === "recorded" ? "企业可用余额" : card.value}</small></div>)}</div></Card> : null}
@@ -39,6 +42,9 @@ export function EnterpriseResources({ userId, organizationId, scope, sequence, s
       </ul>
       {card.resource?.state === "recorded" ? <p className={styles.subtle}>更新时间：<time dateTime={card.resource.updated_at}>{card.resource.updated_at.replace("T", " ").replace(/Z$/, " UTC")}</time></p> : null}
     </Card>)}</div>
-    <p className={styles.subtle}><Link href="/workbench/account/organization/resources" prefetch={false}>管理成员额度</Link> · <Link href="/workbench/plans/top-up" prefetch={false}>查看钱包与充值状态</Link></p>
+    {actionsAsButtons ? <div className={styles.actions}>
+      <Button asChild size="sm" variant="outline">{manage}</Button>
+      <Button asChild size="sm" variant="outline">{wallet}</Button>
+    </div> : <p className={styles.subtle}>{manage} · {wallet}</p>}
   </div>;
 }

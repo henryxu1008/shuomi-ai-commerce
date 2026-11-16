@@ -56,6 +56,9 @@ describe("AccountPage read-only projection", () => {
     expect(screen.getByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
+    for (const name of ["成员与权限", "资源与额度", "操作记录", "管理成员额度", "查看钱包与充值状态"]) {
+      expect(screen.getByRole("link", { name, exact: true })).toHaveAttribute("data-slot", "button");
+    }
     expect(screen.queryByRole("button", { name: /邀请|移除/ })).not.toBeInTheDocument();
   });
   it("links members with permission-qualified wording alongside delivered sibling cards", async () => {
