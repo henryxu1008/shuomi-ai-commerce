@@ -68,43 +68,61 @@
 .profileForm label { display: grid; gap: 7px; color: var(--muted-foreground); font-size: var(--label-text-size); }
 .profileForm input { min-width: 0; border: 1px solid var(--border); border-radius: var(--control-radius); background: transparent; color: var(--foreground); padding: 9px 10px; font-size: var(--body-text-size); }
 .profileForm input:disabled { opacity: .65; }
-.settingsSections { display: grid; gap: 20px; min-width: 0; margin-top: 20px; }
-.settingsSections > .panel { margin: 0; }
-.settingsSections > .panel > form { display: grid; gap: 14px; max-width: 620px; margin-top: 16px; }
-.settingsWorkspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "account" "contact" "security" "provenance"; align-items: start; gap: 8px; margin-top: 12px; }
-.settingsWorkspace > .settingsSections { display: contents; }
-.settingsWorkspace > .panel { margin: 0; }
-.settingsWorkspace > .settingsAccount { grid-area: account; }
-.settingsWorkspace > .settingsSections > .panel:first-of-type { grid-area: contact; }
-.settingsWorkspace > .settingsSections > .panel:last-of-type { grid-area: security; }
-.settingsWorkspace > .provenance { grid-area: provenance; margin-top: 0; }
-.settingsAccount { padding: 12px 16px; }
-.settingsAccount header h2 { font-size: var(--section-title-size); }
-.settingsAccount header p { margin-top: 2px; font-size: var(--caption-text-size); }
-.settingsAccount .fields { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 8px; margin-bottom: 6px; }
-.settingsAccount .fields dt { margin-bottom: 2px; font-size: var(--caption-text-size); }
-.settingsAccount .fields dd { min-height: 16px; font-size: var(--label-text-size); }
-.settingsAccount .profileForm { grid-template-columns: minmax(0, 1fr); gap: 4px; margin-top: 6px; }
-.settingsAccount .profileForm h3 { grid-column: 1 / -1; margin: 0; font-size: var(--card-title-size); }
-.settingsAccount .profileForm > form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
-.settingsAccount .profileForm > form label { gap: 3px; font-size: var(--caption-text-size); }
-.settingsAccount .profileForm > form input { min-height: 30px; padding: 5px 8px; }
-.settingsAccount .profileForm > form .formActions { grid-column: 1 / -1; }
-.settingsAccount .profileForm > p { margin: 0; font-size: var(--caption-text-size); line-height: 1.35; }
-.settingsWorkspace .settingsSections > .panel { padding: 10px 14px; }
-.settingsWorkspace .settingsSections > .panel header h2 { font-size: var(--section-title-size); }
-.settingsWorkspace .settingsSections > .panel header p { margin-top: 4px; }
-.settingsWorkspace .settingsSections > .panel > form { width: 100%; max-width: none; gap: 5px; margin-top: 5px; }
-.settingsWorkspace .settingsSections > .panel:first-of-type { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; }
-.settingsWorkspace .settingsSections > .panel:first-of-type > header { grid-column: 1 / -1; }
-.settingsWorkspace .settingsSections > .panel:first-of-type > form { min-width: 0; }
-.settingsWorkspace .settingsSections label { display: grid; width: 100%; min-width: 0; gap: 4px; font-size: var(--caption-text-size); }
-.settingsWorkspace .settingsSections input:not([type="checkbox"]) { box-sizing: border-box; width: 100%; min-width: 0; min-height: 30px; padding: 5px 8px; border: 1px solid var(--input); border-radius: 6px; background: var(--background); color: var(--foreground); font: inherit; }
-.settingsWorkspace .settingsSections .formActions { gap: 6px; }
-.settingsWorkspace .settingsSections .formActions button { min-height: 30px; height: 30px; padding: 0 10px; font-size: var(--caption-text-size); }
-.settingsWorkspace .settingsSections > .panel:last-of-type > form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
-.settingsWorkspace .settingsSections > .panel:last-of-type .formActions { grid-column: 1 / -1; margin-top: 0; }
-@media (max-width: 767px) { .settingsAccount .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .settingsAccount .profileForm > form { grid-template-columns: 1fr; } .settingsWorkspace .settingsSections > .panel:first-of-type { grid-template-columns: 1fr; } }
+.settingsWorkspace, .settingsSections { display: grid; gap: 16px; min-width: 0; }
+.settingsWorkspace .panel { margin: 0; padding: 20px; }
+.settingsWorkspace > .provenance { margin-top: 0; }
+.settingsAccount { display: grid; gap: 16px; }
+.settingsGroup { display: grid; min-width: 0; gap: 8px; }
+.settingsGroup + .settingsGroup { padding-top: 16px; border-top: 1px solid var(--border); }
+.settingsGroup h3 { font-size: var(--card-title-size); font-weight: 600; }
+.settingsGroup > p { color: var(--muted-foreground); font-size: var(--body-text-size); }
+.settingsGridForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  max-width: 720px;
+  min-width: 0;
+}
+.settingsRegionForm { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.settingsSections .settingsGridForm { margin-top: 16px; }
+.settingsGridForm label {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--body-text-size);
+}
+.settingsGridForm input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--input);
+  border-radius: var(--control-radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+}
+.settingsGridForm input:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.settingsGridForm input:disabled { opacity: .65; }
+.settingsWorkspace .formActions { flex-wrap: wrap; gap: 12px; }
+.settingsWorkspace .formActions button { min-height: 44px; }
+.settingsContacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: 24px;
+}
+.settingsContacts > header, .settingsVerificationLink { grid-column: 1 / -1; }
+.settingsContacts .settingsGridForm { grid-template-columns: minmax(0, 1fr); max-width: 360px; gap: 8px; }
+.contactStatus { color: var(--muted-foreground); font-size: var(--label-text-size); overflow-wrap: anywhere; }
+.contactStatus[data-verified] { color: var(--success-foreground); }
+.settingsVerificationLink { width: fit-content; margin-top: 16px; color: var(--primary); text-decoration: underline; text-underline-offset: 4px; }
+
+@media (max-width: 767px) {
+  .settingsWorkspace .panel { padding: 16px; }
+  .settingsGridForm, .settingsRegionForm, .settingsContacts { grid-template-columns: minmax(0, 1fr); }
+}
 .businessGuide { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--muted); }
 .businessGuide strong { display: block; font-size: var(--body-text-size); margin-bottom: 6px; }
 .businessGuide p { color: var(--muted-foreground); font-size: var(--label-text-size); line-height: 1.6; }
@@ -130,7 +148,7 @@
 .formActions { display: flex; align-items: center; gap: 12px; grid-column: 1 / -1; }
 .successText { color: var(--success-foreground); font-size: var(--label-text-size); }
 .errorText { color: var(--destructive); font-size: var(--label-text-size); }
-@media (max-width: 767px) { .identity { align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px; } .identityStatus { justify-items: start; text-align: left; } .managementGrid, .settingsWorkspace, .businessGroups { grid-template-columns: 1fr; } .settingsWorkspace { grid-template-areas: "account" "contact" "security" "provenance"; } .settingsWorkspace .settingsSections > .panel:first-of-type { grid-template-columns: 1fr; } .settingsWorkspace > .settingsSections > .panel:last-of-type > form { grid-template-columns: 1fr; } .settingsWorkspace > .provenance { grid-column: auto; } .verificationCards { grid-template-columns: 1fr; } .panel { padding: 20px; } .fields { gap: 20px; } .organizationIdentity { gap: 12px; } .organizationIdentity img { width: 48px; height: 48px; } }
+@media (max-width: 767px) { .identity { align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px; } .identityStatus { justify-items: start; text-align: left; } .managementGrid, .businessGroups { grid-template-columns: 1fr; } .verificationCards { grid-template-columns: 1fr; } .panel { padding: 20px; } .fields { gap: 20px; } .organizationIdentity { gap: 12px; } .organizationIdentity img { width: 48px; height: 48px; } }
 @media (max-width: 767px) { .overview, .overviewLinks { grid-template-columns: 1fr; } .overviewMetric { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); } .profileForm, .businessGroup > div { grid-template-columns: 1fr; } .enterpriseMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .enterpriseResources { grid-template-columns: repeat(2, minmax(0, 1fr)); } .auditPreview li { grid-template-columns: 1fr; gap: 6px; } }
 @media (max-width: 480px) { .status .fields { grid-template-columns: 1fr; } .status .fields > div { min-height: 80px; } }
 

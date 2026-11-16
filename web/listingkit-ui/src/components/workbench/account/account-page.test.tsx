@@ -107,13 +107,14 @@ describe("AccountPage read-only projection", () => {
     vi.stubGlobal("fetch",withSelfReads(fetcher));
     mount(page);
     expect(await screen.findByRole("heading", { name: page === "profile-settings" ? "账户信息" : "本人甲" })).toBeVisible();
-    if (page === "profile-settings") expect(screen.getByText("显示名称")).toBeVisible();
+    if (page === "profile-settings") expect(await screen.findByLabelText("显示名称")).toBeVisible();
     await waitFor(() => expect(fetcher).toHaveBeenCalled());
     expect(fetcher.mock.calls.some(([url]) => url === "/api/account/business-profile")).toBe(false);
   });
   it("groups account settings in one main area without collapsing identity-owner forms", async () => {
     const identity = { schemaVersion: "account-identity-profile-v1", userId: "u1", firstName: "本人", lastName: "甲", nickName: "", displayName: "本人甲", preferredLanguage: "", gender: "", source: "zitadel_auth_v1" };
-    vi.stubGlobal("fetch", vi.fn((url: string) => Promise.resolve(url === "/api/account/profile" ? Response.json(profile) : url === "/api/account/identity/profile" ? Response.json(identity) : Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 }))));
+    const account = { ...profile, email: "owner@example.test", emailVerified: true };
+    vi.stubGlobal("fetch", withSelfReads(vi.fn((url: string) => Promise.resolve(url === "/api/account/profile" ? Response.json(account) : url === "/api/account/identity/profile" ? Response.json(identity) : Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 })))));
     mount("profile-settings");
     const settings = await screen.findByRole("region", { name: "账户资料设置" });
     expect(within(settings).getByRole("heading", { name: "账户信息" })).toBeVisible();
@@ -121,7 +122,17 @@ describe("AccountPage read-only projection", () => {
     expect(within(settings).getByRole("heading", { name: "登录与安全" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "本人甲" })).not.toBeInTheDocument();
     await screen.findByLabelText("名");
-    expect(within(settings).getByRole("button", { name: "保存个人资料" })).toBeVisible();
+    const region = within(within(settings).getByRole("region", { name: "地区资料" }));
+    const personal = within(within(settings).getByRole("region", { name: "个人资料" }));
+    expect(await region.findByRole("button", { name: "保存地区资料" })).toBeVisible();
+    expect(personal.getByRole("button", { name: "保存个人资料" })).toBeVisible();
+    const email = within(settings).getByLabelText("邮箱地址");
+    expect(email).toHaveAccessibleDescription("当前邮箱 owner@example.test · 已验证");
+    expect(within(settings).getByLabelText("手机号码")).toHaveAccessibleDescription("当前手机号 +8613800000000 · 未验证");
+    await userEvent.clear(email);
+    await userEvent.type(email, "changed@example.test");
+    expect(email).toHaveAccessibleDescription("当前邮箱 owner@example.test · 已验证");
+    expect(within(settings).getByRole("link", { name: "前往认证信息" })).toHaveAttribute("href", "/workbench/account/profile/verification");
     expect(within(settings).getByRole("button", { name: "更换邮箱" })).toBeVisible();
     expect(within(settings).getByRole("button", { name: "修改密码" })).toBeVisible();
   });

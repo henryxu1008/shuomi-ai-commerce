@@ -54,24 +54,6 @@ function usePreferences(subject: string) {
     staleTime: 0,
   });
 }
-export function RegionValue({
-  subject,
-  field,
-}: {
-  subject: string;
-  field: keyof RegionInput;
-}) {
-  const query = usePreferences(subject);
-  return (
-    <>
-      {query.isPending || query.isFetching
-        ? "正在读取"
-        : query.isError
-          ? "暂不可用"
-          : query.data[field] || "未设置"}
-    </>
-  );
-}
 export function RegionSettings({ subject }: { subject: string }) {
   const query = usePreferences(subject);
   if (query.isPending || query.isFetching)
@@ -112,48 +94,42 @@ function RegionForm({ data }: { data: AccountPreferences }) {
     },
   });
   return (
-    <div className={styles.profileForm}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          mutation.mutate(form);
-        }}
-      >
-        {(
-          [
-            ["country", "国家 / 地区"],
-            ["province", "省 / 州"],
-            ["city", "城市"],
-          ] as const
-        ).map(([field, label]) => (
-          <label key={field}>
-            {label}
-            <input
-              aria-label={label}
-              value={form[field]}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  [field]: event.target.value,
-                }))
-              }
-              disabled={mutation.isPending}
-            />
-          </label>
-        ))}
-        <div className={styles.formActions}>
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "正在保存…" : "保存地区资料"}
-          </Button>
-          <span className={styles.note}>
-            {mutation.isSuccess
-              ? "地区资料已保存"
-              : mutation.isError
-                ? "保存结果未确认，请刷新资料核对后重试。"
-                : "地区资料由账户服务保存，用于本地化服务。"}
-          </span>
-        </div>
-      </form>
-    </div>
+    <form
+      className={`${styles.settingsGridForm} ${styles.settingsRegionForm}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        mutation.mutate(form);
+      }}
+    >
+      {(
+        [
+          ["country", "国家 / 地区"],
+          ["province", "省 / 州"],
+          ["city", "城市"],
+        ] as const
+      ).map(([field, label]) => (
+        <label key={field}>
+          {label}
+          <input
+            aria-label={label}
+            value={form[field]}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                [field]: event.target.value,
+              }))
+            }
+            disabled={mutation.isPending}
+          />
+        </label>
+      ))}
+      <div className={styles.formActions}>
+        <Button type="submit" variant="outline" disabled={mutation.isPending}>
+          {mutation.isPending ? "正在保存…" : "保存地区资料"}
+        </Button>
+        {mutation.isSuccess ? <span className={styles.successText} role="status">地区资料已保存</span> : null}
+        {mutation.isError ? <span className={styles.errorText} role="alert">保存结果未确认，请刷新资料核对后重试。</span> : null}
+      </div>
+    </form>
   );
 }

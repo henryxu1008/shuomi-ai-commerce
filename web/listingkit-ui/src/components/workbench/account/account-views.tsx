@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getAccountAudit } from "@/lib/api/account-audit";
@@ -19,7 +19,7 @@ import styles from "./account.module.css";
 import { AccountOverview } from "./account-overview";
 import { ConsoleState } from "../console/console-page";
 import { SubjectVerification } from "./subject-verification";
-import {IdentityDates,RegionSettings,RegionValue} from "./account-facts";
+import { IdentityDates, RegionSettings } from "./account-facts";
 
 const provided = (value: string | null) => value?.trim() || "未设置";
 const verification = (value: boolean | null) => value === true ? "已验证" : value === false ? "未验证" : "未提供";
@@ -69,10 +69,16 @@ function ProfileIdentity({ data }: { data: AccountProfile }) {
 
 function AccountSettingsPanel({ data, returnTo, identityContactOutcomeUnknown = false, onIdentityContactOutcomeUnknown }: { data: AccountProfile; returnTo?: string; identityContactOutcomeUnknown?: boolean; onIdentityContactOutcomeUnknown?: () => void }) {
   return <>
-    <Panel title="账户信息" description="个人身份资料由 ZITADEL 官方 Auth API 管理" className={styles.settingsAccount}>
-      <Fields items={[["显示名称", provided(data.displayName)], ["国家 / 地区", <RegionValue key="country" subject={data.userId} field="country"/>], ["省 / 州", <RegionValue key="province" subject={data.userId} field="province"/>], ["城市", <RegionValue key="city" subject={data.userId} field="city"/>]]} />
-      <RegionSettings subject={data.userId}/>
-      <IdentityProfileManagement data={data} returnTo={returnTo ?? "/workbench/account/profile/settings"} />
+    <Panel title="账户信息" className={styles.settingsAccount}>
+      <section className={styles.settingsGroup} aria-label="地区资料">
+        <h3>地区资料</h3>
+        <p>用于提供适合你所在地区的服务</p>
+        <RegionSettings subject={data.userId} />
+      </section>
+      <section className={styles.settingsGroup} aria-label="个人资料">
+        <h3>个人资料</h3>
+        <IdentityProfileManagement data={data} returnTo={returnTo ?? "/workbench/account/profile/settings"} />
+      </section>
     </Panel>
     <IdentityContactManagement data={data} returnTo={returnTo ?? "/workbench/account/profile/settings"} identityContactOutcomeUnknown={identityContactOutcomeUnknown} onIdentityContactOutcomeUnknown={onIdentityContactOutcomeUnknown} />
   </>;
@@ -81,7 +87,7 @@ function AccountSettingsPanel({ data, returnTo, identityContactOutcomeUnknown = 
 
 function IdentityProfileManagement({ data, returnTo }: { data: AccountProfile; returnTo: string }) {
   const profileQuery = useQuery({ queryKey: ["account", "identity-profile", data.userId], queryFn: () => getAccountIdentityProfile({ expectedUserId: data.userId }), retry: false });
-  if (profileQuery.isPending) return <p className={styles.note}>正在读取 ZITADEL 个人资料…</p>;
+  if (profileQuery.isPending) return <p className={styles.note} role="status">正在读取个人资料…</p>;
   if (profileQuery.isError || !profileQuery.data) return <><p className={styles.errorText}>个人资料暂时无法读取，请稍后重试。</p>{profileQuery.isError && identityMutationNeedsLogin(profileQuery.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}</>;
   const profileKey = [profileQuery.data.userId, profileQuery.data.firstName, profileQuery.data.lastName, profileQuery.data.nickName, profileQuery.data.displayName, profileQuery.data.preferredLanguage, profileQuery.data.gender].join("\u001f");
   return <IdentityProfileForm key={profileKey} data={data} profile={profileQuery.data} returnTo={returnTo} />;
@@ -92,7 +98,19 @@ function IdentityProfileForm({ data, profile, returnTo }: { data: AccountProfile
   const [form, setForm] = useState<AccountIdentityProfileInput>(() => identityProfileInput(profile));
   const mutation = useMutation({ mutationFn: (input: AccountIdentityProfileInput) => updateAccountIdentityProfile({ expectedUserId: data.userId, input }), onSuccess: () => reconcileIdentityQueries(queryClient, data.userId), onError: error => { if (identityOutcomeUnknown(error)) reconcileIdentityQueries(queryClient, data.userId); } });
   const field = (key: keyof AccountIdentityProfileInput, label: string) => <label key={key}>{label}<input value={form[key]} onChange={event => setForm(current => current ? { ...current, [key]: event.target.value } : current)} disabled={mutation.isPending} /></label>;
-  return <div className={styles.profileForm}><h3>个人资料</h3><form onSubmit={event => { event.preventDefault(); mutation.mutate(form); }}>{field("firstName", "名")}{field("lastName", "姓")}{field("nickName", "昵称")}{field("displayName", "显示名称")}<div className={styles.formActions}><Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "保存中…" : "保存个人资料"}</Button>{mutation.isError ? <span className={styles.errorText}>{identityMutationErrorText(mutation.error)}</span> : mutation.isSuccess ? <span className={styles.successText}>个人资料已保存</span> : null}{mutation.isError && identityMutationNeedsLogin(mutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}</div></form><p className={styles.note}>资料保存到当前登录用户的 ZITADEL Profile；Shuomi 不建立第二套身份资料。</p></div>;
+  return (
+    <form className={styles.settingsGridForm} onSubmit={event => { event.preventDefault(); mutation.mutate(form); }}>
+      {field("firstName", "名")}
+      {field("lastName", "姓")}
+      {field("nickName", "昵称")}
+      {field("displayName", "显示名称")}
+      <div className={styles.formActions}>
+        <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? "保存中…" : "保存个人资料"}</Button>
+        {mutation.isError ? <span className={styles.errorText} role="alert">{identityMutationErrorText(mutation.error)}</span> : mutation.isSuccess ? <span className={styles.successText} role="status">个人资料已保存</span> : null}
+        {mutation.isError && identityMutationNeedsLogin(mutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}
+      </div>
+    </form>
+  );
 }
 
 function VerificationPanel({ data, organization, interactive = false, returnTo, identityVerificationOutcomeUnknown = false, onIdentityVerificationOutcomeUnknown }: { data: AccountProfile; organization?: AccountOrganization | null; interactive?: boolean; returnTo?: string; identityVerificationOutcomeUnknown?: boolean; onIdentityVerificationOutcomeUnknown?: () => void }) {
@@ -105,6 +123,8 @@ function VerificationPanel({ data, organization, interactive = false, returnTo, 
 }
 
 function IdentityContactManagement({ data, returnTo, identityContactOutcomeUnknown, onIdentityContactOutcomeUnknown }: { data: AccountProfile; returnTo: string; identityContactOutcomeUnknown: boolean; onIdentityContactOutcomeUnknown?: () => void }) {
+  const emailStatusId = useId();
+  const phoneStatusId = useId();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState(data.email ?? "");
   const [phone, setPhone] = useState(data.phoneNumber ?? "");
@@ -115,15 +135,46 @@ function IdentityContactManagement({ data, returnTo, identityContactOutcomeUnkno
   const errorText = (mutation: { isError: boolean; error: unknown }) => mutation.isError ? identityMutationErrorText(mutation.error) : null;
   return <div className={styles.settingsSections}>
     {identityContactOutcomeUnknown ? <p className={styles.errorText} role="alert">操作结果待核实，已刷新资料；请确认当前联系方式状态后，再点击“刷新资料”重新提交。</p> : null}
-    <Panel title="联系方式" description="更换手机号或邮箱时，需要单独完成身份验证。">
-      <form onSubmit={event => { event.preventDefault(); emailMutation.mutate(); }}><label>邮箱地址<input type="email" value={email} onChange={event => setEmail(event.target.value)} disabled={emailMutation.isPending || identityContactOutcomeUnknown} /></label><div className={styles.formActions}><Button type="submit" disabled={emailMutation.isPending || identityContactOutcomeUnknown}>{emailMutation.isPending ? "提交中…" : "更换邮箱"}</Button>{errorText(emailMutation) ? <span className={styles.errorText}>{errorText(emailMutation)}</span> : emailMutation.isSuccess ? <span className={styles.successText}>已发送验证邮件</span> : null}{emailMutation.isError && identityMutationNeedsLogin(emailMutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}</div></form>
-      <form onSubmit={event => { event.preventDefault(); phoneMutation.mutate(); }}><label>手机号码<input type="tel" value={phone} onChange={event => setPhone(event.target.value)} disabled={phoneMutation.isPending || identityContactOutcomeUnknown} /></label><div className={styles.formActions}><Button type="submit" disabled={phoneMutation.isPending || identityContactOutcomeUnknown}>{phoneMutation.isPending ? "提交中…" : "更换手机号"}</Button>{errorText(phoneMutation) ? <span className={styles.errorText}>{errorText(phoneMutation)}</span> : phoneMutation.isSuccess ? <span className={styles.successText}>已发送短信验证码</span> : null}{phoneMutation.isError && identityMutationNeedsLogin(phoneMutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}</div></form>
+    <Panel title="联系方式" description="换绑后，请到认证信息完成验证" className={styles.settingsContacts}>
+      <form className={styles.settingsGridForm} onSubmit={event => { event.preventDefault(); emailMutation.mutate(); }}>
+        <label>邮箱地址<input type="email" autoComplete="email" aria-describedby={emailStatusId} value={email} onChange={event => setEmail(event.target.value)} disabled={emailMutation.isPending || identityContactOutcomeUnknown} /></label>
+        <ContactStatus id={emailStatusId} label="当前邮箱" value={data.email} verified={data.emailVerified} />
+        <div className={styles.formActions}>
+          <Button type="submit" variant="outline" disabled={emailMutation.isPending || identityContactOutcomeUnknown}>{emailMutation.isPending ? "提交中…" : "更换邮箱"}</Button>
+          {errorText(emailMutation) ? <span className={styles.errorText} role="alert">{errorText(emailMutation)}</span> : emailMutation.isSuccess ? <span className={styles.successText} role="status">已发送验证邮件</span> : null}
+          {emailMutation.isError && identityMutationNeedsLogin(emailMutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}
+        </div>
+      </form>
+      <form className={styles.settingsGridForm} onSubmit={event => { event.preventDefault(); phoneMutation.mutate(); }}>
+        <label>手机号码<input type="tel" autoComplete="tel" aria-describedby={phoneStatusId} value={phone} onChange={event => setPhone(event.target.value)} disabled={phoneMutation.isPending || identityContactOutcomeUnknown} /></label>
+        <ContactStatus id={phoneStatusId} label="当前手机号" value={data.phoneNumber} verified={data.phoneNumberVerified} />
+        <div className={styles.formActions}>
+          <Button type="submit" variant="outline" disabled={phoneMutation.isPending || identityContactOutcomeUnknown}>{phoneMutation.isPending ? "提交中…" : "更换手机号"}</Button>
+          {errorText(phoneMutation) ? <span className={styles.errorText} role="alert">{errorText(phoneMutation)}</span> : phoneMutation.isSuccess ? <span className={styles.successText} role="status">已发送短信验证码</span> : null}
+          {phoneMutation.isError && identityMutationNeedsLogin(phoneMutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}
+        </div>
+      </form>
+      <Link href="/workbench/account/profile/verification" prefetch={false} className={styles.settingsVerificationLink}>前往认证信息</Link>
     </Panel>
-    <Panel title="登录与安全" description="密码更新由当前登录身份服务处理。">
-      <form onSubmit={event => { event.preventDefault(); passwordMutation.mutate({ oldPassword, newPassword }); }}><label>当前密码<input type="password" value={oldPassword} onChange={event => setOldPassword(event.target.value)} autoComplete="current-password" disabled={passwordMutation.isPending} /></label><label>新密码<input type="password" value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" disabled={passwordMutation.isPending} /></label><div className={styles.formActions}><Button type="submit" disabled={passwordMutation.isPending}>{passwordMutation.isPending ? "提交中…" : "修改密码"}</Button>{errorText(passwordMutation) ? <span className={styles.errorText}>{errorText(passwordMutation)}</span> : passwordMutation.isSuccess ? <span className={styles.successText}>密码已更新</span> : null}{passwordMutation.isError && identityMutationNeedsLogin(passwordMutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}</div></form>
-      <p className={styles.note}>验证码由 ZITADEL 官方发送；Shuomi 不保存密码或验证码。</p>
+    <Panel title="登录与安全" description="硕米不会保存你的密码或验证码">
+      <form className={styles.settingsGridForm} onSubmit={event => { event.preventDefault(); passwordMutation.mutate({ oldPassword, newPassword }); }}>
+        <label>当前密码<input type="password" value={oldPassword} onChange={event => setOldPassword(event.target.value)} autoComplete="current-password" disabled={passwordMutation.isPending} /></label>
+        <label>新密码<input type="password" value={newPassword} onChange={event => setNewPassword(event.target.value)} autoComplete="new-password" disabled={passwordMutation.isPending} /></label>
+        <div className={styles.formActions}>
+          <Button type="submit" variant="outline" disabled={passwordMutation.isPending}>{passwordMutation.isPending ? "提交中…" : "修改密码"}</Button>
+          {errorText(passwordMutation) ? <span className={styles.errorText} role="alert">{errorText(passwordMutation)}</span> : passwordMutation.isSuccess ? <span className={styles.successText} role="status">密码已更新</span> : null}
+          {passwordMutation.isError && identityMutationNeedsLogin(passwordMutation.error) ? <IdentityLoginRecovery returnTo={returnTo} /> : null}
+        </div>
+      </form>
     </Panel>
   </div>;
+}
+
+function ContactStatus({ id, label, value, verified }: { id: string; label: string; value: string | null; verified: boolean | null }) {
+  const current = value?.trim();
+  return <p id={id} className={styles.contactStatus} data-verified={Boolean(current) && verified === true || undefined}>
+    {label}{current ? ` ${current} · ${verification(verified)}` : "未设置"}
+  </p>;
 }
 
 function identityProfileInput(profile: { firstName: string; lastName: string; nickName: string; displayName: string; preferredLanguage: string; gender: string }): AccountIdentityProfileInput {
