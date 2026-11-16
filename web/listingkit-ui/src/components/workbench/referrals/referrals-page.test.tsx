@@ -71,7 +71,7 @@ describe("ReferralsPage", () => {
     const activity = screen.getByRole("region", { name: "近期收益动态表格，可横向滚动" });
     expect(within(activity).getByRole("columnheader", { name: "时间" })).toBeVisible();
     expect(within(activity).getByRole("columnheader", { name: "金额" })).toBeVisible();
-    expect(within(activity).getByText("当前 owner 未提供近期收益事件。")).toBeVisible();
+    expect(within(activity).getByText("总览暂不显示近期收益记录。")).toBeVisible();
   });
 
   it("separates center summary facts from the promotion-code group", async () => {
@@ -353,7 +353,7 @@ describe("ReferralsPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(projection)));
     mount();
     expect(await screen.findByText("¥100.00")).toBeVisible();
-    expect(screen.getByText("已结算收益扣除退款 / 拒付调整")).toBeVisible();
+    expect(screen.getByText("已结算，已计入退款和拒付调整")).toBeVisible();
   });
 
   it("clears an old subject result and prevents a late response from returning", async () => {
@@ -449,7 +449,7 @@ describe("ReferralsPage", () => {
     mount("overview", "subject-1", true, "center");
     await user.click(await screen.findByRole("button", { name: "创建推广码" }));
     expect(await screen.findByText("推广服务暂不可用")).toBeVisible();
-    expect(screen.getByText("操作结果尚未确认。请先刷新相关状态核对服务端事实，再决定是否重试。")).toBeVisible();
+    expect(screen.getByText("还无法确认操作结果。请先核实当前状态，避免重复提交。")).toBeVisible();
     expect(screen.queryByText("没有生成或推测推广事实。请稍后重试原操作。")).not.toBeInTheDocument();
   });
 
@@ -459,7 +459,7 @@ describe("ReferralsPage", () => {
     const user = userEvent.setup();
     mount("complete");
     await user.click(await screen.findByRole("button", { name: "完成推广关系" }));
-    expect(await screen.findByText("操作结果尚未确认。请先刷新相关状态核对服务端事实，再决定是否重试。")).toBeVisible();
+    expect(await screen.findByText("还无法确认操作结果。请先核实当前状态，避免重复提交。")).toBeVisible();
     expect(screen.queryByText("没有生成或推测推广事实。请稍后重试原操作。")).not.toBeInTheDocument();
   });
 });

@@ -26,6 +26,13 @@ type UnknownReferralWrite =
   | { kind: "withdrawal"; input: { amountMinor: string; payoutMethodId: string; expectedVersion: string }; idempotencyKey: string }
   | { kind: "cancel"; withdrawalId: string; expectedVersion: string; idempotencyKey: string };
 type ReferralWithdrawalState = ReferralWithdrawal | Awaited<ReturnType<typeof getReferralWithdrawals>>["withdrawals"][number];
+const withdrawalStatusLabel: Record<ReferralWithdrawalState["status"], string> = {
+  REQUESTED: "待审核",
+  APPROVED: "审核通过，待打款",
+  PAID: "已打款",
+  CANCELED: "已取消",
+  REJECTED: "审核未通过",
+};
 const referralPaths: Record<ReferralView, string> = {
   overview: "/workbench/account/referrals",
   complete: "/workbench/account/referrals/complete",
@@ -38,7 +45,7 @@ const referralTitles: Record<ReferralView, string> = { overview: "推广与收�
 
 function ReferralManagementLinks() {
   const links = [
-    ["center", "查看推广码和邀请记录", "查看推广"],
+    ["center", "查看推广码和邀请人数", "查看推广"],
     ["earnings", "查看每笔收益和结算状态", "查看收益明细"],
     ["withdrawals", "管理收款方式和提现申请", "管理提现"],
     ["rules", "了解收益结算和提现条件", "查看推广规则"],
@@ -68,7 +75,7 @@ export function ReferralsPage({ mode, view = mode, expectedUserId, registrationA
   }, []);
   const pathname = referralPaths[view];
   const title = referralTitles[view];
-  const description = view === "complete" ? "用当前登录身份确认这次新注册，并完成不可变推广关系。" : view === "center" ? "查看推广码、推广关系与邀请入口。" : view === "earnings" ? "查看来自权威支付事实的收益汇总。" : view === "withdrawals" ? "登记收款方式并管理人工提现申请。" : view === "rules" ? "当前有效的推广、收益、结算与提现规则统一在本页说明。" : "查看你的推广码、真实关系数量与当前可用汇总。";
+  const description = view === "complete" ? "用当前登录身份确认这次新注册，并完成不可变推广关系。" : view === "center" ? "查看推广码、推广关系与邀请入口。" : view === "earnings" ? "查看来自权威支付事实的收益汇总。" : view === "withdrawals" ? "登记收款方式并管理人工提现申请。" : view === "rules" ? "当前有效的推广、收益、结算与提现规则统一在本页说明。" : "查看推广码状态、邀请人数、收益和提现进度。";
   const authError = [context.error, context.blockingError].some((error) => error?.code === "AUTHENTICATION_REQUIRED");
   const identityChanged = Boolean(context.user && context.user.id !== expectedUserId);
   if (leaving || authError || identityChanged)
@@ -253,7 +260,7 @@ function ScopedReferrals({ mode, view, expectedUserId, registrationAvailable }: 
     if (earnings.isError || !earnings.data) return <ReferralError error={earnings.error} />;
     return <EarningsView data={earnings.data} />;
   }
-  if (projection.isPending || projection.isFetching) return <ConsoleState kind="loading" title="正在读取推广事实">正在核对当前身份与持久化关系。</ConsoleState>;
+  if (projection.isPending || projection.isFetching) return <ConsoleState kind="loading" title="正在加载推广信息">请稍候。</ConsoleState>;
   if (projection.isError && isIdentityError(projection.error)) return <IdentityError returnTo={referralPaths[view]} />;
   if (projection.isError && !receipt) return <ReferralError error={projection.error} />;
   if (projection.isError) return <div className={styles.pageBody}><section className={styles.notice} role="status"><strong>推广关系已确认</strong><p>确认时间：{formatTime(receipt!.boundAt)}</p></section><ConsoleState kind="error" title="推广汇总暂不可用"><p>关系回执已保留，请稍后重试汇总读取。</p></ConsoleState></div>;
@@ -270,19 +277,19 @@ function ScopedReferrals({ mode, view, expectedUserId, registrationAvailable }: 
       {complete.isError ? <ReferralError error={complete.error} compact /> : null}
     </section> : null}
     {showOverview || showCenter || showWithdrawals ? <section className={showCenter ? styles.centerMetrics : showWithdrawals ? styles.withdrawalMetrics : styles.overviewMetrics} aria-label={showCenter ? "推广数据摘要" : showWithdrawals ? "提现概览" : "推广与收益概览"}>
-      {showCenter || showOverview ? <article className={styles.metric}><span>已建立推广关系</span><strong>{data.count}</strong><small>来源：当前账户的推广关系 owner</small></article> : null}
+      {showCenter || showOverview ? <article className={styles.metric}><span>已建立推广关系</span><strong>{data.count}</strong><small>通过你的推广链接或推广码成功注册的人数</small></article> : null}
       {showCenter ? <article className={styles.metric}><span>有效注册</span><strong className={styles.unavailable}>未提供</strong><small>当前 owner 未返回访问或注册转化数</small></article> : null}
       {showCenter ? <article className={styles.metric}><span>付费用户</span><strong className={styles.unavailable}>未提供</strong><small>当前 owner 未返回付费用户统计</small></article> : null}
-      {showOverview || showWithdrawals ? <article className={styles.metric}><span>可提现收益</span><strong className={data.earnings.availability === "available" ? undefined : styles.unavailable}>{effectiveAvailableMinor === null ? "暂不可用" : formatMinor(effectiveAvailableMinor)}</strong><small>{data.earnings.availability === "available" ? "已结算收益扣除退款 / 拒付调整" : "当前没有可读取的收益 projection"}</small></article> : null}
-      {showOverview || showCenter ? <article className={styles.metric}><span>待结算收益</span><strong className={data.earnings.availability === "available" ? undefined : styles.unavailable}>{data.earnings.availability === "available" ? formatMinor(data.earnings.pendingMinor) : "暂不可用"}</strong><small>{data.earnings.availability === "available" ? "来源：当前收益 projection" : "当前 owner 未返回收益事实"}</small></article> : null}
-      {showOverview ? <article className={styles.metric}><span>推广码状态</span><strong className={styles.unavailable}>{data.codeAvailability === "available" ? "已创建" : data.codeAvailability === "not_created" ? "未创建" : "未提供"}</strong><small>状态来源：当前推广关系 owner</small></article> : null}
+      {showOverview || showWithdrawals ? <article className={styles.metric}><span>可提现收益</span><strong className={data.earnings.availability === "available" ? undefined : styles.unavailable}>{effectiveAvailableMinor === null ? "暂不可用" : formatMinor(effectiveAvailableMinor)}</strong><small>{data.earnings.availability === "available" ? "已结算，已计入退款和拒付调整" : "暂时查不到可提现金额"}</small></article> : null}
+      {showOverview || showCenter ? <article className={styles.metric}><span>待结算收益</span><strong className={data.earnings.availability === "available" ? undefined : styles.unavailable}>{data.earnings.availability === "available" ? formatMinor(data.earnings.pendingMinor) : "暂不可用"}</strong><small>{data.earnings.availability === "available" ? "等待结算的推广收益" : "暂时查不到待结算金额"}</small></article> : null}
+      {showOverview ? <article className={styles.metric}><span>推广码状态</span><strong className={styles.unavailable}>{data.codeAvailability === "available" ? "已创建" : data.codeAvailability === "not_created" ? "未创建" : "未提供"}</strong><small>前往推广中心查看或创建推广码</small></article> : null}
       {showWithdrawals ? <article className={styles.metric}><span>已预留提现金额</span><strong className={data.earnings.availability === "available" ? undefined : styles.unavailable}>{data.earnings.availability === "available" ? formatMinor(data.earnings.reservedMinor) : "暂不可用"}</strong><small>来源：当前收益 projection</small></article> : null}
       {showWithdrawals ? <article className={styles.metric}><span>累计提现</span><strong className={styles.unavailable}>未提供</strong><small>当前提现 owner 未返回累计金额</small></article> : null}
     </section> : null}
     {showOverview ? <section className={styles.overviewSections} aria-label="推广与收益管理">
       {view === "complete" ? <ReferralManagementLinks /> : null}
-      <div className={styles.activityGrid} aria-label="收益和提现记录"><article className={styles.activityTableCard}><div><h2>近期收益动态</h2><p>当前账户页面没有独立收益动态汇总；逐笔事实见收益明细。</p></div><div className={styles.earningsTableWrap} role="region" aria-label="近期收益动态表格，可横向滚动" tabIndex={0}><table className={styles.earningsTable}><thead><tr><th>时间</th><th>事件</th><th>来源</th><th>金额</th><th>状态</th></tr></thead><tbody><tr><td colSpan={5} className={styles.emptyCell}>当前 owner 未提供近期收益事件。</td></tr></tbody></table></div><Button asChild variant="outline"><Link href={referralPaths.earnings} prefetch={false}>查看收益</Link></Button></article>
-      {view !== "complete" ? <article className={styles.entryCard}><div><h2>提现状态</h2>{withdrawalHistory.isPending ? <p>正在读取提现记录…</p> : withdrawalHistory.isError ? <p role="alert">提现记录暂不可用，请稍后重试。</p> : withdrawalHistory.data?.withdrawals.length === 0 ? <p>暂无提现申请。</p> : <ul>{withdrawalHistory.data?.withdrawals.slice(0, 3).map(item => <li key={item.id}>{formatMinor(item.amountMinor)} · {item.status} · {formatTime(item.updatedAt)}</li>)}</ul>}</div><Button asChild variant="outline"><Link href={referralPaths.withdrawals} prefetch={false}>管理提现</Link></Button></article> : null}</div>
+      <div className={styles.activityGrid} aria-label="收益和提现记录"><article className={styles.activityTableCard}><div><h2>近期收益动态</h2><p>每笔收益的金额和时间可在收益明细查看。</p></div><div className={styles.earningsTableWrap} role="region" aria-label="近期收益动态表格，可横向滚动" tabIndex={0}><table className={styles.earningsTable}><thead><tr><th>时间</th><th>事件</th><th>来源</th><th>金额</th><th>状态</th></tr></thead><tbody><tr><td colSpan={5} className={styles.emptyCell}>总览暂不显示近期收益记录。</td></tr></tbody></table></div><Button asChild variant="outline"><Link href={referralPaths.earnings} prefetch={false}>查看收益</Link></Button></article>
+      {view !== "complete" ? <article className={styles.entryCard}><div><h2>提现状态</h2>{withdrawalHistory.isPending ? <p>正在加载提现记录…</p> : withdrawalHistory.isError ? <p role="alert">提现记录暂不可用，请稍后重试。</p> : withdrawalHistory.data?.withdrawals.length === 0 ? <p>暂无提现申请。</p> : <ul>{withdrawalHistory.data?.withdrawals.slice(0, 3).map(item => <li key={item.id}>{formatMinor(item.amountMinor)} · {withdrawalStatusLabel[item.status]} · {formatTime(item.updatedAt)}</li>)}</ul>}</div><Button asChild variant="outline"><Link href={referralPaths.withdrawals} prefetch={false}>管理提现</Link></Button></article> : null}</div>
     </section> : null}
     {showCenter ? <>
       <section className={styles.centerWorkspace} aria-label="推广中心信息">
@@ -297,7 +304,7 @@ function ScopedReferrals({ mode, view, expectedUserId, registrationAvailable }: 
       <section className={styles.withdrawalCard} aria-labelledby="withdrawal-title"><div><h2 id="withdrawal-title">申请提现</h2><p>最低 ¥100；申请后进入人工审核。结算前提是账户已完成邮箱和手机号验证。</p></div>{unknownWrite ? <div className={styles.notice} role="alert"><strong>操作结果待核实</strong><p>提现或收款方式操作可能已经提交，不能生成新请求。刷新会使用原幂等键核对并恢复结果。</p><Button type="button" variant="outline" onClick={() => void reconcileUnknownWrite()} disabled={reconcilingUnknownWrite}>{reconcilingUnknownWrite ? "正在刷新提现状态…" : "刷新提现状态"}</Button></div> : null}{data.earnings.availability !== "available" ? <p className={styles.unavailable} role="status">收益数据暂不可用，暂不能读取收款方式或提交提现申请。请刷新后重试。</p> : payoutMethods.isPending ? <p>正在读取已验证收款方式…</p> : payoutMethods.isError ? <p className={styles.error} role="alert">收款方式暂不可用，请稍后重试。</p> : payoutMethods.data?.methods.length === 0 ? <form className={styles.form} onSubmit={event => { event.preventDefault(); createPayoutMethod.mutate(); }}><p className={styles.unavailable}>请先登记一个收款方式。</p><label>渠道<select value={payoutType} onChange={event => setPayoutType(event.target.value as "ALIPAY" | "BANK_TRANSFER")} disabled={unknownWrite !== null}><option value="ALIPAY">支付宝</option><option value="BANK_TRANSFER">银行转账</option></select></label><label>名称<input value={payoutDisplayName} onChange={event => setPayoutDisplayName(event.target.value)} required maxLength={128} disabled={unknownWrite !== null} /></label><label>账号或收款地址<input value={payoutDestination} onChange={event => setPayoutDestination(event.target.value)} required maxLength={512} disabled={unknownWrite !== null} /></label><Button type="submit" disabled={createPayoutMethod.isPending || unknownWrite !== null}>{createPayoutMethod.isPending ? "登记中…" : "登记收款方式"}</Button>{createPayoutMethod.isError ? <ReferralError error={createPayoutMethod.error} compact /> : null}</form> : <form className={styles.form} onSubmit={event => { event.preventDefault(); withdrawal.mutate(); }}><label>金额（分）<input inputMode="numeric" pattern="[0-9]*" value={amountMinor} onChange={event => setAmountMinor(event.target.value)} placeholder="10000" disabled={data.earnings.availability !== "available" || withdrawal.isPending || unknownWrite !== null} /></label><label>收款方式<select value={selectedPayoutMethod?.methodId ?? ""} onChange={event => setPayoutMethodId(event.target.value)} disabled={withdrawal.isPending || unknownWrite !== null}>{payoutMethods.data?.methods.map((item: PayoutMethod) => <option key={item.methodId} value={item.methodId}>{item.displayName} · {item.maskedDestination}</option>)}</select></label><Button type="submit" disabled={data.earnings.availability !== "available" || withdrawal.isPending || unknownWrite !== null || amountMinor === "" || !selectedPayoutMethod}>{withdrawal.isPending ? "提交中…" : "申请提现"}</Button>{withdrawal.isError ? <ReferralError error={withdrawal.error} compact /> : null}{cancelTarget||withdrawalResult ? <div className={styles.notice} role="status"><p>提现状态：{withdrawalResult?.status??cancelTarget?.status}。</p>{cancelTarget?<p>本次待取消申请：{cancelTarget.id}</p>:null}{cancelTarget?.status === "REQUESTED" ? <Button type="button" variant="outline" onClick={() => cancelWithdrawal.mutate()} disabled={cancelWithdrawal.isPending || unknownWrite !== null}>{cancelWithdrawal.isPending ? "取消中…" : "取消提现申请"}</Button> : null}{cancelWithdrawal.isError ? <ReferralError error={cancelWithdrawal.error} compact /> : null}</div> : null}</form>}</section>
     </> : null}
     {createCode.isError ? <ReferralError error={createCode.error} compact /> : null}
-    <p className={styles.observed}>数据观察时间：{formatTime(data.generatedAt)}</p>
+    <p className={styles.observed}>查询时间：{formatTime(data.generatedAt)}</p>
   </div>;
 }
 
@@ -351,7 +358,7 @@ function ShareReferralLink({ code }: { code: string }) {
 }
 
 function IdentityError({ returnTo = referralPaths.overview }: { returnTo?: string }) {
-  return <ConsoleState kind="error" title="登录身份已变化"><p>旧推广数据已清除。请重新登录后读取当前账户。</p><Button asChild variant="outline"><Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`} prefetch={false}>重新登录</Link></Button></ConsoleState>;
+  return <ConsoleState kind="error" title="登录身份已变化"><p>请重新登录后查看你的推广信息。</p><Button asChild variant="outline"><Link href={`/login?returnTo=${encodeURIComponent(returnTo)}`} prefetch={false}>重新登录</Link></Button></ConsoleState>;
 }
 
 function ReferralError({ error, compact = false }: { error: unknown; compact?: boolean }) {
@@ -360,18 +367,18 @@ function ReferralError({ error, compact = false }: { error: unknown; compact?: b
     AUTHENTICATION_REQUIRED: "登录已失效", IDENTITY_CONTEXT_CHANGED: "登录身份已变化", RESULT_UNVERIFIED: "操作结果待核实",
     referral_authentication_required: "登录已失效", referral_verification_pending: "官方邮箱或认证方式尚未完成",
     referral_expired: "注册确认期限已结束", referral_conflict: "推广关系存在冲突",
-    referral_outcome_unknown: "暂时无法确认操作结果", REFERRALS_NOT_CONFIGURED: "推广服务尚未配置",
+    referral_outcome_unknown: "暂时无法确认操作结果", REFERRALS_NOT_CONFIGURED: "推广服务暂不可用",
     CONFLICT: "提现状态已变化", PAYOUT_ELIGIBILITY_UNMET: "未满足提现条件", INVALID_TRANSITION: "提现状态不允许该操作", DEPENDENCY_UNAVAILABLE: "推广服务暂不可用", DEADLINE_EXCEEDED: "推广请求超时",
   };
   const unknownOutcome = ["referral_outcome_unknown", "RESULT_UNVERIFIED", "DEADLINE_EXCEEDED"].includes(code) || error instanceof AccountReadError && error.outcome === "unknown";
   const definiteRejection = ["CONFLICT", "PAYOUT_ELIGIBILITY_UNMET", "INVALID_TRANSITION"].includes(code);
   const message = unknownOutcome ||
     compact && ["DEPENDENCY_UNAVAILABLE", "INVALID_UPSTREAM_RESPONSE"].includes(code)
-    ? "操作结果尚未确认。请先刷新相关状态核对服务端事实，再决定是否重试。"
-    : definiteRejection ? "服务端已拒绝本次操作；请刷新提现状态后重新核对版本、资格或当前状态。"
-    : "没有生成或推测推广事实。请稍后重试原操作。";
-  const content = <><strong>{title[code] ?? "推广请求未完成"}</strong><p>{message}</p></>;
-  return compact ? <div className={styles.error} role="alert">{content}</div> : <ConsoleState kind="error" title={title[code] ?? "推广请求未完成"}><p>{message}</p></ConsoleState>;
+    ? "还无法确认操作结果。请先核实当前状态，避免重复提交。"
+    : definiteRejection ? "本次操作未完成。请刷新提现状态，确认后再试。"
+    : "请稍后重试。";
+  const content = <><strong>{title[code] ?? "操作未完成"}</strong><p>{message}</p></>;
+  return compact ? <div className={styles.error} role="alert">{content}</div> : <ConsoleState kind="error" title={title[code] ?? "操作未完成"}><p>{message}</p></ConsoleState>;
 }
 
 function isIdentityError(error: unknown) {
