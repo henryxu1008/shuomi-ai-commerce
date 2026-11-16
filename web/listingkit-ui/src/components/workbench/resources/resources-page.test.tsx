@@ -28,10 +28,14 @@ afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); });
 
 it("groups enterprise balances, member allowances and store tools with working entry links", async () => {
   render(tree());
-  const overview = screen.getByRole("region", { name: "企业资源概览" });
+  const overview = screen.getByRole("region", { name: "企业资源余额" });
   const members = screen.getByRole("region", { name: "成员资源与额度" });
   const tools = screen.getByRole("region", { name: "店铺服务与源账号" });
   expect(await within(overview).findByText("9007199254.740993 点")).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "企业资源概览" })).not.toBeInTheDocument();
+  expect(within(overview).queryByText("企业乙")).not.toBeInTheDocument();
+  expect(within(overview).queryByText(/资源观察时间/)).not.toBeInTheDocument();
+  expect(within(screen.getByRole("group", { name: "页面操作" })).getByRole("button", { name: "刷新资源" })).toBeVisible();
   const memberLink = within(overview).getByRole("link", { name: "查看成员额度" });
   expect(memberLink).toHaveAttribute("href", "#member-allowances");
   expect(within(members).getByRole("heading", { name: "成员资源与额度" })).toHaveAttribute("id", "member-allowances");
@@ -90,7 +94,7 @@ it.each(["PERMISSION_DENIED", "DEPENDENCY_UNAVAILABLE", "AUTHENTICATION_REQUIRED
   render(tree()); await screen.findByText("基础方案");
   await userEvent.click(screen.getByRole("button", { name: "刷新资源" }));
   expect(await screen.findByText(/本次未取得店铺服务与权益/)).toBeVisible();
-  const fallbackMetrics = screen.getByRole("region", { name: "企业资源概览" });
+  const fallbackMetrics = screen.getByRole("region", { name: "企业资源余额" });
   expect(within(fallbackMetrics).getAllByRole("heading", { level: 3 })).toHaveLength(3);
   expect(await within(fallbackMetrics).findByText("9007199254.740993 点")).toBeVisible();
   expect(screen.queryByText("基础方案")).not.toBeInTheDocument();

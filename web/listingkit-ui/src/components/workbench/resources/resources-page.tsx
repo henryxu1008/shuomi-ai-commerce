@@ -19,29 +19,23 @@ import styles from "./resources.module.css";
 
 export function ResourcesPage() {
   const context = useWorkbenchContext();
+  const [sequence, setSequence] = useState(0);
   const org = context.effectiveOrganization;
   const scope = JSON.stringify([context.user?.id, org?.id, context.roles]);
   const readScope = JSON.stringify([context.user?.id, org?.id, context.roles, context.permissions]);
-  const valid = context.user && org && !context.selectionRequired && !context.error && !context.blockingError;
-  return <AccountShell pathname="/workbench/account/organization/resources" title="资源与额度" description="查看企业余额、存储容量和成员额度。">
+  const valid = context.user && org && !context.isLoading && !context.isSwitching && !context.selectionRequired && !context.error && !context.blockingError;
+  return <AccountShell pathname="/workbench/account/organization/resources" title="资源与额度" description="查看企业余额、存储容量和成员额度。"
+    actions={valid ? <Button variant="outline" onClick={() => setSequence(value => value + 1)}>刷新资源</Button> : undefined}>
     {context.isLoading || context.isSwitching ? <ConsoleState kind="loading" title="正在确认当前企业">确认后将显示该企业的资源。</ConsoleState>
       : !valid || !context.user ? <ConsoleState kind="error" title="暂时无法查看企业资源">请确认已登录并选择了企业。<Button variant="outline" onClick={() => void context.retry()}>重试</Button></ConsoleState>
-      : <ScopedResources key={scope} scope={readScope} userId={context.user.id} organizationId={org.id} organizationName={org.name} storageAvailable={context.storageCapacityAvailable===true} canPurchase={context.permissions.includes("workbench.commercial.purchase")} canManage={context.permissions.includes("workbench.organization_member.manage")} />}
+      : <ScopedResources key={scope} scope={readScope} userId={context.user.id} organizationId={org.id} sequence={sequence} storageAvailable={context.storageCapacityAvailable===true} canPurchase={context.permissions.includes("workbench.commercial.purchase")} canManage={context.permissions.includes("workbench.organization_member.manage")} />}
   </AccountShell>;
 }
 
-function ScopedResources({ scope, userId, organizationId, organizationName, canManage, canPurchase,storageAvailable }: { scope: string; userId: string; organizationId: string; organizationName: string; canManage: boolean; canPurchase:boolean;storageAvailable:boolean }) {
-  const [sequence, setSequence] = useState(0);
+function ScopedResources({ scope, userId, organizationId, sequence, canManage, canPurchase, storageAvailable }: { scope: string; userId: string; organizationId: string; sequence: number; canManage: boolean; canPurchase: boolean; storageAvailable: boolean }) {
   return <div className={styles.stack}>
-    <section className={styles.section} aria-labelledby="resource-overview">
-      <div className={styles.heading}>
-        <div>
-          <h2 id="resource-overview" className={styles.sectionTitle}>企业资源概览</h2>
-          <p className={styles.organization}>当前企业 <strong>{organizationName || organizationId}</strong></p>
-        </div>
-        <Button variant="outline" onClick={() => setSequence(v => v + 1)}>刷新资源</Button>
-      </div>
-      <EnterpriseResources userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} memberResourcesAnchor="member-allowances" />
+    <section className={styles.section} aria-label="企业资源余额">
+      <EnterpriseResources userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} memberResourcesAnchor="member-allowances" showObservation={false} />
       {storageAvailable && <EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={canPurchase} />}
     </section>
     <section className={styles.section} aria-labelledby="member-allowances">

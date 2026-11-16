@@ -2,8 +2,6 @@
 .stack { display: grid; gap: 32px; min-width: 0; }
 .section { display: grid; gap: 16px; min-width: 0; }
 .sectionTitle { font-size: var(--section-title-size); font-weight: 700; scroll-margin-top: 5rem; }
-.organization { margin-top: 4px; color: var(--muted-foreground); }
-.organization strong { margin-inline-start: 6px; color: var(--foreground); }
 .heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; overflow-wrap: anywhere; }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .unavailableMetrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
