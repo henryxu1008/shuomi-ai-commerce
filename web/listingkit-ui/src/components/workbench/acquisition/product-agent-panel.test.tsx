@@ -73,6 +73,32 @@ it.each([
     await waitFor(() => expect(fixture.request).toHaveBeenCalledTimes(2));
     expect(fixture.request.mock.calls[1].slice(0, 3)).toEqual(["read", op, op]);
 });
+it("keeps the full translation preview when preparing image text for an own product", async () => {
+    const ownSource = { catalogVersion: "1", publicationId: "original" };
+    const contentSelection = { targetLanguage: "en", title: true, sellingPoints: true };
+    const start = { expectedModeRevision: "0", targetPlatform: "product" as const, manualReviewOnly: true as const, contentSelection, ownSource };
+    fixture.request.mockResolvedValue({
+        runId: op, requestKey: op, operationId: op, productKey: "product", ...ownSource,
+        targetPlatform: "product", phase: "human_review_required", revision: "2", canSubmitReview: true,
+        contentSelection, candidate: { Changes: [
+            { Field: "title", Value: "Storage bag", EvidenceIDs: ["source"] },
+            { Field: "selling_points", Value: "Folds flat", EvidenceIDs: ["source"] },
+        ] },
+        confidence: [], unresolved: [], steps: [], tokens: 30, estimatedCostMicros: 20, currency: "CNY", usageStatus: "observed",
+    });
+
+    render(<ProductAgentPanel {...props} ownSource={ownSource} imageTranslation={{
+        language: "en", original: { key: op, start }, persist: vi.fn(), onReview: vi.fn(),
+    }}/>);
+    fireEvent.click(screen.getByRole("button", { name: "读取当前结果" }));
+    await screen.findByText("selling_points：Folds flat");
+    expect(screen.getByText("title：Storage bag")).toBeInTheDocument();
+    expect(screen.getByText(/自动翻译后人工审核，不应用商品/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "提交人工审核" })).toBeEnabled();
+    expect(screen.queryByRole("heading", { name: "标题建议结果" })).toBeNull();
+    expect(fixture.request.mock.calls[0].slice(0, 3)).toEqual(["read", op, op]);
+});
+
 it("reconfirms a restored manual-only rejection only after preserving the original request",async()=>{
  const start={expectedModeRevision:"0",targetPlatform:"product" as const,manualReviewOnly:true as const,contentSelection:{targetLanguage:"en",title:true,sellingPoints:true}};
  const reset=vi.fn(),persist=vi.fn();fixture.request.mockRejectedValue(new ProductAgentError("MANUAL_REVIEW_REQUIRED"));

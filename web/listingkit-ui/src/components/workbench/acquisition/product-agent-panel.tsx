@@ -198,7 +198,7 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
         ? `已观测 ${result.tokens} tokens，预算估价 ${(result.estimatedCostMicros / 1000000).toFixed(4)} ${result.currency}`
         : "用量尚未确认，显示的预留不能当作实际账单。";
 
-    if (ownSource && result) {
+    if (ownSource && !imageTranslation && result) {
         const receipt = "scriptReceipt" in result ? result.scriptReceipt : undefined;
         const title = result.candidate.Changes?.find(change => change.Field === "title");
         const nextStep = result.policyAdoption ? "已按企业规则采用。"
