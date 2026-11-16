@@ -72,6 +72,13 @@ export async function getRegionCountry(subject: string, country: string, signal:
   return detail;
 }
 
+export async function getShippingRegion(subject: string, signal: AbortSignal) {
+  const detail = await request("?country=CN&view=shipping", regionCountrySchema, subject, signal);
+  if (detail.country.id !== "CN" || detail.country.provinces.length === 0)
+    throw new AccountReadError(502, "INVALID_UPSTREAM_RESPONSE");
+  return detail;
+}
+
 async function request<T>(query: string, schema: z.ZodType<T>, subject: string, signal: AbortSignal) {
   const response = await fetch(`/api/account/region-catalog${query}`, {
     headers: { Accept: "application/json", "X-Expected-User-ID": subject },

@@ -13,6 +13,8 @@
 
 ## 验收
 
+从仓库根目录执行 `node web/listingkit-ui/scripts/generate-shipping-regions.mjs` 可重建发货地视图。源包 `@vant/area-data` 固定为 2.2.0，原许可及版权保存在 `internal/geography/VANT-LICENSE`。生成物 `internal/geography/shipping-cn.json` 随后端版本发布。
+
 检查新目录投影明确维持原标签和现有发货层级，覆盖浙江／杭州、直辖市、直管县及稀有选项；接口拒绝匿名和越界参数。回归自营及优选表单、继承与逐件覆盖、组合筛选和清除，目录失败时确认不阻塞其他筛选。明确区分受控测试和用户在 35444 的实际操作。
 
 独立架构复核通过，状态 IMPLEMENTATION_READY。实现验证覆盖参数白名单、原省市名称及层级、列表局部失败和申请缺少有效目录时的提交保护。

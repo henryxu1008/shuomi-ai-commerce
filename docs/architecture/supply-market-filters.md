@@ -37,7 +37,7 @@ Service原授权与读取后复核 → Repository.ListReleases同一谓词生成
 UI默认人民币并可选其他常用币种；只有设置价格边界才发送币种。空条件不发，0不当空。
 此默认仅为表单选择，不推断商品币种，不转换汇率，不制造缺失价格。
 城市增量复用本合同的原只读筛选路径和不变量（Reuse Existing Architecture）。
-界面复用供货资料原SupplyLocationFields及@vant/area-data，未选省份时城市禁用，
+界面复用供货资料原 SupplyLocationFields，通过[共享目录发货地视图](supply-region-catalog.md)取得原省市选项。未选省份时城市禁用，
 选省份后可选“全部城市”或对应城市；切换省份清空城市，清除筛选同时清空两项。
 服务端只按原发布省市值精确组合，不用地名关键词推断或补造业务事实。
 

@@ -5,6 +5,7 @@ import {afterEach, beforeEach, expect, it, vi} from "vitest";
 import {listOwnProducts, readCollectionBatch} from "@/lib/api/product-collection";
 import {readMarketChoice} from "@/lib/api/supply-market";
 import {SupplyApplicationForm} from "./applications";
+import {shippingRegions} from "@/test/fixtures/shipping-regions";
 import type {ApplicationResult} from "./use-selected-batch";
 import type {MarketReceipt} from "@/lib/contracts/supply-market";
 
@@ -32,8 +33,8 @@ beforeEach(()=>{
   vi.mocked(readMarketChoice).mockReset().mockImplementation(async(_scope,itemId)=>choice(itemId,itemId===id));
   vi.mocked(readCollectionBatch).mockReset().mockResolvedValue({id:batch,name:"新品开发",kind:"own",revision:1,count:3,supplyTransferSupported:true,createdAt:"2026-10-15T00:00:00Z"});
 });
-afterEach(cleanup);
-function page(official=false){const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});return {client,...render(<QueryClientProvider client={client}><SupplyApplicationForm official={official}/></QueryClientProvider>)};}
+afterEach(()=>{cleanup();vi.unstubAllGlobals()});
+function page(official=false,seedRegions=true){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});if(seedRegions)client.setQueryData(["region-catalog",state.context.user.id,"shipping","CN"],shippingRegions);return {client,...render(<QueryClientProvider client={client}><SupplyApplicationForm official={official}/></QueryClientProvider>)};}
 async function advance(){const user=userEvent.setup();await user.click(await screen.findByRole("checkbox",{name:"选择 已优化自有外套"}));await user.click(screen.getByRole("button",{name:"下一步：填写供货信息"}));return user;}
 it("selects several eligible products and retains them across a search",async()=>{
   vi.mocked(readMarketChoice).mockImplementation(async(_scope,itemId)=>choice(itemId,true));
@@ -309,6 +310,8 @@ it("shows an incomplete official candidate without crashing or allowing save",as
 it("blocks an official cached choice after a failed refresh",async()=>{
   vi.mocked(readMarketChoice).mockResolvedValue(choice(other,false));const {client}=page(true);const user=userEvent.setup();
   await user.selectOptions(await screen.findByRole("combobox",{name:"自有商品"}),other);await screen.findByText("自有商品原始资料");
+  await user.selectOptions(screen.getByRole("combobox",{name:"发货省份"}),"上海市");
+  await user.selectOptions(screen.getByRole("combobox",{name:"发货城市"}),"上海市");
   await user.click(screen.getByRole("checkbox",{name:/我确认这是本人/}));
   expect(screen.getByRole("button",{name:"保存草稿并预览"})).toBeEnabled();
   vi.mocked(readMarketChoice).mockRejectedValue(new Error("unavailable"));
@@ -316,4 +319,14 @@ it("blocks an official cached choice after a failed refresh",async()=>{
   await screen.findByRole("button",{name:"重新读取"});
   expect(screen.getByRole("button",{name:"保存草稿并预览"})).toBeDisabled();
   expect(state.execute).not.toHaveBeenCalled();
+});
+
+it("waits for the shared directory before reviewing a supply application",async()=>{
+  vi.stubGlobal("fetch",vi.fn().mockRejectedValue(new Error("region directory unavailable")));
+  page(false,false);
+  await advance();
+  expect(await screen.findByText("发货地选项暂时无法读取")).toBeVisible();
+  expect(screen.getByRole("combobox",{name:"发货省份"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"核对本批申请"})).toBeDisabled();
+  expect(state.start).not.toHaveBeenCalled();
 });

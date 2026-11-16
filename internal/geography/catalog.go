@@ -12,6 +12,9 @@ import (
 //go:embed catalog.json.gz
 var snapshot []byte
 
+//go:embed shipping-cn.json
+var shippingSnapshot []byte
+
 // Direct identifies the explicit no-subdivision group in a country that also has provinces.
 const Direct = "direct"
 
@@ -43,6 +46,7 @@ type Catalog struct {
 	version   string
 	countries []Option
 	byID      map[string]*Country
+	shipping  Country
 }
 
 var loadCatalog = sync.OnceValues(func() (*Catalog, error) {
@@ -62,6 +66,12 @@ var loadCatalog = sync.OnceValues(func() (*Catalog, error) {
 		return nil, errors.New("empty region catalog")
 	}
 	catalog := &Catalog{version: data.Version, byID: make(map[string]*Country, len(data.Countries))}
+	if err := json.Unmarshal(shippingSnapshot, &catalog.shipping); err != nil {
+		return nil, err
+	}
+	if catalog.shipping.ID != "CN" || len(catalog.shipping.Provinces) == 0 {
+		return nil, errors.New("empty China shipping catalog")
+	}
 	for i := range data.Countries {
 		country := &data.Countries[i]
 		catalog.countries = append(catalog.countries, country.Option)
@@ -78,6 +88,9 @@ func (c *Catalog) Version() string { return c.version }
 // Countries and Country return read-only views of the embedded reference data.
 func (c *Catalog) Countries() []Option        { return c.countries }
 func (c *Catalog) Country(id string) *Country { return c.byID[id] }
+
+// ChinaShipping retains the province and city labels used by supply-market records.
+func (c *Catalog) ChinaShipping() *Country { return &c.shipping }
 
 func (c *Catalog) Resolve(version, countryID, provinceID, cityID string) (Labels, error) {
 	if version != c.version {

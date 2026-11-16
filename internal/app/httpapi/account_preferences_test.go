@@ -78,4 +78,12 @@ func TestAccountRegionCatalogReadScope(t *testing.T) {
 	require.Equal(t, 200, country.Code)
 	require.Contains(t, country.Body.String(), `"provinces":[]`)
 	require.Contains(t, country.Body.String(), `"1880252"`)
+	require.Equal(t, 400, request("?country=SG&view=shipping", "self").Code)
+	require.Equal(t, 400, request("?country=CN&view=shipping&view=shipping", "self").Code)
+	require.Equal(t, 400, request("?country=CN&view=shipping&extra=1", "self").Code)
+	shipping := request("?country=CN&view=shipping", "self")
+	require.Equal(t, 200, shipping.Code)
+	require.Contains(t, shipping.Body.String(), "浙江省")
+	require.Contains(t, shipping.Body.String(), "杭州市")
+	require.Contains(t, shipping.Body.String(), "仙桃市")
 }
