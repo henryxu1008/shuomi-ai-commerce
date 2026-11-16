@@ -80,3 +80,21 @@
 @media (max-width: 980px) { .closing { grid-template-columns: 1fr; gap: 22px; }.closingVisual { justify-self: start; max-width: 520px; } }
 @media (max-width: 620px) { .closing { min-height: 0; margin: 22px 18px; padding: 24px 20px; gap: 18px; border-radius: 20px; }.closingCopy h2 { font-size: 29px; line-height: 1.35; }.closingCopy > p { font-size: 15px; }.closingCopy ul { grid-template-columns: 1fr; gap: 9px; margin-top: 18px; }.closingCopy li { min-height: 64px; }.closingVisual { height: 220px; }.closingVisual blockquote { min-height: 170px; padding: 21px 18px; }.closingVisual blockquote p { font-size: 20px; }.closingVisual blockquote strong { font-size: 24px; } }
 @media (prefers-reduced-motion: reduce) { .closingCopy li { transition: none; } }
+
+/* Consolidated team outcomes and CTA in one card, matching the page's dark glass panels. */
+.teamSummary { position: relative; max-width: 1200px; margin: 22px auto 0; padding: 24px 28px 20px; overflow: hidden; border: 1px solid rgba(67,118,200,.42); border-radius: 20px; background: radial-gradient(ellipse at 50% 0%,rgba(29,86,171,.18),transparent 62%),linear-gradient(135deg,rgba(10,19,43,.96),rgba(6,11,26,.98)); box-shadow: inset 0 1px rgba(202,218,255,.06),0 16px 42px rgba(12,42,100,.16); }
+.teamSummaryHeader { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.teamSummaryHeader > div > small { color: #68c9ff; font-size: 12px; font-weight: 750; letter-spacing: 1.8px; }
+.teamSummaryHeader h3 { margin-top: 7px; color: #f1f6ff; font-size: 23px; line-height: 1.4; }
+.teamSummaryHeader > p { margin-bottom: 2px; color: #aabbd8; font-size: 15px; line-height: 1.6; }
+.teamSummary .teamResults { width: 100%; max-width: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; list-style: none; }
+.teamSummary .teamResults li { min-width: 0; min-height: 56px; padding: 12px 14px; display: flex; align-items: center; gap: 11px; border: 1px solid rgba(58,99,166,.38); border-radius: 12px; color: #dceaff; background: rgba(7,14,32,.72); font-size: 15px; font-weight: 650; transition: transform .22s ease,border-color .22s ease,background .22s ease,box-shadow .22s ease; }
+.teamSummary .teamResults li:hover { transform: translateY(-3px); border-color: rgba(80,172,255,.72); background: rgba(12,29,60,.92); box-shadow: 0 10px 24px rgba(21,104,215,.17); }
+.teamSummary .resultDot { width: 7px; height: 7px; background: #55d6ff; box-shadow: 0 0 10px rgba(72,206,255,.68); }
+.teamSummary .teamBottom { max-width: none; margin-top: 19px; padding-top: 17px; display: flex; justify-content: space-between; align-items: center; gap: 20px; border-top: 1px solid rgba(68,97,151,.32); }
+.teamSummary .teamBottom p { color: #eef4ff; font-size: 18px; line-height: 1.5; font-weight: 700; }
+.teamSummary .teamBottom a { min-height: 44px; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 1px solid rgba(135,151,255,.24); border-radius: 999px; color: #fff; background: linear-gradient(105deg,#328fff,#6945ff); box-shadow: 0 8px 22px rgba(61,89,255,.23); font-size: 14px; font-weight: 700; transition: transform .2s ease,filter .2s ease,box-shadow .2s ease; }
+.teamSummary .teamBottom a:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 11px 28px rgba(61,110,255,.36); }
+@media (max-width: 1080px) { .teamSummary { max-width: 700px; }.teamSummaryHeader { align-items: flex-start; flex-direction: column; gap: 6px; }.teamSummary .teamResults { grid-template-columns: repeat(2,minmax(0,1fr)); }.teamSummary .teamBottom { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 620px) { .teamSummary { margin-top: 22px; padding: 21px 17px 17px; border-radius: 18px; }.teamSummaryHeader h3 { font-size: 20px; }.teamSummaryHeader > p { font-size: 14px; }.teamSummary .teamResults { gap: 9px; margin-top: 16px; }.teamSummary .teamResults li { min-height: 58px; padding: 10px; gap: 8px; font-size: 13px; }.teamSummary .teamBottom { margin-top: 16px; padding-top: 15px; gap: 13px; }.teamSummary .teamBottom p { font-size: 16px; }.teamSummary .teamBottom a { min-height: 42px; } }
+@media (prefers-reduced-motion: reduce) { .teamSummary .teamResults li,.teamSummary .teamBottom a { transition: none; } }

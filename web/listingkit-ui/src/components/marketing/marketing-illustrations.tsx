@@ -17,8 +17,11 @@ export function MarketingTeam() {
       <ul className={styles.teamRoles}>{TEAM_ROLES.map((label,index) => <li key={label} className={styles['role'+index]}><div className={styles.roleCard}><div className={styles.roleDot}><Image src="/sumi/figma-home-team-img1.svg" alt="" width={26} height={26} unoptimized /></div>{label}</div></li>)}</ul>
     </div>
     <aside className={styles.teamPanel}><small>智能生态系统</small><h3>商业能力持续接入</h3><ul>{["全球数据","商品与货盘","供应链资源","工具与生态服务"].map(label => <li key={label}><div className={styles.panelDot}><Image src="/sumi/figma-home-team-imgEllipse.svg" alt="" width={6} height={6} unoptimized /></div>{label}</li>)}</ul></aside>
-  </div><ul className={styles.teamResults}>{["更快发现市场机会","更低的经营成本","更高的运营效率","可持续复制的增长"].map(label => <li key={label}><span className={styles.resultDot} aria-hidden="true" />{label}</li>)}</ul>
-  <div className={styles.teamBottom}><p>你只需要提出目标，剩下的交给你的 AI 电商团队。</p><a href="#agents">探索 AI 智能体 →</a></div></>;
+  </div><section className={styles.teamSummary} aria-label="AI 电商团队业务成果总结">
+    <div className={styles.teamSummaryHeader}><div><small>AI TEAM OUTCOMES</small><h3>一个目标，带来四项经营提升</h3></div><p>从市场机会到日常运营，让协作能力落到业务结果。</p></div>
+    <ul className={styles.teamResults}>{["更快发现市场机会","更低的经营成本","更高的运营效率","可持续复制的增长"].map(label => <li key={label}><span className={styles.resultDot} aria-hidden="true" />{label}</li>)}</ul>
+    <div className={styles.teamBottom}><p>你只需要提出目标，剩下的交给你的 AI 电商团队。</p><a href="#agents">探索 AI 智能体 <span aria-hidden="true">→</span></a></div>
+  </section></>;
 }
 
 export function BrandClosing() {
