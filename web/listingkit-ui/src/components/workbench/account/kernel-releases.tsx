@@ -11,12 +11,13 @@ import { useResourcePending } from "../resources/resource-pending";
 import { KernelError, kernelMessage, kernelRequest } from "@/lib/api/kernel-releases";
 import { kernelArtifact, kernelIntent, kernelPage, kernelQuery, kernelResult, matchesKernelArtifact, type KernelIntent, type KernelQuery } from "@/lib/contracts/kernel-releases";
 import styles from "./kernel-releases.module.css";
+import { MaintenanceEntryCard } from "./maintenance-entry-card";
 
 const kernelPagePath = "/workbench/account/organization/kernel-releases";
 export function KernelReleasesEntry() {
   const context = useWorkbenchContext();
   if (!context.permissions.includes("listingkit.platform_admin")) return null;
-  return <Card className={styles.panel}><h2>浏览器内核</h2><p>查询兼容发行记录，登记固定内核制品。</p><Button asChild variant="outline"><Link href={kernelPagePath} prefetch={false}>内核发行管理</Link></Button></Card>;
+  return <MaintenanceEntryCard title="浏览器内核" description="查询兼容发行记录，登记固定内核制品。" href={kernelPagePath} action="内核发行管理" />;
 }
 export function KernelReleasesPage({ expectedUserId, create = false }: { expectedUserId: string; create?: boolean }) {
   const context = useWorkbenchContext();
