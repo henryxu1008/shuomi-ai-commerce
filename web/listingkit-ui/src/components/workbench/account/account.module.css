@@ -23,7 +23,7 @@
 .verificationCards article strong { font-size: var(--body-text-size); }
 .verificationCards article span { width: fit-content; padding: 3px 9px; border-radius: 999px; background: var(--background); color: var(--muted-foreground); font-size: var(--label-text-size); }
 .verificationCards article small { color: var(--muted-foreground); font-size: var(--label-text-size); line-height: 1.5; }
-.enterpriseHeader { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 20px; }
+.enterpriseHeader { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .organizationIdentity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .organizationIdentity img { flex-shrink: 0; }
 .organizationIdentity h2 { font-size: var(--section-title-size); font-weight: 600; overflow-wrap: anywhere; }
@@ -148,7 +148,7 @@
 .formActions { display: flex; align-items: center; gap: 12px; grid-column: 1 / -1; }
 .successText { color: var(--success-foreground); font-size: var(--label-text-size); }
 .errorText { color: var(--destructive); font-size: var(--label-text-size); }
-@media (max-width: 767px) { .identity { align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px; } .identityStatus { justify-items: start; text-align: left; } .managementGrid, .businessGroups { grid-template-columns: 1fr; } .verificationCards { grid-template-columns: 1fr; } .panel { padding: 20px; } .fields { gap: 20px; } .organizationIdentity { gap: 12px; } .organizationIdentity img { width: 48px; height: 48px; } }
+@media (max-width: 767px) { .identity { align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px; } .identityStatus { justify-items: start; text-align: left; } .businessGroups { grid-template-columns: 1fr; } .verificationCards { grid-template-columns: 1fr; } .panel { padding: 20px; } .fields { gap: 20px; } .organizationIdentity { gap: 12px; } .organizationIdentity img { width: 48px; height: 48px; } }
 @media (max-width: 767px) { .overview, .overviewLinks { grid-template-columns: 1fr; } .overviewMetric { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); } .profileForm, .businessGroup > div { grid-template-columns: 1fr; } .enterpriseResources { grid-template-columns: repeat(2, minmax(0, 1fr)); } .auditPreview li { grid-template-columns: 1fr; gap: 6px; } }
 @media (max-width: 480px) { .status .fields { grid-template-columns: 1fr; } .status .fields > div { min-height: 80px; } }
 

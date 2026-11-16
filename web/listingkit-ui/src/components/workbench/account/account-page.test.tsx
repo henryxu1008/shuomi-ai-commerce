@@ -57,7 +57,7 @@ describe("AccountPage read-only projection", () => {
     expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     for (const name of ["成员与权限", "资源与额度", "操作记录", "管理成员额度", "查看钱包与充值状态"]) {
-      expect(screen.getByRole("link", { name, exact: true })).toHaveAttribute("data-slot", "button");
+      expect(screen.getByRole("link", { name })).toHaveAttribute("data-slot", "button");
     }
     expect(screen.queryByRole("button", { name: /邀请|移除/ })).not.toBeInTheDocument();
   });
@@ -353,6 +353,9 @@ describe("AccountPage read-only projection", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...organization, roles: ["viewer", customRole] }))); mount("organization");
     expect(await screen.findByRole("heading", { name: "企业乙" })).toBeVisible();
     expect(screen.getByText("当前角色：查看者、自定义角色")).toBeVisible();
+    const overview = screen.getByRole("region", { name: "当前企业信息" });
+    expect(within(overview).getByRole("heading", { name: "企业乙" })).toBeVisible();
+    expect(within(overview).getByText("企业成员")).toBeVisible();
     expect(screen.queryByText(customRole, { exact: false })).not.toBeInTheDocument();
     expect(screen.getByText("当前企业编号")).not.toBeVisible();
     await userEvent.click(screen.getByText("企业编号"));

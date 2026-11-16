@@ -263,9 +263,9 @@ export function OrganizationView({ data, scope,platformMaintenance }: { data: Ac
     enterpriseRoleLabels.get(role) ?? (enterpriseRoleKey.safeParse(role).success ? "自定义角色" : "角色名称暂未提供"),
   ))];
   const management = [
-    { title: "成员与权限", description: "查看成员和角色，有权限的管理员可邀请成员", href: "/workbench/account/organization/members" },
-    { title: "资源与额度", description: "查看企业余额和成员消费上限", href: "/workbench/account/organization/resources" },
-    { title: "操作记录", description: "查看账户资料、成员、额度和源账号的变动", href: "/workbench/account/organization/audit" },
+    { title: "成员与权限", tone: "blue", description: "查看成员和角色，有权限的管理员可邀请成员", href: "/workbench/account/organization/members" },
+    { title: "资源与额度", tone: "purple", description: "查看企业余额和成员消费上限", href: "/workbench/account/organization/resources" },
+    { title: "操作记录", tone: "orange", description: "查看账户资料、成员、额度和源账号的变动", href: "/workbench/account/organization/audit" },
   ];
   const metrics = [
     { label: "企业成员", tone: "blue", value: metric(members, members.data?.total, "暂不可用"), detail: activeMembers === undefined ? undefined : `有效成员 ${activeMembers} 人` },
@@ -275,34 +275,33 @@ export function OrganizationView({ data, scope,platformMaintenance }: { data: Ac
   ];
 
   return <div className={`${overviewStyles.stack} ${styles.enterpriseWorkspace}`}>
-    <Card className={styles.enterpriseHeader}>
-      <div className={styles.organizationIdentity}>
-        <Image src="/console/account/organization-avatar.svg" width={48} height={48} alt="" unoptimized />
-        <div><h2>{provided(data.name)}</h2><p>当前角色：{roles.join("、") || "未提供"}</p></div>
-      </div>
-      <details className={styles.enterpriseDetails}>
-        <summary>企业编号</summary>
-        <dl><div><dt>当前企业编号</dt><dd>{data.effectiveOrganizationId}</dd></div><div><dt>归属企业编号</dt><dd>{data.homeOrganizationId}</dd></div></dl>
-      </details>
-    </Card>
-    <section aria-label="企业管理">
-      <h2 className={styles.sectionTitle}>企业管理</h2>
-      <div className={`${overviewStyles.entriesThree} ${overviewStyles.entriesCompact}`}>
-        {management.map(({ title, description, href }) => <Card key={href} className={overviewStyles.entry}>
-          <h3>{title}</h3>
-          <p className={overviewStyles.description}>{description}</p>
-          <Button asChild size="sm" variant="outline"><Link href={href} prefetch={false}>{title}</Link></Button>
-        </Card>)}
-      </div>
-    </section>
     <Card role="region" aria-label="当前企业信息" className={overviewStyles.panel}>
-      <h2>企业概览</h2>
+      <div className={styles.enterpriseHeader}>
+        <div className={styles.organizationIdentity}>
+          <Image src="/console/account/organization-avatar.svg" width={48} height={48} alt="" unoptimized />
+          <div><h2>{provided(data.name)}</h2><p>当前角色：{roles.join("、") || "未提供"}</p></div>
+        </div>
+        <details className={styles.enterpriseDetails}>
+          <summary>企业编号</summary>
+          <dl><div><dt>当前企业编号</dt><dd>{data.effectiveOrganizationId}</dd></div><div><dt>归属企业编号</dt><dd>{data.homeOrganizationId}</dd></div></dl>
+        </details>
+      </div>
       <dl className={`${overviewStyles.metrics} ${overviewStyles.metricsFour}`}>
         {metrics.map(({ label, tone, value, detail }) => <div key={label} data-tone={tone}>
           <dt>{label}</dt><dd><strong>{value}</strong>{detail ? <small>{detail}</small> : null}</dd>
         </div>)}
       </dl>
     </Card>
+    <section aria-label="企业管理">
+      <h2 className={styles.sectionTitle}>企业管理</h2>
+      <div className={`${overviewStyles.entriesThree} ${overviewStyles.entriesCompact}`}>
+        {management.map(({ title, tone, description, href }) => <Card key={href} className={overviewStyles.entry} data-tone={tone}>
+          <h3>{title}</h3>
+          <p className={overviewStyles.description}>{description}</p>
+          <Button asChild size="sm" variant="outline"><Link href={href} prefetch={false}>{title}</Link></Button>
+        </Card>)}
+      </div>
+    </section>
     {platformMaintenance}
     <Panel title="企业资源"><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0} actionsAsButtons /></Panel>
     <Panel title="最近操作记录">
