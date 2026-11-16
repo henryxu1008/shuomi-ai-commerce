@@ -10,16 +10,12 @@ it("connects customization introduction and exact form/progress breadcrumbs", ()
  expect(JSON.stringify(consoleNavigation)).not.toContain("/workbench/admin/agent-customization");
 });
 
-it("uses the Figma customization children as the exact route authority", () => {
+it("keeps both customization routes outside the sidebar children", () => {
  const parent = findConsoleRoute("/workbench/agents/custom")!;
- expect(parent.node.children?.map(child => [child.label, child.href])).toEqual([
-  ["提交定制需求", "/workbench/agents/custom/new"],
-  ["定制进度", "/workbench/agents/custom/progress"],
- ]);
- for (const child of parent.node.children ?? []) {
-  const route = findConsoleRoute(child.href)!;
-  expect(route.node).toBe(child);
-  expect(route.trail.map(node => node.label)).toEqual(["智能市场", "智能体定制", child.label]);
+ expect(parent.node.children).toBeUndefined();
+ for (const [path,label] of [["new","提交定制需求"],["progress","定制进度"]]) {
+  const route = findConsoleRoute(`/workbench/agents/custom/${path}`)!;
+  expect(route.trail.map(node => node.label)).toEqual(["智能市场", "智能体定制", label]);
   expect(route.node.availability).toBe("connected");
  }
 });

@@ -87,10 +87,17 @@ func Routes(service Service, files Files, bind func(context.Context, string) (co
 				writeError(c, supplymarket.ErrInvalid)
 				return
 			}
-			ctx, err := bind(c.Request.Context(), c.GetHeader("Authorization"))
-			if err != nil {
-				writeError(c, supplymarket.ErrForbidden)
-				return
+			ctx := c.Request.Context()
+			var err error
+			// Only member operations consume the organization-bound product capability.
+			// Platform routes retain their verified global identity and are authorized
+			// by both the route policy and the domain's AuthorizePlatform check.
+			if !spec.platform {
+				ctx, err = bind(ctx, c.GetHeader("Authorization"))
+				if err != nil {
+					writeError(c, supplymarket.ErrForbidden)
+					return
+				}
 			}
 			var value any
 			switch spec.action {

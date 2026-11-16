@@ -89,9 +89,18 @@ OSS hosts 都完成配置后才设置 `LISTINGKIT_SDS_POD_ENABLED=true`。沿既
 
 - `/workbench/supply/official`、`/selected`：查看真实已发布商品，选择并保存到本人
   Collection。空市场显示空状态，不 seed 假发布。
-- `/workbench/supply/catalogs`：沿已有 1688 采集、SDS 模板及人工货盘申请入口。
+- `/workbench/supply/catalogs`：按 API / 浏览器插件展示货盘目录，可按国内仓、海外仓和
+  仓库所在国家/地区筛选；页首「申请对接货盘」在当前页面打开模态框，与进度/记录页
+  复用同一模态表单及提交/核实能力，取消返回原筛选结果。提交进行中禁止关闭；成功后
+  显示准确记录的进度链接。进度/记录页的「发起申请」也使用同一模态框，且不显示
+  四个跨渠道快捷链接。无 `view` 的 `/workbench/supply/catalogs/apply` 返回货盘目录，
+  不再提供独立申请表单页；`view=progress/records` 保留。目录不再提供「进入货盘选品」。
+  侧栏只显示「供应市场 → 货盘集成」两级；既有选品、申请或 SDS 深链接仍高亮该入口。
 - `/workbench/supply/applications`：本人申请、资料补充和进度。优选申请继续要求
-  本人自有商品及实际 Apply lineage。
+  本人自有商品及实际 Apply lineage。侧栏仅「供应市场 → 优选申请」两级，不显示
+  发起/进度/记录三级菜单；概览页保留发起与记录并提供「查看申请进度」。现有新建、
+  进度、记录及详情深链接继续高亮「优选申请」，页面面包屑与进度/记录切换保留。
+  成员进度/记录和成员详情不显示四个跨渠道快捷链接；申请、补充和审核合同不变。
 - `/workbench/supply/catalogs/sds`：选模板/款式和本人已批准图案，配置设计；核实
   原 operation 的效果图和已保存成品后再选择入本人 Collection。
 
@@ -108,13 +117,69 @@ source kind、publication 和 operation；未定制 SDS 模板须先生成并核
 计入其3分钟/30秒上限，不扩大任何已发送操作的重试权限。
 
 平台专员通过 `/workbench/supply/operator` 及原申请 UUID 详情执行人工评估、发布。
+申请类型使用「优选申请 / 货盘对接 / 自营商品」选项卡；切换类型沿原筛选合同回到
+第一页，进度状态不变，自营商品继续以实际发布记录显示状态。选项卡支持方向键及
+Home/End。优选概览只保留指标、操作入口与可申请商品，不再展示条件/流程/服务说明区块。
 该入口独立使用现有 server session 身份，后台每次核对 verified global platform
 权限，不要求成为客户企业成员。导航仅在原平台读取成功后展示专员入口；企业
 角色/自定义模块、浏览器 body/header 不能授予平台权限。成员页面仍保留企业 gate。
+平台路由直接消费已验证的全局身份，并由路由与领域分别核实平台权限；不绑定要求
+企业上下文的商品读取 capability。成员路由继续使用该 capability，不能从平台身份
+推导任何客户成员或商品权限。实例配置中的已有平台授权无需为进入自营页面重复添加。
+
+### 自营商品添加与发布
+
+具备全局平台权限及当前企业自有商品查看/管理、供货申请权限的专员，从「硕米自营」页点击
+**添加自营商品**（`/workbench/supply/official/new`），选择本人已有商品，或点击
+**新建商品**复用完整自有商品录入页。新建保存成功后，使用回执中的准确 item ID
+回到供货信息步骤；普通自有商品录入入口仍返回自有商品库。
+
+填写库存/产能、起订量、供货周期、发货省市、价格/售后说明并确认披露后，点击
+**保存草稿并预览**。草稿保存后直接进入原平台记录详情，核对确切版本的图片、
+商品资料、SKU价格和供货信息，再点击 **确认发布**。保存草稿不会自动公开；
+创建和发布须由同一账号完成，服务端原 LiveWrite 与平台授权分别校验。
+
+稍后可从「硕米自营 → 管理自营商品」（`/workbench/supply/operator?kind=official`）
+继续预览/发布。管理页从实际 release 显示草稿、已发布或已撤销，不能把原记录的
+`DRAFT` 阶段直接当成未发布。记录绑定不可变商品版本；商品资料更新后需建立
+新的发布草稿，已有草稿和已发布内容不自动跟随。读取发布状态失败时不能再次发布。
+
+结果待确认时继续使用原操作的核实/恢复入口；只有拿到确切保存回执才进入下一步，
+不因超时新建另一件商品或草稿。前端平台权限预检复用原专员只读 API，仅用于入口
+与及时反馈，不代替各写命令的真实权限验证。本流程无模型调用或外部平台刊登。
 
 所有事实保存在现有 Product/Asset 数据库，资质 bytes 留在私有对象存储。保留命名
 volume/数据库并按原配置 stop/start；不执行 `down -v`。UNKNOWN/UNCONFIRMED 保存
 原 key/body/account revision 和 fence，先核实原操作；不另起操作覆盖或重发。
+
+### 货盘目录资料与 Logo
+
+目录是公开资料展示，不是连接器、接入回执或实时库存。四家当前均未接入硕米 API，
+硕米插件也尚无这四家的适配器；平台公开提供 API 不代表硕米已经接通。
+国内仓按中国仓解释；仓库类型与地区必须匹配同一条仓库资料，切换类型时清除不适用
+的地区。已核实国家集合仅为公开覆盖的子集，其他地区待确认，不据此推断无仓或有货。
+
+资料核对日期：2026-11-16。名称、API 说明及仓库资料来源：
+
+| 货盘 | API 资料 | 当前展示的仓库资料 |
+| --- | --- | --- |
+| 大健云仓 | [技术服务](https://www.gigacloudtech.cn/tech/) | [官方介绍](https://www.gigacloudtech.com/about)：美国、加拿大、英国、德国、日本 |
+| Doba | [Retailer API](https://open.doba.com/) | [官方供应商介绍](https://www.doba.com/high-quality-suppliers)：美国 |
+| SaleYee | [官方 API 接入说明](https://global.saleyee.com/help/shipment.html) | [官网仓库导航](https://www.saleyee.com/)：美国、英国、德国、法国、捷克、西班牙、加拿大、日本、澳大利亚、墨西哥、沙特阿拉伯 |
+| CJdropshipping | [开放 API](https://developers.cjdropshipping.com/en/api/start/apikey.html) | [官方仓库介绍](https://elites.cjdropshipping.com/article-detail?id=5747)：中国、美国、英国、德国、西班牙 |
+
+CJ 官方资料对波兰仓开放状态存在不同表述，本次不纳入已核实地区。目录不改变原有
+1688/SDS 的运行开关、权限、申请、保存或恢复路径。
+
+Logo 原样保存于 `web/listingkit-ui/public/brands/catalogs/`，避免页面依赖第三方图片
+热链。商标权利归各平台所有；以下为本次取得的官方资源地址：
+
+| 文件 | 官方资源 |
+| --- | --- |
+| `gigacloud.png` | https://www.gigacloudtech.cn/_nuxt/logo.Bg5iPk6P.png |
+| `doba.svg` | https://ds.micstatic.com/london/_next/static/images/logo-4f93dc67c2e6de0bf8db184f586c12d3.svg |
+| `saleyee.png` | https://www.saleyee.com/Content/Images/logo.png |
+| `cj.svg` | https://frontend.cjdropshipping.com/config-resource/cj/new_logo.svg |
 
 ## 当前证据与交付边界
 
