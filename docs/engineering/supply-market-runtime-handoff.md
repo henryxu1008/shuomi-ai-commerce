@@ -89,7 +89,8 @@ OSS hosts 都完成配置后才设置 `LISTINGKIT_SDS_POD_ENABLED=true`。沿既
 
 - `/workbench/supply/official`、`/selected`：查看真实已发布商品，选择并保存到本人
   Collection。空市场显示空状态，不 seed 假发布。
-- `/workbench/supply/catalogs`：沿已有 1688 采集、SDS 模板及人工货盘申请入口。
+- `/workbench/supply/catalogs`：按 API / 浏览器插件展示货盘目录，可按国内仓、海外仓和
+  仓库所在国家/地区筛选；从页首继续进入已有 1688 采集、SDS 模板及人工货盘申请入口。
   侧栏只显示「供应市场 → 货盘集成」两级；货盘选品、申请对接和对接记录从现有
   货盘集成概览页进入。进入选品、申请或 SDS 页面后，侧栏仍选中「货盘集成」。
 - `/workbench/supply/applications`：本人申请、资料补充和进度。优选申请继续要求
@@ -141,6 +142,35 @@ source kind、publication 和 operation；未定制 SDS 模板须先生成并核
 所有事实保存在现有 Product/Asset 数据库，资质 bytes 留在私有对象存储。保留命名
 volume/数据库并按原配置 stop/start；不执行 `down -v`。UNKNOWN/UNCONFIRMED 保存
 原 key/body/account revision 和 fence，先核实原操作；不另起操作覆盖或重发。
+
+### 货盘目录资料与 Logo
+
+目录是公开资料展示，不是连接器、接入回执或实时库存。四家当前均未接入硕米 API，
+硕米插件也尚无这四家的适配器；平台公开提供 API 不代表硕米已经接通。
+国内仓按中国仓解释；仓库类型与地区必须匹配同一条仓库资料，切换类型时清除不适用
+的地区。已核实国家集合仅为公开覆盖的子集，其他地区待确认，不据此推断无仓或有货。
+
+资料核对日期：2026-11-16。名称、API 说明及仓库资料来源：
+
+| 货盘 | API 资料 | 当前展示的仓库资料 |
+| --- | --- | --- |
+| 大健云仓 | [技术服务](https://www.gigacloudtech.cn/tech/) | [官方介绍](https://www.gigacloudtech.com/about)：美国、加拿大、英国、德国、日本 |
+| Doba | [Retailer API](https://open.doba.com/) | [官方供应商介绍](https://www.doba.com/high-quality-suppliers)：美国 |
+| SaleYee | [官方 API 接入说明](https://global.saleyee.com/help/shipment.html) | [官网仓库导航](https://www.saleyee.com/)：美国、英国、德国、法国、捷克、西班牙、加拿大、日本、澳大利亚、墨西哥、沙特阿拉伯 |
+| CJdropshipping | [开放 API](https://developers.cjdropshipping.com/en/api/start/apikey.html) | [官方仓库介绍](https://elites.cjdropshipping.com/article-detail?id=5747)：中国、美国、英国、德国、西班牙 |
+
+CJ 官方资料对波兰仓开放状态存在不同表述，本次不纳入已核实地区。目录不改变原有
+1688/SDS 的运行开关、权限、申请、保存或恢复路径。
+
+Logo 原样保存于 `web/listingkit-ui/public/brands/catalogs/`，避免页面依赖第三方图片
+热链。商标权利归各平台所有；以下为本次取得的官方资源地址：
+
+| 文件 | 官方资源 |
+| --- | --- |
+| `gigacloud.png` | https://www.gigacloudtech.cn/_nuxt/logo.Bg5iPk6P.png |
+| `doba.svg` | https://ds.micstatic.com/london/_next/static/images/logo-4f93dc67c2e6de0bf8db184f586c12d3.svg |
+| `saleyee.png` | https://www.saleyee.com/Content/Images/logo.png |
+| `cj.svg` | https://frontend.cjdropshipping.com/config-resource/cj/new_logo.svg |
 
 ## 当前证据与交付边界
 

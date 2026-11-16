@@ -14,7 +14,40 @@ vi.mock("./shared",async importOriginal=>({...await importOriginal<typeof import
 afterEach(cleanup);
 beforeEach(()=>{vi.clearAllMocks();context.isLoading=false;context.effectiveOrganization.id="org-a";commands.saved=null;commands.locked=false});
 function page(view?:"selection"|"apply",acquisitionAvailable=false,sdsAvailable=false){return render(<SupplyCatalogsPage view={view} acquisitionAvailable={acquisitionAvailable} sdsAvailable={sdsAvailable}/>)}
-it("uses the catalog parent as a two-entry overview without mounting a write form",()=>{
+it("shows the four branded catalog entries and honest API connection status",()=>{
+ page();
+ expect(screen.getByRole("button",{name:"API 对接"})).toHaveAttribute("aria-pressed","true");
+ for(const name of ["大健云仓","Doba","SaleYee","CJdropshipping"]){
+  const card=within(screen.getByRole("article",{name}));
+  expect(card.getByRole("img",{name:`${name} Logo`})).toHaveAttribute("src",expect.stringContaining("/brands/catalogs/"));
+  expect(card.getByText("未接入")).toBeVisible();
+  expect(card.getByRole("link",{name:"访问官网"})).toHaveAttribute("target","_blank");
+ }
+ expect(screen.queryByRole("button",{name:/连接|立即采集/})).not.toBeInTheDocument();
+});
+it("filters the directory by domestic warehouse and country on the same coverage entry",async()=>{
+ page();const user=userEvent.setup();
+ await user.selectOptions(screen.getByRole("combobox",{name:"仓库类型"}),"domestic");
+ expect(screen.getAllByRole("article")).toHaveLength(1);expect(screen.getByRole("article",{name:"CJdropshipping"})).toBeVisible();
+ expect(within(screen.getByRole("combobox",{name:"仓库区域"})).queryByRole("option",{name:"美国"})).not.toBeInTheDocument();
+ await user.selectOptions(screen.getByRole("combobox",{name:"仓库区域"}),"CN");
+ await user.selectOptions(screen.getByRole("combobox",{name:"仓库类型"}),"overseas");
+ expect(screen.getByRole("combobox",{name:"仓库区域"})).toHaveValue("");
+ await user.selectOptions(screen.getByRole("combobox",{name:"仓库区域"}),"DE");
+ expect(screen.getAllByRole("article")).toHaveLength(3);expect(screen.queryByRole("article",{name:"Doba"})).not.toBeInTheDocument();
+});
+it("retains warehouse filters when changing to browser plugin mode without claiming plugin support",async()=>{
+ page();const user=userEvent.setup();
+ await user.selectOptions(screen.getByRole("combobox",{name:"仓库区域"}),"JP");
+ await user.click(screen.getByRole("button",{name:"浏览器插件对接"}));
+ expect(screen.getByRole("combobox",{name:"仓库区域"})).toHaveValue("JP");
+ expect(screen.getAllByRole("article")).toHaveLength(2);
+ expect(screen.getAllByText("插件暂未支持")).toHaveLength(2);
+ expect(screen.queryByText("未接入")).not.toBeInTheDocument();
+ await user.click(screen.getByRole("button",{name:"清除筛选"}));
+ expect(screen.getAllByRole("article")).toHaveLength(4);
+});
+it("keeps the existing selection and application entries on the directory without mounting a write form",()=>{
   page();
   expect(screen.getByRole("heading",{name:"货盘集成",level:1})).toBeVisible();
   expect(screen.getByRole("link",{name:"进入货盘选品"})).toHaveAttribute("href","/workbench/supply/catalogs/selection");
