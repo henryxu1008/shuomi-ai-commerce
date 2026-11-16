@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Check, ChevronDown } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -221,30 +222,104 @@ function reconcileIdentityQueries(queryClient: ReturnType<typeof useQueryClient>
 function BusinessProfilePanel({ profile, organizationId }: { profile?: AccountBusinessProfile | null; organizationId?: string }) {
   const [form, setForm] = useState<AccountBusinessProfileInput>(() => profileInput(profile));
   const mutation = useMutation({ mutationFn: (input: AccountBusinessProfileInput) => updateAccountBusinessProfile({ expectedUserId: profile?.userId ?? "", expectedOrganizationId: organizationId ?? "", input }), onSuccess: saved => setForm(profileInput(saved)) });
-  if (!profile) return <Panel title="经营画像" description="业务档案服务暂未接入" className={styles.business}><BusinessGroups><BusinessGroup title="经营角色"><UnavailableChoice title="用户角色" /></BusinessGroup><BusinessGroup title="店铺情况"><UnavailableChoice title="店铺情况" /></BusinessGroup><BusinessGroup title="选择店铺平台、经营站点与店铺类型"><UnavailableChoice title="店铺平台" /><UnavailableChoice title="经营站点" /><UnavailableChoice title="店铺类型" /></BusinessGroup><BusinessGroup title="你是否拥有工厂或供应链？"><UnavailableChoice title="工厂与供应链" /></BusinessGroup><BusinessGroup title="你目前需要什么服务？"><UnavailableChoice title="所需服务" /></BusinessGroup></BusinessGroups><p className={styles.note}>业务档案与企业项目权限分别管理。</p></Panel>;
-  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (profile) mutation.mutate(form); };
-  const disabled = !profile || !organizationId || mutation.isPending;
-  const scalar = (key: "userRole" | "shopSituation" | "factorySituation" | "shopType", label: string, options: readonly string[]) => <fieldset className={styles.choiceField} key={key} disabled={disabled}><legend>{label}</legend><div className={styles.choiceOptions} role="group" aria-label={label}>{options.map(option => <button key={option} type="button" className={form[key] === option ? styles.choiceSelected : undefined} aria-pressed={form[key] === option} onClick={() => setForm(current => ({ ...current, [key]: current[key] === option ? "" : option }))}>{option}</button>)}</div><label className={styles.otherChoice}>其他 / 补充<input value={options.includes(form[key]) ? "" : form[key]} onChange={event => setForm(current => ({ ...current, [key]: event.target.value }))} /></label></fieldset>;
-  const multiple = (key: "platforms" | "sites" | "services", label: string, options: readonly string[]) => {
-    const predefined = form[key].filter(value => options.includes(value));
-    const custom = form[key].filter(value => !options.includes(value));
-    const customCapacity = 16 - predefined.length;
-    return <fieldset className={styles.choiceField} key={key} disabled={disabled}><legend>{label}（可多选）</legend><div className={styles.choiceOptions} role="group" aria-label={`${label}，可多选`}>{options.map(option => <button key={option} type="button" className={form[key].includes(option) ? styles.choiceSelected : undefined} aria-pressed={form[key].includes(option)} disabled={!form[key].includes(option) && form[key].length >= 16} onClick={() => setForm(current => ({ ...current, [key]: current[key].includes(option) ? current[key].filter(value => value !== option) : current[key].length >= 16 ? current[key] : [...current[key], option] }))}>{option}</button>)}</div><label className={styles.otherChoice}>其他选项（逗号分隔）<input value={custom.join(", ")} disabled={custom.length === 0 && customCapacity === 0} onChange={event => setForm(current => { const selected = current[key].filter(value => options.includes(value)); const additional = splitList(event.target.value).filter(value => !selected.includes(value)).slice(0, 16 - selected.length); return { ...current, [key]: [...selected, ...additional] }; })} /></label></fieldset>;
+  if (!profile) return <ConsoleState kind="empty" title="暂时无法读取经营画像">请刷新资料后再试。</ConsoleState>;
+
+  const disabled = !organizationId || mutation.isPending;
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!disabled) mutation.mutate(form);
   };
-  return <Panel title="经营画像" description="与首次完善资料使用相同的经营信息；保存后仍由账户中心 owner 持久化。" className={styles.business}><aside className={styles.businessGuide}><strong>经营画像说明</strong><p>这些信息用于匹配当前可用的业务服务，不代表店铺、工厂或平台的外部核验结果。</p></aside><form className={styles.businessForm} onSubmit={submit}>
-    <BusinessGroups>
-      <BusinessGroup title="经营角色">{scalar("userRole", "你是什么角色？", ["跨境电商创业者", "跨境电商卖家", "工厂或供应商", "企业电商团队", "OPC电商社区或园区", "电商服务商", "其他"])}</BusinessGroup>
-      <BusinessGroup title="店铺情况">{scalar("shopSituation", "你目前有没有店铺？", ["暂时没有店铺", "正在准备开店", "已有店铺", "有多个店铺或店群"])}</BusinessGroup>
-      <BusinessGroup title="选择店铺平台、经营站点与店铺类型">{multiple("platforms", "店铺平台", ["Amazon", "SHEIN", "Temu", "TikTok Shop", "Walmart", "Shopee", "Lazada", "AliExpress", "Etsy", "独立站"])}{multiple("sites", "经营站点", ["美国站", "加拿大站", "日本站", "英国站", "欧洲站"])}{scalar("shopType", "店铺类型", ["全托店", "半托店", "自营店", "其他"])}</BusinessGroup>
-      <BusinessGroup title="你是否拥有工厂或供应链？">{scalar("factorySituation", "工厂与供应链", ["有自有工厂", "有长期合作工厂", "有稳定供应链资源", "暂时没有工厂或供应链资源", "其他"])}</BusinessGroup>
-      <BusinessGroup title="你目前需要什么服务？">{multiple("services", "所需服务", ["AI选品与市场分析", "商品采集与刊登", "商品图片与内容生成", "POD商品定制", "供应链与货盘对接", "店铺智能运营", "广告投放与优化", "客服自动化", "订单库存与ERP", "多店铺矩阵管理", "创业培训与陪跑", "店铺联合运营", "品牌出海", "企业功能定制", "OPC电商社区落地", "暂时不确定"])}</BusinessGroup>
-    </BusinessGroups>
-    <div className={styles.formActions}><Button type="submit" disabled={disabled}>{mutation.isPending ? "保存中…" : "保存修改"}</Button>{mutation.isError ? <span className={styles.errorText}>{mutation.error instanceof AccountReadError ? "保存失败，请稍后重试" : "保存失败"}</span> : mutation.isSuccess ? <span className={styles.successText}>已保存</span> : null}</div>
-  </form><p className={styles.note}>身份联系方式仍由登录服务管理；经营画像由账户中心持久化。</p></Panel>;
+
+  const scalar = (key: "userRole" | "shopSituation" | "factorySituation" | "shopType", label: string, options: readonly string[]) => (
+    <fieldset className={styles.choiceField} disabled={disabled} aria-label={label}>
+      {key === "shopType" ? <legend>{label}</legend> : null}
+      <div className={styles.choiceOptions}>
+        {options.map(option => <BusinessOption key={option} label={option} selected={form[key] === option}
+          onClick={() => setForm(current => ({ ...current, [key]: current[key] === option ? "" : option }))} />)}
+      </div>
+      <BusinessSupplement fieldLabel={label} inputLabel="其他／补充" value={options.includes(form[key]) ? "" : form[key]}
+        onChange={value => setForm(current => ({ ...current, [key]: value }))} />
+    </fieldset>
+  );
+
+  const multiple = (key: "platforms" | "sites" | "services", label: string, options: readonly string[]) => {
+    const custom = form[key].filter(value => !options.includes(value));
+    const atLimit = form[key].length >= 16;
+    return (
+      <fieldset className={styles.choiceField} disabled={disabled}>
+        <legend>{label}<span className={styles.choiceHint}>可多选</span></legend>
+        <div className={styles.choiceOptions}>
+          {options.map(option => <BusinessOption key={option} label={option} selected={form[key].includes(option)}
+            disabled={!form[key].includes(option) && atLimit}
+            onClick={() => setForm(current => ({ ...current, [key]: current[key].includes(option) ? current[key].filter(value => value !== option) : current[key].length >= 16 ? current[key] : [...current[key], option] }))} />)}
+        </div>
+        <BusinessSupplement fieldLabel={label} inputLabel="其他选项（逗号分隔）" value={custom.join(", ")} disabled={custom.length === 0 && atLimit}
+          onChange={value => setForm(current => {
+            const selected = current[key].filter(value => options.includes(value));
+            const additional = splitList(value).filter(value => !selected.includes(value)).slice(0, 16 - selected.length);
+            return { ...current, [key]: [...selected, ...additional] };
+          })} />
+      </fieldset>
+    );
+  };
+
+  return <form className={styles.businessForm} onSubmit={submit}>
+    <div className={styles.businessGroups}>
+      <BusinessGroup title="经营角色" compact>{scalar("userRole", "经营角色", ["跨境电商创业者", "跨境电商卖家", "工厂或供应商", "企业电商团队", "OPC电商社区或园区", "电商服务商", "其他"])}</BusinessGroup>
+      <BusinessGroup title="店铺情况" compact>{scalar("shopSituation", "店铺情况", ["暂时没有店铺", "正在准备开店", "已有店铺", "有多个店铺或店群"])}</BusinessGroup>
+      <BusinessGroup title="平台与站点" columns>
+        {multiple("platforms", "店铺平台", ["Amazon", "SHEIN", "Temu", "TikTok Shop", "Walmart", "Shopee", "Lazada", "AliExpress", "Etsy", "独立站"])}
+        {multiple("sites", "经营站点", ["美国站", "加拿大站", "日本站", "英国站", "欧洲站"])}
+        {scalar("shopType", "店铺类型", ["全托店", "半托店", "自营店", "其他"])}
+      </BusinessGroup>
+      <BusinessGroup title="工厂与供应链">{scalar("factorySituation", "工厂与供应链", ["有自有工厂", "有长期合作工厂", "有稳定供应链资源", "暂时没有工厂或供应链资源", "其他"])}</BusinessGroup>
+      <BusinessGroup title="所需服务">{multiple("services", "服务选项", ["AI选品与市场分析", "商品采集与刊登", "商品图片与内容生成", "POD商品定制", "供应链与货盘对接", "店铺智能运营", "广告投放与优化", "客服自动化", "订单库存与ERP", "多店铺矩阵管理", "创业培训与陪跑", "店铺联合运营", "品牌出海", "企业功能定制", "OPC电商社区落地", "暂时不确定"])}</BusinessGroup>
+    </div>
+    <div className={styles.businessActions}>
+      <Button type="submit" disabled={disabled}>{mutation.isPending ? "保存中…" : "保存经营画像"}</Button>
+      {mutation.isError ? <span className={styles.errorText} role="alert">保存失败，请稍后重试</span> : null}
+      {mutation.isSuccess ? <span className={styles.successText} role="status">经营画像已保存</span> : null}
+    </div>
+  </form>;
 }
-function BusinessGroups({ children }: { children: ReactNode }) { return <div className={styles.businessGroups}>{children}</div>; }
-function BusinessGroup({ title, children }: { title: string; children: ReactNode }) { return <section className={styles.businessGroup} aria-label={title}><h3>{title}</h3><div>{children}</div></section>; }
-function UnavailableChoice({ title }: { title: string }) { return <div className={styles.businessUnavailable}><span>{title}</span><strong>未提供</strong></div>; }
+
+function BusinessGroup({ title, children, compact = false, columns = false }: { title: string; children: ReactNode; compact?: boolean; columns?: boolean }) {
+  const headingId = useId();
+  return <section className={styles.businessGroup} data-compact={compact || undefined} aria-labelledby={headingId}>
+    <h2 id={headingId}>{title}</h2>
+    <div className={columns ? styles.businessColumns : undefined}>{children}</div>
+  </section>;
+}
+
+function BusinessOption({ label, selected, disabled, onClick }: { label: string; selected: boolean; disabled?: boolean; onClick: () => void }) {
+  return <button type="button" aria-pressed={selected} disabled={disabled} onClick={onClick}>
+    <Check size={16} aria-hidden="true" />
+    <span>{label}</span>
+  </button>;
+}
+
+function BusinessSupplement({ fieldLabel, inputLabel, value, onChange, disabled = false }: {
+  fieldLabel: string; inputLabel: string; value: string; onChange: (value: string) => void; disabled?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(Boolean(value));
+  const [typedValue, setTypedValue] = useState<string | null>(null);
+  const contentId = useId();
+  return <div className={styles.supplement}>
+    <button type="button" aria-label={`补充填写：${fieldLabel}`} aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded(current => !current)}>
+      <ChevronDown size={16} aria-hidden="true" />
+      补充填写
+    </button>
+    <div id={contentId} hidden={!expanded}>
+      <label className={styles.otherChoice}>{inputLabel}
+        <input value={typedValue ?? value} disabled={disabled} onBlur={() => setTypedValue(null)} onChange={event => {
+          const nextValue = event.target.value;
+          setTypedValue(nextValue);
+          onChange(nextValue);
+        }} />
+      </label>
+    </div>
+  </div>;
+}
 function profileInput(profile?: AccountBusinessProfile | null): AccountBusinessProfileInput { return { userRole: profile?.userRole ?? "", shopSituation: profile?.shopSituation ?? "", factorySituation: profile?.factorySituation ?? "", platforms: profile?.platforms ?? [], sites: profile?.sites ?? [], shopType: profile?.shopType ?? "", services: profile?.services ?? [] }; }
 function splitList(value: string) { return [...new Set(value.split(",").map(item => item.trim()).filter(Boolean))].slice(0, 16); }
 

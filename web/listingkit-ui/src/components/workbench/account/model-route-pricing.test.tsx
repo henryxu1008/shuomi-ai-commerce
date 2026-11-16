@@ -36,6 +36,29 @@ it("opens only credential management for its independent grant and drops the sec
 function mount(page=false){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);return render(<QueryClientProvider client={client}>{page?<ModelRoutePricingPage expectedUserId="maintainer"/>:<EnterpriseModelEditor scope={scope}/>}</QueryClientProvider>)}
 function fixture(ready=false,publish?:(init:RequestInit)=>Promise<Response>){const fetch=vi.fn(async(url:string,init:RequestInit={})=>{if(url.endsWith("/options"))return Response.json({organizationId:"org-a",channels:["openai-direct"],models:models(ready)});if(url.endsWith("/history"))return Response.json({revisions:[],nextCursor:""});if(url.endsWith("/validate")){const input=JSON.parse(String(init.body));return Response.json({...input,preview:{ready,models:models(ready)}})}if(url.endsWith("/publish"))return publish?publish(init):Response.json({code:"NEEDS_CONFIGURATION"},{status:409});return Response.json({status:"UNCONFIGURED",revision:null,preview:null})});vi.stubGlobal("fetch",fetch);return fetch}
 afterEach(()=>{cleanup();for(const client of clients)client.clear();clients.length=0;sessionStorage.clear();vi.unstubAllGlobals();state.context.permissions=["workbench.agent.configure"]});
+it("shows the active settings area and keeps enterprise editing apart from platform prices", async () => {
+ state.context.permissions = ["workbench.agent.configure", "listingkit.platform_admin", "listingkit.admin.write"];
+ fixture();
+ mount(true);
+ const user = userEvent.setup();
+ const enterprise = screen.getByRole("button", { name: "企业模型" });
+ const prices = screen.getByRole("button", { name: "参考价格与汇率" });
+ expect(enterprise).toHaveAttribute("aria-pressed", "true");
+ expect(await screen.findByLabelText("文本模型")).toBeVisible();
+ await user.click(prices);
+ expect(prices).toHaveAttribute("aria-pressed", "true");
+ expect(enterprise).toHaveAttribute("aria-pressed", "false");
+ expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument();
+ expect(screen.getByRole("region", { name: "美元汇率自动更新" })).toBeVisible();
+ expect(screen.getByRole("region", { name: "模型参考价" })).toBeVisible();
+ expect(screen.getByRole("region", { name: "人民币汇率" })).toBeVisible();
+});
+it("moves keyboard focus to the preview after checking the model selection", async () => {
+ fixture();
+ mount();
+ await userEvent.click(await screen.findByRole("button", { name: "检查并预览" }));
+ expect(await screen.findByRole("heading", { name: "确认企业模型配置" })).toHaveFocus();
+});
 it("uses enterprise configure permission and removes all editable retail point prices",async()=>{fixture();mount(true);expect(await screen.findByLabelText("文本模型")).toBeVisible();expect(screen.getByLabelText("图片生成模型")).toBeVisible();expect(screen.getByLabelText("多模态理解模型")).toBeVisible();expect(screen.queryByText("每张图片 AI 点数")).not.toBeInTheDocument();expect(screen.queryByText("输入 AI 点数")).not.toBeInTheDocument();expect(screen.queryByRole("button",{name:"参考价格与汇率"})).not.toBeInTheDocument()});
 it("saves complete model choices without presenting an unready category as executable",async()=>{const user=userEvent.setup(),fetch=fixture();mount();await user.click(await screen.findByRole("button",{name:"检查并预览"}));const publish=await screen.findByRole("button",{name:"确认发布三类模型"});expect(publish).toBeEnabled();expect(screen.getAllByText(/图片调用尚未接通/).length).toBeGreaterThan(0);expect(fetch.mock.calls.some(([url])=>url.endsWith("/publish"))).toBe(false);await user.click(publish);expect(fetch.mock.calls.filter(([url])=>url.endsWith("/publish"))).toHaveLength(1)});
 it("publishes all categories in one original-key command after a ready preview",async()=>{const user=userEvent.setup(),fetch=fixture(true,async init=>Response.json({receipt:{id:"r1",scope:{organizationId:"org-a",capability:"ai.models.enterprise"},parent:"NONE",schemaVersion:1,payload:{bindingId:"",credentialVersion:"",rates:{},sharedModels:selection},digest:"digest",actorId:"maintainer",publishedAt:"2026-11-03T00:00:00Z",key:new Headers(init.headers).get("Idempotency-Key")}}));mount();await user.click(await screen.findByRole("button",{name:"检查并预览"}));await user.click(await screen.findByRole("button",{name:"确认发布三类模型"}));await screen.findByRole("heading",{name:"发布回执"});const calls=fetch.mock.calls.filter(([url])=>url.endsWith("/publish"));expect(calls).toHaveLength(1);expect(JSON.parse(String(calls[0][1]?.body))).toEqual({expectedRevision:"NONE",selection});expect(new Headers(calls[0][1]?.headers).get("Idempotency-Key")).toBeTruthy()});
