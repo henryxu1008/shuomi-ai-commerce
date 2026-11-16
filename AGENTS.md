@@ -62,7 +62,7 @@
 
 ## 当前架构与能力复用
 
-新代码落在[当前领域 owner](docs/architecture/project-boundaries.md)，复用合格的现有行为和成熟组件。具体产品基线遵循[当前产品决定](docs/product/greenfield-no-legacy-migration.md)，不重复维护已完成的退休过程材料或将其作为开发前置。
+新代码落在[当前领域 owner](docs/architecture/project-boundaries.md)，复用合格的现有行为和成熟组件。具体产品基线遵循 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](docs/product/greenfield-no-legacy-migration.md)：不新增旧系统兼容、历史数据迁移或第二事实源，只有用户新的明确产品决定可以改变本禁令。不重复维护已完成的退休过程材料或将其作为开发前置。
 
 - 一个业务事实由一个当前 owner 负责；不得引入旧 Service 包装、fallback、双读双写或第二事实源来承接旧设计。
 - 测试和源码本身不是新增产品需求的授权；仍有效的业务、安全、权限、事务、幂等和恢复行为继续验证。
