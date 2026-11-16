@@ -13,12 +13,22 @@ import (
 	"task-processor/internal/skill"
 )
 
+func (a *productAgentApplication) checkScriptTrialIdentity(identity agent.ExecutionIdentity) error {
+	if allowed := a.config.ScriptTrialIdentity; allowed != nil && identity != *allowed {
+		return skill.ErrForbidden
+	}
+	return nil
+}
+
 func (a *productAgentApplication) acquireScript(ctx context.Context, metadata commercetool.CallMetadata, request agent.Request) (skill.Package, func(), error) {
 	if a.script == nil || a.skills == nil || a.configuration == nil || a.store == nil || !request.ValidScript() || !request.ScriptSelected() || request.ScriptDescriptor != a.scriptDescriptor || a.definition.ID != agentconfig.ContentAgentID {
 		return skill.Package{}, nil, agent.ErrUnavailable
 	}
 	identity, err := a.currentModeIdentity(ctx)
 	if err != nil {
+		return skill.Package{}, nil, err
+	}
+	if err := a.checkScriptTrialIdentity(identity); err != nil {
 		return skill.Package{}, nil, err
 	}
 	scope, err := a.Authorize(ctx, request.Binding)
@@ -72,6 +82,10 @@ func (a *productAgentApplication) InvokeScript(ctx context.Context, metadata com
 	if !listingAgentContext(ctx) && !scheduledExecutionContext(ctx) {
 		identity, err := a.freshIdentity(ctx)
 		if err != nil {
+			return commercetool.Result{}, err
+		}
+		subject := agent.ExecutionIdentity{OrganizationID: identity.EffectiveOrganizationID, ActorID: identity.UserID, MemberID: identity.EffectiveMemberID}
+		if err := a.checkScriptTrialIdentity(subject); err != nil {
 			return commercetool.Result{}, err
 		}
 		capability, ok := ctx.Value(productReviewCapabilityContextKey{}).(productReviewRequestCapability)
