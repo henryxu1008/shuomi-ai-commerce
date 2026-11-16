@@ -98,3 +98,15 @@
 @media (max-width: 1080px) { .teamSummary { max-width: 700px; }.teamSummaryHeader { align-items: flex-start; flex-direction: column; gap: 6px; }.teamSummary .teamResults { grid-template-columns: repeat(2,minmax(0,1fr)); }.teamSummary .teamBottom { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 620px) { .teamSummary { margin-top: 22px; padding: 21px 17px 17px; border-radius: 18px; }.teamSummaryHeader h3 { font-size: 20px; }.teamSummaryHeader > p { font-size: 14px; }.teamSummary .teamResults { gap: 9px; margin-top: 16px; }.teamSummary .teamResults li { min-height: 58px; padding: 10px; gap: 8px; font-size: 13px; }.teamSummary .teamBottom { margin-top: 16px; padding-top: 15px; gap: 13px; }.teamSummary .teamBottom p { font-size: 16px; }.teamSummary .teamBottom a { min-height: 42px; } }
 @media (prefers-reduced-motion: reduce) { .teamSummary .teamResults li,.teamSummary .teamBottom a { transition: none; } }
+
+/* Bring the side panels, orbit and outcomes card onto one shared page grid. */
+@media (min-width: 1301px) {
+  .teamLayout { max-width: 1500px; grid-template-columns: minmax(280px,320px) minmax(0,1fr) minmax(280px,320px); gap: clamp(18px,2vw,30px); }
+  .teamPanel { align-self: center; margin-top: 0; }
+  .teamCanvas { justify-self: center; }
+  .teamSummary { max-width: 1500px; }
+}
+.teamCoreText { width: 200px; left: 220px; }
+.teamCoreText span { white-space: nowrap; }
+@media (max-width: 1080px) { .teamSummary { max-width: 700px; } }
+@media (max-width: 620px) { .teamPanel { align-self: stretch; }.teamCoreText { width: 184px; left: auto; }.teamCoreText span { white-space: normal; } }
