@@ -6,9 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getAccountAudit } from "@/lib/api/account-audit";
 import { enterpriseRoleKey } from "@/lib/api/enterprise-role-schema";
-import { auditOperationLabel } from "./audit/audit-labels";
 
 import { AccountReadError, updateAccountBusinessProfile, type AccountBusinessProfile, type AccountBusinessProfileInput, type AccountOrganization, type AccountProfile } from "@/lib/api/account";
 import { getAccountIdentityProfile, resendAccountEmailVerification, resendAccountPhoneVerification, setAccountEmail, setAccountPhone, updateAccountIdentityProfile, updateAccountPassword, verifyAccountEmail, verifyAccountPhone, type AccountIdentityProfileInput } from "@/lib/api/account-identity";
@@ -16,6 +14,7 @@ import { getCommercialOverview } from "@/lib/api/commercial";
 import { getMemberSummary } from "@/lib/api/members";
 import {getInvitationSummary} from "@/lib/api/invitations";
 import {listWorkbenchStores} from "@/lib/api/workbench-stores";
+import { MemberAllocationPreview } from "./member-allocation-preview";
 import {EnterpriseResources} from "../commercial/enterprise-resources";
 import styles from "./account.module.css";
 import overviewStyles from "../console/primary-overview.module.css";
@@ -254,7 +253,6 @@ const enterpriseRoleLabels = new Map([["listingkit_admin", "企业管理员"], [
 export function OrganizationView({ data, scope,platformMaintenance }: { data: AccountOrganization; scope: string;platformMaintenance?:ReactNode }) {
   const members = useQuery({ queryKey: ["account-overview", data.userId, data.effectiveOrganizationId, "members", scope], queryFn: ({ signal }) => getMemberSummary({ expectedUserId: data.userId, expectedOrganizationId: data.effectiveOrganizationId, signal }), gcTime: 0, staleTime: 0, retry: false });
   const commercial = useQuery({ queryKey: ["account-overview", data.userId, data.effectiveOrganizationId, "commercial", scope], queryFn: ({ signal }) => getCommercialOverview(data.effectiveOrganizationId, signal), gcTime: 0, staleTime: 0, retry: false });
-  const audit = useQuery({ queryKey: ["account-overview", data.userId, data.effectiveOrganizationId, "audit", scope], queryFn: ({ signal }) => getAccountAudit({ expectedUserId: data.userId, expectedOrganizationId: data.effectiveOrganizationId, signal }), gcTime: 0, staleTime: 0, retry: false });
   const metric = (query: { isPending: boolean; isError: boolean }, value: ReactNode, unavailable: string) => query.isPending ? "正在读取" : query.isError ? unavailable : value;
   const activeMembers = members.data?.active;
   const invites = useQuery({queryKey:["invitation-summary",data.userId,data.effectiveOrganizationId,scope],queryFn:({signal})=>getInvitationSummary({expectedUserId:data.userId,expectedOrganizationId:data.effectiveOrganizationId,signal}),gcTime:0,staleTime:0,retry:false});
@@ -304,15 +302,7 @@ export function OrganizationView({ data, scope,platformMaintenance }: { data: Ac
     </section>
     {platformMaintenance}
     <Panel title="企业资源"><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0} actionsAsButtons /></Panel>
-    <Panel title="最近操作记录">
-      {audit.isPending ? <p className={styles.note}>正在读取操作记录…</p> : audit.isError ? <p className={styles.note} role="status">暂时无法读取操作记录</p> : audit.data.items.length === 0 ? <p className={styles.note} role="status">暂无操作记录</p> :
-        <ul className={styles.auditPreview}>{audit.data.items.slice(0, 4).map(item => <li key={`${item.eventType}:${item.relation.type}:${item.relation.reference}:${item.relation.version}:${item.actor}`}>
-          <strong>{auditOperationLabel(item)}</strong>
-          <span>{[item.actor, item.objectReference].filter(Boolean).join(" · ")}</span>
-          <time dateTime={item.time}>{new Date(item.time).toLocaleString("zh-CN", { timeZone: "Asia/Singapore", hour12: false })}</time>
-        </li>)}</ul>}
-      <Button asChild variant="outline"><Link href="/workbench/account/organization/audit" prefetch={false}>查看操作记录</Link></Button>
-    </Panel>
+    <MemberAllocationPreview userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} />
     <Provenance data={data} />
   </div>;
 }

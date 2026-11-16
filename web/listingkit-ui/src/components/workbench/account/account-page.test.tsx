@@ -55,7 +55,6 @@ describe("AccountPage read-only projection", () => {
     expect(screen.getByRole("link", { name: "资源与额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
-    expect(screen.getByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     for (const name of ["成员与权限", "资源与额度", "操作记录", "管理成员额度", "查看钱包与充值状态"]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("data-slot", "button");
     }
@@ -67,12 +66,12 @@ describe("AccountPage read-only projection", () => {
     expect(screen.getByText("查看成员和角色，有权限的管理员可邀请成员")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "管理成员额度" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "查看操作记录" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "操作记录" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /邀请|移除/ })).not.toBeInTheDocument();
   });
   it("keeps resources and bounded audit cards available together alongside the permission-qualified member entry", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
+    expect(await screen.findByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByText("AI 点数按配置费率扣减；模型 Token 单独记录用量，钱包资金用于购买点数。")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
@@ -80,7 +79,7 @@ describe("AccountPage read-only projection", () => {
   });
   it("links the delivered audit slice with its bounded scope and retains the member entry", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "查看操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
+    expect(await screen.findByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
     expect(screen.getByText("查看账户资料、成员、额度和源账号的变动")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "成员与权限" })).toBeVisible();
@@ -366,14 +365,21 @@ describe("AccountPage read-only projection", () => {
     expect(screen.queryByRole("button", { name: /管理成员|管理资源|邀请/ })).not.toBeInTheDocument();
   });
   it("renders returned enterprise owner facts and labels a failed commercial read unavailable", async () => {
-    const memberList = { schemaVersion: "membership-v1", userId: "u1", organizationId: "B", items: [{ id: "member-1", userId: "member-user", organizationId: "B", projectId: "project-1", displayName: "成员甲", loginName: "member@example.test", roles: ["listingkit_viewer"], state: "active", createdAt: "2026-09-12T00:00:00Z", changedAt: "2026-09-12T00:00:00Z", observedVersion: "a".repeat(64), canChangeRole: false, canRemove: false, permissions: [] }], total: 8, canManage: false, assignableRoles: [] };
-    const audit = { schemaVersion: "account-audit-v1", userId: "u1", effectiveOrganizationId: "B", source: "source_account_committed_operations+account_business_profile_audit", items: [{ eventType: "account_business_profile.updated", actor: "operator-B", time: "2026-09-12T00:00:00Z", objectType: "account_business_profile", objectReference: "u1", operation: "update", result: "succeeded", relation: { type: "account_business_profile_version", reference: "u1", version: "1" } }], nextCursor: null };
+    const position = { free: "0", reserved: "0", consumed: "0", version: "1", recorded: true };
+    const unrecorded = { ...position, version: "0", recorded: false };
+    const member = { memberId: "member-1", userId: "u1", state: "active", roles: ["listingkit_viewer"], displayName: "成员甲", loginName: "", storeCount: "2", periods: position, dataRows: { ...position, free: "50000" } };
+    const secondMember = { ...member, memberId: "member-2", displayName: "成员乙", storeCount: null, periods: unrecorded, dataRows: unrecorded };
+    const directory = { schemaVersion: "member-resource-directory-v1", organizationId: "B", observedAt: profile.readAt, members: [member, secondMember] };
+    const limits = { schemaVersion: "member-ai-point-monthly-limit-v1", organizationId: "B", resourceType: "ai_point", timezone: "UTC", members: [
+      { memberId: "member-1", organizationId: "B", roles: ["listingkit_viewer"], displayName: "成员甲", loginName: "", unitVersion: "ai-micropoint-v1", configured: true, monthlyLimit: "20", reserved: "1", consumed: "6.5", remaining: "12.5", version: "1", monthStart: "2026-09-01T00:00:00Z", monthEnd: "2026-10-01T00:00:00Z" },
+    ] };
     const fetcher = vi.fn((input: string) => {
       const path = String(input);
       if (path === "/api/account/organization") return Promise.resolve(Response.json(organization));
       if (path === "/api/account/members/summary") return Promise.resolve(Response.json({schemaVersion:"membership-summary-v1",userId:"u1",organizationId:"B",total:8,active:7,administrators:1,inactive:1,source:"zitadel_authorization_v2",readAt:profile.readAt}));
       if (path === "/api/workbench/commercial/overview") return Promise.resolve(Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 }));
-      if (path.startsWith("/api/account/audit?")) return Promise.resolve(Response.json(audit));
+      if (path === "/api/account/member-resources") return Promise.resolve(Response.json(directory));
+      if (path === "/api/account/member-ai-point-limits") return Promise.resolve(Response.json(limits));
       throw new Error(`unexpected fetch: ${path}`);
     });
     vi.stubGlobal("fetch",withSelfReads(fetcher)); mount("organization");
@@ -383,9 +389,17 @@ describe("AccountPage read-only projection", () => {
     expect(screen.getByText("店铺按期收费，AI 与数据资源预付使用")).toBeVisible();
     expect(screen.getAllByText("暂不可用").length).toBeGreaterThan(0);
     expect(screen.getByRole("region",{name:"AI 点数余额"})).toBeVisible();
-    expect(screen.getByText("operator-B · u1")).toBeVisible();
-    expect(screen.getByText("更新账户资料")).toBeVisible();
-    expect(fetcher).toHaveBeenCalledTimes(7);
+    const allocation = await screen.findByRole("table", { name: "成员资源分配" });
+    const first = within(allocation).getByRole("row", { name: /成员甲/ });
+    const second = within(allocation).getByRole("row", { name: /成员乙/ });
+    for (const value of ["2 家", "0 期", "12.5 点", "50,000 条"]) {
+      expect(await within(first).findByText(value)).toBeVisible();
+    }
+    expect(within(second).getAllByText("暂无记录")).toHaveLength(2);
+    expect(within(second).getAllByText("暂不可用")).toHaveLength(2);
+    expect(screen.queryByRole("heading", { name: "最近操作记录" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看完整分配" })).toHaveAttribute("href", "/workbench/account/organization/resources");
+    expect(fetcher).toHaveBeenCalledTimes(8);
   });
   it("reads the fixed base plan from the current commercial contract",async()=>{const fetcher=vi.fn((input:string)=>String(input)==="/api/workbench/commercial/overview"?Promise.resolve(Response.json(commercialOverviewFixture("B"))):String(input)==="/api/account/organization"?Promise.resolve(Response.json(organization)):Promise.resolve(Response.json({code:"DEPENDENCY_UNAVAILABLE",message:"",requestId:"",fieldErrors:[]},{status:503})));vi.stubGlobal("fetch",withSelfReads(fetcher));mount("organization");expect(await screen.findByText("基础方案")).toBeVisible();expect(screen.getByText("店铺按期收费，AI 与数据资源预付使用")).toBeVisible();});
   it.each(["AUTHENTICATION_REQUIRED", "IDENTITY_CONTEXT_CHANGED", "ACCOUNT_NOT_CONFIGURED", "DEPENDENCY_UNAVAILABLE", "DEADLINE_EXCEEDED", "PERMISSION_DENIED", "ORGANIZATION_ACCESS_REVOKED", "unexpected"])("shows a safe %s state without data or raw error", async code => {

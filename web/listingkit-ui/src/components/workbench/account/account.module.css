@@ -33,24 +33,20 @@
 .enterpriseDetails dl { display: grid; gap: 8px; margin-top: 8px; }
 .enterpriseDetails dd { margin: 0; color: var(--foreground); overflow-wrap: anywhere; }
 .sectionTitle { margin-bottom: 12px; }
-.enterpriseResources span, .allocationLine small { color: var(--muted-foreground); font-size: var(--label-text-size); }
+.enterpriseResources span { color: var(--muted-foreground); font-size: var(--label-text-size); }
 .enterpriseResources { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .enterpriseResources > div { display: grid; gap: 8px; min-width: 0; }
 .enterpriseResources strong { overflow-wrap: anywhere; }
-.allocationPreview { overflow-x: auto; }
-.allocationHead, .allocationLine { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(80px, .6fr)); gap: 12px; align-items: center; min-width: 600px; padding: 12px 14px; }
-.allocationHead { border-radius: var(--radius); background: var(--muted); color: var(--muted-foreground); font-size: var(--label-text-size); }
-.allocationLine { border-bottom: 1px solid var(--border); font-size: var(--body-text-size); }
-.allocationLine > span:first-child { min-width: 0; }
-.allocationLine strong, .allocationLine small { display: block; overflow-wrap: anywhere; }
-.allocationLine small { margin-top: 4px; }
-.auditPreview { list-style: none; margin: 0; padding: 0; }
-.auditPreview li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: var(--body-text-size); }
-.auditPreview time, .auditPreview span { color: var(--muted-foreground); overflow-wrap: anywhere; }
-.auditPreview time { font-variant-numeric: tabular-nums; }
-.auditPreview + a { margin-top: 12px; }
+.allocationPreview { overflow-x: auto; margin-block: 12px 16px; }
+.allocationPreview:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.allocationPreview table { width: 100%; min-width: 36rem; border-collapse: collapse; font-size: var(--body-text-size); }
+.allocationPreview th, .allocationPreview td { padding: 12px; text-align: start; border-bottom: 1px solid var(--border); }
+.allocationPreview thead { background: var(--muted); color: var(--muted-foreground); }
+.allocationPreview tbody th { font-weight: 600; overflow-wrap: anywhere; }
+.allocationPreview small { display: block; color: var(--muted-foreground); font-weight: 400; }
+.allocationPreview td { font-variant-numeric: tabular-nums; }
+.allocationAction { margin-top: 12px; }
 .enterpriseWorkspace > .provenance { margin-top: 0; }
-.auditPreview strong { overflow-wrap: anywhere; }
 .provenance { color: var(--muted-foreground); font-size: var(--label-text-size); margin-top: 20px; overflow-wrap: anywhere; }
 .provenance summary { cursor: pointer; width: fit-content; }
 .provenance p { margin-top: 8px; }
@@ -149,7 +145,7 @@
 .successText { color: var(--success-foreground); font-size: var(--label-text-size); }
 .errorText { color: var(--destructive); font-size: var(--label-text-size); }
 @media (max-width: 767px) { .identity { align-items: flex-start; flex-direction: column; padding: 20px; gap: 16px; } .identityStatus { justify-items: start; text-align: left; } .businessGroups { grid-template-columns: 1fr; } .verificationCards { grid-template-columns: 1fr; } .panel { padding: 20px; } .fields { gap: 20px; } .organizationIdentity { gap: 12px; } .organizationIdentity img { width: 48px; height: 48px; } }
-@media (max-width: 767px) { .overview, .overviewLinks { grid-template-columns: 1fr; } .overviewMetric { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); } .profileForm, .businessGroup > div { grid-template-columns: 1fr; } .enterpriseResources { grid-template-columns: repeat(2, minmax(0, 1fr)); } .auditPreview li { grid-template-columns: 1fr; gap: 6px; } }
+@media (max-width: 767px) { .overview, .overviewLinks { grid-template-columns: 1fr; } .overviewMetric { padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); } .profileForm, .businessGroup > div { grid-template-columns: 1fr; } .enterpriseResources { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .status .fields { grid-template-columns: 1fr; } .status .fields > div { min-height: 80px; } }
 
 /* V1.3 summary: existing editors remain on their dedicated account leaves. */
