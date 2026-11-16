@@ -84,19 +84,19 @@ it("persists region input and keeps a legitimate empty region", async () => {
   ).resolves.toEqual(payload);
   await saveAccountPreferences({
     expectedUserId: "u1",
-    input: { country: "", province: "", city: "" },
+    input: { catalogVersion: "gn-0123456789abcdef", country: "", province: "", city: "" },
   });
   expect(fetcher).toHaveBeenLastCalledWith(
     "/api/account/preferences",
     expect.objectContaining({
       method: "PUT",
-      body: JSON.stringify({ country: "", province: "", city: "" }),
+      body: JSON.stringify({ catalogVersion: "gn-0123456789abcdef", country: "", province: "", city: "" }),
     }),
   );
   await expect(
     saveAccountPreferences({
       expectedUserId: "u1",
-      input: { country: "bad\nvalue", province: "", city: "" },
+      input: { catalogVersion: "gn-0123456789abcdef", country: "bad\nvalue", province: "", city: "" },
     }),
   ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   expect(fetcher).toHaveBeenCalledTimes(2);

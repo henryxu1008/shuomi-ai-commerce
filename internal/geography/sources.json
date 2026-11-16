@@ -1,0 +1,10 @@
+{
+  "version": "gn-e6eec5af36e9aae5",
+  "sha256": {
+    "countryInfo.txt": "79f8f59ea01cbb40438bf1856dd6c2ff201f03f8fc72d0530b2646aaf603ef04",
+    "admin1CodesASCII.txt": "2e4867f5397acb056ea26377601b57af37cb4c81399770225018e9e439e91ad3",
+    "admin2Codes.txt": "98be8275ac2a87cf48f17eca99ccb53a9126944c84b28ef3b451275b159dbf99",
+    "cities500.zip": "40754836f9b58f2702e53e8d4c531aac2bc04a39d92d798a09afd3456ae661ca",
+    "CN.zip": "3f742881833fce7dd9118a4f61fa06773dcffcabac1afd1fcfca2aa3b0294369"
+  }
+}

@@ -3,6 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { RegionPicker } from "@/components/ui/region-picker";
+import regionStyles from "@/components/ui/region-picker.module.css";
+import { AccountReadError } from "@/lib/api/account";
+import {
+  emptyRegion, getRegionCountry, getRegionIndex, matchSavedRegion, validRegionSelection,
+  type RegionSelection,
+} from "@/lib/api/region-catalog";
 import {
   getAccountFacts,
   getAccountSessionAuthentication,
@@ -59,7 +66,7 @@ export function RegionValue({
   field,
 }: {
   subject: string;
-  field: keyof RegionInput;
+  field: keyof RegionSelection;
 }) {
   const query = usePreferences(subject);
   return (
@@ -87,11 +94,30 @@ export function RegionSettings({ subject }: { subject: string }) {
   );
 }
 function RegionForm({ data }: { data: AccountPreferences }) {
-  const [form, setForm] = useState<RegionInput>({
-    country: data.country,
-    province: data.province,
-    city: data.city,
+  const [draft, setDraft] = useState<RegionSelection | null>(null);
+  const [explicitClear, setExplicitClear] = useState(false);
+  const subject = data.userId;
+  const index = useQuery({
+    queryKey: ["region-catalog", subject],
+    queryFn: ({ signal }) => getRegionIndex(subject, signal),
+    retry: false,
+    refetchOnWindowFocus: false,
   });
+  const savedCountry = index.data?.countries.find(option => option.name === data.country)?.id ?? "";
+  const countryId = draft?.country ?? savedCountry;
+  const detail = useQuery({
+    queryKey: ["region-catalog", subject, index.data?.version, countryId],
+    queryFn: ({ signal }) => getRegionCountry(subject, countryId, signal),
+    enabled: Boolean(index.data && countryId),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const versionMismatch = Boolean(index.data && detail.data && index.data.version !== detail.data.version);
+  const country = versionMismatch ? undefined : detail.data?.country;
+  const savedSelection = matchSavedRegion(data, country);
+  const selection = draft ?? savedSelection ?? { ...emptyRegion, country: countryId };
+  const savedLabel = [data.country, data.province, data.city].filter(Boolean).join(" / ");
+
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
     const c = new AbortController();
@@ -100,60 +126,61 @@ function RegionForm({ data }: { data: AccountPreferences }) {
   }, []);
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: (input: RegionInput) =>
-      saveAccountPreferences({
-        expectedUserId: data.userId,
-        input,
-        signal: controller.current?.signal,
-      }),
+    mutationFn: (input: RegionInput) => saveAccountPreferences({
+      expectedUserId: subject,
+      input,
+      signal: controller.current?.signal,
+    }),
     onSuccess: (saved) => {
       if (!controller.current?.signal.aborted)
-        queryClient.setQueryData(["account-preferences", data.userId], saved);
+        queryClient.setQueryData(["account-preferences", subject], saved);
     },
   });
+  const failedCatalog = index.isError || detail.isError || versionMismatch;
+  const refreshing = index.isFetching || (Boolean(countryId) && detail.isFetching);
+  const ready = Boolean(index.data && !failedCatalog && !refreshing &&
+    (explicitClear || ((draft || savedSelection) && validRegionSelection(selection, country))));
+  const savedNeedsSelection = savedLabel && !savedSelection && !refreshing;
+  const errorText = mutation.error instanceof AccountReadError && mutation.error.status === 400
+    ? "地区选项已无效，请刷新地区目录后重新选择"
+    : "保存结果未确认，请刷新资料核对后重试。";
+
   return (
-    <div className={styles.profileForm}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          mutation.mutate(form);
-        }}
-      >
-        {(
-          [
-            ["country", "国家 / 地区"],
-            ["province", "省 / 州"],
-            ["city", "城市"],
-          ] as const
-        ).map(([field, label]) => (
-          <label key={field}>
-            {label}
-            <input
-              aria-label={label}
-              value={form[field]}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  [field]: event.target.value,
-                }))
-              }
-              disabled={mutation.isPending}
-            />
-          </label>
-        ))}
-        <div className={styles.formActions}>
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "正在保存…" : "保存地区资料"}
-          </Button>
-          <span className={styles.note}>
-            {mutation.isSuccess
-              ? "地区资料已保存"
-              : mutation.isError
-                ? "保存结果未确认，请刷新资料核对后重试。"
-                : "地区资料由账户服务保存，用于本地化服务。"}
-          </span>
-        </div>
-      </form>
-    </div>
+    <form className={regionStyles.form} onSubmit={event => {
+      event.preventDefault();
+      if (ready && !mutation.isPending && index.data)
+        mutation.mutate({ catalogVersion: index.data.version, ...selection });
+    }}>
+      {savedNeedsSelection ? <p className={styles.note}>
+        已保存地区：{savedLabel}{draft === null ? "。请从目录重新选择，或明确清空。" : null}
+      </p> : null}
+      {explicitClear ? <p className={styles.note} role="status">保存后将清空已保存的地区资料</p> : null}
+      <RegionPicker countries={index.data?.countries ?? []} country={country}
+        selection={selection} disabled={mutation.isPending || !index.data || index.isFetching}
+        loading={Boolean(countryId) && detail.isFetching} onChange={next => {
+          setExplicitClear(false);
+          setDraft(next);
+          mutation.reset();
+        }} />
+      {index.isPending ? <p className={styles.note} role="status">正在读取地区目录…</p> : null}
+      {failedCatalog ? <p className={styles.errorText} role="alert">地区目录暂时无法读取，请重试</p> : null}
+      <div className={regionStyles.actions}>
+        <Button type="submit" variant="outline" disabled={!ready || mutation.isPending}>
+          {mutation.isPending ? "正在保存…" : "保存地区资料"}
+        </Button>
+        {savedLabel && !explicitClear ? <Button type="button" variant="ghost" disabled={mutation.isPending} onClick={() => {
+          setDraft(emptyRegion);
+          setExplicitClear(true);
+          mutation.reset();
+        }}>清空地区</Button> : null}
+        {failedCatalog || (mutation.error instanceof AccountReadError && mutation.error.status === 400)
+          ? <Button type="button" variant="ghost" onClick={() => {
+              void index.refetch();
+              if (countryId) void detail.refetch();
+            }}>刷新地区目录</Button> : null}
+        {mutation.isSuccess ? <span className={styles.successText} role="status">地区资料已保存</span> : null}
+        {mutation.isError ? <span className={styles.errorText} role="alert">{errorText}</span> : null}
+      </div>
+    </form>
   );
 }

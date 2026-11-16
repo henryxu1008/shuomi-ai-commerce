@@ -1,0 +1,10 @@
+.form { display: grid; gap: 12px; max-width: 720px; }
+.fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 16px; }
+.field, .field label { display: grid; gap: 8px; min-width: 0; }
+.field label { font-size: var(--body-text-size); }
+.control, .search input { width: 100%; min-height: 44px; }
+.search input { border: 1px solid var(--input); border-radius: var(--control-radius); padding: 8px 12px; background: var(--background); }
+.search input:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.field small { color: var(--muted-foreground); }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+@media (max-width: 767px) { .fields { grid-template-columns: minmax(0, 1fr); } }

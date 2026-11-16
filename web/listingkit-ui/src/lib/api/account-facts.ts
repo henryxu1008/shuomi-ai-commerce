@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AccountReadError, accountErrorCode } from "./account";
 import { readBoundedStrictJSON } from "./strict-json-response";
+import { regionSelectionSchema } from "./region-catalog";
 export const accountFactSubject = z
   .string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
@@ -11,7 +12,7 @@ const region = z
     (value) =>
       new TextEncoder().encode(value).length <= 128 && !/\p{Cc}/u.test(value),
   );
-export const regionInputSchema = z
+const regionLabelsSchema = z
   .object({ country: region, province: region, city: region })
   .strict();
 export const accountFactsSchema = z
@@ -25,7 +26,7 @@ export const accountFactsSchema = z
     readAt: timestamp,
   })
   .strict();
-export const accountPreferencesSchema = regionInputSchema
+export const accountPreferencesSchema = regionLabelsSchema
   .extend({
     schemaVersion: z.literal("account-preferences-v1"),
     userId: accountFactSubject,
@@ -35,7 +36,7 @@ export const accountPreferencesSchema = regionInputSchema
   })
   .strict();
 export type AccountPreferences = z.infer<typeof accountPreferencesSchema>;
-export type RegionInput = z.infer<typeof regionInputSchema>;
+export type RegionInput = z.infer<typeof regionSelectionSchema>;
 type Scope = { expectedUserId: string; signal?: AbortSignal };
 export function getAccountFacts(scope: Scope) {
   return request("/api/account/facts", scope, accountFactsSchema);
@@ -62,7 +63,7 @@ async function request<T extends { userId: string }>(
 ): Promise<T> {
   if (
     !accountFactSubject.safeParse(scope.expectedUserId).success ||
-    (input && !regionInputSchema.safeParse(input).success)
+    (input && !regionSelectionSchema.safeParse(input).success)
   )
     throw new AccountReadError(400, "INVALID_REQUEST");
   const controller = new AbortController();
