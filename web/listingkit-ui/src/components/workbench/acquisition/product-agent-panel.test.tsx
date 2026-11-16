@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {useEffect} from "react";
 import { ProductAgentPanel } from "./product-agent-panel";
 import { ProductAgentError } from "@/lib/api/product-agent";
@@ -14,6 +14,65 @@ beforeEach(() => { fixture.context.roles=["listingkit_operator"];fixture.request
 afterEach(cleanup);
 const op = "11111111-1111-4111-8111-111111111111";
 const props = { enabled: true, operationId: op, productKey: "product", catalogVersion: "1" };
+
+it.each([
+    ["succeeded", "技能处理完成", "Portable storage bag"],
+    ["not_dispatched", "技能未执行", null],
+    ["outcome_unknown", "技能处理结果待确认", null],
+] as const)("presents the own title receipt %s with the appropriate next action", async (outcome, heading, processedTitle) => {
+    const canSubmitReview = outcome === "succeeded";
+    const originalTitle = "Storage bag";
+    const unconfirmedTitle = "Unconfirmed output";
+    fixture.params = new URLSearchParams({ agent_key: op, agent_actor: "actor", agent_org: "org" });
+    fixture.request.mockResolvedValue({
+        runId: op, requestKey: op, operationId: op, productKey: "product", catalogVersion: "1",
+        publicationId: "original", targetPlatform: "product", executionMode: "default", modeRevision: "0",
+        phase: canSubmitReview ? "human_review_required" : "stopped", revision: "2",
+        stopReason: canSubmitReview ? undefined : "tool_error", canSubmitReview,
+        contentSelection: { targetLanguage: "en-US", title: true },
+        scriptOriginalTitle: originalTitle,
+        scriptReceipt: {
+            outcome, cleanup: outcome === "not_dispatched" ? "not_needed" : "completed",
+            reason: outcome === "not_dispatched" ? "control_unavailable" : "execution_unconfirmed",
+        },
+        candidate: { Changes: [{
+            Field: "title", Value: outcome === "outcome_unknown" ? unconfirmedTitle : processedTitle ?? originalTitle,
+            EvidenceIDs: ["source"],
+        }] },
+        confidence: [], unresolved: [], steps: [{ step: 1, callId: "model-call" }],
+        tokens: 60, estimatedCostMicros: 100, currency: "CNY", usageStatus: "observed",
+    });
+
+    render(<ProductAgentPanel {...props} ownSource={{ catalogVersion: "1", publicationId: "original" }}/>);
+    expect(fixture.request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "读取当前结果" }));
+    await screen.findByRole("heading", { name: heading });
+    expect(screen.getAllByText(originalTitle)).toHaveLength(1);
+    expect(fixture.request.mock.calls[0].slice(0, 3)).toEqual(["read", op, op]);
+    if (processedTitle) {
+        expect(screen.getByText("技能处理前")).toBeInTheDocument();
+        expect(screen.getByText("技能处理后")).toBeInTheDocument();
+        expect(screen.getByText(processedTitle)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "提交人工审核" })).toBeEnabled();
+    } else {
+        expect(screen.queryByText("技能处理后")).toBeNull();
+        expect(screen.queryByText(unconfirmedTitle)).toBeNull();
+        expect(screen.queryByRole("button", { name: "提交人工审核" })).toBeNull();
+        expect(screen.getByText(/暂不能采用/)).toBeInTheDocument();
+    }
+    if (outcome === "not_dispatched") {
+        expect(screen.getByRole("status")).toHaveTextContent("请联系管理员");
+        expect(screen.queryByText(/工具处理失败/)).toBeNull();
+    }
+    const details = screen.getByText("查看本次详情").closest("details")!;
+    expect(details).not.toHaveAttribute("open");
+    expect(within(details).getByText(op, { exact: false })).toBeInTheDocument();
+    expect(within(details).getByText(/model-call/)).toBeInTheDocument();
+    expect(fixture.request).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "重新查看本次结果" }));
+    await waitFor(() => expect(fixture.request).toHaveBeenCalledTimes(2));
+    expect(fixture.request.mock.calls[1].slice(0, 3)).toEqual(["read", op, op]);
+});
 it("reconfirms a restored manual-only rejection only after preserving the original request",async()=>{
  const start={expectedModeRevision:"0",targetPlatform:"product" as const,manualReviewOnly:true as const,contentSelection:{targetLanguage:"en",title:true,sellingPoints:true}};
  const reset=vi.fn(),persist=vi.fn();fixture.request.mockRejectedValue(new ProductAgentError("MANUAL_REVIEW_REQUIRED"));
