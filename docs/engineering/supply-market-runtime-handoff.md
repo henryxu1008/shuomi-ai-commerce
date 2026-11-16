@@ -90,7 +90,7 @@ OSS hosts 都完成配置后才设置 `LISTINGKIT_SDS_POD_ENABLED=true`。沿既
 - `/workbench/supply/official`、`/selected`：查看真实已发布商品，选择并保存到本人
   Collection。空市场显示空状态，不 seed 假发布。
 - `/workbench/supply/catalogs`：按 API / 浏览器插件展示货盘目录，可按国内仓、海外仓和
-  仓库所在国家/地区筛选；页首「申请对接货盘」在当前页面打开模态框，与原申请页
+  仓库所在国家/地区筛选；页首「申请对接货盘」在当前页面打开模态框，与进度/记录页
   复用同一模态表单及提交/核实能力，取消返回原筛选结果。提交进行中禁止关闭；成功后
   显示准确记录的进度链接。进度/记录页的「发起申请」也使用同一模态框，且不显示
   四个跨渠道快捷链接。无 `view` 的 `/workbench/supply/catalogs/apply` 返回货盘目录，
