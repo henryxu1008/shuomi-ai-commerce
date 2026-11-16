@@ -65,13 +65,25 @@ it("preserves ended/cursor while paging history", async () => {
   await userEvent.setup().click(screen.getByRole("button", {name:"下一页"}));
   await waitFor(() => expect(listMarketRecords).toHaveBeenLastCalledWith({userId:"member-a", organizationId:"org-a"}, {kind:"selected", ended:true, after:"next-history"}, false, expect.any(AbortSignal)));
 });
-it("keeps platform type/state filters available", async () => {
+it("switches platform type tabs with the existing filters, cursor reset and keyboard controls", async () => {
   context.user.id = "specialist";
-  page(undefined, true);
+  vi.mocked(listMarketRecords).mockResolvedValue({items:[],total:0,nextCursor:"next-filter"});
+  page(undefined, true);const user=userEvent.setup();
   await screen.findByText("暂无申请记录");
-  await userEvent.setup().selectOptions(screen.getByRole("combobox", {name:"申请类型"}), "connection");
-  await userEvent.setup().click(screen.getByRole("button", {name:"已结束"}));
+  expect(screen.queryByRole("combobox",{name:"申请类型"})).not.toBeInTheDocument();
+  expect(screen.getByRole("tab",{name:"优选申请"})).toHaveAttribute("aria-selected","true");
+  await user.click(screen.getByRole("button",{name:"下一页"}));
+  await waitFor(()=>expect(listMarketRecords).toHaveBeenLastCalledWith({userId:"specialist",organizationId:""},{kind:"selected",ended:false,after:"next-filter"},true,expect.any(AbortSignal)));
+  await user.click(screen.getByRole("tab", {name:"货盘对接"}));
+  await user.click(screen.getByRole("button", {name:"已结束"}));
   await waitFor(() => expect(listMarketRecords).toHaveBeenLastCalledWith({userId:"specialist", organizationId:""}, {kind:"connection", ended:true, after:undefined}, true, expect.any(AbortSignal)));
+  await user.click(screen.getByRole("tab",{name:"货盘对接"}));await user.keyboard("{ArrowRight}");
+  expect(screen.getByRole("tab",{name:"自营商品"})).toHaveFocus();expect(screen.getByRole("tab",{name:"自营商品"})).toHaveAttribute("aria-selected","true");
+  expect(screen.getByRole("tabpanel",{name:"自营商品"})).toBeVisible();expect(screen.queryByRole("button",{name:"已结束"})).not.toBeInTheDocument();
+  await waitFor(()=>expect(listMarketRecords).toHaveBeenLastCalledWith({userId:"specialist",organizationId:""},{kind:"official",ended:false,after:undefined},true,expect.any(AbortSignal)));
+  await user.keyboard("{Home}");expect(screen.getByRole("tab",{name:"优选申请"})).toHaveFocus();
+  await waitFor(()=>expect(listMarketRecords).toHaveBeenLastCalledWith({userId:"specialist",organizationId:""},{kind:"selected",ended:true,after:undefined},true,expect.any(AbortSignal)));
+  await user.keyboard("{End}");expect(screen.getByRole("tab",{name:"自营商品"})).toHaveFocus();
 });
 it("replaces the generic member list with the real selected overview and existing entry points", async () => {
   page();

@@ -96,6 +96,7 @@ it("opens official management directly and shows actual release state rather tha
  state.platform.mockResolvedValue({items:[{id:recordId,kind:"official",product,stage:"DRAFT",createdAt:"2026-11-16T00:00:00Z"}],total:1});
  state.releases.mockResolvedValue({items:[{id:releaseId,active:true}],total:1});show(<SupplyApplicationsPage admin expectedUserId="actor" initialKind="official"/>);
  await screen.findByText("已发布");expect(screen.queryByText("草稿 · 待发布")).not.toBeInTheDocument();
+ expect(screen.getByRole("tab",{name:"自营商品"})).toHaveAttribute("aria-selected","true");
  expect(screen.getByRole("link",{name:"查看并继续发布"})).toHaveAttribute("href",`/workbench/supply/operator/${recordId}`);
  expect(screen.queryByRole("button",{name:"已结束"})).not.toBeInTheDocument();
  expect(state.platform).toHaveBeenCalledWith({userId:"actor",organizationId:""},{kind:"official",ended:false,after:undefined},true,expect.any(AbortSignal));
