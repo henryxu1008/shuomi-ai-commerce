@@ -69,13 +69,14 @@ def build(source):
     subdivisions = {}
     for code, name, _, ident in text_rows(source / "admin1CodesASCII.txt"):
         country = code.split(".")[0]
-        if country in countries and country != "SG":
+        if country in countries and country not in {"CN", "SG"}:
             subdivisions[code] = (ident, local_name(ident, name), [])
     districts = {r[0]: local_name(r[3], r[1]) for r in text_rows(source / "admin2Codes.txt")}
     direct = {country: [] for country in countries}
     for row in zip_rows(source / "cities500.zip", "cities500.txt"):
         ident, name, country, admin1, admin2 = row[0], row[1], row[8], row[10], row[11]
-        if country not in countries or row[7] not in {"PPL", "PPLC", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5"}:
+        # China province and city details are bundled from the shared CN catalog.
+        if country == "CN" or country not in countries or row[7] not in {"PPL", "PPLC", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5"}:
             continue
         if country == "SG" and ident != "1880252":
             # The preference refers to the city-state, not a planning district.

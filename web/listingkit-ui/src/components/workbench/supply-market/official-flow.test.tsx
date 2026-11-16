@@ -1,3 +1,4 @@
+import {shippingRegions} from "@/test/fixtures/shipping-regions";
 import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
@@ -18,7 +19,7 @@ const id="11111111-1111-4111-8111-111111111111",recordId="22222222-2222-4222-822
 const product={title:"自营外套",description:"棉质外套",brand:"自营品牌",attributes:{材质:"棉"},images:["https://images.example.org/coat.png"],variants:[{sourceId:"red",sku:"RED",attributes:{颜色:"红"},currency:"CNY",price:0,stock:10}]};
 const supply={stock:12,capacity:"",minimumQuantity:1,leadDays:2,province:"上海市",city:"上海市",priceNote:"",afterSaleNote:"支持售后"};
 const selection={itemId:id,expectedRevision:3,originalPublicationId:id,originalVersion:"1",effectiveVersion:"1"};
-function show(node:React.ReactNode){const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});return {client,...render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)}}
+function show(node:React.ReactNode){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});client.setQueryData(["region-catalog",state.context.user.id,"shipping","CN"],shippingRegions);return {client,...render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)}}
 beforeEach(()=>{vi.clearAllMocks();state.saved=null;state.context.permissions=["workbench.collection.read","workbench.collection.manage","workbench.supply-market.apply"];state.platform.mockResolvedValue({items:[],total:0});state.own.mockResolvedValue({items:[{id,title:product.title,source:{kind:"own"}}],total:1});state.choice.mockResolvedValue({selection,product,optimized:false,ineligibleReason:"not_optimized"});state.record.mockResolvedValue({id:recordId,kind:"official",product,supply,stage:"DRAFT",revision:4});state.releases.mockResolvedValue({items:[],total:0});});
 afterEach(cleanup);
 it("exposes add and management from the official market for a verified specialist",async()=>{

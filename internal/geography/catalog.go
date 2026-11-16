@@ -3,7 +3,9 @@ package geography
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -11,6 +13,9 @@ import (
 
 //go:embed catalog.json.gz
 var snapshot []byte
+
+//go:embed china.json
+var chinaSnapshot []byte
 
 // Direct identifies the explicit no-subdivision group in a country that also has provinces.
 const Direct = "direct"
@@ -61,11 +66,28 @@ var loadCatalog = sync.OnceValues(func() (*Catalog, error) {
 	if data.Version == "" || len(data.Countries) == 0 {
 		return nil, errors.New("empty region catalog")
 	}
-	catalog := &Catalog{version: data.Version, byID: make(map[string]*Country, len(data.Countries))}
+	var china Country
+	if err := json.Unmarshal(chinaSnapshot, &china); err != nil {
+		return nil, err
+	}
+	if china.ID != "CN" || len(china.Provinces) == 0 {
+		return nil, errors.New("empty China region catalog")
+	}
+	digest := sha256.Sum256([]byte(data.Version + "\n" + string(bytes.TrimSpace(chinaSnapshot))))
+	catalog := &Catalog{version: "gn-" + hex.EncodeToString(digest[:8]), byID: make(map[string]*Country, len(data.Countries))}
 	for i := range data.Countries {
 		country := &data.Countries[i]
+		if country.ID == china.ID {
+			if country.Name != china.Name || len(country.Provinces) != 0 || len(country.Cities) != 0 {
+				return nil, errors.New("invalid China country metadata")
+			}
+			country = &china
+		}
 		catalog.countries = append(catalog.countries, country.Option)
 		catalog.byID[country.ID] = country
+	}
+	if catalog.Country(china.ID) == nil {
+		return nil, errors.New("missing China country metadata")
 	}
 	return catalog, nil
 })

@@ -77,6 +77,16 @@ it("forwards only an authenticated country catalog GET and verifies its country"
     { headers: { "X-Expected-User-ID": identity } });
   expect((await proxyAccountFacts(request("?country=SG", "other"), "token", "self")).status).toBe(409);
   expect((await proxyAccountFacts(request("?country=SG&country=CN"), "token", "self")).status).toBe(400);
+  expect((await proxyAccountFacts(request("?country=SG&view=shipping"), "token", "self")).status).toBe(400);
+  expect((await proxyAccountFacts(request("?country=CN&view=shipping&view=shipping"), "token", "self")).status).toBe(400);
   expect((await proxyAccountFacts(request("?country=SG"), "token", "self")).status).toBe(200);
   expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:9000/api/v1/account/region-catalog?country=SG", expect.objectContaining({ method: "GET" }));
+  fetch.mockResolvedValueOnce(Response.json({
+    version: "gn-0123456789abcdef",
+    country: { id: "CN", name: "China", provinces: [{ id: "330000", name: "浙江省", cities: [{ id: "330100", name: "杭州市" }] }], cities: [] },
+  }));
+  const shipping = await proxyAccountFacts(request("?view=shipping&country=CN"), "token", "self");
+  expect(shipping.status).toBe(200);
+  expect((await shipping.json()).country.provinces[0].name).toBe("浙江省");
+  expect(fetch).toHaveBeenLastCalledWith("http://127.0.0.1:9000/api/v1/account/region-catalog?country=CN&view=shipping", expect.objectContaining({ method: "GET" }));
 });

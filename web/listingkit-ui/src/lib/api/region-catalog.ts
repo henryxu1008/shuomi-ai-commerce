@@ -68,7 +68,8 @@ export function getRegionIndex(subject: string, signal: AbortSignal) {
 export async function getRegionCountry(subject: string, country: string, signal: AbortSignal) {
   if (!countryCode.safeParse(country).success) throw new AccountReadError(400, "INVALID_REQUEST");
   const detail = await request(`?country=${country}`, regionCountrySchema, subject, signal);
-  if (detail.country.id !== country) throw new AccountReadError(502, "INVALID_UPSTREAM_RESPONSE");
+  if (detail.country.id !== country || (country === "CN" && detail.country.provinces.length === 0))
+    throw new AccountReadError(502, "INVALID_UPSTREAM_RESPONSE");
   return detail;
 }
 

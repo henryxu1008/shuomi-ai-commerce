@@ -32,7 +32,7 @@ func TestAccountPreferencesRequireCompleteSelfScopedInput(t *testing.T) {
 		return w
 	}
 	require.Equal(t, 400, request("PUT", "self", `{"country":"中国","province":"浙江","city":"杭州"}`).Code, "old free text must not reach storage")
-	_, err = repo.SavePreferences(context.Background(), store.UserPreferences{UserID: "self", Country: "旧地区", Province: "旧值", City: "旧城市"})
+	_, err = repo.SavePreferences(context.Background(), store.UserPreferences{UserID: "self", Country: "China", Province: "浙江", City: "乌镇"})
 	require.NoError(t, err)
 	catalog, err := geography.Bundled()
 	require.NoError(t, err)
@@ -46,11 +46,21 @@ func TestAccountPreferencesRequireCompleteSelfScopedInput(t *testing.T) {
 		input("US", "5332921", "1880252"),
 		input("US", "浙江", "杭州"),
 		input("SG", "direct", "1880252"),
+		input("CN", "1809935", "1795565"),
+		input("CN", "440000", "330100"),
 		strings.Replace(input("SG", "", "1880252"), catalog.Version(), "gn-old", 1),
 	} {
 		require.Equal(t, 400, request("PUT", "self", body).Code, body)
 	}
-	require.Contains(t, request("GET", "self", "").Body.String(), "旧城市")
+	stored := request("GET", "self", "").Body.String()
+	require.Contains(t, stored, `"province":"浙江"`)
+	require.Contains(t, stored, `"city":"乌镇"`)
+	require.Equal(t, 400, request("PUT", "self", strings.Replace(input("CN", "330000", "330100"), catalog.Version(), "gn-e6eec5af36e9aae5", 1)).Code)
+	require.Contains(t, request("GET", "self", "").Body.String(), "乌镇")
+	require.Equal(t, 200, request("PUT", "self", input("CN", "330000", "330100")).Code)
+	stored = request("GET", "self", "").Body.String()
+	require.Contains(t, stored, `"province":"浙江省"`)
+	require.Contains(t, stored, `"city":"杭州市"`)
 	require.Equal(t, 200, request("PUT", "self", input("SG", "", "1880252")).Code)
 	require.Contains(t, request("GET", "self", "").Body.String(), "Singapore")
 	require.NotContains(t, request("GET", "foreign", "").Body.String(), "Singapore")
@@ -78,4 +88,15 @@ func TestAccountRegionCatalogReadScope(t *testing.T) {
 	require.Equal(t, 200, country.Code)
 	require.Contains(t, country.Body.String(), `"provinces":[]`)
 	require.Contains(t, country.Body.String(), `"1880252"`)
+	require.Equal(t, 400, request("?country=SG&view=shipping", "self").Code)
+	require.Equal(t, 400, request("?country=CN&view=shipping&view=shipping", "self").Code)
+	require.Equal(t, 400, request("?country=CN&view=shipping&extra=1", "self").Code)
+	shipping := request("?country=CN&view=shipping", "self")
+	require.Equal(t, 200, shipping.Code)
+	china := request("?country=CN", "self")
+	require.Equal(t, 200, china.Code)
+	require.True(t, china.Body.String() == shipping.Body.String(), "China catalog query forms must return the same response")
+	require.Contains(t, shipping.Body.String(), "浙江省")
+	require.Contains(t, shipping.Body.String(), "杭州市")
+	require.Contains(t, shipping.Body.String(), "仙桃市")
 }

@@ -27,10 +27,12 @@ export async function proxyAccountFacts(
   const preferences = url.pathname === "/api/account/preferences";
   const catalog = url.pathname === "/api/account/region-catalog";
   const country = url.searchParams.get("country");
+  const shipping = country === "CN" && url.searchParams.get("view") === "shipping" && url.searchParams.size === 2;
+  const countryOnly = countryCode.safeParse(country).success && url.searchParams.size === 1;
   const write = request.method === "PUT";
   if (
     (url.pathname !== "/api/account/facts" && !preferences && !catalog) ||
-    (url.search && (!catalog || !countryCode.safeParse(country).success || url.searchParams.size !== 1)) ||
+    (url.search && (!catalog || (!countryOnly && !shipping))) ||
     request.url.endsWith("?") ||
     !(request.method === "GET" || (preferences && write))
   )
@@ -87,7 +89,7 @@ export async function proxyAccountFacts(
     }
     controller.signal.throwIfAborted();
     dispatched = true;
-    const resource = catalog ? `region-catalog${country ? `?country=${country}` : ""}` : preferences ? "preferences" : "identity/facts";
+    const resource = catalog ? `region-catalog${country ? `?country=${country}${shipping ? "&view=shipping" : ""}` : ""}` : preferences ? "preferences" : "identity/facts";
     const response = await fetch(
       `${origin}/api/v1/account/${resource}`,
       {

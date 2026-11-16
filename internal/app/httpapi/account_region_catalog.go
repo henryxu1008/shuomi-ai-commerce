@@ -25,8 +25,11 @@ func (m accountProfileModule) regionCatalog(c *gin.Context) {
 	}
 	query, err := url.ParseQuery(c.Request.URL.RawQuery)
 	country := query.Get("country")
-	if err != nil || (c.Request.URL.RawQuery != "" &&
-		(len(query) != 1 || len(query["country"]) != 1 || len(country) != 2 || strings.Trim(country, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") != "")) {
+	countryOnly := len(query) == 1 && len(query["country"]) == 1 &&
+		len(country) == 2 && strings.Trim(country, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") == ""
+	shipping := len(query) == 2 && len(query["country"]) == 1 && country == "CN" &&
+		len(query["view"]) == 1 && query.Get("view") == "shipping"
+	if err != nil || (c.Request.URL.RawQuery != "" && !countryOnly && !shipping) {
 		writeAccountProfileError(c, http.StatusBadRequest, "INVALID_REQUEST")
 		return
 	}
