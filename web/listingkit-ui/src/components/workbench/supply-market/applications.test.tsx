@@ -6,11 +6,23 @@ import {listMarketRecords,readApplicationOverview} from "@/lib/api/supply-market
 import {SupplyApplicationsPage} from "./applications";
 import CatalogApplyRoute from "@/app/workbench/supply/catalogs/apply/page";
 vi.mock("next/server",()=>({connection:vi.fn()}));
+vi.mock("next/navigation",async original=>({...await original<object>(),redirect:vi.fn((url:string)=>{throw new Error("redirect:"+url)})}));
+it("returns the standalone catalog application URL to the directory",async()=>{
+ vi.stubEnv("LISTINGKIT_SUPPLY_MARKET_ENABLED","true");
+ await expect(CatalogApplyRoute()).rejects.toThrow("redirect:/workbench/supply/catalogs");vi.unstubAllEnvs();
+});
 it.each(["progress","records"] as const)("reads only the applicant connection %s via the real catalog route",async(view)=>{
  vi.stubEnv("LISTINGKIT_SUPPLY_MARKET_ENABLED","true");
  const component=await CatalogApplyRoute({searchParams:Promise.resolve({view})});
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});render(<QueryClientProvider client={client}>{component}</QueryClientProvider>);
  await waitFor(()=>expect(listMarketRecords).toHaveBeenCalledWith({userId:"member-a",organizationId:"org-a"},{kind:"connection",ended:view==="records",after:undefined},false,expect.any(AbortSignal)));
+ expect(screen.queryByRole("navigation",{name:"供应市场"})).not.toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:"发起申请"})).not.toBeInTheDocument();
+ const trigger=screen.getByRole("button",{name:"发起申请"});await userEvent.setup().click(trigger);
+ const dialog=within(screen.getByRole("dialog",{name:"申请对接货盘"}));expect(dialog.getByLabelText("货盘名称")).toHaveFocus();
+ await userEvent.setup().click(dialog.getByRole("button",{name:"取消"}));expect(trigger).toHaveFocus();expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"申请进度"})).toHaveAttribute("href","/workbench/supply/catalogs/apply?view=progress");
+ expect(screen.getByRole("link",{name:"申请记录"})).toHaveAttribute("href","/workbench/supply/catalogs/apply?view=records");
  client.clear();vi.unstubAllEnvs();
 });
 
@@ -19,6 +31,8 @@ vi.mock("@/components/providers/workbench-context-provider", () => ({useWorkbenc
 vi.mock("@/lib/api/supply-market", async importOriginal => ({...await importOriginal<typeof import("@/lib/api/supply-market")>(), listMarketRecords:vi.fn(),readApplicationOverview:vi.fn()}));
 afterEach(cleanup);
 beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
+  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
   context.user.id = "member-a";
   context.isLoading = false;
   context.isSwitching = false;

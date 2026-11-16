@@ -12,7 +12,7 @@ const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow 
   }))),
 }));
 const pending = (label: string, href: string, children?: readonly ConsoleNavNode[]): ConsoleNavNode => ({ label, href: `/workbench/${href}`, availability: "unavailable", children });
-const catalogPages = [pending("货盘选品", "supply/catalogs/selection"), pending("申请对接", "supply/catalogs/apply")];
+const catalogPages = [pending("货盘选品", "supply/catalogs/selection"), pending("对接进度", "supply/catalogs/apply")];
 export const consoleNavigation: readonly ConsoleNavNode[] = [
   { label: "运营驾驶舱", href: "/workbench", availability: "unavailable", children: [pending("目标管理", "overview/goals"), pending("店铺矩阵", "overview/stores"), pending("经营预警", "overview/alerts"), pending("经营建议", "overview/advice")] },
   pending("AI工作台", "ai", [

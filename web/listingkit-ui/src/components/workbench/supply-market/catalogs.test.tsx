@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, expect, it, vi} from "vitest";
 import {useMarketCommands} from "./shared";
 import {SupplyCatalogsPage} from "./catalogs";
-it.each([undefined,"apply"] as const)("provides a normal connection history entry on %s",view=>{
- page(view);expect(screen.getByRole("link",{name:"查看对接进度与记录"})).toHaveAttribute("href","/workbench/supply/catalogs/apply?view=progress");
+it("provides a normal connection history entry on the directory",()=>{
+ page();expect(screen.getByRole("link",{name:"查看对接进度与记录"})).toHaveAttribute("href","/workbench/supply/catalogs/apply?view=progress");
 });
 
 const context=vi.hoisted(()=>({user:{id:"member-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,error:null,blockingError:null}));
@@ -16,7 +16,7 @@ beforeEach(()=>{vi.clearAllMocks();context.isLoading=false;context.effectiveOrga
  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
 });
-function page(view?:"selection"|"apply",acquisitionAvailable=false,sdsAvailable=false){return render(<SupplyCatalogsPage view={view} acquisitionAvailable={acquisitionAvailable} sdsAvailable={sdsAvailable}/>)}
+function page(view?:"selection",acquisitionAvailable=false,sdsAvailable=false){return render(<SupplyCatalogsPage view={view} acquisitionAvailable={acquisitionAvailable} sdsAvailable={sdsAvailable}/>)}
 it("shows the four branded catalog entries and honest API connection status",()=>{
  page();
  expect(screen.getByRole("button",{name:"API 对接"})).toHaveAttribute("aria-pressed","true");
@@ -104,30 +104,8 @@ it.each([[false,false],[true,false],[false,true],[true,true]])("keeps selection 
   expect(screen.queryByRole("button",{name:"提交对接申请"})).not.toBeInTheDocument();
   expect(useMarketCommands).not.toHaveBeenCalled();
 });
-it("keeps the original member-scoped connection command and form fields on the apply leaf",async()=>{
-  page("apply");
-  expect(screen.getByRole("heading",{name:"申请对接",level:1})).toBeVisible();
-  const breadcrumb=within(screen.getByRole("navigation",{name:"面包屑"}));
-  expect(breadcrumb.getByRole("link",{name:"货盘集成"})).toHaveAttribute("href","/workbench/supply/catalogs");
-  expect(breadcrumb.getByText("申请对接")).toBeVisible();
-  expect(useMarketCommands).toHaveBeenCalledWith({userId:"member-a",organizationId:"org-a"});
-  const user=userEvent.setup();
-  await user.type(screen.getByLabelText("货盘名称"),"Fixture Catalog");
-  await user.type(screen.getByLabelText("货盘网站（HTTPS）"),"https://catalog.example.test");
-  await user.type(screen.getByLabelText("联系人"),"Fixture contact");
-  await user.type(screen.getByLabelText("联系电话"),"12345");
-  await user.type(screen.getByLabelText("供应品类"),"Home");
-  await user.click(screen.getByRole("button",{name:"提交对接申请"}));
-  expect(commands.execute).toHaveBeenCalledExactlyOnceWith({action:"submit_connection",connection:{name:"Fixture Catalog",website:"https://catalog.example.test",contact:"Fixture contact",telephone:"12345",categories:"Home"}});
-});
-it("keeps the existing pending lock and saved record link",()=>{
-  commands.locked=true; commands.saved={recordId:"11111111-1111-4111-8111-111111111111"};
-  page("apply");
-  expect(screen.getByRole("button",{name:"提交对接申请"})).toBeDisabled();
-  expect(screen.getByRole("link",{name:"查看对接进展"})).toHaveAttribute("href","/workbench/supply/applications/11111111-1111-4111-8111-111111111111");
-});
 it("waits for the existing identity boundary before mounting the application consumer",()=>{
-  context.isLoading=true; page("apply");
+  context.isLoading=true; page();
   expect(screen.getByText("正在确认当前身份")).toBeVisible();
   expect(useMarketCommands).not.toHaveBeenCalled();
 });

@@ -40,7 +40,7 @@ describe("Figma Console navigation contract", () => {
   it("keeps catalog pages registered without turning them into sidebar children", () => {
     const parent = findConsoleRoute("/workbench/supply/catalogs")!;
     expect(parent.node.children).toBeUndefined();
-    for (const [label, href] of [["货盘选品","/workbench/supply/catalogs/selection"],["申请对接","/workbench/supply/catalogs/apply"]]) {
+    for (const [label, href] of [["货盘选品","/workbench/supply/catalogs/selection"],["对接进度","/workbench/supply/catalogs/apply"]]) {
       expect(findConsoleRoute(href)?.node.label).toBe(label);
       expect(findConsoleRoute(href)?.trail.map(node=>node.label)).toEqual(["供应市场","货盘集成",label]);
       expect(existsSync(join(process.cwd(),"src/app",href.slice(1),"page.tsx"))).toBe(true);
