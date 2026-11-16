@@ -80,11 +80,9 @@ function AccountRequest({ page, scope, expectedUserId, organizationId, sequence,
   if (response.isPending || response.isFetching) return <ConsoleState kind="loading" title="正在读取资料">正在确认当前身份和访问权限。</ConsoleState>;
   if (response.isError) return <ReadError code={response.error instanceof AccountReadError ? response.error.code : "UNKNOWN"} page={page} />;
   if (response.data.kind === "organization") return <OrganizationView data={response.data.organization} scope={scope} platformMaintenance={
-    <div className={styles.maintenance}>
-      <div className={styles.maintenanceGrid}>
-        <ModelRoutePricingEntry scope={{ userId: expectedUserId, organizationId: response.data.organization.effectiveOrganizationId }} />
-        <KernelReleasesEntry />
-      </div>
+    <div className={styles.maintenanceGrid}>
+      <ModelRoutePricingEntry scope={{ userId: expectedUserId, organizationId: response.data.organization.effectiveOrganizationId }} />
+      <KernelReleasesEntry />
       <DataRowPricingEntry />
     </div>
   } />;
