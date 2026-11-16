@@ -69,7 +69,7 @@ The three entries are `/workbench/tools/official`, `/workbench/tools/mine`, and
 independent verified platform identity and does not require customer membership.
 Enterprise siblings retain their Organization gate. Seven future tools stay closed.
 
-The sidebar shows **工具市场 → 工具定制**. Open **提交定制需求** or **查看定制进度**
+The sidebar shows **工具市场 → 工具定制**. Open **提交定制需求** or **定制进度**
 from the customization overview. Both pages (`/workbench/tools/custom/new` and
 `/workbench/tools/custom/progress`) highlight **工具定制** in the sidebar.
 The form saves scenario, contact name, phone/WeChat,
