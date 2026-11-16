@@ -5,7 +5,7 @@ import { contentSelectionSchema, sameContentSelection } from "./content-selectio
 import { isAcquisitionUUID } from "./product-acquisition";
 import { knowledgeSelectionSchema, productKnowledgeSchema } from "./product-knowledge";
 import {templateRefSchema} from "./agent-configuration";
-import {skillSelectionSchema,skillRefSchema,sameSkill} from "./skill";
+import {skillSelectionSchema,skillRefSchema,sameSkill,scriptReceiptSchema} from "./skill";
 const id = z.string().refine(isAcquisitionUUID);
 const version = z.string().max(19).regex(/^[1-9][0-9]*$/).refine(v => BigInt(v) <= BigInt("9223372036854775807"));
 // Candidate Action is bounded to 64 KiB by the runtime. HTTP and both BFF/client
@@ -50,7 +50,9 @@ function authorityMatches(v:z.infer<typeof baseAgentResultSchema>) {
 export const agentResultSchema = baseAgentResultSchema.extend({targetPlatform:agentTargetPlatformSchema,policyAdoption:titlePolicyAdoptionSchema.optional()})
 .refine(v => !v.canSubmitReview || (v.phase === "human_review_required" && !v.stopReason && v.candidate.Changes?.length === 1 && v.candidate.Changes[0]?.Field === "title"))
 .refine(authorityMatches);
-export const contentAgentResultSchema = baseAgentResultSchema.extend({targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,policyAdoption:contentPolicyAdoptionSchema.optional(),skillVersionRef:skillRefSchema.optional()})
+export const contentAgentResultSchema = baseAgentResultSchema.extend({scriptReceipt:scriptReceiptSchema.optional(),scriptOriginalTitle:z.string().max(16384).optional(),targetPlatform:z.enum(["product","shein","temu","amazon"]),contentSelection:contentSelectionSchema,policyAdoption:contentPolicyAdoptionSchema.optional(),skillVersionRef:skillRefSchema.optional()})
+.refine(v=>!v.scriptReceipt||v.skillVersionRef?.policyVersion==="skill-script-method-v1")
+.refine(v=>!v.canSubmitReview||v.skillVersionRef?.policyVersion!=="skill-script-method-v1"||v.scriptReceipt?.outcome==="succeeded"&&!!v.scriptOriginalTitle)
 .refine(v=>!v.imageAdvice,{message:"Content Agent does not consume the image facts Tool"})
 .refine(v=>!v.skillVersionRef||v.contentSelection.title&&!v.contentSelection.description&&!v.contentSelection.sellingPoints&&!v.contentSelection.seoKeywords)
 .refine(v=>!v.policyAdoption||sameSkill(v.skillVersionRef?{skillId:v.skillVersionRef.id,version:v.skillVersionRef.version,digest:v.skillVersionRef.digest}:undefined,v.policyAdoption.execution.skillVersionRef?{skillId:v.policyAdoption.execution.skillVersionRef.id,version:v.policyAdoption.execution.skillVersionRef.version,digest:v.policyAdoption.execution.skillVersionRef.digest}:undefined))

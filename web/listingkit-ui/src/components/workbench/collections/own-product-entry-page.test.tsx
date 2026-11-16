@@ -13,6 +13,22 @@ vi.mock("next/navigation",()=>({useRouter:()=>({push:state.push,replace:state.re
 vi.mock("./source-image-uploader",()=>({SourceImageUploader:({onImage,onBlocked,allowNewUpload}:{onImage:(url:string)=>void;onBlocked:(busy:boolean)=>void;allowNewUpload:boolean})=>{state.upload=onImage;state.block=onBlocked;state.allowUpload=allowNewUpload;return <label>图片文件<input type="file" /></label>}}));
 vi.mock("@/lib/api/product-collection",async original=>({...await original<object>(),mutateCollection:state.mutate,readCollectionOperation:state.read,readCollectionItem:state.item,listOwnProducts:async()=>({items:[],total:0}),listCollectionBatches:async()=>({items:[],total:0})}));
 const itemId="550e8400-e29b-41d4-a716-446655440002";
+it("continues an official product creation with the saved item receipt instead of returning to the library",async()=>{
+ state.mutate.mockResolvedValue({operationId:itemId,itemId,revision:1,replayed:false});
+ render(<OwnProductEntryPage continuation="official"/>);
+ await userEvent.type(screen.getByLabelText("商品名称"),"自营商品");
+ await userEvent.click(screen.getByRole("button",{name:"保存并填写供货信息"}));
+ await waitFor(()=>expect(state.push).toHaveBeenCalledWith(`/workbench/supply/official/new?item=${itemId}`));
+});
+it("keeps an unknown official product creation on the original operation and continues only after readback",async()=>{
+ state.mutate.mockRejectedValue(new CollectionAPIError("OUTCOME_UNKNOWN",503));render(<OwnProductEntryPage continuation="official"/>);
+ await userEvent.type(screen.getByLabelText("商品名称"),"待核实自营商品");await userEvent.click(screen.getByRole("button",{name:"保存并填写供货信息"}));
+ await screen.findByText("结果待核实");expect(state.push).not.toHaveBeenCalled();
+ const original=state.mutate.mock.calls[0][0];state.read.mockResolvedValue({operationId:itemId,itemId,revision:1,replayed:true});
+ await userEvent.click(screen.getByRole("button",{name:"核实原操作"}));
+ await waitFor(()=>expect(state.push).toHaveBeenCalledWith(`/workbench/supply/official/new?item=${itemId}`));
+ expect(state.read).toHaveBeenCalledWith(original,expect.any(AbortSignal));expect(state.mutate).toHaveBeenCalledTimes(1);
+});
 beforeEach(()=>{state.mutate.mockReset();state.read.mockReset();state.item.mockReset();state.push.mockReset();state.context={user:{id:"actor-a"},effectiveOrganization:{id:"org-a"},permissions:["workbench.collection.read","workbench.collection.manage"],pendingCollectionIntent:null,collectionIntentReady:true,pendingSupplyIntent:null,supplyIntentReady:true,registerOrganizationSwitchGuard:()=>()=>{},setPendingCollectionIntent:(value:CollectionIntent|null)=>{state.context.pendingCollectionIntent=value;return true}}});
 beforeEach(()=>{
  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});

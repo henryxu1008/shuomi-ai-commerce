@@ -115,6 +115,8 @@ type productAgentStepDTO struct {
 	AuditStatus  string `json:"auditStatus,omitempty"`
 }
 type productAgentResultDTO struct {
+	ScriptReceipt         *agent.ScriptReceipt            `json:"scriptReceipt,omitempty"`
+	ScriptOriginalTitle   string                          `json:"scriptOriginalTitle,omitempty"`
 	SkillVersionRef       agent.SkillVersionRef           `json:"skillVersionRef,omitzero"`
 	ContentSelection      reviewproposal.ContentSelection `json:"contentSelection,omitzero"`
 	ExecutionMode         agent.ExecutionMode             `json:"executionMode,omitempty"`
@@ -424,6 +426,10 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				result.ContextKind = contentagent.OwnProductContext
 			}
 			result.SkillVersionRef = state.Request.SkillVersionRef
+			result.ScriptReceipt, result.ScriptOriginalTitle = state.ScriptReceipt, state.ScriptOriginalTitle
+			if state.Request.ScriptSelected() && (a.script == nil || a.scriptDescriptor != state.Request.ScriptDescriptor) {
+				result.CanSubmitReview = false
+			}
 			if content {
 				result.Unresolved = contentRunDiagnostics(state)
 			}
@@ -452,6 +458,9 @@ func productAgentRoutesForSource(a *productAgentApplication, content, own bool) 
 				}
 				ref := mode.Ref()
 				result.ExecutionMode, result.ModeRevision, result.ModeSnapshotRef = mode.Mode, mode.Revision, &ref
+				if state.Request.ScriptSelected() && mode.Mode == agent.ModeReadOnly {
+					result.CanSubmitReview = false
+				}
 			}
 			if view, found, err := a.reviews.FindAgentReview(ctx, state.RunID); err != nil {
 				writeProductAgentError(c, err)
@@ -487,6 +496,18 @@ func agentRunReviewable(s agent.State) bool {
 }
 
 func agentRunHistoricallyReviewable(s agent.State) bool {
+	if s.Request.ScriptSelected() {
+		candidate := s.Candidate
+		if s.ScriptReceipt == nil || s.ScriptReceipt.Outcome != "succeeded" || len(candidate.Changes) != 1 || s.ScriptOriginalTitle == "" {
+			return false
+		}
+		candidate.Changes = append([]reviewproposal.FieldChange(nil), candidate.Changes...)
+		candidate.Changes[0].Value = s.ScriptOriginalTitle
+		input, err := agent.ScriptInputBytes(s.Request, candidate)
+		if err != nil || !(agent.ScriptResult{Title: s.Candidate.Changes[0].Value, Receipt: *s.ScriptReceipt}).ValidFor(s.Request.ScriptDescriptor, input) {
+			return false
+		}
+	}
 	if s.Request.PolicyVersion != reviewproposal.ContentPolicyVersion &&
 		!agentconfig.StoredTitleVersion("v1.0.0", s.Request.PolicyVersion, s.Request.PromptVersion) &&
 		!agentconfig.StoredTitleVersion(agentconfig.TitleAgentVersion, s.Request.PolicyVersion, s.Request.PromptVersion) {

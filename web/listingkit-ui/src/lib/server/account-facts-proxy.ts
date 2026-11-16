@@ -2,8 +2,14 @@ import {
   accountFactsSchema,
   accountPreferencesSchema,
   accountFactSubject,
-  regionInputSchema,
 } from "@/lib/api/account-facts";
+import {
+  countryCode,
+  regionCatalogMaxBytes,
+  regionCountrySchema,
+  regionIndexSchema,
+  regionSelectionSchema,
+} from "@/lib/api/region-catalog";
 import { readBoundedStrictJSON } from "@/lib/api/strict-json-response";
 import { accountFailure, serviceOrigin } from "./account-proxy";
 import { hasTrustedSameOriginWrite } from "./same-origin-write";
@@ -19,10 +25,14 @@ export async function proxyAccountFacts(
     return accountFailure(409, "IDENTITY_CONTEXT_CHANGED");
   const url = new URL(request.url);
   const preferences = url.pathname === "/api/account/preferences";
+  const catalog = url.pathname === "/api/account/region-catalog";
+  const country = url.searchParams.get("country");
+  const shipping = country === "CN" && url.searchParams.get("view") === "shipping" && url.searchParams.size === 2;
+  const countryOnly = countryCode.safeParse(country).success && url.searchParams.size === 1;
   const write = request.method === "PUT";
   if (
-    (url.pathname !== "/api/account/facts" && !preferences) ||
-    url.search ||
+    (url.pathname !== "/api/account/facts" && !preferences && !catalog) ||
+    (url.search && (!catalog || (!countryOnly && !shipping))) ||
     request.url.endsWith("?") ||
     !(request.method === "GET" || (preferences && write))
   )
@@ -72,15 +82,16 @@ export async function proxyAccountFacts(
       } catch {
         return accountFailure(400, "INVALID_REQUEST");
       }
-      const input = regionInputSchema.safeParse(value);
+      const input = regionSelectionSchema.safeParse(value);
       if (!input.success) return accountFailure(400, "INVALID_REQUEST");
       body = JSON.stringify(input.data);
       headers.set("Content-Type", "application/json");
     }
     controller.signal.throwIfAborted();
     dispatched = true;
+    const resource = catalog ? `region-catalog${country ? `?country=${country}${shipping ? "&view=shipping" : ""}` : ""}` : preferences ? "preferences" : "identity/facts";
     const response = await fetch(
-      `${origin}/api/v1/account/${preferences ? "preferences" : "identity/facts"}`,
+      `${origin}/api/v1/account/${resource}`,
       {
         method: request.method,
         headers,
@@ -92,7 +103,7 @@ export async function proxyAccountFacts(
     );
     const payload = await readBoundedStrictJSON(
       response,
-      16384,
+      catalog && response.status === 200 ? regionCatalogMaxBytes : 16384,
       controller.signal,
     );
     controller.signal.throwIfAborted();
@@ -102,6 +113,12 @@ export async function proxyAccountFacts(
         response.status,
         typeof value?.code === "string" ? value.code : "DEPENDENCY_UNAVAILABLE",
       );
+    }
+    if (catalog) {
+      const parsed = (country ? regionCountrySchema : regionIndexSchema).safeParse(payload);
+      if (!parsed.success || (country && (!("country" in parsed.data) || parsed.data.country.id !== country)))
+        return accountFailure(502, "INVALID_UPSTREAM_RESPONSE");
+      return Response.json(parsed.data, { headers: { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
     }
     const parsed = (
       preferences ? accountPreferencesSchema : accountFactsSchema

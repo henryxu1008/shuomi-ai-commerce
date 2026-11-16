@@ -23,8 +23,9 @@ import { executionModeLabels } from "../agents/execution-mode-settings";
 import { KnowledgeCitations } from "../task-center/knowledge-citations";
 import {skillSelectionSchema,type SkillSelection} from "@/lib/contracts/skill";
 import {SkillMethodSummary} from "../skills/skill-method-summary";
-const reasons: Record<string, string> = { budget_steps: "已达到步骤上限", budget_model_calls: "已达到模型调用上限", budget_tokens: "剩余 token 预算不足", budget_cost: "剩余费用预算不足", budget_runtime: "已达到运行时限", usage_unknown: "用量尚未确认，预留额度仍保留", model_outcome_unknown: "模型结果尚未确认，请勿重新生成", unauthorized: "当前权限不可用", dependency_unavailable: "模型配置、计费策略或依赖尚未就绪", invalid_model_output: "模型输出格式无效", repair_limit: "两次修复后仍未通过校验", audit_unavailable: "调用记录保存失败", tool_error: "证据工具读取失败" };
-const errors: Record<string, string> = { MANUAL_REVIEW_REQUIRED:"图片文字翻译必须使用人工确认模式，本次没有开始模型调用。",REQUEST_NOT_RETAINED:"原请求无法完整保留，本次未发送。", PRODUCT_AGENT_UNAVAILABLE: "当前企业尚未开放标题诊断，或文本模型配置尚未就绪。", OUTCOME_UNKNOWN: "请求结果尚未确认。请保留本次编号，读取当前结果，不要重新生成。", AGENT_CONFLICT: "运行状态已经变化，请读取当前结果。", CONFIGURATION_CHANGED:"配置准入已变化，请核实当前配置与原运行状态。",AGENT_DEFINITION_UNAVAILABLE:"当前执行引用的智能体版本不可用，请核实当前版本与原运行状态。",AGENT_NOT_ENABLED:"当前企业智能体已停用，请由管理员重新启用。",TEMPLATE_ARCHIVED:"所选模板已归档，请核实当前结果和模板。",IDEMPOTENCY_CONFLICT:"本次编号已绑定其他配置，请保留编号并读取当前结果。", FORBIDDEN: "当前身份没有操作权限。", ORGANIZATION_ACCESS_REVOKED: "当前企业权限已撤销。", DEPENDENCY_UNAVAILABLE: "暂时无法读取结果，请稍后用同一编号查询。" };
+import {ScriptExecutionDetails, ScriptExecutionSummary} from "../skills/script-execution-summary";
+const reasons: Record<string, string> = { budget_steps: "已达到步骤上限", budget_model_calls: "已达到模型调用上限", budget_tokens: "剩余 token 预算不足", budget_cost: "剩余费用预算不足", budget_runtime: "已达到运行时限", usage_unknown: "用量尚未确认，预留额度仍保留", model_outcome_unknown: "模型结果尚未确认，请勿重新生成", unauthorized: "当前权限不可用", dependency_unavailable: "模型配置、计费策略或依赖尚未就绪", invalid_model_output: "模型输出格式无效", repair_limit: "两次修复后仍未通过校验", audit_unavailable: "调用记录保存失败", tool_error: "工具处理失败，请查看本次执行状态" };
+const errors: Record<string, string> = { MANUAL_REVIEW_REQUIRED:"本次操作需要默认或只读模式，本次没有开始模型调用。",REQUEST_NOT_RETAINED:"原请求无法完整保留，本次未发送。", PRODUCT_AGENT_UNAVAILABLE: "当前企业尚未开放标题诊断，或文本模型配置尚未就绪。", OUTCOME_UNKNOWN: "请求结果尚未确认。请保留本次编号，读取当前结果，不要重新生成。", AGENT_CONFLICT: "运行状态已经变化，请读取当前结果。", CONFIGURATION_CHANGED:"配置准入已变化，请核实当前配置与原运行状态。",AGENT_DEFINITION_UNAVAILABLE:"当前执行引用的智能体版本不可用，请核实当前版本与原运行状态。",AGENT_NOT_ENABLED:"当前企业智能体已停用，请由管理员重新启用。",TEMPLATE_ARCHIVED:"所选模板已归档，请核实当前结果和模板。",IDEMPOTENCY_CONFLICT:"本次编号已绑定其他配置，请保留编号并读取当前结果。", FORBIDDEN: "当前身份没有操作权限。", ORGANIZATION_ACCESS_REVOKED: "当前企业权限已撤销。", DEPENDENCY_UNAVAILABLE: "暂时无法读取结果，请稍后用同一编号查询。" };
 const knowledgeStartErrors:Record<string,string>={KNOWLEDGE_CONTEXT_TOO_LARGE:"所选知识完整内容超过输入上限，本次未启动。请缩小知识范围后重新确认。",KNOWLEDGE_NOT_READY:"所选知识没有完整可读版本，本次未启动。",KNOWLEDGE_DISABLED:"所选知识已停用，本次未启动。",KNOWLEDGE_NOT_FOUND:"所选知识当前不可用，本次未启动。",KNOWLEDGE_FORBIDDEN:"当前身份无权读取所选知识，本次未启动。"};
 export type StartIntent=(z.infer<typeof agentStartRequestSchema>|z.infer<typeof contentAgentStartRequestSchema>)&{ownSource?:OwnSourceSelection};
 function restoredStart(params:{get:(name:string)=>string|null},userId:string,organizationId:string,content:boolean,own=false):StartIntent|null {
@@ -180,6 +181,70 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
                 setBusy(false);
         }
     }
+    const busyNotice = busy && <p role="status">正在处理，请保持页面打开。离开页面可能使已发送的调用结果未知；返回后请用本次编号读取，勿重新生成。</p>;
+    const failureNotice = failure && <p role="alert">{reconfirmable?`${errors[failure]??"所选技能准入已变化。"} 本次未领取执行。请明确重新确认配置，再使用新编号生成。`:key&&knowledgeStartErrors[failure]?"知识当前不可用，已保留原编号；已有运行结果尚需核实，请勿换编号重新生成。":knowledgeStartErrors[failure] ?? errors[failure] ?? "请求未完成，请核对当前身份和企业。"}</p>;
+    const reviewAction = result?.canSubmitReview && !proposal && <Button disabled={busy} onClick={() => void execute("review")}>{result.executionMode==="read_only"?"保存内容建议":"提交人工审核"}</Button>;
+    const proposalLink = proposal && <Button asChild variant="outline"><Link href={`/workbench/ai/tasks/pending/other?proposal_id=${proposal}`}>{content?"打开内容建议":"打开标题审核"}</Link></Button>;
+    const resumeForm = result?.phase === "interrupted" && result.canResume === true && <>
+        <label htmlFor="agent-feedback">补充说明</label>
+        <Input id="agent-feedback" value={feedback} onChange={e => setFeedback(e.target.value)} disabled={busy}/>
+        <Button disabled={busy || !feedback.trim()} onClick={() => void execute("resume")}>继续本次诊断</Button>
+    </>;
+    const knowledgeCitations = result && <KnowledgeCitations knowledge={result.knowledge&&(!knowledgeReadable||result.knowledgeGeneration!==generation)?{status:"unavailable",originAgentRunId:result.knowledge.originAgentRunId,citations:[]}:result.knowledge}/>;
+    const stopReason = result?.stopReason ? reasons[result.stopReason] ?? "本次运行已停止" : undefined;
+    const unresolved = result?.unresolved?.length ? <ul>{result.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul> : null;
+    const steps = result && <ol>{result.steps.map(step => <li key={step.step}>{step.step}：{step.tool || "文本模型"} · {step.callId}</li>)}</ol>;
+    const usage = result?.usageStatus === "observed"
+        ? `已观测 ${result.tokens} tokens，预算估价 ${(result.estimatedCostMicros / 1000000).toFixed(4)} ${result.currency}`
+        : "用量尚未确认，显示的预留不能当作实际账单。";
+
+    if (ownSource && !imageTranslation && result) {
+        const receipt = "scriptReceipt" in result ? result.scriptReceipt : undefined;
+        const title = result.candidate.Changes?.find(change => change.Field === "title");
+        const nextStep = result.policyAdoption ? "已按企业规则采用。"
+            : proposal ? "可打开建议查看处理记录。"
+                : result.canSubmitReview ? (result.executionMode === "read_only" ? "可保存为内容建议。" : "可提交人工审核，审核后再采用。")
+                    : result.phase === "running" ? "本次结果尚未确认，请重新查看本次结果。"
+                        : result.phase === "interrupted" ? "本次处理需要补充说明。"
+                            : "当前建议暂不能采用。";
+        return <Card className="space-y-4 p-5">
+            <h2 className="text-lg font-semibold">标题建议结果</h2>
+            {receipt ? <ScriptExecutionSummary receipt={receipt} before={"scriptOriginalTitle" in result ? result.scriptOriginalTitle : undefined} after={title?.Value} titleNextStep={nextStep}/>
+                : <div className="space-y-3">
+                    <p role="status" className="text-sm">{nextStep}</p>
+                    {title && <dl className="space-y-1 rounded-lg border border-border bg-muted p-3">
+                        <dt className="text-sm text-muted-foreground">标题建议</dt>
+                        <dd className="whitespace-pre-wrap font-medium [overflow-wrap:anywhere]">{title.Value}</dd>
+                    </dl>}
+                </div>}
+            {stopReason && (receipt === undefined || result.stopReason !== "tool_error") && <p className="text-sm">{stopReason}</p>}
+            {unresolved}
+            {resumeForm}
+            <div className="flex flex-wrap items-center gap-2">
+                {reviewAction}
+                {proposalLink}
+                <Button variant="outline" disabled={busy} onClick={() => void execute("read")}>重新查看本次结果</Button>
+            </div>
+            {busyNotice}
+            {failureNotice}
+            {knowledgeCitations}
+            <details className="border-t border-border pt-2">
+                <summary className="w-fit cursor-pointer rounded-sm py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">查看本次详情</summary>
+                <div className="space-y-2 pt-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                    <p>本次编号：{key}</p>
+                    <p>本次权限：{result.executionMode ? executionModeLabels[result.executionMode] : "历史记录未保存权限设置"}</p>
+                    {"contentSelection" in result && <p>目标语言：{result.contentSelection.targetLanguage}</p>}
+                    {result.templateSelection && <p>模板版本：{result.templateSelection.revision} · {result.templateSelection.templateId}</p>}
+                    <SkillMethodSummary method={"skillVersionRef" in result ? result.skillVersionRef : undefined}/>
+                    {receipt && <ScriptExecutionDetails receipt={receipt}/>}
+                    {title && <p>标题依据：{title.EvidenceIDs?.join("、") || "未提供"}</p>}
+                    {result.confidence?.map(value => <p key={value.Field}>模型给出的可信度（供参考）：{value.Known ? `${Math.round(value.Value * 100)}%` : "未知"}</p>)}
+                    <p className="tabular-nums">{result.usageStatus === "observed" ? `已记录用量 ${result.tokens} tokens，费用估算 ${(result.estimatedCostMicros / 1_000_000).toFixed(4)} ${result.currency}` : "用量尚未确认，预留费用仅供参考。"}</p>
+                    {result.steps.length > 0 && <><p className="font-medium text-foreground">调用记录</p>{steps}</>}
+                </div>
+            </details>
+        </Card>;
+    }
     return <Card className="space-y-3 p-5"><h2 className="text-lg font-semibold">商品内容与本地化</h2>
   {imageTranslation?<p>目标语言：{imageTranslation.language} · 自动翻译后人工审核，不应用商品</p>:ownSource?<p>自有商品标题优化 · 无需绑定店铺</p>:<label className="block">处理内容<select className="block rounded-lg border p-2" value={kind} disabled={!!key||busy||confirming} onChange={event=>onKindChange(event.target.value as "title"|"content")}><option value="title">标题优化</option><option value="content">内容完善与本地化</option></select></label>}
   <p>从当前已保存版本读取证据，生成{content?"选中内容":"标题"}建议。最多修复两次；按本次确认的权限模式处理本地采用。</p>
@@ -187,21 +252,22 @@ function ScopedAgentPanel({ userId, organizationId, operationId, productKey, ini
   {imageTranslation&&executionMode.data&&executionMode.data.mode!=="default"&&<p role="status">图片文字翻译仅支持人工确认模式；当前模式不能开始翻译，可返回选择不加文字。</p>}
   {confirming&&!key&&(!imageTranslation||executionMode.data?.mode==="default")&&<TitleAgentConfirmation initialSkill={initialSkill} key={authorizationKey} executionMode={executionMode.data?.subject.id===agentId?executionMode.data:undefined} contentSelection={content?selection:undefined} scope={{userId,organizationId}} organization={context.effectiveOrganization?.name||organizationId} platform={platform} template={template??undefined} knowledgeAvailable={knowledgeAvailable} knowledgeReadable={knowledgeReadable} onCancel={()=>setConfirming(false)} onConfirm={(baseId,method)=>{setConfirming(false);void execute("start",baseId,method)}}/>}
   {result?<p>本次权限：{result.executionMode?`${executionModeLabels[result.executionMode]} · 模式版本 ${result.modeRevision}`:"历史记录未冻结权限模式，新采用不可用"}{result.policyAdoption?" · 已按策略采用，未逐项人工审阅":""}</p>:null}
-  {busy && <p role="status">正在处理，请保持页面打开。离开页面可能使已发送的调用结果未知；返回后请用本次编号读取，勿重新生成。</p>}
-  {failure && <p role="alert">{reconfirmable?`${errors[failure]??"所选技能准入已变化。"} 本次未领取执行。请明确重新确认配置，再使用新编号生成。`:key&&knowledgeStartErrors[failure]?"知识当前不可用，已保留原编号；已有运行结果尚需核实，请勿换编号重新生成。":knowledgeStartErrors[failure] ?? errors[failure] ?? "请求未完成，请核对当前身份和企业。"}</p>}
+  {busyNotice}
+  {failureNotice}
   {reconfirmable&&<Button variant="outline" disabled={busy} onClick={()=>{if(inFlight.current)return;if(imageTranslation){try{imageTranslation.reset?.()}catch{setFailure("REQUEST_NOT_RETAINED");return}}setModeNonce(v=>v+1);setKey("");setIntent(null);setTemplate(null);setTemplateReady(!!imageTranslation);setPlatform(ownSource||imageTranslation?"product":"");setFailure("");setReconfirmable(false);if(imageTranslation)return;const url=new URL(window.location.href);for(const name of intentParams)url.searchParams.delete(name);window.history.replaceState(null,"",url)}}>重新确认配置</Button>}
-  {result && <div className="space-y-2"><SkillMethodSummary method={"skillVersionRef" in result?result.skillVersionRef:undefined}/>{"contentSelection" in result&&<p>{contentSelectionLabel(result.contentSelection)}</p>}{result.templateSelection&&<p>采用模板版本：{result.templateSelection.revision} · {result.templateSelection.templateId}</p>}<p>素材查询平台：{{ product:"标准商品",shein: "SHEIN", temu: "Temu", amazon: "Amazon" }[result.targetPlatform]}</p><p>状态：{result.policyAdoption?"已按策略采用，未经逐项人工审阅":result.phase === "human_review_required" ? (result.canSubmitReview ? "候选已通过校验，等待人工审核" : "候选未通过校验，不能提交人工审核") : result.phase === "interrupted" ? "需要补充说明" : result.phase === "running" ? "运行记录尚未完成，不能重复发送" : "已停止"}</p>
-   {result.stopReason && <p>{reasons[result.stopReason] ?? "本次运行已停止"}</p>}
+  {result && <div className="space-y-2"><SkillMethodSummary method={"skillVersionRef" in result?result.skillVersionRef:undefined}/>{"contentSelection" in result&&<p>{contentSelectionLabel(result.contentSelection)}</p>}{result.templateSelection&&<p>采用模板版本：{result.templateSelection.revision} · {result.templateSelection.templateId}</p>}<p>素材查询平台：{{ product:"标准商品",shein: "SHEIN", temu: "Temu", amazon: "Amazon" }[result.targetPlatform]}</p><p>状态：{result.policyAdoption?"已按策略采用，未经逐项人工审阅":result.phase === "human_review_required" ? (result.canSubmitReview ? "候选已通过校验，等待人工审核" : ("scriptReceipt" in result && result.scriptReceipt ? "候选结果仅可查看，当前不能提交人工审核" : "候选未通过校验，不能提交人工审核")) : result.phase === "interrupted" ? "需要补充说明" : result.phase === "running" ? "运行记录尚未完成，不能重复发送" : "已停止"}</p>
+   {stopReason && <p>{stopReason}</p>}
+   {"scriptReceipt" in result&&<ScriptExecutionSummary receipt={result.scriptReceipt} before={result.scriptOriginalTitle} after={result.candidate.Changes?.find(change=>change.Field==="title")?.Value}/>}
    {result.candidate.Changes?.map((change, index) => <div key={index}><p>{change.Field}：{change.Value}</p><p className="text-sm">证据：{change.EvidenceIDs?.join("、") || "未提供"}</p></div>)}
-   <KnowledgeCitations knowledge={result.knowledge&&(!knowledgeReadable||result.knowledgeGeneration!==generation)?{status:"unavailable",originAgentRunId:result.knowledge.originAgentRunId,citations:[]}:result.knowledge}/>
+   {knowledgeCitations}
    {!("contentSelection" in result)&&<ImageAdvicePanel advice={result.imageAdvice}/>}
    {result.confidence?.map(value => <p key={value.Field}>模型自报置信度（供参考）：{value.Field} {value.Known ? `${Math.round(value.Value * 100)}%` : "未知"}</p>)}
-   {result.unresolved?.length ? <ul>{result.unresolved.map((item, index) => <li key={index}>{item}</li>)}</ul> : null}
-   <p className="text-sm">{result.usageStatus === "observed" ? `已观测 ${result.tokens} tokens，预算估价 ${(result.estimatedCostMicros / 1000000).toFixed(4)} ${result.currency}` : "用量尚未确认，显示的预留不能当作实际账单。"}</p>
-   <details><summary>查看调用记录</summary><ol>{result.steps.map(step => <li key={step.step}>{step.step}：{step.tool || "文本模型"} · {step.callId}</li>)}</ol></details>
-   {result.phase === "interrupted" && result.canResume===true && <><label htmlFor="agent-feedback">补充说明</label><Input id="agent-feedback" value={feedback} onChange={e => setFeedback(e.target.value)} disabled={busy}/><Button disabled={busy || !feedback.trim()} onClick={() => void execute("resume")}>继续本次诊断</Button></>}
-   {result.canSubmitReview && !proposal && <Button disabled={busy} onClick={() => void execute("review")}>{result.executionMode==="read_only"?"保存内容建议":"提交人工审核"}</Button>}
+   {unresolved}
+   <p className="text-sm">{usage}</p>
+   <details><summary>查看调用记录</summary>{steps}</details>
+   {resumeForm}
+   {reviewAction}
   </div>}
-  {proposal && <Button asChild variant="outline"><Link href={`/workbench/ai/tasks/pending/other?proposal_id=${proposal}`}>{content?"打开内容建议":"打开标题审核"}</Link></Button>}
+  {proposalLink}
  </Card>;
 }

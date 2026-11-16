@@ -25,27 +25,29 @@ import {buildVariantRows,newVariantRow,prepareOwnProduct,prepareProductAttribute
 import {formFromOwnProduct,specificationsFromRows,type OwnProductFormState} from "./own-product-editor-model";
 import {collectionCommandSchema,type CollectionDetail} from "@/lib/contracts/product-collection";
 import type {CollectionScope} from "@/lib/api/product-collection";
+import {OfficialPublishingAccess} from "../supply-market/official-access";
+import {MarketBoundary} from "../supply-market/shared";
 import {packagingFields} from "./own-product-packaging";
 
 const library="/workbench/data/mine?view=own";
-export function OwnProductEntryPage(){
+export function OwnProductEntryPage({continuation}:{continuation?:"official"}){
  const context=useWorkbenchContext();
  const userId=context.user?.id,organizationId=context.effectiveOrganization?.id;
  const scope=useMemo(()=>userId&&organizationId?{userId,organizationId}:null,[userId,organizationId]);
  if(context.isLoading||context.isSwitching)return <ConsoleState kind="loading" title="正在确认当前企业"/>;
  if(!scope||context.selectionRequired||context.error||context.blockingError)return <ConsoleState kind="error" title="请先确认登录身份与当前企业"/>;
- if(!context.permissions.includes("workbench.collection.manage"))return <OwnProductRecovery key={`${scope.userId}:${scope.organizationId}`} scope={scope}/>;
- return <OwnProductForm key={`${scope.userId}:${scope.organizationId}`} scope={scope}/>;
+ if(!context.permissions.includes("workbench.collection.manage"))return <OwnProductRecovery key={`${scope.userId}:${scope.organizationId}`} scope={scope} continuation={continuation}/>;
+ return <OwnProductForm key={`${scope.userId}:${scope.organizationId}`} scope={scope} continuation={continuation}/>;
 }
 
-export function OwnProductRecovery({scope}:{scope:CollectionScope}){
+export function OwnProductRecovery({scope,continuation}:{scope:CollectionScope;continuation?:"official"}){
  const context=useWorkbenchContext(),router=useRouter();
- const commands=useCollectionCommand(scope,(receipt,intent)=>{if(intent.command.action==="create_product"&&receipt.itemId)router.push(`${library}&saved=${receipt.itemId}`);if(intent.command.action==="revise_product"&&receipt.itemId===intent.command.itemId)router.push(`/workbench/data/mine/own/${intent.command.itemId}`)},true);
+ const commands=useCollectionCommand(scope,(receipt,intent)=>{if(intent.command.action==="create_product"&&receipt.itemId)router.push(continuation==="official"?`/workbench/supply/official/new?item=${receipt.itemId}`:`${library}&saved=${receipt.itemId}`);if(intent.command.action==="revise_product"&&receipt.itemId===intent.command.itemId)router.push(`/workbench/data/mine/own/${intent.command.itemId}`)},true);
  if(!context.permissions.includes("workbench.collection.read"))return <ConsoleState kind="error" title="当前没有读取自有商品的权限"/>;
  return <ConsolePage title="自有商品操作" description="当前没有编辑权限，可以核实原操作的保存结果。"><CollectionCommandFeedback state={commands} canRetry={false}/></ConsolePage>;
 }
 
-export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail:CollectionDetail;initial:OwnProductFormState}}){
+export function OwnProductForm({scope,edit,continuation}:{scope:CollectionScope;continuation?:"official";edit?:{detail:CollectionDetail;initial:OwnProductFormState}}){
  const context=useWorkbenchContext(),router=useRouter();
  const [frozen]=useState(()=>{const pending=context.pendingCollectionIntent;if(!pending||pending.userId!==scope.userId||pending.organizationId!==scope.organizationId)return null;if(!edit&&pending.command.action==="create_product")return pending.command;if(edit&&pending.command.action==="revise_product"&&pending.command.itemId===edit.detail.item.id)return pending.command;return null});
  const frozenRevision=frozen?.action==="revise_product"?frozen:null;
@@ -67,7 +69,7 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
  const [confirmation,setConfirmation]=useState<"leave"|"reload"|null>(null);
  const keepEditingRef=useRef<HTMLButtonElement>(null);
  const commands=useCollectionCommand(scope,(receipt,intent)=>{
-  if(intent.command.action==="create_product"&&receipt.itemId)router.push(`${library}&saved=${receipt.itemId}`);
+  if(intent.command.action==="create_product"&&receipt.itemId)router.push(continuation==="official"?`/workbench/supply/official/new?item=${receipt.itemId}`:`${library}&saved=${receipt.itemId}`);
   if(intent.command.action==="revise_product"&&receipt.itemId===intent.command.itemId)router.push(`/workbench/data/mine/own/${intent.command.itemId}`);
  },!!context.pendingSupplyIntent||!context.supplyIntentReady);
  const restoredRequestEnded=!!frozen&&!commands.pending;
@@ -109,11 +111,11 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
   setError("");
  }
  const formIdentity=JSON.stringify({title,brand,description,descriptionFormat,images,commonImages,attributes,mode,single,rows,specs}),originalForm=useRef(formIdentity);
- function returnToDetail(){router.push(edit?`/workbench/data/mine/own/${edit.detail.item.id}`:library)}
- function leave(){if(edit&&!commands.pending&&originalForm.current!==formIdentity){setConfirmation("leave");return}returnToDetail()}
- const pageTitle=edit?"编辑自有商品":"添加自有商品";
+ function returnToDetail(){router.push(edit?`/workbench/data/mine/own/${edit.detail.item.id}`:continuation==="official"?"/workbench/supply/official/new":library)}
+ function leave(){if((edit||continuation==="official")&&!commands.pending&&originalForm.current!==formIdentity){setConfirmation("leave");return}returnToDetail()}
+ const pageTitle=edit?"编辑自有商品":continuation==="official"?"添加自营商品 · 商品资料":"添加自有商品";
  if(["PERMISSION_DENIED","IDENTITY_CONTEXT_CHANGED","ORGANIZATION_CONTEXT_CHANGED"].includes(commands.error??""))return <ConsolePage title={pageTitle} description="当前访问资格已变化，请重新确认后读取商品。"><CollectionCommandFeedback state={commands} canRetry={false}/><Button variant="outline" onClick={()=>window.location.reload()}>重新读取最新资料</Button></ConsolePage>;
- return <ConsolePage title={pageTitle} description={edit?"修改已保存的商品资料，保存后生成新的资料版本。":"录入商品资料和销售规格，保存到当前企业下的自有商品库。"} breadcrumbs={[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:pageTitle}]} actions={<Button variant="outline" disabled={commands.busy||mediaBlocked} onClick={leave}><ArrowLeft size={16}/>{edit?"取消并返回详情":"返回自有商品库"}</Button>}>
+ return <ConsolePage title={pageTitle} description={edit?"修改已保存的商品资料，保存后生成新的资料版本。":continuation==="official"?"第1步：填写商品资料。保存后继续填写供货信息，商品不会自动公开。":"录入商品资料和销售规格，保存到当前企业下的自有商品库。"} breadcrumbs={continuation==="official"?[{label:"硕米自营",href:"/workbench/supply/official"},{label:"添加自营商品",href:"/workbench/supply/official/new"},{label:"商品资料"}]:[{label:"数据服务",href:"/workbench/data"},{label:"我的数据",href:library},{label:pageTitle}]} actions={<Button variant="outline" disabled={commands.busy||mediaBlocked} onClick={leave}><ArrowLeft size={16}/>{edit?"取消并返回详情":continuation==="official"?"返回商品选择":"返回自有商品库"}</Button>}>
   <form className="space-y-6" onSubmit={event=>{event.preventDefault();if(disabled||mediaBlocked)return;if(stale){setError("规格已修改，请先更新变体组合。");return}try{const product=prepareOwnProduct({title,brand,description,descriptionFormat,images:commonImages,imagePool:images,mode,rows:activeRows,attributes});const command=edit?{action:"revise_product" as const,itemId:edit.detail.item.id,expectedRevision:frozenRevision?.expectedRevision??edit.detail.item.revision,expectedSourceVersion:frozenRevision?.expectedSourceVersion??edit.detail.item.source.version,expectedPublicationId:frozenRevision?.expectedPublicationId??edit.detail.item.source.publicationId,product}:{action:"create_product" as const,product};const parsed=collectionCommandSchema.safeParse(command);if(!parsed.success)throw new Error(parsed.error.issues[0]?.message??"请检查填写内容。");setError("");void commands.run(parsed.data)}catch(failure){setError((failure as Error).message)}}}>
    <CollectionCommandFeedback state={commands}/>
    {restoredRequestEnded?<p role="status" className="text-sm text-muted-foreground">原请求已结束。重新读取最新资料后才能继续编辑。</p>:null}
@@ -158,10 +160,10 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
     </Card>:null}
     {activeRows.length?<Card className="space-y-5 p-6"><div><h2 className="text-lg font-semibold">SKU 含包装资料</h2><p className="mt-1 text-sm text-muted-foreground">填写一件该 SKU 的含包装实测值。重量用克（g），尺寸用厘米（cm）；留空表示未知，可保存后补充。保存后仍按目标平台要求检查。</p></div><div className="space-y-4">{activeRows.map((row,index)=><div key={row.id} role="group" aria-label={`SKU 包装 ${row.sku||index+1}`} className="space-y-3 rounded-lg border border-border p-4"><p className="break-words text-sm font-medium">{row.sku||`SKU ${index+1}`} · {Object.values(row.attributes).join(" / ")||"默认规格"}</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{packagingFields.map(field=><label key={field.key} className="grid gap-2 text-sm">{field.label} {field.unit}<Input aria-label={`${field.label} ${field.unit} ${index+1}`} type="number" inputMode="decimal" min="0" step="any" value={row.packaging?.[field.key]??""} placeholder="未知" onChange={event=>patchRow(row.id,{packaging:{...row.packaging,[field.key]:event.target.value}})}/></label>)}</div></div>)}</div></Card>:null}
    </fieldset>
-   <Card className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-4 border-border bg-card p-4 text-card-foreground shadow-lg"><div className="min-w-0"><p className="text-sm">{mode==="multiple"?`${rows.length} 个变体`:(single.sku?"1 个SKU":"基础商品资料")} · {commonImages.length} 张公共图片</p><p className="mt-1 text-xs text-muted-foreground">保存到自有商品库，图片在适配时由你确认。</p>{error?<p role="alert" className="mt-2 text-sm text-destructive">{error}</p>:null}</div><Button type="submit" disabled={disabled||stale||mediaBlocked}>{commands.busy?"正在保存…":edit?"保存新版本":"保存商品"}</Button></Card>
+   <Card className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-4 border-border bg-card p-4 text-card-foreground shadow-lg"><div className="min-w-0"><p className="text-sm">{mode==="multiple"?`${rows.length} 个变体`:(single.sku?"1 个SKU":"基础商品资料")} · {commonImages.length} 张公共图片</p><p className="mt-1 text-xs text-muted-foreground">{continuation==="official"?"保存到自有商品库后继续填写供货信息，预览确认后才会公开。":"保存到自有商品库，图片在适配时由你确认。"}</p>{error?<p role="alert" className="mt-2 text-sm text-destructive">{error}</p>:null}</div><Button type="submit" disabled={disabled||stale||mediaBlocked}>{commands.busy?"正在保存…":edit?"保存新版本":continuation==="official"?"保存并填写供货信息":"保存商品"}</Button></Card>
   </form>
   {confirmation?<ResourceDialog title={confirmation==="leave"?"放弃未保存的修改？":"重新读取最新资料？"} onClose={()=>setConfirmation(null)} initialFocusRef={keepEditingRef}>
-   <p className="text-sm text-muted-foreground">{confirmation==="leave"?"当前修改尚未保存。放弃后将返回商品详情，已保存的商品资料不会改变。":"重新读取会放弃当前未保存的修改，并加载最新资料。"}</p>
+   <p className="text-sm text-muted-foreground">{confirmation==="leave"?continuation==="official"?"当前商品资料尚未保存，放弃后返回商品选择。":"当前修改尚未保存。放弃后将返回商品详情，已保存的商品资料不会改变。":"重新读取会放弃当前未保存的修改，并加载最新资料。"}</p>
    <div className="flex flex-wrap justify-end gap-3">
     <Button type="button" variant="outline" ref={keepEditingRef} onClick={()=>setConfirmation(null)}>{confirmation==="leave"?"继续编辑":"保留当前内容"}</Button>
     <Button type="button" variant="destructive" disabled={commands.busy||mediaBlocked} onClick={()=>{if(commands.busy||mediaBlocked)return;setConfirmation(null);if(confirmation==="reload")window.location.reload();else returnToDetail()}}>{confirmation==="leave"?"放弃修改":"放弃并重新读取"}</Button>
@@ -171,3 +173,5 @@ export function OwnProductForm({scope,edit}:{scope:CollectionScope;edit?:{detail
 }
 
 function prepareImageURLs(urls:string[]){return urls.every(value=>{try{const url=new URL(value);return value.length<=2048&&url.protocol==="https:"&&!!url.hostname&&!url.username&&!url.password&&!url.hash}catch{return false}})}
+
+export function OfficialOwnProductEntryPage(){return <MarketBoundary>{()=> <OfficialPublishingAccess><OwnProductEntryPage continuation="official"/></OfficialPublishingAccess>}</MarketBoundary>}

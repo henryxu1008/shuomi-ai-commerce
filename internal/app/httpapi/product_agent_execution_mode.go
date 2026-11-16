@@ -34,7 +34,7 @@ func (a *productAgentApplication) checkManualReviewMode(ctx context.Context, ide
 }
 
 func agentExecutionProvenance(state agent.State) *review.ExecutionProvenance {
-	return &review.ExecutionProvenance{WorkbenchContextRef: state.Request.WorkbenchContextRef, SkillVersionRef: state.Request.SkillVersionRef, ContentSelection: state.Request.ContentSelection, Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
+	return &review.ExecutionProvenance{ScriptDescriptor: state.Request.ScriptDescriptor, WorkbenchContextRef: state.Request.WorkbenchContextRef, SkillVersionRef: state.Request.SkillVersionRef, ContentSelection: state.Request.ContentSelection, Scope: state.Scope, RunID: state.RunID, RequestKey: state.Request.Key, Binding: state.Request.Binding, Configuration: state.Request.ConfigurationSnapshotRef, Mode: state.Request.ModeSnapshotRef}
 }
 func (a *productAgentApplication) titlePolicyScope(ctx context.Context) (review.CandidateExecutionScope, error) {
 	identity, err := a.currentModeIdentity(ctx)

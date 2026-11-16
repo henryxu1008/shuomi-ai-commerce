@@ -49,6 +49,7 @@
 - `account-audit-filters.md` — [Account Audit 完整历史筛选 V1](account-audit-filters.md)
 - `account-audit-summary.md` — [Account Audit 四项真实汇总 V1](account-audit-summary.md)
 - `account-audit-usage-readers.md` — [Account Audit 只读用量来源接线 V1](account-audit-usage-readers.md)
+- `account-region-catalog.md` — [编辑资料预置地区目录 V1](account-region-catalog.md)
 - `account-facts-invitations.md` — [Account facts and invitations v1](account-facts-invitations.md)
 - `auth-and-tenancy.md` — [Authentication and Organization Scope](auth-and-tenancy.md)
 - `auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](auth-instance-cookie-isolation.md)
@@ -175,6 +176,7 @@
 - `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
 - `supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](supply-market-choice-eligibility.md)
 - `supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
+- `supply-region-catalog.md` — [账户资料与供应市场共用中国省市目录](supply-region-catalog.md)
 - `supply-market-filters.md` — [自营与优选商品筛选](supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
 - `supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market.md)
 - `temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](temu-official-contract-evidence.md)
@@ -218,6 +220,7 @@
 - `product-selection-comparison-agent.md` — [Product selection comparison Agent v1](product-selection-comparison-agent.md)
 - `shop-operations-diagnosis-agent.md` — [Shop operations diagnosis Agent v1](shop-operations-diagnosis-agent.md)
 - `skill-capability.md` — [Skill V1：三层归属与现有商品内容 Agent 接入](skill-capability.md)
+- `skill-script-sandbox.md` — [技能脚本执行：Linux Docker + OpenSandbox + gVisor 接入设计](skill-script-sandbox.md) · IMPLEMENTATION_READY，正式执行 #1293/PR #1298；§23 补齐独立WSL执行profile的D-IT1/init-proc真实验证并修复metadata label限制。结论仅限该profile，业务部署仍核对实际挂载/公网路由；未开放用户试用、未授权合并/业务部署，Kubernetes非前置。
 - `tool-customization-figma.md` — [工具定制完整 Figma 表单与私有参考资料](tool-customization-figma.md)
 - `tool-market.md` — [工具市场 v1 — 企业启用与人工定制需求](tool-market.md)
 

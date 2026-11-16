@@ -176,6 +176,8 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	mode = strings.TrimPrefix(mode, "title-only ")
 	withSkill := strings.Contains(mode, "skill ")
 	mode = strings.Replace(mode, "skill ", "", 1)
+	withScript := strings.Contains(mode, "script ")
+	mode = strings.Replace(mode, "script ", "", 1)
 	chatTasks := mode == "content flow chat" || mode == "content flow chat scheduled" || strings.HasPrefix(mode, "own content chat")
 	f := newAcquisitionHTTPFixture(t)
 	if withSkill {
@@ -243,6 +245,13 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	}
 	var calls, plannerCalls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if withScript {
+			raw, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NotContains(t, string(raw), "SCRIPT_PRIVATE_MARKER")
+			require.NotContains(t, string(raw), "execution.json")
+			r.Body = io.NopCloser(strings.NewReader(string(raw)))
+		}
 		if fullRuntime && chatTasks {
 			raw, e := io.ReadAll(r.Body)
 			require.NoError(t, e)
@@ -606,6 +615,10 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	// pre-Claim envelope rejection remains observable under the frozen profile.
 	settings := ProductAgentDependencies{ChannelCredentials: newHTTPChannelFixture(f.owner), Enabled: true, AllowedOrganizationIDs: []string{"B"}, RunDB: f.owner, PointAccountingDB: f.owner, AssetDB: f.owner, ReviewDB: f.owner, Ledger: ledger, TextPolicies: map[string]governed.RoutePolicy{"B": {AdmittedCredentialVersion: httpCredentialReference(*row), AdmittedEndpointIdentityDigest: governed.EndpointIdentityDigest(provider.URL + "/v1"), Profile: aicapability.ModelProfile{ConnectionID: "default", CredentialVersion: row.reference, ClientName: "default", ProviderID: "grsai", AdapterKind: "openai-compatible", ModelID: "gemini-2.5-flash", RoutingPolicyVersion: "route-v1", AdapterPolicyVersion: "adapter-v1", PromptVersion: "product-title-agent-v1", OutputSchemaVersion: "product-title-action-v1", UsageMappingVersion: "usage-v1", CostPricingVersion: "fixture-v1", OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "synthetic-points-v1", FXVersion: "fixture-fx-identity", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "gemini-2.5-flash", Channel: "fixture-channel", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}}, Currency: "CNY", InputMicrosPerMillion: 300000, OutputMicrosPerMillion: 2000000, MaximumPromptTokens: 1048576, MaximumCompletionTokens: 8192, MaximumInputBytes: 64 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: 3 * time.Second}}}, Limits: agent.Limits{Steps: 12, ModelCalls: 6, Tokens: 5000000, CostMicros: 5000000, Currency: "CNY", Runtime: time.Minute}}
 	settings.CurrentTextPolicies = syntheticCurrentTextPolicies{settings: &settings}
+	var scriptCreations *atomic.Int32
+	if withScript {
+		scriptCreations = configureScriptHTTPFixture(t, &settings)
+	}
 	if rehearsal != nil {
 		if rehearsal.pilot {
 			configureTitlePilotFixture(t, &settings, rehearsal)
@@ -940,7 +953,14 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 				testSkillBFFClient(t, f, server, op.OperationID, modeRevision)
 				return
 			}
-			testSkillContentFlow(t, f, server, configuration, contentApp, op.OperationID, selectedMode, modeRevision, reviewIAM, &memberReplaced, &calls, strings.TrimPrefix(mode, "content flow cross-admin "))
+			testSkillContentFlow(t, f, server, configuration, contentApp, op.OperationID, selectedMode, modeRevision, reviewIAM, &memberReplaced, &calls, strings.TrimPrefix(mode, "content flow cross-admin "), withScript)
+			if withScript {
+				if selectedMode == "auto_approve" || selectedMode == "full_access" {
+					require.Zero(t, scriptCreations.Load())
+				} else {
+					require.EqualValues(t, 1, scriptCreations.Load())
+				}
+			}
 			return
 		}
 		key := uuid.NewString()

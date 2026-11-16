@@ -139,6 +139,10 @@ func (e *execution) model(ctx context.Context, s *flowState) {
 	next.State.Unresolved = append([]string(nil), result.Action.Unresolved...)
 	switch result.Action.Kind {
 	case "tool":
+		if result.Action.Tool.ID == "skill.script.compute" {
+			s.stop(agent.StopTool)
+			return
+		}
 		next.Next = "tool"
 	case "propose":
 		next.State.ContextCitationRefs = clone(result.ContextCitationRefs)
@@ -152,7 +156,14 @@ func (e *execution) model(ctx context.Context, s *flowState) {
 		next.State.Confidence = confidence
 		next.State.Validation = nil
 		next.Next = "validate"
+		if next.State.Request.ScriptSelected() {
+			next.Next = "script"
+		}
 	case "interrupt":
+		if s.State.Request.ScriptSelected() {
+			s.stop(agent.StopInvalidOutput)
+			return
+		}
 		next.Next = "resume"
 	default:
 		s.stop(agent.StopInvalidOutput)
@@ -267,6 +278,10 @@ func (e *execution) validate(ctx context.Context, s *flowState) {
 		if !result.Valid {
 			s.State.StopReason = agent.StopRepairLimit
 		}
+		return
+	}
+	if s.State.Request.ScriptSelected() {
+		s.stop(agent.StopInvalidOutput)
 		return
 	}
 	s.State.Repairs++

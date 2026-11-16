@@ -34,7 +34,7 @@ function ScopedSkillPicker({scope,onChange,target="product-title",disabled=false
    <select id={`${id}-version`} className="block w-full rounded-lg border border-border bg-background p-3 text-sm" disabled={disabled||loading} value={selected?`${selected.skillId}:${selected.version}`:""} onChange={e=>{const v=items.find(v=>`${v.skill.id}:${v.version}`===e.target.value);choose(v?{skillId:v.skill.id,version:v.version,digest:v.package.digest}:undefined)}}>
     <option value="">{image?"不使用技能":"请选择已启用版本"}</option>
     {selected&&!value&&<option value={`${selected.skillId}:${selected.version}`} disabled>原选版本（不可用） · v{selected.version}</option>}
-    {items.map(v=><option key={`${v.skill.id}:${v.version}`} value={`${v.skill.id}:${v.version}`}>{name(v)} · {publisher(v)} · v{v.version}</option>)}
+    {items.map(v=><option key={`${v.skill.id}:${v.version}`} value={`${v.skill.id}:${v.version}`}>{name(v)} · {publisher(v)} · v{v.version}{v.package.execution?" · Python 后处理":""}</option>)}
    </select>
    {image&&<p className="text-sm text-muted-foreground">仅列当前企业可执行的官方与团队图片版本。此设置用于新计划，原任务保留其准确版本。</p>}
    <Button variant="outline" disabled={disabled||loading} onClick={()=>void load()}>刷新技能版本</Button>
@@ -42,6 +42,7 @@ function ScopedSkillPicker({scope,onChange,target="product-title",disabled=false
    {!loading&&!items.length&&!failure&&<p className="text-sm text-muted-foreground">{image?"暂无可用图片技能，可以选择不使用技能。":"没有已启用且获准使用的技能；个人技能需当前企业明确准入。"}</p>}
    {value&&image&&<div className="space-y-2 rounded-lg bg-success p-4 text-sm"><strong>{name(value)}</strong><p>{value.package.description}</p><p>技能不增加任务数量，也不替代平台规则、报价与审核。</p></div>}
    {selected&&<p className="break-all text-xs text-muted-foreground">准确引用：{selected.skillId} · v{selected.version} · {selected.digest}</p>}
+   {value?.package.execution&&<p className="text-sm text-muted-foreground">使用已保存的 Python 脚本离线处理标题候选，需企业准入和已开放环境；失败或结果未确认时停止。默认模式人工采用，只读模式仅查看。</p>}
   </>}
  </div>;
 }

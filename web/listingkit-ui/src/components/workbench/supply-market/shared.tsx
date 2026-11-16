@@ -30,12 +30,12 @@ export function useMarketCommands(scope:MarketScope,admin=false){
  const context=useWorkbenchContext(),client=useQueryClient();const live=useRef(context),active=useRef(false),controller=useRef<AbortController|null>(null),alive=useRef(true);
  useEffect(()=>{live.current=context},[context]);useEffect(()=>{alive.current=true;return()=>{alive.current=false;controller.current?.abort()}},[]);
  const pending=useResourcePending<MarketPending>({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["supply-market",admin?"platform":"member"],admin?marketIntentSchema:marketPendingSchema,{storage:"local",maxLength:admin?131072:marketPendingLimit});
- const [busy,setBusy]=useState(false),[error,setError]=useState<unknown>(null),[saved,setSaved]=useState<MarketReceipt|null>(null);
+ const [busy,setBusy]=useState(false),[error,setError]=useState<unknown>(null),[saved,setSaved]=useState<MarketReceipt|null>(null),[savedAction,setSavedAction]=useState<MarketCommand["action"]>();
  const register=context.registerOrganizationSwitchGuard;useEffect(()=>register(()=>!active.current&&!pending.command&&!pending.error),[register,pending.command,pending.error]);
  function current(){const c=live.current;if(admin){if(c.user&&c.user.id!==scope.userId||[c.error,c.blockingError].some(e=>e?.code==="AUTHENTICATION_REQUIRED"))throw new MarketAPIError("IDENTITY_CONTEXT_CHANGED",409);return}if(c.user?.id!==scope.userId)throw new MarketAPIError("IDENTITY_CONTEXT_CHANGED",409);if(c.isLoading||c.isSwitching||c.error||c.blockingError||c.effectiveOrganization?.id!==scope.organizationId)throw new MarketAPIError("ORGANIZATION_CONTEXT_CHANGED",409)}
  async function dispatch(i:MarketIntent,verify:boolean){
-  if(active.current||!pending.ready)return;const abort=new AbortController();controller.current=abort;active.current=true;setBusy(true);setError(null);
-  try{current();if(i.admin!==admin)throw new MarketAPIError("INVALID_REQUEST",400);if(!verify)pending.persist(i);const result=await(verify?resolveMarket(scope,i,abort.signal):writeMarket(scope,i,abort.signal));if(i.command.action==="submit_selected")selectedReceipt(result);if(!alive.current)return;current();pending.clear(i);setSaved(result);void client.invalidateQueries({queryKey:["supply-market",scope.userId,scope.organizationId]});return result;
+  if(!alive.current||active.current||!pending.ready)return;const abort=new AbortController();controller.current=abort;active.current=true;setBusy(true);setError(null);
+  try{current();if(i.admin!==admin)throw new MarketAPIError("INVALID_REQUEST",400);if(!verify)pending.persist(i);const result=await(verify?resolveMarket(scope,i,abort.signal):writeMarket(scope,i,abort.signal));if(i.command.action==="submit_selected")selectedReceipt(result);if(!alive.current)return;current();pending.clear(i);setSaved(result);setSavedAction(i.command.action);void client.invalidateQueries({queryKey:["supply-market",scope.userId,scope.organizationId]});return result;
   }catch(e){if(alive.current){setError(e);if(!verify&&e instanceof MarketAPIError&&((e.code==="INVALID_REQUEST"&&e.status===400)||(e.code==="REVISION_CONFLICT"&&e.status===409)||(e.code==="NOT_FOUND"&&e.status===404))){try{pending.clear(i)}catch{setError(new MarketAPIError("OUTCOME_UNKNOWN",409))}}}}
   finally{active.current=false;if(alive.current)setBusy(false);if(controller.current===abort)controller.current=null}
  }
@@ -44,7 +44,7 @@ export function useMarketCommands(scope:MarketScope,admin=false){
  const verify=()=>original(true);
  const batchPending=!!pending.command&&isSelectedBatch(pending.command);
  const notice=pending.error||pending.command||error?<Card className="p-4" role="status"><p>{pending.error?"无法读取原操作，已暂停新提交。请保留浏览器数据。":error?marketError(error):batchPending?"多商品申请结果待确认，请返回原申请页核实。":"原操作待确认，请先核实。"}</p>{batchPending?<Link href="/workbench/supply/applications/new" prefetch={false}>返回多商品申请</Link>:pending.command&&!busy&&!pending.error?<div className="flex gap-2"><Button variant="outline" onClick={()=>void verify()}>核实原操作</Button><Button variant="outline" onClick={()=>void original(false)}>重试原操作</Button></div>:null}</Card>:null;
- return {execute,verify,busy,saved,notice,locked:!pending.ready||!!pending.command||busy||pending.error};
+ return {execute,verify,busy,saved,savedAction,notice,locked:!pending.ready||!!pending.command||busy||pending.error};
 }
 export function MarketReadError({error,retry}:{error:unknown;retry:()=>void}){return <ConsoleState kind="error" title={marketError(error)}><Button variant="outline" onClick={retry}>重新读取</Button></ConsoleState>}
 export function MarketLinks(){return <nav className="flex flex-wrap gap-4" aria-label="供应市场"><Link href="/workbench/supply/official" prefetch={false}>硕米自营</Link><Link href="/workbench/supply/selected" prefetch={false}>硕米优选</Link><Link href="/workbench/supply/catalogs" prefetch={false}>货盘集成</Link><Link href="/workbench/supply/applications" prefetch={false}>优选申请</Link></nav>}

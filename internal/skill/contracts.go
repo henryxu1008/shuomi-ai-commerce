@@ -122,7 +122,11 @@ func (o Owner) Valid() bool {
 const MethodPolicyVersion = "skill-method-v1"
 
 func (v Version) Ref() agent.SkillVersionRef {
-	return agent.SkillVersionRef{Kind: "skill-version-v1", ID: v.Metadata.ID, OwnerKind: v.Metadata.Owner.Kind, OwnerID: v.Metadata.Owner.ID, Version: v.Number, Digest: v.Package.Digest, PolicyVersion: MethodPolicyVersion}
+	policy := MethodPolicyVersion
+	if v.Package.Execution != nil {
+		policy = ScriptPolicyVersion
+	}
+	return agent.SkillVersionRef{Kind: "skill-version-v1", ID: v.Metadata.ID, OwnerKind: v.Metadata.Owner.Kind, OwnerID: v.Metadata.Owner.ID, Version: v.Number, Digest: v.Package.Digest, PolicyVersion: policy}
 }
 
 // Transition changes availability, never the immutable method package.

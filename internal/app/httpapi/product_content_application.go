@@ -13,6 +13,7 @@ import (
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	skillstore "task-processor/internal/integration/persistence/skill"
+	"task-processor/internal/integration/skillsandbox"
 	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/contentagent"
@@ -44,6 +45,14 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		return nil, agent.ErrUnavailable
 	}
 	deps.PrincipalResolver = productAgentPrincipal{application: a, request: principal.request}
+	a.scriptDependencies = deps
+	if a.config.ScriptSandbox != nil {
+		worker, err := skillsandbox.New(*a.config.ScriptSandbox)
+		if err != nil {
+			return nil, err
+		}
+		a.script, a.scriptDescriptor = worker, worker.Descriptor()
+	}
 	var err error
 	a.canonical, err = canonicalinspect.NewInvoker(reader, definition, deps)
 	if err != nil {
@@ -88,7 +97,7 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 	}}
 	model, err := texteino.NewContentAgentTextModel(executor, a.configuration, a.selectTitleProfile, func(ctx context.Context, org string) texteino.TextRouteReadiness {
 		return texteino.TextRouteReadiness(routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationProductContentDecision}))
-	}, definition.AllowedTools, a.freshIdentity, contexts...)
+	}, contentagent.ModelTools(), a.freshIdentity, contexts...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +153,9 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		}
 		return a.reviews.ValidateContentCandidate(authidentity.WithAuthenticatedIdentity(ctx, identity), input)
 	}}
-	a.runtime, err = einoruntime.New(einoruntime.Config{Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: validator, Authorizer: a, Store: guard})
+	// Keep the application port available for exact old receipt reads even if
+	// the deployment profile is closed. Prepare refuses every new script intent
+	// without an admitted executor, before Quote/Claim/model dispatch.
+	a.runtime, err = einoruntime.New(einoruntime.Config{Script: a, Definition: definition, Tools: definitions, Model: model, Gateway: a, Validator: validator, Authorizer: a, Store: guard})
 	return a, err
 }

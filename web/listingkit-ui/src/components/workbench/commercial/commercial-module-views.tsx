@@ -38,8 +38,12 @@ const reasons: Record<string, string> = {
   model_point_released: "释放模型调用预留",
 };
 function quantity(value: string) {
-  const n = BigInt(value);
-  return `${n > BigInt(0) ? "+" : ""}${n.toLocaleString("zh-CN")}`;
+  const negative = value.startsWith("-");
+  const [whole, fraction] = (negative ? value.slice(1) : value).split(".");
+  const integer = BigInt(whole);
+  if (integer === BigInt(0) && (!fraction || BigInt(fraction) === BigInt(0))) return "0";
+  const grouped = integer.toLocaleString("zh-CN");
+  return `${negative ? "-" : "+"}${grouped}${fraction ? `.${fraction}` : ""}`;
 }
 function boundary(value: string, next = false) {
   return new Date(`${value}T00:00:00Z`).getTime() + (next ? 86400000 : 0);

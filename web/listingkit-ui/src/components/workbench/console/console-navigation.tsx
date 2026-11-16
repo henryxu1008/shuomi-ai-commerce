@@ -49,7 +49,8 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
   const research = researchLocation(pathname, new URLSearchParams(query?.toString()));
   const researchPath = research?.step ? `${research.workflow.root}?step=${research.step.id}` : pathname;
   const inListing = pathname === listingHome || pathname.startsWith(listingHome + "/");
-  const trail = research ? ["/workbench/agents", "/workbench/agents/market"] : findConsoleRoute(researchPath)?.trail.map(node=>node.href) ?? (inListing ? [listingHome] : []);
+  const navigationPath = pathname.startsWith("/workbench/supply/catalogs/") ? "/workbench/supply/catalogs" : pathname.startsWith("/workbench/supply/applications/") ? "/workbench/supply/applications" : researchPath;
+  const trail = research ? ["/workbench/agents", "/workbench/agents/market"] : findConsoleRoute(navigationPath)?.trail.map(node=>node.href) ?? (inListing ? [listingHome] : []);
   if(inListing){
     for(const key of ["preparation","store","operation","plan"]){
       const values=query?.getAll(key);
@@ -72,6 +73,10 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
   const nodes = consoleNavigation.filter(entry => !researchWorkflows.some(workflow => workflow.root === entry.href)).map(entry => {
     const connected = entry.href === "/workbench" && operationsCockpitAvailable || firstConnectedConsoleEntry(entry.href, entryCapabilities) !== null;
     const node = { ...entry, availability: connected ? "connected" as const : "unavailable" as const };
+    if (node.href === "/workbench/account") {
+      // Keep the full route trail for detail breadcrumbs and section highlighting.
+      return { ...node, children: node.children?.map(child => ({ ...child, children: undefined })) };
+    }
     if (node.href === "/workbench" && operationsCockpitAvailable) return { ...node, availability: "connected" as const, children: node.children?.map(child => {
       const mode = child.href.split("/").at(-1), permission = mode === "stores" ? "workbench.cockpit.stores.read" : `workbench.cockpit.${mode}.read`;
       return { ...child, availability: cockpitPermissions.includes(permission) ? "connected" as const : "unavailable" as const };
@@ -99,7 +104,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, dataService
 }
 function MarketBranch({node,pathname,trail,onNavigate,userId}:{node:ConsoleNavNode;pathname:string;trail:readonly string[];onNavigate?:()=>void;userId:string}){
  const authorized=useQuery({queryKey:["supply-market",userId,"","records",true,"selected",false,undefined],queryFn:({signal})=>listMarketRecords({userId,organizationId:""},{kind:"selected",ended:false},true,signal),retry:false});
- const branch=authorized.isSuccess&&!authorized.isError ? {...node,children:[...(node.children??[]),{label:"发布管理/处理申请",href:"/workbench/supply/operator",availability:"connected" as const}]}:node;
+ const branch=authorized.isSuccess&&!authorized.isError ? {...node,children:[...(node.children??[]),{label:"发布管理",href:"/workbench/supply/operator",availability:"connected" as const}]}:node;
  const currentTrail=pathname==="/workbench/supply/operator" || pathname.startsWith("/workbench/supply/operator/") ? [...trail,node.href,"/workbench/supply/operator"]:trail;
  return <NavBranch node={branch} pathname={pathname} trail={currentTrail} depth={1} onNavigate={onNavigate}/>;
 }

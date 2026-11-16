@@ -31,6 +31,20 @@ func (c productSkillContext) AcquireMethod(ctx context.Context, identity agent.E
 	if e != nil {
 		return nil, e
 	}
+	if ref.PolicyVersion == d.ScriptPolicyVersion {
+		// Recheck exact live use before probing infrastructure, without holding
+		// a Skill transaction across the network read. AcquireUse below still
+		// closes the revocation race at the original before-send fence.
+		if _, e = c.application.skills.ReadForUse(ctx, p, ref); e != nil {
+			return nil, e
+		}
+		if c.application.script == nil {
+			return nil, agent.ErrUnavailable
+		}
+		if e = c.application.script.CheckControl(ctx); e != nil {
+			return nil, e
+		}
+	}
 	_, release, e := c.application.skills.AcquireUse(ctx, p, ref)
 	return release, e
 }
@@ -56,7 +70,7 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	if e != nil {
 		return nil, e
 	}
-	if snapshot.AgentID != agentconfig.ContentAgentID || snapshot.Request.SkillVersionRef != p.SkillVersionRef || snapshot.Request.ContentSelection != p.ContentSelection || !p.ContentSelection.TitleOnly() {
+	if snapshot.AgentID != agentconfig.ContentAgentID || snapshot.Request.SkillVersionRef != p.SkillVersionRef || snapshot.Request.ScriptDescriptor != p.ScriptDescriptor || snapshot.Request.ContentSelection != p.ContentSelection || !p.ContentSelection.TitleOnly() {
 		return nil, review.ErrConflict
 	}
 	current, e := a.currentModeIdentity(ctx)
@@ -83,8 +97,12 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	if !found || run.State.RunID != p.RunID || !agentRunReviewable(run.State) || *agentExecutionProvenance(run.State) != p {
 		return nil, review.ErrConflict
 	}
-	if _, e = a.configuration.CheckRegisteredTextExecutionMode(ctx, origin, p.Configuration, p.Mode); e != nil {
+	mode, e := a.configuration.CheckRegisteredTextExecutionMode(ctx, origin, p.Configuration, p.Mode)
+	if e != nil {
 		return nil, e
+	}
+	if p.SkillVersionRef.PolicyVersion == d.ScriptPolicyVersion && mode.Mode != agent.ModeDefault {
+		return nil, review.ErrForbidden
 	}
 	consumer := a
 	if a.definition.ID != agentconfig.ContentAgentID {
@@ -92,6 +110,9 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	}
 	if consumer == nil || consumer.skills == nil {
 		return nil, d.ErrUnavailable
+	}
+	if p.SkillVersionRef.PolicyVersion == d.ScriptPolicyVersion && (consumer.script == nil || consumer.scriptDescriptor != p.ScriptDescriptor) {
+		return nil, review.ErrConflict
 	}
 	// The reviewer never receives the original user's method body. Exact live
 	// origin access is required; the existing reviewer checks still run in UoW.

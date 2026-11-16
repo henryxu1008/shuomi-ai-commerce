@@ -31,6 +31,7 @@ import (
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	reviewstore "task-processor/internal/integration/persistence/product/review"
 	skillstore "task-processor/internal/integration/persistence/skill"
+	"task-processor/internal/integration/skillsandbox"
 	"task-processor/internal/knowledge"
 	"task-processor/internal/listing/readiness/tools/readinessinspect"
 	"task-processor/internal/product/asset"
@@ -52,6 +53,7 @@ import (
 // and the manager are caller-owned. Construction never installs schema, creates
 // entitlements, calls the model or edits a Product.
 type ProductAgentDependencies struct {
+	ScriptSandbox            *skillsandbox.Config
 	ChannelCredentials       channelcredential.SecretReader
 	CurrentTextPolicies      governed.RoutePolicyReader
 	Knowledge                *knowledge.Service
@@ -84,7 +86,15 @@ type ProductAgentInvocationLedger interface {
 	SetUsageSettler(aicapability.InvocationUsageSettler)
 }
 
+type scriptControlExecutor interface {
+	agent.ScriptExecutor
+	CheckControl(context.Context) error
+}
+
 type productAgentApplication struct {
+	script                  scriptControlExecutor
+	scriptDescriptor        agent.ScriptDescriptor
+	scriptDependencies      commercetool.InvocationDependencies
 	workbenchScopes         *aiWorkbenchApplication
 	ownProducts             ownProductReader
 	ownIntake               *ownIntakeApplication

@@ -118,6 +118,7 @@ func (s *Store) Execute(ctx context.Context, c d.Command, resolve d.ResolvePrinc
 		if e != nil || p.Digest != c.Package.Digest || p.Name != c.Package.Name || p.Description != c.Package.Description || p.Target != c.Package.Target || p.DisplayName != c.Package.DisplayName {
 			return out, d.ErrInvalid
 		}
+		c.Package = p
 	}
 	fp := commandFingerprint(c)
 	e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

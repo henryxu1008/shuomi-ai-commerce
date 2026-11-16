@@ -110,6 +110,7 @@ func ValidID(s string) bool {
 // Scope comes from the current authorizer, never model or browser payload.
 type Scope struct{ OrganizationID, ActorID string }
 type Request struct {
+	ScriptDescriptor             ScriptDescriptor                `json:",omitzero"`
 	ScheduledSource              ScheduledSourceRef              `json:",omitzero"`
 	WorkbenchContextRef          WorkbenchContextRef             `json:",omitzero"`
 	ManualReviewOnly             bool                            `json:",omitempty"`
@@ -296,6 +297,8 @@ type RejectedPayload struct {
 	Bytes                        int
 }
 type State struct {
+	ScriptReceipt         *ScriptReceipt       `json:",omitempty"`
+	ScriptOriginalTitle   string               `json:",omitempty"`
 	ContextCitationRefs   []ContextCitationRef `json:",omitempty"`
 	RunID                 string
 	Scope                 Scope

@@ -198,6 +198,7 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 				return agent.Request{}, agentconfig.ErrConflict
 			}
 			input.Request.SkillVersionRef = ref
+			input.Request.ScriptDescriptor = existing.State.Request.ScriptDescriptor
 		}
 		frozen, err := a.configuration.Match(ctx, input, existing.State.Request.ConfigurationSnapshotRef)
 		if err != nil {
@@ -234,6 +235,12 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 			return agent.Request{}, e
 		}
 		input.Request.SkillVersionRef = ref
+		if input.Request.ScriptSelected() {
+			if a.script == nil || !a.scriptDescriptor.Valid() || !input.Request.ScheduledSource.Absent() {
+				return agent.Request{}, agent.ErrUnavailable
+			}
+			input.Request.ScriptDescriptor = a.scriptDescriptor
+		}
 	}
 	if a.selectTitleProfile == nil {
 		return agent.Request{}, agent.ErrUnavailable
@@ -274,6 +281,17 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 	}
 	if a.model == nil {
 		return agent.Request{}, agent.ErrUnavailable
+	}
+	// New, authorized script requests depend on the current control link.
+	// Exact old receipts returned above; this GET creates no sandbox and
+	// reserves no capacity. The original model before-send gate checks again.
+	if request.ScriptSelected() {
+		if a.script == nil || request.ScriptDescriptor != a.scriptDescriptor {
+			return agent.Request{}, agent.ErrUnavailable
+		}
+		if err := a.script.CheckControl(ctx); err != nil {
+			return agent.Request{}, err
+		}
 	}
 	// Reserve the real UUID width without creating a run. Trace and the empty
 	// first state match execution; the quote is never reserved or dispatched.

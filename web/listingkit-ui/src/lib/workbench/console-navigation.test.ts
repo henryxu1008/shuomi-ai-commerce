@@ -19,15 +19,14 @@ describe("Figma Console navigation contract", () => {
       expect(route.node.href).toBe(`/workbench/agents/skills/${category}`);
     }
   });
-  it("keeps tool customization children on real routes under their Figma parent", () => {
-    const children = findConsoleRoute("/workbench/tools/custom")?.node.children;
-    expect(children?.map(node => [node.label, node.href])).toEqual([
+  it("registers the tool customization pages without adding sidebar children", () => {
+    expect(findConsoleRoute("/workbench/tools/custom")?.node.children).toBeUndefined();
+    for (const [label, href] of [
       ["提交定制需求", "/workbench/tools/custom/new"],
       ["定制进度", "/workbench/tools/custom/progress"],
-    ]);
-    for (const child of children ?? []) {
-      expect(findConsoleRoute(child.href)?.trail.map(node => node.label)).toEqual(["工具市场", "工具定制", child.label]);
-      expect(existsSync(join(process.cwd(), "src/app", child.href.slice(1), "page.tsx"))).toBe(true);
+    ]) {
+      expect(findConsoleRoute(href)?.trail.map(node => node.label)).toEqual(["工具市场", "工具定制", label]);
+      expect(existsSync(join(process.cwd(), "src/app", href.slice(1), "page.tsx"))).toBe(true);
     }
   });
   it("keeps own-item confirmation and independent draft detail under their current parents",()=>{
@@ -37,29 +36,22 @@ describe("Figma Console navigation contract", () => {
     const draft=findConsoleRoute(`/workbench/listing/missing/${id}`);
     expect(draft?.node.label).toBe("待补全草稿");expect(draft?.trail.map(node=>node.label)).toContain("商品刊登");
   });
-  it("keeps the two catalog entries under their Figma parent and real pages", () => {
+  it("keeps catalog pages registered without turning them into sidebar children", () => {
     const parent = findConsoleRoute("/workbench/supply/catalogs")!;
-    expect(parent.node.children?.map(node => [node.label, node.href])).toEqual([
-      ["货盘选品", "/workbench/supply/catalogs/selection"],
-      ["申请对接", "/workbench/supply/catalogs/apply"],
-    ]);
-    for (const child of parent.node.children ?? []) {
-      expect(findConsoleRoute(child.href)?.node).toBe(child);
-      expect(findConsoleRoute(child.href)?.trail.map(node => node.label)).toEqual(["供应市场", "货盘集成", child.label]);
-      expect(existsSync(join(process.cwd(), "src/app", child.href.slice(1), "page.tsx"))).toBe(true);
+    expect(parent.node.children).toBeUndefined();
+    for (const [label, href] of [["货盘选品","/workbench/supply/catalogs/selection"],["对接进度","/workbench/supply/catalogs/apply"]]) {
+      expect(findConsoleRoute(href)?.node.label).toBe(label);
+      expect(findConsoleRoute(href)?.trail.map(node=>node.label)).toEqual(["供应市场","货盘集成",label]);
+      expect(existsSync(join(process.cwd(),"src/app",href.slice(1),"page.tsx"))).toBe(true);
     }
   });
   it("keeps the three selected-application entries and shared detail under their real parent", () => {
     const parent = findConsoleRoute("/workbench/supply/applications")!;
-    expect(parent.node.children?.map(node => [node.label, node.href])).toEqual([
-      ["发起申请", "/workbench/supply/applications/new"],
-      ["申请进度", "/workbench/supply/applications/progress"],
-      ["申请记录", "/workbench/supply/applications/records"],
-    ]);
-    for (const child of parent.node.children ?? []) {
-      expect(findConsoleRoute(child.href)?.node).toBe(child);
-      expect(findConsoleRoute(child.href)?.trail.map(node => node.label)).toEqual(["供应市场", "优选申请", child.label]);
-      expect(existsSync(join(process.cwd(), "src/app", child.href.slice(1), "page.tsx"))).toBe(true);
+    expect(parent.node.children).toBeUndefined();
+    for (const [label,href] of [["发起申请","/workbench/supply/applications/new"],["申请进度","/workbench/supply/applications/progress"],["申请记录","/workbench/supply/applications/records"]]) {
+      expect(findConsoleRoute(href)?.node.label).toBe(label);
+      expect(findConsoleRoute(href)?.trail.map(node => node.label)).toEqual(["供应市场", "优选申请", label]);
+      expect(existsSync(join(process.cwd(), "src/app", href.slice(1), "page.tsx"))).toBe(true);
     }
     expect(findConsoleRoute("/workbench/supply/applications/11111111-1111-4111-8111-111111111111")?.trail.map(node => node.label)).toEqual(["供应市场", "优选申请", "申请详情"]);
     expect(findConsoleRoute("/workbench/supply/applications/extra")).toBeUndefined();

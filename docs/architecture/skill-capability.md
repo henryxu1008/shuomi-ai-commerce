@@ -1,5 +1,7 @@
 # Skill V1：三层归属与现有商品内容 Agent 接入
 
+> 2026-11-15：用户已批准[脚本扩展 §21](skill-script-sandbox.md#21-已批准三组产品范围与正式-ready-准入2026-11-15)，正式执行 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，**IMPLEMENTATION_READY / Ready（未启动）**。首版为有效企业内标题候选的单Python/标准库/JSON/离线后处理、default人工采用/read_only查看，沿原权限与企业准入。复用Linux Docker/gVisor、OpenSandbox及Traefik入口，Kubernetes非前置；独立复核无新架构BLOCKER。D-IT1余项仍为试用开放Must，256事件等约束在正式adapter组合落实；本轮不改生产代码，能力尚未开放。本文文本合同保持，本决定仅在准确新脚本策略/消费者内局部扩展，不授予任意脚本执行权。
+
 > Design Basis：Independent Architecture；执行 Issue：[#688](https://github.com/qq550723504/task-processor/issues/688)，产品父项 #137。
 > 状态：APPROVED / IMPLEMENTATION_READY。2026-10-14 第 1 轮独立技术边界检查无未处理 BLOCKER；用户同日批准第 2 节局部产品位置。实现与用户验收另行记录。
 > 2026-10-17 局部入口调整：用户批准「智能市场 → 技能库」，含官方模板、我的技能和团队技能；执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，Design Basis 为 Reuse Existing Architecture。此决定仅替代原入口限制，下面的归属、授权、版本、持久化与执行合同保持有效。

@@ -8,11 +8,13 @@ import (
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
 	governed "task-processor/internal/integration/aicapability/einomodel"
+	"task-processor/internal/integration/skillsandbox"
 )
 
 // ProductAgentConfig is an explicit local trial option. Credential values stay
 // in the existing Organization AI credential owner, never in this option.
 type ProductAgentConfig struct {
+	ScriptSandbox          *skillsandbox.Config            `json:"scriptSandbox,omitempty"`
 	Enabled                bool                            `json:"enabled"`
 	ContentOnly            bool                            `json:"contentOnly,omitempty"`
 	ContentTitleOnly       bool                            `json:"contentTitleOnly,omitempty"`
@@ -93,6 +95,14 @@ func (p *ProductAgentConfig) hasPolicies() bool {
 
 // Configuration metadata remains bounded even when no executor is assembled.
 func (p *ProductAgentConfig) validatePolicyMetadata() error {
+	if p.ScriptSandbox != nil {
+		if err := p.ScriptSandbox.Validate(); err != nil {
+			return err
+		}
+		if len(p.ContentTextPolicies) == 0 {
+			return errors.New("script sandbox requires content consumer")
+		}
+	}
 	if p.ContentOnly && p.ContentTitleOnly {
 		return errors.New("contentOnly and contentTitleOnly are mutually exclusive")
 	}
@@ -186,7 +196,7 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 	if len(p.ImageAnalysisPolicies) > len(seen) {
 		return errors.New("image analysis policy outside current organization admission")
 	}
-		for org, policy := range p.OwnIntakePolicies {
+	for org, policy := range p.OwnIntakePolicies {
 		profile := policy.ShapeProfile()
 		cost, err := profile.MaximumCost()
 		if !seen[org] || !agentconfig.OwnIntakeProfileShape(profile) || !governed.ValidRouteShape(profile, aicapability.OperationOwnProductIntake) || profile.Currency != p.Currency || err != nil || cost > p.CostMicros || profile.MaximumPromptTokens > p.Tokens-profile.MaximumCompletionTokens {

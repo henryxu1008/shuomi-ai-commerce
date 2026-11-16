@@ -1,3 +1,4 @@
+import { parseResourceEvents } from "@/lib/api/resource-events";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {useState,type ComponentProps} from "react";
@@ -197,4 +198,55 @@ it("restores applied ledger filters when a query remounts the view", () => {
   expect(screen.getByLabelText("用量类型")).toHaveValue("ai_point");
   expect(screen.getByLabelText("开始日期（UTC）")).toHaveValue("2026-09-01");
   expect(screen.getByLabelText("结束日期（UTC）")).toHaveValue("2026-09-30");
+});
+
+it("shows signed fractional AI points and whole resource counts in the same ledger", () => {
+  const pointEvent = {
+    event_id: "event-ai",
+    operation_id: "operation-ai",
+    resource_type: "ai_point",
+    unit_version: "ai-micropoint-v1",
+    quantity: "1200.000012",
+    available_delta: "-0.000001",
+    allocated_delta: "0.000000",
+    reserved_delta: "0.000001",
+    consumed_delta: "1200.000012",
+    available_after: "100.000001",
+    allocated_after: "0",
+    reserved_after: "0.000001",
+    consumed_after: "1200.000012",
+    reason: "consumed",
+    source_type: "model_invocation_v1",
+    source_identity: "invocation-1",
+    occurred_at: "2026-11-16T00:00:00Z",
+  };
+  const rowEvent = {
+    ...pointEvent,
+    event_id: "event-data",
+    resource_type: "data_row",
+    unit_version: undefined,
+    quantity: "2500",
+    available_delta: "2500",
+    allocated_delta: "0",
+    reserved_delta: "0",
+    consumed_delta: "0",
+    available_after: "2500",
+    reserved_after: "0",
+    consumed_after: "0",
+    reason: "purchase",
+    source_type: "purchase",
+    source_identity: "purchase-1",
+  };
+  const page = parseResourceEvents({
+    organization_id: "org-B",
+    items: [pointEvent, rowEvent],
+    next_cursor: null,
+  });
+  expect(page).not.toBeNull();
+  render(<UsageDetailsView page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
+
+  for (const value of ["-0.000001", "+0.000001", "+1,200.000012", "+2,500"]) {
+    expect(screen.getByRole("cell", { name: value })).toBeVisible();
+  }
+  expect(screen.getAllByRole("cell", { name: "0" })).toHaveLength(4);
 });

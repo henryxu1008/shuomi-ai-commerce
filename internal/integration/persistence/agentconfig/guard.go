@@ -41,6 +41,9 @@ func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64
 		return agent.Record{}, false, e
 	}
 	command := initial.State.Request
+	if !command.ValidScript() {
+		return agent.Record{}, false, agentconfig.ErrInvalid
+	}
 	command.ContextSnapshotRef = agent.ContextSnapshotRef{}
 	command.ConfigurationSnapshotRef = agent.ConfigurationSnapshotRef{}
 	if command != snap.Request || (snap.KnowledgeBaseID == "") != initial.State.Request.ContextSnapshotRef.Absent() {
@@ -53,6 +56,9 @@ func (g *Guard) Claim(ctx context.Context, initial agent.Record, expected uint64
 	mode, e := g.config.LoadModeSnapshot(ctx, identity, command.ModeSnapshotRef)
 	if e != nil || mode.Subject.Subject.Kind != agentconfig.RegisteredAgentSubject || mode.Subject.Subject.ID != snap.AgentID || mode.Subject.Definition.Version != snap.AgentVersion || mode.Binding.RequestKey != command.Key || mode.Binding.ContextKind != command.Binding.ContextKind || mode.Binding.ContextID != command.Binding.ContextID {
 		return agent.Record{}, false, agentconfig.ErrConflict
+	}
+	if command.ScriptSelected() && mode.Mode != agent.ModeDefault && mode.Mode != agent.ModeReadOnly {
+		return agent.Record{}, false, agent.ErrManualReviewRequired
 	}
 	var result agent.Record
 	acquired := false

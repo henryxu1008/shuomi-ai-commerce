@@ -23,6 +23,7 @@ import (
 )
 
 type Config struct {
+	Script             agent.ScriptGateway
 	SingleCallReadOnly bool
 	PreReadTools       []commercetool.ToolRef
 	Definition         commercetool.AgentDefinition
@@ -141,10 +142,16 @@ func (r *Runtime) ResumeWithClaimAttempt(ctx context.Context, request agent.Requ
 }
 
 func (r *Runtime) runWithClaimAttempt(ctx context.Context, request agent.Request, expected uint64, feedback string, freshOnly bool) (agent.Record, bool, error) {
+	if r == nil {
+		return agent.Record{}, false, agent.ErrInvalid
+	}
 	if r != nil && r.config.SingleCallReadOnly && (expected != 0 || request.Limits.ModelCalls != 1) {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
 	if !request.ContextSnapshotRef.ValidOrAbsent() || !request.ConfigurationSnapshotRef.ValidOrAbsent() || !request.SkillVersionRef.ValidOrAbsent() {
+		return agent.Record{}, false, agent.ErrInvalid
+	}
+	if !request.ValidScript() || request.ScriptSelected() && (nilPort(r.config.Script) || expected != 0) {
 		return agent.Record{}, false, agent.ErrInvalid
 	}
 	if ctx == nil || r == nil || !request.Binding.Valid() || !request.ValidContentSelection() || !agent.ValidID(request.Key) || !agent.ValidID(request.PolicyVersion) || !agent.ValidID(request.PromptVersion) || !agent.ValidGoalSummary(request.GoalSummary) || !request.Limits.Valid() || request.Limits.Steps > (1<<29) {
@@ -277,9 +284,9 @@ type execution struct {
 
 func (e *execution) graph(ctx context.Context) (compose.Runnable[*flowState, *flowState], error) {
 	g := compose.NewGraph[*flowState, *flowState]()
-	nodes := map[string]func(context.Context, *flowState){"model": e.model, "tool": e.tool, "validate": e.validate, "resume": e.resume}
+	nodes := map[string]func(context.Context, *flowState){"model": e.model, "tool": e.tool, "validate": e.validate, "resume": e.resume, "script": e.script}
 	entry := "model"
-	branches := map[string]bool{"model": true, "tool": true, "validate": true, "resume": true, compose.END: true}
+	branches := map[string]bool{"model": true, "tool": true, "validate": true, "resume": true, "script": true, compose.END: true}
 	if e.runtime.config.SingleCallReadOnly {
 		entry = "pre_read"
 		nodes[entry] = e.preRead
