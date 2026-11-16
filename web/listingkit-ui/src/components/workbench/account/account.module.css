@@ -118,7 +118,7 @@
   .settingsWorkspace .panel { padding: 16px; }
   .settingsGridForm, .settingsRegionForm, .settingsContacts { grid-template-columns: minmax(0, 1fr); }
 }
-.businessForm { display: grid; gap: 16px; }
+.businessForm { display: grid; gap: 16px; margin-block-start: 16px; }
 .businessGroups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; }
 .businessGroup { grid-column: 1 / -1; min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
 .businessGroup[data-compact] { grid-column: auto; }

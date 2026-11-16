@@ -300,6 +300,7 @@ function BusinessSupplement({ fieldLabel, inputLabel, value, onChange, disabled 
   fieldLabel: string; inputLabel: string; value: string; onChange: (value: string) => void; disabled?: boolean;
 }) {
   const [expanded, setExpanded] = useState(Boolean(value));
+  const [typedValue, setTypedValue] = useState<string | null>(null);
   const contentId = useId();
   return <div className={styles.supplement}>
     <button type="button" aria-label={`补充填写：${fieldLabel}`} aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded(current => !current)}>
@@ -308,7 +309,11 @@ function BusinessSupplement({ fieldLabel, inputLabel, value, onChange, disabled 
     </button>
     <div id={contentId} hidden={!expanded}>
       <label className={styles.otherChoice}>{inputLabel}
-        <input value={value} disabled={disabled} onChange={event => onChange(event.target.value)} />
+        <input value={typedValue ?? value} disabled={disabled} onBlur={() => setTypedValue(null)} onChange={event => {
+          const nextValue = event.target.value;
+          setTypedValue(nextValue);
+          onChange(nextValue);
+        }} />
       </label>
     </div>
   </div>;

@@ -319,7 +319,7 @@ describe("AccountPage read-only projection", () => {
     await user.click(within(services).getByRole("button", { name: "补充填写：服务选项" }));
     expect(within(services).getByRole("textbox", { name: "其他选项（逗号分隔）" })).toBeDisabled();
   });
-  it("deduplicates custom business-profile values against selected predefined values before saving", async () => {
+  it("keeps typed separators and deduplicates custom business-profile values before saving", async () => {
     const business = { schemaVersion: "account-business-profile-v1", userId: "u1", userRole: "", shopSituation: "", factorySituation: "", platforms: [], sites: [], shopType: "", services: [], source: "account_profile", updatedAt: null, readAt: profile.readAt };
     const fetcher = vi.fn((input: string, init?: RequestInit) => {
       const path = String(input);
@@ -337,11 +337,11 @@ describe("AccountPage read-only projection", () => {
     disclosure.focus();
     await user.keyboard("{Enter}");
     expect(disclosure).toHaveAttribute("aria-expanded", "true");
-    await user.type(within(platforms).getByRole("textbox", { name: "其他选项（逗号分隔）" }), "Amazon");
+    await user.type(within(platforms).getByRole("textbox", { name: "其他选项（逗号分隔）" }), "Amazon, Mercado Libre, Faire");
     await user.click(screen.getByRole("button", { name: "保存经营画像" }));
     expect(await screen.findByText("经营画像已保存")).toHaveAttribute("role", "status");
     const save = fetcher.mock.calls.find(([url, init]) => url === "/api/account/business-profile" && init?.method === "PUT");
-    expect(JSON.parse(String(save?.[1]?.body)).platforms).toEqual(["Amazon"]);
+    expect(JSON.parse(String(save?.[1]?.body)).platforms).toEqual(["Amazon", "Mercado Libre", "Faire"]);
   });
   it("retries a dependency failure only after user action and rereads facts", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 })).mockImplementation(() => Promise.resolve(Response.json(profile)));
