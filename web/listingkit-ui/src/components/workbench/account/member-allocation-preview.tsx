@@ -51,7 +51,7 @@ export function MemberAllocationPreview({ userId, organizationId, scope }: {
       : members.length === 0 ? <p className={styles.note} role="status">暂无可查看的成员资源</p>
       : <div className={styles.allocationPreview} role="region" aria-label="成员资源分配表格" tabIndex={0}>
         <table aria-label="成员资源分配">
-          <thead><tr><th scope="col">成员／角色</th><th scope="col">已授权店铺</th><th scope="col">可用续费期数</th><th scope="col">本月可用 AI 点数</th><th scope="col">可用数据条数</th></tr></thead>
+          <thead><tr><th scope="col">成员／角色</th><th scope="col">已授权店铺</th><th scope="col">可用续费期数</th><th scope="col">本月剩余 AI 消费额度</th><th scope="col">可用数据条数</th></tr></thead>
           <tbody>{members.slice(0, 5).map(member => {
             const limit = limits?.get(member.memberId);
             const labels = member.roles.map(role =>
