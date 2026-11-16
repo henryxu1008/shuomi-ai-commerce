@@ -66,6 +66,9 @@ it("searches preset countries, clears descendants on changes and saves IDs after
   await user.selectOptions(screen.getByRole("combobox", { name: "省／州" }), "1");
   await user.selectOptions(screen.getByRole("combobox", { name: "城市" }), "3");
   expect(save).toBeEnabled();
+  await user.click(search);
+  await user.keyboard("{Enter}");
+  expect(calls.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
   await user.selectOptions(screen.getByRole("combobox", { name: "省／州" }), "2");
   expect(screen.getByRole("combobox", { name: "城市" })).toHaveValue("");
   expect(save).toBeDisabled();

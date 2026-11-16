@@ -29,7 +29,11 @@ function RegionField({ label, value, options, placeholder, disabled, onChange, l
   return <div className={styles.field}>
     {options.length > 20 ? <label className={styles.search}>
       搜索{label}
-      <input type="search" value={search} onChange={event => setSearch(event.target.value)} disabled={disabled} />
+      <input type="search" value={search} onChange={event => setSearch(event.target.value)}
+        onKeyDown={event => {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) event.preventDefault();
+        }}
+        disabled={disabled} />
     </label> : null}
     <label>
       {label}
