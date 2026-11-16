@@ -110,7 +110,7 @@ describe("MarketingHomepage", () => {
     expect(screen.getByText("每一个电商岗位，都可以拥有一位 AI 员工")).toBeInTheDocument();
     expect(screen.getByText("连接商品、货盘与工厂，让好产品快速进入市场")).toBeInTheDocument();
     expect(screen.getByText("不同的业务起点，同一套 AI 增长能力")).toBeInTheDocument();
-    expect(screen.getByText("价格与服务方案")).toBeInTheDocument();
+    expect(screen.getByText("PRICING & SERVICE PLANS / 价格与服务方案")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "让每个人，都拥有一支智能电商团队" })).toBeInTheDocument();
     expect(screen.getByText("消费需求分析")).toBeInTheDocument();
     expect(screen.getByText("AI自动优化策略")).toBeInTheDocument();
