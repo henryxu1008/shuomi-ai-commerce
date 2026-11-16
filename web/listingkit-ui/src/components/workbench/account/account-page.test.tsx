@@ -346,9 +346,11 @@ describe("AccountPage read-only projection", () => {
     expect(screen.queryByText("未绑定")).not.toBeInTheDocument(); expect(screen.queryByRole("button", { name: /保存|修改|认证/ })).not.toBeInTheDocument();
   });
   it("keeps Home and Effective and project roles separate, with no fabricated commercial facts", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
+    const customRole = `sumi_role_${"a".repeat(32)}_01`;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...organization, roles: ["viewer", customRole] }))); mount("organization");
     expect(await screen.findByRole("heading", { name: "企业乙" })).toBeVisible();
-    expect(screen.getByText("当前角色：查看者")).toBeVisible();
+    expect(screen.getByText("当前角色：查看者、自定义角色")).toBeVisible();
+    expect(screen.queryByText(customRole, { exact: false })).not.toBeInTheDocument();
     expect(screen.getByText("当前企业编号")).not.toBeVisible();
     await userEvent.click(screen.getByText("企业编号"));
     expect(screen.getByText("当前企业编号")).toBeVisible();

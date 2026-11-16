@@ -8,6 +8,7 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getAccountAudit } from "@/lib/api/account-audit";
+import { enterpriseRoleKey } from "@/lib/api/enterprise-role-schema";
 import { auditOperationLabel } from "./audit/audit-labels";
 
 import { AccountReadError, updateAccountBusinessProfile, type AccountBusinessProfile, type AccountBusinessProfileInput, type AccountOrganization, type AccountProfile } from "@/lib/api/account";
@@ -258,7 +259,9 @@ export function OrganizationView({ data, scope,platformMaintenance }: { data: Ac
   const activeMembers = members.data?.active;
   const invites = useQuery({queryKey:["invitation-summary",data.userId,data.effectiveOrganizationId,scope],queryFn:({signal})=>getInvitationSummary({expectedUserId:data.userId,expectedOrganizationId:data.effectiveOrganizationId,signal}),gcTime:0,staleTime:0,retry:false});
   const stores = useQuery({queryKey:["enterprise-stores",data.userId,data.effectiveOrganizationId,scope],queryFn:({signal})=>listWorkbenchStores({page:1,pageSize:1},data.effectiveOrganizationId,signal),gcTime:0,staleTime:0,retry:false});
-  const roles = data.roles.map(role => enterpriseRoleLabels.get(role) ?? role);
+  const roles = [...new Set(data.roles.map(role =>
+    enterpriseRoleLabels.get(role) ?? (enterpriseRoleKey.safeParse(role).success ? "自定义角色" : "角色名称暂未提供"),
+  ))];
   const management = [
     { title: "成员与权限", description: "查看成员和角色，有权限的管理员可邀请成员", href: "/workbench/account/organization/members" },
     { title: "资源与额度", description: "查看企业余额和成员消费上限", href: "/workbench/account/organization/resources" },
