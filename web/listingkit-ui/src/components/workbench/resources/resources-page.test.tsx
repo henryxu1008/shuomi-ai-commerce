@@ -25,6 +25,24 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); });
+
+it("groups enterprise balances, member allowances and store tools with working entry links", async () => {
+  render(tree());
+  const overview = screen.getByRole("region", { name: "企业资源概览" });
+  const members = screen.getByRole("region", { name: "成员资源与额度" });
+  const tools = screen.getByRole("region", { name: "店铺服务与源账号" });
+  expect(await within(overview).findByText("9007199254.740993 点")).toBeVisible();
+  const memberLink = within(overview).getByRole("link", { name: "查看成员额度" });
+  expect(memberLink).toHaveAttribute("href", "#member-allowances");
+  expect(within(members).getByRole("heading", { name: "成员资源与额度" })).toHaveAttribute("id", "member-allowances");
+  expect(within(members).getByRole("region", { name: "成员资源目录" })).toBeVisible();
+  expect(within(overview).getByRole("link", { name: "钱包与充值" })).toHaveAttribute("href", "/workbench/plans/top-up");
+  expect(await within(tools).findByRole("region", { name: "店铺服务权益" })).toBeVisible();
+  expect(within(tools).getByRole("link", { name: "管理店铺" })).toHaveAttribute("href", "/workbench/stores");
+  expect(within(tools).getByRole("link", { name: "管理源账号" })).toHaveAttribute("href", "/workbench/account/organization/resources/source-accounts");
+  expect(screen.queryByRole("link", { name: "管理资源与额度" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "管理店铺服务" })).not.toBeInTheDocument();
+});
 it("uses effective member management permission for a configured administrator",async()=>{
  state.context.roles=["configured-protected-admin"];state.context.permissions=["workbench.organization_member.read","workbench.organization_member.manage","workbench.commercial.read"];
  state.pointLimits.mockResolvedValue({organizationId:"org-B",members:[{unitVersion:"ai-micropoint-v1",memberId:"grant",displayName:"成员甲",roles:[],configured:true,monthlyLimit:"25",consumed:"3",reserved:"2",remaining:"20",version:"1",monthStart:"2026-10-01T00:00:00Z",monthEnd:"2026-11-01T00:00:00Z"}]});
@@ -72,7 +90,7 @@ it.each(["PERMISSION_DENIED", "DEPENDENCY_UNAVAILABLE", "AUTHENTICATION_REQUIRED
   render(tree()); await screen.findByText("基础方案");
   await userEvent.click(screen.getByRole("button", { name: "刷新资源" }));
   expect(await screen.findByText(/本次未取得店铺服务与权益/)).toBeVisible();
-  const fallbackMetrics = screen.getByRole("region", { name: "企业资源权益摘要" });
+  const fallbackMetrics = screen.getByRole("region", { name: "企业资源概览" });
   expect(within(fallbackMetrics).getAllByRole("heading", { level: 3 })).toHaveLength(3);
   expect(await within(fallbackMetrics).findByText("9007199254.740993 点")).toBeVisible();
   expect(screen.queryByText("基础方案")).not.toBeInTheDocument();
