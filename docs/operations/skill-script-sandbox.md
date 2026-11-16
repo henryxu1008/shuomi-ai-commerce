@@ -51,3 +51,11 @@
 §24的保留应用组合另有实际后端挂载/路由增量记录，使用该组合自己的trialEvidence，未直接复用validation-only值。试用UI与身份/API入口仅本机回环；模型响应、usage及价目为明确的本地合成数据，无外部模型调用。保留环境使用正常登录和当前Skill/Run/Review/Catalog owner，操作入口、私密登录交接与按归属停止命令见worktree忽略目录`.local/issue1293-app/HANDOFF.md`。本机开发UI首次编译曾触及默认堆上限，当前以8GiB上限运行并保留独立缓存；UI重启后读取原提案，不重新执行脚本。
 
 未配置无可执行 profile；不完整配置启动失败，不静默改成 runc/文本执行。撤下 profile 后原 Run/receipt 仍可查询，不自动恢复 Running/UNKNOWN。测试继续使用指定独立 WSL Engine/socket；停止自有资源与操作业务实例分别授权，不通用 prune、WSL shutdown 或删除业务卷。
+
+## 控制链只读检查与证书故障
+
+新建已授权的脚本请求在模型报价/执行前，以及每次模型真实发送的原 Skill use gate 内，复用同一个 OpenSandbox SDK `ListSandboxes` GET 检查控制入口。检查沿原 TLS、BasicAuth、生命周期凭据和受限 transport，最多5秒且服从更短调用者 deadline；不创建沙箱、不执行代码、不预留容量，不证明稍后派发必然成功。普通技能材料读取、文本技能和没有选脚本的请求不依赖控制入口；原同键终态查询不重新检查或生成。
+
+发送前才发现控制链失效时，原模型 no-send/终态与资源 owner 负责零用量和预留释放；不能自行修库、重派或将未确认账本结果写成成功。实际脚本派发仍执行原串行、未知创建等待和容量复查：控制查询失败（包括证书、鉴权、连接或SDK响应解码错误）保存 `not_dispatched / not_needed / control_unavailable`；只有列表明确达到容量限制才保存 `capacity_unavailable`。控制故障显示“执行环境连接异常，请联系管理员检查连接、凭据或证书”，不泄漏底层错误或秘密；历史原回执不改写。本检查复用锁定版SDK的解码范围，不另建完整API响应schema校验器，也不以连接检查替代实际实例/凭据校验。
+
+内部试用前复用现有 `openssl x509 -noout -dates` / `openssl verify` 与同一受信 SDK 的只读检查维护证书。证书续期与错误分类修复是两件事；不得关闭证书验证来恢复连接，也不因检查成功跳过原 D-IT1、execd 凭据验证或人工采用边界。本次修复不新增自动续期/监控平台、不调用付费模型或更新试用/业务环境。三件合成商品中的品牌遗漏仍为独立质量改进项，不新增语义关键词校验或第二模型互验。

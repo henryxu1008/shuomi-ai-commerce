@@ -141,6 +141,9 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 		require.Zero(t, calls.Load())
 		return
 	}
+	if withScript {
+		testScriptControlBeforeModel(t, f, server, app, path, request, calls)
+	}
 	raw = skillHTTP(t, server, "POST", path, "admin", "B", key, "", request, 200)
 	var result productAgentResultDTO
 	require.NoError(t, json.Unmarshal(raw, &result))
@@ -154,6 +157,9 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 		require.Equal(t, "Formatted bottle title", result.Candidate.Changes[0].Value)
 	}
 	before := calls.Load()
+	if withScript {
+		testScriptReceiptWithoutControl(t, server, app, path, key, request, result, calls)
+	}
 	skillHTTP(t, server, "POST", path, "admin", "B", key, "", request, 200)
 	require.Equal(t, before, calls.Load(), "exact replay must not resend")
 	altered := map[string]any{}
