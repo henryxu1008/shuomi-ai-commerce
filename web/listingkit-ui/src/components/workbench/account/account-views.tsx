@@ -301,7 +301,7 @@ export function OrganizationView({ data, scope,platformMaintenance }: { data: Ac
       </div>
     </section>
     {platformMaintenance}
-    <Panel title="企业资源"><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0} actionsAsButtons /></Panel>
+    <Panel title="企业资源"><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0} hideActions /></Panel>
     <MemberAllocationPreview userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} />
     <Provenance data={data} />
   </div>;

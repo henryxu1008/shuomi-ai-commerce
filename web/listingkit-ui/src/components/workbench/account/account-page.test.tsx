@@ -54,8 +54,10 @@ describe("AccountPage read-only projection", () => {
     expect(await screen.findByRole("link", { name: "成员与权限" })).toHaveAttribute("href", "/workbench/account/organization/members");
     expect(screen.getByRole("link", { name: "资源与额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
-    expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
-    for (const name of ["成员与权限", "资源与额度", "操作记录", "管理成员额度", "查看钱包与充值状态"]) {
+    for (const name of ["管理成员额度", "查看钱包与充值状态", "查看完整分配"]) {
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+    for (const name of ["成员与权限", "资源与额度", "操作记录"]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("data-slot", "button");
     }
     for (const name of ["模型与费率", "内核发行管理", "查看价格"]) {
@@ -92,14 +94,14 @@ describe("AccountPage read-only projection", () => {
     expect(await screen.findByRole("link", { name: "成员与权限" })).toHaveAttribute("href", "/workbench/account/organization/members");
     expect(screen.getByText("查看成员和角色，有权限的管理员可邀请成员")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "管理成员额度" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "资源与额度" })).toBeVisible();
     expect(screen.getByRole("link", { name: "操作记录" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /邀请|移除/ })).not.toBeInTheDocument();
   });
   it("keeps resources and bounded audit cards available together alongside the permission-qualified member entry", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
     expect(await screen.findByRole("link", { name: "操作记录" })).toHaveAttribute("href", "/workbench/account/organization/audit");
-    expect(screen.getByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
+    expect(screen.getByRole("link", { name: "资源与额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByText("AI 点数按配置费率扣减；模型 Token 单独记录用量，钱包资金用于购买点数。")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "成员与权限" })).toBeVisible();
@@ -113,7 +115,7 @@ describe("AccountPage read-only projection", () => {
   });
   it("links the available resource page without claiming balances", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");
-    expect(await screen.findByRole("link", { name: "管理成员额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
+    expect(await screen.findByRole("link", { name: "资源与额度" })).toHaveAttribute("href", "/workbench/account/organization/resources");
     expect(screen.getByText("AI 点数按配置费率扣减；模型 Token 单独记录用量，钱包资金用于购买点数。")).toBeVisible();
     expect(screen.queryByText("暂未接入")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "成员与权限" })).toBeVisible();
@@ -425,7 +427,7 @@ describe("AccountPage read-only projection", () => {
     expect(within(second).getAllByText("暂无记录")).toHaveLength(2);
     expect(within(second).getAllByText("暂不可用")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "最近操作记录" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "查看完整分配" })).toHaveAttribute("href", "/workbench/account/organization/resources");
+    expect(screen.queryByRole("link", { name: "查看完整分配" })).not.toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(8);
   });
   it("reads the fixed base plan from the current commercial contract",async()=>{const fetcher=vi.fn((input:string)=>String(input)==="/api/workbench/commercial/overview"?Promise.resolve(Response.json(commercialOverviewFixture("B"))):String(input)==="/api/account/organization"?Promise.resolve(Response.json(organization)):Promise.resolve(Response.json({code:"DEPENDENCY_UNAVAILABLE",message:"",requestId:"",fieldErrors:[]},{status:503})));vi.stubGlobal("fetch",withSelfReads(fetcher));mount("organization");expect(await screen.findByText("基础方案")).toBeVisible();expect(screen.getByText("店铺按期收费，AI 与数据资源预付使用")).toBeVisible();});

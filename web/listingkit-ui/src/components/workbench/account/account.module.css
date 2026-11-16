@@ -45,7 +45,6 @@
 .allocationPreview tbody th { font-weight: 600; overflow-wrap: anywhere; }
 .allocationPreview small { display: block; color: var(--muted-foreground); font-weight: 400; }
 .allocationPreview td { font-variant-numeric: tabular-nums; }
-.allocationAction { margin-top: 12px; }
 .enterpriseWorkspace > .provenance { margin-top: 0; }
 .maintenanceGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 16px; }
 .maintenanceGrid:empty { display: none; }

@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getMemberAIPointLimits } from "@/lib/api/member-ai-point-limits";
 import { enterpriseRoleKey } from "@/lib/api/enterprise-role-schema";
@@ -67,8 +65,5 @@ export function MemberAllocationPreview({ userId, organizationId, scope }: {
           })}</tbody>
         </table>
       </div>}
-    <Button asChild variant="outline" className={styles.allocationAction}>
-      <Link href="/workbench/account/organization/resources" prefetch={false}>查看完整分配</Link>
-    </Button>
   </Card>;
 }
