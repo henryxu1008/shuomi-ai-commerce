@@ -16,7 +16,7 @@
 
 在正常 Console 登录后选择企业：
 
-- `/workbench/agents/custom`：从侧栏「智能市场 → 智能体定制」进入。侧栏只保留两级，从该页进入「提交定制需求」或「查看定制进度」，在这两个页面仍高亮「智能体定制」。
+- `/workbench/agents/custom`：从侧栏「智能市场 → 智能体定制」进入。侧栏只保留两级，从该页进入「提交定制需求」或「定制进度」，在这两个页面仍高亮「智能体定制」。
 - `/workbench/agents/custom/new`：提交业务需求、可选参考资料、联系人，并明确同意专员联系。
 - `/workbench/agents/custom/progress`：查看当前企业需求、附件、方案与实际跟进记录。
 - `/workbench/admin/agent-customization`：平台专员查看需求并记录处理进度。企业管理员角色不能代替平台权限。
