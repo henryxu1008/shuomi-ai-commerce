@@ -49,6 +49,7 @@
 - `account-audit-filters.md` — [Account Audit 完整历史筛选 V1](account-audit-filters.md)
 - `account-audit-summary.md` — [Account Audit 四项真实汇总 V1](account-audit-summary.md)
 - `account-audit-usage-readers.md` — [Account Audit 只读用量来源接线 V1](account-audit-usage-readers.md)
+- `account-region-catalog.md` — [编辑资料预置地区目录 V1](account-region-catalog.md)
 - `account-facts-invitations.md` — [Account facts and invitations v1](account-facts-invitations.md)
 - `auth-and-tenancy.md` — [Authentication and Organization Scope](auth-and-tenancy.md)
 - `auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](auth-instance-cookie-isolation.md)
