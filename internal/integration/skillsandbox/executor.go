@@ -73,8 +73,12 @@ func (e *Executor) Execute(parent context.Context, task agent.ScriptTask) (resul
 		result.Receipt.Reason = "creation_pending"
 		return result, nil
 	}
-	listed, listErr := e.lifecycle.ListSandboxes(ctx, osb.ListOptions{Page: 1, PageSize: 3})
-	if listErr != nil || listed == nil || listed.Pagination.TotalItems >= 2 || listed.Pagination.HasNextPage || len(listed.Items) >= 2 {
+	listed, listErr := e.listControl(ctx)
+	if listErr != nil {
+		result.Receipt.Reason = "control_unavailable"
+		return result, nil
+	}
+	if listed.Pagination.TotalItems >= 2 || listed.Pagination.HasNextPage || len(listed.Items) >= 2 {
 		result.Receipt.Reason = "capacity_unavailable"
 		return result, nil
 	}

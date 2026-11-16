@@ -282,6 +282,17 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 	if a.model == nil {
 		return agent.Request{}, agent.ErrUnavailable
 	}
+	// New, authorized script requests depend on the current control link.
+	// Exact old receipts returned above; this GET creates no sandbox and
+	// reserves no capacity. The original model before-send gate checks again.
+	if request.ScriptSelected() {
+		if a.script == nil || request.ScriptDescriptor != a.scriptDescriptor {
+			return agent.Request{}, agent.ErrUnavailable
+		}
+		if err := a.script.CheckControl(ctx); err != nil {
+			return agent.Request{}, err
+		}
+	}
 	// Reserve the real UUID width without creating a run. Trace and the empty
 	// first state match execution; the quote is never reserved or dispatched.
 	initial := agent.State{Request: request, RunID: strings.Repeat("0", 36)}
