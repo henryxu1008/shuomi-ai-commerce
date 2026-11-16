@@ -27,6 +27,7 @@ type ImageAdmission struct {
 	Billing            aicapability.OfficialModelBilling `json:"billing"`
 }
 type Definition struct {
+	PrivateTrialPrice *PrivateTrialPrice `json:"privateTrialPrice,omitempty"`
 	// Private management input: never browser-controlled or used to select a
 	// provider. It must match every existing endpoint digest on this connection.
 	ConnectionEndpoint string `json:"connectionEndpoint,omitempty"`
@@ -84,6 +85,13 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 			if !validImage(i) {
 				return nil, d.ErrInvalid
 			}
+		}
+		if def.PrivateTrialPrice != nil {
+			price := *def.PrivateTrialPrice
+			if !price.validFor(def) {
+				return nil, d.ErrInvalid
+			}
+			def.PrivateTrialPrice = &price
 		}
 		if !d.ValidFact(id, 64) {
 			return nil, d.ErrInvalid

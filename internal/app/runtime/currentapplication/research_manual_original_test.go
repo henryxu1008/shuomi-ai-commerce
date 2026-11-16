@@ -22,6 +22,21 @@ func TestResearchManualOriginalDefaultOffAndScopedAlongsideExecution(t *testing.
 	}
 	c := base()
 	require.NoError(t, c.validateResearchManualOriginal())
+	t.Run("pinned canonical HTTPS identity", func(t *testing.T) {
+		c := base()
+		c.Identity.IssuerURL = "https://auth.example.com"
+		c.Identity.AuthorizationAPIURL = c.Identity.IssuerURL
+		require.NoError(t, c.validateResearchManualOriginal())
+		c.Identity.AuthorizationAPIURL = "https://other.example.com"
+		require.Error(t, c.validateResearchManualOriginal(), "public issuer and API must be identical")
+	})
+	for _, origin := range []string{"http://auth.example.com", "https://auth.example.com:443", "https://auth.example.com/path", "https://user@auth.example.com", "https://auth.example.com?query=1", "https://192.168.6.246"} {
+		t.Run("reject identity "+origin, func(t *testing.T) {
+			c := base()
+			c.Identity.IssuerURL, c.Identity.AuthorizationAPIURL = origin, origin
+			require.Error(t, c.validateResearchManualOriginal())
+		})
+	}
 	for name, change := range map[string]func(*Config){
 		"missing acknowledgment": func(c *Config) { c.ResearchManualOriginal.Acknowledgment = "" },
 		"wrong member":           func(c *Config) { c.ResearchManualOriginal.Binding.Scope.MemberID = "other" },

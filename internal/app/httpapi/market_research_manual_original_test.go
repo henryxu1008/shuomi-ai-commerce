@@ -102,7 +102,8 @@ func TestResearchManualOriginalApplicationAssessmentRecoveryAndIsolation(t *test
 	options.researchFixture = &ResearchFixtureBinding{}
 	require.Error(t, options.validateResearchManualOriginal("https://localhost:35444"))
 	options.researchFixture = nil
-	require.Error(t, options.validateResearchManualOriginal("https://identity.example.com"))
+	require.NoError(t, options.validateResearchManualOriginal("https://identity.example.com"))
+	require.Error(t, options.validateResearchManualOriginal("https://identity.example.com:443"))
 
 	require.NoError(t, prepstore.InstallSchema(owner))
 	prepRepository, err := prepstore.NewRepository(ctx, owner)
@@ -199,4 +200,44 @@ func TestResearchManualOriginalApplicationAssessmentRecoveryAndIsolation(t *test
 	require.NoError(t, err)
 	_, err = reader.Read(ctx, scope, project, collection.SelectionInput{ItemID: selection.ItemID, ExpectedRevision: selection.Revision, OriginalPublicationID: selection.PublicationID, OriginalVersion: selection.Version})
 	require.Error(t, err)
+}
+
+func TestResearchManualOriginalCompositionIdentityAdmission(t *testing.T) {
+	base := func() currentApplicationOptions {
+		return currentApplicationOptions{
+			researchManualOriginal: &dataservicesapp.ResearchManualOriginalBinding{
+				Scope:   collection.Scope{OrganizationID: "394513989062623234", ActorID: "394513839896395778", MemberID: "394513991663091714"},
+				Project: "e83d6399-1e20-4fac-ab34-93b698203602", CandidateID: "6768ffeb-490f-5616-9905-bac1f0530d8e", LinkID: "5fa57a3f-f91a-51e0-93a2-e017c8aac2e9",
+				ItemID: "32f9a7c2-4345-5c28-a72e-cb75f3525c9d", ItemRevision: 1, PublicationID: "ae0aeb8c-75c7-51c4-bfdc-b696ea62c62b", CatalogVersion: 1,
+				Checksum: "sha256:898b11ebf7e631565d56d3f73fbf5ed1739397f64109623b338398a44f8afaf2", EnvelopeHash: "20276049f16dc63b5c1e5957f3a09e980046ea29ad9ee8f1545b5a8bfd1462e1", SnapshotHash: "01cf35754a0d5b17b79f21a79878ec3bfb18736b0ce4a88d8cf525342e0216f5",
+			},
+			marketResearchConfigs: 1, marketResearchSupplierReview: true, productAcquisitionDB: &gorm.DB{}, productCollections: 1, dataServices: &DataServicesDependencies{ExecutionEnabled: true},
+		}
+	}
+	for _, issuer := range []string{"https://localhost:35444", "https://127.0.0.1:35444", "https://auth.example.com", "https://auth.192-168-6-246.sslip.io"} {
+		t.Run("admit "+issuer, func(t *testing.T) {
+			require.NoError(t, base().validateResearchManualOriginal(issuer))
+		})
+	}
+	for _, issuer := range []string{"http://auth.example.com", "https://auth.example.com:443", "https://192.168.6.246", "https://auth.example.com/path", "https://user@auth.example.com", "https://auth.example.com?query=1", "https://auth.example.com#fragment", "https://Auth.example.com", "https://auth.example.com/"} {
+		t.Run("reject "+issuer, func(t *testing.T) {
+			require.Error(t, base().validateResearchManualOriginal(issuer))
+		})
+	}
+	for name, change := range map[string]func(*currentApplicationOptions){
+		"full fixture":            func(o *currentApplicationOptions) { o.researchFixture = &ResearchFixtureBinding{} },
+		"wrong source":            func(o *currentApplicationOptions) { o.researchManualOriginal.ItemID = uuid.NewString() },
+		"missing owner":           func(o *currentApplicationOptions) { o.productAcquisitionDB = nil },
+		"missing data services":   func(o *currentApplicationOptions) { o.dataServices = nil },
+		"duplicate collection":    func(o *currentApplicationOptions) { o.productCollections = 2 },
+		"missing research review": func(o *currentApplicationOptions) { o.marketResearchSupplierReview = false },
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, issuer := range []string{"https://localhost:35444", "https://auth.example.com"} {
+				o := base()
+				change(&o)
+				require.Error(t, o.validateResearchManualOriginal(issuer))
+			}
+		})
+	}
 }
