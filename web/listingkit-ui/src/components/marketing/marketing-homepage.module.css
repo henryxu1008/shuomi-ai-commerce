@@ -520,8 +520,8 @@
 .opcCopy > strong { color: #f0f5ff; font-size: clamp(22px,2vw,28px); line-height: 1.4; }
 .opcBanner .opcCopy > small { max-width: 900px; color: #b2c3df; font-size: 14px; line-height: 1.65; }
 .opcActions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.opcBanner .opcActions > a:first-child { min-height: 46px; padding: 0 21px; display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; color: #f3fffc; font-size: 14px; font-weight: 750; background: linear-gradient(100deg,#087d75,#079b80); box-shadow: 0 8px 22px rgba(0,150,125,.2); transition: transform .2s,filter .2s; }
-.opcBanner .opcActions > a:first-child:hover { transform: translateY(-2px); filter: brightness(1.12); }
+.opcBanner .opcActions > :first-child { min-height: 46px; padding: 0 21px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; color: #f3fffc; font-size: 14px; font-weight: 750; background: linear-gradient(100deg,#087d75,#079b80); box-shadow: 0 8px 22px rgba(0,150,125,.2); transition: transform .2s,filter .2s; cursor: pointer; }
+.opcBanner .opcActions > :first-child:hover { transform: translateY(-2px); filter: brightness(1.12); }
 .opcBanner .opcActions > a:last-child { color: #9fb9ff; font-size: 13px; }
 .opcPills { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 12px; }
 .opcBanner > .opcPills { width: 100%; align-self: stretch; display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); align-items: stretch; gap: 12px; }
@@ -531,7 +531,7 @@
 @media (max-width: 1100px) { .solutionSection { padding: 24px 28px 48px; }.roleLayout { grid-template-columns: 240px minmax(0,1fr); gap: 20px; }.roleList { gap: 10px; }.roleList button { min-height: 74px; padding: 12px; }.roleCopy strong { font-size: 18px; }.roleCopy small { font-size: 12px; }.rolePanel { padding: 22px; }.roleColumns { gap: 10px; }.roleColumns > div { padding: 14px; }.roleColumns span { font-size: 13px; }.opcBanner { margin-top: 34px; }.opcBanner > .opcPills { gap: 9px; }.opcBanner .opcPills > span { padding: 10px; font-size: 13px; } }
 @media (max-width: 900px) { .roleLayout { grid-template-columns: 1fr; }.roleList { grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; }.roleList button { min-height: 88px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; }.roleNumber { margin: 0; }.roleCopy strong { font-size: 16px; }.roleCopy small { display: block; margin-top: 3px; font-size: 11px; }.rolePanel { min-height: 0; }.opcBanner > .opcMain { grid-template-columns: 1fr; }.opcActions { flex-direction: row; align-items: center; }.opcBanner > .opcPills { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 620px) { .solutionSection { padding: 20px 18px 38px; }.roleList { grid-template-columns: repeat(2,minmax(0,1fr)); }.roleList button { min-height: 76px; padding: 11px; }.roleCopy strong { font-size: 16px; }.roleCopy small { font-size: 11px; }.rolePanel { padding: 20px 17px; border-radius: 20px; }.rolePanel > h3 { font-size: 25px; }.rolePanel > p { padding: 12px 14px; font-size: 14px; }.roleColumns { grid-template-columns: 1fr; gap: 11px; margin-top: 15px; }.roleColumns > div { min-height: 0; padding: 15px; }.roleColumns b { font-size: 16px; }.roleColumns span { margin-top: 8px; font-size: 14px; }.roleCta { margin-top: 15px; }.opcBanner { margin-top: 26px; padding: 21px 17px; border-radius: 20px; }.opcCopy > strong { font-size: 22px; }.opcBanner .opcCopy > small { font-size: 13px; }.opcActions { align-items: flex-start; flex-direction: column; gap: 9px; }.opcBanner > .opcPills { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }.opcBanner .opcPills > span { min-height: 44px; font-size: 12px; } }
-@media (prefers-reduced-motion: reduce) { .rolePanel { animation: none; }.roleList button,.roleCta,.opcBanner .opcActions > a:first-child,.opcBanner .opcPills > span { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .rolePanel { animation: none; }.roleList button,.roleCta,.opcBanner .opcActions > :first-child,.opcBanner .opcPills > span { transition: none; } }
 @media (max-width: 620px) { .solutionSection .sectionHeading { margin-bottom: 34px; }.solutionSection .sectionHeading > p { font-size: 16px; }.solutionSection .sectionHeading h2 { font-size: clamp(30px,8vw,36px); }.solutionSection .sectionHeading > span { font-size: 15px; } }
 
 /* Professional services: partner network, selected service, then a matching example. */
@@ -747,3 +747,6 @@
 .page .processGrid::before { top: 32px; height: 3px; animation: processLineBreathe 3.6s ease-in-out infinite; }
 @keyframes processLineBreathe { 0%,100% { opacity: .58; filter: brightness(.82); box-shadow: 0 0 8px rgba(26,122,255,.3); } 50% { opacity: 1; filter: brightness(1.3); box-shadow: 0 0 18px rgba(26,142,255,.78),0 0 30px rgba(89,92,255,.32); } }
 @media (prefers-reduced-motion: reduce) { .page .processGrid::before { animation: none; } }
+
+/* Keep the data network stacked on narrow screens after the tablet overrides. */
+@media (max-width: 620px) { .page .dataNetwork { grid-template-columns: minmax(0,1fr); }.page .dataEngineCard { grid-column: 1; } }

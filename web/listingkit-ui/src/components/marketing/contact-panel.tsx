@@ -9,7 +9,7 @@ import styles from "./marketing-homepage.module.css";
 
 type SubmissionState = "idle" | "submitting" | "success" | "error";
 
-export function ContactPanel({ inlineTrigger = false }: { inlineTrigger?: boolean }) {
+export function ContactPanel({ inlineTrigger = false, inlineTriggerLabel = "联系我们", showFloatingLauncher = true }: { inlineTrigger?: boolean; inlineTriggerLabel?: string; showFloatingLauncher?: boolean }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<SubmissionState>("idle");
   const [message, setMessage] = useState("");
@@ -96,10 +96,10 @@ export function ContactPanel({ inlineTrigger = false }: { inlineTrigger?: boolea
   }
 
   return <>
-    {inlineTrigger ? <button className={styles.footerContact} type="button" aria-haspopup="dialog" aria-expanded={open} onClick={event => { activeLauncherRef.current = event.currentTarget; setOpen(true); }}>联系我们</button> : null}
-    <button id="contact-launcher" ref={launcherRef} className={styles.floatingContact} type="button" aria-haspopup="dialog" aria-expanded={open} aria-label="联系硕米" onClick={event => { activeLauncherRef.current = event.currentTarget; setOpen(true); }}>
+    {inlineTrigger ? <button className={styles.footerContact} type="button" aria-haspopup="dialog" aria-expanded={open} onClick={event => { activeLauncherRef.current = event.currentTarget; setOpen(true); }}>{inlineTriggerLabel}</button> : null}
+    {showFloatingLauncher ? <button id="contact-launcher" ref={launcherRef} className={styles.floatingContact} type="button" aria-haspopup="dialog" aria-expanded={open} aria-label="联系硕米" onClick={event => { activeLauncherRef.current = event.currentTarget; setOpen(true); }}>
       <Phone size={18} /><span>联系</span>
-    </button>
+    </button> : null}
     {open ? <div className={styles.contactOverlay} onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section ref={panelRef} className={styles.contactPanel} role="dialog" aria-modal="true" aria-labelledby="contact-panel-title">
         <button data-autofocus className={styles.contactClose} type="button" aria-label="关闭联系浮层" onClick={close}><Image src="/sumi/contact-close.svg" alt="" width={14} height={14} /></button>
