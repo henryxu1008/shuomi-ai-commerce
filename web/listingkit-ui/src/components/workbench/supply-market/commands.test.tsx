@@ -14,6 +14,7 @@ it("a restored unknown command queries its original receipt without sending anot
  const h=renderHook(()=>useMarketCommands({userId:"u",organizationId:"o"}));
  await act(async()=>{await h.result.current.verify()});
  expect(resolve).toHaveBeenCalledWith({userId:"u",organizationId:"o"},intent,expect.any(AbortSignal));expect(write).not.toHaveBeenCalled();expect(clear).toHaveBeenCalledWith(intent);
+ expect(h.result.current.savedAction).toBe("select_release");
 });
 it("a missing receipt keeps the unknown intent and blocks a different submit",async()=>{
  resolve.mockRejectedValue(new MarketAPIError("NOT_FOUND",404));
