@@ -58,7 +58,32 @@ describe("AccountPage read-only projection", () => {
     for (const name of ["成员与权限", "资源与额度", "操作记录", "管理成员额度", "查看钱包与充值状态"]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("data-slot", "button");
     }
+    for (const name of ["模型与费率", "内核发行管理", "数据条数价格"]) {
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
     expect(screen.queryByRole("button", { name: /邀请|移除/ })).not.toBeInTheDocument();
+  });
+  it("groups the model and browser kernel cards, keeping pricing as a separate button", async () => {
+    state.context.permissions = ["workbench.agent.configure", "listingkit.platform_admin"] as never[];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url === "/api/account/organization") return Response.json(organization);
+      if (url === "/api/model-route-pricing") return Response.json({ organizationId: "B", unitVersion: "ai-micropoint-v1", available: true, canMaintainPrices: true });
+      return Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 });
+    }));
+    mount("organization");
+    const model = await screen.findByRole("heading", { name: "企业 AI 模型" });
+    const kernel = screen.getByRole("heading", { name: "浏览器内核" });
+    expect(model.parentElement?.parentElement).toBe(kernel.parentElement?.parentElement);
+    for (const [name, route] of [
+      ["模型与费率", "model-route-pricing"],
+      ["内核发行管理", "kernel-releases"],
+      ["数据条数价格", "data-row-pricing"],
+    ]) {
+      const link = screen.getByRole("link", { name });
+      expect(link).toHaveAttribute("data-slot", "button");
+      expect(link).toHaveAttribute("href", "/workbench/account/organization/" + route);
+    }
+    expect(model.parentElement?.parentElement).not.toContainElement(screen.getByRole("link", { name: "数据条数价格" }));
   });
   it("links members with permission-qualified wording alongside delivered sibling cards", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(organization))); mount("organization");

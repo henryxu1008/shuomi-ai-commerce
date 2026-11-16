@@ -13,7 +13,7 @@ import {dataRowPriceInput,dataRowPriceOffer,dataRowPriceReceipt,dataRowPriceHist
 const path="/workbench/account/organization/data-row-pricing";
 const intentSchema=z.object({key:z.uuid(),input:dataRowPriceInput}).strict();
 const money=(v:string)=>{const n=BigInt(v);return `¥${n/BigInt(100)}.${(n%BigInt(100)).toString().padStart(2,"0")}`};
-export function DataRowPricingEntry(){const context=useWorkbenchContext();return context.permissions.includes("listingkit.platform_admin")?<Link href={path} prefetch={false}>数据条数价格</Link>:null}
+export function DataRowPricingEntry(){const context=useWorkbenchContext();return context.permissions.includes("listingkit.platform_admin")?<Button asChild size="sm" variant="outline"><Link href={path} prefetch={false}>数据条数价格</Link></Button>:null}
 export function DataRowPricingPage({expectedUserId}:{expectedUserId:string}){
  const c=useWorkbenchContext(),org=c.effectiveOrganization;
  const allowed=c.permissions.includes("listingkit.platform_admin");

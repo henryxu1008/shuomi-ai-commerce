@@ -47,6 +47,10 @@
 .allocationPreview td { font-variant-numeric: tabular-nums; }
 .allocationAction { margin-top: 12px; }
 .enterpriseWorkspace > .provenance { margin-top: 0; }
+.maintenance { display: grid; justify-items: start; gap: 12px; }
+.maintenance:not(:has(a)), .maintenanceGrid:empty { display: none; }
+.maintenanceGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 16px; width: 100%; }
+.maintenanceGrid h2 { font-size: var(--card-title-size); font-weight: 600; line-height: 24px; }
 .provenance { color: var(--muted-foreground); font-size: var(--label-text-size); margin-top: 20px; overflow-wrap: anywhere; }
 .provenance summary { cursor: pointer; width: fit-content; }
 .provenance p { margin-top: 8px; }

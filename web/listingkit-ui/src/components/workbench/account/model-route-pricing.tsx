@@ -1,6 +1,5 @@
 "use client";
 import {ImageReferenceEstimate} from "./image-reference-estimate";
-import Link from "next/link";
 import {useEffect,useRef,useState} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {z} from "zod";
@@ -15,6 +14,7 @@ import {publishedModelManufacturers,canonicalPriceFacts,withoutPublicationVersio
 import styles from "./model-route-pricing.module.css";
 import {credentialConnections} from "@/lib/contracts/channel-credentials";
 import {ChannelCredentialsManager} from "./channel-credentials";
+import { MaintenanceEntryCard } from "./maintenance-entry-card";
 
 const pagePath="/workbench/account/organization/model-route-pricing";
 const defaults:RouteInput["selection"]={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"openai-mini",version:"approved-default-v1"},image:{id:"openai-flare",version:"approved-default-v1"},multimodal:{id:"openai-mini",version:"approved-default-v1"}};
@@ -27,7 +27,7 @@ export function ModelRoutePricingEntry({scope}:{scope:ModelRouteScope}){
  const context=useWorkbenchContext(),configure=context.permissions.includes("workbench.agent.configure"),platform=context.permissions.includes("listingkit.platform_admin"),credentials=context.permissions.includes("workbench.ai.credentials.manage"),allowed=configure||platform||credentials;
  const query=useQuery({queryKey:["model-routes-entry",scope,configure,platform,credentials],queryFn:async({signal})=>configure?(await modelRouteRequest(scope,"",routeCapabilities,{signal})).available:credentials?!!(await modelRouteRequest(scope,"/connections",credentialConnections,{signal})):!!(await modelRouteRequest(scope,"/platform-prices",routeCurrent,{signal})),enabled:allowed,retry:false,gcTime:0});
  if(!allowed||!query.data)return null;
- return <Card className={styles.panel}><h2>{configure?"企业 AI 模型":credentials?"渠道凭据":"参考价格与汇率"}</h2><p>{configure?"配置全体成员共用的文本、图片生成和多模态理解模型。":credentials?"统一录入、轮换和停用本企业多模型共用的渠道 Key。":"维护平台共用的模型参考价目与人民币汇率。"}</p><Button asChild variant="outline"><Link href={pagePath} prefetch={false}>模型与费率</Link></Button></Card>;
+ return <MaintenanceEntryCard title={configure?"企业 AI 模型":credentials?"渠道凭据":"参考价格与汇率"} description={configure?"配置全体成员共用的文本、图片生成和多模态理解模型。":credentials?"统一录入、轮换和停用本企业多模型共用的渠道 Key。":"维护平台共用的模型参考价目与人民币汇率。"} href={pagePath} action="模型与费率" />;
 }
 export function ModelRoutePricingPage({expectedUserId}:{expectedUserId:string}){
  const context=useWorkbenchContext(),org=context.effectiveOrganization,configure=context.permissions.includes("workbench.agent.configure"),platform=context.permissions.includes("listingkit.platform_admin"),credentials=context.permissions.includes("workbench.ai.credentials.manage"),allowed=configure||platform||credentials;
