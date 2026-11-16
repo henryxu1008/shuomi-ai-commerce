@@ -35,7 +35,7 @@ it("saves only self preferences without an enterprise and refuses duplicate fiel
   expect(
     (
       await proxyAccountFacts(
-        make('{"country":"China","province":"","city":"杭州"}'),
+        make('{"catalogVersion":"gn-0123456789abcdef","country":"CN","province":"1","city":"3"}'),
         "token",
         "self",
       )
@@ -47,7 +47,8 @@ it("saves only self preferences without an enterprise and refuses duplicate fiel
     ),
   ).toBe(false);
   for (const body of [
-    '{"country":"China","country":"foreign","province":"","city":""}',
+    '{"catalogVersion":"gn-0123456789abcdef","country":"CN","country":"SG","province":"","city":""}',
+    '{"country":"China","province":"","city":"杭州"}',
     '{"country":"China","province":"","city":"","userId":"foreign"}',
   ])
     expect((await proxyAccountFacts(make(body), "token", "self")).status).toBe(
@@ -63,4 +64,19 @@ it("saves only self preferences without an enterprise and refuses duplicate fiel
     ).status,
   ).toBe(403);
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("forwards only an authenticated country catalog GET and verifies its country", async () => {
+  vi.stubEnv("LISTINGKIT_SERVICE_API_BASE", "http://127.0.0.1:9000/api/v1");
+  const fetch = vi.fn().mockResolvedValue(Response.json({
+    version: "gn-0123456789abcdef",
+    country: { id: "SG", name: "Singapore", provinces: [], cities: [{ id: "1880252", name: "Singapore" }] },
+  }));
+  vi.stubGlobal("fetch", fetch);
+  const request = (query: string, identity = "self") => new Request("http://localhost:3000/api/account/region-catalog" + query,
+    { headers: { "X-Expected-User-ID": identity } });
+  expect((await proxyAccountFacts(request("?country=SG", "other"), "token", "self")).status).toBe(409);
+  expect((await proxyAccountFacts(request("?country=SG&country=CN"), "token", "self")).status).toBe(400);
+  expect((await proxyAccountFacts(request("?country=SG"), "token", "self")).status).toBe(200);
+  expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:9000/api/v1/account/region-catalog?country=SG", expect.objectContaining({ method: "GET" }));
 });
