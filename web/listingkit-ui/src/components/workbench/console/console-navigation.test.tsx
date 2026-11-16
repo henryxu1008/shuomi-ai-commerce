@@ -372,36 +372,16 @@ it.each(["official", "mine"]) ("keeps knowledge category %s under one second-lev
   expect(screen.getByRole("link", {name:"知识库"})).toHaveAttribute("title", "知识库");
 });
 
-it.each([
-  ["/workbench/agents/custom/new", "提交定制需求"],
-  ["/workbench/agents/custom/progress", "定制进度"],
-])("opens the customization hierarchy at %s and marks only its leaf current", (pathname, label) => {
+it.each(["/workbench/agents/custom", "/workbench/agents/custom/new", "/workbench/agents/custom/progress"])("keeps customization page %s under one second-level entry", pathname => {
   render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" />);
   expect(screen.getByRole("button", {name:"收起智能市场"})).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByRole("button", {name:"收起智能体定制"})).toHaveAttribute("aria-expanded", "true");
-  const current = screen.getByRole("link", {name:label});
-  expect(current).toHaveAttribute("href", pathname);
-  expect(current).toHaveAttribute("aria-current", "page");
-  expect(current.closest("li")).toHaveClass("console-nav-level-3");
-  expect(screen.getByRole("link", {name:"智能体定制"})).not.toHaveAttribute("aria-current");
-  for (const child of ["提交定制需求", "定制进度"]) {
-    expect(screen.getByRole("link", {name:child})).toHaveAttribute("title", child);
-    if (child !== label) expect(screen.getByRole("link", {name:child})).not.toHaveAttribute("aria-current");
-  }
-});
-
-it("lets members collapse and reopen the customization children from its overview", async () => {
-  const user = userEvent.setup();
-  const view = render(<ConsoleNavigation pathname="/workbench/agents/custom" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name:"智能体定制"})).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("href", "/workbench/agents/custom/new");
-  expect(screen.getByRole("link", {name:"定制进度"})).toHaveAttribute("href", "/workbench/agents/custom/progress");
-  await user.click(screen.getByRole("button", {name:"收起智能体定制"}));
-  expect(screen.queryByRole("link", {name:"提交定制需求"})).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", {name:"展开智能体定制"}));
-  expect(screen.getByRole("link", {name:"提交定制需求"})).toBeVisible();
-  view.rerender(<ConsoleNavigation pathname="/workbench/agents/custom/progress" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name:"定制进度"})).toHaveAttribute("aria-current", "page");
+  const entry = screen.getByRole("link", {name:"智能体定制"});
+  expect(entry).toHaveAttribute("aria-current", "page");
+  expect(entry).toHaveAttribute("href", "/workbench/agents/custom");
+  expect(entry).toHaveAttribute("title", "智能体定制");
+  expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+  expect(screen.queryByRole("button", {name:/智能体定制/})).not.toBeInTheDocument();
+  for (const name of ["提交定制需求", "定制进度"]) expect(screen.queryByRole("link", {name})).not.toBeInTheDocument();
 });
 
 it.each(["/workbench/data/research", "/workbench/supply/selection"]) ("keeps %s under the market instead of a primary sidebar entry", (pathname) => {

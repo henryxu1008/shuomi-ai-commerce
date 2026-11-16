@@ -14,6 +14,10 @@ const researchMenus: readonly ConsoleNavNode[] = researchWorkflows.map(workflow 
 const pending = (label: string, href: string, children?: readonly ConsoleNavNode[]): ConsoleNavNode => ({ label, href: `/workbench/${href}`, availability: "unavailable", children });
 const catalogPages = [pending("货盘选品", "supply/catalogs/selection"), pending("对接进度", "supply/catalogs/apply")];
 const applicationPages = [pending("发起申请", "supply/applications/new"), pending("申请进度", "supply/applications/progress"), pending("申请记录", "supply/applications/records")];
+const customizationPages: readonly ConsoleNavNode[] = [
+  {label:"提交定制需求",href:"/workbench/agents/custom/new",availability:"connected"},
+  {label:"定制进度",href:"/workbench/agents/custom/progress",availability:"connected"},
+];
 export const consoleNavigation: readonly ConsoleNavNode[] = [
   { label: "运营驾驶舱", href: "/workbench", availability: "unavailable", children: [pending("目标管理", "overview/goals"), pending("店铺矩阵", "overview/stores"), pending("经营预警", "overview/alerts"), pending("经营建议", "overview/advice")] },
   pending("AI工作台", "ai", [
@@ -26,7 +30,7 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
     { label: "在线采集", href: onlineAcquisitionHref, availability: "connected" },
     pending("硕米自营", "supply/official"), pending("硕米优选", "supply/selected"), pending("货盘集成", "supply/catalogs"), pending("优选申请", "supply/applications"),
   ]),
-  pending("智能市场", "agents", [{label:"智能体市场",href:"/workbench/agents/market",availability:"connected"},{label:"我的智能体",href:"/workbench/agents/mine",availability:"connected"},{label:"智能体定制",href:"/workbench/agents/custom",availability:"connected",children:[{label:"提交定制需求",href:"/workbench/agents/custom/new",availability:"connected"},{label:"定制进度",href:"/workbench/agents/custom/progress",availability:"connected"}]}]),
+  pending("智能市场", "agents", [{label:"智能体市场",href:"/workbench/agents/market",availability:"connected"},{label:"我的智能体",href:"/workbench/agents/mine",availability:"connected"},{label:"智能体定制",href:"/workbench/agents/custom",availability:"connected"}]),
   pending("工具市场", "tools", [pending("官方工具", "tools/official"), pending("我的工具", "tools/mine"), pending("工具定制", "tools/custom", [pending("提交定制需求", "tools/custom/new"), pending("定制进度", "tools/custom/progress")])]),
   pending("生态服务", "services", [pending("服务市场", "services/market"), pending("我的服务", "services/mine"), pending("申请加入", "services/join")]),
   pending("数据服务", "data", [pending("数据市场", "data/market"), pending("API管理", "data/api"), pending("我的数据", "data/mine")]),
@@ -84,6 +88,11 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
   if (applicationPage) {
     const parent = findConsoleRoute("/workbench/supply/applications")!;
     return {node: applicationPage, trail: [...parent.trail, applicationPage]};
+  }
+  const customizationPage = customizationPages.find(page => page.href === pathname);
+  if (customizationPage) {
+    const parent = findConsoleRoute("/workbench/agents/custom")!;
+    return {node: customizationPage, trail: [...parent.trail, customizationPage]};
   }
   if (/^\/workbench\/ai\/projects\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(pathname)) {
     const parent = findConsoleRoute("/workbench/ai/projects")!;
