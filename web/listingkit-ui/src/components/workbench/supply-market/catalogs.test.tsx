@@ -8,11 +8,14 @@ it.each([undefined,"apply"] as const)("provides a normal connection history entr
 });
 
 const context=vi.hoisted(()=>({user:{id:"member-a"},effectiveOrganization:{id:"org-a"},isLoading:false,isSwitching:false,error:null,blockingError:null}));
-const commands=vi.hoisted(()=>({execute:vi.fn(),saved:null as {recordId:string}|null,notice:null,locked:false}));
+const commands=vi.hoisted(()=>({execute:vi.fn(),saved:null as {recordId:string}|null,notice:null as string|null,locked:false,busy:false}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>context}));
 vi.mock("./shared",async importOriginal=>({...await importOriginal<typeof import("./shared")>(),useMarketCommands:vi.fn(()=>commands)}));
 afterEach(cleanup);
-beforeEach(()=>{vi.clearAllMocks();context.isLoading=false;context.effectiveOrganization.id="org-a";commands.saved=null;commands.locked=false});
+beforeEach(()=>{vi.clearAllMocks();context.isLoading=false;context.effectiveOrganization.id="org-a";commands.saved=null;commands.notice=null;commands.locked=false;commands.busy=false;
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
+ Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
+});
 function page(view?:"selection"|"apply",acquisitionAvailable=false,sdsAvailable=false){return render(<SupplyCatalogsPage view={view} acquisitionAvailable={acquisitionAvailable} sdsAvailable={sdsAvailable}/>)}
 it("shows the four branded catalog entries and honest API connection status",()=>{
  page();
@@ -47,13 +50,45 @@ it("retains warehouse filters when changing to browser plugin mode without claim
  await user.click(screen.getByRole("button",{name:"清除筛选"}));
  expect(screen.getAllByRole("article")).toHaveLength(4);
 });
-it("keeps the existing selection and application entries on the directory without mounting a write form",()=>{
+it("removes the selection entry and defers the application form until the dialog opens",()=>{
   page();
   expect(screen.getByRole("heading",{name:"货盘集成",level:1})).toBeVisible();
-  expect(screen.getByRole("link",{name:"进入货盘选品"})).toHaveAttribute("href","/workbench/supply/catalogs/selection");
-  expect(screen.getByRole("link",{name:"申请对接货盘"})).toHaveAttribute("href","/workbench/supply/catalogs/apply");
+  expect(screen.queryByRole("link",{name:"进入货盘选品"})).not.toBeInTheDocument();
+  expect(screen.getByRole("button",{name:"申请对接货盘"})).toBeVisible();
   expect(screen.queryByRole("button",{name:"提交对接申请"})).not.toBeInTheDocument();
   expect(useMarketCommands).not.toHaveBeenCalled();
+});
+it("opens the shared application form in place, submits the existing command and retains directory filters after close",async()=>{
+ page();const user=userEvent.setup();
+ await user.selectOptions(screen.getByRole("combobox",{name:"仓库区域"}),"DE");
+ const trigger=screen.getByRole("button",{name:"申请对接货盘"});await user.click(trigger);
+ const dialog=within(screen.getByRole("dialog",{name:"申请对接货盘"}));
+ expect(dialog.getByLabelText("货盘名称")).toHaveFocus();
+ for(const [label,value] of [["货盘名称","Fixture Catalog"],["货盘网站（HTTPS）","https://catalog.example.test"],["联系人","Fixture contact"],["联系电话","12345"],["供应品类","Home"]])await user.type(dialog.getByLabelText(label),value);
+ await user.click(dialog.getByRole("button",{name:"提交对接申请"}));
+ expect(commands.execute).toHaveBeenCalledExactlyOnceWith({action:"submit_connection",connection:{name:"Fixture Catalog",website:"https://catalog.example.test",contact:"Fixture contact",telephone:"12345",categories:"Home"}});
+ await user.click(dialog.getByRole("button",{name:"取消"}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(trigger).toHaveFocus();
+ expect(screen.getByRole("combobox",{name:"仓库区域"})).toHaveValue("DE");
+});
+it("keeps pending submission controls locked inside the dialog",async()=>{
+ commands.busy=true;commands.locked=true;page();const user=userEvent.setup();
+ await user.click(screen.getByRole("button",{name:"申请对接货盘"}));
+ const dialog=within(screen.getByRole("dialog",{name:"申请对接货盘"}));
+ expect(dialog.getByRole("button",{name:"关闭"})).toBeDisabled();expect(dialog.getByRole("button",{name:"取消"})).toBeDisabled();expect(dialog.getByRole("button",{name:"提交对接申请"})).toBeDisabled();
+});
+it("shows the original unknown-result notice without allowing another submission",async()=>{
+ commands.locked=true;commands.notice="原操作待确认，请先核实。";
+ page();await userEvent.setup().click(screen.getByRole("button",{name:"申请对接货盘"}));
+ const dialog=within(screen.getByRole("dialog",{name:"申请对接货盘"}));
+ expect(dialog.getByText("原操作待确认，请先核实。")).toBeVisible();
+ expect(dialog.getByRole("button",{name:"提交对接申请"})).toBeDisabled();expect(commands.execute).not.toHaveBeenCalled();
+});
+it("keeps the exact saved record link in the dialog and closes without a second submission",async()=>{
+ commands.saved={recordId:"11111111-1111-4111-8111-111111111111"};page();const user=userEvent.setup();
+ await user.click(screen.getByRole("button",{name:"申请对接货盘"}));const dialog=within(screen.getByRole("dialog",{name:"申请对接货盘"}));
+ expect(dialog.getByRole("link",{name:"查看对接进展"})).toHaveAttribute("href","/workbench/supply/applications/11111111-1111-4111-8111-111111111111");
+ expect(dialog.getByRole("button",{name:"提交对接申请"})).toBeDisabled();await user.click(dialog.getByRole("button",{name:"完成"}));expect(commands.execute).not.toHaveBeenCalled();expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it.each([[false,false],[true,false],[false,true],[true,true]])("keeps selection links dependent on actual acquisition=%s / SDS=%s",(acquisitionAvailable,sdsAvailable)=>{
   page("selection",acquisitionAvailable,sdsAvailable);

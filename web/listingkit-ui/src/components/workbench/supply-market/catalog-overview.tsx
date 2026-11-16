@@ -7,10 +7,13 @@ import {ConsolePage,ConsoleState} from "@/components/workbench/console/console-p
 import {Card} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Select} from "@/components/ui/select";
+import type {MarketScope} from "@/lib/api/supply-market";
+import {CatalogConnectionForm} from "./catalog-connection-form";
 import {catalogDirectory,catalogRegions,catalogWarehouseMatches,type CatalogEntry,type CatalogRegion,type WarehouseKind} from "./catalog-directory";
 import styles from "./catalog-overview.module.css";
 
-export function CatalogOverview(){
+export function CatalogOverview({scope}:{scope:MarketScope}){
+ const [applying,setApplying]=useState(false);
  const [method,setMethod]=useState<"api"|"plugin">("api");
  const [warehouse,setWarehouse]=useState<WarehouseKind|"">(""),[region,setRegion]=useState<CatalogRegion|"">("");
  const regions=Object.entries(catalogRegions).filter(([code])=>catalogDirectory.some(p=>p.warehouses.some(w=>catalogWarehouseMatches(w,warehouse,code as CatalogRegion))));
@@ -21,7 +24,7 @@ export function CatalogOverview(){
  }
  return <ConsolePage title="货盘集成" description="按对接方式、仓库类型和国家地区寻找合适的货盘。"
   breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"货盘集成"}]}
-  actions={<><Button variant="outline" asChild><Link href="/workbench/supply/catalogs/selection" prefetch={false}>进入货盘选品</Link></Button><Button variant="outline" asChild><Link href="/workbench/supply/catalogs/apply" prefetch={false}>申请对接货盘</Link></Button><Button variant="ghost" asChild><Link href="/workbench/supply/catalogs/apply?view=progress" prefetch={false}>查看对接进度与记录</Link></Button></>}>
+  actions={<><Button onClick={()=>setApplying(true)}>申请对接货盘</Button><Button variant="ghost" asChild><Link href="/workbench/supply/catalogs/apply?view=progress" prefetch={false}>查看对接进度与记录</Link></Button></>}>
   <div className={styles.methods} role="group" aria-label="货盘对接方式">
    <Button variant={method==="api"?"default":"ghost"} aria-pressed={method==="api"} onClick={()=>setMethod("api")}>API 对接</Button>
    <Button variant={method==="plugin"?"default":"ghost"} aria-pressed={method==="plugin"} onClick={()=>setMethod("plugin")}>浏览器插件对接</Button>
@@ -35,6 +38,7 @@ export function CatalogOverview(){
   </div>
   {entries.length?<div className={styles.directory}>{entries.map(entry=><CatalogCard key={entry.id} entry={entry} method={method}/>)}</div>:<ConsoleState kind="empty" title="暂无匹配的货盘">调整仓库或区域筛选后再试。</ConsoleState>}
   <p className={styles.footnote}>国内仓指中国仓，区域按仓库所在国家或地区划分。当前展示已核实的公开覆盖信息，其他区域待补充；具体商品库存与发货条件以平台为准。资料核对：2026-11-16。</p>
+  {applying?<CatalogConnectionForm scope={scope} onClose={()=>setApplying(false)}/>:null}
  </ConsolePage>;
 }
 
