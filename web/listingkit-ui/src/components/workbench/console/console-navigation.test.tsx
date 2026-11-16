@@ -109,6 +109,13 @@ it.each(["/workbench/supply/catalogs", "/workbench/supply/catalogs/selection", "
   view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航"/>);
   expect(screen.getByRole("link",{name:"货盘集成"})).toHaveAttribute("title","货盘集成：业务暂未启用");
 });
+it.each(["/workbench/supply/applications","/workbench/supply/applications/new","/workbench/supply/applications/progress","/workbench/supply/applications/records","/workbench/supply/applications/11111111-1111-4111-8111-111111111111"])("keeps selected application page %s under one second-level entry",pathname=>{
+ const view=render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" supplyMarketAvailable/>);
+ const entry=screen.getByRole("link",{name:"优选申请"});expect(entry).toHaveAttribute("aria-current","page");expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+ expect(screen.queryByRole("button",{name:/优选申请/})).not.toBeInTheDocument();
+ for(const name of ["发起申请","申请进度","申请记录"])expect(screen.queryByRole("link",{name})).not.toBeInTheDocument();
+ view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航"/>);expect(screen.getByRole("link",{name:"优选申请"})).toHaveAttribute("title","优选申请：业务暂未启用");
+});
 it.each(["productAcquisitionAvailable", "supplyMarketAvailable", "supplyChainAvailable"])("keeps the Supply homepage with %s", capability => {
   const view = render(<ConsoleNavigation pathname="/workbench/supply" ariaLabel="主导航" />);
   expect(screen.getByRole("link", {name: "供应市场"})).toHaveAttribute("title", "供应市场");
@@ -395,24 +402,6 @@ it("lets members collapse and reopen the customization children from its overvie
   expect(screen.getByRole("link", {name:"提交定制需求"})).toBeVisible();
   view.rerender(<ConsoleNavigation pathname="/workbench/agents/custom/progress" ariaLabel="主导航" />);
   expect(screen.getByRole("link", {name:"定制进度"})).toHaveAttribute("aria-current", "page");
-});
-
-it.each([
-  ["new", "发起申请"], ["progress", "申请进度"], ["records", "申请记录"],
-])("connects the selected-application %s leaf only with its runtime", (path, label) => {
-  const pathname = `/workbench/supply/applications/${path}`;
-  const view = render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" supplyMarketAvailable />);
-  expect(screen.getByRole("button", {name:"收起优选申请"})).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByRole("link", {name:label})).toHaveAttribute("href", pathname);
-  expect(screen.getByRole("link", {name:label})).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("link", {name:label}).closest("li")).toHaveClass("console-nav-level-3");
-  expect(screen.getByRole("link", {name:"优选申请"})).not.toHaveAttribute("aria-current");
-  for (const child of ["发起申请", "申请进度", "申请记录"]) {
-    expect(screen.getByRole("link", {name:child})).toHaveAttribute("title", child);
-    if(child !== label) expect(screen.getByRole("link", {name:child})).not.toHaveAttribute("aria-current");
-  }
-  view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name:label})).toHaveAttribute("title", `${label}：业务暂未启用`);
 });
 
 it.each(["/workbench/data/research", "/workbench/supply/selection"]) ("keeps %s under the market instead of a primary sidebar entry", (pathname) => {

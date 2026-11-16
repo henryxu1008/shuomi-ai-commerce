@@ -48,6 +48,7 @@ it.each([["progress", "申请进度", false], ["records", "申请记录", true]]
   page(view);
   await screen.findByText("暂无申请记录");
   expect(screen.getByRole("heading", {name:label, level:1})).toBeVisible();
+  expect(screen.queryByRole("navigation",{name:"供应市场"})).not.toBeInTheDocument();
   const breadcrumbs = within(screen.getByRole("navigation", {name:"面包屑"}));
   expect(breadcrumbs.getByText("供应市场")).toBeVisible();
   expect(breadcrumbs.getByRole("link", {name:"优选申请"})).toHaveAttribute("href", "/workbench/supply/applications");
@@ -79,6 +80,7 @@ it("replaces the generic member list with the real selected overview and existin
   expect(screen.getByText("54")).toBeVisible();expect(screen.getByText("27")).toBeVisible();expect(screen.getByText("4")).toBeVisible();expect(screen.getByText("7")).toBeVisible();
   expect(screen.getByText("真实分组")).toBeVisible();expect(screen.getByRole("img",{name:"当前优化商品"})).toHaveAttribute("src","https://images.example.org/real.png");
   expect(screen.getByRole("link",{name:"选择商品发起申请"})).toHaveAttribute("href","/workbench/supply/applications/new");expect(screen.getByRole("link",{name:"查看申请记录"})).toHaveAttribute("href","/workbench/supply/applications/records");
+  expect(screen.getByRole("link",{name:"查看申请进度"})).toHaveAttribute("href","/workbench/supply/applications/progress");
   expect(screen.getByRole("heading",{name:"申请条件"})).toBeVisible();expect(screen.getByRole("heading",{name:"申请流程"})).toBeVisible();expect(screen.queryByRole("combobox",{name:"申请类型"})).not.toBeInTheDocument();
   expect(readApplicationOverview).toHaveBeenCalledWith({userId:"member-a",organizationId:"org-a"},expect.any(AbortSignal));expect(listMarketRecords).not.toHaveBeenCalled();
 });

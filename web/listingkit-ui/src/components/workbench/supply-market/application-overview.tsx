@@ -16,6 +16,7 @@ export function SupplyApplicationOverview({scope}:{scope:MarketScope}){
  const query=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"application-overview"],queryFn:({signal})=>readApplicationOverview(scope,signal),retry:false});
  const data=query.error?undefined:query.data;
  return <ConsolePage className={styles.overview} title="优选申请" description="将已完成智能优化、具备稳定供货能力的自有商品提交至硕米优选。" breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:"优选申请"}]} actions={<>
+  <Button asChild variant="outline"><Link href="/workbench/supply/applications/progress" prefetch={false}>查看申请进度</Link></Button>
   <Button asChild className={styles.secondaryButton}><Link href="/workbench/supply/applications/records" prefetch={false}>查看申请记录</Link></Button>
   <Button asChild className={styles.primaryButton}><Link href="/workbench/supply/applications/new" prefetch={false}>选择商品发起申请</Link></Button>
  </>}>

@@ -97,7 +97,10 @@ OSS hosts 都完成配置后才设置 `LISTINGKIT_SDS_POD_ENABLED=true`。沿既
   不再提供独立申请表单页；`view=progress/records` 保留。目录不再提供「进入货盘选品」。
   侧栏只显示「供应市场 → 货盘集成」两级；既有选品、申请或 SDS 深链接仍高亮该入口。
 - `/workbench/supply/applications`：本人申请、资料补充和进度。优选申请继续要求
-  本人自有商品及实际 Apply lineage。
+  本人自有商品及实际 Apply lineage。侧栏仅「供应市场 → 优选申请」两级，不显示
+  发起/进度/记录三级菜单；概览页保留发起与记录并提供「查看申请进度」。现有新建、
+  进度、记录及详情深链接继续高亮「优选申请」，页面面包屑与进度/记录切换保留。
+  成员进度/记录和成员详情不显示四个跨渠道快捷链接；申请、补充和审核合同不变。
 - `/workbench/supply/catalogs/sds`：选模板/款式和本人已批准图案，配置设计；核实
   原 operation 的效果图和已保存成品后再选择入本人 Collection。
 
