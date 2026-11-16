@@ -19,15 +19,14 @@ describe("Figma Console navigation contract", () => {
       expect(route.node.href).toBe(`/workbench/agents/skills/${category}`);
     }
   });
-  it("keeps tool customization children on real routes under their Figma parent", () => {
-    const children = findConsoleRoute("/workbench/tools/custom")?.node.children;
-    expect(children?.map(node => [node.label, node.href])).toEqual([
+  it("registers the tool customization pages without adding sidebar children", () => {
+    expect(findConsoleRoute("/workbench/tools/custom")?.node.children).toBeUndefined();
+    for (const [label, href] of [
       ["提交定制需求", "/workbench/tools/custom/new"],
       ["定制进度", "/workbench/tools/custom/progress"],
-    ]);
-    for (const child of children ?? []) {
-      expect(findConsoleRoute(child.href)?.trail.map(node => node.label)).toEqual(["工具市场", "工具定制", child.label]);
-      expect(existsSync(join(process.cwd(), "src/app", child.href.slice(1), "page.tsx"))).toBe(true);
+    ]) {
+      expect(findConsoleRoute(href)?.trail.map(node => node.label)).toEqual(["工具市场", "工具定制", label]);
+      expect(existsSync(join(process.cwd(), "src/app", href.slice(1), "page.tsx"))).toBe(true);
     }
   });
   it("keeps own-item confirmation and independent draft detail under their current parents",()=>{

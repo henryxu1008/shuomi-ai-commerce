@@ -69,8 +69,10 @@ The three entries are `/workbench/tools/official`, `/workbench/tools/mine`, and
 independent verified platform identity and does not require customer membership.
 Enterprise siblings retain their Organization gate. Seven future tools stay closed.
 
-Customization children are `/workbench/tools/custom/new` and
-`/workbench/tools/custom/progress`. The form saves scenario, contact name, phone/WeChat,
+The sidebar shows **工具市场 → 工具定制**. Open **提交定制需求** or **查看定制进度**
+from the customization overview. Both pages (`/workbench/tools/custom/new` and
+`/workbench/tools/custom/progress`) highlight **工具定制** in the sidebar.
+The form saves scenario, contact name, phone/WeChat,
 explicit contact consent (initially unchecked), and up to three private reference
 files (2MiB each; PDF, PNG, JPEG or UTF-8 text/CSV). Files are saved in the same
 transaction as the request and can be downloaded in enterprise and specialist details.

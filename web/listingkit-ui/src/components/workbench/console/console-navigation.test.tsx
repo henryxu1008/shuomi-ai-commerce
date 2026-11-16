@@ -87,12 +87,17 @@ it.each(["official", "mine", "team"]) ("keeps skill category %s under one second
   expect(findConsoleRoute(`/workbench/agents/skills/${category}`)).toBeDefined();
 });
 
-it("uses the installed tool capability for both customization children", () => {
-  const view=render(<ConsoleNavigation pathname="/workbench/tools/custom/new" ariaLabel="主导航" toolMarketAvailable />);
-  expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("aria-current","page");
-  expect(screen.getByRole("link", {name:"定制进度"})).toHaveAttribute("title","定制进度");
-  view.rerender(<ConsoleNavigation pathname="/workbench/tools/custom/new" ariaLabel="主导航" />);
-  expect(screen.getByRole("link", {name:"提交定制需求"})).toHaveAttribute("title","提交定制需求：业务暂未启用");
+it.each(["/workbench/tools/custom", "/workbench/tools/custom/new", "/workbench/tools/custom/progress"])("keeps tool customization page %s under one second-level entry", pathname => {
+  const view = render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" toolMarketAvailable />);
+  const entry = screen.getByRole("link", {name:"工具定制"});
+  expect(entry).toHaveAttribute("aria-current", "page");
+  expect(entry).toHaveAttribute("href", "/workbench/tools/custom");
+  expect(entry).toHaveAttribute("title", "工具定制");
+  expect(entry.closest("li")).toHaveClass("console-nav-level-2");
+  expect(screen.queryByRole("button", {name:/工具定制/})).not.toBeInTheDocument();
+  for (const name of ["提交定制需求", "定制进度"]) expect(screen.queryByRole("link", {name})).not.toBeInTheDocument();
+  view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" />);
+  expect(screen.getByRole("link", {name:"工具定制"})).toHaveAttribute("title", "工具定制：业务暂未启用");
 });
 it.each(["运营驾驶舱", "AI工作台", "智能市场", "工具市场", "数据服务", "店铺中心"])("keeps the %s primary homepage available independently of child services", label => {
   render(<ConsoleNavigation pathname="/workbench" ariaLabel="主导航" />);
