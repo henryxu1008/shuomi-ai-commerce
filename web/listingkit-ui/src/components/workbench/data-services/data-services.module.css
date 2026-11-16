@@ -3,9 +3,7 @@
   --data-teal-soft: var(--accent);
   --data-purple-soft: var(--purple-muted);
   width: 100%;
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 18px 32px 40px;
+  padding: 18px var(--page-gutter) 40px;
   background: var(--background);
   color: var(--foreground);
 }
@@ -99,7 +97,6 @@
   --data-purple: var(--console-purple); --data-purple-soft: var(--purple-muted);
   --data-purple-foreground: var(--console-purple);
   --data-teal-soft: var(--accent);
-  max-width: none;
   min-height: calc(100svh - var(--console-header-height, 72px));
 }
 :global(.light) .market {
@@ -146,7 +143,7 @@
 :global(.light) .lightDot { display: block; }
 :global(.light) .darkDot { display: none; }
 @media (max-width: 1000px) { .platform, .apiGrid { grid-template-columns: 1fr; } .bullets { grid-template-columns: 1fr; } .platformFacts { margin-top: 8px; } .serviceFooter { flex-wrap: wrap; } .serviceFooter button { width: 100%; } }
-@media (max-width: 700px) { .page { padding: 18px 16px 32px; } .header { flex-wrap: wrap; } .header h1 { font-size: var(--page-title-size); } .header p { font-size: var(--label-text-size); } .actions { flex-wrap: wrap; } .services { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .tabs { flex-wrap: wrap; } .tabs button { flex: 1; min-width: 90px; } .tabs > span { width: 100%; margin: 0; } .processRow { align-items: flex-start; } .steps { flex-direction: column; align-items: stretch; } .steps span[aria-hidden] { display: block; text-align: center; transform: rotate(90deg); } .cardHeading { flex-wrap: wrap; } }
+@media (max-width: 700px) { .page { padding-bottom: 32px; } .header { flex-wrap: wrap; } .header h1 { font-size: var(--page-title-size); } .header p { font-size: var(--label-text-size); } .actions { flex-wrap: wrap; } .services { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .tabs { flex-wrap: wrap; } .tabs button { flex: 1; min-width: 90px; } .tabs > span { width: 100%; margin: 0; } .processRow { align-items: flex-start; } .steps { flex-direction: column; align-items: stretch; } .steps span[aria-hidden] { display: block; text-align: center; transform: rotate(90deg); } .cardHeading { flex-wrap: wrap; } }
 @media (max-width: 1100px) {
   .market .platform { grid-template-columns: 1fr; }
   .market .platformFacts { margin-top: 8px; }
