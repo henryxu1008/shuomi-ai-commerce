@@ -1,4 +1,4 @@
-import {cleanup, render, screen, within} from "@testing-library/react";
+import {act, cleanup, render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, expect, it, vi} from "vitest";
 import {useMarketCommands} from "./shared";
@@ -59,6 +59,7 @@ it("removes the selection entry and defers the application form until the dialog
   expect(useMarketCommands).not.toHaveBeenCalled();
 });
 it("opens the shared application form in place, submits the existing command and retains directory filters after close",async()=>{
+ let release!:()=>void;commands.execute.mockImplementationOnce(()=>new Promise<void>(done=>{release=done}));
  page();const user=userEvent.setup();
  await user.selectOptions(screen.getByRole("combobox",{name:"仓库区域"}),"DE");
  const trigger=screen.getByRole("button",{name:"申请对接货盘"});await user.click(trigger);
@@ -67,6 +68,8 @@ it("opens the shared application form in place, submits the existing command and
  for(const [label,value] of [["货盘名称","Fixture Catalog"],["货盘网站（HTTPS）","https://catalog.example.test"],["联系人","Fixture contact"],["联系电话","12345"],["供应品类","Home"]])await user.type(dialog.getByLabelText(label),value);
  await user.click(dialog.getByRole("button",{name:"提交对接申请"}));
  expect(commands.execute).toHaveBeenCalledExactlyOnceWith({action:"submit_connection",connection:{name:"Fixture Catalog",website:"https://catalog.example.test",contact:"Fixture contact",telephone:"12345",categories:"Home"}});
+ expect(dialog.getByRole("button",{name:"取消"})).toBeDisabled();expect(dialog.getByRole("button",{name:"关闭"})).toBeDisabled();expect(dialog.getByRole("button",{name:"提交对接申请"})).toBeDisabled();
+ await act(async()=>{release()});
  await user.click(dialog.getByRole("button",{name:"取消"}));
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();expect(trigger).toHaveFocus();
  expect(screen.getByRole("combobox",{name:"仓库区域"})).toHaveValue("DE");
