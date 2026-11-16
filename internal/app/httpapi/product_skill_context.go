@@ -31,6 +31,20 @@ func (c productSkillContext) AcquireMethod(ctx context.Context, identity agent.E
 	if e != nil {
 		return nil, e
 	}
+	if ref.PolicyVersion == d.ScriptPolicyVersion {
+		// Recheck exact live use before probing infrastructure, without holding
+		// a Skill transaction across the network read. AcquireUse below still
+		// closes the revocation race at the original before-send fence.
+		if _, e = c.application.skills.ReadForUse(ctx, p, ref); e != nil {
+			return nil, e
+		}
+		if c.application.script == nil {
+			return nil, agent.ErrUnavailable
+		}
+		if e = c.application.script.CheckControl(ctx); e != nil {
+			return nil, e
+		}
+	}
 	_, release, e := c.application.skills.AcquireUse(ctx, p, ref)
 	return release, e
 }

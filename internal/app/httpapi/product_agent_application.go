@@ -86,8 +86,13 @@ type ProductAgentInvocationLedger interface {
 	SetUsageSettler(aicapability.InvocationUsageSettler)
 }
 
+type scriptControlExecutor interface {
+	agent.ScriptExecutor
+	CheckControl(context.Context) error
+}
+
 type productAgentApplication struct {
-	script                  agent.ScriptExecutor
+	script                  scriptControlExecutor
 	scriptDescriptor        agent.ScriptDescriptor
 	scriptDependencies      commercetool.InvocationDependencies
 	workbenchScopes         *aiWorkbenchApplication
