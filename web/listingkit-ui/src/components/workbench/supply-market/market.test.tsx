@@ -125,3 +125,17 @@ it("keeps keyword search available when the shipping catalog cannot load",async(
  fireEvent.click(screen.getByRole("button",{name:"搜索"}));
  await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"official",keyword:"收纳箱",after:undefined}));
 });
+
+it("loads the same China catalog as account settings and sends the existing shipping labels", async () => {
+ const fetchCatalog = vi.fn().mockResolvedValue(Response.json(shippingRegions));
+ vi.stubGlobal("fetch", fetchCatalog);
+ show(<SupplyMarketPage channel="selected"/>, false);
+ await screen.findByRole("option", {name:"浙江省"});
+ expect(fetchCatalog).toHaveBeenCalledWith("/api/account/region-catalog?country=CN", expect.objectContaining({
+  headers: expect.objectContaining({"X-Expected-User-ID":"actor"}),
+ }));
+ fireEvent.change(screen.getByRole("combobox",{name:"发货省份"}),{target:{value:"浙江省"}});
+ fireEvent.change(screen.getByRole("combobox",{name:"发货城市"}),{target:{value:"杭州市"}});
+ fireEvent.click(screen.getByRole("button",{name:"搜索"}));
+ await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"selected",keyword:"",province:"浙江省",city:"杭州市",after:undefined}));
+});

@@ -3,7 +3,9 @@ package geography
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -12,8 +14,8 @@ import (
 //go:embed catalog.json.gz
 var snapshot []byte
 
-//go:embed shipping-cn.json
-var shippingSnapshot []byte
+//go:embed china.json
+var chinaSnapshot []byte
 
 // Direct identifies the explicit no-subdivision group in a country that also has provinces.
 const Direct = "direct"
@@ -46,7 +48,6 @@ type Catalog struct {
 	version   string
 	countries []Option
 	byID      map[string]*Country
-	shipping  Country
 }
 
 var loadCatalog = sync.OnceValues(func() (*Catalog, error) {
@@ -65,17 +66,28 @@ var loadCatalog = sync.OnceValues(func() (*Catalog, error) {
 	if data.Version == "" || len(data.Countries) == 0 {
 		return nil, errors.New("empty region catalog")
 	}
-	catalog := &Catalog{version: data.Version, byID: make(map[string]*Country, len(data.Countries))}
-	if err := json.Unmarshal(shippingSnapshot, &catalog.shipping); err != nil {
+	var china Country
+	if err := json.Unmarshal(chinaSnapshot, &china); err != nil {
 		return nil, err
 	}
-	if catalog.shipping.ID != "CN" || len(catalog.shipping.Provinces) == 0 {
-		return nil, errors.New("empty China shipping catalog")
+	if china.ID != "CN" || len(china.Provinces) == 0 {
+		return nil, errors.New("empty China region catalog")
 	}
+	digest := sha256.Sum256([]byte(data.Version + "\n" + string(bytes.TrimSpace(chinaSnapshot))))
+	catalog := &Catalog{version: "gn-" + hex.EncodeToString(digest[:8]), byID: make(map[string]*Country, len(data.Countries))}
 	for i := range data.Countries {
 		country := &data.Countries[i]
+		if country.ID == china.ID {
+			if country.Name != china.Name || len(country.Provinces) != 0 || len(country.Cities) != 0 {
+				return nil, errors.New("invalid China country metadata")
+			}
+			country = &china
+		}
 		catalog.countries = append(catalog.countries, country.Option)
 		catalog.byID[country.ID] = country
+	}
+	if catalog.Country(china.ID) == nil {
+		return nil, errors.New("missing China country metadata")
 	}
 	return catalog, nil
 })
@@ -88,9 +100,6 @@ func (c *Catalog) Version() string { return c.version }
 // Countries and Country return read-only views of the embedded reference data.
 func (c *Catalog) Countries() []Option        { return c.countries }
 func (c *Catalog) Country(id string) *Country { return c.byID[id] }
-
-// ChinaShipping retains the province and city labels used by supply-market records.
-func (c *Catalog) ChinaShipping() *Country { return &c.shipping }
 
 func (c *Catalog) Resolve(version, countryID, provinceID, cityID string) (Labels, error) {
 	if version != c.version {

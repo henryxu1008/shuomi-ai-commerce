@@ -44,9 +44,6 @@ func (m accountProfileModule) regionCatalog(c *gin.Context) {
 		return
 	}
 	detail := catalog.Country(country)
-	if shipping {
-		detail = catalog.ChinaShipping()
-	}
 	if detail == nil {
 		writeAccountProfileError(c, http.StatusBadRequest, "INVALID_REQUEST")
 		return

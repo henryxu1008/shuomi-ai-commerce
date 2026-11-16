@@ -55,7 +55,9 @@ func TestBundledCatalogOptionsAndHierarchy(t *testing.T) {
 	for _, selection := range [][3]string{
 		{"SG", "", "1880252"},
 		{"US", "5332921", "5368361"},
-		{"CN", "1809935", "1795565"},
+		{"CN", "330000", "330100"},
+		{"CN", "310000", "310000"},
+		{"CN", "420000", "429004"},
 	} {
 		t.Run(fmt.Sprint(selection), func(t *testing.T) {
 			labels, err := c.Resolve(c.Version(), selection[0], selection[1], selection[2])

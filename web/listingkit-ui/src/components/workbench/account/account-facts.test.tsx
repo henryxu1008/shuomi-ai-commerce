@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { afterEach, it, expect, vi } from "vitest";
 import { IdentityDates, RegionSettings } from "./account-facts";
 import type { AccountPreferences } from "@/lib/api/account-facts";
+import { shippingRegions } from "@/test/fixtures/shipping-regions";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -26,11 +27,7 @@ const initial: AccountPreferences = {
   country: "", province: "", city: "", updatedAt: null,
   readAt: "2026-09-28T00:00:00Z", source: "account_profile",
 };
-const china = {
-  id: "CN", name: "China", cities: [],
-  provinces: [{ id: "1", name: "浙江省", cities: [{ id: "3", name: "杭州市" }] },
-    { id: "2", name: "广东省", cities: [{ id: "4", name: "深圳市" }] }],
-};
+const china = shippingRegions.country;
 const singapore = { id: "SG", name: "Singapore", provinces: [], cities: [{ id: "8", name: "Singapore" }] };
 
 function mountRegion(stored = initial) {
@@ -44,7 +41,9 @@ function mountRegion(stored = initial) {
     if (path.includes("?country=")) return Response.json({ version, country: path.endsWith("CN") ? china : singapore });
     if (init?.method === "PUT") {
       const { country } = JSON.parse(String(init.body));
-      saved = { ...initial, ...(country ? { country: "Singapore", city: "Singapore" } : {}), updatedAt: "2026-09-28T01:00:00Z" };
+      const labels = country === "CN" ? { country: "China", province: "浙江省", city: "杭州市" }
+        : country === "SG" ? { country: "Singapore", city: "Singapore" } : {};
+      saved = { ...initial, ...labels, updatedAt: "2026-09-28T01:00:00Z" };
     }
     return Response.json(saved);
   });
@@ -119,4 +118,26 @@ it("keeps the saved country selected instead of applying the new default", async
   mountRegion({ ...initial, country: "Singapore", city: "Singapore" });
   expect(await screen.findByRole("button", { name: "国家／地区 新加坡" })).toBeVisible();
   expect(await screen.findByRole("button", { name: "城市 Singapore" })).toBeVisible();
+});
+
+it("retains a saved China town until the account owner explicitly saves a shared province and city", async () => {
+  const calls = mountRegion({ ...initial, country: "China", province: "浙江", city: "乌镇" });
+  const user = userEvent.setup();
+  const province = () => screen.getByRole("button", { name: /^省／州 / });
+  await waitFor(() => expect(province()).toBeEnabled());
+  expect(screen.getByText(/浙江 \/ 乌镇/)).toBeVisible();
+  const save = screen.getByRole("button", { name: "保存地区资料" });
+  expect(save).toBeDisabled();
+  await user.click(province());
+  await user.click(screen.getByRole("button", { name: "浙江省" }));
+  await user.click(screen.getByRole("button", { name: /^城市 / }));
+  expect(screen.queryByRole("button", { name: "乌镇" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "杭州市" }));
+  expect(screen.getByText(/浙江 \/ 乌镇/)).toBeVisible();
+  expect(calls.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+  await user.click(save);
+  expect(await screen.findByText("地区资料已保存")).toBeVisible();
+  const write = calls.mock.calls.find(([, init]) => init?.method === "PUT");
+  expect(write && JSON.parse(String(write[1]?.body))).toEqual({ catalogVersion: version, country: "CN", province: "330000", city: "330100" });
+  expect(screen.queryByText(/浙江 \/ 乌镇/)).not.toBeInTheDocument();
 });

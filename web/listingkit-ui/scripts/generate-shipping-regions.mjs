@@ -15,4 +15,4 @@ const provinces = Object.entries(areaList.province_list).map(([id, name]) => {
 });
 
 const data = { id: "CN", name: "China", provinces, cities: [] };
-writeFileSync(new URL("../../../internal/geography/shipping-cn.json", import.meta.url), JSON.stringify(data) + "\n");
+writeFileSync(new URL("../../../internal/geography/china.json", import.meta.url), JSON.stringify(data) + "\n");

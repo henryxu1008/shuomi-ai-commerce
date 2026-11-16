@@ -3,14 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { getShippingRegion, type RegionCountry } from "@/lib/api/region-catalog";
+import { getRegionCountry, type RegionCountry } from "@/lib/api/region-catalog";
 
 type Location = { province: string; city: string };
 
 export function useShippingLocations(subject: string, enabled = true) {
   return useQuery({
     queryKey: ["region-catalog", subject, "shipping", "CN"],
-    queryFn: ({ signal }) => getShippingRegion(subject, signal),
+    queryFn: ({ signal }) => getRegionCountry(subject, "CN", signal),
     enabled,
     staleTime: 15 * 60 * 1000,
     retry: false,
