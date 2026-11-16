@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getAccountAudit } from "@/lib/api/account-audit";
+import { enterpriseRoleKey } from "@/lib/api/enterprise-role-schema";
 
 import { AccountReadError, updateAccountBusinessProfile, type AccountBusinessProfile, type AccountBusinessProfileInput, type AccountOrganization, type AccountProfile } from "@/lib/api/account";
 import { getAccountIdentityProfile, resendAccountEmailVerification, resendAccountPhoneVerification, setAccountEmail, setAccountPhone, updateAccountIdentityProfile, updateAccountPassword, verifyAccountEmail, verifyAccountPhone, type AccountIdentityProfileInput } from "@/lib/api/account-identity";
@@ -15,8 +15,10 @@ import { getCommercialOverview } from "@/lib/api/commercial";
 import { getMemberSummary } from "@/lib/api/members";
 import {getInvitationSummary} from "@/lib/api/invitations";
 import {listWorkbenchStores} from "@/lib/api/workbench-stores";
+import { MemberAllocationPreview } from "./member-allocation-preview";
 import {EnterpriseResources} from "../commercial/enterprise-resources";
 import styles from "./account.module.css";
+import overviewStyles from "../console/primary-overview.module.css";
 import { AccountOverview } from "./account-overview";
 import { ConsoleState } from "../console/console-page";
 import { SubjectVerification } from "./subject-verification";
@@ -321,22 +323,61 @@ function BusinessSupplement({ fieldLabel, inputLabel, value, onChange, disabled 
 function profileInput(profile?: AccountBusinessProfile | null): AccountBusinessProfileInput { return { userRole: profile?.userRole ?? "", shopSituation: profile?.shopSituation ?? "", factorySituation: profile?.factorySituation ?? "", platforms: profile?.platforms ?? [], sites: profile?.sites ?? [], shopType: profile?.shopType ?? "", services: profile?.services ?? [] }; }
 function splitList(value: string) { return [...new Set(value.split(",").map(item => item.trim()).filter(Boolean))].slice(0, 16); }
 
+const enterpriseRoleLabels = new Map([["listingkit_admin", "企业管理员"], ["listingkit_viewer", "查看者"], ["viewer", "查看者"], ["platform_admin", "平台管理员"]]);
+
 export function OrganizationView({ data, scope,platformMaintenance }: { data: AccountOrganization; scope: string;platformMaintenance?:ReactNode }) {
   const members = useQuery({ queryKey: ["account-overview", data.userId, data.effectiveOrganizationId, "members", scope], queryFn: ({ signal }) => getMemberSummary({ expectedUserId: data.userId, expectedOrganizationId: data.effectiveOrganizationId, signal }), gcTime: 0, staleTime: 0, retry: false });
   const commercial = useQuery({ queryKey: ["account-overview", data.userId, data.effectiveOrganizationId, "commercial", scope], queryFn: ({ signal }) => getCommercialOverview(data.effectiveOrganizationId, signal), gcTime: 0, staleTime: 0, retry: false });
-  const audit = useQuery({ queryKey: ["account-overview", data.userId, data.effectiveOrganizationId, "audit", scope], queryFn: ({ signal }) => getAccountAudit({ expectedUserId: data.userId, expectedOrganizationId: data.effectiveOrganizationId, signal }), gcTime: 0, staleTime: 0, retry: false });
   const metric = (query: { isPending: boolean; isError: boolean }, value: ReactNode, unavailable: string) => query.isPending ? "正在读取" : query.isError ? unavailable : value;
   const activeMembers = members.data?.active;
   const invites = useQuery({queryKey:["invitation-summary",data.userId,data.effectiveOrganizationId,scope],queryFn:({signal})=>getInvitationSummary({expectedUserId:data.userId,expectedOrganizationId:data.effectiveOrganizationId,signal}),gcTime:0,staleTime:0,retry:false});
   const stores = useQuery({queryKey:["enterprise-stores",data.userId,data.effectiveOrganizationId,scope],queryFn:({signal})=>listWorkbenchStores({page:1,pageSize:1},data.effectiveOrganizationId,signal),gcTime:0,staleTime:0,retry:false});
-  return <>
-    <Card className={styles.identity}><div className={styles.organizationIdentity}><Image src="/console/account/organization-avatar.svg" width={64} height={64} alt="" unoptimized /><div><h2>{provided(data.name)}</h2><p>当前有效企业：{data.effectiveOrganizationId}</p><p>归属企业（Home）：{data.homeOrganizationId}</p></div></div><div className={styles.identityStatus}><span className={styles.badge}>企业信息 · 只读</span><span className={styles.identityMeta}>当前组织角色：{data.roles.length ? data.roles.join("、") : "未提供"}</span></div></Card>
-    <h2 className={styles.sectionTitle}>企业管理</h2><div className={styles.managementGrid}>{[["成员与权限", "查看企业成员；获准管理员可邀请成员、调整角色和移除成员"], ["资源与额度", "查看企业余额和成员消费上限"], ["操作记录", "查看账户资料、成员、额度与源账号的已提交事件"]].map(([title, description]) => <Panel key={title} title={title} description={description}>{title === "成员与权限" ? <><Button asChild variant="outline"><Link href="/workbench/account/organization/members" prefetch={false}>管理成员</Link></Button><p className={styles.note}>角色与可执行操作以当前组织授权 owner 为准。</p></> : title === "资源与额度" ? <Button asChild variant="outline"><Link href="/workbench/account/organization/resources" prefetch={false}>管理资源</Link></Button> : <><Button asChild variant="outline"><Link href="/workbench/account/organization/audit" prefetch={false}>查看记录</Link></Button><p className={styles.note}>只展示已提交成功的业务事件。</p></>}</Panel>)}</div>
-    <div className={styles.enterpriseMetrics} aria-label="当前企业信息"><article><span>企业成员</span><strong>{metric(members, members.data?.total, "暂不可用")}</strong><small>{activeMembers === undefined ? "有效成员统计暂不可用" : `全部有效成员 ${activeMembers} 人`}</small></article><article><span>已绑定店铺</span><strong>{metric(stores, stores.data?.pagination.total, "暂不可用")}</strong><small>来自当前企业店铺目录</small></article><article><span>待处理邀请</span><strong>{metric(invites, invites.data?.pending, "暂不可用")}</strong><small>未结束且未过期的正式邀请</small></article><article><span>当前方案</span><strong>{commercial.isPending?"正在读取":commercial.isError?"暂不可用":commercial.data?.base_plan.name}</strong><small>店铺按期收费，AI 与数据资源预付使用</small></article></div>
-    {platformMaintenance}<Panel title="企业资源" className={styles.resources}><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0}/></Panel>
-    <Panel title="最近操作记录" description="时间为业务操作时间；记录只供追溯。" className={styles.resources}>
-      {audit.isPending ? <p className={styles.note}>正在读取操作记录…</p> : audit.isError ? <p className={styles.unavailable} role="status">操作记录暂不可用。</p> : audit.data.items.length === 0 ? <p className={styles.unavailable} role="status">暂无已提交的操作记录。</p> : <ul className={styles.auditPreview}>{audit.data.items.slice(0, 4).map(item => <li key={`${item.eventType}:${item.relation.reference}:${item.relation.version}`}><time dateTime={item.time}>{new Date(item.time).toLocaleString("zh-CN", { timeZone: "Asia/Singapore", hour12: false })}</time><span>{item.actor}</span><strong>{item.operation} · {item.objectReference}</strong></li>)}</ul>}
-      <Button asChild variant="outline"><Link href="/workbench/account/organization/audit" prefetch={false}>查看操作记录</Link></Button>
-    </Panel><Provenance data={data} />
-  </>;
+  const roles = [...new Set(data.roles.map(role =>
+    enterpriseRoleLabels.get(role) ?? (enterpriseRoleKey.safeParse(role).success ? "自定义角色" : "角色名称暂未提供"),
+  ))];
+  const management = [
+    { title: "成员与权限", tone: "blue", description: "查看成员和角色，有权限的管理员可邀请成员", href: "/workbench/account/organization/members" },
+    { title: "资源与额度", tone: "purple", description: "查看企业余额和成员消费上限", href: "/workbench/account/organization/resources" },
+    { title: "操作记录", tone: "orange", description: "查看账户资料、成员、额度和源账号的变动", href: "/workbench/account/organization/audit" },
+  ];
+  const metrics = [
+    { label: "企业成员", tone: "blue", value: metric(members, members.data?.total, "暂不可用"), detail: activeMembers === undefined ? undefined : `有效成员 ${activeMembers} 人` },
+    { label: "已绑定店铺", tone: "teal", value: metric(stores, stores.data?.pagination.total, "暂不可用") },
+    { label: "待处理邀请", tone: "orange", value: metric(invites, invites.data?.pending, "暂不可用"), detail: "尚未结束且未过期" },
+    { label: "当前方案", tone: "purple", value: metric(commercial, commercial.data?.base_plan.name, "暂不可用"), detail: "店铺按期收费，AI 与数据资源预付使用" },
+  ];
+
+  return <div className={`${overviewStyles.stack} ${styles.enterpriseWorkspace}`}>
+    <Card role="region" aria-label="当前企业信息" className={overviewStyles.panel}>
+      <div className={styles.enterpriseHeader}>
+        <div className={styles.organizationIdentity}>
+          <Image src="/console/account/organization-avatar.svg" width={48} height={48} alt="" unoptimized />
+          <div><h2>{provided(data.name)}</h2><p>当前角色：{roles.join("、") || "未提供"}</p></div>
+        </div>
+        <details className={styles.enterpriseDetails}>
+          <summary>企业编号</summary>
+          <dl><div><dt>当前企业编号</dt><dd>{data.effectiveOrganizationId}</dd></div><div><dt>归属企业编号</dt><dd>{data.homeOrganizationId}</dd></div></dl>
+        </details>
+      </div>
+      <dl className={`${overviewStyles.metrics} ${overviewStyles.metricsFour}`}>
+        {metrics.map(({ label, tone, value, detail }) => <div key={label} data-tone={tone}>
+          <dt>{label}</dt><dd><strong>{value}</strong>{detail ? <small>{detail}</small> : null}</dd>
+        </div>)}
+      </dl>
+    </Card>
+    <section aria-label="企业管理">
+      <h2 className={styles.sectionTitle}>企业管理</h2>
+      <div className={`${overviewStyles.entriesThree} ${overviewStyles.entriesCompact}`}>
+        {management.map(({ title, tone, description, href }) => <Card key={href} className={overviewStyles.entry} data-tone={tone}>
+          <h3>{title}</h3>
+          <p className={overviewStyles.description}>{description}</p>
+          <Button asChild size="sm" variant="outline"><Link href={href} prefetch={false}>{title}</Link></Button>
+        </Card>)}
+      </div>
+    </section>
+    {platformMaintenance}
+    <Panel title="企业资源"><EnterpriseResources userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} sequence={0} hideActions /></Panel>
+    <MemberAllocationPreview userId={data.userId} organizationId={data.effectiveOrganizationId} scope={scope} />
+    <Provenance data={data} />
+  </div>;
 }
