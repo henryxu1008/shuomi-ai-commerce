@@ -79,9 +79,9 @@ it("replaces the generic member list with the real selected overview and existin
   expect(screen.getByRole("heading", {name:"优选申请", level:1})).toBeVisible();
   expect(screen.getByText("54")).toBeVisible();expect(screen.getByText("27")).toBeVisible();expect(screen.getByText("4")).toBeVisible();expect(screen.getByText("7")).toBeVisible();
   expect(screen.getByText("真实分组")).toBeVisible();expect(screen.getByRole("img",{name:"当前优化商品"})).toHaveAttribute("src","https://images.example.org/real.png");
-  expect(screen.getByRole("link",{name:"选择商品发起申请"})).toHaveAttribute("href","/workbench/supply/applications/new");expect(screen.getByRole("link",{name:"查看申请记录"})).toHaveAttribute("href","/workbench/supply/applications/records");
-  expect(screen.getByRole("link",{name:"查看申请进度"})).toHaveAttribute("href","/workbench/supply/applications/progress");
-  expect(screen.getByRole("heading",{name:"申请条件"})).toBeVisible();expect(screen.getByRole("heading",{name:"申请流程"})).toBeVisible();expect(screen.queryByRole("combobox",{name:"申请类型"})).not.toBeInTheDocument();
+  expect(screen.getByRole("link",{name:"选择商品发起申请"})).toHaveAttribute("href","/workbench/supply/applications/new");expect(screen.getByRole("link",{name:"申请记录"})).toHaveAttribute("href","/workbench/supply/applications/records");
+  expect(screen.getByRole("link",{name:"申请进度"})).toHaveAttribute("href","/workbench/supply/applications/progress");
+  for(const name of ["申请条件","申请流程","服务说明"])expect(screen.queryByRole("heading",{name})).not.toBeInTheDocument();expect(screen.queryByRole("combobox",{name:"申请类型"})).not.toBeInTheDocument();
   expect(readApplicationOverview).toHaveBeenCalledWith({userId:"member-a",organizationId:"org-a"},expect.any(AbortSignal));expect(listMarketRecords).not.toHaveBeenCalled();
 });
 it("shows genuine zero only after a complete empty overview",async()=>{vi.mocked(readApplicationOverview).mockResolvedValue({eligibleProducts:0,reviewing:0,supplementRequired:0,approved:0,products:[]});page();await screen.findByText("暂无可申请商品");expect(screen.getAllByText("0")).toHaveLength(4)});
