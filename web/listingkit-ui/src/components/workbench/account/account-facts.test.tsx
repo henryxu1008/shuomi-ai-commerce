@@ -63,14 +63,14 @@ it("searches preset countries, clears descendants on changes and saves IDs after
   await user.click(country);
   const search = await screen.findByRole("searchbox", { name: "搜索国家／地区" });
   await user.type(search, "中国");
-  expect(screen.queryByRole("button", { name: "新加坡", exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "新加坡" })).not.toBeInTheDocument();
   await user.keyboard("{ArrowDown}{Enter}");
   expect(country).toHaveAccessibleName("国家／地区 中国");
   await waitFor(() => expect(screen.getByRole("button", { name: /^省／州 / })).toBeEnabled());
   await user.click(screen.getByRole("button", { name: /^省／州 / }));
-  await user.click(screen.getByRole("button", { name: "浙江省", exact: true }));
+  await user.click(screen.getByRole("button", { name: "浙江省" }));
   await user.click(screen.getByRole("button", { name: /^城市 / }));
-  await user.click(screen.getByRole("button", { name: "杭州市", exact: true }));
+  await user.click(screen.getByRole("button", { name: "杭州市" }));
   expect(save).toBeEnabled();
   await user.click(country);
   expect(await screen.findByRole("searchbox", { name: "搜索国家／地区" })).toHaveFocus();
@@ -79,16 +79,16 @@ it("searches preset countries, clears descendants on changes and saves IDs after
   await user.keyboard("{Escape}");
   expect(country).toHaveFocus();
   await user.click(screen.getByRole("button", { name: /^省／州 / }));
-  await user.click(screen.getByRole("button", { name: "广东省", exact: true }));
+  await user.click(screen.getByRole("button", { name: "广东省" }));
   expect(screen.getByRole("button", { name: "城市 请选择城市" })).toBeEnabled();
   expect(save).toBeDisabled();
   await user.click(country);
   await user.type(await screen.findByRole("searchbox", { name: "搜索国家／地区" }), "新加坡");
-  await user.click(screen.getByRole("button", { name: "新加坡", exact: true }));
+  await user.click(screen.getByRole("button", { name: "新加坡" }));
   await waitFor(() => expect(screen.getByRole("button", { name: /^城市 / })).toBeEnabled());
   expect(screen.getByRole("button", { name: "省／州 不适用" })).toBeDisabled();
   await user.click(screen.getByRole("button", { name: /^城市 / }));
-  await user.click(screen.getByRole("button", { name: "Singapore", exact: true }));
+  await user.click(screen.getByRole("button", { name: "Singapore" }));
   await user.click(save);
   await waitFor(() => {
     const write = calls.mock.calls.find(([, init]) => init?.method === "PUT");
