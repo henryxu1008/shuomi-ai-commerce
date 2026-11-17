@@ -19,7 +19,7 @@ Issue/主要 PR 记录当前进度、准确代码版本、检查结果与批准�
 
 2026-09-30 用户为 #573 明确要求标题执行采用 OpenAI 兼容接口且不锁定单一供应商。
 下文 §8.3–§8.5 的 GRSAI 单供应商措辞是此前已批准实现的历史边界，不能再作为
-后续标题执行的产品要求；新的[供应商可替换合同候选](product-agent-text-provider-neutral.md)
+后续标题执行的产品要求；新的[供应商可替换合同候选](domains/ai/product-agent-text-provider-neutral.md)
 正在独立评审。候选达到 `IMPLEMENTATION_READY` 前，不以本决定直接放开正式调用。
 
 2026-11-02 用户接受 [#134 C1 路径 A](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6572790358)：
