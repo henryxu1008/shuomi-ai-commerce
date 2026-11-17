@@ -81,6 +81,24 @@ it.each([true,false])("distinguishes same-name candidates by publication and mod
  expect(options.getByRole("option",{name:/ · other/})).toBeInTheDocument();
 });
 
+it("limits a model's unavailability to its own option",async()=>{
+ const fetch=fixture(),original=fetch.getMockImplementation()!;
+ const unready=models().map(model=>model.category==="multimodal"?{...model,reason:"VISION_CONSUMER_NOT_IMPLEMENTED"}:model);
+ const registered=models(true).filter(model=>model.category!=="image-generation").map(model=>({
+  ...model,reference:{id:`registered-${model.category}`,version:"configured-v1"},
+ }));
+ fetch.mockImplementation((url,init)=>url.endsWith("/options")
+  ? Promise.resolve(Response.json({organizationId:"org-a",channels:["openai-direct"],models:[...unready,...registered]}))
+  : original(url,init));
+ mount();
+ const text=within(await screen.findByRole("combobox",{name:"文本模型"}));
+ const vision=within(screen.getByRole("combobox",{name:"多模态理解模型"}));
+ expect(text.getByRole("option",{name:/当前企业暂不能使用此选项/})).toBeInTheDocument();
+ expect(vision.getByRole("option",{name:/此选项暂不能用于图片分析/})).toBeInTheDocument();
+ expect(text.getByRole("option",{name:/模型配置符合条件/})).toBeInTheDocument();
+ expect(vision.getByRole("option",{name:/模型配置符合条件/})).toBeInTheDocument();
+});
+
 it("shows the image generation reason and returns focus to that status after inspection",async()=>{
  const fetch=fixture(),original=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>url.endsWith("/enterprise")
