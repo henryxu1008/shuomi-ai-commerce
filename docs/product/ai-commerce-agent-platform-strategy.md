@@ -1,8 +1,8 @@
 # 硕米智能引擎产品战略
 
-硕米围绕商品获取、内容完善、平台草稿与经营工作组织可检查的业务结果。UI、导航和页面职责以[当前 Figma Authority](final-ui-ia-authority.md)为准；业务智能体分工以[当前职责](business-agent-responsibilities.md)为准。
+硕米围绕商品获取、内容完善、平台草稿与经营工作组织可检查的业务结果。UI、导航和页面职责以**用户最新明确决定、当前已批准产品/领域合同和实际业务操作**为依据；[业务流程参考与历史 UI/IA 决定](final-ui-ia-authority.md)保留流程与历史追溯，**Figma 仅供业务流程参考，不是 UI/UX、菜单层级或布局的最终权威**。业务智能体分工以[当前职责](business-agent-responsibilities.md)为准。
 
-项目按[全新系统基线](greenfield-no-legacy-migration.md)推进。当前需求、开放范围和排序记录在执行 Issue / PR；本页不维护旧阶段路线图或复制派工队列。
+项目按[全新系统基线](greenfield-no-legacy-migration.md)推进。当前需求、开放范围和排序记录在[当前工作排序 #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137)与执行 Issue / PR；本页不维护旧阶段路线图或复制派工队列。
 
 ## 产品使命
 
