@@ -1,13 +1,13 @@
 # CompletionDraft 结构化候选 v1
 
-2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+2026-10-17 格式增量见[自有商品富文本合同](../../own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
 
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-15 R1独立检查通过，设计提交dc4e33327e0222049580372da582767fc930b359；固定SKU集合/深复制、未填与零/旧hash、完整回执与消费者保留结构作为IMPLEMENTATION_TEST在合并前收敛。
 
 ## 1. Outcome / authority / boundaries
 
-Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../product/completion-draft-structured.md) 与用户只恢复文字的明确选择。Figma/UI authority、独立页与非目标见产品决定；本设计先于生产实现。
+Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../../../product/completion-draft-structured.md) 与用户只恢复文字的明确选择。Figma/UI authority、独立页与非目标见产品决定；本设计先于生产实现。
 
 结果：草稿→独立结构化编辑→原 Save 追加完整 Rn→刷新继续编辑→历史详情与差异比较；返回草稿、商品和批次上下文贯穿。价格/库存只是候选，不触达平台、资金或实际库存。
 
@@ -15,7 +15,7 @@ Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../product/completion-
 
 ## 2. Owner / content / injection
 
-候选唯一 owner 仍为 `internal/listing/completiondraft`；固定 SourceItem、原 Product snapshot、资产和平台事实保留 Preparation / Catalog / 原 owner。复用 [保存](supply-unbound-completion-drafts.md)、[历史](domains/listing/completion-draft-history.md)、[文字恢复](domains/listing/completion-draft-restore.md) 的权限、版本、事务和原键恢复。
+候选唯一 owner 仍为 `internal/listing/completiondraft`；固定 SourceItem、原 Product snapshot、资产和平台事实保留 Preparation / Catalog / 原 owner。复用 [保存](../../supply-unbound-completion-drafts.md)、[历史](completion-draft-history.md)、[文字恢复](completion-draft-restore.md) 的权限、版本、事务和原键恢复。
 
 原 Content{title,description} 新增可选 structured：
 
@@ -74,4 +74,4 @@ Legacy decision: N/A。当前有效CompletionDraft/Preparation/Catalog/Console�
 
 后续发布须协调更新后台和前端，不设计混合旧DTO兼容路径。原文字记录/待核实旧命令在新二进制中保持hash；已有结构化新记录后不直接降级旧二进制，不能忽略字段或重算历史hash来伪造兼容。保留数据并修复前进，不自动回写/迁移/删除。本轮无真实部署授权。
 
-2026-10-16 增量：[SHEIN 带入预览与确认](completion-shein-import.md) 仅扩展 SHEIN Target 的候选带入范围；本文 CompletionDraft 保存、版本、权限和文字历史恢复合同不变。
+2026-10-16 增量：[SHEIN 带入预览与确认](../../completion-shein-import.md) 仅扩展 SHEIN Target 的候选带入范围；本文 CompletionDraft 保存、版本、权限和文字历史恢复合同不变。

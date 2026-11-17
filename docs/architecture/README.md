@@ -133,7 +133,7 @@
 - `own-product-sku-packaging.md` — [自有商品逐 SKU 含包装事实录入](own-product-sku-packaging.md)
 - `domains/listing/completion-draft-history.md` — [待补全草稿保存历史与比较 v1](domains/listing/completion-draft-history.md)
 - `domains/listing/completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](domains/listing/completion-draft-restore.md)
-- `completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](completion-draft-structured.md)
+- `domains/listing/completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](domains/listing/completion-draft-structured.md)
 - `domains/listing/completion-draft-internal-note.md` — [待补全草稿内部备注](domains/listing/completion-draft-internal-note.md)
 - `market-research-selection.md` — [市场研究与选品：最小领域合同](market-research-selection.md)
 - `market-research-evidence-analysis-v1.md` — [两个中心 V1：研究证据分析合同增量](market-research-evidence-analysis-v1.md)
