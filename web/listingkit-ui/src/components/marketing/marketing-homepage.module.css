@@ -137,6 +137,7 @@
 .painGrid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; max-width: 1400px; margin: 0 auto; counter-reset: pain-point; }
 .painGrid article { position: relative; min-height: 218px; overflow: hidden; padding: 32px 30px 28px; border: 1px solid rgba(67, 138, 219, .28); border-radius: 12px; background: radial-gradient(ellipse at 100% 0%, rgba(18, 103, 198, .17), transparent 58%), linear-gradient(145deg, rgba(8, 21, 47, .92), rgba(4, 10, 25, .94)); box-shadow: inset 0 1px rgba(183, 223, 255, .06), 0 18px 42px rgba(0, 0, 0, .24); counter-increment: pain-point; transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease; }
 .painGrid article::before { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, transparent 0%, rgba(54, 151, 255, .08) 18%, #56d7ff 42%, #b3f4ff 50%, #4a7dff 58%, rgba(74, 125, 255, .08) 82%, transparent 100%); background-size: 220% 100%; background-position: 100% 0; box-shadow: 0 0 12px rgba(55, 173, 255, .55); content: ""; animation: cardLightFlow 4.8s linear infinite; }
+.page .painGrid article::before { opacity: .26; animation: none; }
 .painGrid article:nth-child(2)::before { animation-delay: -1.2s; }
 .painGrid article:nth-child(3)::before { animation-delay: -2.4s; }
 .painGrid article:nth-child(4)::before { animation-delay: -3.6s; }
@@ -695,11 +696,11 @@
 .page .planGrid article:nth-child(4) { grid-column: 2 / span 2; }
 .page .planGrid article:nth-child(5) { grid-column: 4 / span 2; }
 .page .planGrid article::before { display: none; }
-.page .planGrid article::after { position: absolute; z-index: 2; inset: 0; padding: 2px; border-radius: inherit; content: ""; pointer-events: none; background: conic-gradient(from var(--plan-border-angle),transparent 0deg 248deg,color-mix(in srgb,var(--card-accent) 35%,transparent) 270deg,color-mix(in srgb,var(--card-accent) 98%,white) 294deg,var(--card-accent) 312deg,color-mix(in srgb,var(--card-accent) 35%,transparent) 334deg,transparent 360deg); -webkit-mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); mask-composite: exclude; animation: planBorderFlow 4.8s linear infinite; }
-.page .planGrid article:nth-child(2)::after { animation-delay: -0.96s; }
-.page .planGrid article:nth-child(3)::after { animation-delay: -1.92s; }
-.page .planGrid article:nth-child(4)::after { animation-delay: -2.88s; }
-.page .planGrid article:nth-child(5)::after { animation-delay: -3.84s; }
+.page .planGrid article::after { position: absolute; z-index: 2; inset: 0; padding: 2px; border-radius: inherit; content: ""; pointer-events: none; background: conic-gradient(from var(--plan-border-angle),transparent 0deg 248deg,color-mix(in srgb,var(--card-accent) 35%,transparent) 270deg,color-mix(in srgb,var(--card-accent) 98%,white) 294deg,var(--card-accent) 312deg,color-mix(in srgb,var(--card-accent) 35%,transparent) 334deg,transparent 360deg); -webkit-mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); mask-composite: exclude; animation: planBorderFlow 10s linear infinite; }
+.page .planGrid article:nth-child(2)::after { animation-delay: -2s; }
+.page .planGrid article:nth-child(3)::after { animation-delay: -4s; }
+.page .planGrid article:nth-child(4)::after { animation-delay: -6s; }
+.page .planGrid article:nth-child(5)::after { animation-delay: -8s; }
 @property --plan-border-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 @keyframes planBorderFlow { to { --plan-border-angle: 360deg; } }
 .page .planGrid article > span { grid-column: 1; grid-row: 1; padding: 5px 9px; border: 1px solid color-mix(in srgb,var(--card-accent) 35%,transparent); border-radius: 8px; color: var(--card-accent); font-size: 14px; font-weight: 700; background: color-mix(in srgb,var(--card-accent) 10%,transparent); }
@@ -927,7 +928,34 @@
   box-shadow: 0 0 0 1px rgba(78,165,255,.16), 0 10px 26px rgba(17,71,145,.18);
 }
 .page .serviceCore { background: radial-gradient(circle at 50% 40%,rgba(53,101,208,.9),rgba(8,17,43,.98) 73%); }
+/* A restrained edge sweep marks only the key solution, data and service panels. */
+.page .rolePanel,
+.page .serviceDetail,
+.page .dataEngineCard { position: relative; isolation: isolate; overflow: hidden; }
+.page .rolePanel::after,
+.page .serviceDetail::after,
+.page .dataEngineCard::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  opacity: .7;
+  background: conic-gradient(from var(--card-glow-angle), transparent 0deg 276deg, rgba(79,157,255,.12) 286deg, rgba(99,220,229,.78) 298deg, rgba(114,140,255,.42) 309deg, transparent 324deg 360deg);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: selectedPanelFlow 14s linear infinite;
+}
+.page .serviceDetail::after { animation-delay: -4.5s; opacity: .58; }
+.page .dataEngineCard::after { animation-delay: -9s; opacity: .5; }
+@property --card-glow-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes selectedPanelFlow { to { --card-glow-angle: 360deg; } }
 @media (prefers-reduced-motion: reduce) {
+  .page .rolePanel::after, .page .serviceDetail::after, .page .dataEngineCard::after { animation: none; }
   .page :is(
     .industryStep, .painGrid article, .agentCard, .agentControl, .agentRole,
     .teamResults span, .processCard, .processOutput, .processFooter,
