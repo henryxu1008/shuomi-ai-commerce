@@ -101,7 +101,14 @@ it.each([false,undefined])("does not open storage entitlements when deployment a
  state.context.storageCapacityAvailable=available;render(tree());await screen.findByText("基础方案");
  expect(screen.queryByRole("region",{name:"企业存储容量"})).not.toBeInTheDocument();expect(screen.queryByText(/每企业默认 5 GiB/)).not.toBeInTheDocument();expect(storage.getStorageSummary).not.toHaveBeenCalled();
 });
-it("keeps resource reads independent of an unavailable store summary",async()=>{state.read.mockRejectedValueOnce({code:"DEPENDENCY_UNAVAILABLE"});render(tree());expect(await within(screen.getByRole("region",{name:"AI 点数余额"})).findByText("9007199254.740993 点")).toBeVisible();expect(await screen.findByRole("alert")).toHaveTextContent("本次未取得基础方案");expect(screen.queryByText("AI Token 分配额度")).not.toBeInTheDocument();});
+it("keeps resource reads independent of an unavailable store summary", async () => {
+  state.read.mockRejectedValueOnce({ code: "DEPENDENCY_UNAVAILABLE" });
+  render(tree());
+  const points = await screen.findByRole("region", { name: "AI 点数余额" });
+  expect(within(points).getByText("9,007,199,254.740993 点")).toBeVisible();
+  expect(await screen.findByRole("alert")).toHaveTextContent("本次未取得基础方案");
+  expect(screen.queryByText("AI Token 分配额度")).not.toBeInTheDocument();
+});
 it("shows prices without purchase controls and links directly to each wallet resource",async()=>{
   state.offers.mockResolvedValue({organization_id:"org-B",items:[{
     offer_id:"points",product_kind:"AI_POINT",resource_type:"ai_point",currency:"CNY",
@@ -184,7 +191,7 @@ it.each(["organization", "subject", "roles", "logout", "switching", "contextErro
   if (change === "contextError") state.context.error = { code: "DEPENDENCY_UNAVAILABLE" };
   view.rerender(tree());
   expect(screen.queryByText("137 家")).not.toBeInTheDocument();
-  expect(screen.queryByText("9007199254.740993 点")).not.toBeInTheDocument();
+  expect(screen.queryByText("9,007,199,254.740993 点")).not.toBeInTheDocument();
 });
 
 it.each(["success", "error"])("aborts old scope and drops late %s through A→B→A", async outcome => {
