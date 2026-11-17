@@ -4,6 +4,16 @@
 
 产品基线为 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。页面与交互的**当前用户决定及业务流程参考**见[产品流程与历史 UI/IA 说明](../product/final-ui-ia-authority.md)，Figma 不再是最终 UI/IA 权威；领域事实和运行边界由下列合同负责。合同中的设计准入、历史提交与旧阶段状态不代替当前源码完成、实例启用或真实用户验收。文档分域与候选迁移计划见[文档组织与迁移规则](../document-organization.md)及[逐文件清单](../document-inventory.csv)；未审查前不按文件名前缀搬移合同。
 
+## 商品来源、标准商品与研究（分域阅读导航）
+
+这三个导航只负责**找到当前权威合同**，不会取代 [领域事实归属](project-boundaries.md) 和下面的详细设计，也不要求将已有根级合同搬迁：
+
+- [Sourcing：来源证据、采集通道与受控发布](domains/sourcing/README.md) — 来源身份、1688/Amazon 当前采集边界、SRC 与 Catalog 交接
+- [Catalog：不可变商品版本、Collection 与 Asset](domains/catalog/README.md) — canonical facts、人工素材批准、商品资料与 Listing 边界
+- [Research：市场证据、供货核对、经营评估与人工选品](domains/research/README.md) — 研究与已保存商品事实分离、当前评估增量、人工转入
+
+精确实现/CI/实例/客户验收继续以各 Issue/PR 当前记录为准；历史设计的 Figma 截图与固定两 ASIN 测试不自动成为新的业务需求或全流程验收。
+
 ## 研究与商业评估规划
 
 - `scheduled-plan-deletion.md` — [定时计划删除](scheduled-plan-deletion.md)；#1288，保留结果与在途任务的列表移除；独立检查 IMPLEMENTATION_READY，沿用计划控制与恢复。
