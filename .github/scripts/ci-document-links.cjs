@@ -10,17 +10,53 @@ function isDocumentationMarkdown(filename) {
     (filename.startsWith("docs/") && filename.endsWith(".md"));
 }
 
+// Git may append a tab to unquoted filenames with spaces, or quote names
+// containing special characters. Reject unknown headers rather than skip links.
+function parsePatchDestination(line) {
+  const raw = line.slice("+++ ".length).split("\t", 1)[0];
+  if (raw === "/dev/null") return null;
+  let value = raw;
+
+  if (raw.startsWith('"')) {
+    if (!raw.endsWith('"')) throw new Error("malformed Git patch filename: " + raw);
+    const bytes = [];
+    const escapes = { n: 10, t: 9, r: 13, a: 7, b: 8, f: 12, v: 11, '"': 34, "\\": 92 };
+    for (let i = 1; i < raw.length - 1; i++) {
+      if (raw[i] !== "\\") {
+        const symbol = String.fromCodePoint(raw.codePointAt(i));
+        bytes.push(...Buffer.from(symbol, "utf8"));
+        i += symbol.length - 1;
+        continue;
+      }
+      const escaped = raw[++i];
+      if (escaped === undefined || i >= raw.length - 1) {
+        throw new Error("malformed Git patch escape: " + raw);
+      }
+      if (/^[0-7]$/.test(escaped)) {
+        const octal = raw.slice(i, i + 3);
+        if (!/^[0-7]{3}$/.test(octal)) throw new Error("malformed Git patch octal: " + raw);
+        bytes.push(parseInt(octal, 8));
+        i += 2;
+      } else if (Object.hasOwn(escapes, escaped)) {
+        bytes.push(escapes[escaped]);
+      } else {
+        throw new Error("unsupported Git patch escape: " + raw);
+      }
+    }
+    value = new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(bytes));
+  }
+
+  if (!value.startsWith("b/")) throw new Error("unexpected Git patch destination: " + value);
+  return value.slice(2);
+}
+
 function addedMarkdownLinks(patch) {
   const links = [];
   let filename = null;
   for (const line of patch.split(/\r?\n/)) {
     if (line.startsWith("diff --git ")) filename = null;
-    if (line.startsWith("+++ b/")) {
-      filename = line.slice("+++ b/".length);
-      continue;
-    }
-    if (line.startsWith("+++ /dev/null")) {
-      filename = null;
+    if (line.startsWith("+++ ")) {
+      filename = parsePatchDestination(line);
       continue;
     }
     if (!filename || !isDocumentationMarkdown(filename) ||
@@ -50,7 +86,7 @@ function checkAddedLinks(patch, { repositoryRoot = process.cwd(), exists = fs.ex
       continue;
     }
     const target = path.resolve(root, path.dirname(filename), decoded);
-    if (!target.startsWith(root + path.sep) || !exists(target)) {
+    if ((target !== root && !target.startsWith(root + path.sep)) || !exists(target)) {
       errors.push(filename + ": unresolved relative link " + href);
     }
   }
@@ -81,4 +117,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { isDocumentationMarkdown, addedMarkdownLinks, checkAddedLinks };
+module.exports = { isDocumentationMarkdown, parsePatchDestination, addedMarkdownLinks, checkAddedLinks };
