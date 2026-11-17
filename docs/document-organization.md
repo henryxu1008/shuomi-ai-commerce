@@ -69,6 +69,16 @@ docs/
 
 以上是**候选目录**，空目录不预先创建。领域分类最终以 [project-boundaries.md](architecture/project-boundaries.md) 与文档内容确认，不凭文件名前缀确定 fact owner。跨领域消费者可以链接多个合同，不复制它们。
 
+## 已核实迁移与 CSV 使用说明（2026-11-17）
+
+原 353 条清单以 `b67c8d7ee5c6bf543d4723c3e768219fa314fd35` 为**盘点基线**，不是以后新增导航文件的完整动态文件目录。除已复核的迁移文件外，`PROPOSED_ONLY` 的候选领域、路径和大小仍为当时的快照，不得当作实时源码状态或直接派工的授权。
+
+已完成且确认源链接的路径迁移：
+- [#1358](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1358)：`issue132-title-evaluation-admission.md` 与 `issue132-title-pilot-local-entry.md` 从架构根目录迁入 `architecture/domains/ai/`；仍是未准入的设计候选。
+- [#1359](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1359)：`completion-draft-internal-note.md` 迁入 `architecture/domains/listing/`，保留 Listing CompletionDraft 已冻结合同。
+
+对应 CSV 三行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
+
 ## 4. 逐文件清单的解释
 
 [CSV 清单](document-inventory.csv) 每行包括：
