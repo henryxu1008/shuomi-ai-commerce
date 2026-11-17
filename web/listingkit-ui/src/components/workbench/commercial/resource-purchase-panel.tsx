@@ -120,6 +120,7 @@ type Props = {
   organizationId: string;
   organizationName: string;
   permissions: string[];
+  planOptions?: { storageAvailable: boolean };
   offers: ResourceOffers;
 };
 export function ResourcePurchasePanel(props: Props) {
@@ -135,6 +136,7 @@ function ScopedPurchase({
   organizationId,
   organizationName,
   permissions,
+  planOptions,
   offers,
 }: Props) {
   const client = useQueryClient();
@@ -386,27 +388,64 @@ function ScopedPurchase({
       },
     );
   }
+  const storageAvailable = planOptions?.storageAvailable;
+  const purchaseCards = (
+    <div className={styles.resourcePurchaseCards} data-storage={storageAvailable || undefined}>
+      {resourceDefinitions.map((def) => (
+        <ResourceCard
+          key={def.type}
+          definition={def}
+          emphasizePrice={!!planOptions}
+          offers={offers.items.filter((o) => o.resource_type === def.type)}
+          disabled={!ready || !!pending.value || busy || !canPurchase}
+          onQuote={choose}
+        />
+      ))}
+      {storageAvailable ? (
+        <Card className={`${styles.resourcePurchaseCard} ${styles.orange}`}>
+          <h3>企业存储</h3>
+          <p className={styles.offerPrice}>按扩容包计费</p>
+          <p>企业默认共享 5 GiB。扩容包生效后可使用 30 天，价格在「资源与额度」查看。</p>
+          <Button asChild variant="outline">
+            <Link href="/workbench/account/organization/resources" prefetch={false}>
+              查看企业存储
+            </Link>
+          </Button>
+        </Card>
+      ) : null}
+    </div>
+  );
+  const pendingError = pending.invalid ? (
+    <p role="alert">原订单恢复信息无效，请联系支持核对；已暂停新购买。</p>
+  ) : null;
+  const purchaseRestriction = !canPurchase ? <p>购买需由企业管理员操作。</p> : null;
   return (
     <div className={styles.stack}>
-      <p className={styles.observation}>
-        当前企业：{organizationName}（{organizationId}） ·
-        正价资源使用企业钱包购买，零价资源按数量领取；资源余额不按月清零。
-      </p>
-      {pending.invalid ? (
-        <p role="alert">原订单恢复信息无效，请联系支持核对；已暂停新购买。</p>
-      ) : null}
-      <div className={styles.resourcePurchaseCards}>
-        {resourceDefinitions.map((def) => (
-          <ResourceCard
-            key={def.type}
-            definition={def}
-            offers={offers.items.filter((o) => o.resource_type === def.type)}
-            disabled={!ready || !!pending.value || busy || !canPurchase}
-            onQuote={choose}
-          />
-        ))}
-      </div>
-      {!canPurchase ? <p>购买需由企业管理员操作。</p> : null}
+      {planOptions ? (
+        <>
+          <Card className={styles.panel}>
+            <p className={styles.eyebrow}>当前收费方案</p>
+            <h2>基础方案 · 按需使用</h2>
+            <p className={styles.observation}>基础方案无需订阅。店铺服务按期购买，AI 点数和数据资源按需补充。</p>
+          </Card>
+          <section className={styles.charges} aria-labelledby="plan-charges">
+            <h2 id="plan-charges">收费构成</h2>
+            {purchaseRestriction}
+            {pendingError}
+            {purchaseCards}
+          </section>
+        </>
+      ) : (
+        <>
+          <p className={styles.observation}>
+            当前企业：{organizationName}（{organizationId}） ·
+            正价资源使用企业钱包购买，零价资源按数量领取；资源余额不按月清零。
+          </p>
+          {pendingError}
+          {purchaseCards}
+          {purchaseRestriction}
+        </>
+      )}
       {quote && selected && !pending.value ? (
         <Card role="region" aria-label="报价确认" className={styles.panel}>
           <h2>报价确认</h2>
@@ -523,16 +562,42 @@ function ScopedPurchase({
           </div>
         </Card>
       ) : null}
+      {planOptions ? (
+        <div className={styles.planDetails}>
+          <Card className={styles.panel}>
+            <h2>计费规则</h2>
+            <ul className={styles.planRules}>
+              <li>购买店铺期数后，请到已连接的店铺开通或续费。每家店铺单独计算有效期。</li>
+              <li>AI 点数和数据资源分别计量，未用完的余额不按月清零。</li>
+              <li>付费资源从企业钱包扣款；免费资源按实际可领取的数量确认。</li>
+              {storageAvailable ? <li>扩容包到期不自动续费，也不会删除已保存的文件。</li> : null}
+            </ul>
+          </Card>
+          <Card className={styles.panel}>
+            <h2>相关管理</h2>
+            <div className={styles.actions}>
+              <Button asChild variant="outline">
+                <Link href="/workbench/plans/usage" prefetch={false}>查看用量明细</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/workbench/plans/orders" prefetch={false}>账单与订单</Link>
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }
 function ResourceCard({
   definition,
+  emphasizePrice,
   offers,
   disabled,
   onQuote,
 }: {
   definition: (typeof resourceDefinitions)[number];
+  emphasizePrice: boolean;
   offers: ResourceOffer[];
   disabled: boolean;
   onQuote: (
@@ -559,21 +624,25 @@ function ResourceCard({
       (!!offer &&
         BigInt(selection) >= BigInt(offer.min_quantity) &&
         BigInt(selection) <= BigInt(offer.max_quantity)));
+  const price = offer ? (
+    <p className={styles.offerPrice}>
+      {resourceMoney(offer.unit_price_minor)} / {definition.unit}
+    </p>
+  ) : <p>价格未配置</p>;
+  const tone = definition.type === "store_renewal_period" ? styles.blue
+    : definition.type === "ai_point" ? styles.purple : styles.teal;
   return (
     <Card
       role="region"
       aria-label={`${definition.name}购买`}
-      className={`${styles.resourcePurchaseCard} ${definition.type === "store_renewal_period" ? styles.blue : definition.type === "ai_point" ? styles.purple : styles.teal}`}
+      className={`${styles.resourcePurchaseCard} ${tone}`}
     >
       <h3>{definition.name}</h3>
+      {emphasizePrice ? price : null}
       <p>{definition.detail}</p>
-      {!offer ? (
-        <p>价格未配置</p>
-      ) : (
+      {emphasizePrice ? null : price}
+      {offer ? (
         <>
-          <p>
-            {resourceMoney(offer.unit_price_minor)} / {definition.unit}
-          </p>
           {offers.length > 1 ? (
             <label>
               报价选项
@@ -621,7 +690,7 @@ function ResourceCard({
             {definition.unit}
           </p>
         </>
-      )}
+      ) : null}
       <Button
         disabled={disabled || !offer || !valid}
         onClick={() => {
