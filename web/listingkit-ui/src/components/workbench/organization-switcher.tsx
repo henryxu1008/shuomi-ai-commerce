@@ -44,9 +44,9 @@ export function OrganizationSwitcher() {
   const needsPrompt = selectionRequired || !effectiveOrganization;
 
   return (
-    <div className="min-w-52">
-      <Label className="sr-only" htmlFor={selectId}>
-        当前企业
+    <div className="grid gap-1.5">
+      <Label className="text-xs text-muted-foreground" htmlFor={selectId}>
+        切换企业
       </Label>
       <Select
         aria-busy={isSwitching}

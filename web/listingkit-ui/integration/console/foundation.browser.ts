@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { selectWorkbenchOrganization } from "../../scripts/workbench-account-menu.mjs";
 
 const path = process.env.ISSUE331_FIXTURE_MANIFEST;
 if (!path) throw new Error("Start the isolated diagnostic fixture and supply its current manifest.");
@@ -84,7 +85,7 @@ test("existing diagnostic uses actual BFF/Go/PG and keeps organization isolation
   await accessible(page);
   await page.screenshot({ path: info.outputPath("diagnostic-1440.png") });
   response = diagnostic();
-  await page.getByLabel("当前企业", { exact: true }).selectOption("100");
+  await selectWorkbenchOrganization(page, "100");
   expect((await response).status()).toBe(404);
   await expect(page.getByRole("main").getByRole("alert")).toContainText("资料不存在或当前账号不可读取");
   await expect(page.getByText("发现需要处理的问题")).toHaveCount(0);
@@ -93,7 +94,7 @@ test("existing diagnostic uses actual BFF/Go/PG and keeps organization isolation
   await accessible(page);
   await page.screenshot({ path: info.outputPath("delegated-error-390.png") });
   response = diagnostic();
-  await page.getByLabel("当前企业", { exact: true }).selectOption("200");
+  await selectWorkbenchOrganization(page, "200");
   expect((await response).status()).toBe(200);
   await expect(page.getByText("发现需要处理的问题")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -139,11 +140,11 @@ test("delayed actual diagnostic response cannot repopulate a different enterpris
   await page.goto(`${fixture.origin}/workbench/shein-records/${fixture.recordId}/diagnostic`);
   await upstreamReceived;
   try {
-    await page.getByLabel("当前企业", { exact: true }).selectOption("100");
+    await selectWorkbenchOrganization(page, "100");
     await expect(page.getByRole("main").getByRole("alert")).toContainText("资料不存在或当前账号不可读取");
   } finally { release(); }
   await responseReleased;
   await expect(page.getByText("发现需要处理的问题")).toHaveCount(0);
-  await page.getByLabel("当前企业", { exact: true }).selectOption("200");
+  await selectWorkbenchOrganization(page, "200");
   await expect(page.getByText("发现需要处理的问题")).toBeVisible();
 });

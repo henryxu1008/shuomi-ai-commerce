@@ -141,7 +141,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
           <div>
             <h1 className="text-3xl font-semibold">请选择企业以继续</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              选择后才会加载该企业的工作台数据。
+              请打开右上角「我的账户」，在「切换企业」中选择要使用的企业。
             </p>
           </div>
         </section>
@@ -157,6 +157,13 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
   const trigger = useRef<HTMLButtonElement>(null);
   const context = useWorkbenchContext();
   const contextConfirmed = !context.isLoading && !context.isSwitching && !context.error && !context.blockingError;
+  const currentOrganizationLabel = !contextConfirmed
+    ? "尚未确认当前企业"
+    : context.effectiveOrganization
+      ? `当前企业：${context.effectiveOrganization.name.trim() || "名称未提供"}`
+      : context.organizations.length === 0
+        ? "暂无可用企业"
+        : "尚未选择企业";
   const fulfillmentScope={organizationId:context.effectiveOrganization?.id??"",userId:context.user?.id??""};
   const fulfillmentReady=contextConfirmed&&!!fulfillmentScope.organizationId&&!!fulfillmentScope.userId&&context.permissions?.includes("workbench.fulfillment.read")===true;
   function closeNavigation() { setMobileOpen(false); trigger.current?.focus(); }
@@ -171,7 +178,10 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
       <div className="console-body">
         <header className="console-topbar">
           <Button ref={trigger} className="md:hidden" variant="ghost" size="icon" aria-controls={MOBILE_NAVIGATION_ID} aria-expanded={mobileOpen} aria-label={mobileOpen ? "关闭工作台导航" : "打开工作台导航"} onClick={() => setMobileOpen((value) => !value)}>{mobileOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}</Button>
-          <div className="console-top-context"><p className="console-tagline">打造属于自己的AI电商团队</p><div className="console-organization">{contextConfirmed ? <OrganizationSwitcher /> : <span className="text-xs text-muted-foreground">企业上下文尚未确认</span>}</div></div>
+          <div className="console-top-context">
+            <p className="console-tagline">打造属于自己的AI电商团队</p>
+            <p className="truncate text-xs text-muted-foreground" title={currentOrganizationLabel}>{currentOrganizationLabel}</p>
+          </div>
           <div className="console-global-actions">
             <SupportLauncher available={supportAvailable && !context.isSwitching} key={`${context.user?.id ?? ""}:${context.effectiveOrganization?.id ?? ""}:${context.isSwitching}`} />
             {notificationCenterAvailable ? <NotificationPopover /> : <Button disabled title="通知中心尚未启用" variant="outline">通知</Button>}
@@ -182,6 +192,9 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
                 <Popover.Content className="console-user-popover" aria-label="账户快捷操作" align="end" sideOffset={8} collisionPadding={12}>
                   <p className="text-xs text-muted-foreground">已登录账号</p>
                   <AccountDisplayName userId={contextConfirmed ? context.user?.id : undefined} />
+                  {contextConfirmed && context.organizations.length > 1 ? (
+                    <div className="mt-3 border-t border-border pt-3"><OrganizationSwitcher /></div>
+                  ) : null}
                   <Popover.Close asChild type={undefined}><Link href="/workbench/account/profile" prefetch={false}>账户资料</Link></Popover.Close>
                   <a href="/api/zitadel-auth/logout">退出登录</a>
                 </Popover.Content>

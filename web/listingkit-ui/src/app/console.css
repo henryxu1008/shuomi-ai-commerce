@@ -102,9 +102,6 @@
 .console-topbar { min-height: var(--console-header-height); padding: 8px 18px 8px 28px; background: var(--sidebar); border-bottom: 1px solid var(--sidebar-border); display: flex; gap: 16px; align-items: center; }
 .console-tagline { font-size: 15px; font-weight: 700; white-space: nowrap; }
 .console-top-context { min-width: 0; flex: 1; display: flex; align-items: center; gap: 24px; }
-.console-organization { min-width: 0; width: 176px; }
-.console-organization > div { min-width: 0; }
-.console-organization select { height: 32px; font-size: var(--label-text-size); padding: 3px 8px; }
 .console-global-actions { display: flex; gap: 12px; align-items: center; }
 .console-global-actions > button { min-height: 36px; height: 36px; font-size: var(--label-text-size); padding: 0 14px; background: var(--secondary); border: 1px solid var(--input); border-radius: 9px; }
 .console-global-actions > button:disabled { opacity: 1; color: var(--muted-foreground); cursor: not-allowed; }
@@ -186,7 +183,6 @@
   .console-sidebar { display: none; }
   .console-topbar { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
   .console-top-context { flex: 1; }
-  .console-organization { width: 100%; max-width: 240px; }
   .console-global-actions { width: 100%; justify-content: flex-end; gap: 8px; }
   .console-global-actions > button { font-size: var(--label-text-size); padding: 0 10px; }
   .console-mobile-nav { display: block; padding: 4px 16px 18px; border-bottom: 1px solid var(--border); background: var(--sidebar); }

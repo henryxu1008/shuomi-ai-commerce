@@ -70,7 +70,7 @@ describe("OrganizationSwitcher", () => {
     const user = userEvent.setup();
 
     renderSwitcher();
-    const select = await screen.findByRole("combobox", { name: "当前企业" });
+    const select = await screen.findByRole("combobox", { name: "切换企业" });
     expect(select).toHaveValue("org-a");
 
     await user.selectOptions(select, "org-b");
@@ -79,7 +79,7 @@ describe("OrganizationSwitcher", () => {
     resolveSwitch(
       Response.json({ ...MULTI_ORG_CONTEXT, effectiveOrganizationId: "org-b" }),
     );
-    expect(await screen.findByRole("combobox", { name: "当前企业" })).toHaveValue(
+    expect(await screen.findByRole("combobox", { name: "切换企业" })).toHaveValue(
       "org-b",
     );
   });
@@ -98,7 +98,7 @@ describe("OrganizationSwitcher", () => {
 
     renderSwitcher();
 
-    const select = await screen.findByRole("combobox", { name: "当前企业" });
+    const select = await screen.findByRole("combobox", { name: "切换企业" });
     expect(select).toHaveValue("");
     expect(screen.getByRole("option", { name: "请选择企业" })).toBeDisabled();
   });
@@ -124,7 +124,7 @@ describe("OrganizationSwitcher", () => {
 
     renderSwitcher();
     await userEvent.selectOptions(
-      await screen.findByRole("combobox", { name: "当前企业" }),
+      await screen.findByRole("combobox", { name: "切换企业" }),
       "org-b",
     );
 

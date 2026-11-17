@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
+import { openOrganizationSwitcher } from "./workbench-account-menu.mjs";
 import { validateBrowserHandoff, publicBrowserOrigins, browserExpectedHeaders, assertBrowserDiagnosticsDisabled, classifyLateResponseDelivery, classifyRevocationRead, classifyUnavailableLogin, classifyUnavailableProviderTarget, isExpectedSettledView, isFinalApplicationLanding, retryOwnerHealth, shouldProbeUnavailableProvider } from "./real-provider-browser-contract.mjs";
 import { browserSignalOwnershipOptions, createOwnerMutationGuard, createRunFinalizer, ownerControlExecOptions, platformSignalMatrix, transitionRunStatus } from "./real-provider-browser-lifecycle.mjs";
 
@@ -163,10 +164,14 @@ async function login(page, context, user, target = profilePath, bare = false) {
 async function select(page, context, key) {
   const organization = manifest.organizations[key];
   const switched = page.waitForResponse(response => new URL(response.url()).pathname === "/api/workbench/context/effective-organization" && response.request().method() === "PUT");
-  await page.getByRole("combobox", { name: "当前企业" }).selectOption(organization.id);
+  const switcher = await openOrganizationSwitcher(page);
+  await switcher.selectOption(organization.id);
   const response = await switched;
   ensure(response.status() === 200 && (await response.json()).effectiveOrganizationId === organization.id);
-  await page.waitForFunction(id => document.querySelector('select')?.value === id && !document.querySelector('select')?.disabled, organization.id);
+  const { expect } = await import("@playwright/test");
+  await expect(switcher).toHaveValue(organization.id);
+  await expect(switcher).toBeEnabled();
+  await page.keyboard.press("Escape");
   const result = await api(context, "/api/workbench/context");
   ensure(result.status === 200 && result.body.effectiveOrganizationId === organization.id);
   ensure(result.body.homeOrganizationId === manifest.organizations.A.id);
@@ -175,7 +180,7 @@ async function select(page, context, key) {
 async function logout(page, context, user) {
   const seen = observe(page);
   const landed = page.waitForResponse(response => isFinalApplicationLanding({ url: response.url(), status: response.status() }, manifest.origins.web) && response.request().method() === "GET", { timeout: 45000 });
-  await page.locator("summary").filter({ hasText: "我的账户" }).click();
+  await page.getByRole("button", { name: "我的账户", exact: true }).click();
   await page.getByRole("link", { name: "退出登录", exact: true }).click();
   await landed;
   await page.waitForURL(url => url.origin === manifest.origins.web && url.pathname === "/", { timeout: 45000 });

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Response } from "@playwright/test";
+import { selectWorkbenchOrganization } from "../../scripts/workbench-account-menu.mjs";
 import { parseCompletedWorkList } from "../../src/lib/api/completed-work";
 
 const manifest = process.env.ISSUE328_FIXTURE_MANIFEST;
@@ -81,12 +82,12 @@ test("actual bounded pagination, refresh, organization 200 → 100 → 200 and l
   response = page.waitForResponse(projection); await page.getByRole("button", { name: "刷新记录" }).click();
   expect((await payload(await response)).items).toEqual(first.items);
   await rows(page).first().click();
-  response = page.waitForResponse(projection); await page.getByLabel("当前企业", { exact: true }).selectOption("100");
+  response = page.waitForResponse(projection); await selectWorkbenchOrganization(page, "100");
   expect((await payload(await response)).items).toEqual([]);
   await expect(page.getByText("当前授权范围内暂无本地资料准备记录")).toBeVisible();
   await expect(page.getByRole("link", { name: "查看诊断" })).toHaveCount(0);
   await accessible(page); await page.screenshot({ path: info.outputPath("empty-1440.png") });
-  response = page.waitForResponse(projection); await page.getByLabel("当前企业", { exact: true }).selectOption("200");
+  response = page.waitForResponse(projection); await selectWorkbenchOrganization(page, "200");
   expect((await payload(await response)).items).toEqual(first.items);
   await expect(page.getByText("选择一条工作记录")).toBeVisible();
   await page.getByRole("combobox", { name: "显示主题" }).selectOption("light"); await accessible(page);
@@ -107,7 +108,7 @@ test("actual late HTTP body cannot reintroduce organization 200 into 100", async
   try {
     await page.getByRole("button", { name: "刷新记录" }).click(); await caught;
     const changed = page.waitForResponse(projection);
-    await page.getByLabel("当前企业", { exact: true }).selectOption("100");
+    await selectWorkbenchOrganization(page, "100");
     expect((await payload(await changed)).items).toEqual([]);
     release();
     await expect(page.getByText("当前授权范围内暂无本地资料准备记录")).toBeVisible();

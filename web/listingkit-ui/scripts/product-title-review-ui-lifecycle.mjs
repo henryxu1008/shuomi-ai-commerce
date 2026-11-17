@@ -3,6 +3,7 @@ import { readFile, writeFile, access, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import assert from "node:assert/strict";
 import { chromium, expect } from "@playwright/test";
+import { selectWorkbenchOrganization } from "./workbench-account-menu.mjs";
 const fixture = JSON.parse(await readFile(process.argv[2], "utf8"));
 const output = resolve(process.argv[3]);
 const skipSwitch = process.argv.includes("--skip-switch");
@@ -29,7 +30,7 @@ try {
   }
   async function switchOrg(id) {
     const collection = page.waitForResponse((r) => r.request().method() === "GET" && new URL(r.url()).pathname === "/api/product/text-proposals" && r.request().headers()["x-expected-organization-id"] === id);
-    await page.getByRole("combobox", { name: "当前企业", exact: true }).selectOption(id);
+    await selectWorkbenchOrganization(page, id);
     assert.equal((await collection).status(), 200);
     await expect(detail.getByText("选择一条标题提案", { exact: true })).toBeVisible();
   }

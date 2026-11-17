@@ -143,18 +143,37 @@ test.beforeEach(async ({ context, page, baseURL }) => {
 });
 
 for (const width of [1440, 390]) {
-  test(`account popover closes with Escape and follows the workbench theme at ${width}px`, async ({ page }) => {
+  test(`account popover switches enterprise, closes with Escape and follows the theme at ${width}px`, async ({ page }) => {
+    let effectiveOrganizationId = "org";
+    const enterpriseContext = () => ({
+      user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId, effectiveMemberId: "member", selectionRequired: false,
+      organizations: [
+        { id: "org", name: "测试企业", roles: [], permissions: [] },
+        { id: "other-org", name: "另一家测试企业", roles: [], permissions: [] },
+      ],
+    });
+    await page.route("**/api/workbench/context", route => route.fulfill({ json: enterpriseContext() }));
+    await page.route("**/api/workbench/context/effective-organization", route => {
+      expect(route.request().method()).toBe("PUT");
+      expect(route.request().postDataJSON()).toEqual({ organizationId: "other-org" });
+      effectiveOrganizationId = "other-org";
+      return route.fulfill({ json: enterpriseContext() });
+    });
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/workbench");
 
     const trigger = page.getByRole("button", { name: "我的账户", exact: true });
     const panel = page.getByRole("dialog", { name: "账户快捷操作" });
+    const switcher = panel.getByRole("combobox", { name: "切换企业" });
     const profile = page.getByRole("link", { name: "账户资料", exact: true });
     const mobileNav = page.getByRole("navigation", { name: "移动工作台导航" });
     if (width === 390) await page.getByRole("button", { name: "打开工作台导航" }).click();
 
+    await expect(page.getByText("当前企业：测试企业", { exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "切换企业" })).toHaveCount(0);
     await trigger.press("Enter");
-    await expect(panel).toBeFocused();
+    await expect(switcher).toBeFocused();
+    await expect(switcher).toHaveValue("org");
     await expect(panel.getByText(displayName, { exact: true })).toBeVisible();
     await expect(panel.getByText(userId, { exact: true })).toHaveCount(0);
     await page.keyboard.press("Tab");
@@ -190,6 +209,9 @@ for (const width of [1440, 390]) {
       return left >= 0 && right <= innerWidth && top >= 0 && bottom <= innerHeight;
     })).toBe(true);
 
+    await switcher.selectOption("other-org");
+    await expect(page.getByText("当前企业：另一家测试企业", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "企业代管状态" })).toContainText("正在代管另一家测试企业");
     await profile.click();
     await expect(page).toHaveURL(/\/workbench\/account\/profile$/);
     await expect(panel).toBeHidden();
