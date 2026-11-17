@@ -46,3 +46,39 @@
 - [Image Agent Recovery and Compatibility](image-agent-recovery.md)：保留原 v2/v3 兼容、S3 持久归档、lease/fence 恢复的历史合同。
 
 仅更改阅读路径；不合并不同阶段的恢复协议，不授权实际重试或生产部署。
+
+## 图片预算准入与候选发布保护
+
+- [Image Agent Budget Authorization](image-agent-budget-authorization.md)：原有预算作为外部效果执行许可、预留/结算及 UNKNOWN 的历史设计。
+- [Image Agent Candidate Release Gate](image-agent-candidate-release-gate.md)：候选 worker 的隔离兼容验证及生产提升边界；不代表已有部署许可。
+
+仅迁移历史合同的阅读位置，不改变预算、权限、真实 worker 发行或环境状态。
+
+## AI 供应商准入与受控绑定
+
+- [DeepSeek 共享文字参考价准入](bailian-deepseek-shared-text-admission.md)：保留原 #1075/#1078 参考估算、配额、原账本及离线接线边界，不将候选费率视为真实账单。
+- [GRSAI VIP 图片绑定](grsai-vip-image-binding.md)：保留原 #840 准确型号、版本、凭据、medium/1024 约束及后续可选路线的新决定，不自动发布绑定。
+
+以上合同只调整所在目录，不改变已有模型路由、凭据身份、预算、UNKNOWN 或真实运行资格。
+
+## 人工智能体定制与原图恢复
+
+- [智能体定制人工进度](agent-customization.md)：原人工需求、线下报价及私有交付后续准入分别保留，不以需求创建自动执行。
+- [VIP 已付费原图恢复](vip-original-output-recovery.md)：保留准确原请求/权限/结算证据和 UNKNOWN；恢复不触发再次生图或扣费。
+
+迁移仅涉及文档路径，不签发新模型调用、真实支付、部署或业务验收。
+
+## 百炼图片接线与 Google 标题传输
+
+- [百炼商品图片接线 V1](bailian-product-image-wiring.md)：保留固定模型路由、企业凭据、原预算及图片 UNKNOWN 与真实试用限制。
+- [Google Interactions 标题路由增量](product-agent-google-interactions.md)：保留独立原生协议的来源、计量边界、旧兼容探针历史及人工 Review/Apply 约束。
+
+目录迁移不触发供应商调用、不发布配置、不改变历史准入或费用上限。
+
+## Image Agent V3 效果状态策略
+
+- [Image Agent V3 Effect Policy](image-agent-effect-policy.md)：保留原纯领域决策、repository CAS、UNKNOWN、预算/租约/fencing 与 Temporal 兼容性设计，不据目录变更重新授予实现或部署权限。
+
+## 单商品图片可选模型路线
+
+- [Single-product image plan optional route V1](image-plan-optional-route.md)：保留 #840 原选路、准确候选版本及人工确认的历史设计边界，不将文件迁移视为模型发布或生产授权。

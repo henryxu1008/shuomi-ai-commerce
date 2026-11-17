@@ -16,7 +16,7 @@ Out of scope：自动联系、邮件/SMS发送、在线支付/报价owner、自�
 
 ## Existing capabilities, owner and implementation path
 
-复用 [tool-market-v1](tool-market.md) 的 toolmarket owner、GORM/PostgreSQL单事务、命令原键/强revision和CachedRead/LiveWrite授权；复用 [agent-customization-v1](agent-customization.md) 已有同意、2MiB参考资料/bytea单事务下载及大载荷pending的有界实现模式。文件类型用 Go net/http.DetectContentType 标准库；严格JSON沿 sigs.k8s.io/json、浏览器Zod。无需新Agent工具、通用工单/上传平台或第二事实owner。
+复用 [tool-market-v1](tool-market.md) 的 toolmarket owner、GORM/PostgreSQL单事务、命令原键/强revision和CachedRead/LiveWrite授权；复用 [agent-customization-v1](domains/ai/agent-customization.md) 已有同意、2MiB参考资料/bytea单事务下载及大载荷pending的有界实现模式。文件类型用 Go net/http.DetectContentType 标准库；严格JSON沿 sigs.k8s.io/json、浏览器Zod。无需新Agent工具、通用工单/上传平台或第二事实owner。
 
 contract → implementation → injection → consumer：
 toolmarket Demand/Attachment/Repository.Download → integration/persistence/toolmarket 同库PG → 已有 Handler/BuildRoutes/current application注入 → 已有 /api/tool-market BFF → 工具提交、企业详情、专员详情。

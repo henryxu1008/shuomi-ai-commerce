@@ -6,7 +6,7 @@
 
 市场研究人员在同一项目关联已保存资料、选择 2–5 项重点商品、确认本次分析及费用估算、查看只读建议，再记录人工决定/理由并明确转入现有商品准备流程。项目资料分析与独立商品对比仍是两个准确操作，不自动互相启用，不引入自动多 Agent 调度。
 
-依据：[当前产品决定](../product/final-ui-ia-authority.md)、[研究与选品产品范围](../product/market-research-selection-centers-v1.md)、[研究证据分析合同](market-research-evidence-analysis-v1.md)、[公共参考配置合同](enterprise-shared-model-configuration.md#本批文字流程的接口与分工)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。复用既有已批准的领域、配置和资源事务架构；不改变事实 owner、schema、授权、运行状态机或 UNKNOWN 恢复责任。
+依据：[当前产品决定](../../../product/final-ui-ia-authority.md)、[研究与选品产品范围](../../../product/market-research-selection-centers-v1.md)、[研究证据分析合同](../../market-research-evidence-analysis-v1.md)、[公共参考配置合同](../../enterprise-shared-model-configuration.md#本批文字流程的接口与分工)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。复用既有已批准的领域、配置和资源事务架构；不改变事实 owner、schema、授权、运行状态机或 UNKNOWN 恢复责任。
 
 本批只做原工作区/PR #1075 的离线实现与合成回归。凭据、配置发布、保留实例、真实采集/AI/付费、合并和用户试用均未授权。SHEIN 美国仍是后续数据源设计重点，本批不声称已接通该来源。
 
