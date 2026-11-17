@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseResourceEvents } from "@/lib/api/resource-events";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -17,7 +18,11 @@ vi.mock("./wallet-topup", () => ({
   WalletTopUpEntry: () => <button disabled>充值钱包</button>,
 }));
 
-afterEach(cleanup);
+const scope = { userId: "reader", organizationId: "org-B" };
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 it("renders unified base and real service observations without a subscription gate", () => {
   render(<CommercialOverviewView data={commercialOverviewFixture()} />);
@@ -33,6 +38,7 @@ it("filters actual resource ledger rows on the server and preserves exact resour
   const onFilter = vi.fn();
   render(
     <UsageDetailsView
+      scope={scope}
       page={{ organization_id: "org-B", items: [], next_cursor: null }}
       onFilter={onFilter}
       onNext={() => undefined}
@@ -180,6 +186,7 @@ it("renders owner-backed orders and submits bounded search and date/type/status 
 it("restores applied ledger filters when a query remounts the view", () => {
   render(
     <UsageDetailsView
+      scope={scope}
       page={{ organization_id: "org-B", items: [], next_cursor: null }}
       filters={{
         resourceType: "ai_point",
@@ -242,9 +249,10 @@ it("preserves fractional AI points, resource units and the recorded balance on t
     next_cursor: null,
   });
   expect(page).not.toBeNull();
-  render(<UsageDetailsView page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
+  render(<UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
 
   const rows = screen.getAllByRole("row");
+  expect(rows[1]).toHaveTextContent("AI 模型调用");
   expect(rows[1]).toHaveTextContent("可用 -0.000001 点");
   expect(rows[1]).toHaveTextContent("已使用 +1,200.000012 点");
   expect(rows[2]).toHaveTextContent("可用 +2,500 条");
@@ -256,3 +264,65 @@ it("preserves fractional AI points, resource units and the recorded balance on t
   expect(modal.getByRole("row", { name: "预留 +0.000001 点 0.000001 点" })).toBeVisible();
   expect(modal.getByRole("row", { name: "已使用 +1,200.000012 点 1,200.000012 点" })).toBeVisible();
 });
+
+it.each(["available", "denied", "mismatched"] as const)(
+  "shows the 1688 source and only displays a product from the matching authorized lookup (%s)",
+  async (result) => {
+    Object.defineProperties(HTMLDialogElement.prototype, {
+      showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+      close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+    });
+    const operationId = "55555555-5555-4555-8555-555555555555";
+    const returnedId = result === "mismatched" ? "66666666-6666-4666-8666-666666666666" : operationId;
+    const responses = result === "denied"
+      ? Response.json({ code: "PERMISSION_DENIED" }, { status: 403 })
+      : Response.json({
+        schemaVersion: 1, operationId: returnedId, productKey: "crawler:1688:1234",
+        publicationId: `source-run:acquisition:${returnedId}`, catalogVersion: "1",
+        title: "已保存的商品", sources: [], images: [], specifications: [], warnings: [], missingFacts: [],
+      });
+    const fetchMock = vi.fn().mockResolvedValue(responses);
+    vi.stubGlobal("fetch", fetchMock);
+    const page = parseResourceEvents({
+      organization_id: scope.organizationId, next_cursor: null,
+      items: [{
+        event_id: "acquisition-event", operation_id: "charge-event", resource_type: "data_row",
+        quantity: "1", available_delta: "0", allocated_delta: "0", reserved_delta: "-1", consumed_delta: "1",
+        available_after: "10", allocated_after: "0", reserved_after: "0", consumed_after: "1",
+        reason: "commit", source_type: "product_acquisition_v1", source_identity: operationId,
+        occurred_at: "2026-11-17T04:12:39Z",
+      }],
+    });
+    expect(page).not.toBeNull();
+    const client = new QueryClient();
+    const view = render(
+      <QueryClientProvider client={client}>
+        <UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    try {
+      expect(screen.getByRole("row", { name: /1688 商品采集/ })).toBeVisible();
+      expect(fetchMock).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole("button", { name: "详情" }));
+      const dialog = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
+      if (result === "available") {
+        expect(await dialog.findByRole("link", { name: "已保存的商品" })).toHaveAttribute(
+          "href", `/workbench/supply/acquisition/operation/${operationId}`,
+        );
+      } else {
+        expect(await dialog.findByText("未能查看关联商品")).toBeVisible();
+        expect(dialog.queryByRole("link")).not.toBeInTheDocument();
+      }
+      expect(dialog.getByText(operationId)).toBeVisible();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(path).toBe(`/api/workbench/sourcing/1688/acquisitions/${operationId}/product`);
+      expect(init.method).toBe("GET");
+      expect(new Headers(init.headers).get("X-Expected-Organization-ID")).toBe(scope.organizationId);
+      expect(new Headers(init.headers).get("X-Expected-User-ID")).toBe(scope.userId);
+    } finally {
+      view.unmount();
+      client.clear();
+    }
+  },
+);

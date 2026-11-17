@@ -1,10 +1,14 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { CommercialOverview } from "@/lib/api/commercial";
+import { readAcquisitionProduct, type AcquisitionContext } from "@/lib/api/product-acquisition";
 import type { ResourceEventPage, ResourceEventFilters } from "@/lib/api/resource-events";
+import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { AccountDialog } from "../account/account-dialog";
 import { resourceDefinitions } from "./resource-purchase-panel";
 import styles from "./commercial.module.css";
@@ -33,6 +37,18 @@ const reasons: Record<string, string> = {
   model_point_released: "释放模型调用预留",
 };
 
+const businessSources: Record<string, string> = {
+  store_service_v1: "店铺服务",
+  product_acquisition_v1: "1688 商品采集",
+  amazon_data_v1: "Amazon 数据采集",
+  image_generation_v1: "图片生成",
+  model_invocation_v1: "AI 模型调用",
+  commercial_order_item: "资源购买",
+  member_resource_position: "成员额度管理",
+  local_ai_trial_v1: "AI 试用赠送",
+  onboarding_welcome_store_period: "新企业赠送",
+};
+
 const balances = [
   { label: "可用", delta: "available_delta", after: "available_after" },
   { label: "已分配", delta: "allocated_delta", after: "allocated_after" },
@@ -59,20 +75,58 @@ function reasonFor(event: UsageEvent) {
   return Object.hasOwn(reasons, event.reason) ? reasons[event.reason] : "其他变动";
 }
 
+function sourceFor(event: UsageEvent) {
+  return Object.hasOwn(businessSources, event.source_type) ? businessSources[event.source_type] : "未识别来源";
+}
+
 function UsageEventTime({ timestamp }: { timestamp: string }) {
   return <time dateTime={timestamp}>{timestamp.replace("T", " ").replace("Z", "")}</time>;
 }
 
-function UsageEventDetails({ event, onClose }: { event: UsageEvent; onClose: () => void }) {
+function UsageAcquisitionObject({ scope, operationId }: { scope: AcquisitionContext; operationId: string }) {
+  const product = useQuery({
+    queryKey: ["workbench", scope.organizationId, "usage-acquisition-product", scope.userId, operationId],
+    queryFn: ({ signal }) => readAcquisitionProduct(operationId, scope, signal),
+    gcTime: 0,
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  return (
+    <div>
+      <dt>关联商品</dt>
+      <dd>
+        {product.isPending || product.isFetching ? (
+          <span role="status">正在查找关联商品…</span>
+        ) : product.isSuccess ? (
+          <Link
+            className={styles.usageObjectLink}
+            href={`/workbench/supply/acquisition/operation/${operationId}`}
+            prefetch={false}
+          >
+            {product.data.title?.trim() || "查看采集商品"}
+          </Link>
+        ) : "未能查看关联商品"}
+      </dd>
+    </div>
+  );
+}
+
+function UsageEventDetails({ event, scope, onClose }: { event: UsageEvent; scope: AcquisitionContext; onClose: () => void }) {
   const resource = resourceFor(event);
+  const acquisition = event.source_type === "product_acquisition_v1" &&
+    event.resource_type === "data_row" && isAcquisitionUUID(event.source_identity);
   return (
     <AccountDialog title="用量记录详情" onClose={onClose}>
       <div className={styles.usageDetails}>
         <dl className={styles.orderFacts}>
           <div><dt>时间（UTC）</dt><dd><UsageEventTime timestamp={event.occurred_at} /></dd></div>
           <div><dt>资源</dt><dd>{resource?.name}</dd></div>
+          <div><dt>业务来源</dt><dd>{sourceFor(event)}</dd></div>
           <div><dt>变动说明</dt><dd>{reasonFor(event)}</dd></div>
           <div><dt>关联编号</dt><dd>{event.source_identity}</dd></div>
+          {acquisition ? <UsageAcquisitionObject scope={scope} operationId={event.source_identity} /> : null}
         </dl>
         <table className={styles.usageDetailTable}>
           <caption className="sr-only">数量与变动后余额</caption>
@@ -92,7 +146,7 @@ function UsageEventDetails({ event, onClose }: { event: UsageEvent; onClose: () 
   );
 }
 
-function UsageEventsTable({ items }: { items: UsageEvent[] }) {
+function UsageEventsTable({ items, scope }: { items: UsageEvent[]; scope: AcquisitionContext }) {
   const [selected, setSelected] = useState<UsageEvent>();
   return (
     <>
@@ -103,6 +157,7 @@ function UsageEventsTable({ items }: { items: UsageEvent[] }) {
             <tr>
               <th scope="col" className={styles.usageWide}>时间（UTC）</th>
               <th scope="col">资源及变动说明</th>
+              <th scope="col" className={styles.usageWide}>业务来源</th>
               <th scope="col">本次变动</th>
               <th scope="col" className={styles.usageWide}>变动后可用</th>
               <th scope="col">操作</th>
@@ -119,10 +174,12 @@ function UsageEventsTable({ items }: { items: UsageEvent[] }) {
                   <td>
                     <strong>{resource?.name}</strong>
                     <span className={styles.usageReason}>{reasonFor(event)}</span>
+                    <span className={styles.usageCompact}>来源：{sourceFor(event)}</span>
                     <span className={styles.usageCompact}>
                       <UsageEventTime timestamp={event.occurred_at} /> UTC
                     </span>
                   </td>
+                  <td className={styles.usageWide}>{sourceFor(event)}</td>
                   <td>
                     {changes.length ? (
                       <ul className={styles.usageChanges}>
@@ -140,7 +197,7 @@ function UsageEventsTable({ items }: { items: UsageEvent[] }) {
           </tbody>
         </table>
       </div>
-      {selected ? <UsageEventDetails event={selected} onClose={() => setSelected(undefined)} /> : null}
+      {selected ? <UsageEventDetails event={selected} scope={scope} onClose={() => setSelected(undefined)} /> : null}
     </>
   );
 }
@@ -150,6 +207,7 @@ function boundary(value: string, next = false) {
 }
 
 export function UsageDetailsView({
+  scope,
   page,
   notice,
   filters = {},
@@ -158,6 +216,7 @@ export function UsageDetailsView({
   onPrevious,
   onNext,
 }: {
+  scope: AcquisitionContext;
   page?: ResourceEventPage;
   notice?: ReactNode;
   filters?: ResourceEventFilters;
@@ -230,7 +289,7 @@ export function UsageDetailsView({
       {notice}
       {page ? (
         <>
-          {page.items.length ? <UsageEventsTable items={page.items} /> : (
+          {page.items.length ? <UsageEventsTable items={page.items} scope={scope} /> : (
             <p className={styles.usageEmpty}>暂无符合条件的用量记录。</p>
           )}
           <div className={styles.pagination}>

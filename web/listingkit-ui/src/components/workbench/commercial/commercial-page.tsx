@@ -683,6 +683,7 @@ function ResourceUsageRequest({
     : undefined;
   return (
     <UsageDetailsView
+      scope={{ userId, organizationId }}
       page={page}
       notice={notice}
       filters={filters}
