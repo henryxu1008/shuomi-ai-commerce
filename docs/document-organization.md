@@ -78,7 +78,7 @@ docs/
 - [#1359](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1359)：`completion-draft-internal-note.md` 迁入 `architecture/domains/listing/`，保留 Listing CompletionDraft 已冻结合同。
 - [#1361](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1361)：两份 Listing CompletionDraft 历史/恢复架构合同成组迁入 `architecture/domains/listing/`，原 Operations 使用说明继续独立维护。
 
-对应 CSV 二十六行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
+对应 CSV 二十八行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
 
 - [#1363](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1363)：`CompletionDraft` 结构化候选冻结合同由架构根层迁至 `architecture/domains/listing/`；相邻 Product 与 Operations 同名文档各自保留业务/使用说明职责，不进行内容合并。
 - [#1366](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1366)：C3-2 SHEIN 候选类目规则查询与只读解释合同归入 `architecture/domains/listing/`；Marketplace RuleReader/Provider 仍提供原规则，不变更 C3-2 R1 准入与不可采用边界。
@@ -94,6 +94,8 @@ docs/
 - [#1390](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1390)：官方技能模板自动准备与准确技能版本已有商品入口两份 AI 架构合同归入 `architecture/domains/ai/`；保持原权限/版本/人工确认与历史试用限制，未触碰 Skill 或商品执行。
 
 - [#1392](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1392)：通用图片模板与 Image Agent Workflow 合同归入 `architecture/domains/ai/`，保留现有技能版本、Temporal/effect owner、UNKNOWN、预算及人工批准边界。
+
+- [#1394](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1394)：图片目标语言/人工确认与 API 事件读取权限合同迁入 `architecture/domains/ai/`；保留原预算、权限、UNKNOWN 和历史运行边界。
 
 ## 4. 逐文件清单的解释
 
