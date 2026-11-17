@@ -865,3 +865,79 @@
   .serviceOption { transition: none; }
   .serviceDetailAnimated { animation: none; }
 }
+
+/* Shared card surface and interaction language for every homepage section. */
+.page {
+  --card-surface: linear-gradient(145deg, rgba(11,20,42,.98), rgba(7,13,28,.98));
+  --card-surface-hover: linear-gradient(145deg, rgba(16,34,68,.99), rgba(9,19,39,.99));
+  --card-outline: rgba(67,105,164,.48);
+  --card-outline-hover: rgba(91,177,246,.86);
+  --card-lift-shadow: 0 14px 32px rgba(17,71,145,.2), inset 0 1px rgba(194,224,255,.1);
+}
+.page :is(
+  .industryStep, .painGrid article, .agentCard, .agentControl, .agentRole,
+  .teamResults span, .processCard, .processOutput, .processFooter,
+  .supplyColumn article, .onboardingStep, .dataColumn article, .dataEngineCard,
+  .dataQuery, .dataPlatform, .dataEngineResult, .dataAdviceResult,
+  .roleList button, .rolePanel, .roleColumns > div, .opcBanner, .opcPills > span,
+  .serviceNetwork, .serviceOption, .serviceDetail, .serviceOfferings > span,
+  .serviceDetail li, .serviceMatching, .serviceMatchingGrid > div,
+  .scenarioList, .scenarioList button, .practiceCase, .metrics > span,
+  .executionFlow > span, .caseFooter > p, .trialBanner, .basePricing article,
+  .planGrid article
+) {
+  border-color: var(--card-outline);
+  background: var(--card-surface);
+  transition: transform .22s ease, border-color .22s ease, background .22s ease, box-shadow .22s ease;
+}
+.page :is(
+  .industryStep, .painGrid article, .agentCard, .agentControl, .agentRole,
+  .teamResults span, .processCard, .processOutput, .processFooter,
+  .supplyColumn article, .onboardingStep, .dataColumn article, .dataEngineCard,
+  .dataQuery, .dataPlatform, .dataEngineResult, .dataAdviceResult,
+  .roleList button, .rolePanel, .roleColumns > div, .opcBanner, .opcPills > span,
+  .serviceNetwork, .serviceOption, .serviceDetail, .serviceOfferings > span,
+  .serviceDetail li, .serviceMatching, .serviceMatchingGrid > div,
+  .scenarioList, .scenarioList button, .practiceCase, .metrics > span,
+  .executionFlow > span, .caseFooter > p, .trialBanner, .basePricing article,
+  .planGrid article
+):hover {
+  border-color: var(--card-outline-hover);
+  background: var(--card-surface-hover);
+  box-shadow: var(--card-lift-shadow);
+  transform: translateY(-3px);
+}
+.page :is(
+  .industryStep, .painGrid article, .agentCard, .agentControl, .agentRole,
+  .teamResults span, .processCard, .processOutput, .processFooter,
+  .supplyColumn article, .onboardingStep, .dataColumn article, .dataEngineCard,
+  .dataQuery, .dataPlatform, .dataEngineResult, .dataAdviceResult,
+  .roleList button, .rolePanel, .roleColumns > div, .opcBanner, .opcPills > span,
+  .serviceNetwork, .serviceOption, .serviceDetail, .serviceOfferings > span,
+  .serviceDetail li, .serviceMatching, .serviceMatchingGrid > div,
+  .scenarioList, .scenarioList button, .practiceCase, .metrics > span,
+  .executionFlow > span, .caseFooter > p, .trialBanner, .basePricing article,
+  .planGrid article
+):active {
+  transform: translateY(-1px) scale(.99);
+}
+.page :is(.roleList .activeRole, .scenarioList .activeScenario, .serviceOptionActive, .agentRole.isActive) {
+  border-color: var(--card-outline-hover);
+  background: var(--card-surface-hover);
+  box-shadow: 0 0 0 1px rgba(78,165,255,.16), 0 10px 26px rgba(17,71,145,.18);
+}
+.page .serviceCore { background: radial-gradient(circle at 50% 40%,rgba(53,101,208,.9),rgba(8,17,43,.98) 73%); }
+@media (prefers-reduced-motion: reduce) {
+  .page :is(
+    .industryStep, .painGrid article, .agentCard, .agentControl, .agentRole,
+    .teamResults span, .processCard, .processOutput, .processFooter,
+    .supplyColumn article, .onboardingStep, .dataColumn article, .dataEngineCard,
+    .dataQuery, .dataPlatform, .dataEngineResult, .dataAdviceResult,
+    .roleList button, .rolePanel, .roleColumns > div, .opcBanner, .opcPills > span,
+    .serviceNetwork, .serviceOption, .serviceDetail, .serviceOfferings > span,
+    .serviceDetail li, .serviceMatching, .serviceMatchingGrid > div,
+    .scenarioList, .scenarioList button, .practiceCase, .metrics > span,
+    .executionFlow > span, .caseFooter > p, .trialBanner, .basePricing article,
+    .planGrid article
+  ) { transition: none; }
+}
