@@ -124,6 +124,24 @@ func TestSkillAuthoringRevisionCannotOverwriteConfirmedPackage(t *testing.T) {
 		job.InputSnapshot = "{\"name\":\"script-skill\"}"
 		return job
 	}
+	unconfirmed, err := store.StartAuthoring(ctx, scope, makeRevision("6", root.Key))
+	require.NoError(t, err)
+	unconfirmed, err = store.FinishAuthoring(ctx, scope, unconfirmed, "UNKNOWN", "")
+	require.NoError(t, err)
+	list, err := store.AuthoringDrafts(ctx, scope, conversation.ID, unconfirmed.MemberID)
+	require.NoError(t, err)
+	require.Contains(t, list, unconfirmed, "reopening Chat must show the original unknown revision")
+	list, err = store.AuthoringDrafts(ctx, scope, conversation.ID, "another-member")
+	require.NoError(t, err)
+	require.Empty(t, list)
+	rejected, err := store.FinishAuthoringRejected(ctx, scope, unconfirmed)
+	require.NoError(t, err)
+	require.Equal(t, "FAILED", rejected.State)
+	root, err = store.AuthoringDraft(ctx, scope, conversation.ID, root.Key)
+	require.NoError(t, err)
+	require.Equal(t, root.Key, root.AuthoringRevision())
+	require.Equal(t, "generated root", root.Generated)
+
 	first, err := store.StartAuthoring(ctx, scope, makeRevision("2", root.Key))
 	require.NoError(t, err)
 	late, err := store.StartAuthoring(ctx, scope, makeRevision("3", root.Key))

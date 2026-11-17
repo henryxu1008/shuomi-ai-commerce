@@ -211,6 +211,10 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
+	guardCfg.skillAuthoringDirectOpenAI = input.Operation == aicapability.OperationAIWorkbenchSkillAuthoring &&
+		guardCfg.Adapter == AdapterOpenAICompatible && route.Endpoint == TitlePilotOpenAIEndpoint &&
+		p.ProviderID == "openai" && p.ModelID == aicapability.SingleImageMiniModel &&
+		p.OfficialTariff.Channel == "openai-direct" && p.OfficialTariff.UsageVersion == "openai-text-v1"
 	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
 		// Keep the actual SDK wire and framing within the amount quoted and reserved.
 		guardCfg.MaximumRequestBytes = min(guardCfg.MaximumRequestBytes, quote.MaximumTokens-p.MaximumCompletionTokens-128)
@@ -314,6 +318,19 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 			return TextOutput{}, ErrOutcomeUnknown
 		}
 		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
+	}
+	if requestIDHash := guard.openAIParameterRejection(); requestIDHash != "" {
+		record.Outcome = aicapability.InvocationFailed
+		record.ErrorCategory = aicapability.ErrorProviderRejected
+		record.ErrorCode = aicapability.SkillAuthoringOpenAIParameterRejectedV1
+		record.ProviderRequestID = requestIDHash
+		record.FinishedAt = time.Now().UTC()
+		record.LatencyMilliseconds = record.FinishedAt.Sub(now).Milliseconds()
+		record.EstimatedCostKnown = true
+		if e.terminal(ctx, record) != nil {
+			return TextOutput{}, ErrOutcomeUnknown
+		}
+		return TextOutput{}, errOpenAIParameterRejected
 	}
 	if !output.Usage.Known || (input.Image != nil || guardCfg.visionText != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || p.OfficialTariff.IsReferenceEstimate()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||

@@ -24,6 +24,8 @@ test("authoring confirms the quote and edited save, then recovers both original 
   const quoteToken = "Q".repeat(43);
   let quoteKey = "", rootKey = "", currentRevision = "", createKey = "", generations = 0, saves = 0, saved = false, creates = 0;
   let expiry = "";
+  let exposeUnknownRevision = false, rechecks = 0;
+  const unknownRevisionKey = "019aaf91-67a2-7000-8000-cccccccccccc";
   const job = (state: "READY" | "COMPLETE", pending = false) => ({
     key:rootKey,generationKey:currentRevision || rootKey,revision:currentRevision || rootKey,state,requirement,
     draft:state==="COMPLETE" ? currentRevision === rootKey ? draft : revised : null,billing:state==="COMPLETE"?"committed":"pending",
@@ -46,7 +48,18 @@ test("authoring confirms the quote and edited save, then recovers both original 
       return json({conversation,replay:true});
     }
     if (path === routeRoot+"/"+conversationId) return json({conversation,messages:[],proposals:[],before:""});
-    if (path === authoringRoot) return json({drafts:generations?[job(generations===1?"READY":"COMPLETE",saves>1)]:[]});
+    if (path === authoringRoot) {
+      const drafts = generations ? [job(generations === 1 ? "READY" : "COMPLETE", saves > 1)] : [];
+      return json({drafts: exposeUnknownRevision && rechecks === 0
+        ? [...drafts, {...job("COMPLETE"), generationKey: unknownRevisionKey, state: "UNKNOWN", billing: "pending"}]
+        : drafts,
+      });
+    }
+    if (path === authoringRoot + "/" + unknownRevisionKey + "/recover-generation") {
+      rechecks++;
+      expect(req.postData()).toBeNull();
+      return json({...job("COMPLETE"), generationKey: unknownRevisionKey, state: "FAILED", billing: "released"});
+    }
     if (path === authoringRoot+"/preview") {
       quoteKey = generations < 2 ? "019aaf91-67a0-7000-8000-aaaaaaaaaaaa" : "019aaf91-67a1-7000-8000-bbbbbbbbbbbb";
       if (!rootKey) rootKey = quoteKey;
@@ -136,6 +149,13 @@ test("authoring confirms the quote and edited save, then recovers both original 
   await expect(page.getByRole("link",{name:"查看我的技能"})).toHaveAttribute("href","/workbench/agents/skills/mine?skillId="+skillId);
   await expect(page.getByText(/点数|费用详情/)).toHaveCount(0);
   await page.screenshot({path:info.outputPath("skill-authoring-saved.png")});
+  exposeUnknownRevision = true;
+  await page.reload();
+  await page.getByRole("button", {name: "查看待核实的生成", exact: true}).click();
+  await expect(page.getByText("本次生成结果未能确认。", {exact: true})).toBeVisible();
+  await page.getByRole("button", {name: "核实原生成请求", exact: true}).click();
+  await expect(page.getByText("本次未能生成草稿，请检查模型设置或可用点数后重试。", {exact: true})).toBeVisible();
+  expect(rechecks).toBe(1);
   expect(generations).toBe(3);
   expect(saves).toBe(2);
 });

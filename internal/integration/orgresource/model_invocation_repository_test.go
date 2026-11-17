@@ -29,10 +29,14 @@ func modelPointFixture(t *testing.T, operations ...aicapability.Operation) (*gor
 	if len(operations) == 1 {
 		fact.Operation = operations[0]
 	}
-	if len(operations) == 1 && (operations[0] == aicapability.OperationAIWorkbenchChatPlan || operations[0] == aicapability.OperationAIWorkbenchStoreRoute) {
+	if len(operations) == 1 && (operations[0] == aicapability.OperationAIWorkbenchChatPlan || operations[0] == aicapability.OperationAIWorkbenchStoreRoute || operations[0] == aicapability.OperationAIWorkbenchSkillAuthoring) {
 		fact.Operation = operations[0]
 		fact.Capability = aicapability.CapabilityAIWorkbenchChatPlanning
 		fact.AgentRunID = ""
+	}
+	if fact.Operation == aicapability.OperationAIWorkbenchSkillAuthoring {
+		fact.ProviderID, fact.ModelID = "openai", aicapability.SingleImageMiniModel
+		fact.OfficialTariff.Model, fact.OfficialTariff.Channel = fact.ModelID, "openai-direct"
 	}
 	balance := int64(100)
 	if fact.Operation == aicapability.OperationProductImageAnalysis {

@@ -70,7 +70,7 @@ func (s *Store) AuthoringDraft(ctx context.Context, scope aiworkbench.Scope, con
 
 func (s *Store) AuthoringDrafts(ctx context.Context, scope aiworkbench.Scope, conversation, member string) ([]AuthoringDraft, error) {
 	rows := []AuthoringDraft{}
-	err := s.authoringQuery(ctx, scope, conversation).Where("member_id = ? AND state <> 'QUOTED' AND (root_key IS NULL OR state = 'READY')", member).
+	err := s.authoringQuery(ctx, scope, conversation).Where("member_id = ? AND state <> 'QUOTED' AND (root_key IS NULL OR state IN ('READY', 'UNKNOWN'))", member).
 		Order("(save_key IS NOT NULL AND saved_skill_id IS NULL OR state = 'READY') DESC, created_at DESC, key").Limit(8).Find(&rows).Error
 	if err != nil {
 		return nil, aiworkbench.ErrUnavailable
@@ -122,6 +122,19 @@ func (s *Store) FinishAuthoring(ctx context.Context, scope aiworkbench.Scope, ro
 			Update("current_revision", row.Key).Error
 	})
 	if err != nil {
+		return row, aiworkbench.ErrUnavailable
+	}
+	return s.AuthoringDraft(ctx, scope, row.ConversationID, row.Key)
+}
+
+// FinishAuthoringRejected projects a confirmed post-dispatch rejection.
+// Late commercial finalization can close the original UNKNOWN. The caller
+// must verify the original zero-charge receipt before using this transition.
+func (s *Store) FinishAuthoringRejected(ctx context.Context, scope aiworkbench.Scope, row AuthoringDraft) (AuthoringDraft, error) {
+	result := s.authoringQuery(ctx, scope, row.ConversationID).
+		Where("key = ? AND member_id = ? AND invocation_id = ? AND state IN ?", row.Key, row.MemberID, row.InvocationID, []string{"READY", "UNKNOWN"}).
+		Update("state", "FAILED")
+	if result.Error != nil {
 		return row, aiworkbench.ErrUnavailable
 	}
 	return s.AuthoringDraft(ctx, scope, row.ConversationID, row.Key)

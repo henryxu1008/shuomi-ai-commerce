@@ -243,6 +243,9 @@ func (a *aiWorkbenchApplication) quoteSkillAuthoring(c *gin.Context, ctx context
 }
 
 func (a *aiWorkbenchApplication) generateSkillAuthoring(ctx context.Context, scope aiworkbench.Scope, row wbstore.AuthoringDraft) (wbstore.AuthoringDraft, error) {
+	if row.State == "UNKNOWN" {
+		return a.readSkillGeneration(ctx, scope, row, time.Now().UTC())
+	}
 	if row.State != "QUOTED" && row.State != "READY" {
 		return row, nil
 	}
@@ -321,8 +324,18 @@ func (a *aiWorkbenchApplication) generateSkillAuthoring(ctx context.Context, sco
 
 func (a *aiWorkbenchApplication) readSkillGeneration(ctx context.Context, scope aiworkbench.Scope, row wbstore.AuthoringDraft, now time.Time) (wbstore.AuthoringDraft, error) {
 	fact, err := a.agent.config.Ledger.ReadModelInvocation(ctx, scope.OrganizationID, row.InvocationID)
-	if err == nil && fact.Operation == authoringOperation && fact.InvocationID == row.InvocationID && fact.TenantID == scope.OrganizationID && fact.UserID == scope.ActorID &&
-		fact.MemberID == row.MemberID && fact.InputHash == row.InputHash {
+	matches := err == nil && fact.Operation == authoringOperation && fact.InvocationID == row.InvocationID && fact.TenantID == scope.OrganizationID &&
+		fact.UserID == scope.ActorID && fact.MemberID == row.MemberID && fact.InputHash == row.InputHash
+	if matches && fact.IsSkillAuthoringOpenAIParameterRejection() {
+		if a.agent.points.ConfirmSkillAuthoringParameterRejection(ctx, scope.OrganizationID, row.InvocationID) == nil {
+			return a.store.FinishAuthoringRejected(ctx, scope, row)
+		}
+		return a.store.AuthoringDraft(ctx, scope, row.ConversationID, row.Key)
+	}
+	if row.State == "UNKNOWN" {
+		return row, nil
+	}
+	if matches {
 		if fact.Outcome == aicapability.InvocationFailed && a.agent.points.ConfirmModelInvocationNoDispatchRelease(ctx, scope.OrganizationID, row.InvocationID) == nil {
 			return a.store.FinishAuthoring(ctx, scope, row, "FAILED", "")
 		}

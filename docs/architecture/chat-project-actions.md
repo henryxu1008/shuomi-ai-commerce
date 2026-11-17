@@ -230,3 +230,17 @@ Chat 页面经现有 BFF 访问按会话授权的创作报价、生成、保存�
 - `IMPLEMENTATION_TEST`。验证生成、编辑、检查、保存、恢复的模型计费和执行边界。验证原标题任务按准确包版本和当前企业准入消费脚本，沿原沙箱、回执与人工采用路径。
 
 独立设计复核无剩余架构阻塞。随后用户确认首次及后续均无需在 Chat 展示点数。实际消耗通过现有「用量明细」读取，按第 2.3 节验收。每次调用仍绑定本次有效报价并由用户主动点击，沿原计量、执行和恢复。用户随后要求继续，设计依据为 `Independent Architecture`，状态为 `IMPLEMENTATION_READY`，执行范围及接单见 #1396。业务验收在隔离环境另行记录。
+
+
+### 当前增量 · OpenAI 参数拒绝的零消费结算
+
+Design Basis 为 Independent Architecture 的有界补充，沿第 2.3 节和原模型、点数 owner。用户要求修复 PR #1400 在隔离环境实测中遇到的明确参数拒绝仍占用点数。当前案例是 Chat「创建技能」选择 OpenAI 直连 GPT-5.4 Mini，发送旧的 `max_tokens` 参数后收到 HTTP 400。超时、断线、响应缺损、网关拒绝、限流、历史调用与其他 provider/业务均沿原结果不明与有用量的结算规则。参考 [OpenAI Chat Completions 参数](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) 和 [OpenAI 错误说明](https://developers.openai.com/api/docs/guides/error-codes)。
+
+- 仅原 governed transport 在该原调用的唯一一次网络交接后接收的明确预执行参数校验拒绝可以提出零消费事实。要求已准入的 `openai`／`openai-direct`／`gpt-5.4-mini-2026-03-17`，实际发送到 `https://api.openai.com/v1/chat/completions`，出站 JSON 含 `max_tokens`，响应为 HTTP 400 和有界、完整、无重复键的 JSON 错误对象，准确 `type=invalid_request_error, code=unsupported_parameter, param=max_tokens`，含单一有效请求标识，响应不能同时含用量或生成结果。类型和字段比较采用有限协议规则，不解释自由文本。OpenAI 参数文档描述旧参数和替代参数，仅与本次真实直连拒绝和原发送记录共同支持预执行判定。
+- 原 Executor 持有发送来源，生成终态前再次限定「创建技能」用途。原 AI Invocation owner 持久化 `failed`、`provider_rejected`、固定版本的拒绝码、请求标识摘要及原结束时刻。保持 `UsageKnown=false` 且明确本系统费用为零，不从无用量推断。商业 owner 读原终态、验证该固定策略适用、复用已派发零消费结算，原预留和原成员月限只释放一次。使用已有字段、原原子账本和原 RecoverDue，无 schema、新 owner、附加账本或历史回填。
+- 复用原固定派发、点数预留和所属范围校验。拒绝回执仅在原调用结束后写入，旧的 dispatched/UNKNOWN 不会被从日志翻译为新证明。账本以原 reserve fingerprint、原成员与原 finalize operation 的证明结算。成功、输出已观察但验证失败、余额不足、结果未知仍按原规则处理。原键核实只读，不会重新发送。调用终态或账本回执未确认时仍待核实。原账本确认零消费后，Chat 显示生成失败并可由用户主动发起新请求。
+- 验证严格证据变体、未知与有用量的原行为、最终回执前后的失败状态和同键不重发。隔离环境先用同一真实模型的参数拒绝复现账本原预留全额释放及实际扣除为零，再用正确模型适配生成并保存技能、执行一次原标题处理，核对「用量明细」与实际扣除。保持 35444 现状。
+
+- 原调用已记录该精确拒绝且商业回执尚未确认时，在原生成键下保持待核实。若原生成已进入 UNKNOWN，后来原调用与原零消费回执才齐备，允许当前账号、企业、会话、会员按同一生成键和调用标识把 READY/UNKNOWN 收敛为 FAILED。该投影只能由原账本回执确认，不能重发、改写已生成草稿或影响任何其他 UNKNOWN。Chat 保留查看和核实未明生成或修订的入口，刷新后仍按同一原键查询。
+
+独立复核结论为 IMPLEMENTATION_READY。复核确认原调用与商业结算先后可恢复、原 UNKNOWN 迟到收敛、自动拒绝策略与 #1165 人工恢复分别受限。准确拒绝元组和实际预留返还留隔离验证。

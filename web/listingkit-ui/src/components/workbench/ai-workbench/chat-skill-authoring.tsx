@@ -56,7 +56,7 @@ const editorFields = [
 ] as const;
 const generationStatus = {
   QUOTED: "待确认生成", READY: "生成结果待核实", COMPLETE: "已生成草稿",
-  FAILED: "生成未开始，请检查模型是否可用或额度是否充足。",
+  FAILED: "本次未能生成草稿，请检查模型设置或可用点数后重试。",
   INVALID: "草稿格式未通过，可以修改需求后重试。",
   UNKNOWN: "本次生成结果未能确认。",
 } as const;
@@ -130,6 +130,7 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
   }, [pointer]);
 
   const pending = useMemo(() => original ?? (job?.state === "READY" ? {key: job.generationKey ?? job.key} : undefined), [original, job]);
+  const recheck = pending ?? (job?.state === "UNKNOWN" ? {key: job.generationKey ?? job.key} : undefined);
   const editable = Boolean(draft && job && !job.savedSkillId && !job.savePending && !saveCheck && !pending);
   const input = useMemo<AIAuthoringPreview | undefined>(() => {
     if (!skill || !pointerReady || pending || saveCheck || job?.savePending || job?.savedSkillId) return;
@@ -282,9 +283,9 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
     {list.isError && <p role="status">暂时无法读取本会话的技能草稿。 <Button variant="outline" onClick={() => void list.refetch()}>重新读取</Button></p>}
     {others?.length ? <div className="flex flex-wrap gap-2">{others.map(item =>
       <Button key={item.generationKey ?? item.key} variant="outline" disabled={busy || Boolean(pending)} onClick={() => displayJob(item)}>
-        {item.state === "READY" ? "查看待核实的生成" : item.draft?.displayName || generationStatus[item.state]}
+        {item.state === "READY" || item.state === "UNKNOWN" ? "查看待核实的生成" : item.draft?.displayName || generationStatus[item.state]}
       </Button>)}</div> : null}
-    {pending && <Button variant="outline" disabled={busy} onClick={() => generate(pending)}>核实原生成请求</Button>}
+    {recheck && <Button variant="outline" disabled={busy} onClick={() => generate(recheck)}>核实原生成请求</Button>}
     {job && <div className="grid gap-2">
       <p role="status">{job.superseded ? "这次修改未覆盖当前草稿。" : generationStatus[job.state]}</p>
       {job.savedSkillId ? <p>已保存到我的技能。 <Link className="underline" href={"/workbench/agents/skills/mine?skillId=" + job.savedSkillId}>查看我的技能</Link></p>

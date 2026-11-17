@@ -187,6 +187,12 @@ func matchesModelPointReceipt(fact aicapability.InvocationRecord, fingerprint st
 }
 
 func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error) {
+	if fact.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 {
+		if !fact.IsSkillAuthoringOpenAIParameterRejection() {
+			return 0, false, orgresource.ErrInvalidOwnerProof
+		}
+		return 0, false, nil
+	}
 	if fact.ProviderRejectionProof != nil {
 		if aicapability.ValidateProviderRejection(fact) != nil || fact.ProviderRejectionProof.DispatchFingerprint != modelPointFingerprint(fact) {
 			return 0, false, orgresource.ErrInvalidOwnerProof
