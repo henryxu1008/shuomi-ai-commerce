@@ -1,6 +1,6 @@
 # Walmart 美国站：多商家授权、商品草稿与受控刊登
 
-> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](walmart-feed-recovery.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性已完成局部 Independent Architecture 准入，IMPLEMENTATION_READY/FROZEN；原唯一 Reviewer 无设计 BLOCKER，两项 IMPLEMENTATION_TEST 留同批实现。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
+> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](../../walmart-feed-recovery.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性已完成局部 Independent Architecture 准入，IMPLEMENTATION_READY/FROZEN；原唯一 Reviewer 无设计 BLOCKER，两项 IMPLEMENTATION_TEST 留同批实现。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
 
 Refs [#733](https://github.com/qq550723504/task-processor/issues/733)。
 
@@ -31,7 +31,7 @@ Threat Model：防止本系统并发/重放导致跨企业绑定、凭据外泄�
 
 ## 2. Product / Figma Authority
 
-引用 [最终 UI / IA](../product/final-ui-ia-authority.md)、[greenfield 基线](../product/greenfield-no-legacy-migration.md)、[当前供应链合同](my-supply-chain-shein.md)、[Store](store-center-application.md)、[平台观察](store-center-platform-observations.md)、[CompletionDraft](domains/listing/completion-draft-structured.md)、[TikTok 已批准特性合同](tiktok-shop-us.md)、[项目边界](project-boundaries.md)与[当前系统边界](../product/greenfield-no-legacy-migration.md)。其他平台的协议和历史实现结论不自动适用于 Walmart。
+引用 [最终 UI / IA](../../../product/final-ui-ia-authority.md)、[greenfield 基线](../../../product/greenfield-no-legacy-migration.md)、[当前供应链合同](../../my-supply-chain-shein.md)、[Store](../../store-center-application.md)、[平台观察](../../store-center-platform-observations.md)、[CompletionDraft](../listing/completion-draft-structured.md)、[TikTok 已批准特性合同](tiktok-shop-us.md)、[项目边界](../../project-boundaries.md)与[当前系统边界](../../../product/greenfield-no-legacy-migration.md)。其他平台的协议和历史实现结论不自动适用于 Walmart。
 
 2026-10-16 只读复核 Figma `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463` 中当前节点：`1560:359`“店铺中心 / 我的店铺 / 优化版”、`429:5323`“店铺中心 / 店铺商品”、`2667:1948`“我的供应链 / 我的选品 / 待补全”。本期复用上述入口和现有供应链资料/上传路径；不新增顶层菜单、独立 Walmart Workbench 或 Listing Center。节点示例平台、数字和状态不代表实现/验收事实。
 
@@ -68,7 +68,7 @@ Threat Model：防止本系统并发/重放导致跨企业绑定、凭据外泄�
 
 ## 5. 官方合同与 API allowlist
 
-详细来源与不确定项见 [官方合同证据](domains/marketplace/walmart-us-contract-evidence.md)。本期固定 US Marketplace，`platform=walmart`、`site=walmart-us`、market=us；沙箱和生产是不同受控配置与身份命名空间，绝不自动 fallback。
+详细来源与不确定项见 [官方合同证据](walmart-us-contract-evidence.md)。本期固定 US Marketplace，`platform=walmart`、`site=walmart-us`、market=us；沙箱和生产是不同受控配置与身份命名空间，绝不自动 fallback。
 
 | 用途 | 官方方法/路径 | 本期限制 |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ Feed PROCESSED 不推出每 SKU SUCCESS；ingestion SUCCESS 不推出 publicatio
 绑定该证据，同键回读原终态，不制造 accepted Feed receipt。只有原失败事实已持久化，
 后续显式新命令才可经原 target fence / SKU owner 准入；失败落库结果不明先读原 intent，
 不能推定已失败。其它 4xx/5xx、传输失败、截断或无有效回执仍不作为确定拒绝。
-带 RepairFrom 的修复提交按[冻结补充合同](walmart-feed-recovery.md)核原明确拒绝、准确载荷/SKU、
+带 RepairFrom 的修复提交按[冻结补充合同](../../walmart-feed-recovery.md)核原明确拒绝、准确载荷/SKU、
 原 accepted 祖先和最后 accepted 的完整证据，用户重新批准后才允许新的显式命令；
 保留 SKU 占用，不回填旧 UNKNOWN、不重发成功或未终结 SKU。
 耗时规则/图片/完整 draft 预检在 Acquire 前完成；claim 后只保留原授权、ReviewGate、
@@ -241,4 +241,4 @@ Legacy decision: **EXTRACT | RETIRE**。
 3. M1/M4：code/refresh 的单次 claim、token generation、迟到结果、响应丢失与 commit-unknown 均使用原持久事实，不回退或盲重发。
 4. M5/M6：正常 Console/BFF/Operation/worker/result consumer 必须分开受理、逐 SKU ingestion 与真实 publication，不能从 kernel succeeded 投影平台已发布。
 
-本批不增加 Accepted Risk 或新验证平台。设计准入不是产品验收。业务实现与必要隔离验证的当前证据记录在 #733 / PR #734；真实平台与用户试用仍为 NOT_RUN。操作和配置见 [首期说明](../operations/walmart-us.md)。
+本批不增加 Accepted Risk 或新验证平台。设计准入不是产品验收。业务实现与必要隔离验证的当前证据记录在 #733 / PR #734；真实平台与用户试用仍为 NOT_RUN。操作和配置见 [首期说明](../../../operations/walmart-us.md)。

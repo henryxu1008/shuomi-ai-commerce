@@ -198,13 +198,13 @@
 - `supply-market-filters.md` — [自营与优选商品筛选](supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
 - `supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market.md)
 - `domains/marketplace/temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](domains/marketplace/temu-official-contract-evidence.md)
-- `temu-platform.md` — [TEMU 三种模式与全部官方站点接入设计](temu-platform.md)
+- `domains/marketplace/temu-platform.md` — [TEMU 三种模式与全部官方站点接入设计](domains/marketplace/temu-platform.md)
 - `tiktok-pre-dispatch-no-send.md` — [TikTok 发送前未执行的终止与显式重试：冻结设计](tiktok-pre-dispatch-no-send.md)
 - `domains/marketplace/tiktok-shop-us-contract-evidence.md` — [TikTok Shop 美国跨境：官方合同证据](domains/marketplace/tiktok-shop-us-contract-evidence.md)
-- `tiktok-shop-us.md` — [TikTok Shop 美国跨境：店铺授权、商品草稿与受控刊登](tiktok-shop-us.md)
+- `domains/marketplace/tiktok-shop-us.md` — [TikTok Shop 美国跨境：店铺授权、商品草稿与受控刊登](domains/marketplace/tiktok-shop-us.md)
 - `walmart-feed-recovery.md` — [Walmart Feed：明确拒绝的修复重试与有界续读](walmart-feed-recovery.md)
 - `domains/marketplace/walmart-us-contract-evidence.md` — [Walmart 美国站官方合同证据与边界](domains/marketplace/walmart-us-contract-evidence.md)
-- `walmart-us.md` — [Walmart 美国站：多商家授权、商品草稿与受控刊登](walmart-us.md)
+- `domains/marketplace/walmart-us.md` — [Walmart 美国站：多商家授权、商品草稿与受控刊登](domains/marketplace/walmart-us.md)
 
 <a id="agent"></a>
 
