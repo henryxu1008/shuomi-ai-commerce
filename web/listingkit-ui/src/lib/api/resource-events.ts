@@ -25,6 +25,7 @@ const text = z
   .min(1)
   .max(512)
   .refine((v) => !/[\u0000-\u001f\u007f-\u009f]/.test(v));
+const modelPurpose = z.enum(["chat_planning", "own_product_intake"]);
 const event = z
   .object({
     event_id: id,
@@ -43,9 +44,11 @@ const event = z
     reason: text,
     source_type: text,
     source_identity: text,
+    purpose: modelPurpose.optional(),
     occurred_at: timestamp,
   })
-  .strict().refine(value=>value.resource_type==="ai_point"?value.unit_version==="ai-micropoint-v1":[value.quantity,value.available_after,value.allocated_after,value.reserved_after,value.consumed_after].every(v=>nonnegative.safeParse(v).success)&&[value.available_delta,value.allocated_delta,value.reserved_delta,value.consumed_delta].every(v=>signed.safeParse(v).success)&&value.unit_version===undefined);
+  .strict().refine(value=>value.resource_type==="ai_point"?value.unit_version==="ai-micropoint-v1":[value.quantity,value.available_after,value.allocated_after,value.reserved_after,value.consumed_after].every(v=>nonnegative.safeParse(v).success)&&[value.available_delta,value.allocated_delta,value.reserved_delta,value.consumed_delta].every(v=>signed.safeParse(v).success)&&value.unit_version===undefined)
+  .refine((value) => !value.purpose || (value.resource_type === "ai_point" && value.source_type === "model_invocation_v1"));
 const page = z
   .object({
     organization_id: id,
@@ -86,7 +89,7 @@ export function getResourceEvents(
     (filters.cursor && filters.cursor.length > 1024)
   )
     throw new CommercialBillingReadError(400, "INVALID_REQUEST");
-  const query = new URLSearchParams({ limit: "50" });
+  const query = new URLSearchParams({ limit: "50", include_purpose: "true" });
   if (filters.resourceType) query.set("resource_type", filters.resourceType);
   if (filters.deductionsOnly) query.set("deductions_only", "true");
   if (filters.from) query.set("from", filters.from);
@@ -113,7 +116,7 @@ const usageObjectResponse = z.object({
   organization_id: id,
   event_id: objectId,
   object: businessObject.nullable(),
-  purpose: z.enum(["chat_planning", "own_product_intake"]).optional(),
+  purpose: modelPurpose.optional(),
 }).strict().refine(({ object, purpose }) => object === null || purpose === undefined);
 
 export type ResourceBusinessObject = z.infer<typeof businessObject>;

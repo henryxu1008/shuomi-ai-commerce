@@ -246,10 +246,10 @@ it("shows only actual deductions in the list and keeps exact movements and balan
   const page = parseResourceEvents({
     organization_id: "org-B",
     items: [
-      pointEvent,
+      { ...pointEvent, purpose: "chat_planning" },
       rowEvent,
       { ...rowEvent, event_id: "event-data-used", reason: "commit", consumed_delta: "2500" },
-      { ...pointEvent, event_id: "event-reserved", reason: "model_point_reserve", consumed_delta: "0.000000" },
+      { ...pointEvent, event_id: "event-reserved", reason: "model_point_reserve", consumed_delta: "0.000000", purpose: "own_product_intake" },
       { ...pointEvent, event_id: "event-released", reason: "model_point_released", consumed_delta: "0" },
       { ...pointEvent, event_id: "event-adjusted", reason: "adjustment", consumed_delta: "-0.000001" },
     ],
@@ -266,7 +266,7 @@ it("shows only actual deductions in the list and keeps exact movements and balan
   expect(list.queryByRole("columnheader", { name: "本次变动" })).not.toBeInTheDocument();
   const rows = list.getAllByRole("row");
   const row = within(rows[1]);
-  expect(row.getByRole("cell", { name: /使用 AI 模型调用 · AI 点数/ })).toBeVisible();
+  expect(row.getByRole("cell", { name: /使用 · 聊天规划 AI 模型调用 · AI 点数/ })).toBeVisible();
   expect(row.queryByText(/00:00:00\.123456/)).not.toBeInTheDocument();
   for (const time of row.getAllByText("2026-11-16 00:00:00")) {
     expect(time).toHaveAttribute("datetime", "2026-11-16T00:00:00.123456Z");
@@ -275,6 +275,8 @@ it("shows only actual deductions in the list and keeps exact movements and balan
   expect(rows[1]).not.toHaveTextContent("100.000001 点");
   expect(rows[1]).not.toHaveTextContent("预留 +0.000001 点");
   expect(within(rows[3]).getByRole("cell", { name: "2,500 条" })).toBeVisible();
+  expect(within(rows[4]).getByText("模型调用预留 · 自有商品录入")).toBeVisible();
+  expect(within(rows[2]).queryByText(/聊天规划|自有商品录入/)).not.toBeInTheDocument();
   for (const row of [rows[2], rows[4], rows[5], rows[6]]) {
     expect(within(row).getByRole("cell", { name: "—" })).toBeVisible();
   }

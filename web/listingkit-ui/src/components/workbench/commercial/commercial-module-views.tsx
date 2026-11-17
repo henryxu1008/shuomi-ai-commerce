@@ -228,7 +228,7 @@ function UsageEventsTable({ items, scope }: { items: UsageEvent[]; scope: Acquis
               return (
                 <tr key={event.event_id}>
                   <td>
-                    <strong>{reasonFor(event)}</strong>
+                    <strong>{reasonFor(event)}{event.purpose ? ` · ${usagePurposes[event.purpose]}` : ""}</strong>
                     <span className={styles.usageMeta}>{sourceFor(event)} · {resource?.name}</span>
                     <span className={styles.usageCompact}>
                       <UsageEventTime timestamp={event.occurred_at} showFractionalSeconds={false} /> UTC
