@@ -19,7 +19,7 @@ Accepted Risks：沿当前各 owner 合同，本轮无新增已接受风险。�
 
 ## 2. 当前依据、Figma 与 Threat Model
 
-引用 [最终 UI/IA Authority](../product/final-ui-ia-authority.md)、[供应链](my-supply-chain-shein.md)、[未绑定草稿](supply-unbound-completion-drafts.md)、[SHEIN 发布](shein-publication-flow.md)、[领域边界](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。本决定替代其中五个顶层阶段、已上传再次发布入口和审核后重新配置的产品投影；原版本/授权/事务/幂等/UNKNOWN/官方能力不变量保持。
+引用 [最终 UI/IA Authority](../product/final-ui-ia-authority.md)、[供应链](my-supply-chain-shein.md)、[未绑定草稿](supply-unbound-completion-drafts.md)、[SHEIN 发布](domains/listing/shein-publication-flow.md)、[领域边界](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。本决定替代其中五个顶层阶段、已上传再次发布入口和审核后重新配置的产品投影；原版本/授权/事务/幂等/UNKNOWN/官方能力不变量保持。
 
 Figma Authority：`tg48P46SSXl6TBy9lZwg63` / 当前可见页面 `31:463`。原位更新介绍 `926:569` / `926:359`，待上传主状态 `3507:3143` / `3507:3338` 及同组初始/配置状态，补全 `2667:1948` / `2667:2252`，审核 `2738:359` / `2738:951`，上传记录 `2738:655` / `2738:1247`。图中设计示例不是运行事实。
 

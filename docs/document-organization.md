@@ -78,7 +78,7 @@ docs/
 - [#1359](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1359)：`completion-draft-internal-note.md` 迁入 `architecture/domains/listing/`，保留 Listing CompletionDraft 已冻结合同。
 - [#1361](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1361)：两份 Listing CompletionDraft 历史/恢复架构合同成组迁入 `architecture/domains/listing/`，原 Operations 使用说明继续独立维护。
 
-对应 CSV 十七行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
+对应 CSV 二十行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
 
 - [#1363](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1363)：`CompletionDraft` 结构化候选冻结合同由架构根层迁至 `architecture/domains/listing/`；相邻 Product 与 Operations 同名文档各自保留业务/使用说明职责，不进行内容合并。
 - [#1366](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1366)：C3-2 SHEIN 候选类目规则查询与只读解释合同归入 `architecture/domains/listing/`；Marketplace RuleReader/Provider 仍提供原规则，不变更 C3-2 R1 准入与不可采用边界。
@@ -87,6 +87,7 @@ docs/
 - [#1374](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1374)：现行 SHEIN 单商品多颜色/SKU 销售属性映射合同归入 `architecture/domains/listing/`；明确保留原根层的颜色拆稿旧设计为已被 2026-11-09 业务决定替代的历史资料，不迁成当前流程，不解除稀疏规格发布阻断。
 - [#1378](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1378)：TEMU、TikTok Shop US、Walmart US 三份**官方合同证据**归入 `architecture/domains/marketplace/`；这些是既有公开接口调查的有界快照，不改变原产品设计准入、商家授权范围、UNKNOWN/NOT_RUN 或真实发布资格。
 - [#1380](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1380)：TEMU、TikTok Shop US、Walmart US 三份跨 Store、Listing、Marketplace 的平台专项总设计统一移至 Marketplace 阅读目录；各原事实 Owner、实施许可、未解决真实商家授权/官方规格缺口及历史 NOT_RUN 均保持，不据目录改变权威。
+- [#1383](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1383)：SHEIN 首次上架/状态回读、TikTok 发送前 no-send 与显式重试、Walmart Feed 拒绝修复/有界续读三份原 Submission/结果恢复合同迁入 `architecture/domains/listing/`，保留 Marketplace 官方协议来源、原权限/Unknown/人工确认和历史适用边界；不得把移动误认为产品实际已发布或原恢复门禁放宽。
 
 ## 4. 逐文件清单的解释
 
@@ -95,7 +96,7 @@ docs/
 - `path`：已核实迁移的行写入当前真实路径；其余行保留原基线快照，使用前必须再次核对 main。`layer`、`domain`：原为候选领域，已迁移行按核实的领域校准。
 - `action`：`KEEP_PATH`（保留关键路径/当前路径）、`KEEP_ASSET`（非 Markdown 资产）、`REVIEW_MOVE`（待阅读后判断是否搬迁）、`REVIEW_CROSS_LAYER`（跨层同名关联，先核实不同职责）、`REVIEW_LIFECYCLE`（试用、候选、特定实例或历史时期名称，先核实适用性）。
 - `candidate_path`：**提议路径，不是已批准的迁移操作**；`related_paths`：跨分类同名关联；`size_bytes`：GitHub 当前文件大小。
-- `review_status=PROPOSED_ONLY` 适用于仍未逐篇核实的 336 个原基线行；17 行 `MOVED_VERIFIED` 表示仅**准确路径与相对引用迁移已核实**，不代表设计本身已准入、产品已验收或允许关闭 Issue。不得按表直接删除、搬移或关闭任务。
+- `review_status=PROPOSED_ONLY` 适用于仍未逐篇核实的 333 个原基线行；20 行 `MOVED_VERIFIED` 表示仅**准确路径与相对引用迁移已核实**，不代表设计本身已准入、产品已验收或允许关闭 Issue。不得按表直接删除、搬移或关闭任务。
 
 任何新一轮文件检查应重新取当时主线与相关文档版本；旧行可能因正常开发变动而过期。若准确 owner/内容与候选目录不一致，应修改清单后再实施。
 

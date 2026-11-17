@@ -2,7 +2,7 @@
 
 Refs [#669](https://github.com/qq550723504/task-processor/issues/669)。
 
-> #669 / PR #1031 的[发送前 no-send 最小恢复合同](../../tiktok-pre-dispatch-no-send.md)已获用户认可并完成准确5496f141c的独立架构复核，**IMPLEMENTATION_READY / FROZEN**。用户已授权原唯一 Writer 实施并复用原 Reviewer 做增量检查；具体实现/自检/CI证据留 PR。该合同不把原 UNKNOWN 重分类，不授权操作保留实例；本文其余已冻结范围保持。
+> #669 / PR #1031 的[发送前 no-send 最小恢复合同](../listing/tiktok-pre-dispatch-no-send.md)已获用户认可并完成准确5496f141c的独立架构复核，**IMPLEMENTATION_READY / FROZEN**。用户已授权原唯一 Writer 实施并复用原 Reviewer 做增量检查；具体实现/自检/CI证据留 PR。该合同不把原 UNKNOWN 重分类，不授权操作保留实例；本文其余已冻结范围保持。
 
 - Product Decision: PD-TIKTOKSHOP-US-CROSSBORDER-2026-10-13，来自本 Issue 中用户确认的当前范围。
 - Design Basis: Independent Architecture。
