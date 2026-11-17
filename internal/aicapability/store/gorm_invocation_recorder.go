@@ -402,7 +402,7 @@ func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool
 		return record.AgentRunID != "" && record.Capability == aicapability.CapabilityProductEnrichText && record.OfficialTariff.MatchesWireModel(record.ModelID)
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		return record.AgentRunID != ""
-	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute:
+	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchSkillAuthoring:
 		return record.AgentRunID == "" && record.BusinessTaskID == "" &&
 			record.Capability == aicapability.CapabilityAIWorkbenchChatPlanning
 	default:

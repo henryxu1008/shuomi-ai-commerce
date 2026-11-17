@@ -1111,9 +1111,9 @@ it("creates a project in Chat without a working model, and recovers the original
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   fireEvent.click(screen.getByRole("button",{name:"选择店铺"}));
   fireEvent.click(await screen.findByRole("button",{name:"甲店"}));
-  const skillTrigger = screen.getByRole("button",{name:"选择技能"});
+  const skillTrigger = screen.getByRole("button",{name:"项目操作"});
   fireEvent.click(skillTrigger);
-  const skills = screen.getByRole("dialog",{name:"选择技能"});
+  const skills = screen.getByRole("dialog",{name:"项目操作"});
   expect(within(skills).getByRole("button",{name:"执行项目任务"})).toBeDisabled();
   fireEvent.click(within(skills).getByRole("button",{name:"创建项目"}));
   expect(skills).not.toBeInTheDocument();

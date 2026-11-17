@@ -75,7 +75,12 @@ func validateWorkbenchPrivilegesForEdit(db *gorm.DB, role string, enable bool) e
 		}
 		columns["scheduled_plans"] = append(columns["scheduled_plans"], editable...)
 	}
-	return validateWorkbenchPrivilegeBounds(db, role, []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}, columns)
+	tables := []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}
+	if db.Migrator().HasTable("ai_workbench.skill_authoring_drafts") {
+		tables = append(tables, "skill_authoring_drafts")
+		columns["skill_authoring_drafts"] = []string{"state", "deadline", "generated", "save_key", "save_digest", "save_content", "saved_skill_id"}
+	}
+	return validateWorkbenchPrivilegeBounds(db, role, tables, columns)
 }
 
 func validateWorkbenchPrivilegeBounds(db *gorm.DB, role string, tables []string, mutable map[string][]string) error {
@@ -162,6 +167,11 @@ func GrantRuntime(db *gorm.DB, role string) error {
 	}
 	if len(editable) > len(scheduledEditColumns) {
 		statements = append(statements, "GRANT UPDATE(report_spec) ON ai_workbench.scheduled_plans TO "+quoted)
+	}
+	if db.Migrator().HasTable("ai_workbench.skill_authoring_drafts") {
+		statements = append(statements,
+			"GRANT SELECT, INSERT ON ai_workbench.skill_authoring_drafts TO "+quoted,
+			"GRANT UPDATE (state, deadline, generated, save_key, save_digest, save_content, saved_skill_id) ON ai_workbench.skill_authoring_drafts TO "+quoted)
 	}
 	for _, sql := range statements {
 		if err := db.Exec(sql).Error; err != nil {

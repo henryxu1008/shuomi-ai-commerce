@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	d "task-processor/internal/skill"
@@ -49,7 +48,7 @@ func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.Re
 			return err
 		}
 		for _, release := range packages {
-			id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+release.Key)).String()
+			id := d.OfficialReleaseID(release.Key)
 			if automatic {
 				var row skillRow
 				result := tx.Where("id=?", id).Take(&row)
@@ -92,7 +91,7 @@ func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.Re
 				if count != 0 {
 					return d.ErrConflict
 				}
-				original = d.Version{Metadata: d.Metadata{ID: id, Owner: d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}, Creator: p.UserID, HeadVersion: 1, Revision: 1, CreatedAt: now, UpdatedAt: now}, Number: 1, Package: basePackage, State: d.Draft, Visibility: d.Private, AllowCopy: true, AllowExport: true, CreatedAt: now}
+				original = d.Version{Metadata: d.Metadata{ID: id, Owner: d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}, Creator: p.UserID, HeadVersion: 1, Revision: 1, CreatedAt: now, UpdatedAt: now}, Number: 1, Package: basePackage, State: d.Draft, Visibility: d.Private, AllowCopy: !basePackage.Supports(d.AuthoringTarget), AllowExport: true, CreatedAt: now}
 				if automatic {
 					original.State, original.Visibility = d.Enabled, d.Shared
 					original.Metadata.Revision += 2

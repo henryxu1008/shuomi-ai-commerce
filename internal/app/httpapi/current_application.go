@@ -1232,6 +1232,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			modules = append(modules, imageAnalysisModule{app: analysis})
 		}
 	}
+	var workbenchSkillService *skill.Service
+	var workbenchSkillRepo *skillstore.Store
+	var workbenchSkillAccess *skillauth.Authorizer
 	if supplied.agentConfigurationDB != nil {
 		access, e := skillauth.New(workbench.authDependencies.organizationResolver, authorizer)
 		if e != nil {
@@ -1250,6 +1253,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, e
 			}
+			workbenchSkillService, workbenchSkillRepo, workbenchSkillAccess = h.Service, repo, access
 			h.ImageService, e = skill.NewService(repo, access.ResolveImage)
 			if e != nil {
 				return nil, e
@@ -1272,6 +1276,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 		projectChat = module.(aiWorkbenchModule).application
+		if e := projectChat.attachSkillAuthoring(ctx, workbenchSkillService, workbenchSkillRepo, workbenchSkillAccess); e != nil {
+			return nil, fmt.Errorf("build Chat skill authoring: %w", e)
+		}
 		projectChat.attachDailyReports(ctx, dailyReports)
 		if supplied.storeCenterDB != nil {
 			stores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer})

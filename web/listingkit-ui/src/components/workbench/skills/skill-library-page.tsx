@@ -21,7 +21,7 @@ const categories = [
   {id: "team", label: "团队技能", path: `${root}/team`, description: "查看和管理当前企业的技能。"},
 ] as const;
 
-export function SkillLibraryPage({expectedUserId, category, maintenance=false}: {expectedUserId: string; category: SkillCategory; maintenance?: boolean}) {
+export function SkillLibraryPage({expectedUserId, category, maintenance=false, initialSkillId}: {expectedUserId: string; category: SkillCategory; maintenance?: boolean; initialSkillId?: string}) {
   const ctx = useWorkbenchContext();
   const current = categories.find(item => item.id === category)!;
   const authenticationFailed = [ctx.error, ctx.blockingError].some(error => error?.code === "AUTHENTICATION_REQUIRED");
@@ -53,10 +53,10 @@ export function SkillLibraryPage({expectedUserId, category, maintenance=false}: 
   if (category === "team" && !organization) {
     return renderPage(<ConsoleState kind="unavailable" title="请先选择企业">团队技能属于当前企业，选择企业后按已有权限管理。</ConsoleState>);
   }
-  return <SkillManager key={JSON.stringify([expectedUserId, ctx.user?.id, organization?.id, ctx.permissions, category, maintenance])}
+  return <SkillManager key={JSON.stringify([expectedUserId, ctx.user?.id, organization?.id, ctx.permissions, category, maintenance, initialSkillId])}
     scope={{userId: expectedUserId, organizationId: organization?.id}}
     home={category === "team" ? "organization" : "personal"}
     initialSpace={category === "official" ? "official" : category === "team" ? "organization" : "personal"}
     canConfigure={organizationReady && ctx.permissions.includes("workbench.agent.configure")}
-    presentation="page" maintenance={maintenance} renderPage={renderPage}/>;
+    presentation="page" maintenance={maintenance} initialSkillId={initialSkillId} renderPage={renderPage}/>;
 }

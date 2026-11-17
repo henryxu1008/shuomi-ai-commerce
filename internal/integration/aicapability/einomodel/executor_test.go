@@ -312,6 +312,15 @@ func testTextProfile(endpoint string) aicapability.ModelProfile {
 }
 
 func TestExecutorSettlesOneObservedPlannerInvocation(t *testing.T) {
+	testExecutorSettlesOneObservedInvocation(t, aicapability.OperationAIWorkbenchChatPlan)
+}
+
+func TestExecutorSettlesOneSkillAuthoringInvocation(t *testing.T) {
+	testExecutorSettlesOneObservedInvocation(t, aicapability.OperationAIWorkbenchSkillAuthoring)
+}
+
+func testExecutorSettlesOneObservedInvocation(t *testing.T, operation aicapability.Operation) {
+	t.Helper()
 	sends := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		sends++
@@ -319,10 +328,12 @@ func TestExecutorSettlesOneObservedPlannerInvocation(t *testing.T) {
 	}))
 	defer server.Close()
 	profile := testTextProfile(server.URL)
-	input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1", Operation: aicapability.OperationAIWorkbenchChatPlan, InvocationID: "inv-1", System: "system", Prompt: "prompt", Profile: profile}
+	input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1", Operation: operation, InvocationID: "inv-1", System: "system", Prompt: "prompt", Profile: profile}
 	quote, err := aicapability.QuoteText(input)
 	require.NoError(t, err)
 	ledger := &recordingLedger{}
+	require.Zero(t, sends)
+	require.False(t, ledger.reserved)
 	authCalls := 0
 	executor := Executor{
 		Ledger: ledger, Admission: NewBoundedAdmission(),
@@ -345,6 +356,9 @@ func TestExecutorSettlesOneObservedPlannerInvocation(t *testing.T) {
 	require.Len(t, ledger.records, 2)
 	require.Equal(t, aicapability.InvocationDispatched, ledger.records[0].Outcome)
 	require.Equal(t, aicapability.InvocationSucceeded, ledger.records[1].Outcome)
+	require.Equal(t, operation, ledger.records[1].Operation)
+	require.Empty(t, ledger.records[1].AgentRunID)
+	require.Empty(t, ledger.records[1].BusinessTaskID)
 	require.Equal(t, 15, ledger.records[1].TotalTokens)
 	require.Equal(t, quote.InputHash, ledger.records[1].InputHash)
 

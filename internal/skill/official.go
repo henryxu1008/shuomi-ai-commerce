@@ -6,7 +6,28 @@ import (
 	"io/fs"
 	"strings"
 	"task-processor/internal/agent"
+
+	"github.com/google/uuid"
 )
+
+const AuthoringReleaseKey = "official-method-v1:skill-authoring"
+
+func OfficialReleaseID(key string) string {
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+key)).String()
+}
+
+// Authoring is the one platform release admitted to this consumer.
+func (s *Service) Authoring(ctx context.Context, version uint64) (Version, error) {
+	v, _, err := s.Read(ctx, "official", OfficialReleaseID(AuthoringReleaseKey), version)
+	if err != nil {
+		return Version{}, err
+	}
+	if !v.Package.Supports(AuthoringTarget) || v.State != Enabled || v.Visibility != Shared ||
+		v.Metadata.Owner != (Owner{Kind: PlatformOwner, ID: PlatformID}) {
+		return Version{}, ErrNotEnabled
+	}
+	return v, nil
+}
 
 // Release material is installed explicitly into the existing Skill owner.
 // Reads and execution never fall back to this embedded bundle.

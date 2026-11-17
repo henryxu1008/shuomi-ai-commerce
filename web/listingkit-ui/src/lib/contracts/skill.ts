@@ -9,7 +9,7 @@ export const skillScopeSchema=z.enum(["personal","organization","official"]);
 export type SkillSpace=z.infer<typeof skillScopeSchema>;
 export const skillRefSchema=z.strictObject({kind:z.literal("skill-version-v1"),id,ownerKind:z.enum(["USER","ORGANIZATION","PLATFORM"]),ownerId:subject,version:number,digest,policyVersion:z.enum(["skill-method-v1","skill-script-method-v1"])}).refine(v=>v.ownerKind!=="PLATFORM"||v.ownerId==="official");
 export const skillSelectionSchema=z.strictObject({skillId:id,version:number,digest});
-export const skillTargetSchema=z.enum(["product-title","product-image"]);
+export const skillTargetSchema=z.enum(["product-title","product-image","skill-authoring"]);
 export type SkillSelection=z.infer<typeof skillSelectionSchema>;
 export const skillFileSchema=z.strictObject({path:z.string().min(1).refine(v=>new TextEncoder().encode(v).length<=256),text:z.string().refine(v=>new TextEncoder().encode(v).length<=16384)});
 export const skillFilesSchema=z.array(skillFileSchema).min(1).max(16).refine(v=>new TextEncoder().encode(JSON.stringify(v)).length<=49152);

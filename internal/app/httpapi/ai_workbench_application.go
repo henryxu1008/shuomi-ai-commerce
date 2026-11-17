@@ -41,6 +41,7 @@ type AIWorkbenchDependencies struct {
 }
 
 type aiWorkbenchApplication struct {
+	authoring              *workbenchSkillAuthoring
 	dailyReports           *scheduledreport.Application
 	dailyReportsEnabled    bool
 	scheduleRecoveryMu     sync.Mutex

@@ -104,6 +104,33 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
         OR (operation = 'chat_store_overview' AND state = 'COMPLETE' AND member_id IS NOT NULL AND user_message_id IS NOT NULL AND source_sequence IS NOT NULL AND assistant_message_id IS NOT NULL AND planner_invocation_id IS NULL AND planner_input_hash IS NULL AND planner_model_profile IS NULL AND route_result = 'STORE_OVERVIEW'))
 );
 
+CREATE TABLE IF NOT EXISTS ai_workbench.skill_authoring_drafts (
+    organization_id text NOT NULL,
+    actor_id text NOT NULL,
+    conversation_id uuid NOT NULL,
+    key uuid NOT NULL,
+    member_id text NOT NULL,
+    state text NOT NULL CHECK (state IN ('QUOTED','READY','COMPLETE','FAILED','INVALID','UNKNOWN')),
+    requirement text NOT NULL CHECK (octet_length(requirement) BETWEEN 1 AND 8192),
+    skill_version bigint NOT NULL CHECK (skill_version > 0),
+    skill_digest char(64) NOT NULL,
+    input_hash char(64) NOT NULL,
+    profile_digest char(64) NOT NULL,
+    maximum_points bigint NOT NULL CHECK (maximum_points >= 0),
+    invocation_id char(64) NOT NULL UNIQUE,
+    expires_at timestamptz NOT NULL,
+    deadline timestamptz,
+    generated text NOT NULL DEFAULT '' CHECK (octet_length(generated) <= 32768),
+    save_key uuid UNIQUE,
+    save_digest text NOT NULL DEFAULT '',
+    save_content text NOT NULL DEFAULT '' CHECK (octet_length(save_content) <= 16384),
+    saved_skill_id uuid,
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY (organization_id, actor_id, conversation_id, key),
+    FOREIGN KEY (conversation_id, organization_id, actor_id)
+        REFERENCES ai_workbench.conversations (id, organization_id, owner_user_id)
+);
+
 CREATE TABLE IF NOT EXISTS ai_workbench.execution_proposals (
     id uuid PRIMARY KEY,
     workbench_context_ref jsonb CONSTRAINT ai_workbench_proposal_context CHECK (workbench_context_ref IS NULL OR (jsonb_typeof(workbench_context_ref) = 'object' AND octet_length(workbench_context_ref::text) <= 1024)),

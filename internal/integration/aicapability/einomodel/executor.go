@@ -93,7 +93,7 @@ func capabilityFor(operation aicapability.Operation) aicapability.Capability {
 	if operation == aicapability.OperationProductImageAnalysis {
 		return aicapability.CapabilityProductImageAnalysis
 	}
-	if operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute {
+	if operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationAIWorkbenchSkillAuthoring {
 		return aicapability.CapabilityAIWorkbenchChatPlanning
 	}
 	return aicapability.CapabilityProductEnrichText

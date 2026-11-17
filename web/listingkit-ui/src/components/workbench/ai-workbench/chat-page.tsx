@@ -21,6 +21,8 @@ import { WorkScopePicker, scopeLabel, scopeSelection } from "./work-scope-picker
 import { aiCreateBody, aiMessageBody, aiStoreChoice, aiStoreRouteBody, type WorkScopeOption, type WorkScopeSelection, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
+import {ChatSkillAuthoring, ChatSkillDrawer} from "./chat-skill-authoring";
+import type {AISkillAuthoringChoice} from "@/lib/contracts/ai-workbench";
 import {ChatProjectCreateCard,ProjectSkillPicker,readProjectWorkScope,useChatProjectCreation,type ProjectSkill} from "./chat-project-actions";
 import {ChatTaskSelection} from "./chat-task-selection";
 import {ChatContextPicker} from "./chat-context-picker";
@@ -39,7 +41,7 @@ function readLocalDraft(raw:string | null): LocalDraft | null { if(raw===null)re
 type ConfirmationReceipt = { key: string; taskId?: string; pending?:true };
 const pendingMessageLegacyKey = (scope: AIScope, id: string) => `ai-workbench:pending-message:${scope.userId}:${scope.organizationId}:${id}`;
 const pendingMessageStorageKey = (scope: AIScope, id: string) => `ai-workbench:pending-message-v2:${JSON.stringify([scope.userId,scope.organizationId,id])}`;
-type PendingCreate = {key:string; body: {scopeSelection:WorkScopeSelection; scopeConfirmation:string} | {favorite?:boolean}; draft?:string; context?:string; conversationId?:string; owner?:AIScope; storeChoice?:ChatStoreChoice; projectTask?:true};
+type PendingCreate = {key:string; body: {scopeSelection:WorkScopeSelection; scopeConfirmation:string} | {favorite?:boolean}; draft?:string; context?:string; conversationId?:string; owner?:AIScope; storeChoice?:ChatStoreChoice; projectTask?:true; authoring?:Pick<AISkillAuthoringChoice,"version"|"digest">};
 const pendingCreateStorageKey = (scope: AIScope) => `ai-workbench:pending-create:${scope.userId}:${scope.organizationId}`;
 const pendingComposeStorageKey = (scope: AIScope) => `ai-workbench:pending-create-v2:${JSON.stringify([scope.userId,scope.organizationId])}`;
 const composeDraftKey = (scope: AIScope, context: string) => `ai-workbench:compose:${JSON.stringify([scope.userId,scope.organizationId,context])}`;
@@ -132,6 +134,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const [selectedScope, setSelectedScope] = useState<WorkScopeOption>();
   const [scopeGeneration, setScopeGeneration] = useState(0);
   const [creating, setCreating] = useState(false);
+  const [authoringChoice, setAuthoringChoice] = useState<AISkillAuthoringChoice>();
   const [error, setError] = useState("");
   const [titleFilter, setTitleFilter] = useState("");
   const isCollection = mode === "recent" || mode === "saved" || mode === "archived";
@@ -140,7 +143,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const [activeCreateKey,setActiveCreateKey] = useState(createStorageKey);
   useEffect(() => {
     let active = true;
-    queueMicrotask(() => { if (active) { try { const rawNew = sessionStorage.getItem(createStorageKey); const oldKey=pendingCreateStorageKey(scope); const rawOld=directCompose ? sessionStorage.getItem(oldKey) : null; if(rawNew!==null && rawOld!==null)throw new Error("multiple pending records");if(rawOld!==null && (scope.userId.includes(":") || scope.organizationId.includes(":")))throw new Error("ambiguous pending identity");const raw=rawOld ?? rawNew;const source=rawOld!==null?oldKey:createStorageKey;setActiveCreateKey(source);if(raw !== null) { const value = JSON.parse(raw) as PendingCreate; const body = aiCreateBody.safeParse(value.body); if (!isAcquisitionUUID(value.key) || !body.success || (value.draft === undefined) !== (value.context === undefined) || value.draft !== undefined && typeof value.draft !== "string" || value.context !== undefined && typeof value.context !== "string" || value.conversationId !== undefined && !isAcquisitionUUID(value.conversationId) || value.storeChoice !== undefined && !aiStoreChoice.safeParse(value.storeChoice).success || value.projectTask !== undefined && (value.projectTask !== true || !("scopeSelection" in body.data) || body.data.scopeSelection?.kind !== "project") || directCompose && source===createStorageKey && (value.owner?.userId!==scope.userId || value.owner?.organizationId!==scope.organizationId)) throw new Error("invalid pending create"); setCreateIntent({key:value.key, body:body.data,draft:value.draft,context:value.context,conversationId:value.conversationId,owner:value.owner,storeChoice:value.storeChoice,projectTask:value.projectTask}); } setPendingError(""); } catch { setPendingError("原创建请求记录不可读取或身份无法确认，不能开始新请求；请保留记录并联系管理员。"); } setPendingChecked(createStorageKey); } });
+    queueMicrotask(() => { if (active) { try { const rawNew = sessionStorage.getItem(createStorageKey); const oldKey=pendingCreateStorageKey(scope); const rawOld=directCompose ? sessionStorage.getItem(oldKey) : null; if(rawNew!==null && rawOld!==null)throw new Error("multiple pending records");if(rawOld!==null && (scope.userId.includes(":") || scope.organizationId.includes(":")))throw new Error("ambiguous pending identity");const raw=rawOld ?? rawNew;const source=rawOld!==null?oldKey:createStorageKey;setActiveCreateKey(source);if(raw !== null) { const value = JSON.parse(raw) as PendingCreate; const body = aiCreateBody.safeParse(value.body); if (!isAcquisitionUUID(value.key) || !body.success || (value.draft === undefined) !== (value.context === undefined) || value.draft !== undefined && typeof value.draft !== "string" || value.context !== undefined && typeof value.context !== "string" || value.conversationId !== undefined && !isAcquisitionUUID(value.conversationId) || value.storeChoice !== undefined && !aiStoreChoice.safeParse(value.storeChoice).success || value.authoring !== undefined && (!Number.isSafeInteger(value.authoring?.version) || value.authoring.version < 1 || !/^[a-f0-9]{64}$/.test(value.authoring.digest)) || value.projectTask !== undefined && (value.projectTask !== true || !("scopeSelection" in body.data) || body.data.scopeSelection?.kind !== "project") || directCompose && source===createStorageKey && (value.owner?.userId!==scope.userId || value.owner?.organizationId!==scope.organizationId)) throw new Error("invalid pending create"); setCreateIntent({key:value.key, body:body.data,draft:value.draft,context:value.context,conversationId:value.conversationId,owner:value.owner,storeChoice:value.storeChoice,projectTask:value.projectTask,authoring:value.authoring}); } setPendingError(""); } catch { setPendingError("原创建请求记录不可读取或身份无法确认，不能开始新请求；请保留记录并联系管理员。"); } setPendingChecked(createStorageKey); } });
     return () => { active = false; };
   }, [createStorageKey,directCompose,scope.userId,scope.organizationId]);
   useEffect(() => { let active=true; queueMicrotask(()=>{ if(!active || !directCompose)return; try { setCompose(sessionStorage.getItem(draftKey) ?? ""); setDraftError(""); } catch { setDraftError("当前浏览器无法保存草稿，请检查浏览器存储设置。"); } setDraftReady(draftKey); }); return ()=>{active=false}; },[draftKey,directCompose]);
@@ -189,7 +192,10 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
       setError("草稿无法带入，请检查浏览器存储后重试。");
     }
   }
-  async function create() {
+  async function create(authoringRequest?: AISkillAuthoringChoice) {
+    const authoring = createIntent?.authoring ?? authoringRequest;
+    const authoringQuery = authoring ? "?skillAuthoring=1&skillVersion="+authoring.version+"&skillDigest="+authoring.digest : "";
+    if (authoringRequest && createIntent && !createIntent.authoring) return;
     if (projectSaveLocked || !createIntent && projectLaunch && !canExecuteProject) return;
     if (mode !== "new") {
       if (!canUse && !canCreateProject) return;
@@ -199,26 +205,26 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     if (!canUse) return;
     if (directCompose && (pendingChecked !== createStorageKey || pendingError || voiceActive || !createIntent && !recheckStore && !storeState.ready)) return;
     const text = createIntent?.draft ?? compose;
-    if (directCompose && !legacyCreate && (invalidContext || draftReady !== draftKey || draftError || !projectLaunch && !createIntent?.projectTask && !text.trim() || new TextEncoder().encode(text).length > 8192 || createIntent && createIntent.context !== scopeContext)) return;
+    if (directCompose && !legacyCreate && (invalidContext || draftReady !== draftKey || draftError || !authoring && !projectLaunch && !createIntent?.projectTask && !text.trim() || new TextEncoder().encode(text).length > 8192 || createIntent && createIntent.context !== scopeContext)) return;
     const selected = directCompose ? resolvedScope : selectedScope;
     if (creating || fixedScopeEnabled && !createIntent && !selected) return;
-    const intent: PendingCreate = createIntent ?? {key:crypto.randomUUID(),body:selected ? {scopeSelection:scopeSelection(selected),scopeConfirmation:selected.confirmation} : {},...(directCompose ? {draft:compose,context:scopeContext,owner:scope,...(projectLaunch?{projectTask:true as const}:{}),...(!recheckStore&&storeState.choice?{storeChoice:storeState.choice}:{})} : {})};
+    const intent: PendingCreate = createIntent ?? {key:crypto.randomUUID(),body:selected ? {scopeSelection:scopeSelection(selected),scopeConfirmation:selected.confirmation} : {},...(authoring?{authoring:{version:authoring.version,digest:authoring.digest}}:{}),...(directCompose ? {draft:compose,context:scopeContext,owner:scope,...(!authoring&&projectLaunch?{projectTask:true as const}:{}),...(!recheckStore&&storeState.choice?{storeChoice:storeState.choice}:{})} : {})};
     setCreateIntent(intent); setCreating(true); setError("");
     try { sessionStorage.setItem(activeCreateKey, JSON.stringify(intent)); } catch { if(directCompose){if(!createIntent)setCreateIntent(undefined);setCreating(false);setDraftError("无法保存待恢复的请求和需求，请检查浏览器存储设置。");return;} }
-    if(directCompose && intent.conversationId && typeof intent.draft === "string") { try {const target=conversationDraftKey(scope,intent.conversationId),existing=readLocalDraft(sessionStorage.getItem(target));if(existing && existing.id!==intent.key){setError("会话中已有不同的未发送内容，请先打开原会话核对。");setCreating(false);return;}if(!existing)sessionStorage.setItem(target,JSON.stringify({id:intent.key,text:intent.draft}));if(intent.storeChoice){const storeKey=chatStoreChoiceKey(scope,`conversation:${intent.conversationId}`),previous=sessionStorage.getItem(storeKey),serialized=JSON.stringify(intent.storeChoice);if(previous&&previous!==serialized)throw new Error("store choice changed");sessionStorage.setItem(storeKey,serialized);}router.push("/workbench/ai/chat/"+intent.conversationId+(intent.projectTask?"?projectTask=1":""));}catch{setError("无法保存需求或店铺选择，请检查浏览器存储设置并重试。");}setCreating(false);return; }
+    if(directCompose && intent.conversationId && typeof intent.draft === "string") { try {const target=conversationDraftKey(scope,intent.conversationId),existing=readLocalDraft(sessionStorage.getItem(target));if(existing && existing.id!==intent.key){setError("会话中已有不同的未发送内容，请先打开原会话核对。");setCreating(false);return;}if(!existing)sessionStorage.setItem(target,JSON.stringify({id:intent.key,text:intent.draft}));if(intent.storeChoice){const storeKey=chatStoreChoiceKey(scope,`conversation:${intent.conversationId}`),previous=sessionStorage.getItem(storeKey),serialized=JSON.stringify(intent.storeChoice);if(previous&&previous!==serialized)throw new Error("store choice changed");sessionStorage.setItem(storeKey,serialized);}router.push("/workbench/ai/chat/"+intent.conversationId+(intent.authoring?authoringQuery:intent.projectTask?"?projectTask=1":""));}catch{setError("无法保存需求或店铺选择，请检查浏览器存储设置并重试。");}setCreating(false);return; }
     const controller = new AbortController(); abort.current = controller;
     try {
       const result = await requestAIWorkbench({ route: "conversation-create", method: "POST", path: "chat/conversations", scope, key: intent.key, body: intent.body, signal: controller.signal });
       if (controller.signal.aborted) return;
       if(directCompose && typeof intent.draft === "string") { try { const bound={...intent,conversationId:result.conversation.ID};sessionStorage.setItem(activeCreateKey,JSON.stringify(bound));setCreateIntent(bound);const target=conversationDraftKey(scope,result.conversation.ID);const existing=readLocalDraft(sessionStorage.getItem(target));if(existing && existing.id!==intent.key){setError("会话中已有不同的未发送内容，请先打开原会话核对。");return;}if(!existing)sessionStorage.setItem(target,JSON.stringify({id:intent.key,text:intent.draft}));if(intent.storeChoice){const storeKey=chatStoreChoiceKey(scope,`conversation:${result.conversation.ID}`),previous=sessionStorage.getItem(storeKey),serialized=JSON.stringify(intent.storeChoice);if(previous&&previous!==serialized)throw new Error("store choice changed");sessionStorage.setItem(storeKey,serialized);} } catch { setError("会话已创建，但无法保存需求；请保持页面并重试原请求。"); return; } }
       if (directCompose && typeof intent.draft === "string") {
-        const query = intent.projectTask ? "?projectTask=1" : selectedOperationId && isAcquisitionUUID(selectedOperationId) ? "?operationId="+encodeURIComponent(selectedOperationId) : "";
+        const query = intent.authoring ? authoringQuery : intent.projectTask ? "?projectTask=1" : selectedOperationId && isAcquisitionUUID(selectedOperationId) ? "?operationId="+encodeURIComponent(selectedOperationId) : "";
         router.push("/workbench/ai/chat/"+result.conversation.ID+query);
         return;
       }
       setCreateIntent(undefined);
       try { sessionStorage.removeItem(pendingCreateStorageKey(scope)); } catch { /* navigation still succeeds */ }
-      router.push(`/workbench/ai/chat/${result.conversation.ID}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
+      router.push(`/workbench/ai/chat/${result.conversation.ID}${intent.authoring ? authoringQuery : selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
     } catch (cause) { if (!controller.signal.aborted) {
       if (cause instanceof AIWorkbenchError && cause.conversationAccepted === false && (cause.code === "NOT_FOUND" || cause.code === "PROPOSAL_STALE")) {
         try { sessionStorage.removeItem(activeCreateKey); } catch { setError("无法更新本地恢复记录，请检查浏览器存储设置。"); return; }
@@ -232,6 +238,15 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const visibleSkill = projectSaveLocked ? "create-project" : skill;
   const changeSkill = (next:ProjectSkill) => {setSkill(next);creation.reset();};
   const projectControls = projectAvailable ? <ProjectSkillPicker value={visibleSkill} onChange={changeSkill} disabled={creating||Boolean(createIntent)||projectSaveLocked} canCreate={canCreateProject} canExecute={canExecuteProject}/> : null;
+  const authoringControls = canUse ? <>
+    <ChatSkillDrawer scope={scope} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={setAuthoringChoice} />
+    {authoringChoice && <div className="flex flex-wrap items-center gap-2">
+      <span>{authoringChoice.name} · 官方 v{authoringChoice.version}</span>
+      <Button type="button" variant="outline" disabled={creating || Boolean(createIntent && !createIntent.authoring) || projectSaveLocked}
+        onClick={()=>void create(authoringChoice)}>{createIntent?.authoring ? "核对原会话请求" : "进入技能创作"}</Button>
+      <Button type="button" variant="ghost" disabled={creating || Boolean(createIntent)} onClick={()=>setAuthoringChoice(undefined)}>取消选择</Button>
+    </div>}
+  </> : null;
   const projectCard = visibleSkill === "create-project" && canCreateProject
     ? <ChatProjectCreateCard creation={creation} store={storeState} canCreate={canCreateProject} disabled={creating||Boolean(createIntent)} onClose={()=>changeSkill("")}/>
     : visibleSkill === "project-task" && !projectEntry ? <Card className="grid gap-3 p-4">
@@ -245,7 +260,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   return <>
     <WorkbenchViewNav className={styles.viewNavigation} label="会话视图">{([ ["new", "新建会话"], ["recent", "最近会话"], ["saved", "收藏会话"], ["archived", "归档会话"] ] as const).map(([view,label]) => <Link key={view} href={`/workbench/ai/chat/${view}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${encodeURIComponent(selectedOperationId)}` : ""}`} prefetch={false} aria-current={mode === view ? "page" : undefined}>{label}</Link>)}</WorkbenchViewNav>
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
-    {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse || canCreateProject ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
+    {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse || canCreateProject ? <Button onClick={()=>void create()} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
       mode === "new" ? <NewConversationIntroduction userId={scope.userId} directCompose={directCompose} canUse={canUse || canCreateProject} createAction={canUse || canCreateProject ? directCompose ? <>
         <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea ref={composeInput} rows={5} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>updateCompose(event.target.value)} placeholder="输入你的需求" /></label>
         {projectId || storeId ? <p>工作背景：{createIntent ? "原请求待核对" : resolvedScope ? scopeLabel(resolvedScope) : "正在核对或无法读取"}</p> : null}
@@ -256,27 +271,28 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
         {pendingError ? <p role="status">{pendingError}</p> : null}
         {new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 ? <p role="status">需求不能超过 8192 字节。</p> : null}
         <div className={styles.composeFooter}>
-          {!recheckStore || projectControls ? <div className={styles.contextControls}>
+          {!recheckStore || projectControls || authoringControls ? <div className={styles.contextControls}>
             {!recheckStore ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} baseStoreName={projectEntry?undefined:resolvedScope?.scope.storeId?resolvedScope.storeName:undefined} onChange={setStoreState}/> : null}
+            {authoringControls}
             {projectControls}
           </div> : null}
           <div className={styles.voiceControl}><ChatVoiceInput identity={JSON.stringify([scope.userId,scope.organizationId,scopeContext])} disabled={creating || !!createIntent || draftReady !== draftKey || invalidContext} onText={insertVoiceText} onActiveChange={setVoiceActive} /></div>
-          {canUse && (visibleSkill === "" || projectEntry && visibleSkill === "project-task" || createIntent) ? <Button size={projectLaunch?"default":"icon"} onClick={create}
+          {canUse && (visibleSkill === "" || projectEntry && visibleSkill === "project-task" || createIntent) ? <Button size={projectLaunch?"default":"icon"} onClick={()=>void create()}
             aria-label={creating ? "正在创建" : createIntent ? "核对原创建请求" : projectLaunch ? "开启项目会话" : "开始对话"}
-            disabled={voiceActive || creating || projectSaveLocked || projectLaunch&&!createIntent&&!canExecuteProject || !createIntent && !recheckStore && !storeState.ready || pendingChecked !== createStorageKey || !!pendingError || (!legacyCreate && (invalidContext || draftReady !== draftKey || !!draftError || !projectLaunch&&!createIntent?.projectTask&&!(createIntent?.draft ?? compose).trim() || new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 || !!createIntent && createIntent.context !== scopeContext || !resolvedScope && !createIntent))}>
+            disabled={voiceActive || creating || projectSaveLocked || projectLaunch&&!createIntent&&!canExecuteProject || !createIntent && !recheckStore && !storeState.ready || pendingChecked !== createStorageKey || !!pendingError || (!legacyCreate && (invalidContext || draftReady !== draftKey || !!draftError || !projectLaunch&&!createIntent?.projectTask&&!createIntent?.authoring&&!(createIntent?.draft ?? compose).trim() || new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 || !!createIntent && createIntent.context !== scopeContext || !resolvedScope && !createIntent))}>
             {projectLaunch ? createIntent ? "核对原创建请求" : "开启项目会话" : <ArrowUp size={18} aria-hidden="true" />}
           </Button> : null}
         </div>
         {projectLaunch && !createIntent ? <p>{recheckStore?"开启会话后，请重新选择本次任务店铺。":"核对项目和关联店铺后开启会话。进入后再选择商品并生成方案。"}</p> : null}
         {projectCard}
       </> : <>
-        {projectAvailable ? <div className={styles.contextControls}><ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} onChange={setStoreState}/>{projectControls}</div> : null}
+        {projectAvailable || authoringControls ? <div className={styles.contextControls}>{projectAvailable && <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} onChange={setStoreState}/>} {authoringControls}{projectControls}</div> : null}
         {projectCard}
-        {canUse && (visibleSkill === "" || createIntent) ? <>{fixedScopeEnabled ? <WorkScopePicker key={scopeGeneration} scope={scope} authorizationKey={authorizationKey} disabled={creating || !!createIntent} selected={selectedScope} onSelect={setSelectedScope} /> : null}<Button onClick={create} disabled={creating || fixedScopeEnabled && !selectedScope && !createIntent}>{creating ? "正在创建…" : createIntent ? "核对原创建请求" : "新建会话"}</Button></> : null}
+        {canUse && (visibleSkill === "" || createIntent) ? <>{fixedScopeEnabled ? <WorkScopePicker key={scopeGeneration} scope={scope} authorizationKey={authorizationKey} disabled={creating || !!createIntent} selected={selectedScope} onSelect={setSelectedScope} /> : null}<Button onClick={()=>void create()} disabled={creating || fixedScopeEnabled && !selectedScope && !createIntent}>{creating ? "正在创建…" : createIntent ? "核对原创建请求" : "新建会话"}</Button></> : null}
       </> : <p>当前企业仅可查看已有会话。</p>} /> :
       <ConsoleToolbar><div className={styles.collectionToolbar}><label className={styles.searchField}>筛选已加载的会话标题<Input type="search" value={titleFilter} onChange={event => setTitleFilter(event.target.value)} placeholder="输入会话标题" aria-describedby="chat-filter-scope" /></label>
       {titleFilter ? <Button variant="ghost" onClick={() => setTitleFilter("")}>清空筛选</Button> : null}
-      <div className={styles.toolbar}>{canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "新建会话"}</Button> : null}
+      <div className={styles.toolbar}>{canUse ? <Button onClick={()=>void create()} disabled={creating}>{creating ? "正在创建…" : "新建会话"}</Button> : null}
       {mode === "archived" ? <Button asChild variant="outline"><Link href="/workbench/ai/chat/recent" prefetch={false}>返回最近会话</Link></Button> :
         mode === "recent" ? <Button asChild variant="outline"><Link href="/workbench/ai/chat/archived" prefetch={false}>查看归档会话</Link></Button> : null}
       <Button variant="outline" onClick={() => void conversations.refetch()}>刷新</Button></div></div><p id="chat-filter-scope" className={styles.filterNote}>仅筛选已加载的标题；可加载更早会话继续查找。</p></ConsoleToolbar>}
@@ -321,6 +337,8 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [parameters,setParameters]=useState<ContentSelection>({targetLanguage:"en-US",description:true});
   const [platform, setPlatform] = useState<"shein" | "temu" | "amazon">("shein");
   const [content, setContent] = useState("");
+  const [authoringChoice, setAuthoringChoice] = useState<AISkillAuthoringChoice>();
+  const [showAuthoring, setShowAuthoring] = useState(search.get("skillAuthoring") === "1");
   const [draftSaveError, setDraftSaveError] = useState("");
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [draftRetry, setDraftRetry] = useState(0);
@@ -653,11 +671,14 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {canUse && pendingConfirmationId && pendingConfirmationId!==activeProposal?.id ? <ConsoleState kind="unavailable" title="原任务提交待核实">
       <Button type="button" variant="outline" disabled={pending} onClick={()=>void confirm(pendingConfirmationId)}>核对原确认请求</Button>
     </ConsoleState> : null}
-    {projectAvailable && (canUse || canCreateProject) && !current.Archived ? <div className={styles.contextControls}>
-      {!pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
+    {(canUse || projectAvailable && canCreateProject) && !current.Archived ? <div className={styles.contextControls}>
+      {(projectAvailable || contentTasks) && !pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
-      <ProjectSkillPicker value={visibleSkill} onChange={next=>{invalidateProposal();setSkill(next);creation.reset();}} disabled={pending||Boolean(pendingMessage)||projectSaveLocked||awaitingConfirm} canCreate={canCreateProject} canExecute={canExecuteProject}/>
+      {canUse && <ChatSkillDrawer scope={scope} onSelect={chosen=>{setAuthoringChoice(chosen);setShowAuthoring(true);}} onResume={()=>setShowAuthoring(true)} />}
+      {projectAvailable && <ProjectSkillPicker value={visibleSkill} onChange={next=>{invalidateProposal();setSkill(next);creation.reset();}} disabled={pending||Boolean(pendingMessage)||projectSaveLocked||awaitingConfirm} canCreate={canCreateProject} canExecute={canExecuteProject}/>}
     </div> : null}
+    {showAuthoring && canUse && !current.Archived && draftHydrated && <ChatSkillAuthoring scope={scope} conversation={id} selected={authoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
+      initialRequirement={search.get("skillAuthoring")==="1" ? content : ""} onClose={()=>setShowAuthoring(false)} />}
     {projectAvailable && visibleSkill==="create-project" && canCreateProject ? <ChatProjectCreateCard creation={creation} store={conversationStore} canCreate={canCreateProject} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClose={()=>{setSkill("");creation.reset();}}/> : null}
     {projectTask ? <Card className="grid gap-3 p-4">
       <h2>执行项目任务</h2>
@@ -677,7 +698,6 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     </Card> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
     {!current.Archived && canUse && (canPlan || pendingMessage || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
-      {!projectAvailable&&contentTasks&&!pendingMessage?<ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={`conversation:${id}`} disabled={pending} baseStoreName={current.businessScope?.storeId?"原会话店铺":undefined} onChange={setConversationStore}/>:null}
       {contentTasks&&!pendingMessage&&conversationStore.choice?.kind==="store"&&!subject?<p>暂不支持直接查询所选店铺；选择商品后可继续商品任务。</p>:null}
       {contentTasks&&canPlan?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} compactSummary={projectTask} onSubject={value=>{invalidateProposal();setSubject(value);}} onParameters={value=>{invalidateProposal();setParameters(value);}} disabled={pending||Boolean(pendingMessage)||projectAvailable&&awaitingConfirm}/>:null}
       {!contentTasks&&canPlan?<div className={styles.formGrid}><fieldset disabled={pending||Boolean(pendingMessage)}><legend>选择商品</legend><CollectionPicker authorizationKey={authorizationKey} scope={scope} kind="product" disabled={pending||Boolean(pendingMessage)} isEligible={item=>item.source.kind==="acquisition"&&isAcquisitionUUID(item.source.operationId??"")} emptyMessage="当前页没有可用于标题任务的采集商品。" onSelect={item=>{setOperationId(item.source.operationId??"");setSelectedProductName(item.title||"未命名商品")}}/>{operationId?<p>已选择：{selectedProductName||"已保存商品"}</p>:<p>请选择已保存的采集商品。</p>}</fieldset>

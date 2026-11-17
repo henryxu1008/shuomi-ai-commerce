@@ -106,9 +106,38 @@ const scheduleQuote=z.object({consumedOccurrences:decimal.optional(),storeName:z
 export type AIScheduleQuote=z.infer<typeof scheduleQuote>;
 const scheduledSave=z.object({plan:schedulePlan.refine(validScheduleBudget),planSaved:z.literal(true)});
 
+export const aiSkillAuthoringQuote = z.strictObject({
+  requirement: z.string().trim().min(1).max(8192),
+  skillVersion: z.number().int().positive(),
+  skillDigest: z.string().regex(/^[a-f0-9]{64}$/),
+});
+export const aiTitleSkillDraft = z.strictObject({
+  name: z.string().max(64),
+  displayName: z.string().max(512),
+  description: z.string().max(1024),
+  instructions: z.string().max(16384),
+});
+const authoringJob = z.strictObject({
+  key: id, requirement: z.string().max(8192),
+  state: z.enum(["QUOTED", "READY", "COMPLETE", "FAILED", "INVALID", "UNKNOWN"]),
+  draft: aiTitleSkillDraft.nullable(), billing: z.enum(["pending", "released", "committed"]),
+  savePending: z.boolean(), savedSkillId: id.nullable(),
+});
+export type AITitleSkillDraft = z.infer<typeof aiTitleSkillDraft>;
+export type AISkillAuthoringJob = z.infer<typeof authoringJob>;
+export type AISkillAuthoringChoice = NonNullable<z.infer<typeof authoringCatalog>["skill"]>;
+const authoringCatalog = z.strictObject({
+  skill: z.strictObject({
+    version: z.number().int().positive(), digest: z.string().regex(/^[a-f0-9]{64}$/),
+    name: z.string().min(1).max(512), description: z.string().min(1).max(4096),
+  }).nullable(),
+  ready: z.boolean(),
+});
+
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
   "scope-options" | "task-scope-options" | "subject-read" | "message" | "store-route" | "store-overview" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review" |
-  "schedule-availability"|"schedule-list"|"schedule-read"|"schedule-history"|"schedule-quote"|"schedule-create"|"schedule-edit"|"schedule-pause"|"schedule-resume"|"schedule-close"|"schedule-delete";
+  "schedule-availability"|"schedule-list"|"schedule-read"|"schedule-history"|"schedule-quote"|"schedule-create"|"schedule-edit"|"schedule-pause"|"schedule-resume"|"schedule-close"|"schedule-delete" |
+  "skill-authoring-catalog" | "skill-authoring-list" | "skill-authoring-quote" | "skill-authoring-validate" | "skill-authoring-generate" | "skill-authoring-save" | "skill-authoring-save-recover";
 
 export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRoute | null {
   if(path[0]==="schedules"){
@@ -125,7 +154,19 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
   if (path[0] === "chat" && path[1] === "conversations") {
     if (path.length === 2) return method === "GET" ? "conversation-list" : method === "POST" ? "conversation-create" : null;
     if (path.length === 3 && path[2] === "scopes" && method === "GET") return "scope-options";
+    if (path.length === 3 && path[2] === "skill-authoring" && method === "GET") return "skill-authoring-catalog";
     if (!isAcquisitionUUID(path[2] ?? "")) return null;
+    if (path[3] === "skill-authoring") {
+      if (path.length === 4 && method === "GET") return "skill-authoring-list";
+      if (method !== "POST") return null;
+      if (path.length === 5 && path[4] === "quote") return "skill-authoring-quote";
+      if (path.length === 5 && path[4] === "validate") return "skill-authoring-validate";
+      if (path.length !== 6 || !isAcquisitionUUID(path[4] ?? "")) return null;
+      if (path[5] === "generate") return "skill-authoring-generate";
+      if (path[5] === "save") return "skill-authoring-save";
+      if (path[5] === "recover-save") return "skill-authoring-save-recover";
+      return null;
+    }
     if (path.length === 3) return method === "GET" ? "conversation-read" : method === "PATCH" ? "conversation-metadata" : null;
     if (path.length === 4 && path[3] === "messages" && method === "POST") return "message";
     if (path.length === 4 && path[3] === "intent" && method === "POST") return "store-route";
@@ -148,6 +189,13 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
 }
 
 export const aiResponseSchemas = {
+ "skill-authoring-catalog": authoringCatalog,
+ "skill-authoring-list": z.strictObject({drafts: z.array(authoringJob).max(8)}),
+ "skill-authoring-quote": z.strictObject({key: id, maximumMicropoints: decimal, expiresAt: timestamp}),
+ "skill-authoring-validate": z.strictObject({valid: z.literal(true)}),
+ "skill-authoring-generate": authoringJob,
+ "skill-authoring-save": authoringJob,
+ "skill-authoring-save-recover": authoringJob,
  "schedule-availability":z.object({enabled:z.boolean(),ready:z.boolean(),contentEnabled:z.boolean().optional(),storeDailyReportEnabled:z.boolean().optional()}),
  "schedule-list":z.object({plans:z.array(schedulePlan.refine(validScheduleBudget)),next:z.string()}),
  "schedule-read":z.object({plan:schedulePlan.refine(validScheduleBudget)}),

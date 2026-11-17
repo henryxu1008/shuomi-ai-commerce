@@ -36,15 +36,15 @@ export function ProjectSkillPicker({ value, onChange, disabled, canCreate, canEx
 
   return <>
     <Button ref={trigger} variant="outline" disabled={disabled} aria-haspopup="dialog" aria-expanded={open}
-      aria-label={selected ? `选择技能，当前：${selected.label}` : undefined} onClick={() => setOpen(true)}>
-      {selected?.label ?? "选择技能"}
+      aria-label={selected ? `项目操作，当前：${selected.label}` : undefined} onClick={() => setOpen(true)}>
+      {selected?.label ?? "项目操作"}
     </Button>
-    {open ? <AccountDialog title="选择技能" drawer onClose={() => setOpen(false)} returnFocusRef={trigger}>
+    {open ? <AccountDialog title="项目操作" drawer onClose={() => setOpen(false)} returnFocusRef={trigger}>
       <div className="grid gap-3">
         {skills.map(skill => <Button key={skill.id} variant={skill.id === value ? "secondary" : "outline"}
           className="min-h-12 justify-start" disabled={disabled || !skill.enabled} aria-pressed={skill.id === value}
           onClick={() => select(skill.id)}>{skill.label}</Button>)}
-        {selected ? <Button variant="ghost" disabled={disabled} onClick={() => select("")}>取消技能</Button> : null}
+        {selected ? <Button variant="ghost" disabled={disabled} onClick={() => select("")}>取消项目操作</Button> : null}
       </div>
     </AccountDialog> : null}
   </>;

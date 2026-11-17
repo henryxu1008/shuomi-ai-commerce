@@ -21,7 +21,7 @@ func (r *GormModelInvocationRepository) ConfirmModelInvocationNoDispatchRelease(
 	if err != nil {
 		return err
 	}
-	if fact.Operation != aicapability.OperationAIWorkbenchStoreRoute || fact.AgentRunID != "" || fact.BusinessTaskID != "" {
+	if (fact.Operation != aicapability.OperationAIWorkbenchStoreRoute && fact.Operation != aicapability.OperationAIWorkbenchSkillAuthoring) || fact.AgentRunID != "" || fact.BusinessTaskID != "" {
 		return orgresource.ErrInvalidOwnerProof
 	}
 	if err = r.authorizer.AuthorizeModelInvocation(ctx, fact); err != nil {

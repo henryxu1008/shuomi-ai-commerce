@@ -122,13 +122,17 @@ func buildAIWorkbenchModule(ctx context.Context, cfg AIWorkbenchDependencies, ag
 }
 
 func workbenchJSON(c *gin.Context, target any) error {
+	return workbenchJSONLimit(c, target, 16<<10)
+}
+
+func workbenchJSONLimit(c *gin.Context, target any, limit int64) error {
 	media, params, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
 	if err != nil || media != "application/json" || (params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8")) ||
 		c.GetHeader("Content-Encoding") != "" || c.Request.Body == nil {
 		return aiworkbench.ErrInvalid
 	}
-	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, 16<<10+1))
-	if err != nil || len(raw) == 0 || len(raw) > 16<<10 || !utf8.Valid(raw) {
+	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, limit+1))
+	if err != nil || len(raw) == 0 || int64(len(raw)) > limit || !utf8.Valid(raw) {
 		return aiworkbench.ErrInvalid
 	}
 	violations, err := sigjson.UnmarshalStrict(raw, target, sigjson.DisallowDuplicateFields, sigjson.DisallowUnknownFields)
@@ -353,6 +357,13 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"GET", workbenchChatBase + "/skill-authoring", authz.PermissionWorkbenchChatUse, "skill-authoring-catalog", 15 * time.Second},
+		{"GET", workbenchChatBase + "/:conversation_id/skill-authoring", authz.PermissionWorkbenchChatRead, "skill-authoring-list", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/quote", authz.PermissionWorkbenchChatUse, "skill-authoring-quote", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/validate", authz.PermissionWorkbenchChatUse, "skill-authoring-validate", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/generate", authz.PermissionWorkbenchChatUse, "skill-authoring-generate", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/save", authz.PermissionWorkbenchChatUse, "skill-authoring-save", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/recover-save", authz.PermissionWorkbenchChatUse, "skill-authoring-save-recover", 15 * time.Second},
 		{"GET", workbenchSubjectBase + "/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
 		{"GET", workbenchChatBase + "/scopes", authz.PermissionWorkbenchChatRead, "scope-options", 15 * time.Second},
 		{"GET", workbenchChatBase, authz.PermissionWorkbenchChatRead, "list-conversations", 15 * time.Second},
@@ -396,6 +407,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-recover":
+					a.skillAuthoring(c, ctx, scope, spec.action)
 				case "subject-read":
 					a.readTaskSubject(c, ctx)
 				case "scope-options", "task-scope-options":
