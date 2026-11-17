@@ -1,18 +1,23 @@
 .entry {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  justify-items: start;
+  min-width: 0;
   font-size: var(--label-text-size);
+  overflow-wrap: anywhere;
 }
-.entry p {
+.entry > p, .pending p {
   margin: 0;
   color: var(--muted-foreground);
 }
+.pending { display: grid; justify-items: start; gap: 6px; }
+.pending a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 .dialog {
   color: var(--foreground);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: clamp(16px, 4vw, 24px);
   width: min(480px, calc(100vw - 32px));
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
@@ -23,8 +28,9 @@
 }
 .dialog form {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
+.dialogHeading { display: grid; gap: 6px; }
 .dialog h2,
 .payment h2 {
   font-size: var(--dialog-title-size);
@@ -34,73 +40,99 @@
 .description {
   color: var(--muted-foreground);
   font-size: var(--body-text-size);
-  line-height: 1.8;
-  margin: -8px 0 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .field {
   display: grid;
-  gap: 8px;
-  color: var(--muted-foreground);
-  font-size: var(--caption-text-size);
+  gap: 6px;
+  font-size: var(--label-text-size);
+}
+.field label, .dialog legend {
+  color: var(--foreground);
+  font-weight: 600;
 }
 .field input {
   height: 42px;
   border-radius: var(--control-radius);
   color: var(--foreground);
 }
-.range {
+.range, .fieldError {
   font-size: var(--caption-text-size);
   color: var(--muted-foreground);
-  margin: -12px 0 0;
+  margin: 0;
 }
+.fieldError { color: var(--destructive); }
+.field input[aria-invalid="true"] { border-color: var(--destructive); }
 .dialog fieldset {
   border: 0;
   padding: 0;
   min-width: 0;
 }
 .dialog legend {
-  font-size: var(--caption-text-size);
-  color: var(--muted-foreground);
-  margin-bottom: 12px;
+  font-size: var(--label-text-size);
+  margin-bottom: 8px;
 }
 .amounts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 .amounts button {
   background: var(--muted);
   padding: 0 4px;
   border-radius: var(--control-radius);
-  height: 34px;
+  min-height: 34px;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-size: var(--label-text-size);
 }
 .amounts button[aria-pressed="true"] {
   border-color: var(--primary);
   color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--card));
 }
 .channels {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 .channels label {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 3px 8px;
   min-height: 48px;
-  padding: 12px;
+  padding: 9px 10px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: var(--caption-text-size);
+  border-radius: var(--control-radius);
+  font-size: var(--label-text-size);
 }
+.channels label:has(input:checked) {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+}
+.channels label[data-unavailable] strong { color: var(--muted-foreground); }
 .channels span {
-  margin-left: auto;
+  grid-column: 2;
   color: var(--muted-foreground);
   font-size: var(--caption-text-size);
 }
 .channels input {
   accent-color: var(--primary);
 }
+.dialogFooter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.payable { min-width: 0; font-size: var(--label-text-size); }
+.payable strong { font-variant-numeric: tabular-nums; color: var(--foreground); }
 .actions {
   display: flex;
   gap: 12px;
@@ -139,7 +171,6 @@
   .amounts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .channels label {
-    flex-wrap: wrap;
-  }
+  .dialogFooter .actions { width: 100%; }
+  .dialogFooter .actions button { flex: 1; }
 }

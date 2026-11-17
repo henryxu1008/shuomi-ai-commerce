@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { WalletTopUpError, type TopUpOrder } from "@/lib/api/wallet-topup";
@@ -131,6 +131,44 @@ it("uses configured amounts and preserves the original intent across a lost crea
     ...saved,
     orderId: id,
   });
+});
+
+it("requires choosing an available payment method again if the selected method becomes unavailable", async () => {
+  const user = userEvent.setup();
+  render(
+    wrap(
+      <WalletTopUpEntry
+        userId="admin-1"
+        organizationId="org-1"
+        permissions={["workbench.commercial.wallet_topup"]}
+      />,
+    ),
+  );
+  const open = screen.getByRole("button", { name: "充值钱包" });
+  await waitFor(() => expect(open).toBeEnabled());
+  await user.click(open);
+  await user.click(screen.getByRole("button", { name: "¥15.00" }));
+  await user.click(screen.getByRole("radio", { name: /微信支付/ }));
+  const confirm = screen.getByRole("button", { name: "确认充值" });
+  expect(confirm).toBeEnabled();
+
+  const queryKey = ["workbench", "org-1", "wallet-topup-options", "admin-1"];
+  const options = await api.options.mock.results[0].value;
+  api.options.mockResolvedValue({
+    ...options,
+    channels: options.channels.map((channel: { provider: string }) => ({
+      ...channel,
+      available: channel.provider === "ALIPAY",
+    })),
+  });
+  await act(() => client.invalidateQueries({ queryKey }));
+  await waitFor(() => expect(confirm).toBeDisabled());
+  expect(api.create).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole("radio", { name: /支付宝/ }));
+  expect(confirm).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "取消" }));
+  expect(api.create).not.toHaveBeenCalled();
 });
 
 it("does not dispatch on page load and removes checkout material when the original order completes", async () => {

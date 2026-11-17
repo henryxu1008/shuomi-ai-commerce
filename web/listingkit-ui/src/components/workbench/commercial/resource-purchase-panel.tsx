@@ -122,6 +122,7 @@ type Props = {
   organizationName: string;
   permissions: string[];
   planOptions?: { storageAvailable: boolean };
+  storageAvailable?: boolean;
   offers: ResourceOffers;
 };
 export function ResourcePurchasePanel(props: Props) {
@@ -138,6 +139,7 @@ function ScopedPurchase({
   organizationName,
   permissions,
   planOptions,
+  storageAvailable = planOptions?.storageAvailable,
   offers,
 }: Props) {
   const client = useQueryClient();
@@ -409,7 +411,6 @@ function ScopedPurchase({
       },
     );
   }
-  const storageAvailable = planOptions?.storageAvailable;
   const purchaseCards = (
     <div className={styles.resourcePurchaseCards} data-storage={storageAvailable || undefined}>
       {resourceDefinitions.map((def) => (
@@ -514,8 +515,7 @@ function ScopedPurchase({
       ) : (
         <>
           <p className={styles.observation}>
-            当前企业：{organizationName}（{organizationId}） ·
-            正价资源使用企业钱包购买，零价资源按数量领取；资源余额不按月清零。
+            付费资源从企业钱包扣款，免费资源按数量领取。资源余额不按月清零。
           </p>
           {pendingError}
           {purchaseCards}
@@ -653,6 +653,7 @@ function ResourceCard({
     <Card
       role="region"
       aria-label={`${definition.name}购买`}
+      data-resource={definition.type}
       className={`${styles.resourcePurchaseCard} ${tone}`}
     >
       <h3>{definition.name}</h3>

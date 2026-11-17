@@ -58,12 +58,12 @@ export function CommercialPage({
   const organization = context.effectiveOrganization;
   if (context.isSwitching || context.isLoading)
     return (
-      <PageFrame page={page} organization="正在确认企业">
+      <PageFrame page={page}>
         <ConsoleState
           kind="loading"
-          title={context.isSwitching ? "正在切换企业" : "正在读取企业上下文"}
+          title={context.isSwitching ? "正在切换企业" : "正在确认当前企业"}
         >
-          旧商业数据已清空，观察时间与周期尚未取得。
+          确认后将显示当前企业的数据。
         </ConsoleState>
       </PageFrame>
     );
@@ -75,9 +75,9 @@ export function CommercialPage({
     context.selectionRequired
   )
     return (
-      <PageFrame page={page} organization="未确认">
-        <ConsoleState kind="unavailable" title="企业或登录上下文不可用">
-          已停止读取商业数据。观察时间、周期与数值尚未取得。
+      <PageFrame page={page}>
+        <ConsoleState kind="unavailable" title="暂时无法查看套餐与权益">
+          请确认已登录并选择了企业。
         </ConsoleState>
       </PageFrame>
     );
@@ -104,12 +104,10 @@ export function CommercialPage({
 
 function PageFrame({
   page,
-  organization,
   actions,
   children,
 }: {
   page: PageKind;
-  organization: string;
   actions?: ReactNode;
   children: ReactNode;
 }) {
@@ -138,7 +136,7 @@ function PageFrame({
     options: "查看各项服务的收费方式和当前价格。",
     entitlements: "查看店铺服务期限和企业已购资源。",
     usage: "查看真实资源预留、消费、分配和回收记录。",
-    "top-up": "管理企业钱包、充值及按需购买。",
+    "top-up": "查看企业钱包余额，充值或按需购买资源。",
     orders: "查看企业账单汇总与订单记录；退款和发票暂不可用。",
     "order-detail": "查看当前企业的订单状态及明细。",
   };
@@ -147,12 +145,7 @@ function PageFrame({
       className={page === "overview" ? overviewStyles.page : styles.page}
       title={title}
       breadcrumbs={breadcrumbs}
-      description={
-        <>
-          <p>{descriptions[page]}</p>
-          {page !== "overview" && <p>当前有效企业：{organization}</p>}
-        </>
-      }
+      description={descriptions[page]}
       actions={actions}
     >
       {children}
@@ -185,7 +178,6 @@ function ScopedCommercial({
     return (
       <PageFrame
         page={page}
-        organization={`${organizationName || "未提供名称"}（${organizationId}）`}
         actions={
           <Button variant="outline" onClick={refresh}>
             刷新数据
@@ -197,7 +189,9 @@ function ScopedCommercial({
           page={page}
           userId={userId}
           organizationId={organizationId}
+          organizationName={organizationName}
           permissions={permissions}
+          storageAvailable={storageAvailable}
           orderId={orderId}
         />
       </PageFrame>
@@ -206,7 +200,6 @@ function ScopedCommercial({
   return (
     <PageFrame
       page={page}
-      organization={`${organizationName || "未提供名称"}（${organizationId}）`}
       actions={
         <>
           {page === "options" ? (
@@ -334,14 +327,18 @@ function BillingRequest({
   page,
   userId,
   organizationId,
+  organizationName,
   orderId,
   permissions,
+  storageAvailable,
 }: {
   page: "top-up" | "orders" | "order-detail";
   userId: string;
   organizationId: string;
+  organizationName: string;
   orderId?: string;
   permissions: string[];
+  storageAvailable: boolean;
 }) {
   const [filters, setFilters] = useState<CommercialOrderFilters>({});
   const [orderForm,setOrderForm]=useState<OrderFilterForm>({query:"",kind:"",status:"",from:"",until:""});
@@ -425,15 +422,15 @@ function BillingRequest({
     if (wallet.isPending || entries.isPending)
       return (
         <ConsoleState kind="loading" title="正在读取企业钱包">
-          钱包余额与流水仅来自当前企业 owner。
+          正在读取余额和流水，请稍候。
         </ConsoleState>
       );
     if (wallet.isError) return <BillingReadError error={wallet.error} />;
     if (entries.isError) return <BillingReadError error={entries.error} />;
     if (!wallet.data || !entries.data)
       return (
-        <ConsoleState kind="error" title="钱包响应无效">
-          未能校验当前企业钱包响应。
+          <ConsoleState kind="error" title="暂时无法查看企业钱包">
+            请刷新数据后重试。
         </ConsoleState>
       );
     return (
@@ -441,14 +438,16 @@ function BillingRequest({
         wallet={wallet.data}
         entries={entries.data}
         userId={userId}
+        organizationName={organizationName}
         permissions={permissions}
         onNext={() => setWalletCursor(entries.data.next_cursor)}
         purchase={
           <ResourceCatalog
             userId={userId}
             organizationId={organizationId}
-            organizationName="当前企业"
+            organizationName={organizationName || "当前企业"}
             permissions={permissions}
+            storageAvailable={storageAvailable}
             sequence={0}
           />
         }
@@ -590,6 +589,7 @@ function ResourceCatalog({
   organizationName,
   permissions,
   planOptions,
+  storageAvailable,
   sequence,
 }: {
   userId: string;
@@ -597,6 +597,7 @@ function ResourceCatalog({
   organizationName: string;
   permissions: string[];
   planOptions?: { storageAvailable: boolean };
+  storageAvailable?: boolean;
   sequence: number;
 }) {
   const result = useQuery({
@@ -630,6 +631,7 @@ function ResourceCatalog({
       organizationName={organizationName}
       permissions={permissions}
       planOptions={planOptions}
+      storageAvailable={storageAvailable}
       offers={result.data}
     />
   );

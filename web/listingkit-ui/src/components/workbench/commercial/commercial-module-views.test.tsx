@@ -1,5 +1,5 @@
 import { parseResourceEvents } from "@/lib/api/resource-events";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {useState,type ComponentProps} from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -52,7 +52,9 @@ it("renders only real wallet data and delegates recharge to the configured payme
   render(
     <WalletView
       userId="reader"
+      organizationName="测试企业"
       permissions={["listingkit_admin"]}
+      purchase={<button type="button">购买资源</button>}
       wallet={{
         organization_id: "org-A",
         currency: "CNY",
@@ -74,7 +76,7 @@ it("renders only real wallet data and delegates recharge to the configured payme
             available_delta_minor: "0",
             reserved_delta_minor: "-3000",
             debt_delta_minor: "0",
-            available_after_minor: "12000",
+            available_after_minor: "11500",
             reserved_after_minor: "0",
             debt_after_minor: "0",
             order_id: "order-1",
@@ -91,9 +93,14 @@ it("renders only real wallet data and delegates recharge to the configured payme
   expect(screen.getByText("¥30.00")).toBeVisible();
   expect(screen.getByRole("button", { name: "充值钱包" })).toBeDisabled();
   expect(
-    screen.getByText(/有欠款时先偿债；渠道手续费由平台承担/),
+    screen.getByText(/有欠款时，充值金额优先用于还款；支付手续费由平台承担/),
   ).toBeVisible();
-  expect(screen.getByRole("link", { name: "order-1" })).toHaveAttribute(
+  const purchase = screen.getByRole("region", { name: "使用充值余额" });
+  const ledger = screen.getByRole("table", { name: "企业钱包流水" });
+  expect(purchase.compareDocumentPosition(ledger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(ledger).getByText("¥115.00")).toBeVisible();
+  expect(within(ledger).getByText("预留 −¥30.00")).toBeVisible();
+  expect(screen.getByRole("link", { name: "查看订单 order-1" })).toHaveAttribute(
     "href",
     "/workbench/plans/orders/order-1",
   );
