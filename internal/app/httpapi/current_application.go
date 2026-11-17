@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 	"task-processor/internal/agentconfig"
 	fulfillmentapp "task-processor/internal/app/fulfillment"
 	fulfillmentmodule "task-processor/internal/app/httpapi/fulfillment"
@@ -1590,19 +1591,24 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	server := buildCurrentApplicationHTTPServer(bundle.routes, *workbench.authDependencies)
 	if projectChat != nil && projectChat.schedules != nil {
-		stop, err := projectChat.schedules.Start(projectChat)
-		if err != nil || stop == nil {
+		stopWorker, err := projectChat.schedules.Start(projectChat)
+		if err != nil || stopWorker == nil {
 			return nil, fmt.Errorf("start Workbench scheduled worker: %w", errors.Join(aiworkbench.ErrUnavailable, err))
 		}
-		if projectChat.scheduleStop != nil {
-			*projectChat.scheduleStop = stop
-		}
-		server.RegisterOnShutdown(stop)
 		runtimeContext := supplied.runtimeContext
 		if runtimeContext == nil {
 			runtimeContext = context.Background()
 		}
-		startCommercialRecoveryLoop(runtimeContext, server, projectChat.recoverScheduledPlans, scheduledRecoveryInterval, "workbench scheduled execution", logger)
+		stopRecovery := startCommercialRecoveryLoop(runtimeContext, server, projectChat.recoverScheduledPlans, scheduledRecoveryInterval, "workbench scheduled execution", logger)
+		// HTTP shutdown and runtime cleanup share one stop that waits for recovery.
+		stop := sync.OnceFunc(func() {
+			stopRecovery()
+			stopWorker()
+		})
+		if projectChat.scheduleStop != nil {
+			*projectChat.scheduleStop = stop
+		}
+		server.RegisterOnShutdown(stop)
 	}
 	if ecoservicesRecovery != nil {
 		runtimeContext := supplied.runtimeContext
