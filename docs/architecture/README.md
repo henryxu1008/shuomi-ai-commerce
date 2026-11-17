@@ -250,7 +250,7 @@
 ## 图片执行、预算与恢复
 
 - `bailian-product-image-wiring.md` — [百炼商品图片接线 V1](bailian-product-image-wiring.md)
-- `generic-image-template-entry.md` — [通用图片模板与技能入口带入](generic-image-template-entry.md)
+- `generic-image-template-entry.md` — [通用图片模板与技能入口带入](domains/ai/generic-image-template-entry.md)
 - `grsai-vip-image-binding.md` — [GRSAI VIP 图片可选绑定 V1](grsai-vip-image-binding.md)
 - `image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](image-agent-budget-authorization.md)
 - `image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](image-agent-candidate-release-gate.md)
@@ -259,11 +259,11 @@
 - `image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](image-agent-effect-recovery.md)
 - `image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](image-agent-effect-terminalization.md)
 - `image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](image-agent-recovery.md)
-- `image-agent-workflow.md` — [Image Agent Workflow](image-agent-workflow.md)
-- `image-api-event-read-permissions.md` — [Image API event-read permission correction](image-api-event-read-permissions.md)
+- `image-agent-workflow.md` — [Image Agent Workflow](domains/ai/image-agent-workflow.md)
+- `image-api-event-read-permissions.md` — [Image API event-read permission correction](domains/ai/image-api-event-read-permissions.md)
 - `image-download-safety.md` — [Image Download Safety Boundary Design](image-download-safety.md)
 - `image-plan-optional-route.md` — [Single-product image plan optional route V1](image-plan-optional-route.md)
-- `image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](image-text-language-confirmation.md)
+- `image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](domains/ai/image-text-language-confirmation.md)
 - `product-image-agent.md` — [商品图片智能体 V1 — 完整图片能力设计](product-image-agent.md)
 - `source-white-background.md` — [来源商品白底图与资源结算合同](source-white-background.md)
 - `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](vip-original-output-recovery.md)
