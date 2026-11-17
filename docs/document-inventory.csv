@@ -121,8 +121,8 @@ docs/architecture/my-supply-chain-shein.md,architecture,marketplace,56166,REVIEW
 docs/architecture/notification-center.md,architecture,workbench,45169,REVIEW_MOVE,docs/architecture/domains/workbench/notification-center.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/official-knowledge-provenance.md,architecture,workbench,5980,REVIEW_MOVE,docs/architecture/domains/workbench/official-knowledge-provenance.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/official-knowledge.md,architecture,cross-cutting,16863,KEEP_PATH,docs/architecture/official-knowledge.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/official-skill-automatic-preparation.md,architecture,ai,2394,REVIEW_MOVE,docs/architecture/domains/ai/official-skill-automatic-preparation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/official-skill-product-entry.md,architecture,ai,3773,REVIEW_MOVE,docs/architecture/domains/ai/official-skill-product-entry.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/official-skill-automatic-preparation.md,architecture,ai,2460,KEEP_PATH,,,MOVED_VERIFIED,Verified move; #1390
+docs/architecture/domains/ai/official-skill-product-entry.md,architecture,ai,3773,KEEP_PATH,,,MOVED_VERIFIED,Verified move; #1390
 docs/architecture/openai-flare-image-generation.md,architecture,ai,41452,REVIEW_MOVE,docs/architecture/domains/ai/openai-flare-image-generation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/operations-cockpit-figma-read.md,architecture,workbench,7998,REVIEW_LIFECYCLE,docs/architecture/domains/workbench/operations-cockpit-figma-read.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
 docs/architecture/operations-cockpit.md,architecture,cross-cutting,23186,KEEP_PATH,docs/architecture/operations-cockpit.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
