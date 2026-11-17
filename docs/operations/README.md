@@ -10,6 +10,8 @@
 
 ## 安装、配置与构建
 
+- 本机安装工具：[安装与模块管理](runbooks/local-installation-management.md)，按准确实例授权执行。
+
 - 新建独立本地环境：[Account Compose](../../deployments/docker/account-compose/README.md)、[模块组合](../../deployments/docker/account-compose/modules.md)。
 - 当前后端命令与 owner：[Repository Structure](../development/repository-structure.md#current-entrypoint-map)。
 - 标题技能脚本：[使用与私有执行配置](skill-script-sandbox.md)；默认关闭，D-IT1/execd init-proc 检查是试用开放前置。

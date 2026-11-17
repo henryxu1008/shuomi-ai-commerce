@@ -1,6 +1,6 @@
 # 本机安装与模块管理
 
-执行范围见[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)及[已批准架构](../architecture/installation-and-module-management.md)。这是宿主显式启动的本机工具，业务后端、BFF和企业用户均不获得Docker或数据库owner权限。此入口不代表原35444已更新。
+执行范围见[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)及[已批准架构](../../architecture/installation-and-module-management.md)。这是宿主显式启动的本机工具，业务后端、BFF和企业用户均不获得Docker或数据库owner权限。此入口不代表原35444已更新。
 
 ## 准备与启动
 
@@ -47,7 +47,7 @@
 
 浏览器关闭或请求超时不能证明安装失败。重新启动、配对后选择**查看操作记录 → 检查操作结果**；这只核对原命令结果，不重新发送安装。卡片显示安装名称、时间、最后步骤和受控原因；旧记录未保存的原因明确显示未记录。
 
-当前恢复实现依据[已评审的最小恢复合同](../architecture/installation-failure-recovery.md)：
+当前恢复实现依据[已评审的最小恢复合同](../../architecture/installation-failure-recovery.md)：
 
 - **检查归档条件**只检查；全部专属资源已清理且无引用/冲突，才显示可确认归档。确认后仍保留原结果和原始记录，移入**历史安装记录**，不删除记录或把失败改成成功。
 - **检查能否重新尝试**完整核对原版本、全daemon引用、卷内容及当前执行进程。仅在全部为空、没有容器/网络和执行者、没有漂移时可预览；可填写修正的网络地址范围。改变输入须重新检查。非空、缺失、未知和过期检查结果均拒绝确认；不会自动清空或重建卷。
