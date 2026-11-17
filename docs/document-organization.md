@@ -83,10 +83,10 @@ docs/
 
 [CSV 清单](document-inventory.csv) 每行包括：
 
-- `path`：当前真实路径；`layer`、`domain`：层级与文件名推测的**候选**领域，可能需纠正。
+- `path`：已核实迁移的行写入当前真实路径；其余行保留原基线快照，使用前必须再次核对 main。`layer`、`domain`：原为候选领域，已迁移行按核实的领域校准。
 - `action`：`KEEP_PATH`（保留关键路径/当前路径）、`KEEP_ASSET`（非 Markdown 资产）、`REVIEW_MOVE`（待阅读后判断是否搬迁）、`REVIEW_CROSS_LAYER`（跨层同名关联，先核实不同职责）、`REVIEW_LIFECYCLE`（试用、候选、特定实例或历史时期名称，先核实适用性）。
 - `candidate_path`：**提议路径，不是已批准的迁移操作**；`related_paths`：跨分类同名关联；`size_bytes`：GitHub 当前文件大小。
-- `review_status=PROPOSED_ONLY` 对全部文件适用：本批只做完整路径盘点、抽样阅读和候选分类，不声称逐篇完成语义审查，不得按表直接删除、搬移或关闭 Issue。
+- `review_status=PROPOSED_ONLY` 适用于仍未逐篇核实的 350 个原基线行；3 行 `MOVED_VERIFIED` 表示仅**准确路径与相对引用迁移已核实**，不代表设计本身已准入、产品已验收或允许关闭 Issue。不得按表直接删除、搬移或关闭任务。
 
 任何新一轮文件检查应重新取当时主线与相关文档版本；旧行可能因正常开发变动而过期。若准确 owner/内容与候选目录不一致，应修改清单后再实施。
 
@@ -112,7 +112,7 @@ docs/
 | `my-supply-chain-shein.md`（Architecture / Operations） | 旧五阶段技术设计已在文首声明被四阶段增量替代；操作说明已转向「商品刊登」四阶段 | **UPDATE_REVIEW**：优先固定现行四阶段权威链接，审查原合同仍被消费的部分后再决定是否精简 |
 | `ecosystem-services.md`（Architecture / Operations） | 冻结合同含完整支付/结算，而现行有界资格接线与运行说明强调“非支付阶段” | **KEEP_SEPARATE**，进一步标清两阶段适用条件；不可因为代码或目录存在就宣布真实支付开放 |
 
-上表的 `KEEP_SEPARATE` / `UPDATE_REVIEW` 是**人工抽查建议**，不改变 CSV 的整体 `PROPOSED_ONLY` 状态，也不等于已授权修改上述领域合同。后一批需核实当前产品决定、准确发布/试用范围和反向引用后再具体实施。
+上表的 `KEEP_SEPARATE` / `UPDATE_REVIEW` 是**人工抽查建议**；除前述已完成迁移的 3 行外，CSV 原基线仍保持 `PROPOSED_ONLY`，这些抽查不授权修改上述领域合同。后一批需核实当前产品决定、准确发布/试用范围和反向引用后再具体实施。
 
 ## 7. 推荐推进与验收
 
