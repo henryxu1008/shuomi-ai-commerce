@@ -54,6 +54,29 @@ test("Markdown authority and repository documentation leave runtime backend chec
   }
 });
 
+test("approved CSV documentation inventories do not select unrelated runtime CI", () => {
+  const expected = {
+    backend: false,
+    frontend: false,
+    code_health: false,
+    release_authority: false,
+    capture_extension: false,
+    isolated_runtime: false,
+  };
+  for (const path of [
+    "docs/document-inventory.csv",
+    "docs/development/shuomi-design-system-assets.csv",
+  ]) {
+    assert.deepEqual(classifyChangedPaths([path]), expected, path);
+    assert.deepEqual(classifyChangedPaths(["docs/README.md", path]), expected, path);
+  }
+  // Unknown data files can be consumed by build or policy tools; retain fail-closed behavior.
+  assert.deepEqual(
+    classifyChangedPaths(["docs/README.md", "docs/architecture/new-contract.json"]),
+    classifyChangedPaths([], { full: true }),
+  );
+});
+
 test("code-health document rename preserves its dedicated policy check", () => {
   for (const changedPath of [
     "docs/refactoring/code-health-decisions.md",
@@ -210,12 +233,12 @@ test("classification diff disables rename detection so both source and destinati
   );
 });
 
-test("pull requests always run repository-wide Go architecture contracts", () => {
+test("PR architecture gate keeps the required check while allowing document-only validation", () => {
   const workflowPath = path.join(__dirname, "..", "workflows", "ci.yml");
   const workflow = fs.readFileSync(workflowPath, "utf8").replaceAll("\r\n", "\n");
   const architectureJob = workflow.slice(
     workflow.indexOf("\n  architecture-contracts:\n"),
-    workflow.indexOf("\n  release-authority:\n"),
+    workflow.indexOf("\n  isolated-runtime-contracts:\n"),
   );
   const requiredGate = workflow.slice(
     workflow.indexOf("\n  required-gate:\n"),
@@ -223,15 +246,30 @@ test("pull requests always run repository-wide Go architecture contracts", () =>
   );
 
   assert.match(architectureJob, /name: Architecture Contract Guards/);
+  assert.match(architectureJob, /needs: changes/);
   assert.match(architectureJob, /if: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.match(architectureJob, /name: Check changed documentation links/);
+  assert.match(architectureJob, /ci-document-links\.cjs "\$BASE_SHA" "\$HEAD_SHA"/);
+  assert.match(architectureJob, /needs\.changes\.outputs\.backend == 'false'/);
+  for (const marker of [
+    "backend", "frontend", "release_authority", "capture_extension", "isolated_runtime",
+  ]) {
+    assert.match(architectureJob, new RegExp("needs\\.changes\\.outputs\\." + marker + " == 'true'"));
+  }
   assert.match(architectureJob, /run: go test \.\/tests\/\.\.\. -count=1/);
   assert.match(architectureJob, /go test -tags issue357 \.\/internal\/app\/httpapi/);
+  for (const stepName of [
+    "Set up Go",
+    "Run repository-wide architecture contracts",
+    "Compile isolated provider harness and test allocation guards",
+  ]) {
+    const section = architectureJob.slice(architectureJob.indexOf("- name: " + stepName));
+    assert.match(section.split("\n      - name:")[0], /if: \$\{\{ needs\.changes\.outputs\.backend == 'true'/);
+  }
   assert.match(requiredGate, /needs:[\s\S]*- architecture-contracts\b/);
-  assert.match(
-    requiredGate,
-    /ARCHITECTURE_CONTRACT_RESULT:\s*\$\{\{\s*needs\.architecture-contracts\.result\s*\}\}/,
-  );
+  assert.match(requiredGate, /ARCHITECTURE_CONTRACT_RESULT:\s*\$\{\{\s*needs\.architecture-contracts\.result\s*\}\}/);
   assert.match(requiredGate, /require_success "architecture contracts" "\$ARCHITECTURE_CONTRACT_RESULT"/);
+  assert.match(workflow, /node \.github\/scripts\/ci-change-classifier\.cjs --all/);
 });
 
 test("normalizes windows paths and emits github outputs", () => {
