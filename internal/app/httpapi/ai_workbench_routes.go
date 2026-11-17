@@ -252,6 +252,7 @@ func (b workbenchMessageBody) input() aiworkbench.MessageInput {
 }
 
 type workbenchProposalCard struct {
+	SelectedStoreID       string                     `json:"selectedStoreId,omitempty"`
 	SelectedStoreName     *string                    `json:"selectedStoreName,omitempty"`
 	BusinessScope         *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	Kind                  string                     `json:"kind"`

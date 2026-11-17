@@ -283,6 +283,7 @@ func (a *aiWorkbenchApplication) proposalReceiptCard(ctx context.Context, scope 
 			name := ""
 			if f.StoreChoice.Store != nil {
 				name = f.StoreChoice.Store.Name
+				card.SelectedStoreID = f.StoreChoice.Store.StoreID
 			}
 			card.SelectedStoreName = &name
 		}

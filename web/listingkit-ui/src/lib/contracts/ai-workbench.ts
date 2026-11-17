@@ -36,7 +36,7 @@ const message = z.object({
   kind:z.enum(["TEXT","STORE_OVERVIEW_REF"]).optional(),storeQueryStatus:z.enum(["ALL_NON_DELETED","ACTIVE"]).optional(),currentStoreOverview:storeOverview.optional(),storeOverviewUnavailable:z.boolean().optional(),
 }).superRefine((m,ctx)=>{if(m.kind==="STORE_OVERVIEW_REF"){if(m.Author!=="ASSISTANT"||m.Content!=="店铺概况"||!m.storeQueryStatus||Boolean(m.currentStoreOverview)===Boolean(m.storeOverviewUnavailable))ctx.addIssue({code:"custom",message:"Invalid store reference"});}else if(m.storeQueryStatus||m.currentStoreOverview||m.storeOverviewUnavailable)ctx.addIssue({code:"custom",message:"Unexpected store projection"});});
 const proposal = z.object({
- selectedStoreName:z.string().max(512).optional(),
+ selectedStoreId:scopeId.optional(),selectedStoreName:z.string().max(512).optional(),
  businessScope:scopeView.optional(),
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),executionProfileReady:z.boolean().optional(),maximumSteps:z.number().int().positive().optional(),maximumModelCalls:z.number().int().positive().optional(),maximumRuntimeSeconds:z.number().int().positive().optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeUnavailableReason:z.string().optional(),
@@ -49,6 +49,7 @@ const proposal = z.object({
   humanReviewRequired: z.literal(true), detailsAvailable: z.boolean(), titleProfileReady: z.boolean(), executionAuthorized: z.boolean(),
 });
 const task = z.object({
+ selectedStoreName:z.string().max(512).optional(),
  businessScope:scopeView.optional(),scopeUnavailable:z.boolean().optional(),
  kind:z.enum(["product.title.optimize","product.content.localize"]).optional(),taskSelection:aiTaskSelection.optional(),
   executionMode:executionModeSchema.optional(),modeRevision:modeRevisionSchema.optional(),modeSnapshotRef:modeSnapshotRefSchema.optional(),policyAdoption:z.union([titlePolicyAdoptionSchema,contentPolicyAdoptionSchema]).optional(),

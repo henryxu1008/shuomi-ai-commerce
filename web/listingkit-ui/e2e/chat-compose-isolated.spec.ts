@@ -106,3 +106,88 @@ test("routes a store question once and hides cached totals after revoked access"
  revoked=true;await page.evaluate(()=>{window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"));});
  await expect(page.getByText("当前可查看 3 家店铺。")).toHaveCount(0);await expect(page.getByText("当前无权查看或店铺数据暂不可用。")).toBeVisible();
 });
+
+test("creates a project and reopens its rebound Chat with a rechecked store",async({page,context,baseURL})=>{
+  const origin=baseURL!,issuer="https://chat-compose.invalid",client="chat-compose-fixture";
+  const namespace=createHash("sha256").update(JSON.stringify([origin,issuer,client])).digest("hex").slice(0,32);
+  const name="shuomi."+namespace+".session-token";
+  const token=await encode({secret,salt:name,maxAge:600,token:{accessToken:"synthetic-chat-compose",expiresAt:Math.floor(Date.now()/1000)+600,identityVersion:3,identity:{tenantId:"org",userId:"user",userType:"zitadel",roles:[]}}});
+  await context.addCookies([{name,value:token,url:origin,httpOnly:true,sameSite:"Lax"}]);
+  const projectId="11111111-1111-4111-8111-111111111111";
+  const oldId="22222222-2222-4222-8222-222222222222",newId="33333333-3333-4333-8333-333333333333";
+  const storeA="44444444-4444-4444-8444-444444444444",storeB="55555555-5555-4555-8555-555555555555";
+  const confirmation="a".repeat(64),stamp="2026-11-17T00:00:00Z";
+  const conversation=(id:string,storeId:string)=>({
+    ID:id,Scope:{OrganizationID:"org",ActorID:"user"},Title:"",Favorite:false,Archived:false,
+    MetadataRevision:1,NextSequence:1,CreatedAt:stamp,UpdatedAt:stamp,businessScope:{version:"workbench-scope-v1",kind:"project",projectId,storeId},
+  });
+  let planningReady=false,projectsSaved=0,conversationsCreated=0,modelCalls=0;
+  await page.route("**/*",async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(url.origin!==origin)return route.abort();
+    if(!url.pathname.startsWith("/api/"))return route.continue();
+    const json=(data:unknown,status=200)=>route.fulfill({status,contentType:"application/json",body:JSON.stringify(data)});
+    const path=url.pathname;
+    if(path==="/api/workbench/context")return json({
+      user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,
+      aiWorkbenchAvailable:true,aiWorkbenchExecutionKind:"product.content.localize",projectCenterAvailable:true,
+      aiWorkbenchExecutionReadiness:planningReady?"AVAILABLE":"NEEDS_CONFIGURATION",aiWorkbenchPlanningReadiness:planningReady?"AVAILABLE":"NEEDS_CONFIGURATION",
+      organizations:[{id:"org",name:"合成验收企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read","workbench.project.read","workbench.project.manage","workbench.store.read"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}],
+    });
+    if(path==="/api/workbench/chat/conversations/scopes"){
+      const kind=url.searchParams.get("kind");
+      const scope={version:"workbench-scope-v1",kind};
+      if(kind==="project")return json({options:[{scope:{...scope,projectId,storeId:storeB},confirmation,projectName:"合成项目",storeName:"乙店"}],next:"",incomplete:false});
+      if(kind==="store"){
+        const ids=url.searchParams.has("storeId")?[url.searchParams.get("storeId")!]:[storeA,storeB];
+        return json({options:ids.map(storeId=>({scope:{...scope,storeId},confirmation,storeName:storeId===storeA?"甲店":"乙店"})),next:"",incomplete:false});
+      }
+      return json({options:[{scope,confirmation}],next:"",incomplete:false});
+    }
+    if(path==="/api/workbench/projects"&&req.method()==="POST"){
+      projectsSaved++;
+      expect(req.postDataJSON()).toMatchObject({title:"对话新建项目",goal:"准备商品英文描述",storeId:storeA});
+      return json({id:projectId,revision:1,replayed:false});
+    }
+    if(path==="/api/workbench/chat/conversations"&&req.method()==="POST"){
+      conversationsCreated++;
+      expect(req.postDataJSON()).toEqual({scopeSelection:{kind:"project",projectId},scopeConfirmation:confirmation});
+      return json({conversation:conversation(newId,storeB),replay:false});
+    }
+    if(path==="/api/workbench/chat/conversations/"+oldId)return json({conversation:conversation(oldId,storeA),messages:[],proposals:[],before:""});
+    if(path==="/api/workbench/chat/conversations/"+newId)return json({conversation:conversation(newId,storeB),messages:[],proposals:[],before:""});
+    if(path.endsWith("/messages")){modelCalls++;return json({code:"NOT_FOUND"},404);}
+    if(path.endsWith("/connection")){
+      return json({platform:"shein",attemptId:"",state:"verified",connectionStatus:"connected",version:1,observedAt:stamp});
+    }
+    return json({code:"NOT_FOUND"},404);
+  });
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/workbench/ai/chat/new");
+  await page.getByRole("button",{name:"选择店铺",exact:true}).click();
+  await page.getByRole("button",{name:"甲店",exact:true}).click();
+  await page.getByLabel("选择技能").selectOption("create-project");
+  await page.getByLabel("项目名称").fill("对话新建项目");
+  await page.getByLabel("项目目标").fill("准备商品英文描述");
+  await page.getByRole("button",{name:"创建项目",exact:true}).click();
+  await expect(page.getByRole("link",{name:"查看项目"})).toHaveAttribute("href","/workbench/ai/projects/"+projectId);
+  expect(projectsSaved).toBe(1);
+  expect(conversationsCreated).toBe(0);
+  planningReady=true;
+  await page.goto("/workbench/ai/chat/"+oldId+"?projectTask=1");
+  await page.getByLabel("需求").fill("这是尚未提交的草稿");
+  await page.getByRole("button",{name:"在新对话中继续"}).click();
+  await expect(page.getByLabel("需求")).toHaveValue("这是尚未提交的草稿");
+  await expect(page.getByText("工作背景：合成项目 · 乙店")).toBeVisible();
+  await page.getByRole("button",{name:"开启项目会话"}).click();
+  await page.waitForURL(url=>url.pathname==="/workbench/ai/chat/"+newId && url.searchParams.get("projectTask")==="1");
+  await expect(page.getByLabel("需求")).toHaveValue("这是尚未提交的草稿");
+  await expect(page.getByText("项目关联店铺：乙店")).toBeVisible();
+  await expect(page.getByText("本次任务店铺：未选择")).toBeVisible();
+  await page.getByRole("button",{name:"选择店铺",exact:true}).click();
+  await page.getByRole("button",{name:"乙店",exact:true}).click();
+  await expect(page.getByText("本次任务店铺：乙店")).toBeVisible();
+  expect(conversationsCreated).toBe(1);
+  expect(modelCalls).toBe(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});

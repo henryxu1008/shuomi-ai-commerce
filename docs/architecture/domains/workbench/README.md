@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | 硕米 Chat 保存会话、规划和确认单次业务任务 | [Chat + BusinessTask](../../ai-workbench-chat-business-task.md)、[会话单独运行](../../ai-workbench-conversation-runtime.md) | `internal/aiworkbench`；执行结果归原 Agent/Tool owner |
 | 项目中心组织现有任务和资料 | [Project Center](../../ai-workbench-project-center.md)、[固定工作范围](../../ai-workbench-work-scope.md) | `internal/aiworkbench/projectcenter`，私有项目链接不扩权 |
+| 在 Chat 创建项目或从已有项目发起单项任务 | [硕米 Chat 创建项目与执行项目任务](../../chat-project-actions.md) | Project Center 持有项目和关系，AI Workbench 持有会话与任务 |
 | 任务中心查看已有 BusinessTask / AgentRun、提案和审核 | [原生运行投影](../../task-center-native-run-projection.md)、[任务中心接线](../../../engineering/unified-task-center.md) | Workbench 只作授权投影；原运行、Review/Apply 与 Temporal 保持各自 Owner |
 | 新建店铺经营日报定时任务，控制已有计划 | [定时计划合同](../../ai-workbench-scheduled-tasks.md)、[店铺日报](../../scheduled-store-daily-report.md)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)、[用户操作](../../../operations/ai-workbench-scheduled-tasks.md) | `internal/aiworkbench` 的计划/occurrence，Temporal 原触发，`internal/reportcenter` 保存日报 |
 | 保存、收藏和下载个人报告 | [个人报告合同](../../ai-workbench-reports.md)、[报告交接](../../../engineering/report-center-runtime-handoff.md) | `internal/reportcenter` 的不可变报告/收藏，不是来源事实或审核 |

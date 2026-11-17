@@ -20,13 +20,13 @@ export function scopeSelection(value: WorkScopeOption): WorkScopeSelection {
   return {kind:"general"};
 }
 
-export function WorkScopePicker({scope, authorizationKey, disabled, selected, onSelect, initialKind = "general", fixedKind=false}: {
+export function WorkScopePicker({scope, authorizationKey, disabled, selected, onSelect, initialKind = "general", fixedKind=false, projectConversation=false}: {
   scope:AIScope; authorizationKey:string; disabled?:boolean; selected?:WorkScopeOption;
-  onSelect:(option:WorkScopeOption | undefined)=>void; fixedKind?:boolean; initialKind?:"general"|"project"|"store";
+  onSelect:(option:WorkScopeOption | undefined)=>void; fixedKind?:boolean; projectConversation?:boolean; initialKind?:"general"|"project"|"store";
 }) {
   const [kind,setKind] = useState(initialKind);
   const options = useInfiniteQuery({
-    queryKey:["ai-work-scope",scope.userId,scope.organizationId,authorizationKey,kind,fixedKind],
+    queryKey:["ai-work-scope",scope.userId,scope.organizationId,authorizationKey,kind,fixedKind,projectConversation],
     initialPageParam:"",
     queryFn:({signal,pageParam}) => requestAIWorkbench({
       route:fixedKind ? "task-scope-options" : "scope-options",method:"GET",scope,signal,path:(fixedKind ? "tasks/scopes?" : "chat/conversations/scopes?") + new URLSearchParams({kind,...(pageParam?{after:pageParam}:{})}),
@@ -36,10 +36,10 @@ export function WorkScopePicker({scope, authorizationKey, disabled, selected, on
   });
   const rows = options.data?.pages.flatMap(page=>page.options) ?? [];
   return <div className={`${styles.picker} ${fixedKind ? styles.fixedPicker : ""}`}>
-    {!fixedKind ? <label>范围类型 <select value={kind} disabled={disabled} onChange={event=>{
+    {!fixedKind && !projectConversation ? <label>范围类型 <select value={kind} disabled={disabled} onChange={event=>{
       setKind(event.target.value as typeof kind); onSelect(undefined);
     }}><option value="general">通用业务</option><option value="project">项目</option><option value="store">店铺</option></select></label> : null}
-    <label>{fixedKind ? kind === "project" ? "项目" : kind === "store" ? "店铺" : "工作范围" : "工作范围"} <select value={selected?.confirmation ?? ""} disabled={disabled || options.isPending || options.isError}
+    <label>{projectConversation ? "项目" : fixedKind ? kind === "project" ? "项目" : kind === "store" ? "店铺" : "工作范围" : "工作范围"} <select value={selected?.confirmation ?? ""} disabled={disabled || options.isPending || options.isError}
       onChange={event=>onSelect(rows.find(row=>row.confirmation===event.target.value))}>
       <option value="">{options.isPending ? "正在读取…" : "请选择"}</option>
       {rows.map(row=><option key={row.confirmation} value={row.confirmation}>{scopeLabel(row)}</option>)}
