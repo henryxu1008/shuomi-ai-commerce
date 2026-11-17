@@ -2,7 +2,7 @@
 
 ## 当前阅读边界（2026-11-17）
 
-本文记录 TEMU 多模式与官方站点的**设计范围和适用平台合同**，下文 2026-10 以 Figma 为最终页面依据的描述已被 2026-11-05 用户产品决定取代；以 [当前业务流程参考与历史 UI/IA 决定](../product/final-ui-ia-authority.md) 为准。设计包含所有拟接入模式/站点不等于每种模式、官方接口、商家应用和全部站点已在当前实例完成授权和真实验证。Store 连接/观察、Listing 提交身份/UNKNOWN 与 TEMU adapter 规则分别由原 Owner 负责；准确可用性按 [TEMU #31](https://github.com/henryxu1008/shuomi-ai-commerce/issues/31)、[官方合同证据](domains/marketplace/temu-official-contract-evidence.md)和具体客户验收核对。本节只是文档适用范围校准，冻结设计的安全、权限和恢复要求不变。
+本文记录 TEMU 多模式与官方站点的**设计范围和适用平台合同**，下文 2026-10 以 Figma 为最终页面依据的描述已被 2026-11-05 用户产品决定取代；以 [当前业务流程参考与历史 UI/IA 决定](../../../product/final-ui-ia-authority.md) 为准。设计包含所有拟接入模式/站点不等于每种模式、官方接口、商家应用和全部站点已在当前实例完成授权和真实验证。Store 连接/观察、Listing 提交身份/UNKNOWN 与 TEMU adapter 规则分别由原 Owner 负责；准确可用性按 [TEMU #31](https://github.com/henryxu1008/shuomi-ai-commerce/issues/31)、[官方合同证据](temu-official-contract-evidence.md)和具体客户验收核对。本节只是文档适用范围校准，冻结设计的安全、权限和恢复要求不变。
 
 
 > Execution：[#31](https://github.com/qq550723504/task-processor/issues/31)
@@ -21,7 +21,7 @@
 
 获授权企业运营人员在现有“我的店铺”连接 TEMU 官方应用；从当前 Product / ApprovedAsset 形成可检查的 TEMU 平台资料，查看缺失信息与确定性校验，明确提交后查看平台创建标识、审核/销售状态与未确定结果；“店铺商品”同步官方商品事实；AI工作台只通过现有受控工具读取、诊断、校验与提出修改建议。
 
-当前 [UI / IA Authority](../product/final-ui-ia-authority.md)、[Store Figma 设计](store-center-figma.md)、[共享供应链设计](my-supply-chain-shein.md)、[全新安装基线](../product/greenfield-no-legacy-migration.md) 共同适用。2026-10-11 只读核对 Figma 文件 tg48P46SSXl6TBy9lZwg63、页面 31:463：1560:359“我的店铺”、429:5323“店铺商品”当前可见。原型示例“当前开放 SHEIN”、数量、网络正常、1548:402 的 API 未开放/子账户路径不是 TEMU 能力或新认证合同依据。
+当前 [UI / IA Authority](../../../product/final-ui-ia-authority.md)、[Store Figma 设计](../../store-center-figma.md)、[共享供应链设计](../../my-supply-chain-shein.md)、[全新安装基线](../../../product/greenfield-no-legacy-migration.md) 共同适用。2026-10-11 只读核对 Figma 文件 tg48P46SSXl6TBy9lZwg63、页面 31:463：1560:359“我的店铺”、429:5323“店铺商品”当前可见。原型示例“当前开放 SHEIN”、数量、网络正常、1548:402 的 API 未开放/子账户路径不是 TEMU 能力或新认证合同依据。
 
 ### Must
 
@@ -40,7 +40,7 @@ Accepted Risks：本任务没有新增用户批准的风险豁免。官方资料
 
 ## 2. 官方合同结论及完整性边界
 
-来源、更新时间与完整站点摘录见 [官方合同证据](domains/marketplace/temu-official-contract-evidence.md)。以下区分事实与设计选择。
+来源、更新时间与完整站点摘录见 [官方合同证据](temu-official-contract-evidence.md)。以下区分事实与设计选择。
 
 | 模式 | 官方创建/查询合同 | 路由 | 平台操作的单位 | 站点依据 |
 | --- | --- | --- | --- | --- |

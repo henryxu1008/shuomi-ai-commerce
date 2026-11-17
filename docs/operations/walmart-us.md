@@ -1,6 +1,6 @@
 # Walmart 美国站首期操作与配置
 
-关联 [#733](https://github.com/qq550723504/task-processor/issues/733) / [PR #734](https://github.com/qq550723504/task-processor/pull/734)。设计依据：[冻结架构](../architecture/walmart-us.md)、[官方合同证据](../architecture/domains/marketplace/walmart-us-contract-evidence.md)。本次只交付实现与隔离验证；没有合并、部署或访问真实店铺。
+关联 [#733](https://github.com/qq550723504/task-processor/issues/733) / [PR #734](https://github.com/qq550723504/task-processor/pull/734)。设计依据：[冻结架构](../architecture/domains/marketplace/walmart-us.md)、[官方合同证据](../architecture/domains/marketplace/walmart-us-contract-evidence.md)。本次只交付实现与隔离验证；没有合并、部署或访问真实店铺。
 
 ## 用户路径
 
