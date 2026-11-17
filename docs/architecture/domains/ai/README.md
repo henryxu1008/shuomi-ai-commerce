@@ -46,3 +46,10 @@
 - [Image Agent Recovery and Compatibility](image-agent-recovery.md)：保留原 v2/v3 兼容、S3 持久归档、lease/fence 恢复的历史合同。
 
 仅更改阅读路径；不合并不同阶段的恢复协议，不授权实际重试或生产部署。
+
+## 图片预算准入与候选发布保护
+
+- [Image Agent Budget Authorization](image-agent-budget-authorization.md)：原有预算作为外部效果执行许可、预留/结算及 UNKNOWN 的历史设计。
+- [Image Agent Candidate Release Gate](image-agent-candidate-release-gate.md)：候选 worker 的隔离兼容验证及生产提升边界；不代表已有部署许可。
+
+仅迁移历史合同的阅读位置，不改变预算、权限、真实 worker 发行或环境状态。
