@@ -25,7 +25,7 @@
 
 - 采集与资料：[浏览器插件](../../extensions/product-capture/README.md)、[来源素材](runbooks/source-materials.md)、[来源图试用](own-product-source-media-trial.md)、[1688 采集计划](user-guides/acquisition-plans-local.md)。
 - 自有商品：[录入](user-guides/own-product-entry.md)、[历史](user-guides/own-product-history.md)、[富文本描述](runbooks/own-product-rich-description.md)。
-- 待补全草稿：[单件转入](user-guides/own-product-draft-entry.md)、[已有草稿](user-guides/own-product-existing-drafts.md)、[未绑定店铺草稿](supply-unbound-completion-drafts.md)。
+- 待补全草稿：[单件转入](user-guides/own-product-draft-entry.md)、[已有草稿](user-guides/own-product-existing-drafts.md)、[未绑定店铺草稿](user-guides/supply-unbound-completion-drafts.md)。
 - 草稿编辑：[属性与 SKU](user-guides/completion-draft-structured.md)、[保存历史](user-guides/completion-draft-history.md)、[恢复为新版本](user-guides/completion-draft-restore.md)。
 - 自有商品优选：[多商品申请](selected-application-multi-product.md)，以当前多商品申请合同为准。
 - SHEIN：[供应链操作与启动](my-supply-chain-shein.md)、[导入试用安装](shein-import-installation.md)。
@@ -50,7 +50,7 @@
 - 平台专项：[TEMU](user-guides/temu-store-connection.md)、[TikTok Shop 美国站](tiktok-shop-us.md)、[Walmart 美国站](walmart-us.md)。各文档的候选、未开放和恢复限制继续适用。
 - 平台服务：[工具市场](tool-market.md)、[数据服务](../engineering/data-services-runtime-handoff.md)、[生态服务](ecosystem-services.md)。
 - 阅读与诊断：[官方知识](../engineering/official-knowledge-handoff.md)、[个人报告](../engineering/report-center-runtime-handoff.md)、[经营诊断](../engineering/shop-operations-diagnosis-handoff.md)、[运营驾驶舱](../engineering/operations-cockpit-runtime-handoff.md)。
-- 通知：[通知中心](notification-center-trial.md)。
+- 通知：[通知中心](runbooks/notification-center-trial.md)。
 
 <a id="limited-scope"></a>
 
