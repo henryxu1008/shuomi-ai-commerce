@@ -71,7 +71,7 @@ const order = {
   updated_at: "2026-09-29T00:00:00Z",
 };
 let client: QueryClient;
-function tree(org = "org-B", items:ResourceOffer[] = [offer], roles = ["workbench.commercial.purchase"]) {
+function tree(org = "org-B", items:ResourceOffer[] = [offer], roles = ["workbench.commercial.purchase"], planOptions?: { storageAvailable: boolean }) {
   return (
     <QueryClientProvider client={client}>
       <ResourcePurchasePanel
@@ -79,6 +79,7 @@ function tree(org = "org-B", items:ResourceOffer[] = [offer], roles = ["workbenc
         organizationId={org}
         organizationName="企业乙"
         permissions={roles}
+        planOptions={planOptions}
         offers={{ organization_id: org, items }}
       />
     </QueryClientProvider>
@@ -110,6 +111,55 @@ afterEach(() => {
   client.clear();
   sessionStorage.clear();
   vi.restoreAllMocks();
+});
+
+it("estimates the quantity price locally and only submits after confirming the formal quote", async () => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, writable: true, value() {} });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, writable: true, value() {} });
+  const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
+  vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function (this: HTMLDialogElement) { this.open = false; });
+  api.quote.mockResolvedValue({ ...quote, amount_minor: undefined, unit_price_minor: undefined, remainder_minor: undefined });
+  const user = userEvent.setup();
+  render(tree("org-B", [offer], undefined, { storageAvailable: false }));
+
+  const card = within(screen.getByRole("region", { name: "AI 点数购买" }));
+  const quantity = card.getByRole("textbox", { name: "购买数量" });
+  await user.clear(quantity);
+  await user.type(quantity, "10");
+  expect(card.getByText("预计总价 ¥0.70")).toBeVisible();
+  expect(api.quote).not.toHaveBeenCalled();
+  const buy = card.getByRole("button", { name: "购买" });
+  await user.click(buy);
+  const dialog = within(await screen.findByRole("dialog", { name: "确认购买" }));
+  expect(showModal).toHaveBeenCalledOnce();
+  expect(dialog.getByText("¥0.70")).toBeVisible();
+  expect(api.quote).toHaveBeenCalledWith("actor", "org-B", offer.offer_id, { quantity: "10" }, expect.any(AbortSignal));
+  expect(api.order).not.toHaveBeenCalled();
+  await user.click(dialog.getByRole("button", { name: "取消" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(quantity).toHaveValue("10");
+  expect(api.order).not.toHaveBeenCalled();
+  await user.click(buy);
+  const second = within(await screen.findByRole("dialog", { name: "确认购买" }));
+  await user.click(second.getByRole("button", { name: "确认购买" }));
+  expect(api.order).toHaveBeenCalledOnce();
+  expect(await screen.findByText(/资源已到账/)).toBeVisible();
+});
+
+it("estimates whole units for a budget and blocks a budget below one unit", async () => {
+  const user = userEvent.setup();
+  render(tree("org-B", [offer], undefined, { storageAvailable: false }));
+  const card = within(screen.getByRole("region", { name: "AI 点数购买" }));
+  await user.selectOptions(card.getByRole("combobox", { name: "购买方式" }), "amount");
+  const budget = card.getByRole("textbox", { name: "金额（元）" });
+  await user.clear(budget);
+  await user.type(budget, "0.73");
+  expect(card.getByText("预计总价 ¥0.70 · 预计到账 10 点")).toBeVisible();
+  await user.clear(budget);
+  await user.type(budget, "0.01");
+  expect(card.getByRole("button", { name: "购买" })).toBeDisabled();
+  expect(card.queryByText(/预计总价/)).not.toBeInTheDocument();
+  expect(api.quote).not.toHaveBeenCalled();
 });
 
 it("receives exactly three zero-price rows without requiring wallet balance",async()=>{
