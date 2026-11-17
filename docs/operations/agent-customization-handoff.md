@@ -1,6 +1,6 @@
 # 智能体定制 V1 接线与使用
 
-执行范围与权限以 #611 当前正文为准；领域合同见 [人工流程设计](../architecture/agent-customization.md) 与 [私有交付设计](../architecture/private-agent-delivery.md)。本功能由硕米平台专员人工处理，方案、费用与交付安排在线下确认。提交需求不收费，也不触发模型执行、支付或消息发送。
+执行范围与权限以 #611 当前正文为准；领域合同见 [人工流程设计](../architecture/domains/ai/agent-customization.md) 与 [私有交付设计](../architecture/private-agent-delivery.md)。本功能由硕米平台专员人工处理，方案、费用与交付安排在线下确认。提交需求不收费，也不触发模型执行、支付或消息发送。
 
 私有交付操作：专员在已确认方案的开发/交付阶段填写交付说明，选择“交付平台草稿资料质检智能体 v2.0.0”并保存。系统只授权给该需求原企业，平台不能输入其他企业、定义或版本。仅记录人工 DELIVERED 不创建可用入口。客户在 `/workbench/agents/mine` 的“企业私有智能体”进入使用，也可从定制进度的实际交付链接进入 `/workbench/agents/mine/private/<deliveryId>`。选择自己的供应链批次、SHEIN 美国站店铺和待补全/已适配草稿 → 检查并保存报告 → 我的已保存报告 → 查看报告。当前企业的 agent.read/use 权限与实时授权分别控制读取和执行；来源读取还需 collection.read、supply.read，选择店铺需 store.read。平台处理权限不替代企业执行权。
 
