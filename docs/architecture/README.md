@@ -2,7 +2,7 @@
 
 返回[文档首页](../README.md)。先读 `project-boundaries.md` 和 `project-target-architecture.md`，再按业务领域选择合同；源码入口见[Repository Structure](../development/repository-structure.md#current-entrypoint-map)。
 
-产品基线为 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。页面与交互见[产品 Authority](../product/final-ui-ia-authority.md)；领域事实和运行边界由下列合同负责。合同中的设计准入不代替源码完成、实例启用或真实用户验收。
+产品基线为 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。页面与交互的**当前用户决定及业务流程参考**见[产品流程与历史 UI/IA 说明](../product/final-ui-ia-authority.md)，Figma 不再是最终 UI/IA 权威；领域事实和运行边界由下列合同负责。合同中的设计准入、历史提交与旧阶段状态不代替当前源码完成、实例启用或真实用户验收。文档分域与候选迁移计划见[文档组织与迁移规则](../document-organization.md)及[逐文件清单](../document-inventory.csv)；未审查前不按文件名前缀搬移合同。
 
 ## 商品来源、标准商品与研究（分域阅读导航）
 
@@ -209,6 +209,8 @@
 
 ## Agent、Tool、Skill 与知识
 
+- [AI 领域候选导航：#132 标题对照与先导评测](domains/ai/README.md) — 两份独立设计尚未准入；真实模型/费用执行未授权
+
 - `agent-customization.md` — [智能体定制需求与人工进度 V1](agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
 - `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
@@ -225,8 +227,8 @@
 - `official-skill-product-entry.md` — [官方技能直接处理已有商品](official-skill-product-entry.md)
 - `official-skill-automatic-preparation.md` — [官方技能模板自动准备](official-skill-automatic-preparation.md)
 - `task-center-summary.md` — [任务中心统一统计](task-center-summary.md)
-- `issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](issue132-title-evaluation-admission.md)
-- `issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](issue132-title-pilot-local-entry.md)
+- `domains/ai/issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](domains/ai/issue132-title-evaluation-admission.md)
+- `domains/ai/issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](domains/ai/issue132-title-pilot-local-entry.md)
 - `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)
 - `platform-listing-materials-agent.md` — [平台上架资料智能体 v1](platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
