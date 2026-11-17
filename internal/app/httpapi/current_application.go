@@ -821,6 +821,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		modules = append(modules, modelRoutePricingModule{services: *supplied.modelRoutePricing, authorizer: authorizer})
 	}
 	var resourceRecovery func(context.Context) error
+	var usageObjects *commercialUsageLookup
 	includeResources := supplied.commercialOwnerDB != nil && factories.buildCommercialResources != nil
 	if includeResources {
 		resources, err := factories.buildCommercialResources(ctx, supplied.commercialOwnerDB)
@@ -831,6 +832,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			return nil, errors.New("current commercial resources unavailable")
 		}
 		modules = append(modules, resources)
+		if resources, ok := resources.(commercialResourcesModule); ok {
+			usageObjects = resources.objects
+		}
 	}
 	var topUpRecovery func(context.Context) error
 	// Billing requires both its commercial owner and the canonical money owner.
@@ -1499,6 +1503,21 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 	}
+	if usageObjects != nil {
+		if supplied.storeCenterDB != nil && supplied.storeCenters > 0 {
+			stores, err := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer})
+			if err != nil {
+				return nil, fmt.Errorf("build usage object store reader: %w", err)
+			}
+			usageObjects.store = storeUsageObjectReader(stores)
+		}
+		if researchData != nil {
+			usageObjects.amazon = researchData.UsageProduct
+		}
+		if projectChat != nil {
+			usageObjects.task = projectChat.usageTaskObject
+		}
+	}
 	bundle, err := buildRuntimeBundleFromModules(cfg, modules)
 	if err != nil {
 		return nil, err
@@ -2041,7 +2060,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	expected := make(map[currentApplicationRoute]struct{}, len(admitted))
 	if optional.Resources {
 		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: commercialResourcesPath})
-		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: commercialResourceEventsPath})
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: commercialResourceEventsPath}, currentApplicationRoute{Method: http.MethodGet, Path: commercialResourceObjectPath})
 	}
 	for _, route := range admitted {
 		expected[route] = struct{}{}
@@ -2406,7 +2425,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return err
 			}
 		}
-		if (descriptor.Path == commercialResourcesPath || descriptor.Path == commercialResourceEventsPath) && (descriptor.Module != commercialResourcesModuleName || descriptor.Method != http.MethodGet || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver != nil || descriptor.Permission != authz.PermissionWorkbenchCommercialRead || descriptor.RequestTimeout != 15*time.Second || !descriptor.RejectUnreadRequestBody || descriptor.Handler == nil) {
+		if (descriptor.Path == commercialResourcesPath || descriptor.Path == commercialResourceEventsPath || descriptor.Path == commercialResourceObjectPath) && (descriptor.Module != commercialResourcesModuleName || descriptor.Method != http.MethodGet || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver != nil || descriptor.Permission != authz.PermissionWorkbenchCommercialRead || descriptor.RequestTimeout != 15*time.Second || !descriptor.RejectUnreadRequestBody || descriptor.Handler == nil) {
 			return errors.New("commercial resources route loses live read boundary")
 		}
 		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase) || strings.HasPrefix(descriptor.Path, ownContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {

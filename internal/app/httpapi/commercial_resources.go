@@ -35,12 +35,13 @@ func buildCommercialResourcesModule(ctx context.Context, db *gorm.DB) (kernelmod
 	if err != nil {
 		return nil, err
 	}
-	return commercialResourcesModule{reader: reader, events: reader}, ctx.Err()
+	return commercialResourcesModule{reader: reader, events: reader, objects: &commercialUsageLookup{readEvent: reader.ReadEventSource}}, ctx.Err()
 }
 
 type commercialResourcesModule struct {
-	reader orgresource.BalanceReader
-	events orgresource.EventReader
+	reader  orgresource.BalanceReader
+	events  orgresource.EventReader
+	objects *commercialUsageLookup
 }
 
 func (commercialResourcesModule) Name() string { return commercialResourcesModuleName }
@@ -58,6 +59,7 @@ func (m commercialResourcesModule) routes() []httproute.Descriptor {
 	return []httproute.Descriptor{
 		{Method: http.MethodGet, Path: commercialResourcesPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.read},
 		{Method: http.MethodGet, Path: commercialResourceEventsPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readEvents},
+		{Method: http.MethodGet, Path: commercialResourceObjectPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readUsageObject},
 	}
 }
 

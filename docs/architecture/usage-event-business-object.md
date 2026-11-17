@@ -10,7 +10,7 @@ Admission Status: IMPLEMENTATION_READY — 2026-11-17 独立 Reviewer `usage_arc
 
 2026-11-17 用户要求在现有用量详情中显示准确关联的店铺名、Amazon 商品和 AI 任务，并在 35444 试用。继续沿用原分类、账本及 1688 原商品查看路径。仅对有明确原始关联且当前有权查看的记录显示名称。资料未取得时可继续查看用量变动和原关联编号。
 
-不新增写入、计费、存储、筛选、历史回填、通用关联服务或扩大已有权限；不以名称、时间、商品文案、任意前缀或客户端给出的候选编号推断对象。Amazon 首版显示原结果的商品名或 ASIN，AI 仅在原调用已带有可读的 AI 工作台任务 ID 时返回任务，图片调用及无任务的会话调用不映射。
+不新增写入、计费、存储、筛选、历史回填、通用关联服务或扩大已有权限；不以名称、时间、商品文案、任意前缀或客户端给出的候选编号推断对象。Amazon 首版显示原结果的商品名或 ASIN，AI 仅覆盖原调用能准确绑定的商品标题或内容任务。图片调用及无任务的会话调用不映射。
 
 ## 当前合同和事实 owner
 
@@ -20,7 +20,7 @@ Admission Status: IMPLEMENTATION_READY — 2026-11-17 独立 Reviewer `usage_arc
 | --- | --- | --- |
 | `store_service_v1`，店铺期数 | `source_identity` 为原操作编号。按企业及该编号读取 Store 服务意图，核对意图中的企业、操作及店铺 ID | 通过现有成员范围 Store 读库检查 `workbench.store.read` 和店铺分配关系，返回同一个店铺的 ID 与名称。只读 Store 行，不读取连接凭据或平台 |
 | `amazon_data_v1`，数据条数 | `source_identity` 为已保存条目 ID。Data Acquisition 以当前企业、操作者、成员身份精确读取，核对原 job/item、Amazon 来源、发布 ID 与原商品凭据 | 复用 Amazon 结果的 live read 和已保存发布证明校验。只显示原结果允许展示的标题或 ASIN。原调用记录没有这些可显示字段时维持无对象 |
-| `model_invocation_v1`，AI 点数 | `source_identity` 为原调用 ID。在原调用 owner 读取同企业精确记录并核对操作、成员和用户。只消费记录自带的 `BusinessTaskID`，不把调用或运行 ID 当任务 ID | 复用 AI 工作台 `bind` 的现有请求能力和实时 `workbench.task.read`、同企业和调用人任务读取及详情现有业务范围/商品遮蔽规则。拒绝范围或历史不可见的响应，原任务当前可见时返回 ID 和标题 |
+| `model_invocation_v1`，AI 点数 | `source_identity` 为原调用 ID。读取同企业原调用，核对用户、成员与标题/内容操作。以调用中的 Agent run ID 读取同企业同操作者的原运行，再按运行执行请求键精确查找唯一任务，核对任务类型及完整执行请求与运行一致。若调用同时带任务 ID，必须与查找到的 ID 一致 | 复用 AI 工作台 `bind` 的现有请求能力和实时 `workbench.task.read`、同企业和调用人任务读取及详情现有业务范围/商品遮蔽规则。拒绝范围或历史不可见的响应，原任务当前可见时返回 ID 和标题 |
 
 ## 调用路径和边界
 
