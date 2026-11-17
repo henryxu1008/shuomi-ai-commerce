@@ -23,6 +23,8 @@ describe("MarketingHomepage", () => {
     const { rerender } = render(<MarketingHomepage pricing={pricing} />);
     const section = document.getElementById("pricing")!;
     expect(within(section).getByRole("heading", { name: "¥168 / 店铺 / 30 天" })).toBeInTheDocument();
+    expect(within(section).queryByText("店铺基础接入 · 示例价格")).not.toBeInTheDocument();
+    expect(within(section).getByRole("heading", { name: "价格暂不可用" })).toBeInTheDocument();
     expect(within(section).queryByText("¥99")).not.toBeInTheDocument();
     expect(within(section).getByText(/试用计划尚未开放/)).toBeInTheDocument();
     expect(within(section).queryByRole("link", { name: /免费开始体验/ })).not.toBeInTheDocument();
@@ -30,13 +32,14 @@ describe("MarketingHomepage", () => {
     expect(within(section).getByRole("heading", { name: "¥199 / 店铺 / 30 天" })).toBeInTheDocument();
   });
 
-  it("shows unavailable pricing instead of a static price when the catalog is missing or empty", () => {
+  it("keeps prices unavailable when the catalog is missing or empty", () => {
     const { rerender } = render(<MarketingHomepage />);
     const section = document.getElementById("pricing")!;
-    expect(within(section).getByText("店铺价格暂不可用")).toBeInTheDocument();
-    expect(within(section).queryByText("¥168")).not.toBeInTheDocument();
+    expect(within(section).getAllByRole("heading", { name: "价格暂不可用" })).toHaveLength(2);
+    expect(within(section).queryByText(/¥168|¥0\.01/)).not.toBeInTheDocument();
+    expect(within(section).queryByRole("link", { name: /购买店铺服务|购买AI点数/ })).not.toBeInTheDocument();
     rerender(<MarketingHomepage pricing={{ schema_version: "retail-price-catalog-v1", store_period_days: 30, items: [] }} />);
-    expect(within(section).getByText("店铺价格暂不可用")).toBeInTheDocument();
+    expect(within(section).getAllByRole("heading", { name: "价格暂不可用" })).toHaveLength(2);
   });
 
   it("presents the public site as 硕米智能引擎", () => {
@@ -83,6 +86,14 @@ describe("MarketingHomepage", () => {
     );
   });
 
+  it("opens the contact flow from the OPC community action", async () => {
+    const user = userEvent.setup();
+    render(<MarketingHomepage />);
+
+    await user.click(screen.getByRole("button", { name: "咨询 OPC 社区" }));
+    expect(screen.getByRole("dialog", { name: "联系我们" })).toBeInTheDocument();
+  });
+
   it("presents four capability categories without inventing runtime status", () => {
     render(<MarketingHomepage />);
     const network = screen.getByRole("group", { name: "全球商业智能网络能力示意" });
@@ -106,7 +117,7 @@ describe("MarketingHomepage", () => {
     expect(screen.getByText("每一个电商岗位，都可以拥有一位 AI 员工")).toBeInTheDocument();
     expect(screen.getByText("连接商品、货盘与工厂，让好产品快速进入市场")).toBeInTheDocument();
     expect(screen.getByText("不同的业务起点，同一套 AI 增长能力")).toBeInTheDocument();
-    expect(screen.getByText("价格与服务方案")).toBeInTheDocument();
+    expect(screen.getByText("PRICING & SERVICE PLANS / 价格与服务方案")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "让每个人，都拥有一支智能电商团队" })).toBeInTheDocument();
     expect(screen.getByText("消费需求分析")).toBeInTheDocument();
     expect(screen.getByText("AI自动优化策略")).toBeInTheDocument();
@@ -205,6 +216,12 @@ describe("MarketingHomepage", () => {
 
     expect(styles).toMatch(/\.contactOverlay \{[^}]*overflow-y: auto;/);
     expect(styles).toMatch(/\.contactPanel \{[^}]*max-height: calc\(100dvh - 40px\);[^}]*overflow-y: auto;/);
+  });
+
+  it("keeps the data network in one column on small screens", () => {
+    const styles = readFileSync("src/components/marketing/marketing-homepage.module.css", "utf8");
+
+    expect(styles).toMatch(/@media \(max-width: 620px\) \{ \.page \.dataNetwork \{ grid-template-columns: minmax\(0,1fr\); \}/);
   });
 
   it("switches the role solution panel when a user selects a different role", async () => {
