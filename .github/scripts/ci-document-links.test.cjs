@@ -43,11 +43,16 @@ test("new relative documentation references are checked but old and removed line
   try {
     fs.mkdirSync(path.join(root, "docs", "architecture"), { recursive: true });
     fs.writeFileSync(path.join(root, "docs", "architecture", "README.md"), "ok");
-    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root }), [
+    const file = [
+      "[unchanged](missing-unchanged.md)",
+      "[valid](architecture/README.md#section) and [missing](architecture/missing.md)",
+      "[web](https://example.com), [anchor](#section), [email](mailto:foo@example.com)",
+    ].join("\n");
+    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root, readFile: () => file }), [
       "docs/README.md: unresolved relative link architecture/missing.md",
     ]);
     fs.writeFileSync(path.join(root, "docs", "architecture", "missing.md"), "ok");
-    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root }), []);
+    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root, readFile: () => file }), []);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -63,7 +68,10 @@ test("unrecognized and malformed relative targets fail closed, while valid encod
   try {
     fs.mkdirSync(path.join(root, "docs"), { recursive: true });
     fs.writeFileSync(path.join(root, "docs", "file name.md"), "ok");
-    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root }), [
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "# Intro\n[out](../../outside.md), [bad](bad%ZZ.md), [encoded](file%20name.md)",
+    }), [
       "docs/README.md: unresolved relative link ../../outside.md",
       "docs/README.md: invalid URL encoding in bad%ZZ.md",
     ]);
@@ -85,6 +93,7 @@ test("new document with directory links is validated without checking removed co
     repositoryRoot: "/tmp/example-repo",
     exists: (p) => p === "/tmp/example-repo/internal/marketplace" ||
       p === "/tmp/example-repo/docs/product/README.md",
+    readFile: () => "# Flows\n[platform](../../../internal/marketplace/) and [products](../README.md)",
   }), []);
 });
 
@@ -110,7 +119,10 @@ test("normalizes Git patch headers for spaces and C-style quoted filenames", () 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-spaces-"));
   try {
     fs.mkdirSync(path.join(root, "docs"));
-    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root }), [
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "# Notes\n[invalid](missing.md)",
+    }), [
       "docs/guide notes.md: unresolved relative link missing.md",
     ]);
   } finally {
@@ -129,9 +141,65 @@ test("accepts repository-root links but refuses paths that escape it", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-root-"));
   try {
     fs.mkdirSync(path.join(root, "docs"));
-    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root }), [
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "# Intro\n[repository](../) and [outside](../../)",
+    }), [
       "docs/README.md: unresolved relative link ../../",
     ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("skips literal examples in existing fences and inline code but validates real added links", () => {
+  const patch = [
+    "diff --git a/docs/guide.md b/docs/guide.md",
+    "--- a/docs/guide.md",
+    "+++ b/docs/guide.md",
+    "@@ -2,0 +3 @@",
+    "+[fenced](missing-fence.md)",
+    "@@ -4,0 +5 @@",
+    "+\x60[inline](missing-inline.md)\x60 and [real](missing-real.md)",
+  ].join("\n");
+  const content = [
+    "# Guide",
+    "\x60\x60\x60md",
+    "[fenced](missing-fence.md)",
+    "\x60\x60\x60",
+    "\x60[inline](missing-inline.md)\x60 and [real](missing-real.md)",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-code-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => content,
+    }), [
+      "docs/guide.md: unresolved relative link missing-real.md",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("skips Markdown links appearing inside newly added fenced blocks", () => {
+  const patch = [
+    "diff --git a/docs/examples.md b/docs/examples.md",
+    "--- /dev/null",
+    "+++ b/docs/examples.md",
+    "@@ -0,0 +1,3 @@",
+    "+\x60\x60\x60md",
+    "+[sample](not-a-real-file.md)",
+    "+\x60\x60\x60",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-fence-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "\x60\x60\x60md\n[sample](not-a-real-file.md)\n\x60\x60\x60",
+    }), []);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
