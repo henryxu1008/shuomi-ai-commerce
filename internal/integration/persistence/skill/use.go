@@ -21,10 +21,10 @@ func (s *Store) UsesPool(db *gorm.DB) bool {
 // CheckUseInTransaction joins the existing configuration/Run Claim transaction.
 // All callers resolve live identity/grants before supplying this trusted principal.
 func (s *Store) CheckUseInTransaction(ctx context.Context, tx *gorm.DB, p d.Principal, ref agent.SkillVersionRef) (d.Package, error) {
-	return s.checkUseForTarget(ctx, tx, p, ref, d.TitleTarget)
+	return s.checkUseForTarget(ctx, tx, p, ref, d.TitleTarget, false)
 }
 
-func (s *Store) checkUseForTarget(ctx context.Context, tx *gorm.DB, p d.Principal, ref agent.SkillVersionRef, target string) (d.Package, error) {
+func (s *Store) checkUseForTarget(ctx context.Context, tx *gorm.DB, p d.Principal, ref agent.SkillVersionRef, target string, completedReview bool) (d.Package, error) {
 	agentID := agentconfig.ContentAgentID
 	if target == d.ImageTarget {
 		agentID = agentconfig.ImageAgentID
@@ -39,7 +39,7 @@ func (s *Store) checkUseForTarget(ctx context.Context, tx *gorm.DB, p d.Principa
 	if q.Error != nil {
 		return d.Package{}, d.ErrUnavailable
 	}
-	if q.RowsAffected != 1 || activation != "ENABLED" {
+	if q.RowsAffected != 1 || (activation != "ENABLED" && !(completedReview && activation == "DISABLED")) {
 		return d.Package{}, d.ErrNotEnabled
 	}
 	if ref.OwnerKind == d.UserOwner {
@@ -84,11 +84,24 @@ func (s *Store) AcquireUse(ctx context.Context, p d.Principal, ref agent.SkillVe
 }
 
 func (s *Store) AcquireUseForTarget(ctx context.Context, p d.Principal, ref agent.SkillVersionRef, target string) (d.Package, func(), error) {
+	return s.acquireUseForTarget(ctx, p, ref, target, false)
+}
+
+// AcquireCompletedTitleScriptReview holds the live Skill grant for an already
+// completed, verified own-product title script. A pause only prevents execution.
+func (s *Store) AcquireCompletedTitleScriptReview(ctx context.Context, p d.Principal, ref agent.SkillVersionRef) (d.Package, func(), error) {
+	if ref.PolicyVersion != d.ScriptPolicyVersion {
+		return d.Package{}, nil, d.ErrInvalid
+	}
+	return s.acquireUseForTarget(ctx, p, ref, d.TitleTarget, true)
+}
+
+func (s *Store) acquireUseForTarget(ctx context.Context, p d.Principal, ref agent.SkillVersionRef, target string, completedReview bool) (d.Package, func(), error) {
 	tx := s.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return d.Package{}, nil, d.ErrUnavailable
 	}
-	material, e := s.checkUseForTarget(ctx, tx, p, ref, target)
+	material, e := s.checkUseForTarget(ctx, tx, p, ref, target, completedReview)
 	if e != nil {
 		_ = tx.Rollback().Error
 		return d.Package{}, nil, e

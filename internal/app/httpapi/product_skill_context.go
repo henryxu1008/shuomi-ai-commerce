@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
+	"task-processor/internal/product/contentagent"
 	"task-processor/internal/product/review"
 	d "task-processor/internal/skill"
 )
@@ -67,6 +68,18 @@ func (a *productAgentApplication) checkSkillClaim(ctx context.Context, tx *gorm.
 	_, e = a.skills.CheckUseInTransaction(ctx, tx, p, ref)
 	return e
 }
+func ownTitleScriptReview(p review.ExecutionProvenance) bool {
+	return p.Binding.ContextKind == contentagent.OwnProductContext && p.Binding.TargetPlatform == "product" &&
+		p.SkillVersionRef.PolicyVersion == d.ScriptPolicyVersion && p.ContentSelection.TitleOnly()
+}
+
+func (a *productAgentApplication) checkTitleReviewMode(ctx context.Context, origin agent.ExecutionIdentity, p review.ExecutionProvenance, human bool) (agentconfig.ModeSnapshot, error) {
+	if human && ownTitleScriptReview(p) {
+		return a.configuration.CheckCompletedTitleScriptReviewMode(ctx, origin, p.Configuration, p.Mode)
+	}
+	return a.configuration.CheckRegisteredTextExecutionMode(ctx, origin, p.Configuration, p.Mode)
+}
+
 func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p review.ExecutionProvenance) (func(), error) {
 	if !p.Valid() || p.SkillVersionRef.Absent() {
 		return nil, review.ErrInvalid
@@ -105,7 +118,7 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	if !found || run.State.RunID != p.RunID || !agentRunReviewable(run.State) || *agentExecutionProvenance(run.State) != p {
 		return nil, review.ErrConflict
 	}
-	mode, e := a.configuration.CheckRegisteredTextExecutionMode(ctx, origin, p.Configuration, p.Mode)
+	mode, e := a.checkTitleReviewMode(ctx, origin, p, true)
 	if e != nil {
 		return nil, e
 	}
@@ -125,7 +138,11 @@ func (a *productAgentApplication) acquireSkillReview(ctx context.Context, p revi
 	// The reviewer never receives the original user's method body. Exact live
 	// origin access is required; the existing reviewer checks still run in UoW.
 	principal := d.Principal{UserID: origin.ActorID, OrganizationID: origin.OrganizationID, MemberID: origin.MemberID, UseOrganization: true}
-	_, release, e := consumer.skills.AcquireUse(ctx, principal, p.SkillVersionRef)
+	acquire := consumer.skills.AcquireUse
+	if ownTitleScriptReview(p) {
+		acquire = consumer.skills.AcquireCompletedTitleScriptReview
+	}
+	_, release, e := acquire(ctx, principal, p.SkillVersionRef)
 	if errors.Is(e, d.ErrForbidden) {
 		e = review.ErrForbidden
 	}
