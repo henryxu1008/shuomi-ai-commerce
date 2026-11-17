@@ -669,7 +669,10 @@
 .caseFooter strong { margin-bottom: 9px; font-size: 17px; }
 .practiceQuote { max-width: 1400px; margin-top: 22px; padding: 25px 30px; font-size: 23px; line-height: 1.5; }
 @keyframes practiceActivePulse { 0%,100% { box-shadow: 0 0 14px rgba(82,214,160,.1); } 50% { box-shadow: 0 0 25px rgba(82,214,160,.24); } }
-@media (max-width: 1100px) { .executionFlow { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 1100px) {
+  .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .executionFlow { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
 @media (max-width: 900px) { .practiceLayout { grid-template-columns: 1fr; max-width: 760px; }.scenarioList { min-height: 0; }.practiceCase { min-height: 0; padding: 28px; }.practiceQuote { max-width: 760px; } }
 @media (max-width: 620px) { .practiceSection .sectionHeading { margin-bottom: 34px; }.practiceLayout { gap: 16px; }.scenarioList { padding: 20px; }.scenarioList > h3 { font-size: 22px; }.scenarioList > p { font-size: 14px; }.scenarioTabs { grid-template-columns: 1fr; gap: 10px; }.scenarioList button { min-height: 88px; margin-top: 0; padding: 14px; }.scenarioList b { font-size: 16px; }.scenarioList small { font-size: 14px; }.practiceCase { padding: 22px 18px; }.practiceCase > h3 { font-size: clamp(26px,7vw,32px); }.practiceCase > p { font-size: 15px; }.metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 20px; }.metrics span { min-height: 92px; padding: 14px; font-size: 13px; }.metrics strong { font-size: 26px; }.practiceCase h4 { margin-top: 24px; font-size: 19px; }.practiceFlowDescription { font-size: 14px !important; }.executionFlow { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }.executionFlow span { min-height: 58px; padding: 10px; font-size: 14px; }.executionFlow i { width: 26px; height: 26px; flex-basis: 26px; font-size: 13px; }.caseFooter { grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }.caseFooter p { min-height: 0; padding: 16px; font-size: 14px; }.caseFooter strong { font-size: 16px; }.practiceQuote { margin-top: 16px; padding: 20px; font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { .scenarioList .activeScenario { animation: none; }.metrics span,.executionFlow span,.caseFooter p { transition: none; } }
