@@ -103,7 +103,7 @@ describe("WorkspaceAppShell", () => {
     const user = userEvent.setup();
     renderShell();
 
-    const trigger = await screen.findByText("我的账户 ⌄");
+    const trigger = await screen.findByRole("button", { name: "我的账户" });
     await user.click(trigger);
     const profile = screen.getByRole("link", { name: /^账户资料$/ });
     profile.focus();

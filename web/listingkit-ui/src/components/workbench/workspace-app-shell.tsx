@@ -8,7 +8,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { FulfillmentNavigation } from "./fulfillment/fulfillment-navigation";
-import { Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { OrganizationSwitcher, workbenchErrorMessage } from "@/components/workbench/organization-switcher";
 import { AccountDialog } from "@/components/workbench/account/account-dialog";
@@ -185,7 +185,10 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
             {notificationCenterAvailable ? <NotificationPopover /> : <Button disabled title="通知中心尚未启用" variant="outline">通知</Button>}
             <WorkbenchThemeSelect />
             <Popover.Root>
-              <Popover.Trigger ref={accountTrigger} className="console-user-trigger" aria-label="我的账户">我的账户 ⌄</Popover.Trigger>
+              <Popover.Trigger ref={accountTrigger} className="console-user-trigger">
+                我的账户
+                <ChevronDown aria-hidden="true" className="console-user-chevron" size={16} strokeWidth={1.5} />
+              </Popover.Trigger>
               <Popover.Portal>
                 <Popover.Content className="console-user-popover" aria-label="账户快捷操作" align="end" sideOffset={8} collisionPadding={12}>
                   <p className="text-xs text-muted-foreground">已登录账号</p>
