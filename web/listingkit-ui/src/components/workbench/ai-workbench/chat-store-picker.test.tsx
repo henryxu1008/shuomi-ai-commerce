@@ -24,7 +24,7 @@ it("reads only after opening, offers confirmed connections and allows clearing w
  expect(await screen.findByRole("button",{name:"店铺 A"})).toBeVisible();expect(screen.queryByRole("button",{name:"店铺 B"})).toBeNull();
  expect(screen.getByRole("link",{name:"连接新店铺"})).toHaveAttribute("href","/workbench/stores");
  fireEvent.click(screen.getByRole("button",{name:"店铺 A"}));
- expect(onChange).toHaveBeenLastCalledWith({choice:{kind:"store",storeId:a,scopeConfirmation:token,connectionVersion:3},ready:true});
+ expect(onChange).toHaveBeenLastCalledWith({choice:{kind:"store",storeId:a,scopeConfirmation:token,connectionVersion:3},ready:true,name:"店铺 A"});
  fireEvent.click(screen.getByRole("button",{name:"取消选择"}));
  expect(onChange).toHaveBeenLastCalledWith({choice:{kind:"none"},ready:true});
 });
@@ -43,7 +43,7 @@ it("switches and clears in the same conversation without changing the saved draf
  sessionStorage.setItem("unrelated-draft","保留原文");const onChange=vi.fn();render(wrapper(onChange));
  fireEvent.click(screen.getByRole("button",{name:"选择店铺"}));fireEvent.click(await screen.findByRole("button",{name:"店铺 A"}));
  fireEvent.click(screen.getByRole("button",{name:"店铺 A"}));fireEvent.click(await screen.findByRole("button",{name:"店铺 B"}));
- expect(onChange).toHaveBeenLastCalledWith({choice:{kind:"store",storeId:b,scopeConfirmation:token,connectionVersion:3},ready:true});
+ expect(onChange).toHaveBeenLastCalledWith({choice:{kind:"store",storeId:b,scopeConfirmation:token,connectionVersion:3},ready:true,name:"店铺 B"});
  fireEvent.click(screen.getByRole("button",{name:"取消选择"}));
  expect(JSON.parse(sessionStorage.getItem(chatStoreChoiceKey(scope,"conversation:one"))!)).toEqual({kind:"none"});
  expect(sessionStorage.getItem("unrelated-draft")).toBe("保留原文");

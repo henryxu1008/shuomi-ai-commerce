@@ -74,7 +74,7 @@ export function ChatStorePicker({scope,authorizationKey,context,disabled,baseSto
    return {items:checks.flatMap(result=>result.status==="fulfilled"&&result.value?[result.value]:[]),incomplete:page.incomplete||checks.some(result=>result.status==="rejected"),next:page.next};
   },getNextPageParam:page=>page.next||undefined});
  function save(choice:ChatStoreChoice,label:string) {
-  try {sessionStorage.setItem(key,JSON.stringify(choice));generation.current++;setValue(choice);setName(label);setError("");callback.current({choice,ready:true,name:label});onUserChange?.();setOpen(false);}
+  try {sessionStorage.setItem(key,JSON.stringify(choice));generation.current++;setValue(choice);setName(label);setError("");callback.current({choice,ready:true,...(label?{name:label}:{})});onUserChange?.();setOpen(false);}
   catch {setError("无法保存店铺选择，请检查浏览器存储。");callback.current({choice:undefined,ready:false});}
  }
  const visible=!rows.isFetching&&!rows.isError?rows.data?.pages.flatMap(page=>page.items):undefined;
