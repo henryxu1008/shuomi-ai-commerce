@@ -745,8 +745,9 @@
   isolation: isolate;
   background-color: #060a18;
   background-image:
-    radial-gradient(ellipse at 12% 16%, rgba(18, 79, 166, .14), transparent 34%),
-    radial-gradient(ellipse at 84% 38%, rgba(20, 105, 154, .09), transparent 32%),
+    radial-gradient(ellipse at 18% 14%, rgba(29, 91, 202, .2), transparent 36%),
+    radial-gradient(ellipse at 84% 38%, rgba(16, 129, 172, .14), transparent 34%),
+    radial-gradient(ellipse at 48% 78%, rgba(39, 65, 162, .13), transparent 38%),
     linear-gradient(180deg, #070b19 0%, #060a17 52%, #070b19 100%);
   background-attachment: fixed;
 }
@@ -759,19 +760,20 @@
   pointer-events: none;
 }
 .page::before {
-  opacity: .42;
+  opacity: .62;
   background-image:
-    radial-gradient(ellipse at 28% 24%, rgba(36, 112, 228, .15), transparent 24%),
-    radial-gradient(ellipse at 76% 66%, rgba(28, 166, 192, .09), transparent 27%),
-    repeating-linear-gradient(0deg, rgba(95, 150, 225, .018) 0, rgba(95, 150, 225, .018) 1px, transparent 1px, transparent 88px),
-    repeating-linear-gradient(90deg, rgba(95, 150, 225, .014) 0, rgba(95, 150, 225, .014) 1px, transparent 1px, transparent 88px);
+    radial-gradient(ellipse at 28% 24%, rgba(36, 112, 228, .2), transparent 25%),
+    radial-gradient(ellipse at 76% 66%, rgba(28, 166, 192, .14), transparent 28%),
+    repeating-linear-gradient(0deg, rgba(110, 166, 244, .032) 0, rgba(110, 166, 244, .032) 1px, transparent 1px, transparent 96px),
+    repeating-linear-gradient(90deg, rgba(110, 166, 244, .026) 0, rgba(110, 166, 244, .026) 1px, transparent 1px, transparent 96px);
 }
 .page::after {
-  opacity: .24;
+  opacity: .62;
+  mix-blend-mode: screen;
   background-image:
-    linear-gradient(112deg, transparent 0%, transparent 43%, rgba(48, 133, 255, .09) 49%, rgba(77, 214, 234, .055) 50%, transparent 57%, transparent 100%),
-    radial-gradient(ellipse at 50% 50%, rgba(31, 88, 181, .12), transparent 54%);
-  background-size: 190% 100%, 100% 100%;
+    linear-gradient(112deg, transparent 0%, transparent 39%, rgba(48, 133, 255, .2) 47%, rgba(77, 214, 234, .24) 49%, rgba(79, 125, 255, .16) 52%, transparent 61%, transparent 100%),
+    radial-gradient(ellipse at 50% 50%, rgba(31, 88, 181, .16), transparent 54%);
+  background-size: 170% 100%, 100% 100%;
   background-position: 100% 0, center;
   animation: pageTechFlow 32s ease-in-out infinite alternate;
 }
