@@ -21,3 +21,29 @@
 - [官方技能直接处理已有商品](official-skill-product-entry.md)：复用准确版本选择、原商品与图片来源验证、人工确认及原冻结运行。
 
 目录移动不改变 #1276、#774 的产品决定，也不授权实例发布、真实模型调用或付费。
+
+## 图片方案与执行职责
+
+- [通用图片模板与技能入口](generic-image-template-entry.md)：准确 Skill 版本和企业模板选择的历史设计，真实调用预算及用户验收仍沿原门禁。
+- [Image Agent Workflow](image-agent-workflow.md)：Run/Plan/Slot、Temporal 编排、派发保护、UNKNOWN、显式人工批准及不可重复副作用的原有职责说明。
+
+上述路径归类不变更原 #774 产品决定、执行状态、权限或模型预算。
+
+## 图片语言与 API 最小权限合同
+
+- [目标语言、已确认文案与不可变计划](image-text-language-confirmation.md)：沿原 Review、准确模板/Skill、预算及人工确认，不覆盖历史未完成真实效果。
+- [图片事件表最小读取权限](image-api-event-read-permissions.md)：原 API role 的有界 SELECT 修正与权限测试；仅保留既有设计和历史状态，不修改实际授权。
+
+## Image Agent 外部效果终结协议
+
+- [效果终态与取消保护](image-agent-effect-terminalization.md)：历史设计，关注 provider/staging/publication claimed 时的取消及最终状态边界。
+- [外部效果收尾与预算结算](image-agent-effect-finalization.md)：历史设计，关注 v3 Temporal 原版本门禁、明确未发送/未知结果与结算。
+
+两份合同保持各自原有版本、阶段约束及历史决定；目录整理不将时间窗不同的方案自动合并，也不批准真实执行。
+
+## Image Agent 效果恢复及兼容协议
+
+- [外部效果独立恢复工作流](image-agent-effect-recovery.md)：保留 v3 claimed/UNKNOWN 恢复事实与不重复调用 provider 约束。
+- [Image Agent Recovery and Compatibility](image-agent-recovery.md)：保留原 v2/v3 兼容、S3 持久归档、lease/fence 恢复的历史合同。
+
+仅更改阅读路径；不合并不同阶段的恢复协议，不授权实际重试或生产部署。
