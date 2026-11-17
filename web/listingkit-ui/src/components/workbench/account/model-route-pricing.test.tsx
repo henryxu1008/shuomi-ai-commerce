@@ -55,6 +55,53 @@ it("uses the published qualification per image model and the workbench projectio
  expect(fetch.mock.calls.some(([url])=>url.endsWith("/connections"))).toBe(false);
 });
 
+it.each([true,false])("distinguishes same-name candidates by publication and model qualification (%s)",async readyIsPublished=>{
+ const fetch=fixture(),original=fetch.getMockImplementation()!;
+ const textOption=models().find(model=>model.category==="text")!;
+ const unready={...textOption,reason:"CREDENTIAL_NOT_ADMITTED"};
+ const ready={...textOption,reference:{id:"registered-text",version:"configured-v1"},ready:true,reason:undefined};
+ const current=revision("current");
+ current.payload.sharedModels={...selection,text:readyIsPublished?ready.reference:unready.reference};
+ const other={...textOption,reference:{id:"another-text",version:"configured-v1"},channel:"other"};
+ fetch.mockImplementation((url,init)=>{
+  if(url.endsWith("/options"))return Promise.resolve(Response.json({organizationId:"org-a",channels:["openai-direct","other"],models:[...models().filter(model=>model.category!=="text"),unready,ready,other]}));
+  if(url.endsWith("/enterprise"))return Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:current,preview:{ready:false,models:models().map(model=>model.category==="text"?(readyIsPublished?ready:unready):model)}}));
+  return original(url,init);
+ });
+ mount();
+ const modelsField=await screen.findByRole("combobox",{name:"文本模型"});
+ const options=within(modelsField);
+ const currentOption=options.getByRole("option",{name:readyIsPublished?/当前已发布 · 模型配置符合条件/:/当前已发布 · 渠道暂不可用/});
+ const alternative=options.getByRole("option",{name:readyIsPublished?/渠道暂不可用/:/模型配置符合条件/});
+ expect(options.getAllByRole("option")).toHaveLength(3);
+ expect(modelsField).toHaveValue((currentOption as HTMLOptionElement).value);
+ await userEvent.selectOptions(modelsField,alternative);
+ expect(modelsField).toHaveValue((alternative as HTMLOptionElement).value);
+ expect(currentOption).toHaveTextContent("当前已发布");
+ expect(options.getByRole("option",{name:/ · other/})).toBeInTheDocument();
+});
+
+it("shows the image generation reason and returns focus to that status after inspection",async()=>{
+ const fetch=fixture(),original=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>url.endsWith("/enterprise")
+  ? Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:revision("current"),preview:{ready:false,models:models()}}))
+  : original(url,init));
+ mount(true);
+ const user=userEvent.setup();
+ const generation=within(screen.getByRole("region",{name:"图片生成模型"}));
+ expect(await generation.findByText("图片生成服务尚未配置")).toBeVisible();
+ const view=await generation.findByRole("button",{name:"查看模型"});
+ const field=await screen.findByRole("combobox",{name:"图片生成模型"});
+ await user.click(view);
+ expect(field).toHaveFocus();
+ await user.click(screen.getByRole("button",{name:"返回使用概览"}));
+ expect(generation.getByRole("heading",{name:"图片生成模型"})).toHaveFocus();
+ const refresh=screen.getByRole("button",{name:"重新读取状态"});
+ await user.click(refresh);
+ await waitFor(()=>expect(refresh).toBeEnabled());
+ expect(field).not.toHaveFocus();
+});
+
 it("does not use ready candidates when the current selection cannot be read",async()=>{
  const fetch=fixture(true),original=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>url.endsWith("/enterprise")
@@ -173,6 +220,9 @@ it("keeps the model choice across settings areas and clears the old business ret
  const view=render(page);
  const user=userEvent.setup();
  expect(screen.getByRole("link",{name:"返回原业务页面"})).toHaveAttribute("href",navigation.returnTo);
+ await waitFor(()=>expect(screen.getByRole("combobox",{name:"文本模型"})).toHaveFocus());
+ await user.click(screen.getByRole("button",{name:"返回使用概览"}));
+ expect(screen.getByRole("heading",{name:/硕米 Chat/})).toHaveFocus();
  await user.selectOptions(await screen.findByLabelText("默认渠道"),"other");
  await user.click(screen.getByRole("button",{name:"提供方与 Key"}));
  await screen.findByText(/暂无已登记渠道/);

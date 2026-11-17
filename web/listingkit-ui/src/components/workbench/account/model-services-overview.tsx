@@ -23,7 +23,7 @@ type Props = {
   disabled: boolean;
   onSelectModel: (category: ModelServiceCategory) => void;
   onCredentials: (model: ModelOption) => void;
-  onPrices: () => void;
+  onPrices: (category: ModelServiceCategory) => void;
   onRefresh: () => void;
 };
 
@@ -35,6 +35,7 @@ function modelStatus(model: ModelOption | undefined, status: Props["current"], c
   if (model.reason === "OFFICIAL_PRICE_MISSING") return "缺少适用参考价";
   if (model.reason && priceReasons.has(model.reason)) return "参考价或汇率暂不适用";
   if (model.reason === "CREDENTIAL_NOT_ADMITTED") return "渠道暂不可用，请核对渠道配置";
+  if (model.reason === "PROTOCOL_AND_COST_BOUND_MISSING") return "图片生成服务尚未配置";
   return "模型配置待处理";
 }
 
@@ -70,7 +71,7 @@ export function ModelServicesOverview({ current, checking, chat, credentials, pl
         const status = category === "text" ? chatLabels[chat] : qualification;
         const action = current?.status === "UNCONFIGURED" ? "去选模型" : "查看模型";
         return <section className={styles.modelCard} aria-label={labels[category]} key={category}>
-          <h3>{labels[category]}</h3>
+          <h3 data-model-service={category} tabIndex={-1}>{labels[category]}</h3>
           <span className={styles.overviewStatus} data-ready={ready} role="status">{status}</span>
           {category === "text" && qualification !== status && <p>企业文本模型 · {qualification}</p>}
           {model && model.model !== "UNKNOWN" && <p>{model.model} · {model.channel}</p>}
@@ -79,7 +80,7 @@ export function ModelServicesOverview({ current, checking, chat, credentials, pl
           {!checking && (credentialProblem && credentials && model
             ? <Button variant="outline" disabled={disabled} onClick={() => onCredentials(model)}>查看渠道配置</Button>
             : priceProblem && platform
-              ? <Button variant="outline" disabled={disabled} onClick={onPrices}>查看参考价格与汇率</Button>
+              ? <Button variant="outline" disabled={disabled} onClick={() => onPrices(category)}>查看参考价格与汇率</Button>
               : <Button variant="outline" disabled={disabled} onClick={() => onSelectModel(category)}>{action}</Button>)}
         </section>;
       })}

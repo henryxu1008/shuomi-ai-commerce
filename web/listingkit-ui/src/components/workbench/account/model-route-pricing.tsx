@@ -21,6 +21,9 @@ import { ModelServicesOverview } from "./model-services-overview";
 const defaults:RouteInput["selection"]={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"openai-mini",version:"approved-default-v1"},image:{id:"openai-flare",version:"approved-default-v1"},multimodal:{id:"openai-mini",version:"approved-default-v1"}};
 const categories=["text","image-generation","multimodal"] as const;
 const keyFor={text:"text","image-generation":"image",multimodal:"multimodal"} as const;
+function sameReference(first:ModelOption["reference"], second:ModelOption["reference"]){
+ return first.id===second.id&&first.version===second.version;
+}
 const reasonLabels: Record<string, string> = {
  POINT_BUDGET_EXCEEDED: "费用估算超出本次分析的点数预算",
  POINT_BUDGET_MISSING: "尚未配置本次分析的点数预算",
@@ -97,6 +100,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
  },[]);
  const areaHeading=useRef<HTMLDivElement>(null);
  const overview=useRef<HTMLDivElement>(null);
+ const overviewCategory=useRef<ModelServiceCategory>(null);
  const published=usePublishedModels(scope,configure && !context.error);
  const {area,model}=destination;
  const checking=refreshState==="checking";
@@ -122,9 +126,16 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
   return run;
  }
 
- function openSettings(next:ModelDestination) {
+ function openSettings(next:ModelDestination, fromOverview?:ModelServiceCategory) {
+  if(fromOverview)overviewCategory.current=fromOverview;
   setDestination(next);
   if(!next.category&&!next.model)areaHeading.current?.focus();
+ }
+
+ function returnToOverview() {
+  const category=overviewCategory.current??navigation?.category;
+  const heading=category&&overview.current?.querySelector<HTMLElement>(`[data-model-service="${category}"]`);
+  (heading||overview.current)?.focus();
  }
 
  const areas = [
@@ -146,9 +157,9 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
        checking={checking||published.isFetching}
        chat={checking?"checking":context.error?"unknown":!context.aiWorkbenchAvailable?"closed":context.aiWorkbenchPlanningReadiness}
        credentials={credentials} platform={platform} disabled={blocked}
-       onSelectModel={selected=>openSettings({area:"enterprise",category:selected})}
-       onCredentials={selected=>openSettings({area:"credentials",model:selected})}
-       onPrices={()=>openSettings({area:"platform-prices"})}
+       onSelectModel={selected=>openSettings({area:"enterprise",category:selected},selected)}
+       onCredentials={selected=>openSettings({area:"credentials",model:selected},selected.category)}
+       onPrices={selected=>openSettings({area:"platform-prices"},selected)}
        onRefresh={()=>void refresh()}
      />
    </div>}
@@ -157,10 +168,10 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
        {availableAreas.map(item => <Button key={item.id} variant="ghost" aria-pressed={area === item.id} disabled={blocked} onClick={() => setDestination({area:item.id})}>{item.label}</Button>)}
      </div>}
      {area === "platform-prices" && <p className={styles.scope}>适用范围：平台共用</p>}
-     {configure&&<Button variant="ghost" onClick={()=>overview.current?.focus()}>返回使用概览</Button>}
+     {configure&&<Button variant="ghost" onClick={returnToOverview}>返回使用概览</Button>}
      {context.error&&!configure&&<Button variant="outline" disabled={checking} onClick={()=>void refresh()}>重新读取状态</Button>}
    </div>
-   {area === "enterprise" ? <EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials?selected=>openSettings({area:"credentials",model:selected}):undefined} />
+   {area === "enterprise" ? <EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />
      : area === "credentials" ? <ChannelCredentialsManager scope={scope} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />
        : <OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />}
    {area !== "credentials" && <details className={styles.help}>
@@ -243,9 +254,11 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
  const previewHeading = useRef<HTMLHeadingElement>(null);
  const sectionHeading=useRef<HTMLHeadingElement>(null);
  const fields=useRef<Partial<Record<ModelServiceCategory,HTMLSelectElement|null>>>({});
+ const lastFocusedTarget=useRef<ModelDestination>(null);
  useEffect(() => { if (currentPreview) previewHeading.current?.focus(); }, [currentPreview]);
  useEffect(()=>{
-  if(!focusTarget?.category||loading||disabled)return;
+  if(!focusTarget?.category||focusTarget===lastFocusedTarget.current||loading||disabled)return;
+  lastFocusedTarget.current=focusTarget;
   (fields.current[focusTarget.category]??sectionHeading.current)?.focus();
  },[focusTarget,loading,disabled]);
  return <>
@@ -274,16 +287,23 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
              <div className={styles.modelGrid}>
                {categories.map(category => {
                  const candidates = optionsData.models.filter(model => model.category === category);
-                 const ref = choice[keyFor[category]];
-                 const selected = candidates.find(model => model.reference.id === ref.id && model.reference.version === ref.version);
+                 const key = keyFor[category];
+                 const ref = choice[key];
+                 const selected = candidates.find(model => sameReference(model.reference,ref));
+                 const publishedRef = current?.payload.sharedModels?.[key];
                  return <div className={styles.modelCard} key={category}>
                    <label className={styles.field}>
                      <strong>{modelLabels[category]}</strong>
                      <select ref={element=>{fields.current[category]=element}} value={ref.id + "/" + ref.version} onChange={event => select(category, event.target.value)}>
                        {!selected && <option value={ref.id + "/" + ref.version}>{ref.id}（原版本当前不可用）</option>}
-                       {candidates.map(model => <option key={model.reference.id + "/" + model.reference.version} value={model.reference.id + "/" + model.reference.version}>
-                         {model.model} · {model.channel}{model.ready ? "" : "（尚未就绪）"}
-                       </option>)}
+                       {candidates.map(model => {
+                         const value = model.reference.id + "/" + model.reference.version;
+                         const sameName = candidates.some(other => other !== model && other.model === model.model && other.channel === model.channel);
+                         const currentLabel = publishedRef && sameReference(publishedRef, model.reference) ? "当前已发布 · " : "";
+                         const readiness = model.ready ? "模型配置符合条件" : reasonLabels[model.reason??""] ?? "尚未就绪";
+                         const suffix = sameName ? `（${currentLabel}${readiness}）` : model.ready ? "" : "（尚未就绪）";
+                         return <option key={value} value={value}>{model.model} · {model.channel}{suffix}</option>;
+                       })}
                      </select>
                    </label>
                    {candidates.length===0&&<p>暂无可选模型，请联系系统维护人员。</p>}
