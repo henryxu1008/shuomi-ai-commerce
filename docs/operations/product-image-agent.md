@@ -77,7 +77,7 @@ pnpm.cmd exec next start --hostname 127.0.0.1 --port 3000
 
 ## 百炼接线增量（#774 / PR #799）
 
-依据[百炼图片接线设计](../architecture/bailian-product-image-wiring.md)，企业图片凭据槽仍为 `image_gpt_image_2`；显式使用 `api_style=dashscope`、`model=qwen-image-3.0`，北京 `https://dashscope.aliyuncs.com` 或准确业务空间域名。不使用图片翻译模型、不复用标题密钥或宿主 CLI 配置。本地试用由用户委托选择每张1点，价格版本 `bailian-qwen-image-3-trial-20261018-v1`；沿原点数确认与 UNKNOWN 恢复。
+依据[百炼图片接线设计](../architecture/domains/ai/bailian-product-image-wiring.md)，企业图片凭据槽仍为 `image_gpt_image_2`；显式使用 `api_style=dashscope`、`model=qwen-image-3.0`，北京 `https://dashscope.aliyuncs.com` 或准确业务空间域名。不使用图片翻译模型、不复用标题密钥或宿主 CLI 配置。本地试用由用户委托选择每张1点，价格版本 `bailian-qwen-image-3-trial-20261018-v1`；沿原点数确认与 UNKNOWN 恢复。
 
 本地待补全详情使用原 Preparation 来源打开同一整套图片面板，完整平台 Supply 开关仍可关闭。来源读取使用原 read 权限，方法选择要求原 image write；没有原图时如实返回空列表，仍能核对方法版本，Prepare 保持拒绝。缺少模型配置或智能体未启用时不能准备或生成。
 

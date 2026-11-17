@@ -140,7 +140,7 @@ C2-2 消费者在 `4b6c03ca` 完成限定工程复核（证据见 PR），运行
 同一型号可具有多个能力标签，但看图输入支持不等于生图/改图支持。
 
 依据：[模型与费率管理 V1](model-route-pricing-management.md)、
-[文本路由](product-agent-text-provider-neutral.md)、[Google 原生路由](product-agent-google-interactions.md)、
+[文本路由](product-agent-text-provider-neutral.md)、[Google 原生路由](domains/ai/product-agent-google-interactions.md)、
 [图片 Agent](product-image-agent.md)、[运行合同](product-agent-runtime-contract.md)、
 [点数购买](commercial-retail-pricing.md)、[成员资源](member-resource-allocation.md)、
 [领域 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
