@@ -18,14 +18,16 @@ type VerifiedMerchantReader interface {
 	ReadVerifiedMerchant(context.Context, string) (Merchant, error)
 }
 type MarketData struct {
-	Prices []PriceRange
-	Added  *bool
+	Prices   []PriceRange
+	Added    *bool
+	Category *CategoryPath
 }
 type MarketView struct {
 	Release
-	Prices   []PriceRange `json:"prices"`
-	Added    *bool        `json:"added"`
-	Merchant *Merchant    `json:"merchant,omitempty"`
+	Prices   []PriceRange  `json:"prices"`
+	Added    *bool         `json:"added"`
+	Merchant *Merchant     `json:"merchant,omitempty"`
+	Category *CategoryPath `json:"category,omitempty"`
 }
 
 func (s *Service) views(ctx context.Context, scope collection.Scope, releases []Release) ([]MarketView, error) {
@@ -44,7 +46,7 @@ func (s *Service) views(ctx context.Context, scope collection.Scope, releases []
 		if !ok {
 			return nil, ErrUnavailable
 		}
-		view := MarketView{Release: r, Prices: d.Prices, Added: d.Added}
+		view := MarketView{Release: r, Prices: d.Prices, Added: d.Added, Category: d.Category}
 		if view.Prices == nil {
 			view.Prices = []PriceRange{}
 		}

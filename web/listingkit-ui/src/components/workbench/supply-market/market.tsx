@@ -11,7 +11,7 @@ import {listMarket,readMarket,type MarketScope} from "@/lib/api/supply-market";
 import {MarketBoundary,MarketReadError,CursorButtons,useMarketCommands} from "./shared";
 import styles from "./market-product.module.css";
 import {OfficialMarketActions} from "./official-access";
-import {MarketFiltersForm,type MarketCriteria} from "./market-filters";
+import {MarketFiltersForm,type AppliedMarketFilters} from "./market-filters";
 import {MarketCard,MarketMerchant} from "./market-card";
 import {formatMarketPrice as priceText} from "./market-price";
 import type {MarketView} from "@/lib/contracts/supply-market";
@@ -26,8 +26,11 @@ function ProductPrice({variants,note}:{variants?:readonly {currency?:string;pric
 }
 export function SupplyMarketPage({channel}:{channel:"official"|"selected"}){return <MarketBoundary>{scope=><MarketList scope={scope} channel={channel}/>}</MarketBoundary>}
 function MarketList({scope,channel}:{scope:MarketScope;channel:"official"|"selected"}){
- const [criteria,setCriteria]=useState<MarketCriteria>({keyword:""}),[after,setAfter]=useState<string>(),[adding,setAdding]=useState<string>();
  const commands=useMarketCommands(scope),client=useQueryClient();
+ const filtersKey=["market-list-filters",scope.userId,scope.organizationId,channel];
+ const [applied,setApplied]=useState<AppliedMarketFilters>(()=>client.getQueryData(filtersKey)??{criteria:{keyword:""},category:{}});
+ const [after,setAfter]=useState<string>(),[adding,setAdding]=useState<string>();
+ const {criteria}=applied;
  const filter=criteria.keyword!==""||Object.keys(criteria).length>1;
  const prefix=["supply-market",scope.userId,scope.organizationId,"releases"];
  const q=useQuery({queryKey:[...prefix,channel,criteria,after],queryFn:({signal})=>listMarket(scope,{kind:channel,...criteria,after},signal),retry:false});
@@ -36,7 +39,7 @@ function MarketList({scope,channel}:{scope:MarketScope;channel:"official"|"selec
   setAdding(product.id);
   try{const receipt=await commands.execute({action:"select_release",id:product.id,expectedRevision:product.revision});if(receipt?.releaseId===product.id&&receipt.collection){client.setQueriesData<Awaited<ReturnType<typeof listMarket>>>({queryKey:prefix},page=>page?{...page,items:page.items.map(item=>item.id===product.id?{...item,added:true}:item)}:page)}}finally{setAdding(undefined)}
  }
- return <ConsolePage className={workbenchViewPage} title={channels[channel].title} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:channels[channel].title}]} description="挑选合适的货源，加入我的数据后继续准备商品上架。" actions={<><MyDataLink/>{channel==="official"?<OfficialMarketActions/>:null}</>}><ChannelNavigation channel={channel}/><ConsoleToolbar><MarketFiltersForm subject={scope.userId} onApply={next=>{setCriteria(next);setAfter(undefined)}}/></ConsoleToolbar>
+ return <ConsolePage className={workbenchViewPage} title={channels[channel].title} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:channels[channel].title}]} description="挑选合适的货源，加入我的数据后继续准备商品上架。" actions={<><MyDataLink/>{channel==="official"?<OfficialMarketActions/>:null}</>}><ChannelNavigation channel={channel}/><ConsoleToolbar><MarketFiltersForm scope={scope} channel={channel} initial={applied} onApply={next=>{client.setQueryData(filtersKey,next);setApplied(next);setAfter(undefined)}}/></ConsoleToolbar>
   {commands.notice}
   {q.isPending?<ConsoleState kind="loading" title="正在加载商品"/>:q.error?<MarketReadError error={q.error} retry={()=>void q.refetch()}/>:q.data.items.length===0?<ConsoleState kind="empty" title={filter?"没有找到匹配商品":"暂无商品"}>{filter?"试试其他关键词，或清除筛选查看全部商品。":"这里暂时还没有商品，请稍后再来看看。"}</ConsoleState>:<div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">{q.data.items.map(p=><MarketCard key={p.id} product={p} locked={!!commands.locked} adding={adding===p.id} onAdd={()=>void add(p)}/>)}</div>}
   {q.data?<CursorButtons after={after} next={q.data.nextCursor} total={q.data.total} onAfter={setAfter}/>:null}
@@ -82,6 +85,7 @@ function MarketProduct({scope,id}:{scope:MarketScope;id:string}){
     <h2>商品详情</h2>
     {p.product.description?<p className={styles.description}>{p.product.description}</p>:null}
     <dl className={styles.attributes}>
+     <div><dt>商品类目</dt><dd>{p.category?`${p.category.parent.name} / ${p.category.child.name}`:"未分类"}</dd></div>
      {p.product.brand?<div><dt>品牌</dt><dd>{p.product.brand}</dd></div>:null}
      {Object.entries(p.product.attributes??{}).map(([k,v])=><div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
     </dl>

@@ -55,10 +55,11 @@ func (r *Repository) ReadMarketData(ctx context.Context, scope collection.Scope,
 	}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []struct {
-			ID     string
-			Prices []byte
+			ID           string
+			Prices       []byte
+			CategoryJSON []byte
 		}
-		query := `SELECT id,COALESCE((SELECT jsonb_agg(jsonb_build_object('currency',currency,'minimum',minimum,'maximum',maximum) ORDER BY currency) FROM (SELECT variant->>'currency' AS currency, min(CASE WHEN jsonb_typeof(variant->'price')='number' THEN (variant->>'price')::numeric END) AS minimum,max(CASE WHEN jsonb_typeof(variant->'price')='number' THEN (variant->>'price')::numeric END) AS maximum FROM jsonb_array_elements(COALESCE(release_json->'product'->'variants','[]'::jsonb)) AS variant WHERE jsonb_typeof(variant->'price')='number' AND jsonb_typeof(variant->'currency')='string' AND variant->>'currency'<>'' GROUP BY variant->>'currency') ranges),'[]'::jsonb) AS prices FROM supply_market_releases WHERE id IN ?`
+		query := `SELECT r.id,COALESCE((SELECT jsonb_agg(jsonb_build_object('currency',currency,'minimum',minimum,'maximum',maximum) ORDER BY currency) FROM (SELECT variant->>'currency' AS currency, min(CASE WHEN jsonb_typeof(variant->'price')='number' THEN (variant->>'price')::numeric END) AS minimum,max(CASE WHEN jsonb_typeof(variant->'price')='number' THEN (variant->>'price')::numeric END) AS maximum FROM jsonb_array_elements(COALESCE(release_json->'product'->'variants','[]'::jsonb)) AS variant WHERE jsonb_typeof(variant->'price')='number' AND jsonb_typeof(variant->'currency')='string' AND variant->>'currency'<>'' GROUP BY variant->>'currency') ranges),'[]'::jsonb) AS prices, CASE WHEN c.id IS NOT NULL THEN jsonb_build_object('parent', jsonb_build_object('id',p.id,'name',p.name), 'child', jsonb_build_object('id',c.id,'name',c.name,'parentId',p.id)) END AS category_json FROM supply_market_releases r LEFT JOIN supply_market_categories c ON c.id=r.category_id LEFT JOIN supply_market_categories p ON p.id=c.parent_id WHERE r.id IN ?`
 		if e := tx.Raw(query, ids).Scan(&rows).Error; e != nil {
 			return e
 		}
@@ -66,6 +67,12 @@ func (r *Repository) ReadMarketData(ctx context.Context, scope collection.Scope,
 			data := result[row.ID]
 			if json.Unmarshal(row.Prices, &data.Prices) != nil {
 				return supplymarket.ErrUnavailable
+			}
+			if len(row.CategoryJSON) > 0 {
+				if json.Unmarshal(row.CategoryJSON, &data.Category) != nil || data.Category == nil ||
+					!collection.ValidID(data.Category.Parent.ID) || !collection.ValidID(data.Category.Child.ID) {
+					return supplymarket.ErrUnavailable
+				}
 			}
 			result[row.ID] = data
 		}

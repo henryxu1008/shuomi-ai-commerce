@@ -3,6 +3,17 @@ import {collectionID,collectionReceiptSchema} from "./product-collection";
 export const marketID=collectionID;
 const text=(max:number,min=0)=>z.string().refine(s=>new TextEncoder().encode(s).length<=max&&!s.includes("\0")&&(min===0||s.trim().length>=min));
 const revision=z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const categoryName=text(120,1).refine(value=>value.trim()===value&&!/[\r\n\t]/.test(value));
+const categoryOptionSchema=z.object({id:marketID,parentId:marketID.optional(),name:categoryName}).strict();
+const categorySchema=categoryOptionSchema.extend({enabled:z.boolean(),revision});
+const categoryPathSchema=z.object({parent:categoryOptionSchema,child:categoryOptionSchema}).strict();
+const categoryAssignmentSchema=z.object({parent:categorySchema,child:categorySchema}).strict();
+const categorySelectionSchema=z.object({id:marketID,revision,parentRevision:revision}).strict();
+const categoryChangeSchema=z.object({action:z.enum(["category_create","category_rename","category_disable","category_enable"]),before:categorySchema.optional(),after:categorySchema}).strict();
+export type MarketCategoryOption=z.infer<typeof categoryOptionSchema>;
+export type MarketCategory=z.infer<typeof categorySchema>;
+export type MarketCategorySelection=z.infer<typeof categorySelectionSchema>;
+export const platformMarketActions:readonly string[]=["evaluate","request_supplement","approve","reject","confirm_plan","close","publish","revoke","confirm_category","category_create","category_rename","category_disable","category_enable"];
 const count=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const version=z.string().regex(/^[1-9][0-9]{0,18}$/).refine(s=>BigInt(s)<=BigInt("9223372036854775807"));
 const time=z.iso.datetime({offset:true});
@@ -11,7 +22,7 @@ const image=https.refine(s=>!new URL(s).search);
 const filterNumberFormat=new Intl.NumberFormat("en-US",{useGrouping:false,maximumSignificantDigits:21});
 export const marketFilterNumber=(value:number)=>filterNumberFormat.format(value===0?0:value);
 const filterPrice=z.number().finite().nonnegative().refine(value=>marketFilterNumber(value).length<=32);
-export const marketFiltersSchema=z.object({province:text(100).optional(),city:text(100).optional(),priceCurrency:text(16,1).optional(),minPrice:filterPrice.optional(),maxPrice:filterPrice.optional(),maxMOQ:z.number().int().min(1).max(1e9).optional(),maxLeadDays:z.number().int().min(0).max(3650).optional()}).strict().refine(f=>!f.city||!!f.province?.trim()).refine(f=>(f.minPrice!==undefined||f.maxPrice!==undefined)?!!f.priceCurrency:f.priceCurrency===undefined).refine(f=>f.minPrice===undefined||f.maxPrice===undefined||f.minPrice<=f.maxPrice);
+export const marketFiltersSchema=z.object({categoryId:marketID.optional(),province:text(100).optional(),city:text(100).optional(),priceCurrency:text(16,1).optional(),minPrice:filterPrice.optional(),maxPrice:filterPrice.optional(),maxMOQ:z.number().int().min(1).max(1e9).optional(),maxLeadDays:z.number().int().min(0).max(3650).optional()}).strict().refine(f=>!f.city||!!f.province?.trim()).refine(f=>(f.minPrice!==undefined||f.maxPrice!==undefined)?!!f.priceCurrency:f.priceCurrency===undefined).refine(f=>f.minPrice===undefined||f.maxPrice===undefined||f.minPrice<=f.maxPrice);
 export type MarketFilters=z.infer<typeof marketFiltersSchema>;
 const attrs=z.record(text(200,1),text(4000)).refine(v=>Object.keys(v).length<=256);
 const marketProductSchema=z.object({title:text(2000,1),description:text(8192).optional(),brand:text(1000).optional(),attributes:attrs.optional(),images:z.array(image).min(1).max(40),variants:z.array(z.object({sourceId:text(128),title:text(2000).optional(),sku:text(1000).optional(),attributes:attrs.optional(),currency:text(16,1).optional(),price:z.number().finite().nonnegative().optional(),stock:count,images:z.array(image).max(40).optional()}).strict()).max(256).optional()}).strict();
@@ -26,21 +37,27 @@ export const marketCommandSchema=z.discriminatedUnion("action",[
  z.object({action:z.literal("supplement"),id:marketID,expectedRevision:revision,note:text(2000,1),fileIds:files.optional()}).strict(),
  z.object({action:z.literal("select_release"),id:marketID,expectedRevision:revision}).strict(),
  z.object({action:z.enum(["evaluate","request_supplement","reject","confirm_plan","close"]),id:marketID,expectedRevision:revision,note:text(2000,1)}).strict(),
- z.object({action:z.literal("approve"),id:marketID,expectedRevision:revision,note:text(2000,1),cooperationConfirmed:z.literal(true)}).strict(),
- z.object({action:z.enum(["publish","revoke"]),id:marketID,expectedRevision:revision,note:text(2000).optional()}).strict(),
+ z.object({action:z.literal("approve"),id:marketID,expectedRevision:revision,note:text(2000,1),cooperationConfirmed:z.literal(true),category:categorySelectionSchema}).strict(),
+ z.object({action:z.literal("publish"),id:marketID,expectedRevision:revision,note:text(2000).optional(),category:categorySelectionSchema}).strict(),
+ z.object({action:z.literal("revoke"),id:marketID,expectedRevision:revision,note:text(2000).optional()}).strict(),
+ z.object({action:z.literal("confirm_category"),id:marketID,expectedRevision:revision,category:categorySelectionSchema}).strict(),
+ z.object({action:z.literal("category_create"),categoryName,parentCategoryId:marketID.optional()}).strict(),
+ z.object({action:z.literal("category_rename"),id:marketID,expectedRevision:revision,categoryName}).strict(),
+ z.object({action:z.enum(["category_disable","category_enable"]),id:marketID,expectedRevision:revision}).strict(),
 ]);
 export type MarketCommand=z.infer<typeof marketCommandSchema>;
 const marketReleaseSchema=z.object({id:marketID,channel:z.enum(["official","selected"]),product:marketProductSchema,supply:marketSupplySchema,revision,active:z.boolean(),publishedAt:time}).strict();
 const marketStageSchema=z.enum(["DRAFT","SUBMITTED","EVALUATING","SUPPLEMENT_REQUIRED","APPROVED","REJECTED","PLAN_CONFIRMED","CLOSED"]);
-export const marketRecordSchema=z.object({id:marketID,kind:z.enum(["official","selected","connection"]),source:z.object({itemId:marketID,itemRevision:revision,productKey:text(128,1),originalPublicationId:text(128,1),originalVersion:version,publicationId:text(128,1),version,applyId:marketID.optional()}).strict().optional(),product:marketProductSchema.optional(),supply:marketSupplySchema.optional(),connection:marketConnectionSchema.optional(),fileIds:files.optional(),disclosure:z.boolean(),stage:marketStageSchema,revision,cooperationConfirmed:z.boolean(),createdAt:time}).strict();
-const marketEventSchema=z.object({id:marketID,recordId:marketID,actorId:text(128,1),action:text(64,1),note:text(2000),fileIds:files.optional(),stage:marketStageSchema,createdAt:time}).strict();
-export const marketReceiptSchema=z.object({operationId:marketID,recordId:marketID.optional(),releaseId:marketID.optional(),collection:collectionReceiptSchema.optional(),revision:count,replayed:z.boolean()}).strict();
+export const marketRecordSchema=z.object({id:marketID,kind:z.enum(["official","selected","connection"]),source:z.object({itemId:marketID,itemRevision:revision,productKey:text(128,1),originalPublicationId:text(128,1),originalVersion:version,publicationId:text(128,1),version,applyId:marketID.optional()}).strict().optional(),product:marketProductSchema.optional(),supply:marketSupplySchema.optional(),connection:marketConnectionSchema.optional(),fileIds:files.optional(),disclosure:z.boolean(),stage:marketStageSchema,revision,cooperationConfirmed:z.boolean(),createdAt:time,category:categoryAssignmentSchema.optional()}).strict();
+const marketEventSchema=z.object({id:marketID,recordId:marketID,actorId:text(128,1),action:text(64,1),note:text(2000),fileIds:files.optional(),stage:marketStageSchema,createdAt:time,category:categoryPathSchema.optional(),previousCategory:categoryPathSchema.optional()}).strict();
+export const marketReceiptSchema=z.object({operationId:marketID,recordId:marketID.optional(),releaseId:marketID.optional(),collection:collectionReceiptSchema.optional(),revision:count,replayed:z.boolean(),category:categoryChangeSchema.optional()}).strict();
 export const marketFileSchema=z.object({id:marketID,contentType:z.enum(["image/jpeg","image/png","application/pdf"]),sha256:z.string().regex(/^[a-f0-9]{64}$/),size:revision.max(20*1024*1024),createdAt:time}).strict();
 const page=<T extends z.ZodType>(schema:T)=>z.object({items:z.array(schema).max(50).nullable().transform(v=>v??[]),total:count,nextCursor:marketID.optional()}).strict();
+export const marketCategoryPageSchema=page(categorySchema),marketCategoryOptionsSchema=page(categoryOptionSchema);
 export const marketReleasesSchema=page(marketReleaseSchema),marketRecordsSchema=page(marketRecordSchema),marketEventsSchema=page(marketEventSchema);
 const priceRangeSchema=z.object({currency:text(16,1),minimum:z.number().finite().nonnegative(),maximum:z.number().finite().nonnegative()}).strict().refine(p=>p.minimum<=p.maximum);
 const merchantSchema=z.discriminatedUnion("state",[z.object({state:z.literal("verified"),name:text(256,1)}).strict(),z.object({state:z.literal("unverified")}).strict(),z.object({state:z.literal("unavailable")}).strict()]);
-export const marketBrowseItemSchema=marketReleaseSchema.extend({prices:z.array(priceRangeSchema).max(256),added:z.boolean().nullable(),merchant:merchantSchema.optional()}).refine(p=>p.channel!=="selected"||p.merchant!==undefined);
+export const marketBrowseItemSchema=marketReleaseSchema.extend({prices:z.array(priceRangeSchema).max(256),added:z.boolean().nullable(),merchant:merchantSchema.optional(),category:categoryPathSchema.optional()}).refine(p=>p.channel!=="selected"||p.merchant!==undefined);
 export const marketBrowsePageSchema=page(marketBrowseItemSchema);
 export type MarketView=z.infer<typeof marketBrowseItemSchema>;
 export type MarketReceipt=z.infer<typeof marketReceiptSchema>;
@@ -55,6 +72,17 @@ export function marketEndpoint(url:URL,method:string){
  const admin=m[1]==="admin",path=m[2]!;let output:z.ZodType<unknown>|undefined,upload=false,download=false;
  if(method==="POST"&&!url.search&&["commands",...(!admin?["select","uploads"]:[])].includes(path)){upload=path==="uploads";output=upload?marketFileSchema:marketReceiptSchema}
  if(method==="GET"){
+  if(path==="categories"){
+   if(admin?url.searchParams.has("kind"):!["official","selected"].includes(url.searchParams.get("kind")??""))return null;
+   for(const [key,value] of url.searchParams){
+    if(url.searchParams.getAll(key).length!==1)return null;
+    if(key==="kind")continue;
+    if(key==="limit"&&/^(?:[1-9]|[1-4][0-9]|50)$/.test(value))continue;
+    if((key==="after"||key==="parentId")&&marketID.safeParse(value).success)continue;
+    return null;
+   }
+   return {path,admin,output:admin?marketCategoryPageSchema:marketCategoryOptionsSchema,upload,download};
+  }
   if(!admin&&path==="application-overview")output=applicationOverviewSchema;
   if(!admin&&path==="releases")output=marketBrowsePageSchema;
   if(!admin&&/^releases\/[a-f0-9-]{36}$/.test(path)&&marketID.safeParse(path.split("/")[1]).success)output=marketBrowseItemSchema;
@@ -68,9 +96,9 @@ export function marketEndpoint(url:URL,method:string){
   const filters:Record<string,string|number>={};
   for(const [k,v] of url.searchParams){
    if(url.searchParams.getAll(k).length!==1)return null;
-   if(["province","city","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"].includes(k)){
+   if(["categoryId","province","city","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"].includes(k)){
     if(admin||path!=="releases")return null;
-    if(k==="province"||k==="city"||k==="priceCurrency")filters[k]=v;
+    if(k==="categoryId"||k==="province"||k==="city"||k==="priceCurrency")filters[k]=v;
     else{if(v.length>32||!/^(0|[1-9][0-9]*)(\.[0-9]+)?$/.test(v)||(k==="maxMOQ"||k==="maxLeadDays")&&!/^(0|[1-9][0-9]*)$/.test(v))return null;filters[k]=Number(v)}
     continue;
    }

@@ -107,6 +107,25 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	require.NoError(t, err)
 	scope := collection.Scope{"org-a", "actor-a", "member-a"}
 	guard := func(context.Context) error { return nil }
+	categoryCommand := func(action, id, parent, name string, revision int64) supplymarket.Command {
+		return command(collection.Scope{}, "platform-a", supplymarket.Mutation{Action: action, ID: id, ParentCategoryID: parent, CategoryName: name, ExpectedRevision: revision})
+	}
+	rootCmd := categoryCommand("category_create", "", "", "家居日用", 0)
+	root, err := r.Execute(ctx, rootCmd, guard)
+	require.NoError(t, err)
+	rootID := root.Category.After.ID
+	same, err := r.Execute(ctx, rootCmd, guard)
+	require.NoError(t, err)
+	require.True(t, same.Replayed)
+	require.Equal(t, root.Category, same.Category)
+	_, err = r.Execute(ctx, categoryCommand("category_create", "", "", "家居日用", 0), guard)
+	require.ErrorIs(t, err, supplymarket.ErrCategoryNameTaken)
+	first, err := r.Execute(ctx, categoryCommand("category_create", "", rootID, "收纳用品", 0), guard)
+	require.NoError(t, err)
+	second, err := r.Execute(ctx, categoryCommand("category_create", "", rootID, "家用纺织品", 0), guard)
+	require.NoError(t, err)
+	secondID := second.Category.After.ID
+	pick := &supplymarket.CategorySelection{ID: first.Category.After.ID, Revision: 1, ParentRevision: 1}
 	submit := command(scope, "", supplymarket.Mutation{Action: "submit_selected", Selection: &supplymarket.SelectionInput{}, Supply: &supplymarket.SupplyDeclaration{Stock: 10, MinimumQuantity: 1, Province: "浙江", City: "杭州"}, FileIDs: []string{uuid.NewString()}, Disclosure: true})
 	submit.Select = func(context.Context) (supplymarket.SelectedProduct, error) {
 		return supplymarket.SelectedProduct{Source: supplymarket.SourceReference{Scope: scope, ItemID: uuid.NewString(), ItemRevision: 1, ProductKey: "own-product", OriginalPublicationID: "original", OriginalVersion: 1, PublicationID: "review:actual", Version: 2, ApplyID: uuid.NewString()}, Product: supplymarket.PublicProduct{Title: "优化商品", Images: []string{"https://images.example.org/source.png"}}}, nil
@@ -132,7 +151,11 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	require.Equal(t, scope, current.Source.Scope)
 	require.Equal(t, supplymarket.Submitted, current.Stage)
 	platform := func(action string, revision int64, cooperation bool) supplymarket.Command {
-		return command(collection.Scope{}, "platform-a", supplymarket.Mutation{Action: action, ID: created.RecordID, ExpectedRevision: revision, Note: "人工核实", CooperationConfirmed: cooperation})
+		mutation := supplymarket.Mutation{Action: action, ID: created.RecordID, ExpectedRevision: revision, Note: "人工核实", CooperationConfirmed: cooperation}
+		if action == "approve" || action == "publish" || action == "confirm_category" {
+			mutation.Category = pick
+		}
+		return command(collection.Scope{}, "platform-a", mutation)
 	}
 	_, err = r.Execute(ctx, platform("publish", 1, false), guard)
 	require.ErrorIs(t, err, supplymarket.ErrConflict)
@@ -145,8 +168,37 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	market, err := r.ListReleases(ctx, supplymarket.Query{Limit: 10})
 	require.NoError(t, err)
 	require.Empty(t, market.Items, "approval is not publication")
-	published, err := r.Execute(ctx, platform("publish", approved.Revision, false), guard)
+	_, err = r.Execute(ctx, categoryCommand("category_disable", pick.ID, "", "", 1), guard)
 	require.NoError(t, err)
+	_, err = r.Execute(ctx, platform("publish", approved.Revision, false), guard)
+	require.ErrorIs(t, err, supplymarket.ErrCategoryChanged)
+	pick = &supplymarket.CategorySelection{ID: secondID, Revision: 1, ParentRevision: 1}
+	reconfirmed, err := r.Execute(ctx, platform("confirm_category", approved.Revision, false), guard)
+	require.NoError(t, err)
+	app, err := r.ReadRecord(ctx, collection.Scope{}, "platform-a", created.RecordID)
+	require.NoError(t, err)
+	require.Equal(t, supplymarket.Approved, app.Stage)
+	require.Equal(t, secondID, app.Category.Child.ID)
+	published, err := r.Execute(ctx, platform("publish", reconfirmed.Revision, false), guard)
+	require.NoError(t, err)
+	_, err = r.Execute(ctx, categoryCommand("category_disable", rootID, "", "", 1), guard)
+	require.NoError(t, err)
+	for _, categoryID := range []string{rootID, secondID} {
+		page, err := r.ListReleases(ctx, supplymarket.Query{Kind: "selected", Keyword: "优化", Limit: 1, Filters: supplymarket.MarketFilters{CategoryID: categoryID}})
+		require.NoError(t, err)
+		require.EqualValues(t, 1, page.Total)
+		require.Equal(t, published.ReleaseID, page.Items[0].ID)
+	}
+	publicCategories, err := r.ListCategories(ctx, supplymarket.CategoryQuery{Kind: "selected", ParentID: rootID, Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, publicCategories.Items, 1)
+	require.Equal(t, secondID, publicCategories.Items[0].ID)
+	otherChannel, err := r.ListCategories(ctx, supplymarket.CategoryQuery{Kind: "official", ParentID: rootID, Limit: 10})
+	require.NoError(t, err)
+	require.Empty(t, otherChannel.Items)
+	_, err = r.Execute(ctx, categoryCommand("category_enable", rootID, "", "", 2), guard)
+	require.NoError(t, err)
+	pick = &supplymarket.CategorySelection{ID: secondID, Revision: 1, ParentRevision: 3}
 	consumer := collection.Scope{"org-b", "actor-b", "member-b"}
 	selectCmd := command(consumer, "", supplymarket.Mutation{Action: "select_release", ID: published.ReleaseID, ExpectedRevision: 1})
 	receiverFails = true
@@ -193,6 +245,14 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	require.NoError(t, e)
 	require.NotNil(t, data[published.ReleaseID].Added)
 	require.True(t, *data[published.ReleaseID].Added)
+	require.Equal(t, "家用纺织品", data[published.ReleaseID].Category.Child.Name)
+	_, err = r.Execute(ctx, categoryCommand("category_rename", secondID, "", "家庭纺织品", 1), guard)
+	require.NoError(t, err)
+	updated, err := r.ReadMarketData(ctx, consumer, []string{published.ReleaseID})
+	require.NoError(t, err)
+	require.Equal(t, "家庭纺织品", updated[published.ReleaseID].Category.Child.Name)
+	require.True(t, *updated[published.ReleaseID].Added)
+	pick = &supplymarket.CategorySelection{ID: secondID, Revision: 2, ParentRevision: 3}
 	foreign, e := r.ReadMarketData(ctx, collection.Scope{consumer.OrganizationID, consumer.ActorID, "another-member"}, []string{published.ReleaseID})
 	require.NoError(t, e)
 	require.False(t, *foreign[published.ReleaseID].Added)
@@ -223,7 +283,7 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	require.True(t, selected.Replayed, "retained selection receipt survives source revocation")
 	events, err := r.ListEvents(ctx, scope, "", created.RecordID, supplymarket.Query{Limit: 50})
 	require.NoError(t, err)
-	require.Equal(t, int64(5), events.Total, "publication revocation belongs in the original application's progress")
+	require.Equal(t, int64(6), events.Total, "publication revocation belongs in the original application's progress")
 	// The platform must be the original drafter for official supply.
 	official := command(scope, "", supplymarket.Mutation{Action: "create_official_draft", Supply: submit.Input.Supply, Disclosure: true})
 	official.Select = func(context.Context) (supplymarket.SelectedProduct, error) {
@@ -231,13 +291,20 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	}
 	draft, err := r.Execute(ctx, official, guard)
 	require.NoError(t, err)
-	publishDraft := command(collection.Scope{}, "platform-a", supplymarket.Mutation{Action: "publish", ID: draft.RecordID, ExpectedRevision: 1})
+	publishDraft := command(collection.Scope{}, "platform-a", supplymarket.Mutation{Action: "publish", ID: draft.RecordID, ExpectedRevision: 1, Category: pick})
 	_, err = r.Execute(ctx, publishDraft, guard)
 	require.ErrorIs(t, err, supplymarket.ErrForbidden)
 	publishDraft = command(collection.Scope{}, scope.ActorID, publishDraft.Input)
 	verifierFails = true
 	_, err = r.Execute(ctx, publishDraft, guard)
 	require.ErrorIs(t, err, supplymarket.ErrForbidden)
+	verifierFails = false
+	officialPublished, err := r.Execute(ctx, publishDraft, guard)
+	require.NoError(t, err)
+	officialPage, err := r.ListReleases(ctx, supplymarket.Query{Kind: "official", Limit: 10, Filters: supplymarket.MarketFilters{CategoryID: secondID}})
+	require.NoError(t, err)
+	require.Len(t, officialPage.Items, 1)
+	require.Equal(t, officialPublished.ReleaseID, officialPage.Items[0].ID)
 	t.Run("qualification files retain exact private owner and attachment", func(t *testing.T) {
 		file := supplymarket.PrivateFile{ID: submit.Input.FileIDs[0], Owner: scope, ContentType: "application/pdf", SHA256: collection.Digest("qualification"), Size: 40, CreatedAt: time.Now().UTC()}
 		file.ObjectKey = supplymarket.PrivateObjectKey(scope, file.ID, file.SHA256)

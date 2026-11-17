@@ -86,6 +86,12 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 		now := time.Now().UTC().Truncate(time.Microsecond)
 		i := c.Input
 		switch i.Action {
+		case "category_create", "category_rename", "category_disable", "category_enable":
+			receipt.Category, err = executeCategory(tx, c)
+			if err != nil {
+				return err
+			}
+			receipt.Revision = receipt.Category.After.Revision
 		case "create_official_draft", "submit_selected", "submit_connection":
 			if c.PlatformActor != "" || c.Scope.Validate() != nil {
 				return supplymarket.ErrForbidden
@@ -129,7 +135,7 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 			if err := tx.Exec("INSERT INTO supply_market_records(id,organization_id,actor_id,member_id,kind,stage,revision,record_json,created_at) VALUES(?,?,?,?,?,?,1,?::jsonb,?)", record.ID, c.Scope.OrganizationID, c.Scope.ActorID, c.Scope.MemberID, record.Kind, record.Stage, string(raw), now).Error; err != nil {
 				return err
 			}
-			if err := appendEvent(tx, record, c.OperationID, actor, i.Action, i.Note, i.FileIDs, now); err != nil {
+			if err := appendEvent(tx, record, c.OperationID, actor, i.Action, i.Note, i.FileIDs, nil, nil, now); err != nil {
 				return err
 			}
 			receipt.RecordID, receipt.Revision = record.ID, 1
@@ -205,7 +211,7 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 			if err := tx.Exec("UPDATE supply_market_releases SET active=false,revision=?,release_json=?::jsonb WHERE id=?", release.Revision, string(raw), release.ID).Error; err != nil {
 				return err
 			}
-			if err := appendEvent(tx, record, c.OperationID, actor, i.Action, i.Note, nil, now); err != nil {
+			if err := appendEvent(tx, record, c.OperationID, actor, i.Action, i.Note, nil, nil, nil, now); err != nil {
 				return err
 			}
 			receipt.ReleaseID, receipt.Revision = release.ID, release.Revision
@@ -217,6 +223,7 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 			if record.Revision != i.ExpectedRevision {
 				return supplymarket.ErrConflict
 			}
+			var category, previousCategory *supplymarket.CategoryPath
 			if i.Action == "publish" {
 				if c.PlatformActor == "" || record.Kind == "connection" || !record.Disclosure || record.Source == nil || record.Product == nil || record.Supply == nil {
 					return supplymarket.ErrForbidden
@@ -232,13 +239,20 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 					return supplymarket.ErrConflict
 				}
 				verifyDisclosure = func() error { return r.verify(tx, ctx, *record.Source, *record.Product) }
-				var active int64
-				if err := tx.Raw("SELECT count(*) FROM supply_market_releases WHERE record_id=? AND active", record.ID).Scan(&active).Error; err != nil {
+				if err := requireNoActiveRelease(tx, record.ID); err != nil {
 					return err
 				}
-				if active != 0 {
-					return supplymarket.ErrConflict
+				if !i.Category.Valid() {
+					return supplymarket.ErrInvalid
 				}
+				if record.Kind == "selected" && record.CategoryID != i.Category.ID {
+					return supplymarket.ErrCategoryChanged
+				}
+				path, err := checkCategory(tx, i.Category)
+				if err != nil {
+					return err
+				}
+				category = &path
 				release := supplymarket.Release{ID: collection.StableID(c.OperationID, "release"), RecordID: record.ID, Channel: record.Kind, OriginalOwner: record.Owner, Source: *record.Source, Product: *record.Product, Supply: *record.Supply, Revision: 1, Active: true, PublishedAt: now}
 				raw, err := json.Marshal(release)
 				if err != nil {
@@ -248,10 +262,34 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 				if err != nil {
 					return err
 				}
-				if err := tx.Exec("INSERT INTO supply_market_releases(id,record_id,organization_id,actor_id,member_id,channel,revision,active,release_json,source_json,published_at) VALUES(?,?,?,?,?,?,1,true,?::jsonb,?::jsonb,?)", release.ID, record.ID, record.Owner.OrganizationID, record.Owner.ActorID, record.Owner.MemberID, record.Kind, string(raw), string(source), now).Error; err != nil {
+				if err := tx.Exec("INSERT INTO supply_market_releases(id,record_id,organization_id,actor_id,member_id,channel,revision,active,release_json,source_json,published_at,category_id) VALUES(?,?,?,?,?,?,1,true,?::jsonb,?::jsonb,?,?)", release.ID, record.ID, record.Owner.OrganizationID, record.Owner.ActorID, record.Owner.MemberID, record.Kind, string(raw), string(source), now, category.Child.ID).Error; err != nil {
 					return err
 				}
 				receipt.ReleaseID = release.ID
+			} else if i.Action == "confirm_category" {
+				if c.PlatformActor == "" {
+					return supplymarket.ErrForbidden
+				}
+				if record.Kind != "selected" || record.Stage != supplymarket.Approved || !record.CooperationConfirmed {
+					return supplymarket.ErrConflict
+				}
+				if err := requireNoActiveRelease(tx, record.ID); err != nil {
+					return err
+				}
+				if record.CategoryID != "" {
+					old, err := readCategoryAssignment(tx, record.CategoryID, false)
+					if err != nil {
+						return err
+					}
+					path := old.Path()
+					previousCategory = &path
+				}
+				path, err := checkCategory(tx, i.Category)
+				if err != nil {
+					return err
+				}
+				category = &path
+				record.CategoryID = path.Child.ID
 			} else {
 				if i.Action == "supplement" {
 					if c.PlatformActor != "" {
@@ -269,6 +307,12 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 				}
 				record.Stage = next
 				if next == supplymarket.Approved {
+					path, err := checkCategory(tx, i.Category)
+					if err != nil {
+						return err
+					}
+					category = &path
+					record.CategoryID = path.Child.ID
 					record.CooperationConfirmed = true
 				}
 			}
@@ -277,10 +321,10 @@ func (r *Repository) Execute(ctx context.Context, c supplymarket.Command, guard 
 			if err != nil {
 				return err
 			}
-			if err := tx.Exec("UPDATE supply_market_records SET stage=?,revision=?,record_json=?::jsonb WHERE id=?", record.Stage, record.Revision, string(raw), record.ID).Error; err != nil {
+			if err := tx.Exec("UPDATE supply_market_records SET stage=?,revision=?,record_json=?::jsonb,category_id=nullif(?,'')::uuid WHERE id=?", record.Stage, record.Revision, string(raw), record.CategoryID, record.ID).Error; err != nil {
 				return err
 			}
-			if err := appendEvent(tx, record, c.OperationID, actor, i.Action, i.Note, i.FileIDs, now); err != nil {
+			if err := appendEvent(tx, record, c.OperationID, actor, i.Action, i.Note, i.FileIDs, category, previousCategory, now); err != nil {
 				return err
 			}
 			receipt.RecordID, receipt.Revision = record.ID, record.Revision
@@ -318,8 +362,19 @@ func (r *Repository) files(tx *gorm.DB, ctx context.Context, scope collection.Sc
 	}
 	return v.Verify(ctx, scope, ids)
 }
-func appendEvent(tx *gorm.DB, r supplymarket.Record, op, actor, action, note string, files []string, now time.Time) error {
-	event := supplymarket.Event{ID: collection.StableID(op, "event"), RecordID: r.ID, ActorID: actor, Action: action, Note: note, FileIDs: files, Stage: r.Stage, CreatedAt: now}
+func requireNoActiveRelease(tx *gorm.DB, recordID string) error {
+	var active int64
+	if err := tx.Raw("SELECT count(*) FROM supply_market_releases WHERE record_id=? AND active", recordID).Scan(&active).Error; err != nil {
+		return err
+	}
+	if active != 0 {
+		return supplymarket.ErrConflict
+	}
+	return nil
+}
+
+func appendEvent(tx *gorm.DB, r supplymarket.Record, op, actor, action, note string, files []string, category, previousCategory *supplymarket.CategoryPath, now time.Time) error {
+	event := supplymarket.Event{ID: collection.StableID(op, "event"), RecordID: r.ID, ActorID: actor, Action: action, Note: note, FileIDs: files, Stage: r.Stage, CreatedAt: now, Category: category, PreviousCategory: previousCategory}
 	raw, err := json.Marshal(event)
 	if err != nil {
 		return err

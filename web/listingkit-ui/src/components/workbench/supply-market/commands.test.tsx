@@ -1,15 +1,17 @@
 import {act,renderHook} from "@testing-library/react";
 import {beforeEach,expect,it,vi} from "vitest";
 import {useMarketCommands} from "./shared";
-import {MarketAPIError} from "@/lib/api/supply-market";
+import {MarketAPIError,marketIntentSchema,platformMarketPendingSchema} from "@/lib/api/supply-market";
 const {write,resolve,persist,clear}=vi.hoisted(()=>({write:vi.fn(),resolve:vi.fn(),persist:vi.fn(),clear:vi.fn()}));
-const pendingState=vi.hoisted(()=>({restored:true}));
+const pendingState=vi.hoisted(()=>({restored:true,prior:false}));
 vi.mock("@/lib/api/supply-market",async(importOriginal)=>({...await importOriginal<object>(),writeMarket:write,resolveMarket:resolve}));
 const intent={key:"12752596-6056-4316-9f2f-380c97df9675",admin:false,command:{action:"select_release" as const,id:"12752596-6056-4316-9f2f-380c97df9675",expectedRevision:1}};
-vi.mock("@/components/workbench/resources/resource-pending",()=>({useResourcePending:()=>({command:pendingState.restored?intent:null,ready:true,error:false,storageKey:"market-test",persist,clear,read:()=>pendingState.restored?intent:null})}));
+const prior={...intent,admin:true,command:{action:"publish" as const,id:intent.command.id,expectedRevision:1}};
+const restoredIntent=()=>pendingState.restored?(pendingState.prior?prior:intent):null;
+vi.mock("@/components/workbench/resources/resource-pending",()=>({useResourcePending:()=>({command:restoredIntent(),ready:true,error:false,storageKey:"market-test",persist,clear,read:restoredIntent})}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"u"},effectiveOrganization:{id:"o"},registerOrganizationSwitchGuard:()=>()=>{}})}));
 vi.mock("@tanstack/react-query",()=>({useQueryClient:()=>({invalidateQueries:vi.fn()})}));
-beforeEach(()=>{vi.clearAllMocks();pendingState.restored=true;Object.defineProperty(navigator,"locks",{configurable:true,value:{request:async(_name:string,_options:unknown,fn:(lock:unknown)=>unknown)=>fn({name:"market-test"})}})});
+beforeEach(()=>{vi.clearAllMocks();pendingState.restored=true;pendingState.prior=false;Object.defineProperty(navigator,"locks",{configurable:true,value:{request:async(_name:string,_options:unknown,fn:(lock:unknown)=>unknown)=>fn({name:"market-test"})}})});
 it.each(["new","verify"])("does not dispatch %s work after unmount while waiting for the browser lock",async mode=>{
  pendingState.restored=mode==="verify";
  let release!:()=>void;const gate=new Promise<void>(done=>{release=done});
@@ -32,4 +34,17 @@ it("a missing receipt keeps the unknown intent and blocks a different submit",as
  const h=renderHook(()=>useMarketCommands({userId:"u",organizationId:"o"}));
  await act(async()=>{await h.result.current.verify()});
  expect(clear).not.toHaveBeenCalled();expect(h.result.current.locked).toBe(true);expect(write).not.toHaveBeenCalled();
+});
+
+it("only verifies a pre-category publication and releases it after a definitive missing receipt",async()=>{
+ pendingState.prior=true;
+ expect(platformMarketPendingSchema.safeParse(prior).success).toBe(true);
+ expect(marketIntentSchema.safeParse(prior).success).toBe(false);
+ resolve.mockRejectedValue(new MarketAPIError("NOT_FOUND",404));
+ const h=renderHook(()=>useMarketCommands({userId:"u",organizationId:""},true));
+ await act(async()=>{await h.result.current.verify()});
+ expect(resolve).toHaveBeenCalledWith({userId:"u",organizationId:""},prior,expect.any(AbortSignal));
+ expect(write).not.toHaveBeenCalled();
+ expect(clear).toHaveBeenCalledWith(prior);
+ expect(h.result.current.error).toMatchObject({code:"PRIOR_MARKET_OPERATION_NOT_FOUND"});
 });
