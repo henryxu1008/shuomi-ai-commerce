@@ -275,6 +275,18 @@ test("CLI validates against PR HEAD documents despite unrelated lines in the che
     ], { cwd: root, encoding: "utf8" });
     assert.notEqual(child.status, 0);
     assert.match(child.stderr, /docs\/guide\.md: unresolved relative link missing\.md/);
+
+    // A real target in the immutable HEAD must be accepted, even when the
+    // worktree document has unrelated uncommitted extra lines.
+    fs.writeFileSync(path.join(root, "docs", "missing.md"), "# Target\n");
+    git("add", "docs/missing.md");
+    git("commit", "-m", "add referenced target");
+    const validHead = git("rev-parse", "HEAD");
+    const valid = spawnSync(process.execPath, [
+      path.join(__dirname, "ci-document-links.cjs"), base, validHead,
+    ], { cwd: root, encoding: "utf8" });
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.match(valid.stdout, /Verified 1 added Markdown links/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
