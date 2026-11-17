@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { CommercialOverview } from "@/lib/api/commercial";
 import styles from "./commercial.module.css";
-export function EntitlementsOverview({ data }: { data: CommercialOverview }) {
+export function EntitlementsOverview({ data, showManagementLinks = true }: { data: CommercialOverview; showManagementLinks?: boolean }) {
   const stores =
     data.store_services.state === "available"
       ? data.store_services.value
@@ -43,13 +43,15 @@ export function EntitlementsOverview({ data }: { data: CommercialOverview }) {
           购买期数不会自动连接店铺。请先授权平台，再用分配的期数开通或续费，每期
           30 天。
         </p>
-        <Button asChild variant="outline">
-          <Link href="/workbench/stores" prefetch={false}>
-            管理店铺服务
-          </Link>
-        </Button>
+        {showManagementLinks && (
+          <Button asChild variant="outline">
+            <Link href="/workbench/stores" prefetch={false}>
+              管理店铺服务
+            </Link>
+          </Button>
+        )}
       </Card>
-      <Card role="region" aria-label="成员资源管理" className={styles.panel}>
+      {showManagementLinks && <Card role="region" aria-label="成员资源管理" className={styles.panel}>
         <h2>成员资源管理</h2>
         <p>
           管理员可授权具体店铺、分配或回收店铺期数及数据条数，并设置成员 AI
@@ -63,7 +65,7 @@ export function EntitlementsOverview({ data }: { data: CommercialOverview }) {
             管理资源与额度
           </Link>
         </Button>
-      </Card>
+      </Card>}
       <p className={styles.observation}>
         观察时间：{data.observed_at.replace("T", " ").replace("Z", " UTC")}
       </p>

@@ -18,6 +18,8 @@
 .sectionHeading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 20px; margin-bottom: -10px; }
 .sectionHeading p { color: var(--muted-foreground); font-size: var(--label-text-size); }
 .threeColumns, .resourceSummary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.resourceGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 16px; }
+.resourceActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .resourceSummary { margin-top: 14px; }
 .resourceSummary > div { min-width: 0; overflow-wrap: anywhere; }
 .resourceSummary > div + div { border-left: 1px solid var(--border); padding-left: 20px; }

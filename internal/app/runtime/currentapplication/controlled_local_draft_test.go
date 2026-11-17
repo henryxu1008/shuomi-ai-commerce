@@ -18,6 +18,21 @@ func localDraftConfig() *Config {
 	return c
 }
 func TestControlledLocalDraftAdmissionAndDisabledReads(t *testing.T) {
+	t.Run("pinned canonical HTTPS identity", func(t *testing.T) {
+		c := localDraftConfig()
+		c.Identity.IssuerURL = "https://auth.example.com"
+		c.Identity.AuthorizationAPIURL = c.Identity.IssuerURL
+		require.NoError(t, c.validateControlledLocalDraft())
+		c.Identity.AuthorizationAPIURL = "https://other.example.com"
+		require.Error(t, c.validateControlledLocalDraft(), "public issuer and API must be identical")
+	})
+	for _, origin := range []string{"http://auth.example.com", "https://auth.example.com:443", "https://auth.example.com/path", "https://user@auth.example.com", "https://auth.example.com?query=1", "https://192.168.6.246"} {
+		t.Run("reject identity "+origin, func(t *testing.T) {
+			c := localDraftConfig()
+			c.Identity.IssuerURL, c.Identity.AuthorizationAPIURL = origin, origin
+			require.Error(t, c.validateControlledLocalDraft())
+		})
+	}
 	for _, enabled := range []bool{false, true} {
 		c := localDraftConfig()
 		c.ControlledLocalDraft.Enabled = enabled

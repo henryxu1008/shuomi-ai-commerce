@@ -135,6 +135,22 @@ func testSkillContentFlow(t *testing.T, f *acquisitionHTTPFixture, server *httpt
 	require.Zero(t, calls.Load(), "default personal denial must occur before any model dispatch")
 	_, e := cfg.SetSkillAdmission(context.Background(), agentconfig.SkillAdmissionCommand{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AllowPersonal: true}, func(context.Context) error { return nil })
 	require.NoError(t, e)
+	if withScript && mode == "default" {
+		for _, allowed := range []agent.ExecutionIdentity{
+			{OrganizationID: "B", ActorID: "other-user", MemberID: "different-member"},
+			{OrganizationID: "other-company", ActorID: "admin", MemberID: "member-B-admin"},
+			{OrganizationID: "B", ActorID: "admin", MemberID: "different-member"},
+		} {
+			app.config.ScriptTrialIdentity = &allowed
+			disallowedKey := uuid.NewString()
+			skillHTTP(t, server, "POST", path, "admin", "B", disallowedKey, "", request, 403)
+			require.Zero(t, calls.Load(), "pilot denial must precede model dispatch")
+			_, found, err := app.store.LookupContext(context.Background(), agent.Scope{OrganizationID: "B", ActorID: "admin"}, "acquisition", operationID, disallowedKey)
+			require.NoError(t, err)
+			require.False(t, found, "pilot denial must precede claim")
+		}
+		app.config.ScriptTrialIdentity = &agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}
+	}
 	key := uuid.NewString()
 	if withScript && (mode == "auto_approve" || mode == "full_access") {
 		skillHTTP(t, server, "POST", path, "admin", "B", key, "", request, 409)
