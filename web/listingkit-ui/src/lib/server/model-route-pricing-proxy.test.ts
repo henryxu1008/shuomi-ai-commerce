@@ -88,3 +88,29 @@ it("verifies official price receipts after exact timestamp normalization without
  result.receipt.payload.platformPrices.prices[0].rates.outputText=2;vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json(result)));expect(await(await proxyModelRoutePricing(request(body,{},"/platform-prices/publish"),"token","maintainer")).json()).toEqual({code:"OUTCOME_UNKNOWN"});
 });
 it("rejects price timestamps beyond persisted nanosecond precision before forwarding",async()=>{const price={id:"mini",region:"global",serviceType:"standard-sync",provider:"openai",channel:"openai-direct",model:"synthetic-mini",currency:"CNY",usageVersion:"openai-text-v1",rates:{inputText:1,cachedInputText:0,inputImage:0,cachedInputImage:0,outputText:1,outputImage:0},sourceUrl:"https://developers.openai.com/api/docs/pricing",verifiedAt:"2026-11-03T00:00:00Z",effectiveFrom:"2026-11-03T00:00:00Z",effectiveUntil:"2026-11-04T00:00:00Z"};for(const field of ["verifiedAt","effectiveFrom","effectiveUntil"]){const fetch=vi.fn();vi.stubGlobal("fetch",fetch);const input={expectedRevision:"NONE",prices:[{...price,[field]:"2026-11-03T00:00:00.1234567891Z"}],fx:[]};expect((await proxyModelRoutePricing(request(input,{},"/platform-prices/publish"),"token","maintainer")).status).toBe(400);expect(fetch).not.toHaveBeenCalled()}});
+
+const queryPath="/connections/shared/model-query";
+const queryInput={expectedMemberId:"member-a",expectedRevision:"2",reference:{id:"mini",version:"v1"}};
+const queryResult={organizationId:"org-a",actorId:"maintainer",memberId:"member-a",connectionId:"shared",expectedRevision:"2",reference:queryInput.reference,result:{model:"gpt-5.4-mini-2026-03-17",status:"found",checkedAt:"2026-11-17T00:00:00Z"}};
+it("forwards only an explicit same-origin model query and rejects forged inputs and stale replies",async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json(queryResult));vi.stubGlobal("fetch",fetch);
+ for(const method of ["GET","HEAD"])expect((await proxyModelRoutePricing(request(undefined,{},queryPath,method),"token","maintainer")).status).toBe(400);
+ expect((await proxyModelRoutePricing(request(queryInput,{Origin:"https://other.test"},queryPath),"token","maintainer")).status).toBe(403);
+ expect((await proxyModelRoutePricing(request(queryInput,{"sec-fetch-site":"cross-site"},queryPath),"token","maintainer")).status).toBe(403);
+ expect((await proxyModelRoutePricing(request(queryInput,{purpose:"prefetch"},queryPath),"token","maintainer")).status).toBe(403);
+ expect((await proxyModelRoutePricing(request({...queryInput,project:"other"},{},queryPath),"token","maintainer")).status).toBe(400);
+ expect(fetch).not.toHaveBeenCalled();
+ const response=await proxyModelRoutePricing(request(queryInput,{"OpenAI-Project":"forged"},queryPath),"token","maintainer");
+ expect(response.status).toBe(200);
+ expect(response.headers.get("Cache-Control")).toContain("no-store");
+ expect(fetch).toHaveBeenCalledTimes(1);
+ const [upstream,init]=fetch.mock.calls[0];
+ expect(upstream).toBe("http://localhost:9000/api/v1/model-route-pricing"+queryPath);
+ expect(new Headers(init.headers).has("OpenAI-Project")).toBe(false);
+ expect(JSON.parse(init.body)).toEqual(queryInput);
+ for(const change of [{memberId:"other"},{expectedRevision:"3"},{result:{...queryResult.result,body:"unsafe vendor response"}}]){
+  fetch.mockResolvedValue(Response.json({...queryResult,...change}));
+  const stale=await proxyModelRoutePricing(request(queryInput,{},queryPath),"token","maintainer");
+  expect(stale.status).toBe(502);expect(await stale.json()).toEqual({code:"UNAVAILABLE"});
+ }
+});

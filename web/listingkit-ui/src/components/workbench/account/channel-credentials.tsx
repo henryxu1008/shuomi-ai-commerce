@@ -5,10 +5,11 @@ import {useQuery} from "@tanstack/react-query";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {ModelRouteError,modelRouteRequest,type ModelRouteScope} from "@/lib/api/model-route-pricing";
-import {credentialConnections,credentialInput,credentialPending,credentialReceipt,matchesCredentialReceipt,type CredentialInput,type CredentialPending,type CredentialReceipt,type ManagedConnection} from "@/lib/contracts/channel-credentials";
+import {credentialConnections,credentialInput,credentialPending,credentialReceipt,matchesCredentialReceipt,openAIQueryModel,type CredentialInput,type CredentialPending,type CredentialReceipt,type ManagedConnection} from "@/lib/contracts/channel-credentials";
 import {useResourcePending} from "../resources/resource-pending";
 import type { ModelOption } from "@/lib/contracts/model-route-pricing";
 import {AccountDialog} from "./account-dialog";
+import {ChannelModelQuery} from "./channel-model-query";
 import styles from "./model-route-pricing.module.css";
 
 const definiteCodes=new Set(["INVALID","FORBIDDEN","NOT_FOUND","CONFLICT","AUTHENTICATION_REQUIRED","PERMISSION_DENIED","ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_ACCESS_DENIED","ORGANIZATION_SUSPENDED","ORGANIZATION_SELECTION_REQUIRED","ORGANIZATION_CONTEXT_CHANGED","IDENTITY_CONTEXT_CHANGED"]);
@@ -19,6 +20,7 @@ function failureText(error:unknown){
 
 type ChannelSettingsProps = {
  scope:ModelRouteScope;
+ testMemberId?:string;
  focusModel?:ModelOption;
  disabled?:boolean;
  unconfirmed?:boolean;
@@ -26,10 +28,10 @@ type ChannelSettingsProps = {
 };
 
 export function ChannelCredentialsManager(props:ChannelSettingsProps){
- return <ChannelCredentialsContent key={JSON.stringify(props.scope)} {...props}/>;
+ return <ChannelCredentialsContent key={JSON.stringify([props.scope,props.testMemberId,props.focusModel?.reference])} {...props}/>;
 }
 
-function ChannelCredentialsContent({scope,focusModel,disabled=false,unconfirmed=false,onSaved}:ChannelSettingsProps){
+function ChannelCredentialsContent({scope,testMemberId,focusModel,disabled=false,unconfirmed=false,onSaved}:ChannelSettingsProps){
  const query=useQuery({queryKey:["model-services",scope,"connections"],queryFn:async({signal})=>{const value=await modelRouteRequest(scope,"/connections",credentialConnections,{signal});if(value.organizationId!==scope.organizationId)throw new ModelRouteError("ORGANIZATION_CONTEXT_CHANGED");return value},enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["model-route-pricing","credentials","v1"],credentialPending,{storage:"session",maxLength:2048});
  const [dialog,setDialog]=useState<{connection:ManagedConnection;action:"set-key"|"disable"}|null>(null);
@@ -84,12 +86,20 @@ function ChannelCredentialsContent({scope,focusModel,disabled=false,unconfirmed=
    {query.isPending?<p>正在读取渠道连接…</p>:query.isError?<p role="alert">渠道连接读取失败，暂不可保存。</p>:<>
     {!query.data.canManage?<p>当前仅可查看连接状态。如需录入或更新 Key，请联系系统维护人员。</p>:null}
     {focusModel&&query.data.connections.length>0&&!targetId&&<p>暂时无法定位到单个渠道，请从以下连接中核对。</p>}
-    {!query.data.connections.length?<p>当前企业暂无已登记渠道，请联系系统维护人员。</p>:query.data.connections.map(connection=><section className={styles.history} key={connection.connectionId}>
+    {!query.data.connections.length?<p>当前企业暂无已登记渠道，请联系系统维护人员。</p>:query.data.connections.map(connection=>{
+     const queryTarget=query.data.modelQueryTargets?.find(t=>t.connectionId===connection.connectionId);
+     const showModelQuery=testMemberId&&connection.provider==="openai"&&connection.channel==="openai-direct"&&connection.models.some(m=>m.category==="text"&&m.model===openAIQueryModel);
+     return <section className={styles.history} key={connection.connectionId}>
      <h3 ref={targetId===connection.connectionId?target:undefined} tabIndex={targetId===connection.connectionId?-1:undefined}>{connection.provider} · {connection.channel}</h3><p>连接：{connection.connectionId} · 地域：{connection.region}</p>
      <p>状态：{!connection.keyPresent?"未配置":connection.enabled?"已保存":"已停用"} · 版本：{connection.revision}{connection.account?" · 账号备注："+connection.account:""}</p>
      <p>共用此凭据的模型：{connection.models.map(m=>m.model+"（"+({text:"文本",multimodal:"多模态","image-generation":"生图"} as const)[m.category]+"，"+m.version+"）").join("、")||"暂无已准入模型"}</p>
      <div className={styles.actions}><Button variant="outline" disabled={locked||!query.data.canManage} onClick={()=>{setFailure("");setDialog({connection,action:"set-key"})}}>{!connection.keyPresent?"录入 Key":connection.enabled?"轮换 Key":"重新录入 Key"}</Button><Button variant="outline" disabled={locked||!query.data.canManage||!connection.enabled} onClick={()=>{setFailure("");setDialog({connection,action:"disable"})}}>停用</Button></div>
-    </section>)}
+     {showModelQuery&&(queryTarget&&testMemberId?
+      <ChannelModelQuery key={JSON.stringify([connection.revision,queryTarget.reference,connection.enabled])}
+       scope={scope} connectionId={connection.connectionId} disabled={locked||!connection.enabled||!connection.keyPresent}
+       input={{expectedMemberId:testMemberId,expectedRevision:connection.revision,reference:queryTarget.reference}}/>
+      :<p>当前无法检查模型查询权限。</p>)}
+    </section>})}
    </>}
    <Button variant="outline" disabled={disabled||busy} onClick={()=>void query.refetch()}>重新读取渠道状态</Button>
   </Card>}

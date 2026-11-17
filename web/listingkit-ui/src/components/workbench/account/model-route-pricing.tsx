@@ -172,7 +172,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
      {context.error&&!configure&&<Button variant="outline" disabled={checking} onClick={()=>void refresh()}>重新读取状态</Button>}
    </div>
    {area === "enterprise" ? <EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />
-     : area === "credentials" ? <ChannelCredentialsManager scope={scope} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />
+     : area === "credentials" ? <ChannelCredentialsManager scope={scope} testMemberId={context.permissions.includes("workbench.ai.connection.test")?context.effectiveMemberId??undefined:undefined} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />
        : <OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />}
    {area !== "credentials" && <details className={styles.help}>
      <summary>AI 点数如何结算</summary>

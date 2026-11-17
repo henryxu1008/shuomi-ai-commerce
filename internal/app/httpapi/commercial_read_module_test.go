@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"sync"
 	"sync/atomic"
 
 	"testing"
@@ -63,4 +64,42 @@ func TestCommercialRecoveryStopsWithRuntimeContext(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("recovery did not stop with runtime context")
 	}
+}
+
+func TestCommercialRecoveryStopWaitsForInFlightSweep(t *testing.T) {
+	cancelSeen := make(chan struct{})
+	finishSweep := make(chan struct{})
+	release := sync.OnceFunc(func() { close(finishSweep) })
+	t.Cleanup(release)
+
+	stop := startCommercialRecoveryLoop(t.Context(), &http.Server{}, func(ctx context.Context) error {
+		<-ctx.Done()
+		close(cancelSeen)
+		<-finishSweep
+		return ctx.Err()
+	}, time.Hour, "scheduled Workbench recovery", nil)
+
+	stopped := make(chan struct{})
+	go func() {
+		stop()
+		close(stopped)
+	}()
+	select {
+	case <-cancelSeen:
+	case <-time.After(time.Second):
+		t.Fatal("recovery did not receive cancellation")
+	}
+	select {
+	case <-stopped:
+		t.Fatal("stop returned while recovery was still running")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	release()
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("stop did not return after recovery exited")
+	}
+	stop()
 }
