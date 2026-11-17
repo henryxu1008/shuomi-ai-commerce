@@ -7,18 +7,18 @@
 
 ## 1. 用户结果、范围与权威依据
 
-2026-11-03 用户已确定[企业统一三类模型/官方价折算](enterprise-shared-model-configuration.md)目标，
+2026-11-03 用户已确定[企业统一三类模型/官方价折算](../../enterprise-shared-model-configuration.md)目标，
 文本用途后续消费企业共享文本默认模型，各 Agent 保留自身 prompt/schema/权限和预算。
 本候选改变模型选择及计价来源，不意味着现有 route/usage 准入已覆盖所有文本用途；
 尤其 Google 原生当前仅标题准入。新设计 NOT_IMPLEMENTATION_READY，不从本文原 Ready 推定切换或实现许可。
 
-2026-10-19 有界管理增量见 [模型与费率管理 V1](model-route-pricing-management.md) / [#830](https://github.com/qq550723504/task-processor/issues/830)。该决定为已接线用途增加仅平台维护者的绑定选择/费率发布，替代其管理范围的部署 map 当前选路/费率来源及无选择 UI 限制；不是企业 BYOK、任意模型目录或协议开放。下文原部署方案保留作已批准历史基线，当前增量的 owner、原子发布、旧任务失效与设计准入以新合同为准；真实运行接线/切模不由设计授权。
+2026-10-19 有界管理增量见 [模型与费率管理 V1](../../model-route-pricing-management.md) / [#830](https://github.com/qq550723504/task-processor/issues/830)。该决定为已接线用途增加仅平台维护者的绑定选择/费率发布，替代其管理范围的部署 map 当前选路/费率来源及无选择 UI 限制；不是企业 BYOK、任意模型目录或协议开放。下文原部署方案保留作已批准历史基线，当前增量的 owner、原子发布、旧任务失效与设计准入以新合同为准；真实运行接线/切模不由设计授权。
 
 当前企业在商品标题智能体已启用、已保存商品可读取时，成员能确认模板、商品、目标平台和知识选择，执行标题建议并进入现有 Human Review/显式 Apply。部署者可以为不同企业配置不同的已核准 OpenAI Chat Completions 兼容路由，也可更换某企业的路由，无需修改标题 Agent 的业务代码。路由切换后的新调用必须重新报价；已经 dispatch 或结果未知的调用不能切换供应商重发。
 
 本增量只处理标题文本模型的供应商锁定及其调用前门禁。2026-10-03 用户选择以 Google 官方接口作为首条真实候选路由；此前的 GRSAI 候选仍保留为历史研究，不作为默认。每条实际启用的路由需要自己的凭据、配置版本、模型用量与上界依据、价格和产品点数费率。缺任一项时显示执行不可用，不形成成功状态或付费调用。
 
-产品依据为本次用户决定、[#555](https://github.com/qq550723504/task-processor/issues/555)、[#570](https://github.com/qq550723504/task-processor/issues/570) 与 [Agent D 已批准合同](organization-agent-configuration.md)。涉及入口与交互继续以 [当前 Figma/IA Authority](../product/final-ui-ia-authority.md) 为准；本增量不改页面命名、供应商选择 UI 或确认流程。继承 [Product Agent 运行合同](product-agent-runtime-contract.md) 的 Product/Knowledge/AI/Review owner、唯一 dispatch、UNKNOWN 和人工 Apply 规则。本次用户决定替代其中 §8.3 的“文本也使用 GRSAI”和 GRSAI 专属 endpoint 归属、§8.4 “首片限定 GRSAI `gemini-2.5-flash`”及 §8.5 “仅 GRSAI route”这几处供应商约束；§8.3 单次 SDK 调用、显式非流式、全字段 usage、大小/时间限制及安全错误规则继续适用于每条已准入兼容 route。其余安全和运行约束不因接口兼容而降低。
+产品依据为本次用户决定、[#555](https://github.com/qq550723504/task-processor/issues/555)、[#570](https://github.com/qq550723504/task-processor/issues/570) 与 [Agent D 已批准合同](../../organization-agent-configuration.md)。涉及入口与交互继续以 [当前 Figma/IA Authority](../../../product/final-ui-ia-authority.md) 为准；本增量不改页面命名、供应商选择 UI 或确认流程。继承 [Product Agent 运行合同](../../product-agent-runtime-contract.md) 的 Product/Knowledge/AI/Review owner、唯一 dispatch、UNKNOWN 和人工 Apply 规则。本次用户决定替代其中 §8.3 的“文本也使用 GRSAI”和 GRSAI 专属 endpoint 归属、§8.4 “首片限定 GRSAI `gemini-2.5-flash`”及 §8.5 “仅 GRSAI route”这几处供应商约束；§8.3 单次 SDK 调用、显式非流式、全字段 usage、大小/时间限制及安全错误规则继续适用于每条已准入兼容 route。其余安全和运行约束不因接口兼容而降低。
 
 本次不建设模型目录、自动故障切换、企业自助 BYOK/任意 endpoint、第二模型账本、供应商恢复平台或新的 Agent Runtime。不为旧数据做迁移、双读/双写或兼容适配。`Legacy decision: RETIRE` 硬编码的单供应商准入判断；`EXTRACT` 现有单次传输、账本及失败行为到当前 owner。
 
@@ -44,11 +44,11 @@ OpenAI 官方 [Chat Completions API](https://developers.openai.com/api/reference
 
 标题策略可选地冻结 `ReasoningEffort`，当前只接受空值或 `none`。空值沿用既有供应商请求，`none` 由现有 SDK 写入兼容请求，并随整个策略进入 quote 引用；不同参数配置必须重新报价。Google 候选采用 `none`，因为现有账本只根据完整 `prompt_tokens` 和 `completion_tokens` 两项结算，不能把单独计费的思考 token 隐藏在 `total_tokens` 里。传输继续拒绝缺失或不一致的完整 usage，发送后的不确定结果继续 UNKNOWN。此参数不授予路由准入：Google 原生 API 的 `maxOutputTokens` 硬上界和思考计量说明不能直接证明兼容接口 `max_tokens`/`max_completion_tokens` 的映射及实际响应计量。Google 兼容层当前为 beta，须针对精确 endpoint、模型和请求参数取得实测证据；未取得时保持执行关闭。
 
-2026-10-03 增量决定：本节的 2.5 Flash 兼容候选因新项目 404 未开放；3.8 Flash 兼容探针的计费完成量 109 超过请求 `max_tokens=64`，无法以该参数证明完整生成量硬上界。用户允许首条 3.8 Flash Google route 改走[原生 Interactions 增量设计](domains/ai/product-agent-google-interactions.md)。本节的 `reasoning_effort=none` 只保留为旧候选/兼容协议历史，不再作为 Google 3.8 的开工依据；其它已准入的 OpenAI 兼容供应商和本合同共同安全边界继续有效。新原生协议须独立达到 `IMPLEMENTATION_READY`，不能由本合同现有状态直接放行。
+2026-10-03 增量决定：本节的 2.5 Flash 兼容候选因新项目 404 未开放；3.8 Flash 兼容探针的计费完成量 109 超过请求 `max_tokens=64`，无法以该参数证明完整生成量硬上界。用户允许首条 3.8 Flash Google route 改走[原生 Interactions 增量设计](product-agent-google-interactions.md)。本节的 `reasoning_effort=none` 只保留为旧候选/兼容协议历史，不再作为 Google 3.8 的开工依据；其它已准入的 OpenAI 兼容供应商和本合同共同安全边界继续有效。新原生协议须独立达到 `IMPLEMENTATION_READY`，不能由本合同现有状态直接放行。
 
 ## 3. Owner、合同与接线
 
-2026-10-05 当前 owner 更新：#588 已按 [#576/#578 共享执行合同](ai-workbench-chat-business-task.md)
+2026-10-05 当前 owner 更新：#588 已按 [#576/#578 共享执行合同](../../ai-workbench-chat-business-task.md)
 及其 **IMPLEMENTATION_READY** 的 §6.7 Google 组合增量，统一直接标题和 Chat Task 的执行路径。
 下文 `AgentTextPolicy`、`titletext` 与 Manager 消费者接线属于历史实现，当前使用 `RoutePolicy`、
 组织凭据解析器、共享 `einomodel.Executor` 及受控 Eino 组件；Google 原生 Interactions 只用于标题。
