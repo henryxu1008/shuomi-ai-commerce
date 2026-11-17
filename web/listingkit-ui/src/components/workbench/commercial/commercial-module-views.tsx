@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { CommercialOverview } from "@/lib/api/commercial";
 import { readAcquisitionProduct, type AcquisitionContext } from "@/lib/api/product-acquisition";
-import type { ResourceEventPage, ResourceEventFilters } from "@/lib/api/resource-events";
+import {
+  readResourceBusinessObject,
+  type ResourceBusinessObject,
+  type ResourceEventPage,
+  type ResourceEventFilters,
+} from "@/lib/api/resource-events";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { AccountDialog } from "../account/account-dialog";
 import { resourceDefinitions } from "./resource-purchase-panel";
@@ -113,8 +118,49 @@ function UsageAcquisitionObject({ scope, operationId }: { scope: AcquisitionCont
   );
 }
 
+function usageObjectKind(event: UsageEvent): ResourceBusinessObject["kind"] | undefined {
+  if (!isAcquisitionUUID(event.event_id)) return;
+  if (event.resource_type === "store_renewal_period" && event.source_type === "store_service_v1") return "store";
+  if (event.resource_type === "data_row" && event.source_type === "amazon_data_v1") return "amazon_product";
+  if (event.resource_type === "ai_point" && event.source_type === "model_invocation_v1") return "task";
+}
+
+const usageObjectLabels = { store: "关联店铺", amazon_product: "关联商品", task: "关联任务" };
+
+function UsageBusinessObject({ scope, eventId, kind }: {
+  scope: AcquisitionContext;
+  eventId: string;
+  kind: ResourceBusinessObject["kind"];
+}) {
+  const details = useQuery({
+    queryKey: ["workbench", scope.organizationId, "usage-business-object", scope.userId, eventId],
+    queryFn: ({ signal }) => readResourceBusinessObject(scope.userId, scope.organizationId, eventId, signal),
+    gcTime: 0,
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const object = details.isSuccess && details.data.object?.kind === kind ? details.data.object : null;
+  if (details.isPending || details.isFetching) {
+    return <div><dt>{usageObjectLabels[kind]}</dt><dd role="status">正在查找{usageObjectLabels[kind]}…</dd></div>;
+  }
+  if (!object) return null;
+  const href = object.kind === "store" ? `/workbench/stores/${object.id}`
+    : object.kind === "task" ? `/workbench/ai/tasks/${object.id}` : null;
+  return (
+    <div>
+      <dt>{usageObjectLabels[kind]}</dt>
+      <dd>{href
+        ? <Link href={href} className={styles.usageObjectLink} prefetch={false}>{object.name}</Link>
+        : object.name}</dd>
+    </div>
+  );
+}
+
 function UsageEventDetails({ event, scope, onClose }: { event: UsageEvent; scope: AcquisitionContext; onClose: () => void }) {
   const resource = resourceFor(event);
+  const objectKind = usageObjectKind(event);
   const acquisition = event.source_type === "product_acquisition_v1" &&
     event.resource_type === "data_row" && isAcquisitionUUID(event.source_identity);
   return (
@@ -126,6 +172,7 @@ function UsageEventDetails({ event, scope, onClose }: { event: UsageEvent; scope
           <div><dt>业务来源</dt><dd>{sourceFor(event)}</dd></div>
           <div><dt>变动说明</dt><dd>{reasonFor(event)}</dd></div>
           <div><dt>关联编号</dt><dd>{event.source_identity}</dd></div>
+          {objectKind ? <UsageBusinessObject scope={scope} eventId={event.event_id} kind={objectKind} /> : null}
           {acquisition ? <UsageAcquisitionObject scope={scope} operationId={event.source_identity} /> : null}
         </dl>
         <table className={styles.usageDetailTable}>

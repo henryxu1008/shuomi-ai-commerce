@@ -1,3 +1,4 @@
+import { isAcquisitionUUID } from "../contracts/product-acquisition";
 import {z} from "zod";
 import {aiPointUnit,displayPoints,signedDisplayPoints} from "../contracts/ai-points";
 import {
@@ -96,5 +97,42 @@ export function getResourceEvents(
     parseResourceEvents,
     signal,
     RESOURCE_EVENTS_MAX_BYTES,
+  );
+}
+
+const objectId = z.string().refine(isAcquisitionUUID);
+const objectName = text.refine((value) => value.trim() === value && [...value].length <= 240);
+const businessObject = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("store"), name: objectName, id: objectId }).strict(),
+  z.object({ kind: z.literal("amazon_product"), name: objectName }).strict(),
+  z.object({ kind: z.literal("task"), name: objectName, id: objectId }).strict(),
+]);
+const usageObjectResponse = z.object({
+  organization_id: id,
+  event_id: objectId,
+  object: businessObject.nullable(),
+}).strict();
+
+export type ResourceBusinessObject = z.infer<typeof businessObject>;
+
+export function parseResourceBusinessObject(payload: unknown, eventId: string) {
+  const result = usageObjectResponse.safeParse(payload);
+  return result.success && result.data.event_id === eventId ? result.data : null;
+}
+
+export function readResourceBusinessObject(
+  userId: string,
+  organizationId: string,
+  eventId: string,
+  signal?: AbortSignal,
+) {
+  if (!isAcquisitionUUID(eventId)) throw new CommercialBillingReadError(400, "INVALID_REQUEST");
+  return readCommercialBilling(
+    `/api/workbench/commercial/resources/events/${eventId}/object`,
+    userId,
+    organizationId,
+    (payload) => parseResourceBusinessObject(payload, eventId),
+    signal,
+    4096,
   );
 }

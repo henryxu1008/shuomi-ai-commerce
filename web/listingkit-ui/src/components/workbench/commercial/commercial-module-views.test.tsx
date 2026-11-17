@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseResourceEvents } from "@/lib/api/resource-events";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {useState,type ComponentProps} from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -326,3 +326,66 @@ it.each(["available", "denied", "mismatched"] as const)(
     }
   },
 );
+
+const usageEventId = "55555555-5555-4555-8555-555555555555";
+const businessObjectId = "66666666-6666-4666-8666-666666666666";
+
+it.each([
+  { resource: "store_renewal_period", source: "store_service_v1", label: "关联店铺",
+    object: { kind: "store", id: businessObjectId, name: "店铺测试" }, href: `/workbench/stores/${businessObjectId}` },
+  { resource: "data_row", source: "amazon_data_v1", label: "关联商品",
+    object: { kind: "amazon_product", name: "商品测试" } },
+  { resource: "ai_point", source: "model_invocation_v1", label: "关联任务",
+    object: { kind: "task", id: businessObjectId, name: "任务测试" }, href: `/workbench/ai/tasks/${businessObjectId}` },
+  { resource: "ai_point", source: "model_invocation_v1", label: "关联任务", object: null },
+  { resource: "data_row", source: "amazon_data_v1", label: "关联商品",
+    object: { kind: "task", id: businessObjectId, name: "无关任务" }, mismatch: true },
+])("opens an event-scoped detail for $source ($object)", async ({ resource, source, label, object, href, mismatch }) => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+  });
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({
+    organization_id: scope.organizationId, event_id: usageEventId, object,
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  const page = parseResourceEvents({
+    organization_id: scope.organizationId, next_cursor: null,
+    items: [{
+      event_id: usageEventId, operation_id: "charge-event", resource_type: resource,
+      ...(resource === "ai_point" ? { unit_version: "ai-micropoint-v1" } : {}),
+      quantity: "1", available_delta: "0", allocated_delta: "0", reserved_delta: "-1", consumed_delta: "1",
+      available_after: "10", allocated_after: "0", reserved_after: "0", consumed_after: "1",
+      reason: "commit", source_type: source, source_identity: "opaque-owner-reference",
+      occurred_at: "2026-11-17T04:12:39Z",
+    }],
+  });
+  expect(page).not.toBeNull();
+  const client = new QueryClient();
+  const view = render(
+    <QueryClientProvider client={client}>
+      <UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  try {
+    expect(fetchMock).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "详情" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
+    if (object && !mismatch) {
+      expect(await dialog.findByText(object.name)).toBeVisible();
+      expect(dialog.getByText(label)).toBeVisible();
+      if (href) expect(dialog.getByRole("link", { name: object.name })).toHaveAttribute("href", href);
+      else expect(dialog.queryByRole("link")).not.toBeInTheDocument();
+    } else {
+      await waitFor(() => expect(dialog.queryByRole("status")).not.toBeInTheDocument());
+      expect(dialog.queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe(`/api/workbench/commercial/resources/events/${usageEventId}/object`);
+    expect(new Headers(init.headers).get("X-Expected-Organization-ID")).toBe(scope.organizationId);
+  } finally {
+    view.unmount();
+    client.clear();
+  }
+});
