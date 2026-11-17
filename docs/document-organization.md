@@ -78,10 +78,11 @@ docs/
 - [#1359](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1359)：`completion-draft-internal-note.md` 迁入 `architecture/domains/listing/`，保留 Listing CompletionDraft 已冻结合同。
 - [#1361](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1361)：两份 Listing CompletionDraft 历史/恢复架构合同成组迁入 `architecture/domains/listing/`，原 Operations 使用说明继续独立维护。
 
-对应 CSV 七行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
+对应 CSV 八行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
 
 - [#1363](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1363)：`CompletionDraft` 结构化候选冻结合同由架构根层迁至 `architecture/domains/listing/`；相邻 Product 与 Operations 同名文档各自保留业务/使用说明职责，不进行内容合并。
 - [#1366](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1366)：C3-2 SHEIN 候选类目规则查询与只读解释合同归入 `architecture/domains/listing/`；Marketplace RuleReader/Provider 仍提供原规则，不变更 C3-2 R1 准入与不可采用边界。
+- [#1369](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1369)：将平台上架资料智能体 v1 的 Listing materials 冻结合同迁入 `architecture/domains/listing/`；保留 Marketplace 官方规则、当前 Agent 版本与独立准入范围，不声称自动发布或运行验收。
 
 ## 4. 逐文件清单的解释
 
@@ -90,7 +91,7 @@ docs/
 - `path`：已核实迁移的行写入当前真实路径；其余行保留原基线快照，使用前必须再次核对 main。`layer`、`domain`：原为候选领域，已迁移行按核实的领域校准。
 - `action`：`KEEP_PATH`（保留关键路径/当前路径）、`KEEP_ASSET`（非 Markdown 资产）、`REVIEW_MOVE`（待阅读后判断是否搬迁）、`REVIEW_CROSS_LAYER`（跨层同名关联，先核实不同职责）、`REVIEW_LIFECYCLE`（试用、候选、特定实例或历史时期名称，先核实适用性）。
 - `candidate_path`：**提议路径，不是已批准的迁移操作**；`related_paths`：跨分类同名关联；`size_bytes`：GitHub 当前文件大小。
-- `review_status=PROPOSED_ONLY` 适用于仍未逐篇核实的 346 个原基线行；7 行 `MOVED_VERIFIED` 表示仅**准确路径与相对引用迁移已核实**，不代表设计本身已准入、产品已验收或允许关闭 Issue。不得按表直接删除、搬移或关闭任务。
+- `review_status=PROPOSED_ONLY` 适用于仍未逐篇核实的 345 个原基线行；8 行 `MOVED_VERIFIED` 表示仅**准确路径与相对引用迁移已核实**，不代表设计本身已准入、产品已验收或允许关闭 Issue。不得按表直接删除、搬移或关闭任务。
 
 任何新一轮文件检查应重新取当时主线与相关文档版本；旧行可能因正常开发变动而过期。若准确 owner/内容与候选目录不一致，应修改清单后再实施。
 

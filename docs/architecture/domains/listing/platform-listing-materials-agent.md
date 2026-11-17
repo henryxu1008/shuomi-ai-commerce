@@ -6,9 +6,9 @@ Admission: **IMPLEMENTATION_READY / FROZEN (2026-10-13)**。本文先于正式�
 ## 后续合同的适用范围
 
 本文保留原 v1 冻结设计。当前 C2-1 / C3-1 的准确 v3 定义、图片事实建议和版本 D2 依据见
-[对应冻结设计](product-image-facts-advice.md)及 #1076，不从本文旧准入推导后续版本授权。
+[对应冻结设计](../../product-image-facts-advice.md)及 #1076，不从本文旧准入推导后续版本授权。
 
-后续 [C3-2 候选类目规则查询](domains/listing/listing-candidate-category-rules.md) 为单独冻结设计：
+后续 [C3-2 候选类目规则查询](listing-candidate-category-rules.md) 为单独冻结设计：
 用户先选一个候选类目，现 Agent 查询并只读解释，当前保存资料不变；候选结果不能进入普通材料采用/保存。
 它需要明确选择绑定、精确 Tool/结果及消费者分派，不能把原 Draft 换一个 categoryId 就宣称已覆盖关联规则。
 覆盖/执行资格 D2/D3 已获本轮单独产品认可；v4 技术合同经自身 R1 达 IMPLEMENTATION_READY，后续授权在 #1077 实现。
@@ -16,7 +16,7 @@ Admission: **IMPLEMENTATION_READY / FROZEN (2026-10-13)**。本文先于正式�
 
 ## 用户结果与依据
 
-用户于2026-10-13批准 [业务智能体职责](../product/business-agent-responsibilities.md)：商品内容与本地化之后，逐个推进平台上架资料、POD、选品、经营诊断。本结果消费准确标准商品，依据实际平台规则准备类目、属性、SKU和图片资料，显示可核对的缺项，保存原 Listing owner 的本地草稿。标题/描述/翻译的标准商品修改属于内容能力。
+用户于2026-10-13批准 [业务智能体职责](../../../product/business-agent-responsibilities.md)：商品内容与本地化之后，逐个推进平台上架资料、POD、选品、经营诊断。本结果消费准确标准商品，依据实际平台规则准备类目、属性、SKU和图片资料，显示可核对的缺项，保存原 Listing owner 的本地草稿。标题/描述/翻译的标准商品修改属于内容能力。
 
 当前已经准入的正式平台实现是 SHEIN 美国站；未来平台消费各自已批准 owner。本设计不复制 #31/#655 当前 TEMU 实现，不创建另一个 SHEIN SDK、Store 数据源或跨平台规则引擎。不自动开放未准入平台。
 
