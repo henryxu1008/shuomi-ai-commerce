@@ -93,9 +93,9 @@ docs/architecture/image-agent-budget-authorization.md,architecture,ai,11925,REVI
 docs/architecture/image-agent-candidate-release-gate.md,architecture,ai,2479,REVIEW_LIFECYCLE,docs/architecture/domains/ai/image-agent-candidate-release-gate.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
 docs/architecture/domains/ai/image-agent-effect-finalization.md,architecture,ai,6199,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
 docs/architecture/image-agent-effect-policy.md,architecture,ai,18757,REVIEW_MOVE,docs/architecture/domains/ai/image-agent-effect-policy.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/image-agent-effect-recovery.md,architecture,ai,4871,REVIEW_MOVE,docs/architecture/domains/ai/image-agent-effect-recovery.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/image-agent-effect-recovery.md,architecture,ai,4871,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
 docs/architecture/domains/ai/image-agent-effect-terminalization.md,architecture,ai,3875,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
-docs/architecture/image-agent-recovery.md,architecture,ai,28978,REVIEW_MOVE,docs/architecture/domains/ai/image-agent-recovery.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/image-agent-recovery.md,architecture,ai,28978,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
 docs/architecture/domains/ai/image-agent-workflow.md,architecture,ai,2841,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
 docs/architecture/domains/ai/image-api-event-read-permissions.md,architecture,ai,7549,KEEP_PATH,,,MOVED_VERIFIED,Verified documentation move #1394
 docs/architecture/image-download-safety.md,architecture,cross-cutting,3015,KEEP_PATH,docs/architecture/image-download-safety.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
