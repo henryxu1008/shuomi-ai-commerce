@@ -32,3 +32,10 @@
 
 - [目标语言、已确认文案与不可变计划](image-text-language-confirmation.md)：沿原 Review、准确模板/Skill、预算及人工确认，不覆盖历史未完成真实效果。
 - [图片事件表最小读取权限](image-api-event-read-permissions.md)：原 API role 的有界 SELECT 修正与权限测试；仅保留既有设计和历史状态，不修改实际授权。
+
+## Image Agent 外部效果终结协议
+
+- [效果终态与取消保护](image-agent-effect-terminalization.md)：历史设计，关注 provider/staging/publication claimed 时的取消及最终状态边界。
+- [外部效果收尾与预算结算](image-agent-effect-finalization.md)：历史设计，关注 v3 Temporal 原版本门禁、明确未发送/未知结果与结算。
+
+两份合同保持各自原有版本、阶段约束及历史决定；目录整理不将时间窗不同的方案自动合并，也不批准真实执行。

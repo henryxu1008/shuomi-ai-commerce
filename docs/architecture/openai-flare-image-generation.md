@@ -368,7 +368,7 @@ edit 方法的实际表单写入也不能仅由 request struct 声明推定，�
 | 已观察结果后的 staging/publication/结算 ACK 丢失 | 原键查原事实、原回执和原恢复材料；沿现有 effect recovery/finalization，不重新生图或按当前价重算。 |
 
 自动恢复触发、允许动作和唯一责任沿[原 effect 恢复](image-agent-effect-recovery.md)、
-[终结](image-agent-effect-terminalization.md)、[finalization](image-agent-effect-finalization.md)与当前 slot phase 合同。
+[终结](domains/ai/image-agent-effect-terminalization.md)、[finalization](domains/ai/image-agent-effect-finalization.md)与当前 slot phase 合同。
 本文不新增状态机或将未知 provider 结果变成可安全重复。旧调用保持原冻结事实和原版本资格，不跨版本继续或改归属。
 
 ## 6. 后续验证与当前停止点
