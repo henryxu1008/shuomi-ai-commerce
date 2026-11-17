@@ -19,7 +19,7 @@ Refs #134 / #128。D1/D2/D3 已获产品认可；[R1 独立架构复核](https:/
 - [独立文档准备接续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6580509953)。
 - [D2/D3 产品认可及 design-only Draft PR 授权](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6581006724)：
   用户明确回复“认可 D2/D3，授权 Draft PR”；该授权不包含独立评审、实现、合并或真实操作。
-- [平台上架资料 Agent](../../platform-listing-materials-agent.md)、[Commerce Tool](../../commerce-tool-foundation.md)、
+- [平台上架资料 Agent](platform-listing-materials-agent.md)、[Commerce Tool](../../commerce-tool-foundation.md)、
   [Agent 运行合同](../../product-agent-runtime-contract.md)、[C2-1 / C3-1](../../product-image-facts-advice.md)。
 - [当前领域边界](../../project-boundaries.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 - [UI/IA Authority](../../../product/final-ui-ia-authority.md)：现 Figma `tg48P46SSXl6TBy9lZwg63`、非归档 `31:463`。

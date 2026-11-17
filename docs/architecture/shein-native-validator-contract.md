@@ -39,7 +39,7 @@ Out of Scope：
 ## 2. Product / Architecture / Figma Authority
 
 - [业务智能体职责](../product/business-agent-responsibilities.md)：平台资料修改属于 Listing owner；内容属于 Review/Catalog；full 不是外部发布授权。
-- [平台资料 Agent 冻结设计](platform-listing-materials-agent.md)：准确 Target、Store/rules、批准素材、领域候选、四模式与本地采用；远端发布 Out of Scope。
+- [平台资料 Agent 冻结设计](domains/listing/platform-listing-materials-agent.md)：准确 Target、Store/rules、批准素材、领域候选、四模式与本地采用；远端发布 Out of Scope。
 - [SHEIN 供应链](my-supply-chain-shein.md)：native 官方模型、准确 owner refs、live 授权和实际上传。
 - [中立 Validator 合同](../../internal/marketplace/validator/README.md)：确定性、scope、结构化结果、零业务副作用，不授权提交。
 - [Agent 运行合同](product-agent-runtime-contract.md)：固定验证、repair≤2、准确候选/输入绑定、未知结果不自动重放。
