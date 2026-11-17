@@ -112,7 +112,7 @@ export function ChatSkillAuthoring({ scope, conversation, selected, initialRequi
     return () => { live = false; action.current?.abort(); };
   }, [pointer]);
 
-  function useJob(result: AISkillAuthoringJob) {
+  function displayJob(result: AISkillAuthoringJob) {
     setJob(result);
     setRequirement(result.requirement);
     setDraft(result.draft ?? undefined);
@@ -165,7 +165,7 @@ export function ChatSkillAuthoring({ scope, conversation, selected, initialRequi
     setOriginalKey(key);
     void perform(async signal => {
       const result = await requestAIWorkbench({route:"skill-authoring-generate", method:"POST", scope, path:path+"/"+key+"/generate", signal});
-      if (!signal.aborted) { useJob(result); void list.refetch(); }
+      if (!signal.aborted) { displayJob(result); void list.refetch(); }
     }, error => {
       if (error instanceof AIWorkbenchError && error.code === "PROPOSAL_STALE") {
         try { sessionStorage.removeItem(pointer); } catch { /* no confirmed model dispatch */ }
@@ -196,7 +196,7 @@ export function ChatSkillAuthoring({ scope, conversation, selected, initialRequi
           setSaveCheck(false);
           setNotice("尚无保存记录，请核对内容后确认保存。");
         } else {
-          useJob(result);
+          displayJob(result);
         }
         void list.refetch();
       }
@@ -213,7 +213,7 @@ export function ChatSkillAuthoring({ scope, conversation, selected, initialRequi
     {notice && <p role="status">{notice}</p>}
     {list.isError && <p role="status">暂时无法读取本会话的技能草稿。<Button variant="outline" onClick={() => void list.refetch()}>重新读取</Button></p>}
     {others?.length ? <div className="flex flex-wrap gap-2">{others.map(item =>
-      <Button key={item.key} variant="outline" disabled={busy} onClick={() => useJob(item)}>{item.draft?.displayName || generationStatus[item.state]}</Button>)}</div> : null}
+      <Button key={item.key} variant="outline" disabled={busy} onClick={() => displayJob(item)}>{item.draft?.displayName || generationStatus[item.state]}</Button>)}</div> : null}
     {pendingGeneration && <Button variant="outline" disabled={busy} onClick={() => generate(pendingGeneration)}>核实原生成请求</Button>}
     {job && <div className="grid gap-2">
       <p role="status">{generationStatus[job.state]} {job.billing === "committed" ? "点数已结算。" : job.billing === "released" ? "本次无扣点。" : "点数状态待核实。"}</p>
