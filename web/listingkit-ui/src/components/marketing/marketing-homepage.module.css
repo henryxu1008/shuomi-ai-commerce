@@ -1027,3 +1027,30 @@
   .page .industryStep > span { font-size: 15px; }
   .page .industryStep strong { font-size: 17px; }
 }
+
+/* Slow, staggered border glints for the four challenge cards. */
+.page .painGrid article { isolation: isolate; }
+.page .painGrid article::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  opacity: .62;
+  background: conic-gradient(from var(--pain-border-angle),transparent 0deg 276deg,rgba(64,145,255,.12) 286deg,rgba(79,205,255,.82) 298deg,rgba(113,154,255,.4) 310deg,transparent 324deg 360deg);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: painBorderFlow 15s linear infinite;
+}
+.page .painGrid article:nth-child(2)::after { animation-delay: -3.75s; }
+.page .painGrid article:nth-child(3)::after { animation-delay: -7.5s; }
+.page .painGrid article:nth-child(4)::after { animation-delay: -11.25s; }
+@property --pain-border-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes painBorderFlow { to { --pain-border-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  .page .painGrid article::after { animation: none; }
+}
