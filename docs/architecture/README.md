@@ -90,7 +90,7 @@
 - `own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](own-intake-provider-unbilled-recovery.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
 - `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，用户决定改为周更，周更增量 IMPLEMENTATION_READY，现场启用须单独授权。
-- `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](domains/ai/bailian-deepseek-shared-text-admission.md)
+- `domains/ai/bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](domains/ai/bailian-deepseek-shared-text-admission.md)
 - `domains/ai/ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](domains/ai/ai-disabled-application-lifecycle.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
 - `shared-channel-credentials.md` — [渠道凭据与模型定义分离（冻结合同，#1089已合入）](shared-channel-credentials.md)
@@ -212,10 +212,11 @@
 
 - [AI 领域候选导航：#132 标题对照与先导评测](domains/ai/README.md) — 两份独立设计尚未准入；真实模型/费用执行未授权
 
-- `agent-customization.md` — [智能体定制需求与人工进度 V1](domains/ai/agent-customization.md)
+- `domains/ai/agent-customization.md` — [智能体定制需求与人工进度 V1](domains/ai/agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
 - `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
+- `domains/ai/model-and-services.md` — [硕米「模型与服务」设计](domains/ai/model-and-services.md) · 首版范围已确认，设计已评审。
 - `domains/ai/ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](domains/ai/ai-provider-contracts.md)
 - `commerce-tool-canonical-inspection.md` — [B0 Canonical Product Inspection Tool 设计](commerce-tool-canonical-inspection.md)
 - `commerce-tool-foundation.md` — [Phase 2A 商业工具（Commerce Tool）基础设计](commerce-tool-foundation.md)
@@ -225,8 +226,8 @@
 - `enterprise-agent-permission-modes.md` — [企业智能体权限与审批模式 V1](enterprise-agent-permission-modes.md)
 - `official-knowledge-provenance.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](official-knowledge-provenance.md)
 - `official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge.md)
-- `official-skill-product-entry.md` — [官方技能直接处理已有商品](domains/ai/official-skill-product-entry.md)
-- `official-skill-automatic-preparation.md` — [官方技能模板自动准备](domains/ai/official-skill-automatic-preparation.md)
+- `domains/ai/official-skill-product-entry.md` — [官方技能直接处理已有商品](domains/ai/official-skill-product-entry.md)
+- `domains/ai/official-skill-automatic-preparation.md` — [官方技能模板自动准备](domains/ai/official-skill-automatic-preparation.md)
 - `task-center-summary.md` — [任务中心统一统计](task-center-summary.md)
 - `domains/ai/issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](domains/ai/issue132-title-evaluation-admission.md)
 - `domains/ai/issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](domains/ai/issue132-title-pilot-local-entry.md)
@@ -234,7 +235,7 @@
 - `domains/listing/platform-listing-materials-agent.md` — [平台上架资料智能体 v1](domains/listing/platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
 - `private-agent-delivery.md` — [指定企业私有智能体交付 V1](private-agent-delivery.md)
-- `product-agent-google-interactions.md` — [Product Agent Google Interactions 标题路由增量合同](domains/ai/product-agent-google-interactions.md)
+- `domains/ai/product-agent-google-interactions.md` — [Product Agent Google Interactions 标题路由增量合同](domains/ai/product-agent-google-interactions.md)
 - `product-agent-runtime-contract.md` — [Product Agent 最小运行合同与接入依赖](product-agent-runtime-contract.md)
 - `domains/ai/product-agent-text-provider-neutral.md` — [Product Agent 标题文本供应商可替换合同（候选）](domains/ai/product-agent-text-provider-neutral.md)
 - `product-selection-comparison-agent.md` — [Product selection comparison Agent v1](product-selection-comparison-agent.md)
@@ -249,24 +250,24 @@
 
 ## 图片执行、预算与恢复
 
-- `bailian-product-image-wiring.md` — [百炼商品图片接线 V1](domains/ai/bailian-product-image-wiring.md)
-- `generic-image-template-entry.md` — [通用图片模板与技能入口带入](domains/ai/generic-image-template-entry.md)
-- `grsai-vip-image-binding.md` — [GRSAI VIP 图片可选绑定 V1](domains/ai/grsai-vip-image-binding.md)
-- `image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](domains/ai/image-agent-budget-authorization.md)
-- `image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](domains/ai/image-agent-candidate-release-gate.md)
-- `image-agent-effect-finalization.md` — [Image Agent external-effect finalization design](domains/ai/image-agent-effect-finalization.md)
-- `image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](domains/ai/image-agent-effect-policy.md)
-- `image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](domains/ai/image-agent-effect-recovery.md)
-- `image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](domains/ai/image-agent-effect-terminalization.md)
-- `image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](domains/ai/image-agent-recovery.md)
-- `image-agent-workflow.md` — [Image Agent Workflow](domains/ai/image-agent-workflow.md)
-- `image-api-event-read-permissions.md` — [Image API event-read permission correction](domains/ai/image-api-event-read-permissions.md)
+- `domains/ai/bailian-product-image-wiring.md` — [百炼商品图片接线 V1](domains/ai/bailian-product-image-wiring.md)
+- `domains/ai/generic-image-template-entry.md` — [通用图片模板与技能入口带入](domains/ai/generic-image-template-entry.md)
+- `domains/ai/grsai-vip-image-binding.md` — [GRSAI VIP 图片可选绑定 V1](domains/ai/grsai-vip-image-binding.md)
+- `domains/ai/image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](domains/ai/image-agent-budget-authorization.md)
+- `domains/ai/image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](domains/ai/image-agent-candidate-release-gate.md)
+- `domains/ai/image-agent-effect-finalization.md` — [Image Agent external-effect finalization design](domains/ai/image-agent-effect-finalization.md)
+- `domains/ai/image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](domains/ai/image-agent-effect-policy.md)
+- `domains/ai/image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](domains/ai/image-agent-effect-recovery.md)
+- `domains/ai/image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](domains/ai/image-agent-effect-terminalization.md)
+- `domains/ai/image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](domains/ai/image-agent-recovery.md)
+- `domains/ai/image-agent-workflow.md` — [Image Agent Workflow](domains/ai/image-agent-workflow.md)
+- `domains/ai/image-api-event-read-permissions.md` — [Image API event-read permission correction](domains/ai/image-api-event-read-permissions.md)
 - `image-download-safety.md` — [Image Download Safety Boundary Design](image-download-safety.md)
-- `image-plan-optional-route.md` — [Single-product image plan optional route V1](domains/ai/image-plan-optional-route.md)
-- `image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](domains/ai/image-text-language-confirmation.md)
+- `domains/ai/image-plan-optional-route.md` — [Single-product image plan optional route V1](domains/ai/image-plan-optional-route.md)
+- `domains/ai/image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](domains/ai/image-text-language-confirmation.md)
 - `product-image-agent.md` — [商品图片智能体 V1 — 完整图片能力设计](product-image-agent.md)
 - `source-white-background.md` — [来源商品白底图与资源结算合同](source-white-background.md)
-- `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](domains/ai/vip-original-output-recovery.md)
+- `domains/ai/vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](domains/ai/vip-original-output-recovery.md)
 
 <a id="workspace"></a>
 

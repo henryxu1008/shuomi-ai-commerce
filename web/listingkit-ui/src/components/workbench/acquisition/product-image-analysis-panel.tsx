@@ -13,6 +13,7 @@ import {formatMicropoints} from "@/lib/contracts/ai-points";
 import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 import {executionModeViewSchema} from "@/lib/contracts/execution-mode";
 import {useConfigurationRead} from "../agents/agent-configuration-hooks";
+import {ModelServicesLink} from "../account/model-services-link";
 
 type Props={kind:AnalysisScope["kind"];contextId:string};
 const pendingSchema=z.strictObject({key:z.string().refine(isAcquisitionUUID),uncertain:z.boolean()});
@@ -82,7 +83,8 @@ function ScopedAnalysis({scope,canRun}:{scope:AnalysisScope;canRun:boolean}){
  return <Card className="space-y-4 p-4" aria-label="单图只读检查">
   <div><h3 className="font-semibold">单图只读检查</h3><p className="text-sm text-muted-foreground">检查一张已有图片的主体、构图、背景与清晰度疑点。使用企业统一多模态模型；建议不会改资料、生成或批准图片。</p></div>
   {!sources?<p role="status">正在读取图片来源</p>:<>
-   {!sources.ready&&<p role="status">{reasons[sources.reason]??"当前模型或图片能力尚未准入。"}</p>}
+   {!sources.ready&&<p role="status">{sources.reason==="MODEL_NOT_READY"?"当前企业的图片分析模型还需检查配置。":reasons[sources.reason]??"当前无法分析图片。"}</p>}
+   {!sources.ready&&sources.reason==="MODEL_NOT_READY"&&<ModelServicesLink category="multimodal"/>}
    {sources.ready&&!mode.data&&<p role="status">正在核实原智能体执行模式；核实前不会发送图片。</p>}
    {sources.inventoryStatus!=="READY"&&<p className="text-sm text-muted-foreground">批准素材{sources.inventoryStatus==="NOT_READY"?"尚未准备好":"状态未知"}；已有来源图仍按自身准入检查。</p>}
    <label className="block space-y-2"><span>待检查图片</span><Select value={selected} disabled={busy||pending?.uncertain} onChange={e=>{setSelected(e.target.value);setConsent(false);setResult(undefined)}}><option value="">选择一张已有图片</option>{sources.choices.map(v=><option key={`${v.kind}:${v.id}`} value={`${v.kind}:${v.id}`}>{v.kind==="source"?"来源图":"批准素材"} · {v.id}</option>)}</Select></label>

@@ -1,7 +1,8 @@
 "use client";
 import {ImageReferenceEstimate} from "./image-reference-estimate";
 import {useEffect,useRef,useState} from "react";
-import {useQuery} from "@tanstack/react-query";
+import Link from "next/link";
+import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {z} from "zod";
 import {automaticFXStatus} from "@/lib/contracts/model-route-pricing";
 import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
@@ -10,49 +11,169 @@ import {Card} from "@/components/ui/card";
 import {ConsolePage,ConsoleState} from "../console/console-page";
 import {useResourcePending} from "../resources/resource-pending";
 import {ModelRouteError,modelRouteRequest,type ModelRouteScope} from "@/lib/api/model-route-pricing";
-import {publishedModelManufacturers,canonicalPriceFacts,withoutPublicationVersion,officialRates,routeInput,priceInput,pricePreview,routeOptions,routeCurrent,routeHistory,routePreview,routeReceipt,routeCapabilities,modelLabels,formatCurrencyMicros,parseCurrencyMicros,type RouteInput,type RouteRevision,type ModelOption,type PriceInput} from "@/lib/contracts/model-route-pricing";
+import {publishedModelManufacturers,canonicalPriceFacts,withoutPublicationVersion,officialRates,routeInput,priceInput,pricePreview,routeOptions,routeCurrent,routeHistory,routePreview,routeReceipt,modelLabels,formatCurrencyMicros,parseCurrencyMicros,type RouteInput,type RouteRevision,type ModelOption,type PriceInput} from "@/lib/contracts/model-route-pricing";
+import {modelServicesPath,type ModelServiceCategory,type ModelServicesNavigation} from "@/lib/contracts/model-services-navigation";
 import styles from "./model-route-pricing.module.css";
-import {credentialConnections} from "@/lib/contracts/channel-credentials";
 import {ChannelCredentialsManager} from "./channel-credentials";
 import { MaintenanceEntryCard } from "./maintenance-entry-card";
+import { ModelServicesOverview } from "./model-services-overview";
 
-const pagePath="/workbench/account/organization/model-route-pricing";
 const defaults:RouteInput["selection"]={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"openai-mini",version:"approved-default-v1"},image:{id:"openai-flare",version:"approved-default-v1"},multimodal:{id:"openai-mini",version:"approved-default-v1"}};
 const categories=["text","image-generation","multimodal"] as const;
 const keyFor={text:"text","image-generation":"image",multimodal:"multimodal"} as const;
-const reasonLabels:Record<string,string>={POINT_BUDGET_EXCEEDED:"费用估算超出本次分析的点数预算",POINT_BUDGET_MISSING:"尚未配置本次分析的点数预算",METERING_MAPPING_NOT_ADMITTED:"该协议的完整官网计费用量映射尚未准入",BINDING_NOT_ADMITTED:"组织模型绑定尚未准入",PROTOCOL_AND_COST_BOUND_MISSING:"图片调用尚未接通",VISION_CONSUMER_NOT_IMPLEMENTED:"图片理解消费链路尚未完成",OFFICIAL_PRICE_MISSING:"缺已核验的参考价目",PRICE_OR_FX_NOT_APPLICABLE:"参考价或汇率缺失、过期或不适用",CREDENTIAL_NOT_ADMITTED:"组织凭据版本尚未准入",CREDENTIAL_READER_MISSING:"凭据元数据读取尚未接线",COMPLETE_BILLING_USAGE_MISSING:"响应缺少完整计费用量",COST_BOUND_MISSING:"缺保守费用上界",PRICE_APPLICABILITY_MISSING:"参考价格的地区、服务类型或图片参数不匹配",OPEN_CONSUMER_MISSING:"部分已开放用途尚未完成准入",CONSUMER_NOT_QUALIFIED:"消费链路尚未满足准入",CONSUMER_BINDING_MISMATCH:"用途与所选模型的绑定不一致",DEPENDENCY_MISSING:"缺少必要依赖"};
+function sameReference(first:ModelOption["reference"], second:ModelOption["reference"]){
+ return first.id===second.id&&first.version===second.version;
+}
+const reasonLabels: Record<string, string> = {
+ POINT_BUDGET_EXCEEDED: "费用估算超出本次分析的点数预算",
+ POINT_BUDGET_MISSING: "尚未配置本次分析的点数预算",
+ METERING_MAPPING_NOT_ADMITTED: "暂时无法按该模型的用量计算点数",
+ BINDING_NOT_ADMITTED: "当前企业暂不能使用此选项",
+ PROTOCOL_AND_COST_BOUND_MISSING: "图片生成服务尚未配置",
+ VISION_CONSUMER_NOT_IMPLEMENTED: "此选项暂不能用于图片分析",
+ OFFICIAL_PRICE_MISSING: "缺少适用参考价",
+ PRICE_OR_FX_NOT_APPLICABLE: "参考价或汇率缺失、过期或不适用",
+ CREDENTIAL_NOT_ADMITTED: "渠道暂不可用，请核对渠道配置",
+ CREDENTIAL_READER_MISSING: "暂时无法读取渠道状态，请联系系统维护人员",
+ COMPLETE_BILLING_USAGE_MISSING: "暂时无法确认该模型的计费用量",
+ COST_BOUND_MISSING: "暂时无法估算该模型所需点数",
+ PRICE_APPLICABILITY_MISSING: "参考价格的地区、服务类型或图片参数不匹配",
+ OPEN_CONSUMER_MISSING: "部分已开放用途暂不能使用这个型号",
+ CONSUMER_NOT_QUALIFIED: "该用途暂不能使用这个型号",
+ CONSUMER_BINDING_MISMATCH: "所选模型与当前用途不匹配",
+ DEPENDENCY_MISSING: "当前环境暂不能使用该模型，请联系系统维护人员",
+};
 const pendingSchema=z.strictObject({key:z.uuid(),input:z.union([routeInput,priceInput])});
 function message(error:unknown){const code=error instanceof ModelRouteError?error.code:"UNAVAILABLE";return ({INVALID:"请检查填写内容，参考价与汇率最多保留六位小数。",CONFLICT:"当前版本已有更新，请重新读取后校验。",NEEDS_CONFIGURATION:"三类模型尚未全部满足准入，请查看具体缺口。",FORBIDDEN:"无此操作权限，或企业访问已撤销。",PERMISSION_DENIED:"无此操作权限，请确认权限后重试。",AUTHENTICATION_REQUIRED:"登录已失效，请重新登录。",ORGANIZATION_ACCESS_DENIED:"无当前企业访问权限。",ORGANIZATION_ACCESS_REVOKED:"当前企业访问已撤销。",ORGANIZATION_SUSPENDED:"当前企业暂不可用。",ORGANIZATION_SELECTION_REQUIRED:"请先选择当前企业。",OUTCOME_UNKNOWN:"发布结果待核实，请使用原请求键查询回执。",ORGANIZATION_CONTEXT_CHANGED:"当前企业已变化，请重新打开页面。",IDENTITY_CONTEXT_CHANGED:"登录身份已变化，请重新打开页面。"} as Record<string,string>)[code]??"配置服务暂不可用，编辑和原回执保留。"}
 export function ModelRoutePricingEntry({scope}:{scope:ModelRouteScope}){
- const context=useWorkbenchContext(),configure=context.permissions.includes("workbench.agent.configure"),platform=context.permissions.includes("listingkit.platform_admin"),credentials=context.permissions.includes("workbench.ai.credentials.manage"),allowed=configure||platform||credentials;
- const query=useQuery({queryKey:["model-routes-entry",scope,configure,platform,credentials],queryFn:async({signal})=>configure?(await modelRouteRequest(scope,"",routeCapabilities,{signal})).available:credentials?!!(await modelRouteRequest(scope,"/connections",credentialConnections,{signal})):!!(await modelRouteRequest(scope,"/platform-prices",routeCurrent,{signal})),enabled:allowed,retry:false,gcTime:0});
- if(!allowed||!query.data)return null;
- return <MaintenanceEntryCard title={configure?"企业 AI 模型":credentials?"渠道凭据":"参考价格与汇率"} description={configure?"配置全体成员共用的文本、图片生成和多模态理解模型。":credentials?"统一录入、轮换和停用本企业多模型共用的渠道 Key。":"维护平台共用的模型参考价目与人民币汇率。"} href={pagePath} action="模型与费率" />;
+ const context=useWorkbenchContext();
+ const {configure,credentials,platform}=settingsPermissions(context.permissions);
+ if (context.isLoading || context.isSwitching || context.error || context.blockingError || context.selectionRequired ||
+     context.user?.id!==scope.userId || context.effectiveOrganization?.id!==scope.organizationId ||
+     !(configure||credentials||platform)) return null;
+ return <MaintenanceEntryCard title="AI 配置" description={configure?"查看企业的 Chat 规划状态及商品图片模型配置。":credentials?"录入、更新或停用本企业共用的渠道 Key。":"查看平台共用的模型参考价格与汇率。"} href={modelServicesPath} action="模型与服务" />;
 }
-export function ModelRoutePricingPage({expectedUserId}:{expectedUserId:string}){
- const context=useWorkbenchContext(),org=context.effectiveOrganization,configure=context.permissions.includes("workbench.agent.configure"),platform=context.permissions.includes("listingkit.platform_admin"),credentials=context.permissions.includes("workbench.ai.credentials.manage"),allowed=configure||platform||credentials;
- return <ConsolePage title="模型与费率" description="管理企业使用的 AI 模型、渠道 Key 和参考费率。" breadcrumbs={[{label:"我的账户",href:"/workbench/account"},{label:"企业空间",href:"/workbench/account/organization"},{label:"模型与费率"}]}>
- {context.isLoading||context.isSwitching?<ConsoleState kind="loading" title="正在确认当前企业"/>:!allowed||!org||context.user?.id!==expectedUserId||context.error||context.blockingError||context.selectionRequired?<ConsoleState kind="error" title="无模型配置权限或当前企业不可用"/>:<ModelSettings key={JSON.stringify([expectedUserId,org.id,context.permissions,context.roles])} scope={{userId:expectedUserId,organizationId:org.id}} name={org.name} configure={configure} platform={platform} credentials={credentials} canMaintain={context.permissions.includes("listingkit.admin.write")}/>}
+
+function settingsPermissions(permissions: string[]) {
+ return {
+  configure: permissions.includes("workbench.agent.configure"),
+  credentials: permissions.includes("workbench.ai.credentials.manage"),
+  platform: permissions.includes("listingkit.platform_admin"),
+ };
+}
+
+export function ModelRoutePricingPage({expectedUserId,navigation}:{expectedUserId:string;navigation?:ModelServicesNavigation}){
+ const context=useWorkbenchContext();
+ const org=context.effectiveOrganization;
+ const permissions=settingsPermissions(context.permissions);
+ const allowed=permissions.configure||permissions.credentials||permissions.platform;
+ const transientError=context.error&&(context.error.status===0||context.error.status>=500);
+ const validScope=allowed&&org&&context.user?.id===expectedUserId&&!context.blockingError&&!context.selectionRequired&&(!context.error||transientError);
+ const destination=navigation?.organizationId===org?.id?navigation:undefined;
+ return <ConsolePage title="模型与服务" description="查看和管理企业使用的 AI 模型、渠道 Key 和参考价格。" breadcrumbs={[{label:"我的账户",href:"/workbench/account"},{label:"企业空间",href:"/workbench/account/organization"},{label:"模型与服务"}]}>
+ {context.isLoading||context.isSwitching?<ConsoleState kind="loading" title="正在确认当前企业"/>:!validScope?<ConsoleState kind="error" title="无模型配置权限或当前企业不可用"/>:<ModelSettings key={JSON.stringify([expectedUserId,org.id,context.effectiveMemberId,context.permissions,context.roles,destination])} scope={{userId:expectedUserId,organizationId:org.id}} name={org.name} {...permissions} canMaintain={context.permissions.includes("listingkit.admin.write")} navigation={destination}/>}
  </ConsolePage>;
 }
-function ModelSettings({ scope, name, configure, platform, credentials, canMaintain }: { scope: ModelRouteScope; name: string; configure: boolean; platform: boolean; credentials: boolean; canMaintain: boolean }) {
- const [area, setArea] = useState<"enterprise" | "platform-prices" | "credentials">(configure ? "enterprise" : credentials ? "credentials" : "platform-prices");
+
+type ModelSettingsArea = "enterprise" | "platform-prices" | "credentials";
+type ModelDestination = { area: ModelSettingsArea; category?: ModelServiceCategory; model?: ModelOption };
+const settingsKey = (scope: ModelRouteScope) => ["model-services",scope] as const;
+
+function usePublishedModels(scope:ModelRouteScope,enabled=true) {
+ return useQuery({queryKey:[...settingsKey(scope),"current"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise",routeCurrent,{signal}),enabled,retry:false,gcTime:0,refetchOnWindowFocus:false});
+}
+
+function ModelSettings({ scope, name, configure, platform, credentials, canMaintain, navigation }: { scope: ModelRouteScope; name: string; configure: boolean; platform: boolean; credentials: boolean; canMaintain: boolean; navigation?:ModelServicesNavigation }) {
+ const context=useWorkbenchContext();
+ const client=useQueryClient();
+ const [destination,setDestination]=useState<ModelDestination>(()=>({
+  area:configure?"enterprise":credentials?"credentials":"platform-prices",
+  category:configure?navigation?.category:undefined,
+ }));
+ const [draft,setDraft]=useState<RouteInput|null>(null);
+ const [refreshState,setRefreshState]=useState<"idle"|"checking"|"failed">("idle");
+ const pendingRefresh=useRef<Promise<void>|null>(null);
+ const active=useRef(true);
+ useEffect(()=>{
+  active.current=true;
+  return()=>{active.current=false};
+ },[]);
+ const areaHeading=useRef<HTMLDivElement>(null);
+ const overview=useRef<HTMLDivElement>(null);
+ const overviewCategory=useRef<ModelServiceCategory>(null);
+ const published=usePublishedModels(scope,configure && !context.error);
+ const {area,model}=destination;
+ const checking=refreshState==="checking";
+ const blocked=!!context.error||checking;
+
+ function refresh(afterSave=false) {
+  if(pendingRefresh.current&&!afterSave)return pendingRefresh.current;
+  setRefreshState("checking");
+  // A refresh already started before the receipt may have read the old version.
+  const run=(pendingRefresh.current??Promise.resolve()).then(async()=>{
+   if(!active.current)return;
+   const results=await Promise.allSettled([
+    client.invalidateQueries({queryKey:settingsKey(scope),predicate:query=>query.queryKey[2]!=="history"}, {throwOnError:true}),
+    client.invalidateQueries({queryKey:[...settingsKey(scope),"history"]}),
+    context.retry(),
+   ]);
+   if(pendingRefresh.current!==run)return;
+   pendingRefresh.current=null;
+   const failure=results.some(result=>result.status==="rejected" || result.value===null);
+   if(active.current)setRefreshState(afterSave&&failure?"failed":"idle");
+  });
+  pendingRefresh.current=run;
+  return run;
+ }
+
+ function openSettings(next:ModelDestination, fromOverview?:ModelServiceCategory) {
+  if(fromOverview)overviewCategory.current=fromOverview;
+  setDestination(next);
+  if(!next.category&&!next.model)areaHeading.current?.focus();
+ }
+
+ function returnToOverview() {
+  const category=overviewCategory.current??navigation?.category;
+  const heading=category&&overview.current?.querySelector<HTMLElement>(`[data-model-service="${category}"]`);
+  (heading||overview.current)?.focus();
+ }
+
  const areas = [
    { id: "enterprise", label: "企业模型", available: configure },
-   { id: "credentials", label: "渠道凭据", available: credentials },
+   { id: "credentials", label: "提供方与 Key", available: credentials },
    { id: "platform-prices", label: "参考价格与汇率", available: platform },
  ] as const;
  const availableAreas = areas.filter(item => item.available);
  return <div className={styles.stack}>
    <div className={styles.workspaceHeader}>
-     {availableAreas.length > 1 && <div className={styles.tabs} role="group" aria-label="配置区域">
-       {availableAreas.map(item => <Button key={item.id} variant="ghost" aria-pressed={area === item.id} onClick={() => setArea(item.id)}>{item.label}</Button>)}
-     </div>}
-     <p className={styles.scope}>{area === "platform-prices" ? "适用范围：平台共用" : <>当前企业 <strong>{name}</strong></>}</p>
+     <p className={styles.scope}>当前企业 <strong>{name}</strong></p>
+     {navigation?.returnTo&&!context.error&&<Button asChild variant="outline"><Link href={navigation.returnTo} prefetch={false}>返回原业务页面</Link></Button>}
    </div>
-   {area === "enterprise" ? <EnterpriseModelEditor scope={scope} />
-     : area === "credentials" ? <ChannelCredentialsManager scope={scope} />
-       : <OfficialPriceEditor scope={scope} canPublish={canMaintain} />}
+   {refreshState==="failed"&&<p role="status">本次已保存，当前状态暂时无法确认。</p>}
+   {context.error&&<p role="alert">当前企业状态读取失败，请重新读取后继续。</p>}
+   {configure&&<div ref={overview} tabIndex={-1} aria-label="使用概览">
+     <ModelServicesOverview
+       current={!context.error&&!published.isError&&!published.isFetching?published.data:undefined}
+       checking={checking||published.isFetching}
+       chat={checking?"checking":context.error?"unknown":!context.aiWorkbenchAvailable?"closed":context.aiWorkbenchPlanningReadiness}
+       credentials={credentials} platform={platform} disabled={blocked}
+       onSelectModel={selected=>openSettings({area:"enterprise",category:selected},selected)}
+       onCredentials={selected=>openSettings({area:"credentials",model:selected},selected.category)}
+       onPrices={selected=>openSettings({area:"platform-prices"},selected)}
+       onRefresh={()=>void refresh()}
+     />
+   </div>}
+   <div className={styles.workspaceHeader} ref={areaHeading} tabIndex={-1} aria-label="配置区域">
+     {availableAreas.length > 1 && <div className={styles.tabs} role="group" aria-label="配置区域">
+       {availableAreas.map(item => <Button key={item.id} variant="ghost" aria-pressed={area === item.id} disabled={blocked} onClick={() => setDestination({area:item.id})}>{item.label}</Button>)}
+     </div>}
+     {area === "platform-prices" && <p className={styles.scope}>适用范围：平台共用</p>}
+     {configure&&<Button variant="ghost" onClick={returnToOverview}>返回使用概览</Button>}
+     {context.error&&!configure&&<Button variant="outline" disabled={checking} onClick={()=>void refresh()}>重新读取状态</Button>}
+   </div>
+   {area === "enterprise" ? <EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />
+     : area === "credentials" ? <ChannelCredentialsManager scope={scope} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />
+       : <OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />}
    {area !== "credentials" && <details className={styles.help}>
      <summary>AI 点数如何结算</summary>
      <p>1 AI 点等于 ¥0.01，精确到百万分之一点。发起调用前预留点数，完成后按已记录用量和当时的参考价与汇率结算，释放多余点数。缺少可靠用量时保留待确认状态。估算与厂商最终账单可能有差异。</p>
@@ -74,79 +195,151 @@ function usePublish(scope:ModelRouteScope,family:"enterprise"|"platform-prices",
  async function verify(){const intent=pending.command;if(!intent)return;await run(async signal=>{const result=await modelRouteRequest(scope,"/"+family+"/receipts/"+encodeURIComponent(intent.key),routeReceipt,{signal});verifyReceipt(result.receipt,intent);if(active.current){pending.clear(intent);setReceipt(result.receipt);await refresh()}})}
  return {busy,failure,receipt,run,publish,verify,pending,active,locked:busy||!pending.ready||!!pending.command||pending.error};
 }
-function PublishStatus({state}:{state:ReturnType<typeof usePublish>}){return <>{state.failure?<p role="alert" className={styles.error}>{message(state.failure)}</p>:null}{state.pending.command||state.pending.error?<Card className={styles.panel}><h2>发布结果待核实</h2><p>原请求键：{state.pending.command?.key??"记录读取失败"}。查询失败或未找到回执不代表发布失败，不能换键重复发布。</p><Button disabled={state.busy||!state.pending.command} onClick={()=>void state.verify()}>查询本次发布结果</Button></Card>:null}{state.receipt?<Card className={styles.panel} role="status"><h2>发布回执</h2><p>{state.receipt.id} · {state.receipt.publishedAt}</p><p>这是本次发布结果，实际当前版本以重新读取为准。</p></Card>:null}</>}
-export function EnterpriseModelEditor({scope}:{scope:ModelRouteScope}){
- const query=useQuery({queryKey:["shared-model-editor",scope],queryFn:async({signal})=>{const[current,options,history]=await Promise.all([modelRouteRequest(scope,"/enterprise",routeCurrent,{signal}),modelRouteRequest(scope,"/enterprise/options",routeOptions,{signal}),modelRouteRequest(scope,"/enterprise/history",routeHistory,{signal})]);return {current,options,history}},retry:false,gcTime:0,refetchOnWindowFocus:false});
- const [selection,setSelection]=useState<RouteInput["selection"]|null>(null),[preview,setPreview]=useState<{input:RouteInput;value:z.infer<typeof routePreview>}|null>(null);
- const state=usePublish(scope,"enterprise",()=>query.refetch());
- const current=query.data?.current.revision,id=current?.id??"NONE",choice=selection??current?.payload.sharedModels??defaults;
- const select=(key:keyof typeof keyFor,value:string)=>{setPreview(null);const model=query.data?.options.models.find(m=>m.category===key&&m.reference.id+"/"+m.reference.version===value);if(model)setSelection({...choice,[keyFor[key]]:model.reference})};
- async function validate(next=choice){if(!query.data||query.isError||state.locked)return;const input=routeInput.parse({expectedRevision:id,selection:next});await state.run(async signal=>{const value=await modelRouteRequest(scope,"/enterprise/validate",routePreview,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(input),signal});if(state.active.current)setPreview({input,value})})}
+function PublishStatus({state,disabled=false}:{state:ReturnType<typeof usePublish>;disabled?:boolean}){return <>{state.failure?<p role="alert" className={styles.error}>{message(state.failure)}</p>:null}{state.pending.command||state.pending.error?<Card className={styles.panel}><h2>发布结果待核实</h2><p>请求编号：{state.pending.command?.key??"记录读取失败"}。请查询本次结果，确认后再提交其他修改。</p><Button disabled={disabled||state.busy||!state.pending.command} onClick={()=>void state.verify()}>查询本次发布结果</Button></Card>:null}{state.receipt?<Card className={styles.panel} role="status"><h2>发布回执</h2><p>{state.receipt.id} · {state.receipt.publishedAt}</p><p>这是本次发布结果，实际当前版本以重新读取为准。</p></Card>:null}</>}
+type ModelEditorProps = {
+ scope:ModelRouteScope;
+ draftState?:[RouteInput|null,(draft:RouteInput|null)=>void];
+ focusTarget?:ModelDestination;
+ disabled?:boolean;
+ unconfirmed?:boolean;
+ onSaved?:()=>Promise<void>;
+ onCredentials?:(model:ModelOption)=>void;
+};
+
+export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=false,unconfirmed=false,onSaved,onCredentials}:ModelEditorProps){
+ const published=usePublishedModels(scope,!unconfirmed);
+ const options=useQuery({queryKey:[...settingsKey(scope),"options"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise/options",routeOptions,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
+ const history=useQuery({queryKey:[...settingsKey(scope),"history","enterprise"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise/history",routeHistory,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
+ const localDraft=useState<RouteInput|null>(null);
+ const [draft,setDraft]=draftState??localDraft;
+ const [preview,setPreview]=useState<{input:RouteInput;value:z.infer<typeof routePreview>;readAt:number;optionsAt:number}|null>(null);
+ const state=usePublish(scope,"enterprise",async()=>{
+  setDraft(null);
+  setPreview(null);
+  await (onSaved ? onSaved() : Promise.all([published.refetch(),options.refetch(),history.refetch()]));
+ });
+ const current=published.data?.revision,id=current?.id??"NONE",choice=draft?.selection??current?.payload.sharedModels??defaults;
+ const loading=published.isPending||options.isPending;
+ const readFailed=published.isError||options.isError;
+ const draftStale=!!draft&&draft.expectedRevision!==id;
+ const editingBlocked=disabled||state.locked||draftStale||published.isFetching||options.isFetching;
+ const optionsData=options.data;
+ const unavailableCategories=categories.filter(category=>{
+  const selected=choice[keyFor[category]];
+  return !optionsData?.models.some(model=>model.category===category&&model.reference.id===selected.id&&model.reference.version===selected.version);
+ });
+ const validSelection=unavailableCategories.length===0&&!!optionsData?.channels.includes(choice.defaultChannel);
+ const currentPreview=preview&&preview.readAt===published.dataUpdatedAt&&preview.optionsAt===options.dataUpdatedAt&&preview.input.expectedRevision===id?preview:null;
+ function choose(selection:RouteInput["selection"]|null) {
+  setPreview(null);
+  setDraft(selection?{expectedRevision:id,selection}:null);
+ }
+ function select(key:keyof typeof keyFor,value:string){
+  const model=optionsData?.models.find(m=>m.category===key&&m.reference.id+"/"+m.reference.version===value);
+  if(model)choose({...choice,[keyFor[key]]:model.reference});
+ }
+ async function validate(){
+  if(loading||readFailed||editingBlocked||!validSelection||!published.data)return;
+  const input=routeInput.parse({expectedRevision:id,selection:choice});
+  const readAt=published.dataUpdatedAt,optionsAt=options.dataUpdatedAt;
+  await state.run(async signal=>{
+   const value=await modelRouteRequest(scope,"/enterprise/validate",routePreview,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(input),signal});
+   if(state.active.current)setPreview({input,value,readAt,optionsAt});
+  });
+ }
+ function reload() {
+  setPreview(null);
+  void Promise.all([published.refetch(),options.refetch()]);
+ }
  const previewHeading = useRef<HTMLHeadingElement>(null);
- useEffect(() => { if (preview) previewHeading.current?.focus(); }, [preview]);
+ const sectionHeading=useRef<HTMLHeadingElement>(null);
+ const fields=useRef<Partial<Record<ModelServiceCategory,HTMLSelectElement|null>>>({});
+ const lastFocusedTarget=useRef<ModelDestination>(null);
+ useEffect(() => { if (currentPreview) previewHeading.current?.focus(); }, [currentPreview]);
+ useEffect(()=>{
+  if(!focusTarget?.category||focusTarget===lastFocusedTarget.current||loading||disabled)return;
+  lastFocusedTarget.current=focusTarget;
+  (fields.current[focusTarget.category]??sectionHeading.current)?.focus();
+ },[focusTarget,loading,disabled]);
  return <>
+ {!unconfirmed&&<>
    <Card className={styles.panel}>
      <div className={styles.sectionHeader}>
        <div>
-         <h2>企业共用模型</h2>
+         <h2 ref={sectionHeading} tabIndex={-1}>企业共用模型</h2>
          <p>为企业成员选择文本、图片生成和图片理解模型。</p>
        </div>
-       <Button variant="outline" disabled={state.busy} onClick={() => void query.refetch()}>重新读取当前配置</Button>
+       <Button variant="outline" disabled={disabled||state.busy} onClick={reload}>重新读取当前配置</Button>
      </div>
-     {query.isPending ? <p role="status">正在读取模型配置…</p>
-       : query.isError ? <p role="alert">当前配置读取失败，暂不可发布。</p>
+     {loading ? <p role="status">正在读取模型配置…</p>
+       : readFailed||!optionsData||!published.data ? <p role="alert">{published.isError?"当前配置暂时无法确认。请重试，仍失败时联系系统维护人员。":"可选模型暂时无法读取，请重试。"}</p>
          : <>
-           <p>当前版本：{current?.id ?? "暂无"} · {query.data.current.status === "READY" ? "已发布" : query.data.current.status === "UNCONFIGURED" ? "尚未发布" : "选择已保存，部分功能尚未就绪"}</p>
-           <fieldset disabled={state.locked} className={styles.form}>
+           <p>当前版本：{current?.id ?? "暂无"} · {published.data.status === "READY" ? "已发布" : published.data.status === "UNCONFIGURED" ? "尚未发布" : "已发布，部分模型待处理"}</p>
+           {draftStale&&<div role="alert"><p>企业模型已更新，请核对当前版本后重新选择。</p><Button variant="outline" disabled={disabled||state.locked} onClick={()=>choose(null)}>放弃草稿并载入当前版本</Button></div>}
+           <fieldset disabled={editingBlocked} className={styles.form}>
              <label className={`${styles.field} ${styles.channelField}`}>
                <strong>默认渠道</strong>
-               <select value={choice.defaultChannel} onChange={event => { setPreview(null); setSelection({...choice, defaultChannel: event.target.value}); }}>
-                 {query.data.options.channels.map(channel => <option key={channel}>{channel}</option>)}
+               <select value={choice.defaultChannel} onChange={event => choose({...choice, defaultChannel: event.target.value})}>
+                 {!optionsData.channels.includes(choice.defaultChannel)&&<option value={choice.defaultChannel}>{choice.defaultChannel}（当前不可用）</option>}
+                 {optionsData.channels.map(channel => <option key={channel}>{channel}</option>)}
                </select>
              </label>
              <div className={styles.modelGrid}>
                {categories.map(category => {
-                 const options = query.data.options.models.filter(model => model.category === category);
-                 const ref = choice[keyFor[category]];
-                 const selected = options.find(model => model.reference.id === ref.id && model.reference.version === ref.version);
+                 const candidates = optionsData.models.filter(model => model.category === category);
+                 const key = keyFor[category];
+                 const ref = choice[key];
+                 const selected = candidates.find(model => sameReference(model.reference,ref));
+                 const publishedRef = current?.payload.sharedModels?.[key];
                  return <div className={styles.modelCard} key={category}>
                    <label className={styles.field}>
                      <strong>{modelLabels[category]}</strong>
-                     <select value={ref.id + "/" + ref.version} onChange={event => select(category, event.target.value)}>
+                     <select ref={element=>{fields.current[category]=element}} value={ref.id + "/" + ref.version} onChange={event => select(category, event.target.value)}>
                        {!selected && <option value={ref.id + "/" + ref.version}>{ref.id}（原版本当前不可用）</option>}
-                       {options.map(model => <option key={model.reference.id + "/" + model.reference.version} value={model.reference.id + "/" + model.reference.version}>
-                         {model.model} · {model.channel}{model.ready ? "" : "（尚未就绪）"}
-                       </option>)}
+                       {candidates.map(model => {
+                         const value = model.reference.id + "/" + model.reference.version;
+                         const sameName = candidates.some(other => other !== model && other.model === model.model && other.channel === model.channel);
+                         const currentLabel = publishedRef && sameReference(publishedRef, model.reference) ? "当前已发布 · " : "";
+                         const readiness = model.ready ? "模型配置符合条件" : reasonLabels[model.reason??""] ?? "尚未就绪";
+                         const suffix = sameName ? `（${currentLabel}${readiness}）` : model.ready ? "" : "（尚未就绪）";
+                         return <option key={value} value={value}>{model.model} · {model.channel}{suffix}</option>;
+                       })}
                      </select>
                    </label>
+                   {candidates.length===0&&<p>暂无可选模型，请联系系统维护人员。</p>}
                    {selected && <ModelReadiness model={selected} showModel={false} />}
+                   {selected?.reason==="CREDENTIAL_NOT_ADMITTED"&&(onCredentials
+                    ? <Button variant="outline" size="sm" onClick={()=>onCredentials(selected)}>核对候选模型的渠道</Button>
+                    : <p>如需管理渠道，请联系本企业渠道管理员。</p>)}
                  </div>;
                })}
              </div>
-             <div className={styles.actions}><Button onClick={() => void validate()}>检查并预览</Button></div>
+             {!validSelection&&<p>请选择当前可用的默认渠道和三类候选型号，再检查并发布。</p>}
+             <div className={styles.actions}><Button disabled={!validSelection} onClick={() => void validate()}>检查并预览</Button></div>
            </fieldset>
          </>}
    </Card>
-   {preview && <Card className={styles.panel}>
+   {currentPreview && <Card className={styles.panel}>
      <h2 ref={previewHeading} tabIndex={-1}>确认企业模型配置</h2>
      <div className={styles.modelGrid}>
-       {preview.value.preview.models.map(model => <div className={styles.modelCard} key={model.category}><ModelReadiness model={model} /></div>)}
+       {currentPreview.value.preview.models.map(model => <div className={styles.modelCard} key={model.category}><ModelReadiness model={model} /></div>)}
      </div>
      <p>三类模型选择一并保存，使用时分别检查所选模型。发布配置不会发起模型调用或启用尚未就绪的功能。已有回执和待确认费用会保留。</p>
-     {!preview.value.preview.ready && <p>部分功能尚未就绪，已就绪的文字分析可独立使用。</p>}
+     {!currentPreview.value.preview.ready && <p>部分模型还需配置，请在对应业务页核对使用条件。</p>}
      <div className={styles.actions}>
-       <Button disabled={state.locked || query.isError || preview.input.expectedRevision !== id} onClick={() => void state.publish(preview.input)}>确认发布三类模型</Button>
+       <Button disabled={editingBlocked||readFailed||!validSelection} onClick={() => void state.publish(currentPreview.input)}>确认发布三类模型</Button>
      </div>
    </Card>}
-   <PublishStatus state={state}/>
-   <History rows={query.data?.history.revisions??[]} current={id} select={row=>{if(row.payload.sharedModels){setSelection(row.payload.sharedModels);setPreview(null)}}} disabled={state.locked||query.isError}/>
+   <History rows={history.isError?[]:history.data?.revisions??[]} current={id} select={row=>{if(row.payload.sharedModels)choose(row.payload.sharedModels)}} disabled={editingBlocked||readFailed||loading} loading={history.isPending} failed={history.isError} retry={()=>void history.refetch()}/>
+ </>}
+ <PublishStatus state={state} disabled={disabled}/>
  </>;
 }
 
 function ModelReadiness({ model, showModel = true }: { model: ModelOption; showModel?: boolean }) {
  return <div className={styles.summary}>
    {showModel && <h3>{modelLabels[model.category]}：{model.model}</h3>}
-   <p data-ready={model.ready} className={styles.readiness}>{model.ready ? "模型已就绪" : reasonLabels[model.reason ?? ""] ?? "模型尚未就绪"}</p>
+   <p data-ready={model.ready} className={styles.readiness}>{model.ready ? "模型配置符合条件" : reasonLabels[model.reason ?? ""] ?? "模型配置待处理"}</p>
    {model.price ? <details className={styles.rateDetails}>
      <summary>参考价与汇率</summary>
      <RateSummary rates={model.price.rates} currency={model.price.currency} />
@@ -156,10 +349,10 @@ function ModelReadiness({ model, showModel = true }: { model: ModelOption; showM
  </div>;
 }
 
-function History({ rows, current, select, disabled }: { rows: RouteRevision[]; current: string; select: (row: RouteRevision) => void; disabled: boolean }) {
+function History({ rows, current, select, disabled, loading, failed, retry }: { rows: RouteRevision[]; current: string; select: (row: RouteRevision) => void; disabled: boolean; loading?:boolean;failed?:boolean;retry?:()=>void }) {
  return <Card className={styles.panel}>
    <h2>最近版本</h2>
-   {rows.length ? <>
+   {loading ? <p role="status">正在读取最近版本…</p> : failed ? <div><p>最近版本暂时无法读取。</p><Button variant="outline" disabled={disabled} onClick={retry}>重新读取最近版本</Button></div> : rows.length ? <>
      <p>采用历史版本会载入编辑区，并按当前条件重新检查。</p>
      <ul className={styles.historyList}>
        {rows.map(row => <li className={styles.historyRow} key={row.id}>
@@ -175,7 +368,7 @@ function History({ rows, current, select, disabled }: { rows: RouteRevision[]; c
 }
 const rateLabels={inputText:"文字输入 / 百万 Token",cachedInputText:"缓存文字输入 / 百万 Token",inputImage:"图片输入 / 百万 Token",cachedInputImage:"缓存图片输入 / 百万 Token",outputText:"文字输出 / 百万 Token",outputImage:"图片输出 / 百万 Token",outputImagePerItem:"图片输出 / 张"};
 function RateSummary({rates,currency}:{rates:z.infer<typeof officialRates>;currency:string}){return <dl>{Object.entries(rates).filter(([,value])=>value>0).map(([key,value])=><div key={key}><dt>{rateLabels[key as keyof typeof rateLabels]}</dt><dd>{formatCurrencyMicros(value)} {currency}</dd></div>)}</dl>}
-export function OfficialPriceEditor({scope,canPublish}:{scope:ModelRouteScope;canPublish:boolean}){
+export function OfficialPriceEditor({scope,canPublish,disabled=false,unconfirmed=false,onSaved}:{scope:ModelRouteScope;canPublish:boolean;disabled?:boolean;unconfirmed?:boolean;onSaved?:()=>Promise<void>}){
  const automatic=useQuery({queryKey:["automatic-fx-status",scope],queryFn:({signal})=>modelRouteRequest(scope,"/platform-prices/automatic-fx",automaticFXStatus,{signal}),retry:false,gcTime:0,refetchOnWindowFocus:false});
  const [fxStartState,setFxStartState]=useState<"ready"|"pending"|"unknown"|"started">("ready"),fxStartLock=useRef(false);
  async function startFX(){
@@ -183,9 +376,14 @@ export function OfficialPriceEditor({scope,canPublish}:{scope:ModelRouteScope;ca
   fxStartLock.current=true;setFxStartState("pending");
   try{const current=await modelRouteRequest(scope,"/platform-prices/automatic-fx",automaticFXStatus);if(current.state!=="PREPARED"){setFxStartState("unknown");await automatic.refetch();return}await modelRouteRequest(scope,"/platform-prices/automatic-fx/start",z.strictObject({state:z.literal("STARTED")}),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});setFxStartState("started");await automatic.refetch()}catch{setFxStartState("unknown")}
  }
- const query=useQuery({queryKey:["official-model-prices",scope],queryFn:async({signal})=>{const[current,history]=await Promise.all([modelRouteRequest(scope,"/platform-prices",routeCurrent,{signal}),modelRouteRequest(scope,"/platform-prices/history",routeHistory,{signal})]);return{current,history}},retry:false,gcTime:0,refetchOnWindowFocus:false,refetchInterval:60000});
+ const query=useQuery({queryKey:[...settingsKey(scope),"prices"],queryFn:({signal})=>modelRouteRequest(scope,"/platform-prices",routeCurrent,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false,refetchInterval:60000});
+ const history=useQuery({queryKey:[...settingsKey(scope),"history","prices"],queryFn:({signal})=>modelRouteRequest(scope,"/platform-prices/history",routeHistory,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
  const [draft,setDraft]=useState<PriceInput|null>(null),[preview,setPreview]=useState<{input:PriceInput;value:z.infer<typeof pricePreview>}|null>(null),[fieldError,setFieldError]=useState("");
- const state=usePublish(scope,"platform-prices",()=>query.refetch()),current=query.data?.current.revision,id=current?.id??"NONE",snapshot=current?.payload.platformPrices;
+ const state=usePublish(scope,"platform-prices",async()=>{
+  setDraft(null);
+  setPreview(null);
+  await (onSaved ? onSaved() : Promise.all([query.refetch(),history.refetch()]));
+ }),current=query.data?.revision,id=current?.id??"NONE",snapshot=current?.payload.platformPrices;
  const input=draft??{expectedRevision:id,prices:(snapshot?.prices??[]).map(withoutPublicationVersion),fx:(snapshot?.fx??[]).map(withoutPublicationVersion)};
  const draftStale=draft!==null&&draft.expectedRevision!==id;
  const edit=(next:PriceInput)=>{setPreview(null);setDraft(next);setFieldError("")};
@@ -194,6 +392,7 @@ export function OfficialPriceEditor({scope,canPublish}:{scope:ModelRouteScope;ca
  const previewHeading = useRef<HTMLHeadingElement>(null);
  useEffect(() => { if (preview) previewHeading.current?.focus(); }, [preview]);
  return <>
+ {!unconfirmed&&<>
  <Card className={styles.panel}>
    <div className={styles.sectionHeader}>
      <div><h2>模型参考价与人民币汇率</h2><p>参考价与汇率用于换算企业 AI 点数。已到期的参考配置需要更新。</p></div>
@@ -223,7 +422,10 @@ export function OfficialPriceEditor({scope,canPublish}:{scope:ModelRouteScope;ca
  </section>
  <div className={styles.actions}><Button onClick={()=>void validate()}>校验参考价与汇率</Button></div>
  </fieldset>{fieldError?<p role="alert">{fieldError}</p>:null}</Card>
- {preview?<Card className={styles.panel}><h2 ref={previewHeading} tabIndex={-1}>确认发布参考价与汇率</h2>{preview.value.snapshot.prices.map((price,index)=><div key={index}><strong>{price.model} · {price.channel}</strong><p>{price.sourceUrl} · {price.effectiveFrom} 至 {price.effectiveUntil}</p><RateSummary rates={price.rates} currency={price.currency}/></div>)}<p>发布后新报价读取适用价格；已发送请求按冻结价格处理，UNKNOWN 与预留保留。不会改写历史费用。</p><Button disabled={state.locked||!canPublish||query.isError||preview.input.expectedRevision!==id} onClick={()=>void state.publish(preview.input)}>确认发布参考价与汇率</Button></Card>:null}<PublishStatus state={state}/><History rows={query.data?.history.revisions??[]} current={id} disabled={state.locked||!canPublish||query.isError} select={row=>{const value=row.payload.platformPrices;if(value)edit({expectedRevision:id,prices:value.prices.map(withoutPublicationVersion),fx:value.fx.map(withoutPublicationVersion)})}}/>
+ {preview?<Card className={styles.panel}><h2 ref={previewHeading} tabIndex={-1}>确认发布参考价与汇率</h2>{preview.value.snapshot.prices.map((price,index)=><div key={index}><strong>{price.model} · {price.channel}</strong><p>{price.sourceUrl} · {price.effectiveFrom} 至 {price.effectiveUntil}</p><RateSummary rates={price.rates} currency={price.currency}/></div>)}<p>新任务按适用参考价估算。已发送任务和待确认费用仍按提交时的价格处理。</p><Button disabled={state.locked||!canPublish||query.isError||preview.input.expectedRevision!==id} onClick={()=>void state.publish(preview.input)}>确认发布参考价与汇率</Button></Card>:null}
+ <History rows={history.isError?[]:history.data?.revisions??[]} current={id} disabled={state.locked||!canPublish||query.isError} loading={history.isPending} failed={history.isError} retry={()=>void history.refetch()} select={row=>{const value=row.payload.platformPrices;if(value)edit({expectedRevision:id,prices:value.prices.map(withoutPublicationVersion),fx:value.fx.map(withoutPublicationVersion)})}}/>
+ </>}
+ <PublishStatus state={state} disabled={disabled}/>
  </>;
 }
 function CurrencyField({label,value,change}:{label:string;value:number;change:(value:number)=>void}){
