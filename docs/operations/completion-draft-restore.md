@@ -1,6 +1,6 @@
 # 待补全草稿恢复历史内容
 
-Refs #708；合同见[历史内容恢复](../architecture/completion-draft-restore.md)。
+Refs #708；合同见[历史内容恢复](../architecture/domains/listing/completion-draft-restore.md)。
 
 ## 使用入口
 
