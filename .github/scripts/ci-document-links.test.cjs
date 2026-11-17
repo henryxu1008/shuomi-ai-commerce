@@ -62,6 +62,7 @@ test("unrecognized and malformed relative targets fail closed, while valid encod
   const patch = [
     "diff --git a/docs/README.md b/docs/README.md",
     "+++ b/docs/README.md",
+    "@@ -1,0 +2 @@",
     "+[out](../../outside.md), [bad](bad%ZZ.md), [encoded](file%20name.md)",
   ].join("\n");
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-"));
@@ -200,6 +201,80 @@ test("skips Markdown links appearing inside newly added fenced blocks", () => {
       repositoryRoot: root,
       readFile: () => "\x60\x60\x60md\n[sample](not-a-real-file.md)\n\x60\x60\x60",
     }), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unmatched backtick is literal and must not mask subsequent broken links", () => {
+  const patch = [
+    "diff --git a/docs/guide.md b/docs/guide.md",
+    "+++ b/docs/guide.md",
+    "@@ -1,0 +2 @@",
+    "+[broken](missing.md)",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-unmatched-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "A literal \x60 character\n[broken](missing.md)",
+    }), ["docs/guide.md: unresolved relative link missing.md"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("matched multiline code spans suppress only their examples, not following links", () => {
+  const patch = [
+    "diff --git a/docs/multiline.md b/docs/multiline.md",
+    "+++ b/docs/multiline.md",
+    "@@ -0,0 +1,3 @@",
+    "+Start \x60open",
+    "+[example](not-a-file.md)\x60 after",
+    "+[real](missing.md)",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-multiline-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "Start \x60open\n[example](not-a-file.md)\x60 after\n[real](missing.md)",
+    }), ["docs/multiline.md: unresolved relative link missing.md"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI validates against PR HEAD documents despite unrelated lines in the checkout", () => {
+  const { spawnSync } = require("node:child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-head-"));
+  const git = (...args) => {
+    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  try {
+    git("init");
+    git("config", "user.name", "CI Test");
+    git("config", "user.email", "ci@example.invalid");
+    fs.mkdirSync(path.join(root, "docs"));
+    const doc = path.join(root, "docs", "guide.md");
+    fs.writeFileSync(doc, "# Guide\nOriginal line\n");
+    git("add", ".");
+    git("commit", "-m", "base");
+    const base = git("rev-parse", "HEAD");
+    fs.writeFileSync(doc, "# Guide\nOriginal line\n[broken](missing.md)\n");
+    git("add", ".");
+    git("commit", "-m", "head");
+    const head = git("rev-parse", "HEAD");
+    // The checked-out tree differs from the immutable HEAD being reviewed.
+    fs.writeFileSync(doc, "# Extra line from main\n# Guide\nOriginal line\n[broken](missing.md)\n");
+    const child = spawnSync(process.execPath, [
+      path.join(__dirname, "ci-document-links.cjs"), base, head,
+    ], { cwd: root, encoding: "utf8" });
+    assert.notEqual(child.status, 0);
+    assert.match(child.stderr, /docs\/guide\.md: unresolved relative link missing\.md/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
