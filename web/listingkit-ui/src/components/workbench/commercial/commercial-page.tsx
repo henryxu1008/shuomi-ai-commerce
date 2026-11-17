@@ -35,6 +35,7 @@ import {
   WalletView,
 } from "./commercial-billing-views";
 import styles from "./commercial.module.css";
+import entitlementStyles from "./entitlements.module.css";
 import overviewStyles from "../console/primary-overview.module.css";
 import { TopUpPaymentPanel } from "./wallet-topup";
 
@@ -253,14 +254,14 @@ function ScopedCommercial({
       }
     >
       {page === "entitlements" ? (
-        <>{storageAvailable&&<EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={false} readOnly />}
-        <EnterpriseResources
-          userId={userId}
-          organizationId={organizationId}
-          scope={scope}
-          sequence={sequence}
-          showSummary
-        /></>
+        <div className={entitlementStyles.balances}>
+          {storageAvailable && (
+            <EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope}
+              sequence={sequence} canPurchase={false} readOnly emphasizeAvailability />
+          )}
+          <EnterpriseResources userId={userId} organizationId={organizationId} scope={scope}
+            sequence={sequence} showSummary />
+        </div>
       ) : null}
       <CommercialRequest
         key={sequence}

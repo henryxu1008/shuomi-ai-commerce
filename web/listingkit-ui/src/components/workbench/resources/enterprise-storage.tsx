@@ -7,13 +7,14 @@ import {Card} from "@/components/ui/card";
 import {getCommercialWallet} from "@/lib/api/commercial-billing";
 import {createStorageOrder,createStorageQuote,getStorageOffers,getStorageSummary,readStorageOrder,type StorageQuote} from "@/lib/api/storage-capacity";
 import {pendingSchema,readPending} from "../commercial/resource-purchase-panel";
+import { EntitlementTime } from "../commercial/entitlement-time";
 import styles from "./enterprise-storage.module.css";
 const subscribe=(f:()=>void)=>{window.addEventListener("storage-purchase-pending",f);window.addEventListener("storage",f);return()=>{window.removeEventListener("storage-purchase-pending",f);window.removeEventListener("storage",f)}};
 const gib=(v:string)=>{const n=BigInt(v),scaled=n*BigInt(100)/BigInt(1073741824);if(n>BigInt(0)&&scaled===BigInt(0))return "< 0.01 GiB";return `${scaled/BigInt(100)}.${(scaled%BigInt(100)).toString().padStart(2,"0")} GiB`};
 const money=(v:string)=>{const n=BigInt(v);return `¥${n/BigInt(100)}.${(n%BigInt(100)).toString().padStart(2,"0")}`};
-type Props={userId:string;organizationId:string;scope:string;sequence:number;canPurchase:boolean;readOnly?:boolean};
+type Props={userId:string;organizationId:string;scope:string;sequence:number;canPurchase:boolean;readOnly?:boolean;emphasizeAvailability?:boolean};
 export function EnterpriseStorage(props:Props){return <ScopedStorage key={JSON.stringify([props.userId,props.organizationId,props.scope])} {...props}/>}
-function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnly=false}:Props){
+function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnly=false,emphasizeAvailability=false}:Props){
   const summary=useQuery({queryKey:["workbench",userId,organizationId,scope,"storage",sequence],queryFn:({signal})=>getStorageSummary(userId,organizationId,signal),staleTime:0,gcTime:0,retry:false});
   const offers=useQuery({queryKey:["workbench",userId,organizationId,scope,"storage-offers",sequence],queryFn:({signal})=>getStorageOffers(userId,organizationId,signal),staleTime:0,gcTime:0,retry:false,enabled:!readOnly&&!!summary.data&&!summary.isError});
   const key=`storage-purchase.pending:${JSON.stringify([userId,organizationId])}`;
@@ -53,7 +54,7 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
     persist({...intent,orderId:order.order_id});setMessage("正在核对原订单，请查看原订单结果；请勿重新购买。");
   },!intent.orderId)}
   const value=summary.data?.summary;
-  return <Card className={styles.card} role="region" aria-label="企业存储容量">
+  return <Card className={emphasizeAvailability ? `${styles.card} ${styles.capacityOverview}` : styles.card} role="region" aria-label="企业存储容量">
     <div className={styles.heading}><div><h2>企业存储容量</h2><p>企业共享容量，商品图片、AI 图片和知识库原文件统一计量。</p></div>{!readOnly&&canPurchase&&<Button onClick={()=>prepare()} disabled={!ready||busy||!!pending.value||!value||!offer}>购买扩容包</Button>}</div>
     {summary.isPending||summary.isFetching?<p role="status">正在读取企业存储容量…</p>:summary.isError||!value?<p role="alert">存储容量服务暂不可用，本次未取得用量。请刷新重试。</p>:<>
       <dl className={styles.metrics}>{[["总容量",value.quota_bytes],["已使用",value.occupied_bytes],["预占中",value.reserved_bytes],["可用容量",value.remaining_bytes]].map(([label,bytes])=><div key={label}><dt>{label}</dt><dd title={`${bytes} 字节`}>{gib(bytes)}</dd></div>)}</dl>
@@ -66,7 +67,9 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
     </>}
     {!readOnly&&<div className={styles.offer}>{offer?<span>{gib(offer.storage_unit_bytes)} 扩容包 · {money(offer.unit_price_minor)} / 30 天</span>:<span>扩容价格本次未取得</span>}</div>}
     <p>每企业默认 5 GiB。扩容包到期或容量不足会停止新增占用，不会自动删除已有数据。历史版本和未使用的已保存文件也计量。</p>
-    {value&&<p className={styles.observed}>数据更新时间：{new Date(value.observed_at).toLocaleString("zh-CN")}</p>}
+    {value&&<p className={styles.observed}>{emphasizeAvailability
+      ? <>存储读取于 <EntitlementTime value={value.observed_at} /></>
+      : <>数据更新时间：{new Date(value.observed_at).toLocaleString("zh-CN")}</>}</p>}
     {!readOnly&&!canPurchase&&<p>当前身份没有扩容购买权限。</p>}
     {!ready&&raw!=="__loading__"&&<p role="alert">原订单恢复信息暂不可读，购买已暂停，请联系支持核对。</p>}
     {pending.value&&<div><p>有一笔待确认的原订单。恢复会使用原报价与原请求，不会创建第二笔购买。</p><Button variant="outline" disabled={busy||(!pending.value.orderId&&!canPurchase)} onClick={()=>void submit(pending.value!)}>恢复原订单</Button>{pending.value.orderId&&<span> 订单：{pending.value.orderId}</span>}</div>}
