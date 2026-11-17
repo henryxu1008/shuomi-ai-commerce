@@ -1,5 +1,7 @@
 # 两个中心 V1：研究证据分析合同增量
 
+> **文档适用性校准（2026-11-17）：** 本文是 2026-11-02 冻结的“研究证据分析”有界增量，原文中的 `Product/Figma Authority` 是当时设计依据，不是今天的 UI/IA 权威。当前用户已撤销 Figma 的最终 UI/IA 约束；市场调研/智能选品的操作导航及智能市场启用方向以[最新产品决定](../product/market-research-selection-centers-v1.md)为准。原 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 已合并；真实主动研究来源、模型、预算及用户验收仍按 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070) 分别核对。本文历史的 “Draft PR/尚未合并” 不得恢复为当前状态。详情参见 [Research 阅读导航](domains/research/README.md)。本段不改变冻结合同的权限、证据、费用或恢复语义。
+
 Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY（源码实现、独立检查与必需CI完成）**。执行 #1072/#1073，父目标 #1070，沿同一 Draft PR #1075。设计源码核查基线 `366df3516865163636a68852d7d85cf68c530c48`；2026-11-02 实施开工同步 main `bee30be7dd322a1d5d5777038fa98d939a570545`，沿同一分支交付。
 
 用户于 2026-11-02 明确确认沿用[两个中心 V1 产品设计](../product/market-research-selection-centers-v1.md)：数据服务 → 市场调研中心、供应市场 → 智能选品中心，共用项目，汇总限明确选中2–5项。随后用户明确回复“可以”，批准正式业务代码、必要开发自检、提交/推送及同一 PR 维护；本轮不合并、不更新实例或部署，不调用真实平台、真实模型或付费服务。产品确认、Architecture Review、正式实施授权及真实试用分别记录；本文不代签。
