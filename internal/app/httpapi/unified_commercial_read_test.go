@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"task-processor/internal/agent"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authz"
 	kernelmodule "task-processor/internal/kernel/module"
@@ -149,6 +150,7 @@ func TestUsageObjectUsesOnlyOwnedEventSource(t *testing.T) {
 		SourceType: string(orgresource.ConsumerStoreService), SourceIdentity: sourceID}
 	found := true
 	reads, resolutions := 0, 0
+	var resolvedPurpose string
 	checkSource := func(org, source string) {
 		resolutions++
 		require.Equal(t, "B", org)
@@ -169,9 +171,9 @@ func TestUsageObjectUsesOnlyOwnedEventSource(t *testing.T) {
 			checkSource(org, source)
 			return "Fixture product", nil
 		},
-		task: func(_ *gin.Context, org, source string) *commercialUsageObject {
+		model: func(_ *gin.Context, org, source string) (*commercialUsageObject, string) {
 			checkSource(org, source)
-			return nil // Task owner did not authorize disclosure.
+			return nil, resolvedPurpose
 		},
 	}}
 	server := buildCurrentApplicationHTTPServer(module.routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: currentRoleTestAuthorizer()})
@@ -197,7 +199,11 @@ func TestUsageObjectUsesOnlyOwnedEventSource(t *testing.T) {
 	response = get()
 	require.Equal(t, 200, response.Code)
 	require.JSONEq(t, `{"organization_id":"B","event_id":"`+eventID+`","object":null}`, response.Body.String())
-	require.Equal(t, 3, resolutions)
+	resolvedPurpose = "chat_planning"
+	response = get()
+	require.Equal(t, 200, response.Code)
+	require.JSONEq(t, `{"organization_id":"B","event_id":"`+eventID+`","object":null,"purpose":"chat_planning"}`, response.Body.String())
+	require.Equal(t, 4, resolutions)
 	event.ResourceType = orgresource.ResourceDataRow
 	require.Contains(t, get().Body.String(), `"object":null`)
 	event.OrganizationID = "A"
@@ -205,11 +211,11 @@ func TestUsageObjectUsesOnlyOwnedEventSource(t *testing.T) {
 	found = false
 	event.OrganizationID = "B"
 	require.Equal(t, 404, get().Code)
-	require.Equal(t, 3, resolutions)
-	require.Equal(t, 6, reads)
+	require.Equal(t, 4, resolutions)
+	require.Equal(t, 7, reads)
 	grants.revoked = true
 	require.Equal(t, 403, get().Code)
-	require.Equal(t, 6, reads)
+	require.Equal(t, 7, reads)
 }
 
 func TestUsageObjectTaskRequiresExactRunRequest(t *testing.T) {
@@ -227,4 +233,21 @@ func TestUsageObjectTaskRequiresExactRunRequest(t *testing.T) {
 	require.False(t, usageTaskMatches(task, aiworkbench.Scope{OrganizationID: "B", ActorID: "other"}, aiworkbench.ContentTaskKind, "", request))
 	request.GoalSummary = "A different task"
 	require.False(t, usageTaskMatches(task, scope, aiworkbench.ContentTaskKind, "", request))
+}
+
+func TestUsageInvocationPurposeUsesRecordedOperation(t *testing.T) {
+	for _, entry := range []struct {
+		operation aicapability.Operation
+		taskID    string
+		purpose   string
+	}{
+		{operation: aicapability.OperationAIWorkbenchChatPlan, purpose: "chat_planning"},
+		{operation: aicapability.OperationOwnProductIntake, purpose: "own_product_intake"},
+		{operation: aicapability.OperationOwnProductIntake, taskID: "bound-task"},
+		{operation: aicapability.OperationProductContentDecision},
+		{operation: aicapability.OperationAIWorkbenchStoreRoute},
+	} {
+		fact := aicapability.InvocationRecord{Operation: entry.operation, BusinessTaskID: entry.taskID}
+		require.Equal(t, entry.purpose, usageInvocationPurpose(fact), "operation %s, task %s", entry.operation, entry.taskID)
+	}
 }

@@ -1515,7 +1515,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			usageObjects.amazon = researchData.UsageProduct
 		}
 		if projectChat != nil {
-			usageObjects.task = projectChat.usageTaskObject
+			usageObjects.model = projectChat.usageModelDetails
 		}
 	}
 	bundle, err := buildRuntimeBundleFromModules(cfg, modules)

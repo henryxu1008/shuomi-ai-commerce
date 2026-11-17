@@ -30,7 +30,7 @@ type commercialUsageLookup struct {
 	readEvent func(context.Context, string, string) (orgresource.EventSource, bool, error)
 	store     func(context.Context, string, string) *commercialUsageObject
 	amazon    func(context.Context, string, string) (string, error)
-	task      func(*gin.Context, string, string) *commercialUsageObject
+	model     func(*gin.Context, string, string) (*commercialUsageObject, string)
 }
 
 func (m commercialResourcesModule) readUsageObject(c *gin.Context) {
@@ -68,6 +68,7 @@ func (m commercialResourcesModule) readUsageObject(c *gin.Context) {
 		return
 	}
 	var object *commercialUsageObject
+	var purpose string
 	switch {
 	case event.ResourceType == orgresource.ResourceStoreRenewalPeriod && event.SourceType == string(orgresource.ConsumerStoreService):
 		if m.objects.store != nil {
@@ -81,11 +82,15 @@ func (m commercialResourcesModule) readUsageObject(c *gin.Context) {
 			}
 		}
 	case event.ResourceType == orgresource.ResourceAIPoint && event.SourceType == "model_invocation_v1":
-		if m.objects.task != nil {
-			object = m.objects.task(c, org, event.SourceIdentity)
+		if m.objects.model != nil {
+			object, purpose = m.objects.model(c, org, event.SourceIdentity)
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"organization_id": org, "event_id": eventID, "object": object})
+	response := gin.H{"organization_id": org, "event_id": eventID, "object": object}
+	if purpose != "" {
+		response["purpose"] = purpose
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 func usageObject(kind, name, id string) *commercialUsageObject {
@@ -117,21 +122,45 @@ func storeUsageObjectReader(stores *storecenter.MemberScopedStoreRepository) fun
 	}
 }
 
-func (a *aiWorkbenchApplication) usageTaskObject(c *gin.Context, org, invocationID string) *commercialUsageObject {
-	if a == nil || a.agent == nil || a.agent.config.Ledger == nil || a.agent.store == nil || a.store == nil {
-		return nil
+func (a *aiWorkbenchApplication) usageModelDetails(c *gin.Context, org, invocationID string) (*commercialUsageObject, string) {
+	if a == nil || a.agent == nil || a.agent.config.Ledger == nil {
+		return nil, ""
 	}
 	ctx, scope, err := a.bind(c, authz.PermissionWorkbenchTaskRead)
 	if err != nil || scope.OrganizationID != org {
-		return nil
+		return nil, ""
 	}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
 	if !ok || identity.EffectiveMemberID == "" {
-		return nil
+		return nil, ""
 	}
 	fact, err := a.agent.config.Ledger.ReadModelInvocation(ctx, org, invocationID)
 	if err != nil || fact.InvocationID != invocationID || fact.TenantID != org ||
-		fact.UserID != scope.ActorID || fact.MemberID != identity.EffectiveMemberID || fact.AgentRunID == "" {
+		fact.UserID != scope.ActorID || fact.MemberID != identity.EffectiveMemberID {
+		return nil, ""
+	}
+	if purpose := usageInvocationPurpose(fact); purpose != "" {
+		return nil, purpose
+	}
+	return a.usageTaskObject(ctx, scope, fact), ""
+}
+
+func usageInvocationPurpose(fact aicapability.InvocationRecord) string {
+	if fact.BusinessTaskID != "" {
+		return ""
+	}
+	switch fact.Operation {
+	case aicapability.OperationAIWorkbenchChatPlan:
+		return "chat_planning"
+	case aicapability.OperationOwnProductIntake:
+		return "own_product_intake"
+	default:
+		return ""
+	}
+}
+
+func (a *aiWorkbenchApplication) usageTaskObject(ctx context.Context, scope aiworkbench.Scope, fact aicapability.InvocationRecord) *commercialUsageObject {
+	if a.agent.store == nil || a.store == nil || fact.AgentRunID == "" {
 		return nil
 	}
 	var kind string
@@ -143,7 +172,7 @@ func (a *aiWorkbenchApplication) usageTaskObject(c *gin.Context, org, invocation
 	default:
 		return nil
 	}
-	runScope := agent.Scope{OrganizationID: org, ActorID: scope.ActorID}
+	runScope := agent.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}
 	run, found, err := a.agent.store.LookupRunID(ctx, runScope, fact.AgentRunID)
 	if err != nil || !found || run.State.RunID != fact.AgentRunID || run.State.Scope != runScope || run.State.Request.Key == "" {
 		return nil
