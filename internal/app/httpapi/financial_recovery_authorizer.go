@@ -37,13 +37,16 @@ func (adapter financialRecoveryAuthorizer) ReauthorizeCommercialPurchase(ctx con
 	return billing.CommercialPurchaseAuthorization{OrganizationID: organizationID, ActorID: actorID, Roles: append([]string(nil), result.Roles...), Allowed: allowed, ObservedAt: time.Now().UTC()}, nil
 }
 
-func startCommercialRecoveryLoop(parent context.Context, server *http.Server, reconcile func(context.Context) error, interval time.Duration, name string, logger *logrus.Logger) {
+// startCommercialRecoveryLoop returns a stop that cancels and waits for recovery.
+func startCommercialRecoveryLoop(parent context.Context, server *http.Server, reconcile func(context.Context) error, interval time.Duration, name string, logger *logrus.Logger) func() {
 	if parent == nil || server == nil || reconcile == nil || interval <= 0 {
-		return
+		return func() {}
 	}
 	ctx, cancel := context.WithCancel(parent)
 	server.RegisterOnShutdown(cancel)
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		defer cancel()
 		run := func() {
 			runCtx, runCancel := context.WithTimeout(ctx, 20*time.Second)
@@ -64,4 +67,8 @@ func startCommercialRecoveryLoop(parent context.Context, server *http.Server, re
 			}
 		}
 	}()
+	return func() {
+		cancel()
+		<-done
+	}
 }
