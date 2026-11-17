@@ -91,8 +91,11 @@ function parseParenthesizedDestination(line, opening) {
     href = href.slice(1, endAngle);
   } else {
     // Optional Markdown title after the destination is not part of the URL.
-    const titled = href.match(/^(\S+)\s+(["'])(?:[\s\S]*)\2$/);
-    if (titled) href = titled[1];
+    const quotedTitle = href.match(/^(\S+)\s+(["'])(?:[\s\S]*)\2$/);
+    const parenthesizedTitle = href.match(/^(\S+)\s+\((?:[\s\S]*)\)$/);
+    if (quotedTitle || parenthesizedTitle) {
+      href = (quotedTitle || parenthesizedTitle)[1];
+    }
   }
   return { href: unescapeLinkPath(href), end: closing + 1 };
 }
