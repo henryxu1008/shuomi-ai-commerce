@@ -1,6 +1,6 @@
 # TikTok Shop 美国跨境店铺接入
 
-本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执及手动查询平台当前状态。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../architecture/tiktok-shop-us.md)及[官方接口证据](../architecture/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
+本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执及手动查询平台当前状态。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../architecture/tiktok-shop-us.md)及[官方接口证据](../architecture/domains/marketplace/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
 
 ## 当前入口
 
