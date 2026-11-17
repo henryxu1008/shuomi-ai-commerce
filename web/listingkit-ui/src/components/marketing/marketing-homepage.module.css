@@ -1004,3 +1004,26 @@
     .planGrid article
   ) { transition: none; }
 }
+
+/* Center the six-step labels and give each step its own restrained accent. */
+.page .industryStep {
+  --step-accent: #5bc9ff;
+  justify-content: center;
+  gap: 15px;
+  padding: 16px 12px;
+  border-color: color-mix(in srgb,var(--step-accent) 44%,transparent);
+  text-align: center;
+}
+.page .industryStep:nth-child(2) { --step-accent: #6d9cff; }
+.page .industryStep:nth-child(3) { --step-accent: #69d9da; }
+.page .industryStep:nth-child(4) { --step-accent: #9a8cff; }
+.page .industryStep:nth-child(5) { --step-accent: #68c7e9; }
+.page .industryStep:nth-child(6) { --step-accent: #7daaff; }
+.page .industryStep::before { background: var(--step-accent); box-shadow: 0 0 8px color-mix(in srgb,var(--step-accent) 76%,white),0 0 15px color-mix(in srgb,var(--step-accent) 60%,transparent); }
+.page .industryStep > span { color: var(--step-accent); font-size: 16px; letter-spacing: .8px; text-shadow: 0 0 12px color-mix(in srgb,var(--step-accent) 38%,transparent); }
+.page .industryStep strong { color: color-mix(in srgb,#f4f7ff 78%,var(--step-accent)); font-size: 18px; line-height: 1.4; }
+@media (max-width: 620px) {
+  .page .industryStep { min-height: 66px; gap: 12px; }
+  .page .industryStep > span { font-size: 15px; }
+  .page .industryStep strong { font-size: 17px; }
+}
