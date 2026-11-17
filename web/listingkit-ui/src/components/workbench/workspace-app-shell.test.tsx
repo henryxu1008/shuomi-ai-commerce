@@ -61,6 +61,17 @@ function renderShell(child = <p>organization child</p>) {
   );
 }
 
+async function openSwitchDialog(user: ReturnType<typeof userEvent.setup>) {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+  });
+  await user.click(await screen.findByRole("button", { name: "我的账户" }));
+  const menu = within(screen.getByRole("dialog", { name: "账户快捷操作" }));
+  await user.click(menu.getByRole("button", { name: "切换企业" }));
+  return within(await screen.findByRole("dialog", { name: "切换企业" }));
+}
+
 describe("WorkspaceAppShell", () => {
   it.each([
     ["123456789", " 陈小明 ", "陈小明"],
@@ -256,7 +267,8 @@ describe("WorkspaceAppShell", () => {
     const menu = within(screen.getByRole("dialog", { name: "账户快捷操作" }));
     expect(screen.getByText("personal profile")).toBeVisible();
     expect(menu.getByText("当前账户")).toBeVisible();
-    expect(menu.queryByRole("combobox", { name: "切换企业" })).not.toBeInTheDocument();
+    expect(menu.queryByRole("button", { name: "切换企业" })).not.toBeInTheDocument();
+    expect(menu.queryByText("当前企业")).not.toBeInTheDocument();
     expect(screen.queryByText(/星海贸易/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("企业代管状态")).not.toBeInTheDocument();
   });
@@ -290,7 +302,7 @@ describe("WorkspaceAppShell", () => {
 
     expect(await screen.findByText("organization child")).toBeInTheDocument();
     expect(screen.getByText("硕米智能引擎")).toBeInTheDocument();
-    expect(screen.getByText("当前企业：硕米科技")).toBeVisible();
+    expect(within(screen.getByRole("banner")).queryByText(/硕米科技/)).not.toBeInTheDocument();
     const navigationLandmark = screen.getByRole("navigation", {
       name: "工作台导航",
     });
@@ -438,14 +450,16 @@ describe("WorkspaceAppShell", () => {
     expect(screen.queryByText("organization child")).not.toBeInTheDocument();
     expect(screen.getAllByRole("combobox")).toEqual([screen.getByRole("combobox", { name: "显示主题" })]);
 
-    await user.click(screen.getByRole("button", { name: "我的账户" }));
-    const menu = within(screen.getByRole("dialog", { name: "账户快捷操作" }));
-    const switcher = menu.getByRole("combobox", { name: "切换企业" });
+    const dialog = await openSwitchDialog(user);
+    const switcher = dialog.getByRole("combobox", { name: "选择企业" });
     expect(switcher).toHaveValue("");
     await user.selectOptions(switcher, "org-b");
+    expect(screen.queryByText("organization child")).not.toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "确认切换" }));
 
     expect(await screen.findByText("organization child")).toBeVisible();
-    expect(screen.getByText("当前企业：星海贸易")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "我的账户" }));
+    expect(within(screen.getByRole("dialog", { name: "账户快捷操作" })).getByText("星海贸易")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith("/api/workbench/context/effective-organization", expect.objectContaining({
       method: "PUT", body: JSON.stringify({ organizationId: "org-b" }),
     }));
@@ -589,11 +603,10 @@ describe("WorkspaceAppShell", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderShell();
-    await userEvent.click(await screen.findByRole("button", { name: "我的账户" }));
-    await userEvent.selectOptions(
-      within(screen.getByRole("dialog", { name: "账户快捷操作" })).getByRole("combobox", { name: "切换企业" }),
-      "org-b",
-    );
+    const user = userEvent.setup();
+    const dialog = await openSwitchDialog(user);
+    await user.selectOptions(dialog.getByRole("combobox", { name: "选择企业" }), "org-b");
+    await user.click(dialog.getByRole("button", { name: "确认切换" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "你对所选企业的访问权限已被撤销",

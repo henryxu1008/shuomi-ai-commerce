@@ -164,16 +164,19 @@ for (const width of [1440, 390]) {
 
     const trigger = page.getByRole("button", { name: "我的账户", exact: true });
     const panel = page.getByRole("dialog", { name: "账户快捷操作" });
-    const switcher = panel.getByRole("combobox", { name: "切换企业" });
+    const switchAction = panel.getByRole("button", { name: "切换企业", exact: true });
+    const dialog = page.getByRole("dialog", { name: "切换企业", exact: true });
+    const switcher = dialog.getByRole("combobox", { name: "选择企业" });
     const profile = page.getByRole("link", { name: "账户资料", exact: true });
     const mobileNav = page.getByRole("navigation", { name: "移动工作台导航" });
     if (width === 390) await page.getByRole("button", { name: "打开工作台导航" }).click();
 
-    await expect(page.getByText("当前企业：测试企业", { exact: true })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "切换企业" })).toHaveCount(0);
+    await expect(page.getByRole("banner").getByText(/测试企业/)).toHaveCount(0);
     await trigger.press("Enter");
-    await expect(switcher).toBeFocused();
-    await expect(switcher).toHaveValue("org");
+    await expect(switchAction).toBeFocused();
+    await expect(panel.getByText("当前企业", { exact: true })).toBeVisible();
+    await expect(panel.getByText("测试企业", { exact: true })).toBeVisible();
+    await expect(dialog).toBeHidden();
     await expect(panel.getByText(displayName, { exact: true })).toBeVisible();
     await expect(panel.getByText(userId, { exact: true })).toHaveCount(0);
     await page.keyboard.press("Tab");
@@ -209,9 +212,31 @@ for (const width of [1440, 390]) {
       return left >= 0 && right <= innerWidth && top >= 0 && bottom <= innerHeight;
     })).toBe(true);
 
+    await switchAction.press("Enter");
+    await expect(dialog).toBeVisible();
+    await expect(panel).toBeHidden();
+    await expect(dialog.getByRole("button", { name: "关闭切换企业" })).toBeFocused();
+    await expect.poll(() => dialog.evaluate(node => {
+      const rect = node.getBoundingClientRect();
+      return Math.abs(rect.x + rect.width / 2 - innerWidth / 2) <= 2 &&
+        Math.abs(rect.y + rect.height / 2 - innerHeight / 2) <= 2 && rect.left >= 12 && rect.right <= innerWidth - 12;
+    })).toBe(true);
+    await expect(switcher).toHaveValue("org");
     await switcher.selectOption("other-org");
-    await expect(page.getByText("当前企业：另一家测试企业", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+    expect(effectiveOrganizationId).toBe("org");
+
+    await trigger.press("Enter");
+    await switchAction.click();
+    await expect(switcher).toHaveValue("org");
+    await switcher.selectOption("other-org");
+    await dialog.getByRole("button", { name: "确认切换" }).click();
+    await expect(dialog).toBeHidden();
     await expect(page.getByRole("status", { name: "企业代管状态" })).toContainText("正在代管另一家测试企业");
+    await trigger.press("Enter");
+    await expect(panel.getByText("另一家测试企业", { exact: true })).toBeVisible();
     await profile.click();
     await expect(page).toHaveURL(/\/workbench\/account\/profile$/);
     await expect(panel).toBeHidden();

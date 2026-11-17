@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
-import { openOrganizationSwitcher } from "./workbench-account-menu.mjs";
+import { openOrganizationSwitcher, selectWorkbenchOrganization } from "./workbench-account-menu.mjs";
 import { validateBrowserHandoff, publicBrowserOrigins, browserExpectedHeaders, assertBrowserDiagnosticsDisabled, classifyLateResponseDelivery, classifyRevocationRead, classifyUnavailableLogin, classifyUnavailableProviderTarget, isExpectedSettledView, isFinalApplicationLanding, retryOwnerHealth, shouldProbeUnavailableProvider } from "./real-provider-browser-contract.mjs";
 import { browserSignalOwnershipOptions, createOwnerMutationGuard, createRunFinalizer, ownerControlExecOptions, platformSignalMatrix, transitionRunStatus } from "./real-provider-browser-lifecycle.mjs";
 
@@ -164,11 +164,11 @@ async function login(page, context, user, target = profilePath, bare = false) {
 async function select(page, context, key) {
   const organization = manifest.organizations[key];
   const switched = page.waitForResponse(response => new URL(response.url()).pathname === "/api/workbench/context/effective-organization" && response.request().method() === "PUT");
-  const switcher = await openOrganizationSwitcher(page);
-  await switcher.selectOption(organization.id);
+  await selectWorkbenchOrganization(page, organization.id);
   const response = await switched;
   ensure(response.status() === 200 && (await response.json()).effectiveOrganizationId === organization.id);
   const { expect } = await import("@playwright/test");
+  const switcher = await openOrganizationSwitcher(page);
   await expect(switcher).toHaveValue(organization.id);
   await expect(switcher).toBeEnabled();
   await page.keyboard.press("Escape");

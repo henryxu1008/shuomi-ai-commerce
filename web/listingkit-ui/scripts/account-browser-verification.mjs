@@ -99,7 +99,13 @@ try {
   for (const [user, selection] of [["no-org", false], ["u1", false], ["grant-down", false]]) await check(`profile independent of enterprise: ${user}, selection=${selection}`, async () => {
     const { page, context } = await open(user, "profile", 390, "light", selection);
     try {
-      if (user === "no-org") await expect(page.getByText("暂无可用企业", { exact: true })).toBeVisible();
+      if (user === "no-org") {
+        await page.getByRole("button", { name: "我的账户", exact: true }).click();
+        const menu = page.getByRole("dialog", { name: "账户快捷操作", exact: true });
+        await expect(menu).toBeVisible();
+        await expect(menu.getByRole("button", { name: "切换企业", exact: true })).toHaveCount(0);
+        await page.keyboard.press("Escape");
+      }
       if (user === "u1") {
         await expect(await openOrganizationSwitcher(page)).toHaveValue("");
         await page.keyboard.press("Escape");
