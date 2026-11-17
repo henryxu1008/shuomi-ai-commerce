@@ -42,4 +42,9 @@
 .orbitBlue { fill: #65a2ff; filter: drop-shadow(0 0 5px rgba(74, 144, 255, .9)); opacity: .86; }
 .orbitCyan { fill: #6ce5ef; filter: drop-shadow(0 0 5px rgba(73, 223, 239, .9)); opacity: .82; }
 @keyframes orbitDots { to { transform: rotate(360deg); } }
+.core { transform-origin: center; animation: coreBreath 5.6s ease-in-out infinite; }
+@keyframes coreBreath {
+  0%, 100% { transform: scale(.985); border-color: rgba(97,224,194,.42); box-shadow: 0 0 30px rgba(46,199,173,.2), inset 0 0 22px rgba(73,214,197,.06); }
+  50% { transform: scale(1.025); border-color: rgba(115,239,218,.78); box-shadow: 0 0 54px rgba(46,199,173,.42), inset 0 0 34px rgba(73,214,197,.14); }
+}
 @media (prefers-reduced-motion: reduce) { .hero *, .header * { transition: none !important; animation: none !important; } }
