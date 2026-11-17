@@ -2,6 +2,10 @@
 
 Product owns source publications, canonical catalog versions, current collections and approved product assets. Read [Project Boundaries](project-boundaries.md) for dependencies and [source handoff](../product/product-sourcing-handoff.md) for the admitted import path.
 
+## 领域导航
+
+本文件仍是 Sourcing/Catalog/Collection/Asset 的现行权威总合同。按任务查阅可先进入 [Sourcing](domains/sourcing/README.md)、[Catalog](domains/catalog/README.md)、[Research](domains/research/README.md) 三份导航；它们只链接原合同和源码，不新增任何第二事实 owner。对应实际代码应以 [Project Boundaries](project-boundaries.md) 和当前源代码为准。
+
 ## Current owners
 
 | Fact or behavior | Owner |
