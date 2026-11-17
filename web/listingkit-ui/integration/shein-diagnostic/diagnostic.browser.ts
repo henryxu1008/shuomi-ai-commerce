@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { selectWorkbenchOrganization } from "../../scripts/workbench-account-menu.mjs";
 
 const manifestPath = process.env.ISSUE324_FIXTURE_MANIFEST;
 if (!manifestPath) throw new Error("Start the #323 isolated fixture and set ISSUE324_FIXTURE_MANIFEST to its fixture.json.");
@@ -49,12 +50,12 @@ test("actual browser → BFF → Go → isolated PG: refresh, digest, action and
   expect(new URL(draft.url()).searchParams.has("expected_digest")).toBe(false);
   expect((await draft.json()).action).toBe("save_draft");
   response = page.waitForResponse((r) => r.url().includes(diagnosticPath));
-  await page.getByLabel("当前企业", { exact: true }).selectOption("100");
+  await selectWorkbenchOrganization(page, "100");
   expect((await response).status()).toBe(404);
   await expect(page.getByRole("main").getByRole("alert")).toContainText("资料不存在或当前账号不可读取");
   await expect(page.getByText("发现需要处理的问题")).toHaveCount(0);
   response = page.waitForResponse((r) => r.url().includes(diagnosticPath));
-  await page.getByLabel("当前企业", { exact: true }).selectOption("200");
+  await selectWorkbenchOrganization(page, "200");
   expect((await response).status()).toBe(200);
   await expect(page.getByLabel("检查动作")).toHaveValue("publish");
   await expect(page.getByText("发现需要处理的问题")).toBeVisible();

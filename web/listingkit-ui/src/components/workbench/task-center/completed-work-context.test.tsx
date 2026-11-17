@@ -23,12 +23,12 @@ it("actual provider/switcher and #340 client isolate an old organization HTTP re
   }));
   const view = render(<QueryClientProvider client={client}><WorkbenchContextProvider><OrganizationSwitcher /><CompletedWorkPageContent available /></WorkbenchContextProvider></QueryClientProvider>);
   await waitFor(() => expect(requests).toHaveLength(1));
-  await userEvent.selectOptions(screen.getByLabelText("当前企业"), "100");
+  await userEvent.selectOptions(screen.getByLabelText("选择企业"), "100"); await userEvent.click(screen.getByRole("button", { name: "确认切换" }));
   expect(await screen.findByText("当前授权范围内暂无本地资料准备记录")).toBeVisible();
   expect(requests[0].signal?.aborted).toBe(true);
   expect(new Headers(requests[1].headers).get("X-Expected-Organization-ID")).toBe("100");
   await act(async () => release(Response.json(completedWorkFixture())));
   expect(screen.queryByText("synthetic-product-1")).not.toBeInTheDocument();
-  expect(screen.getByLabelText("当前企业")).toHaveValue("100");
+  expect(screen.getByLabelText("选择企业")).toHaveValue("100");
   view.unmount(); client.clear();
 });

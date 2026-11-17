@@ -72,7 +72,7 @@ it("actual enterprise switcher/provider and diagnostic client discard the old te
     </QueryClientProvider>,
   );
   await waitFor(() => expect(requests).toHaveLength(1));
-  await userEvent.selectOptions(screen.getByLabelText("当前企业"), "100");
+  await userEvent.selectOptions(screen.getByLabelText("选择企业"), "100"); await userEvent.click(screen.getByRole("button", { name: "确认切换" }));
   expect(await screen.findByText("发现需要处理的问题")).toBeVisible();
   expect(requests[0].signal?.aborted).toBe(true);
   expect(new Headers(requests[1].headers).get("X-Expected-Organization-ID")).toBe("100");
@@ -80,7 +80,7 @@ it("actual enterprise switcher/provider and diagnostic client discard the old te
   late.offline_checks.blockers[0].message = "旧企业私有内容";
   await act(async () => releaseOld(Response.json(late)));
   expect(screen.queryByText("旧企业私有内容")).not.toBeInTheDocument();
-  expect(screen.getByLabelText("当前企业")).toHaveValue("100");
+  expect(screen.getByLabelText("选择企业")).toHaveValue("100");
   view.unmount();
   client.clear();
 });

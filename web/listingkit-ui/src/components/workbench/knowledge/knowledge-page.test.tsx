@@ -143,7 +143,7 @@ it("hides a late response from the previous organization",async()=>{
  if(url==="/api/workbench/context")return Response.json(context);
  if(url==="/api/workbench/context/effective-organization")return Response.json({...context,effectiveOrganizationId:"org-b"});
  requests.push(init!);return new Headers(init?.headers).get("X-Expected-Organization-ID")==="org-a"?late:Response.json({items:[],pagination:{page:1,pageSize:20,total:0}});
- }));const unmount=mount();await waitFor(()=>expect(requests.length).toBe(1));await userEvent.selectOptions(screen.getByLabelText("当前企业"),"org-b");expect(await screen.findByText("当前企业还没有知识库")).toBeVisible();
+ }));const unmount=mount();await waitFor(()=>expect(requests.length).toBe(1));await userEvent.selectOptions(screen.getByLabelText("选择企业"),"org-b"); await userEvent.click(screen.getByRole("button", { name: "确认切换" }));expect(await screen.findByText("当前企业还没有知识库")).toBeVisible();
  await act(async()=>release(Response.json({items:[base],pagination:{page:1,pageSize:20,total:1}})));expect(screen.queryByText("品牌指南")).not.toBeInTheDocument();expect(requests[0].signal?.aborted).toBe(true);unmount();
 });
 it("reuses the original command after admission succeeded but the HTTP response was 503",async()=>{
@@ -176,7 +176,7 @@ it("retains the original unknown intent when refreshed authority becomes read-on
  }));const unmount=mount(undefined,true);await screen.findByText("当前企业还没有知识库");
  await userEvent.click(screen.getByRole("button",{name:"创建知识库"}));await userEvent.type(screen.getByLabelText("知识库名称"),"品牌指南");await userEvent.click(screen.getByRole("button",{name:"保存"}));await screen.findByRole("button",{name:"重试同一次操作"});
  await userEvent.click(screen.getByRole("button",{name:"更新企业授权"}));await waitFor(()=>expect(screen.queryByRole("button",{name:"创建知识库"})).not.toBeInTheDocument());
- await userEvent.selectOptions(screen.getByLabelText("当前企业"),"org-b");await waitFor(()=>expect(screen.getByLabelText("当前企业")).toHaveValue("org-a"));
+ await userEvent.selectOptions(screen.getByLabelText("选择企业"),"org-b"); await userEvent.click(screen.getByRole("button", { name: "确认切换" }));await waitFor(()=>expect(screen.getByLabelText("选择企业")).toHaveValue("org-a"));
  await userEvent.click(screen.getByRole("button",{name:"重试同一次操作"}));await waitFor(()=>expect(keys).toHaveLength(2));expect(keys[1]).toBe(keys[0]);await screen.findByRole("button",{name:"重试同一次操作"});
  await userEvent.click(screen.getByRole("button",{name:"更新企业授权"}));await screen.findByText("当前身份没有知识库读取权限");expect(screen.queryByRole("button",{name:"重试同一次操作"})).not.toBeInTheDocument();
  await userEvent.click(screen.getByRole("button",{name:"更新企业授权"}));await waitFor(()=>expect(screen.getByRole("button",{name:"创建知识库"})).toBeDisabled());

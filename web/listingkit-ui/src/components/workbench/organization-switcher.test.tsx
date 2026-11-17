@@ -70,16 +70,20 @@ describe("OrganizationSwitcher", () => {
     const user = userEvent.setup();
 
     renderSwitcher();
-    const select = await screen.findByRole("combobox", { name: "当前企业" });
+    const select = await screen.findByRole("combobox", { name: "选择企业" });
     expect(select).toHaveValue("org-a");
 
+    const confirm = screen.getByRole("button", { name: "确认切换" });
+    expect(confirm).toBeDisabled();
     await user.selectOptions(select, "org-b");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await user.click(confirm);
 
     expect(select).toBeDisabled();
     resolveSwitch(
       Response.json({ ...MULTI_ORG_CONTEXT, effectiveOrganizationId: "org-b" }),
     );
-    expect(await screen.findByRole("combobox", { name: "当前企业" })).toHaveValue(
+    expect(await screen.findByRole("combobox", { name: "选择企业" })).toHaveValue(
       "org-b",
     );
   });
@@ -98,7 +102,7 @@ describe("OrganizationSwitcher", () => {
 
     renderSwitcher();
 
-    const select = await screen.findByRole("combobox", { name: "当前企业" });
+    const select = await screen.findByRole("combobox", { name: "选择企业" });
     expect(select).toHaveValue("");
     expect(screen.getByRole("option", { name: "请选择企业" })).toBeDisabled();
   });
@@ -124,9 +128,10 @@ describe("OrganizationSwitcher", () => {
 
     renderSwitcher();
     await userEvent.selectOptions(
-      await screen.findByRole("combobox", { name: "当前企业" }),
+      await screen.findByRole("combobox", { name: "选择企业" }),
       "org-b",
     );
+    await userEvent.click(screen.getByRole("button", { name: "确认切换" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "你没有访问所选企业的权限",

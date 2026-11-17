@@ -61,6 +61,17 @@ function renderShell(child = <p>organization child</p>) {
   );
 }
 
+async function openSwitchDialog(user: ReturnType<typeof userEvent.setup>) {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+  });
+  await user.click(await screen.findByRole("button", { name: "我的账户" }));
+  const menu = within(screen.getByRole("dialog", { name: "账户快捷操作" }));
+  await user.click(menu.getByRole("button", { name: "切换企业" }));
+  return within(await screen.findByRole("dialog", { name: "切换企业" }));
+}
+
 describe("WorkspaceAppShell", () => {
   it.each([
     ["123456789", " 陈小明 ", "陈小明"],
@@ -92,7 +103,7 @@ describe("WorkspaceAppShell", () => {
     const user = userEvent.setup();
     renderShell();
 
-    const trigger = await screen.findByText("我的账户 ⌄");
+    const trigger = await screen.findByRole("button", { name: "我的账户" });
     await user.click(trigger);
     const profile = screen.getByRole("link", { name: /^账户资料$/ });
     profile.focus();
@@ -244,10 +255,22 @@ describe("WorkspaceAppShell", () => {
     render(<WorkspaceAppShell><p>personal referrals</p></WorkspaceAppShell>);
     expect(screen.queryByText("personal referrals")).not.toBeInTheDocument(); expect(screen.getByRole("alert")).toBeVisible();
   });
-  it("hides stale identity, enterprise switcher and delegation metadata on grant failure", () => {
-    navigation.pathname = "/workbench/account/profile"; injectProfileContext({ error: { code: "DEPENDENCY_UNAVAILABLE" }, effectiveOrganization: { id: "org-b", name: "旧企业", roles: [], permissions: [] } });
-    render(<WorkspaceAppShell><p>personal profile</p></WorkspaceAppShell>);
-    expect(screen.getByText("personal profile")).toBeVisible(); expect(screen.queryByText("stale-user")).not.toBeInTheDocument(); expect(screen.queryByRole("combobox", { name: "当前企业" })).not.toBeInTheDocument(); expect(screen.queryByLabelText("企业代管状态")).not.toBeInTheDocument();
+  it("hides stale identity, enterprise switcher and delegation metadata on grant failure", async () => {
+    navigation.pathname = "/workbench/account/profile";
+    injectProfileContext({
+      error: { code: "DEPENDENCY_UNAVAILABLE" },
+      organizations: ACTIVE_CONTEXT.organizations,
+      effectiveOrganization: ACTIVE_CONTEXT.organizations[1],
+    });
+    render(<QueryClientProvider client={new QueryClient()}><WorkspaceAppShell><p>personal profile</p></WorkspaceAppShell></QueryClientProvider>);
+    await userEvent.click(screen.getByRole("button", { name: "我的账户" }));
+    const menu = within(screen.getByRole("dialog", { name: "账户快捷操作" }));
+    expect(screen.getByText("personal profile")).toBeVisible();
+    expect(menu.getByText("当前账户")).toBeVisible();
+    expect(menu.queryByRole("button", { name: "切换企业" })).not.toBeInTheDocument();
+    expect(menu.queryByText("当前企业")).not.toBeInTheDocument();
+    expect(screen.queryByText(/星海贸易/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("企业代管状态")).not.toBeInTheDocument();
   });
   afterEach(() => {
     navigation.pathname = "/workbench";
@@ -279,9 +302,7 @@ describe("WorkspaceAppShell", () => {
 
     expect(await screen.findByText("organization child")).toBeInTheDocument();
     expect(screen.getByText("硕米智能引擎")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "当前企业" })).toHaveValue(
-      "org-a",
-    );
+    expect(within(screen.getByRole("banner")).queryByText(/硕米科技/)).not.toBeInTheDocument();
     const navigationLandmark = screen.getByRole("navigation", {
       name: "工作台导航",
     });
@@ -413,25 +434,35 @@ describe("WorkspaceAppShell", () => {
     expect(indicator).not.toHaveTextContent("org-b");
   });
 
-  it("keeps the switcher available but withholds scoped children when selection is required", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(
-        Response.json({
-          ...ACTIVE_CONTEXT,
-          effectiveOrganizationId: null,
-          selectionRequired: true,
-        }),
-      ),
-    );
+  it("selects the initial enterprise through the account menu before showing scoped children", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (path, init) => {
+      if (path === "/api/account/profile") return new Response(null, { status: 404 });
+      if (init?.method === "PUT") return Response.json({ ...ACTIVE_CONTEXT, effectiveOrganizationId: "org-b" });
+      return Response.json({ ...ACTIVE_CONTEXT, effectiveOrganizationId: null, selectionRequired: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
 
     renderShell();
 
-    expect(
-      await screen.findByRole("combobox", { name: "当前企业" }),
-    ).toHaveValue("");
-    expect(screen.getByRole("status")).toHaveTextContent("请选择企业以继续");
+    expect(await screen.findByRole("heading", { name: "请选择企业以继续" })).toBeVisible();
+    expect(screen.getByText(/我的账户.*切换企业/)).toBeVisible();
     expect(screen.queryByText("organization child")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("combobox")).toEqual([screen.getByRole("combobox", { name: "显示主题" })]);
+
+    const dialog = await openSwitchDialog(user);
+    const switcher = dialog.getByRole("combobox", { name: "选择企业" });
+    expect(switcher).toHaveValue("");
+    await user.selectOptions(switcher, "org-b");
+    expect(screen.queryByText("organization child")).not.toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "确认切换" }));
+
+    expect(await screen.findByText("organization child")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "我的账户" }));
+    expect(within(screen.getByRole("dialog", { name: "账户快捷操作" })).getByText("星海贸易")).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledWith("/api/workbench/context/effective-organization", expect.objectContaining({
+      method: "PUT", body: JSON.stringify({ organizationId: "org-b" }),
+    }));
   });
 
   it("replaces a zero-Organization route without redirect-looping on the destination", async () => {
@@ -556,32 +587,31 @@ describe("WorkspaceAppShell", () => {
   });
 
   it("removes old scoped children and blocks after an explicit switch failure", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(Response.json(ACTIVE_CONTEXT))
-      .mockResolvedValueOnce(
-        Response.json(
-          {
-            code: "ORGANIZATION_ACCESS_REVOKED",
-            message: "ignored",
-            requestId: "req-revoked",
-            fieldErrors: [],
-          },
-          { status: 403 },
-        ),
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (path, init) => {
+      if (path === "/api/account/profile") return new Response(null, { status: 404 });
+      if (init?.method === "PUT") return Response.json(
+        {
+          code: "ORGANIZATION_ACCESS_REVOKED",
+          message: "ignored",
+          requestId: "req-revoked",
+          fieldErrors: [],
+        },
+        { status: 403 },
       );
+      return Response.json(ACTIVE_CONTEXT);
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     renderShell();
-    await userEvent.selectOptions(
-      await screen.findByRole("combobox", { name: "当前企业" }),
-      "org-b",
-    );
+    const user = userEvent.setup();
+    const dialog = await openSwitchDialog(user);
+    await user.selectOptions(dialog.getByRole("combobox", { name: "选择企业" }), "org-b");
+    await user.click(dialog.getByRole("button", { name: "确认切换" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "你对所选企业的访问权限已被撤销",
     );
     expect(screen.queryByText("organization child")).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(1);
   });
 });

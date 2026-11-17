@@ -1,13 +1,15 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
-export function OrganizationSwitcher() {
+export function OrganizationSwitcher({ onConfirm, onCancel }: { onConfirm?: () => void; onCancel?: () => void }) {
   const selectId = useId();
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const {
     organizations,
     effectiveOrganization,
@@ -42,39 +44,40 @@ export function OrganizationSwitcher() {
   }
 
   const needsPrompt = selectionRequired || !effectiveOrganization;
+  const currentId = effectiveOrganization?.id ?? "";
+  const selectedId = organizations.some(organization => organization.id === selectedOrganizationId)
+    ? selectedOrganizationId ?? currentId
+    : currentId;
+  const canConfirm = !isSwitching && selectedId !== "" && selectedId !== currentId;
 
   return (
-    <div className="min-w-52">
-      <Label className="sr-only" htmlFor={selectId}>
-        当前企业
-      </Label>
-      <Select
-        aria-busy={isSwitching}
-        disabled={isSwitching}
-        id={selectId}
-        onChange={(event) => {
-          const organizationId = event.currentTarget.value;
-          if (
-            organizationId &&
-            organizationId !== effectiveOrganization?.id
-          ) {
-            switchOrganization(organizationId);
-          }
-        }}
-        value={effectiveOrganization?.id ?? ""}
-      >
-        {needsPrompt ? (
-          <option disabled value="">
-            请选择企业
-          </option>
-        ) : null}
-        {organizations.map((organization) => (
-          <option key={organization.id} value={organization.id}>
-            {organization.name}
-          </option>
-        ))}
-      </Select>
-    </div>
+    <form onSubmit={(event) => {
+      event.preventDefault();
+      if (!canConfirm) return;
+      setSelectedOrganizationId(null);
+      onConfirm?.();
+      switchOrganization(selectedId);
+    }}>
+      <div className="grid gap-1.5">
+        <Label htmlFor={selectId}>选择企业</Label>
+        <Select
+          aria-busy={isSwitching}
+          disabled={isSwitching}
+          id={selectId}
+          onChange={event => setSelectedOrganizationId(event.currentTarget.value)}
+          value={selectedId}
+        >
+          {needsPrompt ? <option disabled value="">请选择企业</option> : null}
+          {organizations.map(organization => (
+            <option key={organization.id} value={organization.id}>{organization.name}</option>
+          ))}
+        </Select>
+      </div>
+      <footer className="mt-5 flex justify-end gap-3">
+        {onCancel ? <Button type="button" variant="outline" onClick={onCancel}>取消</Button> : null}
+        <Button type="submit" disabled={!canConfirm}>确认切换</Button>
+      </footer>
+    </form>
   );
 }
 

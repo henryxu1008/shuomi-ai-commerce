@@ -43,7 +43,7 @@ it("uses real context/switcher and commercial client, drops late HTTP response, 
   }));
   const view = render(<QueryClientProvider client={queryClient}><WorkbenchContextProvider><OrganizationSwitcher /><CommercialPage page="entitlements" /></WorkbenchContextProvider></QueryClientProvider>);
   await waitFor(() => expect(requests).toHaveLength(1));
-  await userEvent.selectOptions(screen.getByLabelText("当前企业"), "org-C");
+  await userEvent.selectOptions(screen.getByLabelText("选择企业"), "org-C"); await userEvent.click(screen.getByRole("button", { name: "确认切换" }));
   expect(await screen.findByText("基础方案")).toBeVisible();
   expect(requests[0].signal?.aborted).toBe(true);
   expect(new Headers(requests[1].headers).get("X-Expected-Organization-ID")).toBe("org-C");

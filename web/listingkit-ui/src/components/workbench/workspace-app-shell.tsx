@@ -8,9 +8,10 @@ import * as Popover from "@radix-ui/react-popover";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { FulfillmentNavigation } from "./fulfillment/fulfillment-navigation";
-import { Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { OrganizationSwitcher, workbenchErrorMessage } from "@/components/workbench/organization-switcher";
+import { AccountDialog } from "@/components/workbench/account/account-dialog";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SupportLauncher } from "@/components/workbench/support-launcher";
@@ -141,7 +142,7 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
           <div>
             <h1 className="text-3xl font-semibold">请选择企业以继续</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              选择后才会加载该企业的工作台数据。
+              请打开右上角「我的账户」，在「切换企业」中选择要使用的企业。
             </p>
           </div>
         </section>
@@ -154,13 +155,18 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
 
 function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname, dataServicesAvailable, reportCenterAvailable, toolMarketAvailable, supplyMarketAvailable, productAcquisitionAvailable, productCollectionsAvailable, supplyChainAvailable, supplyPreparationAvailable, supplyCompletionDraftsAvailable, knowledgeAvailable, nativeRunsAvailable, productReviewAvailable, ecoservicesAvailable, sheinRecordsAvailable, notificationCenterAvailable, supportAvailable }: { sidebarCollapsed: boolean; onToggleSidebar: () => void; children: ReactNode; pathname: string; dataServicesAvailable: boolean; reportCenterAvailable: boolean; toolMarketAvailable: boolean; supplyMarketAvailable: boolean; productAcquisitionAvailable: boolean; productCollectionsAvailable: boolean; supplyChainAvailable: boolean; supplyPreparationAvailable: boolean; supplyCompletionDraftsAvailable: boolean; knowledgeAvailable: boolean; nativeRunsAvailable: boolean; productReviewAvailable: boolean; ecoservicesAvailable: boolean; sheinRecordsAvailable: boolean; notificationCenterAvailable: boolean; supportAvailable: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [organizationSwitcherOpen, setOrganizationSwitcherOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  const accountTrigger = useRef<HTMLButtonElement>(null);
   const context = useWorkbenchContext();
   const contextConfirmed = !context.isLoading && !context.isSwitching && !context.error && !context.blockingError;
+  const canSwitchOrganization = contextConfirmed && context.organizations.length > 1;
+  const currentOrganization = contextConfirmed ? context.effectiveOrganization : null;
   const fulfillmentScope={organizationId:context.effectiveOrganization?.id??"",userId:context.user?.id??""};
   const fulfillmentReady=contextConfirmed&&!!fulfillmentScope.organizationId&&!!fulfillmentScope.userId&&context.permissions?.includes("workbench.fulfillment.read")===true;
   function closeNavigation() { setMobileOpen(false); trigger.current?.focus(); }
-  return <div onKeyDown={(event) => { if (mobileOpen && event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); closeNavigation(); } }}>
+  function closeOrganizationSwitcher() { setOrganizationSwitcherOpen(false); }
+  return <div onKeyDown={(event) => { if (mobileOpen && !organizationSwitcherOpen && event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); closeNavigation(); } }}>
     <a className="sr-only focus:not-sr-only" href="#console-main">跳到页面内容</a>
     <div className="console-frame" data-sidebar-collapsed={sidebarCollapsed || undefined}>
       <aside className="console-sidebar" id="workbench-desktop-navigation">
@@ -171,17 +177,33 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
       <div className="console-body">
         <header className="console-topbar">
           <Button ref={trigger} className="md:hidden" variant="ghost" size="icon" aria-controls={MOBILE_NAVIGATION_ID} aria-expanded={mobileOpen} aria-label={mobileOpen ? "关闭工作台导航" : "打开工作台导航"} onClick={() => setMobileOpen((value) => !value)}>{mobileOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}</Button>
-          <div className="console-top-context"><p className="console-tagline">打造属于自己的AI电商团队</p><div className="console-organization">{contextConfirmed ? <OrganizationSwitcher /> : <span className="text-xs text-muted-foreground">企业上下文尚未确认</span>}</div></div>
+          <div className="console-top-context">
+            <p className="console-tagline">打造属于自己的AI电商团队</p>
+          </div>
           <div className="console-global-actions">
             <SupportLauncher available={supportAvailable && !context.isSwitching} key={`${context.user?.id ?? ""}:${context.effectiveOrganization?.id ?? ""}:${context.isSwitching}`} />
             {notificationCenterAvailable ? <NotificationPopover /> : <Button disabled title="通知中心尚未启用" variant="outline">通知</Button>}
             <WorkbenchThemeSelect />
             <Popover.Root>
-              <Popover.Trigger className="console-user-trigger" aria-label="我的账户">我的账户 ⌄</Popover.Trigger>
+              <Popover.Trigger ref={accountTrigger} className="console-user-trigger">
+                我的账户
+                <ChevronDown aria-hidden="true" className="console-user-chevron" size={16} strokeWidth={1.5} />
+              </Popover.Trigger>
               <Popover.Portal>
                 <Popover.Content className="console-user-popover" aria-label="账户快捷操作" align="end" sideOffset={8} collisionPadding={12}>
                   <p className="text-xs text-muted-foreground">已登录账号</p>
                   <AccountDisplayName userId={contextConfirmed ? context.user?.id : undefined} />
+                  {currentOrganization ? (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="text-xs text-muted-foreground">当前企业</p>
+                      <p className="mt-1 break-words text-sm">{currentOrganization.name.trim() || "名称未提供"}</p>
+                    </div>
+                  ) : null}
+                  {canSwitchOrganization ? (
+                    <Popover.Close className="console-user-action" aria-haspopup="dialog" onClick={() => setOrganizationSwitcherOpen(true)}>
+                      切换企业
+                    </Popover.Close>
+                  ) : null}
                   <Popover.Close asChild type={undefined}><Link href="/workbench/account/profile" prefetch={false}>账户资料</Link></Popover.Close>
                   <a href="/api/zitadel-auth/logout">退出登录</a>
                 </Popover.Content>
@@ -189,6 +211,13 @@ function WorkbenchFrame({ sidebarCollapsed, onToggleSidebar, children, pathname,
             </Popover.Root>
           </div>
         </header>
+        {organizationSwitcherOpen ? (
+          <AccountDialog title="切换企业" onClose={closeOrganizationSwitcher} returnFocusRef={accountTrigger}>
+            {canSwitchOrganization ? (
+              <OrganizationSwitcher onConfirm={closeOrganizationSwitcher} onCancel={closeOrganizationSwitcher} />
+            ) : <p role="status">暂时无法切换企业，请稍后重试。</p>}
+          </AccountDialog>
+        ) : null}
         {contextConfirmed && context.effectiveOrganization && context.effectiveOrganization.id !== context.homeOrganizationId ? <div className="console-delegation"><DelegatedOperationIndicator effectiveOrganization={context.effectiveOrganization} homeOrganizationId={context.homeOrganizationId} organizations={context.organizations} /></div> : null}
         {mobileOpen ? <div className="console-mobile-nav" id={MOBILE_NAVIGATION_ID}><Suspense fallback={null}><FulfillmentNavigation enabled={fulfillmentReady} scope={fulfillmentScope} permissions={context.permissions}><ConsoleNavigation projectCenterAvailable={context.projectCenterAvailable} operationsCockpitAvailable={context.operationsCockpitAvailable} cockpitPermissions={context.permissions} dataServicesAvailable={dataServicesAvailable} reportCenterAvailable={reportCenterAvailable} toolMarketAvailable={toolMarketAvailable} supplyMarketAvailable={supplyMarketAvailable} key={pathname} pathname={pathname} ariaLabel="移动工作台导航" onNavigate={closeNavigation} productCollectionsAvailable={productCollectionsAvailable} supplyChainAvailable={supplyChainAvailable} supplyPreparationAvailable={supplyPreparationAvailable} supplyCompletionDraftsAvailable={supplyCompletionDraftsAvailable} productAcquisitionAvailable={productAcquisitionAvailable} knowledgeAvailable={knowledgeAvailable} storeProductsAvailable={context.storeObservationsAvailable && context.effectiveOrganization?.permissions.includes("workbench.store.read") === true && context.effectiveOrganization.permissions.includes("workbench.store.products.read")} storeOrdersAvailable={context.storeObservationsAvailable && context.effectiveOrganization?.permissions.includes("workbench.store.read") === true && context.effectiveOrganization.permissions.includes("workbench.store.orders.read")} aiWorkbenchAvailable={context.aiWorkbenchAvailable} nativeRunsAvailable={nativeRunsAvailable} productReviewAvailable={productReviewAvailable} ecoservicesAvailable={ecoservicesAvailable} sheinRecordsAvailable={sheinRecordsAvailable} userId={context.user?.id} /></FulfillmentNavigation></Suspense></div> : null}
         <main className="console-content" id="console-main" tabIndex={-1}>{children}</main>

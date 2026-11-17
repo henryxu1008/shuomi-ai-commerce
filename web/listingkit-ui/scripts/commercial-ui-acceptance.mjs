@@ -7,6 +7,7 @@ import { resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chromium, expect } from "@playwright/test";
+import { openOrganizationSwitcher, selectWorkbenchOrganization } from "./workbench-account-menu.mjs";
 import AxeBuilder from "@axe-core/playwright";
 
 const manifest = JSON.parse(await readFile(process.argv[2], "utf8"));
@@ -57,8 +58,9 @@ async function go(kind = "entitlements") {
   await expect(region("基础方案")).toBeVisible();
 }
 async function switchOrg(org) {
-  await page.getByRole("combobox", { name: "当前企业" }).selectOption(org);
-  await expect(page.getByRole("combobox", { name: "当前企业" })).toHaveValue(org);
+  await selectWorkbenchOrganization(page, org);
+  await expect(await openOrganizationSwitcher(page)).toHaveValue(org);
+  await page.keyboard.press("Escape");
   await ready();
   await expect(page.locator("#console-main")).toContainText(`（${org}）`);
 }
@@ -124,7 +126,7 @@ try {
   const started = page.waitForRequest(r => new URL(r.url()).pathname === endpoint);
   await page.getByRole("button", { name: "刷新数据" }).click(); await started;
   await expect(region("基础方案")).toHaveCount(0);
-  await page.getByRole("combobox", { name: "当前企业" }).selectOption("org-C");
+  await selectWorkbenchOrganization(page, "org-C");
   await scenario("normal"); await ready(); await balance("org-C","2");
   // Wait past the fixture's 2s response delay to catch a stale response/error.
   await page.waitForTimeout(2300);

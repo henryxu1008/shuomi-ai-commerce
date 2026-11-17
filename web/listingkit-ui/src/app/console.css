@@ -102,18 +102,36 @@
 .console-topbar { min-height: var(--console-header-height); padding: 8px 18px 8px 28px; background: var(--sidebar); border-bottom: 1px solid var(--sidebar-border); display: flex; gap: 16px; align-items: center; }
 .console-tagline { font-size: 15px; font-weight: 700; white-space: nowrap; }
 .console-top-context { min-width: 0; flex: 1; display: flex; align-items: center; gap: 24px; }
-.console-organization { min-width: 0; width: 176px; }
-.console-organization > div { min-width: 0; }
-.console-organization select { height: 32px; font-size: var(--label-text-size); padding: 3px 8px; }
 .console-global-actions { display: flex; gap: 12px; align-items: center; }
 .console-global-actions > button { min-height: 36px; height: 36px; font-size: var(--label-text-size); padding: 0 14px; background: var(--secondary); border: 1px solid var(--input); border-radius: 9px; }
 .console-global-actions > button:disabled { opacity: 1; color: var(--muted-foreground); cursor: not-allowed; }
-.console-user-trigger { display: flex; align-items: center; cursor: pointer; white-space: nowrap; }
+.console-global-actions > .console-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease-out;
+}
+.console-global-actions > .console-user-trigger:is(:hover, [data-state="open"]) { background: var(--secondary); }
+.console-user-chevron {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  transition: rotate var(--motion-fast) ease-out;
+}
+.console-user-trigger[data-state="open"] .console-user-chevron { rotate: 180deg; }
 .console-user-popover { z-index: 50; width: 250px; max-width: var(--radix-popover-content-available-width); max-height: var(--radix-popover-content-available-height); overflow-y: auto; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--popover); color: var(--popover-foreground); box-shadow: 0 12px 24px var(--shadow-color); }
-.console-user-popover a { display: block; margin-top: 12px; }
-.console-user-popover a:hover { color: var(--primary); }
+.console-user-popover :is(a, .console-user-action) { display: block; margin-top: 12px; }
+.console-user-popover :is(a, .console-user-action):hover { color: var(--primary); }
+.console-user-action { cursor: pointer; }
 .console-user-popover a[href="/api/zitadel-auth/logout"] { color: var(--destructive); }
-.console-user-trigger:focus-visible, .console-user-popover a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.console-user-trigger:focus-visible, .console-user-popover :is(a, .console-user-action):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .console-delegation { padding: 8px 28px; border-bottom: 1px solid var(--border); background: var(--warning); color: var(--warning-foreground); }
 .console-delegation p { text-align: left; color: inherit; }
 .console-delegation span { display: inline; color: inherit; margin-right: 16px; }
@@ -186,7 +204,6 @@
   .console-sidebar { display: none; }
   .console-topbar { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
   .console-top-context { flex: 1; }
-  .console-organization { width: 100%; max-width: 240px; }
   .console-global-actions { width: 100%; justify-content: flex-end; gap: 8px; }
   .console-global-actions > button { font-size: var(--label-text-size); padding: 0 10px; }
   .console-mobile-nav { display: block; padding: 4px 16px 18px; border-bottom: 1px solid var(--border); background: var(--sidebar); }
@@ -222,6 +239,7 @@
 @keyframes console-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .console-sidebar, .console-nav-row, .console-nav-chevron,
+  .console-user-trigger, .console-user-chevron,
   .console-theme [data-slot="button"] { transition: none; }
   .console-theme [data-slot="button"]:active:not(:disabled):not([aria-disabled="true"]) { translate: none; }
   .console-page, .console-mobile-nav, .console-user-popover,

@@ -1,6 +1,7 @@
 // Usage: node scripts/account-browser-verification.mjs <private fixture.json> [output directory]
 // The normal scenarios use the actual account client, Auth.js/BFF and Go readers.
 import { chromium, expect } from "@playwright/test";
+import { openOrganizationSwitcher, selectWorkbenchOrganization } from "./workbench-account-menu.mjs";
 import AxeBuilder from "@axe-core/playwright";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
@@ -66,7 +67,8 @@ try {
       const { page, context } = await open("u1", pageKind, width, theme);
       try {
         await expect(page.getByRole("heading", { name: pageKind === "profile" ? "Fixture u1" : "Enterprise B", exact: true })).toBeVisible();
-        await expect(page.getByRole("combobox", { name: "当前企业" })).toHaveValue("B");
+        await expect(await openOrganizationSwitcher(page)).toHaveValue("B");
+        await page.keyboard.press("Escape");
         await expect(page.getByRole("combobox", { name: "显示主题" })).toHaveValue(theme);
         await expect(page.getByText("归属企业（Home）：A", { exact: true })).toBeVisible();
         if (pageKind === "profile") await expect(page.getByText(/@PHONE.INVALID/i)).toHaveCount(0);
@@ -97,8 +99,17 @@ try {
   for (const [user, selection] of [["no-org", false], ["u1", false], ["grant-down", false]]) await check(`profile independent of enterprise: ${user}, selection=${selection}`, async () => {
     const { page, context } = await open(user, "profile", 390, "light", selection);
     try {
-      if (user === "no-org") await expect(page.getByText("暂无可用企业", { exact: true })).toBeVisible();
-      if (user === "u1") await expect(page.getByRole("combobox", { name: "当前企业" })).toHaveValue("");
+      if (user === "no-org") {
+        await page.getByRole("button", { name: "我的账户", exact: true }).click();
+        const menu = page.getByRole("dialog", { name: "账户快捷操作", exact: true });
+        await expect(menu).toBeVisible();
+        await expect(menu.getByRole("button", { name: "切换企业", exact: true })).toHaveCount(0);
+        await page.keyboard.press("Escape");
+      }
+      if (user === "u1") {
+        await expect(await openOrganizationSwitcher(page)).toHaveValue("");
+        await page.keyboard.press("Escape");
+      }
       await expect(page.getByRole("heading", { name: `Fixture ${user}`, exact: true })).toBeVisible();
       await expect(page.getByText("正在读取资料", { exact: true })).toHaveCount(0);
       expect(page.url()).toContain("/account/profile"); await snapshot(page, `profile-${user}-no-selection`);
@@ -118,7 +129,7 @@ try {
   });
   await check("actual enterprise switch clears B and reads C", async () => {
     const { page, context } = await open("u1", "organization");
-    try { await expect(page.getByRole("heading", { name: "Enterprise B", exact: true })).toBeVisible(); await page.getByRole("combobox", { name: "当前企业" }).selectOption("C"); await expect(page.getByRole("heading", { name: "Enterprise C", exact: true })).toBeVisible(); await expect(page.getByRole("heading", { name: "Enterprise B", exact: true })).toHaveCount(0); await snapshot(page, "organization-switched-C"); } finally { await closeContext(context); }
+    try { await expect(page.getByRole("heading", { name: "Enterprise B", exact: true })).toBeVisible(); await selectWorkbenchOrganization(page, "C"); await expect(page.getByRole("heading", { name: "Enterprise C", exact: true })).toBeVisible(); await expect(page.getByRole("heading", { name: "Enterprise B", exact: true })).toHaveCount(0); await snapshot(page, "organization-switched-C"); } finally { await closeContext(context); }
   });
   await check("actual identity changes reauthorize and clear old profile", async () => {
     const { page, context } = await open("u1", "organization");
@@ -161,10 +172,10 @@ try {
     try {
       await expect(page.getByRole("heading", { name: "Enterprise B", exact: true })).toBeVisible();
       await fetch(`${fixture.controlOrigin}/revoke`, { method: "POST" });
-      await page.getByRole("combobox", { name: "当前企业" }).selectOption("C");
+      await selectWorkbenchOrganization(page, "C");
       await expect(page.getByRole("alert").filter({ hasText: /企业/ })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Enterprise B", exact: true })).toHaveCount(0);
-      await expect(page.getByRole("combobox", { name: "当前企业" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "我的账户", exact: true })).toHaveCount(0);
     } finally { await fetch(`${fixture.controlOrigin}/restore`, { method: "POST" }); await fetch(`${fixture.controlOrigin}/expire`, { method: "POST" }); await closeContext(context); }
   });
   await check("supplemental synthetic role-context transition through actual provider and profile client", async () => {
