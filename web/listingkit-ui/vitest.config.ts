@@ -1,6 +1,8 @@
 import { configDefaults, defineConfig } from "vitest/config";
 import path from "node:path";
 
+const nodeTests = ["src/lib/{api,contracts,server}/**/*.test.ts"];
+
 export default defineConfig({
   test: {
     environment: "jsdom",
@@ -18,6 +20,22 @@ export default defineConfig({
       "test-results/**",
       ".playwright-cli/**",
       ".data/**",
+    ],
+    projects: [
+      {
+        test: {
+          // Files that exercise browser APIs can opt into jsdom with @vitest-environment.
+          name: "libraries",
+          environment: "node",
+          include: nodeTests,
+        },
+      },
+      {
+        test: {
+          name: "app",
+          exclude: nodeTests,
+        },
+      },
     ],
   },
   resolve: {
