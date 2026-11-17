@@ -219,9 +219,18 @@ function main(argv) {
   const checked = addedMarkdownLinks(patch);
   // Hunk line coordinates refer to PR HEAD, not the synthetic merge checkout.
   const errors = checkAddedLinks(patch, {
-    readFile: (filename) => execFileSync("git", [
-      "show", head + ":" + filename,
-    ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }),
+    readFile: (absoluteFilename) => {
+      // checkAddedLinks uses filesystem paths; Git rev:path requires a
+      // repository-relative tree path, never an absolute checkout path.
+      const relative = path.relative(process.cwd(), absoluteFilename);
+      if (!relative || relative === ".." || relative.startsWith(".." + path.sep) ||
+          path.isAbsolute(relative)) {
+        throw new Error("document path escapes repository: " + absoluteFilename);
+      }
+      return execFileSync("git", [
+        "show", head + ":" + relative.split(path.sep).join("/"),
+      ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+    },
   });
   if (errors.length > 0) throw new Error(errors.join("\n"));
   process.stdout.write("Verified " + checked.length + " added Markdown links against current files\n");
