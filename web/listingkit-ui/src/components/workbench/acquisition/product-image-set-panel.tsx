@@ -28,6 +28,7 @@ import {imageSetApprovalSchema,imageSetRunSchema,imageSetSourcesSchema,imageSetR
 import {ImagePlanRoutePicker} from "./image-plan-route-picker";
 import {ImageTextCopy,imageTextLanguageNames} from "./image-text-copy";
 import {ProductImageAnalysisPanel} from "./product-image-analysis-panel";
+import {ModelServicesLink} from "../account/model-services-link";
 
 type Props={translationItemId?:string;kind:ImageSetScope["kind"];contextId:string;target?:ImageSetPrepare["target"];effectiveVersion?:string;applyReceiptId?:string;onSaved?:()=>void;initialRunId?:string;initialSkill?:SkillSelection};
 type Intent={action:ImageSetRoute;runId?:string;requestKey?:string;body:unknown};
@@ -342,7 +343,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    }
   }catch(e){if(!controller.signal.aborted&&active.current)fail(e)}finally{flight.current=false;if(!controller.signal.aborted&&active.current)setBusy(false)}
  }
- const available=!executionDisabled&&entry?.agent.activation==="ENABLED"&&entry.canUse&&entry.capabilities.some(c=>c.id==="image.generate"&&c.readiness==="AVAILABLE");
+ const generation=entry?.capabilities.find(capability=>capability.id==="image.generate");
+ const available=!executionDisabled&&entry?.agent.activation==="ENABLED"&&entry.canUse&&generation?.readiness==="AVAILABLE";
  const allTasks=template?[...template.image.carousel.map(t=>({...t,group:"carousel" as const})),...template.image.detail.map(t=>({...t,group:"detail" as const}))]:[];
  const preparePositionsReady=currentOfficialPositions(tasks.map(id=>positions[id]),requirements),regeneratePositionsReady=currentOfficialPositions(regenerate.map(id=>positions[id]),requirements);
  const positionHint="请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。";
@@ -354,7 +356,8 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
  return <Card className="space-y-5 p-6">
   <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">商品图片智能体</h2><p className="mt-1 text-sm text-muted-foreground">整套主图与详情图 · 真实素材 · 逐图人工审核</p></div><Button asChild variant="outline" size="sm"><Link href="/workbench/agents/mine/product.image.agent">配置与模板</Link></Button></div>
   {error?<p role="alert" className="rounded-lg bg-warning p-3 text-sm">{reasons[error]??error}</p>:null}{message?<p role="status" className="text-sm text-success-foreground">{message}</p>:null}
-  {loading?<p className="text-sm text-muted-foreground">正在读取企业配置与真实商品素材…</p>:!available&&!executionDisabled?<p className="text-sm text-muted-foreground">{entry?.agent.activation==="DISABLED"?"智能体已停用，已有任务仍可核实与审核。":entry?.capabilities.find(c=>c.id==="image.generate")?.reason||"当前完整图片流程不可用。"}</p>:null}
+  {loading?<p className="text-sm text-muted-foreground">正在读取企业配置与真实商品素材…</p>:!available&&!executionDisabled?<p className="text-sm text-muted-foreground">{entry?.agent.activation==="DISABLED"?"智能体已停用，已有任务仍可核实与审核。":generation?.reason||"当前无法生成商品图片。"}</p>:null}
+  {!loading&&!executionDisabled&&entry?.agent.activation==="ENABLED"&&generation?.readiness==="NEEDS_CONFIGURATION"&&!(sources&&entry.canUse)&&<ModelServicesLink category="image-generation"/>}
   {intent?<div className={readOnlyIntent?"rounded-lg border border-border bg-muted p-4 text-sm":"rounded-lg border border-warning-foreground bg-warning p-4 text-sm"}><p>保留原请求：{intent.requestKey??(intent.action==="restart"?intent.runId:(intent.body as {actionId:string}).actionId)}</p><p className="mt-1 text-xs">{releasedIntent?"该任务未生成，点数已释放。原请求和编号保留，仅支持只读核实。":executionDisabled?"原请求和编号保留，仅支持只读核实。":"继续操作沿用原编号与参数；暂未找到不能视为未执行。"}</p><Button className="mt-3" variant="outline" disabled={busy} onClick={()=>void verify()}>核实原请求</Button>{canReplayIntent&&intent.action==="confirm"&&run&&run.runId===intent.runId&&(!run.confirmationActionId||run.confirmationActionId===(intent.body as {actionId:string}).actionId)&&run.status!=="completed"&&run.status!=="cancelled"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原确认</Button>:null}{canReplayIntent&&intent.action!=="confirm"?<Button className="ml-2" variant="outline" disabled={busy} onClick={()=>void send(intent,true)}>继续原操作</Button>:null}</div>:null}
   {!loading&&sources&&retainedRequests.length?<section className="space-y-2 rounded-lg border border-border p-4 text-sm">
    <h3 className="font-semibold">已核实的原请求</h3>
@@ -363,7 +366,7 @@ function ScopedImageSetPanel({scope,target,effectiveVersion,applyReceiptId,onSav
    {retainedRequests.map(record=><details key={record.key} className="break-all text-muted-foreground"><summary className="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">原请求编号：{imageIntentRequestId(record.intent)}</summary><div className="mt-2 space-y-2"><p>原任务：{record.intent.runId??"尚未创建"} · 操作：{({prepare:"准备图片计划",regenerate:"重新准备图片计划",recover:"核实原调用",cancel:"取消剩余工作",restart:"恢复原失败任务",confirm:"确认点数并生成",resume:"核实原保存"} as Partial<Record<ImageSetRoute,string>>)[record.intent.action]}</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">{record.raw}</pre></div></details>)}
   </section>:null}
   {!loading&&sources&&context.permissions.includes("listingkit.image_agent.write")?<SkillPicker scope={stableScope} target="product-image" initialSelection={initialSkill} disabled={locked} onChange={onMethodChange}/>:null}
-  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker key={routeNonce} scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked||unresolvedRun} onChange={setRouteDraft} onValidity={setRouteReady}/>:null}
+  {!loading&&sources&&entry?.canUse?<ImagePlanRoutePicker key={routeNonce} scope={stableScope} value={intent&&(intent.action==="prepare"||intent.action==="regenerate")?(intent.body as ImageSetPrepare).route??null:routeDraft===undefined?run?.plan.Route??null:routeDraft} disabled={locked||unresolvedRun} onChange={setRouteDraft} onValidity={setRouteReady} modelSettings={executionDisabled?undefined:<ModelServicesLink category="image-generation"/>}/>:null}
   {!loading&&sources&&!sources.originals.length?<p className="text-sm text-muted-foreground">当前商品没有原始图片，补充真实素材后才能准备生成计划。</p>:null}
   {available&&sources?<>
    {template&&!compatibleImageTemplate(template,platform)?<p className="text-sm text-warning-foreground">当前模板不适用于此素材目标，请选择匹配的模板或切换目标。</p>:null}
