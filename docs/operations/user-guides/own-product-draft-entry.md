@@ -1,6 +1,6 @@
 # 单件自有商品到待补全草稿
 
-Refs #694；[既有合同澄清](../architecture/own-product-draft-entry.md)。复用Collection、Preparation和CompletionDraft，不新增schema、领域owner或运行服务。
+Refs #694；[既有合同澄清](../../architecture/own-product-draft-entry.md)。复用Collection、Preparation和CompletionDraft，不新增schema、领域owner或运行服务。
 
 ## 正常使用
 
@@ -26,7 +26,7 @@ Backend私有Application manifest需要既有 `productCollections:true` 和 `sup
 
 UI需要既有 `LISTINGKIT_PRODUCT_COLLECTIONS_ENABLED=true`、`LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED=true`。缺少能力不显示入口；服务端仍执行live权限，前端开关不代表运行成功。当前data read + supply read/manage允许转入和填写；只读身份不能保存。
 
-新安装沿当前空库初始化与正常应用启动合同。现有保留实例若尚无CompletionDraft schema/grants，必须按 [原有bounded additive owner安装](supply-unbound-completion-drafts.md) 获取准确数据库、原runtime角色及serving更新的具体授权后再执行。该说明本身不授予部署/schema/grants或业务写入权限。
+新安装沿当前空库初始化与正常应用启动合同。现有保留实例若尚无CompletionDraft schema/grants，必须按 [原有bounded additive owner安装](../supply-unbound-completion-drafts.md) 获取准确数据库、原runtime角色及serving更新的具体授权后再执行。该说明本身不授予部署/schema/grants或业务写入权限。
 
 原owner入口仅安装/验证Preparation两表与CompletionDraft三表并追加最小权限，不调用旧非空库全量初始化，不重置原grant、角色或数据。启用后的所有Product消费者使用一致enabled capability union；constructor只Verify，不在startup安装。现有Store、worker、数据、图片、容量账本、备份和命名卷保留。原保留start脚本继续避免重跑setup。
 
