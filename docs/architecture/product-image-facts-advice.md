@@ -20,7 +20,7 @@
 - [候选/D2 认可及 design-only Draft PR 授权](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6576601045)；
   该认可不包含独立架构复核、实现、合并、部署或操作保留运行。
 - [Commerce Tool](commerce-tool-foundation.md)、[Agent 运行合同](product-agent-runtime-contract.md)、
-  [平台资料 Agent](platform-listing-materials-agent.md)、[图片 Agent](product-image-agent.md)。
+  [平台资料 Agent](domains/listing/platform-listing-materials-agent.md)、[图片 Agent](product-image-agent.md)。
 - [当前系统边界](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
 - [UI/IA Authority](../product/final-ui-ia-authority.md)：Figma tg48P46SSXl6TBy9lZwg63，非归档页面 31:463。
   复用已有商品智能体、资料结果页和图片入口，不新增页面/导航、独立工作台或审核流程。
