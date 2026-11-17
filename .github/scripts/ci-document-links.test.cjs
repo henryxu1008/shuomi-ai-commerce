@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { isDocumentationMarkdown, addedMarkdownLinks, checkAddedLinks } = require("./ci-document-links.cjs");
+const { isDocumentationMarkdown, parsePatchDestination, addedMarkdownLinks, checkAddedLinks } = require("./ci-document-links.cjs");
 
 test("only repository Markdown paths are treated as documentation link inputs", () => {
   assert.equal(isDocumentationMarkdown("docs/product/README.md"), true);
@@ -86,4 +86,53 @@ test("new document with directory links is validated without checking removed co
     exists: (p) => p === "/tmp/example-repo/internal/marketplace" ||
       p === "/tmp/example-repo/docs/product/README.md",
   }), []);
+});
+
+test("normalizes Git patch headers for spaces and C-style quoted filenames", () => {
+  assert.equal(parsePatchDestination("+++ b/docs/guide notes.md\t"), "docs/guide notes.md");
+  assert.equal(parsePatchDestination('+++ "b/docs/a\\"quoted.md"'), 'docs/a"quoted.md');
+  assert.equal(parsePatchDestination('+++ "b/docs/tab\\tnotes.md"'), "docs/tab\tnotes.md");
+  assert.equal(parsePatchDestination('+++ "b/docs/\\344\\270\\255\\346\\226\\207.md"'), "docs/中文.md");
+  assert.equal(parsePatchDestination("+++ /dev/null"), null);
+  assert.throws(() => parsePatchDestination('+++ "b/docs/unterminated'), /malformed Git patch filename/);
+  assert.throws(() => parsePatchDestination("+++ unknown-target"), /unexpected Git patch destination/);
+
+  const patch = [
+    "diff --git a/docs/guide notes.md b/docs/guide notes.md",
+    "--- a/docs/guide notes.md\t",
+    "+++ b/docs/guide notes.md\t",
+    "@@ -1,0 +2 @@",
+    "+[invalid](missing.md)",
+  ].join("\n");
+  assert.deepEqual(addedMarkdownLinks(patch), [
+    { filename: "docs/guide notes.md", href: "missing.md" },
+  ]);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-spaces-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root }), [
+      "docs/guide notes.md: unresolved relative link missing.md",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("accepts repository-root links but refuses paths that escape it", () => {
+  const patch = [
+    "diff --git a/docs/README.md b/docs/README.md",
+    "--- a/docs/README.md",
+    "+++ b/docs/README.md",
+    "@@ -1,0 +2 @@",
+    "+[repository](../) and [outside](../../)",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-root-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root }), [
+      "docs/README.md: unresolved relative link ../../",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
