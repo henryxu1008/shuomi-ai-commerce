@@ -93,47 +93,76 @@ function addedMarkdownLinks(patch) {
 
 // Read the complete current document so links added *inside an existing* code
 // fence are also ignored, even when the opening fence was not part of the diff.
-function maskMarkdownCode(content) {
-  const masked = [];
-  let fence = null;
-  let inlineTicks = 0;
-  for (const line of content.split(/\r?\n/)) {
-    const delimiter = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
-    if (delimiter && !inlineTicks) {
-      const run = delimiter[1];
-      if (!fence) {
-        fence = { char: run[0], length: run.length };
-        masked.push(" ".repeat(line.length));
-        continue;
-      }
-      if (run[0] === fence.char && run.length >= fence.length &&
-          delimiter[2].trim() === "") {
-        fence = null;
-        masked.push(" ".repeat(line.length));
-        continue;
-      }
-    }
-    if (fence) {
-      masked.push(" ".repeat(line.length));
+// Only a matched pair of Markdown backtick runs denotes a code span.
+// Unmatched delimiters are literal text and may not conceal real links.
+function maskInlineCode(content) {
+  const chars = content.split("");
+  const isEscaped = (at) => {
+    let count = 0;
+    for (let p = at - 1; p >= 0 && content[p] === "\\"; p--) count++;
+    return count % 2 === 1;
+  };
+  for (let i = 0; i < content.length;) {
+    if (content[i] !== "\x60" || isEscaped(i)) {
+      i++;
       continue;
     }
-
-    let visible = "";
-    for (let i = 0; i < line.length;) {
-      if (line[i] === "\x60" && (i === 0 || line[i - 1] !== "\\")) {
-        let run = 1;
-        while (line[i + run] === "\x60") run++;
-        if (inlineTicks === 0) inlineTicks = run;
-        else if (inlineTicks === run) inlineTicks = 0;
-        visible += " ".repeat(run);
-        i += run;
-      } else {
-        visible += inlineTicks ? " " : line[i];
-        i++;
+    let size = 1;
+    while (content[i + size] === "\x60") size++;
+    let close = -1;
+    for (let j = i + size; j < content.length;) {
+      if (content[j] !== "\x60" || isEscaped(j)) {
+        j++;
+        continue;
       }
+      let length = 1;
+      while (content[j + length] === "\x60") length++;
+      if (length === size) {
+        close = j;
+        break;
+      }
+      j += length;
     }
-    masked.push(visible);
+    if (close === -1) {
+      i += size;
+      continue;
+    }
+    for (let j = i; j < close + size; j++) {
+      if (chars[j] !== "\n") chars[j] = " ";
+    }
+    i = close + size;
   }
+  return chars.join("");
+}
+
+function maskMarkdownCode(content) {
+  const lines = content.split(/\r?\n/);
+  const masked = Array(lines.length);
+  let fence = null;
+  let plainStart = 0;
+  const flushPlain = (end) => {
+    if (end <= plainStart) return;
+    const visible = maskInlineCode(lines.slice(plainStart, end).join("\n")).split("\n");
+    visible.forEach((line, index) => { masked[plainStart + index] = line; });
+  };
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const delimiter = line.match(/^ {0,3}(\x60{3,}|~{3,})(.*)$/);
+    let openedHere = false;
+    if (!fence && delimiter) {
+      flushPlain(index);
+      fence = { char: delimiter[1][0], length: delimiter[1].length };
+      openedHere = true;
+    }
+    if (!fence) continue;
+    masked[index] = " ".repeat(line.length);
+    if (!openedHere && delimiter && delimiter[1][0] === fence.char &&
+        delimiter[1].length >= fence.length && delimiter[2].trim() === "") {
+      fence = null;
+    }
+    plainStart = index + 1;
+  }
+  flushPlain(lines.length);
   return masked;
 }
 
@@ -188,7 +217,12 @@ function main(argv) {
     "--", "AGENTS.md", "README.md", "docs/",
   ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
   const checked = addedMarkdownLinks(patch);
-  const errors = checkAddedLinks(patch);
+  // Hunk line coordinates refer to PR HEAD, not the synthetic merge checkout.
+  const errors = checkAddedLinks(patch, {
+    readFile: (filename) => execFileSync("git", [
+      "show", head + ":" + filename,
+    ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }),
+  });
   if (errors.length > 0) throw new Error(errors.join("\n"));
   process.stdout.write("Verified " + checked.length + " added Markdown links against current files\n");
 }
