@@ -352,7 +352,7 @@ Each family is a reviewable commit. Behavior changes, schema changes, file-only 
 
 - `docs/architecture/image-agent-workflow.md`
 - `docs/architecture/domains/ai/image-agent-recovery.md`
-- `docs/architecture/image-agent-budget-authorization.md`
+- `docs/architecture/domains/ai/image-agent-budget-authorization.md`
 - `docs/architecture/project-boundaries.md`
 - `docs/architecture/architecture-review-checklist.md`
 - `internal/imageagent/slot_effect_v3.go`

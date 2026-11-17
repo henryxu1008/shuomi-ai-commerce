@@ -89,8 +89,8 @@ docs/architecture/fallback-contract-consolidation.md,architecture,platform,4809,
 docs/architecture/domains/ai/generic-image-template-entry.md,architecture,ai,3533,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
 docs/architecture/grsai-vip-image-binding.md,architecture,ai,8782,REVIEW_MOVE,docs/architecture/domains/ai/grsai-vip-image-binding.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/httpapi-assembly-boundaries.md,architecture,platform,1883,REVIEW_MOVE,docs/architecture/platform/runtime/httpapi-assembly-boundaries.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/image-agent-budget-authorization.md,architecture,ai,11925,REVIEW_MOVE,docs/architecture/domains/ai/image-agent-budget-authorization.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/image-agent-candidate-release-gate.md,architecture,ai,2479,REVIEW_LIFECYCLE,docs/architecture/domains/ai/image-agent-candidate-release-gate.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
+docs/architecture/domains/ai/image-agent-budget-authorization.md,architecture,ai,11925,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; original release and budget authority retained
+docs/architecture/domains/ai/image-agent-candidate-release-gate.md,architecture,ai,2479,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; original release and budget authority retained
 docs/architecture/domains/ai/image-agent-effect-finalization.md,architecture,ai,6199,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
 docs/architecture/image-agent-effect-policy.md,architecture,ai,18757,REVIEW_MOVE,docs/architecture/domains/ai/image-agent-effect-policy.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/image-agent-effect-recovery.md,architecture,ai,4871,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
