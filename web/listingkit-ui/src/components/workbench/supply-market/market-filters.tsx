@@ -8,7 +8,7 @@ import {marketFiltersSchema,type MarketFilters} from "@/lib/contracts/supply-mar
 import styles from "./market-filters.module.css";
 import {isShippingLocation, SupplyLocationFields, useShippingLocations} from "./supply-location-fields";
 
-export type MarketCriteria=MarketFilters&{keyword:string};
+type MarketCriteria=MarketFilters&{keyword:string};
 export type AppliedMarketFilters={criteria:MarketCriteria; category:CategoryValue};
 const empty=()=>({keyword:"",province:"",city:"",minPrice:"",maxPrice:"",priceCurrency:"CNY",maxMOQ:"",maxLeadDays:""});
 export function MarketFiltersForm({scope,channel,initial,onApply}:{scope:MarketScope;channel:"official"|"selected";initial:AppliedMarketFilters;onApply:(value:AppliedMarketFilters)=>void}){
