@@ -49,3 +49,37 @@ func TestResourceEventReadIsScopedStableAndBoundToFilters(t *testing.T) {
 	_, err = repo.ListEvents(context.Background(), query)
 	require.ErrorIs(t, err, orgresource.ErrInvalidInput)
 }
+
+func TestReadResourceEventSourceKeepsQuantityUnitValidation(t *testing.T) {
+	db := openSQLiteStore(t)
+	require.NoError(t, AutoMigrate(db))
+	repo, err := NewGormRepository(db, TransactionConfig{})
+	require.NoError(t, err)
+	ctx := context.Background()
+	const org = "org-a"
+	for _, resource := range []orgresource.ResourceType{orgresource.ResourceAIPoint, orgresource.ResourceStoreRenewalPeriod, orgresource.ResourceDataRow} {
+		t.Run(string(resource), func(t *testing.T) {
+			op, eventID := uuid.NewString(), uuid.NewString()
+			require.NoError(t, db.Create(&organizationResourceOperationRow{
+				OrganizationID: org, OperationID: op, OperationType: "fixture",
+				RequestFingerprint: "fixture", State: "succeeded", ImmutableResult: "{}",
+			}).Error)
+			require.NoError(t, db.Create(&organizationResourceEventRow{
+				QuantityUnit: resourceQuantityUnit(string(resource)), EventID: eventID, OrganizationID: org,
+				OperationID: op, ResourceType: string(resource), Quantity: 1, Reason: "fixture",
+				SourceType: "fixture", SourceIdentity: op,
+			}).Error)
+			source, found, err := repo.ReadEventSource(ctx, org, eventID)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, orgresource.EventSource{
+				OrganizationID: org, EventID: eventID, ResourceType: resource,
+				SourceType: "fixture", SourceIdentity: op,
+			}, source)
+			source, found, err = repo.ReadEventSource(ctx, "other-org", eventID)
+			require.NoError(t, err)
+			require.False(t, found)
+			require.Empty(t, source)
+		})
+	}
+}

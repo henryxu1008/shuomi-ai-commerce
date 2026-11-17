@@ -24,7 +24,7 @@ func (r *GormRepository) ReadEventSource(ctx context.Context, org, eventID strin
 		return orgresource.EventSource{}, false, orgresource.ErrInvalidInput
 	}
 	var row organizationResourceEventRow
-	err = r.db.WithContext(ctx).Select("organization_id", "event_id", "resource_type", "source_type", "source_identity").
+	err = r.db.WithContext(ctx).Select("organization_id", "event_id", "resource_type", "quantity_unit", "source_type", "source_identity").
 		Where("organization_id = ? AND event_id = ?", org, eventID).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return orgresource.EventSource{}, false, nil
