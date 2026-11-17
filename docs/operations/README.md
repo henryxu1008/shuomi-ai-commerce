@@ -14,7 +14,7 @@
 - 当前后端命令与 owner：[Repository Structure](../development/repository-structure.md#current-entrypoint-map)。
 - 标题技能脚本：[使用与私有执行配置](skill-script-sandbox.md)；默认关闭，D-IT1/execd init-proc 检查是试用开放前置。
 - 镜像构建：[显式 Git 版本构建](application-image-build.md)。
-- 登录隔离：[实例 cookie 隔离](auth-instance-cookie-isolation.md)。
+- 登录隔离：[实例 cookie 隔离](runbooks/auth-instance-cookie-isolation.md)。
 - 模型治理：[模型与费率管理](model-route-pricing.md)。
 - Research 经营评估：[当前安装的评估表准备](runbooks/research-assessment-install.md)，实际数据库变更仍须单独授权。
 - 浏览器内核服务：[内核发行目录交接](browser-kernel-catalog.md)。
@@ -24,7 +24,7 @@
 ## 采集、商品资料与草稿
 
 - 采集与资料：[浏览器插件](../../extensions/product-capture/README.md)、[来源素材](runbooks/source-materials.md)、[来源图试用](own-product-source-media-trial.md)、[1688 采集计划](user-guides/acquisition-plans-local.md)。
-- 自有商品：[录入](user-guides/own-product-entry.md)、[历史](user-guides/own-product-history.md)、[富文本描述](own-product-rich-description.md)。
+- 自有商品：[录入](user-guides/own-product-entry.md)、[历史](user-guides/own-product-history.md)、[富文本描述](runbooks/own-product-rich-description.md)。
 - 待补全草稿：[单件转入](user-guides/own-product-draft-entry.md)、[已有草稿](user-guides/own-product-existing-drafts.md)、[未绑定店铺草稿](supply-unbound-completion-drafts.md)。
 - 草稿编辑：[属性与 SKU](user-guides/completion-draft-structured.md)、[保存历史](user-guides/completion-draft-history.md)、[恢复为新版本](user-guides/completion-draft-restore.md)。
 - 自有商品优选：[多商品申请](selected-application-multi-product.md)，以当前多商品申请合同为准。
