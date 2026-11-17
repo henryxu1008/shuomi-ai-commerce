@@ -31,6 +31,13 @@ function MarketList({scope,channel}:{scope:MarketScope;channel:"official"|"selec
  const [applied,setApplied]=useState<AppliedMarketFilters>(()=>client.getQueryData(filtersKey)??{criteria:{keyword:""},category:{}});
  const [after,setAfter]=useState<string>(),[adding,setAdding]=useState<string>();
  const {criteria}=applied;
+ function applyFilters(next:AppliedMarketFilters) {
+  // Keep filters when a seller returns from a detail page, even after a long visit.
+  client.setQueryDefaults(["market-list-filters"],{gcTime:Infinity});
+  client.setQueryData(filtersKey,next);
+  setApplied(next);
+  setAfter(undefined);
+ }
  const filter=criteria.keyword!==""||Object.keys(criteria).length>1;
  const prefix=["supply-market",scope.userId,scope.organizationId,"releases"];
  const q=useQuery({queryKey:[...prefix,channel,criteria,after],queryFn:({signal})=>listMarket(scope,{kind:channel,...criteria,after},signal),retry:false});
@@ -39,7 +46,7 @@ function MarketList({scope,channel}:{scope:MarketScope;channel:"official"|"selec
   setAdding(product.id);
   try{const receipt=await commands.execute({action:"select_release",id:product.id,expectedRevision:product.revision});if(receipt?.releaseId===product.id&&receipt.collection){client.setQueriesData<Awaited<ReturnType<typeof listMarket>>>({queryKey:prefix},page=>page?{...page,items:page.items.map(item=>item.id===product.id?{...item,added:true}:item)}:page)}}finally{setAdding(undefined)}
  }
- return <ConsolePage className={workbenchViewPage} title={channels[channel].title} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:channels[channel].title}]} description="挑选合适的货源，加入我的数据后继续准备商品上架。" actions={<><MyDataLink/>{channel==="official"?<OfficialMarketActions/>:null}</>}><ChannelNavigation channel={channel}/><ConsoleToolbar><MarketFiltersForm scope={scope} channel={channel} initial={applied} onApply={next=>{client.setQueryData(filtersKey,next);setApplied(next);setAfter(undefined)}}/></ConsoleToolbar>
+ return <ConsolePage className={workbenchViewPage} title={channels[channel].title} breadcrumbs={[{label:"供应市场",href:"/workbench/supply"},{label:channels[channel].title}]} description="挑选合适的货源，加入我的数据后继续准备商品上架。" actions={<><MyDataLink/>{channel==="official"?<OfficialMarketActions/>:null}</>}><ChannelNavigation channel={channel}/><ConsoleToolbar><MarketFiltersForm scope={scope} channel={channel} initial={applied} onApply={applyFilters}/></ConsoleToolbar>
   {commands.notice}
   {q.isPending?<ConsoleState kind="loading" title="正在加载商品"/>:q.error?<MarketReadError error={q.error} retry={()=>void q.refetch()}/>:q.data.items.length===0?<ConsoleState kind="empty" title={filter?"没有找到匹配商品":"暂无商品"}>{filter?"试试其他关键词，或清除筛选查看全部商品。":"这里暂时还没有商品，请稍后再来看看。"}</ConsoleState>:<div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">{q.data.items.map(p=><MarketCard key={p.id} product={p} locked={!!commands.locked} adding={adding===p.id} onAdd={()=>void add(p)}/>)}</div>}
   {q.data?<CursorButtons after={after} next={q.data.nextCursor} total={q.data.total} onAfter={setAfter}/>:null}
