@@ -29,7 +29,7 @@ Out of Scope：美国本土、其他市场、订单/履约/售后/退款/财务�
 - 未绑定本地文本复用[CompletionDraft 已批准架构](supply-unbound-completion-drafts.md)和 `internal/listing/completiondraft`；正式 TikTok Target 仍须真实 Store 与官方规则。
 - [Project target](project-target-architecture.md)、[package boundaries](project-boundaries.md)、[greenfield baseline](../product/greenfield-no-legacy-migration.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)。
 - 当前 Store CRUD、成员 grant、服务权益和 official connection 的有效不变量，以及唯一 `internal/listing/submission.ExecutionKernel`。
-- [官方合同证据及缺口](tiktok-shop-us-contract-evidence.md)。没有应用时不引用假店铺/假 API响应作为真实平台证据。
+- [官方合同证据及缺口](domains/marketplace/tiktok-shop-us-contract-evidence.md)。没有应用时不引用假店铺/假 API响应作为真实平台证据。
 
 ## 3. 已确认根因与设计边界
 

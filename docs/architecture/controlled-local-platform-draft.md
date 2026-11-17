@@ -18,7 +18,7 @@ Must：一商品、一 Source、一固定 Completion R1、一测试 Store、一�
 
 Out of Scope：真实 SHEIN 授权/服务开通、平台接受三行的资格证明、官方网络读写、发布/上下架/上传/结果核实、AI/素材生成/批准/资源购买或结算、拆色 family、补白 L/删黑 L、泛化模拟平台/规则引擎/新的 IAM 或 runner。已有正常能力不关闭、不换库、不重设密码；不修改当前真实平台规则或已批准风险边界。没有新增 Accepted Risk。
 
-依据：[当前 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[R1 带入](completion-shein-import.md)、[已实现销售映射](shein-sales-attribute-mapping.md)、[现有离线质检边界](private-draft-offline-trial.md)。Figma 只作流程参考；导航、页面和无障碍使用当前组件，不按原型画面验收。
+依据：[当前 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[R1 带入](completion-shein-import.md)、[已实现销售映射](domains/listing/shein-sales-attribute-mapping.md)、[现有离线质检边界](private-draft-offline-trial.md)。Figma 只作流程参考；导航、页面和无障碍使用当前组件，不按原型画面验收。
 
 ## 2. 当前证据与最小选择
 

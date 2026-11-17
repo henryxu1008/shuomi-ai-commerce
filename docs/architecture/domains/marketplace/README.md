@@ -6,10 +6,10 @@
 
 | 平台 | 当前领域合同 | 实际代码入口 |
 | --- | --- | --- |
-| SHEIN 美国站 | [SHEIN 发布、审核与首次上架](../../shein-publication-flow.md)、[原生校验](../../shein-native-validator-contract.md) | `internal/marketplace/shein`、`internal/listing/submission` |
-| TEMU（模式和站点须分别准入） | [TEMU 设计](../../temu-platform.md)、[官方合同证据](../../temu-official-contract-evidence.md) | `internal/marketplace/temu` |
-| TikTok Shop 美国跨境 | [TikTok Shop US](../../tiktok-shop-us.md)、[发送前恢复](../../tiktok-pre-dispatch-no-send.md) | `internal/marketplace/tiktokshop` |
-| Walmart 美国站 | [Walmart US](../../walmart-us.md)、[Feed 恢复](../../walmart-feed-recovery.md) | `internal/marketplace/walmart` |
+| SHEIN 美国站 | [SHEIN 发布、审核与首次上架](../../shein-publication-flow.md)、[原生校验](shein-native-validator-contract.md)、[提交动作分类](shein-submit-readiness-action-policy.md) | `internal/marketplace/shein`、`internal/listing/submission` |
+| TEMU（模式和站点须分别准入） | [TEMU 设计](../../temu-platform.md)、[官方合同证据](temu-official-contract-evidence.md) | `internal/marketplace/temu` |
+| TikTok Shop 美国跨境 | [TikTok Shop US](../../tiktok-shop-us.md)、[官方合同证据](tiktok-shop-us-contract-evidence.md)、[发送前恢复](../../tiktok-pre-dispatch-no-send.md) | `internal/marketplace/tiktokshop` |
+| Walmart 美国站 | [Walmart US](../../walmart-us.md)、[官方合同证据](walmart-us-contract-evidence.md)、[Feed 恢复](../../walmart-feed-recovery.md) | `internal/marketplace/walmart` |
 
 当前代码中的平台目录不证明该平台全部站点、经营模式、官方应用、API 凭据或客户验收已经可用。Amazon 研究与来源采集是独立来源/研究能力，不自动等同于当前已开通的 Amazon Listing 平台适配器。
 

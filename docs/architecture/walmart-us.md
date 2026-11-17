@@ -68,7 +68,7 @@ Threat Model：防止本系统并发/重放导致跨企业绑定、凭据外泄�
 
 ## 5. 官方合同与 API allowlist
 
-详细来源与不确定项见 [官方合同证据](walmart-us-contract-evidence.md)。本期固定 US Marketplace，`platform=walmart`、`site=walmart-us`、market=us；沙箱和生产是不同受控配置与身份命名空间，绝不自动 fallback。
+详细来源与不确定项见 [官方合同证据](domains/marketplace/walmart-us-contract-evidence.md)。本期固定 US Marketplace，`platform=walmart`、`site=walmart-us`、market=us；沙箱和生产是不同受控配置与身份命名空间，绝不自动 fallback。
 
 | 用途 | 官方方法/路径 | 本期限制 |
 | --- | --- | --- |
