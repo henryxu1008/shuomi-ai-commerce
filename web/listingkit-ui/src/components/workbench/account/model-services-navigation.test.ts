@@ -9,6 +9,14 @@ describe("model settings return navigation", () => {
     expect(readModelServicesNavigation(search)).toEqual({ category: "multimodal", organizationId: "org-a", returnTo: original });
   });
 
+  it("returns to the original pending-listing draft opened from a preparation", () => {
+    const returnTo = "/workbench/listing/missing?preparation=22222222-2222-4222-8222-222222222222&source=11111111-1111-4111-8111-111111111111";
+    const business = { purpose: "image-generation", org: "org-a" };
+    expect(readModelServicesNavigation({ ...business, back: returnTo })?.returnTo).toBe(returnTo);
+    expect(readModelServicesNavigation({ ...business, back: returnTo + "&mode=platform" })?.returnTo).toBeUndefined();
+    expect(readModelServicesNavigation({ ...business, back: "/workbench/listing/missing" })?.returnTo).toBeUndefined();
+  });
+
   it.each([
     "https://other.test/workbench/ai/chat",
     "//other.test/workbench/ai/chat",

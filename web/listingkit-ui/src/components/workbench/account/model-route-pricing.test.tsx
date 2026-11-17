@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from "vitest";
-import {cleanup,render,screen,waitFor,within} from "@testing-library/react";
+import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {EnterpriseModelEditor,ModelRoutePricingPage,OfficialPriceEditor,ModelRoutePricingEntry} from "./model-route-pricing";
@@ -121,6 +121,42 @@ it("keeps a save receipt and hides stale configuration when the workbench refres
  expect(screen.getByText("Chat 规划状态暂时无法确认")).toBeVisible();
  expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument();
  expect(fetch.mock.calls.filter(([url])=>url.endsWith("/publish"))).toHaveLength(1);
+});
+
+it("reads again after a publish receipt arrives during an earlier manual refresh",async()=>{
+ let saved=false;
+ let finishPublish:(response:Response)=>void=()=>{};
+ let finishFirstRead:(context:object)=>void=()=>{};
+ const firstRead=new Promise<object>(resolve=>{finishFirstRead=resolve});
+ state.context.retry.mockImplementationOnce(()=>firstRead).mockImplementationOnce(async()=>{
+  state.context.aiWorkbenchPlanningReadiness="AVAILABLE";
+  return {};
+ });
+ const fetch=fixture(true,init=>new Promise<Response>(resolve=>{
+  finishPublish=response=>{
+   saved=true;
+   resolve(response);
+  };
+  expect(new Headers(init.headers).get("Idempotency-Key")).toBeTruthy();
+ }));
+ const original=fetch.getMockImplementation()!;
+ fetch.mockImplementation((url,init)=>saved&&url.endsWith("/enterprise")
+  ? Promise.resolve(Response.json({status:"READY",revision:revision("saved"),preview:{ready:true,models:models(true)}}))
+  : original(url,init));
+ mount(true);
+ const user=userEvent.setup();
+ await user.click(await screen.findByRole("button",{name:"检查并预览"}));
+ await user.click(await screen.findByRole("button",{name:"确认发布三类模型"}));
+ const write=fetch.mock.calls.find(([url])=>url.endsWith("/publish"));
+ expect(write).toBeDefined();
+ await user.click(screen.getByRole("button",{name:"重新读取状态"}));
+ await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>url.endsWith("/enterprise"))).toHaveLength(2));
+ await act(async()=>finishPublish(Response.json({receipt:revision("saved",new Headers(write?.[1]?.headers).get("Idempotency-Key")!)})));
+ expect(await screen.findByRole("heading",{name:"发布回执"})).toBeVisible();
+ await act(async()=>finishFirstRead({}));
+ expect(await screen.findByText("企业已具备 Chat 规划条件")).toBeVisible();
+ expect(screen.getByText("当前版本：saved · 已发布")).toBeVisible();
+ expect(state.context.retry).toHaveBeenCalledTimes(2);
 });
 
 it("keeps the model choice across settings areas and clears the old business return on enterprise switch",async()=>{

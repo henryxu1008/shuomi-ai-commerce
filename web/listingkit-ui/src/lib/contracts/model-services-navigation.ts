@@ -1,4 +1,5 @@
 import { routeFact } from "./model-route-pricing";
+import { isAcquisitionUUID } from "./product-acquisition";
 
 export const modelServicesPath = "/workbench/account/organization/model-route-pricing";
 export const modelServiceCategories = ["text", "multimodal", "image-generation"] as const;
@@ -15,6 +16,14 @@ const imagePaths = [
 function businessReturn(category: ModelServiceCategory, value: unknown) {
   if (typeof value !== "string" || value.length > 1536 || /[\\#\u0000-\u001f]/.test(value)) return undefined;
   const path = value.split("?", 1)[0];
+  if (category !== "text" && path === "/workbench/listing/missing") {
+    const query = new URLSearchParams(value.slice(path.length));
+    const source = query.getAll("source");
+    const preparation = query.getAll("preparation");
+    const fixedDraft = source.length === 1 && isAcquisitionUUID(source[0]) &&
+      preparation.length === 1 && isAcquisitionUUID(preparation[0]) && query.size === 2;
+    return fixedDraft ? value : undefined;
+  }
   const valid = category === "text" ? chatPath.test(path) : imagePaths.some(pattern => pattern.test(path));
   return valid ? value : undefined;
 }

@@ -89,7 +89,12 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
  }));
  const [draft,setDraft]=useState<RouteInput|null>(null);
  const [refreshState,setRefreshState]=useState<"idle"|"checking"|"failed">("idle");
- const refreshing=useRef(false);
+ const pendingRefresh=useRef<Promise<void>|null>(null);
+ const active=useRef(true);
+ useEffect(()=>{
+  active.current=true;
+  return()=>{active.current=false};
+ },[]);
  const areaHeading=useRef<HTMLDivElement>(null);
  const overview=useRef<HTMLDivElement>(null);
  const published=usePublishedModels(scope,configure && !context.error);
@@ -97,18 +102,24 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
  const checking=refreshState==="checking";
  const blocked=!!context.error||checking;
 
- async function refresh(afterSave=false) {
-  if(refreshing.current)return;
-  refreshing.current=true;
+ function refresh(afterSave=false) {
+  if(pendingRefresh.current&&!afterSave)return pendingRefresh.current;
   setRefreshState("checking");
-  const results=await Promise.allSettled([
-   client.invalidateQueries({queryKey:settingsKey(scope),predicate:query=>query.queryKey[2]!=="history"}, {throwOnError:true}),
-   client.invalidateQueries({queryKey:[...settingsKey(scope),"history"]}),
-   context.retry(),
-  ]);
-  const failure=results.some(result=>result.status==="rejected" || result.value===null);
-  refreshing.current=false;
-  setRefreshState(afterSave&&failure?"failed":"idle");
+  // A refresh already started before the receipt may have read the old version.
+  const run=(pendingRefresh.current??Promise.resolve()).then(async()=>{
+   if(!active.current)return;
+   const results=await Promise.allSettled([
+    client.invalidateQueries({queryKey:settingsKey(scope),predicate:query=>query.queryKey[2]!=="history"}, {throwOnError:true}),
+    client.invalidateQueries({queryKey:[...settingsKey(scope),"history"]}),
+    context.retry(),
+   ]);
+   if(pendingRefresh.current!==run)return;
+   pendingRefresh.current=null;
+   const failure=results.some(result=>result.status==="rejected" || result.value===null);
+   if(active.current)setRefreshState(afterSave&&failure?"failed":"idle");
+  });
+  pendingRefresh.current=run;
+  return run;
  }
 
  function openSettings(next:ModelDestination) {
