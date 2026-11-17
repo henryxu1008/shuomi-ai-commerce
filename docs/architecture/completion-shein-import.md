@@ -7,7 +7,7 @@ Admission Status: IMPLEMENTATION_READY — 2026-10-16 独立 R1 核对设计提�
 
 ## Authority / Outcome
 
-依据 [本轮产品决定](../product/completion-shein-import.md)、[结构化候选](completion-draft-structured.md)、[SHEIN 供应链](my-supply-chain-shein.md) 和 [当前 UI/IA](../product/final-ui-ia-authority.md)。用户在独立页面将固定候选的选定字段预览后追加为本地 SHEIN Target 新版本，保留草稿、商品、批次返回路径，不发布。
+依据 [本轮产品决定](../product/completion-shein-import.md)、[结构化候选](domains/listing/completion-draft-structured.md)、[SHEIN 供应链](my-supply-chain-shein.md) 和 [当前 UI/IA](../product/final-ui-ia-authority.md)。用户在独立页面将固定候选的选定字段预览后追加为本地 SHEIN Target 新版本，保留草稿、商品、批次返回路径，不发布。
 
 ## Owner 与调用路径
 
