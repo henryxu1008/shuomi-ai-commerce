@@ -8,3 +8,8 @@
 - [标题先导的本机操作入口](issue132-title-pilot-local-entry.md)：原 `R2_CANDIDATE`，仅讨论隔离运行装配、操作者授权、原键恢复；不等于受权启动、付款或正式评测。
 
 原仓库路径分别为 `docs/architecture/issue132-title-evaluation-admission.md` 和 `docs/architecture/issue132-title-pilot-local-entry.md`。本批只进行文档位置归类和相对引用调整，原规则、结论和评审状态保持；历史提交可由 Git 追溯。迁移执行 [#1357](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1357)。
+
+## Provider 与应用执行生命周期合同
+
+- [Provider-neutral AI 请求/响应与适配接口](ai-provider-contracts.md)：迁移历史设计；模型路由、租户、治理、预算及供应商请求行为不改变。
+- [关闭新 AI 执行并保留配置和历史读取](ai-disabled-application-lifecycle.md)：原 #1073/#1075 离线实施合同，原权限、原键与 UNKNOWN 不变；不授权真实调用或部署。
