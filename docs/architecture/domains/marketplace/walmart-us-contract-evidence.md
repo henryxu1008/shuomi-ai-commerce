@@ -1,6 +1,6 @@
 # Walmart 美国站官方合同证据与边界
 
-Refs [#733](https://github.com/qq550723504/task-processor/issues/733)；[首期设计](walmart-us.md)。核对日期：2026-10-16，Asia/Singapore。来源为官方公开开发者文档/API reference、实际服务商表单和 Figma 只读 metadata；未使用凭据、登录商家、调用业务 API 或提交申请。协议样例不是实际应用或平台验收证据。
+Refs [#733](https://github.com/qq550723504/task-processor/issues/733)；[首期设计](../../walmart-us.md)。核对日期：2026-10-16，Asia/Singapore。来源为官方公开开发者文档/API reference、实际服务商表单和 Figma 只读 metadata；未使用凭据、登录商家、调用业务 API 或提交申请。协议样例不是实际应用或平台验收证据。
 
 ## 1. 已确认的官方依据
 
@@ -43,4 +43,4 @@ Refs [#733](https://github.com/qq550723504/task-processor/issues/733)；[首期�
 
 ## 4. 当前产品投影核对
 
-2026-10-16 使用只读 Figma metadata 核对 `tg48P46SSXl6TBy9lZwg63`：`1560:359`、`429:5323`、`2667:1948` 存在且根节点未标hidden；对应我的店铺、店铺商品、供应链待补全。引用[当前产品Authority](../product/final-ui-ia-authority.md)确定菜单与页面归属；没有新增/修改Figma，没有把原型可见性写成运行功能或用户验收。
+2026-10-16 使用只读 Figma metadata 核对 `tg48P46SSXl6TBy9lZwg63`：`1560:359`、`429:5323`、`2667:1948` 存在且根节点未标hidden；对应我的店铺、店铺商品、供应链待补全。引用[当前产品Authority](../../../product/final-ui-ia-authority.md)确定菜单与页面归属；没有新增/修改Figma，没有把原型可见性写成运行功能或用户验收。
