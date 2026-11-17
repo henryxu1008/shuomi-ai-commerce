@@ -1,6 +1,6 @@
 # Image Agent Workflow
 
-图片执行复用当前 ImageAgent 与 Temporal。完整用户能力见[商品图片智能体](product-image-agent.md)，操作入口见[图片使用说明](../operations/product-image-agent.md)。本页定义运行职责，不维护阶段交付路线图。
+图片执行复用当前 ImageAgent 与 Temporal。完整用户能力见[商品图片智能体](../../product-image-agent.md)，操作入口见[图片使用说明](../../../operations/product-image-agent.md)。本页定义运行职责，不维护阶段交付路线图。
 
 ## Owner 与运行路径
 
@@ -22,11 +22,11 @@
 
 ## 当前专项合同
 
-- [固定 Image 资源回执与成员限额](source-white-background.md)
-- [预算与授权](image-agent-budget-authorization.md)
-- [效果策略](image-agent-effect-policy.md)、[终态](image-agent-effect-terminalization.md)、[结算](image-agent-effect-finalization.md)
-- [效果恢复](image-agent-effect-recovery.md)、[工作流恢复](image-agent-recovery.md)
-- [候选采用与发布门禁](image-agent-candidate-release-gate.md)
-- [安全图片下载](image-download-safety.md)、[生成原图恢复](vip-original-output-recovery.md)
+- [固定 Image 资源回执与成员限额](../../source-white-background.md)
+- [预算与授权](../../image-agent-budget-authorization.md)
+- [效果策略](../../image-agent-effect-policy.md)、[终态](../../image-agent-effect-terminalization.md)、[结算](../../image-agent-effect-finalization.md)
+- [效果恢复](../../image-agent-effect-recovery.md)、[工作流恢复](../../image-agent-recovery.md)
+- [候选采用与发布门禁](../../image-agent-candidate-release-gate.md)
+- [安全图片下载](../../image-download-safety.md)、[生成原图恢复](../../vip-original-output-recovery.md)
 
 权限、租户、预算、来源真实性和不可重复副作用规则均由这些当前 owner 合同与行为检查执行。具体能力开放、部署及真实模型效果由当前执行 Issue 和用户验证分别确认。

@@ -20,3 +20,10 @@
 - [官方技能直接处理已有商品](official-skill-product-entry.md)：复用准确版本选择、原商品与图片来源验证、人工确认及原冻结运行。
 
 目录移动不改变 #1276、#774 的产品决定，也不授权实例发布、真实模型调用或付费。
+
+## 图片方案与执行职责
+
+- [通用图片模板与技能入口](generic-image-template-entry.md)：准确 Skill 版本和企业模板选择的历史设计，真实调用预算及用户验收仍沿原门禁。
+- [Image Agent Workflow](image-agent-workflow.md)：Run/Plan/Slot、Temporal 编排、派发保护、UNKNOWN、显式人工批准及不可重复副作用的原有职责说明。
+
+上述路径归类不变更原 #774 产品决定、执行状态、权限或模型预算。
