@@ -83,6 +83,7 @@ func TestUnifiedOverviewUsesIndependentAvailabilityAndTrustedScope(t *testing.T)
 type resourceEventFixture struct {
 	query orgresource.EventQuery
 	calls int
+	items []orgresource.EventView
 }
 
 func (r *resourceEventFixture) ListEvents(_ context.Context, q orgresource.EventQuery) (orgresource.EventPage, error) {
@@ -91,12 +92,24 @@ func (r *resourceEventFixture) ListEvents(_ context.Context, q orgresource.Event
 	if q.Cursor == "invalid" {
 		return orgresource.EventPage{}, orgresource.ErrInvalidInput
 	}
-	return orgresource.EventPage{OrganizationID: q.OrganizationID, Items: []orgresource.EventView{}}, nil
+	return orgresource.EventPage{OrganizationID: q.OrganizationID, Items: r.items}, nil
 }
 func TestResourceEventsUseBoundedFiltersAndLiveOrganization(t *testing.T) {
-	reader := &resourceEventFixture{}
+	reader := &resourceEventFixture{items: []orgresource.EventView{
+		{EventID: "event-1", ResourceType: orgresource.ResourceAIPoint, SourceType: "model_invocation_v1", SourceIdentity: "call-1"},
+		{EventID: "event-2", ResourceType: orgresource.ResourceAIPoint, SourceType: "model_invocation_v1", SourceIdentity: "call-1"},
+		{EventID: "event-3", ResourceType: orgresource.ResourceAIPoint, SourceType: "local_ai_trial_v1", SourceIdentity: "call-1"},
+	}}
 	grants := &auditHTTPGrants{role: authz.EnterpriseRoleKey("B", 1)}
-	module := commercialResourcesModule{reader: &resourceBalanceFixture{}, events: reader}
+	purposeCalls := 0
+	module := commercialResourcesModule{reader: &resourceBalanceFixture{}, events: reader, objects: &commercialUsageLookup{
+		modelPurposes: func(_ *gin.Context, org string, ids []string) map[string]string {
+			purposeCalls++
+			require.Equal(t, "B", org)
+			require.Equal(t, []string{"call-1"}, ids)
+			return map[string]string{"call-1": "chat_planning"}
+		},
+	}}
 	server := buildCurrentApplicationHTTPServer(module.routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: currentRoleTestAuthorizer()})
 	get := func(suffix, org, body string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest("GET", commercialResourceEventsPath+suffix, strings.NewReader(body))
@@ -106,15 +119,20 @@ func TestResourceEventsUseBoundedFiltersAndLiveOrganization(t *testing.T) {
 		server.Handler.ServeHTTP(response, request)
 		return response
 	}
-	response := get("?deductions_only=true&resource_type=ai_point&limit=2&from=2026-09-01T00:00:00Z&until=2026-10-01T00:00:00Z", "B", "")
+	response := get("?deductions_only=true&include_purpose=true&resource_type=ai_point&limit=3&from=2026-09-01T00:00:00Z&until=2026-10-01T00:00:00Z", "B", "")
 	require.Equal(t, 200, response.Code)
 	require.Equal(t, "B", reader.query.OrganizationID)
-	require.Equal(t, 2, reader.query.Limit)
+	require.Equal(t, 3, reader.query.Limit)
 	require.Equal(t, orgresource.ResourceAIPoint, reader.query.ResourceType)
 	require.True(t, reader.query.DeductionsOnly)
-	require.Equal(t, 200, get("?deductions_only=false", "B", "").Code)
+	require.Equal(t, 2, strings.Count(response.Body.String(), `"purpose":"chat_planning"`))
+	require.Equal(t, 1, purposeCalls)
+	response = get("?deductions_only=false", "B", "")
+	require.Equal(t, 200, response.Code)
+	require.NotContains(t, response.Body.String(), `"purpose"`)
+	require.Equal(t, 1, purposeCalls)
 	require.False(t, reader.query.DeductionsOnly)
-	for _, query := range []string{"?organization_id=A", "?limit=51", "?limit=2&limit=3", "?resource_type=token", "?deductions_only=True", "?deductions_only=true&deductions_only=false", "?from=bad", "?from=2026-10-01T00:00:00Z&until=2026-09-01T00:00:00Z", "?"} {
+	for _, query := range []string{"?organization_id=A", "?limit=51", "?limit=2&limit=3", "?resource_type=token", "?deductions_only=True", "?include_purpose=all", "?include_purpose=false&include_purpose=true", "?deductions_only=true&deductions_only=false", "?from=bad", "?from=2026-10-01T00:00:00Z&until=2026-09-01T00:00:00Z", "?"} {
 		before := reader.calls
 		require.Equal(t, 400, get(query, "B", "").Code)
 		require.Equal(t, before, reader.calls)
@@ -124,8 +142,9 @@ func TestResourceEventsUseBoundedFiltersAndLiveOrganization(t *testing.T) {
 	require.Equal(t, 403, get("", "A", "").Code)
 	require.Equal(t, 400, get("", "B", "{}").Code)
 	grants.revoked = true
-	require.Equal(t, 403, get("", "B", "").Code)
+	require.Equal(t, 403, get("?include_purpose=true", "B", "").Code)
 	require.Equal(t, before, reader.calls)
+	require.Equal(t, 1, purposeCalls)
 }
 
 func TestUsageObjectRouteRejectsOpaqueTargetInput(t *testing.T) {

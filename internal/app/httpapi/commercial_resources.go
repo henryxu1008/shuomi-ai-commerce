@@ -87,13 +87,17 @@ func (m commercialResourcesModule) readEvents(c *gin.Context) {
 		writeWorkbenchProtocolError(c, 503, "DEPENDENCY_UNAVAILABLE", "Resource history is unavailable")
 		return
 	}
-	result, err := m.events.ListEvents(c.Request.Context(), query)
+	result, err := m.events.ListEvents(c.Request.Context(), query.EventQuery)
 	if errors.Is(err, orgresource.ErrInvalidInput) {
 		writeWorkbenchProtocolError(c, 400, "INVALID_REQUEST", "Resource cursor is invalid")
 		return
 	}
 	if err != nil || result.OrganizationID != query.OrganizationID {
 		writeWorkbenchProtocolError(c, 503, "DEPENDENCY_UNAVAILABLE", "Resource history is unavailable")
+		return
+	}
+	if query.includePurpose && m.objects != nil && m.objects.modelPurposes != nil {
+		c.JSON(http.StatusOK, m.objects.withModelPurposes(c, result))
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -111,8 +115,13 @@ func readCommercialEmptyBody(c *gin.Context) bool {
 	return true
 }
 
-func parseResourceEventQuery(raw string) (orgresource.EventQuery, error) {
-	query := orgresource.EventQuery{Limit: 50}
+type resourceEventRequest struct {
+	orgresource.EventQuery
+	includePurpose bool
+}
+
+func parseResourceEventQuery(raw string) (resourceEventRequest, error) {
+	query := resourceEventRequest{EventQuery: orgresource.EventQuery{Limit: 50}}
 	values, err := url.ParseQuery(raw)
 	if err != nil {
 		return query, orgresource.ErrInvalidInput
@@ -142,6 +151,11 @@ func parseResourceEventQuery(raw string) (orgresource.EventQuery, error) {
 				return query, orgresource.ErrInvalidInput
 			}
 			query.DeductionsOnly = value[0] == "true"
+		case "include_purpose":
+			if value[0] != "true" && value[0] != "false" {
+				return query, orgresource.ErrInvalidInput
+			}
+			query.includePurpose = value[0] == "true"
 		case "from", "until":
 			parsed, err := time.Parse(time.RFC3339Nano, value[0])
 			if err != nil {

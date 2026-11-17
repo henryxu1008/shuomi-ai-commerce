@@ -27,10 +27,11 @@ type commercialUsageObject struct {
 }
 
 type commercialUsageLookup struct {
-	readEvent func(context.Context, string, string) (orgresource.EventSource, bool, error)
-	store     func(context.Context, string, string) *commercialUsageObject
-	amazon    func(context.Context, string, string) (string, error)
-	model     func(*gin.Context, string, string) (*commercialUsageObject, string)
+	readEvent     func(context.Context, string, string) (orgresource.EventSource, bool, error)
+	store         func(context.Context, string, string) *commercialUsageObject
+	amazon        func(context.Context, string, string) (string, error)
+	model         func(*gin.Context, string, string) (*commercialUsageObject, string)
+	modelPurposes func(*gin.Context, string, []string) map[string]string
 }
 
 func (m commercialResourcesModule) readUsageObject(c *gin.Context) {
@@ -81,7 +82,7 @@ func (m commercialResourcesModule) readUsageObject(c *gin.Context) {
 				object = usageObject("amazon_product", name, "")
 			}
 		}
-	case event.ResourceType == orgresource.ResourceAIPoint && event.SourceType == "model_invocation_v1":
+	case isModelUsageEvent(event.ResourceType, event.SourceType):
 		if m.objects.model != nil {
 			object, purpose = m.objects.model(c, org, event.SourceIdentity)
 		}
@@ -122,27 +123,101 @@ func storeUsageObjectReader(stores *storecenter.MemberScopedStoreRepository) fun
 	}
 }
 
-func (a *aiWorkbenchApplication) usageModelDetails(c *gin.Context, org, invocationID string) (*commercialUsageObject, string) {
+func (a *aiWorkbenchApplication) bindUsageModel(c *gin.Context, org string) (context.Context, authidentity.AuthenticatedIdentity, bool) {
 	if a == nil || a.agent == nil || a.agent.config.Ledger == nil {
-		return nil, ""
+		return nil, authidentity.AuthenticatedIdentity{}, false
 	}
 	ctx, scope, err := a.bind(c, authz.PermissionWorkbenchTaskRead)
 	if err != nil || scope.OrganizationID != org {
-		return nil, ""
+		return nil, authidentity.AuthenticatedIdentity{}, false
 	}
 	identity, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	if !ok || identity.EffectiveMemberID == "" {
+	return ctx, identity, ok && identity.EffectiveMemberID != ""
+}
+
+func (a *aiWorkbenchApplication) usageModelDetails(c *gin.Context, org, invocationID string) (*commercialUsageObject, string) {
+	ctx, identity, ok := a.bindUsageModel(c, org)
+	if !ok {
 		return nil, ""
 	}
 	fact, err := a.agent.config.Ledger.ReadModelInvocation(ctx, org, invocationID)
-	if err != nil || fact.InvocationID != invocationID || fact.TenantID != org ||
-		fact.UserID != scope.ActorID || fact.MemberID != identity.EffectiveMemberID {
+	if err != nil || fact.InvocationID != invocationID || !usageInvocationOwnedBy(fact, identity) {
 		return nil, ""
 	}
 	if purpose := usageInvocationPurpose(fact); purpose != "" {
 		return nil, purpose
 	}
+	scope := aiworkbench.Scope{OrganizationID: org, ActorID: identity.UserID}
 	return a.usageTaskObject(ctx, scope, fact), ""
+}
+
+func usageInvocationOwnedBy(fact aicapability.InvocationRecord, identity authidentity.AuthenticatedIdentity) bool {
+	return fact.TenantID == identity.EffectiveOrganizationID && fact.UserID == identity.UserID && fact.MemberID == identity.EffectiveMemberID
+}
+
+type modelPurposeInvocationReader interface {
+	ReadModelPurposeInvocations(context.Context, string, string, string, []string) ([]aicapability.InvocationRecord, error)
+}
+
+func (a *aiWorkbenchApplication) usageModelPurposes(c *gin.Context, org string, ids []string) map[string]string {
+	ctx, identity, ok := a.bindUsageModel(c, org)
+	if !ok {
+		return nil
+	}
+	reader, ok := a.agent.config.Ledger.(modelPurposeInvocationReader)
+	if !ok {
+		return nil
+	}
+	facts, err := reader.ReadModelPurposeInvocations(ctx, org, identity.UserID, identity.EffectiveMemberID, ids)
+	if err != nil {
+		return nil
+	}
+	purposes := make(map[string]string, len(facts))
+	for _, fact := range facts {
+		if !usageInvocationOwnedBy(fact, identity) {
+			continue
+		}
+		if purpose := usageInvocationPurpose(fact); purpose != "" {
+			purposes[fact.InvocationID] = purpose
+		}
+	}
+	return purposes
+}
+
+func isModelUsageEvent(resource orgresource.ResourceType, source string) bool {
+	return resource == orgresource.ResourceAIPoint && source == "model_invocation_v1"
+}
+
+func (lookup commercialUsageLookup) withModelPurposes(c *gin.Context, page orgresource.EventPage) any {
+	ids := make([]string, 0, len(page.Items))
+	seen := make(map[string]bool, len(page.Items))
+	for _, event := range page.Items {
+		id := event.SourceIdentity
+		if isModelUsageEvent(event.ResourceType, event.SourceType) && agent.ValidID(id) && !seen[id] {
+			ids = append(ids, id)
+			seen[id] = true
+		}
+	}
+	if len(ids) == 0 {
+		return page
+	}
+	purposes := lookup.modelPurposes(c, page.OrganizationID, ids)
+	if len(purposes) == 0 {
+		return page
+	}
+	type eventWithPurpose struct {
+		orgresource.EventView
+		Purpose string `json:"purpose,omitempty"`
+	}
+	items := make([]eventWithPurpose, 0, len(page.Items))
+	for _, event := range page.Items {
+		view := eventWithPurpose{EventView: event}
+		if isModelUsageEvent(event.ResourceType, event.SourceType) && seen[event.SourceIdentity] {
+			view.Purpose = purposes[event.SourceIdentity]
+		}
+		items = append(items, view)
+	}
+	return gin.H{"organization_id": page.OrganizationID, "items": items, "next_cursor": page.NextCursor}
 }
 
 func usageInvocationPurpose(fact aicapability.InvocationRecord) string {

@@ -1516,6 +1516,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		if projectChat != nil {
 			usageObjects.model = projectChat.usageModelDetails
+			usageObjects.modelPurposes = projectChat.usageModelPurposes
 		}
 	}
 	bundle, err := buildRuntimeBundleFromModules(cfg, modules)
