@@ -51,7 +51,7 @@ func (s *Store) ListScopedTasks(ctx context.Context, owner aiworkbench.Scope, fi
 	query := s.scopedTasks(ctx, owner, filter)
 	first := ""
 	read := func(row taskScopeRow) (aiworkbench.BusinessTask, bool) {
-		item, err := task(row.TaskRow)
+		item, err := recordedTask(row.TaskRow)
 		if err != nil || (row.BusinessScope == nil) != item.WorkbenchContextRef.Absent() ||
 			row.BusinessScope != nil && !row.BusinessScope.Valid() {
 			return aiworkbench.BusinessTask{}, false

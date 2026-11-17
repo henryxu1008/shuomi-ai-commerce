@@ -141,7 +141,7 @@ func (s *Store) ListTasks(ctx context.Context, scope aiworkbench.Scope, after st
 	}
 	result := make([]aiworkbench.BusinessTask, 0, len(rows))
 	for _, row := range rows {
-		item, err := task(row)
+		item, err := recordedTask(row)
 		if err != nil {
 			return nil, "", err
 		}

@@ -137,6 +137,44 @@ func TestScheduledTaskHasOneDurableSourceAndAtomicClaim(t *testing.T) {
 	listed, _, err = store.ListScheduledPlans(ctx, scope, "", 20)
 	require.NoError(t, err)
 	require.Empty(t, listed)
+	t.Run("previous content version can still be viewed", func(t *testing.T) {
+		require.NoError(t, db.Model(&taskRow{}).Where("id = ?", task.ID).Update("agent_version", "v1.0.0").Error)
+		tasks, _, err := store.ListTasks(ctx, scope, "", 20)
+		require.NoError(t, err)
+		require.Len(t, tasks, 1)
+		require.Equal(t, task.Title, tasks[0].Title)
+		require.Equal(t, "v1.0.0", tasks[0].AgentVersion)
+		require.Equal(t, task.ExecutionRequest, tasks[0].ExecutionRequest)
+		viewed, err := store.ReadTask(ctx, scope, task.ID)
+		require.NoError(t, err)
+		require.Equal(t, tasks[0], viewed)
+		linked, err := store.ReadTaskByExecution(ctx, scope, task.ExecutionRequestKey)
+		require.NoError(t, err)
+		require.Equal(t, viewed, linked)
+		foreign := aiworkbench.Scope{OrganizationID: scope.OrganizationID, ActorID: "another-user"}
+		_, err = store.ReadTask(ctx, foreign, task.ID)
+		require.ErrorIs(t, err, aiworkbench.ErrNotFound)
+		_, err = store.ReadTaskByExecution(ctx, foreign, task.ExecutionRequestKey)
+		require.ErrorIs(t, err, aiworkbench.ErrNotFound)
+		_, err = store.GetTask(ctx, scope, task.ID)
+		require.ErrorIs(t, err, aiworkbench.ErrUnavailable, "the write path still requires the active version")
+		_, _, err = store.BeginTaskAction(ctx, scope, aiworkbench.TaskActionInput{
+			TaskID: task.ID, Key: uuid.NewString(), Action: aiworkbench.TaskActionStart,
+		})
+		require.ErrorIs(t, err, aiworkbench.ErrUnavailable)
+		_, err = store.TaskForExecution(ctx, scope, task.ExecutionRequestKey)
+		require.ErrorIs(t, err, aiworkbench.ErrUnavailable)
+
+		require.NoError(t, db.Model(&taskRow{}).Where("id = ?", task.ID).Update("agent_version", "v1.0.1").Error)
+		_, err = store.ReadTask(ctx, scope, task.ID)
+		require.ErrorIs(t, err, aiworkbench.ErrUnavailable)
+		require.NoError(t, db.Model(&taskRow{}).Where("id = ?", task.ID).Updates(map[string]any{
+			"agent_version": "v1.0.0", "execution_request_digest": strings.Repeat("0", 64),
+		}).Error)
+		_, err = store.ReadTaskByExecution(ctx, scope, task.ExecutionRequestKey)
+		require.ErrorIs(t, err, aiworkbench.ErrUnavailable)
+	})
+
 }
 
 func TestScheduledPreflightReceiptCannotBecomePaidAfterResume(t *testing.T) {

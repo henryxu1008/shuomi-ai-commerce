@@ -60,8 +60,9 @@ func (a *aiWorkbenchApplication) taskHistoryUnavailable(ctx context.Context, sco
 		if a.agent == nil {
 			return true
 		}
-		_, err := a.agent.readContentWorkbenchContext(ctx, agent.ExecutionIdentity{OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID},
-			request.WorkbenchContextRef, request.Key, request.Binding, false)
+		_, err := a.agent.authorizedContentWorkbenchInput(ctx, agent.ExecutionIdentity{
+			OrganizationID: i.TenantID, ActorID: i.UserID, MemberID: i.EffectiveMemberID,
+		}, request.WorkbenchContextRef)
 		return err != nil
 	}
 	return a.proposalHistoryUnavailable(ctx, scope, p, i)

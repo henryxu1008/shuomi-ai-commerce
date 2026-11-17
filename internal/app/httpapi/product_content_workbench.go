@@ -61,6 +61,15 @@ func (a *productAgentApplication) readContentWorkbenchContext(ctx context.Contex
 			return nil, agent.ErrUnavailable
 		}
 	}
+	return a.authorizedContentWorkbenchInput(ctx, identity, ref)
+}
+
+func (a *productAgentApplication) authorizedContentWorkbenchInput(ctx context.Context, identity agent.ExecutionIdentity, ref agent.WorkbenchContextRef) (any, error) {
+	if a == nil || a.workbenchScopes == nil {
+		return nil, agent.ErrUnavailable
+	}
+	w := a.workbenchScopes
+	owner := aiworkbench.Scope{OrganizationID: identity.OrganizationID, ActorID: identity.ActorID}
 	f, err := w.authorizedFrozenScope(ctx, owner, ref, false)
 	if err != nil || f.MemberID != identity.MemberID {
 		return nil, agent.ErrUnavailable

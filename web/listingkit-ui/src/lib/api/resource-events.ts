@@ -1,3 +1,4 @@
+import { isAcquisitionUUID } from "../contracts/product-acquisition";
 import {z} from "zod";
 import {aiPointUnit,displayPoints,signedDisplayPoints} from "../contracts/ai-points";
 import {
@@ -24,6 +25,7 @@ const text = z
   .min(1)
   .max(512)
   .refine((v) => !/[\u0000-\u001f\u007f-\u009f]/.test(v));
+const modelPurpose = z.enum(["chat_planning", "own_product_intake"]);
 const event = z
   .object({
     event_id: id,
@@ -42,9 +44,11 @@ const event = z
     reason: text,
     source_type: text,
     source_identity: text,
+    purpose: modelPurpose.optional(),
     occurred_at: timestamp,
   })
-  .strict().refine(value=>value.resource_type==="ai_point"?value.unit_version==="ai-micropoint-v1":[value.quantity,value.available_after,value.allocated_after,value.reserved_after,value.consumed_after].every(v=>nonnegative.safeParse(v).success)&&[value.available_delta,value.allocated_delta,value.reserved_delta,value.consumed_delta].every(v=>signed.safeParse(v).success)&&value.unit_version===undefined);
+  .strict().refine(value=>value.resource_type==="ai_point"?value.unit_version==="ai-micropoint-v1":[value.quantity,value.available_after,value.allocated_after,value.reserved_after,value.consumed_after].every(v=>nonnegative.safeParse(v).success)&&[value.available_delta,value.allocated_delta,value.reserved_delta,value.consumed_delta].every(v=>signed.safeParse(v).success)&&value.unit_version===undefined)
+  .refine((value) => !value.purpose || (value.resource_type === "ai_point" && value.source_type === "model_invocation_v1"));
 const page = z
   .object({
     organization_id: id,
@@ -57,6 +61,7 @@ const page = z
   );
 export type ResourceEventPage = z.infer<typeof page>;
 export type ResourceEventFilters = {
+  deductionsOnly?: boolean;
   resourceType?: z.infer<typeof resourceType>;
   from?: string;
   until?: string;
@@ -84,8 +89,9 @@ export function getResourceEvents(
     (filters.cursor && filters.cursor.length > 1024)
   )
     throw new CommercialBillingReadError(400, "INVALID_REQUEST");
-  const query = new URLSearchParams({ limit: "50" });
+  const query = new URLSearchParams({ limit: "50", include_purpose: "true" });
   if (filters.resourceType) query.set("resource_type", filters.resourceType);
+  if (filters.deductionsOnly) query.set("deductions_only", "true");
   if (filters.from) query.set("from", filters.from);
   if (filters.until) query.set("until", filters.until);
   if (filters.cursor) query.set("cursor", filters.cursor);
@@ -96,5 +102,43 @@ export function getResourceEvents(
     parseResourceEvents,
     signal,
     RESOURCE_EVENTS_MAX_BYTES,
+  );
+}
+
+const objectId = z.string().refine(isAcquisitionUUID);
+const objectName = text.refine((value) => value.trim() === value && [...value].length <= 240);
+const businessObject = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("store"), name: objectName, id: objectId }).strict(),
+  z.object({ kind: z.literal("amazon_product"), name: objectName }).strict(),
+  z.object({ kind: z.literal("task"), name: objectName, id: objectId }).strict(),
+]);
+const usageObjectResponse = z.object({
+  organization_id: id,
+  event_id: objectId,
+  object: businessObject.nullable(),
+  purpose: modelPurpose.optional(),
+}).strict().refine(({ object, purpose }) => object === null || purpose === undefined);
+
+export type ResourceBusinessObject = z.infer<typeof businessObject>;
+
+export function parseResourceBusinessObject(payload: unknown, eventId: string) {
+  const result = usageObjectResponse.safeParse(payload);
+  return result.success && result.data.event_id === eventId ? result.data : null;
+}
+
+export function readResourceBusinessObject(
+  userId: string,
+  organizationId: string,
+  eventId: string,
+  signal?: AbortSignal,
+) {
+  if (!isAcquisitionUUID(eventId)) throw new CommercialBillingReadError(400, "INVALID_REQUEST");
+  return readCommercialBilling(
+    `/api/workbench/commercial/resources/events/${eventId}/object`,
+    userId,
+    organizationId,
+    (payload) => parseResourceBusinessObject(payload, eventId),
+    signal,
+    4096,
   );
 }
