@@ -135,7 +135,7 @@ function PageFrame({
         : [{ label: "套餐与权益", href: "/workbench/plans" }, { label: title }];
   const descriptions: Record<Exclude<PageKind, "usage">, string> = {
     overview: "统一基础方案、店铺服务及企业预付资源。",
-    options: "基础方案无需订阅，按当前价格购买店铺期数、AI 点数和数据条数。",
+    options: "查看各项服务的收费方式和当前价格。",
     entitlements: "查看店铺服务期限和企业已购资源。",
     "top-up": "管理企业钱包、充值及按需购买。",
     orders: "查看企业账单汇总与订单记录；退款和发票暂不可用。",
@@ -226,17 +226,23 @@ function ScopedCommercial({
       organization={`${organizationName || "未提供名称"}（${organizationId}）`}
       actions={
         <>
-          {page === "overview" ? null : (
+          {page === "options" ? (
+            <>
+              <Button asChild variant="outline">
+                <Link prefetch={false} href="/workbench/plans/entitlements">
+                  查看我的权益
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link prefetch={false} href="/workbench/plans/top-up">
+                  充值中心
+                </Link>
+              </Button>
+            </>
+          ) : page === "overview" ? null : (
             <Button asChild variant="outline">
-              <Link
-                prefetch={false}
-                href={
-                  page === "options"
-                    ? "/workbench/plans/entitlements"
-                    : "/workbench/plans/options"
-                }
-              >
-                {page === "options" ? "查看我的权益" : "查看套餐方案"}
+              <Link prefetch={false} href="/workbench/plans/options">
+                查看套餐方案
               </Link>
             </Button>
           )}
@@ -264,6 +270,7 @@ function ScopedCommercial({
         organizationId={organizationId}
         organizationName={organizationName}
         permissions={permissions}
+        storageAvailable={storageAvailable}
         sequence={sequence}
       />
     </PageFrame>
@@ -277,6 +284,7 @@ function CommercialRequest({
   organizationId,
   organizationName,
   permissions,
+  storageAvailable,
   sequence,
 }: {
   page: PageKind;
@@ -285,6 +293,7 @@ function CommercialRequest({
   organizationId: string;
   organizationName: string;
   permissions: string[];
+  storageAvailable: boolean;
   sequence: number;
 }) {
   const response = useQuery({
@@ -312,6 +321,7 @@ function CommercialRequest({
         organizationId={organizationId}
         organizationName={organizationName}
         permissions={permissions}
+        planOptions={{ storageAvailable }}
         sequence={sequence}
       />
     );
@@ -592,12 +602,14 @@ function ResourceCatalog({
   organizationId,
   organizationName,
   permissions,
+  planOptions,
   sequence,
 }: {
   userId: string;
   organizationId: string;
   organizationName: string;
   permissions: string[];
+  planOptions?: { storageAvailable: boolean };
   sequence: number;
 }) {
   const result = useQuery({
@@ -630,6 +642,7 @@ function ResourceCatalog({
       organizationId={organizationId}
       organizationName={organizationName}
       permissions={permissions}
+      planOptions={planOptions}
       offers={result.data}
     />
   );

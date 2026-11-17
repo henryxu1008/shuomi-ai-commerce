@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { AccountDialog } from "../account/account-dialog";
 import {
   getCommercialOrder,
   getCommercialResources,
@@ -120,6 +121,7 @@ type Props = {
   organizationId: string;
   organizationName: string;
   permissions: string[];
+  planOptions?: { storageAvailable: boolean };
   offers: ResourceOffers;
 };
 export function ResourcePurchasePanel(props: Props) {
@@ -135,6 +137,7 @@ function ScopedPurchase({
   organizationId,
   organizationName,
   permissions,
+  planOptions,
   offers,
 }: Props) {
   const client = useQueryClient();
@@ -158,6 +161,7 @@ function ScopedPurchase({
   const [balances, setBalances] = useState<CommercialResources | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmation, setConfirmation] = useState<"确认购买" | "确认领取" | null>(null);
   const active = useRef<AbortController | null>(null);
   const locked = useRef(false);
   const mounted = useRef(true);
@@ -199,7 +203,7 @@ function ScopedPurchase({
   }
   async function run(
     action: (signal: AbortSignal) => Promise<void>,
-    onError?: (error: unknown) => void,
+    onError?: (error: unknown) => string | void,
   ) {
     if (locked.current) return;
     locked.current = true;
@@ -211,14 +215,13 @@ function ScopedPurchase({
       await action(controller.signal);
     } catch (error) {
       if (!controller.signal.aborted && mounted.current) {
-        onError?.(error);
         setMessage(
-          failures[errorCode(error)] ?? "本次请求未确认，请核对原订单。",
+          onError?.(error) ?? failures[errorCode(error)] ?? "本次请求未确认，请核对原订单。",
         );
       }
     } finally {
       locked.current = false;
-      if (mounted.current && !controller.signal.aborted) setBusy(false);
+      if (mounted.current) setBusy(false);
       if (active.current === controller) active.current = null;
     }
   }
@@ -228,7 +231,10 @@ function ScopedPurchase({
       | { quantity: string; amountMinor?: never }
       | { amountMinor: string; quantity?: never },
   ) {
-    if (!ready || pending.value || busy || !canPurchase) return;
+    if (!ready || pending.value || busy || locked.current || !canPurchase) return;
+    if (planOptions) {
+      setConfirmation(offer.settlement_mode === "ZERO_PRICE" ? "确认领取" : "确认购买");
+    }
     await run(async (signal) => {
       const result = await createResourceQuote(
         userId,
@@ -247,12 +253,28 @@ function ScopedPurchase({
         BigInt(result.resource_quantity) * BigInt(offer.unit_price_minor) !==
           BigInt(result.total_minor)
       ) {
-        setMessage("价格已变化，请刷新目录后重新获取报价。");
+        setMessage(planOptions ? "价格已变化。请取消，刷新页面价格后再试。" : "价格已变化，请刷新目录后重新获取报价。");
         return;
       }
       setSelected(offer);
       setQuote(result);
+    }, (error) => {
+      if (!planOptions) return;
+      const code = errorCode(error);
+      if (code === "OFFER_UNAVAILABLE" || code === "QUOTE_EXPIRED") {
+        return "当前价格已失效。请取消，刷新页面价格后再试。";
+      }
+      if (code === "DEPENDENCY_UNAVAILABLE" || code === "DEADLINE_EXCEEDED" || code === "INVALID_UPSTREAM_RESPONSE") {
+        return "暂时无法确认价格，请取消后重试。";
+      }
     });
+  }
+  function closeConfirmation() {
+    if (confirmation) active.current?.abort();
+    setConfirmation(null);
+    setQuote(null);
+    setSelected(null);
+    setMessage("");
   }
   async function handle(
     result: ResourceOrder,
@@ -323,7 +345,7 @@ function ScopedPurchase({
       );
   }
   async function submit() {
-    if (!ready || !quote || !selected || pending.value || !canPurchase || busy)
+    if (!ready || !quote || !selected || pending.value || !canPurchase || busy || locked.current)
       return;
     if (
       quote.settlement_mode!=="ZERO_PRICE" && (wallet.data?.organization_id !== organizationId ||
@@ -340,6 +362,7 @@ function ScopedPurchase({
     if (!persist(intent)) return;
     setQuote(null);
     setSelected(null);
+    setConfirmation(null);
     await run(
       async (signal) => {
         const result = await createResourceOrder(
@@ -386,99 +409,133 @@ function ScopedPurchase({
       },
     );
   }
+  const storageAvailable = planOptions?.storageAvailable;
+  const purchaseCards = (
+    <div className={styles.resourcePurchaseCards} data-storage={storageAvailable || undefined}>
+      {resourceDefinitions.map((def) => (
+        <ResourceCard
+          key={def.type}
+          definition={def}
+          emphasizePrice={!!planOptions}
+          offers={offers.items.filter((o) => o.resource_type === def.type)}
+          disabled={!ready || !!pending.value || (busy && !confirmation) || !canPurchase}
+          onQuote={choose}
+        />
+      ))}
+      {storageAvailable ? (
+        <Card className={`${styles.resourcePurchaseCard} ${styles.orange}`}>
+          <h3>企业存储</h3>
+          <p className={styles.offerPrice}>按扩容包计费</p>
+          <p>企业默认共享 5 GiB。扩容包生效后可使用 30 天，价格在「资源与额度」查看。</p>
+          <Button asChild variant="outline">
+            <Link href="/workbench/account/organization/resources" prefetch={false}>
+              查看企业存储
+            </Link>
+          </Button>
+        </Card>
+      ) : null}
+    </div>
+  );
+  const pendingError = pending.invalid ? (
+    <p role="alert">原订单恢复信息无效，请联系支持核对；已暂停新购买。</p>
+  ) : null;
+  const purchaseRestriction = !canPurchase ? <p>购买需由企业管理员操作。</p> : null;
+  const walletRequired = quote && quote.settlement_mode !== "ZERO_PRICE";
+  const walletBalance = wallet.data?.organization_id === organizationId
+    ? wallet.data?.available_minor
+    : undefined;
+  const insufficientFunds = walletRequired && walletBalance !== undefined &&
+    BigInt(walletBalance) < BigInt(quote.total_minor);
+  const quotedResource = resourceDefinitions.find(({ type }) => type === quote?.resource_type);
+  const quoteDetails = quote && selected && !pending.value ? (
+    <>
+      <dl className={styles.orderFacts}>
+        <div>
+          <dt>企业</dt>
+          <dd>{organizationName}（{organizationId}）</dd>
+        </div>
+        <div>
+          <dt>资源</dt>
+          <dd>{quotedResource?.name}</dd>
+        </div>
+        <div>
+          <dt>到账数量</dt>
+          <dd>{quote.resource_quantity} {quotedResource?.unit}</dd>
+        </div>
+        <div>
+          <dt>{quote.settlement_mode === "ZERO_PRICE" ? "合计（无需充值）" : planOptions ? "应付总价" : "实际扣款"}</dt>
+          <dd>{resourceMoney(quote.total_minor)}</dd>
+          {!planOptions ? <><dt>价格版本</dt><dd>{quote.pricing_version}</dd></> : null}
+        </div>
+        {quote.remainder_minor !== undefined ? (
+          <div>
+            <dt>未使用金额</dt>
+            <dd>{resourceMoney(quote.remainder_minor)} 留在企业钱包</dd>
+          </div>
+        ) : null}
+        <div>
+          <dt>报价有效期</dt>
+          <dd>{quote.expires_at.replace("T", " ").replace("Z", " UTC")}</dd>
+        </div>
+      </dl>
+      {wallet.isError && walletRequired ? (
+        <p role="alert">钱包余额暂不可确认，请刷新后重试。</p>
+      ) : null}
+      {confirmation && insufficientFunds ? <p role="alert">企业钱包余额不足，请先充值。</p> : null}
+      <div className={styles.actions}>
+        <Button
+          disabled={busy || Boolean(walletRequired && (walletBalance === undefined || insufficientFunds))}
+          onClick={() => void submit()}
+        >
+          {quote.settlement_mode === "ZERO_PRICE" ? `确认领取${quote.resource_quantity}条` : "确认购买"}
+        </Button>
+        <Button variant="outline" disabled={busy && !confirmation} onClick={closeConfirmation}>
+          取消
+        </Button>
+      </div>
+    </>
+  ) : null;
   return (
     <div className={styles.stack}>
-      <p className={styles.observation}>
-        当前企业：{organizationName}（{organizationId}） ·
-        正价资源使用企业钱包购买，零价资源按数量领取；资源余额不按月清零。
-      </p>
-      {pending.invalid ? (
-        <p role="alert">原订单恢复信息无效，请联系支持核对；已暂停新购买。</p>
-      ) : null}
-      <div className={styles.resourcePurchaseCards}>
-        {resourceDefinitions.map((def) => (
-          <ResourceCard
-            key={def.type}
-            definition={def}
-            offers={offers.items.filter((o) => o.resource_type === def.type)}
-            disabled={!ready || !!pending.value || busy || !canPurchase}
-            onQuote={choose}
-          />
-        ))}
-      </div>
-      {!canPurchase ? <p>购买需由企业管理员操作。</p> : null}
-      {quote && selected && !pending.value ? (
+      {planOptions ? (
+        <>
+          <Card className={styles.panel}>
+            <p className={styles.eyebrow}>当前收费方案</p>
+            <h2>基础方案 · 按需使用</h2>
+            <p className={styles.observation}>基础方案无需订阅。店铺服务按期购买，AI 点数和数据资源按需补充。</p>
+          </Card>
+          <section className={styles.charges} aria-labelledby="plan-charges">
+            <h2 id="plan-charges">收费构成</h2>
+            {purchaseRestriction}
+            {pendingError}
+            {purchaseCards}
+          </section>
+        </>
+      ) : (
+        <>
+          <p className={styles.observation}>
+            当前企业：{organizationName}（{organizationId}） ·
+            正价资源使用企业钱包购买，零价资源按数量领取；资源余额不按月清零。
+          </p>
+          {pendingError}
+          {purchaseCards}
+          {purchaseRestriction}
+        </>
+      )}
+      {confirmation ? (
+        <AccountDialog title={confirmation} onClose={closeConfirmation}>
+          <div className={styles.confirmation}>
+            {busy && !quote ? <p role="status">正在确认本次价格…</p> : null}
+            {message ? <p role="alert">{message}</p> : null}
+            {quoteDetails ?? (
+              <div className={styles.actions}><Button variant="outline" onClick={closeConfirmation}>取消</Button></div>
+            )}
+          </div>
+        </AccountDialog>
+      ) : quoteDetails ? (
         <Card role="region" aria-label="报价确认" className={styles.panel}>
           <h2>报价确认</h2>
-          <dl className={styles.orderFacts}>
-            <div>
-              <dt>企业</dt>
-              <dd>
-                {organizationName}（{organizationId}）
-              </dd>
-            </div>
-            <div>
-              <dt>资源</dt>
-              <dd>
-                {
-                  resourceDefinitions.find(
-                    (d) => d.type === quote.resource_type,
-                  )?.name
-                }
-              </dd>
-            </div>
-            <div>
-              <dt>到账数量</dt>
-              <dd>
-                {quote.resource_quantity}{" "}
-                {
-                  resourceDefinitions.find(
-                    (d) => d.type === quote.resource_type,
-                  )?.unit
-                }
-              </dd>
-            </div>
-            <div>
-              <dt>{quote.settlement_mode==="ZERO_PRICE"?"合计（无需充值）":"实际扣款"}</dt>
-              <dd>{resourceMoney(quote.total_minor)}</dd>
-              <dt>价格版本</dt><dd>{quote.pricing_version}</dd>
-            </div>
-            {quote.remainder_minor !== undefined ? (
-              <div>
-                <dt>未使用金额</dt>
-                <dd>{resourceMoney(quote.remainder_minor)} 留在企业钱包</dd>
-              </div>
-            ) : null}
-            <div>
-              <dt>报价有效期</dt>
-              <dd>{quote.expires_at.replace("T", " ").replace("Z", " UTC")}</dd>
-            </div>
-          </dl>
-          {wallet.isError && quote.settlement_mode!=="ZERO_PRICE" ? (
-            <p role="alert">钱包余额暂不可确认，请刷新后重试。</p>
-          ) : null}
-          <div className={styles.actions}>
-            <Button
-              disabled={
-                busy ||
-                (quote.settlement_mode!=="ZERO_PRICE" && (wallet.data?.organization_id !== organizationId ||
-                BigInt(wallet.data.available_minor) < BigInt(quote.total_minor)))
-              }
-              onClick={() => void submit()}
-            >
-              {quote.settlement_mode==="ZERO_PRICE"?`确认领取${quote.resource_quantity}条`:"确认购买"}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                setQuote(null);
-                setSelected(null);
-              }}
-            >
-              取消
-            </Button>
-          </div>
+          {quoteDetails}
         </Card>
       ) : null}
       {pending.value ? (
@@ -498,8 +555,8 @@ function ScopedPurchase({
           </Button>
         </Card>
       ) : null}
-      {busy ? <p role="status">正在确认购买结果…</p> : null}
-      {message ? <p role={balances ? "status" : "alert"}>{message}</p> : null}
+      {busy && !confirmation ? <p role="status">正在确认购买结果…</p> : null}
+      {message && !confirmation ? <p role={balances ? "status" : "alert"}>{message}</p> : null}
       {order ? (
         <Card role="region" aria-label="资源订单" className={styles.panel}>
           <h2>资源订单</h2>
@@ -523,16 +580,42 @@ function ScopedPurchase({
           </div>
         </Card>
       ) : null}
+      {planOptions ? (
+        <div className={styles.planDetails}>
+          <Card className={styles.panel}>
+            <h2>计费规则</h2>
+            <ul className={styles.planRules}>
+              <li>购买店铺期数后，请到已连接的店铺开通或续费。每家店铺单独计算有效期。</li>
+              <li>AI 点数和数据资源分别计量，未用完的余额不按月清零。</li>
+              <li>付费资源从企业钱包扣款；免费资源按实际可领取的数量确认。</li>
+              {storageAvailable ? <li>扩容包到期不自动续费，也不会删除已保存的文件。</li> : null}
+            </ul>
+          </Card>
+          <Card className={styles.panel}>
+            <h2>相关管理</h2>
+            <div className={styles.actions}>
+              <Button asChild variant="outline">
+                <Link href="/workbench/plans/usage" prefetch={false}>查看用量明细</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/workbench/plans/orders" prefetch={false}>账单与订单</Link>
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }
 function ResourceCard({
   definition,
+  emphasizePrice,
   offers,
   disabled,
   onQuote,
 }: {
   definition: (typeof resourceDefinitions)[number];
+  emphasizePrice: boolean;
   offers: ResourceOffer[];
   disabled: boolean;
   onQuote: (
@@ -544,36 +627,40 @@ function ResourceCard({
 }) {
   const [offerId, setOfferId] = useState("");
   const offer = offers.find((o) => o.offer_id === offerId) ?? offers[0];
-  const zero=offer?.settlement_mode==="ZERO_PRICE";
+  const zero = offer?.settlement_mode === "ZERO_PRICE";
   const [mode, setMode] = useState("quantity");
   const [value, setValue] = useState("1");
-  const selection =
-    mode === "amount" && !zero
-      ? amountMinor(value)
-      : positiveInt64(value)
-        ? value
-        : null;
-  const valid =
-    selection !== null &&
-    (mode === "amount" && !zero ||
-      (!!offer &&
-        BigInt(selection) >= BigInt(offer.min_quantity) &&
-        BigInt(selection) <= BigInt(offer.max_quantity)));
+  const byAmount = mode === "amount" && !zero;
+  const selection = byAmount ? amountMinor(value) : positiveInt64(value) ? value : null;
+  const unitPriceMinor = offer ? BigInt(offer.unit_price_minor) : BigInt(0);
+  const quantity = selection === null ? null
+    : !byAmount ? BigInt(selection)
+    : unitPriceMinor > BigInt(0) ? BigInt(selection) / unitPriceMinor : null;
+  const totalMinor = quantity === null ? null : (quantity * unitPriceMinor).toString();
+  const withinRange = !!offer && quantity !== null &&
+    quantity >= BigInt(offer.min_quantity) && quantity <= BigInt(offer.max_quantity);
+  const estimateAvailable = withinRange && totalMinor !== null &&
+    (totalMinor === "0" || positiveInt64(totalMinor));
+  const valid = emphasizePrice ? estimateAvailable : byAmount ? selection !== null : withinRange;
+  const price = offer ? (
+    <p className={styles.offerPrice}>
+      {resourceMoney(offer.unit_price_minor)} / {definition.unit}
+    </p>
+  ) : <p>价格未配置</p>;
+  const tone = definition.type === "store_renewal_period" ? styles.blue
+    : definition.type === "ai_point" ? styles.purple : styles.teal;
   return (
     <Card
       role="region"
       aria-label={`${definition.name}购买`}
-      className={`${styles.resourcePurchaseCard} ${definition.type === "store_renewal_period" ? styles.blue : definition.type === "ai_point" ? styles.purple : styles.teal}`}
+      className={`${styles.resourcePurchaseCard} ${tone}`}
     >
       <h3>{definition.name}</h3>
+      {emphasizePrice ? price : null}
       <p>{definition.detail}</p>
-      {!offer ? (
-        <p>价格未配置</p>
-      ) : (
+      {emphasizePrice ? null : price}
+      {offer ? (
         <>
-          <p>
-            {resourceMoney(offer.unit_price_minor)} / {definition.unit}
-          </p>
           {offers.length > 1 ? (
             <label>
               报价选项
@@ -607,10 +694,10 @@ function ResourceCard({
             </label>
           ) : null}
           <label>
-            {mode === "amount" && !zero ? "金额（元）" : "购买数量"}
+            {byAmount ? "金额（元）" : "购买数量"}
             <input
-              aria-label={mode === "amount" && !zero ? "金额（元）" : "购买数量"}
-              inputMode={mode === "amount" && !zero ? "decimal" : "numeric"}
+              aria-label={byAmount ? "金额（元）" : "购买数量"}
+              inputMode={byAmount ? "decimal" : "numeric"}
               maxLength={22}
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -620,21 +707,28 @@ function ResourceCard({
             数量范围：{offer.min_quantity}–{offer.max_quantity}{" "}
             {definition.unit}
           </p>
+          {emphasizePrice ? (
+            <p className={styles.estimate} aria-live="polite">
+              {estimateAvailable
+                ? `预计总价 ${resourceMoney(totalMinor)}${byAmount ? ` · 预计到账 ${quantity} ${definition.unit}` : ""}`
+                : byAmount ? "请输入能购买上述数量范围的金额。" : "请输入有效的购买数量。"}
+            </p>
+          ) : null}
         </>
-      )}
+      ) : null}
       <Button
         disabled={disabled || !offer || !valid}
         onClick={() => {
           if (offer && selection)
             void onQuote(
               offer,
-              mode === "amount" && !zero
+              byAmount
                 ? { amountMinor: selection }
                 : { quantity: selection },
             );
         }}
       >
-        获取报价
+        {emphasizePrice ? zero ? "领取" : "购买" : "获取报价"}
       </Button>
     </Card>
   );
