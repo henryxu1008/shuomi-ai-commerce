@@ -1,5 +1,7 @@
 # 市场研究与选品：最小领域合同
 
+> **当前适用性（2026-11-17）：** 本文是 2026-11-02 已冻结的 Amazon 研究项目与 2–5 件候选对比/人工决定的**有界领域合同**，不是“已具备从任意目标市场主动发现真实机会的完整智能体”的声明。相关 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 已合入 main，原文“尚未合并、尚未部署”的叙述只对应当时执行阶段，现实业务开放状态仍按 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 和准确实例证据核对。现行优先研究目标为 **SHEIN 美国市场**，Amazon/1688 分别可作为市场/供货来源；不据此宣称 SHEIN 数据覆盖、真实销售量、供货价或 AI/扣费已经验证。原“我的供应链 → 待适配”、独立中心/Figma 节点仅是当时消费者/导航依据，现行产品入口与四阶段商品刊登遵循 [最新业务流程决定](../product/final-ui-ia-authority.md)。本段不变更冻结事实 owner、权限、版本、事务、UNKNOWN 和计量合同。
+
 Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY**。
 依据 [#1071](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1071)，实施 [#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 与 [#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 的本合同最小切片，父目标 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)。用户于2026-11-02明确批准本版设计、服务端 Amazon 先贯通、浏览器桥后接，并授权隔离实施；不合并、不部署，真实平台和付费调用仍未授权。独立 R1 及对应增量复核无剩余 Architecture BLOCKER，产品确认已满足，允许按冻结合同实施。实际完成、CI、真实运行与用户验收分别记录于同一主要 PR #1075，本文不代签。
 
