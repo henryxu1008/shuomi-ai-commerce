@@ -39,7 +39,7 @@
 - 工作组织：[项目中心](user-guides/project-center.md)、[统一任务中心](../engineering/unified-task-center.md)。
 - 配置与授权：[企业智能体](organization-agent-configuration.md)、[执行权限模式](enterprise-agent-permission-modes.md)、[Skill](skill-capability.md)。
 - 定制交付：[智能体定制](agent-customization-handoff.md)。
-- 试用与成员资源：[Local 非现金 AI 试用](local-ai-trial.md)、[成员资源](member-resources.md)。
+- 试用与成员资源：[Local 非现金 AI 试用](local-ai-trial.md)、[成员资源](runbooks/member-resources.md)。
 
 <a id="stores"></a>
 
@@ -47,7 +47,7 @@
 
 - 店铺读取：[商品与订单观察接线](../engineering/store-observations-integration-handoff.md)。
 - 订单、采购与仓库履约：[首版运行与保存/恢复](order-fulfillment.md)、[独立合成试用](order-fulfillment-synthetic-trial.md)。合成环境、真实平台联调和生产分别取证；环境操作按当前授权执行。
-- 平台专项：[TEMU](temu-store-connection.md)、[TikTok Shop 美国站](tiktok-shop-us.md)、[Walmart 美国站](walmart-us.md)。各文档的候选、未开放和恢复限制继续适用。
+- 平台专项：[TEMU](user-guides/temu-store-connection.md)、[TikTok Shop 美国站](tiktok-shop-us.md)、[Walmart 美国站](walmart-us.md)。各文档的候选、未开放和恢复限制继续适用。
 - 平台服务：[工具市场](tool-market.md)、[数据服务](../engineering/data-services-runtime-handoff.md)、[生态服务](ecosystem-services.md)。
 - 阅读与诊断：[官方知识](../engineering/official-knowledge-handoff.md)、[个人报告](../engineering/report-center-runtime-handoff.md)、[经营诊断](../engineering/shop-operations-diagnosis-handoff.md)、[运营驾驶舱](../engineering/operations-cockpit-runtime-handoff.md)。
 - 通知：[通知中心](notification-center-trial.md)。
