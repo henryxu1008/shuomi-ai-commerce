@@ -186,7 +186,7 @@ Design Basis: Independent Architecture / IMPLEMENTATION_READY，仅批准上述�
 
 所有新视图的店铺、标识、日期和库存均标为设计示例。模式示例切换、成功回读示例仅用于原型审阅，正式产品只显示服务端实际模式/计划，不能用于切换授权。用户点击「查询平台结果」只读取；「确认首次上架」才是外部写操作，结果待核实期间不提供再次发送。平台已上架不代表全部 SKU 有货或保证结账。
 
-Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](../architecture/shein-publication-flow.md)。本轮只更新设计并完成独立评审；原型不证明实现、店铺 API 准入或用户验收，实施与真实店铺操作均未授权。
+Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](../architecture/domains/listing/shein-publication-flow.md)。本轮只更新设计并完成独立评审；原型不证明实现、店铺 API 准入或用户验收，实施与真实店铺操作均未授权。
 
 以下节点用于固定当前产品语义：
 

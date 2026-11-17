@@ -1,6 +1,6 @@
 # Walmart 美国站：多商家授权、商品草稿与受控刊登
 
-> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](../../walmart-feed-recovery.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性已完成局部 Independent Architecture 准入，IMPLEMENTATION_READY/FROZEN；原唯一 Reviewer 无设计 BLOCKER，两项 IMPLEMENTATION_TEST 留同批实现。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
+> #733 / #1028，2026-10-30 用户已确认局部恢复接续：[Feed 恢复补充合同](../listing/walmart-feed-recovery.md)。修复提交明确拒绝后的新显式命令、分页持久进度/可见性已完成局部 Independent Architecture 准入，IMPLEMENTATION_READY/FROZEN；原唯一 Reviewer 无设计 BLOCKER，两项 IMPLEMENTATION_TEST 留同批实现。跨次页面不授予完整结果/失败SKU修复权，缺证据保持未完成，不因此关闭本Issue。原owner、UNKNOWN、真实开放前置与以下历史冻结依据保留。
 
 Refs [#733](https://github.com/qq550723504/task-processor/issues/733)。
 
@@ -167,7 +167,7 @@ Feed PROCESSED 不推出每 SKU SUCCESS；ingestion SUCCESS 不推出 publicatio
 绑定该证据，同键回读原终态，不制造 accepted Feed receipt。只有原失败事实已持久化，
 后续显式新命令才可经原 target fence / SKU owner 准入；失败落库结果不明先读原 intent，
 不能推定已失败。其它 4xx/5xx、传输失败、截断或无有效回执仍不作为确定拒绝。
-带 RepairFrom 的修复提交按[冻结补充合同](../../walmart-feed-recovery.md)核原明确拒绝、准确载荷/SKU、
+带 RepairFrom 的修复提交按[冻结补充合同](../listing/walmart-feed-recovery.md)核原明确拒绝、准确载荷/SKU、
 原 accepted 祖先和最后 accepted 的完整证据，用户重新批准后才允许新的显式命令；
 保留 SKU 占用，不回填旧 UNKNOWN、不重发成功或未终结 SKU。
 耗时规则/图片/完整 draft 预检在 Acquire 前完成；claim 后只保留原授权、ReviewGate、
