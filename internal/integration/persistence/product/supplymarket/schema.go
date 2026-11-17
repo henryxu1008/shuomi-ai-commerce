@@ -2,12 +2,16 @@ package supplymarketpersistence
 
 import (
 	"context"
+	_ "embed"
 	"task-processor/internal/product/supplymarket"
 
 	"gorm.io/gorm"
 )
 
-var Tables = []string{"supply_market_records", "supply_market_events", "supply_market_releases", "supply_market_commands", "supply_market_private_uploads"}
+//go:embed categories.sql
+var categoriesDDL string
+
+var Tables = []string{"supply_market_categories", "supply_market_records", "supply_market_events", "supply_market_releases", "supply_market_commands", "supply_market_private_uploads"}
 
 // InstallSchema is for a new empty installation. Runtime never alters an
 // existing database or translates legacy supply records.
@@ -15,7 +19,7 @@ func InstallSchema(db *gorm.DB) error {
 	if db == nil || db.Dialector.Name() != "postgres" {
 		return supplymarket.ErrUnavailable
 	}
-	return db.Exec(`CREATE TABLE IF NOT EXISTS supply_market_records (
+	if err := db.Exec(`CREATE TABLE IF NOT EXISTS supply_market_records (
  id uuid PRIMARY KEY, organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
  kind varchar(32) NOT NULL CHECK(kind IN ('official','selected','connection')),
  stage varchar(32) NOT NULL CHECK(stage IN ('DRAFT','SUBMITTED','EVALUATING','SUPPLEMENT_REQUIRED','APPROVED','REJECTED','PLAN_CONFIRMED','CLOSED')),
@@ -37,16 +41,20 @@ func InstallSchema(db *gorm.DB) error {
  digest varchar(64) NOT NULL CHECK(length(digest)=64),size bigint NOT NULL CHECK(size>0 AND size<=20971520),created_at timestamptz NOT NULL);
  CREATE INDEX IF NOT EXISTS supply_record_owner ON supply_market_records(organization_id,actor_id,id);
  CREATE INDEX IF NOT EXISTS supply_event_record ON supply_market_events(record_id,id);
- CREATE INDEX IF NOT EXISTS supply_release_visible ON supply_market_releases(channel,id) WHERE active;`).Error
+ CREATE INDEX IF NOT EXISTS supply_release_visible ON supply_market_releases(channel,id) WHERE active;`).Error; err != nil {
+		return err
+	}
+	return db.Exec(categoriesDDL).Error
 }
 func VerifySchema(ctx context.Context, db *gorm.DB) error {
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
 		return supplymarket.ErrUnavailable
 	}
 	for _, query := range []string{
-		"SELECT id,organization_id,actor_id,member_id,kind,stage,revision,record_json,created_at FROM supply_market_records LIMIT 0",
+		"SELECT id,parent_id,name,enabled,revision FROM supply_market_categories LIMIT 0",
+		"SELECT id,organization_id,actor_id,member_id,kind,stage,revision,record_json,category_id,created_at FROM supply_market_records LIMIT 0",
 		"SELECT id,record_id,event_json,created_at FROM supply_market_events LIMIT 0",
-		"SELECT id,record_id,organization_id,actor_id,member_id,channel,revision,active,release_json,source_json,published_at FROM supply_market_releases LIMIT 0",
+		"SELECT id,record_id,organization_id,actor_id,member_id,channel,revision,active,release_json,source_json,category_id,published_at FROM supply_market_releases LIMIT 0",
 		"SELECT principal,actor_id,member_id,command_key,operation_id,input_hash,receipt_json,created_at FROM supply_market_commands LIMIT 0",
 		"SELECT id,organization_id,actor_id,member_id,object_key,content_type,digest,size,created_at FROM supply_market_private_uploads LIMIT 0",
 	} {
@@ -59,6 +67,8 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
  EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass('supply_market_commands') AND contype='p' AND convalidated AND NOT condeferrable)
  AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass('supply_market_releases') AND contype='f' AND confrelid=to_regclass('supply_market_records') AND convalidated AND NOT condeferrable)
  AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass('supply_market_events') AND contype='f' AND confrelid=to_regclass('supply_market_records') AND convalidated AND NOT condeferrable)
+ AND (SELECT count(DISTINCT conrelid) FROM pg_constraint WHERE conrelid IN (to_regclass('supply_market_records'),to_regclass('supply_market_releases'),to_regclass('supply_market_categories')) AND contype='f' AND confrelid=to_regclass('supply_market_categories') AND convalidated AND NOT condeferrable)=3
+ AND (SELECT count(*) FROM pg_index WHERE indrelid=to_regclass('supply_market_categories') AND indexrelid IN (to_regclass('supply_market_category_root_name'),to_regclass('supply_market_category_child_name')) AND indisunique AND indisvalid AND indpred IS NOT NULL)=2
  AND EXISTS(SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('supply_release_active_record') AND indisunique AND indisvalid AND indpred IS NOT NULL)`).Scan(&ready).Error != nil || !ready {
 		return supplymarket.ErrUnavailable
 	}

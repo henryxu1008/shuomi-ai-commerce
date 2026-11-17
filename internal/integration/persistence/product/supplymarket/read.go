@@ -16,9 +16,10 @@ type recordRow struct {
 	ID, OrganizationID, ActorID, MemberID, Kind, Stage string
 	Revision                                           int64
 	RecordJSON                                         []byte
+	CategoryID                                         string
 }
 
-const recordColumns = "id,organization_id,actor_id,member_id,kind,stage,revision,record_json"
+const recordColumns = "id,organization_id,actor_id,member_id,kind,stage,revision,record_json,category_id"
 
 var lockUpdate = clause.Locking{Strength: "UPDATE"}
 
@@ -27,6 +28,7 @@ func (row recordRow) record() (supplymarket.Record, error) {
 	if len(row.RecordJSON) > 2<<20 || json.Unmarshal(row.RecordJSON, &record) != nil || record.ID != row.ID || record.Revision != row.Revision || record.Kind != row.Kind || string(record.Stage) != row.Stage {
 		return record, supplymarket.ErrUnavailable
 	}
+	record.CategoryID = row.CategoryID
 	record.Owner = collection.Scope{OrganizationID: row.OrganizationID, ActorID: row.ActorID, MemberID: row.MemberID}
 	if record.Owner.Validate() != nil {
 		return supplymarket.Record{}, supplymarket.ErrUnavailable
@@ -102,7 +104,17 @@ func readRelease(db *gorm.DB, id string, lock bool) (supplymarket.Release, error
 	return row.release()
 }
 func (r *Repository) ReadRecord(ctx context.Context, scope collection.Scope, platform, id string) (supplymarket.Record, error) {
-	return readRecord(r.db.WithContext(ctx), scope, platform, id, false)
+	db := r.db.WithContext(ctx)
+	record, err := readRecord(db, scope, platform, id, false)
+	if err != nil || platform == "" || record.CategoryID == "" {
+		return record, err
+	}
+	assignment, err := readCategoryAssignment(db, record.CategoryID, false)
+	if err != nil {
+		return supplymarket.Record{}, err
+	}
+	record.Category = &assignment
+	return record, nil
 }
 func (r *Repository) ReadRelease(ctx context.Context, id string) (supplymarket.Release, error) {
 	return readRelease(r.db.WithContext(ctx), id, false)
@@ -262,6 +274,19 @@ func (r *Repository) ListReleases(ctx context.Context, q supplymarket.Query) (su
 		query = query.Where("release_json->'product'->>'title' ILIKE ?", keyword(q.Keyword))
 	}
 	f := q.Filters
+	if f.CategoryID != "" {
+		if q.Kind == "" {
+			return page, supplymarket.ErrInvalid
+		}
+		var eligible int64
+		if err := categoryVisibility(r.db.WithContext(ctx), q.Kind).Where("c.id = ?", f.CategoryID).Count(&eligible).Error; err != nil {
+			return page, err
+		}
+		if eligible != 1 {
+			return page, supplymarket.ErrCategoryChanged
+		}
+		query = query.Where("(category_id = ? OR category_id IN (SELECT id FROM supply_market_categories WHERE parent_id = ?))", f.CategoryID, f.CategoryID)
+	}
 	if f.Province != "" {
 		query = query.Where("release_json->'supply'->>'province'=?", f.Province)
 	}

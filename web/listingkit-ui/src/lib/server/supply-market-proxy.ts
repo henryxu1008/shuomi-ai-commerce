@@ -1,5 +1,5 @@
 import {createHash} from "node:crypto";
-import {marketEndpoint,marketCommandSchema,marketID} from "../contracts/supply-market";
+import {marketEndpoint,marketCommandSchema,marketID,platformMarketActions} from "../contracts/supply-market";
 import {readBoundedStrictJSON} from "../api/strict-json-response";
 import {hasTrustedSameOriginWrite} from "./same-origin-write";
 import {hasEmptyBody} from "./members-proxy";
@@ -36,7 +36,7 @@ export async function proxySupplyMarket(request:Request,token:string,userId:stri
    if(route.upload){const type=request.headers.get("Content-Type")??"";if(!["image/png","image/jpeg","application/pdf"].includes(type)||request.headers.has("If-Match"))return marketFailure(400,"INVALID_REQUEST");body=await boundedBytes(request.body,20*1024*1024,controller.signal);upstreamHeaders.set("Content-Type",type)}
    else{const raw=await readBoundedStrictJSON(new Response(request.body,{headers:{"Content-Type":request.headers.get("Content-Type")??""}}),65536,controller.signal),input=marketCommandSchema.safeParse(raw);
     if(!input.success)return marketFailure(400,"INVALID_REQUEST");const i=input.data;
-    if(route.admin&&!(["evaluate","request_supplement","approve","reject","confirm_plan","close","publish","revoke"].includes(i.action))||!route.admin&&(route.path==="select"?i.action!=="select_release":["select_release","evaluate","request_supplement","approve","reject","confirm_plan","close","publish","revoke"].includes(i.action)))return marketFailure(400,"INVALID_REQUEST");
+    if(route.admin&&!platformMarketActions.includes(i.action)||!route.admin&&(route.path==="select"?i.action!=="select_release":(i.action==="select_release"||platformMarketActions.includes(i.action))))return marketFailure(400,"INVALID_REQUEST");
     if("id" in i){if(request.headers.get("If-Match")!=='"'+i.expectedRevision+'"')return marketFailure(400,"INVALID_REQUEST");upstreamHeaders.set("If-Match",request.headers.get("If-Match")!)}else if(request.headers.has("If-Match"))return marketFailure(400,"INVALID_REQUEST");
     body=JSON.stringify(i);upstreamHeaders.set("Content-Type","application/json");
    }

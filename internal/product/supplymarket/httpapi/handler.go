@@ -38,6 +38,10 @@ type Service interface {
 	Choice(context.Context, string) (supplymarket.ProductChoice, error)
 	RecordReleases(context.Context, string, supplymarket.Query, bool) (supplymarket.Page[supplymarket.Release], error)
 }
+type categoryService interface {
+	ListCategories(context.Context, supplymarket.CategoryQuery, bool) (any, error)
+}
+
 type Files interface {
 	Upload(context.Context, string, string, []byte) (supplymarket.PrivateFile, error)
 	Download(context.Context, string, string, bool) (supplymarket.PrivateFile, []byte, error)
@@ -51,7 +55,7 @@ func Routes(service Service, files Files, bind func(context.Context, string) (co
 	specs := []routeSpec{{http.MethodGet, BasePath + "/releases", "market", false}, {http.MethodGet, BasePath + "/releases/:id", "product", false}, {http.MethodGet, BasePath + "/choices/:id", "choice", false}, {http.MethodGet, BasePath + "/application-overview", "overview", false}, {http.MethodPost, BasePath + "/select", "select", false}, {http.MethodPost, BasePath + "/uploads", "upload", false}}
 	for _, base := range []string{BasePath, AdminPath} {
 		platform := base == AdminPath
-		specs = append(specs, []routeSpec{{http.MethodGet, base + "/records", "records", platform}, {http.MethodGet, base + "/records/:id", "record", platform}, {http.MethodGet, base + "/records/:id/releases", "record-releases", platform}, {http.MethodGet, base + "/records/:id/events", "events", platform}, {http.MethodGet, base + "/records/:id/files/:file_id", "download", platform}, {http.MethodGet, base + "/by-key/:key", "operation", platform}, {http.MethodPost, base + "/commands", "command", platform}}...)
+		specs = append(specs, []routeSpec{{http.MethodGet, base + "/categories", "categories", platform}, {http.MethodGet, base + "/records", "records", platform}, {http.MethodGet, base + "/records/:id", "record", platform}, {http.MethodGet, base + "/records/:id/releases", "record-releases", platform}, {http.MethodGet, base + "/records/:id/events", "events", platform}, {http.MethodGet, base + "/records/:id/files/:file_id", "download", platform}, {http.MethodGet, base + "/by-key/:key", "operation", platform}, {http.MethodPost, base + "/commands", "command", platform}}...)
 	}
 	routes := make([]httproute.Descriptor, 0, len(specs))
 	for _, spec := range specs {
@@ -101,6 +105,18 @@ func Routes(service Service, files Files, bind func(context.Context, string) (co
 			}
 			var value any
 			switch spec.action {
+			case "categories":
+				q, e := readCategoryQuery(c.Request.URL.RawQuery, spec.platform)
+				if e != nil {
+					writeError(c, e)
+					return
+				}
+				categories, ok := service.(categoryService)
+				if !ok {
+					writeError(c, supplymarket.ErrUnavailable)
+					return
+				}
+				value, err = categories.ListCategories(ctx, q, spec.platform)
 			case "overview":
 				if c.Request.URL.RawQuery != "" {
 					writeError(c, supplymarket.ErrInvalid)
@@ -233,6 +249,11 @@ func readQuery(raw string, market bool) (supplymarket.Query, error) {
 				return q, supplymarket.ErrInvalid
 			}
 			q.Ended = value[0] == "true"
+		case "categoryId":
+			if !market || !collection.ValidID(value[0]) {
+				return q, supplymarket.ErrInvalid
+			}
+			q.Filters.CategoryID = value[0]
 		case "province", "city", "priceCurrency", "minPrice", "maxPrice", "maxMOQ", "maxLeadDays":
 			if !market {
 				return q, supplymarket.ErrInvalid
@@ -282,6 +303,35 @@ func readQuery(raw string, market bool) (supplymarket.Query, error) {
 	}
 	return q, nil
 }
+func readCategoryQuery(raw string, platform bool) (supplymarket.CategoryQuery, error) {
+	q := supplymarket.CategoryQuery{Limit: 20}
+	values, err := url.ParseQuery(raw)
+	if err != nil {
+		return q, supplymarket.ErrInvalid
+	}
+	for key, value := range values {
+		if len(value) != 1 || value[0] == "" {
+			return q, supplymarket.ErrInvalid
+		}
+		switch key {
+		case "after":
+			q.After = value[0]
+		case "parentId":
+			q.ParentID = value[0]
+		case "kind":
+			q.Kind = value[0]
+		case "limit":
+			q.Limit, err = strconv.Atoi(value[0])
+			if err != nil || strconv.Itoa(q.Limit) != value[0] {
+				return q, supplymarket.ErrInvalid
+			}
+		default:
+			return q, supplymarket.ErrInvalid
+		}
+	}
+	return q, q.Validate(platform)
+}
+
 func readMutation(request *http.Request) (string, supplymarket.Mutation, error) {
 	var i supplymarket.Mutation
 	keys := request.Header.Values("Idempotency-Key")
@@ -318,6 +368,10 @@ func writeError(c *gin.Context, err error) {
 		status, code = 403, "PERMISSION_DENIED"
 	case errors.Is(err, supplymarket.ErrNotFound), errors.Is(err, collection.ErrNotFound):
 		status, code = 404, "NOT_FOUND"
+	case errors.Is(err, supplymarket.ErrCategoryChanged):
+		status, code = 409, "CATEGORY_CHANGED"
+	case errors.Is(err, supplymarket.ErrCategoryNameTaken):
+		status, code = 409, "CATEGORY_NAME_TAKEN"
 	case errors.Is(err, supplymarket.ErrConflict), errors.Is(err, collection.ErrConflict):
 		status, code = 409, "REVISION_CONFLICT"
 	case errors.Is(err, supplymarket.ErrUnknown), errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
