@@ -5,7 +5,16 @@ import {readBoundedStrictJSON} from "./strict-json-response";
 export type MarketScope=CollectionScope;
 export class MarketAPIError extends Error{constructor(public readonly code:string,public readonly status:number,public readonly operationMayExist?:boolean){super(code)}}
 export type MarketIntent={key:string;command:c.MarketCommand;admin:boolean};
-export const marketIntentSchema=z.object({key:c.marketID,command:c.marketCommandSchema,admin:z.boolean()}).strict().refine(i=>i.admin?["evaluate","request_supplement","approve","reject","confirm_plan","close","publish","revoke"].includes(i.command.action):["create_official_draft","submit_selected","submit_connection","supplement","select_release"].includes(i.command.action));
+export const marketIntentSchema=z.object({key:c.marketID,command:c.marketCommandSchema,admin:z.boolean()}).strict().refine(i=>i.admin?c.platformMarketActions.includes(i.command.action):["create_official_draft","submit_selected","submit_connection","supplement","select_release"].includes(i.command.action));
+// Browser intents already awaiting a receipt can predate category selection.
+const priorPublication = z.object({
+ action:z.literal("publish"),id:c.marketID,expectedRevision:z.number().int().positive(),note:z.string().optional(),
+}).strict();
+const priorApproval = priorPublication.extend({action:z.literal("approve"),note:z.string(),cooperationConfirmed:z.literal(true)});
+const priorMarketIntentSchema=z.object({key:c.marketID,admin:z.literal(true),command:z.union([priorPublication,priorApproval])}).strict();
+export type PriorMarketIntent=z.infer<typeof priorMarketIntentSchema>;
+export const platformMarketPendingSchema=z.union([marketIntentSchema.refine(intent=>intent.admin),priorMarketIntentSchema]);
+
 function marketRequest<T>(scope:MarketScope,path:string,schema:z.ZodType<T>,signal?:AbortSignal,admin=false,write?:{key:string;command?:c.MarketCommand;file?:File}):Promise<T>{
  const headers=new Headers({Accept:"application/json","X-Expected-User-ID":scope.userId});if(!admin)headers.set("X-Expected-Organization-ID",scope.organizationId);
  let body:string|File|undefined;if(write){headers.set("Idempotency-Key",c.marketID.parse(write.key));if(write.file){headers.set("Content-Type",write.file.type);body=write.file}else{const command=c.marketCommandSchema.parse(write.command);headers.set("Content-Type","application/json");if("id"in command)headers.set("If-Match",'"'+command.expectedRevision+'"');body=JSON.stringify(command)}}
@@ -16,8 +25,17 @@ function marketRequest<T>(scope:MarketScope,path:string,schema:z.ZodType<T>,sign
  })();
 }
 export type MarketQuery={after?:string;keyword?:string;kind?:"official"|"selected"|"connection";ended?:boolean}&c.MarketFilters;
-const query=(q:MarketQuery)=>{const p=new URLSearchParams({limit:"20"});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.kind)p.set("kind",q.kind);if(q.ended!==undefined)p.set("ended",String(q.ended));for(const key of ["province","city","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"] as const){const value=q[key];if(value!==undefined)p.set(key,typeof value==="number"?c.marketFilterNumber(value):value)}return "?"+p};
+const query=(q:MarketQuery)=>{const p=new URLSearchParams({limit:"20"});if(q.after)p.set("after",q.after);if(q.keyword)p.set("keyword",q.keyword);if(q.kind)p.set("kind",q.kind);if(q.ended!==undefined)p.set("ended",String(q.ended));for(const key of ["categoryId","province","city","priceCurrency","minPrice","maxPrice","maxMOQ","maxLeadDays"] as const){const value=q[key];if(value!==undefined)p.set(key,typeof value==="number"?c.marketFilterNumber(value):value)}return "?"+p};
 export const listMarket=(s:MarketScope,q:MarketQuery,signal?:AbortSignal)=>marketRequest(s,"releases"+query(q),c.marketBrowsePageSchema,signal);
+function categoryQuery(parentId?:string,after?:string,kind?:"official"|"selected"){
+ const params=new URLSearchParams({limit:"50"});
+ if(parentId)params.set("parentId",parentId);
+ if(after)params.set("after",after);
+ if(kind)params.set("kind",kind);
+ return "categories?"+params;
+}
+export const listManagedCategories=(s:MarketScope,parentId?:string,after?:string,signal?:AbortSignal)=>marketRequest(s,categoryQuery(parentId,after),c.marketCategoryPageSchema,signal,true);
+export const listBrowseCategories=(s:MarketScope,kind:"official"|"selected",parentId?:string,after?:string,signal?:AbortSignal)=>marketRequest(s,categoryQuery(parentId,after,kind),c.marketCategoryOptionsSchema,signal);
 export const readMarket=(s:MarketScope,id:string,signal?:AbortSignal)=>marketRequest(s,"releases/"+c.marketID.parse(id),c.marketBrowseItemSchema,signal);
 export const listMarketRecords=(s:MarketScope,q:MarketQuery,admin=false,signal?:AbortSignal)=>marketRequest(s,"records"+query(q),c.marketRecordsSchema,signal,admin);
 export const readMarketRecord=(s:MarketScope,id:string,admin=false,signal?:AbortSignal)=>marketRequest(s,"records/"+c.marketID.parse(id),c.marketRecordSchema,signal,admin);
@@ -26,7 +44,7 @@ export const listRecordReleases=(s:MarketScope,id:string,after?:string,admin=fal
 export const readMarketChoice=(s:MarketScope,id:string,signal?:AbortSignal)=>marketRequest(s,"choices/"+c.marketID.parse(id),c.marketChoiceSchema,signal);
 export const readApplicationOverview=(s:MarketScope,signal?:AbortSignal)=>marketRequest(s,"application-overview",c.applicationOverviewSchema,signal);
 export const writeMarket=(s:MarketScope,i:MarketIntent,signal?:AbortSignal)=>marketRequest(s,i.command.action==="select_release"?"select":"commands",c.marketReceiptSchema,signal,i.admin,{key:i.key,command:i.command});
-export const resolveMarket=(s:MarketScope,i:MarketIntent,signal?:AbortSignal)=>marketRequest(s,"by-key/"+c.marketID.parse(i.key),c.marketReceiptSchema,signal,i.admin);
+export const resolveMarket=(s:MarketScope,i:Pick<MarketIntent,"key"|"admin">,signal?:AbortSignal)=>marketRequest(s,"by-key/"+c.marketID.parse(i.key),c.marketReceiptSchema,signal,i.admin);
 export const uploadQualification=(s:MarketScope,key:string,file:File,signal?:AbortSignal)=>marketRequest(s,"uploads",c.marketFileSchema,signal,false,{key,file});
 export async function downloadQualification(s:MarketScope,record:string,id:string,admin=false){
  const headers={"X-Expected-User-ID":s.userId,...(!admin?{"X-Expected-Organization-ID":s.organizationId}:{})};

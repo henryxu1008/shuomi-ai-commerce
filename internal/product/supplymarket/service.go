@@ -3,6 +3,7 @@ package supplymarket
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"task-processor/internal/authidentity"
 	"task-processor/internal/product/catalog"
@@ -38,6 +39,9 @@ type Mutation struct {
 	Disclosure           bool               `json:"disclosure,omitempty"`
 	Note                 string             `json:"note,omitempty"`
 	CooperationConfirmed bool               `json:"cooperationConfirmed,omitempty"`
+	Category             *CategorySelection `json:"category,omitempty"`
+	CategoryName         string             `json:"categoryName,omitempty"`
+	ParentCategoryID     string             `json:"parentCategoryId,omitempty"`
 }
 type SelectedProduct struct {
 	Source  SourceReference
@@ -125,6 +129,7 @@ type Command struct {
 type Guard func(context.Context) error
 type Repository interface {
 	CountApplications(context.Context, collection.Scope) (ApplicationCounts, error)
+	ListCategories(context.Context, CategoryQuery) (Page[Category], error)
 	Execute(context.Context, Command, Guard) (Receipt, error)
 	ReadOperation(context.Context, collection.Scope, string, string) (Receipt, error)
 	ListRecords(context.Context, collection.Scope, string, Query) (Page[Record], error)
@@ -260,6 +265,19 @@ func validateMutation(i Mutation, platform bool) error {
 		}
 		seen[id] = true
 	}
+	if strings.HasPrefix(i.Action, "category_") {
+		if !platform {
+			return ErrInvalid
+		}
+		return validateCategoryMutation(i)
+	}
+	if i.CategoryName != "" || i.ParentCategoryID != "" {
+		return ErrInvalid
+	}
+	categoryRequired := i.Action == "approve" || i.Action == "publish" || i.Action == "confirm_category"
+	if categoryRequired != (i.Category != nil) || categoryRequired && (!platform || !i.Category.Valid()) {
+		return ErrInvalid
+	}
 	if platform {
 		if !collection.ValidID(i.ID) || i.ExpectedRevision < 1 || i.Selection != nil || i.Supply != nil || i.Connection != nil || len(i.FileIDs) > 0 || i.Disclosure {
 			return ErrInvalid
@@ -269,7 +287,7 @@ func validateMutation(i Mutation, platform bool) error {
 			if !text(i.Note, 1, 2000) {
 				return ErrInvalid
 			}
-		case "publish", "revoke":
+		case "publish", "revoke", "confirm_category":
 			if i.CooperationConfirmed {
 				return ErrInvalid
 			}

@@ -6,29 +6,63 @@ import {ConsolePage,ConsoleState} from "@/components/workbench/console/console-p
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {Textarea} from "@/components/ui/textarea";
-import {downloadQualification,listMarketEvents,listRecordReleases,readMarketRecord,type MarketScope} from "@/lib/api/supply-market";
+import {MarketAPIError,downloadQualification,listMarketEvents,listRecordReleases,readMarketRecord,type MarketScope} from "@/lib/api/supply-market";
 import type {MarketCommand} from "@/lib/contracts/supply-market";
 import {MarketBoundary,MarketLinks,MarketReadError,CursorButtons,marketStages,marketError,useMarketCommands} from "./shared";
 import {OfficialProductPreview} from "./official-product-preview";
 import {Qualifications} from "./qualifications";
-const actionNames:Record<string,string>={submit_selected:"提交优选申请",create_official_draft:"建立发布草稿",submit_connection:"提交货盘对接",evaluate:"开始评估",request_supplement:"要求补充",supplement:"补充资料",approve:"审核通过",reject:"未通过",publish:"明确发布",revoke:"撤销发布",confirm_plan:"线下方案已确认",close:"结束对接"};
+import {CategoryFields,type CategoryValue} from "./category-fields";
+const actionNames:Record<string,string>={submit_selected:"提交优选申请",create_official_draft:"建立发布草稿",submit_connection:"提交货盘对接",evaluate:"开始评估",request_supplement:"要求补充",supplement:"补充资料",approve:"审核通过",reject:"未通过",publish:"明确发布",revoke:"撤销发布",confirm_plan:"线下方案已确认",close:"结束对接",confirm_category:"确认类目"};
 export function SupplyRecordPage({id,admin=false,expectedUserId}:{id:string;admin?:boolean;expectedUserId?:string}){return <MarketBoundary admin={admin} expectedUserId={expectedUserId}>{scope=><RecordDetail scope={scope} id={id} admin={admin}/>}</MarketBoundary>}
 function RecordDetail({scope,id,admin}:{scope:MarketScope;id:string;admin:boolean}){
  const [after,setAfter]=useState<string>(),[releaseAfter,setReleaseAfter]=useState<string>(),[note,setNote]=useState(""),[cooperation,setCooperation]=useState(false),[files,setFiles]=useState<string[]>([]),[uploadLocked,setUploadLocked]=useState(false),[downloadError,setDownloadError]=useState("");
+ const [category,setCategory]=useState<CategoryValue>({});
+ const [changingCategory,setChangingCategory]=useState(false);
  const q=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"record",admin,id],queryFn:({signal})=>readMarketRecord(scope,id,admin,signal),retry:false});
  const events=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"events",admin,id,after],queryFn:({signal})=>listMarketEvents(scope,id,after,admin,signal),retry:false});
  const releases=useQuery({queryKey:["supply-market",scope.userId,scope.organizationId,"record-releases",admin,id,releaseAfter],queryFn:({signal})=>listRecordReleases(scope,id,releaseAfter,admin,signal),retry:false,enabled:q.data?.kind!=="connection"&&!!q.data});
  const commands=useMarketCommands(scope,admin);if(q.isPending)return <ConsoleState kind="loading" title="正在读取申请"/>;if(q.error)return <MarketReadError error={q.error} retry={()=>void q.refetch()}/>;const record=q.data;
  const official=record.kind==="official",published=!!releases.data?.items.some(r=>r.active)&&releases.isSuccess&&!releases.error;
- const actions:MarketCommand["action"][]=admin?(record.stage==="SUBMITTED"?["evaluate"]:record.stage==="EVALUATING"?(record.kind==="selected"?["request_supplement","approve","reject"]:["confirm_plan","close"]):record.kind==="official"&&record.stage==="DRAFT"||record.kind==="selected"&&record.stage==="APPROVED"?["publish"]:[]):record.stage==="SUPPLEMENT_REQUIRED"?["supplement"]:[];
- const canPublish=(!official||!!record.product&&!!record.supply)&&releases.isSuccess&&!releases.data.items.some(r=>r.active)&&!releases.data.nextCursor&&!releaseAfter;
+ const noActiveRelease=releases.isSuccess&&!releases.data.items.some(r=>r.active)&&!releases.data.nextCursor&&!releaseAfter;
+ const approvedSelected=record.kind==="selected"&&record.stage==="APPROVED";
+ const confirmed=record.category;
+ const confirmedUsable=!!confirmed?.parent.enabled&&!!confirmed.child.enabled;
+ const reconfirm=approvedSelected&&noActiveRelease&&(!confirmedUsable||changingCategory);
+ const actions:MarketCommand["action"][]=admin?(record.stage==="SUBMITTED"?["evaluate"]:record.stage==="EVALUATING"?(record.kind==="selected"?["request_supplement","approve","reject"]:["confirm_plan","close"]):reconfirm?["confirm_category"]:approvedSelected&&confirmedUsable||official&&record.stage==="DRAFT"?["publish"]:[]):record.stage==="SUPPLEMENT_REQUIRED"?["supplement"]:[];
+ const canPublish=(!official||!!record.product&&!!record.supply)&&noActiveRelease;
+ const choosing=actions.includes("approve")||actions.includes("confirm_category")||official&&actions.includes("publish")&&canPublish;
+ const categoryForPublish=official?category.assignment:confirmedUsable?{id:confirmed.child.id,revision:confirmed.child.revision,parentRevision:confirmed.parent.revision}:undefined;
+ function execute(action:MarketCommand["action"]) {
+  const base={id:record.id,expectedRevision:record.revision};
+  let command:MarketCommand;
+  if(action==="approve"||action==="confirm_category"){
+   if(!category.assignment)return;
+   command=action==="approve"?{...base,action,note,cooperationConfirmed:true,category:category.assignment}:{...base,action,category:category.assignment};
+  }else if(action==="publish"){
+   if(!categoryForPublish)return;
+   command={...base,action,category:categoryForPublish};
+  }else if(action==="supplement"){
+   command={...base,action,note,fileIds:files};
+  }else{
+   command={...base,action,note} as MarketCommand;
+  }
+  void commands.execute(command).then(receipt=>{
+   if(receipt&&action==="confirm_category"){setChangingCategory(false);setCategory({});}
+  });
+ }
  async function file(id:string){try{await downloadQualification(scope,record.id,id,admin);setDownloadError("")}catch(e){setDownloadError(marketError(e))}}
  return <ConsolePage title={official?"自营商品发布预览":record.product?.title||record.connection?.name||"申请进展"} description={official?published?"已发布到硕米自营":"核对商品与供货信息，确认后公开到硕米自营。":marketStages[record.stage]} actions={official?<><Button variant="outline" asChild><Link href="/workbench/supply/official" prefetch={false}>返回硕米自营</Link></Button>{admin?<Button variant="outline" asChild><Link href="/workbench/supply/operator?kind=official" prefetch={false}>管理自营商品</Link></Button>:null}</>:undefined} breadcrumbs={official?[{label:"硕米自营",href:"/workbench/supply/official"},{label:"自营商品发布预览"}]:admin?undefined:[{label:"供应市场",href:"/workbench/supply"},{label:"优选申请",href:"/workbench/supply/applications"},{label:"申请详情"}]}>{admin&&!official?<MarketLinks/>:null}{commands.notice}
   {official&&record.product?<OfficialProductPreview product={record.product}/>:null}
+  {confirmed?<p>已确认类目：{confirmed.parent.name} / {confirmed.child.name}{confirmedUsable?"":"（已停用）"}</p>:null}
   <Card className="space-y-3 p-6"><h2>{official?"供货信息":"原申请资料"}</h2>{record.source?<p>原商品资料版本 {record.source.originalVersion}，{official?"发布资料版本":"申请版本"} {record.source.version}；{record.source.applyId?"已应用商品优化":"自有商品发布草稿"}。</p>:null}{record.supply?<><p>声明库存 {record.supply.stock} 件；产能 {record.supply.capacity||"未声明"}；起订 {record.supply.minimumQuantity} 件</p><p>发货地 {record.supply.province} {record.supply.city}，周期 {record.supply.leadDays} 天</p><p>{record.supply.priceNote}</p><p>{record.supply.afterSaleNote}</p></>:null}{record.connection?<><p>货盘名称：{record.connection.name}</p><a href={record.connection.website} target="_blank" rel="noreferrer">查看货盘网站</a><p>联系人：{record.connection.contact}，{record.connection.telephone}</p><p>品类：{record.connection.categories}</p></>:null}{record.fileIds?.map((id,i)=><Button key={id} variant="outline" onClick={()=>void file(id)}>下载资质附件 {i+1}</Button>)}{downloadError?<p role="alert">{downloadError}</p>:null}</Card>
-  {actions.length&&!(official&&published)?<Card className="space-y-3 p-6"><h2>{official?"3. 预览并确认发布":admin?"平台专员处理":"补充申请资料"}</h2>{actions.some(a=>a!=="publish")?<label className="block">处理说明<Textarea value={note} maxLength={2000} onChange={e=>setNote(e.target.value)}/></label>:null}{actions.includes("approve")?<label className="flex gap-2"><input type="checkbox" checked={cooperation} onChange={e=>setCooperation(e.target.checked)}/>已人工评估资质并线下确认合作</label>:null}{actions.includes("supplement")?<Qualifications scope={scope} ids={files} onIDs={setFiles} onLocked={setUploadLocked}/>:null}<div className="flex flex-wrap gap-3">{actions.map(action=><Button key={action} disabled={commands.locked||uploadLocked||action!=="publish"&&!note.trim()||action==="approve"&&!cooperation||action==="publish"&&!canPublish} onClick={()=>{const base={id:record.id,expectedRevision:record.revision};const command=action==="approve"?{...base,action,note,cooperationConfirmed:true as const}:action==="supplement"?{...base,action,note,fileIds:files}:action==="publish"?{...base,action}:({...base,action,note} as MarketCommand);void commands.execute(command)}}>{official&&action==="publish"?"确认发布":actionNames[action]}</Button>)}</div>{actions.includes("publish")?<p>{official?"请确认以上内容可以对其他获授权企业公开，并由建立草稿的同一账号发布。稍后可从“管理自营商品”继续；商品资料更新后需要建立新草稿。":"发布前再次核实原成员权限和商品确切版本；审核通过本身不会发布。"}</p>:null}</Card>:null}
+  {actions.length&&!(official&&published)?<Card className="space-y-3 p-6"><h2>{official?"3. 预览并确认发布":admin?"平台专员处理":"补充申请资料"}</h2>{actions.some(a=>a!=="publish"&&a!=="confirm_category")?<label className="block">处理说明<Textarea value={note} maxLength={2000} onChange={e=>setNote(e.target.value)}/></label>:null}{actions.includes("approve")?<label className="flex gap-2"><input type="checkbox" checked={cooperation} onChange={e=>setCooperation(e.target.checked)}/>已人工评估资质并线下确认合作</label>:null}{actions.includes("supplement")?<Qualifications scope={scope} ids={files} onIDs={setFiles} onLocked={setUploadLocked}/>:null}{choosing?<CategoryFields scope={scope} value={category} onChange={setCategory} disabled={commands.busy}/>:null}
+  {reconfirm&&!confirmedUsable?<p>请确认一个可用类目，再发布商品。</p>:null}
+  {commands.error instanceof MarketAPIError&&commands.error.code==="CATEGORY_CHANGED"&&category.childId?<Button variant="ghost" onClick={()=>setCategory({})}>重新选择类目</Button>:null}
+  <div className="flex flex-wrap gap-3">
+  {approvedSelected&&confirmedUsable&&noActiveRelease?<Button variant="outline" disabled={!!commands.locked} onClick={()=>{setChangingCategory(value=>!value);setCategory({})}}>{reconfirm?"取消更换":"更换类目"}</Button>:null}
+  {actions.map(action=><Button key={action} disabled={commands.locked||uploadLocked||action!=="publish"&&action!=="confirm_category"&&!note.trim()||action==="approve"&&(!cooperation||!category.assignment)||action==="confirm_category"&&!category.assignment||action==="publish"&&(!canPublish||!categoryForPublish)} onClick={()=>execute(action)}>{official&&action==="publish"?"确认发布":actionNames[action]}</Button>)}</div>{actions.includes("publish")?<p>{official?"请确认以上内容可以对其他获授权企业公开，并由建立草稿的同一账号发布。稍后可从“管理自营商品”继续；商品资料更新后需要建立新草稿。":"发布前再次核实原成员权限和商品确切版本；审核通过本身不会发布。"}</p>:null}</Card>:null}
   {record.kind!=="connection"?<Card className="space-y-3 p-6"><h2>{official?"发布状态":"明确发布记录"}</h2>{releases.isPending?<p>正在读取发布记录</p>:releases.error?<MarketReadError error={releases.error} retry={()=>void releases.refetch()}/>:releases.data.items.length===0?<p>尚未发布到市场</p>:releases.data.items.map(r=><div key={r.id} className="flex items-center justify-between gap-3"><p>{r.active?"已发布":"已撤销"} · {new Date(r.publishedAt).toLocaleString("zh-CN")}</p>{r.active?<><Link href={"/workbench/supply/products/"+r.id} prefetch={false}>查看市场商品</Link>{admin?<Button variant="outline" disabled={commands.locked} onClick={()=>void commands.execute({action:"revoke",id:r.id,expectedRevision:r.revision,note:note||"专员明确撤销发布"})}>撤销发布</Button>:null}</>:null}</div>)}{releases.data?<CursorButtons after={releaseAfter} next={releases.data.nextCursor} total={releases.data.total} onAfter={setReleaseAfter}/>:null}</Card>:null}
-  <Card className="space-y-3 p-6"><h2>{official?"操作记录":"申请进展"}</h2>{events.isPending?<p>正在读取进展</p>:events.error?<MarketReadError error={events.error} retry={()=>void events.refetch()}/>:events.data.items.map(e=><div key={e.id} className="border-l-2 pl-4"><h3>{actionNames[e.action]||e.action} · {marketStages[e.stage]}</h3><time>{new Date(e.createdAt).toLocaleString("zh-CN")}</time><p className="whitespace-pre-wrap">{e.note}</p>{e.fileIds?.map((f,i)=><Button key={f} variant="outline" onClick={()=>void file(f)}>下载本次附件 {i+1}</Button>)}</div>)}{events.data?<CursorButtons after={after} next={events.data.nextCursor} total={events.data.total} onAfter={setAfter}/>:null}</Card>
+  <Card className="space-y-3 p-6"><h2>{official?"操作记录":"申请进展"}</h2>{events.isPending?<p>正在读取进展</p>:events.error?<MarketReadError error={events.error} retry={()=>void events.refetch()}/>:events.data.items.map(e=><div key={e.id} className="border-l-2 pl-4"><h3>{actionNames[e.action]||e.action} · {marketStages[e.stage]}</h3><time>{new Date(e.createdAt).toLocaleString("zh-CN")}</time><p className="whitespace-pre-wrap">{e.note}</p>{e.category?<p>商品类目：{e.previousCategory?`${e.previousCategory.parent.name} / ${e.previousCategory.child.name} → `:""}{e.category.parent.name} / {e.category.child.name}</p>:null}{e.fileIds?.map((f,i)=><Button key={f} variant="outline" onClick={()=>void file(f)}>下载本次附件 {i+1}</Button>)}</div>)}{events.data?<CursorButtons after={after} next={events.data.nextCursor} total={events.data.total} onAfter={setAfter}/>:null}</Card>
   {!admin?<Link href={"/workbench/supply/operator/"+id} prefetch={false}>{official?"继续预览与发布（须由建立草稿的专员账号操作）":"平台专员处理入口（须具备全局平台权限）"}</Link>:null}
  </ConsolePage>;
 }

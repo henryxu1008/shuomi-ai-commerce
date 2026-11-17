@@ -13,14 +13,16 @@ const state=vi.hoisted(()=>({context:{user:{id:"actor"},effectiveOrganization:{i
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("next/navigation",()=>({useRouter:()=>({push:state.push})}));
 vi.mock("@/lib/api/product-collection",()=>({listOwnProducts:state.own}));
-vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:async()=>({items:[],total:0}),listMarketRecords:state.platform,readMarketChoice:state.choice,readMarketRecord:state.record,listRecordReleases:state.releases,listMarketEvents:async()=>({items:[],total:0})}));
+vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:async()=>({items:[],total:0}),listBrowseCategories:async()=>({items:[],total:0}),listManagedCategories:async(_scope:unknown,parentId?:string)=>parentId?{items:[childCategory],total:1}:{items:[rootCategory],total:1},listMarketRecords:state.platform,readMarketChoice:state.choice,readMarketRecord:state.record,listRecordReleases:state.releases,listMarketEvents:async()=>({items:[],total:0})}));
 vi.mock("./shared",async original=>({...await original<object>(),useMarketCommands:()=>({execute:state.execute,saved:state.saved,savedAction:state.saved?"create_official_draft":undefined,locked:false,notice:null})}));
 const id="11111111-1111-4111-8111-111111111111",recordId="22222222-2222-4222-8222-222222222222",releaseId="33333333-3333-4333-8333-333333333333";
 const product={title:"自营外套",description:"棉质外套",brand:"自营品牌",attributes:{材质:"棉"},images:["https://images.example.org/coat.png"],variants:[{sourceId:"red",sku:"RED",attributes:{颜色:"红"},currency:"CNY",price:0,stock:10}]};
+const rootCategory={id,enabled:true,revision:2,name:"服饰"};
+const childCategory={id:releaseId,parentId:id,enabled:true,revision:3,name:"外套"};
 const supply={stock:12,capacity:"",minimumQuantity:1,leadDays:2,province:"上海市",city:"上海市",priceNote:"",afterSaleNote:"支持售后"};
 const selection={itemId:id,expectedRevision:3,originalPublicationId:id,originalVersion:"1",effectiveVersion:"1"};
 function show(node:React.ReactNode){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});client.setQueryData(["region-catalog",state.context.user.id,"shipping","CN"],shippingRegions);return {client,...render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)}}
-beforeEach(()=>{vi.clearAllMocks();state.saved=null;state.context.permissions=["workbench.collection.read","workbench.collection.manage","workbench.supply-market.apply"];state.platform.mockResolvedValue({items:[],total:0});state.own.mockResolvedValue({items:[{id,title:product.title,source:{kind:"own"}}],total:1});state.choice.mockResolvedValue({selection,product,optimized:false,ineligibleReason:"not_optimized"});state.record.mockResolvedValue({id:recordId,kind:"official",product,supply,stage:"DRAFT",revision:4});state.releases.mockResolvedValue({items:[],total:0});});
+beforeEach(()=>{vi.clearAllMocks();state.execute.mockResolvedValue(undefined);state.saved=null;state.context.permissions=["workbench.collection.read","workbench.collection.manage","workbench.supply-market.apply"];state.platform.mockResolvedValue({items:[],total:0});state.own.mockResolvedValue({items:[{id,title:product.title,source:{kind:"own"}}],total:1});state.choice.mockResolvedValue({selection,product,optimized:false,ineligibleReason:"not_optimized"});state.record.mockResolvedValue({id:recordId,kind:"official",product,supply,stage:"DRAFT",revision:4});state.releases.mockResolvedValue({items:[],total:0});});
 afterEach(cleanup);
 it("exposes add and management from the official market for a verified specialist",async()=>{
  show(<SupplyMarketPage channel="official"/>);
@@ -64,8 +66,28 @@ it("previews the exact draft product and publishes only on explicit confirmation
  show(<SupplyRecordPage id={recordId} admin expectedUserId="actor"/>);
  expect(await screen.findByRole("heading",{name:"自营商品发布预览"})).toBeVisible();
  expect(screen.getByText("棉质外套")).toBeVisible();expect(screen.getByText("RED")).toBeVisible();expect(screen.getByText("CNY 0")).toBeVisible();
- expect(state.execute).not.toHaveBeenCalled();await userEvent.click(screen.getByRole("button",{name:"确认发布"}));
- expect(state.execute).toHaveBeenCalledExactlyOnceWith({action:"publish",id:recordId,expectedRevision:4});
+ const publish=screen.getByRole("button",{name:"确认发布"});
+ expect(publish).toBeDisabled();
+ expect(state.execute).not.toHaveBeenCalled();
+ const user=userEvent.setup();
+ const rootOption=await screen.findByRole("option",{name:"服饰"});
+ await user.selectOptions(screen.getByRole("combobox",{name:"一级类目"}),rootOption);
+ await user.selectOptions(screen.getByRole("combobox",{name:"二级类目"}),await screen.findByRole("option",{name:"外套"}));
+ await user.click(publish);
+ expect(state.execute).toHaveBeenCalledExactlyOnceWith({action:"publish",id:recordId,expectedRevision:4,category:{id:releaseId,revision:3,parentRevision:2}});
+});
+it("confirms the category at approval without publishing",async()=>{
+ state.record.mockResolvedValue({id:recordId,kind:"selected",product,supply,stage:"EVALUATING",revision:4});
+ show(<SupplyRecordPage id={recordId} admin expectedUserId="actor"/>);
+ const user=userEvent.setup(),rootOption=await screen.findByRole("option",{name:"服饰"});
+ await user.type(screen.getByRole("textbox",{name:"处理说明"}),"已确认供货与合作");
+ await user.click(screen.getByRole("checkbox",{name:/已人工评估/}));
+ expect(screen.getByRole("button",{name:"审核通过"})).toBeDisabled();
+ expect(screen.queryByRole("button",{name:"明确发布"})).not.toBeInTheDocument();
+ await user.selectOptions(screen.getByRole("combobox",{name:"一级类目"}),rootOption);
+ await user.selectOptions(screen.getByRole("combobox",{name:"二级类目"}),await screen.findByRole("option",{name:"外套"}));
+ await user.click(screen.getByRole("button",{name:"审核通过"}));
+ expect(state.execute).toHaveBeenCalledExactlyOnceWith({action:"approve",id:recordId,expectedRevision:4,note:"已确认供货与合作",cooperationConfirmed:true,category:{id:releaseId,revision:3,parentRevision:2}});
 });
 it("uses actual releases to show success even though the official record remains DRAFT",async()=>{
  state.releases.mockResolvedValue({items:[{id:releaseId,active:true,publishedAt:"2026-11-16T00:00:00Z"}],total:1});show(<SupplyRecordPage id={recordId} admin expectedUserId="actor"/>);

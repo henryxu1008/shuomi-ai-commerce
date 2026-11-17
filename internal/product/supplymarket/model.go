@@ -261,29 +261,33 @@ type SourceReference struct {
 	ApplyID               string           `json:"applyId,omitempty"`
 }
 type Record struct {
-	ID                   string             `json:"id"`
-	Kind                 string             `json:"kind"`
-	Owner                collection.Scope   `json:"-"`
-	Source               *SourceReference   `json:"source,omitempty"`
-	Product              *PublicProduct     `json:"product,omitempty"`
-	Supply               *SupplyDeclaration `json:"supply,omitempty"`
-	Connection           *ConnectionInput   `json:"connection,omitempty"`
-	FileIDs              []string           `json:"fileIds,omitempty"`
-	Disclosure           bool               `json:"disclosure"`
-	Stage                Stage              `json:"stage"`
-	Revision             int64              `json:"revision"`
-	CooperationConfirmed bool               `json:"cooperationConfirmed"`
-	CreatedAt            time.Time          `json:"createdAt"`
+	ID                   string              `json:"id"`
+	Kind                 string              `json:"kind"`
+	Owner                collection.Scope    `json:"-"`
+	Source               *SourceReference    `json:"source,omitempty"`
+	Product              *PublicProduct      `json:"product,omitempty"`
+	Supply               *SupplyDeclaration  `json:"supply,omitempty"`
+	Connection           *ConnectionInput    `json:"connection,omitempty"`
+	FileIDs              []string            `json:"fileIds,omitempty"`
+	Disclosure           bool                `json:"disclosure"`
+	Stage                Stage               `json:"stage"`
+	Revision             int64               `json:"revision"`
+	CooperationConfirmed bool                `json:"cooperationConfirmed"`
+	CreatedAt            time.Time           `json:"createdAt"`
+	CategoryID           string              `json:"-"`
+	Category             *CategoryAssignment `json:"category,omitempty"`
 }
 type Event struct {
-	ID        string    `json:"id"`
-	RecordID  string    `json:"recordId"`
-	ActorID   string    `json:"actorId"`
-	Action    string    `json:"action"`
-	Note      string    `json:"note"`
-	FileIDs   []string  `json:"fileIds,omitempty"`
-	Stage     Stage     `json:"stage"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID               string        `json:"id"`
+	RecordID         string        `json:"recordId"`
+	ActorID          string        `json:"actorId"`
+	Action           string        `json:"action"`
+	Note             string        `json:"note"`
+	FileIDs          []string      `json:"fileIds,omitempty"`
+	Stage            Stage         `json:"stage"`
+	CreatedAt        time.Time     `json:"createdAt"`
+	Category         *CategoryPath `json:"category,omitempty"`
+	PreviousCategory *CategoryPath `json:"previousCategory,omitempty"`
 }
 type Release struct {
 	ID            string            `json:"id"`
@@ -305,16 +309,16 @@ type Query struct {
 }
 
 type MarketFilters struct {
-	Province, City, PriceCurrency string
-	MinPrice, MaxPrice            *float64
-	MaxMOQ, MaxLeadDays           *int
+	Province, City, PriceCurrency, CategoryID string
+	MinPrice, MaxPrice                        *float64
+	MaxMOQ, MaxLeadDays                       *int
 }
 
 func (f MarketFilters) Empty() bool {
-	return f.Province == "" && f.City == "" && f.PriceCurrency == "" && f.MinPrice == nil && f.MaxPrice == nil && f.MaxMOQ == nil && f.MaxLeadDays == nil
+	return f.CategoryID == "" && f.Province == "" && f.City == "" && f.PriceCurrency == "" && f.MinPrice == nil && f.MaxPrice == nil && f.MaxMOQ == nil && f.MaxLeadDays == nil
 }
 func (f MarketFilters) Validate() error {
-	if !text(f.Province, 0, 100) || !text(f.City, 0, 100) || f.City != "" && !text(f.Province, 1, 100) || !text(f.PriceCurrency, 0, 16) {
+	if f.CategoryID != "" && !collection.ValidID(f.CategoryID) || !text(f.Province, 0, 100) || !text(f.City, 0, 100) || f.City != "" && !text(f.Province, 1, 100) || !text(f.PriceCurrency, 0, 16) {
 		return ErrInvalid
 	}
 	priced := f.MinPrice != nil || f.MaxPrice != nil
@@ -351,4 +355,5 @@ type Receipt struct {
 	Collection  *collection.Receipt `json:"collection,omitempty"`
 	Revision    int64               `json:"revision"`
 	Replayed    bool                `json:"replayed"`
+	Category    *CategoryChange     `json:"category,omitempty"`
 }
