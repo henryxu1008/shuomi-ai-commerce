@@ -14,15 +14,19 @@ it("distinguishes enterprise usable resources from administrator unallocated res
  const value=commercialResourcesFixture("org-A");read.mockResolvedValueOnce({...value,resources:value.resources.map(v=>v.resource_type==="store_renewal_period"?{...v,allocated:"2"}:v)});
  render(tree());const periods=await screen.findByRole("region",{name:"店铺续费期数余额"});
  expect(await within(periods).findByText("3 期")).toBeVisible();
- expect(within(periods).getByText("未分配（管理员可用）1 期 · 成员可用 2 期")).toBeVisible();
+ expect(screen.getAllByText("3 期")).toHaveLength(1);
+ expect(within(periods).getByText("未分配（管理员可用）").nextElementSibling).toHaveTextContent("1 期");
+ expect(within(periods).getByText("成员可用").nextElementSibling).toHaveTextContent("2 期");
 });
 it("displays exact balances, missing records and renewal periods with owner units", async () => {
   render(tree());
   const points = await screen.findByRole("region", { name: "AI 点数余额" });
-  expect(await within(points).findByText("9007199254.740993 点")).toBeVisible();
-  expect(within(points).getByText("预留 0.000012 点 · 已消费 0.000003 点")).toBeVisible();
+  expect(await within(points).findByText("9,007,199,254.740993 点")).toBeVisible();
+  expect(screen.getAllByText("9,007,199,254.740993 点")).toHaveLength(1);
+  expect(within(points).getByText("预留").nextElementSibling).toHaveTextContent("0.000012 点");
+  expect(within(points).getByText("已用").nextElementSibling).toHaveTextContent("0.000003 点");
   expect(within(screen.getByRole("region", { name: "数据额度余额" })).getByText("尚无资源记录")).toBeVisible();
-  expect(within(screen.getByRole("region", { name: "店铺续费期数余额" })).getByText("1 期")).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "店铺续费期数余额" })).getByText("企业合计可用").previousElementSibling).toHaveTextContent("1 期");
   expect(screen.queryByText(/1 家|充值暂未开放|未接入/)).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "查看钱包与充值状态" })).toHaveAttribute("href", "/workbench/plans/top-up");
   expect(read).toHaveBeenCalledWith("actor", "org-A", expect.any(AbortSignal));
@@ -31,9 +35,9 @@ it("shows recorded zero and debt, and does not turn denied reads into zero", asy
   const value = commercialResourcesFixture("org-A");
   read.mockResolvedValueOnce({ ...value, resources: value.resources.map(v => v.resource_type === "ai_point" ? { ...v, available: "0", debt: "7" } : v) });
   const view = render(tree());
-  const points = screen.getByRole("region", { name: "AI 点数余额" });
+  const points = await screen.findByRole("region", { name: "AI 点数余额" });
   expect(await within(points).findByText("0 点")).toBeVisible();
-  expect(within(points).getByText("待偿还 7 点")).toBeVisible();
+  expect(within(points).getByText("待偿还").nextElementSibling).toHaveTextContent("7 点");
   read.mockRejectedValueOnce({ code: "PERMISSION_DENIED" }); view.rerender(tree("org-A", "actor", "viewer"));
   expect(await screen.findByRole("alert")).toHaveTextContent("无资源查看权限");
   expect(screen.queryByText("0 点")).not.toBeInTheDocument();
@@ -43,8 +47,8 @@ it("never displays a late A response after changing org or identity", async () =
   read.mockReturnValueOnce(new Promise(r => { resolve = r; }));
   const view = render(tree());
   view.rerender(tree("org-B", "other"));
-  await screen.findAllByText("9007199254.740993 点");
+  await screen.findByText("9,007,199,254.740993 点");
   await act(async () => resolve({ ...commercialResourcesFixture("org-A"), resources: commercialResourcesFixture("org-A").resources.map(v => v.resource_type === "ai_point" ? { ...v, available: "998877" } : v) }));
-  expect(screen.queryByText("998877 点")).not.toBeInTheDocument();
+  expect(screen.queryByText("998,877 点")).not.toBeInTheDocument();
   expect(read).toHaveBeenLastCalledWith("other", "org-B", expect.any(AbortSignal));
 });

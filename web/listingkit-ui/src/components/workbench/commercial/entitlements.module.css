@@ -1,0 +1,154 @@
+.balances,
+.overview {
+  display: grid;
+  gap: 24px;
+}
+
+.balances {
+  margin-bottom: 24px;
+}
+
+.ledger,
+.overviewPanel {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  padding: 24px;
+  background: var(--card);
+  border-radius: var(--radius);
+}
+
+.ledgerHeader,
+.overviewActions,
+.ledgerActions {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.ledgerHeader h2,
+.overviewPanel h2 {
+  margin: 0;
+  font-size: var(--section-title-size);
+  font-weight: 600;
+}
+
+.metadata,
+.resourceNote {
+  color: var(--muted-foreground);
+  font-size: var(--label-text-size);
+  line-height: 1.6;
+}
+
+.resourceList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-block: 1px solid var(--border);
+}
+
+.resourceList > li + li {
+  border-top: 1px solid var(--border);
+}
+
+.resourceRow {
+  min-width: 0;
+  padding: 16px 0;
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) minmax(0, 2fr);
+  gap: 8px 24px;
+  align-items: baseline;
+}
+
+.resourceName {
+  font-size: var(--body-text-size);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.resourceBalance {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--dialog-title-size);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.resourceNote {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.resourceFacts,
+.storeFacts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+}
+
+.resourceFacts dt,
+.storeFacts dt {
+  color: var(--muted-foreground);
+  font-size: var(--label-text-size);
+}
+
+.resourceFacts dd,
+.storeFacts dd {
+  margin-top: 4px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.storeFacts {
+  max-width: 42rem;
+}
+
+.storeFacts dd {
+  font-size: var(--card-title-size);
+}
+
+.ledgerActions {
+  justify-content: flex-start;
+  font-size: var(--label-text-size);
+}
+
+.ledgerActions a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@media (min-width: 761px) {
+  .resourceFacts[data-with-member-balances="false"] > div:first-child {
+    grid-column: 3;
+  }
+}
+
+.overviewPanel p:not(.metadata) {
+  max-width: 70ch;
+  font-size: var(--body-text-size);
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .ledger,
+  .overviewPanel {
+    padding: 16px;
+  }
+
+  .resourceRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resourceFacts,
+  .storeFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
