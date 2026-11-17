@@ -53,27 +53,112 @@ function parsePatchDestination(line) {
 function addedMarkdownLinks(patch) {
   const links = [];
   let filename = null;
+  let newLine = 1;
   for (const line of patch.split(/\r?\n/)) {
-    if (line.startsWith("diff --git ")) filename = null;
+    if (line.startsWith("diff --git ")) {
+      filename = null;
+      newLine = 1;
+      continue;
+    }
     if (line.startsWith("+++ ")) {
       filename = parsePatchDestination(line);
       continue;
     }
-    if (!filename || !isDocumentationMarkdown(filename) ||
-        !line.startsWith("+") || line.startsWith("+++ ")) continue;
-    const addedLine = line.slice(1);
-    // Validate added inline links only, not historic content or remote URLs.
-    for (const match of addedLine.matchAll(/!?\[[^\]]+\]\((<[^>]+>|[^\s)]+)(?:\s+["'][^"']+["'])?\)/g)) {
-      links.push({ filename, href: match[1].replace(/^<|>$/g, "") });
+    if (line.startsWith("@@ ")) {
+      const match = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (!match) throw new Error("unsupported Git diff hunk header: " + line);
+      newLine = Number(match[1]);
+      continue;
+    }
+    if (line.startsWith("+") && !line.startsWith("+++ ")) {
+      if (filename && isDocumentationMarkdown(filename)) {
+        const addedLine = line.slice(1);
+        for (const match of addedLine.matchAll(/!?\[[^\]]+\]\((<[^>]+>|[^\s)]+)(?:\s+["'][^"']+["'])?\)/g)) {
+          const link = { filename, href: match[1].replace(/^<|>$/g, "") };
+          // Preserve the existing public shape; metadata is only used by checkAddedLinks.
+          Object.defineProperties(link, {
+            lineNumber: { value: newLine },
+            column: { value: match.index },
+          });
+          links.push(link);
+        }
+      }
+      newLine++;
+    } else if (line.startsWith(" ")) {
+      newLine++;
     }
   }
   return links;
 }
 
-function checkAddedLinks(patch, { repositoryRoot = process.cwd(), exists = fs.existsSync } = {}) {
+// Read the complete current document so links added *inside an existing* code
+// fence are also ignored, even when the opening fence was not part of the diff.
+function maskMarkdownCode(content) {
+  const masked = [];
+  let fence = null;
+  let inlineTicks = 0;
+  for (const line of content.split(/\r?\n/)) {
+    const delimiter = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (delimiter && !inlineTicks) {
+      const run = delimiter[1];
+      if (!fence) {
+        fence = { char: run[0], length: run.length };
+        masked.push(" ".repeat(line.length));
+        continue;
+      }
+      if (run[0] === fence.char && run.length >= fence.length &&
+          delimiter[2].trim() === "") {
+        fence = null;
+        masked.push(" ".repeat(line.length));
+        continue;
+      }
+    }
+    if (fence) {
+      masked.push(" ".repeat(line.length));
+      continue;
+    }
+
+    let visible = "";
+    for (let i = 0; i < line.length;) {
+      if (line[i] === "\`" && (i === 0 || line[i - 1] !== "\\")) {
+        let run = 1;
+        while (line[i + run] === "\`") run++;
+        if (inlineTicks === 0) inlineTicks = run;
+        else if (inlineTicks === run) inlineTicks = 0;
+        visible += " ".repeat(run);
+        i += run;
+      } else {
+        visible += inlineTicks ? " " : line[i];
+        i++;
+      }
+    }
+    masked.push(visible);
+  }
+  return masked;
+}
+
+function checkAddedLinks(patch, {
+  repositoryRoot = process.cwd(),
+  exists = fs.existsSync,
+  readFile = fs.readFileSync,
+} = {}) {
   const errors = [];
   const root = path.resolve(repositoryRoot);
-  for (const { filename, href } of addedMarkdownLinks(patch)) {
+  const codeMasks = new Map();
+
+  for (const link of addedMarkdownLinks(patch)) {
+    const { filename, href } = link;
+    if (!codeMasks.has(filename)) {
+      const source = readFile(path.resolve(root, filename), "utf8");
+      codeMasks.set(filename, maskMarkdownCode(source));
+    }
+    const visibleLine = codeMasks.get(filename)[link.lineNumber - 1];
+    if (visibleLine === undefined) {
+      throw new Error(filename + ": diff line is outside the current document");
+    }
+    // A regex match inside a fenced block or inline code is a literal example.
+    if (visibleLine[link.column] !== "[" && visibleLine[link.column] !== "!") continue;
+
     if (href.startsWith("#") || href.startsWith("/") ||
         /^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
     const reference = href.split(/[?#]/, 1)[0];
