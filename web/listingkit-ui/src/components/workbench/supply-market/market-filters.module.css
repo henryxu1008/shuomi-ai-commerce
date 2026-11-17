@@ -23,16 +23,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
 }
 
 .fields > fieldset {
-  flex: 0 1 244px;
+  flex: 0 1 264px;
 }
 
 .locations {
   display: grid;
-  flex: 0 1 244px;
+  flex: 0 1 264px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   min-width: 0;
@@ -40,15 +40,15 @@
 
 .tradeTerms {
   display: grid;
-  flex: 0 1 366px;
-  grid-template-columns: minmax(0, 1fr) 112px;
+  flex: 0 1 466px;
+  grid-template-columns: minmax(0, 1fr) 144px;
   align-items: end;
   gap: 12px;
   min-width: 0;
 }
 
 .leadTime {
-  flex: 0 1 144px;
+  flex: 0 1 152px;
 }
 
 .fields label,
@@ -60,15 +60,17 @@
   line-height: 20px;
 }
 
+.fields > fieldset > legend,
 .price legend {
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  line-height: 20px;
 }
 
 .priceInputs {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: 90px minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .priceInputs > input,
@@ -83,12 +85,20 @@
   line-height: 20px;
 }
 
-@container (max-width: 304px) {
+@container (min-width: 1100px) {
+  .fields {
+    display: grid;
+    grid-template-columns: minmax(232px, 1fr) minmax(228px, 1fr) minmax(450px, 1.8fr) minmax(144px, .65fr);
+    max-width: 1340px;
+  }
+}
+
+@container (max-width: 420px) {
   .tradeTerms {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .tradeTerms > label {
-    max-width: 112px;
+    max-width: 144px;
   }
 }
