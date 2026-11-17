@@ -28,6 +28,11 @@
 
 上述路径归类不变更原 #774 产品决定、执行状态、权限或模型预算。
 
+## 图片语言与 API 最小权限合同
+
+- [目标语言、已确认文案与不可变计划](image-text-language-confirmation.md)：沿原 Review、准确模板/Skill、预算及人工确认，不覆盖历史未完成真实效果。
+- [图片事件表最小读取权限](image-api-event-read-permissions.md)：原 API role 的有界 SELECT 修正与权限测试；仅保留既有设计和历史状态，不修改实际授权。
+
 ## Image Agent 外部效果终结协议
 
 - [效果终态与取消保护](image-agent-effect-terminalization.md)：历史设计，关注 provider/staging/publication claimed 时的取消及最终状态边界。

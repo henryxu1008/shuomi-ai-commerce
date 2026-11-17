@@ -97,10 +97,10 @@ docs/architecture/image-agent-effect-recovery.md,architecture,ai,4871,REVIEW_MOV
 docs/architecture/domains/ai/image-agent-effect-terminalization.md,architecture,ai,3875,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
 docs/architecture/image-agent-recovery.md,architecture,ai,28978,REVIEW_MOVE,docs/architecture/domains/ai/image-agent-recovery.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/image-agent-workflow.md,architecture,ai,2841,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
-docs/architecture/image-api-event-read-permissions.md,architecture,ai,7531,REVIEW_MOVE,docs/architecture/domains/ai/image-api-event-read-permissions.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/image-api-event-read-permissions.md,architecture,ai,7549,KEEP_PATH,,,MOVED_VERIFIED,Verified documentation move #1394
 docs/architecture/image-download-safety.md,architecture,cross-cutting,3015,KEEP_PATH,docs/architecture/image-download-safety.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/image-plan-optional-route.md,architecture,ai,17958,REVIEW_LIFECYCLE,docs/architecture/domains/ai/image-plan-optional-route.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
-docs/architecture/image-text-language-confirmation.md,architecture,ai,15211,REVIEW_MOVE,docs/architecture/domains/ai/image-text-language-confirmation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/image-text-language-confirmation.md,architecture,ai,15211,KEEP_PATH,,,MOVED_VERIFIED,Verified documentation move #1394
 docs/architecture/installation-and-module-management.md,architecture,platform,17440,REVIEW_MOVE,docs/architecture/platform/runtime/installation-and-module-management.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/installation-failure-recovery.md,architecture,platform,19097,REVIEW_MOVE,docs/architecture/platform/runtime/installation-failure-recovery.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/issue1070-local-acceptance-fixture.md,architecture,sourcing,14978,REVIEW_LIFECYCLE,docs/architecture/domains/sourcing/issue1070-local-acceptance-fixture.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
