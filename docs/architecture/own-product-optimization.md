@@ -47,7 +47,7 @@ Out of Scope：批量优化/申请、新 Agent/Registry/队列/调度器/账本�
 
 引用冻结合同：[内容智能体](product-content-localization.md)、
 [权限模式](enterprise-agent-permission-modes.md)、
-[供应商可替换](product-agent-text-provider-neutral.md)、
+[供应商可替换](domains/ai/product-agent-text-provider-neutral.md)、
 [Review](../../internal/product/review/README.md)、
 [优选资格](supply-market-choice-eligibility.md)。
 

@@ -83,3 +83,7 @@
 ## 单商品图片可选模型路线
 
 - [Single-product image plan optional route V1](image-plan-optional-route.md)：保留 #840 原选路、准确候选版本及人工确认的历史设计边界，不将文件迁移视为模型发布或生产授权。
+
+## Product Agent 标题文本供应商治理
+
+- [Product Agent 标题文本供应商可替换合同](product-agent-text-provider-neutral.md)：保留原协议、企业凭据、唯一 dispatch、完整 usage、预算、UNKNOWN 与人工 Review/Apply；历史 IMPLEMENTATION_READY 不等于后续 Google 路线已获实施或真实调用准入。

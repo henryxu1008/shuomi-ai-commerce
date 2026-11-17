@@ -51,7 +51,7 @@ Applicable product authorities:
   configuration snapshots and guarded Product Agent admission;
 - `agent-knowledge-context.md`: optional exact Knowledge context/citation/permit;
 - `product-agent-runtime-contract.md`: AgentRun/checkpoint/budget/UNKNOWN ownership;
-- `product-agent-text-provider-neutral.md` / #580: current organization-only credentials,
+- `domains/ai/product-agent-text-provider-neutral.md` / #580: current organization-only credentials,
   operator provisioning, per-organization title policies and compatible-protocol transport;
 - `project-boundaries.md`, greenfield baseline and Issue-driven delivery rules.
 
@@ -109,7 +109,7 @@ For the Slice E implementation, §6 supersedes the earlier proposal to create
 `internal/integration/aiworkbench/grsaitext.Planner` and to require the same GRSAI/model route
 as the Product Agent. The original `grsaitext` baseline has since been replaced on main by
 `internal/integration/agent/titletext` in PR #580. Its approved
-`product-agent-text-provider-neutral.md` already removes single-vendor restrictions within
+`domains/ai/product-agent-text-provider-neutral.md` already removes single-vendor restrictions within
 OpenAI-compatible text and owns organization-only credentials, restricted operator provisioning,
 per-organization policy selection and capability readiness. Reuse those changes; do not implement
 or review the old hardcoded-vendor removal a second time.
