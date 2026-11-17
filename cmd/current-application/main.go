@@ -182,6 +182,9 @@ func execute() error {
 			options := make([]httpapi.CurrentApplicationOption, 0, 6)
 			if features.SharedModels != nil {
 				pricing := httpapi.ModelRoutePricingDependencies{Shared: features.SharedModels, Prices: features.OfficialModelPrices, Credentials: features.ChannelCredentialManagement}
+				if features.ChannelModelQuery != nil {
+					pricing.ModelQuery = features.ChannelModelQuery
+				}
 				if features.AutomaticFX != nil {
 					pricing.AutomaticFX = features.AutomaticFX
 				}
