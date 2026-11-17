@@ -39,3 +39,10 @@
 - [外部效果收尾与预算结算](image-agent-effect-finalization.md)：历史设计，关注 v3 Temporal 原版本门禁、明确未发送/未知结果与结算。
 
 两份合同保持各自原有版本、阶段约束及历史决定；目录整理不将时间窗不同的方案自动合并，也不批准真实执行。
+
+## Image Agent 效果恢复及兼容协议
+
+- [外部效果独立恢复工作流](image-agent-effect-recovery.md)：保留 v3 claimed/UNKNOWN 恢复事实与不重复调用 provider 约束。
+- [Image Agent Recovery and Compatibility](image-agent-recovery.md)：保留原 v2/v3 兼容、S3 持久归档、lease/fence 恢复的历史合同。
+
+仅更改阅读路径；不合并不同阶段的恢复协议，不授权实际重试或生产部署。
