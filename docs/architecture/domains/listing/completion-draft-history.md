@@ -1,8 +1,8 @@
 # 待补全草稿保存历史与比较 v1
 
-2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+2026-10-17 格式增量见[自有商品富文本合同](../../own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
 
-结构化字段的历史和比较语义沿 [结构化候选合同](completion-draft-structured.md)；原准确版本读取/只读权限/固定来源不变。
+结构化字段的历史和比较语义沿 [结构化候选合同](../../completion-draft-structured.md)；原准确版本读取/只读权限/固定来源不变。
 
 Refs #704；Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY，R1独立边界审查通过后冻结。
 
@@ -12,9 +12,9 @@ Refs #704；Design Basis: Independent Architecture。Admission: IMPLEMENTATION_R
 
 2026-10-15用户批准：先明确待补全草稿历史读取、权限和比较范围，再实现保存历史、旧版详情、差异对比；独立页面；保留返回草稿、商品和批次上下文；复用CompletionDraft保存记录。
 
-操作人多次保存候选标题/描述后，可以查看准确Rn并比较同一草稿两个已保存版本。依据：[未绑定草稿产品决定](../product/supply-unbound-completion-drafts.md)、[原草稿合同](supply-unbound-completion-drafts.md)、[已有草稿和导航](own-product-existing-drafts.md)、已合并#700/#697和本次用户决定。本增量取代原合同中“本轮不开放草稿历史record接口”的阶段范围，原保存和平台边界继续适用。
+操作人多次保存候选标题/描述后，可以查看准确Rn并比较同一草稿两个已保存版本。依据：[未绑定草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[原草稿合同](../../supply-unbound-completion-drafts.md)、[已有草稿和导航](../../own-product-existing-drafts.md)、已合并#700/#697和本次用户决定。本增量取代原合同中“本轮不开放草稿历史record接口”的阶段范围，原保存和平台边界继续适用。
 
-UI/IA沿[Final UI Authority](../product/final-ui-ia-authority.md)，Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`，待补全`2667:1948`；用户明确独立页。沿当前Console、表格、主题tokens和原草稿入口，不新增一级菜单，不伪称已有历史frame。
+UI/IA沿[Final UI Authority](../../../product/final-ui-ia-authority.md)，Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`，待补全`2667:1948`；用户明确独立页。沿当前Console、表格、主题tokens和原草稿入口，不新增一级菜单，不伪称已有历史frame。
 
 Must：当前权限下同source已保存历史、准确旧版、同草稿两版本标题/描述比较、固定Vn与保存Rn分别表达、只读身份可查看、返回上下文、真实空/错/未开放状态。
 

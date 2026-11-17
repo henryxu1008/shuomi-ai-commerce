@@ -14,6 +14,9 @@
 
 ## 草稿与备注的当前合同
 
+- [保存历史与差异比较](completion-draft-history.md) — 精确版本的只读历史，旧记录不可改写。
+- [恢复旧版内容为新版本](completion-draft-restore.md) — 用户显式预览并普通 Save 为新版本，保留原历史版本。
+
 - [待补全草稿内部备注](completion-draft-internal-note.md) — 原 Listing CompletionDraft 的可选纯文本内部备注；沿已有事务、权限与版本保存，不进入任何平台预览或发送载荷。关联 [#1168](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1168)。
 
 ## 当前业务视图与事实边界

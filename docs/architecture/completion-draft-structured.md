@@ -15,7 +15,7 @@ Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../product/completion-
 
 ## 2. Owner / content / injection
 
-候选唯一 owner 仍为 `internal/listing/completiondraft`；固定 SourceItem、原 Product snapshot、资产和平台事实保留 Preparation / Catalog / 原 owner。复用 [保存](supply-unbound-completion-drafts.md)、[历史](completion-draft-history.md)、[文字恢复](completion-draft-restore.md) 的权限、版本、事务和原键恢复。
+候选唯一 owner 仍为 `internal/listing/completiondraft`；固定 SourceItem、原 Product snapshot、资产和平台事实保留 Preparation / Catalog / 原 owner。复用 [保存](supply-unbound-completion-drafts.md)、[历史](domains/listing/completion-draft-history.md)、[文字恢复](domains/listing/completion-draft-restore.md) 的权限、版本、事务和原键恢复。
 
 原 Content{title,description} 新增可选 structured：
 
