@@ -231,6 +231,7 @@
 - `shop-operations-diagnosis-agent.md` — [Shop operations diagnosis Agent v1](shop-operations-diagnosis-agent.md)
 - `skill-capability.md` — [Skill V1：三层归属与现有商品内容 Agent 接入](skill-capability.md)
 - `skill-script-sandbox.md` — [技能脚本执行：Linux Docker + OpenSandbox + gVisor 接入设计](skill-script-sandbox.md) · IMPLEMENTATION_READY，正式执行 #1293/PR #1298；§23 补齐独立WSL执行profile的D-IT1/init-proc真实验证并修复metadata label限制。结论仅限该profile，业务部署仍核对实际挂载/公网路由；未开放用户试用、未授权合并/业务部署，Kubernetes非前置。
+- `paused-title-script-review.md` — [暂停新启动后的商品标题脚本人工审核](paused-title-script-review.md) · #1355
 - `tool-customization-figma.md` — [工具定制完整 Figma 表单与私有参考资料](tool-customization-figma.md)
 - `tool-market.md` — [工具市场 v1 — 企业启用与人工定制需求](tool-market.md)
 
