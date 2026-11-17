@@ -208,6 +208,8 @@
 
 ## Agent、Tool、Skill 与知识
 
+- [AI 领域候选导航：#132 标题对照与先导评测](domains/ai/README.md) — 两份独立设计尚未准入；真实模型/费用执行未授权
+
 - `agent-customization.md` — [智能体定制需求与人工进度 V1](agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
 - `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
@@ -224,8 +226,8 @@
 - `official-skill-product-entry.md` — [官方技能直接处理已有商品](official-skill-product-entry.md)
 - `official-skill-automatic-preparation.md` — [官方技能模板自动准备](official-skill-automatic-preparation.md)
 - `task-center-summary.md` — [任务中心统一统计](task-center-summary.md)
-- `issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](issue132-title-evaluation-admission.md)
-- `issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](issue132-title-pilot-local-entry.md)
+- `domains/ai/issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](domains/ai/issue132-title-evaluation-admission.md)
+- `domains/ai/issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](domains/ai/issue132-title-pilot-local-entry.md)
 - `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)
 - `platform-listing-materials-agent.md` — [平台上架资料智能体 v1](platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
