@@ -20,3 +20,8 @@
 - [官方技能直接处理已有商品](official-skill-product-entry.md)：复用准确版本选择、原商品与图片来源验证、人工确认及原冻结运行。
 
 目录移动不改变 #1276、#774 的产品决定，也不授权实例发布、真实模型调用或付费。
+
+## 图片语言与 API 最小权限合同
+
+- [目标语言、已确认文案与不可变计划](image-text-language-confirmation.md)：沿原 Review、准确模板/Skill、预算及人工确认，不覆盖历史未完成真实效果。
+- [图片事件表最小读取权限](image-api-event-read-permissions.md)：原 API role 的有界 SELECT 修正与权限测试；仅保留既有设计和历史状态，不修改实际授权。
