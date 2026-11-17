@@ -33,13 +33,30 @@ it("omits the official template subtitle", () => {
   expect(screen.getByRole("heading", {name: "官方模板", level: 1})).toBeVisible();
   expect(screen.queryByText("查找平台提供的技能模板。")).not.toBeInTheDocument();
 });
-it("shows official maintenance under system settings only to an authorized identity", async () => {
+it("shows the management entry in the official template page header for a maintainer", async () => {
+  vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:true,canCreate:true,reason:""}:{items:[],nextCursor:""});
+  render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
+  const entry = await screen.findByRole("link", {name: "管理官方模板"});
+  expect(within(screen.getByRole("group", {name: "页面操作"})).getByRole("link", {name: "管理官方模板"})).toBe(entry);
+  expect(entry).toHaveAttribute("href", "/workbench/agents/skills/official/manage");
+  expect(screen.queryByRole("button", {name: "新建或导入官方技能"})).not.toBeInTheDocument();
+});
+
+it("keeps the existing maintenance workflow on a page with a link back to official templates", async () => {
   vi.mocked(skillRequest).mockImplementation(async (_scope,path)=>path.endsWith("/info")?{available:true,canInstallOfficial:true,canCreate:true,reason:""}:{items:[],nextCursor:""});
   render(<SkillLibraryPage expectedUserId="alice" category="official" maintenance/>);
-  expect(screen.getByRole("heading",{name:"系统设置",level:1})).toBeVisible();
+  expect(screen.getByRole("heading",{name:"管理官方模板",level:1})).toBeVisible();
+  expect(screen.getByRole("link",{name:"返回官方模板"})).toHaveAttribute("href", "/workbench/agents/skills/official");
+  expect(await screen.findByRole("button",{name:"新建或导入官方技能"})).toBeEnabled();
   expect(screen.queryByRole("button",{name:"安装官方模板"})).not.toBeInTheDocument();
   expect(screen.queryByRole("navigation",{name:"技能库分类"})).toBeNull();
   expect(vi.mocked(skillRequest).mock.calls.every(([,path])=>path!=="official/install")).toBe(true);
+});
+
+it("denies direct access to management without the maintainer capability", async () => {
+  render(<SkillLibraryPage expectedUserId="alice" category="official" maintenance/>);
+  expect(await screen.findByText("当前身份无权管理官方模板。")).toBeVisible();
+  expect(screen.queryByRole("button", {name: "新建或导入官方技能"})).not.toBeInTheDocument();
 });
 
 it("manages personal skills without an organization or a modal", async () => {
@@ -56,6 +73,7 @@ it("reads official templates without an organization and shows an honest empty s
   render(<SkillLibraryPage expectedUserId="alice" category="official"/>);
   expect(await screen.findByText("当前暂无可读取的官方模板")).toBeInTheDocument();
   expect(screen.getByText("暂无可用的官方模板。")).toBeInTheDocument();
+  expect(screen.queryByRole("link", {name: "管理官方模板"})).not.toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "新建技能"})).not.toBeInTheDocument();
   expect(vi.mocked(skillRequest).mock.calls.every(([, path]) => path.startsWith("official"))).toBe(true);
 });
