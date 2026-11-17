@@ -2,6 +2,14 @@
 
 Source work follows the [Product Domain contract](../architecture/product-domain-contracts.md), [current owners](../architecture/project-boundaries.md) and **PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**: fresh installation and empty business data.
 
+## 相关领域入口
+
+- [Sourcing：来源证据与采集、发布](../architecture/domains/sourcing/README.md)
+- [Catalog：版本、我的数据和素材批准](../architecture/domains/catalog/README.md)
+- [Research：市场证据与人工选品](../architecture/domains/research/README.md)
+
+本页是业务交接概览，不重新定义上述 owner 的授权、事务、发布与来源可用性。1688 新采集通道以已批准浏览器 collector 为准，历史静态 HTTP 来源证据不能被当作新的默认采集能力。
+
 ## Current path
 
 Verified effective Organization / actor / source access -> current acquisition adapter -> SourceEnvelope -> admitted InternalProducer / SRC transaction -> Catalog publisher -> immutable ProductSnapshot -> explicit asset approval -> deterministic downstream readiness.

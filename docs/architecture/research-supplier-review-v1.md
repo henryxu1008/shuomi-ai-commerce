@@ -1,5 +1,7 @@
 # 单候选人工核对已保存 1688 货源 · 独立架构设计
 
+> **采集能力校准（2026-11-17）：** 本文原 `public_http` / `public_browser` channel 并列，是当时已保存来源的历史读取范围，不代表今天两种方式都可新采集。匿名静态 HTTP provider 已由 [PR #1193](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1193) 退休；当前 1688 新采集按明确配置的浏览器 collector 与现行权限/回执合同进行。已存旧来源如仍允许读取，仍须由原 Sourcing/Catalog 以准确发布版本和当前权限证明，不复活已退休 provider。参见 [Sourcing](domains/sourcing/README.md) 与 [Research](domains/research/README.md) 阅读导航。历史实施合同原样保留。
+
 设计准入：**Independent Architecture / IMPLEMENTATION_READY**。原送审版本为 NOT_READY；原独立 Reviewer 通过设计修订 `7e05cbd7449ad714bbb1a0bfe49a471a8cd82bcc`，结论记录于 #1074。后文保留原设计开工检查；本结论仅为实施准入。沿 [#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074) 和 [Draft #1097](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1097)，基于已完成的人工试算 `0528a77fe105a4dd84c18250dae1ec9b143a8680` 与准确的 #1075 消费基线 `3484e73588ee67e99f8dd3a55b2ecb9cb1a42822`。原试算、SHEIN 只读与转入门禁沿用既有交付。
 
 ## 1. 用户结果与范围
