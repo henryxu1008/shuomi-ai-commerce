@@ -4,7 +4,7 @@
 - Design Basis: **Independent Architecture，局部恢复合同增量**。
 - Admission Status: **IMPLEMENTATION_READY / FROZEN**。用户已认可准确候选 `5496f141c15dc88669d5f85eef2101dd5e8fef99`，[第1轮独立架构复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1031#issuecomment-6541484592)无范围内 BLOCKER。
 - Authority：2026-10-31 用户已授权原唯一 Writer 按该冻结设计先补回归再实现/自检，在原 PR #1031 维护，并复用原唯一 Reviewer 做范围内增量复核；不授权合并、部署、关单或真实操作。
-- 原 [TikTok 首版设计](tiktok-shop-us.md)及[官方合同依据](domains/marketplace/tiktok-shop-us-contract-evidence.md)其余范围保持冻结；本候选只处理 #670 的发送前失败恢复 finding，不重新设计整个 Submission。
+- 原 [TikTok 首版设计](domains/marketplace/tiktok-shop-us.md)及[官方合同依据](domains/marketplace/tiktok-shop-us-contract-evidence.md)其余范围保持冻结；本候选只处理 #670 的发送前失败恢复 finding，不重新设计整个 Submission。
 - 唯一设计/写入负责人沿用 #669 当前会话与独立工作区；保留实例、数据和会话，不部署、不真实启停或保存配置，不调用真实平台/模型，不发送邮件短信。
 
 ## 1. 用户结果、边界与设计决定
