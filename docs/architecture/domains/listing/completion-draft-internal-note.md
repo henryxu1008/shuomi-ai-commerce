@@ -5,7 +5,7 @@
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY / FROZEN。独立评审确认沿用草稿 owner、事务、权限与投影边界，明确 Walmart 与历史文案恢复语义。
 
-依据用户批准的最小方案和[现有待补全草稿合同](../../supply-unbound-completion-drafts.md)、[结构化候选合同](../../completion-draft-structured.md)、[版本历史](../../completion-draft-history.md)及[旧版本恢复](../../completion-draft-restore.md)。
+依据用户批准的最小方案和[现有待补全草稿合同](../../supply-unbound-completion-drafts.md)、[结构化候选合同](../../completion-draft-structured.md)、[版本历史](completion-draft-history.md)及[旧版本恢复](completion-draft-restore.md)。
 
 运营人员在待补全草稿页的「内部备注」纯文本框记录待核实事项。允许留空、编辑和清除，沿用「保存待补全草稿」。备注仅在工作台草稿和历史可见。第一版上限为 1024 UTF-8 字节，与现有标题上限一致。平台商品内容、原始资料、规格件数字段和既有上传任务保持独立。
 
