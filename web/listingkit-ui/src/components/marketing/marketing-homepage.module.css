@@ -963,6 +963,57 @@
   box-shadow: 0 0 0 1px rgba(78,165,255,.16), 0 10px 26px rgba(17,71,145,.18);
 }
 .page .serviceCore { background: radial-gradient(circle at 50% 40%,rgba(53,101,208,.9),rgba(8,17,43,.98) 73%); }
+
+/* Keep service choices visually stable after click and keyboard focus. */
+.page .serviceNetwork > .serviceOption {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-width: 0;
+  text-align: left;
+  border: 1px solid var(--card-outline);
+  border-radius: 17px;
+  color: #eff5ff;
+  background: var(--card-surface);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.page .serviceNetwork > .serviceOption > span {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+}
+.page .serviceNetwork > .serviceOption strong,
+.page .serviceNetwork > .serviceOption small {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.page .serviceNetwork > .serviceOption:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(103,190,255,.92), 0 0 0 5px rgba(103,190,255,.16);
+}
+.page .serviceNetwork > .serviceOption:hover,
+.page .serviceNetwork > .serviceOptionActive {
+  border-color: var(--card-outline-hover);
+  border-radius: 17px;
+  background: var(--card-surface-hover);
+}
+.page .serviceNetwork > .serviceOptionActive { transform: none; }
+.page .serviceNetwork > .serviceOptionActive::after {
+  top: 50%;
+  right: 13px;
+  transform: translateY(-50%);
+}
+@media (max-width: 620px) {
+  .page .serviceNetwork > .serviceOptionActive::after { top: 13px; transform: none; }
+}
 /* A restrained edge sweep marks only the key solution, data and service panels. */
 .page .rolePanel,
 .page .serviceDetail,
