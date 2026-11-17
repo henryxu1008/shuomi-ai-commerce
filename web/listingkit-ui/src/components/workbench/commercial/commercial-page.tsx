@@ -137,7 +137,7 @@ function PageFrame({
     overview: "统一基础方案、店铺服务及企业预付资源。",
     options: "基础方案无需订阅，按当前价格购买店铺期数、AI 点数和数据条数。",
     entitlements: "查看店铺服务期限和企业已购资源。",
-    usage: "查看真实资源预留、消费、分配和回收记录。",
+    usage: "查看店铺服务、AI 点数和数据资源的到账、分配及使用记录。",
     "top-up": "管理企业钱包、充值及按需购买。",
     orders: "查看企业账单汇总与订单记录；退款和发票暂不可用。",
     "order-detail": "查看当前企业的订单状态及明细。",
@@ -181,6 +181,24 @@ function ScopedCommercial({
 }) {
   const [sequence, setSequence] = useState(0);
   const refresh = () => setSequence((value) => value + 1);
+  if (page === "usage") {
+    return (
+      <PageFrame
+        page={page}
+        organization={organizationName || "未提供名称"}
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link href="/workbench/plans/orders" prefetch={false}>账单与订单</Link>
+            </Button>
+            <Button variant="outline" onClick={refresh}>刷新数据</Button>
+          </>
+        }
+      >
+        <ResourceUsageRequest userId={userId} organizationId={organizationId} sequence={sequence} />
+      </PageFrame>
+    );
+  }
   if (page === "top-up" || page === "orders" || page === "order-detail") {
     return (
       <PageFrame
@@ -280,7 +298,7 @@ function CommercialRequest({
       sequence,
     ],
     queryFn: ({ signal }) => getCommercialOverview(organizationId, signal),
-    enabled: page !== "options" && page !== "usage",
+    enabled: page !== "options",
     gcTime: 0,
     staleTime: 0,
     retry: false,
@@ -295,14 +313,6 @@ function CommercialRequest({
         organizationId={organizationId}
         organizationName={organizationName}
         permissions={permissions}
-        sequence={sequence}
-      />
-    );
-  if (page === "usage")
-    return (
-      <ResourceUsageRequest
-        userId={userId}
-        organizationId={organizationId}
         sequence={sequence}
       />
     );
@@ -514,7 +524,7 @@ function BillingRequest({
   );
 }
 
-function BillingReadError({ error }: { error: unknown }) {
+function BillingReadError({ error, usage = false }: { error: unknown; usage?: boolean }) {
   const code =
     error &&
     typeof error === "object" &&
@@ -531,15 +541,19 @@ function BillingReadError({ error }: { error: unknown }) {
     ORGANIZATION_SUSPENDED: "企业已暂停访问",
     ORGANIZATION_CONTEXT_CHANGED: "企业上下文已变化",
     ORGANIZATION_SELECTION_REQUIRED: "请选择当前企业",
-    DEPENDENCY_UNAVAILABLE: "账单服务暂不可用",
+    DEPENDENCY_UNAVAILABLE: usage ? "暂时无法读取用量明细" : "账单服务暂不可用",
     FEATURE_UNAVAILABLE: "该商业能力暂未开放",
-    DEADLINE_EXCEEDED: "账单读取超时",
-    INVALID_UPSTREAM_RESPONSE: "账单服务响应无效",
+    DEADLINE_EXCEEDED: usage ? "用量明细读取超时" : "账单读取超时",
+    INVALID_UPSTREAM_RESPONSE: usage ? "未能读取用量明细" : "账单服务响应无效",
   };
   return (
-    <ConsoleState kind="error" title={messages[code] ?? "商业数据读取失败"}>
-      <p>本次未取得当前企业的数据；不会回退到示例账单、余额或订单。</p>
-      <p>重新确认企业上下文后可重试读取。</p>
+    <ConsoleState kind="error" title={messages[code] ?? (usage ? "用量明细读取失败" : "商业数据读取失败")}>
+      {usage ? <p>未取得当前企业的用量记录。可确认企业后刷新重试。</p> : (
+        <>
+          <p>本次未取得当前企业的数据；不会回退到示例账单、余额或订单。</p>
+          <p>重新确认企业上下文后可重试读取。</p>
+        </>
+      )}
     </ConsoleState>
   );
 }
@@ -630,8 +644,12 @@ function ResourceUsageRequest({
   organizationId: string;
   sequence: number;
 }) {
-  const [filters, setFilters] = useState<ResourceEventFilters>({});
-  const [cursor, setCursor] = useState("");
+  const [navigation, setNavigation] = useState<{ filters: ResourceEventFilters; cursors: string[] }>({
+    filters: {},
+    cursors: [""],
+  });
+  const { filters, cursors } = navigation;
+  const cursor = cursors.at(-1) || undefined;
   const result = useQuery({
     queryKey: [
       "workbench",
@@ -646,7 +664,7 @@ function ResourceUsageRequest({
       getResourceEvents(
         userId,
         organizationId,
-        { ...filters, cursor: cursor || undefined },
+        { ...filters, cursor },
         signal,
       ),
     gcTime: 0,
@@ -655,24 +673,23 @@ function ResourceUsageRequest({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  if (result.isPending || result.isFetching)
-    return (
-      <ConsoleState kind="loading" title="正在读取资源流水">
-        旧流水已隐藏。
-      </ConsoleState>
-    );
-  if (result.isError) return <BillingReadError error={result.error} />;
-  if (!result.data || result.data.organization_id !== organizationId)
-    return <BillingReadError error={{ code: "INVALID_UPSTREAM_RESPONSE" }} />;
+  const loading = result.isPending || result.isFetching;
+  const page = !loading && !result.isError && result.data?.organization_id === organizationId
+    ? result.data
+    : undefined;
+  const next = page?.next_cursor;
+  const notice = loading ? <ConsoleState kind="loading" title="正在读取用量明细" />
+    : !page ? <BillingReadError usage error={result.error ?? { code: "INVALID_UPSTREAM_RESPONSE" }} />
+    : undefined;
   return (
     <UsageDetailsView
-      page={result.data}
+      page={page}
+      notice={notice}
       filters={filters}
-      onFilter={(v) => {
-        setFilters(v);
-        setCursor("");
-      }}
-      onNext={() => setCursor(result.data.next_cursor ?? "")}
+      pageNumber={cursors.length}
+      onFilter={(newFilters) => setNavigation({ filters: newFilters, cursors: [""] })}
+      onPrevious={cursors.length > 1 ? () => setNavigation({ filters, cursors: cursors.slice(0, -1) }) : undefined}
+      onNext={next && !cursors.includes(next) ? () => setNavigation({ filters, cursors: [...cursors, next] }) : undefined}
     />
   );
 }

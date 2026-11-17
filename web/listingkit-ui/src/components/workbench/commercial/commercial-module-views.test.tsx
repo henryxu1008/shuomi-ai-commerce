@@ -1,5 +1,5 @@
 import { parseResourceEvents } from "@/lib/api/resource-events";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {useState,type ComponentProps} from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -38,14 +38,9 @@ it("filters actual resource ledger rows on the server and preserves exact resour
       onNext={() => undefined}
     />,
   );
-  expect(screen.getByText("暂无匹配的资源流水。")).toBeVisible();
-  await userEvent.selectOptions(screen.getByLabelText("用量类型"), "ai_point");
-  await userEvent.click(screen.getByRole("button", { name: "筛选" }));
-  expect(onFilter).toHaveBeenCalledWith({
-    resourceType: "ai_point",
-    from: undefined,
-    until: undefined,
-  });
+  expect(screen.getByText("暂无符合条件的用量记录。")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "AI 点数" }));
+  expect(onFilter).toHaveBeenCalledWith({ resourceType: "ai_point" });
 });
 
 it("renders only real wallet data and delegates recharge to the configured payment entry", () => {
@@ -195,12 +190,16 @@ it("restores applied ledger filters when a query remounts the view", () => {
       onNext={() => undefined}
     />,
   );
-  expect(screen.getByLabelText("用量类型")).toHaveValue("ai_point");
+  expect(screen.getByRole("button", { name: "AI 点数" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByLabelText("开始日期（UTC）")).toHaveValue("2026-09-01");
   expect(screen.getByLabelText("结束日期（UTC）")).toHaveValue("2026-09-30");
 });
 
-it("shows signed fractional AI points and whole resource counts in the same ledger", () => {
+it("preserves fractional AI points, resource units and the recorded balance on the row and in its details", async () => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+  });
   const pointEvent = {
     event_id: "event-ai",
     operation_id: "operation-ai",
@@ -245,8 +244,15 @@ it("shows signed fractional AI points and whole resource counts in the same ledg
   expect(page).not.toBeNull();
   render(<UsageDetailsView page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
 
-  for (const value of ["-0.000001", "+0.000001", "+1,200.000012", "+2,500"]) {
-    expect(screen.getByRole("cell", { name: value })).toBeVisible();
-  }
-  expect(screen.getAllByRole("cell", { name: "0" })).toHaveLength(4);
+  const rows = screen.getAllByRole("row");
+  expect(rows[1]).toHaveTextContent("可用 -0.000001 点");
+  expect(rows[1]).toHaveTextContent("已使用 +1,200.000012 点");
+  expect(rows[2]).toHaveTextContent("可用 +2,500 条");
+  await userEvent.click(within(rows[1]).getByRole("button", { name: "详情" }));
+  const modal = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
+  expect(modal.getByText("invocation-1")).toBeVisible();
+  expect(modal.getByRole("row", { name: "可用 -0.000001 点 100.000001 点" })).toBeVisible();
+  expect(modal.getByRole("row", { name: "已分配 0 点 0 点" })).toBeVisible();
+  expect(modal.getByRole("row", { name: "预留 +0.000001 点 0.000001 点" })).toBeVisible();
+  expect(modal.getByRole("row", { name: "已使用 +1,200.000012 点 1,200.000012 点" })).toBeVisible();
 });
