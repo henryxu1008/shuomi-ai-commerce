@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getCommercialResources, type CommercialResources } from "@/lib/api/commercial-billing";
+import { EntitlementTime } from "./entitlement-time";
+import entitlementStyles from "./entitlements.module.css";
 import styles from "./commercial.module.css";
 
 const definitions = [
@@ -25,13 +27,74 @@ export function EnterpriseResources({ userId, organizationId, scope, sequence, s
   const balance = (kind: CommercialResources["resources"][number]["resource_type"]) => data?.resources.find(v => v.resource_type === kind);
   const values = definitions.map(definition => {
     const resource = balance(definition.type);
-    return { ...definition, resource, value: resource?.state === "recorded" ? `${resource.resource_type==="ai_point"?formatMicropoints(parseDisplayPoints(resource.available)+parseDisplayPoints(resource.allocated)):BigInt(resource.available)+BigInt(resource.allocated)} ${definition.unit}` : resource?.state === "not_recorded" ? "尚无资源记录" : fallback };
+    const total = resource?.state === "recorded"
+      ? resource.resource_type === "ai_point"
+        ? formatMicropoints(parseDisplayPoints(resource.available) + parseDisplayPoints(resource.allocated))
+        : (BigInt(resource.available) + BigInt(resource.allocated)).toString()
+      : undefined;
+    return { ...definition, resource, total, value: total !== undefined ? `${total} ${definition.unit}` : resource?.state === "not_recorded" ? "尚无资源记录" : fallback };
   });
   const manage = <Link href="/workbench/account/organization/resources" prefetch={false}>管理成员额度</Link>;
   const wallet = <Link href="/workbench/plans/top-up" prefetch={false}>查看钱包与充值状态</Link>;
+  if (showSummary) {
+    return (
+      <Card role="region" aria-labelledby="entitlement-balances" className={entitlementStyles.ledger}>
+        <div className={entitlementStyles.ledgerHeader}>
+          <h2 id="entitlement-balances">企业资源余额</h2>
+          {data && showObservation && <p className={entitlementStyles.metadata}>余额读取于 <EntitlementTime value={data.observed_at} /></p>}
+        </div>
+        {loading ? <p role="status">正在读取企业资源余额</p> : !data ? (
+          <p role="alert">{errors[code] ?? "暂时无法查看企业资源"}，请刷新重试。</p>
+        ) : (
+          <ul className={entitlementStyles.resourceList}>
+            {values.map(({ name, type, unit, resource, total, note }) => {
+              const recorded = resource?.state === "recorded" ? resource : null;
+              const updatedAt = recorded?.updated_at;
+              return (
+                <li key={type}>
+                  <section className={entitlementStyles.resourceRow} aria-label={`${name}余额`}>
+                    <div>
+                      <h3 className={entitlementStyles.resourceName}>{name}</h3>
+                      {total !== undefined ? (
+                        <>
+                          <strong className={entitlementStyles.resourceBalance}>{amountWithUnit(total, unit)}</strong>
+                          <p className={entitlementStyles.metadata}>{type === "ai_point" ? "企业可用" : "企业合计可用"}</p>
+                        </>
+                      ) : (
+                        <p className={entitlementStyles.metadata}>尚无资源记录</p>
+                      )}
+                    </div>
+                    {recorded && (
+                      <dl className={entitlementStyles.resourceFacts} data-with-member-balances={type !== "ai_point"}>
+                        {type !== "ai_point" && (
+                          <>
+                            <ResourceFact label="未分配（管理员可用）" value={recorded.available} unit={unit} />
+                            <ResourceFact label="成员可用" value={recorded.allocated} unit={unit} />
+                          </>
+                        )}
+                        <ResourceFact label="预留" value={recorded.reserved} unit={unit} />
+                        <ResourceFact label="已用" value={recorded.consumed} unit={unit} />
+                        {recorded.debt !== "0" && <ResourceFact label="待偿还" value={recorded.debt} unit={unit} />}
+                      </dl>
+                    )}
+                    <div className={entitlementStyles.resourceNote}>
+                      <p>{type === "ai_point" ? "AI 点数按费率扣减，模型用量另行记录。可用企业钱包购买点数。" : note}</p>
+                      {showObservation && updatedAt && updatedAt !== data.observed_at && (
+                        <p>更新于 <EntitlementTime value={updatedAt} /></p>
+                      )}
+                    </div>
+                  </section>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {!hideActions && <div className={entitlementStyles.ledgerActions}>{wallet}</div>}
+      </Card>
+    );
+  }
   return <div className={styles.stack}>
     {loading ? <p role="status">正在读取当前企业资源余额</p> : !data ? <p role="alert">{errors[code] ?? "资源响应无效"}：本次未取得余额，请确认企业后刷新。</p> : showObservation ? <p className={styles.observation}>资源观察时间：<time dateTime={data.observed_at}>{data.observed_at.replace("T", " ").replace(/Z$/, " UTC")}</time></p> : null}
-    {showSummary ? <Card role="region" aria-label="企业总权益" className={`${styles.panel} ${styles.summary}`}><h2>企业总权益</h2><p className={styles.subtle}>企业可用资源余额；成员月度消费上限与店铺服务期分别展示。</p><div className={styles.resourceSummary}>{values.map(card => <div className={styles[card.color]} key={card.type}><p>{card.name}余额</p><strong>{card.value}</strong><small>{card.resource?.state === "recorded" ? "企业可用余额" : card.value}</small></div>)}</div></Card> : null}
     <div className={memberResourcesAnchor ? styles.resourceGrid : styles.threeColumns}>{values.map(card => <Card role="region" aria-label={`${card.name}余额`} className={`${styles.resourceCard} ${styles[card.color]}`} key={card.type}>
       <div className={styles.cardHeading}><h3>{card.name}</h3><span>{card.resource?.state === "recorded" ? "已记录" : card.resource?.state === "not_recorded" ? "尚无记录" : fallback}</span></div>
       <p className={styles.resourceValue}>{card.value}</p>
@@ -49,4 +112,14 @@ export function EnterpriseResources({ userId, organizationId, scope, sequence, s
       </div>
     ) : !hideActions && <p className={styles.subtle}>{manage} · {wallet}</p>}
   </div>;
+}
+
+function amountWithUnit(value: string, unit: string) {
+  const [whole, fraction] = value.split(".");
+  const grouped = BigInt(whole).toLocaleString("zh-CN");
+  return `${grouped}${fraction ? `.${fraction}` : ""} ${unit}`;
+}
+
+function ResourceFact({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return <div><dt>{label}</dt><dd>{amountWithUnit(value, unit)}</dd></div>;
 }
