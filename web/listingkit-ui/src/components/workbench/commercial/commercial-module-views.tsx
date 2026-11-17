@@ -288,8 +288,6 @@ export function UsageDetailsView({
   const categories = [{ name: "全部资源", type: undefined }, ...resourceDefinitions];
   return (
     <Card role="region" aria-label="用量记录" className={`${styles.panel} ${styles.usagePanel}`}>
-      <h2>用量记录</h2>
-      <p className={styles.observation}>打开详情可核对完整变动、余额和关联对象。</p>
       <div className={styles.usageFilterGroups}>
         <div role="group" aria-label="记录范围" className={styles.usageCategories}>
           {ranges.map(({ deductions, name }) => (

@@ -133,11 +133,10 @@ function PageFrame({
             { label: title },
           ]
         : [{ label: "套餐与权益", href: "/workbench/plans" }, { label: title }];
-  const descriptions: Record<PageKind, string> = {
+  const descriptions: Record<Exclude<PageKind, "usage">, string> = {
     overview: "统一基础方案、店铺服务及企业预付资源。",
     options: "基础方案无需订阅，按当前价格购买店铺期数、AI 点数和数据条数。",
     entitlements: "查看店铺服务期限和企业已购资源。",
-    usage: "查看店铺服务、AI 点数和数据资源的到账、分配及使用记录。",
     "top-up": "管理企业钱包、充值及按需购买。",
     orders: "查看企业账单汇总与订单记录；退款和发票暂不可用。",
     "order-detail": "查看当前企业的订单状态及明细。",
@@ -147,12 +146,12 @@ function PageFrame({
       className={page === "overview" ? overviewStyles.page : styles.page}
       title={title}
       breadcrumbs={breadcrumbs}
-      description={
+      description={page !== "usage" ? (
         <>
           <p>{descriptions[page]}</p>
           {page !== "overview" && <p>当前有效企业：{organization}</p>}
         </>
-      }
+      ) : undefined}
       actions={actions}
     >
       {children}
