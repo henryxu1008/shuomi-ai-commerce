@@ -109,7 +109,12 @@ export function WorkspaceAppShell({ children, dataServicesAvailable = false, rep
     );
   }
 
-  if (context.error && !hasIndependentIdentityRoute) {
+  // A temporary read failure on this page leaves the already-issued save receipt
+  // on screen. The page hides configuration and disables actions until context is read again.
+  const keepModelReceipt = pathname === "/workbench/account/organization/model-route-pricing"
+    && !!context.user && !!context.effectiveOrganization
+    && (context.error?.status === 0 || (context.error?.status ?? 0) >= 500);
+  if (context.error && !hasIndependentIdentityRoute && !keepModelReceipt) {
     return (
       <AccessState
         action={

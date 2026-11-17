@@ -7,6 +7,7 @@ import {Card} from "@/components/ui/card";
 import {ModelRouteError,modelRouteRequest,type ModelRouteScope} from "@/lib/api/model-route-pricing";
 import {credentialConnections,credentialInput,credentialPending,credentialReceipt,matchesCredentialReceipt,type CredentialInput,type CredentialPending,type CredentialReceipt,type ManagedConnection} from "@/lib/contracts/channel-credentials";
 import {useResourcePending} from "../resources/resource-pending";
+import type { ModelOption } from "@/lib/contracts/model-route-pricing";
 import {AccountDialog} from "./account-dialog";
 import styles from "./model-route-pricing.module.css";
 
@@ -16,19 +17,36 @@ function failureText(error:unknown){
  return ({INVALID:"请检查输入格式并重新输入 Key。",CONFLICT:"连接版本或账号备注已有变化，请重新读取后确认。",FORBIDDEN:"没有渠道凭据管理权限，或企业访问已撤销。",PERMISSION_DENIED:"当前渠道凭据管理权限不可用。",NOT_FOUND:"未找到本次回执；这不能证明保存失败，原请求仍保留。",OUTCOME_UNKNOWN:"保存结果待核实，请查询本次结果。"} as Record<string,string>)[code]??"暂时无法确认结果，请保留原请求并查询。";
 }
 
-export function ChannelCredentialsManager({scope}:{scope:ModelRouteScope}){
- return <ChannelCredentialsContent key={JSON.stringify(scope)} scope={scope}/>;
+type ChannelSettingsProps = {
+ scope:ModelRouteScope;
+ focusModel?:ModelOption;
+ disabled?:boolean;
+ unconfirmed?:boolean;
+ onSaved?:()=>Promise<void>;
+};
+
+export function ChannelCredentialsManager(props:ChannelSettingsProps){
+ return <ChannelCredentialsContent key={JSON.stringify(props.scope)} {...props}/>;
 }
 
-function ChannelCredentialsContent({scope}:{scope:ModelRouteScope}){
- const query=useQuery({queryKey:["channel-credentials",scope],queryFn:async({signal})=>{const value=await modelRouteRequest(scope,"/connections",credentialConnections,{signal});if(value.organizationId!==scope.organizationId)throw new ModelRouteError("ORGANIZATION_CONTEXT_CHANGED");return value},retry:false,gcTime:0,refetchOnWindowFocus:false});
+function ChannelCredentialsContent({scope,focusModel,disabled=false,unconfirmed=false,onSaved}:ChannelSettingsProps){
+ const query=useQuery({queryKey:["model-services",scope,"connections"],queryFn:async({signal})=>{const value=await modelRouteRequest(scope,"/connections",credentialConnections,{signal});if(value.organizationId!==scope.organizationId)throw new ModelRouteError("ORGANIZATION_CONTEXT_CHANGED");return value},enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["model-route-pricing","credentials","v1"],credentialPending,{storage:"session",maxLength:2048});
  const [dialog,setDialog]=useState<{connection:ManagedConnection;action:"set-key"|"disable"}|null>(null);
  const [busy,setBusy]=useState(false),[failure,setFailure]=useState(""),[receipt,setReceipt]=useState<CredentialReceipt|null>(null);
  const active=useRef(true),running=useRef(false),controller=useRef<AbortController|null>(null);
  useEffect(()=>{active.current=true;return()=>{active.current=false;controller.current?.abort()}},[]);
  const intent=pending.command,scopeMatches=!intent||intent.userId===scope.userId&&intent.organizationId===scope.organizationId;
- const locked=busy||!pending.ready||!!intent||pending.error||!scopeMatches;
+ const locked=disabled||busy||!pending.ready||!!intent||pending.error||!scopeMatches||query.isFetching;
+ const heading=useRef<HTMLHeadingElement>(null);
+ const target=useRef<HTMLHeadingElement>(null);
+ const matches=focusModel&&!query.isError?query.data?.connections.filter(connection=>connection.models.some(model=>
+  model.category===focusModel.category&&model.id===focusModel.reference.id&&model.version===focusModel.reference.version
+ )):undefined;
+ const targetId=matches?.length===1?matches[0].connectionId:undefined;
+ useEffect(()=>{
+  if(focusModel&&!query.isFetching)(target.current??heading.current)?.focus();
+ },[focusModel,query.isFetching,targetId]);
  async function run(work:(signal:AbortSignal)=>Promise<void>){
   if(running.current)return;
   running.current=true;setBusy(true);setFailure("");const abort=new AbortController();controller.current=abort;
@@ -45,7 +63,7 @@ function ChannelCredentialsContent({scope}:{scope:ModelRouteScope}){
    try{
     const result=await modelRouteRequest(scope,"/connections/"+encodeURIComponent(original.connectionId)+"/commands",credentialReceipt,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":original.key},body:JSON.stringify(input),signal});
     check(result.receipt,original);
-    if(active.current){pending.clear(original);setReceipt(result.receipt);setDialog(null);await query.refetch()}
+    if(active.current){pending.clear(original);setReceipt(result.receipt);setDialog(null);await (onSaved?onSaved():query.refetch())}
    }catch(error){
     if(active.current&&error instanceof ModelRouteError&&error.status<500&&definiteCodes.has(error.code))pending.clear(original);
     throw error;
@@ -53,31 +71,32 @@ function ChannelCredentialsContent({scope}:{scope:ModelRouteScope}){
   });
  }
  async function verify(){
-  if(!intent||!scopeMatches)return;
+  if(disabled||!intent||!scopeMatches)return;
   const original=intent;
   await run(async signal=>{
    const result=await modelRouteRequest(scope,"/connections/"+encodeURIComponent(original.connectionId)+"/receipts/"+encodeURIComponent(original.key),credentialReceipt,{signal});
    check(result.receipt,original);
-   if(active.current){pending.clear(original);setReceipt(result.receipt);setDialog(null);await query.refetch()}
+   if(active.current){pending.clear(original);setReceipt(result.receipt);setDialog(null);await (onSaved?onSaved():query.refetch())}
   });
  }
  return <>
-  <Card className={styles.panel}><h2>渠道凭据</h2><p>一份渠道 Key 可供下面列出的多个模型共用。这里只保存本企业的 Key，不发起模型调用或扣点。</p>
+  {!unconfirmed&&<Card className={styles.panel}><h2 ref={heading} tabIndex={-1}>渠道凭据</h2><p>一份渠道 Key 可供下面列出的多个模型共用。保存时不会调用模型或扣点。</p>
    {query.isPending?<p>正在读取渠道连接…</p>:query.isError?<p role="alert">渠道连接读取失败，暂不可保存。</p>:<>
-    {!query.data.canManage?<p>凭据管理写入尚未配置，当前仅可查看连接状态。</p>:null}
-    {!query.data.connections.length?<p>服务器尚未准入可管理的渠道连接。</p>:query.data.connections.map(connection=><section className={styles.history} key={connection.connectionId}>
-     <h3>{connection.provider} · {connection.channel}</h3><p>连接：{connection.connectionId} · 地域：{connection.region}</p>
+    {!query.data.canManage?<p>当前仅可查看连接状态。如需录入或更新 Key，请联系系统维护人员。</p>:null}
+    {focusModel&&query.data.connections.length>0&&!targetId&&<p>暂时无法定位到单个渠道，请从以下连接中核对。</p>}
+    {!query.data.connections.length?<p>当前企业暂无已登记渠道，请联系系统维护人员。</p>:query.data.connections.map(connection=><section className={styles.history} key={connection.connectionId}>
+     <h3 ref={targetId===connection.connectionId?target:undefined} tabIndex={targetId===connection.connectionId?-1:undefined}>{connection.provider} · {connection.channel}</h3><p>连接：{connection.connectionId} · 地域：{connection.region}</p>
      <p>状态：{!connection.keyPresent?"未配置":connection.enabled?"已保存":"已停用"} · 版本：{connection.revision}{connection.account?" · 账号备注："+connection.account:""}</p>
      <p>共用此凭据的模型：{connection.models.map(m=>m.model+"（"+({text:"文本",multimodal:"多模态","image-generation":"生图"} as const)[m.category]+"，"+m.version+"）").join("、")||"暂无已准入模型"}</p>
      <div className={styles.actions}><Button variant="outline" disabled={locked||!query.data.canManage} onClick={()=>{setFailure("");setDialog({connection,action:"set-key"})}}>{!connection.keyPresent?"录入 Key":connection.enabled?"轮换 Key":"重新录入 Key"}</Button><Button variant="outline" disabled={locked||!query.data.canManage||!connection.enabled} onClick={()=>{setFailure("");setDialog({connection,action:"disable"})}}>停用</Button></div>
     </section>)}
    </>}
-   <Button variant="outline" disabled={busy} onClick={()=>void query.refetch()}>重新读取渠道状态</Button>
-  </Card>
+   <Button variant="outline" disabled={disabled||busy} onClick={()=>void query.refetch()}>重新读取渠道状态</Button>
+  </Card>}
   {failure?<p role="alert" className={styles.error}>{failure}</p>:null}
-  {intent||pending.error||!scopeMatches?<Card className={styles.panel}><h2>保存结果待核实</h2><p>连接：{intent?.connectionId??"待核实"} · 原请求编号：{intent?.key??"本地记录读取失败"}</p><p>查询失败或未找到回执不能证明保存失败；不会自动重发 Key 或更换请求编号。</p><Button disabled={busy||!intent||!scopeMatches} onClick={()=>void verify()}>查询本次结果</Button></Card>:null}
+  {intent||pending.error||!scopeMatches?<Card className={styles.panel}><h2>保存结果待核实</h2><p>连接：{intent?.connectionId??"待核实"} · 原请求编号：{intent?.key??"本地记录读取失败"}</p><p>请用本次请求编号查询结果，确认后再录入 Key。</p><Button disabled={disabled||busy||!intent||!scopeMatches} onClick={()=>void verify()}>查询本次结果</Button></Card>:null}
   {receipt?<Card className={styles.panel} role="status"><h2>本次保存回执</h2><p>连接：{receipt.connectionId} · 本次版本：{receipt.connection.revision} · {receipt.action==="disable"?"已停用":"已保存"}</p><p>这是原请求的本地保存结果，当前状态以重新读取为准；不代表厂商账号或模型访问已验证。</p></Card>:null}
-  {dialog?<CredentialDialog key={dialog.connection.connectionId+dialog.action} connection={dialog.connection} action={dialog.action} busy={busy} locked={locked||query.isError||!query.data?.canManage} onClose={()=>setDialog(null)} onSave={input=>save(dialog.connection,input)}/>:null}
+  {dialog&&!unconfirmed?<CredentialDialog key={dialog.connection.connectionId+dialog.action} connection={dialog.connection} action={dialog.action} busy={busy} locked={locked||query.isError||!query.data?.canManage} onClose={()=>setDialog(null)} onSave={input=>save(dialog.connection,input)}/>:null}
  </>;
 }
 
