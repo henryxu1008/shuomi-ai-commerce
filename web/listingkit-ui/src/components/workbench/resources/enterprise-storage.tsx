@@ -1,19 +1,21 @@
 "use client";
 import {useEffect,useRef,useState,useSyncExternalStore} from "react";
-import {useQuery} from "@tanstack/react-query";
+import {useQuery,useQueryClient} from "@tanstack/react-query";
 import Link from "next/link";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {getCommercialWallet} from "@/lib/api/commercial-billing";
 import {createStorageOrder,createStorageQuote,getStorageOffers,getStorageSummary,readStorageOrder,type StorageQuote} from "@/lib/api/storage-capacity";
 import {pendingSchema,readPending} from "../commercial/resource-purchase-panel";
+import {resourcePurchaseHref,walletBalanceId,walletPath} from "../commercial/resource-catalog-display";
 import styles from "./enterprise-storage.module.css";
 const subscribe=(f:()=>void)=>{window.addEventListener("storage-purchase-pending",f);window.addEventListener("storage",f);return()=>{window.removeEventListener("storage-purchase-pending",f);window.removeEventListener("storage",f)}};
 const gib=(v:string)=>{const n=BigInt(v),scaled=n*BigInt(100)/BigInt(1073741824);if(n>BigInt(0)&&scaled===BigInt(0))return "< 0.01 GiB";return `${scaled/BigInt(100)}.${(scaled%BigInt(100)).toString().padStart(2,"0")} GiB`};
 const money=(v:string)=>{const n=BigInt(v);return `¥${n/BigInt(100)}.${(n%BigInt(100)).toString().padStart(2,"0")}`};
-type Props={userId:string;organizationId:string;scope:string;sequence:number;canPurchase:boolean;readOnly?:boolean};
+type Props={userId:string;organizationId:string;scope:string;sequence:number;canPurchase:boolean;readOnly?:boolean;purchaseHref?:string;inWallet?:boolean};
 export function EnterpriseStorage(props:Props){return <ScopedStorage key={JSON.stringify([props.userId,props.organizationId,props.scope])} {...props}/>}
-function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnly=false}:Props){
+function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnly=false,purchaseHref,inWallet=false}:Props){
+  const client=useQueryClient();
   const summary=useQuery({queryKey:["workbench",userId,organizationId,scope,"storage",sequence],queryFn:({signal})=>getStorageSummary(userId,organizationId,signal),staleTime:0,gcTime:0,retry:false});
   const offers=useQuery({queryKey:["workbench",userId,organizationId,scope,"storage-offers",sequence],queryFn:({signal})=>getStorageOffers(userId,organizationId,signal),staleTime:0,gcTime:0,retry:false,enabled:!readOnly&&!!summary.data&&!summary.isError});
   const key=`storage-purchase.pending:${JSON.stringify([userId,organizationId])}`;
@@ -48,13 +50,28 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
   function submit(intent:ReturnType<typeof pendingSchema.parse>){return run(async signal=>{
     const order=intent.orderId?await readStorageOrder(userId,organizationId,intent.orderId,signal):await createStorageOrder(userId,organizationId,intent.quoteId,intent.key,signal);
     if(!mounted.current)return;
-    if(order.status==="FULFILLED"){persist(null);setMessage("扩容已生效。每个包从生效时起有效 30 天。");await summary.refetch();return}
+    if(order.status==="FULFILLED"){
+      persist(null);
+      setMessage("扩容已生效。每个包从生效时起有效 30 天。");
+      await Promise.all([
+        summary.refetch(),
+        client.invalidateQueries({queryKey:["workbench",organizationId,"commercial-wallet",userId]}),
+        client.invalidateQueries({queryKey:["workbench",organizationId,"commercial-wallet-entries",userId]}),
+      ]);
+      return;
+    }
     if(order.status==="CANCELLED"){persist(null);setMessage(order.failure_code==="INSUFFICIENT_FUNDS"?"企业钱包余额不足，订单已取消。":"原订单已取消。");return}
     persist({...intent,orderId:order.order_id});setMessage("正在核对原订单，请查看原订单结果；请勿重新购买。");
   },!intent.orderId)}
   const value=summary.data?.summary;
   return <Card className={styles.card} role="region" aria-label="企业存储容量">
-    <div className={styles.heading}><div><h2>企业存储容量</h2><p>企业共享容量，商品图片、AI 图片和知识库原文件统一计量。</p></div>{!readOnly&&canPurchase&&<Button onClick={()=>prepare()} disabled={!ready||busy||!!pending.value||!value||!offer}>购买扩容包</Button>}</div>
+    <div className={styles.heading}>
+      <div><h2>企业存储容量</h2><p>企业共享容量，商品图片、AI 图片和知识库原文件统一计量。</p></div>
+      {canPurchase && (purchaseHref
+        ? <Button asChild variant="outline"><Link href={purchaseHref} prefetch={false} scroll={false}>前往购买扩容包</Link></Button>
+        : !readOnly && <Button onClick={()=>prepare()} disabled={!ready||busy||!!pending.value||!value||!offer}>购买扩容包</Button>
+      )}
+    </div>
     {summary.isPending||summary.isFetching?<p role="status">正在读取企业存储容量…</p>:summary.isError||!value?<p role="alert">存储容量服务暂不可用，本次未取得用量。请刷新重试。</p>:<>
       <dl className={styles.metrics}>{[["总容量",value.quota_bytes],["已使用",value.occupied_bytes],["预占中",value.reserved_bytes],["可用容量",value.remaining_bytes]].map(([label,bytes])=><div key={label}><dt>{label}</dt><dd title={`${bytes} 字节`}>{gib(bytes)}</dd></div>)}</dl>
       <p>商品媒体 {gib(value.categories.product_media??"0")} · AI 图片 {gib(value.categories.ai_image??"0")} · 知识库 {gib(value.categories.knowledge_document??"0")}{value.categories.business_attachment&&<> · 业务附件 {gib(value.categories.business_attachment)}</>}</p>
@@ -71,6 +88,25 @@ function ScopedStorage({userId,organizationId,scope,sequence,canPurchase,readOnl
     {!ready&&raw!=="__loading__"&&<p role="alert">原订单恢复信息暂不可读，购买已暂停，请联系支持核对。</p>}
     {pending.value&&<div><p>有一笔待确认的原订单。恢复会使用原报价与原请求，不会创建第二笔购买。</p><Button variant="outline" disabled={busy||(!pending.value.orderId&&!canPurchase)} onClick={()=>void submit(pending.value!)}>恢复原订单</Button>{pending.value.orderId&&<span> 订单：{pending.value.orderId}</span>}</div>}
     {message&&<p role="status">{message}</p>}
-    {!readOnly&&<dialog ref={dialog} className={styles.dialog} onCancel={e=>{if(busy)e.preventDefault();else setDialogOpen(false)}}><h2>确认购买存储扩容包</h2><label className={styles.quantity}>扩容包数量<select aria-label="扩容包数量" value={quantity} disabled={busy||!canPurchase||!!pending.value} onChange={e=>prepare(e.target.value)}>{Array.from({length:10},(_,i)=><option key={i+1} value={String(i+1)}>{i+1} 包</option>)}</select></label>{quote?<><p>{quote.resource_quantity} 个 × 50 GiB，共增加 {gib((BigInt(quote.resource_quantity)*BigInt(quote.storage_unit_bytes)).toString())}</p><p>应付 {money(quote.total_minor)} · 企业钱包余额 {wallet===null?"未取得":money(wallet)}</p><p>确认扣款后立即生效，有效 30 天。多次购买分别到期，不自动续费。</p><p>报价有效至 {new Date(quote.expires_at).toLocaleString("zh-CN")}</p>{insufficient&&<p role="alert">企业钱包余额不足，请充值后重新获取报价。</p>}</>:<p role="status">{busy?"正在获取冻结报价与钱包余额…":"本次未取得报价，请重试。"}</p>}<div className={styles.actions}><Button variant="outline" disabled={busy} onClick={()=>setDialogOpen(false)}>取消</Button>{quote?<Button disabled={busy||!canPurchase||wallet===null||insufficient||!!pending.value||quote.resource_quantity!==quantity||Date.parse(quote.expires_at)<=Date.now()} onClick={buy}>确认支付 {money(quote.total_minor)}</Button>:<Button disabled={busy||!canPurchase} onClick={()=>prepare()}>重新获取报价</Button>}</div><Link href="/workbench/plans/top-up" prefetch={false}>钱包充值</Link></dialog>}
+    {!readOnly && (
+      <dialog ref={dialog} className={styles.dialog} aria-labelledby="storage-purchase-title" onCancel={e=>{if(busy)e.preventDefault();else setDialogOpen(false)}}>
+        <h2 id="storage-purchase-title">确认购买存储扩容包</h2>
+        <label className={styles.quantity}>扩容包数量<select aria-label="扩容包数量" value={quantity} disabled={busy||!canPurchase||!!pending.value} onChange={e=>prepare(e.target.value)}>{Array.from({length:10},(_,i)=><option key={i+1} value={String(i+1)}>{i+1} 包</option>)}</select></label>
+        {quote ? <>
+          <p>{quote.resource_quantity} 个 × 50 GiB，共增加 {gib((BigInt(quote.resource_quantity)*BigInt(quote.storage_unit_bytes)).toString())}</p>
+          <p>应付 {money(quote.total_minor)} · 企业钱包余额 {wallet===null?"未取得":money(wallet)}</p>
+          <p>确认扣款后立即生效，有效 30 天。多次购买分别到期，不自动续费。</p>
+          <p>报价有效至 {new Date(quote.expires_at).toLocaleString("zh-CN")}</p>
+          {insufficient && <p role="alert">企业钱包余额不足，请充值后重新获取报价。</p>}
+        </> : <p role="status">{busy?"正在确认价格与钱包余额…":"本次未取得报价，请重试。"}</p>}
+        <div className={styles.actions}>
+          <Button variant="outline" disabled={busy} onClick={()=>setDialogOpen(false)}>取消</Button>
+          {quote
+            ? <Button disabled={busy||!canPurchase||wallet===null||insufficient||!!pending.value||quote.resource_quantity!==quantity||Date.parse(quote.expires_at)<=Date.now()} onClick={buy}>确认支付 {money(quote.total_minor)}</Button>
+            : <Button disabled={busy||!canPurchase} onClick={()=>prepare()}>重新获取报价</Button>}
+        </div>
+        {(!inWallet || insufficient) && <Link href={inWallet ? resourcePurchaseHref(walletBalanceId) : walletPath} prefetch={false} onClick={()=>setDialogOpen(false)}>钱包充值</Link>}
+      </dialog>
+    )}
   </Card>
 }

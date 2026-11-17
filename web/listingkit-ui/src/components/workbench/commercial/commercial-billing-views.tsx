@@ -7,6 +7,8 @@ import type { CommercialOrder, CommercialOrderPage, CommercialOrderSummary, Comm
 import { ConsoleState } from "../console/console-page";
 import styles from "./commercial.module.css";
 import { WalletTopUpEntry } from "./wallet-topup";
+import { ResourcePurchaseAnchor } from "./resource-purchase-anchor";
+import { walletBalanceId } from "./resource-catalog-display";
 
 const entryLabels: Record<string, string> = { TOP_UP_CREDIT: "钱包充值", PURCHASE_RESERVE: "资源购买预留", PURCHASE_COMMIT: "资源购买", PURCHASE_RELEASE: "购买释放", REFUND_RESERVE: "退款冻结", REFUND_CONFIRM: "退款确认", REFUND_RELEASE: "退款冻结释放", REFUND_REVERSAL: "退款冲正", CHARGEBACK_REVERSAL: "拒付冲正", DEBT_REPAYMENT: "欠款偿还" };
 const orderKindLabels: Record<CommercialOrder["kind"], string> = { WALLET_TOP_UP: "钱包充值", RESOURCE_PURCHASE: "资源购买", STORAGE_CAPACITY_PURCHASE:"存储扩容" };
@@ -43,10 +45,12 @@ function CapabilityNote({ children }: { children: React.ReactNode }) {
 }
 
 export function WalletView({
-  wallet, entries, onNext, userId, organizationName, permissions, purchase,
+  wallet, walletState, entries, entriesState, onNext, userId, organizationName, permissions, purchase,
 }: {
-  wallet: CommercialWallet;
-  entries: CommercialWalletEntryPage;
+  wallet?: CommercialWallet;
+  walletState?: React.ReactNode;
+  entries?: CommercialWalletEntryPage;
+  entriesState?: React.ReactNode;
   onNext: () => void;
   userId: string;
   organizationName: string;
@@ -55,9 +59,11 @@ export function WalletView({
 }) {
   return (
     <div className={styles.walletPage}>
-      <Card role="region" aria-labelledby="wallet-balance" className={`${styles.panel} ${styles.walletHero}`}>
+      <ResourcePurchaseAnchor id={walletBalanceId}>
+      {wallet ? (
+      <Card role="region" aria-labelledby="wallet-balance-title" className={`${styles.panel} ${styles.walletHero}`}>
         <div>
-          <h2 id="wallet-balance">企业钱包可用余额</h2>
+          <h2 id="wallet-balance-title">企业钱包可用余额</h2>
           <strong className={styles.walletBalance}>{minorAmount(wallet.available_minor, wallet.currency)}</strong>
           <p className={styles.subtle}>可用于购买店铺服务、AI 点数和数据资源。</p>
         </div>
@@ -79,6 +85,8 @@ export function WalletView({
           <p>数据截至 {timeLabel(wallet.observed_at)}</p>
         </div>
       </Card>
+      ) : walletState}
+      </ResourcePurchaseAnchor>
       <section className={styles.walletPurchase} aria-labelledby="wallet-purchase">
         <h2 id="wallet-purchase">使用充值余额</h2>
         {purchase}
@@ -86,7 +94,7 @@ export function WalletView({
       <div className={styles.walletHistory}>
         <Panel title="钱包流水" className={styles.billingPanel}>
           <p className={styles.subtle}>查看企业钱包的充值、支出及其他变动。</p>
-          {entries.items.length === 0 ? (
+          {!entries ? entriesState : entries.items.length === 0 ? (
             <p className={styles.walletEmpty}>暂无钱包流水</p>
           ) : (
             <div className={styles.billingTableWrap} role="region" aria-label="钱包流水明细" tabIndex={0}>
@@ -113,7 +121,7 @@ export function WalletView({
               </table>
             </div>
           )}
-          {entries.next_cursor ? (
+          {entries?.next_cursor ? (
             <div className={styles.pagination}>
               <span>当前页 {entries.items.length} 条</span>
               <Button variant="outline" size="sm" onClick={onNext}>下一页流水</Button>

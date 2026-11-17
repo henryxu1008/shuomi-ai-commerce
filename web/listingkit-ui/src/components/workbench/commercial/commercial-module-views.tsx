@@ -15,7 +15,7 @@ import {
 } from "@/lib/api/resource-events";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { AccountDialog } from "../account/account-dialog";
-import { resourceDefinitions } from "./resource-purchase-panel";
+import { resourceDefinitions } from "./resource-catalog-display";
 import styles from "./commercial.module.css";
 import { PlansOverview } from "./plans-overview";
 

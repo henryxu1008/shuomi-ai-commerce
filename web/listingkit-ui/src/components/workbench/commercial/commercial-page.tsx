@@ -24,6 +24,9 @@ import { EntitlementsOverview } from "./commercial-views";
 import { EnterpriseResources } from "./enterprise-resources";
 import { EnterpriseStorage } from "../resources/enterprise-storage";
 import { ResourcePurchasePanel } from "./resource-purchase-panel";
+import { PlanOptionsView } from "./plan-options-view";
+import { ResourcePurchaseAnchor } from "./resource-purchase-anchor";
+import { storagePurchaseId } from "./resource-catalog-display";
 import {
   CommercialOverviewView,
   UsageDetailsView,
@@ -203,6 +206,7 @@ function ScopedCommercial({
         <BillingRequest
           key={sequence}
           page={page}
+          scope={scope}
           userId={userId}
           organizationId={organizationId}
           organizationName={organizationName}
@@ -313,7 +317,7 @@ function CommercialRequest({
         organizationId={organizationId}
         organizationName={organizationName}
         permissions={permissions}
-        planOptions={{ storageAvailable }}
+        priceGuide={{ storageAvailable }}
         sequence={sequence}
       />
     );
@@ -333,6 +337,7 @@ function CommercialRequest({
 
 function BillingRequest({
   page,
+  scope,
   userId,
   organizationId,
   organizationName,
@@ -341,6 +346,7 @@ function BillingRequest({
   storageAvailable,
 }: {
   page: "top-up" | "orders" | "order-detail";
+  scope: string;
   userId: string;
   organizationId: string;
   organizationName: string;
@@ -427,37 +433,34 @@ function BillingRequest({
     retry: false,
   });
   if (page === "top-up") {
-    if (wallet.isPending || entries.isPending)
-      return (
-        <ConsoleState kind="loading" title="正在读取企业钱包">
-          正在读取余额和流水，请稍候。
-        </ConsoleState>
-      );
-    if (wallet.isError) return <BillingReadError error={wallet.error} />;
-    if (entries.isError) return <BillingReadError error={entries.error} />;
-    if (!wallet.data || !entries.data)
-      return (
-          <ConsoleState kind="error" title="暂时无法查看企业钱包">
-            请刷新数据后重试。
-        </ConsoleState>
-      );
+    const visibleWallet = wallet.isError ? undefined : wallet.data;
+    const visibleEntries = entries.isError ? undefined : entries.data;
     return (
       <WalletView
-        wallet={wallet.data}
-        entries={entries.data}
+        wallet={visibleWallet}
+        walletState={wallet.isError ? <BillingReadError error={wallet.error} /> : <ConsoleState kind="loading" title="正在读取钱包余额" />}
+        entries={visibleEntries}
+        entriesState={entries.isError ? <BillingReadError error={entries.error} /> : <ConsoleState kind="loading" title="正在读取钱包流水" />}
         userId={userId}
         organizationName={organizationName}
         permissions={permissions}
-        onNext={() => setWalletCursor(entries.data.next_cursor)}
+        onNext={() => setWalletCursor(visibleEntries?.next_cursor ?? "")}
         purchase={
-          <ResourceCatalog
-            userId={userId}
-            organizationId={organizationId}
-            organizationName={organizationName || "当前企业"}
-            permissions={permissions}
-            storageAvailable={storageAvailable}
-            sequence={0}
-          />
+          <>
+            <ResourceCatalog
+              userId={userId}
+              organizationId={organizationId}
+              organizationName={organizationName || "当前企业"}
+              permissions={permissions}
+              sequence={0}
+            />
+            {storageAvailable ? (
+              <ResourcePurchaseAnchor id={storagePurchaseId}>
+                <EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={0}
+                  canPurchase={permissions.includes("workbench.commercial.purchase")} inWallet />
+              </ResourcePurchaseAnchor>
+            ) : null}
+          </>
         }
       />
     );
@@ -600,16 +603,14 @@ function ResourceCatalog({
   organizationId,
   organizationName,
   permissions,
-  planOptions,
-  storageAvailable,
+  priceGuide,
   sequence,
 }: {
   userId: string;
   organizationId: string;
   organizationName: string;
   permissions: string[];
-  planOptions?: { storageAvailable: boolean };
-  storageAvailable?: boolean;
+  priceGuide?: { storageAvailable: boolean };
   sequence: number;
 }) {
   const result = useQuery({
@@ -627,7 +628,7 @@ function ResourceCatalog({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  if (result.isPending || result.isFetching)
+  if (result.isPending)
     return (
       <ConsoleState kind="loading" title="正在读取资源价格">
         正在确认当前企业的价格配置。
@@ -636,14 +637,14 @@ function ResourceCatalog({
   if (result.isError) return <BillingReadError error={result.error} />;
   if (!result.data || result.data.organization_id !== organizationId)
     return <BillingReadError error={{ code: "INVALID_UPSTREAM_RESPONSE" }} />;
+  if (priceGuide)
+    return <PlanOptionsView offers={result.data} userId={userId} organizationId={organizationId} storageAvailable={priceGuide.storageAvailable} />;
   return (
     <ResourcePurchasePanel
       userId={userId}
       organizationId={organizationId}
       organizationName={organizationName}
       permissions={permissions}
-      planOptions={planOptions}
-      storageAvailable={storageAvailable}
       offers={result.data}
     />
   );
