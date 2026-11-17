@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"task-processor/internal/agent"
+	"task-processor/internal/aicapability"
+	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authz"
 	kernelmodule "task-processor/internal/kernel/module"
 	"task-processor/internal/ledger/orgresource"
@@ -15,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -79,6 +83,7 @@ func TestUnifiedOverviewUsesIndependentAvailabilityAndTrustedScope(t *testing.T)
 type resourceEventFixture struct {
 	query orgresource.EventQuery
 	calls int
+	items []orgresource.EventView
 }
 
 func (r *resourceEventFixture) ListEvents(_ context.Context, q orgresource.EventQuery) (orgresource.EventPage, error) {
@@ -87,12 +92,24 @@ func (r *resourceEventFixture) ListEvents(_ context.Context, q orgresource.Event
 	if q.Cursor == "invalid" {
 		return orgresource.EventPage{}, orgresource.ErrInvalidInput
 	}
-	return orgresource.EventPage{OrganizationID: q.OrganizationID, Items: []orgresource.EventView{}}, nil
+	return orgresource.EventPage{OrganizationID: q.OrganizationID, Items: r.items}, nil
 }
 func TestResourceEventsUseBoundedFiltersAndLiveOrganization(t *testing.T) {
-	reader := &resourceEventFixture{}
+	reader := &resourceEventFixture{items: []orgresource.EventView{
+		{EventID: "event-1", ResourceType: orgresource.ResourceAIPoint, SourceType: "model_invocation_v1", SourceIdentity: "call-1"},
+		{EventID: "event-2", ResourceType: orgresource.ResourceAIPoint, SourceType: "model_invocation_v1", SourceIdentity: "call-1"},
+		{EventID: "event-3", ResourceType: orgresource.ResourceAIPoint, SourceType: "local_ai_trial_v1", SourceIdentity: "call-1"},
+	}}
 	grants := &auditHTTPGrants{role: authz.EnterpriseRoleKey("B", 1)}
-	module := commercialResourcesModule{reader: &resourceBalanceFixture{}, events: reader}
+	purposeCalls := 0
+	module := commercialResourcesModule{reader: &resourceBalanceFixture{}, events: reader, objects: &commercialUsageLookup{
+		modelPurposes: func(_ *gin.Context, org string, ids []string) map[string]string {
+			purposeCalls++
+			require.Equal(t, "B", org)
+			require.Equal(t, []string{"call-1"}, ids)
+			return map[string]string{"call-1": "chat_planning"}
+		},
+	}}
 	server := buildCurrentApplicationHTTPServer(module.routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: currentRoleTestAuthorizer()})
 	get := func(suffix, org, body string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest("GET", commercialResourceEventsPath+suffix, strings.NewReader(body))
@@ -102,12 +119,20 @@ func TestResourceEventsUseBoundedFiltersAndLiveOrganization(t *testing.T) {
 		server.Handler.ServeHTTP(response, request)
 		return response
 	}
-	response := get("?resource_type=ai_point&limit=2&from=2026-09-01T00:00:00Z&until=2026-10-01T00:00:00Z", "B", "")
+	response := get("?deductions_only=true&include_purpose=true&resource_type=ai_point&limit=3&from=2026-09-01T00:00:00Z&until=2026-10-01T00:00:00Z", "B", "")
 	require.Equal(t, 200, response.Code)
 	require.Equal(t, "B", reader.query.OrganizationID)
-	require.Equal(t, 2, reader.query.Limit)
+	require.Equal(t, 3, reader.query.Limit)
 	require.Equal(t, orgresource.ResourceAIPoint, reader.query.ResourceType)
-	for _, query := range []string{"?organization_id=A", "?limit=51", "?limit=2&limit=3", "?resource_type=token", "?from=bad", "?from=2026-10-01T00:00:00Z&until=2026-09-01T00:00:00Z", "?"} {
+	require.True(t, reader.query.DeductionsOnly)
+	require.Equal(t, 2, strings.Count(response.Body.String(), `"purpose":"chat_planning"`))
+	require.Equal(t, 1, purposeCalls)
+	response = get("?deductions_only=false", "B", "")
+	require.Equal(t, 200, response.Code)
+	require.NotContains(t, response.Body.String(), `"purpose"`)
+	require.Equal(t, 1, purposeCalls)
+	require.False(t, reader.query.DeductionsOnly)
+	for _, query := range []string{"?organization_id=A", "?limit=51", "?limit=2&limit=3", "?resource_type=token", "?deductions_only=True", "?include_purpose=all", "?include_purpose=false&include_purpose=true", "?deductions_only=true&deductions_only=false", "?from=bad", "?from=2026-10-01T00:00:00Z&until=2026-09-01T00:00:00Z", "?"} {
 		before := reader.calls
 		require.Equal(t, 400, get(query, "B", "").Code)
 		require.Equal(t, before, reader.calls)
@@ -117,6 +142,131 @@ func TestResourceEventsUseBoundedFiltersAndLiveOrganization(t *testing.T) {
 	require.Equal(t, 403, get("", "A", "").Code)
 	require.Equal(t, 400, get("", "B", "{}").Code)
 	grants.revoked = true
-	require.Equal(t, 403, get("", "B", "").Code)
+	require.Equal(t, 403, get("?include_purpose=true", "B", "").Code)
 	require.Equal(t, before, reader.calls)
+	require.Equal(t, 1, purposeCalls)
+}
+
+func TestUsageObjectRouteRejectsOpaqueTargetInput(t *testing.T) {
+	grants := &auditHTTPGrants{role: authz.EnterpriseRoleKey("B", 1)}
+	module := commercialResourcesModule{reader: &resourceBalanceFixture{}}
+	server := buildCurrentApplicationHTTPServer(module.routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: currentRoleTestAuthorizer()})
+	for _, path := range []string{"/not-an-event/object", "/55555555-5555-4555-8555-555555555555/object?source_identity=some-store"} {
+		request := httptest.NewRequest("GET", commercialResourceEventsPath+path, nil)
+		request.Header.Set("Authorization", "Bearer fixture")
+		request.Header.Set("X-Requested-Organization-ID", "B")
+		response := httptest.NewRecorder()
+		server.Handler.ServeHTTP(response, request)
+		require.Equal(t, 400, response.Code, response.Body.String())
+	}
+}
+
+func TestUsageObjectUsesOnlyOwnedEventSource(t *testing.T) {
+	const eventID = "55555555-5555-4555-8555-555555555555"
+	const sourceID = "66666666-6666-4666-8666-666666666666"
+	grants := &auditHTTPGrants{role: authz.EnterpriseRoleKey("B", 1)}
+	event := orgresource.EventSource{OrganizationID: "B", EventID: eventID, ResourceType: orgresource.ResourceStoreRenewalPeriod,
+		SourceType: string(orgresource.ConsumerStoreService), SourceIdentity: sourceID}
+	found := true
+	reads, resolutions := 0, 0
+	var resolvedPurpose string
+	checkSource := func(org, source string) {
+		resolutions++
+		require.Equal(t, "B", org)
+		require.Equal(t, sourceID, source)
+	}
+	module := commercialResourcesModule{reader: &resourceBalanceFixture{}, objects: &commercialUsageLookup{
+		readEvent: func(_ context.Context, org, id string) (orgresource.EventSource, bool, error) {
+			reads++
+			require.Equal(t, "B", org)
+			require.Equal(t, eventID, id)
+			return event, found, nil
+		},
+		store: func(_ context.Context, org, source string) *commercialUsageObject {
+			checkSource(org, source)
+			return usageObject("store", "Fixture store", sourceID)
+		},
+		amazon: func(_ context.Context, org, source string) (string, error) {
+			checkSource(org, source)
+			return "Fixture product", nil
+		},
+		model: func(_ *gin.Context, org, source string) (*commercialUsageObject, string) {
+			checkSource(org, source)
+			return nil, resolvedPurpose
+		},
+	}}
+	server := buildCurrentApplicationHTTPServer(module.routes(), routeAuthDependencies{workbenchVerifier: applicationVerifier{}, organizationResolver: workbenchcontext.NewResolver(grants, "project", "v1", nil), authorizer: currentRoleTestAuthorizer()})
+	get := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, commercialResourceEventsPath+"/"+eventID+"/object", nil)
+		req.Header.Set("Authorization", "Bearer fixture")
+		req.Header.Set("X-Requested-Organization-ID", "B")
+		w := httptest.NewRecorder()
+		server.Handler.ServeHTTP(w, req)
+		return w
+	}
+	response := get()
+	require.Equal(t, 200, response.Code, response.Body.String())
+	require.Equal(t, "private, no-store", response.Header().Get("Cache-Control"))
+	require.JSONEq(t, `{"organization_id":"B","event_id":"`+eventID+`","object":{"kind":"store","name":"Fixture store","id":"`+sourceID+`"}}`, response.Body.String())
+	event.ResourceType = orgresource.ResourceDataRow
+	event.SourceType = string(orgresource.ConsumerAmazonData)
+	response = get()
+	require.Equal(t, 200, response.Code)
+	require.JSONEq(t, `{"organization_id":"B","event_id":"`+eventID+`","object":{"kind":"amazon_product","name":"Fixture product"}}`, response.Body.String())
+	event.ResourceType = orgresource.ResourceAIPoint
+	event.SourceType = "model_invocation_v1"
+	response = get()
+	require.Equal(t, 200, response.Code)
+	require.JSONEq(t, `{"organization_id":"B","event_id":"`+eventID+`","object":null}`, response.Body.String())
+	resolvedPurpose = "chat_planning"
+	response = get()
+	require.Equal(t, 200, response.Code)
+	require.JSONEq(t, `{"organization_id":"B","event_id":"`+eventID+`","object":null,"purpose":"chat_planning"}`, response.Body.String())
+	require.Equal(t, 4, resolutions)
+	event.ResourceType = orgresource.ResourceDataRow
+	require.Contains(t, get().Body.String(), `"object":null`)
+	event.OrganizationID = "A"
+	require.Equal(t, 404, get().Code)
+	found = false
+	event.OrganizationID = "B"
+	require.Equal(t, 404, get().Code)
+	require.Equal(t, 4, resolutions)
+	require.Equal(t, 7, reads)
+	grants.revoked = true
+	require.Equal(t, 403, get().Code)
+	require.Equal(t, 7, reads)
+}
+
+func TestUsageObjectTaskRequiresExactRunRequest(t *testing.T) {
+	const taskID = "77777777-7777-4777-8777-777777777777"
+	scope := aiworkbench.Scope{OrganizationID: "B", ActorID: "actor"}
+	request := agent.Request{Key: "execution", GoalSummary: "Original task"}
+	raw, err := json.Marshal(request)
+	require.NoError(t, err)
+	task := aiworkbench.BusinessTask{ID: taskID, Scope: scope, Kind: aiworkbench.ContentTaskKind,
+		ExecutionRequestKey: request.Key, ExecutionRequest: raw}
+	require.True(t, usageTaskMatches(task, scope, aiworkbench.ContentTaskKind, "", request))
+	require.True(t, usageTaskMatches(task, scope, aiworkbench.ContentTaskKind, taskID, request))
+	require.False(t, usageTaskMatches(task, scope, aiworkbench.TitleTaskKind, "", request))
+	require.False(t, usageTaskMatches(task, scope, aiworkbench.ContentTaskKind, "some-other-task", request))
+	require.False(t, usageTaskMatches(task, aiworkbench.Scope{OrganizationID: "B", ActorID: "other"}, aiworkbench.ContentTaskKind, "", request))
+	request.GoalSummary = "A different task"
+	require.False(t, usageTaskMatches(task, scope, aiworkbench.ContentTaskKind, "", request))
+}
+
+func TestUsageInvocationPurposeUsesRecordedOperation(t *testing.T) {
+	for _, entry := range []struct {
+		operation aicapability.Operation
+		taskID    string
+		purpose   string
+	}{
+		{operation: aicapability.OperationAIWorkbenchChatPlan, purpose: "chat_planning"},
+		{operation: aicapability.OperationOwnProductIntake, purpose: "own_product_intake"},
+		{operation: aicapability.OperationOwnProductIntake, taskID: "bound-task"},
+		{operation: aicapability.OperationProductContentDecision},
+		{operation: aicapability.OperationAIWorkbenchStoreRoute},
+	} {
+		fact := aicapability.InvocationRecord{Operation: entry.operation, BusinessTaskID: entry.taskID}
+		require.Equal(t, entry.purpose, usageInvocationPurpose(fact), "operation %s, task %s", entry.operation, entry.taskID)
+	}
 }

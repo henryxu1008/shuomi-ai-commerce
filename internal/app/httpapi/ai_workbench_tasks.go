@@ -141,7 +141,7 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 			view.ExecutionMode, view.ModeRevision, view.ModeSnapshotRef = mode.Mode, mode.Revision, &ref
 		}
 	}
-	if _, err := a.agent.freshIdentity(ctx); err == nil {
+	if _, err := a.agent.freshIdentity(ctx); err == nil && (task.Kind != aiworkbench.ContentTaskKind || task.AgentVersion == agentconfig.ContentAgentVersion) {
 		titleReady := true
 		if projection.CanStart || projection.CanResume {
 			titleReady = a.agent.frozenTitleProfileReady(ctx, agent.Scope{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID}, request)
@@ -237,7 +237,7 @@ func (a *aiWorkbenchApplication) getTask(c *gin.Context, ctx context.Context, sc
 		writeAIWorkbenchError(c, aiworkbench.ErrInvalid)
 		return
 	}
-	task, err := a.store.GetTask(ctx, scope, id)
+	task, err := a.store.ReadTask(ctx, scope, id)
 	if err != nil {
 		writeAIWorkbenchError(c, err)
 		return
