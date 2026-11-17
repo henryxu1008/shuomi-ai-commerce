@@ -290,7 +290,7 @@ func execute() error {
 				options = append(options, httpapi.WithIssue36Trial(features.LocalTrialDB))
 			}
 			if features.MoneyOwnerDB != nil {
-				options = append(options, httpapi.WithMoneyOwnerDatabase(features.MoneyOwnerDB))
+				options = append(options, httpapi.WithMoneyOwnerDatabase(features.MoneyOwnerDB), httpapi.WithWalletTopUpRecoveryStop(features.WalletTopUpRecoveryStop))
 			}
 			if features.ProductAcquisitionDB != nil {
 				options = append(options, httpapi.WithProductAcquisition(features.ProductAcquisitionDB))
