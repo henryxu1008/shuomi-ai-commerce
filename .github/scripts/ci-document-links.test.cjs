@@ -375,3 +375,36 @@ test("reports an undefined explicit Markdown reference and ignores code samples"
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("parses parenthesized Markdown titles without treating titles as filenames", () => {
+  const patch = [
+    "diff --git a/docs/guide.md b/docs/guide.md",
+    "+++ b/docs/guide.md",
+    "@@ -0,0 +1,3 @@",
+    "+[guide](../README.md (Repository guide))",
+    "+[version](guide(v2).md)",
+    "+[quoted](../README.md \"Repository guide\")",
+  ].join("\n");
+  const doc = [
+    "[guide](../README.md (Repository guide))",
+    "[version](guide(v2).md)",
+    "[quoted](../README.md \"Repository guide\")",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-titles-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    fs.writeFileSync(path.join(root, "README.md"), "# Root\n");
+    fs.writeFileSync(path.join(root, "docs", "guide(v2).md"), "# v2\n");
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => doc,
+    }), []);
+
+    fs.rmSync(path.join(root, "README.md"));
+    const missing = checkAddedLinks(patch, { repositoryRoot: root, readFile: () => doc });
+    assert.equal(missing.length, 2);
+    assert.ok(missing.every((msg) => msg.includes("../README.md")), missing.join("\n"));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
