@@ -23,10 +23,10 @@
 ## 当前专项合同
 
 - [固定 Image 资源回执与成员限额](../../source-white-background.md)
-- [预算与授权](../../image-agent-budget-authorization.md)
+- [预算与授权](image-agent-budget-authorization.md)
 - [效果策略](../../image-agent-effect-policy.md)、[终态](image-agent-effect-terminalization.md)、[结算](image-agent-effect-finalization.md)
 - [效果恢复](image-agent-effect-recovery.md)、[工作流恢复](image-agent-recovery.md)
-- [候选采用与发布门禁](../../image-agent-candidate-release-gate.md)
+- [候选采用与发布门禁](image-agent-candidate-release-gate.md)
 - [安全图片下载](../../image-download-safety.md)、[生成原图恢复](../../vip-original-output-recovery.md)
 
 权限、租户、预算、来源真实性和不可重复副作用规则均由这些当前 owner 合同与行为检查执行。具体能力开放、部署及真实模型效果由当前执行 Issue 和用户验证分别确认。
