@@ -1,5 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseResourceEvents } from "@/lib/api/resource-events";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {useState,type ComponentProps} from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -17,7 +18,11 @@ vi.mock("./wallet-topup", () => ({
   WalletTopUpEntry: () => <button disabled>充值钱包</button>,
 }));
 
-afterEach(cleanup);
+const scope = { userId: "reader", organizationId: "org-B" };
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 it("renders unified base and real service observations without a subscription gate", () => {
   render(<CommercialOverviewView data={commercialOverviewFixture()} />);
@@ -33,19 +38,15 @@ it("filters actual resource ledger rows on the server and preserves exact resour
   const onFilter = vi.fn();
   render(
     <UsageDetailsView
+      scope={scope}
       page={{ organization_id: "org-B", items: [], next_cursor: null }}
       onFilter={onFilter}
       onNext={() => undefined}
     />,
   );
-  expect(screen.getByText("暂无匹配的资源流水。")).toBeVisible();
-  await userEvent.selectOptions(screen.getByLabelText("用量类型"), "ai_point");
-  await userEvent.click(screen.getByRole("button", { name: "筛选" }));
-  expect(onFilter).toHaveBeenCalledWith({
-    resourceType: "ai_point",
-    from: undefined,
-    until: undefined,
-  });
+  expect(screen.getByText("暂无符合条件的用量记录。")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "AI 点数" }));
+  expect(onFilter).toHaveBeenCalledWith({ resourceType: "ai_point" });
 });
 
 it("renders only real wallet data and delegates recharge to the configured payment entry", () => {
@@ -185,6 +186,7 @@ it("renders owner-backed orders and submits bounded search and date/type/status 
 it("restores applied ledger filters when a query remounts the view", () => {
   render(
     <UsageDetailsView
+      scope={scope}
       page={{ organization_id: "org-B", items: [], next_cursor: null }}
       filters={{
         resourceType: "ai_point",
@@ -195,12 +197,16 @@ it("restores applied ledger filters when a query remounts the view", () => {
       onNext={() => undefined}
     />,
   );
-  expect(screen.getByLabelText("用量类型")).toHaveValue("ai_point");
+  expect(screen.getByRole("button", { name: "AI 点数" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByLabelText("开始日期（UTC）")).toHaveValue("2026-09-01");
   expect(screen.getByLabelText("结束日期（UTC）")).toHaveValue("2026-09-30");
 });
 
-it("shows signed fractional AI points and whole resource counts in the same ledger", () => {
+it("shows only actual deductions in the list and keeps exact movements and balances in details", async () => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+  });
   const pointEvent = {
     event_id: "event-ai",
     operation_id: "operation-ai",
@@ -218,7 +224,7 @@ it("shows signed fractional AI points and whole resource counts in the same ledg
     reason: "consumed",
     source_type: "model_invocation_v1",
     source_identity: "invocation-1",
-    occurred_at: "2026-11-16T00:00:00Z",
+    occurred_at: "2026-11-16T00:00:00.123456Z",
   };
   const rowEvent = {
     ...pointEvent,
@@ -239,14 +245,189 @@ it("shows signed fractional AI points and whole resource counts in the same ledg
   };
   const page = parseResourceEvents({
     organization_id: "org-B",
-    items: [pointEvent, rowEvent],
+    items: [
+      { ...pointEvent, purpose: "chat_planning" },
+      rowEvent,
+      { ...rowEvent, event_id: "event-data-used", reason: "commit", consumed_delta: "2500" },
+      { ...pointEvent, event_id: "event-reserved", reason: "model_point_reserve", consumed_delta: "0.000000", purpose: "own_product_intake" },
+      { ...pointEvent, event_id: "event-released", reason: "model_point_released", consumed_delta: "0" },
+      { ...pointEvent, event_id: "event-adjusted", reason: "adjustment", consumed_delta: "-0.000001" },
+    ],
     next_cursor: null,
   });
   expect(page).not.toBeNull();
-  render(<UsageDetailsView page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
+  render(<UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
 
-  for (const value of ["-0.000001", "+0.000001", "+1,200.000012", "+2,500"]) {
-    expect(screen.getByRole("cell", { name: value })).toBeVisible();
+  const list = within(screen.getByRole("table", { name: "企业用量记录" }));
+  expect(list.getAllByRole("columnheader").map((heading) => heading.textContent)).toEqual(
+    ["业务记录", "实际扣除", "时间（UTC）", "操作"],
+  );
+  expect(list.queryByRole("columnheader", { name: "变动后可用" })).not.toBeInTheDocument();
+  expect(list.queryByRole("columnheader", { name: "本次变动" })).not.toBeInTheDocument();
+  const rows = list.getAllByRole("row");
+  const row = within(rows[1]);
+  expect(row.getByRole("cell", { name: /使用 · 聊天规划 AI 模型调用 · AI 点数/ })).toBeVisible();
+  expect(row.queryByText(/00:00:00\.123456/)).not.toBeInTheDocument();
+  for (const time of row.getAllByText("2026-11-16 00:00:00")) {
+    expect(time).toHaveAttribute("datetime", "2026-11-16T00:00:00.123456Z");
   }
-  expect(screen.getAllByRole("cell", { name: "0" })).toHaveLength(4);
+  expect(within(rows[1]).getByRole("cell", { name: "1,200.000012 点" })).toBeVisible();
+  expect(rows[1]).not.toHaveTextContent("100.000001 点");
+  expect(rows[1]).not.toHaveTextContent("预留 +0.000001 点");
+  expect(within(rows[3]).getByRole("cell", { name: "2,500 条" })).toBeVisible();
+  expect(within(rows[4]).getByText("模型调用预留 · 自有商品录入")).toBeVisible();
+  expect(within(rows[2]).queryByText(/聊天规划|自有商品录入/)).not.toBeInTheDocument();
+  for (const row of [rows[2], rows[4], rows[5], rows[6]]) {
+    expect(within(row).getByRole("cell", { name: "—" })).toBeVisible();
+  }
+  await userEvent.click(within(rows[1]).getByRole("button", { name: "详情" }));
+  const modal = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
+  expect(modal.getByText("invocation-1")).toBeVisible();
+  expect(modal.getByText("2026-11-16 00:00:00.123456")).toBeVisible();
+  expect(modal.getByRole("row", { name: "可用 -0.000001 点 100.000001 点" })).toBeVisible();
+  expect(modal.getByRole("row", { name: "已分配 0 点 0 点" })).toBeVisible();
+  expect(modal.getByRole("row", { name: "预留 +0.000001 点 0.000001 点" })).toBeVisible();
+  expect(modal.getByRole("row", { name: "已使用 +1,200.000012 点 1,200.000012 点" })).toBeVisible();
+});
+
+it.each(["available", "denied", "mismatched"] as const)(
+  "shows the 1688 source and only displays a product from the matching authorized lookup (%s)",
+  async (result) => {
+    Object.defineProperties(HTMLDialogElement.prototype, {
+      showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+      close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+    });
+    const operationId = "55555555-5555-4555-8555-555555555555";
+    const returnedId = result === "mismatched" ? "66666666-6666-4666-8666-666666666666" : operationId;
+    const responses = result === "denied"
+      ? Response.json({ code: "PERMISSION_DENIED" }, { status: 403 })
+      : Response.json({
+        schemaVersion: 1, operationId: returnedId, productKey: "crawler:1688:1234",
+        publicationId: `source-run:acquisition:${returnedId}`, catalogVersion: "1",
+        title: "已保存的商品", sources: [], images: [], specifications: [], warnings: [], missingFacts: [],
+      });
+    const fetchMock = vi.fn().mockResolvedValue(responses);
+    vi.stubGlobal("fetch", fetchMock);
+    const page = parseResourceEvents({
+      organization_id: scope.organizationId, next_cursor: null,
+      items: [{
+        event_id: "acquisition-event", operation_id: "charge-event", resource_type: "data_row",
+        quantity: "1", available_delta: "0", allocated_delta: "0", reserved_delta: "-1", consumed_delta: "1",
+        available_after: "10", allocated_after: "0", reserved_after: "0", consumed_after: "1",
+        reason: "commit", source_type: "product_acquisition_v1", source_identity: operationId,
+        occurred_at: "2026-11-17T04:12:39Z",
+      }],
+    });
+    expect(page).not.toBeNull();
+    const client = new QueryClient();
+    const view = render(
+      <QueryClientProvider client={client}>
+        <UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    try {
+      expect(screen.getByRole("row", { name: /1688 商品采集/ })).toBeVisible();
+      expect(fetchMock).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole("button", { name: "详情" }));
+      const dialog = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
+      if (result === "available") {
+        expect(await dialog.findByRole("link", { name: "已保存的商品" })).toHaveAttribute(
+          "href", `/workbench/supply/acquisition/operation/${operationId}`,
+        );
+      } else {
+        expect(await dialog.findByText("未能查看关联商品")).toBeVisible();
+        expect(dialog.queryByRole("link")).not.toBeInTheDocument();
+      }
+      expect(dialog.getByText(operationId)).toBeVisible();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(path).toBe(`/api/workbench/sourcing/1688/acquisitions/${operationId}/product`);
+      expect(init.method).toBe("GET");
+      expect(new Headers(init.headers).get("X-Expected-Organization-ID")).toBe(scope.organizationId);
+      expect(new Headers(init.headers).get("X-Expected-User-ID")).toBe(scope.userId);
+    } finally {
+      view.unmount();
+      client.clear();
+    }
+  },
+);
+
+const usageEventId = "55555555-5555-4555-8555-555555555555";
+const businessObjectId = "66666666-6666-4666-8666-666666666666";
+
+it.each([
+  { resource: "store_renewal_period", source: "store_service_v1", label: "关联店铺",
+    object: { kind: "store", id: businessObjectId, name: "店铺测试" }, href: `/workbench/stores/${businessObjectId}` },
+  { resource: "data_row", source: "amazon_data_v1", label: "关联商品",
+    object: { kind: "amazon_product", name: "商品测试" } },
+  { resource: "ai_point", source: "model_invocation_v1", label: "关联任务",
+    object: { kind: "task", id: businessObjectId, name: "任务测试" }, href: `/workbench/ai/tasks/${businessObjectId}` },
+  { resource: "ai_point", source: "model_invocation_v1", label: "关联任务", object: null },
+  { resource: "ai_point", source: "model_invocation_v1", label: "用途", object: null,
+    purpose: "chat_planning", displayedPurpose: "聊天规划" },
+  { resource: "ai_point", source: "model_invocation_v1", label: "用途", object: null,
+    purpose: "own_product_intake", displayedPurpose: "自有商品录入" },
+  { resource: "ai_point", source: "model_invocation_v1", label: "用途", object: null,
+    purpose: "future_purpose" },
+  { resource: "ai_point", source: "model_invocation_v1", label: "关联任务",
+    object: { kind: "task", id: businessObjectId, name: "冲突任务" }, purpose: "chat_planning", mismatch: true },
+  { resource: "data_row", source: "amazon_data_v1", label: "用途", object: null,
+    purpose: "chat_planning" },
+  { resource: "data_row", source: "amazon_data_v1", label: "关联商品",
+    object: { kind: "task", id: businessObjectId, name: "无关任务" }, mismatch: true },
+])("opens an event-scoped detail for $source ($object)", async ({ resource, source, label, object, href, mismatch, purpose, displayedPurpose }) => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
+    close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
+  });
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({
+    organization_id: scope.organizationId, event_id: usageEventId, object, purpose,
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  const page = parseResourceEvents({
+    organization_id: scope.organizationId, next_cursor: null,
+    items: [{
+      event_id: usageEventId, operation_id: "charge-event", resource_type: resource,
+      ...(resource === "ai_point" ? { unit_version: "ai-micropoint-v1" } : {}),
+      quantity: "1", available_delta: "0", allocated_delta: "0", reserved_delta: "-1", consumed_delta: "1",
+      available_after: "10", allocated_after: "0", reserved_after: "0", consumed_after: "1",
+      reason: "commit", source_type: source, source_identity: "opaque-owner-reference",
+      occurred_at: "2026-11-17T04:12:39Z",
+    }],
+  });
+  expect(page).not.toBeNull();
+  const client = new QueryClient();
+  const view = render(
+    <QueryClientProvider client={client}>
+      <UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  try {
+    expect(fetchMock).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "详情" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
+    const invocation = source === "model_invocation_v1";
+    expect(dialog.getByText(invocation ? "调用编号" : "关联编号", { exact: true })).toBeVisible();
+    expect(dialog.queryByText(invocation ? "关联编号" : "调用编号", { exact: true })).not.toBeInTheDocument();
+    if (displayedPurpose) {
+      expect(await dialog.findByText(displayedPurpose, { exact: true })).toBeVisible();
+      expect(dialog.getByText("用途", { exact: true })).toBeVisible();
+      expect(dialog.queryByText("关联任务", { exact: true })).not.toBeInTheDocument();
+    } else if (object && !mismatch) {
+      expect(await dialog.findByText(object.name)).toBeVisible();
+      expect(dialog.getByText(label)).toBeVisible();
+      if (href) expect(dialog.getByRole("link", { name: object.name })).toHaveAttribute("href", href);
+      else expect(dialog.queryByRole("link")).not.toBeInTheDocument();
+    } else {
+      await waitFor(() => expect(dialog.queryByRole("status")).not.toBeInTheDocument());
+      expect(dialog.queryByText(label)).not.toBeInTheDocument();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe(`/api/workbench/commercial/resources/events/${usageEventId}/object`);
+    expect(new Headers(init.headers).get("X-Expected-Organization-ID")).toBe(scope.organizationId);
+  } finally {
+    view.unmount();
+    client.clear();
+  }
 });

@@ -56,16 +56,30 @@ func (p ExecutionProposal) Selection() *TaskSelection {
 
 // ValidCapability prevents interpreting a stored title receipt as a content run.
 func (p ExecutionProposal) ValidCapability() bool {
+	return p.validCapability(false)
+}
+
+func (p ExecutionProposal) validCapability(readingRecordedTask bool) bool {
 	switch p.Kind {
 	case ContentTaskKind:
-		return p.Selection().Valid() && p.TargetPlatform == "product" && p.AgentID == agentconfig.ContentAgentID && p.AgentVersion == agentconfig.ContentAgentVersion && p.ExecutionLimits.Valid()
+		return p.Selection().Valid() && p.TargetPlatform == "product" && p.AgentID == agentconfig.ContentAgentID && (p.AgentVersion == agentconfig.ContentAgentVersion || readingRecordedTask && p.AgentVersion == agentconfig.ContentAgentVersionV1) && p.ExecutionLimits.Valid()
 	case TitleTaskKind:
 		return p.AgentID == agentconfig.TitleAgentID && (p.AgentVersion == "v1.0.0" || p.AgentVersion == agentconfig.TitleAgentVersion) && p.ContextKind == "" && p.ContentSelection.Absent() && p.ExecutionLimits == (agent.Limits{}) && (p.TargetPlatform == "shein" || p.TargetPlatform == "temu" || p.TargetPlatform == "amazon")
 	}
 	return false
 }
 func (p ExecutionProposal) MatchesRequest(r agent.Request) bool {
-	if !p.ValidCapability() {
+	return p.matchesRequest(r, false)
+}
+
+// MatchesRecordedRequest also recognizes the original content agent version
+// when reading an already saved task and its immutable execution request.
+func (p ExecutionProposal) MatchesRecordedRequest(r agent.Request) bool {
+	return p.matchesRequest(r, true)
+}
+
+func (p ExecutionProposal) matchesRequest(r agent.Request, readingRecordedTask bool) bool {
+	if !p.validCapability(readingRecordedTask) {
 		return false
 	}
 	if p.Kind == ContentTaskKind {

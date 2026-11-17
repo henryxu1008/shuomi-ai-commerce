@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"gorm.io/gorm"
 	"strings"
+
+	"gorm.io/gorm"
+
 	"task-processor/internal/aicapability"
 )
 
@@ -49,6 +51,37 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute}).Take(&row).Error; err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
+	return validateModelFact(row)
+}
+
+// ReadModelPurposeInvocations reads the exact in-scope facts needed for one
+// page of usage. Unknown operations and unverified facts have no projection.
+func (r *GormInvocationRecorder) ReadModelPurposeInvocations(ctx context.Context, org, actor, member string, ids []string) ([]aicapability.InvocationRecord, error) {
+	if r == nil || r.db == nil || ctx == nil || len(ids) == 0 || len(ids) > 50 {
+		return nil, fmt.Errorf("invalid model purpose lookup")
+	}
+	for _, id := range append([]string{org, actor, member}, ids...) {
+		if id == "" || len(id) > 128 || strings.TrimSpace(id) != id {
+			return nil, fmt.Errorf("invalid model purpose identity")
+		}
+	}
+	operations := []aicapability.Operation{aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationOwnProductIntake}
+	var rows []invocationRow
+	if err := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND user_id = ? AND member_id = ? AND invocation_id IN ? AND operation IN ?", org, actor, member, ids, operations).
+		Limit(len(ids)).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	facts := make([]aicapability.InvocationRecord, 0, len(rows))
+	for _, row := range rows {
+		if fact, err := validateModelFact(row); err == nil {
+			facts = append(facts, fact)
+		}
+	}
+	return facts, nil
+}
+
+func validateModelFact(row invocationRow) (aicapability.InvocationRecord, error) {
 	fact, err := invocationRecordFromRow(row)
 	if err != nil {
 		return aicapability.InvocationRecord{}, err

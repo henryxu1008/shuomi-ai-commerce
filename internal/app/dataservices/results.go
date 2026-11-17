@@ -3,7 +3,9 @@ package dataservicesapp
 import (
 	"context"
 	"encoding/json"
+
 	"gorm.io/gorm"
+
 	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
@@ -14,6 +16,41 @@ type capturedResultReader struct{ store sourcing.PublicationReadStore }
 
 func (m *Module) Provenance(ctx context.Context, p dataacquisition.Principal, source collection.Source) (dataacquisition.Provenance, error) {
 	return m.reader.Provenance(ctx, p, source, m.results)
+}
+
+// UsageProduct derives display text for one original saved console-visible
+// Amazon result. It keeps the result's requested-field projection.
+func (m *Module) UsageProduct(ctx context.Context, organization, itemID string) (string, error) {
+	scope, err := m.access.Resolve(ctx, collection.PermissionRead)
+	if err != nil || scope.OrganizationID != organization || !collection.ValidID(itemID) {
+		return "", dataacquisition.ErrNotFound
+	}
+	job, item, err := m.repo.ReadCaptured(ctx, scope, itemID)
+	if err != nil {
+		return "", err
+	}
+	if job.Scope != scope || !collection.ValidID(job.ID) || item.ID != itemID || item.State != "SAVED" ||
+		item.Source == nil || item.Source.OperationID != itemID || item.Source.PublicationID != itemID ||
+		item.Evidence == nil || item.ASIN != item.Evidence.ASIN {
+		return "", dataacquisition.ErrNotFound
+	}
+	if err = m.results.Verify(ctx, scope, *item.Source, *item.Evidence); err != nil {
+		return "", err
+	}
+	if err = m.live.CheckRead(ctx, dataacquisition.Principal{Scope: scope}); err != nil {
+		return "", err
+	}
+	for _, field := range job.Query.Fields {
+		if field == "title" {
+			return item.Evidence.Title, nil
+		}
+	}
+	for _, field := range job.Query.Fields {
+		if field == "asin" {
+			return item.Evidence.ASIN, nil
+		}
+	}
+	return "", dataacquisition.ErrNotFound
 }
 
 func transactionResultReader(tx *gorm.DB) (dataacquisition.CapturedResultReader, error) {

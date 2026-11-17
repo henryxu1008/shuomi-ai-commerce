@@ -31,6 +31,12 @@ import (
 	"time"
 )
 
+type usageReadDenied struct{ dataacquisition.LiveAccess }
+
+func (usageReadDenied) CheckRead(context.Context, dataacquisition.Principal) error {
+	return dataacquisition.ErrForbidden
+}
+
 type executionFixture struct {
 	authorizedFixture
 	denied          bool
@@ -258,6 +264,17 @@ func TestTwoDatabasesRecoverOriginalReservationAndChargeOnlySavedProduct(t *test
 			return orgresource.NewConsumerChargeService(resourceRepo, map[orgresource.ResourceConsumer]orgresource.ConsumerChargeOwner{orgresource.ConsumerAmazonData: owner})
 		}})
 		require.NoError(t, err)
+		usageName, err := module.UsageProduct(ctx, scope.OrganizationID, savedItems[0].ID)
+		require.NoError(t, err)
+		require.Equal(t, page.Items[0].Data["title"], usageName)
+		denied := *module
+		denied.live = usageReadDenied{module.live}
+		usageName, err = denied.UsageProduct(ctx, scope.OrganizationID, savedItems[0].ID)
+		require.ErrorIs(t, err, dataacquisition.ErrForbidden)
+		require.Empty(t, usageName)
+		usageName, err = module.UsageProduct(ctx, "foreign", savedItems[0].ID)
+		require.ErrorIs(t, err, dataacquisition.ErrNotFound)
+		require.Empty(t, usageName)
 		gin.SetMode(gin.TestMode)
 		router := gin.New()
 		for _, route := range module.BuildRoutes() {
