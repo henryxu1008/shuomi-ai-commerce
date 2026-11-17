@@ -30,6 +30,7 @@ type ModelRoutePricingDependencies struct {
 	Shared      *d.SharedModelService
 	Prices      *d.PlatformPricesService
 	Credentials *credential.Management
+	ModelQuery  channelModelQuery
 	AutomaticFX AutomaticFXControl
 }
 
@@ -45,8 +46,9 @@ func WithModelRoutePricing(deps ModelRoutePricingDependencies) CurrentApplicatio
 }
 
 type modelRoutePricingModule struct {
-	services   ModelRoutePricingDependencies
-	authorizer *authz.ListingKitAuthorizer
+	services             ModelRoutePricingDependencies
+	authorizer           *authz.ListingKitAuthorizer
+	organizationResolver organizationIdentityResolver
 }
 
 func (modelRoutePricingModule) Name() string                { return "model-route-pricing" }
@@ -77,7 +79,7 @@ func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 		}
 		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET" || strings.HasPrefix(spec.op, "fx-"), Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
 	}
-	return append(out, m.credentialRoutes()...)
+	return append(append(out, m.credentialRoutes()...), m.modelQueryRoute())
 }
 func validateModelRouteDescriptor(descriptor httproute.Descriptor) error {
 	for _, r := range (modelRoutePricingModule{}).routes() {

@@ -819,7 +819,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	modules = append(modules, sms)
 	if supplied.modelRoutePricing != nil {
-		modules = append(modules, modelRoutePricingModule{services: *supplied.modelRoutePricing, authorizer: authorizer})
+		modules = append(modules, modelRoutePricingModule{services: *supplied.modelRoutePricing, authorizer: authorizer, organizationResolver: workbench.authDependencies.organizationResolver})
 	}
 	var resourceRecovery func(context.Context) error
 	var usageObjects *commercialUsageLookup

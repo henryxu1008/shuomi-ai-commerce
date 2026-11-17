@@ -7,8 +7,8 @@ import {ChannelCredentialsManager} from "./channel-credentials";
 const clients:QueryClient[]=[];
 const connection={organizationId:"org-a",connectionId:"shared",provider:"openai",channel:"openai-direct",region:"global",account:"",revision:"0",enabled:false,keyPresent:false,models:[{id:"mini",version:"v1",model:"mini",category:"text"},{id:"mini",version:"v1",model:"mini",category:"multimodal"}]};
 const scope={userId:"manager",organizationId:"org-a"};
-function mount(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);return render(<QueryClientProvider client={client}><ChannelCredentialsManager scope={scope}/></QueryClientProvider>)}
-function fixture(){const fetch=vi.fn(async(url:string,init:RequestInit={})=>init.method==="POST"?Promise.reject(new Error("lost ACK")):url.includes("/receipts/")?Response.json({code:"NOT_FOUND"},{status:404}):Response.json({organizationId:"org-a",canManage:true,connections:[connection]}));vi.stubGlobal("fetch",fetch);return fetch}
+function mount(testMemberId?:string){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);return render(<QueryClientProvider client={client}><ChannelCredentialsManager scope={scope} testMemberId={testMemberId}/></QueryClientProvider>)}
+function fixture(){const fetch=vi.fn(async(url:string,init:RequestInit={})=>init?.method==="POST"?Promise.reject(new Error("lost ACK")):url.includes("/receipts/")?Response.json({code:"NOT_FOUND"},{status:404}):Response.json({organizationId:"org-a",canManage:true,connections:[connection]}));vi.stubGlobal("fetch",fetch);return fetch}
 beforeEach(()=>{
  Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true}});
  Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false}});
@@ -49,4 +49,43 @@ it("recovers the exact scoped receipt without resending a Key and keeps other-ta
  actor="manager";await user.click(screen.getByRole("button",{name:"查询本次结果"}));await screen.findByRole("heading",{name:"本次保存回执"});
  expect(screen.queryByRole("heading",{name:"保存结果待核实"})).not.toBeInTheDocument();
  expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);expect(sessionStorage.length).toBe(0);
+});
+
+it("queries only on a single explicit click without writer access and keeps model calling unverified",async()=>{
+ const user=userEvent.setup();
+ const model="gpt-5.4-mini-2026-03-17",reference={id:"mini",version:"v1"};
+ let respond:(r:Response)=>void=()=>{};
+ const fetch=vi.fn(async(_url:string,init:RequestInit={})=>{
+  if(init?.method==="POST")return new Promise<Response>(resolve=>{respond=resolve});
+  return Response.json({organizationId:"org-a",canManage:false,connections:[{...connection,revision:"2",enabled:true,keyPresent:true,account:"fixture",models:[{...reference,model,category:"text"}]}],modelQueryTargets:[{connectionId:"shared",reference}]});
+ });
+ vi.stubGlobal("fetch",fetch);mount("member-a");
+ const button=await screen.findByRole("button",{name:"检查模型查询权限"});
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(0);
+ await user.dblClick(button);
+ expect(fetch.mock.calls.filter(([,init])=>init?.method==="POST")).toHaveLength(1);
+ expect(button).toBeDisabled();
+ expect(JSON.parse(String(fetch.mock.calls.find(([,init])=>init?.method==="POST")?.[1]?.body))).toEqual({expectedMemberId:"member-a",expectedRevision:"2",reference});
+ respond(Response.json({organizationId:"org-a",actorId:"manager",memberId:"member-a",connectionId:"shared",expectedRevision:"2",reference,result:{model,status:"found",checkedAt:"2026-11-17T00:00:00Z"}}));
+ expect(await screen.findByText("Key 通过查询验证 · 已查到指定模型")).toBeVisible();
+ expect(screen.getByText("模型调用权限未验证")).toBeVisible();
+ expect(sessionStorage.length).toBe(0);
+});
+
+it("discards the in-flight result after the saved Key revision changes",async()=>{
+ const user=userEvent.setup(), model="gpt-5.4-mini-2026-03-17",reference={id:"mini",version:"v1"};
+ let revision="2",respond:(r:Response)=>void=()=>{};
+ const fetch=vi.fn(async(_url:string,init:RequestInit={})=>{
+  if(init?.method==="POST")return new Promise<Response>(resolve=>{respond=resolve});
+  return Response.json({organizationId:"org-a",canManage:false,connections:[{...connection,revision,enabled:true,keyPresent:true,account:"fixture",models:[{...reference,model,category:"text"}]}],modelQueryTargets:[{connectionId:"shared",reference}]});
+ });
+ vi.stubGlobal("fetch",fetch);mount("member-a");
+ await user.click(await screen.findByRole("button",{name:"检查模型查询权限"}));
+ const post=fetch.mock.calls.find(([,init])=>init?.method==="POST")!;
+ revision="3";await user.click(screen.getByRole("button",{name:"重新读取渠道状态"}));
+ await screen.findByText(/版本：3/);
+ expect(post[1]?.signal?.aborted).toBe(true);
+ respond(Response.json({organizationId:"org-a",actorId:"manager",memberId:"member-a",connectionId:"shared",expectedRevision:"2",reference,result:{model,status:"found",checkedAt:"2026-11-17T00:00:00Z"}}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"检查模型查询权限"})).toBeEnabled());
+ expect(screen.queryByText(/已查到指定模型/)).not.toBeInTheDocument();
 });
