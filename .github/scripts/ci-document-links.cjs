@@ -50,6 +50,104 @@ function parsePatchDestination(line) {
   return value.slice(2);
 }
 
+function referenceKey(label) {
+  return label.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function unescapeLinkPath(href) {
+  return href.replace(/\\([()[\]<>\\ ])/g, "$1");
+}
+
+function parseReferenceDefinition(line) {
+  const match = line.match(/^ {0,3}\[([^\]]+)\]:[ \t]*(?:<([^>]+)>|(\S+))/);
+  if (!match) return null;
+  return {
+    kind: "definition",
+    key: referenceKey(match[1]),
+    href: unescapeLinkPath(match[2] ?? match[3]),
+    column: line.indexOf("["),
+  };
+}
+
+function parseParenthesizedDestination(line, opening) {
+  let depth = 1;
+  let closing = -1;
+  for (let at = opening + 1; at < line.length; at++) {
+    if (line[at] === "\\") {
+      at++;
+      continue;
+    }
+    if (line[at] === "(") depth++;
+    else if (line[at] === ")" && --depth === 0) {
+      closing = at;
+      break;
+    }
+  }
+  if (closing === -1) return null;
+  let href = line.slice(opening + 1, closing).trim();
+  if (href.startsWith("<")) {
+    const endAngle = href.indexOf(">");
+    if (endAngle === -1) return null;
+    href = href.slice(1, endAngle);
+  } else {
+    // Optional Markdown title after the destination is not part of the URL.
+    const titled = href.match(/^(\S+)\s+(["'])(?:[\s\S]*)\2$/);
+    if (titled) href = titled[1];
+  }
+  return { href: unescapeLinkPath(href), end: closing + 1 };
+}
+
+function scanAddedMarkdownLinks(line) {
+  const definition = parseReferenceDefinition(line);
+  if (definition) return [definition];
+  const links = [];
+  for (let i = 0; i < line.length;) {
+    if (line[i] !== "[" || (i > 0 && line[i - 1] === "\\")) {
+      i++;
+      continue;
+    }
+    let nesting = 1;
+    let closing = -1;
+    for (let j = i + 1; j < line.length; j++) {
+      if (line[j] === "\\") {
+        j++;
+        continue;
+      }
+      if (line[j] === "[") nesting++;
+      else if (line[j] === "]" && --nesting === 0) {
+        closing = j;
+        break;
+      }
+    }
+    if (closing === -1) {
+      i++;
+      continue;
+    }
+    const label = line.slice(i + 1, closing);
+    const column = i > 0 && line[i - 1] === "!" ? i - 1 : i;
+    const after = closing + 1;
+    if (line[after] === "(") {
+      const target = parseParenthesizedDestination(line, after);
+      if (target) {
+        links.push({ kind: "inline", href: target.href, column });
+        i = target.end;
+        continue;
+      }
+    } else if (line[after] === "[") {
+      const endRef = line.indexOf("]", after + 1);
+      if (endRef !== -1) {
+        const reference = line.slice(after + 1, endRef) || label;
+        links.push({ kind: "reference", key: referenceKey(reference), href: null, column });
+        i = endRef + 1;
+        continue;
+      }
+    }
+    links.push({ kind: "shortcut", key: referenceKey(label), href: null, column });
+    i = closing + 1;
+  }
+  return links;
+}
+
 function addedMarkdownLinks(patch) {
   const links = [];
   let filename = null;
@@ -73,12 +171,13 @@ function addedMarkdownLinks(patch) {
     if (line.startsWith("+") && !line.startsWith("+++ ")) {
       if (filename && isDocumentationMarkdown(filename)) {
         const addedLine = line.slice(1);
-        for (const match of addedLine.matchAll(/!?\[[^\]]+\]\((<[^>]+>|[^\s)]+)(?:\s+["'][^"']+["'])?\)/g)) {
-          const link = { filename, href: match[1].replace(/^<|>$/g, "") };
-          // Preserve the existing public shape; metadata is only used by checkAddedLinks.
+        for (const token of scanAddedMarkdownLinks(addedLine)) {
+          const link = { filename, href: token.href };
           Object.defineProperties(link, {
             lineNumber: { value: newLine },
-            column: { value: match.index },
+            column: { value: token.column },
+            kind: { value: token.kind },
+            referenceKey: { value: token.key ?? null },
           });
           links.push(link);
         }
@@ -173,21 +272,40 @@ function checkAddedLinks(patch, {
 } = {}) {
   const errors = [];
   const root = path.resolve(repositoryRoot);
-  const codeMasks = new Map();
+  const documents = new Map();
 
   for (const link of addedMarkdownLinks(patch)) {
-    const { filename, href } = link;
-    if (!codeMasks.has(filename)) {
+    const { filename } = link;
+    if (!documents.has(filename)) {
       const source = readFile(path.resolve(root, filename), "utf8");
-      codeMasks.set(filename, maskMarkdownCode(source));
+      const visible = maskMarkdownCode(source);
+      const definitions = new Map();
+      for (const line of visible) {
+        const definition = parseReferenceDefinition(line);
+        if (definition && !definitions.has(definition.key)) {
+          definitions.set(definition.key, definition.href);
+        }
+      }
+      documents.set(filename, { visible, definitions });
     }
-    const visibleLine = codeMasks.get(filename)[link.lineNumber - 1];
+    const document = documents.get(filename);
+    const visibleLine = document.visible[link.lineNumber - 1];
     if (visibleLine === undefined) {
       throw new Error(filename + ": diff line is outside the current document");
     }
-    // A regex match inside a fenced block or inline code is a literal example.
+    // Links in code spans or fences are literal examples, not rendered links.
     if (visibleLine[link.column] !== "[" && visibleLine[link.column] !== "!") continue;
 
+    let href = link.href;
+    if (link.kind === "reference" || link.kind === "shortcut") {
+      href = document.definitions.get(link.referenceKey);
+      if (href === undefined) {
+        if (link.kind === "reference") {
+          errors.push(filename + ": missing Markdown reference " + link.referenceKey);
+        }
+        continue;
+      }
+    }
     if (href.startsWith("#") || href.startsWith("/") ||
         /^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
     const reference = href.split(/[?#]/, 1)[0];
