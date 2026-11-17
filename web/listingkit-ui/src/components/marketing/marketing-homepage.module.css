@@ -1055,12 +1055,11 @@
   .page .painGrid article::after { animation: none; }
 }
 
-/* Center and enlarge the three role-solution information cards. */
-.page .roleColumns > div { text-align: center; }
-.page .roleColumns b { margin-bottom: 16px; font-size: 19px; line-height: 1.45; text-align: center; }
-.page .roleColumns span { justify-content: center; align-items: flex-start; gap: 9px; margin-top: 13px; padding-left: 0; color: #d0dcf0; font-size: 17px; line-height: 1.55; text-align: center; }
-.page .roleColumns span::before { position: static; flex: 0 0 6px; width: 6px; height: 6px; margin-top: .62em; }
-.page .roleColumns span { justify-content: flex-start; text-align: left; }
+/* Keep each list's text edge aligned with its card heading. */
+.page .roleColumns > div { text-align: left; }
+.page .roleColumns b { margin-bottom: 16px; padding-left: 14px; font-size: 19px; line-height: 1.45; text-align: left; }
+.page .roleColumns span { position: relative; display: block; margin-top: 13px; padding-left: 14px; color: #d0dcf0; font-size: 17px; line-height: 1.55; text-align: left; }
+.page .roleColumns span::before { position: absolute; top: .62em; left: 0; width: 6px; height: 6px; margin: 0; }
 @media (max-width: 1100px) {
   .page .roleColumns b { font-size: 18px; }
   .page .roleColumns span { font-size: 16px; }
