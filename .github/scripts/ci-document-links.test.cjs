@@ -291,3 +291,87 @@ test("CLI validates against PR HEAD documents despite unrelated lines in the che
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("balances nested and escaped parentheses in valid Markdown relative links", () => {
+  const patch = [
+    "diff --git a/docs/guide.md b/docs/guide.md",
+    "+++ b/docs/guide.md",
+    "@@ -0,0 +1,2 @@",
+    "+[version](guide(v2).md)",
+    "+[escaped](guide\\(v2\\).md)",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-parens-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    fs.writeFileSync(path.join(root, "docs", "guide(v2).md"), "# v2\n");
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "[version](guide(v2).md)\n[escaped](guide\\(v2\\).md)",
+    }), []);
+    fs.rmSync(path.join(root, "docs", "guide(v2).md"));
+    const failures = checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "[version](guide(v2).md)\n[escaped](guide\\(v2\\).md)",
+    });
+    assert.equal(failures.length, 2);
+    assert.ok(failures.every((msg) => msg.includes("guide(v2).md")));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("validates reference-style uses and newly added definitions from full document", () => {
+  const patch = [
+    "diff --git a/docs/references.md b/docs/references.md",
+    "+++ b/docs/references.md",
+    "@@ -1,0 +2,2 @@",
+    "+[guide][guide] and [guide][]",
+    "+[guide]: missing.md",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-references-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    const document = "# References\n[guide][guide] and [guide][]\n[guide]: missing.md";
+    const failures = checkAddedLinks(patch, { repositoryRoot: root, readFile: () => document });
+    assert.ok(failures.length >= 2, failures.join("\n"));
+    assert.ok(failures.every((msg) => msg.includes("missing.md")));
+    fs.writeFileSync(path.join(root, "docs", "missing.md"), "# Valid\n");
+    assert.deepEqual(checkAddedLinks(patch, { repositoryRoot: root, readFile: () => document }), []);
+    const originalDefinition = "# References\n[guide]: missing.md\n[guide][guide]";
+    const useOnlyPatch = [
+      "diff --git a/docs/references.md b/docs/references.md",
+      "+++ b/docs/references.md",
+      "@@ -2,0 +3 @@",
+      "+[guide][guide]",
+    ].join("\n");
+    assert.deepEqual(checkAddedLinks(useOnlyPatch, {
+      repositoryRoot: root,
+      readFile: () => originalDefinition,
+    }), []);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("reports an undefined explicit Markdown reference and ignores code samples", () => {
+  const patch = [
+    "diff --git a/docs/references.md b/docs/references.md",
+    "+++ b/docs/references.md",
+    "@@ -0,0 +1,3 @@",
+    "+\x60\x60\x60markdown",
+    "+[not-link][missing]",
+    "+\x60\x60\x60",
+    "@@ -3,0 +4 @@",
+    "+[real][undefined]",
+  ].join("\n");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "doc-ci-ref-code-"));
+  try {
+    fs.mkdirSync(path.join(root, "docs"));
+    assert.deepEqual(checkAddedLinks(patch, {
+      repositoryRoot: root,
+      readFile: () => "\x60\x60\x60markdown\n[not-link][missing]\n\x60\x60\x60\n[real][undefined]",
+    }), ["docs/references.md: missing Markdown reference undefined"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
