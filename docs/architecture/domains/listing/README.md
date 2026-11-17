@@ -12,6 +12,10 @@
 | 人工审核与素材批准 | [Product Domain Contracts](../../product-domain-contracts.md)、[Human Review #36](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36) | `internal/product/review`、`internal/product/asset` |
 | 执行一次明确批准的提交并核对结果 | [SHEIN 发布闭环](../../shein-publication-flow.md)、[原任务继续](../../supply-four-step-continuation.md) | `internal/listing/submission` 持有提交意图/回执，平台 adapter 持有协议 |
 
+## 草稿与备注的当前合同
+
+- [待补全草稿内部备注](completion-draft-internal-note.md) — 原 Listing CompletionDraft 的可选纯文本内部备注；沿已有事务、权限与版本保存，不进入任何平台预览或发送载荷。关联 [#1168](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1168)。
+
 ## 当前业务视图与事实边界
 
 当前一级入口为**商品刊登**，四个视图是**待上传、待补全、待审核、已上传**；待上传内四步为选择商品、选择目标店铺、配置规则与智能体、确认提交。已上传只读已有发布记录，SHEIN 首次人工上架由获授权的**店铺商品**路径执行，不在已上传恢复二次提交按钮。见 [当前流程与历史 UI/IA 决定](../../../product/final-ui-ia-authority.md)；[旧 SHEIN 完整设计](../../my-supply-chain-shein.md)的五阶段顶层投影已被后续四阶段产品决定替代，其他有效安全合同保留。
