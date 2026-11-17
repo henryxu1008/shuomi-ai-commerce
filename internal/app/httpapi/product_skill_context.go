@@ -32,6 +32,9 @@ func (c productSkillContext) AcquireMethod(ctx context.Context, identity agent.E
 		return nil, e
 	}
 	if ref.PolicyVersion == d.ScriptPolicyVersion {
+		if err := c.application.checkScriptTrialIdentity(identity); err != nil {
+			return nil, err
+		}
 		// Recheck exact live use before probing infrastructure, without holding
 		// a Skill transaction across the network read. AcquireUse below still
 		// closes the revocation race at the original before-send fence.
@@ -49,6 +52,11 @@ func (c productSkillContext) AcquireMethod(ctx context.Context, identity agent.E
 	return release, e
 }
 func (a *productAgentApplication) checkSkillClaim(ctx context.Context, tx *gorm.DB, identity agent.ExecutionIdentity, ref agent.SkillVersionRef) error {
+	if ref.PolicyVersion == d.ScriptPolicyVersion {
+		if err := a.checkScriptTrialIdentity(identity); err != nil {
+			return err
+		}
+	}
 	if a.skills == nil || !a.skills.UsesPool(a.config.RunDB) {
 		return d.ErrUnavailable
 	}

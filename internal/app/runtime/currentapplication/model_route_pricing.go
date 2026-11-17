@@ -117,6 +117,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		id    string
 	}
 	explicit := map[bindingKey]bool{}
+	var privatePriceScope d.Scope
 	for _, def := range m.Bindings {
 		id := ""
 		if def.Text != nil {
@@ -130,6 +131,14 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 			return nil, invalid
 		}
 		explicit[key] = true
+		if def.PrivateTrialPrice != nil {
+			if privatePriceScope != (d.Scope{}) || c.ProductAgent == nil || c.ProductAgent.ScriptSandbox == nil ||
+				c.ProductAgent.ScriptTrialIdentity == nil || !c.ProductAgent.ScriptTrialIdentity.Valid() ||
+				def.Scope.OrganizationID != c.ProductAgent.ScriptTrialIdentity.OrganizationID {
+				return nil, invalid
+			}
+			privatePriceScope = def.Scope
+		}
 		if def.Image != nil {
 			if c.ImageAgent == nil || !slices.Contains(c.ImageAgent.AllowedOrganizationIDs, def.Scope.OrganizationID) || def.Scope.Capability != d.ImageCapability || def.Image.UnitVersion != aicapability.AIPointMicrounitV1 || def.Image.MaximumMicropoints > c.ImageAgent.Generation.MaximumMicropoints {
 				return nil, invalid
@@ -156,6 +165,17 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 		}
 		if !enriched {
 			defs = append(defs, def)
+		}
+	}
+	if privatePriceScope != (d.Scope{}) {
+		count := 0
+		for _, def := range defs {
+			if def.Scope.OrganizationID == privatePriceScope.OrganizationID {
+				count++
+			}
+		}
+		if count != 1 {
+			return nil, invalid
 		}
 	}
 	if _, e := qualified.NewCatalog(defs); e != nil {

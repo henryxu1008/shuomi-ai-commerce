@@ -15,6 +15,7 @@ import (
 // in the existing Organization AI credential owner, never in this option.
 type ProductAgentConfig struct {
 	ScriptSandbox          *skillsandbox.Config            `json:"scriptSandbox,omitempty"`
+	ScriptTrialIdentity    *agent.ExecutionIdentity        `json:"scriptTrialIdentity,omitempty"`
 	Enabled                bool                            `json:"enabled"`
 	ContentOnly            bool                            `json:"contentOnly,omitempty"`
 	ContentTitleOnly       bool                            `json:"contentTitleOnly,omitempty"`
@@ -101,6 +102,17 @@ func (p *ProductAgentConfig) validatePolicyMetadata() error {
 		}
 		if len(p.ContentTextPolicies) == 0 {
 			return errors.New("script sandbox requires content consumer")
+		}
+	}
+	if identity := p.ScriptTrialIdentity; identity != nil {
+		if p.ScriptSandbox == nil {
+			return errors.New("script trial identity requires the script sandbox")
+		}
+		if !identity.Valid() {
+			return errors.New("script sandbox requires an exact trial identity")
+		}
+		if _, configured := p.ContentTextPolicies[identity.OrganizationID]; !configured {
+			return errors.New("script trial organization requires a content policy")
 		}
 	}
 	if p.ContentOnly && p.ContentTitleOnly {

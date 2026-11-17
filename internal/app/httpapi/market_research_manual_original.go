@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	dataservicesapp "task-processor/internal/app/dataservices"
 	listingapp "task-processor/internal/app/listing"
+	zitadel "task-processor/internal/authruntime/zitadel"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/research"
 )
@@ -29,10 +30,10 @@ func (o currentApplicationOptions) validateResearchManualOriginal(issuer string)
 		ip := net.ParseIP(u.Hostname())
 		local = u.Hostname() == "localhost" || ip != nil && ip.IsLoopback()
 	}
-	if err != nil || !local || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
+	if err != nil || (!local && !zitadel.IsCanonicalPublicIdentityOrigin(issuer)) || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
 		o.researchManualOriginal.Validate() != nil || o.researchFixture != nil || o.marketResearchConfigs != 1 ||
 		!o.marketResearchSupplierReview || o.productAcquisitionDB == nil || o.productCollections != 1 || o.dataServices == nil {
-		return errors.New("manual research original requires one exact local binding and current owners; full fixture mode must remain disabled")
+		return errors.New("manual research original requires admitted HTTPS identity, one exact binding and current owners; full fixture mode must remain disabled")
 	}
 	return nil
 }

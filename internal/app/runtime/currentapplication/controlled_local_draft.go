@@ -38,9 +38,9 @@ func (c *Config) validateControlledLocalDraft() error {
 	if c.PrivateDraftTrial != nil || c.SheinOfflineRecords != nil || c.LocalTrial != nil || !c.ProductCollections || !c.SupplyCompletionDrafts || c.ProductAcquisitionDatabase == nil || c.StoreCenter == nil || !c.StoreCenter.Enabled || c.Identity.TenantDirectoryToken == "" {
 		return errors.New("controlled local draft requires current owners and excludes other Target serving modes")
 	}
-	issuer, err := validateLoopbackURL("issuerURL", c.Identity.IssuerURL)
-	if err != nil || issuer.Scheme != "https" {
-		return errors.New("controlled local draft requires literal loopback HTTPS identity")
+	issuer, err := validateIdentityURL("issuerURL", c.Identity.IssuerURL)
+	if err != nil || issuer.Scheme != "https" || issuer.Port() == "" && c.Identity.AuthorizationAPIURL != c.Identity.IssuerURL {
+		return errors.New("controlled local draft requires admitted HTTPS native identity")
 	}
 	if err = t.AssetDatabase.validate("controlledLocalDraft.assetDatabase"); err != nil {
 		return err

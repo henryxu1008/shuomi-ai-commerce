@@ -236,6 +236,9 @@ func (a *productAgentApplication) prepareTextRequest(ctx context.Context, bindin
 		}
 		input.Request.SkillVersionRef = ref
 		if input.Request.ScriptSelected() {
+			if err := a.checkScriptTrialIdentity(identity); err != nil {
+				return agent.Request{}, err
+			}
 			if a.script == nil || !a.scriptDescriptor.Valid() || !input.Request.ScheduledSource.Absent() {
 				return agent.Request{}, agent.ErrUnavailable
 			}
