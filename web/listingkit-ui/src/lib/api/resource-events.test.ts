@@ -63,10 +63,11 @@ it("binds bounded filters and event pages to the current enterprise", async () =
   await expect(
     getResourceEvents("user-B", "org-B", {
       resourceType: "ai_point",
+      deductionsOnly: true,
       cursor: "original",
     }),
   ).rejects.toMatchObject({ code: "INVALID_UPSTREAM_RESPONSE" });
   expect(fetcher.mock.calls[0][0]).toBe(
-    "/api/workbench/commercial/resources/events?limit=50&resource_type=ai_point&cursor=original",
+    "/api/workbench/commercial/resources/events?limit=50&resource_type=ai_point&deductions_only=true&cursor=original",
   );
 });

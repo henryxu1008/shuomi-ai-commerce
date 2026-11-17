@@ -58,6 +58,7 @@ const page = z
   );
 export type ResourceEventPage = z.infer<typeof page>;
 export type ResourceEventFilters = {
+  deductionsOnly?: boolean;
   resourceType?: z.infer<typeof resourceType>;
   from?: string;
   until?: string;
@@ -87,6 +88,7 @@ export function getResourceEvents(
     throw new CommercialBillingReadError(400, "INVALID_REQUEST");
   const query = new URLSearchParams({ limit: "50" });
   if (filters.resourceType) query.set("resource_type", filters.resourceType);
+  if (filters.deductionsOnly) query.set("deductions_only", "true");
   if (filters.from) query.set("from", filters.from);
   if (filters.until) query.set("until", filters.until);
   if (filters.cursor) query.set("cursor", filters.cursor);

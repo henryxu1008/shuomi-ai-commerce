@@ -645,7 +645,7 @@ function ResourceUsageRequest({
   sequence: number;
 }) {
   const [navigation, setNavigation] = useState<{ filters: ResourceEventFilters; cursors: string[] }>({
-    filters: {},
+    filters: { deductionsOnly: true },
     cursors: [""],
   });
   const { filters, cursors } = navigation;

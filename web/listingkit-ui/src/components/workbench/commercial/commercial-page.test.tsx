@@ -31,17 +31,22 @@ it("applies usage categories and dates, tracks previous pages, and preserves fil
   }));
   const user = userEvent.setup();
   render(tree("usage"));
+  const deductions = await screen.findByRole("button", { name: "实际扣除" });
+  expect(deductions).toHaveAttribute("aria-pressed", "true");
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { deductionsOnly: true, cursor: undefined }, expect.any(AbortSignal),
+  ));
   const ai = await screen.findByRole("button", { name: "AI 点数" });
   await user.click(ai);
   await waitFor(() => expect(state.events).toHaveBeenLastCalledWith("reader", "org-B", {
-    resourceType: "ai_point", cursor: undefined,
+    deductionsOnly: true, resourceType: "ai_point", cursor: undefined,
   }, expect.any(AbortSignal)));
   expect(ai).toHaveAttribute("aria-pressed", "true");
 
   const start = screen.getByLabelText("开始日期（UTC）");
   await user.type(start, "2026-11-15");
   await user.click(screen.getByRole("button", { name: "筛选" }));
-  const dates = { resourceType: "ai_point", from: "2026-11-15T00:00:00.000Z" };
+  const dates = { deductionsOnly: true, resourceType: "ai_point", from: "2026-11-15T00:00:00.000Z" };
   await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
     "reader", "org-B", { ...dates, cursor: undefined, until: undefined }, expect.any(AbortSignal),
   ));
@@ -61,7 +66,25 @@ it("applies usage categories and dates, tracks previous pages, and preserves fil
   expect(start).toHaveValue("2026-11-15");
   expect(ai).toHaveAttribute("aria-pressed", "true");
   await act(async () => refreshed.resolve({ organization_id: "org-B", items: [], next_cursor: null }));
-  expect(await screen.findByText("暂无符合条件的用量记录。")).toBeVisible();
+  expect(await screen.findByText("暂无符合条件的扣除记录。")).toBeVisible();
+
+  const all = screen.getByRole("button", { name: "全部变动" });
+  await user.click(all);
+  const allDates = { ...dates, deductionsOnly: false, until: undefined };
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...allDates, cursor: undefined }, expect.any(AbortSignal),
+  ));
+  expect(all).toHaveAttribute("aria-pressed", "true");
+  expect(start).toHaveValue("2026-11-15");
+  expect(ai).toHaveAttribute("aria-pressed", "true");
+  await user.click(await screen.findByRole("button", { name: "下一页" }));
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...allDates, cursor: "second-page" }, expect.any(AbortSignal),
+  ));
+  await user.click(deductions);
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...dates, cursor: undefined, until: undefined }, expect.any(AbortSignal),
+  ));
 });
 it("preserves applied order fields after the normal pending remount",async()=>{
  const pending=deferred<unknown>();state.orders.mockResolvedValueOnce({organization_id:"org-B",items:[],next_cursor:""}).mockReturnValueOnce(pending.promise);

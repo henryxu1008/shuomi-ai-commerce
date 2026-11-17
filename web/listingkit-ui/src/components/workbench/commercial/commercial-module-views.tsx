@@ -272,23 +272,45 @@ export function UsageDetailsView({
     filters.until ? new Date(Date.parse(filters.until) - 86400000).toISOString().slice(0, 10) : "",
   );
   const [invalid, setInvalid] = useState(false);
-  const categories = [{ name: "全部记录", type: undefined }, ...resourceDefinitions];
+  const deductionsOnly = filters.deductionsOnly === true;
+  const ranges = [
+    { name: "实际扣除", deductions: true },
+    { name: "全部变动", deductions: false },
+  ];
+  const categories = [{ name: "全部资源", type: undefined }, ...resourceDefinitions];
   return (
     <Card role="region" aria-label="用量记录" className={`${styles.panel} ${styles.usagePanel}`}>
       <h2>用量记录</h2>
       <p className={styles.observation}>打开详情可核对完整变动、余额和关联对象。</p>
-      <div role="group" aria-label="资源类型" className={styles.usageCategories}>
-        {categories.map(({ type, name }) => (
-          <Button
-            key={type ?? "all"}
-            size="sm"
-            variant={filters.resourceType === type ? "secondary" : "ghost"}
-            aria-pressed={filters.resourceType === type}
-            onClick={() => onFilter({ ...filters, resourceType: type })}
-          >
-            {name}
-          </Button>
-        ))}
+      <div className={styles.usageFilterGroups}>
+        <div role="group" aria-label="记录范围" className={styles.usageCategories}>
+          {ranges.map(({ deductions, name }) => (
+            <Button
+              key={name}
+              size="sm"
+              variant={deductionsOnly === deductions ? "secondary" : "ghost"}
+              aria-pressed={deductionsOnly === deductions}
+              onClick={() => {
+                if (deductionsOnly !== deductions) onFilter({ ...filters, deductionsOnly: deductions });
+              }}
+            >
+              {name}
+            </Button>
+          ))}
+        </div>
+        <div role="group" aria-label="资源类型" className={styles.usageCategories}>
+          {categories.map(({ type, name }) => (
+            <Button
+              key={type ?? "all"}
+              size="sm"
+              variant={filters.resourceType === type ? "secondary" : "ghost"}
+              aria-pressed={filters.resourceType === type}
+              onClick={() => onFilter({ ...filters, resourceType: type })}
+            >
+              {name}
+            </Button>
+          ))}
+        </div>
       </div>
       <form
         className={styles.filterBar}
@@ -301,7 +323,7 @@ export function UsageDetailsView({
           }
           setInvalid(false);
           onFilter({
-            resourceType: filters.resourceType,
+            ...filters,
             from: from ? new Date(boundary(from)).toISOString() : undefined,
             until: until ? new Date(boundary(until, true)).toISOString() : undefined,
           });
@@ -321,7 +343,7 @@ export function UsageDetailsView({
             setFrom("");
             setUntil("");
             setInvalid(false);
-            onFilter({});
+            onFilter({ deductionsOnly });
           }}>
             重置
           </Button>
@@ -332,7 +354,9 @@ export function UsageDetailsView({
       {page ? (
         <>
           {page.items.length ? <UsageEventsTable items={page.items} scope={scope} /> : (
-            <p className={styles.usageEmpty}>暂无符合条件的用量记录。</p>
+            <p className={styles.usageEmpty}>
+              {deductionsOnly ? "暂无符合条件的扣除记录。" : "暂无符合条件的用量记录。"}
+            </p>
           )}
           <div className={styles.pagination}>
             <span aria-live="polite">第 {pageNumber} 页 · {page.items.length} 条记录</span>
