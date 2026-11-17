@@ -3,6 +3,7 @@ package supplymarketpersistence
 import (
 	"context"
 	"errors"
+	"sync"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/supplymarket"
 	"testing"
@@ -299,8 +300,46 @@ func TestPostgresManualPublicationIsolationAtomicSelectionReplayAndUnknown(t *te
 	_, err = r.Execute(ctx, publishDraft, guard)
 	require.ErrorIs(t, err, supplymarket.ErrForbidden)
 	verifierFails = false
-	officialPublished, err := r.Execute(ctx, publishDraft, guard)
-	require.NoError(t, err)
+	publicationLocked := make(chan struct{})
+	releasePublication := make(chan struct{})
+	var releaseOnce sync.Once
+	allowCommit := func() { releaseOnce.Do(func() { close(releasePublication) }) }
+	defer allowCommit()
+	publishDone := make(chan concurrentResult, 1)
+	go func() {
+		receipt, err := r.Execute(ctx, publishDraft, func(ctx context.Context) error {
+			close(publicationLocked)
+			select {
+			case <-releasePublication:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		})
+		publishDone <- concurrentResult{receipt, err}
+	}()
+	select {
+	case <-publicationLocked:
+	case early := <-publishDone:
+		t.Fatalf("publication exited before the commit guard: %v", early.err)
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	disableDone := make(chan error, 1)
+	go func() {
+		_, err := r.Execute(ctx, categoryCommand("category_disable", rootID, "", "", 3), guard)
+		disableDone <- err
+	}()
+	select {
+	case early := <-disableDone:
+		t.Fatalf("category change did not wait for the publication transaction: %v", early)
+	case <-time.After(150 * time.Millisecond):
+	}
+	allowCommit()
+	publishedOfficial := <-publishDone
+	require.NoError(t, publishedOfficial.err)
+	require.NoError(t, <-disableDone)
+	officialPublished := publishedOfficial.receipt
 	officialPage, err := r.ListReleases(ctx, supplymarket.Query{Kind: "official", Limit: 10, Filters: supplymarket.MarketFilters{CategoryID: secondID}})
 	require.NoError(t, err)
 	require.Len(t, officialPage.Items, 1)
