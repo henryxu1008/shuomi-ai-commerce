@@ -99,8 +99,8 @@
 .usageTable td:last-child { width: 1%; }
 .usageReason, .usageCompact { display: block; margin-top: 3px; color: var(--muted-foreground); }
 .usageCompact { display: none; }
-.usageChanges { display: grid; gap: 3px; }
-.usageChanges strong { font-weight: 600; }
+.usageDeduction { overflow-wrap: anywhere; }
+.usageDeduction strong { font-weight: 600; }
 .usageDetails { display: grid; gap: 16px; overflow-wrap: anywhere; }
 .usageObjectLink { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 .usageDetailTable { table-layout: fixed; }

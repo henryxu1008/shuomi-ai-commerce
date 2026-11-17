@@ -202,7 +202,7 @@ it("restores applied ledger filters when a query remounts the view", () => {
   expect(screen.getByLabelText("结束日期（UTC）")).toHaveValue("2026-09-30");
 });
 
-it("preserves fractional AI points, resource units and the recorded balance on the row and in its details", async () => {
+it("shows only actual deductions in the list and keeps exact movements and balances in details", async () => {
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
     close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
@@ -245,17 +245,32 @@ it("preserves fractional AI points, resource units and the recorded balance on t
   };
   const page = parseResourceEvents({
     organization_id: "org-B",
-    items: [pointEvent, rowEvent],
+    items: [
+      pointEvent,
+      rowEvent,
+      { ...rowEvent, event_id: "event-data-used", reason: "commit", consumed_delta: "2500" },
+      { ...pointEvent, event_id: "event-reserved", reason: "model_point_reserve", consumed_delta: "0.000000" },
+      { ...pointEvent, event_id: "event-released", reason: "model_point_released", consumed_delta: "0" },
+      { ...pointEvent, event_id: "event-adjusted", reason: "adjustment", consumed_delta: "-0.000001" },
+    ],
     next_cursor: null,
   });
   expect(page).not.toBeNull();
   render(<UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
 
-  const rows = screen.getAllByRole("row");
+  const list = within(screen.getByRole("table", { name: "企业用量记录" }));
+  expect(list.getByRole("columnheader", { name: "实际扣除" })).toBeVisible();
+  expect(list.queryByRole("columnheader", { name: "变动后可用" })).not.toBeInTheDocument();
+  expect(list.queryByRole("columnheader", { name: "本次变动" })).not.toBeInTheDocument();
+  const rows = list.getAllByRole("row");
   expect(rows[1]).toHaveTextContent("AI 模型调用");
-  expect(rows[1]).toHaveTextContent("可用 -0.000001 点");
-  expect(rows[1]).toHaveTextContent("已使用 +1,200.000012 点");
-  expect(rows[2]).toHaveTextContent("可用 +2,500 条");
+  expect(within(rows[1]).getByRole("cell", { name: "1,200.000012 点" })).toBeVisible();
+  expect(rows[1]).not.toHaveTextContent("100.000001 点");
+  expect(rows[1]).not.toHaveTextContent("预留 +0.000001 点");
+  expect(within(rows[3]).getByRole("cell", { name: "2,500 条" })).toBeVisible();
+  for (const row of [rows[2], rows[4], rows[5], rows[6]]) {
+    expect(within(row).getByRole("cell", { name: "—" })).toBeVisible();
+  }
   await userEvent.click(within(rows[1]).getByRole("button", { name: "详情" }));
   const modal = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
   expect(modal.getByText("invocation-1")).toBeVisible();

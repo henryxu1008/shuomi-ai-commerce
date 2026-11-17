@@ -205,16 +205,15 @@ function UsageEventsTable({ items, scope }: { items: UsageEvent[]; scope: Acquis
               <th scope="col" className={styles.usageWide}>时间（UTC）</th>
               <th scope="col">资源及变动说明</th>
               <th scope="col" className={styles.usageWide}>业务来源</th>
-              <th scope="col">本次变动</th>
-              <th scope="col" className={styles.usageWide}>变动后可用</th>
+              <th scope="col">实际扣除</th>
               <th scope="col">操作</th>
             </tr>
           </thead>
           <tbody>
             {items.map((event) => {
               const resource = resourceFor(event);
-              const changes = balances.map(({ label, delta }) => ({ label, value: quantity(event[delta]) }))
-                .filter(({ value }) => value !== "0");
+              const deduction = quantity(event.consumed_delta, false);
+              const hasDeduction = deduction !== "0" && !deduction.startsWith("-");
               return (
                 <tr key={event.event_id}>
                   <td className={styles.usageWide}><UsageEventTime timestamp={event.occurred_at} /></td>
@@ -227,16 +226,9 @@ function UsageEventsTable({ items, scope }: { items: UsageEvent[]; scope: Acquis
                     </span>
                   </td>
                   <td className={styles.usageWide}>{sourceFor(event)}</td>
-                  <td>
-                    {changes.length ? (
-                      <ul className={styles.usageChanges}>
-                        {changes.map(({ label, value }) => (
-                          <li key={label}>{label} <strong>{value} {resource?.unit}</strong></li>
-                        ))}
-                      </ul>
-                    ) : "无数量变动"}
+                  <td className={styles.usageDeduction}>
+                    {hasDeduction ? <strong>{deduction} {resource?.unit}</strong> : "—"}
                   </td>
-                  <td className={styles.usageWide}>{quantity(event.available_after, false)} {resource?.unit}</td>
                   <td><Button size="sm" variant="outline" onClick={() => setSelected(event)}>详情</Button></td>
                 </tr>
               );
