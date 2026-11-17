@@ -2,9 +2,8 @@ import Image from "next/image";
 import { formatRetailMoney, singleRetailOffer, type RetailPriceCatalog } from "@/lib/api/retail-prices";
 import Link from "next/link";
 import {
-  ArrowRight, BarChart3, BrainCircuit, BookOpenCheck, BriefcaseBusiness, Building2,
-  Check, CircleDollarSign, Database, Megaphone,
-  Network, PackageSearch, Palette, ShieldCheck,
+  ArrowRight, BarChart3, BrainCircuit, BookOpenCheck, Database, Megaphone,
+  Network, PackageSearch, Palette,
   Store, Timer, Truck, Users,
 } from "lucide-react";
 
@@ -13,6 +12,7 @@ import { BrandClosing, MarketingTeam } from "./marketing-illustrations";
 import { MarketingHero } from "./marketing-hero";
 import styles from "./marketing-homepage.module.css";
 import { PracticeTabs } from "./practice-tabs";
+import { ProfessionalServices } from "./professional-services";
 import { RoleSolutionTabs } from "./role-solution-tabs";
 
 const ASSET = "/sumi";
@@ -34,7 +34,6 @@ const supplyOutputs = [["数字化商品档案", "自动建立标准化产品资
 const dataInsights = [["市场数据", "市场规模、国家区域、增长趋势与消费变化。", "市场机会判断"], ["商品数据", "商品销量、价格、品类趋势与生命周期。", "潜力商品发现"], ["竞品数据", "竞品价格排名、评价、卖点与变化监控。", "商品开发方向"], ["消费洞察", "搜索需求、用户评价、消费场景与产品痛点。", "店铺增长策略"]];
 const dataOutcomes = [["市场机会判断", "识别值得进入的国家、行业和细分市场。"], ["潜力商品发现", "结合趋势、竞争和利润寻找商品机会。"], ["商品开发方向", "从评价与消费需求提取产品改进方向。"], ["店铺增长策略", "用经营与竞品数据生成增长建议。"]];
 const queryPlatforms = [["Amazon", "市场趋势"], ["TikTok Shop", "内容热度"], ["Temu", "商品价格"], ["1688", "供应资源"]];
-const services = [[Building2, "企业与资质", "公司注册 · 开户 · 年审"], [Store, "平台入驻", "店铺开通 · 认证 · 申诉"], [ShieldCheck, "品牌与合规", "商标 · 专利 · 产品认证"], [Truck, "履约与仓储", "头程 · 海外仓 · 尾程"], [CircleDollarSign, "财税与支付", "VAT · 报税 · 跨境收款"], [BriefcaseBusiness, "法律与保险", "合同 · 责任险 · 争议处理"]] as const;
 const footerGroups = [["产品能力", [["人工智能员工", "#agents"], ["人工智能选品", "#agents"], ["店铺智能运营", "#agents"], ["全球数据能力", "#data"]]], ["解决方案", [["跨境新手创业", "#solutions"], ["跨境卖家增长", "#solutions"], ["工厂产品出海", "#solutions"], ["企业智能协同", "#solutions"], ["OPC电商社区落地", "#solutions"]]], ["服务支持", [["创业陪跑", "#pricing"], ["店铺联合运营", "#pricing"], ["品牌出海方案", "#pricing"], ["功能定制开发", "#pricing"]]], ["关于硕米", [["品牌介绍", "#home"], ["应用实践", "#practices"], ["价格与服务", "#pricing"], ["联系我们", "#contact-launcher"]]]] as const;
 const plans = [["01", "新手创业陪跑", "¥4,999 / 半年", "方向规划 · AI选品培训 · 店铺启动指导", "blue"], ["02", "店铺联合运营", "¥5,999 + 利润分成30%", "商品与市场分析 · 内容上架 · 运营执行", "green"], ["03", "品牌出海方案", "定制方案 · 咨询报价", "市场研究 · 产品组合 · 品牌本地化", "violet"], ["04", "功能定制开发", "按需求评估 · 咨询报价", "专属AI智能体 · 企业知识库 · 自动化工作流", "cyan"], ["05", "一人公司电商社区落地", "项目定制 · 咨询报价", "AI服务平台 · 资源接入 · 团队培训 · 运营陪跑", "green"]];
 
@@ -75,7 +74,7 @@ export function MarketingHomepage({ pricing = null }: { pricing?: RetailPriceCat
 
     <section className={`${styles.section} ${styles.solutionSection}`} id="solutions"><SectionHeading label="ROLE-BASED SOLUTIONS / 角色解决方案" title="不同的业务起点，同一套 AI 增长能力" description="硕米根据不同用户的资源、经验和业务目标，组合AI智能体、数据、供应链和工具能力，提供针对性的业务路径。" centered /><RoleSolutionTabs /><div className={styles.opcBanner}><div className={styles.opcMain}><div className={styles.opcCopy}><span>OPC ECOMMERCE COMMUNITY</span><strong>一个人、一支 AI 团队、一个共同成长的电商创业社区</strong><small>创建个人项目，配置 AI 员工，接入商品、数据和供应链，并通过社区协作和经验分享获得业务与收益机会。</small></div><div className={styles.opcActions}><ContactPanel inlineTrigger inlineTriggerLabel="咨询 OPC 社区" showFloatingLauncher={false} /><a href="#practices">查看 OPC 创业案例</a></div></div><div className={styles.opcPills}>{["AI创业团队", "创业项目空间", "商品与数据资源", "社区协作", "能力与经验变现"].map(item => <span key={item}>{item}</span>)}</div></div></section>
 
-    <section className={`${styles.section} ${styles.serviceSection}`} id="services"><SectionHeading label="GLOBAL PROFESSIONAL SERVICES / 全球专业服务生态" title="AI完成线上业务，专业机构负责关键落地" description="硕米连接企业设立、平台入驻、品牌合规、跨境履约、财税支付和法律保险等专业资源，让AI方案真正转化为可执行的全球业务。" centered /><div className={styles.servicesLayout}><div className={styles.serviceNetwork}><div className={styles.serviceNetworkHeading}><strong>专业服务网络</strong><span>AI识别需求后，连接对应的专业服务机构</span></div><div className={styles.serviceCore}><strong>AI 方案协调中心</strong><span>需求识别 · 服务匹配</span></div>{services.map(([Icon, title, detail]) => <article key={title}><Icon size={20} /><div><h3>{title}</h3><p>{detail}</p></div></article>)}</div><div className={styles.serviceDetail}><small>SELECTED SERVICE</small><h3>品牌、知识产权与合规</h3><p>由专业机构完成申请、认证、备案与争议处理，帮助商品满足目标市场和销售平台要求。</p><div>{["商标注册", "品牌备案", "专利申请", "产品认证", "EPR合规", "责任保险", "侵权申诉", "合规咨询"].map(item => <span key={item}><Check size={13} /> {item}</span>)}</div><ol><li>提交需求</li><li>匹配机构</li><li>材料办理</li><li>进度交付</li></ol><a className={styles.serviceCta} href="#pricing">获取专业服务方案 <ArrowRight size={16} /></a></div></div><div className={styles.serviceMatching}><div className={styles.serviceMatchingHeading}><span>AI SERVICE MATCHING / 专业服务智能匹配</span><h3>告诉 AI 你的经营目标，自动识别需要办理的专业服务</h3></div><div className={styles.serviceMatchingGrid}><div><small>经营目标</small><p>将儿童玩具销售到德国 Amazon</p></div><div><small>推荐专业服务组合</small><p>德国商标 → 产品认证 → EPR合规 → 平台入驻 → VAT注册 → 欧洲海外仓</p></div></div><div className={styles.serviceMatchingFooter}><span>AI负责识别、匹配和协调，专业机构负责实际办理与交付。</span></div></div></section>
+    <section className={`${styles.section} ${styles.serviceSection}`} id="services"><SectionHeading label="GLOBAL PROFESSIONAL SERVICES / 全球专业服务生态" title="AI完成线上业务，专业机构负责关键落地" description="硕米连接企业设立、平台入驻、品牌合规、跨境履约、财税支付和法律保险等专业资源，让AI方案真正转化为可执行的全球业务。" centered /><ProfessionalServices /><div className={styles.serviceMatching}><div className={styles.serviceMatchingHeading}><span>AI SERVICE MATCHING / 专业服务智能匹配</span><h3>告诉 AI 你的经营目标，自动识别需要办理的专业服务</h3></div><div className={styles.serviceMatchingGrid}><div><small>经营目标</small><p>将儿童玩具销售到德国 Amazon</p></div><div><small>推荐专业服务组合</small><p>德国商标 → 产品认证 → EPR合规 → 平台入驻 → VAT注册 → 欧洲海外仓</p></div></div><div className={styles.serviceMatchingFooter}><span>AI负责识别、匹配和协调，专业机构负责实际办理与交付。</span></div></div></section>
 
     <section className={`${styles.section} ${styles.practiceSection}`} id="practices"><SectionHeading label="AI COMMERCE PRACTICES / AI电商应用实践" title="从一个业务目标，到一套可以执行的结果" description="硕米智能引擎组织AI员工、商品数据、供应链资源和专业服务，帮助不同类型的用户完成完整电商任务。" /><PracticeTabs /></section>
 
