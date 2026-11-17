@@ -224,7 +224,7 @@ it("shows only actual deductions in the list and keeps exact movements and balan
     reason: "consumed",
     source_type: "model_invocation_v1",
     source_identity: "invocation-1",
-    occurred_at: "2026-11-16T00:00:00Z",
+    occurred_at: "2026-11-16T00:00:00.123456Z",
   };
   const rowEvent = {
     ...pointEvent,
@@ -259,11 +259,18 @@ it("shows only actual deductions in the list and keeps exact movements and balan
   render(<UsageDetailsView scope={scope} page={page!} onFilter={vi.fn()} onNext={vi.fn()} />);
 
   const list = within(screen.getByRole("table", { name: "企业用量记录" }));
-  expect(list.getByRole("columnheader", { name: "实际扣除" })).toBeVisible();
+  expect(list.getAllByRole("columnheader").map((heading) => heading.textContent)).toEqual(
+    ["业务记录", "实际扣除", "时间（UTC）", "操作"],
+  );
   expect(list.queryByRole("columnheader", { name: "变动后可用" })).not.toBeInTheDocument();
   expect(list.queryByRole("columnheader", { name: "本次变动" })).not.toBeInTheDocument();
   const rows = list.getAllByRole("row");
-  expect(rows[1]).toHaveTextContent("AI 模型调用");
+  const row = within(rows[1]);
+  expect(row.getByRole("cell", { name: /使用 AI 模型调用 · AI 点数/ })).toBeVisible();
+  expect(row.queryByText(/00:00:00\.123456/)).not.toBeInTheDocument();
+  for (const time of row.getAllByText("2026-11-16 00:00:00")) {
+    expect(time).toHaveAttribute("datetime", "2026-11-16T00:00:00.123456Z");
+  }
   expect(within(rows[1]).getByRole("cell", { name: "1,200.000012 点" })).toBeVisible();
   expect(rows[1]).not.toHaveTextContent("100.000001 点");
   expect(rows[1]).not.toHaveTextContent("预留 +0.000001 点");
@@ -274,6 +281,7 @@ it("shows only actual deductions in the list and keeps exact movements and balan
   await userEvent.click(within(rows[1]).getByRole("button", { name: "详情" }));
   const modal = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
   expect(modal.getByText("invocation-1")).toBeVisible();
+  expect(modal.getByText("2026-11-16 00:00:00.123456")).toBeVisible();
   expect(modal.getByRole("row", { name: "可用 -0.000001 点 100.000001 点" })).toBeVisible();
   expect(modal.getByRole("row", { name: "已分配 0 点 0 点" })).toBeVisible();
   expect(modal.getByRole("row", { name: "预留 +0.000001 点 0.000001 点" })).toBeVisible();

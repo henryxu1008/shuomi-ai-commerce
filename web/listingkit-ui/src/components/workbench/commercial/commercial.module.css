@@ -96,23 +96,29 @@
 .usageTable th { background: var(--secondary); color: var(--muted-foreground); font-weight: 600; }
 .usageTable tbody tr:last-child td { border-bottom: 0; }
 .usageTable td, .usageDetailTable td { font-variant-numeric: tabular-nums; }
-.usageTable td:last-child { width: 1%; }
-.usageReason, .usageCompact { display: block; margin-top: 3px; color: var(--muted-foreground); }
+.usageTable { table-layout: fixed; }
+.usageTable th, .usageTable td { vertical-align: middle; }
+.usageTable th:last-child { width: 4.5rem; }
+.usageTable .usageRecord { width: clamp(13rem, 31cqw, 21rem); }
+.usageMeta, .usageCompact { display: block; margin-top: 3px; color: var(--muted-foreground); }
 .usageCompact { display: none; }
-.usageDeduction { overflow-wrap: anywhere; }
-.usageDeduction strong { font-weight: 600; }
+.usageTable .usageDeduction { width: 9rem; text-align: right; overflow-wrap: anywhere; }
+.usageDeduction strong { font-size: var(--label-text-size); font-weight: 600; }
+.usageTable .usageTimeColumn { text-align: right; color: var(--muted-foreground); }
+.usageNoDeduction { color: var(--muted-foreground); }
 .usageDetails { display: grid; gap: 16px; overflow-wrap: anywhere; }
 .usageObjectLink { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 .usageDetailTable { table-layout: fixed; }
 .usageDetailTable th:first-child { width: 24%; }
 .usageEmpty { padding: 12px 0; color: var(--muted-foreground); }
 @container usage-records (width < 42rem) {
-  .usageTable .usageWide { display: none; }
+  .usageTable .usageRecord { width: auto; }
+  .usageTable .usageDeduction { width: clamp(5.5rem, 27cqw, 9rem); }
+  .usageTable .usageTimeColumn { display: none; }
   .usageCompact { display: block; }
 }
 @container usage-records (width < 24rem) {
   .filterBar label { width: 100%; }
-  .usageTable { table-layout: fixed; }
   .usageTable th:last-child, .usageTable td:last-child { width: 64px; }
   .usageTable th, .usageTable td { padding: 8px 6px; }
   .usageTable td:last-child button { width: 100%; padding-inline: 4px; }

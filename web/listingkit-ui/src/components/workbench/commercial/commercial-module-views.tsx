@@ -84,8 +84,12 @@ function sourceFor(event: UsageEvent) {
   return Object.hasOwn(businessSources, event.source_type) ? businessSources[event.source_type] : "未识别来源";
 }
 
-function UsageEventTime({ timestamp }: { timestamp: string }) {
-  return <time dateTime={timestamp}>{timestamp.replace("T", " ").replace("Z", "")}</time>;
+function UsageEventTime({ timestamp, showFractionalSeconds = true }: {
+  timestamp: string;
+  showFractionalSeconds?: boolean;
+}) {
+  const text = timestamp.replace("T", " ").replace("Z", "");
+  return <time dateTime={timestamp}>{showFractionalSeconds ? text : text.slice(0, 19)}</time>;
 }
 
 function UsageAcquisitionObject({ scope, operationId }: { scope: AcquisitionContext; operationId: string }) {
@@ -202,10 +206,9 @@ function UsageEventsTable({ items, scope }: { items: UsageEvent[]; scope: Acquis
           <caption className="sr-only">企业用量记录</caption>
           <thead>
             <tr>
-              <th scope="col" className={styles.usageWide}>时间（UTC）</th>
-              <th scope="col">资源及变动说明</th>
-              <th scope="col" className={styles.usageWide}>业务来源</th>
-              <th scope="col">实际扣除</th>
+              <th scope="col" className={styles.usageRecord}>业务记录</th>
+              <th scope="col" className={styles.usageDeduction}>实际扣除</th>
+              <th scope="col" className={styles.usageTimeColumn}>时间（UTC）</th>
               <th scope="col">操作</th>
             </tr>
           </thead>
@@ -216,18 +219,18 @@ function UsageEventsTable({ items, scope }: { items: UsageEvent[]; scope: Acquis
               const hasDeduction = deduction !== "0" && !deduction.startsWith("-");
               return (
                 <tr key={event.event_id}>
-                  <td className={styles.usageWide}><UsageEventTime timestamp={event.occurred_at} /></td>
                   <td>
-                    <strong>{resource?.name}</strong>
-                    <span className={styles.usageReason}>{reasonFor(event)}</span>
-                    <span className={styles.usageCompact}>来源：{sourceFor(event)}</span>
+                    <strong>{reasonFor(event)}</strong>
+                    <span className={styles.usageMeta}>{sourceFor(event)} · {resource?.name}</span>
                     <span className={styles.usageCompact}>
-                      <UsageEventTime timestamp={event.occurred_at} /> UTC
+                      <UsageEventTime timestamp={event.occurred_at} showFractionalSeconds={false} /> UTC
                     </span>
                   </td>
-                  <td className={styles.usageWide}>{sourceFor(event)}</td>
                   <td className={styles.usageDeduction}>
-                    {hasDeduction ? <strong>{deduction} {resource?.unit}</strong> : "—"}
+                    {hasDeduction ? <strong>{deduction} {resource?.unit}</strong> : <span className={styles.usageNoDeduction}>—</span>}
+                  </td>
+                  <td className={styles.usageTimeColumn}>
+                    <UsageEventTime timestamp={event.occurred_at} showFractionalSeconds={false} />
                   </td>
                   <td><Button size="sm" variant="outline" onClick={() => setSelected(event)}>详情</Button></td>
                 </tr>
@@ -273,7 +276,7 @@ export function UsageDetailsView({
   return (
     <Card role="region" aria-label="用量记录" className={`${styles.panel} ${styles.usagePanel}`}>
       <h2>用量记录</h2>
-      <p className={styles.observation}>按资源和日期查看记录。点击详情可核对各项变动和关联编号。</p>
+      <p className={styles.observation}>打开详情可核对完整变动、余额和关联对象。</p>
       <div role="group" aria-label="资源类型" className={styles.usageCategories}>
         {categories.map(({ type, name }) => (
           <Button
