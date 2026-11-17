@@ -7,13 +7,37 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"task-processor/internal/ledger/orgresource"
 )
+
+func (r *GormRepository) ReadEventSource(ctx context.Context, org, eventID string) (orgresource.EventSource, bool, error) {
+	id, err := uuid.Parse(eventID)
+	if ctx == nil || org == "" || len(org) > 128 || strings.TrimSpace(org) != org ||
+		err != nil || id == uuid.Nil || id.String() != eventID {
+		return orgresource.EventSource{}, false, orgresource.ErrInvalidInput
+	}
+	var row organizationResourceEventRow
+	err = r.db.WithContext(ctx).Select("organization_id", "event_id", "resource_type", "quantity_unit", "source_type", "source_identity").
+		Where("organization_id = ? AND event_id = ?", org, eventID).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return orgresource.EventSource{}, false, nil
+	}
+	if err != nil {
+		return orgresource.EventSource{}, false, err
+	}
+	if row.OrganizationID != org || row.EventID != eventID {
+		return orgresource.EventSource{}, false, orgresource.ErrInvalidInput
+	}
+	return orgresource.EventSource{OrganizationID: row.OrganizationID, EventID: row.EventID,
+		ResourceType: orgresource.ResourceType(row.ResourceType), SourceType: row.SourceType, SourceIdentity: row.SourceIdentity}, true, nil
+}
 
 type resourceEventCursor struct {
 	Scope   string    `json:"scope"`
@@ -32,13 +56,20 @@ func (r *GormRepository) ListEvents(ctx context.Context, query orgresource.Event
 		return orgresource.EventPage{}, orgresource.ErrInvalidInput
 	}
 	identity, _ := json.Marshal(struct {
-		Organization string
-		Resource     orgresource.ResourceType
-		From, Until  *time.Time
-	}{query.OrganizationID, query.ResourceType, query.From, query.Until})
+		Organization   string
+		Resource       orgresource.ResourceType
+		From, Until    *time.Time
+		DeductionsOnly bool `json:"deductions_only,omitempty"`
+	}{
+		Organization: query.OrganizationID, Resource: query.ResourceType,
+		From: query.From, Until: query.Until, DeductionsOnly: query.DeductionsOnly,
+	})
 	hash := sha256.Sum256(identity)
 	scope := hex.EncodeToString(hash[:])
 	db := r.db.WithContext(ctx).Where("organization_id=?", query.OrganizationID)
+	if query.DeductionsOnly {
+		db = db.Where("consumed_delta > 0")
+	}
 	if query.ResourceType != "" {
 		db = db.Where("resource_type=?", query.ResourceType)
 	}

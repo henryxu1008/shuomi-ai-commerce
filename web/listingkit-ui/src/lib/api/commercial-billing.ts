@@ -63,7 +63,7 @@ export const parseCommercialWalletEntries = (value: unknown) => { const parsed =
 export const parseCommercialOrderPage = (value: unknown) => { const parsed = orderPage.safeParse(value); return parsed.success ? parsed.data : null; };
 export const parseCommercialOrderSummary = (value: unknown) => { const parsed = orderSummary.safeParse(value); return parsed.success ? parsed.data : null; };
 
-const errorStatuses: Readonly<Record<string, number>> = { INVALID_REQUEST: 400, AUTHENTICATION_REQUIRED: 401, PERMISSION_DENIED: 403, ORGANIZATION_ACCESS_DENIED: 403, ORGANIZATION_ACCESS_REVOKED: 403, ORGANIZATION_SUSPENDED: 403, ORGANIZATION_SELECTION_REQUIRED: 409, ORGANIZATION_CONTEXT_CHANGED: 409, IDENTITY_CONTEXT_CHANGED: 409, DEPENDENCY_UNAVAILABLE: 503, FEATURE_UNAVAILABLE: 503, DEADLINE_EXCEEDED: 504, INVALID_UPSTREAM_RESPONSE: 502 };
+const errorStatuses: Readonly<Record<string, number>> = { INVALID_REQUEST: 400, AUTHENTICATION_REQUIRED: 401, PERMISSION_DENIED: 403, ORGANIZATION_ACCESS_DENIED: 403, ORGANIZATION_ACCESS_REVOKED: 403, ORGANIZATION_SUSPENDED: 403, NOT_FOUND: 404, ORGANIZATION_SELECTION_REQUIRED: 409, ORGANIZATION_CONTEXT_CHANGED: 409, IDENTITY_CONTEXT_CHANGED: 409, DEPENDENCY_UNAVAILABLE: 503, FEATURE_UNAVAILABLE: 503, DEADLINE_EXCEEDED: 504, INVALID_UPSTREAM_RESPONSE: 502 };
 export class CommercialBillingReadError extends Error {
   constructor(public readonly status: number, public readonly code: string, public readonly requestId = "") { super("Commercial billing read could not be completed"); }
 }

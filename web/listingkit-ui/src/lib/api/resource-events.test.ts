@@ -30,6 +30,8 @@ it("keeps native resource units and exact signed quantities without accepting in
   ).not.toBeNull();
   for (const changed of [
     { ...row, quantity: "invalid" },
+    { ...row, purpose: "unknown_purpose" },
+    { ...row, purpose: "chat_planning", source_type: "local_ai_trial_v1" },
     { ...row, available_after: "-1" },
     { ...row, consumed_delta: "9223372036854775808" },
   ]) {
@@ -63,10 +65,11 @@ it("binds bounded filters and event pages to the current enterprise", async () =
   await expect(
     getResourceEvents("user-B", "org-B", {
       resourceType: "ai_point",
+      deductionsOnly: true,
       cursor: "original",
     }),
   ).rejects.toMatchObject({ code: "INVALID_UPSTREAM_RESPONSE" });
   expect(fetcher.mock.calls[0][0]).toBe(
-    "/api/workbench/commercial/resources/events?limit=50&resource_type=ai_point&cursor=original",
+    "/api/workbench/commercial/resources/events?limit=50&include_purpose=true&resource_type=ai_point&deductions_only=true&cursor=original",
   );
 });

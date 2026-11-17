@@ -127,6 +127,28 @@ func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testin
 	require.Empty(t, got.AgentRunID)
 	require.Empty(t, got.BusinessTaskID)
 	require.Equal(t, fact.OfficialTariff, got.OfficialTariff)
+	ctx := context.Background()
+	add := func(id string, change func(*aicapability.InvocationRecord)) {
+		row := fact
+		row.InvocationID = id
+		change(&row)
+		claimed, err := r.ClaimInvocation(ctx, row)
+		require.NoError(t, err)
+		require.True(t, claimed)
+	}
+	add("foreign-user", func(row *aicapability.InvocationRecord) { row.UserID = "other" })
+	add("foreign-member", func(row *aicapability.InvocationRecord) { row.MemberID = "other" })
+	add("foreign-org", func(row *aicapability.InvocationRecord) { row.TenantID = "other" })
+	add("route-call", func(row *aicapability.InvocationRecord) { row.Operation = aicapability.OperationAIWorkbenchStoreRoute })
+	add("bad-call", func(*aicapability.InvocationRecord) {})
+	require.NoError(t, db.Model(&invocationRow{}).Where("invocation_id = ?", "bad-call").Update("maximum_prompt_tokens", 0).Error)
+	facts, err := r.ReadModelPurposeInvocations(ctx, "org", "actor", "member", []string{
+		fact.InvocationID, "foreign-user", "foreign-member", "foreign-org", "route-call", "bad-call", "missing-call",
+	})
+	require.NoError(t, err)
+	require.Equal(t, []aicapability.InvocationRecord{got}, facts)
+	_, err = r.ReadModelPurposeInvocations(ctx, "org", "actor", "member", make([]string, 51))
+	require.Error(t, err)
 	foreign := fact
 	foreign.AgentRunID = "invented-run"
 	_, err = r.ClaimInvocation(context.Background(), foreign)

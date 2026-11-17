@@ -9,9 +9,19 @@ type EventReader interface {
 	ListEvents(context.Context, EventQuery) (EventPage, error)
 }
 
+// EventSource is the original owner reference, read for one scoped event.
+type EventSource struct {
+	OrganizationID string
+	EventID        string
+	ResourceType   ResourceType
+	SourceType     string
+	SourceIdentity string
+}
+
 type EventQuery struct {
 	OrganizationID string
 	ResourceType   ResourceType
+	DeductionsOnly bool
 	From, Until    *time.Time
 	Cursor         string
 	Limit          int

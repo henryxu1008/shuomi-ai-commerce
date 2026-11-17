@@ -81,6 +81,15 @@ func proposalValueRef(row proposalRow) agent.WorkbenchContextRef {
 }
 
 func (s *Store) TaskForExecution(ctx context.Context, owner aiworkbench.Scope, key string) (aiworkbench.BusinessTask, error) {
+	return s.taskByExecution(ctx, owner, key, task)
+}
+
+// ReadTaskByExecution resolves a saved task solely for a read projection.
+func (s *Store) ReadTaskByExecution(ctx context.Context, owner aiworkbench.Scope, key string) (aiworkbench.BusinessTask, error) {
+	return s.taskByExecution(ctx, owner, key, recordedTask)
+}
+
+func (s *Store) taskByExecution(ctx context.Context, owner aiworkbench.Scope, key string, decode func(taskRow) (aiworkbench.BusinessTask, error)) (aiworkbench.BusinessTask, error) {
 	if !validScope(owner) || !validKey(key) {
 		return aiworkbench.BusinessTask{}, aiworkbench.ErrInvalid
 	}
@@ -88,7 +97,7 @@ func (s *Store) TaskForExecution(ctx context.Context, owner aiworkbench.Scope, k
 	if err := s.db.WithContext(ctx).Where("organization_id = ? AND owner_user_id = ? AND execution_request_key = ?", owner.OrganizationID, owner.ActorID, key).Take(&row).Error; err != nil {
 		return aiworkbench.BusinessTask{}, missing(err)
 	}
-	return task(row)
+	return decode(row)
 }
 
 func (s *Store) ReadFrozenScope(ctx context.Context, owner aiworkbench.Scope, ref agent.WorkbenchContextRef) (aiworkbench.FrozenScope, error) {

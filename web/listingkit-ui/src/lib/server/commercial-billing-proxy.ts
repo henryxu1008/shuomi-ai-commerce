@@ -1,4 +1,5 @@
-import {parseResourceEvents, RESOURCE_EVENTS_MAX_BYTES} from "@/lib/api/resource-events";
+import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
+import {parseResourceBusinessObject, parseResourceEvents, RESOURCE_EVENTS_MAX_BYTES} from "@/lib/api/resource-events";
 import {parseResourceOffers} from "@/lib/api/resource-purchase";
 import {parseStorageSummary,parseStorageOffers} from "@/lib/api/storage-capacity";
 import { NextResponse } from "next/server";
@@ -40,6 +41,13 @@ const safeJSON = (body: unknown, status: number) => NextResponse.json(body, { st
 export async function proxyCommercialBilling(request: Request, accessToken: string, sessionUserId: string): Promise<Response> {
   const incomingURL = new URL(request.url);
   const eventRead = incomingURL.pathname === "/api/workbench/commercial/resources/events";
+  const usageObjectRead = incomingURL.pathname.startsWith("/api/workbench/commercial/resources/events/");
+  const usageEventId = usageObjectRead
+    ? /^\/api\/workbench\/commercial\/resources\/events\/([^/]+)\/object$/.exec(incomingURL.pathname)?.[1]
+    : undefined;
+  if (usageObjectRead && (!usageEventId || !isAcquisitionUUID(usageEventId) || request.method !== "GET" || incomingURL.href.includes("?"))) {
+    return failure(400, "INVALID_REQUEST");
+  }
   const offerRead = incomingURL.pathname === "/api/workbench/commercial/resource-offers";
   const resourceRead = incomingURL.pathname === "/api/workbench/commercial/resources";
   const storageRead = incomingURL.pathname === "/api/workbench/storage/summary";
@@ -96,11 +104,19 @@ export async function proxyCommercialBilling(request: Request, accessToken: stri
     }
     let payload: unknown;
     try {
-      payload = await readBoundedStrictJSON(upstream, (upstream.status >= 200 && upstream.status < 300 || orderCreation && upstream.status === 409) ? (resourceRead ? COMMERCIAL_RESOURCE_MAX_BYTES : eventRead ? RESOURCE_EVENTS_MAX_BYTES : MAX_RESPONSE_BYTES) : 8192, controller.signal);
+      payload = await readBoundedStrictJSON(upstream, (upstream.status >= 200 && upstream.status < 300 || orderCreation && upstream.status === 409) ? (resourceRead ? COMMERCIAL_RESOURCE_MAX_BYTES : eventRead ? RESOURCE_EVENTS_MAX_BYTES : usageEventId ? 4096 : MAX_RESPONSE_BYTES) : 8192, controller.signal);
     } catch {
       return controller.signal.aborted ? failure(504, "DEADLINE_EXCEEDED") : failure(502, "INVALID_UPSTREAM_RESPONSE");
     }
     controller.signal.throwIfAborted();
+    if (usageEventId) {
+      if (upstream.status === 200) {
+        const parsed = parseResourceBusinessObject(payload, usageEventId);
+        return parsed?.organization_id === organization ? safeJSON(parsed, 200) : failure(502, "INVALID_UPSTREAM_RESPONSE");
+      }
+      const error = parseCommercialBillingFailure(payload, upstream.status);
+      return error ? failure(upstream.status, error.code) : failure(502, "INVALID_UPSTREAM_RESPONSE");
+    }
     if (resourceRead || eventRead || offerRead || storageRead || storageOfferRead) {
       if (upstream.status === 200) {
         const parsed = storageRead ? parseStorageSummary(payload) : storageOfferRead ? parseStorageOffers(payload) : resourceRead ? parseCommercialResources(payload) : eventRead ? parseResourceEvents(payload) : parseResourceOffers(payload);

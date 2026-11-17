@@ -16,13 +16,76 @@ vi.mock("@/lib/api/commercial-billing", async (original) => ({ ...await original
 vi.mock("@/lib/api/resource-purchase", async original => ({...await original<typeof import("@/lib/api/resource-purchase")>(),getResourceOffers:state.offers}));
 vi.mock("@/lib/api/resource-events", async original => ({...await original<typeof import("@/lib/api/resource-events")>(),getResourceEvents:state.events}));
 let client: QueryClient;
-const tree = (page: "options" | "entitlements" | "top-up" | "orders" | "order-detail" = "entitlements", orderId?: string) => <QueryClientProvider client={client}><CommercialPage page={page} orderId={orderId} /></QueryClientProvider>;
+const tree = (page: "options" | "entitlements" | "usage" | "top-up" | "orders" | "order-detail" = "entitlements", orderId?: string) => <QueryClientProvider client={client}><CommercialPage page={page} orderId={orderId} /></QueryClientProvider>;
 function deferred<T>() { let resolve!: (v: T) => void; let reject!: (e: unknown) => void; const promise = new Promise<T>((r, j) => { resolve = r; reject = j; }); return { promise, resolve, reject }; }
 
 function fixture(org="org-B"){const data=commercialOverviewFixture(org);if(data.store_services.state==="available")data.store_services.value.records=137;return data;}
 beforeEach(()=>{sessionStorage.clear();state.context={user:{id:"reader"},effectiveOrganization:{id:"org-B",name:"企业乙"},roles:["listingkit_admin"], permissions: ["listingkit.admin.read","listingkit.admin.write","product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.agent.configure","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.knowledge.manage","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.store.delete","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.organization_member.manage","workbench.commercial.read","workbench.commercial.purchase","workbench.commercial.wallet_topup"],retry:vi.fn()};state.read.mockReset().mockResolvedValue(fixture());state.resources.mockReset().mockImplementation((_user,org)=>Promise.resolve(commercialResourcesFixture(org)));state.offers.mockReset().mockResolvedValue({organization_id:"org-B",items:[]});state.events.mockReset().mockResolvedValue({organization_id:"org-B",items:[],next_cursor:null});state.wallet.mockReset().mockResolvedValue({organization_id:"org-B",currency:"CNY",available_minor:"12000",reserved_minor:"0",debt_minor:"0",lifetime_topup_minor:"12000",lifetime_spend_minor:"0",version:"1",observed_at:"2026-09-23T10:00:00Z"});state.entries.mockReset().mockResolvedValue({organization_id:"org-B",items:[],next_cursor:""});state.orders.mockReset().mockResolvedValue({organization_id:"org-B",items:[],next_cursor:""});state.summary.mockReset().mockResolvedValue({organization_id:"org-B",currency:"CNY",from:"2026-08-24T10:00:00Z",until:"2026-09-23T10:00:00Z",spend_minor:"0",store_renewal_spend_minor:"0",ai_point_spend_minor:"0",data_row_spend_minor:"0",other_spend_minor:"0",observed_at:"2026-09-23T10:00:00Z"});client=new QueryClient({defaultOptions:{queries:{retry:false}}});});
 beforeEach(()=>{storage.getStorageSummary.mockReset().mockImplementation(()=>new Promise(()=>{}));storage.getStorageOffers.mockReset();});
 afterEach(()=>{cleanup();client.clear();sessionStorage.clear();});
+it("applies usage categories and dates, tracks previous pages, and preserves filters on refresh", async () => {
+  state.events.mockImplementation(async (_user, org, filters) => ({
+    organization_id: org,
+    items: [],
+    next_cursor: !filters.cursor ? "second-page" : null,
+  }));
+  const user = userEvent.setup();
+  render(tree("usage"));
+  const deductions = await screen.findByRole("button", { name: "实际扣除" });
+  expect(deductions).toHaveAttribute("aria-pressed", "true");
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { deductionsOnly: true, cursor: undefined }, expect.any(AbortSignal),
+  ));
+  const ai = await screen.findByRole("button", { name: "AI 点数" });
+  await user.click(ai);
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith("reader", "org-B", {
+    deductionsOnly: true, resourceType: "ai_point", cursor: undefined,
+  }, expect.any(AbortSignal)));
+  expect(ai).toHaveAttribute("aria-pressed", "true");
+
+  const start = screen.getByLabelText("开始日期（UTC）");
+  await user.type(start, "2026-11-15");
+  await user.click(screen.getByRole("button", { name: "筛选" }));
+  const dates = { deductionsOnly: true, resourceType: "ai_point", from: "2026-11-15T00:00:00.000Z" };
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...dates, cursor: undefined, until: undefined }, expect.any(AbortSignal),
+  ));
+
+  await user.click(await screen.findByRole("button", { name: "下一页" }));
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...dates, cursor: "second-page", until: undefined }, expect.any(AbortSignal),
+  ));
+  await user.click(await screen.findByRole("button", { name: "上一页" }));
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...dates, cursor: undefined, until: undefined }, expect.any(AbortSignal),
+  ));
+  const refreshed = deferred<unknown>();
+  state.events.mockReturnValueOnce(refreshed.promise);
+  await user.click(screen.getByRole("button", { name: "刷新数据" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("正在读取用量明细");
+  expect(start).toHaveValue("2026-11-15");
+  expect(ai).toHaveAttribute("aria-pressed", "true");
+  await act(async () => refreshed.resolve({ organization_id: "org-B", items: [], next_cursor: null }));
+  expect(await screen.findByText("暂无符合条件的扣除记录。")).toBeVisible();
+
+  const all = screen.getByRole("button", { name: "全部变动" });
+  await user.click(all);
+  const allDates = { ...dates, deductionsOnly: false, until: undefined };
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...allDates, cursor: undefined }, expect.any(AbortSignal),
+  ));
+  expect(all).toHaveAttribute("aria-pressed", "true");
+  expect(start).toHaveValue("2026-11-15");
+  expect(ai).toHaveAttribute("aria-pressed", "true");
+  await user.click(await screen.findByRole("button", { name: "下一页" }));
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...allDates, cursor: "second-page" }, expect.any(AbortSignal),
+  ));
+  await user.click(deductions);
+  await waitFor(() => expect(state.events).toHaveBeenLastCalledWith(
+    "reader", "org-B", { ...dates, cursor: undefined, until: undefined }, expect.any(AbortSignal),
+  ));
+});
 it("preserves applied order fields after the normal pending remount",async()=>{
  const pending=deferred<unknown>();state.orders.mockResolvedValueOnce({organization_id:"org-B",items:[],next_cursor:""}).mockReturnValueOnce(pending.promise);
  render(tree("orders"));await userEvent.type(await screen.findByLabelText("搜索订单"),"AI");await userEvent.selectOptions(screen.getByLabelText("订单状态"),"FULFILLED");await userEvent.click(screen.getByRole("button",{name:"筛选"}));

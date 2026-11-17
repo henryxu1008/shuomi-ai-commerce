@@ -50,3 +50,38 @@ it("denies stale identities, duplicate assertions/cookies and query input before
   for (const query of ["?organization_id=org-B", "?"]) expect((await proxyCommercialBilling(request(query), "fixture", "user-A")).status).toBe(400);
   expect(fetcher).not.toHaveBeenCalled();
 });
+
+it("binds the authorized usage object response to the exact organization and event", async () => {
+  vi.stubEnv("COMMERCIAL_API_ORIGIN", "http://localhost:8888");
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  const eventId = "55555555-5555-4555-8555-555555555555";
+  const url = `/events/${eventId}/object`;
+  const value = {
+    organization_id: "org-A", event_id: eventId,
+    object: { kind: "store", name: "Authorized store", id: "66666666-6666-4666-8666-666666666666" },
+  };
+  for (const suffix of [url + "?source=untrusted", url + "?", "/events/fake/object"]) {
+    expect((await proxyCommercialBilling(request(suffix), "fixture", "user-A")).status).toBe(400);
+  }
+  expect(fetcher).not.toHaveBeenCalled();
+  expect((await proxyCommercialBilling(request(url), "fixture", "wrong-user")).status).toBe(409);
+  expect(fetcher).not.toHaveBeenCalled();
+  fetcher.mockResolvedValueOnce(Response.json(value));
+  const response = await proxyCommercialBilling(request(url), "fixture", "user-A");
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual(value);
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(fetcher.mock.calls[0][0].toString()).toBe(`http://localhost:8888/api/v1/workbench/commercial/resources${url}`);
+  for (const payload of [
+    { ...value, organization_id: "foreign" },
+    { ...value, event_id: value.object.id },
+    { ...value, object: { ...value.object, accountId: "secret upstream field" } },
+    { ...value, object: { ...value.object, id: "not-a-uuid" } },
+  ]) {
+    fetcher.mockResolvedValueOnce(Response.json(payload));
+    const failed = await proxyCommercialBilling(request(url), "fixture", "user-A");
+    expect(failed.status).toBe(502);
+    expect(await failed.text()).not.toContain("secret upstream field");
+  }
+});
