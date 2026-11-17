@@ -1,5 +1,5 @@
 "use client";
-import {useCallback,useEffect,useId,useMemo,useRef,useState} from "react";
+import {useCallback,useEffect,useId,useMemo,useRef,useState,type ReactNode} from "react";
 import {z} from "zod";
 import Link from "next/link";
 import {Button} from "@/components/ui/button";
@@ -29,7 +29,7 @@ export function SkillManagerTrigger({scope,space,canConfigure=false}:{scope:Skil
  const [open,setOpen]=useState(false);
  return <><Button variant="outline" onClick={()=>setOpen(true)}>{space==="personal"?"我的技能":"团队技能"}</Button><SkillManager key={`${scope.userId}:${scope.organizationId??""}:${canConfigure}`} scope={scope} home={space} canConfigure={canConfigure} open={open} onClose={()=>setOpen(false)}/></>;
 }
-export function SkillManager({scope:receivedScope,home,canConfigure=false,open=true,onClose,initialSpace=home,presentation="dialog",maintenance=false}:{scope:SkillScope;home:"personal"|"organization";canConfigure?:boolean;open?:boolean;onClose?:()=>void;initialSpace?:s.SkillSpace;presentation?:"dialog"|"page";maintenance?:boolean}){
+export function SkillManager({scope:receivedScope,home,canConfigure=false,open=true,onClose,initialSpace=home,presentation="dialog",maintenance=false,renderPage}:{scope:SkillScope;home:"personal"|"organization";canConfigure?:boolean;open?:boolean;onClose?:()=>void;initialSpace?:s.SkillSpace;presentation?:"dialog"|"page";maintenance?:boolean;renderPage?:(content:ReactNode, canManageOfficial:boolean)=>ReactNode}){
  const scope=useMemo(()=>({userId:receivedScope.userId,organizationId:receivedScope.organizationId}),[receivedScope.userId,receivedScope.organizationId]);
  const dialog=useRef<HTMLDialogElement>(null),request=useRef<AbortController|null>(null),active=useRef(true),cursorHistory=useRef<Set<string>>(new Set()),id=useId();
  const [space,setSpace]=useState<s.SkillSpace>(initialSpace),[items,setItems]=useState<s.SkillProjection[]>([]),[next,setNext]=useState(""),[info,setInfo]=useState<z.infer<typeof s.skillInfoSchema>|null>(null),[selected,setSelected]=useState<s.SkillProjection|null>(null),[versions,setVersions]=useState<s.SkillVersion[]>([]);
@@ -82,7 +82,7 @@ export function SkillManager({scope:receivedScope,home,canConfigure=false,open=t
  const shown=items.filter(item=>(effectivePurpose==="all"||(item.version.package.target??"product-title")===effectivePurpose)&&skillName(item.version).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
  const operationStatus=<>{busy&&<p role="status">正在读取或保存技能…</p>}{failure&&<p ref={errorRef} tabIndex={-1} role="alert">{failure}</p>}{message&&<p role="status">{message}</p>}{pending&&!busy&&<div className={styles.notice}><p>操作结果尚未确认，请重试以核实。</p><Button ref={recoveryRef} onClick={()=>void mutate(pending,pending.path.includes("shares")?s.skillShareSchema:pending.path.endsWith("admission")?s.skillAdmissionSchema:s.skillReceiptSchema)}>核实原操作</Button></div>}</>;
  const content=<>
-  {presentation==="page"?<header className={styles.pageToolbar}><div><h2 ref={headingRef} tabIndex={-1} id={`${id}-title`}>{space==="official"?(maintenance?"官方模板管理":"模板目录"):home==="personal"?"个人技能列表":"团队技能列表"}</h2></div><div className={styles.toolbarActions}>{refreshAction}{createAction}{sharesAction}</div></header>:<>
+  {presentation==="page"?<header className={styles.pageToolbar}><div><h2 ref={headingRef} tabIndex={-1} id={`${id}-title`}>{space==="official"?(maintenance?"官方模板列表":"模板目录"):home==="personal"?"个人技能列表":"团队技能列表"}</h2></div><div className={styles.toolbarActions}>{refreshAction}{createAction}{sharesAction}</div></header>:<>
    <header className={styles.actions}><div><h2 ref={headingRef} tabIndex={-1} id={`${id}-title`}>{space==="official"?"官方模板":home==="personal"?"我的技能":"团队技能"}</h2><p>保存可复用的方法；执行使用现有智能体的权限、预算与审核。</p></div><Button variant="outline" onClick={onClose}>关闭</Button></header>
    <div className={styles.actions}><nav className={styles.actions} aria-label="技能范围"><Button variant={space===home?"default":"outline"} disabled={disabled} onClick={()=>switchSpace(home)}>{home==="personal"?"本人技能":"当前企业技能"}</Button><Button variant={space==="official"?"default":"outline"} disabled={disabled} onClick={()=>switchSpace("official")}>官方模板</Button></nav>{refreshAction}</div>
   </>}
@@ -116,6 +116,14 @@ export function SkillManager({scope:receivedScope,home,canConfigure=false,open=t
   {shares.length>0&&<section><h3>共享申请</h3><ul className={styles.list}>{shares.map(r=><li key={r.id}><p>{r.source.id} · v{r.source.version} · {r.state} · 企业 {r.organizationId}</p>{home==="organization"&&r.state==="SUBMITTED"&&<Button disabled={disabled} onClick={()=>void readShare(r)}>读取提交版本</Button>}{home==="personal"&&r.state==="SUBMITTED"&&<Button variant="outline" disabled={disabled} onClick={()=>command(`personal/shares/${r.id}/withdraw`,{},undefined,"POST",s.skillShareSchema)}>撤回申请</Button>}{r.resultSkillId&&<p>组织副本：{r.resultSkillId}</p>}</li>)}</ul></section>}
   {preview&&<section className={styles.detail}><h3>仅查看用户明确提交的 v{preview.version.version}</h3>{preview.version.package.files?.map(f=><details key={f.path}><summary>{f.path==="SKILL.md"?"技能内容":f.path}</summary><pre>{f.text}</pre></details>)}<div className={styles.actions}><Button disabled={disabled} onClick={()=>command(`organization/shares/${preview.share.id}/approve`,{},undefined,"POST",s.skillShareSchema)}>批准并生成组织私有副本</Button><Button variant="outline" disabled={disabled} onClick={()=>command(`organization/shares/${preview.share.id}/reject`,{},undefined,"POST",s.skillShareSchema)}>拒绝申请</Button></div></section>}
  </>;
- if(maintenance&&!info?.canInstallOfficial)return <section className={`${styles.manager} ${styles.pageManager}`}>{failure?<p role="alert">{failure}</p>:info?<p>当前身份无权管理官方模板。</p>:<p role="status">正在确认管理权限…</p>}</section>;
- return presentation==="page"?<section className={`${styles.manager} ${styles.pageManager}`} aria-labelledby={`${id}-title`}>{content}</section>:<dialog ref={dialog} className={styles.dialog} aria-labelledby={`${id}-title`} onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();onClose?.()}}>{content}</dialog>;
+ const canManageOfficial=space==="official"&&info?.available===true&&info.canInstallOfficial;
+ if(maintenance&&!canManageOfficial){
+  const denied=<section className={`${styles.manager} ${styles.pageManager}`}>{failure?<p role="alert">{failure}</p>:info?<p>当前身份无权管理官方模板。</p>:<p role="status">正在确认管理权限…</p>}</section>;
+  return renderPage?renderPage(denied,false):denied;
+ }
+ if(presentation==="page"){
+  const page=<section className={`${styles.manager} ${styles.pageManager}`} aria-labelledby={`${id}-title`}>{content}</section>;
+  return renderPage?renderPage(page,canManageOfficial):page;
+ }
+ return <dialog ref={dialog} className={styles.dialog} aria-labelledby={`${id}-title`} onCancel={e=>{if(e.target!==e.currentTarget)return;e.preventDefault();onClose?.()}}>{content}</dialog>;
 }

@@ -54,7 +54,6 @@ export const consoleNavigation: readonly ConsoleNavNode[] = [
     { label: "充值中心", href: "/workbench/plans/top-up", availability: "connected" },
     { label: "账单与订单", href: "/workbench/plans/orders", availability: "connected" },
   ] },
-  { label: "系统设置", href: "/workbench/settings", availability: "connected" },
   { label: "我的账户", href: "/workbench/account", availability: "connected", children: [
     { label: "账户资料", href: "/workbench/account/profile", availability: "connected", children: [
       { label: "账户设置", href: "/workbench/account/profile/settings", availability: "connected" },
@@ -124,9 +123,9 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node:ConsoleNavNode={label:pathname.endsWith("/records")?"平台订单记录":"原单履约",href:pathname,availability:"connected"};
     return {node,trail:[...parent.trail,node]};
   }
-  if (pathname === "/workbench/agents/skills/official/use") {
+  if (pathname === "/workbench/agents/skills/official/use" || pathname === "/workbench/agents/skills/official/manage") {
     const parent = findConsoleRoute("/workbench/agents/skills/official")!;
-    const node: ConsoleNavNode = {label: "选择已有商品", href: pathname, availability: "connected"};
+    const node: ConsoleNavNode = {label: pathname.endsWith("/manage") ? "管理官方模板" : "选择已有商品", href: pathname, availability: "connected"};
     return {node, trail: [...parent.trail, node]};
   }
   if (pathname === "/workbench/data/mine/research-transfer") {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type {ReactNode} from "react";
 import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
 import {Button} from "@/components/ui/button";
 import {ConsolePage, ConsoleState} from "../console/console-page";
@@ -12,6 +13,8 @@ import homeStyles from "../console/primary-introduction.module.css";
 
 export type SkillCategory = "official" | "mine" | "team";
 const root = "/workbench/agents/skills";
+const officialPath = `${root}/official`;
+const managementPath = `${officialPath}/manage`;
 const categories = [
   {id: "official", label: "官方模板", path: `${root}/official`, description: "查找平台提供的技能模板。"},
   {id: "mine", label: "我的技能", path: `${root}/mine`, description: "管理个人技能，或提交团队审核。"},
@@ -25,27 +28,35 @@ export function SkillLibraryPage({expectedUserId, category, maintenance=false}: 
   const identityChanged = !!ctx.user && ctx.user.id !== expectedUserId;
   const organizationReady = !ctx.error && !ctx.blockingError && !ctx.isLoading && !ctx.isSwitching && !ctx.selectionRequired && !!ctx.user && !!ctx.effectiveOrganization;
   const organization = organizationReady ? ctx.effectiveOrganization : null;
-  let content;
-  if (authenticationFailed || identityChanged) {
-    content = <ConsoleState kind="error" title={identityChanged ? "登录身份已变化" : "登录已失效"}><Button asChild variant="outline"><Link href={`/login?returnTo=${encodeURIComponent(maintenance ? "/workbench/settings" : current.path)}`} prefetch={false}>重新登录</Link></Button></ConsoleState>;
-  } else if (ctx.isSwitching || category === "team" && ctx.isLoading) {
-    content = <ConsoleState kind="loading" title="正在确认当前企业"/>;
-  } else if (category === "team" && (ctx.error || ctx.blockingError)) {
-    content = <ConsoleState kind="error" title="企业上下文不可用"><Button onClick={() => void ctx.retry()}>重新确认</Button></ConsoleState>;
-  } else if (category === "team" && !organization) {
-    content = <ConsoleState kind="unavailable" title="请先选择企业">团队技能属于当前企业，选择企业后按已有权限管理。</ConsoleState>;
-  } else {
-    content = <SkillManager key={JSON.stringify([expectedUserId, ctx.user?.id, organization?.id, ctx.permissions, category])}
-      scope={{userId: expectedUserId, organizationId: organization?.id}}
-      home={category === "team" ? "organization" : "personal"}
-      initialSpace={category === "official" ? "official" : category === "team" ? "organization" : "personal"}
-      canConfigure={organizationReady && ctx.permissions.includes("workbench.agent.configure")}
-      presentation="page" maintenance={maintenance}/>;
-  }
-  if (maintenance) return <ConsolePage title="系统设置" breadcrumbs={[{label: "系统设置"}]}>{content}</ConsolePage>;
-  return <ConsolePage className={`${introStyles.page} ${homeStyles.page} ${styles.libraryPage} ${workbenchViewPage}`} title={current.label} description={category === "official" ? undefined : <>{current.description}{category === "team" && organization && <span className={styles.organization}>当前企业：{organization.name}</span>}</>}
-    breadcrumbs={[{label: "AI工作台", href: "/workbench/ai"}, {label: "技能库", href: `${root}/official`}, {label: current.label}]}>
-    <WorkbenchViewNav label="技能库分类">{categories.map(item => <Link key={item.id} href={item.path} prefetch={false} aria-label={item.label} aria-current={item.id === category ? "page" : undefined}>{item.label}</Link>)}</WorkbenchViewNav>
+  const breadcrumbs = [{label: "AI工作台", href: "/workbench/ai"}, {label: "技能库", href: maintenance ? root : officialPath}];
+  const renderPage = (content: ReactNode, canManageOfficial = false) => <ConsolePage
+    className={`${introStyles.page} ${homeStyles.page} ${styles.libraryPage} ${workbenchViewPage}`}
+    title={maintenance ? "管理官方模板" : current.label}
+    description={category === "official" ? undefined : <>{current.description}{category === "team" && organization && <span className={styles.organization}>当前企业：{organization.name}</span>}</>}
+    breadcrumbs={maintenance ? [...breadcrumbs, {label: "官方模板", href: officialPath}, {label: "管理官方模板"}] : [...breadcrumbs, {label: current.label}]}
+    actions={maintenance
+      ? <Button asChild variant="outline"><Link href={officialPath} prefetch={false}>返回官方模板</Link></Button>
+      : canManageOfficial && <Button asChild variant="outline"><Link href={managementPath} prefetch={false}>管理官方模板</Link></Button>}>
+    {!maintenance && <WorkbenchViewNav label="技能库分类">{categories.map(item => <Link key={item.id} href={item.path} prefetch={false} aria-label={item.label} aria-current={item.id === category ? "page" : undefined}>{item.label}</Link>)}</WorkbenchViewNav>}
     {content}
   </ConsolePage>;
+
+  if (authenticationFailed || identityChanged) {
+    return renderPage(<ConsoleState kind="error" title={identityChanged ? "登录身份已变化" : "登录已失效"}><Button asChild variant="outline"><Link href={`/login?returnTo=${encodeURIComponent(maintenance ? managementPath : current.path)}`} prefetch={false}>重新登录</Link></Button></ConsoleState>);
+  }
+  if (ctx.isSwitching || category === "team" && ctx.isLoading) {
+    return renderPage(<ConsoleState kind="loading" title="正在确认当前企业"/>);
+  }
+  if (category === "team" && (ctx.error || ctx.blockingError)) {
+    return renderPage(<ConsoleState kind="error" title="企业上下文不可用"><Button onClick={() => void ctx.retry()}>重新确认</Button></ConsoleState>);
+  }
+  if (category === "team" && !organization) {
+    return renderPage(<ConsoleState kind="unavailable" title="请先选择企业">团队技能属于当前企业，选择企业后按已有权限管理。</ConsoleState>);
+  }
+  return <SkillManager key={JSON.stringify([expectedUserId, ctx.user?.id, organization?.id, ctx.permissions, category, maintenance])}
+    scope={{userId: expectedUserId, organizationId: organization?.id}}
+    home={category === "team" ? "organization" : "personal"}
+    initialSpace={category === "official" ? "official" : category === "team" ? "organization" : "personal"}
+    canConfigure={organizationReady && ctx.permissions.includes("workbench.agent.configure")}
+    presentation="page" maintenance={maintenance} renderPage={renderPage}/>;
 }
