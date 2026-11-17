@@ -60,7 +60,7 @@ describe("AccountPage read-only projection", () => {
     for (const name of ["成员与权限", "资源与额度", "操作记录"]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("data-slot", "button");
     }
-    for (const name of ["模型与费率", "内核发行管理", "查看价格"]) {
+    for (const name of ["模型与服务", "内核发行管理", "查看价格"]) {
       expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     }
     expect(screen.queryByRole("heading", { name: "数据条数价格" })).not.toBeInTheDocument();
@@ -70,17 +70,16 @@ describe("AccountPage read-only projection", () => {
     state.context.permissions = ["workbench.agent.configure", "listingkit.platform_admin"] as never[];
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url === "/api/account/organization") return Response.json(organization);
-      if (url === "/api/model-route-pricing") return Response.json({ organizationId: "B", unitVersion: "ai-micropoint-v1", available: true, canMaintainPrices: true });
       return Response.json({ code: "DEPENDENCY_UNAVAILABLE", message: "", requestId: "", fieldErrors: [] }, { status: 503 });
     }));
     mount("organization");
-    const model = await screen.findByRole("heading", { name: "企业 AI 模型" });
+    const model = await screen.findByRole("heading", { name: "AI 配置" });
     const kernel = screen.getByRole("heading", { name: "浏览器内核" });
     const pricing = screen.getByRole("heading", { name: "数据条数价格" });
     expect(model.parentElement?.parentElement).toBe(kernel.parentElement?.parentElement);
     expect(model.parentElement?.parentElement).toBe(pricing.parentElement?.parentElement);
     for (const [name, route] of [
-      ["模型与费率", "model-route-pricing"],
+      ["模型与服务", "model-route-pricing"],
       ["内核发行管理", "kernel-releases"],
       ["查看价格", "data-row-pricing"],
     ]) {

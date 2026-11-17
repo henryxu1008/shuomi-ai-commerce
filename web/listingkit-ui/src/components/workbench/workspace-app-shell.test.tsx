@@ -74,6 +74,22 @@ async function openSwitchDialog(user: ReturnType<typeof userEvent.setup>) {
 
 describe("WorkspaceAppShell", () => {
   it.each([
+    ["/workbench/account/organization/model-route-pricing", 503, true],
+    ["/workbench/account/organization/model-route-pricing", 403, false],
+    ["/workbench/account/organization/members", 503, false],
+  ])("keeps the model settings receipt area only on a temporary failure (%s, %s)", (pathname, status, visible) => {
+    navigation.pathname = pathname;
+    injectProfileContext({
+      user: { id: "user-1" },
+      effectiveOrganization: ACTIVE_CONTEXT.organizations[0],
+      error: { status, code: status === 403 ? "ORGANIZATION_ACCESS_REVOKED" : "DEPENDENCY_UNAVAILABLE" },
+    });
+    render(<WorkspaceAppShell><p>Model settings receipt area</p></WorkspaceAppShell>);
+    if (visible) expect(screen.getByText("Model settings receipt area")).toBeVisible();
+    else expect(screen.queryByText("Model settings receipt area")).not.toBeInTheDocument();
+  });
+
+  it.each([
     ["123456789", " 陈小明 ", "陈小明"],
     ["123456789", " ", "当前账户"],
     ["another-user", "其他账户姓名", "当前账户"],

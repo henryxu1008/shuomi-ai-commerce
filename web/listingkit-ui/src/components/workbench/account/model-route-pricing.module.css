@@ -104,6 +104,9 @@
 .summary { display: grid; align-content: start; gap: 10px; min-width: 0; }
 .summary .readiness { color: var(--foreground); font-weight: 600; }
 .summary .readiness[data-ready="true"] { color: var(--primary); }
+.overviewStatus { color: var(--foreground); font-weight: 600; }
+.overviewStatus[data-ready="true"] { color: var(--primary); }
+.panel :is(h2, h3, select)[tabindex="-1"]:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 .rateDetails summary,
 .help summary { cursor: pointer; font-weight: 600; }
 .rateDetails dl { display: grid; gap: 6px; margin-block: 10px; font-size: var(--label-text-size); }
