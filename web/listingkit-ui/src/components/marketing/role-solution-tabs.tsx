@@ -1,7 +1,7 @@
 "use client";
 
 import { KeyboardEvent, useRef, useState } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import styles from "./marketing-homepage.module.css";
 
@@ -57,7 +57,7 @@ const solutions: RoleSolution[] = [
 ];
 
 export function RoleSolutionTabs() {
-  const [activeIndex, setActiveIndex] = useState(1);
+  const [activeIndex, setActiveIndex] = useState(2);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const activeSolution = solutions[activeIndex];
   const panelId = "role-solution-panel";
@@ -94,7 +94,7 @@ export function RoleSolutionTabs() {
         onKeyDown={(event) => handleTabKeyDown(event, index)}
       ><span className={styles.roleNumber}>{solution.number}</span><span className={styles.roleCopy}><strong>{solution.title}</strong><small>{solution.detail}</small></span><ArrowRight size={15} /></button>)}
     </div>
-    <article className={styles.rolePanel} id={panelId} role="tabpanel" aria-labelledby={`role-solution-tab-${activeIndex}`} aria-label={`${activeSolution.title}解决方案`}>
+    <article key={activeIndex} className={styles.rolePanel} id={panelId} role="tabpanel" aria-labelledby={`role-solution-tab-${activeIndex}`} aria-label={`${activeSolution.title}解决方案`}>
       <small>{activeSolution.label}</small><h3>{activeSolution.headline}</h3><p>{activeSolution.objective}</p>
       <div className={styles.roleColumns}>
         <RoleColumn title="典型问题" items={activeSolution.problems} />
@@ -107,5 +107,5 @@ export function RoleSolutionTabs() {
 }
 
 function RoleColumn({ title, items }: { title: string; items: string[] }) {
-  return <div><b>{title}</b>{items.map(item => <span key={item}><Check size={13} /> {item}</span>)}</div>;
+  return <div><b>{title}</b>{items.map(item => <span key={item}>{item}</span>)}</div>;
 }
