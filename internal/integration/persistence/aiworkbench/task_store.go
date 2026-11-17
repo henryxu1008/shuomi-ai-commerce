@@ -55,6 +55,14 @@ func canonicalRequest(raw []byte) ([]byte, agent.Request, error) {
 }
 
 func task(row taskRow) (aiworkbench.BusinessTask, error) {
+	return decodeTask(row, false)
+}
+
+func recordedTask(row taskRow) (aiworkbench.BusinessTask, error) {
+	return decodeTask(row, true)
+}
+
+func decodeTask(row taskRow, readingRecordedTask bool) (aiworkbench.BusinessTask, error) {
 	occurrence := ""
 	if row.ScheduledOccurrenceID != nil {
 		occurrence = *row.ScheduledOccurrenceID
@@ -77,7 +85,7 @@ func task(row taskRow) (aiworkbench.BusinessTask, error) {
 		!config.ValidOrAbsent() || config.Absent() || !contextRef.ValidOrAbsent() ||
 		!validDigest(row.ExecutionRequestDigest) || digest(json.RawMessage(requestJSON)) != row.ExecutionRequestDigest ||
 		request.ConfigurationSnapshotRef != config || request.ContextSnapshotRef != contextRef ||
-		request.GoalSummary != row.GoalSummary || !request.WorkbenchContextRef.ValidOrAbsent() || !taskRequestMatchesRow(row, request) {
+		request.GoalSummary != row.GoalSummary || !request.WorkbenchContextRef.ValidOrAbsent() || !taskRequestMatchesRow(row, request, readingRecordedTask) {
 		return aiworkbench.BusinessTask{}, aiworkbench.ErrUnavailable
 	}
 	return aiworkbench.BusinessTask{ID: row.ID, ScheduledOccurrenceID: occurrence, WorkbenchContextRef: request.WorkbenchContextRef,
@@ -234,6 +242,15 @@ func (s *Store) Confirm(ctx context.Context, scope aiworkbench.Scope, conversati
 }
 
 func (s *Store) GetTask(ctx context.Context, scope aiworkbench.Scope, id string) (aiworkbench.BusinessTask, error) {
+	return s.taskByID(ctx, scope, id, task)
+}
+
+// ReadTask includes historical tasks that can be viewed under the same scope.
+func (s *Store) ReadTask(ctx context.Context, scope aiworkbench.Scope, id string) (aiworkbench.BusinessTask, error) {
+	return s.taskByID(ctx, scope, id, recordedTask)
+}
+
+func (s *Store) taskByID(ctx context.Context, scope aiworkbench.Scope, id string, decode func(taskRow) (aiworkbench.BusinessTask, error)) (aiworkbench.BusinessTask, error) {
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(id) {
 		return aiworkbench.BusinessTask{}, aiworkbench.ErrInvalid
 	}
@@ -242,7 +259,7 @@ func (s *Store) GetTask(ctx context.Context, scope aiworkbench.Scope, id string)
 		Take(&row).Error; err != nil {
 		return aiworkbench.BusinessTask{}, missing(err)
 	}
-	return task(row)
+	return decode(row)
 }
 
 func (s *Store) lookupProposalTask(db *gorm.DB, scope aiworkbench.Scope, conversationID, proposalID string) (aiworkbench.BusinessTask, bool, error) {
@@ -338,7 +355,7 @@ func proposalDomainMatchesRequest(row proposalRow, r agent.Request) bool {
 	return p.MatchesRequest(r)
 }
 
-func taskRequestMatchesRow(row taskRow, r agent.Request) bool {
+func taskRequestMatchesRow(row taskRow, r agent.Request, readingRecordedTask bool) bool {
 	if !r.Binding.Valid() || !r.ValidContentSelection() || r.Key != row.ExecutionRequestKey || r.Binding.ContextID != row.OperationID || r.Binding.ProductKey != row.ProductKey || r.Binding.TargetPlatform != row.TargetPlatform {
 		return false
 	}
@@ -347,6 +364,9 @@ func taskRequestMatchesRow(row taskRow, r agent.Request) bool {
 		p.ContextKind = r.Binding.ContextKind
 		p.ContentSelection = r.ContentSelection
 		p.ExecutionLimits = r.Limits
+	}
+	if readingRecordedTask {
+		return p.MatchesRecordedRequest(r)
 	}
 	return p.MatchesRequest(r)
 }

@@ -148,7 +148,7 @@ func (a *aiWorkbenchApplication) usageTaskObject(c *gin.Context, org, invocation
 	if err != nil || !found || run.State.RunID != fact.AgentRunID || run.State.Scope != runScope || run.State.Request.Key == "" {
 		return nil
 	}
-	task, err := a.store.TaskForExecution(ctx, scope, run.State.Request.Key)
+	task, err := a.store.ReadTaskByExecution(ctx, scope, run.State.Request.Key)
 	if err != nil || !usageTaskMatches(task, scope, kind, fact.BusinessTaskID, run.State.Request) {
 		return nil
 	}
