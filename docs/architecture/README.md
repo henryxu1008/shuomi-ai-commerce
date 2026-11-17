@@ -212,7 +212,7 @@
 
 - [AI 领域候选导航：#132 标题对照与先导评测](domains/ai/README.md) — 两份独立设计尚未准入；真实模型/费用执行未授权
 
-- `agent-customization.md` — [智能体定制需求与人工进度 V1](agent-customization.md)
+- `agent-customization.md` — [智能体定制需求与人工进度 V1](domains/ai/agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
 - `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
@@ -266,7 +266,7 @@
 - `image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](domains/ai/image-text-language-confirmation.md)
 - `product-image-agent.md` — [商品图片智能体 V1 — 完整图片能力设计](product-image-agent.md)
 - `source-white-background.md` — [来源商品白底图与资源结算合同](source-white-background.md)
-- `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](vip-original-output-recovery.md)
+- `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](domains/ai/vip-original-output-recovery.md)
 
 <a id="workspace"></a>
 
