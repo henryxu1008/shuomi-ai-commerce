@@ -9,6 +9,7 @@
 | 从我的数据选商品、配置店铺、确认刊登 | [四步供应链及原任务继续](../../supply-four-step-continuation.md)、[商品刊登操作](../../../operations/my-supply-chain-shein.md) | `internal/product/collection` 选择商品，`internal/listing/preparation` 准备与继续 |
 | 保存不绑定店铺的待补全候选 | [未绑定草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[CompletionDraft 结构化合同](completion-draft-structured.md) | `internal/listing/completiondraft` |
 | 核对平台资料、类目、素材与校验规则 | [SHEIN 原生 Validator](../../shein-native-validator-contract.md)、[提交前 readiness 策略](../../shein-submit-readiness-action-policy.md) | `internal/listing/materials` / `readiness` 及当前 Marketplace 规则 |
+| 选择 SHEIN 候选类目并只读查询规则 | [候选类目规则查询与解释（C3-2）](listing-candidate-category-rules.md) | `internal/listing/materials` 使用 Marketplace 提供的真实规则；不保存、不采用、不发布 |
 | 人工审核与素材批准 | [Product Domain Contracts](../../product-domain-contracts.md)、[Human Review #36](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36) | `internal/product/review`、`internal/product/asset` |
 | 执行一次明确批准的提交并核对结果 | [SHEIN 发布闭环](../../shein-publication-flow.md)、[原任务继续](../../supply-four-step-continuation.md) | `internal/listing/submission` 持有提交意图/回执，平台 adapter 持有协议 |
 
