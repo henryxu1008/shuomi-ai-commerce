@@ -54,6 +54,7 @@ import (
 // entitlements, calls the model or edits a Product.
 type ProductAgentDependencies struct {
 	ScriptSandbox            *skillsandbox.Config
+	ScriptTrialIdentity      *agent.ExecutionIdentity
 	ChannelCredentials       channelcredential.SecretReader
 	CurrentTextPolicies      governed.RoutePolicyReader
 	Knowledge                *knowledge.Service

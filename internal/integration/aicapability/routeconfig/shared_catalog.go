@@ -97,49 +97,59 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return q, nil
 	}
 	q.BoundEvidenceVersion = first.BoundEvidenceVersion
-	if c.Prices == nil {
-		q.Reason = "OFFICIAL_PRICE_MISSING"
-		return q, nil
-	}
-	published, err := c.Prices.Current(ctx)
-	if errors.Is(err, d.ErrNotFound) {
-		q.Reason = "OFFICIAL_PRICE_MISSING"
-		return q, nil
-	}
-	if err != nil {
-		return q, err
-	}
-	applicable := false
-	priceModel := q.Model
-	if first.ManufacturerModel != "" {
-		priceModel = first.ManufacturerModel
-	}
+	now := c.now()
+	var price aicapability.OfficialModelTariff
 	var referenceEstimate aicapability.ReferenceImageEstimate
-	for _, entry := range published.Payload.PlatformPrices.Prices {
-		if entry.ID != first.PriceID || entry.Model != priceModel || entry.Channel != q.Channel || c.now().Before(entry.EffectiveFrom) || !c.now().Before(entry.EffectiveUntil) {
-			continue
+	if trial := first.PrivateTrialPrice; trial != nil {
+		if len(defs) != 1 || now.Before(trial.NotBefore) || !now.Before(trial.NotAfter) {
+			q.Reason = "PRICE_APPLICABILITY_MISSING"
+			return q, nil
 		}
-		applicable = d.ValidFact(first.Manufacturer, 64) && entry.Provider == first.Manufacturer && d.ValidFact(first.Region, 64) && d.ValidFact(first.ServiceType, 64) && entry.Region == first.Region && entry.ServiceType == first.ServiceType
-		if category == d.ModelCategoryImage {
-			applicable = applicable && entry.ServiceType == "image-sync" && entry.Image != nil && entry.Image.Width == 1024 && entry.Image.Height == 1024 && entry.Image.Quality == "auto"
-			if applicable {
-				referenceEstimate = entry.Image.ReferenceEstimate
+		price = trial.Tariff
+	} else {
+		if c.Prices == nil {
+			q.Reason = "OFFICIAL_PRICE_MISSING"
+			return q, nil
+		}
+		published, err := c.Prices.Current(ctx)
+		if errors.Is(err, d.ErrNotFound) {
+			q.Reason = "OFFICIAL_PRICE_MISSING"
+			return q, nil
+		}
+		if err != nil {
+			return q, err
+		}
+		applicable := false
+		priceModel := q.Model
+		if first.ManufacturerModel != "" {
+			priceModel = first.ManufacturerModel
+		}
+		for _, entry := range published.Payload.PlatformPrices.Prices {
+			if entry.ID != first.PriceID || entry.Model != priceModel || entry.Channel != q.Channel || now.Before(entry.EffectiveFrom) || !now.Before(entry.EffectiveUntil) {
+				continue
 			}
-		} else {
-			applicable = applicable && entry.ServiceType == "standard-sync" && entry.Image == nil
+			applicable = d.ValidFact(first.Manufacturer, 64) && entry.Provider == first.Manufacturer && d.ValidFact(first.Region, 64) && d.ValidFact(first.ServiceType, 64) && entry.Region == first.Region && entry.ServiceType == first.ServiceType
+			if category == d.ModelCategoryImage {
+				applicable = applicable && entry.ServiceType == "image-sync" && entry.Image != nil && entry.Image.Width == 1024 && entry.Image.Height == 1024 && entry.Image.Quality == "auto"
+				if applicable {
+					referenceEstimate = entry.Image.ReferenceEstimate
+				}
+			} else {
+				applicable = applicable && entry.ServiceType == "standard-sync" && entry.Image == nil
+			}
 		}
-	}
-	if !applicable {
-		q.Reason = "PRICE_APPLICABILITY_MISSING"
-		return q, nil
-	}
-	price, err := published.Payload.PlatformPrices.Resolve(first.PriceID, priceModel, q.Channel, c.now())
-	if err != nil {
-		q.Reason = "PRICE_OR_FX_NOT_APPLICABLE"
-		return q, nil
-	}
-	if priceModel != q.Model {
-		price.WireModel = q.Model
+		if !applicable {
+			q.Reason = "PRICE_APPLICABILITY_MISSING"
+			return q, nil
+		}
+		price, err = published.Payload.PlatformPrices.Resolve(first.PriceID, priceModel, q.Channel, now)
+		if err != nil {
+			q.Reason = "PRICE_OR_FX_NOT_APPLICABLE"
+			return q, nil
+		}
+		if priceModel != q.Model {
+			price.WireModel = q.Model
+		}
 	}
 	q.Price = price
 	if !price.IsReferenceEstimate() && !price.IsReferenceImageEstimate() && !d.ValidFact(first.BoundEvidenceVersion, 128) {
