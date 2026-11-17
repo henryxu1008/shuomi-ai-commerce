@@ -2,7 +2,7 @@
 
 返回[文档首页](../README.md)。先读 `project-boundaries.md` 和 `project-target-architecture.md`，再按业务领域选择合同；源码入口见[Repository Structure](../development/repository-structure.md#current-entrypoint-map)。
 
-产品基线为 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。页面与交互见[产品 Authority](../product/final-ui-ia-authority.md)；领域事实和运行边界由下列合同负责。合同中的设计准入不代替源码完成、实例启用或真实用户验收。
+产品基线为 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。页面与交互的**当前用户决定及业务流程参考**见[产品流程与历史 UI/IA 说明](../product/final-ui-ia-authority.md)，Figma 不再是最终 UI/IA 权威；领域事实和运行边界由下列合同负责。合同中的设计准入、历史提交与旧阶段状态不代替当前源码完成、实例启用或真实用户验收。文档分域与候选迁移计划见[文档组织与迁移规则](../document-organization.md)及[逐文件清单](../document-inventory.csv)；未审查前不按文件名前缀搬移合同。
 
 ## 研究与商业评估规划
 
