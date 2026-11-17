@@ -120,9 +120,9 @@ function maskMarkdownCode(content) {
 
     let visible = "";
     for (let i = 0; i < line.length;) {
-      if (line[i] === "\`" && (i === 0 || line[i - 1] !== "\\")) {
+      if (line[i] === "\x60" && (i === 0 || line[i - 1] !== "\\")) {
         let run = 1;
-        while (line[i + run] === "\`") run++;
+        while (line[i + run] === "\x60") run++;
         if (inlineTicks === 0) inlineTicks = run;
         else if (inlineTicks === run) inlineTicks = 0;
         visible += " ".repeat(run);
