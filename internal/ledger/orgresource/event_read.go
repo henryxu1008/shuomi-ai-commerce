@@ -21,6 +21,7 @@ type EventSource struct {
 type EventQuery struct {
 	OrganizationID string
 	ResourceType   ResourceType
+	DeductionsOnly bool
 	From, Until    *time.Time
 	Cursor         string
 	Limit          int

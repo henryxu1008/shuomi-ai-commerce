@@ -105,12 +105,15 @@ func TestResourceEventsUseBoundedFiltersAndLiveOrganization(t *testing.T) {
 		server.Handler.ServeHTTP(response, request)
 		return response
 	}
-	response := get("?resource_type=ai_point&limit=2&from=2026-09-01T00:00:00Z&until=2026-10-01T00:00:00Z", "B", "")
+	response := get("?deductions_only=true&resource_type=ai_point&limit=2&from=2026-09-01T00:00:00Z&until=2026-10-01T00:00:00Z", "B", "")
 	require.Equal(t, 200, response.Code)
 	require.Equal(t, "B", reader.query.OrganizationID)
 	require.Equal(t, 2, reader.query.Limit)
 	require.Equal(t, orgresource.ResourceAIPoint, reader.query.ResourceType)
-	for _, query := range []string{"?organization_id=A", "?limit=51", "?limit=2&limit=3", "?resource_type=token", "?from=bad", "?from=2026-10-01T00:00:00Z&until=2026-09-01T00:00:00Z", "?"} {
+	require.True(t, reader.query.DeductionsOnly)
+	require.Equal(t, 200, get("?deductions_only=false", "B", "").Code)
+	require.False(t, reader.query.DeductionsOnly)
+	for _, query := range []string{"?organization_id=A", "?limit=51", "?limit=2&limit=3", "?resource_type=token", "?deductions_only=True", "?deductions_only=true&deductions_only=false", "?from=bad", "?from=2026-10-01T00:00:00Z&until=2026-09-01T00:00:00Z", "?"} {
 		before := reader.calls
 		require.Equal(t, 400, get(query, "B", "").Code)
 		require.Equal(t, before, reader.calls)

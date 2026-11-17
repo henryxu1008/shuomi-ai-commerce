@@ -56,13 +56,20 @@ func (r *GormRepository) ListEvents(ctx context.Context, query orgresource.Event
 		return orgresource.EventPage{}, orgresource.ErrInvalidInput
 	}
 	identity, _ := json.Marshal(struct {
-		Organization string
-		Resource     orgresource.ResourceType
-		From, Until  *time.Time
-	}{query.OrganizationID, query.ResourceType, query.From, query.Until})
+		Organization   string
+		Resource       orgresource.ResourceType
+		From, Until    *time.Time
+		DeductionsOnly bool `json:"deductions_only,omitempty"`
+	}{
+		Organization: query.OrganizationID, Resource: query.ResourceType,
+		From: query.From, Until: query.Until, DeductionsOnly: query.DeductionsOnly,
+	})
 	hash := sha256.Sum256(identity)
 	scope := hex.EncodeToString(hash[:])
 	db := r.db.WithContext(ctx).Where("organization_id=?", query.OrganizationID)
+	if query.DeductionsOnly {
+		db = db.Where("consumed_delta > 0")
+	}
 	if query.ResourceType != "" {
 		db = db.Where("resource_type=?", query.ResourceType)
 	}

@@ -137,6 +137,11 @@ func parseResourceEventQuery(raw string) (orgresource.EventQuery, error) {
 			if query.ResourceType != orgresource.ResourceStoreRenewalPeriod && query.ResourceType != orgresource.ResourceAIPoint && query.ResourceType != orgresource.ResourceDataRow {
 				return query, orgresource.ErrInvalidInput
 			}
+		case "deductions_only":
+			if value[0] != "true" && value[0] != "false" {
+				return query, orgresource.ErrInvalidInput
+			}
+			query.DeductionsOnly = value[0] == "true"
 		case "from", "until":
 			parsed, err := time.Parse(time.RFC3339Nano, value[0])
 			if err != nil {
