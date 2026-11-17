@@ -256,8 +256,10 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
         {pendingError ? <p role="status">{pendingError}</p> : null}
         {new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 ? <p role="status">需求不能超过 8192 字节。</p> : null}
         <div className={styles.composeFooter}>
-          {!recheckStore ? <div className={styles.storeControl}><ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} baseStoreName={projectEntry?undefined:resolvedScope?.scope.storeId?resolvedScope.storeName:undefined} onChange={setStoreState}/></div> : null}
-          {projectControls}
+          {!recheckStore || projectControls ? <div className={styles.contextControls}>
+            {!recheckStore ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} baseStoreName={projectEntry?undefined:resolvedScope?.scope.storeId?resolvedScope.storeName:undefined} onChange={setStoreState}/> : null}
+            {projectControls}
+          </div> : null}
           <div className={styles.voiceControl}><ChatVoiceInput identity={JSON.stringify([scope.userId,scope.organizationId,scopeContext])} disabled={creating || !!createIntent || draftReady !== draftKey || invalidContext} onText={insertVoiceText} onActiveChange={setVoiceActive} /></div>
           {canUse && (visibleSkill === "" || projectEntry && visibleSkill === "project-task" || createIntent) ? <Button size={projectLaunch?"default":"icon"} onClick={create}
             aria-label={creating ? "正在创建" : createIntent ? "核对原创建请求" : projectLaunch ? "开启项目会话" : "开始对话"}
@@ -268,7 +270,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
         {projectLaunch && !createIntent ? <p>{recheckStore?"开启会话后，请重新选择本次任务店铺。":"核对项目和关联店铺后开启会话。进入后再选择商品并生成方案。"}</p> : null}
         {projectCard}
       </> : <>
-        {projectAvailable ? <div className={styles.toolbar}><ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} onChange={setStoreState}/>{projectControls}</div> : null}
+        {projectAvailable ? <div className={styles.contextControls}><ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} onChange={setStoreState}/>{projectControls}</div> : null}
         {projectCard}
         {canUse && (visibleSkill === "" || createIntent) ? <>{fixedScopeEnabled ? <WorkScopePicker key={scopeGeneration} scope={scope} authorizationKey={authorizationKey} disabled={creating || !!createIntent} selected={selectedScope} onSelect={setSelectedScope} /> : null}<Button onClick={create} disabled={creating || fixedScopeEnabled && !selectedScope && !createIntent}>{creating ? "正在创建…" : createIntent ? "核对原创建请求" : "新建会话"}</Button></> : null}
       </> : <p>当前企业仅可查看已有会话。</p>} /> :
@@ -651,7 +653,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {canUse && pendingConfirmationId && pendingConfirmationId!==activeProposal?.id ? <ConsoleState kind="unavailable" title="原任务提交待核实">
       <Button type="button" variant="outline" disabled={pending} onClick={()=>void confirm(pendingConfirmationId)}>核对原确认请求</Button>
     </ConsoleState> : null}
-    {projectAvailable && (canUse || canCreateProject) && !current.Archived ? <div className={styles.toolbar}>
+    {projectAvailable && (canUse || canCreateProject) && !current.Archived ? <div className={styles.contextControls}>
       {!pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
       <ProjectSkillPicker value={visibleSkill} onChange={next=>{invalidateProposal();setSkill(next);creation.reset();}} disabled={pending||Boolean(pendingMessage)||projectSaveLocked||awaitingConfirm} canCreate={canCreateProject} canExecute={canExecuteProject}/>
