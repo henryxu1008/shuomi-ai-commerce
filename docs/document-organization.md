@@ -78,7 +78,7 @@ docs/
 - [#1359](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1359)：`completion-draft-internal-note.md` 迁入 `architecture/domains/listing/`，保留 Listing CompletionDraft 已冻结合同。
 - [#1361](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1361)：两份 Listing CompletionDraft 历史/恢复架构合同成组迁入 `architecture/domains/listing/`，原 Operations 使用说明继续独立维护。
 
-对应 CSV 三十九行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
+对应 CSV 四十二行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
 
 - [#1363](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1363)：`CompletionDraft` 结构化候选冻结合同由架构根层迁至 `architecture/domains/listing/`；相邻 Product 与 Operations 同名文档各自保留业务/使用说明职责，不进行内容合并。
 - [#1366](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1366)：C3-2 SHEIN 候选类目规则查询与只读解释合同归入 `architecture/domains/listing/`；Marketplace RuleReader/Provider 仍提供原规则，不变更 C3-2 R1 准入与不可采用边界。
@@ -107,7 +107,11 @@ docs/
 
 - 本批：智能体定制人工流程与 VIP 已付费原图恢复合同迁入 `architecture/domains/ai/`；原权限、报价/预算、人工处理、UNKNOWN 及历史状态保持，不开放真实调用。
 
-- 本批：单商品图片可选路由历史合同归入 `architecture/domains/ai/`，保持原 #840 的准入、凭据、预算及人工确认限制，不授权真实模型调用。
+- 本批：百炼图片接线与 Google Interactions 标题路由架构合同归入 `architecture/domains/ai/`，保留原模型身份、费用/权限、UNKNOWN 与历史人工批准边界；不重新签发真实运行准入。
+
+- [#1413](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1413)：Image Agent V3 Effect Policy 归入 `architecture/domains/ai/`，原有纯领域状态策略、CAS 与 UNKNOWN 边界不变。
+
+- [#1415](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1415)：单商品图片可选路由 V1 历史合同归入 `architecture/domains/ai/`，原准确模型/预算/权限/人工确认门禁不变。
 
 ## 4. 逐文件清单的解释
 

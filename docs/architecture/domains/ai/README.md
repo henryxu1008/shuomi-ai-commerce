@@ -68,6 +68,17 @@
 
 迁移仅涉及文档路径，不签发新模型调用、真实支付、部署或业务验收。
 
+## 百炼图片接线与 Google 标题传输
+
+- [百炼商品图片接线 V1](bailian-product-image-wiring.md)：保留固定模型路由、企业凭据、原预算及图片 UNKNOWN 与真实试用限制。
+- [Google Interactions 标题路由增量](product-agent-google-interactions.md)：保留独立原生协议的来源、计量边界、旧兼容探针历史及人工 Review/Apply 约束。
+
+目录迁移不触发供应商调用、不发布配置、不改变历史准入或费用上限。
+
+## Image Agent V3 效果状态策略
+
+- [Image Agent V3 Effect Policy](image-agent-effect-policy.md)：保留原纯领域决策、repository CAS、UNKNOWN、预算/租约/fencing 与 Temporal 兼容性设计，不据目录变更重新授予实现或部署权限。
+
 ## 单商品图片可选模型路线
 
 - [Single-product image plan optional route V1](image-plan-optional-route.md)：保留 #840 原选路、准确候选版本及人工确认的历史设计边界，不将文件迁移视为模型发布或生产授权。
