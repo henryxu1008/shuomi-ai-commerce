@@ -90,7 +90,21 @@ docs/
 
 搬迁中的高引用文件（`project-boundaries.md`、`project-target-architecture.md`、`repository-structure.md`、各层 `README.md`、`AGENTS.md`）默认暂不移动，除非有单独批准的必要理由。
 
-## 6. 推荐推进与验收
+## 6. 典型跨层同名文件的内容抽查
+
+为避免将“相同文件名”误判为内容重复，已抽查以下实际正文。以下结论只覆盖列出的文档，不等于全部 26 组已完成语义审查：
+
+| 主题 | 抽查结果 | 当前建议 |
+| --- | --- | --- |
+| `selected-application-multi-product.md`（Product / Architecture / Operations） | 分别是多商品申请产品决定、逐商品幂等与状态的冻结合同、卖家进入和操作说明 | **KEEP_SEPARATE**，三层互相引用；不按同名合并 |
+| `supply-unbound-completion-drafts.md`（Product / Architecture / Operations） | 分别说明不绑定 Store 的业务许可、Listing CompletionDraft 事实 owner/事务、安装与保存恢复步骤 | **KEEP_SEPARATE**；核对旧 UI/Figma 权威表述，但不取消独立草稿 |
+| `skill-capability.md`（Architecture / Operations） | 前者是 Skill 身份、版本与模型/脚本准入合同，后者是安装和操作交接 | **KEEP_SEPARATE**；其中旧阶段“未启动”等时点描述要与最新 Issue/PR 分开表示 |
+| `my-supply-chain-shein.md`（Architecture / Operations） | 旧五阶段技术设计已在文首声明被四阶段增量替代；操作说明已转向「商品刊登」四阶段 | **UPDATE_REVIEW**：优先固定现行四阶段权威链接，审查原合同仍被消费的部分后再决定是否精简 |
+| `ecosystem-services.md`（Architecture / Operations） | 冻结合同含完整支付/结算，而现行有界资格接线与运行说明强调“非支付阶段” | **KEEP_SEPARATE**，进一步标清两阶段适用条件；不可因为代码或目录存在就宣布真实支付开放 |
+
+上表的 `KEEP_SEPARATE` / `UPDATE_REVIEW` 是**人工抽查建议**，不改变 CSV 的整体 `PROPOSED_ONLY` 状态，也不等于已授权修改上述领域合同。后一批需核实当前产品决定、准确发布/试用范围和反向引用后再具体实施。
+
+## 7. 推荐推进与验收
 
 | 批次 | 改动 | 验收 |
 | --- | --- | --- |
