@@ -78,3 +78,7 @@
 ## Image Agent V3 效果状态策略
 
 - [Image Agent V3 Effect Policy](image-agent-effect-policy.md)：保留原纯领域决策、repository CAS、UNKNOWN、预算/租约/fencing 与 Temporal 兼容性设计，不据目录变更重新授予实现或部署权限。
+
+## 单商品图片可选模型路线
+
+- [Single-product image plan optional route V1](image-plan-optional-route.md)：保留 #840 原选路、准确候选版本及人工确认的历史设计边界，不将文件迁移视为模型发布或生产授权。
