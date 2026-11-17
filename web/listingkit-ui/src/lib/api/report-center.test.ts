@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from "vitest";
 import { reportResultSchema, reviewLocator, sourceRef, sourceHref, reportEndpoint, reportTargetQuery } from "@/lib/contracts/report-center";
 import { readReportIntent, reportRequest, writeReportIntent } from "./report-center";

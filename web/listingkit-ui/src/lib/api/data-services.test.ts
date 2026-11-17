@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import { loadDataIntent, saveDataIntent, validDataIntent } from "./data-services";
 import { dataRoute, jobSchema, optionsSchema, overviewSchema } from "@/lib/contracts/data-services";
