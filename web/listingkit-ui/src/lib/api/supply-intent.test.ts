@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { parseSupplyIntent, saveSupplyIntent, loadSupplyIntent } from "./supply-intent";
 import {colorSplitPlanFixture,unresolvedLocalTargetFixture,importIds} from "@/test/shein-import-fixture";
