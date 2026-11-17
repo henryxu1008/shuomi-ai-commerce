@@ -1,6 +1,6 @@
 import {z} from "zod";
 import {automaticFXStatus} from "../contracts/model-route-pricing";
-import {credentialConnections,credentialInput,credentialReceipt,matchesCredentialReceipt} from "../contracts/channel-credentials";
+import {credentialConnections,credentialInput,credentialReceipt,matchesCredentialReceipt,modelQueryInput,modelQueryResult,matchesModelQuery} from "../contracts/channel-credentials";
 import {withoutPublicationVersion,canonicalPriceFacts,routeFact,routeOptions,routeInput,priceInput,pricePreview,routeCurrent,routeReceipt,routePreview,routeHistory,routeCapabilities,type RouteRevision} from "../contracts/model-route-pricing";
 import {readBoundedStrictJSON} from "../api/strict-json-response";
 import {parseCommercialReadFailure} from "../api/commercial";
@@ -14,10 +14,12 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  if(request.headers.get("X-Expected-User-ID")!==userId)return routeFailure(409,"IDENTITY_CONTEXT_CHANGED");
  const url=new URL(request.url),path=url.pathname.slice("/api/model-route-pricing".length),parts=path.slice(1).split("/"),family=parts[0],op=parts[1]??"current",credentials=family==="connections",write=request.method==="POST",publish=write&&(credentials?parts[2]==="commands":op==="publish"),platform=family==="platform-prices";
  const fxControl=platform&&write&&parts.length===3&&op==="automatic-fx"&&["start","prepare"].includes(parts[2]),uncertain=publish||fxControl;
+ const modelQuery=credentials&&write&&parts.length===3&&parts[2]==="model-query"&&routeFact.safeParse(parts[1]).success;
  let output:z.ZodType;
  if(!path&&request.method==="GET")output=routeCapabilities;
  else if(credentials){
   if(parts.length===1&&request.method==="GET")output=credentialConnections;
+  else if(modelQuery)output=modelQueryResult;
   else if(parts.length===3&&parts[2]==="commands"&&routeFact.safeParse(parts[1]).success&&write)output=credentialReceipt;
   else if(parts.length===4&&parts[2]==="receipts"&&routeFact.safeParse(parts[1]).success&&routeFact.safeParse(parts[3]).success&&request.method==="GET")output=credentialReceipt;
   else return routeFailure(400,"INVALID");
@@ -35,6 +37,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  if(url.search.length>512||credentials&&url.search!==""||request.url.endsWith("?")||request.headers.has("content-encoding"))return routeFailure(400,"INVALID");
  for(const [k,v] of url.searchParams){if(op!=="history"||url.searchParams.getAll(k).length!==1||(k==="cursor"?!routeFact.safeParse(v).success:k==="limit"?!/^[1-9][0-9]?$/.test(v)||Number(v)>50:true))return routeFailure(400,"INVALID")}
  if(write&&!hasTrustedSameOriginWrite(request))return routeFailure(403,"FORBIDDEN");
+ if(modelQuery&&/\bprefetch\b/i.test([request.headers.get("purpose"),request.headers.get("sec-purpose")].join(" ")))return routeFailure(403,"FORBIDDEN");
  const cookies=(request.headers.get("cookie")??"").split(";").map(v=>v.trim()).filter(v=>v.startsWith(WORKBENCH_COOKIE_NAME+"="));let org="";
  try{if(cookies.length===1)org=decodeURIComponent(cookies[0].slice(WORKBENCH_COOKIE_NAME.length+1))}catch{}
  if(!routeFact.safeParse(org).success||org!==request.headers.get("X-Expected-Organization-ID"))return routeFailure(409,"ORGANIZATION_CONTEXT_CHANGED");
@@ -42,13 +45,13 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  try{
   const headers=new Headers({Accept:"application/json",Authorization:"Bearer "+token,"X-Requested-Organization-ID":org});let body:string|undefined;
   if(write){
-   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(fxControl?z.strictObject({}):credentials?credentialInput:platform?priceInput:routeInput).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
+   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(modelQuery?modelQueryInput:fxControl?z.strictObject({}):credentials?credentialInput:platform?priceInput:routeInput).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
    if(publish){const key=request.headers.get("Idempotency-Key");if(!routeFact.safeParse(key).success)return routeFailure(400,"INVALID");headers.set("Idempotency-Key",key!)}
    body=JSON.stringify(parsed.data);headers.set("Content-Type","application/json");
   }else if(!(await hasEmptyBody(request,controller.signal)))return routeFailure(400,"INVALID");
   const origin=configuredAgentConfigurationOrigin();if(!origin)return routeFailure(503,"UNAVAILABLE");controller.signal.throwIfAborted();dispatched=true;
   const response=await fetch(origin+"/api/v1/model-route-pricing"+path+url.search,{method:request.method,headers,body,signal:controller.signal,cache:"no-store",redirect:"manual"});
-  const payload=await readBoundedStrictJSON(response,512*1024,controller.signal);controller.signal.throwIfAborted();
+  const payload=await readBoundedStrictJSON(response,modelQuery?16*1024:512*1024,controller.signal);controller.signal.throwIfAborted();
   if(response.status!==200){
    // The shared Workbench middleware uses four fields, unlike this module's
    // {code} failures. Reuse its existing envelope and code/status validation;
@@ -62,6 +65,10 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
   const parsed=output.parse(payload) as Record<string,unknown>;
   if(credentials){
    if(output===credentialConnections){if(credentialConnections.parse(parsed).organizationId!==org)throw new Error()}
+   else if(modelQuery){
+    const result=modelQueryResult.parse(parsed),input=modelQueryInput.parse(JSON.parse(body!));
+    if(!matchesModelQuery(result,{userId,organizationId:org},decodeURIComponent(parts[1]),input))throw new Error();
+   }
    else {
     const r=credentialReceipt.parse(parsed).receipt,input=publish?credentialInput.parse(JSON.parse(body!)):null;
     if(r.organizationId!==org||r.actorId!==userId||r.connectionId!==decodeURIComponent(parts[1])||r.requestKey!==(publish?headers.get("Idempotency-Key"):decodeURIComponent(parts[3])))throw new Error();

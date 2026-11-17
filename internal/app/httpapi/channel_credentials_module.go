@@ -61,7 +61,11 @@ func (m modelRoutePricingModule) serveCredentials(c *gin.Context, operation stri
 			credentialHTTPFailure(c, e)
 			return
 		}
-		c.JSON(200, gin.H{"organizationId": id.EffectiveOrganizationID, "canManage": manager.CanManage(), "connections": connections})
+		payload := gin.H{"organizationId": id.EffectiveOrganizationID, "canManage": manager.CanManage(), "connections": connections}
+		if targets := m.modelQueryTargets(ctx, id, connections); targets != nil {
+			payload["modelQueryTargets"] = targets
+		}
+		c.JSON(200, payload)
 		return
 	}
 	connection := c.Param("id")
