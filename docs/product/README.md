@@ -2,7 +2,7 @@
 
 返回[文档首页](../README.md)。这里记录当前产品决定和用户交互语义；领域事实、安全、权限、事务和副作用由[当前架构合同](../architecture/README.md)负责。
 
-先读 [UI / IA Authority](final-ui-ia-authority.md)、[产品战略](ai-commerce-agent-platform-strategy.md)和[全新系统产品基线](greenfield-no-legacy-migration.md)。业务按全新安装、空业务数据和当前模型推进。产品页面不由旧包名、路由或测试反向定义。
+先读[业务流程参考与历史 UI/IA 决定](final-ui-ia-authority.md)、[产品战略](ai-commerce-agent-platform-strategy.md)和[全新系统产品基线](greenfield-no-legacy-migration.md)。**Figma 不再是 UI/UX、菜单或布局的权威**；以最新用户决定和实际操作为准。业务按全新安装、空业务数据和当前模型推进。产品页面不由旧包名、路由或测试反向定义。
 
 Agent / Tool 消费领域 owner 的权限和能力，不直接访问数据库建立第二套业务状态。未开放功能真实表达 unavailable；设计批准、源码完成、实例开放和用户验收分别取证。具体范围与进度在当前执行 Issue 中维护。
 
@@ -14,7 +14,7 @@ Agent / Tool 消费领域 owner 的权限和能力，不直接访问数据库建
 - [候选资料带入 SHEIN 平台草稿](completion-shein-import.md)
 - [Local 一次性非现金 AI 试用](local-ai-trial.md)
 - [硕米登录 Phase1：ZITADEL 原生能力收敛决策](official-zitadel-login.md)
-- [Product Decision: 1688 在线采集完整对齐 Figma](1688-acquisition-scope.md)
+- [1688 采集历史决策：原 Figma 对齐范围（非现行 UI/IA 权威）](1688-acquisition-scope.md)
 - [Product Decision: 1688 服务端匿名浏览器采集（允许处理验证码）](1688-server-public-browser.md)
 - [Amazon / 1688 插件采集：上架资料字段对照 V1](plugin-capture-listing-fields.md)
 - [Product Sourcing Handoff](product-sourcing-handoff.md)
