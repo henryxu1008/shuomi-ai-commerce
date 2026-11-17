@@ -67,3 +67,7 @@
 - [VIP 已付费原图恢复](vip-original-output-recovery.md)：保留准确原请求/权限/结算证据和 UNKNOWN；恢复不触发再次生图或扣费。
 
 迁移仅涉及文档路径，不签发新模型调用、真实支付、部署或业务验收。
+
+## Image Agent V3 效果状态策略
+
+- [Image Agent V3 Effect Policy](image-agent-effect-policy.md)：保留原纯领域决策、repository CAS、UNKNOWN、预算/租约/fencing 与 Temporal 兼容性设计，不据目录变更重新授予实现或部署权限。

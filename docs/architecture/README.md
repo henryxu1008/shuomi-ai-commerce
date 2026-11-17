@@ -255,7 +255,7 @@
 - `image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](domains/ai/image-agent-budget-authorization.md)
 - `image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](domains/ai/image-agent-candidate-release-gate.md)
 - `image-agent-effect-finalization.md` — [Image Agent external-effect finalization design](domains/ai/image-agent-effect-finalization.md)
-- `image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](image-agent-effect-policy.md)
+- `image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](domains/ai/image-agent-effect-policy.md)
 - `image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](domains/ai/image-agent-effect-recovery.md)
 - `image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](domains/ai/image-agent-effect-terminalization.md)
 - `image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](domains/ai/image-agent-recovery.md)
