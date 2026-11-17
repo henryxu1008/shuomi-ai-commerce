@@ -1,5 +1,10 @@
 # TEMU 三种模式与全部官方站点接入设计
 
+## 当前阅读边界（2026-11-17）
+
+本文记录 TEMU 多模式与官方站点的**设计范围和适用平台合同**，下文 2026-10 以 Figma 为最终页面依据的描述已被 2026-11-05 用户产品决定取代；以 [当前业务流程参考与历史 UI/IA 决定](../product/final-ui-ia-authority.md) 为准。设计包含所有拟接入模式/站点不等于每种模式、官方接口、商家应用和全部站点已在当前实例完成授权和真实验证。Store 连接/观察、Listing 提交身份/UNKNOWN 与 TEMU adapter 规则分别由原 Owner 负责；准确可用性按 [TEMU #31](https://github.com/henryxu1008/shuomi-ai-commerce/issues/31)、[官方合同证据](temu-official-contract-evidence.md)和具体客户验收核对。本节只是文档适用范围校准，冻结设计的安全、权限和恢复要求不变。
+
+
 > Execution：[#31](https://github.com/qq550723504/task-processor/issues/31)
 >
 > Design Basis：Independent Architecture
