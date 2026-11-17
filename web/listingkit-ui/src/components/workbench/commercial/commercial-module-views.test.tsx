@@ -361,15 +361,25 @@ it.each([
   { resource: "ai_point", source: "model_invocation_v1", label: "关联任务",
     object: { kind: "task", id: businessObjectId, name: "任务测试" }, href: `/workbench/ai/tasks/${businessObjectId}` },
   { resource: "ai_point", source: "model_invocation_v1", label: "关联任务", object: null },
+  { resource: "ai_point", source: "model_invocation_v1", label: "用途", object: null,
+    purpose: "chat_planning", displayedPurpose: "聊天规划" },
+  { resource: "ai_point", source: "model_invocation_v1", label: "用途", object: null,
+    purpose: "own_product_intake", displayedPurpose: "自有商品录入" },
+  { resource: "ai_point", source: "model_invocation_v1", label: "用途", object: null,
+    purpose: "future_purpose" },
+  { resource: "ai_point", source: "model_invocation_v1", label: "关联任务",
+    object: { kind: "task", id: businessObjectId, name: "冲突任务" }, purpose: "chat_planning", mismatch: true },
+  { resource: "data_row", source: "amazon_data_v1", label: "用途", object: null,
+    purpose: "chat_planning" },
   { resource: "data_row", source: "amazon_data_v1", label: "关联商品",
     object: { kind: "task", id: businessObjectId, name: "无关任务" }, mismatch: true },
-])("opens an event-scoped detail for $source ($object)", async ({ resource, source, label, object, href, mismatch }) => {
+])("opens an event-scoped detail for $source ($object)", async ({ resource, source, label, object, href, mismatch, purpose, displayedPurpose }) => {
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: { configurable: true, value(this: HTMLDialogElement) { this.open = true; } },
     close: { configurable: true, value(this: HTMLDialogElement) { this.open = false; } },
   });
   const fetchMock = vi.fn().mockResolvedValue(Response.json({
-    organization_id: scope.organizationId, event_id: usageEventId, object,
+    organization_id: scope.organizationId, event_id: usageEventId, object, purpose,
   }));
   vi.stubGlobal("fetch", fetchMock);
   const page = parseResourceEvents({
@@ -394,7 +404,14 @@ it.each([
     expect(fetchMock).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "详情" }));
     const dialog = within(await screen.findByRole("dialog", { name: "用量记录详情" }));
-    if (object && !mismatch) {
+    const invocation = source === "model_invocation_v1";
+    expect(dialog.getByText(invocation ? "调用编号" : "关联编号", { exact: true })).toBeVisible();
+    expect(dialog.queryByText(invocation ? "关联编号" : "调用编号", { exact: true })).not.toBeInTheDocument();
+    if (displayedPurpose) {
+      expect(await dialog.findByText(displayedPurpose, { exact: true })).toBeVisible();
+      expect(dialog.getByText("用途", { exact: true })).toBeVisible();
+      expect(dialog.queryByText("关联任务", { exact: true })).not.toBeInTheDocument();
+    } else if (object && !mismatch) {
       expect(await dialog.findByText(object.name)).toBeVisible();
       expect(dialog.getByText(label)).toBeVisible();
       if (href) expect(dialog.getByRole("link", { name: object.name })).toHaveAttribute("href", href);

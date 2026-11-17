@@ -113,7 +113,8 @@ const usageObjectResponse = z.object({
   organization_id: id,
   event_id: objectId,
   object: businessObject.nullable(),
-}).strict();
+  purpose: z.enum(["chat_planning", "own_product_intake"]).optional(),
+}).strict().refine(({ object, purpose }) => object === null || purpose === undefined);
 
 export type ResourceBusinessObject = z.infer<typeof businessObject>;
 

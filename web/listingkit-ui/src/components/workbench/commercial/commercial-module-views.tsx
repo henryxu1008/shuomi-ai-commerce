@@ -122,14 +122,19 @@ function UsageAcquisitionObject({ scope, operationId }: { scope: AcquisitionCont
   );
 }
 
+function isModelUsage(event: UsageEvent) {
+  return event.resource_type === "ai_point" && event.source_type === "model_invocation_v1";
+}
+
 function usageObjectKind(event: UsageEvent): ResourceBusinessObject["kind"] | undefined {
   if (!isAcquisitionUUID(event.event_id)) return;
   if (event.resource_type === "store_renewal_period" && event.source_type === "store_service_v1") return "store";
   if (event.resource_type === "data_row" && event.source_type === "amazon_data_v1") return "amazon_product";
-  if (event.resource_type === "ai_point" && event.source_type === "model_invocation_v1") return "task";
+  if (isModelUsage(event)) return "task";
 }
 
 const usageObjectLabels = { store: "关联店铺", amazon_product: "关联商品", task: "关联任务" };
+const usagePurposes = { chat_planning: "聊天规划", own_product_intake: "自有商品录入" };
 
 function UsageBusinessObject({ scope, eventId, kind }: {
   scope: AcquisitionContext;
@@ -147,8 +152,11 @@ function UsageBusinessObject({ scope, eventId, kind }: {
   });
   const object = details.isSuccess && details.data.object?.kind === kind ? details.data.object : null;
   if (details.isPending || details.isFetching) {
+    if (kind === "task") return <div><dt>调用详情</dt><dd role="status">正在读取调用详情…</dd></div>;
     return <div><dt>{usageObjectLabels[kind]}</dt><dd role="status">正在查找{usageObjectLabels[kind]}…</dd></div>;
   }
+  const purpose = kind === "task" && details.isSuccess ? details.data.purpose : undefined;
+  if (purpose) return <div><dt>用途</dt><dd>{usagePurposes[purpose]}</dd></div>;
   if (!object) return null;
   const href = object.kind === "store" ? `/workbench/stores/${object.id}`
     : object.kind === "task" ? `/workbench/ai/tasks/${object.id}` : null;
@@ -175,7 +183,7 @@ function UsageEventDetails({ event, scope, onClose }: { event: UsageEvent; scope
           <div><dt>资源</dt><dd>{resource?.name}</dd></div>
           <div><dt>业务来源</dt><dd>{sourceFor(event)}</dd></div>
           <div><dt>变动说明</dt><dd>{reasonFor(event)}</dd></div>
-          <div><dt>关联编号</dt><dd>{event.source_identity}</dd></div>
+          <div><dt>{isModelUsage(event) ? "调用编号" : "关联编号"}</dt><dd>{event.source_identity}</dd></div>
           {objectKind ? <UsageBusinessObject scope={scope} eventId={event.event_id} kind={objectKind} /> : null}
           {acquisition ? <UsageAcquisitionObject scope={scope} operationId={event.source_identity} /> : null}
         </dl>
