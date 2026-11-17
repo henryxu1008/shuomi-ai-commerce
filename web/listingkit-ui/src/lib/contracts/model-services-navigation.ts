@@ -2,7 +2,7 @@ import { routeFact } from "./model-route-pricing";
 import { isAcquisitionUUID } from "./product-acquisition";
 
 export const modelServicesPath = "/workbench/account/organization/model-route-pricing";
-export const modelServiceCategories = ["text", "multimodal", "image-generation"] as const;
+const modelServiceCategories = ["text", "multimodal", "image-generation"] as const;
 export type ModelServiceCategory = (typeof modelServiceCategories)[number];
 
 const chatPath = /^\/workbench\/ai\/chat(?:\/[A-Za-z0-9_-]{1,128})?$/;
