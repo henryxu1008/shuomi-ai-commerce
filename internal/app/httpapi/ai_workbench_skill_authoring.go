@@ -412,9 +412,13 @@ func (a *aiWorkbenchApplication) handleSkillAuthoring(c *gin.Context, ctx contex
 	if err != nil {
 		return err
 	}
-	if _, _, err := a.authoringAccess(ctx, scope, conversation, false); err != nil {
+	fresh, currentMember, err := a.authoringAccess(ctx, scope, conversation, false)
+	if err != nil {
 		return err
 	}
-	workbenchReply(c, 200, a.authoringView(ctx, row))
+	if currentMember != row.MemberID {
+		return aiworkbench.ErrNotFound
+	}
+	workbenchReply(c, 200, a.authoringView(fresh, row))
 	return nil
 }
