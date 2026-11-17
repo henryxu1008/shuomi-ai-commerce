@@ -1,10 +1,94 @@
-.form { display:grid; gap:16px; width:100%; min-width:0; }
-.search { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-.search > input { flex:1 1 240px; max-width:400px; min-width:0; }
-.fields { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; }
-.fields label,.price { display:grid; gap:8px; min-width:0; font-size:14px; line-height:20px; }
-.price legend { margin-bottom:8px; }
-.priceInputs { display:grid; grid-template-columns:88px minmax(0,1fr) auto minmax(0,1fr); gap:8px; align-items:center; }
-.error { color:var(--destructive); font-size:14px; line-height:20px; }
-@media (min-width:768px) { .fields { grid-template-columns:repeat(2,minmax(0,1fr)); } .price { grid-column:span 2; } }
-@media (min-width:1280px) { .fields { grid-template-columns:repeat(6,minmax(0,1fr)); } }
+.form {
+  container-type: inline-size;
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.search > input {
+  flex: 1 1 240px;
+  max-width: 400px;
+  min-width: 0;
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.fields > fieldset {
+  flex: 0 1 244px;
+}
+
+.locations {
+  display: grid;
+  flex: 0 1 244px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.tradeTerms {
+  display: grid;
+  flex: 0 1 366px;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.leadTime {
+  flex: 0 1 144px;
+}
+
+.fields label,
+.price {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.price legend {
+  margin-bottom: 8px;
+}
+
+.priceInputs {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.priceInputs > input,
+.priceInputs > select {
+  min-width: 0;
+  padding-inline: 8px;
+}
+
+.error {
+  color: var(--destructive);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+@container (max-width: 304px) {
+  .tradeTerms {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tradeTerms > label {
+    max-width: 112px;
+  }
+}
