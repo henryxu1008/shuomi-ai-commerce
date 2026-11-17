@@ -75,7 +75,7 @@ base64 结果沿原不可变恢复包保存，不能把存储 ACK 丢失当成�
 
 ## Eino 多厂商按需接入
 
-沿[冻结用途设计](../architecture/eino-model-admission.md)，仍在原企业三类模型页选择，不增加个人模型设置或网页 Key 输入。
+沿[冻结用途设计](../architecture/domains/ai/eino-model-admission.md)，仍在原企业三类模型页选择，不增加个人模型设置或网页 Key 输入。
 模型和协议在受限配置的原 Definition 中声明，连接只保存企业渠道身份和秘密；同一合格连接可被多个模型引用。原BoundedAdmission按企业+ConnectionID共享10并发、5次/秒、burst15；不按模型引用增发额度，缺连接身份不回退为模型名限流。
 
 | 用途 | AdapterKind | AdapterPolicyVersion | UsageMappingVersion |
