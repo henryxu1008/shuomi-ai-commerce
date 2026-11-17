@@ -13,3 +13,10 @@
 
 - [Provider-neutral AI 请求/响应与适配接口](ai-provider-contracts.md)：迁移历史设计；模型路由、租户、治理、预算及供应商请求行为不改变。
 - [关闭新 AI 执行并保留配置和历史读取](ai-disabled-application-lifecycle.md)：原 #1073/#1075 离线实施合同，原权限、原键与 UNKNOWN 不变；不授权真实调用或部署。
+
+## 官方技能的受控准备与商品入口
+
+- [官方模板自动准备](official-skill-automatic-preparation.md)：沿既有唯一 Skill owner、固定发布包与事务锁；保留当前权限和历史版本。
+- [官方技能直接处理已有商品](official-skill-product-entry.md)：复用准确版本选择、原商品与图片来源验证、人工确认及原冻结运行。
+
+目录移动不改变 #1276、#774 的产品决定，也不授权实例发布、真实模型调用或付费。
