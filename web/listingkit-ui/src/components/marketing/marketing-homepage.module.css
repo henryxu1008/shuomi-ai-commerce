@@ -812,6 +812,41 @@
 /* Keep the data network stacked on narrow screens after the tablet overrides. */
 @media (max-width: 620px) { .page .dataNetwork { grid-template-columns: minmax(0,1fr); }.page .dataEngineCard { grid-column: 1; } }
 
+/* Keep the contact dialog readable and prevent the consent text from colliding. */
+.page .contactPanel { width: min(760px,100%); min-height: 0; padding: 24px 26px 26px; }
+.page .contactPanel h2 { font-size: 21px; line-height: 1.4; }
+.page .contactPanel > p { margin-top: 5px; font-size: 14px; line-height: 1.55; }
+.page .contactPanelBody { grid-template-columns: 128px minmax(0,1fr); align-items: start; gap: 24px; margin-top: 18px; }
+.page .contactQr { width: 128px; height: 166px; }
+.page .contactQr img { width: 128px; height: 166px; }
+.page .contactForm { min-width: 0; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); gap: 12px; }
+.page .contactForm label { min-width: 0; min-height: 82px; padding: 10px 12px; gap: 8px; color: #a9b9d5; font-size: 13px; line-height: 1.4; }
+.page .contactForm input, .page .contactForm textarea { font-size: 14px; line-height: 1.5; }
+.page .contactForm textarea { min-height: 54px; }
+.page .contactForm button { min-height: 48px; font-size: 15px; }
+.page .contactForm small { color: #9aaac8; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.page .contactForm small a { color: #b7c8ff; font-size: inherit; line-height: inherit; }
+.page .contactForm > p { margin: 0; font-size: 13px; line-height: 1.5; }
+.page .contactClose { top: 17px; right: 18px; width: 34px; height: 34px; }
+@media (max-width: 760px) {
+  .page .contactOverlay { align-items: flex-start; padding: 24px 16px; }
+  .page .contactPanel { width: min(620px,100%); max-height: calc(100dvh - 48px); padding: 22px; }
+  .page .contactPanelBody { grid-template-columns: 104px minmax(0,1fr); gap: 16px; }
+  .page .contactQr, .page .contactQr img { width: 104px; height: 135px; }
+  .page .contactForm { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .page .contactForm label { min-height: 72px; }
+  .page .contactForm button, .page .contactForm small, .page .contactForm > p { grid-column: 1; }
+}
+@media (max-width: 620px) {
+  .page .contactOverlay { padding: 16px 12px; }
+  .page .contactPanel { max-height: calc(100dvh - 32px); padding: 20px 16px; border-radius: 18px; }
+  .page .contactPanelBody { grid-template-columns: 82px minmax(0,1fr); gap: 12px; margin-top: 14px; }
+  .page .contactQr, .page .contactQr img { width: 82px; height: 106px; }
+  .page .contactForm label { min-height: 68px; padding: 8px 10px; font-size: 12px; }
+  .page .contactForm input, .page .contactForm textarea { font-size: 13px; }
+  .page .contactForm small { font-size: 11px; }
+}
+
 .serviceOption {
   position: relative;
   z-index: 2;
