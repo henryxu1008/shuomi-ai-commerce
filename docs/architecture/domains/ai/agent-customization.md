@@ -2,7 +2,7 @@
 
 Status: APPROVED / IMPLEMENTATION_READY (2026-10-09). Design Basis: Independent Architecture. Execution: #611, parent #137.
 
-2026-10-09 后续产品决定：用户授权继续交付指定企业可执行的私有智能体。新增边界见 [私有交付 V1](./private-agent-delivery.md)。下文关于不执行新智能体的限制仅描述本人工流程的原范围，不能恢复为已明确授权扩展的阻塞；人工记录本身仍不构成执行准入。新增生产路径必须先完成该独立设计准入。
+2026-10-09 后续产品决定：用户授权继续交付指定企业可执行的私有智能体。新增边界见 [私有交付 V1](../../private-agent-delivery.md)。下文关于不执行新智能体的限制仅描述本人工流程的原范围，不能恢复为已明确授权扩展的阻塞；人工记录本身仍不构成执行准入。新增生产路径必须先完成该独立设计准入。
 
 ## 产品结果与依据
 
@@ -54,7 +54,7 @@ Out of scope：支付或账本、自动联系/通知、服务商分配、SLA承�
 
 Console key包括user/org/permission，在切换/撤权时abort且卸载，迟到响应丢弃。BFF复用正常身份token/同源写保护/current企业选择cookie；mutation冻结原user/org/payload/key，未知时只重试同一冻结命令。已知CAS/输入拒绝可刷新后新的人工确认。文件下载仍走当前session/BFF，无公开对象URL。
 
-客户端复用现有有界pending命令保存行为。短命令在scope绑定的sessionStorage完整保存；大附件原载荷在有界功能内存保留，小marker保存原key/path/version/digest。导航可恢复；刷新丢失大载荷时保留marker与未确认阻断，不允许生成新意图。正常使用与该限制见[接线交接](../operations/agent-customization-handoff.md)。读回JSON上限4MiB覆盖合法分页与Go文字转义，不改变附件2MiB上限。
+客户端复用现有有界pending命令保存行为。短命令在scope绑定的sessionStorage完整保存；大附件原载荷在有界功能内存保留，小marker保存原key/path/version/digest。导航可恢复；刷新丢失大载荷时保留marker与未确认阻断，不允许生成新意图。正常使用与该限制见[接线交接](../../../operations/agent-customization-handoff.md)。读回JSON上限4MiB覆盖合法分页与Go文字转义，不改变附件2MiB上限。
 
 ## UI与接线边界
 

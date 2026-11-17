@@ -90,7 +90,7 @@
 - `own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](own-intake-provider-unbilled-recovery.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
 - `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，用户决定改为周更，周更增量 IMPLEMENTATION_READY，现场启用须单独授权。
-- `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](bailian-deepseek-shared-text-admission.md)
+- `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](domains/ai/bailian-deepseek-shared-text-admission.md)
 - `domains/ai/ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](domains/ai/ai-disabled-application-lifecycle.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
 - `shared-channel-credentials.md` — [渠道凭据与模型定义分离（冻结合同，#1089已合入）](shared-channel-credentials.md)
@@ -212,7 +212,7 @@
 
 - [AI 领域候选导航：#132 标题对照与先导评测](domains/ai/README.md) — 两份独立设计尚未准入；真实模型/费用执行未授权
 
-- `agent-customization.md` — [智能体定制需求与人工进度 V1](agent-customization.md)
+- `agent-customization.md` — [智能体定制需求与人工进度 V1](domains/ai/agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
 - `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
@@ -250,23 +250,23 @@
 ## 图片执行、预算与恢复
 
 - `bailian-product-image-wiring.md` — [百炼商品图片接线 V1](bailian-product-image-wiring.md)
-- `domains/ai/generic-image-template-entry.md` — [通用图片模板与技能入口带入](domains/ai/generic-image-template-entry.md)
-- `grsai-vip-image-binding.md` — [GRSAI VIP 图片可选绑定 V1](grsai-vip-image-binding.md)
-- `image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](image-agent-budget-authorization.md)
-- `image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](image-agent-candidate-release-gate.md)
-- `domains/ai/image-agent-effect-finalization.md` — [Image Agent external-effect finalization design](domains/ai/image-agent-effect-finalization.md)
+- `generic-image-template-entry.md` — [通用图片模板与技能入口带入](domains/ai/generic-image-template-entry.md)
+- `grsai-vip-image-binding.md` — [GRSAI VIP 图片可选绑定 V1](domains/ai/grsai-vip-image-binding.md)
+- `image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](domains/ai/image-agent-budget-authorization.md)
+- `image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](domains/ai/image-agent-candidate-release-gate.md)
+- `image-agent-effect-finalization.md` — [Image Agent external-effect finalization design](domains/ai/image-agent-effect-finalization.md)
 - `image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](image-agent-effect-policy.md)
-- `image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](image-agent-effect-recovery.md)
-- `domains/ai/image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](domains/ai/image-agent-effect-terminalization.md)
-- `image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](image-agent-recovery.md)
-- `domains/ai/image-agent-workflow.md` — [Image Agent Workflow](domains/ai/image-agent-workflow.md)
-- `domains/ai/image-api-event-read-permissions.md` — [Image API event-read permission correction](domains/ai/image-api-event-read-permissions.md)
+- `image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](domains/ai/image-agent-effect-recovery.md)
+- `image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](domains/ai/image-agent-effect-terminalization.md)
+- `image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](domains/ai/image-agent-recovery.md)
+- `image-agent-workflow.md` — [Image Agent Workflow](domains/ai/image-agent-workflow.md)
+- `image-api-event-read-permissions.md` — [Image API event-read permission correction](domains/ai/image-api-event-read-permissions.md)
 - `image-download-safety.md` — [Image Download Safety Boundary Design](image-download-safety.md)
 - `image-plan-optional-route.md` — [Single-product image plan optional route V1](image-plan-optional-route.md)
 - `domains/ai/image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](domains/ai/image-text-language-confirmation.md)
 - `product-image-agent.md` — [商品图片智能体 V1 — 完整图片能力设计](product-image-agent.md)
 - `source-white-background.md` — [来源商品白底图与资源结算合同](source-white-background.md)
-- `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](vip-original-output-recovery.md)
+- `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](domains/ai/vip-original-output-recovery.md)
 
 <a id="workspace"></a>
 

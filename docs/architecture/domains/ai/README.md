@@ -39,3 +39,31 @@
 - [外部效果收尾与预算结算](image-agent-effect-finalization.md)：历史设计，关注 v3 Temporal 原版本门禁、明确未发送/未知结果与结算。
 
 两份合同保持各自原有版本、阶段约束及历史决定；目录整理不将时间窗不同的方案自动合并，也不批准真实执行。
+
+## Image Agent 效果恢复及兼容协议
+
+- [外部效果独立恢复工作流](image-agent-effect-recovery.md)：保留 v3 claimed/UNKNOWN 恢复事实与不重复调用 provider 约束。
+- [Image Agent Recovery and Compatibility](image-agent-recovery.md)：保留原 v2/v3 兼容、S3 持久归档、lease/fence 恢复的历史合同。
+
+仅更改阅读路径；不合并不同阶段的恢复协议，不授权实际重试或生产部署。
+
+## 图片预算准入与候选发布保护
+
+- [Image Agent Budget Authorization](image-agent-budget-authorization.md)：原有预算作为外部效果执行许可、预留/结算及 UNKNOWN 的历史设计。
+- [Image Agent Candidate Release Gate](image-agent-candidate-release-gate.md)：候选 worker 的隔离兼容验证及生产提升边界；不代表已有部署许可。
+
+仅迁移历史合同的阅读位置，不改变预算、权限、真实 worker 发行或环境状态。
+
+## AI 供应商准入与受控绑定
+
+- [DeepSeek 共享文字参考价准入](bailian-deepseek-shared-text-admission.md)：保留原 #1075/#1078 参考估算、配额、原账本及离线接线边界，不将候选费率视为真实账单。
+- [GRSAI VIP 图片绑定](grsai-vip-image-binding.md)：保留原 #840 准确型号、版本、凭据、medium/1024 约束及后续可选路线的新决定，不自动发布绑定。
+
+以上合同只调整所在目录，不改变已有模型路由、凭据身份、预算、UNKNOWN 或真实运行资格。
+
+## 人工智能体定制与原图恢复
+
+- [智能体定制人工进度](agent-customization.md)：原人工需求、线下报价及私有交付后续准入分别保留，不以需求创建自动执行。
+- [VIP 已付费原图恢复](vip-original-output-recovery.md)：保留准确原请求/权限/结算证据和 UNKNOWN；恢复不触发再次生图或扣费。
+
+迁移仅涉及文档路径，不签发新模型调用、真实支付、部署或业务验收。
