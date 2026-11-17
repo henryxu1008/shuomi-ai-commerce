@@ -73,30 +73,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Test CI policy evaluators
-        run: node --test .github/scripts/pr-scope-guard.test.cjs .github/scripts/ci-change-classifier.test.cjs
+      - name: Test CI policy evaluators and documentation link validation
+        run: node --test .github/scripts/pr-scope-guard.test.cjs .github/scripts/ci-change-classifier.test.cjs .github/scripts/ci-document-links.test.cjs
 
       - name: Test source-only ListingKit image builds
         run: node --test scripts/build-listingkit-images.test.mjs
 
   architecture-contracts:
     name: Architecture Contract Guards
+    needs: changes
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check changed documentation links
+        if: ${{ needs.changes.outputs.backend == 'false' && needs.changes.outputs.frontend == 'false' && needs.changes.outputs.release_authority == 'false' && needs.changes.outputs.capture_extension == 'false' && needs.changes.outputs.isolated_runtime == 'false' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node .github/scripts/ci-document-links.cjs "$BASE_SHA" "$HEAD_SHA"
 
       - name: Set up Go
+        if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.release_authority == 'true' || needs.changes.outputs.capture_extension == 'true' || needs.changes.outputs.isolated_runtime == 'true' }}
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Run repository-wide architecture contracts
+        if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.release_authority == 'true' || needs.changes.outputs.capture_extension == 'true' || needs.changes.outputs.isolated_runtime == 'true' }}
         run: go test ./tests/... -count=1
 
       - name: Compile isolated provider harness and test allocation guards
+        if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.release_authority == 'true' || needs.changes.outputs.capture_extension == 'true' || needs.changes.outputs.isolated_runtime == 'true' }}
         run: go test -tags issue357 ./internal/app/httpapi -run '^TestIssue357Config' -count=1 -v
 
   isolated-runtime-contracts:
