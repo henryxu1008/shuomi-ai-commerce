@@ -656,7 +656,7 @@
 .metrics { gap: 14px; margin-top: 26px; }
 .metrics span { min-height: 104px; padding: 18px; gap: 9px; font-size: 14px; line-height: 1.45; transition: transform .22s,border-color .22s,box-shadow .22s,background .22s; }
 .metrics span:hover { transform: translateY(-4px); border-color: rgba(88,164,255,.82); background: rgba(14,29,66,.96); box-shadow: 0 12px 28px rgba(31,103,211,.2); }
-.metrics strong { font-size: 30px; }
+.metrics strong { font-size: 30px; overflow-wrap: anywhere; }
 .practiceCase h4 { margin-top: 29px; font-size: 21px; }
 .practiceFlowDescription { font-size: 15px !important; }
 .executionFlow { gap: 10px; margin-top: 17px; }
@@ -669,8 +669,10 @@
 .caseFooter strong { margin-bottom: 9px; font-size: 17px; }
 .practiceQuote { max-width: 1400px; margin-top: 22px; padding: 25px 30px; font-size: 23px; line-height: 1.5; }
 @keyframes practiceActivePulse { 0%,100% { box-shadow: 0 0 14px rgba(82,214,160,.1); } 50% { box-shadow: 0 0 25px rgba(82,214,160,.24); } }
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 1100px) {
   .executionFlow { grid-template-columns: repeat(3,minmax(0,1fr)); }
 }
 @media (max-width: 900px) { .practiceLayout { grid-template-columns: 1fr; max-width: 760px; }.scenarioList { min-height: 0; }.practiceCase { min-height: 0; padding: 28px; }.practiceQuote { max-width: 760px; } }
@@ -817,38 +819,39 @@
 @media (max-width: 620px) { .page .dataNetwork { grid-template-columns: minmax(0,1fr); }.page .dataEngineCard { grid-column: 1; } }
 
 /* Keep the contact dialog readable and prevent the consent text from colliding. */
-.page .contactPanel { width: min(760px,100%); min-height: 0; padding: 24px 26px 26px; }
-.page .contactPanel h2 { font-size: 21px; line-height: 1.4; }
-.page .contactPanel > p { margin-top: 5px; font-size: 14px; line-height: 1.55; }
-.page .contactPanelBody { grid-template-columns: 128px minmax(0,1fr); align-items: start; gap: 24px; margin-top: 18px; }
-.page .contactQr { width: 128px; height: 166px; }
-.page .contactQr img { width: 128px; height: 166px; }
-.page .contactForm { min-width: 0; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); gap: 12px; }
-.page .contactForm label { min-width: 0; min-height: 82px; padding: 10px 12px; gap: 8px; color: #a9b9d5; font-size: 13px; line-height: 1.4; }
-.page .contactForm input, .page .contactForm textarea { font-size: 14px; line-height: 1.5; }
-.page .contactForm textarea { min-height: 54px; }
-.page .contactForm button { min-height: 48px; font-size: 15px; }
-.page .contactForm small { color: #9aaac8; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
-.page .contactForm small a { color: #b7c8ff; font-size: inherit; line-height: inherit; }
-.page .contactForm > p { margin: 0; font-size: 13px; line-height: 1.5; }
-.page .contactClose { top: 17px; right: 18px; width: 34px; height: 34px; }
+.contactOverlay { font-family: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.contactOverlay .contactPanel { width: min(760px,100%); min-height: 0; padding: 24px 26px 26px; }
+.contactOverlay .contactPanel h2 { font-size: 21px; line-height: 1.4; }
+.contactOverlay .contactPanel > p { margin-top: 5px; font-size: 14px; line-height: 1.55; }
+.contactOverlay .contactPanelBody { grid-template-columns: 128px minmax(0,1fr); align-items: start; gap: 24px; margin-top: 18px; }
+.contactOverlay .contactQr { width: 128px; height: 166px; }
+.contactOverlay .contactQr img { width: 128px; height: 166px; }
+.contactOverlay .contactForm { min-width: 0; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); gap: 12px; }
+.contactOverlay .contactForm label { min-width: 0; min-height: 82px; padding: 10px 12px; gap: 8px; color: #a9b9d5; font-size: 13px; line-height: 1.4; }
+.contactOverlay .contactForm input, .page .contactForm textarea { font-size: 14px; line-height: 1.5; }
+.contactOverlay .contactForm textarea { min-height: 54px; }
+.contactOverlay .contactForm button { min-height: 48px; font-size: 15px; }
+.contactOverlay .contactForm small { color: #9aaac8; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.contactOverlay .contactForm small a { color: #b7c8ff; font-size: inherit; line-height: inherit; }
+.contactOverlay .contactForm > p { margin: 0; font-size: 13px; line-height: 1.5; }
+.contactOverlay .contactClose { top: 17px; right: 18px; width: 34px; height: 34px; }
 @media (max-width: 760px) {
-  .page .contactOverlay { align-items: flex-start; padding: 24px 16px; }
-  .page .contactPanel { width: min(620px,100%); max-height: calc(100dvh - 48px); padding: 22px; }
-  .page .contactPanelBody { grid-template-columns: 104px minmax(0,1fr); gap: 16px; }
-  .page .contactQr, .page .contactQr img { width: 104px; height: 135px; }
-  .page .contactForm { grid-template-columns: minmax(0,1fr); gap: 10px; }
-  .page .contactForm label { min-height: 72px; }
-  .page .contactForm button, .page .contactForm small, .page .contactForm > p { grid-column: 1; }
+  .contactOverlay { align-items: flex-start; padding: 24px 16px; }
+  .contactOverlay .contactPanel { width: min(620px,100%); max-height: calc(100dvh - 48px); padding: 22px; }
+  .contactOverlay .contactPanelBody { grid-template-columns: 104px minmax(0,1fr); gap: 16px; }
+  .contactOverlay .contactQr, .page .contactQr img { width: 104px; height: 135px; }
+  .contactOverlay .contactForm { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .contactOverlay .contactForm label { min-height: 72px; }
+  .contactOverlay .contactForm button, .page .contactForm small, .page .contactForm > p { grid-column: 1; }
 }
 @media (max-width: 620px) {
-  .page .contactOverlay { padding: 16px 12px; }
-  .page .contactPanel { max-height: calc(100dvh - 32px); padding: 20px 16px; border-radius: 18px; }
-  .page .contactPanelBody { grid-template-columns: 82px minmax(0,1fr); gap: 12px; margin-top: 14px; }
-  .page .contactQr, .page .contactQr img { width: 82px; height: 106px; }
-  .page .contactForm label { min-height: 68px; padding: 8px 10px; font-size: 12px; }
-  .page .contactForm input, .page .contactForm textarea { font-size: 13px; }
-  .page .contactForm small { font-size: 11px; }
+  .contactOverlay { padding: 16px 12px; }
+  .contactOverlay .contactPanel { max-height: calc(100dvh - 32px); padding: 20px 16px; border-radius: 18px; }
+  .contactOverlay .contactPanelBody { grid-template-columns: 82px minmax(0,1fr); gap: 12px; margin-top: 14px; }
+  .contactOverlay .contactQr, .page .contactQr img { width: 82px; height: 106px; }
+  .contactOverlay .contactForm label { min-height: 68px; padding: 8px 10px; font-size: 12px; }
+  .contactOverlay .contactForm input, .page .contactForm textarea { font-size: 13px; }
+  .contactOverlay .contactForm small { font-size: 11px; }
 }
 
 .serviceOption {
