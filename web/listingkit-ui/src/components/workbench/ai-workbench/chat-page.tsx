@@ -239,7 +239,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const changeSkill = (next:ProjectSkill) => {setSkill(next);creation.reset();};
   const projectControls = projectAvailable ? <ProjectSkillPicker value={visibleSkill} onChange={changeSkill} disabled={creating||Boolean(createIntent)||projectSaveLocked} canCreate={canCreateProject} canExecute={canExecuteProject}/> : null;
   const authoringControls = canUse ? <>
-    <ChatSkillDrawer scope={scope} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={setAuthoringChoice} />
+    <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={setAuthoringChoice} />
     {authoringChoice && <div className="flex flex-wrap items-center gap-2">
       <span>{authoringChoice.name} · 官方 v{authoringChoice.version}</span>
       <Button type="button" variant="outline" disabled={creating || Boolean(createIntent && !createIntent.authoring) || projectSaveLocked}
@@ -674,10 +674,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {(canUse || projectAvailable && canCreateProject) && !current.Archived ? <div className={styles.contextControls}>
       {(projectAvailable || contentTasks) && !pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
-      {canUse && <ChatSkillDrawer scope={scope} onSelect={chosen=>{setAuthoringChoice(chosen);setShowAuthoring(true);}} onResume={()=>setShowAuthoring(true)} />}
+      {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} onSelect={chosen=>{setAuthoringChoice(chosen);setShowAuthoring(true);}} onResume={()=>setShowAuthoring(true)} />}
       {projectAvailable && <ProjectSkillPicker value={visibleSkill} onChange={next=>{invalidateProposal();setSkill(next);creation.reset();}} disabled={pending||Boolean(pendingMessage)||projectSaveLocked||awaitingConfirm} canCreate={canCreateProject} canExecute={canExecuteProject}/>}
     </div> : null}
-    {showAuthoring && canUse && !current.Archived && draftHydrated && <ChatSkillAuthoring scope={scope} conversation={id} selected={authoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
+    {showAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <ChatSkillAuthoring scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={authoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
       initialRequirement={search.get("skillAuthoring")==="1" ? content : ""} onClose={()=>setShowAuthoring(false)} />}
     {projectAvailable && visibleSkill==="create-project" && canCreateProject ? <ChatProjectCreateCard creation={creation} store={conversationStore} canCreate={canCreateProject} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClose={()=>{setSkill("");creation.reset();}}/> : null}
     {projectTask ? <Card className="grid gap-3 p-4">

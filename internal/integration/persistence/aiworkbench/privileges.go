@@ -77,8 +77,15 @@ func validateWorkbenchPrivilegesForEdit(db *gorm.DB, role string, enable bool) e
 	}
 	tables := []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}
 	if db.Migrator().HasTable("ai_workbench.skill_authoring_drafts") {
+		layout, err := authoringLayout(db)
+		if err != nil {
+			return err
+		}
 		tables = append(tables, "skill_authoring_drafts")
 		columns["skill_authoring_drafts"] = []string{"state", "deadline", "generated", "save_key", "save_digest", "save_content", "saved_skill_id"}
+		if layout == 2 {
+			columns["skill_authoring_drafts"] = append(columns["skill_authoring_drafts"], "current_revision", "save_format")
+		}
 	}
 	return validateWorkbenchPrivilegeBounds(db, role, tables, columns)
 }
@@ -171,7 +178,7 @@ func GrantRuntime(db *gorm.DB, role string) error {
 	if db.Migrator().HasTable("ai_workbench.skill_authoring_drafts") {
 		statements = append(statements,
 			"GRANT SELECT, INSERT ON ai_workbench.skill_authoring_drafts TO "+quoted,
-			"GRANT UPDATE (state, deadline, generated, save_key, save_digest, save_content, saved_skill_id) ON ai_workbench.skill_authoring_drafts TO "+quoted)
+			"GRANT UPDATE (state, deadline, generated, current_revision, save_format, save_key, save_digest, save_content, saved_skill_id) ON ai_workbench.skill_authoring_drafts TO "+quoted)
 	}
 	for _, sql := range statements {
 		if err := db.Exec(sql).Error; err != nil {

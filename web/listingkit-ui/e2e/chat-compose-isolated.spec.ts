@@ -18,10 +18,15 @@ test("authoring confirms the quote and edited save, then recovers both original 
   const routeRoot = "/api/workbench/chat/conversations";
   const authoringRoot = routeRoot+"/"+conversationId+"/skill-authoring";
   const requirement = "保留已核实的品牌与型号";
-  const draft = {name:"short-title",displayName:"标题整理",description:"整理已保存标题",instructions:"保留型号。"};
-  let quoteKey = "", createKey = "", generations = 0, saves = 0, saved = false, creates = 0;
+  const draft = {name:"short-title",displayName:"标题整理",description:"整理已保存标题",instructions:"保留型号。",script:{description:"合并重复空格",source:"def normalize(title):\n    return ' '.join(title.split())"}};
+  const revised = {...draft, instructions:"保留已核实的品牌、型号和规格。"};
+  const modification = "也保留已核实的规格";
+  const quoteToken = "Q".repeat(43);
+  let quoteKey = "", rootKey = "", currentRevision = "", createKey = "", generations = 0, saves = 0, saved = false, creates = 0;
+  let expiry = "";
   const job = (state: "READY" | "COMPLETE", pending = false) => ({
-    key:quoteKey,state,requirement,draft:state==="COMPLETE"?draft:null,billing:state==="COMPLETE"?"committed":"pending",
+    key:rootKey,generationKey:currentRevision || rootKey,revision:currentRevision || rootKey,state,requirement,
+    draft:state==="COMPLETE" ? currentRevision === rootKey ? draft : revised : null,billing:state==="COMPLETE"?"committed":"pending",
     savePending:pending&&!saved,savedSkillId:saved?skillId:null,
   });
   const conversation = {ID:conversationId,Scope:{OrganizationID:"org",ActorID:"user"},Title:"",Favorite:false,Archived:false,MetadataRevision:1,NextSequence:1,CreatedAt:"2026-11-17T00:00:00Z",UpdatedAt:"2026-11-17T00:00:00Z",businessScope:{version:"workbench-scope-v1",kind:"general"}};
@@ -33,7 +38,7 @@ test("authoring confirms the quote and edited save, then recovers both original 
     const path = url.pathname;
     if (path === "/api/workbench/context") return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,projectCenterAvailable:true,aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchPlanningReadiness:"AVAILABLE",organizations:[{id:"org",name:"合成企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read","workbench.project.manage"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}]});
     if (path === routeRoot+"/scopes") return json({options:[{scope:{version:"workbench-scope-v1",kind:"general"},confirmation:digest}],next:"",incomplete:false});
-    if (path === routeRoot+"/skill-authoring") return json({skill:{name:"创建技能",version:1,digest,description:"起草一份个人文字版标题技能"},ready:true});
+    if (path === routeRoot+"/skill-authoring") return json({skill:{name:"创建技能",version:2,digest,description:"起草个人标题技能"},ready:true,scripts:true});
     if (path === routeRoot && req.method() === "POST") {
       creates++;
       if (creates === 1) { createKey = req.headers()["idempotency-key"]; return json({code:"OUTCOME_UNKNOWN"},503); }
@@ -42,22 +47,36 @@ test("authoring confirms the quote and edited save, then recovers both original 
     }
     if (path === routeRoot+"/"+conversationId) return json({conversation,messages:[],proposals:[],before:""});
     if (path === authoringRoot) return json({drafts:generations?[job(generations===1?"READY":"COMPLETE",saves>1)]:[]});
-    if (path === authoringRoot+"/quote") {
-      quoteKey = req.headers()["idempotency-key"];
-      expect(req.postDataJSON()).toEqual({requirement,skillVersion:1,skillDigest:digest});
-      return json({key:quoteKey,maximumMicropoints:"750000",expiresAt:new Date(Date.now()+60_000).toISOString()});
+    if (path === authoringRoot+"/preview") {
+      quoteKey = generations < 2 ? "019aaf91-67a0-7000-8000-aaaaaaaaaaaa" : "019aaf91-67a1-7000-8000-bbbbbbbbbbbb";
+      if (!rootKey) rootKey = quoteKey;
+      expect(req.postDataJSON()).toEqual(generations < 2 ? {requirement,skillVersion:2,skillDigest:digest}
+        : {requirement:modification,skillVersion:2,skillDigest:digest,root:rootKey,baseRevision:rootKey,snapshot:draft});
+      expiry = new Date(Date.now()+60_000).toISOString();
+      return json({key:quoteKey,quote:quoteToken,expiresAt:expiry});
     }
-    if (path === authoringRoot+"/"+quoteKey+"/generate") {
+    if (path === authoringRoot+"/"+quoteKey+"/confirm") {
       generations++;
-      return generations===1?json({code:"OUTCOME_UNKNOWN"},503):json(job("COMPLETE"));
+      const expected = generations === 1 ? {requirement,skillVersion:2,skillDigest:digest}
+        : {requirement:modification,skillVersion:2,skillDigest:digest,root:rootKey,baseRevision:rootKey,snapshot:draft};
+      expect(req.postDataJSON()).toEqual({...expected,quote:quoteToken});
+      if (generations === 1) return json({code:"OUTCOME_UNKNOWN"},503);
+      currentRevision = quoteKey;
+      return json(job("COMPLETE"));
+    }
+    if (path === authoringRoot+"/"+rootKey+"/recover-generation") {
+      generations++;
+      expect(req.postData()).toBeNull();
+      currentRevision = rootKey;
+      return json(job("COMPLETE"));
     }
     if (path === authoringRoot+"/validate") return json({valid:true});
-    if (path === authoringRoot+"/"+quoteKey+"/save") {
+    if (path === authoringRoot+"/"+rootKey+"/save-package") {
       saves++;
-      expect(req.postDataJSON()).toEqual({...draft,instructions:"保留已核实的型号和规格。"});
+      expect(req.postDataJSON()).toEqual({revision:currentRevision,draft:{...revised,instructions:"保留已核实的型号和规格。"}});
       return json({code:"OUTCOME_UNKNOWN"},503);
     }
-    if (path === authoringRoot+"/"+quoteKey+"/recover-save") {
+    if (path === authoringRoot+"/"+rootKey+"/recover-save") {
       expect(req.postData()).toBeNull();
       if (saves > 1) saved = true;
       return json(job("COMPLETE"));
@@ -78,23 +97,31 @@ test("authoring confirms the quote and edited save, then recovers both original 
   await expect(page.getByRole("button",{name:"核对原创建请求",exact:true})).toBeEnabled();
   await page.reload();
   await page.getByRole("button",{name:"核对原创建请求",exact:true}).click();
+  await expect(page.getByRole("button",{name:"生成草稿",exact:true})).toBeDisabled();
   await page.getByLabel("技能需求").fill(requirement);
   expect(creates).toBe(2);
-  await expect(page.getByRole("button",{name:"生成草稿",exact:true})).toBeDisabled();
-  await page.getByRole("button",{name:"核对点数",exact:true}).click();
-  await expect(page.getByText(/本次最多使用 0.75 AI 点数/)).toBeVisible();
+  await expect(page.getByRole("button",{name:"生成草稿",exact:true})).toBeEnabled();
+  await expect(page.getByText(/点数|费用详情/)).toHaveCount(0);
   await page.screenshot({path:info.outputPath("skill-authoring-before-generation.png")});
   expect(generations).toBe(0);
   await page.getByRole("button",{name:"生成草稿",exact:true}).click();
   await expect(page.getByText("本次操作暂未确认，请核实原请求。")).toBeVisible();
   await page.reload();
   await page.getByRole("button",{name:"核实原生成请求",exact:true}).click();
-  await page.getByRole("button",{name:"检查格式",exact:true}).click();
+  await expect(page.getByText("包含 Python 脚本",{exact:true})).toBeVisible();
+  await page.getByText("查看代码",{exact:true}).click();
+  await expect(page.getByRole("textbox",{name:"Python 代码",exact:true})).toHaveValue(draft.script.source);
+  await page.getByRole("textbox",{name:"让 Chat 修改",exact:true}).fill(modification);
+  await expect(page.getByRole("button",{name:"生成修改",exact:true})).toBeEnabled();
+  await expect(page.getByText(/点数|费用详情/)).toHaveCount(0);
+  expect(generations).toBe(2);
+  await page.getByRole("button",{name:"生成修改",exact:true}).click();
+  await expect(page.getByRole("textbox",{name:"正文",exact:true})).toHaveValue(revised.instructions);
   await expect(page.getByRole("button",{name:"保存到我的技能",exact:true})).toBeEnabled();
   await page.getByRole("textbox",{name:"正文",exact:true}).fill("保留已核实的型号和规格。");
   await expect(page.getByRole("button",{name:"保存到我的技能",exact:true})).toBeDisabled();
   expect(saves).toBe(0);
-  await page.getByRole("button",{name:"检查格式",exact:true}).click();
+  await expect(page.getByRole("button",{name:"保存到我的技能",exact:true})).toBeEnabled();
   await page.getByRole("button",{name:"保存到我的技能",exact:true}).click();
   await expect(page.getByRole("button",{name:"核实原保存",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"核实原保存",exact:true}).click();
@@ -107,8 +134,9 @@ test("authoring confirms the quote and edited save, then recovers both original 
   expect(saves).toBe(2);
   await page.getByRole("button",{name:"核实原保存",exact:true}).click();
   await expect(page.getByRole("link",{name:"查看我的技能"})).toHaveAttribute("href","/workbench/agents/skills/mine?skillId="+skillId);
+  await expect(page.getByText(/点数|费用详情/)).toHaveCount(0);
   await page.screenshot({path:info.outputPath("skill-authoring-saved.png")});
-  expect(generations).toBe(2);
+  expect(generations).toBe(3);
   expect(saves).toBe(2);
 });
 test("retains the input through the original create retry without dispatching a message", async ({page,context,baseURL},info) => {

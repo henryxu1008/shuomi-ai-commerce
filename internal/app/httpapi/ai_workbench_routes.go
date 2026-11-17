@@ -360,9 +360,13 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		{"GET", workbenchChatBase + "/skill-authoring", authz.PermissionWorkbenchChatUse, "skill-authoring-catalog", 15 * time.Second},
 		{"GET", workbenchChatBase + "/:conversation_id/skill-authoring", authz.PermissionWorkbenchChatRead, "skill-authoring-list", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/quote", authz.PermissionWorkbenchChatUse, "skill-authoring-quote", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/preview", authz.PermissionWorkbenchChatUse, "skill-authoring-preview", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/confirm", authz.PermissionWorkbenchChatUse, "skill-authoring-confirm", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/recover-generation", authz.PermissionWorkbenchChatUse, "skill-authoring-recover-generation", 2 * time.Minute},
 		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/validate", authz.PermissionWorkbenchChatUse, "skill-authoring-validate", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/generate", authz.PermissionWorkbenchChatUse, "skill-authoring-generate", 2 * time.Minute},
 		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/save", authz.PermissionWorkbenchChatUse, "skill-authoring-save", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/save-package", authz.PermissionWorkbenchChatUse, "skill-authoring-save-package", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/recover-save", authz.PermissionWorkbenchChatUse, "skill-authoring-save-recover", 15 * time.Second},
 		{"GET", workbenchSubjectBase + "/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
 		{"GET", workbenchChatBase + "/scopes", authz.PermissionWorkbenchChatRead, "scope-options", 15 * time.Second},
@@ -407,7 +411,7 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
-				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-recover":
+				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-preview", "skill-authoring-confirm", "skill-authoring-recover-generation", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-package", "skill-authoring-save-recover":
 					a.skillAuthoring(c, ctx, scope, spec.action)
 				case "subject-read":
 					a.readTaskSubject(c, ctx)

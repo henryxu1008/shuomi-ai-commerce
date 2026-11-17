@@ -119,8 +119,10 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	}
 	for org, policy := range w.SkillAuthoringTextPolicies {
 		profile := policy.ShapeProfile()
+		versionOne := profile.PromptVersion == "ai-workbench-skill-authoring-v1" && profile.OutputSchemaVersion == "personal-title-skill-draft-v1"
+		versionTwo := profile.PromptVersion == "ai-workbench-skill-authoring-v2" && profile.OutputSchemaVersion == "personal-title-skill-draft-v2"
 		if !allowed[org] || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchSkillAuthoring) ||
-			profile.PromptVersion != "ai-workbench-skill-authoring-v1" || profile.OutputSchemaVersion != "personal-title-skill-draft-v1" ||
+			(!versionOne && !versionTwo) ||
 			profile.Currency != cfg.ProductAgent.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens ||
 			profile.MaximumCompletionTokens > 4096 || profile.MaximumInputBytes > 128<<10 || profile.MaximumOutputBytes > 16<<10 {
 			return errors.New("Chat skill authoring policy invalid")

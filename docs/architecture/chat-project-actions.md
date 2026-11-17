@@ -194,9 +194,11 @@ Chat 页面经现有 BFF 访问按会话授权的创作报价、生成、保存�
 
 ### 隔离试用入口
 
-全新隔离环境沿[工作台试用交接](../operations/ai-workbench-chat-trial.md#准备当前应用)初始化工作台库和受限运行角色，并通过技能库现有官方技能安装入口登记「创建技能」。在当前企业启用完整的 Workbench，配置 `aiWorkbench.skillAuthoringTextPolicies` 及 `modelRoutePricing.bindings` 中对应的 `ai_workbench_skill_authoring` 文本用途，沿现有企业渠道绑定已准入的模型和价格。创作策略使用 `ai-workbench-skill-authoring-v1` 提示版本与 `personal-title-skill-draft-v1` 输出格式。服务启动时只校验配置与可用性。已有工作台库缺少创作保存表时，创作入口保持关闭。
+全新隔离环境沿[工作台试用交接](../operations/ai-workbench-chat-trial.md#准备当前应用)初始化工作台库和受限运行角色，并通过技能库现有「安装官方技能」登记「创建技能」v2。在当前企业启用完整 Workbench，配置 `aiWorkbench.skillAuthoringTextPolicies` 及 `modelRoutePricing.bindings` 中对应的 `ai_workbench_skill_authoring` 文本用途，沿现有企业渠道绑定已准入的模型和价格。脚本草稿使用 `ai-workbench-skill-authoring-v2` 提示版本与 `personal-title-skill-draft-v2` 输出格式。文字首批继续识别 v1 的准确版本及原回执。服务启动只校验配置与可用性。
 
-正常登录隔离 Console 后，打开 `/workbench/ai/chat`，在选店下方打开「选择技能 → 创建技能」。输入与店铺无关的标题规则示例，点「核对点数」，查看点数上限后点「生成草稿」。修改草稿，点「检查格式」，在卡片核对内容后点「保存到我的技能」确认。随后通过结果卡进入「我的技能」核对 v1。遇到结果待确认时，回到原企业和会话，用原卡片上的「核实原生成请求」或「核实原保存」查看。
+已有首批创作表时，数据库 owner 可通过 `ai-workbench-schema-init --skill-authoring-only --runtime-role ai_workbench_runtime` 增加有界列和授权。命令还要求填写 `--expected-database`、`--expected-server-address` 和 `--expected-server-port`，并沿原私有 `AI_WORKBENCH_SCHEMA_DSN` 连接。旧请求和待保存原文按原格式读回。应用不会自行改表。
+
+正常登录隔离 Console 后，打开 `/workbench/ai/chat`，在选店下方打开「选择技能 → 创建技能」。输入与店铺无关的标题规则示例，直接点「生成草稿」。查看文字草稿或展开 Python 代码，按需编辑或点「生成修改」。自动格式检查通过后，点「保存到我的技能」确认。通过结果卡进入「我的技能」核对私有 v1，消耗在「用量明细」中查「创建技能」使用记录。结果待核实时，回原企业和会话选择「核实原生成请求」或「核实原保存」。
 
 ## 8. 设计复核记录
 

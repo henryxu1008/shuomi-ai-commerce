@@ -121,12 +121,21 @@ CREATE TABLE IF NOT EXISTS ai_workbench.skill_authoring_drafts (
     expires_at timestamptz NOT NULL,
     deadline timestamptz,
     generated text NOT NULL DEFAULT '' CHECK (octet_length(generated) <= 32768),
+    format_version integer NOT NULL DEFAULT 1 CHECK (format_version IN (1,2)),
+    input_snapshot text NOT NULL DEFAULT '' CHECK (octet_length(input_snapshot) <= 65536),
+    root_key uuid,
+    base_revision uuid,
+    current_revision uuid,
     save_key uuid UNIQUE,
     save_digest text NOT NULL DEFAULT '',
-    save_content text NOT NULL DEFAULT '' CHECK (octet_length(save_content) <= 16384),
+    save_content text NOT NULL DEFAULT '' CHECK (octet_length(save_content) <= 65536),
+    save_format integer NOT NULL DEFAULT 1 CHECK (save_format IN (1,2)),
     saved_skill_id uuid,
     created_at timestamptz NOT NULL,
     PRIMARY KEY (organization_id, actor_id, conversation_id, key),
+    CHECK ((root_key IS NULL) = (base_revision IS NULL)),
+    FOREIGN KEY (organization_id, actor_id, conversation_id, root_key)
+        REFERENCES ai_workbench.skill_authoring_drafts (organization_id, actor_id, conversation_id, key),
     FOREIGN KEY (conversation_id, organization_id, actor_id)
         REFERENCES ai_workbench.conversations (id, organization_id, owner_user_id)
 );

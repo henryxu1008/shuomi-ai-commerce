@@ -32,7 +32,7 @@ func (s *Service) Authoring(ctx context.Context, version uint64) (Version, error
 // Release material is installed explicitly into the existing Skill owner.
 // Reads and execution never fall back to this embedded bundle.
 //
-//go:embed official/*.md official/visual/*.md
+//go:embed official/*.md official/visual/*.md official/authoring/*.md
 var officialFiles embed.FS
 
 type OfficialPackage struct {
@@ -61,6 +61,17 @@ func OfficialPackages() ([]OfficialPackage, error) {
 			return nil, err
 		}
 		release := OfficialPackage{Key: "official-method-v1:" + strings.TrimSuffix(entry.Name(), ".md"), Version: 1, Package: p}
+		if release.Key == AuthoringReleaseKey {
+			updated, err := officialFiles.ReadFile("official/authoring/skill-authoring.md")
+			if err != nil {
+				return nil, err
+			}
+			current, err := ValidatePackage([]File{{Path: "SKILL.md", Text: string(updated)}})
+			if err != nil || !current.Supports(AuthoringTarget) {
+				return nil, ErrInvalid
+			}
+			release.Version, release.Previous, release.Package = 2, &p, current
+		}
 		if p.Target == ImageTarget {
 			brief, err := officialFiles.ReadFile("official/visual/" + entry.Name())
 			if err != nil {

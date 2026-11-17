@@ -124,7 +124,7 @@ func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.Re
 			if release.Version != 2 || release.Previous == nil || original.Metadata.HeadVersion != 1 || original.State != d.Enabled || original.Visibility != d.Shared {
 				return d.ErrConflict
 			}
-			v := d.Version{Metadata: original.Metadata, Number: 2, Package: release.Package, State: d.Draft, Visibility: d.Private, AllowCopy: true, AllowExport: true, CreatedAt: now}
+			v := d.Version{Metadata: original.Metadata, Number: 2, Package: release.Package, State: d.Draft, Visibility: d.Private, AllowCopy: !release.Package.Supports(d.AuthoringTarget), AllowExport: true, CreatedAt: now}
 			v.Metadata.HeadVersion, v.Metadata.UpdatedAt = 2, now
 			v.Metadata.Revision++
 			if automatic {
