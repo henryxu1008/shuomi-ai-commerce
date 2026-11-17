@@ -4,7 +4,7 @@
 
 ## 产品范围
 
-运营人员在 `/workbench` 显式选中一家 Walmart US 店铺时，现有指标下方单独显示「Walmart Feed 提交受理率」。日期、店铺与其余统计使用同一轮筛选。平台筛选、全部店铺或其他平台店铺不展示该指标。沿用 [首页统计设计](cockpit-listing-task-metrics.md) 的 UTC+8 完整日窗口、当前用户与店铺授权及 [Walmart Feed 合同](walmart-feed-recovery.md)。采用当前驾驶舱组件。Figma 仅供业务流程核对。
+运营人员在 `/workbench` 显式选中一家 Walmart US 店铺时，现有指标下方单独显示「Walmart Feed 提交受理率」。日期、店铺与其余统计使用同一轮筛选。平台筛选、全部店铺或其他平台店铺不展示该指标。沿用 [首页统计设计](cockpit-listing-task-metrics.md) 的 UTC+8 完整日窗口、当前用户与店铺授权及 [Walmart Feed 合同](domains/listing/walmart-feed-recovery.md)。采用当前驾驶舱组件。Figma 仅供业务流程核对。
 
 统计单位为期间创建的 `walmart_submit_feed` 原 attempt，范围包含经用户明确确认的新 Feed attempt 及重新提交的 Feed。按 `organization_id, attempt_id` 去重，日期使用 attempt 的 `created_at`。已受理须有同 attempt、同 intent、同绑定的有效 Feed 回执。明确拒绝须由同 attempt 的 Walmart 授权拒绝证据支持。结果未知单列，进行中、未发送和取消不计入分母。受理率为已受理除以已受理与明确拒绝之和。分母为零显示「暂无已确认结果」，读不到或超限单独提示。SKU 处理结果、平台审核、全平台卡片、GMV、合成预览、执行与恢复、真实平台调用和正式部署在范围外。
 

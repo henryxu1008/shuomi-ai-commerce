@@ -12,7 +12,13 @@
 | 选择 SHEIN 候选类目并只读查询规则 | [候选类目规则查询与解释（C3-2）](listing-candidate-category-rules.md) | `internal/listing/materials` 使用 Marketplace 提供的真实规则；不保存、不采用、不发布 |
 | 将单商品多颜色、多 SKU 映射到同一 SHEIN 草稿 | [销售属性映射冻结合同](shein-sales-attribute-mapping.md) | `internal/listing/record/target` 持有单一草稿；Marketplace 提供规则与校验，稀疏规格的发布资格仍未确认 |
 | 人工审核与素材批准 | [Product Domain Contracts](../../product-domain-contracts.md)、[Human Review #36](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36) | `internal/product/review`、`internal/product/asset` |
-| 执行一次明确批准的提交并核对结果 | [SHEIN 发布闭环](../../shein-publication-flow.md)、[原任务继续](../../supply-four-step-continuation.md) | `internal/listing/submission` 持有提交意图/回执，平台 adapter 持有协议 |
+| 执行一次明确批准的提交并核对结果 | [SHEIN 发布闭环](shein-publication-flow.md)、[原任务继续](../../supply-four-step-continuation.md) | `internal/listing/submission` 持有提交意图/回执，平台 adapter 持有协议 |
+
+## 提交与恢复的当前合同
+
+- [SHEIN 美国站首次上架与状态回读](shein-publication-flow.md) — 沿当前店铺商品入口显式批准；已上传只读历史记录，UNKNOWN 不变成成功。
+- [TikTok 发送前 no-send 与显式重试](tiktok-pre-dispatch-no-send.md) — 仅原 Submission 可证明未发送时终结原键，新确认另建命令。
+- [Walmart Feed 拒绝修复和有界续读](walmart-feed-recovery.md) — 原明确拒绝/准确 SKU 可人工重试；跨次不完整页不授予完整结果资格。
 
 ## 草稿与备注的当前合同
 

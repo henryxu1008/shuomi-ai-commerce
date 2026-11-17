@@ -4,7 +4,7 @@
 - Design Basis: **Independent Architecture，局部恢复合同增量**。
 - Admission Status: **IMPLEMENTATION_READY / FROZEN**。用户已认可准确候选 `5496f141c15dc88669d5f85eef2101dd5e8fef99`，[第1轮独立架构复核](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1031#issuecomment-6541484592)无范围内 BLOCKER。
 - Authority：2026-10-31 用户已授权原唯一 Writer 按该冻结设计先补回归再实现/自检，在原 PR #1031 维护，并复用原唯一 Reviewer 做范围内增量复核；不授权合并、部署、关单或真实操作。
-- 原 [TikTok 首版设计](domains/marketplace/tiktok-shop-us.md)及[官方合同依据](domains/marketplace/tiktok-shop-us-contract-evidence.md)其余范围保持冻结；本候选只处理 #670 的发送前失败恢复 finding，不重新设计整个 Submission。
+- 原 [TikTok 首版设计](../marketplace/tiktok-shop-us.md)及[官方合同依据](../marketplace/tiktok-shop-us-contract-evidence.md)其余范围保持冻结；本候选只处理 #670 的发送前失败恢复 finding，不重新设计整个 Submission。
 - 唯一设计/写入负责人沿用 #669 当前会话与独立工作区；保留实例、数据和会话，不部署、不真实启停或保存配置，不调用真实平台/模型，不发送邮件短信。
 
 ## 1. 用户结果、边界与设计决定
@@ -18,17 +18,17 @@
 
 本次不做：从历史 UNKNOWN 推测未发送、进程重启自动解锁、通用 dispatch/outbox/Saga/reconciler、后台重试、人工填写成功、其他平台接入本能力、旧数据迁移、保留库升级或真实平台验收。
 
-产品/Figma Authority 复用 #669 已确认的美国跨境店铺与现有供应链确认上传/操作结果页面，以及 [final-ui-ia-authority](../product/final-ui-ia-authority.md)。只增加原结果中的准确状态和说明，不建新页面、按钮或人工恢复工作台；若实现需要新的操作流程，先报告，不在实现中追加。
+产品/Figma Authority 复用 #669 已确认的美国跨境店铺与现有供应链确认上传/操作结果页面，以及 [final-ui-ia-authority](../../../product/final-ui-ia-authority.md)。只增加原结果中的准确状态和说明，不建新页面、按钮或人工恢复工作台；若实现需要新的操作流程，先报告，不在实现中追加。
 
 ## 2. 当前根因与为什么不能只放开 fence
 
 基于 PR #1031 设计前的生产代码核对：
 
-- [ExecutionKernel.Acquire](../../internal/listing/submission/execution_kernel_service.go) 提交 `claimed` 后直接把 `SendPermit` 交给调用者；[Kernel 状态合同](../../internal/listing/submission/execution_kernel.go)只允许 provider 结果终结已取得的 claim。
-- [TikTok stage](../../internal/app/listing/tiktok_upload.go)在取得 permit 后还会复核来源/资产/规则、取得授权 merchant、读取并核对图片字节、解析载荷；这些步骤未调用 mutation 也可能失败。当前统一记 UNKNOWN，target fence 不能再取得。
+- [ExecutionKernel.Acquire](../../../../internal/listing/submission/execution_kernel_service.go) 提交 `claimed` 后直接把 `SendPermit` 交给调用者；[Kernel 状态合同](../../../../internal/listing/submission/execution_kernel.go)只允许 provider 结果终结已取得的 claim。
+- [TikTok stage](../../../../internal/app/listing/tiktok_upload.go)在取得 permit 后还会复核来源/资产/规则、取得授权 merchant、读取并核对图片字节、解析载荷；这些步骤未调用 mutation 也可能失败。当前统一记 UNKNOWN，target fence 不能再取得。
 - 直接增加 `Abort(claim)` 不足：若原调用者仍持有可用 permit，数据库释放后它可能迟到发送，与新尝试重复。没有结果/没有 request ID/进程已经消失都不是 no-send 证明。
 - 图片和 global-create 当前子键绑定 record/target，却不绑定外层 item command。若仅把失败写成永久 `not_sent`，即使外层换键也仍会回放同一子键，重试路径不能完成。
-- [Operation consumer](../../internal/app/listing/operations.go)遇到普通依赖错误会重试原 durable command；no-send 必须作为确定终结结果进入原 item receipt，不能只返回一个触发通用重试的 error。
+- [Operation consumer](../../../../internal/app/listing/operations.go)遇到普通依赖错误会重试原 durable command；no-send 必须作为确定终结结果进入原 item receipt，不能只返回一个触发通用重试的 error。
 
 因此最小改动同时需要：**一次性发送门禁、同库终止事实、明确新命令的子键与消费规则**。这是恢复合同改变，不能把它当作普通条件判断补丁。
 
@@ -162,6 +162,6 @@ no-send 证据只由 Kernel 的已关闭门禁生成。它绑定原 organization
 
 实现代价包括现有 Submission 域/Kernel、两表 CHECK 与 verifier、TikTok stage/子键、Operation/result DTO/BFF 和原测试；不是只加一个状态值。仍留在同一 #669 / #1031、单 Writer，不新建服务、表、调度器或恢复操作台。复用原 PostgreSQL/GORM 事务、锁、claim token 校验、稳定 ID 与标准同步组件，无成熟组件缺口需要引入通用框架。
 
-Legacy decision: **N/A**，仅当前 owner 的新合同；遵守 [greenfield baseline](../product/greenfield-no-legacy-migration.md)。未来只在获准的任务独立新空测试库中修改/校验 schema；本设计不提供旧表迁移、UNKNOWN backfill、双读双写或旧 TikTok 发送入口兼容。保留实例继续原版本/原数据，不触碰；如后续要求接入不匹配的新 schema，先报告并取得单独方案/授权，不隐式升级。
+Legacy decision: **N/A**，仅当前 owner 的新合同；遵守 [greenfield baseline](../../../product/greenfield-no-legacy-migration.md)。未来只在获准的任务独立新空测试库中修改/校验 schema；本设计不提供旧表迁移、UNKNOWN backfill、双读双写或旧 TikTok 发送入口兼容。保留实例继续原版本/原数据，不触碰；如后续要求接入不匹配的新 schema，先报告并取得单独方案/授权，不隐式升级。
 
 本文件记录已批准的冻结合同；实施、必要自检、准确 HEAD/CI 和同一 Reviewer 的增量复核以 #1031 当前证据为准，不把架构准入、旧 SHA 的 CI 或未执行测试写成实现验证通过。合并、部署、关单仍需独立授权。运行、真实保存/恢复/刷新/刊登、浏览器与产品验收保持 NOT_RUN，现场缺失证据 UNKNOWN；没有操作保留实例或升级保留库的授权。
