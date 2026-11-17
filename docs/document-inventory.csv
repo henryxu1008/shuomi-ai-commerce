@@ -31,7 +31,7 @@ docs/architecture/auth-instance-cookie-isolation.md,architecture,identity,9254,R
 docs/architecture/authentication-runtime.md,architecture,identity,9621,REVIEW_MOVE,docs/architecture/platform/identity/authentication-runtime.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/automatic-usd-fx.md,architecture,commercial,22379,REVIEW_MOVE,docs/architecture/domains/commercial/automatic-usd-fx.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/bailian-deepseek-shared-text-admission.md,architecture,ai,7546,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; source admission unchanged
-docs/architecture/bailian-product-image-wiring.md,architecture,ai,18514,REVIEW_MOVE,docs/architecture/domains/ai/bailian-product-image-wiring.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/bailian-product-image-wiring.md,architecture,ai,18532,KEEP_PATH,,,MOVED_VERIFIED,Verified path relocation only; historical admission retained
 docs/architecture/browser-kernel-release-catalog.md,architecture,sourcing,12849,REVIEW_MOVE,docs/architecture/domains/sourcing/browser-kernel-release-catalog.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/channel-credentials-ui.md,architecture,identity,19343,REVIEW_MOVE,docs/architecture/platform/identity/channel-credentials-ui.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/chat-35444-retained-wiring-design.md,architecture,workbench,14805,REVIEW_LIFECYCLE,docs/architecture/domains/workbench/chat-35444-retained-wiring-design.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
@@ -92,7 +92,7 @@ docs/architecture/httpapi-assembly-boundaries.md,architecture,platform,1883,REVI
 docs/architecture/domains/ai/image-agent-budget-authorization.md,architecture,ai,11925,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; original release and budget authority retained
 docs/architecture/domains/ai/image-agent-candidate-release-gate.md,architecture,ai,2479,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; original release and budget authority retained
 docs/architecture/domains/ai/image-agent-effect-finalization.md,architecture,ai,6199,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
-docs/architecture/image-agent-effect-policy.md,architecture,ai,18757,REVIEW_MOVE,docs/architecture/domains/ai/image-agent-effect-policy.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/image-agent-effect-policy.md,architecture,ai,18779,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; effect policy semantics retained
 docs/architecture/domains/ai/image-agent-effect-recovery.md,architecture,ai,4871,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
 docs/architecture/domains/ai/image-agent-effect-terminalization.md,architecture,ai,3875,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
 docs/architecture/domains/ai/image-agent-recovery.md,architecture,ai,28978,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
@@ -156,7 +156,7 @@ docs/architecture/plugin-capture-source-quotes.md,architecture,sourcing,11886,RE
 docs/architecture/pod-design-agent.md,architecture,cross-cutting,26199,KEEP_PATH,docs/architecture/pod-design-agent.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/private-agent-delivery.md,architecture,workbench,17261,REVIEW_MOVE,docs/architecture/domains/workbench/private-agent-delivery.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/private-draft-offline-trial.md,architecture,catalog,8016,REVIEW_LIFECYCLE,docs/architecture/domains/catalog/private-draft-offline-trial.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
-docs/architecture/product-agent-google-interactions.md,architecture,ai,13073,REVIEW_MOVE,docs/architecture/domains/ai/product-agent-google-interactions.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/product-agent-google-interactions.md,architecture,ai,13103,KEEP_PATH,,,MOVED_VERIFIED,Verified path relocation only; historical admission retained
 docs/architecture/product-agent-runtime-contract.md,architecture,ai,41276,REVIEW_MOVE,docs/architecture/domains/ai/product-agent-runtime-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/product-agent-text-provider-neutral.md,architecture,ai,19943,REVIEW_MOVE,docs/architecture/domains/ai/product-agent-text-provider-neutral.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/product-content-localization.md,architecture,catalog,18830,REVIEW_MOVE,docs/architecture/domains/catalog/product-content-localization.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
