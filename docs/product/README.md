@@ -6,9 +6,13 @@
 
 Agent / Tool 消费领域 owner 的权限和能力，不直接访问数据库建立第二套业务状态。未开放功能真实表达 unavailable；设计批准、源码完成、实例开放和用户验收分别取证。具体范围与进度在当前执行 Issue 中维护。
 
+## 从实际业务问题开始
+
+[按用户起点选择业务流程](flows/README.md) 区分已有商品直接刊登、已有候选经营评估、从目标市场主动研究、已有商品链接/采集证据保存四条路径。该导航仅引用现行产品决定、领域合同和真实操作说明，**不代表完整业务已经在某个实例通过验收**。
+
 ## 当前专项决定
 
-- [市场调研与商业选品 V1：规划提案（先设计，正式实现 NOT_READY）](research-commercial-assessment-v1.md)
+- [市场调研与商业选品 V1：分阶段产品规划及已实现增量的历史依据](research-commercial-assessment-v1.md)
 - [业务智能体职责（2026-10-13 用户决定）](business-agent-responsibilities.md)
 - [待补全草稿的结构化候选资料](completion-draft-structured.md)
 - [候选资料带入 SHEIN 平台草稿](completion-shein-import.md)

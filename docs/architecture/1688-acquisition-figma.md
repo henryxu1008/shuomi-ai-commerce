@@ -1,5 +1,9 @@
 # 1688 在线采集、规则与待适配接入
 
+> **现行消费边界（2026-11-17）：** 本文是 2026-10-11 冻结的采集计划、规则与待适配转入**技术合同**；当时的“完整对齐 Figma”“当前 Figma”属于原版产品视觉依据，不再是最终 UI/IA 权威。当前在线采集统一为「供应市场 → 在线采集」二级入口（1688/Amazon 页内切换），见[最新产品流程](../product/final-ui-ia-authority.md)；真实业务启用/权限/预算与准确实现版本按原 owner 和 Issue/PR 核对。
+>
+> 本合同仍约束获准的计划、规则、来源保存、收费、人工转入和原键恢复，但**不能据旧设计恢复 1688 静态 HTTP provider**（[PR #1193](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1193) 已退役）。新的 1688 服务端采集要求明确配置的 browser collector；缺配置时新请求不可用，已有历史 publication / 回执仍依原权限读回。本段仅校准文档使用范围，不变更冻结权限、计费、合同或实施授权。
+
 Status: **IMPLEMENTATION_READY / FROZEN BASELINE INCLUDING PER-BATCH TRANSFER CORRECTION**
 
 2026-10-11 独立只读 Reviewer 复核修正设计 HEAD
