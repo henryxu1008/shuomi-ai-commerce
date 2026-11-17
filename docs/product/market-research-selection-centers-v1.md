@@ -1,5 +1,9 @@
 # 市场调研与智能选品 V1：产品与交互设计
 
+## 当前权威与实现边界导航（2026-11-17）
+
+本页维护已确认的市场调研、智能选品业务职责和交互决定；对应 [Research 领域导航](../architecture/domains/research/README.md)、[Research 最小领域合同](../architecture/market-research-selection.md) 和 [商品来源/事实归属](../architecture/project-boundaries.md) 分别说明实现边界。实际交付与缺口请查 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。下文早期“已确认 Figma 设计”、独立中心或 Draft PR 的描述保留历史版本，不能覆盖最新用户决定、当前准确仓库代码或真实试用结果。当前研究目标 SHEIN 美国与资料来源 Amazon、1688 分开解释。
+
 ## 当前菜单决定（2026-11-11）
 
 用户要求整理“市场调研”和“智能选品”的菜单，不保留三级。当前两个一级入口继续承载已有完整工作页，将原具体操作直接提升为二级，去掉“调研准备 / 资料收集 / 竞品研究”和“商品比较 / 分析建议 / 选品决定 / 后续准备”的中间展开分组。页面步骤面包屑也只显示业务入口与当前操作。
