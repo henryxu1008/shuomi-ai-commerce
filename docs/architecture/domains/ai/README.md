@@ -27,3 +27,10 @@
 - [Image Agent Workflow](image-agent-workflow.md)：Run/Plan/Slot、Temporal 编排、派发保护、UNKNOWN、显式人工批准及不可重复副作用的原有职责说明。
 
 上述路径归类不变更原 #774 产品决定、执行状态、权限或模型预算。
+
+## Image Agent 外部效果终结协议
+
+- [效果终态与取消保护](image-agent-effect-terminalization.md)：历史设计，关注 provider/staging/publication claimed 时的取消及最终状态边界。
+- [外部效果收尾与预算结算](image-agent-effect-finalization.md)：历史设计，关注 v3 Temporal 原版本门禁、明确未发送/未知结果与结算。
+
+两份合同保持各自原有版本、阶段约束及历史决定；目录整理不将时间窗不同的方案自动合并，也不批准真实执行。
