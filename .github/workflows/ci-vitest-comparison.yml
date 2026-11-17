@@ -10,6 +10,8 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   NODE_VERSION: '22'
+  BASE_SHA: b67c8d7ee5c6bf543d4723c3e768219fa314fd35
+  CANDIDATE_SHA: bc20b53f58930b9e7292512684d445957269eb06
 
 jobs:
   compare:
@@ -22,15 +24,13 @@ jobs:
         include:
           - first: baseline
             second: candidate
-          - first: candidate
-            second: baseline
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:c091b21d9fae78c76e85cd4356431e9b018402f172a214fc7d7a5e9a7e29d8ac
       options: --user 1001
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 3
+          fetch-depth: 4
           persist-credentials: false
 
       - uses: pnpm/action-setup@v4
@@ -49,9 +49,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --stat HEAD~2 HEAD~1
-          git worktree add --detach "$RUNNER_TEMP/baseline" HEAD~2
-          git worktree add --detach "$RUNNER_TEMP/candidate" HEAD~1
+          git diff --stat "$BASE_SHA" "$CANDIDATE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/baseline" "$BASE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/candidate" "$CANDIDATE_SHA"
           node --version
           pnpm --version
           for variant in baseline candidate; do
@@ -84,6 +84,19 @@ jobs:
           const path = require("node:path");
           const temp = process.env.RUNNER_TEMP;
 
+          // Two existing parameterized cases put a wall-clock fixture value in the title.
+          function stableTitle(filename, title, startedAt) {
+            if (filename === "src/auth.config.test.ts") {
+              return title.replace(/(does not synthesize authentication time for invalid auth_time )(\d{10})$/, (match, prefix, value) =>
+                Number(value) > startedAt / 1000 ? prefix + "<future timestamp>" : match);
+            }
+            if (filename === "src/components/workbench/data-services/data-services-page.test.tsx") {
+              return title.replace(/(preserves the exact existing expiry )\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z(?= when only limits change$)/,
+                "$1<future expiry>");
+            }
+            return title;
+          }
+
           function read(variant) {
             const report = JSON.parse(fs.readFileSync(path.join(temp, variant + ".json"), "utf8"));
             assert.equal(report.success, true, variant + " failed");
@@ -92,13 +105,16 @@ jobs:
               const filename = path.relative(root, file.name);
               assert(!filename.startsWith(".."), file.name);
               return JSON.stringify([filename, file.status, file.assertionResults
-                .map(test => JSON.stringify([test.fullName, test.status])).sort()]);
+                .map(test => JSON.stringify([stableTitle(filename, test.fullName, report.startTime), test.status])).sort()]);
             }).sort();
           }
 
           const baseline = read("baseline");
           const candidate = read("candidate");
-          assert.deepEqual(candidate, baseline);
+          assert.equal(candidate.length, baseline.length);
+          for (const [index, line] of baseline.entries()) {
+            assert.deepEqual(JSON.parse(candidate[index]), JSON.parse(line), JSON.parse(line)[0]);
+          }
           assert.equal(new Set(baseline.map(line => JSON.parse(line)[0])).size, baseline.length);
           const cases = baseline.reduce((count, line) => count + JSON.parse(line)[2].length, 0);
           const summary = baseline.length + " test files and " + cases + " cases match by path, name and outcome.";
