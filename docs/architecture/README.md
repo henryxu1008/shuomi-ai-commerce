@@ -236,7 +236,7 @@
 - `private-agent-delivery.md` — [指定企业私有智能体交付 V1](private-agent-delivery.md)
 - `product-agent-google-interactions.md` — [Product Agent Google Interactions 标题路由增量合同](domains/ai/product-agent-google-interactions.md)
 - `product-agent-runtime-contract.md` — [Product Agent 最小运行合同与接入依赖](product-agent-runtime-contract.md)
-- `product-agent-text-provider-neutral.md` — [Product Agent 标题文本供应商可替换合同（候选）](product-agent-text-provider-neutral.md)
+- `domains/ai/product-agent-text-provider-neutral.md` — [Product Agent 标题文本供应商可替换合同（候选）](domains/ai/product-agent-text-provider-neutral.md)
 - `product-selection-comparison-agent.md` — [Product selection comparison Agent v1](product-selection-comparison-agent.md)
 - `shop-operations-diagnosis-agent.md` — [Shop operations diagnosis Agent v1](shop-operations-diagnosis-agent.md)
 - `skill-capability.md` — [Skill V1：三层归属与现有商品内容 Agent 接入](skill-capability.md)
