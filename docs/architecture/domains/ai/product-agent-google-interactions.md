@@ -6,9 +6,9 @@
 
 ## 用户结果与范围
 
-已获准企业的成员在当前已保存商品的标题确认页生成有依据的建议，再由人通过既有 Product Review 接受和显式 Apply。首条 Google `gemini-3.8-flash` 路由通过官方 Interactions API 获取单次文本结果；企业仍可另行使用已经准入的 OpenAI Chat Completions 兼容路由，标题 Agent 的业务代码不绑定供应商。当前 Figma/IA、Product/Asset/Review 事实、权限和页面交互沿用 [Agent D 已批准合同](organization-agent-configuration.md) 与 [当前 UI/IA Authority](../product/final-ui-ia-authority.md)。
+已获准企业的成员在当前已保存商品的标题确认页生成有依据的建议，再由人通过既有 Product Review 接受和显式 Apply。首条 Google `gemini-3.8-flash` 路由通过官方 Interactions API 获取单次文本结果；企业仍可另行使用已经准入的 OpenAI Chat Completions 兼容路由，标题 Agent 的业务代码不绑定供应商。当前 Figma/IA、Product/Asset/Review 事实、权限和页面交互沿用 [Agent D 已批准合同](../../organization-agent-configuration.md) 与 [当前 UI/IA Authority](../../../product/final-ui-ia-authority.md)。
 
-本增量只增加一个受控的原生传输协议和它的精确准入，不建设模型目录、供应商自动切换、BYOK UI、第二账本、后台任务、工具调用或供应商恢复平台。真实付费运行仍需独立的点数费率、货币估价、额度/预算和调用授权；设计或测试通过不自动开放。全新系统不做旧数据迁移。现有 [供应商可替换合同](product-agent-text-provider-neutral.md) 对组织策略、唯一 dispatch、UNKNOWN 和人工审核继续生效；其中“首条 Google 候选只走兼容协议”的结论若获用户同意由本增量替代。
+本增量只增加一个受控的原生传输协议和它的精确准入，不建设模型目录、供应商自动切换、BYOK UI、第二账本、后台任务、工具调用或供应商恢复平台。真实付费运行仍需独立的点数费率、货币估价、额度/预算和调用授权；设计或测试通过不自动开放。全新系统不做旧数据迁移。现有 [供应商可替换合同](../../product-agent-text-provider-neutral.md) 对组织策略、唯一 dispatch、UNKNOWN 和人工审核继续生效；其中“首条 Google 候选只走兼容协议”的结论若获用户同意由本增量替代。
 
 ## 现状、根因与复用
 
@@ -21,7 +21,7 @@
 ### 2026-10-05 当前 #588 组合依据
 
 用户已批准在 #588 保留本 Google 标题能力；当前接线以已独立复核为 **IMPLEMENTATION_READY** 的
-[#576/#578 合同 §6.7](ai-workbench-chat-business-task.md#67-google-interactions-composition-increment) 为准。
+[#576/#578 合同 §6.7](../../ai-workbench-chat-business-task.md#67-google-interactions-composition-increment) 为准。
 下文 #586 的 `titletext`/`Manager.CompleteText` 消费者接线保留为历史实施依据，已由共享
 `integration/aicapability/einomodel.Executor` 与受控 Eino `BaseChatModel` 取代。
 官方 SDK 和无状态 wire/usage 映射 EXTRACT 到 `integration/googleinteractions`；旧标题模型 RETIRE，
@@ -52,7 +52,7 @@ fresh organization identity -> immutable OrganizationID -> AgentTextPolicy
 
 ## 状态、失败与安全边界
 
-[运行合同](product-agent-runtime-contract.md) 当前 Must 为 fresh 授权、精确商品版本、有限费用、唯一重试责任、可信校验、可追溯提案和人工 Apply；没有新增 Accepted Risk。来源与模型输出始终不可信。新增原生协议不改变 Agent Run、Invocation、Review、Product 的状态机或持久化 owner，不跨数据库建立新事务；其唯一新外部副作用是一次 Google 模型调用，处于现有 dispatch claim 和费用预留之后。请求发送前失败记录明确未发送并释放预留；发送后失联或最终记录失败保留原 invocation/预留和 UNKNOWN。Google 的 interaction ID 仅作为安全的非敏感 provider 请求引用，不用于自动查询/续跑/重发；`store=false` 禁止服务端会话保存，应用不提交隐藏思考到 Review 或 UI。
+[运行合同](../../product-agent-runtime-contract.md) 当前 Must 为 fresh 授权、精确商品版本、有限费用、唯一重试责任、可信校验、可追溯提案和人工 Apply；没有新增 Accepted Risk。来源与模型输出始终不可信。新增原生协议不改变 Agent Run、Invocation、Review、Product 的状态机或持久化 owner，不跨数据库建立新事务；其唯一新外部副作用是一次 Google 模型调用，处于现有 dispatch claim 和费用预留之后。请求发送前失败记录明确未发送并释放预留；发送后失联或最终记录失败保留原 invocation/预留和 UNKNOWN。Google 的 interaction ID 仅作为安全的非敏感 provider 请求引用，不用于自动查询/续跑/重发；`store=false` 禁止服务端会话保存，应用不提交隐藏思考到 Review 或 UI。
 
 Legacy decision: **EXTRACT** 现有兼容传输的大小、deadline、错误分类与原始 usage 存在性检查到可复用窄接口；**RETIRE** 对 Google 3.8 候选的兼容 `reasoning_effort=none` 假设。不复活已淘汰的 ProductEnrich task/queue/worker，也不为旧数据做双路径迁移。
 
