@@ -176,6 +176,8 @@ test("creates a project and reopens its rebound Chat with a rechecked store",asy
   planningReady=true;
   await page.goto("/workbench/ai/chat/"+oldId+"?projectTask=1");
   await page.getByLabel("需求").fill("这是尚未提交的草稿");
+  await page.reload();
+  await expect(page.getByLabel("需求")).toHaveValue("这是尚未提交的草稿");
   await page.getByRole("button",{name:"在新对话中继续"}).click();
   await expect(page.getByLabel("需求")).toHaveValue("这是尚未提交的草稿");
   await expect(page.getByText("工作背景：合成项目 · 乙店")).toBeVisible();

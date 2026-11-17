@@ -393,8 +393,32 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     && activeProposal.businessScope.scope.projectId === preview?.scope.projectId
     && activeProposal.businessScope.scope.storeId === preview?.scope.storeId
     && activeProposal.selectedStoreId === selectedTaskStore;
+  const hasUnsentDraft = Boolean(content.trim());
+  const canConfirmProject = canGenerateProject && proposalMatchesProject && draftHydrated && !hasUnsentDraft;
   function invalidateProposal() {
     if (projectTask && activeProposal && !awaitingConfirm && !activeProposal.confirmedTaskId) setSupersededProposal(activeProposal.id);
+  }
+  function updateConversationDraft(text:string) {
+    invalidateProposal();
+    userEdited.current = true;
+    setContent(text);
+    try {
+      if (activeDraft.current) {
+        const key = activeDraft.current.slot === "handoff" ? conversationDraftKey(scope,id) : resolvedDraftKey(scope,id);
+        const currentDraft = readLocalDraft(sessionStorage.getItem(key));
+        if (currentDraft?.id !== activeDraft.current.id) throw new Error("draft changed");
+        sessionStorage.setItem(key,JSON.stringify({id:currentDraft.id,text}));
+      } else if (projectAvailable && text) {
+        const key = resolvedDraftKey(scope,id);
+        if (sessionStorage.getItem(key) !== null) throw new Error("draft changed");
+        const draft = {id:crypto.randomUUID(),text};
+        sessionStorage.setItem(key,JSON.stringify(draft));
+        activeDraft.current = {id:draft.id,slot:"resolved"};
+      }
+      setDraftSaveError("");
+    } catch {
+      setDraftSaveError("需求未能保存到本地，刷新会丢失修改；请检查浏览器存储。");
+    }
   }
   function continueProject() {
     if (!preview || !taskProjectId || !isAcquisitionUUID(taskProjectId) || projectPreview.isFetching || projectPreview.isError
@@ -547,7 +571,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   }
   async function confirm(proposalId:string) {
     const previous = confirmReceipts[proposalId];
-    if (pending || projectSaveLocked || pendingConfirmationId && pendingConfirmationId!==proposalId || projectTask && !previous && (!canGenerateProject || !proposalMatchesProject || supersededProposal===proposalId)) return;
+    if (pending || projectSaveLocked || pendingConfirmationId && pendingConfirmationId!==proposalId || projectTask && !previous && (!canConfirmProject || supersededProposal===proposalId)) return;
     const key = confirmReceipts[proposalId]?.key || crypto.randomUUID();
     const receipts = { ...confirmReceipts, [proposalId]: { key,...(projectAvailable?{pending:true as const}:{}) } };
     setConfirmReceipts(receipts);
@@ -616,9 +640,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {canUse && !current.Archived && current.businessScope?.kind === "general" ? <Button variant="outline" disabled={!overviewReady||overviewBusy} onClick={()=>void explicitStoreOverview()}>{overviewBusy?"正在读取店铺概况…":pendingOverview?"核对原店铺查询":"查看全部可见店铺概况"}</Button> : null}
     {current.businessScope && current.businessScope.kind !== "general" ? <p>查看当前企业所有可见店铺，请进入通用业务会话。<Link href="/workbench/ai/chat/new">新建通用会话</Link></p> : null}
     {activeProposal ? <ProposalCard proposal={activeProposal} canUse={canUse} titleReadiness={titleReadiness}
-      disabled={pending || current.Archived && !activeConfirmationPending || projectSaveLocked || Boolean(pendingConfirmationId && pendingConfirmationId!==activeProposal.id) || projectAvailable && !activeConfirmationPending && (visibleSkill==="create-project" || supersededProposal===activeProposal.id || projectTask && (!canGenerateProject || !proposalMatchesProject))}
+      disabled={pending || current.Archived && !activeConfirmationPending || projectSaveLocked || Boolean(pendingConfirmationId && pendingConfirmationId!==activeProposal.id) || projectAvailable && !activeConfirmationPending && (visibleSkill==="create-project" || supersededProposal===activeProposal.id || projectTask && !canConfirmProject)}
       recovering={Boolean(projectAvailable && activeConfirmationPending)} projectTask={projectTask}
       confirmedTaskId={activeProposal.confirmedTaskId ?? confirmReceipts[activeProposal.id]?.taskId} onConfirm={() => void confirm(activeProposal.id)} /> : null}
+    {projectTask && activeProposal && !activeProposal.confirmedTaskId && !awaitingConfirm && draftHydrated && hasUnsentDraft ? <p role="status">有新的需求草稿，请先生成新方案。</p> : null}
     {lastConfirmedTask && lastConfirmedTask.proposalId!==activeProposal?.id ? <Card className="space-y-3 p-4">
       <h2>任务已提交</h2>
       <Button asChild variant="outline"><Link href={"/workbench/ai/tasks/"+lastConfirmedTask.taskId}>查看任务</Link></Button>
@@ -655,7 +680,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {contentTasks&&canPlan?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} compactSummary={projectTask} onSubject={value=>{invalidateProposal();setSubject(value);}} onParameters={value=>{invalidateProposal();setParameters(value);}} disabled={pending||Boolean(pendingMessage)||projectAvailable&&awaitingConfirm}/>:null}
       {!contentTasks&&canPlan?<div className={styles.formGrid}><fieldset disabled={pending||Boolean(pendingMessage)}><legend>选择商品</legend><CollectionPicker authorizationKey={authorizationKey} scope={scope} kind="product" disabled={pending||Boolean(pendingMessage)} isEligible={item=>item.source.kind==="acquisition"&&isAcquisitionUUID(item.source.operationId??"")} emptyMessage="当前页没有可用于标题任务的采集商品。" onSelect={item=>{setOperationId(item.source.operationId??"");setSelectedProductName(item.title||"未命名商品")}}/>{operationId?<p>已选择：{selectedProductName||"已保存商品"}</p>:<p>请选择已保存的采集商品。</p>}</fieldset>
         <label>目标平台<Select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></Select></label></div>:null}
-      <label className={styles.promptLabel}>需求<Textarea disabled={Boolean(pendingMessage) || !draftHydrated || projectAvailable&&awaitingConfirm} rows={4} value={content} onChange={e => {invalidateProposal();userEdited.current=true;setContent(e.target.value);try{if(activeDraft.current){const key=activeDraft.current.slot==="handoff"?conversationDraftKey(scope,id):resolvedDraftKey(scope,id);const currentDraft=readLocalDraft(sessionStorage.getItem(key));if(!currentDraft || currentDraft.id!==activeDraft.current.id)throw new Error("draft changed");sessionStorage.setItem(key,JSON.stringify({id:currentDraft.id,text:e.target.value}));}setDraftSaveError("");}catch{setDraftSaveError("需求未能保存到本地，刷新会丢失修改；请检查浏览器存储。");}}} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>{draftSaveError ? <p role="status">{draftSaveError}</p> : null}
+      <label className={styles.promptLabel}>需求<Textarea disabled={Boolean(pendingMessage) || !draftHydrated || projectAvailable&&awaitingConfirm} rows={4} value={content} onChange={event=>updateConversationDraft(event.target.value)} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>{draftSaveError ? <p role="status">{draftSaveError}</p> : null}
       <details className={styles.optionalContext} open={contextExpanded} onToggle={event => setContextExpanded(event.currentTarget.open)}><summary>模板与知识库（可选）</summary>
         <ChatContextPicker scope={scope} authorizationKey={authorizationKey} agentId={contentTasks?"product.content.agent":"product.title.agent"} target={contentTasks?"product":platform} enabled={contextExpanded||Boolean(templateId)||Boolean(knowledgeBaseId)} disabled={pending||Boolean(pendingMessage)} templateId={templateId} templateRevision={templateRevision} knowledgeBaseId={knowledgeBaseId} onTemplate={(id,revision)=>{invalidateProposal();setTemplateId(id);setTemplateRevision(revision)}} onKnowledge={value=>{invalidateProposal();setKnowledgeBaseId(value);}} onReady={setContextReady}/></details>
       {pendingMessage ? <p>上次消息结果待确认，暂时不能修改；重试时系统会先核实，尚未开始的请求可能在准备就绪后发送。</p> : null}

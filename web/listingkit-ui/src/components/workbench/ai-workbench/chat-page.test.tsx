@@ -1158,6 +1158,9 @@ it("continues a rebound project in a fresh conversation with the unsent draft an
   render(tree());
   await waitFor(()=>expect(screen.getByLabelText("需求")).toBeEnabled());
   fireEvent.change(screen.getByLabelText("需求"),{target:{value:"未提交的项目草稿"}});
+  cleanup();
+  render(tree());
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("未提交的项目草稿"));
   fireEvent.click(await screen.findByRole("button",{name:"在新对话中继续"}));
   await waitFor(()=>expect(fixture.push).toHaveBeenCalledWith(`/workbench/ai/chat/new?projectId=${projectId}&projectTask=1&recheckStore=1`));
   expect(sessionStorage.getItem(key("store-choice",`conversation:${conversationId}`))).toBe(JSON.stringify(oldChoice));
@@ -1288,4 +1291,29 @@ it("reconciles an old project conversation create before accepting the rebound s
   const posts=fixture.request.mock.calls.filter(([call])=>call.method==="POST");
   expect(posts).toHaveLength(1);
   expect(posts[0][0]).toMatchObject({route:"conversation-create",key:operationId,body:original});
+});
+
+it("does not reenable an old project proposal after reloading a newer unsent draft", async () => {
+  fixture.context.projectCenterAvailable = true;
+  fixture.context.permissions.push("workbench.project.read");
+  fixture.context.aiWorkbenchExecutionKind = "product.content.localize";
+  fixture.search.set("projectTask","1");
+  const bind=projectStore(firstStore);
+  const storageScope=JSON.stringify(["user-a","org-a",conversationId]);
+  sessionStorage.setItem("ai-workbench:resolved-draft:"+storageScope,JSON.stringify({id:operationId,text:"修改后的目标"}));
+  sessionStorage.setItem("ai-workbench:store-choice:"+JSON.stringify(["user-a","org-a","conversation:"+conversationId]),JSON.stringify({kind:"store",storeId:firstStore,scopeConfirmation,connectionVersion:1}));
+  fixture.connection.mockResolvedValue({connectionStatus:"connected",version:1,observedAt:"2026-10-03T00:00:00Z"});
+  fixture.request.mockImplementation(async ({route,path})=>{
+    if(route==="scope-options"){
+      const selected=path.includes("kind=store")?{scope:{version:"workbench-scope-v1",kind:"store",storeId:firstStore},confirmation:scopeConfirmation,storeName:"甲店"}:bind;
+      return {options:[selected],next:"",incomplete:false};
+    }
+    if(route==="conversation-read")return {conversation:{...conversation,businessScope:bind.scope},messages:[{ID:operationId,Sequence:1,Author:"USER",Content:"原目标",CreatedAt:conversation.CreatedAt}],
+      proposals:[{id:operationId,digest:scopeConfirmation,sourceSequence:1,kind:"product.content.localize",goalSummary:"原目标",businessScope:bind,selectedStoreId:firstStore,selectedStoreName:"甲店",detailsAvailable:true,executionProfileReady:true,executionAuthorized:true}],before:""};
+    throw new Error("unexpected route "+route);
+  });
+  render(tree());
+  await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("修改后的目标"));
+  await screen.findByText("本次任务店铺：甲店");
+  expect(screen.getByRole("button",{name:"确认并创建任务"})).toBeDisabled();
 });
