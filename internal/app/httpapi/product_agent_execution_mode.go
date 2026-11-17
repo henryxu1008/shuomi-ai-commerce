@@ -130,7 +130,7 @@ func (a *productAgentApplication) resolveTitlePolicy(ctx context.Context, proven
 			return proof, err
 		}
 	}
-	mode, err := a.configuration.CheckRegisteredTextExecutionMode(ctx, origin, provenance.Configuration, provenance.Mode)
+	mode, err := a.checkTitleReviewMode(ctx, origin, provenance, human)
 	if err != nil {
 		if human && (errors.Is(err, agentconfig.ErrChanged) || errors.Is(err, agentconfig.ErrNotEnabled) || errors.Is(err, agentconfig.ErrConflict)) {
 			return proof, review.ErrConflict

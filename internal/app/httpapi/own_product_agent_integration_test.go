@@ -3,8 +3,10 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -19,9 +21,13 @@ import (
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	skillstore "task-processor/internal/integration/persistence/skill"
+	"task-processor/internal/integration/skillauth"
 	"task-processor/internal/product/catalog/tools/canonicalinspect"
 	"task-processor/internal/product/collection"
 	reviewproposal "task-processor/internal/product/review/proposal"
+	skill "task-processor/internal/skill"
+	skillhttp "task-processor/internal/skill/httpapi"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -37,6 +43,14 @@ func TestOwnContentRunsThroughRealReviewApplyAndChoiceWithoutShop(t *testing.T) 
 func TestOwnContentTitleOnlyRunsThroughRealReviewApplyAndChoiceWithoutShop(t *testing.T) {
 	for _, mode := range []string{"default", "read_only", "auto_approve", "full_access"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, "title-only own content "+mode) })
+	}
+}
+
+func TestPausedOwnScriptReviewThroughOwners(t *testing.T) {
+	for _, scenario := range []string{"paused", "paused-revoked"} {
+		t.Run(scenario, func(t *testing.T) {
+			testProductAgentOwners(t, "own content skill script "+scenario)
+		})
 	}
 }
 
@@ -91,7 +105,7 @@ func ownContentFixtureProposal(t *testing.T, r *http.Request, fields ...string) 
 	return string(encoded)
 }
 
-func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module productAgentModule, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, configuration *configstore.Store, mode agent.ExecutionMode, calls *atomic.Int32) {
+func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module productAgentModule, deps routeAuthDependencies, permissions *authz.ListingKitAuthorizer, configuration *configstore.Store, scenario string, calls, scriptCreations *atomic.Int32) {
 	t.Helper()
 	ctx := context.Background()
 	live := &productReviewLiveOrganizationAccess{resolver: deps.organizationResolver, now: time.Now}
@@ -121,6 +135,10 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 	a.ownProducts = collections
 	_, err = configuration.Execute(ctx, agentconfig.Command{Scope: agent.Scope{OrganizationID: "B", ActorID: "admin"}, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "enable", Absent: true})
 	require.NoError(t, err)
+	mode := agent.ExecutionMode(scenario)
+	if scriptCreations != nil {
+		mode = agent.ModeDefault
+	}
 	revision := "0"
 	if mode != agent.ModeDefault {
 		saved, e := configuration.ExecuteMode(ctx, agentconfig.ModeCommand{Identity: agent.ExecutionIdentity{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, Subject: a.modeSubject(), Key: uuid.NewString(), Mode: mode})
@@ -128,6 +146,15 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 		revision = saved.Revision
 	}
 	routes := append(module.routes, ownContentAgentRoutes(a)...)
+	if scriptCreations != nil {
+		repo, err := skillstore.New(f.owner)
+		require.NoError(t, err)
+		access, err := skillauth.New(deps.organizationResolver, permissions)
+		require.NoError(t, err)
+		service, err := skill.NewService(repo, access.Resolve)
+		require.NoError(t, err)
+		routes = append(routes, skillhttp.Routes(&skillhttp.Handler{Service: service, Policy: configuration, Bind: access.Bind})...)
+	}
 	app := buildCurrentApplicationHTTPServer(routes, deps)
 	server := httptest.NewServer(app.Handler)
 	defer server.Close()
@@ -141,6 +168,11 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 	input := `{"expectedModeRevision":"` + revision + `","targetPlatform":"product","contentSelection":{"targetLanguage":"en-US","title":true},"ownSource":{"catalogVersion":"` + preview.CatalogVersion + `","publicationId":"` + preview.PublicationID + `"}}`
 	key := uuid.NewString()
 	path := base + "/runs"
+	var scriptVersion skill.Version
+	if scriptCreations != nil {
+		scriptVersion = publishOwnTitleScriptFixture(t, server)
+		input = strings.TrimSuffix(input, "}") + fmt.Sprintf(`,"skillSelection":{"skillId":%q,"version":%d,"digest":%q}}`, scriptVersion.Metadata.ID, scriptVersion.Number, scriptVersion.Package.Digest)
+	}
 	code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", key, input)
 	require.NoError(t, err)
 	require.Equal(t, 200, code, string(raw))
@@ -153,6 +185,30 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 	reader := supplymarketapp.EffectiveProductReader{Snapshots: snapshots, Applied: a.reviewLookup}
 	choice, err := reader.ReadChoice(actor, collection.Scope{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, item)
 	require.NoError(t, err)
+	if scriptCreations != nil {
+		require.NotNil(t, result.ScriptReceipt)
+		require.Equal(t, "succeeded", result.ScriptReceipt.Outcome)
+		require.Equal(t, "Formatted bottle title", result.Candidate.Changes[0].Value)
+		scope := agent.Scope{OrganizationID: "B", ActorID: "admin"}
+		saved, err := configuration.ReadAgent(ctx, scope, agentconfig.ContentAgentID)
+		require.NoError(t, err)
+		epochRevision, err := strconv.ParseUint(saved.Revision, 10, 64)
+		require.NoError(t, err)
+		_, err = configuration.Execute(ctx, agentconfig.Command{Scope: scope, Key: uuid.NewString(), AgentID: agentconfig.ContentAgentID, Operation: "disable", Expected: epochRevision})
+		require.NoError(t, err)
+		fresh := uuid.NewString()
+		skillHTTP(t, server, "POST", path, "admin", "B", fresh, "", json.RawMessage(input), http.StatusConflict)
+		_, found, err := a.store.LookupContext(ctx, scope, "own_product", item.Item.ID, fresh)
+		require.NoError(t, err)
+		require.False(t, found)
+		retained := skillHTTP(t, server, "GET", path+"/"+key, "admin", "B", "", "", nil, http.StatusOK)
+		var readback productAgentResultDTO
+		require.NoError(t, json.Unmarshal(retained, &readback))
+		require.Equal(t, result.RunID, readback.RunID)
+		require.Equal(t, result.ScriptReceipt, readback.ScriptReceipt)
+		require.EqualValues(t, 1, scriptCreations.Load())
+		require.EqualValues(t, 3, calls.Load())
+	}
 	if mode == agent.ModeFullAccess || mode == agent.ModeAutoApprove {
 		require.True(t, choice.Optimized)
 	} else {
@@ -168,10 +224,29 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 		titleDecision(t, server, view, "accept", "admin", "", 403)
 	} else if mode != agent.ModeFullAccess && mode != agent.ModeAutoApprove {
 		accepted := titleDecision(t, server, view, "accept", "admin", "", 200)
+		if scenario == "paused-revoked" {
+			skillHTTP(t, server, "POST", fmt.Sprintf("/api/v1/workbench/skills/organization/%s/versions/%d/revoke", scriptVersion.Metadata.ID, scriptVersion.Number), "admin", "B", uuid.NewString(), fmt.Sprint(scriptVersion.Metadata.Revision), map[string]any{}, 200)
+			titleApply(t, server, accepted, uuid.NewString(), http.StatusConflict)
+			unchanged, err := reader.ReadChoice(actor, collection.Scope{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, item)
+			require.NoError(t, err)
+			require.False(t, unchanged.Optimized)
+			require.Equal(t, "Saved own product", unchanged.Product.Title)
+			require.EqualValues(t, 1, scriptCreations.Load())
+			require.EqualValues(t, 3, calls.Load())
+			return
+		}
 		view = titleApply(t, server, accepted, uuid.NewString(), 200)
 	}
 	choice, err = reader.ReadChoice(actor, collection.Scope{OrganizationID: "B", ActorID: "admin", MemberID: "member-B-admin"}, item)
 	require.NoError(t, err)
+	if scriptCreations != nil {
+		require.True(t, choice.Optimized)
+		require.EqualValues(t, 2, choice.Selection.EffectiveVersion)
+		require.Equal(t, "Formatted bottle title", choice.Product.Title)
+		require.EqualValues(t, 1, scriptCreations.Load())
+		require.EqualValues(t, 3, calls.Load())
+		return
+	}
 	require.Equal(t, mode != agent.ModeReadOnly, choice.Optimized)
 	if mode != agent.ModeReadOnly {
 		require.Equal(t, uint64(2), choice.Selection.EffectiveVersion)
@@ -233,6 +308,40 @@ func testOwnContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, module
 	updated, err := collections.ReadItem(actor, item.Item.ID)
 	require.NoError(t, err)
 	require.Equal(t, item.Item.Source.Version+1+boolVersion(mode != agent.ModeReadOnly), updated.Item.Source.Version)
+}
+
+func publishOwnTitleScriptFixture(t *testing.T, server *httptest.Server) skill.Version {
+	t.Helper()
+	const versions = "/api/v1/workbench/skills/organization"
+	pkg := map[string]any{"files": []skill.File{
+		{Path: "SKILL.md", Text: `---
+name: product-title-normalization
+description: Normalize exact saved facts.
+metadata:
+  listingkit-method-v1: product-title
+---
+Normalize exact saved facts, using [style](references/style.md).
+`},
+		{Path: "references/style.md", Text: "Keep supported attributes and never invent facts."},
+		{Path: "execution.json", Text: `{"schemaVersion":"skill-script-v1","profile":"python-title-json-v1","entrypoint":"scripts/main.py","phase":"title-candidate-postprocess","inputContract":"title-candidate-v1","outputContract":"title-result-v1"}`},
+		{Path: "scripts/main.py", Text: `# SCRIPT_PRIVATE_MARKER
+print('format saved candidate')
+`},
+	}}
+	raw := skillHTTP(t, server, "POST", versions, "admin", "B", uuid.NewString(), "", pkg, http.StatusOK)
+	var saved skill.Receipt
+	require.NoError(t, json.Unmarshal(raw, &saved))
+	path := fmt.Sprintf("%s/%s/versions/%d", versions, saved.ID, saved.Version)
+	for _, action := range []string{"publish", "enable"} {
+		raw = skillHTTP(t, server, "POST", path+"/"+action, "admin", "B", uuid.NewString(), fmt.Sprint(saved.Revision), map[string]any{}, http.StatusOK)
+		require.NoError(t, json.Unmarshal(raw, &saved))
+	}
+	raw = skillHTTP(t, server, "GET", path, "admin", "B", "", "", nil, http.StatusOK)
+	var result struct {
+		Version skill.Version `json:"version"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &result))
+	return result.Version
 }
 
 func boolVersion(value bool) uint64 {

@@ -866,7 +866,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			testScheduledContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, &calls, strings.TrimPrefix(mode, "own content scheduled "))
 			return
 		}
-		testOwnContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, agent.ExecutionMode(strings.TrimPrefix(mode, "own content ")), &calls)
+		testOwnContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, strings.TrimPrefix(mode, "own content "), &calls, scriptCreations)
 		return
 	}
 	if strings.HasPrefix(mode, "content flow") {
