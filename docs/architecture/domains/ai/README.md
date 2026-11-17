@@ -67,3 +67,7 @@
 - [VIP 已付费原图恢复](vip-original-output-recovery.md)：保留准确原请求/权限/结算证据和 UNKNOWN；恢复不触发再次生图或扣费。
 
 迁移仅涉及文档路径，不签发新模型调用、真实支付、部署或业务验收。
+
+## 单商品图片可选模型路线
+
+- [Single-product image plan optional route V1](image-plan-optional-route.md)：保留 #840 原选路、准确候选版本及人工确认的历史设计边界，不将文件迁移视为模型发布或生产授权。
