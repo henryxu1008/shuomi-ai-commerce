@@ -1,0 +1,107 @@
+name: Vitest environment comparison
+
+on:
+  push:
+    branches: [codex/ci-vitest-node-ab]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  NODE_VERSION: '22'
+
+jobs:
+  compare:
+    name: Vitest / ${{ matrix.first }} first
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - first: baseline
+            second: candidate
+          - first: candidate
+            second: baseline
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:c091b21d9fae78c76e85cd4356431e9b018402f172a214fc7d7a5e9a7e29d8ac
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 3
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/listingkit-ui/package.json
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/listingkit-ui/pnpm-lock.yaml
+
+      - name: Prepare identical dependencies in both worktrees
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --stat HEAD~2 HEAD~1
+          git worktree add --detach "$RUNNER_TEMP/baseline" HEAD~2
+          git worktree add --detach "$RUNNER_TEMP/candidate" HEAD~1
+          node --version
+          pnpm --version
+          for variant in baseline candidate; do
+            (cd "$RUNNER_TEMP/$variant/web/listingkit-ui" && pnpm install --frozen-lockfile)
+          done
+
+      - name: Run Vitest (${{ matrix.first }})
+        shell: bash
+        env:
+          VARIANT: ${{ matrix.first }}
+        run: |
+          cd "$RUNNER_TEMP/$VARIANT/web/listingkit-ui"
+          pnpm test --reporter=default --reporter=json "--outputFile.json=$RUNNER_TEMP/$VARIANT.json"
+
+      - name: Run Vitest (${{ matrix.second }})
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        shell: bash
+        env:
+          VARIANT: ${{ matrix.second }}
+        run: |
+          cd "$RUNNER_TEMP/$VARIANT/web/listingkit-ui"
+          pnpm test --reporter=default --reporter=json "--outputFile.json=$RUNNER_TEMP/$VARIANT.json"
+
+      - name: Compare every test file, case and result
+        shell: bash
+        run: |
+          node <<'NODE'
+          const assert = require("node:assert/strict");
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const temp = process.env.RUNNER_TEMP;
+
+          function read(variant) {
+            const report = JSON.parse(fs.readFileSync(path.join(temp, variant + ".json"), "utf8"));
+            assert.equal(report.success, true, variant + " failed");
+            const root = path.join(temp, variant, "web", "listingkit-ui");
+            return report.testResults.map(file => {
+              const filename = path.relative(root, file.name);
+              assert(!filename.startsWith(".."), file.name);
+              return JSON.stringify([filename, file.status, file.assertionResults
+                .map(test => JSON.stringify([test.fullName, test.status])).sort()]);
+            }).sort();
+          }
+
+          const baseline = read("baseline");
+          const candidate = read("candidate");
+          assert.deepEqual(candidate, baseline);
+          assert.equal(new Set(baseline.map(line => JSON.parse(line)[0])).size, baseline.length);
+          const cases = baseline.reduce((count, line) => count + JSON.parse(line)[2].length, 0);
+          const summary = baseline.length + " test files and " + cases + " cases match by path, name and outcome.";
+          console.log(summary);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + "\n");
+          NODE
