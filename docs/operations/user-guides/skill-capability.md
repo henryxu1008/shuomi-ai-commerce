@@ -1,10 +1,10 @@
 # Skill V1 交接（#688）
 
-> 新版本凭据维护已切换到[企业渠道连接](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
+> 新版本凭据维护已切换到[企业渠道连接](../../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
 
-Design Basis：[已批准设计](../architecture/skill-capability.md)。本文件交接正常安装和使用方式；不签发共享安装、真实模型或用户验收。
+Design Basis：[已批准设计](../../architecture/skill-capability.md)。本文件交接正常安装和使用方式；不签发共享安装、真实模型或用户验收。
 
-截至 2026-11-15，[Linux Docker + OpenSandbox + gVisor 脚本扩展 §21](../architecture/skill-script-sandbox.md#21-已批准三组产品范围与正式-ready-准入2026-11-15)的三组产品范围已获批准，正式执行 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，IMPLEMENTATION_READY / Ready（未启动）。真实WSL2 POC及独立复核证据复用，D-IT1剩余部署检查仍为对应profile试用开放前Must，不写PASS。正式业务未实现，本轮不改生产代码；以下操作仍不支持脚本。独立测试环境保持停止与保留，Ready不授权启动、部署、修改现有业务实例或真实数据。
+截至 2026-11-15，[Linux Docker + OpenSandbox + gVisor 脚本扩展 §21](../../architecture/skill-script-sandbox.md#21-已批准三组产品范围与正式-ready-准入2026-11-15)的三组产品范围已获批准，正式执行 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，IMPLEMENTATION_READY / Ready（未启动）。真实WSL2 POC及独立复核证据复用，D-IT1剩余部署检查仍为对应profile试用开放前Must，不写PASS。正式业务未实现，本轮不改生产代码；以下操作仍不支持脚本。独立测试环境保持停止与保留，Ready不授权启动、部署、修改现有业务实例或真实数据。
 
 ## 入口和操作
 
@@ -51,7 +51,7 @@ pnpm start --hostname 127.0.0.1 --port <allocated_port>
 
 ## 标题路径与现有 Chat 共存
 
-部署者按[已批准的有界组合](../architecture/content-agent-chat-coexistence.md)准备私密 manifest：`productAgent.contentTitleOnly:true`，只有 `contentTextPolicies`；`textPolicies`、materials/selection/diagnosis 策略均为空，不提供 `assetDatabase`。Run 仍用原 `product_agent_runtime`；Review 连接同一 ProductDB 的独立 `product_review_runtime` 池。其它已运行模块保持其原有配置和 owner，不因本 profile 改用这些连接。
+部署者按[已批准的有界组合](../../architecture/content-agent-chat-coexistence.md)准备私密 manifest：`productAgent.contentTitleOnly:true`，只有 `contentTextPolicies`；`textPolicies`、materials/selection/diagnosis 策略均为空，不提供 `assetDatabase`。Run 仍用原 `product_agent_runtime`；Review 连接同一 ProductDB 的独立 `product_review_runtime` 池。其它已运行模块保持其原有配置和 owner，不因本 profile 改用这些连接。
 
 现 Chat 保持 `aiWorkbench.conversationOnly:true`，使用同一逻辑 RunDB 的独立 `ai_workbench_runtime` 账号/连接池和原组织范围，不配置 `planningTextPolicies`。它仍只管理会话；发送、规划和任务执行不会借内容模型开放。模型、准确 route、计价和预算尚缺时保留 `productAgent.enabled:false`；不能用占位模型或凭据来启用执行。默认未设置 `contentTitleOnly` 的完整模式仍执行原来的 Asset/标题等合同。
 
@@ -64,7 +64,7 @@ go run ./cmd/product-agent-runtime-prepare --target run
 go run ./cmd/product-agent-runtime-prepare --target review
 ```
 
-标准后端镜像也包含 `/app/product-agent-runtime-prepare`。当前入口沿[共享通道合同](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)，仅适用于另行获准的新空 Run DB，不用于保留旧库升级。命令不创建角色或密码；原安装负责人须预备合格的 product_agent_runtime、title_credential_writer、ai_channel_secret_reader。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_channel_connections`、`ai_channel_connection_receipts` 四表组全缺时按当前 owner 定义创建，并建立准确的去密投影；旧 ai_client_credentials 存在、部分组或漂移均拒绝。`ai_invocations` 由当前调用计量 owner 的新安装路径先准备，preparer 只验证完整合同，不创建或 ALTER。Review 只验证已有六表。精确权限由当前 owner 展开；不授 serving/writer DDL、删除、owner 或 grant option，不重置现共享 ACL。AI 全关时不打开 secret reader 池，但管理仍要求合法的通道元数据投影。
+标准后端镜像也包含 `/app/product-agent-runtime-prepare`。当前入口沿[共享通道合同](../../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)，仅适用于另行获准的新空 Run DB，不用于保留旧库升级。命令不创建角色或密码；原安装负责人须预备合格的 product_agent_runtime、title_credential_writer、ai_channel_secret_reader。Run 仅在 `product_agent_runs`、`product_agent_tool_calls`、`ai_channel_connections`、`ai_channel_connection_receipts` 四表组全缺时按当前 owner 定义创建，并建立准确的去密投影；旧 ai_client_credentials 存在、部分组或漂移均拒绝。`ai_invocations` 由当前调用计量 owner 的新安装路径先准备，preparer 只验证完整合同，不创建或 ALTER。Review 只验证已有六表。精确权限由当前 owner 展开；不授 serving/writer DDL、删除、owner 或 grant option，不重置现共享 ACL。AI 全关时不打开 secret reader 池，但管理仍要求合法的通道元数据投影。
 
 既有数据库 owner `product_agent_owner` / `acquisition_owner` 沿正式 bootstrap 与原 schema 入口可为 LOGIN；原 native 同样接受合格的 NOLOGIN owner，通过固定 owner 或有权 SET ROLE 的管理员执行。它只拒绝这些 owner 的 superuser/createdb/createrole/replication/bypassrls 超额能力，不改其登录属性、密码、成员关系或原授权。不能为了运行工具将原 LOGIN owner 改为 NOLOGIN；serving/writer 的独立角色与限定权限检查继续保持。
 
@@ -81,7 +81,7 @@ profile：用途 client、供应商、模型、endpoint 准入、版本化参考
 维护连接不自动启用执行，也不借用 title/planning 策略。当前支持已准入的 OpenAI 兼容与 Claude
 原生 route；仅标题能力准入的 Google Interactions adapter 不适用于商品内容。
 
-当前私密输入和前置以[共享通道维护入口](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)为准：新空 Run DB 的连接、回执及去密视图合格，独立受限 writer 已准备，配置读取角色不得读取 Key。
+当前私密输入和前置以[共享通道维护入口](../../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)为准：新空 Run DB 的连接、回执及去密视图合格，独立受限 writer 已准备，配置读取角色不得读取 Key。
 命令不创建表、角色或修补权限；缺项时由原安装负责人提出独立安装方案，不替换成 serving/管理员身份。
 连接命令使用 organizationId、actorId、requestKey、connectionId、expectedRevision、provider、channel、account、region、受控 baseURL、enabled、apiKey 及 writerDatabase；首次 expectedRevision 为 0，轮换/停用必须携带准确当前版本。
 writer 必须连接同一 host/port/database 并使用已准备的 title_credential_writer，不得替换成 owner、管理员、serving 或配置 writer；原 action/consumer/clientName/model/apiStyle/timeoutSecond 输入已退休，不映射兼容。
