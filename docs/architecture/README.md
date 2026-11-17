@@ -212,7 +212,7 @@
 
 - [AI 领域候选导航：#132 标题对照与先导评测](domains/ai/README.md) — 两份独立设计尚未准入；真实模型/费用执行未授权
 
-- `agent-customization.md` — [智能体定制需求与人工进度 V1](agent-customization.md)
+- `domains/ai/agent-customization.md` — [智能体定制需求与人工进度 V1](domains/ai/agent-customization.md)
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
 - `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
@@ -235,7 +235,7 @@
 - `domains/listing/platform-listing-materials-agent.md` — [平台上架资料智能体 v1](domains/listing/platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
 - `private-agent-delivery.md` — [指定企业私有智能体交付 V1](private-agent-delivery.md)
-- `product-agent-google-interactions.md` — [Product Agent Google Interactions 标题路由增量合同](product-agent-google-interactions.md)
+- `domains/ai/product-agent-google-interactions.md` — [Product Agent Google Interactions 标题路由增量合同](domains/ai/product-agent-google-interactions.md)
 - `product-agent-runtime-contract.md` — [Product Agent 最小运行合同与接入依赖](product-agent-runtime-contract.md)
 - `product-agent-text-provider-neutral.md` — [Product Agent 标题文本供应商可替换合同（候选）](product-agent-text-provider-neutral.md)
 - `product-selection-comparison-agent.md` — [Product selection comparison Agent v1](product-selection-comparison-agent.md)
@@ -250,24 +250,24 @@
 
 ## 图片执行、预算与恢复
 
-- `bailian-product-image-wiring.md` — [百炼商品图片接线 V1](bailian-product-image-wiring.md)
+- `domains/ai/bailian-product-image-wiring.md` — [百炼商品图片接线 V1](domains/ai/bailian-product-image-wiring.md)
 - `domains/ai/generic-image-template-entry.md` — [通用图片模板与技能入口带入](domains/ai/generic-image-template-entry.md)
 - `domains/ai/grsai-vip-image-binding.md` — [GRSAI VIP 图片可选绑定 V1](domains/ai/grsai-vip-image-binding.md)
 - `domains/ai/image-agent-budget-authorization.md` — [Image Agent Budget Authorization Design](domains/ai/image-agent-budget-authorization.md)
 - `domains/ai/image-agent-candidate-release-gate.md` — [Image Agent Candidate Release Gate Design](domains/ai/image-agent-candidate-release-gate.md)
 - `domains/ai/image-agent-effect-finalization.md` — [Image Agent external-effect finalization design](domains/ai/image-agent-effect-finalization.md)
-- `image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](image-agent-effect-policy.md)
+- `domains/ai/image-agent-effect-policy.md` — [Image Agent V3 Effect Policy Design](domains/ai/image-agent-effect-policy.md)
 - `domains/ai/image-agent-effect-recovery.md` — [Image Agent External Effect Recovery Workflow Design](domains/ai/image-agent-effect-recovery.md)
 - `domains/ai/image-agent-effect-terminalization.md` — [Image Agent Effect Terminalization Design](domains/ai/image-agent-effect-terminalization.md)
 - `domains/ai/image-agent-recovery.md` — [Image Agent Recovery and Compatibility Design](domains/ai/image-agent-recovery.md)
 - `domains/ai/image-agent-workflow.md` — [Image Agent Workflow](domains/ai/image-agent-workflow.md)
 - `domains/ai/image-api-event-read-permissions.md` — [Image API event-read permission correction](domains/ai/image-api-event-read-permissions.md)
 - `image-download-safety.md` — [Image Download Safety Boundary Design](image-download-safety.md)
-- `image-plan-optional-route.md` — [Single-product image plan optional route V1](image-plan-optional-route.md)
+- `domains/ai/image-plan-optional-route.md` — [Single-product image plan optional route V1](domains/ai/image-plan-optional-route.md)
 - `domains/ai/image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](domains/ai/image-text-language-confirmation.md)
 - `product-image-agent.md` — [商品图片智能体 V1 — 完整图片能力设计](product-image-agent.md)
 - `source-white-background.md` — [来源商品白底图与资源结算合同](source-white-background.md)
-- `vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](vip-original-output-recovery.md)
+- `domains/ai/vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](domains/ai/vip-original-output-recovery.md)
 
 <a id="workspace"></a>
 
