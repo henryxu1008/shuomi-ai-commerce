@@ -5,8 +5,9 @@ import {SupplyMarketPage,SupplyProductPage} from "./market";
 import {shippingRegions} from "@/test/fixtures/shipping-regions";
 const calls=vi.hoisted(()=>({list:vi.fn(),read:vi.fn(),execute:vi.fn(),saved:null as null|{releaseId:string;collection:object}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>({user:{id:"actor"},permissions:[]})}));
-vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:calls.list,readMarket:calls.read,listMarketRecords:async()=>{throw new Error("no platform access")}}));
+vi.mock("@/lib/api/supply-market",async original=>({...await original<object>(),listMarket:calls.list,listBrowseCategories:async(_scope:unknown,_channel:string,parentId?:string)=>parentId?{items:[{id:childCategory,parentId:rootCategory,name:"收纳用品"}],total:1}:{items:[{id:rootCategory,name:"家居日用"}],total:1},readMarket:calls.read,listMarketRecords:async()=>{throw new Error("no platform access")}}));
 vi.mock("./shared",async original=>({...await original<object>(),MarketBoundary:({children}:{children:(scope:{userId:string;organizationId:string})=>unknown})=>children({userId:"actor",organizationId:"org"}),useMarketCommands:()=>({execute:calls.execute,locked:false,saved:calls.saved,notice:null})}));
+const rootCategory="22222222-2222-4222-8222-222222222222",childCategory="33333333-3333-4333-8333-333333333333";
 const sample={added:false,prices:[],merchant:{state:"unverified"},id:"11111111-1111-4111-8111-111111111111",revision:3,active:true,publishedAt:"2026-11-15T00:00:00Z",product:{title:"【合成示例】折叠收纳箱",description:"仅供流程试用",images:["https://example.com/sample.png"]},supply:{province:"浙江省",city:"杭州市",stock:60,minimumQuantity:2,leadDays:3}};
 function show(node:React.ReactNode,seedRegions=true){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});if(seedRegions)client.setQueryData(["region-catalog","actor","shipping","CN"],shippingRegions);return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)}
 beforeEach(()=>{vi.clearAllMocks();calls.saved=null;calls.list.mockResolvedValue({items:[],total:0});});
@@ -124,6 +125,17 @@ it("keeps keyword search available when the shipping catalog cannot load",async(
  fireEvent.change(screen.getByRole("textbox",{name:"商品关键词"}),{target:{value:"收纳箱"}});
  fireEvent.click(screen.getByRole("button",{name:"搜索"}));
  await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:"official",keyword:"收纳箱",after:undefined}));
+});
+
+it.each(["official","selected"] as const)("sends a category with the current %s channel and keyword",async(channel)=>{
+ show(<SupplyMarketPage channel={channel}/>);
+ await screen.findByRole("option",{name:"家居日用"});
+ fireEvent.change(screen.getByRole("combobox",{name:"一级类目"}),{target:{value:rootCategory}});
+ await screen.findByRole("option",{name:"收纳用品"});
+ fireEvent.change(screen.getByRole("combobox",{name:"二级类目"}),{target:{value:childCategory}});
+ fireEvent.change(screen.getByRole("textbox",{name:"商品关键词"}),{target:{value:"收纳箱"}});
+ fireEvent.click(screen.getByRole("button",{name:"搜索"}));
+ await waitFor(()=>expect(calls.list.mock.calls.at(-1)![1]).toEqual({kind:channel,categoryId:childCategory,keyword:"收纳箱",after:undefined}));
 });
 
 it("loads the same China catalog as account settings and sends the existing shipping labels", async () => {

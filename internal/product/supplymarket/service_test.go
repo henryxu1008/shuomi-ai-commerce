@@ -40,6 +40,9 @@ type serviceRepository struct {
 	selected *SelectedProduct
 }
 
+func (r *serviceRepository) ListCategories(context.Context, CategoryQuery) (Page[Category], error) {
+	return Page[Category]{}, nil
+}
 func (r *serviceRepository) ReadMarketData(_ context.Context, _ collection.Scope, ids []string) (map[string]MarketData, error) {
 	result := map[string]MarketData{}
 	for _, id := range ids {

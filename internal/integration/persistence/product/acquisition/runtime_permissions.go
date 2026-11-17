@@ -115,7 +115,8 @@ const marketPrivileges = `,('supply_market_records','SELECT'),('supply_market_re
  ('supply_market_events','SELECT'),('supply_market_events','INSERT'),
  ('supply_market_releases','SELECT'),('supply_market_releases','INSERT'),('supply_market_releases','UPDATE'),
  ('supply_market_commands','SELECT'),('supply_market_commands','INSERT'),
- ('supply_market_private_uploads','SELECT'),('supply_market_private_uploads','INSERT')`
+ ('supply_market_private_uploads','SELECT'),('supply_market_private_uploads','INSERT'),
+ ('supply_market_categories','SELECT'),('supply_market_categories','INSERT'),('supply_market_categories','UPDATE')`
 const podPrivileges = `,('product_pod_operations','SELECT'),('product_pod_operations','INSERT'),('product_pod_operations','UPDATE'),
  ('product_pod_fences','SELECT'),('product_pod_fences','INSERT'),('product_pod_fences','UPDATE'),('product_pod_fences','DELETE'),
  ('product_pod_commands','SELECT'),('product_pod_commands','INSERT')`
@@ -312,7 +313,7 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 			if err := marketstore.VerifySchema(ctx, tx); err != nil {
 				return err
 			}
-			statements = append(statements, "GRANT SELECT,INSERT,UPDATE ON public.supply_market_records,public.supply_market_releases TO source_acquisition_runtime",
+			statements = append(statements, "GRANT SELECT,INSERT,UPDATE ON public.supply_market_records,public.supply_market_releases,public.supply_market_categories TO source_acquisition_runtime",
 				"GRANT SELECT,INSERT ON public.supply_market_events,public.supply_market_commands,public.supply_market_private_uploads TO source_acquisition_runtime",
 				"GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
 		}
