@@ -31,7 +31,7 @@ Out of Scope：生产代码/schema、原 35444 配置/数据/部署、真实模�
 
 ## 2. 产品依据与现状
 
-权威顺序遵循 [AGENTS](../../AGENTS.md)：本次用户明确决定 > 当前有效领域合同 > 当前 Issue。Figma 只辅助理解流程，不作为页面、布局、导航或组件标准。复用 [当前 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[结构化候选](domains/listing/completion-draft-structured.md)、[候选带入](completion-shein-import.md)、[原生诊断合同](shein-native-validator-contract.md) 和 [类目规则读取](domains/listing/listing-candidate-category-rules.md)；这些文档中的旧 Figma 权威措辞不恢复。
+权威顺序遵循 [AGENTS](../../../../AGENTS.md)：本次用户明确决定 > 当前有效领域合同 > 当前 Issue。Figma 只辅助理解流程，不作为页面、布局、导航或组件标准。复用 [当前 owner](../../project-boundaries.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)、[结构化候选](completion-draft-structured.md)、[候选带入](../../completion-shein-import.md)、[原生诊断合同](../marketplace/shein-native-validator-contract.md) 和 [类目规则读取](listing-candidate-category-rules.md)；这些文档中的旧 Figma 权威措辞不恢复。
 
 当前代码调查（不是新增产品需求）：
 

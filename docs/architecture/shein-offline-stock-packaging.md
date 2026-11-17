@@ -6,7 +6,7 @@ Design Basis 为 **Independent Architecture**。基线为 `d12b8c7633a8e3a6f02e4
 
 企业成员在现有「我的数据 → 生成 SHEIN 离线包」操作中，能看到库存是已声明的数字（含 0），还是待补。缺少 SKU 包装重量或某个尺寸时，原诊断列出待补字段及对应 SKU。已有「保存草稿」允许带缺项保存。已保存离线包、保存时诊断和报告按原版本读取。
 
-用户确认的范围是库存、包装重量和长宽高的事实保留，以及新诊断规则与已保存结果的边界。复用现有离线诊断列表和报告阅读界面，页面和入口依据 [原离线包诊断设计](report-center-shein-offline-package-source.md)、[既有诊断操作政策](shein-submit-readiness-action-policy.md)和[现行 UI/IA](../product/final-ui-ia-authority.md)。只调整诊断字段、文案与接收版本，沿用该设计引用的 [Figma 报告权威](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=31-463)。
+用户确认的范围是库存、包装重量和长宽高的事实保留，以及新诊断规则与已保存结果的边界。复用现有离线诊断列表和报告阅读界面，页面和入口依据 [原离线包诊断设计](report-center-shein-offline-package-source.md)、[既有诊断操作政策](domains/marketplace/shein-submit-readiness-action-policy.md)和[现行 UI/IA](../product/final-ui-ia-authority.md)。只调整诊断字段、文案与接收版本，沿用该设计引用的 [Figma 报告权威](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=31-463)。
 
 本批范围限正常来源发布、Catalog、离线包、诊断与报告读取。TargetRecord、SHEIN 官方 Save Draft／Publish、SKU 图片分配、仓库库存分配与同步、额外采集、包装录入页及历史数据回填另行定范围。实际环境启用与平台验收另行授权。
 
