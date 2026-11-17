@@ -138,7 +138,7 @@ references/rules.md                 # 可选
 - profile 由部署配置声明固定 CPython 镜像与标准库；不提供 pip、npm 或运行期下载安装。镜像与初始依赖由安装 owner 预备；SDK API Key 仅由服务端私密配置持有，不进入技能、浏览器、模型或 guest 的业务环境变量。
 - 继续复用个人/组织/平台的 read/edit/publish/copy/consent，执行只在当前有效企业内。个人技能必须本人可用且企业明确准入，团队技能沿当前组织 use 权限；无企业仍可编辑，不能执行。发布/复制许可不代表脚本运行许可。
 - 脚本开放通过本次明确注册的消费者版本、服务端固定 profile、现企业 Agent 准入和用户本次准确选择共同决定。现 allow_personal/default/full_access 均不单独授予代码执行权；配置或策略缺失 fail closed，不新建 IAM/权限管理平台。
-- prepare/Claim 前读取准确包并冻结 descriptor；脚本派发前与结果/Review 使用前分别复验 live identity、org/member、Agent activation、Skill use、模式与 descriptor。沿原 fence 使用，调用有硬超时；撤销后不得启动新动作。已进入执行的在途任务可能完成，结果仍须通过当前门槛，不承诺瞬间远程撤销。
+- prepare/Claim 前读取准确包并冻结 descriptor；脚本派发前与结果/Review 使用前分别复验 live identity、org/member、Agent activation、Skill use、模式与 descriptor。沿原 fence 使用，调用有硬超时；撤销后不得启动新动作。已进入执行的在途任务可能完成，结果仍须通过当前门槛，不承诺瞬间远程撤销。 已完成的自有商品标题脚本结果走人工审核时，执行启停与审核授权的范围见[暂停新启动后的商品标题脚本人工审核](paused-title-script-review.md)。
 
 模型材料只包含已批准的 SKILL.md/参考说明及声明性执行摘要，**脚本源码和 runtime manifest 不作为模型可执行指令注入**。prepare、Quote、Decide 对相同材料投影保持一致，代码不因执行后结果进入而偷偷增加模型调用。该投影是显式新策略，不改变文本包原有输入合同。
 
