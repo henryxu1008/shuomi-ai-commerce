@@ -78,7 +78,7 @@ docs/
 - [#1359](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1359)：`completion-draft-internal-note.md` 迁入 `architecture/domains/listing/`，保留 Listing CompletionDraft 已冻结合同。
 - [#1361](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1361)：两份 Listing CompletionDraft 历史/恢复架构合同成组迁入 `architecture/domains/listing/`，原 Operations 使用说明继续独立维护。
 
-对应 CSV 二十行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
+对应 CSV 二十二行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
 
 - [#1363](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1363)：`CompletionDraft` 结构化候选冻结合同由架构根层迁至 `architecture/domains/listing/`；相邻 Product 与 Operations 同名文档各自保留业务/使用说明职责，不进行内容合并。
 - [#1366](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1366)：C3-2 SHEIN 候选类目规则查询与只读解释合同归入 `architecture/domains/listing/`；Marketplace RuleReader/Provider 仍提供原规则，不变更 C3-2 R1 准入与不可采用边界。
@@ -88,6 +88,8 @@ docs/
 - [#1378](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1378)：TEMU、TikTok Shop US、Walmart US 三份**官方合同证据**归入 `architecture/domains/marketplace/`；这些是既有公开接口调查的有界快照，不改变原产品设计准入、商家授权范围、UNKNOWN/NOT_RUN 或真实发布资格。
 - [#1380](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1380)：TEMU、TikTok Shop US、Walmart US 三份跨 Store、Listing、Marketplace 的平台专项总设计统一移至 Marketplace 阅读目录；各原事实 Owner、实施许可、未解决真实商家授权/官方规格缺口及历史 NOT_RUN 均保持，不据目录改变权威。
 - [#1383](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1383)：SHEIN 首次上架/状态回读、TikTok 发送前 no-send 与显式重试、Walmart Feed 拒绝修复/有界续读三份原 Submission/结果恢复合同迁入 `architecture/domains/listing/`，保留 Marketplace 官方协议来源、原权限/Unknown/人工确认和历史适用边界；不得把移动误认为产品实际已发布或原恢复门禁放宽。
+
+- [#1386](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1386)：Provider-neutral AI 合同与关闭新执行/保留历史读取合同归入 `architecture/domains/ai/`；保留原状态、权限、预算和运行 NOT_RUN。
 
 ## 4. 逐文件清单的解释
 

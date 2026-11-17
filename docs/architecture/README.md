@@ -91,7 +91,7 @@
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
 - `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，用户决定改为周更，周更增量 IMPLEMENTATION_READY，现场启用须单独授权。
 - `bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](bailian-deepseek-shared-text-admission.md)
-- `ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](ai-disabled-application-lifecycle.md)
+- `ai-disabled-application-lifecycle.md` — [关闭新 AI 执行时保留完整应用、配置与历史读取](domains/ai/ai-disabled-application-lifecycle.md)
 - `openai-flare-image-generation.md` — [Flare 图片参考估算冻结设计与实现（#1078，原报价与账本）](openai-flare-image-generation.md)
 - `shared-channel-credentials.md` — [渠道凭据与模型定义分离（冻结合同，#1089已合入）](shared-channel-credentials.md)
 - `eino-model-admission.md` — [Eino多厂商模型按需准入（冻结设计与实施合同；交付证据见PR #1093）](eino-model-admission.md)
@@ -215,7 +215,7 @@
 - `agent-knowledge-context.md` — [Agent + Knowledge Context V1](agent-knowledge-context.md)
 - `knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](knowledge-original-file-deletion.md)
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
-- `ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](ai-provider-contracts.md)
+- `ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](domains/ai/ai-provider-contracts.md)
 - `commerce-tool-canonical-inspection.md` — [B0 Canonical Product Inspection Tool 设计](commerce-tool-canonical-inspection.md)
 - `commerce-tool-foundation.md` — [Phase 2A 商业工具（Commerce Tool）基础设计](commerce-tool-foundation.md)
 - `product-image-facts-advice.md` — [图片事实检查与非执行性建议：C2-1 / C3-1（R1 冻结，实现见 #1076）](product-image-facts-advice.md)

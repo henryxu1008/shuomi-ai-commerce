@@ -18,7 +18,7 @@ Status: **IMPLEMENTATION_READY（仅离线实施）**。Design Basis: **Independ
 任务/结果、研究证据与配置入口，同时采集关闭后启动及GET均不启动/恢复采集，也不新增采集费用。
 没有新页面、菜单或产品流程；沿[数据服务](data-services.md) §2 的现Figma/Product Authority、
 [研究/选品](market-research-selection.md)和[当前UI/IA](../product/final-ui-ia-authority.md)，未开放能力如实显示原因。
-复用[数据服务原授权合同](data-services-native-authorization.md)、[AI关闭态生命周期](ai-disabled-application-lifecycle.md)、
+复用[数据服务原授权合同](data-services-native-authorization.md)、[AI关闭态生命周期](domains/ai/ai-disabled-application-lifecycle.md)、
 [共享通道凭据](shared-channel-credentials.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
 
 Scope：数据服务的配置→运行装配→HTTP consumer→DataAcquisition原读取逻辑；
