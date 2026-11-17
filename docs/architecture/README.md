@@ -117,6 +117,9 @@
 
 ## 商品、资产与草稿
 
+- [Listing 领域导航：候选草稿、四阶段刊登、人工审核和原提交回执](domains/listing/README.md) — 只定位原合同，不新建 Listing/Review/Product 事实 Owner
+
+
 - `own-product-sku-packaging.md` — [自有商品逐 SKU 含包装事实录入](own-product-sku-packaging.md)
 - `completion-draft-history.md` — [待补全草稿保存历史与比较 v1](completion-draft-history.md)
 - `completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](completion-draft-restore.md)
@@ -148,6 +151,9 @@
 <a id="store"></a>
 
 ## 店铺、平台与履约
+
+- [Marketplace 领域导航：SHEIN、TEMU、TikTok Shop、Walmart 的现行协议和发布门禁](domains/marketplace/README.md) — Store 授权、Listing 提交与平台 adapter 权责分离
+
 
 - `amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](amazon-condition-quotes-draft.md)
 - `completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](completion-shein-import.md)
@@ -250,6 +256,9 @@
 <a id="workspace"></a>
 
 ## 工作台、项目与任务投影
+
+- [AI Workbench 领域导航：Chat、BusinessTask、Project、原生运行、定时计划与报告](domains/workbench/README.md) — 已有商品内容计划保留，当前新建定时任务只开放店铺经营日报
+
 
 - `chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](chat-visible-store-query.md) · #1259 独立架构评审通过；实施与试用尚未授权。
 - `chat-selected-store-context.md` — [硕米 Chat 选择店铺背景](chat-selected-store-context.md) · 已连接店铺选择及权限校验。
