@@ -246,7 +246,7 @@ docs/architecture/zenrows-shein-us-trial-adapter.md,architecture,research,10066,
 docs/development/local-product-acceptance.md,development,platform,4412,REVIEW_MOVE,docs/development/guides/local-product-acceptance.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/development/README.md,development,cross-cutting,1272,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/development/repository-structure.md,development,platform,5263,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
-docs/development/secret-management.md,development,platform,2080,REVIEW_MOVE,docs/development/guides/secret-management.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/development/guides/secret-management.md,development,platform,2080,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; credential boundaries retained
 docs/development/shuomi-design-system-assets.csv,development,cross-cutting,88367,KEEP_ASSET,,,PROPOSED_ONLY,non-Markdown asset
 docs/development/shuomi-design-system-baseline.md,development,cross-cutting,10833,REVIEW_MOVE,docs/development/ui/shuomi-design-system-baseline.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/development/shuomi-design-system-pilots.md,development,cross-cutting,9366,REVIEW_MOVE,docs/development/ui/shuomi-design-system-pilots.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
@@ -319,7 +319,7 @@ docs/operations/own-product-rich-description.md,operations,catalog,4686,REVIEW_C
 docs/operations/own-product-source-media-trial.md,operations,catalog,4092,REVIEW_CROSS_LAYER,docs/operations/runbooks/own-product-source-media-trial.md,docs/architecture/own-product-source-media-trial.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/operations/product-agent-trial.md,operations,ai,13000,REVIEW_LIFECYCLE,docs/operations/runbooks/product-agent-trial.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
 docs/operations/product-image-agent.md,operations,catalog,14873,REVIEW_CROSS_LAYER,docs/operations/user-guides/product-image-agent.md,docs/architecture/product-image-agent.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
-docs/operations/project-center.md,operations,platform,4288,REVIEW_MOVE,docs/operations/user-guides/project-center.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/operations/user-guides/project-center.md,operations,platform,4288,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; permission and installation boundaries retained
 docs/operations/README.md,operations,cross-cutting,4221,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/operations/runbooks/research-assessment-install.md,operations,research,3794,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; installation authorization retained
 docs/operations/selected-application-multi-product.md,operations,catalog,5392,REVIEW_CROSS_LAYER,docs/operations/user-guides/selected-application-multi-product.md,docs/architecture/selected-application-multi-product.md | docs/product/selected-application-multi-product.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content

@@ -1,6 +1,6 @@
 # 项目中心首版交接
 
-执行 Issue：[#624](https://github.com/qq550723504/task-processor/issues/624)。设计依据：[项目中心架构](../architecture/ai-workbench-project-center.md)。
+执行 Issue：[#624](https://github.com/qq550723504/task-processor/issues/624)。设计依据：[项目中心架构](../../architecture/ai-workbench-project-center.md)。
 
 当前交付供独立验证和用户试用。开发检查不代表产品验收；真实企业/真实资源操作、部署、现存数据库 DDL 和付费 AI 调用未执行。
 

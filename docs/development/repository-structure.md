@@ -34,7 +34,7 @@ Framework、Transport、Workflow、Persistence、Provider SDK、Marketplace Clie
 - 图片异步执行：`cmd/image-agent-temporal-worker`，运行与恢复见[图片操作说明](../operations/product-image-agent.md)。
 - `cmd/*-schema-init`、`commercial-owner-schema-migrate`、`product-acquisition-init`、`supply-asset-init` 等是显式安装命令。只在对应合同和目标环境授权内使用，serving runtime 不执行 DDL。
 - 试用数据、凭据 provision 和 runtime prepare 命令遵守其对应操作合同；命令存在不表示可向保留实例执行。
-- 私有配置使用当前显式 JSON manifest 与 secret file 路径，具体值不提交仓库；见[凭据管理](secret-management.md)。
+- 私有配置使用当前显式 JSON manifest 与 secret file 路径，具体值不提交仓库；见[凭据管理](guides/secret-management.md)。
 - 镜像构建使用[显式 Git 版本入口](../operations/application-image-build.md)，构建和部署分别授权。
 
 ## 工作树与本地产物

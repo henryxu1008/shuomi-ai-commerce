@@ -36,7 +36,7 @@
 
 - 标题与图片：[Product Agent](product-agent-trial.md)、[图片智能体](product-image-agent.md)、[Chat 到业务任务](ai-workbench-chat-trial.md)。
 - 预约与周期内容建议：[定时任务 V1](ai-workbench-scheduled-tasks.md)。
-- 工作组织：[项目中心](project-center.md)、[统一任务中心](../engineering/unified-task-center.md)。
+- 工作组织：[项目中心](user-guides/project-center.md)、[统一任务中心](../engineering/unified-task-center.md)。
 - 配置与授权：[企业智能体](organization-agent-configuration.md)、[执行权限模式](enterprise-agent-permission-modes.md)、[Skill](skill-capability.md)。
 - 定制交付：[智能体定制](agent-customization-handoff.md)。
 - 试用与成员资源：[Local 非现金 AI 试用](local-ai-trial.md)、[成员资源](member-resources.md)。
