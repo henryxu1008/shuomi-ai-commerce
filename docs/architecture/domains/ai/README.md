@@ -21,6 +21,13 @@
 
 目录移动不改变 #1276、#774 的产品决定，也不授权实例发布、真实模型调用或付费。
 
+## 图片方案与执行职责
+
+- [通用图片模板与技能入口](generic-image-template-entry.md)：准确 Skill 版本和企业模板选择的历史设计，真实调用预算及用户验收仍沿原门禁。
+- [Image Agent Workflow](image-agent-workflow.md)：Run/Plan/Slot、Temporal 编排、派发保护、UNKNOWN、显式人工批准及不可重复副作用的原有职责说明。
+
+上述路径归类不变更原 #774 产品决定、执行状态、权限或模型预算。
+
 ## 图片语言与 API 最小权限合同
 
 - [目标语言、已确认文案与不可变计划](image-text-language-confirmation.md)：沿原 Review、准确模板/Skill、预算及人工确认，不覆盖历史未完成真实效果。
