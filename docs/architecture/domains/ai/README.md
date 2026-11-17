@@ -53,3 +53,10 @@
 - [Image Agent Candidate Release Gate](image-agent-candidate-release-gate.md)：候选 worker 的隔离兼容验证及生产提升边界；不代表已有部署许可。
 
 仅迁移历史合同的阅读位置，不改变预算、权限、真实 worker 发行或环境状态。
+
+## AI 供应商准入与受控绑定
+
+- [DeepSeek 共享文字参考价准入](bailian-deepseek-shared-text-admission.md)：保留原 #1075/#1078 参考估算、配额、原账本及离线接线边界，不将候选费率视为真实账单。
+- [GRSAI VIP 图片绑定](grsai-vip-image-binding.md)：保留原 #840 准确型号、版本、凭据、medium/1024 约束及后续可选路线的新决定，不自动发布绑定。
+
+以上合同只调整所在目录，不改变已有模型路由、凭据身份、预算、UNKNOWN 或真实运行资格。

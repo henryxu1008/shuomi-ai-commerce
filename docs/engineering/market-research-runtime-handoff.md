@@ -8,7 +8,7 @@
 
 ## 当前离线交付：参考价贯通研究与选品（2026-11-04）
 
-按用户最新决定，已消费 #1078 公共合同 5cc8248e5d659e3004c2c6686c582528c8fdd0d4，沿 #1075 原工作区实现参考价估算、按消费类别检查可用性和完整离线业务交接。当前可审查依据为[接线合同](../architecture/bailian-deepseek-shared-text-admission.md)与[Local Account Center 配置差异](selection-shared-model-wiring-preview.md)。逐次厂商精确价、峰闲时点、全缓存分项及厂商硬界研究退出当前前置，CANCELLED/DEFERRED 不记为 PASS。
+按用户最新决定，已消费 #1078 公共合同 5cc8248e5d659e3004c2c6686c582528c8fdd0d4，沿 #1075 原工作区实现参考价估算、按消费类别检查可用性和完整离线业务交接。当前可审查依据为[接线合同](../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)与[Local Account Center 配置差异](selection-shared-model-wiring-preview.md)。逐次厂商精确价、峰闲时点、全缓存分项及厂商硬界研究退出当前前置，CANCELLED/DEFERRED 不记为 PASS。
 
 离线路径：同一项目关联保存的合成资料 → 选 2–5 项 → 冻结参考价及预算确认 → 原共享配置/DeepSeek受控适配只读建议 → 人工决定和理由 → 原 Preparation HTTP 精确子集转入；同键重放不重复转入/调用/结算。项目/来源上游和 provider 使用合成资料，真实领域、配置、Invocation、资源账本和 Collection/Preparation owner 执行原代码。价格/费用提示明确为估算，原权限、模式、预算和 UNKNOWN 保护保持。未开放图片生成不再阻止文字保存和使用。
 
@@ -30,7 +30,7 @@
 
 ## 最新Scope：新空安装与DeepSeek准入设计（2026-11-03）
 
-用户最新决定旧设计/旧业务数据无需承接，撤回下方保留原历史/余额/预留和53列演进方案；不再把该演进当作新系统交付前置，不按旧合同恢复调用或账本。现阶段仅完成[DeepSeek共享文字准入设计](../architecture/bailian-deepseek-shared-text-admission.md)与适用独立检查；沿原owner的新空schema/微点/共享current合同，真实资格缺证仍关闭。
+用户最新决定旧设计/旧业务数据无需承接，撤回下方保留原历史/余额/预留和53列演进方案；不再把该演进当作新系统交付前置，不按旧合同恢复调用或账本。现阶段仅完成[DeepSeek共享文字准入设计](../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)与适用独立检查；沿原owner的新空schema/微点/共享current合同，真实资格缺证仍关闭。
 
 此决定不授权立即删除现有数据库/卷或更新实例，不改凭据、不发布配置、不真实采集/AI/付费、不合并。预算每项¥0.30/20点、两项各一次总¥0.60/40点保持。旧阶段记录保留其历史范围，以本节为当前执行范围。
 
