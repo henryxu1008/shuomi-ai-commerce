@@ -53,7 +53,10 @@ function classifyChangedPaths(paths, { full = false } = {}) {
     const repositoryMarkdown =
       path === "AGENTS.md" ||
       path === "README.md" ||
-      (matchesPrefix(path, "docs") && path.endsWith(".md"));
+      (matchesPrefix(path, "docs") && path.endsWith(".md")) ||
+      // These are maintained documentation inventories, not CI inputs.
+      path === "docs/document-inventory.csv" ||
+      path === "docs/development/shuomi-design-system-assets.csv";
 
     const backendSource =
       path === "go.mod" ||
