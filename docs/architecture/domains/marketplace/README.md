@@ -6,7 +6,7 @@
 
 | 平台 | 当前领域合同 | 实际代码入口 |
 | --- | --- | --- |
-| SHEIN 美国站 | [SHEIN 发布、审核与首次上架](../../shein-publication-flow.md)、[原生校验](../../shein-native-validator-contract.md) | `internal/marketplace/shein`、`internal/listing/submission` |
+| SHEIN 美国站 | [SHEIN 发布、审核与首次上架](../../shein-publication-flow.md)、[原生校验](shein-native-validator-contract.md)、[提交动作分类](shein-submit-readiness-action-policy.md) | `internal/marketplace/shein`、`internal/listing/submission` |
 | TEMU（模式和站点须分别准入） | [TEMU 设计](../../temu-platform.md)、[官方合同证据](../../temu-official-contract-evidence.md) | `internal/marketplace/temu` |
 | TikTok Shop 美国跨境 | [TikTok Shop US](../../tiktok-shop-us.md)、[发送前恢复](../../tiktok-pre-dispatch-no-send.md) | `internal/marketplace/tiktokshop` |
 | Walmart 美国站 | [Walmart US](../../walmart-us.md)、[Feed 恢复](../../walmart-feed-recovery.md) | `internal/marketplace/walmart` |

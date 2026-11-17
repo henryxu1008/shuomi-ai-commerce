@@ -38,13 +38,13 @@ Out of Scope：
 
 ## 2. Product / Architecture / Figma Authority
 
-- [业务智能体职责](../product/business-agent-responsibilities.md)：平台资料修改属于 Listing owner；内容属于 Review/Catalog；full 不是外部发布授权。
-- [平台资料 Agent 冻结设计](domains/listing/platform-listing-materials-agent.md)：准确 Target、Store/rules、批准素材、领域候选、四模式与本地采用；远端发布 Out of Scope。
-- [SHEIN 供应链](my-supply-chain-shein.md)：native 官方模型、准确 owner refs、live 授权和实际上传。
-- [中立 Validator 合同](../../internal/marketplace/validator/README.md)：确定性、scope、结构化结果、零业务副作用，不授权提交。
-- [Agent 运行合同](product-agent-runtime-contract.md)：固定验证、repair≤2、准确候选/输入绑定、未知结果不自动重放。
-- [原离线报告](report-center-shein-offline-package-source.md)与[原生资料报告](report-center-shein-target-source.md)：两个来源和历史结果含义分开。
-- [Greenfield](../product/greenfield-no-legacy-migration.md)、[当前系统边界](project-boundaries.md)。
+- [业务智能体职责](../../../product/business-agent-responsibilities.md)：平台资料修改属于 Listing owner；内容属于 Review/Catalog；full 不是外部发布授权。
+- [平台资料 Agent 冻结设计](../listing/platform-listing-materials-agent.md)：准确 Target、Store/rules、批准素材、领域候选、四模式与本地采用；远端发布 Out of Scope。
+- [SHEIN 供应链](../../my-supply-chain-shein.md)：native 官方模型、准确 owner refs、live 授权和实际上传。
+- [中立 Validator 合同](../../../../internal/marketplace/validator/README.md)：确定性、scope、结构化结果、零业务副作用，不授权提交。
+- [Agent 运行合同](../../product-agent-runtime-contract.md)：固定验证、repair≤2、准确候选/输入绑定、未知结果不自动重放。
+- [原离线报告](../../report-center-shein-offline-package-source.md)与[原生资料报告](../../report-center-shein-target-source.md)：两个来源和历史结果含义分开。
+- [Greenfield](../../../product/greenfield-no-legacy-migration.md)、[当前系统边界](../../project-boundaries.md)。
 
 本轮不设计新页面、按钮、人工流程或页面命名。沿平台资料原设计引用的当前 Figma Product Authority（我的智能体/配置/确认及 Supply 资料页）；没有重新读 Figma 或执行浏览器/视觉验收。若实现必须改变页面职责，停止并报告，不能从公共诊断类型推导额外 UI。
 

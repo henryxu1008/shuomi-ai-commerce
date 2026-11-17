@@ -179,11 +179,11 @@
 - `controlled-local-platform-draft.md` — [原35444受控本地平台草稿接线](controlled-local-platform-draft.md)；#1158 固定试点合同，测试记录永久不可发布；实例级互斥的最新决定见共存设计，实施/运行证据在 Issue。
 - `local-and-official-draft-coexistence.md` — [同一实例内测试草稿与正式刊登共存](local-and-official-draft-coexistence.md)；#1158 最小方案与独立架构评审，独立本地接口用途、原 owner/保存协议及正式发布准入保持；仅设计，不授权实现或原实例操作。
 - `shein-color-split-drafts.md` — [SHEIN 按颜色拆分本地平台草稿](shein-color-split-drafts.md)；历史独立能力，已撤回作为本例必经流程的推荐，参见单商品映射设计。
-- `shein-native-validator-contract.md` — [SHEIN 原生资料公共诊断与材料 Tool v2](shein-native-validator-contract.md)
+- `domains/marketplace/shein-native-validator-contract.md` — [SHEIN 原生资料公共诊断与材料 Tool v2](domains/marketplace/shein-native-validator-contract.md)
 - `shein-offline-stock-packaging.md` — [SHEIN 离线诊断的库存和 SKU 包装缺项](shein-offline-stock-packaging.md)
 - `shein-offline-validation-input-binding.md` — [SHEIN 离线诊断输入、freshness 与组织范围读取设计](shein-offline-validation-input-binding.md)
 - `shein-publication-flow.md` — [SHEIN 美国站：审核、首次上架与状态回读最小闭环](shein-publication-flow.md)
-- `shein-submit-readiness-action-policy.md` — [SHEIN Submit Readiness Action Policy](shein-submit-readiness-action-policy.md)
+- `domains/marketplace/shein-submit-readiness-action-policy.md` — [SHEIN Submit Readiness Action Policy](domains/marketplace/shein-submit-readiness-action-policy.md)
 - `store-browser-workbench-implementation.md` — [店铺浏览器接口实施交接](store-browser-workbench-implementation.md)
 - `store-center-application.md` — [Store Center 接入 current application v1](store-center-application.md)
 - `store-center-figma.md` — [Store Center：我的店铺完整 Figma 路径 v1](store-center-figma.md)
