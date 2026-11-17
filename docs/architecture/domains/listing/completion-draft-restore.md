@@ -1,10 +1,10 @@
 # 待补全草稿：恢复历史内容为新版本
 
-2026-10-17 后续[独立上传增量](rich-description-simple-editor-images.md)将 descriptionImages 作为完整描述的资源引用：恢复时随旧描述及格式采用旧引用；保留当前 structured、固定来源及Product/SKU图片，不删除存储对象。它不开放原商品/SKU图库恢复。
+2026-10-17 后续[独立上传增量](../../rich-description-simple-editor-images.md)将 descriptionImages 作为完整描述的资源引用：恢复时随旧描述及格式采用旧引用；保留当前 structured、固定来源及Product/SKU图片，不删除存储对象。它不开放原商品/SKU图库恢复。
 
-2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+2026-10-17 格式增量见[自有商品富文本合同](../../own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
 
-后续 [结构化候选合同](completion-draft-structured.md) 明确本页仍只恢复文字，保存时必须保留当前预览head的候选属性/价格/库存；用户2026-10-15已明确选择此范围。
+后续 [结构化候选合同](../../completion-draft-structured.md) 明确本页仍只恢复文字，保存时必须保留当前预览head的候选属性/价格/库存；用户2026-10-15已明确选择此范围。
 
 Refs #708。
 
@@ -12,9 +12,9 @@ Refs #708。
 
 2026-10-15 用户批准：先明确历史内容恢复、权限和并发冲突合同，再将旧版标题/描述恢复为新保存版本；独立页面，保留返回草稿、商品和转入批次，复用现有保存及幂等能力。
 
-Design Basis: **Reuse Existing Architecture**。本功能是已批准历史精确读取与普通 Save 的有界 UI 组合，不新增恢复 API、领域命令、权限、事务、持久化事实或状态机。依据：[历史读取](completion-draft-history.md)、[未绑定草稿及 Save](supply-unbound-completion-drafts.md)、[已有草稿及导航](own-product-existing-drafts.md)、用户本次决定。用户结果是误改后可以预览旧内容，并明确保存为新版本。
+Design Basis: **Reuse Existing Architecture**。本功能是已批准历史精确读取与普通 Save 的有界 UI 组合，不新增恢复 API、领域命令、权限、事务、持久化事实或状态机。依据：[历史读取](completion-draft-history.md)、[未绑定草稿及 Save](../../supply-unbound-completion-drafts.md)、[已有草稿及导航](../../own-product-existing-drafts.md)、用户本次决定。用户结果是误改后可以预览旧内容，并明确保存为新版本。
 
-Product/Figma Authority：[当前 UI/IA](../product/final-ui-ia-authority.md)，文件 tg48P46SSXl6TBy9lZwg63 / 31:463、待补全 2667:1948；本次独立页面决定沿用现有 ConsolePage、表格、按钮和主题 token，不新增一级菜单或宣称存在新 Figma frame。
+Product/Figma Authority：[当前 UI/IA](../../../product/final-ui-ia-authority.md)，文件 tg48P46SSXl6TBy9lZwg63 / 31:463、待补全 2667:1948；本次独立页面决定沿用现有 ConsolePage、表格、按钮和主题 token，不新增一级菜单或宣称存在新 Figma frame。
 
 Owner 仍为 CompletionDraft immutable records/head/commands、Preparation 固定 source、原权限及 Console/BFF。调用路径：独立恢复页 → 现有 read source / read current / read exact Rn → 现有 useSupplyCommand 与 save-completion-draft → 原 HTTP / CompletionDraft.Service.Save → 原同库事务 CAS / command receipt。无 Legacy 消费，Legacy decision: N/A。
 
