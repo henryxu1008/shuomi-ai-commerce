@@ -22,13 +22,13 @@ Must：
 
 Out of Scope：自动重发、旧 UNKNOWN 恢复/清理、改成功 Offer、任意 SKU/Feed 查询、新轮询器/runner/验收平台、租期延长、真实平台或保留环境操作、跨次完整结果自动签发修复资格。
 
-Threat Model 沿用 [原设计](domains/marketplace/walmart-us.md) §1：本系统重放、并发、授权漂移和响应/commit 丢失；不扩大到商家其他系统的自动对账。用户未接受新风险。
+Threat Model 沿用 [原设计](../marketplace/walmart-us.md) §1：本系统重放、并发、授权漂移和响应/commit 丢失；不扩大到商家其他系统的自动对账。用户未接受新风险。
 
 ## 2. Product / Figma / 技术依据
 
-复用 [原 Walmart 设计](domains/marketplace/walmart-us.md) §2 的最终 UI/IA 与 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`、现有供应链资料及上传结果“查询平台结果”。只在原结果组件显示读取覆盖、页面时间与继续进度，不新增菜单、平台独立页面或额外人工验收步骤。
+复用 [原 Walmart 设计](../marketplace/walmart-us.md) §2 的最终 UI/IA 与 Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`、现有供应链资料及上传结果“查询平台结果”。只在原结果组件显示读取覆盖、页面时间与继续进度，不新增菜单、平台独立页面或额外人工验收步骤。
 
-复用原 ExecutionKernel、同 Product DB official UoW、Target/Asset/Store 权限合同及 [greenfield 基线](../product/greenfield-no-legacy-migration.md)。
+复用原 ExecutionKernel、同 Product DB official UoW、Target/Asset/Store 权限合同及 [greenfield 基线](../../../product/greenfield-no-legacy-migration.md)。
 
 官方依据仍为 [Feed item status](https://developer.walmart.com/us-marketplace/reference/getfeeditemstatus) 与 [Feeds overview](https://developer.walmart.com/us-marketplace/docs/feeds-overview)：includeDetails 的 offset 从 0 开始，每页 limit≤50；PROCESSED 可能仍含逐项 INPROGRESS。本轮只读文档，没有调用平台。未证实跨请求快照/稳定排序版本保证，保持 UNKNOWN；不以相同计数推导该保证。
 
