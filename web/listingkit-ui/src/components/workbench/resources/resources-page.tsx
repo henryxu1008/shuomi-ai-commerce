@@ -15,6 +15,7 @@ import { AccountShell } from "../account/account-shell";
 import { MemberPointLimits } from "./member-point-limits";
 import { MemberResources } from "./member-resources";
 import { EnterpriseStorage } from "./enterprise-storage";
+import { resourcePurchaseHref, storagePurchaseId } from "../commercial/resource-catalog-display";
 import styles from "./resources.module.css";
 
 export function ResourcesPage() {
@@ -36,7 +37,7 @@ function ScopedResources({ scope, userId, organizationId, sequence, canManage, c
   return <div className={styles.stack}>
     <section className={styles.section} aria-label="企业资源余额">
       <EnterpriseResources userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} memberResourcesAnchor="member-allowances" showObservation={false} />
-      {storageAvailable && <EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={canPurchase} />}
+      {storageAvailable && <EnterpriseStorage userId={userId} organizationId={organizationId} scope={scope} sequence={sequence} canPurchase={canPurchase} readOnly purchaseHref={resourcePurchaseHref(storagePurchaseId)} />}
     </section>
     <section className={styles.section} aria-labelledby="member-allowances">
       <h2 id="member-allowances" tabIndex={-1} className={styles.sectionTitle}>成员资源与额度</h2>

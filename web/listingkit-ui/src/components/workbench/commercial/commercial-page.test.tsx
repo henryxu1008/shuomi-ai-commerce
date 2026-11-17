@@ -102,15 +102,62 @@ it.each([false,undefined])("does not open storage entitlements when deployment a
  expect(screen.queryByRole("region",{name:"企业存储容量"})).not.toBeInTheDocument();expect(screen.queryByText(/每企业默认 5 GiB/)).not.toBeInTheDocument();expect(storage.getStorageSummary).not.toHaveBeenCalled();
 });
 it("keeps resource reads independent of an unavailable store summary",async()=>{state.read.mockRejectedValueOnce({code:"DEPENDENCY_UNAVAILABLE"});render(tree());expect(await within(screen.getByRole("region",{name:"AI 点数余额"})).findByText("9007199254.740993 点")).toBeVisible();expect(await screen.findByRole("alert")).toHaveTextContent("本次未取得基础方案");expect(screen.queryByText("AI Token 分配额度")).not.toBeInTheDocument();});
-it("reads the configured resource catalog and disables all unconfigured prices",async()=>{render(tree("options"));expect(await screen.findAllByText("价格未配置")).toHaveLength(3);for(const action of screen.getAllByRole("button",{name:"购买"}))expect(action).toBeDisabled();expect(screen.queryByRole("link",{name:"查看企业存储"})).not.toBeInTheDocument();expect(state.offers).toHaveBeenCalledWith("reader","org-B",expect.any(AbortSignal));expect(state.read).not.toHaveBeenCalled();});
-it("links enabled storage to the existing page without starting a storage request",async()=>{
-  state.context.storageCapacityAvailable=true;
+it("shows prices without purchase controls and links directly to each wallet resource",async()=>{
+  state.offers.mockResolvedValue({organization_id:"org-B",items:[{
+    offer_id:"points",product_kind:"AI_POINT",resource_type:"ai_point",currency:"CNY",
+    unit_price_minor:"7",min_quantity:"1",max_quantity:"1000",pricing_version:"v1",
+  }]});
   render(tree("options"));
-  expect(await screen.findByRole("link",{name:"查看企业存储"})).toHaveAttribute("href","/workbench/account/organization/resources");
-  expect(storage.getStorageSummary).not.toHaveBeenCalled();
-  expect(storage.getStorageOffers).not.toHaveBeenCalled();
+  expect(await screen.findByText("¥0.07 / 点")).toBeVisible();
+  expect(screen.getByRole("link",{name:/AI 点数/})).toHaveAttribute("href","/workbench/plans/top-up#ai_point");
+  expect(screen.getByRole("link",{name:/店铺服务/})).toHaveAttribute("href","/workbench/plans/top-up#store_renewal_period");
+  expect(screen.getByRole("link",{name:/数据资源/})).toHaveAttribute("href","/workbench/plans/top-up#data_row");
+  expect(screen.queryByRole("textbox",{name:"购买数量"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("link",{name:/企业存储/})).not.toBeInTheDocument();
+  expect(state.offers).toHaveBeenCalledWith("reader","org-B",expect.any(AbortSignal));
+  expect(state.wallet).not.toHaveBeenCalled();
+  expect(state.read).not.toHaveBeenCalled();
 });
-it("does not render late resource prices after an enterprise switch",async()=>{const late=deferred<{organization_id:string;items:[]}>();state.offers.mockReturnValueOnce(late.promise);const view=render(tree("options"));await waitFor(()=>expect(state.offers).toHaveBeenCalledTimes(1));const signal=state.offers.mock.calls[0][2] as AbortSignal;state.context.effectiveOrganization={id:"org-C",name:"企业丙"};state.offers.mockResolvedValue({organization_id:"org-C",items:[]});view.rerender(tree("options"));expect(await screen.findAllByText("价格未配置")).toHaveLength(3);await act(async()=>late.resolve({organization_id:"org-B",items:[]}));expect(signal.aborted).toBe(true);expect(screen.getByText(/企业丙（org-C）/)).toBeVisible();expect(screen.queryByText(/企业乙（org-B）/)).not.toBeInTheDocument();});
+
+it("keeps the purchase section available when wallet history cannot be read",async()=>{
+  state.entries.mockRejectedValue({code:"DEPENDENCY_UNAVAILABLE"});
+  render(tree("top-up"));
+  expect(await screen.findByRole("region",{name:"AI 点数购买"})).toBeVisible();
+  expect(await screen.findByRole("alert")).toHaveTextContent("账单服务暂不可用");
+});
+it("uses the storage offer on the price page and directs purchase to the wallet",async()=>{
+  state.context.storageCapacityAvailable=true;
+  storage.getStorageOffers.mockResolvedValue({organization_id:"org-B",items:[{unit_price_minor:"1990"}]});
+  render(tree("options"));
+  expect(await screen.findByText("¥19.90 / 扩容包")).toBeVisible();
+  expect(screen.getByRole("link",{name:/企业存储/})).toHaveAttribute("href","/workbench/plans/top-up#enterprise-storage");
+  expect(screen.queryByRole("button",{name:"购买扩容包"})).not.toBeInTheDocument();
+  expect(storage.getStorageSummary).not.toHaveBeenCalled();
+});
+
+it("mounts the existing storage purchase at the wallet destination only when enabled",async()=>{
+  state.context.storageCapacityAvailable=true;
+  render(tree("top-up"));
+  const purchase=await screen.findByRole("region",{name:"企业存储容量"});
+  expect(purchase.closest("#enterprise-storage")).not.toBeNull();
+  expect(within(purchase).getByRole("button",{name:"购买扩容包"})).toBeDisabled();
+  expect(storage.getStorageSummary).toHaveBeenCalledWith("reader","org-B",expect.any(AbortSignal));
+});
+it("does not render late resource prices after an enterprise switch",async()=>{
+  const late=deferred<{organization_id:string;items:[]}>();
+  state.offers.mockReturnValueOnce(late.promise);
+  const view=render(tree("options"));
+  await waitFor(()=>expect(state.offers).toHaveBeenCalledTimes(1));
+  const signal=state.offers.mock.calls[0][2] as AbortSignal;
+  state.context.effectiveOrganization={id:"org-C",name:"企业丙"};
+  state.offers.mockResolvedValue({organization_id:"org-C",items:[]});
+  view.rerender(tree("options"));
+  expect(await screen.findAllByText("价格未配置")).toHaveLength(3);
+  await act(async()=>late.resolve({organization_id:"org-B",items:[]}));
+  expect(signal.aborted).toBe(true);
+  expect(state.offers).toHaveBeenLastCalledWith("reader","org-C",expect.any(AbortSignal));
+  expect(screen.queryByText(/当前有效企业|企业乙（org-B）|企业丙（org-C）/)).not.toBeInTheDocument();
+});
 it.each([
   ["PERMISSION_DENIED", "无查看权限"], ["AUTHENTICATION_REQUIRED", "登录已失效"],
   ["ORGANIZATION_ACCESS_REVOKED", "企业访问已撤销"], ["ORGANIZATION_CONTEXT_CHANGED", "企业上下文已变化"],

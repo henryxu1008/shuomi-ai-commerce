@@ -64,7 +64,7 @@ const labels: Record<string, string> = {
   ORGANIZATION_ACCESS_REVOKED: "企业访问已撤销。",
   ORGANIZATION_CONTEXT_CHANGED: "企业已切换，请回到原企业查询订单。",
   IDENTITY_CONTEXT_CHANGED: "登录身份已变化。",
-  PAYMENT_METHOD_UNAVAILABLE: "此支付渠道暂不可用。",
+  PAYMENT_METHOD_UNAVAILABLE: "此支付方式暂不可用。",
   INVALID_REQUEST: "金额或请求无效，请检查充值范围。",
   IDEMPOTENCY_CONFLICT: "订单状态已变化，请刷新原订单。",
   RECONCILIATION_REQUIRED: "正在核对原订单，请勿重复付款。",
@@ -82,10 +82,12 @@ function canManage(permissions: string[]) {
 export function WalletTopUpEntry({
   userId,
   organizationId,
+  organizationName,
   permissions,
 }: {
   userId: string;
   organizationId: string;
+  organizationName?: string;
   permissions: string[];
 }) {
   const router = useRouter();
@@ -126,27 +128,19 @@ export function WalletTopUpEntry({
     data &&
     BigInt(minor) >= BigInt(data.min_minor) &&
     BigInt(minor) <= BigInt(data.max_minor);
+  const amountInvalid = amount !== "" && Boolean(data) && !amountValid;
+  const selectedChannel = data?.channels.find((c) => c.provider === provider);
+  const draft = available && minor && amountValid && selectedChannel?.available
+    ? { provider: selectedChannel.provider, amount: minor }
+    : null;
   async function submit(original?: Pending) {
-    if (
-      inFlight.current ||
-      !allowed ||
-      !storageReady ||
-      (!original &&
-        (!minor ||
-          !amountValid ||
-          !provider ||
-          !data?.channels.some((c) => c.provider === provider && c.available)))
-    )
-      return;
-    const intent = original ?? {
-      key: crypto.randomUUID(),
-      provider: provider as PaymentProvider,
-      amount: minor!,
-    };
+    if (inFlight.current || !allowed || !storageReady) return;
+    const intent = original ?? (draft && { ...draft, key: crypto.randomUUID() });
+    if (!intent) return;
     try {
       persist(userId, organizationId, intent);
     } catch {
-      setMessage("无法保存原充值意图，尚未发送充值请求。");
+      setMessage("无法保存本次充值信息，请重试。尚未创建订单。");
       return;
     }
     inFlight.current = true;
@@ -192,6 +186,7 @@ export function WalletTopUpEntry({
   return (
     <div className={styles.entry}>
       <Button
+        aria-haspopup="dialog"
         disabled={
           !available ||
           !allowed ||
@@ -209,19 +204,21 @@ export function WalletTopUpEntry({
       {!allowed ? (
         <p>仅企业管理员可发起充值。</p>
       ) : !available ? (
-        <p>
+        <p role="status">
           {options.isPending
-            ? "正在读取充值渠道…"
-            : "充值暂未开放：支付渠道或金额配置尚未就绪。"}
+            ? "正在查看可用的支付方式…"
+            : options.isError
+              ? "暂时无法查看支付方式，请刷新后重试。"
+              : "当前没有可用的充值方式。"}
         </p>
       ) : null}
       {!storageReady && raw !== "__loading__" ? (
-        <p role="alert">原充值意图无法读取，请先在账单与订单中核对记录。</p>
+        <p role="alert">无法恢复上次充值，请先到「账单与订单」核对。</p>
       ) : null}
       {pending ? (
-        <div role="status">
-          <p>
-            有一笔原充值意图待确认：¥{topUpMoney(pending.amount)} ·{" "}
+        <div className={styles.pending}>
+          <p role="status">
+            有一笔充值待确认：¥{topUpMoney(pending.amount)} ·{" "}
             {pending.provider === "ALIPAY" ? "支付宝" : "微信支付"}
           </p>
           {pending.orderId ? (
@@ -258,53 +255,60 @@ export function WalletTopUpEntry({
             void submit();
           }}
         >
-          <h2 id="topup-title">充值钱包</h2>
-          <p id="topup-description" className={styles.description}>
-            充值金额将进入当前企业钱包。有欠款时先偿债，渠道手续费由平台承担。充值不会自动开通套餐。
-          </p>
-          <label className={styles.field}>
-            充值金额
+          <header className={styles.dialogHeading}>
+            <h2 id="topup-title">充值钱包</h2>
+            <p id="topup-description" className={styles.description}>
+              钱款将充入{organizationName ? `「${organizationName}」` : "当前企业"}的钱包。有欠款时优先还款。
+            </p>
+          </header>
+          <div className={styles.field}>
+            <label htmlFor="topup-amount">充值金额（元）</label>
             <Input
+              id="topup-amount"
               inputMode="decimal"
               autoComplete="off"
-              placeholder="请输入充值金额（元）"
+              placeholder="输入金额，或选择快捷金额"
+              aria-describedby="topup-amount-range"
+              aria-invalid={amountInvalid || undefined}
               value={amount}
               disabled={busy || !!pending}
               onChange={(e) => setAmount(e.target.value)}
               maxLength={22}
             />
-          </label>
-          <p className={styles.range}>
-            {data && data.min_minor !== "0"
-              ? `单笔 ¥${topUpMoney(data.min_minor)} – ¥${topUpMoney(data.max_minor)}`
-              : "金额配置暂不可用"}
-          </p>
-          <fieldset disabled={busy || !!pending}>
-            <legend>快捷金额</legend>
-            <div className={styles.amounts}>
-              {data?.quick_amounts_minor.map((value) => (
-                <Button
-                  key={value}
-                  type="button"
-                  variant="outline"
-                  aria-pressed={minor === value}
-                  onClick={() => setAmount(topUpMoney(value))}
-                >
-                  ¥{topUpMoney(value)}
-                </Button>
-              ))}
-            </div>
-          </fieldset>
+            <p id="topup-amount-range" className={amountInvalid ? styles.fieldError : styles.range}>
+              {data && data.min_minor !== "0"
+                ? `${amountInvalid ? "请输入最多两位小数，且在以下范围内的金额：" : "单笔充值："}¥${topUpMoney(data.min_minor)} – ¥${topUpMoney(data.max_minor)}`
+                : "暂时无法查看充值金额范围。"}
+            </p>
+          </div>
+          {data && data.quick_amounts_minor.length > 0 ? (
+            <fieldset disabled={busy || !!pending}>
+              <legend>快捷金额</legend>
+              <div className={styles.amounts}>
+                {data.quick_amounts_minor.map((value) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant="outline"
+                    aria-pressed={minor === value}
+                    onClick={() => setAmount(topUpMoney(value))}
+                  >
+                    ¥{topUpMoney(value)}
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
           <fieldset disabled={busy || !!pending}>
             <legend>支付方式</legend>
             <div className={styles.channels}>
               {data?.channels.map((channel) => (
-                <label key={channel.provider}>
+                <label key={channel.provider} data-unavailable={!channel.available || undefined}>
                   <input
                     type="radio"
                     name="payment-provider"
                     value={channel.provider}
-                    checked={provider === channel.provider}
+                    checked={channel.available && provider === channel.provider}
                     disabled={!channel.available}
                     onChange={() => setProvider(channel.provider)}
                   />
@@ -315,7 +319,7 @@ export function WalletTopUpEntry({
                     {!channel.available
                       ? "暂不可用"
                       : channel.provider === "ALIPAY"
-                        ? "电脑网页付款"
+                        ? "打开电脑网页付款"
                         : "手机微信扫码"}
                   </span>
                 </label>
@@ -323,24 +327,24 @@ export function WalletTopUpEntry({
             </div>
           </fieldset>
           {message ? <p role="alert">{message}</p> : null}
-          <div className={styles.actions}>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy}
-              onClick={() => dialog.current?.close()}
-            >
-              取消
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                busy || !!pending || !amountValid || !provider || !available
-              }
-            >
-              {busy ? "正在创建订单…" : "确认充值"}
-            </Button>
-          </div>
+          <footer className={styles.dialogFooter}>
+            <p className={styles.payable}>
+              充值金额 <strong>{amountValid && minor ? `¥${topUpMoney(minor)}` : "—"}</strong>
+            </p>
+            <div className={styles.actions}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => dialog.current?.close()}
+              >
+                取消
+              </Button>
+              <Button type="submit" disabled={busy || !!pending || !draft}>
+                {busy ? "正在创建订单…" : "确认充值"}
+              </Button>
+            </div>
+          </footer>
         </form>
       </dialog>
     </div>
