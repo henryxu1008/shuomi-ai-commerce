@@ -71,7 +71,7 @@ const order = {
   updated_at: "2026-09-29T00:00:00Z",
 };
 let client: QueryClient;
-function tree(org = "org-B", items:ResourceOffer[] = [offer], roles = ["workbench.commercial.purchase"], planOptions?: { storageAvailable: boolean }) {
+function tree(org = "org-B", items:ResourceOffer[] = [offer], roles = ["workbench.commercial.purchase"]) {
   return (
     <QueryClientProvider client={client}>
       <ResourcePurchasePanel
@@ -79,13 +79,18 @@ function tree(org = "org-B", items:ResourceOffer[] = [offer], roles = ["workbenc
         organizationId={org}
         organizationName="企业乙"
         permissions={roles}
-        planOptions={planOptions}
         offers={{ organization_id: org, items }}
       />
     </QueryClientProvider>
   );
 }
 beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true, writable: true, value(this: HTMLDialogElement) { this.open = true; },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true, writable: true, value(this: HTMLDialogElement) { this.open = false; },
+  });
   sessionStorage.clear();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   api.quote.mockReset().mockResolvedValue(quote);
@@ -114,13 +119,11 @@ afterEach(() => {
 });
 
 it("estimates the quantity price locally and only submits after confirming the formal quote", async () => {
-  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, writable: true, value() {} });
-  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, writable: true, value() {} });
   const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
   vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function (this: HTMLDialogElement) { this.open = false; });
   api.quote.mockResolvedValue({ ...quote, amount_minor: undefined, unit_price_minor: undefined, remainder_minor: undefined });
   const user = userEvent.setup();
-  render(tree("org-B", [offer], undefined, { storageAvailable: false }));
+  render(tree("org-B", [offer]));
 
   const card = within(screen.getByRole("region", { name: "AI 点数购买" }));
   const quantity = card.getByRole("textbox", { name: "购买数量" });
@@ -148,7 +151,7 @@ it("estimates the quantity price locally and only submits after confirming the f
 
 it("estimates whole units for a budget and blocks a budget below one unit", async () => {
   const user = userEvent.setup();
-  render(tree("org-B", [offer], undefined, { storageAvailable: false }));
+  render(tree("org-B", [offer]));
   const card = within(screen.getByRole("region", { name: "AI 点数购买" }));
   await user.selectOptions(card.getByRole("combobox", { name: "购买方式" }), "amount");
   const budget = card.getByRole("textbox", { name: "金额（元）" });
@@ -167,8 +170,8 @@ it("receives exactly three zero-price rows without requiring wallet balance",asy
  const zeroQuote={...quote,offer_id:zero.offer_id,product_kind:zero.product_kind,resource_type:zero.resource_type,resource_quantity:"3",total_minor:"0",settlement_mode:"ZERO_PRICE",amount_minor:undefined,unit_price_minor:undefined,remainder_minor:undefined};
  api.quote.mockResolvedValue(zeroQuote);api.order.mockResolvedValue({...order,product_kind:"DATA_ROW",total_minor:"0",settlement_mode:"ZERO_PRICE",items:[{order_item_id:"data-item",product_kind:"DATA_ROW",resource_type:"data_row",resource_quantity:"3",amount_minor:"0"}]});
  const balance=commercialResourcesFixture("org-B");api.resources.mockResolvedValue({...balance,resources:balance.resources.map(r=>r.resource_type==="data_row"?{...r,state:"recorded",available:"3",allocated:"0",reserved:"0",consumed:"0",debt:"0",updated_at:order.created_at}:r)});
- api.wallet.mockRejectedValue(new Error("wallet unavailable"));render(tree("org-B",[zero]));const user=userEvent.setup();const card=screen.getByRole("region",{name:"数据资源购买"});await user.clear(within(card).getByLabelText("购买数量"));await user.type(within(card).getByLabelText("购买数量"),"3");expect(within(card).queryByLabelText("购买方式")).toBeNull();await user.click(within(card).getByRole("button",{name:"获取报价"}));
- const confirmation=await screen.findByRole("region",{name:"报价确认"});await user.click(within(confirmation).getByRole("button",{name:"确认领取3条"}));expect(await screen.findByText(/资源已到账/)).toBeVisible();expect(api.order).toHaveBeenCalledOnce();
+ api.wallet.mockRejectedValue(new Error("wallet unavailable"));render(tree("org-B",[zero]));const user=userEvent.setup();const card=screen.getByRole("region",{name:"数据资源购买"});await user.clear(within(card).getByLabelText("购买数量"));await user.type(within(card).getByLabelText("购买数量"),"3");expect(within(card).queryByLabelText("购买方式")).toBeNull();await user.click(within(card).getByRole("button",{name:"领取"}));
+ const confirmation=await screen.findByRole("dialog",{name:"确认领取"});await user.click(within(confirmation).getByRole("button",{name:"确认领取3条"}));expect(await screen.findByText(/资源已到账/)).toBeVisible();expect(api.order).toHaveBeenCalledOnce();
 });
 async function confirm() {
   const user = userEvent.setup();
@@ -176,10 +179,10 @@ async function confirm() {
   await user.selectOptions(within(region).getByLabelText("购买方式"), "amount");
   await user.clear(within(region).getByLabelText("金额（元）"));
   await user.type(within(region).getByLabelText("金额（元）"), "0.73");
-  await user.click(within(region).getByRole("button", { name: "获取报价" }));
+  await user.click(within(region).getByRole("button", { name: "购买" }));
   return {
     user,
-    confirmation: await screen.findByRole("region", { name: "报价确认" }),
+    confirmation: await screen.findByRole("dialog", { name: "确认购买" }),
   };
 }
 it("reads the deducted wallet after fulfilled purchase and retains the order if wallet readback fails",async()=>{
@@ -284,7 +287,7 @@ it("keeps the original order while readback is unavailable and fails closed on i
   expect(await screen.findByText(/原订单恢复信息无效/)).toBeVisible();
   expect(
     screen
-      .getAllByRole("button", { name: "获取报价" })
+      .getAllByRole("button", { name: "购买" })
       .every((button) => (button as HTMLButtonElement).disabled),
   ).toBe(true);
 });
@@ -321,9 +324,9 @@ it("clears a cancelled 409 order through the actual client so a later purchase i
     ).toBeNull();
     expect(api.resources).not.toHaveBeenCalled();
     const region = screen.getByRole("region", { name: "AI 点数购买" });
-    await user.click(within(region).getByRole("button", { name: "获取报价" }));
+    await user.click(within(region).getByRole("button", { name: "购买" }));
     expect(
-      await screen.findByRole("region", { name: "报价确认" }),
+      await screen.findByRole("dialog", { name: "确认购买" }),
     ).toBeVisible();
     expect(api.quote).toHaveBeenCalledTimes(2);
     expect(fetcher).toHaveBeenCalledTimes(1);

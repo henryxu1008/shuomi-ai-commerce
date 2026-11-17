@@ -136,11 +136,123 @@
 .billingStat strong { display: block; color: var(--resource-accent); font-size: var(--dialog-title-size); margin: 8px 0 5px; font-variant-numeric: tabular-nums; }
 .capabilityNote { display: grid; gap: 4px; border: 1px solid var(--border); border-left: 3px solid var(--resource-accent, var(--warning-foreground)); border-radius: var(--radius); padding: 12px 14px; background: var(--secondary); font-size: var(--label-text-size); }
 .capabilityNote span { color: var(--muted-foreground); line-height: 1.6; }
-.walletHero { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; }
-.walletBalance { display: block; color: var(--primary); font-size: var(--metric-text-size); margin: 8px 0; font-variant-numeric: tabular-nums; }
-.walletFacts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
-.walletFacts dt, .orderFacts dt { color: var(--muted-foreground); font-size: var(--caption-text-size); }
-.walletFacts dd, .orderFacts dd { margin-top: 5px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.walletPage { display: grid; gap: 24px; container: wallet / inline-size; }
+.walletHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(8rem, 13rem);
+  align-items: start;
+  gap: 16px 24px;
+  background: var(--card);
+}
+.walletHero h2 { font-size: var(--label-text-size); margin: 0; }
+.walletHero .subtle { margin-bottom: 0; }
+.walletBalance {
+  display: block;
+  margin-top: 4px;
+  color: var(--console-blue);
+  font-size: var(--metric-text-size);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.walletTotals, .walletFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.walletTotals { border-inline-start: 1px solid var(--border); padding-inline-start: 20px; }
+.walletTotals dd { font-size: var(--card-title-size); font-weight: 700; }
+.walletTotals dt, .walletFacts dt, .orderFacts dt {
+  color: var(--muted-foreground);
+  font-size: var(--caption-text-size);
+}
+.walletTotals dd, .walletFacts dd, .orderFacts dd {
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.walletMeta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  font-size: var(--caption-text-size);
+  color: var(--muted-foreground);
+}
+.walletMeta .walletFacts { flex: 0 1 19rem; }
+.walletMeta dd { color: var(--foreground); }
+.walletPurchase { min-width: 0; display: grid; gap: 10px; }
+.walletPurchase h2 { font-size: var(--section-title-size); font-weight: 700; }
+.walletPurchase > .stack { gap: 12px; }
+.walletPurchase .resourcePurchaseCards { margin-top: 0; }
+.walletPurchase .resourcePurchaseCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  overflow-wrap: anywhere;
+}
+.walletPurchase .resourcePurchaseCard h3 { color: var(--resource-accent); }
+.walletPurchase .resourcePurchaseCard p { min-height: 0; margin-bottom: 10px; }
+.walletPurchase .resourcePurchaseCard .offerPrice { color: var(--foreground); font-weight: 700; }
+.walletPurchase .resourcePurchaseCard > [data-slot="button"] { margin-top: auto; align-self: flex-end; width: auto; }
+.walletPurchase .resourceAnchor .resourcePurchaseCard { height: 100%; }
+.resourceAnchor { min-width: 0; scroll-margin-top: 20px; border-radius: var(--radius); }
+.resourceAnchor:focus { outline: 2px solid var(--ring); outline-offset: 3px; }
+.walletHistory {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.walletHistory > * { background: var(--card); }
+.walletTable { width: 100%; min-width: 29rem; border-collapse: collapse; font-size: var(--label-text-size); }
+.walletTable th, .walletTable td { text-align: start; padding: 8px 9px; border-bottom: 1px solid var(--border); }
+.walletTable th { color: var(--muted-foreground); background: var(--secondary); font-weight: 600; }
+.walletTable td:nth-child(n+3) { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.walletTable small { display: block; color: var(--muted-foreground); font-size: var(--caption-text-size); }
+.walletTable tr:last-child td { border-bottom: 0; }
+.walletTable a { color: var(--primary); text-underline-offset: 3px; text-decoration: underline; }
+.walletEmpty {
+  border: 1px dashed var(--border);
+  border-radius: var(--control-radius);
+  padding: 20px;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: var(--label-text-size);
+}
+.walletRules {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  font-size: var(--label-text-size);
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+.walletRules li { display: grid; grid-template-columns: 5px minmax(0, 1fr); gap: 9px; }
+.walletRules li::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-top: calc(.8em - 2.5px);
+  background: url("./wallet-rule-light.svg") no-repeat;
+}
+:global(.dark) .walletRules li::before { background-image: url("./wallet-rule-dark.svg"); }
+.walletGuideAction { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 12px; }
+@container wallet (width < 57rem) {
+  .walletHistory { grid-template-columns: minmax(0, 1fr); }
+  .walletPurchase .resourcePurchaseCards[data-storage] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container wallet (width < 44rem) {
+  .walletHero { grid-template-columns: minmax(0, 1fr) minmax(0, auto); }
+  .walletTotals { grid-column: 1 / -1; grid-row: 2; border: 0; padding: 0; }
+  .walletPurchase .resourcePurchaseCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container wallet (width < 32rem) {
+  .walletHero { grid-template-columns: minmax(0, 1fr); }
+  .walletTotals { grid-row: 3; }
+  .walletPurchase .resourcePurchaseCards,
+  .walletPurchase .resourcePurchaseCards[data-storage] { grid-template-columns: minmax(0, 1fr); }
+}
 .billingPanel { min-width: 0; }
 .billingTableWrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
 .billingTable { width: 100%; min-width: 680px; border-collapse: collapse; font-size: var(--label-text-size); }
@@ -163,7 +275,11 @@
 .resourcePurchaseCard p { min-height: 40px; margin-bottom: 14px; color: var(--muted-foreground); font-size: var(--caption-text-size); line-height: 1.6; }
 .charges .resourcePurchaseCard p { min-height: 0; margin-bottom: 12px; }
 .charges .offerPrice { color: var(--resource-accent); font-size: var(--card-title-size); font-weight: 700; font-variant-numeric: tabular-nums; }
-.charges .estimate { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
+.planPriceCard { display: block; background: var(--card); border: 1px solid var(--border); border-top: 2px solid var(--resource-accent); border-radius: var(--radius); }
+.planPriceCard:hover, .planPriceCard:focus-visible { border-color: var(--resource-accent); }
+.planPriceCard h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--resource-accent); }
+.planPriceCard p:last-child { margin-bottom: 0; }
+.resourcePurchaseCard .estimate { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
 .confirmation { display: grid; gap: 16px; }
 .resourcePurchaseCard button { width: 100%; }
 .resourcePurchaseCard label { display: grid; gap: 6px; min-width: 0; margin-bottom: 12px; font-size: var(--label-text-size); }
@@ -174,7 +290,7 @@
 @container plan-charges (width < 56rem) { .resourcePurchaseCards[data-storage] { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @container plan-charges (width < 36rem) { .resourcePurchaseCards, .resourcePurchaseCards[data-storage] { grid-template-columns: 1fr; } }
 @media (max-width: 1000px) { .billingFilters { grid-template-columns: repeat(2,minmax(0,1fr)); } .billingFilters label:first-child { grid-column: 1 / -1; } }
-@media (max-width: 640px) { .billingStats, .walletFacts { grid-template-columns: repeat(2,minmax(0,1fr)); } .walletHero { grid-template-columns: 1fr; } .walletHero > button { justify-self: start; } .orderFacts, .planDetails, .resourcePurchaseCards { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .billingStats { grid-template-columns: repeat(2,minmax(0,1fr)); } .orderFacts, .planDetails, .resourcePurchaseCards { grid-template-columns: 1fr; } }
 @media (max-width: 1000px) { .threeColumns, .subscriptionOffers { grid-template-columns: 1fr; } .twoColumns { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .moduleEntries { grid-template-columns: repeat(3,minmax(0,1fr)); } .overviewColumns { grid-template-columns: 1fr; } }
 @media (max-width: 600px) {

@@ -7,6 +7,8 @@ import type { CommercialOrder, CommercialOrderPage, CommercialOrderSummary, Comm
 import { ConsoleState } from "../console/console-page";
 import styles from "./commercial.module.css";
 import { WalletTopUpEntry } from "./wallet-topup";
+import { ResourcePurchaseAnchor } from "./resource-purchase-anchor";
+import { walletBalanceId } from "./resource-catalog-display";
 
 const entryLabels: Record<string, string> = { TOP_UP_CREDIT: "钱包充值", PURCHASE_RESERVE: "资源购买预留", PURCHASE_COMMIT: "资源购买", PURCHASE_RELEASE: "购买释放", REFUND_RESERVE: "退款冻结", REFUND_CONFIRM: "退款确认", REFUND_RELEASE: "退款冻结释放", REFUND_REVERSAL: "退款冲正", CHARGEBACK_REVERSAL: "拒付冲正", DEBT_REPAYMENT: "欠款偿还" };
 const orderKindLabels: Record<CommercialOrder["kind"], string> = { WALLET_TOP_UP: "钱包充值", RESOURCE_PURCHASE: "资源购买", STORAGE_CAPACITY_PURCHASE:"存储扩容" };
@@ -42,20 +44,104 @@ function CapabilityNote({ children }: { children: React.ReactNode }) {
   return <div className={styles.capabilityNote} role="note"><strong>写入能力未开放</strong><span>{children}</span></div>;
 }
 
-export function WalletView({ wallet, entries, onNext, userId, permissions, purchase }: { wallet: CommercialWallet; entries: CommercialWalletEntryPage; onNext: () => void; userId: string; permissions: string[]; purchase?: React.ReactNode }) {
-  return <div className={styles.stack}>
-    <Panel title="企业钱包余额" className={styles.walletHero}>
-      <div><p className={styles.eyebrow}>当前企业 · {wallet.currency}</p><strong className={styles.walletBalance}>{minorAmount(wallet.available_minor, wallet.currency)}</strong><p className={styles.subtle}>可用余额 · 观察于 {timeLabel(wallet.observed_at)}</p></div>
-      <WalletTopUpEntry userId={userId} organizationId={wallet.organization_id} permissions={permissions} />
-      <dl className={styles.walletFacts}><div><dt>预留金额</dt><dd>{minorAmount(wallet.reserved_minor, wallet.currency)}</dd></div><div><dt>待偿欠款</dt><dd>{minorAmount(wallet.debt_minor, wallet.currency)}</dd></div><div><dt>累计充值</dt><dd>{minorAmount(wallet.lifetime_topup_minor, wallet.currency)}</dd></div><div><dt>累计支出</dt><dd>{minorAmount(wallet.lifetime_spend_minor, wallet.currency)}</dd></div></dl>
-    </Panel>
-    <Panel title="钱包流水" className={styles.billingPanel}>
-      {entries.items.length === 0 ? <ConsoleState kind="empty" title="暂无钱包流水">当前企业的钱包 owner 没有返回流水记录。</ConsoleState> : <div className={styles.billingTableWrap}><table className={styles.billingTable}><caption className="sr-only">企业钱包流水</caption><thead><tr><th>时间</th><th>类型</th><th>可用余额变动</th><th>预留变动</th><th>欠款变动</th><th>关联订单</th></tr></thead><tbody>{entries.items.map(row => <tr key={row.entry_id}><td>{timeLabel(row.occurred_at)}</td><td>{entryLabels[row.entry_type] ?? row.entry_type}</td><td>{minorAmount(row.available_delta_minor, row.currency)}</td><td>{minorAmount(row.reserved_delta_minor, row.currency)}</td><td>{minorAmount(row.debt_delta_minor, row.currency)}</td><td>{row.order_id ? <Link href={`/workbench/plans/orders/${encodeURIComponent(row.order_id)}`} prefetch={false}>{row.order_id}</Link> : "—"}</td></tr>)}</tbody></table></div>}
-      <div className={styles.pagination}><span>当前页 {entries.items.length} 条；流水金额按最小货币单位精确格式化。</span>{entries.next_cursor ? <Button variant="outline" onClick={onNext}>下一页流水</Button> : null}</div>
-    </Panel>
-    <Panel title="使用充值余额">{purchase ?? <Button asChild variant="outline"><Link href="/workbench/plans/options" prefetch={false}>购买资源</Link></Button>}</Panel>
-    <Panel title="充值与支付"><p className={styles.subtle}>通过已开放的支付宝电脑网页或微信扫码支付充值。付款金额等额记入企业钱包，有欠款时先偿债；渠道手续费由平台承担，无赠送或优惠。</p><p className={styles.subtle}>关闭付款页面不会取消订单。请到订单详情查询付款与入账结果；充值不会自动开通套餐。</p></Panel>
-  </div>;
+export function WalletView({
+  wallet, walletState, entries, entriesState, onNext, userId, organizationName, permissions, purchase,
+}: {
+  wallet?: CommercialWallet;
+  walletState?: React.ReactNode;
+  entries?: CommercialWalletEntryPage;
+  entriesState?: React.ReactNode;
+  onNext: () => void;
+  userId: string;
+  organizationName: string;
+  permissions: string[];
+  purchase: React.ReactNode;
+}) {
+  return (
+    <div className={styles.walletPage}>
+      <ResourcePurchaseAnchor id={walletBalanceId}>
+      {wallet ? (
+      <Card role="region" aria-labelledby="wallet-balance-title" className={`${styles.panel} ${styles.walletHero}`}>
+        <div>
+          <h2 id="wallet-balance-title">企业钱包可用余额</h2>
+          <strong className={styles.walletBalance}>{minorAmount(wallet.available_minor, wallet.currency)}</strong>
+          <p className={styles.subtle}>可用于购买店铺服务、AI 点数和数据资源。</p>
+        </div>
+        <dl className={styles.walletTotals}>
+          <div><dt>累计充值</dt><dd>{minorAmount(wallet.lifetime_topup_minor, wallet.currency)}</dd></div>
+          <div><dt>累计支出</dt><dd>{minorAmount(wallet.lifetime_spend_minor, wallet.currency)}</dd></div>
+        </dl>
+        <WalletTopUpEntry
+          userId={userId}
+          organizationId={wallet.organization_id}
+          organizationName={organizationName}
+          permissions={permissions}
+        />
+        <div className={styles.walletMeta}>
+          <dl className={styles.walletFacts}>
+            <div><dt>预留金额</dt><dd>{minorAmount(wallet.reserved_minor, wallet.currency)}</dd></div>
+            <div><dt>待偿欠款</dt><dd>{minorAmount(wallet.debt_minor, wallet.currency)}</dd></div>
+          </dl>
+          <p>数据截至 {timeLabel(wallet.observed_at)}</p>
+        </div>
+      </Card>
+      ) : walletState}
+      </ResourcePurchaseAnchor>
+      <section className={styles.walletPurchase} aria-labelledby="wallet-purchase">
+        <h2 id="wallet-purchase">使用充值余额</h2>
+        {purchase}
+      </section>
+      <div className={styles.walletHistory}>
+        <Panel title="钱包流水" className={styles.billingPanel}>
+          <p className={styles.subtle}>查看企业钱包的充值、支出及其他变动。</p>
+          {!entries ? entriesState : entries.items.length === 0 ? (
+            <p className={styles.walletEmpty}>暂无钱包流水</p>
+          ) : (
+            <div className={styles.billingTableWrap} role="region" aria-label="钱包流水明细" tabIndex={0}>
+              <table className={styles.walletTable}>
+                <caption className="sr-only">企业钱包流水</caption>
+                <thead>
+                  <tr><th scope="col">时间</th><th scope="col">类型</th><th scope="col">金额变动</th><th scope="col">变动后余额</th><th scope="col">关联订单</th></tr>
+                </thead>
+                <tbody>
+                  {entries.items.map(row => (
+                    <tr key={row.entry_id}>
+                      <td>{timeLabel(row.occurred_at)}</td>
+                      <td>{entryLabels[row.entry_type] ?? "其他变动"}</td>
+                      <td>
+                        <span>可用 {minorAmount(row.available_delta_minor, row.currency)}</span>
+                        {row.reserved_delta_minor !== "0" ? <small>预留 {minorAmount(row.reserved_delta_minor, row.currency)}</small> : null}
+                        {row.debt_delta_minor !== "0" ? <small>欠款 {minorAmount(row.debt_delta_minor, row.currency)}</small> : null}
+                      </td>
+                      <td>{minorAmount(row.available_after_minor, row.currency)}</td>
+                      <td>{row.order_id ? <Link href={`/workbench/plans/orders/${encodeURIComponent(row.order_id)}`} aria-label={`查看订单 ${row.order_id}`} prefetch={false}>查看订单</Link> : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {entries?.next_cursor ? (
+            <div className={styles.pagination}>
+              <span>当前页 {entries.items.length} 条</span>
+              <Button variant="outline" size="sm" onClick={onNext}>下一页流水</Button>
+            </div>
+          ) : null}
+        </Panel>
+        <Panel title="充值与购买说明" className={styles.walletGuide}>
+          <ul className={styles.walletRules}>
+            <li>有欠款时，充值金额优先用于还款；支付手续费由平台承担。</li>
+            <li>充值后可另行购买资源，套餐不会自动开通。</li>
+            <li>关闭付款页面不会取消订单。</li>
+            <li>请到订单详情查看付款和入账结果。</li>
+          </ul>
+          <div className={styles.walletGuideAction}>
+            <Button asChild variant="outline" size="sm"><Link href="/workbench/plans/orders" prefetch={false}>查看账单与订单</Link></Button>
+          </div>
+        </Panel>
+      </div>
+    </div>
+  );
 }
 
 export type OrderFilterForm = {query:string;kind:string;status:string;from:string;until:string};
