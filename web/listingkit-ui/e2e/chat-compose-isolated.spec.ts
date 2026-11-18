@@ -62,7 +62,7 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
  await page.getByRole("textbox",{name:"需求",exact:true}).fill(modification);await page.getByRole("button",{name:"发送消息",exact:true}).click();
  const editors=page.getByRole("textbox",{name:"正文",exact:true});await expect(editors.last()).toHaveValue(revised.instructions);
  await editors.last().fill("保留已核实的型号和规格。");
- const save=page.getByRole("button",{name:"保存到我的技能",exact:true}).last();await expect(save).toBeEnabled();expect(saves).toBe(0);await save.click();
+ const save=page.getByRole("button",{name:"保存到我的技能",exact:true}).last();await expect(save).toBeDisabled();await expect(save).toBeEnabled();await expect(editors.last()).toHaveValue("保留已核实的型号和规格。");expect(saves).toBe(0);await save.click();
  await expect(page.getByRole("button",{name:"核实原保存",exact:true})).toBeVisible();await page.reload();
  await page.getByRole("button",{name:"核实原保存",exact:true}).last().click();await expect(page.getByRole("link",{name:"查看我的技能"}).last()).toHaveAttribute("href","/workbench/agents/skills/mine?skillId="+skillId);
  expect(saves).toBe(1);expect(modelGenerations).toBe(2);await expect(page.getByText(/点数|费用详情/)).toHaveCount(0);

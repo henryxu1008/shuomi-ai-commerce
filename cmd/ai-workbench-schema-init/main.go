@@ -67,7 +67,7 @@ func main() {
 			os.Exit(2)
 		}
 		var matches bool
-		if db.WithContext(ctx).Raw("SELECT current_database()=? AND inet_server_addr()::text=? AND inet_server_port()=?", *expectedDB, *expectedAddress, *expectedPort).Scan(&matches).Error != nil || !matches {
+		if db.WithContext(ctx).Raw("SELECT current_database()=? AND host(inet_server_addr())=? AND inet_server_port()=?", *expectedDB, *expectedAddress, *expectedPort).Scan(&matches).Error != nil || !matches {
 			fmt.Fprintln(os.Stderr, "skill authoring target does not match")
 			os.Exit(1)
 		}

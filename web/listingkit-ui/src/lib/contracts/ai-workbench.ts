@@ -118,9 +118,8 @@ export const aiTitleSkillDraft = z.strictObject({
   instructions: z.string().max(16384),
   script: z.strictObject({description: z.string().max(1536), source: z.string().max(16384)}).optional(),
 });
-export const aiChatSkillReference=z.strictObject({version:z.union([z.literal(1),z.literal(2)]),digest:z.string().regex(/^[a-f0-9]{64}$/)});
+const aiChatSkillReference=z.strictObject({version:z.union([z.literal(1),z.literal(2)]),digest:z.string().regex(/^[a-f0-9]{64}$/)});
 export const aiChatTurnBody=z.strictObject({content:aiTitleMessageBody.shape.content,skill:aiChatSkillReference.optional(),revision:z.strictObject({root:id,baseRevision:id,snapshot:aiTitleSkillDraft}).optional()}).refine(value=>!value.revision || value.skill?.version===2);
-export type AIChatTurnInput=z.infer<typeof aiChatTurnBody>;
 const authoringPreviewFields = {
   ...aiSkillAuthoringQuote.shape,
   root: id.optional(), baseRevision: id.optional(), snapshot: aiTitleSkillDraft.optional(),
@@ -129,7 +128,6 @@ export const aiAuthoringPreview = z.strictObject(authoringPreviewFields);
 const authoringQuoteToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const aiAuthoringConfirm = z.strictObject({...authoringPreviewFields, quote: authoringQuoteToken});
 export const aiAuthoringSavePackage = z.strictObject({revision: id, draft: aiTitleSkillDraft});
-export type AIAuthoringPreview = z.infer<typeof aiAuthoringPreview>;
 const authoringJob = z.strictObject({
   key: id, requirement: z.string().max(8192),
   generationKey: id.optional(), revision: id.optional(), superseded: z.boolean().optional(),
