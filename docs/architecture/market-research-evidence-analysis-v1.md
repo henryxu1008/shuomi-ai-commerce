@@ -6,7 +6,7 @@ Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_
 
 用户于 2026-11-02 明确确认沿用[两个中心 V1 产品设计](../product/market-research-selection-centers-v1.md)：数据服务 → 市场调研中心、供应市场 → 智能选品中心，共用项目，汇总限明确选中2–5项。随后用户明确回复“可以”，批准正式业务代码、必要开发自检、提交/推送及同一 PR 维护；本轮不合并、不更新实例或部署，不调用真实平台、真实模型或付费服务。产品确认、Architecture Review、正式实施授权及真实试用分别记录；本文不代签。
 
-2026-11-03用户后续明确允许按已审源码ad3ed151d6构建并仅更新指定统一实例的前后端，并允许启动Docker Desktop。该有界运行操作复用既有镜像切换/回退，属于Reuse Existing Architecture；不修改本冻结技术合同。准确状态见[运行交接](../engineering/market-research-runtime-handoff.md#当前指定统一实例交接2026-11-03)。真实平台/模型/付费、合并、Issue关闭和用户业务验收仍分别未授权或未执行。
+2026-11-03用户后续明确允许按已审源码ad3ed151d6构建并仅更新指定统一实例的前后端，并允许启动Docker Desktop。该有界运行操作复用既有镜像切换/回退，属于Reuse Existing Architecture；不修改本冻结技术合同。准确状态见[运行交接](../engineering/integration/market-research-runtime-handoff.md#当前指定统一实例交接2026-11-03)。真实平台/模型/付费、合并、Issue关闭和用户业务验收仍分别未授权或未执行。
 
 ## 1. Outcome、Authority 与边界
 

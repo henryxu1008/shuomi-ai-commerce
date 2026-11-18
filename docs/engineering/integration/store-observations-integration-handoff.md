@@ -28,7 +28,7 @@ HTTP 基础路径 `/api/v1/workbench/store-observations`，products / orders 各
 
 ## 正常启动配置
 
-在既有 private current-application manifest 的 `storeCenter` 内显式增加以下设置，其余 Store 专用数据库、官方应用私密文件及 ZITADEL/current Organization 配置沿 [RUN-1](../operations/isolated-application-acceptance.md) 的正常合同准备：
+在既有 private current-application manifest 的 `storeCenter` 内显式增加以下设置，其余 Store 专用数据库、官方应用私密文件及 ZITADEL/current Organization 配置沿 [RUN-1](../../operations/runbooks/isolated-application-acceptance.md) 的正常合同准备：
 
 ```json
 "observations": {

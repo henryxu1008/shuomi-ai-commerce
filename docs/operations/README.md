@@ -30,7 +30,7 @@
 - 待补全草稿：[单件转入](user-guides/own-product-draft-entry.md)、[已有草稿](user-guides/own-product-existing-drafts.md)、[未绑定店铺草稿](user-guides/supply-unbound-completion-drafts.md)。
 - 草稿编辑：[属性与 SKU](user-guides/completion-draft-structured.md)、[保存历史](user-guides/completion-draft-history.md)、[恢复为新版本](user-guides/completion-draft-restore.md)。
 - 自有商品优选：[多商品申请](selected-application-multi-product.md)，以当前多商品申请合同为准。
-- SHEIN：[供应链操作与启动](my-supply-chain-shein.md)、[导入试用安装](shein-import-installation.md)。
+- SHEIN：[供应链操作与启动](my-supply-chain-shein.md)、[导入试用安装](runbooks/shein-import-installation.md)。
 
 <a id="ai-work"></a>
 
@@ -47,7 +47,7 @@
 
 ## 店铺、工具与服务
 
-- 店铺读取：[商品与订单观察接线](../engineering/store-observations-integration-handoff.md)。
+- 店铺读取：[商品与订单观察接线](../engineering/integration/store-observations-integration-handoff.md)。
 - 订单、采购与仓库履约：[首版运行与保存/恢复](user-guides/order-fulfillment.md)、[独立合成试用](runbooks/order-fulfillment-synthetic-trial.md)。合成环境、真实平台联调和生产分别取证；环境操作按当前授权执行。
 - 平台专项：[TEMU](user-guides/temu-store-connection.md)、[TikTok Shop 美国站](user-guides/tiktok-shop-us.md)、[Walmart 美国站](user-guides/walmart-us.md)。各文档的候选、未开放和恢复限制继续适用。
 - 平台服务：[工具市场](user-guides/tool-market.md)、[数据服务](../engineering/integration/data-services-runtime-handoff.md)、[生态服务](user-guides/ecosystem-services.md)。
@@ -58,4 +58,4 @@
 
 ## 有界环境
 
-[RUN-1 身份与路由装配](isolated-application-acceptance.md)仅描述其明确范围；不作为完整产品验收或生产发布证明。专项功能未开放项见各自合同与当前执行 Issue。
+[RUN-1 身份与路由装配](runbooks/isolated-application-acceptance.md)仅描述其明确范围；不作为完整产品验收或生产发布证明。专项功能未开放项见各自合同与当前执行 Issue。

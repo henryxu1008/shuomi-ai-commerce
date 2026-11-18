@@ -25,7 +25,7 @@ ProductAgent、Chat、服务端采集继续关闭，其他会话/工作区不接
 [页内入口](plugin-capture-page-entry.md)、[统一入口](plugin-capture-entry-flow.md)、
 [session原标签恢复](plugin-capture-session-return.md)、
 [来源报价只读](plugin-capture-source-quotes.md)、
-[上架字段](../product/plugin-capture-listing-fields.md)、
+[上架字段](../product/decisions/plugin-capture-listing-fields.md)、
 [当前产品/Figma Authority](../product/final-ui-ia-authority.md)。
 Figma文件 `tg48P46SSXl6TBy9lZwg63 / 31:463` 约束当前Console信息架构；
 本次扩展局部控件以用户新决定补充，既有应用路由、导航和确认保存页面不改。

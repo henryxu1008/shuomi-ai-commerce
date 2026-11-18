@@ -142,7 +142,7 @@
 
 继续复用 [当前领域 owner](../architecture/project-boundaries.md)、[Product 采集交接](product-sourcing-handoff.md)、[现有研究合同](../architecture/market-research-selection.md)、[研究证据分析合同](../architecture/market-research-evidence-analysis-v1.md)和[当前全新系统基线](greenfield-no-legacy-migration.md)。Product Sourcing/Catalog 管原始商品事实，Collection 管原保存与选择，Research 管私有研究关系与人工决定，Agent 管分析运行/计量，Preparation 管商品准备。保持原授权、版本绑定、幂等及未知结果查询责任，不新增副本或执行 owner。
 
-UI 继续以 [当前 Product Authority](final-ui-ia-authority.md) 和[两个入口 V1](market-research-selection-centers-v1.md)为基础；本提案没有修改 Figma 或批准新的多来源交互。[1688 当前阶段决定](1688-acquisition-scope.md#当前新增交付阶段2026-10-23)中的“新增服务端采集暂缓”继续有效。
+UI 继续以 [当前 Product Authority](final-ui-ia-authority.md) 和[两个入口 V1](market-research-selection-centers-v1.md)为基础；本提案没有修改 Figma 或批准新的多来源交互。[1688 当前阶段决定](decisions/1688-acquisition-scope.md#当前新增交付阶段2026-10-23)中的“新增服务端采集暂缓”继续有效。
 
 ## 6. 选择范围后怎样验收
 
@@ -157,6 +157,6 @@ UI 继续以 [当前 Product Authority](final-ui-ia-authority.md) 和[两个入�
 
 ## 7. 当前交接
 
-本轮只增加规划和引用记录，不改生产代码、不更新 `task-processor-unified-20261010`。最近已核实的 UI 为 a2d12ec54，后端 ad3ed151d；已完成的业务文案源码 54fb58983 和镜像仍保留待后续决定，不因本轮选了“规划多平台”就获得更新实例授权。准确证据见[运行交接](../engineering/market-research-runtime-handoff.md)。
+本轮只增加规划和引用记录，不改生产代码、不更新 `task-processor-unified-20261010`。最近已核实的 UI 为 a2d12ec54，后端 ad3ed151d；已完成的业务文案源码 54fb58983 和镜像仍保留待后续决定，不因本轮选了“规划多平台”就获得更新实例授权。准确证据见[运行交接](../engineering/integration/market-research-runtime-handoff.md)。
 
 公开资料查阅不包含任何平台业务 API 请求。实际开发者准入、账号资格、费用和数据许可未核实的部分保持 UNKNOWN；新平台实现、真实业务验收和用户验收均 NOT_RUN。不合并、不部署、不关闭 Issue。

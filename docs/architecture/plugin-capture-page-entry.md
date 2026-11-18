@@ -19,7 +19,7 @@ audit, configuration, loading directory and extension identity.
 Authorities: [ingestion](plugin-capture-ingestion.md),
 [existing entry](plugin-capture-entry-flow.md),
 [source quote read](plugin-capture-source-quotes.md),
-[listing fields](../product/plugin-capture-listing-fields.md),
+[listing fields](../product/decisions/plugin-capture-listing-fields.md),
 [final UI/IA](../product/final-ui-ia-authority.md), Figma
 `tg48P46SSXl6TBy9lZwg63 / 31:463`, and this explicit user entry decision.
 Application navigation, receiver, account/enterprise confirmation and save pages
