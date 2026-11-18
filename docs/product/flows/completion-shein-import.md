@@ -1,5 +1,7 @@
 # 候选资料带入 SHEIN 平台草稿
 
+> **当前入口与适用范围**：本文保留 2026-10-16 产品决定。当前一级入口为“商品刊登”，下文“供应市场 → 我的供应链”是历史导航；页面地址和领域权限以当前实现为准。[当前 UI/IA 决定](../final-ui-ia-authority.md) 已撤销 Figma 最终权威，下文节点仅作历史业务流程参考。已有 SKU 价格/库存带入与 [后续销售属性映射](../../architecture/domains/listing/shein-sales-attribute-mapping.md) 是不同的明确操作；本文不取消后者，也不允许自动推断或增删 SKU。原部署/试用状态仅属原轮次，不构成当前运行、平台调用或发布许可。
+
 Product Decision: PD-COMPLETION-SHEIN-IMPORT-2026-10-16
 
 用户批准：先明确候选版本固定、属性与 SKU 映射、覆盖范围、权限和并发合同，再做 SHEIN 平台草稿的带入预览与确认；独立页面，保留返回草稿、商品、批次上下文，复用 CompletionDraft 与 Target 保存，不自动发布。
@@ -23,11 +25,11 @@ Product Decision: PD-COMPLETION-SHEIN-IMPORT-2026-10-16
 
 沿当前 supply.read/manage、本人及企业成员范围、Store 当前官方授权、SourceSelector 和原 Target CAS/幂等合同。预览需要管理权限；只读用户可查看候选资料但不能预览或确认写入。没有配置/授权/规则时显示实际不可用，不提供假店铺、假规则或成功。
 
-UI authority 继承 [当前 UI/IA](final-ui-ia-authority.md)、Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`、待补全 `2667:1948`、待适配 `3507:1965` / `3507:3143`；独立页面是本次用户决定，不声称存在新 frame。复用 Console、主题、表格及命令恢复组件，不增加顶级菜单或模态框。
+UI authority 继承 [当前 UI/IA](../final-ui-ia-authority.md)、Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`、待补全 `2667:1948`、待适配 `3507:1965` / `3507:3143`；独立页面是本次用户决定，不声称存在新 frame。复用 Console、主题、表格及命令恢复组件，不增加顶级菜单或模态框。
 
 不做真实 SHEIN mutation、自动发布、模型调用、批量带入、跨平台泛化、平台 SKU 结构编辑、新表/迁移/第二事实源、试用实例更新。既有文字历史恢复仍只恢复标题和描述，保留当前结构化候选。
 
-设计及准入见 [独立增量架构](../architecture/completion-shein-import.md)。本决定仅对 SHEIN 取代此前“Target 仅带入文字”的阶段限制，TikTok/TEMU 及 CompletionDraft 原合同保持原范围。
+设计及准入见 [独立增量架构](../../architecture/domains/listing/completion-shein-import.md)。本决定仅对 SHEIN 取代此前“Target 仅带入文字”的阶段限制，TikTok/TEMU 及 CompletionDraft 原合同保持原范围。
 
 ## 使用入口与交接
 

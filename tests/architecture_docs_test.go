@@ -29,7 +29,7 @@ func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollo
 }
 
 func TestSheinImportDocumentBindsExistingOwnersAndExplicitConfirmation(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "completion-shein-import.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "completion-shein-import.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
 }
 
 func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testing.T) {

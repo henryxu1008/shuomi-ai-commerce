@@ -168,7 +168,7 @@
 
 
 - `amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](amazon-condition-quotes-draft.md)
-- `completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](completion-shein-import.md)
+- `completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](domains/listing/completion-shein-import.md)
 - `erpnext-shein-fulfillment-fit.md` — [ERPNext 与 SHEIN 双履约适配验证](erpnext-shein-fulfillment-fit.md)
 - `my-supply-chain-shein.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein.md)
 - `supply-four-step-continuation.md` — [四步供应链与补全/审核后继续上传](supply-four-step-continuation.md)
