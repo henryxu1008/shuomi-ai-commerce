@@ -335,7 +335,7 @@ docs/operations/user-guides/walmart-us.md,operations,marketplace,7370,KEEP_PATH,
 docs/product/decisions/1688-acquisition-scope.md,product,sourcing,6710,KEEP_PATH,,,MOVED_VERIFIED,acquisition product decisions relocated; historical scope and authorization unchanged
 docs/product/decisions/1688-server-public-browser.md,product,sourcing,4440,KEEP_PATH,,,MOVED_VERIFIED,acquisition product decisions relocated; historical scope and authorization unchanged
 docs/product/ai-commerce-agent-platform-strategy.md,product,ai,7666,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
-docs/product/business-agent-responsibilities.md,product,cross-cutting,9397,REVIEW_MOVE,docs/product/decisions/business-agent-responsibilities.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/product/decisions/business-agent-responsibilities.md,product,cross-cutting,9400,KEEP_PATH,,,MOVED_VERIFIED,business agent decision relocated; historical projections and owner boundaries unchanged
 docs/product/completion-draft-structured.md,product,catalog,2330,REVIEW_CROSS_LAYER,docs/product/flows/completion-draft-structured.md,docs/architecture/domains/listing/completion-draft-structured.md | docs/operations/user-guides/completion-draft-structured.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/product/completion-shein-import.md,product,catalog,4560,REVIEW_CROSS_LAYER,docs/product/flows/completion-shein-import.md,docs/architecture/completion-shein-import.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/product/final-ui-ia-authority.md,product,cross-cutting,49109,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint

@@ -16,7 +16,7 @@ Admission: **IMPLEMENTATION_READY / FROZEN (2026-10-13)**。本文先于正式�
 
 ## 用户结果与依据
 
-用户于2026-10-13批准 [业务智能体职责](../../../product/business-agent-responsibilities.md)：商品内容与本地化之后，逐个推进平台上架资料、POD、选品、经营诊断。本结果消费准确标准商品，依据实际平台规则准备类目、属性、SKU和图片资料，显示可核对的缺项，保存原 Listing owner 的本地草稿。标题/描述/翻译的标准商品修改属于内容能力。
+用户于2026-10-13批准 [业务智能体职责](../../../product/decisions/business-agent-responsibilities.md)：商品内容与本地化之后，逐个推进平台上架资料、POD、选品、经营诊断。本结果消费准确标准商品，依据实际平台规则准备类目、属性、SKU和图片资料，显示可核对的缺项，保存原 Listing owner 的本地草稿。标题/描述/翻译的标准商品修改属于内容能力。
 
 当前已经准入的正式平台实现是 SHEIN 美国站；未来平台消费各自已批准 owner。本设计不复制 #31/#655 当前 TEMU 实现，不创建另一个 SHEIN SDK、Store 数据源或跨平台规则引擎。不自动开放未准入平台。
 
