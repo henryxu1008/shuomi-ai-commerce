@@ -75,11 +75,11 @@ func (p *workbenchPlanner) admitTextSkill(ctx context.Context, scope aiworkbench
 }
 
 func parseTextSkillReply(raw string) (aiworkbench.PlanTerminal, error) {
-	decision, err := einoplanner.ParseDecision(raw)
-	if err != nil || decision.Mode != aiworkbench.PlanClarify {
+	answer, err := einoplanner.ParseTextReply(raw)
+	if err != nil {
 		return aiworkbench.PlanTerminal{}, aiworkbench.ErrInvalid
 	}
-	return aiworkbench.PlanTerminal{AssistantText: decision.AssistantText, Mode: aiworkbench.PlanClarify}, nil
+	return aiworkbench.PlanTerminal{AssistantText: answer, Mode: aiworkbench.PlanClarify}, nil
 }
 
 func (p *workbenchPlanner) replyWithTextSkill(ctx context.Context, cmd aiworkbench.PlanningCommand, history []aiworkbench.Message, profile aicapability.ModelProfile) (aiworkbench.PlanTerminal, error) {

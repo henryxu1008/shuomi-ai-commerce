@@ -53,6 +53,57 @@ func TestTextSkillReplyCannotCreateProposalOrReturnTools(t *testing.T) {
 	}
 }
 
+func TestTextSkillReplyNormalizesMarkdownPresentation(t *testing.T) {
+	const table = "| 事项 | 负责人 |\\n| --- | --- |\\n| 校对说明书 | 小周 |"
+	fence := strings.Repeat("`", 3)
+	object := `{"mode":"CLARIFY","assistant_text":"\n` + table + `\n","goal_summary":""}`
+	for _, reply := range []string{
+		object,
+		"\n " + fence + "json\n" + object + "\n" + fence + "\n",
+		fence + "JSON\r\n" + object + "\r\n" + fence,
+		fence + "\n" + object + "\n" + fence,
+		`{"mode":"CLARIFY","assistant_text":"` + fence + `markdown\n` + table + `\n` + fence + `","goal_summary":""}`,
+	} {
+		result, err := parseTextSkillReply(reply)
+		require.NoError(t, err)
+		require.Equal(t, strings.ReplaceAll(table, "\\n", "\n"), result.AssistantText)
+		require.Equal(t, aiworkbench.PlanClarify, result.Mode)
+		require.Nil(t, result.Proposal)
+	}
+}
+
+func TestTextSkillReplyPreservesIntentionalCodeBlocks(t *testing.T) {
+	fence := strings.Repeat("`", 3)
+	for _, text := range []string{
+		fence + "python\nprint('example')\n" + fence,
+		fence + "markdown\n# Sample source\n" + fence + "\n\nMore text\n\n" + fence + "text\nAnother sample\n" + fence,
+	} {
+		raw, err := json.Marshal(map[string]string{"mode": "CLARIFY", "assistant_text": text, "goal_summary": ""})
+		require.NoError(t, err)
+		result, err := parseTextSkillReply(string(raw))
+		require.NoError(t, err)
+		require.Equal(t, text, result.AssistantText)
+	}
+}
+
+func TestTextSkillReplyStillRejectsInvalidEnvelopes(t *testing.T) {
+	fence := strings.Repeat("`", 3)
+	valid := `{"mode":"CLARIFY","assistant_text":"待办表","goal_summary":""}`
+	for _, reply := range []string{
+		fence + "json\n" + valid,
+		fence + "json\n" + valid + "\n" + fence + "\n extra",
+		fence + "json\n" + valid + "\n" + valid + "\n" + fence,
+		fence + "json\n" + `{"mode":"READY","assistant_text":"业务任务","goal_summary":"不允许"}` + "\n" + fence,
+		`{"mode":"CLARIFY","assistant_text":"待办表","assistant_text":"覆盖","goal_summary":""}`,
+		`{"mode":"CLARIFY","assistant_text":"待办表","goal_summary":"不允许"}`,
+		`{"mode":"CLARIFY","assistant_text":"\n \t","goal_summary":""}`,
+		`{"mode":"CLARIFY","assistant_text":"` + strings.Repeat("x", 16<<10) + `","goal_summary":""}`,
+	} {
+		_, err := parseTextSkillReply(reply)
+		require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	}
+}
+
 func TestAuthoringQuoteBindsScopeRevisionInputPriceAndExpiry(t *testing.T) {
 	signer := &workbenchSkillAuthoring{quoteKey: [32]byte{42}}
 	root, revision := "root", "revision"
