@@ -45,3 +45,11 @@ func TestWorkbenchMessageRejectionProjectsOnlyExplicitUnacceptedProof(t *testing
 		require.NotContains(t, w.Body.String(), "messageAccepted")
 	}
 }
+
+func TestWorkbenchTextSkillInputLimitProvesMessageWasNotAccepted(t *testing.T) {
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	writeAIWorkbenchError(ctx, &aiworkbench.MessageNotAcceptedError{Cause: aiworkbench.ErrTextSkillInputLimit})
+	require.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	require.JSONEq(t, `{"code":"TEXT_SKILL_INPUT_LIMIT","messageAccepted":false}`, w.Body.String())
+}

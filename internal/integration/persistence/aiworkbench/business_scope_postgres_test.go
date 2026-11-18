@@ -4,6 +4,7 @@ package aiworkbenchpersistence
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,43 @@ import (
 
 	"task-processor/internal/aiworkbench"
 )
+
+func TestTextSkillReplyKeepsExactVersionAndOriginalReceipt(t *testing.T) {
+	store, err := New(workbenchDB(t))
+	require.NoError(t, err)
+	ctx := context.Background()
+	owner := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
+	selection := aiworkbench.ScopeSelection{Kind: "general"}
+	scope := aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "general"}
+	c, _, err := store.CreateScoped(ctx, owner, uuid.NewString(), aiworkbench.CreateInput{Selection: &selection, MemberID: "member-a"}, &scope, nil)
+	require.NoError(t, err)
+	key := uuid.NewString()
+	selected := &aiworkbench.TextSkillSelection{ID: uuid.NewString(), Version: 2, Digest: strings.Repeat("a", 64)}
+	input := aiworkbench.MessageInput{Content: "Turn these notes into action items", TextSkill: selected}
+	command, _, err := store.AppendUser(ctx, owner, c.ID, key, input, func(history []aiworkbench.Message, invocation string) (aiworkbench.PreparedPlan, error) {
+		p, err := testPlanPreparer(history, invocation)
+		p.FrozenScope = &aiworkbench.FrozenScope{Owner: owner, ConversationID: c.ID, MemberID: p.MemberID, Scope: scope}
+		return p, err
+	})
+	require.NoError(t, err)
+	require.Equal(t, selected, command.WorkScope.TextSkill)
+	terminal := aiworkbench.PlanTerminal{AssistantText: "1. Edit the handbook", Mode: aiworkbench.PlanClarify}
+	result, _, err := store.CompletePlan(ctx, owner, key, terminal)
+	require.NoError(t, err)
+	require.Empty(t, result.ProposalID)
+	read, found, err := store.ReplayCommand(ctx, owner, c.ID, key, input)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, result.AssistantMessageID, read.AssistantMessageID)
+	require.Equal(t, result.TerminalDigest, read.TerminalDigest)
+	require.Equal(t, result.PlannerInvocationID, read.PlannerInvocationID)
+	require.True(t, result.CommittedAt.Equal(*read.CommittedAt))
+	require.EqualValues(t, 2, store.ChatTextReplyVersion(ctx, owner, c.ID, read.AssistantMessageID, "member-a"))
+	require.Zero(t, store.ChatTextReplyVersion(ctx, owner, c.ID, read.AssistantMessageID, "member-b"))
+	selected.Version = 3
+	_, _, err = store.ReplayCommand(ctx, owner, c.ID, key, input)
+	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
+}
 
 func TestIT4ScopedPostgresPaginationFiltersBeforeLimitAndChecksAnchors(t *testing.T) {
 	db := workbenchDB(t)

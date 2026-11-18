@@ -216,6 +216,10 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "IDEMPOTENCY_CONFLICT"
 	case errors.Is(err, aiworkbench.ErrProposalStale), errors.Is(err, agentconfig.ErrChanged), errors.Is(err, agentconfig.ErrRevision), errors.Is(err, knowledge.ErrSelectionChanged):
 		status, code = http.StatusConflict, "PROPOSAL_STALE"
+	case errors.Is(err, aiworkbench.ErrTextSkillInputLimit):
+		status, code = http.StatusRequestEntityTooLarge, "TEXT_SKILL_INPUT_LIMIT"
+	case errors.Is(err, aiworkbench.ErrTextSkillUnavailable):
+		status, code = http.StatusConflict, "TEXT_SKILL_UNAVAILABLE"
 	case errors.Is(err, aiworkbench.ErrRevisionMismatch), errors.Is(err, agent.ErrConflict):
 		status, code = http.StatusConflict, "REVISION_MISMATCH"
 	case errors.Is(err, agent.ErrManualReviewRequired):
@@ -256,18 +260,19 @@ func workbenchReply(c *gin.Context, status int, value any) {
 }
 
 type workbenchMessageBody struct {
-	TaskSelection    *aiworkbench.TaskSelection    `json:"taskSelection,omitempty"`
-	StoreChoice      *aiworkbench.StoreChoiceInput `json:"storeChoice,omitempty"`
-	Content          string                        `json:"content"`
-	OperationID      string                        `json:"operationId"`
-	TargetPlatform   string                        `json:"targetPlatform"`
-	TemplateID       string                        `json:"templateId,omitempty"`
-	TemplateRevision string                        `json:"templateRevision,omitempty"`
-	KnowledgeBaseID  string                        `json:"knowledgeBaseId,omitempty"`
+	TextSkill        *aiworkbench.TextSkillSelection `json:"textSkill,omitempty"`
+	TaskSelection    *aiworkbench.TaskSelection      `json:"taskSelection,omitempty"`
+	StoreChoice      *aiworkbench.StoreChoiceInput   `json:"storeChoice,omitempty"`
+	Content          string                          `json:"content"`
+	OperationID      string                          `json:"operationId"`
+	TargetPlatform   string                          `json:"targetPlatform"`
+	TemplateID       string                          `json:"templateId,omitempty"`
+	TemplateRevision string                          `json:"templateRevision,omitempty"`
+	KnowledgeBaseID  string                          `json:"knowledgeBaseId,omitempty"`
 }
 
 func (b workbenchMessageBody) input() aiworkbench.MessageInput {
-	return aiworkbench.MessageInput{TaskSelection: b.TaskSelection, StoreChoice: b.StoreChoice, Content: b.Content, OperationID: b.OperationID,
+	return aiworkbench.MessageInput{TextSkill: b.TextSkill, TaskSelection: b.TaskSelection, StoreChoice: b.StoreChoice, Content: b.Content, OperationID: b.OperationID,
 		TargetPlatform: b.TargetPlatform, TemplateID: b.TemplateID,
 		TemplateRevision: b.TemplateRevision, KnowledgeBaseID: b.KnowledgeBaseID}
 }

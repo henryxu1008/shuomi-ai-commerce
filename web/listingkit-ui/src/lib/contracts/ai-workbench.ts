@@ -32,6 +32,7 @@ const conversation = z.object({
 const storeOverview = z.strictObject({total:z.number().int().nonnegative().safe(),platforms:z.record(z.string().min(1).max(64),z.number().int().nonnegative().safe()),statuses:z.record(z.string().min(1).max(64),z.number().int().nonnegative().safe()),operatingTypeUnknown:z.number().int().nonnegative().safe(),readStartedAt:timestamp});
 const message = z.object({
   ID: id, ConversationID: id, Sequence: z.number().int().positive(),
+  textSkillVersion: z.number().int().positive().optional(),
   Author: z.enum(["USER", "ASSISTANT"]), Content: z.string(), CreatedAt: timestamp,
   kind:z.enum(["TEXT","STORE_OVERVIEW_REF","AGENT_SKILL_REF"]).optional(),turnKey:id.optional(),storeQueryStatus:z.enum(["ALL_NON_DELETED","ACTIVE"]).optional(),currentStoreOverview:storeOverview.optional(),storeOverviewUnavailable:z.boolean().optional(),
 }).superRefine((m,ctx)=>{if((m.kind==="AGENT_SKILL_REF")!==(!!m.turnKey)||m.kind==="AGENT_SKILL_REF"&&(m.Author!=="ASSISTANT"||m.Content!=="技能草稿"))ctx.addIssue({code:"custom",message:"Invalid skill reference"});if(m.kind==="STORE_OVERVIEW_REF"){if(m.Author!=="ASSISTANT"||m.Content!=="店铺概况"||!m.storeQueryStatus||Boolean(m.currentStoreOverview)===Boolean(m.storeOverviewUnavailable))ctx.addIssue({code:"custom",message:"Invalid store reference"});}else if(m.storeQueryStatus||m.currentStoreOverview||m.storeOverviewUnavailable)ctx.addIssue({code:"custom",message:"Unexpected store projection"});});
@@ -80,7 +81,10 @@ const aiTitleMessageBody = z.strictObject({
   targetPlatform: z.enum(["shein", "temu", "amazon"]), templateId: id.optional(),
   templateRevision: z.string().regex(/^[1-9][0-9]*$/).optional(), knowledgeBaseId: id.optional(), storeChoice:aiStoreChoice.optional(),
 });
-export const aiMessageBody=z.union([aiTitleMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,taskSelection:aiTaskSelection,templateId:id.optional(),templateRevision:aiTitleMessageBody.shape.templateRevision,knowledgeBaseId:id.optional(),storeChoice:aiStoreChoice.optional()})]).refine(value=>Boolean(value.templateId)===Boolean(value.templateRevision));
+const aiTextSkillRef = z.strictObject({id, version: z.number().int().positive(), digest: z.string().regex(/^[a-f0-9]{64}$/)});
+export type AITextSkillRef = z.infer<typeof aiTextSkillRef>;
+const aiBusinessMessageBody=z.union([aiTitleMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,taskSelection:aiTaskSelection,templateId:id.optional(),templateRevision:aiTitleMessageBody.shape.templateRevision,knowledgeBaseId:id.optional(),storeChoice:aiStoreChoice.optional()})]).refine(value=>Boolean(value.templateId)===Boolean(value.templateRevision));
+export const aiMessageBody=z.union([aiBusinessMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,textSkill:aiTextSkillRef})]);
 export const aiStoreRouteBody=z.strictObject({content:aiTitleMessageBody.shape.content});
 export const aiStoreOverviewBody=z.strictObject({status:z.enum(["ALL_NON_DELETED","ACTIVE"])});
 export const aiMetadataBody = z.strictObject({ title: z.string().max(256).optional(), favorite: z.boolean().optional(), archived: z.boolean().optional() });
@@ -122,11 +126,13 @@ const aiChatSkillReference=z.strictObject({version:z.union([z.literal(1),z.liter
 const aiChatSkillRevisionSnapshot=z.strictObject({root:id,baseRevision:id,snapshot:aiTitleSkillDraft});
 export const aiChatSkillRevision=z.strictObject({skill:aiChatSkillReference.extend({version:z.literal(2)}),revision:aiChatSkillRevisionSnapshot});
 export const aiChatTurnBody=z.strictObject({content:aiTitleMessageBody.shape.content,creatorOnly:z.literal(true).optional(),skill:aiChatSkillReference.optional(),revision:aiChatSkillRevisionSnapshot.optional()}).refine(value=>value.creatorOnly ? !value.skill&&!value.revision : !value.revision||value.skill?.version===2);
+export const aiAuthoringValidation = aiTitleSkillDraft.extend({skillVersion: z.literal(3).optional()});
 const authoringPreviewFields = {
   ...aiSkillAuthoringQuote.shape,
   root: id.optional(), baseRevision: id.optional(), snapshot: aiTitleSkillDraft.optional(),
 };
 export const aiAuthoringPreview = z.strictObject(authoringPreviewFields);
+export type AIAuthoringPreview = z.infer<typeof aiAuthoringPreview>;
 const authoringQuoteToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const aiAuthoringConfirm = z.strictObject({...authoringPreviewFields, quote: authoringQuoteToken});
 export const aiAuthoringSavePackage = z.strictObject({revision: id, draft: aiTitleSkillDraft});
@@ -136,6 +142,7 @@ const authoringJob = z.strictObject({
   state: z.enum(["QUOTED", "READY", "COMPLETE", "FAILED", "INVALID", "UNKNOWN"]),
   draft: aiTitleSkillDraft.nullable(), billing: z.enum(["pending", "released", "committed", "usage_only"]),
   savePending: z.boolean(), savedSkillId: id.nullable(),
+  purpose: z.literal("chat-text").optional(), savedSkill: aiTextSkillRef.optional(),
 });
 export type AITitleSkillDraft = z.infer<typeof aiTitleSkillDraft>;
 
@@ -147,11 +154,14 @@ export function titleSkillSnapshotFits(snapshot: AITitleSkillDraft): boolean {
 
 export type AISkillAuthoringJob = z.infer<typeof authoringJob>;
 export type AISkillAuthoringChoice = NonNullable<z.infer<typeof authoringCatalog>["skill"]>;
-const authoringCatalog = z.strictObject({
-  skill: z.strictObject({
+const authoringChoice = z.strictObject({
     version: z.number().int().positive(), digest: z.string().regex(/^[a-f0-9]{64}$/),
     name: z.string().min(1).max(512), description: z.string().min(1).max(4096),
-  }).nullable(),
+});
+const authoringCatalog = z.strictObject({
+  skill: authoringChoice.nullable(),
+  titleSkill: authoringChoice.optional(),
+  textReady: z.boolean().optional(),
   ready: z.boolean(),
   scripts: z.boolean().optional(),
 });

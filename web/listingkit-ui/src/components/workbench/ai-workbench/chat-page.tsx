@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Table } from "@/components/ui/table";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery,useQuery,useQueryClient } from "@tanstack/react-query";
 import { ArrowUp } from "lucide-react";
@@ -22,7 +25,7 @@ import { WorkScopePicker, scopeLabel, scopeSelection } from "./work-scope-picker
 import { aiChatSkillRevision, aiChatTurnBody, aiCreateBody, aiMessageBody, aiStoreChoice, aiStoreRouteBody, titleSkillSnapshotFits, type WorkScopeOption, type WorkScopeSelection, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
-import {ChatSkillAuthoring, ChatSkillDrawer, ChatSkillTurn, TitleSkillDraftFields, type ChatSkillRevision} from "./chat-skill-authoring";
+import {ChatSkillAuthoring, ChatSkillDrawer, ChatSkillTurn, ContinueTextSkill, GeneralSkillAuthoring, TitleSkillDraftFields, type ChatSkillRevision, type SelectedTextSkill} from "./chat-skill-authoring";
 import type {AISkillAuthoringChoice} from "@/lib/contracts/ai-workbench";
 import {ChatProjectCreateCard,readProjectWorkScope,useChatProjectCreation,type ProjectSkill} from "./chat-project-actions";
 import {ChatTaskSelection} from "./chat-task-selection";
@@ -76,6 +79,8 @@ const stateText: Record<string, string> = {
   DEPENDENCY_UNAVAILABLE: "服务暂不可用，请稍后重试。",
   FORBIDDEN: "当前企业或权限已变化，请重新加载。",
   CONVERSATION_ARCHIVED: "该会话已归档，不能继续发送消息。",
+  TEXT_SKILL_INPUT_LIMIT: "技能规则和这段文字合计超过了当前模型的输入上限。请缩短文字或分段发送，原文已保留。",
+  TEXT_SKILL_UNAVAILABLE: "该技能已不可用，请重新选择。输入的文字已保留。",
 };
 const revisionTooLong = "技能草稿太长。请缩短正文或 Python 代码后再让 Chat 修改。需求已保留。";
 function errorText(error: unknown) { return error instanceof AIWorkbenchError ? stateText[error.code] ?? "请求未完成，请稍后重试。" : "请求暂不可用，请稍后重试。"; }
@@ -207,18 +212,18 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
       setError("草稿无法带入，请检查浏览器存储后重试。");
     }
   }
-  async function create() {
+  async function create(textAuthoring?:AISkillAuthoringChoice) {
     if((library.launch||library.error)&&!createIntent){setError("请前往所选技能的处理页确认，或取消选择后发送聊天需求。");return;}
     if (mode !== "new") {if(canUse||canCreateProject)router.push("/workbench/ai/chat/new");return;}
     if(!canUse||creating||projectSaveLocked)return;
     if(directCompose&&(pendingChecked!==createStorageKey||pendingError||voiceActive||!createIntent&&!recheckStore&&!storeState.ready))return;
     const text=createIntent?.draft??compose;
-    if(directCompose&&!legacyCreate&&(invalidContext||draftReady!==draftKey||draftError||!projectLaunch&&!createIntent?.projectTask&&!text.trim()||new TextEncoder().encode(text).length>8192||createIntent&&createIntent.context!==scopeContext))return;
+    if(directCompose&&!legacyCreate&&(invalidContext||draftReady!==draftKey||draftError||!projectLaunch&&!createIntent?.projectTask&&createIntent?.authoring?.version!==3&&!text.trim()||new TextEncoder().encode(text).length>8192||createIntent&&createIntent.context!==scopeContext))return;
     const selected=directCompose?resolvedScope:selectedScope;
     if(fixedScopeEnabled&&!createIntent&&!selected)return;
     const canTurn=context.aiWorkbenchChatTurnsReady&&context.aiWorkbenchChatIntentReadiness==="AVAILABLE";
-    if(creatorSelected&&!createIntent&&(!canTurn||projectLaunch)){setError("当前企业暂不能在 Chat 中调用技能，请稍后再试。");return;}
-    const intent:PendingCreate=createIntent??{key:crypto.randomUUID(),body:selected?{scopeSelection:scopeSelection(selected),scopeConfirmation:selected.confirmation}:{},...(directCompose?{draft:compose,context:scopeContext,owner:scope,...(projectLaunch?{projectTask:true as const}:{}),...(!recheckStore&&storeState.choice?{storeChoice:storeState.choice}:{}),...(!projectLaunch&&canTurn?{turnKey:crypto.randomUUID()}:{}),...(creatorSelected?{creatorOnly:true as const}:{})}:{})};
+    if(creatorSelected&&!createIntent&&(!canTurn||projectLaunch)&&!textAuthoring){setError("当前企业暂不能在 Chat 中调用技能，请稍后再试。");return;}
+    const intent:PendingCreate=createIntent??{key:crypto.randomUUID(),body:selected?{scopeSelection:scopeSelection(selected),scopeConfirmation:selected.confirmation}:{},...(directCompose?{draft:compose,context:scopeContext,owner:scope,...(projectLaunch?{projectTask:true as const}:{}),...(!recheckStore&&storeState.choice?{storeChoice:storeState.choice}:{}),...(!projectLaunch&&canTurn&&!textAuthoring?{turnKey:crypto.randomUUID()}:{}),...(textAuthoring?{authoring:{version:textAuthoring.version,digest:textAuthoring.digest}}:creatorSelected?{creatorOnly:true as const}:{})}:{})};
     setCreateIntent(intent);setCreating(true);setError("");
     const controller=new AbortController();abort.current=controller;
     let recorded=false;
@@ -252,7 +257,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
           sessionStorage.removeItem(activeCreateKey);setCreateIntent(undefined);
         }
       }else{sessionStorage.removeItem(activeCreateKey);setCreateIntent(undefined);}
-      router.push("/workbench/ai/chat/"+chat+(intent.projectTask?"?projectTask=1":selectedOperationId&&isAcquisitionUUID(selectedOperationId)?"?operationId="+encodeURIComponent(selectedOperationId):""));
+      router.push("/workbench/ai/chat/"+chat+(intent.authoring?.version===3?`?skillAuthoring=1&skillVersion=3&skillDigest=${intent.authoring.digest}`:intent.projectTask?"?projectTask=1":selectedOperationId&&isAcquisitionUUID(selectedOperationId)?"?operationId="+encodeURIComponent(selectedOperationId):""));
     }catch(cause){if(!controller.signal.aborted){
       if(!recorded){if(!createIntent)setCreateIntent(undefined);setDraftError("无法保存待恢复的请求和需求，请检查浏览器存储设置。");return;}
       if(cause instanceof AIWorkbenchError&&cause.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(cause.code)){
@@ -269,6 +274,8 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     {library.error&&<p role="alert">{library.error}</p>}
     {creatorSelected && <div className={styles.selectedSkill}>
       <span>创建技能</span>
+      {!projectLaunch && !createIntent && !creating && compose.trim() && context.aiWorkbenchChatIntentReadiness!=="AVAILABLE" &&
+        <ContinueTextSkill scope={scope} authorizationKey={authorizationKey} onContinue={choice=>void create(choice)}/>}
       <Button type="button" variant="ghost" disabled={creating || Boolean(createIntent)} onClick={()=>setCreatorSelected(false)}>取消选择</Button>
     </div>}
   </> : null;
@@ -365,12 +372,22 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [platform, setPlatform] = useState<"shein" | "temu" | "amazon">("shein");
   const [content, setContent] = useState("");
   const library=useChatLibrarySkill(scope,libraryReturn("/workbench/ai/chat/"+id,search),authorizationKey);
+  const [textSkill, setTextSkill] = useState<SelectedTextSkill>();
+  const textSkillInput = useRef<HTMLTextAreaElement>(null);
   const [creatorSelected,setCreatorSelected]=useState(false);
   const [clarifySkillPurpose,setClarifySkillPurpose]=useState(false);
   const [revisionContext,setRevisionContext]=useState<ChatSkillRevision>();
   const [hasRecoveredRevision,setHasRecoveredRevision]=useState(false);
   const composerInput=useRef<HTMLTextAreaElement>(null);
-  const [showAuthoring, setShowAuthoring] = useState<boolean | undefined>(()=>search.get("skillAuthoring")==="1" ? true : undefined);
+  const [showAuthoring, setShowAuthoring] = useState<boolean | undefined>(() =>
+    search.get("skillAuthoring") === "1" && search.get("skillVersion") !== "3" ? true : undefined);
+  const [generalAuthoring, setGeneralAuthoring] = useState<{
+    open: boolean;
+    editorId: number;
+    choice?: AISkillAuthoringChoice;
+    requirement?: string;
+  } | undefined>(() => search.get("skillAuthoring") === "1" && search.get("skillVersion") === "3" ? {open:true,editorId:0} : undefined);
+  const showGeneralAuthoring = generalAuthoring?.open === true;
   const [draftSaveError, setDraftSaveError] = useState("");
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [draftRetry, setDraftRetry] = useState(0);
@@ -440,6 +457,39 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     && currentScope.projectId === preview.scope.projectId && currentScope.storeId === preview.scope.storeId);
   const reboundProject = Boolean(preview && currentScope?.projectId === preview.scope.projectId && currentScope?.storeId !== preview.scope.storeId);
   const selectedTaskStore = conversationStore.choice?.kind === "store" ? conversationStore.choice.storeId : undefined;
+  const pendingTextSkill = pendingMessage && "textSkill" in pendingMessage.body ? pendingMessage.body.textSkill : undefined;
+  const usingTextSkill = Boolean(pendingTextSkill || textSkill);
+  const canChooseTextSkill = canUse && currentScope?.kind === "general" && !current?.Archived && !projectTask &&
+    !selectedTaskStore && !subject && !operationId && !awaitingConfirm && !pendingMessage && !projectSaveLocked && draftHydrated;
+  const canStartSkillAuthoring = Boolean(currentScope) && !projectTask;
+  function closeTitleAuthoring() {
+    setShowAuthoring(shown => shown === undefined ? undefined : false);
+  }
+  function openTextAuthoring(choice:AISkillAuthoringChoice, requirement?:string) {
+    if (pending || pendingMessage || current?.Archived || !canUse || !canStartSkillAuthoring) return;
+    if (!selectSkillRevision(undefined)) return;
+    library.choose();
+    clearSkillPurposeHint();
+    setTextSkill(undefined);
+    setCreatorSelected(false);
+    closeTitleAuthoring();
+    setGeneralAuthoring(editor => requirement === undefined && editor ? {...editor,open:true} : {
+      open:true, editorId:(editor?.editorId ?? 0) + 1, choice, requirement:requirement ?? "",
+    });
+  }
+  function chooseTextSkill(selection: SelectedTextSkill, fromSave = false) {
+    if (!canChooseTextSkill || pending) return;
+    if (!selectSkillRevision(undefined)) return;
+    library.choose();
+    clearSkillPurposeHint();
+    setTextSkill(selection);
+    setCreatorSelected(false);
+    setGeneralAuthoring(undefined);
+    closeTitleAuthoring();
+    setError("");
+    if (fromSave && !userEdited.current && search.get("skillAuthoring") === "1") updateConversationDraft("");
+    requestAnimationFrame(() => textSkillInput.current?.focus());
+  }
   const projectStoreReady = conversationStore.ready && selectedTaskStore === preview?.scope.storeId;
   const canGenerateProject = canExecuteProject && matchesProject && !projectPreview.isFetching && !projectPreview.isError && projectStoreReady;
   const proposalMatchesProject = activeProposal?.businessScope?.scope.kind === "project"
@@ -563,8 +613,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       setPendingMessage({ key: value.key, body: checked.data, route, draftId, draftSlot });
       setContent(checked.data.content);
       if(route === "message") { const normal=aiMessageBody.parse(value.body);
-        if("taskSelection" in normal){setSubject(normal.taskSelection.subject);setParameters(normal.taskSelection.parameters)}else{setOperationId(normal.operationId);setSelectedProductName("");setPlatform(normal.targetPlatform)}
-        setTemplateId(normal.templateId ?? "");setTemplateRevision(normal.templateRevision ?? "");setKnowledgeBaseId(normal.knowledgeBaseId ?? "");if(normal.templateId || normal.templateRevision || normal.knowledgeBaseId)setContextExpanded(true);
+        if (!("textSkill" in normal)) {
+          if("taskSelection" in normal){setSubject(normal.taskSelection.subject);setParameters(normal.taskSelection.parameters)}else{setOperationId(normal.operationId);setSelectedProductName("");setPlatform(normal.targetPlatform)}
+          setTemplateId(normal.templateId ?? "");setTemplateRevision(normal.templateRevision ?? "");setKnowledgeBaseId(normal.knowledgeBaseId ?? "");if(normal.templateId || normal.templateRevision || normal.knowledgeBaseId)setContextExpanded(true);
+        }
       }
       setMessageRecoveryError("");setMessageChecked(messageStorageKey);
       } catch { setMessageRecoveryError("原消息恢复记录不可读取或身份无法确认，请保留记录并联系管理员。");setMessageChecked(messageStorageKey); }
@@ -626,23 +678,30 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       setError(revisionTooLong);
       return;
     }
-    const useChatTurn=pendingMessage?.route==="chat-turn"||!pendingMessage&&canChatTurn&&Boolean(creatorSelected||revisionContext||(!subject&&(contentTasks||!isAcquisitionUUID(operationId))));
-    if(!useChatTurn&&!pendingMessage && contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) { setError("当前尚不支持直接查询所选店铺，请先选择商品任务。");return; }
-    const intentRoute = !useChatTurn&&(pendingMessage?.route === "store-route" || !pendingMessage && current?.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)));
-    const draft = pendingMessage ?? { key: crypto.randomUUID(), body: useChatTurn ? {content,...(revisionContext??(creatorSelected?{creatorOnly:true}:{}))} : intentRoute ? {content} : {
+    if(!pendingMessage && textSkill && !canChooseTextSkill) { setError("请先取消所选的商品或店铺，再发送文字任务。");return; }
+    const useChatTurn=pendingMessage?.route==="chat-turn"||!pendingMessage&&!textSkill&&canChatTurn&&Boolean(creatorSelected||revisionContext||(!subject&&(contentTasks||!isAcquisitionUUID(operationId))));
+    if(!textSkill&&!useChatTurn&&!pendingMessage && contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) { setError("当前尚不支持直接查询所选店铺，请先选择商品任务。");return; }
+    const intentRoute = !useChatTurn&&(pendingMessage?.route === "store-route" || !pendingMessage && !textSkill && current?.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)));
+    const draft = pendingMessage ?? { key: crypto.randomUUID(), body: textSkill ? {content,textSkill:{id:textSkill.id,version:textSkill.version,digest:textSkill.digest}} : useChatTurn ? {content,...(revisionContext??(creatorSelected?{creatorOnly:true}:{}))} : intentRoute ? {content} : {
       content, ...(contentTasks?{taskSelection:{subject,capability:"product.content.localize",parameters}}:{operationId,targetPlatform:platform}),
       ...(knowledgeBaseId ? { knowledgeBaseId } : {}), ...(templateId ? { templateId, templateRevision } : {}), ...(contentTasks&&conversationStore.choice?{storeChoice:conversationStore.choice}:{}),
     } };
     const checked = useChatTurn ? aiChatTurnBody.safeParse(draft.body) : intentRoute ? aiStoreRouteBody.safeParse(draft.body) : aiMessageBody.safeParse(draft.body);
-    if (!checked.success) { setError("请选择有效商品、语言和字段，填写需求及模板修订号。"); return; }
+    if (!checked.success) { setError(usingTextSkill ? "请填写要处理的文字。文字过长时，可分段发送。" : "请选择有效商品、语言和字段，填写需求及模板修订号。"); return; }
     const saved:PendingMessage = { key: draft.key, body: checked.data, route:useChatTurn?"chat-turn":intentRoute?"store-route":"message", owner:scope, conversationId:id, ...(pendingMessage?.draftId ? {draftId:pendingMessage.draftId,draftSlot:pendingMessage.draftSlot} : !pendingMessage && activeDraft.current ? {draftId:activeDraft.current.id,draftSlot:activeDraft.current.slot} : {}) };
-    setConversationStore({choice:undefined,ready:false}); setPendingMessage(saved); setPending(true); setError("");
+    if (!usingTextSkill) setConversationStore({choice:undefined,ready:false});
+    setPendingMessage(saved); setPending(true); setError("");
     try { sessionStorage.setItem(activeMessageKey, JSON.stringify(saved)); } catch { setPending(false);setDraftSaveError("无法保存消息恢复记录，请检查浏览器存储后重试。");return; }
     const controller = new AbortController(); abort.current = controller;
     try {
       const result = useChatTurn ? await requestAIWorkbench({route:"chat-turn-submit",method:"POST",path:`chat/conversations/${id}/turns`,scope,key:saved.key,signal:controller.signal,body:saved.body}) : intentRoute ? await requestAIWorkbench({route:"store-route",method:"POST",path:`chat/conversations/${id}/intent`,scope,key:saved.key,signal:controller.signal,body:saved.body}) : await requestAIWorkbench({ route: "message", method: "POST", path: `chat/conversations/${id}/messages`, scope, key: saved.key, signal: controller.signal, body: saved.body });
       if (controller.signal.aborted) return;
       if ("scopeUnavailable" in result && result.scopeUnavailable) { setError("工作范围暂不可读。请核对当前权限。"); await detail.refetch(); return; }
+      if (usingTextSkill && result.state === "PLANNER_UNKNOWN") {
+        setError("本次结果未能确认。可以核对原消息，核对不会重新发送。");
+        await detail.refetch();
+        return;
+      }
       const clarify = "creatorOnly" in saved.body && saved.body.creatorOnly && result.state==="COMPLETE" && "kind" in result && result.kind==="CLARIFY";
       if (result.state === "FAILED" || result.state === "NOT_STARTED" || result.state === "COMPLETE" || result.state === "ROUTING_RESULT_LOST" || result.state === "FAILED_BEFORE_DISPATCH" || result.state === "PLANNER_INVALID_OUTPUT" || result.state === "PLANNER_UNKNOWN") {
         if((result.state!=="COMPLETE" || clarify) && !preserveMessageInput(saved,true,clarify)){setDraftSaveError("无法保存原需求，请勿刷新，检查浏览器存储后重试。");return;}
@@ -650,26 +709,27 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
         try { sessionStorage.removeItem(activeMessageKey); } catch { setDraftSaveError("无法更新消息恢复记录，请检查浏览器存储后重试。");return; }
         setPendingMessage(null);setActiveMessageKey(messageStorageKey);
         if (result.state === "COMPLETE") {
-          setCreatorSelected(!!clarify);setRevisionContext(undefined);setHasRecoveredRevision(false);setClarifySkillPurpose(!!clarify);
+          setCreatorSelected(!!clarify);setRevisionContext(undefined);setHasRecoveredRevision(false);setTextSkill(undefined);setClarifySkillPurpose(!!clarify);
           if (!clarify) setContent("");
         }
       }
       if(result.state==="PROCESSING"||result.state==="UNKNOWN")setError("原请求的结果尚未确认，请重试同一消息核实。");
       if(result.state==="FAILED"||result.state==="NOT_STARTED")setError("本次未能生成草稿，原需求已保留。请核对技能后再试。");
-      if (result.state === "FAILED_BEFORE_DISPATCH") setError(intentRoute?"请求尚未发送到模型。请检查当前企业的模型配置；原额度状态由账本继续核对，需求已保留。":"规划尚未发送到模型。请检查当前企业的模型配置或联系管理员；修复后可用保留的需求发送新消息。");
-      if (result.state === "PLANNER_INVALID_OUTPUT") setError("模型返回的规划内容格式无效；本轮已产生 AI 用量，不会自动重发。可修改保留的需求后发送新消息。");
+      if (result.state === "FAILED_BEFORE_DISPATCH") setError(usingTextSkill ? "文字任务未发送。请核对技能是否启用、当前企业的模型是否可用。输入已保留。" : intentRoute?"请求尚未发送到模型。请检查当前企业的模型配置；原额度状态由账本继续核对，需求已保留。":"规划尚未发送到模型。请检查当前企业的模型配置或联系管理员；修复后可用保留的需求发送新消息。");
+      if (result.state === "PLANNER_INVALID_OUTPUT") setError(usingTextSkill ? "本次回复格式有误，输入已保留。此操作已计入 AI 用量。" : "模型返回的规划内容格式无效；本轮已产生 AI 用量，不会自动重发。可修改保留的需求后发送新消息。");
       if (result.state === "PLANNER_UNKNOWN") setError("模型结果无法确认；本轮不会自动重发。请刷新查看状态。");
       if (result.state === "ROUTING_RESULT_LOST") setError("识别结果未在期限内保存；已保留原需求，不会自动再次识别。");
       if (result.state === "READY_TO_DISPATCH") setError("本次请求仍在处理，请重试查看结果。");
       if(useChatTurn)await queryClient.invalidateQueries({queryKey:["chat-turn",scope.userId,scope.organizationId]});
       await detail.refetch();
     } catch (cause) { if (!controller.signal.aborted) {
-      if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(cause.code)){
+      if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE","TEXT_SKILL_UNAVAILABLE","TEXT_SKILL_INPUT_LIMIT"].includes(cause.code)){
         const revision = "revision" in saved.body && saved.body.revision && saved.body.skill ? {skill:saved.body.skill,revision:saved.body.revision} : undefined;
         if(!preserveMessageInput(saved,false,false,revision)){setDraftSaveError("无法保存原需求，请勿刷新，检查浏览器存储后重试。");return;}
         try{sessionStorage.removeItem(activeMessageKey)}catch{setDraftSaveError("无法更新消息恢复记录，请检查浏览器存储后重试。");return;}
         setPendingMessage(null);setActiveMessageKey(messageStorageKey);
         if(revision){setRevisionContext(revision);setHasRecoveredRevision(true);setCreatorSelected(false);}
+        if (cause.code==="TEXT_SKILL_UNAVAILABLE") setTextSkill(undefined);
         if (projectTask && cause.code==="PROPOSAL_STALE") void projectPreview.refetch();
         if(revision && !titleSkillSnapshotFits(revision.revision.snapshot)){setError(revisionTooLong);return;}
       }
@@ -741,10 +801,19 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button disabled={pending || new TextEncoder().encode(titleDraft).length > 256} onClick={() => void change({ title: titleDraft })}>保存标题</Button>
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
       {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div></Card> : null}
-    {showAuthoring!==undefined && execution.effectiveMemberId && <div hidden={!showAuthoring}><ChatSkillAuthoring scope={scope} authorizationKey={authorizationKey} conversation={id} readOnly={!canUse||current.Archived} onClose={()=>setShowAuthoring(false)}/></div>}
+    {generalAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <div hidden={!generalAuthoring.open}>
+      <GeneralSkillAuthoring key={generalAuthoring.editorId} scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={generalAuthoring.choice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
+        initialRequirement={generalAuthoring.requirement ?? (search.get("skillAuthoring")==="1" ? content : "")} onClose={()=>setGeneralAuthoring(editor=>editor && {...editor,open:false})} onUseTextSkill={canChooseTextSkill ? chosen=>chooseTextSkill(chosen,true) : undefined} />
+    </div>}
+    {showAuthoring !== undefined && execution.effectiveMemberId && <div hidden={!showAuthoring}>
+      <ChatSkillAuthoring scope={scope} authorizationKey={authorizationKey} conversation={id} readOnly={!canUse||current.Archived} onClose={closeTitleAuthoring}/>
+    </div>}
     <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : `${styles.assistantMessage} ${item.kind==="AGENT_SKILL_REF"?styles.skillMessage:""}`}>
-      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small>{item.kind!=="AGENT_SKILL_REF"?<p>{item.Content}</p>:null}
-      {item.kind==="AGENT_SKILL_REF"&&item.turnKey?<ChatSkillTurn scope={scope} authorizationKey={authorizationKey} conversation={id} turnKey={item.turnKey} readOnly={!canUse||current.Archived} onRecover={pendingMessage?.route==="chat-turn"&&pendingMessage.key===item.turnKey?send:undefined} onRevise={revision=>{if(pending||pendingMessage||!selectSkillRevision(revision))return;library.choose();clearSkillPurposeHint();setCreatorSelected(false);composerInput.current?.focus();}}/>:null}
+      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}{item.textSkillVersion ? ` · 使用文字技能 v${item.textSkillVersion}` : ""}</small>{item.kind!=="AGENT_SKILL_REF"?item.textSkillVersion ? <div className={styles.textSkillReply}>
+        <Markdown skipHtml remarkPlugins={[remarkGfm]} disallowedElements={["a", "img", "input"]} unwrapDisallowed
+          components={{table: ({children}) => <Table>{children}</Table>}}>{item.Content}</Markdown>
+      </div> : <p>{item.Content}</p>:null}
+      {item.kind==="AGENT_SKILL_REF"&&item.turnKey?<ChatSkillTurn scope={scope} authorizationKey={authorizationKey} conversation={id} turnKey={item.turnKey} readOnly={!canUse||current.Archived} onRecover={pendingMessage?.route==="chat-turn"&&pendingMessage.key===item.turnKey?send:undefined} onRevise={revision=>{if(pending||pendingMessage||!selectSkillRevision(revision))return;library.choose();setTextSkill(undefined);clearSkillPurposeHint();setCreatorSelected(false);composerInput.current?.focus();}}/>:null}
       {item.kind === "STORE_OVERVIEW_REF" ? !storeProjectionFresh || detail.isFetching || detail.isError ? <p>正在重新核对店铺权限…</p> : item.currentStoreOverview ? <div><p>全部可见店铺：当前可查看 {item.currentStoreOverview.total} 家店铺。</p><p>平台：{Object.entries(item.currentStoreOverview.platforms).map(([name,count])=>`${name} ${count} 家`).join("、") || "暂无"}。</p><p>状态：启用 {item.currentStoreOverview.statuses.active ?? 0} 家、停用 {item.currentStoreOverview.statuses.disabled ?? 0} 家、删除中 {item.currentStoreOverview.statuses.deleting ?? 0} 家。</p><p>经营类型未确认：{item.currentStoreOverview.operatingTypeUnknown} 家。读取开始时间：{new Date(item.currentStoreOverview.readStartedAt).toLocaleString("zh-CN")}</p><Link href="/workbench/stores">前往店铺中心</Link></div> : <p>当前无权查看或店铺数据暂不可用。</p> : null}</Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
       {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetching} onClick={() => void loadEarlierMessages()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div></Card>
     {canUse && !current.Archived && current.businessScope?.kind === "general" ? <Button variant="outline" disabled={!overviewReady||overviewBusy} onClick={()=>void explicitStoreOverview()}>{overviewBusy?"正在读取店铺概况…":pendingOverview?"核对原店铺查询":"查看全部可见店铺概况"}</Button> : null}
@@ -762,9 +831,15 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button type="button" variant="outline" disabled={pending} onClick={()=>void confirm(pendingConfirmationId)}>核对原确认请求</Button>
     </ConsoleState> : null}
     {(canUse || projectAvailable && canCreateProject) && !current.Archived ? <div className={styles.contextControls}>
-      {(projectAvailable || contentTasks) && !pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
+      {(projectAvailable || contentTasks) && !pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm||usingTextSkill} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
-      {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onSelect={current.businessScope&&!projectTask?()=>{if(!selectSkillRevision(undefined))return;library.choose();setCreatorSelected(true);clearSkillPurposeHint();requestAnimationFrame(()=>composerInput.current?.focus());}:undefined} onSelectLibrary={v=>{if(!selectSkillRevision(undefined))return;setCreatorSelected(false);clearSkillPurposeHint();library.choose(v);}} onResume={()=>setShowAuthoring(true)} />}
+      {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey}
+        disabled={pending||Boolean(pendingMessage)||awaitingConfirm}
+        onSelect={canStartSkillAuthoring ? ()=>{if(!selectSkillRevision(undefined))return;library.choose();setTextSkill(undefined);setCreatorSelected(true);clearSkillPurposeHint();closeTitleAuthoring();setGeneralAuthoring(undefined);requestAnimationFrame(()=>composerInput.current?.focus());} : undefined}
+        onSelectLibrary={v=>{if(!selectSkillRevision(undefined))return;setTextSkill(undefined);setGeneralAuthoring(undefined);closeTitleAuthoring();clearSkillPurposeHint();setCreatorSelected(false);library.choose(v);}}
+        onUseTextSkill={canChooseTextSkill ? chooseTextSkill : undefined}
+        onResume={()=>{setGeneralAuthoring(undefined);setShowAuthoring(true);}}
+        onResumeText={canStartSkillAuthoring ? openTextAuthoring : undefined}/>}
     </div> : null}
     {library.launch&&<ChatLibrarySkillSelection launch={library.launch} authorizationKey={authorizationKey} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClear={()=>library.choose()}/>}
     {library.error&&<p role="alert">{library.error}</p>}
@@ -791,8 +866,19 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {matchesProject && !projectStoreReady ? <p role="status">{preview?.scope.storeId?"请选择并核对该项目关联的店铺。":"该项目未关联店铺，请取消本次选店后继续。"}</p> : null}
     </Card> : null}
     {clarifySkillPurpose && content.trim() && !pendingMessage && !current.Archived && canUse && <p role="status">请说明要创建的技能用途，例如为商品标题保留品牌和型号。原需求已保留。</p>}
+    {canStartSkillAuthoring && creatorSelected && (clarifySkillPurpose || !canChatTurn) && canUse && !current.Archived && !pending && !pendingMessage && content.trim() &&
+      <ContinueTextSkill scope={scope} authorizationKey={authorizationKey} onContinue={choice=>openTextAuthoring(choice,content)}/>}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
-    {!current.Archived && canUse && (canPlan || pendingMessage || creatorSelected || canChatTurn || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
+    {!current.Archived && canUse && usingTextSkill ? <Card className={styles.composer}>
+      <h2>{textSkill?.name || "使用个人文字技能"}</h2>
+      <label className={styles.promptLabel}>要处理的文字<Textarea ref={textSkillInput} rows={5} value={pendingMessage?.body.content ?? content} disabled={Boolean(pendingMessage) || pending || !draftHydrated} onChange={event=>updateConversationDraft(event.target.value)} /></label>
+      {draftSaveError && <p role="status">{draftSaveError}</p>}
+      <div className={styles.toolbar}>
+        <Button disabled={pending || !draftHydrated || messageChecked!==messageStorageKey || Boolean(draftSaveError) && !pendingMessage || !pendingMessage && (!canChooseTextSkill || !content.trim())} onClick={()=>void send()}>{pending ? "处理中…" : pendingMessage ? "核对原消息" : "发送消息"}</Button>
+        {!pendingMessage && <Button type="button" variant="ghost" onClick={()=>setTextSkill(undefined)}>取消选用</Button>}
+      </div>
+    </Card> : null}
+    {!current.Archived && canUse && (usingTextSkill || showGeneralAuthoring) ? null : !current.Archived && canUse && (canPlan || pendingMessage || creatorSelected || canChatTurn || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
       {contentTasks&&!pendingMessage&&conversationStore.choice?.kind==="store"&&!subject?<p>暂不支持直接查询所选店铺；选择商品后可继续商品任务。</p>:null}
       {contentTasks&&canPlan?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} compactSummary={projectTask} onSubject={value=>{invalidateProposal();setSubject(value);}} onParameters={value=>{invalidateProposal();setParameters(value);}} disabled={pending||Boolean(pendingMessage)||projectAvailable&&awaitingConfirm}/>:null}
       {!contentTasks&&canPlan?<div className={styles.formGrid}><fieldset disabled={pending||Boolean(pendingMessage)}><legend>选择商品</legend><CollectionPicker authorizationKey={authorizationKey} scope={scope} kind="product" disabled={pending||Boolean(pendingMessage)} isEligible={item=>item.source.kind==="acquisition"&&isAcquisitionUUID(item.source.operationId??"")} emptyMessage="当前页没有可用于标题任务的采集商品。" onSelect={item=>{setOperationId(item.source.operationId??"");setSelectedProductName(item.title||"未命名商品")}}/>{operationId?<p>已选择：{selectedProductName||"已保存商品"}</p>:<p>请选择已保存的采集商品。</p>}</fieldset>

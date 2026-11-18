@@ -7,7 +7,7 @@ import { planPath, planMethods, planRequestSchema, planResponseSchema, type Plan
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialConnectionRefreshSchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
 import {agentEmptyRequestSchema,agentStartRequestSchema,contentAgentStartRequestSchema,ownContentStartRequestSchema,ownContentSourceSchema,ownAgentPath,agentResumeRequestSchema,agentResultSchema,contentAgentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
-import { aiWorkbenchPath, aiChatTurnBody, aiCreateBody, aiMessageBody, aiStoreRouteBody, aiStoreOverviewBody, aiMetadataBody, aiResumeBody, aiScheduleInput,aiScheduleControl,aiScheduleEdit, aiSkillAuthoringQuote, aiTitleSkillDraft, aiAuthoringPreview, aiAuthoringConfirm, aiAuthoringSavePackage, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
+import { aiWorkbenchPath, aiChatTurnBody, aiCreateBody, aiMessageBody, aiStoreRouteBody, aiStoreOverviewBody, aiMetadataBody, aiResumeBody, aiScheduleInput,aiScheduleControl,aiScheduleEdit, aiSkillAuthoringQuote, aiTitleSkillDraft, aiAuthoringPreview, aiAuthoringConfirm, aiAuthoringSavePackage, aiAuthoringValidation, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
 import { NextResponse } from "next/server";
 import { COLLECTION_MAX_BYTES, COLLECTION_DETAIL_RESPONSE_MAX_BYTES, collectionPath, collectionCommandSchema, collectionSourceKindSchema, collectionVersion, parseCollectionResponse, type CollectionRoute } from "@/lib/contracts/product-collection";
 import {
@@ -703,7 +703,8 @@ export async function buildWorkbenchUpstreamRequest(
               : action === "skill-authoring-preview" ? aiAuthoringPreview
               : action === "skill-authoring-confirm" ? aiAuthoringConfirm
               : action === "skill-authoring-save-package" ? aiAuthoringSavePackage
-              : action === "skill-authoring-save" || action === "skill-authoring-validate" ? aiTitleSkillDraft
+              : action === "skill-authoring-save" ? aiTitleSkillDraft
+              : action === "skill-authoring-validate" ? aiAuthoringValidation
               : action==="schedule-quote"||action==="schedule-create"?aiScheduleInput:action==="schedule-edit"?aiScheduleEdit:action.startsWith("schedule-")?aiScheduleControl:action === "conversation-create" ? aiCreateBody : action === "message" ? aiMessageBody : action === "store-route" ? aiStoreRouteBody : action === "store-overview" ? aiStoreOverviewBody : action === "conversation-metadata" ? aiMetadataBody : aiResumeBody;
             const valid = schema.safeParse(parsed?.payload);
             if (!parsed || !valid.success) return protocolError(400, "INVALID_REQUEST", "Request body is invalid");
@@ -1216,7 +1217,7 @@ export async function buildWorkbenchBrowserResponse(
     const standard = parseWorkbenchErrorEnvelopePayload(payload);
     const code = typeof payload.code === "string" ? payload.code : standard.success ? standard.data.code : "";
     const statuses: Record<string, number> = { INVALID_REQUEST: 400, FORBIDDEN: 403, NOT_FOUND: 404,
-      IDEMPOTENCY_CONFLICT: 409, PROPOSAL_STALE: 409, REVISION_MISMATCH: 409,
+      IDEMPOTENCY_CONFLICT: 409, PROPOSAL_STALE: 409, TEXT_SKILL_UNAVAILABLE: 409, TEXT_SKILL_INPUT_LIMIT: 413, REVISION_MISMATCH: 409,
       CONVERSATION_ARCHIVED: 409, MANUAL_REVIEW_REQUIRED:409,SCHEDULE_COMMAND_REJECTED:409, TASK_OUTCOME_UNKNOWN: 503, DEPENDENCY_UNAVAILABLE: 503,
       AUTHENTICATION_REQUIRED: 401, ORGANIZATION_SELECTION_REQUIRED: 409, ORGANIZATION_ACCESS_DENIED: 403,
       ORGANIZATION_ACCESS_REVOKED: 403, ORGANIZATION_SUSPENDED: 403, PERMISSION_DENIED: 403,
@@ -1228,7 +1229,10 @@ export async function buildWorkbenchBrowserResponse(
       if(!contract.startsWith("ai-schedule-")||contract==="ai-schedule-quote"||payload.commandAccepted!==false)return unavailable();
       response=new NextResponse(JSON.stringify({...await response.json(),commandAccepted:false}),{status:response.status,headers:response.headers});
     }
-    if(payload.messageAccepted===false&&(contract==="ai-message"&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)||contract==="ai-chat-turn-submit"&&code==="INVALID_REQUEST")){
+    const messageRejected = contract === "ai-message" &&
+      ["INVALID_REQUEST", "PROPOSAL_STALE", "TEXT_SKILL_UNAVAILABLE", "TEXT_SKILL_INPUT_LIMIT"].includes(code);
+    const turnRejected = contract === "ai-chat-turn-submit" && code === "INVALID_REQUEST";
+    if (payload.messageAccepted === false && (messageRejected || turnRejected)) {
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
     if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){

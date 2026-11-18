@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"task-processor/internal/aiworkbench"
+	"task-processor/internal/skill"
 )
 
 // AuthoringDraft is the workbench receipt and pending save intent.
@@ -164,7 +165,8 @@ func (s *Store) checkAuthoringBase(ctx context.Context, scope aiworkbench.Scope,
 	if err != nil {
 		return aiworkbench.ErrUnavailable
 	}
-	if row.BaseRevision == nil || root.AuthoringRevision() != *row.BaseRevision || root.SaveKey != nil || root.State != "COMPLETE" {
+	if row.BaseRevision == nil || root.AuthoringRevision() != *row.BaseRevision || root.SaveKey != nil || root.State != "COMPLETE" ||
+		(root.SkillVersion == skill.GeneralAuthoringVersion) != (row.SkillVersion == skill.GeneralAuthoringVersion) {
 		return aiworkbench.ErrProposalStale
 	}
 	return nil

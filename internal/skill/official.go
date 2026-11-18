@@ -11,6 +11,7 @@ import (
 )
 
 const AuthoringReleaseKey = "official-method-v1:skill-authoring"
+const GeneralAuthoringVersion = 3
 
 func OfficialReleaseID(key string) string {
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+key)).String()
@@ -40,6 +41,7 @@ type OfficialPackage struct {
 	Version  uint64
 	Package  Package
 	Previous *Package
+	Base     *Package
 }
 
 func OfficialPackages() ([]OfficialPackage, error) {
@@ -70,7 +72,15 @@ func OfficialPackages() ([]OfficialPackage, error) {
 			if err != nil || !current.Supports(AuthoringTarget) {
 				return nil, ErrInvalid
 			}
-			release.Version, release.Previous, release.Package = 2, &p, current
+			general, err := officialFiles.ReadFile("official/authoring/general.md")
+			if err != nil {
+				return nil, err
+			}
+			latest, err := ValidatePackage([]File{{Path: "SKILL.md", Text: string(general)}})
+			if err != nil || !latest.Supports(AuthoringTarget) {
+				return nil, ErrInvalid
+			}
+			release.Version, release.Base, release.Previous, release.Package = GeneralAuthoringVersion, &p, &current, latest
 		}
 		if p.Target == ImageTarget {
 			brief, err := officialFiles.ReadFile("official/visual/" + entry.Name())

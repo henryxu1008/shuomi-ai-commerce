@@ -441,11 +441,14 @@ func TestOwnedTextNeverReservesAndKeepsObservedUsage(t *testing.T) {
 	for _, tc := range []struct {
 		name, choices, usage          string
 		switchAfterAuth, dropResponse bool
+		chatTextSkill                 bool
 		wantError                     error
 		outcome                       aicapability.InvocationOutcome
 		tokens                        int
 	}{
 		{name: "observed", choices: validChoice, usage: usage, outcome: aicapability.InvocationSucceeded, tokens: 15},
+		{name: "text skill reply", choices: `[{"index":0,"message":{"role":"assistant","content":"| Task | Owner |\n| --- | --- |\n| Check notes | TBD |"},"finish_reason":"stop"}]`,
+			usage: usage, chatTextSkill: true, outcome: aicapability.InvocationSucceeded, tokens: 15},
 		{name: "actual zero", choices: validChoice, usage: zero, outcome: aicapability.InvocationSucceeded},
 		{name: "bad output", choices: `{"wrong":"shape"}`, usage: usage, wantError: ErrInvalid, outcome: aicapability.InvocationUsageObservedFailed, tokens: 15},
 		{name: "missing usage", choices: validChoice, usage: `"usage":null`, wantError: ErrOutcomeUnknown, outcome: aicapability.InvocationDispatched},
@@ -463,7 +466,7 @@ func TestOwnedTextNeverReservesAndKeepsObservedUsage(t *testing.T) {
 			profile.InputMicrosPerMillion, profile.OutputMicrosPerMillion = 0, 0
 			profile.OfficialTariff = aicapability.OfficialModelTariff{}
 			input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1", Operation: aicapability.OperationAIWorkbenchChatPlan,
-				InvocationID: "owned-test", System: "system", Prompt: "prompt", Profile: profile}
+				InvocationID: "owned-test", System: "system", Prompt: "prompt", Profile: profile, ChatTextSkill: tc.chatTextSkill}
 			quote, err := aicapability.QuoteText(input)
 			require.NoError(t, err)
 			ledger := &recordingLedger{}

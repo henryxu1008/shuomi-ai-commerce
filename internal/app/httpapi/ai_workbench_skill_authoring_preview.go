@@ -29,6 +29,17 @@ func authoringProfileFormat(profile aicapability.ModelProfile) int {
 	}
 }
 
+func authoringReleaseFormat(version uint64) int {
+	switch version {
+	case 1:
+		return 1
+	case 2, skill.GeneralAuthoringVersion:
+		return 2
+	default:
+		return 0
+	}
+}
+
 type authoringPreviewInput struct {
 	Requirement  string           `json:"requirement"`
 	SkillVersion uint64           `json:"skillVersion"`
@@ -63,19 +74,19 @@ type authoringSaveInput struct {
 
 func newAuthoringRequest(input authoringPreviewInput, conversation, member, key string, scope aiworkbench.Scope) (wbstore.AuthoringDraft, error) {
 	if !acquisitionHTTPUUID(conversation) || !acquisitionHTTPUUID(key) || strings.TrimSpace(input.Requirement) == "" ||
-		len(input.Requirement) > 8192 || (input.SkillVersion != 1 && input.SkillVersion != 2) || len(input.SkillDigest) != 64 {
+		len(input.Requirement) > 8192 || authoringReleaseFormat(input.SkillVersion) == 0 || len(input.SkillDigest) != 64 {
 		return wbstore.AuthoringDraft{}, aiworkbench.ErrInvalid
 	}
 	row := wbstore.AuthoringDraft{
 		OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, ConversationID: conversation, Key: key, MemberID: member,
 		Requirement: input.Requirement, SkillVersion: input.SkillVersion, SkillDigest: input.SkillDigest,
-		InvocationID: authoringInvocation(scope, conversation, key), FormatVersion: int(input.SkillVersion),
+		InvocationID: authoringInvocation(scope, conversation, key), FormatVersion: authoringReleaseFormat(input.SkillVersion),
 	}
 	if input.Root == "" && input.BaseRevision == "" && input.Snapshot == nil {
 		return row, nil
 	}
 	if !acquisitionHTTPUUID(input.Root) || !acquisitionHTTPUUID(input.BaseRevision) || input.Root == key ||
-		input.Snapshot == nil || input.SkillVersion != 2 {
+		input.Snapshot == nil || row.FormatVersion != 2 || (input.SkillVersion == skill.GeneralAuthoringVersion && input.Snapshot.Script != nil) {
 		return row, aiworkbench.ErrInvalid
 	}
 	// Revision prompts may include an unfinished manually edited snapshot.
@@ -196,7 +207,7 @@ func (a *aiWorkbenchApplication) freezeSkillPackage(c *gin.Context, ctx context.
 		row.RootKey != nil || row.State != "COMPLETE" || (row.FormatVersion != 2 && input.Draft.Script != nil && row.CurrentRevision == nil) {
 		return row, aiworkbench.ErrInvalid
 	}
-	pkg, err := input.Draft.skillPackage()
+	pkg, err := input.Draft.skillPackageFor(authoredTarget(row.SkillVersion))
 	if err != nil {
 		return row, err
 	}

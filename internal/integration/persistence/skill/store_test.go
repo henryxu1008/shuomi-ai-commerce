@@ -92,6 +92,34 @@ func TestVersionPersistenceAndExactCommandReplay(t *testing.T) {
 	require.EqualValues(t, 2, count)
 }
 
+func TestPrivateChatTextSaveUseAndRevocation(t *testing.T) {
+	_, store := fixture(t)
+	ctx := context.Background()
+	principal := d.Principal{UserID: "alice"}
+	resolve := func(context.Context) (d.Principal, error) { return principal, nil }
+	pkg, err := d.ValidatePackage([]d.File{{Path: "SKILL.md", Text: "---\nname: handoff-notes\ndescription: Organize notes.\nmetadata:\n  listingkit-method-v1: chat-text\n---\nReturn actions.\n"}})
+	require.NoError(t, err)
+	owner := d.Owner{Kind: d.UserOwner, ID: principal.UserID}
+	create := d.Command{Principal: principal, Owner: owner, Operation: d.CreateChatText, Key: uuid.NewString(), Package: pkg}
+	receipt, err := store.Execute(ctx, create, resolve)
+	require.NoError(t, err)
+	replay, err := store.Execute(ctx, create, resolve)
+	require.NoError(t, err)
+	require.Equal(t, receipt, replay)
+	version, release, err := store.AcquireChatText(ctx, principal.UserID, receipt.ID, receipt.Version, pkg.Digest)
+	require.NoError(t, err)
+	release()
+	require.Equal(t, d.Enabled, version.State)
+	require.Equal(t, d.Private, version.Visibility)
+	require.False(t, version.Package.Supports(d.TitleTarget))
+	_, _, err = store.AcquireChatText(ctx, "bob", receipt.ID, receipt.Version, pkg.Digest)
+	require.ErrorIs(t, err, d.ErrNotFound)
+	_, err = store.Execute(ctx, d.Command{Principal: principal, Owner: owner, Operation: "revoke", Key: uuid.NewString(), ID: receipt.ID, Version: receipt.Version, Expected: receipt.Revision}, resolve)
+	require.NoError(t, err)
+	_, _, err = store.AcquireChatText(ctx, principal.UserID, receipt.ID, receipt.Version, pkg.Digest)
+	require.ErrorIs(t, err, d.ErrNotEnabled)
+}
+
 func TestVerifySchemaRejectsConstraintDrift(t *testing.T) {
 	db, _ := fixture(t)
 	require.NoError(t, db.Exec("ALTER TABLE skill_capability.versions DROP CONSTRAINT versions_files_check").Error)
