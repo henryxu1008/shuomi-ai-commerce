@@ -1,13 +1,15 @@
 # CompletionDraft → SHEIN Target 带入预览与确认
 
-2026-10-17 格式增量见[自有商品富文本合同](domains/catalog/own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+> **归类与时点说明**：本合同属于 Listing 的 CompletionDraft → Target 路径，不转移 Catalog、Store、规则或 Asset 的原 owner。保留原设计与评审正文；[历史 #736 交付记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/736) 分别记录源码、应用镜像更新和有限 Store 对齐，不能由文末原阶段 `NOT_RUN` 推断后来全部未执行，也不能由历史批准推断当前实例已就绪。[安装手册](../../../operations/runbooks/shein-import-installation.md) 保留明确授权与数据边界，本次不访问或操作实例。当前 UI 决定及 [后续销售属性映射](shein-sales-attribute-mapping.md) 分别约束导航/布局与独立的销售映射操作，本文的既有位置带入、固定版本、CAS、原键和不发布合同不变。
+
+2026-10-17 格式增量见[自有商品富文本合同](../catalog/own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
 
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY — 2026-10-16 独立 R1 核对设计提交 83f34ad3698beb51be17f808b25b9c98a05a54f3，无架构 BLOCKER；按本基线实施。
 
 ## Authority / Outcome
 
-依据 [本轮产品决定](../product/completion-shein-import.md)、[结构化候选](domains/listing/completion-draft-structured.md)、[SHEIN 供应链](my-supply-chain-shein.md) 和 [当前 UI/IA](../product/final-ui-ia-authority.md)。用户在独立页面将固定候选的选定字段预览后追加为本地 SHEIN Target 新版本，保留草稿、商品、批次返回路径，不发布。
+依据 [本轮产品决定](../../../product/flows/completion-shein-import.md)、[结构化候选](completion-draft-structured.md)、[SHEIN 供应链](../../my-supply-chain-shein.md) 和 [当前 UI/IA](../../../product/final-ui-ia-authority.md)。用户在独立页面将固定候选的选定字段预览后追加为本地 SHEIN Target 新版本，保留草稿、商品、批次返回路径，不发布。
 
 ## Owner 与调用路径
 

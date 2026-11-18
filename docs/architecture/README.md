@@ -87,7 +87,7 @@
 - `member-resource-allocation.md` — [Member resources and official store connection v1](member-resource-allocation.md)
 - `minio-capacity-admission.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission.md)
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
-- `own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](domains/catalog/own-intake-provider-unbilled-recovery.md)
+- `domains/catalog/own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](domains/catalog/own-intake-provider-unbilled-recovery.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
 - `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，用户决定改为周更，周更增量 IMPLEMENTATION_READY，现场启用须单独授权。
 - `domains/ai/bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](domains/ai/bailian-deepseek-shared-text-admission.md)
@@ -142,7 +142,7 @@
 - `amazon-us-zenrows-first-page.md` — [Amazon 美国站 ZenRows 单页试用](amazon-us-zenrows-first-page.md)
 - `issue1070-local-acceptance-fixture.md` — [#1070 本地验收项目合成资料导入](issue1070-local-acceptance-fixture.md)
 - `domains/catalog/own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](domains/catalog/own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
-- `own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](domains/catalog/own-product-intake-openai-mini.md)
+- `domains/catalog/own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](domains/catalog/own-product-intake-openai-mini.md)
 - `domains/catalog/own-product-intake-price-review.md` — [自有商品录入价格建议与人工确认](domains/catalog/own-product-intake-price-review.md)
 - `domains/catalog/own-product-intake-stock-review.md` — [自有商品录入库存建议与逐行确认](domains/catalog/own-product-intake-stock-review.md)
 - `domains/listing/own-product-draft-entry.md` — [自有商品单件转入与独立待补全入口 v1](domains/listing/own-product-draft-entry.md)
@@ -150,7 +150,7 @@
 - `domains/catalog/own-product-entry.md` — [自有商品独立录入页与多变体 v1](domains/catalog/own-product-entry.md)
 - `domains/listing/own-product-existing-drafts.md` — [自有商品已有草稿与继续编辑 v1](domains/listing/own-product-existing-drafts.md)
 - `domains/catalog/own-product-history.md` — [自有商品历史读取、旧版详情和对比 v1](domains/catalog/own-product-history.md)
-- `own-product-optimization.md` — [自有商品无店铺依赖的内容优化与 Apply](domains/catalog/own-product-optimization.md)
+- `domains/catalog/own-product-optimization.md` — [自有商品无店铺依赖的内容优化与 Apply](domains/catalog/own-product-optimization.md)
 - `domains/catalog/own-product-rich-description.md` — [自有商品描述富文本 v1](domains/catalog/own-product-rich-description.md)
 - `domains/catalog/own-product-source-media-trial.md` — [自有商品来源图片的本地隔离试用](domains/catalog/own-product-source-media-trial.md)
 - `product-content-localization.md` — [商品内容完善与本地化智能体 v1](product-content-localization.md)
@@ -168,7 +168,7 @@
 
 
 - `amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](amazon-condition-quotes-draft.md)
-- `completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](completion-shein-import.md)
+- `domains/listing/completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](domains/listing/completion-shein-import.md)
 - `erpnext-shein-fulfillment-fit.md` — [ERPNext 与 SHEIN 双履约适配验证](erpnext-shein-fulfillment-fit.md)
 - `my-supply-chain-shein.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein.md)
 - `supply-four-step-continuation.md` — [四步供应链与补全/审核后继续上传](supply-four-step-continuation.md)

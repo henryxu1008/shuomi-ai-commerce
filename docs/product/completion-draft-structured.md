@@ -23,4 +23,4 @@ Product Decision: PD-COMPLETION-STRUCTURED-2026-10-15 / Issue #718
 
 按 [独立增量架构](../architecture/domains/listing/completion-draft-structured.md) 完成准入后才修改生产路径。
 
-2026-10-16 增量：[SHEIN 带入预览与确认](completion-shein-import.md) 仅对 SHEIN 扩展上述文字带入范围；本页候选保存及文字历史恢复合同不变。
+2026-10-16 增量：[SHEIN 带入预览与确认](flows/completion-shein-import.md) 仅对 SHEIN 扩展上述文字带入范围；本页候选保存及文字历史恢复合同不变。
