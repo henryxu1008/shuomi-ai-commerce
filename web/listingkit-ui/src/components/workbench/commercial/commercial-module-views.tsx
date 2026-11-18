@@ -84,7 +84,7 @@ function sourceFor(event: UsageEvent) {
   return Object.hasOwn(businessSources, event.source_type) ? businessSources[event.source_type] : "未识别来源";
 }
 
-function UsageEventTime({ timestamp, showFractionalSeconds = true }: {
+export function UsageEventTime({ timestamp, showFractionalSeconds = true }: {
   timestamp: string;
   showFractionalSeconds?: boolean;
 }) {

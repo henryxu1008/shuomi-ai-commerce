@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from "vitest";
-import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {EnterpriseTextChoice,PlatformChannelConfiguration} from "./model-channel-configuration";
@@ -15,6 +15,42 @@ const a={category:"text",reference:ref,channel:"openai-direct",channelName:"渠�
 const b={...a,reference:{...ref,id:"pm-official-b"},channelName:"渠道乙",quote:"quote-b"};
 
 afterEach(()=>{cleanup();sessionStorage.clear();vi.unstubAllGlobals();});
+
+it("shows only prices effective when the platform publication opens",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const now="2026-11-18T08:00:00Z";
+ const clock=vi.spyOn(Date,"now").mockReturnValue(Date.parse(now));
+ const connectionId="uc-92ff6319-fdb7-5c55-9fa6-c7c16c0048d1";
+ const registration={organizationId:"platform-model-channel-owner",connectionId,template:"openai-mini-v1",name:"主渠道",revision:"1"};
+ const connection={organizationId:registration.organizationId,connectionId,provider:"openai",channel:a.channel,region:"global",
+  account:"default",revision:"1",enabled:true,keyPresent:true,models:[],registration,baseUrl:"https://api.openai.com/v1"};
+ const price={id:"mini-standard",version:"price-current",channel:a.channel,model:a.model,provider:"openai",region:"global",
+  serviceType:"standard-sync",currency:"USD",usageVersion:"openai-text-v1",sourceUrl:"https://developers.openai.com/api/docs/pricing",
+  verifiedAt:"2026-11-17T08:00:00Z",effectiveFrom:now,effectiveUntil:"2026-11-19T08:00:00Z",
+  rates:{inputText:750000,cachedInputText:0,inputImage:0,cachedInputImage:0,outputText:4500000,outputImage:0}};
+ const prices=[
+  {...price,version:"price-expired",effectiveFrom:price.verifiedAt,effectiveUntil:now,rates:{...price.rates,inputText:990000}},
+  price,
+  {...price,version:"price-scheduled",effectiveFrom:price.effectiveUntil,effectiveUntil:"2026-11-20T08:00:00Z",rates:{...price.rates,inputText:1100000}},
+  {...price,id:"different-channel",platformConnectionId:"uc-1391f667-31c8-506a-b559-5118d5958cf5"},
+ ];
+ vi.stubGlobal("fetch",vi.fn(async(url:string)=>Response.json(url.endsWith("/platform-prices")?{
+  status:"READY",preview:null,revision:{id:"prices",scope:{organizationId:"platform",capability:"ai.models.official-prices"},
+   parent:"NONE",schemaVersion:1,digest:"digest",actorId:"actor",publishedAt:price.verifiedAt,key:"published-prices",
+   payload:{bindingId:"",credentialVersion:"",rates:{},platformPrices:{schemaVersion:1,unitVersion:"ai-micropoint-v1",prices,fx:[]}}},
+ }:{organizationId:scope.organizationId,canWrite:true,channels:[{connection,revision:"NONE"}],organizations:["org-a"]})));
+ try {
+  render(<QueryClientProvider client={client}><PlatformChannelConfiguration scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+  await user.click(await screen.findByRole("button",{name:"主渠道"}));
+  await user.click(screen.getByRole("button",{name:"设置开放企业与价目"}));
+  const select=within(screen.getByRole("combobox",{name:"适用参考价"}));
+  expect(await select.findByRole("option",{name:/mini-standard.*输入 0.75／输出 4.5/})).toBeVisible();
+  expect(select.getAllByRole("option")).toHaveLength(2);
+ } finally {
+  clock.mockRestore();
+  client.clear();
+ }
+});
 
 it("switches only the chosen text option and reads the saved channel again",async()=>{
  const client=prepare(),user=userEvent.setup(),saved=vi.fn(async()=>{});

@@ -31,6 +31,7 @@ import { storagePurchaseId } from "./resource-catalog-display";
 import {
   CommercialOverviewView,
   UsageDetailsView,
+  UsageEventTime,
 } from "./commercial-module-views";
 import {
   OrderDetailView,
@@ -749,9 +750,9 @@ function OwnedModelUsage({ userId, organizationId }: { userId: string; organizat
           : page.items.length === 0 ? <p>暂无自有渠道记录。</p>
           : <div className="overflow-x-auto">
             <table className={styles.usageDetailTable}>
-              <thead><tr><th>时间</th><th>用途</th><th>型号</th><th>用量</th></tr></thead>
+              <thead><tr><th scope="col">时间（UTC）</th><th>用途</th><th>型号</th><th>用量</th></tr></thead>
               <tbody>{page.items.map(item => <tr key={item.invocation_id}>
-                <td>{new Date(item.started_at).toLocaleString("zh-CN")}</td>
+                <td><UsageEventTime timestamp={item.started_at} showFractionalSeconds={false} /></td>
                 <td>{ownedUsagePurposes[item.purpose] ?? "企业文本任务"}</td>
                 <td>{item.model}</td>
                 <td>{item.status === "observed" ? `输入 ${item.input_tokens} · 输出 ${item.output_tokens} Token`

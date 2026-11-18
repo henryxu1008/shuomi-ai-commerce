@@ -7,6 +7,7 @@ import { commercialResourcesFixture } from "@/test/fixtures/commercial-resources
 import { CommercialPage } from "./commercial-page";
 vi.mock("./wallet-topup", () => ({ WalletTopUpEntry: () => <button disabled>充值钱包</button>, TopUpPaymentPanel: () => <section>充值订单</section> }));
 const storage=vi.hoisted(()=>({getStorageSummary:vi.fn(),getStorageOffers:vi.fn()}));
+const readOwnedModelUsage=vi.hoisted(()=>vi.fn());
 vi.mock("@/lib/api/storage-capacity",async original=>({...await original<typeof import("@/lib/api/storage-capacity")>(),...storage}));
 
 const state = vi.hoisted(() => ({ context: {} as Record<string, unknown>, read: vi.fn(), resources: vi.fn(), offers: vi.fn(), wallet: vi.fn(), entries: vi.fn(), orders: vi.fn(), summary: vi.fn(), detail: vi.fn(), events: vi.fn() }));
@@ -14,7 +15,7 @@ vi.mock("@/components/providers/workbench-context-provider", () => ({ useWorkben
 vi.mock("@/lib/api/commercial", async (original) => ({ ...await original<typeof import("@/lib/api/commercial")>(), getCommercialOverview: state.read }));
 vi.mock("@/lib/api/commercial-billing", async (original) => ({ ...await original<typeof import("@/lib/api/commercial-billing")>(), getCommercialResources: state.resources, getCommercialWallet: state.wallet, getCommercialWalletEntries: state.entries, getCommercialOrders: state.orders, getCommercialOrderSummary: state.summary, getCommercialOrder: state.detail }));
 vi.mock("@/lib/api/resource-purchase", async original => ({...await original<typeof import("@/lib/api/resource-purchase")>(),getResourceOffers:state.offers}));
-vi.mock("@/lib/api/resource-events", async original => ({...await original<typeof import("@/lib/api/resource-events")>(),getResourceEvents:state.events}));
+vi.mock("@/lib/api/resource-events", async original => ({...await original<typeof import("@/lib/api/resource-events")>(),getResourceEvents:state.events,getOwnedModelUsage:readOwnedModelUsage}));
 let client: QueryClient;
 const tree = (page: "options" | "entitlements" | "usage" | "top-up" | "orders" | "order-detail" = "entitlements", orderId?: string) => <QueryClientProvider client={client}><CommercialPage page={page} orderId={orderId} /></QueryClientProvider>;
 function deferred<T>() { let resolve!: (v: T) => void; let reject!: (e: unknown) => void; const promise = new Promise<T>((r, j) => { resolve = r; reject = j; }); return { promise, resolve, reject }; }
@@ -23,6 +24,20 @@ function fixture(org="org-B"){const data=commercialOverviewFixture(org);if(data.
 beforeEach(()=>{sessionStorage.clear();state.context={user:{id:"reader"},effectiveOrganization:{id:"org-B",name:"企业乙"},roles:["listingkit_admin"], permissions: ["listingkit.admin.read","listingkit.admin.write","product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.agent.configure","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.knowledge.manage","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.store.delete","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.organization_member.manage","workbench.commercial.read","workbench.commercial.purchase","workbench.commercial.wallet_topup"],retry:vi.fn()};state.read.mockReset().mockResolvedValue(fixture());state.resources.mockReset().mockImplementation((_user,org)=>Promise.resolve(commercialResourcesFixture(org)));state.offers.mockReset().mockResolvedValue({organization_id:"org-B",items:[]});state.events.mockReset().mockResolvedValue({organization_id:"org-B",items:[],next_cursor:null});state.wallet.mockReset().mockResolvedValue({organization_id:"org-B",currency:"CNY",available_minor:"12000",reserved_minor:"0",debt_minor:"0",lifetime_topup_minor:"12000",lifetime_spend_minor:"0",version:"1",observed_at:"2026-09-23T10:00:00Z"});state.entries.mockReset().mockResolvedValue({organization_id:"org-B",items:[],next_cursor:""});state.orders.mockReset().mockResolvedValue({organization_id:"org-B",items:[],next_cursor:""});state.summary.mockReset().mockResolvedValue({organization_id:"org-B",currency:"CNY",from:"2026-08-24T10:00:00Z",until:"2026-09-23T10:00:00Z",spend_minor:"0",store_renewal_spend_minor:"0",ai_point_spend_minor:"0",data_row_spend_minor:"0",other_spend_minor:"0",observed_at:"2026-09-23T10:00:00Z"});client=new QueryClient({defaultOptions:{queries:{retry:false}}});});
 beforeEach(()=>{storage.getStorageSummary.mockReset().mockImplementation(()=>new Promise(()=>{}));storage.getStorageOffers.mockReset();});
 afterEach(()=>{cleanup();client.clear();sessionStorage.clear();});
+it("labels owned model timestamps as UTC and uses the same time format as deductions",async()=>{
+  const timestamp="2026-11-18T08:06:35.123456Z";
+  readOwnedModelUsage.mockResolvedValueOnce({organization_id:"org-B",items:[{
+    invocation_id:"owned-1",started_at:timestamp,purpose:"aiworkbench_chat_plan",model:"gpt-5.4-mini-2026-03-17",
+    status:"observed",input_tokens:20,output_tokens:10,
+  }]});
+  const user=userEvent.setup();
+  render(tree("usage"));
+  const owned=within(await screen.findByRole("region",{name:"企业自有渠道用量"}));
+  await user.click(owned.getByRole("button",{name:"查看自有渠道用量"}));
+  const row=await owned.findByRole("row",{name:/输入 20 · 输出 10 Token/});
+  expect(owned.getByRole("columnheader",{name:"时间（UTC）"})).toBeVisible();
+  expect(within(row).getByText("2026-11-18 08:06:35")).toHaveAttribute("datetime",timestamp);
+});
 it("applies usage categories and dates, tracks previous pages, and preserves filters on refresh", async () => {
   state.events.mockImplementation(async (_user, org, filters) => ({
     organization_id: org,

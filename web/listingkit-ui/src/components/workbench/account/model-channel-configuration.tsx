@@ -148,7 +148,7 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
  const [selected,setSelected]=useState<string>();
  const [editor,setEditor]=useState<"create"|"publish"|"rotate"|"disable">();
  const [template,setTemplate]=useState("openai-mini-v1");
- const [opened,setOpened]=useState<{id:string;revision:string;credentialRevision:string}>();
+ const [opened,setOpened]=useState<{id:string;revision:string;credentialRevision:string;at:number}>();
  const command=useConfigurationCommand(scope,member,async()=>{setEditor(undefined);const refreshed=await list.refetch();await onSaved();if(refreshed.error)throw refreshed.error;},"platform");
  const row=list.data?.channels.find(item=>item.connection.connectionId===selected);
  if(list.isError) {
@@ -164,10 +164,13 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
  );
  function openEdit(action:"publish"|"rotate"|"disable") {
   if(!row||!connection||!id)return;
-  setOpened({id,revision:row.revision,credentialRevision:connection.revision});
+  setOpened({id,revision:row.revision,credentialRevision:connection.revision,at:Date.now()});
   setEditor(action);
  }
- const channelPrices=(price.data?.revision?.payload.platformPrices?.prices??[]).filter(item=>item.channel===connection?.channel&&(!item.platformConnectionId||item.platformConnectionId===id)&&item.model==="gpt-5.4-mini-2026-03-17");
+ const channelPrices=editor==="publish"&&opened?(price.data?.revision?.payload.platformPrices?.prices??[]).filter(item=>
+  item.channel===connection?.channel&&(!item.platformConnectionId||item.platformConnectionId===id)&&item.model==="gpt-5.4-mini-2026-03-17"&&
+  Date.parse(item.effectiveFrom)<=opened.at&&opened.at<Date.parse(item.effectiveUntil)
+ ):[];
  return <Card className={styles.panel}>
   <h2>{connection?.registration?.name??"平台模型渠道"}</h2>
   {command.message&&<p role="status">{command.message}</p>}
@@ -200,7 +203,11 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
     const apiKey=keyInput?.value;
     if(editor==="create")void command.send(root+"/create",root+"/create/receipts/",{name:String(data.get("name")).trim(),template,baseUrl:data.get("baseUrl")||undefined,apiKey});
     else if(id&&connection&&row&&opened) {
-     if(editor==="publish")void command.send(root+"/"+id+"/publish",root+"/"+id+"/receipts/",{expectedRevision:opened.revision,channel:{connectionId:id,priceId:String(data.get("price")??""),organizations:data.getAll("organizations")}});
+     if(editor==="publish"){
+      const organizations=data.getAll("organizations");
+      const priceId=data.get("price")||(organizations.length===0?row.publication?.priceId:"")||"";
+      void command.send(root+"/"+id+"/publish",root+"/"+id+"/receipts/",{expectedRevision:opened.revision,channel:{connectionId:id,priceId,organizations}});
+     }
      else void command.send(root+"/"+id+"/credentials",root+"/"+id+"/credentials/receipts/",{expectedRevision:opened.credentialRevision,action:editor==="rotate"?"set-key":"disable",apiKey});
     }
     if(keyInput)keyInput.value="";
