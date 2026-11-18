@@ -4,7 +4,7 @@ Refs #905、父设计 #902；设计依据为 PR #903 的 `plugin-capture-ingesti
 
 ## 入口与准备
 
-沿现有 [current-application 启动方法](../operations/isolated-application-acceptance.md)准备独立新测试环境的私密 manifest、ZITADEL 和受限 Product pool。正常启动命令：
+沿现有 [current-application 启动方法](../../operations/isolated-application-acceptance.md)准备独立新测试环境的私密 manifest、ZITADEL 和受限 Product pool。正常启动命令：
 
 ```powershell
 go run ./cmd/current-application -config C:\private\current-application.json
@@ -16,11 +16,11 @@ go run ./cmd/current-application -config C:\private\current-application.json
 
 前端在 `web/listingkit-ui` 用 `pnpm install --frozen-lockfile`、`pnpm dev` 正常启动，沿现有 HTTPS 应用 origin 与可信后端 `LISTINGKIT_SERVICE_API_BASE` 接线。保留原 serverAuth、Origin 和 CSRF 配置，不向浏览器交付后端凭据。
 
-扩展构建沿 [现有扩展说明](../../extensions/product-capture/README.md)，本候选已复用 #906 交付的同一公共壳并登记 Amazon 模块，同时包含原“我的数据”规格图片展示。编译固定应用 origin 的 `/capture/amazon`，来源页无法指定接收地址。本批次没有安装到用户日常浏览器，也未修改保留实例。
+扩展构建沿 [现有扩展说明](../../../extensions/product-capture/README.md)，本候选已复用 #906 交付的同一公共壳并登记 Amazon 模块，同时包含原“我的数据”规格图片展示。编译固定应用 origin 的 `/capture/amazon`，来源页无法指定接收地址。本批次没有安装到用户日常浏览器，也未修改保留实例。
 
 ## 用户操作
 
-1. 在 us / ca / uk / de / jp 五站的一个商品详情页，明确点击插件采集。默认只观察当前选中商品。[#955可选同族范围](../../extensions/product-capture/README.md) 仅在明确勾选页内选项后，沿有界进度页读取本页真实同族映射，最后仍交原应用一次确认保存；不分页或启动服务端采集。新候选尚未更新原插件或实例，真实验证须另行授权。
+1. 在 us / ca / uk / de / jp 五站的一个商品详情页，明确点击插件采集。默认只观察当前选中商品。[#955可选同族范围](../../../extensions/product-capture/README.md) 仅在明确勾选页内选项后，沿有界进度页读取本页真实同族映射，最后仍交原应用一次确认保存；不分页或启动服务端采集。新候选尚未更新原插件或实例，真实验证须另行授权。
 2. 插件打开固定 `/capture/amazon`。正常登录、选择企业后，检查当前账号/企业与来源资料及缺失说明，点击“确认保存”。需 `product_sourcing.write` 与 `workbench.collection.manage`；确认时成员 ID 会作为一致性条件传至 native 接收方，再经现有实时授权核验。
 3. 服务端完整提交后显示原 capture ID 和固定版本。到“我的数据” `/workbench/data/mine` 查看/下载来源资料；明确关联的图片保持在各自来源规格下。图片是未批准候选，保存不等于资产批准、字段完整、可上架或已发布。
 4. 超时、停止等待或刷新后，点击“检查原操作”。只按原键读取原事实，不重取 DOM、不重新保存、不自动生成新键。归档/移动按当前状态显示，不重建引用。身份/企业/成员改变时返回原上下文。

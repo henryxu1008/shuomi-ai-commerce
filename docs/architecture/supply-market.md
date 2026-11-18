@@ -493,7 +493,7 @@ PR候选8e32c6564的首次CI发现结构接线与未使用导出问题，已按�
 Product 空库 installer 和 narrow grants、现有私有 S3 adapter、逐 revision 实际 merchant
 核实的 CredentialSource、canonical Asset、POD worker lifecycle，以及成员导航和独立
 server session 的专员入口。没有新增 owner、恢复协议或 legacy fallback。
-接线和操作说明见 [正常程序交接](../engineering/supply-market-runtime-handoff.md)。
+接线和操作说明见 [正常程序交接](../engineering/integration/supply-market-runtime-handoff.md)。
 本轮受限角色 disposable PostgreSQL composition 与相关 Go/UI/BFF 检查通过；最终
 准确候选 CI/独立最终评审仍由 PR 记录。31544 保留实例未修改，追加真实 SDS 写入、
 正常实际 runtime、正式浏览器路径与用户验收仍 NOT_RUN。先前真实 qualification
