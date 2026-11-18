@@ -39,6 +39,6 @@ Fresh authorization before an external effect is not an atomic transaction with 
 - [Account read contract](../engineering/integration/account-readonly-contract.md)
 - [Membership contract](../engineering/integration/account-membership-contract.md)
 - [Official provider boundary](../engineering/zitadel-official-provider-boundary.md)
-- [Enterprise role management](enterprise-custom-roles.md)
+- [Enterprise role management](platform/identity/enterprise-custom-roles.md)
 
 Current source tests cover scope isolation, forged target/header rejection, live-write freshness, organization-switch cache invalidation and original-owner permission checks. Documentation is not evidence that a particular retained instance or real provider has been exercised.
