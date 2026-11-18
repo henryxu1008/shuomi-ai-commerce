@@ -1,5 +1,7 @@
 # #1165 供应商明确拒绝且未计费的原调用恢复
 
+> **时点说明（文档归类）**：以下正文保留 2026-11-08 设计及独立评审证据，不把当时“拟增加”“仅设计”或 `NOT_RUN` 视为当前实现状态。当前受控入口与准备边界见 [运行手册](../../../operations/runbooks/model-route-pricing.md#原单图调用的明确拒绝未计费恢复)，源码见 `internal/app/modelinvocationrecovery/`、`internal/aicapability/provider_rejection.go` 与 `internal/integration/orgresource/`。目录归入商品整理查阅路径，不转移 Invocation 与商业账本的原 owner。[后续单次重试记录](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158#issuecomment-6721995738) 明确旧调用 proof 仍为空、原预留未释放；新请求成功不能证明旧请求未计费。下文余额和状态均为原时点快照，本次整理未查询或操作实例，不授予 schema、resolve、账本释放、部署或新模型调用权限。
+
 Design Basis 为 Independent Architecture。源码调查基线为 `cd3675393e7e102425d96bbcd72c6aef6e2489cb`，试用后端证据基线为 `fb8cdbc013548b5f13a2c558922441334c576607`。离线实现设计的 Admission Status 为 IMPLEMENTATION_READY，独立评审依据见文末。本次真实恢复的执行证据为 NOT_READY。执行位置为 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158)，延续已合入的 [#1165](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1165)。
 
 ## 产品决定、范围与当前事实
@@ -8,7 +10,7 @@ Design Basis 为 Independent Architecture。源码调查基线为 `cd3675393e7e1
 
 使用者是负责本地试用的授权操作员。当前操作场景为 OpenAI 组织账务暂停时，一次商品整理请求收到拒绝，应用仍占用成员和企业 AI 点。预期交付为操作员核实原调用的拒绝与未计费证明后，将原调用终结为已拒绝零消费，原预留仅释放一次。成员随后能继续使用原 30 点月限。
 
-业务和安全依据为 [原商品整理](domains/catalog/own-product-ai-intake.md)、[OpenAI Mini 接入](own-product-intake-openai-mini.md)、[统一配置与微点合同](enterprise-shared-model-configuration.md)、[当前 owner](project-boundaries.md) 和 [全新系统基线](../product/greenfield-no-legacy-migration.md)。本设计只增补下述拒绝终态，其他 UNKNOWN、实际用量和原定价协议继续适用。Figma 在此无 UI/IA 权威作用。
+业务和安全依据为 [原商品整理](own-product-ai-intake.md)、[OpenAI Mini 接入](own-product-intake-openai-mini.md)、[统一配置与微点合同](../../enterprise-shared-model-configuration.md)、[当前 owner](../../project-boundaries.md) 和 [全新系统基线](../../../product/greenfield-no-legacy-migration.md)。本设计只增补下述拒绝终态，其他 UNKNOWN、实际用量和原定价协议继续适用。Figma 在此无 UI/IA 权威作用。
 
 本轮 Must 为原调用和原预留的完整绑定、可审计的未计费证明、A=0、原 R 幂等释放、原成员原月份的计数、跨库失败可收敛、原请求停止且不再派发。Should 为沿现有审计读取展示拒绝原因和恢复状态。范围外包括所有 429 自动退款、任意厂商/模型、成功后取消、部分输出失败、超时/断线自动退款、批量冲正、重新发点、更改月限、价格重算、通用工单/审批/对账平台和商品保存。没有新增 Accepted Risk。
 

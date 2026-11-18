@@ -1,6 +1,8 @@
 # #1159 OpenAI Mini 单图接入
 
-关联 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158) 与 [#1159](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1159)。源码基线 `40c2e716530b93b77cf02542e8b6b39ead7d6469`。本设计继承 [#1159 独立架构](domains/catalog/own-product-ai-intake.md)、[Mini 单图计量](product-image-visual-analysis.md) 和[企业共享配置](enterprise-shared-model-configuration.md)，增量审查 OpenAI 直连、配置顺序和双预算。评审状态见文末。
+> **时点说明（文档归类）**：以下正文保留 2026-11-08 设计与独立评审时点；其中“现有缺口”“待实现”和 `NOT_RUN` 不代表当前源码或后续试用状态。双预算准入现见 `internal/integration/aicapability/routeconfig/shared_catalog.go`。后续 [#1158 首次试用记录](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158#issuecomment-6719022369) 已记录一次 HTTP 429/UNKNOWN；[另行授权的单次重试](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158#issuecomment-6721995738) 为 HTTP 200、已观测用量并结算，但候选校验失败，未保存商品。后一次成功不是原请求未计费证明，也不构成新调用或部署授权。当前库存/价格候选语义以 [原商品整理合同](own-product-ai-intake.md) 及其人工确认合同为准；本文不恢复已退休的语义正则。
+
+关联 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158) 与 [#1159](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1159)。源码基线 `40c2e716530b93b77cf02542e8b6b39ead7d6469`。本设计继承 [#1159 独立架构](own-product-ai-intake.md)、[Mini 单图计量](../../product-image-visual-analysis.md) 和[企业共享配置](../../enterprise-shared-model-configuration.md)，增量审查 OpenAI 直连、配置顺序和双预算。评审状态见文末。
 
 ## 用户结果和适用范围
 

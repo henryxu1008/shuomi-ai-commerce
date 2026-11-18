@@ -13,6 +13,7 @@
 | 本机来源图片试用的存储与容量边界在哪里 | [来源图片试用合同](own-product-source-media-trial.md)、[操作说明](../../../operations/runbooks/own-product-source-media-trial.md) | `internal/app/productsourcing/`、`internal/ledger/storagecapacity/` |
 | 来源图片、生成图和用户上传图什么时候可用于刊登 | [Product Domain Contracts](../../product-domain-contracts.md)、[素材来源与批准](../../source-business-flow.md) | `internal/product/asset/`、`internal/imageagent/` |
 | 从商品资料带入目标平台的草稿 | [待补全草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[对应架构合同](../../supply-unbound-completion-drafts.md) | `internal/listing/`、`internal/marketplace/` |
+| 自有商品单图整理如何准入、遇到拒绝如何保留原账本边界 | [OpenAI Mini 单图接入](own-product-intake-openai-mini.md)、[原调用未计费恢复](own-intake-provider-unbilled-recovery.md)、[运行说明](../../../operations/runbooks/model-route-pricing.md#原单图调用的明确拒绝未计费恢复) | `internal/agent/`、`internal/aicapability/`、`internal/integration/orgresource/` |
 
 ## 关键分工
 

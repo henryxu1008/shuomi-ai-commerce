@@ -116,7 +116,7 @@ Gemini 的可信 ModelProfile.ThinkingMode 必须显式为 low、minimal 或 bud
 
 ## 原单图调用的明确拒绝、未计费恢复
 
-沿[已批准恢复设计](../../architecture/own-intake-provider-unbilled-recovery.md)，受控命令只恢复配置指定的原调用与原预留。它没有模型调用、商品保存、schema 初始化或通用退款入口。
+沿[已批准恢复设计](../../architecture/domains/catalog/own-intake-provider-unbilled-recovery.md)，受控命令只恢复配置指定的原调用与原预留。它没有模型调用、商品保存、schema 初始化或通用退款入口。
 
 入口为 `go run ./cmd/model-invocation-recovery -config <本机私密配置绝对路径> -action inspect`。默认 `inspect` 使用只读连接，输出原调用、预留、绑定摘要、证明就绪状态和已确认结算状态。配置文件必须通过现有私密文件权限检查，严格 JSON 限 16 KiB；不得提交到 Git 或打印数据库密码。
 
