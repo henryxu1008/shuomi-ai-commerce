@@ -1,6 +1,6 @@
 # Authentication and Organization Scope
 
-This is the current identity, effective Organization and authorization contract. Product login behavior follows the [official ZITADEL Login / Auth.js decision](../product/official-zitadel-login.md); domain placement follows [Project Boundaries](project-boundaries.md).
+This is the current identity, effective Organization and authorization contract. Product login behavior follows the [official ZITADEL Login / Auth.js decision](../product/decisions/official-zitadel-login.md); domain placement follows [Project Boundaries](project-boundaries.md).
 
 ## Owners and call path
 
