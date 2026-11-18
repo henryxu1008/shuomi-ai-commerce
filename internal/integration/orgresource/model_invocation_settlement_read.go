@@ -21,7 +21,7 @@ func (r *GormModelInvocationRepository) ConfirmModelInvocationNoDispatchRelease(
 	if err != nil {
 		return err
 	}
-	if (fact.Operation != aicapability.OperationAIWorkbenchStoreRoute && fact.Operation != aicapability.OperationAIWorkbenchSkillAuthoring) || fact.AgentRunID != "" || fact.BusinessTaskID != "" {
+	if (fact.Operation != aicapability.OperationAIWorkbenchStoreRoute && fact.Operation != aicapability.OperationAIWorkbenchChatIntent && fact.Operation != aicapability.OperationAIWorkbenchSkillAuthoring) || fact.AgentRunID != "" || fact.BusinessTaskID != "" {
 		return orgresource.ErrInvalidOwnerProof
 	}
 	if err = r.authorizer.AuthorizeModelInvocation(ctx, fact); err != nil {
@@ -65,11 +65,19 @@ func (r *GormModelInvocationRepository) ConfirmModelInvocationNoDispatchRelease(
 // ConfirmSkillAuthoringParameterRejection verifies the original zero-charge
 // finalization of a request that OpenAI rejected after handoff.
 func (r *GormModelInvocationRepository) ConfirmSkillAuthoringParameterRejection(ctx context.Context, org, invocationID string) error {
+	return r.confirmWorkbenchParameterRejection(ctx, org, invocationID, aicapability.OperationAIWorkbenchSkillAuthoring)
+}
+
+func (r *GormModelInvocationRepository) ConfirmChatIntentParameterRejection(ctx context.Context, org, invocationID string) error {
+	return r.confirmWorkbenchParameterRejection(ctx, org, invocationID, aicapability.OperationAIWorkbenchChatIntent)
+}
+
+func (r *GormModelInvocationRepository) confirmWorkbenchParameterRejection(ctx context.Context, org, invocationID string, operation aicapability.Operation) error {
 	fact, err := r.readFact(ctx, org, invocationID)
 	if err != nil {
 		return err
 	}
-	if !fact.IsSkillAuthoringOpenAIParameterRejection() {
+	if fact.Operation != operation || !fact.IsWorkbenchOpenAIParameterRejection() {
 		return orgresource.ErrInvalidOwnerProof
 	}
 	if err := r.authorizer.AuthorizeModelInvocation(ctx, fact); err != nil {

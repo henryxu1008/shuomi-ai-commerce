@@ -12,6 +12,7 @@ type StoreRoute struct {
 }
 
 type StoreRouteRequest struct {
+	TurnInput    []byte
 	Content      string
 	MemberID     string
 	InputHash    string
@@ -30,9 +31,12 @@ type StoreRoutePrepared struct {
 }
 
 type StoreRouteCommand struct {
+	TurnInput                                                                                     []byte
+	CreatedAt                                                                                     time.Time
 	Scope                                                                                         Scope
 	ConversationID, IdempotencyKey, Fingerprint, UserMessageID, InvocationID, MemberID, InputHash string
 	State                                                                                         string
+	Result                                                                                        string
 	Content                                                                                       string
 	ModelProfile                                                                                  []byte
 	ModelDeadline, CommitDeadline                                                                 time.Time
@@ -52,6 +56,16 @@ func RouteLostEligible(databaseNow, commitDeadline time.Time, settled bool) bool
 
 // ParseStoreRoute accepts only a closed decision, never identity or commands.
 func ParseStoreRoute(raw []byte) (StoreRoute, error) {
+	return parseRoute(raw, false)
+}
+
+// ParseChatRoute expands the closed router only for a creator in the frozen
+// available tool set. Model output never supplies authority or tool arguments.
+func ParseChatRoute(raw []byte, creatorAvailable bool) (StoreRoute, error) {
+	return parseRoute(raw, creatorAvailable)
+}
+
+func parseRoute(raw []byte, creatorAvailable bool) (StoreRoute, error) {
 	var out StoreRoute
 	if len(raw) == 0 || len(raw) > 4096 {
 		return out, ErrInvalid
@@ -75,6 +89,10 @@ func ParseStoreRoute(raw []byte) (StoreRoute, error) {
 		}
 	case "PRODUCT_TASK", "CLARIFY":
 		if out.Status != "" {
+			return StoreRoute{}, ErrInvalid
+		}
+	case "CREATE_TITLE_SKILL":
+		if !creatorAvailable || out.Status != "" {
 			return StoreRoute{}, ErrInvalid
 		}
 	default:

@@ -210,7 +210,7 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	if input.Operation == OperationOwnProductIntake && !SingleImageProfile(input.Profile) {
 		return TextQuote{}, ErrTextEnvelope
 	}
-	if input.Operation == OperationAIWorkbenchChatPlan || input.Operation == OperationAIWorkbenchStoreRoute || input.Operation == OperationAIWorkbenchSkillAuthoring {
+	if input.Operation == OperationAIWorkbenchChatPlan || input.Operation == OperationAIWorkbenchStoreRoute || input.Operation == OperationAIWorkbenchChatIntent || input.Operation == OperationAIWorkbenchSkillAuthoring {
 		if input.AgentRunID != "" || input.BusinessTaskID != "" || input.Profile.AdapterKind == "google-interactions" {
 			return TextQuote{}, ErrTextEnvelope
 		}

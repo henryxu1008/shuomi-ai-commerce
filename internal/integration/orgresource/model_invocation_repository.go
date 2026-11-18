@@ -83,7 +83,7 @@ func modelPointBusinessScope(fact aicapability.InvocationRecord) string {
 		if fact.AgentRunID != "" {
 			return fact.AgentRunID
 		}
-	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchSkillAuthoring:
+	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring:
 		if fact.AgentRunID == "" && fact.BusinessTaskID == "" &&
 			fact.Capability == aicapability.CapabilityAIWorkbenchChatPlanning && fact.InvocationID != "" {
 			return "chat-plan:" + fact.InvocationID
@@ -187,8 +187,8 @@ func matchesModelPointReceipt(fact aicapability.InvocationRecord, fingerprint st
 }
 
 func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error) {
-	if fact.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 {
-		if !fact.IsSkillAuthoringOpenAIParameterRejection() {
+	if fact.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 || fact.ErrorCode == aicapability.ChatIntentOpenAIParameterRejectedV1 {
+		if !fact.IsWorkbenchOpenAIParameterRejection() {
 			return 0, false, orgresource.ErrInvalidOwnerProof
 		}
 		return 0, false, nil

@@ -25,7 +25,7 @@ const text = z
   .min(1)
   .max(512)
   .refine((v) => !/[\u0000-\u001f\u007f-\u009f]/.test(v));
-const modelPurpose = z.enum(["chat_planning", "own_product_intake", "skill_authoring"]);
+const modelPurpose = z.enum(["chat_intent", "chat_planning", "own_product_intake", "skill_authoring"]);
 const event = z
   .object({
     event_id: id,

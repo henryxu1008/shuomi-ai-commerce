@@ -71,6 +71,7 @@ type messageRow struct {
 	Content          string
 	Kind             string  `gorm:"column:message_kind;default:TEXT"`
 	StoreQueryStatus *string `gorm:"column:store_query_status"`
+	TurnKey          *string `gorm:"column:turn_key"`
 	CreatedAt        time.Time
 }
 
@@ -95,8 +96,11 @@ type commandRow struct {
 	PlannerModelProfile json.RawMessage `gorm:"type:jsonb"`
 	PlannerStartedAt    *time.Time
 	PlannerDeadline     *time.Time
-	RouteCommitDeadline *time.Time `gorm:"column:route_commit_deadline"`
-	RouteResult         *string    `gorm:"column:route_result"`
+	RouteCommitDeadline *time.Time      `gorm:"column:route_commit_deadline"`
+	RouteResult         *string         `gorm:"column:route_result"`
+	TurnInput           json.RawMessage `gorm:"type:jsonb"`
+	ToolState           *string
+	ToolKey             *string
 	AssistantMessageID  *string
 	ProposalID          *string
 	TerminalDigest      *string

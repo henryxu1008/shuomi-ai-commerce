@@ -146,7 +146,7 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 	identity, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
 	for index := range messages {
 		message := &messages[index]
-		if message.Author != aiworkbench.AuthorAssistant || message.Kind == "STORE_OVERVIEW_REF" {
+		if message.Author != aiworkbench.AuthorAssistant || message.Kind == "STORE_OVERVIEW_REF" || message.Kind == "AGENT_SKILL_REF" {
 			continue
 		}
 		if conversation.BusinessScope != nil && conversation.BusinessScope.Kind == "general" {

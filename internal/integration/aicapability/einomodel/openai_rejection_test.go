@@ -20,6 +20,7 @@ func TestSkillAuthoringRecordsDefinitiveOpenAIParameterRejection(t *testing.T) {
 		recognized                      bool
 	}{
 		{"definitive_rejection", TitlePilotOpenAIEndpoint, rejection, "req_fixture", 400, aicapability.OperationAIWorkbenchSkillAuthoring, true},
+		{"chat_intent_rejection", TitlePilotOpenAIEndpoint, rejection, "req_fixture", 400, aicapability.OperationAIWorkbenchChatIntent, true},
 		{"gateway", "https://gateway.invalid/v1", rejection, "req_fixture", 400, aicapability.OperationAIWorkbenchSkillAuthoring, false},
 		{"another_operation", TitlePilotOpenAIEndpoint, rejection, "req_fixture", 400, aicapability.OperationAIWorkbenchChatPlan, false},
 		{"no_request_id", TitlePilotOpenAIEndpoint, rejection, "", 400, aicapability.OperationAIWorkbenchSkillAuthoring, false},
@@ -67,6 +68,10 @@ func TestSkillAuthoringRecordsDefinitiveOpenAIParameterRejection(t *testing.T) {
 				require.NotErrorIs(t, err, ErrNotDispatched)
 				require.Len(t, ledger.records, 2)
 				fact := ledger.records[1]
+				if tc.operation == aicapability.OperationAIWorkbenchChatIntent {
+					require.Equal(t, "chat_intent_openai_parameter_rejected_v1", fact.ErrorCode)
+					require.False(t, fact.IsSkillAuthoringOpenAIParameterRejection())
+				}
 				require.Equal(t, aicapability.InvocationFailed, fact.Outcome)
 				require.Equal(t, aicapability.ErrorProviderRejected, fact.ErrorCategory)
 				require.False(t, fact.UsageKnown)

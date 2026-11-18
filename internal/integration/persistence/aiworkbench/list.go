@@ -114,6 +114,9 @@ func (s *Store) ListMessagesPage(ctx context.Context, scope aiworkbench.Scope, c
 		if row.StoreQueryStatus != nil {
 			result[len(rows)-i-1].StoreQueryStatus = *row.StoreQueryStatus
 		}
+		if row.TurnKey != nil {
+			result[len(rows)-i-1].TurnKey = *row.TurnKey
+		}
 	}
 	return result, next, nil
 }

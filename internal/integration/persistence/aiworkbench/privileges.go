@@ -68,6 +68,13 @@ func validateWorkbenchPrivilegesForEdit(db *gorm.DB, role string, enable bool) e
 		"scheduled_plans":       {"deleted", "state", "revision", "consumed_occurrences", "active_occurrence_id", "updated_at", "registration_state", "rule_start_at", "frequency", "time_zone", "once_at_utc", "local_hour", "local_minute", "local_weekday", "until_utc"},
 		"scheduled_occurrences": {"state", "business_task_id", "updated_at", "reason", "reconciliation_digest"},
 	}
+	turnLayout, err := chatTurnLayout(db)
+	if err != nil {
+		return err
+	}
+	if turnLayout == 1 {
+		columns["commands"] = append(columns["commands"], "tool_state", "tool_key")
+	}
 	if enable {
 		editable, err := scheduledEditColumnsFor(db)
 		if err != nil {
@@ -171,6 +178,13 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		"GRANT UPDATE (state, error_code, finished_at) ON ai_workbench.task_action_receipts TO " + quoted,
 		"GRANT UPDATE (task_selection, goal_summary, execution_spec, max_occurrences, per_run_upper_bound_micros, total_upper_bound_micros, deleted, state, revision, consumed_occurrences, active_occurrence_id, updated_at, registration_state, rule_start_at, frequency, time_zone, once_at_utc, local_hour, local_minute, local_weekday, until_utc) ON ai_workbench.scheduled_plans TO " + quoted,
 		"GRANT UPDATE (state, business_task_id, updated_at, reason, reconciliation_digest) ON ai_workbench.scheduled_occurrences TO " + quoted,
+	}
+	turnLayout, err := chatTurnLayout(db)
+	if err != nil {
+		return err
+	}
+	if turnLayout == 1 {
+		statements = append(statements, "GRANT UPDATE (tool_state,tool_key) ON ai_workbench.commands TO "+quoted)
 	}
 	if len(editable) > len(scheduledEditColumns) {
 		statements = append(statements, "GRANT UPDATE(report_spec) ON ai_workbench.scheduled_plans TO "+quoted)

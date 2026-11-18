@@ -3,11 +3,12 @@ import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import type {ReactElement} from "react";
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
 import {OwnProductOptimizePage} from "./own-product-optimize-page";
-const state=vi.hoisted(()=>({read:vi.fn(),panel:vi.fn(),context:{} as Record<string,unknown>}));
+const state=vi.hoisted(()=>({read:vi.fn(),panel:vi.fn(),skills:vi.fn(),context:{} as Record<string,unknown>}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 vi.mock("@/lib/api/product-agent",async original=>({...await original<object>(),readOwnContentSource:state.read}));
+vi.mock("@/lib/api/skill",()=>({skillRequest:state.skills}));
 vi.mock("../acquisition/product-agent-panel",()=>({ProductAgentPanel:(props:unknown)=>{state.panel(props);return <p>优化面板</p>}}));
-beforeEach(()=>{state.read.mockReset();state.panel.mockReset();state.context={user:{id:"actor"},effectiveOrganization:{id:"org"}}});
+beforeEach(()=>{state.read.mockReset();state.panel.mockReset();state.skills.mockReset();state.skills.mockResolvedValue({items:[]});state.context={user:{id:"actor"},effectiveOrganization:{id:"org"}}});
 afterEach(cleanup);
 let client:QueryClient;
 function render(ui:ReactElement){client=new QueryClient({defaultOptions:{queries:{staleTime:30000}}});return renderView(ui,{wrapper:({children})=><QueryClientProvider client={client}>{children}</QueryClientProvider>})}
@@ -46,4 +47,9 @@ it("invalidates fresh eligibility caches for the current scope before returning 
  fireEvent.click(screen.getByRole("link",{name:"检查优选资格"}));
  for(const key of keys)expect(client.getQueryState(key)?.isInvalidated).toBe(true);
  expect(client.getQueryState(other)?.isInvalidated).toBe(false);
+});
+
+it("keeps the original panel readable when a Chat skill is revoked and blocks fresh confirmation",async()=>{
+ const launch={userId:"actor",organizationId:"org",target:"product-title" as const,selection:{skillId:itemId,version:1,digest:"a".repeat(64)},chatReturn:"/workbench/ai/chat/new"};state.read.mockResolvedValue({itemId,productKey:"own",originalVersion:1,catalogVersion:"2",publicationId:"pub",title:"商品"});
+ render(<OwnProductOptimizePage itemId={itemId} enabled launch={launch}/>);await screen.findByText(/原标题请求仍可核实/);expect(state.panel).toHaveBeenLastCalledWith(expect.objectContaining({initialSkillReady:false,lockInitialSkill:true,initialSkill:launch.selection,onRequestLocation:expect.any(Function)}));expect(screen.getByRole("link",{name:"返回 Chat"})).toHaveAttribute("href",launch.chatReturn);
 });

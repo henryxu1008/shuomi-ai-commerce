@@ -98,6 +98,23 @@ func (m aiWorkbenchModule) StoreRouteReadiness(ctx context.Context, organization
 	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchStoreRoute}))
 }
 
+func (m aiWorkbenchModule) ChatIntentReadiness(ctx context.Context, organizationID string) string {
+	a := m.application
+	if a == nil || !a.chatTurnsEnabled || a.store == nil || !a.store.CanChatTurns(ctx) || a.storeRoute == nil {
+		return string(governed.RouteUnavailable)
+	}
+	router, ok := a.storeRoute.Gateway.(*workbenchStoreRouter)
+	if !ok || router.routes == nil {
+		return string(governed.RouteUnavailable)
+	}
+	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchChatIntent}))
+}
+
+func (m aiWorkbenchModule) ChatTurnsReady(ctx context.Context, organizationID string) bool {
+	a := m.application
+	return a != nil && a.chatTurnsEnabled && a.admittedOrganization(organizationID) && a.store != nil && a.store.CanChatTurns(ctx)
+}
+
 // TitleReadiness is the current execution route projection for an existing
 // proposal. It is independent of whether a new Chat plan may be started.
 func (m aiWorkbenchModule) TitleReadiness(ctx context.Context, organizationID string) string {
@@ -362,6 +379,9 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"POST", workbenchChatBase + "/:conversation_id/turns", authz.PermissionWorkbenchChatUse, "chat-turn-submit", 2 * time.Minute},
+		{"GET", workbenchChatBase + "/:conversation_id/turns/:turn_key", authz.PermissionWorkbenchChatRead, "chat-turn-read", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/turns/:turn_key/recover", authz.PermissionWorkbenchChatUse, "chat-turn-recover", 2 * time.Minute},
 		{"GET", workbenchChatBase + "/skill-authoring", authz.PermissionWorkbenchChatUse, "skill-authoring-catalog", 15 * time.Second},
 		{"GET", workbenchChatBase + "/:conversation_id/skill-authoring", authz.PermissionWorkbenchChatRead, "skill-authoring-list", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/quote", authz.PermissionWorkbenchChatUse, "skill-authoring-quote", 15 * time.Second},
@@ -416,6 +436,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "chat-turn-submit", "chat-turn-read", "chat-turn-recover":
+					a.chatTurn(c, ctx, scope, spec.action)
 				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-preview", "skill-authoring-confirm", "skill-authoring-recover-generation", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-package", "skill-authoring-save-recover":
 					a.skillAuthoring(c, ctx, scope, spec.action)
 				case "subject-read":

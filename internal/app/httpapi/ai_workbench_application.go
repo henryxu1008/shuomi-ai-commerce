@@ -26,6 +26,7 @@ import (
 )
 
 type AIWorkbenchDependencies struct {
+	ChatTurnsEnabled       bool
 	StoreDailyReports      bool
 	ScheduleStop           *func()
 	ScheduleSourceDB       *gorm.DB
@@ -38,9 +39,11 @@ type AIWorkbenchDependencies struct {
 	authorizer             *authz.ListingKitAuthorizer
 	PlanningTextPolicies   map[string]governed.RoutePolicy
 	StoreRouteTextPolicies map[string]governed.RoutePolicy
+	ChatIntentTextPolicies map[string]governed.RoutePolicy
 }
 
 type aiWorkbenchApplication struct {
+	chatTurnsEnabled       bool
 	authoring              *workbenchSkillAuthoring
 	dailyReports           *scheduledreport.Application
 	dailyReportsEnabled    bool
@@ -124,7 +127,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		return nil, aiworkbench.ErrUnavailable
 	}
 	if cfg.ConversationOnly {
-		if cfg.DB == nil || a != nil && (!a.config.ContentTitleOnly && !a.config.ContentOnly || cfg.DB == a.config.RunDB) || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.StoreRouteTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
+		if cfg.ChatTurnsEnabled || cfg.DB == nil || a != nil && (!a.config.ContentTitleOnly && !a.config.ContentOnly || cfg.DB == a.config.RunDB) || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.StoreRouteTextPolicies) != 0 || len(cfg.ChatIntentTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
 			return nil, aiworkbench.ErrUnavailable
 		}
 		seen := map[string]bool{}
@@ -217,6 +220,23 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		}
 		routes[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchStoreRoute}] = policy
 	}
+	if len(cfg.ChatIntentTextPolicies) > 64 {
+		return nil, aiworkbench.ErrUnavailable
+	}
+	for org, policy := range cfg.ChatIntentTextPolicies {
+		profile := policy.ShapeProfile()
+		allowed := false
+		for _, id := range cfg.AllowedOrganizationIDs {
+			if org == id {
+				allowed = true
+				break
+			}
+		}
+		if !allowed || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchChatIntent) || profile.PromptVersion != einorouter.ChatPromptVersion || profile.OutputSchemaVersion != einorouter.ChatSchemaVersion || profile.Currency != a.config.Limits.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > a.config.Limits.Tokens || profile.MaximumCompletionTokens > 4096 || profile.MaximumInputBytes > 128<<10 || profile.MaximumOutputBytes > 16<<10 {
+			return nil, aiworkbench.ErrUnavailable
+		}
+		routes[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchChatIntent}] = policy
+	}
 	resolver, err := newProductTextRouteResolver(a.config, routes)
 	if err != nil {
 		return nil, err
@@ -232,7 +252,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	planner := &workbenchPlanner{agent: a, routes: resolver, text: executor, model: einoplanner.Planner{Text: &titleGatedPlanningText{
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
-	app := &aiWorkbenchApplication{store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
+	app := &aiWorkbenchApplication{chatTurnsEnabled: cfg.ChatTurnsEnabled, store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
 	app.dailyReportsEnabled = cfg.StoreDailyReports
 	app.resolver, app.authorizer = cfg.resolver, cfg.authorizer
 	storeRouteAllowed := make(map[string]bool, len(cfg.StoreRouteTextPolicies))

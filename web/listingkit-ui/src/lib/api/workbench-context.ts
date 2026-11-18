@@ -43,6 +43,8 @@ const workbenchContextSchema = z
     operationsCockpitAvailable: z.boolean().optional(),
     aiWorkbenchPlanningReadiness: z.enum(["AVAILABLE", "NEEDS_CONFIGURATION", "UNAVAILABLE"]).optional(),
     aiWorkbenchStoreRouteReadiness: z.enum(["AVAILABLE", "NEEDS_CONFIGURATION", "UNAVAILABLE"]).optional(),
+    aiWorkbenchChatIntentReadiness: z.enum(["AVAILABLE", "NEEDS_CONFIGURATION", "UNAVAILABLE"]).optional(),
+    aiWorkbenchChatTurnsReady:z.boolean().optional(),
     aiWorkbenchExecutionKind:z.enum(["product.content.localize","product.title.optimize"]).optional(),
     aiWorkbenchExecutionReadiness:z.enum(["AVAILABLE","NEEDS_CONFIGURATION","UNAVAILABLE"]).optional(),
     aiWorkbenchTitleReadiness: z.enum(["AVAILABLE", "NEEDS_CONFIGURATION", "UNAVAILABLE"]).optional(),

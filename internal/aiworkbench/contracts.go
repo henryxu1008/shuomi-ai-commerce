@@ -70,6 +70,7 @@ type Message struct {
 	Content          string
 	Kind             string `json:"kind,omitempty"`
 	StoreQueryStatus string `json:"storeQueryStatus,omitempty"`
+	TurnKey          string `json:"turnKey,omitempty"`
 	TextSkillVersion uint64 `json:"textSkillVersion,omitempty"`
 	CreatedAt        time.Time
 }
