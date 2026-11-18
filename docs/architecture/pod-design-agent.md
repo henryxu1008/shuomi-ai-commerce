@@ -6,7 +6,7 @@ Refs #672 / #137；源码依赖未合并#662/#666。Design Basis: **Independent 
 
 用户2026-10-13明确纠正：原业务是先让AI画出全新图案，再继续后续步骤。第一版完整路径为：输入主题/设计要求 → 有界报价与确认 → AI从零生成图案 → 查看实际图片并确认保存/用途 → 选择POD模板款式 → 布局方案/预览 → 显式确认SDS执行 → 原设计操作核实效果图。已有图案是补充入口，不替代从零生成。
 
-产品依据：[业务职责](../product/business-agent-responsibilities.md)、#137/#672当前决定；原#612图片设计、[product-image-agent-v1](product-image-agent.md)、[supply-market-v1](supply-market.md)、organization-agent-configuration-v1与enterprise-agent-permission-modes-v1。POD是用户意图的专业入口；图片生成、资产、数据接收和供应商执行分别保持原owner。
+产品依据：[业务职责](../product/decisions/business-agent-responsibilities.md)、#137/#672当前决定；原#612图片设计、[product-image-agent-v1](product-image-agent.md)、[supply-market-v1](supply-market.md)、organization-agent-configuration-v1与enterprise-agent-permission-modes-v1。POD是用户意图的专业入口；图片生成、资产、数据接收和供应商执行分别保持原owner。
 
 Figma Authority为tg48P46SSXl6TBy9lZwg63当前非归档31:463。我的智能体/配置/确认沿4703:429、4703:892、4722:429；生成结果与图片核对沿#612的4908:429/5198:429及当前组件。模板选择沿429:3258/429:3347，现SDS编辑器沿#622批准的状态与当前Figma样式；原型没有完整SDS页面，不伪称存在。新入口位于我的智能体与现POD设计流程，不新建顶层中心或平台工作台。原型价格、图案和成品示例不是业务事实。
 

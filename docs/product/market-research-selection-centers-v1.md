@@ -72,7 +72,7 @@ Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点�
 
 单纯分类/导航调整仅在准确操作、消费者和授权不变时适用Reuse Existing Architecture；完整市场调研的新增definition/来源工具、或把某个Agent启用当另一Agent准入的方案属于新的合同边界，须Independent Architecture。原人工研究/决定、只读资料和历史继续依领域权限，不被Agent是否启用或模型是否配置拦住。
 
-复用依据：[业务智能体职责及市场/我的智能体分工](business-agent-responsibilities.md)、[组织智能体配置](../architecture/organization-agent-configuration.md)。若只调整显示分类/导航可评估复用现有架构；本提案涉及的完整业务、来源/工具、分析合同或执行门禁变化仍须按实际边界完成Independent Architecture准入。源码调查不是当前实例已启用或可执行的证明，本轮没有运行验收、真实调用或启用配置写入。
+复用依据：[业务智能体职责及市场/我的智能体分工](decisions/business-agent-responsibilities.md)、[组织智能体配置](../architecture/organization-agent-configuration.md)。若只调整显示分类/导航可评估复用现有架构；本提案涉及的完整业务、来源/工具、分析合同或执行门禁变化仍须按实际边界完成Independent Architecture准入。源码调查不是当前实例已启用或可执行的证明，本轮没有运行验收、真实调用或启用配置写入。
 
 ## 多平台规划阶段（2026-11-03）
 
