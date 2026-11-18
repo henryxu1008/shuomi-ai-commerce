@@ -173,8 +173,8 @@
 - `supply-four-step-continuation.md` — [四步供应链与补全/审核后继续上传](supply-four-step-continuation.md)
 - `order-procurement-fulfillment.md` — [订单、采购、发货与物流首版设计草案](order-procurement-fulfillment.md)
 - `store-core-schema-alignment.md` — [own675 Store 核心合同对齐方案](store-core-schema-alignment.md)
-- `report-center-shein-offline-package-source.md` — [Report Center：原 SHEIN 离线包诊断正常接线候选](report-center-shein-offline-package-source.md)
-- `report-center-shein-target-source.md` — [Report Center：当前 SHEIN 已保存资料来源候选](report-center-shein-target-source.md)
+- `domains/workbench/report-center-shein-offline-package-source.md` — [Report Center：原 SHEIN 离线包诊断正常接线候选](domains/workbench/report-center-shein-offline-package-source.md)
+- `domains/workbench/report-center-shein-target-source.md` — [Report Center：当前 SHEIN 已保存资料来源候选](domains/workbench/report-center-shein-target-source.md)
 - `domains/listing/shein-sales-attribute-mapping.md` — [SHEIN 单商品多颜色、多 SKU 销售属性映射](domains/listing/shein-sales-attribute-mapping.md)；#1158 当前冻结设计 IMPLEMENTATION_READY，独立 R1 无 BLOCKER，四项实现验证待后续授权；保留同一草稿三行，稀疏集合发布资格仍待确认。
 - `controlled-local-platform-draft.md` — [原35444受控本地平台草稿接线](controlled-local-platform-draft.md)；#1158 固定试点合同，测试记录永久不可发布；实例级互斥的最新决定见共存设计，实施/运行证据在 Issue。
 - `local-and-official-draft-coexistence.md` — [同一实例内测试草稿与正式刊登共存](local-and-official-draft-coexistence.md)；#1158 最小方案与独立架构评审，独立本地接口用途、原 owner/保存协议及正式发布准入保持；仅设计，不授权实现或原实例操作。

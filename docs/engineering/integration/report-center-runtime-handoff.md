@@ -1,6 +1,6 @@
 ## #1049 当前原离线包接线增量（源码候选，2026-11-01）
 
-本批复用已审设计 `report-center-shein-offline-package-source.md` 与原 owner，
+本批复用已审设计 `docs/architecture/domains/workbench/report-center-shein-offline-package-source.md` 与原 owner，
 实现和工程证据记录于 PR #1049；本节不是部署/真实安装或用户验收记录。
 保留实例、数据和会话未修改；现场准备 UNKNOWN，运行、真实保存/恢复、浏览器及产品验收 NOT_RUN。
 
@@ -47,7 +47,7 @@
 
 ## #1045 当前 SHEIN 已保存资料增量（源码候选，2026-11-01）
 
-本批只在原 PR/独立工作区实现已批准的 `report-center-shein-target-source.md`；
+本批只在原 PR/独立工作区实现已批准的 `docs/architecture/domains/workbench/report-center-shein-target-source.md`；
 保留实例未更新，运行、真实保存/恢复、浏览器和产品验收 NOT_RUN，旧库状态 UNKNOWN。
 
 - 新来源为 `SHEIN_TARGET_RECORD`，使用正常 full Supply 的同一个 `ReadRecord`；
