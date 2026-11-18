@@ -6,7 +6,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {skillRequest,type SkillScope} from "@/lib/api/skill";
 import {skillCandidatesSchema,skillSelectionSchema,type SkillVersion} from "@/lib/contracts/skill";
-import {parseSkillLaunch,readChatSkillLocation,skillLaunchHref,type SkillLaunch} from "@/lib/contracts/skill-launch";
+import {parseSkillLaunch,readChatSkillLocations,skillLaunchHref,type SkillLaunch} from "@/lib/contracts/skill-launch";
 import type {SkillCategory} from "../skills/skill-library-page";
 import styles from "./chat-skill-authoring.module.css";
 const label=(v:SkillVersion)=>v.package.displayName||v.package.name;
@@ -31,8 +31,20 @@ export function useChatLibrarySkill(scope:{userId:string;organizationId:string},
 export function ChatLibrarySkillSelection({launch,authorizationKey,onClear,disabled=false}:{launch:SkillLaunch;authorizationKey:string;onClear:()=>void;disabled?:boolean}){
  const read=useCandidates({userId:launch.userId,organizationId:launch.organizationId},authorizationKey,launch.target as Target);
  const version=!read.isFetching&&!read.isError?read.data?.items.find(v=>v.skill.id===launch.selection.skillId&&v.version===launch.selection.version&&v.package.digest===launch.selection.digest):undefined;
- const [resume,setResume]=useState<{key:string;href?:string;error?:boolean}>(),key=JSON.stringify(launch);
- useEffect(()=>{let live=true;queueMicrotask(()=>{if(!live)return;try{setResume({key,href:readChatSkillLocation(launch)})}catch{setResume({key,error:true})}});return()=>{live=false}},[key,launch]);
+ const [resume,setResume]=useState<{key:string;locations?:ReturnType<typeof readChatSkillLocations>;error?:boolean}>(),key=JSON.stringify(launch);
+ useEffect(()=>{let live=true;queueMicrotask(()=>{if(!live)return;try{setResume({key,locations:readChatSkillLocations(launch)})}catch{setResume({key,error:true})}});return()=>{live=false}},[key,launch]);
  const original=resume?.key===key?resume:undefined;
- return <div className="my-3 grid gap-3 rounded-xl border border-border p-4"><p>{version?label(version):"已选择的技能"} · v{launch.selection.version}{version?" · "+source(version):""}</p><p className="text-sm text-muted-foreground">聊天草稿保留，选择商品后在处理页确认。</p>{read.isFetching?<p role="status">正在核对技能版本…</p>:read.isError?<><p role="alert">暂时无法核对技能。</p><Button variant="outline" onClick={()=>void read.refetch()}>重新核对技能</Button></>:!version?<p role="alert">所选版本已停用或当前不可用，请重新选择。原请求仍可从下方核实。</p>:null}{original?.error?<p role="alert">原操作入口无法读取，请保留当前页面并从原商品页核实。</p>:original?.href?<Button asChild disabled={disabled} variant="outline"><Link prefetch={false} href={original.href} onClick={e=>{if(disabled)e.preventDefault()}}>核实或查看原标题操作</Link></Button>:version&&original?<Button asChild disabled={disabled}><Link prefetch={false} href={skillLaunchHref("/workbench/agents/skills/official/use",launch)} onClick={e=>{if(disabled)e.preventDefault()}}>{launch.target==="product-image"?"前往图片处理页":"前往标题处理页"}</Link></Button>:null}<Button variant="ghost" disabled={disabled} onClick={onClear}>取消选择</Button></div>;
+ const locations=original?.locations??[];
+ const productLinkLabel=launch.target==="product-image"?"前往图片处理页":locations.length?"选择另一件商品":"前往标题处理页";
+ return <div className="my-3 grid gap-3 rounded-xl border border-border p-4">
+  <p>{version?label(version):"已选择的技能"} · v{launch.selection.version}{version?" · "+source(version):""}</p>
+  <p className="text-sm text-muted-foreground">聊天草稿保留，选择商品后在处理页确认。</p>
+  {read.isFetching?<p role="status">正在核对技能版本…</p>:read.isError?<><p role="alert">暂时无法核对技能。</p><Button variant="outline" onClick={()=>void read.refetch()}>重新核对技能</Button></>:!version?<p role="alert">所选版本已停用或当前不可用，请重新选择。{locations.length>0?"原请求仍可从下方核实。":""}</p>:null}
+  {original?.error&&<p role="alert">原操作入口无法读取，请保留当前页面并从原商品页核实。</p>}
+  {version&&original?.locations&&<Button asChild disabled={disabled}><Link prefetch={false} href={skillLaunchHref("/workbench/agents/skills/official/use",launch)} onClick={e=>{if(disabled)e.preventDefault()}}>{productLinkLabel}</Link></Button>}
+  {locations.map((path,index)=><Button key={path} asChild disabled={disabled} variant="outline">
+   <Link prefetch={false} href={path} onClick={e=>{if(disabled)e.preventDefault()}}>核实或查看原标题操作{locations.length>1?` · 第 ${locations.length-index} 次`:""}</Link>
+  </Button>)}
+  <Button variant="ghost" disabled={disabled} onClick={onClear}>取消选择</Button>
+ </div>;
 }

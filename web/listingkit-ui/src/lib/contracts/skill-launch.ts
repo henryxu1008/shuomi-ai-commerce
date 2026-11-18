@@ -41,5 +41,18 @@ function validChatLocation(launch:SkillLaunch,path:string){
  const m=/^\/workbench\/data\/mine\/own\/([^/]+)\/optimize$/.exec(url.pathname),parsed=parseSkillLaunch(url.searchParams);
  return url.origin==="https://navigation.invalid"&&!!m&&isAcquisitionUUID(m[1])&&!!parsed&&!("invalid" in parsed)&&parsed.userId===launch.userId&&parsed.organizationId===launch.organizationId&&parsed.target===launch.target&&parsed.chatReturn===launch.chatReturn&&sameSkill(parsed.selection,launch.selection)&&isAcquisitionUUID(url.searchParams.get("agent_key")??"")&&url.searchParams.get("agent_actor")===launch.userId&&url.searchParams.get("agent_org")===launch.organizationId;
 }
-export function rememberChatSkillLocation(launch:SkillLaunch,path:string){if(!validChatLocation(launch,path))throw Error("Invalid original title location");sessionStorage.setItem(locationKey(launch),path);}
-export function readChatSkillLocation(launch:SkillLaunch){const path=sessionStorage.getItem(locationKey(launch));if(path===null)return;if(!validChatLocation(launch,path))throw Error("Original title location is unreadable");return path;}
+const chatSkillLocations=z.array(z.string());
+
+export function readChatSkillLocations(launch:SkillLaunch){
+ const raw=sessionStorage.getItem(locationKey(launch));
+ if(raw===null)return [];
+ const locations=raw.startsWith("/")?[raw]:chatSkillLocations.parse(JSON.parse(raw));
+ if(locations.some(path=>!validChatLocation(launch,path)))throw Error("Original title location is unreadable");
+ return locations;
+}
+
+export function rememberChatSkillLocation(launch:SkillLaunch,path:string){
+ if(!validChatLocation(launch,path))throw Error("Invalid original title location");
+ const previous=readChatSkillLocations(launch);
+ if(!previous.includes(path))sessionStorage.setItem(locationKey(launch),JSON.stringify([path,...previous]));
+}
