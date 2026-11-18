@@ -113,7 +113,14 @@ it("places optional analysis before the independent human decision in selection 
  const decision=await screen.findByRole("button",{name:"开始评估"});
  expect(screen.getByRole("heading",{name:"AI分析建议"}).compareDocumentPosition(decision)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
-it("shows original missing facts without dispatching a command on open",async()=>{render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);expect(await screen.findByText("真实保存商品")).toBeInTheDocument();expect(screen.getByText(/rating/)).toBeInTheDocument();expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);});
+it("shows original missing facts without dispatching a command on open",async()=>{
+ render(<ResearchPanel scope={{userId:"u",organizationId:"o"}} projectId={id} archived={false}/>);
+ expect(await screen.findByText("真实保存商品")).toBeInTheDocument();
+ fireEvent.click(screen.getByText("查看资料与缺项",{exact:true}));
+ expect(screen.getByText("评分",{exact:true})).toBeVisible();
+ expect(screen.queryByText(/rating/)).not.toBeInTheDocument();
+ expect(mock.read.mock.calls.every(c=>!c[4]?.intent)).toBe(true);
+});
 it("links and switches the original SHEIN evidence, then masks the withdrawn card and reason", async () => {
  const fixture=JSON.parse(readFileSync("../../docs/architecture/evidence/shein-us-data-v1-p1-p2.json", "utf8"));
  function original(name:"P1"|"P2") {

@@ -10,5 +10,5 @@ export function ResearchComparison({scope,items}:{scope:ProjectScope;items:Colle
  const [nonce,setNonce]=useState(0);const catalog=useConfigurationRead(scope,"product.selection.agent",catalogEntrySchema,nonce);
  if(catalog.error)return <p role="status">{configurationError(catalog.error)} <Button variant="outline" onClick={()=>setNonce(v=>v+1)}>重新读取对比能力</Button></p>;
  if(!catalog.data)return <p role="status">正在读取原选品能力…</p>;
- return <ProductSelectionFlow scope={scope} entry={catalog.data} nonce={nonce} initialItems={items}/>;
+ return <ProductSelectionFlow scope={scope} entry={catalog.data} nonce={nonce} initialItems={items} productLayout="grid"/>;
 }

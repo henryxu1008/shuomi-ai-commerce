@@ -39,6 +39,8 @@ import type { CollectionItem } from "@/lib/contracts/product-collection";
 import type { CatalogEntry } from "@/lib/contracts/agent-configuration";
 import { executionModeViewSchema } from "@/lib/contracts/execution-mode";
 import { CollectionPicker } from "../pod/collection-picker";
+import { CollectionProductImage } from "../collections/collection-product-image";
+import productGrid from "../collections/product-grid.module.css";
 import { useResourcePending } from "../resources/resource-pending";
 import { configurationError } from "./agent-configuration-hooks";
 import { executionModeLabels } from "./execution-mode-settings";
@@ -49,11 +51,13 @@ export function ProductSelectionFlow({
   entry,
   nonce,
   initialItems = [],
+  productLayout,
 }: {
   scope: ConfigurationScope;
   entry: CatalogEntry;
   nonce: number;
   initialItems?: CollectionItem[];
+  productLayout?: "grid";
 }) {
   const context = useWorkbenchContext();
   const queries = useQueryClient();
@@ -362,6 +366,7 @@ export function ProductSelectionFlow({
           <CollectionPicker
             scope={scope}
             kind="product"
+            productLayout={productLayout}
             disabled={locked || selected.length >= 5}
             isEligible={(item) => item.source.kind !== "shein_us_data"}
             onSelect={(item) => {
@@ -370,9 +375,10 @@ export function ProductSelectionFlow({
               setFacts(undefined);
             }}
           />
-          <ul>
+          <ul className={productLayout === "grid" ? productGrid.grid : undefined} role="list">
             {selected.map((i) => (
-              <li key={i.id}>
+              <li key={i.id} className={productLayout === "grid" ? productGrid.card : undefined}>
+                {productLayout === "grid" ? <CollectionProductImage url={i.thumbnailUrl} alt="" /> : null}
                 {i.title || i.source.productKey}
                 <Button
                   variant="ghost"
@@ -516,7 +522,7 @@ export function ProductSelectionFlow({
         </section>
       ) : null}
       {busy ? <p role="status">正在处理原请求…</p> : null}
-      {display ? <FactTable inspection={display} /> : null}
+      {display ? <FactTable inspection={display} productLayout={productLayout} /> : null}
       {run.data ? (
         <section className="space-y-3">
           <h3>
@@ -699,10 +705,42 @@ export function factLabel(path: string): string {
     ? `属性 ${Number(attr[1]) + 1}${attr[2] ? " · 待核实" : ""}`
     : path;
 }
-export function FactTable({ inspection }: { inspection: SelectionInspection }) {
+function savedFactValue(fact: SelectionInspection["products"][number]["facts"][number] | undefined) {
+  if (!fact) return "未知";
+  if (fact.path.endsWith(".uncertainty")) return "源资料由 AI 推断或待审核，需核实";
+  return typeof fact.value === "string" ? fact.value : JSON.stringify(fact.value);
+}
+
+export function FactTable({ inspection, productLayout }: { inspection: SelectionInspection; productLayout?: "grid" }) {
   const paths = [
     ...new Set(inspection.products.flatMap((p) => p.facts.map((f) => f.path))),
   ];
+  if (productLayout === "grid") {
+    const fields = paths.filter(path => path !== "title");
+    return (
+      <section className="space-y-3">
+        <h3>已保存原始事实</h3>
+        <p>按原币种显示价格。当前库存和供货条件仍需核实。</p>
+        <ul className={productGrid.grid} role="list" aria-label="商品资料与缺项">
+          {inspection.products.map(product => (
+            <li key={product.ref.ItemID} className={productGrid.card}>
+              <h4 className="font-semibold">{String(product.facts.find(fact => fact.path === "title")?.value ?? "未命名商品")}</h4>
+              {fields.length > 0 ? <dl className="grid gap-2">
+                {fields.map(path => <div key={path}>
+                  <dt className="text-muted-foreground">{factLabel(path)}</dt>
+                  <dd>{savedFactValue(product.facts.find(fact => fact.path === path))}</dd>
+                </div>)}
+              </dl> : null}
+              {product.missing.length ? <p>缺项：{product.missing.map(factLabel).join("；")}</p> : null}
+              <Link className="justify-self-start underline" prefetch={false} href={"/workbench/data/mine?item=" + product.ref.ItemID}>
+                查看原资料 · 版本 {product.ref.CatalogVersion}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
   return (
     <section className="space-y-3">
       <h3>已保存原始事实</h3>
@@ -736,13 +774,7 @@ export function FactTable({ inspection }: { inspection: SelectionInspection }) {
                   const f = p.facts.find((f) => f.path === path);
                   return (
                     <TableCell key={p.ref.ItemID}>
-                      {f
-                        ? f.path.endsWith(".uncertainty")
-                          ? "源资料由 AI 推断或待审核，需核实"
-                          : typeof f.value === "string"
-                            ? f.value
-                            : JSON.stringify(f.value)
-                        : "未知"}
+                      {savedFactValue(f)}
                     </TableCell>
                   );
                 })}

@@ -94,6 +94,47 @@ func TestPostgresJobQuotaFencingPublicationAndOriginalChargeProof(t *testing.T) 
 	require.NoError(t, err)
 	repo.ConfigurePrices(testDataPrices{})
 
+	t.Run("Amazon first-page claim is unique across requests and scopes", func(t *testing.T) {
+		approval := dataacquisition.AmazonFirstPageApproval{
+			ID: uuid.NewString(), ProjectID: uuid.NewString(), Keyword: "fixture", AccountRef: uuid.NewString(),
+			Scope:     collection.Scope{OrganizationID: "trial-org", ActorID: "trial-actor", MemberID: "trial-member"},
+			KeyDigest: collection.Digest("local-fixture"), BudgetRef: uuid.NewString(),
+			ExpiresAt: time.Now().Add(time.Minute), BudgetExpiresAt: time.Now().Add(time.Minute),
+			AvailableCredits: 25, MaximumCredits: 25, NoOverageCharges: true,
+			Funding: orgresource.FundingEnterprise, Price: dataacquisition.PriceConfirmation{Version: "fixture"},
+		}
+		type claim struct {
+			won bool
+			err error
+		}
+		results := make(chan claim, 2)
+		for range 2 {
+			go func() {
+				won, err := repo.ClaimAmazonFirstPage(ctx, approval)
+				results <- claim{won, err}
+			}()
+		}
+		winners := 0
+		for range 2 {
+			result := <-results
+			require.NoError(t, result.err)
+			if result.won {
+				winners++
+			}
+		}
+		require.Equal(t, 1, winners)
+		r, err := repo.ReadAmazonFirstPage(ctx, approval)
+		require.NoError(t, err)
+		require.Equal(t, dataacquisition.AmazonFirstPageUnknown, r.State)
+		rebound := approval
+		rebound.Scope.OrganizationID = "another-org"
+		won, err := repo.ClaimAmazonFirstPage(ctx, rebound)
+		require.ErrorIs(t, err, dataacquisition.ErrConflict)
+		require.False(t, won)
+		_, err = repo.ReadAmazonFirstPage(ctx, rebound)
+		require.ErrorIs(t, err, dataacquisition.ErrNotFound)
+	})
+
 	t.Run("zero-price-snapshot-original-key-and-row-quota", func(t *testing.T) {
 		zeroScope := collection.Scope{OrganizationID: "zero-org", ActorID: "zero-actor", MemberID: "zero-member"}
 		owner, err := keystore.NewCredentialRepository(ctx, db)

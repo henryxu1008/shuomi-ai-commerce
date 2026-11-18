@@ -50,22 +50,23 @@ func NewFetch(resolve ResolveKey) (*Fetch, error) {
 	if resolve == nil {
 		return nil, dataacquisition.ErrUnavailable
 	}
+	return &Fetch{resolve: resolve, http: oneRequestClient(dataacquisition.SHEINUSTrialTimeout)}, nil
+}
+
+func oneRequestClient(timeout time.Duration) *http.Client {
 	protocols := new(http.Protocols)
 	protocols.SetHTTP1(true)
-	return &Fetch{
-		resolve: resolve,
-		http: &http.Client{
-			Transport: &http.Transport{
-				// HTTP/1 on a fresh connection avoids transport replay on a
-				// reused connection. A Fetch GET may consume paid credits.
-				Protocols:              protocols,
-				DisableKeepAlives:      true,
-				MaxResponseHeaderBytes: 64 << 10,
-			},
-			Timeout:       dataacquisition.SHEINUSTrialTimeout,
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	return &http.Client{
+		Transport: &http.Transport{
+			// HTTP/1 on a fresh connection avoids transport replay on a
+			// reused connection. A Fetch GET may consume paid credits.
+			Protocols:              protocols,
+			DisableKeepAlives:      true,
+			MaxResponseHeaderBytes: 64 << 10,
 		},
-	}, nil
+		Timeout:       timeout,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 }
 
 // Send is the adapter for the already claimed, single-use trial slot. A

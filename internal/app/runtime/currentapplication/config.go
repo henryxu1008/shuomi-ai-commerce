@@ -40,6 +40,7 @@ type Config struct {
 	MarketResearch                       *ResearchConfig                           `json:"marketResearch,omitempty"`
 	ResearchFixture                      *ResearchFixtureConfig                    `json:"researchFixture,omitempty"`
 	SheinUSTrialInputDir                 *string                                   `json:"sheinUSTrialInputDir,omitempty"`
+	AmazonFirstPageInputDir              *string                                   `json:"amazonFirstPageInputDir,omitempty"`
 	TitlePilot                           *TitlePilotConfig                         `json:"titlePilot,omitempty"`
 	ChannelCredentials                   *ChannelCredentialsConfig                 `json:"channelCredentials,omitempty"`
 	SheinOfflineRecords                  *SheinOfflineRecordsConfig                `json:"sheinOfflineRecords,omitempty"`
@@ -357,6 +358,9 @@ func (cfg *Config) validate() error {
 		return err
 	}
 	if err := cfg.validateSHEINUSTrial(); err != nil {
+		return err
+	}
+	if err := cfg.validateAmazonFirstPage(); err != nil {
 		return err
 	}
 	if err := cfg.validateProjectCenter(); err != nil {
