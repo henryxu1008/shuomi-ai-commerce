@@ -24,7 +24,7 @@ Invitations retain their separate owner/list; they are not a third authorization
 
 ## Existing owners and provider evidence
 
-Reuse [#410 membership contract](../engineering/account-membership-contract.md) and
+Reuse [#410 membership contract](../engineering/integration/account-membership-contract.md) and
 [account facts/invitations](account-facts-invitations.md). ZITADEL project
 authorizations remain the only member/role/state facts; Home Organization is not
 membership. Membership owns the query contract and permission projection; the
