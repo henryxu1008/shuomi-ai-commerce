@@ -1341,7 +1341,7 @@ it("does not reenable an old project proposal after reloading a newer unsent dra
 });
 
 it.each([false,true])("sends the single Chat input with automatic or manual creator selection (%s)",async manual=>{
- fixture.context.aiWorkbenchChatTurnsReady=true;fixture.context.aiWorkbenchChatIntentReadiness=manual?"UNAVAILABLE":"AVAILABLE";
+ fixture.context.aiWorkbenchChatTurnsReady=true;fixture.context.aiWorkbenchChatIntentReadiness="AVAILABLE";
  const selected={id:operationId,name:"创建技能",description:"创建个人标题技能",version:2,digest:"a".repeat(64)};
  fixture.request.mockImplementation(async({route})=>{
   if(route==="conversation-read")return {conversation:{...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""};
@@ -1354,6 +1354,10 @@ it.each([false,true])("sends the single Chat input with automatic or manual crea
  expect(screen.queryByText("进入技能创作")).toBeNull();expect(screen.queryByLabelText("技能需求")).toBeNull();
  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"创建保留型号的标题技能"}});
  fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
- await waitFor(()=>expect(fixture.request).toHaveBeenCalledWith(expect.objectContaining({route:"chat-turn-submit",body:{content:"创建保留型号的标题技能",...(manual?{skill:{version:2,digest:selected.digest}}:{})}})));
+ await waitFor(()=>expect(fixture.request).toHaveBeenCalledWith(expect.objectContaining({route:"chat-turn-submit",body:{content:"创建保留型号的标题技能",...(manual?{creatorOnly:true}:{})}})));
+ if(manual){
+  await screen.findByText(/请说明要创建的技能用途/);
+  expect(screen.getByLabelText("需求")).toHaveValue("创建保留型号的标题技能");
+ }
  expect(fixture.request.mock.calls.some(([v])=>v.route==="skill-authoring-preview"||v.route==="store-route")).toBe(false);
 });

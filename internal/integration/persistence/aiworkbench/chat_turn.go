@@ -16,6 +16,9 @@ func decodeTurn(raw []byte) (aiworkbench.ChatTurnEnvelope, error) {
 	if len(raw) == 0 || len(raw) > 98304 || json.Unmarshal(raw, &envelope) != nil || envelope.Version != 1 || envelope.Input.Content == "" || len(envelope.Input.Content) > 8192 {
 		return envelope, aiworkbench.ErrInvalid
 	}
+	if envelope.Input.CreatorOnly && (envelope.Input.Skill != nil || envelope.Input.Revision != nil) {
+		return envelope, aiworkbench.ErrInvalid
+	}
 	validRef := func(ref *aiworkbench.ChatSkillReference) bool {
 		return ref == nil || ((ref.Version == 1 || ref.Version == 2) && validDigest(ref.Digest))
 	}

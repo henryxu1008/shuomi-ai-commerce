@@ -23,7 +23,7 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
   const req=route.request(),url=new URL(req.url()),path=url.pathname;
   if(url.origin!==origin)return route.abort();if(!path.startsWith("/api/"))return route.continue();
   const json=(body:unknown,status=200)=>route.fulfill({status,contentType:"application/json",body:JSON.stringify(body)});
-  if(path==="/api/workbench/context")return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,projectCenterAvailable:true,aiWorkbenchChatTurnsReady:true,aiWorkbenchChatIntentReadiness:manual?"UNAVAILABLE":"AVAILABLE",aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchPlanningReadiness:"AVAILABLE",organizations:[{id:"org",name:"合成企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}]});
+  if(path==="/api/workbench/context")return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,projectCenterAvailable:true,aiWorkbenchChatTurnsReady:true,aiWorkbenchChatIntentReadiness:"AVAILABLE",aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchPlanningReadiness:"AVAILABLE",organizations:[{id:"org",name:"合成企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}]});
   if(path===base+"/scopes")return json({options:[{scope:{version:"workbench-scope-v1",kind:"general"},confirmation:digest}],next:"",incomplete:false});
   if(path===base+"/skill-authoring")return json({skill:{name:"创建技能",...selected,description:"起草个人标题技能"},ready:true,scripts:true});
   if(path===base&&req.method()==="POST"){
@@ -33,7 +33,7 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
   if(path===`${base}/${id}`)return json({conversation,messages:messages(),proposals:[],before:""});
   if(path===`${base}/${id}/turns`){
    const key=req.headers()["idempotency-key"];
-   if(!initialTurn){initialTurn=key;initialBody=req.postData()!;expect(key).not.toBe(createKey);expect(req.postDataJSON()).toEqual({content:requirement,...(manual?{skill:selected}:{})});turnKeys.push(key);modelGenerations++;return json({state:"UNKNOWN",kind:"CREATE_TITLE_SKILL",skill:selected,authoring:job()});}
+   if(!initialTurn){initialTurn=key;initialBody=req.postData()!;expect(key).not.toBe(createKey);expect(req.postDataJSON()).toEqual({content:requirement,...(manual?{creatorOnly:true}:{})});turnKeys.push(key);modelGenerations++;return json({state:"UNKNOWN",kind:"CREATE_TITLE_SKILL",skill:selected,authoring:job()});}
    if(key===initialTurn){expect(req.postData()).toBe(initialBody);generationComplete=true;return json({state:"COMPLETE",kind:"CREATE_TITLE_SKILL",skill:selected,authoring:job()});}
    expect(req.postDataJSON()).toEqual({content:modification,skill:selected,revision:{root,baseRevision:root,snapshot:draft}});
    if(!turnKeys.includes(key)){turnKeys.push(key);modelGenerations++;}revision=true;return json({state:"COMPLETE",kind:"CREATE_TITLE_SKILL",skill:selected,authoring:job()});
@@ -50,7 +50,12 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
  await page.goto("/workbench/ai/chat/new");
  const store=(await page.getByRole("button",{name:"选择店铺",exact:true}).boundingBox())!,skillButton=page.getByRole("button",{name:"选择技能",exact:true}),skill=(await skillButton.boundingBox())!;
  expect(skill.x).toBeGreaterThanOrEqual(store.x+store.width);expect(Math.abs(skill.y-store.y)).toBeLessThan(1);
- if(manual){await skillButton.click();await page.getByRole("dialog",{name:"选择技能"}).getByRole("button",{name:/创建技能/}).click();}
+ if(manual){
+  await skillButton.click();
+  const drawer=page.getByRole("dialog",{name:"选择技能"});
+  await expect(drawer.getByRole("button",{name:"创建商品标题技能",exact:true})).toHaveCount(0);
+  await drawer.getByRole("button",{name:/创建技能/}).click();
+ }
  await expect(page.getByText("进入技能创作",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:/项目操作/})).toHaveCount(0);
  await page.getByLabel("需求",{exact:true}).fill(requirement);await page.getByRole("button",{name:"开始对话",exact:true}).click();
  await expect(page.getByRole("button",{name:"核对原创建请求",exact:true})).toBeEnabled();await page.reload();await page.getByRole("button",{name:"核对原创建请求",exact:true}).click();

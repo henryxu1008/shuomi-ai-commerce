@@ -52,6 +52,24 @@ func TestChatIntentFreezesCreatorAndCannotInvokeAnUnavailableTool(t *testing.T) 
 	decision, err := (Router{Text: fake}).Decide(context.Background(), prepared)
 	require.NoError(t, err)
 	require.Equal(t, "CREATE_TITLE_SKILL", decision.Kind)
+	ordinary := prepared
+	input.Input.CreatorOnly = true
+	prepared, err = PrepareChat(aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, "member", "invocation", input, profile)
+	require.NoError(t, err)
+	require.NotEqual(t, ordinary.Quote.InputHash, prepared.Quote.InputHash)
+	require.Contains(t, prepared.Identity.Prompt, `"creatorOnly":true`)
+	_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+	require.NoError(t, err)
+	for _, output := range []string{`{"kind":"STORE_OVERVIEW","status":"ACTIVE"}`, `{"kind":"PRODUCT_TASK","status":""}`} {
+		fake.output = output
+		_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+		require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	}
+	fake.output = `{"kind":"CLARIFY","status":""}`
+	_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+	require.NoError(t, err)
+	input.Input.CreatorOnly = false
+	fake.output = `{"kind":"CREATE_TITLE_SKILL","status":""}`
 	input.Creator = nil
 	prepared, err = PrepareChat(aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, "member", "invocation", input, profile)
 	require.NoError(t, err)

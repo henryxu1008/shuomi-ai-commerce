@@ -62,8 +62,9 @@ func TestChatIntentDecisionRequiresItsOwnPurposeAndFrozenAvailableCreator(t *tes
 	fact := aicapability.InvocationRecord{TenantID: "org", UserID: "actor", MemberID: "member", InvocationID: "inv", InputHash: "input", Operation: aicapability.OperationAIWorkbenchChatIntent, Outcome: aicapability.InvocationSucceeded, UsageKnown: true, EstimatedCostKnown: true, OutputHash: hex.EncodeToString(hash[:])}
 	now := time.Now()
 	reservation := orgresourceadapter.ModelInvocationReservation{OrganizationID: "org", InvocationID: "inv", MemberID: "member", State: "committed", SettledAt: &now}
+	kind := "CREATE_TITLE_SKILL"
 	verify := func() error {
-		return verifyStoreRouteDecision(ctx, command, aiworkbench.StoreRoute{Kind: "CREATE_TITLE_SKILL", RawOutput: raw}, func(context.Context, string, string) (aicapability.InvocationRecord, error) { return fact, nil }, func(context.Context, string, string) (orgresourceadapter.ModelInvocationReservation, error) {
+		return verifyStoreRouteDecision(ctx, command, aiworkbench.StoreRoute{Kind: kind, RawOutput: raw}, func(context.Context, string, string) (aicapability.InvocationRecord, error) { return fact, nil }, func(context.Context, string, string) (orgresourceadapter.ModelInvocationReservation, error) {
 			return reservation, nil
 		})
 	}
@@ -71,6 +72,20 @@ func TestChatIntentDecisionRequiresItsOwnPurposeAndFrozenAvailableCreator(t *tes
 	fact.Operation = aicapability.OperationAIWorkbenchStoreRoute
 	require.Error(t, verify(), "a store-purpose settlement cannot prove a Chat intent call")
 	fact.Operation = aicapability.OperationAIWorkbenchChatIntent
+	envelope.Input.CreatorOnly = true
+	command.TurnInput, _ = json.Marshal(envelope)
+	require.NoError(t, verify())
+	kind, raw = "PRODUCT_TASK", `{"kind":"PRODUCT_TASK","status":""}`
+	hash = sha256.Sum256([]byte(raw))
+	fact.OutputHash = hex.EncodeToString(hash[:])
+	require.Error(t, verify(), "the original creation-only request must reject a product receipt")
+	kind, raw = "CLARIFY", `{"kind":"CLARIFY","status":""}`
+	hash = sha256.Sum256([]byte(raw))
+	fact.OutputHash = hex.EncodeToString(hash[:])
+	require.NoError(t, verify(), "clarification remains recoverable through the same receipt")
+	kind, raw = "CREATE_TITLE_SKILL", `{"kind":"CREATE_TITLE_SKILL","status":""}`
+	hash = sha256.Sum256([]byte(raw))
+	fact.OutputHash = hex.EncodeToString(hash[:])
 	envelope.Creator = nil
 	command.TurnInput, _ = json.Marshal(envelope)
 	require.Error(t, verify(), "the decision cannot add an unavailable tool")

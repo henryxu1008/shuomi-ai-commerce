@@ -52,10 +52,7 @@ func verifyStoreRouteDecision(ctx context.Context, command aiworkbench.StoreRout
 		if json.Unmarshal(command.TurnInput, &envelope) != nil || envelope.Version != 1 {
 			return aiworkbench.ErrUnavailable
 		}
-		parsed, err = aiworkbench.ParseChatRoute([]byte(decision.RawOutput), envelope.Creator != nil)
-		if err == nil && parsed.Kind == "STORE_OVERVIEW" && !envelope.GeneralScope {
-			return aiworkbench.ErrUnavailable
-		}
+		parsed, err = envelope.ParseDecision([]byte(decision.RawOutput))
 	}
 	if err != nil || parsed.Kind != decision.Kind || parsed.Status != decision.Status {
 		return aiworkbench.ErrUnavailable

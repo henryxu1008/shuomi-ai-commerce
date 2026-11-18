@@ -119,7 +119,7 @@ export const aiTitleSkillDraft = z.strictObject({
   script: z.strictObject({description: z.string().max(1536), source: z.string().max(16384)}).optional(),
 });
 const aiChatSkillReference=z.strictObject({version:z.union([z.literal(1),z.literal(2)]),digest:z.string().regex(/^[a-f0-9]{64}$/)});
-export const aiChatTurnBody=z.strictObject({content:aiTitleMessageBody.shape.content,skill:aiChatSkillReference.optional(),revision:z.strictObject({root:id,baseRevision:id,snapshot:aiTitleSkillDraft}).optional()}).refine(value=>!value.revision || value.skill?.version===2);
+export const aiChatTurnBody=z.strictObject({content:aiTitleMessageBody.shape.content,creatorOnly:z.literal(true).optional(),skill:aiChatSkillReference.optional(),revision:z.strictObject({root:id,baseRevision:id,snapshot:aiTitleSkillDraft}).optional()}).refine(value=>value.creatorOnly ? !value.skill&&!value.revision : !value.revision||value.skill?.version===2);
 const authoringPreviewFields = {
   ...aiSkillAuthoringQuote.shape,
   root: id.optional(), baseRevision: id.optional(), snapshot: aiTitleSkillDraft.optional(),

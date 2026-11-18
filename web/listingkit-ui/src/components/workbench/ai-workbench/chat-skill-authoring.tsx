@@ -28,7 +28,7 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
   scope: AIScope;
   authorizationKey: string;
   disabled?: boolean;
-  onSelect: (skill: AISkillAuthoringChoice) => void;
+  onSelect: () => void;
   onResume?: () => void;
   onSelectLibrary?: (v:SkillVersion) => void;
 }) {
@@ -47,9 +47,9 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
         {official && <>{catalog.isFetching ? <p role="status">正在读取可用技能…</p>
           : catalog.isError ? <><p role="alert">技能暂不可用，请重试。</p><Button variant="outline" onClick={() => void catalog.refetch()}>重新读取</Button></>
           : skill ? <><Button variant="outline" className={styles.skillChoice}
-            disabled={!catalog.data?.ready} onClick={() => { onSelect(skill); setOpen(false); }}>
+            disabled={!catalog.data?.ready} onClick={() => { onSelect(); setOpen(false); }}>
             <span className={styles.skillIcon}><SquarePen size={20} aria-hidden="true" /></span>
-            <span className={styles.skillChoiceText}><span><strong>{skill.name}</strong><small>官方 v{skill.version}</small></span><span>{skill.description}</span></span>
+            <span className={styles.skillChoiceText}><span><strong>创建技能</strong><small>官方 v{skill.version}</small></span><span>在 Chat 里描述你想创建的技能。</span></span>
             <ChevronRight size={16} aria-hidden="true" />
           </Button>{!catalog.data?.ready && <p role="status">当前企业的技能创作模型尚未就绪。</p>}</>
           : <p>当前没有可用的创作技能。</p>}</>}

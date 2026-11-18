@@ -19,9 +19,10 @@ type ChatTurnRevision struct {
 }
 
 type ChatTurnInput struct {
-	Content  string              `json:"content"`
-	Skill    *ChatSkillReference `json:"skill,omitempty"`
-	Revision *ChatTurnRevision   `json:"revision,omitempty"`
+	Content     string              `json:"content"`
+	CreatorOnly bool                `json:"creatorOnly,omitempty"`
+	Skill       *ChatSkillReference `json:"skill,omitempty"`
+	Revision    *ChatTurnRevision   `json:"revision,omitempty"`
 }
 
 // ChatTurnEnvelope is frozen once at admission. A replay does not reload the
@@ -31,6 +32,21 @@ type ChatTurnEnvelope struct {
 	Input        ChatTurnInput       `json:"input"`
 	Creator      *ChatSkillReference `json:"creator,omitempty"`
 	GeneralScope bool                `json:"generalScope"`
+}
+
+// ParseDecision applies the frozen allow-list to both live output and receipts.
+func (e ChatTurnEnvelope) ParseDecision(raw []byte) (StoreRoute, error) {
+	result, err := ParseChatRoute(raw, e.Creator != nil)
+	if err != nil {
+		return StoreRoute{}, err
+	}
+	if e.Input.CreatorOnly && result.Kind != "CREATE_TITLE_SKILL" && result.Kind != "CLARIFY" {
+		return StoreRoute{}, ErrInvalid
+	}
+	if !e.GeneralScope && result.Kind == "STORE_OVERVIEW" {
+		return StoreRoute{}, ErrInvalid
+	}
+	return result, nil
 }
 
 type ChatTurnCommand struct {

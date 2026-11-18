@@ -24,6 +24,9 @@ func normalizeChatTurn(input aiworkbench.ChatTurnInput) (aiworkbench.ChatTurnInp
 	if strings.TrimSpace(input.Content) == "" || len(input.Content) > 8192 || !utf8.ValidString(input.Content) {
 		return input, aiworkbench.ErrInvalid
 	}
+	if input.CreatorOnly && (input.Skill != nil || input.Revision != nil) {
+		return input, aiworkbench.ErrInvalid
+	}
 	if input.Skill != nil {
 		raw, err := hex.DecodeString(input.Skill.Digest)
 		if err != nil || len(raw) != 32 || hex.EncodeToString(raw) != input.Skill.Digest || (input.Skill.Version != 1 && input.Skill.Version != 2) {
