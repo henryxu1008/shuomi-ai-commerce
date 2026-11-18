@@ -65,7 +65,7 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
  await expect(page.getByRole("textbox",{name:"正文",exact:true})).toHaveValue(draft.instructions);
  await page.getByRole("button",{name:"让 Chat 修改",exact:true}).click();
  await page.getByRole("textbox",{name:"需求",exact:true}).fill(modification);await page.getByRole("button",{name:"发送消息",exact:true}).click();
- const editors=page.getByRole("textbox",{name:"正文",exact:true});await expect(editors.last()).toHaveValue(revised.instructions);
+ const editors=page.getByRole("textbox",{name:"正文",exact:true});await expect(editors).toHaveCount(2);await expect(editors.last()).toHaveValue(revised.instructions);
  await editors.last().fill("保留已核实的型号和规格。");
  const save=page.getByRole("button",{name:"保存到我的技能",exact:true}).last();await expect(save).toBeDisabled();await expect(save).toBeEnabled();await expect(editors.last()).toHaveValue("保留已核实的型号和规格。");expect(saves).toBe(0);await save.click();
  await expect(page.getByRole("button",{name:"核实原保存",exact:true})).toBeVisible();await page.reload();
