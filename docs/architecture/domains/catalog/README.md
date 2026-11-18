@@ -10,6 +10,7 @@
 | 用户如何把商品放进“我的数据”、选择和引用版本 | [Product Domain Contracts](../../product-domain-contracts.md)、[来源业务流程](../../source-business-flow.md) | `internal/product/collection/` |
 | 自有商品录入、规格及保存历史 | [自有商品录入](own-product-entry.md)、[编辑](own-product-edit.md)、[SKU 包装](own-product-sku-packaging.md) | `internal/product/collection/`、`internal/product/catalog/` |
 | 商品描述如何安全编辑、插图并保留版本 | [富文本内容合同](own-product-rich-description.md)、[编辑器与描述图片增量](rich-description-simple-editor-images.md) | `internal/product/description/`、`internal/product/collection/`、`internal/listing/completiondraft/` |
+| 本机来源图片试用的存储与容量边界在哪里 | [来源图片试用合同](own-product-source-media-trial.md)、[操作说明](../../../operations/runbooks/own-product-source-media-trial.md) | `internal/app/productsourcing/`、`internal/ledger/storagecapacity/` |
 | 来源图片、生成图和用户上传图什么时候可用于刊登 | [Product Domain Contracts](../../product-domain-contracts.md)、[素材来源与批准](../../source-business-flow.md) | `internal/product/asset/`、`internal/imageagent/` |
 | 从商品资料带入目标平台的草稿 | [待补全草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[对应架构合同](../../supply-unbound-completion-drafts.md) | `internal/listing/`、`internal/marketplace/` |
 

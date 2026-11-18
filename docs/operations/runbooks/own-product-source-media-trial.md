@@ -1,6 +1,6 @@
 # 自有商品图片上传的隔离试用
 
-设计：[来源图片试用边界](../architecture/own-product-source-media-trial.md)。正式公网模式继续使用原`sourceMedia`；本文件仅用于用户授权的loopback本地试用实例，不用于真实云、共享或生产发布。
+设计：[来源图片试用边界](../../architecture/domains/catalog/own-product-source-media-trial.md)。正式公网模式继续使用原`sourceMedia`；本文件仅用于用户授权的loopback本地试用实例，不用于真实云、共享或生产发布。
 
 复用当前正常登录、Product collections、商业/资金owner及原容量schema/权限。先只读核实该独立实例实际六表/ACL，再继续；缺失时报告原owner，不能重跑非空Product初始化、重置schema/价格/权益或改变授权。来源上传开启后必须使用`storageCapacity:true`，默认每企业5GiB沿原合同；本轮不购买扩容。
 

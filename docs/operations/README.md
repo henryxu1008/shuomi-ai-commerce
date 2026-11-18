@@ -25,7 +25,7 @@
 
 ## 采集、商品资料与草稿
 
-- 采集与资料：[浏览器插件](../../extensions/product-capture/README.md)、[来源素材](runbooks/source-materials.md)、[来源图试用](own-product-source-media-trial.md)、[1688 采集计划](user-guides/acquisition-plans-local.md)。
+- 采集与资料：[浏览器插件](../../extensions/product-capture/README.md)、[来源素材](runbooks/source-materials.md)、[来源图试用](runbooks/own-product-source-media-trial.md)、[1688 采集计划](user-guides/acquisition-plans-local.md)。
 - 自有商品：[录入](user-guides/own-product-entry.md)、[历史](user-guides/own-product-history.md)、[富文本描述](runbooks/own-product-rich-description.md)。
 - 待补全草稿：[单件转入](user-guides/own-product-draft-entry.md)、[已有草稿](user-guides/own-product-existing-drafts.md)、[未绑定店铺草稿](user-guides/supply-unbound-completion-drafts.md)。
 - 草稿编辑：[属性与 SKU](user-guides/completion-draft-structured.md)、[保存历史](user-guides/completion-draft-history.md)、[恢复为新版本](user-guides/completion-draft-restore.md)。
