@@ -61,7 +61,7 @@
 - `platform/identity/account-audit-usage-readers.md` — [Account Audit 只读用量来源接线 V1](platform/identity/account-audit-usage-readers.md)
 - `platform/identity/account-region-catalog.md` — [编辑资料预置地区目录 V1](platform/identity/account-region-catalog.md)
 - `platform/identity/account-facts-invitations.md` — [Account facts and invitations v1](platform/identity/account-facts-invitations.md)
-- `auth-and-tenancy.md` — [Authentication and Organization Scope](auth-and-tenancy.md)
+- `platform/identity/auth-and-tenancy.md` — [Authentication and Organization Scope](platform/identity/auth-and-tenancy.md)
 - `auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](auth-instance-cookie-isolation.md)
 - `authentication-runtime.md` — [Zitadel Authentication Runtime Extraction Design](authentication-runtime.md)
 - `browser-kernel-release-catalog.md` — [平台浏览器内核发行目录 V1](browser-kernel-release-catalog.md)
