@@ -50,7 +50,7 @@
 - `platform/runtime/httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](platform/runtime/httpapi-assembly-boundaries.md)
 - `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
 - `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
-- `temporal-boundaries.md` — [Temporal Boundaries](temporal-boundaries.md)
+- `platform/runtime/temporal-boundaries.md` — [Temporal Boundaries](platform/runtime/temporal-boundaries.md)
 
 <a id="identity"></a>
 

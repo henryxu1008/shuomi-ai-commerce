@@ -27,7 +27,7 @@ Every review reference must resolve to an existing repository document.
 - `platform/identity/auth-and-tenancy.md`
 - `platform/runtime/app-assembly-boundaries.md`
 - `platform/runtime/httpapi-assembly-boundaries.md`
-- `temporal-boundaries.md`
+- `platform/runtime/temporal-boundaries.md`
 - `commerce-tool-foundation.md`
 - `../development/repository-structure.md`
 
