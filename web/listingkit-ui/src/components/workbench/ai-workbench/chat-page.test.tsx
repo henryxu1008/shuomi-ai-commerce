@@ -375,7 +375,10 @@ it("preserves a newer unsent draft when an older pending message completes", asy
   sessionStorage.setItem(`ai-workbench:pending-message:user-a:org-a:${conversationId}`,JSON.stringify({key:operationId,body:{content:"旧消息 X",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true}}}}));
   fixture.request.mockImplementation(async ({route})=>route==="conversation-read"?{conversation,messages:[],proposals:[],before:""}:route==="message"?{state:"COMPLETE"}:Promise.reject(new Error("unexpected request")));
   render(tree());
-  const button=await screen.findByRole("button",{name:"重试同一消息"}); fireEvent.click(button);
+  const button=await screen.findByRole("button",{name:"重试同一消息"});
+  await waitFor(()=>expect(button).toBeEnabled());
+  fireEvent.click(button);
+  await waitFor(()=>expect(fixture.request.mock.calls.filter(([request])=>request.route==="message")).toHaveLength(1));
   await screen.findByText("新草稿 Y");
   const restoreDraft=screen.getByRole("button",{name:"使用保留的需求"});
   await waitFor(()=>expect(restoreDraft).toBeEnabled());
