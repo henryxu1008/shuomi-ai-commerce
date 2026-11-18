@@ -47,7 +47,7 @@
 
 ## 店铺、工具与服务
 
-- 店铺读取：[商品与订单观察接线](../engineering/store-observations-integration-handoff.md)。
+- 店铺读取：[商品与订单观察接线](../engineering/integration/store-observations-integration-handoff.md)。
 - 订单、采购与仓库履约：[首版运行与保存/恢复](user-guides/order-fulfillment.md)、[独立合成试用](runbooks/order-fulfillment-synthetic-trial.md)。合成环境、真实平台联调和生产分别取证；环境操作按当前授权执行。
 - 平台专项：[TEMU](user-guides/temu-store-connection.md)、[TikTok Shop 美国站](user-guides/tiktok-shop-us.md)、[Walmart 美国站](user-guides/walmart-us.md)。各文档的候选、未开放和恢复限制继续适用。
 - 平台服务：[工具市场](user-guides/tool-market.md)、[数据服务](../engineering/integration/data-services-runtime-handoff.md)、[生态服务](user-guides/ecosystem-services.md)。

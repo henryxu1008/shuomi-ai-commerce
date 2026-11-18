@@ -13,7 +13,7 @@ go run ./cmd/store-center-schema-init -config C:\private\store-owner.json -opera
 go run ./cmd/current-application -config C:\private\current-application.json
 ```
 
-如新实例同时安装已有平台观察，则初始化命令同时增加 `-observations`，并按 [观察功能交接](../store-observations-integration-handoff.md) 准备其配置与 worker。人工经营功能无需观察 worker；未装配观察时，订单观察明确显示未取得能力。启动只核验 schema 与角色权限，不安装或修复数据库。不得将上述初始化当成已有业务实例升级、迁移或权限修复操作；本批没有改动保留试用实例。
+如新实例同时安装已有平台观察，则初始化命令同时增加 `-observations`，并按 [观察功能交接](store-observations-integration-handoff.md) 准备其配置与 worker。人工经营功能无需观察 worker；未装配观察时，订单观察明确显示未取得能力。启动只核验 schema 与角色权限，不安装或修复数据库。不得将上述初始化当成已有业务实例升级、迁移或权限修复操作；本批没有改动保留试用实例。
 
 Console 复用正常启动与 Auth.js 配置，`LISTINGKIT_SERVICE_API_BASE` 指向上述 current backend 的 `/api/v1`；无需另加前端启用变量。从 `web/listingkit-ui` 执行正常 `pnpm.cmd dev`，或者 `pnpm.cmd build` 后 `pnpm.cmd start`。沿 RUN-1 的正常登录入口选择企业。
 
