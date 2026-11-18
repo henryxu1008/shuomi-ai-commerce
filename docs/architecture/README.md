@@ -235,7 +235,7 @@
 - `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)
 - `domains/listing/platform-listing-materials-agent.md` — [平台上架资料智能体 v1](domains/listing/platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
-- `private-agent-delivery.md` — [指定企业私有智能体交付 V1](private-agent-delivery.md)
+- `domains/ai/private-agent-delivery.md` — [指定企业私有智能体交付 V1](domains/ai/private-agent-delivery.md)
 - `domains/ai/product-agent-google-interactions.md` — [Product Agent Google Interactions 标题路由增量合同](domains/ai/product-agent-google-interactions.md)
 - `product-agent-runtime-contract.md` — [Product Agent 最小运行合同与接入依赖](product-agent-runtime-contract.md)
 - `domains/ai/product-agent-text-provider-neutral.md` — [Product Agent 标题文本供应商可替换合同（候选）](domains/ai/product-agent-text-provider-neutral.md)
