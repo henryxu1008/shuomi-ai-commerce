@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"task-processor/internal/aicapability"
@@ -25,7 +26,7 @@ func prepareTextSkill(scope aiworkbench.Scope, member, invocation, content, inst
 		return aicapability.TextInputIdentity{}, aicapability.TextQuote{}, err
 	}
 	input := aicapability.TextInputIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: member,
-		InvocationID: invocation, Operation: aicapability.OperationAIWorkbenchChatPlan, System: textSkillSystem, Prompt: string(wire), Profile: profile}
+		InvocationID: invocation, Operation: aicapability.OperationAIWorkbenchChatPlan, ChatTextSkill: true, System: textSkillSystem, Prompt: string(wire), Profile: profile}
 	quote, err := aicapability.QuoteText(input)
 	return input, quote, err
 }
@@ -62,6 +63,9 @@ func (p *workbenchPlanner) admitTextSkill(ctx context.Context, scope aiworkbench
 	}
 	return func(_ []aiworkbench.Message, invocation string) (aiworkbench.PreparedPlan, error) {
 		_, quote, err := prepareTextSkill(scope, member, invocation, input.Content, v.Package.Files[0].Text, route.Profile)
+		if errors.Is(err, aicapability.ErrTextInputLimit) {
+			return aiworkbench.PreparedPlan{}, aiworkbench.ErrTextSkillInputLimit
+		}
 		if err != nil {
 			return aiworkbench.PreparedPlan{}, aiworkbench.ErrInvalid
 		}

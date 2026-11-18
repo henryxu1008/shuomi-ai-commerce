@@ -105,6 +105,10 @@
 .userMessage { justify-self: end; background: var(--accent); }
 .messages small { color: var(--muted-foreground); }
 .messages p { margin-top: .45rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.textSkillReply { margin-top: .45rem; min-width: 0; overflow-wrap: anywhere; }
+.textSkillReply table { margin-block: .4rem; }
+.textSkillReply th, .textSkillReply td { border: 1px solid var(--border); padding: .45rem .65rem; vertical-align: top; }
+.textSkillReply th { background: var(--muted); font-weight: 600; }
 .composer, .proposal { padding: 1rem 1.2rem; }
 .composer h2 { font-size: var(--section-title-size); font-weight: 600; }
 .composer p { color: var(--muted-foreground); font-size: var(--body-text-size); margin: .35rem 0 1rem; }

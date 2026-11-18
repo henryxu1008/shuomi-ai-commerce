@@ -19,6 +19,7 @@ var (
 	ErrRevisionMismatch        = errors.New("conversation revision mismatch")
 	ErrProposalStale           = errors.New("workbench proposal stale")
 	ErrTextSkillUnavailable    = errors.New("workbench text skill unavailable")
+	ErrTextSkillInputLimit     = errors.New("workbench text skill input exceeds current model limit")
 	ErrTaskOutcomeUnknown      = errors.New("workbench task action outcome unknown")
 	ErrScheduleCommandRejected = errors.New("scheduled command durably rejected")
 )

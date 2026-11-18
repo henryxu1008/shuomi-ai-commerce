@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Table } from "@/components/ui/table";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery,useQuery,useQueryClient } from "@tanstack/react-query";
 import { ArrowUp } from "lucide-react";
@@ -64,6 +67,7 @@ const stateText: Record<string, string> = {
   DEPENDENCY_UNAVAILABLE: "服务暂不可用，请稍后重试。",
   FORBIDDEN: "当前企业或权限已变化，请重新加载。",
   CONVERSATION_ARCHIVED: "该会话已归档，不能继续发送消息。",
+  TEXT_SKILL_INPUT_LIMIT: "技能规则和这段文字合计超过了当前模型的输入上限。请缩短文字或分段发送，原文已保留。",
   TEXT_SKILL_UNAVAILABLE: "该技能已不可用，请重新选择。输入的文字已保留。",
 };
 function errorText(error: unknown) { return error instanceof AIWorkbenchError ? stateText[error.code] ?? "请求未完成，请稍后重试。" : "请求暂不可用，请稍后重试。"; }
@@ -576,7 +580,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       ...(knowledgeBaseId ? { knowledgeBaseId } : {}), ...(templateId ? { templateId, templateRevision } : {}), ...(contentTasks&&conversationStore.choice?{storeChoice:conversationStore.choice}:{}),
     } };
     const checked = intentRoute ? aiStoreRouteBody.safeParse(draft.body) : aiMessageBody.safeParse(draft.body);
-    if (!checked.success) { setError(usingTextSkill ? "请填写要处理的文字，长度不能超过 8192 字节。" : "请选择有效商品、语言和字段，填写需求及模板修订号。"); return; }
+    if (!checked.success) { setError(usingTextSkill ? "请填写要处理的文字。文字过长时，可分段发送。" : "请选择有效商品、语言和字段，填写需求及模板修订号。"); return; }
     const saved:PendingMessage = { key: draft.key, body: checked.data, route:intentRoute?"store-route":"message", owner:scope, conversationId:id, ...(pendingMessage?.draftId ? {draftId:pendingMessage.draftId,draftSlot:pendingMessage.draftSlot} : !pendingMessage && activeDraft.current ? {draftId:activeDraft.current.id,draftSlot:activeDraft.current.slot} : {}) };
     if (!usingTextSkill) setConversationStore({choice:undefined,ready:false});
     setPendingMessage(saved); setPending(true); setError("");
@@ -605,7 +609,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       if (result.state === "READY_TO_DISPATCH") setError("本次请求仍在处理，请重试查看结果。");
       await detail.refetch();
     } catch (cause) { if (!controller.signal.aborted) {
-      if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE","TEXT_SKILL_UNAVAILABLE"].includes(cause.code)){
+      if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE","TEXT_SKILL_UNAVAILABLE","TEXT_SKILL_INPUT_LIMIT"].includes(cause.code)){
         if(!preserveMessageInput(saved)){setDraftSaveError("无法保存原需求，请勿刷新，检查浏览器存储后重试。");return;}
         try{sessionStorage.removeItem(activeMessageKey)}catch{setDraftSaveError("无法更新消息恢复记录，请检查浏览器存储后重试。");return;}
         setPendingMessage(null);setActiveMessageKey(messageStorageKey);
@@ -683,7 +687,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {showAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <ChatSkillAuthoring scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={authoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
       initialRequirement={search.get("skillAuthoring")==="1" ? content : ""} onClose={()=>setShowAuthoring(false)} onUseTextSkill={canChooseTextSkill ? chosen=>chooseTextSkill(chosen,true) : undefined} />}
     <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : styles.assistantMessage}>
-      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}{item.textSkillVersion ? ` · 使用文字技能 v${item.textSkillVersion}` : ""}</small><p className={item.textSkillVersion ? "whitespace-pre-wrap" : undefined}>{item.Content}</p>
+      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}{item.textSkillVersion ? ` · 使用文字技能 v${item.textSkillVersion}` : ""}</small>{item.textSkillVersion ? <div className={styles.textSkillReply}>
+        <Markdown skipHtml remarkPlugins={[remarkGfm]} disallowedElements={["a", "img", "input"]} unwrapDisallowed
+          components={{table: ({children}) => <Table>{children}</Table>}}>{item.Content}</Markdown>
+      </div> : <p>{item.Content}</p>}
       {item.kind === "STORE_OVERVIEW_REF" ? !storeProjectionFresh || detail.isFetching || detail.isError ? <p>正在重新核对店铺权限…</p> : item.currentStoreOverview ? <div><p>全部可见店铺：当前可查看 {item.currentStoreOverview.total} 家店铺。</p><p>平台：{Object.entries(item.currentStoreOverview.platforms).map(([name,count])=>`${name} ${count} 家`).join("、") || "暂无"}。</p><p>状态：启用 {item.currentStoreOverview.statuses.active ?? 0} 家、停用 {item.currentStoreOverview.statuses.disabled ?? 0} 家、删除中 {item.currentStoreOverview.statuses.deleting ?? 0} 家。</p><p>经营类型未确认：{item.currentStoreOverview.operatingTypeUnknown} 家。读取开始时间：{new Date(item.currentStoreOverview.readStartedAt).toLocaleString("zh-CN")}</p><Link href="/workbench/stores">前往店铺中心</Link></div> : <p>当前无权查看或店铺数据暂不可用。</p> : null}</Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
       {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetching} onClick={() => void loadEarlierMessages()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div></Card>
     {canUse && !current.Archived && current.businessScope?.kind === "general" ? <Button variant="outline" disabled={!overviewReady||overviewBusy} onClick={()=>void explicitStoreOverview()}>{overviewBusy?"正在读取店铺概况…":pendingOverview?"核对原店铺查询":"查看全部可见店铺概况"}</Button> : null}

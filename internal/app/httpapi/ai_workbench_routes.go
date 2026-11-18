@@ -199,6 +199,8 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "IDEMPOTENCY_CONFLICT"
 	case errors.Is(err, aiworkbench.ErrProposalStale), errors.Is(err, agentconfig.ErrChanged), errors.Is(err, agentconfig.ErrRevision), errors.Is(err, knowledge.ErrSelectionChanged):
 		status, code = http.StatusConflict, "PROPOSAL_STALE"
+	case errors.Is(err, aiworkbench.ErrTextSkillInputLimit):
+		status, code = http.StatusRequestEntityTooLarge, "TEXT_SKILL_INPUT_LIMIT"
 	case errors.Is(err, aiworkbench.ErrTextSkillUnavailable):
 		status, code = http.StatusConflict, "TEXT_SKILL_UNAVAILABLE"
 	case errors.Is(err, aiworkbench.ErrRevisionMismatch), errors.Is(err, agent.ErrConflict):

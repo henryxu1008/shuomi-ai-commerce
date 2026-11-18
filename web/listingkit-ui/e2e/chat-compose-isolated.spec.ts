@@ -24,9 +24,16 @@ test("creates a private text skill and uses it with original-message recovery", 
   const requirement = "把交接笔记整理成待办事项";
   const input = "校对说明书；小胡负责更新进度";
   const laterInput = "周五核对物料清单";
-  const answer = "待办事项\n- 校对说明书（负责人待确认）\n- 更新进度（小胡）";
+  const oversized = "需要核对物料。".repeat(250);
+  const answer = `| 事项 | 负责人 |
+| --- | --- |
+| 校对说明书 | 待确认 |
+| 更新进度 | 小胡 |
+
+<img src="https://chat-compose.invalid/pixel" />`;
   const draft = {name:"handoff-notes",displayName:"交接待办",description:"把交接笔记整理为待办事项。",instructions:"提取事项和负责人。"};
   let saved = false, generated = false, complete = false, messageKey = "", unknownKey = "", sends = 0, unknownReads = 0, storeRoutes = 0;
+  let rejectedKey = "";
   const job = () => ({key,revision:key,state:"COMPLETE",requirement,draft,billing:"committed",savePending:false,savedSkillId:saved?savedSkill.id:null,purpose:"chat-text",...(saved?{savedSkill}:{})});
   await page.route("**/*", async route => {
     const req = route.request(), url = new URL(req.url()), path = url.pathname;
@@ -49,6 +56,10 @@ test("creates a private text skill and uses it with original-message recovery", 
     }
     if (path === conversationPath + "/intent") {storeRoutes++; return json({code:"INVALID_REQUEST"},400);}
     if (path === conversationPath + "/messages") {
+      if (req.postDataJSON().content === oversized) {
+        rejectedKey = req.headers()["idempotency-key"];
+        return json({code:"TEXT_SKILL_INPUT_LIMIT",messageAccepted:false},413);
+      }
       if (complete) {
         expect(req.postDataJSON()).toEqual({content:laterInput,textSkill:savedSkill});
         const sentKey = req.headers()["idempotency-key"];
@@ -60,6 +71,7 @@ test("creates a private text skill and uses it with original-message recovery", 
       }
       expect(req.postDataJSON()).toEqual({content: input,textSkill:savedSkill});
       sends++;
+      expect(req.headers()["idempotency-key"]).not.toBe(rejectedKey);
       if (sends === 1) {messageKey = req.headers()["idempotency-key"]; return json({code:"OUTCOME_UNKNOWN"},503);}
       expect(req.headers()["idempotency-key"]).toBe(messageKey);
       complete = true; return json({state:"COMPLETE",assistantMessageId:"33333333-3333-4333-8333-333333333333"});
@@ -76,14 +88,23 @@ test("creates a private text skill and uses it with original-message recovery", 
   await page.getByRole("textbox",{name:"正文",exact:true}).fill("提取事项和负责人，缺失时标记待确认。");
   await page.getByRole("button",{name:"保存并在 Chat 启用",exact:true}).click();
   await page.getByRole("button",{name:"在 Chat 中使用",exact:true}).click();
-  await page.getByRole("textbox",{name:"要处理的文字",exact:true}).fill(input);
+  const text = page.getByRole("textbox",{name:"要处理的文字",exact:true});
+  await text.fill(oversized);
+  await page.getByRole("button",{name:"发送消息",exact:true}).click();
+  await expect(page.getByText(/超过了当前模型的输入上限/)).toBeVisible();
+  await expect(text).toHaveValue(oversized);
+  await expect(text).toBeEnabled();
+  await text.fill(input);
   await page.getByRole("button",{name:"发送消息",exact:true}).click();
   await expect(page.getByRole("button",{name:"核对原消息"})).toBeEnabled();
   await page.reload();
   await expect(page.getByRole("textbox",{name:"要处理的文字",exact:true})).toHaveValue(input);
   await page.getByRole("button",{name:"核对原消息"}).click();
   await expect(page.getByText("使用文字技能 v1")).toBeVisible();
-  await expect(page.getByText("校对说明书（负责人待确认）",{exact:false})).toBeVisible();
+  const table = page.getByRole("table");
+  await expect(table.getByRole("columnheader",{name:"事项"})).toBeVisible();
+  await expect(table.getByRole("row",{name:"校对说明书 待确认"})).toBeVisible();
+  await expect(page.locator('img[src="https://chat-compose.invalid/pixel"]')).toHaveCount(0);
   expect(sends).toBe(2);
   await page.getByRole("button",{name:"选择技能",exact:true}).click();
   await page.getByRole("dialog",{name:"选择技能"}).getByRole("button",{name:draft.displayName}).click();

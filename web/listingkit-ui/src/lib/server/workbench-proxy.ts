@@ -1217,7 +1217,7 @@ export async function buildWorkbenchBrowserResponse(
     const standard = parseWorkbenchErrorEnvelopePayload(payload);
     const code = typeof payload.code === "string" ? payload.code : standard.success ? standard.data.code : "";
     const statuses: Record<string, number> = { INVALID_REQUEST: 400, FORBIDDEN: 403, NOT_FOUND: 404,
-      IDEMPOTENCY_CONFLICT: 409, PROPOSAL_STALE: 409, TEXT_SKILL_UNAVAILABLE: 409, REVISION_MISMATCH: 409,
+      IDEMPOTENCY_CONFLICT: 409, PROPOSAL_STALE: 409, TEXT_SKILL_UNAVAILABLE: 409, TEXT_SKILL_INPUT_LIMIT: 413, REVISION_MISMATCH: 409,
       CONVERSATION_ARCHIVED: 409, MANUAL_REVIEW_REQUIRED:409,SCHEDULE_COMMAND_REJECTED:409, TASK_OUTCOME_UNKNOWN: 503, DEPENDENCY_UNAVAILABLE: 503,
       AUTHENTICATION_REQUIRED: 401, ORGANIZATION_SELECTION_REQUIRED: 409, ORGANIZATION_ACCESS_DENIED: 403,
       ORGANIZATION_ACCESS_REVOKED: 403, ORGANIZATION_SUSPENDED: 403, PERMISSION_DENIED: 403,
@@ -1229,7 +1229,7 @@ export async function buildWorkbenchBrowserResponse(
       if(!contract.startsWith("ai-schedule-")||contract==="ai-schedule-quote"||payload.commandAccepted!==false)return unavailable();
       response=new NextResponse(JSON.stringify({...await response.json(),commandAccepted:false}),{status:response.status,headers:response.headers});
     }
-    if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE","TEXT_SKILL_UNAVAILABLE"].includes(code)){
+    if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE","TEXT_SKILL_UNAVAILABLE","TEXT_SKILL_INPUT_LIMIT"].includes(code)){
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
     if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){
