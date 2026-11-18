@@ -388,6 +388,24 @@ it("preserves a newer unsent draft when an older pending message completes", asy
   expect(JSON.parse(sessionStorage.getItem(draftKey)!).text).toBe("新草稿 Y");
 });
 
+it("restores a deferred skill revision together with the retained requirement", async () => {
+  fixture.context.aiWorkbenchChatTurnsReady = true;
+  const scopeKey = JSON.stringify(["user-a","org-a",conversationId]);
+  const snapshot = {name:"title",displayName:"标题",description:"整理",instructions:"人工编辑的草稿"};
+  const skillRevision = {skill:{version:2,digest:"a".repeat(64)},revision:{root:operationId,baseRevision:operationId,snapshot}};
+  sessionStorage.setItem("ai-workbench:conversation-draft:"+scopeKey,JSON.stringify({id:conversationId,text:"继续修改",skillRevision}));
+  sessionStorage.setItem("ai-workbench:resolved-draft:"+scopeKey,JSON.stringify({id:operationId,text:""}));
+  fixture.request.mockImplementation(async ({route}) => {
+    if(route==="conversation-read")return {conversation:{...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""};
+    throw new AIWorkbenchError("OUTCOME_UNKNOWN");
+  });
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:"使用保留的需求"}));
+  expect(screen.getByLabelText("需求")).toHaveValue("继续修改");
+  fireEvent.click(screen.getByText("编辑保留的技能草稿"));
+  expect(screen.getByLabelText("正文")).toHaveValue(snapshot.instructions);
+});
+
 it.each(["COMPLETE","FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT","PLANNER_UNKNOWN"] as const)("keeps a separate same-text draft after pending message ends as %s", async state => {
   fixture.context.aiWorkbenchExecutionKind="product.content.localize";
   const key=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
