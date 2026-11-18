@@ -1,12 +1,14 @@
 # 自有商品历史读取、旧版详情和对比 v1
 
-2026-10-17 格式增量见[自有商品富文本合同](own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
+> 库存语义的后续适用范围：本文保留 2026-10 阶段设计与验证记录。其“库存必填”“省略库存按 0 还原”仅为当时前提，已由 [AI 录入 V1 的保存及库存声明](own-product-ai-intake.md#保存及库存声明)替代：当前手工 create_product / revise_product 按 SKU 区分省略（未知、未声明）与显式 0（已声明），拒绝 null；Excel import_products 仍要求库存。编辑按 own_stock_declared 及实际 stock 回填，不把未声明库存补成 0；详情与历史对比保留缺失与 0 的区别。后续合同不授权改写旧快照、重放历史命令或放宽权限，本文其他不可变版本、CAS、原键和历史操作授权边界不变。
+
+2026-10-17 格式增量见[自有商品富文本合同](../../own-product-rich-description.md)：描述及格式共同保存/比较；草稿恢复完整旧描述格式并保留当前 structured，平台文字字段使用明确的纯文字投影。原权限、固定来源、CAS、幂等及发布边界不变。
 
 Execution Issue: [#675](https://github.com/qq550723504/task-processor/issues/675)。Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY**。独立设计检查绑定 `0874d2b333049b5791580ddc9b527f64954838cb`，无当前 Must BLOCKER，本文先于正式实现。首尾授权/父分组、查询tuple及证据完整性、过滤/分页、大整数、稳定SKU/0/图片顺序归 IMPLEMENTATION_TEST 在本批次收敛。
 
 ## 产品结果与依据
 
-2026-10-14 用户明确“先明确历史读取和权限合同，再做版本历史、旧版详情和差异对比，继续用独立页面”。当前企业操作人从自有商品详情查看手工保存历史，打开任一旧版完整资料，选择两个保存版本查看变化。沿 [Final UI/IA](../product/final-ui-ia-authority.md)、原 [独立录入](own-product-entry.md) 引用的 Figma `tg48P46SSXl6TBy9lZwg63 / 31:463` 和 Console 组件；本次用户明确独立页面，不伪称已有历史 Figma frame，不增加顶层中心。
+2026-10-14 用户明确“先明确历史读取和权限合同，再做版本历史、旧版详情和差异对比，继续用独立页面”。当前企业操作人从自有商品详情查看手工保存历史，打开任一旧版完整资料，选择两个保存版本查看变化。沿 [Final UI/IA](../../../product/final-ui-ia-authority.md)、原 [独立录入](own-product-entry.md) 引用的 Figma `tg48P46SSXl6TBy9lZwg63 / 31:463` 和 Console 组件；本次用户明确独立页面，不伪称已有历史 Figma frame，不增加顶层中心。
 
 Must：历史列表按真实手工保存版本倒序分页、真实保存时间；旧版不可变资料、图片/SKU/0值准确展示；两版本基础资料、通用属性、公共图片及稳定 source_id 对齐的 SKU 增删/修改可比较；实时原 actor-private 权限、企业隔离、同商品绑定；深浅主题；保留旧草稿引用和现有资料。
 
@@ -24,7 +26,7 @@ Must：历史列表按真实手工保存版本倒序分页、真实保存时间�
 
 GET `/collections/items/:item_id/history?limit=20&before=<version>`：limit 1..20，before 可选规范正十进制字符串 <=MaxInt64，表示严格早于该版本；返回 current item、至多 limit 个 `{version,publicationId,savedAt,title}`，有后页才返回 nextBefore。before 是筛选边界，不是授权证据，不接受客户端 org/actor/productKey/publication/head。没有伪造 total。
 
-GET `/collections/items/:item_id/history/:version`：version 同上，只允许在上述手工历史集合中的准确 Source 发布，返回 current item、selected version 元数据、该发布已验证的 product。未来版本、衍生版本、其它商品/actor/org 返回 NOT_FOUND；格式/重复/未知 query、GET body/Idempotency-Key 拒绝。两 GET 沿 verified identity/live membership、`workbench.collection.read`、no-store、现 10s Collection timeout；历史引用查询限制 limit+1，详细内容沿现 Source/Catalog 2MiB 单快照边界。2026-10-29 #675 有界修复复用[来源报价](plugin-capture-source-quotes.md)既有3MiB GET详情响应预算，为旧版详情的合法快照与 item/version 包装留余量：仅 history-detail 的 Go handler、BFF和浏览器API总响应同步到3MiB；历史列表、其它响应、写入和 Source/envelope/snapshot仍2MiB。不截断事实、不新增接口/schema/恢复 owner。
+GET `/collections/items/:item_id/history/:version`：version 同上，只允许在上述手工历史集合中的准确 Source 发布，返回 current item、selected version 元数据、该发布已验证的 product。未来版本、衍生版本、其它商品/actor/org 返回 NOT_FOUND；格式/重复/未知 query、GET body/Idempotency-Key 拒绝。两 GET 沿 verified identity/live membership、`workbench.collection.read`、no-store、现 10s Collection timeout；历史引用查询限制 limit+1，详细内容沿现 Source/Catalog 2MiB 单快照边界。2026-10-29 #675 有界修复复用[来源报价](../../plugin-capture-source-quotes.md)既有3MiB GET详情响应预算，为旧版详情的合法快照与 item/version 包装留余量：仅 history-detail 的 Go handler、BFF和浏览器API总响应同步到3MiB；历史列表、其它响应、写入和 Source/envelope/snapshot仍2MiB。不截断事实、不新增接口/schema/恢复 owner。
 
 `route descriptor → 原 BFF allowlist/严格校验 → Collection.Service → 原 actor-scoped Repository.ReadItem → 新 Sourcing 只读 history reader → 原 Source 内部读取与 Catalog binding → 对外 projection`。生产构造器显式注入 history reader，无可选 legacy fallback。完成读取后再次实时授权并复读活跃 item/相同 productKey；撤权/换企业/归档不交付已读取资料。移动分组不撤销原 actor 商品读取权；编辑并发只改变当前引用，已选不可变旧版保持准确且不升级为新版。
 
