@@ -54,7 +54,7 @@ it("keeps manually edited content when the original save was never accepted", as
  } finally { request.mockReset().mockResolvedValue({valid:true}); }
 });
 
-it("offers the latest canonical revision when it advances after recovering an unaccepted save",async()=>{
+it.each(["newer canonical revision","lagging canonical projection"])("preserves the correct draft after recovering with %s",async incoming=>{
  const scope={userId:"user",organizationId:"org"},key="11111111-1111-4111-8111-111111111111",second="22222222-2222-4222-8222-222222222222",third="33333333-3333-4333-8333-333333333333";
  const job:AISkillAuthoringJob={key,generationKey:key,revision:key,state:"COMPLETE",requirement:"生成",billing:"committed",savePending:false,savedSkillId:null,draft:{name:"title",displayName:"标题",description:"整理",instructions:"原规则"}};
  const fresh=(revision:string,instructions:string)=>({...job,revision,generationKey:revision,draft:{...job.draft!,instructions}});
@@ -73,10 +73,12 @@ it("offers the latest canonical revision when it advances after recovering an un
   fireEvent.click(screen.getByRole("button",{name:"保存到我的技能"}));
   fireEvent.click(await screen.findByRole("button",{name:"核实原保存"}));
   await screen.findByRole("button",{name:"使用最新草稿并替换当前编辑"});
-  await act(async()=>{view.rerender(tree(fresh(third,"最新规则")));});
+  const advanced=incoming==="newer canonical revision";
+  if(advanced) await act(async()=>{view.rerender(tree(fresh(third,"最新规则")));});
   expect(screen.getByLabelText("正文")).toHaveValue("人工规则");
   fireEvent.click(screen.getByRole("button",{name:"使用最新草稿并替换当前编辑"}));
-  expect(screen.getByLabelText("正文")).toHaveValue("最新规则");
+  if(!advanced) await act(async()=>{view.rerender(tree({...job,requirement:"原请求的更新投影"}));});
+  expect(screen.getByLabelText("正文")).toHaveValue(advanced?"最新规则":"核实时的规则");
   await waitFor(()=>expect(screen.getByRole("button",{name:"保存到我的技能"})).toBeEnabled());
  }finally{request.mockReset().mockResolvedValue({valid:true});}
 });

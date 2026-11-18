@@ -112,21 +112,21 @@ export function ChatSkillAuthoring({scope,authorizationKey,conversation,initialJ
  const list=useQuery({queryKey:["chat-skill-authoring-list",scope.userId,scope.organizationId,authorizationKey,conversation],queryFn:({signal})=>requestAIWorkbench({route:"skill-authoring-list",method:"GET",scope,path,signal}),enabled:!initialJob,retry:false,staleTime:0});
  useEffect(()=>()=>action.current?.abort(),[]);
  const editable=Boolean(draft&&job?.state==="COMPLETE"&&!readOnly&&!job.savedSkillId&&!job.savePending&&!saveCheck);
- const latest=recoveredRevision && recoveredRevision.job.key===job?.key
+ const latest=!initialJob?.savedSkillId && recoveredRevision && recoveredRevision.job.key===job?.key
   && recoveredRevision.observedRevision===initialJob?.revision
   && recoveredRevision.observedGeneration===initialJob?.generationKey
   ? recoveredRevision.job : initialJob;
  const stale=Boolean(latest&&job&&(latest.revision!==job.revision||latest.generationKey!==job.generationKey));
  useEffect(()=>{
-  if(!initialJob)return;let live=true;
+  if(!initialJob||!latest)return;let live=true;
   queueMicrotask(()=>{
    if(!live)return;
-   if(!dirty.current){setJob(initialJob);setDraft(initialJob.draft??undefined);setValidation(undefined);}
+   if(!dirty.current){setJob(latest);setDraft(latest.draft??undefined);setValidation(undefined);}
    else if(initialJob.savedSkillId){setJob(initialJob);}
-   setSaveCheck(current=>Boolean(initialJob.savedSkillId)?false:current||initialJob.savePending);
+   setSaveCheck(current=>Boolean(initialJob.savedSkillId)?false:current||initialJob.savePending||latest.savePending);
   });
   return()=>{live=false;};
- },[initialJob]);
+ },[initialJob,latest]);
  function updateDraft(next:AITitleSkillDraft){dirty.current=true;setEdited(true);setDraft(next);}
 
  useEffect(()=>{
