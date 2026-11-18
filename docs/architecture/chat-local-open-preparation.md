@@ -6,7 +6,7 @@
 
 保留完整商品智能体、原业务和现存预留，为获准企业以统一模型与价目使用内容 Chat 准备三个前置：受限空 Chat 结构安装；OpenAI GPT-5.4 Mini 文本规划和内容用途；可解释的估算与试用预算。新安装、空业务基线继续有效。不得导入、回填、解释或迁移旧业务事实，不设置第二 owner、不改 UI、不创建新计费或授权平台。真实启用与付费执行另行授权。
 
-权威依据：用户 2026-11-11 要求保留原 35444 商品、平台草稿、图片、其他能力及原 15.445282 点预留，只允许隔离验证；[内容 Chat 共存设计](chat-content-full-runtime-coexistence-candidate.md)、[企业共享模型配置](enterprise-shared-model-configuration.md)、[共享连接](domains/ai/shared-channel-credentials.md)、[工作范围](ai-workbench-work-scope.md)、现行权限/事务/资源合同和全新系统基线。Figma 只用于业务流程辅助，不作为 UI 标准。
+权威依据：用户 2026-11-11 要求保留原 35444 商品、平台草稿、图片、其他能力及原 15.445282 点预留，只允许隔离验证；[内容 Chat 共存设计](domains/workbench/chat-content-full-runtime-coexistence-candidate.md)、[企业共享模型配置](enterprise-shared-model-configuration.md)、[共享连接](domains/ai/shared-channel-credentials.md)、[工作范围](ai-workbench-work-scope.md)、现行权限/事务/资源合同和全新系统基线。Figma 只用于业务流程辅助，不作为 UI 标准。
 
 ## 已核对现状与非正式 Spike
 
