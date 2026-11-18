@@ -225,6 +225,8 @@ func usageInvocationPurpose(fact aicapability.InvocationRecord) string {
 		return ""
 	}
 	switch fact.Operation {
+	case aicapability.OperationAIWorkbenchChatIntent:
+		return "chat_intent"
 	case aicapability.OperationAIWorkbenchChatPlan:
 		return "chat_planning"
 	case aicapability.OperationAIWorkbenchSkillAuthoring:

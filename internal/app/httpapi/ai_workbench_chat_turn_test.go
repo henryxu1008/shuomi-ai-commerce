@@ -7,8 +7,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
 )
+
+func TestChatIntentUsageHasItsOwnBusinessPurpose(t *testing.T) {
+	fact := aicapability.InvocationRecord{Operation: aicapability.OperationAIWorkbenchChatIntent}
+	require.Equal(t, "chat_intent", usageInvocationPurpose(fact))
+	fact.BusinessTaskID = "unrelated-task"
+	require.Empty(t, usageInvocationPurpose(fact))
+}
 
 func TestChatTurnNormalizesExplicitSkillAndEditedSnapshot(t *testing.T) {
 	ref := &aiworkbench.ChatSkillReference{Version: 2, Digest: strings.Repeat("a", 64)}
