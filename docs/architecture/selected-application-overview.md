@@ -17,7 +17,7 @@ R2（跨页全数、稳定前三、2000预算/并发失败不返回部分）均�
 继续一个 Writer、现有 worktree/分支/PR，不增加开发线程。
 
 Design Basis: Independent Architecture，因为新增只读领域汇总合同。
-复用 IMPLEMENTATION_READY `supply-market.md` 及当前 Collection/Catalog/Review
+复用 IMPLEMENTATION_READY `domains/supply-market/supply-market.md` 及当前 Collection/Catalog/Review
 owner；本轮不改变事实 owner、授权模型或写入语义。
 UI authority: `final-ui-ia-authority.md`，Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`，
 深色 frame `429:2507` / content `996:359`，浅色 `429:2712` / `996:451`。
