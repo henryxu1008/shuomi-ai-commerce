@@ -57,12 +57,15 @@ func (m commercialResourcesModule) Register(reg *kernelmodule.Registry) error {
 	return nil
 }
 func (m commercialResourcesModule) routes() []httproute.Descriptor {
-	return []httproute.Descriptor{
+	routes := []httproute.Descriptor{
 		{Method: http.MethodGet, Path: commercialResourcesPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.read},
 		{Method: http.MethodGet, Path: commercialResourceEventsPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readEvents},
-		{Method: http.MethodGet, Path: commercialOwnedModelUsagePath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readOwnedModelUsage},
 		{Method: http.MethodGet, Path: commercialResourceObjectPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readUsageObject},
 	}
+	if m.objects != nil && m.objects.ownedModels != nil {
+		routes = append(routes, httproute.Descriptor{Method: http.MethodGet, Path: commercialOwnedModelUsagePath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readOwnedModelUsage})
+	}
+	return routes
 }
 
 func (m commercialResourcesModule) readEvents(c *gin.Context) {

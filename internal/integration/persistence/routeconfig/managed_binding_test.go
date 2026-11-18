@@ -89,21 +89,13 @@ END $$`).Error)
 		return binding
 	}
 	ab, bb := bind(a, "attach-a"), bind(b, "attach-b")
-	prices := &d.PlatformPricesService{Repository: repo}
-	shared := &qualified.SharedCatalog{Catalog: catalog, Managed: definitions, Credentials: repo, Prices: prices}
+	shared := &qualified.SharedCatalog{Catalog: catalog, Managed: definitions, Credentials: repo}
 	models := &d.SharedModelService{Catalog: shared, Repository: repo}
 	unpriced, err := shared.QualifyModel(ctx, org, d.ModelCategoryText, ab.Reference())
 	require.NoError(t, err)
-	require.False(t, unpriced.Ready)
-	require.Equal(t, "OFFICIAL_PRICE_MISSING", unpriced.Reason)
-	now := time.Now().UTC()
-	_, err = prices.Publish(ctx, "price-owner", "fixture-prices", d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{
-		ID: "openai-compatible-mini", Model: qualified.OpenAIQueryModel, Channel: credential.CompatibleOpenAIChannel,
-		Provider: "openai", Region: "global", ServiceType: "standard-sync", Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1,
-		Rates: aicapability.OfficialModelRates{InputText: 1_000_000, OutputText: 3_000_000}, SourceURL: "https://developers.openai.com/api/docs/pricing",
-		VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour),
-	}}})
-	require.NoError(t, err)
+	require.True(t, unpriced.Ready)
+	require.Empty(t, unpriced.Price)
+	require.Equal(t, aicapability.ModelUsageOnly, unpriced.Text.BillingMode)
 	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1,
 		DefaultChannel: credential.CompatibleOpenAIChannel, Text: ab.Reference(),
 		Image:      d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"},
@@ -115,7 +107,9 @@ END $$`).Error)
 	require.NoError(t, err)
 	require.Equal(t, a.Connection.ConnectionID, policy.Profile.ConnectionID)
 	require.True(t, governed.ValidRouteProfile(policy.Profile, aicapability.OperationAIWorkbenchChatPlan))
-	require.True(t, policy.Profile.OfficialTariff.IsReferenceEstimate())
+	require.Empty(t, policy.Profile.OfficialTariff)
+	require.Equal(t, aicapability.ModelUsageOnly, policy.Profile.BillingMode)
+	require.Equal(t, aicapability.ReferenceTextTotalsV1, policy.Profile.UsageMappingVersion)
 	resolver, err := governed.NewManagedOrganizationRouteResolver(channels, reader)
 	require.NoError(t, err)
 	route, err := resolver.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchChatPlan, Profile: policy.Profile})
