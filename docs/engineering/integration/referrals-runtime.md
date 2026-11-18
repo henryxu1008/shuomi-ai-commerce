@@ -88,7 +88,7 @@ closed. The ACL check has a three-second budget inside the startup deadline;
 missing/failed ACL tooling is a startup error. No ACL is modified by serving.
 
 Use the explicit greenfield installer documented in
-[referral-registration.md](referral-registration.md) on a newly provisioned,
+[referral-registration.md](../referral-registration.md) on a newly provisioned,
 authorized database. All five tables, constraints and both expiry indexes belong
 to that installer. The serving path only verifies existing permissions/schema;
 it does not install, migrate, repair or grant anything. Runtime needs SELECT and
