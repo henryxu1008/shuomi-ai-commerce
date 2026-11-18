@@ -241,6 +241,8 @@ type currentApplicationOptions struct {
 	marketResearchConfigs        int
 	sheinTrial                   *sheinTrialDependencies
 	sheinTrialConfigs            int
+	amazonFirstPage              *amazonFirstPageInputs
+	amazonFirstPageConfigs       int
 	projectCenterDB              *gorm.DB
 	projectCenters               int
 }
@@ -696,6 +698,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	}
 	if supplied.sheinTrialConfigs != 0 && (supplied.sheinTrialConfigs != 1 || supplied.sheinTrial == nil || !supplied.sheinTrial.complete() || supplied.marketResearchConfigs != 1) {
 		return nil, errors.New("SHEIN trial requires market research and one complete explicit composition")
+	}
+	if supplied.amazonFirstPageConfigs != 0 && (supplied.amazonFirstPageConfigs != 1 || supplied.amazonFirstPage == nil ||
+		supplied.marketResearchConfigs != 1 || supplied.dataServices == nil || !supplied.dataServices.ExecutionEnabled) {
+		return nil, errors.New("Amazon first-page trial requires one explicit research and data service composition")
 	}
 	if err := supplied.validateResearchManualOriginal(cfg.ListingKit.Zitadel.IssuerURL); err != nil {
 		return nil, err
@@ -1407,6 +1413,13 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 					return nil, fmt.Errorf("build SHEIN trial entry: %w", e)
 				}
 			}
+			if input := supplied.amazonFirstPage; input != nil {
+				trial, e := researchData.AmazonFirstPageTrial(input.approval, researchOwner.projects.Authorize, input.send)
+				if e != nil {
+					return nil, fmt.Errorf("build Amazon first-page entry: %w", e)
+				}
+				researchOwner.amazonFirstPage = &marketResearchAmazonFirstPage{trial: trial, bind: researchOwner.handler.Bind}
+			}
 			modules = append(modules, researchOwner)
 			researchRuntime, e = buildMarketResearchApplication(ctx, productRuntime, planCollections, researchOwner.service, supplied.agentConfigurationDB, workbench.authDependencies.organizationResolver, authorizer)
 			if e != nil {
@@ -1602,6 +1615,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		SupplierReview:       supplierReviewReady,
 		ResearchAssessments:  researchAssessmentsReady,
 		SHEINTrial:           supplied.sheinTrial != nil,
+		AmazonFirstPage:      supplied.amazonFirstPage != nil,
 		AgentConfiguration:   supplied.agentConfigurationDB != nil,
 		ModelRoutePricing:    supplied.modelRoutePricing != nil,
 		MemberPoints:         includeMemberPoints,
@@ -1751,6 +1765,7 @@ type currentApplicationOptionalRoutes struct {
 	SupplierReview       bool
 	ResearchAssessments  bool
 	SHEINTrial           bool
+	AmazonFirstPage      bool
 	MemberPoints         bool
 	MemberResources      bool
 
@@ -1769,6 +1784,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.SHEINTrial && !optional.MarketResearch {
 		return errors.New("SHEIN trial routes require market research")
+	}
+	if optional.AmazonFirstPage && (!optional.MarketResearch || !optional.DataServices) {
+		return errors.New("Amazon first-page trial requires market research and data services")
 	}
 	if (optional.ContentTitleOnly || optional.ContentOnly) && !optional.ProductAgent {
 		return errors.New("title-only routes require the current product agent")
@@ -2086,6 +2104,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	}
 	if optional.SHEINTrial {
 		for _, r := range marketResearchSHEINTrialRoutes(nil) {
+			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+		}
+	}
+	if optional.AmazonFirstPage {
+		for _, r := range amazonFirstPageRoutes(nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
 	}
@@ -2495,6 +2518,13 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				if !optional.ResearchFixture || descriptor.Path == researchPaginationFixturePath && !optional.ResearchPaginationFixture || !validMarketResearchFixtureDescriptor(descriptor) {
 					return errors.New("local research fixture route not admitted")
 				}
+			} else if descriptor.Module == amazonFirstPageModule {
+				if !optional.AmazonFirstPage {
+					return errors.New("Amazon first-page trial route not admitted")
+				}
+				if err := validateAmazonFirstPageDescriptor(descriptor); err != nil {
+					return err
+				}
 			} else if descriptor.Module == sheinTrialModule {
 				if !optional.SHEINTrial {
 					return errors.New("SHEIN trial route not admitted")
@@ -2636,6 +2666,12 @@ func buildCurrentApplicationHTTPServer(routes []httproute.Descriptor, dependenci
 	server.IdleTimeout = 60 * time.Second
 	inner := server.Handler
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodPost && isAmazonFirstPageHTTPPath(request.URL.Path) {
+			if err := http.NewResponseController(writer).SetWriteDeadline(time.Now().Add(amazonFirstPageHTTPTimeout + 5*time.Second)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+				http.Error(writer, "response deadline unavailable", http.StatusServiceUnavailable)
+				return
+			}
+		}
 		if isProductAgentHTTPPath(request.URL.Path) || request.Method == http.MethodPost && (isResearchAnalysisRunHTTPPath(request.URL.Path) || isImageAnalysisConfirmHTTPPath(request.URL.Path) || isListingMaterialsHTTPPath(request.URL.Path) || isContextAgentRunHTTPPath(request.URL.Path, productSelectionBase) || isContextAgentRunHTTPPath(request.URL.Path, shopDiagnosisBase) || strings.HasPrefix(request.URL.Path, ownIntakeBase+"/")) {
 			// Bounded synchronous model and materials commit paths need a longer response.
 			// Header/body read timeouts and all other route deadlines stay intact.

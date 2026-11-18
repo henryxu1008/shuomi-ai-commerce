@@ -27,11 +27,12 @@ func WithMarketResearchSupplierReview() CurrentApplicationOption {
 }
 
 type researchModule struct {
-	handler  *rh.Handler
-	service  *research.Service
-	projects researchProjects
-	trial    *marketResearchSHEINTrial
-	fixture  *dataservicesapp.ResearchFixture
+	handler         *rh.Handler
+	service         *research.Service
+	projects        researchProjects
+	trial           *marketResearchSHEINTrial
+	amazonFirstPage *marketResearchAmazonFirstPage
+	fixture         *dataservicesapp.ResearchFixture
 }
 
 func (researchModule) Name() string                { return rh.ModuleName }
@@ -40,6 +41,9 @@ func (m researchModule) Register(r *kernel.Registry) error {
 	r.AddRoutes(rh.Routes(m.handler)...)
 	if m.trial != nil {
 		r.AddRoutes(marketResearchSHEINTrialRoutes(m.trial)...)
+	}
+	if m.amazonFirstPage != nil {
+		r.AddRoutes(amazonFirstPageRoutes(m.amazonFirstPage)...)
 	}
 	if m.fixture != nil {
 		r.AddRoutes(marketResearchFixtureRoutes(m, researchFixturePath)...)
@@ -163,8 +167,9 @@ func (a researchSources) observeAmazon(ctx context.Context, principal dataacquis
 	if err != nil {
 		return research.Observation{}, research.ErrUnavailable
 	}
+	item.ThumbnailURL = e.MainImage
 	v := research.Observation{Query: research.QuerySummary{Mode: original.Query.Mode, Keyword: original.Query.Keyword, CategoryNode: original.Query.CategoryNode, ASINCount: len(original.Query.ASINs), Limit: original.Query.Limit, Fields: append([]string{}, original.Query.Fields...)}, Item: item, Ref: research.EvidenceRef{Selection: in, Source: original.Source, JobID: original.JobID, Checksum: original.Checksum}, BatchID: item.BatchID, Site: e.Site, ASIN: e.ASIN, Title: e.Title, SourceURL: "https://" + site.Domain + "/dp/" + e.ASIN, CapturedAt: e.CapturedAt, ParserVersion: e.ParserVersion, Currency: e.Currency, Missing: append([]string{}, e.Missing...)}
-	if e.Availability == "available" && e.Price > 0 {
+	if e.HasDisplayedPrice() {
 		price := e.Price
 		v.Price = &price
 		v.PriceBasis = "displayed_listing_offer"

@@ -214,7 +214,7 @@ project-role event constraint. The initializer marks the first native apply with
 a completed instance exits without reapplying native roles or grants, and an
 incomplete first attempt refuses to rewrite an existing instance.
 Repeatable package/root-provider preparation precedes that marker under the
-[Compose preflight boundary](../../compose-tofu-preflight.md); apply/output failures
+[Compose preflight boundary](../runtime/compose-tofu-preflight.md); apply/output failures
 never remove it or replay an unknown native effect.
 
 The opt-in `internal/zitadelprovision` bootstrap is also used by the existing local

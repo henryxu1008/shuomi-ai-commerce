@@ -142,7 +142,7 @@ If preparation fails before that marker is written, restore connectivity and
 rerun the same Compose command with the original project and volumes. After
 started is recorded, native apply/output failures still refuse replay; never
 delete a marker to force retry. This does not repair earlier incomplete projects.
-See the [preflight boundary](../../../docs/architecture/compose-tofu-preflight.md).
+See the [preflight boundary](../../../docs/architecture/platform/runtime/compose-tofu-preflight.md).
 
 The product store is the independently named `product_acquisition` database.
 It is initialized once by the existing explicit `product-acquisition-init`

@@ -63,4 +63,5 @@
 :global(.dark) .center{--primary:var(--console-blue);--primary-foreground:var(--background)}
 
 .center .badge{color:var(--foreground)}
+.center .viewNavigation > a[aria-current="page"] { color: var(--foreground); }
 .center{--muted-foreground:var(--sidebar-foreground)}

@@ -6,7 +6,7 @@ Execution: #1090, authorized by the user on 2026-11-04 after the #1085
 empty-install failure. A package or provider download failure before identity
 creation must permit the same fresh project to be retried after connectivity
 recovers. This is an empty-install change under the
-[greenfield baseline](../product/greenfield-no-legacy-migration.md); no UI or
+[greenfield baseline](../../../product/greenfield-no-legacy-migration.md); no UI or
 Figma change, retained-project repair, migration, deployment or cleanup is in scope.
 
 Design Basis: Independent Architecture. Admission is recorded in the execution
@@ -17,7 +17,7 @@ Issue after the bounded independent review, before production script changes.
 The existing account/acquisition/referrals Compose `tofu-init` services invoke
 their original POSIX scripts and official OpenTofu/ZITADEL provider. Terraform
 resources, outputs, provider versions, credentials and Compose injection remain
-unchanged. The [native initialization contract](platform/identity/enterprise-custom-roles.md#concrete-initialization-and-permission-mapping)
+unchanged. The [native initialization contract](../identity/enterprise-custom-roles.md#concrete-initialization-and-permission-mapping)
 continues to own native roles, grants and completion.
 
 Current Terraform roots use local state and have no remote backend or migration.

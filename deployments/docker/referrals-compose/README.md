@@ -74,7 +74,7 @@ with the original project and volumes after connectivity recovers. The later
 provider probe remains inside the started boundary because main apply has already
 run. Any apply/output/probe failure keeps the original refusal to retry; never
 remove a marker to force replay or repair an earlier incomplete project. See the
-[preflight boundary](../../../docs/architecture/compose-tofu-preflight.md).
+[preflight boundary](../../../docs/architecture/platform/runtime/compose-tofu-preflight.md).
 
 `referral-schema-init` remains the greenfield installer: it does not migrate or
 repair a populated referral schema. The one-shot initializer records an

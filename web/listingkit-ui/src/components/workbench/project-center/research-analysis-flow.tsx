@@ -14,15 +14,17 @@ import {catalogEntrySchema} from "@/lib/contracts/agent-configuration";
 import {executionModeViewSchema} from "@/lib/contracts/execution-mode";
 import {researchAnalysisInput,researchAnalysisIntent,researchPrepareSchema,researchSavedPreparation,type ResearchAnalysisIntent,type ResearchInspection} from "@/lib/contracts/research-analysis";
 import type {ResearchCandidate} from "@/lib/contracts/market-research";
-import {FactTable,factLabel} from "../agents/product-selection-flow";
+import {factLabel} from "../agents/product-selection-flow";
 import {executionModeLabels} from "../agents/execution-mode-settings";
 import {configurationError} from "../agents/agent-configuration-hooks";
 import {useResourcePending} from "../resources/resource-pending";
+import {ResearchComparisonResults} from "./research-comparison-results";
+import productGrid from "../collections/product-grid.module.css";
 import styles from "./research-panel.module.css";
 export function analysisChoices(selected:ResearchCandidate[]){return selected.map(c=>({candidateId:c.id,expectedRevision:String(c.revision),linkId:c.selectedLinkId,evidenceDigest:c.evidenceDigest,selection:{itemId:c.observation?.ref.selection.itemId,expectedRevision:String(c.observation?.ref.selection.revision),originalPublicationId:c.observation?.ref.selection.publicationId,originalVersion:c.observation?.ref.selection.version}}));}
 function matches(out:ResearchInspection|undefined,input:unknown){const parsed=researchAnalysisInput.safeParse(input);return !!out&&parsed.success&&matchesResearchInspection(out,parsed.data);}
 const recommendationNames={TEST_CANDIDATE:"建议测试",RESEARCH_MORE:"建议进一步了解",NOT_RECOMMENDED:"建议暂不选择"};
-export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evidenceReadKey="",evidenceReadable=true,comparisonReadable=evidenceReadable}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";evidenceReadKey?:string;evidenceReadable?:boolean;comparisonReadable?:boolean}){
+export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,showComparison=true,evidenceReadKey="",evidenceReadable=true,comparisonReadable=evidenceReadable}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";showComparison?:boolean;evidenceReadKey?:string;evidenceReadable?:boolean;comparisonReadable?:boolean}){
  const context=useWorkbenchContext(),queries=useQueryClient();
  const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
  const namespace=["research-analysis",projectId,context.effectiveMemberId??""];
@@ -57,6 +59,7 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  const display=masked||facts.error||run.isFetching?undefined
    :!evidencePending&&run.data&&!run.error?run.data.inspection
    :!pointer||pointer===saved?.key?selectedComparison:undefined;
+ const comparisonOriginals=display&&input.success&&matchesResearchInspection(display,input.data)?selected:[];
  const preparedFactsMatch=!!saved&&!facts.error&&matches(facts.data,{candidates:saved.input.candidates});
  const modeMatch=!!saved&&!mode.error&&mode.data?.revision===saved.prepared.modeRevision;
  const showRun=run.data&&!run.error&&!masked&&!evidencePending?run.data:undefined;
@@ -120,10 +123,11 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  }catch(e){if(active.current){setFailure(e);setAbsentKey(e instanceof MarketAPIError&&e.status===404&&e.operationMayExist===false?intent.key:undefined);}}finally{flight.current=false;if(active.current)setBusy(false);}}
  const noRun=run.error instanceof MarketAPIError&&run.error.status===404;
  const canClear=!!saved&&!locked&&!masked&&!run.isFetching&&(!!showRun&&showRun.phase!=="running"&&showRun.usageStatus!=="unknown_reserved"||noRun);
+ if(view==="research"&&!showComparison)return null;
  return <>
- <Card id="research-summary" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>{view==="research"?"重点商品比较":"价格与特点比较"}</h3><p>这里只比较你选中的2–5件商品。不同币种、不同价格条件分开查看；没有价格的信息保留为空，不当作0元。</p></div><Button variant="outline" disabled={comparisonLocked||archived||!input.success||facts.isFetching} onClick={()=>void inspect()}>查看所选商品比较</Button></div>
+ <Card id="research-summary" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>{view==="research"?"重点商品比较":"价格与特点比较"}</h3><p>选 2–5 件商品。不同币种和报价条件分别比较。</p></div><Button variant={view==="research"?"default":"outline"} disabled={comparisonLocked||archived||!input.success||facts.isFetching} onClick={()=>void inspect()}>查看所选商品比较</Button></div>
  {facts.isFetching?<p role="status">正在确认所选商品资料…</p>:null}{facts.error?<p role="alert">部分商品资料暂时无法确认，请刷新后重新选择。</p>:null}
- {!display?<p>先选择2–5件资料可以查看的商品，再比较价格和特点。销量、市场需求、趋势和完整利润尚未核实。</p>:<><div className={styles.summary}><strong>本次比较 {display.summary.selected} 件</strong><span>缺少可比价格的商品 {display.summary.unpriced} 件</span>{display.summary.prices.map(p=><p key={p.currency+"|"+p.basis}>{p.currency} 页面报价：{p.minimum}–{p.maximum} · {p.count} 件商品使用相同价格条件</p>)}</div><FactTable inspection={{products:display.candidates.map(c=>({ref:c.ref,sourceKind:"amazon_data",facts:c.facts,missing:c.missing}))}}/>{display.candidates.some(c=>c.warnings.length)?<p>这些资料供调研参考；请结合每件商品缺少的信息判断，不把资料不全当作已经了解清楚。</p>:null}</>}
+ {display?<ResearchComparisonResults inspection={display} originals={comparisonOriginals}/>:null}
  </Card>
  {failure?<p role="alert">{failure instanceof Error&&!(failure instanceof MarketAPIError)?failure.message:configurationError(failure)}</p>:null}
  {pending.error||preparation.error?<p role="alert">本次操作记录暂时无法读取，请检查浏览器设置后继续。</p>:null}
@@ -137,7 +141,9 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  {saved&&!masked?<section className={styles.confirmation} aria-label="确认本次AI分析"><h4>确认本次AI分析</h4><p>{saved.input.goalSummary}</p><p>所选 {saved.input.candidates.length} 件商品 · 最多调用AI2次 · 处理用量上限 {saved.prepared.maximumTokens} tokens</p><p>本次费用估算上限 {(saved.prepared.maximumCostMicros/1e6).toFixed(6)} {saved.prepared.currency} · 每次AI处理费用估算上限 {(saved.prepared.maximumCallCostMicros/1e6).toFixed(6)} {saved.prepared.currency}</p>{saved.prepared.referencePriceVersion?<p>参考价版本：{saved.prepared.referencePriceVersion}。费用按此版本估算，不代表厂商最终账单。</p>:null}<p>本次操作确认方式：{mode.data?executionModeLabels[mode.data.mode]:"待核对"}。点击确认后才开始分析。</p>{!modeMatch?<p role="status">分析的操作设置尚未确认或已变化，请重新确认后再准备。</p>:null}{!preparedFactsMatch?<p>请重新查看本次选中的商品资料，确认与准备分析时一致。</p>:null}<div className={styles.actions}><Button disabled={locked||archived||!textReady||!modeMatch||!preparedFactsMatch||run.isFetching||!!run.data||!!run.error&&!noRun} onClick={()=>void send({kind:"start",projectId,key:saved.key,body:{configurationSnapshotRef:saved.prepared.configurationSnapshotRef}})}>确认生成AI建议</Button><Button variant="outline" disabled={!canClear} onClick={()=>{if(!saved||!canClear)return;preparation.clear(saved);setChosen(undefined);setFailure(undefined);}}>分析另一组商品</Button></div><small>更换商品只结束本页的待确认准备；已有分析记录和已发生的费用仍会保留。</small></section>:null}
  {masked?<p role="alert">本次分析使用的部分资料现在无法查看，比较结果和建议暂时不显示；已有操作记录仍会保留。</p>:null}
  {showRun?<section className={styles.result}><h4>{showRun.validated?"AI建议已生成":showRun.phase==="running"?"AI正在分析":"AI分析还未完成"}</h4><p>本次关注的问题：{showRun.goalSummary}</p>{showRun.stopReason?<p>停止原因：{showRun.stopReason}</p>:null}<p>{showRun.usageStatus==="unknown_reserved"?"这次分析的结果或费用还未确认，请查询操作结果。":`已记录处理用量 ${showRun.tokens} tokens · 费用估算 ${(showRun.costMicros/1e6).toFixed(6)} ${showRun.currency}`}</p>
- {showRun.validated&&showRun.proposal?<><p>{showRun.proposal.overview}</p><Citations ids={showRun.proposal.overviewEvidenceIds} inspection={showRun.inspection!}/>{showRun.proposal.assessments.map(a=><section key={a.candidateId}><h4>{recommendationNames[a.recommendation]} · {String(showRun.inspection?.candidates.find(c=>c.research.CandidateID===a.candidateId)?.facts.find(f=>f.path==="title")?.value??a.candidateId)}</h4><p>{a.advice}</p><Citations ids={a.evidenceIds} inspection={showRun.inspection!}/></section>)}</>:null}{showRun.unresolved.length?<p>待核实：{showRun.unresolved.join("；")}</p>:null}
+ {showRun.validated&&showRun.proposal?<><p>{showRun.proposal.overview}</p><Citations ids={showRun.proposal.overviewEvidenceIds} inspection={showRun.inspection!}/>
+  <div className={productGrid.grid}>{showRun.proposal.assessments.map(a=><article className={productGrid.card} key={a.candidateId}><h4>{recommendationNames[a.recommendation]} · {String(showRun.inspection?.candidates.find(c=>c.research.CandidateID===a.candidateId)?.facts.find(f=>f.path==="title")?.value??a.candidateId)}</h4><p>{a.advice}</p><Citations ids={a.evidenceIds} inspection={showRun.inspection!}/></article>)}</div>
+ </>:null}{showRun.unresolved.length?<p>待核实：{showRun.unresolved.join("；")}</p>:null}
  {showRun.phase==="interrupted"?<Button disabled={locked||archived||!textReady} onClick={()=>void send({kind:"resume",projectId,key:showRun.requestKey,body:{configurationSnapshotRef:showRun.configurationSnapshotRef,revision:showRun.revision,feedback:showRun.goalSummary}})}>继续本次分析</Button>:null}</section>:null}
  {entry?.canReadRuns?<section><h4>我的分析记录</h4>{recent.error?<p role="alert">分析记录暂时无法完整显示。</p>:recent.data?.items.length?<ul>{recent.data.items.map(r=><li key={r.runId}><Button variant="ghost" disabled={locked} onClick={()=>{setChosen(r.requestKey);setFailure(undefined);}}>{new Date(r.startedAt).toLocaleString("zh-CN")} · {r.phase==="human_review_required"?"查看建议":"查看分析进度"}</Button></li>)}</ul>:<p>这页还没有可查看的分析记录。</p>}<div className={styles.actions}><Button variant="outline" disabled={busy} onClick={()=>void recent.refetch()}>刷新分析记录</Button>{after?<Button variant="outline" disabled={busy} onClick={()=>setAfter("")}>返回第一页记录</Button>:null}{recent.data?.nextCursor?<Button variant="outline" disabled={busy} onClick={()=>setAfter(recent.data!.nextCursor)}>下一页分析记录</Button>:null}</div></section>:null}
  </Card>:null}

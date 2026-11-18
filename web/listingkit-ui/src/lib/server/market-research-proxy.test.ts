@@ -28,6 +28,41 @@ function supplierPreviewRequest(publicationId = `source-run:acquisition:${id}`) 
   });
 }
 
+function amazonFirstPageRequest(method = "POST", body?: string, origin = "https://app.example") {
+  return new Request(`https://app.example/api/workbench/research/projects/${id}/amazon-first-page/${id}`, {
+    method, body,
+    headers: {
+      Origin: origin,
+      "Sec-Fetch-Site": "same-origin",
+      Cookie: `${WORKBENCH_COOKIE_NAME}=org-a`,
+      "X-Expected-User-ID": "user-a",
+      "X-Expected-Organization-ID": "org-a",
+    },
+  });
+}
+
+it("submits only the scoped empty-body Amazon trial and preserves the original receipt", async () => {
+  const state = { approvalId: id, state: "PREPARED", requestId: "request-id", credits: null, jobId: id };
+  expect((await proxyMarketResearch(amazonFirstPageRequest("POST", "{}"), "token", "user-a")).status).toBe(400);
+  expect((await proxyMarketResearch(amazonFirstPageRequest("POST", undefined, "https://other.example"), "token", "user-a")).status).toBe(403);
+  expect(fetcher).not.toHaveBeenCalled();
+  fetcher.mockResolvedValueOnce(Response.json(state));
+  const actual = await proxyMarketResearch(amazonFirstPageRequest(), "token", "user-a");
+  expect(actual.status).toBe(200);
+  expect(await actual.json()).toEqual(state);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0][0]).toBe(`http://localhost:8080/api/v1/workbench/research/projects/${id}/amazon-first-page/${id}`);
+  expect(fetcher.mock.calls[0][1].body).toBeUndefined();
+  expect(fetcher.mock.calls[0][1].headers.get("X-Requested-Organization-ID")).toBe("org-a");
+});
+
+it("reports an uncertain Amazon submission and rejects a mismatched receipt on read", async () => {
+  fetcher.mockRejectedValueOnce(new Error("offline"));
+  expect(await (await proxyMarketResearch(amazonFirstPageRequest(), "token", "user-a")).json()).toEqual({ code: "OUTCOME_UNKNOWN" });
+  fetcher.mockResolvedValueOnce(Response.json({ approvalId: "550e8400-e29b-41d4-a716-446655440001", state: "UNKNOWN", credits: null }));
+  expect((await proxyMarketResearch(amazonFirstPageRequest("GET"), "token", "user-a")).status).toBe(502);
+});
+
 it("forwards a synthetic 1688 reference for project authorization without treating it as acquisition", async () => {
   const publicationId = `source-run:research-acceptance:${id}`;
   fetcher.mockResolvedValue(Response.json(supplierPreview(1)));

@@ -50,7 +50,7 @@
 - `platform/runtime/httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](platform/runtime/httpapi-assembly-boundaries.md)
 - `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
 - `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
-- `temporal-boundaries.md` — [Temporal Boundaries](temporal-boundaries.md)
+- `platform/runtime/temporal-boundaries.md` — [Temporal Boundaries](platform/runtime/temporal-boundaries.md)
 
 <a id="identity"></a>
 
@@ -65,7 +65,7 @@
 - `auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](auth-instance-cookie-isolation.md)
 - `authentication-runtime.md` — [Zitadel Authentication Runtime Extraction Design](authentication-runtime.md)
 - `browser-kernel-release-catalog.md` — [平台浏览器内核发行目录 V1](browser-kernel-release-catalog.md)
-- `compose-tofu-preflight.md` — [Compose OpenTofu preflight boundary](compose-tofu-preflight.md)
+- `platform/runtime/compose-tofu-preflight.md` — [Compose OpenTofu preflight boundary](platform/runtime/compose-tofu-preflight.md)
 - `platform/identity/enterprise-custom-roles.md` — [Enterprise custom roles v1 — Issue #598](platform/identity/enterprise-custom-roles.md)
 - `local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](local-tls-revocation-maintenance.md)
 - `platform/identity/member-directory-query.md` — [Member directory query v1](platform/identity/member-directory-query.md)
@@ -139,6 +139,7 @@
 - `market-research-selection.md` — [市场研究与选品：最小领域合同](market-research-selection.md)
 - `market-research-evidence-analysis-v1.md` — [两个中心 V1：研究证据分析合同增量](market-research-evidence-analysis-v1.md)
 - `amazon-opportunity-handoff-v1.md` — [Amazon 美国站调研机会与选品交接 V1](amazon-opportunity-handoff-v1.md)
+- `amazon-us-zenrows-first-page.md` — [Amazon 美国站 ZenRows 单页试用](amazon-us-zenrows-first-page.md)
 - `issue1070-local-acceptance-fixture.md` — [#1070 本地验收项目合成资料导入](issue1070-local-acceptance-fixture.md)
 - `own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
 - `own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](own-product-intake-openai-mini.md)
