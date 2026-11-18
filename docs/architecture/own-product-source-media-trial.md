@@ -8,7 +8,7 @@ Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_
 
 用户2026-10-14在自有商品独立页面、变体、通用属性和详情试用确认后，明确“可以继续”，继续图片上传与详情展示。当前保留实例缺少来源图片存储；现有 SourceMedia 要求公网HTTPS地址，现有 ImageAgent 隔离URL政策明确不授权来源图片，不能伪装公网域名或直接放宽通用下载校验。
 
-本轮在已有独立试用实例上传JPEG/PNG，加入公共图片池，明确分配给SKU，保存后刷新并切换SKU回看准确图片。Product/Figma Authority沿[自有商品录入设计](own-product-entry.md)、[Final UI/IA](../product/final-ui-ia-authority.md)及其已读Figma添加/自有库节点；不新增页面、模态框或布局，复用原上传区和图库。
+本轮在已有独立试用实例上传JPEG/PNG，加入公共图片池，明确分配给SKU，保存后刷新并切换SKU回看准确图片。Product/Figma Authority沿[自有商品录入设计](domains/catalog/own-product-entry.md)、[Final UI/IA](../product/final-ui-ia-authority.md)及其已读Figma添加/自有库节点；不新增页面、模态框或布局，复用原上传区和图库。
 
 不做：已保存原始资料编辑、平台发布/图片批准、AI、真实云供应商或付款、共享/生产实例改动、新schema/数据迁移、对象清理、通用本地文件服务或验收平台。只准备与保留当前独立实例、图片和测试商品；本轮新PR不继承#676合并授权。
 

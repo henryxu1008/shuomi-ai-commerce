@@ -17,7 +17,7 @@ Figma/Product Authority：沿 [最终 UI/IA](../product/final-ui-ia-authority.md
 文件 `tg48P46SSXl6TBy9lZwg63`：自有商品库 `3500:1100`、自有录入 `3502:405`，
 我的智能体/配置 `4703:429` / `4703:892`、执行确认 `4722:429`，
 优选选择/供货 `997:764` / `1004:892`。
-既有独立自有详情由 [own-product-entry-v1](own-product-entry.md) 承接。
+既有独立自有详情由 [own-product-entry-v1](domains/catalog/own-product-entry.md) 承接。
 本次在该详情增加内容优化入口和同层独立操作页，复用既有 Agent 面板、执行确认与
 任务中心审核页；没有新顶层模块，不声称 Figma 已存在一个新的优化页 frame。
 

@@ -1,6 +1,6 @@
 # 自有商品独立页面使用与交接
 
-Refs #675；设计与准入见 [own-product-entry-v1](../../architecture/own-product-entry.md)。
+Refs #675；设计与准入见 [own-product-entry-v1](../../architecture/domains/catalog/own-product-entry.md)。
 
 ## 正常运行入口
 

@@ -1,12 +1,14 @@
 # 自有商品版本更新与独立编辑页 v1
 
+> 库存语义的后续适用范围：本文保留 2026-10 阶段设计与验证记录。其“库存必填”“省略库存按 0 还原”仅为当时前提，已由 [AI 录入 V1 的保存及库存声明](own-product-ai-intake.md#保存及库存声明)替代：当前手工 create_product / revise_product 按 SKU 区分省略（未知、未声明）与显式 0（已声明），拒绝 null；Excel import_products 仍要求库存。编辑按 own_stock_declared 及实际 stock 回填，不把未声明库存补成 0；详情与历史对比保留缺失与 0 的区别。后续合同不授权改写旧快照、重放历史命令或放宽权限，本文其他不可变版本、CAS、原键和历史操作授权边界不变。
+
 Execution Issue: [#675](https://github.com/qq550723504/task-processor/issues/675)。Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_READY**；独立检查绑定设计提交 `5502e40ab629fc8533182a704aa5cbb05878c7af`，无设计BLOCKER；本文件先于正式实现。
 
 ## 用户结果、依据和范围
 
 2026-10-14 用户明确：“可以，先明确版本更新合同，再做已保存商品的编辑功能，继续用独立页面。”当前企业操作人在自有商品详情进入独立编辑页，预填已保存的准确资料，修改名称/品牌/描述、通用属性、商品图片和SKU资料，保存后返回同一商品详情并刷新回看新版本。
 
-Product/Figma Authority沿[Final UI/IA](../product/final-ui-ia-authority.md)、[原独立录入](own-product-entry.md)所引用的Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`、自有库3500:1100/添加3502:405与当前Console组件。用户本轮明确独立编辑页面，路径 `/workbench/data/mine/own/<itemId>/edit`；不新建顶层商品中心，不伪称已有编辑Figma frame，不使用模态框。
+Product/Figma Authority沿[Final UI/IA](../../../product/final-ui-ia-authority.md)、[原独立录入](own-product-entry.md)所引用的Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`、自有库3500:1100/添加3502:405与当前Console组件。用户本轮明确独立编辑页面，路径 `/workbench/data/mine/own/<itemId>/edit`；不新建顶层商品中心，不伪称已有编辑Figma frame，不使用模态框。
 
 本轮替代旧阶段“已保存资料编辑Out of Scope”，原版本不可变、安全和恢复要求继续有效。新功能可独立产生用户价值，一个主要编辑PR；图片#683未合并，编辑分支基于其准确已复核HEAD并同步开工main；可用堆叠PR只展示本轮diff，不代为合并#683。
 
@@ -16,7 +18,7 @@ Out of Scope：采集/市场等其它来源编辑；草稿自动升级、AI建�
 
 ## 唯一owner与版本语义
 
-复用[Source/Catalog/Collection原子合同](my-supply-chain-shein.md)和当前版本仓储：Sourcing持每次用户声明的不可变证据/发布回执；Catalog持同一 `(org,productKey)` 的不可变快照序列和head；Collection持actor-private条目、当前原始来源引用、组织分组与命令回执；既有preparation/target/draft各自持创建时固定的source publication/version。编辑不是AI Review.Apply，不承接已批准资产。
+复用[Source/Catalog/Collection原子合同](../../my-supply-chain-shein.md)和当前版本仓储：Sourcing持每次用户声明的不可变证据/发布回执；Catalog持同一 `(org,productKey)` 的不可变快照序列和head；Collection持actor-private条目、当前原始来源引用、组织分组与命令回执；既有preparation/target/draft各自持创建时固定的source publication/version。编辑不是AI Review.Apply，不承接已批准资产。
 
 区分三个数：`item.revision`是Collection条目CAS（移动/归档/编辑都会增加）；`item.source.version`是当前用户资料指向的Catalog版本；Catalog head也可包含已有Review产生的衍生快照，因此资料版本可能跳号，不能把head当成用户当前原始资料，也不能要求版本号等于item revision。
 

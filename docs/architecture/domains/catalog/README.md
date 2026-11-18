@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 外部采集证据如何变成不可变商品版本 | [Product Domain Contracts](../../product-domain-contracts.md)、[来源交接](../../../product/product-sourcing-handoff.md) | `internal/product/catalog/`、`internal/product/sourcing/` |
 | 用户如何把商品放进“我的数据”、选择和引用版本 | [Product Domain Contracts](../../product-domain-contracts.md)、[来源业务流程](../../source-business-flow.md) | `internal/product/collection/` |
-| 自有商品录入、规格及保存历史 | [自有商品录入](../../own-product-entry.md)、[编辑](../../own-product-edit.md)、[SKU 包装](../../own-product-sku-packaging.md) | `internal/product/collection/`、`internal/product/catalog/` |
+| 自有商品录入、规格及保存历史 | [自有商品录入](own-product-entry.md)、[编辑](own-product-edit.md)、[SKU 包装](../../own-product-sku-packaging.md) | `internal/product/collection/`、`internal/product/catalog/` |
 | 来源图片、生成图和用户上传图什么时候可用于刊登 | [Product Domain Contracts](../../product-domain-contracts.md)、[素材来源与批准](../../source-business-flow.md) | `internal/product/asset/`、`internal/imageagent/` |
 | 从商品资料带入目标平台的草稿 | [待补全草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[对应架构合同](../../supply-unbound-completion-drafts.md) | `internal/listing/`、`internal/marketplace/` |
 

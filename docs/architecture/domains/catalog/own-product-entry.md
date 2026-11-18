@@ -1,5 +1,7 @@
 # 自有商品独立录入页与多变体 v1
 
+> 库存语义的后续适用范围：本文保留 2026-10 阶段设计与验证记录。其“库存必填”“省略库存按 0 还原”仅为当时前提，已由 [AI 录入 V1 的保存及库存声明](own-product-ai-intake.md#保存及库存声明)替代：当前手工 create_product / revise_product 按 SKU 区分省略（未知、未声明）与显式 0（已声明），拒绝 null；Excel import_products 仍要求库存。编辑按 own_stock_declared 及实际 stock 回填，不把未声明库存补成 0；详情与历史对比保留缺失与 0 的区别。后续合同不授权改写旧快照、重放历史命令或放宽权限，本文其他不可变版本、CAS、原键和历史操作授权边界不变。
+
 Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY / FROZEN**.
 
 ## 1. Product outcome and authority
@@ -7,7 +9,7 @@ Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY / 
 2026-10-13 当前用户决定：自有商品需要多变体；修复深色模式；“用新的页面来做，不要使用模态框”。
 获授权的当前企业操作人在“我的数据 → 自有商品库”进入独立新增页，录入一款商品和颜色/尺码等变体，保存后返回库并读取准确原始资料。
 
-Figma Authority: [final UI / IA](../product/final-ui-ia-authority.md), `tg48P46SSXl6TBy9lZwg63 / 31:463`, 自有商品库 `3500:1100`、添加 `3502:405`。本次已读取添加节点的高保真 design context 和截图。其商品资料入口、工作台归属和视觉语言继续复用；用户本轮决定明确取代添加弹窗交互。完整新增页按既有 ConsolePage、Card、Input、Table 和工作台 theme tokens 组合，不增加顶层商品中心。没有新增页 Figma frame，不声称它已存在。
+Figma Authority: [final UI / IA](../../../product/final-ui-ia-authority.md), `tg48P46SSXl6TBy9lZwg63 / 31:463`, 自有商品库 `3500:1100`、添加 `3502:405`。本次已读取添加节点的高保真 design context 和截图。其商品资料入口、工作台归属和视觉语言继续复用；用户本轮决定明确取代添加弹窗交互。完整新增页按既有 ConsolePage、Card、Input、Table 和工作台 theme tokens 组合，不增加顶层商品中心。没有新增页 Figma frame，不声称它已存在。
 
 Scope / Must:
 - `/workbench/data/mine/own/new` 独立页面，库入口使用正常导航。
@@ -20,7 +22,7 @@ Scope / Must:
 
 ## 2. Owners and call path
 
-复用 [my-supply-chain-shein-v1](my-supply-chain-shein.md) 的 Source/Catalog/Collection 原子保存、actor-private 权限和 UNKNOWN 合同。
+复用 [my-supply-chain-shein-v1](../../my-supply-chain-shein.md) 的 Source/Catalog/Collection 原子保存、actor-private 权限和 UNKNOWN 合同。
 
 `ownProductSchema / OwnProduct → create_product → Collection.Service / OwnEnvelope → 原 Product UoW / NewOwnProductWriter → SourcePublication / Catalog version / Collection reference → 原 ReadItem + exact VersionedSnapshotReader → 独立新增页/详情页`。
 
