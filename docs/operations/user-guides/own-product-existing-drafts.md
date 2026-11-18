@@ -1,6 +1,6 @@
 # 从自有商品继续编辑已有草稿
 
-Refs #699；合同见 [已有草稿设计](../../architecture/own-product-existing-drafts.md)。本交付复用已启用的 Collections 与 Supply CompletionDrafts 模块；源码、CI 和隔离测试通过不代表保留实例已更新或用户验收通过。
+Refs #699；合同见 [已有草稿设计](../../architecture/domains/listing/own-product-existing-drafts.md)。本交付复用已启用的 Collections 与 Supply CompletionDrafts 模块；源码、CI 和隔离测试通过不代表保留实例已更新或用户验收通过。
 
 ## 使用路径
 

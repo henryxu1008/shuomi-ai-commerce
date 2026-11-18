@@ -12,7 +12,7 @@ Refs #708。
 
 2026-10-15 用户批准：先明确历史内容恢复、权限和并发冲突合同，再将旧版标题/描述恢复为新保存版本；独立页面，保留返回草稿、商品和转入批次，复用现有保存及幂等能力。
 
-Design Basis: **Reuse Existing Architecture**。本功能是已批准历史精确读取与普通 Save 的有界 UI 组合，不新增恢复 API、领域命令、权限、事务、持久化事实或状态机。依据：[历史读取](completion-draft-history.md)、[未绑定草稿及 Save](../../supply-unbound-completion-drafts.md)、[已有草稿及导航](../../own-product-existing-drafts.md)、用户本次决定。用户结果是误改后可以预览旧内容，并明确保存为新版本。
+Design Basis: **Reuse Existing Architecture**。本功能是已批准历史精确读取与普通 Save 的有界 UI 组合，不新增恢复 API、领域命令、权限、事务、持久化事实或状态机。依据：[历史读取](completion-draft-history.md)、[未绑定草稿及 Save](../../supply-unbound-completion-drafts.md)、[已有草稿及导航](own-product-existing-drafts.md)、用户本次决定。用户结果是误改后可以预览旧内容，并明确保存为新版本。
 
 Product/Figma Authority：[当前 UI/IA](../../../product/final-ui-ia-authority.md)，文件 tg48P46SSXl6TBy9lZwg63 / 31:463、待补全 2667:1948；本次独立页面决定沿用现有 ConsolePage、表格、按钮和主题 token，不新增一级菜单或宣称存在新 Figma frame。
 
