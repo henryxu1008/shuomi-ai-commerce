@@ -31,7 +31,7 @@ Refs #576、#588。入口为当前 Console 的 `/workbench/ai/chat` 和 `/workbe
 ### 本轮无模型的会话管理
 
 2026-10-11 用户确认暂无模型配置，并选择先开放真实会话管理。按
-[`ai-workbench-conversation-runtime.md`](../architecture/ai-workbench-conversation-runtime.md)
+[`ai-workbench-conversation-runtime.md`](../architecture/domains/workbench/ai-workbench-conversation-runtime.md)
 使用显式 `aiWorkbench.conversationOnly: true` 和 `allowedOrganizationIds`，保留
 `productAgent.enabled: false`，不配置 planning policy。仍使用原 `product_agent`
 逻辑库中的 `ai_workbench` schema 和独立 `ai_workbench_runtime` 连接池。

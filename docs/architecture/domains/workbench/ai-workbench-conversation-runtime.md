@@ -1,5 +1,11 @@
 # 硕米 Chat 会话管理独立运行接线
 
+> 2026-11-18 文档归类说明：本文完整保留 #619 / #631 于 2026-10-11 的无模型会话管理阶段设计，归入 Workbench 阅读导航。`internal/aiworkbench` 仍唯一拥有 Conversation/Command/Proposal/BusinessTask；`internal/app/httpapi/ai_workbench_application.go` 消费原 Store、实时身份/权限和显式部署配置，不新增事实 owner。
+>
+> 后续[内容标题与 Chat 共存合同](../../content-agent-chat-coexistence.md)已替代下文“conversationOnly 必须没有 enabled ProductAgent”的阶段组合限制；当前受限内容应用可以独立共存，但 conversationOnly 的 Chat 仍不因此获得 planner/executor、消息发送或任务确认能力。[完整内容 Chat 共存](../../chat-content-full-runtime-coexistence-candidate.md)是另一显式准入组合，不是自动退出 conversationOnly 或借用其他操作的权限/模型就绪。新安装、保留实例、角色凭据及模型调用各按原 owner 和当次授权，不能照抄历史安装步骤重装现有实例。
+>
+> [#619](https://github.com/henryxu1008/shuomi-ai-commerce/issues/619)记录了 `74fdc022` 阶段真实新建/改名/收藏/归档/恢复及正常重启后会话保留，不能写成从未试跑；该阶段 messages/proposals/tasks/调用均为零，完整模型夹具的历史 FAIL 也不改写为 PASS。[#631](https://github.com/henryxu1008/shuomi-ai-commerce/pull/631)的后续组合与合并证据按各自准确候选保留，不代替当前实例、完整模型或用户验收。本次未安装、启停、配置或实际操作，当前现场状态未核实。历史 Figma 只辅助理解流程，现行 UI 依据仓库 `AGENTS.md` 与用户当前任务。
+
 > Status: IMPLEMENTATION_READY
 > Independent design review: /root/native_auth_review reviewed ced8aec4c4373657b878461517a0dda0e998ddee, no BLOCKER (2026-10-11). Current user scope and frozen full-mode requirements remain unchanged.
 > Design Basis: Independent Architecture (bounded runtime and authorization-consumer increment).
@@ -10,7 +16,7 @@
 
 2026-10-11 user requested 硕米Chat integration, confirmed no model configuration, and explicitly chose “先接入真实会话管理，模型待配置”. Current authorized result: an admitted trial-enterprise member can create/reopen/rename/favorite/archive/restore their own durable conversations in the retained unified program. Model messages, proposals, title execution, task mutation, paid calls and production are not opened.
 
-Reuse current Product/Figma authority: [final-ui-ia-authority.md](../product/final-ui-ia-authority.md), Figma tg48P46SSXl6TBy9lZwg63 / 31:463, Chat 427:2467. Preserve current Chat pages and original metadata actions; no new page/design system/general-purpose chat capability. [ai-workbench-chat-business-task.md](ai-workbench-chat-business-task.md) remains canonical for full planning/execution. This user-selected stage only replaces its startup dependency for conversation management; full-mode requirements are unchanged.
+Reuse current Product/Figma authority: [final-ui-ia-authority.md](../../../product/final-ui-ia-authority.md), Figma tg48P46SSXl6TBy9lZwg63 / 31:463, Chat 427:2467. Preserve current Chat pages and original metadata actions; no new page/design system/general-purpose chat capability. [ai-workbench-chat-business-task.md](../../ai-workbench-chat-business-task.md) remains canonical for full planning/execution. This user-selected stage only replaces its startup dependency for conversation management; full-mode requirements are unchanged.
 
 Current defect: configuration/build requires an enabled ProductAgent, title policy, planning policy, limits and all Agent/Review/Asset dependencies before the existing Conversation store can be served. The retained installation has none of these policies or ai_workbench schema. Fabricating policies/prices/limits to make the UI visible is forbidden.
 

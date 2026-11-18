@@ -6,7 +6,7 @@
 
 | 业务入口 | 当前合同/说明 | 事实 Owner |
 | --- | --- | --- |
-| 硕米 Chat 保存会话、规划和确认单次业务任务 | [Chat + BusinessTask](../../ai-workbench-chat-business-task.md)、[会话单独运行](../../ai-workbench-conversation-runtime.md) | `internal/aiworkbench`；执行结果归原 Agent/Tool owner |
+| 硕米 Chat 保存会话、规划和确认单次业务任务 | [Chat + BusinessTask](../../ai-workbench-chat-business-task.md)、[会话单独运行](ai-workbench-conversation-runtime.md) | `internal/aiworkbench`；执行结果归原 Agent/Tool owner |
 | 项目中心组织现有任务和资料 | [Project Center](ai-workbench-project-center.md)、[固定工作范围](../../ai-workbench-work-scope.md) | `internal/aiworkbench/projectcenter`，私有项目链接不扩权 |
 | 在 Chat 创建个人标题技能、选择已启用的标题技能或执行项目操作 | [硕米 Chat 选择 Agent 技能与项目操作](../../chat-project-actions.md) | Skill 持有技能版本，AI Workbench 持有创作命令、会话与任务，标题运行与计量归原服务，Project Center 持有项目与关系 |
 | 在 Chat 创建并选用个人文字技能 | [硕米 Chat 创建并使用个人文字技能](../../chat-general-text-skills.md)，#1429 设计已进入实施准入 | Skill 持有私有技能和准确版本，AI Workbench 持有创作与消息命令 |
