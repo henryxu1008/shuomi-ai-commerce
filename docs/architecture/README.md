@@ -150,7 +150,7 @@
 - `domains/catalog/own-product-entry.md` — [自有商品独立录入页与多变体 v1](domains/catalog/own-product-entry.md)
 - `domains/listing/own-product-existing-drafts.md` — [自有商品已有草稿与继续编辑 v1](domains/listing/own-product-existing-drafts.md)
 - `domains/catalog/own-product-history.md` — [自有商品历史读取、旧版详情和对比 v1](domains/catalog/own-product-history.md)
-- `own-product-optimization.md` — [自有商品无店铺依赖的内容优化与 Apply](own-product-optimization.md)
+- `own-product-optimization.md` — [自有商品无店铺依赖的内容优化与 Apply](domains/catalog/own-product-optimization.md)
 - `domains/catalog/own-product-rich-description.md` — [自有商品描述富文本 v1](domains/catalog/own-product-rich-description.md)
 - `domains/catalog/own-product-source-media-trial.md` — [自有商品来源图片的本地隔离试用](domains/catalog/own-product-source-media-trial.md)
 - `product-content-localization.md` — [商品内容完善与本地化智能体 v1](product-content-localization.md)

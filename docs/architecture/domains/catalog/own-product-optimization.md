@@ -1,5 +1,9 @@
 # 自有商品无店铺依赖的内容优化与 Apply
 
+> **历史范围与当前适用性**：以下正文保留 2026-10-15 的设计、试用范围和评审证据，不将当时“当前缺口”、#715 待组合或 title-only 部署描述当作当前源码/实例状态。源码已具备 `internal/product/contentagent/own_source.go` 与 `internal/app/httpapi/own_product_agent.go` 的准确自有来源/原键绑定；[后续 V3 资格及提交前检查记录](https://github.com/henryxu1008/shuomi-ai-commerce/issues/688#issuecomment-6230865380) 是历史实际证据，不证明当前实例或完整产品验收。原 DASHSCOPE 累计 100 元、测试 item 和 Apply 意图仅属原次授权，不授权本次或未来付费调用、配置、部署、Apply 或申请。
+>
+> 单件申请交互范围已由 [多商品产品决定](../../../product/flows/selected-application-multi-product.md) 和 [对应合同](../supply-market/selected-application-multi-product.md) 替代，原 own/真实 Apply/准确版本/独立申请 owner 保持。[#710 当前收口记录](https://github.com/henryxu1008/shuomi-ai-commerce/issues/710) 只确认工程范围，不把关闭 Issue 当真实多件提交、运行或产品验收。[当前 UI/IA 决定](../../../product/final-ui-ia-authority.md) 已撤销 Figma 最终权威；下文 Figma 节点和截图对照仅作历史流程材料，不恢复旧布局验收前置。
+
 Execution: #710。Design Basis: **Independent Architecture**。
 Admission: **IMPLEMENTATION_READY / FROZEN**；2026-10-15 第一轮独立设计检查通过。
 
@@ -13,11 +17,11 @@ Admission: **IMPLEMENTATION_READY / FROZEN**；2026-10-15 第一轮独立设计�
 执行入口依赖 SHEIN Target/店铺。优选仅接受自有来源和真实 Review Apply 是正确边界，
 不得以手工改 optimized、伪造采集回执或放宽申请规则消除缺口。
 
-Figma/Product Authority：沿 [最终 UI/IA](../product/final-ui-ia-authority.md)，
+Figma/Product Authority：沿 [最终 UI/IA](../../../product/final-ui-ia-authority.md)，
 文件 `tg48P46SSXl6TBy9lZwg63`：自有商品库 `3500:1100`、自有录入 `3502:405`，
 我的智能体/配置 `4703:429` / `4703:892`、执行确认 `4722:429`，
 优选选择/供货 `997:764` / `1004:892`。
-既有独立自有详情由 [own-product-entry-v1](domains/catalog/own-product-entry.md) 承接。
+既有独立自有详情由 [own-product-entry-v1](own-product-entry.md) 承接。
 本次在该详情增加内容优化入口和同层独立操作页，复用既有 Agent 面板、执行确认与
 任务中心审核页；没有新顶层模块，不声称 Figma 已存在一个新的优化页 frame。
 
@@ -45,11 +49,11 @@ Out of Scope：批量优化/申请、新 Agent/Registry/队列/调度器/账本�
 - 原 Product Review 持候选、决定、Apply 与原子 Catalog/receipt。原 SupplyMarket
   EffectiveProductReader 读取真实 Apply，不新增“优化完成”字段或事实 owner。
 
-引用冻结合同：[内容智能体](product-content-localization.md)、
-[权限模式](enterprise-agent-permission-modes.md)、
-[供应商可替换](domains/ai/product-agent-text-provider-neutral.md)、
-[Review](../../internal/product/review/README.md)、
-[优选资格](domains/supply-market/supply-market-choice-eligibility.md)。
+引用冻结合同：[内容智能体](../../product-content-localization.md)、
+[权限模式](../../enterprise-agent-permission-modes.md)、
+[供应商可替换](../ai/product-agent-text-provider-neutral.md)、
+[Review](../../../../internal/product/review/README.md)、
+[优选资格](../supply-market/supply-market-choice-eligibility.md)。
 
 #715 的 `contentTitleOnly` + retained Chat 共存、现执行表与受限权限准备由原唯一 Writer
 负责。本任务不复制这些实现、不新增安装 owner、不先行改库或覆盖其待确认配置。
