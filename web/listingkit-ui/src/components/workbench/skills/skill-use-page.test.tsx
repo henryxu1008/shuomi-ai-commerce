@@ -29,3 +29,9 @@ it("does not read products or offer launch after organization drift or missing p
 it("does not replace an unavailable exact version with a newer version",async()=>{
  f.skills.mockResolvedValue({items:[]});render(<SkillUsePage launch={launch} titleAvailable imageAvailable/>);await screen.findByText(/所选准确版本当前不可执行/);expect(screen.queryByRole("link",{name:"选择此商品"})).not.toBeInTheDocument();expect(f.products).not.toHaveBeenCalled();
 });
+it("allows an admitted personal title version from Chat while preserving the official-only entry",async()=>{
+ const personal={skill:{id,owner:{kind:"USER",id:"actor"}},version:2,package:{name:"个人标题规则",target:"product-title",digest:launch.selection.digest}};f.skills.mockResolvedValue({items:[personal]});
+ const selected={...launch,target:"product-title" as const,chatReturn:"/workbench/ai/chat/new"};const view=render(<SkillUsePage launch={selected} titleAvailable imageAvailable/>);
+ const link=await screen.findByRole("link",{name:"选择此商品"});expect(parseSkillLaunch(new URL(link.getAttribute("href")!,"https://test").searchParams)).toEqual(selected);
+ view.unmount();f.products.mockClear();render(<SkillUsePage launch={{...launch,target:"product-title"}} titleAvailable imageAvailable/>);await screen.findByText(/所选准确版本当前不可执行/);expect(f.products).not.toHaveBeenCalled();
+});

@@ -127,6 +127,13 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 		storeRoute.Profile.PromptVersion, storeRoute.Profile.OutputSchemaVersion = einorouter.PromptVersion, einorouter.SchemaVersion
 		policies[aicapability.OperationAIWorkbenchStoreRoute] = storeRoute
 	}
+	if owned || platform {
+		policies[aicapability.OperationAIWorkbenchChatIntent] = fixtureChatIntentPolicy(planner)
+		authoring := planner
+		authoring.Profile.PromptVersion, authoring.Profile.OutputSchemaVersion = "ai-workbench-skill-authoring-v2", "personal-title-skill-draft-v2"
+		authoring.Profile.MaximumPromptTokens = 16_384
+		policies[aicapability.OperationAIWorkbenchSkillAuthoring] = authoring
+	}
 	for op, policy := range policies {
 		copy := policy
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: settings.Limits.CostMicros})
@@ -208,6 +215,11 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	}
 	shared.Now = nil
 	return reader
+}
+
+func fixtureChatIntentPolicy(planner governed.RoutePolicy) governed.RoutePolicy {
+	planner.Profile.PromptVersion, planner.Profile.OutputSchemaVersion = einorouter.ChatPromptVersion, einorouter.ChatSchemaVersion
+	return planner
 }
 
 type managedChatChannelFixture struct {

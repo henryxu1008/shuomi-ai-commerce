@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOfficialReleaseHasSixUsableBoundedMethodsAndExplicitExamples(t *testing.T) {
+func TestOfficialReleaseHasBoundedMethodsAndExplicitExamples(t *testing.T) {
 	packages, err := OfficialPackages()
 	require.NoError(t, err)
-	require.Len(t, packages, 6)
+	require.Len(t, packages, 7)
 	seen, targets := map[string]bool{}, map[string]int{}
 	for _, release := range packages {
 		require.False(t, seen[release.Key])
@@ -37,5 +37,5 @@ func TestOfficialReleaseHasSixUsableBoundedMethodsAndExplicitExamples(t *testing
 		}
 		require.False(t, strings.Contains(text, "TODO"))
 	}
-	require.Equal(t, map[string]int{TitleTarget: 3, ImageTarget: 3}, targets)
+	require.Equal(t, map[string]int{TitleTarget: 3, ImageTarget: 3, AuthoringTarget: 1}, targets)
 }

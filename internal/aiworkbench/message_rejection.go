@@ -1,7 +1,8 @@
 package aiworkbench
 
-// MessageNotAcceptedError is produced only by the serialized AppendUser
-// preflight, after excluding a prior receipt and before creating a message.
+// MessageNotAcceptedError proves that the submitted message did not enter execution.
+// AppendUser excludes an earlier receipt before rejection. An oversized title
+// skill snapshot cannot have been admitted with the supplied payload.
 // Other errors with the same cause do not prove that a message was unaccepted.
 type MessageNotAcceptedError struct{ Cause error }
 

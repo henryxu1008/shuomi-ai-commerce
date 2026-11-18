@@ -181,7 +181,8 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 		if p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
 			identity = (p.ConnectionID == "" || credential.IsRegisteredConnection(p.ConnectionID)) && p.UsageMappingVersion == aicapability.ReferenceTextTotalsV1
 		}
-		return (operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationProductContentDecision) &&
+		return (operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationAIWorkbenchChatIntent ||
+			operation == aicapability.OperationAIWorkbenchSkillAuthoring || operation == aicapability.OperationProductContentDecision) &&
 			identity && p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
 	}
 	if aicapability.VisionTextOperation(operation) {

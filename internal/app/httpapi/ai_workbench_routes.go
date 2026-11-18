@@ -98,6 +98,23 @@ func (m aiWorkbenchModule) StoreRouteReadiness(ctx context.Context, organization
 	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchStoreRoute}))
 }
 
+func (m aiWorkbenchModule) ChatIntentReadiness(ctx context.Context, organizationID string) string {
+	a := m.application
+	if a == nil || !a.chatTurnsEnabled || a.store == nil || !a.store.CanChatTurns(ctx) || a.storeRoute == nil {
+		return string(governed.RouteUnavailable)
+	}
+	router, ok := a.storeRoute.Gateway.(*workbenchStoreRouter)
+	if !ok || router.routes == nil {
+		return string(governed.RouteUnavailable)
+	}
+	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchChatIntent}))
+}
+
+func (m aiWorkbenchModule) ChatTurnsReady(ctx context.Context, organizationID string) bool {
+	a := m.application
+	return a != nil && a.chatTurnsEnabled && a.admittedOrganization(organizationID) && a.store != nil && a.store.CanChatTurns(ctx)
+}
+
 // TitleReadiness is the current execution route projection for an existing
 // proposal. It is independent of whether a new Chat plan may be started.
 func (m aiWorkbenchModule) TitleReadiness(ctx context.Context, organizationID string) string {
@@ -122,13 +139,17 @@ func buildAIWorkbenchModule(ctx context.Context, cfg AIWorkbenchDependencies, ag
 }
 
 func workbenchJSON(c *gin.Context, target any) error {
+	return workbenchJSONLimit(c, target, 16<<10)
+}
+
+func workbenchJSONLimit(c *gin.Context, target any, limit int64) error {
 	media, params, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
 	if err != nil || media != "application/json" || (params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8")) ||
 		c.GetHeader("Content-Encoding") != "" || c.Request.Body == nil {
 		return aiworkbench.ErrInvalid
 	}
-	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, 16<<10+1))
-	if err != nil || len(raw) == 0 || len(raw) > 16<<10 || !utf8.Valid(raw) {
+	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, limit+1))
+	if err != nil || len(raw) == 0 || int64(len(raw)) > limit || !utf8.Valid(raw) {
 		return aiworkbench.ErrInvalid
 	}
 	violations, err := sigjson.UnmarshalStrict(raw, target, sigjson.DisallowDuplicateFields, sigjson.DisallowUnknownFields)
@@ -252,6 +273,7 @@ func (b workbenchMessageBody) input() aiworkbench.MessageInput {
 }
 
 type workbenchProposalCard struct {
+	SelectedStoreID       string                     `json:"selectedStoreId,omitempty"`
 	SelectedStoreName     *string                    `json:"selectedStoreName,omitempty"`
 	BusinessScope         *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	Kind                  string                     `json:"kind"`
@@ -357,6 +379,20 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"POST", workbenchChatBase + "/:conversation_id/turns", authz.PermissionWorkbenchChatUse, "chat-turn-submit", 2 * time.Minute},
+		{"GET", workbenchChatBase + "/:conversation_id/turns/:turn_key", authz.PermissionWorkbenchChatRead, "chat-turn-read", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/turns/:turn_key/recover", authz.PermissionWorkbenchChatUse, "chat-turn-recover", 2 * time.Minute},
+		{"GET", workbenchChatBase + "/skill-authoring", authz.PermissionWorkbenchChatUse, "skill-authoring-catalog", 15 * time.Second},
+		{"GET", workbenchChatBase + "/:conversation_id/skill-authoring", authz.PermissionWorkbenchChatRead, "skill-authoring-list", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/quote", authz.PermissionWorkbenchChatUse, "skill-authoring-quote", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/preview", authz.PermissionWorkbenchChatUse, "skill-authoring-preview", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/confirm", authz.PermissionWorkbenchChatUse, "skill-authoring-confirm", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/recover-generation", authz.PermissionWorkbenchChatUse, "skill-authoring-recover-generation", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/validate", authz.PermissionWorkbenchChatUse, "skill-authoring-validate", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/generate", authz.PermissionWorkbenchChatUse, "skill-authoring-generate", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/save", authz.PermissionWorkbenchChatUse, "skill-authoring-save", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/save-package", authz.PermissionWorkbenchChatUse, "skill-authoring-save-package", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/recover-save", authz.PermissionWorkbenchChatUse, "skill-authoring-save-recover", 15 * time.Second},
 		{"GET", workbenchSubjectBase + "/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
 		{"GET", workbenchChatBase + "/scopes", authz.PermissionWorkbenchChatRead, "scope-options", 15 * time.Second},
 		{"GET", workbenchChatBase, authz.PermissionWorkbenchChatRead, "list-conversations", 15 * time.Second},
@@ -400,6 +436,10 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "chat-turn-submit", "chat-turn-read", "chat-turn-recover":
+					a.chatTurn(c, ctx, scope, spec.action)
+				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-preview", "skill-authoring-confirm", "skill-authoring-recover-generation", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-package", "skill-authoring-save-recover":
+					a.skillAuthoring(c, ctx, scope, spec.action)
 				case "subject-read":
 					a.readTaskSubject(c, ctx)
 				case "scope-options", "task-scope-options":

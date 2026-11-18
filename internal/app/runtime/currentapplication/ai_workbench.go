@@ -14,25 +14,34 @@ import (
 // AIWorkbenchConfig uses the Product Agent's logical database with its own
 // least-privilege role. Planning policies never borrow title admission.
 type AIWorkbenchConfig struct {
-	Schedules              *AIWorkbenchSchedulesConfig     `json:"schedules,omitempty"`
-	Enabled                bool                            `json:"enabled"`
-	ContentTasks           bool                            `json:"contentTasks,omitempty"`
-	ConversationOnly       bool                            `json:"conversationOnly"`
-	AllowedOrganizationIDs []string                        `json:"allowedOrganizationIds,omitempty"`
-	Database               DatabaseConfig                  `json:"database"`
-	PlanningTextPolicies   map[string]governed.RoutePolicy `json:"planningTextPolicies"`
-	StoreRouteTextPolicies map[string]governed.RoutePolicy `json:"storeRouteTextPolicies,omitempty"`
+	Schedules                  *AIWorkbenchSchedulesConfig     `json:"schedules,omitempty"`
+	ChatTurnsEnabled           bool                            `json:"chatTurnsEnabled,omitempty"`
+	Enabled                    bool                            `json:"enabled"`
+	ContentTasks               bool                            `json:"contentTasks,omitempty"`
+	ConversationOnly           bool                            `json:"conversationOnly"`
+	AllowedOrganizationIDs     []string                        `json:"allowedOrganizationIds,omitempty"`
+	Database                   DatabaseConfig                  `json:"database"`
+	PlanningTextPolicies       map[string]governed.RoutePolicy `json:"planningTextPolicies"`
+	StoreRouteTextPolicies     map[string]governed.RoutePolicy `json:"storeRouteTextPolicies,omitempty"`
+	ChatIntentTextPolicies     map[string]governed.RoutePolicy `json:"chatIntentTextPolicies,omitempty"`
+	SkillAuthoringTextPolicies map[string]governed.RoutePolicy `json:"skillAuthoringTextPolicies,omitempty"`
 }
 
 func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w == nil {
 		return nil
 	}
+	if w.ChatTurnsEnabled && (!w.Enabled || w.ConversationOnly || cfg.ModelRoutePricing == nil) {
+		return errors.New("Chat turns require an enabled priced-model workbench")
+	}
+	if len(w.ChatIntentTextPolicies) > 64 || len(w.ChatIntentTextPolicies) > 0 && (!w.Enabled || w.ConversationOnly || cfg.ModelRoutePricing == nil) || len(w.SkillAuthoringTextPolicies) > 64 || len(w.SkillAuthoringTextPolicies) > 0 && (!w.Enabled || w.ConversationOnly || cfg.ModelRoutePricing == nil) {
+		return errors.New("Chat skill authoring requires an enabled model workbench and current model pricing")
+	}
 	if err := w.validateSchedules(cfg); err != nil {
 		return err
 	}
 	if cfg.ProductAgent != nil && cfg.ProductAgent.ContentTitleOnly &&
-		(len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 || w.Enabled && !w.ConversationOnly) {
+		(len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 || len(w.ChatIntentTextPolicies) != 0 || w.Enabled && !w.ConversationOnly) {
 		return errors.New("content-title-only permits only storage-only Chat")
 	}
 	if !w.Enabled {
@@ -44,7 +53,7 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w.ConversationOnly {
 		// Storage and history remain available when new daily capture is disabled.
 		standaloneStorage := cfg.ProductAgent == nil
-		if !standaloneStorage && (cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly) || len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 ||
+		if !standaloneStorage && (cfg.ProductAgent == nil || cfg.ProductAgent.Enabled && !cfg.ProductAgent.ContentTitleOnly && !cfg.ProductAgent.ContentOnly) || len(w.PlanningTextPolicies) != 0 || len(w.StoreRouteTextPolicies) != 0 || len(w.ChatIntentTextPolicies) != 0 ||
 			w.Database.validate("aiWorkbench.database") != nil || w.Database.User != "ai_workbench_runtime" ||
 			!standaloneStorage && (w.Database.User == cfg.ProductAgent.Database.User || w.Database.Host != cfg.ProductAgent.Database.Host ||
 				w.Database.Port != cfg.ProductAgent.Database.Port || w.Database.Database != cfg.ProductAgent.Database.Database) ||
@@ -111,6 +120,44 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		}
 		if _, err := profile.CostFor(profile.MaximumPromptTokens, profile.MaximumCompletionTokens); err != nil {
 			return errors.New("AI Workbench store route price invalid")
+		}
+	}
+	for org, policy := range w.ChatIntentTextPolicies {
+		profile := policy.ShapeProfile()
+		if !allowed[org] || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchChatIntent) || profile.PromptVersion != einorouter.ChatPromptVersion || profile.OutputSchemaVersion != einorouter.ChatSchemaVersion || profile.Currency != cfg.ProductAgent.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens || profile.MaximumCompletionTokens > 4096 || profile.MaximumInputBytes > 128<<10 || profile.MaximumOutputBytes > 16<<10 {
+			return errors.New("Chat intent policy invalid")
+		}
+		bound := false
+		for _, binding := range cfg.ModelRoutePricing.Bindings {
+			if binding.Scope.OrganizationID == org && binding.Scope.Capability == string(aicapability.OperationAIWorkbenchChatIntent) && binding.Text != nil && binding.ReferenceVersion != "" && binding.ConnectionID != "" && binding.PriceID != "" {
+				bound = true
+				break
+			}
+		}
+		if !bound {
+			return errors.New("Chat intent requires its current priced model binding")
+		}
+	}
+	for org, policy := range w.SkillAuthoringTextPolicies {
+		profile := policy.ShapeProfile()
+		versionOne := profile.PromptVersion == "ai-workbench-skill-authoring-v1" && profile.OutputSchemaVersion == "personal-title-skill-draft-v1"
+		versionTwo := profile.PromptVersion == "ai-workbench-skill-authoring-v2" && profile.OutputSchemaVersion == "personal-title-skill-draft-v2"
+		if !allowed[org] || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchSkillAuthoring) ||
+			(!versionOne && !versionTwo) ||
+			profile.Currency != cfg.ProductAgent.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens ||
+			profile.MaximumCompletionTokens > 4096 || profile.MaximumInputBytes > 128<<10 || profile.MaximumOutputBytes > 16<<10 {
+			return errors.New("Chat skill authoring policy invalid")
+		}
+		hasBinding := false
+		for _, binding := range cfg.ModelRoutePricing.Bindings {
+			if binding.Scope.OrganizationID == org && binding.Scope.Capability == string(aicapability.OperationAIWorkbenchSkillAuthoring) &&
+				binding.Text != nil && binding.ReferenceVersion != "" && binding.ConnectionID != "" && binding.PriceID != "" {
+				hasBinding = true
+				break
+			}
+		}
+		if !hasBinding {
+			return errors.New("Chat skill authoring requires its current priced model binding")
 		}
 	}
 	return nil

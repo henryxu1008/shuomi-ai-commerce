@@ -52,7 +52,7 @@ func (s Scope) Valid() bool {
 		return credential.IsRegisteredConnection(strings.TrimPrefix(s.Capability, "ai.models.platform-channel.")) && strings.HasPrefix(s.Capability, "ai.models.platform-channel.")
 	}
 	switch aicapability.Operation(s.Capability) {
-	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake:
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake:
 		return true
 	}
 	return s.Capability == ImageCapability || s.Capability == SharedModelCapability || s.Capability == PlatformPricesCapability && s.OrganizationID == PlatformPricesOrganization

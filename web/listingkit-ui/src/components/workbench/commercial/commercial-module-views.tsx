@@ -134,7 +134,7 @@ function usageObjectKind(event: UsageEvent): ResourceBusinessObject["kind"] | un
 }
 
 const usageObjectLabels = { store: "关联店铺", amazon_product: "关联商品", task: "关联任务" };
-const usagePurposes = { chat_planning: "聊天规划", own_product_intake: "自有商品录入" };
+const usagePurposes = { chat_intent: "需求识别", chat_planning: "聊天规划", own_product_intake: "自有商品录入", skill_authoring: "创建技能" };
 
 function UsageBusinessObject({ scope, eventId, kind }: {
   scope: AcquisitionContext;

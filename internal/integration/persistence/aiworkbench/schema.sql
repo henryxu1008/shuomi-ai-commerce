@@ -41,10 +41,12 @@ CREATE TABLE IF NOT EXISTS ai_workbench.messages (
     sequence bigint NOT NULL CHECK (sequence > 0),
     author_kind text NOT NULL CHECK (author_kind IN ('USER', 'ASSISTANT')),
     content text NOT NULL CHECK (octet_length(content) BETWEEN 1 AND 16384),
-    message_kind text NOT NULL DEFAULT 'TEXT' CHECK (message_kind IN ('TEXT','STORE_OVERVIEW_REF')),
+    message_kind text NOT NULL DEFAULT 'TEXT' CHECK (message_kind IN ('TEXT','STORE_OVERVIEW_REF','AGENT_SKILL_REF')),
     store_query_status text,
-    CHECK (((message_kind = 'TEXT' AND store_query_status IS NULL) OR
-           (message_kind = 'STORE_OVERVIEW_REF' AND author_kind = 'ASSISTANT' AND content = '店铺概况' AND store_query_status IN ('ALL_NON_DELETED','ACTIVE'))) IS TRUE),
+    turn_key uuid,
+    CONSTRAINT ai_workbench_message_presentation CHECK (((message_kind = 'TEXT' AND store_query_status IS NULL AND turn_key IS NULL) OR
+           (message_kind = 'STORE_OVERVIEW_REF' AND author_kind = 'ASSISTANT' AND content = '店铺概况' AND store_query_status IN ('ALL_NON_DELETED','ACTIVE') AND turn_key IS NULL) OR
+           (message_kind = 'AGENT_SKILL_REF' AND author_kind = 'ASSISTANT' AND content = '技能草稿' AND store_query_status IS NULL AND turn_key IS NOT NULL)) IS TRUE),
     created_at timestamptz NOT NULL,
     UNIQUE (organization_id, owner_user_id, conversation_id, sequence),
     UNIQUE (organization_id, owner_user_id, conversation_id, id),
@@ -76,7 +78,13 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
     planner_started_at timestamptz,
     planner_deadline timestamptz,
     route_commit_deadline timestamptz,
-    route_result text CHECK (route_result IS NULL OR route_result IN ('STORE_OVERVIEW','PRODUCT_TASK','CLARIFY')),
+    route_result text CHECK (route_result IS NULL OR route_result IN ('STORE_OVERVIEW','PRODUCT_TASK','CLARIFY','CREATE_TITLE_SKILL')),
+    turn_input jsonb CHECK (turn_input IS NULL OR (jsonb_typeof(turn_input)='object' AND turn_input->>'version'='1' AND octet_length(turn_input::text)<=98304)),
+    tool_state text CHECK (tool_state IS NULL OR tool_state IN ('PENDING','BOUND','NOT_STARTED')),
+    tool_key uuid,
+    CONSTRAINT ai_workbench_turn_tool CHECK (((tool_key IS NULL AND tool_state IS DISTINCT FROM 'BOUND') OR (tool_key IS NOT NULL AND tool_state='BOUND')) AND
+        (tool_state IS NULL OR (turn_input IS NOT NULL AND state='COMPLETE' AND route_result='CREATE_TITLE_SKILL')) AND
+        (route_result IS DISTINCT FROM 'CREATE_TITLE_SKILL' OR turn_input IS NOT NULL)),
     assistant_message_id uuid,
     proposal_id uuid,
     terminal_digest char(64),
@@ -84,6 +92,8 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
     created_at timestamptz NOT NULL,
     committed_at timestamptz,
     PRIMARY KEY (organization_id, actor_id, idempotency_key),
+    UNIQUE (organization_id, actor_id, conversation_id, idempotency_key),
+    UNIQUE (organization_id, actor_id, conversation_id, tool_key),
     UNIQUE (planner_invocation_id),
     FOREIGN KEY (conversation_id, organization_id, actor_id)
         REFERENCES ai_workbench.conversations (id, organization_id, owner_user_id),
@@ -91,7 +101,7 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
         REFERENCES ai_workbench.messages (organization_id, owner_user_id, conversation_id, id),
     FOREIGN KEY (organization_id, actor_id, conversation_id, assistant_message_id)
         REFERENCES ai_workbench.messages (organization_id, owner_user_id, conversation_id, id),
-    CHECK ((operation = 'conversation_create' AND state = 'COMPLETE'
+    CONSTRAINT ai_workbench_command_shape CHECK ((operation = 'conversation_create' AND state = 'COMPLETE'
             AND user_message_id IS NULL AND planner_invocation_id IS NULL)
         OR (operation IN ('chat_message_plan','chat_intent_route') AND user_message_id IS NOT NULL
             AND source_sequence IS NOT NULL AND planner_invocation_id IS NOT NULL
@@ -101,8 +111,64 @@ CREATE TABLE IF NOT EXISTS ai_workbench.commands (
                 (planner_input_hash IS NOT NULL AND planner_model_profile IS NOT NULL
                  AND planner_started_at IS NOT NULL AND planner_deadline IS NOT NULL)))
         AND (operation <> 'chat_intent_route' OR route_commit_deadline IS NOT NULL OR (state='FAILED_BEFORE_DISPATCH' AND planner_model_profile IS NULL AND planner_input_hash IS NULL AND planner_started_at IS NULL AND planner_deadline IS NULL AND assistant_message_id IS NOT NULL))
-        OR (operation = 'chat_store_overview' AND state = 'COMPLETE' AND member_id IS NOT NULL AND user_message_id IS NOT NULL AND source_sequence IS NOT NULL AND assistant_message_id IS NOT NULL AND planner_invocation_id IS NULL AND planner_input_hash IS NULL AND planner_model_profile IS NULL AND route_result = 'STORE_OVERVIEW'))
+        OR (operation = 'chat_store_overview' AND state = 'COMPLETE' AND member_id IS NOT NULL AND user_message_id IS NOT NULL AND source_sequence IS NOT NULL AND assistant_message_id IS NOT NULL AND planner_invocation_id IS NULL AND planner_input_hash IS NULL AND planner_model_profile IS NULL AND route_result = 'STORE_OVERVIEW')
+        OR (operation='chat_intent_route' AND turn_input IS NOT NULL AND jsonb_typeof(turn_input->'input'->'skill')='object' AND state='COMPLETE' AND route_result='CREATE_TITLE_SKILL' AND tool_state IS NOT NULL AND member_id IS NOT NULL AND user_message_id IS NOT NULL AND source_sequence IS NOT NULL AND assistant_message_id IS NOT NULL AND planner_invocation_id IS NULL AND planner_input_hash IS NULL AND planner_model_profile IS NULL AND planner_started_at IS NULL AND planner_deadline IS NULL AND route_commit_deadline IS NULL))
 );
+
+CREATE TABLE IF NOT EXISTS ai_workbench.skill_authoring_drafts (
+    organization_id text NOT NULL,
+    actor_id text NOT NULL,
+    conversation_id uuid NOT NULL,
+    key uuid NOT NULL,
+    member_id text NOT NULL,
+    state text NOT NULL CHECK (state IN ('QUOTED','READY','COMPLETE','FAILED','INVALID','UNKNOWN')),
+    requirement text NOT NULL CHECK (octet_length(requirement) BETWEEN 1 AND 8192),
+    skill_version bigint NOT NULL CHECK (skill_version > 0),
+    skill_digest char(64) NOT NULL,
+    input_hash char(64) NOT NULL,
+    profile_digest char(64) NOT NULL,
+    maximum_points bigint NOT NULL CHECK (maximum_points >= 0),
+    invocation_id char(64) NOT NULL UNIQUE,
+    expires_at timestamptz NOT NULL,
+    deadline timestamptz,
+    generated text NOT NULL DEFAULT '' CHECK (octet_length(generated) <= 32768),
+    format_version integer NOT NULL DEFAULT 1 CHECK (format_version IN (1,2)),
+    input_snapshot text NOT NULL DEFAULT '' CHECK (octet_length(input_snapshot) <= 65536),
+    root_key uuid,
+    base_revision uuid,
+    current_revision uuid,
+    save_key uuid UNIQUE,
+    save_digest text NOT NULL DEFAULT '',
+    save_content text NOT NULL DEFAULT '' CHECK (octet_length(save_content) <= 65536),
+    save_format integer NOT NULL DEFAULT 1 CHECK (save_format IN (1,2)),
+    saved_skill_id uuid,
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY (organization_id, actor_id, conversation_id, key),
+    CHECK ((root_key IS NULL) = (base_revision IS NULL)),
+    FOREIGN KEY (organization_id, actor_id, conversation_id, root_key)
+        REFERENCES ai_workbench.skill_authoring_drafts (organization_id, actor_id, conversation_id, key),
+    FOREIGN KEY (conversation_id, organization_id, actor_id)
+        REFERENCES ai_workbench.conversations (id, organization_id, owner_user_id)
+);
+
+DO $chat_turn_refs$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='ai_workbench.commands'::regclass AND attname='tool_key' AND NOT attisdropped)
+       AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='ai_workbench.messages'::regclass AND attname='turn_key' AND NOT attisdropped) THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='ai_workbench.commands'::regclass AND conname='ai_workbench_turn_authoring') THEN
+            ALTER TABLE ai_workbench.commands ADD CONSTRAINT ai_workbench_turn_authoring
+                FOREIGN KEY (organization_id,actor_id,conversation_id,tool_key)
+                REFERENCES ai_workbench.skill_authoring_drafts (organization_id,actor_id,conversation_id,key);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='ai_workbench.messages'::regclass AND conname='ai_workbench_message_turn') THEN
+            ALTER TABLE ai_workbench.messages ADD CONSTRAINT ai_workbench_message_turn
+                FOREIGN KEY (organization_id,owner_user_id,conversation_id,turn_key)
+                REFERENCES ai_workbench.commands (organization_id,actor_id,conversation_id,idempotency_key)
+                DEFERRABLE INITIALLY DEFERRED;
+        END IF;
+    END IF;
+END
+$chat_turn_refs$;
 
 CREATE TABLE IF NOT EXISTS ai_workbench.execution_proposals (
     id uuid PRIMARY KEY,

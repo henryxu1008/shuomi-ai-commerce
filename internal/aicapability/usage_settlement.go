@@ -23,6 +23,12 @@ func SettleSuccessfulInvocation(ctx context.Context, record InvocationRecord, se
 	if record.BillingMode == ModelUsageOnly {
 		return nil
 	}
+	if record.ErrorCode == SkillAuthoringOpenAIParameterRejectedV1 || record.ErrorCode == ChatIntentOpenAIParameterRejectedV1 {
+		if !record.IsWorkbenchOpenAIParameterRejection() || settler == nil {
+			return ErrInvalidInvocationUsage
+		}
+		return settler.SettleAIInvocationUsage(ctx, record.TenantID, record.MemberID, record.InvocationID, 0, record.FinishedAt.UTC())
+	}
 	if record.ProviderRejectionProof != nil {
 		if ValidateProviderRejection(record) != nil || settler == nil {
 			return ErrInvalidInvocationUsage

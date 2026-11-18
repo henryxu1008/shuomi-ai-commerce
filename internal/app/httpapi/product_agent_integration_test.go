@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -288,6 +289,21 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			if strings.Contains(string(raw), "Classify the user's current question only") {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"id":"route-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":"{\"kind\":\"STORE_OVERVIEW\",\"status\":\"ALL_NON_DELETED\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
+				return
+			}
+			if managedRuntime && strings.Contains(string(raw), "Identify the intent of the current Chat message") {
+				decision := `{"kind":"STORE_OVERVIEW","status":"ALL_NON_DELETED"}`
+				if strings.Contains(string(raw), "创建标题技能") {
+					decision = `{"kind":"CREATE_TITLE_SKILL","status":""}`
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"id":"intent-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`, decision)
+				return
+			}
+			if managedRuntime && strings.Contains(string(raw), "Draft one personal product-title skill") {
+				draft := `{"name":"fixture-title","displayName":"模拟标题技能","description":"保留产品事实","instructions":"保留核实后的型号。"}`
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"id":"authoring-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`, draft)
 				return
 			}
 			if strings.Contains(string(raw), "Plan one content suggestion for the exact server-selected subject") {
@@ -892,7 +908,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"), managedCompatible, ownedRuntime)
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"), managedCompatible, ownedRuntime, platformRuntime)
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {

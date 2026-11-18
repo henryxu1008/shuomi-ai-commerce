@@ -137,21 +137,22 @@ type GuardConfig struct {
 	ThinkingMode string
 	// Exact canonical identity is supplied only by the qualified frozen
 	// manufacturer/wire binding; a response cannot introduce a new alias.
-	ResponseModelID      string
-	SingleImage          *SingleImageRequest `json:"-"`
-	visionText           *boundVisionText    `json:"-"`
-	Logger               *logrus.Entry       `json:"-"`
-	Adapter              AdapterKind
-	ProviderID           string
-	AdapterPolicyVersion string
-	BillingUsageVersion  string
-	UsageOnly            bool
-	Endpoint             string
-	ModelID              string
-	MaximumOutputTokens  int
-	MaximumRequestBytes  int64
-	MaximumResponseBytes int64
-	Timeout              time.Duration
+	ResponseModelID            string
+	SingleImage                *SingleImageRequest `json:"-"`
+	visionText                 *boundVisionText    `json:"-"`
+	skillAuthoringDirectOpenAI bool
+	Logger                     *logrus.Entry `json:"-"`
+	Adapter                    AdapterKind
+	ProviderID                 string
+	AdapterPolicyVersion       string
+	BillingUsageVersion        string
+	UsageOnly                  bool
+	Endpoint                   string
+	ModelID                    string
+	MaximumOutputTokens        int
+	MaximumRequestBytes        int64
+	MaximumResponseBytes       int64
+	Timeout                    time.Duration
 }
 
 type ObservedUsage struct {
@@ -163,17 +164,18 @@ type ObservedUsage struct {
 }
 
 type GuardedClient struct {
-	Client            *http.Client
-	cfg               GuardConfig
-	endpoint          *url.URL
-	base              http.RoundTripper
-	finalGate         func(context.Context) error
-	sent              atomic.Bool
-	sendMu            sync.Mutex
-	mu                sync.Mutex
-	usage             ObservedUsage
-	providerRequestID string
-	diagnostic        *textDiagnostics
+	Client                         *http.Client
+	cfg                            GuardConfig
+	endpoint                       *url.URL
+	base                           http.RoundTripper
+	finalGate                      func(context.Context) error
+	sent                           atomic.Bool
+	sendMu                         sync.Mutex
+	mu                             sync.Mutex
+	usage                          ObservedUsage
+	providerRequestID              string
+	openAIParameterRejectionIDHash string
+	diagnostic                     *textDiagnostics
 }
 
 func (g *GuardedClient) diagnosticsFor(ctx context.Context) *textDiagnostics {
@@ -389,6 +391,7 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	diagnostic.response(response.StatusCode, response.Header.Get("X-Request-Id"), raw, g.cfg.Adapter)
 	diagnostic.set("response_bytes", len(raw))
 	diagnostic.emit(req.Context(), "response", "response_received")
+	g.observeOpenAIParameterRejection(req, body, response, raw)
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
 		if g.cfg.UsageOnly && g.cfg.BillingUsageVersion == "openai-text-v1" {

@@ -33,6 +33,8 @@ func TestAIWorkbenchConversationOnlyNeedsNoModel(t *testing.T) {
 		{"wrong-role", func(v *AIWorkbenchConfig) { v.Database.User = "product_agent_runtime" }},
 		{"unbounded-pool", func(v *AIWorkbenchConfig) { v.Database.MaxConnections = 9 }},
 		{"model-policy", func(v *AIWorkbenchConfig) { v.PlanningTextPolicies = map[string]governed.RoutePolicy{"org": {}} }},
+		{"chat-intent-policy", func(v *AIWorkbenchConfig) { v.ChatIntentTextPolicies = map[string]governed.RoutePolicy{"org": {}} }},
+		{"chat-turns-without-execution",func(v *AIWorkbenchConfig){v.ChatTurnsEnabled=true}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			copy := w

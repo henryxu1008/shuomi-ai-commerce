@@ -49,7 +49,7 @@ func (r *GormInvocationRecorder) ReadModelInvocation(ctx context.Context, org, i
 	}
 	var row invocationRow
 	if err := r.db.WithContext(ctx).Where("tenant_id = ? AND invocation_id = ? AND operation IN ?", org, id,
-		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute}).Take(&row).Error; err != nil {
+		[]aicapability.Operation{aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring}).Take(&row).Error; err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
 	return validateModelFact(row)
@@ -66,7 +66,7 @@ func (r *GormInvocationRecorder) ReadModelPurposeInvocations(ctx context.Context
 			return nil, fmt.Errorf("invalid model purpose identity")
 		}
 	}
-	operations := []aicapability.Operation{aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationOwnProductIntake}
+	operations := []aicapability.Operation{aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationOwnProductIntake, aicapability.OperationAIWorkbenchSkillAuthoring}
 	var rows []invocationRow
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND user_id = ? AND member_id = ? AND invocation_id IN ? AND operation IN ?", org, actor, member, ids, operations).

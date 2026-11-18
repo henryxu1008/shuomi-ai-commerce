@@ -19,6 +19,7 @@ import (
 
 type workbenchTaskView struct {
 	HistoryUnavailable      bool                       `json:"-"`
+	SelectedStoreName       *string                    `json:"selectedStoreName,omitempty"`
 	BusinessScope           *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	ScopeUnavailable        bool                       `json:"scopeUnavailable,omitempty"`
 	Kind                    string                     `json:"kind"`
@@ -94,6 +95,13 @@ func (a *aiWorkbenchApplication) taskView(ctx context.Context, scope aiworkbench
 			return workbenchTaskView{ID: task.ID, ScopeUnavailable: true}, nil
 		}
 		view.BusinessScope = &scopeView
+		if f.StoreChoice != nil {
+			name := ""
+			if f.StoreChoice.Store != nil {
+				name = f.StoreChoice.Store.Name
+			}
+			view.SelectedStoreName = &name
+		}
 	}
 	if a.taskHistoryUnavailable(ctx, scope, task, identity) {
 		return workbenchTaskView{ID: task.ID, Kind: task.Kind, CreatedAt: task.CreatedAt, Title: "相关商品当前不可访问", HistoryUnavailable: true}, nil

@@ -68,6 +68,7 @@ type Message struct {
 	Content          string
 	Kind             string `json:"kind,omitempty"`
 	StoreQueryStatus string `json:"storeQueryStatus,omitempty"`
+	TurnKey          string `json:"turnKey,omitempty"`
 	CreatedAt        time.Time
 }
 

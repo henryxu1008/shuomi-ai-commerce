@@ -28,10 +28,13 @@ import (
 	configstore "task-processor/internal/integration/persistence/agentconfig"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	collectionstore "task-processor/internal/integration/persistence/product/collection"
+	skillstore "task-processor/internal/integration/persistence/skill"
+	"task-processor/internal/integration/skillauth"
 	n "task-processor/internal/notificationcenter"
 	"task-processor/internal/product/collection"
 	reviewproposal "task-processor/internal/product/review/proposal"
 	rc "task-processor/internal/reportcenter"
+	"task-processor/internal/skill"
 	"task-processor/internal/storecenter"
 
 	"github.com/gin-gonic/gin"
@@ -81,7 +84,7 @@ func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
 
 // Uses the existing domain/HTTP fixture, task-owned PostgreSQL and local model;
 // no serving instance, real credentials or provider are involved.
-func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime, scheduled, managedCompatible, ownedRuntime bool) {
+func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime, scheduled, managedCompatible, ownedRuntime, platformRuntime bool) {
 	ctx := context.Background()
 	a := m.application.content
 	miniRuntime := a.config.ContentTextPolicies["B"].Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy
@@ -274,14 +277,33 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		reader.storeRoute = routePolicies
 		a.config.CurrentTextPolicies = reader
 	}
-	if ownedRuntime {
+	if ownedRuntime || platformRuntime {
 		storeRoute := policy
 		storeRoute.Profile.PromptVersion, storeRoute.Profile.OutputSchemaVersion = einorouter.PromptVersion, einorouter.SchemaVersion
 		routePolicies = map[string]governed.RoutePolicy{"B": storeRoute}
 	}
-	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}, StoreRouteTextPolicies: routePolicies}, m.application)
+	var intentPolicies map[string]governed.RoutePolicy
+	chatTurns := ownedRuntime || platformRuntime
+	if chatTurns {
+		intentPolicies = map[string]governed.RoutePolicy{"B": fixtureChatIntentPolicy(policy)}
+	}
+	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, ChatTurnsEnabled: chatTurns, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}, StoreRouteTextPolicies: routePolicies, ChatIntentTextPolicies: intentPolicies}, m.application)
 	require.NoError(t, err)
 	app := wm.(aiWorkbenchModule).application
+	if chatTurns {
+		require.NoError(t, skillstore.InstallSchema(ctx, f.owner))
+		repo, err := skillstore.New(f.owner)
+		require.NoError(t, err)
+		admin := skill.Principal{UserID: "fixture-maintainer", PlatformMaintainer: true}
+		_, err = repo.InstallOfficial(ctx, admin, func(context.Context) (skill.Principal, error) { return admin, nil })
+		require.NoError(t, err)
+		access, err := skillauth.New(deps.organizationResolver, auth)
+		require.NoError(t, err)
+		skills, err := skill.NewService(repo, access.Resolve)
+		require.NoError(t, err)
+		require.NoError(t, app.attachSkillAuthoring(ctx, skills, repo, access))
+		require.NotNil(t, app.authoring)
+	}
 	if runStoreRoute {
 		require.Equal(t, "AVAILABLE", wm.(aiWorkbenchModule).StoreRouteReadiness(ctx, "B"))
 		require.Equal(t, "UNAVAILABLE", wm.(aiWorkbenchModule).StoreRouteReadiness(ctx, "A"))
@@ -322,20 +344,57 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	var ledgerBefore map[string]string
 	if ownedRuntime {
 		ledgerBefore = snapshotOwnedChannelPointLedger(t, f.owner)
+	}
+	if chatTurns {
 		var general struct{ Conversation aiworkbench.Conversation }
 		body := workbenchCreateFixtureBody(t, server, "admin", "B", aiworkbench.ScopeSelection{Kind: "general"}, false)
 		code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), body)
 		require.NoError(t, err)
 		require.Equal(t, 200, code, string(raw))
 		require.NoError(t, json.Unmarshal(raw, &general))
-		intentKey := uuid.NewString()
-		path := workbenchChatBase + "/" + general.Conversation.ID + "/intent"
-		for range 2 {
-			code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", intentKey, `{"content":"我有几个店铺"}`)
-			require.NoError(t, err)
-			require.Equal(t, 200, code, string(raw))
-			require.Contains(t, string(raw), `"COMPLETE"`)
+		if ownedRuntime {
+			intentKey := uuid.NewString()
+			path := workbenchChatBase + "/" + general.Conversation.ID + "/intent"
+			for range 2 {
+				code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", intentKey, `{"content":"我有几个店铺"}`)
+				require.NoError(t, err)
+				require.Equal(t, 200, code, string(raw))
+				require.Contains(t, string(raw), `"COMPLETE"`)
+			}
 		}
+		turns := workbenchChatBase + "/" + general.Conversation.ID + "/turns"
+		submit := func(input aiworkbench.ChatTurnInput) aiworkbench.ChatTurnResult {
+			t.Helper()
+			key := uuid.NewString()
+			var result, replay aiworkbench.ChatTurnResult
+			require.NoError(t, json.Unmarshal(call("POST", turns, key, input, 200), &result))
+			require.Equal(t, "COMPLETE", result.State)
+			require.NoError(t, json.Unmarshal(call("POST", turns, key, input, 200), &replay))
+			require.Equal(t, result, replay)
+			return result
+		}
+		ordinary := submit(aiworkbench.ChatTurnInput{Content: "我有几个店铺"})
+		require.Equal(t, "STORE_OVERVIEW", ordinary.Kind)
+		automatic := submit(aiworkbench.ChatTurnInput{Content: "创建标题技能，保留核实后的型号"})
+		require.Equal(t, "CREATE_TITLE_SKILL", automatic.Kind)
+		require.NotNil(t, automatic.Skill)
+		billing := `"billing":"committed"`
+		if ownedRuntime {
+			billing = `"billing":"usage_only"`
+		}
+		require.Contains(t, string(automatic.Authoring), billing)
+		manual := submit(aiworkbench.ChatTurnInput{Content: "保留已经核实的款式", Skill: automatic.Skill})
+		var original struct {
+			Key, Revision string
+			Draft         json.RawMessage
+		}
+		require.NoError(t, json.Unmarshal(manual.Authoring, &original))
+		require.NotEmpty(t, original.Key)
+		require.NotEmpty(t, original.Revision)
+		// Modify the visible draft through the original root and base revision.
+		revised := submit(aiworkbench.ChatTurnInput{Content: "保留核实后的规格", Skill: manual.Skill,
+			Revision: &aiworkbench.ChatTurnRevision{Root: original.Key, BaseRevision: original.Revision, Snapshot: original.Draft}})
+		require.Contains(t, string(revised.Authoring), billing)
 	}
 	if runStoreRoute {
 		var general struct{ Conversation aiworkbench.Conversation }
@@ -680,8 +739,10 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 				t.Fatalf("unexpected fake provider usage status %s", item.Status)
 			}
 		}
-		require.Equal(t, []aicapability.Operation{aicapability.OperationProductContentDecision, aicapability.OperationProductContentDecision,
-			aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute}, observed)
+		require.ElementsMatch(t, []aicapability.Operation{aicapability.OperationProductContentDecision, aicapability.OperationProductContentDecision,
+			aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute,
+			aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchChatIntent,
+			aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationAIWorkbenchSkillAuthoring}, observed)
 		require.Equal(t, 1, noSend)
 		// A request cannot select a member or organization through the cursor API.
 		call("GET", commercialOwnedModelUsagePath+"?member_id=member-B-admin", "", nil, 400)
@@ -696,7 +757,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		f.grants.revoked.Store(false)
 		require.NoError(t, err)
 		require.Equal(t, 403, code, string(raw))
-		t.Log("isolated point ledger: eight tables unchanged, four observed invocations and one explicit no-send")
+		t.Log("isolated point ledger: eight tables unchanged, nine observed invocations and one explicit no-send")
 		t.Cleanup(func() {
 			require.Equal(t, ledgerBefore, snapshotOwnedChannelPointLedger(t, f.owner), "subsequent requests and replays cannot write point rows")
 		})
@@ -706,11 +767,15 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 			Consumed int64
 		}
 		require.NoError(t, f.owner.Raw("SELECT reserved, consumed FROM saas_organization_resource_buckets WHERE organization_id = ? AND resource_type = ?", "B", "ai_point").Scan(&balance).Error)
-		require.Zero(t, balance.Reserved, "all three synthetic requests settle their own holds")
+		require.Zero(t, balance.Reserved, "synthetic requests settle their own holds")
 		require.Greater(t, balance.Consumed, int64(0), "actual synthetic usage is charged by the original resource owner")
 		var settlements int64
 		require.NoError(t, f.owner.Raw("SELECT count(*) FROM saas_organization_resource_reservations WHERE organization_id = ? AND state = 'committed' AND settlement_operation_id IS NOT NULL", "B").Scan(&settlements).Error)
-		require.EqualValues(t, 3, settlements, "one planning plus two content calls")
+		expectedSettlements := 3 // Original planning plus two content calls.
+		if platformRuntime {
+			expectedSettlements += 5 // Two intents plus three authoring calls.
+		}
+		require.EqualValues(t, expectedSettlements, settlements)
 		t.Logf("synthetic resource owner: settled=%d consumed=%d micropoints reserved=%d", settlements, balance.Consumed, balance.Reserved)
 	}
 	require.NoError(t, json.Unmarshal(call("GET", "/api/v1/workbench/chat/subjects/"+binding.ContextKind+"/"+binding.ContextID, "", nil, 200), &sourcePreview))

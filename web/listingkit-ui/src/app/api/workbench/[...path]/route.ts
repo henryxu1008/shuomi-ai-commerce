@@ -145,9 +145,10 @@ async function handleWorkbenchRequest(
   const imageSetRequest = imageSetRoutes.some((action) => imageSetMethods[action] === request.method && imageSetPath(path, action) !== null);
   const ownAgentRunRequest = path[4] === "runs" && ownAgentPath(path) !== null &&
     (request.method === "GET" && path.length === 6 || request.method === "POST" && (path.length === 5 || path.length === 7));
-  const agentRequest=analysisRoutes.some(a=>analysisMethods[a]===request.method&&analysisPath(path,a)!==null)||agentPath(path)!==null || ownAgentRunRequest || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["message", "store-route", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
+  const agentRequest=analysisRoutes.some(a=>analysisMethods[a]===request.method&&analysisPath(path,a)!==null)||agentPath(path)!==null || ownAgentRunRequest || ["materials-start","materials-resume","materials-adopt"].includes(materialsPath(request.method,path)??"") || ["chat-turn-submit", "chat-turn-recover", "message", "store-route", "confirm", "task-start", "task-resume", "task-review"].includes(aiWorkbenchPath(request.method, path) ?? "");
   const sheinPublicationRequest=["shein-status","shein-shelf-prepare","shein-shelf-confirm","shein-shelf-result"].includes(supplyPath(request.method,path)??"");
-  const timeout = setTimeout(abort, sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
+  const skillGeneration = ["skill-authoring-generate", "skill-authoring-confirm", "skill-authoring-recover-generation"].includes(aiWorkbenchPath(request.method, path) ?? "");
+  const timeout = setTimeout(abort, sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest || skillGeneration ?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
     const result = await Promise.race([
@@ -191,7 +192,7 @@ function isSourceMutation(method: string, path: string[]) {
   if(method==="POST"&&planPath(method,path))return true;
   if (collectionPath(method.toUpperCase(), path) === "command") return true;
   const workbench = aiWorkbenchPath(method, path);
-  if (workbench && !["conversation-list", "conversation-read", "task-list", "task-cockpit-metrics", "task-read", "scope-options", "task-scope-options"].includes(workbench)) return true;
+  if (workbench && !["chat-turn-read", "conversation-list", "conversation-read", "task-list", "task-cockpit-metrics", "task-read", "scope-options", "task-scope-options"].includes(workbench)) return true;
   if(method.toUpperCase()==="POST" && agentPath(path)!==null)return true;
   if (method === "POST" && isBrowserCapturePath(method, path)) return true;
   if (method.toUpperCase() === "GET" && path[3] === "by-key" && isBrowserCapturePath(method, path)) return true;
