@@ -179,8 +179,9 @@ function ModelSettings({ scope, name, configure, platform, credentials, channels
        canManageKeys={credentials} manageChannelsMemberId={channels?context.effectiveMemberId??undefined:undefined}
        onSelectModel={configure&&published.data&&!published.isError?(connection,reference)=>{
         const current=published.data?.revision;
-        const selection=draft?.selection??current?.payload.sharedModels??defaults;
-        setDraft({expectedRevision:current?.id??"NONE",selection:{...selection,text:reference,defaultChannel:connection.channel}});
+        const revision=current?.id??"NONE";
+        const selection=draft?.expectedRevision===revision?draft.selection:current?.payload.sharedModels??defaults;
+        setDraft({expectedRevision:revision,selection:{...selection,text:reference,defaultChannel:connection.channel}});
         openSettings({area:"enterprise",category:"text"},"text");
        }:undefined} />
        : <OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />}
