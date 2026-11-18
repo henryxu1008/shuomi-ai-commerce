@@ -134,24 +134,39 @@ func TestChatTurnManualBindingIsAtomicScopedAndExpiresOnlyBeforeBinding(t *testi
 
 func TestChatTurnRevisionReplaysTheOriginalSnapshotFromPostgreSQL(t *testing.T) {
 	ctx := context.Background()
-	store, err := New(workbenchDB(t))
+	db := workbenchDB(t)
+	store, err := New(db)
 	require.NoError(t, err)
 	scope := aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}
 	conversation, _, err := store.CreateScoped(ctx, scope, uuid.NewString(), aiworkbench.CreateInput{MemberID: "member"}, &aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "general"}, nil)
 	require.NoError(t, err)
 	ref := &aiworkbench.ChatSkillReference{Version: 2, Digest: strings.Repeat("a", 64)}
+	draft := aiworkbench.TitleSkillDraft{
+		Name: "title", DisplayName: "Title", Description: "Title rules",
+		Instructions: strings.Repeat("中", 16384),
+		Script:       &aiworkbench.TitleSkillScript{Description: "Format title"},
+	}
+	raw, err := json.Marshal(draft)
+	require.NoError(t, err)
+	draft.Script.Source = strings.Repeat("a", 65536-len(raw))
+	raw, err = json.Marshal(draft)
+	require.NoError(t, err)
+	require.Len(t, raw, 65536)
 	input := aiworkbench.ChatTurnInput{
 		Content: "保留型号",
 		Skill:   ref,
 		Revision: &aiworkbench.ChatTurnRevision{
 			Root:         uuid.NewString(),
 			BaseRevision: uuid.NewString(),
-			Snapshot:     json.RawMessage(`{"name":"title","displayName":"Title","description":"Title rules","instructions":"Keep model number.","script":{"description":"Format title","source":"print('ok')"}}`),
+			Snapshot:     raw,
 		},
 	}
 	key := uuid.NewString()
 	envelope := aiworkbench.ChatTurnEnvelope{Version: 1, Input: input, Creator: ref, GeneralScope: true}
 	command, _, err := store.BeginChatTurn(ctx, scope, conversation.ID, key, envelope, aiworkbench.StoreRouteRequest{MemberID: "member", Content: input.Content})
+	var storedSize int
+	require.NoError(t, db.Raw("SELECT octet_length((turn_input->'input'->'revision'->'snapshot')::text) FROM ai_workbench.commands WHERE idempotency_key=?", key).Scan(&storedSize).Error)
+	require.Greater(t, storedSize, 65536, "JSONB rendering adds whitespace to a valid snapshot")
 	require.NoError(t, err)
 	require.Equal(t, input.Revision.Snapshot, command.Envelope.Input.Revision.Snapshot)
 	require.Equal(t, "PENDING", command.ToolState)
@@ -160,7 +175,7 @@ func TestChatTurnRevisionReplaysTheOriginalSnapshotFromPostgreSQL(t *testing.T) 
 	require.True(t, found)
 	require.Equal(t, command.Route.Fingerprint, replayed.Route.Fingerprint)
 	changed := *input.Revision
-	changed.Snapshot = json.RawMessage(strings.ReplaceAll(string(changed.Snapshot), "Keep model number.", "Change model number."))
+	changed.Snapshot = json.RawMessage(strings.ReplaceAll(string(changed.Snapshot), "Title rules", "Other rules"))
 	input.Revision = &changed
 	_, _, err = store.ReplayChatTurn(ctx, scope, conversation.ID, key, "member", input)
 	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)

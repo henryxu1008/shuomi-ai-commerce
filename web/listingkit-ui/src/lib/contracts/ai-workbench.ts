@@ -119,7 +119,9 @@ export const aiTitleSkillDraft = z.strictObject({
   script: z.strictObject({description: z.string().max(1536), source: z.string().max(16384)}).optional(),
 });
 const aiChatSkillReference=z.strictObject({version:z.union([z.literal(1),z.literal(2)]),digest:z.string().regex(/^[a-f0-9]{64}$/)});
-export const aiChatTurnBody=z.strictObject({content:aiTitleMessageBody.shape.content,creatorOnly:z.literal(true).optional(),skill:aiChatSkillReference.optional(),revision:z.strictObject({root:id,baseRevision:id,snapshot:aiTitleSkillDraft}).optional()}).refine(value=>value.creatorOnly ? !value.skill&&!value.revision : !value.revision||value.skill?.version===2);
+const aiChatSkillRevisionSnapshot=z.strictObject({root:id,baseRevision:id,snapshot:aiTitleSkillDraft});
+export const aiChatSkillRevision=z.strictObject({skill:aiChatSkillReference.extend({version:z.literal(2)}),revision:aiChatSkillRevisionSnapshot});
+export const aiChatTurnBody=z.strictObject({content:aiTitleMessageBody.shape.content,creatorOnly:z.literal(true).optional(),skill:aiChatSkillReference.optional(),revision:aiChatSkillRevisionSnapshot.optional()}).refine(value=>value.creatorOnly ? !value.skill&&!value.revision : !value.revision||value.skill?.version===2);
 const authoringPreviewFields = {
   ...aiSkillAuthoringQuote.shape,
   root: id.optional(), baseRevision: id.optional(), snapshot: aiTitleSkillDraft.optional(),
@@ -136,6 +138,13 @@ const authoringJob = z.strictObject({
   savePending: z.boolean(), savedSkillId: id.nullable(),
 });
 export type AITitleSkillDraft = z.infer<typeof aiTitleSkillDraft>;
+
+// Match the canonical Go JSON sent to the fingerprint and storage layer.
+export function titleSkillSnapshotFits(snapshot: AITitleSkillDraft): boolean {
+  const canonical = JSON.stringify(snapshot).replace(/[<>&\u2028\u2029]/g, value => "\\u" + value.charCodeAt(0).toString(16).padStart(4, "0"));
+  return new TextEncoder().encode(canonical).length <= 64 * 1024;
+}
+
 export type AISkillAuthoringJob = z.infer<typeof authoringJob>;
 export type AISkillAuthoringChoice = NonNullable<z.infer<typeof authoringCatalog>["skill"]>;
 const authoringCatalog = z.strictObject({

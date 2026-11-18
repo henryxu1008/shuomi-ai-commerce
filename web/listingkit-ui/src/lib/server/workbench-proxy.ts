@@ -1228,7 +1228,7 @@ export async function buildWorkbenchBrowserResponse(
       if(!contract.startsWith("ai-schedule-")||contract==="ai-schedule-quote"||payload.commandAccepted!==false)return unavailable();
       response=new NextResponse(JSON.stringify({...await response.json(),commandAccepted:false}),{status:response.status,headers:response.headers});
     }
-    if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)){
+    if(payload.messageAccepted===false&&(contract==="ai-message"&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)||contract==="ai-chat-turn-submit"&&code==="INVALID_REQUEST")){
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
     if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){

@@ -34,10 +34,10 @@ it("binds Chat turns to the original actor and key, and keeps history and recove
   expect((foreign as Response).status).toBe(409);
  }finally{vi.unstubAllEnvs();}
 });
-it("preserves unaccepted-message evidence only on the message error contract",async()=>{
- for(const contract of ["ai-message","ai-confirm"] as const){
+it("preserves unaccepted-message evidence only on the corresponding submit error contracts",async()=>{
+ for(const contract of ["ai-message","ai-chat-turn-submit","ai-chat-turn-recover","ai-confirm"] as const){
   const response=await buildWorkbenchBrowserResponse(Response.json({code:"INVALID_REQUEST",messageAccepted:false},{status:400}),contract);
-  expect((await response.json()).messageAccepted).toBe(contract==="ai-message"?false:undefined);
+  expect((await response.json()).messageAccepted).toBe(contract==="ai-message"||contract==="ai-chat-turn-submit"?false:undefined);
  }
 });
 

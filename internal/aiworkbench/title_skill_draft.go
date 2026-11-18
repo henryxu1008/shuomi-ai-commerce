@@ -2,9 +2,14 @@ package aiworkbench
 
 import (
 	"encoding/json"
+	"fmt"
 
 	strict "sigs.k8s.io/json"
 )
+
+const maxTitleSkillSnapshotBytes = 64 << 10
+
+var ErrTitleSkillSnapshotTooLarge = fmt.Errorf("title skill snapshot exceeds the byte limit: %w", ErrInvalid)
 
 type TitleSkillDraft struct {
 	Name         string            `json:"name"`
@@ -28,8 +33,11 @@ func CanonicalTitleSkillSnapshot(snapshot json.RawMessage) (json.RawMessage, err
 		return nil, ErrInvalid
 	}
 	canonical, err := json.Marshal(draft)
-	if err != nil || len(canonical) > 65536 {
+	if err != nil {
 		return nil, ErrInvalid
+	}
+	if len(canonical) > maxTitleSkillSnapshotBytes {
+		return nil, ErrTitleSkillSnapshotTooLarge
 	}
 	return canonical, nil
 }
