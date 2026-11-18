@@ -24,7 +24,7 @@ import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
 import {ChatSkillAuthoring, ChatSkillDrawer} from "./chat-skill-authoring";
 import type {AISkillAuthoringChoice} from "@/lib/contracts/ai-workbench";
-import {ChatProjectCreateCard,ProjectSkillPicker,readProjectWorkScope,useChatProjectCreation,type ProjectSkill} from "./chat-project-actions";
+import {ChatProjectCreateCard,readProjectWorkScope,useChatProjectCreation,type ProjectSkill} from "./chat-project-actions";
 import {ChatTaskSelection} from "./chat-task-selection";
 import {ChatContextPicker} from "./chat-context-picker";
 import {WorkbenchViewNav,workbenchViewPage} from "../console/workbench-view-nav";
@@ -236,9 +236,8 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     } }
     finally { if (!controller.signal.aborted) setCreating(false); abort.current = null; }
   }
-  const visibleSkill = projectSaveLocked ? "create-project" : skill;
+  const visibleSkill = projectSaveLocked || creation.projectId ? "create-project" : skill;
   const changeSkill = (next:ProjectSkill) => {setSkill(next);creation.reset();};
-  const projectControls = projectAvailable ? <ProjectSkillPicker value={visibleSkill} onChange={changeSkill} disabled={creating||Boolean(createIntent)||projectSaveLocked} canCreate={canCreateProject} canExecute={canExecuteProject}/> : null;
   const authoringControls = canUse ? <>
     <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={setAuthoringChoice} />
     {authoringChoice && <div className={styles.selectedSkill}>
@@ -275,11 +274,10 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
         {pendingError ? <p role="status">{pendingError}</p> : null}
         {new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 ? <p role="status">需求不能超过 8192 字节。</p> : null}
         <div className={styles.composeFooter}>
-          {!recheckStore || projectControls || authoringControls ? <div className={styles.contextControls}>
+          {!recheckStore || authoringControls ? <div className={styles.contextControls}>
             {!recheckStore ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} baseStoreName={projectEntry?undefined:resolvedScope?.scope.storeId?resolvedScope.storeName:undefined} onChange={setStoreState}/> : null}
             {authoringControls}
           </div> : null}
-          {projectControls}
           <div className={styles.voiceControl}><ChatVoiceInput identity={JSON.stringify([scope.userId,scope.organizationId,scopeContext])} disabled={creating || !!createIntent || draftReady !== draftKey || invalidContext} onText={insertVoiceText} onActiveChange={setVoiceActive} /></div>
           {canUse && (visibleSkill === "" || projectEntry && visibleSkill === "project-task" || createIntent) ? <Button size={projectLaunch?"default":"icon"} onClick={()=>void create()}
             aria-label={creating ? "正在创建" : createIntent ? "核对原创建请求" : projectLaunch ? "开启项目会话" : "开始对话"}
@@ -290,7 +288,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
         {projectLaunch && !createIntent ? <p>{recheckStore?"开启会话后，请重新选择本次任务店铺。":"核对项目和关联店铺后开启会话。进入后再选择商品并生成方案。"}</p> : null}
         {projectCard}
       </> : <>
-        {projectAvailable || authoringControls ? <div className={styles.contextControls}>{projectAvailable && <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} onChange={setStoreState}/>} {authoringControls}{projectControls}</div> : null}
+        {projectAvailable || authoringControls ? <div className={styles.contextControls}>{projectAvailable && <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} onChange={setStoreState}/>} {authoringControls}</div> : null}
         {projectCard}
         {canUse && (visibleSkill === "" || createIntent) ? <>{fixedScopeEnabled ? <WorkScopePicker key={scopeGeneration} scope={scope} authorizationKey={authorizationKey} disabled={creating || !!createIntent} selected={selectedScope} onSelect={setSelectedScope} /> : null}<Button onClick={()=>void create()} disabled={creating || fixedScopeEnabled && !selectedScope && !createIntent}>{creating ? "正在创建…" : createIntent ? "核对原创建请求" : "新建会话"}</Button></> : null}
       </> : <p>当前企业仅可查看已有会话。</p>} /> :
@@ -333,7 +331,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const canExecuteProject = projectAvailable && contentTasks && canPlan && execution.aiWorkbenchExecutionReadiness==="AVAILABLE" && execution.permissions.includes("workbench.project.read");
   const creation = useChatProjectCreation(scope,"conversation:"+id,Boolean(canCreateProject));
   const projectSaveLocked = creation.busy || Boolean(creation.pending);
-  const visibleSkill = projectSaveLocked ? "create-project" : skill;
+  const visibleSkill = projectSaveLocked || creation.projectId ? "create-project" : skill;
   const projectTask = visibleSkill === "project-task" && Boolean(projectAvailable);
   const canRoute=canUse && execution.aiWorkbenchStoreRouteReadiness==="AVAILABLE";
   const [subject,setSubject]=useState<AITaskSubject|null>(null);
@@ -681,7 +679,6 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {(projectAvailable || contentTasks) && !pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
       {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} onSelect={chosen=>{setAuthoringChoice(chosen);setShowAuthoring(true);}} onResume={()=>setShowAuthoring(true)} />}
-      {projectAvailable && <ProjectSkillPicker value={visibleSkill} onChange={next=>{invalidateProposal();setSkill(next);creation.reset();}} disabled={pending||Boolean(pendingMessage)||projectSaveLocked||awaitingConfirm} canCreate={canCreateProject} canExecute={canExecuteProject}/>}
     </div> : null}
     {projectAvailable && visibleSkill==="create-project" && canCreateProject ? <ChatProjectCreateCard creation={creation} store={conversationStore} canCreate={canCreateProject} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClose={()=>{setSkill("");creation.reset();}}/> : null}
     {projectTask ? <Card className="grid gap-3 p-4">

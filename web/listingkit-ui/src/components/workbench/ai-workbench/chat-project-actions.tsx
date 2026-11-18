@@ -4,7 +4,6 @@ import Link from "next/link";
 import {useEffect,useRef,useState} from "react";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
-import {AccountDialog} from "../account/account-dialog";
 import {ProjectFields} from "../project-center/project-fields";
 import {AIWorkbenchError,requestAIWorkbench,type AIScope} from "@/lib/api/ai-workbench";
 import {ProjectError,projectRequest} from "@/lib/api/project-center";
@@ -13,42 +12,6 @@ import {isAcquisitionUUID} from "@/lib/contracts/product-acquisition";
 import {verifyChatStoreChoice,type ChatStoreChoice,type ChatStoreState} from "./chat-store-picker";
 
 export type ProjectSkill = "" | "create-project" | "project-task";
-
-export function ProjectSkillPicker({ value, onChange, disabled, canCreate, canExecute }: {
-  value: ProjectSkill;
-  onChange: (value: ProjectSkill) => void;
-  disabled: boolean;
-  canCreate: boolean;
-  canExecute: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const skills = [
-    { id: "create-project", label: "创建项目", enabled: canCreate },
-    { id: "project-task", label: "执行项目任务", enabled: canExecute },
-  ] as const;
-  const selected = skills.find(skill => skill.id === value);
-
-  function select(next: ProjectSkill) {
-    if (next !== value) onChange(next);
-    setOpen(false);
-  }
-
-  return <>
-    <Button ref={trigger} variant="outline" disabled={disabled} aria-haspopup="dialog" aria-expanded={open}
-      aria-label={selected ? `项目操作，当前：${selected.label}` : undefined} onClick={() => setOpen(true)}>
-      {selected?.label ?? "项目操作"}
-    </Button>
-    {open ? <AccountDialog title="项目操作" drawer onClose={() => setOpen(false)} returnFocusRef={trigger}>
-      <div className="grid gap-3">
-        {skills.map(skill => <Button key={skill.id} variant={skill.id === value ? "secondary" : "outline"}
-          className="min-h-12 justify-start" disabled={disabled || !skill.enabled} aria-pressed={skill.id === value}
-          onClick={() => select(skill.id)}>{skill.label}</Button>)}
-        {selected ? <Button variant="ghost" disabled={disabled} onClick={() => select("")}>取消项目操作</Button> : null}
-      </div>
-    </AccountDialog> : null}
-  </>;
-}
 
 export async function readProjectWorkScope(scope:AIScope,projectId:string,signal:AbortSignal) {
   const query = new URLSearchParams({kind:"project",projectId});

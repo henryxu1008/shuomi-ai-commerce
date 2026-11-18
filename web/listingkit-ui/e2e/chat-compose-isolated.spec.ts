@@ -103,7 +103,9 @@ test("authoring confirms the quote and edited save, then recovers both original 
   const skill = (await skillButton.boundingBox())!;
   expect(skill.x).toBeGreaterThanOrEqual(store.x+store.width);
   expect(Math.abs(skill.y-store.y)).toBeLessThan(1);
-  await expect(page.getByRole("button",{name:"项目操作",exact:true})).toBeVisible();
+  const send = (await page.getByRole("button",{name:"开始对话",exact:true}).boundingBox())!;
+  expect(Math.abs(skill.y-send.y)).toBeLessThan(4);
+  await expect(page.getByRole("button",{name:/项目操作/})).toHaveCount(0);
   await skillButton.click();
   await page.getByRole("dialog",{name:"选择技能"}).getByRole("button",{name:/创建技能/}).click();
   await expect(page.getByRole("button",{name:/整理商品内容/})).toHaveCount(0);
@@ -263,7 +265,7 @@ test("routes a store question once and hides cached totals after revoked access"
  await expect(page.getByText("当前可查看 3 家店铺。")).toHaveCount(0);await expect(page.getByText("当前无权查看或店铺数据暂不可用。")).toBeVisible();
 });
 
-test("creates a project and reopens its rebound Chat with a rechecked store",async({page,context,baseURL})=>{
+test("keeps project operations out of Chat and resumes its rebound conversation",async({page,context,baseURL})=>{
   const origin=baseURL!,issuer="https://chat-compose.invalid",client="chat-compose-fixture";
   const namespace=createHash("sha256").update(JSON.stringify([origin,issuer,client])).digest("hex").slice(0,32);
   const name="shuomi."+namespace+".session-token";
@@ -321,38 +323,14 @@ test("creates a project and reopens its rebound Chat with a rechecked store",asy
   await page.setViewportSize({width:390,height:844});
   await page.goto("/workbench/ai/chat/new");
   const storeTrigger = page.getByRole("button",{name:"选择店铺",exact:true});
-  const skillTrigger = page.getByRole("button",{name:"项目操作",exact:true});
-  await expect(skillTrigger).toBeVisible();
-  const storeBounds = (await storeTrigger.boundingBox())!;
-  const skillBounds = (await skillTrigger.boundingBox())!;
-  expect(skillBounds.x).toBe(storeBounds.x);
-  expect(skillBounds.y).toBeGreaterThanOrEqual(storeBounds.y+storeBounds.height);
-  await storeTrigger.click();
-  await page.getByRole("button",{name:"甲店",exact:true}).click();
-  await skillTrigger.click();
-  const skills = page.getByRole("dialog",{name:"项目操作"});
-  await expect(skills).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(skills).toBeHidden();
-  await expect(skillTrigger).toBeFocused();
-  await skillTrigger.click();
-  await skills.getByRole("button",{name:"创建项目",exact:true}).click();
-  await expect(skills).toBeHidden();
-  await expect(page.getByRole("button",{name:"项目操作，当前：创建项目",exact:true})).toBeFocused();
-  await page.getByLabel("项目名称").fill("对话新建项目");
-  await page.getByLabel("项目目标").fill("准备商品英文描述");
-  await page.getByRole("button",{name:"创建项目",exact:true}).click();
-  await expect(page.getByRole("link",{name:"查看项目"})).toHaveAttribute("href","/workbench/ai/projects/"+projectId);
-  expect(projectsSaved).toBe(1);
+  await expect(storeTrigger).toBeVisible();
+  await expect(page.getByRole("button",{name:/项目操作/})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"创建项目",exact:true})).toHaveCount(0);
+  expect(projectsSaved).toBe(0);
   expect(conversationsCreated).toBe(0);
   planningReady=true;
   await page.goto("/workbench/ai/chat/"+oldId+"?projectTask=1");
-  await page.getByRole("button",{name:"项目操作，当前：执行项目任务",exact:true}).click();
-  await skills.getByRole("button",{name:"取消项目操作",exact:true}).click();
-  await expect(page.getByRole("button",{name:"在新对话中继续"})).toBeHidden();
-  await skillTrigger.click();
-  await skills.getByRole("button",{name:"执行项目任务",exact:true}).click();
-  await expect(skills).toBeHidden();
+  await expect(page.getByRole("button",{name:/项目操作/})).toHaveCount(0);
   await page.getByLabel("需求").fill("这是尚未提交的草稿");
   await page.reload();
   await expect(page.getByLabel("需求")).toHaveValue("这是尚未提交的草稿");

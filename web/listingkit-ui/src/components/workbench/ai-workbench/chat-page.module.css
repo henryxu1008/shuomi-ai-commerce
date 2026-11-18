@@ -137,7 +137,6 @@
   .composeMain { gap: 1rem; }
   .composePanel { padding: .875rem; }
   .composeHeading p { font-size: .8125rem; }
-  .composeFooter > .contextControls { flex-basis: 100%; }
   .composeFooter > .voiceControl { margin-left: auto; }
   .composeMain > .viewNavigation { width: 100%; justify-content: space-around; }
   .composeMain > .viewNavigation a { padding-inline: .5rem; font-size: .75rem; }

@@ -1120,7 +1120,7 @@ const projectStore = (storeId: string) => ({
   storeName: storeId === firstStore ? "甲店" : "乙店",
 });
 
-it("creates a project in Chat without a working model, and recovers the original save", async () => {
+it("hides project operations while recovering the original project save without a model", async () => {
   fixture.context.projectCenterAvailable = true;
   fixture.context.permissions.push("workbench.project.manage");
   fixture.context.aiWorkbenchPlanningReadiness = "NEEDS_CONFIGURATION";
@@ -1128,22 +1128,17 @@ it("creates a project in Chat without a working model, and recovers the original
   fixture.request.mockResolvedValue({options:[{scope:{version:"workbench-scope-v1",kind:"store",storeId:firstStore},confirmation:scopeConfirmation,storeName:"甲店"}],next:"",incomplete:false});
   fixture.projectRequest.mockRejectedValueOnce(new ProjectError("OUTCOME_UNKNOWN"))
     .mockResolvedValueOnce({id:projectId,revision:1,replayed:true});
+  const original={key:operationId,body:{title:"夏季商品",goal:"完善英文描述",kind:"STORE_OPERATIONS",dueDate:"",storeId:firstStore},owner:{userId:"user-a",organizationId:"org-a"},context:"new:general"};
+  sessionStorage.setItem('ai-workbench:project-create:["user-a","org-a","new:general"]',JSON.stringify(original));
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
-  fireEvent.click(screen.getByRole("button",{name:"选择店铺"}));
-  fireEvent.click(await screen.findByRole("button",{name:"甲店"}));
-  const skillTrigger = screen.getByRole("button",{name:"项目操作"});
-  fireEvent.click(skillTrigger);
-  const skills = screen.getByRole("dialog",{name:"项目操作"});
-  expect(within(skills).getByRole("button",{name:"执行项目任务"})).toBeDisabled();
-  fireEvent.click(within(skills).getByRole("button",{name:"创建项目"}));
-  expect(skills).not.toBeInTheDocument();
-  expect(skillTrigger).toHaveTextContent("创建项目");
-  fireEvent.change(screen.getByLabelText("项目名称"), {target:{value:"夏季商品"}});
-  fireEvent.change(screen.getByLabelText("项目目标"), {target:{value:"完善英文描述"}});
-  const save = screen.getByRole("button",{name:"创建项目"});
+  expect(screen.queryByRole("button",{name:/项目操作/})).toBeNull();
+  expect(fixture.projectRequest).not.toHaveBeenCalled();
+  const save = await screen.findByRole("button",{name:"核对原创建项目请求"});
   await waitFor(()=>expect(save).toBeEnabled());
   fireEvent.click(save);
-  fireEvent.click(await screen.findByRole("button",{name:"核对原创建项目请求"}));
+  await screen.findByText("创建结果待确认，请核对原请求。");
+  await waitFor(()=>expect(screen.getByRole("button",{name:"核对原创建项目请求"})).toBeEnabled());
+  fireEvent.click(screen.getByRole("button",{name:"核对原创建项目请求"}));
   expect(await screen.findByRole("link",{name:"查看项目"})).toHaveAttribute("href", `/workbench/ai/projects/${projectId}`);
   expect(fixture.projectRequest.mock.calls[0][4].body).toEqual({title:"夏季商品",goal:"完善英文描述",kind:"STORE_OPERATIONS",dueDate:"",storeId:firstStore});
   expect(fixture.projectRequest.mock.calls[0][4]).toEqual(fixture.projectRequest.mock.calls[1][4]);
