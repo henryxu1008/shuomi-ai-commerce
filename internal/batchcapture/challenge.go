@@ -44,7 +44,8 @@ const (
 
 // riskControlMarkers are the response/body markers this repository has already
 // measured on 1688 risk-control pages. See
-// docs/architecture/1688-context-locator.md:181,
+// https://github.com/henryxu1008/shuomi-ai-commerce/blob/5bcd7958ab672b5baf341245d31dbb746c6ea35d/docs/architecture/1688-context-locator.md#L181
+// (historical measurement; current locator contract: docs/architecture/domains/sourcing/1688-context-locator.md),
 // which records real pages being marked as `punish?x5secdata=...` after repeated
 // automated navigation, and the design doc's own note that anonymous requests
 // hit risk control returning HTTP 200 with Bxpunish/x5secdata and no product
