@@ -10,7 +10,7 @@
 | 项目中心组织现有任务和资料 | [Project Center](../../ai-workbench-project-center.md)、[固定工作范围](../../ai-workbench-work-scope.md) | `internal/aiworkbench/projectcenter`，私有项目链接不扩权 |
 | 在 Chat 创建个人标题技能、选择已启用的标题技能或执行项目操作 | [硕米 Chat 选择 Agent 技能与项目操作](../../chat-project-actions.md) | Skill 持有技能版本，AI Workbench 持有创作命令、会话与任务，标题运行与计量归原服务，Project Center 持有项目与关系 |
 | 任务中心查看已有 BusinessTask / AgentRun、提案和审核 | [原生运行投影](../../task-center-native-run-projection.md)、[任务中心接线](../../../engineering/unified-task-center.md) | Workbench 只作授权投影；原运行、Review/Apply 与 Temporal 保持各自 Owner |
-| 新建店铺经营日报定时任务，控制已有计划 | [定时计划合同](../../ai-workbench-scheduled-tasks.md)、[店铺日报](../../scheduled-store-daily-report.md)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)、[用户操作](../../../operations/ai-workbench-scheduled-tasks.md) | `internal/aiworkbench` 的计划/occurrence，Temporal 原触发，`internal/reportcenter` 保存日报 |
+| 新建店铺经营日报定时任务，控制已有计划 | [定时计划合同](../../ai-workbench-scheduled-tasks.md)、[店铺日报](../../scheduled-store-daily-report.md)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)、[用户操作](../../../operations/user-guides/ai-workbench-scheduled-tasks.md) | `internal/aiworkbench` 的计划/occurrence，Temporal 原触发，`internal/reportcenter` 保存日报 |
 | 保存、收藏和下载个人报告 | [个人报告合同](../../ai-workbench-reports.md)、[报告交接](../../../engineering/report-center-runtime-handoff.md) | `internal/reportcenter` 的不可变报告/收藏，不是来源事实或审核 |
 | Agent 能否调用 Tool、选择模型与预算 | [Commerce Tool Foundation](../../commerce-tool-foundation.md)、[AI Capability](../../ai-capability-platform.md)、[模型价格路由](../../model-route-pricing-management.md) | `internal/commercetool`、`internal/aicapability`、原 Model/Resource/Review owners |
 
