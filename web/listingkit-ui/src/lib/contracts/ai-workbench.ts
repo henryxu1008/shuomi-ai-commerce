@@ -81,7 +81,7 @@ const aiTitleMessageBody = z.strictObject({
   targetPlatform: z.enum(["shein", "temu", "amazon"]), templateId: id.optional(),
   templateRevision: z.string().regex(/^[1-9][0-9]*$/).optional(), knowledgeBaseId: id.optional(), storeChoice:aiStoreChoice.optional(),
 });
-export const aiTextSkillRef = z.strictObject({id, version: z.number().int().positive(), digest: z.string().regex(/^[a-f0-9]{64}$/)});
+const aiTextSkillRef = z.strictObject({id, version: z.number().int().positive(), digest: z.string().regex(/^[a-f0-9]{64}$/)});
 export type AITextSkillRef = z.infer<typeof aiTextSkillRef>;
 const aiBusinessMessageBody=z.union([aiTitleMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,taskSelection:aiTaskSelection,templateId:id.optional(),templateRevision:aiTitleMessageBody.shape.templateRevision,knowledgeBaseId:id.optional(),storeChoice:aiStoreChoice.optional()})]).refine(value=>Boolean(value.templateId)===Boolean(value.templateRevision));
 export const aiMessageBody=z.union([aiBusinessMessageBody,z.strictObject({content:aiTitleMessageBody.shape.content,textSkill:aiTextSkillRef})]);
