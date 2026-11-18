@@ -65,6 +65,10 @@ func VerifySchema(ctx context.Context, db *gorm.DB, imageOptions ...bool) error 
 		}
 		_ = rows.Close()
 	}
+	return verifySelectionConstraints(ctx, db, requireOptions)
+}
+
+func verifySelectionConstraints(ctx context.Context, db *gorm.DB, requireOptions bool) error {
 	// A partial/drifted schema must not silently bypass scoped CAS or history
 	// identity. Installation remains the only DDL path; startup only inspects.
 	for _, constraint := range []struct{ table, name, definition string }{

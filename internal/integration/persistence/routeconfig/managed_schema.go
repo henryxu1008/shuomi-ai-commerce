@@ -8,10 +8,36 @@ import (
 	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
+// VerifyManagedChannelPrerequisites checks existing selection metadata and the
+// roles that consume it. The separate schema owner does not read old rows.
+func VerifyManagedChannelPrerequisites(ctx context.Context, db *gorm.DB) error {
+	if !validManagedSchemaContext(ctx, db) || channelstore.VerifyMetadataProjection(ctx, db) != nil {
+		return d.ErrUnavailable
+	}
+	if err := verifySelectionConstraints(ctx, db, false); err != nil {
+		return err
+	}
+	var ok bool
+	check := db.WithContext(ctx).Raw(`SELECT count(*)=2 AND bool_and(
+ has_schema_privilege(oid,'public','USAGE')
+ AND has_table_privilege(oid,'public.ai_route_config_current','SELECT')
+ AND has_table_privilege(oid,'public.ai_route_config_revisions','SELECT')
+ AND has_table_privilege(oid,'public.ai_channel_credential_bindings','SELECT'))
+ FROM pg_roles WHERE rolname IN ('product_agent_runtime','model_route_config_writer')`).Scan(&ok)
+	if check.Error != nil || !ok {
+		return d.ErrUnavailable
+	}
+	return nil
+}
+
+func validManagedSchemaContext(ctx context.Context, db *gorm.DB) bool {
+	return ctx != nil && ctx.Err() == nil && db != nil && db.Dialector != nil && db.Dialector.Name() == "postgres"
+}
+
 // InstallManagedChannels runs only from the explicit Run DB owner command.
 // The exact original owner and roles remain responsible for their own objects.
 func InstallManagedChannels(ctx context.Context, db *gorm.DB) error {
-	if ctx == nil || ctx.Err() != nil || db == nil || db.Dialector.Name() != "postgres" {
+	if !validManagedSchemaContext(ctx, db) {
 		return d.ErrUnavailable
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

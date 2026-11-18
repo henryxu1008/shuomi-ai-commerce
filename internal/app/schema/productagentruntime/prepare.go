@@ -24,7 +24,7 @@ type Result struct {
 
 func PrepareManagedModelChannels(ctx context.Context, db *gorm.DB) (Result, error) {
 	return prepare(ctx, db, "managed-model-channels", "product_agent_owner", func(tx *gorm.DB, result *Result) error {
-		if err := routestore.VerifySchema(ctx, tx); err != nil {
+		if err := routestore.VerifyManagedChannelPrerequisites(ctx, tx); err != nil {
 			return err
 		}
 		if err := routestore.InstallManagedChannels(ctx, tx); err != nil {
