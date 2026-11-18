@@ -260,7 +260,7 @@ func TestCurrentDocsDoNotReferenceRetiredFrameworkEntrypoints(t *testing.T) {
 }
 
 func TestHTTPAPIAssemblyBoundaryDocumentDefinesCurrentOwnership(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "httpapi-assembly-boundaries.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "platform", "runtime", "httpapi-assembly-boundaries.md"), []string{
 		"cmd/* -> internal/app/httpapi -> internal/*/httpapi -> domain service/runtime/contracts",
 		"composition root", "route registration", "不导入 `internal/app/httpapi`", "RunOptions",
 		"具体权限与原作用域", "denied/unavailable", "不把 DDL", "depguard: domain_app_httpapi_boundaries",
@@ -403,7 +403,7 @@ func assertMarkdownReferencesExistingDocuments(t *testing.T, sourcePath string, 
 }
 
 func TestAppAssemblyBoundaryDocumentDefinesStableAssemblyVocabulary(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "app-assembly-boundaries.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "platform", "runtime", "app-assembly-boundaries.md"), []string{
 		"repository-wide entrypoint", "default ownership and dependency direction", "Assembly Vocabulary",
 		"build / initialize", "register", "start", "coordinate", "`bootstrap` builds and registers",
 		"`runner` starts and supervises", "`consumer` assembles and coordinates", "domain packages cannot import app",
