@@ -30,12 +30,12 @@
 
 ## 采集、商品与店铺
 
-- [Amazon 单商品插件交接](amazon-browser-capture-runtime-handoff.md)
+- [Amazon 单商品插件交接](integration/amazon-browser-capture-runtime-handoff.md)
 - [Shein 只读诊断 BFF 与隔离联调](shein-diagnostic-bff-fixture.md)
 - [SHEIN 资料诊断页面与受控浏览器验收](shein-diagnostic-ui.md)
 - [任务中心：本地资料准备工作记录](shein-records-ui.md)
 - [SRC-2B1 public 1688 acquisition](1688-public-acquisition.md)
-- [Store Center 商品与订单只读首版接线](store-observations-integration-handoff.md)
+- [Store Center 商品与订单只读首版接线](integration/store-observations-integration-handoff.md)
 - [供应市场 v1 正常程序接线](integration/supply-market-runtime-handoff.md)
 
 <a id="workspace"></a>
