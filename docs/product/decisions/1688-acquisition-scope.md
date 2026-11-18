@@ -1,8 +1,8 @@
 # Product Decision: 1688 在线采集完整对齐 Figma
 
-> **当前适用性说明（2026-11-17）：** 本文记录 **2026-10-11 1688 多模式采集与供应市场原阶段**的产品决定，继续作为当时已批准业务需求的证据；标题和下文“当前 Figma Authority / Figma 规定页面交互”等是**历史阶段描述**，已被 [2026-11-05 撤销 Figma UI/IA 权威](final-ui-ia-authority.md)及 [2026-11-11 在线采集统一二级入口](final-ui-ia-authority.md)的后续决定覆盖。现行界面按用户任务与已有合同设计，不从旧节点恢复布局或三级导航。
+> **当前适用性说明（2026-11-17）：** 本文记录 **2026-10-11 1688 多模式采集与供应市场原阶段**的产品决定，继续作为当时已批准业务需求的证据；标题和下文“当前 Figma Authority / Figma 规定页面交互”等是**历史阶段描述**，已被 [2026-11-05 撤销 Figma UI/IA 权威](../final-ui-ia-authority.md)及 [2026-11-11 在线采集统一二级入口](../final-ui-ia-authority.md)的后续决定覆盖。现行界面按用户任务与已有合同设计，不从旧节点恢复布局或三级导航。
 >
-> **采集方式区别：** [PR #1193](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1193) 已退役 1688 静态 HTTP 采集叶能力，新的服务端匿名采集仅可使用**明确配置的现行浏览器 collector**；缺配置时真实展示不可用，不能隐式 fallback。采集计划、多行/按页/关键词等功能的实际启用、费用、权限与真实来源可用性均以当前模块和实例证据为准，不能从本历史规划自动推断已交付。来源归属参见[来源交接](product-sourcing-handoff.md)和[现行采集架构](../architecture/1688-server-public-browser-acquisition.md)。
+> **采集方式区别：** [PR #1193](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1193) 已退役 1688 静态 HTTP 采集叶能力，新的服务端匿名采集仅可使用**明确配置的现行浏览器 collector**；缺配置时真实展示不可用，不能隐式 fallback。采集计划、多行/按页/关键词等功能的实际启用、费用、权限与真实来源可用性均以当前模块和实例证据为准，不能从本历史规划自动推断已交付。来源归属参见[来源交接](../product-sourcing-handoff.md)和[现行采集架构](../../architecture/1688-server-public-browser-acquisition.md)。
 >
 > 下方原文按批准时点保留；其中的历史提议与当时未实现声明不授权重新开发已退休实现，也不改变 SRC/Catalog、Resource、权限、幂等和 UNKNOWN 合同。
 
@@ -12,7 +12,7 @@ Status: **APPROVED / ACTIVE**
 
 用户明确选择 Amazon / 1688 插件采集优先，先做上架资料字段对照设计，服务端
 采集新增工作暂缓，先不开发。当前范围见 [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)
-及[插件字段设计](plugin-capture-listing-fields.md)。这不撤回下方既有合同和历史证据，
+及[插件字段设计](../plugin-capture-listing-fields.md)。这不撤回下方既有合同和历史证据，
 不关闭运行服务、不迁移/清理数据，也不自动授权插件实现、合并或部署；后续不得仅凭
 下方历史阶段批准继续本批服务端新增研发。其它会话已单独获准的本地调试不由此文接管。
 
