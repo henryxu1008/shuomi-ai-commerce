@@ -1,5 +1,9 @@
 # 指定企业平台草稿质检：隔离离线试用装配
 
+> 适用时点与阅读入口：本文保留 #611/#617 的隔离离线试用设计。原[私有交付合同](private-agent-delivery.md)消费 Listing 原生 TargetRecord，报告仍归 customization；它不是 Catalog 商品 owner，也不是[受控本地平台草稿](../../controlled-local-platform-draft.md)的创建/带入/保存装配。后者的共存增量不取消本模式只读七项 GET、精确 scope、互斥配置及无官方调用边界。
+
+> 历史执行：[PR #617](https://github.com/henryxu1008/shuomi-ai-commerce/pull/617)已记录获准的 native 测试草稿准备、真实报告保存/刷新及整体停启读回，也已按准确候选合并；这些事实不由下文早期 merge NOT_AUTHORIZED 等状态否定。真实 SHEIN、客户及用户验收仍按原证据分别判断，历史授权不授予本轮准备、安装、启停、报告保存或部署权限。Figma 仅作历史流程参考，当前 UI 规则见[最新用户决定](../../../product/final-ui-ia-authority.md)，操作边界见[原交接指南](../../../operations/user-guides/agent-customization-handoff.md)。
+
 Status: IMPLEMENTATION_READY. Independent review /root/architecture_review bound to design 0657282dcf541415695d47adbb621e5dbb090ec4, no BLOCKER. Issue #611, same Delivery Batch / PR #617. Listed IMPLEMENTATION_TEST items are required before completion.
 
 ## Product outcome and authority
