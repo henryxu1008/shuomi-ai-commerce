@@ -18,7 +18,7 @@
 
 用户可生成并检查不完整的离线草稿。Catalog 未提供变体时保留实际商品、已批准素材及文案，草稿、预览和包内 SKU 列表为空，由原 `variants` 诊断提示缺规格。已有变体只使用各自的来源 SKU、规格和价格，缺少变体重量或尺寸时留空。离线包通过既有 `ReviewNotes` 记录一条包装缺项说明，保存诊断显示既有 `manual_notes` 通用提醒。发布载荷准备对诊断副本所做的默认值填充维持现有规则版本。
 
-`catalog.ProjectCanonical` 和 ApprovedAsset 仍是来源，`draft.Builder` 构建离线包，现有 validator 和 Listing Record 负责诊断与保存。保存草稿仍可携带阻断项。现有平台提交策略、价格和图片整理规则、发布权限、报告绑定与 owner 校验沿 [离线包读取与诊断](report-center-shein-offline-package-source.md) 和 [Listing Record 合同](../../internal/listing/record/README.md)。离线包修改限定在新构造，同一幂等请求回读原已保存的包和诊断，严格解码仍接受既有格式。原事务及失败恢复保持原合同，离线构造没有平台写入。
+`catalog.ProjectCanonical` 和 ApprovedAsset 仍是来源，`draft.Builder` 构建离线包，现有 validator 和 Listing Record 负责诊断与保存。保存草稿仍可携带阻断项。现有平台提交策略、价格和图片整理规则、发布权限、报告绑定与 owner 校验沿 [离线包读取与诊断](domains/workbench/report-center-shein-offline-package-source.md) 和 [Listing Record 合同](../../internal/listing/record/README.md)。离线包修改限定在新构造，同一幂等请求回读原已保存的包和诊断，严格解码仍接受既有格式。原事务及失败恢复保持原合同，离线构造没有平台写入。
 
 验证空变体输入仍可构造与解码，原诊断报告缺规格，SKU 专属包装事实保留，商品级包装值不进入缺失 SKU 字段。逐项核对新字节与样例的预期差异。
 

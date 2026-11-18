@@ -6,7 +6,7 @@ Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY. 
 
 驾驶舱显式选择SHEIN全托店铺，沿用当前最新已保存批次。首页日期按钮作为原文日期区间，分别展示急采下单日期与备货下发日期落在区间内的原单数、订购数量观察；日期缺失或格式无法确认单列。页面明确“仅当前已保存批次，不代表店铺全量；按原文日期，不作时区转换”。旧批次不补回/混入，也不把partial写成全量。
 
-用户最新范围替代[原批次观察](cockpit-shein-supply-orders.md)中不提供任何日期观察的阶段限制；[原始时间保存](cockpit-shein-supply-business-times.md)的原值、来源、缺失状态及timezone=unconfirmed不变。[当前owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)继续适用。Figma不作为UI验收权威。
+用户最新范围替代[原批次观察](cockpit-shein-supply-orders.md)中不提供任何日期观察的阶段限制；[原始时间保存](cockpit-shein-supply-business-times.md)的原值、来源、缺失状态及timezone=unconfirmed不变。[当前owner](../../project-boundaries.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)继续适用。Figma不作为UI验收权威。
 
 日期含义是用户明确选择的本地观察产品口径，不宣称已确认平台联合时间的查询映射或时区。只比较已保存原串的日历日期，无平台时间查询/翻页、Webhook、真实IAM/店铺/业务API、金额/GMV/全平台成功率、合成预览改动或迁移。不按创建日归集后冒充当日发货/收货量。本批没有新增持久化事实或第二事实源。
 
