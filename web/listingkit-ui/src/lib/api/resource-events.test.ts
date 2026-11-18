@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { getResourceEvents, parseResourceEvents } from "./resource-events";
+import { getResourceEvents, parseOwnedModelUsage, parseResourceEvents } from "./resource-events";
 afterEach(() => vi.unstubAllGlobals());
 const row = {
   event_id: "event-1",
@@ -72,4 +72,15 @@ it("binds bounded filters and event pages to the current enterprise", async () =
   expect(fetcher.mock.calls[0][0]).toBe(
     "/api/workbench/commercial/resources/events?limit=50&include_purpose=true&resource_type=ai_point&deductions_only=true&cursor=original",
   );
+});
+
+it("distinguishes measured zero, unsent and unknown owned-channel usage", () => {
+  const base = { started_at: "2026-11-18T10:00:00Z", purpose: "aiworkbench_chat_plan", model: "gpt-5.4-mini" };
+  const items = [
+    { ...base, invocation_id: "zero", status: "observed", input_tokens: 0, output_tokens: 0 },
+    { ...base, invocation_id: "unsent", status: "not_sent" },
+    { ...base, invocation_id: "unknown", status: "unknown" },
+  ];
+  expect(parseOwnedModelUsage({ organization_id: "org-B", items, next_cursor: null })?.items).toEqual(items);
+  expect(parseOwnedModelUsage({ organization_id: "org-B", items: [{ ...items[2], input_tokens: 0 }], next_cursor: null })).toBeNull();
 });

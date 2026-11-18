@@ -96,3 +96,16 @@ it("blocks a text choice opened before another window saves a new revision",asyn
  expect(screen.getByRole("button",{name:"确认切换"})).toBeDisabled();
  client.clear();
 });
+
+it("admits a selectable enterprise-owned model without a reference price",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const owned={...b,source:"enterprise",billingMode:"usage_only",reference:{id:"um-owned",version:"v1"},channelName:"企业模型"};
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({organizationId:scope.organizationId,view:{revision:"prior",current:a,options:[owned]}})));
+ render(<QueryClientProvider client={client}><EnterpriseTextChoice scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"切换"}));
+ await user.click(screen.getByRole("radio",{name:/企业模型/}));
+ expect(screen.getByText("不消耗硕米 AI 点数")).toBeVisible();
+ expect(screen.getByText("厂商向企业的厂商账号计费。硕米只记录用量。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"确认切换"})).toBeEnabled();
+ client.clear();
+});

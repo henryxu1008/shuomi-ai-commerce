@@ -254,6 +254,12 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: pointBudget})
 	require.NoError(t, err)
 	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)", "B", "ai_point", pointBudget, 0, 0, 0, now, now).Error)
+	ownedRuntime := managedRuntime && !platformRuntime
+	if ownedRuntime {
+		require.NoError(t, f.owner.Exec("UPDATE saas_organization_resource_buckets SET available=0 WHERE organization_id='B' AND resource_type='ai_point'").Error)
+		require.NoError(t, f.owner.Exec("INSERT INTO saas_member_ai_point_months (quantity_unit,organization_id,member_id,month_start,reserved,consumed) VALUES ('ai-micropoint-v1',?,?,?,?,?) ON CONFLICT (organization_id,member_id,month_start) DO UPDATE SET consumed=EXCLUDED.consumed",
+			"B", "member-B-"+fixtureActor, time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC), 0, pointBudget).Error)
+	}
 	if mode == "no quota" {
 		require.NoError(t, f.owner.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 1 WHERE organization_id = 'B'").Error)
 	}
@@ -278,6 +284,11 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 				require.NotContains(t, wire, "max_tokens")
 				require.JSONEq(t, `"none"`, string(wire["reasoning_effort"]))
 				require.JSONEq(t, `false`, string(wire["store"]))
+			}
+			if strings.Contains(string(raw), "Classify the user's current question only") {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"route-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":"{\"kind\":\"STORE_OVERVIEW\",\"status\":\"ALL_NON_DELETED\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
+				return
 			}
 			if strings.Contains(string(raw), "Plan one content suggestion for the exact server-selected subject") {
 				plannerCalls.Add(1)
@@ -881,7 +892,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"), managedCompatible)
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"), managedCompatible, ownedRuntime)
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {

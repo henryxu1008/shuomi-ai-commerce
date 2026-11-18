@@ -145,6 +145,7 @@ type GuardConfig struct {
 	ProviderID           string
 	AdapterPolicyVersion string
 	BillingUsageVersion  string
+	UsageOnly            bool
 	Endpoint             string
 	ModelID              string
 	MaximumOutputTokens  int
@@ -390,6 +391,12 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	diagnostic.emit(req.Context(), "response", "response_received")
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
+		if g.cfg.UsageOnly && g.cfg.BillingUsageVersion == "openai-text-v1" {
+			if counters, err := ObserveOfficialOpenAITextUsage(raw); err == nil {
+				usage = ObservedUsage{PromptTokens: int(counters.InputText), CompletionTokens: int(counters.OutputText),
+					TotalTokens: int(counters.InputText + counters.OutputText), Known: true, BillableUsage: &counters}
+			}
+		}
 		if g.cfg.Adapter == AdapterOpenAICompatible && g.cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1 {
 			usage = observeReferenceTextUsage(raw)
 		}
@@ -572,6 +579,9 @@ func generateMessages(ctx context.Context, component model.BaseChatModel, messag
 		diagnostic.emit(ctx, "sdk", diagnostic.sdkCategory(err))
 		if guard.NetworkSends() == 0 {
 			return TextOutput{}, errors.Join(ErrNotDispatched, err)
+		}
+		if guard.cfg.UsageOnly && usage.Known {
+			return TextOutput{Usage: usage, ProviderRequestID: guard.ProviderRequestID()}, ErrInvalid
 		}
 		return TextOutput{Usage: usage, ProviderRequestID: guard.ProviderRequestID()}, ErrOutcomeUnknown
 	}

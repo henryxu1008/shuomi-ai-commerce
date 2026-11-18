@@ -120,6 +120,7 @@ type SharedCategoryReader interface {
 }
 
 type ModelOption struct {
+	BillingMode aicapability.ModelBillingMode     `json:"billingMode,omitempty"`
 	Source      string                            `json:"source,omitempty"`
 	Quote       string                            `json:"quote,omitempty"`
 	ChannelName string                            `json:"channelName,omitempty"`
@@ -171,7 +172,9 @@ func (s *SharedModelService) qualify(ctx context.Context, org string, category M
 	if q.OrganizationID != org || q.Category != category || q.Reference != ref || !ValidFact(q.Channel, 128) || !ValidFact(q.Model, 128) {
 		return ModelQualification{}, ErrInvalid
 	}
-	if q.Ready && (q.Price.Validate() != nil || !q.Price.MatchesWireModel(q.Model) || q.Price.Channel != q.Channel || !q.Price.IsReferenceEstimate() && !q.Price.IsReferenceImageEstimate() && !ValidFact(q.BoundEvidenceVersion, 128) || !ValidFact(q.ProfileVersion, 128)) {
+	usageOnly := category == ModelCategoryText && q.Source == "enterprise" && IsManagedBindingID(ref.ID) &&
+		q.Text != nil && q.Text.BillingMode == aicapability.ModelUsageOnly && q.Price == (aicapability.OfficialModelTariff{})
+	if q.Ready && (!ValidFact(q.ProfileVersion, 128) || !usageOnly && (q.Price.Validate() != nil || !q.Price.MatchesWireModel(q.Model) || q.Price.Channel != q.Channel || !q.Price.IsReferenceEstimate() && !q.Price.IsReferenceImageEstimate() && !ValidFact(q.BoundEvidenceVersion, 128))) {
 		q.Ready, q.Reason = false, "DEPENDENCY_MISSING"
 	}
 	referenceVision := category == ModelCategoryMultimodal && q.Text != nil && aicapability.SingleImageProfile(*q.Text)
@@ -184,7 +187,7 @@ func (s *SharedModelService) qualify(ctx context.Context, org string, category M
 			n, e := q.Image.Billing.ReservationMicropoints(q.Model)
 			valid = e == nil && n == q.Image.Points && q.Image.Model == q.Model && q.Image.Billing.OfficialTariff == q.Price && q.Image.PriceVersion == q.Price.PriceVersion
 		} else if category != ModelCategoryImage && q.Text != nil && q.Image == nil {
-			valid = q.Text.Validate() == nil && q.Text.ModelID == q.Model && q.Text.OfficialTariff == q.Price
+			valid = q.Text.Validate() == nil && q.Text.ModelID == q.Model && q.Text.OfficialTariff == q.Price && (q.Text.BillingMode == aicapability.ModelUsageOnly) == usageOnly
 		}
 		if !valid {
 			q.Ready, q.Reason = false, "CONSUMER_NOT_QUALIFIED"

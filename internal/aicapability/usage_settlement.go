@@ -20,6 +20,9 @@ type InvocationUsageSettler interface {
 // failure terminals. Ordinary failures remain unbilled.
 // The adapter is idempotent at the commercial owner using invocation identity.
 func SettleSuccessfulInvocation(ctx context.Context, record InvocationRecord, settler InvocationUsageSettler) error {
+	if record.BillingMode == ModelUsageOnly {
+		return nil
+	}
 	if record.ProviderRejectionProof != nil {
 		if ValidateProviderRejection(record) != nil || settler == nil {
 			return ErrInvalidInvocationUsage

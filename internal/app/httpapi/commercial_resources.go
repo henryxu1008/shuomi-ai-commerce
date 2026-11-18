@@ -22,6 +22,7 @@ import (
 
 const commercialResourcesPath = "/api/v1/workbench/commercial/resources"
 const commercialResourceEventsPath = commercialResourcesPath + "/events"
+const commercialOwnedModelUsagePath = commercialResourcesPath + "/owned-model-usage"
 const commercialResourcesModuleName = "commercial-resources"
 
 func buildCommercialResourcesModule(ctx context.Context, db *gorm.DB) (kernelmodule.Module, error) {
@@ -59,6 +60,7 @@ func (m commercialResourcesModule) routes() []httproute.Descriptor {
 	return []httproute.Descriptor{
 		{Method: http.MethodGet, Path: commercialResourcesPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.read},
 		{Method: http.MethodGet, Path: commercialResourceEventsPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readEvents},
+		{Method: http.MethodGet, Path: commercialOwnedModelUsagePath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readOwnedModelUsage},
 		{Method: http.MethodGet, Path: commercialResourceObjectPath, Module: commercialResourcesModuleName, Permission: authz.PermissionWorkbenchCommercialRead, AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, RequestTimeout: 15 * time.Second, RejectUnreadRequestBody: true, Handler: m.readUsageObject},
 	}
 }

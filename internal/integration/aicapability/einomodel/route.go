@@ -73,7 +73,7 @@ func NewOrganizationRouteResolver(credentials credential.SecretReader, policies 
 	}
 	frozen := make(map[RouteKey]RoutePolicy, len(policies))
 	for key, policy := range policies {
-		if policy.CredentialOwner != "" || key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
+		if policy.CredentialOwner != "" || policy.Profile.BillingMode != "" || key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
 			!aicapability.SupportsObservedUsageFailure(key.Operation) ||
 			policy.AdmittedEndpointIdentityDigest == "" {
 			return nil, ErrInvalid
@@ -203,6 +203,12 @@ var _ interface {
 } = (*OrganizationRouteResolver)(nil)
 
 func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
+	if p.BillingMode == aicapability.ModelUsageOnly {
+		return credential.IsRegisteredConnection(p.ConnectionID) &&
+			(p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy ||
+				p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy && p.UsageMappingVersion == "openai-text-v1") &&
+			p.Validate() == nil && ValidRouteShape(p, operation)
+	}
 	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy && (p.OfficialTariff.Channel != "openai-direct" || !p.CNYRatesCoverUSDTariff()) {
 		return false
 	}

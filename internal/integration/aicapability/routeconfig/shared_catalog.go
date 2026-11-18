@@ -82,7 +82,6 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		return c.qualifyDefinitions(ctx, org, category, ref, resolved)
 	}
 	defs := []Definition{}
-	label := ""
 	scopes := c.Catalog.Scopes(org)
 	if d.IsManagedBindingID(ref.ID) {
 		if category != d.ModelCategoryText {
@@ -95,12 +94,12 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		if err != nil {
 			return q, err
 		}
-		defs, label = resolved.values, resolved.label
-		q.ChannelName, q.Source = label, "enterprise"
+		q.ChannelName, q.Source = resolved.label, "enterprise"
 		if resolved.reason != "" {
-			q.Channel, q.Model, q.Reason = defs[0].Channel, OpenAIQueryModel, resolved.reason
+			q.Channel, q.Model, q.Reason = resolved.values[0].Channel, OpenAIQueryModel, resolved.reason
 			return q, nil
 		}
+		return c.qualifyDefinitions(ctx, org, category, ref, resolved)
 	} else {
 		for _, scope := range scopes {
 			def, ok := c.Catalog.definitions[scope][ref.ID]
@@ -110,7 +109,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 			defs = append(defs, def)
 		}
 	}
-	return c.qualifyDefinitions(ctx, org, category, ref, modelDefinitions{values: defs, label: label})
+	return c.qualifyDefinitions(ctx, org, category, ref, modelDefinitions{values: defs})
 }
 
 func (c *SharedCatalog) qualifyDefinitions(ctx context.Context, org string, category d.ModelCategory, ref d.ModelBindingReference, resolved modelDefinitions) (d.ModelQualification, error) {
@@ -162,16 +161,17 @@ func (c *SharedCatalog) qualifyDefinitions(ctx context.Context, org string, cate
 		return q, nil
 	}
 	q.BoundEvidenceVersion = first.BoundEvidenceVersion
+	usageOnly := resolved.billingMode == aicapability.ModelUsageOnly
 	now := c.now()
 	var price aicapability.OfficialModelTariff
 	var referenceEstimate aicapability.ReferenceImageEstimate
-	if trial := first.PrivateTrialPrice; trial != nil {
+	if trial := first.PrivateTrialPrice; !usageOnly && trial != nil {
 		if len(defs) != 1 || now.Before(trial.NotBefore) || !now.Before(trial.NotAfter) {
 			q.Reason = "PRICE_APPLICABILITY_MISSING"
 			return q, nil
 		}
 		price = trial.Tariff
-	} else {
+	} else if !usageOnly {
 		if c.Prices == nil {
 			q.Reason = "OFFICIAL_PRICE_MISSING"
 			return q, nil
@@ -220,7 +220,7 @@ func (c *SharedCatalog) qualifyDefinitions(ctx context.Context, org string, cate
 		}
 	}
 	q.Price = price
-	if !price.IsReferenceEstimate() && !price.IsReferenceImageEstimate() && !d.ValidFact(first.BoundEvidenceVersion, 128) {
+	if !usageOnly && !price.IsReferenceEstimate() && !price.IsReferenceImageEstimate() && !d.ValidFact(first.BoundEvidenceVersion, 128) {
 		q.Reason = "COST_BOUND_MISSING"
 		return q, nil
 	}
@@ -280,6 +280,21 @@ func (c *SharedCatalog) qualifyDefinitions(ctx context.Context, org string, cate
 			q.Image = &image
 		} else {
 			p := *binding.Text
+			p.BillingMode = resolved.billingMode
+			if usageOnly {
+				p.Currency, p.CostPricingVersion = "", ""
+				p.InputMicrosPerMillion, p.OutputMicrosPerMillion = 0, 0
+				if category != d.ModelCategoryText || !governed.ValidRouteProfile(p, aicapability.Operation(def.Scope.Capability)) {
+					q.Reason = "METERING_MAPPING_NOT_ADMITTED"
+					return q, nil
+				}
+				q.TextProfiles[def.Scope.Capability] = p
+				components = append(components, governed.ComponentExecutionBinding(p))
+				if q.Text == nil {
+					q.Text = &p
+				}
+				continue
+			}
 			// Each mapping has explicit fields and applicability. Reference
 			// totals cannot qualify an unopened image or vision consumer.
 			mappingReady := p.AdapterKind == string(governed.AdapterOpenAICompatible) && price.UsageVersion == "openai-text-v1"

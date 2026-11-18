@@ -128,6 +128,10 @@ Gemini 的可信 ModelProfile.ThinkingMode 必须显式为 low、minimal 或 bud
 
 只有另行获准真实账本恢复且证据齐备后，才把只读核对得到的 `proofDigest` 固定到 `expectedProofDigest`，显式设置 `resolveEnabled: true` 并使用 `-action resolve`。操作键由原调用派生，重复命令、并发恢复和原 owner 的扫描器复用同一原预留与 A=0 结算。原计费 owner 仍按原月份、债务优先及原事务处理；失败或响应丢失后检查同一身份，不创建新调用、不重发模型。缺证明保持原 UNKNOWN 和预留。
 
-已有合格 52 列原调用库需要单独批准的显式 schema 能力准备 `go run ./cmd/product-agent-runtime-prepare -target invocation-provider-rejection`。该目标只增加可空证明列及原 runtime 的精确列权限，不写原调用或账本，也不由服务启动自动执行。新空库沿原准备流程使用当前完整合同。部署必须配套当前合同的程序；已经写入证明后不得直接回滚到不认识该列与终态的程序。
+现有原调用库按其能力启用顺序准备。若尚无厂商拒绝证明列，先使用显式准备入口 `go run ./cmd/product-agent-runtime-prepare -target invocation-provider-rejection`。该目标只增加可空证明列及原 runtime 的精确列权限，不写原调用或账本，也不由服务启动自动执行。已经写入证明后，恢复与读取使用理解该列和终态的程序。
+
+启用企业自有文本用量规则前，由原调用库 owner 在获准的环境运行 `go run ./cmd/product-agent-runtime-prepare -target invocation-billing-mode`。该入口验证现有表和有界权限，给原 `ai_invocations` 增加带取值约束的可空 `billing_mode`。已存在的行保持 NULL，原读权限、历史指纹和点数账本沿历史合同。原运行账号在插入派发记录时写入该字段。终态写入仍使用原调用号，运行账号没有更新此字段的权限。新空库使用完整合同，服务启动只做检查。
+
+启用前先确认当前运行、恢复及用量读取均理解新字段。暂停新增自有调用时停用相应渠道，继续用当前程序读取和处理在途记录。
 
 本次只完成离线实现和独立隔离验证。试用库准备、真实恢复和后续模型调用均未执行；原请求缺少供应商明确未计费证明，继续保持不可释放。

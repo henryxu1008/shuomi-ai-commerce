@@ -81,7 +81,7 @@ func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
 
 // Uses the existing domain/HTTP fixture, task-owned PostgreSQL and local model;
 // no serving instance, real credentials or provider are involved.
-func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime, scheduled, managedCompatible bool) {
+func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime, scheduled, managedCompatible, ownedRuntime bool) {
 	ctx := context.Background()
 	a := m.application.content
 	miniRuntime := a.config.ContentTextPolicies["B"].Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy
@@ -274,6 +274,11 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		reader.storeRoute = routePolicies
 		a.config.CurrentTextPolicies = reader
 	}
+	if ownedRuntime {
+		storeRoute := policy
+		storeRoute.Profile.PromptVersion, storeRoute.Profile.OutputSchemaVersion = einorouter.PromptVersion, einorouter.SchemaVersion
+		routePolicies = map[string]governed.RoutePolicy{"B": storeRoute}
+	}
 	wm, err := buildAIWorkbenchModule(ctx, AIWorkbenchDependencies{DB: db, ContentTasks: true, AllowedOrganizationIDs: []string{"B"}, PlanningTextPolicies: map[string]governed.RoutePolicy{"B": policy}, StoreRouteTextPolicies: routePolicies}, m.application)
 	require.NoError(t, err)
 	app := wm.(aiWorkbenchModule).application
@@ -295,7 +300,12 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.Equal(t, aiworkbench.ContentTaskKind, wm.(aiWorkbenchModule).ExecutionKind())
 	require.Equal(t, "AVAILABLE", wm.(aiWorkbenchModule).PlanningReadiness(ctx, "B"))
 	require.Equal(t, "UNAVAILABLE", wm.(aiWorkbenchModule).TitleReadiness(ctx, "B"))
-	server := httptest.NewServer(buildCurrentApplicationHTTPServer(append(m.routes, wm.(aiWorkbenchModule).routes...), deps).Handler)
+	routes := append(m.routes, wm.(aiWorkbenchModule).routes...)
+	if ownedRuntime {
+		usage := commercialResourcesModule{objects: &commercialUsageLookup{ownedModels: app.ownedModelUsage}}
+		routes = append(routes, usage.routes()...)
+	}
+	server := httptest.NewServer(buildCurrentApplicationHTTPServer(routes, deps).Handler)
 	defer server.Close()
 	call := func(method, path, key string, body any, status int) []byte {
 		var rawBody string
@@ -308,6 +318,24 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.NoError(t, e)
 		require.Equal(t, status, code, string(raw))
 		return raw
+	}
+	var ledgerBefore map[string]string
+	if ownedRuntime {
+		ledgerBefore = snapshotOwnedChannelPointLedger(t, f.owner)
+		var general struct{ Conversation aiworkbench.Conversation }
+		body := workbenchCreateFixtureBody(t, server, "admin", "B", aiworkbench.ScopeSelection{Kind: "general"}, false)
+		code, raw, err := acquisitionHTTPRequest(server, "POST", workbenchChatBase, "admin", "B", uuid.NewString(), body)
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		require.NoError(t, json.Unmarshal(raw, &general))
+		intentKey := uuid.NewString()
+		path := workbenchChatBase + "/" + general.Conversation.ID + "/intent"
+		for range 2 {
+			code, raw, err = acquisitionHTTPRequest(server, "POST", path, "admin", "B", intentKey, `{"content":"我有几个店铺"}`)
+			require.NoError(t, err)
+			require.Equal(t, 200, code, string(raw))
+			require.Contains(t, string(raw), `"COMPLETE"`)
+		}
 	}
 	if runStoreRoute {
 		var general struct{ Conversation aiworkbench.Conversation }
@@ -630,7 +658,49 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	stale := call("POST", messagePath, uuid.NewString(), body, 409)
 	require.Contains(t, string(stale), "PROPOSAL_STALE")
 	require.EqualValues(t, 1, planningCalls.Load())
-	if miniRuntime {
+	if ownedRuntime {
+		require.Equal(t, ledgerBefore, snapshotOwnedChannelPointLedger(t, f.owner), "owned planning, store routing and content cannot write any point rows")
+		var usage ownedModelUsagePage
+		require.NoError(t, json.Unmarshal(call("GET", commercialOwnedModelUsagePath, "", nil, 200), &usage))
+		require.Equal(t, "B", usage.OrganizationID)
+		var observed []aicapability.Operation
+		var noSend int
+		for _, item := range usage.Items {
+			switch item.Status {
+			case "observed":
+				observed = append(observed, item.Purpose)
+				require.NotNil(t, item.InputTokens)
+				require.NotNil(t, item.OutputTokens)
+			case "not_sent":
+				noSend++
+				require.Equal(t, aicapability.OperationAIWorkbenchChatPlan, item.Purpose)
+				require.Nil(t, item.InputTokens)
+				require.Nil(t, item.OutputTokens)
+			default:
+				t.Fatalf("unexpected fake provider usage status %s", item.Status)
+			}
+		}
+		require.Equal(t, []aicapability.Operation{aicapability.OperationProductContentDecision, aicapability.OperationProductContentDecision,
+			aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute}, observed)
+		require.Equal(t, 1, noSend)
+		// A request cannot select a member or organization through the cursor API.
+		call("GET", commercialOwnedModelUsagePath+"?member_id=member-B-admin", "", nil, 400)
+		code, raw, err := acquisitionHTTPRequest(server, "GET", commercialOwnedModelUsagePath, "reviewer", "B", "", "")
+		require.NoError(t, err)
+		require.Equal(t, 200, code, string(raw))
+		var other ownedModelUsagePage
+		require.NoError(t, json.Unmarshal(raw, &other))
+		require.Empty(t, other.Items)
+		f.grants.revoked.Store(true)
+		code, raw, err = acquisitionHTTPRequest(server, "GET", commercialOwnedModelUsagePath, "admin", "B", "", "")
+		f.grants.revoked.Store(false)
+		require.NoError(t, err)
+		require.Equal(t, 403, code, string(raw))
+		t.Log("isolated point ledger: eight tables unchanged, four observed invocations and one explicit no-send")
+		t.Cleanup(func() {
+			require.Equal(t, ledgerBefore, snapshotOwnedChannelPointLedger(t, f.owner), "subsequent requests and replays cannot write point rows")
+		})
+	} else if miniRuntime {
 		var balance struct {
 			Reserved int64
 			Consumed int64
@@ -824,4 +894,20 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.NoError(t, e)
 		require.NotEqual(t, 200, code)
 	}
+}
+
+func snapshotOwnedChannelPointLedger(t *testing.T, db *gorm.DB) map[string]string {
+	t.Helper()
+	snapshot := map[string]string{}
+	for _, table := range []string{
+		"saas_organization_resource_buckets", "saas_organization_resource_reservations",
+		"saas_organization_resource_operations", "saas_organization_resource_events",
+		"saas_organization_resource_debts", "saas_organization_resource_audit_logs",
+		"saas_member_ai_point_limits", "saas_member_ai_point_months",
+	} {
+		var rows string
+		require.NoError(t, db.Raw("SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text), '[]'::jsonb)::text FROM "+table+" r WHERE organization_id = ?", "B").Scan(&rows).Error)
+		snapshot[table] = rows
+	}
+	return snapshot
 }

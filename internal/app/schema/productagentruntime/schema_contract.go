@@ -130,10 +130,17 @@ func runContracts(db *gorm.DB) ([]relationContract, error) {
 
 func invocationContract(db *gorm.DB) (relationContract, error) {
 	spec, err := modelContract(db, aistore.InvocationSchemaModel(), "product_agent_owner")
-	if err == nil && len(spec.Columns) != 53 {
-		err = fmt.Errorf("invocation owner differs from current 53-column contract")
+	if err == nil && len(spec.Columns) != 54 {
+		err = fmt.Errorf("invocation owner differs from current 54-column contract")
 	}
+	spec.Checks = map[string]string{aistore.InvocationBillingModeConstraint: aistore.InvocationBillingModeCheck}
 	return spec, err
+}
+
+func invocationContractBeforeBilling(spec relationContract) relationContract {
+	spec.Columns = spec.Columns[:len(spec.Columns)-1]
+	spec.Checks = nil
+	return spec
 }
 
 func reviewContracts(db *gorm.DB) ([]relationContract, error) {
@@ -193,7 +200,7 @@ func verifyRelation(db *gorm.DB, spec relationContract) error {
 		positionOK := actual.Position == i+1
 		// Only this appended capability can follow a dropped empty proof column.
 		// All original active columns retain their exact physical positions.
-		if spec.Name == "ai_invocations" && expected.Name == "provider_rejection_proof_json" && i == len(spec.Columns)-1 {
+		if spec.Name == "ai_invocations" && (expected.Name == "provider_rejection_proof_json" || expected.Name == "billing_mode") {
 			positionOK = actual.Position >= i+1
 		}
 		defaultOK := actual.Default == expected.Default

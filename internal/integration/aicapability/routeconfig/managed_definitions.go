@@ -100,6 +100,7 @@ func (r *ManagedDefinitions) templates(org, template, endpoint, connection, bind
 }
 
 type modelDefinitions struct {
+	billingMode aicapability.ModelBillingMode
 	owner       string
 	publication string
 	values      []Definition
@@ -142,6 +143,7 @@ func (r *ManagedDefinitions) read(ctx context.Context, org string, ref d.ModelBi
 	} else if !metadata.Enabled {
 		out.reason = "CHANNEL_DISABLED"
 	}
+	out.billingMode = aicapability.ModelUsageOnly
 	out.values, err = r.templates(org, registration.Template, metadata.BaseURL, binding.ConnectionID, ref.ID)
 	if errors.Is(err, d.ErrNeedsConfiguration) {
 		if out.reason == "" {

@@ -9,6 +9,7 @@ import (
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
+	"task-processor/internal/integration/aiworkbench/einorouter"
 	routestore "task-processor/internal/integration/persistence/routeconfig"
 	"testing"
 	"time"
@@ -103,7 +104,10 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	repo, err := routestore.New(db)
 	require.NoError(t, err)
 	prices := &d.PlatformPricesService{Repository: repo}
-	if managedTemplate == credential.CompatibleMiniTemplate {
+	owned := managedTemplate != "" && !platform
+	if owned {
+		prices = nil
+	} else if managedTemplate == credential.CompatibleMiniTemplate {
 		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{
 			ID: "openai-compatible-mini", Provider: "openai", Model: planner.Profile.ModelID, Channel: credential.CompatibleOpenAIChannel,
 			Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1,
@@ -117,7 +121,13 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	}
 	require.NoError(t, err)
 	var defs []qualified.Definition
-	for op, policy := range map[aicapability.Operation]governed.RoutePolicy{aicapability.OperationAIWorkbenchChatPlan: planner, aicapability.OperationProductContentDecision: settings.ContentTextPolicies["B"]} {
+	policies := map[aicapability.Operation]governed.RoutePolicy{aicapability.OperationAIWorkbenchChatPlan: planner, aicapability.OperationProductContentDecision: settings.ContentTextPolicies["B"]}
+	if owned || platform {
+		storeRoute := planner
+		storeRoute.Profile.PromptVersion, storeRoute.Profile.OutputSchemaVersion = einorouter.PromptVersion, einorouter.SchemaVersion
+		policies[aicapability.OperationAIWorkbenchStoreRoute] = storeRoute
+	}
+	for op, policy := range policies {
 		copy := policy
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: settings.Limits.CostMicros})
 	}
@@ -151,6 +161,16 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)
 	require.NoError(t, err)
 	require.True(t, q.Ready, q.Reason)
+	if owned {
+		require.Equal(t, aicapability.ModelUsageOnly, q.Text.BillingMode)
+		require.Empty(t, q.Price)
+		view, err := service.TextChoices(ctx, "B")
+		require.NoError(t, err)
+		require.NotNil(t, view.Current)
+		require.Equal(t, aicapability.ModelUsageOnly, view.Current.BillingMode)
+		require.NotEmpty(t, view.Current.Quote)
+		require.Nil(t, view.Current.Price)
+	}
 	if _, ok := settings.TextPolicies["B"]; ok && planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
 		title := q.TextProfiles[string(aicapability.OperationProductAgentDecision)]
 		require.True(t, governed.ValidRouteProfile(title, aicapability.OperationProductAgentDecision), "the title route remains qualified with the same shared selection")
@@ -180,7 +200,12 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	require.True(t, err != nil || missing.Profile.Validate() != nil, "a content binding alone cannot authorize planning")
 	shared.Now = func() time.Time { return now.Add(2 * time.Hour) }
 	expired, err := reader.ReadPolicy(ctx, governed.RouteKey{OrganizationID: "B", Operation: aicapability.OperationAIWorkbenchChatPlan})
-	require.True(t, err != nil || expired.Profile.Validate() != nil, "expired published price cannot authorize Chat")
+	if owned {
+		require.NoError(t, err)
+		require.NoError(t, expired.Profile.Validate(), "owned models are admitted even with no reference price or FX owner")
+	} else {
+		require.True(t, err != nil || expired.Profile.Validate() != nil, "expired published price cannot authorize Chat")
+	}
 	shared.Now = nil
 	return reader
 }

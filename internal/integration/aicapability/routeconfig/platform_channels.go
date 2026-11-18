@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 
+	"task-processor/internal/aicapability"
 	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 )
@@ -184,7 +185,7 @@ func (s *PlatformChannels) resolve(ctx context.Context, org string, p d.Platform
 	if err != nil || m.OrganizationID != credential.PlatformOwner || m.ConnectionID != p.ConnectionID {
 		return modelDefinitions{}, d.ErrUnavailable
 	}
-	result := modelDefinitions{owner: credential.PlatformOwner, label: reg.Name, publication: version}
+	result := modelDefinitions{billingMode: aicapability.ModelPlatformPoints, owner: credential.PlatformOwner, label: reg.Name, publication: version}
 	if !m.Enabled || !m.KeyPresent {
 		result.reason = "CHANNEL_DISABLED"
 		return result, nil

@@ -45,7 +45,7 @@ const proposal = z.object({
   targetPlatform: z.enum(["shein", "temu", "amazon","product"]).optional(),
   templateId: z.string().optional(), templateRevision: z.string().optional(), knowledgeBaseId: z.string().optional(),
   providerId: z.string().optional(), modelId: z.string().optional(), maximumTokens: z.number().int().optional(),
-  maximumCostMicros: z.number().int().optional(), currency: z.string().optional(),
+  usageOnly: z.boolean().optional(), maximumCostMicros: z.number().int().optional(), currency: z.string().optional(),
   humanReviewRequired: z.literal(true), detailsAvailable: z.boolean(), titleProfileReady: z.boolean(), executionAuthorized: z.boolean(),
 });
 const task = z.object({

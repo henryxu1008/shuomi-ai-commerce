@@ -27,6 +27,7 @@ const (
 )
 
 type InvocationRecord struct {
+	BillingMode             ModelBillingMode        `json:",omitempty"`
 	ProviderRejectionProof  *ProviderRejectionProof `json:"providerRejectionProof,omitempty"`
 	BillableUsage           *BillableModelUsage     `json:"billableUsage,omitempty"`
 	OfficialTariff          OfficialModelTariff
@@ -94,6 +95,11 @@ func (r InvocationRecord) HasZeroReferenceUsage() bool {
 	return r.UsageKnown && r.OfficialTariff.Valid() && r.OfficialTariff.IsReferenceEstimate() &&
 		r.PromptTokens == 0 && r.CompletionTokens == 0 && r.TotalTokens == 0 && r.ImageCount == 0 &&
 		u != nil && u.Validate() == nil && u.MappingVersion == r.OfficialTariff.UsageVersion && u.InputText == 0 && u.OutputText == 0
+}
+
+func (r InvocationRecord) NotSent() bool {
+	return r.Outcome == InvocationFailed && !r.FinishedAt.IsZero() &&
+		(r.ErrorCode == "rejected_before_dispatch" || r.ErrorCode == "reservation_failed_before_dispatch")
 }
 
 // InvocationDispatchClaimer atomically inserts the existing dispatch fact.

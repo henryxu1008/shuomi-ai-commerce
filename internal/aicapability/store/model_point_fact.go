@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -86,6 +87,9 @@ func validateModelFact(row invocationRow) (aicapability.InvocationRecord, error)
 	if err != nil {
 		return aicapability.InvocationRecord{}, err
 	}
+	if fact.BillingMode == aicapability.ModelUsageOnly {
+		return fact, nil
+	}
 	if !fact.OfficialTariff.Valid() || !fact.OfficialTariff.MatchesWireModel(fact.ModelID) || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.StartedAt.IsZero() || fact.UserID == "" || fact.MemberID == "" || fact.InputHash == "" || !validPricedTextOperationIdentity(fact) {
 		return aicapability.InvocationRecord{}, fmt.Errorf("invalid priced model fact")
 	}
@@ -94,6 +98,9 @@ func validateModelFact(row invocationRow) (aicapability.InvocationRecord, error)
 	}
 	return fact, nil
 }
+
+const InvocationBillingModeConstraint = "ai_invocations_billing_mode_check"
+const InvocationBillingModeCheck = "CHECK ((billing_mode = ANY (ARRAY['platform_points'::text, 'usage_only'::text])))"
 
 // Startup verifies a freshly installed schema. It never alters an old ledger.
 func VerifyModelPointInvocationSchema(ctx context.Context, db *gorm.DB) error {
@@ -109,7 +116,7 @@ func VerifyModelPointInvocationSchema(ctx context.Context, db *gorm.DB) error {
 		return err
 	}
 	if len(columns) != len(stmt.Schema.DBNames) {
-		return fmt.Errorf("current model invocation schema has unexpected columns; install on a fresh database")
+		return fmt.Errorf("current model invocation schema has unexpected columns; verify invocation schema preparation")
 	}
 	present := make(map[string]bool, len(columns))
 	for _, column := range columns {
@@ -117,8 +124,42 @@ func VerifyModelPointInvocationSchema(ctx context.Context, db *gorm.DB) error {
 	}
 	for _, name := range stmt.Schema.DBNames {
 		if !present[name] {
-			return fmt.Errorf("current model invocation schema is missing %s; install on a fresh database", name)
+			return fmt.Errorf("current model invocation schema is missing %s; verify invocation schema preparation", name)
+		}
+	}
+	if db.Dialector.Name() == "postgres" {
+		var check string
+		err := db.WithContext(ctx).Raw("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='public.ai_invocations'::regclass AND conname=? AND contype='c' AND convalidated", InvocationBillingModeConstraint).Scan(&check).Error
+		if err != nil {
+			return err
+		}
+		if check != InvocationBillingModeCheck {
+			return fmt.Errorf("current invocation billing constraint differs")
 		}
 	}
 	return nil
+}
+
+func (r *GormInvocationRecorder) ListOwnedModelUsage(ctx context.Context, org, actor, member string, at time.Time, id string, limit int) ([]aicapability.InvocationRecord, error) {
+	if r == nil || r.db == nil || ctx == nil || org == "" || actor == "" || member == "" ||
+		len(org) > 128 || len(actor) > 128 || len(member) > 128 || len(id) > 128 || (id == "") != at.IsZero() || limit < 1 || limit > 50 {
+		return nil, fmt.Errorf("invalid owned model usage lookup")
+	}
+	query := r.db.WithContext(ctx).Where("tenant_id = ? AND user_id = ? AND member_id = ? AND billing_mode = ?", org, actor, member, aicapability.ModelUsageOnly)
+	if !at.IsZero() {
+		query = query.Where("(started_at < ? OR (started_at = ? AND invocation_id < ?))", at, at, id)
+	}
+	var rows []invocationRow
+	if err := query.Order("started_at DESC, invocation_id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	facts := make([]aicapability.InvocationRecord, 0, len(rows))
+	for _, row := range rows {
+		fact, err := validateModelFact(row)
+		if err != nil {
+			return nil, err
+		}
+		facts = append(facts, fact)
+	}
+	return facts, nil
 }

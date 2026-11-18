@@ -89,6 +89,29 @@ func TestStoreRouteQuoteUsesDistinctBoundedChatOperation(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestOwnedModelQuoteRequiresUsageContractAndNoTariff(t *testing.T) {
+	profile := testTextProfile()
+	profile.BillingMode = ModelUsageOnly
+	profile.UsageMappingVersion = "openai-text-v1"
+	profile.OfficialTariff = OfficialModelTariff{}
+	profile.Currency, profile.CostPricingVersion = "", ""
+	profile.InputMicrosPerMillion, profile.OutputMicrosPerMillion = 0, 0
+	input := TextInputIdentity{OrganizationID: "org", ActorID: "actor", MemberID: "member", Operation: OperationAIWorkbenchChatPlan, System: "system", Prompt: "prompt", Profile: profile}
+	quote, err := QuoteText(input)
+	require.NoError(t, err)
+	require.Equal(t, ModelUsageOnly, quote.BillingMode)
+	require.Positive(t, quote.MaximumTokens)
+	require.Empty(t, quote.Currency)
+	require.Zero(t, quote.MaximumCostMicros)
+	input.Profile.BillingMode = ""
+	_, err = QuoteText(input)
+	require.Error(t, err)
+	input.Profile = profile
+	input.Profile.UsageMappingVersion = "unknown"
+	_, err = QuoteText(input)
+	require.Error(t, err)
+}
+
 func TestModelProfileCostRoundsInputAndOutputSeparately(t *testing.T) {
 	profile := testTextProfile()
 	profile.InputMicrosPerMillion = 400000

@@ -36,12 +36,13 @@ type InvocationLedger interface {
 // planning and Product Agent title text. Resolve and Authorize must read the
 // current route and permission on every call, including the final handoff.
 type Executor struct {
-	Ledger        InvocationLedger
-	Admission     *BoundedAdmission
-	Resolve       func(context.Context, aicapability.TextInputIdentity) (QualifiedRoute, error)
-	Authorize     func(context.Context, aicapability.TextInputIdentity) error
-	BaseTransport http.RoundTripper
-	Logger        *logrus.Entry `json:"-"`
+	Ledger              InvocationLedger
+	Admission           *BoundedAdmission
+	Resolve             func(context.Context, aicapability.TextInputIdentity) (QualifiedRoute, error)
+	Authorize           func(context.Context, aicapability.TextInputIdentity) error
+	AuthorizeInvocation func(context.Context, aicapability.InvocationRecord) error
+	BaseTransport       http.RoundTripper
+	Logger              *logrus.Entry `json:"-"`
 }
 
 func endpointDigest(endpoint string) string {
@@ -75,6 +76,9 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 	if e == nil || e.Ledger == nil || e.Admission == nil || e.Resolve == nil || e.Authorize == nil || !dispatchContextActive(ctx) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
+	if input.Profile.BillingMode == aicapability.ModelUsageOnly && e.AuthorizeInvocation == nil {
+		return QualifiedRoute{}, ErrNotDispatched
+	}
 	if err := e.Authorize(ctx, admissionMetadata(input)); err != nil {
 		return QualifiedRoute{}, errors.Join(ErrNotDispatched, err)
 	}
@@ -85,7 +89,7 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 		return QualifiedRoute{}, ErrNotDispatched
 	}
 	route, err := e.Resolve(ctx, admissionMetadata(input))
-	if err != nil || !sameRoute(route, QualifiedRoute{CredentialOwner: route.CredentialOwner, Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
+	if err != nil || input.Profile.BillingMode == aicapability.ModelUsageOnly && route.CredentialOwner != "" || !sameRoute(route, QualifiedRoute{CredentialOwner: route.CredentialOwner, Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
 	return route, nil
@@ -115,7 +119,8 @@ func admissionMetadata(input aicapability.TextInputIdentity) aicapability.TextIn
 func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuote, now time.Time) aicapability.InvocationRecord {
 	p := input.Profile
 	prompt := sha256.Sum256([]byte(input.System + "\x00" + input.Prompt))
-	return aicapability.InvocationRecord{
+	record := aicapability.InvocationRecord{
+		BillingMode:  p.BillingMode,
 		InvocationID: input.InvocationID, AgentRunID: input.AgentRunID, BusinessTaskID: input.BusinessTaskID,
 		TenantID: input.OrganizationID, UserID: input.ActorID, MemberID: input.MemberID,
 		Capability: capabilityFor(input.Operation), Operation: input.Operation,
@@ -126,6 +131,11 @@ func textRecord(input aicapability.TextInputIdentity, quote aicapability.TextQuo
 		MaximumPromptTokens: quote.MaximumTokens - p.MaximumCompletionTokens, MaximumCompletionTokens: p.MaximumCompletionTokens,
 		StartedAt: now, Attempt: 1, Outcome: aicapability.InvocationDispatched, Currency: p.Currency,
 	}
+	if p.BillingMode == aicapability.ModelUsageOnly {
+		record.RoutingKey = p.ClientName
+		record.PolicyVersion = p.UsageMappingVersion
+	}
+	return record
 }
 
 func (e *Executor) terminal(ctx context.Context, record aicapability.InvocationRecord) error {
@@ -202,15 +212,25 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		return TextOutput{}, err
 	}
 	p := input.Profile
+	usageOnly := p.BillingMode == aicapability.ModelUsageOnly
 	var cleanup func()
 	defer func() {
 		if cleanup != nil {
 			cleanup()
 		}
 	}()
+	now := time.Now().UTC()
+	record := textRecord(input, quote, now)
+	if route.CredentialOwner != "" || usageOnly {
+		record.ConfigurationVersion = route.Profile.RoutingPolicyVersion
+	}
+	usageMapping := p.OfficialTariff.UsageVersion
+	if usageOnly {
+		usageMapping = p.UsageMappingVersion
+	}
 	guardCfg := GuardConfig{Logger: logger, Adapter: AdapterKind(p.AdapterKind), Endpoint: route.Endpoint, ModelID: p.ModelID,
 		ResponseModelID: p.OfficialTariff.Model, ThinkingMode: p.ThinkingMode,
-		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
+		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: usageMapping, UsageOnly: usageOnly,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
 	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
@@ -249,6 +269,15 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 				}
 			}
 		}
+		if usageOnly {
+			if err := e.AuthorizeInvocation(ctx, record); err != nil {
+				return ErrNotDispatched
+			}
+			current, err := e.admitted(ctx, input)
+			if err != nil || !sameRoute(route, current) {
+				return ErrNotDispatched
+			}
+		}
 		if !dispatchContextActive(ctx) || !dispatchContextActive(gateCtx) {
 			return ErrNotDispatched
 		}
@@ -265,11 +294,6 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 	if err != nil {
 		diagnostic.emit(ctx, "component", "rejected_before_claim")
 		return TextOutput{}, ErrNotDispatched
-	}
-	now := time.Now().UTC()
-	record := textRecord(input, quote, now)
-	if route.CredentialOwner != "" {
-		record.ConfigurationVersion = route.Profile.RoutingPolicyVersion
 	}
 	acquired, err := e.Ledger.ClaimInvocation(ctx, record)
 	if err != nil || !acquired {
@@ -288,23 +312,25 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 			record.Outcome = aicapability.InvocationFailed
 			record.FinishedAt = time.Now().UTC()
 			record.ErrorCode = "rejected_before_dispatch"
-			record.UsageKnown, record.EstimatedCostKnown = true, true
+			record.UsageKnown, record.EstimatedCostKnown = !usageOnly, !usageOnly
 			if e.terminal(ctx, record) != nil {
 				return TextOutput{}, ErrOutcomeUnknown
 			}
 			return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 		}
 	}
-	if err := e.Ledger.ReserveAIInvocationUsage(ctx, record.TenantID, record.MemberID, record.InvocationID, quote.MaximumTokens, now); err != nil {
-		diagnostic.emit(ctx, "reservation", "reserve_failed")
-		record.Outcome = aicapability.InvocationFailed
-		record.FinishedAt = time.Now().UTC()
-		record.ErrorCode = "reservation_failed_before_dispatch"
-		record.UsageKnown, record.EstimatedCostKnown = true, true
-		if e.terminal(ctx, record) != nil {
-			return TextOutput{}, ErrOutcomeUnknown
+	if !usageOnly {
+		if err := e.Ledger.ReserveAIInvocationUsage(ctx, record.TenantID, record.MemberID, record.InvocationID, quote.MaximumTokens, now); err != nil {
+			diagnostic.emit(ctx, "reservation", "reserve_failed")
+			record.Outcome = aicapability.InvocationFailed
+			record.FinishedAt = time.Now().UTC()
+			record.ErrorCode = "reservation_failed_before_dispatch"
+			record.UsageKnown, record.EstimatedCostKnown = !usageOnly, !usageOnly
+			if e.terminal(ctx, record) != nil {
+				return TextOutput{}, ErrOutcomeUnknown
+			}
+			return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 		}
-		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 	}
 	var output TextOutput
 	var generationErr error
@@ -324,13 +350,13 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		record.Outcome = aicapability.InvocationFailed
 		record.FinishedAt = time.Now().UTC()
 		record.ErrorCode = "rejected_before_dispatch"
-		record.UsageKnown, record.EstimatedCostKnown = true, true
+		record.UsageKnown, record.EstimatedCostKnown = !usageOnly, !usageOnly
 		if e.terminal(ctx, record) != nil {
 			return TextOutput{}, ErrOutcomeUnknown
 		}
 		return TextOutput{}, errors.Join(ErrNotDispatched, ErrNoDispatchReleased)
 	}
-	if !output.Usage.Known || (input.Image != nil || guardCfg.visionText != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || p.OfficialTariff.IsReferenceEstimate()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
+	if !output.Usage.Known || (usageOnly || input.Image != nil || guardCfg.visionText != nil || p.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy || p.OfficialTariff.IsReferenceEstimate()) && output.Usage.BillableUsage == nil || output.Usage.PromptTokens > int(record.MaximumPromptTokens) ||
 		output.Usage.CompletionTokens > int(p.MaximumCompletionTokens) ||
 		errors.Is(generationErr, ErrOutcomeUnknown) || errors.Is(generationErr, ErrUsageUnknown) {
 		category := "outcome_or_usage_unknown"
@@ -353,11 +379,14 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		billable := *output.Usage.BillableUsage
 		record.BillableUsage = &billable
 	}
-	record.UsageKnown, record.EstimatedCostKnown = true, true
-	record.EstimatedCostMicros, err = p.CostFor(int64(record.PromptTokens), int64(record.CompletionTokens))
-	if err != nil {
-		diagnostic.emit(ctx, "cost_mapping", "rejected")
-		return TextOutput{}, ErrOutcomeUnknown
+	record.UsageKnown = true
+	if !usageOnly {
+		record.EstimatedCostKnown = true
+		record.EstimatedCostMicros, err = p.CostFor(int64(record.PromptTokens), int64(record.CompletionTokens))
+		if err != nil {
+			diagnostic.emit(ctx, "cost_mapping", "rejected")
+			return TextOutput{}, ErrOutcomeUnknown
+		}
 	}
 	record.Outcome = aicapability.InvocationUsageObservedFailed
 	record.ErrorCategory = aicapability.ErrorStructuredOutputInvalid

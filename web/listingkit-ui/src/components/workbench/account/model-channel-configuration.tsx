@@ -61,7 +61,7 @@ function useConfigurationCommand(scope:ModelRouteScope,member:string,onSaved:()=
    const code=error instanceof ModelRouteError?error.code:"UNAVAILABLE";
    if(body!==undefined&&error instanceof ModelRouteError&&error.status<500&&code!=="OUTCOME_UNKNOWN")pending.clear(intent);
    if(code==="CONFLICT")setMessage("配置或参考价已更新，请重新读取并确认。");
-   else if(code==="NEEDS_CONFIGURATION")setMessage("渠道尚未具备发布或选用条件，请核对 Key、型号与适用价格。");
+   else if(code==="NEEDS_CONFIGURATION")setMessage("渠道暂不可选，请重新读取状态并查看原因。");
    else if(code==="FORBIDDEN")setMessage("当前账号无权完成这项操作。");
    else if(code==="INVALID")setMessage("请检查填写内容。");
    else setMessage("结果暂未确认，请使用原请求查询结果。");
@@ -87,6 +87,7 @@ function ChoiceDetails({option}:{option:ModelOption}) {
  return <>
   <strong className="block">{option.channelName||option.channel}</strong>
   <span className="block">{option.model}{option.source==="platform"?" · 平台提供":option.source==="enterprise"?" · 企业自有":""}</span>
+  {option.billingMode==="usage_only"&&<span className="block">不消耗硕米 AI 点数</span>}
   {price&&<span className="block">参考价每百万文本 Token · 输入 {formatCurrencyMicros(price.rates.inputText)} {price.currency} · 输出 {formatCurrencyMicros(price.rates.outputText)} {price.currency}</span>}
  </>;
 }
@@ -126,7 +127,7 @@ export function EnterpriseTextChoice({scope,member,focusId,onSaved}:{scope:Model
     </label>)}
    </fieldset>}
    {purposes.length>0&&<p>本次切换影响{purposes.join("、")}。</p>}
-   {selected?.source==="enterprise"&&<p>业务使用时，厂商向本企业的厂商账号计费，硕米按适用参考价和实际用量结算本企业 AI 点数。</p>}
+   {selected?.billingMode==="usage_only"&&<p>厂商向企业的厂商账号计费。硕米只记录用量。</p>}
    {selected?.source==="platform"&&<p>业务使用时，硕米按适用参考价和实际用量结算本企业 AI 点数。</p>}
 
    {stale&&<p role="alert">企业选择已更新，请重新打开后确认。</p>}

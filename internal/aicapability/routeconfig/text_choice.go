@@ -36,7 +36,12 @@ func (q ModelQualification) TextChoiceToken() (string, error) {
 func textOption(q ModelQualification) ModelOption {
 	option := ModelOption{Category: q.Category, Reference: q.Reference, Channel: q.Channel, ChannelName: q.ChannelName, Model: q.Model, Source: q.Source, Ready: q.Ready, Reason: q.Reason}
 	if q.Ready {
-		option.Price = &q.Price
+		if q.Text != nil {
+			option.BillingMode = q.Text.BillingMode
+		}
+		if q.Price.Valid() {
+			option.Price = &q.Price
+		}
 		option.Quote, _ = q.TextChoiceToken()
 	}
 	return option
