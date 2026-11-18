@@ -184,7 +184,7 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 	return defs, nil
 }
 
-func prepareSharedModelServices(ctx context.Context, reader, writer *gorm.DB, defs []qualified.Definition) (*d.SharedModelService, *d.SharedModelService, *d.PlatformPricesService, error) {
+func prepareSharedModelServices(ctx context.Context, reader, writer *gorm.DB, catalog *qualified.Catalog) (*d.SharedModelService, *d.SharedModelService, *d.PlatformPricesService, error) {
 	if reader == nil || writer == nil || reader == writer {
 		return nil, nil, nil, d.ErrUnavailable
 	}
@@ -192,10 +192,6 @@ func prepareSharedModelServices(ctx context.Context, reader, writer *gorm.DB, de
 		return nil, nil, nil, e
 	}
 	if e := store.VerifyWriter(ctx, writer, false); e != nil {
-		return nil, nil, nil, e
-	}
-	catalog, e := qualified.NewCatalog(defs)
-	if e != nil {
 		return nil, nil, nil, e
 	}
 	read, e := store.New(reader)

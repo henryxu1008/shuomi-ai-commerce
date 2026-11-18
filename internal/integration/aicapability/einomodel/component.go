@@ -266,21 +266,27 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 	}
 	endpoint, _ := url.Parse(cfg.Endpoint)
 	if base == nil {
-		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.DisableKeepAlives = true
-		transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
-		// Clone can inherit h2 ALPN from the initialized default transport.
-		// Advertise only the protocol handled by this single-send transport.
-		if transport.TLSClientConfig == nil {
-			transport.TLSClientConfig = &tls.Config{}
-		}
-		transport.TLSClientConfig.NextProtos = []string{"http/1.1"}
-		base = transport
+		base = NewSingleSendHTTPTransport()
 	}
 	guard := &GuardedClient{cfg: cfg, endpoint: endpoint, base: base, finalGate: finalGate}
 	guard.Client = &http.Client{Transport: guard, Timeout: cfg.Timeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	return guard, nil
+}
+
+// NewSingleSendHTTPTransport configures a fresh HTTP/1.1 connection per request.
+func NewSingleSendHTTPTransport() *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableKeepAlives = true
+	transport.ForceAttemptHTTP2 = false
+	transport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
+	// Clone can inherit h2 ALPN from the initialized default transport.
+	// Advertise only the protocol handled by this single-send transport.
+	if transport.TLSClientConfig == nil {
+		transport.TLSClientConfig = &tls.Config{}
+	}
+	transport.TLSClientConfig.NextProtos = []string{"http/1.1"}
+	return transport
 }
 
 func (g *GuardedClient) NetworkSends() int {

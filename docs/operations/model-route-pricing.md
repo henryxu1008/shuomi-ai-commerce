@@ -25,6 +25,12 @@ Key 仅输入、不回显或导出，不进入浏览器持久存储。提交后�
 
 当前源码交付不代表任何保留实例已配置此入口；真实写入资格/保护材料保持 UNKNOWN，运行、真实保存/恢复、浏览器及产品验收 NOT_RUN。实际安装、服务器配置与真实 Key 操作须另行授权。
 
+### OpenAI 模型资料检查
+
+在「我的账户 → 企业空间 → 模型与服务 → 提供方与 Key」选择已保存 Key 的 OpenAI 直连。为目标成员的企业自定义角色明确授予「渠道凭据管理」与「测试渠道模型」。检查显示准确型号、结果和时间。成功表示 OpenAI 返回了指定模型资料，同屏显示「模型调用权限未验证」。本次检查不消耗硕米 AI 点数。
+
+运行装配通过私密配置的 `channelCredentials.modelQueryEnabled` 显式开启。沿用现有 `ai_channel_secret_reader`、保护材料、同一 Run DB 去密视图和可信模型绑定。仅登记为 OpenAI 官方直连、准确绑定 `gpt-5.4-mini-2026-03-17` 的文本连接可发起。关闭开关或读取器准入失败时显示当前无法检查。实际厂商验收和实例变更另行安排。[独立设计](../architecture/domains/ai/model-connectivity-test.md)
+
 ### 企业模型与参考费率
 
 我的账户 → 企业空间 → 模型与费率（`/workbench/account/organization/model-route-pricing`）。企业拥有 `workbench.agent.configure` 的成员在同一处选择默认渠道和文本、图片生成、多模态理解三类共用模型，所有成员共用。保存时按类别/准确绑定版本校验完整选择快照，在原CAS事务一次保存；执行时只对实际消费类别fresh核资格和预算。未开放生图不阻止合法文字选择保存，也不因此获得执行资格；不创建第二current或pending平台。

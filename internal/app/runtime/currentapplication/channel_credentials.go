@@ -21,10 +21,11 @@ import (
 // ChannelCredentialsConfig is private deployment input. The metadata/config
 // lifecycle never needs to instantiate this secret reader or decrypt a Key.
 type ChannelCredentialsConfig struct {
-	Reader           DatabaseConfig  `json:"reader"`
-	ManagementWriter *DatabaseConfig `json:"managementWriter,omitempty"`
-	ProtectionKeyID  string          `json:"protectionKeyId"`
-	ProtectionKey    string          `json:"protectionKey"`
+	ModelQueryEnabled bool            `json:"modelQueryEnabled,omitempty"`
+	Reader            DatabaseConfig  `json:"reader"`
+	ManagementWriter  *DatabaseConfig `json:"managementWriter,omitempty"`
+	ProtectionKeyID   string          `json:"protectionKeyId"`
+	ProtectionKey     string          `json:"protectionKey"`
 }
 
 func (c *ChannelCredentialsConfig) protection() (*channelstore.Protection, error) {
@@ -171,6 +172,10 @@ func (c *Config) validateChannelCredentials() error {
 	if c == nil || c.ChannelCredentials == nil || c.ProductAgent == nil || !c.needsChannelSecrets() {
 		return nil
 	}
+	return c.validateChannelSecretReader()
+}
+
+func (c *Config) validateChannelSecretReader() error {
 	r := c.ChannelCredentials.Reader
 	if r.validate("channel secret reader") != nil || r.User != "ai_channel_secret_reader" || r.MaxConnections > 2 || !sameDatabaseTarget(r, c.ProductAgent.Database) {
 		return errors.New("channel secret reader must be a bounded read-only identity on Run DB")
@@ -189,10 +194,10 @@ func (c *Config) channelManagementEnabled() bool {
 }
 
 func openChannelCredentials(ctx context.Context, c *Config, open func(context.Context, DatabaseConfig) (*gorm.DB, error)) (credential.SecretReader, *gorm.DB, error) {
-	if c == nil || c.ChannelCredentials == nil || c.ProductAgent == nil || !c.needsChannelSecrets() {
+	if c == nil || c.ChannelCredentials == nil || c.ProductAgent == nil || (!c.needsChannelSecrets() && !c.channelModelQueryEnabled()) {
 		return nil, nil, nil
 	}
-	if open == nil || c.validateChannelCredentials() != nil {
+	if open == nil || c.validateChannelCredentials() != nil || (!c.needsChannelSecrets() && c.validateChannelSecretReader() != nil) {
 		return nil, nil, credential.ErrUnavailable
 	}
 	db, e := open(ctx, c.ChannelCredentials.Reader)
@@ -212,4 +217,8 @@ func openChannelCredentials(ctx context.Context, c *Config, open func(context.Co
 
 func (c *Config) needsChannelSecrets() bool {
 	return c != nil && ((c.ProductAgent != nil && c.ProductAgent.Enabled) || (c.ImageAgent != nil && c.ImageAgent.Generation.Enabled))
+}
+
+func (c *Config) channelModelQueryEnabled() bool {
+	return c != nil && c.ChannelCredentials != nil && c.ChannelCredentials.ModelQueryEnabled && c.ModelRoutePricing != nil && c.ProductAgent != nil
 }

@@ -146,7 +146,9 @@ func TestModelRoutePricingDescriptorsKeepLiveAuthorizationAndBounds(t *testing.T
 		require.Equal(t, httproute.AuthPolicyCurrentIdentity, r.AuthPolicy)
 		require.Equal(t, httproute.OrganizationAccessPolicyLiveWrite, r.OrganizationAccessPolicy)
 		permission := authz.PermissionWorkbenchAgentConfigure
-		if strings.Contains(r.Path, "/connections") {
+		if r.Path == modelRouteBase+"/connections/:id/model-query" {
+			permission = authz.PermissionWorkbenchConnectionTest
+		} else if strings.Contains(r.Path, "/connections") {
 			permission = authz.PermissionWorkbenchCredentialsManage
 		}
 		if strings.Contains(r.Path, "/platform-prices") {
