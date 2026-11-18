@@ -199,6 +199,7 @@ type currentApplicationOptions struct {
 	runtimeContext               context.Context
 	commercialOwnerDB            *gorm.DB
 	moneyOwnerDB                 *gorm.DB
+	walletTopUpRecoveryStop      *func()
 	referralDB                   *gorm.DB
 	productAcquisitionDB         *gorm.DB
 	imageAgentDB                 *gorm.DB
@@ -266,6 +267,11 @@ func WithCommercialOwnerDatabase(db *gorm.DB) CurrentApplicationOption {
 }
 func WithMoneyOwnerDatabase(db *gorm.DB) CurrentApplicationOption {
 	return func(options *currentApplicationOptions) { options.moneyOwnerDB = db }
+}
+
+// WithWalletTopUpRecoveryStop lets the caller stop recovery before closing its pools.
+func WithWalletTopUpRecoveryStop(stop *func()) CurrentApplicationOption {
+	return func(options *currentApplicationOptions) { options.walletTopUpRecoveryStop = stop }
 }
 
 // WithBrowserCapture enables the #399 exact-click browser capture ingress. It
@@ -1644,7 +1650,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if runtimeContext == nil {
 			runtimeContext = context.Background()
 		}
-		startCommercialRecoveryLoop(runtimeContext, server, topUpRecovery, 30*time.Second, "wallet top-up", logger)
+		stop := startCommercialRecoveryLoop(runtimeContext, server, topUpRecovery, 30*time.Second, "wallet top-up", logger)
+		if supplied.walletTopUpRecoveryStop != nil {
+			*supplied.walletTopUpRecoveryStop = stop
+		}
 	}
 	if consumerCharges != nil || modelPointRecovery != nil {
 		runtimeContext := supplied.runtimeContext
