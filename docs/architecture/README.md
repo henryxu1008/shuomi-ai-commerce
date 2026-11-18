@@ -297,7 +297,7 @@
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
 - `completed-work-store-scope.md` — [#36 已完成本地资料的店铺归属投影](completed-work-store-scope.md)
 - `product-workbench-trial-runtime.md` — [#36 可保留的本机隔离试用运行边界](product-workbench-trial-runtime.md)
-- `notification-center.md` — [通知中心 V1：站内通知与业务状态投影](notification-center.md)
+- `domains/workbench/notification-center.md` — [通知中心 V1：站内通知与业务状态投影](domains/workbench/notification-center.md)
 - `operations-cockpit-figma-read.md` — [运营驾驶舱四页 Figma 与只读投影补充](operations-cockpit-figma-read.md)
 - `operations-cockpit.md` — [运营驾驶舱首版：人工经营事实与有据可查的经营投影](operations-cockpit.md)
 - `cockpit-listing-task-metrics.md` — [运营驾驶舱首页：刊登与任务统计](cockpit-listing-task-metrics.md)
