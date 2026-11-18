@@ -11,7 +11,7 @@
 
 首批先交付「创建技能」。创作产物为一个仅含 `SKILL.md` 的个人标题技能私有草稿，脚本、附件、图片技能、团队技能创建、批量创建、自动发布、启用与共享均在首批文字创作范围之外。后续脚本创作见第 2.3 节。已有标题技能接入时，候选来自已启用的商品标题整理、标题本地化、冗长标题精简以及当前获准的个人、团队标题技能。已有图片技能使用原图片入口。原项目任务仍为单项、单商品，普通 Chat 规划与既有项目会话分别保留各自输入。
 
-依据：[项目中心](domains/workbench/ai-workbench-project-center.md) · [当前会话工作范围](ai-workbench-work-scope.md) · [Chat 选择店铺](chat-selected-store-context.md) · [商品内容任务](chat-task-object-goal-design-brief.md) · [技能库现有支持范围](../../web/listingkit-ui/src/lib/contracts/skill.ts) · [全新系统产品基线](../product/greenfield-no-legacy-migration.md)
+依据：[项目中心](domains/workbench/ai-workbench-project-center.md) · [当前会话工作范围](ai-workbench-work-scope.md) · [Chat 选择店铺](domains/workbench/chat-selected-store-context.md) · [商品内容任务](chat-task-object-goal-design-brief.md) · [技能库现有支持范围](../../web/listingkit-ui/src/lib/contracts/skill.ts) · [全新系统产品基线](../product/greenfield-no-legacy-migration.md)
 
 ## 2. Chat 中的共同入口
 
@@ -263,7 +263,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 - **幂等与结果不明。** 创建项目、发送规划、确认任务、添加关联各沿对应原请求键与回执。相同键和相同输入核对原结果，相同键换输入按原合同拒绝。提交中禁用重复点击。响应中断时卡片显示「结果待确认」，用原键和原请求核实。任务已确认但启动结果不明时，仅核实原任务及原运行；规划或执行能否继续由原准入和恢复协议决定。刷新按既有同会话恢复能力还原，重试读取原结果时也要检查当前披露权限。
 - **边界与实施准入。** 项目操作使用原项目和 Chat 接口，创作按第 2.1 节增加专用用途。各自沿现有分页、请求大小、时限及预算上限。项目路径继续验证店铺到执行的一致性、会话间草稿交接、创建项目与模型配置的独立性，以及任务提交和项目关联的边界。现有路径无法可靠表达的店铺组合须限制入口。设计评审与执行 Issue 的准入完成后，方可开工修改生产业务路径。
 
-依据：[店铺选择与原键恢复](chat-selected-store-context.md) · [固定工作范围和原键恢复](ai-workbench-work-scope.md) · [Chat 创建前输入交接](chat-compose-before-create.md) · [项目和业务任务领域边界](project-boundaries.md) · [开工准入](../../AGENTS.md#architecture-first-开工准入)
+依据：[店铺选择与原键恢复](domains/workbench/chat-selected-store-context.md) · [固定工作范围和原键恢复](ai-workbench-work-scope.md) · [Chat 创建前输入交接](chat-compose-before-create.md) · [项目和业务任务领域边界](project-boundaries.md) · [开工准入](../../AGENTS.md#architecture-first-开工准入)
 
 ## 7. 验收方法
 
