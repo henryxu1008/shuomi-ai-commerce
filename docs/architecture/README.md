@@ -44,10 +44,10 @@
 - `chat-retained-1260-trial.md` — [保留试用实例隔离接线方案](chat-retained-1260-trial.md) · 隔离演练依据；不构成原实例更新授权。
 
 - `retained-startup-prerequisites.md` — [保留实例启动前置：OwnIntake v3 与采集价格快照](retained-startup-prerequisites.md) · #1233 最小方案独立R1通过，IMPLEMENTATION_READY / FROZEN；实施义务未执行，不授权原35444操作。
-- `app-assembly-boundaries.md` — [App Assembly Boundaries](app-assembly-boundaries.md)
+- `platform/runtime/app-assembly-boundaries.md` — [App Assembly Boundaries](platform/runtime/app-assembly-boundaries.md)
 - `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
 - `fallback-contract-consolidation.md` — [Fallback 合同收敛](fallback-contract-consolidation.md)
-- `httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](httpapi-assembly-boundaries.md)
+- `platform/runtime/httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](platform/runtime/httpapi-assembly-boundaries.md)
 - `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
 - `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
 - `temporal-boundaries.md` — [Temporal Boundaries](temporal-boundaries.md)
@@ -278,8 +278,8 @@
 - [AI Workbench 领域导航：Chat、BusinessTask、Project、原生运行、定时计划与报告](domains/workbench/README.md) — 已有商品内容计划保留，当前新建定时任务只开放店铺经营日报
 
 
-- `chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](chat-visible-store-query.md) · #1259 独立架构评审通过；实施与试用尚未授权。
-- `chat-selected-store-context.md` — [硕米 Chat 选择店铺背景](chat-selected-store-context.md) · 已连接店铺选择及权限校验。
+- `domains/workbench/chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](domains/workbench/chat-visible-store-query.md) · #1259 独立架构评审通过；正文记录已获实施及隔离验证授权，不含真实模型调用、原 35444 操作或释放原预留；本索引不新增实际试用授权。
+- `domains/workbench/chat-selected-store-context.md` — [硕米 Chat 选择店铺背景](domains/workbench/chat-selected-store-context.md) · 已连接店铺选择及权限校验。
 - `chat-project-actions.md` — [硕米 Chat 选择 Agent 技能与项目操作](chat-project-actions.md) · #1396，覆盖个人标题技能的创作、计费及恢复，后续标题技能版本交接和项目操作。
 - `chat-general-text-skills.md` — [硕米 Chat 创建并使用个人文字技能](chat-general-text-skills.md) · #1429，通用文字创作与 Chat 选用已独立复核并达到 IMPLEMENTATION_READY。
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
@@ -287,12 +287,12 @@
 - `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
-- `chat-selected-product-context.md` — [Chat 规划读取已选商品资料](chat-selected-product-context.md)
+- `domains/workbench/chat-selected-product-context.md` — [Chat 规划读取已选商品资料](domains/workbench/chat-selected-product-context.md)
 - `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
 - `scheduled-plan-edit-copy.md` — [定时计划编辑与复制](scheduled-plan-edit-copy.md) · #1297 IMPLEMENTATION_READY；复用原计划 owner，保留在途任务与历史，保存前重新核对时间和预算。
-- `chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
-- `chat-voice-input.md` — [Chat 语音输入与会话入口](chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
-- `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
+- `domains/workbench/chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](domains/workbench/chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
+- `domains/workbench/chat-voice-input.md` — [Chat 语音输入与会话入口](domains/workbench/chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
+- `domains/workbench/chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](domains/workbench/chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
 - `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
