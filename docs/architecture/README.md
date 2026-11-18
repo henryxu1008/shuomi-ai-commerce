@@ -156,8 +156,8 @@
 - `product-content-localization.md` — [商品内容完善与本地化智能体 v1](product-content-localization.md)
 - `product-domain-contracts.md` — [Product Domain Contracts](product-domain-contracts.md)
 - `rich-description-simple-editor-images.md` — [官方 Simple Editor 与描述图片独立上传](rich-description-simple-editor-images.md)
-- `selected-application-multi-product.md` — [多商品优选申请 v1](selected-application-multi-product.md)
-- `selected-application-overview.md` — [优选申请总览只读汇总 v1](selected-application-overview.md)
+- `domains/supply-market/selected-application-multi-product.md` — [多商品优选申请 v1](domains/supply-market/selected-application-multi-product.md)
+- `domains/supply-market/selected-application-overview.md` — [优选申请总览只读汇总 v1](domains/supply-market/selected-application-overview.md)
 - `supply-unbound-completion-drafts.md` — [Supply 未绑定店铺待补全草稿](supply-unbound-completion-drafts.md)
 
 <a id="store"></a>

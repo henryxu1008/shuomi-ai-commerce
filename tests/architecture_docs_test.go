@@ -351,7 +351,7 @@ func TestArchitectureReadmeCoversEveryArchitectureDocument(t *testing.T) {
 }
 
 func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-overview.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "selected-application-overview.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "Service.Choice", "submit_selected",
 		"MemberID 属于当前", "不跨 owner 直接读", "2000", "并发最多4", "总请求10s",
 		"不返回局部计数或假0", "scope 必须完全一致", "无 mutation intent",
@@ -359,7 +359,7 @@ func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *
 }
 
 func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOriginalIntentRecovery(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "selected-application-multi-product.md"), []string{
 		"Independent Architecture", "IMPLEMENTATION_READY / FROZEN", "SupplyMarket", "submit_selected",
 		"useResourcePending", "navigator.locks", "1 MiB", "journal 在整批处理期间不可变",
 		"每件仍提交一个 submit_selected", "每件 Repository.Execute 仍在自己的同库事务",
