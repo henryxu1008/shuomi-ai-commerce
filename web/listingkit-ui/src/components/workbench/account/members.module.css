@@ -42,12 +42,13 @@
 .pendingList code { margin: 0; overflow-wrap: anywhere; text-align: left; }
 .formGrid, .facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 18px 0; }
 .panel label { display: grid; gap: 8px; font-size: var(--body-text-size); }
-.select { width: 100%; min-height: 40px; padding: 8px 12px; color: var(--foreground); background: var(--background); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; }
+.select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 12px; color: var(--foreground); background: var(--background); border: 1px solid var(--border); border-radius: var(--control-radius); }
 .select:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .facts dt { color: var(--muted-foreground); font-size: var(--label-text-size); margin-bottom: 6px; }
 .facts dd { font-size: var(--body-text-size); overflow-wrap: anywhere; }
-.removal { display: grid; justify-items: start; gap: 14px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
-.removal label { display: flex; align-items: flex-start; }
+.removal { display: grid; justify-items: start; gap: 12px; padding: 0 0 12px; }
+.removal label { display: flex; align-items: flex-start; gap: 8px; }
+.removal input { flex: none; margin-top: 3px; }
 .pagination { justify-content: flex-end; margin-top: 20px; font-size: var(--body-text-size); color: var(--muted-foreground); }
 @media (max-width: 760px) { .memberMetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .memberMetrics article:nth-child(2) { border-right: 0; } .memberMetrics article:nth-child(-n+2) { border-bottom: 1px solid var(--border); } .memberFilters { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .formGrid, .facts { grid-template-columns: 1fr; } .panel { padding: 16px; } .table th, .table td { padding: 12px; } .toolbar { align-items: flex-start; } }
@@ -81,7 +82,51 @@
 .table td:last-child { border-right:1px solid var(--border); border-radius:0 8px 8px 0; }
 .table td button { color:var(--primary); font-size: var(--label-text-size); }
 .invitationHost[data-list-visible="false"] > :not(dialog):not([data-recovery="true"]) { display:none; }
-.detail h3 { font-size: var(--card-title-size); font-weight:600; margin-bottom:8px; }
-.detail p { color:var(--muted-foreground); font-size: var(--body-text-size); margin:8px 0 16px; }
-.detail form { margin-top:24px; }
-.detail label { display:grid; gap:10px; font-size: var(--body-text-size); }
+.detail {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--body-text-size);
+}
+.memberIdentity, .currentRole, .roleField, .rolePreview {
+  display: grid;
+  gap: 4px;
+}
+.memberIdentity h3 { font-size: var(--card-title-size); font-weight: 600; }
+.memberIdentity p, .currentRole p, .currentRole > span, .roleField p, .rolePreview p, .readOnlyNote {
+  color: var(--muted-foreground);
+  font-size: var(--label-text-size);
+  line-height: 1.6;
+}
+.currentRole {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--background);
+}
+.currentRole strong, .rolePreview strong { font-weight: 600; }
+.currentRole ul, .rolePreview ul { list-style: disc; padding-inline-start: 20px; }
+.roleEditor { display: grid; gap: 12px; justify-items: start; }
+.roleField { width: 100%; gap: 8px; }
+.roleField label { font-weight: 500; }
+.rolePreview {
+  width: 100%;
+  gap: 8px;
+  padding: 12px 16px;
+  border-inline-start: 2px solid var(--primary);
+  background: var(--background);
+}
+.rolePreview ul { display: grid; gap: 4px; }
+.saveRole { min-height: 44px; }
+.memberRecord { border-top: 1px solid var(--border); }
+.memberRecord > summary {
+  display: list-item;
+  padding: 12px 0;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.memberRecord .facts { margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+@media (max-width: 420px) {
+  .saveRole { width: 100%; }
+}
