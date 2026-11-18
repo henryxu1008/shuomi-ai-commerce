@@ -1,15 +1,15 @@
 # 企业模型与官网费率
 
-2026-11-04 阶段更新：[企业共享合同](../architecture/enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)
+2026-11-04 阶段更新：[企业共享合同](../../architecture/enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)
 已将本阶段收敛为平台维护参考价/估算参数，沿原配置版本用于报价与预算估算，并如实标为估算。
 下文原“逐次适用官网价/完整分项/厂商完整费用硬上界才可执行”是历史实现合同，不能恢复为当前业务前置。
 文字参考估算和按类别执行准入已在#1078工程接入；Flare 图片参考策略与原直连接线本轮已补离线实现，准确实现 HEAD 的 CI/最终工程复核见 PR #1078；真实配置尚未发布。
-当前[Flare最小设计候选](../architecture/openai-flare-image-generation.md#本次设计候选2026-11-04)明确估算预留、基础用量结算和原UNKNOWN责任，
+当前[Flare最小设计候选](../../architecture/openai-flare-image-generation.md#本次设计候选2026-11-04)明确估算预留、基础用量结算和原UNKNOWN责任，
 D1“缺输入细分时使用较高输入参考费率”已获用户认可、原 Reviewer 架构复核通过；实现不授权发布或启用，真实运行/产品验收 NOT_RUN。
 原单一配置/账本、预算与点数上限、权限/租户、幂等及不确定调用保护保留；
 不授权发布真实配置、修改凭据/实例、调用模型/平台或改变实际扣款/恢复语义。
 
-当前依据：[企业统一模型配置](../architecture/enterprise-shared-model-configuration.md)、PR #1078。此前 #830 按用途、两个数据库分别发布及单计划 VIP 的方案已被本次产品决定替代；历史实现和执行证据仍按原 SHA/范围保留。
+当前依据：[企业统一模型配置](../../architecture/enterprise-shared-model-configuration.md)、PR #1078。此前 #830 按用途、两个数据库分别发布及单计划 VIP 的方案已被本次产品决定替代；历史实现和执行证据仍按原 SHA/范围保留。
 
 ## 用户入口
 
@@ -29,7 +29,7 @@ Key 仅输入、不回显或导出，不进入浏览器持久存储。提交后�
 
 在「我的账户 → 企业空间 → 模型与服务 → 提供方与 Key」选择已保存 Key 的 OpenAI 直连。为目标成员的企业自定义角色明确授予「渠道凭据管理」与「测试渠道模型」。检查显示准确型号、结果和时间。成功表示 OpenAI 返回了指定模型资料，同屏显示「模型调用权限未验证」。本次检查不消耗硕米 AI 点数。
 
-运行装配通过私密配置的 `channelCredentials.modelQueryEnabled` 显式开启。沿用现有 `ai_channel_secret_reader`、保护材料、同一 Run DB 去密视图和可信模型绑定。仅登记为 OpenAI 官方直连、准确绑定 `gpt-5.4-mini-2026-03-17` 的文本连接可发起。关闭开关或读取器准入失败时显示当前无法检查。实际厂商验收和实例变更另行安排。[独立设计](../architecture/domains/ai/model-connectivity-test.md)
+运行装配通过私密配置的 `channelCredentials.modelQueryEnabled` 显式开启。沿用现有 `ai_channel_secret_reader`、保护材料、同一 Run DB 去密视图和可信模型绑定。仅登记为 OpenAI 官方直连、准确绑定 `gpt-5.4-mini-2026-03-17` 的文本连接可发起。关闭开关或读取器准入失败时显示当前无法检查。实际厂商验收和实例变更另行安排。[独立设计](../../architecture/domains/ai/model-connectivity-test.md)
 
 ### 企业模型与参考费率
 
@@ -81,7 +81,7 @@ base64 结果沿原不可变恢复包保存，不能把存储 ACK 丢失当成�
 
 ## Eino 多厂商按需接入
 
-沿[冻结用途设计](../architecture/domains/ai/eino-model-admission.md)，仍在原企业三类模型页选择，不增加个人模型设置或网页 Key 输入。
+沿[冻结用途设计](../../architecture/domains/ai/eino-model-admission.md)，仍在原企业三类模型页选择，不增加个人模型设置或网页 Key 输入。
 模型和协议在受限配置的原 Definition 中声明，连接只保存企业渠道身份和秘密；同一合格连接可被多个模型引用。原BoundedAdmission按企业+ConnectionID共享10并发、5次/秒、burst15；不按模型引用增发额度，缺连接身份不回退为模型名限流。
 
 | 用途 | AdapterKind | AdapterPolicyVersion | UsageMappingVersion |
@@ -110,7 +110,7 @@ Gemini 的可信 ModelProfile.ThinkingMode 必须显式为 low、minimal 或 bud
 
 ## 原单图调用的明确拒绝、未计费恢复
 
-沿[已批准恢复设计](../architecture/own-intake-provider-unbilled-recovery.md)，受控命令只恢复配置指定的原调用与原预留。它没有模型调用、商品保存、schema 初始化或通用退款入口。
+沿[已批准恢复设计](../../architecture/own-intake-provider-unbilled-recovery.md)，受控命令只恢复配置指定的原调用与原预留。它没有模型调用、商品保存、schema 初始化或通用退款入口。
 
 入口为 `go run ./cmd/model-invocation-recovery -config <本机私密配置绝对路径> -action inspect`。默认 `inspect` 使用只读连接，输出原调用、预留、绑定摘要、证明就绪状态和已确认结算状态。配置文件必须通过现有私密文件权限检查，严格 JSON 限 16 KiB；不得提交到 Git 或打印数据库密码。
 
