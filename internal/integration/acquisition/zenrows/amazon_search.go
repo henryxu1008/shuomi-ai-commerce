@@ -8,12 +8,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"golang.org/x/net/html"
 	strict "sigs.k8s.io/json"
 	"task-processor/internal/integration/acquisition/amazon"
 	"task-processor/internal/product/dataacquisition"
@@ -80,7 +78,7 @@ func amazonFirstPageFetch(client *http.Client, endpoint string, readKey func(con
 		if err != nil || ctx.Err() != nil || len(body) > maxResponseBytes || bytes.Contains(body, []byte(key)) {
 			return out
 		}
-		out.Evidence = amazonSearchEvidence(body, time.Now().UTC())
+		out.Evidence = DecodeAmazonFirstPage(body, time.Now().UTC())
 		for _, fact := range out.Evidence {
 			if strings.Contains(fact.Title, key) || strings.Contains(fact.MainImage, key) {
 				out.Evidence = nil
@@ -111,7 +109,8 @@ func matchesAmazonFirstPage(raw, keyword string) bool {
 	return len(q) == 2 && len(page) == 1 && page[0] == "1"
 }
 
-func amazonSearchEvidence(body []byte, captured time.Time) []dataacquisition.Evidence {
+// DecodeAmazonFirstPage extracts product evidence from one Fetch response.
+func DecodeAmazonFirstPage(body []byte, captured time.Time) []dataacquisition.Evidence {
 	var response struct {
 		HTML   string `json:"html"`
 		Parsed struct {
@@ -126,28 +125,9 @@ func amazonSearchEvidence(body []byte, captured time.Time) []dataacquisition.Evi
 	if err != nil || len(problems) != 0 {
 		return nil
 	}
-	ids, err := amazon.ParseDiscovery(response.HTML, 200)
-	if err != nil || len(ids) == 0 {
+	cards, err := amazon.ParseUSSearchCards(response.HTML, 200)
+	if err != nil || len(cards) == 0 {
 		return nil
-	}
-	doc, err := html.Parse(strings.NewReader(response.HTML))
-	if err != nil {
-		return nil
-	}
-	images := make(map[string]string)
-	for node := range doc.Descendants() {
-		if node.Type != html.ElementNode || node.Data != "img" || !slices.Contains(strings.Fields(nodeAttribute(node, "class")), "s-image") {
-			continue
-		}
-		for card := node.Parent; card != nil; card = card.Parent {
-			if nodeAttribute(card, "data-component-type") == "s-search-result" {
-				id := nodeAttribute(card, "data-asin")
-				if _, seen := images[id]; !seen {
-					images[id] = nodeAttribute(node, "src")
-				}
-				break
-			}
-		}
 	}
 	titles := make(map[string]string)
 	for _, card := range response.Parsed.Results {
@@ -155,12 +135,17 @@ func amazonSearchEvidence(body []byte, captured time.Time) []dataacquisition.Evi
 			titles[card.ASIN] = card.Title
 		}
 	}
-	facts := make([]dataacquisition.Evidence, 0, min(len(ids), dataacquisition.AmazonFirstPageLimit))
-	for _, id := range ids {
+	facts := make([]dataacquisition.Evidence, 0, min(len(cards), dataacquisition.AmazonFirstPageLimit))
+	for _, card := range cards {
 		fact := dataacquisition.Evidence{
-			Site: "us", ASIN: id, Title: titles[id], MainImage: images[id], Availability: "unknown",
+			Site: "us", ASIN: card.ASIN, Title: titles[card.ASIN], MainImage: card.MainImage, Availability: "unknown",
 			ParserVersion: dataacquisition.AmazonZenRowsSearchVersion, CapturedAt: captured.Format(time.RFC3339Nano),
-			Missing: []string{"availability", "price", "currency", "description", "brand", "attributes", "variants", "rating", "reviewCount"},
+			Missing: []string{"availability", "description", "brand", "attributes", "variants", "rating", "reviewCount"},
+		}
+		if card.PriceUSD > 0 {
+			fact.Price, fact.Currency = card.PriceUSD, "USD"
+		} else {
+			fact.Missing = append(fact.Missing, "price", "currency")
 		}
 		if fact.Validate() == nil {
 			facts = append(facts, fact)
@@ -170,13 +155,4 @@ func amazonSearchEvidence(body []byte, captured time.Time) []dataacquisition.Evi
 		}
 	}
 	return facts
-}
-
-func nodeAttribute(node *html.Node, key string) string {
-	for _, attr := range node.Attr {
-		if attr.Key == key {
-			return attr.Val
-		}
-	}
-	return ""
 }

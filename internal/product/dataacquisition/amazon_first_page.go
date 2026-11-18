@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	AmazonZenRowsSearchVersion    = "amazon-zenrows-search-v1"
+	AmazonZenRowsSearchVersion    = "amazon-zenrows-search-v2"
+	amazonZenRowsSearchV1         = "amazon-zenrows-search-v1"
 	AmazonFirstPageLimit          = 5
 	AmazonFirstPageRequestCredits = 25
 	AmazonFirstPageFetchTimeout   = 180 * time.Second

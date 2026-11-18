@@ -19,7 +19,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"golang.org/x/net/html"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -30,7 +29,7 @@ import (
 	"task-processor/internal/authidentity"
 	datahttp "task-processor/internal/dataservice/httpapi"
 	"task-processor/internal/httproute"
-	"task-processor/internal/integration/acquisition/amazon"
+	"task-processor/internal/integration/acquisition/zenrows"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	projectstore "task-processor/internal/integration/persistence/aiworkbench/projectcenter"
 	keystore "task-processor/internal/integration/persistence/dataservice"
@@ -40,6 +39,7 @@ import (
 	researchstore "task-processor/internal/integration/persistence/product/research"
 	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
 	"task-processor/internal/ledger/orgresource"
+	"task-processor/internal/product/catalog"
 	"task-processor/internal/product/collection"
 	"task-processor/internal/product/dataacquisition"
 	"task-processor/internal/product/research"
@@ -142,15 +142,7 @@ func (p *offlineZenRowsPage) readPage(ctx context.Context, q dataacquisition.Que
 	if err != nil || len(body) > limit {
 		return nil, dataacquisition.ErrSourceUnsupported
 	}
-	ids, facts, err := decodeOfflineSearchPage(body, q.Limit, time.Now().UTC())
-	if err != nil {
-		return nil, err
-	}
-	out := make([]dataacquisition.Evidence, 0, len(ids))
-	for _, id := range ids {
-		out = append(out, facts[id])
-	}
-	return out, nil
+	return zenrows.DecodeAmazonFirstPage(body, time.Now().UTC()), nil
 }
 
 type offlineSearchCard struct {
@@ -170,68 +162,6 @@ type offlineSearchPage struct {
 	} `json:"parsed"`
 }
 
-func decodeOfflineSearchPage(body []byte, limit int, captured time.Time) ([]string, map[string]dataacquisition.Evidence, error) {
-	var page offlineSearchPage
-	if err := json.Unmarshal(body, &page); err != nil {
-		return nil, nil, err
-	}
-	ids, err := amazon.ParseDiscovery(page.HTML, limit)
-	if err != nil {
-		return nil, nil, err
-	}
-	doc, err := html.Parse(strings.NewReader(page.HTML))
-	if err != nil {
-		return nil, nil, err
-	}
-	images := map[string]string{}
-	for node := range doc.Descendants() {
-		if node.Type != html.ElementNode || node.Data != "img" || offlineAttribute(node, "class") != "s-image" {
-			continue
-		}
-		for card := node.Parent; card != nil; card = card.Parent {
-			if offlineAttribute(card, "data-component-type") == "s-search-result" {
-				asin := offlineAttribute(card, "data-asin")
-				if _, seen := images[asin]; !seen {
-					images[asin] = offlineAttribute(node, "src")
-				}
-				break
-			}
-		}
-	}
-	cards := map[string]offlineSearchCard{}
-	for _, card := range page.Parsed.Results {
-		if _, seen := cards[card.ASIN]; !seen && !card.Sponsored {
-			cards[card.ASIN] = card
-		}
-	}
-	facts := make(map[string]dataacquisition.Evidence, len(ids))
-	validIDs := make([]string, 0, len(ids))
-	for _, id := range ids {
-		card := cards[id]
-		fact := dataacquisition.Evidence{
-			Site: "us", ASIN: id, Title: card.Title, MainImage: images[id],
-			ParserVersion: dataacquisition.AmazonZenRowsSearchVersion, CapturedAt: captured.Format(time.RFC3339Nano),
-			// A search result alone does not establish stock or offer currency.
-			Availability: "unknown",
-			Missing:      []string{"availability", "price", "currency", "description", "brand", "attributes", "variants", "rating", "reviewCount"},
-		}
-		if fact.Validate() == nil {
-			facts[id] = fact
-			validIDs = append(validIDs, id)
-		}
-	}
-	return validIDs, facts, nil
-}
-
-func offlineAttribute(node *html.Node, name string) string {
-	for _, attr := range node.Attr {
-		if attr.Key == name {
-			return attr.Val
-		}
-	}
-	return ""
-}
-
 func startOfflineZenRows(t *testing.T) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
 	var page offlineSearchPage
@@ -240,12 +170,17 @@ func startOfflineZenRows(t *testing.T) (*httptest.Server, *atomic.Int32) {
 	for _, n := range []int{1, 2, 1, 3, 9, 4, 5, 6} {
 		asin := fmt.Sprintf("B%09d", n)
 		card := offlineSearchCard{ASIN: asin, Title: fmt.Sprintf("Synthetic lamp %d", n), Sponsored: n == 9}
-		if n == 1 {
-			price := 19.95
+		if n == 3 {
+			price := 9.95
 			card.Price = &price
 		}
 		page.Parsed.Results = append(page.Parsed.Results, card)
 		fmt.Fprintf(&raw, `<div data-component-type="s-search-result" data-asin="%s"><img class="s-image" src="https://m.media-amazon.com/images/I/sample-%d.jpg">`, asin, n)
+		switch n {
+		case 1, 2:
+			amount := map[int]string{1: "$19.95", 2: "$24.50"}[n]
+			fmt.Fprintf(&raw, `<div data-cy="price-recipe"><span class="a-price" data-a-size="xl" data-a-color="base"><span class="a-offscreen">%s</span></span></div>`, amount)
+		}
 		if card.Sponsored {
 			raw.WriteString(`<span class="puis-sponsored-label-text">Sponsored</span>`)
 		}
@@ -421,27 +356,58 @@ func TestZenRowsAmazonUSFirstPageOriginalSaveAndComparison(t *testing.T) {
 	page, err := researchService.List(ctx, scope, project, "")
 	require.NoError(t, err)
 	require.Len(t, page.Items, 5)
-	choices := make([]research.AnalysisChoice, 0, len(page.Items))
+	byASIN := make(map[string]research.AnalysisChoice, len(page.Items))
+	wantPrice := map[string]float64{"B000000001": 19.95, "B000000002": 24.50}
 	var asins []string
 	for _, c := range page.Items {
 		require.NotNil(t, c.Observation)
 		require.Equal(t, job.ID, c.Observation.Ref.JobID)
 		require.Equal(t, zenRowsSpikeKeyword, c.Observation.Query.Keyword)
 		require.Equal(t, dataacquisition.AmazonZenRowsSearchVersion, c.Observation.ParserVersion)
-		require.Nil(t, c.Observation.Price, "the search sample does not establish a stocked offer")
+		require.Contains(t, c.Observation.Missing, "availability")
+		source := c.Observation.Ref.Source
+		snapshot, err := snapshots.GetSnapshot(ctx, catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: source.ProductKey}, source.Version)
+		require.NoError(t, err)
+		if price, ok := wantPrice[c.Observation.ASIN]; ok {
+			require.NotNil(t, c.Observation.Price)
+			require.Equal(t, price, *c.Observation.Price)
+			require.Equal(t, "USD", c.Observation.Currency)
+			require.Equal(t, "displayed_listing_offer", c.Observation.PriceBasis)
+			require.Len(t, snapshot.Snapshot.Variants, 1)
+			variant := snapshot.Snapshot.Variants[0]
+			require.Nil(t, variant.Stock)
+			require.NotNil(t, variant.Price)
+			require.Equal(t, price, variant.Price.Amount)
+			require.Equal(t, "USD", variant.Price.Currency)
+		} else {
+			require.Nil(t, c.Observation.Price)
+			require.Empty(t, c.Observation.Currency)
+			require.Contains(t, c.Observation.Missing, "price")
+			require.Empty(t, snapshot.Snapshot.Variants)
+		}
 		asins = append(asins, c.Observation.ASIN)
-		choices = append(choices, research.AnalysisChoice{CandidateID: c.ID, ExpectedRevision: c.Revision, LinkID: c.SelectedLinkID, EvidenceDigest: c.EvidenceDigest, Selection: c.Observation.Ref.Selection})
+		byASIN[c.Observation.ASIN] = research.AnalysisChoice{CandidateID: c.ID, ExpectedRevision: c.Revision, LinkID: c.SelectedLinkID, EvidenceDigest: c.EvidenceDigest, Selection: c.Observation.Ref.Selection}
 	}
-	require.ElementsMatch(t, []string{"B000000001", "B000000002", "B000000003", "B000000004", "B000000005"}, asins)
+	expectedASINs := []string{"B000000001", "B000000002", "B000000003", "B000000004", "B000000005"}
+	require.ElementsMatch(t, expectedASINs, asins)
+	choices := make([]research.AnalysisChoice, 0, len(page.Items))
+	for _, asin := range expectedASINs {
+		choices = append(choices, byASIN[asin])
+	}
 	inspector := analysis.Inspector{Research: researchService, Products: selection.Inspector{Collections: collections}}
 	for _, count := range []int{2, 3, 4, 5} {
 		_, result, err := inspector.Prepare(ctx, project, choices[:count])
 		require.NoError(t, err)
 		require.Len(t, result.Candidates, count)
-		require.Equal(t, count, result.Summary.Unpriced)
+		require.Equal(t, count-2, result.Summary.Unpriced)
+		require.Equal(t, []analysis.PriceRange{{Currency: "USD", Basis: "displayed_listing_offer", Count: 2, Minimum: 19.95, Maximum: 24.50}}, result.Summary.Prices)
 		for _, candidate := range result.Candidates {
 			require.NotEmpty(t, candidate.Observation.Checksum)
-			require.Contains(t, candidate.Missing, "observation.price")
+			if _, priced := wantPrice[candidate.Observation.ASIN]; priced {
+				require.NotContains(t, candidate.Missing, "observation.price")
+			} else {
+				require.Contains(t, candidate.Missing, "observation.price")
+			}
 			require.NotEmpty(t, candidate.Facts)
 		}
 	}

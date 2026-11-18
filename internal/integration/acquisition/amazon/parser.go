@@ -81,6 +81,23 @@ func document(raw string) (*html.Node, error) {
 	return n, nil
 }
 func ParseDiscovery(raw string, limit int) ([]string, error) {
+	cards, err := discoveryCards(raw, limit)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(cards))
+	for _, card := range cards {
+		ids = append(ids, card.ASIN)
+	}
+	return ids, nil
+}
+
+type discoveryCard struct {
+	ASIN string
+	node *html.Node
+}
+
+func discoveryCards(raw string, limit int) ([]discoveryCard, error) {
 	if limit < 1 || limit > 200 {
 		return nil, dataacquisition.ErrInvalid
 	}
@@ -88,7 +105,7 @@ func ParseDiscovery(raw string, limit int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	ids := []string{}
+	cards := []discoveryCard{}
 	seen := map[string]bool{}
 	supported := walk(doc, func(n *html.Node) bool {
 		return hasClass(n, "s-main-slot") || attr(n, "data-component-type") == "s-search-result"
@@ -98,7 +115,7 @@ func ParseDiscovery(raw string, limit int) ([]string, error) {
 	}
 	site, _ := dataacquisition.ResolveSite("us")
 	walk(doc, func(n *html.Node) bool {
-		if len(ids) >= limit || attr(n, "data-component-type") != "s-search-result" {
+		if len(cards) >= limit || attr(n, "data-component-type") != "s-search-result" {
 			return false
 		}
 		advert := false
@@ -114,12 +131,12 @@ func ParseDiscovery(raw string, limit int) ([]string, error) {
 		})
 		a, e := dataacquisition.NormalizeASIN(site, attr(n, "data-asin"))
 		if e == nil && !advert && !seen[a] {
-			ids = append(ids, a)
+			cards = append(cards, discoveryCard{ASIN: a, node: n})
 			seen[a] = true
 		}
 		return false
 	})
-	return ids, nil
+	return cards, nil
 }
 func stockState(text string) string {
 	text = strings.ToLower(strings.TrimSpace(text))

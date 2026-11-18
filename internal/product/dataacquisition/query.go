@@ -141,10 +141,22 @@ func (e Evidence) Validate() error {
 	}
 	switch e.ParserVersion {
 	case "amazon-v1":
-	case AmazonZenRowsSearchVersion:
-		if e.Site != "us" || e.Availability != "unknown" || e.Price != 0 || e.Currency != "" ||
-			e.Description != "" || e.Brand != "" || len(e.Attributes) != 0 || len(e.Images) != 0 ||
-			!includes(e.Missing, "price") || !includes(e.Missing, "currency") {
+	case amazonZenRowsSearchV1, AmazonZenRowsSearchVersion:
+		if e.Site != "us" || e.Availability != "unknown" ||
+			e.Description != "" || e.Brand != "" || len(e.Attributes) != 0 || len(e.Images) != 0 {
+			return ErrInvalid
+		}
+		missingPrice, missingCurrency := includes(e.Missing, "price"), includes(e.Missing, "currency")
+		switch {
+		case e.Price == 0 && e.Currency == "":
+			if !missingPrice || !missingCurrency {
+				return ErrInvalid
+			}
+		case e.ParserVersion == AmazonZenRowsSearchVersion && e.Price > 0 && e.Currency == "USD":
+			if missingPrice || missingCurrency {
+				return ErrInvalid
+			}
+		default:
 			return ErrInvalid
 		}
 	default:
@@ -185,6 +197,13 @@ func (e Evidence) Validate() error {
 	}
 	return nil
 }
+
+// HasDisplayedPrice reports whether validated evidence carries a displayed
+// listing offer. Search-card evidence establishes the quote independently of stock.
+func (e Evidence) HasDisplayedPrice() bool {
+	return e.Price > 0 && (e.Availability == "available" || (e.ParserVersion == AmazonZenRowsSearchVersion && e.Currency == "USD"))
+}
+
 func (e Evidence) Envelope(operation string) (sourcing.SourceEnvelope, error) {
 	if e.Validate() != nil {
 		return sourcing.SourceEnvelope{}, ErrInvalid
@@ -203,7 +222,7 @@ func (e Evidence) Envelope(operation string) (sourcing.SourceEnvelope, error) {
 	envelope.ProductCandidate.Attributes["sourceUrl"] = "https://" + site.Domain + "/dp/" + e.ASIN
 	envelope.ProductCandidate.Attributes["availability"] = e.Availability
 	envelope.ProductCandidate.Attributes["capturedAt"] = e.CapturedAt
-	if e.Availability == "available" {
+	if e.HasDisplayedPrice() {
 		envelope.ProductCandidate.Variants = []sourcing.ProductVariantCandidate{{SourceID: e.ASIN, Title: e.Title, Currency: e.Currency, Price: e.Price}}
 	}
 	seen := map[string]bool{}
