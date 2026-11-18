@@ -190,7 +190,7 @@ architecture/depguard and final-SHA independent review. Real IAM/login/provider
 configuration and production are NOT_RUN; fixture identities/tokens only.
 
 Authority: Issue #346/#348, root AGENTS, Issue-driven V1,
-`docs/architecture/auth-and-tenancy.md`, multi-org spec sections 8/13/17/18/19,
+`docs/architecture/platform/identity/auth-and-tenancy.md`, multi-org spec sections 8/13/17/18/19,
 `docs/product/final-ui-ia-authority.md`.
 Provider contract: https://zitadel.com/docs/apis/openidoauth/endpoints and
 https://zitadel.com/docs/apis/openidoauth/scopes (read 2026-09-07).

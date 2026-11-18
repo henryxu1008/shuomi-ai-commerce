@@ -24,7 +24,7 @@ Every review reference must resolve to an existing repository document.
 
 - `project-boundaries.md`
 - `project-target-architecture.md`
-- `auth-and-tenancy.md`
+- `platform/identity/auth-and-tenancy.md`
 - `app-assembly-boundaries.md`
 - `httpapi-assembly-boundaries.md`
 - `temporal-boundaries.md`
