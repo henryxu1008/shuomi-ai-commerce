@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strings"
+
 	"task-processor/internal/app/setupcontrol"
 )
 
@@ -17,4 +19,20 @@ func documentMap(raw []byte) (map[string]any, error) {
 		return nil, setupcontrol.ErrInvalid
 	}
 	return result, nil
+}
+
+// manifestFieldName matches the case folding used by encoding/json for struct
+// fields. A map has no input order to resolve multiple spellings of one field.
+func manifestFieldName(document map[string]any, field string) (string, error) {
+	key, found := field, false
+	for name := range document {
+		if !strings.EqualFold(name, field) {
+			continue
+		}
+		if found {
+			return "", setupcontrol.ErrInvalid
+		}
+		key, found = name, true
+	}
+	return key, nil
 }

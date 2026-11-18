@@ -37,3 +37,17 @@ func candidatePermissionBlocks(modules []currentapplication.ModuleInspection, se
 	}
 	return result
 }
+
+func moduleStateMatches(modules []currentapplication.ModuleInspection, id string, want bool) bool {
+	found := false
+	for _, module := range modules {
+		if module.ID != id {
+			continue
+		}
+		if module.Enabled != want || (want && module.Installed != "verified") {
+			return false
+		}
+		found = true
+	}
+	return found
+}
