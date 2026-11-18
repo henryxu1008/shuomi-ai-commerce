@@ -24,6 +24,7 @@ func TestRunReferralPoolFailureAndDisabledLifecycle(t *testing.T) {
 			source, referrals := &gorm.DB{}, &gorm.DB{}
 			var closed []*gorm.DB
 			opened := 0
+			maturityStopped := false
 			stop := errors.New("fixture stop")
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -44,17 +45,24 @@ func TestRunReferralPoolFailureAndDisabledLifecycle(t *testing.T) {
 				NewApplication: func(context.Context, *gorm.DB, *coreconfig.Config, *logrus.Logger) (*http.Server, error) {
 					return &http.Server{}, nil
 				},
-				NewReferralsApplication: func(_ context.Context, s, r *gorm.DB, core *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
-					if s != source || r != referrals || core.Referrals.Prepared == nil {
+				NewReferralsApplication: func(_ context.Context, s, r *gorm.DB, maturityStop *func(), core *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
+					if s != source || r != referrals || core.Referrals.Prepared == nil || maturityStop == nil {
 						t.Fatal("referral composition lost independent dependencies")
 					}
 					if stage == "construct" {
 						return nil, stop
 					}
+					*maturityStop = func() { maturityStopped = true }
 					return &http.Server{}, nil
 				},
-				Listen:        func(string, string) (net.Listener, error) { return nil, stop },
-				CloseDatabase: func(db *gorm.DB) error { closed = append(closed, db); return nil },
+				Listen: func(string, string) (net.Listener, error) { return nil, stop },
+				CloseDatabase: func(db *gorm.DB) error {
+					if db == referrals && stage == "listen" && !maturityStopped {
+						t.Error("referral pool closed before maturity stopped")
+					}
+					closed = append(closed, db)
+					return nil
+				},
 			}
 			if err := Run(ctx, cfg, logrus.New(), dependencies); err == nil {
 				t.Fatal("expected bounded stop")
@@ -191,6 +199,47 @@ func TestRunStopsCommercialBillingRecoveryBeforeClosingOwnerPools(t *testing.T) 
 	}
 	if !stopped || !reflect.DeepEqual(closed, []*gorm.DB{money, commercial, source}) {
 		t.Fatalf("commercial billing recovery stopped = %t, closed pools = %v", stopped, closed)
+	}
+}
+
+func TestRunStopsResourceConsumerRecoveryWithoutMoneyPool(t *testing.T) {
+	cfg := runtimeTestConfig()
+	commercialConfig, productConfig := cfg.SourceAccountDatabase, cfg.SourceAccountDatabase
+	commercialConfig.User = "commercial_owner_runtime"
+	productConfig.User, productConfig.Database = "source_acquisition_runtime", "product_acquisition"
+	cfg.CommercialOwnerDatabase, cfg.ProductAcquisitionDatabase = &commercialConfig, &productConfig
+
+	source, product := &gorm.DB{}, &gorm.DB{}
+	commercial := emptyStorageCommercialOwner(t)
+	listenErr := errors.New("address already in use")
+	var closed []*gorm.DB
+	stopped := false
+	err := Run(t.Context(), cfg, logrus.New(), Dependencies{
+		IdentityPreflight:      func(context.Context, IdentityConfig) error { return nil },
+		OpenSourceAccount:      func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
+		OpenCommercialOwner:    func(context.Context, DatabaseConfig) (*gorm.DB, error) { return commercial, nil },
+		OpenProductAcquisition: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return product, nil },
+		NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, features ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
+			if features.MoneyOwnerDB != nil || features.ResourceConsumerRecoveryStop == nil {
+				t.Fatal("resource consumer recovery requires a stop callback with or without a money owner pool")
+			}
+			*features.ResourceConsumerRecoveryStop = func() { stopped = true }
+			return &http.Server{}, nil
+		},
+		Listen: func(string, string) (net.Listener, error) { return nil, listenErr },
+		CloseDatabase: func(db *gorm.DB) error {
+			if (db == commercial || db == product) && !stopped {
+				t.Error("resource consumer recovery was still running when its database pool closed")
+			}
+			closed = append(closed, db)
+			return nil
+		},
+	})
+	if !errors.Is(err, listenErr) {
+		t.Fatalf("Run() error = %v, want wrapped %v", err, listenErr)
+	}
+	if !stopped || !reflect.DeepEqual(closed, []*gorm.DB{product, commercial, source}) {
+		t.Fatalf("resource consumer recovery stopped = %t, closed pools = %v", stopped, closed)
 	}
 }
 

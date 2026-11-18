@@ -8,17 +8,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// startReferralMaturityLoop owns the referral-specific due-claim sweep. It is
-// deliberately local to the application owner rather than a general-purpose
-// scheduler: each run is transactionally idempotent in the referral store,
-// and server shutdown cancels the loop without leaving a background worker.
-func startReferralMaturityLoop(server *http.Server, mature func(context.Context, time.Time) error, interval time.Duration, logger *logrus.Logger) {
+// startReferralMaturityLoop starts the due-claim sweep and returns a stop
+// function that cancels and waits for the loop before the caller closes its pool.
+func startReferralMaturityLoop(server *http.Server, mature func(context.Context, time.Time) error, interval time.Duration, logger *logrus.Logger) func() {
 	if server == nil || mature == nil || interval <= 0 {
-		return
+		return func() {}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	server.RegisterOnShutdown(cancel)
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		defer cancel()
 		run := func() {
 			if err := mature(ctx, time.Now().UTC()); err != nil && logger != nil {
@@ -37,4 +37,8 @@ func startReferralMaturityLoop(server *http.Server, mature func(context.Context,
 			}
 		}
 	}()
+	return func() {
+		cancel()
+		<-done
+	}
 }
