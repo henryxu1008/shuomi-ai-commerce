@@ -101,6 +101,7 @@ func (p chatTurnGateway) Admit(ctx context.Context, scope aiworkbench.Scope, con
 		return aiworkbench.StoreRouteRequest{}, err
 	}
 	envelope := aiworkbench.ChatTurnEnvelope{Version: 1, Input: p.input, GeneralScope: row.BusinessScope != nil && row.BusinessScope.Kind == "general"}
+	var authoringSelection string
 	// Freeze only an actually available, authorized library version. Selecting
 	// it bypasses intent inference; selecting an invalid version never reroutes.
 	if p.app.authoring != nil {
@@ -110,8 +111,15 @@ func (p chatTurnGateway) Admit(ctx context.Context, scope aiworkbench.Scope, con
 			format := authoringProfileFormat(route.Profile)
 			if routeErr == nil && format != 0 {
 				version, versionErr := p.app.authoring.skills.Authoring(personal, uint64(format))
-				if versionErr == nil {
+				digest, digestErr := route.Profile.Digest()
+				if versionErr == nil && digestErr == nil {
+					mode := route.Profile.BillingMode
+					if mode == "" {
+						mode = aicapability.ModelPlatformPoints
+					}
 					envelope.Creator = &aiworkbench.ChatSkillReference{Version: uint64(format), Digest: version.Package.Digest}
+					envelope.Authoring = &aiworkbench.ChatTurnAuthoringBinding{ProfileDigest: digest, BillingMode: mode}
+					authoringSelection = route.Profile.RoutingPolicyVersion
 				}
 			}
 		}
@@ -135,6 +143,9 @@ func (p chatTurnGateway) Admit(ctx context.Context, scope aiworkbench.Scope, con
 		return request, aiworkbench.ErrUnavailable
 	}
 	profile := route.Profile
+	if envelope.Authoring != nil && profile.RoutingPolicyVersion != authoringSelection {
+		return request, aiworkbench.ErrProposalStale
+	}
 	if _, err = einorouter.PrepareChat(scope, member, "preflight", envelope, profile); err != nil {
 		return request, err
 	}
@@ -227,6 +238,11 @@ func (p workbenchChatTurnSkills) Bind(ctx context.Context, command aiworkbench.C
 	if command.Envelope.Creator == nil {
 		return command, aiworkbench.ErrUnavailable
 	}
+	// Old unbound requests have no proof that the current selection is the
+	// one originally accepted. Any previously bound child was read above.
+	if command.Envelope.Authoring == nil {
+		return command, nil
+	}
 	key, err := uuid.NewV7()
 	if err != nil {
 		return command, aiworkbench.ErrUnavailable
@@ -246,6 +262,9 @@ func (p workbenchChatTurnSkills) Bind(ctx context.Context, command aiworkbench.C
 		var points int64
 		var identity aicapability.TextInputIdentity
 		identity, quote, points, _, err = p.app.authoring.prepare(fresh, scope, candidate)
+		if err == nil && !command.Envelope.Authoring.Allows(quote.ProfileDigest, points) {
+			err = aiworkbench.ErrProposalStale
+		}
 		if err == nil {
 			candidate.InputHash, candidate.ProfileDigest, candidate.MaximumPoints = quote.InputHash, quote.ProfileDigest, points
 			candidate.ExpiresAt, err = authoringQuoteDeadline(candidate.Key)

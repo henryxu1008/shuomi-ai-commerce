@@ -157,6 +157,7 @@ type Authorizer interface {
 }
 
 type Quote struct {
+	UsageOnly          bool `json:",omitempty"`
 	Tokens, CostMicros int64
 	Currency           string
 	Known              bool
@@ -165,6 +166,7 @@ type Quote struct {
 	Reference string
 }
 type ObservedUsage struct {
+	UsageOnly          bool `json:",omitempty"`
 	Tokens, CostMicros int64
 	Currency           string
 	Known              bool

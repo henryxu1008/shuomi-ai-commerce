@@ -304,6 +304,7 @@ type workbenchProposalCard struct {
 	ProviderID            string                     `json:"providerId,omitempty"`
 	ModelID               string                     `json:"modelId,omitempty"`
 	MaximumTokens         int64                      `json:"maximumTokens,omitempty"`
+	UsageOnly             bool                       `json:"usageOnly,omitempty"`
 	MaximumCostMicros     int64                      `json:"maximumCostMicros,omitempty"`
 	Currency              string                     `json:"currency,omitempty"`
 	HumanReviewRequired   bool                       `json:"humanReviewRequired"`
@@ -345,10 +346,12 @@ func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench
 	card.TemplateID, card.TemplateRevision, card.KnowledgeBaseID = p.TemplateID, p.TemplateRevision, p.KnowledgeBaseID
 	var profile aicapability.ModelProfile
 	if json.Unmarshal(p.ExecutionModelProfile, &profile) == nil && profile.Validate() == nil {
-		cost, _ := profile.MaximumCost()
+		card.UsageOnly = profile.BillingMode == aicapability.ModelUsageOnly
+		if !card.UsageOnly {
+			card.MaximumCostMicros, _ = profile.MaximumCost()
+		}
 		card.ProviderID, card.ModelID, card.Currency = profile.ProviderID, profile.ModelID, profile.Currency
 		card.MaximumTokens = profile.MaximumPromptTokens + profile.MaximumCompletionTokens
-		card.MaximumCostMicros = cost
 		if a.agent.selectTitleProfile != nil && i.TenantID == p.Scope.OrganizationID && i.UserID == p.Scope.ActorID {
 			current, currentErr := a.agent.selectTitleProfile(ctx, p.Scope.OrganizationID)
 			if !p.WorkbenchContextRef.Absent() {
@@ -360,8 +363,10 @@ func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench
 	}
 	if p.Kind == aiworkbench.ContentTaskKind {
 		card.MaximumTokens = p.ExecutionLimits.Tokens
-		card.MaximumCostMicros = p.ExecutionLimits.CostMicros
-		card.Currency = p.ExecutionLimits.Currency
+		if !card.UsageOnly {
+			card.MaximumCostMicros = p.ExecutionLimits.CostMicros
+			card.Currency = p.ExecutionLimits.Currency
+		}
 		card.MaximumSteps = p.ExecutionLimits.Steps
 		card.MaximumModelCalls = p.ExecutionLimits.ModelCalls
 		card.MaximumRuntimeSeconds = int64(p.ExecutionLimits.Runtime / time.Second)

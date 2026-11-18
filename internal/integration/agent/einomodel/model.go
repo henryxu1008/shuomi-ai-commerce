@@ -351,8 +351,8 @@ func (m *AgentTextModel) prepare(ctx context.Context, in agent.ModelInput) (prep
 		return p, err
 	}
 	p.upper = agent.Quote{Tokens: p.quote.MaximumTokens, CostMicros: p.quote.MaximumCostMicros,
-		Currency: p.quote.Currency, Known: true, Reference: p.quote.InputHash}
-	if p.upper.Tokens > snapshot.Request.Limits.Tokens || p.upper.CostMicros > snapshot.Request.Limits.CostMicros {
+		Currency: p.quote.Currency, UsageOnly: p.quote.BillingMode == aicapability.ModelUsageOnly, Known: true, Reference: p.quote.InputHash}
+	if p.upper.Tokens > snapshot.Request.Limits.Tokens || !p.upper.UsageOnly && p.upper.CostMicros > snapshot.Request.Limits.CostMicros {
 		return p, agent.ErrUnavailable
 	}
 	return p, nil
@@ -474,19 +474,22 @@ func (m *AgentTextModel) Decide(ctx context.Context, in agent.ModelInput) (agent
 	}
 	output, err := m.executor.GenerateWithGate(p.ctx, p.text, p.quote, validate, beforeSend)
 	if errors.Is(err, governed.ErrNotDispatched) {
-		result.Usage = agent.ObservedUsage{Known: true, Currency: p.profile.Currency}
+		result.Usage = agent.ObservedUsage{Known: true, Currency: p.profile.Currency, UsageOnly: p.upper.UsageOnly}
 		return result, agent.ErrModelNotDispatched
 	}
 	observedInvalid := errors.Is(err, governed.ErrInvalid) && output.Usage.Known
 	if err != nil && !observedInvalid {
 		return result, err
 	}
-	cost, costErr := p.profile.CostFor(int64(output.Usage.PromptTokens), int64(output.Usage.CompletionTokens))
-	if costErr != nil {
-		return result, governed.ErrOutcomeUnknown
-	}
-	result.Usage = agent.ObservedUsage{Tokens: int64(output.Usage.TotalTokens), CostMicros: cost,
+	result.Usage = agent.ObservedUsage{Tokens: int64(output.Usage.TotalTokens), UsageOnly: p.upper.UsageOnly,
 		Currency: p.profile.Currency, Known: true}
+	if !p.upper.UsageOnly {
+		cost, costErr := p.profile.CostFor(int64(output.Usage.PromptTokens), int64(output.Usage.CompletionTokens))
+		if costErr != nil {
+			return result, governed.ErrOutcomeUnknown
+		}
+		result.Usage.CostMicros = cost
+	}
 	if observedInvalid {
 		return result, agent.ErrModelInvalidOutput
 	}

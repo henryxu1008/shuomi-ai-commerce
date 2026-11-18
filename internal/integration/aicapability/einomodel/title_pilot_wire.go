@@ -1,11 +1,12 @@
 package einomodel
 
 const (
-	TitlePilotOpenAIAdapterPolicy = "openai-title-pilot-v1"
-	TitlePilotOpenAIEndpoint      = "https://api.openai.com/v1"
-	TitlePilotPromptTokens        = 16_384
-	TitlePilotCompletionTokens    = 2_048
-	OpenAIMiniTextAdapterPolicy   = "openai-mini-text-v1"
+	TitlePilotOpenAIAdapterPolicy  = "openai-title-pilot-v1"
+	TitlePilotOpenAIEndpoint       = "https://api.openai.com/v1"
+	TitlePilotPromptTokens         = 16_384
+	TitlePilotCompletionTokens     = 2_048
+	OpenAIMiniTextAdapterPolicy    = "openai-mini-text-v1"
+	RegisteredCompatibleMiniPolicy = "registered-compatible-mini-v1"
 )
 
 func validTitlePilotWire(raw []byte, modelID string) bool {

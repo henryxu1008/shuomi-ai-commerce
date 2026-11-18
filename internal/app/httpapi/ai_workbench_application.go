@@ -241,7 +241,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	if err != nil {
 		return nil, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: resolver.Resolve, BaseTransport: a.config.TextTransport,
+	executor := &governed.Executor{Ledger: a.config.Ledger, AuthorizeInvocation: a.AuthorizeModelInvocation, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: resolver.Resolve, BaseTransport: a.config.TextTransport,
 		Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 			identity, err := a.freshChatIdentity(ctx)
 			if err != nil || identity.TenantID != in.OrganizationID || identity.UserID != in.ActorID || identity.EffectiveMemberID != in.MemberID {
@@ -575,6 +575,19 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 			return aiworkbench.PlanningReadyToDispatch
 		}
 		return aiworkbench.PlanningUnknown
+	}
+	if err == nil && fact.BillingMode == aicapability.ModelUsageOnly &&
+		fact.InvocationID == c.PlannerInvocationID && fact.TenantID == c.Scope.OrganizationID &&
+		fact.UserID == c.Scope.ActorID && fact.MemberID == c.MemberID && fact.InputHash == c.InputHash &&
+		fact.Operation == aicapability.OperationAIWorkbenchChatPlan {
+		if fact.NotSent() {
+			return aiworkbench.PlanningFailedBeforeDispatch
+		}
+		if fact.Outcome == aicapability.InvocationUsageObservedFailed && fact.UsageKnown && fact.ErrorCategory == aicapability.ErrorStructuredOutputInvalid {
+			return aiworkbench.PlanningInvalidOutput
+		}
+		// The original claim is the only authority that could send again.
+		// Keep the existing ready window so stored planning output can be recovered.
 	}
 	if errors.Is(callErr, governed.ErrNoDispatchReleased) && err == nil &&
 		fact.InvocationID == c.PlannerInvocationID && fact.TenantID == c.Scope.OrganizationID &&

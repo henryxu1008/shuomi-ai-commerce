@@ -1,5 +1,5 @@
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
-import {parseResourceBusinessObject, parseResourceEvents, RESOURCE_EVENTS_MAX_BYTES} from "@/lib/api/resource-events";
+import {parseOwnedModelUsage, parseResourceBusinessObject, parseResourceEvents, RESOURCE_EVENTS_MAX_BYTES} from "@/lib/api/resource-events";
 import {parseResourceOffers} from "@/lib/api/resource-purchase";
 import {parseStorageSummary,parseStorageOffers} from "@/lib/api/storage-capacity";
 import { NextResponse } from "next/server";
@@ -40,6 +40,8 @@ const safeJSON = (body: unknown, status: number) => NextResponse.json(body, { st
 
 export async function proxyCommercialBilling(request: Request, accessToken: string, sessionUserId: string): Promise<Response> {
   const incomingURL = new URL(request.url);
+  const ownedUsageRead = incomingURL.pathname === "/api/workbench/commercial/resources/owned-model-usage";
+  if (ownedUsageRead && request.method !== "GET") return failure(400, "INVALID_REQUEST");
   const eventRead = incomingURL.pathname === "/api/workbench/commercial/resources/events";
   const usageObjectRead = incomingURL.pathname.startsWith("/api/workbench/commercial/resources/events/");
   const usageEventId = usageObjectRead
@@ -117,9 +119,9 @@ export async function proxyCommercialBilling(request: Request, accessToken: stri
       const error = parseCommercialBillingFailure(payload, upstream.status);
       return error ? failure(upstream.status, error.code) : failure(502, "INVALID_UPSTREAM_RESPONSE");
     }
-    if (resourceRead || eventRead || offerRead || storageRead || storageOfferRead) {
+    if (resourceRead || eventRead || offerRead || storageRead || storageOfferRead || ownedUsageRead) {
       if (upstream.status === 200) {
-        const parsed = storageRead ? parseStorageSummary(payload) : storageOfferRead ? parseStorageOffers(payload) : resourceRead ? parseCommercialResources(payload) : eventRead ? parseResourceEvents(payload) : parseResourceOffers(payload);
+        const parsed = ownedUsageRead ? parseOwnedModelUsage(payload) : storageRead ? parseStorageSummary(payload) : storageOfferRead ? parseStorageOffers(payload) : resourceRead ? parseCommercialResources(payload) : eventRead ? parseResourceEvents(payload) : parseResourceOffers(payload);
         return parsed && parsed.organization_id === organization ? safeJSON(parsed, 200) : failure(502, "INVALID_UPSTREAM_RESPONSE");
       }
       if (!parseCommercialBillingFailure(payload, upstream.status)) return failure(502, "INVALID_UPSTREAM_RESPONSE");

@@ -299,7 +299,16 @@ func (a *aiWorkbenchApplication) ReconcileScheduled(ctx context.Context, planID 
 		if err != nil {
 			return false, err
 		}
-		if fact.InvocationID != observation.InvocationID || fact.AgentRunID != state.RunID || fact.TenantID != i.OrganizationID || fact.UserID != i.ActorID || fact.MemberID != i.MemberID || fact.Outcome == aicapability.InvocationDispatched || !fact.UsageKnown || !fact.EstimatedCostKnown || fact.FinishedAt.IsZero() || int64(fact.TotalTokens) != observation.ObservedUsage.Tokens || fact.EstimatedCostMicros != observation.ObservedUsage.CostMicros {
+		if fact.InvocationID != observation.InvocationID || fact.AgentRunID != state.RunID || fact.TenantID != i.OrganizationID || fact.UserID != i.ActorID || fact.MemberID != i.MemberID || fact.Outcome == aicapability.InvocationDispatched || fact.FinishedAt.IsZero() || int64(fact.TotalTokens) != observation.ObservedUsage.Tokens {
+			return false, nil
+		}
+		if fact.BillingMode == aicapability.ModelUsageOnly {
+			if !observation.ObservedUsage.UsageOnly || !fact.UsageKnown && !fact.NotSent() {
+				return false, nil
+			}
+			continue
+		}
+		if observation.ObservedUsage.UsageOnly || !fact.UsageKnown || !fact.EstimatedCostKnown || fact.EstimatedCostMicros != observation.ObservedUsage.CostMicros {
 			return false, nil
 		}
 		// The existing resource owner proves or completes settlement under the

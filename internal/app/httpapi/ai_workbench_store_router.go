@@ -139,7 +139,19 @@ func (p *workbenchStoreRouter) FailureState(ctx context.Context, command aiworkb
 		return "", aiworkbench.ErrUnavailable
 	}
 	fact, err := p.app.agent.config.Ledger.ReadModelInvocation(ctx, command.Scope.OrganizationID, command.InvocationID)
-	if err != nil || fact.TenantID != command.Scope.OrganizationID || fact.UserID != command.Scope.ActorID || fact.MemberID != command.MemberID || fact.InvocationID != command.InvocationID || fact.InputHash != command.InputHash || fact.Operation != routingInvocationOperation(command) || !fact.EstimatedCostKnown {
+	if err != nil || fact.TenantID != command.Scope.OrganizationID || fact.UserID != command.Scope.ActorID || fact.MemberID != command.MemberID || fact.InvocationID != command.InvocationID || fact.InputHash != command.InputHash || fact.Operation != routingInvocationOperation(command) {
+		return "", aiworkbench.ErrUnavailable
+	}
+	if fact.BillingMode == aicapability.ModelUsageOnly {
+		if fact.NotSent() {
+			return aiworkbench.PlanningFailedBeforeDispatch, nil
+		}
+		if fact.Outcome == aicapability.InvocationUsageObservedFailed && fact.UsageKnown && fact.ErrorCategory == aicapability.ErrorStructuredOutputInvalid {
+			return aiworkbench.PlanningInvalidOutput, nil
+		}
+		return "", aiworkbench.ErrUnavailable
+	}
+	if !fact.EstimatedCostKnown {
 		return "", aiworkbench.ErrUnavailable
 	}
 	if fact.IsChatIntentOpenAIParameterRejection() {

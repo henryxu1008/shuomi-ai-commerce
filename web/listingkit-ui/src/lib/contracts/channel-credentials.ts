@@ -6,7 +6,7 @@ const expectedRevision=credentialRevision.refine(v=>BigInt(v)<BigInt(2)**BigInt(
 
 export const openAIQueryModel="gpt-5.4-mini-2026-03-17";
 const modelQueryReference=z.strictObject({id:routeFact.max(64),version:routeFact});
-const modelQueryTargets=z.array(z.strictObject({connectionId:routeFact,reference:modelQueryReference})).max(128);
+export const modelQueryTargets=z.array(z.strictObject({connectionId:routeFact,reference:modelQueryReference})).max(128);
 export const modelQueryInput=z.strictObject({expectedMemberId:routeFact,expectedRevision:expectedRevision.refine(v=>v!=="0"),reference:modelQueryReference});
 export const modelQueryResult=z.strictObject({
  organizationId:routeFact,actorId:routeFact,memberId:routeFact,connectionId:routeFact,expectedRevision,
@@ -26,13 +26,21 @@ export function matchesModelQuery(result:ModelQueryResult,scope:{userId:string;o
 const secret=z.string().min(1).max(4096).refine(v=>v.trim()===v&&new TextEncoder().encode(v).length<=4096);
 const account=z.string().min(1).max(128).regex(/^[^\x00-\x1f\x7f-\x9f]+$/).refine(v=>v.trim()===v&&new TextEncoder().encode(v).length<=128);
 export const credentialInput=z.discriminatedUnion("action",[
- z.strictObject({action:z.literal("set-key"),expectedRevision,account:account.optional(),apiKey:secret}),
- z.strictObject({action:z.literal("disable"),expectedRevision}),
+ z.strictObject({action:z.literal("set-key"),expectedRevision,expectedMemberId:routeFact.optional(),account:account.optional(),apiKey:secret}),
+ z.strictObject({action:z.literal("disable"),expectedRevision,expectedMemberId:routeFact.optional()}),
 ]);
-const managedConnection=z.strictObject({
+export const channelTemplate=z.enum(["openai-mini-v1","openai-compatible-mini-v1"]);
+export const channelName=account;
+export const channelBaseUrl=z.url().max(2048).refine(v=>v.startsWith("https://"));
+export const channelAPIKey=secret;
+export const channelRegistration=z.strictObject({
+ organizationId:routeFact,connectionId:routeFact,template:channelTemplate,name:account,revision:credentialRevision,
+});
+export const managedConnection=z.strictObject({
  organizationId:routeFact,connectionId:routeFact,provider:routeFact,channel:routeFact,region:routeFact,
  account:z.union([account,z.literal("")]),revision:credentialRevision,enabled:z.boolean(),keyPresent:z.boolean(),
  models:z.array(z.strictObject({id:routeFact,version:routeFact,model:routeFact,category:z.enum(["text","multimodal","image-generation"])})).max(128),
+ registration:channelRegistration.optional(),baseUrl:channelBaseUrl.optional(),readOnly:z.literal(true).optional(),
 }).refine(c=>c.revision==="0"?!c.enabled&&!c.keyPresent&&c.account==="":!!c.account&&c.keyPresent);
 export const credentialConnections=z.strictObject({organizationId:routeFact,canManage:z.boolean(),connections:z.array(managedConnection).max(128),modelQueryTargets:modelQueryTargets.optional()}).refine(v=>{
  const connections=new Map(v.connections.map(c=>[c.connectionId,c]));

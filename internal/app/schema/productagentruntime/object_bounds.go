@@ -81,6 +81,11 @@ func ownerGrantBounds(db *gorm.DB, role string) (map[string]configstore.RuntimeT
 		for _, g := range shared {
 			result[g.Relation] = g
 		}
+		result["public.ai_channel_registrations"] = configstore.RuntimeTableGrant{Select: true}
+		result["public.ai_enterprise_model_bindings"] = configstore.RuntimeTableGrant{Select: true}
+	}
+	if role == "title_credential_writer" {
+		result["public.ai_channel_registrations"] = configstore.RuntimeTableGrant{Select: true, Insert: true, UpdateColumns: []string{"name", "revision"}}
 	}
 	return result, nil
 }

@@ -27,11 +27,12 @@ const modelRouteBase = "/api/v1/model-route-pricing"
 var errModelRouteForbidden = errors.New("FORBIDDEN")
 
 type ModelRoutePricingDependencies struct {
-	Shared      *d.SharedModelService
-	Prices      *d.PlatformPricesService
-	Credentials *credential.Management
-	ModelQuery  channelModelQuery
-	AutomaticFX AutomaticFXControl
+	PlatformChannels *PlatformModelChannels
+	Shared           *d.SharedModelService
+	Prices           *d.PlatformPricesService
+	Credentials      *credential.Management
+	ModelQuery       channelModelQuery
+	AutomaticFX      AutomaticFXControl
 }
 
 type AutomaticFXControl interface {
@@ -79,7 +80,7 @@ func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 		}
 		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET" || strings.HasPrefix(spec.op, "fx-"), Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
 	}
-	return append(append(out, m.credentialRoutes()...), m.modelQueryRoute())
+	return append(append(append(append(out, m.credentialRoutes()...), m.modelQueryRoute()), m.managedChannelRoutes()...), m.selectionRoutes()...)
 }
 func validateModelRouteDescriptor(descriptor httproute.Descriptor) error {
 	for _, r := range (modelRoutePricingModule{}).routes() {
@@ -144,7 +145,14 @@ func modelRouteDecode(c *gin.Context, target any) error {
 func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool) {
 	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
-	actor, org, err := sharedModelIdentity(ctx, m.authorizer, platform, op == "publish" || op == "fx-prepare" || op == "fx-start" || op == "fx-stop")
+	write := op == "publish" || op == "fx-prepare" || op == "fx-start" || op == "fx-stop"
+	actor, org, err := sharedModelIdentity(ctx, m.authorizer, platform, write)
+	if err == nil && platform && write && m.services.PlatformChannels != nil {
+		id, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
+		if !m.services.PlatformChannels.allows(id) {
+			err = errModelRouteForbidden
+		}
+	}
 	if err != nil {
 		modelRouteFailure(c, err)
 		return
@@ -258,7 +266,15 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool)
 		if revision.ID != "" {
 			current = &revision
 		}
-		c.JSON(200, gin.H{"status": status, "revision": current, "preview": publicSharedPreview(preview)})
+		out := gin.H{"status": status, "revision": current, "preview": publicSharedPreview(preview)}
+		if platform && m.services.PlatformChannels != nil {
+			id, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
+			out["platformPriceWriteAllowed"] = m.services.PlatformChannels.allows(id) && authz.AllowedOrganization(ctx, m.authorizer, actor, org, id.Roles, authz.PermissionListingKitAdminWrite)
+		}
+		if !platform && (m.services.PlatformChannels != nil || current != nil && current.Payload.SharedModels != nil && current.Payload.SharedModels.SchemaVersion == 2) {
+			out["textChoiceEnabled"] = true
+		}
+		c.JSON(200, out)
 	case "options":
 		options, ok := m.services.Shared.Catalog.(d.SharedModelOptions)
 		if !ok {
@@ -396,7 +412,7 @@ func publicSharedPreview(preview *d.SharedModelPreview) any {
 	}
 	models := make([]d.ModelOption, 0, len(preview.Models))
 	for _, q := range preview.Models {
-		option := d.ModelOption{Category: q.Category, Reference: q.Reference, Channel: q.Channel, Model: q.Model, Ready: q.Ready, Reason: q.Reason}
+		option := d.ModelOption{Category: q.Category, Reference: q.Reference, Channel: q.Channel, Model: q.Model, Ready: q.Ready, Reason: q.Reason, ChannelName: q.ChannelName}
 		if q.Price.Validate() == nil {
 			price := q.Price
 			option.Price = &price

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
+	"task-processor/internal/integration/aiworkbench/einorouter"
 	routestore "task-processor/internal/integration/persistence/routeconfig"
 	"testing"
 	"time"
@@ -93,7 +95,7 @@ func configuredSelectionSharedReader(t *testing.T, settings *ProductAgentDepende
 
 // The Chat and content consumers use the same real current selection, channel
 // metadata, published fixture tariff and SharedTextReader; the provider is local.
-func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB, planner governed.RoutePolicy) qualified.SharedTextReader {
+func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB, planner governed.RoutePolicy, managedTemplate string, platform bool) qualified.SharedTextReader {
 	t.Helper()
 	ctx, now := context.Background(), time.Now().UTC()
 	connection, err := newHTTPChannelFixture(db).owner.Metadata(ctx, "B", "default")
@@ -102,19 +104,41 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	repo, err := routestore.New(db)
 	require.NoError(t, err)
 	prices := &d.PlatformPricesService{Repository: repo}
-	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+	owned := managedTemplate != "" && !platform
+	if owned {
+		prices = nil
+	} else if managedTemplate == credential.CompatibleMiniTemplate {
+		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{
+			ID: "openai-compatible-mini", Provider: "openai", Model: planner.Profile.ModelID, Channel: credential.CompatibleOpenAIChannel,
+			Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1,
+			Rates: aicapability.OfficialModelRates{InputText: 1_000_000, OutputText: 3_000_000}, SourceURL: "https://developers.openai.com/api/docs/pricing",
+			VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour),
+		}}})
+	} else if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
 		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "USD", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750000, CachedInputText: 75000, OutputText: 4500000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}, FX: []d.PublishedFXRate{{Currency: "USD", CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/", RateDate: now.Format("2006-01-02"), VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
 	} else {
 		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
 	}
 	require.NoError(t, err)
 	var defs []qualified.Definition
-	for op, policy := range map[aicapability.Operation]governed.RoutePolicy{aicapability.OperationAIWorkbenchChatPlan: planner, aicapability.OperationProductContentDecision: settings.ContentTextPolicies["B"]} {
+	policies := map[aicapability.Operation]governed.RoutePolicy{aicapability.OperationAIWorkbenchChatPlan: planner, aicapability.OperationProductContentDecision: settings.ContentTextPolicies["B"]}
+	if owned || platform {
+		storeRoute := planner
+		storeRoute.Profile.PromptVersion, storeRoute.Profile.OutputSchemaVersion = einorouter.PromptVersion, einorouter.SchemaVersion
+		policies[aicapability.OperationAIWorkbenchStoreRoute] = storeRoute
+	}
+	if owned || platform {
+		policies[aicapability.OperationAIWorkbenchChatIntent] = fixtureChatIntentPolicy(planner)
+		authoring := planner
+		authoring.Profile.PromptVersion, authoring.Profile.OutputSchemaVersion = "ai-workbench-skill-authoring-v2", "personal-title-skill-draft-v2"
+		authoring.Profile.MaximumPromptTokens = 16_384
+		policies[aicapability.OperationAIWorkbenchSkillAuthoring] = authoring
+	}
+	for op, policy := range policies {
 		copy := policy
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: settings.Limits.CostMicros})
 	}
-	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
-		title := settings.TextPolicies["B"]
+	if title, ok := settings.TextPolicies["B"]; ok && planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &title, MaximumCostMicros: settings.Limits.CostMicros})
 	}
 	catalog, err := qualified.NewCatalog(defs)
@@ -122,12 +146,39 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	shared := &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}
 	service := &d.SharedModelService{Repository: repo, Catalog: shared}
 	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: connection.Channel, Text: d.ModelBindingReference{ID: "default", Version: "chat-shared-v1"}, Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"}}
-	_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection})
-	require.NoError(t, err)
+	if managedTemplate != "" {
+		channels := installManagedChatChannelFixture(t, ctx, db, repo, catalog, managedTemplate)
+		shared.Managed = channels.definitions
+		selection.Text = channels.binding.Reference()
+		if platform {
+			pool, err := db.DB()
+			require.NoError(t, err)
+			pool.SetMaxOpenConns(8)
+			installPlatformChatChoice(t, ctx, repo, service, shared, channels.manager)
+		}
+		selection.DefaultChannel = credential.OfficialOpenAIChannel
+		if managedTemplate == credential.CompatibleMiniTemplate {
+			selection.DefaultChannel = credential.CompatibleOpenAIChannel
+		}
+	}
+	if !platform {
+		_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection})
+		require.NoError(t, err)
+	}
 	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)
 	require.NoError(t, err)
 	require.True(t, q.Ready, q.Reason)
-	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+	if owned {
+		require.Equal(t, aicapability.ModelUsageOnly, q.Text.BillingMode)
+		require.Empty(t, q.Price)
+		view, err := service.TextChoices(ctx, "B")
+		require.NoError(t, err)
+		require.NotNil(t, view.Current)
+		require.Equal(t, aicapability.ModelUsageOnly, view.Current.BillingMode)
+		require.NotEmpty(t, view.Current.Quote)
+		require.Nil(t, view.Current.Price)
+	}
+	if _, ok := settings.TextPolicies["B"]; ok && planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
 		title := q.TextProfiles[string(aicapability.OperationProductAgentDecision)]
 		require.True(t, governed.ValidRouteProfile(title, aicapability.OperationProductAgentDecision), "the title route remains qualified with the same shared selection")
 		require.Equal(t, q.Price, title.OfficialTariff)
@@ -156,9 +207,68 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	require.True(t, err != nil || missing.Profile.Validate() != nil, "a content binding alone cannot authorize planning")
 	shared.Now = func() time.Time { return now.Add(2 * time.Hour) }
 	expired, err := reader.ReadPolicy(ctx, governed.RouteKey{OrganizationID: "B", Operation: aicapability.OperationAIWorkbenchChatPlan})
-	require.True(t, err != nil || expired.Profile.Validate() != nil, "expired published price cannot authorize Chat")
+	if owned {
+		require.NoError(t, err)
+		require.NoError(t, expired.Profile.Validate(), "owned models are admitted even with no reference price or FX owner")
+	} else {
+		require.True(t, err != nil || expired.Profile.Validate() != nil, "expired published price cannot authorize Chat")
+	}
 	shared.Now = nil
 	return reader
+}
+
+func fixtureChatIntentPolicy(planner governed.RoutePolicy) governed.RoutePolicy {
+	planner.Profile.PromptVersion, planner.Profile.OutputSchemaVersion = einorouter.ChatPromptVersion, einorouter.ChatSchemaVersion
+	return planner
+}
+
+type managedChatChannelFixture struct {
+	manager     *credential.Management
+	definitions *qualified.ManagedDefinitions
+	binding     d.ManagedBinding
+}
+
+func installManagedChatChannelFixture(t *testing.T, ctx context.Context, db *gorm.DB, repo *routestore.Store, catalog *qualified.Catalog, template string) managedChatChannelFixture {
+	t.Helper()
+	require.NoError(t, db.Exec(`DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='product_agent_runtime') THEN CREATE ROLE product_agent_runtime NOLOGIN; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='title_credential_writer') THEN CREATE ROLE title_credential_writer NOLOGIN; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='model_route_config_writer') THEN CREATE ROLE model_route_config_writer NOLOGIN; END IF;
+END $$`).Error)
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SET LOCAL ROLE product_agent_owner").Error; err != nil {
+			return err
+		}
+		return routestore.InstallManagedChannels(ctx, tx)
+	}))
+	channels := newHTTPChannelFixture(db).owner
+	manager, err := credential.NewManagement(channels, channels, nil)
+	require.NoError(t, err)
+	manager = manager.WithRegistrations(channels, channels)
+	before, err := manager.RegisteredConnections(ctx, "B")
+	require.NoError(t, err)
+	require.Empty(t, before)
+	input := credential.RegistrationInput{Name: "Chat fixture", Template: template, APIKey: "managed-fixture-key"}
+	if template == credential.CompatibleMiniTemplate {
+		input.BaseURL = "https://fixture.compatible.example.test/v1"
+	}
+	created, err := manager.CreateRegistration(ctx, "B", "admin", uuid.NewString(), input)
+	require.NoError(t, err)
+	definitions := &qualified.ManagedDefinitions{Catalog: catalog, Bindings: repo, Registrations: channels, Metadata: channels}
+	require.True(t, definitions.Supports("B", template))
+	if template == credential.OfficialMiniTemplate {
+		require.False(t, definitions.Supports("B", credential.CompatibleMiniTemplate), "the official title pilot scope still requires its approved route")
+	}
+	cmd := d.ManagedBindingCommand{OrganizationID: "B", ActorID: "admin", ConnectionID: created.Connection.ConnectionID,
+		RequestKey: uuid.NewString(), Input: d.ManagedBindingInput{Action: "attach", ExpectedRevision: created.Connection.Revision}}
+	binding, err := repo.WriteManagedBinding(ctx, cmd, func(template string) error {
+		if !definitions.Supports("B", template) {
+			return d.ErrNeedsConfiguration
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	return managedChatChannelFixture{manager: manager, definitions: definitions, binding: binding}
 }
 
 func (f syntheticSelectionSharedCategory) ReadCategory(_ context.Context, org string, category d.ModelCategory) (d.ModelQualification, string, error) {
@@ -234,4 +344,95 @@ func assertSelectionMicropointAccounting(t *testing.T, db *gorm.DB, operation ai
 	require.Equal(t, totalActual, bucket.Consumed)
 	require.Zero(t, bucket.Reserved)
 	require.EqualValues(t, 10000000-totalActual, bucket.Available)
+}
+
+func installPlatformChatChoice(t *testing.T, ctx context.Context, repo *routestore.Store, service *d.SharedModelService, catalog *qualified.SharedCatalog, manager *credential.Management) {
+	t.Helper()
+	platform := &qualified.PlatformChannels{Reader: repo, Writer: repo, Catalog: catalog, Management: manager}
+	catalog.Platform = platform
+	create := func(name, key string) string {
+		made, err := manager.CreateRegistration(ctx, credential.PlatformOwner, "platform", uuid.NewString(), credential.RegistrationInput{Name: name, Template: credential.OfficialMiniTemplate, APIKey: key})
+		require.NoError(t, err)
+		return made.Connection.ConnectionID
+	}
+	otherID := create("Other platform channel", "different-fixture-key")
+	selectedID := create("Selected platform channel", "managed-fixture-key")
+	book, err := catalog.Prices.Current(ctx)
+	require.NoError(t, err)
+	general := book.Payload.PlatformPrices.Prices[0]
+	general.Version = ""
+	otherPrice, selectedPrice := general, general
+	otherPrice.ID, otherPrice.PlatformConnectionID = "fixture-price-other", otherID
+	selectedPrice.ID, selectedPrice.PlatformConnectionID = "fixture-price-selected", selectedID
+	otherPrice.Rates.InputText--
+	fx := append([]d.PublishedFXRate(nil), book.Payload.PlatformPrices.FX...)
+	for i := range fx {
+		fx[i].Version = ""
+	}
+	_, err = catalog.Prices.Publish(ctx, "platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: book.ID, Prices: []d.PublishedModelPrice{general, otherPrice, selectedPrice}, FX: fx})
+	require.NoError(t, err)
+	publish := func(connection, price string) (d.PlatformChannel, d.Revision) {
+		definition := d.PlatformChannel{ConnectionID: connection, PriceID: price, Organizations: []string{"B"}}
+		revision, err := platform.Publish(ctx, "platform", uuid.NewString(), qualified.PlatformPublishInput{ExpectedRevision: d.NoRevision, Channel: definition})
+		require.NoError(t, err)
+		return definition, revision
+	}
+	retired, old := publish(otherID, otherPrice.ID)
+	selected, _ := publish(selectedID, selectedPrice.ID)
+	view, err := service.TextChoices(ctx, "B")
+	require.NoError(t, err)
+	require.Empty(t, view.Current)
+	opts := map[d.ModelBindingReference]d.ModelOption{}
+	for _, option := range view.Options {
+		opts[option.Reference] = option
+	}
+	require.Equal(t, "Other platform channel", opts[retired.Reference()].ChannelName)
+	require.Equal(t, "Selected platform channel", opts[selected.Reference()].ChannelName)
+	require.NotEqual(t, opts[retired.Reference()].Quote, opts[selected.Reference()].Quote)
+	require.NotEqual(t, opts[retired.Reference()].Price.Rates.InputText, opts[selected.Reference()].Price.Rates.InputText)
+	misbound := retired
+	misbound.PriceID = selected.PriceID
+	_, err = platform.Publish(ctx, "platform", uuid.NewString(), qualified.PlatformPublishInput{ExpectedRevision: old.ID, Channel: misbound})
+	require.ErrorIs(t, err, d.ErrNeedsConfiguration)
+	rejected, err := service.TextChoices(ctx, "A")
+	require.NoError(t, err)
+	require.Empty(t, rejected.Options)
+	_, err = service.ChooseText(ctx, "A", "admin", uuid.NewString(), d.TextChoiceInput{ExpectedRevision: d.NoRevision, Reference: retired.Reference(), Quote: opts[retired.Reference()].Quote})
+	require.ErrorIs(t, err, d.ErrNeedsConfiguration)
+	key := uuid.NewString()
+	intent := d.TextChoiceInput{ExpectedRevision: d.NoRevision, Reference: retired.Reference(), Quote: opts[retired.Reference()].Quote}
+	type result struct {
+		revision d.Revision
+		err      error
+	}
+	completed := make(chan result, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			revision, err := service.ChooseText(ctx, "B", "admin", key, intent)
+			completed <- result{revision, err}
+		}()
+	}
+	firstAttempt, secondAttempt := <-completed, <-completed
+	require.NoError(t, firstAttempt.err)
+	require.NoError(t, secondAttempt.err)
+	require.Equal(t, firstAttempt.revision.ID, secondAttempt.revision.ID)
+	first := firstAttempt.revision
+	different := intent
+	different.Reference = selected.Reference()
+	different.Quote = opts[selected.Reference()].Quote
+	_, err = service.ChooseText(ctx, "B", "admin", key, different)
+	require.ErrorIs(t, err, d.ErrConflict)
+	retired.Organizations = []string{}
+	_, err = platform.Publish(ctx, "platform", uuid.NewString(), qualified.PlatformPublishInput{ExpectedRevision: old.ID, Channel: retired})
+	require.NoError(t, err)
+	after, err := service.TextChoices(ctx, "B")
+	require.NoError(t, err)
+	require.Equal(t, "Other platform channel", after.Current.ChannelName)
+	require.Equal(t, "PLATFORM_ACCESS_WITHDRAWN", after.Current.Reason)
+	_, _, err = service.ReadCategory(ctx, "B", d.ModelCategoryText)
+	require.ErrorIs(t, err, d.ErrNeedsConfiguration)
+	last, err := service.ChooseText(ctx, "B", "admin", uuid.NewString(), d.TextChoiceInput{ExpectedRevision: first.ID, Reference: selected.Reference(), Quote: opts[selected.Reference()].Quote})
+	require.NoError(t, err)
+	require.Empty(t, last.Payload.SharedModels.Image)
+	require.Empty(t, last.Payload.SharedModels.Multimodal)
 }

@@ -105,7 +105,7 @@ func TestChannelManagementWriterIsIndependentAndClosedAIStaysClosed(t *testing.T
 	require.NoError(t, c.validateChannelCredentials())
 	definitions, e := c.modelRouteDefinitions()
 	require.NoError(t, e)
-	connections, e := channelManagementDefinitions(definitions, true)
+	connections, e := channelManagementDefinitions(definitions)
 	require.NoError(t, e)
 	require.Len(t, connections, 1)
 	require.Equal(t, in.BaseURL, connections[0].BaseURL)
@@ -129,17 +129,19 @@ func TestChannelManagementEndpointCannotBeGuessedOrSuppliedByTheBrowser(t *testi
 	c.ModelRoutePricing.Bindings[0].ReferenceVersion = "v1"
 	defs, e := c.modelRouteDefinitions()
 	require.NoError(t, e)
-	_, e = channelManagementDefinitions(defs, true)
-	require.Error(t, e, "a digest is not a trusted endpoint URL")
+	connections, e := channelManagementDefinitions(defs)
+	require.NoError(t, e)
+	require.Len(t, connections, 1)
+	require.Empty(t, connections[0].BaseURL, "a digest is not a trusted endpoint URL")
 	c.ModelRoutePricing.Bindings[0].ConnectionEndpoint = "https://unadmitted.example.test/v1"
 	defs, e = c.modelRouteDefinitions()
 	require.NoError(t, e)
-	_, e = channelManagementDefinitions(defs, true)
+	_, e = channelManagementDefinitions(defs)
 	require.Error(t, e)
 	c.ModelRoutePricing.Bindings[0].ConnectionEndpoint = in.BaseURL
 	defs, e = c.modelRouteDefinitions()
 	require.NoError(t, e)
-	_, e = channelManagementDefinitions(defs, true)
+	_, e = channelManagementDefinitions(defs)
 	require.NoError(t, e)
 }
 
@@ -149,14 +151,14 @@ func TestChannelManagementSharedImageEndpointQualifiesTextRegardlessOfDefinition
 	text.ReferenceVersion = "v1"
 	image := qualified.Definition{Scope: d.Scope{OrganizationID: "org", Capability: d.ImageCapability}, ConnectionID: text.ConnectionID, ConnectionProvider: text.ConnectionProvider, Channel: text.Channel, Region: text.Region, ReferenceVersion: "v1", Image: &qualified.ImageAdmission{ClientName: "image", Model: "fixture-image", Endpoint: in.BaseURL}}
 	for _, defs := range [][]qualified.Definition{{text, image}, {image, text}} {
-		connections, e := channelManagementDefinitions(defs, true)
+		connections, e := channelManagementDefinitions(defs)
 		require.NoError(t, e)
 		require.Len(t, connections, 1)
 		require.Len(t, connections[0].Models, 2)
 		require.Equal(t, in.BaseURL, connections[0].BaseURL)
 	}
 	image.Image.Endpoint = "https://not-admitted.example.test/v1"
-	_, e := channelManagementDefinitions([]qualified.Definition{text, image}, true)
+	_, e := channelManagementDefinitions([]qualified.Definition{text, image})
 	require.Error(t, e, "an image definition cannot widen the text endpoint digest")
 }
 

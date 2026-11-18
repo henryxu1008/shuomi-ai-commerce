@@ -17,11 +17,11 @@ import (
 )
 
 func main() {
-	target := flag.String("target", "", "fixed target: run, review, or invocation-provider-rejection")
+	target := flag.String("target", "", "fixed target: run, review, invocation-provider-rejection, invocation-billing-mode, or managed-model-channels")
 	flag.Parse()
 	env := "PRODUCT_AGENT_SCHEMA_DSN"
-	if flag.NArg() != 0 || (*target != "run" && *target != "review" && *target != "invocation-provider-rejection") {
-		fmt.Fprintln(os.Stderr, "requires --target run, review, or invocation-provider-rejection")
+	if flag.NArg() != 0 || (*target != "run" && *target != "review" && *target != "invocation-provider-rejection" && *target != "invocation-billing-mode" && *target != "managed-model-channels") {
+		fmt.Fprintln(os.Stderr, "requires --target run, review, invocation-provider-rejection, invocation-billing-mode, or managed-model-channels")
 		os.Exit(2)
 	}
 	if *target == "review" {
@@ -54,8 +54,12 @@ func main() {
 	var result productagentruntime.Result
 	if *target == "run" {
 		result, err = productagentruntime.PrepareRun(ctx, db)
+	} else if *target == "managed-model-channels" {
+		result, err = productagentruntime.PrepareManagedModelChannels(ctx, db)
 	} else if *target == "invocation-provider-rejection" {
 		result, err = productagentruntime.PrepareProviderRejectionProof(ctx, db)
+	} else if *target == "invocation-billing-mode" {
+		result, err = productagentruntime.PrepareInvocationBillingMode(ctx, db)
 	} else {
 		result, err = productagentruntime.PrepareReview(ctx, db)
 	}

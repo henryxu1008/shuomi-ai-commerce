@@ -28,11 +28,20 @@ func verifyStoreRouteSettlement(ctx context.Context, command aiworkbench.StoreRo
 	readInvocation func(context.Context, string, string) (aicapability.InvocationRecord, error),
 	readReservation func(context.Context, string, string) (orgresourceadapter.ModelInvocationReservation, error),
 ) error {
-	if ctx == nil || readInvocation == nil || readReservation == nil || command.Scope.OrganizationID == "" || command.Scope.ActorID == "" || command.InvocationID == "" || command.MemberID == "" || command.InputHash == "" {
+	if ctx == nil || readInvocation == nil || command.Scope.OrganizationID == "" || command.Scope.ActorID == "" || command.InvocationID == "" || command.MemberID == "" || command.InputHash == "" {
 		return aiworkbench.ErrUnavailable
 	}
 	fact, err := readInvocation(ctx, command.Scope.OrganizationID, command.InvocationID)
-	if err != nil || fact.TenantID != command.Scope.OrganizationID || fact.UserID != command.Scope.ActorID || fact.MemberID != command.MemberID || fact.InvocationID != command.InvocationID || fact.InputHash != command.InputHash || fact.Operation != routingInvocationOperation(command) || fact.Outcome != aicapability.InvocationSucceeded || !fact.UsageKnown || !fact.EstimatedCostKnown {
+	if err != nil || fact.TenantID != command.Scope.OrganizationID || fact.UserID != command.Scope.ActorID || fact.MemberID != command.MemberID || fact.InvocationID != command.InvocationID || fact.InputHash != command.InputHash || fact.Operation != routingInvocationOperation(command) || fact.Outcome != aicapability.InvocationSucceeded || !fact.UsageKnown {
+		return aiworkbench.ErrUnavailable
+	}
+	if fact.BillingMode == aicapability.ModelUsageOnly {
+		if fact.OutputHash == "" {
+			return aiworkbench.ErrUnavailable
+		}
+		return nil
+	}
+	if readReservation == nil || !fact.EstimatedCostKnown {
 		return aiworkbench.ErrUnavailable
 	}
 	reservation, err := readReservation(ctx, command.Scope.OrganizationID, command.InvocationID)

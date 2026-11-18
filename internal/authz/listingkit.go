@@ -33,6 +33,7 @@ const (
 	PermissionWorkbenchAgentConfigure           = "workbench.agent.configure"
 	PermissionWorkbenchCredentialsManage        = "workbench.ai.credentials.manage"
 	PermissionWorkbenchConnectionTest           = "workbench.ai.connection.test"
+	PermissionWorkbenchChannelsManage           = "workbench.ai.channels.manage"
 	PermissionImageAgentRead                    = "listingkit.image_agent.read"
 	PermissionImageAgentWrite                   = "listingkit.image_agent.write"
 	PermissionWorkbenchStoreRead                = "workbench.store.read"
@@ -102,7 +103,7 @@ func WorkbenchPermissions() []string {
 	for _, group := range [][]string{cockpitPermissions, []string{"workbench.project.read", "workbench.project.manage"}, workbenchToolPermissions, workbenchChatPermissions, workbenchKnowledgePermissions, workbenchEcoservicesPermissions, workbenchListingPermissions, workbenchStorePermissions, workbenchStoreObservationPermissions, workbenchSourceAccountPermissions, workbenchOrganizationMemberPermissions, workbenchCommercialPermissions} {
 		result = append(result, group...)
 	}
-	return append(result, PermissionWorkbenchStoreBrowserUse, PermissionWorkbenchCredentialsManage, PermissionWorkbenchConnectionTest)
+	return append(result, PermissionWorkbenchStoreBrowserUse, PermissionWorkbenchCredentialsManage, PermissionWorkbenchConnectionTest, PermissionWorkbenchChannelsManage)
 }
 
 const listingKitModel = `

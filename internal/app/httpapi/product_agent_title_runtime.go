@@ -69,7 +69,7 @@ func buildTitleProductRuntime(ctx context.Context, a *productAgentApplication, r
 		route, routeErr := routeResolver.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationProductAgentDecision})
 		return route.Profile, routeErr
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: routeResolver.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
+	executor := &governed.Executor{Ledger: a.config.Ledger, AuthorizeInvocation: a.AuthorizeModelInvocation, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: routeResolver.Resolve, BaseTransport: a.config.TextTransport, Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 		if err := a.authorizeTitlePilotDispatch(ctx, in); err != nil {
 			return err
 		}

@@ -19,7 +19,9 @@ type tableGrant struct {
 func runGrants(ledger relationContract) []tableGrant {
 	var cols []string
 	for _, c := range ledger.Columns {
-		cols = append(cols, c.Name)
+		if c.Name != "billing_mode" {
+			cols = append(cols, c.Name)
+		}
 	}
 	return []tableGrant{
 		{"product_agent_runtime", "ai_invocations", true, true, cols},

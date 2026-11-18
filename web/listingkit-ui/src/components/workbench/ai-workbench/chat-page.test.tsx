@@ -1121,11 +1121,13 @@ it("creates content intent from a saved own product without an acquisition or ti
 });
 it("confirms a content proposal without exposing internal execution units",async()=>{
  fixture.context.aiWorkbenchExecutionKind="product.content.localize";fixture.context.aiWorkbenchTitleReadiness="UNAVAILABLE";
- const proposal={id:operationId,digest:"a".repeat(64),sourceSequence:1,kind:"product.content.localize",goalSummary:"整理描述与卖点",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}},detailsAvailable:true,titleProfileReady:false,executionProfileReady:true,executionAuthorized:true,humanReviewRequired:true,maximumTokens:6000,maximumCostMicros:1000,currency:"CNY",maximumSteps:8,maximumModelCalls:3,maximumRuntimeSeconds:60};
+ const proposal={id:operationId,digest:"a".repeat(64),sourceSequence:1,kind:"product.content.localize",goalSummary:"整理描述与卖点",taskSelection:{subject:{kind:"own_product",id:operationId,catalogVersion:"3",publicationId:"effective-publication"},capability:"product.content.localize",parameters:{targetLanguage:"en-US",description:true,sellingPoints:true}},detailsAvailable:true,titleProfileReady:false,executionProfileReady:true,executionAuthorized:true,humanReviewRequired:true,usageOnly:true,maximumTokens:6000,maximumCostMicros:1000,currency:"CNY",maximumSteps:8,maximumModelCalls:3,maximumRuntimeSeconds:60};
  fixture.request.mockImplementation(async({route})=>{if(route==="conversation-read")return {conversation,messages:[{ID:operationId,Sequence:1,Author:"USER",Content:"需求",CreatedAt:conversation.CreatedAt}],proposals:[proposal],before:""};throw new AIWorkbenchError("OUTCOME_UNKNOWN")});
  render(tree());expect(await screen.findByRole("button",{name:"确认并创建任务"})).toBeEnabled();
  expect(screen.queryByRole("link",{name:"设为定时任务"})).toBeNull();expect(fixture.request.mock.calls.some(([input])=>input.route==="schedule-availability")).toBe(false);
  expect(screen.getByText("en-US · 描述、卖点")).toBeVisible();
+ expect(screen.getByText("平台渠道按用量扣 AI 点数，企业自有渠道由厂商计费。模型规划不会直接修改商品。")).toBeVisible();
+ expect(screen.getByText(/企业自有，不消耗硕米 AI 点数/)).toBeVisible();
  expect(screen.queryByText(/6000 tokens|1000 μCNY|3 次模型调用/)).not.toBeInTheDocument();
  fixture.context.aiWorkbenchExecutionReadiness="NEEDS_CONFIGURATION";
  cleanup();render(tree());expect(await screen.findByRole("button",{name:"确认并创建任务"})).toBeDisabled();

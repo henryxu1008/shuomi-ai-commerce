@@ -62,7 +62,7 @@ func TestLedgerEmptyDatabasePostgres(t *testing.T) {
 		require.NoError(t, store.VerifyModelPointInvocationSchema(ctx, db))
 		var columns, rows int64
 		require.NoError(t, db.Raw("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='ai_invocations'").Scan(&columns).Error)
-		require.EqualValues(t, 52, columns)
+		require.EqualValues(t, 54, columns)
 		require.NoError(t, db.Table("ai_invocations").Count(&rows).Error)
 		require.Zero(t, rows)
 		var owner string

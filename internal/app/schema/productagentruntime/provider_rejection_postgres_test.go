@@ -45,7 +45,7 @@ func TestPrepareProviderRejectionProofAddsOnlyEmptyColumnAndPreciseGrant(t *test
 		var fields []reflect.StructField
 		for n := 0; n < model.NumField(); n++ {
 			field := model.Field(n)
-			if field.Name != "ProviderRejectionProofJSON" {
+			if field.Name != "ProviderRejectionProofJSON" && field.Name != "BillingMode" {
 				fields = append(fields, field)
 			}
 		}
@@ -85,6 +85,9 @@ func TestPrepareProviderRejectionProofAddsOnlyEmptyColumnAndPreciseGrant(t *test
 	var after string
 	require.NoError(t, f.db.Raw("SELECT (to_jsonb(v)-'provider_rejection_proof_json')::text FROM ai_invocations v WHERE invocation_id='kept'").Scan(&after).Error)
 	require.Equal(t, before, after)
+	result, err = PrepareInvocationBillingMode(ctx, f.db)
+	require.NoError(t, err)
+	require.Equal(t, "CREATED", result.Outcome)
 	runtime := f.role(t, "product_agent_runtime")
 	require.NoError(t, VerifyInvocationRecoveryRuntime(ctx, runtime))
 	require.NoError(t, runtime.Exec("UPDATE ai_invocations SET provider_rejection_proof_json=NULL WHERE invocation_id='kept'").Error)
@@ -95,7 +98,7 @@ func TestPrepareProviderRejectionProofAddsOnlyEmptyColumnAndPreciseGrant(t *test
 	require.Equal(t, "ALREADY_READY", result.Outcome)
 	// PostgreSQL keeps a physical attnum gap after the approved empty-column
 	// rollback. Reinstall must qualify the same active columns without row edits.
-	require.NoError(t, f.db.Exec("ALTER TABLE ai_invocations DROP COLUMN provider_rejection_proof_json").Error)
+	require.NoError(t, f.db.Exec("ALTER TABLE ai_invocations DROP COLUMN IF EXISTS billing_mode, DROP COLUMN provider_rejection_proof_json").Error)
 	result, err = PrepareProviderRejectionProof(ctx, f.db)
 	require.NoError(t, err)
 	require.Equal(t, "CREATED", result.Outcome)

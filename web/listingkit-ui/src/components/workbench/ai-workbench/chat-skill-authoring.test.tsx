@@ -82,3 +82,20 @@ it.each(["newer canonical revision","lagging canonical projection"])("preserves 
   await waitFor(()=>expect(screen.getByRole("button",{name:"保存到我的技能"})).toBeEnabled());
  }finally{request.mockReset().mockResolvedValue({valid:true});}
 });
+
+it.each(["committed", "usage_only"] as const)("shows the saved billing mode of a skill draft (%s)", (billing) => {
+ const scope = {userId:"user", organizationId:"org"};
+ const key = "11111111-1111-4111-8111-111111111111";
+ const job: AISkillAuthoringJob = {
+  key, generationKey:key, revision:key, state:"COMPLETE", requirement:"生成", billing,
+  savePending:false, savedSkillId:null,
+  draft:{name:"title", displayName:"标题", description:"整理", instructions:"原规则"},
+ };
+ const client = new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}>
+  <ChatSkillAuthoring scope={scope} authorizationKey="member" conversation={key} initialJob={job} readOnly/>
+ </QueryClientProvider>);
+ const label = screen.queryByText("企业自有模型 · 硕米只记录用量");
+ if (billing === "usage_only") expect(label).toBeVisible();
+ else expect(label).not.toBeInTheDocument();
+});

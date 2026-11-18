@@ -76,7 +76,7 @@ func prepareLedgerOnlyOrganizationImageAgent(ctx context.Context, db *gorm.DB) e
 		if err := tx.Raw("SELECT current_user").Scan(&owner).Error; err != nil {
 			return err
 		}
-		if err := nativeschema.VerifyInvocationRelation(ctx, tx, owner); err != nil {
+		if err := nativeschema.VerifyImageInvocationRelation(ctx, tx, owner); err != nil {
 			return err
 		}
 		if err := imagestore.AutoMigrateOrganizationScope(tx); err != nil {
