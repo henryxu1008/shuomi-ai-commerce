@@ -2,7 +2,7 @@
 
 The integration candidate in #619 consumes
 the frozen [Data Services architecture](../../../docs/architecture/data-services.md)
-and [feature handoff](../../../docs/engineering/data-services-runtime-handoff.md).
+and [feature handoff](../../../docs/engineering/integration/data-services-runtime-handoff.md).
 The user selected the current formal IAM boundary without a local enterprise
 business-suspension feature. The independently admitted
 [native authorization supplement](../../../docs/architecture/data-services-native-authorization.md)
