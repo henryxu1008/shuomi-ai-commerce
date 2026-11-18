@@ -6,7 +6,7 @@
 
 获准企业成员在 Chat 选择现有商品、提出内容目标、查看方案并确认后，沿当前内容 Agent、任务、人工审核和采用路径工作；原完整 Product Agent 与其其他已装配能力继续可用。会话管理可用不等于模型消息可用。明确不做一般聊天、真实模型调用、发布、账务变更、权限提升、数据迁移、视觉改版或修改任何其他能力；隔离测试使用合成模型。部署、真实配置及任何付费调用需另行明确决定。
 
-依据：用户 2026-11-11 指定保留 35444 原能力、原预留和数据，选择已有企业 OpenAI 连接，仅授权先处理共存与隔离验证；`ai-workbench-work-scope.md`、`chat-task-object-goal-design-brief.md`、`domains/ai/shared-channel-credentials.md`、当前权限和资源合同。Figma 非 UI 权威。
+依据：用户 2026-11-11 指定保留 35444 原能力、原预留和数据，选择已有企业 OpenAI 连接，仅授权先处理共存与隔离验证；`ai-workbench-work-scope.md`、`domains/workbench/chat-task-object-goal-design-brief.md`、`domains/ai/shared-channel-credentials.md`、当前权限和资源合同。Figma 非 UI 权威。
 
 ## 根因和拟议最小变更
 
