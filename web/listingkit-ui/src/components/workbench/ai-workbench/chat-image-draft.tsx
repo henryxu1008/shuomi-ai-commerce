@@ -64,6 +64,7 @@ function base64(blob:Blob):Promise<string>{
 export function useChatImageDraft(scope:AIScope,member:string,entry:string,enabled:boolean,authorizationKey:string) {
   const pointerKey=toPointer(scope,member,entry);
   const [stored,setStored]=useState<{owner:string;pointer?:string;draft?:ImageDraft}>();
+  const [unwritten,setUnwritten]=useState<{owner:string;pictures:Blob[]}>();
   const [notice,setNotice]=useState("");
   const [busy,setBusy]=useState(false);
   const mutation=useRef(false);
@@ -88,18 +89,19 @@ export function useChatImageDraft(scope:AIScope,member:string,entry:string,enabl
     return ()=>{active=false};
   },[enabled,member,pointerKey,scope]);
   const current=enabled&&stored?.owner===pointerKey?stored:undefined;
-  const pictures=current?.draft?.pictures??[];
+  const buffered=unwritten?.owner===pointerKey?unwritten:undefined;
+  const pictures=buffered?.pictures??current?.draft?.pictures??[];
 
   async function edit(pictures:Blob[]) {
     if(!current||mutation.current||current.draft?.pending)return;
-    mutation.current=true;setBusy(true);
+    mutation.current=true;setBusy(true);setUnwritten({owner:pointerKey,pictures});
     try{
       const pointer=current.pointer??crypto.randomUUID();
       // Persist the tab pointer first. A failed IndexedDB write cannot send.
       if(!current.pointer)sessionStorage.setItem(pointerKey,pointer);
       if(sessionStorage.getItem(pointerKey)!==pointer)throw new Error("image draft changed");
       const draft=await changeDraft(dataId(scope,member,pointer),existing=>existing?.pending?unchanged:pictures.length?{pictures}:undefined);
-      setStored({owner:pointerKey,pointer,draft});setNotice("");
+      setStored({owner:pointerKey,pointer,draft});setUnwritten(undefined);setNotice("");
     }catch{setNotice("图片暂时无法保存，请检查浏览器存储后重试。")}
     finally{mutation.current=false;setBusy(false)}
   }
@@ -134,11 +136,11 @@ export function useChatImageDraft(scope:AIScope,member:string,entry:string,enabl
     if(sessionStorage.getItem(pointerKey)===pointer)sessionStorage.removeItem(pointerKey);
   }
 
-  async function send(conversation:string,content:string,signal:AbortSignal){
-    if(!current?.pointer||mutation.current||!pictures.length)return;
+  async function send(conversation:string,content:string,signal:AbortSignal,saveEditableQuestion:(question:string)=>boolean){
+    if(!current?.pointer||mutation.current||buffered||!pictures.length)return;
     mutation.current=true;setBusy(true);setNotice("");
     const pointer=current.pointer,id=dataId(scope,member,pointer);
-    let sentKey:string|undefined;
+    let original:ImageDraft["pending"];
     try{
       if(sessionStorage.getItem(pointerKey)!==pointer)throw new Error("image draft changed");
       const draft=await changeDraft(id,existing=>{
@@ -148,13 +150,17 @@ export function useChatImageDraft(scope:AIScope,member:string,entry:string,enabl
       });
       if(!draft?.pending||signal.aborted)return;
       setStored({owner:pointerKey,pointer,draft});
-      sentKey=draft.pending.key;
+      original=draft.pending;
       const body={content:draft.pending.content,images:await Promise.all(draft.pictures.map(base64))};
       const result=await requestAIWorkbench({route:"image-question-submit",method:"POST",path:`chat/conversations/${conversation}/image-questions`,scope,body,key:draft.pending.key,signal});
       if(signal.aborted)return;
       if(result.state==="COMPLETE"||result.state==="FAILED_BEFORE_DISPATCH"||result.state==="PLANNER_INVALID_OUTPUT"){
+        if(result.state!=="COMPLETE"&&!saveEditableQuestion(original.content)){
+          setNotice("原问题和图片已保留，请检查浏览器存储后核实原请求。");
+          return;
+        }
         const next=await changeDraft(id,existing=>{
-          if(!existing||existing.pending?.key!==sentKey)return unchanged;
+          if(!existing||existing.pending?.key!==original?.key)return unchanged;
           return result.state==="COMPLETE"?undefined:{pictures:existing.pictures};
         });
         setStored({owner:pointerKey,pointer,draft:next});
@@ -166,9 +172,10 @@ export function useChatImageDraft(scope:AIScope,member:string,entry:string,enabl
       return result;
     }catch(error){
       if(signal.aborted)return;
-      if(sentKey&&error instanceof AIWorkbenchError&&error.messageAccepted===false){
+      if(original&&error instanceof AIWorkbenchError&&error.messageAccepted===false){
         try{
-          const next=await changeDraft(id,existing=>existing?.pending?.key===sentKey&&existing?{pictures:existing.pictures}:unchanged);
+          if(!saveEditableQuestion(original.content))throw new Error("original question could not be kept");
+          const next=await changeDraft(id,existing=>existing?.pending?.key===original?.key&&existing?{pictures:existing.pictures}:unchanged);
           setStored({owner:pointerKey,pointer,draft:next});
           setNotice("图片未发送。请检查图片格式和大小后重试。");
           return;
@@ -181,8 +188,8 @@ export function useChatImageDraft(scope:AIScope,member:string,entry:string,enabl
         "企业存储空间不足，原问题和图片已保留。":"无法确认这次图片提问，请检查当前模型和浏览器存储后核实原请求。");
     }finally{mutation.current=false;if(!signal.aborted)setBusy(false)}
   }
-  return {pictures,ready:!!current,available:enabled&&status.data?.available===true,notice,busy,pending:current?.draft?.pending,pointer:current?.pointer,
-    add,paste,drop,handoff,send,remove:(index:number)=>void edit(pictures.filter((_,n)=>index!==n))};
+  return {pictures,ready:!!current,available:enabled&&status.data?.available===true,notice,busy,unsaved:!!buffered,pending:current?.draft?.pending,pointer:current?.pointer,
+    add,paste,drop,handoff,send,retrySave:()=>{if(buffered)void edit(buffered.pictures)},remove:(index:number)=>void edit(pictures.filter((_,n)=>index!==n))};
 }
 
 function ImagePreview({blob,index,onRemove}:{blob:Blob;index:number;onRemove?:()=>void}){
@@ -202,12 +209,13 @@ function ImagePreview({blob,index,onRemove}:{blob:Blob;index:number;onRemove?:()
 export function ChatImagePicker({draft,disabled}:{draft:ReturnType<typeof useChatImageDraft>;disabled?:boolean}){
   const input=useRef<HTMLInputElement>(null);
   return <>
-    {draft.pictures.length>0&&<div className="flex flex-wrap gap-2" aria-label="已选图片">{draft.pictures.map((blob,n)=><ImagePreview key={n} blob={blob} index={n} onRemove={disabled||draft.pending?undefined:()=>draft.remove(n)}/>)}</div>}
+    {draft.pictures.length>0&&<div className="flex flex-wrap gap-2" aria-label="已选图片">{draft.pictures.map((blob,n)=><ImagePreview key={n} blob={blob} index={n} onRemove={disabled||draft.busy||draft.pending?undefined:()=>draft.remove(n)}/>)}</div>}
     {(draft.available||draft.pictures.length>0)&&<>
       <Button type="button" size="sm" variant="outline" disabled={disabled||draft.busy||!!draft.pending||!draft.ready} onClick={()=>input.current?.click()}><ImagePlus aria-hidden size={16}/> 选择图片</Button>
       <input ref={input} type="file" hidden multiple accept="image/jpeg,image/png" onChange={event=>{draft.add(Array.from(event.target.files??[]));event.target.value=""}}/>
     </>}
     {draft.notice&&<p role="status">{draft.notice}</p>}
+    {draft.unsaved&&!draft.busy&&<Button type="button" size="sm" variant="outline" disabled={disabled} onClick={draft.retrySave}>重试保存图片</Button>}
   </>;
 }
 

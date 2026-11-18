@@ -151,3 +151,55 @@ func TestIT4ScopedPostgresPaginationFiltersBeforeLimitAndChecksAnchors(t *testin
 	require.Empty(t, page.Next)
 	require.True(t, page.Incomplete)
 }
+
+func TestChatImageCommandKeepsOriginalImageOrderAndScope(t *testing.T) {
+	store, err := New(workbenchDB(t))
+	require.NoError(t, err)
+	ctx := context.Background()
+	owner := aiworkbench.Scope{OrganizationID: "org-a", ActorID: "actor-a"}
+	selection := aiworkbench.ScopeSelection{Kind: "general"}
+	business := aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "general"}
+	create := func() aiworkbench.Conversation {
+		conversation, _, err := store.CreateScoped(ctx, owner, uuid.NewString(), aiworkbench.CreateInput{Selection: &selection, MemberID: "member-a"}, &business, nil)
+		require.NoError(t, err)
+		return conversation
+	}
+	conversation, other := create(), create()
+	key := uuid.NewString()
+	images := []aiworkbench.ChatImage{
+		{SHA256: strings.Repeat("a", 64), MIME: "image/png", Bytes: 60, Width: 24, Height: 24},
+		{SHA256: strings.Repeat("b", 64), MIME: "image/jpeg", Bytes: 90, Width: 24, Height: 24},
+	}
+	input := aiworkbench.MessageInput{Content: "Compare the two pictures", ChatImages: images}
+	original, _, err := store.AppendUser(ctx, owner, conversation.ID, key, input, func(history []aiworkbench.Message, invocation string) (aiworkbench.PreparedPlan, error) {
+		p, err := testPlanPreparer(history, invocation)
+		p.FrozenScope = &aiworkbench.FrozenScope{Owner: owner, ConversationID: conversation.ID, MemberID: p.MemberID, Scope: business}
+		return p, err
+	})
+	require.NoError(t, err)
+	for _, lookup := range []struct {
+		owner                aiworkbench.Scope
+		conversation, member string
+	}{
+		{aiworkbench.Scope{OrganizationID: "org-b", ActorID: owner.ActorID}, conversation.ID, original.MemberID},
+		{aiworkbench.Scope{OrganizationID: owner.OrganizationID, ActorID: "actor-b"}, conversation.ID, original.MemberID},
+		{owner, other.ID, original.MemberID},
+		{owner, conversation.ID, "member-b"},
+	} {
+		_, err := store.ChatImageCommand(ctx, lookup.owner, lookup.conversation, original.UserMessageID, lookup.member)
+		require.ErrorIs(t, err, aiworkbench.ErrNotFound)
+	}
+	actual, err := store.ChatImageCommand(ctx, owner, conversation.ID, original.UserMessageID, original.MemberID)
+	require.NoError(t, err)
+	require.Equal(t, images, actual.WorkScope.ChatImages)
+	_, _, err = store.CompletePlan(ctx, owner, key, aiworkbench.PlanTerminal{Mode: aiworkbench.PlanReady, AssistantText: "Attempt a business action"})
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	_, _, err = store.CompletePlan(ctx, owner, key, aiworkbench.PlanTerminal{Mode: aiworkbench.PlanClarify, AssistantText: "Image 1 differs from image 2"})
+	require.NoError(t, err)
+	_, replay, err := store.ReplayCommand(ctx, owner, conversation.ID, key, input)
+	require.NoError(t, err)
+	require.True(t, replay)
+	input.ChatImages = []aiworkbench.ChatImage{images[1], images[0]}
+	_, _, err = store.ReplayCommand(ctx, owner, conversation.ID, key, input)
+	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
+}

@@ -217,7 +217,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   async function create(textAuthoring?:AISkillAuthoringChoice) {
     if((library.launch||library.error)&&!createIntent){setError("请前往所选技能的处理页确认，或取消选择后发送聊天需求。");return;}
     if (mode !== "new") {if(canUse||canCreateProject)router.push("/workbench/ai/chat/new");return;}
-    if(!canUse||creating||projectSaveLocked||composeImages.busy||createIntent?.imageDraft&&createIntent.imageMember!==context.effectiveMemberId)return;
+    if(!canUse||creating||projectSaveLocked||composeImages.busy||composeImages.unsaved||createIntent?.imageDraft&&createIntent.imageMember!==context.effectiveMemberId)return;
     if(directCompose&&(pendingChecked!==createStorageKey||pendingError||voiceActive||!createIntent&&!recheckStore&&!storeState.ready))return;
     const text=createIntent?.draft??compose;
     if(directCompose&&!legacyCreate&&(invalidContext||draftReady!==draftKey||draftError||!projectLaunch&&!createIntent?.projectTask&&createIntent?.authoring?.version!==3&&!text.trim()||new TextEncoder().encode(text).length>8192||createIntent&&createIntent.context!==scopeContext))return;
@@ -327,7 +327,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
           <div className={styles.voiceControl}><ChatVoiceInput identity={JSON.stringify([scope.userId,scope.organizationId,scopeContext])} disabled={creating || !!createIntent || draftReady !== draftKey || invalidContext} onText={insertVoiceText} onActiveChange={setVoiceActive} /></div>
           {canUse && (visibleSkill === "" || projectEntry && visibleSkill === "project-task" || createIntent) ? <Button size={projectLaunch?"default":"icon"} onClick={()=>void create()}
             aria-label={creating ? "正在创建" : createIntent ? "核对原创建请求" : projectLaunch ? "开启项目会话" : "开始对话"}
-            disabled={creatorSelected&&!createIntent&&(context.aiWorkbenchChatIntentReadiness!=="AVAILABLE"||projectLaunch) || Boolean(library.launch||library.error)&&!createIntent || voiceActive || creating || composeImages.busy || projectSaveLocked || projectLaunch&&!createIntent&&!canExecuteProject || !createIntent && !recheckStore && !storeState.ready || pendingChecked !== createStorageKey || !!pendingError || (!legacyCreate && (invalidContext || draftReady !== draftKey || !!draftError || !projectLaunch&&!createIntent?.projectTask&&!createIntent?.authoring&&!(createIntent?.draft ?? compose).trim() || new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 || !!createIntent && createIntent.context !== scopeContext || !resolvedScope && !createIntent))}>
+            disabled={creatorSelected&&!createIntent&&(context.aiWorkbenchChatIntentReadiness!=="AVAILABLE"||projectLaunch) || Boolean(library.launch||library.error)&&!createIntent || voiceActive || creating || composeImages.busy || composeImages.unsaved || projectSaveLocked || projectLaunch&&!createIntent&&!canExecuteProject || !createIntent && !recheckStore && !storeState.ready || pendingChecked !== createStorageKey || !!pendingError || (!legacyCreate && (invalidContext || draftReady !== draftKey || !!draftError || !projectLaunch&&!createIntent?.projectTask&&!createIntent?.authoring&&!(createIntent?.draft ?? compose).trim() || new TextEncoder().encode(createIntent?.draft ?? compose).length > 8192 || !!createIntent && createIntent.context !== scopeContext || !resolvedScope && !createIntent))}>
             {projectLaunch ? createIntent ? "核对原创建请求" : "开启项目会话" : <ArrowUp size={18} aria-hidden="true" />}
           </Button> : null}
         </div>
@@ -555,7 +555,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     setRevisionContext(revision);
     return true;
   }
-  function updateConversationDraft(text:string) {
+  function updateConversationDraft(text:string,persist=false) {
     invalidateProposal();
     userEdited.current = true;
     setContent(text);
@@ -565,7 +565,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
         const currentDraft = readLocalDraft(sessionStorage.getItem(key));
         if (currentDraft?.id !== activeDraft.current.id) throw new Error("draft changed");
         sessionStorage.setItem(key,JSON.stringify({id:currentDraft.id,text,skillRevision:currentDraft.skillRevision}));
-      } else if (projectAvailable && text) {
+      } else if ((projectAvailable||persist) && text) {
         const key = resolvedDraftKey(scope,id);
         if (sessionStorage.getItem(key) !== null) throw new Error("draft changed");
         const draft = {id:crypto.randomUUID(),text};
@@ -573,8 +573,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
         activeDraft.current = {id:draft.id,slot:"resolved"};
       }
       setDraftSaveError("");
+      return true;
     } catch {
       setDraftSaveError("需求未能保存到本地，刷新会丢失修改；请检查浏览器存储。");
+      return false;
     }
   }
   function continueProject() {
@@ -685,9 +687,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       sessionStorage.setItem(key,JSON.stringify({id:saved.key,text:saved.body.content,submitted:submitted?true:undefined,clarifySkillPurpose:clarify?true:undefined,skillRevision}));activeDraft.current={id:saved.key,slot:"resolved"};return true;
     }catch{return false;}
   }
-  const imageSendLocked=conversationImages.busy||!draftHydrated||messageChecked!==messageStorageKey||Boolean(messageRecoveryError)||Boolean(draftSaveError)&&!conversationImages.pending||projectSaveLocked||awaitingConfirm;
+  const imageSendLocked=conversationImages.busy||conversationImages.unsaved||!draftHydrated||messageChecked!==messageStorageKey||Boolean(messageRecoveryError)||Boolean(draftSaveError)&&!conversationImages.pending||projectSaveLocked||awaitingConfirm;
   async function send() {
-    if(conversationImages.busy)return;
+    if(conversationImages.busy||conversationImages.unsaved)return;
     if(!pendingMessage&&(conversationImages.pictures.length||conversationImages.pending)){
       if(pending||imageSendLocked||!current||current.Archived||projectTask)return;
       if(!conversationImages.pending&&(library.launch||library.error||creatorSelected||revisionContext||textSkill||subject||conversationStore.choice?.kind==="store")){
@@ -699,7 +701,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       abort.current=controller;
       setPending(true);setError("");
       try{
-        const result=await conversationImages.send(id,content,controller.signal);
+        const result=await conversationImages.send(id,content,controller.signal,text=>updateConversationDraft(text,true));
         if(!controller.signal.aborted){
           if(result?.state==="COMPLETE")updateConversationDraft("");
           await detail.refetch();
@@ -930,7 +932,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <ChatImagePicker draft={conversationImages} disabled={pending||Boolean(pendingMessage)||Boolean(conversationImages.pending)}/>
       <div className={styles.toolbar}>{(conversationImages.pictures.length>0||conversationImages.pending)&&!pendingMessage?
         <Button disabled={pending||imageSendLocked||(!conversationImages.pending&&(!content.trim()||!conversationImages.available))} onClick={()=>void send()}>{pending?"处理中…":conversationImages.pending?"核实原图片提问":"发送消息"}</Button>:
-        <Button disabled={creatorSelected&&!pendingMessage&&!canChatTurn || Boolean(library.launch||library.error)&&!pendingMessage || pending || projectSaveLocked || !pendingMessage && (projectTask&&!canGenerateProject || projectAvailable&&(awaitingConfirm||visibleSkill==="create-project")) || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || !pendingMessage && !(canChatTurn&&(creatorSelected||revisionContext||!subject&&(contentTasks||!isAcquisitionUUID(operationId)))) && (!contextReady || contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) || (!pendingMessage && canChatTurn&&(creatorSelected||revisionContext||!subject&&(contentTasks||!isAcquisitionUUID(operationId))) ? false : !pendingMessage && current.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)) ? !canRoute : !pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : projectTask ? "生成方案" : "发送消息"}</Button>}
+        <Button disabled={creatorSelected&&!pendingMessage&&!canChatTurn || Boolean(library.launch||library.error)&&!pendingMessage || pending || conversationImages.busy || conversationImages.unsaved || projectSaveLocked || !pendingMessage && (projectTask&&!canGenerateProject || projectAvailable&&(awaitingConfirm||visibleSkill==="create-project")) || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || !pendingMessage && !(canChatTurn&&(creatorSelected||revisionContext||!subject&&(contentTasks||!isAcquisitionUUID(operationId)))) && (!contextReady || contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) || (!pendingMessage && canChatTurn&&(creatorSelected||revisionContext||!subject&&(contentTasks||!isAcquisitionUUID(operationId))) ? false : !pendingMessage && current.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)) ? !canRoute : !pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : projectTask ? "生成方案" : "发送消息"}</Button>}
         <span>平台渠道按用量扣 AI 点数，企业自有渠道由厂商计费。模型规划不会直接修改商品。</span></div></Card> : current.Archived ? <ConsoleState kind="unavailable" title="会话已归档">已保存的任务仍可从任务中心查看。</ConsoleState> :
       <><ConsoleState kind="unavailable" title="只读会话"><p>{canUse ? planningStatus(planningReadiness) : "当前企业没有发送或确认权限，可查看已有对话和提案。"}</p>{canUse&&!canPlan&&<ModelServicesLink category="text"/>}</ConsoleState>{content ? <label className={styles.promptLabel}>保留的需求<Textarea rows={4} value={content} readOnly /></label> : null}</>}
     {!draftHydrated && draftSaveError ? <Button type="button" variant="outline" onClick={()=>setDraftRetry(value=>value+1)}>重新读取草稿</Button> : null}

@@ -237,7 +237,7 @@ it("accepts a local draft before creating a general conversation without sending
   expect(fixture.request.mock.calls.every(([input]) => ["scope-options","image-question-readiness"].includes(input.route))).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "开始对话" }));
   await waitFor(() => expect(fixture.push).toHaveBeenCalled());
-  expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
+  expect(fixture.request.mock.calls.map(([input]) => input.route).filter(route=>route!=="image-question-readiness")).toEqual(["scope-options", "conversation-create"]);
 });
 
 it("carries a selected store into the same new conversation without sending or querying business data",async()=>{
@@ -580,7 +580,7 @@ it("keeps new conversation creation separate from the history list", async () =>
   expect(fixture.request.mock.calls.every(([input])=>["scope-options","image-question-readiness"].includes(input.route))).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "新建会话" }));
   await waitFor(() => expect(fixture.push).toHaveBeenCalled());
-  expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
+  expect(fixture.request.mock.calls.map(([input]) => input.route).filter(route=>route!=="image-question-readiness")).toEqual(["scope-options", "conversation-create"]);
   expect(fixture.request.mock.calls.at(-1)?.[0].body).toEqual({scopeSelection:{kind:"general"},scopeConfirmation});
 });
 
