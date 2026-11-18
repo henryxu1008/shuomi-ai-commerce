@@ -93,7 +93,7 @@ func capabilityFor(operation aicapability.Operation) aicapability.Capability {
 	if operation == aicapability.OperationProductImageAnalysis {
 		return aicapability.CapabilityProductImageAnalysis
 	}
-	if operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationAIWorkbenchSkillAuthoring {
+	if operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationAIWorkbenchChatIntent || operation == aicapability.OperationAIWorkbenchSkillAuthoring {
 		return aicapability.CapabilityAIWorkbenchChatPlanning
 	}
 	return aicapability.CapabilityProductEnrichText
@@ -211,7 +211,7 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
-	guardCfg.skillAuthoringDirectOpenAI = input.Operation == aicapability.OperationAIWorkbenchSkillAuthoring &&
+	guardCfg.skillAuthoringDirectOpenAI = (input.Operation == aicapability.OperationAIWorkbenchSkillAuthoring || input.Operation == aicapability.OperationAIWorkbenchChatIntent) &&
 		guardCfg.Adapter == AdapterOpenAICompatible && route.Endpoint == TitlePilotOpenAIEndpoint &&
 		p.ProviderID == "openai" && p.ModelID == aicapability.SingleImageMiniModel &&
 		p.OfficialTariff.Channel == "openai-direct" && p.OfficialTariff.UsageVersion == "openai-text-v1"
@@ -323,6 +323,9 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		record.Outcome = aicapability.InvocationFailed
 		record.ErrorCategory = aicapability.ErrorProviderRejected
 		record.ErrorCode = aicapability.SkillAuthoringOpenAIParameterRejectedV1
+		if input.Operation == aicapability.OperationAIWorkbenchChatIntent {
+			record.ErrorCode = aicapability.ChatIntentOpenAIParameterRejectedV1
+		}
 		record.ProviderRequestID = requestIDHash
 		record.FinishedAt = time.Now().UTC()
 		record.LatencyMilliseconds = record.FinishedAt.Sub(now).Milliseconds()

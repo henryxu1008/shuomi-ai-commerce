@@ -19,10 +19,10 @@ import { ChatVoiceInput } from "./chat-voice-input";
 import { requestAIWorkbench, type AIScope, AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { WorkScopePicker, scopeLabel, scopeSelection } from "./work-scope-picker";
-import { aiCreateBody, aiMessageBody, aiStoreChoice, aiStoreRouteBody, type WorkScopeOption, type WorkScopeSelection, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
+import { aiChatTurnBody, aiCreateBody, aiMessageBody, aiStoreChoice, aiStoreRouteBody, type WorkScopeOption, type WorkScopeSelection, type AIConversation, type AIProposal } from "@/lib/contracts/ai-workbench";
 import { findConsoleRoute } from "@/lib/workbench/console-navigation";
 import {executionModeLabels,executionModeAdoptionText} from "../agents/execution-mode-settings";
-import {ChatSkillAuthoring, ChatSkillDrawer} from "./chat-skill-authoring";
+import {ChatSkillAuthoring, ChatSkillDrawer, ChatSkillTurn, type ChatSkillRevision} from "./chat-skill-authoring";
 import type {AISkillAuthoringChoice} from "@/lib/contracts/ai-workbench";
 import {ChatProjectCreateCard,readProjectWorkScope,useChatProjectCreation,type ProjectSkill} from "./chat-project-actions";
 import {ChatTaskSelection} from "./chat-task-selection";
@@ -35,14 +35,14 @@ import {contentSelectionLabel,type ContentSelection} from "@/lib/contracts/conte
 import styles from "./chat-page.module.css";
 
 type ChatMode = "home" | "new" | "recent" | "saved" | "archived";
-type MessageBody = ReturnType<typeof aiMessageBody.parse> | ReturnType<typeof aiStoreRouteBody.parse>;
-type PendingMessage = { key: string; body: MessageBody; route?: "message"|"store-route"; draftId?: string; draftSlot?: "handoff" | "resolved"; owner?: AIScope; conversationId?: string };
+type MessageBody = ReturnType<typeof aiMessageBody.parse> | ReturnType<typeof aiStoreRouteBody.parse> | ReturnType<typeof aiChatTurnBody.parse>;
+type PendingMessage = { key: string; body: MessageBody; route?: "message"|"store-route"|"chat-turn"; draftId?: string; draftSlot?: "handoff" | "resolved"; owner?: AIScope; conversationId?: string };
 type LocalDraft = { id:string; text:string; submitted?:true };
 function readLocalDraft(raw:string | null): LocalDraft | null { if(raw===null)return null; const value:unknown=JSON.parse(raw); if(!value || typeof value!=="object" || !("id" in value) || typeof value.id!=="string" || !isAcquisitionUUID(value.id) || !("text" in value) || typeof value.text!=="string") throw new Error("invalid draft"); return {id:value.id,text:value.text,...("submitted" in value && value.submitted===true?{submitted:true as const}:{})}; }
 type ConfirmationReceipt = { key: string; taskId?: string; pending?:true };
 const pendingMessageLegacyKey = (scope: AIScope, id: string) => `ai-workbench:pending-message:${scope.userId}:${scope.organizationId}:${id}`;
 const pendingMessageStorageKey = (scope: AIScope, id: string) => `ai-workbench:pending-message-v2:${JSON.stringify([scope.userId,scope.organizationId,id])}`;
-type PendingCreate = {key:string; body: {scopeSelection:WorkScopeSelection; scopeConfirmation:string} | {favorite?:boolean}; draft?:string; context?:string; conversationId?:string; owner?:AIScope; storeChoice?:ChatStoreChoice; projectTask?:true; authoring?:Pick<AISkillAuthoringChoice,"version"|"digest">};
+type PendingCreate = {key:string; turnKey?:string; body: {scopeSelection:WorkScopeSelection; scopeConfirmation:string} | {favorite?:boolean}; draft?:string; context?:string; conversationId?:string; owner?:AIScope; storeChoice?:ChatStoreChoice; projectTask?:true; authoring?:Pick<AISkillAuthoringChoice,"version"|"digest">};
 const pendingCreateStorageKey = (scope: AIScope) => `ai-workbench:pending-create:${scope.userId}:${scope.organizationId}`;
 const pendingComposeStorageKey = (scope: AIScope) => `ai-workbench:pending-create-v2:${JSON.stringify([scope.userId,scope.organizationId])}`;
 const composeDraftKey = (scope: AIScope, context: string) => `ai-workbench:compose:${JSON.stringify([scope.userId,scope.organizationId,context])}`;
@@ -76,7 +76,7 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const planningReadiness = context.aiWorkbenchPlanningReadiness;
   const titleReadiness = context.aiWorkbenchTitleReadiness;
   const canPlan = canUse && planningReadiness === "AVAILABLE";
-  const authorizationKey = `${context.effectiveMemberId ?? ""}:${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${context.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE"}:${titleReadiness}`;
+  const authorizationKey = `${context.effectiveMemberId ?? ""}:${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${context.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE"}:${context.aiWorkbenchChatIntentReadiness ?? "UNAVAILABLE"}:${context.aiWorkbenchChatTurnsReady??false}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
   const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? "输入需求，开始新的对话。" : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
   return <ConsolePage className={`console-chat ${workbenchViewPage} ${mode === "new" ? styles.newPage : ""}`} title={title} breadcrumbs={route?.trail.map(node => node.href === "/workbench/ai/chat" ? {...node, href: "/workbench/ai/chat/new"} : node)}
@@ -144,7 +144,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const [activeCreateKey,setActiveCreateKey] = useState(createStorageKey);
   useEffect(() => {
     let active = true;
-    queueMicrotask(() => { if (active) { try { const rawNew = sessionStorage.getItem(createStorageKey); const oldKey=pendingCreateStorageKey(scope); const rawOld=directCompose ? sessionStorage.getItem(oldKey) : null; if(rawNew!==null && rawOld!==null)throw new Error("multiple pending records");if(rawOld!==null && (scope.userId.includes(":") || scope.organizationId.includes(":")))throw new Error("ambiguous pending identity");const raw=rawOld ?? rawNew;const source=rawOld!==null?oldKey:createStorageKey;setActiveCreateKey(source);if(raw !== null) { const value = JSON.parse(raw) as PendingCreate; const body = aiCreateBody.safeParse(value.body); if (!isAcquisitionUUID(value.key) || !body.success || (value.draft === undefined) !== (value.context === undefined) || value.draft !== undefined && typeof value.draft !== "string" || value.context !== undefined && typeof value.context !== "string" || value.conversationId !== undefined && !isAcquisitionUUID(value.conversationId) || value.storeChoice !== undefined && !aiStoreChoice.safeParse(value.storeChoice).success || value.authoring !== undefined && (!Number.isSafeInteger(value.authoring?.version) || value.authoring.version < 1 || !/^[a-f0-9]{64}$/.test(value.authoring.digest)) || value.projectTask !== undefined && (value.projectTask !== true || !("scopeSelection" in body.data) || body.data.scopeSelection?.kind !== "project") || directCompose && source===createStorageKey && (value.owner?.userId!==scope.userId || value.owner?.organizationId!==scope.organizationId)) throw new Error("invalid pending create"); setCreateIntent({key:value.key, body:body.data,draft:value.draft,context:value.context,conversationId:value.conversationId,owner:value.owner,storeChoice:value.storeChoice,projectTask:value.projectTask,authoring:value.authoring}); } setPendingError(""); } catch { setPendingError("原创建请求记录不可读取或身份无法确认，不能开始新请求；请保留记录并联系管理员。"); } setPendingChecked(createStorageKey); } });
+    queueMicrotask(() => { if (active) { try { const rawNew = sessionStorage.getItem(createStorageKey); const oldKey=pendingCreateStorageKey(scope); const rawOld=directCompose ? sessionStorage.getItem(oldKey) : null; if(rawNew!==null && rawOld!==null)throw new Error("multiple pending records");if(rawOld!==null && (scope.userId.includes(":") || scope.organizationId.includes(":")))throw new Error("ambiguous pending identity");const raw=rawOld ?? rawNew;const source=rawOld!==null?oldKey:createStorageKey;setActiveCreateKey(source);if(raw !== null) { const value = JSON.parse(raw) as PendingCreate; const body = aiCreateBody.safeParse(value.body); if (!isAcquisitionUUID(value.key) || value.turnKey!==undefined && (!isAcquisitionUUID(value.turnKey)||value.turnKey===value.key||typeof value.draft!=="string"||!value.draft.trim()||value.projectTask===true) || !body.success || (value.draft === undefined) !== (value.context === undefined) || value.draft !== undefined && typeof value.draft !== "string" || value.context !== undefined && typeof value.context !== "string" || value.conversationId !== undefined && !isAcquisitionUUID(value.conversationId) || value.storeChoice !== undefined && !aiStoreChoice.safeParse(value.storeChoice).success || value.authoring !== undefined && (!Number.isSafeInteger(value.authoring?.version) || value.authoring.version < 1 || !/^[a-f0-9]{64}$/.test(value.authoring.digest)) || value.projectTask !== undefined && (value.projectTask !== true || !("scopeSelection" in body.data) || body.data.scopeSelection?.kind !== "project") || directCompose && source===createStorageKey && (value.owner?.userId!==scope.userId || value.owner?.organizationId!==scope.organizationId)) throw new Error("invalid pending create"); setCreateIntent({key:value.key,turnKey:value.turnKey, body:body.data,draft:value.draft,context:value.context,conversationId:value.conversationId,owner:value.owner,storeChoice:value.storeChoice,projectTask:value.projectTask,authoring:value.authoring}); } setPendingError(""); } catch { setPendingError("原创建请求记录不可读取或身份无法确认，不能开始新请求；请保留记录并联系管理员。"); } setPendingChecked(createStorageKey); } });
     return () => { active = false; };
   }, [createStorageKey,directCompose,scope.userId,scope.organizationId]);
   useEffect(() => { let active=true; queueMicrotask(()=>{ if(!active || !directCompose)return; try { setCompose(sessionStorage.getItem(draftKey) ?? ""); setDraftError(""); } catch { setDraftError("当前浏览器无法保存草稿，请检查浏览器存储设置。"); } setDraftReady(draftKey); }); return ()=>{active=false}; },[draftKey,directCompose]);
@@ -193,48 +193,57 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
       setError("草稿无法带入，请检查浏览器存储后重试。");
     }
   }
-  async function create(authoringRequest?: AISkillAuthoringChoice) {
-    const authoring = createIntent?.authoring ?? authoringRequest;
-    const authoringQuery = authoring ? "?skillAuthoring=1&skillVersion="+authoring.version+"&skillDigest="+authoring.digest : "";
-    if (authoringRequest && createIntent && !createIntent.authoring) return;
-    if (projectSaveLocked || !createIntent && projectLaunch && !canExecuteProject) return;
-    if (mode !== "new") {
-      if (!canUse && !canCreateProject) return;
-      router.push(`/workbench/ai/chat/new${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
-      return;
-    }
-    if (!canUse) return;
-    if (directCompose && (pendingChecked !== createStorageKey || pendingError || voiceActive || !createIntent && !recheckStore && !storeState.ready)) return;
-    const text = createIntent?.draft ?? compose;
-    if (directCompose && !legacyCreate && (invalidContext || draftReady !== draftKey || draftError || !authoring && !projectLaunch && !createIntent?.projectTask && !text.trim() || new TextEncoder().encode(text).length > 8192 || createIntent && createIntent.context !== scopeContext)) return;
-    const selected = directCompose ? resolvedScope : selectedScope;
-    if (creating || fixedScopeEnabled && !createIntent && !selected) return;
-    const intent: PendingCreate = createIntent ?? {key:crypto.randomUUID(),body:selected ? {scopeSelection:scopeSelection(selected),scopeConfirmation:selected.confirmation} : {},...(authoring?{authoring:{version:authoring.version,digest:authoring.digest}}:{}),...(directCompose ? {draft:compose,context:scopeContext,owner:scope,...(!authoring&&projectLaunch?{projectTask:true as const}:{}),...(!recheckStore&&storeState.choice?{storeChoice:storeState.choice}:{})} : {})};
-    setCreateIntent(intent); setCreating(true); setError("");
-    try { sessionStorage.setItem(activeCreateKey, JSON.stringify(intent)); } catch { if(directCompose){if(!createIntent)setCreateIntent(undefined);setCreating(false);setDraftError("无法保存待恢复的请求和需求，请检查浏览器存储设置。");return;} }
-    if(directCompose && intent.conversationId && typeof intent.draft === "string") { try {const target=conversationDraftKey(scope,intent.conversationId),existing=readLocalDraft(sessionStorage.getItem(target));if(existing && existing.id!==intent.key){setError("会话中已有不同的未发送内容，请先打开原会话核对。");setCreating(false);return;}if(!existing)sessionStorage.setItem(target,JSON.stringify({id:intent.key,text:intent.draft}));if(intent.storeChoice){const storeKey=chatStoreChoiceKey(scope,`conversation:${intent.conversationId}`),previous=sessionStorage.getItem(storeKey),serialized=JSON.stringify(intent.storeChoice);if(previous&&previous!==serialized)throw new Error("store choice changed");sessionStorage.setItem(storeKey,serialized);}router.push("/workbench/ai/chat/"+intent.conversationId+(intent.authoring?authoringQuery:intent.projectTask?"?projectTask=1":""));}catch{setError("无法保存需求或店铺选择，请检查浏览器存储设置并重试。");}setCreating(false);return; }
-    const controller = new AbortController(); abort.current = controller;
-    try {
-      const result = await requestAIWorkbench({ route: "conversation-create", method: "POST", path: "chat/conversations", scope, key: intent.key, body: intent.body, signal: controller.signal });
-      if (controller.signal.aborted) return;
-      if(directCompose && typeof intent.draft === "string") { try { const bound={...intent,conversationId:result.conversation.ID};sessionStorage.setItem(activeCreateKey,JSON.stringify(bound));setCreateIntent(bound);const target=conversationDraftKey(scope,result.conversation.ID);const existing=readLocalDraft(sessionStorage.getItem(target));if(existing && existing.id!==intent.key){setError("会话中已有不同的未发送内容，请先打开原会话核对。");return;}if(!existing)sessionStorage.setItem(target,JSON.stringify({id:intent.key,text:intent.draft}));if(intent.storeChoice){const storeKey=chatStoreChoiceKey(scope,`conversation:${result.conversation.ID}`),previous=sessionStorage.getItem(storeKey),serialized=JSON.stringify(intent.storeChoice);if(previous&&previous!==serialized)throw new Error("store choice changed");sessionStorage.setItem(storeKey,serialized);} } catch { setError("会话已创建，但无法保存需求；请保持页面并重试原请求。"); return; } }
-      if (directCompose && typeof intent.draft === "string") {
-        const query = intent.authoring ? authoringQuery : intent.projectTask ? "?projectTask=1" : selectedOperationId && isAcquisitionUUID(selectedOperationId) ? "?operationId="+encodeURIComponent(selectedOperationId) : "";
-        router.push("/workbench/ai/chat/"+result.conversation.ID+query);
-        return;
-      }
-      setCreateIntent(undefined);
-      try { sessionStorage.removeItem(pendingCreateStorageKey(scope)); } catch { /* navigation still succeeds */ }
-      router.push(`/workbench/ai/chat/${result.conversation.ID}${intent.authoring ? authoringQuery : selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${selectedOperationId}` : ""}`);
-    } catch (cause) { if (!controller.signal.aborted) {
-      if (cause instanceof AIWorkbenchError && cause.conversationAccepted === false && (cause.code === "NOT_FOUND" || cause.code === "PROPOSAL_STALE")) {
-        try { sessionStorage.removeItem(activeCreateKey); } catch { setError("无法更新本地恢复记录，请检查浏览器存储设置。"); return; }
-        setCreateIntent(undefined); setActiveCreateKey(createStorageKey); setSelectedScope(undefined); setScopeGeneration(n=>n+1);
-        if(directCompose) void scopePreview.refetch();
+  async function create() {
+    if (mode !== "new") {if(canUse||canCreateProject)router.push("/workbench/ai/chat/new");return;}
+    if(!canUse||creating||projectSaveLocked)return;
+    if(directCompose&&(pendingChecked!==createStorageKey||pendingError||voiceActive||!createIntent&&!recheckStore&&!storeState.ready))return;
+    const text=createIntent?.draft??compose;
+    if(directCompose&&!legacyCreate&&(invalidContext||draftReady!==draftKey||draftError||!projectLaunch&&!createIntent?.projectTask&&!text.trim()||new TextEncoder().encode(text).length>8192||createIntent&&createIntent.context!==scopeContext))return;
+    const selected=directCompose?resolvedScope:selectedScope;
+    if(fixedScopeEnabled&&!createIntent&&!selected)return;
+    const canTurn=context.aiWorkbenchChatTurnsReady&&(Boolean(authoringChoice)||context.aiWorkbenchChatIntentReadiness==="AVAILABLE");
+    if(authoringChoice&&!createIntent&&!canTurn){setError("当前企业暂不能在 Chat 中调用技能，请稍后再试。");return;}
+    const intent:PendingCreate=createIntent??{key:crypto.randomUUID(),body:selected?{scopeSelection:scopeSelection(selected),scopeConfirmation:selected.confirmation}:{},...(directCompose?{draft:compose,context:scopeContext,owner:scope,...(projectLaunch?{projectTask:true as const}:{}),...(!recheckStore&&storeState.choice?{storeChoice:storeState.choice}:{}),...(!projectLaunch&&canTurn?{turnKey:crypto.randomUUID()}:{}),...(authoringChoice?{authoring:{version:authoringChoice.version,digest:authoringChoice.digest}}:{})}:{})};
+    setCreateIntent(intent);setCreating(true);setError("");
+    const controller=new AbortController();abort.current=controller;
+    let recorded=false;
+    try{
+      sessionStorage.setItem(activeCreateKey,JSON.stringify(intent));
+      recorded=true;
+      const chat=intent.conversationId??(await requestAIWorkbench({route:"conversation-create",method:"POST",path:"chat/conversations",scope,key:intent.key,body:intent.body,signal:controller.signal})).conversation.ID;
+      if(controller.signal.aborted)return;
+      const bound={...intent,conversationId:chat};sessionStorage.setItem(activeCreateKey,JSON.stringify(bound));setCreateIntent(bound);
+      if(directCompose&&typeof intent.draft==="string"){
+        const target=conversationDraftKey(scope,chat),existing=readLocalDraft(sessionStorage.getItem(target));
+        if(existing&&existing.id!==intent.key){setError("会话中已有不同的未发送内容，请先打开原会话核对。");return;}
+        if(!existing)sessionStorage.setItem(target,JSON.stringify({id:intent.key,text:intent.draft}));
+        if(intent.storeChoice){const storeKey=chatStoreChoiceKey(scope,"conversation:"+chat),previous=sessionStorage.getItem(storeKey),serialized=JSON.stringify(intent.storeChoice);if(previous&&previous!==serialized)throw new Error("store choice changed");sessionStorage.setItem(storeKey,serialized);}
+        // Only the explicit send that persisted a separate turn key authorizes
+        // inference. An older create-only receipt never gains model consent.
+        if(intent.turnKey){
+          const body=aiChatTurnBody.parse({content:intent.draft,...(intent.authoring?{skill:intent.authoring}:{})});
+          const message:PendingMessage={key:intent.turnKey,body,route:"chat-turn",owner:scope,conversationId:chat,draftId:intent.key,draftSlot:"handoff"};
+          const slot=pendingMessageStorageKey(scope,chat),pendingRaw=sessionStorage.getItem(slot);
+          if(pendingRaw&&pendingRaw!==JSON.stringify(message))throw new Error("another message exists");
+          sessionStorage.setItem(slot,JSON.stringify(message));
+          const result=await requestAIWorkbench({route:"chat-turn-submit",method:"POST",path:`chat/conversations/${chat}/turns`,scope,key:message.key,body,signal:controller.signal});
+          if(controller.signal.aborted)return;
+          if(["COMPLETE","FAILED","NOT_STARTED"].includes(result.state)){
+            sessionStorage.removeItem(slot);
+            sessionStorage.setItem(target,JSON.stringify({id:intent.key,text:result.state==="COMPLETE"?"":intent.draft,submitted:true}));
+          }
+          if(sessionStorage.getItem(draftKey)===intent.draft)sessionStorage.removeItem(draftKey);
+          sessionStorage.removeItem(activeCreateKey);setCreateIntent(undefined);
+        }
+      }else{sessionStorage.removeItem(activeCreateKey);setCreateIntent(undefined);}
+      router.push("/workbench/ai/chat/"+chat+(intent.projectTask?"?projectTask=1":selectedOperationId&&isAcquisitionUUID(selectedOperationId)?"?operationId="+encodeURIComponent(selectedOperationId):""));
+    }catch(cause){if(!controller.signal.aborted){
+      if(!recorded){if(!createIntent)setCreateIntent(undefined);setDraftError("无法保存待恢复的请求和需求，请检查浏览器存储设置。");return;}
+      if(cause instanceof AIWorkbenchError&&cause.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(cause.code)){
+        try{sessionStorage.removeItem(activeCreateKey);setCreateIntent(undefined);setSelectedScope(undefined);setScopeGeneration(v=>v+1);if(directCompose)void scopePreview.refetch();}catch{setDraftError("无法更新恢复记录，请检查浏览器存储。");}
         setError("原范围已变化或不可读，请重新选择工作范围。");
-      } else setError(errorText(cause));
-    } }
-    finally { if (!controller.signal.aborted) setCreating(false); abort.current = null; }
+      }else setError(cause instanceof AIWorkbenchError?errorText(cause):"原请求和需求已保留，请检查浏览器存储并重试原请求。");
+    }}finally{if(!controller.signal.aborted)setCreating(false);abort.current=null;}
   }
   const visibleSkill = projectSaveLocked || creation.projectId ? "create-project" : skill;
   const changeSkill = (next:ProjectSkill) => {setSkill(next);creation.reset();};
@@ -242,8 +251,6 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
     <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={setAuthoringChoice} />
     {authoringChoice && <div className={styles.selectedSkill}>
       <span>{authoringChoice.name}<small>官方 v{authoringChoice.version}</small></span>
-      <Button type="button" variant="outline" disabled={creating || Boolean(createIntent && !createIntent.authoring) || projectSaveLocked}
-        onClick={()=>void create(authoringChoice)}>{createIntent?.authoring ? "核对原会话请求" : "进入技能创作"}</Button>
       <Button type="button" variant="ghost" disabled={creating || Boolean(createIntent)} onClick={()=>setAuthoringChoice(undefined)}>取消选择</Button>
     </div>}
   </> : null;
@@ -340,6 +347,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [platform, setPlatform] = useState<"shein" | "temu" | "amazon">("shein");
   const [content, setContent] = useState("");
   const [authoringChoice, setAuthoringChoice] = useState<AISkillAuthoringChoice>();
+  const [revisionContext,setRevisionContext]=useState<ChatSkillRevision>();
+  const composerInput=useRef<HTMLTextAreaElement>(null);
+  const canChatTurn=canUse&&(execution.aiWorkbenchChatIntentReadiness==="AVAILABLE"||execution.aiWorkbenchChatTurnsReady&&Boolean(authoringChoice||revisionContext));
   const [showAuthoring, setShowAuthoring] = useState(search.get("skillAuthoring") === "1");
   const [draftSaveError, setDraftSaveError] = useState("");
   const [draftHydrated, setDraftHydrated] = useState(false);
@@ -484,9 +494,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       const value: unknown = JSON.parse(saved);
       if (!value || typeof value !== "object" || !("key" in value) || typeof value.key !== "string" || !isAcquisitionUUID(value.key) || !("body" in value)) throw new Error("invalid pending message");
       if(source===messageStorageKey && (!("owner" in value) || !value.owner || typeof value.owner!=="object" || !("userId" in value.owner) || value.owner.userId!==scope.userId || !("organizationId" in value.owner) || value.owner.organizationId!==scope.organizationId || !("conversationId" in value) || value.conversationId!==id)) throw new Error("invalid pending owner");
-      const route = "route" in value && value.route === "store-route" ? "store-route" : "message";
-      if ("route" in value && value.route !== "store-route" && value.route !== "message") throw new Error("invalid route");
-      const checked = route === "store-route" ? aiStoreRouteBody.safeParse(value.body) : aiMessageBody.safeParse(value.body);
+      const route = "route" in value && value.route === "chat-turn" ? "chat-turn" : "route" in value && value.route === "store-route" ? "store-route" : "message";
+      if ("route" in value && value.route !== "chat-turn" && value.route !== "store-route" && value.route !== "message") throw new Error("invalid route");
+      const checked = route === "chat-turn" ? aiChatTurnBody.safeParse(value.body) : route === "store-route" ? aiStoreRouteBody.safeParse(value.body) : aiMessageBody.safeParse(value.body);
       if (!checked.success) throw new Error("invalid pending body");
       const draftId="draftId" in value && typeof value.draftId === "string" && isAcquisitionUUID(value.draftId) ? value.draftId : undefined;
       const draftSlot="draftSlot" in value && (value.draftSlot === "handoff" || value.draftSlot === "resolved") ? value.draftSlot : undefined;
@@ -551,34 +561,38 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   async function send() {
     if (pending || projectSaveLocked || !pendingMessage && (projectTask && !canGenerateProject || awaitingConfirm && projectAvailable)) return;
     if(messageChecked!==messageStorageKey || messageRecoveryError || !draftHydrated || draftSaveError && !pendingMessage)return;
-    if(!pendingMessage && contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) { setError("当前尚不支持直接查询所选店铺，请先选择商品任务。");return; }
-    const intentRoute = pendingMessage?.route === "store-route" || !pendingMessage && current?.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId));
-    const draft = pendingMessage ?? { key: crypto.randomUUID(), body: intentRoute ? {content} : {
+    const useChatTurn=pendingMessage?.route==="chat-turn"||!pendingMessage&&canChatTurn&&Boolean(authoringChoice||revisionContext||(!subject&&(contentTasks||!isAcquisitionUUID(operationId))));
+    if(!useChatTurn&&!pendingMessage && contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) { setError("当前尚不支持直接查询所选店铺，请先选择商品任务。");return; }
+    const intentRoute = !useChatTurn&&(pendingMessage?.route === "store-route" || !pendingMessage && current?.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)));
+    const draft = pendingMessage ?? { key: crypto.randomUUID(), body: useChatTurn ? {content,...(revisionContext??(authoringChoice?{skill:{version:authoringChoice.version,digest:authoringChoice.digest}}:{}))} : intentRoute ? {content} : {
       content, ...(contentTasks?{taskSelection:{subject,capability:"product.content.localize",parameters}}:{operationId,targetPlatform:platform}),
       ...(knowledgeBaseId ? { knowledgeBaseId } : {}), ...(templateId ? { templateId, templateRevision } : {}), ...(contentTasks&&conversationStore.choice?{storeChoice:conversationStore.choice}:{}),
     } };
-    const checked = intentRoute ? aiStoreRouteBody.safeParse(draft.body) : aiMessageBody.safeParse(draft.body);
+    const checked = useChatTurn ? aiChatTurnBody.safeParse(draft.body) : intentRoute ? aiStoreRouteBody.safeParse(draft.body) : aiMessageBody.safeParse(draft.body);
     if (!checked.success) { setError("请选择有效商品、语言和字段，填写需求及模板修订号。"); return; }
-    const saved:PendingMessage = { key: draft.key, body: checked.data, route:intentRoute?"store-route":"message", owner:scope, conversationId:id, ...(pendingMessage?.draftId ? {draftId:pendingMessage.draftId,draftSlot:pendingMessage.draftSlot} : !pendingMessage && activeDraft.current ? {draftId:activeDraft.current.id,draftSlot:activeDraft.current.slot} : {}) };
+    const saved:PendingMessage = { key: draft.key, body: checked.data, route:useChatTurn?"chat-turn":intentRoute?"store-route":"message", owner:scope, conversationId:id, ...(pendingMessage?.draftId ? {draftId:pendingMessage.draftId,draftSlot:pendingMessage.draftSlot} : !pendingMessage && activeDraft.current ? {draftId:activeDraft.current.id,draftSlot:activeDraft.current.slot} : {}) };
     setConversationStore({choice:undefined,ready:false}); setPendingMessage(saved); setPending(true); setError("");
     try { sessionStorage.setItem(activeMessageKey, JSON.stringify(saved)); } catch { setPending(false);setDraftSaveError("无法保存消息恢复记录，请检查浏览器存储后重试。");return; }
     const controller = new AbortController(); abort.current = controller;
     try {
-      const result = intentRoute ? await requestAIWorkbench({route:"store-route",method:"POST",path:`chat/conversations/${id}/intent`,scope,key:saved.key,signal:controller.signal,body:saved.body}) : await requestAIWorkbench({ route: "message", method: "POST", path: `chat/conversations/${id}/messages`, scope, key: saved.key, signal: controller.signal, body: saved.body });
+      const result = useChatTurn ? await requestAIWorkbench({route:"chat-turn-submit",method:"POST",path:`chat/conversations/${id}/turns`,scope,key:saved.key,signal:controller.signal,body:saved.body}) : intentRoute ? await requestAIWorkbench({route:"store-route",method:"POST",path:`chat/conversations/${id}/intent`,scope,key:saved.key,signal:controller.signal,body:saved.body}) : await requestAIWorkbench({ route: "message", method: "POST", path: `chat/conversations/${id}/messages`, scope, key: saved.key, signal: controller.signal, body: saved.body });
       if (controller.signal.aborted) return;
       if ("scopeUnavailable" in result && result.scopeUnavailable) { setError("工作范围暂不可读。请核对当前权限。"); await detail.refetch(); return; }
-      if (result.state === "COMPLETE" || result.state === "ROUTING_RESULT_LOST" || result.state === "FAILED_BEFORE_DISPATCH" || result.state === "PLANNER_INVALID_OUTPUT" || result.state === "PLANNER_UNKNOWN") {
+      if (result.state === "FAILED" || result.state === "NOT_STARTED" || result.state === "COMPLETE" || result.state === "ROUTING_RESULT_LOST" || result.state === "FAILED_BEFORE_DISPATCH" || result.state === "PLANNER_INVALID_OUTPUT" || result.state === "PLANNER_UNKNOWN") {
         if(result.state!=="COMPLETE" && !preserveMessageInput(saved,true)){setDraftSaveError("无法保存原需求，请勿刷新，检查浏览器存储后重试。");return;}
         if(result.state==="COMPLETE" && saved.draftId && saved.draftSlot){try{const key=saved.draftSlot==="handoff"?conversationDraftKey(scope,id):resolvedDraftKey(scope,id),retained=readLocalDraft(sessionStorage.getItem(key));if(retained && retained.id===saved.draftId && retained.text===saved.body.content){sessionStorage.removeItem(key);activeDraft.current=null;}}catch{setDraftSaveError("无法完成草稿清理，请保留原消息并检查浏览器存储。");return;}}
         try { sessionStorage.removeItem(activeMessageKey); } catch { setDraftSaveError("无法更新消息恢复记录，请检查浏览器存储后重试。");return; }
         setPendingMessage(null);setActiveMessageKey(messageStorageKey);
-        if (result.state === "COMPLETE") setContent("");
+        if (result.state === "COMPLETE") {setContent("");setRevisionContext(undefined);}
       }
+      if(result.state==="PROCESSING"||result.state==="UNKNOWN")setError("原请求的结果尚未确认，请重试同一消息核实。");
+      if(result.state==="FAILED"||result.state==="NOT_STARTED")setError("本次未能生成草稿，原需求已保留。请核对技能后再试。");
       if (result.state === "FAILED_BEFORE_DISPATCH") setError(intentRoute?"请求尚未发送到模型。请检查当前企业的模型配置；原额度状态由账本继续核对，需求已保留。":"规划尚未发送到模型。请检查当前企业的模型配置或联系管理员；修复后可用保留的需求发送新消息。");
       if (result.state === "PLANNER_INVALID_OUTPUT") setError("模型返回的规划内容格式无效；本轮已产生 AI 用量，不会自动重发。可修改保留的需求后发送新消息。");
       if (result.state === "PLANNER_UNKNOWN") setError("模型结果无法确认；本轮不会自动重发。请刷新查看状态。");
       if (result.state === "ROUTING_RESULT_LOST") setError("识别结果未在期限内保存；已保留原需求，不会自动再次识别。");
       if (result.state === "READY_TO_DISPATCH") setError("本次请求仍在处理，请重试查看结果。");
+      if(useChatTurn)await queryClient.invalidateQueries({queryKey:["chat-turn",scope.userId,scope.organizationId]});
       await detail.refetch();
     } catch (cause) { if (!controller.signal.aborted) {
       if(cause instanceof AIWorkbenchError&&cause.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(cause.code)){
@@ -655,10 +669,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button disabled={pending || new TextEncoder().encode(titleDraft).length > 256} onClick={() => void change({ title: titleDraft })}>保存标题</Button>
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
       {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div></Card> : null}
-    {showAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <ChatSkillAuthoring scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={authoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
-      initialRequirement={search.get("skillAuthoring")==="1" ? content : ""} onClose={()=>setShowAuthoring(false)} />}
-    <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : styles.assistantMessage}>
-      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p>
+    {showAuthoring && execution.effectiveMemberId && <ChatSkillAuthoring scope={scope} authorizationKey={authorizationKey} conversation={id} readOnly={!canUse||current.Archived} onClose={()=>setShowAuthoring(false)}/>}
+    <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : `${styles.assistantMessage} ${item.kind==="AGENT_SKILL_REF"?styles.skillMessage:""}`}>
+      <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small>{item.kind!=="AGENT_SKILL_REF"?<p>{item.Content}</p>:null}
+      {item.kind==="AGENT_SKILL_REF"&&item.turnKey?<ChatSkillTurn scope={scope} authorizationKey={authorizationKey} conversation={id} turnKey={item.turnKey} readOnly={!canUse||current.Archived} onRecover={pendingMessage?.route==="chat-turn"&&pendingMessage.key===item.turnKey?send:undefined} onRevise={revision=>{setRevisionContext(revision);setAuthoringChoice(undefined);composerInput.current?.focus();}}/>:null}
       {item.kind === "STORE_OVERVIEW_REF" ? !storeProjectionFresh || detail.isFetching || detail.isError ? <p>正在重新核对店铺权限…</p> : item.currentStoreOverview ? <div><p>全部可见店铺：当前可查看 {item.currentStoreOverview.total} 家店铺。</p><p>平台：{Object.entries(item.currentStoreOverview.platforms).map(([name,count])=>`${name} ${count} 家`).join("、") || "暂无"}。</p><p>状态：启用 {item.currentStoreOverview.statuses.active ?? 0} 家、停用 {item.currentStoreOverview.statuses.disabled ?? 0} 家、删除中 {item.currentStoreOverview.statuses.deleting ?? 0} 家。</p><p>经营类型未确认：{item.currentStoreOverview.operatingTypeUnknown} 家。读取开始时间：{new Date(item.currentStoreOverview.readStartedAt).toLocaleString("zh-CN")}</p><Link href="/workbench/stores">前往店铺中心</Link></div> : <p>当前无权查看或店铺数据暂不可用。</p> : null}</Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
       {detail.hasNextPage ? <Button variant="outline" disabled={detail.isFetching} onClick={() => void loadEarlierMessages()}>{detail.isFetchingNextPage ? "正在加载…" : "加载更早消息"}</Button> : null}</div></Card>
     {canUse && !current.Archived && current.businessScope?.kind === "general" ? <Button variant="outline" disabled={!overviewReady||overviewBusy} onClick={()=>void explicitStoreOverview()}>{overviewBusy?"正在读取店铺概况…":pendingOverview?"核对原店铺查询":"查看全部可见店铺概况"}</Button> : null}
@@ -678,8 +692,9 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {(canUse || projectAvailable && canCreateProject) && !current.Archived ? <div className={styles.contextControls}>
       {(projectAvailable || contentTasks) && !pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
-      {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} onSelect={chosen=>{setAuthoringChoice(chosen);setShowAuthoring(true);}} onResume={()=>setShowAuthoring(true)} />}
+      {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onSelect={chosen=>{setAuthoringChoice(chosen);setRevisionContext(undefined);}} onResume={()=>setShowAuthoring(true)} />}
     </div> : null}
+    {authoringChoice||revisionContext?<div className={styles.selectedSkill}><span>{revisionContext?"修改当前技能草稿":authoringChoice?.name}</span><Button variant="ghost" disabled={pending||!!pendingMessage} onClick={()=>{setAuthoringChoice(undefined);setRevisionContext(undefined);}}>取消选择</Button></div>:null}
     {projectAvailable && visibleSkill==="create-project" && canCreateProject ? <ChatProjectCreateCard creation={creation} store={conversationStore} canCreate={canCreateProject} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClose={()=>{setSkill("");creation.reset();}}/> : null}
     {projectTask ? <Card className="grid gap-3 p-4">
       <h2>执行项目任务</h2>
@@ -698,16 +713,16 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {matchesProject && !projectStoreReady ? <p role="status">{preview?.scope.storeId?"请选择并核对该项目关联的店铺。":"该项目未关联店铺，请取消本次选店后继续。"}</p> : null}
     </Card> : null}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
-    {!current.Archived && canUse && (canPlan || pendingMessage || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
+    {!current.Archived && canUse && (canPlan || pendingMessage || canChatTurn || canRoute && current.businessScope?.kind === "general") ? <Card className={styles.composer}><h2>{canRoute && current.businessScope?.kind === "general" && !subject?"向硕米提问":contentTasks?"讨论内容任务":"讨论标题建议"}</h2><p>{contentTasks?"选择商品及待处理内容，确认方案后启动内容 Agent。":"选择原标题任务对象，确认方案后启动标题 Agent。"}</p>
       {contentTasks&&!pendingMessage&&conversationStore.choice?.kind==="store"&&!subject?<p>暂不支持直接查询所选店铺；选择商品后可继续商品任务。</p>:null}
       {contentTasks&&canPlan?<ChatTaskSelection authorizationKey={authorizationKey} scope={scope} subject={subject} parameters={parameters} compactSummary={projectTask} onSubject={value=>{invalidateProposal();setSubject(value);}} onParameters={value=>{invalidateProposal();setParameters(value);}} disabled={pending||Boolean(pendingMessage)||projectAvailable&&awaitingConfirm}/>:null}
       {!contentTasks&&canPlan?<div className={styles.formGrid}><fieldset disabled={pending||Boolean(pendingMessage)}><legend>选择商品</legend><CollectionPicker authorizationKey={authorizationKey} scope={scope} kind="product" disabled={pending||Boolean(pendingMessage)} isEligible={item=>item.source.kind==="acquisition"&&isAcquisitionUUID(item.source.operationId??"")} emptyMessage="当前页没有可用于标题任务的采集商品。" onSelect={item=>{setOperationId(item.source.operationId??"");setSelectedProductName(item.title||"未命名商品")}}/>{operationId?<p>已选择：{selectedProductName||"已保存商品"}</p>:<p>请选择已保存的采集商品。</p>}</fieldset>
         <label>目标平台<Select disabled={Boolean(pendingMessage)} value={platform} onChange={e => setPlatform(e.target.value as typeof platform)}><option value="shein">SHEIN</option><option value="temu">Temu</option><option value="amazon">Amazon</option></Select></label></div>:null}
-      <label className={styles.promptLabel}>需求<Textarea disabled={Boolean(pendingMessage) || !draftHydrated || projectAvailable&&awaitingConfirm} rows={4} value={content} onChange={event=>updateConversationDraft(event.target.value)} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>{draftSaveError ? <p role="status">{draftSaveError}</p> : null}
+      <label className={styles.promptLabel}>需求<Textarea ref={composerInput} disabled={Boolean(pendingMessage) || !draftHydrated || projectAvailable&&awaitingConfirm} rows={4} value={content} onChange={event=>updateConversationDraft(event.target.value)} placeholder={contentTasks?"例如：请根据已保存资料，将描述和卖点整理成英文。":"例如：请优化这个商品的标题，突出已有证据支持的卖点。"} /></label>{draftSaveError ? <p role="status">{draftSaveError}</p> : null}
       <details className={styles.optionalContext} open={contextExpanded} onToggle={event => setContextExpanded(event.currentTarget.open)}><summary>模板与知识库（可选）</summary>
         <ChatContextPicker scope={scope} authorizationKey={authorizationKey} agentId={contentTasks?"product.content.agent":"product.title.agent"} target={contentTasks?"product":platform} enabled={contextExpanded||Boolean(templateId)||Boolean(knowledgeBaseId)} disabled={pending||Boolean(pendingMessage)} templateId={templateId} templateRevision={templateRevision} knowledgeBaseId={knowledgeBaseId} onTemplate={(id,revision)=>{invalidateProposal();setTemplateId(id);setTemplateRevision(revision)}} onKnowledge={value=>{invalidateProposal();setKnowledgeBaseId(value);}} onReady={setContextReady}/></details>
       {pendingMessage ? <p>上次消息结果待确认，暂时不能修改；重试时系统会先核实，尚未开始的请求可能在准备就绪后发送。</p> : null}
-      <div className={styles.toolbar}><Button disabled={pending || projectSaveLocked || !pendingMessage && (projectTask&&!canGenerateProject || projectAvailable&&(awaitingConfirm||visibleSkill==="create-project")) || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || !pendingMessage && (!contextReady || contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) || (!pendingMessage && current.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)) ? !canRoute : !pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : projectTask ? "生成方案" : "发送消息"}</Button>
+      <div className={styles.toolbar}><Button disabled={pending || projectSaveLocked || !pendingMessage && (projectTask&&!canGenerateProject || projectAvailable&&(awaitingConfirm||visibleSkill==="create-project")) || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || !pendingMessage && !(canChatTurn&&(authoringChoice||revisionContext||!subject&&(contentTasks||!isAcquisitionUUID(operationId)))) && (!contextReady || contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) || (!pendingMessage && canChatTurn&&(authoringChoice||revisionContext||!subject&&(contentTasks||!isAcquisitionUUID(operationId))) ? false : !pendingMessage && current.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)) ? !canRoute : !pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : projectTask ? "生成方案" : "发送消息"}</Button>
         <span>模型规划可能消耗 AI 额度；不会直接修改商品。</span></div></Card> : current.Archived ? <ConsoleState kind="unavailable" title="会话已归档">已保存的任务仍可从任务中心查看。</ConsoleState> :
       <><ConsoleState kind="unavailable" title="只读会话"><p>{canUse ? planningStatus(planningReadiness) : "当前企业没有发送或确认权限，可查看已有对话和提案。"}</p>{canUse&&!canPlan&&<ModelServicesLink category="text"/>}</ConsoleState>{content ? <label className={styles.promptLabel}>保留的需求<Textarea rows={4} value={content} readOnly /></label> : null}</>}
     {!draftHydrated && draftSaveError ? <Button type="button" variant="outline" onClick={()=>setDraftRetry(value=>value+1)}>重新读取草稿</Button> : null}

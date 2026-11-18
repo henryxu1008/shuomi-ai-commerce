@@ -12,7 +12,7 @@ import { ChatPage } from "./chat-page";
 const fixture = vi.hoisted(() => ({
   request: vi.fn(), projectRequest: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), connection:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
   context: { user: { id: "user-a" }, effectiveMemberId:"member-a", effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
-    projectCenterAvailable:false, aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchStoreRouteReadiness:"AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
+    projectCenterAvailable:false, aiWorkbenchChatTurnsReady:false, aiWorkbenchChatIntentReadiness:"UNAVAILABLE", aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchStoreRouteReadiness:"AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
 }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof import("@/lib/api/ai-workbench")>(), requestAIWorkbench: fixture.request }));
 vi.mock("@/lib/api/project-center", async original => ({ ...await original<typeof import("@/lib/api/project-center")>(), projectRequest: fixture.projectRequest }));
@@ -515,6 +515,7 @@ beforeEach(() => {
   fixture.context.aiWorkbenchExecutionKind=undefined;fixture.context.aiWorkbenchExecutionReadiness="AVAILABLE";
   fixture.context.aiWorkbenchPlanningReadiness = "AVAILABLE";
   fixture.context.aiWorkbenchStoreRouteReadiness = "AVAILABLE";
+  fixture.context.aiWorkbenchChatIntentReadiness="UNAVAILABLE";fixture.context.aiWorkbenchChatTurnsReady=false;
   fixture.context.aiWorkbenchTitleReadiness = "AVAILABLE";
   fixture.request.mockReset(); fixture.push.mockReset(); fixture.templates.mockReset();fixture.knowledge.mockReset();fixture.connection.mockReset();sessionStorage.clear();
   fixture.templates.mockResolvedValue({items:[],nextCursor:""});
@@ -1337,4 +1338,22 @@ it("does not reenable an old project proposal after reloading a newer unsent dra
   await waitFor(()=>expect(screen.getByLabelText("需求")).toHaveValue("修改后的目标"));
   await screen.findByText("本次任务店铺：甲店");
   expect(screen.getByRole("button",{name:"确认并创建任务"})).toBeDisabled();
+});
+
+it.each([false,true])("sends the single Chat input with automatic or manual creator selection (%s)",async manual=>{
+ fixture.context.aiWorkbenchChatTurnsReady=true;fixture.context.aiWorkbenchChatIntentReadiness=manual?"UNAVAILABLE":"AVAILABLE";
+ const selected={id:operationId,name:"创建技能",description:"创建个人标题技能",version:2,digest:"a".repeat(64)};
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation:{...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""};
+  if(route==="skill-authoring-catalog")return {skill:selected,ready:true,scripts:true};
+  if(route==="chat-turn-submit")return {state:"COMPLETE",kind:"CLARIFY"};
+  throw new AIWorkbenchError("OUTCOME_UNKNOWN");
+ });
+ render(tree());await screen.findByRole("button",{name:"选择技能"});
+ if(manual){fireEvent.click(screen.getByRole("button",{name:"选择技能"}));fireEvent.click(await screen.findByRole("button",{name:/创建技能.*官方 v2/}));}
+ expect(screen.queryByText("进入技能创作")).toBeNull();expect(screen.queryByLabelText("技能需求")).toBeNull();
+ fireEvent.change(screen.getByLabelText("需求"),{target:{value:"创建保留型号的标题技能"}});
+ fireEvent.click(screen.getByRole("button",{name:"发送消息"}));
+ await waitFor(()=>expect(fixture.request).toHaveBeenCalledWith(expect.objectContaining({route:"chat-turn-submit",body:{content:"创建保留型号的标题技能",...(manual?{skill:{version:2,digest:selected.digest}}:{})}})));
+ expect(fixture.request.mock.calls.some(([v])=>v.route==="skill-authoring-preview"||v.route==="store-route")).toBe(false);
 });

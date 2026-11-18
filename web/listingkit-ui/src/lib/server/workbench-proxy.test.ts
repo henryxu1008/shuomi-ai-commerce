@@ -16,6 +16,24 @@ const contextPayload = {
 
 const storeId = "11111111-1111-4111-8111-11111111111a";
 const operationKey = "22222222-2222-4222-8222-22222222222b";
+it("binds Chat turns to the original actor and key, and keeps history and recovery body-free",async()=>{
+ vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL","http://localhost");
+ try{
+  const base=["chat","conversations",storeId,"turns"],headers={cookie:`${WORKBENCH_COOKIE_NAME}=org-b`,Origin:"http://localhost","X-Expected-User-ID":"user-1","X-Expected-Organization-ID":"org-b","Content-Type":"application/json","Idempotency-Key":operationKey};
+  const input={content:"创建标题技能",skill:{version:2,digest:"a".repeat(64)},revision:{root:operationKey,baseRevision:operationKey,snapshot:{name:"title",displayName:"标题",description:"整理",instructions:"规".repeat(12000)}}};
+  const accepted=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${base.join("/")}`,{method:"POST",headers,body:JSON.stringify(input)}),base,"server-token","user-1");
+  expect(accepted).not.toBeInstanceOf(Response);
+  if(!(accepted instanceof Response)){expect(accepted.responseContract).toBe("ai-chat-turn-submit");expect(new Headers(accepted.init.headers).get("Idempotency-Key")).toBe(operationKey);expect(JSON.parse(String(accepted.init.body))).toEqual(input);}
+  for(const [method,path] of [["GET",[...base,operationKey]],["POST",[...base,operationKey,"recover"]]] as const){
+   const request=new Request(`http://localhost/api/workbench/${path.join("/")}`,{method,headers});
+   expect(await buildWorkbenchUpstreamRequest(request,[...path],"server-token","user-1")).not.toBeInstanceOf(Response);
+   const body=new Request(`http://localhost/api/workbench/${path.join("/")}`,{method:"POST",headers,body:"{}"});
+   if(method==="POST")expect((await buildWorkbenchUpstreamRequest(body,[...path],"server-token","user-1") as Response).status).toBe(400);
+  }
+  const foreign=await buildWorkbenchUpstreamRequest(new Request(`http://localhost/api/workbench/${base.join("/")}`,{method:"POST",headers,body:JSON.stringify(input)}),base,"server-token","other");
+  expect((foreign as Response).status).toBe(409);
+ }finally{vi.unstubAllEnvs();}
+});
 it("preserves unaccepted-message evidence only on the message error contract",async()=>{
  for(const contract of ["ai-message","ai-confirm"] as const){
   const response=await buildWorkbenchBrowserResponse(Response.json({code:"INVALID_REQUEST",messageAccepted:false},{status:400}),contract);

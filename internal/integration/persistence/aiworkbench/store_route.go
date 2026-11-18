@@ -89,6 +89,11 @@ func (s *Store) ExplicitStoreOverview(ctx context.Context, scope aiworkbench.Sco
 
 func routeCommand(row commandRow) aiworkbench.StoreRouteCommand {
 	out := aiworkbench.StoreRouteCommand{Scope: aiworkbench.Scope{OrganizationID: row.OrganizationID, ActorID: row.ActorID}, ConversationID: row.ConversationID, IdempotencyKey: row.IdempotencyKey, Fingerprint: row.RequestFingerprint, State: row.State}
+	out.CreatedAt = row.CreatedAt
+	out.TurnInput = append([]byte(nil), row.TurnInput...)
+	if row.RouteResult != nil {
+		out.Result = *row.RouteResult
+	}
 	out.ModelProfile = append([]byte(nil), row.PlannerModelProfile...)
 	if row.UserMessageID != nil {
 		out.UserMessageID = *row.UserMessageID
@@ -237,6 +242,20 @@ func (s *Store) BeginStoreRoute(ctx context.Context, scope aiworkbench.Scope, co
 		return result, false, aiworkbench.ErrInvalid
 	}
 	fingerprint := digest(struct{ Operation, ConversationID, Content string }{routeOperation, conversationID, request.Content})
+	var turn *aiworkbench.ChatTurnEnvelope
+	manual := false
+	if len(request.TurnInput) > 0 {
+		envelope, e := decodeTurn(request.TurnInput)
+		if e != nil || envelope.Input.Content != request.Content {
+			return result, false, aiworkbench.ErrInvalid
+		}
+		turn = &envelope
+		fingerprint = turnFingerprint(conversationID, envelope.Input)
+		manual = envelope.Input.Skill != nil && !request.Unavailable
+		if manual && (envelope.Creator == nil || *envelope.Creator != *envelope.Input.Skill || request.Prepare != nil || request.InputHash != "" || len(request.ModelProfile) != 0 || request.ModelTimeout != 0) {
+			return result, false, aiworkbench.ErrInvalid
+		}
+	}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := s.lockKey(tx, scope, key); err != nil {
 			return err
@@ -269,7 +288,7 @@ func (s *Store) BeginStoreRoute(ctx context.Context, scope aiworkbench.Scope, co
 		if conversation.Lifecycle != "ACTIVE" {
 			return aiworkbench.ErrConversationArchived
 		}
-		if conversation.BusinessScope == nil || conversation.BusinessScope.Kind != "general" {
+		if conversation.BusinessScope == nil || turn == nil && conversation.BusinessScope.Kind != "general" || turn != nil && turn.GeneralScope != (conversation.BusinessScope.Kind == "general") {
 			return aiworkbench.ErrInvalid
 		}
 		invocation := digest(struct{ OrganizationID, ActorID, ConversationID, Key, Fingerprint string }{scope.OrganizationID, scope.ActorID, conversationID, key, fingerprint})
@@ -283,7 +302,7 @@ func (s *Store) BeginStoreRoute(ctx context.Context, scope aiworkbench.Scope, co
 			}
 			request.InputHash, request.ModelProfile, request.ModelTimeout = prepared.InputHash, prepared.ModelProfile, prepared.ModelTimeout
 		}
-		if !request.Unavailable && (!validDigest(request.InputHash) || !json.Valid(request.ModelProfile) || len(request.ModelProfile) > 8192 || request.ModelTimeout <= 0 || request.ModelTimeout > 5*time.Minute) {
+		if !request.Unavailable && !manual && (!validDigest(request.InputHash) || !json.Valid(request.ModelProfile) || len(request.ModelProfile) > 8192 || request.ModelTimeout <= 0 || request.ModelTimeout > 5*time.Minute) {
 			return aiworkbench.ErrInvalid
 		}
 		var now time.Time
@@ -301,9 +320,14 @@ func (s *Store) BeginStoreRoute(ctx context.Context, scope aiworkbench.Scope, co
 		sequence := conversation.NextSequence
 		conversation.NextSequence++
 		var assistantID *string
-		if request.Unavailable {
+		if request.Unavailable || manual {
 			id := uuid.NewString()
 			assistant := messageRow{ID: id, OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID, ConversationID: conversationID, Sequence: conversation.NextSequence, AuthorKind: string(aiworkbench.AuthorAssistant), Content: "识别尚未发送，请检查配置后重试。", CreatedAt: now}
+			if manual {
+				assistant.Kind = "AGENT_SKILL_REF"
+				assistant.Content = "技能草稿"
+				assistant.TurnKey = &key
+			}
 			if err = tx.Create(&assistant).Error; err != nil {
 				return err
 			}
@@ -317,7 +341,8 @@ func (s *Store) BeginStoreRoute(ctx context.Context, scope aiworkbench.Scope, co
 			return err
 		}
 		row := commandRow{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, IdempotencyKey: key, Operation: routeOperation, RequestFingerprint: fingerprint, ConversationID: conversationID, State: string(aiworkbench.PlanningReadyToDispatch), UserMessageID: &messageID, SourceSequence: &sequence, PlannerInvocationID: &invocation, MemberID: &request.MemberID, PlannerInputHash: &request.InputHash, WorkScopeJSON: json.RawMessage(`{}`), PlannerModelProfile: append(json.RawMessage(nil), request.ModelProfile...), PlannerStartedAt: &now, PlannerDeadline: &modelDeadline, RouteCommitDeadline: &commitDeadline, CreatedAt: now}
-		if request.Unavailable {
+		row.TurnInput = append(json.RawMessage(nil), request.TurnInput...)
+		if request.Unavailable || manual {
 			row.State = string(aiworkbench.PlanningFailedBeforeDispatch)
 			row.PlannerInputHash = nil
 			row.PlannerModelProfile = nil
@@ -326,6 +351,14 @@ func (s *Store) BeginStoreRoute(ctx context.Context, scope aiworkbench.Scope, co
 			row.RouteCommitDeadline = nil
 			row.AssistantMessageID = assistantID
 			row.CommittedAt = &now
+			if manual {
+				row.State = "COMPLETE"
+				row.PlannerInvocationID = nil
+				kind, state, terminal := "CREATE_TITLE_SKILL", "PENDING", digest(aiworkbench.StoreRoute{Kind: "CREATE_TITLE_SKILL"})
+				row.RouteResult = &kind
+				row.ToolState = &state
+				row.TerminalDigest = &terminal
+			}
 		}
 		if err = tx.Create(&row).Error; err != nil {
 			return err
@@ -346,7 +379,7 @@ func (s *Store) CompleteStoreRoute(ctx context.Context, scope aiworkbench.Scope,
 	if err != nil {
 		return result, false, aiworkbench.ErrInvalid
 	}
-	if _, err = aiworkbench.ParseStoreRoute(raw); err != nil {
+	if _, err = aiworkbench.ParseChatRoute(raw, true); err != nil {
 		return result, false, err
 	}
 	if s == nil || s.db == nil || ctx == nil || !validScope(scope) || !validKey(key) {
@@ -360,6 +393,22 @@ func (s *Store) CompleteStoreRoute(ctx context.Context, scope aiworkbench.Scope,
 		}
 		if row.Operation != routeOperation {
 			return aiworkbench.ErrIdempotencyConflict
+		}
+		if len(row.TurnInput) == 0 {
+			if _, e := aiworkbench.ParseStoreRoute(raw); e != nil {
+				return e
+			}
+		} else {
+			envelope, e := decodeTurn(row.TurnInput)
+			if e != nil {
+				return e
+			}
+			if _, e = aiworkbench.ParseChatRoute(raw, envelope.Creator != nil); e != nil {
+				return e
+			}
+			if decision.Kind == "STORE_OVERVIEW" && !envelope.GeneralScope {
+				return aiworkbench.ErrInvalid
+			}
 		}
 		if row.State == string(aiworkbench.PlanningComplete) {
 			if row.TerminalDigest == nil || *row.TerminalDigest != terminal {
@@ -389,13 +438,24 @@ func (s *Store) CompleteStoreRoute(ctx context.Context, scope aiworkbench.Scope,
 		} else if decision.Kind == "PRODUCT_TASK" {
 			message.Content = "请选择商品，再继续商品任务。"
 		}
+		if decision.Kind == "CREATE_TITLE_SKILL" {
+			message.Kind = "AGENT_SKILL_REF"
+			message.Content = "技能草稿"
+			message.TurnKey = &key
+		}
 		if e = tx.Create(&message).Error; e != nil {
 			return e
 		}
 		if e = tx.Model(&conversationRow{}).Where("id=? AND organization_id=? AND owner_user_id=?", row.ConversationID, scope.OrganizationID, scope.ActorID).Updates(map[string]any{"next_sequence": conversation.NextSequence + 1, "updated_at": now}).Error; e != nil {
 			return e
 		}
-		if e = tx.Model(&commandRow{}).Where("organization_id=? AND actor_id=? AND idempotency_key=?", scope.OrganizationID, scope.ActorID, key).Updates(map[string]any{"state": string(aiworkbench.PlanningComplete), "route_result": decision.Kind, "assistant_message_id": message.ID, "terminal_digest": terminal, "committed_at": now}).Error; e != nil {
+		updates := map[string]any{"state": string(aiworkbench.PlanningComplete), "route_result": decision.Kind, "assistant_message_id": message.ID, "terminal_digest": terminal, "committed_at": now}
+		if decision.Kind == "CREATE_TITLE_SKILL" {
+			state := "PENDING"
+			updates["tool_state"] = state
+			row.ToolState = &state
+		}
+		if e = tx.Model(&commandRow{}).Where("organization_id=? AND actor_id=? AND idempotency_key=?", scope.OrganizationID, scope.ActorID, key).Updates(updates).Error; e != nil {
 			return e
 		}
 		row.State = string(aiworkbench.PlanningComplete)
@@ -468,6 +528,9 @@ func (s *Store) FinalizeStoreRouteFailure(ctx context.Context, scope aiworkbench
 		content := "识别尚未发送，请检查配置后重试。"
 		if state == aiworkbench.PlanningInvalidOutput {
 			content = "识别结果格式无效，请重新描述需求或查看店铺概况。"
+		}
+		if len(row.TurnInput) > 0 {
+			content = "本次无法处理需求，请核对当前企业的模型配置后再试。"
 		}
 		message := messageRow{ID: uuid.NewString(), OrganizationID: scope.OrganizationID, OwnerUserID: scope.ActorID, ConversationID: row.ConversationID, Sequence: conversation.NextSequence, AuthorKind: string(aiworkbench.AuthorAssistant), Content: content, CreatedAt: now.UTC()}
 		if e = tx.Create(&message).Error; e != nil {

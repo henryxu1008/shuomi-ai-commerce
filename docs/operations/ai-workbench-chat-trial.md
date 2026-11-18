@@ -1,5 +1,27 @@
 # Chat → BusinessTask 标题建议试用交接
 
+## Chat 内创建个人标题技能
+
+当前创建技能流程依据 [Chat 自动调用与主动选择设计](../architecture/chat-project-actions.md#24-在同一-chat-中自动调用或主动选择创建技能)。直接在 Chat 输入「帮我创建一个保留品牌和型号的标题技能」，发送后由模型判断是否调用官方创建技能。也可以在「选择店铺」旁打开「选择技能」右侧抽屉，主动选择准确版本后在同一个输入框发送需求；手选不调用意图识别模型。当前只开放个人标题技能，可以包含一个离线 Python 标题处理脚本。
+
+生成结果显示在会话消息中。用户可人工编辑正文与脚本，点击「让 Chat 修改」后在原聊天输入框补充需求，发送时携带当前编辑稿。编辑不调用模型，也不自动保存。点击「保存到我的技能」才按原保存合同写入个人私有草稿；发布、启用和标题处理沿技能库原流程进行。首次与后续生成均不展示点数金额，实际用量到「用量明细」查看。
+
+生成或保存结果不明时，显式核实原请求；刷新、双标签页与重复核实不新建第二个技能。会话、会员、企业与准确技能版本绑定原请求。普通历史读取不执行模型；旧的仅创建会话请求不会因更新页面而自动发送需求。没有原请求凭据时不凭“无用量”认定零消费。
+
+### 有界安装与开启
+
+复用现有试用环境、当前企业连接、有效资费与 owner，保持其他模块配置。`aiWorkbench.chatTurnsEnabled` 默认关闭。已有当前 schema 由原 Workbench owner 显式执行以下操作；它仅增加父消息与原技能草稿的关联字段及限定权限，不改写已有业务行：
+
+```powershell
+$env:AI_WORKBENCH_SCHEMA_DSN = '<private owner DSN>'
+go run ./cmd/ai-workbench-schema-init --runtime-role ai_workbench_runtime --chat-turn-only --expected-database '<approved database>' --expected-server-address '<approved IP>' --expected-server-port <approved port>
+Remove-Item Env:AI_WORKBENCH_SCHEMA_DSN
+```
+
+安装先核对当前约束和运行权限，部分安装或约束漂移则停止；运行服务不执行 DDL。新后端仍读取原请求。自动模式通过独立用途 `aiworkbench_chat_intent` 配置 `chatIntentTextPolicies`，准确提示为 `ai-workbench-chat-intent-v1`、结果格式为 `ai-workbench-chat-intent-decision-v1`，并在现有 `modelRoutePricing.bindings` 准入同一用途。原 `aiworkbench_store_route` 配置保留，不能替换成新提示。手选仅要求 Chat 交接能力和原创作模型可用，不要求识别模型配置。
+
+准备好 schema、模型准入和新后端后更新前端，再按批准范围开启 `chatTurnsEnabled`。一旦有新格式请求，故障时保留新 reader 与原请求恢复、暂停新发送并前向修复；不能切回不认识新消息的旧 reader，不能删除关联或用户草稿。关闭新发送不禁止原请求核实。验收分别记录受控浏览器、真实模型与账本结果；开发自检和独立代码复核不代表用户验收。
+
 > 新版本凭据维护已切换到[企业渠道连接](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
 
 Refs #576、#588。入口为当前 Console 的 `/workbench/ai/chat` 和 `/workbench/ai/tasks`。获准企业的成员从已保存的 1688 商品采集操作开始，在 Chat 中描述标题目标；模型只返回澄清或待确认方案。成员确认后创建 BusinessTask，调用现有 Product Agent 生成建议，最后仍须在现有 Review 中由授权人员接受、编辑和应用。当前不发布到平台，也不自动应用标题。

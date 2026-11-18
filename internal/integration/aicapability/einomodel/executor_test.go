@@ -319,6 +319,10 @@ func TestExecutorSettlesOneSkillAuthoringInvocation(t *testing.T) {
 	testExecutorSettlesOneObservedInvocation(t, aicapability.OperationAIWorkbenchSkillAuthoring)
 }
 
+func TestExecutorSettlesOneChatIntentInvocation(t *testing.T) {
+	testExecutorSettlesOneObservedInvocation(t, aicapability.OperationAIWorkbenchChatIntent)
+}
+
 func testExecutorSettlesOneObservedInvocation(t *testing.T, operation aicapability.Operation) {
 	t.Helper()
 	sends := 0
@@ -357,6 +361,7 @@ func testExecutorSettlesOneObservedInvocation(t *testing.T, operation aicapabili
 	require.Equal(t, aicapability.InvocationDispatched, ledger.records[0].Outcome)
 	require.Equal(t, aicapability.InvocationSucceeded, ledger.records[1].Outcome)
 	require.Equal(t, operation, ledger.records[1].Operation)
+	require.Equal(t, aicapability.CapabilityAIWorkbenchChatPlanning, ledger.records[1].Capability)
 	require.Empty(t, ledger.records[1].AgentRunID)
 	require.Empty(t, ledger.records[1].BusinessTaskID)
 	require.Equal(t, 15, ledger.records[1].TotalTokens)

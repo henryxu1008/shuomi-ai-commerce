@@ -14,27 +14,47 @@ import (
 )
 
 func TestSkillAuthoringParameterRejectionSettlesOriginalReservationAtZero(t *testing.T) {
+	testWorkbenchParameterRejection(t, aicapability.OperationAIWorkbenchSkillAuthoring)
+}
+func TestChatIntentParameterRejectionSettlesOriginalReservationAtZero(t *testing.T) {
+	testWorkbenchParameterRejection(t, aicapability.OperationAIWorkbenchChatIntent)
+}
+func testWorkbenchParameterRejection(t *testing.T, operation aicapability.Operation) {
 	for _, delayed := range []bool{false, true} {
 		name := "inline"
 		if delayed {
 			name = "recover_after_commercial_rollback"
 		}
 		t.Run(name, func(t *testing.T) {
-			db, recorder, repo, _, fact := modelPointFixture(t, aicapability.OperationAIWorkbenchSkillAuthoring)
+			db, recorder, repo, _, fact := modelPointFixture(t, operation)
+			confirm := repo.ConfirmSkillAuthoringParameterRejection
+			if operation == aicapability.OperationAIWorkbenchChatIntent {
+				confirm = repo.ConfirmChatIntentParameterRejection
+			}
 			ctx := context.Background()
 			require.NoError(t, recorder.ReserveAIInvocationUsage(ctx, fact.TenantID, fact.MemberID, fact.InvocationID, 20, fact.StartedAt))
 			before, err := repo.InspectModelInvocationReservation(ctx, fact.TenantID, fact.InvocationID)
 			require.NoError(t, err)
 			require.Equal(t, "reserved", before.State)
-			require.Error(t, repo.ConfirmSkillAuthoringParameterRejection(ctx, fact.TenantID, fact.InvocationID))
+			require.Error(t, confirm(ctx, fact.TenantID, fact.InvocationID))
 
 			fact.Outcome = aicapability.InvocationFailed
 			fact.ErrorCategory = aicapability.ErrorProviderRejected
 			fact.ErrorCode = aicapability.SkillAuthoringOpenAIParameterRejectedV1
+			if operation == aicapability.OperationAIWorkbenchChatIntent {
+				fact.ErrorCode = aicapability.ChatIntentOpenAIParameterRejectedV1
+			}
 			fact.EstimatedCostKnown = true
 			fact.FinishedAt = fact.StartedAt.Add(time.Second)
 			fact.ProviderRequestID = strings.Repeat("a", 64)
 			require.Error(t, recorder.ResolveDispatchedInvocation(ctx, fact), "manual recovery cannot mint an inline proof")
+			crossPurpose := fact
+			if operation == aicapability.OperationAIWorkbenchChatIntent {
+				crossPurpose.ErrorCode = aicapability.SkillAuthoringOpenAIParameterRejectedV1
+			} else {
+				crossPurpose.ErrorCode = aicapability.ChatIntentOpenAIParameterRejectedV1
+			}
+			require.Error(t, recorder.RecordInvocation(ctx, crossPurpose))
 			forged := fact
 			forged.UsageKnown = true
 			require.Error(t, recorder.RecordInvocation(ctx, forged))
@@ -46,7 +66,7 @@ func TestSkillAuthoringParameterRejectionSettlesOriginalReservationAtZero(t *tes
 					}
 				}))
 				require.Error(t, recorder.RecordInvocation(ctx, fact))
-				require.Error(t, repo.ConfirmSkillAuthoringParameterRejection(ctx, fact.TenantID, fact.InvocationID))
+				require.Error(t, confirm(ctx, fact.TenantID, fact.InvocationID))
 				require.NoError(t, db.Callback().Create().Remove("reject_parameter_rejection_audit"))
 				repo.now = func() time.Time { return fact.StartedAt.Add(time.Minute) }
 				n, err := repo.RecoverDue(ctx)
@@ -55,7 +75,7 @@ func TestSkillAuthoringParameterRejectionSettlesOriginalReservationAtZero(t *tes
 			} else {
 				require.NoError(t, recorder.RecordInvocation(ctx, fact))
 			}
-			require.NoError(t, repo.ConfirmSkillAuthoringParameterRejection(ctx, fact.TenantID, fact.InvocationID))
+			require.NoError(t, confirm(ctx, fact.TenantID, fact.InvocationID))
 			require.Error(t, repo.ConfirmModelInvocationNoDispatchRelease(ctx, fact.TenantID, fact.InvocationID))
 			require.NoError(t, recorder.RecordInvocation(ctx, fact))
 

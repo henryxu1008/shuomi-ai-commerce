@@ -1337,6 +1337,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)
 			workbench.handler.SetAIWorkbenchPlanningReadiness(module.(aiWorkbenchModule).PlanningReadiness)
 			workbench.handler.SetAIWorkbenchStoreRouteReadiness(module.(aiWorkbenchModule).StoreRouteReadiness)
+			workbench.handler.SetAIWorkbenchChatIntentReadiness(module.(aiWorkbenchModule).ChatIntentReadiness)
+			workbench.handler.SetAIWorkbenchChatTurnsReady(module.(aiWorkbenchModule).ChatTurnsReady)
 			workbench.handler.SetAIWorkbenchTitleReadiness(module.(aiWorkbenchModule).TitleReadiness)
 			workbench.handler.SetAIWorkbenchExecution(module.(aiWorkbenchModule).ExecutionKind(), module.(aiWorkbenchModule).ExecutionReadiness)
 		}
