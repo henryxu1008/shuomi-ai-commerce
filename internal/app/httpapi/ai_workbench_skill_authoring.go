@@ -114,7 +114,7 @@ func (a *aiWorkbenchApplication) attachSkillAuthoring(ctx context.Context, skill
 		return err
 	}
 	a.authoring = &workbenchSkillAuthoring{skills: skills, repo: repo, access: access, routes: routes,
-		executor: &governed.Executor{Ledger: cfg.Ledger, Logger: cfg.TextLogger, Admission: a.agent.textAdmission, Resolve: routes.Resolve, BaseTransport: cfg.TextTransport,
+		executor: &governed.Executor{Ledger: cfg.Ledger, AuthorizeInvocation: a.agent.AuthorizeModelInvocation, Logger: cfg.TextLogger, Admission: a.agent.textAdmission, Resolve: routes.Resolve, BaseTransport: cfg.TextTransport,
 			Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 				i, err := a.freshWorkbenchIdentity(ctx, authz.PermissionWorkbenchChatUse)
 				if err != nil || i.UserID != in.ActorID || i.TenantID != in.OrganizationID || i.EffectiveMemberID != in.MemberID {
@@ -203,6 +203,9 @@ func (p *workbenchSkillAuthoring) prepare(ctx context.Context, scope aiworkbench
 	if err != nil {
 		return input, quote, 0, version, aiworkbench.ErrUnavailable
 	}
+	if quote.BillingMode == aicapability.ModelUsageOnly {
+		return input, quote, 0, version, nil
+	}
 	points, err := input.Profile.OfficialTariff.ReserveTextMicropoints(quote.MaximumTokens-input.Profile.MaximumCompletionTokens, input.Profile.MaximumCompletionTokens)
 	if err != nil {
 		return input, quote, 0, version, aiworkbench.ErrUnavailable
@@ -227,7 +230,13 @@ func (a *aiWorkbenchApplication) quoteSkillAuthoring(c *gin.Context, ctx context
 	row.InputHash, row.ProfileDigest, row.MaximumPoints = quote.InputHash, quote.ProfileDigest, points
 	row, err = a.store.QuoteAuthoring(ctx, scope, row)
 	if err == nil {
-		workbenchReply(c, 200, gin.H{"key": row.Key, "maximumMicropoints": strconv.FormatInt(row.MaximumPoints, 10), "expiresAt": row.ExpiresAt})
+		result := gin.H{"key": row.Key, "expiresAt": row.ExpiresAt}
+		if quote.BillingMode == aicapability.ModelUsageOnly {
+			result["billingMode"] = aicapability.ModelUsageOnly
+		} else {
+			result["maximumMicropoints"] = strconv.FormatInt(row.MaximumPoints, 10)
+		}
+		workbenchReply(c, 200, result)
 	}
 	return err
 }
@@ -304,6 +313,16 @@ func (a *aiWorkbenchApplication) generateSkillAuthoring(ctx context.Context, sco
 			release()
 			return nil, err
 		}
+		if err := gate(gateCtx); err != nil {
+			release()
+			return nil, err
+		}
+		route, routeErr := a.authoring.routes.Resolve(gateCtx, in)
+		digest, digestErr := route.Profile.Digest()
+		if routeErr != nil || digestErr != nil || digest != quote.ProfileDigest {
+			release()
+			return nil, aiworkbench.ErrProposalStale
+		}
 		return release, nil
 	})
 	if err != nil {
@@ -312,10 +331,15 @@ func (a *aiWorkbenchApplication) generateSkillAuthoring(ctx context.Context, sco
 	return a.store.FinishAuthoring(ctx, scope, row, "COMPLETE", output.Content)
 }
 
-func (a *aiWorkbenchApplication) readSkillGeneration(ctx context.Context, scope aiworkbench.Scope, row wbstore.AuthoringDraft, now time.Time) (wbstore.AuthoringDraft, error) {
+func (a *aiWorkbenchApplication) readAuthoringInvocation(ctx context.Context, scope aiworkbench.Scope, row wbstore.AuthoringDraft) (aicapability.InvocationRecord, bool) {
 	fact, err := a.agent.config.Ledger.ReadModelInvocation(ctx, scope.OrganizationID, row.InvocationID)
 	matches := err == nil && fact.Operation == authoringOperation && fact.InvocationID == row.InvocationID && fact.TenantID == scope.OrganizationID &&
 		fact.UserID == scope.ActorID && fact.MemberID == row.MemberID && fact.InputHash == row.InputHash
+	return fact, matches
+}
+
+func (a *aiWorkbenchApplication) readSkillGeneration(ctx context.Context, scope aiworkbench.Scope, row wbstore.AuthoringDraft, now time.Time) (wbstore.AuthoringDraft, error) {
+	fact, matches := a.readAuthoringInvocation(ctx, scope, row)
 	if matches && fact.IsSkillAuthoringOpenAIParameterRejection() {
 		if a.agent.points.ConfirmSkillAuthoringParameterRejection(ctx, scope.OrganizationID, row.InvocationID) == nil {
 			return a.store.FinishAuthoringRejected(ctx, scope, row)
@@ -325,7 +349,14 @@ func (a *aiWorkbenchApplication) readSkillGeneration(ctx context.Context, scope 
 	if row.State == "UNKNOWN" {
 		return row, nil
 	}
-	if matches {
+	if matches && fact.BillingMode == aicapability.ModelUsageOnly {
+		if fact.NotSent() {
+			return a.store.FinishAuthoring(ctx, scope, row, "FAILED", "")
+		}
+		if fact.Outcome == aicapability.InvocationUsageObservedFailed && fact.UsageKnown && fact.ErrorCategory == aicapability.ErrorStructuredOutputInvalid {
+			return a.store.FinishAuthoring(ctx, scope, row, "INVALID", "")
+		}
+	} else if matches {
 		if fact.Outcome == aicapability.InvocationFailed && a.agent.points.ConfirmModelInvocationNoDispatchRelease(ctx, scope.OrganizationID, row.InvocationID) == nil {
 			return a.store.FinishAuthoring(ctx, scope, row, "FAILED", "")
 		}
@@ -418,12 +449,18 @@ func (a *aiWorkbenchApplication) authoringView(ctx context.Context, scope aiwork
 		}
 	}
 	billing := "pending"
-	if row.State == "FAILED" {
-		billing = "released"
-	} else if row.State != "QUOTED" {
-		receipt, err := a.agent.points.InspectModelInvocationReservation(ctx, row.OrganizationID, row.InvocationID)
-		if err == nil && receipt.MemberID == row.MemberID && receipt.SettledAt != nil {
-			billing = receipt.State
+	if row.State != "QUOTED" {
+		if fact, matches := a.readAuthoringInvocation(ctx, scope, row); matches {
+			if fact.BillingMode == aicapability.ModelUsageOnly {
+				billing = string(aicapability.ModelUsageOnly)
+			} else if row.State == "FAILED" {
+				billing = "released"
+			} else {
+				receipt, err := a.agent.points.InspectModelInvocationReservation(ctx, row.OrganizationID, row.InvocationID)
+				if err == nil && receipt.MemberID == row.MemberID && receipt.SettledAt != nil {
+					billing = receipt.State
+				}
+			}
 		}
 	}
 	return gin.H{"key": root.Key, "generationKey": row.Key, "revision": root.AuthoringRevision(), "state": row.State, "draft": draft, "requirement": row.Requirement, "billing": billing,

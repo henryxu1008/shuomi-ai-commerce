@@ -65,6 +65,10 @@ func VerifySchema(ctx context.Context, db *gorm.DB, imageOptions ...bool) error 
 		}
 		_ = rows.Close()
 	}
+	return verifySelectionConstraints(ctx, db, requireOptions)
+}
+
+func verifySelectionConstraints(ctx context.Context, db *gorm.DB, requireOptions bool) error {
 	// A partial/drifted schema must not silently bypass scoped CAS or history
 	// identity. Installation remains the only DDL path; startup only inspects.
 	for _, constraint := range []struct{ table, name, definition string }{
@@ -257,6 +261,13 @@ func (s *Store) Publish(ctx context.Context, cmd d.Command, build func(d.Credent
 		return d.Revision{}, d.ErrUnavailable
 	}
 	defer tx.Rollback()
+	// Serialize the original command identity before either attempt checks its receipt.
+	if cmd.Scope.Capability == d.SharedModelCapability || cmd.Scope.OrganizationID == credential.PlatformOwner {
+		if tx.Exec("SET LOCAL lock_timeout='5s'").Error != nil ||
+			tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "model-route-command:"+cmd.Scope.OrganizationID+":"+cmd.Scope.Capability+":"+cmd.Key).Error != nil {
+			return d.Revision{}, d.ErrOutcomeUnknown
+		}
+	}
 	prior, e := read(tx, cmd.Scope, "idempotency_key=?", cmd.Key)
 	if e == nil {
 		if prior.Fingerprint != cmd.Fingerprint {

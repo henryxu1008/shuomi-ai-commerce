@@ -76,7 +76,7 @@ func buildContentProductApplication(ctx context.Context, parent *productAgentApp
 		route, err := routes.Resolve(ctx, aicapability.TextInputIdentity{OrganizationID: org, Operation: aicapability.OperationProductContentDecision})
 		return route.Profile, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: func(ctx context.Context, input aicapability.TextInputIdentity) (governed.QualifiedRoute, error) {
+	executor := &governed.Executor{Ledger: a.config.Ledger, AuthorizeInvocation: a.AuthorizeModelInvocation, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: func(ctx context.Context, input aicapability.TextInputIdentity) (governed.QualifiedRoute, error) {
 		route, err := routes.Resolve(ctx, input)
 		if err == nil && input.Profile.PromptVersion == agentconfig.ScopedContentPromptVersion {
 			route.Profile = agentconfig.ScopedContentProfile(route.Profile)

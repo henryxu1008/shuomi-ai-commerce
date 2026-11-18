@@ -32,6 +32,8 @@ func credentialHTTPFailure(c *gin.Context, e error) {
 		status, code = 404, "NOT_FOUND"
 	case errors.Is(e, credential.ErrConflict):
 		status, code = 409, "CONFLICT"
+	case errors.Is(e, credential.ErrRegistrationLimit):
+		status, code = 409, "CHANNEL_LIMIT"
 	case errors.Is(e, credential.ErrOutcomeUnknown):
 		code = "OUTCOME_UNKNOWN"
 	}
@@ -42,7 +44,7 @@ func (m modelRoutePricingModule) serveCredentials(c *gin.Context, operation stri
 	c.Header("Cache-Control", "no-store")
 	ctx := c.Request.Context()
 	id, ok := authidentity.AuthenticatedIdentityFromContext(ctx)
-	if !ok || ctx.Err() != nil || !credential.ValidID(id.UserID) || !credential.ValidID(id.EffectiveOrganizationID) || !credential.ValidID(id.EffectiveMemberID) || id.TenantID != id.EffectiveOrganizationID || !time.Now().Before(id.TokenExpiresAt) || !authz.AllowedOrganization(ctx, m.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchCredentialsManage) {
+	if !ok || id.EffectiveOrganizationID == credential.PlatformOwner || ctx.Err() != nil || !credential.ValidID(id.UserID) || !credential.ValidID(id.EffectiveOrganizationID) || !credential.ValidID(id.EffectiveMemberID) || id.TenantID != id.EffectiveOrganizationID || !time.Now().Before(id.TokenExpiresAt) || !authz.AllowedOrganization(ctx, m.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchCredentialsManage) {
 		c.AbortWithStatusJSON(403, gin.H{"code": "FORBIDDEN"})
 		return
 	}
@@ -69,6 +71,10 @@ func (m modelRoutePricingModule) serveCredentials(c *gin.Context, operation stri
 		return
 	}
 	connection := c.Param("id")
+	if credential.IsRegisteredConnection(connection) && !authz.AllowedOrganization(ctx, m.authorizer, id.UserID, id.EffectiveOrganizationID, id.Roles, authz.PermissionWorkbenchChannelsManage) {
+		c.AbortWithStatusJSON(403, gin.H{"code": "FORBIDDEN"})
+		return
+	}
 	key := c.Param("key")
 	var result credential.ManagementResult
 	var e error
@@ -76,6 +82,10 @@ func (m modelRoutePricingModule) serveCredentials(c *gin.Context, operation stri
 		var input credential.ManagementInput
 		if modelRouteDecode(c, &input) != nil {
 			credentialHTTPFailure(c, credential.ErrInvalid)
+			return
+		}
+		if credential.IsRegisteredConnection(connection) && input.ExpectedMemberID != id.EffectiveMemberID {
+			credentialHTTPFailure(c, credential.ErrConflict)
 			return
 		}
 		key = c.GetHeader("Idempotency-Key")

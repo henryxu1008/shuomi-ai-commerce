@@ -65,6 +65,7 @@ func TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres(t *test
 	require.NoError(t, err)
 	ctx := context.Background()
 	require.NoError(t, aistore.AutoMigrateInvocationLedger(trialPool))
+	require.NoError(t, trialPool.Exec("ALTER TABLE ai_invocations DROP COLUMN billing_mode").Error)
 	require.NoError(t, trialPool.Exec(`INSERT INTO ai_invocations(invocation_id,tenant_id,outcome) VALUES('retained-receipt','retained-org','unknown')`).Error)
 	require.Error(t, migrateEmptyOrganizationImageAgent(ctx, trialPool), "the original empty initializer must stay strict")
 	require.NoError(t, trialPool.Exec("CREATE TABLE unrelated(id text)").Error)
@@ -79,6 +80,7 @@ func TestOrganizationImageAgentInitCreatesOnlyCurrentOwnerTablesPostgres(t *test
 	var retained string
 	require.NoError(t, trialPool.Raw(`SELECT outcome FROM ai_invocations WHERE invocation_id='retained-receipt' AND tenant_id='retained-org'`).Scan(&retained).Error)
 	require.Equal(t, "unknown", retained)
+	require.False(t, trialPool.Migrator().HasColumn("ai_invocations", "billing_mode"))
 	require.Error(t, prepareLedgerOnlyOrganizationImageAgent(ctx, trialPool), "mixed or installed databases require verification, not another initialization")
 	var names []string
 	require.NoError(t, trialPool.Raw(`SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename`).Scan(&names).Error)

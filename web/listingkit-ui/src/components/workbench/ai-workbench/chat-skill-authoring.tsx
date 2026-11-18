@@ -167,6 +167,7 @@ export function ChatSkillAuthoring({scope,authorizationKey,conversation,initialJ
   {!initialJob&&!job&&list.isSuccess&&!list.data.drafts.length?<p>暂无草稿。可以直接在聊天中描述要创建的标题技能。</p>:null}
   {job&&<div className={styles.jobContent}>
    <p role="status">{job.superseded?"这次修改未覆盖当前草稿。":generationStatus[job.state]}</p>
+   {job.billing === "usage_only" && <p>企业自有模型 · 硕米只记录用量</p>}
    {!readOnly&&(job.state==="READY"||job.state==="UNKNOWN"||job.state==="QUOTED")&&!initialJob?<Button variant="outline" disabled={busy} onClick={()=>void perform(signal=>requestAIWorkbench({route:(job.generationKey??job.key)[14]==="7"?"skill-authoring-recover-generation":"skill-authoring-generate",method:"POST",scope,path:path+"/"+(job.generationKey??job.key)+((job.generationKey??job.key)[14]==="7"?"/recover-generation":"/generate"),signal}))}>核实原生成请求</Button>:null}
    {job.savedSkillId?<p className={styles.savedNotice}>已保存到我的技能。 <Link href={"/workbench/agents/skills/mine?skillId="+job.savedSkillId}>查看我的技能</Link></p>:!readOnly&&(saveCheck||job.savePending)?<Button variant="outline" disabled={busy} onClick={()=>void perform(signal=>requestAIWorkbench({route:"skill-authoring-save-recover",method:"POST",scope,path:path+"/"+job.key+"/recover-save",signal}),"recover-save")}>核实原保存</Button>:draft&&<div className={styles.draftEditor}>
     <TitleSkillDraftFields draft={draft} disabled={busy} editable={editable} onChange={updateDraft}/>

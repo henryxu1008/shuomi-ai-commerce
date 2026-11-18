@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 
 	"task-processor/internal/aicapability"
 )
@@ -27,24 +28,30 @@ type ModelBindingReference struct {
 // SharedModelSelection contains choices only. Mutable prices, FX and secrets
 // belong to their original owners and are resolved again for each execution.
 type SharedModelSelection struct {
-	SchemaVersion  int                   `json:"schemaVersion"`
-	UnitVersion    string                `json:"unitVersion"`
-	DefaultChannel string                `json:"defaultChannel"`
-	Text           ModelBindingReference `json:"text"`
-	Image          ModelBindingReference `json:"image"`
-	Multimodal     ModelBindingReference `json:"multimodal"`
+	SchemaVersion   int                   `json:"schemaVersion"`
+	UnitVersion     string                `json:"unitVersion"`
+	DefaultChannel  string                `json:"defaultChannel,omitempty"`
+	Text            ModelBindingReference `json:"text,omitzero"`
+	Image           ModelBindingReference `json:"image,omitzero"`
+	Multimodal      ModelBindingReference `json:"multimodal,omitzero"`
+	TextChannelName string                `json:"textChannelName,omitempty"`
+	TextModel       string                `json:"textModel,omitempty"`
 }
 
 func (s SharedModelSelection) Validate() error {
-	if s.SchemaVersion != 1 || s.UnitVersion != aicapability.AIPointMicrounitV1 || !ValidFact(s.DefaultChannel, 128) {
+	if (s.SchemaVersion != 1 && s.SchemaVersion != 2) || s.UnitVersion != aicapability.AIPointMicrounitV1 || (s.SchemaVersion == 1 || s.DefaultChannel != "") && !ValidFact(s.DefaultChannel, 128) || len(s.TextChannelName) > 512 || len(s.TextModel) > 128 {
 		return ErrInvalid
 	}
 	for _, ref := range []ModelBindingReference{s.Text, s.Image, s.Multimodal} {
-		if !ValidFact(ref.ID, 64) || !ValidFact(ref.Version, 128) {
+		if !(s.SchemaVersion == 2 && ref == (ModelBindingReference{})) && !validReference(ref) {
 			return ErrInvalid
 		}
 	}
 	return nil
+}
+
+func validReference(ref ModelBindingReference) bool {
+	return ValidFact(ref.ID, 64) && ValidFact(ref.Version, 128)
 }
 
 func (s SharedModelSelection) reference(category ModelCategory) (ModelBindingReference, error) {
@@ -82,7 +89,7 @@ func (s SharedModelSelection) CategoryDigest(category ModelCategory) (string, er
 		Unit, Channel string
 		Category      ModelCategory
 		Reference     ModelBindingReference
-	}{s.SchemaVersion, s.UnitVersion, s.DefaultChannel, category, ref})
+	}{1, s.UnitVersion, s.DefaultChannel, category, ref})
 }
 
 // ModelQualification is a non-secret, use-time result from trusted admission.
@@ -90,6 +97,9 @@ func (s SharedModelSelection) CategoryDigest(category ModelCategory) (string, er
 // applicable price/FX and conservative bounds. The service never infers these
 // from a model name, a saved choice or caller-provided readiness.
 type ModelQualification struct {
+	CredentialOwner      string                               `json:"-"`
+	Source               string                               `json:"source,omitempty"`
+	ChannelName          string                               `json:"channelName,omitempty"`
 	OrganizationID       string                               `json:"organizationId"`
 	Category             ModelCategory                        `json:"category"`
 	Reference            ModelBindingReference                `json:"reference"`
@@ -110,13 +120,17 @@ type SharedCategoryReader interface {
 }
 
 type ModelOption struct {
-	Category  ModelCategory                     `json:"category"`
-	Reference ModelBindingReference             `json:"reference"`
-	Channel   string                            `json:"channel"`
-	Model     string                            `json:"model"`
-	Ready     bool                              `json:"ready"`
-	Reason    string                            `json:"reason,omitempty"`
-	Price     *aicapability.OfficialModelTariff `json:"price,omitempty"`
+	BillingMode aicapability.ModelBillingMode     `json:"billingMode,omitempty"`
+	Source      string                            `json:"source,omitempty"`
+	Quote       string                            `json:"quote,omitempty"`
+	ChannelName string                            `json:"channelName,omitempty"`
+	Category    ModelCategory                     `json:"category"`
+	Reference   ModelBindingReference             `json:"reference"`
+	Channel     string                            `json:"channel"`
+	Model       string                            `json:"model"`
+	Ready       bool                              `json:"ready"`
+	Reason      string                            `json:"reason,omitempty"`
+	Price       *aicapability.OfficialModelTariff `json:"price,omitempty"`
 }
 type SharedModelOptions interface {
 	Options(context.Context, string) ([]ModelOption, error)
@@ -142,8 +156,9 @@ type SharedModelInput struct {
 // receipt repository. It does not dispatch, grant permissions or mint resources.
 // HTTP/runtime callers must first obtain verified identity and fresh authority.
 type SharedModelService struct {
-	Repository Repository
-	Catalog    SharedModelCatalog
+	Repository           Repository
+	PurposeSelectionOnly bool
+	Catalog              SharedModelCatalog
 }
 
 func (s *SharedModelService) qualify(ctx context.Context, org string, category ModelCategory, ref ModelBindingReference) (ModelQualification, error) {
@@ -157,7 +172,9 @@ func (s *SharedModelService) qualify(ctx context.Context, org string, category M
 	if q.OrganizationID != org || q.Category != category || q.Reference != ref || !ValidFact(q.Channel, 128) || !ValidFact(q.Model, 128) {
 		return ModelQualification{}, ErrInvalid
 	}
-	if q.Ready && (q.Price.Validate() != nil || !q.Price.MatchesWireModel(q.Model) || q.Price.Channel != q.Channel || !q.Price.IsReferenceEstimate() && !q.Price.IsReferenceImageEstimate() && !ValidFact(q.BoundEvidenceVersion, 128) || !ValidFact(q.ProfileVersion, 128)) {
+	usageOnly := category == ModelCategoryText && q.Source == "enterprise" && IsManagedBindingID(ref.ID) &&
+		q.Text != nil && q.Text.BillingMode == aicapability.ModelUsageOnly && q.Price == (aicapability.OfficialModelTariff{})
+	if q.Ready && (!ValidFact(q.ProfileVersion, 128) || !usageOnly && (q.Price.Validate() != nil || !q.Price.MatchesWireModel(q.Model) || q.Price.Channel != q.Channel || !q.Price.IsReferenceEstimate() && !q.Price.IsReferenceImageEstimate() && !ValidFact(q.BoundEvidenceVersion, 128))) {
 		q.Ready, q.Reason = false, "DEPENDENCY_MISSING"
 	}
 	referenceVision := category == ModelCategoryMultimodal && q.Text != nil && aicapability.SingleImageProfile(*q.Text)
@@ -170,7 +187,7 @@ func (s *SharedModelService) qualify(ctx context.Context, org string, category M
 			n, e := q.Image.Billing.ReservationMicropoints(q.Model)
 			valid = e == nil && n == q.Image.Points && q.Image.Model == q.Model && q.Image.Billing.OfficialTariff == q.Price && q.Image.PriceVersion == q.Price.PriceVersion
 		} else if category != ModelCategoryImage && q.Text != nil && q.Image == nil {
-			valid = q.Text.Validate() == nil && q.Text.ModelID == q.Model && q.Text.OfficialTariff == q.Price
+			valid = q.Text.Validate() == nil && q.Text.ModelID == q.Model && q.Text.OfficialTariff == q.Price && (q.Text.BillingMode == aicapability.ModelUsageOnly) == usageOnly
 		}
 		if !valid {
 			q.Ready, q.Reason = false, "CONSUMER_NOT_QUALIFIED"
@@ -191,12 +208,18 @@ func (s *SharedModelService) Preview(ctx context.Context, org string, selection 
 	if s == nil || s.Catalog == nil || ctx == nil || ctx.Err() != nil || !ValidFact(org, 128) {
 		return SharedModelPreview{}, ErrUnavailable
 	}
-	if err := s.Catalog.ValidateDefaultChannel(ctx, org, selection.DefaultChannel); err != nil {
-		return SharedModelPreview{}, err
+	if selection.DefaultChannel != "" {
+		if err := s.Catalog.ValidateDefaultChannel(ctx, org, selection.DefaultChannel); err != nil {
+			return SharedModelPreview{}, err
+		}
 	}
 	out := SharedModelPreview{Ready: true, Models: make([]ModelQualification, 0, 3)}
 	for _, category := range []ModelCategory{ModelCategoryText, ModelCategoryImage, ModelCategoryMultimodal} {
 		ref, _ := selection.reference(category)
+		if ref == (ModelBindingReference{}) {
+			out.Ready = false
+			continue
+		}
 		q, err := s.qualify(ctx, org, category, ref)
 		if err != nil {
 			return SharedModelPreview{}, err
@@ -223,9 +246,49 @@ func (s *SharedModelService) Publish(ctx context.Context, org, actor, key string
 	// Repository.Publish checks the original receipt before invoking build,
 	// then commits one complete payload under its existing CAS transaction.
 	cmd := Command{Scope: scope, ActorID: actor, Key: key, Fingerprint: fingerprint, Input: Input{ExpectedRevision: input.ExpectedRevision}}
-	return s.Repository.Publish(ctx, cmd, func(_ CredentialReader, _ string) (Payload, error) {
+	return s.Repository.Publish(ctx, cmd, func(transaction CredentialReader, _ string) (Payload, error) {
 		if s.Catalog == nil {
 			return Payload{}, ErrUnavailable
+		}
+		restricted := s.PurposeSelectionOnly || input.Selection.SchemaVersion == 2
+		var prior *SharedModelSelection
+		reader, ok := transaction.(CurrentReader)
+		if ok && input.ExpectedRevision != NoRevision {
+			current, err := reader.Current(ctx, scope)
+			if err != nil {
+				return Payload{}, err
+			}
+			if current.Payload.SharedModels == nil || current.ID != input.ExpectedRevision {
+				return Payload{}, ErrConflict
+			}
+			prior = current.Payload.SharedModels
+			restricted = restricted || prior.SchemaVersion == 2
+		}
+		if restricted {
+			if prior == nil && input.ExpectedRevision == NoRevision {
+				prior = &SharedModelSelection{SchemaVersion: 2, UnitVersion: aicapability.AIPointMicrounitV1}
+				if input.Selection.Image == (ModelBindingReference{}) && input.Selection.Multimodal == (ModelBindingReference{}) {
+					return Payload{}, ErrInvalid
+				}
+			}
+			if prior == nil || input.Selection.SchemaVersion != 2 || input.Selection.Text != prior.Text ||
+				input.Selection.DefaultChannel != prior.DefaultChannel || input.Selection.TextChannelName != prior.TextChannelName ||
+				input.Selection.TextModel != prior.TextModel {
+				return Payload{}, ErrConflict
+			}
+		} else if PlatformConnection(input.Selection.Text.ID) != "" {
+			return Payload{}, ErrInvalid
+		}
+		if !restricted && IsManagedBindingID(input.Selection.Text.ID) {
+			locker, ok := transaction.(interface {
+				LockManagedSelection(context.Context, string, string) error
+			})
+			if !ok {
+				return Payload{}, ErrUnavailable
+			}
+			if err := locker.LockManagedSelection(ctx, org, input.Selection.Text.ID); err != nil {
+				return Payload{}, err
+			}
 		}
 		options, err := s.Catalog.Options(ctx, org)
 		if err != nil {
@@ -233,9 +296,40 @@ func (s *SharedModelService) Publish(ctx context.Context, org, actor, key string
 		}
 		for _, category := range []ModelCategory{ModelCategoryText, ModelCategoryImage, ModelCategoryMultimodal} {
 			ref, _ := input.Selection.reference(category)
+			if restricted {
+				original, err := prior.reference(category)
+				if err != nil {
+					return Payload{}, err
+				}
+				if original == ref {
+					continue
+				}
+				if ref == (ModelBindingReference{}) || category == ModelCategoryText {
+					return Payload{}, ErrInvalid
+				}
+			}
 			found := false
 			for _, option := range options {
 				if option.Category == category && option.Reference == ref {
+					if option.Reason == "MODEL_BINDING_DISABLED" || option.Reason == "CHANNEL_DISABLED" {
+						reader, ok := transaction.(interface {
+							Current(context.Context, Scope) (Revision, error)
+						})
+						if !ok {
+							return Payload{}, ErrUnavailable
+						}
+						current, err := reader.Current(ctx, scope)
+						if errors.Is(err, ErrNotFound) {
+							return Payload{}, ErrNeedsConfiguration
+						}
+						if err != nil || current.Payload.SharedModels == nil {
+							return Payload{}, ErrUnavailable
+						}
+						previous, err := current.Payload.SharedModels.reference(category)
+						if err != nil || previous != ref {
+							return Payload{}, ErrNeedsConfiguration
+						}
+					}
 					found = true
 					break
 				}
@@ -268,12 +362,15 @@ func (s *SharedModelService) ReadCategory(ctx context.Context, org string, categ
 		return ModelQualification{}, "", err
 	}
 	p := r.Payload
-	if r.Scope != scope || r.SchemaVersion != 1 || p.SharedModels == nil || p.PlatformPrices != nil || p.Text != nil || p.Image != nil || p.Optional || p.BindingID != "" || p.CredentialVersion != "" || p.Rates != (Rates{}) {
+	if r.Scope != scope || !validSharedRevision(r) {
 		return ModelQualification{}, "", ErrInvalid
 	}
 	ref, err := p.SharedModels.reference(category)
 	if err != nil {
 		return ModelQualification{}, "", err
+	}
+	if ref == (ModelBindingReference{}) {
+		return ModelQualification{}, "", ErrNotFound
 	}
 	q, err := s.qualify(ctx, org, category, ref)
 	if err != nil {
@@ -305,4 +402,9 @@ func (s *SharedModelService) Current(ctx context.Context, org string) (Revision,
 	}
 	preview, err := s.Preview(ctx, org, *p.SharedModels)
 	return r, preview, err
+}
+
+func validSharedRevision(r Revision) bool {
+	p := r.Payload
+	return r.SchemaVersion == 1 && p.SharedModels != nil && p.PlatformPrices == nil && p.PlatformChannel == nil && p.Text == nil && p.Image == nil && !p.Optional && p.BindingID == "" && p.CredentialVersion == "" && p.Rates == (Rates{})
 }

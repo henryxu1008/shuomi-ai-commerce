@@ -16,6 +16,7 @@ import (
 	"task-processor/internal/ledger/orgresource"
 	"task-processor/internal/workbenchcontext"
 
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -163,5 +164,31 @@ func TestCommercialResourcesAdmissionAndIndependentInjection(t *testing.T) {
 	}
 	if validate(routes[:len(routes)-1]) == nil {
 		t.Fatal("missing resource route admitted")
+	}
+
+	ownedModule := commercialResourcesModule{objects: &commercialUsageLookup{
+		ownedModels: func(*gin.Context, string, string) (ownedModelUsagePage, error) {
+			return ownedModelUsagePage{}, nil
+		},
+	}}
+	base := routes[:len(currentWorkbenchApplicationRoutes)]
+	withOwned := append(append([]httproute.Descriptor(nil), base...), ownedModule.routes()...)
+	if validate(withOwned) == nil {
+		t.Fatal("owned model usage route admitted without its reader")
+	}
+	validateOwned := func(r []httproute.Descriptor) error {
+		return validateCurrentApplicationRoutesInternal(r, false, false, false, false, false, false, false,
+			currentApplicationOptionalRoutes{Resources: true, OwnedModelUsage: true})
+	}
+	if err := validateOwned(withOwned); err != nil {
+		t.Fatal(err)
+	}
+	owned := &withOwned[len(withOwned)-1]
+	if owned.Path != commercialOwnedModelUsagePath {
+		t.Fatal("owned model usage path missing")
+	}
+	owned.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyCachedRead
+	if validateOwned(withOwned) == nil {
+		t.Fatal("owned model usage route lost live authority")
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"task-processor/internal/aicapability"
 )
 
 // ChatSkillReference is an exact library version, never a model-chosen identity.
@@ -25,13 +27,26 @@ type ChatTurnInput struct {
 	Revision    *ChatTurnRevision   `json:"revision,omitempty"`
 }
 
+// ChatTurnAuthoringBinding is server-owned admission data for a new child.
+type ChatTurnAuthoringBinding struct {
+	ProfileDigest string                        `json:"profileDigest"`
+	BillingMode   aicapability.ModelBillingMode `json:"billingMode"`
+}
+
+func (b *ChatTurnAuthoringBinding) Allows(profileDigest string, maximumPoints int64) bool {
+	return b != nil && b.ProfileDigest == profileDigest &&
+		(b.BillingMode == aicapability.ModelUsageOnly && maximumPoints == 0 ||
+			b.BillingMode == aicapability.ModelPlatformPoints && maximumPoints > 0)
+}
+
 // ChatTurnEnvelope is frozen once at admission. A replay does not reload the
 // available catalog or replace the explicitly selected version.
 type ChatTurnEnvelope struct {
-	Version      int                 `json:"version"`
-	Input        ChatTurnInput       `json:"input"`
-	Creator      *ChatSkillReference `json:"creator,omitempty"`
-	GeneralScope bool                `json:"generalScope"`
+	Version      int                       `json:"version"`
+	Input        ChatTurnInput             `json:"input"`
+	Creator      *ChatSkillReference       `json:"creator,omitempty"`
+	Authoring    *ChatTurnAuthoringBinding `json:"authoring,omitempty"`
+	GeneralScope bool                      `json:"generalScope"`
 }
 
 // ParseDecision applies the frozen allow-list to both live output and receipts.

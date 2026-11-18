@@ -105,6 +105,32 @@ export function getResourceEvents(
   );
 }
 
+const ownedModelUsage = z.strictObject({
+  organization_id: id,
+  items: z.array(z.strictObject({
+    invocation_id: id, started_at: timestamp, purpose: text, model: text,
+    status: z.enum(["observed", "not_sent", "unknown"]),
+    input_tokens: z.number().int().nonnegative().max(1048576).optional(),
+    output_tokens: z.number().int().nonnegative().max(65536).optional(),
+  }).refine(item => item.status === "observed"
+    ? item.input_tokens !== undefined && item.output_tokens !== undefined
+    : item.input_tokens === undefined && item.output_tokens === undefined)).max(30),
+  next_cursor: z.string().regex(/^[A-Za-z0-9_-]{1,240}$/).nullable(),
+}).refine(v => new Set(v.items.map(item => item.invocation_id)).size === v.items.length);
+
+export function parseOwnedModelUsage(payload: unknown) {
+  const parsed = ownedModelUsage.safeParse(payload);
+  return parsed.success ? parsed.data : null;
+}
+
+export function getOwnedModelUsage(user: string, org: string, cursor: string, signal?: AbortSignal) {
+  const query = cursor ? "?" + new URLSearchParams({ cursor }) : "";
+  return readCommercialBilling(
+    "/api/workbench/commercial/resources/owned-model-usage" + query,
+    user, org, parseOwnedModelUsage, signal, 32 * 1024,
+  );
+}
+
 const objectId = z.string().refine(isAcquisitionUUID);
 const objectName = text.refine((value) => value.trim() === value && [...value].length <= 240);
 const businessObject = z.discriminatedUnion("kind", [

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
 )
 
@@ -54,7 +55,8 @@ func TestChatTurnManualBindingIsAtomicScopedAndExpiresOnlyBeforeBinding(t *testi
 	conversation, _, err := store.CreateScoped(ctx, scope, uuid.NewString(), aiworkbench.CreateInput{MemberID: "member"}, &aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "general"}, nil)
 	require.NoError(t, err)
 	ref := &aiworkbench.ChatSkillReference{Version: 2, Digest: strings.Repeat("a", 64)}
-	envelope := aiworkbench.ChatTurnEnvelope{Version: 1, Input: aiworkbench.ChatTurnInput{Content: "创建一个保留型号的标题技能", Skill: ref}, Creator: ref, GeneralScope: true}
+	envelope := aiworkbench.ChatTurnEnvelope{Version: 1, Input: aiworkbench.ChatTurnInput{Content: "创建一个保留型号的标题技能", Skill: ref}, Creator: ref, GeneralScope: true,
+		Authoring: &aiworkbench.ChatTurnAuthoringBinding{ProfileDigest: strings.Repeat("d", 64), BillingMode: aicapability.ModelUsageOnly}}
 	key := uuid.NewString()
 	command, _, err := store.BeginChatTurn(ctx, scope, conversation.ID, key, envelope, aiworkbench.StoreRouteRequest{MemberID: "member", Content: envelope.Input.Content})
 	require.NoError(t, err)
@@ -71,8 +73,16 @@ func TestChatTurnManualBindingIsAtomicScopedAndExpiresOnlyBeforeBinding(t *testi
 		id, e := uuid.NewV7()
 		require.NoError(t, e)
 		deadline := time.Now().UTC().Add(time.Minute)
-		return AuthoringDraft{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, ConversationID: conversation.ID, Key: id.String(), MemberID: "member", Requirement: envelope.Input.Content, SkillVersion: 2, SkillDigest: ref.Digest, InputHash: strings.Repeat("c", 64), ProfileDigest: strings.Repeat("d", 64), MaximumPoints: 1000, InvocationID: strings.ReplaceAll(id.String(), "-", "") + strings.ReplaceAll(id.String(), "-", ""), ExpiresAt: time.Now().UTC().Add(4 * time.Minute), Deadline: &deadline, FormatVersion: 2}
+		return AuthoringDraft{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, ConversationID: conversation.ID, Key: id.String(), MemberID: "member", Requirement: envelope.Input.Content, SkillVersion: 2, SkillDigest: ref.Digest, InputHash: strings.Repeat("c", 64), ProfileDigest: envelope.Authoring.ProfileDigest, InvocationID: strings.ReplaceAll(id.String(), "-", "") + strings.ReplaceAll(id.String(), "-", ""), ExpiresAt: time.Now().UTC().Add(4 * time.Minute), Deadline: &deadline, FormatVersion: 2}
 	}
+	switched := candidate()
+	switched.ProfileDigest = strings.Repeat("e", 64)
+	_, err = store.BindChatTurnAuthoring(ctx, command, switched)
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid, "a child cannot switch the originally selected route")
+	charged := candidate()
+	charged.MaximumPoints = 1000
+	_, err = store.BindChatTurnAuthoring(ctx, command, charged)
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid, "a child cannot charge points for the frozen owned route")
 	first, second := candidate(), candidate()
 	results := make(chan aiworkbench.ChatTurnCommand, 2)
 	errors := make(chan error, 2)
@@ -130,6 +140,17 @@ func TestChatTurnManualBindingIsAtomicScopedAndExpiresOnlyBeforeBinding(t *testi
 	require.EqualValues(t, 1, count)
 	raw, _ := json.Marshal(read.Envelope.Input)
 	require.Contains(t, string(raw), envelope.Input.Content)
+
+	legacy := envelope
+	legacy.Authoring = nil
+	legacyKey := uuid.NewString()
+	unbound, _, err := store.BeginChatTurn(ctx, scope, conversation.ID, legacyKey, legacy, aiworkbench.StoreRouteRequest{MemberID: "member", Content: legacy.Input.Content})
+	require.NoError(t, err)
+	_, err = store.BindChatTurnAuthoring(ctx, unbound, charged)
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid, "a legacy parent without a frozen route cannot start a new paid child")
+	read, err = store.ReadChatTurn(ctx, scope, conversation.ID, legacyKey, "member")
+	require.NoError(t, err)
+	require.Empty(t, read.ToolKey)
 }
 
 func TestChatTurnRevisionReplaysTheOriginalSnapshotFromPostgreSQL(t *testing.T) {

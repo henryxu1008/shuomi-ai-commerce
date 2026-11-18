@@ -69,6 +69,14 @@ func TestChatIntentDecisionRequiresItsOwnPurposeAndFrozenAvailableCreator(t *tes
 		})
 	}
 	require.NoError(t, verify())
+	fact.BillingMode, fact.EstimatedCostKnown = aicapability.ModelUsageOnly, false
+	require.NoError(t, verifyStoreRouteDecision(ctx, command, aiworkbench.StoreRoute{Kind: kind, RawOutput: raw},
+		func(context.Context, string, string) (aicapability.InvocationRecord, error) { return fact, nil },
+		func(context.Context, string, string) (orgresourceadapter.ModelInvocationReservation, error) {
+			t.Fatal("owned Chat intent must use only its original usage proof")
+			return orgresourceadapter.ModelInvocationReservation{}, nil
+		}))
+	fact.BillingMode, fact.EstimatedCostKnown = "", true
 	fact.Operation = aicapability.OperationAIWorkbenchStoreRoute
 	require.Error(t, verify(), "a store-purpose settlement cannot prove a Chat intent call")
 	fact.Operation = aicapability.OperationAIWorkbenchChatIntent

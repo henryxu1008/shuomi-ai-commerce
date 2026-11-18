@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -151,12 +152,26 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 	}
 }
 
+func TestPlatformChannelChatUsesConsumerLedger(t *testing.T) {
+	testProductAgentOwners(t, "full runtime content flow chat platform-mini")
+}
+
 func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) {
 	testProductAgentOwnersWithTitleRehearsal(t, mode, nil, imageProvider...)
 }
 
 func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
-	miniRuntime := mode == "full runtime content flow chat mini"
+	managedCompatible := mode == "content flow chat managed-compatible"
+	platformRuntime := mode == "full runtime content flow chat platform-mini"
+	managedRuntime := mode == "full runtime content flow chat managed-mini" || managedCompatible || platformRuntime
+	managedTemplate := ""
+	if managedRuntime {
+		managedTemplate = credential.OfficialMiniTemplate
+	}
+	if managedCompatible {
+		managedTemplate = credential.CompatibleMiniTemplate
+	}
+	miniRuntime := mode == "full runtime content flow chat mini" || managedRuntime
 	fullRuntime := strings.HasPrefix(mode, "full runtime ")
 	mode = strings.TrimPrefix(mode, "full runtime ")
 	if miniRuntime {
@@ -240,6 +255,12 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 	_, err = limit.SetMonthlyLimit(context.Background(), orgresource.SetMemberLimitExecution{UnitVersion: "ai-micropoint-v1", OrganizationID: "B", MemberID: "member-B-" + fixtureActor, ActorID: "admin", OperationID: "point-limit", Target: pointBudget})
 	require.NoError(t, err)
 	require.NoError(t, f.owner.Exec("INSERT INTO saas_organization_resource_buckets (quantity_unit,organization_id,resource_type,available,allocated,reserved,consumed,created_at,updated_at) VALUES ('ai-micropoint-v1',?,?,?,?,?,?,?,?)", "B", "ai_point", pointBudget, 0, 0, 0, now, now).Error)
+	ownedRuntime := managedRuntime && !platformRuntime
+	if ownedRuntime {
+		require.NoError(t, f.owner.Exec("UPDATE saas_organization_resource_buckets SET available=0 WHERE organization_id='B' AND resource_type='ai_point'").Error)
+		require.NoError(t, f.owner.Exec("INSERT INTO saas_member_ai_point_months (quantity_unit,organization_id,member_id,month_start,reserved,consumed) VALUES ('ai-micropoint-v1',?,?,?,?,?) ON CONFLICT (organization_id,member_id,month_start) DO UPDATE SET consumed=EXCLUDED.consumed",
+			"B", "member-B-"+fixtureActor, time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC), 0, pointBudget).Error)
+	}
 	if mode == "no quota" {
 		require.NoError(t, f.owner.Exec("UPDATE saas_member_ai_point_limits SET monthly_limit = 1 WHERE organization_id = 'B'").Error)
 	}
@@ -252,7 +273,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			require.NotContains(t, string(raw), "execution.json")
 			r.Body = io.NopCloser(strings.NewReader(string(raw)))
 		}
-		if fullRuntime && chatTasks {
+		if (fullRuntime || managedCompatible) && chatTasks {
 			raw, e := io.ReadAll(r.Body)
 			require.NoError(t, e)
 			r.Body = io.NopCloser(strings.NewReader(string(raw)))
@@ -264,6 +285,26 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 				require.NotContains(t, wire, "max_tokens")
 				require.JSONEq(t, `"none"`, string(wire["reasoning_effort"]))
 				require.JSONEq(t, `false`, string(wire["store"]))
+			}
+			if strings.Contains(string(raw), "Classify the user's current question only") {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"route-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":"{\"kind\":\"STORE_OVERVIEW\",\"status\":\"ALL_NON_DELETED\"}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`))
+				return
+			}
+			if managedRuntime && strings.Contains(string(raw), "Identify the intent of the current Chat message") {
+				decision := `{"kind":"STORE_OVERVIEW","status":"ALL_NON_DELETED"}`
+				if strings.Contains(string(raw), "创建标题技能") {
+					decision = `{"kind":"CREATE_TITLE_SKILL","status":""}`
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"id":"intent-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`, decision)
+				return
+			}
+			if managedRuntime && strings.Contains(string(raw), "Draft one personal product-title skill") {
+				draft := `{"name":"fixture-title","displayName":"模拟标题技能","description":"保留产品事实","instructions":"保留核实后的型号。"}`
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"id":"authoring-fixture","model":"gpt-5.4-mini-2026-03-17","choices":[{"message":{"content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30,"prompt_tokens_details":{"cached_tokens":0}}}`, draft)
+				return
 			}
 			if strings.Contains(string(raw), "Plan one content suggestion for the exact server-selected subject") {
 				plannerCalls.Add(1)
@@ -651,9 +692,16 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		settings.Limits.Tokens = 72000
 		settings.Limits.CostMicros = 300000
 		content := settings.ContentTextPolicies["B"]
+		fixtureHost := "api.openai.com"
+		if managedCompatible {
+			fixtureHost = "fixture.compatible.example.test"
+		}
 		settings.TextTransport = acquisitionHTTPTransport(func(req *http.Request) (*http.Response, error) {
-			if req.URL.Scheme != "https" || req.URL.Host != "api.openai.com" || req.URL.Path != "/v1/chat/completions" {
+			if req.URL.Scheme != "https" || req.URL.Host != fixtureHost || req.URL.Path != "/v1/chat/completions" {
 				return nil, errors.New("fixture refuses all non-synthetic destinations")
+			}
+			if managedRuntime {
+				require.Equal(t, "Bearer managed-fixture-key", req.Header.Get("Authorization"))
 			}
 			rec := httptest.NewRecorder()
 			provider.Config.Handler.ServeHTTP(rec, req)
@@ -678,14 +726,16 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		title.Profile.MaximumCompletionTokens = governed.TitlePilotCompletionTokens
 		title.Profile.PromptVersion = "product-title-agent-v1"
 		title.Profile.OutputSchemaVersion = "product-title-action-v1"
-		settings.TextPolicies["B"] = title
+		if fullRuntime {
+			settings.TextPolicies["B"] = title
+		}
 		planner := settings.ContentTextPolicies["B"]
 		planner.Profile.MaximumPromptTokens = 4096
 		planner.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
 		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 		planner.Profile.MaximumInputBytes = 64 << 10
 		planner.Profile.MaximumCompletionTokens = 512
-		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner, managedTemplate, platformRuntime)
 	}
 	if chatTasks && fullRuntime && !miniRuntime {
 		planner := settings.ContentTextPolicies["B"]
@@ -693,7 +743,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 		planner.Profile.MaximumInputBytes = 128 << 10
 		planner.Profile.MaximumCompletionTokens = 4096
-		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner, "", false)
 	}
 	if contentTitleOnly {
 		settings.ContentTitleOnly, settings.AssetDB, settings.TextPolicies = true, nil, nil
@@ -858,7 +908,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"))
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"), managedCompatible, ownedRuntime, platformRuntime)
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {

@@ -28,6 +28,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/genai"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/integration/googleinteractions"
 )
 
@@ -106,7 +107,7 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
 				MaxTokens: &maxTokens, HTTPClient: guard.Client, ExtraFields: map[string]any{"n": 1, "store": false}})
 		}
-		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy || cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
+		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy || cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
 			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{
 				APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
 				MaxCompletionTokens: &maxTokens, ReasoningEffort: openaimodel.ReasoningEffortLevel("none"),
@@ -145,6 +146,7 @@ type GuardConfig struct {
 	ProviderID                 string
 	AdapterPolicyVersion       string
 	BillingUsageVersion        string
+	UsageOnly                  bool
 	Endpoint                   string
 	ModelID                    string
 	MaximumOutputTokens        int
@@ -241,6 +243,10 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 	if cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy && (cfg.Endpoint != TitlePilotOpenAIEndpoint || cfg.MaximumOutputTokens > 4096) {
 		return nil, ErrInvalid
 	}
+	if cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy && (credential.CompatibleBaseURL(cfg.Endpoint) != cfg.Endpoint ||
+		cfg.MaximumOutputTokens > 4096 || cfg.BillingUsageVersion != aicapability.ReferenceTextTotalsV1) {
+		return nil, ErrInvalid
+	}
 	if cfg.Adapter == AdapterGoogleGenerateContent {
 		if !aicapability.ValidGeminiThinkingMode(cfg.ThinkingMode) {
 			return nil, ErrInvalid
@@ -322,6 +328,7 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		!strings.HasPrefix(req.URL.EscapedPath(), strings.TrimSuffix(g.endpoint.EscapedPath(), "/")+"/") ||
 		req.URL.RawQuery != "" || req.URL.Fragment != "" || req.Body == nil ||
 		(g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || g.cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy) && req.URL.EscapedPath() != "/v1/chat/completions" ||
+		g.cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy && req.URL.EscapedPath() != "/v1/chat/completions" ||
 		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" ||
 		g.cfg.Adapter == AdapterGoogleGenerateContent && req.URL.EscapedPath() != "/v1beta/models/"+g.cfg.ModelID+":generateContent" ||
 		g.cfg.SingleImage != nil && g.cfg.Adapter != AdapterGoogleGenerateContent &&
@@ -387,8 +394,22 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 	g.observeOpenAIParameterRejection(req, body, response, raw)
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		usage := observeUsage(raw, g.cfg.Adapter)
+		if g.cfg.UsageOnly && g.cfg.BillingUsageVersion == "openai-text-v1" {
+			if counters, err := ObserveOfficialOpenAITextUsage(raw); err == nil {
+				usage = ObservedUsage{PromptTokens: int(counters.InputText), CompletionTokens: int(counters.OutputText),
+					TotalTokens: int(counters.InputText + counters.OutputText), Known: true, BillableUsage: &counters}
+			}
+		}
 		if g.cfg.Adapter == AdapterOpenAICompatible && g.cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1 {
 			usage = observeReferenceTextUsage(raw)
+		}
+		if g.cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
+			var responseIdentity struct {
+				Model string `json:"model"`
+			}
+			if json.Unmarshal(raw, &responseIdentity) != nil || responseIdentity.Model != g.cfg.ModelID {
+				usage = ObservedUsage{}
+			}
 		}
 		if g.cfg.BillingUsageVersion == aicapability.ReferenceTextTotalsV1 &&
 			(g.cfg.Adapter == AdapterQwenCompatible || g.cfg.Adapter == AdapterGoogleGenerateContent || g.cfg.Adapter == AdapterClaudeNative ||
@@ -419,7 +440,7 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func validWire(raw []byte, cfg GuardConfig) bool {
-	if cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
+	if cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
 		return validBoundedOpenAITextWire(raw, cfg.ModelID, cfg.MaximumOutputTokens)
 	}
 	if cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy {
@@ -561,6 +582,9 @@ func generateMessages(ctx context.Context, component model.BaseChatModel, messag
 		diagnostic.emit(ctx, "sdk", diagnostic.sdkCategory(err))
 		if guard.NetworkSends() == 0 {
 			return TextOutput{}, errors.Join(ErrNotDispatched, err)
+		}
+		if guard.cfg.UsageOnly && usage.Known {
+			return TextOutput{Usage: usage, ProviderRequestID: guard.ProviderRequestID()}, ErrInvalid
 		}
 		return TextOutput{Usage: usage, ProviderRequestID: guard.ProviderRequestID()}, ErrOutcomeUnknown
 	}

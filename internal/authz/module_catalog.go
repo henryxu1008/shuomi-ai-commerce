@@ -49,6 +49,7 @@ var enterpriseModules = []MenuModule{
 	{"members", "我的账户", "成员与权限（查看）", true, []string{PermissionWorkbenchOrganizationMemberRead}},
 	{"ai-credentials", "我的账户", "渠道凭据管理", true, []string{PermissionWorkbenchCredentialsManage}},
 	{"ai-connection-test", "我的账户", "测试渠道模型", true, []string{PermissionWorkbenchConnectionTest}},
+	{"ai-channels", "我的账户", "管理模型渠道", true, []string{PermissionWorkbenchChannelsManage}},
 	{"source-accounts", "我的账户", "源账号", true, []string{PermissionWorkbenchSourceAccountRead, PermissionWorkbenchSourceAccountManage}},
 }
 

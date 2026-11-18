@@ -16,11 +16,23 @@ import (
 var ErrTextProfile = errors.New("invalid governed text profile")
 var ErrTextEnvelope = errors.New("invalid governed text envelope")
 
+type ModelBillingMode string
+
+const (
+	ModelPlatformPoints ModelBillingMode = "platform_points"
+	ModelUsageOnly      ModelBillingMode = "usage_only"
+)
+
+func ValidOwnedTextUsageMapping(version string) bool {
+	return version == "openai-text-v1" || version == ReferenceTextTotalsV1
+}
+
 // ModelProfile is a non-secret, immutable use-time snapshot of the approved
 // organization route and all limits that affect dispatch or settlement.
 type ModelProfile struct {
-	ThinkingMode             string `json:",omitempty"`
-	ImagePromptTokenEstimate int64  `json:",omitempty"`
+	BillingMode              ModelBillingMode `json:",omitempty"`
+	ThinkingMode             string           `json:",omitempty"`
+	ImagePromptTokenEstimate int64            `json:",omitempty"`
 	ClientName               string
 	ConnectionID             string `json:",omitempty"`
 	ProviderID               string
@@ -65,7 +77,7 @@ func (p ModelProfile) ValidateShape() error {
 	for _, value := range []string{
 		p.ClientName, p.ProviderID, p.ModelID, p.EndpointIdentityDigest,
 		p.CredentialVersion, p.RoutingPolicyVersion, p.AdapterPolicyVersion,
-		p.PromptVersion, p.OutputSchemaVersion, p.UsageMappingVersion, p.CostPricingVersion,
+		p.PromptVersion, p.OutputSchemaVersion, p.UsageMappingVersion,
 	} {
 		if !validTextFact(value, 128) {
 			return ErrTextProfile
@@ -82,14 +94,23 @@ func (p ModelProfile) ValidateShape() error {
 	} else if p.ThinkingMode != "" {
 		return ErrTextProfile
 	}
-	if p.ImagePromptTokenEstimate < 0 || p.ImagePromptTokenEstimate > p.MaximumPromptTokens || len(p.Currency) != 3 ||
-		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 ||
-		p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 ||
+	if p.ImagePromptTokenEstimate < 0 || p.ImagePromptTokenEstimate > p.MaximumPromptTokens ||
 		p.MaximumPromptTokens < 1 || p.MaximumPromptTokens > 1048576 ||
 		p.MaximumCompletionTokens < 1 || p.MaximumCompletionTokens > 65536 ||
 		p.MaximumInputBytes < 1 || p.MaximumInputBytes > 1<<20 ||
 		p.MaximumOutputBytes < 1 || p.MaximumOutputBytes > 1<<20 ||
 		p.DeadlineBound <= 0 || p.DeadlineBound > 2*time.Minute {
+		return ErrTextProfile
+	}
+	if p.BillingMode == ModelUsageOnly {
+		if p.ImagePromptTokenEstimate != 0 || p.AdapterKind != "openai-compatible" || !ValidOwnedTextUsageMapping(p.UsageMappingVersion) ||
+			p.Currency != "" || p.CostPricingVersion != "" || p.InputMicrosPerMillion != 0 || p.OutputMicrosPerMillion != 0 || p.OfficialTariff != (OfficialModelTariff{}) {
+			return ErrTextProfile
+		}
+		return nil
+	}
+	if p.BillingMode != "" && p.BillingMode != ModelPlatformPoints || !validTextFact(p.CostPricingVersion, 128) || len(p.Currency) != 3 ||
+		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 || p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 {
 		return ErrTextProfile
 	}
 	if _, err := p.MaximumCost(); err != nil {
@@ -99,7 +120,13 @@ func (p ModelProfile) ValidateShape() error {
 }
 
 func (p ModelProfile) Validate() error {
-	if p.ValidateShape() != nil || !p.OfficialTariff.Valid() || !p.OfficialTariff.MatchesWireModel(p.ModelID) {
+	if p.ValidateShape() != nil {
+		return ErrTextProfile
+	}
+	if p.BillingMode == ModelUsageOnly {
+		return nil
+	}
+	if !p.OfficialTariff.Valid() || !p.OfficialTariff.MatchesWireModel(p.ModelID) {
 		return ErrTextProfile
 	}
 	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
@@ -173,6 +200,7 @@ type TextInputIdentity struct {
 }
 
 type TextQuote struct {
+	BillingMode       ModelBillingMode `json:",omitempty"`
 	InputHash         string
 	ProfileDigest     string
 	MaximumTokens     int64
@@ -191,6 +219,9 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 		!SupportsObservedUsageFailure(input.Operation) ||
 		input.System == "" || input.Prompt == "" ||
 		!utf8.ValidString(input.System) || !utf8.ValidString(input.Prompt) {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	if input.Profile.BillingMode == ModelUsageOnly && (input.Image != nil || VisionTextOperation(input.Operation)) {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	if input.Image != nil {
@@ -238,11 +269,13 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	sum := sha256.Sum256(wire)
-	cost, err := input.Profile.CostFor(promptBound, input.Profile.MaximumCompletionTokens)
-	if err != nil {
-		return TextQuote{}, err
+	quote := TextQuote{InputHash: hex.EncodeToString(sum[:]), ProfileDigest: profileDigest, BillingMode: input.Profile.BillingMode,
+		MaximumTokens: promptBound + input.Profile.MaximumCompletionTokens, Currency: input.Profile.Currency}
+	if quote.BillingMode != ModelUsageOnly {
+		quote.MaximumCostMicros, err = input.Profile.CostFor(promptBound, input.Profile.MaximumCompletionTokens)
+		if err != nil {
+			return TextQuote{}, err
+		}
 	}
-	return TextQuote{InputHash: hex.EncodeToString(sum[:]), ProfileDigest: profileDigest,
-		MaximumTokens:     promptBound + input.Profile.MaximumCompletionTokens,
-		MaximumCostMicros: cost, Currency: input.Profile.Currency}, nil
+	return quote, nil
 }

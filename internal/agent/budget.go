@@ -36,13 +36,14 @@ func (u *Usage) Reserve(l Limits, q Quote) StopReason {
 	if u.ModelCalls >= l.ModelCalls {
 		return StopModelCalls
 	}
-	if !q.Known || q.Tokens <= 0 || q.CostMicros < 0 || q.Currency != l.Currency {
+	if !q.Known || q.Tokens <= 0 || q.CostMicros < 0 ||
+		q.UsageOnly && (q.CostMicros != 0 || q.Currency != "") || !q.UsageOnly && q.Currency != l.Currency {
 		return StopUsageUnknown
 	}
 	if q.Tokens > l.Tokens-u.Tokens {
 		return StopTokens
 	}
-	if q.CostMicros > l.CostMicros-u.CostMicros {
+	if !q.UsageOnly && q.CostMicros > l.CostMicros-u.CostMicros {
 		return StopCost
 	}
 	u.Steps++
@@ -53,7 +54,8 @@ func (u *Usage) Reserve(l Limits, q Quote) StopReason {
 }
 
 func (u *Usage) Settle(q Quote, observed ObservedUsage) StopReason {
-	if !observed.Known || observed.Currency != q.Currency || observed.Tokens < 0 ||
+	if !observed.Known || observed.UsageOnly != q.UsageOnly || observed.Currency != q.Currency ||
+		q.UsageOnly && (q.CostMicros != 0 || observed.CostMicros != 0 || q.Currency != "") || observed.Tokens < 0 ||
 		observed.CostMicros < 0 || observed.Tokens > q.Tokens || observed.CostMicros > q.CostMicros {
 		return StopUsageUnknown
 	}

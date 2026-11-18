@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
 )
 
@@ -23,6 +24,11 @@ func decodeTurn(raw []byte) (aiworkbench.ChatTurnEnvelope, error) {
 		return ref == nil || ((ref.Version == 1 || ref.Version == 2) && validDigest(ref.Digest))
 	}
 	if !validRef(envelope.Creator) || !validRef(envelope.Input.Skill) {
+		return envelope, aiworkbench.ErrInvalid
+	}
+	if binding := envelope.Authoring; binding != nil &&
+		(envelope.Creator == nil || !validDigest(binding.ProfileDigest) ||
+			binding.BillingMode != aicapability.ModelUsageOnly && binding.BillingMode != aicapability.ModelPlatformPoints) {
 		return envelope, aiworkbench.ErrInvalid
 	}
 	if revision := envelope.Input.Revision; revision != nil {
@@ -178,7 +184,8 @@ func (s *Store) bindChatTurnAuthoring(ctx context.Context, expected aiworkbench.
 		}
 		candidate := *prepared
 		ref := current.Envelope.Creator
-		if ref == nil || candidate.OrganizationID != scope.OrganizationID || candidate.ActorID != scope.ActorID || candidate.ConversationID != current.Route.ConversationID || candidate.MemberID != current.Route.MemberID || candidate.Requirement != current.Envelope.Input.Content || candidate.SkillVersion != ref.Version || candidate.SkillDigest != ref.Digest || candidate.FormatVersion != int(ref.Version) || !validKey(candidate.Key) || !validDigest(candidate.InputHash) || !validDigest(candidate.ProfileDigest) || !validDigest(candidate.InvocationID) || candidate.MaximumPoints <= 0 || candidate.Deadline == nil {
+		if ref == nil || candidate.OrganizationID != scope.OrganizationID || candidate.ActorID != scope.ActorID || candidate.ConversationID != current.Route.ConversationID || candidate.MemberID != current.Route.MemberID || candidate.Requirement != current.Envelope.Input.Content || candidate.SkillVersion != ref.Version || candidate.SkillDigest != ref.Digest || candidate.FormatVersion != int(ref.Version) || !validKey(candidate.Key) || !validDigest(candidate.InputHash) || !validDigest(candidate.InvocationID) || candidate.Deadline == nil ||
+			!current.Envelope.Authoring.Allows(candidate.ProfileDigest, candidate.MaximumPoints) {
 			return aiworkbench.ErrInvalid
 		}
 		if revision := current.Envelope.Input.Revision; revision != nil {

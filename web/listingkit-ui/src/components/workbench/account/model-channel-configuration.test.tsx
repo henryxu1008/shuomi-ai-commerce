@@ -1,0 +1,163 @@
+import {afterEach,expect,it,vi} from "vitest";
+import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
+import {EnterpriseTextChoice,PlatformChannelConfiguration} from "./model-channel-configuration";
+
+function prepare() {
+ Object.defineProperty(HTMLDialogElement.prototype,"showModal",{configurable:true,value:function(this:HTMLDialogElement){this.open=true;}});
+ Object.defineProperty(HTMLDialogElement.prototype,"close",{configurable:true,value:function(this:HTMLDialogElement){this.open=false;}});
+ return new QueryClient();
+}
+const scope={userId:"actor",organizationId:"org-a"};
+const ref={id:"pm-official-a",version:"v1"};
+const a={category:"text",reference:ref,channel:"openai-direct",channelName:"渠道甲",source:"platform",model:"gpt-5.4-mini-2026-03-17",ready:true,quote:"quote-a"};
+const b={...a,reference:{...ref,id:"pm-official-b"},channelName:"渠道乙",quote:"quote-b"};
+
+afterEach(()=>{cleanup();sessionStorage.clear();vi.unstubAllGlobals();});
+
+it("shows only prices effective when the platform publication opens",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const now="2026-11-18T08:00:00Z";
+ const clock=vi.spyOn(Date,"now").mockReturnValue(Date.parse(now));
+ const connectionId="uc-92ff6319-fdb7-5c55-9fa6-c7c16c0048d1";
+ const registration={organizationId:"platform-model-channel-owner",connectionId,template:"openai-mini-v1",name:"主渠道",revision:"1"};
+ const connection={organizationId:registration.organizationId,connectionId,provider:"openai",channel:a.channel,region:"global",
+  account:"default",revision:"1",enabled:true,keyPresent:true,models:[],registration,baseUrl:"https://api.openai.com/v1"};
+ const price={id:"mini-standard",version:"price-current",channel:a.channel,model:a.model,provider:"openai",region:"global",
+  serviceType:"standard-sync",currency:"USD",usageVersion:"openai-text-v1",sourceUrl:"https://developers.openai.com/api/docs/pricing",
+  verifiedAt:"2026-11-17T08:00:00Z",effectiveFrom:now,effectiveUntil:"2026-11-19T08:00:00Z",
+  rates:{inputText:750000,cachedInputText:0,inputImage:0,cachedInputImage:0,outputText:4500000,outputImage:0}};
+ const prices=[
+  {...price,version:"price-expired",effectiveFrom:price.verifiedAt,effectiveUntil:now,rates:{...price.rates,inputText:990000}},
+  price,
+  {...price,version:"price-scheduled",effectiveFrom:price.effectiveUntil,effectiveUntil:"2026-11-20T08:00:00Z",rates:{...price.rates,inputText:1100000}},
+  {...price,id:"different-channel",platformConnectionId:"uc-1391f667-31c8-506a-b559-5118d5958cf5"},
+ ];
+ vi.stubGlobal("fetch",vi.fn(async(url:string)=>Response.json(url.endsWith("/platform-prices")?{
+  status:"READY",preview:null,revision:{id:"prices",scope:{organizationId:"platform",capability:"ai.models.official-prices"},
+   parent:"NONE",schemaVersion:1,digest:"digest",actorId:"actor",publishedAt:price.verifiedAt,key:"published-prices",
+   payload:{bindingId:"",credentialVersion:"",rates:{},platformPrices:{schemaVersion:1,unitVersion:"ai-micropoint-v1",prices,fx:[]}}},
+ }:{organizationId:scope.organizationId,canWrite:true,channels:[{connection,revision:"NONE"}],organizations:["org-a"]})));
+ try {
+  render(<QueryClientProvider client={client}><PlatformChannelConfiguration scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+  await user.click(await screen.findByRole("button",{name:"主渠道"}));
+  await user.click(screen.getByRole("button",{name:"设置开放企业与价目"}));
+  const select=within(screen.getByRole("combobox",{name:"适用参考价"}));
+  expect(await select.findByRole("option",{name:/mini-standard.*输入 0.75／输出 4.5/})).toBeVisible();
+  expect(select.getAllByRole("option")).toHaveLength(2);
+ } finally {
+  clock.mockRestore();
+  client.clear();
+ }
+});
+
+it("labels configured text channels without exposing internal identifiers",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const official={...a,source:undefined,channelName:undefined};
+ const unnamed={...b,source:undefined,channelName:undefined,channel:"internal-channel-id"};
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({
+  organizationId:scope.organizationId,view:{revision:"prior",current:official,options:[official,unnamed]},
+ })));
+ render(<QueryClientProvider client={client}><EnterpriseTextChoice scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+ expect(await screen.findByText("OpenAI 官方")).toBeVisible();
+ await user.click(screen.getByRole("button",{name:"切换"}));
+ expect(screen.getByRole("radio",{name:/OpenAI 官方/})).toBeVisible();
+ expect(screen.getByRole("radio",{name:/渠道名称未设置/})).toBeVisible();
+ expect(screen.queryByText(/openai-direct|internal-channel-id/)).not.toBeInTheDocument();
+ client.clear();
+});
+
+it("switches only the chosen text option and reads the saved channel again",async()=>{
+ const client=prepare(),user=userEvent.setup(),saved=vi.fn(async()=>{});
+ let switched=false;
+ vi.stubGlobal("fetch",vi.fn(async(_url:string,init:RequestInit)=>{
+  if(init.method==="POST") {
+   expect(JSON.parse(String(init.body))).toEqual({reference:b.reference,quote:"quote-b",expectedRevision:"prior",expectedMemberId:"member"});
+   switched=true;
+   return Response.json({...scope, userId:undefined,actorId:scope.userId,requestKey:new Headers(init.headers).get("Idempotency-Key"),revision:"next",reference:b.reference});
+  }
+  return Response.json({organizationId:scope.organizationId,view:{revision:switched?"next":"prior",current:switched?b:{...a,ready:false,reason:"CHANNEL_DISABLED"},options:[b],purposes:["aiworkbench_chat_plan","product.content.decision"]}});
+ }));
+ render(<QueryClientProvider client={client}><EnterpriseTextChoice scope={scope} member="member" onSaved={saved}/></QueryClientProvider>);
+ expect(await screen.findByText("当前渠道已停用，请切换。")).toBeVisible();
+ await user.click(screen.getByRole("button",{name:"切换"}));
+ await user.click(screen.getByRole("radio",{name:/渠道乙/}));
+ expect(screen.getByText("本次切换影响硕米 Chat、商品内容。")).toBeVisible();
+ await user.click(screen.getByRole("button",{name:"确认切换"}));
+ await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
+ expect(await screen.findByText("渠道乙")).toBeVisible();
+ expect(screen.queryByRole("dialog")).toBeNull();
+ client.clear();
+});
+
+it("clears the platform key and recovers a successful create after a lost reply",async()=>{
+ const client=prepare(),user=userEvent.setup(),saved=vi.fn(async()=>{});
+ const platformOwner="platform-model-channel-owner",connectionId="uc-92ff6319-fdb7-5c55-9fa6-c7c16c0048d1",template="openai-mini-v1";
+ const registration={organizationId:platformOwner,connectionId,template,name:"主渠道",revision:"1"};
+ const connection={organizationId:platformOwner,connectionId,provider:"openai",channel:"openai-direct",region:"global",account:"default",revision:"1",enabled:true,keyPresent:true,models:[],registration,baseUrl:"https://api.openai.com/v1"};
+ let key="";
+ const fetch=vi.fn(async(url:string,init:RequestInit)=>{
+  if(url.endsWith("/platform-prices"))return Response.json({status:"UNCONFIGURED",revision:null,preview:null});
+  if(init.method==="POST"){
+   key=new Headers(init.headers).get("Idempotency-Key")!;
+   expect(JSON.parse(String(init.body))).toEqual({name:"主渠道",template,apiKey:"synthetic-platform-key",expectedMemberId:"member"});
+   throw new Error("lost response");
+  }
+  if(url.endsWith("/receipts/"+key)){
+   return Response.json({organizationId:scope.organizationId,actorId:scope.userId,requestKey:key,result:{registration,connection}});
+  }
+  return Response.json({organizationId:scope.organizationId,canWrite:true,channels:key?[{connection,revision:"NONE"}]:[],organizations:["org-a"]});
+ });
+ vi.stubGlobal("fetch",fetch);
+ render(<QueryClientProvider client={client}><PlatformChannelConfiguration scope={scope} member="member" onSaved={saved}/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"添加平台渠道"}));
+ await user.type(screen.getByLabelText("渠道名称"),"主渠道");
+ await user.type(screen.getByLabelText("API Key"),"synthetic-platform-key");
+ await user.click(screen.getByRole("button",{name:"保存"}));
+ expect(screen.getByLabelText("API Key")).toHaveValue("");
+ expect(JSON.stringify({...sessionStorage})).not.toContain("synthetic-platform-key");
+ await user.click(screen.getByRole("button",{name:"取消"}));
+ await user.click(await screen.findByRole("button",{name:"查询本次结果"}));
+ await user.click(await screen.findByRole("button",{name:"主渠道"}));
+ await user.click(screen.getByRole("button",{name:"停用渠道"}));
+ expect(screen.getByRole("button",{name:"确认停用"})).toBeEnabled();
+ await act(async()=>{
+  client.setQueryData(["model-services",scope,"platform-channels"],{organizationId:scope.organizationId,canWrite:true,
+   channels:[{connection:{...connection,revision:"2"},revision:"NONE"}],organizations:["org-a"]});
+ });
+ expect(await screen.findByText("此渠道已有更新，请关闭后重新打开。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"确认停用"})).toBeDisabled();
+ expect(fetch.mock.calls.filter(([,call])=>call.method==="POST")).toHaveLength(1);
+ client.clear();
+});
+
+it("blocks a text choice opened before another window saves a new revision",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const original={organizationId:scope.organizationId,view:{revision:"prior",current:a,options:[a,b]}};
+ const fetch=vi.fn(async()=>Response.json(original));
+ vi.stubGlobal("fetch",fetch);
+ render(<QueryClientProvider client={client}><EnterpriseTextChoice scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"切换"}));
+ await user.click(screen.getByRole("radio",{name:/渠道乙/}));
+ expect(screen.getByRole("button",{name:"确认切换"})).toBeEnabled();
+ await act(async()=>{
+    client.setQueryData(["model-services",scope,"text-choice"],{...original,view:{...original.view,revision:"new-window"}});
+ });
+ expect(await screen.findByText("企业选择已更新，请重新打开后确认。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"确认切换"})).toBeDisabled();
+ client.clear();
+});
+
+it("admits a selectable enterprise-owned model without a reference price",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const owned={...b,source:"enterprise",billingMode:"usage_only",reference:{id:"um-owned",version:"v1"},channelName:"企业模型"};
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({organizationId:scope.organizationId,view:{revision:"prior",current:a,options:[owned]}})));
+ render(<QueryClientProvider client={client}><EnterpriseTextChoice scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"切换"}));
+ await user.click(screen.getByRole("radio",{name:/企业模型/}));
+ expect(screen.getByText("不消耗硕米 AI 点数")).toBeVisible();
+ expect(screen.getByText("厂商向企业的厂商账号计费。硕米只记录用量。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"确认切换"})).toBeEnabled();
+ client.clear();
+});

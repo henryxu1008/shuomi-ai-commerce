@@ -45,7 +45,7 @@ const proposal = z.object({
   targetPlatform: z.enum(["shein", "temu", "amazon","product"]).optional(),
   templateId: z.string().optional(), templateRevision: z.string().optional(), knowledgeBaseId: z.string().optional(),
   providerId: z.string().optional(), modelId: z.string().optional(), maximumTokens: z.number().int().optional(),
-  maximumCostMicros: z.number().int().optional(), currency: z.string().optional(),
+  usageOnly: z.boolean().optional(), maximumCostMicros: z.number().int().optional(), currency: z.string().optional(),
   humanReviewRequired: z.literal(true), detailsAvailable: z.boolean(), titleProfileReady: z.boolean(), executionAuthorized: z.boolean(),
 });
 const task = z.object({
@@ -134,7 +134,7 @@ const authoringJob = z.strictObject({
   key: id, requirement: z.string().max(8192),
   generationKey: id.optional(), revision: id.optional(), superseded: z.boolean().optional(),
   state: z.enum(["QUOTED", "READY", "COMPLETE", "FAILED", "INVALID", "UNKNOWN"]),
-  draft: aiTitleSkillDraft.nullable(), billing: z.enum(["pending", "released", "committed"]),
+  draft: aiTitleSkillDraft.nullable(), billing: z.enum(["pending", "released", "committed", "usage_only"]),
   savePending: z.boolean(), savedSkillId: id.nullable(),
 });
 export type AITitleSkillDraft = z.infer<typeof aiTitleSkillDraft>;
@@ -227,7 +227,10 @@ export const aiResponseSchemas = {
  "chat-turn-submit":chatTurnResult,"chat-turn-read":chatTurnResult,"chat-turn-recover":chatTurnResult,
  "skill-authoring-catalog": authoringCatalog,
  "skill-authoring-list": z.strictObject({drafts: z.array(authoringJob).max(8)}),
- "skill-authoring-quote": z.strictObject({key: id, maximumMicropoints: decimal, expiresAt: timestamp}),
+ "skill-authoring-quote": z.union([
+  z.strictObject({key: id, maximumMicropoints: decimal, expiresAt: timestamp}),
+  z.strictObject({key: id, billingMode: z.literal("usage_only"), expiresAt: timestamp}),
+ ]),
  "skill-authoring-preview": z.strictObject({key: id, expiresAt: timestamp, quote: authoringQuoteToken}),
  "skill-authoring-confirm": authoringJob,
  "skill-authoring-recover-generation": authoringJob,

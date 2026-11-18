@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	store "task-processor/internal/aicapability/store"
+	"task-processor/internal/app/schema/productagentruntime"
 )
 
 func main() {
@@ -72,7 +73,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "wrong invocation ledger owner")
 		os.Exit(1)
 	}
-	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return store.AutoMigrateInvocationLedger(tx) }); err != nil {
+	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if *namespace == "image" && tx.Migrator().HasTable("ai_invocations") {
+			return productagentruntime.VerifyImageInvocationRelation(ctx, tx, roleName)
+		}
+		return store.AutoMigrateInvocationLedger(tx)
+	}); err != nil {
 		fmt.Fprintln(os.Stderr, "ledger schema initialization failed")
 		os.Exit(1)
 	}
