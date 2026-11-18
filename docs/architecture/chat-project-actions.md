@@ -213,7 +213,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 
 已有 Chat 创建项目请求保持原有恢复合同：在原账号、企业和入口读取已保存的原键与完整字段，仅由「核对原创建项目请求」核对；加载记录不自动提交。结果未知或失败时继续保留原记录，重复核对沿同一请求。收到项目回执后保留「项目已创建 / 查看项目」，用户可返回原项目详情或继续聊天。移除选择入口不移除原请求、会话和项目，也不改变项目管理权限或模型依赖。
 
-依据：[项目中心创建、版本与权限合同](domains/workbench/ai-workbench-project-center.md) · [现有项目表单和创建回执处理](../../web/listingkit-ui/src/components/workbench/project-center/project-page.tsx) · [项目中心用户操作](../operations/project-center.md)
+依据：[项目中心创建、版本与权限合同](domains/workbench/ai-workbench-project-center.md) · [现有项目表单和创建回执处理](../../web/listingkit-ui/src/components/workbench/project-center/project-page.tsx) · [项目中心用户操作](../operations/user-guides/project-center.md)
 
 ## 4. 从已有项目执行一项任务
 
@@ -245,7 +245,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 
 相互独立的两个动作分别回报成功或失败。项目写入拒绝、关系上限、版本冲突或结果暂不明时，用户仍可在任务中心找到已提交的任务。核对关联请使用原操作，同步当前项目内容后按原规则处理，避免重提任务。一个会话的链接也不会替代用户对单项任务的关联。
 
-依据：[项目关系、审计与授权合同](domains/workbench/ai-workbench-project-center.md) · [手动关联入口](../operations/project-center.md#操作路径) · [任务中心项目筛选合同](ai-workbench-work-scope.md#7-工作范围筛选分页及真实空状态) · [项目关系仓储](../../internal/integration/persistence/aiworkbench/projectcenter/store.go)
+依据：[项目关系、审计与授权合同](domains/workbench/ai-workbench-project-center.md) · [手动关联入口](../operations/user-guides/project-center.md#操作路径) · [任务中心项目筛选合同](ai-workbench-work-scope.md#7-工作范围筛选分页及真实空状态) · [项目关系仓储](../../internal/integration/persistence/aiworkbench/projectcenter/store.go)
 
 ## 6. 复用的能力、授权及恢复
 
