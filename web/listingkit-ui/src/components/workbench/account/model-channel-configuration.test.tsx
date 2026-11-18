@@ -52,6 +52,22 @@ it("shows only prices effective when the platform publication opens",async()=>{
  }
 });
 
+it("labels configured text channels without exposing internal identifiers",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const official={...a,source:undefined,channelName:undefined};
+ const unnamed={...b,source:undefined,channelName:undefined,channel:"internal-channel-id"};
+ vi.stubGlobal("fetch",vi.fn(async()=>Response.json({
+  organizationId:scope.organizationId,view:{revision:"prior",current:official,options:[official,unnamed]},
+ })));
+ render(<QueryClientProvider client={client}><EnterpriseTextChoice scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+ expect(await screen.findByText("OpenAI 官方")).toBeVisible();
+ await user.click(screen.getByRole("button",{name:"切换"}));
+ expect(screen.getByRole("radio",{name:/OpenAI 官方/})).toBeVisible();
+ expect(screen.getByRole("radio",{name:/渠道名称未设置/})).toBeVisible();
+ expect(screen.queryByText(/openai-direct|internal-channel-id/)).not.toBeInTheDocument();
+ client.clear();
+});
+
 it("switches only the chosen text option and reads the saved channel again",async()=>{
  const client=prepare(),user=userEvent.setup(),saved=vi.fn(async()=>{});
  let switched=false;

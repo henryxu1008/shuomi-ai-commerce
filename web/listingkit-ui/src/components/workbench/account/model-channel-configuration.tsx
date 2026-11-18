@@ -7,7 +7,7 @@ import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {modelRouteRequest,ModelRouteError,type ModelRouteScope} from "@/lib/api/model-route-pricing";
 import {currentTextChoice,platformChannelList,selectionEndpoint} from "@/lib/contracts/platform-model-channels";
-import {formatCurrencyMicros,routeCurrent,type ModelOption} from "@/lib/contracts/model-route-pricing";
+import {formatCurrencyMicros,modelChannelLabel,routeCurrent,type ModelOption} from "@/lib/contracts/model-route-pricing";
 import {useResourcePending} from "../resources/resource-pending";
 import {AccountDialog} from "./account-dialog";
 import styles from "./model-route-pricing.module.css";
@@ -85,7 +85,7 @@ function useConfigurationCommand(scope:ModelRouteScope,member:string,onSaved:()=
 function ChoiceDetails({option}:{option:ModelOption}) {
  const price=option.price;
  return <>
-  <strong className="block">{option.channelName||option.channel}</strong>
+  <strong className="block">{modelChannelLabel(option.channel,option.channelName)}</strong>
   <span className="block">{option.model}{option.source==="platform"?" · 平台提供":option.source==="enterprise"?" · 企业自有":""}</span>
   {option.billingMode==="usage_only"&&<span className="block">不消耗硕米 AI 点数</span>}
   {price&&<span className="block">参考价每百万文本 Token · 输入 {formatCurrencyMicros(price.rates.inputText)} {price.currency} · 输出 {formatCurrencyMicros(price.rates.outputText)} {price.currency}</span>}

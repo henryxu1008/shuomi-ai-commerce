@@ -51,7 +51,9 @@ it("uses the published qualification per image model and the workbench projectio
  const generation=screen.getByRole("region",{name:"图片生成模型"});
  expect(await within(analysis).findByText("模型配置符合条件")).toBeVisible();
  expect(within(generation).getByText("缺少适用参考价")).toBeVisible();
- expect(within(screen.getByRole("region",{name:/硕米 Chat/})).getByText("Chat 规划暂不可用")).toBeVisible();
+ const chat=within(screen.getByRole("region",{name:/硕米 Chat/}));
+ expect(chat.getByText("Chat 规划暂不可用")).toBeVisible();
+ expect(chat.getByText("gpt-5.4-mini-2026-03-17 · OpenAI 官方")).toBeVisible();
  expect(fetch.mock.calls.some(([url])=>url.endsWith("/connections"))).toBe(false);
 });
 

@@ -38,6 +38,14 @@ export type RouteInput=z.infer<typeof routeInput>;
 export type ModelOption=z.infer<typeof modelOption>;
 export type PriceInput=z.infer<typeof priceInput>;
 export const modelLabels={text:"文本模型","image-generation":"图片生成模型",multimodal:"多模态理解模型"} as const;
+const channelLabels=new Map([
+ ["openai-direct","OpenAI 官方"],
+ ["openai-compatible","OpenAI 兼容渠道"],
+ ["bailian-beijing","阿里云百炼（北京）"],
+]);
+export function modelChannelLabel(channel:string,name?:string):string{
+ return name||channelLabels.get(channel)||"渠道名称未设置";
+}
 export function formatCurrencyMicros(value:number):string{const n=BigInt(value),tail=(n%BigInt(1000000)).toString().padStart(6,"0").replace(/0+$/g,"");return (n/BigInt(1000000)).toString()+(tail?"."+tail:"")}
 export function parseCurrencyMicros(value:string):number{if(!/^(0|[1-9]\d*)(\.\d{1,6})?$/.test(value))throw new Error("INVALID");const [a,b=""]=value.split("."),n=BigInt(a)*BigInt(1000000)+BigInt(b.padEnd(6,"0"));if(n>BigInt("1000000000000"))throw new Error("INVALID");return Number(n)}
 

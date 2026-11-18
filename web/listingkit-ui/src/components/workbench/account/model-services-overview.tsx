@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { ModelOption, routeCurrent } from "@/lib/contracts/model-route-pricing";
+import { modelChannelLabel, type ModelOption, type routeCurrent } from "@/lib/contracts/model-route-pricing";
 import type { ModelServiceCategory } from "@/lib/contracts/model-services-navigation";
 import styles from "./model-route-pricing.module.css";
 
@@ -74,7 +74,7 @@ export function ModelServicesOverview({ current, checking, chat, credentials, pl
           <h3 data-model-service={category} tabIndex={-1}>{labels[category]}</h3>
           <span className={styles.overviewStatus} data-ready={ready} role="status">{status}</span>
           {category === "text" && qualification !== status && <p>企业文本模型 · {qualification}</p>}
-          {model && model.model !== "UNKNOWN" && <p>{model.model} · {model.channel}</p>}
+          {model && model.model !== "UNKNOWN" && <p>{model.model} · {modelChannelLabel(model.channel, model.channelName)}</p>}
           {credentialProblem && !credentials && <p>请联系本企业渠道管理员。</p>}
           {priceProblem && !platform && <p>请联系平台维护人员检查参考价与汇率。</p>}
           {!checking && (credentialProblem && credentials && model
