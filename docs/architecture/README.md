@@ -141,10 +141,10 @@
 - `amazon-opportunity-handoff-v1.md` — [Amazon 美国站调研机会与选品交接 V1](amazon-opportunity-handoff-v1.md)
 - `amazon-us-zenrows-first-page.md` — [Amazon 美国站 ZenRows 单页试用](amazon-us-zenrows-first-page.md)
 - `issue1070-local-acceptance-fixture.md` — [#1070 本地验收项目合成资料导入](issue1070-local-acceptance-fixture.md)
-- `own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
+- `domains/catalog/own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](domains/catalog/own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
 - `own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](own-product-intake-openai-mini.md)
-- `own-product-intake-price-review.md` — [自有商品录入价格建议、逐行确认与不确定库存隔离](own-product-intake-price-review.md)
-- `own-product-intake-stock-review.md` — [自有商品录入库存建议与逐行确认](own-product-intake-stock-review.md)
+- `domains/catalog/own-product-intake-price-review.md` — [自有商品录入价格建议与人工确认](domains/catalog/own-product-intake-price-review.md)
+- `domains/catalog/own-product-intake-stock-review.md` — [自有商品录入库存建议与逐行确认](domains/catalog/own-product-intake-stock-review.md)
 - `own-product-draft-entry.md` — [自有商品单件转入与独立待补全入口 v1](own-product-draft-entry.md)
 - `own-product-edit.md` — [自有商品版本更新与独立编辑页 v1](own-product-edit.md)
 - `own-product-entry.md` — [自有商品独立录入页与多变体 v1](own-product-entry.md)

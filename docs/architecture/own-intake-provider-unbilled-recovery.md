@@ -8,7 +8,7 @@ Design Basis 为 Independent Architecture。源码调查基线为 `cd3675393e7e1
 
 使用者是负责本地试用的授权操作员。当前操作场景为 OpenAI 组织账务暂停时，一次商品整理请求收到拒绝，应用仍占用成员和企业 AI 点。预期交付为操作员核实原调用的拒绝与未计费证明后，将原调用终结为已拒绝零消费，原预留仅释放一次。成员随后能继续使用原 30 点月限。
 
-业务和安全依据为 [原商品整理](own-product-ai-intake.md)、[OpenAI Mini 接入](own-product-intake-openai-mini.md)、[统一配置与微点合同](enterprise-shared-model-configuration.md)、[当前 owner](project-boundaries.md) 和 [全新系统基线](../product/greenfield-no-legacy-migration.md)。本设计只增补下述拒绝终态，其他 UNKNOWN、实际用量和原定价协议继续适用。Figma 在此无 UI/IA 权威作用。
+业务和安全依据为 [原商品整理](domains/catalog/own-product-ai-intake.md)、[OpenAI Mini 接入](own-product-intake-openai-mini.md)、[统一配置与微点合同](enterprise-shared-model-configuration.md)、[当前 owner](project-boundaries.md) 和 [全新系统基线](../product/greenfield-no-legacy-migration.md)。本设计只增补下述拒绝终态，其他 UNKNOWN、实际用量和原定价协议继续适用。Figma 在此无 UI/IA 权威作用。
 
 本轮 Must 为原调用和原预留的完整绑定、可审计的未计费证明、A=0、原 R 幂等释放、原成员原月份的计数、跨库失败可收敛、原请求停止且不再派发。Should 为沿现有审计读取展示拒绝原因和恢复状态。范围外包括所有 429 自动退款、任意厂商/模型、成功后取消、部分输出失败、超时/断线自动退款、批量冲正、重新发点、更改月限、价格重算、通用工单/审批/对账平台和商品保存。没有新增 Accepted Risk。
 

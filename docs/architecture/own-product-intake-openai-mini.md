@@ -1,6 +1,6 @@
 # #1159 OpenAI Mini 单图接入
 
-关联 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158) 与 [#1159](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1159)。源码基线 `40c2e716530b93b77cf02542e8b6b39ead7d6469`。本设计继承 [#1159 独立架构](own-product-ai-intake.md)、[Mini 单图计量](product-image-visual-analysis.md) 和[企业共享配置](enterprise-shared-model-configuration.md)，增量审查 OpenAI 直连、配置顺序和双预算。评审状态见文末。
+关联 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158) 与 [#1159](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1159)。源码基线 `40c2e716530b93b77cf02542e8b6b39ead7d6469`。本设计继承 [#1159 独立架构](domains/catalog/own-product-ai-intake.md)、[Mini 单图计量](product-image-visual-analysis.md) 和[企业共享配置](enterprise-shared-model-configuration.md)，增量审查 OpenAI 直连、配置顺序和双预算。评审状态见文末。
 
 ## 用户结果和适用范围
 
