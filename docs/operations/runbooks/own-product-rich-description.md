@@ -1,10 +1,10 @@
 # 自有商品描述富文本操作说明
 
-Refs #745；[格式、安全与版本合同](../architecture/own-product-rich-description.md)、[官方编辑器与独立上传增量](../architecture/rich-description-simple-editor-images.md)。
+Refs #745；[格式、安全与版本合同](../../architecture/own-product-rich-description.md)、[官方编辑器与独立上传增量](../../architecture/rich-description-simple-editor-images.md)。
 
 ## 入口与使用
 
-本次官方UI/独立上传增量为源码交付，不更新 own675；前一候选的单独授权试用记录保留在PR。正常开发启动沿 [Console README](../../web/listingkit-ui/README.md)：在 web/listingkit-ui 执行 pnpm install --frozen-lockfile 后 pnpm dev；使用原私密身份、后端 origin、Product Collection/CompletionDraft 配置。没有新增配置键、数据库表、权限或安装步骤，不复制/重置既有环境。
+本次官方UI/独立上传增量为源码交付，不更新 own675；前一候选的单独授权试用记录保留在PR。正常开发启动沿 [Console README](../../../web/listingkit-ui/README.md)：在 web/listingkit-ui 执行 pnpm install --frozen-lockfile 后 pnpm dev；使用原私密身份、后端 origin、Product Collection/CompletionDraft 配置。没有新增配置键、数据库表、权限或安装步骤，不复制/重置既有环境。
 
 - 自有商品库：/workbench/data/mine?view=own；原“添加自有商品”进入独立 /workbench/data/mine/own/new。
 - 已保存商品：/workbench/data/mine/own/:itemId；原编辑/历史入口继续独立页面。

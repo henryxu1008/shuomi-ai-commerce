@@ -46,6 +46,6 @@
 
 - [本地队列](../../internal/batchcapture/queue.go)负责 scope、进度、原子保存和恢复判断。
 - [单项执行](../../internal/batchcapture/import.go)负责提交前持久化及 handoff 后的保守结果判断。
-- [采集插件](../../extensions/product-capture/README.md)与[采集计划操作](../operations/acquisition-plans-local.md)说明应用侧入口。
+- [采集插件](../../extensions/product-capture/README.md)与[采集计划操作](../operations/user-guides/acquisition-plans-local.md)说明应用侧入口。
 
 运行入口、私有配置和真实平台操作沿当前执行任务与环境授权，不复用旧试用地址或历史登录态。

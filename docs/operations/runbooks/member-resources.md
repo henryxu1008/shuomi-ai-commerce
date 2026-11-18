@@ -1,7 +1,7 @@
 # Member resources v1: configuration and user handoff
 
 This is the #561 delivery path governed by
-[the admitted design](../architecture/member-resource-allocation.md).
+[the admitted design](../../architecture/member-resource-allocation.md).
 It does not extend RUN-1 or authorize replacing the retained localhost:22744
 acceptance environment. Implementation checks and synthetic provider fixtures
 are separate from real SHEIN authorization and user acceptance.
@@ -79,7 +79,7 @@ The type must match the official developer application's actual type:
 identify it. Up to 16 entries may be configured; application identity,
 encryption-key identity and private files must be unique across entries. Application identity is
 `platform + identityPartition + appId`; SHEIN has no identity partition. See
-[TEMU connection configuration](temu-store-connection.md) for the separately
+[TEMU connection configuration](../user-guides/temu-store-connection.md) for the separately
 tagged TEMU application entries. The browser selects an admitted
 application when connecting; callbacks and execution resolve the saved original
 AppID and revision. The persisted revision includes the type. Removing or changing

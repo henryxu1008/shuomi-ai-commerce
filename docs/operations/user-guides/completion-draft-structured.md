@@ -1,6 +1,6 @@
 # 编辑待补全草稿的商品属性和 SKU
 
-Refs #718。范围与权限见 [产品决定](../product/completion-draft-structured.md) 和 [冻结合同](../architecture/domains/listing/completion-draft-structured.md)。开发自检、CI、独立检查均不等于用户或生产验收。
+Refs #718。范围与权限见 [产品决定](../../product/completion-draft-structured.md) 和 [冻结合同](../../architecture/domains/listing/completion-draft-structured.md)。开发自检、CI、独立检查均不等于用户或生产验收。
 
 ## 正常入口
 
