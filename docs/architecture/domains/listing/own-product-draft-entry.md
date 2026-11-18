@@ -9,7 +9,7 @@ Design Basis: Reuse Existing Architecture。当前已批准合同可完整覆盖
 
 企业当前操作人在有效自有商品详情进入独立确认页，确认一件商品及其来源版本，转入后进入独立待补全编辑页，填写候选标题/描述并保存，刷新后继续编辑。原商品图片、属性、多SKU和0价格/库存准确查看。
 
-依据：[供应链 §5/5.1](../../my-supply-chain-shein.md)、[未绑定草稿](../../supply-unbound-completion-drafts.md)、[自有编辑](../catalog/own-product-edit.md)、[原产品决定](../../../product/supply-unbound-completion-drafts.md)。Figma沿 [Final UI/IA](../../../product/final-ui-ia-authority.md)，`tg48P46SSXl6TBy9lZwg63 / 31:463`，自有库3500:1100、待适配3507:1965/3143、待补全2667:1948。用户本次独立页面决定替代本路径弹窗；没有新增frame，不伪称已有，不增加一级中心。
+依据：[供应链 §5/5.1](../../my-supply-chain-shein.md)、[未绑定草稿](supply-unbound-completion-drafts.md)、[自有编辑](../catalog/own-product-edit.md)、[原产品决定](../../../product/flows/supply-unbound-completion-drafts.md)。Figma沿 [Final UI/IA](../../../product/final-ui-ia-authority.md)，`tg48P46SSXl6TBy9lZwg63 / 31:463`，自有库3500:1100、待适配3507:1965/3143、待补全2667:1948。用户本次独立页面决定替代本路径弹窗；没有新增frame，不伪称已有，不增加一级中心。
 
 ## 2. 已有合同与 owner
 

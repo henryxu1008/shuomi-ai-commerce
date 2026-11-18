@@ -19,7 +19,7 @@ func TestPluginCaptureSessionReturnDocumentKeepsNavigationOnlyOwner(t *testing.T
 }
 
 func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollout(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-unbound-completion-drafts.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "supply-unbound-completion-drafts.md"), []string{
 		"IMPLEMENTATION_READY", "PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12", "2667:1948",
 		"internal/listing/completiondraft", "supplyCompletionDrafts", "RuntimeCapabilities union",
 		"listing_completion_draft_records", "listing_completion_draft_heads", "listing_completion_draft_commands",

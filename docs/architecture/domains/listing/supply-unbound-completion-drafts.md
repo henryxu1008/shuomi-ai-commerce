@@ -1,15 +1,19 @@
 # Supply 未绑定店铺待补全草稿
 
-当前字段扩展见 [结构化候选合同](domains/listing/completion-draft-structured.md)，达到其增量准入后实施；原owner/事务/权限是复用基线。
+> 适用时点：以下保留 2026-10-12 二字段草稿设计及独立检查。现行字段扩展、历史读取/恢复与内部备注分别沿本目录的[结构化候选](completion-draft-structured.md)、[历史](completion-draft-history.md)、[恢复](completion-draft-restore.md)、[内部备注](completion-draft-internal-note.md)合同，SHEIN 候选带入沿[专门合同](completion-shein-import.md)；本页不将早期文字范围恢复为后续能力限制。Figma/旧菜单仅为历史流程依据，当前[商品刊登与 UI 决定](../../../product/final-ui-ia-authority.md)优先。
+
+> 运行记录与操作权限：[原 #658](https://github.com/henryxu1008/shuomi-ai-commerce/pull/658)记录了指定实例三表/最小权限安装、应用更新及另行授权的 R1→R2 保存刷新；[#605](https://github.com/henryxu1008/shuomi-ai-commerce/issues/605)后来仅完成工程范围关闭。下文部署待授权、NOT_RUN 与验收要求属于原阶段，不能覆盖这些已发生记录，也不证明今天实例可用或授予再次安装、业务保存、模型/平台调用及部署权限。当前必要验证按 AGENTS.md 与准确变更范围执行，不能恢复机械全量演练。
+
+当前字段扩展见 [结构化候选合同](completion-draft-structured.md)，达到其增量准入后实施；原owner/事务/权限是复用基线。
 
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-12 独立高风险边界检查通过。
 
 ## 1. Outcome / authority / boundary
 
-依据 [PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12](../product/supply-unbound-completion-drafts.md)，#605 当前阶段允许真实保存未绑定店铺的候选标题和描述。当前 Figma 文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463`，待补全 `2667:1948` 的 2026-10-12 design context + screenshot 是页面依据；待适配沿用 `3507:1965` / `3507:3143`。
+依据 [PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12](../../../product/flows/supply-unbound-completion-drafts.md)，#605 当前阶段允许真实保存未绑定店铺的候选标题和描述。当前 Figma 文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463`，待补全 `2667:1948` 的 2026-10-12 design context + screenshot 是页面依据；待适配沿用 `3507:1965` / `3507:3143`。
 
-本设计只新增当前 Listing 内的 CompletionDraft，不把正式 `TargetRecord.store_id` 改为可空。原 [我的供应链 SHEIN v1](my-supply-chain-shein.md) 的正式商户、来源、资产、规则、上传和 UNKNOWN 边界不变。此前缺 SHEIN 时停止在 Preparation 的阶段决定由本产品决定替代；独立只读合成试用设计不用于正式业务。
+本设计只新增当前 Listing 内的 CompletionDraft，不把正式 `TargetRecord.store_id` 改为可空。原 [我的供应链 SHEIN v1](../../my-supply-chain-shein.md) 的正式商户、来源、资产、规则、上传和 UNKNOWN 边界不变。此前缺 SHEIN 时停止在 Preparation 的阶段决定由本产品决定替代；独立只读合成试用设计不用于正式业务。
 
 用户路径：已保存来源 → 原 Transfer 固定 PreparationSource → 查看原资料 → 编辑候选标题/描述 → 保存不可变草稿版本 → 刷新读取 → 后续选择真实店铺，显式带入保存内容，再走原 TargetEditor / Target.Create / Submit。
 

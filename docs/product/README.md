@@ -23,5 +23,5 @@ Agent / Tool 消费领域 owner 的权限和能力，不直接访问数据库建
 - [Amazon / 1688 插件采集：上架资料字段对照 V1](decisions/plugin-capture-listing-fields.md)
 - [Product Sourcing Handoff](product-sourcing-handoff.md)
 - [多商品优选申请产品决定](flows/selected-application-multi-product.md)
-- [未绑定店铺的待补全草稿](supply-unbound-completion-drafts.md)
+- [未绑定店铺的待补全草稿](flows/supply-unbound-completion-drafts.md)
 - [工作台统一主题（V1.3，2026-10-29 用户决定）](decisions/workbench-theme-unification.md)

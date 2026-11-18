@@ -6,7 +6,7 @@ Refs #699；2026-10-14用户批准“已有草稿查询、权限和版本展示�
 
 用户回到一件自有商品，查看该商品跨转入批次的已保存草稿，区分固定来源Vn与当前保存Rn，直接继续原草稿。保留“创建待补全草稿”作为显式新Transfer，不自动猜选/复制/创建草稿。修复#694返回所选转入批次的Backlog。
 
-批准基线： [未绑定草稿](../../supply-unbound-completion-drafts.md)（IMPLEMENTATION_READY）、[单件转入](own-product-draft-entry.md)、[自有商品编辑](../catalog/own-product-edit.md)，已合并#697；[当前产品决定](../../../product/supply-unbound-completion-drafts.md)及本次用户决定。UI/IA沿[Final UI authority](../../../product/final-ui-ia-authority.md)，Figma tg48P46SSXl6TBy9lZwg63/31:463，自有库3500:1100和待补全2667:1948，沿原商品详情/独立草稿页，不新增一级菜单或假frame。用户独立页决定高于原弹窗样例。
+批准基线： [未绑定草稿](supply-unbound-completion-drafts.md)（IMPLEMENTATION_READY）、[单件转入](own-product-draft-entry.md)、[自有商品编辑](../catalog/own-product-edit.md)，已合并#697；[当前产品决定](../../../product/flows/supply-unbound-completion-drafts.md)及本次用户决定。UI/IA沿[Final UI authority](../../../product/final-ui-ia-authority.md)，Figma tg48P46SSXl6TBy9lZwg63/31:463，自有库3500:1100和待补全2667:1948，沿原商品详情/独立草稿页，不新增一级菜单或假frame。用户独立页决定高于原弹窗样例。
 
 本轮仅新的有界读合同及消费者。Out of Scope：schema/index/grants、新fact owner/状态机/事务/恢复协议、候选字段/草稿历史record接口、平台规则/店铺/AI/provider/发布、自动转入/保存/升级/最新猜选、migration/legacy兼容、验证平台、未授权部署/真实数据操作。
 
