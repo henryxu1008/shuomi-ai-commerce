@@ -17,7 +17,7 @@ Out of Scope: 真实店铺授权、真实令牌/业务API；消费者订单全�
 - 用户最新范围 > 本合同 > 当前源码。Figma仅流程参考，不作UI权威。
 - [官方授权](https://open.sheincorp.com/zh/documents/system/2169474d-1d4a-41a9-b9fd-427f63f54a63)、[API域名](https://open.sheincorp.com/zh/documents/system/49b797df-016e-40eb-882b-ab9bbaa8c630)：统一SEM.com授权，全托正式API固定openapi.sheincorp.cn；self/semi固定.com。原tempToken/签名/AES协议不变。
 - [采购单](https://open.sheincorp.com/zh/documents/apidoc/detail/3002055-1000002)的请求页码pageNumber，响应pageNo；本批只按orderNos集合读，不依赖时区或时间边界。原始价格信息不进入本模型或指标。[JIT关系](https://open.sheincorp.com/zh/documents/apidoc/detail/3001813)是后续需要时的独立能力，本批母单来自原采购单明确类型事实，不因空关系结果推断普通单。
-- [Store Observations](store-center-platform-observations.md)、[全托与ERP边界](order-procurement-fulfillment.md)、[当前owner](project-boundaries.md)。Store继续唯一拥有授权凭据；`internal/storecenter/observations`拥有已保存只读平台观察；`internal/integration/shein`拥有DTO解析/签名读取，PostgreSQL adapter拥有原同库事务；ERP不是观察前置，不持有第二观察事实。
+- [Store Observations](../../store-center-platform-observations.md)、[全托与ERP边界](../../order-procurement-fulfillment.md)、[当前owner](../../project-boundaries.md)。Store继续唯一拥有授权凭据；`internal/storecenter/observations`拥有已保存只读平台观察；`internal/integration/shein`拥有DTO解析/签名读取，PostgreSQL adapter拥有原同库事务；ERP不是观察前置，不持有第二观察事实。
 
 ## 合同 → 实现 → 注入 → 消费
 
