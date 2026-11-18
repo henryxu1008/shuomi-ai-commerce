@@ -145,8 +145,17 @@ func inspectionOwner(c *Config, id string) (*DatabaseConfig, func(context.Contex
 			return &c.DataServices.Database, datastore.VerifySchema
 		}
 	case "ecoservices":
-		if c.Ecoservices != nil {
-			return &c.Ecoservices.Database, ecostore.VerifyRuntime
+		if eco := c.Ecoservices; eco != nil {
+			if eco.Enabled && eco.NonPaymentOnly {
+				return &eco.Database, func(ctx context.Context, db *gorm.DB) error {
+					repo, err := ecostore.NewRepository(ctx, db)
+					if err != nil {
+						return err
+					}
+					return repo.VerifyQualificationRuntime(ctx)
+				}
+			}
+			return &eco.Database, ecostore.VerifyRuntime
 		}
 	case "browserKernel":
 		if c.BrowserKernel != nil {
