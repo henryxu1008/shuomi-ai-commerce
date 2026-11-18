@@ -15,7 +15,7 @@ Admission: IMPLEMENTATION_READY / FROZEN；独立设计及认证名称修订复�
 ## Basis / owners / boundaries
 
 复用[supply-market.md](supply-market.md)、[supply-market-filters.md](supply-market-filters.md)、
-[project-boundaries.md](project-boundaries.md)、最新Figma边界和全新系统基线。
+[project-boundaries.md](../../project-boundaries.md)、最新Figma边界和全新系统基线。
 SupplyMarket owns发布、选入命令回执及对外供货声明；Collection owns当前私人条目/批次可见性；subjectverification owns认证结果及企业名称；
 Catalog/Sourcing owns原商品/来源；身份/授权owner不变。无新表、索引、第二事实源或跨数据库协议。
 

@@ -24,7 +24,7 @@
 
 - [Store 订单与物流只读合同](store-center-platform-observations.md)：当前企业、成员及店铺授权、SHEIN 客单读取和物流查询、同步范围与观察时间；原阶段明确由平台处理发货和售后。
 - [订单观察模型](../../internal/storecenter/observations/model.go)：`OrderItem` 保存平台商品身份等观察，未形成执行所需的数量分配模型；原 allowlist 刻意不保存收货地址和联系方式。
-- [Supply Market](supply-market.md)、[我的供应链](my-supply-chain-shein.md)：当前来源、商品与供应商上下文，以及商品上架资料；它们不拥有采购订单、库存或出库事实。
+- [Supply Market](domains/supply-market/supply-market.md)、[我的供应链](my-supply-chain-shein.md)：当前来源、商品与供应商上下文，以及商品上架资料；它们不拥有采购订单、库存或出库事实。
 - [当前 POD](pod-design-agent.md)：图案、设计资产和设计执行，不代表已经实现生产采购、下单或订单履约。
 - 继续复用当前 Store 官方连接、IAM/Casbin、Temporal、资产存储、审计与 Console/BFF；不借 Commercial/Ecoservices 服务订单承载消费者商品订单。
 

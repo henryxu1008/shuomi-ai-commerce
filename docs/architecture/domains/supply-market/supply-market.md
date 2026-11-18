@@ -40,8 +40,8 @@ Accepted risks：目前没有新增被用户明确接受的安全风险；人工
 
 ## 2. Product / Figma Authority 与界面
 
-引用 [final-ui-ia-authority](../product/final-ui-ia-authority.md)、
-[greenfield baseline](../product/greenfield-no-legacy-migration.md) 和上述当前决定。
+引用 [final-ui-ia-authority](../../../product/final-ui-ia-authority.md)、
+[greenfield baseline](../../../product/greenfield-no-legacy-migration.md) 和上述当前决定。
 2026-10-09 只读实查 Figma `tg48P46SSXl6TBy9lZwg63` / 当前可见非归档页面 `31:463`：
 
 | 操作 | 当前 light 节点 | 本批使用方式 |
@@ -71,7 +71,7 @@ SDS 编辑器展示选中款式、可编辑区域、已批准图案、位置/缩
 
 | 能力 | 当前证据 | 使用边界 |
 | --- | --- | --- |
-| 我的供应链 | #605 / 已合并 PR #606；[设计](my-supply-chain-shein.md) | 复用批次、待适配、批准、SHEIN 上传及原 UNKNOWN；市场不是新上传器 |
+| 我的供应链 | #605 / 已合并 PR #606；[设计](../../my-supply-chain-shein.md) | 复用批次、待适配、批准、SHEIN 上传及原 UNKNOWN；市场不是新上传器 |
 | 本人来源集合 | `internal/product/collection` | scope 为 Organization + Actor + 原 Member；不得改为全企业/全市场可读 |
 | 原子来源发布 | `internal/product/sourcing`，`internal/app/productsourcing/collection.go` | 同 Product UoW 发布 Catalog、来源 evidence 和集合引用 |
 | 优化证据 | `internal/product/review/lineage.go` | 当前实际 title Apply 回执；不能伪造整份图文已优化/审核 |
@@ -493,7 +493,7 @@ PR候选8e32c6564的首次CI发现结构接线与未使用导出问题，已按�
 Product 空库 installer 和 narrow grants、现有私有 S3 adapter、逐 revision 实际 merchant
 核实的 CredentialSource、canonical Asset、POD worker lifecycle，以及成员导航和独立
 server session 的专员入口。没有新增 owner、恢复协议或 legacy fallback。
-接线和操作说明见 [正常程序交接](../engineering/integration/supply-market-runtime-handoff.md)。
+接线和操作说明见 [正常程序交接](../../../engineering/integration/supply-market-runtime-handoff.md)。
 本轮受限角色 disposable PostgreSQL composition 与相关 Go/UI/BFF 检查通过；最终
 准确候选 CI/独立最终评审仍由 PR 记录。31544 保留实例未修改，追加真实 SDS 写入、
 正常实际 runtime、正式浏览器路径与用户验收仍 NOT_RUN。先前真实 qualification

@@ -192,12 +192,12 @@
 - `store-observations-installation.md` — [在当前 Store 安装既有订单观察模块](store-observations-installation.md)
 - `store-empty-observations-contract-alignment.md` — [四张空 Store 观测表的最小合同对齐](store-empty-observations-contract-alignment.md) · #1231 架构 IMPLEMENTATION_READY；实现/副本/原实例操作另行授权。
 - `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
-- `supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](supply-market-choice-eligibility.md)
-- `supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
+- `domains/supply-market/supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](domains/supply-market/supply-market-choice-eligibility.md)
+- `domains/supply-market/supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](domains/supply-market/supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
 - `supply-region-catalog.md` — [账户资料与供应市场共用中国省市目录](supply-region-catalog.md)
 - `supply-market-categories.md` — [硕米自营与硕米优选共用商品类目](supply-market-categories.md) · #1377，独立架构已确认，IMPLEMENTATION_READY。
-- `supply-market-filters.md` — [自营与优选商品筛选](supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
-- `supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market.md)
+- `domains/supply-market/supply-market-filters.md` — [自营与优选商品筛选](domains/supply-market/supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
+- `domains/supply-market/supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](domains/supply-market/supply-market.md)
 - `domains/marketplace/temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](domains/marketplace/temu-official-contract-evidence.md)
 - `domains/marketplace/temu-platform.md` — [TEMU 三种模式与全部官方站点接入设计](domains/marketplace/temu-platform.md)
 - `domains/listing/tiktok-pre-dispatch-no-send.md` — [TikTok 发送前未执行的终止与显式重试：冻结设计](domains/listing/tiktok-pre-dispatch-no-send.md)

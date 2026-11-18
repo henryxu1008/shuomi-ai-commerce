@@ -369,7 +369,7 @@ func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOri
 }
 
 func TestSupplyMarketChoiceEligibilityDocumentPreservesQualificationBoundaries(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-choice-eligibility.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "supply-market-choice-eligibility.md"), []string{
 		"IMPLEMENTATION_READY", "not_optimized", "incomplete_product", "sealed selection",
 		"ReadEffective", "PublicProjection", "create_official_draft", "submit_selected",
 		"不提交申请", "正向流程仍为 NOT_RUN",
@@ -492,7 +492,7 @@ func TestStoreCenterFigmaDesignPreservesCurrentOwnersAndUserThresholds(t *testin
 }
 
 func TestSupplyMarketDesignPreservesDisclosureAndOriginalExecutionOwners(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "supply-market.md"), []string{
 		"IMPLEMENTATION_READY", "Independent Architecture", "硕米平台账号",
 		"同 Product UoW", "verified global platform authorizer",
 		"SendPermit", "UNKNOWN", "productsourcing.NewMarketReceiver",

@@ -49,7 +49,7 @@ Out of Scope：批量优化/申请、新 Agent/Registry/队列/调度器/账本�
 [权限模式](enterprise-agent-permission-modes.md)、
 [供应商可替换](domains/ai/product-agent-text-provider-neutral.md)、
 [Review](../../internal/product/review/README.md)、
-[优选资格](supply-market-choice-eligibility.md)。
+[优选资格](domains/supply-market/supply-market-choice-eligibility.md)。
 
 #715 的 `contentTitleOnly` + retained Chat 共存、现执行表与受限权限准备由原唯一 Writer
 负责。本任务不复制这些实现、不新增安装 owner、不先行改库或覆盖其待确认配置。
