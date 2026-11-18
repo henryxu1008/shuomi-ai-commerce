@@ -65,7 +65,7 @@
 - `auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](auth-instance-cookie-isolation.md)
 - `authentication-runtime.md` — [Zitadel Authentication Runtime Extraction Design](authentication-runtime.md)
 - `browser-kernel-release-catalog.md` — [平台浏览器内核发行目录 V1](browser-kernel-release-catalog.md)
-- `compose-tofu-preflight.md` — [Compose OpenTofu preflight boundary](compose-tofu-preflight.md)
+- `platform/runtime/compose-tofu-preflight.md` — [Compose OpenTofu preflight boundary](platform/runtime/compose-tofu-preflight.md)
 - `platform/identity/enterprise-custom-roles.md` — [Enterprise custom roles v1 — Issue #598](platform/identity/enterprise-custom-roles.md)
 - `local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](local-tls-revocation-maintenance.md)
 - `platform/identity/member-directory-query.md` — [Member directory query v1](platform/identity/member-directory-query.md)
