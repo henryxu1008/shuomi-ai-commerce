@@ -277,7 +277,7 @@
 - [AI Workbench 领域导航：Chat、BusinessTask、Project、原生运行、定时计划与报告](domains/workbench/README.md) — 已有商品内容计划保留，当前新建定时任务只开放店铺经营日报
 
 
-- `chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](chat-visible-store-query.md) · #1259 独立架构评审通过；实施与试用尚未授权。
+- `domains/workbench/chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](domains/workbench/chat-visible-store-query.md) · #1259 独立架构评审通过；实施与试用尚未授权。
 - `domains/workbench/chat-selected-store-context.md` — [硕米 Chat 选择店铺背景](domains/workbench/chat-selected-store-context.md) · 已连接店铺选择及权限校验。
 - `chat-project-actions.md` — [硕米 Chat 选择 Agent 技能与项目操作](chat-project-actions.md) · #1396，覆盖个人标题技能的创作、计费及恢复，后续标题技能版本交接和项目操作。
 - `chat-general-text-skills.md` — [硕米 Chat 创建并使用个人文字技能](chat-general-text-skills.md) · #1429，通用文字创作与 Chat 选用已独立复核并达到 IMPLEMENTATION_READY。
