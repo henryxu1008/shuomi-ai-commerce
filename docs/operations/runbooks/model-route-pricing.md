@@ -57,7 +57,7 @@ Key 仅输入、不回显或导出，不进入浏览器持久存储。提交后�
 
 复用原 ProductAgent/Run DB 的 revision/current、原 CAS 和回执表作为唯一配置事实 owner。私密 manifest 使用 `modelRoutePricing.writer`，数据库必须匹配原 ProductAgent/Run owner；固定 `model_route_config_writer` 非 owner/非 DDL 角色，writer pool ≤ 2。不再配置文字/图片两份 writer/current，不同步两库，不从旧 per-operation、Image current、member 或进程默认配置兜底。
 
-沿原安装器明确安装原配置关系、去密 credential metadata view 和窄权限；运行只验证，不 DDL/seed/发布。可信 `bindings` 是准确厂商/协议/地区/服务类型/费用预算/原更小token、字节、期限的准入描述，含准确reference/credential/endpoint、策略适用证据版本及price ID，不能充当第二份用户收费价目。文本描述的 shape 准入不要求填一个伪造官网价格；正式执行的完整 profile 仍必须持有 use-time 官网价/FX。
+沿原安装器明确安装原配置关系、去密 credential metadata view 和窄权限；运行只验证，不 DDL/seed/发布。可信 `bindings` 是准确厂商/协议/地区/服务类型/费用预算/原更小token、字节、期限的准入描述，含准确reference/credential/endpoint、策略适用证据版本及price ID，不能充当第二份用户收费价目。文本描述的 shape 准入不要求填一个伪造官网价格；平台扣点渠道正式执行的完整 profile 仍必须持有 use-time 官网价/FX；已准入的企业自有文本渠道使用 `usage_only`，不要求价目或 FX，也不填写伪造价格。自有文本仍须通过准确型号/协议、当前渠道资格及原非货币用量与时限约束，范围见[企业自有渠道用量合同](../../architecture/domains/ai/enterprise-owned-model-usage.md)。
 
 同一共享 reader 注入标题、内容、平台资料、选品、诊断、Chat 规划及图片 API/worker。各用途保留原 prompt/schema、调用次数和更小限制。渠道 Key 统一由当前 Run DB credential owner 管理，图片侧沿窄读取接口使用同一连接；图片副作用事实仍由原 Image owner 管理，不另存 Key、不扩大真实权限。
 
