@@ -8,7 +8,7 @@
 新程序的实际 LoadConfig、Run、镜像构建及实例更新仍为 **NOT_RUN**；启动拒绝结论来自固定源码与实际系统目录的对照，没有启动程序试错。
 
 Design Basis: **N/A**。本次仅原身份只读调查、去密差异和方案整理；不改变产品、权限、状态、持久化或副作用语义。
-依据为已冻结的[共享通道凭据合同](../../architecture/domains/ai/shared-channel-credentials.md)、[共享模型配置](../../architecture/enterprise-shared-model-configuration.md)、[数据服务执行生命周期](../../architecture/data-services-execution-lifecycle.md)和[全新系统基线](../../product/greenfield-no-legacy-migration.md)。
+依据为已冻结的[共享通道凭据合同](../../architecture/domains/ai/shared-channel-credentials.md)、[共享模型配置](../../architecture/enterprise-shared-model-configuration.md)、[数据服务执行生命周期](../../architecture/domains/data-services/data-services-execution-lifecycle.md)和[全新系统基线](../../product/greenfield-no-legacy-migration.md)。
 不改凭据/数据库，不发布配置，不构建或更新实例，不执行真实采集、AI 或付费调用，不合并关单。
 
 ## 本次实际检查了什么

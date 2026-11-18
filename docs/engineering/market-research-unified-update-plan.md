@@ -7,7 +7,7 @@
 预算仍研究/选品各¥0.30/20点、合计¥0.60/40点，原内容候选A为¥0.30/72000 Token。
 
 本轮只读调查的Design Basis: **N/A**，不改正式业务代码或运行语义。此前离线实现依据为 **Independent Architecture / IMPLEMENTATION_READY（仅离线实施）**，见
-[数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)。此前应用离线实施实际main一次组合d80d7b1e0，
+[数据服务执行生命周期](../architecture/domains/data-services/data-services-execution-lifecycle.md)。此前应用离线实施实际main一次组合d80d7b1e0，
 复用#1089的共享通道凭据，保留原研究/选品、完整图片关闭态及供应链/图片修复；不重建公共模型、费用或凭据能力。
 
 ## 原 owner 已回复与当前安装阻碍
