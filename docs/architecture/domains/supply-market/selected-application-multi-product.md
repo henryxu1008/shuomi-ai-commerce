@@ -2,7 +2,7 @@
 
 Design Basis: Independent Architecture。Admission Status: IMPLEMENTATION_READY / FROZEN。
 
-Authority：[产品决定](../product/selected-application-multi-product.md)、Issue #710 当前正文；复用冻结 supply-market-v1、supply-market-choice-eligibility、own-product-optimization-v1。独立只读架构检查绑定设计提交5358a3815be9556e51599a086029b207d77daccb及原文件hash，结论IMPLEMENTATION_READY/无BLOCKER；本次仅更新准入元数据，语义设计未变。评审记录：https://github.com/qq550723504/task-processor/pull/759#issuecomment-6231368789。之后按此冻结设计实施，非阻塞实现测试不重开架构。
+Authority：[产品决定](../../../product/flows/selected-application-multi-product.md)、Issue #710 当前正文；复用冻结 supply-market-v1、supply-market-choice-eligibility、own-product-optimization-v1。独立只读架构检查绑定设计提交5358a3815be9556e51599a086029b207d77daccb及原文件hash，结论IMPLEMENTATION_READY/无BLOCKER；本次仅更新准入元数据，语义设计未变。评审记录：https://github.com/qq550723504/task-processor/pull/759#issuecomment-6231368789。之后按此冻结设计实施，非阻塞实现测试不重开架构。
 
 ## 1. Outcome / Scope
 
@@ -21,7 +21,7 @@ Authority：[产品决定](../product/selected-application-multi-product.md)、I
 
 ## 3. UI 与确认
 
-沿原 Figma 997:764 的多选列表、1004:892 的分区/主题；[产品决定](../product/selected-application-multi-product.md)定义逐件差异、汇总/结果状态。无新路线、菜单或独立 Workbench。
+沿原 Figma 997:764 的多选列表、1004:892 的分区/主题；[产品决定](../../../product/flows/selected-application-multi-product.md)定义逐件差异、汇总/结果状态。无新路线、菜单或独立 Workbench。
 
 1. 多选：上限 20、明确已选数/跨页保留、可移除；错误或刷新中的当前资格不作为新选择依据。
 2. 公共信息 + 逐件供货：继承公共值是显式默认关系，取消继承后复制当前默认供用户修改，公共改动只影响继承项。引用公共附件与专属附件分开，合并去重且每件最多 6 个；服务端仍核总字节/对象。
