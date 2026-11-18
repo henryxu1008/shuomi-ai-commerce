@@ -1,6 +1,6 @@
 # 1688 采集计划本地试用
 
-> **运行前先核对当前版本（2026-11-17）：** 本文是受控本地采集计划的操作说明，不能单凭下列 Compose/manifest 命令认定当前部署已经启用这些模块或允许真实采集。现行产品入口为「供应市场 → 在线采集」二级导航，1688/Amazon 在页面内切换；已退休的静态 HTTP Provider 不允许作为浏览器 collector 的缺失后备。需要真实来源、实际资源消费、平台权限或实例配置更新时另核当前授权、精确版本和已有操作/UNKNOWN 回执，保留原实例其他已开启能力与数据。参见 [1688 产品阶段说明](../../product/1688-acquisition-scope.md)和 [当前采集合同](../../architecture/1688-server-public-browser-acquisition.md)。
+> **运行前先核对当前版本（2026-11-17）：** 本文是受控本地采集计划的操作说明，不能单凭下列 Compose/manifest 命令认定当前部署已经启用这些模块或允许真实采集。现行产品入口为「供应市场 → 在线采集」二级导航，1688/Amazon 在页面内切换；已退休的静态 HTTP Provider 不允许作为浏览器 collector 的缺失后备。需要真实来源、实际资源消费、平台权限或实例配置更新时另核当前授权、精确版本和已有操作/UNKNOWN 回执，保留原实例其他已开启能力与数据。参见 [1688 产品阶段说明](../../product/decisions/1688-acquisition-scope.md)和 [当前采集合同](../../architecture/1688-server-public-browser-acquisition.md)。
 
 依据：`docs/architecture/1688-acquisition-figma.md`。
 
