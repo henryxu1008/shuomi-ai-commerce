@@ -1,12 +1,12 @@
 # TikTok Shop 美国跨境店铺接入
 
-本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执及手动查询平台当前状态。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../architecture/domains/marketplace/tiktok-shop-us.md)及[官方接口证据](../architecture/domains/marketplace/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
+本候选交付一条路径：店铺授权 → 保存美国跨境商品资料 → 显式确认平台草稿或刊登 → 查看实际创建回执及手动查询平台当前状态。设计依据为 [#669](https://github.com/qq550723504/task-processor/issues/669)、[冻结架构](../../architecture/domains/marketplace/tiktok-shop-us.md)及[官方接口证据](../../architecture/domains/marketplace/tiktok-shop-us-contract-evidence.md)。开发者应用尚未创建；真实店铺、权限审批和用户试用保持 **NOT_RUN**。代码与 CI 不代表商品已审核通过或可生产上线。
 
 ## 当前入口
 
 1. 正常登录，选择企业，在 `/workbench/stores` 创建 **TikTok Shop / US** 店铺。外部店铺标识填写 Seller Center 的 **Shop Code**，不是内部 shop ID。
 2. 在该店铺的“官方 API 授权”选择已配置的 TikTok 应用，开始连接；在 TikTok 官方页面由实际店铺主体授权。回调路径为 `/workbench/stores/tiktokshop/callback`。应用未配置时显示不可用，不生成授权成功状态。
-3. 商品先沿“我的数据 → 转入供应链批次”保存。尚未绑定店铺时，可以在“待补全”保存独立候选标题和描述；参见[原 CompletionDraft 入口](supply-unbound-completion-drafts.md#入口和使用)。
+3. 商品先沿“我的数据 → 转入供应链批次”保存。尚未绑定店铺时，可以在“待补全”保存独立候选标题和描述；参见[原 CompletionDraft 入口](../supply-unbound-completion-drafts.md#入口和使用)。
 4. 打开 `/workbench/listing`，选择批次和 TikTok 店铺，逐件点击“查看 / 补全”。选择官方允许的发布方式及 AVAILABLE 末级类目，填写英文资料、商家 SKU、价格、仓库和数量。可显式带入待补全草稿 Rn；所选 record/revision 随 Target 保存，手改文字后按手填内容保存。
 5. 确认来源图片，选择批准素材，补齐当前类目属性、证明与尺码表。点击“保存并校验 TikTok 资料”。未满足规则的记录仍是本地待补全资料，不能刊登。
 6. 在列表单独确认上传。LOCAL_REPLICATION 可明确选择 **AS_DRAFT** 或 **LISTING**；GLOBAL_PUBLISHING 保存全球商品后只刊登 **US**。美国全球刊登每个 SKU 明确选择一个实际发货仓；美国数量不得超过批准的全球库存预算。美国最终售价 sale_price 与全球税前基准 amount 分别填写，币种均为 USD。
@@ -44,7 +44,7 @@ Store 消费者沿同一明确配置的能力校验 schema 与权限：未配置
 
 ## 全新安装与启动
 
-沿[当前供应链的正常初始化和启动](my-supply-chain-shein.md#初始化与正常启动)准备已获准、明确命名的**全新空** Product、Asset、Store 数据库及各自 runtime role。Product owner manifest 启用 `collections:true,supplyChain:true`；需要未绑定草稿时另启用 `supplyCompletionDrafts:true`。TikTok 使用原 Listing Target/Submission 表，不复制事实 owner；当前 schema 包含 tiktokshop-us 和 global_create。
+沿[当前供应链的正常初始化和启动](../my-supply-chain-shein.md#初始化与正常启动)准备已获准、明确命名的**全新空** Product、Asset、Store 数据库及各自 runtime role。Product owner manifest 启用 `collections:true,supplyChain:true`；需要未绑定草稿时另启用 `supplyCompletionDrafts:true`。TikTok 使用原 Listing Target/Submission 表，不复制事实 owner；当前 schema 包含 tiktokshop-us 和 global_create。
 
 Store 首次空库安装使用已有初始化器增加 TikTok OAuth 最小 grants：
 
