@@ -11,7 +11,7 @@
 
 ## 方法与可追溯清单
 
-[完整资产 CSV](shuomi-design-system-assets.csv) 逐项记录路径、用途、依赖、生产导入位置、测试导入位置、相邻测试及可达 page/layout 模块。路径相对 `web/listingkit-ui`。
+[完整资产 CSV](../shuomi-design-system-assets.csv) 逐项记录路径、用途、依赖、生产导入位置、测试导入位置、相邻测试及可达 page/layout 模块。路径相对 `web/listingkit-ui`。
 
 扫描 `src` 的 TypeScript AST，解析 import、re-export 及字面量 dynamic import，解析 `@/` 和相对路径，排除整条 type-only import。生产导入数是导入该模块的不同非测试文件数，**不是控件渲染次数或验收覆盖率**。具名混合 type import、未执行分支、隐式 layout 组合和条件 feature gate 仍须人工核对；静态可达路由不能证明页面已开放。
 
