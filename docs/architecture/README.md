@@ -289,7 +289,7 @@
 - `domains/workbench/chat-selected-product-context.md` — [Chat 规划读取已选商品资料](domains/workbench/chat-selected-product-context.md)
 - `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
 - `scheduled-plan-edit-copy.md` — [定时计划编辑与复制](scheduled-plan-edit-copy.md) · #1297 IMPLEMENTATION_READY；复用原计划 owner，保留在途任务与历史，保存前重新核对时间和预算。
-- `chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
+- `domains/workbench/chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](domains/workbench/chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
 - `chat-voice-input.md` — [Chat 语音输入与会话入口](chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
 - `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
