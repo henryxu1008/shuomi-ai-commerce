@@ -1,6 +1,6 @@
 # 定时任务与已有商品内容计划
 
-跟踪 [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244) / [PR #1245](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1245)，设计依据为[已批准架构](../architecture/ai-workbench-scheduled-tasks.md)的 §3.2。源码交付、隔离验证与具体实例开放分别记录；本说明不授权部署、真实模型调用或数据操作。
+跟踪 [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244) / [PR #1245](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1245)，设计依据为[已批准架构](../../architecture/ai-workbench-scheduled-tasks.md)的 §3.2。源码交付、隔离验证与具体实例开放分别记录；本说明不授权部署、真实模型调用或数据操作。
 
 ## 用户操作
 
@@ -20,7 +20,7 @@
 8. 已结束计划不能重新启用。只有店铺经营日报提供“复制新建”带入设置；商品内容的新建与复制入口已撤下，后台保留原计划执行、管理和原请求结果核实能力，不删除历史或停掉执行。日报复制时重新填写一次执行日期或截止日期，再核对并显式保存。新计划独立计数、不复制任务/报告/历史或预留；打开复制表单和核对本身不调用模型、不保存计划。
 9. 暂停、恢复、编辑、结束仅影响未来执行。恢复前先持久化已过时刻的跳过记录，因此即使暂停同步失败、旧回调在恢复后才到达，也不会补付费执行。长期暂停的历史分批处理期间计划仍保持暂停；页面沿“核实原操作”继续原命令，补齐后才开放未来时刻。结束不能恢复；已经创建的原任务及其未知占用继续保留。修改沿服务端修订号比较，冲突后重新核对，不自动覆盖另一次更新。
 
-完整编辑与复制的边界见[当前增量合同](../architecture/scheduled-plan-edit-copy.md)。确认页的后续积分上限按新单次上限和剩余次数计算，不将新费率重新计入历史消费；保存不预留或扣点。
+完整编辑与复制的边界见[当前增量合同](../../architecture/scheduled-plan-edit-copy.md)。确认页的后续积分上限按新单次上限和剩余次数计算，不将新费率重新计入历史消费；保存不预留或扣点。
 
 ### 编辑权限的安装与回退
 
@@ -34,7 +34,7 @@
 
 ## 配置与启动
 
-沿用 [Chat / 内容任务运行说明](ai-workbench-chat-trial.md) 的正常登录、企业 allowlist、当前 IAM 服务授权、内容 Agent、Collection/Source、Review、模型准入及原积分服务。定时任务不保存浏览器 JWT，不制造 HTTP 身份，逐次按冻结的企业、操作者、成员向原 IAM 和业务 owner 复核。
+沿用 [Chat / 内容任务运行说明](../ai-workbench-chat-trial.md) 的正常登录、企业 allowlist、当前 IAM 服务授权、内容 Agent、Collection/Source、Review、模型准入及原积分服务。定时任务不保存浏览器 JWT，不制造 HTTP 身份，逐次按冻结的企业、操作者、成员向原 IAM 和业务 owner 复核。
 
 在**获准的新安装**的私有 current-application manifest 中，已有的 `aiWorkbench` 配置另外加入：
 
