@@ -114,3 +114,30 @@ it("forwards only an explicit same-origin model query and rejects forged inputs 
   expect(stale.status).toBe(502);expect(await stale.json()).toEqual({code:"UNAVAILABLE"});
  }
 });
+
+it("forwards only an explicit same-origin public search and binds its reply to the original request", async () => {
+ const conversationId="00000000-0000-4000-8000-000000000003", key="00000000-0000-4000-8000-000000000004";
+ const path="/search/chat/"+conversationId;
+ const input={query:"public policy",preview:"a".repeat(64),expectedMemberId:"member"};
+ const fetch=vi.fn();
+ vi.stubGlobal("fetch",fetch);
+ expect((await proxyModelRoutePricing(request(input,{origin:"https://other.test"},path),"token","maintainer")).status).toBe(403);
+ expect((await proxyModelRoutePricing(request(input,{"Sec-Purpose":"prefetch"},path),"token","maintainer")).status).toBe(403);
+ expect((await proxyModelRoutePricing(request({...input,history:["private"]},{},path),"token","maintainer")).status).toBe(400);
+ expect(fetch).not.toHaveBeenCalled();
+ const receipt={key,query:input.query,source:"platform",status:"complete",startedAt:"2026-11-19T00:00:00Z",usage:1};
+ const envelope={organizationId:"org-a",actorId:"maintainer",memberId:"member",conversationId};
+ const response={...envelope,result:{receipt,results:[{title:"Rule",url:"https://example.org/rule",snippet:"snippet"}]}};
+ fetch.mockResolvedValueOnce(Response.json(response));
+ const result=await proxyModelRoutePricing(request(input,{"Idempotency-Key":key},path),"token","maintainer");
+ expect(result.status).toBe(200);
+ expect(result.headers.get("Cache-Control")).toContain("no-store");
+ expect(fetch.mock.calls[0][0]).toBe("http://localhost:9000/api/v1/workbench/chat/conversations/"+conversationId+"/public-search");
+ fetch.mockResolvedValueOnce(Response.json({...response,organizationId:"org-b"}));
+ expect(await (await proxyModelRoutePricing(request(input,{"Idempotency-Key":key},path),"token","maintainer")).json()).toEqual({code:"OUTCOME_UNKNOWN"});
+ fetch.mockResolvedValueOnce(Response.json({...envelope,result:receipt}));
+ const read=await proxyModelRoutePricing(request(undefined,{},path+"/"+key,"GET"),"token","maintainer");
+ expect(read.status).toBe(200);
+ expect(fetch.mock.calls[2][1].body).toBeUndefined();
+ expect(await read.text()).not.toContain("snippet");
+});

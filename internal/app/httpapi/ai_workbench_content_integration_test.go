@@ -968,6 +968,11 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 
 func snapshotOwnedChannelPointLedger(t *testing.T, db *gorm.DB) map[string]string {
 	t.Helper()
+	return snapshotOrganizationResourceLedger(t, db, "B")
+}
+
+func snapshotOrganizationResourceLedger(t *testing.T, db *gorm.DB, organization string) map[string]string {
+	t.Helper()
 	snapshot := map[string]string{}
 	for _, table := range []string{
 		"saas_organization_resource_buckets", "saas_organization_resource_reservations",
@@ -976,7 +981,7 @@ func snapshotOwnedChannelPointLedger(t *testing.T, db *gorm.DB) map[string]strin
 		"saas_member_ai_point_limits", "saas_member_ai_point_months",
 	} {
 		var rows string
-		require.NoError(t, db.Raw("SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text), '[]'::jsonb)::text FROM "+table+" r WHERE organization_id = ?", "B").Scan(&rows).Error)
+		require.NoError(t, db.Raw("SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text), '[]'::jsonb)::text FROM "+table+" r WHERE organization_id = ?", organization).Scan(&rows).Error)
 		snapshot[table] = rows
 	}
 	return snapshot

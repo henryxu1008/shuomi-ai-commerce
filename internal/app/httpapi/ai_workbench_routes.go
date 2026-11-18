@@ -384,6 +384,9 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"GET", workbenchChatBase + "/:conversation_id/public-search", authz.PermissionWorkbenchChatRead, "public-search", 15 * time.Second},
+		{"GET", workbenchChatBase + "/:conversation_id/public-search/:key", authz.PermissionWorkbenchChatRead, "public-search", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/public-search", authz.PermissionWorkbenchChatUse, "public-search", 25 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/turns", authz.PermissionWorkbenchChatUse, "chat-turn-submit", 2 * time.Minute},
 		{"GET", workbenchChatBase + "/:conversation_id/turns/:turn_key", authz.PermissionWorkbenchChatRead, "chat-turn-read", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/turns/:turn_key/recover", authz.PermissionWorkbenchChatUse, "chat-turn-recover", 2 * time.Minute},
@@ -441,6 +444,8 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "public-search":
+					a.publicSearch(c, ctx, scope)
 				case "chat-turn-submit", "chat-turn-read", "chat-turn-recover":
 					a.chatTurn(c, ctx, scope, spec.action)
 				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-preview", "skill-authoring-confirm", "skill-authoring-recover-generation", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-package", "skill-authoring-save-recover":

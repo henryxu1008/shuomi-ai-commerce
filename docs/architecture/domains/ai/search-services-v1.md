@@ -101,3 +101,7 @@ Brave 定价页将 Search 按请求计量，独立于 Answers 模型套餐。公
 | IMPLEMENTATION_TEST（真实开放前） | SaaS 平台授权、租户 BYOK 代调用授权、最终用户条款、结果展示许可与逐笔账务证据。 | 分别按实际合同和账户核实。模拟通过后按独立授权办理。 |
 
 结论：两项设计阻塞已收敛。用户于 2026-11-19 确认费用方案并授权执行，模拟交付范围达到 IMPLEMENTATION_READY。模拟和真实验收尚未执行，真实启用需另行批准。
+
+## 运行接线
+
+运行字段为 `aiWorkbench.publicWebSearch`，缺省关闭。获准开放时复用当前企业允许名单、可信平台维护机构、路由配置 writer 和渠道凭据读写角色。由已有 Product Agent 数据库 owner 在同一事务显式安装[搜索表](../../../../internal/integration/persistence/websearch/schema.sql)并[授予窄权限](../../../../internal/integration/persistence/websearch/grant.sql)，运行进程启动时只校验，配置写账号不可修改原配置回执或删除搜索记录。渠道凭据 owner 在保存、轮换或停用 Brave Key 的同一事务记录该版本的数据库时间，原回执按原版本读取该时间。渠道凭据 writer 只可读该时间并添加版本，不能改写时间。隔离测试在任务自有数据库执行同样的准备，Brave 客户端注入本地传输替身。实际厂商许可、应用条款、账户硬上限及真实验收仍使用前文的启用条件。

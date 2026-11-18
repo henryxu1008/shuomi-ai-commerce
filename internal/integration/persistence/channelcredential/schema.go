@@ -35,6 +35,14 @@ func VerifyManagementWriter(ctx context.Context, db *gorm.DB) error {
  AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p','v','m','f')
  AND c.oid NOT IN ('public.ai_channel_connections'::regclass,'public.ai_channel_connection_receipts'::regclass)
+ AND (c.oid IS DISTINCT FROM to_regclass('public.ai_search_credential_versions') OR NOT (
+  c.relkind='r' AND c.relpersistence='p' AND pg_get_userbyid(c.relowner)='product_agent_owner'
+  AND has_table_privilege(current_user,c.oid,'SELECT')
+  AND has_column_privilege(current_user,c.oid,'organization_id','INSERT')
+  AND has_column_privilege(current_user,c.oid,'revision','INSERT')
+  AND NOT has_column_privilege(current_user,c.oid,'updated_at','INSERT')
+  AND NOT has_table_privilege(current_user,c.oid,'DELETE,TRUNCATE,TRIGGER,SELECT WITH GRANT OPTION')
+  AND NOT has_any_column_privilege(current_user,c.oid,'UPDATE,REFERENCES,INSERT WITH GRANT OPTION')))
  AND (c.oid IS DISTINCT FROM to_regclass('public.ai_channel_registrations') OR NOT (
   c.relkind='r' AND c.relpersistence='p' AND pg_get_userbyid(c.relowner)='product_agent_owner'
   AND has_table_privilege(current_user,c.oid,'SELECT') AND has_table_privilege(current_user,c.oid,'INSERT')

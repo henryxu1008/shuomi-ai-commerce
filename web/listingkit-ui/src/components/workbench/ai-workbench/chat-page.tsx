@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ConsolePage, ConsoleState, ConsoleToolbar } from "../console/console-page";
+import { ChatPublicSearch } from "./chat-public-search";
 import { ModelServicesLink } from "../account/model-services-link";
 import { ChatIntroduction, NewConversationIntroduction } from "./chat-introduction";
 import { ChatVoiceInput } from "./chat-voice-input";
@@ -869,6 +870,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {canStartSkillAuthoring && creatorSelected && (clarifySkillPurpose || !canChatTurn) && canUse && !current.Archived && !pending && !pendingMessage && content.trim() &&
       <ContinueTextSkill scope={scope} authorizationKey={authorizationKey} onContinue={choice=>openTextAuthoring(choice,content)}/>}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
+    {current.businessScope?.kind === "general" && execution.effectiveMemberId && !execution.error && !execution.isSwitching && <ChatPublicSearch key={JSON.stringify([scope, authorizationKey, id])} scope={scope} id={id} member={execution.effectiveMemberId} canUse={canUse && !current.Archived} />}
     {!current.Archived && canUse && usingTextSkill ? <Card className={styles.composer}>
       <h2>{textSkill?.name || "使用个人文字技能"}</h2>
       <label className={styles.promptLabel}>要处理的文字<Textarea ref={textSkillInput} rows={5} value={pendingMessage?.body.content ?? content} disabled={Boolean(pendingMessage) || pending || !draftHydrated} onChange={event=>updateConversationDraft(event.target.value)} /></label>

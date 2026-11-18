@@ -9,6 +9,8 @@ import (
 	"task-processor/internal/aicapability"
 )
 
+const BraveWebSearchConnection = "brave-web-search-v1"
+
 const (
 	OfficialMiniTemplate    = "openai-mini-v1"
 	CompatibleMiniTemplate  = "openai-compatible-mini-v1"

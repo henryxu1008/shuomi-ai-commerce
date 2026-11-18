@@ -181,7 +181,10 @@ func execute() error {
 		NewApplicationWithFeatures: func(ctx context.Context, source *gorm.DB, features currentapplication.ApplicationFeatures, cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
 			options := make([]httpapi.CurrentApplicationOption, 0, 6)
 			if features.SharedModels != nil {
-				pricing := httpapi.ModelRoutePricingDependencies{Shared: features.SharedModels, Prices: features.OfficialModelPrices, Credentials: features.ChannelCredentialManagement}
+				pricing := httpapi.ModelRoutePricingDependencies{Search: features.Search, Shared: features.SharedModels, Prices: features.OfficialModelPrices, Credentials: features.ChannelCredentialManagement}
+				if features.Search != nil && features.AIWorkbench != nil {
+					pricing.SearchOrganizations = append([]string(nil), features.AIWorkbench.AllowedOrganizationIDs...)
+				}
 				if features.ChannelModelQuery != nil {
 					pricing.ModelQuery = features.ChannelModelQuery
 				}
@@ -270,7 +273,7 @@ func execute() error {
 				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{ScriptSandbox: p.ScriptSandbox, ScriptTrialIdentity: p.ScriptTrialIdentity, TitlePilotOperator: operator, ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, ResearchTextPolicies: p.ResearchTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
 			}
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
-				chat := httpapi.AIWorkbenchDependencies{ChatTurnsEnabled: features.AIWorkbench.ChatTurnsEnabled, DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, StoreRouteTextPolicies: features.AIWorkbench.StoreRouteTextPolicies, ChatIntentTextPolicies: features.AIWorkbench.ChatIntentTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}
+				chat := httpapi.AIWorkbenchDependencies{Search: features.Search, ChatTurnsEnabled: features.AIWorkbench.ChatTurnsEnabled, DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, StoreRouteTextPolicies: features.AIWorkbench.StoreRouteTextPolicies, ChatIntentTextPolicies: features.AIWorkbench.ChatIntentTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}
 				if features.AIWorkbenchScheduleClient != nil {
 					chat.StoreDailyReports = features.AIWorkbench.Schedules != nil && features.AIWorkbench.Schedules.StoreDailyReports
 					chat.Schedules = &scheduledruntime.Backend{Client: features.AIWorkbenchScheduleClient}

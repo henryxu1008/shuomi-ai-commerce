@@ -14,6 +14,7 @@ import (
 // AIWorkbenchConfig uses the Product Agent's logical database with its own
 // least-privilege role. Planning policies never borrow title admission.
 type AIWorkbenchConfig struct {
+	PublicWebSearch            bool                            `json:"publicWebSearch,omitempty"`
 	Schedules                  *AIWorkbenchSchedulesConfig     `json:"schedules,omitempty"`
 	ChatTurnsEnabled           bool                            `json:"chatTurnsEnabled,omitempty"`
 	Enabled                    bool                            `json:"enabled"`
@@ -30,6 +31,9 @@ type AIWorkbenchConfig struct {
 func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w == nil {
 		return nil
+	}
+	if w.PublicWebSearch && (!w.Enabled || cfg.ModelRoutePricing == nil || cfg.ModelRoutePricing.PlatformMaintainerOrganization == "" || !cfg.channelManagementEnabled()) {
+		return errors.New("public web search requires platform channels and channel credential management")
 	}
 	if w.ChatTurnsEnabled && (!w.Enabled || w.ConversationOnly || cfg.ModelRoutePricing == nil) {
 		return errors.New("Chat turns require an enabled priced-model workbench")

@@ -5,6 +5,7 @@ import Link from "next/link";
 import {useQuery,useQueryClient} from "@tanstack/react-query";
 import {z} from "zod";
 import {automaticFXStatus} from "@/lib/contracts/model-route-pricing";
+import { SearchServiceSettings, useSearchSettingsAvailable } from "./search-service-settings";
 import {useWorkbenchContext} from "@/components/providers/workbench-context-provider";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
@@ -80,7 +81,7 @@ export function ModelRoutePricingPage({expectedUserId,navigation}:{expectedUserI
  </ConsolePage>;
 }
 
-type ModelSettingsArea = "enterprise" | "platform-prices" | "credentials";
+type ModelSettingsArea = "enterprise" | "platform-prices" | "credentials" | "search";
 type ModelDestination = { area: ModelSettingsArea; category?: ModelServiceCategory; model?: ModelOption };
 const settingsKey = (scope: ModelRouteScope) => ["model-services",scope] as const;
 
@@ -91,8 +92,9 @@ function usePublishedModels(scope:ModelRouteScope,enabled=true) {
 function ModelSettings({ scope, name, configure, platform, credentials, channels, canMaintain, navigation }: { scope: ModelRouteScope; name: string; configure: boolean; platform: boolean; credentials: boolean; channels:boolean; canMaintain: boolean; navigation?:ModelServicesNavigation }) {
  const context=useWorkbenchContext();
  const client=useQueryClient();
+ const searchAvailable=useSearchSettingsAvailable(scope,configure,credentials&&channels,platform);
  const [destination,setDestination]=useState<ModelDestination>(()=>({
-  area:configure?"enterprise":credentials||channels?"credentials":"platform-prices",
+  area:navigation?.category==="search"?"search":configure?"enterprise":credentials||channels?"credentials":"platform-prices",
   category:configure?navigation?.category:undefined,
  }));
  const [draft,setDraft]=useState<RouteInput|null>(null);
@@ -149,6 +151,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, channels
    { id: "enterprise", label: "企业模型", available: configure },
    { id: "credentials", label: textChoiceEnabled&&channels?"管理自有渠道":"提供方与 Key", available: credentials||channels },
    { id: "platform-prices", label: "参考价格与汇率", available: platform },
+   { id: "search", label: "搜索服务", available: searchAvailable.data===true||navigation?.category==="search" },
  ] as const;
  const availableAreas = areas.filter(item => item.available);
  return <div className={styles.stack}>
@@ -178,7 +181,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, channels
      {configure&&<Button variant="ghost" onClick={returnToOverview}>返回使用概览</Button>}
      {context.error&&!configure&&<Button variant="outline" disabled={checking} onClick={()=>void refresh()}>重新读取状态</Button>}
    </div>
-   {area === "enterprise" ? (textChoiceEnabled&&destination.category!=="multimodal"&&destination.category!=="image-generation"?<EnterpriseTextChoice scope={scope} member={context.effectiveMemberId??""} focusId={focusReference} onSaved={()=>refresh(true)}/>:<EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} imageOnly={textChoiceEnabled} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials||channels?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />)
+   {area === "search" ? <SearchServiceSettings scope={scope} member={context.effectiveMemberId??""} configure={configure} owned={credentials&&channels} platform={platform} canWrite={canMaintain&&!blocked}/> : area === "enterprise" ? (textChoiceEnabled&&destination.category!=="multimodal"&&destination.category!=="image-generation"?<EnterpriseTextChoice scope={scope} member={context.effectiveMemberId??""} focusId={focusReference} onSaved={()=>refresh(true)}/>:<EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} imageOnly={textChoiceEnabled} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials||channels?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />)
      : area === "credentials" ? <ChannelCredentialsManager scope={scope} testMemberId={context.permissions.includes("workbench.ai.connection.test")?context.effectiveMemberId??undefined:undefined} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)}
        canManageKeys={credentials} manageChannelsMemberId={channels?context.effectiveMemberId??undefined:undefined}
        onSelectModel={configure&&published.data&&!published.isError?(connection,reference)=>{
@@ -194,7 +197,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, channels
         openSettings({area:"enterprise",category:"text"},"text");
        }:undefined} />
        : <><PlatformChannelConfiguration scope={scope} member={context.effectiveMemberId??""} organizations={context.organizations} onSaved={()=>refresh(true)}/><OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} /></>}
-   {area !== "credentials" && <details className={styles.help}>
+   {area !== "credentials" && area !== "search" && <details className={styles.help}>
      <summary>AI 点数如何结算</summary>
      <p>1 AI 点等于 ¥0.01，精确到百万分之一点。发起调用前预留点数，完成后按已记录用量和当时的参考价与汇率结算，释放多余点数。缺少可靠用量时保留待确认状态。估算与厂商最终账单可能有差异。</p>
    </details>}

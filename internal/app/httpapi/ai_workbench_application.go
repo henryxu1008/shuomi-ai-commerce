@@ -13,6 +13,7 @@ import (
 	"task-processor/internal/agent"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
+	"task-processor/internal/aicapability/websearch"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/app/scheduledreport"
 	"task-processor/internal/authidentity"
@@ -26,6 +27,7 @@ import (
 )
 
 type AIWorkbenchDependencies struct {
+	Search                 *websearch.Service
 	ChatTurnsEnabled       bool
 	StoreDailyReports      bool
 	ScheduleStop           *func()
@@ -43,6 +45,7 @@ type AIWorkbenchDependencies struct {
 }
 
 type aiWorkbenchApplication struct {
+	search                 *websearch.Service
 	chatTurnsEnabled       bool
 	authoring              *workbenchSkillAuthoring
 	dailyReports           *scheduledreport.Application
@@ -144,7 +147,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		if err != nil {
 			return nil, err
 		}
-		app := &aiWorkbenchApplication{store: store, conversationOnly: true, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...), resolver: cfg.resolver, authorizer: cfg.authorizer}
+		app := &aiWorkbenchApplication{search: cfg.Search, store: store, conversationOnly: true, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...), resolver: cfg.resolver, authorizer: cfg.authorizer}
 		// Keep the existing worker/receipt recovery connection when capture is
 		// disabled. Readiness still gates all new captures independently.
 		app.schedules, app.scheduleStop = cfg.Schedules, cfg.ScheduleStop
@@ -252,7 +255,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 	planner := &workbenchPlanner{agent: a, routes: resolver, text: executor, model: einoplanner.Planner{Text: &titleGatedPlanningText{
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
-	app := &aiWorkbenchApplication{chatTurnsEnabled: cfg.ChatTurnsEnabled, store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
+	app := &aiWorkbenchApplication{search: cfg.Search, chatTurnsEnabled: cfg.ChatTurnsEnabled, store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
 	app.dailyReportsEnabled = cfg.StoreDailyReports
 	app.resolver, app.authorizer = cfg.resolver, cfg.authorizer
 	storeRouteAllowed := make(map[string]bool, len(cfg.StoreRouteTextPolicies))
