@@ -511,7 +511,7 @@ and volumes. Once the started marker exists, an apply or output may already
 have changed native identity facts: the existing refusal to retry still applies.
 Do not remove markers to force a retry. Existing failed projects with a started
 marker are not repaired by this change. See the
-[preflight boundary](../../../docs/architecture/compose-tofu-preflight.md).
+[preflight boundary](../../../docs/architecture/platform/runtime/compose-tofu-preflight.md).
 
 Use a **new project name and empty volumes** for this layout. It is not an
 upgrade/migration command for retained multi-instance projects. Their containers,

@@ -176,7 +176,7 @@ func directInternalImporterMap(t *testing.T, targets []string) map[string][]stri
 }
 
 func TestTemporalBoundaryDocumentDefinesStableReviewRules(t *testing.T) {
-	path := filepath.Join("..", "docs", "architecture", "temporal-boundaries.md")
+	path := filepath.Join("..", "docs", "architecture", "platform", "runtime", "temporal-boundaries.md")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
