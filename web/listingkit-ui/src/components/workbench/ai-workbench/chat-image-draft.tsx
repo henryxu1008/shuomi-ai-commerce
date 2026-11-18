@@ -200,7 +200,7 @@ export function useChatImageDraft(scope:AIScope,member:string,entry:string,enabl
       if(original&&error instanceof AIWorkbenchError&&error.messageAccepted===false){
         try{
           if(await finishRequest(original,true))setNotice(error.code==="STORAGE_LIMIT_EXCEEDED"?
-            "企业存储空间不足，请移除图片或更换较小的图片后重试。":"图片未发送。请检查图片格式和大小后重试。");
+            "企业存储空间不足，请移除图片或更换较小的图片后重试。":"图片未发送。请检查图片格式，或调整图片和问题后重试。");
           return;
         }catch{
           setNotice("原图片提问已保留，请检查浏览器存储后重试。");

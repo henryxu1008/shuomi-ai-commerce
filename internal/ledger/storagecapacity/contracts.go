@@ -21,6 +21,7 @@ const (
 var (
 	ErrInvalid     = errors.New("storage capacity input is invalid")
 	ErrExceeded    = errors.New("enterprise storage capacity exceeded")
+	ErrRejected    = errors.New("storage write was rejected before admission")
 	ErrConflict    = errors.New("storage capacity identity conflict")
 	ErrUnknown     = errors.New("storage write result is unknown")
 	ErrNotFound    = errors.New("storage capacity identity not found")
@@ -123,12 +124,14 @@ type Writer interface {
 	CloseWrite(context.Context, string, string, CloseProof) error
 }
 
-// WriteLimitRecorder is for callers that must make a capacity rejection
-// permanent for the original operation. ErrExceeded means the rejection
-// receipt committed under the same lock as reservation admission.
-type WriteLimitRecorder interface {
+// WriteAdmissionRecorder is for callers whose original operation must stay
+// rejected once a pre-write rejection is proven under the admission lock.
+// ErrExceeded and ErrRejected certify a committed receipt in these methods;
+// RejectBeforeWrite leaves an existing reservation untouched and returns ErrUnknown.
+type WriteAdmissionRecorder interface {
 	Writer
 	ReserveWriteWithLimitReceipt(context.Context, WriteIntent) (Reservation, error)
+	RejectBeforeWrite(context.Context, WriteIntent) error
 }
 
 type Reader interface {

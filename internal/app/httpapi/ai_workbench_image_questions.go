@@ -101,6 +101,8 @@ func (a *aiWorkbenchApplication) postChatImages(c *gin.Context, ctx context.Cont
 				body["messageAccepted"] = false
 			}
 			c.JSON(http.StatusConflict, body)
+		case provenUnaccepted && errors.Is(err, storagecapacity.ErrRejected):
+			writeAIWorkbenchError(c, &aiworkbench.MessageNotAcceptedError{Cause: aiworkbench.ErrInvalid})
 		case errors.Is(err, storagecapacity.ErrConflict):
 			writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
 		default:
@@ -179,7 +181,7 @@ func (p *workbenchPlanner) admitChatImages(ctx context.Context, scope aiworkbenc
 	operation := aiworkbench.ChatImageOperation(scope, member, conversation.ID, upload.key)
 	model := chatImageModelInput(scope, member, "", operation, input.Content, input.ChatImages, route.Profile)
 	if _, err = aicapability.QuoteText(model); err != nil {
-		return nil, aiworkbench.ErrInvalid
+		return nil, a.chatImages.rejectBudget(fresh, scope.OrganizationID, operation, input.Content, input.ChatImages)
 	}
 	profile, err := json.Marshal(route.Profile)
 	if err != nil {

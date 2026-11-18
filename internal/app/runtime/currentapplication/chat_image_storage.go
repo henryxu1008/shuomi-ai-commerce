@@ -13,7 +13,7 @@ import (
 // ChatImageStorageRuntime carries the private object and capacity ports to the application composer.
 type ChatImageStorageRuntime struct {
 	Objects   *s3integration.Uploader
-	Capacity  storagecapacity.WriteLimitRecorder
+	Capacity  storagecapacity.WriteAdmissionRecorder
 	Namespace string
 }
 

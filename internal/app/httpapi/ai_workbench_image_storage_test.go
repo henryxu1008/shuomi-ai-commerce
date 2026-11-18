@@ -137,3 +137,32 @@ func TestChatImageStorageLimitRejectionPermanentlyFencesOriginalRequest(t *testi
 	require.NoError(t, store.store(ctx, "org", next, "compare", pictures, group))
 	require.Equal(t, map[string]int{aiworkbench.ChatImageObject(next, 0): 1}, objects.writes)
 }
+
+func TestChatImageBudgetRejectionOnlyFencesUnacceptedWrite(t *testing.T) {
+	ctx := context.Background()
+	capacity := chatImageStorageCapacityFixture(t)
+	var raw bytes.Buffer
+	require.NoError(t, png.Encode(&raw, image.NewRGBA(image.Rect(0, 0, 1, 1))))
+	group := [][]byte{raw.Bytes()}
+	pictures, err := inspectChatImages(group)
+	require.NoError(t, err)
+	objects := &interruptedChatImageObjects{objects: make(map[string]s3.ImmutableObjectPut), writes: make(map[string]int)}
+	store := &ChatImageStorage{Objects: objects, Capacity: capacity, Namespace: "private-test"}
+	operation := storagecapacity.Digest("budget-rejection")
+
+	var proof *aiworkbench.MessageNotAcceptedError
+	err = store.rejectBudget(ctx, "org", operation, "compare", pictures)
+	require.ErrorAs(t, err, &proof)
+	require.ErrorIs(t, proof.Cause, storagecapacity.ErrRejected)
+	// Changing the model budget later cannot turn the old rejection into a write.
+	err = store.store(ctx, "org", operation, "compare", pictures, group)
+	require.ErrorAs(t, err, &proof)
+	require.ErrorIs(t, proof.Cause, storagecapacity.ErrRejected)
+	require.Empty(t, objects.writes)
+
+	next := storagecapacity.Digest("admitted-before-budget-changed")
+	require.NoError(t, store.store(ctx, "org", next, "compare", pictures, group))
+	require.ErrorIs(t, store.rejectBudget(ctx, "org", next, "compare", pictures), errChatImageStorageUnknown)
+	require.NoError(t, store.store(ctx, "org", next, "compare", pictures, group))
+	require.Equal(t, map[string]int{aiworkbench.ChatImageObject(next, 0): 1}, objects.writes)
+}

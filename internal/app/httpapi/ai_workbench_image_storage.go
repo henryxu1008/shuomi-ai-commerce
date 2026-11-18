@@ -28,7 +28,7 @@ type ChatImageStorage struct {
 		PutImmutable(context.Context, s3.ImmutableObjectPut) error
 		ReadObject(context.Context, string, int64) ([]byte, s3.ObjectInspection, error)
 	}
-	Capacity  storagecapacity.WriteLimitRecorder
+	Capacity  storagecapacity.WriteAdmissionRecorder
 	Namespace string
 }
 
@@ -83,34 +83,51 @@ func (s *ChatImageStorage) read(ctx context.Context, operation string, index int
 	return data, true, nil
 }
 
+func chatImageWriteIntent(org, operation, question string, pictures []aiworkbench.ChatImage) storagecapacity.WriteIntent {
+	wire, _ := json.Marshal(struct {
+		Question string
+		Pictures []aiworkbench.ChatImage
+	}{question, pictures})
+	var total int64
+	for _, picture := range pictures {
+		total += int64(picture.Bytes)
+	}
+	return storagecapacity.WriteIntent{OrganizationID: org, Owner: chatImageCapacityOwner, OperationID: operation,
+		Fingerprint: storagecapacity.Digest(string(wire)), MaxBytes: total, MaxObjects: len(pictures)}
+}
+
+func chatImageAdmissionError(err error) error {
+	if errors.Is(err, storagecapacity.ErrExceeded) || errors.Is(err, storagecapacity.ErrRejected) {
+		return &aiworkbench.MessageNotAcceptedError{Cause: err}
+	}
+	if errors.Is(err, storagecapacity.ErrUnknown) {
+		return errChatImageStorageUnknown
+	}
+	return err
+}
+
+func (s *ChatImageStorage) rejectBudget(ctx context.Context, org, operation, question string, pictures []aiworkbench.ChatImage) error {
+	return chatImageAdmissionError(s.Capacity.RejectBeforeWrite(ctx, chatImageWriteIntent(org, operation, question, pictures)))
+}
+
 func (s *ChatImageStorage) store(ctx context.Context, org, operation, question string, pictures []aiworkbench.ChatImage, data [][]byte) error {
 	if !s.available() || !aiworkbench.ValidChatImageSelection(pictures) || len(data) != len(pictures) {
 		return aiworkbench.ErrUnavailable
 	}
 	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
-	wire, _ := json.Marshal(struct {
-		Question string
-		Pictures []aiworkbench.ChatImage
-	}{question, pictures})
-	fingerprint := storagecapacity.Digest(string(wire))
+	intent := chatImageWriteIntent(org, operation, question, pictures)
 	objects := make([]storagecapacity.Object, len(pictures))
-	var total int64
 	for n, picture := range pictures {
 		if governed.ValidateSingleImageContent(picture.ModelInput(picture.SHA256), data[n]) != nil {
 			return aiworkbench.ErrInvalid
 		}
 		objects[n] = storagecapacity.Object{Namespace: s.Namespace, Key: aiworkbench.ChatImageObject(operation, n),
 			SHA256: picture.SHA256, SizeBytes: int64(picture.Bytes), Category: "business_attachment"}
-		total += objects[n].SizeBytes
 	}
-	reservation, err := s.Capacity.ReserveWriteWithLimitReceipt(ctx, storagecapacity.WriteIntent{OrganizationID: org, Owner: chatImageCapacityOwner,
-		OperationID: operation, Fingerprint: fingerprint, MaxBytes: total, MaxObjects: len(objects)})
-	if errors.Is(err, storagecapacity.ErrExceeded) {
-		return &aiworkbench.MessageNotAcceptedError{Cause: err}
-	}
+	reservation, err := s.Capacity.ReserveWriteWithLimitReceipt(ctx, intent)
 	if err != nil {
-		return err
+		return chatImageAdmissionError(err)
 	}
 	if s.Capacity.BindObjects(ctx, org, reservation.ID, objects) != nil || s.Capacity.ClaimDispatch(ctx, org, reservation.ID) != nil {
 		return errChatImageStorageUnknown
@@ -131,7 +148,7 @@ func (s *ChatImageStorage) store(ctx context.Context, org, operation, question s
 		}
 	}
 	proof := storagecapacity.CloseProof{Owner: chatImageCapacityOwner, OperationID: operation,
-		Fingerprint: fingerprint, TerminalReceipt: "chat-image:" + operation}
+		Fingerprint: intent.Fingerprint, TerminalReceipt: "chat-image:" + operation}
 	if s.Capacity.CloseWrite(ctx, org, reservation.ID, proof) != nil {
 		return errChatImageStorageUnknown
 	}

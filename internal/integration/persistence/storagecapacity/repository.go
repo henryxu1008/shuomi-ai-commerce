@@ -191,19 +191,34 @@ func (r *Repository) FindObjectWrite(ctx context.Context, org, owner string, o s
 }
 
 const capacityLimitReceipt = "storage-capacity-limit-rejected-v1"
+const preWriteRejectionReceipt = "storage-write-rejected-before-admission-v1"
+
+type writeAdmissionMode uint8
+
+const (
+	reserveIfFits writeAdmissionMode = iota
+	reserveWithLimitReceipt
+	rejectBeforeWrite
+)
 
 func (r *Repository) ReserveWrite(ctx context.Context, i storagecapacity.WriteIntent) (storagecapacity.Reservation, error) {
-	return r.reserveWrite(ctx, i, false)
+	return r.reserveWrite(ctx, i, reserveIfFits)
 }
 
 func (r *Repository) ReserveWriteWithLimitReceipt(ctx context.Context, i storagecapacity.WriteIntent) (storagecapacity.Reservation, error) {
-	return r.reserveWrite(ctx, i, true)
+	return r.reserveWrite(ctx, i, reserveWithLimitReceipt)
 }
 
-func (r *Repository) reserveWrite(ctx context.Context, i storagecapacity.WriteIntent, recordLimit bool) (result storagecapacity.Reservation, err error) {
+func (r *Repository) RejectBeforeWrite(ctx context.Context, i storagecapacity.WriteIntent) error {
+	_, err := r.reserveWrite(ctx, i, rejectBeforeWrite)
+	return err
+}
+
+func (r *Repository) reserveWrite(ctx context.Context, i storagecapacity.WriteIntent, mode writeAdmissionMode) (result storagecapacity.Reservation, err error) {
 	if err = i.Validate(); err != nil {
 		return
 	}
+	var rejection error
 	err = r.locked(ctx, i.OrganizationID, func(tx *gorm.DB, a *accountRow, now time.Time) error {
 		var row reservationRow
 		e := tx.First(&row, "organization_id = ? AND owner = ? AND operation_id = ?", i.OrganizationID, i.Owner, i.OperationID).Error
@@ -211,8 +226,17 @@ func (r *Repository) reserveWrite(ctx context.Context, i storagecapacity.WriteIn
 			if row.Fingerprint != i.Fingerprint || row.MaxBytes != i.MaxBytes || row.MaxObjects != i.MaxObjects {
 				return storagecapacity.ErrConflict
 			}
-			if row.State == "ABORTED" && (!recordLimit || row.TerminalReceipt != capacityLimitReceipt) {
-				return storagecapacity.ErrConflict
+			if row.State == "ABORTED" {
+				switch {
+				case mode != reserveIfFits && row.TerminalReceipt == capacityLimitReceipt:
+					rejection = storagecapacity.ErrExceeded
+				case mode != reserveIfFits && row.TerminalReceipt == preWriteRejectionReceipt:
+					rejection = storagecapacity.ErrRejected
+				default:
+					return storagecapacity.ErrConflict
+				}
+			} else if mode == rejectBeforeWrite {
+				return storagecapacity.ErrUnknown
 			}
 			result = toReservation(row)
 			return nil
@@ -220,34 +244,41 @@ func (r *Repository) reserveWrite(ctx context.Context, i storagecapacity.WriteIn
 		if !errors.Is(e, gorm.ErrRecordNotFound) {
 			return e
 		}
-		q, e := quota(tx, i.OrganizationID, now)
-		if e != nil {
-			return e
-		}
-		exceeded := a.Occupied > q || a.Reserved > q-a.Occupied || i.MaxBytes > q-a.Occupied-a.Reserved
-		if exceeded && !recordLimit {
-			return storagecapacity.ErrExceeded
-		}
 		row = reservationRow{ID: uuid.NewString(), OrganizationID: i.OrganizationID, Owner: i.Owner, OperationID: i.OperationID, Fingerprint: i.Fingerprint, MaxBytes: i.MaxBytes, MaxObjects: i.MaxObjects, Remaining: i.MaxBytes, State: "RESERVED"}
-		if exceeded {
-			// Keep the existing aborted state and no bytes held. The immutable
-			// operation identity fences a delayed same-key reservation.
+		if mode == rejectBeforeWrite {
+			rejection = storagecapacity.ErrRejected
+			row.TerminalReceipt = preWriteRejectionReceipt
+		} else {
+			q, err := quota(tx, i.OrganizationID, now)
+			if err != nil {
+				return err
+			}
+			if a.Occupied > q || a.Reserved > q-a.Occupied || i.MaxBytes > q-a.Occupied-a.Reserved {
+				if mode == reserveIfFits {
+					return storagecapacity.ErrExceeded
+				}
+				rejection = storagecapacity.ErrExceeded
+				row.TerminalReceipt = capacityLimitReceipt
+			}
+		}
+		if rejection != nil {
+			// No bytes are held. The existing terminal state fences a later
+			// reservation of the same immutable operation.
 			row.State = "ABORTED"
 			row.Remaining = 0
-			row.TerminalReceipt = capacityLimitReceipt
 		}
 		if e = tx.Create(&row).Error; e != nil {
 			return e
 		}
 		result = toReservation(row)
-		if exceeded {
+		if rejection != nil {
 			return nil
 		}
 		a.Reserved += i.MaxBytes
 		return saveAccount(tx, a)
 	})
-	if err == nil && result.State == "ABORTED" {
-		return result, storagecapacity.ErrExceeded
+	if err == nil {
+		err = rejection
 	}
 	return
 }
