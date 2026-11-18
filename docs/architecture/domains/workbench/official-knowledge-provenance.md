@@ -12,7 +12,7 @@ Design Basis: Independent Architecture（官方 Article 公共读取合同变化
 
 用户仍通过 AI工作台 → 知识库 → 官方知识库 → 查看内容，在产品内阅读真实指南、准确版本、
 维护方及依据名称。页面/API/目录构建都不使用GitHub地址，不仅是隐藏链接。
-Figma/Product Authority：[当前 UI authority](../product/final-ui-ia-authority.md)、原官方页面
+Figma/Product Authority：[当前 UI authority](../../../product/final-ui-ia-authority.md)、原官方页面
 `682:359`与本次用户批准的局部变更。保留原页面/来源卡片，只将外部链接变为纯文本依据；不新增导航。
 
 Scope：移除官方来源URL字段与GitHub白名单、发布指南v2、准确读取与拒绝旧shape、现有页面/文档/测试同步。
