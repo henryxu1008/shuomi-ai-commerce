@@ -29,6 +29,7 @@ function useCatalog(scope: AIScope, authorizationKey: string, enabled: boolean) 
 
 export type SelectedTextSkill = AITextSkillRef & { name: string };
 const generalAuthoringVersion = 3;
+const ownedModelUsageNotice = "企业自有模型 · 硕米只记录用量";
 
 export function ContinueTextSkill({scope,authorizationKey,onContinue}:{scope:AIScope;authorizationKey:string;onContinue:(choice:AISkillAuthoringChoice)=>void}) {
   const catalog=useCatalog(scope,authorizationKey,true);
@@ -202,7 +203,7 @@ export function ChatSkillAuthoring({scope,authorizationKey,conversation,initialJ
   {!initialJob&&!job&&list.isSuccess&&!list.data.drafts.length?<p>暂无草稿。可以直接在聊天中描述要创建的标题技能。</p>:null}
   {job&&<div className={styles.jobContent}>
    <p role="status">{job.superseded?"这次修改未覆盖当前草稿。":generationStatus[job.state]}</p>
-   {job.billing === "usage_only" && <p>企业自有模型 · 硕米只记录用量</p>}
+   {job.billing === "usage_only" && <p>{ownedModelUsageNotice}</p>}
    {!readOnly&&(job.state==="READY"||job.state==="UNKNOWN"||job.state==="QUOTED")&&!initialJob?<Button variant="outline" disabled={busy} onClick={()=>void perform(signal=>requestAIWorkbench({route:(job.generationKey??job.key)[14]==="7"?"skill-authoring-recover-generation":"skill-authoring-generate",method:"POST",scope,path:path+"/"+(job.generationKey??job.key)+((job.generationKey??job.key)[14]==="7"?"/recover-generation":"/generate"),signal}))}>核实原生成请求</Button>:null}
    {job.savedSkillId?<p className={styles.savedNotice}>已保存到我的技能。 <Link href={"/workbench/agents/skills/mine?skillId="+job.savedSkillId}>查看我的技能</Link></p>:!readOnly&&(saveCheck||job.savePending)?<Button variant="outline" disabled={busy} onClick={()=>void perform(signal=>requestAIWorkbench({route:"skill-authoring-save-recover",method:"POST",scope,path:path+"/"+job.key+"/recover-save",signal}),"recover-save")}>核实原保存</Button>:draft&&<div className={styles.draftEditor}>
     <TitleSkillDraftFields draft={draft} disabled={busy} editable={editable} onChange={updateDraft}/>
@@ -461,6 +462,7 @@ export function GeneralSkillAuthoring({ scope, memberId, authorizationKey, conve
     {recheck && <Button variant="outline" disabled={busy} onClick={() => generate(recheck)}>核实原生成请求</Button>}
     {job && <div className={styles.jobContent}>
       <p className={styles.generationStatus} role="status">{job.superseded ? "这次修改未覆盖当前草稿。" : generalGenerationStatus[job.state]}</p>
+      {job.billing === "usage_only" && <p>{ownedModelUsageNotice}</p>}
       {job.savedSkillId ? <div className={styles.savedNotice}><p>已保存到我的技能。 <Link className="underline" href={"/workbench/agents/skills/mine?skillId=" + job.savedSkillId}>查看我的技能</Link></p>
         {job.savedSkill && onUseTextSkill && <Button type="button" onClick={() => {if (job.savedSkill) onUseTextSkill({...job.savedSkill, name:job.draft?.displayName || "个人文字技能"});}}>在 Chat 中使用</Button>}</div>
         : saveCheck || job.savePending ? <Button variant="outline" disabled={busy} onClick={() => save(true)}>核实原保存</Button>

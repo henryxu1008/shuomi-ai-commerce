@@ -1409,7 +1409,7 @@ it("keeps the original skill draft open for editing after collapsing and reopeni
 
 it("preserves the text skill requirement and draft edits after collapsing and reopening",async()=>{
  const skill={id:operationId,version:3,digest:"a".repeat(64),name:"创建技能",description:"创建文字技能"};
- const job={key:operationId,revision:operationId,purpose:"chat-text",state:"COMPLETE",savePending:false,
+ const job={key:operationId,revision:operationId,purpose:"chat-text",state:"COMPLETE",billing:"usage_only",savePending:false,
   draft:{name:"handoff",displayName:"交接笔记整理",description:"整理交接事项",instructions:"原规则"}};
  fixture.search.set("skillAuthoring","1");
  fixture.search.set("skillVersion","3");
@@ -1432,6 +1432,7 @@ it("preserves the text skill requirement and draft edits after collapsing and re
   await collapseAndResume("技能需求");
   expect(await screen.findByLabelText("技能需求")).toHaveValue("整理交接待办");
   fireEvent.click(await screen.findByRole("button",{name:"交接笔记整理"}));
+  expect(screen.getByText("企业自有模型 · 硕米只记录用量")).toBeVisible();
   fireEvent.change(await screen.findByLabelText("正文"),{target:{value:"保留人工编辑"}});
   fireEvent.change(screen.getByLabelText("让 Chat 修改"),{target:{value:"补充截止日期"}});
   await collapseAndResume("正文");

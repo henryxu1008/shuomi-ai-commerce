@@ -70,7 +70,9 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
  const save=page.getByRole("button",{name:"保存到我的技能",exact:true}).last();await expect(save).toBeDisabled();await expect(save).toBeEnabled();await expect(editors.last()).toHaveValue("保留已核实的型号和规格。");expect(saves).toBe(0);await save.click();
  await expect(page.getByRole("button",{name:"核实原保存",exact:true})).toBeVisible();await page.reload();
  await page.getByRole("button",{name:"核实原保存",exact:true}).last().click();await expect(page.getByRole("link",{name:"查看我的技能"}).last()).toHaveAttribute("href","/workbench/agents/skills/mine?skillId="+skillId);
- expect(saves).toBe(1);expect(modelGenerations).toBe(2);await expect(page.getByText(/点数|费用详情/)).toHaveCount(0);
+ expect(saves).toBe(1);expect(modelGenerations).toBe(2);
+ await expect(page.getByText("平台渠道按用量扣 AI 点数，企业自有渠道由厂商计费。模型规划不会直接修改商品。",{exact:true})).toBeVisible();
+ await expect(page.getByText(/\d[\d.,]*\s*(?:AI\s*)?点数|点数金额|费用详情/)).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`chat-skill-${manual?"manual":"automatic"}.png`)});
 });
@@ -104,7 +106,7 @@ test("creates a private text skill and uses it with original-message recovery", 
   let saved = false, generated = false, complete = false, messageKey = "", unknownKey = "", sends = 0, unknownReads = 0, storeRoutes = 0;
   let rejectedKey = "";
   let generationRequests = 0, generationChecks = 0, saveRequests = 0, saveChecks = 0;
-  const job = () => ({key,revision:key,state:"COMPLETE",requirement,draft,billing:"committed",savePending:saveRequests>0&&!saved,savedSkillId:saved?savedSkill.id:null,purpose:"chat-text",...(saved?{savedSkill}:{})});
+  const job = () => ({key,revision:key,state:"COMPLETE",requirement,draft,billing:"usage_only",savePending:saveRequests>0&&!saved,savedSkillId:saved?savedSkill.id:null,purpose:"chat-text",...(saved?{savedSkill}:{})});
   await page.route("**/*", async route => {
     const req = route.request(), url = new URL(req.url()), path = url.pathname;
     if (url.origin !== origin) return route.abort();
