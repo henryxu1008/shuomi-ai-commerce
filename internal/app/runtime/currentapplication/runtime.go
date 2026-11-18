@@ -1236,26 +1236,31 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- server.Serve(listener) }()
 
+	var serveErr error
+	var waitForServe bool
 	select {
-	case serveErr := <-serveResult:
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			return fmt.Errorf("serve current application: %w", serveErr)
-		}
-		return nil
+	case serveErr = <-serveResult:
 	case <-ctx.Done():
-		shutdownContext, cancel := context.WithTimeout(context.Background(), dependencies.ShutdownTimeout)
-		shutdownErr := server.Shutdown(shutdownContext)
-		cancel()
-		if shutdownErr != nil {
-			shutdownErr = errors.Join(shutdownErr, server.Close())
-		}
-		serveErr := <-serveResult
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			shutdownErr = errors.Join(shutdownErr, fmt.Errorf("serve current application: %w", serveErr))
-		}
-		if shutdownErr != nil {
-			return fmt.Errorf("stop current application: %w", shutdownErr)
-		}
-		return nil
+		waitForServe = true
 	}
+
+	// A listener failure can leave active requests using runtime resources.
+	shutdownContext, cancel := context.WithTimeout(context.Background(), dependencies.ShutdownTimeout)
+	shutdownErr := server.Shutdown(shutdownContext)
+	cancel()
+	if shutdownErr != nil {
+		shutdownErr = errors.Join(shutdownErr, server.Close())
+	}
+	if waitForServe {
+		serveErr = <-serveResult
+	}
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		serveErr = fmt.Errorf("serve current application: %w", serveErr)
+	} else {
+		serveErr = nil
+	}
+	if shutdownErr != nil {
+		return fmt.Errorf("stop current application: %w", errors.Join(shutdownErr, serveErr))
+	}
+	return serveErr
 }
