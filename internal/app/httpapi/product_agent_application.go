@@ -389,7 +389,7 @@ func (a *productAgentApplication) AuthorizeModelInvocation(ctx context.Context, 
 	}
 	var i authidentity.AuthenticatedIdentity
 	var err error
-	if fact.Operation == aicapability.OperationAIWorkbenchChatPlan || fact.Operation == aicapability.OperationAIWorkbenchStoreRoute {
+	if fact.Operation == aicapability.OperationAIWorkbenchChatPlan || fact.Operation == aicapability.OperationAIWorkbenchStoreRoute || fact.Operation == aicapability.OperationAIWorkbenchChatIntent || fact.Operation == aicapability.OperationAIWorkbenchSkillAuthoring {
 		i, err = a.freshChatIdentity(ctx)
 	} else {
 		i, err = a.freshIdentity(ctx)

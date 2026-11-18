@@ -525,3 +525,63 @@ func TestRetiredModelReviewCASWinnerCannotBeSettled(t *testing.T) {
 	require.Zero(t, settler.settleCalls)
 	require.Zero(t, settler.releaseCalls)
 }
+
+func TestOwnedInvocationReplaysOriginalUsageWithoutCommercialSettlement(t *testing.T) {
+	ctx := context.Background()
+	db := newInvocationLedgerDB(t)
+	recorder := NewGormInvocationRecorder(db)
+	settler := &recordingInvocationUsageSettler{settleErr: fmt.Errorf("commercial path must not run")}
+	recorder.SetUsageSettler(settler)
+	started := time.Now().UTC().Truncate(time.Microsecond)
+	fact := aicapability.InvocationRecord{
+		InvocationID: "owned-invocation", TenantID: "org", UserID: "actor", MemberID: "member", InputHash: "original",
+		StartedAt: started, Operation: aicapability.OperationAIWorkbenchChatPlan, Capability: aicapability.CapabilityAIWorkbenchChatPlanning,
+		ProviderID: "openai", ModelID: "gpt-5.4-mini-2026-03-17", BillingMode: aicapability.ModelUsageOnly,
+		RoutingKey: "um-fixture", PolicyVersion: "openai-text-v1", ConfigurationVersion: "fixture-route", CredentialReference: "fixture-key-version",
+		MaximumPromptTokens: 100, MaximumCompletionTokens: 100, Outcome: aicapability.InvocationDispatched,
+	}
+	acquired, err := recorder.ClaimInvocation(ctx, fact)
+	require.NoError(t, err)
+	require.True(t, acquired)
+
+	// Read the same fact after rebuilding the runtime. A missing reply remains
+	// unresolved and reading it cannot write to either owner.
+	reader := NewGormInvocationRecorder(db)
+	reader.SetUsageSettler(settler)
+	original, found, err := reader.FindInvocation(ctx, "org", "member", fact.InvocationID, fact.InputHash)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, aicapability.InvocationDispatched, original.Outcome)
+	require.False(t, original.UsageKnown)
+	require.Equal(t, aicapability.ModelUsageOnly, original.BillingMode)
+	acquired, err = reader.ClaimInvocation(ctx, fact)
+	require.NoError(t, err)
+	require.False(t, acquired)
+
+	terminal := original
+	terminal.Outcome, terminal.FinishedAt = aicapability.InvocationSucceeded, started.Add(time.Second)
+	terminal.OutputHash, terminal.UsageKnown = "safe-result-digest", true
+	terminal.BillableUsage = &aicapability.BillableModelUsage{MappingVersion: "openai-text-v1", Complete: true}
+	tampered := terminal
+	tampered.BillingMode = ""
+	require.Error(t, reader.RecordInvocation(ctx, tampered))
+	require.NoError(t, reader.ResolveDispatchedInvocation(ctx, terminal))
+	require.NoError(t, reader.ResolveDispatchedInvocation(ctx, terminal))
+	tampered = terminal
+	tampered.OutputHash = "different"
+	require.Error(t, reader.ResolveDispatchedInvocation(ctx, tampered))
+	require.Zero(t, settler.releaseCalls)
+	require.Zero(t, settler.settleCalls)
+
+	facts, err := reader.ListOwnedModelUsage(ctx, "org", "actor", "member", time.Time{}, "", 30)
+	require.NoError(t, err)
+	require.Len(t, facts, 1)
+	require.True(t, facts[0].UsageKnown)
+	require.Zero(t, facts[0].TotalTokens)
+	require.False(t, facts[0].EstimatedCostKnown)
+	for _, scope := range [][3]string{{"other-org", "actor", "member"}, {"org", "other-actor", "member"}, {"org", "actor", "replaced-member"}} {
+		facts, err = reader.ListOwnedModelUsage(ctx, scope[0], scope[1], scope[2], time.Time{}, "", 30)
+		require.NoError(t, err)
+		require.Empty(t, facts)
+	}
+}

@@ -188,6 +188,9 @@ func execute() error {
 				if features.AutomaticFX != nil {
 					pricing.AutomaticFX = features.AutomaticFX
 				}
+				if features.PlatformChannels != nil {
+					pricing.PlatformChannels = &httpapi.PlatformModelChannels{Service: features.PlatformChannels, MaintainerOrganization: features.PlatformChannels.MaintainerOrganization, ProjectID: features.PlatformChannels.ProjectID}
+				}
 				options = append(options, httpapi.WithModelRoutePricing(pricing))
 			}
 			if features.AgentCustomizationDB != nil {
@@ -260,7 +263,7 @@ func execute() error {
 				options = append(options, httpapi.WithProductAgent(httpapi.ProductAgentDependencies{ScriptSandbox: p.ScriptSandbox, ScriptTrialIdentity: p.ScriptTrialIdentity, TitlePilotOperator: operator, ChannelCredentials: features.ChannelCredentials, CurrentTextPolicies: features.CurrentTextPolicies, RunDB: features.ProductAgentDB, ReviewDB: features.ProductReviewDB, AssetDB: features.ProductAgentAssetDB, Ledger: ledger, TextPolicies: p.TextPolicies, ContentTextPolicies: p.ContentTextPolicies, MaterialsTextPolicies: p.MaterialsTextPolicies, SelectionTextPolicies: p.SelectionTextPolicies, ResearchTextPolicies: p.ResearchTextPolicies, DiagnosisTextPolicies: p.DiagnosisTextPolicies, ImageAnalysisPolicies: p.ImageAnalysisPolicies, Enabled: true, ContentTitleOnly: p.ContentTitleOnly, ContentOnly: p.ContentOnly, AllowedOrganizationIDs: p.AllowedOrganizationIDs, Limits: p.Limits()}))
 			}
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
-				chat := httpapi.AIWorkbenchDependencies{DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, StoreRouteTextPolicies: features.AIWorkbench.StoreRouteTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}
+				chat := httpapi.AIWorkbenchDependencies{ChatTurnsEnabled: features.AIWorkbench.ChatTurnsEnabled, DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, StoreRouteTextPolicies: features.AIWorkbench.StoreRouteTextPolicies, ChatIntentTextPolicies: features.AIWorkbench.ChatIntentTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}
 				if features.AIWorkbenchScheduleClient != nil {
 					chat.StoreDailyReports = features.AIWorkbench.Schedules != nil && features.AIWorkbench.Schedules.StoreDailyReports
 					chat.Schedules = &scheduledruntime.Backend{Client: features.AIWorkbenchScheduleClient}

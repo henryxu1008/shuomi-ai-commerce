@@ -110,7 +110,7 @@ export function TaskDetail({ scope, authorizationKey, taskId, onReviewReference,
   return <div className={styles.detail}>
     {!embedded ? <div className={styles.toolbar}><Button asChild variant="outline"><Link href="/workbench/ai/tasks" prefetch={false}>返回任务中心</Link></Button><Button variant="outline" onClick={() => void task.refetch()}>刷新状态</Button></div> : null}
     <Card className={styles.detailCard}><div className={styles.heading}><h2>{item.title}</h2><span className={styles.badge}>{item.projectionAvailable ? taskState[item.state ?? ""] ?? "状态未知" : "状态暂不可用"}</span></div>
-      <dl className={styles.facts}><div><dt>当前进展</dt><dd>{item.projectionAvailable ? taskReason(item.reason ?? "", item.kind) ?? "暂无更多状态信息" : "暂时无法获取当前状态"}</dd></div>
+      <dl className={styles.facts}>{item.selectedStoreName!==undefined?<div><dt>本次任务店铺</dt><dd>{item.selectedStoreName||"未选择"}</dd></div>:null}<div><dt>当前进展</dt><dd>{item.projectionAvailable ? taskReason(item.reason ?? "", item.kind) ?? "暂无更多状态信息" : "暂时无法获取当前状态"}</dd></div>
         {item.taskSelection?<><div><dt>任务对象</dt><dd>{item.taskSelection.subject.kind==="own_product"?"自有商品":"源商品"} · 版本 {item.taskSelection.subject.catalogVersion}</dd></div><div><dt>处理内容</dt><dd>{contentSelectionLabel(item.taskSelection.parameters)}</dd></div></>:<div><dt>目标平台</dt><dd>{item.productDetailsAvailable ? item.targetPlatform : "不可用"}</dd></div>}
         <div><dt>创建时间</dt><dd><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("zh-CN")}</time></dd></div></dl>
       <details className={styles.disclosure}><summary>查看完整需求</summary><p>{item.goalSummary}</p></details>

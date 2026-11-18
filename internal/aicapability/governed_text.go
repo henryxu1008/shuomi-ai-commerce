@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -15,12 +16,25 @@ import (
 
 var ErrTextProfile = errors.New("invalid governed text profile")
 var ErrTextEnvelope = errors.New("invalid governed text envelope")
+var ErrTextInputLimit = fmt.Errorf("governed text input exceeds route limit: %w", ErrTextEnvelope)
+
+type ModelBillingMode string
+
+const (
+	ModelPlatformPoints ModelBillingMode = "platform_points"
+	ModelUsageOnly      ModelBillingMode = "usage_only"
+)
+
+func ValidOwnedTextUsageMapping(version string) bool {
+	return version == "openai-text-v1" || version == ReferenceTextTotalsV1
+}
 
 // ModelProfile is a non-secret, immutable use-time snapshot of the approved
 // organization route and all limits that affect dispatch or settlement.
 type ModelProfile struct {
-	ThinkingMode             string `json:",omitempty"`
-	ImagePromptTokenEstimate int64  `json:",omitempty"`
+	BillingMode              ModelBillingMode `json:",omitempty"`
+	ThinkingMode             string           `json:",omitempty"`
+	ImagePromptTokenEstimate int64            `json:",omitempty"`
 	ClientName               string
 	ConnectionID             string `json:",omitempty"`
 	ProviderID               string
@@ -65,7 +79,7 @@ func (p ModelProfile) ValidateShape() error {
 	for _, value := range []string{
 		p.ClientName, p.ProviderID, p.ModelID, p.EndpointIdentityDigest,
 		p.CredentialVersion, p.RoutingPolicyVersion, p.AdapterPolicyVersion,
-		p.PromptVersion, p.OutputSchemaVersion, p.UsageMappingVersion, p.CostPricingVersion,
+		p.PromptVersion, p.OutputSchemaVersion, p.UsageMappingVersion,
 	} {
 		if !validTextFact(value, 128) {
 			return ErrTextProfile
@@ -82,14 +96,23 @@ func (p ModelProfile) ValidateShape() error {
 	} else if p.ThinkingMode != "" {
 		return ErrTextProfile
 	}
-	if p.ImagePromptTokenEstimate < 0 || p.ImagePromptTokenEstimate > p.MaximumPromptTokens || len(p.Currency) != 3 ||
-		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 ||
-		p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 ||
+	if p.ImagePromptTokenEstimate < 0 || p.ImagePromptTokenEstimate > p.MaximumPromptTokens ||
 		p.MaximumPromptTokens < 1 || p.MaximumPromptTokens > 1048576 ||
 		p.MaximumCompletionTokens < 1 || p.MaximumCompletionTokens > 65536 ||
 		p.MaximumInputBytes < 1 || p.MaximumInputBytes > 1<<20 ||
 		p.MaximumOutputBytes < 1 || p.MaximumOutputBytes > 1<<20 ||
 		p.DeadlineBound <= 0 || p.DeadlineBound > 2*time.Minute {
+		return ErrTextProfile
+	}
+	if p.BillingMode == ModelUsageOnly {
+		if p.ImagePromptTokenEstimate != 0 || p.AdapterKind != "openai-compatible" || !ValidOwnedTextUsageMapping(p.UsageMappingVersion) ||
+			p.Currency != "" || p.CostPricingVersion != "" || p.InputMicrosPerMillion != 0 || p.OutputMicrosPerMillion != 0 || p.OfficialTariff != (OfficialModelTariff{}) {
+			return ErrTextProfile
+		}
+		return nil
+	}
+	if p.BillingMode != "" && p.BillingMode != ModelPlatformPoints || !validTextFact(p.CostPricingVersion, 128) || len(p.Currency) != 3 ||
+		p.InputMicrosPerMillion <= 0 || p.InputMicrosPerMillion > 1e12 || p.OutputMicrosPerMillion <= 0 || p.OutputMicrosPerMillion > 1e12 {
 		return ErrTextProfile
 	}
 	if _, err := p.MaximumCost(); err != nil {
@@ -99,7 +122,13 @@ func (p ModelProfile) ValidateShape() error {
 }
 
 func (p ModelProfile) Validate() error {
-	if p.ValidateShape() != nil || !p.OfficialTariff.Valid() || !p.OfficialTariff.MatchesWireModel(p.ModelID) {
+	if p.ValidateShape() != nil {
+		return ErrTextProfile
+	}
+	if p.BillingMode == ModelUsageOnly {
+		return nil
+	}
+	if !p.OfficialTariff.Valid() || !p.OfficialTariff.MatchesWireModel(p.ModelID) {
 		return ErrTextProfile
 	}
 	if _, err := p.OfficialTariff.ReserveTextMicropoints(p.MaximumPromptTokens, p.MaximumCompletionTokens); err != nil {
@@ -168,11 +197,14 @@ type TextInputIdentity struct {
 	Prompt         string
 	Profile        ModelProfile
 	Image          *SingleImageInput `json:",omitempty"`
+	// Set by Workbench for a verified personal text skill on the ChatPlan route.
+	ChatTextSkill bool `json:"-"`
 	// Transient authorized content is never part of JSON, logs or snapshots.
 	ImageContent []byte `json:"-"`
 }
 
 type TextQuote struct {
+	BillingMode       ModelBillingMode `json:",omitempty"`
 	InputHash         string
 	ProfileDigest     string
 	MaximumTokens     int64
@@ -193,6 +225,12 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 		!utf8.ValidString(input.System) || !utf8.ValidString(input.Prompt) {
 		return TextQuote{}, ErrTextEnvelope
 	}
+	if input.ChatTextSkill && (input.Operation != OperationAIWorkbenchChatPlan || input.Image != nil) {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	if input.Profile.BillingMode == ModelUsageOnly && (input.Image != nil || VisionTextOperation(input.Operation)) {
+		return TextQuote{}, ErrTextEnvelope
+	}
 	if input.Image != nil {
 		if !VisionTextOperation(input.Operation) || !input.Image.Valid() || !SingleImageProfile(input.Profile) {
 			return TextQuote{}, ErrTextEnvelope
@@ -203,7 +241,7 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	if input.Operation == OperationOwnProductIntake && !SingleImageProfile(input.Profile) {
 		return TextQuote{}, ErrTextEnvelope
 	}
-	if input.Operation == OperationAIWorkbenchChatPlan || input.Operation == OperationAIWorkbenchStoreRoute {
+	if input.Operation == OperationAIWorkbenchChatPlan || input.Operation == OperationAIWorkbenchStoreRoute || input.Operation == OperationAIWorkbenchChatIntent || input.Operation == OperationAIWorkbenchSkillAuthoring {
 		if input.AgentRunID != "" || input.BusinessTaskID != "" || input.Profile.AdapterKind == "google-interactions" {
 			return TextQuote{}, ErrTextEnvelope
 		}
@@ -228,21 +266,34 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	if err != nil {
 		return TextQuote{}, ErrTextEnvelope
 	}
-	promptBound := int64(len(wire) + 1024)
-	wireBound := len(wire) + 1024
+	const framingBytes = 1024
+	promptBound := int64(len(wire) + framingBytes)
+	wireBound := len(wire) + framingBytes
+	if input.ChatTextSkill && promptBound > input.Profile.MaximumPromptTokens {
+		// The model only receives these two strings. The quote's identity fields
+		// and the JSON escaping around the strings are not model input. Keep
+		// the existing framing allowance and leave previously valid quotes intact
+		// so their original invocation reservations can still be recovered.
+		modelPromptBound := int64(len(input.System) + len(input.Prompt) + framingBytes)
+		if modelPromptBound <= input.Profile.MaximumPromptTokens {
+			promptBound = input.Profile.MaximumPromptTokens
+		}
+	}
 	if input.Image != nil {
 		promptBound += SingleImagePromptEstimate(input.Profile)
 		wireBound += base64.StdEncoding.EncodedLen(input.Image.ByteLength) + len("data:"+input.Image.MediaType+";base64,")
 	}
 	if wireBound > input.Profile.MaximumInputBytes || promptBound > input.Profile.MaximumPromptTokens {
-		return TextQuote{}, ErrTextEnvelope
+		return TextQuote{}, ErrTextInputLimit
 	}
 	sum := sha256.Sum256(wire)
-	cost, err := input.Profile.CostFor(promptBound, input.Profile.MaximumCompletionTokens)
-	if err != nil {
-		return TextQuote{}, err
+	quote := TextQuote{InputHash: hex.EncodeToString(sum[:]), ProfileDigest: profileDigest, BillingMode: input.Profile.BillingMode,
+		MaximumTokens: promptBound + input.Profile.MaximumCompletionTokens, Currency: input.Profile.Currency}
+	if quote.BillingMode != ModelUsageOnly {
+		quote.MaximumCostMicros, err = input.Profile.CostFor(promptBound, input.Profile.MaximumCompletionTokens)
+		if err != nil {
+			return TextQuote{}, err
+		}
 	}
-	return TextQuote{InputHash: hex.EncodeToString(sum[:]), ProfileDigest: profileDigest,
-		MaximumTokens:     promptBound + input.Profile.MaximumCompletionTokens,
-		MaximumCostMicros: cost, Currency: input.Profile.Currency}, nil
+	return quote, nil
 }

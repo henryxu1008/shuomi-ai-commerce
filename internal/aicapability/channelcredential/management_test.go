@@ -90,3 +90,25 @@ func TestManagementRotationCannotEditIdentityOrTreatUnknownAsSuccess(t *testing.
 	require.ErrorIs(t, e, ErrInvalid)
 	require.Len(t, f.commands, 1)
 }
+
+func TestManagementKeepsAnUnaddressedConnectionReadOnlyWithWriterEnabled(t *testing.T) {
+	ctx := context.Background()
+	ports := &managementFixture{}
+	manager, err := NewManagement(ports, ports, []ConnectionDefinition{
+		{OrganizationID: "org-reference", ConnectionID: "reference", Provider: "bailian", Channel: "bailian-beijing", Region: "cn-beijing"},
+		{OrganizationID: "org-trial", ConnectionID: "official", Provider: "openai", Channel: "openai-direct", Region: "global", BaseURL: "https://api.openai.com/v1"},
+	})
+	require.NoError(t, err)
+	list, err := manager.List(ctx, "org-reference")
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	require.Equal(t, "reference", list[0].ConnectionID)
+	require.True(t, list[0].ReadOnly)
+	input := ManagementInput{Action: "set-key", Account: "account", APIKey: "synthetic"}
+	_, err = manager.Publish(ctx, "org-reference", "manager", "reference", "first", input)
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.Empty(t, ports.commands)
+	_, err = manager.Publish(ctx, "org-trial", "manager", "official", "second", input)
+	require.NoError(t, err)
+	require.Len(t, ports.commands, 1)
+}

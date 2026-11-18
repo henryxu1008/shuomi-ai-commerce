@@ -33,17 +33,21 @@ func (p *Protection) Fingerprint(c credential.Command) (string, error) {
 	}
 	// Command JSON intentionally omits the secret; the private canonical envelope
 	// explicitly includes it before HMAC. Only the keyed digest is persisted.
+	return p.fingerprint("channel-command-v1", c, c.Secret)
+}
+
+func (p *Protection) fingerprint(version string, command any, secret string) (string, error) {
 	raw, e := json.Marshal(struct {
 		Version string
-		Command credential.Command
+		Command any
 		Secret  string
-	}{"channel-command-v1", c, c.Secret})
+	}{version, command, secret})
 	if e != nil {
 		return "", credential.ErrUnavailable
 	}
 	h := hmac.New(sha256.New, p.fingerprintKey)
 	_, _ = h.Write(raw)
-	return "channel-command-v1:" + hex.EncodeToString(h.Sum(nil)), nil
+	return version + ":" + hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func associatedData(m credential.Metadata) []byte {

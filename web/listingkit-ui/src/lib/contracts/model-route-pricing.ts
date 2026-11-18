@@ -9,25 +9,27 @@ const positive=nonnegative.refine(v=>v>0);
 export const officialRates=z.strictObject({inputText:nonnegative,cachedInputText:nonnegative,inputImage:nonnegative,cachedInputImage:nonnegative,outputText:nonnegative,outputImage:nonnegative,outputImagePerItem:nonnegative.optional()});
 export const publishedModelManufacturers=["openai","google","qwen","deepseek","anthropic"] as const;
 const officialPrice=z.strictObject({wireModel:routeFact.optional(),unitVersion:aiPointUnit,priceVersion:routeFact,fxVersion:routeFact,currency:z.string().regex(/^[A-Z]{3}$/),cnyMicrosPerCurrencyUnit:positive,model:routeFact,channel:routeFact,usageVersion:routeFact,rates:officialRates});
-const reference=z.strictObject({id:routeFact.max(64),version:routeFact});
-const sharedSelection=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiPointUnit,defaultChannel:routeFact,text:reference,image:reference,multimodal:reference});
-export const routeInput=z.strictObject({expectedRevision:routeFact,selection:sharedSelection});
-const modelOption=z.strictObject({category:modelCategory,reference,channel:routeFact,model:routeFact,ready:z.boolean(),reason:routeFact.optional(),price:officialPrice.optional()}).refine(v=>!v.price||(v.price.wireModel??v.price.model)===v.model&&v.price.channel===v.channel);
-const preview=z.strictObject({ready:z.boolean(),models:z.array(modelOption).length(3)}).refine(v=>v.ready===v.models.every(m=>m.ready)&&new Set(v.models.map(m=>m.category)).size===3);
+export const modelReference=z.strictObject({id:routeFact.max(64),version:routeFact});
+const sharedSelection=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiPointUnit,defaultChannel:routeFact,text:modelReference,image:modelReference,multimodal:modelReference});
+export const modelOption=z.strictObject({category:modelCategory,reference:modelReference,source:z.enum(["platform","enterprise"]).optional(),billingMode:z.enum(["platform_points","usage_only"]).optional(),quote:routeFact.optional(),channel:routeFact,channelName:z.string().min(1).max(520).optional(),model:routeFact,ready:z.boolean(),reason:routeFact.optional(),price:officialPrice.optional()}).refine(v=>(!v.price||(v.price.wireModel??v.price.model)===v.model&&v.price.channel===v.channel)&&(v.billingMode!=="usage_only"||v.source==="enterprise"&&!v.price)&&(v.billingMode!=="platform_points"||v.source==="platform"&&!!v.price));
+const preview=z.strictObject({ready:z.boolean(),models:z.array(modelOption).max(3)}).refine(v=>v.ready===(v.models.length===3&&v.models.every(m=>m.ready))&&new Set(v.models.map(m=>m.category)).size===v.models.length);
 const date=z.iso.datetime({offset:true}).refine(value=>!/\.\d{10}/.test(value));
 const interval={sourceUrl:z.url().max(2048),verifiedAt:date,effectiveFrom:date,effectiveUntil:date};
 const referenceImageEstimate=z.strictObject({inputTokens:z.number().int().min(1).max(2**30),outputTokens:z.number().int().min(1).max(2**30),operationScope:z.literal("product-image-effects-v1"),size:z.literal("1024x1024"),quality:z.literal("auto"),allowAutoSize:z.literal(true),maximumPromptBytes:z.number().int().min(1).max(65536),maximumReferenceImages:z.number().int().min(1).max(16),maximumReferenceBytes:z.number().int().min(1).max(64*1024*1024),maximumReferencePixels:z.number().int().min(1).max(2**30)});
-const publishedPrice=z.strictObject({id:routeFact.max(64),version:routeFact.optional(),region:routeFact.max(64),serviceType:routeFact.max(64),image:z.strictObject({width:z.number().int().positive().max(8192),height:z.number().int().positive().max(8192),quality:routeFact.max(64),referenceEstimate:referenceImageEstimate.optional()}).optional(),provider:z.enum(publishedModelManufacturers),channel:routeFact,model:routeFact,currency:z.string().regex(/^[A-Z]{3}$/),usageVersion:routeFact,rates:officialRates,...interval});
+const publishedPrice=z.strictObject({platformConnectionId:routeFact.optional(),id:routeFact.max(64),version:routeFact.optional(),region:routeFact.max(64),serviceType:routeFact.max(64),image:z.strictObject({width:z.number().int().positive().max(8192),height:z.number().int().positive().max(8192),quality:routeFact.max(64),referenceEstimate:referenceImageEstimate.optional()}).optional(),provider:z.enum(publishedModelManufacturers),channel:routeFact,model:routeFact,currency:z.string().regex(/^[A-Z]{3}$/),usageVersion:routeFact,rates:officialRates,...interval});
 const publishedFX=z.strictObject({version:routeFact.optional(),currency:z.string().regex(/^[A-Z]{3}$/),cnyMicrosPerCurrencyUnit:positive,rateDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),...interval});
 export const priceInput=z.strictObject({expectedRevision:routeFact,prices:z.array(publishedPrice).max(32),fx:z.array(publishedFX).max(8)}).refine(v=>v.prices.every(p=>!p.version)&&v.fx.every(f=>!f.version));
 const priceSnapshot=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiPointUnit,prices:z.array(publishedPrice).max(32),fx:z.array(publishedFX).max(8)});
-const routePayload=z.strictObject({bindingId:z.literal(""),credentialVersion:z.literal(""),rates:z.strictObject({}),sharedModels:sharedSelection.optional(),platformPrices:priceSnapshot.optional()}).refine(p=>!!p.sharedModels!==!!p.platformPrices);
+const partialSelection=sharedSelection.extend({schemaVersion:z.literal(2),text:modelReference.optional(),defaultChannel:routeFact.optional(),image:modelReference.optional(),multimodal:modelReference.optional(),textChannelName:z.string().max(512).optional(),textModel:routeFact.optional()});
+const choices=z.union([sharedSelection,partialSelection]);
+export const routeInput=z.strictObject({expectedRevision:routeFact,selection:choices});
+const routePayload=z.strictObject({bindingId:z.literal(""),credentialVersion:z.literal(""),rates:z.strictObject({}),sharedModels:choices.optional(),platformPrices:priceSnapshot.optional()}).refine(p=>!!p.sharedModels!==!!p.platformPrices);
 const routeScope=z.strictObject({organizationId:routeFact,capability:z.enum(["ai.models.enterprise","ai.models.official-prices"])});
 const routeRevision=z.strictObject({id:routeFact,scope:routeScope,parent:routeFact,schemaVersion:z.literal(1),payload:routePayload,digest:routeFact,actorId:routeFact,publishedAt:date,key:routeFact});
-export const routeCurrent=z.strictObject({status:z.enum(["READY","NEEDS_CONFIGURATION","UNCONFIGURED"]),revision:routeRevision.nullable(),preview:preview.nullable()});
+export const routeCurrent=z.strictObject({status:z.enum(["READY","NEEDS_CONFIGURATION","UNCONFIGURED"]),revision:routeRevision.nullable(),preview:preview.nullable(),textChoiceEnabled:z.literal(true).optional(),platformPriceWriteAllowed:z.boolean().optional()});
 export const routeOptions=z.strictObject({organizationId:routeFact,channels:z.array(routeFact).min(1).max(128),models:z.array(modelOption).max(256)});
 export const routeReceipt=z.strictObject({receipt:routeRevision});
-export const routePreview=z.strictObject({selection:sharedSelection,expectedRevision:routeFact,preview});
+export const routePreview=z.strictObject({selection:choices,expectedRevision:routeFact,preview});
 export const pricePreview=z.strictObject({expectedRevision:routeFact,snapshot:priceSnapshot});
 export const routeHistory=z.strictObject({revisions:z.array(routeRevision).max(50),nextCursor:z.union([routeFact,z.literal("")])});
 export const routeCapabilities=z.strictObject({organizationId:routeFact,unitVersion:aiPointUnit,available:z.boolean(),canMaintainPrices:z.boolean()});
@@ -36,6 +38,14 @@ export type RouteInput=z.infer<typeof routeInput>;
 export type ModelOption=z.infer<typeof modelOption>;
 export type PriceInput=z.infer<typeof priceInput>;
 export const modelLabels={text:"文本模型","image-generation":"图片生成模型",multimodal:"多模态理解模型"} as const;
+const channelLabels=new Map([
+ ["openai-direct","OpenAI 官方"],
+ ["openai-compatible","OpenAI 兼容渠道"],
+ ["bailian-beijing","阿里云百炼（北京）"],
+]);
+export function modelChannelLabel(channel:string,name?:string):string{
+ return name||channelLabels.get(channel)||"渠道名称未设置";
+}
 export function formatCurrencyMicros(value:number):string{const n=BigInt(value),tail=(n%BigInt(1000000)).toString().padStart(6,"0").replace(/0+$/g,"");return (n/BigInt(1000000)).toString()+(tail?"."+tail:"")}
 export function parseCurrencyMicros(value:string):number{if(!/^(0|[1-9]\d*)(\.\d{1,6})?$/.test(value))throw new Error("INVALID");const [a,b=""]=value.split("."),n=BigInt(a)*BigInt(1000000)+BigInt(b.padEnd(6,"0"));if(n>BigInt("1000000000000"))throw new Error("INVALID");return Number(n)}
 

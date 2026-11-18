@@ -17,6 +17,7 @@ import {
 import { getResourceOffers } from "@/lib/api/resource-purchase";
 import {
   getResourceEvents,
+  getOwnedModelUsage,
   type ResourceEventFilters,
 } from "@/lib/api/resource-events";
 import { ConsolePage, ConsoleState } from "../console/console-page";
@@ -30,6 +31,7 @@ import { storagePurchaseId } from "./resource-catalog-display";
 import {
   CommercialOverviewView,
   UsageDetailsView,
+  UsageEventTime,
 } from "./commercial-module-views";
 import {
   OrderDetailView,
@@ -697,6 +699,7 @@ function ResourceUsageRequest({
     : !page ? <BillingReadError usage error={result.error ?? { code: "INVALID_UPSTREAM_RESPONSE" }} />
     : undefined;
   return (
+    <>
     <UsageDetailsView
       scope={{ userId, organizationId }}
       page={page}
@@ -707,5 +710,61 @@ function ResourceUsageRequest({
       onPrevious={cursors.length > 1 ? () => setNavigation({ filters, cursors: cursors.slice(0, -1) }) : undefined}
       onNext={next && !cursors.includes(next) ? () => setNavigation({ filters, cursors: [...cursors, next] }) : undefined}
     />
+    <OwnedModelUsage key={userId + ":" + organizationId + ":" + sequence} userId={userId} organizationId={organizationId} />
+    </>
+  );
+}
+
+const ownedUsagePurposes: Record<string, string> = {
+  aiworkbench_chat_plan: "聊天规划",
+  aiworkbench_chat_intent: "需求识别",
+  aiworkbench_skill_authoring: "创建技能",
+  aiworkbench_store_route: "聊天店铺查询",
+  product_agent_decision: "商品处理",
+  "product.content.decision": "商品内容",
+  "listing.materials.decision": "刊登资料",
+  "product.research.decision": "市场调研",
+  "product.selection.decision": "商品选品",
+  "shop.diagnosis.decision": "店铺诊断",
+};
+
+function OwnedModelUsage({ userId, organizationId }: { userId: string; organizationId: string }) {
+  const [open, setOpen] = useState(false);
+  const [cursors, setCursors] = useState([""]);
+  const cursor = cursors.at(-1) ?? "";
+  const query = useQuery({
+    queryKey: ["workbench", organizationId, userId, "owned-model-usage", cursor],
+    queryFn: ({ signal }) => getOwnedModelUsage(userId, organizationId, cursor, signal),
+    enabled: open, gcTime: 0, retry: false,
+  });
+  const page = !query.isFetching && !query.isError && query.data?.organization_id === organizationId ? query.data : undefined;
+  const next = page?.next_cursor;
+  return (
+    <section className={styles.usageDetails} aria-labelledby="owned-model-usage">
+      <h2 id="owned-model-usage">企业自有渠道用量</h2>
+      <p>厂商向企业账号计费。这里显示你在本企业的模型用量。</p>
+      <Button variant="outline" aria-expanded={open} aria-controls="owned-model-usage-results" onClick={() => setOpen(!open)}>
+        {open ? "收起自有渠道用量" : "查看自有渠道用量"}
+      </Button>
+      <div id="owned-model-usage-results" hidden={!open}>
+        {open && (query.isFetching ? <p role="status">正在读取自有渠道用量…</p>
+          : !page ? <><p role="status">暂时无法读取自有渠道用量。</p><Button variant="outline" onClick={() => void query.refetch()}>重新读取</Button></>
+          : page.items.length === 0 ? <p>暂无自有渠道记录。</p>
+          : <div className="overflow-x-auto">
+            <table className={styles.usageDetailTable}>
+              <thead><tr><th scope="col">时间（UTC）</th><th>用途</th><th>型号</th><th>用量</th></tr></thead>
+              <tbody>{page.items.map(item => <tr key={item.invocation_id}>
+                <td><UsageEventTime timestamp={item.started_at} showFractionalSeconds={false} /></td>
+                <td>{ownedUsagePurposes[item.purpose] ?? "企业文本任务"}</td>
+                <td>{item.model}</td>
+                <td>{item.status === "observed" ? `输入 ${item.input_tokens} · 输出 ${item.output_tokens} Token`
+                  : item.status === "not_sent" ? "未发送" : "用量待核实"}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>)}
+        {open && cursors.length > 1 && <Button variant="outline" onClick={() => setCursors(cursors.slice(0, -1))}>上一页</Button>}
+        {open && next && !cursors.includes(next) && <Button variant="outline" onClick={() => setCursors([...cursors, next])}>下一页</Button>}
+      </div>
+    </section>
   );
 }

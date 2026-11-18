@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	"task-processor/internal/integration/bailian"
@@ -27,6 +28,7 @@ type ImageAdmission struct {
 	Billing            aicapability.OfficialModelBilling `json:"billing"`
 }
 type Definition struct {
+	CredentialOwner   string             `json:"-"`
 	PrivateTrialPrice *PrivateTrialPrice `json:"privateTrialPrice,omitempty"`
 	// Private management input: never browser-controlled or used to select a
 	// provider. It must match every existing endpoint digest on this connection.
@@ -66,7 +68,7 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 		if def.Image != nil && def.ManufacturerModel != "" && def.ManufacturerModel != def.Image.Model {
 			return nil, d.ErrInvalid
 		}
-		if !def.Scope.Valid() || def.MaximumMicropoints < 0 || (def.Text == nil) == (def.Image == nil) || (def.Image != nil) != (def.Scope.Capability == d.ImageCapability) {
+		if def.Scope.OrganizationID == credential.PlatformOwner || def.CredentialOwner != "" || !def.Scope.Valid() || def.MaximumMicropoints < 0 || (def.Text == nil) == (def.Image == nil) || (def.Image != nil) != (def.Scope.Capability == d.ImageCapability) {
 			return nil, d.ErrInvalid
 		}
 		id := ""
@@ -93,7 +95,7 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 			}
 			def.PrivateTrialPrice = &price
 		}
-		if !d.ValidFact(id, 64) {
+		if !d.ValidFact(id, 64) || strings.HasPrefix(id, "um-") || strings.HasPrefix(id, "pm-") || strings.HasPrefix(def.ConnectionID, "uc-") {
 			return nil, d.ErrInvalid
 		}
 		if c.definitions[def.Scope] == nil {
@@ -152,7 +154,14 @@ func (c *Catalog) CredentialID(scope d.Scope, id string) (string, error) {
 
 func (c *Catalog) Qualify(sc d.Scope, id string, row d.Credential) (d.Binding, error) {
 	def, ok := c.definitions[sc][id]
-	if !ok || !d.ValidFact(def.ConnectionID, 128) || !d.ValidFact(def.ConnectionProvider, 128) || row.OrganizationID != sc.OrganizationID || row.ConnectionID != def.ConnectionID || row.Provider != def.ConnectionProvider || row.Channel != def.Channel || row.Region != def.Region || !row.Enabled || !row.KeyPresent || !strings.HasPrefix(row.Reference, "channel-credential-v1:") {
+	if !ok {
+		return d.Binding{}, d.ErrNeedsConfiguration
+	}
+	return qualifyDefinition(def, id, row)
+}
+
+func qualifyDefinition(def Definition, id string, row d.Credential) (d.Binding, error) {
+	if !d.ValidFact(def.ConnectionID, 128) || !d.ValidFact(def.ConnectionProvider, 128) || row.OrganizationID != def.credentialOrganization() || row.ConnectionID != def.ConnectionID || row.Provider != def.ConnectionProvider || row.Channel != def.Channel || row.Region != def.Region || !row.Enabled || !row.KeyPresent || !strings.HasPrefix(row.Reference, "channel-credential-v1:") {
 		return d.Binding{}, d.ErrNeedsConfiguration
 	}
 	if def.Text != nil {
@@ -190,4 +199,11 @@ func (r TextReader) ReadPolicy(ctx context.Context, key governed.RouteKey) (gove
 	}
 	p := *current.Payload.Text
 	return governed.RoutePolicy{Profile: p, AdmittedCredentialVersion: p.CredentialVersion, AdmittedEndpointIdentityDigest: p.EndpointIdentityDigest}, nil
+}
+
+func (d Definition) credentialOrganization() string {
+	if d.CredentialOwner != "" {
+		return d.CredentialOwner
+	}
+	return d.Scope.OrganizationID
 }

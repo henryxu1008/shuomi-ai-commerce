@@ -60,7 +60,7 @@ func (r *GormModelInvocationRepository) readFact(ctx context.Context, org, id st
 	if err != nil {
 		return fact, err
 	}
-	if fact.TenantID != org || fact.InvocationID != id || modelPointBusinessScope(fact) == "" || fact.MemberID == "" || fact.UserID == "" || fact.InputHash == "" || fact.StartedAt.IsZero() || !fact.OfficialTariff.Valid() || !fact.OfficialTariff.MatchesWireModel(fact.ModelID) || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.MaximumPromptTokens > math.MaxInt64-fact.MaximumCompletionTokens {
+	if fact.BillingMode == aicapability.ModelUsageOnly || fact.TenantID != org || fact.InvocationID != id || modelPointBusinessScope(fact) == "" || fact.MemberID == "" || fact.UserID == "" || fact.InputHash == "" || fact.StartedAt.IsZero() || !fact.OfficialTariff.Valid() || !fact.OfficialTariff.MatchesWireModel(fact.ModelID) || fact.MaximumPromptTokens <= 0 || fact.MaximumCompletionTokens <= 0 || fact.MaximumPromptTokens > math.MaxInt64-fact.MaximumCompletionTokens {
 		return fact, orgresource.ErrInvalidOwnerProof
 	}
 	if _, err := fact.OfficialTariff.ReserveTextMicropoints(fact.MaximumPromptTokens, fact.MaximumCompletionTokens); err != nil {
@@ -83,7 +83,7 @@ func modelPointBusinessScope(fact aicapability.InvocationRecord) string {
 		if fact.AgentRunID != "" {
 			return fact.AgentRunID
 		}
-	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute:
+	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring:
 		if fact.AgentRunID == "" && fact.BusinessTaskID == "" &&
 			fact.Capability == aicapability.CapabilityAIWorkbenchChatPlanning && fact.InvocationID != "" {
 			return "chat-plan:" + fact.InvocationID
@@ -187,6 +187,12 @@ func matchesModelPointReceipt(fact aicapability.InvocationRecord, fingerprint st
 }
 
 func modelPointTerminal(fact aicapability.InvocationRecord) (int64, bool, error) {
+	if fact.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 || fact.ErrorCode == aicapability.ChatIntentOpenAIParameterRejectedV1 {
+		if !fact.IsWorkbenchOpenAIParameterRejection() {
+			return 0, false, orgresource.ErrInvalidOwnerProof
+		}
+		return 0, false, nil
+	}
 	if fact.ProviderRejectionProof != nil {
 		if aicapability.ValidateProviderRejection(fact) != nil || fact.ProviderRejectionProof.DispatchFingerprint != modelPointFingerprint(fact) {
 			return 0, false, orgresource.ErrInvalidOwnerProof

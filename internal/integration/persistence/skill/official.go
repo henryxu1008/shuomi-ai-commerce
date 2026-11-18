@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"task-processor/internal/agent"
 	d "task-processor/internal/skill"
@@ -49,7 +48,7 @@ func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.Re
 			return err
 		}
 		for _, release := range packages {
-			id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+release.Key)).String()
+			id := d.OfficialReleaseID(release.Key)
 			if automatic {
 				var row skillRow
 				result := tx.Where("id=?", id).Take(&row)
@@ -82,6 +81,9 @@ func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.Re
 			if release.Previous != nil {
 				basePackage = *release.Previous
 			}
+			if release.Base != nil {
+				basePackage = *release.Base
+			}
 			now := time.Now().UTC()
 			if errors.Is(originalErr, d.ErrNotFound) {
 				// A row without its original immutable version is a conflict too.
@@ -92,7 +94,7 @@ func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.Re
 				if count != 0 {
 					return d.ErrConflict
 				}
-				original = d.Version{Metadata: d.Metadata{ID: id, Owner: d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}, Creator: p.UserID, HeadVersion: 1, Revision: 1, CreatedAt: now, UpdatedAt: now}, Number: 1, Package: basePackage, State: d.Draft, Visibility: d.Private, AllowCopy: true, AllowExport: true, CreatedAt: now}
+				original = d.Version{Metadata: d.Metadata{ID: id, Owner: d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}, Creator: p.UserID, HeadVersion: 1, Revision: 1, CreatedAt: now, UpdatedAt: now}, Number: 1, Package: basePackage, State: d.Draft, Visibility: d.Private, AllowCopy: !basePackage.Supports(d.AuthoringTarget), AllowExport: true, CreatedAt: now}
 				if automatic {
 					original.State, original.Visibility = d.Enabled, d.Shared
 					original.Metadata.Revision += 2
@@ -122,35 +124,52 @@ func (s *Store) installOfficial(ctx context.Context, p d.Principal, resolve d.Re
 				out.Installed = append(out.Installed, original.Ref())
 				continue
 			}
-			if release.Version != 2 || release.Previous == nil || original.Metadata.HeadVersion != 1 || original.State != d.Enabled || original.Visibility != d.Shared {
+			if (release.Version != 2 && release.Version != d.GeneralAuthoringVersion) || release.Previous == nil {
 				return d.ErrConflict
 			}
-			v := d.Version{Metadata: original.Metadata, Number: 2, Package: release.Package, State: d.Draft, Visibility: d.Private, AllowCopy: true, AllowExport: true, CreatedAt: now}
-			v.Metadata.HeadVersion, v.Metadata.UpdatedAt = 2, now
-			v.Metadata.Revision++
-			if automatic {
-				v.State, v.Visibility = d.Enabled, d.Shared
-				v.Metadata.Revision += 2
-			} else {
-				for _, action := range []string{"publish", "enable"} {
-					v.State, v.Visibility, err = d.Transition(live, v, action)
-					if err != nil {
-						return err
-					}
-					v.Metadata.Revision++
+			head := original
+			if release.Version == d.GeneralAuthoringVersion && original.Metadata.HeadVersion == 2 {
+				head, err = readVersion(tx, id, 2, true)
+				if err != nil || head.Package.Digest != release.Previous.Digest || head.Source != nil {
+					return d.ErrConflict
 				}
 			}
-			if err = insertVersion(tx, v); err != nil {
-				return err
+			for number := head.Number + 1; number <= release.Version; number++ {
+				if head.Number != head.Metadata.HeadVersion || head.State != d.Enabled || head.Visibility != d.Shared {
+					return d.ErrConflict
+				}
+				pkg := release.Package
+				if number < release.Version {
+					pkg = *release.Previous
+				}
+				v := d.Version{Metadata: head.Metadata, Number: number, Package: pkg, State: d.Draft, Visibility: d.Private, AllowCopy: !pkg.Supports(d.AuthoringTarget), AllowExport: true, CreatedAt: now}
+				v.Metadata.HeadVersion, v.Metadata.UpdatedAt = number, now
+				v.Metadata.Revision++
+				if automatic {
+					v.State, v.Visibility = d.Enabled, d.Shared
+					v.Metadata.Revision += 2
+				} else {
+					for _, action := range []string{"publish", "enable"} {
+						v.State, v.Visibility, err = d.Transition(live, v, action)
+						if err != nil {
+							return err
+						}
+						v.Metadata.Revision++
+					}
+				}
+				if err = insertVersion(tx, v); err != nil {
+					return err
+				}
+				updated := tx.Model(&skillRow{}).Where("id=? AND head_version=? AND revision=?", id, head.Number, head.Metadata.Revision).Updates(map[string]any{"head_version": number, "revision": v.Metadata.Revision, "updated_at": now})
+				if updated.Error != nil {
+					return updated.Error
+				}
+				if updated.RowsAffected != 1 {
+					return d.ErrConflict
+				}
+				head = v
 			}
-			updated := tx.Model(&skillRow{}).Where("id=? AND head_version=1 AND revision=?", id, original.Metadata.Revision).Updates(map[string]any{"head_version": 2, "revision": v.Metadata.Revision, "updated_at": now})
-			if updated.Error != nil {
-				return updated.Error
-			}
-			if updated.RowsAffected != 1 {
-				return d.ErrConflict
-			}
-			out.Installed = append(out.Installed, v.Ref())
+			out.Installed = append(out.Installed, head.Ref())
 		}
 		return nil
 	})

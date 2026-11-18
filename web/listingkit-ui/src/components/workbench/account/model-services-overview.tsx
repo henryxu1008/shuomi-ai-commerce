@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { ModelOption, routeCurrent } from "@/lib/contracts/model-route-pricing";
+import { modelChannelLabel, type ModelOption, type routeCurrent } from "@/lib/contracts/model-route-pricing";
 import type { ModelServiceCategory } from "@/lib/contracts/model-services-navigation";
 import styles from "./model-route-pricing.module.css";
 
@@ -30,7 +30,7 @@ type Props = {
 function modelStatus(model: ModelOption | undefined, status: Props["current"], checking: boolean) {
   if (checking) return "正在检查";
   if (status?.status === "UNCONFIGURED") return "尚未发布模型";
-  if (!model) return "模型配置暂时无法确认";
+  if (!model) return status?.revision?.payload.sharedModels?.schemaVersion===2 && status.preview ? "尚未选择" : "模型配置暂时无法确认";
   if (model.ready) return "模型配置符合条件";
   if (model.reason === "OFFICIAL_PRICE_MISSING") return "缺少适用参考价";
   if (model.reason && priceReasons.has(model.reason)) return "参考价或汇率暂不适用";
@@ -74,7 +74,7 @@ export function ModelServicesOverview({ current, checking, chat, credentials, pl
           <h3 data-model-service={category} tabIndex={-1}>{labels[category]}</h3>
           <span className={styles.overviewStatus} data-ready={ready} role="status">{status}</span>
           {category === "text" && qualification !== status && <p>企业文本模型 · {qualification}</p>}
-          {model && model.model !== "UNKNOWN" && <p>{model.model} · {model.channel}</p>}
+          {model && model.model !== "UNKNOWN" && <p>{model.model} · {modelChannelLabel(model.channel, model.channelName)}</p>}
           {credentialProblem && !credentials && <p>请联系本企业渠道管理员。</p>}
           {priceProblem && !platform && <p>请联系平台维护人员检查参考价与汇率。</p>}
           {!checking && (credentialProblem && credentials && model

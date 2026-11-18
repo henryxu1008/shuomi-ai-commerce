@@ -26,6 +26,7 @@ import (
 )
 
 type AIWorkbenchDependencies struct {
+	ChatTurnsEnabled       bool
 	StoreDailyReports      bool
 	ScheduleStop           *func()
 	ScheduleSourceDB       *gorm.DB
@@ -38,9 +39,12 @@ type AIWorkbenchDependencies struct {
 	authorizer             *authz.ListingKitAuthorizer
 	PlanningTextPolicies   map[string]governed.RoutePolicy
 	StoreRouteTextPolicies map[string]governed.RoutePolicy
+	ChatIntentTextPolicies map[string]governed.RoutePolicy
 }
 
 type aiWorkbenchApplication struct {
+	chatTurnsEnabled       bool
+	authoring              *workbenchSkillAuthoring
 	dailyReports           *scheduledreport.Application
 	dailyReportsEnabled    bool
 	scheduleRecoveryMu     sync.Mutex
@@ -64,6 +68,7 @@ type workbenchPlanner struct {
 	agent     *productAgentApplication
 	routes    *governed.OrganizationRouteResolver
 	model     einoplanner.Planner
+	text      *governed.Executor
 }
 
 type workbenchPlannerScopeGate struct{}
@@ -122,7 +127,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		return nil, aiworkbench.ErrUnavailable
 	}
 	if cfg.ConversationOnly {
-		if cfg.DB == nil || a != nil && (!a.config.ContentTitleOnly && !a.config.ContentOnly || cfg.DB == a.config.RunDB) || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.StoreRouteTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
+		if cfg.ChatTurnsEnabled || cfg.DB == nil || a != nil && (!a.config.ContentTitleOnly && !a.config.ContentOnly || cfg.DB == a.config.RunDB) || cfg.resolver == nil || cfg.authorizer == nil || len(cfg.PlanningTextPolicies) != 0 || len(cfg.StoreRouteTextPolicies) != 0 || len(cfg.ChatIntentTextPolicies) != 0 || len(cfg.AllowedOrganizationIDs) == 0 || len(cfg.AllowedOrganizationIDs) > 64 {
 			return nil, aiworkbench.ErrUnavailable
 		}
 		seen := map[string]bool{}
@@ -215,11 +220,28 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		}
 		routes[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchStoreRoute}] = policy
 	}
+	if len(cfg.ChatIntentTextPolicies) > 64 {
+		return nil, aiworkbench.ErrUnavailable
+	}
+	for org, policy := range cfg.ChatIntentTextPolicies {
+		profile := policy.ShapeProfile()
+		allowed := false
+		for _, id := range cfg.AllowedOrganizationIDs {
+			if org == id {
+				allowed = true
+				break
+			}
+		}
+		if !allowed || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchChatIntent) || profile.PromptVersion != einorouter.ChatPromptVersion || profile.OutputSchemaVersion != einorouter.ChatSchemaVersion || profile.Currency != a.config.Limits.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > a.config.Limits.Tokens || profile.MaximumCompletionTokens > 4096 || profile.MaximumInputBytes > 128<<10 || profile.MaximumOutputBytes > 16<<10 {
+			return nil, aiworkbench.ErrUnavailable
+		}
+		routes[governed.RouteKey{OrganizationID: org, Operation: aicapability.OperationAIWorkbenchChatIntent}] = policy
+	}
 	resolver, err := newProductTextRouteResolver(a.config, routes)
 	if err != nil {
 		return nil, err
 	}
-	executor := &governed.Executor{Ledger: a.config.Ledger, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: resolver.Resolve, BaseTransport: a.config.TextTransport,
+	executor := &governed.Executor{Ledger: a.config.Ledger, AuthorizeInvocation: a.AuthorizeModelInvocation, Logger: a.config.TextLogger, Admission: a.textAdmission, Resolve: resolver.Resolve, BaseTransport: a.config.TextTransport,
 		Authorize: func(ctx context.Context, in aicapability.TextInputIdentity) error {
 			identity, err := a.freshChatIdentity(ctx)
 			if err != nil || identity.TenantID != in.OrganizationID || identity.UserID != in.ActorID || identity.EffectiveMemberID != in.MemberID {
@@ -227,10 +249,10 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 			}
 			return nil
 		}}
-	planner := &workbenchPlanner{agent: a, routes: resolver, model: einoplanner.Planner{Text: &titleGatedPlanningText{
+	planner := &workbenchPlanner{agent: a, routes: resolver, text: executor, model: einoplanner.Planner{Text: &titleGatedPlanningText{
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
-	app := &aiWorkbenchApplication{store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
+	app := &aiWorkbenchApplication{chatTurnsEnabled: cfg.ChatTurnsEnabled, store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
 	app.dailyReportsEnabled = cfg.StoreDailyReports
 	app.resolver, app.authorizer = cfg.resolver, cfg.authorizer
 	storeRouteAllowed := make(map[string]bool, len(cfg.StoreRouteTextPolicies))
@@ -260,6 +282,9 @@ func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scop
 	c, err := p.workbench.store.Get(ctx, scope, id)
 	if err != nil {
 		return nil, err
+	}
+	if input.TextSkill != nil {
+		return p.admitTextSkill(ctx, scope, c, input)
 	}
 	if c.BusinessScope == nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) {
 		return nil, aiworkbench.ErrProposalStale
@@ -371,6 +396,9 @@ func (p *workbenchPlanner) Decide(ctx context.Context, command aiworkbench.Plann
 	var profile aicapability.ModelProfile
 	if ctx == nil || json.Unmarshal(command.ModelProfile, &profile) != nil || profile.Validate() != nil || !time.Now().Before(command.Deadline) {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+	}
+	if command.WorkScope.TextSkill != nil {
+		return p.replyWithTextSkill(ctx, command, history, profile)
 	}
 	if p.agent == nil || p.agent.selectTitleProfile == nil || p.workbench != nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) && command.FrozenScope == nil {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
@@ -547,6 +575,19 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 			return aiworkbench.PlanningReadyToDispatch
 		}
 		return aiworkbench.PlanningUnknown
+	}
+	if err == nil && fact.BillingMode == aicapability.ModelUsageOnly &&
+		fact.InvocationID == c.PlannerInvocationID && fact.TenantID == c.Scope.OrganizationID &&
+		fact.UserID == c.Scope.ActorID && fact.MemberID == c.MemberID && fact.InputHash == c.InputHash &&
+		fact.Operation == aicapability.OperationAIWorkbenchChatPlan {
+		if fact.NotSent() {
+			return aiworkbench.PlanningFailedBeforeDispatch
+		}
+		if fact.Outcome == aicapability.InvocationUsageObservedFailed && fact.UsageKnown && fact.ErrorCategory == aicapability.ErrorStructuredOutputInvalid {
+			return aiworkbench.PlanningInvalidOutput
+		}
+		// The original claim is the only authority that could send again.
+		// Keep the existing ready window so stored planning output can be recovered.
 	}
 	if errors.Is(callErr, governed.ErrNoDispatchReleased) && err == nil &&
 		fact.InvocationID == c.PlannerInvocationID && fact.TenantID == c.Scope.OrganizationID &&

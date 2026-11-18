@@ -312,6 +312,19 @@ func testTextProfile(endpoint string) aicapability.ModelProfile {
 }
 
 func TestExecutorSettlesOneObservedPlannerInvocation(t *testing.T) {
+	testExecutorSettlesOneObservedInvocation(t, aicapability.OperationAIWorkbenchChatPlan)
+}
+
+func TestExecutorSettlesOneSkillAuthoringInvocation(t *testing.T) {
+	testExecutorSettlesOneObservedInvocation(t, aicapability.OperationAIWorkbenchSkillAuthoring)
+}
+
+func TestExecutorSettlesOneChatIntentInvocation(t *testing.T) {
+	testExecutorSettlesOneObservedInvocation(t, aicapability.OperationAIWorkbenchChatIntent)
+}
+
+func testExecutorSettlesOneObservedInvocation(t *testing.T, operation aicapability.Operation) {
+	t.Helper()
 	sends := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		sends++
@@ -319,10 +332,12 @@ func TestExecutorSettlesOneObservedPlannerInvocation(t *testing.T) {
 	}))
 	defer server.Close()
 	profile := testTextProfile(server.URL)
-	input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1", Operation: aicapability.OperationAIWorkbenchChatPlan, InvocationID: "inv-1", System: "system", Prompt: "prompt", Profile: profile}
+	input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1", Operation: operation, InvocationID: "inv-1", System: "system", Prompt: "prompt", Profile: profile}
 	quote, err := aicapability.QuoteText(input)
 	require.NoError(t, err)
 	ledger := &recordingLedger{}
+	require.Zero(t, sends)
+	require.False(t, ledger.reserved)
 	authCalls := 0
 	executor := Executor{
 		Ledger: ledger, Admission: NewBoundedAdmission(),
@@ -345,6 +360,10 @@ func TestExecutorSettlesOneObservedPlannerInvocation(t *testing.T) {
 	require.Len(t, ledger.records, 2)
 	require.Equal(t, aicapability.InvocationDispatched, ledger.records[0].Outcome)
 	require.Equal(t, aicapability.InvocationSucceeded, ledger.records[1].Outcome)
+	require.Equal(t, operation, ledger.records[1].Operation)
+	require.Equal(t, aicapability.CapabilityAIWorkbenchChatPlanning, ledger.records[1].Capability)
+	require.Empty(t, ledger.records[1].AgentRunID)
+	require.Empty(t, ledger.records[1].BusinessTaskID)
 	require.Equal(t, 15, ledger.records[1].TotalTokens)
 	require.Equal(t, quote.InputHash, ledger.records[1].InputHash)
 
@@ -411,4 +430,99 @@ func TestExecutorPreReservationGateStopsLateClaim(t *testing.T) {
 	require.True(t, ledger.claimed)
 	require.False(t, ledger.reserved)
 	require.Zero(t, sends)
+}
+
+func TestOwnedTextNeverReservesAndKeepsObservedUsage(t *testing.T) {
+	const model = "gpt-5.4-mini-2026-03-17"
+	const endpoint = "https://api.openai.com/v1"
+	const validChoice = `[{"index":0,"message":{"role":"assistant","content":"READY"},"finish_reason":"stop"}]`
+	const usage = `"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15,"prompt_tokens_details":{"cached_tokens":2}}`
+	const zero = `"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0,"prompt_tokens_details":{"cached_tokens":0}}`
+	for _, tc := range []struct {
+		name, choices, usage          string
+		switchAfterAuth, dropResponse bool
+		chatTextSkill                 bool
+		wantError                     error
+		outcome                       aicapability.InvocationOutcome
+		tokens                        int
+	}{
+		{name: "observed", choices: validChoice, usage: usage, outcome: aicapability.InvocationSucceeded, tokens: 15},
+		{name: "text skill reply", choices: `[{"index":0,"message":{"role":"assistant","content":"| Task | Owner |\n| --- | --- |\n| Check notes | TBD |"},"finish_reason":"stop"}]`,
+			usage: usage, chatTextSkill: true, outcome: aicapability.InvocationSucceeded, tokens: 15},
+		{name: "actual zero", choices: validChoice, usage: zero, outcome: aicapability.InvocationSucceeded},
+		{name: "bad output", choices: `{"wrong":"shape"}`, usage: usage, wantError: ErrInvalid, outcome: aicapability.InvocationUsageObservedFailed, tokens: 15},
+		{name: "missing usage", choices: validChoice, usage: `"usage":null`, wantError: ErrOutcomeUnknown, outcome: aicapability.InvocationDispatched},
+		{name: "lost response", dropResponse: true, wantError: ErrOutcomeUnknown, outcome: aicapability.InvocationDispatched},
+		{name: "changed after live authorization", switchAfterAuth: true, wantError: ErrNotDispatched, outcome: aicapability.InvocationFailed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			profile := testTextProfile(endpoint)
+			profile.BillingMode = aicapability.ModelUsageOnly
+			profile.ClientName = aicapability.ScopedCommandID("um-", "fixture", "org-1", "user-1", "owned")
+			profile.ConnectionID = aicapability.ScopedCommandID("uc-", "fixture", "org-1", "user-1", "owned")
+			profile.ProviderID, profile.ModelID = "openai", model
+			profile.AdapterPolicyVersion, profile.UsageMappingVersion = OpenAIMiniTextAdapterPolicy, "openai-text-v1"
+			profile.Currency, profile.CostPricingVersion = "", ""
+			profile.InputMicrosPerMillion, profile.OutputMicrosPerMillion = 0, 0
+			profile.OfficialTariff = aicapability.OfficialModelTariff{}
+			input := aicapability.TextInputIdentity{OrganizationID: "org-1", ActorID: "user-1", MemberID: "member-1", Operation: aicapability.OperationAIWorkbenchChatPlan,
+				InvocationID: "owned-test", System: "system", Prompt: "prompt", Profile: profile, ChatTextSkill: tc.chatTextSkill}
+			quote, err := aicapability.QuoteText(input)
+			require.NoError(t, err)
+			ledger := &recordingLedger{}
+			sends, authCalls := 0, 0
+			current := profile
+			executor := Executor{Ledger: ledger, Admission: NewBoundedAdmission(),
+				Resolve: func(context.Context, aicapability.TextInputIdentity) (QualifiedRoute, error) {
+					return QualifiedRoute{Profile: current, Endpoint: endpoint, APIKey: "fake-key"}, nil
+				},
+				Authorize: func(context.Context, aicapability.TextInputIdentity) error { return nil },
+				AuthorizeInvocation: func(_ context.Context, fact aicapability.InvocationRecord) error {
+					authCalls++
+					require.Equal(t, "member-1", fact.MemberID)
+					if tc.switchAfterAuth {
+						current.CredentialVersion = "rotated"
+					}
+					return nil
+				},
+				BaseTransport: managedFixtureTransport(func(req *http.Request) (*http.Response, error) {
+					sends++
+					require.Equal(t, "api.openai.com", req.URL.Host)
+					if tc.dropResponse {
+						return nil, errors.New("synthetic response lost")
+					}
+					r := httptest.NewRecorder()
+					r.Header().Set("Content-Type", "application/json")
+					_, _ = fmt.Fprintf(r, `{"id":"fake","model":"%s","choices":%s,%s}`, model, tc.choices, tc.usage)
+					return r.Result(), nil
+				}),
+			}
+			_, err = executor.Generate(context.Background(), input, quote, nil)
+			if tc.wantError == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, tc.wantError)
+			}
+			require.Equal(t, 1, authCalls)
+			require.False(t, ledger.reserved)
+			record := ledger.records[len(ledger.records)-1]
+			require.Equal(t, tc.outcome, record.Outcome)
+			require.Equal(t, tc.tokens, record.TotalTokens)
+			require.False(t, record.EstimatedCostKnown)
+			require.Equal(t, aicapability.ModelUsageOnly, record.BillingMode)
+			if tc.switchAfterAuth {
+				require.Zero(t, sends)
+				require.True(t, record.NotSent())
+				require.False(t, record.UsageKnown)
+			} else {
+				require.Equal(t, 1, sends)
+				if tc.outcome != aicapability.InvocationDispatched {
+					require.True(t, record.UsageKnown)
+				}
+				_, err = executor.Generate(context.Background(), input, quote, nil)
+				require.ErrorIs(t, err, ErrOutcomeUnknown)
+				require.Equal(t, 1, sends)
+			}
+		})
+	}
 }

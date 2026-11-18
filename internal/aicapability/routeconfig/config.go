@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 var (
@@ -47,8 +48,11 @@ func (s Scope) Valid() bool {
 	if !ValidFact(s.OrganizationID, 128) {
 		return false
 	}
+	if s.OrganizationID == credential.PlatformOwner {
+		return credential.IsRegisteredConnection(strings.TrimPrefix(s.Capability, "ai.models.platform-channel.")) && strings.HasPrefix(s.Capability, "ai.models.platform-channel.")
+	}
 	switch aicapability.Operation(s.Capability) {
-	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake:
+	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake:
 		return true
 	}
 	return s.Capability == ImageCapability || s.Capability == SharedModelCapability || s.Capability == PlatformPricesCapability && s.OrganizationID == PlatformPricesOrganization
@@ -155,6 +159,7 @@ type Catalog interface {
 	Qualify(Scope, string, Credential) (Binding, error)
 }
 type Payload struct {
+	PlatformChannel   *PlatformChannel           `json:"platformChannel,omitempty"`
 	PlatformPrices    *PlatformPricesSnapshot    `json:"platformPrices,omitempty"`
 	SharedModels      *SharedModelSelection      `json:"sharedModels,omitempty"`
 	Optional          bool                       `json:"optional,omitempty"`

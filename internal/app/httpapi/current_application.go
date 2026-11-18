@@ -1251,6 +1251,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			modules = append(modules, imageAnalysisModule{app: analysis})
 		}
 	}
+	var workbenchSkillService *skill.Service
+	var workbenchSkillRepo *skillstore.Store
+	var workbenchSkillAccess *skillauth.Authorizer
 	if supplied.agentConfigurationDB != nil {
 		access, e := skillauth.New(workbench.authDependencies.organizationResolver, authorizer)
 		if e != nil {
@@ -1269,6 +1272,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			if e != nil {
 				return nil, e
 			}
+			workbenchSkillService, workbenchSkillRepo, workbenchSkillAccess = h.Service, repo, access
 			h.ImageService, e = skill.NewService(repo, access.ResolveImage)
 			if e != nil {
 				return nil, e
@@ -1291,6 +1295,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 		modules = append(modules, module)
 		projectChat = module.(aiWorkbenchModule).application
+		if e := projectChat.attachSkillAuthoring(ctx, workbenchSkillService, workbenchSkillRepo, workbenchSkillAccess); e != nil {
+			return nil, fmt.Errorf("build Chat skill authoring: %w", e)
+		}
 		projectChat.attachDailyReports(ctx, dailyReports)
 		if supplied.storeCenterDB != nil {
 			stores, e := storecenter.NewMemberScopedStoreRepository(supplied.storeCenterDB, currentStoreMemberAuthorizer{authorizer: authorizer})
@@ -1342,6 +1349,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			workbench.handler.SetAIWorkbenchAdmission(module.(aiWorkbenchModule).AdmittedOrganization)
 			workbench.handler.SetAIWorkbenchPlanningReadiness(module.(aiWorkbenchModule).PlanningReadiness)
 			workbench.handler.SetAIWorkbenchStoreRouteReadiness(module.(aiWorkbenchModule).StoreRouteReadiness)
+			workbench.handler.SetAIWorkbenchChatIntentReadiness(module.(aiWorkbenchModule).ChatIntentReadiness)
+			workbench.handler.SetAIWorkbenchChatTurnsReady(module.(aiWorkbenchModule).ChatTurnsReady)
 			workbench.handler.SetAIWorkbenchTitleReadiness(module.(aiWorkbenchModule).TitleReadiness)
 			workbench.handler.SetAIWorkbenchExecution(module.(aiWorkbenchModule).ExecutionKind(), module.(aiWorkbenchModule).ExecutionReadiness)
 		}
@@ -1536,6 +1545,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if projectChat != nil {
 			usageObjects.model = projectChat.usageModelDetails
 			usageObjects.modelPurposes = projectChat.usageModelPurposes
+			if projectChat.agent != nil {
+				usageObjects.ownedModels = projectChat.ownedModelUsage
+			}
 		}
 	}
 	bundle, err := buildRuntimeBundleFromModules(cfg, modules)
@@ -1595,6 +1607,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		MemberPoints:         includeMemberPoints,
 		MemberResources:      includeMemberResources,
 		Resources:            includeResources,
+		OwnedModelUsage:      includeResources && usageObjects != nil && usageObjects.ownedModels != nil,
 		SubjectVerification:  factories.buildSubjectVerification != nil,
 
 		ResearchPaginationFixture: supplied.researchFixture != nil && supplied.researchFixture.PaginationEnabled,
@@ -1721,6 +1734,7 @@ type currentApplicationOptionalRoutes struct {
 	StoreObservations    bool
 	LocalTrial           bool
 	Resources            bool
+	OwnedModelUsage      bool
 	ZitadelSMS           bool
 	SubjectVerification  bool
 	AcquisitionImage     bool
@@ -1744,6 +1758,9 @@ type currentApplicationOptionalRoutes struct {
 }
 
 func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, includeAudit, includeAcquisition, includeReferrals, includeMembership, includeAccountProfile, includeAllocation, includeBrowser bool, optional currentApplicationOptionalRoutes) error {
+	if optional.OwnedModelUsage && !optional.Resources {
+		return errors.New("owned model usage requires commercial resources")
+	}
 	if optional.ResearchAssessments && !optional.MarketResearch {
 		return errors.New("research assessment routes require market research")
 	}
@@ -2094,6 +2111,9 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 	if optional.Resources {
 		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: commercialResourcesPath})
 		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: commercialResourceEventsPath}, currentApplicationRoute{Method: http.MethodGet, Path: commercialResourceObjectPath})
+	}
+	if optional.OwnedModelUsage {
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodGet, Path: commercialOwnedModelUsagePath})
 	}
 	for _, route := range admitted {
 		expected[route] = struct{}{}
@@ -2458,7 +2478,7 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return err
 			}
 		}
-		if (descriptor.Path == commercialResourcesPath || descriptor.Path == commercialResourceEventsPath || descriptor.Path == commercialResourceObjectPath) && (descriptor.Module != commercialResourcesModuleName || descriptor.Method != http.MethodGet || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver != nil || descriptor.Permission != authz.PermissionWorkbenchCommercialRead || descriptor.RequestTimeout != 15*time.Second || !descriptor.RejectUnreadRequestBody || descriptor.Handler == nil) {
+		if (descriptor.Path == commercialResourcesPath || descriptor.Path == commercialResourceEventsPath || descriptor.Path == commercialResourceObjectPath || descriptor.Path == commercialOwnedModelUsagePath) && (descriptor.Module != commercialResourcesModuleName || descriptor.Method != http.MethodGet || descriptor.AuthPolicy != httproute.AuthPolicyCurrentIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.OrganizationTargetResolver != nil || descriptor.Permission != authz.PermissionWorkbenchCommercialRead || descriptor.RequestTimeout != 15*time.Second || !descriptor.RejectUnreadRequestBody || descriptor.Handler == nil) {
 			return errors.New("commercial resources route loses live read boundary")
 		}
 		if (strings.HasPrefix(descriptor.Path, productAgentBase) || strings.HasPrefix(descriptor.Path, productContentAgentBase) || strings.HasPrefix(descriptor.Path, ownContentAgentBase)) && (descriptor.Module != "product-agent" || descriptor.AuthPolicy != httproute.AuthPolicyVerifiedIdentity || descriptor.OrganizationAccessPolicy != httproute.OrganizationAccessPolicyLiveWrite || descriptor.Permission != authz.PermissionLocalAgentWrite || descriptor.RequestTimeout != 2*time.Minute) {

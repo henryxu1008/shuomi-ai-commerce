@@ -83,6 +83,60 @@ func (s *Store) AcquireUse(ctx context.Context, p d.Principal, ref agent.SkillVe
 	return s.AcquireUseForTarget(ctx, p, ref, d.TitleTarget)
 }
 
+// AcquireChatText grants use of an exact private version by its owner. The
+// Workbench consumer independently checks live Chat and conversation access.
+func (s *Store) AcquireChatText(ctx context.Context, actor, id string, version uint64, digest string) (d.Version, func(), error) {
+	if !agent.ValidID(actor) || !idOK(id) || version == 0 || version >= 1<<63 || len(digest) != 64 {
+		return d.Version{}, nil, d.ErrInvalid
+	}
+	tx := s.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return d.Version{}, nil, d.ErrUnavailable
+	}
+	var locked string
+	q := tx.Raw("SELECT id FROM skill_capability.skills WHERE id=? AND owner_kind='USER' AND owner_id=? FOR SHARE", id, actor).Scan(&locked)
+	if q.Error != nil || q.RowsAffected != 1 {
+		_ = tx.Rollback().Error
+		if q.Error != nil {
+			return d.Version{}, nil, d.ErrUnavailable
+		}
+		return d.Version{}, nil, d.ErrNotFound
+	}
+	v, err := readVersion(tx, id, version, false)
+	if err != nil || v.Package.Digest != digest || v.Visibility != d.Private || !v.Package.Supports(d.ChatTextTarget) || !d.Authorized(d.Principal{UserID: actor}, v, d.Use) {
+		_ = tx.Rollback().Error
+		return d.Version{}, nil, d.ErrNotEnabled
+	}
+	var once sync.Once
+	release := func() { once.Do(func() { _ = tx.Rollback().Error }) }
+	return v, release, nil
+}
+
+// AcquireAuthoring fences the exact official revision while the separately
+// authorized Chat consumer sends. Title and image grants do not confer it.
+func (s *Store) AcquireAuthoring(ctx context.Context, ref agent.SkillVersionRef) (func(), error) {
+	if !ref.Valid() || ref.ID != d.OfficialReleaseID(d.AuthoringReleaseKey) || ref.OwnerKind != d.PlatformOwner || ref.OwnerID != d.PlatformID {
+		return nil, d.ErrForbidden
+	}
+	tx := s.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, d.ErrUnavailable
+	}
+	var locked string
+	result := tx.Raw("SELECT id FROM skill_capability.skills WHERE id=? FOR SHARE", ref.ID).Scan(&locked)
+	if result.Error != nil || result.RowsAffected != 1 {
+		_ = tx.Rollback().Error
+		return nil, d.ErrUnavailable
+	}
+	v, err := readVersion(tx, ref.ID, ref.Version, false)
+	if err != nil || v.Ref() != ref || v.State != d.Enabled || v.Visibility != d.Shared || !v.Package.Supports(d.AuthoringTarget) {
+		_ = tx.Rollback().Error
+		return nil, d.ErrNotEnabled
+	}
+	var once sync.Once
+	return func() { once.Do(func() { _ = tx.Rollback().Error }) }, nil
+}
+
 func (s *Store) AcquireUseForTarget(ctx context.Context, p d.Principal, ref agent.SkillVersionRef, target string) (d.Package, func(), error) {
 	return s.acquireUseForTarget(ctx, p, ref, target, false)
 }

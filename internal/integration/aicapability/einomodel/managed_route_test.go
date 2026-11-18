@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -165,4 +166,36 @@ func TestManagedResolverReadsFreshPolicyAndNeverFallsBack(t *testing.T) {
 	current.missing = true
 	_, e = r.Resolve(ctx, input)
 	require.ErrorIs(t, e, ErrNotDispatched)
+}
+
+func TestPlatformGrantIsRecheckedAfterBusinessAuthorization(t *testing.T) {
+	ctx := context.Background()
+	writer := testChannelReader(credential.PlatformOwner, "shared-channel", "https://provider.example.test/v1")
+	policy := fixtureChannelPolicy(testTextProfile(writer.secret.Metadata.BaseURL), writer)
+	policy.CredentialOwner = credential.PlatformOwner
+	current := &changingPolicies{policy: policy}
+	resolver, err := NewManagedOrganizationRouteResolver(writer, current)
+	require.NoError(t, err)
+	ledger := &recordingLedger{}
+	sends, released := 0, false
+	executor := Executor{Ledger: ledger, Admission: NewBoundedAdmission(), Resolve: resolver.Resolve,
+		Authorize: func(context.Context, aicapability.TextInputIdentity) error { return nil },
+		BaseTransport: managedFixtureTransport(func(*http.Request) (*http.Response, error) {
+			sends++
+			return nil, errors.New("unexpected provider send")
+		}),
+	}
+	input := aicapability.TextInputIdentity{OrganizationID: "consumer-org", ActorID: "actor", MemberID: "member", InvocationID: "withdrawn",
+		Operation: aicapability.OperationAIWorkbenchChatPlan, System: "system", Prompt: "prompt", Profile: policy.ShapeProfile()}
+	quote, err := aicapability.QuoteText(input)
+	require.NoError(t, err)
+	_, err = executor.GenerateWithGate(ctx, input, quote, nil, func(context.Context) (func(), error) {
+		current.missing = true
+		return func() { released = true }, nil
+	})
+	require.ErrorIs(t, err, ErrNotDispatched)
+	require.Zero(t, sends)
+	require.ErrorIs(t, err, ErrNoDispatchReleased)
+	require.True(t, ledger.records[len(ledger.records)-1].UsageKnown)
+	require.True(t, released)
 }

@@ -32,6 +32,7 @@ type commercialUsageLookup struct {
 	amazon        func(context.Context, string, string) (string, error)
 	model         func(*gin.Context, string, string) (*commercialUsageObject, string)
 	modelPurposes func(*gin.Context, string, []string) map[string]string
+	ownedModels   func(*gin.Context, string, string) (ownedModelUsagePage, error)
 }
 
 func (m commercialResourcesModule) readUsageObject(c *gin.Context) {
@@ -225,8 +226,12 @@ func usageInvocationPurpose(fact aicapability.InvocationRecord) string {
 		return ""
 	}
 	switch fact.Operation {
+	case aicapability.OperationAIWorkbenchChatIntent:
+		return "chat_intent"
 	case aicapability.OperationAIWorkbenchChatPlan:
 		return "chat_planning"
+	case aicapability.OperationAIWorkbenchSkillAuthoring:
+		return "skill_authoring"
 	case aicapability.OperationOwnProductIntake:
 		return "own_product_intake"
 	default:

@@ -27,6 +27,7 @@ const (
 )
 
 type InvocationRecord struct {
+	BillingMode             ModelBillingMode        `json:",omitempty"`
 	ProviderRejectionProof  *ProviderRejectionProof `json:"providerRejectionProof,omitempty"`
 	BillableUsage           *BillableModelUsage     `json:"billableUsage,omitempty"`
 	OfficialTariff          OfficialModelTariff
@@ -96,6 +97,11 @@ func (r InvocationRecord) HasZeroReferenceUsage() bool {
 		u != nil && u.Validate() == nil && u.MappingVersion == r.OfficialTariff.UsageVersion && u.InputText == 0 && u.OutputText == 0
 }
 
+func (r InvocationRecord) NotSent() bool {
+	return r.Outcome == InvocationFailed && !r.FinishedAt.IsZero() &&
+		(r.ErrorCode == "rejected_before_dispatch" || r.ErrorCode == "reservation_failed_before_dispatch")
+}
+
 // InvocationDispatchClaimer atomically inserts the existing dispatch fact.
 // Only acquired=true with nil error grants permission for one provider attempt.
 // Replays, conflicts and ambiguous writes never grant execution.
@@ -106,7 +112,7 @@ type InvocationDispatchClaimer interface {
 // SupportsObservedUsageFailure deliberately allows only current consumers that
 // preserve trustworthy provider usage when their structured output is rejected.
 func SupportsObservedUsageFailure(operation Operation) bool {
-	return operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationListingMaterialsDecision || operation == OperationProductResearchDecision || operation == OperationProductSelectionDecision || operation == OperationShopDiagnosisDecision || VisionTextOperation(operation) || operation == OperationAIWorkbenchChatPlan || operation == OperationAIWorkbenchStoreRoute
+	return operation == OperationProductAgentDecision || operation == OperationProductContentDecision || operation == OperationListingMaterialsDecision || operation == OperationProductResearchDecision || operation == OperationProductSelectionDecision || operation == OperationShopDiagnosisDecision || VisionTextOperation(operation) || operation == OperationAIWorkbenchChatPlan || operation == OperationAIWorkbenchStoreRoute || operation == OperationAIWorkbenchChatIntent || operation == OperationAIWorkbenchSkillAuthoring
 }
 
 // InvocationReplayReader is optional for non-durable test recorders. The

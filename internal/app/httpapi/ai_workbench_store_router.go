@@ -22,8 +22,9 @@ type workbenchStoreRouter struct {
 }
 
 type gatedStoreRouteText struct {
-	router  *workbenchStoreRouter
-	command aiworkbench.StoreRouteCommand
+	router    *workbenchStoreRouter
+	command   aiworkbench.StoreRouteCommand
+	authorize func(context.Context, aiworkbench.Scope, string, string) error
 }
 
 func (g gatedStoreRouteText) Generate(ctx context.Context, input aicapability.TextInputIdentity, quote aicapability.TextQuote, validate func(string) error) (governed.TextOutput, error) {
@@ -31,7 +32,11 @@ func (g gatedStoreRouteText) Generate(ctx context.Context, input aicapability.Te
 		return governed.TextOutput{}, governed.ErrNotDispatched
 	}
 	gate := func(gateCtx context.Context) error {
-		if err := g.router.Authorize(gateCtx, g.command.Scope, g.command.ConversationID, g.command.MemberID); err != nil {
+		authorize := g.authorize
+		if authorize == nil {
+			authorize = g.router.Authorize
+		}
+		if err := authorize(gateCtx, g.command.Scope, g.command.ConversationID, g.command.MemberID); err != nil {
 			return err
 		}
 		return g.router.app.store.VerifyStoreRouteDispatch(gateCtx, g.command)
@@ -134,7 +139,28 @@ func (p *workbenchStoreRouter) FailureState(ctx context.Context, command aiworkb
 		return "", aiworkbench.ErrUnavailable
 	}
 	fact, err := p.app.agent.config.Ledger.ReadModelInvocation(ctx, command.Scope.OrganizationID, command.InvocationID)
-	if err != nil || fact.TenantID != command.Scope.OrganizationID || fact.UserID != command.Scope.ActorID || fact.MemberID != command.MemberID || fact.InvocationID != command.InvocationID || fact.InputHash != command.InputHash || fact.Operation != aicapability.OperationAIWorkbenchStoreRoute || !fact.UsageKnown || !fact.EstimatedCostKnown {
+	if err != nil || fact.TenantID != command.Scope.OrganizationID || fact.UserID != command.Scope.ActorID || fact.MemberID != command.MemberID || fact.InvocationID != command.InvocationID || fact.InputHash != command.InputHash || fact.Operation != routingInvocationOperation(command) {
+		return "", aiworkbench.ErrUnavailable
+	}
+	if fact.BillingMode == aicapability.ModelUsageOnly {
+		if fact.NotSent() {
+			return aiworkbench.PlanningFailedBeforeDispatch, nil
+		}
+		if fact.Outcome == aicapability.InvocationUsageObservedFailed && fact.UsageKnown && fact.ErrorCategory == aicapability.ErrorStructuredOutputInvalid {
+			return aiworkbench.PlanningInvalidOutput, nil
+		}
+		return "", aiworkbench.ErrUnavailable
+	}
+	if !fact.EstimatedCostKnown {
+		return "", aiworkbench.ErrUnavailable
+	}
+	if fact.IsChatIntentOpenAIParameterRejection() {
+		if p.app.agent.points == nil || p.app.agent.points.ConfirmChatIntentParameterRejection(ctx, command.Scope.OrganizationID, command.InvocationID) != nil {
+			return "", aiworkbench.ErrUnavailable
+		}
+		return aiworkbench.PlanningInvalidOutput, nil
+	}
+	if !fact.UsageKnown {
 		return "", aiworkbench.ErrUnavailable
 	}
 	// A no-dispatch invocation is written before the resource owner finishes

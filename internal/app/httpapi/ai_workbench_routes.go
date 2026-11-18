@@ -98,6 +98,23 @@ func (m aiWorkbenchModule) StoreRouteReadiness(ctx context.Context, organization
 	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchStoreRoute}))
 }
 
+func (m aiWorkbenchModule) ChatIntentReadiness(ctx context.Context, organizationID string) string {
+	a := m.application
+	if a == nil || !a.chatTurnsEnabled || a.store == nil || !a.store.CanChatTurns(ctx) || a.storeRoute == nil {
+		return string(governed.RouteUnavailable)
+	}
+	router, ok := a.storeRoute.Gateway.(*workbenchStoreRouter)
+	if !ok || router.routes == nil {
+		return string(governed.RouteUnavailable)
+	}
+	return string(router.routes.Readiness(ctx, aicapability.TextInputIdentity{OrganizationID: organizationID, Operation: aicapability.OperationAIWorkbenchChatIntent}))
+}
+
+func (m aiWorkbenchModule) ChatTurnsReady(ctx context.Context, organizationID string) bool {
+	a := m.application
+	return a != nil && a.chatTurnsEnabled && a.admittedOrganization(organizationID) && a.store != nil && a.store.CanChatTurns(ctx)
+}
+
 // TitleReadiness is the current execution route projection for an existing
 // proposal. It is independent of whether a new Chat plan may be started.
 func (m aiWorkbenchModule) TitleReadiness(ctx context.Context, organizationID string) string {
@@ -122,13 +139,17 @@ func buildAIWorkbenchModule(ctx context.Context, cfg AIWorkbenchDependencies, ag
 }
 
 func workbenchJSON(c *gin.Context, target any) error {
+	return workbenchJSONLimit(c, target, 16<<10)
+}
+
+func workbenchJSONLimit(c *gin.Context, target any, limit int64) error {
 	media, params, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
 	if err != nil || media != "application/json" || (params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8")) ||
 		c.GetHeader("Content-Encoding") != "" || c.Request.Body == nil {
 		return aiworkbench.ErrInvalid
 	}
-	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, 16<<10+1))
-	if err != nil || len(raw) == 0 || len(raw) > 16<<10 || !utf8.Valid(raw) {
+	raw, err := io.ReadAll(io.LimitReader(c.Request.Body, limit+1))
+	if err != nil || len(raw) == 0 || int64(len(raw)) > limit || !utf8.Valid(raw) {
 		return aiworkbench.ErrInvalid
 	}
 	violations, err := sigjson.UnmarshalStrict(raw, target, sigjson.DisallowDuplicateFields, sigjson.DisallowUnknownFields)
@@ -195,6 +216,10 @@ func writeAIWorkbenchError(c *gin.Context, err error) {
 		status, code = http.StatusConflict, "IDEMPOTENCY_CONFLICT"
 	case errors.Is(err, aiworkbench.ErrProposalStale), errors.Is(err, agentconfig.ErrChanged), errors.Is(err, agentconfig.ErrRevision), errors.Is(err, knowledge.ErrSelectionChanged):
 		status, code = http.StatusConflict, "PROPOSAL_STALE"
+	case errors.Is(err, aiworkbench.ErrTextSkillInputLimit):
+		status, code = http.StatusRequestEntityTooLarge, "TEXT_SKILL_INPUT_LIMIT"
+	case errors.Is(err, aiworkbench.ErrTextSkillUnavailable):
+		status, code = http.StatusConflict, "TEXT_SKILL_UNAVAILABLE"
 	case errors.Is(err, aiworkbench.ErrRevisionMismatch), errors.Is(err, agent.ErrConflict):
 		status, code = http.StatusConflict, "REVISION_MISMATCH"
 	case errors.Is(err, agent.ErrManualReviewRequired):
@@ -235,23 +260,25 @@ func workbenchReply(c *gin.Context, status int, value any) {
 }
 
 type workbenchMessageBody struct {
-	TaskSelection    *aiworkbench.TaskSelection    `json:"taskSelection,omitempty"`
-	StoreChoice      *aiworkbench.StoreChoiceInput `json:"storeChoice,omitempty"`
-	Content          string                        `json:"content"`
-	OperationID      string                        `json:"operationId"`
-	TargetPlatform   string                        `json:"targetPlatform"`
-	TemplateID       string                        `json:"templateId,omitempty"`
-	TemplateRevision string                        `json:"templateRevision,omitempty"`
-	KnowledgeBaseID  string                        `json:"knowledgeBaseId,omitempty"`
+	TextSkill        *aiworkbench.TextSkillSelection `json:"textSkill,omitempty"`
+	TaskSelection    *aiworkbench.TaskSelection      `json:"taskSelection,omitempty"`
+	StoreChoice      *aiworkbench.StoreChoiceInput   `json:"storeChoice,omitempty"`
+	Content          string                          `json:"content"`
+	OperationID      string                          `json:"operationId"`
+	TargetPlatform   string                          `json:"targetPlatform"`
+	TemplateID       string                          `json:"templateId,omitempty"`
+	TemplateRevision string                          `json:"templateRevision,omitempty"`
+	KnowledgeBaseID  string                          `json:"knowledgeBaseId,omitempty"`
 }
 
 func (b workbenchMessageBody) input() aiworkbench.MessageInput {
-	return aiworkbench.MessageInput{TaskSelection: b.TaskSelection, StoreChoice: b.StoreChoice, Content: b.Content, OperationID: b.OperationID,
+	return aiworkbench.MessageInput{TextSkill: b.TextSkill, TaskSelection: b.TaskSelection, StoreChoice: b.StoreChoice, Content: b.Content, OperationID: b.OperationID,
 		TargetPlatform: b.TargetPlatform, TemplateID: b.TemplateID,
 		TemplateRevision: b.TemplateRevision, KnowledgeBaseID: b.KnowledgeBaseID}
 }
 
 type workbenchProposalCard struct {
+	SelectedStoreID       string                     `json:"selectedStoreId,omitempty"`
 	SelectedStoreName     *string                    `json:"selectedStoreName,omitempty"`
 	BusinessScope         *aiworkbench.ScopeView     `json:"businessScope,omitempty"`
 	Kind                  string                     `json:"kind"`
@@ -277,6 +304,7 @@ type workbenchProposalCard struct {
 	ProviderID            string                     `json:"providerId,omitempty"`
 	ModelID               string                     `json:"modelId,omitempty"`
 	MaximumTokens         int64                      `json:"maximumTokens,omitempty"`
+	UsageOnly             bool                       `json:"usageOnly,omitempty"`
 	MaximumCostMicros     int64                      `json:"maximumCostMicros,omitempty"`
 	Currency              string                     `json:"currency,omitempty"`
 	HumanReviewRequired   bool                       `json:"humanReviewRequired"`
@@ -318,10 +346,12 @@ func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench
 	card.TemplateID, card.TemplateRevision, card.KnowledgeBaseID = p.TemplateID, p.TemplateRevision, p.KnowledgeBaseID
 	var profile aicapability.ModelProfile
 	if json.Unmarshal(p.ExecutionModelProfile, &profile) == nil && profile.Validate() == nil {
-		cost, _ := profile.MaximumCost()
+		card.UsageOnly = profile.BillingMode == aicapability.ModelUsageOnly
+		if !card.UsageOnly {
+			card.MaximumCostMicros, _ = profile.MaximumCost()
+		}
 		card.ProviderID, card.ModelID, card.Currency = profile.ProviderID, profile.ModelID, profile.Currency
 		card.MaximumTokens = profile.MaximumPromptTokens + profile.MaximumCompletionTokens
-		card.MaximumCostMicros = cost
 		if a.agent.selectTitleProfile != nil && i.TenantID == p.Scope.OrganizationID && i.UserID == p.Scope.ActorID {
 			current, currentErr := a.agent.selectTitleProfile(ctx, p.Scope.OrganizationID)
 			if !p.WorkbenchContextRef.Absent() {
@@ -333,8 +363,10 @@ func (a *aiWorkbenchApplication) proposalCard(ctx context.Context, p aiworkbench
 	}
 	if p.Kind == aiworkbench.ContentTaskKind {
 		card.MaximumTokens = p.ExecutionLimits.Tokens
-		card.MaximumCostMicros = p.ExecutionLimits.CostMicros
-		card.Currency = p.ExecutionLimits.Currency
+		if !card.UsageOnly {
+			card.MaximumCostMicros = p.ExecutionLimits.CostMicros
+			card.Currency = p.ExecutionLimits.Currency
+		}
 		card.MaximumSteps = p.ExecutionLimits.Steps
 		card.MaximumModelCalls = p.ExecutionLimits.ModelCalls
 		card.MaximumRuntimeSeconds = int64(p.ExecutionLimits.Runtime / time.Second)
@@ -352,6 +384,20 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"POST", workbenchChatBase + "/:conversation_id/turns", authz.PermissionWorkbenchChatUse, "chat-turn-submit", 2 * time.Minute},
+		{"GET", workbenchChatBase + "/:conversation_id/turns/:turn_key", authz.PermissionWorkbenchChatRead, "chat-turn-read", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/turns/:turn_key/recover", authz.PermissionWorkbenchChatUse, "chat-turn-recover", 2 * time.Minute},
+		{"GET", workbenchChatBase + "/skill-authoring", authz.PermissionWorkbenchChatUse, "skill-authoring-catalog", 15 * time.Second},
+		{"GET", workbenchChatBase + "/:conversation_id/skill-authoring", authz.PermissionWorkbenchChatRead, "skill-authoring-list", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/quote", authz.PermissionWorkbenchChatUse, "skill-authoring-quote", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/preview", authz.PermissionWorkbenchChatUse, "skill-authoring-preview", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/confirm", authz.PermissionWorkbenchChatUse, "skill-authoring-confirm", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/recover-generation", authz.PermissionWorkbenchChatUse, "skill-authoring-recover-generation", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/validate", authz.PermissionWorkbenchChatUse, "skill-authoring-validate", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/generate", authz.PermissionWorkbenchChatUse, "skill-authoring-generate", 2 * time.Minute},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/save", authz.PermissionWorkbenchChatUse, "skill-authoring-save", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/save-package", authz.PermissionWorkbenchChatUse, "skill-authoring-save-package", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/skill-authoring/:authoring_key/recover-save", authz.PermissionWorkbenchChatUse, "skill-authoring-save-recover", 15 * time.Second},
 		{"GET", workbenchSubjectBase + "/:context_kind/:context_id", authz.PermissionWorkbenchChatUse, "subject-read", 15 * time.Second},
 		{"GET", workbenchChatBase + "/scopes", authz.PermissionWorkbenchChatRead, "scope-options", 15 * time.Second},
 		{"GET", workbenchChatBase, authz.PermissionWorkbenchChatRead, "list-conversations", 15 * time.Second},
@@ -395,6 +441,10 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "chat-turn-submit", "chat-turn-read", "chat-turn-recover":
+					a.chatTurn(c, ctx, scope, spec.action)
+				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-preview", "skill-authoring-confirm", "skill-authoring-recover-generation", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-package", "skill-authoring-save-recover":
+					a.skillAuthoring(c, ctx, scope, spec.action)
 				case "subject-read":
 					a.readTaskSubject(c, ctx)
 				case "scope-options", "task-scope-options":

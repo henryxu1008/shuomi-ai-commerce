@@ -57,7 +57,7 @@ func (r *GormInvocationRecorder) ClaimInvocation(ctx context.Context, record aic
 	if !found || existing.UserID != record.UserID || existing.AgentRunID != record.AgentRunID || existing.Operation != record.Operation {
 		return false, fmt.Errorf("ai invocation identity conflict")
 	}
-	if (existing.OfficialTariff.Valid() || record.OfficialTariff.Valid()) && !samePointDispatchMetadata(invocationRowFromRecord(existing), row) {
+	if (existing.BillingMode != "" || record.BillingMode != "" || existing.OfficialTariff.Valid() || record.OfficialTariff.Valid()) && !samePointDispatchMetadata(invocationRowFromRecord(existing), row) {
 		return false, fmt.Errorf("ai invocation frozen charge identity conflict")
 	}
 	return false, nil
@@ -116,6 +116,9 @@ func (r *GormInvocationRecorder) FindInvocation(ctx context.Context, tenantID, m
 // token usage and is settled through the commercial owner. It never calls a
 // provider and is idempotent for the same terminal fact.
 func (r *GormInvocationRecorder) ResolveDispatchedInvocation(ctx context.Context, record aicapability.InvocationRecord) error {
+	if record.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 || record.ErrorCode == aicapability.ChatIntentOpenAIParameterRejectedV1 {
+		return aicapability.ErrProviderRejectionProof
+	}
 	if retiredModelReviewIdentity(string(record.Capability), string(record.Operation)) {
 		return fmt.Errorf("retired model review fact")
 	}
@@ -131,7 +134,7 @@ func (r *GormInvocationRecorder) ResolveDispatchedInvocation(ctx context.Context
 	if record.FinishedAt.IsZero() {
 		return fmt.Errorf("ai invocation recovery finished_at is required")
 	}
-	if (record.Outcome == aicapability.InvocationSucceeded || record.Outcome == aicapability.InvocationUsageObservedFailed) && (!record.UsageKnown || record.TotalTokens <= 0 && !record.HasZeroReferenceUsage() || record.PromptTokens < 0 || record.CompletionTokens < 0 || record.PromptTokens+record.CompletionTokens != record.TotalTokens) {
+	if record.BillingMode != aicapability.ModelUsageOnly && (record.Outcome == aicapability.InvocationSucceeded || record.Outcome == aicapability.InvocationUsageObservedFailed) && (!record.UsageKnown || record.TotalTokens <= 0 && !record.HasZeroReferenceUsage() || record.PromptTokens < 0 || record.CompletionTokens < 0 || record.PromptTokens+record.CompletionTokens != record.TotalTokens) {
 		return fmt.Errorf("successful or observed-failed ai invocation recovery requires observed token usage")
 	}
 	existing, found, err := r.FindInvocation(ctx, record.TenantID, record.MemberID, record.InvocationID, record.InputHash)
@@ -146,6 +149,9 @@ func (r *GormInvocationRecorder) ResolveDispatchedInvocation(ctx context.Context
 	}
 	if record.Outcome == aicapability.InvocationUsageObservedFailed && !aicapability.SupportsObservedUsageFailure(existing.Operation) {
 		return fmt.Errorf("observed-failed ai invocation operation is unsupported")
+	}
+	if existing.BillingMode == aicapability.ModelUsageOnly {
+		return r.RecordInvocation(ctx, record)
 	}
 	if existing.Outcome != aicapability.InvocationDispatched {
 		if existing.ProviderRejectionProof != nil || record.ProviderRejectionProof != nil {
@@ -241,7 +247,7 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 	var existing invocationRow
 	lookupErr := r.db.WithContext(ctx).Where("invocation_id = ?", record.InvocationID).Take(&existing).Error
 	if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
-		if record.OfficialTariff.Valid() && record.Outcome != aicapability.InvocationDispatched {
+		if (record.OfficialTariff.Valid() || record.BillingMode != "") && record.Outcome != aicapability.InvocationDispatched {
 			return fmt.Errorf("priced invocation requires a durable dispatch fact")
 		}
 		if record.Outcome == aicapability.InvocationUsageObservedFailed {
@@ -261,6 +267,9 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 		}
 		if record.Outcome == aicapability.InvocationUsageObservedFailed && existing.Operation != row.Operation {
 			return fmt.Errorf("ai invocation identity conflict")
+		}
+		if (existing.BillingMode != nil || row.BillingMode != nil) && !samePointDispatchMetadata(existing, row) {
+			return fmt.Errorf("ai invocation frozen billing identity conflict")
 		}
 		if existing.Outcome == string(aicapability.InvocationSucceeded) && record.Outcome == aicapability.InvocationDispatched {
 			return nil
@@ -283,7 +292,7 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 			if existing.OfficialTariffJSON != "" && existing.OfficialTariffJSON != "null" && !samePointDispatchMetadata(existing, row) {
 				return fmt.Errorf("ai invocation frozen charge identity conflict")
 			}
-			updated := r.db.WithContext(ctx).Model(&invocationRow{}).Where("invocation_id = ? AND outcome = ?", row.InvocationID, string(aicapability.InvocationDispatched)).Select("*").Updates(&row)
+			updated := r.db.WithContext(ctx).Model(&invocationRow{}).Where("invocation_id = ? AND outcome = ?", row.InvocationID, string(aicapability.InvocationDispatched)).Select("*").Omit("BillingMode").Updates(&row)
 			if updated.Error != nil {
 				return updated.Error
 			}
@@ -307,14 +316,15 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 
 		}
 	}
-	if r.usageSettler != nil {
+	if record.BillingMode != aicapability.ModelUsageOnly && r.usageSettler != nil {
 		if err := aicapability.SettleSuccessfulInvocation(ctx, record, r.usageSettler); err != nil {
 			return err
 		}
 		// An unknown-usage success retains the pre-dispatch reservation. Releasing
 		// it would let repeated successful calls bypass the member and enterprise
 		// token limits before the usage fact can be reconciled.
-		if record.Outcome != aicapability.InvocationSucceeded && record.Outcome != aicapability.InvocationDispatched && record.Outcome != aicapability.InvocationUsageObservedFailed && record.ProviderRejectionProof == nil {
+		if record.Outcome != aicapability.InvocationSucceeded && record.Outcome != aicapability.InvocationDispatched && record.Outcome != aicapability.InvocationUsageObservedFailed && record.ProviderRejectionProof == nil &&
+			!record.IsWorkbenchOpenAIParameterRejection() {
 			if reservation, ok := r.usageSettler.(aicapability.InvocationUsageReservation); ok {
 				return reservation.ReleaseAIInvocationUsage(ctx, record.TenantID, record.InvocationID)
 			}
@@ -347,6 +357,23 @@ func samePointDispatchMetadata(original, proposed invocationRow) bool {
 }
 
 func validateUsage(record aicapability.InvocationRecord) error {
+	if (record.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 || record.ErrorCode == aicapability.ChatIntentOpenAIParameterRejectedV1) && !record.IsWorkbenchOpenAIParameterRejection() {
+		return aicapability.ErrProviderRejectionProof
+	}
+	if retiredModelReviewIdentity(string(record.Capability), string(record.Operation)) {
+		return fmt.Errorf("retired model review fact")
+	}
+	switch record.BillingMode {
+	case aicapability.ModelUsageOnly:
+		return validateOwnedUsage(record)
+	case aicapability.ModelPlatformPoints:
+		if !record.OfficialTariff.Valid() {
+			return fmt.Errorf("platform invocation requires a tariff")
+		}
+	case "":
+	default:
+		return fmt.Errorf("invalid invocation billing mode")
+	}
 	if record.ProviderRejectionProof != nil {
 		if err := aicapability.ValidateProviderRejection(record); err != nil {
 			return err
@@ -366,9 +393,6 @@ func validateUsage(record aicapability.InvocationRecord) error {
 			record.ErrorCode == "rejected_before_dispatch" || record.ErrorCode == "reservation_failed_before_dispatch" {
 			return fmt.Errorf("invalid billable usage metadata")
 		}
-	}
-	if retiredModelReviewIdentity(string(record.Capability), string(record.Operation)) {
-		return fmt.Errorf("retired model review fact")
 	}
 	if record.OfficialTariff != (aicapability.OfficialModelTariff{}) || record.MaximumPromptTokens != 0 || record.MaximumCompletionTokens != 0 {
 		if !validPricedTextOperationIdentity(record) || !record.OfficialTariff.Valid() || !record.OfficialTariff.MatchesWireModel(record.ModelID) || record.MaximumPromptTokens <= 0 || record.MaximumCompletionTokens <= 0 {
@@ -391,6 +415,34 @@ func validateUsage(record aicapability.InvocationRecord) error {
 	return nil
 }
 
+func validateOwnedUsage(record aicapability.InvocationRecord) error {
+	if record.OfficialTariff != (aicapability.OfficialModelTariff{}) || record.Currency != "" || record.EstimatedCostKnown || record.EstimatedCostMicros != 0 ||
+		record.ProviderRejectionProof != nil || record.ImageCount != 0 || !validPricedTextOperationIdentity(record) ||
+		aicapability.VisionTextOperation(record.Operation) || !aicapability.ValidOwnedTextUsageMapping(record.PolicyVersion) ||
+		!strings.HasPrefix(record.RoutingKey, "um-") || record.CredentialReference == "" || record.ConfigurationVersion == "" ||
+		record.MaximumPromptTokens < 1 || record.MaximumCompletionTokens < 1 || record.StartedAt.IsZero() {
+		return fmt.Errorf("invalid owned model invocation")
+	}
+	switch record.Outcome {
+	case aicapability.InvocationDispatched, aicapability.InvocationFailed:
+		if record.UsageKnown || record.BillableUsage != nil || record.PromptTokens != 0 || record.CompletionTokens != 0 || record.TotalTokens != 0 ||
+			(record.Outcome == aicapability.InvocationFailed && !record.NotSent()) {
+			return fmt.Errorf("invalid owned model no-usage fact")
+		}
+	case aicapability.InvocationSucceeded, aicapability.InvocationUsageObservedFailed:
+		u := record.BillableUsage
+		if !record.UsageKnown || u == nil || u.Validate() != nil || u.MappingVersion != record.PolicyVersion ||
+			u.InputImage != 0 || u.OutputImage != 0 || u.OutputImageItems != 0 ||
+			int64(record.PromptTokens) != u.InputText || int64(record.CompletionTokens) != u.OutputText || int64(record.TotalTokens) != u.InputText+u.OutputText ||
+			u.InputText > record.MaximumPromptTokens || u.OutputText > record.MaximumCompletionTokens || record.FinishedAt.IsZero() || record.OutputHash == "" {
+			return fmt.Errorf("invalid owned model observed usage")
+		}
+	default:
+		return fmt.Errorf("invalid owned model outcome")
+	}
+	return nil
+}
+
 func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool {
 	switch record.Operation {
 	case aicapability.OperationProductImageAnalysis:
@@ -402,7 +454,7 @@ func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool
 		return record.AgentRunID != "" && record.Capability == aicapability.CapabilityProductEnrichText && record.OfficialTariff.MatchesWireModel(record.ModelID)
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		return record.AgentRunID != ""
-	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute:
+	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring:
 		return record.AgentRunID == "" && record.BusinessTaskID == "" &&
 			record.Capability == aicapability.CapabilityAIWorkbenchChatPlanning
 	default:
@@ -416,55 +468,56 @@ type invocationRow struct {
 	MaximumPromptTokens     int64  `gorm:"column:maximum_prompt_tokens;not null;default:0"`
 	MaximumCompletionTokens int64  `gorm:"column:maximum_completion_tokens;not null;default:0"`
 
-	InvocationID               string    `gorm:"column:invocation_id;primaryKey;size:128"`
-	ParentInvocationID         string    `gorm:"column:parent_invocation_id;size:128"`
-	AgentRunID                 string    `gorm:"column:agent_run_id;size:128"`
-	TenantID                   string    `gorm:"column:tenant_id;size:128;index:idx_ai_invocations_tenant_started,priority:1"`
-	UserID                     string    `gorm:"column:user_id;size:128"`
-	MemberID                   string    `gorm:"column:member_id;size:128"`
-	BusinessTaskID             string    `gorm:"column:business_task_id;size:128;index:idx_ai_invocations_business_task_id"`
-	TraceID                    string    `gorm:"column:trace_id;size:128"`
-	Capability                 string    `gorm:"column:capability;size:128;index:idx_ai_invocations_capability_started,priority:1"`
-	Operation                  string    `gorm:"column:operation;size:128"`
-	RouteMode                  string    `gorm:"column:route_mode;size:32"`
-	RouteOutcome               string    `gorm:"column:route_outcome;size:64"`
-	CacheStatus                string    `gorm:"column:cache_status;size:32"`
-	ProviderID                 string    `gorm:"column:provider_id;size:128;index:idx_ai_invocations_provider_model_started,priority:1"`
-	ModelID                    string    `gorm:"column:model_id;size:256;index:idx_ai_invocations_provider_model_started,priority:2"`
-	RequestedRoutingKey        string    `gorm:"column:requested_routing_key;size:256"`
-	RoutingKey                 string    `gorm:"column:routing_key;size:256"`
-	CredentialReference        string    `gorm:"column:credential_reference;size:256"`
-	PolicyVersion              string    `gorm:"column:policy_version;size:128"`
-	ConfigurationVersion       string    `gorm:"column:configuration_version;size:128"`
-	PromptKey                  string    `gorm:"column:prompt_key;size:256"`
-	PromptVersion              string    `gorm:"column:prompt_version;size:128"`
-	PromptScope                string    `gorm:"column:prompt_scope;size:128"`
-	PromptHash                 string    `gorm:"column:prompt_hash;size:128"`
-	StartedAt                  time.Time `gorm:"column:started_at;index:idx_ai_invocations_tenant_started,priority:2;index:idx_ai_invocations_capability_started,priority:2;index:idx_ai_invocations_provider_model_started,priority:3"`
-	FinishedAt                 time.Time `gorm:"column:finished_at"`
-	LatencyMilliseconds        int64     `gorm:"column:latency_milliseconds"`
-	Attempt                    int       `gorm:"column:attempt"`
-	FallbackIndex              int       `gorm:"column:fallback_index"`
-	PromptTokens               int       `gorm:"column:prompt_tokens"`
-	CompletionTokens           int       `gorm:"column:completion_tokens"`
-	TotalTokens                int       `gorm:"column:total_tokens"`
-	ImageCount                 int       `gorm:"column:image_count"`
-	EstimatedCostMicros        int64     `gorm:"column:estimated_cost_micros"`
-	EstimatedCostKnown         bool      `gorm:"column:estimated_cost_known"`
-	UsageKnown                 bool      `gorm:"column:usage_known"`
-	Currency                   string    `gorm:"column:currency;size:16"`
-	Outcome                    string    `gorm:"column:outcome;size:32"`
-	ErrorCategory              string    `gorm:"column:error_category;size:64"`
-	RouteErrorCategory         string    `gorm:"column:route_error_category;size:64"`
-	ErrorCode                  string    `gorm:"column:error_code;size:128"`
-	ProviderRequestID          string    `gorm:"column:provider_request_id;size:256;index:idx_ai_invocations_provider_request_id"`
-	UpstreamJobID              string    `gorm:"column:upstream_job_id;size:256;index:idx_ai_invocations_upstream_job_id"`
-	InputHash                  string    `gorm:"column:input_hash;size:128"`
-	OutputHash                 string    `gorm:"column:output_hash;size:128"`
-	ReviewScore                float64   `gorm:"column:review_score"`
-	ReviewNeedsHuman           bool      `gorm:"column:review_needs_human"`
-	ReviewReasonsJSON          string    `gorm:"column:review_reasons;type:text"`
-	ProviderRejectionProofJSON *string   `gorm:"column:provider_rejection_proof_json;type:text"`
+	InvocationID               string                         `gorm:"column:invocation_id;primaryKey;size:128"`
+	ParentInvocationID         string                         `gorm:"column:parent_invocation_id;size:128"`
+	AgentRunID                 string                         `gorm:"column:agent_run_id;size:128"`
+	TenantID                   string                         `gorm:"column:tenant_id;size:128;index:idx_ai_invocations_tenant_started,priority:1"`
+	UserID                     string                         `gorm:"column:user_id;size:128"`
+	MemberID                   string                         `gorm:"column:member_id;size:128"`
+	BusinessTaskID             string                         `gorm:"column:business_task_id;size:128;index:idx_ai_invocations_business_task_id"`
+	TraceID                    string                         `gorm:"column:trace_id;size:128"`
+	Capability                 string                         `gorm:"column:capability;size:128;index:idx_ai_invocations_capability_started,priority:1"`
+	Operation                  string                         `gorm:"column:operation;size:128"`
+	RouteMode                  string                         `gorm:"column:route_mode;size:32"`
+	RouteOutcome               string                         `gorm:"column:route_outcome;size:64"`
+	CacheStatus                string                         `gorm:"column:cache_status;size:32"`
+	ProviderID                 string                         `gorm:"column:provider_id;size:128;index:idx_ai_invocations_provider_model_started,priority:1"`
+	ModelID                    string                         `gorm:"column:model_id;size:256;index:idx_ai_invocations_provider_model_started,priority:2"`
+	RequestedRoutingKey        string                         `gorm:"column:requested_routing_key;size:256"`
+	RoutingKey                 string                         `gorm:"column:routing_key;size:256"`
+	CredentialReference        string                         `gorm:"column:credential_reference;size:256"`
+	PolicyVersion              string                         `gorm:"column:policy_version;size:128"`
+	ConfigurationVersion       string                         `gorm:"column:configuration_version;size:128"`
+	PromptKey                  string                         `gorm:"column:prompt_key;size:256"`
+	PromptVersion              string                         `gorm:"column:prompt_version;size:128"`
+	PromptScope                string                         `gorm:"column:prompt_scope;size:128"`
+	PromptHash                 string                         `gorm:"column:prompt_hash;size:128"`
+	StartedAt                  time.Time                      `gorm:"column:started_at;index:idx_ai_invocations_tenant_started,priority:2;index:idx_ai_invocations_capability_started,priority:2;index:idx_ai_invocations_provider_model_started,priority:3"`
+	FinishedAt                 time.Time                      `gorm:"column:finished_at"`
+	LatencyMilliseconds        int64                          `gorm:"column:latency_milliseconds"`
+	Attempt                    int                            `gorm:"column:attempt"`
+	FallbackIndex              int                            `gorm:"column:fallback_index"`
+	PromptTokens               int                            `gorm:"column:prompt_tokens"`
+	CompletionTokens           int                            `gorm:"column:completion_tokens"`
+	TotalTokens                int                            `gorm:"column:total_tokens"`
+	ImageCount                 int                            `gorm:"column:image_count"`
+	EstimatedCostMicros        int64                          `gorm:"column:estimated_cost_micros"`
+	EstimatedCostKnown         bool                           `gorm:"column:estimated_cost_known"`
+	UsageKnown                 bool                           `gorm:"column:usage_known"`
+	Currency                   string                         `gorm:"column:currency;size:16"`
+	Outcome                    string                         `gorm:"column:outcome;size:32"`
+	ErrorCategory              string                         `gorm:"column:error_category;size:64"`
+	RouteErrorCategory         string                         `gorm:"column:route_error_category;size:64"`
+	ErrorCode                  string                         `gorm:"column:error_code;size:128"`
+	ProviderRequestID          string                         `gorm:"column:provider_request_id;size:256;index:idx_ai_invocations_provider_request_id"`
+	UpstreamJobID              string                         `gorm:"column:upstream_job_id;size:256;index:idx_ai_invocations_upstream_job_id"`
+	InputHash                  string                         `gorm:"column:input_hash;size:128"`
+	OutputHash                 string                         `gorm:"column:output_hash;size:128"`
+	ReviewScore                float64                        `gorm:"column:review_score"`
+	ReviewNeedsHuman           bool                           `gorm:"column:review_needs_human"`
+	ReviewReasonsJSON          string                         `gorm:"column:review_reasons;type:text"`
+	ProviderRejectionProofJSON *string                        `gorm:"column:provider_rejection_proof_json;type:text"`
+	BillingMode                *aicapability.ModelBillingMode `gorm:"column:billing_mode;type:text;check:ai_invocations_billing_mode_check,billing_mode IN ('platform_points','usage_only')"`
 }
 
 func (invocationRow) TableName() string { return "ai_invocations" }
@@ -498,7 +551,13 @@ func invocationRowFromRecord(record aicapability.InvocationRecord) invocationRow
 	if cacheStatus == "" {
 		cacheStatus = aicapability.CacheStatusNotApplicable
 	}
+	var billingMode *aicapability.ModelBillingMode
+	if record.BillingMode != "" {
+		mode := record.BillingMode
+		billingMode = &mode
+	}
 	return invocationRow{
+		BillingMode:                billingMode,
 		ProviderRejectionProofJSON: rejection,
 		BillableUsageJSON:          string(billable),
 		OfficialTariffJSON:         string(official), MaximumPromptTokens: record.MaximumPromptTokens, MaximumCompletionTokens: record.MaximumCompletionTokens,
@@ -552,6 +611,12 @@ func invocationRecordFromRow(row invocationRow) (aicapability.InvocationRecord, 
 		OfficialTariff:         official, MaximumPromptTokens: row.MaximumPromptTokens, MaximumCompletionTokens: row.MaximumCompletionTokens,
 		InvocationID: row.InvocationID, ParentInvocationID: row.ParentInvocationID, AgentRunID: row.AgentRunID, TenantID: row.TenantID, UserID: row.UserID, MemberID: row.MemberID, BusinessTaskID: row.BusinessTaskID, TraceID: row.TraceID,
 		Capability: aicapability.Capability(row.Capability), Operation: aicapability.Operation(row.Operation), RouteMode: aicapability.RoutingMode(row.RouteMode), RouteOutcome: aicapability.RouteOutcome(row.RouteOutcome), CacheStatus: aicapability.CacheStatus(row.CacheStatus), ProviderID: row.ProviderID, ModelID: row.ModelID, RequestedRoutingKey: row.RequestedRoutingKey, RoutingKey: row.RoutingKey, CredentialReference: row.CredentialReference, PolicyVersion: row.PolicyVersion, ConfigurationVersion: row.ConfigurationVersion, PromptKey: row.PromptKey, PromptVersion: row.PromptVersion, PromptScope: row.PromptScope, PromptHash: row.PromptHash, StartedAt: row.StartedAt, FinishedAt: row.FinishedAt, LatencyMilliseconds: row.LatencyMilliseconds, Attempt: row.Attempt, FallbackIndex: row.FallbackIndex, PromptTokens: row.PromptTokens, CompletionTokens: row.CompletionTokens, TotalTokens: row.TotalTokens, ImageCount: row.ImageCount, EstimatedCostMicros: row.EstimatedCostMicros, EstimatedCostKnown: row.EstimatedCostKnown, UsageKnown: row.UsageKnown, Currency: row.Currency, Outcome: aicapability.InvocationOutcome(row.Outcome), ErrorCategory: aicapability.ErrorCategory(row.ErrorCategory), RouteErrorCategory: aicapability.ErrorCategory(row.RouteErrorCategory), ErrorCode: row.ErrorCode, ProviderRequestID: row.ProviderRequestID, UpstreamJobID: row.UpstreamJobID, InputHash: row.InputHash, OutputHash: row.OutputHash,
+	}
+	if row.BillingMode != nil {
+		if *row.BillingMode == "" {
+			return aicapability.InvocationRecord{}, fmt.Errorf("invalid persisted billing mode")
+		}
+		record.BillingMode = *row.BillingMode
 	}
 	if err := validateUsage(record); err != nil {
 		return aicapability.InvocationRecord{}, err

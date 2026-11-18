@@ -164,7 +164,7 @@ func (c *Config) validateChannelCredentials() error {
 			if e != nil {
 				return e
 			}
-			if _, e = channelManagementDefinitions(defs, true); e != nil {
+			if _, e = channelManagementDefinitions(defs); e != nil {
 				return e
 			}
 		}

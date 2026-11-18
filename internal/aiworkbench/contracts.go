@@ -18,6 +18,8 @@ var (
 	ErrConversationArchived    = errors.New("conversation archived")
 	ErrRevisionMismatch        = errors.New("conversation revision mismatch")
 	ErrProposalStale           = errors.New("workbench proposal stale")
+	ErrTextSkillUnavailable    = errors.New("workbench text skill unavailable")
+	ErrTextSkillInputLimit     = errors.New("workbench text skill input exceeds current model limit")
 	ErrTaskOutcomeUnknown      = errors.New("workbench task action outcome unknown")
 	ErrScheduleCommandRejected = errors.New("scheduled command durably rejected")
 )
@@ -68,12 +70,15 @@ type Message struct {
 	Content          string
 	Kind             string `json:"kind,omitempty"`
 	StoreQueryStatus string `json:"storeQueryStatus,omitempty"`
+	TurnKey          string `json:"turnKey,omitempty"`
+	TextSkillVersion uint64 `json:"textSkillVersion,omitempty"`
 	CreatedAt        time.Time
 }
 
 type MessageInput struct {
-	TaskSelection    *TaskSelection    `json:",omitempty"`
-	StoreChoice      *StoreChoiceInput `json:",omitempty"`
+	TextSkill        *TextSkillSelection `json:",omitempty"`
+	TaskSelection    *TaskSelection      `json:",omitempty"`
+	StoreChoice      *StoreChoiceInput   `json:",omitempty"`
 	Content          string
 	OperationID      string
 	TargetPlatform   string
@@ -85,13 +90,20 @@ type MessageInput struct {
 // WorkScope is the exact server-authorized selection frozen with a planning
 // command. It contains no mutable provider or model-selected execution facts.
 type WorkScope struct {
-	OperationID      string            `json:"operation_id,omitempty"`
-	TargetPlatform   string            `json:"target_platform,omitempty"`
-	TaskSelection    *TaskSelection    `json:"task_selection,omitempty"`
-	TemplateID       string            `json:"template_id,omitempty"`
-	TemplateRevision string            `json:"template_revision,omitempty"`
-	KnowledgeBaseID  string            `json:"knowledge_base_id,omitempty"`
-	StoreChoice      *StoreChoiceInput `json:"store_choice,omitempty"`
+	TextSkill        *TextSkillSelection `json:"text_skill,omitempty"`
+	OperationID      string              `json:"operation_id,omitempty"`
+	TargetPlatform   string              `json:"target_platform,omitempty"`
+	TaskSelection    *TaskSelection      `json:"task_selection,omitempty"`
+	TemplateID       string              `json:"template_id,omitempty"`
+	TemplateRevision string              `json:"template_revision,omitempty"`
+	KnowledgeBaseID  string              `json:"knowledge_base_id,omitempty"`
+	StoreChoice      *StoreChoiceInput   `json:"store_choice,omitempty"`
+}
+
+type TextSkillSelection struct {
+	ID      string `json:"id"`
+	Version uint64 `json:"version"`
+	Digest  string `json:"digest"`
 }
 
 type StoreChoiceInput struct {
@@ -112,7 +124,7 @@ func (c *StoreChoiceInput) Valid() bool {
 }
 
 func (m MessageInput) WorkScope() WorkScope {
-	return WorkScope{OperationID: m.OperationID, TargetPlatform: m.TargetPlatform,
+	return WorkScope{TextSkill: m.TextSkill, OperationID: m.OperationID, TargetPlatform: m.TargetPlatform,
 		TaskSelection: m.TaskSelection,
 		TemplateID:    m.TemplateID, TemplateRevision: m.TemplateRevision, KnowledgeBaseID: m.KnowledgeBaseID, StoreChoice: m.StoreChoice}
 }

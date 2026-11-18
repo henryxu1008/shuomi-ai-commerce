@@ -106,6 +106,7 @@ type ApplicationFeatures struct {
 	BrowserKernelDB                                      *gorm.DB
 	BrowserKernel                                        *BrowserKernelConfig
 	SharedModels                                         *d.SharedModelService
+	PlatformChannels                                     *qualified.PlatformChannels
 	OfficialModelPrices                                  *d.PlatformPricesService
 	AutomaticFX                                          *automaticfxruntime.Control
 	CurrentTextPolicies                                  governed.RoutePolicyReader
@@ -955,6 +956,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	var titlePilotRouteWriter *gorm.DB
 	var imageReader d.SharedCategoryReader
 	var textReader governed.RoutePolicyReader
+	var platformChannels *qualified.PlatformChannels
 	if cfg.ModelRoutePricing != nil {
 		if dependencies.OpenModelRouteWriter == nil || dependencies.NewApplicationWithFeatures == nil {
 			return errors.New("shared model configuration lifecycle unavailable")
@@ -1029,12 +1031,23 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			if e != nil {
 				return e
 			}
-			modelQuery = qualified.NewModelQuery(catalog, metadata, channelSecrets)
+			modelQuery = qualified.NewModelQuery(catalog, metadata, channelSecrets).WithManagedDefinitions(manage.Catalog.(*qualified.SharedCatalog).Managed)
 		}
-		credentialManager, e = prepareChannelManagement(startupContext, cfg, agentDB, credentialWriter, defs)
+		credentialManager, e = prepareChannelManagement(startupContext, cfg, agentDB, credentialWriter, defs, manage.Catalog.(*qualified.SharedCatalog).Managed != nil)
 		if e != nil {
 			return e
 		}
+		if org := cfg.ModelRoutePricing.PlatformMaintainerOrganization; org != "" {
+			sharedCatalog := manage.Catalog.(*qualified.SharedCatalog)
+			if !d.ValidFact(org, 128) || !d.ValidFact(cfg.Identity.ProjectID, 128) ||
+				sharedCatalog.Managed == nil || credentialManager == nil || !credentialManager.CanRegister() {
+				return errors.New("platform model channels require a trusted maintainer and the managed channel writer")
+			}
+			platformChannels = &qualified.PlatformChannels{MaintainerOrganization: org, ProjectID: cfg.Identity.ProjectID, Reader: read.Repository, Writer: manage.Repository, Catalog: sharedCatalog, Management: credentialManager}
+			sharedCatalog.Platform = platformChannels
+			manage.PurposeSelectionOnly = true
+		}
+
 	}
 	var operator *http.Server
 	var registerOperator func(http.Handler)
@@ -1107,7 +1120,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 				stopCommercialBillingRecovery()
 			}
 		}()
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelModelQuery: modelQuery, ChannelCredentials: executionChannelSecrets, SHEINUSTrial: sheinTrial, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, OfficialModelPrices: priceManager, AutomaticFX: fxControl, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, CommercialBillingRecoveryStop: &stopCommercialBillingRecovery, ResourceConsumerRecoveryStop: &stopResourceConsumerRecovery, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, ReferralMaturityStop: &stopReferralMaturity, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelModelQuery: modelQuery, ChannelCredentials: executionChannelSecrets, SHEINUSTrial: sheinTrial, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, PlatformChannels: platformChannels, OfficialModelPrices: priceManager, AutomaticFX: fxControl, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, CommercialBillingRecoveryStop: &stopCommercialBillingRecovery, ResourceConsumerRecoveryStop: &stopResourceConsumerRecovery, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, ReferralMaturityStop: &stopReferralMaturity, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {
@@ -1223,26 +1236,31 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- server.Serve(listener) }()
 
+	var serveErr error
+	var waitForServe bool
 	select {
-	case serveErr := <-serveResult:
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			return fmt.Errorf("serve current application: %w", serveErr)
-		}
-		return nil
+	case serveErr = <-serveResult:
 	case <-ctx.Done():
-		shutdownContext, cancel := context.WithTimeout(context.Background(), dependencies.ShutdownTimeout)
-		shutdownErr := server.Shutdown(shutdownContext)
-		cancel()
-		if shutdownErr != nil {
-			shutdownErr = errors.Join(shutdownErr, server.Close())
-		}
-		serveErr := <-serveResult
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			shutdownErr = errors.Join(shutdownErr, fmt.Errorf("serve current application: %w", serveErr))
-		}
-		if shutdownErr != nil {
-			return fmt.Errorf("stop current application: %w", shutdownErr)
-		}
-		return nil
+		waitForServe = true
 	}
+
+	// A listener failure can leave active requests using runtime resources.
+	shutdownContext, cancel := context.WithTimeout(context.Background(), dependencies.ShutdownTimeout)
+	shutdownErr := server.Shutdown(shutdownContext)
+	cancel()
+	if shutdownErr != nil {
+		shutdownErr = errors.Join(shutdownErr, server.Close())
+	}
+	if waitForServe {
+		serveErr = <-serveResult
+	}
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		serveErr = fmt.Errorf("serve current application: %w", serveErr)
+	} else {
+		serveErr = nil
+	}
+	if shutdownErr != nil {
+		return fmt.Errorf("stop current application: %w", errors.Join(shutdownErr, serveErr))
+	}
+	return serveErr
 }

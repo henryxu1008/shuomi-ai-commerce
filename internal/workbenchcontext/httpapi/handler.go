@@ -31,6 +31,8 @@ type Handler struct {
 	aiWorkbenchAdmission           func(string) bool
 	aiWorkbenchPlanningReadiness   func(context.Context, string) string
 	aiWorkbenchStoreRouteReadiness func(context.Context, string) string
+	aiWorkbenchChatIntentReadiness func(context.Context, string) string
+	aiWorkbenchChatTurnsReady      func(context.Context, string) bool
 	aiWorkbenchTitleReadiness      func(context.Context, string) string
 	aiWorkbenchExecutionKind       string
 	aiWorkbenchExecutionReadiness  func(context.Context, string) string
@@ -93,6 +95,18 @@ func (h *Handler) SetAIWorkbenchPlanningReadiness(read func(context.Context, str
 func (h *Handler) SetAIWorkbenchStoreRouteReadiness(read func(context.Context, string) string) {
 	if h != nil {
 		h.aiWorkbenchStoreRouteReadiness = read
+	}
+}
+
+func (h *Handler) SetAIWorkbenchChatIntentReadiness(read func(context.Context, string) string) {
+	if h != nil {
+		h.aiWorkbenchChatIntentReadiness = read
+	}
+}
+
+func (h *Handler) SetAIWorkbenchChatTurnsReady(read func(context.Context, string) bool) {
+	if h != nil {
+		h.aiWorkbenchChatTurnsReady = read
 	}
 }
 
@@ -218,6 +232,8 @@ func (h *Handler) writeContext(c *gin.Context) {
 	executionKind, executionReadiness := "", ""
 	planningReadiness := ""
 	storeRouteReadiness := ""
+	chatIntentReadiness := ""
+	chatTurnsReady := false
 	titleReadiness := ""
 	available := false
 	if h.aiWorkbenchAvailable {
@@ -228,6 +244,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 					break
 				}
 				executionKind = h.aiWorkbenchExecutionKind
+				chatTurnsReady = h.aiWorkbenchChatTurnsReady != nil && h.aiWorkbenchChatTurnsReady(c.Request.Context(), organization.ID)
 				executionReadiness = "UNAVAILABLE"
 				if h.aiWorkbenchExecutionReadiness != nil {
 					v := h.aiWorkbenchExecutionReadiness(c.Request.Context(), organization.ID)
@@ -237,6 +254,7 @@ func (h *Handler) writeContext(c *gin.Context) {
 				}
 				planningReadiness = "UNAVAILABLE"
 				storeRouteReadiness = "UNAVAILABLE"
+				chatIntentReadiness = "UNAVAILABLE"
 				titleReadiness = "UNAVAILABLE"
 				if h.aiWorkbenchPlanningReadiness != nil {
 					candidate := h.aiWorkbenchPlanningReadiness(c.Request.Context(), organization.ID)
@@ -251,9 +269,16 @@ func (h *Handler) writeContext(c *gin.Context) {
 					}
 				}
 				if h.aiWorkbenchTitleReadiness != nil {
+					// Readiness is projection only; each send still authorizes live.
 					candidate := h.aiWorkbenchTitleReadiness(c.Request.Context(), organization.ID)
 					if candidate == "AVAILABLE" || candidate == "NEEDS_CONFIGURATION" {
 						titleReadiness = candidate
+					}
+				}
+				if h.aiWorkbenchChatIntentReadiness != nil {
+					candidate := h.aiWorkbenchChatIntentReadiness(c.Request.Context(), organization.ID)
+					if candidate == "AVAILABLE" || candidate == "NEEDS_CONFIGURATION" {
+						chatIntentReadiness = candidate
 					}
 				}
 				break
@@ -284,6 +309,8 @@ func (h *Handler) writeContext(c *gin.Context) {
 		StorageCapacityAvailable:       h.storageCapacityAvailable && effectiveOrganizationID != nil,
 		AIWorkbenchPlanningReadiness:   planningReadiness,
 		AIWorkbenchStoreRouteReadiness: storeRouteReadiness,
+		AIWorkbenchChatIntentReadiness: chatIntentReadiness,
+		AIWorkbenchChatTurnsReady:      chatTurnsReady,
 		AIWorkbenchTitleReadiness:      titleReadiness,
 		AIWorkbenchExecutionKind:       executionKind, AIWorkbenchExecutionReadiness: executionReadiness,
 	})
@@ -315,6 +342,8 @@ type contextResponse struct {
 	AIWorkbenchAvailable           bool                   `json:"aiWorkbenchAvailable,omitempty"`
 	AIWorkbenchPlanningReadiness   string                 `json:"aiWorkbenchPlanningReadiness,omitempty"`
 	AIWorkbenchStoreRouteReadiness string                 `json:"aiWorkbenchStoreRouteReadiness,omitempty"`
+	AIWorkbenchChatIntentReadiness string                 `json:"aiWorkbenchChatIntentReadiness,omitempty"`
+	AIWorkbenchChatTurnsReady      bool                   `json:"aiWorkbenchChatTurnsReady,omitempty"`
 	AIWorkbenchTitleReadiness      string                 `json:"aiWorkbenchTitleReadiness,omitempty"`
 }
 

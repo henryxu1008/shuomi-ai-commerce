@@ -79,3 +79,9 @@ it("clears protected names and selection when a later Knowledge page loses permi
  fireEvent.click(screen.getByText("下一页"));await screen.findByRole("alert");expect(screen.queryByText("Private page name")).toBeNull();
  expect(screen.getByLabelText("企业知识库")).toHaveValue("");expect(screen.getByText("确认生成")).toBeDisabled();expect(props.onConfirm).not.toHaveBeenCalled();
 });
+it("locks Chat's exact version, blocks a disappeared version, and leaves changes to Chat",async()=>{
+ const selection={skillId:base,version:1,digest:"a".repeat(64)};vi.mocked(skillRequest).mockResolvedValue({items:[{skill:{id:base,owner:{kind:"USER"}},version:1,package:{name:"我的标题规则",digest:selection.digest}}]});
+ render(<TitleAgentConfirmation {...props} initialSkill={selection} lockSkill contentSelection={{targetLanguage:"zh-CN",title:true}} executionMode={executionMode}/>);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成"})).toBeEnabled());expect(screen.getByLabelText("准确技能版本")).toBeDisabled();expect(screen.getByLabelText("使用技能 / 方法")).toBeDisabled();
+ vi.mocked(skillRequest).mockResolvedValue({items:[{skill:{id:base,owner:{kind:"USER"}},version:2,package:{name:"新版本",digest:"b".repeat(64)}}]});fireEvent.click(screen.getByRole("button",{name:"刷新技能版本"}));await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成"})).toBeDisabled());expect(props.onConfirm).not.toHaveBeenCalled();
+});

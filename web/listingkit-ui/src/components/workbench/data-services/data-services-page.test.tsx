@@ -18,6 +18,30 @@ const job = { id, commandKey: id, query: { site: "us", mode: "asin", asins: ["B0
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe("data service product paths", () => {
+    it("links to existing 1688 acquisition even when Amazon realtime is unavailable", async () => {
+        vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "true");
+        vi.stubEnv("LISTINGKIT_PRODUCT_ACQUISITION_ENABLED", "true");
+        const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url =>
+            json(url.endsWith("/options") ? { ...options, acquisitionReady: false, unavailableReason: "Amazon 实时采集暂未启用" } : []));
+        vi.stubGlobal("fetch", requests);
+        render(await DataMarketPage({ searchParams: Promise.resolve({}) }));
+
+        expect(await screen.findByRole("link", { name: "采集 1688 商品" })).toHaveAttribute("href", "/workbench/supply/acquisition");
+        expect(await screen.findByText("Amazon 实时采集暂未启用")).toBeVisible();
+        expect(screen.getByRole("button", { name: "新建采集任务" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: /提交定制需求/ })).toBeEnabled();
+        expect(requests.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
+    });
+    it("keeps Amazon market actions available with 1688 disabled", async () => {
+        vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "true");
+        vi.stubEnv("LISTINGKIT_PRODUCT_ACQUISITION_ENABLED", "false");
+        vi.stubGlobal("fetch", vi.fn(async (url: string) => json(url.endsWith("/options") ? options : [])));
+        render(await DataMarketPage({ searchParams: Promise.resolve({}) }));
+
+        await waitFor(() => expect(screen.getByRole("button", { name: "新建采集任务" })).toBeEnabled());
+        expect(screen.queryByRole("link", { name: "采集 1688 商品" })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /提交定制需求/ })).toBeEnabled();
+    });
     it("opens Amazon online acquisition with its own title, form and only acquisition reads", async () => {
         vi.stubEnv("LISTINGKIT_DATA_SERVICES_ENABLED", "true");
         const requests = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async url => json(url.endsWith("/options") ? options : []));

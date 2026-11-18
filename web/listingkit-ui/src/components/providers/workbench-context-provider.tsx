@@ -43,6 +43,8 @@ type WorkbenchContextValue = {
   operationsCockpitAvailable: boolean;
   aiWorkbenchPlanningReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
   aiWorkbenchStoreRouteReadiness?: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
+  aiWorkbenchChatIntentReadiness?: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
+  aiWorkbenchChatTurnsReady?: boolean;
   aiWorkbenchExecutionKind?:"product.content.localize"|"product.title.optimize";
   aiWorkbenchExecutionReadiness?:"AVAILABLE"|"NEEDS_CONFIGURATION"|"UNAVAILABLE";
   aiWorkbenchTitleReadiness: "AVAILABLE" | "NEEDS_CONFIGURATION" | "UNAVAILABLE";
@@ -240,6 +242,8 @@ export function WorkbenchContextProvider({ children }: PropsWithChildren) {
       operationsCockpitAvailable: currentContext?.operationsCockpitAvailable === true,
       aiWorkbenchPlanningReadiness: currentContext?.aiWorkbenchPlanningReadiness ?? "UNAVAILABLE",
       aiWorkbenchStoreRouteReadiness: currentContext?.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE",
+      aiWorkbenchChatIntentReadiness: currentContext?.aiWorkbenchChatIntentReadiness ?? "UNAVAILABLE",
+      aiWorkbenchChatTurnsReady: currentContext?.aiWorkbenchChatTurnsReady ?? false,
       aiWorkbenchExecutionKind:currentContext?.aiWorkbenchExecutionKind,
       aiWorkbenchExecutionReadiness:currentContext?.aiWorkbenchExecutionReadiness,
       aiWorkbenchTitleReadiness: currentContext?.aiWorkbenchTitleReadiness ?? "UNAVAILABLE",
