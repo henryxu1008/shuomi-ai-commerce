@@ -271,6 +271,7 @@ func execute() error {
 			if features.RuntimeContext != nil {
 				options = append(options, httpapi.WithRuntimeContext(features.RuntimeContext))
 			}
+			options = append(options, httpapi.WithResourceConsumerRecoveryStop(features.ResourceConsumerRecoveryStop))
 			if features.CommercialOwnerDB != nil {
 				options = append(options, httpapi.WithCommercialOwnerDatabase(features.CommercialOwnerDB))
 			}
@@ -293,7 +294,7 @@ func execute() error {
 				options = append(options, httpapi.WithIssue36Trial(features.LocalTrialDB))
 			}
 			if features.MoneyOwnerDB != nil {
-				options = append(options, httpapi.WithMoneyOwnerDatabase(features.MoneyOwnerDB), httpapi.WithWalletTopUpRecoveryStop(features.WalletTopUpRecoveryStop))
+				options = append(options, httpapi.WithMoneyOwnerDatabase(features.MoneyOwnerDB), httpapi.WithCommercialBillingRecoveryStop(features.CommercialBillingRecoveryStop))
 			}
 			if features.ProductAcquisitionDB != nil {
 				options = append(options, httpapi.WithProductAcquisition(features.ProductAcquisitionDB))
