@@ -14,7 +14,7 @@
 
 ## 设计依据与事实 owner
 
-- [现有创作和保存](chat-project-actions.md)及 [PR #1400](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1400) 提供候选基线。该 PR 当前尚未合并。本增量依赖其创作、保存和恢复能力，保持独立实施和评审，合并候选须包含已合入的前置能力。
+- [现有创作和保存](chat-project-actions.md)由 [PR #1400](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1400) 合入 `main`。本增量依赖其创作、保存和恢复能力，保持独立实施和评审。
 - [Skill](skill-capability.md) 是技能、归属、版本、包摘要、可用状态与保存回执的 owner。现有 `Package.Supports` 把无用途标记的包当作商品标题。新能力使用明确的 `chat-text` 用途，避免通用包误入商品入口；不修改无标记包既有解释。普通用途标签本身不赋予任何使用权。Legacy decision 为 EXTRACT，复用已存在的 Skill 库、创作与 Chat。
 - [AI Workbench](ai-workbench-chat-business-task.md) 持有会话、生成和发送命令、文本回复与引用。复用现有命令的占位、单次派发、无提案终结和回执，按冻结的文字技能引用区分用户看到的文字回复。不存在额外的技能任务账本。
 - [AI Capability](ai-capability-platform.md) 和原商业 owner 继续负责模型路由、报价、限额、预留、发送及结算。保留现 `skill_authoring` 与 `chat_planning` 各自路由和完整 profile。文字使用的模型输出按下文文本合同处理，商品规划输出包络仍由其原消费者校验。由宿主冻结用途及消费提示合同 ID，绑定实际 system/prompt 和 `InputHash`，在预备及派发时使用同一受信模板。模型 profile 继续由 AI owner 解析和复核。准备及保存无模型调用，用户点发送授权本次调用。缺额度或配置时返回相应用户状态。
