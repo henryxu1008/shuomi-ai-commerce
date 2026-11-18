@@ -1,6 +1,6 @@
 # 自有商品描述富文本操作说明
 
-Refs #745；[格式、安全与版本合同](../../architecture/own-product-rich-description.md)、[官方编辑器与独立上传增量](../../architecture/rich-description-simple-editor-images.md)。
+Refs #745；[格式、安全与版本合同](../../architecture/domains/catalog/own-product-rich-description.md)、[官方编辑器与独立上传增量](../../architecture/domains/catalog/rich-description-simple-editor-images.md)。
 
 ## 入口与使用
 
@@ -12,7 +12,7 @@ Refs #745；[格式、安全与版本合同](../../architecture/own-product-rich
 
 描述使用 Tiptap 官方 Simple Editor 组件：正文、二/三级标题菜单、加粗、斜体、删除线、列表菜单、引用、撤销/重做，工具可键盘操作并跟随应用深浅色。选中文字后点击链接图标，在浮层填写 HTTPS 地址并应用；危险或其他协议不可应用。
 
-点击工具栏“图片”，可以选择已有图片，也可以在描述内独立选择 JPEG/PNG 文件并确认上传。仍用原 SourceImageUploader：每张最多3MiB，原容量计量/同文件核实不变，确认成功后才插入，不生成成功占位图。商品新图片同时进入原商品图片池；草稿新图随当前候选描述版本保存，不改固定来源 Vn、原商品或SKU图片。单页只有一个上传意图，busy/pending时展示核实区并锁住保存/刷新；权限或scope变化后的迟到响应保留原意图，不写入其他表单。
+自有商品新建/编辑按 2026-11-07 [图片交互增量](../../architecture/domains/catalog/rich-description-simple-editor-images.md#用户结果与边界)：在「商品图片」区选择 JPEG/PNG 文件并确认上传，成功后加入商品图片池；再从描述工具栏选择图片，点击「插入到正文」。待补全草稿仍可在描述内独立上传并插入，新增图随当前候选描述版本保存，不改固定来源 Vn、原商品或 SKU 图片。两处仍用原 SourceImageUploader：每张最多3MiB，原容量计量/同文件核实不变，确认成功前不加入图片池或插入描述，不生成成功占位图。单页只有一个上传意图，busy/pending时展示核实区并锁住保存/刷新；权限或scope变化后的迟到响应保留原意图，不写入其他表单。
 
 独立上传继续要求原 `workbench.collection.manage`，草稿查看/编辑/保存继续原 `workbench.supply.read/manage`。没有上传权限且没有待核实上传时仍可编辑原文字；不改角色或授权。展开“预览描述”检查后，点击原保存按钮生成商品新版本或草稿新 Rn；刷新后读取服务端保存结果。
 
