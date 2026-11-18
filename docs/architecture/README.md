@@ -294,7 +294,7 @@
 - `domains/workbench/chat-voice-input.md` — [Chat 语音输入与会话入口](domains/workbench/chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
 - `domains/workbench/chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](domains/workbench/chat-task-object-goal-design-brief.md)
 - `domains/workbench/chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](domains/workbench/chat-content-full-runtime-coexistence-candidate.md)
-- `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)
+- `domains/workbench/chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](domains/workbench/chat-local-open-preparation.md)
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
 - `completed-work-store-scope.md` — [#36 已完成本地资料的店铺归属投影](completed-work-store-scope.md)
 - `product-workbench-trial-runtime.md` — [#36 可保留的本机隔离试用运行边界](product-workbench-trial-runtime.md)

@@ -1,12 +1,18 @@
 # Chat 定向结构与 OpenAI 文本用途准备
 
+> 2026-11-18 文档归类说明：本文保留 #1246 的设计、隔离准备及历史估算，归入 Workbench；[PR #1247](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1247)已交付并合入，不把下文候选/Spike 描述当作当前未实现。原专用 PostgreSQL、内存替身与合成业务链证据不等于真实 OpenAI、真实计费或保留实例验收；合成 ACK 丢失是提交后注入错误，不是真实网络断线。
+>
+> 当前显式入口 `cmd/ai-workbench-schema-init` 的 `--empty-scope-only` 消费 `internal/integration/persistence/aiworkbench/empty_scope_install.go`：精确目标、owner/runtime 独立连接、七表全空与冻结结构/ACL，先 owner 事务提交再 runtime 验证。成功只证明原空 scope 准备目标，不是今天完整 serving schema 就绪，不安装后续定时/消息等结构。当前内容文本策略仍由原 `internal/integration/aicapability/einomodel` 与共享模型/资源 owner 承担，不新增凭据、价格或账本 owner。
+>
+> 下文价格、FX、成员余量、34→42 点及 22.834191 点均为原时点条件示例，不能视作当前报价、额度调整批准、单次现金上限或当前可用余额；原预留不得释放。后续[35444 有界试用](../../chat-retained-1260-trial.md)只按其自身批准范围，不使本空表入口成为已有业务数据迁移器。本次不运行下文 DDL 命令，不查改实例、密钥、价目、额度、预留或真实模型；现场状态未核实，实际动作仍需当次准入和授权。
+
 状态：`IMPLEMENTATION_READY`，限 #1246 隔离实现。独立架构评审核对 `0a9d950d911e2039e345242fd51af56b02cb9d86`，明确要求修正事务提交前后校验顺序，已在本文落实；无其他设计级 BLOCKER。验证项见下文。依赖 #1242 / 已合并 #1243。基线 `58111fce176ee0974f8d4893dec0cf02b1e43fe3`。本文不授权现场数据库、价格、额度、部署或真实调用。
 
 ## 用户结果与范围
 
 保留完整商品智能体、原业务和现存预留，为获准企业以统一模型与价目使用内容 Chat 准备三个前置：受限空 Chat 结构安装；OpenAI GPT-5.4 Mini 文本规划和内容用途；可解释的估算与试用预算。新安装、空业务基线继续有效。不得导入、回填、解释或迁移旧业务事实，不设置第二 owner、不改 UI、不创建新计费或授权平台。真实启用与付费执行另行授权。
 
-权威依据：用户 2026-11-11 要求保留原 35444 商品、平台草稿、图片、其他能力及原 15.445282 点预留，只允许隔离验证；[内容 Chat 共存设计](domains/workbench/chat-content-full-runtime-coexistence-candidate.md)、[企业共享模型配置](enterprise-shared-model-configuration.md)、[共享连接](domains/ai/shared-channel-credentials.md)、[工作范围](ai-workbench-work-scope.md)、现行权限/事务/资源合同和全新系统基线。Figma 只用于业务流程辅助，不作为 UI 标准。
+权威依据：用户 2026-11-11 要求保留原 35444 商品、平台草稿、图片、其他能力及原 15.445282 点预留，只允许隔离验证；[内容 Chat 共存设计](chat-content-full-runtime-coexistence-candidate.md)、[企业共享模型配置](../../enterprise-shared-model-configuration.md)、[共享连接](../ai/shared-channel-credentials.md)、[工作范围](../../ai-workbench-work-scope.md)、现行权限/事务/资源合同和全新系统基线。Figma 只用于业务流程辅助，不作为 UI 标准。
 
 ## 已核对现状与非正式 Spike
 

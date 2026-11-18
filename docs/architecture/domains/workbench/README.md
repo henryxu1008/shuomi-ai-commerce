@@ -15,6 +15,8 @@
 | 保存、收藏和下载个人报告 | [个人报告合同](../../ai-workbench-reports.md)、[报告交接](../../../engineering/integration/report-center-runtime-handoff.md) | `internal/reportcenter` 的不可变报告/收藏，不是来源事实或审核 |
 | Agent 能否调用 Tool、选择模型与预算 | [Commerce Tool Foundation](../../commerce-tool-foundation.md)、[AI Capability](../../ai-capability-platform.md)、[模型价格路由](../../model-route-pricing-management.md) | `internal/commercetool`、`internal/aicapability`、原 Model/Resource/Review owners |
 
+- 内容 Chat 的空结构安装与文本用途准备见[定向准备合同](chat-local-open-preparation.md)；冻结空 scope 成功不代表完整 serving schema 或真实模型就绪。
+
 ## 当前优先适用的范围
 
 2026-11-15 起，**新建定时计划只允许店铺经营日报**，日报可以复制新建。商品内容计划**新建、复制和 Chat「设为定时任务」已撤下**；已有商品内容计划仍可查看、编辑、控制并读取原任务、执行历史、审计及未决预留。早期 [定时主合同](../../ai-workbench-scheduled-tasks.md)中的商品内容新建场景是旧阶段产品范围，当前启用以 [#1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)及实际实例配置为准。
