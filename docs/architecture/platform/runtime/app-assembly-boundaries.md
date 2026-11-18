@@ -1,6 +1,6 @@
 # App Assembly Boundaries
 
-[project-boundaries.md](project-boundaries.md) is the repository-wide entrypoint for default ownership and dependency direction. This contract narrows that rule to current `internal/app` composition; it does not create domain policy.
+[project-boundaries.md](../../project-boundaries.md) is the repository-wide entrypoint for default ownership and dependency direction. This contract narrows that rule to current `internal/app` composition; it does not create domain policy.
 
 ## Assembly Vocabulary
 
@@ -25,4 +25,4 @@ Where these package roles exist, `bootstrap` builds and registers, `runner` star
 
 Does the change belong to configuration/build, registration, lifecycle start or supervision? Is a domain policy leaking into the composition root? Are the actor, scope, fact owner, transaction and UNKNOWN responsibility still original? Does startup verify current prerequisites without DDL or unintended side effects?
 
-Current source/import tests in `tests/` enforce the actual boundary. See [HTTP assembly](httpapi-assembly-boundaries.md) and [Temporal boundary](temporal-boundaries.md) for their specialized contracts.
+Current source/import tests in `tests/` enforce the actual boundary. See [HTTP assembly](httpapi-assembly-boundaries.md) and [Temporal boundary](../../temporal-boundaries.md) for their specialized contracts.

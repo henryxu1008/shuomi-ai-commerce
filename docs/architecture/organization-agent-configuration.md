@@ -39,7 +39,7 @@ Applicable authorities:
   enterprise scope, opt-in Knowledge, configuration != permission, exact run references.
 - [Product Agent runtime](./product-agent-runtime-contract.md): run/checkpoint/UNKNOWN owner.
 - [Project boundaries](./project-boundaries.md),
-  [HTTP assembly boundaries](./httpapi-assembly-boundaries.md),
+  [HTTP assembly boundaries](platform/runtime/httpapi-assembly-boundaries.md),
   [greenfield baseline](../product/greenfield-no-legacy-migration.md),
   [dispatch rules](../engineering/issue-driven-development.md), and [AGENTS.md](../../AGENTS.md).
 

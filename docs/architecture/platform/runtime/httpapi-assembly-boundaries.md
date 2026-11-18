@@ -1,6 +1,6 @@
 # HTTP API Assembly Boundaries
 
-当前链路为 `cmd/* -> internal/app/httpapi -> internal/*/httpapi -> domain service/runtime/contracts`。总规则见[系统边界](project-boundaries.md)，实际入口见[源码地图](../development/repository-structure.md#current-entrypoint-map)。
+当前链路为 `cmd/* -> internal/app/httpapi -> internal/*/httpapi -> domain service/runtime/contracts`。总规则见[系统边界](../../project-boundaries.md)，实际入口见[源码地图](../../../development/repository-structure.md#current-entrypoint-map)。
 
 ## 职责
 
