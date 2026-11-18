@@ -2,7 +2,7 @@
 
 状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
 安装方案已获认可，原 ledger CLI 最小离线补丁和必要自检完成；应用固定f337521d0c69f8342c9335ba31e8b86ea3236fa4，原a66保持。
-具体配置/结构差异及最小新空Run方案见[核查结果](channel-contract-f337-readonly-review.md)。不能使用任意分支HEAD/main、后续文档提交或旧1e镜像代替应用来源。
+具体配置/结构差异及最小新空Run方案见[核查结果](integration/channel-contract-f337-readonly-review.md)。不能使用任意分支HEAD/main、后续文档提交或旧1e镜像代替应用来源。
 本轮不构建镜像、不改凭据、不发布配置、不更新实例、不真实采集/AI/付费、不合并关单。
 预算仍研究/选品各¥0.30/20点、合计¥0.60/40点，原内容候选A为¥0.30/72000 Token。
 
