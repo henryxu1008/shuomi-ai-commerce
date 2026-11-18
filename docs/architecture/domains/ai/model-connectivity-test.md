@@ -19,7 +19,7 @@ DeepTutor 的可复用交互是选定连接或型号后主动测试，配置改�
 | 付费测试及原回执（已搁置） | 付费测试仍采用同一已确认的双权限设计，并按原商业规则额外校验当前成员月度 AI 点数限额、企业余额和其他用量限制。回执归原企业、发起账号和成员，费用流水沿原账本访问规则。 |
 | Key 读取和实际发送 | 凭据管理接口只读取去密信息。由服务端复用原受限 resolver，按准确企业、连接和凭据版本提供给已登记的适配器。实际发送前再次校验当前身份、授权、用途、目标型号、连接及 Key 版本。 |
 
-现有渠道合同将保存 Key 与主动外发分开。用户已确认测试授权沿用现有角色体系，采用单独显式授予。已有角色不会自动取得这项权限。普通 Chat 权限只适用于原业务用途。渠道列表的 `canManage` 表示 Key 写入服务能否运作，查询可发性由授权和只读适配是否装配另行判断。[渠道 Key 授权](../../channel-credentials-ui.md) · [现有入口与 live 权限校验](../../../../internal/app/httpapi/channel_credentials_module.go) · [角色权限](../../../../internal/authz/listingkit.go)
+现有渠道合同将保存 Key 与主动外发分开。用户已确认测试授权沿用现有角色体系，采用单独显式授予。已有角色不会自动取得这项权限。普通 Chat 权限只适用于原业务用途。渠道列表的 `canManage` 表示 Key 写入服务能否运作，查询可发性由授权和只读适配是否装配另行判断。[渠道 Key 授权](channel-credentials-ui.md) · [现有入口与 live 权限校验](../../../../internal/app/httpapi/channel_credentials_module.go) · [角色权限](../../../../internal/authz/listingkit.go)
 
 **已确认的授予方式。** 在现有企业角色模块目录加入独立的「测试渠道模型」，拟用权限 `workbench.ai.connection.test`，纳入 `WorkbenchPermissions()` 供界面读取，后端 live 双权限校验是授权依据。由当前企业具备角色管理和成员分配权限的人，在「企业空间 → 成员与权限 → 角色权限」建立有「渠道凭据管理」和「测试渠道模型」两个模块的指定自定义角色，再从「成员管理」给指定、可调整角色的有效成员分配该角色。现有界面每次更换一个成员角色，替换前核对该成员仍需的既有独立权限。首批选指定试用成员，系统管理员、平台维护者和现有渠道角色都没有默认测试授权。角色和成员变更沿现有规则与操作记录。日后另行开放付费测试时，具备原资源管理权限的人从「资源与额度」配置成员月度限额。撤销模块或成员角色后，提交及最后外发门禁按实时权限拒绝。[现有角色模块](../../../../internal/authz/module_catalog.go) · [企业角色范围](../../../../internal/authz/enterprise_roles.go) · [成员与角色页面](../../../../web/listingkit-ui/src/components/workbench/account/members-page.tsx) · [成员 AI 点数限额](../../../../internal/app/httpapi/account_ai_point_limits.go)
 
