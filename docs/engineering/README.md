@@ -54,6 +54,6 @@
 
 ## 资源与服务
 
-- [Data Services v1 runtime handoff](data-services-runtime-handoff.md)
+- [Data Services v1 runtime handoff](integration/data-services-runtime-handoff.md)
 - [企业存储容量 V1 试用入口与启动条件](enterprise-storage-capacity-runbook.md)
-- [工具市场 v1 运行接线交接](tool-market-runtime-handoff.md)
+- [工具市场 v1 运行接线交接](integration/tool-market-runtime-handoff.md)
