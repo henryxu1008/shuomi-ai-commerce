@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/sirupsen/logrus"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	coreconfig "task-processor/internal/core/config"
@@ -282,6 +284,138 @@ func TestRunShutsDownApplicationAndPreservesPoolsUntilServeStops(t *testing.T) {
 	defer mu.Unlock()
 	if len(closed) != 1 || closed[0] != source {
 		t.Fatalf("close order = %#v", closed)
+	}
+}
+
+func TestRunDrainsActiveRequestWhenListenerExits(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	sqlDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close()
+	mock.MatchExpectationsInOrder(false)
+	mock.ExpectPing()
+	mock.ExpectClose()
+	source, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), &gorm.Config{DisableAutomaticPing: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+
+	requestStarted := make(chan struct{})
+	requestFinished := make(chan struct{})
+	releaseRequest := make(chan struct{})
+	resumeRequest := sync.OnceFunc(func() { close(releaseRequest) })
+	defer resumeRequest()
+	shutdownStarted := make(chan struct{})
+	poolClosed := make(chan struct{})
+	var closedBeforeRequestFinished bool
+	pingResult := make(chan error, 1)
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(requestStarted)
+		defer close(requestFinished)
+		<-releaseRequest
+		err := sqlDB.PingContext(r.Context())
+		pingResult <- err
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})}
+	server.RegisterOnShutdown(func() { close(shutdownStarted) })
+
+	runtimeDone := make(chan error, 1)
+	go func() {
+		runtimeDone <- Run(ctx, runtimeTestConfig(), logrus.New(), Dependencies{
+			IdentityPreflight: func(context.Context, IdentityConfig) error { return nil },
+			OpenSourceAccount: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return source, nil },
+			NewApplication: func(context.Context, *gorm.DB, *coreconfig.Config, *logrus.Logger) (*http.Server, error) {
+				return server, nil
+			},
+			Listen: func(string, string) (net.Listener, error) { return listener, nil },
+			CloseDatabase: func(db *gorm.DB) error {
+				pool, err := db.DB()
+				if err != nil {
+					return err
+				}
+				select {
+				case <-requestFinished:
+				default:
+					closedBeforeRequestFinished = true
+				}
+				err = pool.Close()
+				close(poolClosed)
+				return err
+			},
+			ShutdownTimeout: time.Second,
+		})
+	}()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+listener.Addr().String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type requestResult struct {
+		status int
+		err    error
+	}
+	requestDone := make(chan requestResult, 1)
+	go func() {
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			requestDone <- requestResult{err: err}
+			return
+		}
+		defer response.Body.Close()
+		requestDone <- requestResult{status: response.StatusCode}
+	}()
+
+	select {
+	case <-requestStarted:
+	case err := <-runtimeDone:
+		t.Fatalf("runtime exited before serving a request: %v", err)
+	case <-ctx.Done():
+		t.Fatal("request did not enter the handler")
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-shutdownStarted:
+	case <-poolClosed:
+		t.Error("pool closed before HTTP shutdown started with a request in flight")
+	case <-ctx.Done():
+		t.Fatal("runtime did not begin shutting down after the listener exited")
+	}
+	resumeRequest()
+
+	if response := <-requestDone; response.err != nil || response.status != http.StatusNoContent {
+		t.Errorf("in-flight HTTP request returned status %d, error %v", response.status, response.err)
+	}
+	select {
+	case err := <-pingResult:
+		if err != nil {
+			t.Errorf("in-flight request could not use the database: %v", err)
+		}
+	default:
+		t.Error("in-flight request did not reach the database")
+	}
+	var acceptErr *net.OpError
+	if err := <-runtimeDone; !errors.Is(err, net.ErrClosed) || !errors.As(err, &acceptErr) || acceptErr.Op != "accept" {
+		t.Errorf("Run() error = %v, want original listener error", err)
+	}
+	if closedBeforeRequestFinished {
+		t.Error("pool began closing before the handler returned")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Error(err)
 	}
 }
 
