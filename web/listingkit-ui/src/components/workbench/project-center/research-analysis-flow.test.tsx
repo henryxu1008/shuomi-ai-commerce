@@ -20,6 +20,34 @@ function open(items=selected,view:"research"|"selection"="selection"){queries=ne
 beforeEach(()=>{localStorage.clear();for(const f of [mock.inspect,mock.prepare,mock.execute,mock.preparation,mock.run,mock.recent,mock.config])f.mockReset();mock.config.mockImplementation(async(_s,path)=>path.startsWith("execution-modes")?{mode:"default",revision:"0"}:{agent:{activation:"ENABLED"},canUse:true,canReadRuns:true,capabilities:[{id:"text.generate",readiness:"AVAILABLE"}]});mock.inspect.mockResolvedValue(facts);mock.prepare.mockImplementation(async(_s,intent)=>({...prepared,requestKey:intent.key}));mock.preparation.mockResolvedValue(prepared);mock.run.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,true));mock.recent.mockResolvedValue({items:[],nextCursor:""});mock.execute.mockImplementation(async(_s,intent)=>({...result,requestKey:intent.key}));});
 afterEach(()=>{cleanup();queries?.clear();localStorage.clear();vi.unstubAllGlobals();});
 async function prepare(){fireEvent.click(screen.getByRole("button",{name:"查看所选商品比较"}));await waitFor(()=>expect(screen.getByRole("button",{name:"准备AI分析"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"准备AI分析"}));}
+
+it("shows market research comparison only on its own step and keeps the chosen products", async () => {
+ mock.page.mockResolvedValue({items:selected,incomplete:false});
+ queries=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ const scope={userId:"user",organizationId:"org"};
+ const panel=(step:string)=><QueryClientProvider client={queries}>
+  <ResearchPanel scope={scope} projectId={project} archived={false} view="research" workflowStep={step}/>
+ </QueryClientProvider>;
+ const {rerender}=render(panel("projects"));
+ await screen.findAllByRole("checkbox",{name:"Saved sample"});
+ for (const step of ["projects","sources","evidence"]) {
+  rerender(panel(step));
+  expect(screen.queryByRole("heading",{name:"重点商品比较"})).not.toBeInTheDocument();
+ }
+ const checkboxes=screen.getAllByRole("checkbox",{name:"Saved sample"});
+ fireEvent.click(checkboxes[0]);
+ expect(screen.queryByRole("link",{name:"前往比较"})).not.toBeInTheDocument();
+ fireEvent.click(checkboxes[1]);
+ expect(screen.getByRole("link",{name:"前往比较"})).toHaveAttribute("href",`/workbench/data/research/${project}?step=summary`);
+ expect(mock.inspect).not.toHaveBeenCalled();
+ rerender(panel("summary"));
+ fireEvent.click(screen.getByRole("button",{name:"查看所选商品比较"}));
+ expect(await screen.findByText("本次比较 2 件")).toBeVisible();
+ rerender(panel("evidence"));
+ expect(screen.queryByText("本次比较 2 件")).not.toBeInTheDocument();
+ expect(screen.getAllByRole("checkbox",{name:"Saved sample",checked:true})).toHaveLength(2);
+});
+
 it("shows the bound saved image, original quote and distinct missing states", async () => {
  const thumbnailUrl="https://m.media-amazon.com/images/I/saved-lamp.jpg";
  const items=selected.map((candidate,index)=>index===0?{
@@ -183,7 +211,7 @@ async function openIncompletePage(view:"research"|"selection"="research") {
   mock.inspect.mockImplementation(real.inspectResearch);
   queries = new QueryClient({defaultOptions:{queries:{retry:false}}});
   render(<QueryClientProvider client={queries}>
-    <ResearchPanel scope={{userId:"user",organizationId:"org"}} projectId={project} archived={false} view={view}/>
+    <ResearchPanel scope={{userId:"user",organizationId:"org"}} projectId={project} archived={false} view={view} workflowStep={view==="research"?"summary":undefined}/>
   </QueryClientProvider>);
   fireEvent.click(await screen.findByRole("checkbox",{name:"TPG0000006"}));
   fireEvent.click(screen.getByRole("checkbox",{name:"TPG0000028"}));

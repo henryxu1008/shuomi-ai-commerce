@@ -76,6 +76,15 @@ test("the four native pages share a project and preserve evidence through analys
  const listA11y=await new AxeBuilder({page}).include(".console-page").withTags(["wcag2a","wcag2aa"]).analyze();expect(listA11y.violations.filter(v=>v.impact==="serious"||v.impact==="critical")).toEqual([]);
  await page.screenshot({path:info.outputPath("research-list-light-desktop.png"),fullPage:true});
  await page.getByRole("link",{name:"查看调研",exact:true}).click();await expect(page.getByText(candidates[0].observation.title,{exact:true})).toBeVisible();expect(starts).toBe(0);
+ const steps=page.getByRole("navigation",{name:"市场调研步骤"});
+ const comparison=page.locator("#research-summary");
+ await expect(comparison).toHaveCount(0);
+ for (const label of ["收集与整理资料","查看商品资料"]) {
+  const step=steps.getByRole("link",{name:label,exact:true});
+  await step.click();
+  await expect(step).toHaveAttribute("aria-current","page");
+  await expect(comparison).toHaveCount(0);
+ }
  const evidence=page.getByRole("group",{name:"已收集的商品"});
  const evidenceCards=evidence.getByRole("article");
  const querySelect=page.getByRole("combobox",{name:"本次查询"});
@@ -105,11 +114,16 @@ test("the four native pages share a project and preserve evidence through analys
  await addExisting.click();
  await evidence.screenshot({path:info.outputPath("research-evidence-grid.png"),style:screenshotStyle});
  await page.screenshot({path:info.outputPath("research-detail-light-desktop.png"),fullPage:true});
- await page.getByRole("checkbox").nth(0).check();await page.getByRole("checkbox").nth(1).check();await page.getByRole("button",{name:"查看所选商品比较"}).click();await expect(page.getByText("本次比较 2 件")).toBeVisible();
+ await evidence.getByRole("checkbox").nth(0).check();
+ await expect(page.getByRole("link",{name:"前往比较"})).toHaveCount(0);
+ await evidence.getByRole("checkbox").nth(1).check();
+ await page.getByRole("link",{name:"前往比较"}).click();
+ await expect(steps.getByRole("link",{name:"比较重点商品"})).toHaveAttribute("aria-current","page");
+ await expect(evidence.getByRole("checkbox",{checked:true})).toHaveCount(2);
+ await page.getByRole("button",{name:"查看所选商品比较"}).click();await expect(page.getByText("本次比较 2 件")).toBeVisible();
  await page.getByRole("button",{name:"核对所选原件"}).click();
  const sampleCards=page.getByRole("list",{name:"已核对的样本商品"}).getByRole("listitem");
  await expectProductColumns(sampleCards,"columns");
- const comparison=page.locator("#research-summary");
  const preview=comparison.getByRole("img",{name:"双层桌面文件收纳架 主图"});
  await preview.scrollIntoViewIfNeeded();
  await expect.poll(()=>preview.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
@@ -136,6 +150,10 @@ test("the four native pages share a project and preserve evidence through analys
  await expect.poll(()=>comparison.evaluate(element=>element.scrollWidth)).toBeLessThanOrEqual(await comparison.evaluate(element=>element.clientWidth+1));
  await comparison.screenshot({path:info.outputPath("amazon-comparison-light-mobile.png"),style:screenshotStyle});
  await page.setViewportSize({width:1440,height:1000});
+ await steps.getByRole("link",{name:"查看商品资料"}).click();
+ await expect(steps.getByRole("link",{name:"查看商品资料"})).toHaveAttribute("aria-current","page");
+ await expect(comparison).toHaveCount(0);
+ await expect(evidence.getByRole("checkbox",{checked:true})).toHaveCount(2);
  await querySelect.selectOption("");
  await evidence.getByRole("checkbox").nth(0).check();
  await evidence.getByRole("checkbox").nth(1).check();

@@ -24,7 +24,7 @@ import styles from "./research-panel.module.css";
 export function analysisChoices(selected:ResearchCandidate[]){return selected.map(c=>({candidateId:c.id,expectedRevision:String(c.revision),linkId:c.selectedLinkId,evidenceDigest:c.evidenceDigest,selection:{itemId:c.observation?.ref.selection.itemId,expectedRevision:String(c.observation?.ref.selection.revision),originalPublicationId:c.observation?.ref.selection.publicationId,originalVersion:c.observation?.ref.selection.version}}));}
 function matches(out:ResearchInspection|undefined,input:unknown){const parsed=researchAnalysisInput.safeParse(input);return !!out&&parsed.success&&matchesResearchInspection(out,parsed.data);}
 const recommendationNames={TEST_CANDIDATE:"建议测试",RESEARCH_MORE:"建议进一步了解",NOT_RECOMMENDED:"建议暂不选择"};
-export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evidenceReadKey="",evidenceReadable=true,comparisonReadable=evidenceReadable}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";evidenceReadKey?:string;evidenceReadable?:boolean;comparisonReadable?:boolean}){
+export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,showComparison=true,evidenceReadKey="",evidenceReadable=true,comparisonReadable=evidenceReadable}:{scope:ConfigurationScope;projectId:string;selected:ResearchCandidate[];archived:boolean;view:"research"|"selection";showComparison?:boolean;evidenceReadKey?:string;evidenceReadable?:boolean;comparisonReadable?:boolean}){
  const context=useWorkbenchContext(),queries=useQueryClient();
  const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
  const namespace=["research-analysis",projectId,context.effectiveMemberId??""];
@@ -123,6 +123,7 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  }catch(e){if(active.current){setFailure(e);setAbsentKey(e instanceof MarketAPIError&&e.status===404&&e.operationMayExist===false?intent.key:undefined);}}finally{flight.current=false;if(active.current)setBusy(false);}}
  const noRun=run.error instanceof MarketAPIError&&run.error.status===404;
  const canClear=!!saved&&!locked&&!masked&&!run.isFetching&&(!!showRun&&showRun.phase!=="running"&&showRun.usageStatus!=="unknown_reserved"||noRun);
+ if(view==="research"&&!showComparison)return null;
  return <>
  <Card id="research-summary" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>{view==="research"?"重点商品比较":"价格与特点比较"}</h3><p>选 2–5 件商品。不同币种和报价条件分别比较。</p></div><Button variant={view==="research"?"default":"outline"} disabled={comparisonLocked||archived||!input.success||facts.isFetching} onClick={()=>void inspect()}>查看所选商品比较</Button></div>
  {facts.isFetching?<p role="status">正在确认所选商品资料…</p>:null}{facts.error?<p role="alert">部分商品资料暂时无法确认，请刷新后重新选择。</p>:null}
