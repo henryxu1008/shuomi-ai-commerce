@@ -1,10 +1,10 @@
 # 两个中心 V1：研究证据分析合同增量
 
-> **文档适用性校准（2026-11-17）：** 本文是 2026-11-02 冻结的“研究证据分析”有界增量，原文中的 `Product/Figma Authority` 是当时设计依据，不是今天的 UI/IA 权威。当前用户已撤销 Figma 的最终 UI/IA 约束；市场调研/智能选品的操作导航及智能市场启用方向以[最新产品决定](../product/market-research-selection-centers-v1.md)为准。原 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 已合并；真实主动研究来源、模型、预算及用户验收仍按 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070) 分别核对。本文历史的 “Draft PR/尚未合并” 不得恢复为当前状态。详情参见 [Research 阅读导航](domains/research/README.md)。本段不改变冻结合同的权限、证据、费用或恢复语义。
+> **文档适用性校准（2026-11-17）：** 本文是 2026-11-02 冻结的“研究证据分析”有界增量，原文中的 `Product/Figma Authority` 是当时设计依据，不是今天的 UI/IA 权威。当前用户已撤销 Figma 的最终 UI/IA 约束；市场调研/智能选品的操作导航及智能市场启用方向以[最新产品决定](../product/flows/market-research-selection-centers-v1.md)为准。原 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 已合并；真实主动研究来源、模型、预算及用户验收仍按 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070) 分别核对。本文历史的 “Draft PR/尚未合并” 不得恢复为当前状态。详情参见 [Research 阅读导航](domains/research/README.md)。本段不改变冻结合同的权限、证据、费用或恢复语义。
 
 Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY（源码实现、独立检查与必需CI完成）**。执行 #1072/#1073，父目标 #1070，沿同一 Draft PR #1075。设计源码核查基线 `366df3516865163636a68852d7d85cf68c530c48`；2026-11-02 实施开工同步 main `bee30be7dd322a1d5d5777038fa98d939a570545`，沿同一分支交付。
 
-用户于 2026-11-02 明确确认沿用[两个中心 V1 产品设计](../product/market-research-selection-centers-v1.md)：数据服务 → 市场调研中心、供应市场 → 智能选品中心，共用项目，汇总限明确选中2–5项。随后用户明确回复“可以”，批准正式业务代码、必要开发自检、提交/推送及同一 PR 维护；本轮不合并、不更新实例或部署，不调用真实平台、真实模型或付费服务。产品确认、Architecture Review、正式实施授权及真实试用分别记录；本文不代签。
+用户于 2026-11-02 明确确认沿用[两个中心 V1 产品设计](../product/flows/market-research-selection-centers-v1.md)：数据服务 → 市场调研中心、供应市场 → 智能选品中心，共用项目，汇总限明确选中2–5项。随后用户明确回复“可以”，批准正式业务代码、必要开发自检、提交/推送及同一 PR 维护；本轮不合并、不更新实例或部署，不调用真实平台、真实模型或付费服务。产品确认、Architecture Review、正式实施授权及真实试用分别记录；本文不代签。
 
 2026-11-03用户后续明确允许按已审源码ad3ed151d6构建并仅更新指定统一实例的前后端，并允许启动Docker Desktop。该有界运行操作复用既有镜像切换/回退，属于Reuse Existing Architecture；不修改本冻结技术合同。准确状态见[运行交接](../engineering/integration/market-research-runtime-handoff.md#当前指定统一实例交接2026-11-03)。真实平台/模型/付费、合并、Issue关闭和用户业务验收仍分别未授权或未执行。
 
@@ -12,7 +12,7 @@ Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_
 
 本人研究项目成员在研究视图核对样本，切到选品视图，对同一2–5个准确候选显式运行有来源的分析，查看观察摘要、差异、缺项和建议，再独立作人工决定，沿原批次确认转入待适配。模型不可用时证据、只读汇总、事实比较和人工决定仍可用。
 
-Product/Figma Authority：[产品与完整节点索引](../product/market-research-selection-centers-v1.md)、[当前 Authority](../product/final-ui-ia-authority.md)。Figma 文件 `tg48P46SSXl6TBy9lZwg63`、非归档页 `31:463`；研究详情 [12114:1646](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-1646)、评审 [12114:1746](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-1746)、用量确认 [12114:2011](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-2011)、人工确认 [12114:2021](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-2021)。明暗和关键390px同版节点随产品确认；原节点名称中的“候选”仅保留追溯。
+Product/Figma Authority：[产品与完整节点索引](../product/flows/market-research-selection-centers-v1.md)、[当前 Authority](../product/final-ui-ia-authority.md)。Figma 文件 `tg48P46SSXl6TBy9lZwg63`、非归档页 `31:463`；研究详情 [12114:1646](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-1646)、评审 [12114:1746](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-1746)、用量确认 [12114:2011](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-2011)、人工确认 [12114:2021](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=12114-2021)。明暗和关键390px同版节点随产品确认；原节点名称中的“候选”仅保留追溯。
 
 Must：同一私有项目及准确观察；有界披露、原版本/时间/parser/checksum/样本范围可追溯；当前授权先于披露或付费执行；显式配置及最大用量确认；同键异载荷冲突；只从冻结证据生成建议；建议与人工决定分离；UNKNOWN由原owner核实，不能重复扣费或换键重发。无成本/需求证据不能产生利润/销量事实，缺项不能填零。
 

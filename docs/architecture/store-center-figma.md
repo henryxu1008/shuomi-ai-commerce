@@ -46,7 +46,7 @@ Authority：[最终 UI/IA](../product/final-ui-ia-authority.md)，文件 `tg48P4
 
 ## 3. owner 与调用链
 
-复用已批准设计：[Native Store 与预付资源](unified-base-prepaid-resources.md)、[Store core](store-center-application.md)、[成员资源与官方连接](member-resource-allocation.md)、[成员目录](member-directory-query.md)、[平台观察](store-center-platform-observations.md)、[认证/租户](auth-and-tenancy.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。Native Store 决定覆盖旧 core 的 quota/provisioning/resume 含义。
+复用已批准设计：[Native Store 与预付资源](unified-base-prepaid-resources.md)、[Store core](store-center-application.md)、[成员资源与官方连接](member-resource-allocation.md)、[成员目录](platform/identity/member-directory-query.md)、[平台观察](store-center-platform-observations.md)、[认证/租户](platform/identity/auth-and-tenancy.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。Native Store 决定覆盖旧 core 的 quota/provisioning/resume 含义。
 
 | 事实 | 唯一 owner | 本轮动作 |
 | --- | --- | --- |

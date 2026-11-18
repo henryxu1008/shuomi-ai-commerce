@@ -8,7 +8,7 @@
 
 审计 main：`6b06929f5ca77b1af3020ca92c544774c9416901`，启动时相关增量为空。#314 及 main CI 33972706741 已成功；[#315 原始阻塞](https://github.com/qq550723504/task-processor/issues/315#issuecomment-5552615228) 获协调接受。
 
-适用 [AGENTS](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)、[当前身份与租户合同](auth-and-tenancy.md)、[Validator 当前说明](../../internal/marketplace/validator/README.md)。无新增 Accepted Risk。授权读取缓存继续遵守既有最多 60 秒且不超过 token/grant 到期时间的合同，不追求零缓存撤权。
+适用 [AGENTS](../../AGENTS.md)、[Issue 驱动规则](../engineering/issue-driven-development.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)、[当前身份与租户合同](platform/identity/auth-and-tenancy.md)、[Validator 当前说明](../../internal/marketplace/validator/README.md)。无新增 Accepted Risk。授权读取缓存继续遵守既有最多 60 秒且不超过 token/grant 到期时间的合同，不追求零缓存撤权。
 
 Must：授权范围先于资料读取；hash 和校验用同一读取副本；无假时间；已知 stale/expired 不降格；离线结论不能授予写权限；无规则双跑/复制；无平台/模型调用或业务写。Out of Scope：schema、历史 task 迁移、IAM/tenantbridge、新事实库、缓存/刷新服务、UI/Tool/Apply/Agent/submit 接线、部署和真实数据。认证基础设施可能访问 ZITADEL 与其既有授权缓存；“无平台调用”指不为资料校验访问 SHEIN，不声称认证也无 I/O。
 

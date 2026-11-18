@@ -17,7 +17,7 @@
 - 标题技能脚本：[使用与私有执行配置](skill-script-sandbox.md)；默认关闭，D-IT1/execd init-proc 检查是试用开放前置。
 - 镜像构建：[显式 Git 版本构建](application-image-build.md)。
 - 登录隔离：[实例 cookie 隔离](runbooks/auth-instance-cookie-isolation.md)。
-- 模型治理：[模型与费率管理](model-route-pricing.md)。
+- 模型治理：[模型与费率管理](runbooks/model-route-pricing.md)。
 - Research 经营评估：[当前安装的评估表准备](runbooks/research-assessment-install.md)，实际数据库变更仍须单独授权。
 - 浏览器内核服务：[内核发行目录交接](browser-kernel-catalog.md)。
 

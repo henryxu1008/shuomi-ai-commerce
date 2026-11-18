@@ -6,7 +6,7 @@
 
 已获当前企业操作记录读取权限的用户，在 `/workbench/account/organization/audit` 按内容/对象、时间范围、受影响或消耗资源的成员定位六个已接入 owner 的真实历史事件；与原操作人、操作类型条件组合，并从完整匹配集合翻页。当前事件覆盖范围如页面现有说明；不声称包含所有业务操作。
 
-Authority：Issue #581、父项 #469、[Final UI/IA](../product/final-ui-ia-authority.md)、Figma `tg48P46SSXl6TBy9lZwg63 / 1532:525`（2026-09-30 实读代码与截图：搜索、近30天、全部操作、全部成员、筛选按钮）；用户 2026-09-30 决定“成员筛选”按受影响或消耗资源者，已有操作人筛选独立保留。[四卡与当前列表基线](account-audit-summary.md) 不定义本次三项筛选，四卡继续独立读取完整近30天窗口。
+Authority：Issue #581、父项 #469、[Final UI/IA](../../../product/final-ui-ia-authority.md)、Figma `tg48P46SSXl6TBy9lZwg63 / 1532:525`（2026-09-30 实读代码与截图：搜索、近30天、全部操作、全部成员、筛选按钮）；用户 2026-09-30 决定“成员筛选”按受影响或消耗资源者，已有操作人筛选独立保留。[四卡与当前列表基线](account-audit-summary.md) 不定义本次三项筛选，四卡继续独立读取完整近30天窗口。
 
 Scope：当前 Account Audit 六个源、查询/游标/HTTP/BFF/strict client/页面，以及必要的原 owner 只读查询局部优化。Out of Scope：导出、历史补写、第二事实表或统一索引、姓名/联系方式的历史快照或跨源用户资料搜索、其他业务事件、四卡语义、状态机、授权/租户政策、写入或外部副作用、部署和真实数据操作。Figma 的示例文字/数字不是真实审计事实；没有承诺下拉选项或姓名查询。
 

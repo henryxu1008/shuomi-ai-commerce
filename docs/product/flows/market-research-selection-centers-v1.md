@@ -2,7 +2,7 @@
 
 ## 当前权威与实现边界导航（2026-11-17）
 
-本页维护已确认的市场调研、智能选品业务职责和交互决定；对应 [Research 领域导航](../architecture/domains/research/README.md)、[Research 最小领域合同](../architecture/market-research-selection.md) 和 [商品来源/事实归属](../architecture/project-boundaries.md) 分别说明实现边界。实际交付与缺口请查 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。下文早期“已确认 Figma 设计”、独立中心或 Draft PR 的描述保留历史版本，不能覆盖最新用户决定、当前准确仓库代码或真实试用结果。当前研究目标 SHEIN 美国与资料来源 Amazon、1688 分开解释。
+本页维护已确认的市场调研、智能选品业务职责和交互决定；对应 [Research 领域导航](../../architecture/domains/research/README.md)、[Research 最小领域合同](../../architecture/market-research-selection.md) 和 [商品来源/事实归属](../../architecture/project-boundaries.md) 分别说明实现边界。实际交付与缺口请查 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。下文早期“已确认 Figma 设计”、独立中心或 Draft PR 的描述保留历史版本，不能覆盖最新用户决定、当前准确仓库代码或真实试用结果。当前研究目标 SHEIN 美国与资料来源 Amazon、1688 分开解释。
 
 ## 当前菜单决定（2026-11-11）
 
@@ -19,7 +19,7 @@
 
 两项操作共同读取 #1078 原 owner 的企业共享 text 配置，保留各自业务定义、权限、只读模式和预算。用户已撤下逐次官方精确价、峰闲时点、全缓存分项和厂商完整费用硬界前置，明确授权按参考价/费用估算收敛 #1075 离线实现。当前采用平台维护的参考版本及 reference-text-totals-v1 基础用量策略，原资源微点账本结算；不恢复独立 200/800 资费或第二收费链。
 
-Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点、两项 ¥0.60/40点预算保持。三类选择经同一原快照/CAS保存，实际使用时检查对应类别，未开放生图不阻文字路径且不显示可执行。参考策略、版本投影、配置差异及离线验证边界见[接线合同](../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)和[配置预览](../engineering/selection-shared-model-wiring-preview.md)。本批不改凭据、不发布实际配置、不更新保留实例、不执行真实采集/AI/付费、不合并；真实开放与用户试用未完成。
+Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点、两项 ¥0.60/40点预算保持。三类选择经同一原快照/CAS保存，实际使用时检查对应类别，未开放生图不阻文字路径且不显示可执行。参考策略、版本投影、配置差异及离线验证边界见[接线合同](../../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)和[配置预览](../../engineering/selection-shared-model-wiring-preview.md)。本批不改凭据、不发布实际配置、不更新保留实例、不执行真实采集/AI/付费、不合并；真实开放与用户试用未完成。
 
 ## 现有操作启用、配置与进入使用增量（2026-11-03）
 
@@ -34,11 +34,11 @@ Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点�
 
 部分启用与每项就绪分别显示；目录/分页没有返回另一操作时，其状态待核实，不能推断已停用。业务职责计数不代替操作状态。企业/权限切换沿原重挂载清除旧选择与弹窗；选中未启用或模型未就绪的操作不能借另一项可用状态进入AI执行，原授权事实和历史仍可查看。
 
-完整市场调研尚无已准入执行定义，不注册空壳卡片。原研究/选品一级工作入口与项目交接暂保留，等完整替代路径形成后再收敛。本轮源码/测试与准确HEAD在同一PR #1075记录；用户已单独授权准确e75前端仅更新指定统一实例，现已健康运行。此后又明确授权在Local Account Center启用两项操作并保存只读，现已完成并核对整页刷新、能力配置及准确事实查看入口切换，见[当前运行交接](../engineering/integration/market-research-runtime-handoff.md)。模型仍需配置；具体商品操作、真实取数/AI/付费及用户业务试用仍未执行。
+完整市场调研尚无已准入执行定义，不注册空壳卡片。原研究/选品一级工作入口与项目交接暂保留，等完整替代路径形成后再收敛。本轮源码/测试与准确HEAD在同一PR #1075记录；用户已单独授权准确e75前端仅更新指定统一实例，现已健康运行。此后又明确授权在Local Account Center启用两项操作并保存只读，现已完成并核对整页刷新、能力配置及准确事实查看入口切换，见[当前运行交接](../../engineering/integration/market-research-runtime-handoff.md)。模型仍需配置；具体商品操作、真实取数/AI/付费及用户业务试用仍未执行。
 
 ## 智能市场交付方式（2026-11-03，用户已确认）
 
-用户进一步咨询：市场调研、智能选品能否作为智能体放在智能市场，让用户启用再使用，随后对这版具体方案明确回复“可以”。**两个业务智能体及统一发现/企业启用/使用入口的产品方向已确认**，并已写入[当前Product Authority](final-ui-ia-authority.md#市场调研与智能选品以智能体交付2026-11-03-用户决定)。原两个独立一级菜单的目标形态由本决定替代，业务步骤和已有资料继续复用；替代路径完整接通后再收起旧入口，不能提前断开使用。本轮当前范围为产品决定记录及操作映射/准入核对，Design Basis N/A，尚未修改生产路径或运行实例。
+用户进一步咨询：市场调研、智能选品能否作为智能体放在智能市场，让用户启用再使用，随后对这版具体方案明确回复“可以”。**两个业务智能体及统一发现/企业启用/使用入口的产品方向已确认**，并已写入[当前Product Authority](../final-ui-ia-authority.md#市场调研与智能选品以智能体交付2026-11-03-用户决定)。原两个独立一级菜单的目标形态由本决定替代，业务步骤和已有资料继续复用；替代路径完整接通后再收起旧入口，不能提前断开使用。本轮当前范围为产品决定记录及操作映射/准入核对，Design Basis N/A，尚未修改生产路径或运行实例。
 
 按已确认的两个业务职责提供智能体，平台作为研究市场/资料来源扩展，SHEIN优先设计、TEMU后续的决定继续有效。下表是目标业务结果，不是当前已实现能力声明：
 
@@ -72,11 +72,11 @@ Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点�
 
 单纯分类/导航调整仅在准确操作、消费者和授权不变时适用Reuse Existing Architecture；完整市场调研的新增definition/来源工具、或把某个Agent启用当另一Agent准入的方案属于新的合同边界，须Independent Architecture。原人工研究/决定、只读资料和历史继续依领域权限，不被Agent是否启用或模型是否配置拦住。
 
-复用依据：[业务智能体职责及市场/我的智能体分工](business-agent-responsibilities.md)、[组织智能体配置](../architecture/organization-agent-configuration.md)。若只调整显示分类/导航可评估复用现有架构；本提案涉及的完整业务、来源/工具、分析合同或执行门禁变化仍须按实际边界完成Independent Architecture准入。源码调查不是当前实例已启用或可执行的证明，本轮没有运行验收、真实调用或启用配置写入。
+复用依据：[业务智能体职责及市场/我的智能体分工](../decisions/business-agent-responsibilities.md)、[组织智能体配置](../../architecture/organization-agent-configuration.md)。若只调整显示分类/导航可评估复用现有架构；本提案涉及的完整业务、来源/工具、分析合同或执行门禁变化仍须按实际边界完成Independent Architecture准入。源码调查不是当前实例已启用或可执行的证明，本轮没有运行验收、真实调用或启用配置写入。
 
 ## 多平台规划阶段（2026-11-03）
 
-用户已选择“同时规划多平台接入，再确定本次要实现哪些来源”，随后要求先看与GPT的原讨论。本轮已读完[《跨境电商流程》](chatgpt-conversation:/6ae84d73-7894-83e9-836f-ce153bccbcf0)3轮记录，按原“市场机会→竞品→货源/利润/风险→人工选品→商品准备”目标修正[多平台资料接入方案](market-research-multi-source-plan.md)。原列来源为Amazon、1688、TEMU、SHEIN、Google Trends及第三方数据；撤回上一版未对齐原目标的A/B/C优先组合，eBay和文件导入只留备选/补充。当前样本比较与决定路径不代表完整市场调研已完成。**此轮最初规划时来源组合尚未批准；后续已确认SHEIN美国优先设计，多平台正式实现仍 NOT_READY**；下方已批准的 Amazon 首批能力不因此自动扩大。“先服务端Amazon、浏览器桥后接”等明确阶段决定继续有效。规划阶段未修改生产代码、Figma或实例；此后54fb业务文案已包含在获准更新的e75前端中，真实采集/AI/付费仍未授权。
+用户已选择“同时规划多平台接入，再确定本次要实现哪些来源”，随后要求先看与GPT的原讨论。本轮已读完[《跨境电商流程》](chatgpt-conversation:/6ae84d73-7894-83e9-836f-ce153bccbcf0)3轮记录，按原“市场机会→竞品→货源/利润/风险→人工选品→商品准备”目标修正[多平台资料接入方案](../market-research-multi-source-plan.md)。原列来源为Amazon、1688、TEMU、SHEIN、Google Trends及第三方数据；撤回上一版未对齐原目标的A/B/C优先组合，eBay和文件导入只留备选/补充。当前样本比较与决定路径不代表完整市场调研已完成。**此轮最初规划时来源组合尚未批准；后续已确认SHEIN美国优先设计，多平台正式实现仍 NOT_READY**；下方已批准的 Amazon 首批能力不因此自动扩大。“先服务端Amazon、浏览器桥后接”等明确阶段决定继续有效。规划阶段未修改生产代码、Figma或实例；此后54fb业务文案已包含在获准更新的e75前端中，真实采集/AI/付费仍未授权。
 
 后续公开资料层调查已补入同一方案：TEMU/SHEIN官方店铺授权不能证明可读任意竞品；Google Trends自动接口需申请，官方CSV导出是可选方式；第三方有相关数据产品，但本项目的字段覆盖、适用许可、预算及运行质量仍未核实。用户随后确认 **SHEIN优先、TEMU后续**，只确定设计重点。[SHEIN竞品研究与机会初筛业务草案](shein-research-opportunity-v1.md)沿“市场方向→竞品资料→机会清单→人工选品”，不擅自以人工导入替代自动调研。数据服务商、目标国家覆盖、趋势过渡方式、付费或新来源实施均未获批准；上段“来源组合尚未批准”指完整接入方案，SHEIN设计优先级以本段为准。
 
@@ -84,9 +84,9 @@ Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点�
 
 以下记录保留此前用户决定、准确实现与运行证据。独立一级入口的目标形态已由本页最新“两个业务智能体交付”决定替代；不能据这些历史实现恢复已调整的目标，也不把尚未更新的实例说成已经收敛入口。
 
-最新用户反馈要求业务定位不以Amazon定义，并改用业务人员能理解的流程语言。首页、菜单及对应操作说明已统一，准确源码 `54fb58983` 已完成相关自检、独立增量复核和标准UI构建，尚未替换指定实例。Amazon仅保留为“当前已接通的资料来源”提示，其他来源尚未开放，不改变实际来源准入。业务主线为“明确调研方向 → 收集资料 → 比较重点商品 → 确定下一步”，选品则“挑选重点商品 → 参考分析建议 → 记录选择理由 → 进入后续商品准备”。下表为本次待更新的显示名；当前文案依据见[最新Product Authority](final-ui-ia-authority.md#2026-11-03-用户修正业务定位与面向业务人员的说明)。本轮只是文案修正，不代多平台输入或完整市场分析能力的实现；运行实例仍按交接的准确版本。
+最新用户反馈要求业务定位不以Amazon定义，并改用业务人员能理解的流程语言。首页、菜单及对应操作说明已统一，准确源码 `54fb58983` 已完成相关自检、独立增量复核和标准UI构建，尚未替换指定实例。Amazon仅保留为“当前已接通的资料来源”提示，其他来源尚未开放，不改变实际来源准入。业务主线为“明确调研方向 → 收集资料 → 比较重点商品 → 确定下一步”，选品则“挑选重点商品 → 参考分析建议 → 记录选择理由 → 进入后续商品准备”。下表为本次待更新的显示名；当前文案依据见[最新Product Authority](../final-ui-ia-authority.md#2026-11-03-用户修正业务定位与面向业务人员的说明)。本轮只是文案修正，不代多平台输入或完整市场分析能力的实现；运行实例仍按交接的准确版本。
 
-用户进一步要求一级菜单像已有“智能市场”“店铺中心”一样展示业务流程。一级无合法step时复用现有 `PrimaryIntroduction` 完整首页，包含业务简介、功能入口、四步业务流程及使用说明；合法step仍进入原项目列表与详情（2026-11-11起直接由二级入口到达）。首页不读取项目/候选数据，不将空项目替代模块说明，不新增业务流程或执行能力。此新增修正源码 `a2d12ec54` 已完成相关自检、独立增量复核和标准UI构建；用户随后明确允许仅更新指定统一实例前端，更新已完成，正常会话的两首页/功能入口/返回已核对，待用户实际试用。依据见[当前Product Authority](final-ui-ia-authority.md#2026-11-03-用户修正一级菜单展示业务首页与流程)，准确版本与保留证据见[运行交接](../engineering/integration/market-research-runtime-handoff.md#一级菜单业务首页修正2026-11-03已更新指定实例)。
+用户进一步要求一级菜单像已有“智能市场”“店铺中心”一样展示业务流程。一级无合法step时复用现有 `PrimaryIntroduction` 完整首页，包含业务简介、功能入口、四步业务流程及使用说明；合法step仍进入原项目列表与详情（2026-11-11起直接由二级入口到达）。首页不读取项目/候选数据，不将空项目替代模块说明，不新增业务流程或执行能力。此新增修正源码 `a2d12ec54` 已完成相关自检、独立增量复核和标准UI构建；用户随后明确允许仅更新指定统一实例前端，更新已完成，正常会话的两首页/功能入口/返回已核对，待用户实际试用。依据见[当前Product Authority](../final-ui-ia-authority.md#2026-11-03-用户修正一级菜单展示业务首页与流程)，准确版本与保留证据见[运行交接](../../engineering/integration/market-research-runtime-handoff.md#一级菜单业务首页修正2026-11-03已更新指定实例)。
 
 历史2026-11-03决定曾将“市场调研 / 智能选品”设为一级、阶段为二级、功能为三级；该层级已由上方2026-11-11两级菜单决定取代。下表保留流程溯源，不再作为菜单深度要求；原路由、项目、候选、证据和业务合同继续复用。
 
@@ -100,19 +100,19 @@ Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点�
 | 智能选品 | 选品决定 | 评估与决定 |
 | 智能选品 | 后续准备 | 确认商品并转入 |
 
-二级只组织展开的业务顺序；三级进入当前项目的实际区域，没有项目时显示原项目选择列表并说明将继续的步骤。切换同一项目内步骤保留选择和待确认状态，不执行采集、模型、人工决定或转入；未知 / 不属于当前视图的步骤不改变实际业务。Design Basis: Reuse Existing Architecture，沿冻结研究与 AI 合同。本增量代码与独立增量复核已完成；用户随后明确允许仅更新指定统一实例前端，准确源码 `2aea4d1a6` 已部署，正常登录下菜单/标题/三级入口检查完成。业务使用及用户验收仍 NOT_RUN，准确运行版本与保留检查以[运行交接](../engineering/integration/market-research-runtime-handoff.md)为准。
+二级只组织展开的业务顺序；三级进入当前项目的实际区域，没有项目时显示原项目选择列表并说明将继续的步骤。切换同一项目内步骤保留选择和待确认状态，不执行采集、模型、人工决定或转入；未知 / 不属于当前视图的步骤不改变实际业务。Design Basis: Reuse Existing Architecture，沿冻结研究与 AI 合同。本增量代码与独立增量复核已完成；用户随后明确允许仅更新指定统一实例前端，准确源码 `2aea4d1a6` 已部署，正常登录下菜单/标题/三级入口检查完成。业务使用及用户验收仍 NOT_RUN，准确运行版本与保留检查以[运行交接](../../engineering/integration/market-research-runtime-handoff.md)为准。
 
 状态：**PRODUCT_APPROVED / 新增 AI 合同 FROZEN / IMPLEMENTATION_READY / 源码与指定实例更新完成，待用户试用**。执行范围：[#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。
 
-用户于 2026-11-02 同意先形成两个中心 V1 的范围、入口、页面和交接设计，供实际评审，再决定正式实施。此决定不等于批准本文候选页面、生产代码、真实采集或模型调用。首批冻结的[研究合同](../architecture/market-research-selection.md)及已部署实现继续有效；本文不重新打开或替代该合同。
+用户于 2026-11-02 同意先形成两个中心 V1 的范围、入口、页面和交接设计，供实际评审，再决定正式实施。此决定不等于批准本文候选页面、生产代码、真实采集或模型调用。首批冻结的[研究合同](../../architecture/market-research-selection.md)及已部署实现继续有效；本文不重新打开或替代该合同。
 
-随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。[新增研究证据 AI 合同](../architecture/market-research-evidence-analysis-v1.md)已完成适用独立R1及对应增量确认，达到 FROZEN / IMPLEMENTATION_READY；后续用户回复“可以”，授权正式代码、必要开发自检、提交/推送和同一 PR 维护；真实平台/模型/付费、合并及新部署仍不授权。
+随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。[新增研究证据 AI 合同](../../architecture/market-research-evidence-analysis-v1.md)已完成适用独立R1及对应增量确认，达到 FROZEN / IMPLEMENTATION_READY；后续用户回复“可以”，授权正式代码、必要开发自检、提交/推送和同一 PR 维护；真实平台/模型/付费、合并及新部署仍不授权。
 
 ## 1. 使用者与本次结果
 
 使用者是当前企业中有相应权限的本人研究项目成员。目标操作：从国家、平台及关键词/类目/ASIN 的研究目标出发，整理有来源的样本资料和候选；进入选品视图，查看证据分析、补充人工判断，再将选中商品转入原待适配流程。
 
-本次实施交付以下已确认的两个中心和原流程贯通；Figma 为产品依据。源码已完成独立检查与必需CI；2026-11-03用户另行允许构建并更新指定实例，两个新入口已在正常登录会话中显示。真实资料、模型调用和用户业务验收仍未执行，见[当前运行交接](../engineering/integration/market-research-runtime-handoff.md#当前指定统一实例交接2026-11-03)。
+本次实施交付以下已确认的两个中心和原流程贯通；Figma 为产品依据。源码已完成独立检查与必需CI；2026-11-03用户另行允许构建并更新指定实例，两个新入口已在正常登录会话中显示。真实资料、模型调用和用户业务验收仍未执行，见[当前运行交接](../../engineering/integration/market-research-runtime-handoff.md#当前指定统一实例交接2026-11-03)。
 
 ## 2. 两个中心的职责与 V1 范围
 
@@ -200,7 +200,7 @@ Figma 已形成两个列表与两个详情的明暗桌面，以及两个关键�
 
 ### 代码交付后的运行与使用
 
-这两个入口随当前应用与 Web Console 一起运行，沿用[已有本地环境与私有配置](../../deployments/docker/account-compose/README.md)及[前端启动说明](../../web/listingkit-ui/README.md)。后端正常命令为 `go run ./cmd/current-application -config <absolute-private-manifest>`；前端在 `web/listingkit-ui` 执行 `pnpm dev`。这些是开发启动入口，不是更新保留实例的授权；不要用新安装步骤重建既有实例。
+这两个入口随当前应用与 Web Console 一起运行，沿用[已有本地环境与私有配置](../../../deployments/docker/account-compose/README.md)及[前端启动说明](../../../web/listingkit-ui/README.md)。后端正常命令为 `go run ./cmd/current-application -config <absolute-private-manifest>`；前端在 `web/listingkit-ui` 执行 `pnpm dev`。这些是开发启动入口，不是更新保留实例的授权；不要用新安装步骤重建既有实例。
 
 登录后选择当前企业，通过“数据服务 → 市场调研中心”创建或打开本人研究项目，在原数据市场取得资料并关联已保存的服务端 Amazon 结果。选择 2–5 个候选后点击“读取所选样本”，核对同币种、同页面报价口径的范围、保存事实及缺项，再进入“供应市场 → 智能选品中心”的同一项目。切换时核实原候选 revision、选定观察、digest 和商品版本；变化项须重新选择。
 

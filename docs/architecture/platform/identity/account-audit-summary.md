@@ -5,8 +5,8 @@
 ## 产品结果与依据
 
 当前授权企业用户在 `/workbench/account/organization/audit` 看见近30天操作、成员变更、权限变更、资源与续费四项真实数字；保留原列表、actor/operation 筛选、稳定分页与不可变数量。
-Authority：Issue #478 当前增量；[Final UI/IA](../product/final-ui-ia-authority.md)；Figma `tg48P46SSXl6TBy9lZwg63 / 1532:525 / 1803:359`（2026-09-29 实际读取四卡代码及截图）。四卡继续现有 Console/CSS tokens；86/3/2/12 是原型示例，不进入实现。
-沿 [统一基础方案](unified-base-prepaid-resources.md) §3/§6 的当前 Resource audit 与 Account Audit CurrentAuditSources。历史 account-audit.md 源账号首片范围已被当前多源代码与 #478 替代，不恢复旧 Token 来源。
+Authority：Issue #478 当前增量；[Final UI/IA](../../../product/final-ui-ia-authority.md)；Figma `tg48P46SSXl6TBy9lZwg63 / 1532:525 / 1803:359`（2026-09-29 实际读取四卡代码及截图）。四卡继续现有 Console/CSS tokens；86/3/2/12 是原型示例，不进入实现。
+沿 [统一基础方案](../../unified-base-prepaid-resources.md) §3/§6 的当前 Resource audit 与 Account Audit CurrentAuditSources。历史 account-audit.md 源账号首片范围已被当前多源代码与 #478 替代，不恢复旧 Token 来源。
 
 Scope：新增有界汇总 GET 合同及页面消费；沿当前已接入列表的事实类别统计完整时间窗口。
 Out of Scope：搜索/时间/成员新筛选、人名补全、新统计或审计平台、schema/index/缓存/物化/双写、新事实 owner、支付/报价/provider/SHEIN、legacy兼容、专项验收工具、现有实例更新。

@@ -2,7 +2,7 @@
 
 状态 **DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY**
 正式评测 **NOT_RUN**
-依据 [Issue #132](https://github.com/henryxu1008/shuomi-ai-commerce/issues/132)、会话中已确认的预算与停止规则、[Product Agent 运行合同](../../product-agent-runtime-contract.md)、[企业统一模型与计费合同](../../enterprise-shared-model-configuration.md)及[共享渠道凭据合同](../../shared-channel-credentials.md)。源码核对基线为 `e4d440def298e36cb70c261de0c2bad9074a9503`。
+依据 [Issue #132](https://github.com/henryxu1008/shuomi-ai-commerce/issues/132)、会话中已确认的预算与停止规则、[Product Agent 运行合同](../../product-agent-runtime-contract.md)、[企业统一模型与计费合同](../../enterprise-shared-model-configuration.md)及[共享渠道凭据合同](shared-channel-credentials.md)。源码核对基线为 `e4d440def298e36cb70c261de0c2bad9074a9503`。
 
 ## 1. 交付范围与设计分类
 

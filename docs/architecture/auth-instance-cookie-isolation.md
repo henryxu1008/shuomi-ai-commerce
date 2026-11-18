@@ -13,7 +13,7 @@ The user explicitly requested a root-cause fix after the first sign-in failed,
 with retained data and one existing source Writer / instance owner.
 
 Authority: #706 and #137; the current Identity / Organization contract linked by
-[auth-and-tenancy](auth-and-tenancy.md); [current Product/Figma Authority](../product/final-ui-ia-authority.md),
+[auth-and-tenancy](platform/identity/auth-and-tenancy.md); [current Product/Figma Authority](../product/final-ui-ia-authority.md),
 page 31:463. This changes no screen, navigation, naming, or visible login action.
 
 In scope: Auth.js's seven native cookie names and their common configuration
