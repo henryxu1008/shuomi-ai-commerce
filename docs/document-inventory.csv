@@ -252,7 +252,7 @@ docs/development/shuomi-design-system-baseline.md,development,cross-cutting,1083
 docs/development/shuomi-design-system-pilots.md,development,cross-cutting,9366,REVIEW_MOVE,docs/development/ui/shuomi-design-system-pilots.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/development/shuomi-design-tokens.md,development,cross-cutting,7580,REVIEW_MOVE,docs/development/ui/shuomi-design-tokens.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/1688-public-acquisition.md,engineering,sourcing,11217,KEEP_PATH,docs/engineering/1688-public-acquisition.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/engineering/account-audit.md,engineering,identity,4941,REVIEW_MOVE,docs/engineering/integration/account-audit.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/engineering/integration/account-audit.md,engineering,identity,4941,KEEP_PATH,,,MOVED_VERIFIED,integration relocation verified; historical scope and acceptance limits unchanged
 docs/engineering/account-membership-contract.md,engineering,identity,25498,REVIEW_MOVE,docs/engineering/integration/account-membership-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/integration/account-profile.md,engineering,identity,4309,KEEP_PATH,,,MOVED_VERIFIED,Verified integration document relocation; source bytes and historical permission boundaries unchanged
 docs/engineering/account-readonly-contract.md,engineering,identity,16521,REVIEW_MOVE,docs/engineering/integration/account-readonly-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
@@ -274,7 +274,7 @@ docs/engineering/official-knowledge-handoff.md,engineering,workbench,4429,REVIEW
 docs/engineering/operations-cockpit-runtime-handoff.md,engineering,workbench,6012,REVIEW_MOVE,docs/engineering/integration/operations-cockpit-runtime-handoff.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/README.md,engineering,cross-cutting,2851,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/engineering/referral-registration.md,engineering,commercial,14513,KEEP_PATH,docs/engineering/referral-registration.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/engineering/referrals-runtime.md,engineering,cross-cutting,9349,REVIEW_MOVE,docs/engineering/integration/referrals-runtime.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/engineering/integration/referrals-runtime.md,engineering,cross-cutting,9352,KEEP_PATH,,,MOVED_VERIFIED,integration relocation verified; historical scope and acceptance limits unchanged
 docs/engineering/report-center-runtime-handoff.md,engineering,workbench,16191,REVIEW_MOVE,docs/engineering/integration/report-center-runtime-handoff.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/selection-shared-model-wiring-preview.md,engineering,research,11658,KEEP_PATH,docs/engineering/selection-shared-model-wiring-preview.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/shein-diagnostic-bff-fixture.md,engineering,marketplace,8425,REVIEW_LIFECYCLE,docs/engineering/integration/shein-diagnostic-bff-fixture.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
