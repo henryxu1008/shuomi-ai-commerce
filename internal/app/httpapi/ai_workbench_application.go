@@ -68,6 +68,7 @@ type workbenchPlanner struct {
 	agent     *productAgentApplication
 	routes    *governed.OrganizationRouteResolver
 	model     einoplanner.Planner
+	text      *governed.Executor
 }
 
 type workbenchPlannerScopeGate struct{}
@@ -248,7 +249,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 			}
 			return nil
 		}}
-	planner := &workbenchPlanner{agent: a, routes: resolver, model: einoplanner.Planner{Text: &titleGatedPlanningText{
+	planner := &workbenchPlanner{agent: a, routes: resolver, text: executor, model: einoplanner.Planner{Text: &titleGatedPlanningText{
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
 	app := &aiWorkbenchApplication{chatTurnsEnabled: cfg.ChatTurnsEnabled, store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
@@ -281,6 +282,9 @@ func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scop
 	c, err := p.workbench.store.Get(ctx, scope, id)
 	if err != nil {
 		return nil, err
+	}
+	if input.TextSkill != nil {
+		return p.admitTextSkill(ctx, scope, c, input)
 	}
 	if c.BusinessScope == nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) {
 		return nil, aiworkbench.ErrProposalStale
@@ -392,6 +396,9 @@ func (p *workbenchPlanner) Decide(ctx context.Context, command aiworkbench.Plann
 	var profile aicapability.ModelProfile
 	if ctx == nil || json.Unmarshal(command.ModelProfile, &profile) != nil || profile.Validate() != nil || !time.Now().Before(command.Deadline) {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+	}
+	if command.WorkScope.TextSkill != nil {
+		return p.replyWithTextSkill(ctx, command, history, profile)
 	}
 	if p.agent == nil || p.agent.selectTitleProfile == nil || p.workbench != nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) && command.FrozenScope == nil {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched

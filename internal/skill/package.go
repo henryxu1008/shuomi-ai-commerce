@@ -220,7 +220,7 @@ func ValidatePackage(files []File) (Package, error) {
 			p.Name, p.Description = m.Name, m.Description
 			// Metadata remains opaque unless an exact supported method marker
 			// opts in. Never invalidate an existing package's arbitrary metadata.
-			if target := m.Metadata["listingkit-method-v1"]; target == TitleTarget || target == ImageTarget || target == AuthoringTarget {
+			if target := m.Metadata["listingkit-method-v1"]; target == TitleTarget || target == ImageTarget || target == AuthoringTarget || target == ChatTextTarget {
 				p.Target = target
 				p.DisplayName = m.Metadata["listingkit-display-name"]
 			}
@@ -230,6 +230,9 @@ func ValidatePackage(files []File) (Package, error) {
 				return Package{}, e
 			}
 		}
+	}
+	if p.Target == ChatTextTarget && len(p.Files) != 1 {
+		return Package{}, ErrInvalid
 	}
 	if err := p.validateExecution(); err != nil {
 		return Package{}, err
@@ -246,10 +249,12 @@ func ValidatePackage(files []File) (Package, error) {
 const TitleTarget = "product-title"
 const ImageTarget = "product-image"
 const AuthoringTarget = "skill-authoring"
+const ChatTextTarget = "chat-text"
 
 // Supports describes content compatibility, never execution authority. Current
 // unmarked methods keep their existing title consumer; images require opt-in.
 func (p Package) Supports(target string) bool {
 	return target == TitleTarget && (p.Target == "" || p.Target == TitleTarget) ||
-		target == ImageTarget && p.Target == ImageTarget || target == AuthoringTarget && p.Target == AuthoringTarget
+		target == ImageTarget && p.Target == ImageTarget || target == AuthoringTarget && p.Target == AuthoringTarget ||
+		target == ChatTextTarget && p.Target == ChatTextTarget
 }

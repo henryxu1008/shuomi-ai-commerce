@@ -1,6 +1,7 @@
 package aicapability
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -75,6 +76,42 @@ func TestGovernedTextQuoteBindsCompleteInputAndReservesCeiling(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestChatTextSkillQuoteUsesModelInputWithinExistingProfile(t *testing.T) {
+	profile := testTextProfile()
+	profile.MaximumPromptTokens = 4096
+	input := TextInputIdentity{
+		OrganizationID: "org", ActorID: "actor", MemberID: "member", Operation: OperationAIWorkbenchChatPlan,
+		System: strings.Repeat("system ", 60), Prompt: strings.Repeat("交接事项", 188), Profile: profile,
+	}
+	standard, err := QuoteText(input)
+	require.NoError(t, err)
+	input.ChatTextSkill = true
+	alreadyAdmitted, err := QuoteText(input)
+	require.NoError(t, err)
+	require.Equal(t, standard, alreadyAdmitted, "preserve the existing quote for an admitted request")
+
+	input.Prompt += strings.Repeat("未完成事项", 20)
+	input.ChatTextSkill = false
+	_, err = QuoteText(input)
+	require.ErrorIs(t, err, ErrTextInputLimit)
+	input.ChatTextSkill = true
+	quote, err := QuoteText(input)
+	require.NoError(t, err)
+	require.LessOrEqual(t, quote.MaximumTokens, profile.MaximumPromptTokens+profile.MaximumCompletionTokens)
+	require.NotEmpty(t, quote.InputHash)
+
+	input.Prompt += strings.Repeat("超出上限", 200)
+	_, err = QuoteText(input)
+	require.ErrorIs(t, err, ErrTextInputLimit)
+	require.ErrorIs(t, err, ErrTextEnvelope)
+
+	input.ChatTextSkill = true
+	input.Operation = OperationAIWorkbenchStoreRoute
+	_, err = QuoteText(input)
+	require.ErrorIs(t, err, ErrTextEnvelope)
+	require.NotErrorIs(t, err, ErrTextInputLimit)
+}
+
 func TestStoreRouteQuoteUsesDistinctBoundedChatOperation(t *testing.T) {
 	input := TextInputIdentity{OrganizationID: "org", ActorID: "user", MemberID: "member", Operation: Operation("aiworkbench_store_route"), InvocationID: "invocation", System: "route only", Prompt: "question", Profile: testTextProfile()}
 	quote, err := QuoteText(input)
@@ -103,6 +140,14 @@ func TestOwnedModelQuoteRequiresUsageContractAndNoTariff(t *testing.T) {
 	require.Positive(t, quote.MaximumTokens)
 	require.Empty(t, quote.Currency)
 	require.Zero(t, quote.MaximumCostMicros)
+	input.ChatTextSkill = true
+	textSkillQuote, err := QuoteText(input)
+	require.NoError(t, err)
+	require.Equal(t, quote, textSkillQuote)
+	input.Operation = OperationAIWorkbenchStoreRoute
+	_, err = QuoteText(input)
+	require.ErrorIs(t, err, ErrTextEnvelope)
+	input.Operation, input.ChatTextSkill = OperationAIWorkbenchChatPlan, false
 	input.Profile.BillingMode = ""
 	_, err = QuoteText(input)
 	require.Error(t, err)

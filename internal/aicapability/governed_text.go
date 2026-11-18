@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 var ErrTextProfile = errors.New("invalid governed text profile")
 var ErrTextEnvelope = errors.New("invalid governed text envelope")
+var ErrTextInputLimit = fmt.Errorf("governed text input exceeds route limit: %w", ErrTextEnvelope)
 
 type ModelBillingMode string
 
@@ -195,6 +197,8 @@ type TextInputIdentity struct {
 	Prompt         string
 	Profile        ModelProfile
 	Image          *SingleImageInput `json:",omitempty"`
+	// Set by Workbench for a verified personal text skill on the ChatPlan route.
+	ChatTextSkill bool `json:"-"`
 	// Transient authorized content is never part of JSON, logs or snapshots.
 	ImageContent []byte `json:"-"`
 }
@@ -219,6 +223,9 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 		!SupportsObservedUsageFailure(input.Operation) ||
 		input.System == "" || input.Prompt == "" ||
 		!utf8.ValidString(input.System) || !utf8.ValidString(input.Prompt) {
+		return TextQuote{}, ErrTextEnvelope
+	}
+	if input.ChatTextSkill && (input.Operation != OperationAIWorkbenchChatPlan || input.Image != nil) {
 		return TextQuote{}, ErrTextEnvelope
 	}
 	if input.Profile.BillingMode == ModelUsageOnly && (input.Image != nil || VisionTextOperation(input.Operation)) {
@@ -259,14 +266,25 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	if err != nil {
 		return TextQuote{}, ErrTextEnvelope
 	}
-	promptBound := int64(len(wire) + 1024)
-	wireBound := len(wire) + 1024
+	const framingBytes = 1024
+	promptBound := int64(len(wire) + framingBytes)
+	wireBound := len(wire) + framingBytes
+	if input.ChatTextSkill && promptBound > input.Profile.MaximumPromptTokens {
+		// The model only receives these two strings. The quote's identity fields
+		// and the JSON escaping around the strings are not model input. Keep
+		// the existing framing allowance and leave previously valid quotes intact
+		// so their original invocation reservations can still be recovered.
+		modelPromptBound := int64(len(input.System) + len(input.Prompt) + framingBytes)
+		if modelPromptBound <= input.Profile.MaximumPromptTokens {
+			promptBound = input.Profile.MaximumPromptTokens
+		}
+	}
 	if input.Image != nil {
 		promptBound += SingleImagePromptEstimate(input.Profile)
 		wireBound += base64.StdEncoding.EncodedLen(input.Image.ByteLength) + len("data:"+input.Image.MediaType+";base64,")
 	}
 	if wireBound > input.Profile.MaximumInputBytes || promptBound > input.Profile.MaximumPromptTokens {
-		return TextQuote{}, ErrTextEnvelope
+		return TextQuote{}, ErrTextInputLimit
 	}
 	sum := sha256.Sum256(wire)
 	quote := TextQuote{InputHash: hex.EncodeToString(sum[:]), ProfileDigest: profileDigest, BillingMode: input.Profile.BillingMode,

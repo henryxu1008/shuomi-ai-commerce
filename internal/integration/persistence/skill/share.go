@@ -124,7 +124,7 @@ func (s *Store) Share(ctx context.Context, p d.Principal, key, id string, versio
 		if e != nil {
 			return d.ShareRequest{}, e
 		}
-		if source.Metadata.Owner != (d.Owner{Kind: d.UserOwner, ID: p.UserID}) || !d.Authorized(p, source, d.Copy) {
+		if source.Metadata.Owner != (d.Owner{Kind: d.UserOwner, ID: p.UserID}) || !d.Authorized(p, source, d.Copy) || source.Package.Supports(d.ChatTextTarget) {
 			return d.ShareRequest{}, d.ErrForbidden
 		}
 		now := time.Now().UTC()
@@ -210,7 +210,7 @@ func (s *Store) DecideShare(ctx context.Context, p d.Principal, key, id, action 
 			state = "REJECTED"
 		}
 		if action == "approve" {
-			if source.Ref() != row.view().Source || source.State == d.Revoked || !source.AllowCopy || !source.AllowExport {
+			if source.Ref() != row.view().Source || source.State == d.Revoked || !source.AllowCopy || !source.AllowExport || source.Package.Supports(d.ChatTextTarget) {
 				return d.ShareRequest{}, d.ErrForbidden
 			}
 			copyID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill-approved-copy:"+row.ID)).String()

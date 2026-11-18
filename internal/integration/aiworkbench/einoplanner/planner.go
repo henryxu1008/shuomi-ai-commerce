@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -227,15 +228,25 @@ func prepareEnvelope(request Request, scopeInput *aiworkbench.ScopeModelInput) (
 	return Prepared{Identity: identity, Quote: quote}, nil
 }
 
-func ParseDecision(raw string) (Decision, error) {
+const maxDecisionBytes = 16 << 10
+
+func decodeDecision(raw string) (Decision, error) {
 	var decision Decision
-	if raw == "" || len(raw) > 16<<10 || !utf8.ValidString(raw) {
+	if raw == "" || len(raw) > maxDecisionBytes || !utf8.ValidString(raw) {
 		return Decision{}, einomodel.ErrInvalid
 	}
-	strict, err := sigjson.UnmarshalStrict([]byte(raw), &decision)
-	if err != nil || len(strict) != 0 ||
+	violations, err := sigjson.UnmarshalStrict([]byte(raw), &decision)
+	if err != nil || len(violations) != 0 {
+		return Decision{}, einomodel.ErrInvalid
+	}
+	return decision, nil
+}
+
+func ParseDecision(raw string) (Decision, error) {
+	decision, err := decodeDecision(raw)
+	if err != nil ||
 		(decision.Mode != aiworkbench.PlanClarify && decision.Mode != aiworkbench.PlanReady) ||
-		decision.AssistantText == "" || len(decision.AssistantText) > 16<<10 ||
+		decision.AssistantText == "" || len(decision.AssistantText) > maxDecisionBytes ||
 		strings.TrimSpace(decision.AssistantText) != decision.AssistantText ||
 		len(decision.GoalSummary) > 512 || strings.TrimSpace(decision.GoalSummary) != decision.GoalSummary ||
 		(decision.Mode == aiworkbench.PlanClarify && decision.GoalSummary != "") ||
@@ -243,6 +254,49 @@ func ParseDecision(raw string) (Decision, error) {
 		return Decision{}, einomodel.ErrInvalid
 	}
 	return decision, nil
+}
+
+// ParseTextReplyEnvelope reads the original frozen text-skill reply contract.
+// The closed JSON schema and the no-proposal constraint still apply.
+func ParseTextReplyEnvelope(raw string) (string, error) {
+	if len(raw) > maxDecisionBytes || !utf8.ValidString(raw) {
+		return "", einomodel.ErrInvalid
+	}
+	decision, err := decodeDecision(unwrapReplyFence(strings.TrimSpace(raw), "", "json"))
+	if err != nil || decision.Mode != aiworkbench.PlanClarify || decision.GoalSummary != "" {
+		return "", einomodel.ErrInvalid
+	}
+	return ParseTextReply(decision.AssistantText)
+}
+
+// ParseTextReply reads only display text. JSON-looking content is never
+// decoded as a decision under this contract.
+func ParseTextReply(raw string) (string, error) {
+	if len(raw) > maxDecisionBytes || !utf8.ValidString(raw) {
+		return "", einomodel.ErrInvalid
+	}
+	answer := strings.TrimSpace(unwrapReplyFence(strings.TrimSpace(raw), "md", "markdown"))
+	if answer == "" || len(answer) > maxDecisionBytes {
+		return "", einomodel.ErrInvalid
+	}
+	return answer, nil
+}
+
+func unwrapReplyFence(value string, languages ...string) string {
+	const fence = "```"
+	header, rest, newline := strings.Cut(value, "\n")
+	language, opening := strings.CutPrefix(header, fence)
+	content, closing := strings.CutSuffix(rest, "\n"+fence)
+	if !newline || !opening || !closing || !slices.Contains(languages, strings.ToLower(strings.TrimSpace(language))) {
+		return value
+	}
+	for line := range strings.SplitSeq(content, "\n") {
+		line = strings.TrimSpace(line)
+		if len(line) >= len(fence) && strings.Trim(line, fence) == "" {
+			return value
+		}
+	}
+	return content
 }
 
 type TextGenerator interface {

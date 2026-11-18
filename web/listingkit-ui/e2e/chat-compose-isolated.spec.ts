@@ -25,7 +25,7 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
   const json=(body:unknown,status=200)=>route.fulfill({status,contentType:"application/json",body:JSON.stringify(body)});
   if(path==="/api/workbench/context")return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,projectCenterAvailable:true,aiWorkbenchChatTurnsReady:true,aiWorkbenchChatIntentReadiness:"AVAILABLE",aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchPlanningReadiness:"AVAILABLE",organizations:[{id:"org",name:"合成企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}]});
   if(path===base+"/scopes")return json({options:[{scope:{version:"workbench-scope-v1",kind:"general"},confirmation:digest}],next:"",incomplete:false});
-  if(path===base+"/skill-authoring")return json({skill:{name:"创建技能",...selected,description:"起草个人标题技能"},ready:true,scripts:true});
+  if(path===base+"/skill-authoring")return json({skill:{name:"创建技能",version:3,digest:"c".repeat(64),description:"创作文字技能"},titleSkill:{name:"创建技能",...selected,description:"起草个人标题技能"},ready:true,scripts:true});
   if(path===base&&req.method()==="POST"){
    creates++;if(creates===1){createKey=req.headers()["idempotency-key"];return json({code:"OUTCOME_UNKNOWN"},503);}
    expect(req.headers()["idempotency-key"]).toBe(createKey);return json({conversation,replay:true});
@@ -70,9 +70,164 @@ for(const manual of [false,true])test(`creates a skill in Chat with ${manual?"ma
  const save=page.getByRole("button",{name:"保存到我的技能",exact:true}).last();await expect(save).toBeDisabled();await expect(save).toBeEnabled();await expect(editors.last()).toHaveValue("保留已核实的型号和规格。");expect(saves).toBe(0);await save.click();
  await expect(page.getByRole("button",{name:"核实原保存",exact:true})).toBeVisible();await page.reload();
  await page.getByRole("button",{name:"核实原保存",exact:true}).last().click();await expect(page.getByRole("link",{name:"查看我的技能"}).last()).toHaveAttribute("href","/workbench/agents/skills/mine?skillId="+skillId);
- expect(saves).toBe(1);expect(modelGenerations).toBe(2);await expect(page.getByText(/点数|费用详情/)).toHaveCount(0);
+ expect(saves).toBe(1);expect(modelGenerations).toBe(2);
+ await expect(page.getByText("平台渠道按用量扣 AI 点数，企业自有渠道由厂商计费。模型规划不会直接修改商品。",{exact:true})).toBeVisible();
+ await expect(page.getByText(/\d[\d.,]*\s*(?:AI\s*)?点数|点数金额|费用详情/)).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`chat-skill-${manual?"manual":"automatic"}.png`)});
+});
+test("creates a private text skill and uses it with original-message recovery", async ({page, context, baseURL}) => {
+  test.setTimeout(60_000);
+  const origin = baseURL!;
+  const namespace = createHash("sha256").update(JSON.stringify([origin,"https://chat-compose.invalid","chat-compose-fixture"])).digest("hex").slice(0,32);
+  const name = `shuomi.${namespace}.session-token`;
+  const token = await encode({secret,salt:name,maxAge:600,token:{accessToken:"synthetic-chat-compose",expiresAt:Math.floor(Date.now()/1000)+600,identityVersion:3,identity:{tenantId:"org",userId:"user",userType:"zitadel",roles:[]}}});
+  await context.addCookies([{name,value:token,url:origin,httpOnly:true,sameSite:"Lax"}]);
+  const conversationId = "11111111-1111-4111-8111-111111111111";
+  const scope = {OrganizationID:"org",ActorID:"user"};
+  const now = new Date().toISOString();
+  const conversation = {ID:conversationId,Scope:scope,Title:"交接笔记",Favorite:false,Archived:false,MetadataRevision:1,NextSequence:1,CreatedAt:now,UpdatedAt:now,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+  const conversationPath = `/api/workbench/chat/conversations/${conversationId}`;
+  const authoringPath = conversationPath + "/skill-authoring";
+  const key = "019aaf91-67a0-7000-8000-aaaaaaaaaaaa";
+  const v3Digest = "a".repeat(64);
+  const savedSkill = {id:"22222222-2222-4222-8222-222222222222",version:1,digest:"b".repeat(64)};
+  const requirement = "把交接笔记整理成待办事项";
+  const input = "校对说明书；小胡负责更新进度";
+  const laterInput = "周五核对物料清单";
+  const oversized = "需要核对物料。".repeat(250);
+  const answer = `| 事项 | 负责人 |
+| --- | --- |
+| 校对说明书 | 待确认 |
+| 更新进度 | 小胡 |
+
+<img src="https://chat-compose.invalid/pixel" />`;
+  const draft = {name:"handoff-notes",displayName:"交接待办",description:"把交接笔记整理为待办事项。",instructions:"提取事项和负责人。"};
+  let saved = false, generated = false, complete = false, messageKey = "", unknownKey = "", sends = 0, unknownReads = 0, storeRoutes = 0;
+  let rejectedKey = "";
+  let generationRequests = 0, generationChecks = 0, saveRequests = 0, saveChecks = 0;
+  const job = () => ({key,revision:key,state:"COMPLETE",requirement,draft,billing:"usage_only",savePending:saveRequests>0&&!saved,savedSkillId:saved?savedSkill.id:null,purpose:"chat-text",...(saved?{savedSkill}:{})});
+  await page.route("**/*", async route => {
+    const req = route.request(), url = new URL(req.url()), path = url.pathname;
+    if (url.origin !== origin) return route.abort();
+    if (!path.startsWith("/api/")) return route.continue();
+    const json = (body:unknown, status=200) => route.fulfill({status,contentType:"application/json",body:JSON.stringify(body)});
+    if (path === "/api/workbench/context") return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,projectCenterAvailable:true,aiWorkbenchChatTurnsReady:true,aiWorkbenchChatIntentReadiness:"AVAILABLE",aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"UNAVAILABLE",aiWorkbenchPlanningReadiness:"NEEDS_CONFIGURATION",organizations:[{id:"org",name:"合成企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read","workbench.project.manage"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}]});
+    if (path === "/api/workbench/chat/conversations/skill-authoring") return json({skill:{name:"创建技能",description:"创作文字技能",version:3,digest:v3Digest},titleSkill:{name:"创建技能",description:"创作商品标题技能",version:2,digest:"c".repeat(64)},ready:true,scripts:true,textReady:true});
+    if (path === conversationPath) return json({conversation,proposals:[],before:"",messages:complete ? [{ID:"33333333-3333-4333-8333-333333333333",ConversationID:conversationId,Sequence:2,Author:"ASSISTANT",Content:answer,CreatedAt:now,textSkillVersion:1}] : []});
+    if (path === conversationPath + "/turns") {
+      expect(req.postDataJSON()).toEqual({content:requirement,creatorOnly:true});
+      return json({state:"COMPLETE",kind:"CLARIFY"});
+    }
+    if (path === authoringPath) return json({drafts:generated?[job()]:[]});
+    if (path === authoringPath + "/preview") {
+      expect(req.postDataJSON()).toEqual({requirement,skillVersion:3,skillDigest:v3Digest});
+      return json({key,quote:"Q".repeat(43),expiresAt:new Date(Date.now()+60_000).toISOString()});
+    }
+    if (path === authoringPath + "/" + key + "/confirm") {
+      generationRequests++;
+      expect(req.postDataJSON()).toEqual({requirement,skillVersion:3,skillDigest:v3Digest,quote:"Q".repeat(43)});
+      return json({code:"OUTCOME_UNKNOWN"},503);
+    }
+    if (path === authoringPath + "/" + key + "/recover-generation") {
+      generationChecks++;
+      expect(req.postData()).toBeNull();
+      generated = true;
+      return json(job());
+    }
+    if (path === authoringPath + "/validate") return json({valid:true});
+    if (path === authoringPath + "/" + key + "/save-package") {
+      expect(req.postDataJSON()).toEqual({revision:key,draft:{...draft,instructions:"提取事项和负责人，缺失时标记待确认。"}});
+      saveRequests++;
+      return json({code:"OUTCOME_UNKNOWN"},503);
+    }
+    if (path === authoringPath + "/" + key + "/recover-save") {
+      saveChecks++;
+      expect(req.postData()).toBeNull();
+      saved = true;
+      return json(job());
+    }
+    if (path === conversationPath + "/intent") {storeRoutes++; return json({code:"INVALID_REQUEST"},400);}
+    if (path === conversationPath + "/messages") {
+      if (req.postDataJSON().content === oversized) {
+        rejectedKey = req.headers()["idempotency-key"];
+        return json({code:"TEXT_SKILL_INPUT_LIMIT",messageAccepted:false},413);
+      }
+      if (complete) {
+        expect(req.postDataJSON()).toEqual({content:laterInput,textSkill:savedSkill});
+        const sentKey = req.headers()["idempotency-key"];
+        if (!unknownKey) unknownKey = sentKey;
+        expect(sentKey).toBe(unknownKey);
+        expect(sentKey).not.toBe(messageKey);
+        unknownReads++;
+        return json({state:"PLANNER_UNKNOWN"},202);
+      }
+      expect(req.postDataJSON()).toEqual({content: input,textSkill:savedSkill});
+      sends++;
+      expect(req.headers()["idempotency-key"]).not.toBe(rejectedKey);
+      if (sends === 1) {messageKey = req.headers()["idempotency-key"]; return json({code:"OUTCOME_UNKNOWN"},503);}
+      expect(req.headers()["idempotency-key"]).toBe(messageKey);
+      complete = true; return json({state:"COMPLETE",assistantMessageId:"33333333-3333-4333-8333-333333333333"});
+    }
+    if (path === "/api/workbench/skills/personal") return json({items:saved?[{canEdit:true,canPublish:true,canUse:true,canCopy:false,canExport:false,version:{skill:{id:savedSkill.id,owner:{kind:"USER",id:"user"},creator:"user",headVersion:1,revision:1,createdAt:now,updatedAt:now},version:1,package:{name:draft.name,description:draft.description,displayName:draft.displayName,target:"chat-text",digest:savedSkill.digest,files:null},state:"ENABLED",visibility:"PRIVATE",allowCopy:false,allowExport:false,createdAt:now}}]:[],nextCursor:""});
+    return json({code:"NOT_FOUND"},404);
+  });
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(`/workbench/ai/chat/${conversationId}`);
+  await page.getByRole("button",{name:"选择技能",exact:true}).click();
+  await page.getByRole("dialog",{name:"选择技能"}).getByRole("button",{name:/创建技能/}).click();
+  await page.getByRole("textbox",{name:"需求",exact:true}).fill(requirement);
+  await page.getByRole("button",{name:"发送消息",exact:true}).click();
+  await page.reload();
+  await expect(page.getByRole("textbox",{name:"需求",exact:true})).toHaveValue(requirement);
+  await page.getByRole("button",{name:"用这段需求创建通用文字技能",exact:true}).click();
+  await expect(page.getByLabel("技能需求")).toHaveValue(requirement);
+  expect(generationRequests).toBe(0);
+  await page.getByRole("button",{name:"生成草稿",exact:true}).click();
+  await expect(page.getByText("本次操作暂未确认，请核实原请求。",{exact:true})).toBeVisible();
+  await page.reload();
+  await page.getByRole("button",{name:"选择技能",exact:true}).click();
+  await page.getByRole("button",{name:"查看本会话的文字技能草稿",exact:true}).click();
+  await page.getByRole("button",{name:"核实原生成请求",exact:true}).click();
+  await page.getByRole("textbox",{name:"正文",exact:true}).fill("提取事项和负责人，缺失时标记待确认。");
+  await page.getByRole("button",{name:"保存并在 Chat 启用",exact:true}).click();
+  await expect(page.getByRole("button",{name:"核实原保存",exact:true})).toBeEnabled();
+  await page.reload();
+  await page.getByRole("button",{name:"选择技能",exact:true}).click();
+  await page.getByRole("button",{name:"查看本会话的文字技能草稿",exact:true}).click();
+  await page.getByRole("button",{name:draft.displayName,exact:true}).click();
+  await page.getByRole("button",{name:"核实原保存",exact:true}).click();
+  await page.getByRole("button",{name:"在 Chat 中使用",exact:true}).click();
+  expect([generationRequests,generationChecks,saveRequests,saveChecks]).toEqual([1,1,1,1]);
+  const text = page.getByRole("textbox",{name:"要处理的文字",exact:true});
+  await text.fill(oversized);
+  await page.getByRole("button",{name:"发送消息",exact:true}).click();
+  await expect(page.getByText(/超过了当前模型的输入上限/)).toBeVisible();
+  await expect(text).toHaveValue(oversized);
+  await expect(text).toBeEnabled();
+  await text.fill(input);
+  await page.getByRole("button",{name:"发送消息",exact:true}).click();
+  await expect(page.getByRole("button",{name:"核对原消息"})).toBeEnabled();
+  await page.reload();
+  await expect(page.getByRole("textbox",{name:"要处理的文字",exact:true})).toHaveValue(input);
+  await page.getByRole("button",{name:"核对原消息"}).click();
+  await expect(page.getByText("使用文字技能 v1")).toBeVisible();
+  const table = page.getByRole("table");
+  await expect(table.getByRole("columnheader",{name:"事项"})).toBeVisible();
+  await expect(table.getByRole("row",{name:"校对说明书 待确认"})).toBeVisible();
+  await expect(page.locator('img[src="https://chat-compose.invalid/pixel"]')).toHaveCount(0);
+  expect(sends).toBe(2);
+  await page.getByRole("button",{name:"选择技能",exact:true}).click();
+  await page.getByRole("dialog",{name:"选择技能"}).getByRole("button",{name:draft.displayName}).click();
+  await page.getByRole("textbox",{name:"要处理的文字",exact:true}).fill(laterInput);
+  await page.getByRole("button",{name:"发送消息",exact:true}).click();
+  await expect(page.getByText(/核对不会重新发送/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("textbox",{name:"要处理的文字",exact:true})).toBeDisabled();
+  await page.getByRole("button",{name:"核对原消息"}).click();
+  await expect(page.getByText(/核对不会重新发送/)).toBeVisible();
+  expect(unknownReads).toBe(2);
+  expect(storeRoutes).toBe(0);
 });
 test("retains the input through the original create retry without dispatching a message", async ({page,context,baseURL},info) => {
   const origin=baseURL!,issuer="https://chat-compose.invalid",client="chat-compose-fixture";

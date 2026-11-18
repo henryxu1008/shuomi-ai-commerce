@@ -22,6 +22,9 @@ func seedOfficialV1(t *testing.T) (*Store, []versionRow) {
 		if release.Previous != nil {
 			pkg = *release.Previous
 		}
+		if release.Base != nil {
+			pkg = *release.Base
+		}
 		id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("skill:"+release.Key)).String()
 		now := time.Now().UTC()
 		require.NoError(t, db.Create(&skillRow{ID: id, OwnerKind: d.PlatformOwner, OwnerID: d.PlatformID, Creator: "original-maintainer", HeadVersion: 1, Revision: 3, CreatedAt: now, UpdatedAt: now}).Error)
@@ -32,16 +35,20 @@ func seedOfficialV1(t *testing.T) (*Store, []versionRow) {
 	return s, old
 }
 
-func TestOfficialVisualReleaseAppendsOnlyThreeVersionsAndPreservesAllOriginalRows(t *testing.T) {
+func TestOfficialReleaseAppendsKnownVersionsAndPreservesAllOriginalRows(t *testing.T) {
 	s, old := seedOfficialV1(t)
 	ctx := context.Background()
 	p := d.Principal{UserID: "admin", PlatformMaintainer: true}
 	resolve := func(context.Context) (d.Principal, error) { return p, nil }
 	r, err := s.InstallOfficial(ctx, p, resolve)
 	require.NoError(t, err)
-	require.Len(t, r.Installed, 3)
+	require.Len(t, r.Installed, 4)
 	require.Len(t, r.Existing, 3)
 	for _, ref := range r.Installed {
+		if ref.ID == d.OfficialReleaseID(d.AuthoringReleaseKey) {
+			require.EqualValues(t, d.GeneralAuthoringVersion, ref.Version)
+			continue
+		}
 		require.EqualValues(t, 2, ref.Version)
 	}
 	var after []versionRow
@@ -50,10 +57,38 @@ func TestOfficialVisualReleaseAppendsOnlyThreeVersionsAndPreservesAllOriginalRow
 	r, err = s.InstallOfficial(ctx, p, resolve)
 	require.NoError(t, err)
 	require.Empty(t, r.Installed)
-	require.Len(t, r.Existing, 6)
+	require.Len(t, r.Existing, 7)
 	var count int64
 	require.NoError(t, s.db.Model(&versionRow{}).Count(&count).Error)
-	require.EqualValues(t, 9, count)
+	require.EqualValues(t, 12, count)
+}
+
+func TestOfficialAuthoringCanAppendV3ToAnInstalledV2(t *testing.T) {
+	store, _ := seedOfficialV1(t)
+	ctx := context.Background()
+	releases, err := d.OfficialPackages()
+	require.NoError(t, err)
+	var previous d.Package
+	for _, release := range releases {
+		if release.Key == d.AuthoringReleaseKey {
+			previous = *release.Previous
+		}
+	}
+	id := d.OfficialReleaseID(d.AuthoringReleaseKey)
+	require.NoError(t, store.db.Model(&skillRow{}).Where("id=?", id).Updates(map[string]any{"head_version": 2, "revision": 6}).Error)
+	require.NoError(t, insertVersion(store.db, d.Version{Metadata: d.Metadata{ID: id}, Number: 2, Package: previous, State: d.Enabled, Visibility: d.Shared, AllowExport: true, CreatedAt: time.Now().UTC()}))
+	maintainer := d.Principal{UserID: "admin", PlatformMaintainer: true}
+	_, err = store.InstallOfficial(ctx, maintainer, func(context.Context) (d.Principal, error) { return maintainer, nil })
+	require.NoError(t, err)
+	owner := d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}
+	v2, err := store.Read(ctx, maintainer, owner, id, 2)
+	require.NoError(t, err)
+	require.Equal(t, previous, v2.Package)
+	require.Equal(t, d.Enabled, v2.State)
+	v3, err := store.Read(ctx, maintainer, owner, id, d.GeneralAuthoringVersion)
+	require.NoError(t, err)
+	require.Equal(t, d.Enabled, v3.State)
+	require.NotEqual(t, v2.Package.Digest, v3.Package.Digest)
 }
 
 func TestOfficialVisualReleaseNeverOverridesDisabledOrManuallyAdvancedHead(t *testing.T) {
@@ -83,7 +118,7 @@ func TestOfficialInstallKeepsExistingVersionsAndStatesAcrossMaintainers(t *testi
 	resolve := func(context.Context) (d.Principal, error) { return p, nil }
 	first, err := s.InstallOfficial(ctx, p, resolve)
 	require.NoError(t, err)
-	require.Len(t, first.Installed, 6)
+	require.Len(t, first.Installed, 7)
 	require.Empty(t, first.Existing)
 	v, err := s.Read(ctx, p, d.Owner{Kind: d.PlatformOwner, ID: d.PlatformID}, first.Installed[0].ID, 1)
 	require.NoError(t, err)
@@ -95,14 +130,14 @@ func TestOfficialInstallKeepsExistingVersionsAndStatesAcrossMaintainers(t *testi
 	second, err := s.InstallOfficial(ctx, secondAdmin, func(context.Context) (d.Principal, error) { return secondAdmin, nil })
 	require.NoError(t, err)
 	require.Empty(t, second.Installed)
-	require.Len(t, second.Existing, 6)
+	require.Len(t, second.Existing, 7)
 	unchanged, err := s.Read(ctx, p, v.Metadata.Owner, v.Metadata.ID, 1)
 	require.NoError(t, err)
 	require.Equal(t, d.Disabled, unchanged.State)
 	require.Equal(t, v.Package, unchanged.Package)
 	var count int64
 	require.NoError(t, db.Raw("SELECT count(*) FROM skill_capability.versions").Scan(&count).Error)
-	require.EqualValues(t, 9, count)
+	require.EqualValues(t, 12, count)
 	_, err = s.InstallOfficial(ctx, d.Principal{UserID: "ordinary-user"}, resolve)
 	require.ErrorIs(t, err, d.ErrForbidden)
 }
@@ -125,7 +160,7 @@ func TestOfficialInstallConcurrentAndConflictRollsBackEntireRelease(t *testing.T
 	}
 	var rows []skillRow
 	require.NoError(t, db.Find(&rows).Error)
-	require.Len(t, rows, 6)
+	require.Len(t, rows, 7)
 	// Leave a conflicting release identity and remove the others, only inside
 	// this fixture DB. The installer must roll back every otherwise-new row.
 	conflict := rows[len(rows)-1].ID
@@ -157,8 +192,8 @@ func TestAutomaticOfficialPreparationIsRepeatableAndPreservesExisting(t *testing
 	var versions []versionRow
 	require.NoError(t, db.Order("id").Find(&skills).Error)
 	require.NoError(t, db.Order("skill_id,version").Find(&versions).Error)
-	require.Len(t, skills, 6)
-	require.Len(t, versions, 9)
+	require.Len(t, skills, 7)
+	require.Len(t, versions, 12)
 	for _, row := range skills {
 		require.Equal(t, "system:official-skills", row.Creator)
 	}
@@ -204,7 +239,7 @@ func TestAutomaticOfficialPreparationWithRuntimePrivileges(t *testing.T) {
 	require.NoError(t, s.PrepareOfficial(ctx))
 	var count int64
 	require.NoError(t, db.Model(&skillRow{}).Count(&count).Error)
-	require.EqualValues(t, 6, count)
+	require.EqualValues(t, 7, count)
 }
 
 func TestAutomaticOfficialPreparationLockWaitCancelsWithoutWrites(t *testing.T) {
