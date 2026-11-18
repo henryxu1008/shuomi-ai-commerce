@@ -383,6 +383,10 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 			billing = `"billing":"usage_only"`
 		}
 		require.Contains(t, string(automatic.Authoring), billing)
+		fromDrawer := submit(aiworkbench.ChatTurnInput{Content: "创建标题技能，保留核实后的颜色", CreatorOnly: true})
+		require.Equal(t, "CREATE_TITLE_SKILL", fromDrawer.Kind)
+		require.Equal(t, automatic.Skill, fromDrawer.Skill)
+		require.Contains(t, string(fromDrawer.Authoring), billing)
 		manual := submit(aiworkbench.ChatTurnInput{Content: "保留已经核实的款式", Skill: automatic.Skill})
 		var original struct {
 			Key, Revision string
@@ -741,8 +745,9 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		}
 		require.ElementsMatch(t, []aicapability.Operation{aicapability.OperationProductContentDecision, aicapability.OperationProductContentDecision,
 			aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute,
-			aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchChatIntent,
-			aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationAIWorkbenchSkillAuthoring}, observed)
+			aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchChatIntent,
+			aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationAIWorkbenchSkillAuthoring,
+			aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationAIWorkbenchSkillAuthoring}, observed)
 		require.Equal(t, 1, noSend)
 		// A request cannot select a member or organization through the cursor API.
 		call("GET", commercialOwnedModelUsagePath+"?member_id=member-B-admin", "", nil, 400)
@@ -757,7 +762,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		f.grants.revoked.Store(false)
 		require.NoError(t, err)
 		require.Equal(t, 403, code, string(raw))
-		t.Log("isolated point ledger: eight tables unchanged, nine observed invocations and one explicit no-send")
+		t.Log("isolated point ledger: eight tables unchanged, eleven observed invocations and one explicit no-send")
 		t.Cleanup(func() {
 			require.Equal(t, ledgerBefore, snapshotOwnedChannelPointLedger(t, f.owner), "subsequent requests and replays cannot write point rows")
 		})
@@ -773,7 +778,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 		require.NoError(t, f.owner.Raw("SELECT count(*) FROM saas_organization_resource_reservations WHERE organization_id = ? AND state = 'committed' AND settlement_operation_id IS NOT NULL", "B").Scan(&settlements).Error)
 		expectedSettlements := 3 // Original planning plus two content calls.
 		if platformRuntime {
-			expectedSettlements += 5 // Two intents plus three authoring calls.
+			expectedSettlements += 7 // Three intents plus four authoring calls.
 		}
 		require.EqualValues(t, expectedSettlements, settlements)
 		t.Logf("synthetic resource owner: settled=%d consumed=%d micropoints reserved=%d", settlements, balance.Consumed, balance.Reserved)
