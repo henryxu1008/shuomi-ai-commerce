@@ -454,7 +454,7 @@ func TestCurrentStoreDesignPreservesGreenfieldOwnersAndUnopenedServices(t *testi
 }
 
 func TestDataServicesDesignPreservesOriginalScopeFundsAndDelivery(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "data-services-native-authorization.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "data-services", "data-services-native-authorization.md"), []string{
 		"PD-DATA-SERVICES-NATIVE-IAM-2026-10-10", "IMPLEMENTATION_READY",
 		"本轮不新增本地企业业务停用功能", "nil status port", "deadline checks",
 		"No schema, durable fact owner", "always-allow adapter", "actor-private",
