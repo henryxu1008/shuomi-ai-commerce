@@ -1392,16 +1392,23 @@ it.each([false,true])("does not advertise skill creation when this old or projec
  fixture.context.aiWorkbenchChatIntentReadiness="AVAILABLE";
  fixture.context.projectCenterAvailable=projectSelected;
  if(projectSelected)fixture.search.set("projectTask","1");
+ const storageScope=JSON.stringify(["user-a","org-a",conversationId]);
+ sessionStorage.setItem("ai-workbench:resolved-draft:"+storageScope,JSON.stringify({
+  id:operationId,text:"把交接笔记整理成待办表",clarifySkillPurpose:true
+ }));
  const fixed=projectSelected?{...conversation,businessScope:{version:"workbench-scope-v1",kind:"project",projectId:operationId}}:conversation;
  fixture.request.mockImplementation(async({route})=>{
   if(route==="conversation-read")return {conversation:fixed,messages:[],proposals:[],before:""};
-  if(route==="skill-authoring-catalog")return {skill:{version:2,name:"创建技能",digest:"a".repeat(64),description:"创建标题技能"},ready:true};
+  if(route==="skill-authoring-catalog")return {skill:{version:3,name:"创建技能",digest:"a".repeat(64),description:"创建文字技能"},ready:true};
   return {options:[],next:"",incomplete:false};
  });
  render(tree());
+ await screen.findByText(/原需求已保留/);
  fireEvent.click(await screen.findByRole("button",{name:"选择技能"}));
  expect(await screen.findByRole("link",{name:"管理我的技能"})).toBeVisible();
  expect(screen.queryByRole("button",{name:/创建技能/})).toBeNull();
+ expect(screen.queryByRole("button",{name:"用这段需求创建通用文字技能"})).toBeNull();
+ expect(fixture.request.mock.calls.some(([query])=>query.route==="skill-authoring-catalog")).toBe(false);
  fixture.search.delete("projectTask");
 });
 

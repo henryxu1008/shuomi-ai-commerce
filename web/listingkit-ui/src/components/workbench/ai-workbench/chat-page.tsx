@@ -450,7 +450,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     setShowAuthoring(shown => shown === undefined ? undefined : false);
   }
   function openTextAuthoring(choice:AISkillAuthoringChoice, requirement:string) {
-    if (pending || pendingMessage || current?.Archived || !canUse) return;
+    if (pending || pendingMessage || current?.Archived || !canUse || !canStartSkillAuthoring) return;
     library.choose();
     clearSkillPurposeHint();
     setTextSkill(undefined);
@@ -814,7 +814,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {matchesProject && !projectStoreReady ? <p role="status">{preview?.scope.storeId?"请选择并核对该项目关联的店铺。":"该项目未关联店铺，请取消本次选店后继续。"}</p> : null}
     </Card> : null}
     {clarifySkillPurpose && content.trim() && !pendingMessage && !current.Archived && canUse && <p role="status">请说明要创建的技能用途，例如为商品标题保留品牌和型号。原需求已保留。</p>}
-    {creatorSelected && (clarifySkillPurpose || !canChatTurn) && canUse && !current.Archived && !pending && !pendingMessage && content.trim() &&
+    {canStartSkillAuthoring && creatorSelected && (clarifySkillPurpose || !canChatTurn) && canUse && !current.Archived && !pending && !pendingMessage && content.trim() &&
       <ContinueTextSkill scope={scope} authorizationKey={authorizationKey} onContinue={choice=>openTextAuthoring(choice,content)}/>}
     {error ? <ConsoleState kind="error" title="操作状态">{error} <Button variant="outline" onClick={() => void detail.refetch()}>刷新状态</Button></ConsoleState> : null}
     {!current.Archived && canUse && usingTextSkill ? <Card className={styles.composer}>
