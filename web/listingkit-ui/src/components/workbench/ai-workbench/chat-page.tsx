@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ConsolePage, ConsoleState, ConsoleToolbar } from "../console/console-page";
+import { ModelServicesLink } from "../account/model-services-link";
 import { ChatIntroduction, NewConversationIntroduction } from "./chat-introduction";
 import { ChatVoiceInput } from "./chat-voice-input";
 import { requestAIWorkbench, type AIScope, AIWorkbenchError } from "@/lib/api/ai-workbench";
@@ -187,7 +188,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   }
   return <>
     <WorkbenchViewNav className={styles.viewNavigation} label="会话视图">{([ ["new", "新建会话"], ["recent", "最近会话"], ["saved", "收藏会话"], ["archived", "归档会话"] ] as const).map(([view,label]) => <Link key={view} href={`/workbench/ai/chat/${view}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${encodeURIComponent(selectedOperationId)}` : ""}`} prefetch={false} aria-current={mode === view ? "page" : undefined}>{label}</Link>)}</WorkbenchViewNav>
-    {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用">{planningStatus(planningReadiness)}</ConsoleState> : null}
+    {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用"><p>{planningStatus(planningReadiness)}</p><ModelServicesLink category="text"/></ConsoleState> : null}
     {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse ? <Button onClick={create} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
       mode === "new" ? <NewConversationIntroduction userId={scope.userId} directCompose={directCompose} canUse={canUse} createAction={canUse ? directCompose ? <>
         <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea ref={composeInput} rows={5} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>updateCompose(event.target.value)} placeholder="输入你的需求" /></label>
@@ -465,7 +466,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {pendingMessage ? <p>上次消息结果待确认，暂时不能修改；重试时系统会先核实，尚未开始的请求可能在准备就绪后发送。</p> : null}
       <div className={styles.toolbar}><Button disabled={pending || !draftHydrated || messageChecked!==messageStorageKey || !!messageRecoveryError || !!draftSaveError && !pendingMessage || !pendingMessage && (!contextReady || contentTasks && (!conversationStore.ready || conversationStore.choice?.kind==="store" && !subject)) || (!pendingMessage && current.businessScope?.kind === "general" && !subject && (contentTasks || !isAcquisitionUUID(operationId)) ? !canRoute : !pendingMessage&&(contentTasks?!aiTaskSelection.safeParse({subject,capability:"product.content.localize",parameters}).success:!isAcquisitionUUID(operationId))) || !content.trim() || Boolean(templateId) !== Boolean(templateRevision)} onClick={() => void send()}>{pending ? "处理中…" : pendingMessage ? "重试同一消息" : "发送消息"}</Button>
         <span>模型规划可能消耗 AI 额度；不会直接修改商品。</span></div></Card> : current.Archived ? <ConsoleState kind="unavailable" title="会话已归档">已保存的任务仍可从任务中心查看。</ConsoleState> :
-      <><ConsoleState kind="unavailable" title="只读会话">{canUse ? planningStatus(planningReadiness) : "当前企业没有发送或确认权限，可查看已有对话和提案。"}</ConsoleState>{content ? <label className={styles.promptLabel}>保留的需求<Textarea rows={4} value={content} readOnly /></label> : null}</>}
+      <><ConsoleState kind="unavailable" title="只读会话"><p>{canUse ? planningStatus(planningReadiness) : "当前企业没有发送或确认权限，可查看已有对话和提案。"}</p>{canUse&&!canPlan&&<ModelServicesLink category="text"/>}</ConsoleState>{content ? <label className={styles.promptLabel}>保留的需求<Textarea rows={4} value={content} readOnly /></label> : null}</>}
     {!draftHydrated && draftSaveError ? <Button type="button" variant="outline" onClick={()=>setDraftRetry(value=>value+1)}>重新读取草稿</Button> : null}
     {deferredDraft ? <Card className={styles.composer}><h2>另有保留的需求</h2><p>{deferredDraft.text}</p><Button type="button" variant="outline" disabled={pending || !!pendingMessage || !!content.trim() || !canUse || !canPlan && !(canRoute && current.businessScope?.kind === "general")} onClick={()=>{try{const existing=readLocalDraft(sessionStorage.getItem(conversationDraftKey(scope,id)));if(!existing || existing.id!==deferredDraft.id)throw new Error("draft changed");const prior=activeDraft.current;if(prior?.slot==="resolved"){const old=readLocalDraft(sessionStorage.getItem(resolvedDraftKey(scope,id)));if(old?.id===prior.id && old.text==="")sessionStorage.removeItem(resolvedDraftKey(scope,id));}activeDraft.current={id:existing.id,slot:"handoff"};setContent(existing.text);setDeferredDraft(null);}catch{setDraftSaveError("无法读取保留的需求，请检查浏览器存储。");}}}>使用保留的需求</Button></Card> : null}
   </div>;

@@ -181,3 +181,33 @@ func TestClosedAIWithoutManagementProtectionRemainsReadOnly(t *testing.T) {
 	c.ProductAgent.Enabled = true
 	require.Error(t, c.validateChannelCredentials(), "actual execution still requires all original secret-reader/protection admission")
 }
+
+func TestModelQueryOpensOnlyAdmittedReaderWithExecutionDisabled(t *testing.T) {
+	c, _ := channelProvisionFixture()
+	reader := c.ProductAgent.Database
+	reader.User = "ai_channel_secret_reader"
+	reader.MaxConnections = 2
+	c.ChannelCredentials.Reader = reader
+	calls := 0
+	open := func(_ context.Context, cfg DatabaseConfig) (*gorm.DB, error) {
+		calls++
+		require.Equal(t, reader, cfg)
+		return nil, credential.ErrUnavailable
+	}
+	secrets, _, err := openChannelCredentials(context.Background(), c, open)
+	require.NoError(t, err)
+	require.Nil(t, secrets)
+	require.Zero(t, calls)
+	c.ChannelCredentials.ModelQueryEnabled = true
+	require.False(t, c.needsChannelSecrets(), "diagnostic configuration must not enable execution")
+	secrets, _, err = openChannelCredentials(context.Background(), c, open)
+	require.ErrorIs(t, err, credential.ErrUnavailable)
+	require.Nil(t, secrets)
+	require.Equal(t, 1, calls)
+	c.ChannelCredentials.Reader.User = "product_agent_runtime"
+	secrets, _, err = openChannelCredentials(context.Background(), c, open)
+	require.ErrorIs(t, err, credential.ErrUnavailable)
+	require.Nil(t, secrets)
+	require.Equal(t, 1, calls, "an unadmitted account must never open a reader pool")
+	require.NoError(t, c.validateChannelCredentials(), "optional diagnostics cannot take configuration offline")
+}
