@@ -8,7 +8,7 @@ Refs #745。Design Basis: **Independent Architecture**。Admission Status: **IMP
 
 2026-10-17 用户批准：先明确格式、安全过滤、历史比较/恢复和平台带入合同，再做自有商品描述富文本编辑、保存与预览，覆盖草稿和历史；独立页面，复用图片上传和版本保存，保留数据、图片、配置、授权，不更新 own675、不调用真实平台、不自动发布。
 
-Product/Figma Authority：[当前 IA](../product/final-ui-ia-authority.md)，tg48P46SSXl6TBy9lZwg63 / 31:463，自有商品 3500:1100、添加 3502:405、待补全 2667:1948；用户独立编辑/历史页面决定优先，使用原 ConsolePage、导航上下文、主题 token，无新一级菜单或虚构 Figma frame。
+Product/Figma Authority：[当前 IA](../../../product/final-ui-ia-authority.md)，tg48P46SSXl6TBy9lZwg63 / 31:463，自有商品 3500:1100、添加 3502:405、待补全 2667:1948；用户独立编辑/历史页面决定优先，使用原 ConsolePage、导航上下文、主题 token，无新一级菜单或虚构 Figma frame。
 
 Must：新建/编辑可排版、插入已有来源图片、原版本保存并读回；详情/固定来源/候选编辑/历史/恢复可安全预览；格式变化可见，恢复旧描述及格式为新 Rn，保留当前属性/价格/库存；平台带入明确有损文字投影且原内容不变。
 Should：基础工具可键盘操作，深色主题和窄屏可用，粘贴去掉不支持内容且提示限制。
@@ -59,4 +59,4 @@ Legacy decision: N/A。只演进当前 Product/Completion/Target 内容合同；
 TDD：先捕获格式传播/纯文本旧hash、直接API危险HTML/URL/图片绑定/容量限制、safe实体序列化、正文纯文字投影、title-only保留/description替换清格式；原保存/历史读取链、同键冲突、来源固定和恢复 structured 保留。前端用现有 Vitest/Testing Library 检查真实编辑器或其组件边界、粘贴/显示安全、保存/回填/格式diff/恢复、pending及平台预览；复用现有测试设施，不造新runner。必要 typecheck/lint/build及稳定候选CI；独立最终检查读真实diff/受影响路径。开发自检和CI不等于用户验收。
 交接提供 PR、现有独立路由及正常启动方式；own675 不部署、不改配置/库/图片/授权，真实平台/模型/发布与用户试用 NOT_RUN。
 
-依据开源官方文档：[Tiptap Next.js](https://tiptap.dev/docs/editor/getting-started/install/nextjs)、[StarterKit](https://tiptap.dev/docs/editor/extensions/functionality/starterkit)、[bluemonday](https://github.com/microcosm-cc/bluemonday)。复用 [Product edit](domains/catalog/own-product-edit.md)、[结构化候选](domains/listing/completion-draft-structured.md)、[恢复](domains/listing/completion-draft-restore.md)、[SHEIN带入](completion-shein-import.md)、[SourceMedia](own-product-source-media-trial.md)。
+依据开源官方文档：[Tiptap Next.js](https://tiptap.dev/docs/editor/getting-started/install/nextjs)、[StarterKit](https://tiptap.dev/docs/editor/extensions/functionality/starterkit)、[bluemonday](https://github.com/microcosm-cc/bluemonday)。复用 [Product edit](own-product-edit.md)、[结构化候选](../listing/completion-draft-structured.md)、[恢复](../listing/completion-draft-restore.md)、[SHEIN带入](../../completion-shein-import.md)、[SourceMedia](../../own-product-source-media-trial.md)。

@@ -30,7 +30,7 @@ Collection owner 发布时逐行产生 Catalog 的可空库存及 `OwnStockDecla
 
 | 合同与 owner | 接线与消费 |
 | --- | --- |
-| [图库与 SourceMedia](../../rich-description-simple-editor-images.md) 持有已确认媒体 | 原上传及核实 → 表单图库。原 owner 校验的图片字节和摘要经窄 reader 注入资料整理调用。 |
+| [图库与 SourceMedia](rich-description-simple-editor-images.md) 持有已确认媒体 | 原上传及核实 → 表单图库。原 owner 校验的图片字节和摘要经窄 reader 注入资料整理调用。 |
 | 现 [内容智能体](../../product-content-localization.md)、[单图](../../product-image-visual-analysis.md)、商业调用与 Agent Run owner | 新资料整理适配器冻结本次输入、图片身份、配置和运行键，注册新操作和限定候选 validator。现有 Go 应用注入，前端沿同源 API 消费实际结果。 |
 | [Collection 和 Catalog](own-product-entry.md) 持有商品版本和保存回执 | 候选仅合入现有可编辑表单。用户显式提交原商品命令，经原鉴权和 UoW 写入并返回一个商品标识。 |
 
