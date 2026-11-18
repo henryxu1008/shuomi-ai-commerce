@@ -208,6 +208,23 @@ it("inserts final speech at the current caret without losing edits or sending a 
   } finally { cleanup(); vi.unstubAllGlobals(); }
 });
 
+it("fills an example into the local draft without submitting and keeps existing edits", async () => {
+  fixture.context.aiWorkbenchExecutionKind = "product.content.localize";
+  fixture.request.mockImplementation(async ({ route }) => route === "scope-options" ? scopeOptions : Promise.reject(new Error("unexpected request")));
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: /整理商品内容/ }));
+  const input = screen.getByLabelText("需求");
+  expect(input).toHaveValue("把这个商品的描述和卖点整理成英文，保留已有资料支持的品牌、型号和规格。");
+  expect(input).toHaveFocus();
+  expect(screen.queryByRole("button", { name: /整理商品内容/ })).toBeNull();
+  fireEvent.change(input, { target: { value: "保留我补充的需求" } });
+  cleanup();
+  render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
+  await waitFor(() => expect(screen.getByLabelText("需求")).toHaveValue("保留我补充的需求"));
+  expect(screen.queryByRole("button", { name: /整理商品内容/ })).toBeNull();
+  expect(fixture.request.mock.calls.every(([request]) => request.route === "scope-options")).toBe(true);
+});
+
 it("accepts a local draft before creating a general conversation without sending a message", async () => {
   fixture.context.aiWorkbenchExecutionKind = "product.content.localize";
   fixture.request.mockImplementation(async ({ route }) => route === "scope-options" ? scopeOptions : route === "conversation-create" ? { conversation } : Promise.reject(new Error("unexpected request")));

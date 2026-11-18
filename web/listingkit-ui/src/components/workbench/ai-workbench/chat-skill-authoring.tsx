@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronRight, SquarePen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { AIWorkbenchError, requestAIWorkbench, type AIScope } from "@/lib/api/ai
 import { type AIAuthoringPreview, type AISkillAuthoringChoice, type AISkillAuthoringJob, type AITitleSkillDraft } from "@/lib/contracts/ai-workbench";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { AccountDialog } from "../account/account-dialog";
+import styles from "./chat-skill-authoring.module.css";
 
 function useCatalog(scope: AIScope, authorizationKey: string, enabled: boolean) {
   return useQuery({
@@ -33,16 +35,22 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
   const skill = catalog.isSuccess ? catalog.data.skill : null;
   return <>
     <Button ref={trigger} variant="outline" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>选择技能</Button>
-    {open ? <AccountDialog title="选择技能" drawer onClose={() => setOpen(false)} returnFocusRef={trigger}>
-      <div className="grid gap-3">
+    {open ? <AccountDialog title="选择技能" drawer className={styles.skillDrawer} onClose={() => setOpen(false)} returnFocusRef={trigger}>
+      <div className={styles.drawerContent}>
+        <p className={styles.drawerIntro}>选择 Agent 技能，继续在 Chat 中填写需求。</p>
         {catalog.isFetching ? <p role="status">正在读取可用技能…</p>
           : catalog.isError ? <><p role="alert">技能暂不可用，请重试。</p><Button variant="outline" onClick={() => void catalog.refetch()}>重新读取</Button></>
-          : skill ? <><Button variant="outline" className="h-auto justify-start whitespace-normal text-left"
+          : skill ? <><Button variant="outline" className={styles.skillChoice}
             disabled={!catalog.data?.ready} onClick={() => { onSelect(skill); setOpen(false); }}>
-            <span><strong>{skill.name}</strong> · 官方 v{skill.version}<br />{skill.description}</span>
+            <span className={styles.skillIcon}><SquarePen size={20} aria-hidden="true" /></span>
+            <span className={styles.skillChoiceText}><span><strong>{skill.name}</strong><small>官方 v{skill.version}</small></span><span>{skill.description}</span></span>
+            <ChevronRight size={16} aria-hidden="true" />
           </Button>{!catalog.data?.ready && <p role="status">当前企业的技能创作模型尚未就绪。</p>}</>
           : <p>当前没有可用的创作技能。</p>}
-        {onResume && <Button variant="ghost" onClick={() => { onResume(); setOpen(false); }}>查看本会话的技能草稿</Button>}
+        <div className={styles.drawerFooter}>
+          {onResume && <Button variant="outline" onClick={() => { onResume(); setOpen(false); }}>查看本会话的技能草稿</Button>}
+          <Button asChild variant="link"><Link href="/workbench/agents/skills/mine">管理我的技能</Link></Button>
+        </div>
       </div>
     </AccountDialog> : null}
   </>;
@@ -277,38 +285,40 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
   const prepFailure = input && currentPrep && !currentPrep.quote
     ? <p role="status">暂时无法准备生成。 <Button variant="outline" onClick={() => {setPrepared(undefined); setPrepRetry(value => value + 1);}}>重试</Button></p>
     : null;
-  return <Card className="grid gap-3 p-4">
-    <div className="flex items-center justify-between gap-3"><h2>创建技能</h2><Button variant="ghost" onClick={onClose}>收起</Button></div>
+  return <Card className={styles.authoringCard}>
+    <header className={styles.authoringHeader}>
+      <div><h2>创建技能</h2><p>生成一份个人标题技能，编辑后确认保存。</p></div>
+      <Button variant="ghost" onClick={onClose}>收起</Button>
+    </header>
     {notice && <p role="status">{notice}</p>}
     {list.isError && <p role="status">暂时无法读取本会话的技能草稿。 <Button variant="outline" onClick={() => void list.refetch()}>重新读取</Button></p>}
-    {others?.length ? <div className="flex flex-wrap gap-2">{others.map(item =>
+    {others?.length ? <div className={styles.draftHistory}>{others.map(item =>
       <Button key={item.generationKey ?? item.key} variant="outline" disabled={busy || Boolean(pending)} onClick={() => displayJob(item)}>
         {item.state === "READY" || item.state === "UNKNOWN" ? "查看待核实的生成" : item.draft?.displayName || generationStatus[item.state]}
       </Button>)}</div> : null}
     {recheck && <Button variant="outline" disabled={busy} onClick={() => generate(recheck)}>核实原生成请求</Button>}
-    {job && <div className="grid gap-2">
-      <p role="status">{job.superseded ? "这次修改未覆盖当前草稿。" : generationStatus[job.state]}</p>
-      {job.savedSkillId ? <p>已保存到我的技能。 <Link className="underline" href={"/workbench/agents/skills/mine?skillId=" + job.savedSkillId}>查看我的技能</Link></p>
+    {job && <div className={styles.jobContent}>
+      <p className={styles.generationStatus} role="status">{job.superseded ? "这次修改未覆盖当前草稿。" : generationStatus[job.state]}</p>
+      {job.savedSkillId ? <p className={styles.savedNotice}>已保存到我的技能。 <Link className="underline" href={"/workbench/agents/skills/mine?skillId=" + job.savedSkillId}>查看我的技能</Link></p>
         : saveCheck || job.savePending ? <Button variant="outline" disabled={busy} onClick={() => save(true)}>核实原保存</Button>
-        : editable && draft && <div className="grid gap-3">
-          {editorFields.map(([key, label]) => <label className="grid gap-1" key={key}>{label}
+        : editable && draft && <div className={styles.draftEditor}>
+          <div className={styles.editorFields}>{editorFields.map(([key, label]) => <label className={key === "displayName" || key === "name" ? styles.halfField : styles.field} key={key}>{label}
             {key === "instructions" ? <Textarea rows={7} value={draft[key]} disabled={busy} onChange={event => setDraft({...draft, [key]: event.target.value})} />
               : <Input value={draft[key]} disabled={busy} onChange={event => setDraft({...draft, [key]: event.target.value})} />}
-          </label>)}
-          {draft.script && <div className="grid gap-2">
-            <p>包含 Python 脚本</p>
+          </label>)}</div>
+          {draft.script && <div className={styles.scriptPanel}>
+            <div className={styles.scriptHeader}><p>包含 Python 脚本</p><Button variant="ghost" disabled={busy} onClick={() => setDraft({...draft, script: undefined})}>移除脚本</Button></div>
             {draft.script.description && <p>{draft.script.description}</p>}
             <details>
-              <summary className="cursor-pointer">查看代码</summary>
-              <label className="grid gap-1">脚本用途<Input value={draft.script.description} disabled={busy}
+              <summary>查看代码</summary>
+              <label className={styles.field}>脚本用途<Input value={draft.script.description} disabled={busy}
                 onChange={event => {if (draft.script) setDraft({...draft, script: {...draft.script, description: event.target.value}});}} /></label>
-              <label className="grid gap-1">Python 代码<Textarea rows={7} spellCheck={false} value={draft.script.source} disabled={busy}
+              <label className={styles.field}>Python 代码<Textarea className={styles.codeInput} rows={7} spellCheck={false} value={draft.script.source} disabled={busy}
                 onChange={event => setDraft({...draft, script: {source: event.target.value, description: ""}})} /></label>
             </details>
-            <Button variant="ghost" disabled={busy} onClick={() => setDraft({...draft, script: undefined})}>移除脚本</Button>
           </div>}
-          {skill?.version === 2 && <div className="grid gap-2">
-            <label className="grid gap-1">让 Chat 修改<Textarea rows={2} value={revisionRequest} disabled={busy} onChange={event => setRevisionRequest(event.target.value)} /></label>
+          {skill?.version === 2 && <div className={styles.revisionPanel}>
+            <label className={styles.field}>让 Chat 修改<Textarea rows={2} placeholder="例如：也保留商品型号，并缩短正文规则" value={revisionRequest} disabled={busy} onChange={event => setRevisionRequest(event.target.value)} /></label>
             {revisionRequest.trim() && <p>本次修改会使用当前草稿{draft.script ? "和其中的 Python 代码" : ""}。</p>}
             {genButton("生成修改")}
             {prepFailure}
@@ -317,13 +327,15 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
             {validation.unavailable ? "暂时无法检查格式。" : "格式未通过，请检查名称、正文或脚本长度。"}
             {validation.unavailable && <Button variant="outline" onClick={() => setValidationRetry(value => value + 1)}>重新检查</Button>}
           </p>}
-          <p>确认后保存为个人私有草稿。{draft.script ? "包含 Python 脚本。" : ""}</p>
-          <div><Button disabled={busy || !checked} onClick={() => save(false)}>保存到我的技能</Button></div>
+          <footer className={styles.saveFooter}>
+            <p>确认后保存为个人私有草稿。{draft.script ? "包含 Python 脚本。" : ""}</p>
+            <Button disabled={busy || !checked} onClick={() => save(false)}>保存到我的技能</Button>
+          </footer>
         </div>}
     </div>}
-    {!pending && !job && <div className="grid gap-3">
-      {skill ? <p>{skill.name} · 官方 v{skill.version}。创建一份个人标题技能。</p> : <p>当前没有可用的创作技能，可以查看原草稿。</p>}
-      <label className="grid gap-1">技能需求<Textarea rows={3} value={requirement} disabled={busy || !skill} onChange={event => setRequirement(event.target.value)} /></label>
+    {!pending && !job && <div className={styles.requirementForm}>
+      {skill ? <p className={styles.sourceVersion}>{skill.name} · 官方 v{skill.version}</p> : <p>当前没有可用的创作技能，可以查看原草稿。</p>}
+      <label className={styles.field}>技能需求<Textarea rows={5} placeholder="例如：保留商品品牌和型号，用 Python 合并标题中的连续空格。" value={requirement} disabled={busy || !skill} onChange={event => setRequirement(event.target.value)} /></label>
       {genButton("生成草稿")}
       {prepFailure}
     </div>}

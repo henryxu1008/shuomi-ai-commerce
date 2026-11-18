@@ -79,7 +79,7 @@ export function ChatPage({ mode, conversationId }: { mode: ChatMode | "detail"; 
   const authorizationKey = `${context.effectiveMemberId ?? ""}:${context.aiWorkbenchExecutionKind}:${context.aiWorkbenchExecutionReadiness}:${JSON.stringify([context.roles, context.permissions])}:${canUse}:${planningReadiness}:${context.aiWorkbenchStoreRouteReadiness ?? "UNAVAILABLE"}:${titleReadiness}`;
   const title = mode === "home" ? "硕米Chat" : mode === "new" ? "新建会话" : mode === "recent" ? "最近会话" : mode === "saved" ? "收藏会话" : mode === "archived" ? "归档会话" : "业务会话";
   const description = mode === "home" ? "发起新会话、继续历史工作、收藏重要讨论。" : mode === "new" ? "输入需求，开始新的对话。" : mode === "recent" ? "选择一条会话，继续上次的交流。" : mode === "saved" ? "重要会话集中保存，打开后可继续查看与交流。" : mode === "archived" ? "查看已归档的讨论，按需恢复会话。" : "查看对话、补充需求，核对方案后再确认执行。";
-  return <ConsolePage className={`console-chat ${workbenchViewPage}`} title={title} breadcrumbs={route?.trail.map(node => node.href === "/workbench/ai/chat" ? {...node, href: "/workbench/ai/chat/new"} : node)}
+  return <ConsolePage className={`console-chat ${workbenchViewPage} ${mode === "new" ? styles.newPage : ""}`} title={title} breadcrumbs={route?.trail.map(node => node.href === "/workbench/ai/chat" ? {...node, href: "/workbench/ai/chat/new"} : node)}
     description={description}>
     {!scope ? <ConsoleState kind={context.isSwitching || context.isLoading ? "loading" : "unavailable"} title="企业上下文不可用">请先选择可访问的企业并登录。</ConsoleState> :
       !context.aiWorkbenchAvailable ? <ConsoleState kind="unavailable" title="暂未启用">当前应用未启用硕米 Chat 与业务任务。</ConsoleState> :
@@ -241,8 +241,8 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const projectControls = projectAvailable ? <ProjectSkillPicker value={visibleSkill} onChange={changeSkill} disabled={creating||Boolean(createIntent)||projectSaveLocked} canCreate={canCreateProject} canExecute={canExecuteProject}/> : null;
   const authoringControls = canUse ? <>
     <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={setAuthoringChoice} />
-    {authoringChoice && <div className="flex flex-wrap items-center gap-2">
-      <span>{authoringChoice.name} · 官方 v{authoringChoice.version}</span>
+    {authoringChoice && <div className={styles.selectedSkill}>
+      <span>{authoringChoice.name}<small>官方 v{authoringChoice.version}</small></span>
       <Button type="button" variant="outline" disabled={creating || Boolean(createIntent && !createIntent.authoring) || projectSaveLocked}
         onClick={()=>void create(authoringChoice)}>{createIntent?.authoring ? "核对原会话请求" : "进入技能创作"}</Button>
       <Button type="button" variant="ghost" disabled={creating || Boolean(createIntent)} onClick={()=>setAuthoringChoice(undefined)}>取消选择</Button>
@@ -258,12 +258,15 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
         {error && targetProject?.scope.projectId && isAcquisitionUUID(targetProject.scope.projectId) ? <Button asChild variant="ghost"><Link href={"/workbench/ai/chat/new?projectId="+encodeURIComponent(targetProject.scope.projectId)+"&projectTask=1"}>查看该项目已有草稿</Link></Button> : null}
       </div>
     </Card> : null;
+  const viewNavigation = <WorkbenchViewNav className={styles.viewNavigation} label="会话视图">{([ ["new", "新建会话"], ["recent", "最近会话"], ["saved", "收藏会话"], ["archived", "归档会话"] ] as const).map(([view,label]) => <Link key={view} href={`/workbench/ai/chat/${view}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${encodeURIComponent(selectedOperationId)}` : ""}`} prefetch={false} aria-current={mode === view ? "page" : undefined}>{label}</Link>)}</WorkbenchViewNav>;
   return <>
-    <WorkbenchViewNav className={styles.viewNavigation} label="会话视图">{([ ["new", "新建会话"], ["recent", "最近会话"], ["saved", "收藏会话"], ["archived", "归档会话"] ] as const).map(([view,label]) => <Link key={view} href={`/workbench/ai/chat/${view}${selectedOperationId && isAcquisitionUUID(selectedOperationId) ? `?operationId=${encodeURIComponent(selectedOperationId)}` : ""}`} prefetch={false} aria-current={mode === view ? "page" : undefined}>{label}</Link>)}</WorkbenchViewNav>
+    {mode !== "new" && viewNavigation}
     {canUse && !canPlan ? <ConsoleState kind="unavailable" title="规划暂不可用"><p>{planningStatus(planningReadiness)}</p><ModelServicesLink category="text"/></ConsoleState> : null}
     {mode === "home" ? <ChatIntroduction contentTasks={context.aiWorkbenchExecutionKind === "product.content.localize"} createAction={canUse || canCreateProject ? <Button onClick={()=>void create()} disabled={creating}>{creating ? "正在创建…" : "进入新建会话 →"}</Button> : <p>当前企业仅可查看已有会话。</p>} /> :
-      mode === "new" ? <NewConversationIntroduction userId={scope.userId} directCompose={directCompose} canUse={canUse || canCreateProject} createAction={canUse || canCreateProject ? directCompose ? <>
-        <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea ref={composeInput} rows={5} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>updateCompose(event.target.value)} placeholder="输入你的需求" /></label>
+      mode === "new" ? <NewConversationIntroduction userId={scope.userId} directCompose={directCompose} canUse={canUse || canCreateProject}
+        navigation={viewNavigation} onExample={canUse && directCompose && !creating && !createIntent && !projectSaveLocked && !projectLaunch && !visibleSkill && !authoringChoice && !voiceActive && !compose && draftReady === draftKey ? prompt=>{updateCompose(prompt);composeInput.current?.focus();} : undefined}
+        createAction={canUse || canCreateProject ? directCompose ? <>
+        <label className={styles.composeLabel}><span className={styles.visuallyHidden}>需求</span><Textarea ref={composeInput} rows={4} value={createIntent?.draft ?? compose} disabled={creating || !!createIntent || draftReady !== draftKey} onChange={event=>updateCompose(event.target.value)} placeholder="向硕米提问，或描述你想完成的任务" /></label>
         {projectId || storeId ? <p>工作背景：{createIntent ? "原请求待核对" : resolvedScope ? scopeLabel(resolvedScope) : "正在核对或无法读取"}</p> : null}
         {invalidContext ? <p role="status">当前工作背景无效，无法创建会话。</p> : null}
         {scopePreview.isError || scopePreview.isSuccess && !resolvedScope ? <p role="status">工作背景暂不可用。<Button variant="outline" onClick={()=>void scopePreview.refetch()}>重新读取</Button></p> : null}
@@ -275,8 +278,8 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
           {!recheckStore || projectControls || authoringControls ? <div className={styles.contextControls}>
             {!recheckStore ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"new:"+scopeContext} disabled={creating||!!createIntent||projectSaveLocked} baseStoreName={projectEntry?undefined:resolvedScope?.scope.storeId?resolvedScope.storeName:undefined} onChange={setStoreState}/> : null}
             {authoringControls}
-            {projectControls}
           </div> : null}
+          {projectControls}
           <div className={styles.voiceControl}><ChatVoiceInput identity={JSON.stringify([scope.userId,scope.organizationId,scopeContext])} disabled={creating || !!createIntent || draftReady !== draftKey || invalidContext} onText={insertVoiceText} onActiveChange={setVoiceActive} /></div>
           {canUse && (visibleSkill === "" || projectEntry && visibleSkill === "project-task" || createIntent) ? <Button size={projectLaunch?"default":"icon"} onClick={()=>void create()}
             aria-label={creating ? "正在创建" : createIntent ? "核对原创建请求" : projectLaunch ? "开启项目会话" : "开始对话"}
@@ -643,7 +646,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   if (detail.isError || !current) return <ConsoleState kind="error" title="会话不可用">{errorText(detail.error)} <Button variant="outline" onClick={() => void detail.refetch()}>重试</Button></ConsoleState>;
   if (newest?.scopeUnavailable) return <ConsoleState kind="unavailable" title="工作范围暂不可读"><Button variant="outline" onClick={()=>void detail.refetch()}>重新读取</Button></ConsoleState>;
   if (messageRecoveryError) return <ConsoleState kind="error" title="消息恢复不可用">{messageRecoveryError}</ConsoleState>;
-  return <div className={styles.detail}>
+  return <div className={styles.detail} data-authoring={showAuthoring || undefined}>
     <Card className={styles.conversationHeader}><div className={styles.conversationIdentity}><h2>{current.Title || "未命名会话"}</h2><div className={styles.tags}>{current.Favorite ? <Badge variant="neutral">已收藏</Badge> : null}{current.Archived ? <Badge variant="neutral">已归档</Badge> : null}<span>当前企业：{execution.effectiveOrganization?.name || "当前企业"}</span><span>{current.businessScope?.kind === "general" ? "通用业务" : current.businessScope?.kind === "project" ? "项目工作范围" : current.businessScope?.kind === "store" ? "店铺工作范围" : "未记录工作范围"}</span></div></div><div className={styles.toolbar}>
       <Button asChild variant="ghost"><Link href="/workbench/ai/chat/recent" prefetch={false}>返回最近会话</Link></Button>
       {canUse && !editingTitle ? <Button variant="outline" disabled={pending} onClick={() => { setTitleDraft(current.Title); setEditingTitle(true); }}>修改标题</Button> : null}
@@ -654,6 +657,8 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button disabled={pending || new TextEncoder().encode(titleDraft).length > 256} onClick={() => void change({ title: titleDraft })}>保存标题</Button>
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
       {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div></Card> : null}
+    {showAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <ChatSkillAuthoring scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={authoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
+      initialRequirement={search.get("skillAuthoring")==="1" ? content : ""} onClose={()=>setShowAuthoring(false)} />}
     <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : styles.assistantMessage}>
       <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small><p>{item.Content}</p>
       {item.kind === "STORE_OVERVIEW_REF" ? !storeProjectionFresh || detail.isFetching || detail.isError ? <p>正在重新核对店铺权限…</p> : item.currentStoreOverview ? <div><p>全部可见店铺：当前可查看 {item.currentStoreOverview.total} 家店铺。</p><p>平台：{Object.entries(item.currentStoreOverview.platforms).map(([name,count])=>`${name} ${count} 家`).join("、") || "暂无"}。</p><p>状态：启用 {item.currentStoreOverview.statuses.active ?? 0} 家、停用 {item.currentStoreOverview.statuses.disabled ?? 0} 家、删除中 {item.currentStoreOverview.statuses.deleting ?? 0} 家。</p><p>经营类型未确认：{item.currentStoreOverview.operatingTypeUnknown} 家。读取开始时间：{new Date(item.currentStoreOverview.readStartedAt).toLocaleString("zh-CN")}</p><Link href="/workbench/stores">前往店铺中心</Link></div> : <p>当前无权查看或店铺数据暂不可用。</p> : null}</Card>) : <ConsoleState kind="empty" title="开始讨论">先选定已有商品，再描述任务目标。</ConsoleState>}
@@ -678,8 +683,6 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} onSelect={chosen=>{setAuthoringChoice(chosen);setShowAuthoring(true);}} onResume={()=>setShowAuthoring(true)} />}
       {projectAvailable && <ProjectSkillPicker value={visibleSkill} onChange={next=>{invalidateProposal();setSkill(next);creation.reset();}} disabled={pending||Boolean(pendingMessage)||projectSaveLocked||awaitingConfirm} canCreate={canCreateProject} canExecute={canExecuteProject}/>}
     </div> : null}
-    {showAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <ChatSkillAuthoring scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={authoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
-      initialRequirement={search.get("skillAuthoring")==="1" ? content : ""} onClose={()=>setShowAuthoring(false)} />}
     {projectAvailable && visibleSkill==="create-project" && canCreateProject ? <ChatProjectCreateCard creation={creation} store={conversationStore} canCreate={canCreateProject} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClose={()=>{setSkill("");creation.reset();}}/> : null}
     {projectTask ? <Card className="grid gap-3 p-4">
       <h2>执行项目任务</h2>

@@ -106,6 +106,7 @@ test("authoring confirms the quote and edited save, then recovers both original 
   await expect(page.getByRole("button",{name:"项目操作",exact:true})).toBeVisible();
   await skillButton.click();
   await page.getByRole("dialog",{name:"选择技能"}).getByRole("button",{name:/创建技能/}).click();
+  await expect(page.getByRole("button",{name:/整理商品内容/})).toHaveCount(0);
   await page.getByRole("button",{name:"进入技能创作"}).click();
   await expect(page.getByRole("button",{name:"核对原创建请求",exact:true})).toBeEnabled();
   await page.reload();

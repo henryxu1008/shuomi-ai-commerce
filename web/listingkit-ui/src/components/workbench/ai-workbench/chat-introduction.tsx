@@ -42,7 +42,20 @@ export function ChatIntroduction({ createAction, contentTasks }: { createAction:
   </div>;
 }
 
-export function NewConversationIntroduction({ createAction, directCompose, userId }: { createAction: ReactNode; directCompose: boolean; canUse: boolean; userId: string }) {
+const contentExamples = [
+  { title: "整理商品内容", description: "把已保存商品的描述和卖点整理成英文", prompt: "把这个商品的描述和卖点整理成英文，保留已有资料支持的品牌、型号和规格。" },
+  { title: "优化商品标题", description: "保留品牌、型号和规格，让标题更清楚", prompt: "优化这个商品的标题，保留已核实的品牌、型号和规格，突出已有资料支持的卖点。" },
+  { title: "完善商品卖点", description: "根据已确认的资料，梳理清楚的商品卖点", prompt: "根据这个商品已保存的资料整理商品卖点，缺少依据的内容请列出供我确认。" },
+];
+
+export function NewConversationIntroduction({ createAction, directCompose, userId, navigation, onExample }: {
+  createAction: ReactNode;
+  directCompose: boolean;
+  canUse: boolean;
+  userId: string;
+  navigation?: ReactNode;
+  onExample?: (prompt: string) => void;
+}) {
   const profile = useQuery({
     queryKey: ["account", "chat-display-name", userId],
     queryFn: ({signal}) => getAccountProfile({ expectedUserId: userId, signal }),
@@ -53,11 +66,22 @@ export function NewConversationIntroduction({ createAction, directCompose, userI
   const greeting = displayName ? `Hi ${displayName}，今天想做什么？` : "今天想做什么？";
   if (directCompose) return <div className={styles.newWorkspace}>
     <section className={styles.composeMain} aria-labelledby="chat-new-goal">
-      <header className={styles.composeHeading}><h2 id="chat-new-goal">{greeting}</h2></header>
+      <header className={styles.composeHeading}>
+        <h2 id="chat-new-goal">{greeting}</h2>
+        <p>直接说出目标，让硕米协助处理业务。</p>
+      </header>
       <div className={styles.composePanel}>{createAction}</div>
+      {navigation}
+      {onExample && <div className={styles.promptExamples}>
+        <p>试试这样说</p>
+        <div>{contentExamples.map(example => <button key={example.title} type="button" onClick={() => onExample(example.prompt)}>
+          <strong>{example.title}</strong><span>{example.description}</span>
+        </button>)}</div>
+      </div>}
     </section>
   </div>;
   return <div className={styles.newWorkspace}>
+    {navigation}
     <section className={styles.newMain} aria-labelledby="chat-new-goal">
       <header className={styles.newHeading}><h2 id="chat-new-goal">{greeting}</h2></header>
       <Card className={styles.createPanel}><div className={styles.createAction}>{createAction}</div></Card>
