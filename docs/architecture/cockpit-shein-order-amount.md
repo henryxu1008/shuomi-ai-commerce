@@ -6,7 +6,7 @@ Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY�
 
 驾驶舱显式选择一家 SHEIN US 店铺时，在独立面板显示「已保存订单商品金额（原币）」，随昨日/近7天/近30天及店铺变化。数据来源为 Store Observations 已保存消费者订单，不取 Listing attempt、供货成本、采购/ERP 金额或人工经营收入。本批不判断已支付 GMV、净成交额、结算或真实销售覆盖。
 
-复用 operations-cockpit.md、store-center-platform-observations.md、cockpit-listing-task-metrics.md 和当前项目边界；保留现有观察权限、Store/当前商家绑定与同步 owner。本批新增只读投影合同，无新事实、表、状态机、写事务、平台调用或恢复协议。
+复用 operations-cockpit.md、store-center-platform-observations.md、domains/workbench/cockpit-listing-task-metrics.md 和当前项目边界；保留现有观察权限、Store/当前商家绑定与同步 owner。本批新增只读投影合同，无新事实、表、状态机、写事务、平台调用或恢复协议。
 
 ## 日期、去重、金额和覆盖
 
