@@ -44,10 +44,10 @@
 
 - [硕米统一 Console 基础](console-foundation.md)
 - [Knowledge execution context and Product Agent consumer (#558 / #559)](knowledge-context-consumption.md)
-- [官方知识库首版交接](official-knowledge-handoff.md)
-- [运营驾驶舱首版交接](operations-cockpit-runtime-handoff.md)
-- [个人报告 v1 接线交接](report-center-runtime-handoff.md)
-- [店铺经营诊断源码交接](shop-operations-diagnosis-handoff.md)
+- [官方知识库首版交接](integration/official-knowledge-handoff.md)
+- [运营驾驶舱首版交接](integration/operations-cockpit-runtime-handoff.md)
+- [个人报告 v1 接线交接](integration/report-center-runtime-handoff.md)
+- [店铺经营诊断源码交接](integration/shop-operations-diagnosis-handoff.md)
 - [统一任务中心：业务任务、原生运行与待确认事项（#798）](unified-task-center.md)
 
 <a id="services"></a>
