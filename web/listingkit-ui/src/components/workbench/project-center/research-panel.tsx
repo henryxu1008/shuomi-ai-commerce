@@ -180,7 +180,7 @@ function message(e:unknown){return e instanceof ResearchError?failures[e.code]??
 function CandidateCard({value:v,checked,toggle,disabled,chooseDisabled,canWrite,command,view}:{view:"embedded"|"research"|"selection";value:ResearchCandidate;checked:boolean;toggle:()=>void;disabled:boolean;chooseDisabled:boolean;canWrite:boolean;command:(body:ResearchCommand)=>void}){
  const o=v.observation;
  return <article className={styles.candidate}><div className={styles.heading}><div className={styles.candidateIdentity}>
-  {o&&!("shein" in o)?<AmazonResearchThumbnail url={o.item.thumbnailUrl} alt=""/>:null}
+  {o&&!("shein" in o)?<AmazonResearchThumbnail url={o.item?.thumbnailUrl} alt=""/>:null}
   <label className={styles.select}><input type="checkbox" checked={checked} disabled={chooseDisabled} onChange={toggle}/><strong>{o?.title||"这份资料暂时无法查看"}</strong></label>
  </div><span className={styles.candidateState}>{states[v.state]}</span></div>
  {o?<>{ "shein" in o ? <><SHEINCardFacts observation={o}/><details><summary>资料来源详情</summary><p>资料版本：{o.ref.selection.version} · 解析版本：{o.parserVersion}</p><p>资料校验编号：{o.ref.checksum}</p><p>Publication：{o.ref.selection.publicationId}</p><p>Job：{o.ref.jobId}</p></details></> : <AmazonCardFacts observation={o}/> }
@@ -203,7 +203,7 @@ function AmazonCardFacts({observation:o}:{observation:Exclude<NonNullable<Resear
   <details>
    <summary>查看资料与缺项</summary>
    <dl>
-    <dt>资料来源</dt><dd>{"fixtureVersion" in o?"合成原件":o.parserVersion.startsWith("amazon-zenrows-search-")?"Amazon 搜索结果第一页":"Amazon 公开商品页面"}</dd>
+    <dt>资料来源</dt><dd>{"fixtureVersion" in o?"合成原件":o.parserVersion?.startsWith("amazon-zenrows-search-")?"Amazon 搜索结果第一页":"Amazon 公开商品页面"}</dd>
     {query?<><dt>收集范围</dt><dd>{range} · 最多 {query.limit} 件</dd></>:null}
     {o.capturedAt?<><dt>收集时间</dt><dd>{new Date(o.capturedAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false})}</dd></>:null}
     {o.missing.length?<><dt>资料缺项</dt><dd>{[...new Set(o.missing.map(researchMissingLabel))].join("、")}</dd></>:null}

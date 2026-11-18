@@ -94,7 +94,7 @@ export function ResearchComparisonResults({ inspection, originals }: {
             ? researchQuote(observation.price, observation.currency) : null;
           return (
             <li key={ref.ItemID} className={styles.product}>
-              <AmazonResearchThumbnail url={amazon?.item.thumbnailUrl} alt={`${title} 主图`} />
+              <AmazonResearchThumbnail url={amazon?.item?.thumbnailUrl} alt={`${title} 主图`} />
               <div className={styles.identity}>
                 <strong>{title}</strong>
                 <span>{amazonMarket(observation.site)} · {observation.asin}</span>
