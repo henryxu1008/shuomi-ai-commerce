@@ -518,10 +518,53 @@ for(const outcome of ["complete","model failure","rejection"] as const)test(`sen
   }
   await expect(page.getByRole("img",{name:"图 2"})).toBeVisible();
   expect(requests).toBe(0);
-  await page.getByRole("button",{name:"发送消息",exact:true}).click();
+  const questionInput=page.getByRole("textbox",{name:"需求",exact:true});
+  const send=page.getByRole("button",{name:"发送消息",exact:true});
+  if(outcome==="model failure"){
+    await questionInput.fill("字".repeat(2731));
+    await expect(send).toBeDisabled();
+    await expect(page.getByText("图片提问不能超过 8192 字节。")).toBeVisible();
+    await expect(questionInput).toBeEditable();
+    await expect(page.getByRole("button",{name:"移除图 2",exact:true})).toBeEnabled();
+    expect(requests).toBe(0);
+    await questionInput.fill(question);
+  }
+  await send.click();
   await expect(page.getByRole("button",{name:"核实原图片提问",exact:true})).toBeEnabled();
+  if(outcome==="complete"){
+    await page.addInitScript(()=>{
+      const open=IDBFactory.prototype.open;
+      IDBFactory.prototype.open=function(name,version){
+        const request=open.call(this,name,version);
+        if(name!=="shuomi-chat-images")return request;
+        IDBFactory.prototype.open=open;
+        Object.defineProperty(request,"onsuccess",{set(handler:(event:Event)=>void){
+          request.addEventListener("success",event=>{
+            window.addEventListener("release-image-draft",result=>{
+              if(result instanceof CustomEvent&&result.detail==="read failure"){
+                request.result.close();
+                request.onerror?.call(request,new Event("error"));
+              }else{
+                handler.call(request,event);
+              }
+            },{once:true});
+          },{once:true});
+        }});
+        return request;
+      };
+    });
+  }
   await page.reload();
-  await expect(page.getByRole("textbox",{name:"需求",exact:true})).toHaveValue(question);
+  await expect(questionInput).toHaveValue(question);
+  if(outcome==="complete"){
+    await expect(send).toBeDisabled();
+    expect(requests).toBe(1);
+    await page.evaluate(()=>window.dispatchEvent(new CustomEvent("release-image-draft",{detail:"read failure"})));
+    await expect(page.getByText("无法读取保留的图片，请检查浏览器存储。")).toBeVisible();
+    await expect(send).toBeDisabled();
+    expect(requests).toBe(1);
+    await page.getByRole("button",{name:"重新读取图片",exact:true}).click();
+  }
   await expect(page.getByRole("textbox",{name:"需求",exact:true})).toBeDisabled();
   await page.getByRole("button",{name:"核实原图片提问",exact:true}).click();
   if(failedReply){
