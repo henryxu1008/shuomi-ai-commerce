@@ -16,7 +16,7 @@ Design Basis: Independent Architecture。Admission Status: IMPLEMENTATION_READY�
 - [授权手册](https://open.sheincorp.com/zh/documents/system/2169474d-1d4a-41a9-b9fd-427f63f54a63)、[密钥交换](https://open.sheincorp.com/zh/documents/apidoc/detail/3001235)：原 tempToken → openKeyId/secretKey/supplierId 协议；supplierBusinessMode 是可选特殊商家业务类型，如 POP-US、POP-GLOBAL、SFS。缺失不是本土身份证明。
 - [店铺信息](https://open.sheincorp.com/documents/apidoc/detail/3000908)：storeInfo 下可选 supplierBusinessMode。查询可用于核对授权身份，不用缺失响应覆盖原授权事实。
 - [消费者订单列表](https://open.sheincorp.com/documents/apidoc/detail/3000301-2000001)、[详情](https://open.sheincorp.com/zh/documents/apidoc/detail/3001563)：自运营、半托可用；salesArea=1 本土销售、2 跨境销售，是订单范围，不是商家注册地。orderCreateTime 是 UTC+8 下发时间。
-- 复用 [Store Observations](store-center-platform-observations.md)、[SHEIN 单店金额](cockpit-shein-order-amount.md)、[当前领域 owner](project-boundaries.md) 及当前全新系统产品基线。
+- 复用 [Store Observations](../../store-center-platform-observations.md)、[SHEIN 单店金额](cockpit-shein-order-amount.md)、[当前领域 owner](../../project-boundaries.md) 及当前全新系统产品基线。
 
 ## Owner、合同和调用路径
 

@@ -48,7 +48,7 @@ CN 一个应用支持核验全托管与半托管，经营模式由官方 `semiMa
    永久商家占用仍属于原企业/Store，不能通过断开、更换应用/token/模式或新建店铺转移。
 
 浏览器仅显示核验的经营模式、区域、到期时间和身份摘要，不显示官方商家 ID、token、app secret 或密文。
-商品数字在未取得观察时显示未知；商品应用可从商品页启动只读同步。r2 区域订单应用使用驾驶舱显式单店、完整日期的「同步所选日期订单」，保存后更新独立的已保存订单商品金额面板；不进入 SHEIN 通用订单列表/详情，不改全平台成功率或 GMV 卡片。日期、父单去重和覆盖口径见[订单保存合同](../../architecture/cockpit-temu-order-amount.md)与[手动同步接线](../../architecture/domains/workbench/cockpit-temu-order-sync.md)。
+商品数字在未取得观察时显示未知；商品应用可从商品页启动只读同步。r2 区域订单应用使用驾驶舱显式单店、完整日期的「同步所选日期订单」，保存后更新独立的已保存订单商品金额面板；不进入 SHEIN 通用订单列表/详情，不改全平台成功率或 GMV 卡片。日期、父单去重和覆盖口径见[订单保存合同](../../architecture/domains/workbench/cockpit-temu-order-amount.md)与[手动同步接线](../../architecture/domains/workbench/cockpit-temu-order-sync.md)。
 连接与服务开通不等于获得发布许可，也不等于全部站点已可发布。
 GE/AM 缺官方规格的发布开放和全覆盖交付门槛仍保留。
 

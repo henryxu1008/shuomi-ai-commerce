@@ -6,7 +6,7 @@ Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY / FROZE
 
 ## 用户结果与边界
 
-用户2026-11-09决定：独立本地实例以测试回执跑通手动同步→保存→驾驶舱更新，验证日期/店铺切换、订单去重与覆盖不足。不接真实平台，不改全平台成功率、GMV卡片、合成预览或既有保留实例。本批推进[已批准保存合同](../../cockpit-tiktok-order-amount.md)的读取接线阶段，仅支持当前Store合同的US CROSS_BORDER，不扩大到本土店、发货/取消/退款、定时采集或财务。交付Draft PR及独立入口，不授权合并/生产部署/父Issue关闭。
+用户2026-11-09决定：独立本地实例以测试回执跑通手动同步→保存→驾驶舱更新，验证日期/店铺切换、订单去重与覆盖不足。不接真实平台，不改全平台成功率、GMV卡片、合成预览或既有保留实例。本批推进[已批准保存合同](cockpit-tiktok-order-amount.md)的读取接线阶段，仅支持当前Store合同的US CROSS_BORDER，不扩大到本土店、发货/取消/退款、定时采集或财务。交付Draft PR及独立入口，不授权合并/生产部署/父Issue关闭。
 
 ## owner与调用链
 
