@@ -200,6 +200,7 @@ type currentApplicationOptions struct {
 	commercialOwnerDB            *gorm.DB
 	moneyOwnerDB                 *gorm.DB
 	billingRecoveryStop          *func()
+	resourceConsumerRecoveryStop *func()
 	referralDB                   *gorm.DB
 	productAcquisitionDB         *gorm.DB
 	imageAgentDB                 *gorm.DB
@@ -272,6 +273,11 @@ func WithMoneyOwnerDatabase(db *gorm.DB) CurrentApplicationOption {
 // WithCommercialBillingRecoveryStop lets the caller stop recovery before closing its pools.
 func WithCommercialBillingRecoveryStop(stop *func()) CurrentApplicationOption {
 	return func(options *currentApplicationOptions) { options.billingRecoveryStop = stop }
+}
+
+// WithResourceConsumerRecoveryStop lets the caller stop resource recovery before closing its pools.
+func WithResourceConsumerRecoveryStop(stop *func()) CurrentApplicationOption {
+	return func(options *currentApplicationOptions) { options.resourceConsumerRecoveryStop = stop }
 }
 
 // WithBrowserCapture enables the #399 exact-click browser capture ingress. It
@@ -1653,7 +1659,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		if runtimeContext == nil {
 			runtimeContext = context.Background()
 		}
-		startCommercialRecoveryLoop(runtimeContext, server, func(ctx context.Context) error {
+		stop := startCommercialRecoveryLoop(runtimeContext, server, func(ctx context.Context) error {
 			var failures []error
 			if consumerCharges != nil {
 				_, err := consumerCharges.RecoverDue(ctx)
@@ -1665,6 +1671,9 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 			}
 			return errors.Join(failures...)
 		}, 30*time.Second, "resource consumers", logger)
+		if supplied.resourceConsumerRecoveryStop != nil {
+			*supplied.resourceConsumerRecoveryStop = stop
+		}
 	}
 	return server, nil
 }
