@@ -1,16 +1,17 @@
 // Command 1688-batch-import runs one item of a local 1688 batch queue through the
 // browser extension and the application capture page.
 //
-// It is the runnable entry point for design section 14 slice S1 ("one item driven
+// It is the runnable entry point for the historical design section 14 slice S1 ("one item driven
 // end to end, with the terminal state read back"). It talks to a real 1688 page
 // through the operator's own browser profile, so the actor and organization it is
 // started for are treated as the operator's DECLARED expectation, never as consent:
 // the batch's authoritative scope is read from the application and confirmed by a
-// person at the moment the application first shows it (design section 4 D1.4).
+// person at the moment the application first shows it (current contract D1.4).
 //
 // It does not create a server route, does not change the extension, and does not
-// add a producer. See docs/architecture/1688-batch-import.md
-// sections 4 D1.3, 4 D1.4 and 17.1.
+// add a producer. Current contract: docs/architecture/domains/sourcing/1688-batch-import.md
+// D1.3, D1.4 and D2. Historical S1 scope (sections 14 and 17.1):
+// https://github.com/henryxu1008/shuomi-ai-commerce/blob/5bcd7958ab672b5baf341245d31dbb746c6ea35d/docs/architecture/1688-batch-local-agent.md
 package main
 
 import (

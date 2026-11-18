@@ -108,7 +108,7 @@
 ## 来源采集与浏览器插件
 
 - `1688-acquisition-figma.md` — [1688 在线采集、规则与待适配接入](1688-acquisition-figma.md)
-- `1688-batch-import.md` — [1688 批量导入合同](1688-batch-import.md)
+- `domains/sourcing/1688-batch-import.md` — [1688 批量导入合同](domains/sourcing/1688-batch-import.md)
 - `1688-context-locator.md` — [1688 window.context 定位合同](1688-context-locator.md)
 - `1688-server-public-browser-acquisition.md` — [服务端匿名浏览器采集（1688 public browser acquisition）架构设计](1688-server-public-browser-acquisition.md)
 - `1688-acquisition-rate-and-egress-proxy.md` — [设计增补：匿名采集速率治理与出口代理（#514）](1688-acquisition-rate-and-egress-proxy.md)
