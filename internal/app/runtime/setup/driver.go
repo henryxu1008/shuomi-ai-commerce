@@ -284,27 +284,39 @@ func changeModules(original, provided map[string]any, selected map[string]bool) 
 		if !ok {
 			return nil, setupcontrol.ErrInvalid
 		}
-		v := next[id]
+		field, err := manifestFieldName(next, id)
+		if err != nil {
+			return nil, err
+		}
+		v := next[field]
 		if v == nil && enabled && provided != nil {
-			v = provided[id]
-			next[id] = v
+			providedField, err := manifestFieldName(provided, id)
+			if err != nil {
+				return nil, err
+			}
+			v = provided[providedField]
+			next[field] = v
 		}
 		switch m.Toggle {
 		case "boolean":
-			next[id] = enabled
+			next[field] = enabled
 		case "enabled":
 			obj, ok := v.(map[string]any)
 			if !ok {
 				return nil, setupcontrol.ErrInvalid
 			}
-			obj["enabled"] = enabled
+			enabledField, err := manifestFieldName(obj, "enabled")
+			if err != nil {
+				return nil, err
+			}
+			obj[enabledField] = enabled
 		case "presence":
 			if enabled {
 				if v == nil {
 					return nil, setupcontrol.ErrInvalid
 				}
 			} else {
-				delete(next, id)
+				delete(next, field)
 			}
 		}
 	}
@@ -544,16 +556,7 @@ func (d *Driver) Verify(ctx context.Context, p setupcontrol.Prepared, report set
 		return e
 	}
 	for id, want := range n.Expected {
-		found := false
-		for _, m := range mods {
-			if m.ID == id {
-				found = true
-				if m.Enabled != want || (want && m.Installed != "verified") {
-					return setupcontrol.ErrUnavailable
-				}
-			}
-		}
-		if !found {
+		if !moduleStateMatches(mods, id, want) {
 			return setupcontrol.ErrUnavailable
 		}
 	}

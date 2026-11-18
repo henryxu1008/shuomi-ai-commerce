@@ -227,22 +227,24 @@ func (d *Driver) Prepare(ctx context.Context, r setupcontrol.Request, dir string
 		want := r.Enabled[id]
 		definition := definitions[id]
 		previous := "未启用"
-		current := fields[id]
+		field, err := manifestFieldName(fields, id)
+		if err != nil {
+			return setupcontrol.Prepared{}, err
+		}
+		current := fields[field]
 		if current != nil && current != false {
 			previous = "已配置"
 		}
 		after := "停用入口（保留数据）"
 		if want {
 			after = "启用入口（保留原权限）"
-			verified := false
-			for _, m := range mods {
-				if m.ID == id && m.Enabled && m.Installed == "verified" {
-					verified = true
-				}
+		}
+		if !moduleStateMatches(mods, id, want) {
+			note := "候选配置未确认停用，已有系统未改变"
+			if want {
+				note = "必要的数据或访问权限尚未核实，请联系维护人员处理；已有系统不能重新执行首次安装"
 			}
-			if !verified {
-				blocks = append(blocks, definition.Label+"：必要的数据或访问权限尚未核实，请联系维护人员处理；已有系统不能重新执行首次安装")
-			}
+			blocks = append(blocks, definition.Label+"："+note)
 		}
 		changes = append(changes, setupcontrol.Change{Label: definition.Label, Before: previous, After: after})
 		if definition.UIFlag != "" {
