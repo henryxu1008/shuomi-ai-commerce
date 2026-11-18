@@ -12,8 +12,9 @@ import (
 
 // ChatImageStorageRuntime carries the private object and capacity ports to the application composer.
 type ChatImageStorageRuntime struct {
-	Objects  *s3integration.Uploader
-	Capacity *storagecapacity.Meter
+	Objects   *s3integration.Uploader
+	Capacity  storagecapacity.WriteLimitRecorder
+	Namespace string
 }
 
 func prepareChatImageStorage(ctx context.Context, cfg *Config, db *gorm.DB) (*ChatImageStorageRuntime, error) {
@@ -54,5 +55,5 @@ func prepareChatImageStorage(ctx context.Context, cfg *Config, db *gorm.DB) (*Ch
 	if err != nil {
 		return nil, err
 	}
-	return &ChatImageStorageRuntime{Objects: objects, Capacity: &storagecapacity.Meter{Writer: repo, Namespace: namespace}}, nil
+	return &ChatImageStorageRuntime{Objects: objects, Capacity: repo, Namespace: namespace}, nil
 }

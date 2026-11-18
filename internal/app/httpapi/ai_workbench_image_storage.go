@@ -28,7 +28,7 @@ type ChatImageStorage struct {
 		PutImmutable(context.Context, s3.ImmutableObjectPut) error
 		ReadObject(context.Context, string, int64) ([]byte, s3.ObjectInspection, error)
 	}
-	Capacity  storagecapacity.Writer
+	Capacity  storagecapacity.WriteLimitRecorder
 	Namespace string
 }
 
@@ -104,8 +104,11 @@ func (s *ChatImageStorage) store(ctx context.Context, org, operation, question s
 			SHA256: picture.SHA256, SizeBytes: int64(picture.Bytes), Category: "business_attachment"}
 		total += objects[n].SizeBytes
 	}
-	reservation, err := s.Capacity.ReserveWrite(ctx, storagecapacity.WriteIntent{OrganizationID: org, Owner: chatImageCapacityOwner,
+	reservation, err := s.Capacity.ReserveWriteWithLimitReceipt(ctx, storagecapacity.WriteIntent{OrganizationID: org, Owner: chatImageCapacityOwner,
 		OperationID: operation, Fingerprint: fingerprint, MaxBytes: total, MaxObjects: len(objects)})
+	if errors.Is(err, storagecapacity.ErrExceeded) {
+		return &aiworkbench.MessageNotAcceptedError{Cause: err}
+	}
 	if err != nil {
 		return err
 	}

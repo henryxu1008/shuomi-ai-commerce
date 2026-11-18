@@ -89,13 +89,18 @@ func (a *aiWorkbenchApplication) postChatImages(c *gin.Context, ctx context.Cont
 		// A missing Workbench message does not prove absence of an earlier
 		// capacity claim or immutable upload for this request.
 		var unaccepted *aiworkbench.MessageNotAcceptedError
-		if errors.As(err, &unaccepted) {
+		provenUnaccepted := errors.As(err, &unaccepted)
+		if provenUnaccepted {
 			err = unaccepted.Cause
 		}
 		switch {
 		case errors.Is(err, storagecapacity.ErrExceeded):
 			c.Header("Cache-Control", "private, no-store")
-			c.JSON(http.StatusConflict, gin.H{"code": "STORAGE_LIMIT_EXCEEDED"})
+			body := gin.H{"code": "STORAGE_LIMIT_EXCEEDED"}
+			if provenUnaccepted {
+				body["messageAccepted"] = false
+			}
+			c.JSON(http.StatusConflict, body)
 		case errors.Is(err, storagecapacity.ErrConflict):
 			writeAIWorkbenchError(c, aiworkbench.ErrIdempotencyConflict)
 		default:

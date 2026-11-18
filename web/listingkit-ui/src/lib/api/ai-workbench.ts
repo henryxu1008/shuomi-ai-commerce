@@ -39,7 +39,9 @@ export async function requestAIWorkbench<R extends AIWorkbenchRoute>(input: AIRe
   catch { throw new AIWorkbenchError(input.method === "GET" ? "DEPENDENCY_UNAVAILABLE" : "OUTCOME_UNKNOWN"); }
   if (!response.ok) {
     const code = payload && typeof payload === "object" && "code" in payload && typeof payload.code === "string" ? payload.code : "DEPENDENCY_UNAVAILABLE";
-    const notAccepted=(input.route==="message"||(input.route==="chat-turn-submit"||input.route==="image-question-submit")&&code==="INVALID_REQUEST"&&response.status===400)&&payload&&typeof payload==="object"&&"messageAccepted" in payload&&payload.messageAccepted===false;
+    const invalidTurn=(input.route==="chat-turn-submit"||input.route==="image-question-submit")&&code==="INVALID_REQUEST"&&response.status===400;
+    const imageCapacityRejected=input.route==="image-question-submit"&&code==="STORAGE_LIMIT_EXCEEDED"&&response.status===409;
+    const notAccepted=(input.route==="message"||invalidTurn||imageCapacityRejected)&&payload&&typeof payload==="object"&&"messageAccepted" in payload&&payload.messageAccepted===false;
     const createRejected=input.route==="conversation-create"&&payload&&typeof payload==="object"&&"conversationAccepted" in payload&&payload.conversationAccepted===false;
     const commandRejected=input.route.startsWith("schedule-")&&input.route!=="schedule-quote"&&code==="SCHEDULE_COMMAND_REJECTED"&&payload&&typeof payload==="object"&&"commandAccepted" in payload&&payload.commandAccepted===false;
     throw new AIWorkbenchError(code,notAccepted?false:undefined,createRejected?false:undefined,commandRejected?false:undefined);

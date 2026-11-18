@@ -272,7 +272,7 @@ func execute() error {
 			if features.AIWorkbench != nil && features.AIWorkbench.Enabled {
 				chat := httpapi.AIWorkbenchDependencies{ChatTurnsEnabled: features.AIWorkbench.ChatTurnsEnabled, DB: features.AIWorkbenchDB, PlanningTextPolicies: features.AIWorkbench.PlanningTextPolicies, StoreRouteTextPolicies: features.AIWorkbench.StoreRouteTextPolicies, ChatIntentTextPolicies: features.AIWorkbench.ChatIntentTextPolicies, ConversationOnly: features.AIWorkbench.ConversationOnly, ContentTasks: features.AIWorkbench.ContentTasks, AllowedOrganizationIDs: features.AIWorkbench.AllowedOrganizationIDs}
 				if storage := features.ChatImageStorage; storage != nil {
-					chat.ChatImages = &httpapi.ChatImageStorage{Objects: storage.Objects, Capacity: storage.Capacity.Writer, Namespace: storage.Capacity.Namespace}
+					chat.ChatImages = &httpapi.ChatImageStorage{Objects: storage.Objects, Capacity: storage.Capacity, Namespace: storage.Namespace}
 				}
 				if features.AIWorkbenchScheduleClient != nil {
 					chat.StoreDailyReports = features.AIWorkbench.Schedules != nil && features.AIWorkbench.Schedules.StoreDailyReports

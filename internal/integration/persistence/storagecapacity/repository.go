@@ -189,7 +189,18 @@ func (r *Repository) FindObjectWrite(ctx context.Context, org, owner string, o s
 	}
 	return toReservation(rows[0]), nil
 }
-func (r *Repository) ReserveWrite(ctx context.Context, i storagecapacity.WriteIntent) (result storagecapacity.Reservation, err error) {
+
+const capacityLimitReceipt = "storage-capacity-limit-rejected-v1"
+
+func (r *Repository) ReserveWrite(ctx context.Context, i storagecapacity.WriteIntent) (storagecapacity.Reservation, error) {
+	return r.reserveWrite(ctx, i, false)
+}
+
+func (r *Repository) ReserveWriteWithLimitReceipt(ctx context.Context, i storagecapacity.WriteIntent) (storagecapacity.Reservation, error) {
+	return r.reserveWrite(ctx, i, true)
+}
+
+func (r *Repository) reserveWrite(ctx context.Context, i storagecapacity.WriteIntent, recordLimit bool) (result storagecapacity.Reservation, err error) {
 	if err = i.Validate(); err != nil {
 		return
 	}
@@ -200,7 +211,7 @@ func (r *Repository) ReserveWrite(ctx context.Context, i storagecapacity.WriteIn
 			if row.Fingerprint != i.Fingerprint || row.MaxBytes != i.MaxBytes || row.MaxObjects != i.MaxObjects {
 				return storagecapacity.ErrConflict
 			}
-			if row.State == "ABORTED" {
+			if row.State == "ABORTED" && (!recordLimit || row.TerminalReceipt != capacityLimitReceipt) {
 				return storagecapacity.ErrConflict
 			}
 			result = toReservation(row)
@@ -213,17 +224,31 @@ func (r *Repository) ReserveWrite(ctx context.Context, i storagecapacity.WriteIn
 		if e != nil {
 			return e
 		}
-		if a.Occupied > q || a.Reserved > q-a.Occupied || i.MaxBytes > q-a.Occupied-a.Reserved {
+		exceeded := a.Occupied > q || a.Reserved > q-a.Occupied || i.MaxBytes > q-a.Occupied-a.Reserved
+		if exceeded && !recordLimit {
 			return storagecapacity.ErrExceeded
 		}
 		row = reservationRow{ID: uuid.NewString(), OrganizationID: i.OrganizationID, Owner: i.Owner, OperationID: i.OperationID, Fingerprint: i.Fingerprint, MaxBytes: i.MaxBytes, MaxObjects: i.MaxObjects, Remaining: i.MaxBytes, State: "RESERVED"}
+		if exceeded {
+			// Keep the existing aborted state and no bytes held. The immutable
+			// operation identity fences a delayed same-key reservation.
+			row.State = "ABORTED"
+			row.Remaining = 0
+			row.TerminalReceipt = capacityLimitReceipt
+		}
 		if e = tx.Create(&row).Error; e != nil {
 			return e
 		}
-		a.Reserved += i.MaxBytes
 		result = toReservation(row)
+		if exceeded {
+			return nil
+		}
+		a.Reserved += i.MaxBytes
 		return saveAccount(tx, a)
 	})
+	if err == nil && result.State == "ABORTED" {
+		return result, storagecapacity.ErrExceeded
+	}
 	return
 }
 func objectIdentity(namespace, key string) string {

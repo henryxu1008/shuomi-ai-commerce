@@ -122,6 +122,15 @@ type Writer interface {
 	ConfirmStored(context.Context, string, string, string, string, string, int64) error
 	CloseWrite(context.Context, string, string, CloseProof) error
 }
+
+// WriteLimitRecorder is for callers that must make a capacity rejection
+// permanent for the original operation. ErrExceeded means the rejection
+// receipt committed under the same lock as reservation admission.
+type WriteLimitRecorder interface {
+	Writer
+	ReserveWriteWithLimitReceipt(context.Context, WriteIntent) (Reservation, error)
+}
+
 type Reader interface {
 	ReadSummary(context.Context, string) (Summary, error)
 }

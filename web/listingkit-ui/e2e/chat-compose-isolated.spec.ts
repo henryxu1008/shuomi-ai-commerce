@@ -417,7 +417,7 @@ test("keeps project operations out of Chat and resumes its rebound conversation"
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
 
-for(const outcome of ["complete","model failure","rejection"] as const)test(`sends two ordered images and ${outcome==="complete"?"recovers the original request after reload":`keeps an editable draft after ${outcome}`}`, async ({page,context,baseURL})=>{
+for(const outcome of ["complete","model failure","rejection","capacity rejection"] as const)test(`sends two ordered images and ${outcome==="complete"?"recovers the original request after reload":`keeps an editable draft after ${outcome}`}`, async ({page,context,baseURL})=>{
   test.setTimeout(60_000);
   const failedReply=outcome!=="complete";
   const origin=baseURL!;
@@ -457,6 +457,7 @@ for(const outcome of ["complete","model failure","rejection"] as const)test(`sen
         expect(key).toBe(firstKey);
         expect(body).toBe(firstBody);
         if(outcome==="rejection")return json({code:"INVALID_REQUEST",messageAccepted:false},400);
+        if(outcome==="capacity rejection")return json({code:"STORAGE_LIMIT_EXCEEDED",messageAccepted:false},409);
         if(failedReply)return json({state:"FAILED_BEFORE_DISPATCH",userMessageId:questionId,sourceSequence:1,assistantMessageId:""});
       }else{
         expect(key).not.toBe(firstKey);
@@ -570,6 +571,10 @@ for(const outcome of ["complete","model failure","rejection"] as const)test(`sen
   if(failedReply){
     const input=page.getByRole("textbox",{name:"需求",exact:true});
     await expect(input).toBeEnabled();
+    if(outcome==="capacity rejection"){
+      await expect(page.getByText(/企业存储空间不足/)).toBeVisible();
+      await expect(page.getByRole("button",{name:"移除图 2",exact:true})).toBeEnabled();
+    }
     await page.reload();
     await expect(input).toHaveValue(question);
     await expect(input).toBeEnabled();

@@ -1244,7 +1244,8 @@ export async function buildWorkbenchBrowserResponse(
     const messageRejected = contract === "ai-message" &&
       ["INVALID_REQUEST", "PROPOSAL_STALE", "TEXT_SKILL_UNAVAILABLE", "TEXT_SKILL_INPUT_LIMIT"].includes(code);
     const turnRejected = (contract === "ai-chat-turn-submit" || contract === "ai-image-question-submit") && code === "INVALID_REQUEST";
-    if (payload.messageAccepted === false && (messageRejected || turnRejected)) {
+    const imageCapacityRejected = contract === "ai-image-question-submit" && code === "STORAGE_LIMIT_EXCEEDED";
+    if (payload.messageAccepted === false && (messageRejected || turnRejected || imageCapacityRejected)) {
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
     if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){

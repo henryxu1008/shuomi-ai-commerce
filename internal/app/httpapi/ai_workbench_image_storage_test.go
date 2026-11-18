@@ -44,8 +44,8 @@ func (s *interruptedChatImageObjects) ReadObject(_ context.Context, key string, 
 	return put.Data, s3.ObjectInspection{Exists: ok, ContentLength: put.SizeBytes, ContentType: put.ContentType}, nil
 }
 
-func TestChatImageStorageRetriesOnlyMissingImageAndCountsEachOnce(t *testing.T) {
-	ctx := context.Background()
+func chatImageStorageCapacityFixture(t *testing.T) *storagecapacitystore.Repository {
+	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 	pool, err := db.DB()
@@ -54,7 +54,12 @@ func TestChatImageStorageRetriesOnlyMissingImageAndCountsEachOnce(t *testing.T) 
 	require.NoError(t, storagecapacitystore.AutoMigrate(db))
 	capacity, err := storagecapacitystore.New(db)
 	require.NoError(t, err)
+	return capacity
+}
 
+func TestChatImageStorageRetriesOnlyMissingImageAndCountsEachOnce(t *testing.T) {
+	ctx := context.Background()
+	capacity := chatImageStorageCapacityFixture(t)
 	group := make([][]byte, 2)
 	for n := range group {
 		var raw bytes.Buffer
@@ -89,4 +94,46 @@ func TestChatImageStorageRetriesOnlyMissingImageAndCountsEachOnce(t *testing.T) 
 		require.True(t, found)
 		require.Equal(t, group[n], body)
 	}
+}
+
+func TestChatImageStorageLimitRejectionPermanentlyFencesOriginalRequest(t *testing.T) {
+	ctx := context.Background()
+	capacity := chatImageStorageCapacityFixture(t)
+	filler, err := capacity.ReserveWrite(ctx, storagecapacity.WriteIntent{
+		OrganizationID: "org", Owner: "product_media", OperationID: "filler",
+		Fingerprint: storagecapacity.Digest("full"), MaxBytes: storagecapacity.BaseBytes, MaxObjects: 1,
+	})
+	require.NoError(t, err)
+
+	var raw bytes.Buffer
+	require.NoError(t, png.Encode(&raw, image.NewRGBA(image.Rect(0, 0, 1, 1))))
+	group := [][]byte{raw.Bytes()}
+	pictures, err := inspectChatImages(group)
+	require.NoError(t, err)
+	objects := &interruptedChatImageObjects{objects: make(map[string]s3.ImmutableObjectPut), writes: make(map[string]int)}
+	store := &ChatImageStorage{Objects: objects, Capacity: capacity, Namespace: "private-test"}
+
+	rejected := storagecapacity.Digest("original-limit")
+	err = store.store(ctx, "org", rejected, "compare", pictures, group)
+	var proven *aiworkbench.MessageNotAcceptedError
+	require.ErrorAs(t, err, &proven)
+	require.ErrorIs(t, proven.Cause, storagecapacity.ErrExceeded)
+	require.Empty(t, objects.writes)
+	require.NoError(t, capacity.AbortUnstarted(ctx, "org", filler.ID))
+
+	// Free space may now be available, but a delayed retry of the already
+	// rejected request cannot claim capacity, store files or reach the model.
+	err = store.store(ctx, "org", rejected, "compare", pictures, group)
+	require.ErrorAs(t, err, &proven)
+	require.ErrorIs(t, proven.Cause, storagecapacity.ErrExceeded)
+	require.ErrorIs(t, store.store(ctx, "org", rejected, "changed question", pictures, group), storagecapacity.ErrConflict)
+	require.Empty(t, objects.writes)
+	summary, err := capacity.ReadSummary(ctx, "org")
+	require.NoError(t, err)
+	require.Equal(t, "0", summary.OccupiedBytes)
+	require.Equal(t, "0", summary.ReservedBytes)
+
+	next := storagecapacity.Digest("new-question")
+	require.NoError(t, store.store(ctx, "org", next, "compare", pictures, group))
+	require.Equal(t, map[string]int{aiworkbench.ChatImageObject(next, 0): 1}, objects.writes)
 }
