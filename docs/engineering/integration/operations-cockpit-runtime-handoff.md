@@ -1,10 +1,10 @@
 # 运营驾驶舱首版交接
 
-执行 Issue #627、主要 PR #629；设计依据为 [operations-cockpit-v1](../architecture/operations-cockpit.md)，`IMPLEMENTATION_READY / FROZEN`。用户已确认人工录入收入、退款与成本，系统计算利润；创建人或当前目标管理者维护目标；建议使用规则依据并由人处理。用户已将驾驶舱共享接线指派本线程，并授权通知 #625 接线线程协调写入；本批保持一个 Writer、一个主要 PR。
+执行 Issue #627、主要 PR #629；设计依据为 [operations-cockpit-v1](../../architecture/operations-cockpit.md)，`IMPLEMENTATION_READY / FROZEN`。用户已确认人工录入收入、退款与成本，系统计算利润；创建人或当前目标管理者维护目标；建议使用规则依据并由人处理。用户已将驾驶舱共享接线指派本线程，并授权通知 #625 接线线程协调写入；本批保持一个 Writer、一个主要 PR。
 
 ## 正常启动
 
-本功能要求当前 Store Center 及其专用 PostgreSQL 数据库、既有商业资源 owner、正常 ZITADEL 身份与企业上下文。按 [Store Center 架构](../architecture/store-center-application.md) 和 [RUN-1](../operations/isolated-application-acceptance.md) 准备私密 owner/serving manifest；在 serving manifest 的现有 `storeCenter` 内增加 `"operationsCockpit": true`，并保留 `"enabled": true` 与原专用数据库配置。默认关闭；关闭时也禁止运行角色拥有本功能额外数据库权限。
+本功能要求当前 Store Center 及其专用 PostgreSQL 数据库、既有商业资源 owner、正常 ZITADEL 身份与企业上下文。按 [Store Center 架构](../../architecture/store-center-application.md) 和 [RUN-1](../../operations/isolated-application-acceptance.md) 准备私密 owner/serving manifest；在 serving manifest 的现有 `storeCenter` 内增加 `"operationsCockpit": true`，并保留 `"enabled": true` 与原专用数据库配置。默认关闭；关闭时也禁止运行角色拥有本功能额外数据库权限。
 
 仅在获准的新空 Store 实例上，通过既有 schema-owner 入口安装。以下绝对配置路径为示意，须替换为已准备的私密配置文件；serving manifest 使用 `store_center_runtime`，不能使用 owner 凭据。
 
@@ -13,7 +13,7 @@ go run ./cmd/store-center-schema-init -config C:\private\store-owner.json -opera
 go run ./cmd/current-application -config C:\private\current-application.json
 ```
 
-如新实例同时安装已有平台观察，则初始化命令同时增加 `-observations`，并按 [观察功能交接](store-observations-integration-handoff.md) 准备其配置与 worker。人工经营功能无需观察 worker；未装配观察时，订单观察明确显示未取得能力。启动只核验 schema 与角色权限，不安装或修复数据库。不得将上述初始化当成已有业务实例升级、迁移或权限修复操作；本批没有改动保留试用实例。
+如新实例同时安装已有平台观察，则初始化命令同时增加 `-observations`，并按 [观察功能交接](../store-observations-integration-handoff.md) 准备其配置与 worker。人工经营功能无需观察 worker；未装配观察时，订单观察明确显示未取得能力。启动只核验 schema 与角色权限，不安装或修复数据库。不得将上述初始化当成已有业务实例升级、迁移或权限修复操作；本批没有改动保留试用实例。
 
 Console 复用正常启动与 Auth.js 配置，`LISTINGKIT_SERVICE_API_BASE` 指向上述 current backend 的 `/api/v1`；无需另加前端启用变量。从 `web/listingkit-ui` 执行正常 `pnpm.cmd dev`，或者 `pnpm.cmd build` 后 `pnpm.cmd start`。沿 RUN-1 的正常登录入口选择企业。
 
