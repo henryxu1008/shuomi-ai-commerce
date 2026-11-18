@@ -16,11 +16,11 @@
 ## 身份与成员
 
 - [企业空间操作记录 v1](account-audit.md)
-- [Account read-only contract (#346 → #348)](account-readonly-contract.md)
+- [Account read-only contract (#346 → #348)](integration/account-readonly-contract.md)
 - [系统管理员模块展示修复](administrator-module-projection.md)
 - [Current application: personal referrals server slice](referrals-runtime.md)
 - [ACC-1 account profile and shared presentation](integration/account-profile.md)
-- [ACC-2 membership implementation contract](account-membership-contract.md)
+- [ACC-2 membership implementation contract](integration/account-membership-contract.md)
 - [ACC-3: resources and optional SourceAccount management](integration/account-resources.md)
 - [Personal referral registration: Slice A](referral-registration.md)
 - [店铺浏览器后端与固定角色展示组合](store-browser-permission-combination.md)
