@@ -6,7 +6,7 @@ Design Basis: Independent Architecture。Admission: IMPLEMENTATION_READY / FROZE
 
 ## 用户结果、依据与范围
 
-用户2026-11-09决定：本土店和半托管一起接线，在新的独立本地实例用测试回执完成「手动同步→保存→驾驶舱更新」，验证日期、店铺、父订单去重、缺金额与覆盖不足。引用已冻结的 [Temu订单保存合同](cockpit-temu-order-amount.md)、当前 Store Observations、project-boundaries.md 及 greenfield-no-legacy-migration.md。Figma仅流程参考。
+用户2026-11-09决定：本土店和半托管一起接线，在新的独立本地实例用测试回执完成「手动同步→保存→驾驶舱更新」，验证日期、店铺、父订单去重、缺金额与覆盖不足。引用已冻结的 [Temu订单保存合同](../../cockpit-temu-order-amount.md)、当前 Store Observations、project-boundaries.md 及 greenfield-no-legacy-migration.md。Figma仅流程参考。
 
 仅当前区域订单 r2 应用、US region211、LOCAL/SEMI；不扩展全托、其他区域、定时采集、发货/取消/退款或财务。禁止真实平台/真实店铺请求，不修改全平台成功率、GMV卡片、合成预览和现有实例。交付Draft PR和保留的独立本地入口，不自动合并、生产部署或关闭父Issue。测试金额不能证明真实半托应用有敏感金额接口权限。
 
