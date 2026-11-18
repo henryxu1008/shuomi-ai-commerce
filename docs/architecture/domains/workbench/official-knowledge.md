@@ -29,13 +29,13 @@ Sumi-maintained material, read it, and identify its source and exact version. An
 selection/use action must lead to an approved real consumer, rather than a success
 message or an enterprise copy of platform material.
 
-[Current UI Authority](../product/final-ui-ia-authority.md) and
+[Current UI Authority](../../../product/final-ui-ia-authority.md) and
 [Figma official frame 682:359](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=682-359)
 were inspected live. The frame states: Sumi maintains the content, users choose it
 as needed, and it is not cited by default. Its four category cards describe possible
 content; they are not evidence of published documents or granted content rights.
 
-The approved [enterprise Knowledge design](agent-knowledge-context.md) governs
+The approved [enterprise Knowledge design](../../agent-knowledge-context.md) governs
 current-organization documents and execution context. Its trust rules also mention
 official knowledge, but it has no official catalogue, publisher, shared-content
 visibility or official-version contract. Issue #555 and runtime Issue #619 do not
