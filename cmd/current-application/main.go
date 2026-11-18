@@ -360,7 +360,7 @@ func execute() error {
 				options = append(options, httpapi.WithAccountAuditUsageSources(features.AccountAuditImageDB, features.AccountAuditProductDB))
 			}
 			if features.ReferralDB != nil {
-				options = append(options, httpapi.WithReferrals(features.ReferralDB))
+				options = append(options, httpapi.WithReferrals(features.ReferralDB), httpapi.WithReferralMaturityStop(features.ReferralMaturityStop))
 			}
 			if features.MembershipDB != nil {
 				if features.Membership == nil {
@@ -374,8 +374,8 @@ func execute() error {
 		NewApplication: func(ctx context.Context, source *gorm.DB, cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
 			return httpapi.NewCurrentApplication(ctx, source, cfg, logger)
 		},
-		NewReferralsApplication: func(ctx context.Context, source, referrals *gorm.DB, cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
-			return httpapi.NewCurrentApplicationWithOptions(ctx, source, cfg, logger, httpapi.WithReferrals(referrals))
+		NewReferralsApplication: func(ctx context.Context, source, referrals *gorm.DB, maturityStop *func(), cfg *coreconfig.Config, logger *logrus.Logger) (*http.Server, error) {
+			return httpapi.NewCurrentApplicationWithOptions(ctx, source, cfg, logger, httpapi.WithReferrals(referrals), httpapi.WithReferralMaturityStop(maturityStop))
 		},
 		CloseDatabase: platformdatabase.Close,
 	})
