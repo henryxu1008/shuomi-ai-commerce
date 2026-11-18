@@ -15,7 +15,7 @@
 
 ## 配置与启动
 
-沿用 [企业智能体配置](organization-agent-configuration.md)。通用素材模式直接消费当前采集 Product/Review 与 IAM，不要求 Store 官方应用或 Supply worker。接入实际平台后，再按 [当前供应链运行配置](my-supply-chain-shein.md) 装配平台来源、店铺授权和官方规则；未装配的目标拒绝生成与批准。当前默认 Account Compose 不自动启用完整图片 worker、付费 provider 或正式应用。已有单图试验 overlay 的 OpenAI 合成协议不是本实现的 GRSAI 接线；不要同时运行其旧 worker 来消费完整集合任务。
+沿用 [企业智能体配置](user-guides/organization-agent-configuration.md)。通用素材模式直接消费当前采集 Product/Review 与 IAM，不要求 Store 官方应用或 Supply worker。接入实际平台后，再按 [当前供应链运行配置](my-supply-chain-shein.md) 装配平台来源、店铺授权和官方规则；未装配的目标拒绝生成与批准。当前默认 Account Compose 不自动启用完整图片 worker、付费 provider 或正式应用。已有单图试验 overlay 的 OpenAI 合成协议不是本实现的 GRSAI 接线；不要同时运行其旧 worker 来消费完整集合任务。
 
 维护者在已经获准的全新业务环境准备私有 current-application JSON 和现有 worker YAML。服务启动验证已有 schema/grant，不安装或迁移业务表，也不自动启用企业。
 

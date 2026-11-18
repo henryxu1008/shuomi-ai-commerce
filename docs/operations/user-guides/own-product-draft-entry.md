@@ -1,6 +1,6 @@
 # 单件自有商品到待补全草稿
 
-Refs #694；[既有合同澄清](../architecture/own-product-draft-entry.md)。复用Collection、Preparation和CompletionDraft，不新增schema、领域owner或运行服务。
+Refs #694；[既有合同澄清](../../architecture/own-product-draft-entry.md)。复用Collection、Preparation和CompletionDraft，不新增schema、领域owner或运行服务。
 
 ## 正常使用
 

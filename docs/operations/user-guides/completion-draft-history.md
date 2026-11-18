@@ -1,6 +1,6 @@
 # 待补全草稿保存历史
 
-Refs #704；合同见[历史读取与比较](../architecture/domains/listing/completion-draft-history.md)。本说明是候选使用交接，实例部署、用户试用和生产验收分别记录在PR，不能由源码或CI推定。
+Refs #704；合同见[历史读取与比较](../../architecture/domains/listing/completion-draft-history.md)。本说明是候选使用交接，实例部署、用户试用和生产验收分别记录在PR，不能由源码或CI推定。
 
 后续 #708 的[恢复历史内容](completion-draft-restore.md)可从只读旧版详情进入独立预览，再按原 Save 保存为新版本；不修改历史读取或旧记录。
 
