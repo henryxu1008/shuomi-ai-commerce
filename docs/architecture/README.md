@@ -277,8 +277,8 @@
 - [AI Workbench 领域导航：Chat、BusinessTask、Project、原生运行、定时计划与报告](domains/workbench/README.md) — 已有商品内容计划保留，当前新建定时任务只开放店铺经营日报
 
 
-- `chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](chat-visible-store-query.md) · #1259 独立架构评审通过；实施与试用尚未授权。
-- `chat-selected-store-context.md` — [硕米 Chat 选择店铺背景](chat-selected-store-context.md) · 已连接店铺选择及权限校验。
+- `domains/workbench/chat-visible-store-query.md` — [硕米 Chat 按当前权限查询店铺概况](domains/workbench/chat-visible-store-query.md) · #1259 独立架构评审通过；正文记录已获实施及隔离验证授权，不含真实模型调用、原 35444 操作或释放原预留；本索引不新增实际试用授权。
+- `domains/workbench/chat-selected-store-context.md` — [硕米 Chat 选择店铺背景](domains/workbench/chat-selected-store-context.md) · 已连接店铺选择及权限校验。
 - `chat-project-actions.md` — [硕米 Chat 选择 Agent 技能与项目操作](chat-project-actions.md) · #1396，覆盖个人标题技能的创作、计费及恢复，后续标题技能版本交接和项目操作。
 - `chat-general-text-skills.md` — [硕米 Chat 创建并使用个人文字技能](chat-general-text-skills.md) · #1429，通用文字创作与 Chat 选用已独立复核并达到 IMPLEMENTATION_READY。
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
@@ -286,11 +286,11 @@
 - `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
-- `chat-selected-product-context.md` — [Chat 规划读取已选商品资料](chat-selected-product-context.md)
+- `domains/workbench/chat-selected-product-context.md` — [Chat 规划读取已选商品资料](domains/workbench/chat-selected-product-context.md)
 - `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
 - `scheduled-plan-edit-copy.md` — [定时计划编辑与复制](scheduled-plan-edit-copy.md) · #1297 IMPLEMENTATION_READY；复用原计划 owner，保留在途任务与历史，保存前重新核对时间和预算。
-- `chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
-- `chat-voice-input.md` — [Chat 语音输入与会话入口](chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
+- `domains/workbench/chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](domains/workbench/chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
+- `domains/workbench/chat-voice-input.md` — [Chat 语音输入与会话入口](domains/workbench/chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
 - `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
 - `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)
@@ -300,19 +300,19 @@
 - `domains/workbench/notification-center.md` — [通知中心 V1：站内通知与业务状态投影](domains/workbench/notification-center.md)
 - `operations-cockpit-figma-read.md` — [运营驾驶舱四页 Figma 与只读投影补充](operations-cockpit-figma-read.md)
 - `operations-cockpit.md` — [运营驾驶舱首版：人工经营事实与有据可查的经营投影](operations-cockpit.md)
-- `cockpit-listing-task-metrics.md` — [运营驾驶舱首页：刊登与任务统计](cockpit-listing-task-metrics.md)
-- `cockpit-walmart-feed-rate.md` — [运营驾驶舱：Walmart Feed 提交受理率](cockpit-walmart-feed-rate.md)
-- `cockpit-tiktok-us-publish-rate.md` — [运营驾驶舱：TikTok Shop US 提交审核率](cockpit-tiktok-us-publish-rate.md)
-- `cockpit-shein-order-amount.md` — [运营驾驶舱：SHEIN US 已保存订单商品金额（原币）](cockpit-shein-order-amount.md)
-- `cockpit-shein-self-operated-orders.md` — [SHEIN US 普通自运营消费者订单及来源事实](cockpit-shein-self-operated-orders.md)
-- `cockpit-shein-supply-orders.md` — [SHEIN 全托：按采购单号批次保存供货单与数量观察](cockpit-shein-supply-orders.md)
-- `cockpit-shein-supply-business-times.md` — [SHEIN 全托：业务时间原值、来源与缺失状态保存](cockpit-shein-supply-business-times.md)
-- `cockpit-shein-saved-supply-dates.md` — [已保存全托供货单按原始日期观察](cockpit-shein-saved-supply-dates.md)
-- `cockpit-walmart-order-amount.md` — [Walmart US 消费者订单保存与单店商品金额](cockpit-walmart-order-amount.md)
-- `cockpit-walmart-order-sync.md` — [Walmart US 消费者订单手动同步接线](cockpit-walmart-order-sync.md)
-- `cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](cockpit-tiktok-order-amount.md)
-- `cockpit-tiktok-order-sync.md` — [TikTok Shop US 跨境店消费者订单手动同步](cockpit-tiktok-order-sync.md)
-- `cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md)
+- `domains/workbench/cockpit-listing-task-metrics.md` — [运营驾驶舱首页：刊登与任务统计](domains/workbench/cockpit-listing-task-metrics.md)
+- `domains/workbench/cockpit-walmart-feed-rate.md` — [运营驾驶舱：Walmart Feed 提交受理率](domains/workbench/cockpit-walmart-feed-rate.md)
+- `domains/workbench/cockpit-tiktok-us-publish-rate.md` — [运营驾驶舱：TikTok Shop US 提交审核率](domains/workbench/cockpit-tiktok-us-publish-rate.md)
+- `domains/workbench/cockpit-shein-order-amount.md` — [运营驾驶舱：SHEIN US 已保存订单商品金额（原币）](domains/workbench/cockpit-shein-order-amount.md)
+- `domains/workbench/cockpit-shein-self-operated-orders.md` — [SHEIN US 普通自运营消费者订单及来源事实](domains/workbench/cockpit-shein-self-operated-orders.md)
+- `domains/workbench/cockpit-shein-supply-orders.md` — [SHEIN 全托：按采购单号批次保存供货单与数量观察](domains/workbench/cockpit-shein-supply-orders.md)
+- `domains/workbench/cockpit-shein-supply-business-times.md` — [SHEIN 全托：业务时间原值、来源与缺失状态保存](domains/workbench/cockpit-shein-supply-business-times.md)
+- `domains/workbench/cockpit-shein-saved-supply-dates.md` — [已保存全托供货单按原始日期观察](domains/workbench/cockpit-shein-saved-supply-dates.md)
+- `domains/workbench/cockpit-walmart-order-amount.md` — [Walmart US 消费者订单保存与单店商品金额](domains/workbench/cockpit-walmart-order-amount.md)
+- `domains/workbench/cockpit-walmart-order-sync.md` — [Walmart US 消费者订单手动同步接线](domains/workbench/cockpit-walmart-order-sync.md)
+- `domains/workbench/cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](domains/workbench/cockpit-tiktok-order-amount.md)
+- `domains/workbench/cockpit-tiktok-order-sync.md` — [TikTok Shop US 跨境店消费者订单手动同步](domains/workbench/cockpit-tiktok-order-sync.md)
+- `domains/workbench/cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](domains/workbench/cockpit-temu-order-amount.md)
 - `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
 - `domains/workbench/project-center-overview-read.md` — [Project Center overview read V1](domains/workbench/project-center-overview-read.md)
 - `domains/workbench/task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](domains/workbench/task-center-native-run-projection.md)
@@ -330,4 +330,4 @@
 
 Every architecture document is explicitly indexed above. 新增、合并或删除合同时同步本索引；当前规则写入已有 owner 的合同，不追加退休记录、历史索引或逐轮评审日志。
 
-- `cockpit-temu-order-sync.md` — [Temu US 本土/半托管消费者订单手动同步](cockpit-temu-order-sync.md)
+- `domains/workbench/cockpit-temu-order-sync.md` — [Temu US 本土/半托管消费者订单手动同步](domains/workbench/cockpit-temu-order-sync.md)

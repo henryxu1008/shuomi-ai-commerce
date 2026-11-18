@@ -6,7 +6,7 @@ Design Basis: Independent Architecture. Admission Status: IMPLEMENTATION_READY. 
 
 运营人员选择SHEIN全托店铺，在原供货单批次中选择已保存原单，查看时间原值、字段来源及缺失状态。仅保存/查看，不提供日期筛选、自然日汇总或金额。全平台成功率、GMV、合成预览、保留实例不改；不连接真实店铺/交换令牌/调用业务API。
 
-复用[供货单观察](cockpit-shein-supply-orders.md)、[Store Observations](store-center-platform-observations.md)及全新系统产品基线。Figma不作为UI权威。[官方采购单](https://open.sheincorp.com/documents/apidoc/detail/3002055-1000002)、[时间FAQ55](https://open.sheincorp.com/documents/faq-detail/55)、[组合FAQ48](https://open.sheincorp.com/documents/faq-detail/48)已于2026-11-09公开只读核对，证据在#1163。采购单时区、边界包含性未确认；消费者订单UTC+8与签名毫秒时间戳均不是本合同依据。
+复用[供货单观察](cockpit-shein-supply-orders.md)、[Store Observations](../../store-center-platform-observations.md)及全新系统产品基线。Figma不作为UI权威。[官方采购单](https://open.sheincorp.com/documents/apidoc/detail/3002055-1000002)、[时间FAQ55](https://open.sheincorp.com/documents/faq-detail/55)、[组合FAQ48](https://open.sheincorp.com/documents/faq-detail/48)已于2026-11-09公开只读核对，证据在#1163。采购单时区、边界包含性未确认；消费者订单UTC+8与签名毫秒时间戳均不是本合同依据。
 
 ## 唯一事实owner与保存合同
 

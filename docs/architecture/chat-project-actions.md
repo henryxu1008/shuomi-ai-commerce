@@ -11,7 +11,7 @@
 
 首批先交付「创建技能」。创作产物为一个仅含 `SKILL.md` 的个人标题技能私有草稿，脚本、附件、图片技能、团队技能创建、批量创建、自动发布、启用与共享均在首批文字创作范围之外。后续脚本创作见第 2.3 节。已有标题技能接入时，候选来自已启用的商品标题整理、标题本地化、冗长标题精简以及当前获准的个人、团队标题技能。已有图片技能使用原图片入口。原项目任务仍为单项、单商品，普通 Chat 规划与既有项目会话分别保留各自输入。
 
-依据：[项目中心](domains/workbench/ai-workbench-project-center.md) · [当前会话工作范围](ai-workbench-work-scope.md) · [Chat 选择店铺](chat-selected-store-context.md) · [商品内容任务](chat-task-object-goal-design-brief.md) · [技能库现有支持范围](../../web/listingkit-ui/src/lib/contracts/skill.ts) · [全新系统产品基线](../product/greenfield-no-legacy-migration.md)
+依据：[项目中心](domains/workbench/ai-workbench-project-center.md) · [当前会话工作范围](ai-workbench-work-scope.md) · [Chat 选择店铺](domains/workbench/chat-selected-store-context.md) · [商品内容任务](chat-task-object-goal-design-brief.md) · [技能库现有支持范围](../../web/listingkit-ui/src/lib/contracts/skill.ts) · [全新系统产品基线](../product/greenfield-no-legacy-migration.md)
 
 ## 2. Chat 中的共同入口
 
@@ -122,7 +122,7 @@ Status: `IMPLEMENTATION_READY`。2026-11-18 用户明确要求：直接发送需
 - 已有明确商品对象的内容任务继续走原规划入口。普通聊天的识别仍支持原店铺概况、商品任务引导和补充说明；新增创建技能。店铺选择不是技能输入来源，不把店铺、项目、商品或其他聊天历史自动塞进创作提示。
 - 缺少必要目标或无法判断意图时，模型要求补充；程序不以关键词、语义正则或第二个模型替代用户意图判断。主动选择具有优先级，不被自动分类覆盖。
 
-当前依据为用户上述两项决定、第 2.3 节、[Chat 原始草稿和请求恢复](chat-compose-before-create.md)、[当前会话范围](ai-workbench-work-scope.md)、[领域 owner 边界](project-boundaries.md) 与现有受控文本/资源账本合同。既有未决请求按原操作恢复，不升级其输入或补发未获授权的模型调用。
+当前依据为用户上述两项决定、第 2.3 节、[Chat 原始草稿和请求恢复](domains/workbench/chat-compose-before-create.md)、[当前会话范围](ai-workbench-work-scope.md)、[领域 owner 边界](project-boundaries.md) 与现有受控文本/资源账本合同。既有未决请求按原操作恢复，不升级其输入或补发未获授权的模型调用。
 
 #### Owner、消费链及最小复用
 
@@ -230,7 +230,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 2. **带入草稿，重新选择本次店铺。** 沿原 Chat 草稿交接约定，在当前浏览器标签页把同一用户、同一企业下尚未提交的需求带到新会话的输入框。目标会话已有草稿、用户输入或未决请求时，保留两边内容，让用户核对。新会话分别显示「项目关联店铺」和「本次任务店铺」。本次任务店铺由用户重新确认，按原规则核对访问权限、连接状态及与当前任务的匹配。打开新会话和带入草稿均不触发规划或扣点。
 3. **在原范围核实历史和未决操作。** 旧会话仍保留固定范围，历史按原依赖和当前权限读取。已发送的消息、已有方案或任务和未决请求留在原会话。若变更在预览之后、创建会话、提交规划或确认方案时才被发现，沿原请求键、载荷和范围先核实该操作。已有回执就展示当前权限允许看到的原结果，结果仍不明就保留原核实入口和原有操作锁。原操作明确未受理，或已得到终态后，用户才能在最新授权范围下明确发起新的继续操作。新会话使用自己的创建和发送请求，旧请求及其输入不换键、不换店、不搬到新会话重发。
 
-依据：[会话固定范围与项目改绑](ai-workbench-work-scope.md#41-新建会话) · [Chat 草稿交接与恢复](chat-compose-before-create.md#输入草稿与恢复) · [现有范围校验](../../internal/aiworkbench/business_scope.go)
+依据：[会话固定范围与项目改绑](ai-workbench-work-scope.md#41-新建会话) · [Chat 草稿交接与恢复](domains/workbench/chat-compose-before-create.md#输入草稿与恢复) · [现有范围校验](../../internal/aiworkbench/business_scope.go)
 
 依据：[项目详情进入 Chat](../../web/listingkit-ui/src/components/workbench/project-center/project-page.tsx) · [现有商品选择](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-task-selection.tsx) · [Chat 方案和确认](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [确认及启动服务](../../internal/aiworkbench/service.go) · [内容模型、审核与采用](product-content-localization.md)
 
@@ -263,7 +263,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 - **幂等与结果不明。** 创建项目、发送规划、确认任务、添加关联各沿对应原请求键与回执。相同键和相同输入核对原结果，相同键换输入按原合同拒绝。提交中禁用重复点击。响应中断时卡片显示「结果待确认」，用原键和原请求核实。任务已确认但启动结果不明时，仅核实原任务及原运行；规划或执行能否继续由原准入和恢复协议决定。刷新按既有同会话恢复能力还原，重试读取原结果时也要检查当前披露权限。
 - **边界与实施准入。** 项目操作使用原项目和 Chat 接口，创作按第 2.1 节增加专用用途。各自沿现有分页、请求大小、时限及预算上限。项目路径继续验证店铺到执行的一致性、会话间草稿交接、创建项目与模型配置的独立性，以及任务提交和项目关联的边界。现有路径无法可靠表达的店铺组合须限制入口。设计评审与执行 Issue 的准入完成后，方可开工修改生产业务路径。
 
-依据：[店铺选择与原键恢复](chat-selected-store-context.md) · [固定工作范围和原键恢复](ai-workbench-work-scope.md) · [Chat 创建前输入交接](chat-compose-before-create.md) · [项目和业务任务领域边界](project-boundaries.md) · [开工准入](../../AGENTS.md#architecture-first-开工准入)
+依据：[店铺选择与原键恢复](domains/workbench/chat-selected-store-context.md) · [固定工作范围和原键恢复](ai-workbench-work-scope.md) · [Chat 创建前输入交接](domains/workbench/chat-compose-before-create.md) · [项目和业务任务领域边界](project-boundaries.md) · [开工准入](../../AGENTS.md#architecture-first-开工准入)
 
 ## 7. 验收方法
 
