@@ -2,13 +2,13 @@
 
 ## 当前离线整合：保留统一实例供应链与图片修复（2026-11-04）
 
-用户已授权在原工作区和 PR #1075 将参考价研究/选品代码与上轮核实的统一实例组合 a66d7d0cde74cded28d77060ac941851cc342a30 整合。多数修复已存在，实际代码增量只涉及 Binding 互斥校验/测试，以及“待上传”交接文案；既有共享参考价、预算与图片/供应链 owner 保持。当前交付为固定源码候选和[两服务更新差异、保留与回退方案](market-research-unified-update-plan.md)。准确 HEAD、CI 与增量复核由原 PR 记录。
+用户已授权在原工作区和 PR #1075 将参考价研究/选品代码与上轮核实的统一实例组合 a66d7d0cde74cded28d77060ac941851cc342a30 整合。多数修复已存在，实际代码增量只涉及 Binding 互斥校验/测试，以及“待上传”交接文案；既有共享参考价、预算与图片/供应链 owner 保持。当前交付为固定源码候选和[两服务更新差异、保留与回退方案](../market-research-unified-update-plan.md)。准确 HEAD、CI 与增量复核由原 PR 记录。
 
 本轮 Docker 引擎不可连接，未启动；没有构建镜像、发布配置或更新实例。a66d7d0c…仅为上一轮已核实的运行基线，不推定当前现场。未来执行更新前重新核对来源，避免覆盖并行更新。原凭据、配置、数据与卷未变；真实采集/AI/付费、现场兼容/用户验收及合并均 NOT_RUN。
 
 ## 当前离线交付：参考价贯通研究与选品（2026-11-04）
 
-按用户最新决定，已消费 #1078 公共合同 5cc8248e5d659e3004c2c6686c582528c8fdd0d4，沿 #1075 原工作区实现参考价估算、按消费类别检查可用性和完整离线业务交接。当前可审查依据为[接线合同](../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)与[Local Account Center 配置差异](selection-shared-model-wiring-preview.md)。逐次厂商精确价、峰闲时点、全缓存分项及厂商硬界研究退出当前前置，CANCELLED/DEFERRED 不记为 PASS。
+按用户最新决定，已消费 #1078 公共合同 5cc8248e5d659e3004c2c6686c582528c8fdd0d4，沿 #1075 原工作区实现参考价估算、按消费类别检查可用性和完整离线业务交接。当前可审查依据为[接线合同](../../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)与[Local Account Center 配置差异](../selection-shared-model-wiring-preview.md)。逐次厂商精确价、峰闲时点、全缓存分项及厂商硬界研究退出当前前置，CANCELLED/DEFERRED 不记为 PASS。
 
 离线路径：同一项目关联保存的合成资料 → 选 2–5 项 → 冻结参考价及预算确认 → 原共享配置/DeepSeek受控适配只读建议 → 人工决定和理由 → 原 Preparation HTTP 精确子集转入；同键重放不重复转入/调用/结算。项目/来源上游和 provider 使用合成资料，真实领域、配置、Invocation、资源账本和 Collection/Preparation owner 执行原代码。价格/费用提示明确为估算，原权限、模式、预算和 UNKNOWN 保护保持。未开放图片生成不再阻止文字保存和使用。
 
@@ -20,7 +20,7 @@
 
 ## 官方计费依据与配置差异（2026-11-04，只读）
 
-原440bf15ea的离线实现、最终增量检查和CI41671247979已通过。本轮仅复核官方资料并更新[可审查差异和阻碍](selection-shared-model-wiring-preview.md)，Design Basis: N/A，不修改生产代码、模型准入或冻结合同。
+原440bf15ea的离线实现、最终增量检查和CI41671247979已通过。本轮仅复核官方资料并更新[可审查差异和阻碍](../selection-shared-model-wiring-preview.md)，Design Basis: N/A，不修改生产代码、模型准入或冻结合同。
 
 官方现可确认本型号隐式缓存及百炼10%渠道缓存价、P/C/O/T通用语义、created请求创建含义；尚不能据这些资料证明准确北京/固定非思考/非流式在缓存未命中时必返完整分项，或created决定峰闲价。已查账单总览/趋势为聚合数据；账单出账和监控统计不充当单次调用的计价时点/完整用量证明。DeepSeek直连合同仅作对照，不替代百炼合同。
 
@@ -30,7 +30,7 @@
 
 ## 最新Scope：新空安装与DeepSeek准入设计（2026-11-03）
 
-用户最新决定旧设计/旧业务数据无需承接，撤回下方保留原历史/余额/预留和53列演进方案；不再把该演进当作新系统交付前置，不按旧合同恢复调用或账本。现阶段仅完成[DeepSeek共享文字准入设计](../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)与适用独立检查；沿原owner的新空schema/微点/共享current合同，真实资格缺证仍关闭。
+用户最新决定旧设计/旧业务数据无需承接，撤回下方保留原历史/余额/预留和53列演进方案；不再把该演进当作新系统交付前置，不按旧合同恢复调用或账本。现阶段仅完成[DeepSeek共享文字准入设计](../../architecture/domains/ai/bailian-deepseek-shared-text-admission.md)与适用独立检查；沿原owner的新空schema/微点/共享current合同，真实资格缺证仍关闭。
 
 此决定不授权立即删除现有数据库/卷或更新实例，不改凭据、不发布配置、不真实采集/AI/付费、不合并。预算每项¥0.30/20点、两项各一次总¥0.60/40点保持。旧阶段记录保留其历史范围，以本节为当前执行范围。
 
@@ -42,7 +42,7 @@
 
 具体阻碍已收窄：公共价目来源校验尚无deepseek、周期价目须原owner确定准确有效窗口；本绑定非流式完整缓存usage尚未证实，不能用通用Qwen例子或旧总Token代签；完整三类发布仍受#1078剩余视觉/Flare限制。实际53列Invocation与52列新owner不符；冻结设计只支持新空库，因此当前没有保留全部数据并直接原地启用新版的批准路径。本轮未更改此合同，也没有把“保留卷”当成迁移授权。
 
-已列出保留现有项目/配置/数据/卷的逐步方案及停止点：公共owner准入补齐 → 保留数据的产品决定/有界演进设计 → 既有私密备份及获准副本验证 → 另行授权仅更新后端/UI → 另行授权原三类配置和真实试跑。先解决实际数据合同，不直接换镜像、不清空/复制旧账本或借新数据库逃避一致性问题。完整证据、字段映射和方案见[当前方案](selection-shared-model-wiring-preview.md)。
+已列出保留现有项目/配置/数据/卷的逐步方案及停止点：公共owner准入补齐 → 保留数据的产品决定/有界演进设计 → 既有私密备份及获准副本验证 → 另行授权仅更新后端/UI → 另行授权原三类配置和真实试跑。先解决实际数据合同，不直接换镜像、不清空/复制旧账本或借新数据库逃避一致性问题。完整证据、字段映射和方案见[当前方案](../selection-shared-model-wiring-preview.md)。
 
 Design Basis: N/A（只读核实及非执行方案），不是正式开发/迁移准入。原18服务/挂载清单已记录，两服务仍a66d7d0c；未更新实例、发布配置、改凭据或执行真实采集/AI/付费/合并。备份恢复及真实业务验收NOT_RUN。
 
@@ -50,7 +50,7 @@ Design Basis: N/A（只读核实及非执行方案），不是正式开发/迁�
 
 沿原受限运行账户 `product_agent_runtime`、已授予SELECT的去密投影和READ ONLY事务，固定LAC组织级筛选，确认两条deepseek-v4.1-flash / openai-compatible记录。首选审查候选为原内容current正在引用的 `local-content-route-830-20261020`，credentialVersion为 `org-credential:v1:9b2ab8feb2e44d7399f9649a8debe471355bbb0388a5a06b022d507ce7907737`，与原current一致；enabled/key_present为true，端点主机格式提示北京。未返回Key值、完整端点或其他企业/成员记录，没有提权、改授权或借用管理员。较早试用记录不作为fallback。
 
-原内容current和固定非思考策略已确认，但研究/选品/企业共享current未见；新共享reference/边界证据、厂商准确版本/价目和完整usage资格仍未核准。现场Invocation为53列旧结构，缺官网价/完整计费用量字段；新owner为52列且严格拒绝旧结构，因此实际运行还需要另行明确实例/数据与新合同适用安排，不能只保存模型名或自动迁移。完整元数据、非执行差异和读取边界见[候选差异](selection-shared-model-wiring-preview.md)。
+原内容current和固定非思考策略已确认，但研究/选品/企业共享current未见；新共享reference/边界证据、厂商准确版本/价目和完整usage资格仍未核准。现场Invocation为53列旧结构，缺官网价/完整计费用量字段；新owner为52列且严格拒绝旧结构，因此实际运行还需要另行明确实例/数据与新合同适用安排，不能只保存模型名或自动迁移。完整元数据、非执行差异和读取边界见[候选差异](../selection-shared-model-wiring-preview.md)。
 
 Design Basis: N/A；原预算¥0.30/20点每项、总¥0.60/40点保持。仅查询元数据并更新文档，未改Key/配置/schema/实例/余额，未执行真实采集/AI/付费或合并。下方“未取得记录”的观察仅属于此前页面核查阶段，不否定本次新增证据。
 
@@ -58,7 +58,7 @@ Design Basis: N/A；原预算¥0.30/20点每项、总¥0.60/40点保持。仅查
 
 正常LAC管理页及三个既有去敏GET已核：能力列表200且仅图片，研究绑定400/INVALID、独立商品对比绑定503/UNAVAILABLE。因此没有取得文字binding ID/版本、凭据版本、endpoint/部署地域，不能写成“密钥不存在”。未读取secret、使用管理员DB或借用图片Key。当前两服务OCI来源标签均 `a66d7d0cde74cded28d77060ac941851cc342a30`，镜像2848da261bfc/d106b5dfe863、running/healthy；与下方旧运行记录不同，本轮只观察，不是本线程f872工程代码已更新实例。
 
-已核官方型号/价格和usage字段；百炼地区原价与DeepSeek厂商价的缓存单价/峰谷日历不同。厂商当前 `deepseek-flash` 对应1017，不能推定用户指定的百炼原名称已经是同版本。候选仍保留原名称、固定非思考、原两调用和预算；现有严格openai-text-v1字段可对齐，但本企业真实完整用量资格未验证。完整的当前→目标差异、公开价格、整数预算和阻碍见[可审查预览](selection-shared-model-wiring-preview.md)。
+已核官方型号/价格和usage字段；百炼地区原价与DeepSeek厂商价的缓存单价/峰谷日历不同。厂商当前 `deepseek-flash` 对应1017，不能推定用户指定的百炼原名称已经是同版本。候选仍保留原名称、固定非思考、原两调用和预算；现有严格openai-text-v1字段可对齐，但本企业真实完整用量资格未验证。完整的当前→目标差异、公开价格、整数预算和阻碍见[可审查预览](../selection-shared-model-wiring-preview.md)。
 
 Design Basis: N/A（只读核对及文档）。单项成本¥0.30/20点、总¥0.60/40点不变；无凭据/配置/服务/单位/余额变更、真实采集/AI/付费或合并。配置仍NOT_PUBLISHABLE；下方工程检查、运行观察和历史授权继续分别绑定其准确版本。
 
@@ -86,7 +86,7 @@ Design Basis: N/A（只读核对及文档）。单项成本¥0.30/20点、总¥0
 
 ## 百炼配置接线预览与统一模型重构对齐（2026-11-03）
 
-用户已选择Local Account Center / 百炼 `deepseek-v4.1-flash`，仅准备两项操作的配置接线及差异预览；每项渠道成本上限¥0.30、消费上限20点，两项各1次合计¥0.60/40点。**未授权**写凭据、发布模型配置、更新服务、真实采集/AI/付费调用或合并。完整可审阅结果见[共享文字模型接线与差异预览](selection-shared-model-wiring-preview.md)。
+用户已选择Local Account Center / 百炼 `deepseek-v4.1-flash`，仅准备两项操作的配置接线及差异预览；每项渠道成本上限¥0.30、消费上限20点，两项各1次合计¥0.60/40点。**未授权**写凭据、发布模型配置、更新服务、真实采集/AI/付费调用或合并。完整可审阅结果见[共享文字模型接线与差异预览](../selection-shared-model-wiring-preview.md)。
 
 已核对用户指定“检查可关闭的 Issue”线程及PR #1078的当前冻结设计/开发状态：两项操作应共同读取企业text类别，保留各自prompt/schema/权限/预算；用户收费按厂商官网适用价、冻结FX和完整实际用量折算微点，由原资源owner唯一预留/结算。**下节200/800独立点数资费草案已撤回**，不再作为后续配置依据；20/40点仅为消费上限。旧per-operation当前模型/费率也不作为新共享reader的fallback。
 
@@ -182,7 +182,7 @@ Operational Design Basis: Reuse Existing Architecture。仅替换UI镜像和来�
 
 ## 三级业务导航交付（2026-11-03，前一版保留记录）
 
-用户已确认“市场调研 / 智能选品”为一级菜单，二级展示业务阶段，三级进入具体功能，名称去掉“中心”，随后明确允许将已构建的准确 `2aea` 版本仅更新统一实例前端并短暂重启。运行 UI 源码为 `2aea4d1a6cf7a22776c341def70d4058e04a9fe4`、tree `68f2bbd30f75a891ca77614cf2eff29b1543ee95`，仍为原 PR #1075。路径沿用 `/workbench/data/research`、`/workbench/supply/selection` 和本人项目详情；完整层级见[当前产品增量](../product/market-research-selection-centers-v1.md#当前导航增量2026-11-03)。
+用户已确认“市场调研 / 智能选品”为一级菜单，二级展示业务阶段，三级进入具体功能，名称去掉“中心”，随后明确允许将已构建的准确 `2aea` 版本仅更新统一实例前端并短暂重启。运行 UI 源码为 `2aea4d1a6cf7a22776c341def70d4058e04a9fe4`、tree `68f2bbd30f75a891ca77614cf2eff29b1543ee95`，仍为原 PR #1075。路径沿用 `/workbench/data/research`、`/workbench/supply/selection` 和本人项目详情；完整层级见[当前产品增量](../../product/market-research-selection-centers-v1.md#当前导航增量2026-11-03)。
 
 二级为流程展开分组；三级通过白名单 `step` 选择已有功能区域。有项目时保留同项目的有效查询条件和准确 URL 样本，无项目时先选择或创建研究项目再继续。只切换步骤不新建项目、调用模型、提交人工决定或转入；项目与研究请求、原 visit 不因该切换重复，面板中的已选候选、草稿理由和原 pending 保持。跨身份 / 企业 / 成员 / 权限变化仍沿原准入与 key 隔离。
 
@@ -196,9 +196,9 @@ Operational Design Basis: Reuse Existing Architecture。仅覆盖镜像和来源
 
 内部 UI 原实际端口3001的未登录检查：两个页面307，项目BFF401。第一次内部检查误指共享网络的3000端口得到404，不作为UI鉴权证据；纠正端口后通过。Windows公共HTTPS curl因证书吊销检查离线失败，没有降低TLS验证；正常浏览器HTTPS读取成功，不能把该curl失败写成通过。未执行真实采集、模型、付费或研究业务。后续其他版本/服务更新仍需具体授权，不合并、不关闭Issue；用户试用不由实现者代签。
 
-本批范围见 [冻结设计](../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
+本批范围见 [冻结设计](../../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
-**当前代码批次**为[已确认的两个中心 V1](../product/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../architecture/market-research-evidence-analysis-v1.md)实现。2026-11-03 用户明确允许从已审源码 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2` 构建镜像并仅更新 `task-processor-unified-20261010` 前后端；又明确允许启动已停止的 Docker Desktop 并继续更新。现已完成两服务更新，两个新入口可见。此决定替代本新增批次原先“不部署”的阶段限制，不授权后续自动更新、其他服务升级或真实调用。
+**当前代码批次**为[已确认的两个中心 V1](../../product/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../../architecture/market-research-evidence-analysis-v1.md)实现。2026-11-03 用户明确允许从已审源码 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2` 构建镜像并仅更新 `task-processor-unified-20261010` 前后端；又明确允许启动已停止的 Docker Desktop 并继续更新。现已完成两服务更新，两个新入口可见。此决定替代本新增批次原先“不部署”的阶段限制，不授权后续自动更新、其他服务升级或真实调用。
 
 ## 正常入口与可用路径
 
@@ -214,7 +214,7 @@ Operational Design Basis: Reuse Existing Architecture。仅覆盖镜像和来源
 
 ## 显式新空安装与受限 serving pool
 
-只在另行获准的新空 Product 安装使用现有 SRC/Catalog/Collection/Data Services/Preparation installer；通用 installer 不作为已有业务库升级入口，不迁移旧数据、不让 serving 自动 DDL。指定统一实例的有界维护只适用[本次明确决定](../architecture/market-research-selection.md#11-指定实例启用决定2026-11-02)，先备份并精确核对当前约束，再在同一事务扩展；不重跑历史 initializer。Amazon Preparation 安装合同现在包含 `amazon_data`，拒绝 `sds_template`、`custom_dataset` 等其他来源。
+只在另行获准的新空 Product 安装使用现有 SRC/Catalog/Collection/Data Services/Preparation installer；通用 installer 不作为已有业务库升级入口，不迁移旧数据、不让 serving 自动 DDL。指定统一实例的有界维护只适用[本次明确决定](../../architecture/market-research-selection.md#11-指定实例启用决定2026-11-02)，先备份并精确核对当前约束，再在同一事务扩展；不重跑历史 initializer。Amazon Preparation 安装合同现在包含 `amazon_data`，拒绝 `sds_template`、`custom_dataset` 等其他来源。
 
 研究新增三表 `research_opportunities` / `research_evidence_links` / `research_commands`，位于同一物理 Product 数据库。预先建立 `product_research_runtime` 普通角色，不能为 superuser、角色/数据库创建者、复制角色或有角色成员关系，不能拥有 public CREATE 权限。沿既有私密配置途径提供安装 DSN，不把密码写进 shell 历史或仓库：
 
@@ -225,7 +225,7 @@ go run ./cmd/market-research-schema-init --runtime-role product_research_runtime
 
 installer 只安装本 owner 三表并授予准确权限：三表 SELECT/INSERT；机会行仅更新 selected_link_id/state/reason/revision，关联行仅更新 removed。命令表无 UPDATE/DELETE，其他 owner 表无读取授权。serving 启动验证表约束和真实角色权限。来源与项目读取经原 Service 注入，不给研究 pool 其他 owner 的任意表权限。
 
-在当前私密 JSON manifest 添加 `marketResearch.database`（字段 host/port/user/password/database/maxConnections，user 固定为上述角色，maxConnections 1–4）；host/port/database 与 `productAcquisitionDatabase` 一致，必须使用独立连接池。依赖已有 `projectCenter`、`dataServices`、`productCollections: true` 和 Product pool；Project 保持独立数据库。沿 [Data Services 运行交接](integration/data-services-runtime-handoff.md) 配置显式 browser/driver/Temporal 和原 Resource，但本轮不执行实际任务。缺依赖、错误角色或 schema 均拒绝启动。
+在当前私密 JSON manifest 添加 `marketResearch.database`（字段 host/port/user/password/database/maxConnections，user 固定为上述角色，maxConnections 1–4）；host/port/database 与 `productAcquisitionDatabase` 一致，必须使用独立连接池。依赖已有 `projectCenter`、`dataServices`、`productCollections: true` 和 Product pool；Project 保持独立数据库。沿 [Data Services 运行交接](data-services-runtime-handoff.md) 配置显式 browser/driver/Temporal 和原 Resource，但本轮不执行实际任务。缺依赖、错误角色或 schema 均拒绝启动。
 
 ```powershell
 go run ./cmd/current-application -config C:\private\current-application.json
