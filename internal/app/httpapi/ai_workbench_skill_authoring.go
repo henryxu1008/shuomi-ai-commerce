@@ -36,18 +36,8 @@ type workbenchSkillAuthoring struct {
 	quoteKey [32]byte
 }
 
-type titleSkillDraft struct {
-	Name         string            `json:"name"`
-	DisplayName  string            `json:"displayName"`
-	Description  string            `json:"description"`
-	Instructions string            `json:"instructions"`
-	Script       *titleSkillScript `json:"script,omitempty"`
-}
-
-type titleSkillScript struct {
-	Description string `json:"description"`
-	Source      string `json:"source"`
-}
+type titleSkillDraft aiworkbench.TitleSkillDraft
+type titleSkillScript = aiworkbench.TitleSkillScript
 
 func (d titleSkillDraft) skillPackage() (skill.Package, error) {
 	if strings.TrimSpace(d.DisplayName) == "" || len(d.DisplayName) > 512 ||

@@ -131,3 +131,37 @@ func TestChatTurnManualBindingIsAtomicScopedAndExpiresOnlyBeforeBinding(t *testi
 	raw, _ := json.Marshal(read.Envelope.Input)
 	require.Contains(t, string(raw), envelope.Input.Content)
 }
+
+func TestChatTurnRevisionReplaysTheOriginalSnapshotFromPostgreSQL(t *testing.T) {
+	ctx := context.Background()
+	store, err := New(workbenchDB(t))
+	require.NoError(t, err)
+	scope := aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}
+	conversation, _, err := store.CreateScoped(ctx, scope, uuid.NewString(), aiworkbench.CreateInput{MemberID: "member"}, &aiworkbench.BusinessScope{Version: aiworkbench.BusinessScopeVersion, Kind: "general"}, nil)
+	require.NoError(t, err)
+	ref := &aiworkbench.ChatSkillReference{Version: 2, Digest: strings.Repeat("a", 64)}
+	input := aiworkbench.ChatTurnInput{
+		Content: "保留型号",
+		Skill:   ref,
+		Revision: &aiworkbench.ChatTurnRevision{
+			Root:         uuid.NewString(),
+			BaseRevision: uuid.NewString(),
+			Snapshot:     json.RawMessage(`{"name":"title","displayName":"Title","description":"Title rules","instructions":"Keep model number.","script":{"description":"Format title","source":"print('ok')"}}`),
+		},
+	}
+	key := uuid.NewString()
+	envelope := aiworkbench.ChatTurnEnvelope{Version: 1, Input: input, Creator: ref, GeneralScope: true}
+	command, _, err := store.BeginChatTurn(ctx, scope, conversation.ID, key, envelope, aiworkbench.StoreRouteRequest{MemberID: "member", Content: input.Content})
+	require.NoError(t, err)
+	require.Equal(t, input.Revision.Snapshot, command.Envelope.Input.Revision.Snapshot)
+	require.Equal(t, "PENDING", command.ToolState)
+	replayed, found, err := store.ReplayChatTurn(ctx, scope, conversation.ID, key, "member", input)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, command.Route.Fingerprint, replayed.Route.Fingerprint)
+	changed := *input.Revision
+	changed.Snapshot = json.RawMessage(strings.ReplaceAll(string(changed.Snapshot), "Keep model number.", "Change model number."))
+	input.Revision = &changed
+	_, _, err = store.ReplayChatTurn(ctx, scope, conversation.ID, key, "member", input)
+	require.ErrorIs(t, err, aiworkbench.ErrIdempotencyConflict)
+}

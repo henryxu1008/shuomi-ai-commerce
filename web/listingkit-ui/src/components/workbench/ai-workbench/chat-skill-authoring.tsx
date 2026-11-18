@@ -28,23 +28,23 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
   scope: AIScope;
   authorizationKey: string;
   disabled?: boolean;
-  onSelect: () => void;
+  onSelect?: () => void;
   onResume?: () => void;
   onSelectLibrary?: (v:SkillVersion) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [category,setCategory]=useState<"all"|SkillCategory>("all");
   const official=category==="all"||category==="official";
-  const catalog = useCatalog(scope, authorizationKey, open);
+  const catalog = useCatalog(scope, authorizationKey, open && Boolean(onSelect));
   const trigger = useRef<HTMLButtonElement>(null);
   const skill = catalog.isSuccess ? catalog.data.skill : null;
   return <>
     <Button ref={trigger} variant="outline" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>选择技能</Button>
     {open ? <AccountDialog title="选择技能" drawer className={styles.skillDrawer} onClose={() => setOpen(false)} returnFocusRef={trigger}>
       <div className={styles.drawerContent}>
-        <p className={styles.drawerIntro}>选择已有技能处理商品，或在 Chat 中创建新技能。</p>
+        <p className={styles.drawerIntro}>{onSelect?"选择已有技能处理商品，或在 Chat 中创建新技能。":"选择已有技能处理商品。"}</p>
         <div role="group" aria-label="技能分类" className="flex flex-wrap gap-2">{([["all","全部"],["official","官方模板"],["mine","我的技能"],["team","团队技能"]] as const).map(([value,label])=><Button key={value} size="sm" variant={category===value?"default":"outline"} aria-pressed={category===value} onClick={()=>setCategory(value)}>{label}</Button>)}</div>
-        {official && <>{catalog.isFetching ? <p role="status">正在读取可用技能…</p>
+        {official && onSelect && <>{catalog.isFetching ? <p role="status">正在读取可用技能…</p>
           : catalog.isError ? <><p role="alert">技能暂不可用，请重试。</p><Button variant="outline" onClick={() => void catalog.refetch()}>重新读取</Button></>
           : skill ? <><Button variant="outline" className={styles.skillChoice}
             disabled={!catalog.data?.ready} onClick={() => { onSelect(); setOpen(false); }}>
@@ -104,6 +104,7 @@ export function ChatSkillAuthoring({scope,authorizationKey,conversation,initialJ
  const path=`chat/conversations/${conversation}/skill-authoring`;
  const [job,setJob]=useState(initialJob),[draft,setDraft]=useState(initialJob?.draft??undefined);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[saveCheck,setSaveCheck]=useState(initialJob?.savePending??false);
+ const [recoveredRevision,setRecoveredRevision]=useState<{job:AISkillAuthoringJob;observedRevision?:string;observedGeneration?:string}>();
  const [validation,setValidation]=useState<{draft:AITitleSkillDraft;valid:boolean;unavailable?:boolean}>(),[validationRetry,setValidationRetry]=useState(0);
  const action=useRef<AbortController|null>(null);
  const dirty=useRef(false);
@@ -111,7 +112,11 @@ export function ChatSkillAuthoring({scope,authorizationKey,conversation,initialJ
  const list=useQuery({queryKey:["chat-skill-authoring-list",scope.userId,scope.organizationId,authorizationKey,conversation],queryFn:({signal})=>requestAIWorkbench({route:"skill-authoring-list",method:"GET",scope,path,signal}),enabled:!initialJob,retry:false,staleTime:0});
  useEffect(()=>()=>action.current?.abort(),[]);
  const editable=Boolean(draft&&job?.state==="COMPLETE"&&!readOnly&&!job.savedSkillId&&!job.savePending&&!saveCheck);
- const stale=Boolean(initialJob&&job&&(initialJob.revision!==job.revision||initialJob.generationKey!==job.generationKey));
+ const latest=recoveredRevision && recoveredRevision.job.key===job?.key
+  && recoveredRevision.observedRevision===initialJob?.revision
+  && recoveredRevision.observedGeneration===initialJob?.generationKey
+  ? recoveredRevision.job : initialJob;
+ const stale=Boolean(latest&&job&&(latest.revision!==job.revision||latest.generationKey!==job.generationKey));
  useEffect(()=>{
   if(!initialJob)return;let live=true;
   queueMicrotask(()=>{
@@ -129,11 +134,21 @@ export function ChatSkillAuthoring({scope,authorizationKey,conversation,initialJ
   const timer=window.setTimeout(()=>{void requestAIWorkbench({route:"skill-authoring-validate",method:"POST",scope,path:path+"/validate",body:draft,signal:controller.signal}).then(()=>{if(!controller.signal.aborted)setValidation({draft,valid:true});}).catch(error=>{if(!controller.signal.aborted)setValidation({draft,valid:false,unavailable:!(error instanceof AIWorkbenchError)||error.code!=="INVALID_REQUEST"});});},250);
   return()=>{window.clearTimeout(timer);controller.abort();};
  },[editable,draft,busy,scope,path,validationRetry]);
- function display(result:AISkillAuthoringJob){dirty.current=false;setEdited(false);setJob(result);setDraft(result.draft??undefined);setValidation(undefined);setSaveCheck(result.savePending);}
- async function perform(run:(signal:AbortSignal)=>Promise<AISkillAuthoringJob>,saving=false){
+ function display(result:AISkillAuthoringJob){if(result.key!==job?.key)setRecoveredRevision(undefined);dirty.current=false;setEdited(false);setJob(result);setDraft(result.draft??undefined);setValidation(undefined);setSaveCheck(result.savePending);}
+ async function perform(run:(signal:AbortSignal)=>Promise<AISkillAuthoringJob>,mode?:"save"|"recover-save"){
   if(action.current)return;const controller=new AbortController();action.current=controller;setBusy(true);setNotice("");
-  try{const result=await run(controller.signal);if(!controller.signal.aborted){display(result);if(!initialJob)void list.refetch();void queryClient.invalidateQueries({queryKey:["chat-turn",scope.userId,scope.organizationId]});}}
-  catch(error){if(!controller.signal.aborted){setNotice(authoringError(error));if(saving&&(!(error instanceof AIWorkbenchError)||!["INVALID_REQUEST","NOT_FOUND"].includes(error.code)))setSaveCheck(true);}}
+  try{
+   const result=await run(controller.signal);
+   if(!controller.signal.aborted){
+    if(mode==="recover-save"&&dirty.current&&result.key===job?.key&&result.state==="COMPLETE"&&!result.savePending&&!result.savedSkillId){
+     setSaveCheck(false);
+     if(result.revision!==job.revision||result.generationKey!==job.generationKey)setRecoveredRevision({job:result,observedRevision:initialJob?.revision,observedGeneration:initialJob?.generationKey});
+    }else display(result);
+    if(!initialJob)void list.refetch();
+    void queryClient.invalidateQueries({queryKey:["chat-turn",scope.userId,scope.organizationId]});
+   }
+  }
+  catch(error){if(!controller.signal.aborted){setNotice(authoringError(error));if(mode==="save"&&(!(error instanceof AIWorkbenchError)||!["INVALID_REQUEST","NOT_FOUND"].includes(error.code)))setSaveCheck(true);}}
   finally{action.current=null;if(!controller.signal.aborted)setBusy(false);}
  }
  const checked=Boolean(validation&&validation.draft===draft&&validation.valid);
@@ -146,13 +161,13 @@ export function ChatSkillAuthoring({scope,authorizationKey,conversation,initialJ
   {job&&<div className={styles.jobContent}>
    <p role="status">{job.superseded?"这次修改未覆盖当前草稿。":generationStatus[job.state]}</p>
    {!readOnly&&(job.state==="READY"||job.state==="UNKNOWN"||job.state==="QUOTED")&&!initialJob?<Button variant="outline" disabled={busy} onClick={()=>void perform(signal=>requestAIWorkbench({route:(job.generationKey??job.key)[14]==="7"?"skill-authoring-recover-generation":"skill-authoring-generate",method:"POST",scope,path:path+"/"+(job.generationKey??job.key)+((job.generationKey??job.key)[14]==="7"?"/recover-generation":"/generate"),signal}))}>核实原生成请求</Button>:null}
-   {job.savedSkillId?<p className={styles.savedNotice}>已保存到我的技能。 <Link href={"/workbench/agents/skills/mine?skillId="+job.savedSkillId}>查看我的技能</Link></p>:!readOnly&&(saveCheck||job.savePending)?<Button variant="outline" disabled={busy} onClick={()=>void perform(signal=>requestAIWorkbench({route:"skill-authoring-save-recover",method:"POST",scope,path:path+"/"+job.key+"/recover-save",signal}))}>核实原保存</Button>:draft&&<div className={styles.draftEditor}>
+   {job.savedSkillId?<p className={styles.savedNotice}>已保存到我的技能。 <Link href={"/workbench/agents/skills/mine?skillId="+job.savedSkillId}>查看我的技能</Link></p>:!readOnly&&(saveCheck||job.savePending)?<Button variant="outline" disabled={busy} onClick={()=>void perform(signal=>requestAIWorkbench({route:"skill-authoring-save-recover",method:"POST",scope,path:path+"/"+job.key+"/recover-save",signal}),"recover-save")}>核实原保存</Button>:draft&&<div className={styles.draftEditor}>
     <div className={styles.editorFields}>{editorFields.map(([key,label])=><label className={key==="displayName"||key==="name"?styles.halfField:styles.field} key={key}>{label}{key==="instructions"?<Textarea rows={7} value={draft[key]} disabled={busy||!editable} onChange={event=>updateDraft({...draft,[key]:event.target.value})}/>:<Input value={draft[key]} disabled={busy||!editable} onChange={event=>updateDraft({...draft,[key]:event.target.value})}/>}</label>)}</div>
     {draft.script&&<div className={styles.scriptPanel}><div className={styles.scriptHeader}><p>包含 Python 脚本</p>{editable&&<Button variant="ghost" disabled={busy} onClick={()=>updateDraft({...draft,script:undefined})}>移除脚本</Button>}</div><details><summary>查看代码</summary><label className={styles.field}>脚本用途<Input value={draft.script.description} disabled={busy||!editable} onChange={event=>{if(draft.script)updateDraft({...draft,script:{...draft.script,description:event.target.value}});}}/></label><label className={styles.field}>Python 代码<Textarea className={styles.codeInput} rows={7} spellCheck={false} value={draft.script.source} disabled={busy||!editable} onChange={event=>{if(draft.script)updateDraft({...draft,script:{...draft.script,source:event.target.value}});}}/></label></details></div>}
-    {stale&&edited?<p role="status">当前草稿已更新，你的人工编辑仍保留。 <Button variant="outline" disabled={busy} onClick={()=>{if(initialJob)display(initialJob);}}>使用最新草稿并替换当前编辑</Button></p>:null}
+    {stale&&edited?<p role="status">当前草稿已更新，你的人工编辑仍保留。 <Button variant="outline" disabled={busy} onClick={()=>{if(latest)display(latest);}}>使用最新草稿并替换当前编辑</Button></p>:null}
     {editable&&onRevise&&<Button variant="outline" disabled={busy||stale} onClick={()=>onRevise(draft)}>让 Chat 修改</Button>}
     {validation?.draft===draft&&!validation.valid?<p role="status">{validation.unavailable?"暂时无法检查格式。":"格式未通过，请检查名称、正文或脚本长度。"}{validation.unavailable&&<Button variant="outline" onClick={()=>setValidationRetry(value=>value+1)}>重新检查</Button>}</p>:null}
-    {editable&&<footer className={styles.saveFooter}><p>确认后保存为个人私有草稿。</p><Button disabled={busy||!checked||stale} onClick={()=>void perform(signal=>requestAIWorkbench({route:"skill-authoring-save-package",method:"POST",scope,path:path+"/"+job.key+"/save-package",body:{revision:job.revision??job.key,draft},key:crypto.randomUUID(),signal}),true)}>保存到我的技能</Button></footer>}
+    {editable&&<footer className={styles.saveFooter}><p>确认后保存为个人私有草稿。</p><Button disabled={busy||!checked||stale} onClick={()=>void perform(signal=>requestAIWorkbench({route:"skill-authoring-save-package",method:"POST",scope,path:path+"/"+job.key+"/save-package",body:{revision:job.revision??job.key,draft},key:crypto.randomUUID(),signal}),"save")}>保存到我的技能</Button></footer>}
    </div>}
   </div>}
  </Card>;

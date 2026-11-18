@@ -253,7 +253,7 @@ function ChatCollection({ scope, authorizationKey, canUse, canPlan, planningRead
   const visibleSkill = projectSaveLocked || creation.projectId ? "create-project" : skill;
   const changeSkill = (next:ProjectSkill) => {setSkill(next);creation.reset();};
   const authoringControls = canUse ? <>
-    <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={()=>{library.choose();setCreatorSelected(true);requestAnimationFrame(()=>composeInput.current?.focus());}} onSelectLibrary={v=>{setCreatorSelected(false);library.choose(v);}} />
+    <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={creating || Boolean(createIntent) || projectSaveLocked} onSelect={directCompose&&!projectLaunch?()=>{library.choose();setCreatorSelected(true);requestAnimationFrame(()=>composeInput.current?.focus());}:undefined} onSelectLibrary={v=>{setCreatorSelected(false);library.choose(v);}} />
     {library.launch && <ChatLibrarySkillSelection launch={library.launch} authorizationKey={authorizationKey} disabled={creating||Boolean(createIntent)} onClear={()=>library.choose()}/>}
     {library.error&&<p role="alert">{library.error}</p>}
     {creatorSelected && <div className={styles.selectedSkill}>
@@ -358,8 +358,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [clarifySkillPurpose,setClarifySkillPurpose]=useState(false);
   const [revisionContext,setRevisionContext]=useState<ChatSkillRevision>();
   const composerInput=useRef<HTMLTextAreaElement>(null);
-  const canChatTurn=canUse&&execution.aiWorkbenchChatTurnsReady&&(execution.aiWorkbenchChatIntentReadiness==="AVAILABLE"||!!revisionContext);
-  const [showAuthoring, setShowAuthoring] = useState(search.get("skillAuthoring") === "1");
+  const [showAuthoring, setShowAuthoring] = useState<boolean | undefined>(()=>search.get("skillAuthoring")==="1" ? true : undefined);
   const [draftSaveError, setDraftSaveError] = useState("");
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [draftRetry, setDraftRetry] = useState(0);
@@ -405,6 +404,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   },[refetchDetail,queryClient,scope.userId,scope.organizationId,authorizationKey,id]);
   const newest = detail.data?.pages[0];
   const current = newest?.conversation;
+  const canChatTurn=canUse&&Boolean(current?.businessScope)&&execution.aiWorkbenchChatTurnsReady&&(execution.aiWorkbenchChatIntentReadiness==="AVAILABLE"||!!revisionContext);
   const draftHandoff = useRef(false);
   const userEdited = useRef(false);
   useEffect(()=>{let active=true;queueMicrotask(()=>{if(!active || !newest || newest.scopeUnavailable || draftHandoff.current || messageChecked!==messageStorageKey || messageRecoveryError)return;try{const saved=readLocalDraft(sessionStorage.getItem(conversationDraftKey(scope,id)));const resolved=readLocalDraft(sessionStorage.getItem(resolvedDraftKey(scope,id)));const pendingRaw=sessionStorage.getItem(pendingComposeStorageKey(scope));if(saved && pendingRaw){const pending=JSON.parse(pendingRaw) as PendingCreate;if(pending.owner?.userId===scope.userId && pending.owner?.organizationId===scope.organizationId && pending.conversationId===id && pending.key===saved.id){sessionStorage.removeItem(pendingComposeStorageKey(scope));if(pending.context)sessionStorage.removeItem(composeDraftKey(scope,pending.context));}}const messageRaw=sessionStorage.getItem(activeMessageKey);if(messageRaw){const message=JSON.parse(messageRaw) as PendingMessage;if(saved && message.draftId!==saved.id)setDeferredDraft(saved);if(message.draftId && message.draftSlot)activeDraft.current={id:message.draftId,slot:message.draftSlot};}else if(resolved){activeDraft.current={id:resolved.id,slot:"resolved"};if(saved)setDeferredDraft(saved);if(!userEdited.current){setContent(resolved.text);setClarifySkillPurpose(!!resolved.clarifySkillPurpose);setCreatorSelected(!!resolved.clarifySkillPurpose);}}else if(saved){activeDraft.current={id:saved.id,slot:"handoff"};if(!userEdited.current){setContent(saved.text);setClarifySkillPurpose(!!saved.clarifySkillPurpose);setCreatorSelected(!!saved.clarifySkillPurpose);}}draftHandoff.current=true;setDraftHydrated(true);setDraftSaveError("");}catch{setDraftSaveError("本地草稿不可读取，请保留记录并检查浏览器存储。");}});return()=>{active=false};},[newest,messageStorageKey,messageChecked,messageRecoveryError,activeMessageKey,scope,id,draftRetry]);
@@ -699,7 +699,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button disabled={pending || new TextEncoder().encode(titleDraft).length > 256} onClick={() => void change({ title: titleDraft })}>保存标题</Button>
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
       {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div></Card> : null}
-    {showAuthoring && execution.effectiveMemberId && <ChatSkillAuthoring scope={scope} authorizationKey={authorizationKey} conversation={id} readOnly={!canUse||current.Archived} onClose={()=>setShowAuthoring(false)}/>}
+    {showAuthoring!==undefined && execution.effectiveMemberId && <div hidden={!showAuthoring}><ChatSkillAuthoring scope={scope} authorizationKey={authorizationKey} conversation={id} readOnly={!canUse||current.Archived} onClose={()=>setShowAuthoring(false)}/></div>}
     <Card className={styles.messagePanel}><h2>会话消息</h2><div className={styles.messages} aria-label="会话消息">{messages.length ? messages.map(item => <Card key={item.ID} className={item.Author === "USER" ? styles.userMessage : `${styles.assistantMessage} ${item.kind==="AGENT_SKILL_REF"?styles.skillMessage:""}`}>
       <small>{item.Author === "USER" ? "我" : "硕米"} · {new Date(item.CreatedAt).toLocaleString("zh-CN")}</small>{item.kind!=="AGENT_SKILL_REF"?<p>{item.Content}</p>:null}
       {item.kind==="AGENT_SKILL_REF"&&item.turnKey?<ChatSkillTurn scope={scope} authorizationKey={authorizationKey} conversation={id} turnKey={item.turnKey} readOnly={!canUse||current.Archived} onRecover={pendingMessage?.route==="chat-turn"&&pendingMessage.key===item.turnKey?send:undefined} onRevise={revision=>{library.choose();clearSkillPurposeHint();setRevisionContext(revision);setCreatorSelected(false);composerInput.current?.focus();}}/>:null}
@@ -722,7 +722,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     {(canUse || projectAvailable && canCreateProject) && !current.Archived ? <div className={styles.contextControls}>
       {(projectAvailable || contentTasks) && !pendingMessage ? <ChatStorePicker scope={scope} authorizationKey={authorizationKey} context={"conversation:"+id} disabled={pending||projectSaveLocked||awaitingConfirm} baseStoreName={!projectTask&&current.businessScope?.storeId?"原会话店铺":undefined}
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
-      {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onSelect={()=>{library.choose();setCreatorSelected(true);clearSkillPurposeHint();setRevisionContext(undefined);requestAnimationFrame(()=>composerInput.current?.focus());}} onSelectLibrary={v=>{setCreatorSelected(false);clearSkillPurposeHint();setRevisionContext(undefined);library.choose(v);}} onResume={()=>setShowAuthoring(true)} />}
+      {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onSelect={current.businessScope&&!projectTask?()=>{library.choose();setCreatorSelected(true);clearSkillPurposeHint();setRevisionContext(undefined);requestAnimationFrame(()=>composerInput.current?.focus());}:undefined} onSelectLibrary={v=>{setCreatorSelected(false);clearSkillPurposeHint();setRevisionContext(undefined);library.choose(v);}} onResume={()=>setShowAuthoring(true)} />}
     </div> : null}
     {library.launch&&<ChatLibrarySkillSelection launch={library.launch} authorizationKey={authorizationKey} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClear={()=>library.choose()}/>}
     {library.error&&<p role="alert">{library.error}</p>}

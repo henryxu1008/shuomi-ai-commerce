@@ -1361,3 +1361,41 @@ it.each([false,true])("sends the single Chat input with automatic or manual crea
  }
  expect(fixture.request.mock.calls.some(([v])=>v.route==="skill-authoring-preview"||v.route==="store-route")).toBe(false);
 });
+
+it("keeps the original skill draft open for editing after collapsing and reopening",async()=>{
+ fixture.search.set("skillAuthoring","1");
+ const job={key:operationId,generationKey:operationId,revision:operationId,state:"COMPLETE",requirement:"生成",billing:"committed",savePending:false,savedSkillId:null,draft:{name:"title",displayName:"原始技能",description:"处理标题",instructions:"原规则"}};
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};
+  if(route==="skill-authoring-list")return {drafts:[job]};
+  if(route==="skill-authoring-validate")return {valid:true};
+  return {skill:null,ready:false};
+ });
+ render(tree());
+ fireEvent.click(await screen.findByRole("button",{name:"原始技能"}));
+ fireEvent.change(await screen.findByLabelText("正文"),{target:{value:"保留编辑"}});
+ fireEvent.click(screen.getByRole("button",{name:"收起"}));
+ expect(screen.queryByRole("textbox",{name:"正文"})).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"选择技能"}));
+ fireEvent.click(await screen.findByRole("button",{name:"查看本会话的技能草稿"}));
+ expect(await screen.findByLabelText("正文")).toHaveValue("保留编辑");
+ fixture.search.delete("skillAuthoring");
+});
+
+it.each([false,true])("does not advertise skill creation when this old or project-task conversation cannot start it (%s)",async projectSelected=>{
+ fixture.context.aiWorkbenchChatTurnsReady=true;
+ fixture.context.aiWorkbenchChatIntentReadiness="AVAILABLE";
+ fixture.context.projectCenterAvailable=projectSelected;
+ if(projectSelected)fixture.search.set("projectTask","1");
+ const fixed=projectSelected?{...conversation,businessScope:{version:"workbench-scope-v1",kind:"project",projectId:operationId}}:conversation;
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation:fixed,messages:[],proposals:[],before:""};
+  if(route==="skill-authoring-catalog")return {skill:{version:2,name:"创建技能",digest:"a".repeat(64),description:"创建标题技能"},ready:true};
+  return {options:[],next:"",incomplete:false};
+ });
+ render(tree());
+ fireEvent.click(await screen.findByRole("button",{name:"选择技能"}));
+ expect(await screen.findByRole("link",{name:"管理我的技能"})).toBeVisible();
+ expect(screen.queryByRole("button",{name:/创建技能/})).toBeNull();
+ fixture.search.delete("projectTask");
+});

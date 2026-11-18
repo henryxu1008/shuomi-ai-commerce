@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	strict "sigs.k8s.io/json"
 	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
 	"task-processor/internal/authidentity"
@@ -37,14 +36,9 @@ func normalizeChatTurn(input aiworkbench.ChatTurnInput) (aiworkbench.ChatTurnInp
 		if input.Skill == nil || input.Skill.Version != 2 || !acquisitionHTTPUUID(r.Root) || !acquisitionHTTPUUID(r.BaseRevision) || len(r.Snapshot) > 65536 {
 			return input, aiworkbench.ErrInvalid
 		}
-		var snapshot titleSkillDraft
-		bad, err := strict.UnmarshalStrict(r.Snapshot, &snapshot, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
-		if err != nil || len(bad) != 0 {
-			return input, aiworkbench.ErrInvalid
-		}
-		raw, err := json.Marshal(snapshot)
-		if err != nil || len(raw) > 65536 {
-			return input, aiworkbench.ErrInvalid
+		raw, err := aiworkbench.CanonicalTitleSkillSnapshot(r.Snapshot)
+		if err != nil {
+			return input, err
 		}
 		copy := *r
 		copy.Snapshot = raw
