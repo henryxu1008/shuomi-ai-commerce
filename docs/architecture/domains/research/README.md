@@ -6,7 +6,7 @@
 
 | 用户操作/关键问题 | 适用文档 | 当前 owner / 源码 |
 | --- | --- | --- |
-| 用户从市场、关键词、类目或具体商品开始研究 | [市场调研与智能选品产品流程](../../../product/market-research-selection-centers-v1.md)、[多来源规划](../../../product/market-research-multi-source-plan.md) | 研究项目/入口按当前 Project Center 和 Research 合同 |
+| 用户从市场、关键词、类目或具体商品开始研究 | [市场调研与智能选品产品流程](../../../product/flows/market-research-selection-centers-v1.md)、[多来源规划](../../../product/market-research-multi-source-plan.md) | 研究项目/入口按当前 Project Center 和 Research 合同 |
 | 在研究项目中引用已保存的来源观察和候选 | [市场研究与选品最小领域合同](../../market-research-selection.md)、[研究证据分析增量](../../market-research-evidence-analysis-v1.md) | `internal/product/research/`（准确引用与决定），Collection/Data Services（来源读回） |
 | 在准确候选内人工核对供应货源、SKU 与数量 | [人工货源核对合同](../../research-supplier-review-v1.md) | `internal/product/research/supplier_review.go` |
 | 录入费用假设，计算并保存经营评估 | [人工参考试算历史合同](../../research-manual-cost-preview-v1.md)、[评估持久化现行增量](../../research-commercial-assessment-persistence-v1.md) | `internal/product/research/cost.go`、`assessment.go` |

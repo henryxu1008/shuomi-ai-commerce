@@ -4,9 +4,9 @@
 
 用户决定：“同时规划多平台接入，再确定本次要实现哪些来源”。本阶段 Design Basis: **N/A**，只做产品规划、代码现状及公开官方文档调查；不改变运行能力或领域合同。执行记录：[父目标 #1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)，沿同一主要 [Draft PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。
 
-随后用户明确选择 **“SHEIN 优先，保留 TEMU 后续接入”**，并进一步确认首批国家为 **美国**。本决定确定设计重点，不开通服务或执行真实采集/AI/付费。[SHEIN美国具体业务设计](shein-research-opportunity-v1.md)已据此更新；供应商及其美国市场覆盖、适用合同仍未选定/核实，Google Trends人工导出方式也未获选择。以下提案中关于“先选一个平台/国家”的产品问题已解决，其他来源准入问题继续保留。
+随后用户明确选择 **“SHEIN 优先，保留 TEMU 后续接入”**，并进一步确认首批国家为 **美国**。本决定确定设计重点，不开通服务或执行真实采集/AI/付费。[SHEIN美国具体业务设计](flows/shein-research-opportunity-v1.md)已据此更新；供应商及其美国市场覆盖、适用合同仍未选定/核实，Google Trends人工导出方式也未获选择。以下提案中关于“先选一个平台/国家”的产品问题已解决，其他来源准入问题继续保留。
 
-最新用户已确认[以两个业务智能体在智能市场交付](market-research-selection-centers-v1.md#智能市场交付方式2026-11-03用户已确认)：市场负责发现、我的智能体负责当前企业启用/配置，再进入实际研究/选品业务页；替代路径接通后收起原独立一级菜单。此产品决定不把现有只读分析定义变成自动采集或SHEIN已准入，不改变下文来源调查结论及真实调用限制。
+最新用户已确认[以两个业务智能体在智能市场交付](flows/market-research-selection-centers-v1.md#智能市场交付方式2026-11-03用户已确认)：市场负责发现、我的智能体负责当前企业启用/配置，再进入实际研究/选品业务页；替代路径接通后收起原独立一级菜单。此产品决定不把现有只读分析定义变成自动采集或SHEIN已准入，不改变下文来源调查结论及真实调用限制。
 
 ## 原始讨论校准（2026-11-03）
 
@@ -142,7 +142,7 @@
 
 继续复用 [当前领域 owner](../architecture/project-boundaries.md)、[Product 采集交接](product-sourcing-handoff.md)、[现有研究合同](../architecture/market-research-selection.md)、[研究证据分析合同](../architecture/market-research-evidence-analysis-v1.md)和[当前全新系统基线](greenfield-no-legacy-migration.md)。Product Sourcing/Catalog 管原始商品事实，Collection 管原保存与选择，Research 管私有研究关系与人工决定，Agent 管分析运行/计量，Preparation 管商品准备。保持原授权、版本绑定、幂等及未知结果查询责任，不新增副本或执行 owner。
 
-UI 继续以 [当前 Product Authority](final-ui-ia-authority.md) 和[两个入口 V1](market-research-selection-centers-v1.md)为基础；本提案没有修改 Figma 或批准新的多来源交互。[1688 当前阶段决定](decisions/1688-acquisition-scope.md#当前新增交付阶段2026-10-23)中的“新增服务端采集暂缓”继续有效。
+UI 继续以 [当前 Product Authority](final-ui-ia-authority.md) 和[两个入口 V1](flows/market-research-selection-centers-v1.md)为基础；本提案没有修改 Figma 或批准新的多来源交互。[1688 当前阶段决定](decisions/1688-acquisition-scope.md#当前新增交付阶段2026-10-23)中的“新增服务端采集暂缓”继续有效。
 
 ## 6. 选择范围后怎样验收
 

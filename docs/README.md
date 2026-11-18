@@ -7,7 +7,7 @@
 | 你需要解决什么问题 | 首选阅读入口 | 当前权威与边界 |
 | --- | --- | --- |
 | 产品战略、使用者及业务决策 | [产品索引](product/README.md)、[产品战略](product/ai-commerce-agent-platform-strategy.md) | 最新用户明确决定与已批准产品合同优先 |
-| 市场调研、智能选品及商品刊登流程 | [研究与选品操作](product/market-research-selection-centers-v1.md)、[业务流程与历史导航决定](product/final-ui-ia-authority.md) | Figma 只供理解业务流程，不决定最终 UI/IA |
+| 市场调研、智能选品及商品刊登流程 | [研究与选品操作](product/flows/market-research-selection-centers-v1.md)、[业务流程与历史导航决定](product/final-ui-ia-authority.md) | Figma 只供理解业务流程，不决定最终 UI/IA |
 | 事实 owner、授权、事务及恢复 | [架构合同索引](architecture/README.md)、[领域边界](architecture/project-boundaries.md)、[目标架构](architecture/project-target-architecture.md) | 领域合同决定谁拥有事实，不由页面或文件名推断 |
 | 找代码、配置、构建和本地调试 | [开发入口](development/README.md)、[源码地图](development/repository-structure.md) | 源码和当前命令为准，准确实例配置另核 |
 | 接单、架构准入、评审与交接 | [工程索引](engineering/README.md)、[Issue 驱动规范](engineering/issue-driven-development.md)、[AGENTS.md](../AGENTS.md) | 既有规则只维护一个权威正文 |

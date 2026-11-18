@@ -182,7 +182,7 @@ Operational Design Basis: Reuse Existing Architecture。仅替换UI镜像和来�
 
 ## 三级业务导航交付（2026-11-03，前一版保留记录）
 
-用户已确认“市场调研 / 智能选品”为一级菜单，二级展示业务阶段，三级进入具体功能，名称去掉“中心”，随后明确允许将已构建的准确 `2aea` 版本仅更新统一实例前端并短暂重启。运行 UI 源码为 `2aea4d1a6cf7a22776c341def70d4058e04a9fe4`、tree `68f2bbd30f75a891ca77614cf2eff29b1543ee95`，仍为原 PR #1075。路径沿用 `/workbench/data/research`、`/workbench/supply/selection` 和本人项目详情；完整层级见[当前产品增量](../../product/market-research-selection-centers-v1.md#既有导航与文案实现记录2026-11-03)。
+用户已确认“市场调研 / 智能选品”为一级菜单，二级展示业务阶段，三级进入具体功能，名称去掉“中心”，随后明确允许将已构建的准确 `2aea` 版本仅更新统一实例前端并短暂重启。运行 UI 源码为 `2aea4d1a6cf7a22776c341def70d4058e04a9fe4`、tree `68f2bbd30f75a891ca77614cf2eff29b1543ee95`，仍为原 PR #1075。路径沿用 `/workbench/data/research`、`/workbench/supply/selection` 和本人项目详情；完整层级见[当前产品增量](../../product/flows/market-research-selection-centers-v1.md#既有导航与文案实现记录2026-11-03)。
 
 二级为流程展开分组；三级通过白名单 `step` 选择已有功能区域。有项目时保留同项目的有效查询条件和准确 URL 样本，无项目时先选择或创建研究项目再继续。只切换步骤不新建项目、调用模型、提交人工决定或转入；项目与研究请求、原 visit 不因该切换重复，面板中的已选候选、草稿理由和原 pending 保持。跨身份 / 企业 / 成员 / 权限变化仍沿原准入与 key 隔离。
 
@@ -198,7 +198,7 @@ Operational Design Basis: Reuse Existing Architecture。仅覆盖镜像和来源
 
 本批范围见 [冻结设计](../../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
-**当前代码批次**为[已确认的两个中心 V1](../../product/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../../architecture/market-research-evidence-analysis-v1.md)实现。2026-11-03 用户明确允许从已审源码 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2` 构建镜像并仅更新 `task-processor-unified-20261010` 前后端；又明确允许启动已停止的 Docker Desktop 并继续更新。现已完成两服务更新，两个新入口可见。此决定替代本新增批次原先“不部署”的阶段限制，不授权后续自动更新、其他服务升级或真实调用。
+**当前代码批次**为[已确认的两个中心 V1](../../product/flows/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../../architecture/market-research-evidence-analysis-v1.md)实现。2026-11-03 用户明确允许从已审源码 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2` 构建镜像并仅更新 `task-processor-unified-20261010` 前后端；又明确允许启动已停止的 Docker Desktop 并继续更新。现已完成两服务更新，两个新入口可见。此决定替代本新增批次原先“不部署”的阶段限制，不授权后续自动更新、其他服务升级或真实调用。
 
 ## 正常入口与可用路径
 
