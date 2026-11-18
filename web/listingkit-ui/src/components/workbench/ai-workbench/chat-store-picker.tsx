@@ -14,20 +14,22 @@ import type {z} from "zod";
 export type ChatStoreChoice = z.infer<typeof aiStoreChoice>;
 export function chatStoreChoiceKey(scope:AIScope, context:string) {return `ai-workbench:store-choice:${JSON.stringify([scope.userId,scope.organizationId,context])}`;}
 type StoreRow={option:WorkScopeOption;version:number};
-export type ChatStoreState={choice:ChatStoreChoice|undefined; ready:boolean};
+export type ChatStoreState={choice:ChatStoreChoice|undefined; ready:boolean;name?:string};
 
-export function ChatStorePicker({scope,authorizationKey,context,disabled,baseStoreName,onChange}:{scope:AIScope;authorizationKey:string;context:string;disabled:boolean;baseStoreName?:string;onChange:(value:ChatStoreState)=>void}) {
- const [open,setOpen]=useState(false),[value,setValue]=useState<ChatStoreChoice>(),[name,setName]=useState(""),[error,setError]=useState("");
- const key=chatStoreChoiceKey(scope,context), generation=useRef(0),callback=useRef(onChange);
- useEffect(()=>{callback.current=onChange},[onChange]);
- const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
- async function verify(choice:Extract<ChatStoreChoice,{kind:"store"}>,signal:AbortSignal) {
+export async function verifyChatStoreChoice(scope:AIScope,choice:Extract<ChatStoreChoice,{kind:"store"}>,signal:AbortSignal) {
+  const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
   const query=new URLSearchParams({kind:"store",storeId:choice.storeId});
   const [scopes,connection]=await Promise.all([requestAIWorkbench({route:"scope-options",method:"GET",path:`chat/conversations/scopes?${query}`,scope,signal}),getStoreConnection(identity,choice.storeId,signal)]);
   const item=scopes.options.length===1&&!scopes.incomplete?scopes.options[0]:undefined;
   if(!item||item.scope.kind!=="store"||item.scope.storeId!==choice.storeId||item.confirmation!==choice.scopeConfirmation||connection.connectionStatus!=="connected"||connection.version!==choice.connectionVersion||!connection.observedAt||connection.credentialExpiresAt&&Date.parse(connection.credentialExpiresAt)<=Date.now())throw new Error("unavailable");
   return item.storeName||"已连接店铺";
  }
+
+export function ChatStorePicker({scope,authorizationKey,context,disabled,baseStoreName,onChange,onUserChange}:{scope:AIScope;authorizationKey:string;context:string;disabled:boolean;baseStoreName?:string;onChange:(value:ChatStoreState)=>void;onUserChange?:()=>void}) {
+ const [open,setOpen]=useState(false),[value,setValue]=useState<ChatStoreChoice>(),[name,setName]=useState(""),[error,setError]=useState("");
+ const key=chatStoreChoiceKey(scope,context), generation=useRef(0),callback=useRef(onChange);
+ useEffect(()=>{callback.current=onChange},[onChange]);
+ const identity={expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId};
  useEffect(()=>{
   const current=++generation.current,controller=new AbortController();
   // Clear the previous identity before restoring browser storage so a stale choice cannot be used.
@@ -40,7 +42,7 @@ export function ChatStorePicker({scope,authorizationKey,context,disabled,baseSto
    if(!result.success)throw new Error("invalid");
    setValue(result.data);
    if(result.data.kind==="none"){callback.current({choice:result.data,ready:true});return ()=>controller.abort();}
-   void verify(result.data,controller.signal).then(label=>{if(current!==generation.current||controller.signal.aborted)return;setName(label);callback.current({choice:result.data,ready:true});}).catch(()=>{if(current!==generation.current||controller.signal.aborted)return;setName("");setError("所选店铺暂不可用，请重新选择。");callback.current({choice:undefined,ready:false});});
+   void verifyChatStoreChoice(scope,result.data,controller.signal).then(label=>{if(current!==generation.current||controller.signal.aborted)return;setName(label);callback.current({choice:result.data,ready:true,name:label});}).catch(()=>{if(current!==generation.current||controller.signal.aborted)return;setName("");setError("所选店铺暂不可用，请重新选择。");callback.current({choice:undefined,ready:false});});
   } catch {setError("无法读取店铺选择，请检查浏览器存储。");callback.current({choice:undefined,ready:false});}
   return ()=>{generation.current++;controller.abort();};
  // Scope identifiers and authorizationKey form the complete identity boundary.
@@ -53,7 +55,7 @@ export function ChatStorePicker({scope,authorizationKey,context,disabled,baseSto
    if(document.visibilityState==="hidden")return;
    controller?.abort();controller=new AbortController();const current=++generation.current,signal=controller.signal;
    setName("");callback.current({choice:undefined,ready:false});
-   void verify(value,signal).then(label=>{if(current!==generation.current||signal.aborted)return;setName(label);setError("");callback.current({choice:value,ready:true});}).catch(()=>{if(current!==generation.current||signal.aborted)return;setError("所选店铺暂不可用，请重新选择。");callback.current({choice:undefined,ready:false});});
+   void verifyChatStoreChoice(scope,value,signal).then(label=>{if(current!==generation.current||signal.aborted)return;setName(label);setError("");callback.current({choice:value,ready:true,name:label});}).catch(()=>{if(current!==generation.current||signal.aborted)return;setError("所选店铺暂不可用，请重新选择。");callback.current({choice:undefined,ready:false});});
   };
   window.addEventListener("focus",refresh);document.addEventListener("visibilitychange",refresh);
   return ()=>{controller?.abort();window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);};
@@ -72,7 +74,7 @@ export function ChatStorePicker({scope,authorizationKey,context,disabled,baseSto
    return {items:checks.flatMap(result=>result.status==="fulfilled"&&result.value?[result.value]:[]),incomplete:page.incomplete||checks.some(result=>result.status==="rejected"),next:page.next};
   },getNextPageParam:page=>page.next||undefined});
  function save(choice:ChatStoreChoice,label:string) {
-  try {sessionStorage.setItem(key,JSON.stringify(choice));generation.current++;setValue(choice);setName(label);setError("");callback.current({choice,ready:true});setOpen(false);}
+  try {sessionStorage.setItem(key,JSON.stringify(choice));generation.current++;setValue(choice);setName(label);setError("");callback.current({choice,ready:true,...(label?{name:label}:{})});onUserChange?.();setOpen(false);}
   catch {setError("无法保存店铺选择，请检查浏览器存储。");callback.current({choice:undefined,ready:false});}
  }
  const visible=!rows.isFetching&&!rows.isError?rows.data?.pages.flatMap(page=>page.items):undefined;

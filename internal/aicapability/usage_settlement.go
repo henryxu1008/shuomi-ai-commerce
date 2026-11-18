@@ -20,6 +20,12 @@ type InvocationUsageSettler interface {
 // failure terminals. Ordinary failures remain unbilled.
 // The adapter is idempotent at the commercial owner using invocation identity.
 func SettleSuccessfulInvocation(ctx context.Context, record InvocationRecord, settler InvocationUsageSettler) error {
+	if record.ErrorCode == SkillAuthoringOpenAIParameterRejectedV1 || record.ErrorCode == ChatIntentOpenAIParameterRejectedV1 {
+		if !record.IsWorkbenchOpenAIParameterRejection() || settler == nil {
+			return ErrInvalidInvocationUsage
+		}
+		return settler.SettleAIInvocationUsage(ctx, record.TenantID, record.MemberID, record.InvocationID, 0, record.FinishedAt.UTC())
+	}
 	if record.ProviderRejectionProof != nil {
 		if ValidateProviderRejection(record) != nil || settler == nil {
 			return ErrInvalidInvocationUsage

@@ -23,13 +23,15 @@ func main() {
 	dailyOnly := flag.Bool("store-daily-report-only", false, "install the bounded deterministic report extension; retain all existing plans and grants")
 	deletionOnly := flag.Bool("schedule-deletion-only", false, "add only the scheduled-plan deletion marker and its bounded runtime grant")
 	editPermissions := flag.String("schedule-edit-permissions", "", "enable or disable only installed scheduled-plan editing column grants")
+	authoringOnly := flag.Bool("skill-authoring-only", false, "extend only the installed personal skill authoring table and its bounded grants")
+	chatTurnsOnly := flag.Bool("chat-turn-only", false, "install only Chat skill handoff references and bounded grants; retain existing requests")
 	emptyScopeOnly := flag.Bool("empty-scope-only", false, "upgrade only the recognized empty Workbench baseline")
 	expectedDB := flag.String("expected-database", "", "explicit approved database name")
 	expectedAddress := flag.String("expected-server-address", "", "explicit approved PostgreSQL server IP")
 	expectedPort := flag.Int("expected-server-port", 0, "explicit approved PostgreSQL server port")
 	flag.Parse()
 	selected := 0
-	for _, enabled := range []bool{*modeOnly, *dailyOnly, *deletionOnly, *emptyScopeOnly, *editPermissions != ""} {
+	for _, enabled := range []bool{*modeOnly, *dailyOnly, *deletionOnly, *emptyScopeOnly, *authoringOnly, *chatTurnsOnly, *editPermissions != ""} {
 		if enabled {
 			selected++
 		}
@@ -59,6 +61,27 @@ func main() {
 		os.Exit(1)
 	}
 	defer raw.Close()
+	if *authoringOnly || *chatTurnsOnly {
+		if *role != "ai_workbench_runtime" || *expectedDB == "" || *expectedAddress == "" || *expectedPort < 1 {
+			fmt.Fprintln(os.Stderr, "skill authoring upgrade requires exact target and ai_workbench_runtime")
+			os.Exit(2)
+		}
+		var matches bool
+		if db.WithContext(ctx).Raw("SELECT current_database()=? AND host(inet_server_addr())=? AND inet_server_port()=?", *expectedDB, *expectedAddress, *expectedPort).Scan(&matches).Error != nil || !matches {
+			fmt.Fprintln(os.Stderr, "skill authoring target does not match")
+			os.Exit(1)
+		}
+		install := store.InstallSkillAuthoringUpgrade
+		if *chatTurnsOnly {
+			install = store.InstallChatTurnSchema
+		}
+		if err := install(ctx, db, *role); err != nil {
+			fmt.Fprintln(os.Stderr, "skill authoring upgrade not installed")
+			os.Exit(1)
+		}
+		fmt.Println("Selected Chat schema extension verified; existing drafts and receipts retained")
+		return
+	}
 	if *editPermissions != "" {
 		if *role != "ai_workbench_runtime" || *expectedDB == "" || *expectedAddress == "" || *expectedPort < 1 {
 			fmt.Fprintln(os.Stderr, "scheduled editing permissions require exact target and ai_workbench_runtime")

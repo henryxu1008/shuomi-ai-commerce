@@ -116,6 +116,9 @@ func (r *GormInvocationRecorder) FindInvocation(ctx context.Context, tenantID, m
 // token usage and is settled through the commercial owner. It never calls a
 // provider and is idempotent for the same terminal fact.
 func (r *GormInvocationRecorder) ResolveDispatchedInvocation(ctx context.Context, record aicapability.InvocationRecord) error {
+	if record.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 || record.ErrorCode == aicapability.ChatIntentOpenAIParameterRejectedV1 {
+		return aicapability.ErrProviderRejectionProof
+	}
 	if retiredModelReviewIdentity(string(record.Capability), string(record.Operation)) {
 		return fmt.Errorf("retired model review fact")
 	}
@@ -314,7 +317,8 @@ func (r *GormInvocationRecorder) RecordInvocation(ctx context.Context, record ai
 		// An unknown-usage success retains the pre-dispatch reservation. Releasing
 		// it would let repeated successful calls bypass the member and enterprise
 		// token limits before the usage fact can be reconciled.
-		if record.Outcome != aicapability.InvocationSucceeded && record.Outcome != aicapability.InvocationDispatched && record.Outcome != aicapability.InvocationUsageObservedFailed && record.ProviderRejectionProof == nil {
+		if record.Outcome != aicapability.InvocationSucceeded && record.Outcome != aicapability.InvocationDispatched && record.Outcome != aicapability.InvocationUsageObservedFailed && record.ProviderRejectionProof == nil &&
+			!record.IsWorkbenchOpenAIParameterRejection() {
 			if reservation, ok := r.usageSettler.(aicapability.InvocationUsageReservation); ok {
 				return reservation.ReleaseAIInvocationUsage(ctx, record.TenantID, record.InvocationID)
 			}
@@ -347,6 +351,9 @@ func samePointDispatchMetadata(original, proposed invocationRow) bool {
 }
 
 func validateUsage(record aicapability.InvocationRecord) error {
+	if (record.ErrorCode == aicapability.SkillAuthoringOpenAIParameterRejectedV1 || record.ErrorCode == aicapability.ChatIntentOpenAIParameterRejectedV1) && !record.IsWorkbenchOpenAIParameterRejection() {
+		return aicapability.ErrProviderRejectionProof
+	}
 	if record.ProviderRejectionProof != nil {
 		if err := aicapability.ValidateProviderRejection(record); err != nil {
 			return err
@@ -402,7 +409,7 @@ func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool
 		return record.AgentRunID != "" && record.Capability == aicapability.CapabilityProductEnrichText && record.OfficialTariff.MatchesWireModel(record.ModelID)
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		return record.AgentRunID != ""
-	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute:
+	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring:
 		return record.AgentRunID == "" && record.BusinessTaskID == "" &&
 			record.Capability == aicapability.CapabilityAIWorkbenchChatPlanning
 	default:

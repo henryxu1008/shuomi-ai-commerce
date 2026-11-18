@@ -83,6 +83,31 @@ func (s *Store) AcquireUse(ctx context.Context, p d.Principal, ref agent.SkillVe
 	return s.AcquireUseForTarget(ctx, p, ref, d.TitleTarget)
 }
 
+// AcquireAuthoring fences the exact official revision while the separately
+// authorized Chat consumer sends. Title and image grants do not confer it.
+func (s *Store) AcquireAuthoring(ctx context.Context, ref agent.SkillVersionRef) (func(), error) {
+	if !ref.Valid() || ref.ID != d.OfficialReleaseID(d.AuthoringReleaseKey) || ref.OwnerKind != d.PlatformOwner || ref.OwnerID != d.PlatformID {
+		return nil, d.ErrForbidden
+	}
+	tx := s.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, d.ErrUnavailable
+	}
+	var locked string
+	result := tx.Raw("SELECT id FROM skill_capability.skills WHERE id=? FOR SHARE", ref.ID).Scan(&locked)
+	if result.Error != nil || result.RowsAffected != 1 {
+		_ = tx.Rollback().Error
+		return nil, d.ErrUnavailable
+	}
+	v, err := readVersion(tx, ref.ID, ref.Version, false)
+	if err != nil || v.Ref() != ref || v.State != d.Enabled || v.Visibility != d.Shared || !v.Package.Supports(d.AuthoringTarget) {
+		_ = tx.Rollback().Error
+		return nil, d.ErrNotEnabled
+	}
+	var once sync.Once
+	return func() { once.Do(func() { _ = tx.Rollback().Error }) }, nil
+}
+
 func (s *Store) AcquireUseForTarget(ctx context.Context, p d.Principal, ref agent.SkillVersionRef, target string) (d.Package, func(), error) {
 	return s.acquireUseForTarget(ctx, p, ref, target, false)
 }

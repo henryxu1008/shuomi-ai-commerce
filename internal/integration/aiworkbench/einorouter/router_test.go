@@ -39,3 +39,49 @@ func TestControlledRouteOnlyUsesCurrentQuestionAndClosedOutput(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, 2, fake.calls)
 }
+
+func TestChatIntentFreezesCreatorAndCannotInvokeAnUnavailableTool(t *testing.T) {
+	profile := aicapability.ModelProfile{ClientName: "fixture", ProviderID: "fixture", AdapterKind: "openai-compatible", ModelID: "model-a", EndpointIdentityDigest: "endpoint", CredentialVersion: "credential", RoutingPolicyVersion: "route", AdapterPolicyVersion: "adapter", PromptVersion: ChatPromptVersion, OutputSchemaVersion: ChatSchemaVersion, UsageMappingVersion: "usage", CostPricingVersion: "price", Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 10000, MaximumCompletionTokens: 500, MaximumInputBytes: 65536, MaximumOutputBytes: 4096, DeadlineBound: time.Minute, OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "price", FXVersion: "fx", Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "model-a", Channel: "fixture", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 1, OutputText: 1}}}
+	input := aiworkbench.ChatTurnEnvelope{Version: 1, Input: aiworkbench.ChatTurnInput{Content: "创建一个保留品牌型号的标题技能"}, Creator: &aiworkbench.ChatSkillReference{Version: 2, Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, GeneralScope: true}
+	prepared, err := PrepareChat(aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, "member", "invocation", input, profile)
+	require.NoError(t, err)
+	require.Equal(t, aicapability.OperationAIWorkbenchChatIntent, prepared.Identity.Operation)
+	require.Contains(t, prepared.Identity.Prompt, input.Input.Content)
+	require.Contains(t, prepared.Identity.Prompt, input.Creator.Digest)
+	fake := &controlledText{output: `{"kind":"CREATE_TITLE_SKILL","status":""}`}
+	decision, err := (Router{Text: fake}).Decide(context.Background(), prepared)
+	require.NoError(t, err)
+	require.Equal(t, "CREATE_TITLE_SKILL", decision.Kind)
+	ordinary := prepared
+	input.Input.CreatorOnly = true
+	prepared, err = PrepareChat(aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, "member", "invocation", input, profile)
+	require.NoError(t, err)
+	require.NotEqual(t, ordinary.Quote.InputHash, prepared.Quote.InputHash)
+	require.Contains(t, prepared.Identity.Prompt, `"creatorOnly":true`)
+	_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+	require.NoError(t, err)
+	for _, output := range []string{`{"kind":"STORE_OVERVIEW","status":"ACTIVE"}`, `{"kind":"PRODUCT_TASK","status":""}`} {
+		fake.output = output
+		_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+		require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	}
+	fake.output = `{"kind":"CLARIFY","status":""}`
+	_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+	require.NoError(t, err)
+	input.Input.CreatorOnly = false
+	fake.output = `{"kind":"CREATE_TITLE_SKILL","status":""}`
+	input.Creator = nil
+	prepared, err = PrepareChat(aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, "member", "invocation", input, profile)
+	require.NoError(t, err)
+	_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+	require.Error(t, err)
+	input.GeneralScope = false
+	prepared, err = PrepareChat(aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, "member", "invocation", input, profile)
+	require.NoError(t, err)
+	fake.output = `{"kind":"STORE_OVERVIEW","status":"ACTIVE"}`
+	_, err = (Router{Text: fake}).Decide(context.Background(), prepared)
+	require.Error(t, err, "a scoped discussion cannot turn into a general store query")
+	profile.PromptVersion = PromptVersion
+	_, err = PrepareChat(aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, "member", "invocation", input, profile)
+	require.Error(t, err, "new turns never silently use the old routing profile")
+}

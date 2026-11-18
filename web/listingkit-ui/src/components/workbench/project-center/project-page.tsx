@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {ProjectFields} from "./project-fields";
 import {ResearchPanel} from "./research-panel";
 import {ResearchSelectionGate} from "./research-selection-gate";
 import {researchStep,researchWorkflow} from "@/lib/workbench/research-navigation";
@@ -141,9 +142,7 @@ function ProjectForm({initial,edit,disabled,close,save,researchOnly=false}:{rese
  const field=(key:keyof ProjectBody,value:string)=>setBody(old=>({...old,[key]:value}));
  return <dialog ref={dialog} className={styles.modal} onCancel={e=>{if(disabled)e.preventDefault();else close();}} aria-labelledby="project-form-title"><form onSubmit={e=>{e.preventDefault();const value={...body};if(changeStore || !edit){if(store.trim()){try{const u=new URL(store,location.origin),m=u.pathname.match(/^\/workbench\/stores\/([A-Za-z0-9._:-]+)$/);if(u.origin!==location.origin || !m || u.search || u.hash)throw new Error();value.storeId=m[1];}catch{setError("请粘贴当前应用的店铺详情链接。");return;}}else value.storeId="";}const parsed=projectBody.safeParse(value);if(!parsed.success){setError("请填写项目名称、长期目标，并检查日期和内容长度。");return;}save(parsed.data);}}>
  <header><h2 id="project-form-title">{edit?"编辑项目":"新建项目"}</h2><Button variant="ghost" aria-label="关闭" disabled={disabled} onClick={close}>×</Button></header><p>保存长期目标，再关联已有会话、任务与资料。</p>
- <label>项目名称<Input value={body.title} onChange={e=>field("title",e.target.value)} required placeholder="例如：一号店经营提升" autoFocus maxLength={256}/></label>
- <label>项目目标<textarea value={body.goal} onChange={e=>field("goal",e.target.value)} required rows={4} maxLength={4096} placeholder="希望达成什么长期目标？"/></label>
- <div className={styles.formGrid}><label>项目类型<select disabled={researchOnly} value={body.kind} onChange={e=>field("kind",e.target.value)}>{Object.entries(kinds).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label><label>截止日期（可选）<Input type="date" value={body.dueDate} onChange={e=>field("dueDate",e.target.value)}/></label></div>
+ <ProjectFields body={body} onChange={field} researchOnly={researchOnly} disabled={disabled} autoFocus/>
  {edit?<label><input type="checkbox" checked={changeStore} onChange={e=>setChangeStore(e.target.checked)}/> 更改关联店铺（留空改为非店铺项目）</label>:null}
  {!edit || changeStore?<label>关联店铺（可选）<Input value={store} onChange={e=>setStore(e.target.value)} placeholder="粘贴店铺详情链接；留空为非店铺项目"/></label>:null}
  {error?<p role="alert">{error}</p>:null}<footer><Button disabled={disabled} variant="outline" onClick={close}>取消</Button><Button disabled={disabled} type="submit">{edit?"保存修改":"创建项目"}</Button></footer>
