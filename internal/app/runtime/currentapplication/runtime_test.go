@@ -153,7 +153,7 @@ func TestRunClosesCurrentPoolWhenListenFails(t *testing.T) {
 	}
 }
 
-func TestRunStopsWalletTopUpRecoveryBeforeClosingOwnerPools(t *testing.T) {
+func TestRunStopsCommercialBillingRecoveryBeforeClosingOwnerPools(t *testing.T) {
 	cfg := runtimeTestConfig()
 	commercialConfig, moneyConfig := cfg.SourceAccountDatabase, cfg.SourceAccountDatabase
 	commercialConfig.User = "commercial_owner_runtime"
@@ -171,16 +171,16 @@ func TestRunStopsWalletTopUpRecoveryBeforeClosingOwnerPools(t *testing.T) {
 		OpenCommercialOwner: func(context.Context, DatabaseConfig) (*gorm.DB, error) { return commercial, nil },
 		OpenMoneyOwner:      func(context.Context, DatabaseConfig) (*gorm.DB, error) { return money, nil },
 		NewApplicationWithFeatures: func(_ context.Context, _ *gorm.DB, features ApplicationFeatures, _ *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
-			if features.WalletTopUpRecoveryStop == nil {
-				t.Fatal("wallet top-up recovery did not receive its stop callback")
+			if features.CommercialBillingRecoveryStop == nil {
+				t.Fatal("commercial billing recovery did not receive its stop callback")
 			}
-			*features.WalletTopUpRecoveryStop = func() { stopped = true }
+			*features.CommercialBillingRecoveryStop = func() { stopped = true }
 			return &http.Server{}, nil
 		},
 		Listen: func(string, string) (net.Listener, error) { return nil, listenErr },
 		CloseDatabase: func(db *gorm.DB) error {
 			if (db == commercial || db == money) && !stopped {
-				t.Error("wallet top-up recovery was still running when its database pool closed")
+				t.Error("commercial billing recovery was still running when its database pool closed")
 			}
 			closed = append(closed, db)
 			return nil
@@ -190,7 +190,7 @@ func TestRunStopsWalletTopUpRecoveryBeforeClosingOwnerPools(t *testing.T) {
 		t.Fatalf("Run() error = %v, want wrapped %v", err, listenErr)
 	}
 	if !stopped || !reflect.DeepEqual(closed, []*gorm.DB{money, commercial, source}) {
-		t.Fatalf("wallet recovery stopped = %t, closed pools = %v", stopped, closed)
+		t.Fatalf("commercial billing recovery stopped = %t, closed pools = %v", stopped, closed)
 	}
 }
 
