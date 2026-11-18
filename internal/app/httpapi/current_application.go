@@ -202,6 +202,7 @@ type currentApplicationOptions struct {
 	billingRecoveryStop          *func()
 	resourceConsumerRecoveryStop *func()
 	referralDB                   *gorm.DB
+	referralMaturityStop         *func()
 	productAcquisitionDB         *gorm.DB
 	imageAgentDB                 *gorm.DB
 	accountAuditImageDB          *gorm.DB
@@ -289,6 +290,11 @@ func WithBrowserCapture() CurrentApplicationOption {
 // WithReferrals supplies an independently owned pool. The caller closes it.
 func WithReferrals(db *gorm.DB) CurrentApplicationOption {
 	return func(options *currentApplicationOptions) { options.referrals++; options.referralDB = db }
+}
+
+// WithReferralMaturityStop lets the caller stop the sweep before closing the referral pool.
+func WithReferralMaturityStop(stop *func()) CurrentApplicationOption {
+	return func(options *currentApplicationOptions) { options.referralMaturityStop = stop }
 }
 
 // WithProductAcquisition supplies the independently owned product pool.
@@ -1658,8 +1664,10 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		}
 	}
 	if referralMaturity != nil {
-		// Referral maturity remains independent of channel recovery.
-		startReferralMaturityLoop(server, referralMaturity, time.Hour, logger)
+		stop := startReferralMaturityLoop(server, referralMaturity, time.Hour, logger)
+		if supplied.referralMaturityStop != nil {
+			*supplied.referralMaturityStop = stop
+		}
 	}
 	if consumerCharges != nil || modelPointRecovery != nil {
 		runtimeContext := supplied.runtimeContext
