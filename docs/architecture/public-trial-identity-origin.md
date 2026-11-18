@@ -12,7 +12,7 @@ TLS preflight tests. Production implementation follows this committed design.
 Henry explicitly authorized a new empty Alibaba ECS colleague trial with
 `trial.shuomiai.com`, `auth-trial.shuomiai.com`, HTTPS, as many current modules as
 possible, a CNY100 budget and a data-preserving stop 24 hours after creation.
-The existing [official Login decision](../product/official-zitadel-login.md),
+The existing [official Login decision](../product/decisions/official-zitadel-login.md),
 [identity and Organization contract](auth-and-tenancy.md),
 [official provider boundary](../engineering/zitadel-official-provider-boundary.md)
 and [greenfield baseline](../product/greenfield-no-legacy-migration.md) apply.
