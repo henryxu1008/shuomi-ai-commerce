@@ -271,6 +271,7 @@ func execute() error {
 			if features.RuntimeContext != nil {
 				options = append(options, httpapi.WithRuntimeContext(features.RuntimeContext))
 			}
+			options = append(options, httpapi.WithResourceConsumerRecoveryStop(features.ResourceConsumerRecoveryStop))
 			if features.CommercialOwnerDB != nil {
 				options = append(options, httpapi.WithCommercialOwnerDatabase(features.CommercialOwnerDB))
 			}
