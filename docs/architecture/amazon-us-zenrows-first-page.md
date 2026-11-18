@@ -24,4 +24,10 @@ Independent Architecture，IMPLEMENTATION_READY。独立 R1 核对及增量复�
 
 Product Data Acquisition 持有单次发送与数据批次事实，现有 DataRow 资源 owner 仍持有本地计量，Collection/Catalog 与 Research 各消费原事实。接线为配置文件 → private trial sender 和 Product Store → 原研究项目 HTTP 入口 → Data Services Worker/Collection/Research。无新表、列、物理数据库、迁移、同一事实的双写或后台轮询。Legacy N/A。
 
+## 35444 准备和试跑
+
+试用镜像准备时省略 `amazonFirstPageInputDir`。收到真实授权后，由部署维护者将专用 Linux 私有目录用只读挂载传入，沿现有试取目录校验，目录归 root 且权限 0700，文件归 root 且权限 0600。目录中的 `approval.json` 是 `{"version":"amazon-zenrows-first-page@v1","approval":{...}}`，字段由 `AmazonFirstPageApproval` 定义。 `key.json` 持有与批准摘要一致的 `binding` 和专用 `key`。证据依据、额度和专用 Key 私下核对。
+
+获准成员从自己的调研项目确认准确关键词、任务范围和预算。沿同源工作台入口提交原批准 ID，提交请求为空。需同一正常登录会话及当前工作台身份/企业一致性标头。在作业不明时，先以 GET 查原批准。 `PREPARED` 表示已向原数据任务交接，可在「数据市场」按关键词查任务并等保存完成； `UNKNOWN` 只保留原单核对。 `credits: null` 表示逐笔用量待核实。任务完成后在「市场调研 → 添加已有商品资料」选择这一批、比较 2–5 件。页面事实不足时保留缺项，不成为发起下一请求的授权。
+
 适用测试复用 #1459 的隔离 PostgreSQL：独立验证同一并发批准最多一次、成功回执和预备证据原子、超时及权限撤销停止、不翻页或加发详情请求、重启后只接续原 job、异项目/旧版本拒绝及 2–5 件可比较。对测试替身确认字段/HTTP 边界。正式 35444 准备仅按原保留实例运行合同更新经验证的必要服务，保留已有配置及数据。无试用写入时可回退原镜像；产生新版原件后，回退候选必须继续识别 `amazon-zenrows-search-v1`，停用试用通过移除运行配置完成。未确认关键词或 credits 前，无真实批准配置、发送、计费和产品验收。

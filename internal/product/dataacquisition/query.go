@@ -136,7 +136,18 @@ func (e Evidence) Validate() error {
 		return err
 	}
 	a, err := NormalizeASIN(site, e.ASIN)
-	if err != nil || a != e.ASIN || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || !utf8.ValidString(e.Title) || len(e.Description) > 1<<20 || len(e.Images) > 40 || len(e.Attributes) > 256 || e.ParserVersion != "amazon-v1" {
+	if err != nil || a != e.ASIN || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || !utf8.ValidString(e.Title) || len(e.Description) > 1<<20 || len(e.Images) > 40 || len(e.Attributes) > 256 {
+		return ErrInvalid
+	}
+	switch e.ParserVersion {
+	case "amazon-v1":
+	case AmazonZenRowsSearchVersion:
+		if e.Site != "us" || e.Availability != "unknown" || e.Price != 0 || e.Currency != "" ||
+			e.Description != "" || e.Brand != "" || len(e.Attributes) != 0 || len(e.Images) != 0 ||
+			!includes(e.Missing, "price") || !includes(e.Missing, "currency") {
+			return ErrInvalid
+		}
+	default:
 		return ErrInvalid
 	}
 	if _, err := time.Parse(time.RFC3339Nano, e.CapturedAt); err != nil {

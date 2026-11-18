@@ -1,7 +1,7 @@
 package httpapi
 
-// Isolated #1458 spike. The provider below is test-only and has no production
-// network client, configuration, command or route. Nothing seeds retained data.
+// Isolated #1458 integration: the real trial, publication and comparison owners
+// run with local response, identity and workflow-startup substitutes.
 
 import (
 	"context"
@@ -28,6 +28,8 @@ import (
 	pc "task-processor/internal/aiworkbench/projectcenter"
 	dataservicesapp "task-processor/internal/app/dataservices"
 	"task-processor/internal/authidentity"
+	datahttp "task-processor/internal/dataservice/httpapi"
+	"task-processor/internal/httproute"
 	"task-processor/internal/integration/acquisition/amazon"
 	resourceadapter "task-processor/internal/integration/orgresource"
 	projectstore "task-processor/internal/integration/persistence/aiworkbench/projectcenter"
@@ -42,15 +44,40 @@ import (
 	"task-processor/internal/product/dataacquisition"
 	"task-processor/internal/product/research"
 	"task-processor/internal/product/research/analysis"
+	rh "task-processor/internal/product/research/httpapi"
 	"task-processor/internal/product/selection"
 	"task-processor/internal/product/sourcing"
 )
 
 const zenRowsSpikeKeyword = "offline sample lamp"
 
+func TestAmazonFirstPageRouteRequiresExplicitAdmission(t *testing.T) {
+	var routes []httproute.Descriptor
+	for _, r := range currentWorkbenchApplicationRoutes {
+		routes = append(routes, httproute.Descriptor{Method: r.Method, Path: r.Path})
+	}
+	routes = append(routes, rh.Routes(nil)...)
+	routes = append(routes, marketResearchAnalysisRoutes(nil, nil)...)
+	routes = append(routes, datahttp.BuildRoutes(datahttp.Dependencies{})...)
+	base := currentApplicationOptionalRoutes{MarketResearch: true, DataServices: true}
+	validate := func(routes []httproute.Descriptor, options currentApplicationOptionalRoutes) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false, options)
+	}
+	require.NoError(t, validate(routes, base))
+	withTrial := append(routes, amazonFirstPageRoutes(nil)...)
+	require.Error(t, validate(withTrial, base))
+	base.AmazonFirstPage = true
+	require.Error(t, validate(routes, base))
+	require.NoError(t, validate(withTrial, base))
+	withTrial[len(withTrial)-1].AuthPolicy = httproute.AuthPolicyPublic
+	require.Error(t, validate(withTrial, base))
+}
+
 type offlineZenRowsPage struct {
-	server *httptest.Server
-	facts  map[string]dataacquisition.Evidence
+	server       *httptest.Server
+	starterError error
+	starts       int
+	browserCalls int
 }
 
 type offlineZenRowsProjects struct {
@@ -69,8 +96,11 @@ func (p offlineZenRowsProjects) AuthorizeAnalysis(ctx context.Context, scope col
 	return p.Authorize(ctx, scope, project, active)
 }
 
-func (p *offlineZenRowsPage) EnsureExecution(context.Context, dataacquisition.Job) error { return nil }
-func (p *offlineZenRowsPage) Ready(context.Context) error                                { return nil }
+func (p *offlineZenRowsPage) EnsureExecution(context.Context, dataacquisition.Job) error {
+	p.starts++
+	return p.starterError
+}
+func (p *offlineZenRowsPage) Ready(context.Context) error { return nil }
 func (p *offlineZenRowsPage) Sites() []dataacquisition.Site {
 	site, _ := dataacquisition.ResolveSite("us")
 	return []dataacquisition.Site{site}
@@ -81,8 +111,16 @@ func (p *offlineZenRowsPage) Funding(context.Context, collection.Scope) (orgreso
 func (p *offlineZenRowsPage) CurrentDataRowPrice(context.Context) (dataacquisition.PriceSnapshot, error) {
 	return dataacquisition.PriceSnapshot{OfferID: "offline-data-row", Version: "v1", Currency: "CNY"}, nil
 }
-func (p *offlineZenRowsPage) Discover(ctx context.Context, q dataacquisition.Query) ([]string, error) {
-	if p.facts != nil || q.Site != "us" || q.Mode != "keyword" || q.Keyword != zenRowsSpikeKeyword || q.CategoryNode != "" {
+func (p *offlineZenRowsPage) Discover(context.Context, dataacquisition.Query) ([]string, error) {
+	p.browserCalls++
+	return nil, dataacquisition.ErrUnavailable
+}
+func (p *offlineZenRowsPage) Fetch(context.Context, string, string) (dataacquisition.Evidence, error) {
+	p.browserCalls++
+	return dataacquisition.Evidence{}, dataacquisition.ErrUnavailable
+}
+func (p *offlineZenRowsPage) readPage(ctx context.Context, q dataacquisition.Query) ([]dataacquisition.Evidence, error) {
+	if q.Site != "us" || q.Mode != "keyword" || q.Keyword != zenRowsSpikeKeyword || q.CategoryNode != "" {
 		return nil, dataacquisition.ErrForbidden
 	}
 	source := "https://www.amazon.com/s?" + url.Values{"k": {q.Keyword}, "page": {"1"}}.Encode()
@@ -108,15 +146,11 @@ func (p *offlineZenRowsPage) Discover(ctx context.Context, q dataacquisition.Que
 	if err != nil {
 		return nil, err
 	}
-	p.facts = facts
-	return ids, nil
-}
-func (p *offlineZenRowsPage) Fetch(_ context.Context, site, asin string) (dataacquisition.Evidence, error) {
-	fact, ok := p.facts[asin]
-	if !ok || site != fact.Site {
-		return dataacquisition.Evidence{}, dataacquisition.ErrSourceUnsupported
+	out := make([]dataacquisition.Evidence, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, facts[id])
 	}
-	return fact, nil
+	return out, nil
 }
 
 type offlineSearchCard struct {
@@ -176,9 +210,7 @@ func decodeOfflineSearchPage(body []byte, limit int, captured time.Time) ([]stri
 		card := cards[id]
 		fact := dataacquisition.Evidence{
 			Site: "us", ASIN: id, Title: card.Title, MainImage: images[id],
-			// The existing Product contract accepts amazon-v1 only.
-			// This tag is a test seam, not a new production provenance label.
-			ParserVersion: "amazon-v1", CapturedAt: captured.Format(time.RFC3339Nano),
+			ParserVersion: dataacquisition.AmazonZenRowsSearchVersion, CapturedAt: captured.Format(time.RFC3339Nano),
 			// A search result alone does not establish stock or offer currency.
 			Availability: "unknown",
 			Missing:      []string{"availability", "price", "currency", "description", "brand", "attributes", "variants", "rating", "reviewCount"},
@@ -255,7 +287,7 @@ func openZenRowsSpikePostgres(t *testing.T, ctx context.Context, c *tcpostgres.P
 	return db
 }
 
-func TestZenRowsAmazonUSFirstPageOfflineSpike(t *testing.T) {
+func TestZenRowsAmazonUSFirstPageOriginalSaveAndComparison(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	c, err := tcpostgres.Run(ctx, "postgres:16-alpine", tcpostgres.WithDatabase("spike_product"), tcpostgres.WithUsername("test_owner"), tcpostgres.WithPassword("test-only-zenrows"), tcpostgres.BasicWaitStrategies())
@@ -311,24 +343,56 @@ func TestZenRowsAmazonUSFirstPageOfflineSpike(t *testing.T) {
 	require.NoError(t, err)
 
 	principal := dataacquisition.Principal{Scope: scope}
-	request := uuid.NewString()
-	query := dataacquisition.Query{Site: "us", Mode: "keyword", Keyword: zenRowsSpikeKeyword, Limit: 5}
-	price := dataacquisition.PriceConfirmation{Version: "v1"}
-	runner := module.Runner()
-	job, err := runner.Start(ctx, principal, request, query, orgresource.FundingEnterprise, price)
+	approval := dataacquisition.AmazonFirstPageApproval{
+		ID: uuid.NewString(), Scope: scope, ProjectID: project, Keyword: zenRowsSpikeKeyword,
+		AccountRef: uuid.NewString(), KeyDigest: strings.Repeat("a", 64), BudgetRef: uuid.NewString(),
+		BudgetExpiresAt: time.Now().Add(time.Minute), ExpiresAt: time.Now().Add(time.Minute),
+		MaximumCredits: 25, AvailableCredits: 25, NoOverageCharges: true, Funding: orgresource.FundingEnterprise,
+		Price: dataacquisition.PriceConfirmation{Version: "v1"},
+	}
+	projectReader := offlineZenRowsProjects{projects: researchProjects{service: projectService}, scope: scope}
+	send := func(ctx context.Context, a dataacquisition.AmazonFirstPageApproval) dataacquisition.AmazonFirstPageSubmission {
+		facts, err := provider.readPage(ctx, a.Query())
+		require.NoError(t, err)
+		return dataacquisition.AmazonFirstPageSubmission{Receipt: dataacquisition.AmazonFirstPageReceipt{
+			ApprovalID: a.ID, State: dataacquisition.AmazonFirstPageUnknown, RequestID: "offline-request-1",
+		}, Evidence: facts}
+	}
+	trial, err := module.AmazonFirstPageTrial(approval, projectReader.Authorize, send)
 	require.NoError(t, err)
-	require.NoError(t, runner.Run(ctx, scope, job.ID))
-	job, err = runner.Read(ctx, principal, job.ID)
+	_, err = trial.Read(ctx, principal, project, approval.ID)
+	require.ErrorIs(t, err, dataacquisition.ErrNotFound)
+	_, err = trial.Submit(ctx, principal, uuid.NewString(), approval.ID)
+	require.ErrorIs(t, err, dataacquisition.ErrForbidden)
+	require.Zero(t, pageRequests.Load())
+	provider.starterError = dataacquisition.ErrUnavailable
+	_, err = trial.Submit(ctx, principal, project, approval.ID)
+	require.ErrorIs(t, err, dataacquisition.ErrUnknown)
+	receipt, err := trial.Read(ctx, principal, project, approval.ID)
+	require.NoError(t, err)
+	require.Equal(t, dataacquisition.AmazonFirstPagePrepared, receipt.State)
+	require.Nil(t, receipt.Credits)
+	require.Equal(t, 1, provider.starts)
+	require.EqualValues(t, 1, pageRequests.Load())
+	provider.starterError = nil
+	restartedTrial, err := module.AmazonFirstPageTrial(approval, projectReader.Authorize, send)
+	require.NoError(t, err)
+	replay, err := restartedTrial.Submit(ctx, principal, project, approval.ID)
+	require.NoError(t, err)
+	require.Equal(t, receipt, replay)
+	require.Equal(t, 2, provider.starts)
+
+	runner := module.Runner()
+	require.NoError(t, runner.Run(ctx, scope, receipt.JobID))
+	job, err := runner.Read(ctx, principal, receipt.JobID)
 	require.NoError(t, err)
 	require.Equal(t, "SUCCEEDED", job.State)
 	require.Equal(t, 5, job.Saved)
 	require.EqualValues(t, 1, pageRequests.Load())
 
-	replay, err := runner.Start(ctx, principal, request, query, orgresource.FundingEnterprise, price)
-	require.NoError(t, err)
-	require.Equal(t, job.ID, replay.ID)
-	require.NoError(t, runner.Run(ctx, scope, replay.ID))
+	require.NoError(t, runner.Run(ctx, scope, receipt.JobID))
 	require.EqualValues(t, 1, pageRequests.Load())
+	require.Zero(t, provider.browserCalls)
 	var consumed int
 	require.NoError(t, resourceDB.Raw("SELECT consumed FROM saas_organization_resource_buckets WHERE organization_id=? AND resource_type='data_row'", scope.OrganizationID).Scan(&consumed).Error)
 	require.Equal(t, 5, consumed)
@@ -346,7 +410,6 @@ func TestZenRowsAmazonUSFirstPageOfflineSpike(t *testing.T) {
 
 	researchRepo, err := researchstore.New(ctx, db)
 	require.NoError(t, err)
-	projectReader := offlineZenRowsProjects{projects: researchProjects{service: projectService}, scope: scope}
 	researchService := research.New(researchRepo, projectReader, researchSources{collections: collections, data: module})
 	selections := make([]research.Selection, 0, len(items.Items))
 	for _, item := range items.Items {
@@ -364,6 +427,7 @@ func TestZenRowsAmazonUSFirstPageOfflineSpike(t *testing.T) {
 		require.NotNil(t, c.Observation)
 		require.Equal(t, job.ID, c.Observation.Ref.JobID)
 		require.Equal(t, zenRowsSpikeKeyword, c.Observation.Query.Keyword)
+		require.Equal(t, dataacquisition.AmazonZenRowsSearchVersion, c.Observation.ParserVersion)
 		require.Nil(t, c.Observation.Price, "the search sample does not establish a stocked offer")
 		asins = append(asins, c.Observation.ASIN)
 		choices = append(choices, research.AnalysisChoice{CandidateID: c.ID, ExpectedRevision: c.Revision, LinkID: c.SelectedLinkID, EvidenceDigest: c.EvidenceDigest, Selection: c.Observation.Ref.Selection})

@@ -27,11 +27,12 @@ func WithMarketResearchSupplierReview() CurrentApplicationOption {
 }
 
 type researchModule struct {
-	handler  *rh.Handler
-	service  *research.Service
-	projects researchProjects
-	trial    *marketResearchSHEINTrial
-	fixture  *dataservicesapp.ResearchFixture
+	handler         *rh.Handler
+	service         *research.Service
+	projects        researchProjects
+	trial           *marketResearchSHEINTrial
+	amazonFirstPage *marketResearchAmazonFirstPage
+	fixture         *dataservicesapp.ResearchFixture
 }
 
 func (researchModule) Name() string                { return rh.ModuleName }
@@ -40,6 +41,9 @@ func (m researchModule) Register(r *kernel.Registry) error {
 	r.AddRoutes(rh.Routes(m.handler)...)
 	if m.trial != nil {
 		r.AddRoutes(marketResearchSHEINTrialRoutes(m.trial)...)
+	}
+	if m.amazonFirstPage != nil {
+		r.AddRoutes(amazonFirstPageRoutes(m.amazonFirstPage)...)
 	}
 	if m.fixture != nil {
 		r.AddRoutes(marketResearchFixtureRoutes(m, researchFixturePath)...)
