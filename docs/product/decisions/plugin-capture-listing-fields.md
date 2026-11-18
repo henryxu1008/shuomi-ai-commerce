@@ -22,10 +22,10 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 
 ## 2. 设计依据与上架判断边界
 
-- UI / IA：当前 [final-ui-ia-authority](final-ui-ia-authority.md)；Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`。入口 `430:5710`，来源选择 `1905:410`，Amazon链接 `1897:418` / ASIN `1921:484`，1688 `1905:374`；这些是原在线采集交互依据，不冒称已有插件字段预览终稿。本轮不修改Figma。
-- 1688原始证据与保存：[src2b-public-acquisition](../engineering/1688-public-acquisition.md)、`internal/product/sourcing/acquisition.go`、`browser_capture.go`，既有Browser Capture合同。
-- Amazon原生能力：[data-services-v1](../architecture/data-services.md)、`internal/product/dataacquisition/query.go`、`internal/integration/acquisition/amazon`、`internal/app/dataservices/publication.go`。
-- 后续补全：[结构化候选](completion-draft-structured.md)、[SHEIN带入](completion-shein-import.md)。
+- UI / IA：当前 [final-ui-ia-authority](../final-ui-ia-authority.md)；Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`。入口 `430:5710`，来源选择 `1905:410`，Amazon链接 `1897:418` / ASIN `1921:484`，1688 `1905:374`；这些是原在线采集交互依据，不冒称已有插件字段预览终稿。本轮不修改Figma。
+- 1688原始证据与保存：[src2b-public-acquisition](../../engineering/1688-public-acquisition.md)、`internal/product/sourcing/acquisition.go`、`browser_capture.go`，既有Browser Capture合同。
+- Amazon原生能力：[data-services-v1](../../architecture/data-services.md)、`internal/product/dataacquisition/query.go`、`internal/integration/acquisition/amazon`、`internal/app/dataservices/publication.go`。
+- 后续补全：[结构化候选](../completion-draft-structured.md)、[SHEIN带入](../completion-shein-import.md)。
 - 当前上架准入：`internal/listing/readiness/product_inputs.go`、`internal/marketplace/shein/validator`、`internal/publishing/shein/sale_attribute_readiness.go`。Product来源、批准资产和目标平台规则分别检查，不能因采集了图片就称资产已批准。
 
 **四种结论分开：**成功读取页面商品事实、保存取得权威回执、按本设计资料完整、目标平台可上架。前一步不自动代表后一步。来源完整度只解释本次能看到/能读取的范围，不证明来源绝对真实、商业可用或拥有全部商品变体。
@@ -121,4 +121,4 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 
 后续的最小产品核对可沿已有测试及保存读取路径：相同已获准商品/明确页面范围中比较标题、图像角色、规格身份和价格来源；再确认保存后同一版本读回一致。先使用隔离的现有样例/纯解析测试，再在明确授权下看真实页面。不得上传整页账户数据、用fixtures证明真实来源完整，或为了达到“齐全”补造数据。
 
-规格图片关联与Amazon插件接收保存的独立设计见[插件采集增量架构](../architecture/plugin-capture-ingestion.md)，评审状态以该文档为准。富文本及本轮未纳入的公共合同仍需后续有界设计。完成适用review、IMPLEMENTATION_READY及用户开发授权前不修改生产路径。**本字段文档不是完整架构准入，也不授权合并/部署/真实数据操作。**
+规格图片关联与Amazon插件接收保存的独立设计见[插件采集增量架构](../../architecture/plugin-capture-ingestion.md)，评审状态以该文档为准。富文本及本轮未纳入的公共合同仍需后续有界设计。完成适用review、IMPLEMENTATION_READY及用户开发授权前不修改生产路径。**本字段文档不是完整架构准入，也不授权合并/部署/真实数据操作。**
