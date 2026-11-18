@@ -314,7 +314,7 @@
 - `domains/workbench/cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](domains/workbench/cockpit-tiktok-order-amount.md)
 - `domains/workbench/cockpit-tiktok-order-sync.md` — [TikTok Shop US 跨境店消费者订单手动同步](domains/workbench/cockpit-tiktok-order-sync.md)
 - `domains/workbench/cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](domains/workbench/cockpit-temu-order-amount.md)
-- `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
+- `domains/ai/private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](domains/ai/private-draft-offline-trial.md)
 - `domains/workbench/project-center-overview-read.md` — [Project Center overview read V1](domains/workbench/project-center-overview-read.md)
 - `domains/workbench/task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](domains/workbench/task-center-native-run-projection.md)
 
