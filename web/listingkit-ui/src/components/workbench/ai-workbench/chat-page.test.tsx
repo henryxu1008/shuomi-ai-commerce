@@ -1403,6 +1403,8 @@ it.each([false,true])("does not advertise skill creation when this old or projec
 });
 
 it("preserves the project and acquisition context when going from a conversation to a title skill",async()=>{
+ const prior=new URLSearchParams(fixture.search);
+ for(const key of [...fixture.search.keys()])fixture.search.delete(key);
  fixture.search.set("projectTask","1");
  fixture.search.set("operationId",operationId);
  fixture.search.set("skillAuthoring","0");
@@ -1418,6 +1420,7 @@ it("preserves the project and acquisition context when going from a conversation
   expect(new URL(href!,"https://navigation.invalid").searchParams.get("skill_chat"))
    .toBe("/workbench/ai/chat/"+conversationId+"?projectTask=1&operationId="+operationId);
  }finally{
-  fixture.search.delete("projectTask");fixture.search.delete("operationId");fixture.search.delete("skillAuthoring");
+  for(const key of [...fixture.search.keys()])fixture.search.delete(key);
+  for(const [key,value] of prior)fixture.search.append(key,value);
  }
 });
