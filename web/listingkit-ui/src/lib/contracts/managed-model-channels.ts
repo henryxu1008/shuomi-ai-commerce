@@ -12,7 +12,7 @@ const registeredConnection=managedConnection.refine(c=>connectionID.safeParse(c.
  c.registration?.connectionId===c.connectionId&&c.registration.organizationId===c.organizationId);
 export const managedChannels=z.strictObject({
  organizationId:routeFact,channels:z.array(registeredConnection).max(128),bindings:z.array(binding).max(128),
- templates:z.array(channelTemplate).max(2),canSave:z.boolean(),canRename:z.boolean(),canAttach:z.boolean(),
+ bindingTemplates:z.array(channelTemplate).max(2),canSave:z.boolean(),canRename:z.boolean(),canAttach:z.boolean(),
  modelQueryTargets:modelQueryTargets.nullable(),
 }).refine(v=>v.channels.every(c=>c.organizationId===v.organizationId)&&v.bindings.every(b=>b.organizationId===v.organizationId));
 export const createChannel=z.strictObject({...member,input:z.strictObject({

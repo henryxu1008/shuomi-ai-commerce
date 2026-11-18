@@ -79,7 +79,7 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 			return
 		}
 		bindings := []d.ManagedBinding{}
-		templates := []string{}
+		bindingTemplates := []string{}
 		if managed != nil {
 			bindings, err = managed.Bindings.ManagedBindings(ctx, org)
 			if err != nil {
@@ -88,7 +88,7 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 			}
 			for _, template := range []string{credential.OfficialMiniTemplate, credential.CompatibleMiniTemplate} {
 				if managed.Supports(org, template) {
-					templates = append(templates, template)
+					bindingTemplates = append(bindingTemplates, template)
 				}
 			}
 		}
@@ -101,7 +101,7 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 			}
 		}
 		c.JSON(200, gin.H{
-			"organizationId": org, "channels": channels, "bindings": bindings, "templates": templates,
+			"organizationId": org, "channels": channels, "bindings": bindings, "bindingTemplates": bindingTemplates,
 			"canSave": canSave && manager.CanRegister(), "canRename": manager.CanRegister(), "canAttach": canAttach && managed != nil,
 			"modelQueryTargets": m.modelQueryTargets(ctx, id, channels),
 		})
@@ -127,10 +127,6 @@ func (m modelRoutePricingModule) serveManagedChannel(c *gin.Context, action stri
 			}
 			if modelRouteDecode(c, &body) != nil || body.ExpectedMemberID != member {
 				credentialHTTPFailure(c, credential.ErrInvalid)
-				return
-			}
-			if managed == nil || !managed.Supports(org, body.Input.Template) {
-				credentialHTTPFailure(c, credential.ErrUnavailable)
 				return
 			}
 			result, err = manager.CreateRegistration(ctx, org, actor, key, body.Input)

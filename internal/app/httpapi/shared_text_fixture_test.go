@@ -94,7 +94,7 @@ func configuredSelectionSharedReader(t *testing.T, settings *ProductAgentDepende
 
 // The Chat and content consumers use the same real current selection, channel
 // metadata, published fixture tariff and SharedTextReader; the provider is local.
-func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB, planner governed.RoutePolicy, managed bool) qualified.SharedTextReader {
+func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB, planner governed.RoutePolicy, managedTemplate string) qualified.SharedTextReader {
 	t.Helper()
 	ctx, now := context.Background(), time.Now().UTC()
 	connection, err := newHTTPChannelFixture(db).owner.Metadata(ctx, "B", "default")
@@ -103,7 +103,14 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	repo, err := routestore.New(db)
 	require.NoError(t, err)
 	prices := &d.PlatformPricesService{Repository: repo}
-	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+	if managedTemplate == credential.CompatibleMiniTemplate {
+		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{
+			ID: "openai-compatible-mini", Provider: "openai", Model: planner.Profile.ModelID, Channel: credential.CompatibleOpenAIChannel,
+			Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: aicapability.ReferenceTextTotalsV1,
+			Rates: aicapability.OfficialModelRates{InputText: 1_000_000, OutputText: 3_000_000}, SourceURL: "https://developers.openai.com/api/docs/pricing",
+			VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour),
+		}}})
+	} else if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
 		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "USD", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 750000, CachedInputText: 75000, OutputText: 4500000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}, FX: []d.PublishedFXRate{{Currency: "USD", CNYMicrosPerCurrencyUnit: 6719100, SourceURL: "https://www.chinamoney.com.cn/", RateDate: now.Format("2006-01-02"), VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
 	} else {
 		_, err = prices.Publish(ctx, "offline-platform", uuid.NewString(), d.PlatformPricesInput{ExpectedRevision: d.NoRevision, Prices: []d.PublishedModelPrice{{ID: "chat-fixture-price", Provider: "openai", Model: planner.Profile.ModelID, Channel: connection.Channel, Region: connection.Region, ServiceType: "standard-sync", Currency: "CNY", UsageVersion: "openai-text-v1", Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 20000}, SourceURL: "https://developers.openai.com/api/docs/pricing", VerifiedAt: now, EffectiveFrom: now.Add(-time.Minute), EffectiveUntil: now.Add(time.Hour)}}})
@@ -114,8 +121,7 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 		copy := policy
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(op)}, Text: &copy, MaximumCostMicros: settings.Limits.CostMicros})
 	}
-	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
-		title := settings.TextPolicies["B"]
+	if title, ok := settings.TextPolicies["B"]; ok && planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
 		defs = append(defs, qualified.Definition{ConnectionID: connection.ConnectionID, ConnectionProvider: connection.Provider, Manufacturer: "openai", Region: connection.Region, ServiceType: "standard-sync", Channel: connection.Channel, PriceID: "chat-fixture-price", ReferenceVersion: "chat-shared-v1", BoundEvidenceVersion: "fixture-bound", Scope: d.Scope{OrganizationID: "B", Capability: string(aicapability.OperationProductAgentDecision)}, Text: &title, MaximumCostMicros: settings.Limits.CostMicros})
 	}
 	catalog, err := qualified.NewCatalog(defs)
@@ -123,18 +129,21 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	shared := &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}
 	service := &d.SharedModelService{Repository: repo, Catalog: shared}
 	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: connection.Channel, Text: d.ModelBindingReference{ID: "default", Version: "chat-shared-v1"}, Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"}}
-	if managed {
-		channels := installManagedChatChannelFixture(t, ctx, db, repo, catalog)
+	if managedTemplate != "" {
+		channels := installManagedChatChannelFixture(t, ctx, db, repo, catalog, managedTemplate)
 		shared.Managed = channels.definitions
 		selection.Text = channels.binding.Reference()
 		selection.DefaultChannel = credential.OfficialOpenAIChannel
+		if managedTemplate == credential.CompatibleMiniTemplate {
+			selection.DefaultChannel = credential.CompatibleOpenAIChannel
+		}
 	}
 	_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection})
 	require.NoError(t, err)
 	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)
 	require.NoError(t, err)
 	require.True(t, q.Ready, q.Reason)
-	if planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
+	if _, ok := settings.TextPolicies["B"]; ok && planner.Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy {
 		title := q.TextProfiles[string(aicapability.OperationProductAgentDecision)]
 		require.True(t, governed.ValidRouteProfile(title, aicapability.OperationProductAgentDecision), "the title route remains qualified with the same shared selection")
 		require.Equal(t, q.Price, title.OfficialTariff)
@@ -173,7 +182,7 @@ type managedChatChannelFixture struct {
 	binding     d.ManagedBinding
 }
 
-func installManagedChatChannelFixture(t *testing.T, ctx context.Context, db *gorm.DB, repo *routestore.Store, catalog *qualified.Catalog) managedChatChannelFixture {
+func installManagedChatChannelFixture(t *testing.T, ctx context.Context, db *gorm.DB, repo *routestore.Store, catalog *qualified.Catalog, template string) managedChatChannelFixture {
 	t.Helper()
 	require.NoError(t, db.Exec(`DO $$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='product_agent_runtime') THEN CREATE ROLE product_agent_runtime NOLOGIN; END IF;
@@ -193,12 +202,17 @@ END $$`).Error)
 	before, err := manager.RegisteredConnections(ctx, "B")
 	require.NoError(t, err)
 	require.Empty(t, before)
-	created, err := manager.CreateRegistration(ctx, "B", "admin", uuid.NewString(), credential.RegistrationInput{
-		Name: "Chat fixture", Template: credential.OfficialMiniTemplate, APIKey: "managed-fixture-key",
-	})
+	input := credential.RegistrationInput{Name: "Chat fixture", Template: template, APIKey: "managed-fixture-key"}
+	if template == credential.CompatibleMiniTemplate {
+		input.BaseURL = "https://fixture.compatible.example.test/v1"
+	}
+	created, err := manager.CreateRegistration(ctx, "B", "admin", uuid.NewString(), input)
 	require.NoError(t, err)
 	definitions := &qualified.ManagedDefinitions{Catalog: catalog, Bindings: repo, Registrations: channels, Metadata: channels}
-	require.True(t, definitions.Supports("B", credential.OfficialMiniTemplate))
+	require.True(t, definitions.Supports("B", template))
+	if template == credential.OfficialMiniTemplate {
+		require.False(t, definitions.Supports("B", credential.CompatibleMiniTemplate), "the official title pilot scope still requires its approved route")
+	}
 	cmd := d.ManagedBindingCommand{OrganizationID: "B", ActorID: "admin", ConnectionID: created.Connection.ConnectionID,
 		RequestKey: uuid.NewString(), Input: d.ManagedBindingInput{Action: "attach", ExpectedRevision: created.Connection.Revision}}
 	binding, err := repo.WriteManagedBinding(ctx, cmd, func(template string) error {

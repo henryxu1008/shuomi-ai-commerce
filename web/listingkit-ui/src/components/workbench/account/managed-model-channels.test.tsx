@@ -30,7 +30,7 @@ it("recovers an added channel by the original receipt without sending its Key ag
   if(url.endsWith("/receipts/"+requestKey)){
    return Response.json({actorId:userId,memberId,organizationId,requestKey,result:{connection,registration}});
   }
-  return Response.json({organizationId,channels:committed?[connection]:[],bindings:[],templates:[template],
+  return Response.json({organizationId,channels:committed?[connection]:[],bindings:[],bindingTemplates:[],
    canSave:true,canRename:true,canAttach:true,modelQueryTargets:null});
  });
  vi.stubGlobal("fetch",fetch);

@@ -5,7 +5,7 @@ import {useQuery} from "@tanstack/react-query";
 import {Button} from "@/components/ui/button";
 import {Card} from "@/components/ui/card";
 import {ModelRouteError,modelRouteRequest,type ModelRouteScope} from "@/lib/api/model-route-pricing";
-import {openAIQueryModel,type ManagedConnection} from "@/lib/contracts/channel-credentials";
+import {channelTemplate,openAIQueryModel,type ManagedConnection} from "@/lib/contracts/channel-credentials";
 import {createChannel,createChannelReceipt,editBinding,editBindingReceipt,managedChannelPath,managedChannelPending,managedChannels,renameChannel,renameChannelReceipt,type ManagedChannelPending,type ManagedChannelReceipt} from "@/lib/contracts/managed-model-channels";
 import {useResourcePending} from "../resources/resource-pending";
 import {AccountDialog} from "./account-dialog";
@@ -100,7 +100,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
  }
  function open(action:"create"|"name"|"replace",channel?:ManagedConnection){
   setFailure("");setFormError("");
-  setTemplate(action==="replace"?"openai-compatible-mini-v1":channel?.registration?.template??query.data?.templates[0]??"openai-mini-v1");
+  setTemplate(action==="replace"?"openai-compatible-mini-v1":channel?.registration?.template??"openai-mini-v1");
   setDialog({action,channel});
  }
  const activeBinding=query.data?.bindings.find(binding=>binding.enabled&&binding.connectionId===selectedChannel?.connectionId);
@@ -109,12 +109,11 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
   <Card className={styles.panel}>
    {!selectedChannel?<><div className={styles.sectionHeader}>
     <h2>企业自助渠道</h2>
-    {query.data?.canSave&&query.data.templates.length>0&&<Button ref={adding} disabled={locked} onClick={()=>open("create")}>添加渠道</Button>}
+    {query.data?.canSave&&<Button ref={adding} disabled={locked} onClick={()=>open("create")}>添加渠道</Button>}
    </div>
    {query.isPending?<p role="status">正在读取企业渠道…</p>:query.isError?<p role="alert">暂时无法读取企业渠道。</p>:<>
     {!channels.length&&<p>暂无企业自助渠道。</p>}
     {!query.data.canSave&&<p>当前无法保存渠道，请核对权限或联系维护人员。</p>}
-    {query.data.canSave&&!query.data.templates.length&&<p>当前企业暂无支持的文本模型模板。</p>}
     {channels.map(channel=><div className={styles.history} key={channel.connectionId}>
      <Button variant="outline" onClick={()=>setSelected(channel.connectionId)}>{channel.registration?.name}</Button>
      <p>{channel.baseUrl} · {channel.enabled?"Key 已保存":"已停用"} · {channel.models.length?"已关联文本模型":"尚未关联模型"}</p>
@@ -129,7 +128,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
      {query.data?.canSave&&<>
       <Button variant="outline" disabled={locked} onClick={()=>onCredentials(selectedChannel,"set-key")}>{selectedChannel.enabled?"轮换 Key":"重新录入 Key"}</Button>
       {selectedChannel.enabled&&<Button variant="outline" disabled={locked} onClick={()=>onCredentials(selectedChannel,"disable")}>停用渠道</Button>}
-      {query.data.templates.includes("openai-compatible-mini-v1")&&<Button variant="outline" disabled={locked} onClick={()=>open("replace",selectedChannel)}>更换服务地址</Button>}
+      <Button variant="outline" disabled={locked} onClick={()=>open("replace",selectedChannel)}>更换服务地址</Button>
      </>}
     </div>
     {activeBinding?<div className={styles.history}>
@@ -140,10 +139,10 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
      </div>
     </div>:<div className={styles.history}>
      <h3>尚未关联模型</h3>
-     {query.data?.canAttach&&selectedChannel.enabled&&query.data.templates.includes(selectedChannel.registration!.template)&&<>
+     {query.data?.canAttach&&selectedChannel.enabled&&(query.data.bindingTemplates.includes(selectedChannel.registration!.template)?<>
       <p>可关联文本型号 {openAIQueryModel}。关联后可在企业模型中选用。</p>
       <Button disabled={locked} onClick={()=>save("models",{action:"attach",expectedRevision:selectedChannel.revision},selectedChannel.connectionId)}>关联文本模型</Button>
-     </>}
+     </>:<p>这个渠道暂时无法覆盖企业已开启的文本用途。你可以保留渠道与 Key。</p>)}
     </div>}
     {selectedChannel.registration?.template==="openai-compatible-mini-v1"?<p>此渠道暂不支持资料查询。</p>:
      queryTarget&&testMemberId?<ChannelModelQuery key={JSON.stringify([selectedChannel.connectionId,selectedChannel.revision,queryTarget.reference])}
@@ -172,7 +171,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
     {dialog.action!=="name"&&<>
      {dialog.action==="replace"&&<p>这会新建渠道。保存后，关联模型并发布新选择即可切换地址。</p>}
      <label className={styles.field}>提供方<select value={template} onChange={e=>setTemplate(e.target.value as keyof typeof names)}>
-      {query.data?.templates.map(value=><option key={value} value={value}>{names[value]}</option>)}</select></label>
+      {channelTemplate.options.map(value=><option key={value} value={value}>{names[value]}</option>)}</select></label>
      {template==="openai-compatible-mini-v1"?<label className={styles.field}>服务基础地址<input name="baseUrl" type="url" required maxLength={2048} placeholder="https://models.example.com/v1"/></label>:<p>服务地址 https://api.openai.com/v1</p>}
      <label className={styles.field}>账号备注（选填）<input name="account" maxLength={128}/></label>
      <label className={styles.field}>API Key<input ref={keyInput} type="password" autoComplete="new-password" spellCheck={false} required maxLength={4096}/></label>
