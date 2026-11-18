@@ -4,7 +4,7 @@
 
 ## 共同视觉依据
 
-当前视觉 Authority 为用户确认的 [SUMI Design System 1.0｜统一规范 V1.3](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=10690-1069)。六张样板：我的店铺 Light/Dark `10957:908 / 10957:1447`、店铺矩阵 `10957:1098 / 10957:1629`、账户资料 `10957:1294 / 10957:1817`。本决定替代旧色板和字号；[原 Figma Product Authority](final-ui-ia-authority.md) 的路由归属、业务职责和能力合同继续适用。
+当前视觉 Authority 为用户确认的 [SUMI Design System 1.0｜统一规范 V1.3](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=10690-1069)。六张样板：我的店铺 Light/Dark `10957:908 / 10957:1447`、店铺矩阵 `10957:1098 / 10957:1629`、账户资料 `10957:1294 / 10957:1817`。本决定替代旧色板和字号；[原 Figma Product Authority](../final-ui-ia-authority.md) 的路由归属、业务职责和能力合同继续适用。
 
 用户本轮决定替代历史页面各自覆盖背景、表面、文字、主色、字号和普通控件外观的实现。页面原Figma的职责、信息架构、实际交互和可用能力边界保持，不把目录、表格、编辑器或工作流改成同一布局，不复制原图示例数据或素材为业务事实。
 

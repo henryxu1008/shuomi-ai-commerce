@@ -33,7 +33,7 @@ func normalizeChatTurn(input aiworkbench.ChatTurnInput) (aiworkbench.ChatTurnInp
 		}
 	}
 	if r := input.Revision; r != nil {
-		if input.Skill == nil || input.Skill.Version != 2 || !acquisitionHTTPUUID(r.Root) || !acquisitionHTTPUUID(r.BaseRevision) || len(r.Snapshot) > 65536 {
+		if input.Skill == nil || input.Skill.Version != 2 || !acquisitionHTTPUUID(r.Root) || !acquisitionHTTPUUID(r.BaseRevision) {
 			return input, aiworkbench.ErrInvalid
 		}
 		raw, err := aiworkbench.CanonicalTitleSkillSnapshot(r.Snapshot)
@@ -165,6 +165,10 @@ func (p chatTurnGateway) Decide(ctx context.Context, command aiworkbench.StoreRo
 }
 func (p workbenchChatTurnRoutes) Submit(ctx context.Context, scope aiworkbench.Scope, conversation, key, member string, input aiworkbench.ChatTurnInput) (aiworkbench.ChatTurnCommand, error) {
 	input, err := normalizeChatTurn(input)
+	if errors.Is(err, aiworkbench.ErrTitleSkillSnapshotTooLarge) {
+		// This exact snapshot cannot have passed the admission limit.
+		return aiworkbench.ChatTurnCommand{}, &aiworkbench.MessageNotAcceptedError{Cause: err}
+	}
 	if err != nil {
 		return aiworkbench.ChatTurnCommand{}, err
 	}

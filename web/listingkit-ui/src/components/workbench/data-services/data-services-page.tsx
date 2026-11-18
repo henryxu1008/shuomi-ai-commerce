@@ -13,7 +13,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CollectionDialog } from "@/components/workbench/collections/collection-page";
 import { dataRequest, DataAPIError, type DataScope } from "@/lib/api/data-services";
-import { amazonRealtimeAcquisitionAnchor, amazonRealtimeAcquisitionHref, findConsoleRoute } from "@/lib/workbench/console-navigation";
+import { amazonRealtimeAcquisitionAnchor, amazonRealtimeAcquisitionHref, findConsoleRoute, onlineAcquisitionHref } from "@/lib/workbench/console-navigation";
 import { ConsolePage } from "@/components/workbench/console/console-page";
 import { CUSTOM_INPUT_BYTE_LIMITS, KEY_NAME_MAX_BYTES, dataTextBytes, optionsSchema, customSummarySchema, overviewSchema, jobSchema, keySchema, keyCreatedSchema, keyHistorySchema, resultPageSchema, customSchema, querySchema, keyLimitsSchema, type DataOptions, type DataQuery, type DataKey, type DataJob, type CustomRequest, type Overview } from "@/lib/contracts/data-services";
 import { useDataCommand } from "./use-data-command";
@@ -45,8 +45,9 @@ export function DataNotice({ error }: {
     error: string;
 }) { return error ? <p role="alert" className="rounded-lg border border-warning-foreground bg-warning p-3 text-sm text-warning-foreground">{workbenchFailureNames[error] ?? failureNames[error] ?? "请求未完成，请刷新或核实原请求。"}</p> : null; }
 function download(value: unknown, name: string) { const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url); }
-export function DataServicesPage({ mode }: {
+export function DataServicesPage({ mode, productAcquisitionAvailable = false }: {
     mode: "market" | "api" | "amazon";
+    productAcquisitionAvailable?: boolean;
 }) {
     const context = useWorkbenchContext();
     const userId = context.user?.id, organizationId = context.effectiveOrganization?.id;
@@ -56,7 +57,7 @@ export function DataServicesPage({ mode }: {
     if (!scope || context.selectionRequired || context.error || context.blockingError)
         return <p className="p-8" role="alert">请先确认登录身份与当前企业。</p>;
     const key = `${userId}:${organizationId}`;
-    return mode === "api" ? <APIManagement key={key} scope={scope}/> : <Market key={`${key}:${mode}`} scope={scope} amazonOnly={mode === "amazon"}/>;
+    return mode === "api" ? <APIManagement key={key} scope={scope}/> : <Market key={`${key}:${mode}`} scope={scope} amazonOnly={mode === "amazon"} productAcquisitionAvailable={productAcquisitionAvailable}/>;
 }
 function Frame({ title, subtitle, actions, children, className = "" }: {
     title: string;
@@ -76,9 +77,10 @@ function Recovery({ command, onRecovered }: {
                     onRecovered(value, path);
             }}>核实／继续原请求</Button></div> : null}</>;
 }
-function Market({ scope, amazonOnly }: {
+function Market({ scope, amazonOnly, productAcquisitionAvailable }: {
     scope: DataScope;
     amazonOnly: boolean;
+    productAcquisitionAvailable: boolean;
 }) {
     const [options, setOptions] = useState<DataOptions | null>(null), [jobs, setJobs] = useState<DataJob[] | null>(null), [customs, setCustoms] = useState<z.infer<typeof customSummarySchema>[] | null>(null), [jobsError, setJobsError] = useState(""), [customsError, setCustomsError] = useState(""), [error, setError] = useState("");
     const [dialog, setDialog] = useState<"realtime" | "custom" | null>(null), [job, setJob] = useState<DataJob | null>(null), [custom, setCustom] = useState<CustomRequest | null>(null), [refresh, setRefresh] = useState(0);
@@ -161,10 +163,20 @@ function Market({ scope, amazonOnly }: {
   {error === "PERMISSION_DENIED" ? <p role="status" className="text-sm text-muted-foreground">请联系企业管理员核对“数据市场使用”和“商品资料查看”权限。</p> : null}
   {!amazonOnly ? <>
   <Card className={`${styles.card} ${styles.platform}`}>
-    <div><span className={`${styles.badge} ${!options?.acquisitionReady ? styles.neutralBadge : ""}`}>{options ? options.acquisitionReady ? "已配置 1 个来源" : "实时抓取待配置" : error ? "配置未读取" : "正在读取配置"}</span><h2>选择数据来源</h2><p>当前可使用 Amazon 产品数据，其他电商平台暂未开放。</p><div className={styles.platformTags}><span>数据平台</span><span className={styles.badge}>Amazon · 当前选择</span><span className={`${styles.badge} ${styles.neutralBadge}`}>1688 · 未开放</span><span className={`${styles.badge} ${styles.neutralBadge}`}>更多平台 · 未开放</span></div></div>
-    <dl className={styles.platformFacts}>{[["当前选择", "Amazon"], ["数据类型", "产品数据"], ["获取方式", "实时抓取 / 数据集定制"], ["交付格式", "Excel / CSV / JSON"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+    <div>
+      <span className={`${styles.badge} ${!options?.acquisitionReady ? styles.neutralBadge : ""}`}>{options ? options.acquisitionReady ? "Amazon 实时抓取已开放" : "Amazon 实时抓取待配置" : error ? "Amazon 配置未读取" : "正在读取 Amazon 配置"}</span>
+      <h2>选择数据来源</h2>
+      <p>Amazon 提供实时抓取和数据集定制。</p>
+      {productAcquisitionAvailable ? <div className={styles.platformTags}>
+        <span>已有 1688 商品链接？</span>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={onlineAcquisitionHref} prefetch={false}>采集 1688 商品</Link>
+        </Button>
+      </div> : null}
+    </div>
+    <dl className={styles.platformFacts}>{[["平台", "Amazon"], ["数据类型", "产品数据"], ["获取方式", "实时抓取 / 数据集定制"], ["交付格式", "Excel / CSV / JSON"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
   </Card>
-  <section className={styles.serviceArea}><div className={styles.sectionTitle}><h2>Amazon 产品数据获取方式</h2><p>当前已选择 Amazon，根据时效和交付要求选择不同服务。</p></div><div className={styles.services}>
+  <section className={styles.serviceArea}><div className={styles.sectionTitle}><h2>Amazon 产品数据获取方式</h2><p>根据时效和交付要求选择服务。</p></div><div className={styles.services}>
     <Card id={amazonRealtimeAcquisitionAnchor} tabIndex={-1} className={`${styles.card} ${styles.service}`}><div className={styles.serviceBadges}><span className={styles.badge}>01 · 实时获取</span><span className={styles.badge}>按成功数据计费</span></div><h3>实时数据抓取</h3><p>客户自主设置抓取条件，适合获取当前最新的 Amazon 产品数据。</p><ServiceBullets items={["选择站点、关键词、类目或 ASIN", "设置抓取数量和所需数据字段", "确认最大条数与预估费用", "成功结果自动保存到“我的数据”"]}/><div className={styles.serviceFooter}><p>按成功保存的数据条数计费</p>{newJob}</div>{unavailable}</Card>
     <Card className={`${styles.card} ${styles.service} ${styles.purple}`}><div className={styles.serviceBadges}><span className={`${styles.badge} ${styles.purpleBadge}`}>02 · 按需交付</span><span className={`${styles.badge} ${styles.purpleBadge}`}>根据需求单独报价</span></div><h3>数据集定制</h3><p>根据业务目标、字段范围和交付要求，制作专属 Amazon 产品数据集。</p><ServiceBullets purple items={["明确站点、类目、关键词与用途", "选择字段、数据规模和时间范围", "在系统中查看制作与交付进度", "专员评估需求、报价与交付周期"]}/><div className={styles.serviceFooter}><p>确认数据规格后提供报价</p><Button disabled={disabled || !options} onClick={() => setDialog("custom")}>提交定制需求 <span aria-hidden="true">→</span></Button></div></Card>
   </div></section>
@@ -209,7 +221,7 @@ function Market({ scope, amazonOnly }: {
         ? <ConsolePage title="Amazon 在线采集" breadcrumbs={findConsoleRoute(amazonRealtimeAcquisitionHref)?.trail}
             description="按 ASIN、商品链接、关键词或类目采集。成功保存的商品可在「我的数据」查看。"
             actions={<>{newJob}{myData}</>}>{content}</ConsolePage>
-        : <Frame className={styles.market} title="数据市场" subtitle="汇集主流电商平台产品数据，当前提供 Amazon 在线采集与数据集定制。"
+        : <Frame className={styles.market} title="数据市场" subtitle="采集商品数据、申请定制数据集，并查看交付记录。"
             actions={<><Button variant="outline" asChild><Link href="/workbench/data/api">API管理</Link></Button>{myData}</>}>{content}</Frame>;
 }
 function ServiceBullets({ items, purple = false }: {

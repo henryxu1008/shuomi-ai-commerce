@@ -20,7 +20,7 @@ provider remains NOT_RUN; the separate browser provider has its own executed
 result recorded in the design §12-A''.
 
 > **Provider extension approved in design, not yet implemented (2026-09-26)**:
-> [`PD-1688-SERVER-PUBLIC-BROWSER-2026-09-26`](../product/1688-server-public-browser.md)
+> [`PD-1688-SERVER-PUBLIC-BROWSER-2026-09-26`](../product/decisions/1688-server-public-browser.md)
 > and `src2b-public-browser-v1`
 > ([design](../architecture/1688-server-public-browser-acquisition.md),
 > Issue #514) admit a **second provider** for the same anonymous public contract:

@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -40,4 +42,25 @@ func TestChatTurnDoesNotInferManualSkillFromMessage(t *testing.T) {
 	require.Nil(t, input.Skill)
 	_, err = normalizeChatTurn(aiworkbench.ChatTurnInput{Content: "", Skill: &aiworkbench.ChatSkillReference{Version: 2, Digest: strings.Repeat("a", 64)}})
 	require.Error(t, err)
+}
+
+func TestOversizeChatTurnRevisionReturnsProofBeforeAcceptance(t *testing.T) {
+	ref := &aiworkbench.ChatSkillReference{Version: 2, Digest: strings.Repeat("a", 64)}
+	draft := aiworkbench.TitleSkillDraft{Name: "title", DisplayName: "Title", Description: "Title rules", Instructions: strings.Repeat("中", 16384), Script: &aiworkbench.TitleSkillScript{Description: "Format title"}}
+	raw, err := json.Marshal(draft)
+	require.NoError(t, err)
+	draft.Script.Source = strings.Repeat("a", 65537-len(raw))
+	raw, err = json.Marshal(draft)
+	require.NoError(t, err)
+	require.Len(t, raw, 65537)
+	input := aiworkbench.ChatTurnInput{Content: "Revise", Skill: ref, Revision: &aiworkbench.ChatTurnRevision{Root: uuid.NewString(), BaseRevision: uuid.NewString(), Snapshot: raw}}
+	_, err = (workbenchChatTurnRoutes{}).Submit(context.Background(), aiworkbench.Scope{}, "", "", "", input)
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	var rejected *aiworkbench.MessageNotAcceptedError
+	require.ErrorAs(t, err, &rejected)
+
+	input.Revision.Snapshot = json.RawMessage(`{"unknown":"field"}`)
+	_, err = (workbenchChatTurnRoutes{}).Submit(context.Background(), aiworkbench.Scope{}, "", "", "", input)
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	require.False(t, errors.As(err, &rejected), "unrelated validation errors keep their existing behavior")
 }

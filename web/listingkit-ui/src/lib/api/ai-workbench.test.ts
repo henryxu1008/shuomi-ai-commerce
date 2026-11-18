@@ -15,3 +15,13 @@ it.each([["SCHEDULE_COMMAND_REJECTED",409,false],["INVALID_REQUEST",400,undefine
  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({code,commandAccepted:false},{status})));
  await expect(requestAIWorkbench({route:"schedule-create",method:"POST",path:"schedules",scope:{userId:"actor",organizationId:"org"},body:{}})).rejects.toMatchObject({code,commandAccepted});
 });
+
+it.each([
+ [400,"INVALID_REQUEST",false,false],
+ [400,"INVALID_REQUEST",undefined,undefined],
+ [503,"OUTCOME_UNKNOWN",false,undefined],
+] as const)("requires explicit pre-acceptance proof for title skill turns (%s %s %s)",async(status,code,messageAccepted,visibleProof)=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({code,messageAccepted},{status})));
+ const request=requestAIWorkbench({route:"chat-turn-submit",method:"POST",path:"chat/conversations/id/turns",scope:{userId:"actor",organizationId:"org"},key:"key",body:{}});
+ await expect(request).rejects.toMatchObject({code,messageAccepted:visibleProof});
+});

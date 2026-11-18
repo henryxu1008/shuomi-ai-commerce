@@ -1229,7 +1229,10 @@ export async function buildWorkbenchBrowserResponse(
       if(!contract.startsWith("ai-schedule-")||contract==="ai-schedule-quote"||payload.commandAccepted!==false)return unavailable();
       response=new NextResponse(JSON.stringify({...await response.json(),commandAccepted:false}),{status:response.status,headers:response.headers});
     }
-    if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE","TEXT_SKILL_UNAVAILABLE","TEXT_SKILL_INPUT_LIMIT"].includes(code)){
+    const messageRejected = contract === "ai-message" &&
+      ["INVALID_REQUEST", "PROPOSAL_STALE", "TEXT_SKILL_UNAVAILABLE", "TEXT_SKILL_INPUT_LIMIT"].includes(code);
+    const turnRejected = contract === "ai-chat-turn-submit" && code === "INVALID_REQUEST";
+    if (payload.messageAccepted === false && (messageRejected || turnRejected)) {
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
     if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){

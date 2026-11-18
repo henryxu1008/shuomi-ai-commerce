@@ -4,7 +4,7 @@
 
 ## 正常启动
 
-本功能要求当前 Store Center 及其专用 PostgreSQL 数据库、既有商业资源 owner、正常 ZITADEL 身份与企业上下文。按 [Store Center 架构](../../architecture/store-center-application.md) 和 [RUN-1](../../operations/isolated-application-acceptance.md) 准备私密 owner/serving manifest；在 serving manifest 的现有 `storeCenter` 内增加 `"operationsCockpit": true`，并保留 `"enabled": true` 与原专用数据库配置。默认关闭；关闭时也禁止运行角色拥有本功能额外数据库权限。
+本功能要求当前 Store Center 及其专用 PostgreSQL 数据库、既有商业资源 owner、正常 ZITADEL 身份与企业上下文。按 [Store Center 架构](../../architecture/store-center-application.md) 和 [RUN-1](../../operations/runbooks/isolated-application-acceptance.md) 准备私密 owner/serving manifest；在 serving manifest 的现有 `storeCenter` 内增加 `"operationsCockpit": true`，并保留 `"enabled": true` 与原专用数据库配置。默认关闭；关闭时也禁止运行角色拥有本功能额外数据库权限。
 
 仅在获准的新空 Store 实例上，通过既有 schema-owner 入口安装。以下绝对配置路径为示意，须替换为已准备的私密配置文件；serving manifest 使用 `store_center_runtime`，不能使用 owner 凭据。
 

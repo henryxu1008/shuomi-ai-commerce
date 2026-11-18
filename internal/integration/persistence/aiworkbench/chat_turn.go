@@ -26,7 +26,7 @@ func decodeTurn(raw []byte) (aiworkbench.ChatTurnEnvelope, error) {
 		return envelope, aiworkbench.ErrInvalid
 	}
 	if revision := envelope.Input.Revision; revision != nil {
-		if envelope.Input.Skill == nil || envelope.Input.Skill.Version != 2 || !validKey(revision.Root) || !validKey(revision.BaseRevision) || !json.Valid(revision.Snapshot) || len(revision.Snapshot) > 65536 {
+		if envelope.Input.Skill == nil || envelope.Input.Skill.Version != 2 || !validKey(revision.Root) || !validKey(revision.BaseRevision) {
 			return envelope, aiworkbench.ErrInvalid
 		}
 		canonical, err := aiworkbench.CanonicalTitleSkillSnapshot(revision.Snapshot)

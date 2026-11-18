@@ -388,6 +388,24 @@ it("preserves a newer unsent draft when an older pending message completes", asy
   expect(JSON.parse(sessionStorage.getItem(draftKey)!).text).toBe("新草稿 Y");
 });
 
+it("restores a deferred skill revision together with the retained requirement", async () => {
+  fixture.context.aiWorkbenchChatTurnsReady = true;
+  const scopeKey = JSON.stringify(["user-a","org-a",conversationId]);
+  const snapshot = {name:"title",displayName:"标题",description:"整理",instructions:"人工编辑的草稿"};
+  const skillRevision = {skill:{version:2,digest:"a".repeat(64)},revision:{root:operationId,baseRevision:operationId,snapshot}};
+  sessionStorage.setItem("ai-workbench:conversation-draft:"+scopeKey,JSON.stringify({id:conversationId,text:"继续修改",skillRevision}));
+  sessionStorage.setItem("ai-workbench:resolved-draft:"+scopeKey,JSON.stringify({id:operationId,text:""}));
+  fixture.request.mockImplementation(async ({route}) => {
+    if(route==="conversation-read")return {conversation:{...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""};
+    throw new AIWorkbenchError("OUTCOME_UNKNOWN");
+  });
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:"使用保留的需求"}));
+  expect(screen.getByLabelText("需求")).toHaveValue("继续修改");
+  fireEvent.click(screen.getByText("编辑保留的技能草稿"));
+  expect(screen.getByLabelText("正文")).toHaveValue(snapshot.instructions);
+});
+
 it.each(["COMPLETE","FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT","PLANNER_UNKNOWN"] as const)("keeps a separate same-text draft after pending message ends as %s", async state => {
   fixture.context.aiWorkbenchExecutionKind="product.content.localize";
   const key=`ai-workbench:conversation-draft:${JSON.stringify(["user-a","org-a",conversationId])}`;
@@ -1433,4 +1451,77 @@ it("preserves the project and acquisition context when going from a conversation
   for(const key of [...fixture.search.keys()])fixture.search.delete(key);
   for(const [key,value] of prior)fixture.search.append(key,value);
  }
+});
+
+it("does not record or submit a new oversized UTF-8 title skill revision",async()=>{
+ fixture.context.aiWorkbenchChatTurnsReady=true;
+ fixture.context.aiWorkbenchChatIntentReadiness="AVAILABLE";
+ const scoped={...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+ const messages=[{ID:operationId,ConversationID:conversationId,Sequence:1,Author:"ASSISTANT",Content:"技能",CreatedAt:conversation.CreatedAt,kind:"AGENT_SKILL_REF",turnKey:operationId}];
+ const packageDraft={name:"title",displayName:"标题",description:"整理",instructions:"规".repeat(16384),script:{description:"格式化",source:"<".repeat(4096)}};
+ const skill={version:2,digest:"a".repeat(64)};
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation:scoped,messages,proposals:[],before:""};
+  if(route==="chat-turn-read")return {state:"COMPLETE",kind:"CREATE_TITLE_SKILL",skill,authoring:{key:operationId,generationKey:operationId,revision:operationId,state:"COMPLETE",requirement:"生成",billing:"committed",savePending:false,savedSkillId:null,draft:packageDraft}};
+  if(route==="skill-authoring-validate")return {valid:true};
+  throw new AIWorkbenchError("INVALID_REQUEST",false);
+ });
+ render(tree());
+ fireEvent.click(await screen.findByRole("button",{name:"让 Chat 修改"}));
+ const input=screen.getByLabelText("需求");
+ fireEvent.change(input,{target:{value:"补充要求"}});
+ const send=screen.getByRole("button",{name:"发送消息"});
+ await waitFor(()=>expect(send).toBeEnabled());
+ fireEvent.click(send);
+ expect(await screen.findByText(/请缩短正文或 Python 代码/)).toBeVisible();
+ expect(input).toHaveValue("补充要求");
+ expect(input).toBeEnabled();
+ expect(fixture.request.mock.calls.some(([request])=>request.route==="chat-turn-submit")).toBe(false);
+ expect(sessionStorage.getItem("ai-workbench:pending-message-v2:"+JSON.stringify(["user-a","org-a",conversationId]))).toBeNull();
+});
+
+it.each([false,undefined] as const)("uses only explicit nonacceptance proof to unlock a stored revision (%s)",async proof=>{
+ fixture.context.aiWorkbenchChatTurnsReady=true;
+ fixture.context.aiWorkbenchChatIntentReadiness="AVAILABLE";
+ const scoped={...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}};
+ const pendingKey="ai-workbench:pending-message-v2:"+JSON.stringify(["user-a","org-a",conversationId]);
+ const body={content:"保留此需求",skill:{version:2,digest:"a".repeat(64)},revision:{root:operationId,baseRevision:operationId,snapshot:{name:"title",displayName:"标题",description:"整理",instructions:"中".repeat(16384),script:{description:"格式化",source:"a".repeat(16384)}}}};
+ sessionStorage.setItem(pendingKey,JSON.stringify({key:operationId,body,route:"chat-turn",owner:{userId:"user-a",organizationId:"org-a"},conversationId}));
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation:scoped,messages:[],proposals:[],before:""};
+  if(route==="chat-turn-submit")throw new AIWorkbenchError("INVALID_REQUEST",proof);
+  throw new AIWorkbenchError("OUTCOME_UNKNOWN");
+ });
+ const view=render(tree());
+ const retry=await screen.findByRole("button",{name:"重试同一消息"});
+ await waitFor(()=>expect(retry).toBeEnabled());
+ fireEvent.click(retry);
+ await waitFor(()=>expect(fixture.request).toHaveBeenCalledWith(expect.objectContaining({route:"chat-turn-submit",key:operationId,body})));
+ if(proof===false){
+  await screen.findByRole("button",{name:"发送消息"});
+  expect(screen.getByLabelText("需求")).toBeEnabled();
+  expect(sessionStorage.getItem(pendingKey)).toBeNull();
+  view.unmount();
+  render(tree());
+  expect(await screen.findByText("修改当前技能草稿")).toBeVisible();
+  fireEvent.click(screen.getByText("编辑保留的技能草稿"));
+  const instructions=screen.getByLabelText("正文");
+  expect(instructions).toHaveValue(body.revision.snapshot.instructions);
+  fireEvent.click(screen.getByText("查看代码"));
+  expect(screen.getByLabelText("Python 代码")).toHaveValue(body.revision.snapshot.script.source);
+  fireEvent.change(instructions,{target:{value:"保留品牌和型号"}});
+  fireEvent.change(screen.getByLabelText("需求"),{target:{value:"补充原要求"}});
+  const send=screen.getByRole("button",{name:"发送消息"});
+  await waitFor(()=>expect(send).toBeEnabled());
+  fireEvent.click(send);
+  await waitFor(()=>expect(fixture.request).toHaveBeenCalledWith(expect.objectContaining({
+   route:"chat-turn-submit",key:expect.not.stringMatching(operationId),
+   body:{...body,content:"补充原要求",revision:{...body.revision,snapshot:{...body.revision.snapshot,instructions:"保留品牌和型号"}}},
+  })));
+ }else{
+  expect(await screen.findByRole("button",{name:"重试同一消息"})).toBeVisible();
+  expect(screen.getByLabelText("需求")).toBeDisabled();
+  expect(JSON.parse(sessionStorage.getItem(pendingKey)!).body).toEqual(body);
+ }
+ expect(screen.getByLabelText("需求")).toHaveValue(proof===false?"补充原要求":body.content);
 });

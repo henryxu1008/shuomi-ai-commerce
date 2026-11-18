@@ -54,7 +54,7 @@ cd web/listingkit-ui
 pnpm exec next dev --hostname 127.0.0.1 --port <console-port>
 ```
 
-真实 OAuth 需要获批的 HTTPS 回调；上述 loopback 开发命令本身不满足平台回调或对外开放条件。已有 [current application 说明](../isolated-application-acceptance.md) 只用于理解启动合同，不授权扩展其保留实例。
+真实 OAuth 需要获批的 HTTPS 回调；上述 loopback 开发命令本身不满足平台回调或对外开放条件。已有 [current application 说明](../runbooks/isolated-application-acceptance.md) 只用于理解启动合同，不授权扩展其保留实例。
 
 ## 数据与限制
 
