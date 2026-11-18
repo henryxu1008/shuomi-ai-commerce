@@ -37,7 +37,7 @@
 ## AI 工作与企业配置
 
 - 标题与图片：[Product Agent](product-agent-trial.md)、[图片智能体](product-image-agent.md)、[Chat 到业务任务](ai-workbench-chat-trial.md)。
-- 预约与周期内容建议：[定时任务 V1](ai-workbench-scheduled-tasks.md)。
+- 预约与周期内容建议：[定时任务 V1](user-guides/ai-workbench-scheduled-tasks.md)。
 - 工作组织：[项目中心](user-guides/project-center.md)、[统一任务中心](../engineering/unified-task-center.md)。
 - 配置与授权：[企业智能体](user-guides/organization-agent-configuration.md)、[执行权限模式](enterprise-agent-permission-modes.md)、[Skill](user-guides/skill-capability.md)。
 - 定制交付：[智能体定制](user-guides/agent-customization-handoff.md)。
@@ -48,8 +48,8 @@
 ## 店铺、工具与服务
 
 - 店铺读取：[商品与订单观察接线](../engineering/store-observations-integration-handoff.md)。
-- 订单、采购与仓库履约：[首版运行与保存/恢复](order-fulfillment.md)、[独立合成试用](order-fulfillment-synthetic-trial.md)。合成环境、真实平台联调和生产分别取证；环境操作按当前授权执行。
-- 平台专项：[TEMU](user-guides/temu-store-connection.md)、[TikTok Shop 美国站](tiktok-shop-us.md)、[Walmart 美国站](walmart-us.md)。各文档的候选、未开放和恢复限制继续适用。
+- 订单、采购与仓库履约：[首版运行与保存/恢复](user-guides/order-fulfillment.md)、[独立合成试用](runbooks/order-fulfillment-synthetic-trial.md)。合成环境、真实平台联调和生产分别取证；环境操作按当前授权执行。
+- 平台专项：[TEMU](user-guides/temu-store-connection.md)、[TikTok Shop 美国站](user-guides/tiktok-shop-us.md)、[Walmart 美国站](user-guides/walmart-us.md)。各文档的候选、未开放和恢复限制继续适用。
 - 平台服务：[工具市场](user-guides/tool-market.md)、[数据服务](../engineering/data-services-runtime-handoff.md)、[生态服务](user-guides/ecosystem-services.md)。
 - 阅读与诊断：[官方知识](../engineering/official-knowledge-handoff.md)、[个人报告](../engineering/report-center-runtime-handoff.md)、[经营诊断](../engineering/shop-operations-diagnosis-handoff.md)、[运营驾驶舱](../engineering/operations-cockpit-runtime-handoff.md)。
 - 通知：[通知中心](runbooks/notification-center-trial.md)。
