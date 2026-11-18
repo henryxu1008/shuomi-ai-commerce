@@ -69,6 +69,6 @@ Refs #324；BFF 与跨进程 fixture 由 #323 独占，见 [BFF 合同和启动�
 
 ## 产品与文件边界
 
-Authority：[最终 UI / IA](../product/final-ui-ia-authority.md) 与 #324 批准的有界深链。本页沿用现有 Shell 视觉变量，不宣称逐像素还原 Figma 或完成整体最终 Shell。
+Authority：[最终 UI / IA](../../product/final-ui-ia-authority.md) 与 #324 批准的有界深链。本页沿用现有 Shell 视觉变量，不宣称逐像素还原 Figma 或完成整体最终 Shell。
 
 #324 只拥有页面、`components/workbench/shein-diagnostic`、UI 测试/fixture 和本说明。#323 的 schema/client/proxy、专用 API route、Go 跨进程 fixture 与启动脚本通过依赖提交消费，修复仍归 #323 owner。测试替身从不进入客户运行路径。

@@ -1,7 +1,7 @@
 # Local Account Center：新关闭态候选的配置差异
 
 状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
-应用固定f337521d0；既有原身份运行配置/数据库元数据只读核查见[新通道实际差异与最小方案](channel-contract-f337-readonly-review.md)，本轮在其范围上整理design-only候选，不重做现场操作。原离线实现与CI记录仍绑定各自准确SourceRef，见PR #1075。
+应用固定f337521d0；既有原身份运行配置/数据库元数据只读核查见[新通道实际差异与最小方案](integration/channel-contract-f337-readonly-review.md)，本轮在其范围上整理design-only候选，不重做现场操作。原离线实现与CI记录仍绑定各自准确SourceRef，见PR #1075。
 后续已取得原公共owner的ACK1075-INSTALL；另名新空Run的安装入口仍需最小补丁，见[design-only候选](new-run-ledger-installer-design.md)。角色合同已确认，实际安装操作者/权限未确认；不将候选设计写成可执行入口。
 已按[数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)独立检查并在编码前达到IMPLEMENTATION_READY。
 本页为去密审查差异，不含配置正文或发布授权。原a66继续运行；不自行提权、不改凭据、不发布配置、
@@ -95,7 +95,7 @@ SHA256 194B770F10B165768959CFC9B678D99F8F1BFECF4FA65387B87C02CFFF0786EC；Window
 
 - 已完成：设计准入、关闭态最小实现、相关RED→GREEN、原启用恢复及合成研究→选品→人工交接回归。证据在.local/data-services-disabled-20261104-01/及PR #1075。
 - 已完成的原1e标准镜像保留为准确旧来源证据，不包含本轮采集关闭与#1089，不作为新候选产物。
-- 已完成：原身份只读元数据核查，确认现库与#1089不符；具体证据及去密差异见[本轮核查](channel-contract-f337-readonly-review.md)。
+- 已完成：原身份只读元数据核查，确认现库与#1089不符；具体证据及去密差异见[本轮核查](integration/channel-contract-f337-readonly-review.md)。
 - 尚未执行：新空Run资源/安装、实际私密配置的f337严格解析和真实装配、新镜像构建、配置发布、两服务更新与正常登录管理/历史读取；现库不具备管理schema准入。
 - 真实执行仍未授权：共享参考价/完整三类选择/模式/通道准入及ai_invocations执行合同各按原owner处理，不迁移旧数据，不改凭据或真实试连。
 
