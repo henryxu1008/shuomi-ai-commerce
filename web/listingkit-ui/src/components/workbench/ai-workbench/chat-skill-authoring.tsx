@@ -12,6 +12,7 @@ import { AIWorkbenchError, requestAIWorkbench, type AIScope } from "@/lib/api/ai
 import { type AISkillAuthoringChoice, type AISkillAuthoringJob, type AITitleSkillDraft } from "@/lib/contracts/ai-workbench";
 import { AccountDialog } from "../account/account-dialog";
 import styles from "./chat-skill-authoring.module.css";
+import type {SkillCategory} from "../skills/skill-library-page";
 import type {SkillVersion} from "@/lib/contracts/skill";
 import {ChatLibrarySkillOptions} from "./chat-library-skill";
 
@@ -32,6 +33,8 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
   onSelectLibrary?: (v:SkillVersion) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [category,setCategory]=useState<"all"|SkillCategory>("all");
+  const official=category==="all"||category==="official";
   const catalog = useCatalog(scope, authorizationKey, open);
   const trigger = useRef<HTMLButtonElement>(null);
   const skill = catalog.isSuccess ? catalog.data.skill : null;
@@ -40,7 +43,8 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
     {open ? <AccountDialog title="选择技能" drawer className={styles.skillDrawer} onClose={() => setOpen(false)} returnFocusRef={trigger}>
       <div className={styles.drawerContent}>
         <p className={styles.drawerIntro}>选择已有技能处理商品，或在 Chat 中创建新技能。</p>
-        {catalog.isFetching ? <p role="status">正在读取可用技能…</p>
+        <div role="group" aria-label="技能分类" className="flex flex-wrap gap-2">{([["all","全部"],["official","官方模板"],["mine","我的技能"],["team","团队技能"]] as const).map(([value,label])=><Button key={value} size="sm" variant={category===value?"default":"outline"} aria-pressed={category===value} onClick={()=>setCategory(value)}>{label}</Button>)}</div>
+        {official && <>{catalog.isFetching ? <p role="status">正在读取可用技能…</p>
           : catalog.isError ? <><p role="alert">技能暂不可用，请重试。</p><Button variant="outline" onClick={() => void catalog.refetch()}>重新读取</Button></>
           : skill ? <><Button variant="outline" className={styles.skillChoice}
             disabled={!catalog.data?.ready} onClick={() => { onSelect(skill); setOpen(false); }}>
@@ -48,8 +52,8 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
             <span className={styles.skillChoiceText}><span><strong>{skill.name}</strong><small>官方 v{skill.version}</small></span><span>{skill.description}</span></span>
             <ChevronRight size={16} aria-hidden="true" />
           </Button>{!catalog.data?.ready && <p role="status">当前企业的技能创作模型尚未就绪。</p>}</>
-          : <p>当前没有可用的创作技能。</p>}
-        {onSelectLibrary && <ChatLibrarySkillOptions scope={scope} authorizationKey={authorizationKey} onSelect={v=>{onSelectLibrary(v);setOpen(false);}}/>}
+          : <p>当前没有可用的创作技能。</p>}</>}
+        {onSelectLibrary && <ChatLibrarySkillOptions category={category} scope={scope} authorizationKey={authorizationKey} onSelect={v=>{onSelectLibrary(v);setOpen(false);}}/>}
         <div className={styles.drawerFooter}>
           {onResume && <Button variant="outline" onClick={() => { onResume(); setOpen(false); }}>查看本会话的技能草稿</Button>}
           <Button asChild variant="link"><Link href="/workbench/agents/skills/mine">管理我的技能</Link></Button>
