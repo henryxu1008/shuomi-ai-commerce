@@ -33,14 +33,14 @@ func TestSheinImportDocumentBindsExistingOwnersAndExplicitConfirmation(t *testin
 }
 
 func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "own-product-draft-entry.md"), []string{
 		"Reuse Existing Architecture", "BatchSelectionInput.ItemIDs", "expectedRevision", "先于确认资料",
 		"不自动执行Save", "UNKNOWN", "retained-source", "原owner安装合同", "不引入新的能力开关",
 	})
 }
 
 func TestOwnProductExistingDraftsDocumentKeepsBoundedReadAndNavigationAuthority(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "own-product-existing-drafts.md"), []string{
 		"Independent Architecture", "ListForCollectionItem", "org/actor/member", "2MiB", "keyset",
 		"不建反向映射或第二事实源", "不新增每行IAM", "导航按钮不能授权", "不是“自动过期/不可用”",
 		"原sourceID", "不接受完整return URL", "只列已明确保存", "UNKNOWN", "不代签用户/生产验收",

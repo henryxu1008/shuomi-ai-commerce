@@ -12,7 +12,7 @@ Refs #704；Design Basis: Independent Architecture。Admission: IMPLEMENTATION_R
 
 2026-10-15用户批准：先明确待补全草稿历史读取、权限和比较范围，再实现保存历史、旧版详情、差异对比；独立页面；保留返回草稿、商品和批次上下文；复用CompletionDraft保存记录。
 
-操作人多次保存候选标题/描述后，可以查看准确Rn并比较同一草稿两个已保存版本。依据：[未绑定草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[原草稿合同](../../supply-unbound-completion-drafts.md)、[已有草稿和导航](../../own-product-existing-drafts.md)、已合并#700/#697和本次用户决定。本增量取代原合同中“本轮不开放草稿历史record接口”的阶段范围，原保存和平台边界继续适用。
+操作人多次保存候选标题/描述后，可以查看准确Rn并比较同一草稿两个已保存版本。依据：[未绑定草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[原草稿合同](../../supply-unbound-completion-drafts.md)、[已有草稿和导航](own-product-existing-drafts.md)、已合并#700/#697和本次用户决定。本增量取代原合同中“本轮不开放草稿历史record接口”的阶段范围，原保存和平台边界继续适用。
 
 UI/IA沿[Final UI Authority](../../../product/final-ui-ia-authority.md)，Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`，待补全`2667:1948`；用户明确独立页。沿当前Console、表格、主题tokens和原草稿入口，不新增一级菜单，不伪称已有历史frame。
 
