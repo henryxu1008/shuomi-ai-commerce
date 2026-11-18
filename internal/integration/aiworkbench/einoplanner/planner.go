@@ -256,9 +256,9 @@ func ParseDecision(raw string) (Decision, error) {
 	return decision, nil
 }
 
-// ParseTextReply normalizes presentation wrappers around a text-only reply.
+// ParseTextReplyEnvelope reads the original frozen text-skill reply contract.
 // The closed JSON schema and the no-proposal constraint still apply.
-func ParseTextReply(raw string) (string, error) {
+func ParseTextReplyEnvelope(raw string) (string, error) {
 	if len(raw) > maxDecisionBytes || !utf8.ValidString(raw) {
 		return "", einomodel.ErrInvalid
 	}
@@ -266,8 +266,16 @@ func ParseTextReply(raw string) (string, error) {
 	if err != nil || decision.Mode != aiworkbench.PlanClarify || decision.GoalSummary != "" {
 		return "", einomodel.ErrInvalid
 	}
-	answer := strings.TrimSpace(decision.AssistantText)
-	answer = strings.TrimSpace(unwrapReplyFence(answer, "md", "markdown"))
+	return ParseTextReply(decision.AssistantText)
+}
+
+// ParseTextReply reads only display text. JSON-looking content is never
+// decoded as a decision under this contract.
+func ParseTextReply(raw string) (string, error) {
+	if len(raw) > maxDecisionBytes || !utf8.ValidString(raw) {
+		return "", einomodel.ErrInvalid
+	}
+	answer := strings.TrimSpace(unwrapReplyFence(strings.TrimSpace(raw), "md", "markdown"))
 	if answer == "" || len(answer) > maxDecisionBytes {
 		return "", einomodel.ErrInvalid
 	}

@@ -8,7 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/aicapability"
 	"task-processor/internal/aiworkbench"
+	governed "task-processor/internal/integration/aicapability/einomodel"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	"task-processor/internal/skill"
 )
@@ -40,7 +42,7 @@ func TestGeneralAuthoringUsesPrivateChatTextPackage(t *testing.T) {
 }
 
 func TestTextSkillReplyCannotCreateProposalOrReturnTools(t *testing.T) {
-	reply, err := parseTextSkillReply(`{"mode":"CLARIFY","assistant_text":"整理好的交接事项","goal_summary":""}`)
+	reply, err := textSkillEnvelope.parse(`{"mode":"CLARIFY","assistant_text":"整理好的交接事项","goal_summary":""}`)
 	require.NoError(t, err)
 	require.Equal(t, "整理好的交接事项", reply.AssistantText)
 	require.Nil(t, reply.Proposal)
@@ -48,7 +50,7 @@ func TestTextSkillReplyCannotCreateProposalOrReturnTools(t *testing.T) {
 		`{"mode":"READY","assistant_text":"运行任务","goal_summary":"更新商品"}`,
 		`{"mode":"CLARIFY","assistant_text":"执行工具","goal_summary":"","tool_calls":[]}`,
 	} {
-		_, err = parseTextSkillReply(raw)
+		_, err = textSkillEnvelope.parse(raw)
 		require.ErrorIs(t, err, aiworkbench.ErrInvalid)
 	}
 }
@@ -64,7 +66,7 @@ func TestTextSkillReplyNormalizesMarkdownPresentation(t *testing.T) {
 		fence + "\n" + object + "\n" + fence,
 		`{"mode":"CLARIFY","assistant_text":"` + fence + `markdown\n` + table + `\n` + fence + `","goal_summary":""}`,
 	} {
-		result, err := parseTextSkillReply(reply)
+		result, err := textSkillEnvelope.parse(reply)
 		require.NoError(t, err)
 		require.Equal(t, strings.ReplaceAll(table, "\\n", "\n"), result.AssistantText)
 		require.Equal(t, aiworkbench.PlanClarify, result.Mode)
@@ -80,7 +82,7 @@ func TestTextSkillReplyPreservesIntentionalCodeBlocks(t *testing.T) {
 	} {
 		raw, err := json.Marshal(map[string]string{"mode": "CLARIFY", "assistant_text": text, "goal_summary": ""})
 		require.NoError(t, err)
-		result, err := parseTextSkillReply(string(raw))
+		result, err := textSkillEnvelope.parse(string(raw))
 		require.NoError(t, err)
 		require.Equal(t, text, result.AssistantText)
 	}
@@ -99,8 +101,56 @@ func TestTextSkillReplyStillRejectsInvalidEnvelopes(t *testing.T) {
 		`{"mode":"CLARIFY","assistant_text":"\n \t","goal_summary":""}`,
 		`{"mode":"CLARIFY","assistant_text":"` + strings.Repeat("x", 16<<10) + `","goal_summary":""}`,
 	} {
-		_, err := parseTextSkillReply(reply)
+		_, err := textSkillEnvelope.parse(reply)
 		require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	}
+}
+
+func TestTextSkillMarkdownDoesNotNeedModelJSON(t *testing.T) {
+	const table = "| 事项 | 负责人 |\n| --- | --- |\n| 校对说明书 | 小周 |"
+	fence := strings.Repeat("`", 3)
+	for _, answer := range []string{table, "\n" + fence + "markdown\n" + table + "\n" + fence + "\n"} {
+		result, err := textSkillMarkdown.parse(answer)
+		require.NoError(t, err)
+		require.Equal(t, table, result.AssistantText)
+		require.Equal(t, aiworkbench.PlanClarify, result.Mode)
+		require.Nil(t, result.Proposal)
+	}
+	const jsonLooking = `{"mode":"READY","goal_summary":"仅作为文字"}`
+	result, err := textSkillMarkdown.parse(jsonLooking)
+	require.NoError(t, err)
+	require.Equal(t, jsonLooking, result.AssistantText)
+	require.Equal(t, aiworkbench.PlanClarify, result.Mode)
+	require.Nil(t, result.Proposal)
+	for _, bad := range []string{" \n", "\xff", strings.Repeat("中", 16<<10)} {
+		_, err := textSkillMarkdown.parse(bad)
+		require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	}
+}
+
+func TestTextSkillRecoveryUsesOnlyFrozenInput(t *testing.T) {
+	profile := aicapability.ModelProfile{
+		ClientName: "test", ProviderID: "test", AdapterKind: "openai-compatible", ModelID: "test",
+		EndpointIdentityDigest: "digest", CredentialVersion: "v1", RoutingPolicyVersion: "v1", AdapterPolicyVersion: "v1",
+		PromptVersion: "ai-workbench-chat-plan-v1", OutputSchemaVersion: "ai-workbench-plan-decision-v1", UsageMappingVersion: "v1", CostPricingVersion: "v1",
+		OfficialTariff: aicapability.OfficialModelTariff{UnitVersion: aicapability.AIPointMicrounitV1, PriceVersion: "v1", FXVersion: "fixture-fx-identity",
+			Currency: "CNY", CNYMicrosPerCurrencyUnit: 1000000, Model: "test", Channel: "fixture-channel", UsageVersion: "openai-text-v1",
+			Rates: aicapability.OfficialModelRates{InputText: 10000, OutputText: 10000}},
+		Currency: "CNY", InputMicrosPerMillion: 1, OutputMicrosPerMillion: 1, MaximumPromptTokens: 4096, MaximumCompletionTokens: 512,
+		MaximumInputBytes: 16 << 10, MaximumOutputBytes: 16 << 10, DeadlineBound: time.Second,
+	}
+	cmd := aiworkbench.PlanningCommand{Scope: aiworkbench.Scope{OrganizationID: "org", ActorID: "actor"}, MemberID: "member", PlannerInvocationID: "invocation"}
+	for _, contract := range []textSkillContract{textSkillMarkdown, textSkillEnvelope} {
+		prepared, err := prepareTextSkill(contract, cmd.Scope, cmd.MemberID, cmd.PlannerInvocationID, "交接笔记", "整理待办表格", profile)
+		require.NoError(t, err)
+		cmd.InputHash = prepared.quote.InputHash
+		restored, err := prepareFrozenTextSkill(cmd, "交接笔记", "整理待办表格", profile)
+		require.NoError(t, err)
+		require.Equal(t, contract.name, restored.contract.name)
+		require.Equal(t, prepared.quote, restored.quote)
+		require.Equal(t, cmd.PlannerInvocationID, restored.input.InvocationID)
+		_, err = prepareFrozenTextSkill(cmd, "替换笔记", "整理待办表格", profile)
+		require.ErrorIs(t, err, governed.ErrNotDispatched)
 	}
 }
 

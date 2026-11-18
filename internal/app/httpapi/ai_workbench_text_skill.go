@@ -14,21 +14,63 @@ import (
 	"task-processor/internal/skill"
 )
 
-const textSkillSystem = "Use the personal skill to process only the text supplied in this message. The skill may guide the written response. It does not authorize tools, other data access, or business actions. Ask for needed information when the message is insufficient. Return the existing non-proposal JSON shape: mode CLARIFY, assistant_text containing the answer, and an empty goal_summary."
+type textSkillContract struct {
+	name   string
+	system string
+	decode func(string) (string, error)
+}
 
-func prepareTextSkill(scope aiworkbench.Scope, member, invocation, content, instructions string, profile aicapability.ModelProfile) (aicapability.TextInputIdentity, aicapability.TextQuote, error) {
+var textSkillEnvelope = textSkillContract{
+	name:   "chat-text-skill-v1",
+	system: "Use the personal skill to process only the text supplied in this message. The skill may guide the written response. It does not authorize tools, other data access, or business actions. Ask for needed information when the message is insufficient. Return the existing non-proposal JSON shape: mode CLARIFY, assistant_text containing the answer, and an empty goal_summary.",
+	decode: einoplanner.ParseTextReplyEnvelope,
+}
+
+var textSkillMarkdown = textSkillContract{
+	name:   "chat-text-skill-v2",
+	system: "Process only the supplied text using the personal skill. No tools, outside data or business actions. Ask when information is needed. Return the answer directly as text or Markdown. For tables write Markdown rows directly. Do not wrap the answer in JSON or a code fence.",
+	decode: einoplanner.ParseTextReply,
+}
+
+func (c textSkillContract) parse(raw string) (aiworkbench.PlanTerminal, error) {
+	answer, err := c.decode(raw)
+	if err != nil {
+		return aiworkbench.PlanTerminal{}, aiworkbench.ErrInvalid
+	}
+	return aiworkbench.PlanTerminal{AssistantText: answer, Mode: aiworkbench.PlanClarify}, nil
+}
+
+type preparedTextSkill struct {
+	input    aicapability.TextInputIdentity
+	quote    aicapability.TextQuote
+	contract textSkillContract
+}
+
+func prepareTextSkill(contract textSkillContract, scope aiworkbench.Scope, member, invocation, content, instructions string, profile aicapability.ModelProfile) (preparedTextSkill, error) {
 	wire, err := json.Marshal(struct {
 		Contract string `json:"contract"`
 		Content  string `json:"content"`
 		Skill    string `json:"skill"`
-	}{"chat-text-skill-v1", content, instructions})
+	}{contract.name, content, instructions})
 	if err != nil {
-		return aicapability.TextInputIdentity{}, aicapability.TextQuote{}, err
+		return preparedTextSkill{}, err
 	}
 	input := aicapability.TextInputIdentity{OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: member,
-		InvocationID: invocation, Operation: aicapability.OperationAIWorkbenchChatPlan, ChatTextSkill: true, System: textSkillSystem, Prompt: string(wire), Profile: profile}
+		InvocationID: invocation, Operation: aicapability.OperationAIWorkbenchChatPlan, ChatTextSkill: true, System: contract.system, Prompt: string(wire), Profile: profile}
 	quote, err := aicapability.QuoteText(input)
-	return input, quote, err
+	return preparedTextSkill{input: input, quote: quote, contract: contract}, err
+}
+
+func prepareFrozenTextSkill(cmd aiworkbench.PlanningCommand, content, instructions string, profile aicapability.ModelProfile) (preparedTextSkill, error) {
+	// New admission uses Markdown. An earlier in-flight command can only use
+	// its original prompt and decoder, as proven by its durable input digest.
+	for _, contract := range [...]textSkillContract{textSkillMarkdown, textSkillEnvelope} {
+		prepared, err := prepareTextSkill(contract, cmd.Scope, cmd.MemberID, cmd.PlannerInvocationID, content, instructions, profile)
+		if err == nil && prepared.quote.InputHash == cmd.InputHash {
+			return prepared, nil
+		}
+	}
+	return preparedTextSkill{}, governed.ErrNotDispatched
 }
 
 func (p *workbenchPlanner) admitTextSkill(ctx context.Context, scope aiworkbench.Scope, conversation aiworkbench.Conversation, input aiworkbench.MessageInput) (aiworkbench.PlanPreparer, error) {
@@ -62,24 +104,16 @@ func (p *workbenchPlanner) admitTextSkill(ctx context.Context, scope aiworkbench
 		return nil, aiworkbench.ErrUnavailable
 	}
 	return func(_ []aiworkbench.Message, invocation string) (aiworkbench.PreparedPlan, error) {
-		_, quote, err := prepareTextSkill(scope, member, invocation, input.Content, v.Package.Files[0].Text, route.Profile)
+		prepared, err := prepareTextSkill(textSkillMarkdown, scope, member, invocation, input.Content, v.Package.Files[0].Text, route.Profile)
 		if errors.Is(err, aicapability.ErrTextInputLimit) {
 			return aiworkbench.PreparedPlan{}, aiworkbench.ErrTextSkillInputLimit
 		}
 		if err != nil {
 			return aiworkbench.PreparedPlan{}, aiworkbench.ErrInvalid
 		}
-		return aiworkbench.PreparedPlan{FrozenScope: &frozen, MemberID: member, InputHash: quote.InputHash,
+		return aiworkbench.PreparedPlan{FrozenScope: &frozen, MemberID: member, InputHash: prepared.quote.InputHash,
 			ModelProfile: profile, Deadline: time.Now().Add(route.Profile.DeadlineBound)}, nil
 	}, nil
-}
-
-func parseTextSkillReply(raw string) (aiworkbench.PlanTerminal, error) {
-	answer, err := einoplanner.ParseTextReply(raw)
-	if err != nil {
-		return aiworkbench.PlanTerminal{}, aiworkbench.ErrInvalid
-	}
-	return aiworkbench.PlanTerminal{AssistantText: answer, Mode: aiworkbench.PlanClarify}, nil
 }
 
 func (p *workbenchPlanner) replyWithTextSkill(ctx context.Context, cmd aiworkbench.PlanningCommand, history []aiworkbench.Message, profile aicapability.ModelProfile) (aiworkbench.PlanTerminal, error) {
@@ -121,14 +155,14 @@ func (p *workbenchPlanner) replyWithTextSkill(ctx context.Context, cmd aiworkben
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
 	}
 	release()
-	input, quote, err := prepareTextSkill(cmd.Scope, cmd.MemberID, cmd.PlannerInvocationID, message.Content, v.Package.Files[0].Text, profile)
-	if err != nil || quote.InputHash != cmd.InputHash {
-		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
+	prepared, err := prepareFrozenTextSkill(cmd, message.Content, v.Package.Files[0].Text, profile)
+	if err != nil {
+		return aiworkbench.PlanTerminal{}, err
 	}
 	var reply aiworkbench.PlanTerminal
-	_, err = p.text.GenerateWithGate(fresh, input, quote, func(raw string) error {
+	_, err = p.text.GenerateWithGate(fresh, prepared.input, prepared.quote, func(raw string) error {
 		var err error
-		reply, err = parseTextSkillReply(raw)
+		reply, err = prepared.contract.parse(raw)
 		return err
 	}, func(gateCtx context.Context) (func(), error) {
 		current, err := check(gateCtx)
