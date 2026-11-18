@@ -157,6 +157,6 @@ UI 继续以 [当前 Product Authority](final-ui-ia-authority.md) 和[两个入�
 
 ## 7. 当前交接
 
-本轮只增加规划和引用记录，不改生产代码、不更新 `task-processor-unified-20261010`。最近已核实的 UI 为 a2d12ec54，后端 ad3ed151d；已完成的业务文案源码 54fb58983 和镜像仍保留待后续决定，不因本轮选了“规划多平台”就获得更新实例授权。准确证据见[运行交接](../engineering/market-research-runtime-handoff.md)。
+本轮只增加规划和引用记录，不改生产代码、不更新 `task-processor-unified-20261010`。最近已核实的 UI 为 a2d12ec54，后端 ad3ed151d；已完成的业务文案源码 54fb58983 和镜像仍保留待后续决定，不因本轮选了“规划多平台”就获得更新实例授权。准确证据见[运行交接](../engineering/integration/market-research-runtime-handoff.md)。
 
 公开资料查阅不包含任何平台业务 API 请求。实际开发者准入、账号资格、费用和数据许可未核实的部分保持 UNKNOWN；新平台实现、真实业务验收和用户验收均 NOT_RUN。不合并、不部署、不关闭 Issue。
