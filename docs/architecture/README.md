@@ -226,8 +226,8 @@
 - `product-image-visual-analysis.md` — [商品图片单图视觉分析：C2-2（限定工程检查已完成；运行与产品验收 NOT_RUN）](product-image-visual-analysis.md)
 - `domains/listing/listing-candidate-category-rules.md` — [SHEIN 候选类目规则查询与只读解释：C3-2（R1 冻结，IMPLEMENTATION_READY）](domains/listing/listing-candidate-category-rules.md)
 - `enterprise-agent-permission-modes.md` — [企业智能体权限与审批模式 V1](enterprise-agent-permission-modes.md)
-- `official-knowledge-provenance.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](official-knowledge-provenance.md)
-- `official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](official-knowledge.md)
+- `domains/workbench/official-knowledge-provenance.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](domains/workbench/official-knowledge-provenance.md)
+- `domains/workbench/official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](domains/workbench/official-knowledge.md)
 - `domains/ai/official-skill-product-entry.md` — [官方技能直接处理已有商品](domains/ai/official-skill-product-entry.md)
 - `domains/ai/official-skill-automatic-preparation.md` — [官方技能模板自动准备](domains/ai/official-skill-automatic-preparation.md)
 - `domains/workbench/task-center-summary.md` — [任务中心统一统计](domains/workbench/task-center-summary.md)
@@ -284,7 +284,7 @@
 - `chat-general-text-skills.md` — [硕米 Chat 创建并使用个人文字技能](chat-general-text-skills.md) · #1429，通用文字创作与 Chat 选用已独立复核并达到 IMPLEMENTATION_READY。
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
 - `ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](ai-workbench-conversation-runtime.md)
-- `ai-workbench-project-center.md` — [AI Workbench Project Center V1](ai-workbench-project-center.md)
+- `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
 - `chat-selected-product-context.md` — [Chat 规划读取已选商品资料](chat-selected-product-context.md)
@@ -298,7 +298,7 @@
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
 - `completed-work-store-scope.md` — [#36 已完成本地资料的店铺归属投影](completed-work-store-scope.md)
 - `product-workbench-trial-runtime.md` — [#36 可保留的本机隔离试用运行边界](product-workbench-trial-runtime.md)
-- `notification-center.md` — [通知中心 V1：站内通知与业务状态投影](notification-center.md)
+- `domains/workbench/notification-center.md` — [通知中心 V1：站内通知与业务状态投影](domains/workbench/notification-center.md)
 - `operations-cockpit-figma-read.md` — [运营驾驶舱四页 Figma 与只读投影补充](operations-cockpit-figma-read.md)
 - `operations-cockpit.md` — [运营驾驶舱首版：人工经营事实与有据可查的经营投影](operations-cockpit.md)
 - `cockpit-listing-task-metrics.md` — [运营驾驶舱首页：刊登与任务统计](cockpit-listing-task-metrics.md)
@@ -315,7 +315,7 @@
 - `cockpit-tiktok-order-sync.md` — [TikTok Shop US 跨境店消费者订单手动同步](cockpit-tiktok-order-sync.md)
 - `cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md)
 - `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
-- `project-center-overview-read.md` — [Project Center overview read V1](project-center-overview-read.md)
+- `domains/workbench/project-center-overview-read.md` — [Project Center overview read V1](domains/workbench/project-center-overview-read.md)
 - `domains/workbench/task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](domains/workbench/task-center-native-run-projection.md)
 
 <a id="services"></a>

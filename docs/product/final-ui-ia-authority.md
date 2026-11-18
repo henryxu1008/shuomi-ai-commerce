@@ -161,7 +161,7 @@ Design Basis: N/A，仅调整既有分类导航的展示；路由、领域合同
 及现有目录/正文页面保持，原出处卡片改为纯文本资料依据名称，结合原维护方、准确版本与digest
 表达资料身份；不创建外链、内链占位、资料站或新导航。API与内容不保留GitHub来源地址，
 不能仅在界面隐藏。V2内容版本/公开读取合同见
-[产品内依据V2](../architecture/official-knowledge-provenance.md)，独立准入完成前不修改正式路径。
+[产品内依据V2](../architecture/domains/workbench/official-knowledge-provenance.md)，独立准入完成前不修改正式路径。
 该局部用户决定替代旧外部出处链接要求；不授权更新当前实例、部署或实际仓库更名。
 
 ### 来源素材与资料检查（2026-10-21 用户批准增量）
