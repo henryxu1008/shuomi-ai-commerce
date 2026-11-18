@@ -27,22 +27,24 @@
 }
 
 .products {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12.5rem), 1fr));
+  gap: 12px;
   padding: 0;
   margin: 0;
   list-style: none;
-  border-block: 1px solid var(--border);
 }
 
 .product {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) minmax(128px, auto);
+  grid-template-rows: auto 1fr auto auto;
   align-items: start;
-  gap: 8px 16px;
-  padding: 16px 0;
-}
-
-.product + .product {
-  border-top: 1px solid var(--border);
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
 }
 
 .thumbnail {
@@ -67,6 +69,13 @@
   object-fit: contain;
 }
 
+.product .thumbnail {
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  width: 100%;
+  height: 156px;
+  padding: 12px;
+}
+
 .identity,
 .quote {
   display: grid;
@@ -82,15 +91,19 @@
   font-size: 14px;
 }
 
-.identity a {
+.product a {
   justify-self: start;
   color: var(--foreground);
+  font-size: 13px;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .quote {
-  text-align: end;
+  align-content: start;
+  min-height: 80px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -109,24 +122,8 @@
   margin-bottom: 8px;
 }
 
-.identity a:focus-visible,
+.product a:focus-visible,
 .details summary:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 4px;
-}
-
-@media (max-width: 640px) {
-  .product {
-    grid-template-columns: 56px minmax(0, 1fr);
-    column-gap: 12px;
-  }
-
-  .quote {
-    grid-column: 2;
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    text-align: start;
-  }
 }

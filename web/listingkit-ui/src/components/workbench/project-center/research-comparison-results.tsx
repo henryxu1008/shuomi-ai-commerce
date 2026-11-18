@@ -98,13 +98,13 @@ export function ResearchComparisonResults({ inspection, originals }: {
               <div className={styles.identity}>
                 <strong>{title}</strong>
                 <span>{amazonMarket(observation.site)} · {observation.asin}</span>
-                <Link href={`/workbench/data/mine?item=${ref.ItemID}`} prefetch={false}>查看已存资料</Link>
               </div>
               <div className={styles.quote}>
                 {price && <span>{observation.priceBasis === "synthetic_listing_offer" ? "示例报价" : "页面报价"}</span>}
                 {price ? <strong>{price}</strong> : <span>暂无可比报价</span>}
                 {missing.includes("observation.availability") && <span>库存未知</span>}
               </div>
+              <Link href={`/workbench/data/mine?item=${ref.ItemID}`} prefetch={false}>查看已存资料</Link>
             </li>
           );
         })}

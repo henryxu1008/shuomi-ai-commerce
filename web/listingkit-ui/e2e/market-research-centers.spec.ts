@@ -61,13 +61,29 @@ test("the four native pages share a project and preserve evidence through analys
  const preview=comparison.getByRole("img",{name:"双层桌面文件收纳架 主图"});
  await preview.scrollIntoViewIfNeeded();
  await expect.poll(()=>preview.evaluate(image=>(image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+ expect(await preview.evaluate(image=>{
+  const {top,bottom}=image.getBoundingClientRect();
+  const frame=image.parentElement!.getBoundingClientRect();
+  return top>=frame.top && bottom<=frame.bottom;
+ })).toBe(true);
  await expect(comparison.getByText("暂无主图",{exact:true})).toBeVisible();
  await expect(comparison.getByRole("list",{name:"所选商品报价"}).getByText("USD 19.99",{exact:true})).toBeVisible();
  await expect(comparison.getByText("暂无可比报价",{exact:true})).toBeVisible();
  await expect(comparison.getByRole("link",{name:"查看已存资料"})).toHaveCount(2);
+ const cards=comparison.getByRole("list",{name:"所选商品报价"}).getByRole("listitem");
+ const cardPositions=()=>cards.evaluateAll(elements=>elements.map(element=>{
+  const {left,top}=element.getBoundingClientRect();
+  return {left,top};
+ }));
+ const [desktopFirst,desktopSecond]=await cardPositions();
+ expect(desktopSecond.left).toBeGreaterThan(desktopFirst.left);
+ expect(desktopSecond.top).toBe(desktopFirst.top);
  const screenshotStyle="nextjs-portal { visibility: hidden; }";
  await comparison.screenshot({path:info.outputPath("amazon-comparison-light-desktop.png"),style:screenshotStyle});
  await page.setViewportSize({width:390,height:844});
+ const [mobileFirst,mobileSecond]=await cardPositions();
+ expect(mobileSecond.left).toBe(mobileFirst.left);
+ expect(mobileSecond.top).toBeGreaterThan(mobileFirst.top);
  await expect.poll(()=>comparison.evaluate(element=>element.scrollWidth)).toBeLessThanOrEqual(await comparison.evaluate(element=>element.clientWidth+1));
  await comparison.screenshot({path:info.outputPath("amazon-comparison-light-mobile.png"),style:screenshotStyle});
  await page.setViewportSize({width:1440,height:1000});
