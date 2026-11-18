@@ -12,7 +12,7 @@ Status: **APPROVED / ACTIVE**
 
 用户明确选择 Amazon / 1688 插件采集优先，先做上架资料字段对照设计，服务端
 采集新增工作暂缓，先不开发。当前范围见 [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)
-及[插件字段设计](../plugin-capture-listing-fields.md)。这不撤回下方既有合同和历史证据，
+及[插件字段设计](plugin-capture-listing-fields.md)。这不撤回下方既有合同和历史证据，
 不关闭运行服务、不迁移/清理数据，也不自动授权插件实现、合并或部署；后续不得仅凭
 下方历史阶段批准继续本批服务端新增研发。其它会话已单独获准的本地调试不由此文接管。
 
