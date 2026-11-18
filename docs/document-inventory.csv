@@ -248,9 +248,9 @@ docs/development/README.md,development,cross-cutting,1272,KEEP_PATH,,,PROPOSED_O
 docs/development/repository-structure.md,development,platform,5263,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/development/guides/secret-management.md,development,platform,2080,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; credential boundaries retained
 docs/development/shuomi-design-system-assets.csv,development,cross-cutting,88367,KEEP_ASSET,,,PROPOSED_ONLY,non-Markdown asset
-docs/development/shuomi-design-system-baseline.md,development,cross-cutting,10833,REVIEW_MOVE,docs/development/ui/shuomi-design-system-baseline.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/development/shuomi-design-system-pilots.md,development,cross-cutting,9366,REVIEW_MOVE,docs/development/ui/shuomi-design-system-pilots.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/development/shuomi-design-tokens.md,development,cross-cutting,7580,REVIEW_MOVE,docs/development/ui/shuomi-design-tokens.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/development/ui/shuomi-design-system-baseline.md,development,cross-cutting,10836,KEEP_PATH,,,MOVED_VERIFIED,design system references relocated; historical baseline and bounded evidence unchanged
+docs/development/ui/shuomi-design-system-pilots.md,development,cross-cutting,9366,KEEP_PATH,,,MOVED_VERIFIED,design system references relocated; historical baseline and bounded evidence unchanged
+docs/development/ui/shuomi-design-tokens.md,development,cross-cutting,7580,KEEP_PATH,,,MOVED_VERIFIED,design system references relocated; historical baseline and bounded evidence unchanged
 docs/engineering/1688-public-acquisition.md,engineering,sourcing,11217,KEEP_PATH,docs/engineering/1688-public-acquisition.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/integration/account-audit.md,engineering,identity,4941,KEEP_PATH,,,MOVED_VERIFIED,integration relocation verified; historical scope and acceptance limits unchanged
 docs/engineering/integration/account-membership-contract.md,engineering,identity,25501,KEEP_PATH,,,MOVED_VERIFIED,moved to engineering integration; contract semantics preserved and inbound references verified
