@@ -1,5 +1,7 @@
 # 自有商品逐 SKU 含包装事实录入
 
+> 后续库存合同说明：本文保留 #1113 阶段设计与授权记录，其中“库存必填”是当时前提，后续以 [AI 录入的保存及库存声明](own-product-ai-intake.md#保存及库存声明)为准：手工 create_product / revise_product 允许省略库存（未知、未声明），显式 0 表示已声明，null 拒绝；Excel import_products 仍须库存。包装缺项仍为未知，不补 0；包装事实、原版本/CAS/原键及权限边界不变。历史准入与实例限制不构成新的执行授权。
+
 Execution: [#1113](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1113)。Design Basis: **Independent Architecture**。Admission: **NOT_READY / DESIGN_REVIEW_PENDING**。本文先于生产代码；评审证据绑定提交，不能由作者自行签发准入或产品验收。
 
 ## 用户结果、依据与范围
@@ -8,7 +10,7 @@ Execution: [#1113](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1113
 
 用户夜间委派明确授权这条业务路径的设计、独立评审、开发、合成验证与 Draft PR，要求不与既有 Writer 重叠。#1108／Draft #1111 明确排除包装录入；本批堆叠基线为 #1111 `83055bf2945988619bde1c245749c3503b550175`，完整 tree `3e76bf7ed9acefbbb9a3049e3c4e45f82db11e9e`。已核对最新 open Issues／PR 及包装／own 分支，没有发现本范围后续负责人。#1111 原 owner／分支不写入。
 
-产品依据为 [全新系统基线](../product/greenfield-no-legacy-migration.md)、[最终 UI/IA Authority](../product/final-ui-ia-authority.md)、[原录入](domains/catalog/own-product-entry.md)、[版本更新](domains/catalog/own-product-edit.md)、[手工历史](domains/catalog/own-product-history.md)及 [SHEIN 库存与包装缺项](shein-offline-stock-packaging.md)。Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`、自有库 `3500:1100`／添加 `3502:405` 是已有产品依据；复用原独立页面、Console 与主题组件，不声称已有本增量 frame。
+产品依据为 [全新系统基线](../../../product/greenfield-no-legacy-migration.md)、[最终 UI/IA Authority](../../../product/final-ui-ia-authority.md)、[原录入](own-product-entry.md)、[版本更新](own-product-edit.md)、[手工历史](own-product-history.md)及 [SHEIN 库存与包装缺项](../marketplace/shein-offline-stock-packaging.md)。Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`、自有库 `3500:1100`／添加 `3502:405` 是已有产品依据；复用原独立页面、Console 与主题组件，不声称已有本增量 frame。
 
 Must：同 SKU 准确绑定、固定单位、部分未知可保存、输入校验、完整版本保留、正常保存／读取／离线复检、既有库存 0 与权限隔离。Out of Scope：真实采集、AI／付费／采购／平台写入；SHEIN 目标编辑器改造、库存同步、仓库／图片分配；自动升级或重做旧草稿；其它来源编辑、新表／数据迁移／历史回填、通用框架或测试平台；合并、部署、关单、保留实例操作。没有新增 Accepted Risk。
 

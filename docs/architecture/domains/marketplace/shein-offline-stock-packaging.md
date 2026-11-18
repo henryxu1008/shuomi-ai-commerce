@@ -1,12 +1,14 @@
 # SHEIN 离线诊断的库存和 SKU 包装缺项
 
+> 阶段适用范围：本文“已复现的现状”记录上述历史基线，不表示当前仍无 SKU 包装支持；后续 [逐 SKU 包装录入合同](../catalog/own-product-sku-packaging.md)及 Catalog 的可选 packaging 已保留同 SKU 实测值与部分未知。本文沿用“库存必填”的编辑前提由 [AI 录入的保存及库存声明](../catalog/own-product-ai-intake.md#保存及库存声明)替代：手工新建/修订可省略库存，显式 0 与未知分开，null 拒绝；Excel 导入仍须库存。缺经营者声明时 SHEIN 诊断仍显示待补，不能用供应商库存或缺项哨兵代填。原已保存包/规则/摘要、固定版本、权限及真实环境另行授权边界不变，不授权回填或重放历史操作。
+
 Design Basis 为 **Independent Architecture**。基线为 `d12b8c7633a8e3a6f02e4c19f4a29344b14c8d34`。准入状态和评审记录由关联执行 Issue 承载。
 
 ## 产品结果与范围
 
 企业成员在现有「我的数据 → 生成 SHEIN 离线包」操作中，能看到库存是已声明的数字（含 0），还是待补。缺少 SKU 包装重量或某个尺寸时，原诊断列出待补字段及对应 SKU。已有「保存草稿」允许带缺项保存。已保存离线包、保存时诊断和报告按原版本读取。
 
-用户确认的范围是库存、包装重量和长宽高的事实保留，以及新诊断规则与已保存结果的边界。复用现有离线诊断列表和报告阅读界面，页面和入口依据 [原离线包诊断设计](domains/workbench/report-center-shein-offline-package-source.md)、[既有诊断操作政策](domains/marketplace/shein-submit-readiness-action-policy.md)和[现行 UI/IA](../product/final-ui-ia-authority.md)。只调整诊断字段、文案与接收版本，沿用该设计引用的 [Figma 报告权威](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=31-463)。
+用户确认的范围是库存、包装重量和长宽高的事实保留，以及新诊断规则与已保存结果的边界。复用现有离线诊断列表和报告阅读界面，页面和入口依据 [原离线包诊断设计](../workbench/report-center-shein-offline-package-source.md)、[既有诊断操作政策](shein-submit-readiness-action-policy.md)和[现行 UI/IA](../../../product/final-ui-ia-authority.md)。只调整诊断字段、文案与接收版本，沿用该设计引用的 [Figma 报告权威](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=31-463)。
 
 本批范围限正常来源发布、Catalog、离线包、诊断与报告读取。TargetRecord、SHEIN 官方 Save Draft／Publish、SKU 图片分配、仓库库存分配与同步、额外采集、包装录入页及历史数据回填另行定范围。实际环境启用与平台验收另行授权。
 

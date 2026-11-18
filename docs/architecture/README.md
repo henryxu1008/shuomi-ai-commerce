@@ -131,7 +131,7 @@
 - [Listing 领域导航：候选草稿、四阶段刊登、人工审核和原提交回执](domains/listing/README.md) — 只定位原合同，不新建 Listing/Review/Product 事实 Owner
 
 
-- `own-product-sku-packaging.md` — [自有商品逐 SKU 含包装事实录入](own-product-sku-packaging.md)
+- `domains/catalog/own-product-sku-packaging.md` — [自有商品逐 SKU 含包装事实录入](domains/catalog/own-product-sku-packaging.md)
 - `domains/listing/completion-draft-history.md` — [待补全草稿保存历史与比较 v1](domains/listing/completion-draft-history.md)
 - `domains/listing/completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](domains/listing/completion-draft-restore.md)
 - `domains/listing/completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](domains/listing/completion-draft-structured.md)
@@ -181,7 +181,7 @@
 - `local-and-official-draft-coexistence.md` — [同一实例内测试草稿与正式刊登共存](local-and-official-draft-coexistence.md)；#1158 最小方案与独立架构评审，独立本地接口用途、原 owner/保存协议及正式发布准入保持；仅设计，不授权实现或原实例操作。
 - `shein-color-split-drafts.md` — [SHEIN 按颜色拆分本地平台草稿](shein-color-split-drafts.md)；历史独立能力，已撤回作为本例必经流程的推荐，参见单商品映射设计。
 - `domains/marketplace/shein-native-validator-contract.md` — [SHEIN 原生资料公共诊断与材料 Tool v2](domains/marketplace/shein-native-validator-contract.md)
-- `shein-offline-stock-packaging.md` — [SHEIN 离线诊断的库存和 SKU 包装缺项](shein-offline-stock-packaging.md)
+- `domains/marketplace/shein-offline-stock-packaging.md` — [SHEIN 离线诊断的库存和 SKU 包装缺项](domains/marketplace/shein-offline-stock-packaging.md)
 - `shein-offline-validation-input-binding.md` — [SHEIN 离线诊断输入、freshness 与组织范围读取设计](shein-offline-validation-input-binding.md)
 - `domains/listing/shein-publication-flow.md` — [SHEIN 美国站：审核、首次上架与状态回读最小闭环](domains/listing/shein-publication-flow.md)
 - `domains/marketplace/shein-submit-readiness-action-policy.md` — [SHEIN Submit Readiness Action Policy](domains/marketplace/shein-submit-readiness-action-policy.md)
