@@ -1,6 +1,6 @@
 # 智能体定制 V1 接线与使用
 
-执行范围与权限以 #611 当前正文为准；领域合同见 [人工流程设计](../architecture/domains/ai/agent-customization.md) 与 [私有交付设计](../architecture/private-agent-delivery.md)。本功能由硕米平台专员人工处理，方案、费用与交付安排在线下确认。提交需求不收费，也不触发模型执行、支付或消息发送。
+执行范围与权限以 #611 当前正文为准；领域合同见 [人工流程设计](../../architecture/domains/ai/agent-customization.md) 与 [私有交付设计](../../architecture/private-agent-delivery.md)。本功能由硕米平台专员人工处理，方案、费用与交付安排在线下确认。提交需求不收费，也不触发模型执行、支付或消息发送。
 
 私有交付操作：专员在已确认方案的开发/交付阶段填写交付说明，选择“交付平台草稿资料质检智能体 v2.0.0”并保存。系统只授权给该需求原企业，平台不能输入其他企业、定义或版本。仅记录人工 DELIVERED 不创建可用入口。客户在 `/workbench/agents/mine` 的“企业私有智能体”进入使用，也可从定制进度的实际交付链接进入 `/workbench/agents/mine/private/<deliveryId>`。选择自己的供应链批次、SHEIN 美国站店铺和待补全/已适配草稿 → 检查并保存报告 → 我的已保存报告 → 查看报告。当前企业的 agent.read/use 权限与实时授权分别控制读取和执行；来源读取还需 collection.read、supply.read，选择店铺需 store.read。平台处理权限不替代企业执行权。
 
@@ -85,7 +85,7 @@ RUN-1 仍是原有身份/路由隔离环境，不因本功能自动增加 schema
 
 ### 无官方凭据的隔离离线试用
 
-仅用于已获准的独立本机项目，依据 [离线试用准入](../architecture/private-draft-offline-trial.md)。在私有 manifest 明确配置 `privateDraftTrial`，字段为 `acknowledgment: ISOLATED_OFFLINE_DRAFT_TRIAL_ONLY`、`organizationId`、`actorId`、当前实际 `memberId`、`storeId`。保留正常本机 HTTPS 身份、当前 Product/Store/Collection/customization owner 和 live permissions；禁止同时配置完整 SupplyChain、official applications 或 Agent/provider 执行。缺省关闭，配置冲突拒绝启动。
+仅用于已获准的独立本机项目，依据 [离线试用准入](../../architecture/private-draft-offline-trial.md)。在私有 manifest 明确配置 `privateDraftTrial`，字段为 `acknowledgment: ISOLATED_OFFLINE_DRAFT_TRIAL_ONLY`、`organizationId`、`actorId`、当前实际 `memberId`、`storeId`。保留正常本机 HTTPS 身份、当前 Product/Store/Collection/customization owner 和 live permissions；禁止同时配置完整 SupplyChain、official applications 或 Agent/provider 执行。缺省关闭，配置冲突拒绝启动。
 
 显式通过现有 native owner 准备测试店铺和一个 TargetRecord；店铺名称以“离线测试”开头，保持 pending activation/disconnected。准备步骤不进入启动、HTTP 或 worker，不直接写草稿/issues/报告。试用 Product role 使用现有 collections+SupplyChain grants；只挂七个 GET，不开放草稿保存、上传、操作或规则调用，Asset/Temporal 不参与试用读取。
 

@@ -59,7 +59,7 @@ C:\private\local-ai-trial-grant.exe -config C:\private\trial-724.json -operation
 
 1. 原 owner 先读取当前私密配置和业务状态，保存备份及摘要，确认与本清单目标一致。A 已完成不需要重装原表/角色；任何新增差异先停下报告，不执行迁移、drop/revoke 或初始化。
 2. 执行保持关闭，仅准备准确 Local 的 `productAgent.contentTextPolicies`；独立 client 建议 `local-content-deepseek-trial`，操作固定 `product.content.decision`。先检查所有 capability 的 client 引用，不能覆盖 title/planning/其他能力或别组织凭据。
-3. 沿[现有受限凭据入口](skill-capability.md#商品内容模型凭据)，由 `title_credential_writer` 向同 ProductAgentDB 写 `consumer:content`；私密输入 APIStyle/AdapterKind 为 `openai-compatible`。超时60秒，profile deadline45秒。先留凭据准入版本空，取得真实 `credentialVersion` 和 endpoint digest 后准确绑定，不伪造版本/health。
+3. 沿[现有受限凭据入口](user-guides/skill-capability.md#商品内容模型凭据)，由 `title_credential_writer` 向同 ProductAgentDB 写 `consumer:content`；私密输入 APIStyle/AdapterKind 为 `openai-compatible`。超时60秒，profile deadline45秒。先留凭据准入版本空，取得真实 `credentialVersion` 和 endpoint digest 后准确绑定，不伪造版本/health。
 4. 按下表冻结计量版本/上限。点数来源、成员月限、钱包、credential、技能及 Run 各是原 owner 的事实，不宣称跨库整体原子；后步失败保留前步已提交回执，不重复赠额。
 
 | 配置 | 本轮值 |
@@ -82,7 +82,7 @@ C:\private\local-ai-trial-grant.exe -config C:\private\trial-724.json -operation
 
 ## 4. 个人技能准入与一次标题试用
 
-沿[现有技能使用说明](skill-capability.md)，不新建技能运行时。原运行 owner 在 2026-10-16 10:17:36（UTC+8）以单次 READ ONLY 查询确认已有个人技能：
+沿[现有技能使用说明](user-guides/skill-capability.md)，不新建技能运行时。原运行 owner 在 2026-10-16 10:17:36（UTC+8）以单次 READ ONLY 查询确认已有个人技能：
 
 | 当前事实 | 值 |
 | --- | --- |
