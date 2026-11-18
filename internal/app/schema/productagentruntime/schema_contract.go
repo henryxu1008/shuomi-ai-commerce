@@ -29,6 +29,23 @@ func VerifyInvocationRelation(ctx context.Context, db *gorm.DB, owner string) er
 	return verifyRelation(db.WithContext(ctx), spec)
 }
 
+// VerifyImageInvocationRelation qualifies the original image-only ledger. Its
+// existing installations have no governed text billing marker.
+func VerifyImageInvocationRelation(ctx context.Context, db *gorm.DB, owner string) error {
+	if ctx == nil || db == nil || owner == "" {
+		return fmt.Errorf("image invocation owner unavailable")
+	}
+	spec, err := invocationContract(db)
+	if err != nil {
+		return err
+	}
+	spec.Owner = owner
+	if !db.WithContext(ctx).Migrator().HasColumn("ai_invocations", "billing_mode") {
+		spec = invocationContractBeforeBilling(spec)
+	}
+	return verifyRelation(db.WithContext(ctx), spec)
+}
+
 type columnContract struct {
 	Name, Type, Default string
 	NotNull             bool
