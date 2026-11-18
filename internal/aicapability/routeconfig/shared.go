@@ -31,7 +31,7 @@ type SharedModelSelection struct {
 	SchemaVersion   int                   `json:"schemaVersion"`
 	UnitVersion     string                `json:"unitVersion"`
 	DefaultChannel  string                `json:"defaultChannel,omitempty"`
-	Text            ModelBindingReference `json:"text"`
+	Text            ModelBindingReference `json:"text,omitzero"`
 	Image           ModelBindingReference `json:"image,omitzero"`
 	Multimodal      ModelBindingReference `json:"multimodal,omitzero"`
 	TextChannelName string                `json:"textChannelName,omitempty"`
@@ -262,6 +262,12 @@ func (s *SharedModelService) Publish(ctx context.Context, org, actor, key string
 			restricted = restricted || prior.SchemaVersion == 2
 		}
 		if restricted {
+			if prior == nil && input.ExpectedRevision == NoRevision {
+				prior = &SharedModelSelection{SchemaVersion: 2, UnitVersion: aicapability.AIPointMicrounitV1}
+				if input.Selection.Image == (ModelBindingReference{}) && input.Selection.Multimodal == (ModelBindingReference{}) {
+					return Payload{}, ErrInvalid
+				}
+			}
 			if prior == nil || input.Selection.SchemaVersion != 2 || input.Selection.Text != prior.Text ||
 				input.Selection.DefaultChannel != prior.DefaultChannel || input.Selection.TextChannelName != prior.TextChannelName ||
 				input.Selection.TextModel != prior.TextModel {

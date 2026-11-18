@@ -1,5 +1,5 @@
 import {afterEach,expect,it,vi} from "vitest";
-import {cleanup,render,screen,waitFor} from "@testing-library/react";
+import {act,cleanup,render,screen,waitFor} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {EnterpriseTextChoice,PlatformChannelConfiguration} from "./model-channel-configuration";
@@ -67,7 +67,32 @@ it("clears the platform key and recovers a successful create after a lost reply"
  expect(JSON.stringify({...sessionStorage})).not.toContain("synthetic-platform-key");
  await user.click(screen.getByRole("button",{name:"取消"}));
  await user.click(await screen.findByRole("button",{name:"查询本次结果"}));
- expect(await screen.findByRole("button",{name:"主渠道"})).toBeVisible();
+ await user.click(await screen.findByRole("button",{name:"主渠道"}));
+ await user.click(screen.getByRole("button",{name:"停用渠道"}));
+ expect(screen.getByRole("button",{name:"确认停用"})).toBeEnabled();
+ await act(async()=>{
+  client.setQueryData(["model-services",scope,"platform-channels"],{organizationId:scope.organizationId,canWrite:true,
+   channels:[{connection:{...connection,revision:"2"},revision:"NONE"}],organizations:["org-a"]});
+ });
+ expect(await screen.findByText("此渠道已有更新，请关闭后重新打开。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"确认停用"})).toBeDisabled();
  expect(fetch.mock.calls.filter(([,call])=>call.method==="POST")).toHaveLength(1);
+ client.clear();
+});
+
+it("blocks a text choice opened before another window saves a new revision",async()=>{
+ const client=prepare(),user=userEvent.setup();
+ const original={organizationId:scope.organizationId,view:{revision:"prior",current:a,options:[a,b]}};
+ const fetch=vi.fn(async()=>Response.json(original));
+ vi.stubGlobal("fetch",fetch);
+ render(<QueryClientProvider client={client}><EnterpriseTextChoice scope={scope} member="member" onSaved={async()=>{}}/></QueryClientProvider>);
+ await user.click(await screen.findByRole("button",{name:"切换"}));
+ await user.click(screen.getByRole("radio",{name:/渠道乙/}));
+ expect(screen.getByRole("button",{name:"确认切换"})).toBeEnabled();
+ await act(async()=>{
+    client.setQueryData(["model-services",scope,"text-choice"],{...original,view:{...original.view,revision:"new-window"}});
+ });
+ expect(await screen.findByText("企业选择已更新，请重新打开后确认。")).toBeVisible();
+ expect(screen.getByRole("button",{name:"确认切换"})).toBeDisabled();
  client.clear();
 });

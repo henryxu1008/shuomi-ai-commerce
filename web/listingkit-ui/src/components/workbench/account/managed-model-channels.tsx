@@ -34,7 +34,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},
   ["model-route-pricing","managed-channels",memberId],managedChannelPending,{storage:"session",maxLength:2048});
  const [dialog,setDialog]=useState<{action:"create"|"name"|"replace";channel?:ManagedConnection}|null>(null);
- const [confirmDetach,setConfirmDetach]=useState(false);
+ const [confirmDetach,setConfirmDetach]=useState<{connectionId:string;bindingId:string;revision:string}|null>(null);
  const [selected,setSelected]=useState<string>();
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState("");
@@ -70,7 +70,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
    if(receipt.organizationId!==original.organizationId||receipt.actorId!==original.userId||receipt.memberId!==original.memberId||
       receipt.requestKey!==original.key||original.connectionId&&connectionId!==original.connectionId)throw new ModelRouteError("OUTCOME_UNKNOWN");
    if(active.current){
-    pending.clear(original);setSelected(connectionId);setDialog(null);setConfirmDetach(false);
+    pending.clear(original);setSelected(connectionId);setDialog(null);setConfirmDetach(null);
     setMessage(original.operation==="create"?"渠道与 Key 已保存。":original.operation==="name"?"渠道名称已保存。":"模型配置已保存。");
     await onSaved();
    }
@@ -142,7 +142,7 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
       } as Record<string,string>)[query.data.bindingReadiness.find(r=>r.bindingId===activeBinding.bindingId)?.reason??""]??"请检查当前渠道及模型配置。"}</p>)}
      <div className={styles.actions}>
       {onSelect&&(!query.data?.bindingReadiness||query.data.bindingReadiness.some(r=>r.bindingId===activeBinding.bindingId&&r.ready))&&<Button disabled={locked||!selectedChannel.enabled} onClick={()=>onSelect(selectedChannel,{id:activeBinding.bindingId,version:"v1"})}>去选用模型</Button>}
-      {query.data?.canAttach&&<Button variant="outline" disabled={locked} onClick={()=>setConfirmDetach(true)}>取消关联</Button>}
+      {query.data?.canAttach&&<Button variant="outline" disabled={locked} onClick={()=>setConfirmDetach({connectionId:selectedChannel.connectionId,bindingId:activeBinding.bindingId,revision:selectedChannel.revision})}>取消关联</Button>}
      </div>
     </div>:<div className={styles.history}>
      <h3>尚未关联模型</h3>
@@ -161,10 +161,11 @@ export function ManagedModelChannels({scope,memberId,testMemberId,focusModelId,b
    {intent&&<div><p>保存结果待核实。原请求编号 {intent.key}</p>
     <Button variant="outline" disabled={busy||blocked||!canReconcile} onClick={()=>void command(intent)}>查询本次结果</Button></div>}
   </Card>
-  {confirmDetach&&activeBinding&&selectedChannel&&<AccountDialog title="取消模型关联" onClose={()=>setConfirmDetach(false)}>
+  {confirmDetach&&<AccountDialog title="取消模型关联" onClose={()=>setConfirmDetach(null)}>
    <p>取消关联后，企业模型中已选用这个型号的配置需要更换并重新发布。</p>
-   <div className={styles.actions}><Button variant="outline" onClick={()=>setConfirmDetach(false)}>返回</Button>
-    <Button disabled={locked} onClick={()=>save("models",{action:"disable",bindingId:activeBinding.bindingId,expectedRevision:selectedChannel.revision},selectedChannel.connectionId)}>确认取消关联</Button></div>
+   <div className={styles.actions}><Button variant="outline" onClick={()=>setConfirmDetach(null)}>返回</Button>
+    <Button disabled={locked||activeBinding?.bindingId!==confirmDetach.bindingId||selectedChannel?.connectionId!==confirmDetach.connectionId||selectedChannel.revision!==confirmDetach.revision}
+    onClick={()=>save("models",{action:"disable",bindingId:confirmDetach.bindingId,expectedRevision:confirmDetach.revision},confirmDetach.connectionId)}>确认取消关联</Button></div>
   </AccountDialog>}
   {dialog&&<AccountDialog title={dialog.action==="name"?"更改渠道名称":dialog.action==="replace"?"更换服务地址":"添加渠道"} onClose={()=>setDialog(null)}>
    <form className={styles.form} autoComplete="off" onSubmit={event=>{

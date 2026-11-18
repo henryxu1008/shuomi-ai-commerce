@@ -267,6 +267,10 @@ func (m modelRoutePricingModule) serve(c *gin.Context, op string, platform bool)
 			current = &revision
 		}
 		out := gin.H{"status": status, "revision": current, "preview": publicSharedPreview(preview)}
+		if platform && m.services.PlatformChannels != nil {
+			id, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
+			out["platformPriceWriteAllowed"] = m.services.PlatformChannels.allows(id) && authz.AllowedOrganization(ctx, m.authorizer, actor, org, id.Roles, authz.PermissionListingKitAdminWrite)
+		}
 		if !platform && (m.services.PlatformChannels != nil || current != nil && current.Payload.SharedModels != nil && current.Payload.SharedModels.SchemaVersion == 2) {
 			out["textChoiceEnabled"] = true
 		}

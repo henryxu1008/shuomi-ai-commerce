@@ -42,7 +42,7 @@ function useConfigurationCommand(scope:ModelRouteScope,member:string,onSaved:()=
  useEffect(()=>()=>active.current?.abort(),[]);
  async function run(intent:z.infer<typeof intentSchema>,path:string,body?:unknown) {
   const endpoint=selectionEndpoint(path.slice(1).split("/"),body===undefined?"GET":"POST");
-  if(!endpoint||active.current)return;
+  if(!endpoint||active.current||body===undefined&&endpoint.receiptKey!==intent.key)return;
   const controller=new AbortController();
   active.current=controller;
   setBusy(true);
@@ -94,6 +94,7 @@ function ChoiceDetails({option}:{option:ModelOption}) {
 export function EnterpriseTextChoice({scope,member,focusId,onSaved}:{scope:ModelRouteScope;member:string;focusId?:string;onSaved:()=>Promise<unknown>}) {
  const [choosing,setChoosing]=useState(false);
  const [selected,setSelected]=useState<ModelOption>();
+ const [openedRevision,setOpenedRevision]=useState("");
  const button=useRef<HTMLButtonElement>(null);
  const query=useQuery({queryKey:["model-services",scope,"text-choice"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise/text-choice",currentTextChoice,{signal}),retry:false,gcTime:0});
  const view=query.data?.view;
@@ -107,12 +108,13 @@ export function EnterpriseTextChoice({scope,member,focusId,onSaved}:{scope:Model
   if(focusId)button.current?.focus();
  },[focusId,view?.revision]);
  if(!view)return <Card className={styles.panel}><h2>企业文本模型</h2><p>{query.isError?"暂时无法读取文本模型。":"正在读取文本模型…"}</p>{query.isError&&<Button onClick={()=>void query.refetch()}>重新读取</Button>}</Card>;
+ const stale=choosing&&view.revision!==openedRevision;
  const purposes=[...new Set((view.purposes??[]).map(p=>operationLabels[p]??"其他已启用的文本用途"))];
  return <Card className={styles.panel}>
   <h2>企业文本模型</h2>
   {purposes.length>0&&<p>用于{purposes.join("、")}</p>}
   {view.current?<div><ChoiceDetails option={view.current}/><p>{view.current.ready?"当前已选":explanation[view.current.reason??""]??"当前选择暂不可用，请切换。"}</p></div>:<p>尚未选择</p>}
-  <Button ref={button} disabled={command.blocked} onClick={()=>{setSelected(view.options.find(item=>item.reference.id===focusId));setChoosing(true);}}>切换</Button>
+  <Button ref={button} disabled={command.blocked} onClick={()=>{setSelected(view.options.find(item=>item.reference.id===focusId));setOpenedRevision(view.revision);setChoosing(true);}}>切换</Button>
   {command.message&&<p role="status">{command.message}</p>}
   {command.hasPending&&<Button disabled={command.busy} onClick={command.verify}>查询本次结果</Button>}
   {choosing&&<AccountDialog title="切换企业文本模型" onClose={()=>setChoosing(false)} returnFocusRef={button}>
@@ -124,12 +126,16 @@ export function EnterpriseTextChoice({scope,member,focusId,onSaved}:{scope:Model
     </label>)}
    </fieldset>}
    {purposes.length>0&&<p>本次切换影响{purposes.join("、")}。</p>}
-   {command.message&&!command.hasPending&&<Button variant="outline" onClick={()=>{setSelected(undefined);void query.refetch();}}>重新读取可选渠道</Button>}
+   {selected?.source==="enterprise"&&<p>业务使用时，厂商向本企业的厂商账号计费，硕米按适用参考价和实际用量结算本企业 AI 点数。</p>}
+   {selected?.source==="platform"&&<p>业务使用时，硕米按适用参考价和实际用量结算本企业 AI 点数。</p>}
+
+   {stale&&<p role="alert">企业选择已更新，请重新打开后确认。</p>}
+   {command.message&&!command.hasPending&&<Button variant="outline" onClick={()=>{setSelected(undefined);setChoosing(false);void query.refetch();}}>重新读取可选渠道</Button>}
    {command.message&&<p role="status">{command.message}</p>}
    {command.hasPending&&<Button disabled={command.busy} onClick={command.verify}>查询本次结果</Button>}
    <div className={styles.actions}>
     <Button variant="outline" onClick={()=>setChoosing(false)}>取消</Button>
-    {selected?.quote&&<Button disabled={command.blocked} onClick={()=>void command.send("/enterprise/text-choice/select","/enterprise/text-choice/receipts/",{reference:selected.reference,quote:selected.quote,expectedRevision:view.revision})}>确认切换</Button>}
+    {selected?.quote&&<Button disabled={command.blocked||stale} onClick={()=>void command.send("/enterprise/text-choice/select","/enterprise/text-choice/receipts/",{reference:selected.reference,quote:selected.quote,expectedRevision:openedRevision})}>确认切换</Button>}
    </div>
   </AccountDialog>}
  </Card>;
@@ -141,6 +147,7 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
  const [selected,setSelected]=useState<string>();
  const [editor,setEditor]=useState<"create"|"publish"|"rotate"|"disable">();
  const [template,setTemplate]=useState("openai-mini-v1");
+ const [opened,setOpened]=useState<{id:string;revision:string;credentialRevision:string}>();
  const command=useConfigurationCommand(scope,member,async()=>{setEditor(undefined);const refreshed=await list.refetch();await onSaved();if(refreshed.error)throw refreshed.error;},"platform");
  const row=list.data?.channels.find(item=>item.connection.connectionId===selected);
  if(list.isError) {
@@ -151,6 +158,14 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
  const root="/platform-channels";
  const connection=row?.connection;
  const id=connection?.connectionId;
+ const drifted=!!opened&&!!editor&&editor!=="create"&&(
+   opened.id!==id || opened.revision!==row?.revision || opened.credentialRevision!==connection?.revision
+ );
+ function openEdit(action:"publish"|"rotate"|"disable") {
+  if(!row||!connection||!id)return;
+  setOpened({id,revision:row.revision,credentialRevision:connection.revision});
+  setEditor(action);
+ }
  const channelPrices=(price.data?.revision?.payload.platformPrices?.prices??[]).filter(item=>item.channel===connection?.channel&&(!item.platformConnectionId||item.platformConnectionId===id)&&item.model==="gpt-5.4-mini-2026-03-17");
  return <Card className={styles.panel}>
   <h2>{connection?.registration?.name??"平台模型渠道"}</h2>
@@ -162,13 +177,13 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
    <div className={styles.actions}>
     <Button variant="outline" onClick={()=>setSelected(undefined)}>返回渠道列表</Button>
     {list.data.canWrite&&<>
-     <Button disabled={command.blocked||!connection.enabled} onClick={()=>setEditor("publish")}>设置开放企业与价目</Button>
-     <Button variant="outline" disabled={command.blocked} onClick={()=>setEditor("rotate")}>{connection.enabled?"轮换 Key":"重新录入 Key"}</Button>
-     {connection.enabled&&<Button variant="outline" disabled={command.blocked} onClick={()=>setEditor("disable")}>停用渠道</Button>}
+     <Button disabled={command.blocked||!connection.enabled} onClick={()=>openEdit("publish")}>设置开放企业与价目</Button>
+     <Button variant="outline" disabled={command.blocked} onClick={()=>openEdit("rotate")}>{connection.enabled?"轮换 Key":"重新录入 Key"}</Button>
+     {connection.enabled&&<Button variant="outline" disabled={command.blocked} onClick={()=>openEdit("disable")}>停用渠道</Button>}
     </>}
    </div>
   </div>:<>
-    {list.data.canWrite&&<Button disabled={command.blocked} onClick={()=>{setTemplate("openai-mini-v1");setEditor("create")}}>添加平台渠道</Button>}
+    {list.data.canWrite&&<Button disabled={command.blocked} onClick={()=>{setOpened(undefined);setTemplate("openai-mini-v1");setEditor("create")}}>添加平台渠道</Button>}
     {list.data.channels.length===0&&<p>暂无平台渠道。</p>}
     {list.data.channels.map(({connection,publication})=><div className={styles.history} key={connection.connectionId}>
      <Button variant="outline" onClick={()=>setSelected(connection.connectionId)}>{connection.registration?.name}</Button>
@@ -178,13 +193,14 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
   {editor&&<AccountDialog title={{create:"添加平台渠道",publish:"设置开放企业与价目",rotate:"保存新 Key",disable:"停用平台渠道"}[editor]} onClose={()=>setEditor(undefined)}>
    <form className={styles.form} onSubmit={event=>{
     event.preventDefault();
+    if(drifted)return;
     const form=event.currentTarget,data=new FormData(form);
     const keyInput=form.elements.namedItem("apiKey") as HTMLInputElement|null;
     const apiKey=keyInput?.value;
     if(editor==="create")void command.send(root+"/create",root+"/create/receipts/",{name:String(data.get("name")).trim(),template,baseUrl:data.get("baseUrl")||undefined,apiKey});
-    else if(id&&connection&&row) {
-     if(editor==="publish")void command.send(root+"/"+id+"/publish",root+"/"+id+"/receipts/",{expectedRevision:row.revision,channel:{connectionId:id,priceId:String(data.get("price")??""),organizations:data.getAll("organizations")}});
-     else void command.send(root+"/"+id+"/credentials",root+"/"+id+"/credentials/receipts/",{expectedRevision:connection.revision,action:editor==="rotate"?"set-key":"disable",apiKey});
+    else if(id&&connection&&row&&opened) {
+     if(editor==="publish")void command.send(root+"/"+id+"/publish",root+"/"+id+"/receipts/",{expectedRevision:opened.revision,channel:{connectionId:id,priceId:String(data.get("price")??""),organizations:data.getAll("organizations")}});
+     else void command.send(root+"/"+id+"/credentials",root+"/"+id+"/credentials/receipts/",{expectedRevision:opened.credentialRevision,action:editor==="rotate"?"set-key":"disable",apiKey});
     }
     if(keyInput)keyInput.value="";
    }}>
@@ -213,7 +229,8 @@ export function PlatformChannelConfiguration({scope,member,organizations=[],onSa
     {command.hasPending&&<Button type="button" disabled={command.busy} onClick={command.verify}>查询本次结果</Button>}
     <div className={styles.actions}>
      <Button type="button" variant="outline" onClick={()=>setEditor(undefined)}>取消</Button>
-     <Button type="submit" disabled={command.blocked}>{editor==="disable"?"确认停用":editor==="publish"?"保存开放范围":"保存"}</Button>
+     {drifted&&<p role="alert">此渠道已有更新，请关闭后重新打开。</p>}
+     <Button type="submit" disabled={command.blocked||drifted}>{editor==="disable"?"确认停用":editor==="publish"?"保存开放范围":"保存"}</Button>
     </div>
    </form>
   </AccountDialog>}

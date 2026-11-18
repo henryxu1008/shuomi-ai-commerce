@@ -30,7 +30,7 @@ type Props = {
 function modelStatus(model: ModelOption | undefined, status: Props["current"], checking: boolean) {
   if (checking) return "正在检查";
   if (status?.status === "UNCONFIGURED") return "尚未发布模型";
-  if (!model) return "模型配置暂时无法确认";
+  if (!model) return status?.revision?.payload.sharedModels?.schemaVersion===2 && status.preview ? "尚未选择" : "模型配置暂时无法确认";
   if (model.ready) return "模型配置符合条件";
   if (model.reason === "OFFICIAL_PRICE_MISSING") return "缺少适用参考价";
   if (model.reason && priceReasons.has(model.reason)) return "参考价或汇率暂不适用";

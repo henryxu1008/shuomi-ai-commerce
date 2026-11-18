@@ -240,7 +240,7 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,imageOnly=fa
   await (onSaved ? onSaved() : Promise.all([published.refetch(),options.refetch(),history.refetch()]));
  });
  const current=published.data?.revision,id=current?.id??"NONE",publishedChoice=current?.payload.sharedModels;
- const choice=draft?.selection??(imageOnly&&publishedChoice?{...publishedChoice,schemaVersion:2 as const}:publishedChoice??defaults);
+ const choice=draft?.selection??(imageOnly?{unitVersion:"ai-micropoint-v1" as const,...publishedChoice,schemaVersion:2 as const}:publishedChoice??defaults);
  const editableCategories=imageOnly?categories.filter(category=>category!=="text"):categories;
  const loading=published.isPending||options.isPending;
  const readFailed=published.isError||options.isError;
@@ -254,7 +254,7 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,imageOnly=fa
   if(imageOnly&&previous&&sameReference(previous,selected))return false;
   return !optionsData?.models.some(model=>model.category===category&&model.reference.id===selected.id&&model.reference.version===selected.version);
  });
- const validSelection=unavailableCategories.length===0&&(imageOnly?!!publishedChoice&&!!draft:!!choice.defaultChannel&&!!optionsData?.channels.includes(choice.defaultChannel));
+ const validSelection=unavailableCategories.length===0&&(imageOnly?!!draft:!!choice.defaultChannel&&!!optionsData?.channels.includes(choice.defaultChannel));
  const currentPreview=preview&&preview.readAt===published.dataUpdatedAt&&preview.optionsAt===options.dataUpdatedAt&&preview.input.expectedRevision===id?preview:null;
  function choose(selection:RouteInput["selection"]|null) {
   setPreview(null);
@@ -302,7 +302,7 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,imageOnly=fa
          : <>
            <p>当前版本：{current?.id ?? "暂无"} · {published.data.status === "READY" ? "已发布" : published.data.status === "UNCONFIGURED" ? "尚未发布" : "已发布，部分模型待处理"}</p>
            {draftStale&&<div role="alert"><p>企业模型已更新，请核对当前版本后重新选择。</p><Button variant="outline" disabled={disabled||state.locked} onClick={()=>choose(null)}>放弃草稿并载入当前版本</Button></div>}
-           <fieldset disabled={editingBlocked||imageOnly&&!publishedChoice} className={styles.form}>
+           <fieldset disabled={editingBlocked} className={styles.form}>
              {!imageOnly&&<label className={`${styles.field} ${styles.channelField}`}>
                <strong>默认渠道</strong>
                <select value={choice.defaultChannel} onChange={event => choose({...choice, defaultChannel: event.target.value})}>
@@ -314,7 +314,7 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,imageOnly=fa
                {editableCategories.map(category => {
                  const candidates = optionsData.models.filter(model => model.category === category);
                  const key = keyFor[category];
-                 const ref = imageOnly&&!publishedChoice?undefined:choice[key];
+                 const ref = choice[key];
                  const selected = candidates.find(model => !!ref&&sameReference(model.reference,ref));
                  const publishedRef = current?.payload.sharedModels?.[key];
                  return <div className={styles.modelCard} key={category}>
@@ -344,7 +344,6 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,imageOnly=fa
                })}
              </div>
              {!validSelection&&!imageOnly&&<p>请选择当前可用的默认渠道和三类候选型号，再检查并发布。</p>}
-             {imageOnly&&!publishedChoice&&<p>请先在企业文本模型中保存当前选择。</p>}
              <div className={styles.actions}><Button disabled={!validSelection} onClick={() => void validate()}>检查并预览</Button></div>
            </fieldset>
          </>}
@@ -398,7 +397,7 @@ function History({ rows, current, select, disabled, loading, failed, retry }: { 
 }
 const rateLabels={inputText:"文字输入 / 百万 Token",cachedInputText:"缓存文字输入 / 百万 Token",inputImage:"图片输入 / 百万 Token",cachedInputImage:"缓存图片输入 / 百万 Token",outputText:"文字输出 / 百万 Token",outputImage:"图片输出 / 百万 Token",outputImagePerItem:"图片输出 / 张"};
 function RateSummary({rates,currency}:{rates:z.infer<typeof officialRates>;currency:string}){return <dl>{Object.entries(rates).filter(([,value])=>value>0).map(([key,value])=><div key={key}><dt>{rateLabels[key as keyof typeof rateLabels]}</dt><dd>{formatCurrencyMicros(value)} {currency}</dd></div>)}</dl>}
-export function OfficialPriceEditor({scope,canPublish,disabled=false,unconfirmed=false,onSaved}:{scope:ModelRouteScope;canPublish:boolean;disabled?:boolean;unconfirmed?:boolean;onSaved?:()=>Promise<void>}){
+export function OfficialPriceEditor({scope,canPublish:canMaintainPrice,disabled=false,unconfirmed=false,onSaved}:{scope:ModelRouteScope;canPublish:boolean;disabled?:boolean;unconfirmed?:boolean;onSaved?:()=>Promise<void>}){
  const automatic=useQuery({queryKey:["automatic-fx-status",scope],queryFn:({signal})=>modelRouteRequest(scope,"/platform-prices/automatic-fx",automaticFXStatus,{signal}),retry:false,gcTime:0,refetchOnWindowFocus:false});
  const [fxStartState,setFxStartState]=useState<"ready"|"pending"|"unknown"|"started">("ready"),fxStartLock=useRef(false);
  async function startFX(){
@@ -407,6 +406,7 @@ export function OfficialPriceEditor({scope,canPublish,disabled=false,unconfirmed
   try{const current=await modelRouteRequest(scope,"/platform-prices/automatic-fx",automaticFXStatus);if(current.state!=="PREPARED"){setFxStartState("unknown");await automatic.refetch();return}await modelRouteRequest(scope,"/platform-prices/automatic-fx/start",z.strictObject({state:z.literal("STARTED")}),{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});setFxStartState("started");await automatic.refetch()}catch{setFxStartState("unknown")}
  }
  const query=useQuery({queryKey:[...settingsKey(scope),"prices"],queryFn:({signal})=>modelRouteRequest(scope,"/platform-prices",routeCurrent,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false,refetchInterval:60000});
+ const canPublish=canMaintainPrice&&query.data?.platformPriceWriteAllowed!==false;
  const history=useQuery({queryKey:[...settingsKey(scope),"history","prices"],queryFn:({signal})=>modelRouteRequest(scope,"/platform-prices/history",routeHistory,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
  const [draft,setDraft]=useState<PriceInput|null>(null),[preview,setPreview]=useState<{input:PriceInput;value:z.infer<typeof pricePreview>}|null>(null),[fieldError,setFieldError]=useState("");
  const state=usePublish(scope,"platform-prices",async()=>{

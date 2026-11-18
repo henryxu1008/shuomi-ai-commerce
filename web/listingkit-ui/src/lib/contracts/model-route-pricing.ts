@@ -20,13 +20,13 @@ const publishedPrice=z.strictObject({platformConnectionId:routeFact.optional(),i
 const publishedFX=z.strictObject({version:routeFact.optional(),currency:z.string().regex(/^[A-Z]{3}$/),cnyMicrosPerCurrencyUnit:positive,rateDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),...interval});
 export const priceInput=z.strictObject({expectedRevision:routeFact,prices:z.array(publishedPrice).max(32),fx:z.array(publishedFX).max(8)}).refine(v=>v.prices.every(p=>!p.version)&&v.fx.every(f=>!f.version));
 const priceSnapshot=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiPointUnit,prices:z.array(publishedPrice).max(32),fx:z.array(publishedFX).max(8)});
-const partialSelection=sharedSelection.extend({schemaVersion:z.literal(2),defaultChannel:routeFact.optional(),image:modelReference.optional(),multimodal:modelReference.optional(),textChannelName:z.string().max(512).optional(),textModel:routeFact.optional()});
+const partialSelection=sharedSelection.extend({schemaVersion:z.literal(2),text:modelReference.optional(),defaultChannel:routeFact.optional(),image:modelReference.optional(),multimodal:modelReference.optional(),textChannelName:z.string().max(512).optional(),textModel:routeFact.optional()});
 const choices=z.union([sharedSelection,partialSelection]);
 export const routeInput=z.strictObject({expectedRevision:routeFact,selection:choices});
 const routePayload=z.strictObject({bindingId:z.literal(""),credentialVersion:z.literal(""),rates:z.strictObject({}),sharedModels:choices.optional(),platformPrices:priceSnapshot.optional()}).refine(p=>!!p.sharedModels!==!!p.platformPrices);
 const routeScope=z.strictObject({organizationId:routeFact,capability:z.enum(["ai.models.enterprise","ai.models.official-prices"])});
 const routeRevision=z.strictObject({id:routeFact,scope:routeScope,parent:routeFact,schemaVersion:z.literal(1),payload:routePayload,digest:routeFact,actorId:routeFact,publishedAt:date,key:routeFact});
-export const routeCurrent=z.strictObject({status:z.enum(["READY","NEEDS_CONFIGURATION","UNCONFIGURED"]),revision:routeRevision.nullable(),preview:preview.nullable(),textChoiceEnabled:z.literal(true).optional()});
+export const routeCurrent=z.strictObject({status:z.enum(["READY","NEEDS_CONFIGURATION","UNCONFIGURED"]),revision:routeRevision.nullable(),preview:preview.nullable(),textChoiceEnabled:z.literal(true).optional(),platformPriceWriteAllowed:z.boolean().optional()});
 export const routeOptions=z.strictObject({organizationId:routeFact,channels:z.array(routeFact).min(1).max(128),models:z.array(modelOption).max(256)});
 export const routeReceipt=z.strictObject({receipt:routeRevision});
 export const routePreview=z.strictObject({selection:choices,expectedRevision:routeFact,preview});

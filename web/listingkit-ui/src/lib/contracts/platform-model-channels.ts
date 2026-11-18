@@ -3,7 +3,7 @@ import { channelAPIKey, channelBaseUrl, channelName, channelRegistration, channe
 import { modelOption, modelReference, routeFact } from "./model-route-pricing";
 
 const uc = z.string().regex(/^uc-[0-9a-f-]{36}$/);
-export const platformOwner = "platform-model-channel-owner";
+const platformOwner = "platform-model-channel-owner";
 const platformConnection = managedConnection.refine(value => value.organizationId === platformOwner && uc.safeParse(value.connectionId).success);
 const publication = z.strictObject({connectionId: uc, priceId: z.union([routeFact, z.literal("")]), organizations: z.array(routeFact).max(128)});
 const context = {organizationId: routeFact};
@@ -13,19 +13,19 @@ export const currentTextChoice = z.strictObject({...context, view: z.strictObjec
  revision: routeFact, current: modelOption.optional(), options: z.array(modelOption).max(256),
  purposes: z.array(routeFact).max(128).optional(),
 })});
-export const selectTextChoice = z.strictObject({expectedRevision: routeFact, reference: modelReference, quote: routeFact, expectedMemberId: routeFact});
-export const textChoiceReceipt = z.strictObject({...receipt, revision: routeFact, reference: modelReference});
+const selectTextChoice = z.strictObject({expectedRevision: routeFact, reference: modelReference, quote: routeFact, expectedMemberId: routeFact});
+const textChoiceReceipt = z.strictObject({...receipt, revision: routeFact, reference: modelReference});
 
 export const platformChannelList = z.strictObject({...context, canWrite: z.boolean(),
  channels: z.array(z.strictObject({connection: platformConnection, publication: publication.optional(), revision: routeFact})).max(128),
  organizations: z.array(routeFact).max(128),
 });
-export const platformCreate = z.strictObject({expectedMemberId: routeFact, name: channelName, template: channelTemplate, baseUrl: channelBaseUrl.optional(), apiKey: channelAPIKey});
-export const platformCreateReceipt = z.strictObject({...receipt,result:z.strictObject({registration:channelRegistration,connection:platformConnection})});
-export const platformPublish = z.strictObject({expectedMemberId: routeFact, expectedRevision: routeFact, channel: publication});
-export const platformPublishReceipt = z.strictObject({...receipt,revision:routeFact,result:publication});
-export const platformCredential = z.union(credentialInput.options.map(option=>option.extend({expectedMemberId:routeFact})));
-export const platformCredentialReceipt = z.strictObject({...receipt,result:credentialReceipt.shape.receipt.refine(r=>r.organizationId===platformOwner)});
+const platformCreate = z.strictObject({expectedMemberId: routeFact, name: channelName, template: channelTemplate, baseUrl: channelBaseUrl.optional(), apiKey: channelAPIKey});
+const platformCreateReceipt = z.strictObject({...receipt,result:z.strictObject({registration:channelRegistration,connection:platformConnection})});
+const platformPublish = z.strictObject({expectedMemberId: routeFact, expectedRevision: routeFact, channel: publication});
+const platformPublishReceipt = z.strictObject({...receipt,revision:routeFact,result:publication});
+const platformCredential = z.union(credentialInput.options.map(option=>option.extend({expectedMemberId:routeFact})));
+const platformCredentialReceipt = z.strictObject({...receipt,result:credentialReceipt.shape.receipt.refine(r=>r.organizationId===platformOwner)});
 
 export function selectionEndpoint(parts: string[], method: string) {
  const [family, first, second, third, fourth] = parts;

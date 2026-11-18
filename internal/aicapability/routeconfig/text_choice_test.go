@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/aicapability"
 )
 
 func TestChooseTextOnlyUsesOriginalCurrentAndPreservesOtherPurposes(t *testing.T) {
@@ -38,4 +39,19 @@ func TestChooseTextOnlyUsesOriginalCurrentAndPreservesOtherPurposes(t *testing.T
 	require.Equal(t, original.DefaultChannel, revision.Payload.SharedModels.DefaultChannel)
 	_, err = service.ChooseText(ctx, "org-a", "actor", "bad-quote", TextChoiceInput{ExpectedRevision: revision.ID, Reference: ref, Quote: "stale-quote"})
 	require.ErrorIs(t, err, ErrConflict)
+}
+
+func TestPurposeSelectionKeepsImageFirstSetupAvailableWithoutText(t *testing.T) {
+	ctx := context.Background()
+	repo := &sharedRepositoryFixture{}
+	service := &SharedModelService{Repository: repo, Catalog: &sharedCatalogFixture{unready: ModelCategoryText}, PurposeSelectionOnly: true}
+	image := SharedModelSelection{SchemaVersion: 2, UnitVersion: aicapability.AIPointMicrounitV1, Image: sharedChoiceFixture().Image}
+	r, err := service.Publish(ctx, "org-a", "actor", "image-first", SharedModelInput{ExpectedRevision: NoRevision, Selection: image})
+	require.NoError(t, err)
+	require.Empty(t, r.Payload.SharedModels.Text)
+	_, _, err = service.ReadCategory(ctx, "org-a", ModelCategoryText)
+	require.ErrorIs(t, err, ErrNotFound)
+	q, _, err := service.ReadCategory(ctx, "org-a", ModelCategoryImage)
+	require.NoError(t, err)
+	require.True(t, q.Ready)
 }
