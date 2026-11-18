@@ -109,6 +109,9 @@ func (c *Config) modelRouteDefinitions() ([]qualified.Definition, error) {
 			add(aicapability.OperationAIWorkbenchChatPlan, c.AIWorkbench.PlanningTextPolicies)
 			add(aicapability.OperationAIWorkbenchStoreRoute, c.AIWorkbench.StoreRouteTextPolicies)
 			add(aicapability.OperationAIWorkbenchChatIntent, c.AIWorkbench.ChatIntentTextPolicies)
+			if c.AIWorkbench.ContentTasks && c.AIWorkbench.ChatImageStorage != nil && c.StorageCapacity {
+				add(aicapability.OperationAIWorkbenchChatImages, c.AIWorkbench.ChatImageTextPolicies)
+			}
 			add(aicapability.OperationAIWorkbenchSkillAuthoring, c.AIWorkbench.SkillAuthoringTextPolicies)
 		}
 		if len(anchors) == 0 && p.Enabled {

@@ -20,6 +20,8 @@
 
 私有客户端构造集中在 `internal/app/runtime/currentapplication/chat_image_storage.go`，通过现有 ApplicationFeatures 向运行消费者注入已构造的对象读写和容量能力。对象存储构造器清单及精确依赖准入记录该装配文件。
 
+运行配置在 `aiWorkbench.chatImageTextPolicies` 按已准入企业声明多图用途及其静态上限，并在 `modelRoutePricing.bindings` 为同一用途绑定合格的多模态路线、资费和单次用量上限。只有开启私有图片存储和容量计量的商品内容工作台才装配该用途；绑定可收窄原上限。
+
 新增同一会话下的有界提交入口，只接收文字、一个有序图片数组及原消息键。BFF 复用同源鉴权，新增入口独立限制原图合计、整个编码请求大小及字段数量，原文字及技能请求上限保持。后端按实际字节逐图检查长度、类型、尺寸、像素和摘要。图片文件名、外链、object key 和模型身份不作为客户端输入。
 
 ## 模型及计量
