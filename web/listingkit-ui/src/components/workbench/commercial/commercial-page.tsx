@@ -717,6 +717,7 @@ function ResourceUsageRequest({
 
 const ownedUsagePurposes: Record<string, string> = {
   aiworkbench_chat_plan: "聊天规划",
+  aiworkbench_chat_image_question: "图片提问",
   aiworkbench_chat_intent: "需求识别",
   aiworkbench_skill_authoring: "创建技能",
   aiworkbench_store_route: "聊天店铺查询",

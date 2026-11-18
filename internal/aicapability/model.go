@@ -23,5 +23,6 @@ const (
 	OperationAIWorkbenchChatPlan       Operation = "aiworkbench_chat_plan"
 	OperationAIWorkbenchStoreRoute     Operation = "aiworkbench_store_route"
 	OperationAIWorkbenchChatIntent     Operation = "aiworkbench_chat_intent"
+	OperationAIWorkbenchChatImages     Operation = "aiworkbench_chat_image_question"
 	OperationAIWorkbenchSkillAuthoring Operation = "aiworkbench_skill_authoring"
 )

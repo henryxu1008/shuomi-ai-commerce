@@ -452,6 +452,11 @@ func validPricedTextOperationIdentity(record aicapability.InvocationRecord) bool
 				record.OfficialTariff.Channel == "openai-direct" && record.OfficialTariff.UsageVersion == "openai-text-v1")
 	case aicapability.OperationOwnProductIntake:
 		return record.AgentRunID != "" && record.Capability == aicapability.CapabilityProductEnrichText && record.OfficialTariff.MatchesWireModel(record.ModelID)
+	case aicapability.OperationAIWorkbenchChatImages:
+		return record.AgentRunID == "" && record.BusinessTaskID == "" &&
+			record.Capability == aicapability.CapabilityAIWorkbenchChatPlanning &&
+			record.ModelID == aicapability.SingleImageMiniModel && record.OfficialTariff.MatchesWireModel(record.ModelID) &&
+			record.OfficialTariff.Channel == "openai-direct" && record.OfficialTariff.UsageVersion == "openai-text-v1"
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision:
 		return record.AgentRunID != ""
 	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring:

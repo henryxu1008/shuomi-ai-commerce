@@ -96,10 +96,14 @@ func (p ModelProfile) ValidateShape() error {
 	} else if p.ThinkingMode != "" {
 		return ErrTextProfile
 	}
+	maximumInputBytes := 1 << 20
+	if p.AdapterPolicyVersion == ChatImageAdapterPolicy {
+		maximumInputBytes = MaximumChatImageWire
+	}
 	if p.ImagePromptTokenEstimate < 0 || p.ImagePromptTokenEstimate > p.MaximumPromptTokens ||
 		p.MaximumPromptTokens < 1 || p.MaximumPromptTokens > 1048576 ||
 		p.MaximumCompletionTokens < 1 || p.MaximumCompletionTokens > 65536 ||
-		p.MaximumInputBytes < 1 || p.MaximumInputBytes > 1<<20 ||
+		p.MaximumInputBytes < 1 || p.MaximumInputBytes > maximumInputBytes ||
 		p.MaximumOutputBytes < 1 || p.MaximumOutputBytes > 1<<20 ||
 		p.DeadlineBound <= 0 || p.DeadlineBound > 2*time.Minute {
 		return ErrTextProfile
@@ -196,11 +200,13 @@ type TextInputIdentity struct {
 	System         string
 	Prompt         string
 	Profile        ModelProfile
-	Image          *SingleImageInput `json:",omitempty"`
+	Image          *SingleImageInput  `json:",omitempty"`
+	Images         []SingleImageInput `json:",omitempty"`
 	// Set by Workbench for a verified personal text skill on the ChatPlan route.
 	ChatTextSkill bool `json:"-"`
 	// Transient authorized content is never part of JSON, logs or snapshots.
-	ImageContent []byte `json:"-"`
+	ImageContent  []byte   `json:"-"`
+	ImageContents [][]byte `json:"-"`
 }
 
 type TextQuote struct {
@@ -231,7 +237,14 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	if input.Profile.BillingMode == ModelUsageOnly && (input.Image != nil || VisionTextOperation(input.Operation)) {
 		return TextQuote{}, ErrTextEnvelope
 	}
-	if input.Image != nil {
+	chatImages := input.Operation == OperationAIWorkbenchChatImages
+	if chatImages {
+		if input.Image != nil || len(input.ImageContent) != 0 || !ValidChatImages(input.Images) || !ChatImageProfile(input.Profile) {
+			return TextQuote{}, ErrTextEnvelope
+		}
+	} else if len(input.Images) != 0 || len(input.ImageContents) != 0 || input.Profile.AdapterPolicyVersion == ChatImageAdapterPolicy {
+		return TextQuote{}, ErrTextEnvelope
+	} else if input.Image != nil {
 		if !VisionTextOperation(input.Operation) || !input.Image.Valid() || !SingleImageProfile(input.Profile) {
 			return TextQuote{}, ErrTextEnvelope
 		}
@@ -241,7 +254,7 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	if input.Operation == OperationOwnProductIntake && !SingleImageProfile(input.Profile) {
 		return TextQuote{}, ErrTextEnvelope
 	}
-	if input.Operation == OperationAIWorkbenchChatPlan || input.Operation == OperationAIWorkbenchStoreRoute || input.Operation == OperationAIWorkbenchChatIntent || input.Operation == OperationAIWorkbenchSkillAuthoring {
+	if input.Operation == OperationAIWorkbenchChatPlan || input.Operation == OperationAIWorkbenchStoreRoute || input.Operation == OperationAIWorkbenchChatIntent || input.Operation == OperationAIWorkbenchSkillAuthoring || chatImages {
 		if input.AgentRunID != "" || input.BusinessTaskID != "" || input.Profile.AdapterKind == "google-interactions" {
 			return TextQuote{}, ErrTextEnvelope
 		}
@@ -259,9 +272,10 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 		ProfileDigest  string
 		System         string
 		Prompt         string
-		Image          *SingleImageInput `json:",omitempty"`
+		Image          *SingleImageInput  `json:",omitempty"`
+		Images         []SingleImageInput `json:",omitempty"`
 	}{input.OrganizationID, input.ActorID, input.MemberID, input.Operation,
-		input.AgentRunID, input.BusinessTaskID, profileDigest, input.System, input.Prompt, input.Image}
+		input.AgentRunID, input.BusinessTaskID, profileDigest, input.System, input.Prompt, input.Image, input.Images}
 	wire, err := json.Marshal(envelope)
 	if err != nil {
 		return TextQuote{}, ErrTextEnvelope
@@ -282,6 +296,10 @@ func QuoteText(input TextInputIdentity) (TextQuote, error) {
 	if input.Image != nil {
 		promptBound += SingleImagePromptEstimate(input.Profile)
 		wireBound += base64.StdEncoding.EncodedLen(input.Image.ByteLength) + len("data:"+input.Image.MediaType+";base64,")
+	}
+	for _, image := range input.Images {
+		promptBound += SingleImagePromptTokenBound
+		wireBound += base64.StdEncoding.EncodedLen(image.ByteLength) + len("data:"+image.MediaType+";base64,")
 	}
 	if wireBound > input.Profile.MaximumInputBytes || promptBound > input.Profile.MaximumPromptTokens {
 		return TextQuote{}, ErrTextInputLimit

@@ -6,6 +6,16 @@ export class AIWorkbenchError extends Error {
 }
 export type AIScope = { userId: string; organizationId: string };
 
+export async function requestChatImage(scope:AIScope, conversation:string, message:string, index:number, signal:AbortSignal) {
+  const response=await fetch(`/api/workbench/chat/conversations/${conversation}/messages/${message}/images/${index}`,{
+    headers:{"X-Expected-User-ID":scope.userId,"X-Expected-Organization-ID":scope.organizationId},
+    credentials:"same-origin",redirect:"error",cache:"no-store",signal,
+  });
+  const type=response.headers.get("content-type");
+  if (!response.ok || type!=="image/png" && type!=="image/jpeg")throw new AIWorkbenchError("DEPENDENCY_UNAVAILABLE");
+  return response.blob();
+}
+
 type AIRequest = {
   route: AIWorkbenchRoute; method: "GET" | "POST" | "PATCH"; path: string; scope: AIScope;
   signal?: AbortSignal; body?: object; key?: string; revision?: number;
@@ -29,7 +39,7 @@ export async function requestAIWorkbench<R extends AIWorkbenchRoute>(input: AIRe
   catch { throw new AIWorkbenchError(input.method === "GET" ? "DEPENDENCY_UNAVAILABLE" : "OUTCOME_UNKNOWN"); }
   if (!response.ok) {
     const code = payload && typeof payload === "object" && "code" in payload && typeof payload.code === "string" ? payload.code : "DEPENDENCY_UNAVAILABLE";
-    const notAccepted=(input.route==="message"||input.route==="chat-turn-submit"&&code==="INVALID_REQUEST"&&response.status===400)&&payload&&typeof payload==="object"&&"messageAccepted" in payload&&payload.messageAccepted===false;
+    const notAccepted=(input.route==="message"||(input.route==="chat-turn-submit"||input.route==="image-question-submit")&&code==="INVALID_REQUEST"&&response.status===400)&&payload&&typeof payload==="object"&&"messageAccepted" in payload&&payload.messageAccepted===false;
     const createRejected=input.route==="conversation-create"&&payload&&typeof payload==="object"&&"conversationAccepted" in payload&&payload.conversationAccepted===false;
     const commandRejected=input.route.startsWith("schedule-")&&input.route!=="schedule-quote"&&code==="SCHEDULE_COMMAND_REJECTED"&&payload&&typeof payload==="object"&&"commandAccepted" in payload&&payload.commandAccepted===false;
     throw new AIWorkbenchError(code,notAccepted?false:undefined,createRejected?false:undefined,commandRejected?false:undefined);

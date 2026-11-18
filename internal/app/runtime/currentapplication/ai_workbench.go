@@ -14,6 +14,7 @@ import (
 // AIWorkbenchConfig uses the Product Agent's logical database with its own
 // least-privilege role. Planning policies never borrow title admission.
 type AIWorkbenchConfig struct {
+	ChatImageStorage           *KnowledgeStorageConfig         `json:"chatImageStorage,omitempty"`
 	Schedules                  *AIWorkbenchSchedulesConfig     `json:"schedules,omitempty"`
 	ChatTurnsEnabled           bool                            `json:"chatTurnsEnabled,omitempty"`
 	Enabled                    bool                            `json:"enabled"`
@@ -30,6 +31,14 @@ type AIWorkbenchConfig struct {
 func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w == nil {
 		return nil
+	}
+	if w.ChatImageStorage != nil {
+		if !w.Enabled || w.ConversationOnly || !w.ContentTasks || !cfg.StorageCapacity || cfg.ModelRoutePricing == nil {
+			return errors.New("Chat image storage requires a metered, priced content workbench")
+		}
+		if err := w.ChatImageStorage.validateCapacityIdentity(); err != nil {
+			return errors.New("Chat image storage identity is invalid")
+		}
 	}
 	if w.ChatTurnsEnabled && (!w.Enabled || w.ConversationOnly || cfg.ModelRoutePricing == nil) {
 		return errors.New("Chat turns require an enabled priced-model workbench")

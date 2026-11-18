@@ -384,6 +384,9 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"GET", workbenchChatBase + "/image-questions", authz.PermissionWorkbenchChatUse, "image-question-readiness", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/image-questions", authz.PermissionWorkbenchChatUse, "image-question-submit", 2 * time.Minute},
+		{"GET", workbenchChatBase + "/:conversation_id/messages/:message_id/images/:index", authz.PermissionWorkbenchChatRead, "image-question-attachment", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/turns", authz.PermissionWorkbenchChatUse, "chat-turn-submit", 2 * time.Minute},
 		{"GET", workbenchChatBase + "/:conversation_id/turns/:turn_key", authz.PermissionWorkbenchChatRead, "chat-turn-read", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/turns/:turn_key/recover", authz.PermissionWorkbenchChatUse, "chat-turn-recover", 2 * time.Minute},
@@ -441,6 +444,12 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "image-question-readiness":
+					a.chatImageReadiness(c, ctx, scope)
+				case "image-question-submit":
+					a.postChatImages(c, ctx, scope)
+				case "image-question-attachment":
+					a.readChatImage(c, ctx, scope)
 				case "chat-turn-submit", "chat-turn-read", "chat-turn-recover":
 					a.chatTurn(c, ctx, scope, spec.action)
 				case "skill-authoring-catalog", "skill-authoring-list", "skill-authoring-quote", "skill-authoring-preview", "skill-authoring-confirm", "skill-authoring-recover-generation", "skill-authoring-validate", "skill-authoring-generate", "skill-authoring-save", "skill-authoring-save-package", "skill-authoring-save-recover":
