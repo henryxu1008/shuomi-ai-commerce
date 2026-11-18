@@ -160,6 +160,9 @@ const itemColumns = "organization_id,actor_id,job_id,id,asin,state,COALESCE(clai
 
 func (row itemRow) item() (dataacquisition.Item, error) {
 	item := dataacquisition.Item{ID: row.ID, ASIN: row.ASIN, State: row.State, ClaimToken: row.ClaimToken, ReservationID: row.ReservationID, ChargeState: orgresource.ReservationState(row.ChargeState), Reason: row.Reason}
+	if row.State == "PREPARED_EVIDENCE" && len(row.EvidenceJSON) == 0 {
+		return item, dataacquisition.ErrUnavailable
+	}
 	if len(row.EvidenceJSON) > 0 {
 		var e dataacquisition.Evidence
 		if json.Unmarshal(row.EvidenceJSON, &e) != nil || e.Validate() != nil {
@@ -379,6 +382,10 @@ func quotaMove(tx *gorm.DB, row *jobRow, release, consume int) error {
 }
 
 func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, command string, q dataacquisition.Query, funding orgresource.ResourceFunding, confirmation dataacquisition.PriceConfirmation) (dataacquisition.Job, error) {
+	return r.admit(ctx, p, command, q, funding, confirmation, nil)
+}
+
+func (r *Repository) admit(ctx context.Context, p dataacquisition.Principal, command string, q dataacquisition.Query, funding orgresource.ResourceFunding, confirmation dataacquisition.PriceConfirmation, page *preparedAmazonFirstPage) (dataacquisition.Job, error) {
 	q, err := dataacquisition.NormalizeQuery(q)
 	if err != nil || confirmation.Validate() != nil || p.Scope.Validate() != nil || !collection.ValidID(command) || (p.CredentialID != "" && (!collection.ValidID(p.CredentialID) || p.CredentialRevision < 1)) || (funding != orgresource.FundingEnterprise && funding != orgresource.FundingMember) {
 		return dataacquisition.Job{}, dataacquisition.ErrInvalid
@@ -430,6 +437,13 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 			Permissions  []string
 			Confirmation dataacquisition.PriceConfirmation
 		}{q, p.Scope.MemberID, p.CredentialID, funding, key.Input.Permissions, confirmation})
+		if page != nil {
+			hash = collection.Digest(struct {
+				Original, Approval string
+				IDs                []string
+				Evidence           map[string]dataacquisition.Evidence
+			}{hash, page.approval.Binding(), page.ids, page.evidence})
+		}
 		// Original command replay never reserves quota or another job.
 		var existing jobRow
 		found := tx.Raw("SELECT "+jobColumns+" FROM data_acquisition_jobs WHERE organization_id=? AND actor_id=? AND command_key=? AND source_kind='amazon_data'", p.Scope.OrganizationID, p.Scope.ActorID, command).Scan(&existing)
@@ -535,6 +549,19 @@ func (r *Repository) Admit(ctx context.Context, p dataacquisition.Principal, com
 		row.QueryJSON = raw
 		row.PriceJSON = priceJSON
 		out, err = row.job()
+		if err == nil && page != nil {
+			if err = insertDiscovery(tx, &row, out, page.ids, page.evidence); err != nil {
+				return err
+			}
+			receipt := page.receipt
+			receipt.State = dataacquisition.AmazonFirstPagePrepared
+			receipt.JobID = row.ID
+			if err = insertAmazonFirstPageResult(tx, page.approval, receipt); err != nil {
+				return err
+			}
+			out.Discovered = true
+			out.State = "RUNNING"
+		}
 		if err == nil {
 			err = checkCredential()
 		}
@@ -664,26 +691,42 @@ func (r *Repository) Discover(ctx context.Context, job dataacquisition.Job, ids 
 		if row.Discovered {
 			return nil
 		}
-		for _, asin := range normalized {
-			intent := originalItemIntent(current, asin)
-			id := intent.Identity.OperationID
-			raw, err := json.Marshal(intent)
-			if err != nil {
-				return err
-			}
-			if err = tx.Exec("INSERT INTO data_acquisition_items(organization_id,actor_id,job_id,id,asin,state,intent_json,created_at) VALUES(?,?,?,?,?,'PREPARED',?,?)", row.OrganizationID, row.ActorID, row.ID, id, asin, string(raw), row.CreatedAt).Error; err != nil {
-				return err
-			}
-		}
-		if err := quotaMove(tx, row, row.QuotaReserved-len(normalized), 0); err != nil {
-			return err
-		}
-		return tx.Exec("UPDATE data_acquisition_jobs SET discovered=true,state='RUNNING' WHERE organization_id=? AND actor_id=? AND id=?", row.OrganizationID, row.ActorID, row.ID).Error
+		return insertDiscovery(tx, row, current, normalized, nil)
 	})
 	if err != nil {
 		return dataacquisition.Job{}, err
 	}
 	return committedJob(r.Read(ctx, job.Scope, job.ID))
+}
+
+func insertDiscovery(tx *gorm.DB, row *jobRow, current dataacquisition.Job, ids []string, prepared map[string]dataacquisition.Evidence) error {
+	for _, asin := range ids {
+		intent := originalItemIntent(current, asin)
+		raw, err := json.Marshal(intent)
+		if err != nil {
+			return err
+		}
+		state := "PREPARED"
+		var evidence []byte
+		if prepared != nil {
+			fact, found := prepared[asin]
+			if !found {
+				return dataacquisition.ErrInvalid
+			}
+			evidence, err = json.Marshal(fact)
+			if err != nil {
+				return err
+			}
+			state = "PREPARED_EVIDENCE"
+		}
+		if err = tx.Exec("INSERT INTO data_acquisition_items(organization_id,actor_id,job_id,id,asin,state,intent_json,evidence_json,created_at) VALUES(?,?,?,?,?,?,?,?,?)", row.OrganizationID, row.ActorID, row.ID, intent.Identity.OperationID, asin, state, string(raw), evidence, row.CreatedAt).Error; err != nil {
+			return err
+		}
+	}
+	if err := quotaMove(tx, row, row.QuotaReserved-len(ids), 0); err != nil {
+		return err
+	}
+	return tx.Exec("UPDATE data_acquisition_jobs SET discovered=true,state='RUNNING' WHERE organization_id=? AND actor_id=? AND id=?", row.OrganizationID, row.ActorID, row.ID).Error
 }
 func (r *Repository) Items(ctx context.Context, job dataacquisition.Job) ([]dataacquisition.Item, error) {
 	items := []dataacquisition.Item{}

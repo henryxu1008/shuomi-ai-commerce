@@ -139,6 +139,7 @@
 - `market-research-selection.md` — [市场研究与选品：最小领域合同](market-research-selection.md)
 - `market-research-evidence-analysis-v1.md` — [两个中心 V1：研究证据分析合同增量](market-research-evidence-analysis-v1.md)
 - `amazon-opportunity-handoff-v1.md` — [Amazon 美国站调研机会与选品交接 V1](amazon-opportunity-handoff-v1.md)
+- `amazon-us-zenrows-first-page.md` — [Amazon 美国站 ZenRows 单页试用](amazon-us-zenrows-first-page.md)
 - `issue1070-local-acceptance-fixture.md` — [#1070 本地验收项目合成资料导入](issue1070-local-acceptance-fixture.md)
 - `own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
 - `own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](own-product-intake-openai-mini.md)

@@ -14,7 +14,7 @@ export async function proxyProjectCenter(
   request: Request,
   token: string,
   userId: string,
-  options?: {endpoint:(url:URL,method:string)=>{path:string;input:z.ZodType|undefined;output:z.ZodType;expected:boolean;readOnly?:boolean}|null;base:string;inputBytes:number;outputBytes:number},
+  options?: {endpoint:(url:URL,method:string)=>{path:string;input:z.ZodType|undefined;output:z.ZodType;expected:boolean;readOnly?:boolean;emptyWrite?:boolean}|null;base:string;inputBytes:number;outputBytes:number;timeoutMs?:number},
 ): Promise<Response> {
   if (!token || !userId) return projectFailure(401, "AUTHENTICATION_REQUIRED");
   if (request.headers.get("X-Expected-User-ID") !== userId)
@@ -28,8 +28,9 @@ export async function proxyProjectCenter(
   )
     return projectFailure(400, "INVALID_REQUEST");
   const hasInput = !!route.input;
-  const write = hasInput && !("readOnly" in route && route.readOnly);
-  if (hasInput && !hasTrustedSameOriginWrite(request))
+  const emptyWrite = "emptyWrite" in route && route.emptyWrite === true;
+  const write = emptyWrite || (hasInput && !("readOnly" in route && route.readOnly));
+  if ((hasInput || emptyWrite) && !hasTrustedSameOriginWrite(request))
     return projectFailure(403, "FORBIDDEN");
   let org = "";
   {
@@ -53,7 +54,7 @@ export async function proxyProjectCenter(
     abort = () => controller.abort();
   request.signal.addEventListener("abort", abort, { once: true });
   if (request.signal.aborted) abort();
-  const timer = setTimeout(abort, 12000);
+  const timer = setTimeout(abort, options?.timeoutMs ?? 12000);
   let dispatched = false;
   try {
     const headers = new Headers({
@@ -84,8 +85,11 @@ export async function proxyProjectCenter(
       if (!parsed.success) return projectFailure(400, "INVALID_REQUEST");
       body = JSON.stringify(parsed.data);
       headers.set("Content-Type", "application/json");
-    } else if (!(await hasEmptyBody(request, controller.signal)))
-      return projectFailure(400, "INVALID_REQUEST");
+    } else {
+      if (emptyWrite && (request.headers.has("idempotency-key") || request.headers.has("if-match") || request.headers.has("if-none-match")))
+        return projectFailure(400, "INVALID_REQUEST");
+      if (!(await hasEmptyBody(request, controller.signal))) return projectFailure(400, "INVALID_REQUEST");
+    }
     let origin: string;
     try {
       const u = new URL(process.env.LISTINGKIT_SERVICE_API_BASE ?? "");

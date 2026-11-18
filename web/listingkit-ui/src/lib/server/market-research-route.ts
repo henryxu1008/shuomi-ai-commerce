@@ -6,6 +6,7 @@ import { readZitadelServerAccessToken } from "./zitadel-server-token";
 import { projectFailure } from "./project-center-proxy";
 import {proxyMarketResearch} from "./market-research-proxy";
 import {sheinTrialPath} from "./shein-us-trial-proxy";
+import {amazonFirstPagePath} from "./amazon-first-page-proxy";
 const authenticated = serverAuth(
   async (request: NextRequest & { auth?: unknown }) =>
     proxyMarketResearch(
@@ -23,7 +24,8 @@ export async function handleMarketResearch(request: NextRequest) {
     abort = () => controller.abort();
   request.signal.addEventListener("abort", abort, { once: true });
   if (request.signal.aborted) abort();
-  const timer = setTimeout(abort, sheinTrialPath(path) ? 45_000 : 15_000);
+  const timeout = amazonFirstPagePath(path) && request.method === "POST" ? 205_000 : sheinTrialPath(path) ? 45_000 : 15_000;
+  const timer = setTimeout(abort, timeout);
   const failure = () =>
     projectFailure(
       504,

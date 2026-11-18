@@ -9,10 +9,13 @@ import {researchRequest,ResearchError} from "@/lib/api/market-research";
 import type {ProjectScope} from "@/lib/api/project-center";
 import {researchPage,researchReceipt,researchIntent,selectionOf,type ResearchCommand,type ResearchCandidate} from "@/lib/contracts/market-research";
 import {CollectionPicker} from "../pod/collection-picker";
+import {CollectionProductImage} from "../collections/collection-product-image";
+import productGrid from "../collections/product-grid.module.css";
 import {useResourcePending} from "../resources/resource-pending";
 import {ResearchAnalysisFlow,analysisChoices} from "./research-analysis-flow";
 import {researchAnalysisInput} from "@/lib/contracts/research-analysis";
 import {ResearchComparison} from "./research-comparison";
+import {amazonMarket,researchMissingLabel,researchQuote} from "./research-comparison-results";
 import {SheinUSTrialPanel} from "./shein-us-trial-panel";
 import {ResearchSupplierReview} from "./research-supplier-review";
 import {ResearchAssessments} from "./research-assessments";
@@ -129,6 +132,10 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  const selected=items.filter(v=>chosen.includes(v.id)&&v.observation&&!("shein" in v.observation));
  const groups=new Map<string,ResearchCandidate[]>();for(const v of selected.filter(v=>v.state==="APPROVED_FOR_TEST")){const batch=v.observation!.batchId;groups.set(batch,[...(groups.get(batch)??[]),v]);}
  const target=(center:"research"|"selection")=>{const query=new URLSearchParams(returnQuery);query.delete("step");if(selected.length>=2){query.set("sample",JSON.stringify(analysisChoices(selected)));if(after)query.set("candidateAfter",after);}return (center==="research"?"/workbench/data/research/":"/workbench/supply/selection/")+projectId+(query.size?"?"+query:"");};
+ const comparisonQuery=new URLSearchParams(returnQuery);
+ comparisonQuery.set("step","summary");
+ if(sample)comparisonQuery.set("sample",sample);
+ if(initialAfter)comparisonQuery.set("candidateAfter",initialAfter);
  return <section className={styles.panel+(view!=="embedded"?" "+styles.center:"")} aria-label="研究选品"><header className={styles.heading}><div><small>产品研究</small><h2>{view==="embedded"?"研究选品":view==="research"?"调研资料":"商品评估"}</h2><p>查看收集到的商品资料，比较重点商品，再记录选品理由。</p></div><div className={styles.actions}><Button variant="outline" disabled={busy} onClick={reload}>刷新商品资料</Button>{view!=="embedded" && !(view==="research" && bound)?<Button variant="outline" asChild><Link href={special?"/workbench/data/research/"+projectId:target(view==="research"?"selection":"research")} prefetch={false}>{view==="research"?"进入智能选品":"返回市场调研"}</Link></Button>:null}</div></header>
  {archived?<p role="status">项目已归档，研究记录只读。</p>:null}
  {view==="research" && store && scopeKey && canWrite && researchHandoffAllowed(context.permissions)?
@@ -138,19 +145,22 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
  {pending.error?<p role="alert">本次操作记录暂时无法读取，请检查浏览器设置后刷新。</p>:null}
  {pending.command?<Card className={styles.section}><p>上一次操作还没有确认结果。</p><div className={styles.actions}><Button disabled={busy} onClick={()=>void lookup()}>查询操作结果</Button>{absent&&canWrite?<Button variant="outline" disabled={busy} onClick={()=>void submit(pending.command!.body,pending.command)}>按原内容重试</Button>:null}</div></Card>:null}
  {error?<p role="alert">{error}</p>:null}
- {view!=="selection"?<Card id="research-sources" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>收集与整理资料</h3><p>把已保存的 Amazon 商品资料或 SHEIN 美国站商品卡片添加到项目。SHEIN 卡片可查看和切换资料。</p></div><div className={styles.actions}><Button variant="outline" asChild><Link href="/workbench/data/market" prefetch={false}>去收集资料</Link></Button>{canWrite?<Button disabled={locked} onClick={()=>setPicker(v=>!v)}>添加已有商品资料</Button>:null}</div></div>{picker?<CollectionPicker scope={scope} kind="product" authorizationKey={JSON.stringify([projectId,context.permissions])} disabled={locked} isEligible={item=>(item.source.kind==="amazon_data"||item.source.kind==="shein_us_data")&&!unsupported.includes(item.id)} emptyMessage="这页还没有可添加的商品资料。" onSelect={item=>void submit({action:"link",selections:[selectionOf(item)]},null)}/>:null}
+ {view!=="selection"?<Card id="research-sources" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>收集与整理资料</h3><p>把已保存的 Amazon 商品资料或 SHEIN 美国站商品卡片添加到项目。SHEIN 卡片可查看和切换资料。</p></div><div className={styles.actions}><Button variant="outline" asChild><Link href="/workbench/data/market" prefetch={false}>去收集资料</Link></Button>{canWrite?<Button disabled={locked} onClick={()=>setPicker(v=>!v)}>添加已有商品资料</Button>:null}</div></div>{picker?<CollectionPicker scope={scope} kind="product" productLayout="grid" authorizationKey={JSON.stringify([projectId,context.permissions])} disabled={locked} isEligible={item=>(item.source.kind==="amazon_data"||item.source.kind==="shein_us_data")&&!unsupported.includes(item.id)} emptyMessage="这页还没有可添加的商品资料。" onSelect={item=>void submit({action:"link",selections:[selectionOf(item)]},null)}/>:null}
  {view==="research"&&showSheinTrial&&canRead&&context.permissions.includes("workbench.data-market.use")?<SheinUSTrialPanel key={JSON.stringify([scope,projectId])} scope={scope} projectId={projectId} canWrite={canWrite}/>:null}</Card>:null}
  {!special?<Card id="research-evidence" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>已收集的商品</h3><p>这里展示已收集的商品资料。销量、市场需求、利润或合规情况尚未核实，不能据此下结论。</p></div><span>{chosen.length} / 5 项已选</span></div>
  {!canRead?<p>当前身份没有商品资料查看权限。</p>:loading?<p role="status">正在加载商品资料…</p>:!items.length&&!error?<p>还没有添加商品资料。</p>:null}
  {incomplete?<p role="status">部分商品资料暂时无法确认，请刷新后再查看。</p>:null}
- <div className={styles.grid}>{items.map(v=><CandidateCard view={view} key={v.id+":"+v.revision} value={v} checked={selected.some(c=>c.id===v.id)} toggle={()=>{invalidateChoice();setCompare(false);setChosen(old=>old.includes(v.id)?old.filter(id=>id!==v.id):old.length<5?[...old,v.id]:old);}} disabled={locked} canWrite={canWrite} chooseDisabled={!v.observation||"shein" in v.observation||busy||!!pending.command||(!chosen.includes(v.id)&&chosen.length>=5)} command={body=>void submit(body,null)}/>)}</div>
- <div className={styles.actions}>{after?<Button variant="outline" onClick={()=>{invalidateChoice();setChosen([]);setAfter("");}}>返回第一页商品</Button>:null}{next?<Button variant="outline" onClick={()=>{invalidateChoice();setChosen([]);setAfter(next);}}>下一页商品</Button>:null}</div></Card>:null}
- {special?null:view==="embedded"?<Card className={styles.section}><h3>重点商品比较</h3><p>选择2–5件商品，比较价格和特点。需要 AI 建议时，先确认分析设置和费用；现有资料不能代表整个市场。</p><Button disabled={selected.length<2||selected.length>5||busy||loading} onClick={()=>setCompare(true)}>比较所选商品</Button>{compare&&selected.length>=2?<ResearchComparison key={JSON.stringify(selected.map(v=>v.evidenceDigest))} scope={scope} items={selected.map(v=>v.observation!.item)}/>:null}</Card>:<ResearchAnalysisFlow scope={scope} projectId={projectId} selected={selected} archived={archived} view={view} evidenceReadKey={JSON.stringify([refresh,after])} evidenceReadable={canRead&&!loading&&!error&&!incomplete} comparisonReadable={canRead&&!loading&&!error&&loadedCostPage===costPageKey}/>}
+ <div className={productGrid.grid} role="group" aria-label="已收集的商品">{items.map(v=><CandidateCard view={view} key={v.id+":"+v.revision} value={v} checked={selected.some(c=>c.id===v.id)} toggle={()=>{invalidateChoice();setCompare(false);setChosen(old=>old.includes(v.id)?old.filter(id=>id!==v.id):old.length<5?[...old,v.id]:old);}} disabled={locked} canWrite={canWrite} chooseDisabled={!v.observation||"shein" in v.observation||busy||!!pending.command||(!chosen.includes(v.id)&&chosen.length>=5)} command={body=>void submit(body,null)}/>)}</div>
+ <div className={styles.actions}>{after?<Button variant="outline" onClick={()=>{invalidateChoice();setChosen([]);setAfter("");}}>返回第一页商品</Button>:null}{next?<Button variant="outline" onClick={()=>{invalidateChoice();setChosen([]);setAfter(next);}}>下一页商品</Button>:null}
+ {view==="research"&&section==="research-evidence"&&!archived&&selected.length>=2?<Button asChild><Link href={`/workbench/data/research/${projectId}?${comparisonQuery}`} prefetch={false} scroll={false}>前往比较</Link></Button>:null}
+ </div></Card>:null}
+ {special?null:view==="embedded"?<Card className={styles.section}><h3>重点商品比较</h3><p>选择2–5件商品，比较价格和特点。需要 AI 建议时，先确认分析设置和费用；现有资料不能代表整个市场。</p><Button disabled={selected.length<2||selected.length>5||busy||loading} onClick={()=>setCompare(true)}>比较所选商品</Button>{compare&&selected.length>=2?<ResearchComparison key={JSON.stringify(selected.map(v=>v.evidenceDigest))} scope={scope} items={selected.map(v=>v.observation!.item)}/>:null}</Card>:<ResearchAnalysisFlow scope={scope} projectId={projectId} selected={selected} archived={archived} view={view} showComparison={view==="selection"||section==="research-summary"} evidenceReadKey={JSON.stringify([refresh,after])} evidenceReadable={canRead&&!loading&&!error&&!incomplete} comparisonReadable={canRead&&!loading&&!error&&loadedCostPage===costPageKey}/>}
  {view==="selection"?<Card id="research-decisions" tabIndex={-1} className={styles.section}>
    <h3>评估与选品决定</h3><p>先查看商品资料，再逐件记录选择理由。AI 建议仅供参考，暂未开通 AI 也可继续作决定。</p>
-   <div className={styles.grid}>{items.filter(v=>!special||active?.confirmed?.representative===v.id).map(v=>{
+   <div className={`${productGrid.grid} ${styles.decisionGrid}`}>{items.filter(v=>!special||active?.confirmed?.representative===v.id).map(v=>{
     const assessmentKey=JSON.stringify([scope,projectId,v.id,v.selectedLinkId,v.evidenceDigest]);
-    return <article key={assessmentKey} className={styles.candidate}>
+    return <article key={assessmentKey} className={`${productGrid.card} ${styles.candidate}`}>
+     {v.observation ? <CollectionProductImage url={v.observation.item?.thumbnailUrl} alt="" /> : null}
      <div className={styles.heading}><h4>{v.observation?.title||"这份资料暂时无法查看"}</h4><span className={styles.badge}>{states[v.state]}</span></div>
      {v.reason?<p>当前理由：{v.reason}</p>:null}
           {v.supplierReview&&canRead&&<div className="grid min-w-0 gap-3">
@@ -178,11 +188,39 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
 function message(e:unknown){return e instanceof ResearchError?failures[e.code]??"服务暂不可用，请重新读取。":"服务暂不可用，请重新读取。";}
 function CandidateCard({value:v,checked,toggle,disabled,chooseDisabled,canWrite,command,view}:{view:"embedded"|"research"|"selection";value:ResearchCandidate;checked:boolean;toggle:()=>void;disabled:boolean;chooseDisabled:boolean;canWrite:boolean;command:(body:ResearchCommand)=>void}){
  const o=v.observation;
- return <article className={styles.candidate}><div className={styles.heading}><label className={styles.select}><input type="checkbox" checked={checked} disabled={chooseDisabled} onChange={toggle}/><strong>{o?.title||"这份资料暂时无法查看"}</strong></label><span className={styles.badge}>{states[v.state]}</span></div>
- {o?<>{"shein" in o?<SHEINCardFacts observation={o}/>:<><p>{o.site.toUpperCase()} · {o.asin} · {o.currency??"币种未知"} {o.price??"价格未知"}</p><dl><dt>资料来源</dt><dd>{"fixtureVersion" in o?"合成原件 · 参考版本 "+o.fixtureVersion:"Amazon 公开商品页面"}</dd><dt>资料收集范围</dt><dd>{o.query?.mode} · {o.query?.keyword||o.query?.categoryNode||(o.query?.asinCount+" 个 ASIN")} · 最多 {o.query?.limit} 条</dd>{o.capturedAt?<><dt>收集时间</dt><dd>{o.capturedAt}</dd></>:null}<dt>还缺少的信息</dt><dd>{o.missing.length?o.missing.join("、"):"这份资料没有列出缺少的信息，不代表市场信息已齐全"}</dd></dl></>}<details><summary>资料来源详情</summary><p>资料版本：{o.ref.selection.version} · 解析版本：{o.parserVersion}</p><p>资料校验编号：{o.ref.checksum}</p><p>Publication：{o.ref.selection.publicationId}</p><p>Job：{o.ref.jobId}</p></details>{o.sourceUrl?<a href={o.sourceUrl} target="_blank" rel="noreferrer">查看来源页面 ↗</a>:null}</>:<p>项目仍保留这件商品和已有选择记录；当前无法查看的商品资料不再显示。</p>}
+ return <article className={`${productGrid.card} ${styles.candidate}`} data-selected={checked}>
+ {o ? <CollectionProductImage url={o.item?.thumbnailUrl} alt="" /> : null}
+ <div className={styles.candidateIdentity}>
+  <label className={styles.select}><input type="checkbox" checked={checked} disabled={chooseDisabled} onChange={toggle}/><strong>{o?.title||"这份资料暂时无法查看"}</strong></label>
+  <span className={styles.candidateState}>{states[v.state]}</span>
+ </div>
+ {o?<>{ "shein" in o ? <><SHEINCardFacts observation={o}/><details><summary>资料来源详情</summary><p>资料版本：{o.ref.selection.version} · 解析版本：{o.parserVersion}</p><p>资料校验编号：{o.ref.checksum}</p><p>Publication：{o.ref.selection.publicationId}</p><p>Job：{o.ref.jobId}</p></details></> : <AmazonCardFacts observation={o}/> }
+  {o.sourceUrl?<a href={o.sourceUrl} target="_blank" rel="noreferrer">查看来源页面</a>:null}
+ </>:<p>项目仍保留这件商品和已有选择记录；当前无法查看的商品资料不再显示。</p>}
  {v.reason&&view!=="selection"?<p>当前理由：{v.reason}</p>:null}
  {v.evidence.length>0?<details><summary>已收集的资料记录（最近20条及当前使用资料）</summary>{v.evidence.map(l=><div className={styles.evidence} key={l.id}><span>{l.observation?`${l.observation.capturedAt||"收集时间未知"} · v${l.observation.ref.selection.version}`:"这份资料暂时无法查看"}</span>{canWrite&&view!=="selection"?<span className={styles.actions}>{l.observation&&l.id!==v.selectedLinkId?<Button size="sm" variant="outline" disabled={disabled} onClick={()=>command({action:"select",candidateId:v.id,expectedRevision:v.revision,linkId:l.id})}>使用这份资料</Button>:null}<Button size="sm" variant="ghost" disabled={disabled} onClick={()=>command({action:"unlink",candidateId:v.id,expectedRevision:v.revision,linkId:l.id})}>从项目移除</Button></span>:null}</div>)}</details>:null}
  {view!=="selection"?<CandidateDecision value={v} canWrite={canWrite&&view!=="research"} disabled={disabled} command={command}/>:null}</article>;
+}
+function AmazonCardFacts({observation:o}:{observation:Exclude<NonNullable<ResearchCandidate["observation"]>,{shein:unknown}>}){
+ const price=o.price!=null&&o.currency?researchQuote(o.price,o.currency):null;
+ const query=o.query;
+ const range=query?.mode==="keyword"?"关键词 "+query.keyword:query?.mode==="category"?"类目 "+query.categoryNode:query?.asinCount+" 件指定商品";
+ return <>
+  <p className={styles.candidateQuote}>
+   <span>{amazonMarket(o.site)} · {o.asin}</span>
+   {price?<strong>{o.priceBasis==="synthetic_listing_offer"?"示例报价":"页面报价"} {price}</strong>:<span>暂无可比报价</span>}
+   {o.missing.includes("availability")?<span>库存未知</span>:null}
+  </p>
+  <details>
+   <summary>查看资料与缺项</summary>
+   <dl>
+    <dt>资料来源</dt><dd>{"fixtureVersion" in o?"合成原件":o.parserVersion?.startsWith("amazon-zenrows-search-")?"Amazon 搜索结果第一页":"Amazon 公开商品页面"}</dd>
+    {query?<><dt>收集范围</dt><dd>{range} · 最多 {query.limit} 件</dd></>:null}
+    {o.capturedAt?<><dt>收集时间</dt><dd>{new Date(o.capturedAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false})}</dd></>:null}
+    {o.missing.length?<><dt>资料缺项</dt><dd>{[...new Set(o.missing.map(researchMissingLabel))].join("、")}</dd></>:null}
+   </dl>
+  </details>
+ </>;
 }
 const sheinMissingLabels:Record<string,string>={title:"商品标题",capturedAt:"收集时间",variantId:"具体规格",price:"卡片展示价","price.promotionNote":"优惠条件","price.taxIncluded":"是否含税","price.unit":"计价单位"};
 function SHEINCardFacts({observation:o}:{observation:Extract<NonNullable<ResearchCandidate["observation"]>,{shein:unknown}>}){

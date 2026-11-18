@@ -2,6 +2,37 @@ package dataacquisition
 
 import "testing"
 
+func TestZenRowsSearchEvidenceKeepsPriceAndCurrencyPaired(t *testing.T) {
+	e := Evidence{
+		Site: "us", ASIN: "B000123456", Title: "Lamp", MainImage: "https://m.media-amazon.com/images/lamp.jpg",
+		Availability: "unknown", CapturedAt: "2026-11-18T12:49:30Z",
+	}
+	for _, tc := range []struct {
+		name, version, currency string
+		price                   float64
+		missing                 []string
+		valid                   bool
+	}{
+		{"saved v1", amazonZenRowsSearchV1, "", 0, []string{"price", "currency"}, true},
+		{"v1 cannot claim a price", amazonZenRowsSearchV1, "USD", 1, nil, false},
+		{"v2 missing", AmazonZenRowsSearchVersion, "", 0, []string{"price", "currency"}, true},
+		{"v2 verified pair", AmazonZenRowsSearchVersion, "USD", 1, nil, true},
+		{"price only", AmazonZenRowsSearchVersion, "", 1, []string{"currency"}, false},
+		{"currency only", AmazonZenRowsSearchVersion, "USD", 0, []string{"price"}, false},
+		{"other currency", AmazonZenRowsSearchVersion, "CAD", 1, nil, false},
+		{"conflicting price missing", AmazonZenRowsSearchVersion, "USD", 1, []string{"price"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fact := e
+			fact.ParserVersion, fact.Price, fact.Currency = tc.version, tc.price, tc.currency
+			fact.Missing = append([]string{"availability"}, tc.missing...)
+			if err := fact.Validate(); (err == nil) != tc.valid {
+				t.Fatalf("expected valid=%v, got %v", tc.valid, err)
+			}
+		})
+	}
+}
+
 func TestQueryRejectsUnknownSiteAndCrossSiteURL(t *testing.T) {
 	for _, q := range []Query{
 		{Site: "zz", Mode: "asin", ASINs: []string{"B000123456"}, Limit: 1},

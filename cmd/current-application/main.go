@@ -221,6 +221,13 @@ func execute() error {
 				}
 				options = append(options, option)
 			}
+			if trial := features.AmazonFirstPage; trial != nil {
+				option, err := httpapi.WithAmazonFirstPageTrial(trial.Approval, trial.ReadKey)
+				if err != nil {
+					return nil, err
+				}
+				options = append(options, option)
+			}
 			if features.ProjectCenterDB != nil {
 				options = append(options, httpapi.WithProjectCenter(features.ProjectCenterDB))
 			}
