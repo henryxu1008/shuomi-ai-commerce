@@ -6,7 +6,9 @@ import type {MarketScope} from "@/lib/api/supply-market";
 import type {CollectionItem} from "@/lib/contracts/product-collection";
 import {Button} from "@/components/ui/button";
 import {ConsoleState} from "@/components/workbench/console/console-page";
-export function CollectionPicker({scope,kind,onSelect,disabled=false,authorizationKey,isEligible,emptyMessage}:{scope:MarketScope;kind:"template"|"artwork"|"product";onSelect:(item:CollectionItem)=>void;disabled?:boolean;authorizationKey?:string;isEligible?:(item:CollectionItem)=>boolean;emptyMessage?:string}){
+import {CollectionProductImage} from "../collections/collection-product-image";
+import productGrid from "../collections/product-grid.module.css";
+export function CollectionPicker({scope,kind,onSelect,disabled=false,authorizationKey,isEligible,emptyMessage,productLayout}:{scope:MarketScope;kind:"template"|"artwork"|"product";onSelect:(item:CollectionItem)=>void;disabled?:boolean;authorizationKey?:string;isEligible?:(item:CollectionItem)=>boolean;emptyMessage?:string;productLayout?:"grid"}){
  const [batch,setBatch]=useState(""),[batchesAfter,setBatchesAfter]=useState<string>(),[itemsAfter,setItemsAfter]=useState<string>();
  const key=["pod",scope.userId,scope.organizationId,"collections",...(authorizationKey?[authorizationKey]:[])];
  const batches=useQuery({queryKey:[...key,"batches",batchesAfter],queryFn:({signal})=>listCollectionBatches(scope,{after:batchesAfter,limit:50},signal),...(authorizationKey?{staleTime:0,refetchOnMount:"always" as const}:{})});
@@ -19,7 +21,17 @@ export function CollectionPicker({scope,kind,onSelect,disabled=false,authorizati
  <div className="flex gap-2">{batchesAfter?<Button variant="outline" disabled={disabled} onClick={()=>{setBatchesAfter(undefined);setBatch("")}}>批次首页</Button>:null}{visibleBatches?.nextCursor?<Button variant="outline" disabled={disabled} onClick={()=>{setBatchesAfter(batches.data!.nextCursor);setBatch("")}}>下一页批次</Button>:null}</div>
  {batch&&items.isPending?<p role="status">正在读取商品…</p>:null}{items.error?<ConsoleState kind="error" title="无法读取批次商品"><Button variant="outline" onClick={()=>void items.refetch()}>重新读取</Button></ConsoleState>:null}
  {available?.length===0?<p>{emptyMessage??`当前页没有${kind==="product"?"可比较商品":kind==="template"?"已保存的 SDS 模板":"可用图案商品"}。`}</p>:null}
- <div className="grid gap-2 sm:grid-cols-2">{available?.map(i=><Button variant="outline" className="h-auto justify-start whitespace-normal p-3 text-left" key={i.id} disabled={disabled} onClick={()=>onSelect(i)}>{i.title||`未命名商品 · ${i.source.productKey || i.id}`}</Button>)}</div>
+ <div className={productLayout==="grid"?productGrid.grid:"grid gap-2 sm:grid-cols-2"}>
+ {available?.map(item=>{
+  const title=item.title||`未命名商品 · ${item.source.productKey || item.id}`;
+  return <Button variant="outline"
+    className={productLayout==="grid"?`${productGrid.card} ${productGrid.choice}`:"h-auto justify-start whitespace-normal p-3 text-left"}
+    key={item.id} aria-label={title} disabled={disabled} onClick={()=>onSelect(item)}>
+    {productLayout==="grid"?<CollectionProductImage url={item.thumbnailUrl} alt=""/>:null}
+    <span>{title}</span>
+  </Button>;
+ })}
+ </div>
  <div className="flex gap-2">{itemsAfter?<Button variant="outline" disabled={disabled} onClick={()=>setItemsAfter(undefined)}>商品首页</Button>:null}{visibleItems?.nextCursor?<Button variant="outline" disabled={disabled} onClick={()=>setItemsAfter(items.data!.nextCursor)}>下一页商品</Button>:null}</div>
  </div>;
 }

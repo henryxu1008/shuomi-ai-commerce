@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
 import type { ResearchCandidate } from "@/lib/contracts/market-research";
 import type { ResearchInspection } from "@/lib/contracts/research-analysis";
 import { FactTable, factLabel } from "../agents/product-selection-flow";
+import { CollectionProductImage } from "../collections/collection-product-image";
+import grid from "../collections/product-grid.module.css";
 import styles from "./research-comparison.module.css";
 
 const amountFormat = new Intl.NumberFormat("en-US", {
@@ -41,28 +41,6 @@ export function researchMissingLabel(path: string) {
   return missingLabels[field] ?? (label !== field ? label : "其他商品资料");
 }
 
-export function AmazonResearchThumbnail({ url, alt }: { url?: string; alt: string }) {
-  const [failedUrl, setFailedUrl] = useState<string>();
-  const missing = !url || failedUrl === url;
-  return (
-    <span className={styles.thumbnail}>
-      {missing ? (
-        <span>{url ? "主图暂不可用" : "暂无主图"}</span>
-      ) : (
-        <Image
-          unoptimized
-          loading="lazy"
-          src={`/api/image-proxy?url=${encodeURIComponent(url)}`}
-          alt={alt}
-          width={56}
-          height={56}
-          onError={() => setFailedUrl(url)}
-        />
-      )}
-    </span>
-  );
-}
-
 export function ResearchComparisonResults({ inspection, originals }: {
   inspection: ResearchInspection;
   originals: ResearchCandidate[];
@@ -81,7 +59,7 @@ export function ResearchComparisonResults({ inspection, originals }: {
           </p>
         ))}
       </div>
-      <ul className={styles.products} aria-label="所选商品报价">
+      <ul className={grid.grid} role="list" aria-label="所选商品报价">
         {candidates.map(candidate => {
           const { ref, observation, facts, missing } = candidate;
           const original = originals.find(value => value.id === candidate.research.CandidateID)?.observation;
@@ -93,8 +71,8 @@ export function ResearchComparisonResults({ inspection, originals }: {
           const price = belongsToQuoteGroup && observation.price != null && observation.currency
             ? researchQuote(observation.price, observation.currency) : null;
           return (
-            <li key={ref.ItemID} className={styles.product}>
-              <AmazonResearchThumbnail url={amazon?.item?.thumbnailUrl} alt={`${title} 主图`} />
+            <li key={ref.ItemID} className={`${grid.card} ${styles.product}`}>
+              <CollectionProductImage url={amazon?.item?.thumbnailUrl} alt={`${title} 主图`} />
               <div className={styles.identity}>
                 <strong>{title}</strong>
                 <span>{amazonMarket(observation.site)} · {observation.asin}</span>
@@ -111,7 +89,7 @@ export function ResearchComparisonResults({ inspection, originals }: {
       </ul>
       <details className={styles.details}>
         <summary>展开商品资料与缺项</summary>
-        <FactTable inspection={{ products: candidates.map(candidate => ({
+        <FactTable productLayout="grid" inspection={{ products: candidates.map(candidate => ({
           ref: candidate.ref,
           sourceKind: "amazon_data",
           facts: candidate.facts.filter(fact =>

@@ -17,6 +17,10 @@ import {researchFixtureStatus,researchPaginationFixtureStatus,type ResearchCandi
 import {researchAnalysisInput,type ResearchInspection} from "@/lib/contracts/research-analysis";
 import {candidateMatchesJob,eligibleResearchJob,handoffToken,opportunityPriceRange,researchFixtureJob,researchPaginationFixtureJob,specificationFacts,type ProductRequirements,type ResearchHandoff,type ResearchHandoffStore,type ResearchJob} from "@/lib/workbench/research-handoff";
 import {analysisChoices} from "./research-analysis-flow";
+import {CollectionProductImage} from "../collections/collection-product-image";
+import productGrid from "../collections/product-grid.module.css";
+import {researchMissingLabel,researchQuote} from "./research-comparison-results";
+import styles from "./research-panel.module.css";
 
 const emptyRequirements:ProductRequirements={use:"",specs:[],targetPrice:"",missing:""};
 
@@ -82,30 +86,35 @@ export function ResearchOpportunity({scope,scopeKey,projectId,store,draft,select
     }
   }
   const current=draft?.projectId===projectId && draft.scope===scopeKey?draft:null;
-  return <Card className="space-y-3">
-    <h3>从已保存的样本整理选品方向</h3>
-    <p>选择一批 Amazon 美国站关键词或类目查询的结果，再在下方勾选同批的 2–5 件原版商品。这里由你整理方向。</p>
-    <div className="flex flex-wrap gap-2">
+  return <Card className={`${styles.section} ${styles.querySection}`} role="region" aria-labelledby="research-saved-query-title">
+    <div className={styles.heading}>
+      <div>
+        <h3 id="research-saved-query-title">从已保存的查询选择样本</h3>
+        <p>选择一批 Amazon 美国站查询，再到「已收集的商品」勾选同批的 2–5 件。</p>
+      </div>
       {canStartQuery?<Button asChild variant="outline"><Link href="/workbench/data/market" prefetch={false}>前往数据市场</Link></Button>:null}
-      {canImport?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(false)}>导入合成验收资料</Button>:null}
-      {pagination?.ready===false?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(true)}>导入合成分页资料</Button>:null}
-      <Button variant="outline" onClick={()=>{setReadStatus("loading");setRefresh(value=>value+1);}}>刷新查询结果</Button>
     </div>
-    {importError?<p role="alert">{importError}</p>:null}
-    {pagination===null?<p role="alert">暂时无法读取合成分页资料。</p>:null}
-    {readStatus==="loading"?<p role="status">正在读取已保存的查询…</p>:readStatus==="error"?<p role="alert">暂时无法读取已保存的查询。</p>:null}
-    <label className="grid gap-1">本次查询
-      <select className="rounded border bg-background p-2" disabled={readStatus!=="ready" || blocked}
-        value={current?.job.id??""} onChange={event=>{
+    <div className={styles.queryControls}>
+      <label className={styles.queryField}>本次查询
+        <select disabled={readStatus!=="ready" || blocked} value={current?.job.id??""} onChange={event=>{
           const job=jobs.find(value=>value.id===event.target.value);
           if (job) store.start(scopeKey,projectId,job);
           else store.clear();
           onJobChange();
         }}>
-        <option value="">选择已保存的查询</option>
-        {jobs.map(job=><option key={job.id} value={job.id}>{job.state==="IMPORTED"?"合成样本 · ":""}{queryLabel(job)} · {job.state==="IMPORTED"?"已导入":new Date(job.createdAt).toLocaleString()} · {job.saved} 件</option>)}
-      </select>
-    </label>
+          <option value="">选择已保存的查询</option>
+          {jobs.map(job=><option key={job.id} value={job.id}>{job.state==="IMPORTED"?"合成样本 · ":""}{queryLabel(job)} · {job.state==="IMPORTED"?"已导入":new Date(job.createdAt).toLocaleString()} · {job.saved} 件</option>)}
+        </select>
+      </label>
+      <Button variant="outline" disabled={readStatus==="loading"} onClick={()=>{setReadStatus("loading");setRefresh(value=>value+1);}}>刷新查询结果</Button>
+    </div>
+    {canImport||pagination?.ready===false?<div className="flex flex-wrap gap-2">
+      {canImport?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(false)}>导入合成验收资料</Button>:null}
+      {pagination?.ready===false?<Button variant="outline" disabled={blocked||importing} onClick={()=>void importFixture(true)}>导入合成分页资料</Button>:null}
+    </div>:null}
+    {importError?<p role="alert">{importError}</p>:null}
+    {pagination===null?<p role="alert">暂时无法读取合成分页资料。</p>:null}
+    {readStatus==="loading"?<p role="status">正在读取已保存的查询…</p>:readStatus==="error"?<p role="alert">暂时无法读取已保存的查询。</p>:null}
     {readStatus==="ready" && !jobs.length?<p>暂无可用的已保存样本。</p>:null}
     {current && <OpportunityEditor key={current.job.id} scope={scope} store={store} draft={current}
       selected={selected} after={after} blocked={blocked || readStatus!=="ready" || !jobs.some(job=>job.id===current.job.id)}/>}
@@ -179,12 +188,19 @@ function OpportunityEditor({scope,store,draft,selected,after,blocked}:{
     {error?<p role="alert">{error}</p>:null}
     {inspection?<fieldset disabled={blocked||busy} className="space-y-3">
       <legend>人工整理 · Amazon 美国站</legend>
-      {inspection.candidates.map(row=><div key={row.research.CandidateID}>
-        <strong>{row.observation.asin}</strong> · {row.observation.price&&row.observation.currency?
-          row.observation.currency+" "+row.observation.price:"缺可比售价"}
-        <ul>{specificationFacts(row).map(fact=><li key={fact.sourceKey}>{fact.name}：{fact.value}</li>)}</ul>
-        {row.missing.length?<p>缺项：{row.missing.join("、")}</p>:null}
-      </div>)}
+      <ul className={productGrid.grid} role="list" aria-label="已核对的样本商品">
+        {inspection.candidates.map(row=>{
+          const original=selected.find(candidate=>candidate.id===row.research.CandidateID)?.observation;
+          const {asin,price,currency}=row.observation;
+          return <li key={row.research.CandidateID} className={productGrid.card}>
+            <CollectionProductImage url={original?.item?.thumbnailUrl} alt=""/>
+            <div><strong>{original?.title||asin}</strong><p>Amazon 美国站 · {asin}</p></div>
+            <p>{price!=null&&currency?researchQuote(price,currency):"暂无可比报价"}</p>
+            <ul>{specificationFacts(row).map(fact=><li key={fact.sourceKey}>{fact.name}：{fact.value}</li>)}</ul>
+            {row.missing.length?<p>缺项：{[...new Set(row.missing.map(researchMissingLabel))].join("、")}</p>:null}
+          </li>;
+        })}
+      </ul>
       <label className="grid gap-1">代表候选<select className="rounded border bg-background p-2" value={representative} onChange={event=>{
         if (draft.confirmed) store.start(draft.scope,draft.projectId,draft.job);
         setRepresentativeChoice({signature,candidateId:event.target.value});
