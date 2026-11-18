@@ -276,3 +276,12 @@ it("cannot revive an old protected response after downgrade and regrant before c
  fixture.context.roles=["listingkit_viewer"];view.rerender(<ProductAgentPanel {...props}/>);fixture.context.roles=["listingkit_operator"];view.rerender(<ProductAgentPanel {...props}/>);resolve(response);
  await screen.findByText(/知识当前不可用/);expect(screen.queryByText("Old protected guide · 可读")).toBeNull();expect(screen.queryByText("Old protected excerpt")).toBeNull();expect(new URL(window.location.href).searchParams.get("agent_key")).toBe(key);expect(fixture.request).toHaveBeenCalledTimes(1);
 });
+it("does not dispatch if the Chat return location cannot retain the original title request",async()=>{
+ const retain=vi.fn(()=>{throw Error("storage unavailable")});render(<ProductAgentPanel {...props} onRequestLocation={retain}/>);
+ fireEvent.change(screen.getByLabelText("素材查询平台"),{target:{value:"shein"}});fireEvent.click(await screen.findByRole("button",{name:"生成标题建议"}));fireEvent.click(await screen.findByRole("button",{name:"确认生成"}));
+ await screen.findByText("原请求无法完整保留，本次未发送。");expect(retain).toHaveBeenCalledOnce();expect(fixture.request).not.toHaveBeenCalled();
+});
+it("keeps reading an original request available when the newly selected skill is unavailable",async()=>{
+ fixture.params=new URLSearchParams({agent_key:op,agent_actor:"actor",agent_org:"org"});fixture.request.mockRejectedValue(new ProductAgentError("OUTCOME_UNKNOWN"));render(<ProductAgentPanel {...props} initialSkillReady={false}/>);
+ fireEvent.click(screen.getByRole("button",{name:"读取当前结果"}));await waitFor(()=>expect(fixture.request.mock.calls[0]?.slice(0,4)).toEqual(["read",op,op,{userId:"actor",organizationId:"org"}]));
+});
