@@ -1,6 +1,6 @@
 # 插件资料补齐与来源报价只读展示 V1
 
-Refs #916；基线 [插件接收架构](plugin-capture-ingestion.md)、[上架字段设计](../product/plugin-capture-listing-fields.md)。
+Refs #916；基线 [插件接收架构](plugin-capture-ingestion.md)、[上架字段设计](../product/decisions/plugin-capture-listing-fields.md)。
 Status: **IMPLEMENTATION_READY**。2026-10-24 用户已授权先评审、后开发/测试并提交一个主要PR；不含合并、运行更新、真实重采/保存或部署。
 
 2026-10-24 后续资料批次：高清相册的静态元数据读取、商品参数、正文/详情图和重量以 [listing-materials 增量](plugin-capture-listing-materials.md) 为当前范围；第5节的“仅已呈现相册URL”由该有界升级规则补充，禁止猜测URL/完整规格族的边界保留。来源报价读取合同和下文历史评审不变。

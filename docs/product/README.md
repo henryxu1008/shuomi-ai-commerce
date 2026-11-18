@@ -20,7 +20,7 @@ Agent / Tool 消费领域 owner 的权限和能力，不直接访问数据库建
 - [硕米登录 Phase1：ZITADEL 原生能力收敛决策](decisions/official-zitadel-login.md)
 - [1688 采集历史决策：原 Figma 对齐范围（非现行 UI/IA 权威）](decisions/1688-acquisition-scope.md)
 - [Product Decision: 1688 服务端匿名浏览器采集（允许处理验证码）](decisions/1688-server-public-browser.md)
-- [Amazon / 1688 插件采集：上架资料字段对照 V1](plugin-capture-listing-fields.md)
+- [Amazon / 1688 插件采集：上架资料字段对照 V1](decisions/plugin-capture-listing-fields.md)
 - [Product Sourcing Handoff](product-sourcing-handoff.md)
 - [多商品优选申请产品决定](selected-application-multi-product.md)
 - [未绑定店铺的待补全草稿](supply-unbound-completion-drafts.md)
