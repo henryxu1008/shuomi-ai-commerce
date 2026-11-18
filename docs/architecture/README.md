@@ -218,6 +218,7 @@
 - `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
 - `domains/ai/model-and-services.md` — [硕米「模型与服务」设计](domains/ai/model-and-services.md) · 首版范围已确认，设计已评审。
 - `domains/ai/model-connectivity-test.md` — [模型与服务连通性设计](domains/ai/model-connectivity-test.md) · #1420 只读模型资料查询。
+- `domains/ai/channel-self-service.md` — [企业自助添加渠道与模型绑定](domains/ai/channel-self-service.md) · 新增渠道的独立设计及评审。
 - `domains/ai/ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](domains/ai/ai-provider-contracts.md)
 - `commerce-tool-canonical-inspection.md` — [B0 Canonical Product Inspection Tool 设计](commerce-tool-canonical-inspection.md)
 - `commerce-tool-foundation.md` — [Phase 2A 商业工具（Commerce Tool）基础设计](commerce-tool-foundation.md)

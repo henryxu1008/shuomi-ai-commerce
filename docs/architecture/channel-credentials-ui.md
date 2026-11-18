@@ -1,5 +1,7 @@
 # 企业渠道 Key 的 UI 配置与轮换：最小设计候选
 
+> 2026-11-18 用户同意把企业自助添加渠道作为下一独立切片，设计见[企业自助添加渠道与模型绑定](domains/ai/channel-self-service.md)。该决定扩展本稿 D3 的首版范围，新登记和模型绑定按新稿完成独立准入；本稿的权限、凭据保护、版本及原回执仍为复用依据。当前自助增量已通过独立评审，状态为 IMPLEMENTATION_READY，尚未授权实施。
+
 日期：2026-11-05（Asia/Singapore）。执行载体：#134 / #128；当前唯一 Writer 仍为原统一模型/凭据负责人 `/root`，原独立工作区。
 
 **PRODUCT_DECISIONS_CONFIRMED / IMPLEMENTATION_READY / IMPLEMENTATION_AUTHORIZED**。Design Basis: **Independent Architecture**，原因是本次把已有受限维护操作开放到经过企业授权的浏览器入口，新增凭据管理权限、秘密请求与应用装配边界。不是纯表单改动。
