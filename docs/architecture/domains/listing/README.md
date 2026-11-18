@@ -38,3 +38,8 @@
 - 不创建第二套权限、资金/资源账本、任务调度或跨平台重试服务。
 
 完整 SHEIN 商业 E2E 与客户发布 Gate 分别在 [#28](https://github.com/henryxu1008/shuomi-ai-commerce/issues/28)、[#33](https://github.com/henryxu1008/shuomi-ai-commerce/issues/33) 验证。本页不代表任一真实店铺已开放。
+
+## 本地测试与正式平台草稿
+
+- [受控本地平台草稿](controlled-local-platform-draft.md)：固定来源/R1/测试店铺及持续试用标记，复用同一 Target 保存，不产生官方发布资格。
+- [本地与正式草稿共存](local-and-official-draft-coexistence.md)：分开的接口用途与原键核对，共享原事实 owner；测试记录不得升级，正式准入独立。
