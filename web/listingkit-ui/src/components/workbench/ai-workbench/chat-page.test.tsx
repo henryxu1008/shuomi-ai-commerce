@@ -10,11 +10,12 @@ import { AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { ChatPage } from "./chat-page";
 
 const fixture = vi.hoisted(() => ({
-  request: vi.fn(), projectRequest: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), connection:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
+  request: vi.fn(), skillRequest:vi.fn(), projectRequest: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), connection:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
   context: { user: { id: "user-a" }, effectiveMemberId:"member-a", effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
     projectCenterAvailable:false, aiWorkbenchChatTurnsReady:false, aiWorkbenchChatIntentReadiness:"UNAVAILABLE", aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchStoreRouteReadiness:"AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
 }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof import("@/lib/api/ai-workbench")>(), requestAIWorkbench: fixture.request }));
+vi.mock("@/lib/api/skill", async original=>({...await original<object>(),skillRequest:fixture.skillRequest}));
 vi.mock("@/lib/api/project-center", async original => ({ ...await original<typeof import("@/lib/api/project-center")>(), projectRequest: fixture.projectRequest }));
 vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:fixture.templates}));
 vi.mock("@/lib/api/knowledge",async original=>({...await original<object>(),knowledgeRequest:fixture.knowledge}));
@@ -510,6 +511,7 @@ beforeEach(() => {
   fixture.context.isSwitching = false;
   fixture.context.projectCenterAvailable = false;
   fixture.projectRequest.mockReset();
+  fixture.skillRequest.mockReset().mockResolvedValue({items:[]});
   fixture.context.aiWorkbenchAvailable = true;
   fixture.context.effectiveMemberId = "member-a";
   fixture.context.aiWorkbenchExecutionKind=undefined;fixture.context.aiWorkbenchExecutionReadiness="AVAILABLE";
@@ -1398,4 +1400,24 @@ it.each([false,true])("does not advertise skill creation when this old or projec
  expect(await screen.findByRole("link",{name:"管理我的技能"})).toBeVisible();
  expect(screen.queryByRole("button",{name:/创建技能/})).toBeNull();
  fixture.search.delete("projectTask");
+});
+
+it("preserves the project and acquisition context when going from a conversation to a title skill",async()=>{
+ fixture.search.set("projectTask","1");
+ fixture.search.set("operationId",operationId);
+ fixture.search.set("skillAuthoring","0");
+ fixture.skillRequest.mockImplementation(async(_scope,path)=>({items:path==="organization/candidates"?[{
+  skill:{id:operationId,owner:{kind:"PLATFORM",id:"official"}},version:2,
+  package:{target:"product-title",name:"保留型号的标题技能",description:"验收技能",digest:"a".repeat(64)}
+ }]:[]}));
+ try {
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:"选择技能"}));
+  fireEvent.click(await screen.findByRole("button",{name:/保留型号的标题技能/}));
+  const href=(await screen.findByRole("link",{name:"前往标题处理页"})).getAttribute("href");
+  expect(new URL(href!,"https://navigation.invalid").searchParams.get("skill_chat"))
+   .toBe("/workbench/ai/chat/"+conversationId+"?projectTask=1&operationId="+operationId);
+ }finally{
+  fixture.search.delete("projectTask");fixture.search.delete("operationId");fixture.search.delete("skillAuthoring");
+ }
 });

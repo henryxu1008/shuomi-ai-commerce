@@ -353,7 +353,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const [parameters,setParameters]=useState<ContentSelection>({targetLanguage:"en-US",description:true});
   const [platform, setPlatform] = useState<"shein" | "temu" | "amazon">("shein");
   const [content, setContent] = useState("");
-  const library=useChatLibrarySkill(scope,"/workbench/ai/chat/"+id,authorizationKey);
+  const library=useChatLibrarySkill(scope,libraryReturn("/workbench/ai/chat/"+id,search),authorizationKey);
   const [creatorSelected,setCreatorSelected]=useState(false);
   const [clarifySkillPurpose,setClarifySkillPurpose]=useState(false);
   const [revisionContext,setRevisionContext]=useState<ChatSkillRevision>();
