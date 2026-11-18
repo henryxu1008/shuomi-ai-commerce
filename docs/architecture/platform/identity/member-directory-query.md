@@ -8,7 +8,7 @@ Baseline: main `5a32b153b4a73a2072054ec836e46b4ba193eb8e`.
 
 Current enterprise readers find a member anywhere in the directory, combine
 search/role/state filters, then use the existing detail/management/resource paths.
-Authority: #575, #469, [Final UI / IA](../product/final-ui-ia-authority.md), Figma
+Authority: #575, #469, [Final UI / IA](../../../product/final-ui-ia-authority.md), Figma
 `tg48P46SSXl6TBy9lZwg63 / 1532:359` (current member management screen, read 2026-09-29).
 Its search and two selectors already exist in the current members page but are disabled.
 The user explicitly selected **display name and login account** search on 2026-09-29.
@@ -24,7 +24,7 @@ Invitations retain their separate owner/list; they are not a third authorization
 
 ## Existing owners and provider evidence
 
-Reuse [#410 membership contract](../engineering/integration/account-membership-contract.md) and
+Reuse [#410 membership contract](../../../engineering/integration/account-membership-contract.md) and
 [account facts/invitations](account-facts-invitations.md). ZITADEL project
 authorizations remain the only member/role/state facts; Home Organization is not
 membership. Membership owns the query contract and permission projection; the
@@ -129,7 +129,7 @@ No merge/deployment/Issue closure authorization in this batch.
 ### User handoff
 
 Start a separately authorized isolated instance using the existing
-[account Compose instructions](../../deployments/docker/account-compose/README.md).
+[account Compose instructions](../../../../deployments/docker/account-compose/README.md).
 Sign in normally, select an authorized enterprise, and open **企业空间 → 成员与权限**
 at `/workbench/account/organization/members`. Enter a name or login account and
 press **搜索**; role and authorization-state selectors apply immediately and combine
