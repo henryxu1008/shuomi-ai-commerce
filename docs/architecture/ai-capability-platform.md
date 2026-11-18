@@ -598,7 +598,7 @@ PoC 不允许为了适配框架复制领域模型、业务数据库或 Temporal 
 
 - `docs/architecture/project-boundaries.md`
 - `docs/architecture/project-boundaries.md`
-- `docs/architecture/temporal-boundaries.md`
+- `docs/architecture/platform/runtime/temporal-boundaries.md`
 - `docs/architecture/temporal-workflow-evaluation.md`
 - `internal/productenrich/pipeline.go`
 - `internal/productimage/pipeline.go`

@@ -71,16 +71,21 @@ Default rules for new code:
 
 ## Current Allowed Runtime Areas
 
-The current repository keeps Temporal-specific SDK usage in:
+The current import guard permits the enumerated orchestration SDK/API imports in:
 
 - `internal/app/runtime`
-- `internal/listingkit/temporal`
-- narrow ListingKit submission activity adapter files that bridge existing
-  service behavior during the transition
+- `internal/imageagent/temporal`
 
-These areas are allowed because they are runtime or orchestration adapters.
-They should stay thin and should not become the place where new ListingKit
-business behavior is implemented.
+`go.temporal.io/sdk/client` is additionally allowed only in
+`internal/platform/temporal/client.go` and its `client_test.go`; this is not a
+blanket orchestration exception for `internal/platform/temporal`.
+
+These are runtime or orchestration adapters, not new business owners. Keep them
+thin. The exact guarded imports and path exceptions are defined by
+`TestTemporalSDKImportsStayInRuntimeAndOrchestrationAdapters` and
+`temporalPlatformSDKClientAllowedFiles` in `tests/import_boundaries_test.go`;
+this document does not expand those exceptions or restore retired ListingKit
+runtime paths.
 
 ## Boundary Guards
 
