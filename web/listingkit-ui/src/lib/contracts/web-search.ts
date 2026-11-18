@@ -17,7 +17,7 @@ const publication = z.strictObject({
 });
 const selection = z.strictObject({ revision: rev, source: z.union([source, z.literal("")]) });
 const option = z.strictObject({ source: z.union([source, z.literal("")]), name: z.string().max(128), available: z.boolean(), limit: rev, preview: digest.optional() });
-export const searchReceipt = z.strictObject({
+const searchReceipt = z.strictObject({
   key: z.string().refine(isAcquisitionUUID), query: keyword, source, status: z.enum(["held", "claimed", "not_sent", "unknown", "complete", "no_results"]),
   startedAt: z.string().datetime({ offset: true }), usage,
 });
