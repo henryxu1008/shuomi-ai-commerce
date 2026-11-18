@@ -40,7 +40,7 @@ export const managedConnection=z.strictObject({
  organizationId:routeFact,connectionId:routeFact,provider:routeFact,channel:routeFact,region:routeFact,
  account:z.union([account,z.literal("")]),revision:credentialRevision,enabled:z.boolean(),keyPresent:z.boolean(),
  models:z.array(z.strictObject({id:routeFact,version:routeFact,model:routeFact,category:z.enum(["text","multimodal","image-generation"])})).max(128),
- registration:channelRegistration.optional(),baseUrl:channelBaseUrl.optional(),
+ registration:channelRegistration.optional(),baseUrl:channelBaseUrl.optional(),readOnly:z.literal(true).optional(),
 }).refine(c=>c.revision==="0"?!c.enabled&&!c.keyPresent&&c.account==="":!!c.account&&c.keyPresent);
 export const credentialConnections=z.strictObject({organizationId:routeFact,canManage:z.boolean(),connections:z.array(managedConnection).max(128),modelQueryTargets:modelQueryTargets.optional()}).refine(v=>{
  const connections=new Map(v.connections.map(c=>[c.connectionId,c]));

@@ -11,7 +11,7 @@ import (
 	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
-func channelManagementDefinitions(definitions []qualified.Definition, writable bool) ([]credential.ConnectionDefinition, error) {
+func channelManagementDefinitions(definitions []qualified.Definition) ([]credential.ConnectionDefinition, error) {
 	connections := []credential.ConnectionDefinition{}
 	positions := map[string]int{}
 	origins := map[string]string{}
@@ -58,9 +58,6 @@ func channelManagementDefinitions(definitions []qualified.Definition, writable b
 			if endpoint != d.Image.Endpoint {
 				return nil, credential.ErrInvalid
 			}
-		}
-		if writable && endpoint == "" {
-			return nil, credential.ErrInvalid
 		}
 		key := d.Scope.OrganizationID + "\x00" + d.ConnectionID
 		index, exists := positions[key]
@@ -113,7 +110,7 @@ func prepareChannelManagement(ctx context.Context, c *Config, reader, writer *go
 		}
 		publisher, registrations = store, store
 	}
-	connections, e := channelManagementDefinitions(definitions, publisher != nil)
+	connections, e := channelManagementDefinitions(definitions)
 	if e != nil {
 		return nil, e
 	}

@@ -96,12 +96,14 @@ function ChannelCredentialsContent({scope,testMemberId,focusModel,disabled=false
     {focusModel&&query.data.connections.length>0&&!targetId&&<p>暂时无法定位到单个渠道，请从以下连接中核对。</p>}
     {!query.data.connections.length?<p>{manageChannelsMemberId?"暂无由维护人员登记的渠道。":"当前企业暂无已登记渠道，请联系系统维护人员。"}</p>:query.data.connections.map(connection=>{
      const queryTarget=query.data.modelQueryTargets?.find(t=>t.connectionId===connection.connectionId);
+     const canEditConnection=query.data.canManage&&!connection.readOnly;
      const showModelQuery=testMemberId&&connection.provider==="openai"&&connection.channel==="openai-direct"&&connection.models.some(m=>m.category==="text"&&m.model===openAIQueryModel);
      return <section className={styles.history} key={connection.connectionId}>
      <h3 ref={targetId===connection.connectionId?target:undefined} tabIndex={targetId===connection.connectionId?-1:undefined}>{connection.provider} · {connection.channel}</h3><p>连接：{connection.connectionId} · 地域：{connection.region}</p>
      <p>状态：{!connection.keyPresent?"未配置":connection.enabled?"已保存":"已停用"} · 版本：{connection.revision}{connection.account?" · 账号备注："+connection.account:""}</p>
      <p>共用此凭据的模型：{connection.models.map(m=>m.model+"（"+({text:"文本",multimodal:"多模态","image-generation":"生图"} as const)[m.category]+"，"+m.version+"）").join("、")||"暂无已准入模型"}</p>
-     <div className={styles.actions}><Button variant="outline" disabled={locked||!query.data.canManage} onClick={()=>{setFailure("");setDialog({connection,action:"set-key"})}}>{!connection.keyPresent?"录入 Key":connection.enabled?"轮换 Key":"重新录入 Key"}</Button><Button variant="outline" disabled={locked||!query.data.canManage||!connection.enabled} onClick={()=>{setFailure("");setDialog({connection,action:"disable"})}}>停用</Button></div>
+     {connection.readOnly&&query.data.canManage&&<p>此渠道暂不能修改 Key，请联系系统维护人员。</p>}
+     <div className={styles.actions}><Button variant="outline" disabled={locked||!canEditConnection} onClick={()=>{setFailure("");setDialog({connection,action:"set-key"})}}>{!connection.keyPresent?"录入 Key":connection.enabled?"轮换 Key":"重新录入 Key"}</Button><Button variant="outline" disabled={locked||!canEditConnection||!connection.enabled} onClick={()=>{setFailure("");setDialog({connection,action:"disable"})}}>停用</Button></div>
      {showModelQuery&&(queryTarget&&testMemberId?
       <ChannelModelQuery key={JSON.stringify([connection.revision,queryTarget.reference,connection.enabled])}
        scope={scope} connectionId={connection.connectionId} disabled={locked||!connection.enabled||!connection.keyPresent}

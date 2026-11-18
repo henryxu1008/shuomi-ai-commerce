@@ -39,6 +39,7 @@ type ManagedConnection struct {
 	Revision       int64          `json:"revision,string"`
 	Enabled        bool           `json:"enabled"`
 	KeyPresent     bool           `json:"keyPresent"`
+	ReadOnly       bool           `json:"readOnly,omitempty"`
 	Models         []ManagedModel `json:"models"`
 	Registration   *Registration  `json:"registration,omitempty"`
 	BaseURL        string         `json:"baseUrl,omitempty"`
@@ -129,7 +130,7 @@ func NewManagement(reader MetadataReader, writer ManagementWriter, definitions [
 		if strings.HasPrefix(d.ConnectionID, "uc-") {
 			return nil, ErrInvalid
 		}
-		if (d.BaseURL != "" && !ValidOrigin(d.BaseURL)) || writer != nil && d.BaseURL == "" {
+		if d.BaseURL != "" && !ValidOrigin(d.BaseURL) {
 			return nil, ErrInvalid
 		}
 		key := d.OrganizationID + "\x00" + d.ConnectionID
@@ -180,7 +181,9 @@ func (m *Management) List(ctx context.Context, org string) ([]ManagedConnection,
 		if v.OrganizationID != org || v.ConnectionID != d.ConnectionID {
 			return nil, ErrUnavailable
 		}
-		out = append(out, publicConnection(v, d.Models))
+		connection := publicConnection(v, d.Models)
+		connection.ReadOnly = d.BaseURL == ""
+		out = append(out, connection)
 	}
 	return out, nil
 }
@@ -247,6 +250,9 @@ func (m *Management) Publish(ctx context.Context, org, actor, id, key string, in
 		return ManagementResult{}, ErrNotFound
 	}
 	d := *definition
+	if d.BaseURL == "" {
+		return ManagementResult{}, ErrUnavailable
+	}
 	current, e := m.reader.Metadata(ctx, org, id)
 	if e != nil && !errors.Is(e, ErrNotFound) {
 		return ManagementResult{}, ErrUnavailable
