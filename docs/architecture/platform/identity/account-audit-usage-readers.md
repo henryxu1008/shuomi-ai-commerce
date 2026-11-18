@@ -6,7 +6,7 @@
 
 企业管理员或获准成员在全新隔离 Account Center 安装中打开“企业空间 → 操作记录”，能按内容、时间、受影响成员定位已提交的账户与资源事件。#581 / PR #582 已交付六来源的查询与页面合同，但基础 Compose 没有 ImageAgent、ProductAgent 用量 pool；页面默认 `period=30d` 导致查询按合同返回 503，连基础账户事件也无法查看。2026-10-03 的原 22444 合成实例只读检查确认：四卡读到 5/0/0/5，列表 503；两个 Agent 均未在运行清单配置。用户随后批准准备独立、全来源的合成实例并重跑浏览器验收。
 
-Product Authority：Issue #581、#469、用户已确认的成员筛选语义及 Figma `tg48P46SSXl6TBy9lZwg63 / 1532:525`。现行合同见 [完整历史筛选 V1](account-audit-filters.md) 和 [四卡 V1](account-audit-summary.md)。当前全新安装基线见 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../product/greenfield-no-legacy-migration.md)。本设计不改 UI、搜索语义或任何既有事件事实。
+Product Authority：Issue #581、#469、用户已确认的成员筛选语义及 Figma `tg48P46SSXl6TBy9lZwg63 / 1532:525`。现行合同见 [完整历史筛选 V1](account-audit-filters.md) 和 [四卡 V1](account-audit-summary.md)。当前全新安装基线见 [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../../../product/greenfield-no-legacy-migration.md)。本设计不改 UI、搜索语义或任何既有事件事实。
 
 本轮可见结果：新项目中的 Account Audit 列表实际可读，默认近 30 天、近 7 天、全部时间、内容和目标成员筛选均可作用于真实已提交的合成账户事件；不存在 AI 调用时两个独立的、已初始化的用量账本真实为空。结果不是开启 AI 生成，也不是把缺失池解释为 0。
 
