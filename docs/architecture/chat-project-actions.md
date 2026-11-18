@@ -11,7 +11,7 @@
 
 首批先交付「创建技能」。创作产物为一个仅含 `SKILL.md` 的个人标题技能私有草稿，脚本、附件、图片技能、团队技能创建、批量创建、自动发布、启用与共享均在首批文字创作范围之外。后续脚本创作见第 2.3 节。已有标题技能接入时，候选来自已启用的商品标题整理、标题本地化、冗长标题精简以及当前获准的个人、团队标题技能。已有图片技能使用原图片入口。原项目任务仍为单项、单商品，普通 Chat 规划与既有项目会话分别保留各自输入。
 
-依据：[项目中心](domains/workbench/ai-workbench-project-center.md) · [当前会话工作范围](ai-workbench-work-scope.md) · [Chat 选择店铺](domains/workbench/chat-selected-store-context.md) · [商品内容任务](chat-task-object-goal-design-brief.md) · [技能库现有支持范围](../../web/listingkit-ui/src/lib/contracts/skill.ts) · [全新系统产品基线](../product/greenfield-no-legacy-migration.md)
+依据：[项目中心](domains/workbench/ai-workbench-project-center.md) · [当前会话工作范围](ai-workbench-work-scope.md) · [Chat 选择店铺](domains/workbench/chat-selected-store-context.md) · [商品内容任务](domains/workbench/chat-task-object-goal-design-brief.md) · [技能库现有支持范围](../../web/listingkit-ui/src/lib/contracts/skill.ts) · [全新系统产品基线](../product/greenfield-no-legacy-migration.md)
 
 ## 2. Chat 中的共同入口
 

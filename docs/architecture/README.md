@@ -44,10 +44,10 @@
 - `chat-retained-1260-trial.md` — [保留试用实例隔离接线方案](chat-retained-1260-trial.md) · 隔离演练依据；不构成原实例更新授权。
 
 - `retained-startup-prerequisites.md` — [保留实例启动前置：OwnIntake v3 与采集价格快照](retained-startup-prerequisites.md) · #1233 最小方案独立R1通过，IMPLEMENTATION_READY / FROZEN；实施义务未执行，不授权原35444操作。
-- `app-assembly-boundaries.md` — [App Assembly Boundaries](app-assembly-boundaries.md)
+- `platform/runtime/app-assembly-boundaries.md` — [App Assembly Boundaries](platform/runtime/app-assembly-boundaries.md)
 - `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
 - `fallback-contract-consolidation.md` — [Fallback 合同收敛](fallback-contract-consolidation.md)
-- `httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](httpapi-assembly-boundaries.md)
+- `platform/runtime/httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](platform/runtime/httpapi-assembly-boundaries.md)
 - `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
 - `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
 - `temporal-boundaries.md` — [Temporal Boundaries](temporal-boundaries.md)
@@ -291,7 +291,7 @@
 - `scheduled-plan-edit-copy.md` — [定时计划编辑与复制](scheduled-plan-edit-copy.md) · #1297 IMPLEMENTATION_READY；复用原计划 owner，保留在途任务与历史，保存前重新核对时间和预算。
 - `domains/workbench/chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](domains/workbench/chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
 - `domains/workbench/chat-voice-input.md` — [Chat 语音输入与会话入口](domains/workbench/chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
-- `chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](chat-task-object-goal-design-brief.md)
+- `domains/workbench/chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](domains/workbench/chat-task-object-goal-design-brief.md)
 - `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
 - `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
