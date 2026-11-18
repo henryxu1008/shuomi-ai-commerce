@@ -1,5 +1,11 @@
 # 内容 Chat 与完整商品智能体共存：设计候选
 
+> 2026-11-18 文档归类说明：保留 candidate 文件名及下文原冻结设计/Spike 阶段记录，归入 Workbench。实际 [PR #1243](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1243) 已实现并按最终 `f77b0e16` 合入；完整运行时两个来源的 Chat→Task→Review→Apply 使用专用 PostgreSQL 与合成模型，进程内顶层 HTTP 冒烟和直接装配业务链是不同测试，不能合称真实容器/实例验收。下文“拟议”“尚未实现”和 Spike 的不足保留原阶段语境，不是重新判定当前代码未交付。
+>
+> 当前 `internal/app/httpapi/ai_workbench_application.go` 与顶层 composition 沿原内容 application 和 aiworkbench owner 接线；Conversation/Task、Run、Review/Catalog、共享模型与账本各自事实责任不变。完整、content-only、conversation-only 的准确组合与权限不能互相替代；缺内容 application/集合、企业准入或模型用途仍拒绝。阅读入口：[工作范围](../../ai-workbench-work-scope.md)、[任务对象与目标](chat-task-object-goal-design-brief.md)、[共享连接](../ai/shared-channel-credentials.md)。
+>
+> #1243 的 NOT_RUN 仅属于该交付阶段；现场前置继续参照后续[定向结构与文本用途准备](../../chat-local-open-preparation.md)及[35444 后续有界试用合同](../../chat-retained-1260-trial.md)，不能把原“空表/缺列/汇率过期”观察当作今天的实例状态，也不能以设计准入代替当次授权。原 UNKNOWN/预留、只允许显式受限安装及不自动迁移的边界保留；后续有界例外只按其准确批准范围，不泛化。本次仅文档归类，未核查或改变实例、配置、价格、凭据、预留，未真实调用或作产品验收。
+
 状态：IMPLEMENTATION_READY，适用于 #1242 所述隔离实现。基线 `6873bb5846154f667d530452947a9d6cdbb0d177`。不授权变更保留实例、价目或凭据。执行 Issue #1242，关联产品目标 #298。
 
 ## 结果与范围
