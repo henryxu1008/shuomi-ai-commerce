@@ -46,7 +46,7 @@ Accepted Risks：本轮未新增风险接受决定。公开页面可能无数据
 | 研究证据关系与机会决定 | 当前源码未发现对应领域实现 | 本设计新增的最小事实；不能以 README 的“市场调研”示例当交付。 |
 | 本地浏览器研究桥 | Browser #31；相关商家环境工作在 commerce #1019/#1020、Browser #14 | 当前为独立待设计范围；既有启动/CDP/插件能力不等于 SaaS 最小授权与研究任务回执。商家 Store 流程不自动成为匿名研究的前置。 |
 
-真实服务端通道需要：获准的新空安装或明确授权的实例、受限 Product/Resource pool 和 schema、准确 IAM 与原生模块权限、显式 driver/browser、配置站点、现有 Temporal namespace/worker，以及可用 DATA_ROW 资金来源。沿[运行交接](../engineering/data-services-runtime-handoff.md)和[原生装配](../../deployments/docker/account-compose/data-services.md)核实；不读取凭据或变更保留实例来完成本轮设计。
+真实服务端通道需要：获准的新空安装或明确授权的实例、受限 Product/Resource pool 和 schema、准确 IAM 与原生模块权限、显式 driver/browser、配置站点、现有 Temporal namespace/worker，以及可用 DATA_ROW 资金来源。沿[运行交接](../engineering/integration/data-services-runtime-handoff.md)和[原生装配](../../deployments/docker/account-compose/data-services.md)核实；不读取凭据或变更保留实例来完成本轮设计。
 
 本轮真实 Amazon/1688、模型、Native 浏览器、付费数据和用户验收均 **NOT_RUN**。无实际通道证据时，只能交付代码/设计准备，不能声称研究业务可用。
 

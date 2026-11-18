@@ -1,7 +1,7 @@
 # Current application Tool Market composition
 
 Refs #619, #613. Reuses the frozen [Tool Market design](../../architecture/tool-market.md)
-and [module handoff](../../engineering/tool-market-runtime-handoff.md).
+and [module handoff](../../engineering/integration/tool-market-runtime-handoff.md).
 
 Use a new isolated installation. Product acquisition and collections continue to
 use one current Product pool; the prepared Asset owner is shared by future actual
