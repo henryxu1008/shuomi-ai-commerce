@@ -1,6 +1,6 @@
 # SHEIN 带入：安装与配置边界
 
-用户在正常供应链入口，以已保存的候选和准确 Target 版本进行显式映射、预览与本地保存；不自动发布。依据为[供应链合同](../architecture/my-supply-chain-shein.md)、[带入合同](../architecture/completion-shein-import.md)及[正常操作](my-supply-chain-shein.md)。
+用户在正常供应链入口，以已保存的候选和准确 Target 版本进行显式映射、预览与本地保存；不自动发布。依据为[供应链合同](../../architecture/my-supply-chain-shein.md)、[带入合同](../../architecture/completion-shein-import.md)及[正常操作](../my-supply-chain-shein.md)。
 
 安装按当前 owner 单元进行，不拆写 DDL、伪造规则或新增缺表 fallback。新装与已有当前系统的能力增量是不同命令模式；空库 flag 不能指向非空库。保留实例的维护、凭据、平台连接与数据操作须有其明确授权。
 
@@ -81,7 +81,7 @@ Product 增量入口不操作 Store 表或 ACL。Store 使用当前 owner schema
 
 使用当前严格私有 manifest：`supplyChain.assetDatabase`、`temporalAddress` / `temporalNamespace`、`storeCenter.enabled` 及真实 `storeCenter.officialApplications`；前端使用对应的 `LISTINGKIT_SUPPLY_CHAIN_ENABLED` 开关。数据库地址、应用 origin 和回调必须取目标环境真实值。
 
-服务启动只验证 schema 与窄权限，不执行安装。Product、Asset、新 Temporal 服务与官方授权不是一个原子事务；按已知阶段记录结果，依赖未齐备不启用入口。开发环境组合见 [Account Compose](../../deployments/docker/account-compose/README.md)。
+服务启动只验证 schema 与窄权限，不执行安装。Product、Asset、新 Temporal 服务与官方授权不是一个原子事务；按已知阶段记录结果，依赖未齐备不启用入口。开发环境组合见 [Account Compose](../../../deployments/docker/account-compose/README.md)。
 
 核对原来源、候选和 Target 版本，预览选中/未选字段、确认保存、刷新读回和返回上下文。缺少必填项可以展示诊断，不据此宣称可发布。平台规则读取、本地保存、图片上传与正式发布分别授权和取证。
 
