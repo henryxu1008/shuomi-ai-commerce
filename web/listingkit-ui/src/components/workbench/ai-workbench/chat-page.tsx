@@ -381,9 +381,13 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   const composerInput=useRef<HTMLTextAreaElement>(null);
   const [showAuthoring, setShowAuthoring] = useState<boolean | undefined>(() =>
     search.get("skillAuthoring") === "1" && search.get("skillVersion") !== "3" ? true : undefined);
-  const [showGeneralAuthoring, setShowGeneralAuthoring] = useState(search.get("skillAuthoring") === "1" && search.get("skillVersion") === "3");
-  const [generalAuthoringChoice, setGeneralAuthoringChoice] = useState<AISkillAuthoringChoice>();
-  const [generalAuthoringRequirement,setGeneralAuthoringRequirement]=useState<string>();
+  const [generalAuthoring, setGeneralAuthoring] = useState<{
+    open: boolean;
+    editorId: number;
+    choice?: AISkillAuthoringChoice;
+    requirement?: string;
+  }>(() => search.get("skillAuthoring") === "1" && search.get("skillVersion") === "3" ? {open:true,editorId:0} : undefined);
+  const showGeneralAuthoring = generalAuthoring?.open === true;
   const [draftSaveError, setDraftSaveError] = useState("");
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [draftRetry, setDraftRetry] = useState(0);
@@ -461,17 +465,17 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
   function closeTitleAuthoring() {
     setShowAuthoring(shown => shown === undefined ? undefined : false);
   }
-  function openTextAuthoring(choice:AISkillAuthoringChoice, requirement:string) {
+  function openTextAuthoring(choice:AISkillAuthoringChoice, requirement?:string) {
     if (pending || pendingMessage || current?.Archived || !canUse || !canStartSkillAuthoring) return;
     if (!selectSkillRevision(undefined)) return;
     library.choose();
     clearSkillPurposeHint();
     setTextSkill(undefined);
     setCreatorSelected(false);
-    setGeneralAuthoringChoice(choice);
-    setGeneralAuthoringRequirement(requirement);
     closeTitleAuthoring();
-    setShowGeneralAuthoring(true);
+    setGeneralAuthoring(editor => requirement === undefined && editor ? {...editor,open:true} : {
+      open:true, editorId:(editor?.editorId ?? 0) + 1, choice, requirement:requirement ?? "",
+    });
   }
   function chooseTextSkill(selection: SelectedTextSkill, fromSave = false) {
     if (!canChooseTextSkill || pending) return;
@@ -480,7 +484,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     clearSkillPurposeHint();
     setTextSkill(selection);
     setCreatorSelected(false);
-    setShowGeneralAuthoring(false);
+    setGeneralAuthoring(undefined);
     closeTitleAuthoring();
     setError("");
     if (fromSave && !userEdited.current && search.get("skillAuthoring") === "1") updateConversationDraft("");
@@ -797,8 +801,10 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
       <Button disabled={pending || new TextEncoder().encode(titleDraft).length > 256} onClick={() => void change({ title: titleDraft })}>保存标题</Button>
       <Button variant="outline" disabled={pending} onClick={() => setEditingTitle(false)}>取消</Button>
       {new TextEncoder().encode(titleDraft).length > 256 ? <span>标题不能超过 256 字节。</span> : null}</div></Card> : null}
-    {showGeneralAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <GeneralSkillAuthoring scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={generalAuthoringChoice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
-      initialRequirement={generalAuthoringRequirement ?? (search.get("skillAuthoring")==="1" ? content : "")} onClose={()=>setShowGeneralAuthoring(false)} onUseTextSkill={canChooseTextSkill ? chosen=>chooseTextSkill(chosen,true) : undefined} />}
+    {generalAuthoring && canUse && execution.effectiveMemberId && !current.Archived && draftHydrated && <div hidden={!generalAuthoring.open}>
+      <GeneralSkillAuthoring key={generalAuthoring.editorId} scope={scope} memberId={execution.effectiveMemberId} authorizationKey={authorizationKey} conversation={id} selected={generalAuthoring.choice} expectedVersion={search.get("skillVersion")} expectedDigest={search.get("skillDigest")}
+        initialRequirement={generalAuthoring.requirement ?? (search.get("skillAuthoring")==="1" ? content : "")} onClose={()=>setGeneralAuthoring(editor=>editor && {...editor,open:false})} onUseTextSkill={canChooseTextSkill ? chosen=>chooseTextSkill(chosen,true) : undefined} />
+    </div>}
     {showAuthoring !== undefined && execution.effectiveMemberId && <div hidden={!showAuthoring}>
       <ChatSkillAuthoring scope={scope} authorizationKey={authorizationKey} conversation={id} readOnly={!canUse||current.Archived} onClose={closeTitleAuthoring}/>
     </div>}
@@ -829,11 +835,11 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
         onChange={setConversationStore} onUserChange={invalidateProposal}/> : null}
       {canUse && <ChatSkillDrawer scope={scope} authorizationKey={authorizationKey}
         disabled={pending||Boolean(pendingMessage)||awaitingConfirm}
-        onSelect={canStartSkillAuthoring ? ()=>{if(!selectSkillRevision(undefined))return;library.choose();setTextSkill(undefined);setCreatorSelected(true);clearSkillPurposeHint();closeTitleAuthoring();setShowGeneralAuthoring(false);requestAnimationFrame(()=>composerInput.current?.focus());} : undefined}
-        onSelectLibrary={v=>{if(!selectSkillRevision(undefined))return;setTextSkill(undefined);setShowGeneralAuthoring(false);closeTitleAuthoring();clearSkillPurposeHint();setCreatorSelected(false);library.choose(v);}}
+        onSelect={canStartSkillAuthoring ? ()=>{if(!selectSkillRevision(undefined))return;library.choose();setTextSkill(undefined);setCreatorSelected(true);clearSkillPurposeHint();closeTitleAuthoring();setGeneralAuthoring(undefined);requestAnimationFrame(()=>composerInput.current?.focus());} : undefined}
+        onSelectLibrary={v=>{if(!selectSkillRevision(undefined))return;setTextSkill(undefined);setGeneralAuthoring(undefined);closeTitleAuthoring();clearSkillPurposeHint();setCreatorSelected(false);library.choose(v);}}
         onUseTextSkill={canChooseTextSkill ? chooseTextSkill : undefined}
-        onResume={()=>{setShowGeneralAuthoring(false);setShowAuthoring(true);}}
-        onResumeText={canStartSkillAuthoring ? chosen=>openTextAuthoring(chosen,"") : undefined}/>}
+        onResume={()=>{setGeneralAuthoring(undefined);setShowAuthoring(true);}}
+        onResumeText={canStartSkillAuthoring ? openTextAuthoring : undefined}/>}
     </div> : null}
     {library.launch&&<ChatLibrarySkillSelection launch={library.launch} authorizationKey={authorizationKey} disabled={pending||Boolean(pendingMessage)||awaitingConfirm} onClear={()=>library.choose()}/>}
     {library.error&&<p role="alert">{library.error}</p>}

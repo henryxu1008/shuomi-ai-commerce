@@ -1405,6 +1405,41 @@ it("keeps the original skill draft open for editing after collapsing and reopeni
  }
 });
 
+it("preserves the text skill requirement and draft edits after collapsing and reopening",async()=>{
+ const skill={id:operationId,version:3,digest:"a".repeat(64),name:"创建技能",description:"创建文字技能"};
+ const job={key:operationId,revision:operationId,purpose:"chat-text",state:"COMPLETE",savePending:false,
+  draft:{name:"handoff",displayName:"交接笔记整理",description:"整理交接事项",instructions:"原规则"}};
+ fixture.search.set("skillAuthoring","1");
+ fixture.search.set("skillVersion","3");
+ fixture.search.set("skillDigest",skill.digest);
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation:{...conversation,businessScope:{version:"workbench-scope-v1",kind:"general"}},messages:[],proposals:[],before:""};
+  if(route==="skill-authoring-list")return {drafts:[job]};
+  if(route==="skill-authoring-validate")return {valid:true};
+  return {skill,ready:true};
+ });
+ async function collapseAndResume(label:string) {
+  fireEvent.click(screen.getByRole("button",{name:"收起"}));
+  expect(screen.queryByRole("textbox",{name:label})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"选择技能"}));
+  fireEvent.click(await screen.findByRole("button",{name:"查看本会话的文字技能草稿"}));
+ }
+ try {
+  render(tree());
+  fireEvent.change(await screen.findByLabelText("技能需求"),{target:{value:"整理交接待办"}});
+  await collapseAndResume("技能需求");
+  expect(await screen.findByLabelText("技能需求")).toHaveValue("整理交接待办");
+  fireEvent.click(await screen.findByRole("button",{name:"交接笔记整理"}));
+  fireEvent.change(await screen.findByLabelText("正文"),{target:{value:"保留人工编辑"}});
+  fireEvent.change(screen.getByLabelText("让 Chat 修改"),{target:{value:"补充截止日期"}});
+  await collapseAndResume("正文");
+  expect(await screen.findByLabelText("正文")).toHaveValue("保留人工编辑");
+  expect(screen.getByLabelText("让 Chat 修改")).toHaveValue("补充截止日期");
+ }finally{
+  for(const key of ["skillAuthoring","skillVersion","skillDigest"])fixture.search.delete(key);
+ }
+});
+
 it.each([false,true])("does not advertise skill creation when this old or project-task conversation cannot start it (%s)",async projectSelected=>{
  fixture.context.aiWorkbenchChatTurnsReady=true;
  fixture.context.aiWorkbenchChatIntentReadiness="AVAILABLE";
