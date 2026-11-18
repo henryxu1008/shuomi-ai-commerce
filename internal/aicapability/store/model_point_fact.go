@@ -66,7 +66,13 @@ func (r *GormInvocationRecorder) ReadModelPurposeInvocations(ctx context.Context
 			return nil, fmt.Errorf("invalid model purpose identity")
 		}
 	}
-	operations := []aicapability.Operation{aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationOwnProductIntake, aicapability.OperationAIWorkbenchSkillAuthoring}
+	operations := []aicapability.Operation{
+		aicapability.OperationAIWorkbenchChatPlan,
+		aicapability.OperationAIWorkbenchChatIntent,
+		aicapability.OperationOwnProductIntake,
+		aicapability.OperationAIWorkbenchSkillAuthoring,
+		aicapability.OperationAIWorkbenchChatImages,
+	}
 	var rows []invocationRow
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND user_id = ? AND member_id = ? AND invocation_id IN ? AND operation IN ?", org, actor, member, ids, operations).
