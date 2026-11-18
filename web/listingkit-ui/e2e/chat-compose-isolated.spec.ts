@@ -502,7 +502,7 @@ for(const outcome of ["complete","model failure","rejection"] as const)test(`sen
       await page.getByRole("button",{name:"移除图 3",exact:true}).click();
       await expect(page.getByRole("img",{name:"图 3",exact:true})).toHaveCount(0);
     }else{
-      await input.dispatchEvent("paste",{clipboardData:transfer});
+      await input.evaluate((element,clipboardData)=>element.dispatchEvent(new ClipboardEvent("paste",{clipboardData,bubbles:true,cancelable:true})),transfer);
     }
   }
   await expect(page.getByRole("img",{name:"图 2"})).toBeVisible();
