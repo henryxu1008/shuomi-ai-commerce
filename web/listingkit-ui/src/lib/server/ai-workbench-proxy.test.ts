@@ -44,6 +44,29 @@ describe("AI Workbench BFF boundary", () => {
     if (mapped instanceof Response) expect(mapped.status).toBe(409);
   });
 
+  it.each(["recover-save", "recover-generation"])("scopes skill authoring %s and rejects substituted input", async (action) => {
+    const parts = ["chat", "conversations", id, "skill-authoring", id, action];
+    const url = "http://localhost/api/workbench/" + parts.join("/");
+    const original = await buildWorkbenchUpstreamRequest(new Request(url, {
+      method: "POST", headers: {...scope, Origin: "http://localhost"},
+    }), parts, "server-token", "user-a");
+    expect(original).not.toBeInstanceOf(Response);
+    if (!(original instanceof Response)) {
+      expect(original.init.body).toBeFalsy();
+      expect(new Headers(original.init.headers).get("X-Requested-Organization-ID")).toBe("org-b");
+    }
+    const switched = await buildWorkbenchUpstreamRequest(new Request(url, {
+      method: "POST", headers: {...scope, Origin: "http://localhost", "X-Expected-Organization-ID": "org-a"},
+    }), parts, "server-token", "user-a");
+    expect(switched).toBeInstanceOf(Response);
+    if (switched instanceof Response) expect(switched.status).toBe(409);
+    const forged = await buildWorkbenchUpstreamRequest(new Request(url, {
+      method: "POST", headers: {...scope, Origin: "http://localhost", "Content-Type":"application/json"}, body: '{"expiresAt":"2000-01-01T00:00:00Z"}',
+    }), parts, "server-token", "user-a");
+    expect(forged).toBeInstanceOf(Response);
+    if (forged instanceof Response) expect(forged.status).toBe(400);
+  });
+
   it("forwards only the scoped saved-conversation page filter", async () => {
     const headers = { ...scope };
     const cursor = "A".repeat(31) + "B";

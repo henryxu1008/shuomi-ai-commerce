@@ -77,6 +77,9 @@ func (s *Service) Execute(ctx context.Context, space string, c Command) (Receipt
 	if e != nil {
 		return Receipt{}, e
 	}
+	if c.Package.Target == AuthoringTarget && o.Kind != PlatformOwner {
+		return Receipt{}, ErrForbidden
+	}
 	c.Principal, c.Owner = p, o
 	return s.repo.Execute(ctx, c, s.resolve)
 }

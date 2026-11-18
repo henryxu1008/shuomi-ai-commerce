@@ -7,7 +7,7 @@ import { planPath, planMethods, planRequestSchema, planResponseSchema, type Plan
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialConnectionRefreshSchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
 import {agentEmptyRequestSchema,agentStartRequestSchema,contentAgentStartRequestSchema,ownContentStartRequestSchema,ownContentSourceSchema,ownAgentPath,agentResumeRequestSchema,agentResultSchema,contentAgentResultSchema,agentReviewLinkSchema,agentPath} from "@/lib/contracts/product-agent";
-import { aiWorkbenchPath, aiCreateBody, aiMessageBody, aiStoreRouteBody, aiStoreOverviewBody, aiMetadataBody, aiResumeBody, aiScheduleInput,aiScheduleControl,aiScheduleEdit, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
+import { aiWorkbenchPath, aiChatTurnBody, aiCreateBody, aiMessageBody, aiStoreRouteBody, aiStoreOverviewBody, aiMetadataBody, aiResumeBody, aiScheduleInput,aiScheduleControl,aiScheduleEdit, aiSkillAuthoringQuote, aiTitleSkillDraft, aiAuthoringPreview, aiAuthoringConfirm, aiAuthoringSavePackage, parseAIWorkbenchResponse, type AIWorkbenchRoute } from "@/lib/contracts/ai-workbench";
 import { NextResponse } from "next/server";
 import { COLLECTION_MAX_BYTES, COLLECTION_DETAIL_RESPONSE_MAX_BYTES, collectionPath, collectionCommandSchema, collectionSourceKindSchema, collectionVersion, parseCollectionResponse, type CollectionRoute } from "@/lib/contracts/product-collection";
 import {
@@ -342,7 +342,10 @@ const workbenchRouteAllowlist = [
   ...([
     ["GET","subject-read"], ["GET","scope-options"], ["GET", "conversation-list"], ["POST", "conversation-create"],
     ["GET", "conversation-read"], ["PATCH", "conversation-metadata"],
-    ["POST", "message"], ["POST", "store-route"], ["POST", "store-overview"], ["POST", "confirm"],
+    ["GET", "skill-authoring-catalog"], ["GET", "skill-authoring-list"], ["POST", "skill-authoring-quote"],
+    ["POST", "skill-authoring-preview"], ["POST", "skill-authoring-confirm"], ["POST", "skill-authoring-recover-generation"], ["POST", "skill-authoring-save-package"],
+    ["POST", "skill-authoring-validate"], ["POST", "skill-authoring-generate"], ["POST", "skill-authoring-save"], ["POST", "skill-authoring-save-recover"],
+    ["POST","chat-turn-submit"],["GET","chat-turn-read"],["POST","chat-turn-recover"],["POST", "message"], ["POST", "store-route"], ["POST", "store-overview"], ["POST", "confirm"],
     ["GET", "task-list"], ["GET", "task-cockpit-metrics"], ["GET", "task-read"], ["GET", "task-scope-options"],
     ["POST", "task-start"], ["POST", "task-resume"], ["POST", "task-review"],
     ["GET","schedule-availability"],["GET","schedule-list"],["GET","schedule-read"],["GET","schedule-history"],
@@ -672,12 +675,12 @@ export async function buildWorkbenchUpstreamRequest(
         query = selected.size ? `?${selected.toString()}` : "";
       } else {
         if (!hasExactNoQuery(request)) return protocolError(400, "INVALID_REQUEST", "Query is not allowed");
-        if (action === "task-read" || action === "subject-read" || action==="schedule-read"||action==="schedule-availability") {
+        if (action === "chat-turn-read" || action === "task-read" || action === "subject-read" || action==="schedule-read"||action==="schedule-availability" || request.method === "GET" && action.startsWith("skill-authoring-")) {
           if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
         } else {
           const assertion = validateSourceMutationBoundary(request, authenticatedActorSubject);
           if (assertion) return assertion;
-          if (["conversation-create", "message", "store-route", "store-overview", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close","schedule-delete"].includes(action)) {
+          if (["chat-turn-submit", "conversation-create", "message", "store-route", "store-overview", "confirm", "task-start", "task-resume", "task-review","schedule-create","schedule-edit","schedule-pause","schedule-resume","schedule-close","schedule-delete", "skill-authoring-quote", "skill-authoring-save", "skill-authoring-save-package"].includes(action)) {
             const key = readCanonicalUUIDHeader(request.headers, "Idempotency-Key");
             if (!key) return protocolError(400, "INVALID_REQUEST", "Idempotency-Key is invalid");
             headers.set("Idempotency-Key", key);
@@ -687,15 +690,21 @@ export async function buildWorkbenchUpstreamRequest(
             if (!/^[1-9][0-9]*$/.test(revision)) return protocolError(400, "INVALID_REQUEST", "If-Match is invalid");
             headers.set("If-Match", revision);
           }
-          if (["confirm", "task-start", "task-review"].includes(action)) {
+          if (["chat-turn-recover", "confirm", "task-start", "task-review", "skill-authoring-generate", "skill-authoring-recover-generation", "skill-authoring-save-recover"].includes(action)) {
             if (!(await requestHasNoBody(request))) return protocolError(400, "INVALID_REQUEST", "Body is not allowed");
           } else {
             if (request.headers.get("content-type") !== "application/json" || request.headers.has("content-encoding"))
               return protocolError(400, "INVALID_REQUEST", "Content type is invalid");
-            const raw = await readRequestBody(request, 16 * 1024, "INPUT_TOO_LARGE");
+            const bodyLimit = action === "chat-turn-submit" || action.startsWith("skill-authoring-") && action !== "skill-authoring-quote" ? 96 * 1024 : 16 * 1024;
+            const raw = await readRequestBody(request, bodyLimit, "INPUT_TOO_LARGE");
             if (raw instanceof Response) return raw;
             const parsed = parseJSONBody(raw);
-            const schema = action==="schedule-quote"||action==="schedule-create"?aiScheduleInput:action==="schedule-edit"?aiScheduleEdit:action.startsWith("schedule-")?aiScheduleControl:action === "conversation-create" ? aiCreateBody : action === "message" ? aiMessageBody : action === "store-route" ? aiStoreRouteBody : action === "store-overview" ? aiStoreOverviewBody : action === "conversation-metadata" ? aiMetadataBody : aiResumeBody;
+            const schema = action === "chat-turn-submit" ? aiChatTurnBody : action === "skill-authoring-quote" ? aiSkillAuthoringQuote
+              : action === "skill-authoring-preview" ? aiAuthoringPreview
+              : action === "skill-authoring-confirm" ? aiAuthoringConfirm
+              : action === "skill-authoring-save-package" ? aiAuthoringSavePackage
+              : action === "skill-authoring-save" || action === "skill-authoring-validate" ? aiTitleSkillDraft
+              : action==="schedule-quote"||action==="schedule-create"?aiScheduleInput:action==="schedule-edit"?aiScheduleEdit:action.startsWith("schedule-")?aiScheduleControl:action === "conversation-create" ? aiCreateBody : action === "message" ? aiMessageBody : action === "store-route" ? aiStoreRouteBody : action === "store-overview" ? aiStoreOverviewBody : action === "conversation-metadata" ? aiMetadataBody : aiResumeBody;
             const valid = schema.safeParse(parsed?.payload);
             if (!parsed || !valid.success) return protocolError(400, "INVALID_REQUEST", "Request body is invalid");
             body = JSON.stringify(valid.data);
@@ -1219,7 +1228,7 @@ export async function buildWorkbenchBrowserResponse(
       if(!contract.startsWith("ai-schedule-")||contract==="ai-schedule-quote"||payload.commandAccepted!==false)return unavailable();
       response=new NextResponse(JSON.stringify({...await response.json(),commandAccepted:false}),{status:response.status,headers:response.headers});
     }
-    if(contract==="ai-message"&&payload.messageAccepted===false&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)){
+    if(payload.messageAccepted===false&&(contract==="ai-message"&&["INVALID_REQUEST","PROPOSAL_STALE"].includes(code)||contract==="ai-chat-turn-submit"&&code==="INVALID_REQUEST")){
       response=new NextResponse(JSON.stringify({...await response.json(),messageAccepted:false}),{status:response.status,headers:response.headers});
     }
     if(contract==="ai-conversation-create"&&payload.conversationAccepted===false&&["NOT_FOUND","PROPOSAL_STALE"].includes(code)){

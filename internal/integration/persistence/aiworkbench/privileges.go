@@ -68,6 +68,13 @@ func validateWorkbenchPrivilegesForEdit(db *gorm.DB, role string, enable bool) e
 		"scheduled_plans":       {"deleted", "state", "revision", "consumed_occurrences", "active_occurrence_id", "updated_at", "registration_state", "rule_start_at", "frequency", "time_zone", "once_at_utc", "local_hour", "local_minute", "local_weekday", "until_utc"},
 		"scheduled_occurrences": {"state", "business_task_id", "updated_at", "reason", "reconciliation_digest"},
 	}
+	turnLayout, err := chatTurnLayout(db)
+	if err != nil {
+		return err
+	}
+	if turnLayout == 1 {
+		columns["commands"] = append(columns["commands"], "tool_state", "tool_key")
+	}
 	if enable {
 		editable, err := scheduledEditColumnsFor(db)
 		if err != nil {
@@ -75,7 +82,19 @@ func validateWorkbenchPrivilegesForEdit(db *gorm.DB, role string, enable bool) e
 		}
 		columns["scheduled_plans"] = append(columns["scheduled_plans"], editable...)
 	}
-	return validateWorkbenchPrivilegeBounds(db, role, []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}, columns)
+	tables := []string{"conversations", "metadata_audit", "messages", "commands", "execution_proposals", "business_tasks", "task_action_receipts", "scheduled_plans", "scheduled_occurrences", "scheduled_plan_commands"}
+	if db.Migrator().HasTable("ai_workbench.skill_authoring_drafts") {
+		layout, err := authoringLayout(db)
+		if err != nil {
+			return err
+		}
+		tables = append(tables, "skill_authoring_drafts")
+		columns["skill_authoring_drafts"] = []string{"state", "deadline", "generated", "save_key", "save_digest", "save_content", "saved_skill_id"}
+		if layout == 2 {
+			columns["skill_authoring_drafts"] = append(columns["skill_authoring_drafts"], "current_revision", "save_format")
+		}
+	}
+	return validateWorkbenchPrivilegeBounds(db, role, tables, columns)
 }
 
 func validateWorkbenchPrivilegeBounds(db *gorm.DB, role string, tables []string, mutable map[string][]string) error {
@@ -160,8 +179,20 @@ func GrantRuntime(db *gorm.DB, role string) error {
 		"GRANT UPDATE (task_selection, goal_summary, execution_spec, max_occurrences, per_run_upper_bound_micros, total_upper_bound_micros, deleted, state, revision, consumed_occurrences, active_occurrence_id, updated_at, registration_state, rule_start_at, frequency, time_zone, once_at_utc, local_hour, local_minute, local_weekday, until_utc) ON ai_workbench.scheduled_plans TO " + quoted,
 		"GRANT UPDATE (state, business_task_id, updated_at, reason, reconciliation_digest) ON ai_workbench.scheduled_occurrences TO " + quoted,
 	}
+	turnLayout, err := chatTurnLayout(db)
+	if err != nil {
+		return err
+	}
+	if turnLayout == 1 {
+		statements = append(statements, "GRANT UPDATE (tool_state,tool_key) ON ai_workbench.commands TO "+quoted)
+	}
 	if len(editable) > len(scheduledEditColumns) {
 		statements = append(statements, "GRANT UPDATE(report_spec) ON ai_workbench.scheduled_plans TO "+quoted)
+	}
+	if db.Migrator().HasTable("ai_workbench.skill_authoring_drafts") {
+		statements = append(statements,
+			"GRANT SELECT, INSERT ON ai_workbench.skill_authoring_drafts TO "+quoted,
+			"GRANT UPDATE (state, deadline, generated, current_revision, save_format, save_key, save_digest, save_content, saved_skill_id) ON ai_workbench.skill_authoring_drafts TO "+quoted)
 	}
 	for _, sql := range statements {
 		if err := db.Exec(sql).Error; err != nil {

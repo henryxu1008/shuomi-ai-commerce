@@ -144,7 +144,7 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 		return
 	}
 	for index := range messages {
-		if messages[index].Author == aiworkbench.AuthorAssistant && messages[index].Kind != "STORE_OVERVIEW_REF" &&
+		if messages[index].Author == aiworkbench.AuthorAssistant && messages[index].Kind != "STORE_OVERVIEW_REF" && messages[index].Kind != "AGENT_SKILL_REF" &&
 			a.productHistoryUnavailable(ctx, scope, id, messages[index].Sequence) {
 			messages[index].Content = "相关商品当前不可访问，无法显示此回复。"
 		}
@@ -283,6 +283,7 @@ func (a *aiWorkbenchApplication) proposalReceiptCard(ctx context.Context, scope 
 			name := ""
 			if f.StoreChoice.Store != nil {
 				name = f.StoreChoice.Store.Name
+				card.SelectedStoreID = f.StoreChoice.Store.StoreID
 			}
 			card.SelectedStoreName = &name
 		}

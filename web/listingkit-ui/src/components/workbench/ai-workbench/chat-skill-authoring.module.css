@@ -1,0 +1,65 @@
+.skillDrawer {
+  width: min(30rem, 100vw);
+  background: var(--card);
+  color: var(--foreground);
+  padding: 1.5rem;
+}
+
+.skillDrawer::backdrop { background: var(--overlay); }
+.skillDrawer > header { padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.drawerContent { display: flex; flex-direction: column; gap: 1.25rem; }
+.drawerIntro { color: var(--muted-foreground); font-size: .875rem; line-height: 1.7; }
+.skillChoice { width: 100%; height: auto; min-height: 7.5rem; display: flex; align-items: flex-start; gap: .875rem; padding: 1.125rem; border-radius: .875rem; background: var(--card); text-align: left; white-space: normal; }
+.skillChoice > svg { flex-shrink: 0; margin-top: .5rem; color: var(--muted-foreground); }
+.skillChoice:hover:not(:disabled) { border-color: var(--primary); background: color-mix(in srgb, var(--accent) 45%, var(--card)); }
+.skillIcon { display: grid; place-items: center; flex-shrink: 0; width: 2.625rem; height: 2.625rem; border-radius: .75rem; background: var(--accent); color: var(--accent-foreground); }
+.skillChoiceText { display: grid; gap: .625rem; flex: 1; min-width: 0; }
+.skillChoiceText > span:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: .625rem; }
+.skillChoiceText strong { color: var(--foreground); font-size: .9375rem; font-weight: 600; }
+.skillChoiceText small { color: var(--muted-foreground); font-size: .6875rem; font-weight: 400; }
+.skillChoiceText > span:last-child { font-size: .8125rem; line-height: 1.7; color: var(--muted-foreground); overflow-wrap: anywhere; font-weight: 400; }
+.drawerFooter { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: .75rem; border-top: 1px solid var(--border); padding-top: 1.25rem; }
+.drawerFooter > a { padding-left: 0; font-size: .8125rem; }
+
+.authoringCard { display: grid; gap: 1.25rem; width: 100%; max-width: 58rem; margin-inline: auto; padding: 1.5rem; border-radius: 1.125rem; }
+.authoringHeader { display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.authoringHeader h2 { font-size: 1.125rem; line-height: 1.5; font-weight: 600; }
+.authoringHeader p { margin-top: .375rem; color: var(--muted-foreground); font-size: .8125rem; line-height: 1.7; }
+.authoringHeader > button { flex-shrink: 0; font-size: .8125rem; }
+.draftHistory { display: flex; flex-wrap: wrap; gap: .5rem; }
+.draftHistory button { height: auto; min-height: 2.25rem; max-width: 100%; white-space: normal; font-size: .8125rem; }
+.jobContent, .draftEditor, .requirementForm { display: grid; gap: 1.25rem; min-width: 0; }
+.generationStatus { color: var(--muted-foreground); font-size: .8125rem; }
+.savedNotice { padding: 1rem; border-radius: .75rem; background: var(--success); color: var(--success-foreground); line-height: 1.7; }
+.editorFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.field, .halfField { display: grid; gap: .5rem; min-width: 0; color: var(--foreground); font-size: .8125rem; line-height: 1.6; }
+.field { grid-column: 1 / -1; }
+.field input, .field textarea, .halfField input { font-size: .875rem; line-height: 1.7; }
+.field textarea { resize: vertical; }
+.scriptPanel { display: grid; gap: .875rem; min-width: 0; padding: 1rem 1.125rem; border: 1px solid var(--border); border-radius: .875rem; background: color-mix(in srgb, var(--secondary) 40%, var(--card)); }
+.scriptPanel > p { font-size: .8125rem; line-height: 1.7; color: var(--muted-foreground); }
+.scriptHeader { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; }
+.scriptHeader > p { font-size: .8125rem; font-weight: 600; }
+.scriptHeader > button { height: auto; min-height: 2rem; padding: .25rem .5rem; font-size: .75rem; color: var(--muted-foreground); }
+.scriptPanel details { min-width: 0; }
+.scriptPanel summary { width: fit-content; padding-block: .25rem; cursor: pointer; font-size: .8125rem; color: var(--primary); }
+.scriptPanel summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.scriptPanel details > label { margin-top: 1rem; }
+.field .codeInput { font-family: var(--font-geist-mono), monospace; font-size: .75rem; line-height: 1.8; tab-size: 4; }
+.revisionPanel { display: grid; gap: .75rem; padding-top: .25rem; }
+.revisionPanel > button, .requirementForm > button, .authoringCard > button { justify-self: start; }
+.revisionPanel > p { color: var(--muted-foreground); font-size: .8125rem; line-height: 1.7; }
+.saveFooter { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .875rem; border-top: 1px solid var(--border); padding-top: 1.25rem; }
+.saveFooter p { flex: 1; color: var(--muted-foreground); font-size: .8125rem; line-height: 1.7; }
+.saveFooter button { flex-shrink: 0; }
+.sourceVersion { font-size: .75rem; color: var(--muted-foreground); }
+
+@media (max-width: 40rem) {
+  .skillDrawer { padding: 1.25rem; }
+  .skillChoice { padding: .875rem; gap: .75rem; }
+  .authoringCard { padding: 1.125rem; gap: 1rem; }
+  .editorFields { grid-template-columns: minmax(0, 1fr); }
+  .scriptPanel { padding: .875rem; }
+  .saveFooter { align-items: stretch; }
+  .saveFooter p, .saveFooter button { flex-basis: 100%; }
+}
