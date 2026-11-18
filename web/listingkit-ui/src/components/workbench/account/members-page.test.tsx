@@ -442,6 +442,80 @@ it("clears the member directory immediately during an org switch", async () => {
   state.switching = true; view.rerender(page());
   expect(screen.queryByText("成员甲")).not.toBeInTheDocument();
 });
+it.each(["acknowledged", "forbidden"])("isolates a late %s member receipt read after an organization switch", async outcome => {
+  const first = "4841d296-ef14-4c16-8d25-a7667e534feb";
+  const late = "ea0390e6-6fd0-4834-8e9c-277caf59c122";
+  const orgB = "other-org";
+  const roles = [roleDefinitions[1].id, roleDefinitions[0].id];
+  const member = { ...result.items[0], canChangeRole: true, canRemove: true };
+  const storageA = 'membership.pending:["actor","org"]';
+  const storageB = `membership.pending:["actor","${orgB}"]`;
+  const retained = JSON.stringify([first, late].map(key => ({
+    key, kind: "role", target: member.id, input: { role: roles[0], expectedVersion: member.observedVersion },
+  })));
+  sessionStorage.setItem(storageA, retained);
+  const receipt = {
+    schemaVersion: "membership-operation-v1", userId: "actor", organizationId: "org",
+    id: first, kind: "role", step: "update_authorization", status: "acknowledged",
+    targetUserId: member.userId, authorizationId: member.id, userEvidence: "",
+    userAcknowledgment: null, acknowledgment: { id: member.id, at: "2026-09-27T00:00:00Z" },
+    observation: "unavailable", observed: null,
+  };
+  let finishOldRead!: (response: Response) => void;
+  let oldSignal: AbortSignal | null | undefined;
+  const calls = vi.fn((url: string, init?: RequestInit) => {
+    const organizationId = new Headers(init?.headers).get("X-Expected-Organization-ID");
+    if (url.endsWith(late) && organizationId === "org") {
+      oldSignal = init?.signal;
+      return new Promise<Response>(resolve => { finishOldRead = resolve; });
+    }
+    if (url.endsWith(first) && organizationId === "org") return Promise.resolve(Response.json(receipt));
+    if (url.includes("member-operations")) return Promise.resolve(Response.json({
+      schemaVersion: "membership-operations-v1", userId: "actor", organizationId, items: [], next: "",
+    }));
+    return Promise.resolve(Response.json({
+      ...result, organizationId, canManage: true, assignableRoles: roles,
+      items: [{ ...member, organizationId, displayName: organizationId === orgB ? "新企业成员" : "成员甲" }],
+    }));
+  });
+  vi.stubGlobal("fetch", calls);
+  const client = new QueryClient();
+  const view = render(page(client));
+  const user = userEvent.setup();
+
+  expect(await screen.findByRole("heading", { name: "操作已获服务确认" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "查看详情" }));
+  await waitFor(() => expect(oldSignal).toBeDefined());
+  expect(await screen.findByText("上一项成员操作尚未确认，暂不能保存角色。")).toBeVisible();
+
+  state.switching = true;
+  view.rerender(<QueryClientProvider client={client}><MembersPage expectedUserId="actor" /></QueryClientProvider>);
+  expect(screen.queryByRole("dialog", { name: "成员详情" })).not.toBeInTheDocument();
+  expect(oldSignal?.aborted).toBe(true);
+  state.org = orgB;
+  state.switching = false;
+  view.rerender(<QueryClientProvider client={client}><MembersPage expectedUserId="actor" /></QueryClientProvider>);
+  await screen.findByText("新企业成员");
+  await user.click(screen.getByRole("button", { name: "查看详情" }));
+  const dialog = await screen.findByRole("dialog", { name: "成员详情" });
+  await user.selectOptions(within(dialog).getByRole("combobox", { name: "新的成员角色" }), roles[1]);
+
+  const lateResponse = outcome === "acknowledged"
+    ? Response.json({ ...receipt, id: late })
+    : Response.json({ code: "PERMISSION_DENIED", message: "", requestId: "", fieldErrors: [] }, { status: 403 });
+  await act(async () => finishOldRead(lateResponse));
+  expect(within(dialog).getByRole("heading", { name: "新企业成员" })).toBeVisible();
+  expect(within(dialog).getByRole("button", { name: "保存角色" })).toBeEnabled();
+  await user.click(within(dialog).getByText("移除成员", { selector: "summary" }));
+  expect(within(dialog).getByRole("checkbox", { name: /确认移除该成员/ })).toBeEnabled();
+  expect(screen.queryByText(late, { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText("当前没有成员管理权限")).not.toBeInTheDocument();
+  expect(sessionStorage.getItem(storageA)).toBe(retained);
+  expect(sessionStorage.getItem(storageB)).toBeNull();
+  expect(calls.mock.calls.filter(([url]) => url.endsWith(late)).map(([, init]) =>
+    new Headers(init?.headers).get("X-Expected-Organization-ID"))).toEqual(["org"]);
+  expect(calls.mock.calls.every(([, init]) => init?.method === "GET")).toBe(true);
+});
 it("resets applied filters and search draft when the enterprise changes", async () => {
   const calls=vi.fn((path:string,init?:RequestInit)=>Promise.resolve(Response.json({...result,organizationId:(init?.headers as Headers).get("X-Expected-Organization-ID"),items:[{...result.items[0],organizationId:(init?.headers as Headers).get("X-Expected-Organization-ID")}]})));
   vi.stubGlobal("fetch",calls);const client=new QueryClient();const view=render(page(client));const user=userEvent.setup();
