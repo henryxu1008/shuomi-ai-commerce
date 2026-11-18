@@ -20,7 +20,7 @@
 - 创建项目取决于项目中心是否可用及当前成员能否管理项目，保存项目无需模型就绪。执行项目任务取决于项目读取、Chat 使用及现有商品内容规划和执行能力，具体商品及店铺还须分别授权。「创建技能」按当前企业的 Chat 使用、模型路线与个人技能创建条件开放。后续标题候选使用原商品标题能力和权限。能力暂不可用时显示原因和可采取的操作。
 - 草稿按当前账号、企业、会话或新建入口保存。在提交前可修改或关闭卡片，关闭卡片不提交，普通消息草稿可继续编辑。切换账号或企业时清除旧范围的可见选择及迟到响应。键盘可以打开和关闭选择器、修改表单并到达主按钮，窄屏时允许换行，完整显示当前选择与错误提示。
 
-依据：[现有 Chat 页面](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [店铺选择器](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-store-picker.tsx) · [会话独立运行](ai-workbench-conversation-runtime.md)
+依据：[现有 Chat 页面](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [店铺选择器](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-store-picker.tsx) · [会话独立运行](domains/workbench/ai-workbench-conversation-runtime.md)
 
 ### 2.1 用「创建技能」起草并保存个人标题技能
 
