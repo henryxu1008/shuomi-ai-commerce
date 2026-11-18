@@ -118,3 +118,9 @@ pnpm build
 新业务遵循[全新系统产品基线（PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08）](./docs/product/greenfield-no-legacy-migration.md)，按全新安装、空业务数据和当前模型设计。历史 profile 和 cutover gate 不是当前验收前置。
 
 复用符合当前职责的现有能力与成熟组件；当前 owner、权限、事务和恢复要求继续有效。不新增旧 Service 包装、兼容 fallback 或双读双写。合并、部署和真实环境操作遵循各任务的明确授权。
+
+## 源码许可
+
+本项目源码公开。项目原创代码采用 [PolyForm Noncommercial License 1.0.0](./LICENSE)，可依条款进行非商业使用、修改和再分发。**商用须另行取得权利人授权。**
+
+第三方代码及素材适用各自的许可和版权声明。
