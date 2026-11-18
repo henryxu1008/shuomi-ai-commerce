@@ -283,7 +283,7 @@
 - `chat-general-text-skills.md` — [硕米 Chat 创建并使用个人文字技能](chat-general-text-skills.md) · #1429，通用文字创作与 Chat 选用已独立复核并达到 IMPLEMENTATION_READY。
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
 - `ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](ai-workbench-conversation-runtime.md)
-- `ai-workbench-project-center.md` — [AI Workbench Project Center V1](ai-workbench-project-center.md)
+- `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
 - `chat-selected-product-context.md` — [Chat 规划读取已选商品资料](chat-selected-product-context.md)
@@ -314,7 +314,7 @@
 - `cockpit-tiktok-order-sync.md` — [TikTok Shop US 跨境店消费者订单手动同步](cockpit-tiktok-order-sync.md)
 - `cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](cockpit-temu-order-amount.md)
 - `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
-- `project-center-overview-read.md` — [Project Center overview read V1](project-center-overview-read.md)
+- `domains/workbench/project-center-overview-read.md` — [Project Center overview read V1](domains/workbench/project-center-overview-read.md)
 - `domains/workbench/task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](domains/workbench/task-center-native-run-projection.md)
 
 <a id="services"></a>
