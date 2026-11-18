@@ -8,7 +8,7 @@ Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_
 
 用户2026-10-14在自有商品独立页面、变体、通用属性和详情试用确认后，明确“可以继续”，继续图片上传与详情展示。当前保留实例缺少来源图片存储；现有 SourceMedia 要求公网HTTPS地址，现有 ImageAgent 隔离URL政策明确不授权来源图片，不能伪装公网域名或直接放宽通用下载校验。
 
-本轮在已有独立试用实例上传JPEG/PNG，加入公共图片池，明确分配给SKU，保存后刷新并切换SKU回看准确图片。Product/Figma Authority沿[自有商品录入设计](domains/catalog/own-product-entry.md)、[Final UI/IA](../product/final-ui-ia-authority.md)及其已读Figma添加/自有库节点；不新增页面、模态框或布局，复用原上传区和图库。
+本轮在已有独立试用实例上传JPEG/PNG，加入公共图片池，明确分配给SKU，保存后刷新并切换SKU回看准确图片。Product/Figma Authority沿[自有商品录入设计](own-product-entry.md)、[Final UI/IA](../../../product/final-ui-ia-authority.md)及其已读Figma添加/自有库节点；不新增页面、模态框或布局，复用原上传区和图库。
 
 不做：已保存原始资料编辑、平台发布/图片批准、AI、真实云供应商或付款、共享/生产实例改动、新schema/数据迁移、对象清理、通用本地文件服务或验收平台。只准备与保留当前独立实例、图片和测试商品；本轮新PR不继承#676合并授权。
 
@@ -32,7 +32,7 @@ Design Basis: **Independent Architecture**。Admission Status: **IMPLEMENTATION_
 
 ## 持久化、启动和恢复
 
-复用[企业容量批准合同](enterprise-storage-capacity.md)：原商业owner已初始化容量表及runtime权限，先只读核实本独立实例的实际schema/ACL；不跑非空Product初始化、不重置商业价格/权益，不改权限或schema。正式S3仍按bucket Owner.ID登记；本机MinIO按下方已核实的provider deployment ID依据登记空`product-source/` prefix。后续启动沿原namespace登记，不因图片已保存重新要求空库。
+复用[企业容量批准合同](../../enterprise-storage-capacity.md)：原商业owner已初始化容量表及runtime权限，先只读核实本独立实例的实际schema/ACL；不跑非空Product初始化、不重置商业价格/权益，不改权限或schema。正式S3仍按bucket Owner.ID登记；本机MinIO按下方已核实的provider deployment ID依据登记空`product-source/` prefix。后续启动沿原namespace登记，不因图片已保存重新要求空库。
 
 容量/对象与商品UoW保持既有分离：上传成功而未保存商品，图片仍是已计量候选；重复上传同内容不产生新身份/双占用。不自行清理未引用文件。
 

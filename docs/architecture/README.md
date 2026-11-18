@@ -152,7 +152,7 @@
 - `domains/catalog/own-product-history.md` — [自有商品历史读取、旧版详情和对比 v1](domains/catalog/own-product-history.md)
 - `own-product-optimization.md` — [自有商品无店铺依赖的内容优化与 Apply](own-product-optimization.md)
 - `domains/catalog/own-product-rich-description.md` — [自有商品描述富文本 v1](domains/catalog/own-product-rich-description.md)
-- `own-product-source-media-trial.md` — [自有商品来源图片的本地隔离试用](own-product-source-media-trial.md)
+- `domains/catalog/own-product-source-media-trial.md` — [自有商品来源图片的本地隔离试用](domains/catalog/own-product-source-media-trial.md)
 - `product-content-localization.md` — [商品内容完善与本地化智能体 v1](product-content-localization.md)
 - `product-domain-contracts.md` — [Product Domain Contracts](product-domain-contracts.md)
 - `domains/catalog/rich-description-simple-editor-images.md` — [官方 Simple Editor 与描述图片独立上传](domains/catalog/rich-description-simple-editor-images.md)
