@@ -54,7 +54,7 @@ Out of scope：支付或账本、自动联系/通知、服务商分配、SLA承�
 
 Console key包括user/org/permission，在切换/撤权时abort且卸载，迟到响应丢弃。BFF复用正常身份token/同源写保护/current企业选择cookie；mutation冻结原user/org/payload/key，未知时只重试同一冻结命令。已知CAS/输入拒绝可刷新后新的人工确认。文件下载仍走当前session/BFF，无公开对象URL。
 
-客户端复用现有有界pending命令保存行为。短命令在scope绑定的sessionStorage完整保存；大附件原载荷在有界功能内存保留，小marker保存原key/path/version/digest。导航可恢复；刷新丢失大载荷时保留marker与未确认阻断，不允许生成新意图。正常使用与该限制见[接线交接](../../../operations/agent-customization-handoff.md)。读回JSON上限4MiB覆盖合法分页与Go文字转义，不改变附件2MiB上限。
+客户端复用现有有界pending命令保存行为。短命令在scope绑定的sessionStorage完整保存；大附件原载荷在有界功能内存保留，小marker保存原key/path/version/digest。导航可恢复；刷新丢失大载荷时保留marker与未确认阻断，不允许生成新意图。正常使用与该限制见[接线交接](../../../operations/user-guides/agent-customization-handoff.md)。读回JSON上限4MiB覆盖合法分页与Go文字转义，不改变附件2MiB上限。
 
 ## UI与接线边界
 

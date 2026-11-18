@@ -89,3 +89,7 @@
 ## Product Agent 标题文本供应商治理
 
 - [Product Agent 标题文本供应商可替换合同](product-agent-text-provider-neutral.md)：保留原协议、企业凭据、唯一 dispatch、完整 usage、预算、UNKNOWN 与人工 Review/Apply；历史 IMPLEMENTATION_READY 不等于后续 Google 路线已获实施或真实调用准入。
+
+## Eino 多厂商模型按需准入
+
+- [Eino 多厂商模型按需接入](eino-model-admission.md)：冻结合同只定义受控协议、三类用途及唯一模型/渠道/预算账本；原来源、历史评审、真实授权和运行验收边界保持不变。

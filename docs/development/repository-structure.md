@@ -9,7 +9,7 @@
 | 路径 | 职责 |
 | --- | --- |
 | `cmd/current-application` | 当前后端应用命令 |
-| `cmd/listingkit-setup` | 宿主显式启动的本机安装与模块管理；[构建和使用](../operations/local-installation-management.md)，不注入业务服务 |
+| `cmd/listingkit-setup` | 宿主显式启动的本机安装与模块管理；[构建和使用](../operations/runbooks/local-installation-management.md)，不注入业务服务 |
 | `internal/app` | composition root、配置装配、HTTP、worker 与运行注入 |
 | `internal/product` | sourcing / catalog / asset / review / proposal，来源与商品事实 |
 | `internal/listing` | materials / completiondraft / preparation / record / submission |
@@ -34,7 +34,7 @@ Framework、Transport、Workflow、Persistence、Provider SDK、Marketplace Clie
 - 图片异步执行：`cmd/image-agent-temporal-worker`，运行与恢复见[图片操作说明](../operations/product-image-agent.md)。
 - `cmd/*-schema-init`、`commercial-owner-schema-migrate`、`product-acquisition-init`、`supply-asset-init` 等是显式安装命令。只在对应合同和目标环境授权内使用，serving runtime 不执行 DDL。
 - 试用数据、凭据 provision 和 runtime prepare 命令遵守其对应操作合同；命令存在不表示可向保留实例执行。
-- 私有配置使用当前显式 JSON manifest 与 secret file 路径，具体值不提交仓库；见[凭据管理](secret-management.md)。
+- 私有配置使用当前显式 JSON manifest 与 secret file 路径，具体值不提交仓库；见[凭据管理](guides/secret-management.md)。
 - 镜像构建使用[显式 Git 版本入口](../operations/application-image-build.md)，构建和部署分别授权。
 
 ## 工作树与本地产物

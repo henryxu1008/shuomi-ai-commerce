@@ -63,4 +63,4 @@ Legacy decision: N/A。复用当前合格Collection/Preparation/CompletionDraft�
 
 该Design Basis准入覆盖完整既有合同调用，Issue进入Ready后实现；最终候选运行适用CI和一次独立交付检查。若真实实现必须改变上述不变边界，停止该部分并升级Independent Architecture，不能在页面实现里发明协议。
 
-交付已有正常启动方式及新入口，用户/生产验收不代签。现保留实例若尚未安装CompletionDraft，按 [原owner安装合同](../operations/supply-unbound-completion-drafts.md) 完成具体目标授权后才安装既有schema/minimal grants及更新serving；不运行非空库全量初始化，不改Store或其它会话环境，数据、图片、账本、命名卷保留。
+交付已有正常启动方式及新入口，用户/生产验收不代签。现保留实例若尚未安装CompletionDraft，按 [原owner安装合同](../operations/user-guides/supply-unbound-completion-drafts.md) 完成具体目标授权后才安装既有schema/minimal grants及更新serving；不运行非空库全量初始化，不改Store或其它会话环境，数据、图片、账本、命名卷保留。

@@ -1,6 +1,6 @@
 # Eino 多厂商模型按需接入：最小设计候选
 
-> 2026-11-05 阶段更新：用户已确认[独立 UI 合同](channel-credentials-ui.md)的 D1–D3，该边界已完成适用架构复核并单独获原唯一 Writer 实施授权；源码/离线隔离自检与既有 Codex 自动最终复核维护在 PR #1096。本文“没有企业网页自助 BYOK/仍走原维护入口”仅记录原多厂商阶段，当前允许受控企业 UI 增量；唯一凭据 owner、用途/预算和一套计费保持。不操作真实 Key，不迁移/合并/部署/关单或调用模型；运行与产品验收 NOT_RUN。
+> 2026-11-05 阶段更新：用户已确认[独立 UI 合同](../../channel-credentials-ui.md)的 D1–D3，该边界已完成适用架构复核并单独获原唯一 Writer 实施授权；源码/离线隔离自检与既有 Codex 自动最终复核维护在 PR #1096。本文“没有企业网页自助 BYOK/仍走原维护入口”仅记录原多厂商阶段，当前允许受控企业 UI 增量；唯一凭据 owner、用途/预算和一套计费保持。不操作真实 Key，不迁移/合并/部署/关单或调用模型；运行与产品验收 NOT_RUN。
 
 状态：**IMPLEMENTATION_READY / FROZEN**（2026-11-04）；用户已授权同一Writer按冻结设计实施；范围内实现与离线/隔离自检已形成候选，IT1–IT6的准确HEAD、证据与自动最终评审状态维护在PR。准确设计HEAD及自动评审证据维护在PR #1093。
 Design Basis：**Independent Architecture**。本候选涉及模型用途/输入合同、新 provider 协议和计量准入，不能沿用 #1078/#1089 的 Ready 代替本次准入。
@@ -35,10 +35,10 @@ Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / [#12
 
 适用依据：
 
-- [企业统一配置与参考价](enterprise-shared-model-configuration.md)：三类选择、原 current/CAS/回执、按消费类别准入与一套计费。
-- [渠道凭据分离](shared-channel-credentials.md)：Run DB 唯一 owner、企业隔离、轮换、最后门禁与当前合同内的幂等/恢复。
-- [Agent 运行合同](product-agent-runtime-contract.md)、[provider-neutral 文本合同](domains/ai/product-agent-text-provider-neutral.md)、[单图分析](product-image-visual-analysis.md)、[图片 Agent](product-image-agent.md)。
-- [模型与费率原入口](model-route-pricing-management.md)、[当前 UI/IA Authority](../product/final-ui-ia-authority.md)、[领域边界](project-boundaries.md)与[全新系统基线](../product/greenfield-no-legacy-migration.md)。
+- [企业统一配置与参考价](../../enterprise-shared-model-configuration.md)：三类选择、原 current/CAS/回执、按消费类别准入与一套计费。
+- [渠道凭据分离](../../shared-channel-credentials.md)：Run DB 唯一 owner、企业隔离、轮换、最后门禁与当前合同内的幂等/恢复。
+- [Agent 运行合同](../../product-agent-runtime-contract.md)、[provider-neutral 文本合同](product-agent-text-provider-neutral.md)、[单图分析](../../product-image-visual-analysis.md)、[图片 Agent](../../product-image-agent.md)。
+- [模型与费率原入口](../../model-route-pricing-management.md)、[当前 UI/IA Authority](../../../product/final-ui-ia-authority.md)、[领域边界](../../project-boundaries.md)与[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 
 UI 沿 Figma tg48P46SSXl6TBy9lZwg63 / 账户中心 31:463 / 模型配置区域
 [7658:2087](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=7658-2087)及不可用/调用记录状态，不新增页面或导航。
@@ -50,11 +50,11 @@ UI 沿 Figma tg48P46SSXl6TBy9lZwg63 / 账户中心 31:463 / 模型配置区域
 
 | 当前源码 | 实际限制与本次最小处理 |
 | --- | --- |
-| [NewComponent](../../internal/integration/aicapability/einomodel/component.go) | 已复用 OpenAI/Claude 组件，Google 用当前 Interactions SDK；应复用合格组件及原受控 client，不能为每个型号复制发送器。 |
-| [SharedCatalog](../../internal/integration/aicapability/routeconfig/shared_catalog.go) | 统一文字计量目前只接受 OpenAI-compatible；新用途须在原资格出口补协议映射，不只放开 provider 名称。 |
-| [ValidRouteShape](../../internal/integration/aicapability/einomodel/route.go) | Google 原生只允许原 title operation。新协议/用途需声明实际消费者与输出合同，不能把原局部资格外推。 |
-| [SingleImageInput/Profile](../../internal/aicapability/single_image.go) | 输入带 Mini 专属 detail/计量版本，资格固定 Mini/OpenAI；共同图片身份应与各协议参数分开。 |
-| [Definition/Catalog](../../internal/integration/aicapability/routeconfig/catalog.go) | 已有准确型号、scope、连接、manufacturer/channel/价格与预算，无需新建模型表或第二目录 owner。 |
+| [NewComponent](../../../../internal/integration/aicapability/einomodel/component.go) | 已复用 OpenAI/Claude 组件，Google 用当前 Interactions SDK；应复用合格组件及原受控 client，不能为每个型号复制发送器。 |
+| [SharedCatalog](../../../../internal/integration/aicapability/routeconfig/shared_catalog.go) | 统一文字计量目前只接受 OpenAI-compatible；新用途须在原资格出口补协议映射，不只放开 provider 名称。 |
+| [ValidRouteShape](../../../../internal/integration/aicapability/einomodel/route.go) | Google 原生只允许原 title operation。新协议/用途需声明实际消费者与输出合同，不能把原局部资格外推。 |
+| [SingleImageInput/Profile](../../../../internal/aicapability/single_image.go) | 输入带 Mini 专属 detail/计量版本，资格固定 Mini/OpenAI；共同图片身份应与各协议参数分开。 |
+| [Definition/Catalog](../../../../internal/integration/aicapability/routeconfig/catalog.go) | 已有准确型号、scope、连接、manufacturer/channel/价格与预算，无需新建模型表或第二目录 owner。 |
 
 Must：当前 verified identity / effective Organization、准确 model/connection/endpoint/用途绑定、原字段/图片事实与 deterministic validator、固定预算与单次发送、单一账本和原 UNKNOWN owner。
 Threat Model 保持跨企业用 Key、错模型/错价格/错图、输入/资源越界、重复发送/扣点及未知结果误处理；不新建通用 IAM/KMS/调度/恢复平台。

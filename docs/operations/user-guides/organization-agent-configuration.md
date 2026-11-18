@@ -1,6 +1,6 @@
 # 企业智能体配置 v1 交接
 
-Design Basis：[已批准的 Agent D 合同](../architecture/organization-agent-configuration.md)；执行 Issue #573。以下是安装和开发交接，未签发产品验收或部署批准。
+Design Basis：[已批准的 Agent D 合同](../../architecture/organization-agent-configuration.md)；执行 Issue #573。以下是安装和开发交接，未签发产品验收或部署批准。
 
 ## 用户入口
 
@@ -11,7 +11,7 @@ Design Basis：[已批准的 Agent D 合同](../architecture/organization-agent-
 
 管理员显式启用后，成员确认精确模板版本、素材平台和是否引用企业知识，再生成标题建议。建议仍走已有人工审核与显式应用。模板默认只是预填；清空知识即不引用知识。更新模板生成新版本，不移动已保存的默认版本。
 
-商品标题智能体 `product.title.agent / v1.0.0` 保留当前执行。#612 增加 `product.image.agent / v1.0.0` 的整套图片配置、模板与可选执行，接线见 [完整图片运行说明](product-image-agent.md)。远端平台写入、自定义智能体及通用 Chat 不由本配置模块开放。`AVAILABLE` 表示当前配置接入，执行时仍重新确认权限、模型路由、额度和预算，不是 provider 健康检查或报价。
+商品标题智能体 `product.title.agent / v1.0.0` 保留当前执行。#612 增加 `product.image.agent / v1.0.0` 的整套图片配置、模板与可选执行，接线见 [完整图片运行说明](../product-image-agent.md)。远端平台写入、自定义智能体及通用 Chat 不由本配置模块开放。`AVAILABLE` 表示当前配置接入，执行时仍重新确认权限、模型路由、额度和预算，不是 provider 健康检查或报价。
 
 ## 空安装与持久化
 
@@ -44,7 +44,7 @@ go run ./cmd/agent-configuration-schema-init --runtime-role <existing_serving_ro
 
 Skill V1 在同一配置数据库增加有界三层方法版本与个人方法准入；全新配置安装入口已一起安装，已有当前配置库的 `--skills-only` 和正常管理/执行入口见 [Skill V1 交接](skill-capability.md)。Serving 启动仅核对，不自动安装、准入或导入模板。
 
-使用既有 current-application 启动入口和配置文件（参见 [运行配置](../../internal/app/runtime/currentapplication/product_agent.go)）。
+使用既有 current-application 启动入口和配置文件（参见 [运行配置](../../../internal/app/runtime/currentapplication/product_agent.go)）。
 
 - 仅配置管理：保留 `productAgent` 节点，`enabled: false`，提供其 `database`。仅打开 RunDB，挂载配置 API；无需文本 provider、Review 或 Asset 连接。
 - 标题执行：沿用既有 `enabled: true` 的 Product Agent 配置、当前组织准入名单、点数计价及数据库配置。配置模块复用相同 RunDB，且仍要求管理员显式启用当前企业。

@@ -1,6 +1,6 @@
 # 为当前 Research 安装经营评估表
 
-本入口属于 #1205 的现有 Product owner，准备依据见 [评估设计 §11](../architecture/research-commercial-assessment-persistence-v1.md)。仅添加已批准的评估表，不迁移数据、不重跑空库初始化、不启用来源或调用模型。
+本入口属于 #1205 的现有 Product owner，准备依据见 [评估设计 §11](../../architecture/research-commercial-assessment-persistence-v1.md)。仅添加已批准的评估表，不迁移数据、不重跑空库初始化、不启用来源或调用模型。
 
 ## 操作权限与停止点
 
