@@ -14,6 +14,7 @@
 | 来源图片、生成图和用户上传图什么时候可用于刊登 | [Product Domain Contracts](../../product-domain-contracts.md)、[素材来源与批准](../../source-business-flow.md) | `internal/product/asset/`、`internal/imageagent/` |
 | 从商品资料带入目标平台的草稿 | [待补全草稿产品决定](../../../product/flows/supply-unbound-completion-drafts.md)、[对应架构合同](../listing/supply-unbound-completion-drafts.md) | `internal/listing/`、`internal/marketplace/` |
 | 自有商品单图整理如何准入、遇到拒绝如何保留原账本边界 | [OpenAI Mini 单图接入](own-product-intake-openai-mini.md)、[原调用未计费恢复](own-intake-provider-unbilled-recovery.md)、[运行说明](../../../operations/runbooks/model-route-pricing.md#原单图调用的明确拒绝未计费恢复) | `internal/agent/`、`internal/aicapability/`、`internal/integration/orgresource/` |
+| 已保存商品如何按目标语言及字段生成完整内容候选并原子采用 | [商品内容与本地化](product-content-localization.md) | `internal/product/contentagent/`、`internal/product/review/`、`internal/product/catalog/` |
 | 已保存自有商品如何无店铺优化并形成真实 Apply 资格 | [自有商品内容优化](own-product-optimization.md)、[优选资格](../supply-market/supply-market-choice-eligibility.md) | `internal/product/contentagent/`、`internal/product/review/`、`internal/product/catalog/` |
 
 ## 关键分工

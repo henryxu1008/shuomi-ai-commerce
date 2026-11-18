@@ -10,7 +10,7 @@
 
 - **D1，已确认：** 一条会话固定一个范围，换范围新建会话。项目已绑定的店铺必须明示。模型只读取获准的项目目标和必要店铺信息，不自动读取关联材料、订单或经营数据。选择店铺只说明工作目标，不改变商品归属，不代表已上架或已获平台写权限。
 - **D2，已确认：** 首期筛选覆盖有准确范围的 BusinessTask 及其明确关联的运行和提案。独立记录继续可读并标为“未记录工作范围”；不按名称、时间或当前项目关系猜历史归属。全部独立来源的范围支持留后续，不能计为已交付。
-- **D3，已确认（#36）：** 商品内容逐字段查看和编辑，整份接受或拒绝，完整选中集合一次采用。沿[现有内容审核合同](product-content-localization.md)，不增加部分批准或字段级状态。人工决定、政策采用和外部动作权限各按原合同。
+- **D3，已确认（#36）：** 商品内容逐字段查看和编辑，整份接受或拒绝，完整选中集合一次采用。沿[现有内容审核合同](domains/catalog/product-content-localization.md)，不增加部分批准或字段级状态。人工决定、政策采用和外部动作权限各按原合同。
 
 产品依据：[D1/D2 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298#issuecomment-6649958948)、[D3 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36#issuecomment-6649971251)、[最终 UI / IA](../product/final-ui-ia-authority.md)。沿现可见 Figma 的 [Chat 427:2467](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-2467)、[任务中心 427:3005](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-3005) 及原项目入口。本轮引用原已批准依据，没有重新读取或修改 Figma；新增选择、范围说明和筛选控件是待确认的局部候选，不冒称原稿已有。
 

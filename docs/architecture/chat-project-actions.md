@@ -232,7 +232,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 
 依据：[会话固定范围与项目改绑](ai-workbench-work-scope.md#41-新建会话) · [Chat 草稿交接与恢复](domains/workbench/chat-compose-before-create.md#输入草稿与恢复) · [现有范围校验](../../internal/aiworkbench/business_scope.go)
 
-依据：[项目详情进入 Chat](../../web/listingkit-ui/src/components/workbench/project-center/project-page.tsx) · [现有商品选择](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-task-selection.tsx) · [Chat 方案和确认](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [确认及启动服务](../../internal/aiworkbench/service.go) · [内容模型、审核与采用](product-content-localization.md)
+依据：[项目详情进入 Chat](../../web/listingkit-ui/src/components/workbench/project-center/project-page.tsx) · [现有商品选择](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-task-selection.tsx) · [Chat 方案和确认](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [确认及启动服务](../../internal/aiworkbench/service.go) · [内容模型、审核与采用](domains/catalog/product-content-localization.md)
 
 ## 5. 任务范围和项目关联
 
