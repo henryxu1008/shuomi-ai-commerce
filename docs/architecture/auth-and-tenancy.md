@@ -36,8 +36,8 @@ Fresh authorization before an external effect is not an atomic transaction with 
 
 ## Current consumer contracts
 
-- [Account read contract](../engineering/account-readonly-contract.md)
-- [Membership contract](../engineering/account-membership-contract.md)
+- [Account read contract](../engineering/integration/account-readonly-contract.md)
+- [Membership contract](../engineering/integration/account-membership-contract.md)
 - [Official provider boundary](../engineering/zitadel-official-provider-boundary.md)
 - [Enterprise role management](enterprise-custom-roles.md)
 

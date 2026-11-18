@@ -241,4 +241,4 @@ Legacy decision: **EXTRACT | RETIRE**。
 3. M1/M4：code/refresh 的单次 claim、token generation、迟到结果、响应丢失与 commit-unknown 均使用原持久事实，不回退或盲重发。
 4. M5/M6：正常 Console/BFF/Operation/worker/result consumer 必须分开受理、逐 SKU ingestion 与真实 publication，不能从 kernel succeeded 投影平台已发布。
 
-本批不增加 Accepted Risk 或新验证平台。设计准入不是产品验收。业务实现与必要隔离验证的当前证据记录在 #733 / PR #734；真实平台与用户试用仍为 NOT_RUN。操作和配置见 [首期说明](../../../operations/walmart-us.md)。
+本批不增加 Accepted Risk 或新验证平台。设计准入不是产品验收。业务实现与必要隔离验证的当前证据记录在 #733 / PR #734；真实平台与用户试用仍为 NOT_RUN。操作和配置见 [首期说明](../../../operations/user-guides/walmart-us.md)。

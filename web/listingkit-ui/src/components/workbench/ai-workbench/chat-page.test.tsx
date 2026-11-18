@@ -10,11 +10,12 @@ import { AIWorkbenchError } from "@/lib/api/ai-workbench";
 import { ChatPage } from "./chat-page";
 
 const fixture = vi.hoisted(() => ({
-  request: vi.fn(), projectRequest: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), connection:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
+  request: vi.fn(), skillRequest:vi.fn(), projectRequest: vi.fn(), templates:vi.fn(), knowledge:vi.fn(), connection:vi.fn(), push: vi.fn(), search: new URLSearchParams(),
   context: { user: { id: "user-a" }, effectiveMemberId:"member-a", effectiveOrganization: { id: "org-a", capabilities: { "workbench.chat.use": true } }, roles: ["listingkit_operator"], permissions: ["product_sourcing.write","local_agent.write","listingkit.image_agent.read","listingkit.image_agent.write","workbench.agent.read","workbench.agent.use","workbench.chat.read","workbench.chat.use","workbench.task.read","workbench.knowledge.read","workbench.store.read","workbench.store.create","workbench.store.update","workbench.store.lifecycle","workbench.source_account.read","workbench.source_account.manage","workbench.organization_member.read","workbench.commercial.read"],
     projectCenterAvailable:false, aiWorkbenchChatTurnsReady:false, aiWorkbenchChatIntentReadiness:"UNAVAILABLE", aiWorkbenchExecutionKind:undefined as "product.title.optimize"|"product.content.localize"|undefined,aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchAvailable: true, aiWorkbenchPlanningReadiness: "AVAILABLE", aiWorkbenchStoreRouteReadiness:"AVAILABLE", aiWorkbenchTitleReadiness: "AVAILABLE", isLoading: false, isSwitching: false, selectionRequired: false, error: null, blockingError: null },
 }));
 vi.mock("@/lib/api/ai-workbench", async original => ({ ...await original<typeof import("@/lib/api/ai-workbench")>(), requestAIWorkbench: fixture.request }));
+vi.mock("@/lib/api/skill", async original=>({...await original<object>(),skillRequest:fixture.skillRequest}));
 vi.mock("@/lib/api/project-center", async original => ({ ...await original<typeof import("@/lib/api/project-center")>(), projectRequest: fixture.projectRequest }));
 vi.mock("@/lib/api/agent-configuration",async original=>({...await original<object>(),configurationRequest:fixture.templates}));
 vi.mock("@/lib/api/knowledge",async original=>({...await original<object>(),knowledgeRequest:fixture.knowledge}));
@@ -510,6 +511,7 @@ beforeEach(() => {
   fixture.context.isSwitching = false;
   fixture.context.projectCenterAvailable = false;
   fixture.projectRequest.mockReset();
+  fixture.skillRequest.mockReset().mockResolvedValue({items:[]});
   fixture.context.aiWorkbenchAvailable = true;
   fixture.context.effectiveMemberId = "member-a";
   fixture.context.aiWorkbenchExecutionKind=undefined;fixture.context.aiWorkbenchExecutionReadiness="AVAILABLE";
@@ -1360,4 +1362,68 @@ it.each([false,true])("sends the single Chat input with automatic or manual crea
   expect(screen.getByLabelText("需求")).toHaveValue("创建保留型号的标题技能");
  }
  expect(fixture.request.mock.calls.some(([v])=>v.route==="skill-authoring-preview"||v.route==="store-route")).toBe(false);
+});
+
+it("keeps the original skill draft open for editing after collapsing and reopening",async()=>{
+ fixture.search.set("skillAuthoring","1");
+ const job={key:operationId,generationKey:operationId,revision:operationId,state:"COMPLETE",requirement:"生成",billing:"committed",savePending:false,savedSkillId:null,draft:{name:"title",displayName:"原始技能",description:"处理标题",instructions:"原规则"}};
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation,messages:[],proposals:[],before:""};
+  if(route==="skill-authoring-list")return {drafts:[job]};
+  if(route==="skill-authoring-validate")return {valid:true};
+  return {skill:null,ready:false};
+ });
+ try {
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:"原始技能"}));
+  fireEvent.change(await screen.findByLabelText("正文"),{target:{value:"保留编辑"}});
+  fireEvent.click(screen.getByRole("button",{name:"收起"}));
+  expect(screen.queryByRole("textbox",{name:"正文"})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"选择技能"}));
+  fireEvent.click(await screen.findByRole("button",{name:"查看本会话的标题技能草稿"}));
+  expect(await screen.findByLabelText("正文")).toHaveValue("保留编辑");
+ }finally{
+  fixture.search.delete("skillAuthoring");
+ }
+});
+
+it.each([false,true])("does not advertise skill creation when this old or project-task conversation cannot start it (%s)",async projectSelected=>{
+ fixture.context.aiWorkbenchChatTurnsReady=true;
+ fixture.context.aiWorkbenchChatIntentReadiness="AVAILABLE";
+ fixture.context.projectCenterAvailable=projectSelected;
+ if(projectSelected)fixture.search.set("projectTask","1");
+ const fixed=projectSelected?{...conversation,businessScope:{version:"workbench-scope-v1",kind:"project",projectId:operationId}}:conversation;
+ fixture.request.mockImplementation(async({route})=>{
+  if(route==="conversation-read")return {conversation:fixed,messages:[],proposals:[],before:""};
+  if(route==="skill-authoring-catalog")return {skill:{version:2,name:"创建技能",digest:"a".repeat(64),description:"创建标题技能"},ready:true};
+  return {options:[],next:"",incomplete:false};
+ });
+ render(tree());
+ fireEvent.click(await screen.findByRole("button",{name:"选择技能"}));
+ expect(await screen.findByRole("link",{name:"管理我的技能"})).toBeVisible();
+ expect(screen.queryByRole("button",{name:/创建技能/})).toBeNull();
+ fixture.search.delete("projectTask");
+});
+
+it("preserves the project and acquisition context when going from a conversation to a title skill",async()=>{
+ const prior=new URLSearchParams(fixture.search);
+ for(const key of [...fixture.search.keys()])fixture.search.delete(key);
+ fixture.search.set("projectTask","1");
+ fixture.search.set("operationId",operationId);
+ fixture.search.set("skillAuthoring","0");
+ fixture.skillRequest.mockImplementation(async(_scope,path)=>({items:path==="organization/candidates"?[{
+  skill:{id:operationId,owner:{kind:"PLATFORM",id:"official"}},version:2,
+  package:{target:"product-title",name:"保留型号的标题技能",description:"验收技能",digest:"a".repeat(64)}
+ }]:[]}));
+ try {
+  render(tree());
+  fireEvent.click(await screen.findByRole("button",{name:"选择技能"}));
+  fireEvent.click(await screen.findByRole("button",{name:/保留型号的标题技能/}));
+  const href=(await screen.findByRole("link",{name:"前往标题处理页"})).getAttribute("href");
+  expect(new URL(href!,"https://navigation.invalid").searchParams.get("skill_chat"))
+   .toBe("/workbench/ai/chat/"+conversationId+"?projectTask=1&operationId="+operationId);
+ }finally{
+  for(const key of [...fixture.search.keys()])fixture.search.delete(key);
+  for(const [key,value] of prior)fixture.search.append(key,value);
+ }
 });

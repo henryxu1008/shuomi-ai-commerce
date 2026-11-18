@@ -2,7 +2,7 @@
 
 ## 文档适用性说明（2026-11-17）
 
-下文 2026-10-10 以 Figma 作为最终 UI 权威的说法是当时产品历史；按 2026-11-05 用户最新决定，Figma **仅为业务流程参考**，不对当前报告页、导航、视觉和响应式作最终约束。报告自身的**准确授权来源、不可变历史快照、隐私、收藏与下载**合同依然有效，不因菜单变化转为实时 Product/Review/Store/Task 事实。后续店铺经营日报沿 [单店日报增量](scheduled-store-daily-report.md) 及 [当前定时任务操作](../operations/ai-workbench-scheduled-tasks.md) 单独准入，不能据原报告类型列表推断其已在所有实例启用。实际使用和验证证据沿原 Issue/PR 记录。
+下文 2026-10-10 以 Figma 作为最终 UI 权威的说法是当时产品历史；按 2026-11-05 用户最新决定，Figma **仅为业务流程参考**，不对当前报告页、导航、视觉和响应式作最终约束。报告自身的**准确授权来源、不可变历史快照、隐私、收藏与下载**合同依然有效，不因菜单变化转为实时 Product/Review/Store/Task 事实。后续店铺经营日报沿 [单店日报增量](scheduled-store-daily-report.md) 及 [当前定时任务操作](../operations/user-guides/ai-workbench-scheduled-tasks.md) 单独准入，不能据原报告类型列表推断其已在所有实例启用。实际使用和验证证据沿原 Issue/PR 记录。
 
 
 Execution: [#628](https://github.com/qq550723504/task-processor/issues/628), parent #137.
