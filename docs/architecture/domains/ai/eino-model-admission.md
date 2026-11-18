@@ -1,6 +1,6 @@
 # Eino 多厂商模型按需接入：最小设计候选
 
-> 2026-11-05 阶段更新：用户已确认[独立 UI 合同](../../channel-credentials-ui.md)的 D1–D3，该边界已完成适用架构复核并单独获原唯一 Writer 实施授权；源码/离线隔离自检与既有 Codex 自动最终复核维护在 PR #1096。本文“没有企业网页自助 BYOK/仍走原维护入口”仅记录原多厂商阶段，当前允许受控企业 UI 增量；唯一凭据 owner、用途/预算和一套计费保持。不操作真实 Key，不迁移/合并/部署/关单或调用模型；运行与产品验收 NOT_RUN。
+> 2026-11-05 阶段更新：用户已确认[独立 UI 合同](channel-credentials-ui.md)的 D1–D3，该边界已完成适用架构复核并单独获原唯一 Writer 实施授权；源码/离线隔离自检与既有 Codex 自动最终复核维护在 PR #1096。本文“没有企业网页自助 BYOK/仍走原维护入口”仅记录原多厂商阶段，当前允许受控企业 UI 增量；唯一凭据 owner、用途/预算和一套计费保持。不操作真实 Key，不迁移/合并/部署/关单或调用模型；运行与产品验收 NOT_RUN。
 
 状态：**IMPLEMENTATION_READY / FROZEN**（2026-11-04）；用户已授权同一Writer按冻结设计实施；范围内实现与离线/隔离自检已形成候选，IT1–IT6的准确HEAD、证据与自动最终评审状态维护在PR。准确设计HEAD及自动评审证据维护在PR #1093。
 Design Basis：**Independent Architecture**。本候选涉及模型用途/输入合同、新 provider 协议和计量准入，不能沿用 #1078/#1089 的 Ready 代替本次准入。
@@ -36,7 +36,7 @@ Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / [#12
 适用依据：
 
 - [企业统一配置与参考价](../../enterprise-shared-model-configuration.md)：三类选择、原 current/CAS/回执、按消费类别准入与一套计费。
-- [渠道凭据分离](../../shared-channel-credentials.md)：Run DB 唯一 owner、企业隔离、轮换、最后门禁与当前合同内的幂等/恢复。
+- [渠道凭据分离](shared-channel-credentials.md)：Run DB 唯一 owner、企业隔离、轮换、最后门禁与当前合同内的幂等/恢复。
 - [Agent 运行合同](../../product-agent-runtime-contract.md)、[provider-neutral 文本合同](product-agent-text-provider-neutral.md)、[单图分析](../../product-image-visual-analysis.md)、[图片 Agent](../../product-image-agent.md)。
 - [模型与费率原入口](../../model-route-pricing-management.md)、[当前 UI/IA Authority](../../../product/final-ui-ia-authority.md)、[领域边界](../../project-boundaries.md)与[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 

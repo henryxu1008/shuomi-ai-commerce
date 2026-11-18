@@ -17,9 +17,9 @@
 依据是用户本次明确要求：“渠道 Key 也要能在 UI 中统一配置和轮换，多个模型复用同一凭据。先……整理最小设计，明确企业隔离、权限和 Key 保护，暂不实现、不新增派工”。该决定开启新的 UI 管理阶段，替代以下旧文档中“本阶段仅命令维护、不提供网页 Key 编辑”的范围限制；用户随后认可 D1–D3，但**新接口/装配尚未复核或实现**。
 
 - [共享渠道凭据](shared-channel-credentials.md)：唯一 Run DB owner、AES-GCM/HKDF、连接版本、CAS、去密回执、发送前最后门禁和原恢复。
-- [企业统一模型](enterprise-shared-model-configuration.md)及[Eino 按需接入](domains/ai/eino-model-admission.md)：企业三类选择、可信连接/模型/用途准入及一套计费。
-- [全新系统基线](../product/greenfield-no-legacy-migration.md)：不迁移、复制或重解释保留 Key/历史。
-- UI/Product Authority 沿[当前账户中心与 UI/IA](../product/final-ui-ia-authority.md)、原「模型与费率」及本次明确产品要求。原账户 Figma `31:463`、模型版本节点 `7658:2087` 只作已有页面依据；本候选不冒称已有渠道表单原型或视觉验收，Figma 编辑 NOT_RUN。
+- [企业统一模型](../../enterprise-shared-model-configuration.md)及[Eino 按需接入](eino-model-admission.md)：企业三类选择、可信连接/模型/用途准入及一套计费。
+- [全新系统基线](../../../product/greenfield-no-legacy-migration.md)：不迁移、复制或重解释保留 Key/历史。
+- UI/Product Authority 沿[当前账户中心与 UI/IA](../../../product/final-ui-ia-authority.md)、原「模型与费率」及本次明确产品要求。原账户 Figma `31:463`、模型版本节点 `7658:2087` 只作已有页面依据；本候选不冒称已有渠道表单原型或视觉验收，Figma 编辑 NOT_RUN。
 
 源码依据固定为已读 main `ba2951f724ba64470b8238cd20d0a724d07864e8`；此时无同范围开放 PR，原 #1075 是另一负责人的安装/调研交付。本候选不修改其固定应用/工具版本、实例或安装窗口。未来实现须单独核定准确组合和准入，不能将本设计自动部署到它的保留实例。
 

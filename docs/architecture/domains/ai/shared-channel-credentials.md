@@ -2,7 +2,7 @@
 
 > 2026-11-05 新阶段：用户已确认 UI 统一录入/轮换渠道 Key 的 D1–D3，[UI 合同](channel-credentials-ui.md)已完成适用架构复核并获原唯一 Writer 实施授权，源码及离线/隔离证据维护在同一 PR #1096。本文 D3 及“本阶段不提供网页 Key 编辑”只记录原 #1089 范围，已由本增量替代；原维护入口与 UI 继续复用同一 owner、加密/CAS/回执与计费，不新增 Key 存储或真实操作授权。不读改真实 Key，不合并/部署/关单，运行与产品验收 NOT_RUN。
 
-> 2026-11-04 后续[多厂商模型按需准入候选](domains/ai/eino-model-admission.md)复用本文的唯一凭据owner、企业隔离、轮换及当前合同内幂等/恢复；用户已明确没有历史数据，不从本文引出旧协议/格式读取或迁移要求。
+> 2026-11-04 后续[多厂商模型按需准入候选](eino-model-admission.md)复用本文的唯一凭据owner、企业隔离、轮换及当前合同内幂等/恢复；用户已明确没有历史数据，不从本文引出旧协议/格式读取或迁移要求。
 > 新协议/用途沿已认可并完成自动文档复核的独立冻结设计实施；当前交付证据维护在PR #1093，不继承 #1089 的产品验收，不新增秘密副本、迁移或保留实例操作。
 
 Status: **IMPLEMENTATION_READY / FROZEN**。Design Basis: **Independent Architecture**。
@@ -20,12 +20,12 @@ Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / #128
 例如同一 OpenAI 企业连接同时服务 Mini 文本、Mini 看图和 Flare 生图，不为三个消费者分别保存 Key。
 
 依据：用户本轮明确要求多模型复用、企业隔离、凭据轮换、历史调用恢复和一套计费；
-[企业统一模型配置](enterprise-shared-model-configuration.md)、[Flare 图片参考估算](openai-flare-image-generation.md)、
-[运行合同](product-agent-runtime-contract.md)、[领域边界](project-boundaries.md)及
-[全新系统基线](../product/greenfield-no-legacy-migration.md)。
+[企业统一模型配置](../../enterprise-shared-model-configuration.md)、[Flare 图片参考估算](../../openai-flare-image-generation.md)、
+[运行合同](../../product-agent-runtime-contract.md)、[领域边界](../../project-boundaries.md)及
+[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 官网公开价只作为已批准的版本化参考价格；不恢复精确账单/厂商完整硬上界研究，不修改舍入、点数或调用预算。
 
-UI / Product Authority 沿[当前 UI/IA](../product/final-ui-ia-authority.md)和现有「模型与费率」：
+UI / Product Authority 沿[当前 UI/IA](../../../product/final-ui-ia-authority.md)和现有「模型与费率」：
 Figma `tg48P46SSXl6TBy9lZwg63`，账户中心 `31:463`，模型配置区域 `7658:2087` 及其历史/不可用状态。
 本候选只保留企业三类选择及去密状态，不新增页面、普通成员 Key 输入或自助 BYOK；Figma 实查、修改、视觉验收均 NOT_RUN。
 截图仅是用户体验参考，不是本系统权限、存储或收费 Authority。

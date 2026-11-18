@@ -12,7 +12,7 @@
 Run prepare 先验证已有 ledger，再创建 Run 四表组及通道投影，不负责创建 ledger。当前为 **52 列**，以唯一 schema owner 为准。
 因此，原 f337 入口不能直接安装另名库；本轮已在原 CLI 完成最小离线补丁，安装制品和现场身份未具备，不能直接操作实际目标。
 
-本轮实现的 Design Basis: **Reuse Existing Architecture / Ready → In Progress → In Review**：引用[共享通道新空 Run 合同](../architecture/shared-channel-credentials.md#11-新版本的受限维护入口)、[共享模型配置](../architecture/enterprise-shared-model-configuration.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
+本轮实现的 Design Basis: **Reuse Existing Architecture / Ready → In Progress → In Review**：引用[共享通道新空 Run 合同](../architecture/domains/ai/shared-channel-credentials.md#11-新版本的受限维护入口)、[共享模型配置](../architecture/enterprise-shared-model-configuration.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
 当前 owner 仍为 `cmd/account-audit-ledger-schema-init → internal/aicapability/store.AutoMigrateInvocationLedger → VerifyModelPointInvocationSchema`；不改变领域 owner、52 列 schema、计费/预算、租户/serving 授权、状态机或既有恢复合同。参数和独立工具版本策略已获认可。准确文档 HEAD 无 CI、PR dirty 仅影响后续最终组合/合并，不构成新的离线实施前置；必需 CI/保护规则不变。
 无新 UI/IA，沿原研究/选品 Product Authority；不增加凭据、计费或安装平台。
 
