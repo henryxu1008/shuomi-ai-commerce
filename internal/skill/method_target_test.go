@@ -36,3 +36,16 @@ func TestMethodMarkerProjectsOnlyExplicitTargetWithoutReservingExistingMetadata(
 		})
 	}
 }
+
+func TestChatTextPackageCannotEnterProductConsumers(t *testing.T) {
+	files := []File{{Path: "SKILL.md", Text: "---\nname: action-items\ndescription: Organize handoff notes.\nmetadata:\n  listingkit-method-v1: chat-text\n---\nReturn a list of actions.\n"}}
+	pkg, err := ValidatePackage(files)
+	require.NoError(t, err)
+	require.True(t, pkg.Supports("chat-text"))
+	require.False(t, pkg.Supports(TitleTarget))
+	require.False(t, pkg.Supports(ImageTarget))
+	require.False(t, pkg.Supports(AuthoringTarget))
+
+	_, err = ValidatePackage(append(files, File{Path: "references/example.md", Text: "An example"}))
+	require.ErrorIs(t, err, ErrInvalid)
+}

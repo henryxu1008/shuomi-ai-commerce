@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ChevronRight, SquarePen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AIWorkbenchError, requestAIWorkbench, type AIScope } from "@/lib/api/ai-workbench";
-import { type AIAuthoringPreview, type AISkillAuthoringChoice, type AISkillAuthoringJob, type AITitleSkillDraft } from "@/lib/contracts/ai-workbench";
+import { type AIAuthoringPreview, type AISkillAuthoringChoice, type AISkillAuthoringJob, type AITextSkillRef, type AITitleSkillDraft } from "@/lib/contracts/ai-workbench";
+import { skillRequest } from "@/lib/api/skill";
+import { skillPageSchema } from "@/lib/contracts/skill";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { AccountDialog } from "../account/account-dialog";
 import styles from "./chat-skill-authoring.module.css";
@@ -22,17 +24,30 @@ function useCatalog(scope: AIScope, authorizationKey: string, enabled: boolean) 
   });
 }
 
-export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, onResume }: {
+export type SelectedTextSkill = AITextSkillRef & { name: string };
+const generalAuthoringVersion = 3;
+
+export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, onResume, onUseTextSkill }: {
   scope: AIScope;
   authorizationKey: string;
   disabled?: boolean;
   onSelect: (skill: AISkillAuthoringChoice) => void;
   onResume?: () => void;
+  onUseTextSkill?: (skill: SelectedTextSkill) => void;
 }) {
   const [open, setOpen] = useState(false);
   const catalog = useCatalog(scope, authorizationKey, open);
   const trigger = useRef<HTMLButtonElement>(null);
   const skill = catalog.isSuccess ? catalog.data.skill : null;
+  const titleSkill = catalog.data?.titleSkill;
+  const personal = useInfiniteQuery({
+    queryKey: ["chat-personal-text-skills", scope.userId, scope.organizationId, authorizationKey],
+    enabled: open && Boolean(onUseTextSkill && catalog.data?.textReady),
+    initialPageParam: "",
+    queryFn: ({ pageParam, signal }) => skillRequest(scope, "personal?limit=50" + (pageParam ? "&cursor=" + encodeURIComponent(pageParam) : ""), skillPageSchema, {signal}),
+    getNextPageParam: page => page.nextCursor || undefined,
+    retry: false,
+  });
   return <>
     <Button ref={trigger} variant="outline" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>选择技能</Button>
     {open ? <AccountDialog title="选择技能" drawer className={styles.skillDrawer} onClose={() => setOpen(false)} returnFocusRef={trigger}>
@@ -47,6 +62,18 @@ export function ChatSkillDrawer({ scope, authorizationKey, disabled, onSelect, o
             <ChevronRight size={16} aria-hidden="true" />
           </Button>{!catalog.data?.ready && <p role="status">当前企业的技能创作模型尚未就绪。</p>}</>
           : <p>当前没有可用的创作技能。</p>}
+        {titleSkill && <Button variant="outline" disabled={!catalog.data?.ready} onClick={() => {onSelect(titleSkill); setOpen(false);}}>创建商品标题技能</Button>}
+        {onUseTextSkill && catalog.data?.textReady && <section aria-label="我的文字技能">
+          <h3>我的文字技能</h3>
+          {personal.isPending ? <p role="status">正在读取我的技能…</p> : null}
+          {personal.isError ? <Button variant="outline" onClick={() => void personal.refetch()}>重新读取我的技能</Button> : null}
+          {personal.isSuccess && !personal.hasNextPage && !personal.data.pages.some(page => page.items.some(item => item.canUse && item.version.visibility === "PRIVATE" && item.version.package.target === "chat-text")) && <p>还没有可以选用的文字技能。</p>}
+          {personal.data?.pages.flatMap(page => page.items).filter(item => item.canUse && item.version.visibility === "PRIVATE" && item.version.package.target === "chat-text").map(({version}) => {
+            const name = version.package.displayName || version.package.name;
+            return <Button className={styles.skillChoice} variant="outline" key={version.skill.id} onClick={() => {onUseTextSkill({id:version.skill.id, version:version.version, digest:version.package.digest, name}); setOpen(false);}}>{name}</Button>;
+          })}
+          {personal.hasNextPage && <Button variant="outline" disabled={personal.isFetchingNextPage} onClick={() => void personal.fetchNextPage()}>加载更多技能</Button>}
+        </section>}
         <div className={styles.drawerFooter}>
           {onResume && <Button variant="outline" onClick={() => { onResume(); setOpen(false); }}>查看本会话的技能草稿</Button>}
           <Button asChild variant="link"><Link href="/workbench/agents/skills/mine">管理我的技能</Link></Button>
@@ -86,7 +113,7 @@ function quoteExpired(quote: Quote): boolean {
   return Date.now() >= Date.parse(quote.expiresAt);
 }
 
-export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversation, selected, initialRequirement, expectedVersion, expectedDigest, onClose }: {
+export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversation, selected, initialRequirement, expectedVersion, expectedDigest, onClose, onUseTextSkill }: {
   scope: AIScope;
   memberId: string;
   authorizationKey: string;
@@ -96,12 +123,11 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
   expectedDigest: string | null;
   initialRequirement: string;
   onClose: () => void;
+  onUseTextSkill?: (skill: SelectedTextSkill) => void;
 }) {
-  const catalog = useCatalog(scope, authorizationKey, !selected);
-  const candidate = catalog.data?.ready ? catalog.data.skill : null;
-  const matchesLaunch = !expectedVersion && !expectedDigest ||
-    candidate && String(candidate.version) === expectedVersion && candidate.digest === expectedDigest;
-  const skill = selected ?? (matchesLaunch ? candidate : null);
+  const catalog = useCatalog(scope, authorizationKey, true);
+  const choices = catalog.data?.ready ? [catalog.data.skill, catalog.data.titleSkill] : [];
+  const candidate = !expectedVersion && !expectedDigest ? choices[0] : choices.find(choice => choice && String(choice.version) === expectedVersion && choice.digest === expectedDigest);
   const path = "chat/conversations/" + conversation + "/skill-authoring";
   const memberScope = useMemo(() => ({userId: scope.userId, organizationId: scope.organizationId}), [scope.userId, scope.organizationId]);
   const pointer = "ai-workbench:skill-generation:" + JSON.stringify([scope.userId, scope.organizationId, memberId, conversation]);
@@ -112,6 +138,10 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
   const [original, setOriginal] = useState<PendingGeneration>();
   const [pointerReady, setPointerReady] = useState(false);
   const [job, setJob] = useState<AISkillAuthoringJob>();
+  const startingSkill = selected ?? candidate;
+  const matchingVersion = job?.purpose === "chat-text" ? generalAuthoringVersion : 2;
+  const skill = !job || startingSkill?.version === matchingVersion ? startingSkill : choices.find(choice => choice?.version === matchingVersion);
+  const general = job ? job.purpose === "chat-text" : skill?.version === generalAuthoringVersion;
   const [draft, setDraft] = useState<AITitleSkillDraft>();
   const [validation, setValidation] = useState<{draft: AITitleSkillDraft; valid: boolean; unavailable?: boolean}>();
   const [validationRetry, setValidationRetry] = useState(0);
@@ -146,7 +176,7 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
     if (!text || new TextEncoder().encode(text).length > 8192) return;
     const next = {requirement: text, skillVersion: skill.version, skillDigest: skill.digest};
     if (!job) return next;
-    if (skill.version !== 2 || !draft) return;
+    if (skill.version < 2 || !draft) return;
     return {...next, root: job.key, baseRevision: job.revision ?? job.key, snapshot: draft};
   }, [skill, pointerReady, pending, saveCheck, job, draft, revisionRequest, requirement]);
 
@@ -167,14 +197,14 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void requestAIWorkbench({route: "skill-authoring-validate", method: "POST", scope: memberScope,
-        path: path + "/validate", body: draft, signal: controller.signal})
+        path: path + "/validate", body: general ? {...draft,skillVersion:generalAuthoringVersion} : draft, signal: controller.signal})
         .then(() => { if (!controller.signal.aborted) setValidation({draft, valid: true}); })
         .catch(error => {
           if (!controller.signal.aborted) setValidation({draft, valid: false, unavailable: !(error instanceof AIWorkbenchError) || error.code !== "INVALID_REQUEST"});
         });
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [draft, editable, busy, memberScope, path, validationRetry]);
+  }, [draft, editable, busy, general, memberScope, path, validationRetry]);
 
   function clearGeneration(key: string) {
     try { if (readGenerationPointer(pointer)?.key === key) sessionStorage.removeItem(pointer); } catch { /* original server result remains readable */ }
@@ -287,7 +317,7 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
     : null;
   return <Card className={styles.authoringCard}>
     <header className={styles.authoringHeader}>
-      <div><h2>创建技能</h2><p>生成一份个人标题技能，编辑后确认保存。</p></div>
+      <div><h2>{general ? "创建技能" : "创建商品标题技能"}</h2><p>{general ? "描述一套文字处理规则，编辑后保存到 Chat。" : "生成一份个人商品标题技能，编辑后确认保存。"}</p></div>
       <Button variant="ghost" onClick={onClose}>收起</Button>
     </header>
     {notice && <p role="status">{notice}</p>}
@@ -299,7 +329,8 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
     {recheck && <Button variant="outline" disabled={busy} onClick={() => generate(recheck)}>核实原生成请求</Button>}
     {job && <div className={styles.jobContent}>
       <p className={styles.generationStatus} role="status">{job.superseded ? "这次修改未覆盖当前草稿。" : generationStatus[job.state]}</p>
-      {job.savedSkillId ? <p className={styles.savedNotice}>已保存到我的技能。 <Link className="underline" href={"/workbench/agents/skills/mine?skillId=" + job.savedSkillId}>查看我的技能</Link></p>
+      {job.savedSkillId ? <div className={styles.savedNotice}><p>已保存到我的技能。 <Link className="underline" href={"/workbench/agents/skills/mine?skillId=" + job.savedSkillId}>查看我的技能</Link></p>
+        {job.savedSkill && onUseTextSkill && <Button type="button" onClick={() => {if (job.savedSkill) onUseTextSkill({...job.savedSkill, name:job.draft?.displayName || "个人文字技能"});}}>在 Chat 中使用</Button>}</div>
         : saveCheck || job.savePending ? <Button variant="outline" disabled={busy} onClick={() => save(true)}>核实原保存</Button>
         : editable && draft && <div className={styles.draftEditor}>
           <div className={styles.editorFields}>{editorFields.map(([key, label]) => <label className={key === "displayName" || key === "name" ? styles.halfField : styles.field} key={key}>{label}
@@ -317,8 +348,8 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
                 onChange={event => setDraft({...draft, script: {source: event.target.value, description: ""}})} /></label>
             </details>
           </div>}
-          {skill?.version === 2 && <div className={styles.revisionPanel}>
-            <label className={styles.field}>让 Chat 修改<Textarea rows={2} placeholder="例如：也保留商品型号，并缩短正文规则" value={revisionRequest} disabled={busy} onChange={event => setRevisionRequest(event.target.value)} /></label>
+          {skill && skill.version >= 2 && <div className={styles.revisionPanel}>
+            <label className={styles.field}>让 Chat 修改<Textarea rows={2} placeholder={general ? "例如：缺少负责人时标记待确认" : "例如：也保留商品型号，并缩短正文规则"} value={revisionRequest} disabled={busy} onChange={event => setRevisionRequest(event.target.value)} /></label>
             {revisionRequest.trim() && <p>本次修改会使用当前草稿{draft.script ? "和其中的 Python 代码" : ""}。</p>}
             {genButton("生成修改")}
             {prepFailure}
@@ -328,14 +359,14 @@ export function ChatSkillAuthoring({ scope, memberId, authorizationKey, conversa
             {validation.unavailable && <Button variant="outline" onClick={() => setValidationRetry(value => value + 1)}>重新检查</Button>}
           </p>}
           <footer className={styles.saveFooter}>
-            <p>确认后保存为个人私有草稿。{draft.script ? "包含 Python 脚本。" : ""}</p>
-            <Button disabled={busy || !checked} onClick={() => save(false)}>保存到我的技能</Button>
+            <p>{general ? "保存后仅本人可见，可在 Chat 中选用。" : "确认后保存为个人私有草稿。"}{draft.script ? "包含 Python 脚本。" : ""}</p>
+            <Button disabled={busy || !checked} onClick={() => save(false)}>{general ? "保存并在 Chat 启用" : "保存到我的技能"}</Button>
           </footer>
         </div>}
     </div>}
     {!pending && !job && <div className={styles.requirementForm}>
       {skill ? <p className={styles.sourceVersion}>{skill.name} · 官方 v{skill.version}</p> : <p>当前没有可用的创作技能，可以查看原草稿。</p>}
-      <label className={styles.field}>技能需求<Textarea rows={5} placeholder="例如：保留商品品牌和型号，用 Python 合并标题中的连续空格。" value={requirement} disabled={busy || !skill} onChange={event => setRequirement(event.target.value)} /></label>
+      <label className={styles.field}>技能需求<Textarea rows={5} placeholder={general ? "例如：把交接笔记整理成待办表，缺少负责人的标记为待确认。" : "例如：保留商品品牌和型号，用 Python 合并标题中的连续空格。"} value={requirement} disabled={busy || !skill} onChange={event => setRequirement(event.target.value)} /></label>
       {genButton("生成草稿")}
       {prepFailure}
     </div>}

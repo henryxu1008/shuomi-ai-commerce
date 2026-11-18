@@ -113,12 +113,18 @@ func (s *Store) Execute(ctx context.Context, c d.Command, resolve d.ResolvePrinc
 	if !c.Owner.Valid() || !idOK(c.Key) || resolve == nil || !agent.ValidID(c.Principal.UserID) || c.Expected >= math.MaxInt64 || c.Version >= math.MaxInt64 {
 		return out, d.ErrInvalid
 	}
-	if c.Operation == "create" || c.Operation == "save-version" {
+	if c.Operation == "create" || c.Operation == "save-version" || c.Operation == d.CreateChatText {
 		p, e := d.ValidatePackage(c.Package.Files)
 		if e != nil || p.Digest != c.Package.Digest || p.Name != c.Package.Name || p.Description != c.Package.Description || p.Target != c.Package.Target || p.DisplayName != c.Package.DisplayName {
 			return out, d.ErrInvalid
 		}
 		c.Package = p
+		if p.Supports(d.ChatTextTarget) && c.Owner.Kind != d.UserOwner {
+			return out, d.ErrForbidden
+		}
+	}
+	if c.Operation == d.CreateChatText && (c.Owner.Kind != d.UserOwner || !c.Package.Supports(d.ChatTextTarget) || c.AllowCopy || c.AllowExport) {
+		return out, d.ErrForbidden
 	}
 	fp := commandFingerprint(c)
 	e := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -152,7 +158,7 @@ func (s *Store) Execute(ctx context.Context, c d.Command, resolve d.ResolvePrinc
 		}
 		now := time.Now().UTC()
 		var current d.Version
-		if c.Operation == "create" || c.Operation == "copy" {
+		if c.Operation == "create" || c.Operation == "copy" || c.Operation == d.CreateChatText {
 			if c.ID != "" || c.Expected != 0 {
 				return d.ErrInvalid
 			}
@@ -160,6 +166,9 @@ func (s *Store) Execute(ctx context.Context, c d.Command, resolve d.ResolvePrinc
 			current = d.Version{Metadata: d.Metadata{ID: id, Owner: c.Owner, Creator: principal.UserID, HeadVersion: 1, Revision: 1, CreatedAt: now, UpdatedAt: now}, Number: 1, State: d.Draft, Visibility: d.Private, AllowCopy: c.AllowCopy, AllowExport: c.AllowExport, Package: c.Package, CreatedAt: now}
 			if !d.Authorized(principal, current, d.Edit) {
 				return d.ErrForbidden
+			}
+			if c.Operation == d.CreateChatText {
+				current.State = d.Enabled
 			}
 			if c.Operation == "copy" {
 				if c.Source == nil || !c.Source.Valid() {
@@ -170,6 +179,9 @@ func (s *Store) Execute(ctx context.Context, c d.Command, resolve d.ResolvePrinc
 					return e
 				}
 				if source.Ref() != *c.Source || !d.Authorized(principal, source, d.Copy) {
+					return d.ErrForbidden
+				}
+				if source.Package.Supports(d.ChatTextTarget) && c.Owner.Kind != d.UserOwner {
 					return d.ErrForbidden
 				}
 				current.Package = source.Package

@@ -120,6 +120,7 @@ func (o Owner) Valid() bool {
 }
 
 const MethodPolicyVersion = "skill-method-v1"
+const CreateChatText = "create-chat-text"
 
 func (v Version) Ref() agent.SkillVersionRef {
 	policy := MethodPolicyVersion

@@ -2,11 +2,13 @@ package httpapi
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"task-processor/internal/aiworkbench"
 	workstore "task-processor/internal/integration/persistence/aiworkbench"
 	"task-processor/internal/skill"
 )
@@ -20,6 +22,35 @@ func TestAuthoringQuoteDeadlineIsUniqueToItsServerIssuedKey(t *testing.T) {
 	require.Equal(t, time.Unix(issued, nanos).UTC().Add(authoringQuoteLifetime), expires)
 	_, err = authoringQuoteDeadline(uuid.NewString())
 	require.Error(t, err)
+}
+
+func TestGeneralAuthoringUsesPrivateChatTextPackage(t *testing.T) {
+	raw := `{"name":"handoff-notes","displayName":"交接待办","description":"Organize handoff notes.","instructions":"Return an action list."}`
+	draft, err := parseAuthoredSkillDraft(raw, 2, skill.ChatTextTarget)
+	require.NoError(t, err)
+	pkg, err := draft.skillPackageFor(skill.ChatTextTarget)
+	require.NoError(t, err)
+	require.True(t, pkg.Supports(skill.ChatTextTarget))
+	require.False(t, pkg.Supports(skill.TitleTarget))
+	require.Nil(t, pkg.Execution)
+
+	withScript := strings.TrimSuffix(raw, "}") + `,"script":{"description":"Try to run code","source":"print(1)"}}`
+	_, err = parseAuthoredSkillDraft(withScript, 2, skill.ChatTextTarget)
+	require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+}
+
+func TestTextSkillReplyCannotCreateProposalOrReturnTools(t *testing.T) {
+	reply, err := parseTextSkillReply(`{"mode":"CLARIFY","assistant_text":"整理好的交接事项","goal_summary":""}`)
+	require.NoError(t, err)
+	require.Equal(t, "整理好的交接事项", reply.AssistantText)
+	require.Nil(t, reply.Proposal)
+	for _, raw := range []string{
+		`{"mode":"READY","assistant_text":"运行任务","goal_summary":"更新商品"}`,
+		`{"mode":"CLARIFY","assistant_text":"执行工具","goal_summary":"","tool_calls":[]}`,
+	} {
+		_, err = parseTextSkillReply(raw)
+		require.ErrorIs(t, err, aiworkbench.ErrInvalid)
+	}
 }
 
 func TestAuthoringQuoteBindsScopeRevisionInputPriceAndExpiry(t *testing.T) {

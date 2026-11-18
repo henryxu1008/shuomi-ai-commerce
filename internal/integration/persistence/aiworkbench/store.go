@@ -894,6 +894,9 @@ func (s *Store) CompletePlan(ctx context.Context, scope aiworkbench.Scope, key s
 		if receipt.State != string(aiworkbench.PlanningReadyToDispatch) {
 			return aiworkbench.ErrIdempotencyConflict
 		}
+		if command(receipt).WorkScope.TextSkill != nil && terminal.Mode != aiworkbench.PlanClarify {
+			return aiworkbench.ErrInvalid
+		}
 		row, err := s.lookupConversation(tx, scope, receipt.ConversationID, true)
 		if err != nil {
 			return err
@@ -978,6 +981,24 @@ func (s *Store) CompletePlan(ctx context.Context, scope aiworkbench.Scope, key s
 		return aiworkbench.PlanningCommand{}, false, unavailable(err)
 	}
 	return result, replay, nil
+}
+
+// ChatTextReplyVersion identifies an existing no-proposal result by its exact
+// assistant message and member. Its content came from no product context.
+func (s *Store) ChatTextReplyVersion(ctx context.Context, scope aiworkbench.Scope, conversation, assistant, member string) uint64 {
+	var row commandRow
+	err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND actor_id = ? AND conversation_id = ? AND assistant_message_id = ? AND member_id = ?", scope.OrganizationID, scope.ActorID, conversation, assistant, member).
+		Where("operation = ? AND state = ? AND mode = ? AND proposal_id IS NULL AND jsonb_typeof(work_scope->'text_skill') = 'object'", messageOperation, aiworkbench.PlanningComplete, aiworkbench.PlanClarify).
+		Take(&row).Error
+	if err != nil {
+		return 0
+	}
+	ref := command(row).WorkScope.TextSkill
+	if ref == nil {
+		return 0
+	}
+	return ref.Version
 }
 
 // FinalizePlanning records a proven no-send or a bounded unresolved outcome.
