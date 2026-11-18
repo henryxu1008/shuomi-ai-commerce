@@ -386,7 +386,7 @@ function ConversationDetail({ scope, authorizationKey, canUse, canPlan, planning
     editorId: number;
     choice?: AISkillAuthoringChoice;
     requirement?: string;
-  }>(() => search.get("skillAuthoring") === "1" && search.get("skillVersion") === "3" ? {open:true,editorId:0} : undefined);
+  } | undefined>(() => search.get("skillAuthoring") === "1" && search.get("skillVersion") === "3" ? {open:true,editorId:0} : undefined);
   const showGeneralAuthoring = generalAuthoring?.open === true;
   const [draftSaveError, setDraftSaveError] = useState("");
   const [draftHydrated, setDraftHydrated] = useState(false);
