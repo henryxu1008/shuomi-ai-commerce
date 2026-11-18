@@ -18,7 +18,7 @@ Status: **IMPLEMENTATION_READY / FROZEN BASELINE INCLUDING PER-BATCH TRANSFER CO
 Design Basis: **Independent Architecture**。新增采集计划/规则持久化合同、公开列表发现
 RPC 与有界恢复状态；本轮已完成高风险独立复核并达到 IMPLEMENTATION_READY。
 Baseline: main `c023edad14ad9255dee3e04a67b539bdaf2c83b8`。
-Product Authority: [2026-10-11 用户决定](../product/1688-acquisition-scope.md)。
+Product Authority: [2026-10-11 用户决定](../product/decisions/1688-acquisition-scope.md)。
 
 ## 1. 产品结果、Must 与边界
 

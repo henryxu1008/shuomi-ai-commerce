@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 商品来源如何变成固定版本的 ProductSnapshot | [Product Sourcing Handoff](../../../product/product-sourcing-handoff.md)、[Product Domain Contracts](../../product-domain-contracts.md) | `internal/product/sourcing/`、`internal/app/productsourcing/`、`internal/product/catalog/` |
 | 来源证据、发布身份、同键重放与结果待核实 | [来源业务闭环合同](../../source-business-flow.md)、[Sourcing 包说明](../../../../internal/product/sourcing/README.md) | `internal/product/sourcing/`、`internal/integration/persistence/product/sourcing/` |
-| 1688 公开商品页如何采集 | [1688 受控浏览器采集合同](../../1688-server-public-browser-acquisition.md)、[产品决定](../../../product/1688-server-public-browser.md) | `internal/integration/acquisition/a1688/browser/`、`internal/integration/acquisition/browsercollector/` |
+| 1688 公开商品页如何采集 | [1688 受控浏览器采集合同](../../1688-server-public-browser-acquisition.md)、[产品决定](../../../product/decisions/1688-server-public-browser.md) | `internal/integration/acquisition/a1688/browser/`、`internal/integration/acquisition/browsercollector/` |
 | Amazon 商品与浏览器插件的来源交接 | [插件采集与商品资料合同](../../plugin-capture-ingestion.md)、[采集字段产品对照](../../../product/plugin-capture-listing-fields.md) | `internal/integration/acquisition/amazon/`、`extensions/product-capture/` |
 | 已保存来源怎样进入 Collection/后续商品准备 | [Product Sourcing Handoff](../../../product/product-sourcing-handoff.md)、[商品主领域合同](../../product-domain-contracts.md) | `internal/product/collection/`、`internal/product/asset/` |
 
