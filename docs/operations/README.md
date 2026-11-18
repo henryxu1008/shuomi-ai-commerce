@@ -30,7 +30,7 @@
 - 待补全草稿：[单件转入](user-guides/own-product-draft-entry.md)、[已有草稿](user-guides/own-product-existing-drafts.md)、[未绑定店铺草稿](user-guides/supply-unbound-completion-drafts.md)。
 - 草稿编辑：[属性与 SKU](user-guides/completion-draft-structured.md)、[保存历史](user-guides/completion-draft-history.md)、[恢复为新版本](user-guides/completion-draft-restore.md)。
 - 自有商品优选：[多商品申请](selected-application-multi-product.md)，以当前多商品申请合同为准。
-- SHEIN：[供应链操作与启动](my-supply-chain-shein.md)、[导入试用安装](shein-import-installation.md)。
+- SHEIN：[供应链操作与启动](my-supply-chain-shein.md)、[导入试用安装](runbooks/shein-import-installation.md)。
 
 <a id="ai-work"></a>
 
@@ -58,4 +58,4 @@
 
 ## 有界环境
 
-[RUN-1 身份与路由装配](isolated-application-acceptance.md)仅描述其明确范围；不作为完整产品验收或生产发布证明。专项功能未开放项见各自合同与当前执行 Issue。
+[RUN-1 身份与路由装配](runbooks/isolated-application-acceptance.md)仅描述其明确范围；不作为完整产品验收或生产发布证明。专项功能未开放项见各自合同与当前执行 Issue。
