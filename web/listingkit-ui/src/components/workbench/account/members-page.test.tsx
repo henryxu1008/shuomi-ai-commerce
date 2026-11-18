@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { createRequire } from "node:module";
@@ -149,6 +149,75 @@ it("does not report an unread retained receipt as UNKNOWN after returning to the
   expect(sessionStorage.getItem('membership.pending:["actor","org"]')).toBe(retained);
   expect(calls.mock.calls.every(([,init])=>init.method === "GET")).toBe(true);
 });
+it.each(["acknowledged", "rejected", "unknown", "unreadable"])("previews a role while loading a retained %s receipt and only unlocks writes for a terminal result", async status => {
+  const first = "4841d296-ef14-4c16-8d25-a7667e534feb";
+  const second = "ea0390e6-6fd0-4834-8e9c-277caf59c122";
+  const roles = [roleDefinitions[1].id, roleDefinitions[0].id];
+  const member = { ...result.items[0], canChangeRole: true, canRemove: true };
+  const retained = JSON.stringify([first, second].map(key => ({
+    key, kind: "role", target: member.id, input: { role: roles[0], expectedVersion: member.observedVersion },
+  })));
+  sessionStorage.setItem('membership.pending:["actor","org"]', retained);
+  const acknowledged = { id: member.id, at: "2026-09-27T00:00:00Z" };
+  const receipt = {
+    schemaVersion: "membership-operation-v1", userId: "actor", organizationId: "org",
+    id: first, kind: "role", step: "update_authorization", status: "acknowledged",
+    targetUserId: member.userId, authorizationId: member.id, userEvidence: "",
+    userAcknowledgment: null, acknowledgment: acknowledged, observation: "unavailable", observed: null,
+  };
+  let finishRead!: (response: Response) => void;
+  const calls = vi.fn((url: string, init?: RequestInit) => {
+    if (init?.method !== "GET") return Promise.resolve(Response.json({}, { status: 405 }));
+    if (url.endsWith(first)) return Promise.resolve(Response.json(receipt));
+    if (url.endsWith(second)) return new Promise<Response>(resolve => { finishRead = resolve; });
+    if (url.includes("member-operations")) return Promise.resolve(Response.json({
+      schemaVersion: "membership-operations-v1", userId: "actor", organizationId: "org", items: [], next: "",
+    }));
+    return Promise.resolve(Response.json({ ...result, canManage: true, assignableRoles: roles, items: [member] }));
+  });
+  vi.stubGlobal("fetch", calls);
+  render(page());
+  const user = userEvent.setup();
+
+  expect(await screen.findByRole("heading", { name: "操作已获服务确认" })).toBeVisible();
+  expect(screen.getByText("尚未读取回执")).toBeVisible();
+  expect(finishRead).toBeUndefined();
+  await user.click(screen.getByRole("button", { name: "查看详情" }));
+  const dialog = await screen.findByRole("dialog", { name: "成员详情" });
+  const select = within(dialog).getByRole("combobox", { name: "新的成员角色" });
+  const save = within(dialog).getByRole("button", { name: "保存角色" });
+  expect(select).toBeEnabled();
+  await user.selectOptions(select, roles[1]);
+  expect(within(dialog).getByText("包含企业管理员的系统权限。")).toBeVisible();
+  expect(save).toBeDisabled();
+  await user.click(within(dialog).getByText("移除成员", { selector: "summary" }));
+  const removeConfirmation = within(dialog).getByRole("checkbox", { name: /确认移除该成员/ });
+  expect(removeConfirmation).toBeDisabled();
+  await waitFor(() => expect(finishRead).toBeTypeOf("function"));
+
+  const nextReceipt = status === "unreadable"
+    ? Response.json({ code: "MEMBER_NOT_FOUND", message: "", requestId: "", fieldErrors: [] }, { status: 404 })
+    : Response.json({ ...receipt, id: second, status, acknowledgment: status === "acknowledged" ? acknowledged : null });
+  await act(async () => finishRead(nextReceipt));
+  const terminal = status === "acknowledged" || status === "rejected";
+  const notice = "上一项成员操作尚未确认，暂不能保存角色。";
+  if (terminal) {
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(removeConfirmation).toBeEnabled();
+    expect(within(dialog).queryByText(notice)).not.toBeInTheDocument();
+  } else {
+    if (status === "unknown") {
+      expect(await screen.findByRole("button", { name: new RegExp(`${second}.*待核实`) })).toBeVisible();
+    }
+    expect(within(dialog).getByText(notice)).toBeVisible();
+    expect(save).toBeDisabled();
+    expect(removeConfirmation).toBeDisabled();
+    fireEvent.submit(save.closest("form")!);
+  }
+  expect(select).toHaveValue(roles[1]);
+  expect(sessionStorage.getItem('membership.pending:["actor","org"]')).toBe(retained);
+  expect(calls.mock.calls.every(([,init]) => init?.method === "GET")).toBe(true);
+});
 it("recovers durable pending in a new tab and keeps unrelated invitation available", async () => {
   const id = "ea0390e6-6fd0-4834-8e9c-277caf59c122";
   const receipt = {schemaVersion:"membership-operation-v1",userId:"actor",organizationId:"org",id,kind:"invite",step:"create_user",status:"unknown",targetUserId:"original-target",authorizationId:"",userEvidence:"",userAcknowledgment:null,acknowledgment:null,observation:"unavailable",observed:null};
@@ -242,6 +311,44 @@ it("starts a role edit with the member's current role", async () => {
   render(page());
   await userEvent.setup().click(await screen.findByRole("button",{name:"查看详情"}));
   expect(await screen.findByRole("combobox",{name:"新的成员角色"})).toHaveValue("sumi_role_e87cb45c05ad389dff6dea6e7bf581ee_02");
+  expect(screen.getByRole("button", { name: "保存角色" })).toBeDisabled();
+});
+it("previews a replacement role with the enterprise's permission labels", async () => {
+  const original = roleDefinitions[1];
+  const target = { ...roleDefinitions[2], name: "渠道管理", modules: ["ai-channels"] };
+  const data = {
+    ...result,
+    roleDefinitions: [roleDefinitions[0], original, target],
+    canManage: true,
+    assignableRoles: [original.id, target.id],
+    items: [{ ...result.items[0], canChangeRole: true }],
+  };
+  const catalog = {
+    schemaVersion: "enterprise-roles-v1",
+    userId: "actor",
+    organizationId: "org",
+    items: data.roleDefinitions,
+    catalog: [
+      { id: "members", group: "我的账户", label: "成员与权限", available: true, permissions: [] },
+      { id: "ai-channels", group: "我的账户", label: "管理模型渠道", available: true, permissions: ["workbench.ai.channels.manage"] },
+    ],
+    canManage: true,
+    canCreate: true,
+    remainingSlots: 62,
+  };
+  vi.stubGlobal("fetch", vi.fn(url => Promise.resolve(Response.json(String(url).endsWith("/roles") ? catalog : data))));
+  const user = userEvent.setup();
+  render(page());
+  await user.click(await screen.findByRole("button", { name: "查看详情" }));
+  const select = await screen.findByRole("combobox", { name: "新的成员角色" });
+  await user.selectOptions(select, target.id);
+  const preview = await screen.findByRole("list", { name: "角色包含的功能" });
+  expect(within(preview).getByText("管理模型渠道")).toBeVisible();
+  expect(select).toHaveAccessibleDescription("保存后，所选角色会替换当前角色。");
+  expect(screen.getByRole("button", { name: "保存角色" })).toBeEnabled();
+  await user.selectOptions(select, original.id);
+  expect(screen.queryByRole("list", { name: "角色包含的功能" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存角色" })).toBeDisabled();
 });
 it.each([
   ["mutation",401,"AUTHENTICATION_REQUIRED"], ["mutation",403,"PERMISSION_DENIED"], ["mutation",409,"ORGANIZATION_CONTEXT_CHANGED"],
@@ -263,6 +370,7 @@ it.each([
   expect(await screen.findByText("成员甲")).toBeVisible();
   if(route==="mutation") {
     await user.click(screen.getByRole("button",{name:"查看详情"}));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "新的成员角色" }), roleDefinitions[2].id);
     await user.click(await screen.findByRole("button",{name:"保存角色"}));
   } else {
     await act(async()=>{
@@ -333,6 +441,80 @@ it("clears the member directory immediately during an org switch", async () => {
   const tree = page(); const view = render(tree); expect(await screen.findByText("成员甲")).toBeVisible();
   state.switching = true; view.rerender(page());
   expect(screen.queryByText("成员甲")).not.toBeInTheDocument();
+});
+it.each(["acknowledged", "forbidden"])("isolates a late %s member receipt read after an organization switch", async outcome => {
+  const first = "4841d296-ef14-4c16-8d25-a7667e534feb";
+  const late = "ea0390e6-6fd0-4834-8e9c-277caf59c122";
+  const orgB = "other-org";
+  const roles = [roleDefinitions[1].id, roleDefinitions[0].id];
+  const member = { ...result.items[0], canChangeRole: true, canRemove: true };
+  const storageA = 'membership.pending:["actor","org"]';
+  const storageB = `membership.pending:["actor","${orgB}"]`;
+  const retained = JSON.stringify([first, late].map(key => ({
+    key, kind: "role", target: member.id, input: { role: roles[0], expectedVersion: member.observedVersion },
+  })));
+  sessionStorage.setItem(storageA, retained);
+  const receipt = {
+    schemaVersion: "membership-operation-v1", userId: "actor", organizationId: "org",
+    id: first, kind: "role", step: "update_authorization", status: "acknowledged",
+    targetUserId: member.userId, authorizationId: member.id, userEvidence: "",
+    userAcknowledgment: null, acknowledgment: { id: member.id, at: "2026-09-27T00:00:00Z" },
+    observation: "unavailable", observed: null,
+  };
+  let finishOldRead!: (response: Response) => void;
+  let oldSignal: AbortSignal | null | undefined;
+  const calls = vi.fn((url: string, init?: RequestInit) => {
+    const organizationId = new Headers(init?.headers).get("X-Expected-Organization-ID");
+    if (url.endsWith(late) && organizationId === "org") {
+      oldSignal = init?.signal;
+      return new Promise<Response>(resolve => { finishOldRead = resolve; });
+    }
+    if (url.endsWith(first) && organizationId === "org") return Promise.resolve(Response.json(receipt));
+    if (url.includes("member-operations")) return Promise.resolve(Response.json({
+      schemaVersion: "membership-operations-v1", userId: "actor", organizationId, items: [], next: "",
+    }));
+    return Promise.resolve(Response.json({
+      ...result, organizationId, canManage: true, assignableRoles: roles,
+      items: [{ ...member, organizationId, displayName: organizationId === orgB ? "新企业成员" : "成员甲" }],
+    }));
+  });
+  vi.stubGlobal("fetch", calls);
+  const client = new QueryClient();
+  const view = render(page(client));
+  const user = userEvent.setup();
+
+  expect(await screen.findByRole("heading", { name: "操作已获服务确认" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "查看详情" }));
+  await waitFor(() => expect(oldSignal).toBeDefined());
+  expect(await screen.findByText("上一项成员操作尚未确认，暂不能保存角色。")).toBeVisible();
+
+  state.switching = true;
+  view.rerender(<QueryClientProvider client={client}><MembersPage expectedUserId="actor" /></QueryClientProvider>);
+  expect(screen.queryByRole("dialog", { name: "成员详情" })).not.toBeInTheDocument();
+  expect(oldSignal?.aborted).toBe(true);
+  state.org = orgB;
+  state.switching = false;
+  view.rerender(<QueryClientProvider client={client}><MembersPage expectedUserId="actor" /></QueryClientProvider>);
+  await screen.findByText("新企业成员");
+  await user.click(screen.getByRole("button", { name: "查看详情" }));
+  const dialog = await screen.findByRole("dialog", { name: "成员详情" });
+  await user.selectOptions(within(dialog).getByRole("combobox", { name: "新的成员角色" }), roles[1]);
+
+  const lateResponse = outcome === "acknowledged"
+    ? Response.json({ ...receipt, id: late })
+    : Response.json({ code: "PERMISSION_DENIED", message: "", requestId: "", fieldErrors: [] }, { status: 403 });
+  await act(async () => finishOldRead(lateResponse));
+  expect(within(dialog).getByRole("heading", { name: "新企业成员" })).toBeVisible();
+  expect(within(dialog).getByRole("button", { name: "保存角色" })).toBeEnabled();
+  await user.click(within(dialog).getByText("移除成员", { selector: "summary" }));
+  expect(within(dialog).getByRole("checkbox", { name: /确认移除该成员/ })).toBeEnabled();
+  expect(screen.queryByText(late, { exact: true })).not.toBeInTheDocument();
+  expect(screen.queryByText("当前没有成员管理权限")).not.toBeInTheDocument();
+  expect(sessionStorage.getItem(storageA)).toBe(retained);
+  expect(sessionStorage.getItem(storageB)).toBeNull();
+  expect(calls.mock.calls.filter(([url]) => url.endsWith(late)).map(([, init]) =>
+    new Headers(init?.headers).get("X-Expected-Organization-ID"))).toEqual(["org"]);
+  expect(calls.mock.calls.every(([, init]) => init?.method === "GET")).toBe(true);
 });
 it("resets applied filters and search draft when the enterprise changes", async () => {
   const calls=vi.fn((path:string,init?:RequestInit)=>Promise.resolve(Response.json({...result,organizationId:(init?.headers as Headers).get("X-Expected-Organization-ID"),items:[{...result.items[0],organizationId:(init?.headers as Headers).get("X-Expected-Organization-ID")}]})));
