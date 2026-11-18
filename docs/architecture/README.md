@@ -194,7 +194,7 @@
 - `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
 - `domains/supply-market/supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](domains/supply-market/supply-market-choice-eligibility.md)
 - `domains/supply-market/supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](domains/supply-market/supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
-- `supply-region-catalog.md` — [账户资料与供应市场共用中国省市目录](supply-region-catalog.md)
+- `platform/geography/supply-region-catalog.md` — [账户资料与供应市场共用中国省市目录](platform/geography/supply-region-catalog.md)
 - `supply-market-categories.md` — [硕米自营与硕米优选共用商品类目](supply-market-categories.md) · #1377，独立架构已确认，IMPLEMENTATION_READY。
 - `domains/supply-market/supply-market-filters.md` — [自营与优选商品筛选](domains/supply-market/supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
 - `domains/supply-market/supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](domains/supply-market/supply-market.md)
