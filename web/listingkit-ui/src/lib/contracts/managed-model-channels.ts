@@ -34,7 +34,6 @@ export const managedChannelPending=z.strictObject({
  operation:z.enum(["create","name","models"]),connectionId:connectionID.optional(),
 }).refine(v=>v.operation==="create"?!v.connectionId:!!v.connectionId);
 export type ManagedChannelPending=z.infer<typeof managedChannelPending>;
-export type ManagedChannels=z.infer<typeof managedChannels>;
 export type ManagedChannelReceipt=z.infer<typeof createChannelReceipt>|z.infer<typeof renameChannelReceipt>|z.infer<typeof editBindingReceipt>;
 export function managedChannelPath(intent:Pick<ManagedChannelPending,"operation"|"connectionId">) {
  return "/managed-channels/"+(intent.operation==="create"?"create":intent.connectionId+"/"+intent.operation);

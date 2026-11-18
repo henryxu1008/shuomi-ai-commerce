@@ -1197,8 +1197,12 @@ it.each(["prepare","regenerate"] as const)("enforces the official per-type maxim
   positions=screen.getAllByLabelText("官方图片位置");sorts=screen.getAllByLabelText("官方图片排序");types=screen.getAllByLabelText("官方图片类型");
  }
  positions.forEach(position=>fireEvent.change(position,{target:{value:"spu:0:0"}}));
- types.forEach(type=>fireEvent.change(type,{target:{value:"5"}}));fireEvent.change(sorts[1],{target:{value:"2"}});
+ fireEvent.change(types[0],{target:{value:"5"}});
+ fireEvent.change(types[1],{target:{value:"2"}});
+ fireEvent.change(sorts[1],{target:{value:"2"}});
  const prepare=screen.getByRole("button",{name:action==="prepare"?"准备整套图片计划（2 项）":"准备所选 2 项的新计划"});
+ await waitFor(()=>expect(prepare).toBeEnabled());
+ fireEvent.change(types[1],{target:{value:"5"}});
  expect(prepare).toBeDisabled();fireEvent.click(prepare);
  expect(fetch.mock.calls.some(([url])=>/\/(prepare|regenerate|confirm)$/.test(String(url)))).toBe(false);
  fireEvent.change(types[1],{target:{value:"2"}});expect(prepare).toBeEnabled();fireEvent.click(prepare);
@@ -1229,6 +1233,11 @@ it.each(["prepare","regenerate"] as const)("requires unique official group sorts
  }
  positions.forEach(position=>fireEvent.change(position,{target:{value:"spu:0:0"}}));
  const prepare=screen.getByRole("button",{name:action==="prepare"?"准备整套图片计划（2 项）":"准备所选 2 项的新计划"});
+ fireEvent.change(types[1],{target:{value:"2"}});
+ fireEvent.change(sorts[1],{target:{value:"2"}});
+ await waitFor(()=>expect(prepare).toBeEnabled());
+ fireEvent.change(types[1],{target:{value:"1"}});
+ fireEvent.change(sorts[1],{target:{value:"1"}});
  expect(prepare).toBeDisabled();
  fireEvent.click(prepare);expect(fetch.mock.calls.some(([url])=>/\/(prepare|regenerate|confirm)$/.test(String(url)))).toBe(false);
  expect(screen.getAllByText("请选择当前规则允许的位置和类型，并为同一图片组设置不重复的排序。").length).toBeGreaterThan(0);
