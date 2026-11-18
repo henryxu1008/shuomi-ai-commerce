@@ -13,6 +13,7 @@ import {useResourcePending} from "../resources/resource-pending";
 import {ResearchAnalysisFlow,analysisChoices} from "./research-analysis-flow";
 import {researchAnalysisInput} from "@/lib/contracts/research-analysis";
 import {ResearchComparison} from "./research-comparison";
+import {AmazonResearchThumbnail,amazonMarket,researchMissingLabel,researchQuote} from "./research-comparison-results";
 import {SheinUSTrialPanel} from "./shein-us-trial-panel";
 import {ResearchSupplierReview} from "./research-supplier-review";
 import {ResearchAssessments} from "./research-assessments";
@@ -178,11 +179,37 @@ export function ResearchPanel({scope,projectId,archived,view="embedded",sample="
 function message(e:unknown){return e instanceof ResearchError?failures[e.code]??"服务暂不可用，请重新读取。":"服务暂不可用，请重新读取。";}
 function CandidateCard({value:v,checked,toggle,disabled,chooseDisabled,canWrite,command,view}:{view:"embedded"|"research"|"selection";value:ResearchCandidate;checked:boolean;toggle:()=>void;disabled:boolean;chooseDisabled:boolean;canWrite:boolean;command:(body:ResearchCommand)=>void}){
  const o=v.observation;
- return <article className={styles.candidate}><div className={styles.heading}><label className={styles.select}><input type="checkbox" checked={checked} disabled={chooseDisabled} onChange={toggle}/><strong>{o?.title||"这份资料暂时无法查看"}</strong></label><span className={styles.badge}>{states[v.state]}</span></div>
- {o?<>{"shein" in o?<SHEINCardFacts observation={o}/>:<><p>{o.site.toUpperCase()} · {o.asin} · {o.currency??"币种未知"} {o.price??"价格未知"}</p><dl><dt>资料来源</dt><dd>{"fixtureVersion" in o?"合成原件 · 参考版本 "+o.fixtureVersion:"Amazon 公开商品页面"}</dd><dt>资料收集范围</dt><dd>{o.query?.mode} · {o.query?.keyword||o.query?.categoryNode||(o.query?.asinCount+" 个 ASIN")} · 最多 {o.query?.limit} 条</dd>{o.capturedAt?<><dt>收集时间</dt><dd>{o.capturedAt}</dd></>:null}<dt>还缺少的信息</dt><dd>{o.missing.length?o.missing.join("、"):"这份资料没有列出缺少的信息，不代表市场信息已齐全"}</dd></dl></>}<details><summary>资料来源详情</summary><p>资料版本：{o.ref.selection.version} · 解析版本：{o.parserVersion}</p><p>资料校验编号：{o.ref.checksum}</p><p>Publication：{o.ref.selection.publicationId}</p><p>Job：{o.ref.jobId}</p></details>{o.sourceUrl?<a href={o.sourceUrl} target="_blank" rel="noreferrer">查看来源页面 ↗</a>:null}</>:<p>项目仍保留这件商品和已有选择记录；当前无法查看的商品资料不再显示。</p>}
+ return <article className={styles.candidate}><div className={styles.heading}><div className={styles.candidateIdentity}>
+  {o&&!("shein" in o)?<AmazonResearchThumbnail url={o.item.thumbnailUrl} alt=""/>:null}
+  <label className={styles.select}><input type="checkbox" checked={checked} disabled={chooseDisabled} onChange={toggle}/><strong>{o?.title||"这份资料暂时无法查看"}</strong></label>
+ </div><span className={styles.candidateState}>{states[v.state]}</span></div>
+ {o?<>{ "shein" in o ? <><SHEINCardFacts observation={o}/><details><summary>资料来源详情</summary><p>资料版本：{o.ref.selection.version} · 解析版本：{o.parserVersion}</p><p>资料校验编号：{o.ref.checksum}</p><p>Publication：{o.ref.selection.publicationId}</p><p>Job：{o.ref.jobId}</p></details></> : <AmazonCardFacts observation={o}/> }
+  {o.sourceUrl?<a href={o.sourceUrl} target="_blank" rel="noreferrer">查看来源页面</a>:null}
+ </>:<p>项目仍保留这件商品和已有选择记录；当前无法查看的商品资料不再显示。</p>}
  {v.reason&&view!=="selection"?<p>当前理由：{v.reason}</p>:null}
  {v.evidence.length>0?<details><summary>已收集的资料记录（最近20条及当前使用资料）</summary>{v.evidence.map(l=><div className={styles.evidence} key={l.id}><span>{l.observation?`${l.observation.capturedAt||"收集时间未知"} · v${l.observation.ref.selection.version}`:"这份资料暂时无法查看"}</span>{canWrite&&view!=="selection"?<span className={styles.actions}>{l.observation&&l.id!==v.selectedLinkId?<Button size="sm" variant="outline" disabled={disabled} onClick={()=>command({action:"select",candidateId:v.id,expectedRevision:v.revision,linkId:l.id})}>使用这份资料</Button>:null}<Button size="sm" variant="ghost" disabled={disabled} onClick={()=>command({action:"unlink",candidateId:v.id,expectedRevision:v.revision,linkId:l.id})}>从项目移除</Button></span>:null}</div>)}</details>:null}
  {view!=="selection"?<CandidateDecision value={v} canWrite={canWrite&&view!=="research"} disabled={disabled} command={command}/>:null}</article>;
+}
+function AmazonCardFacts({observation:o}:{observation:Exclude<NonNullable<ResearchCandidate["observation"]>,{shein:unknown}>}){
+ const price=o.price!=null&&o.currency?researchQuote(o.price,o.currency):null;
+ const query=o.query;
+ const range=query?.mode==="keyword"?"关键词 "+query.keyword:query?.mode==="category"?"类目 "+query.categoryNode:query?.asinCount+" 件指定商品";
+ return <>
+  <p className={styles.candidateQuote}>
+   <span>{amazonMarket(o.site)} · {o.asin}</span>
+   {price?<strong>{o.priceBasis==="synthetic_listing_offer"?"示例报价":"页面报价"} {price}</strong>:<span>暂无可比报价</span>}
+   {o.missing.includes("availability")?<span>库存未知</span>:null}
+  </p>
+  <details>
+   <summary>查看资料与缺项</summary>
+   <dl>
+    <dt>资料来源</dt><dd>{"fixtureVersion" in o?"合成原件":o.parserVersion.startsWith("amazon-zenrows-search-")?"Amazon 搜索结果第一页":"Amazon 公开商品页面"}</dd>
+    {query?<><dt>收集范围</dt><dd>{range} · 最多 {query.limit} 件</dd></>:null}
+    {o.capturedAt?<><dt>收集时间</dt><dd>{new Date(o.capturedAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false})}</dd></>:null}
+    {o.missing.length?<><dt>资料缺项</dt><dd>{[...new Set(o.missing.map(researchMissingLabel))].join("、")}</dd></>:null}
+   </dl>
+  </details>
+ </>;
 }
 const sheinMissingLabels:Record<string,string>={title:"商品标题",capturedAt:"收集时间",variantId:"具体规格",price:"卡片展示价","price.promotionNote":"优惠条件","price.taxIncluded":"是否含税","price.unit":"计价单位"};
 function SHEINCardFacts({observation:o}:{observation:Extract<NonNullable<ResearchCandidate["observation"]>,{shein:unknown}>}){

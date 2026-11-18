@@ -364,6 +364,7 @@ func TestZenRowsAmazonUSFirstPageOriginalSaveAndComparison(t *testing.T) {
 		require.Equal(t, job.ID, c.Observation.Ref.JobID)
 		require.Equal(t, zenRowsSpikeKeyword, c.Observation.Query.Keyword)
 		require.Equal(t, dataacquisition.AmazonZenRowsSearchVersion, c.Observation.ParserVersion)
+		require.Equal(t, "https://m.media-amazon.com/images/I/sample-"+c.Observation.ASIN[9:]+".jpg", c.Observation.Item.ThumbnailURL)
 		require.Contains(t, c.Observation.Missing, "availability")
 		source := c.Observation.Ref.Source
 		snapshot, err := snapshots.GetSnapshot(ctx, catalog.SnapshotIdentity{TenantID: scope.OrganizationID, ProductKey: source.ProductKey}, source.Version)

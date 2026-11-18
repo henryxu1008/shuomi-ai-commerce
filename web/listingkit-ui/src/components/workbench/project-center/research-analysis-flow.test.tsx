@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,expect,it,vi} from "vitest";
-import {render,screen,fireEvent,waitFor,cleanup,act} from "@testing-library/react";
+import {render,screen,fireEvent,waitFor,cleanup,act,within} from "@testing-library/react";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {ResearchAnalysisFlow} from "./research-analysis-flow";
 import {ResearchPanel} from "./research-panel";
@@ -16,10 +16,42 @@ const facts={version:"market-research-inspection-v1",projectId:project,candidate
 const prepared={contextId:project,requestKey:key,configurationSnapshotRef:{Kind:"agent-configuration-v1",ID:key,Digest:hash},modeSnapshotRef:{Kind:"agent-execution-mode-v1",ID:key,Digest:hash},modeRevision:"0",maximumTokens:10000,maximumCostMicros:1000000,maximumCallCostMicros:500000,referencePriceVersion:"reference-v1",currency:"CNY"};
 const result={runId:other,contextId:project,requestKey:key,phase:"human_review_required",revision:"4",configurationSnapshotRef:prepared.configurationSnapshotRef,modeSnapshotRef:prepared.modeSnapshotRef,modeRevision:"0",executionMode:"default",goalSummary:"Saved goal",validated:true,inspection:facts,proposal:{overview:"Saved advisory overview",overviewEvidenceIds:[facts.candidates[0].facts[0].id],assessments:[{candidateId:key,recommendation:"RESEARCH_MORE",advice:"Verify complete costs",evidenceIds:[facts.candidates[0].facts[0].id]}]},unresolved:[],tokens:60,costMicros:30,currency:"CNY",usageStatus:"observed"};
 let queries:QueryClient;
-function open(){queries=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<QueryClientProvider client={queries}><ResearchAnalysisFlow scope={{userId:"user",organizationId:"org"}} projectId={project} selected={selected} archived={false} view="selection"/></QueryClientProvider>);}
+function open(items=selected,view:"research"|"selection"="selection"){queries=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<QueryClientProvider client={queries}><ResearchAnalysisFlow scope={{userId:"user",organizationId:"org"}} projectId={project} selected={items} archived={false} view={view}/></QueryClientProvider>);}
 beforeEach(()=>{localStorage.clear();for(const f of [mock.inspect,mock.prepare,mock.execute,mock.preparation,mock.run,mock.recent,mock.config])f.mockReset();mock.config.mockImplementation(async(_s,path)=>path.startsWith("execution-modes")?{mode:"default",revision:"0"}:{agent:{activation:"ENABLED"},canUse:true,canReadRuns:true,capabilities:[{id:"text.generate",readiness:"AVAILABLE"}]});mock.inspect.mockResolvedValue(facts);mock.prepare.mockImplementation(async(_s,intent)=>({...prepared,requestKey:intent.key}));mock.preparation.mockResolvedValue(prepared);mock.run.mockRejectedValue(new MarketAPIError("NOT_FOUND",404,true));mock.recent.mockResolvedValue({items:[],nextCursor:""});mock.execute.mockImplementation(async(_s,intent)=>({...result,requestKey:intent.key}));});
 afterEach(()=>{cleanup();queries?.clear();localStorage.clear();vi.unstubAllGlobals();});
 async function prepare(){fireEvent.click(screen.getByRole("button",{name:"查看所选商品比较"}));await waitFor(()=>expect(screen.getByRole("button",{name:"准备AI分析"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"准备AI分析"}));}
+it("shows the bound saved image, original quote and distinct missing states", async () => {
+ const thumbnailUrl="https://m.media-amazon.com/images/I/saved-lamp.jpg";
+ const items=selected.map((candidate,index)=>index===0?{
+  ...candidate,observation:{...candidate.observation!,item:{...candidate.observation!.item,thumbnailUrl}},
+ }:candidate);
+ const first=facts.candidates[0];
+ mock.inspect.mockResolvedValue({
+  ...facts,
+  candidates:[{
+   ...first,
+   observation:{...first.observation,price:19.95,currency:"USD",priceBasis:"displayed_listing_offer"},
+   missing:["observation.availability"],
+   facts:[...first.facts,{id:"fact:"+"c".repeat(64),path:"observation.checksum",value:"hidden-internal-field"}],
+  },facts.candidates[1]],
+  summary:{selected:2,unpriced:1,prices:[{currency:"USD",basis:"displayed_listing_offer",count:1,minimum:19.95,maximum:19.95}]},
+ });
+ open(items,"research");
+ fireEvent.click(screen.getByRole("button",{name:"查看所选商品比较"}));
+ const rows=within(await screen.findByRole("list",{name:"所选商品报价"}));
+ const image=rows.getByRole("img",{name:"Saved sample 主图"});
+ const preview=new URL(image.getAttribute("src")!,window.location.href);
+ expect(preview.origin).toBe(window.location.origin);
+ expect(preview.pathname).toBe("/api/image-proxy");
+ expect(preview.searchParams.get("url")).toBe(thumbnailUrl);
+ expect(rows.getByText("USD 19.95")).toBeVisible();
+ expect(rows.getByText("暂无可比报价")).toBeVisible();
+ expect(rows.getByText("库存未知")).toBeVisible();
+ expect(rows.getByText("暂无主图")).toBeVisible();
+ expect(screen.queryByText("hidden-internal-field")).not.toBeInTheDocument();
+ fireEvent.error(image);
+ expect(rows.getByText("主图暂不可用")).toBeVisible();
+});
 it("requires a fact read, explicit preparation and separate cost confirmation before starting",async()=>{
  open();await screen.findByRole("button",{name:"准备AI分析"});expect(mock.inspect).not.toHaveBeenCalled();expect(mock.prepare).not.toHaveBeenCalled();expect(mock.execute).not.toHaveBeenCalled();
  await prepare();await screen.findByRole("heading",{name:"确认本次AI分析"});expect(screen.getByText(/费用按此版本估算，不代表厂商最终账单/)).toHaveTextContent("reference-v1");expect(mock.execute).not.toHaveBeenCalled();await waitFor(()=>expect(screen.getByRole("button",{name:"确认生成AI建议"})).toBeEnabled());fireEvent.click(screen.getByRole("button",{name:"确认生成AI建议"}));await screen.findByText("Saved advisory overview");expect(mock.execute).toHaveBeenCalledOnce();expect(screen.getByText("建议进一步了解 · Sample A")).toBeInTheDocument();expect(screen.queryByRole("button",{name:"批准测试"})).toBeNull();
@@ -167,7 +199,7 @@ it("compares the two readable originals through the existing endpoint when the o
   expect(comparison).toBeEnabled();
   fireEvent.click(comparison);
   expect(await screen.findByText("本次比较 2 件")).toBeVisible();
-  expect(screen.getByText(/USD 页面报价：24.99–28.99/)).toBeVisible();
+  expect(screen.getByText("USD 24.99–28.99",{exact:true})).toBeVisible();
   expect(fetcher).toHaveBeenCalledOnce();
   const [path,init] = fetcher.mock.calls[0];
   expect(path).toBe("/api/workbench/research/projects/"+project+"/analysis/inspect");

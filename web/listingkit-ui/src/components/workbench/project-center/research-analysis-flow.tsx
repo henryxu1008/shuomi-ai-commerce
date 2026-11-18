@@ -14,10 +14,11 @@ import {catalogEntrySchema} from "@/lib/contracts/agent-configuration";
 import {executionModeViewSchema} from "@/lib/contracts/execution-mode";
 import {researchAnalysisInput,researchAnalysisIntent,researchPrepareSchema,researchSavedPreparation,type ResearchAnalysisIntent,type ResearchInspection} from "@/lib/contracts/research-analysis";
 import type {ResearchCandidate} from "@/lib/contracts/market-research";
-import {FactTable,factLabel} from "../agents/product-selection-flow";
+import {factLabel} from "../agents/product-selection-flow";
 import {executionModeLabels} from "../agents/execution-mode-settings";
 import {configurationError} from "../agents/agent-configuration-hooks";
 import {useResourcePending} from "../resources/resource-pending";
+import {ResearchComparisonResults} from "./research-comparison-results";
 import styles from "./research-panel.module.css";
 export function analysisChoices(selected:ResearchCandidate[]){return selected.map(c=>({candidateId:c.id,expectedRevision:String(c.revision),linkId:c.selectedLinkId,evidenceDigest:c.evidenceDigest,selection:{itemId:c.observation?.ref.selection.itemId,expectedRevision:String(c.observation?.ref.selection.revision),originalPublicationId:c.observation?.ref.selection.publicationId,originalVersion:c.observation?.ref.selection.version}}));}
 function matches(out:ResearchInspection|undefined,input:unknown){const parsed=researchAnalysisInput.safeParse(input);return !!out&&parsed.success&&matchesResearchInspection(out,parsed.data);}
@@ -57,6 +58,7 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  const display=masked||facts.error||run.isFetching?undefined
    :!evidencePending&&run.data&&!run.error?run.data.inspection
    :!pointer||pointer===saved?.key?selectedComparison:undefined;
+ const comparisonOriginals=display&&input.success&&matchesResearchInspection(display,input.data)?selected:[];
  const preparedFactsMatch=!!saved&&!facts.error&&matches(facts.data,{candidates:saved.input.candidates});
  const modeMatch=!!saved&&!mode.error&&mode.data?.revision===saved.prepared.modeRevision;
  const showRun=run.data&&!run.error&&!masked&&!evidencePending?run.data:undefined;
@@ -121,9 +123,9 @@ export function ResearchAnalysisFlow({scope,projectId,selected,archived,view,evi
  const noRun=run.error instanceof MarketAPIError&&run.error.status===404;
  const canClear=!!saved&&!locked&&!masked&&!run.isFetching&&(!!showRun&&showRun.phase!=="running"&&showRun.usageStatus!=="unknown_reserved"||noRun);
  return <>
- <Card id="research-summary" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>{view==="research"?"重点商品比较":"价格与特点比较"}</h3><p>这里只比较你选中的2–5件商品。不同币种、不同价格条件分开查看；没有价格的信息保留为空，不当作0元。</p></div><Button variant="outline" disabled={comparisonLocked||archived||!input.success||facts.isFetching} onClick={()=>void inspect()}>查看所选商品比较</Button></div>
+ <Card id="research-summary" tabIndex={-1} className={styles.section}><div className={styles.heading}><div><h3>{view==="research"?"重点商品比较":"价格与特点比较"}</h3><p>选 2–5 件商品。不同币种和报价条件分别比较。</p></div><Button variant={view==="research"?"default":"outline"} disabled={comparisonLocked||archived||!input.success||facts.isFetching} onClick={()=>void inspect()}>查看所选商品比较</Button></div>
  {facts.isFetching?<p role="status">正在确认所选商品资料…</p>:null}{facts.error?<p role="alert">部分商品资料暂时无法确认，请刷新后重新选择。</p>:null}
- {!display?<p>先选择2–5件资料可以查看的商品，再比较价格和特点。销量、市场需求、趋势和完整利润尚未核实。</p>:<><div className={styles.summary}><strong>本次比较 {display.summary.selected} 件</strong><span>缺少可比价格的商品 {display.summary.unpriced} 件</span>{display.summary.prices.map(p=><p key={p.currency+"|"+p.basis}>{p.currency} 页面报价：{p.minimum}–{p.maximum} · {p.count} 件商品使用相同价格条件</p>)}</div><FactTable inspection={{products:display.candidates.map(c=>({ref:c.ref,sourceKind:"amazon_data",facts:c.facts,missing:c.missing}))}}/>{display.candidates.some(c=>c.warnings.length)?<p>这些资料供调研参考；请结合每件商品缺少的信息判断，不把资料不全当作已经了解清楚。</p>:null}</>}
+ {display?<ResearchComparisonResults inspection={display} originals={comparisonOriginals}/>:null}
  </Card>
  {failure?<p role="alert">{failure instanceof Error&&!(failure instanceof MarketAPIError)?failure.message:configurationError(failure)}</p>:null}
  {pending.error||preparation.error?<p role="alert">本次操作记录暂时无法读取，请检查浏览器设置后继续。</p>:null}
