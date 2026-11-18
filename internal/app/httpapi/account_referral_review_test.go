@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -130,4 +131,41 @@ func TestReferralMaturityLoopStopsWithServerShutdown(t *testing.T) {
 		t.Fatal("maturity sweep ran after server shutdown")
 	case <-time.After(50 * time.Millisecond):
 	}
+}
+
+func TestReferralMaturityStopWaitsForInFlightSweep(t *testing.T) {
+	canceled := make(chan struct{})
+	finish := make(chan struct{})
+	release := sync.OnceFunc(func() { close(finish) })
+	t.Cleanup(release)
+	stop := startReferralMaturityLoop(&http.Server{}, func(ctx context.Context, _ time.Time) error {
+		<-ctx.Done()
+		close(canceled)
+		<-finish
+		return ctx.Err()
+	}, time.Hour, nil)
+
+	stopped := make(chan struct{})
+	go func() {
+		stop()
+		close(stopped)
+	}()
+	select {
+	case <-canceled:
+	case <-time.After(time.Second):
+		t.Fatal("maturity sweep did not receive cancellation")
+	}
+	select {
+	case <-stopped:
+		t.Fatal("stop returned before the in-flight sweep finished")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	release()
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("stop did not return after the sweep finished")
+	}
+	stop()
 }

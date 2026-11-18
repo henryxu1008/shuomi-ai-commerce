@@ -24,6 +24,7 @@ func TestRunReferralPoolFailureAndDisabledLifecycle(t *testing.T) {
 			source, referrals := &gorm.DB{}, &gorm.DB{}
 			var closed []*gorm.DB
 			opened := 0
+			maturityStopped := false
 			stop := errors.New("fixture stop")
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -44,17 +45,24 @@ func TestRunReferralPoolFailureAndDisabledLifecycle(t *testing.T) {
 				NewApplication: func(context.Context, *gorm.DB, *coreconfig.Config, *logrus.Logger) (*http.Server, error) {
 					return &http.Server{}, nil
 				},
-				NewReferralsApplication: func(_ context.Context, s, r *gorm.DB, core *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
-					if s != source || r != referrals || core.Referrals.Prepared == nil {
+				NewReferralsApplication: func(_ context.Context, s, r *gorm.DB, maturityStop *func(), core *coreconfig.Config, _ *logrus.Logger) (*http.Server, error) {
+					if s != source || r != referrals || core.Referrals.Prepared == nil || maturityStop == nil {
 						t.Fatal("referral composition lost independent dependencies")
 					}
 					if stage == "construct" {
 						return nil, stop
 					}
+					*maturityStop = func() { maturityStopped = true }
 					return &http.Server{}, nil
 				},
-				Listen:        func(string, string) (net.Listener, error) { return nil, stop },
-				CloseDatabase: func(db *gorm.DB) error { closed = append(closed, db); return nil },
+				Listen: func(string, string) (net.Listener, error) { return nil, stop },
+				CloseDatabase: func(db *gorm.DB) error {
+					if db == referrals && stage == "listen" && !maturityStopped {
+						t.Error("referral pool closed before maturity stopped")
+					}
+					closed = append(closed, db)
+					return nil
+				},
 			}
 			if err := Run(ctx, cfg, logrus.New(), dependencies); err == nil {
 				t.Fatal("expected bounded stop")
