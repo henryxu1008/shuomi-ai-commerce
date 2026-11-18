@@ -7,6 +7,7 @@
 | 源码、命令和目录职责 | [Repository Structure](repository-structure.md#current-entrypoint-map) |
 | 后端启动与模块组合 | [项目 README](../../README.md)、[Account Compose](../../deployments/docker/account-compose/README.md) |
 | Console / BFF | [前端 README](../../web/listingkit-ui/README.md) |
+| 设计系统资产、变量与有界试点 | [资产基线](ui/shuomi-design-system-baseline.md)、[设计变量](ui/shuomi-design-tokens.md)、[页面试点记录](ui/shuomi-design-system-pilots.md) |
 | 浏览器采集插件 | [插件 README](../../extensions/product-capture/README.md) |
 | 配置与凭据 | [凭据管理](guides/secret-management.md) |
 | 镜像构建 | [显式 Git 版本构建](../operations/application-image-build.md) |
