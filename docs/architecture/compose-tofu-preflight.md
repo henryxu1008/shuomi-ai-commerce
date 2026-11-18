@@ -17,7 +17,7 @@ Issue after the bounded independent review, before production script changes.
 The existing account/acquisition/referrals Compose `tofu-init` services invoke
 their original POSIX scripts and official OpenTofu/ZITADEL provider. Terraform
 resources, outputs, provider versions, credentials and Compose injection remain
-unchanged. The [native initialization contract](enterprise-custom-roles.md#concrete-initialization-and-permission-mapping)
+unchanged. The [native initialization contract](platform/identity/enterprise-custom-roles.md#concrete-initialization-and-permission-mapping)
 continues to own native roles, grants and completion.
 
 Current Terraform roots use local state and have no remote backend or migration.
