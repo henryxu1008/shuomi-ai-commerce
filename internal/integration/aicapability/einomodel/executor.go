@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/integration/googleinteractions"
 )
 
@@ -211,7 +212,7 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
-	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
+	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
 		// Keep the actual SDK wire and framing within the amount quoted and reserved.
 		guardCfg.MaximumRequestBytes = min(guardCfg.MaximumRequestBytes, quote.MaximumTokens-p.MaximumCompletionTokens-128)
 	}
@@ -220,7 +221,11 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 	} else if input.Operation == aicapability.OperationOwnProductIntake {
 		guardCfg.visionText = &boundVisionText{System: input.System, Prompt: input.Prompt}
 	}
-	guard, err := NewGuardedClient(guardCfg, e.BaseTransport, func(gateCtx context.Context) error {
+	baseTransport := e.BaseTransport
+	if baseTransport == nil && credential.IsRegisteredConnection(p.ConnectionID) {
+		baseTransport = NewRegisteredChannelTransport()
+	}
+	guard, err := NewGuardedClient(guardCfg, baseTransport, func(gateCtx context.Context) error {
 		// The SDK may construct its own request context. The frozen caller bound
 		// remains authoritative at the actual guarded network handoff.
 		if !dispatchContextActive(ctx) || !dispatchContextActive(gateCtx) {

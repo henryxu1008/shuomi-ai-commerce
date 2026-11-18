@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 )
@@ -18,6 +19,7 @@ import (
 // SharedCatalog resolves admission metadata and published official price facts.
 // It neither reads keys nor owns a second current selection or resource balance.
 type SharedCatalog struct {
+	Managed     *ManagedDefinitions
 	Catalog     *Catalog
 	Credentials d.CredentialReader
 	Prices      *d.PlatformPricesService
@@ -38,6 +40,17 @@ func (c *SharedCatalog) ValidateDefaultChannel(ctx context.Context, org, channel
 	if channel == "openai-direct" {
 		return nil
 	}
+	if channel == credential.CompatibleOpenAIChannel && c.Managed != nil {
+		rows, err := c.Managed.Registrations.Registrations(ctx, org)
+		if err != nil {
+			return d.ErrUnavailable
+		}
+		for _, registration := range rows {
+			if registration.OrganizationID == org && registration.Template == credential.CompatibleMiniTemplate {
+				return nil
+			}
+		}
+	}
 	for scope, defs := range c.Catalog.definitions {
 		if scope.OrganizationID == org {
 			for _, def := range defs {
@@ -56,12 +69,30 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 	}
 	defs := []Definition{}
 	scopes := c.Catalog.Scopes(org)
-	for _, scope := range scopes {
-		def, ok := c.Catalog.definitions[scope][ref.ID]
-		if !ok || sharedDefinitionCategory(def) != category {
-			continue
+	if d.IsManagedBindingID(ref.ID) {
+		if category != d.ModelCategoryText {
+			return q, d.ErrUnavailable
 		}
-		defs = append(defs, def)
+		resolved, err := c.Managed.read(ctx, org, ref)
+		if errors.Is(err, d.ErrNotFound) {
+			return q, d.ErrUnavailable
+		}
+		if err != nil {
+			return q, err
+		}
+		defs, q.ChannelName = resolved.values, resolved.label
+		if resolved.reason != "" {
+			q.Channel, q.Model, q.Reason = defs[0].Channel, OpenAIQueryModel, resolved.reason
+			return q, nil
+		}
+	} else {
+		for _, scope := range scopes {
+			def, ok := c.Catalog.definitions[scope][ref.ID]
+			if !ok || sharedDefinitionCategory(def) != category {
+				continue
+			}
+			defs = append(defs, def)
+		}
 	}
 	if len(defs) == 0 {
 		q.Channel, q.Model = "UNKNOWN", "UNKNOWN"
@@ -180,7 +211,7 @@ func (c *SharedCatalog) QualifyModel(ctx context.Context, org string, category d
 		if err != nil {
 			return q, err
 		}
-		binding, err := c.Catalog.Qualify(def.Scope, ref.ID, row)
+		binding, err := qualifyDefinition(def, ref.ID, row)
 		if err != nil {
 			q.Reason = "CREDENTIAL_NOT_ADMITTED"
 			return q, nil
@@ -344,6 +375,15 @@ func (c *SharedCatalog) Options(ctx context.Context, org string) ([]d.ModelOptio
 			refs[cat][d.ModelBindingReference{ID: id, Version: def.ReferenceVersion}] = true
 		}
 	}
+	if c.Managed != nil {
+		bindings, err := c.Managed.Bindings.ManagedBindings(ctx, org)
+		if err != nil {
+			return nil, err
+		}
+		for _, binding := range bindings {
+			refs[d.ModelCategoryText][binding.Reference()] = true
+		}
+	}
 	out := []d.ModelOption{}
 	for category, values := range refs {
 		for ref := range values {
@@ -351,7 +391,7 @@ func (c *SharedCatalog) Options(ctx context.Context, org string) ([]d.ModelOptio
 			if err != nil {
 				return nil, err
 			}
-			option := d.ModelOption{Category: category, Reference: ref, Channel: q.Channel, Model: q.Model, Ready: q.Ready, Reason: q.Reason}
+			option := d.ModelOption{Category: category, Reference: ref, Channel: q.Channel, Model: q.Model, Ready: q.Ready, Reason: q.Reason, ChannelName: q.ChannelName}
 			if q.Price.Validate() == nil {
 				p := q.Price
 				option.Price = &p

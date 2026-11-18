@@ -79,7 +79,7 @@ func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 		}
 		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET" || strings.HasPrefix(spec.op, "fx-"), Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
 	}
-	return append(append(out, m.credentialRoutes()...), m.modelQueryRoute())
+	return append(append(append(out, m.credentialRoutes()...), m.modelQueryRoute()), m.managedChannelRoutes()...)
 }
 func validateModelRouteDescriptor(descriptor httproute.Descriptor) error {
 	for _, r := range (modelRoutePricingModule{}).routes() {
@@ -396,7 +396,7 @@ func publicSharedPreview(preview *d.SharedModelPreview) any {
 	}
 	models := make([]d.ModelOption, 0, len(preview.Models))
 	for _, q := range preview.Models {
-		option := d.ModelOption{Category: q.Category, Reference: q.Reference, Channel: q.Channel, Model: q.Model, Ready: q.Ready, Reason: q.Reason}
+		option := d.ModelOption{Category: q.Category, Reference: q.Reference, Channel: q.Channel, Model: q.Model, Ready: q.Ready, Reason: q.Reason, ChannelName: q.ChannelName}
 		if q.Price.Validate() == nil {
 			price := q.Price
 			option.Price = &price

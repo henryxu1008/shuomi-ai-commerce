@@ -1,5 +1,5 @@
-// Package productagentruntime composes only the two fixed native preparation
-// transactions. It owns no business data, runtime or migration registry.
+// Package productagentruntime composes fixed native schema preparation.
+// It owns no business data, runtime or migration registry.
 package productagentruntime
 
 import (
@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm/logger"
 	agentstore "task-processor/internal/integration/persistence/agent"
 	channelstore "task-processor/internal/integration/persistence/channelcredential"
+	routestore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 type Result struct {
@@ -19,6 +20,21 @@ type Result struct {
 	Database string   `json:"database"`
 	Tables   []string `json:"tables"`
 	Roles    []string `json:"roles"`
+}
+
+func PrepareManagedModelChannels(ctx context.Context, db *gorm.DB) (Result, error) {
+	return prepare(ctx, db, "managed-model-channels", "product_agent_owner", func(tx *gorm.DB, result *Result) error {
+		if err := routestore.VerifySchema(ctx, tx); err != nil {
+			return err
+		}
+		if err := routestore.InstallManagedChannels(ctx, tx); err != nil {
+			return err
+		}
+		result.Outcome = "CREATED"
+		result.Tables = []string{"ai_channel_registrations", "ai_enterprise_model_bindings", "ai_enterprise_model_binding_receipts"}
+		result.Roles = []string{"product_agent_runtime", "title_credential_writer", "model_route_config_writer"}
+		return nil
+	})
 }
 
 func prepare(ctx context.Context, db *gorm.DB, target, owner string, run func(*gorm.DB, *Result) error) (Result, error) {

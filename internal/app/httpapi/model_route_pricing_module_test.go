@@ -150,6 +150,8 @@ func TestModelRoutePricingDescriptorsKeepLiveAuthorizationAndBounds(t *testing.T
 			permission = authz.PermissionWorkbenchConnectionTest
 		} else if strings.Contains(r.Path, "/connections") {
 			permission = authz.PermissionWorkbenchCredentialsManage
+		} else if strings.Contains(r.Path, "/managed-channels") {
+			permission = authz.PermissionWorkbenchChannelsManage
 		}
 		if strings.Contains(r.Path, "/platform-prices") {
 			permission = authz.PermissionListingKitPlatformAdm

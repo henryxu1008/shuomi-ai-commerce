@@ -156,7 +156,8 @@ func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) 
 }
 
 func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
-	miniRuntime := mode == "full runtime content flow chat mini"
+	managedRuntime := mode == "full runtime content flow chat managed-mini"
+	miniRuntime := mode == "full runtime content flow chat mini" || managedRuntime
 	fullRuntime := strings.HasPrefix(mode, "full runtime ")
 	mode = strings.TrimPrefix(mode, "full runtime ")
 	if miniRuntime {
@@ -655,6 +656,9 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			if req.URL.Scheme != "https" || req.URL.Host != "api.openai.com" || req.URL.Path != "/v1/chat/completions" {
 				return nil, errors.New("fixture refuses all non-synthetic destinations")
 			}
+			if managedRuntime {
+				require.Equal(t, "Bearer managed-fixture-key", req.Header.Get("Authorization"))
+			}
 			rec := httptest.NewRecorder()
 			provider.Config.Handler.ServeHTTP(rec, req)
 			return rec.Result(), nil
@@ -685,7 +689,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 		planner.Profile.MaximumInputBytes = 64 << 10
 		planner.Profile.MaximumCompletionTokens = 512
-		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner, managedRuntime)
 	}
 	if chatTasks && fullRuntime && !miniRuntime {
 		planner := settings.ContentTextPolicies["B"]
@@ -693,7 +697,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 		planner.Profile.MaximumInputBytes = 128 << 10
 		planner.Profile.MaximumCompletionTokens = 4096
-		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner, false)
 	}
 	if contentTitleOnly {
 		settings.ContentTitleOnly, settings.AssetDB, settings.TextPolicies = true, nil, nil

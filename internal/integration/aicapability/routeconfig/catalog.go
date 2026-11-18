@@ -93,7 +93,7 @@ func NewCatalog(defs []Definition) (*Catalog, error) {
 			}
 			def.PrivateTrialPrice = &price
 		}
-		if !d.ValidFact(id, 64) {
+		if !d.ValidFact(id, 64) || strings.HasPrefix(id, "um-") || strings.HasPrefix(def.ConnectionID, "uc-") {
 			return nil, d.ErrInvalid
 		}
 		if c.definitions[def.Scope] == nil {
@@ -152,7 +152,14 @@ func (c *Catalog) CredentialID(scope d.Scope, id string) (string, error) {
 
 func (c *Catalog) Qualify(sc d.Scope, id string, row d.Credential) (d.Binding, error) {
 	def, ok := c.definitions[sc][id]
-	if !ok || !d.ValidFact(def.ConnectionID, 128) || !d.ValidFact(def.ConnectionProvider, 128) || row.OrganizationID != sc.OrganizationID || row.ConnectionID != def.ConnectionID || row.Provider != def.ConnectionProvider || row.Channel != def.Channel || row.Region != def.Region || !row.Enabled || !row.KeyPresent || !strings.HasPrefix(row.Reference, "channel-credential-v1:") {
+	if !ok {
+		return d.Binding{}, d.ErrNeedsConfiguration
+	}
+	return qualifyDefinition(def, id, row)
+}
+
+func qualifyDefinition(def Definition, id string, row d.Credential) (d.Binding, error) {
+	if !d.ValidFact(def.ConnectionID, 128) || !d.ValidFact(def.ConnectionProvider, 128) || row.OrganizationID != def.Scope.OrganizationID || row.ConnectionID != def.ConnectionID || row.Provider != def.ConnectionProvider || row.Channel != def.Channel || row.Region != def.Region || !row.Enabled || !row.KeyPresent || !strings.HasPrefix(row.Reference, "channel-credential-v1:") {
 		return d.Binding{}, d.ErrNeedsConfiguration
 	}
 	if def.Text != nil {

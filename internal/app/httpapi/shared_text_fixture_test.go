@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
@@ -93,7 +94,7 @@ func configuredSelectionSharedReader(t *testing.T, settings *ProductAgentDepende
 
 // The Chat and content consumers use the same real current selection, channel
 // metadata, published fixture tariff and SharedTextReader; the provider is local.
-func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB, planner governed.RoutePolicy) qualified.SharedTextReader {
+func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies, db *gorm.DB, planner governed.RoutePolicy, managed bool) qualified.SharedTextReader {
 	t.Helper()
 	ctx, now := context.Background(), time.Now().UTC()
 	connection, err := newHTTPChannelFixture(db).owner.Metadata(ctx, "B", "default")
@@ -122,6 +123,12 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	shared := &qualified.SharedCatalog{Catalog: catalog, Credentials: repo, Prices: prices}
 	service := &d.SharedModelService{Repository: repo, Catalog: shared}
 	selection := d.SharedModelSelection{SchemaVersion: 1, UnitVersion: aicapability.AIPointMicrounitV1, DefaultChannel: connection.Channel, Text: d.ModelBindingReference{ID: "default", Version: "chat-shared-v1"}, Image: d.ModelBindingReference{ID: "openai-flare", Version: "approved-default-v1"}, Multimodal: d.ModelBindingReference{ID: "openai-mini", Version: "approved-default-v1"}}
+	if managed {
+		channels := installManagedChatChannelFixture(t, ctx, db, repo, catalog)
+		shared.Managed = channels.definitions
+		selection.Text = channels.binding.Reference()
+		selection.DefaultChannel = credential.OfficialOpenAIChannel
+	}
 	_, err = service.Publish(ctx, "B", "admin", uuid.NewString(), d.SharedModelInput{ExpectedRevision: d.NoRevision, Selection: selection})
 	require.NoError(t, err)
 	q, _, err := service.ReadCategory(ctx, "B", d.ModelCategoryText)
@@ -159,6 +166,49 @@ func configuredChatSharedReader(t *testing.T, settings *ProductAgentDependencies
 	require.True(t, err != nil || expired.Profile.Validate() != nil, "expired published price cannot authorize Chat")
 	shared.Now = nil
 	return reader
+}
+
+type managedChatChannelFixture struct {
+	definitions *qualified.ManagedDefinitions
+	binding     d.ManagedBinding
+}
+
+func installManagedChatChannelFixture(t *testing.T, ctx context.Context, db *gorm.DB, repo *routestore.Store, catalog *qualified.Catalog) managedChatChannelFixture {
+	t.Helper()
+	require.NoError(t, db.Exec(`DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='product_agent_runtime') THEN CREATE ROLE product_agent_runtime NOLOGIN; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='title_credential_writer') THEN CREATE ROLE title_credential_writer NOLOGIN; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='model_route_config_writer') THEN CREATE ROLE model_route_config_writer NOLOGIN; END IF;
+END $$`).Error)
+	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SET LOCAL ROLE product_agent_owner").Error; err != nil {
+			return err
+		}
+		return routestore.InstallManagedChannels(ctx, tx)
+	}))
+	channels := newHTTPChannelFixture(db).owner
+	manager, err := credential.NewManagement(channels, channels, nil)
+	require.NoError(t, err)
+	manager = manager.WithRegistrations(channels, channels)
+	before, err := manager.RegisteredConnections(ctx, "B")
+	require.NoError(t, err)
+	require.Empty(t, before)
+	created, err := manager.CreateRegistration(ctx, "B", "admin", uuid.NewString(), credential.RegistrationInput{
+		Name: "Chat fixture", Template: credential.OfficialMiniTemplate, APIKey: "managed-fixture-key",
+	})
+	require.NoError(t, err)
+	definitions := &qualified.ManagedDefinitions{Catalog: catalog, Bindings: repo, Registrations: channels, Metadata: channels}
+	require.True(t, definitions.Supports("B", credential.OfficialMiniTemplate))
+	cmd := d.ManagedBindingCommand{OrganizationID: "B", ActorID: "admin", ConnectionID: created.Connection.ConnectionID,
+		RequestKey: uuid.NewString(), Input: d.ManagedBindingInput{Action: "attach", ExpectedRevision: created.Connection.Revision}}
+	binding, err := repo.WriteManagedBinding(ctx, cmd, func(template string) error {
+		if !definitions.Supports("B", template) {
+			return d.ErrNeedsConfiguration
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	return managedChatChannelFixture{definitions: definitions, binding: binding}
 }
 
 func (f syntheticSelectionSharedCategory) ReadCategory(_ context.Context, org string, category d.ModelCategory) (d.ModelQualification, string, error) {

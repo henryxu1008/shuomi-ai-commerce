@@ -86,7 +86,7 @@ func channelManagementDefinitions(definitions []qualified.Definition, writable b
 	return connections, nil
 }
 
-func prepareChannelManagement(ctx context.Context, c *Config, reader, writer *gorm.DB, definitions []qualified.Definition) (*credential.Management, error) {
+func prepareChannelManagement(ctx context.Context, c *Config, reader, writer *gorm.DB, definitions []qualified.Definition, managed bool) (*credential.Management, error) {
 	if reader == nil {
 		return nil, credential.ErrUnavailable
 	}
@@ -98,6 +98,7 @@ func prepareChannelManagement(ctx context.Context, c *Config, reader, writer *go
 		return nil, e
 	}
 	var publisher credential.ManagementWriter
+	var registrations credential.RegistrationWriter
 	if writer != nil {
 		if !c.channelManagementEnabled() || writer == reader || channelstore.VerifyManagementWriter(ctx, writer) != nil {
 			return nil, credential.ErrUnavailable
@@ -106,14 +107,19 @@ func prepareChannelManagement(ctx context.Context, c *Config, reader, writer *go
 		if e != nil {
 			return nil, e
 		}
-		publisher, e = channelstore.New(writer, protection)
+		store, e := channelstore.New(writer, protection)
 		if e != nil {
 			return nil, e
 		}
+		publisher, registrations = store, store
 	}
 	connections, e := channelManagementDefinitions(definitions, publisher != nil)
 	if e != nil {
 		return nil, e
 	}
-	return credential.NewManagement(metadata, publisher, connections)
+	manager, e := credential.NewManagement(metadata, publisher, connections)
+	if e != nil || !managed {
+		return manager, e
+	}
+	return manager.WithRegistrations(metadata, registrations), nil
 }

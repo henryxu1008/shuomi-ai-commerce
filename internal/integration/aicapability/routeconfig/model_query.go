@@ -34,10 +34,16 @@ type ModelQueryResult struct {
 // ModelQuery uses the configuration catalog and the original credential owner.
 // It never invokes an execution policy, price service or ledger.
 type ModelQuery struct {
+	managed   *ManagedDefinitions
 	catalog   *Catalog
 	metadata  credential.MetadataReader
 	secrets   credential.SecretReader
 	transport http.RoundTripper
+}
+
+func (q *ModelQuery) WithManagedDefinitions(definitions *ManagedDefinitions) *ModelQuery {
+	q.managed = definitions
+	return q
 }
 
 func NewModelQuery(catalog *Catalog, metadata credential.MetadataReader, secrets credential.SecretReader) *ModelQuery {
@@ -51,17 +57,28 @@ func NewModelQuery(catalog *Catalog, metadata credential.MetadataReader, secrets
 
 // registered uses exact text references from trusted settings definitions.
 // Every matching scope must agree on the identity of the official connection.
-func (q *ModelQuery) registered(org, id string, ref d.ModelBindingReference) (Definition, bool) {
+func (q *ModelQuery) registered(ctx context.Context, org, id string, ref d.ModelBindingReference) (Definition, bool) {
 	if q == nil || !credential.ValidID(org) || !credential.ValidID(id) || (!d.ValidFact(ref.ID, 64) || !d.ValidFact(ref.Version, 128)) {
 		return Definition{}, false
 	}
 	var binding Definition
 	digest := governed.EndpointIdentityDigest(openAIQueryBase)
-	for _, scope := range q.catalog.Scopes(org) {
-		def, ok := q.catalog.definitions[scope][ref.ID]
-		if !ok || def.ReferenceVersion != ref.Version || sharedDefinitionCategory(def) != d.ModelCategoryText {
-			continue
+	definitions := []Definition{}
+	if d.IsManagedBindingID(ref.ID) {
+		resolved, err := q.managed.read(ctx, org, ref)
+		if err != nil || resolved.reason != "" {
+			return Definition{}, false
 		}
+		definitions = resolved.values
+	} else {
+		for _, scope := range q.catalog.Scopes(org) {
+			def, ok := q.catalog.definitions[scope][ref.ID]
+			if ok && def.ReferenceVersion == ref.Version && sharedDefinitionCategory(def) == d.ModelCategoryText {
+				definitions = append(definitions, def)
+			}
+		}
+	}
+	for _, def := range definitions {
 		profile := def.Text.ShapeProfile()
 		if def.ConnectionID != id || def.Manufacturer != "openai" || def.ConnectionProvider != "openai" ||
 			def.Channel != "openai-direct" || profile.ProviderID != "openai" || profile.ModelID != OpenAIQueryModel ||
@@ -81,8 +98,14 @@ func (q *ModelQuery) Target(connection credential.ManagedConnection) *d.ModelBin
 			continue
 		}
 		ref := d.ModelBindingReference{ID: model.ID, Version: model.Version}
-		if _, ok := q.registered(connection.OrganizationID, connection.ConnectionID, ref); ok {
+		if connection.Registration != nil && connection.Registration.Template == credential.OfficialMiniTemplate &&
+			connection.BaseURL == openAIQueryBase && credential.IsRegisteredConnection(connection.ConnectionID) && d.IsManagedBindingID(ref.ID) {
 			return &ref
+		}
+		if !d.IsManagedBindingID(ref.ID) {
+			if _, ok := q.registered(context.Background(), connection.OrganizationID, connection.ConnectionID, ref); ok {
+				return &ref
+			}
 		}
 	}
 	return nil
@@ -96,7 +119,7 @@ func (q *ModelQuery) Check(ctx context.Context, org, id string, revision int64, 
 	if ctx == nil || ctx.Err() != nil || authorized == nil || !authorized(ctx) {
 		return zero, ErrModelQueryForbidden
 	}
-	binding, ok := q.registered(org, id, ref)
+	binding, ok := q.registered(ctx, org, id, ref)
 	if !ok || revision <= 0 {
 		return zero, credential.ErrInvalid
 	}
@@ -128,19 +151,28 @@ func (q *ModelQuery) Check(ctx context.Context, org, id string, revision int64, 
 		if fresh != row {
 			return credential.ErrConflict
 		}
+		if d.IsManagedBindingID(ref.ID) {
+			if _, ok := q.registered(ctx, org, id, ref); !ok {
+				return credential.ErrConflict
+			}
+		}
 		return ctx.Err()
 	}
 	if err = recheck(); err != nil {
 		return zero, err
 	}
-	result := q.retrieve(ctx, secret.APIKey)
+	transport := q.transport
+	if credential.IsRegisteredConnection(id) {
+		transport = governed.NewRegisteredChannelTransport()
+	}
+	result := q.retrieve(ctx, secret.APIKey, transport)
 	if err = recheck(); err != nil {
 		return zero, err
 	}
 	return result, nil
 }
 
-func (q *ModelQuery) retrieve(ctx context.Context, key string) ModelQueryResult {
+func (q *ModelQuery) retrieve(ctx context.Context, key string, transport http.RoundTripper) ModelQueryResult {
 	ctx, cancel := context.WithTimeout(ctx, modelQueryDeadline)
 	defer cancel()
 	// The fixed URL and HTTP/1.1 fresh connection constrain credential egress.
@@ -148,7 +180,7 @@ func (q *ModelQuery) retrieve(ctx context.Context, key string) ModelQueryResult 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, openAIQueryBase+"/models/"+OpenAIQueryModel, nil)
 	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Accept", "application/json")
-	resp, err := q.transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	result := ModelQueryResult{Model: OpenAIQueryModel, Status: "unavailable", CheckedAt: time.Now().UTC()}
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {

@@ -168,10 +168,13 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 			p.MaximumPromptTokens == TitlePilotPromptTokens && p.MaximumCompletionTokens == TitlePilotCompletionTokens &&
 			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint)
 	}
-	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
+	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
+		identity := p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint) && p.UsageMappingVersion == "openai-text-v1"
+		if p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
+			identity = (p.ConnectionID == "" || credential.IsRegisteredConnection(p.ConnectionID)) && p.UsageMappingVersion == aicapability.ReferenceTextTotalsV1
+		}
 		return (operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationProductContentDecision) &&
-			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint) && p.UsageMappingVersion == "openai-text-v1" &&
-			p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
+			identity && p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
 	}
 	if aicapability.VisionTextOperation(operation) {
 		return aicapability.SingleImageProfileShape(p)
@@ -193,6 +196,10 @@ var _ interface {
 
 func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
 	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy && (p.OfficialTariff.Channel != "openai-direct" || !p.CNYRatesCoverUSDTariff()) {
+		return false
+	}
+	if p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy && (!credential.IsRegisteredConnection(p.ConnectionID) ||
+		p.OfficialTariff.Channel != credential.CompatibleOpenAIChannel || !p.OfficialTariff.IsReferenceEstimate()) {
 		return false
 	}
 	return p.Validate() == nil && ValidRouteShape(p, operation) &&

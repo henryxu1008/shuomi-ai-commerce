@@ -8,15 +8,18 @@ import {hasTrustedSameOriginWrite} from "./same-origin-write";
 import {WORKBENCH_COOKIE_NAME} from "./workbench-proxy";
 import {hasEmptyBody} from "./members-proxy";
 import {configuredAgentConfigurationOrigin} from "./agent-configuration-origin";
+import {managedChannelRoute} from "../contracts/managed-model-channels";
 export const routeFailure=(status:number,code:string)=>Response.json({code},{status,headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
 export async function proxyModelRoutePricing(request:Request,token:string,userId:string):Promise<Response>{
  if(!token||!userId)return routeFailure(401,"AUTHENTICATION_REQUIRED");
  if(request.headers.get("X-Expected-User-ID")!==userId)return routeFailure(409,"IDENTITY_CONTEXT_CHANGED");
  const url=new URL(request.url),path=url.pathname.slice("/api/model-route-pricing".length),parts=path.slice(1).split("/"),family=parts[0],op=parts[1]??"current",credentials=family==="connections",write=request.method==="POST",publish=write&&(credentials?parts[2]==="commands":op==="publish"),platform=family==="platform-prices";
- const fxControl=platform&&write&&parts.length===3&&op==="automatic-fx"&&["start","prepare"].includes(parts[2]),uncertain=publish||fxControl;
+ const managed=family==="managed-channels"?managedChannelRoute(path,request.method):null;
+ const fxControl=platform&&write&&parts.length===3&&op==="automatic-fx"&&["start","prepare"].includes(parts[2]),uncertain=publish||fxControl||!!managed?.input;
  const modelQuery=credentials&&write&&parts.length===3&&parts[2]==="model-query"&&routeFact.safeParse(parts[1]).success;
  let output:z.ZodType;
  if(!path&&request.method==="GET")output=routeCapabilities;
+ else if(managed)output=managed.output;
  else if(credentials){
   if(parts.length===1&&request.method==="GET")output=credentialConnections;
   else if(modelQuery)output=modelQueryResult;
@@ -34,7 +37,7 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
   else if(parts.length===2&&write&&["validate","publish"].includes(op))output=publish?routeReceipt:platform?pricePreview:routePreview;
   else return routeFailure(400,"INVALID");
  }else return routeFailure(400,"INVALID");
- if(url.search.length>512||credentials&&url.search!==""||request.url.endsWith("?")||request.headers.has("content-encoding"))return routeFailure(400,"INVALID");
+ if(url.search.length>512||(credentials||managed)&&url.search!==""||request.url.endsWith("?")||request.headers.has("content-encoding"))return routeFailure(400,"INVALID");
  for(const [k,v] of url.searchParams){if(op!=="history"||url.searchParams.getAll(k).length!==1||(k==="cursor"?!routeFact.safeParse(v).success:k==="limit"?!/^[1-9][0-9]?$/.test(v)||Number(v)>50:true))return routeFailure(400,"INVALID")}
  if(write&&!hasTrustedSameOriginWrite(request))return routeFailure(403,"FORBIDDEN");
  if(modelQuery&&/\bprefetch\b/i.test([request.headers.get("purpose"),request.headers.get("sec-purpose")].join(" ")))return routeFailure(403,"FORBIDDEN");
@@ -45,8 +48,8 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  try{
   const headers=new Headers({Accept:"application/json",Authorization:"Bearer "+token,"X-Requested-Organization-ID":org});let body:string|undefined;
   if(write){
-   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(modelQuery?modelQueryInput:fxControl?z.strictObject({}):credentials?credentialInput:platform?priceInput:routeInput).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
-   if(publish){const key=request.headers.get("Idempotency-Key");if(!routeFact.safeParse(key).success)return routeFailure(400,"INVALID");headers.set("Idempotency-Key",key!)}
+   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(managed?.input??(modelQuery?modelQueryInput:fxControl?z.strictObject({}):credentials?credentialInput:platform?priceInput:routeInput)).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
+   if(publish||managed?.input){const key=request.headers.get("Idempotency-Key");if(!routeFact.safeParse(key).success)return routeFailure(400,"INVALID");headers.set("Idempotency-Key",key!)}
    body=JSON.stringify(parsed.data);headers.set("Content-Type","application/json");
   }else if(!(await hasEmptyBody(request,controller.signal)))return routeFailure(400,"INVALID");
   const origin=configuredAgentConfigurationOrigin();if(!origin)return routeFailure(503,"UNAVAILABLE");controller.signal.throwIfAborted();dispatched=true;
@@ -58,11 +61,20 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
    // never expose its diagnostic metadata or guess that an arbitrary 4xx is final.
    const middleware=parseCommercialReadFailure(payload,response.status);
    const parsed=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/)}).safeParse(payload);
-   const statuses:Record<string,number>={FORBIDDEN:403,INVALID:400,NOT_FOUND:404,CONFLICT:409,NEEDS_CONFIGURATION:409,UNAVAILABLE:503,OUTCOME_UNKNOWN:503};
+   const statuses:Record<string,number>={FORBIDDEN:403,INVALID:400,NOT_FOUND:404,CONFLICT:409,NEEDS_CONFIGURATION:409,CHANNEL_LIMIT:409,UNAVAILABLE:503,OUTCOME_UNKNOWN:503};
    const code=middleware?.code??(parsed.success&&statuses[parsed.data.code]===response.status?parsed.data.code:null);
    return routeFailure(response.status>=400&&response.status<600?response.status:502,uncertain&&(response.status>=500||!code)?"OUTCOME_UNKNOWN":code??"UNAVAILABLE")
   }
   const parsed=output.parse(payload) as Record<string,unknown>;
+  if(managed){
+   if(parsed.organizationId!==org)throw new Error();
+   if(managed.input||managed.receiptKey){
+    if(parsed.actorId!==userId||parsed.requestKey!==(managed.input?headers.get("Idempotency-Key"):managed.receiptKey))throw new Error();
+    if(managed.input&&parsed.memberId!==JSON.parse(body!).expectedMemberId)throw new Error();
+    if(op!=="create"&&(parsed.result as {connectionId:string}).connectionId!==op)throw new Error();
+   }
+   return Response.json(parsed,{headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+  }
   if(credentials){
    if(output===credentialConnections){if(credentialConnections.parse(parsed).organizationId!==org)throw new Error()}
    else if(modelQuery){

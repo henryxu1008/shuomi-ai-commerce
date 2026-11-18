@@ -12,7 +12,7 @@ const officialPrice=z.strictObject({wireModel:routeFact.optional(),unitVersion:a
 const reference=z.strictObject({id:routeFact.max(64),version:routeFact});
 const sharedSelection=z.strictObject({schemaVersion:z.literal(1),unitVersion:aiPointUnit,defaultChannel:routeFact,text:reference,image:reference,multimodal:reference});
 export const routeInput=z.strictObject({expectedRevision:routeFact,selection:sharedSelection});
-const modelOption=z.strictObject({category:modelCategory,reference,channel:routeFact,model:routeFact,ready:z.boolean(),reason:routeFact.optional(),price:officialPrice.optional()}).refine(v=>!v.price||(v.price.wireModel??v.price.model)===v.model&&v.price.channel===v.channel);
+const modelOption=z.strictObject({category:modelCategory,reference,channel:routeFact,channelName:z.string().min(1).max(520).optional(),model:routeFact,ready:z.boolean(),reason:routeFact.optional(),price:officialPrice.optional()}).refine(v=>!v.price||(v.price.wireModel??v.price.model)===v.model&&v.price.channel===v.channel);
 const preview=z.strictObject({ready:z.boolean(),models:z.array(modelOption).length(3)}).refine(v=>v.ready===v.models.every(m=>m.ready)&&new Set(v.models.map(m=>m.category)).size===3);
 const date=z.iso.datetime({offset:true}).refine(value=>!/\.\d{10}/.test(value));
 const interval={sourceUrl:z.url().max(2048),verifiedAt:date,effectiveFrom:date,effectiveUntil:date};

@@ -1021,9 +1021,9 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			if e != nil {
 				return e
 			}
-			modelQuery = qualified.NewModelQuery(catalog, metadata, channelSecrets)
+			modelQuery = qualified.NewModelQuery(catalog, metadata, channelSecrets).WithManagedDefinitions(manage.Catalog.(*qualified.SharedCatalog).Managed)
 		}
-		credentialManager, e = prepareChannelManagement(startupContext, cfg, agentDB, credentialWriter, defs)
+		credentialManager, e = prepareChannelManagement(startupContext, cfg, agentDB, credentialWriter, defs, manage.Catalog.(*qualified.SharedCatalog).Managed != nil)
 		if e != nil {
 			return e
 		}

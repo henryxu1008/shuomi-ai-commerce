@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -84,22 +85,33 @@ func (s *Store) Receipt(ctx context.Context, org, actor, key string) (credential
 }
 
 func receipt(db *gorm.DB, org, actor, key, fingerprint string) (credential.Metadata, error) {
-	var r ReceiptRow
-	e := db.Where("organization_id=? AND actor_id=? AND request_key=?", org, actor, key).Take(&r).Error
-	if errors.Is(e, gorm.ErrRecordNotFound) {
-		return credential.Metadata{}, credential.ErrNotFound
-	}
+	r, e := commandReceipt(db, org, actor, key, fingerprint, "channel-command-v1:")
 	if e != nil {
-		return credential.Metadata{}, credential.ErrUnavailable
-	}
-	if fingerprint != "" && r.Fingerprint != fingerprint {
-		return credential.Metadata{}, credential.ErrConflict
+		return credential.Metadata{}, e
 	}
 	var m credential.Metadata
 	if len(r.Payload) > 16384 || json.Unmarshal(r.Payload, &m) != nil || m.OrganizationID != org || m.Revision < 1 || m.Reference == "" {
 		return m, credential.ErrUnavailable
 	}
 	return m, nil
+}
+
+func commandReceipt(db *gorm.DB, org, actor, key, fingerprint, version string) (ReceiptRow, error) {
+	var r ReceiptRow
+	e := db.Where("organization_id=? AND actor_id=? AND request_key=?", org, actor, key).Take(&r).Error
+	if errors.Is(e, gorm.ErrRecordNotFound) {
+		return r, credential.ErrNotFound
+	}
+	if e != nil {
+		return r, credential.ErrUnavailable
+	}
+	if fingerprint != "" && r.Fingerprint != fingerprint {
+		return r, credential.ErrConflict
+	}
+	if !strings.HasPrefix(r.Fingerprint, version) {
+		return r, credential.ErrNotFound
+	}
+	return r, nil
 }
 
 func (s *Store) Resolve(ctx context.Context, org, id, reference string) (credential.Secret, error) {
@@ -140,32 +152,66 @@ func (s *Store) Publish(ctx context.Context, c credential.Command) (credential.M
 	if e != nil {
 		return credential.Metadata{}, e
 	}
+	var result credential.Metadata
+	err := s.commandTransaction(ctx, c, fingerprint, "channel-command-v1:", func(tx *gorm.DB) (any, error) {
+		var err error
+		result, err = s.writeConnection(tx, c)
+		return result, err
+	}, func(row ReceiptRow) error {
+		if json.Unmarshal(row.Payload, &result) != nil || result.OrganizationID != c.OrganizationID || result.ConnectionID != c.ConnectionID || result.Revision < 1 || result.Reference == "" {
+			return credential.ErrUnavailable
+		}
+		return nil
+	})
+	if err != nil {
+		return credential.Metadata{}, err
+	}
+	return result, nil
+}
+
+func (s *Store) commandTransaction(ctx context.Context, c credential.Command, fingerprint, version string, write func(*gorm.DB) (any, error), replay func(ReceiptRow) error) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	tx := s.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return credential.Metadata{}, credential.ErrUnavailable
+		return credential.ErrUnavailable
 	}
 	defer tx.Rollback()
 	if tx.Exec("SET LOCAL lock_timeout='5s'").Error != nil || tx.Exec("SET LOCAL statement_timeout='25s'").Error != nil {
-		return credential.Metadata{}, credential.ErrUnavailable
+		return credential.ErrUnavailable
 	}
-	// Reuse the original publication pattern: bounded transaction-scoped keys,
-	// receipt first, then the exact current row. No network call under a lock.
 	for _, lock := range []string{"channel-command:" + c.OrganizationID + ":" + c.ActorID + ":" + c.Key, "channel-current:" + c.OrganizationID + ":" + c.ConnectionID} {
 		if tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", lock).Error != nil {
-			return credential.Metadata{}, credential.ErrUnavailable
+			return credential.ErrUnavailable
 		}
 	}
-	prior, e := receipt(tx, c.OrganizationID, c.ActorID, c.Key, fingerprint)
-	if e == nil {
-		return prior, nil
+	prior, err := commandReceipt(tx, c.OrganizationID, c.ActorID, c.Key, fingerprint, version)
+	if err == nil {
+		return replay(prior)
 	}
-	if !errors.Is(e, credential.ErrNotFound) {
-		return credential.Metadata{}, e
+	if !errors.Is(err, credential.ErrNotFound) {
+		return err
 	}
+	result, err := write(tx)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(result)
+	if err != nil {
+		return credential.ErrUnavailable
+	}
+	if tx.Create(&ReceiptRow{OrganizationID: c.OrganizationID, ActorID: c.ActorID, RequestKey: c.Key, Fingerprint: fingerprint, Payload: payload}).Error != nil {
+		return credential.ErrUnavailable
+	}
+	if s.commitTransaction(tx) != nil {
+		return credential.ErrOutcomeUnknown
+	}
+	return nil
+}
+
+func (s *Store) writeConnection(tx *gorm.DB, c credential.Command) (credential.Metadata, error) {
 	var current ConnectionRow
-	e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id=? AND connection_id=?", c.OrganizationID, c.ConnectionID).Take(&current).Error
+	e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id=? AND connection_id=?", c.OrganizationID, c.ConnectionID).Take(&current).Error
 	if e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {
 		return credential.Metadata{}, credential.ErrUnavailable
 	}
@@ -205,16 +251,6 @@ func (s *Store) Publish(ctx context.Context, c credential.Command) (credential.M
 	}
 	if e != nil {
 		return credential.Metadata{}, credential.ErrUnavailable
-	}
-	payload, e := json.Marshal(m)
-	if e != nil {
-		return credential.Metadata{}, credential.ErrUnavailable
-	}
-	if tx.Create(&ReceiptRow{OrganizationID: c.OrganizationID, ActorID: c.ActorID, RequestKey: c.Key, Fingerprint: fingerprint, Payload: payload}).Error != nil {
-		return credential.Metadata{}, credential.ErrUnavailable
-	}
-	if s.commitTransaction(tx) != nil {
-		return credential.Metadata{}, credential.ErrOutcomeUnknown
 	}
 	return m, nil
 }

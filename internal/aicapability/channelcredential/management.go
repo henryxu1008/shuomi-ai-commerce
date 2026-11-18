@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 )
 
 // ManagementWriter deliberately has no Resolve method. The browser management
@@ -39,11 +40,14 @@ type ManagedConnection struct {
 	Enabled        bool           `json:"enabled"`
 	KeyPresent     bool           `json:"keyPresent"`
 	Models         []ManagedModel `json:"models"`
+	Registration   *Registration  `json:"registration,omitempty"`
+	BaseURL        string         `json:"baseUrl,omitempty"`
 }
 
 type ManagementInput struct {
 	Action           string `json:"action"`
 	ExpectedRevision int64  `json:"expectedRevision,string"`
+	ExpectedMemberID string `json:"expectedMemberId,omitempty"`
 	Account          string `json:"account,omitempty"`
 	APIKey           string `json:"apiKey,omitempty"`
 }
@@ -59,9 +63,54 @@ type ManagementResult struct {
 }
 
 type Management struct {
-	reader      MetadataReader
-	writer      ManagementWriter
-	connections []ConnectionDefinition
+	reader             MetadataReader
+	writer             ManagementWriter
+	connections        []ConnectionDefinition
+	registrations      RegistrationReader
+	registrationWriter RegistrationWriter
+}
+
+// WithRegistrations connects only the existing bounded read and write ports.
+func (m *Management) WithRegistrations(reader RegistrationReader, writer RegistrationWriter) *Management {
+	copy := *m
+	copy.registrations, copy.registrationWriter = reader, writer
+	return &copy
+}
+
+func (m *Management) CanRegister() bool {
+	return m != nil && m.registrations != nil && m.registrationWriter != nil
+}
+
+func (m *Management) CreateRegistration(ctx context.Context, org, actor, key string, input RegistrationInput) (RegistrationResult, error) {
+	if !m.CanRegister() {
+		return RegistrationResult{}, ErrUnavailable
+	}
+	command, err := NewRegistrationCommand(org, actor, key, input)
+	if err != nil {
+		return RegistrationResult{}, err
+	}
+	return m.registrationWriter.CreateRegistration(ctx, command)
+}
+
+func (m *Management) RegistrationReceipt(ctx context.Context, org, actor, key string) (RegistrationResult, error) {
+	if !m.CanRegister() {
+		return RegistrationResult{}, ErrUnavailable
+	}
+	return m.registrationWriter.RegistrationReceipt(ctx, org, actor, key)
+}
+
+func (m *Management) RenameRegistration(ctx context.Context, command RenameRegistrationCommand) (Registration, error) {
+	if !m.CanRegister() {
+		return Registration{}, ErrUnavailable
+	}
+	return m.registrationWriter.RenameRegistration(ctx, command)
+}
+
+func (m *Management) RenameReceipt(ctx context.Context, org, actor, key string) (Registration, error) {
+	if !m.CanRegister() {
+		return Registration{}, ErrUnavailable
+	}
+	return m.registrationWriter.RenameReceipt(ctx, org, actor, key)
 }
 
 func NewManagement(reader MetadataReader, writer ManagementWriter, definitions []ConnectionDefinition) (*Management, error) {
@@ -76,6 +125,9 @@ func NewManagement(reader MetadataReader, writer ManagementWriter, definitions [
 			if !ValidID(s) {
 				return nil, ErrInvalid
 			}
+		}
+		if strings.HasPrefix(d.ConnectionID, "uc-") {
+			return nil, ErrInvalid
 		}
 		if (d.BaseURL != "" && !ValidOrigin(d.BaseURL)) || writer != nil && d.BaseURL == "" {
 			return nil, ErrInvalid
@@ -133,6 +185,31 @@ func (m *Management) List(ctx context.Context, org string) ([]ManagedConnection,
 	return out, nil
 }
 
+func (m *Management) RegisteredConnections(ctx context.Context, org string) ([]ManagedConnection, error) {
+	if m == nil || ctx == nil || ctx.Err() != nil || !ValidID(org) {
+		return nil, ErrUnavailable
+	}
+	out := []ManagedConnection{}
+	if m.registrations == nil {
+		return out, nil
+	}
+	registrations, err := m.registrations.Registrations(ctx, org)
+	if err != nil {
+		return nil, err
+	}
+	for _, registration := range registrations {
+		if registration.OrganizationID != org || !IsRegisteredConnection(registration.ConnectionID) {
+			return nil, ErrUnavailable
+		}
+		metadata, err := m.reader.Metadata(ctx, org, registration.ConnectionID)
+		if err != nil || metadata.OrganizationID != org || metadata.ConnectionID != registration.ConnectionID {
+			return nil, ErrUnavailable
+		}
+		out = append(out, NewRegistrationResult(registration, metadata).Connection)
+	}
+	return out, nil
+}
+
 func (m *Management) Publish(ctx context.Context, org, actor, id, key string, input ManagementInput) (ManagementResult, error) {
 	if m == nil || ctx == nil || ctx.Err() != nil || m.writer == nil {
 		return ManagementResult{}, ErrUnavailable
@@ -151,6 +228,20 @@ func (m *Management) Publish(ctx context.Context, org, actor, id, key string, in
 			definition = &m.connections[i]
 			break
 		}
+	}
+	if IsRegisteredConnection(id) && m.registrations != nil {
+		r, err := m.registrations.Registration(ctx, org, id)
+		if err != nil {
+			return ManagementResult{}, err
+		}
+		v, err := m.reader.Metadata(ctx, org, id)
+		if err != nil {
+			return ManagementResult{}, err
+		}
+		if r.OrganizationID != org || r.ConnectionID != id || v.OrganizationID != org || v.ConnectionID != id {
+			return ManagementResult{}, ErrNotFound
+		}
+		definition = &ConnectionDefinition{OrganizationID: org, ConnectionID: id, Provider: v.Provider, Channel: v.Channel, Region: v.Region, BaseURL: v.BaseURL}
 	}
 	if definition == nil {
 		return ManagementResult{}, ErrNotFound

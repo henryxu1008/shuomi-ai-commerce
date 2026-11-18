@@ -25,6 +25,8 @@ function sameReference(first:ModelOption["reference"], second:ModelOption["refer
  return first.id===second.id&&first.version===second.version;
 }
 const reasonLabels: Record<string, string> = {
+ CHANNEL_DISABLED: "所选渠道已停用，请更换",
+ MODEL_BINDING_DISABLED: "此模型已取消关联，请更换",
  POINT_BUDGET_EXCEEDED: "费用估算超出本次分析的点数预算",
  POINT_BUDGET_MISSING: "尚未配置本次分析的点数预算",
  METERING_MAPPING_NOT_ADMITTED: "暂时无法按该模型的用量计算点数",
@@ -47,17 +49,18 @@ const pendingSchema=z.strictObject({key:z.uuid(),input:z.union([routeInput,price
 function message(error:unknown){const code=error instanceof ModelRouteError?error.code:"UNAVAILABLE";return ({INVALID:"请检查填写内容，参考价与汇率最多保留六位小数。",CONFLICT:"当前版本已有更新，请重新读取后校验。",NEEDS_CONFIGURATION:"三类模型尚未全部满足准入，请查看具体缺口。",FORBIDDEN:"无此操作权限，或企业访问已撤销。",PERMISSION_DENIED:"无此操作权限，请确认权限后重试。",AUTHENTICATION_REQUIRED:"登录已失效，请重新登录。",ORGANIZATION_ACCESS_DENIED:"无当前企业访问权限。",ORGANIZATION_ACCESS_REVOKED:"当前企业访问已撤销。",ORGANIZATION_SUSPENDED:"当前企业暂不可用。",ORGANIZATION_SELECTION_REQUIRED:"请先选择当前企业。",OUTCOME_UNKNOWN:"发布结果待核实，请使用原请求键查询回执。",ORGANIZATION_CONTEXT_CHANGED:"当前企业已变化，请重新打开页面。",IDENTITY_CONTEXT_CHANGED:"登录身份已变化，请重新打开页面。"} as Record<string,string>)[code]??"配置服务暂不可用，编辑和原回执保留。"}
 export function ModelRoutePricingEntry({scope}:{scope:ModelRouteScope}){
  const context=useWorkbenchContext();
- const {configure,credentials,platform}=settingsPermissions(context.permissions);
+ const {configure,credentials,channels,platform}=settingsPermissions(context.permissions);
  if (context.isLoading || context.isSwitching || context.error || context.blockingError || context.selectionRequired ||
      context.user?.id!==scope.userId || context.effectiveOrganization?.id!==scope.organizationId ||
-     !(configure||credentials||platform)) return null;
- return <MaintenanceEntryCard title="AI 配置" description={configure?"查看企业的 Chat 规划状态及商品图片模型配置。":credentials?"录入、更新或停用本企业共用的渠道 Key。":"查看平台共用的模型参考价格与汇率。"} href={modelServicesPath} action="模型与服务" />;
+     !(configure||credentials||channels||platform)) return null;
+ return <MaintenanceEntryCard title="AI 配置" description={configure?"查看企业的 Chat 规划状态及商品图片模型配置。":channels?"查看和管理企业渠道。":credentials?"录入、更新或停用本企业共用的渠道 Key。":"查看平台共用的模型参考价格与汇率。"} href={modelServicesPath} action="模型与服务" />;
 }
 
 function settingsPermissions(permissions: string[]) {
  return {
   configure: permissions.includes("workbench.agent.configure"),
   credentials: permissions.includes("workbench.ai.credentials.manage"),
+  channels: permissions.includes("workbench.ai.channels.manage"),
   platform: permissions.includes("listingkit.platform_admin"),
  };
 }
@@ -66,7 +69,7 @@ export function ModelRoutePricingPage({expectedUserId,navigation}:{expectedUserI
  const context=useWorkbenchContext();
  const org=context.effectiveOrganization;
  const permissions=settingsPermissions(context.permissions);
- const allowed=permissions.configure||permissions.credentials||permissions.platform;
+ const allowed=permissions.configure||permissions.credentials||permissions.channels||permissions.platform;
  const transientError=context.error&&(context.error.status===0||context.error.status>=500);
  const validScope=allowed&&org&&context.user?.id===expectedUserId&&!context.blockingError&&!context.selectionRequired&&(!context.error||transientError);
  const destination=navigation?.organizationId===org?.id?navigation:undefined;
@@ -83,11 +86,11 @@ function usePublishedModels(scope:ModelRouteScope,enabled=true) {
  return useQuery({queryKey:[...settingsKey(scope),"current"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise",routeCurrent,{signal}),enabled,retry:false,gcTime:0,refetchOnWindowFocus:false});
 }
 
-function ModelSettings({ scope, name, configure, platform, credentials, canMaintain, navigation }: { scope: ModelRouteScope; name: string; configure: boolean; platform: boolean; credentials: boolean; canMaintain: boolean; navigation?:ModelServicesNavigation }) {
+function ModelSettings({ scope, name, configure, platform, credentials, channels, canMaintain, navigation }: { scope: ModelRouteScope; name: string; configure: boolean; platform: boolean; credentials: boolean; channels:boolean; canMaintain: boolean; navigation?:ModelServicesNavigation }) {
  const context=useWorkbenchContext();
  const client=useQueryClient();
  const [destination,setDestination]=useState<ModelDestination>(()=>({
-  area:configure?"enterprise":credentials?"credentials":"platform-prices",
+  area:configure?"enterprise":credentials||channels?"credentials":"platform-prices",
   category:configure?navigation?.category:undefined,
  }));
  const [draft,setDraft]=useState<RouteInput|null>(null);
@@ -140,7 +143,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
 
  const areas = [
    { id: "enterprise", label: "企业模型", available: configure },
-   { id: "credentials", label: "提供方与 Key", available: credentials },
+   { id: "credentials", label: "提供方与 Key", available: credentials||channels },
    { id: "platform-prices", label: "参考价格与汇率", available: platform },
  ] as const;
  const availableAreas = areas.filter(item => item.available);
@@ -156,7 +159,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
        current={!context.error&&!published.isError&&!published.isFetching?published.data:undefined}
        checking={checking||published.isFetching}
        chat={checking?"checking":context.error?"unknown":!context.aiWorkbenchAvailable?"closed":context.aiWorkbenchPlanningReadiness}
-       credentials={credentials} platform={platform} disabled={blocked}
+       credentials={credentials||channels} platform={platform} disabled={blocked}
        onSelectModel={selected=>openSettings({area:"enterprise",category:selected},selected)}
        onCredentials={selected=>openSettings({area:"credentials",model:selected},selected.category)}
        onPrices={selected=>openSettings({area:"platform-prices"},selected)}
@@ -171,8 +174,15 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
      {configure&&<Button variant="ghost" onClick={returnToOverview}>返回使用概览</Button>}
      {context.error&&!configure&&<Button variant="outline" disabled={checking} onClick={()=>void refresh()}>重新读取状态</Button>}
    </div>
-   {area === "enterprise" ? <EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />
-     : area === "credentials" ? <ChannelCredentialsManager scope={scope} testMemberId={context.permissions.includes("workbench.ai.connection.test")?context.effectiveMemberId??undefined:undefined} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />
+   {area === "enterprise" ? <EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials||channels?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />
+     : area === "credentials" ? <ChannelCredentialsManager scope={scope} testMemberId={context.permissions.includes("workbench.ai.connection.test")?context.effectiveMemberId??undefined:undefined} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)}
+       canManageKeys={credentials} manageChannelsMemberId={channels?context.effectiveMemberId??undefined:undefined}
+       onSelectModel={configure&&published.data&&!published.isError?(connection,reference)=>{
+        const current=published.data?.revision;
+        const selection=draft?.selection??current?.payload.sharedModels??defaults;
+        setDraft({expectedRevision:current?.id??"NONE",selection:{...selection,text:reference,defaultChannel:connection.channel}});
+        openSettings({area:"enterprise",category:"text"},"text");
+       }:undefined} />
        : <OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />}
    {area !== "credentials" && <details className={styles.help}>
      <summary>AI 点数如何结算</summary>
@@ -302,7 +312,10 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
                          const currentLabel = publishedRef && sameReference(publishedRef, model.reference) ? "当前已发布 · " : "";
                          const readiness = model.ready ? "模型配置符合条件" : reasonLabels[model.reason??""] ?? "尚未就绪";
                          const suffix = sameName ? `（${currentLabel}${readiness}）` : model.ready ? "" : "（尚未就绪）";
-                         return <option key={value} value={value}>{model.model} · {model.channel}{suffix}</option>;
+                         const stopped=model.reason==="CHANNEL_DISABLED"||model.reason==="MODEL_BINDING_DISABLED";
+                         const retain=!!publishedRef&&sameReference(publishedRef,model.reference);
+                         const duplicateChannel=!!model.channelName&&candidates.some(other=>other!==model&&other.model===model.model&&other.channelName===model.channelName);
+                         return <option key={value} value={value} disabled={stopped&&!retain}>{model.channelName?model.channelName+" · "+model.model:model.model+" · "+model.channel}{duplicateChannel?`（编号末尾 ${model.reference.id.slice(-8)}）`:""}{suffix}</option>;
                        })}
                      </select>
                    </label>

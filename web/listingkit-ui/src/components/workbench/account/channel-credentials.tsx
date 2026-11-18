@@ -10,6 +10,7 @@ import {useResourcePending} from "../resources/resource-pending";
 import type { ModelOption } from "@/lib/contracts/model-route-pricing";
 import {AccountDialog} from "./account-dialog";
 import {ChannelModelQuery} from "./channel-model-query";
+import {ManagedModelChannels} from "./managed-model-channels";
 import styles from "./model-route-pricing.module.css";
 
 const definiteCodes=new Set(["INVALID","FORBIDDEN","NOT_FOUND","CONFLICT","AUTHENTICATION_REQUIRED","PERMISSION_DENIED","ORGANIZATION_ACCESS_REVOKED","ORGANIZATION_ACCESS_DENIED","ORGANIZATION_SUSPENDED","ORGANIZATION_SELECTION_REQUIRED","ORGANIZATION_CONTEXT_CHANGED","IDENTITY_CONTEXT_CHANGED"]);
@@ -25,14 +26,17 @@ type ChannelSettingsProps = {
  disabled?:boolean;
  unconfirmed?:boolean;
  onSaved?:()=>Promise<void>;
+ manageChannelsMemberId?:string;
+ canManageKeys?:boolean;
+ onSelectModel?:(channel:ManagedConnection,reference:{id:string;version:string})=>void;
 };
 
 export function ChannelCredentialsManager(props:ChannelSettingsProps){
  return <ChannelCredentialsContent key={JSON.stringify([props.scope,props.testMemberId,props.focusModel?.reference])} {...props}/>;
 }
 
-function ChannelCredentialsContent({scope,testMemberId,focusModel,disabled=false,unconfirmed=false,onSaved}:ChannelSettingsProps){
- const query=useQuery({queryKey:["model-services",scope,"connections"],queryFn:async({signal})=>{const value=await modelRouteRequest(scope,"/connections",credentialConnections,{signal});if(value.organizationId!==scope.organizationId)throw new ModelRouteError("ORGANIZATION_CONTEXT_CHANGED");return value},enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
+function ChannelCredentialsContent({scope,testMemberId,focusModel,disabled=false,unconfirmed=false,onSaved,manageChannelsMemberId,canManageKeys=true,onSelectModel}:ChannelSettingsProps){
+ const query=useQuery({queryKey:["model-services",scope,"connections"],queryFn:async({signal})=>{const value=await modelRouteRequest(scope,"/connections",credentialConnections,{signal});if(value.organizationId!==scope.organizationId)throw new ModelRouteError("ORGANIZATION_CONTEXT_CHANGED");return value},enabled:!unconfirmed&&canManageKeys,retry:false,gcTime:0,refetchOnWindowFocus:false});
  const pending=useResourcePending({expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId},["model-route-pricing","credentials","v1"],credentialPending,{storage:"session",maxLength:2048});
  const [dialog,setDialog]=useState<{connection:ManagedConnection;action:"set-key"|"disable"}|null>(null);
  const [busy,setBusy]=useState(false),[failure,setFailure]=useState(""),[receipt,setReceipt]=useState<CredentialReceipt|null>(null);
@@ -63,7 +67,8 @@ function ChannelCredentialsContent({scope,testMemberId,focusModel,disabled=false
    // The Key stays in this one request body, outside Query/mutation persistence.
    pending.persist(original);
    try{
-    const result=await modelRouteRequest(scope,"/connections/"+encodeURIComponent(original.connectionId)+"/commands",credentialReceipt,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":original.key},body:JSON.stringify(input),signal});
+    const body=connection.registration?{...input,expectedMemberId:manageChannelsMemberId}:input;
+    const result=await modelRouteRequest(scope,"/connections/"+encodeURIComponent(original.connectionId)+"/commands",credentialReceipt,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":original.key},body:JSON.stringify(body),signal});
     check(result.receipt,original);
     if(active.current){pending.clear(original);setReceipt(result.receipt);setDialog(null);await (onSaved?onSaved():query.refetch())}
    }catch(error){
@@ -82,11 +87,14 @@ function ChannelCredentialsContent({scope,testMemberId,focusModel,disabled=false
   });
  }
  return <>
-  {!unconfirmed&&<Card className={styles.panel}><h2 ref={heading} tabIndex={-1}>渠道凭据</h2><p>一份渠道 Key 可供下面列出的多个模型共用。保存时不会调用模型或扣点。</p>
+  {manageChannelsMemberId&&!unconfirmed&&<ManagedModelChannels scope={scope} memberId={manageChannelsMemberId} testMemberId={testMemberId}
+   focusModelId={focusModel?.reference.id} blocked={locked||!!dialog} onSelect={onSelectModel} onSaved={()=>onSaved?onSaved():query.refetch()}
+   onCredentials={(connection,action)=>{if(canManageKeys&&query.data?.canManage)setDialog({connection,action})}} />}
+  {!unconfirmed&&canManageKeys&&<Card className={styles.panel}><h2 ref={heading} tabIndex={-1}>渠道凭据</h2><p>一份渠道 Key 可供下面列出的多个模型共用。保存时不会调用模型或扣点。</p>
    {query.isPending?<p>正在读取渠道连接…</p>:query.isError?<p role="alert">渠道连接读取失败，暂不可保存。</p>:<>
     {!query.data.canManage?<p>当前仅可查看连接状态。如需录入或更新 Key，请联系系统维护人员。</p>:null}
     {focusModel&&query.data.connections.length>0&&!targetId&&<p>暂时无法定位到单个渠道，请从以下连接中核对。</p>}
-    {!query.data.connections.length?<p>当前企业暂无已登记渠道，请联系系统维护人员。</p>:query.data.connections.map(connection=>{
+    {!query.data.connections.length?<p>{manageChannelsMemberId?"暂无由维护人员登记的渠道。":"当前企业暂无已登记渠道，请联系系统维护人员。"}</p>:query.data.connections.map(connection=>{
      const queryTarget=query.data.modelQueryTargets?.find(t=>t.connectionId===connection.connectionId);
      const showModelQuery=testMemberId&&connection.provider==="openai"&&connection.channel==="openai-direct"&&connection.models.some(m=>m.category==="text"&&m.model===openAIQueryModel);
      return <section className={styles.history} key={connection.connectionId}>
@@ -122,7 +130,7 @@ function CredentialDialog({connection,action,busy,locked,onClose,onSave}:{connec
   setError("");if(keyInput.current)keyInput.current.value="";
   void onSave(parsed.data);
  }}>
-  <p>连接：{connection.connectionId}。此操作影响该连接下全部模型。</p>
+  <p>渠道：{connection.registration?.name??connection.connectionId}。此操作影响该渠道下全部模型。</p>
   {action==="set-key"?<>{connection.revision==="0"?<label className={styles.field}>账号备注<input ref={accountInput} maxLength={128} required autoComplete="off" disabled={locked}/></label>:<p>账号备注：{connection.account}</p>}<label className={styles.field}>新的渠道 Key<input ref={keyInput} type="password" required maxLength={4096} autoComplete="new-password" spellCheck={false} disabled={locked}/></label><p>Key 只输入，不回显、不导出。保存不会自动选模型、启用 AI、测试连接或扣点。</p><p>轮换只更新本系统保存的 Key，不会替你撤销厂商旧 Key；已通过最后发送门禁的原一次在途调用可能完成。</p></>:<p>停用会阻止后续准入；原记录、在途调用、待确认结果和费用预留均保留，不删除或自动重发。</p>}
   {error?<p role="alert" className={styles.error}>{error}</p>:null}
   <div className={styles.actions}><Button type="button" variant="outline" onClick={onClose}>{busy?"关闭":"取消"}</Button><Button type="submit" disabled={locked}>{busy?"正在保存…":action==="disable"?"确认停用":"确认保存 Key"}</Button></div>

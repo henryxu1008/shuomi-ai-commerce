@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 
 	"task-processor/internal/aicapability"
 )
@@ -90,6 +91,7 @@ func (s SharedModelSelection) CategoryDigest(category ModelCategory) (string, er
 // applicable price/FX and conservative bounds. The service never infers these
 // from a model name, a saved choice or caller-provided readiness.
 type ModelQualification struct {
+	ChannelName          string                               `json:"channelName,omitempty"`
 	OrganizationID       string                               `json:"organizationId"`
 	Category             ModelCategory                        `json:"category"`
 	Reference            ModelBindingReference                `json:"reference"`
@@ -110,13 +112,14 @@ type SharedCategoryReader interface {
 }
 
 type ModelOption struct {
-	Category  ModelCategory                     `json:"category"`
-	Reference ModelBindingReference             `json:"reference"`
-	Channel   string                            `json:"channel"`
-	Model     string                            `json:"model"`
-	Ready     bool                              `json:"ready"`
-	Reason    string                            `json:"reason,omitempty"`
-	Price     *aicapability.OfficialModelTariff `json:"price,omitempty"`
+	ChannelName string                            `json:"channelName,omitempty"`
+	Category    ModelCategory                     `json:"category"`
+	Reference   ModelBindingReference             `json:"reference"`
+	Channel     string                            `json:"channel"`
+	Model       string                            `json:"model"`
+	Ready       bool                              `json:"ready"`
+	Reason      string                            `json:"reason,omitempty"`
+	Price       *aicapability.OfficialModelTariff `json:"price,omitempty"`
 }
 type SharedModelOptions interface {
 	Options(context.Context, string) ([]ModelOption, error)
@@ -223,9 +226,20 @@ func (s *SharedModelService) Publish(ctx context.Context, org, actor, key string
 	// Repository.Publish checks the original receipt before invoking build,
 	// then commits one complete payload under its existing CAS transaction.
 	cmd := Command{Scope: scope, ActorID: actor, Key: key, Fingerprint: fingerprint, Input: Input{ExpectedRevision: input.ExpectedRevision}}
-	return s.Repository.Publish(ctx, cmd, func(_ CredentialReader, _ string) (Payload, error) {
+	return s.Repository.Publish(ctx, cmd, func(transaction CredentialReader, _ string) (Payload, error) {
 		if s.Catalog == nil {
 			return Payload{}, ErrUnavailable
+		}
+		if IsManagedBindingID(input.Selection.Text.ID) {
+			locker, ok := transaction.(interface {
+				LockManagedSelection(context.Context, string, string) error
+			})
+			if !ok {
+				return Payload{}, ErrUnavailable
+			}
+			if err := locker.LockManagedSelection(ctx, org, input.Selection.Text.ID); err != nil {
+				return Payload{}, err
+			}
 		}
 		options, err := s.Catalog.Options(ctx, org)
 		if err != nil {
@@ -236,6 +250,25 @@ func (s *SharedModelService) Publish(ctx context.Context, org, actor, key string
 			found := false
 			for _, option := range options {
 				if option.Category == category && option.Reference == ref {
+					if option.Reason == "MODEL_BINDING_DISABLED" || option.Reason == "CHANNEL_DISABLED" {
+						reader, ok := transaction.(interface {
+							Current(context.Context, Scope) (Revision, error)
+						})
+						if !ok {
+							return Payload{}, ErrUnavailable
+						}
+						current, err := reader.Current(ctx, scope)
+						if errors.Is(err, ErrNotFound) {
+							return Payload{}, ErrNeedsConfiguration
+						}
+						if err != nil || current.Payload.SharedModels == nil {
+							return Payload{}, ErrUnavailable
+						}
+						previous, err := current.Payload.SharedModels.reference(category)
+						if err != nil || previous != ref {
+							return Payload{}, ErrNeedsConfiguration
+						}
+					}
 					found = true
 					break
 				}

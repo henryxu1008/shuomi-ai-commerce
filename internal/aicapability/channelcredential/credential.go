@@ -16,12 +16,13 @@ import (
 )
 
 var (
-	ErrInvalid        = errors.New("invalid channel credential")
-	ErrUnavailable    = errors.New("channel credential unavailable")
-	ErrNotFound       = errors.New("channel credential not found")
-	ErrConflict       = errors.New("channel credential command conflict")
-	ErrChanged        = errors.New("channel credential changed")
-	ErrOutcomeUnknown = errors.New("channel credential commit outcome unknown")
+	ErrInvalid           = errors.New("invalid channel credential")
+	ErrUnavailable       = errors.New("channel credential unavailable")
+	ErrNotFound          = errors.New("channel credential not found")
+	ErrConflict          = errors.New("channel credential command conflict")
+	ErrChanged           = errors.New("channel credential changed")
+	ErrOutcomeUnknown    = errors.New("channel credential commit outcome unknown")
+	ErrRegistrationLimit = errors.New("enterprise channel registration limit reached")
 )
 
 type Metadata struct {
