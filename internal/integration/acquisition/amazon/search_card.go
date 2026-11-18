@@ -11,6 +11,7 @@ type USSearchCard struct {
 	ASIN      string
 	MainImage string
 	PriceUSD  float64
+	node      *html.Node
 }
 
 // ParseUSSearchCards keeps a search image and displayed price on the same
@@ -26,7 +27,7 @@ func ParseUSSearchCards(raw string, limit int) ([]USSearchCard, error) {
 			return n.Type == html.ElementNode && n.Data == "img" && hasClass(n, "s-image") &&
 				inSearchCard(n, card.node)
 		})
-		result := USSearchCard{ASIN: card.ASIN, PriceUSD: usSearchPrice(card.node)}
+		result := USSearchCard{ASIN: card.ASIN, PriceUSD: usSearchPrice(card.node), node: card.node}
 		if image != nil {
 			result.MainImage = attr(image, "src")
 		}
