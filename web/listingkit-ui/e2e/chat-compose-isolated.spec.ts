@@ -101,8 +101,8 @@ test("authoring confirms the quote and edited save, then recovers both original 
   const store = (await page.getByRole("button",{name:"选择店铺",exact:true}).boundingBox())!;
   const skillButton = page.getByRole("button",{name:"选择技能",exact:true});
   const skill = (await skillButton.boundingBox())!;
-  expect(skill.x).toBe(store.x);
-  expect(skill.y).toBeGreaterThanOrEqual(store.y+store.height);
+  expect(skill.x).toBeGreaterThanOrEqual(store.x+store.width);
+  expect(Math.abs(skill.y-store.y)).toBeLessThan(1);
   await expect(page.getByRole("button",{name:"项目操作",exact:true})).toBeVisible();
   await skillButton.click();
   await page.getByRole("dialog",{name:"选择技能"}).getByRole("button",{name:/创建技能/}).click();

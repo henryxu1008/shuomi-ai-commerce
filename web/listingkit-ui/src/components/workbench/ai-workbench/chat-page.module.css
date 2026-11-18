@@ -34,7 +34,7 @@
 .composeFooter > button:not(:last-child), .composeFooter .contextControls > button, .composeFooter .contextControls > div > button { background: var(--secondary); border-color: transparent; color: var(--foreground); box-shadow: none; }
 .composeFooter .contextControls button:hover:not(:disabled), .composeFooter > button:hover:not(:last-child):not(:disabled) { background: var(--accent); color: var(--accent-foreground); }
 .composeFooter > button:last-child { flex-shrink: 0; min-width: 2.25rem; min-height: 2.25rem; }
-.contextControls { display: grid; justify-items: start; gap: .5rem; min-width: 0; }
+.contextControls { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; min-width: 0; }
 .composeFooter > .contextControls { flex: 1 1 auto; }
 .selectedSkill { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; max-width: 100%; padding: .5rem .625rem; border: 1px solid var(--border); border-radius: .75rem; }
 .selectedSkill > span { display: grid; gap: .125rem; padding-inline: .25rem; font-size: .8125rem; font-weight: 600; }
@@ -55,7 +55,7 @@
 .createAction { display: grid; gap: 1.25rem; justify-items: start; }
 .createAction > label { width: 100%; }
 .createAction > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; width: 100%; }
-.createAction > .contextControls { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+.createAction > .contextControls { display: flex; flex-wrap: wrap; gap: .5rem; }
 .createAction label { display: grid; gap: .5rem; min-width: 0; color: var(--foreground); font-size: var(--body-text-size); }
 .createAction select { width: 100%; min-width: 0; min-height: 2.5rem; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--background); color: var(--foreground); }
 .createAction select:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
