@@ -242,6 +242,44 @@ it("starts a role edit with the member's current role", async () => {
   render(page());
   await userEvent.setup().click(await screen.findByRole("button",{name:"查看详情"}));
   expect(await screen.findByRole("combobox",{name:"新的成员角色"})).toHaveValue("sumi_role_e87cb45c05ad389dff6dea6e7bf581ee_02");
+  expect(screen.getByRole("button", { name: "保存角色" })).toBeDisabled();
+});
+it("previews a replacement role with the enterprise's permission labels", async () => {
+  const original = roleDefinitions[1];
+  const target = { ...roleDefinitions[2], name: "渠道管理", modules: ["ai-channels"] };
+  const data = {
+    ...result,
+    roleDefinitions: [roleDefinitions[0], original, target],
+    canManage: true,
+    assignableRoles: [original.id, target.id],
+    items: [{ ...result.items[0], canChangeRole: true }],
+  };
+  const catalog = {
+    schemaVersion: "enterprise-roles-v1",
+    userId: "actor",
+    organizationId: "org",
+    items: data.roleDefinitions,
+    catalog: [
+      { id: "members", group: "我的账户", label: "成员与权限", available: true, permissions: [] },
+      { id: "ai-channels", group: "我的账户", label: "管理模型渠道", available: true, permissions: ["workbench.ai.channels.manage"] },
+    ],
+    canManage: true,
+    canCreate: true,
+    remainingSlots: 62,
+  };
+  vi.stubGlobal("fetch", vi.fn(url => Promise.resolve(Response.json(String(url).endsWith("/roles") ? catalog : data))));
+  const user = userEvent.setup();
+  render(page());
+  await user.click(await screen.findByRole("button", { name: "查看详情" }));
+  const select = await screen.findByRole("combobox", { name: "新的成员角色" });
+  await user.selectOptions(select, target.id);
+  const preview = await screen.findByRole("list", { name: "角色包含的功能" });
+  expect(within(preview).getByText("管理模型渠道")).toBeVisible();
+  expect(select).toHaveAccessibleDescription("保存后，所选角色会替换当前角色。");
+  expect(screen.getByRole("button", { name: "保存角色" })).toBeEnabled();
+  await user.selectOptions(select, original.id);
+  expect(screen.queryByRole("list", { name: "角色包含的功能" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "保存角色" })).toBeDisabled();
 });
 it.each([
   ["mutation",401,"AUTHENTICATION_REQUIRED"], ["mutation",403,"PERMISSION_DENIED"], ["mutation",409,"ORGANIZATION_CONTEXT_CHANGED"],
@@ -263,6 +301,7 @@ it.each([
   expect(await screen.findByText("成员甲")).toBeVisible();
   if(route==="mutation") {
     await user.click(screen.getByRole("button",{name:"查看详情"}));
+    await user.selectOptions(await screen.findByRole("combobox", { name: "新的成员角色" }), roleDefinitions[2].id);
     await user.click(await screen.findByRole("button",{name:"保存角色"}));
   } else {
     await act(async()=>{

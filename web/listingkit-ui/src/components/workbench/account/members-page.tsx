@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useWorkbenchContext } from "@/components/providers/workbench-context-provider";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ import styles from "./members.module.css";
 import {InvitationsPanel} from "./invitations";
 import { AccountDialog } from "./account-dialog";
 import { RolePermissions } from "./role-permissions";
-import { EnterpriseRole } from "@/lib/api/enterprise-roles";
+import { EnterpriseRole, getEnterpriseRoles } from "@/lib/api/enterprise-roles";
 import {MemberStats,PermissionScope,RecentMemberActivity} from "./member-facts";
 
 const displayRoles = (definitions: EnterpriseRole[]) => Object.fromEntries(definitions.map(role => [role.id, role.name]));
@@ -174,14 +174,136 @@ function MemberDetail({ id, scope, disabled, onClose, onSubmit, onAuthorityFailu
   if (detail.isFetching || detail.isPending) return <ConsoleState kind="loading" title="正在读取成员详情" />;
   if (detail.isError || detail.data.items.length !== 1) return <MemberFailure code={detail.error instanceof MemberError ? detail.error.code : "MEMBER_NOT_FOUND"} />;
   const member = detail.data.items[0];
-  const definitions=detail.data.roleDefinitions, roles=detail.data.assignableRoles;
-  return <AccountDialog title="成员详情" drawer onClose={onClose}><section className={styles.detail}><h3>{member.displayName || member.loginName}</h3><p>{member.loginName || "未提供账号"}</p><p>{member.roles.map(role=>displayRoles(definitions)[role] ?? role).join("、")}</p><PermissionScope permissions={member.permissions}/><RecentMemberActivity scope={scope} userId={member.userId}/><dl className={styles.facts}><div><dt>成员 ID</dt><dd>{member.id}</dd><dt>用户 ID</dt><dd>{member.userId}</dd></div><div><dt>加入时间</dt><dd>{new Date(member.createdAt).toLocaleString()}</dd></div><div><dt>最近变更</dt><dd>{new Date(member.changedAt).toLocaleString()}</dd></div></dl>
-    {member.canChangeRole && <form onSubmit={event => { event.preventDefault(); onSubmit({ key: crypto.randomUUID(), kind: "role", target: id, input: { role: new FormData(event.currentTarget).get("role") as MemberRole, expectedVersion: member.observedVersion } }); }}><label>新的成员角色<RoleSelect name="role" roles={roles} definitions={definitions} initialRole={member.roles.length === 1 ? member.roles[0] : ""} /></label><Button disabled={disabled} type="submit">保存角色</Button></form>}
-    {member.canRemove && <div className={styles.removal}><label><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={disabled} /> 确认移除该成员在当前企业项目中的访问权限</label><Button variant="destructive" disabled={disabled || !confirmed} onClick={() => onSubmit({ key: crypto.randomUUID(), kind: "remove", target: id, input: { expectedVersion: member.observedVersion } })}>移除成员</Button></div>}
-    {!member.canChangeRole && !member.canRemove && <p>{detail.data.canManage ? "此成员在应用内仅可查看。角色与访问权限需由具有相应权限的管理员通过 ZITADEL 原生管理端维护。" : "当前成员仅可查看。"}</p>}
-  </section></AccountDialog>;
+  const definitions = detail.data.roleDefinitions;
+  const roleNames = displayRoles(definitions);
+  return (
+    <AccountDialog title="成员详情" drawer onClose={onClose}>
+      <section className={styles.detail}>
+        <div className={styles.memberIdentity}>
+          <h3>{member.displayName || member.loginName}</h3>
+          <p>{member.loginName || "未提供账号"}</p>
+        </div>
+        <div className={styles.currentRole}>
+          <p>当前角色</p>
+          <strong>{member.roles.map(role => roleNames[role] ?? role).join("、") || "未授予角色"}</strong>
+          <PermissionScope permissions={member.permissions} />
+        </div>
+        {member.canChangeRole && (
+          <MemberRoleForm
+            key={member.observedVersion}
+            scope={scope}
+            currentRole={member.roles.length === 1 ? member.roles[0] : ""}
+            roles={detail.data.assignableRoles}
+            definitions={definitions}
+            disabled={disabled}
+            onAuthorityFailure={onAuthorityFailure}
+            onSave={role => onSubmit({
+              key: crypto.randomUUID(),
+              kind: "role",
+              target: id,
+              input: { role, expectedVersion: member.observedVersion },
+            })}
+          />
+        )}
+        {!member.canChangeRole && !member.canRemove && (
+          <p className={styles.readOnlyNote}>{detail.data.canManage ? "此成员在应用内仅可查看。角色与访问权限需由具有相应权限的管理员通过 ZITADEL 原生管理端维护。" : "当前成员仅可查看。"}</p>
+        )}
+        <details className={styles.memberRecord}>
+          <summary>成员记录</summary>
+          <dl className={styles.facts}>
+            <div><dt>加入时间</dt><dd><time dateTime={member.createdAt}>{new Date(member.createdAt).toLocaleString()}</time></dd></div>
+            <div><dt>最近变更</dt><dd><time dateTime={member.changedAt}>{new Date(member.changedAt).toLocaleString()}</time></dd></div>
+            <div><dt>最近操作</dt><dd><RecentMemberActivity scope={scope} userId={member.userId} /></dd></div>
+            <div><dt>成员 ID</dt><dd>{member.id}</dd></div>
+            <div><dt>用户 ID</dt><dd>{member.userId}</dd></div>
+          </dl>
+        </details>
+        {member.canRemove && (
+          <details className={styles.memberRecord}>
+            <summary>移除成员</summary>
+            <div className={styles.removal}>
+              <label>
+                <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={disabled} />
+                确认移除该成员在当前企业项目中的访问权限
+              </label>
+              <Button variant="destructive" disabled={disabled || !confirmed} onClick={() => onSubmit({
+                key: crypto.randomUUID(), kind: "remove", target: id,
+                input: { expectedVersion: member.observedVersion },
+              })}>移除成员</Button>
+            </div>
+          </details>
+        )}
+      </section>
+    </AccountDialog>
+  );
 }
-function RoleSelect({ roles, definitions, name, initialRole }: { roles: MemberRole[]; definitions: EnterpriseRole[]; name: string; initialRole?: string }) { return <select name={name} className={styles.select} defaultValue={initialRole} required>{initialRole === "" && <option value="" disabled>请选择角色</option>}{roles.map(role => <option key={role} value={role}>{displayRoles(definitions)[role] ?? role}</option>)}</select>; }
+
+function MemberRoleForm({ scope, currentRole, roles, definitions, disabled, onAuthorityFailure, onSave }: {
+  scope: MemberScope;
+  currentRole: string;
+  roles: MemberRole[];
+  definitions: EnterpriseRole[];
+  disabled: boolean;
+  onAuthorityFailure: (failure: unknown) => void;
+  onSave: (role: MemberRole) => void;
+}) {
+  const id = useId();
+  const [selectedRole, setSelectedRole] = useState(currentRole);
+  const replacement = roles.find(role => role === selectedRole && role !== currentRole);
+  const definition = definitions.find(role => role.id === replacement);
+  const catalog = useQuery({
+    queryKey: ["enterprise-roles", scope.expectedUserId, scope.expectedOrganizationId],
+    queryFn: async ({ signal }) => {
+      try {
+        return await getEnterpriseRoles({ ...scope, signal });
+      } catch (failure) {
+        if (!signal.aborted) onAuthorityFailure(failure);
+        throw failure;
+      }
+    },
+    enabled: !!definition?.modules.length,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+  const roleNames = displayRoles(definitions);
+  const preview = catalog.data?.items.find(role => role.id === replacement);
+  const included = catalog.data?.catalog.filter(module => preview?.modules.includes(module.id)) ?? [];
+  const missingCurrentRole = !roles.some(role => role === currentRole);
+
+  return (
+    <form className={styles.roleEditor} onSubmit={event => {
+      event.preventDefault();
+      if (!disabled && replacement) onSave(replacement);
+    }}>
+      <div className={styles.roleField}>
+        <label htmlFor={id}>新的成员角色</label>
+        <select id={id} className={styles.select} value={selectedRole} disabled={disabled} onChange={event => setSelectedRole(event.target.value)} aria-describedby={`${id}-effect`}>
+          {missingCurrentRole && (
+            <option value={currentRole} disabled>
+              {currentRole ? (roleNames[currentRole] ?? currentRole) : "请选择角色"}
+            </option>
+          )}
+          {roles.map(role => <option key={role} value={role}>{roleNames[role] ?? role}</option>)}
+        </select>
+        <p id={`${id}-effect`}>
+          {currentRole ? "保存后，所选角色会替换当前角色。" : "保存后，成员将拥有所选角色。"}
+        </p>
+      </div>
+      {definition && (
+        <div className={styles.rolePreview} aria-live="polite">
+          <strong>{definition.name}</strong>
+          {included.length > 0 ? (
+            <ul aria-label="角色包含的功能">{included.map(module => <li key={module.id}>{module.label}</li>)}</ul>
+          ) : (
+            <p>{definition.system ? "包含企业管理员的系统权限。" : !definition.modules.length || (preview && preview.modules.length === 0) ? "角色尚未配置可用功能。" : catalog.isPending ? "正在读取角色包含的功能…" : "暂时无法读取角色包含的功能。"}</p>
+          )}
+        </div>
+      )}
+      <Button className={styles.saveRole} disabled={disabled || !replacement} type="submit">保存角色</Button>
+    </form>
+  );
+}
 function MemberFailure({ code }: { code: string }) {
   const messages: Record<string, string> = { AUTHENTICATION_REQUIRED: "登录已失效，请重新登录", IDENTITY_CONTEXT_CHANGED: "登录身份已变化", ORGANIZATION_SELECTION_REQUIRED: "请选择当前企业", ORGANIZATION_CONTEXT_CHANGED: "当前企业已变化", PERMISSION_DENIED: "当前没有成员管理权限", MEMBER_NOT_FOUND: "当前无法读取该成员或操作", MEMBER_OPERATION_CONFLICT: "成员状态或操作已变化，请核实原操作后刷新", DEADLINE_EXCEEDED: "请求超时，写入结果需核实", OPERATION_STORAGE_UNAVAILABLE: "无法保存本次操作标识，请检查浏览器存储", INVALID_UPSTREAM_RESPONSE: "成员服务响应无效" };
   return <ConsoleState kind="error" title={messages[code] ?? "成员服务暂不可用"}>本次未取得完整结果。请确认登录和当前企业后重试；已有操作请沿原标识核实。</ConsoleState>;
