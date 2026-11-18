@@ -1,6 +1,6 @@
 # 35444 店铺查询与语音界面：接线及更新前检查草案
 
-状态：准备中，**不可执行、不可用于更新原实例**。范围仅限用户明确授权的本地试用实例及其保留数据；不授权其他环境、模型调用或原预留释放。依据 [隔离保留方案](../architecture/chat-retained-1260-trial.md) 和 [店铺查询合同](../architecture/chat-visible-store-query.md)。本文件不改变现有领域 owner、计费或授权合同。
+状态：准备中，**不可执行、不可用于更新原实例**。范围仅限用户明确授权的本地试用实例及其保留数据；不授权其他环境、模型调用或原预留释放。依据 [隔离保留方案](../architecture/chat-retained-1260-trial.md) 和 [店铺查询合同](../architecture/domains/workbench/chat-visible-store-query.md)。本文件不改变现有领域 owner、计费或授权合同。
 
 ## 目标与运行边界
 
