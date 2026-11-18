@@ -199,7 +199,7 @@ type currentApplicationOptions struct {
 	runtimeContext               context.Context
 	commercialOwnerDB            *gorm.DB
 	moneyOwnerDB                 *gorm.DB
-	walletTopUpRecoveryStop      *func()
+	billingRecoveryStop          *func()
 	referralDB                   *gorm.DB
 	productAcquisitionDB         *gorm.DB
 	imageAgentDB                 *gorm.DB
@@ -269,9 +269,9 @@ func WithMoneyOwnerDatabase(db *gorm.DB) CurrentApplicationOption {
 	return func(options *currentApplicationOptions) { options.moneyOwnerDB = db }
 }
 
-// WithWalletTopUpRecoveryStop lets the caller stop recovery before closing its pools.
-func WithWalletTopUpRecoveryStop(stop *func()) CurrentApplicationOption {
-	return func(options *currentApplicationOptions) { options.walletTopUpRecoveryStop = stop }
+// WithCommercialBillingRecoveryStop lets the caller stop recovery before closing its pools.
+func WithCommercialBillingRecoveryStop(stop *func()) CurrentApplicationOption {
+	return func(options *currentApplicationOptions) { options.billingRecoveryStop = stop }
 }
 
 // WithBrowserCapture enables the #399 exact-click browser capture ingress. It
@@ -1634,26 +1634,26 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if marketRuntime != nil && supplied.pod != nil {
 		*supplied.pod.Worker = marketRuntime.worker
 	}
-	if resourceRecovery != nil {
+	if resourceRecovery != nil || topUpRecovery != nil {
 		runtimeContext := supplied.runtimeContext
 		if runtimeContext == nil {
 			runtimeContext = context.Background()
 		}
-		startCommercialRecoveryLoop(runtimeContext, server, resourceRecovery, 30*time.Second, "resource purchase", logger)
+		recoveryContext, cancel := context.WithCancel(runtimeContext)
+		server.RegisterOnShutdown(cancel)
+		stopResources := startCommercialRecoveryLoop(recoveryContext, server, resourceRecovery, 30*time.Second, "resource purchase", logger)
+		stopTopUps := startCommercialRecoveryLoop(recoveryContext, server, topUpRecovery, 30*time.Second, "wallet top-up", logger)
+		if supplied.billingRecoveryStop != nil {
+			*supplied.billingRecoveryStop = func() {
+				cancel()
+				stopResources()
+				stopTopUps()
+			}
+		}
 	}
 	if referralMaturity != nil {
 		// Referral maturity remains independent of channel recovery.
 		startReferralMaturityLoop(server, referralMaturity, time.Hour, logger)
-	}
-	if topUpRecovery != nil {
-		runtimeContext := supplied.runtimeContext
-		if runtimeContext == nil {
-			runtimeContext = context.Background()
-		}
-		stop := startCommercialRecoveryLoop(runtimeContext, server, topUpRecovery, 30*time.Second, "wallet top-up", logger)
-		if supplied.walletTopUpRecoveryStop != nil {
-			*supplied.walletTopUpRecoveryStop = stop
-		}
 	}
 	if consumerCharges != nil || modelPointRecovery != nil {
 		runtimeContext := supplied.runtimeContext
