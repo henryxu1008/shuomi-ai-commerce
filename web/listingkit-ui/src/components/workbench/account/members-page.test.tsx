@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { createRequire } from "node:module";
@@ -148,6 +148,75 @@ it("does not report an unread retained receipt as UNKNOWN after returning to the
   expect(screen.getByRole("button",{name:new RegExp(unknown)})).toHaveTextContent("待核实");
   expect(sessionStorage.getItem('membership.pending:["actor","org"]')).toBe(retained);
   expect(calls.mock.calls.every(([,init])=>init.method === "GET")).toBe(true);
+});
+it.each(["acknowledged", "rejected", "unknown", "unreadable"])("previews a role while loading a retained %s receipt and only unlocks writes for a terminal result", async status => {
+  const first = "4841d296-ef14-4c16-8d25-a7667e534feb";
+  const second = "ea0390e6-6fd0-4834-8e9c-277caf59c122";
+  const roles = [roleDefinitions[1].id, roleDefinitions[0].id];
+  const member = { ...result.items[0], canChangeRole: true, canRemove: true };
+  const retained = JSON.stringify([first, second].map(key => ({
+    key, kind: "role", target: member.id, input: { role: roles[0], expectedVersion: member.observedVersion },
+  })));
+  sessionStorage.setItem('membership.pending:["actor","org"]', retained);
+  const acknowledged = { id: member.id, at: "2026-09-27T00:00:00Z" };
+  const receipt = {
+    schemaVersion: "membership-operation-v1", userId: "actor", organizationId: "org",
+    id: first, kind: "role", step: "update_authorization", status: "acknowledged",
+    targetUserId: member.userId, authorizationId: member.id, userEvidence: "",
+    userAcknowledgment: null, acknowledgment: acknowledged, observation: "unavailable", observed: null,
+  };
+  let finishRead!: (response: Response) => void;
+  const calls = vi.fn((url: string, init?: RequestInit) => {
+    if (init?.method !== "GET") return Promise.resolve(Response.json({}, { status: 405 }));
+    if (url.endsWith(first)) return Promise.resolve(Response.json(receipt));
+    if (url.endsWith(second)) return new Promise<Response>(resolve => { finishRead = resolve; });
+    if (url.includes("member-operations")) return Promise.resolve(Response.json({
+      schemaVersion: "membership-operations-v1", userId: "actor", organizationId: "org", items: [], next: "",
+    }));
+    return Promise.resolve(Response.json({ ...result, canManage: true, assignableRoles: roles, items: [member] }));
+  });
+  vi.stubGlobal("fetch", calls);
+  render(page());
+  const user = userEvent.setup();
+
+  expect(await screen.findByRole("heading", { name: "操作已获服务确认" })).toBeVisible();
+  expect(screen.getByText("尚未读取回执")).toBeVisible();
+  expect(finishRead).toBeUndefined();
+  await user.click(screen.getByRole("button", { name: "查看详情" }));
+  const dialog = await screen.findByRole("dialog", { name: "成员详情" });
+  const select = within(dialog).getByRole("combobox", { name: "新的成员角色" });
+  const save = within(dialog).getByRole("button", { name: "保存角色" });
+  expect(select).toBeEnabled();
+  await user.selectOptions(select, roles[1]);
+  expect(within(dialog).getByText("包含企业管理员的系统权限。")).toBeVisible();
+  expect(save).toBeDisabled();
+  await user.click(within(dialog).getByText("移除成员", { selector: "summary" }));
+  const removeConfirmation = within(dialog).getByRole("checkbox", { name: /确认移除该成员/ });
+  expect(removeConfirmation).toBeDisabled();
+  await waitFor(() => expect(finishRead).toBeTypeOf("function"));
+
+  const nextReceipt = status === "unreadable"
+    ? Response.json({ code: "MEMBER_NOT_FOUND", message: "", requestId: "", fieldErrors: [] }, { status: 404 })
+    : Response.json({ ...receipt, id: second, status, acknowledgment: status === "acknowledged" ? acknowledged : null });
+  await act(async () => finishRead(nextReceipt));
+  const terminal = status === "acknowledged" || status === "rejected";
+  const notice = "上一项成员操作尚未确认，暂不能保存角色。";
+  if (terminal) {
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(removeConfirmation).toBeEnabled();
+    expect(within(dialog).queryByText(notice)).not.toBeInTheDocument();
+  } else {
+    if (status === "unknown") {
+      expect(await screen.findByRole("button", { name: new RegExp(`${second}.*待核实`) })).toBeVisible();
+    }
+    expect(within(dialog).getByText(notice)).toBeVisible();
+    expect(save).toBeDisabled();
+    expect(removeConfirmation).toBeDisabled();
+    fireEvent.submit(save.closest("form")!);
+  }
+  expect(select).toHaveValue(roles[1]);
+  expect(sessionStorage.getItem('membership.pending:["actor","org"]')).toBe(retained);
+  expect(calls.mock.calls.every(([,init]) => init?.method === "GET")).toBe(true);
 });
 it("recovers durable pending in a new tab and keeps unrelated invitation available", async () => {
   const id = "ea0390e6-6fd0-4834-8e9c-277caf59c122";

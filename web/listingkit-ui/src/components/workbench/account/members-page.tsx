@@ -76,6 +76,28 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
   const pending = local.items.find(item=>item.key===activeKey);
   const operationKey = ["member-operation",scope.expectedUserId,scope.expectedOrganizationId,activeKey];
   const operation = useQuery({ queryKey:operationKey, queryFn: async ({ signal }) => { try { const receipt=await getMemberOperation({ ...scope, signal }, activeKey!);if(!signal.aborted)remember([receipt]);return receipt; } catch (failure) { if (!signal.aborted) quarantine(failure); throw failure; } }, enabled:!!activeKey && !authorityError, gcTime:0,staleTime:0,retry:false });
+  const memberReceiptKeys = local.items
+    .filter(item => "target" in item && item.target === selected && item.key !== activeKey)
+    .map(item => item.key);
+  const unreadReceiptKeys = memberReceiptKeys.filter(key => !receipts[key] && !durable.some(receipt => receipt.id === key));
+  useQuery({
+    queryKey: ["member-detail-receipts", scope.expectedUserId, scope.expectedOrganizationId, selected, memberReceiptKeys],
+    queryFn: async ({ signal }) => {
+      const reads = await Promise.allSettled(unreadReceiptKeys.map(async key => {
+        try {
+          return await getMemberOperation({ ...scope, signal }, key);
+        } catch (failure) {
+          if (!signal.aborted) quarantine(failure);
+          throw failure;
+        }
+      }));
+      const found = reads.flatMap(read => read.status === "fulfilled" ? [read.value] : []);
+      if (!signal.aborted && found.length) remember(found);
+      return found;
+    },
+    enabled: canManage && unreadReceiptKeys.length > 0,
+    gcTime: 0, staleTime: 0, retry: false,
+  });
   const receiptFor = (key:string) => retainAdvancedReceipt(retainAdvancedReceipt(durable.find(item=>item.id===key),receipts[key]),operation.data?.id===key ? operation.data : undefined);
   const targetPending = (id:string) => local.items.some(item=>"target" in item && item.target === id && !terminalReceipt(receiptFor(item.key))) || durable.some(item=>item.authorizationId === id && !terminalReceipt(receiptFor(item.id)));
   const historicalOperation = retiredBusinessRole(pending?.kind) || retiredBusinessRole(activeKey ? receiptFor(activeKey)?.kind : undefined);
@@ -159,7 +181,7 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
     <p id="member-search-error" className={styles.authorityNote} role={filterError ? "alert" : undefined}>{filterError}</p></div>
     </div>
     {!ready ? authorityError ? <MemberFailure code={authorityError.code} /> : query.isError ? <MemberFailure code={query.error instanceof MemberError ? query.error.code : "DEPENDENCY_UNAVAILABLE"} /> : <ConsoleState kind="loading" title="正在读取成员">正在确认成员目录与当前权限。</ConsoleState> : <><div hidden={memberTab!=="formal"}>
-      {selected && <MemberDetail key={selected} id={selected} scope={scope} disabled={busy || local.error || targetPending(selected)} onClose={() => setSelected(null)} onSubmit={submit} onAuthorityFailure={quarantine} />}
+      {selected && <MemberDetail key={selected} id={selected} scope={scope} disabled={busy || local.error} awaitingReceipt={targetPending(selected)} onClose={() => setSelected(null)} onSubmit={submit} onAuthorityFailure={quarantine} />}
       {query.data.items.length === 0 ? <ConsoleState kind="empty" title={filtered ? "没有匹配的成员" : "当前没有可显示的成员"}>{filtered ? "当前企业目录读取成功，请调整或清除筛选条件。" : "当前企业的成员目录读取成功。"}</ConsoleState> : <div className={styles.tableWrap} role="region" aria-label="成员表格，可横向滚动" tabIndex={0}><table className={styles.table}><caption className={styles.caption}>当前企业成员</caption><thead><tr><th>成员</th><th>账号</th><th>角色</th><th>权限范围</th><th>状态</th><th>最近活跃</th><th>操作</th></tr></thead><tbody>{query.data.items.map(member => <tr key={member.id}><td><strong>{member.displayName || member.loginName || member.userId}</strong></td><td>{member.loginName || "未提供"}</td><td>{member.roles.map(value => roleNames[value as MemberRole] ?? value).join("、") || "未授予角色"}</td><td><PermissionScope permissions={member.permissions}/></td><td>{member.state === "active" ? "有效" : "已停用"}</td><td><RecentMemberActivity scope={scope} userId={member.userId}/></td><td><Button variant="ghost" onClick={() => { setSelected(member.id); }}>查看详情</Button></td></tr>)}</tbody></table></div>}
       <div className={styles.pagination}><Button variant="outline" disabled={offset === 0 || busy} onClick={() => { setSelected(null); setOffset(value => Math.max(0, value - 20)); }}>上一页</Button><span>第 {Math.floor(offset / 20) + 1} 页</span><Button variant="outline" disabled={offset + 20 >= query.data.total || busy} onClick={() => { setSelected(null); setOffset(value => value + 20); }}>下一页</Button></div>
       </div>
@@ -168,7 +190,7 @@ function ScopedMembers({ scope }: { scope:MemberScope }) {
   </div></AccountShell>;
 }
 
-function MemberDetail({ id, scope, disabled, onClose, onSubmit, onAuthorityFailure }: { id: string; scope: MemberScope; disabled: boolean; onClose: () => void; onSubmit: (pending: Pending) => void; onAuthorityFailure: (failure: unknown) => void }) {
+function MemberDetail({ id, scope, disabled, awaitingReceipt, onClose, onSubmit, onAuthorityFailure }: { id: string; scope: MemberScope; disabled: boolean; awaitingReceipt: boolean; onClose: () => void; onSubmit: (pending: Pending) => void; onAuthorityFailure: (failure: unknown) => void }) {
   const detail = useQuery({ queryKey: ["member-detail", scope.expectedUserId, scope.expectedOrganizationId, id], queryFn: async ({ signal }) => { try { return await getMember({ ...scope, signal }, id); } catch (failure) { if (!signal.aborted) onAuthorityFailure(failure); throw failure; } }, gcTime: 0, staleTime: 0, retry: false });
   const [confirmed, setConfirmed] = useState(false);
   if (detail.isFetching || detail.isPending) return <ConsoleState kind="loading" title="正在读取成员详情" />;
@@ -176,6 +198,7 @@ function MemberDetail({ id, scope, disabled, onClose, onSubmit, onAuthorityFailu
   const member = detail.data.items[0];
   const definitions = detail.data.roleDefinitions;
   const roleNames = displayRoles(definitions);
+  const removeDisabled = disabled || awaitingReceipt;
   return (
     <AccountDialog title="成员详情" drawer onClose={onClose}>
       <section className={styles.detail}>
@@ -196,6 +219,7 @@ function MemberDetail({ id, scope, disabled, onClose, onSubmit, onAuthorityFailu
             roles={detail.data.assignableRoles}
             definitions={definitions}
             disabled={disabled}
+            awaitingReceipt={awaitingReceipt}
             onAuthorityFailure={onAuthorityFailure}
             onSave={role => onSubmit({
               key: crypto.randomUUID(),
@@ -223,10 +247,10 @@ function MemberDetail({ id, scope, disabled, onClose, onSubmit, onAuthorityFailu
             <summary>移除成员</summary>
             <div className={styles.removal}>
               <label>
-                <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={disabled} />
+                <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={removeDisabled} />
                 确认移除该成员在当前企业项目中的访问权限
               </label>
-              <Button variant="destructive" disabled={disabled || !confirmed} onClick={() => onSubmit({
+              <Button variant="destructive" disabled={removeDisabled || !confirmed} onClick={() => onSubmit({
                 key: crypto.randomUUID(), kind: "remove", target: id,
                 input: { expectedVersion: member.observedVersion },
               })}>移除成员</Button>
@@ -238,12 +262,13 @@ function MemberDetail({ id, scope, disabled, onClose, onSubmit, onAuthorityFailu
   );
 }
 
-function MemberRoleForm({ scope, currentRole, roles, definitions, disabled, onAuthorityFailure, onSave }: {
+function MemberRoleForm({ scope, currentRole, roles, definitions, disabled, awaitingReceipt, onAuthorityFailure, onSave }: {
   scope: MemberScope;
   currentRole: string;
   roles: MemberRole[];
   definitions: EnterpriseRole[];
   disabled: boolean;
+  awaitingReceipt: boolean;
   onAuthorityFailure: (failure: unknown) => void;
   onSave: (role: MemberRole) => void;
 }) {
@@ -270,11 +295,12 @@ function MemberRoleForm({ scope, currentRole, roles, definitions, disabled, onAu
   const preview = catalog.data?.items.find(role => role.id === replacement);
   const included = catalog.data?.catalog.filter(module => preview?.modules.includes(module.id)) ?? [];
   const missingCurrentRole = !roles.some(role => role === currentRole);
+  const saveBlocked = disabled || awaitingReceipt;
 
   return (
     <form className={styles.roleEditor} onSubmit={event => {
       event.preventDefault();
-      if (!disabled && replacement) onSave(replacement);
+      if (!saveBlocked && replacement) onSave(replacement);
     }}>
       <div className={styles.roleField}>
         <label htmlFor={id}>新的成员角色</label>
@@ -300,7 +326,12 @@ function MemberRoleForm({ scope, currentRole, roles, definitions, disabled, onAu
           )}
         </div>
       )}
-      <Button className={styles.saveRole} disabled={disabled || !replacement} type="submit">保存角色</Button>
+      {awaitingReceipt && (
+        <p className={styles.readOnlyNote} role="status">
+          上一项成员操作尚未确认，暂不能保存角色。
+        </p>
+      )}
+      <Button className={styles.saveRole} disabled={saveBlocked || !replacement} type="submit">保存角色</Button>
     </form>
   );
 }
