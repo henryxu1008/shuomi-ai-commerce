@@ -10,7 +10,7 @@ Execution: #1233 / Draft PR #1234；关联 #1231 / PR #1232、#1158、#1178。De
 
 使用者是原 localhost:35444 试用实例维护者。目标是在当前原生系统的商品、R1、图片、采集任务/明细、权限和预留保留的前提下，解除两项已定位的新版启动前置；之后才继续原商品路径。不是开通新模型或恢复执行原采集。
 
-依据：2026-11-10 本聊天用户明确要求最小方案、独立评审及保留现有任务/明细；[当前领域边界](project-boundaries.md)、[全新系统产品基线](../product/greenfield-no-legacy-migration.md)、[DATA_ROW 定价](data-row-platform-pricing-zero-orders.md)、[OwnIntake OpenAI Mini](own-product-intake-openai-mini.md)、[库存语义](own-product-intake-stock-review.md)、[AI 关闭时的完整应用](domains/ai/ai-disabled-application-lifecycle.md)。本设计仅以本次明确保留决定增补当前系统 schema 演进，不撤销全新系统基线或 #1178 的其他边界。
+依据：2026-11-10 本聊天用户明确要求最小方案、独立评审及保留现有任务/明细；[当前领域边界](project-boundaries.md)、[全新系统产品基线](../product/greenfield-no-legacy-migration.md)、[DATA_ROW 定价](data-row-platform-pricing-zero-orders.md)、[OwnIntake OpenAI Mini](own-product-intake-openai-mini.md)、[库存语义](domains/catalog/own-product-intake-stock-review.md)、[AI 关闭时的完整应用](domains/ai/ai-disabled-application-lifecycle.md)。本设计仅以本次明确保留决定增补当前系统 schema 演进，不撤销全新系统基线或 #1178 的其他边界。
 
 **Must**：
 
