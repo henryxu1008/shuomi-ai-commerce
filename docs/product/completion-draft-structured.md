@@ -19,7 +19,7 @@ Product Decision: PD-COMPLETION-STRUCTURED-2026-10-15 / Issue #718
 
 沿 [当前 UI / IA authority](final-ui-ia-authority.md)：Figma `tg48P46SSXl6TBy9lZwg63` / `31:463`，待补全 `2667:1948`；独立页来自本次用户决定，不声称存在新 frame。沿供应市场→我的供应链→待补全，复用 Console、表格、字段、状态和主题，不增一级菜单或模态框。
 
-仅扩展 [未绑定草稿](supply-unbound-completion-drafts.md) 的通用候选。原正式 Target / Store / 当前规则 / 资产批准 / 发布准入保留；既有 Target“带入草稿”仍只带入文字，明确提示属性和 SKU 候选尚未带入。
+仅扩展 [未绑定草稿](flows/supply-unbound-completion-drafts.md) 的通用候选。原正式 Target / Store / 当前规则 / 资产批准 / 发布准入保留；既有 Target“带入草稿”仍只带入文字，明确提示属性和 SKU 候选尚未带入。
 
 按 [独立增量架构](../architecture/domains/listing/completion-draft-structured.md) 完成准入后才修改生产路径。
 

@@ -1,8 +1,12 @@
 # 未绑定店铺的待补全草稿
 
+> 适用时点：下文保留 2026-10-12 的二字段业务基线；后续[结构化候选](../completion-draft-structured.md)、富文本/内部备注及 SHEIN [显式带入](completion-shein-import.md)沿各自现行合同，不由本页旧文字范围取消。原“供应市场 → 我的供应链”及 Figma 布局权威仅作历史流程参考，当前入口与 UI 规则以[最新用户决定](../final-ui-ia-authority.md)为准。
+
+> [#658](https://github.com/henryxu1008/shuomi-ai-commerce/pull/658)已有指定实例安装和另行授权的真实 R1→R2 保存刷新记录；[#605](https://github.com/henryxu1008/shuomi-ai-commerce/issues/605)已仅按工程范围关闭。历史证据不等于当前实例、完整业务或生产验收，也不授权本轮运行或真实数据操作。
+
 Product Decision: PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12
 
-当前增量：2026-10-15 用户批准 [结构化候选](completion-draft-structured.md)，允许未绑定草稿独立保存候选属性和现有SKU价格/库存；仍非平台资料/来源事实。恢复范围仍限文字，原二字段阶段保留为历史基线。
+当前增量：2026-10-15 用户批准 [结构化候选](../completion-draft-structured.md)，允许未绑定草稿独立保存候选属性和现有SKU价格/库存；仍非平台资料/来源事实。恢复范围仍限文字，原二字段阶段保留为历史基线。
 
 ## 用户决定与本轮结果
 
@@ -23,8 +27,8 @@ Product Decision: PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12
 
 ## UI / IA Authority
 
-复用 [当前 Figma Product Authority](final-ui-ia-authority.md)：文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463`；待适配 `3507:1965` / `3507:3143`，待补全 `2667:1948`。2026-10-12 已取得待补全的设计上下文与截图：说明条、筛选、商品列表和“查看并补全”操作为本轮布局依据。
+复用 [当前 Figma Product Authority](../final-ui-ia-authority.md)：文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463`；待适配 `3507:1965` / `3507:3143`，待补全 `2667:1948`。2026-10-12 已取得待补全的设计上下文与截图：说明条、筛选、商品列表和“查看并补全”操作为本轮布局依据。
 
 原型中的 SHEIN/站点、缺失项数、AI 补全结果仅在有对应事实时显示。未绑定阶段用“未绑定店铺 / 平台规则待配置”，不生成假类目、假缺失项数、假图片或成功状态。不新增一级菜单；沿用“供应市场 → 我的供应链 → 待补全”。
 
-实现前须满足 [独立增量设计](../architecture/supply-unbound-completion-drafts.md) 的准入。
+实现前须满足 [独立增量设计](../../architecture/domains/listing/supply-unbound-completion-drafts.md) 的准入。

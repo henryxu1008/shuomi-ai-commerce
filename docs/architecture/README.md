@@ -158,7 +158,7 @@
 - `domains/catalog/rich-description-simple-editor-images.md` — [官方 Simple Editor 与描述图片独立上传](domains/catalog/rich-description-simple-editor-images.md)
 - `domains/supply-market/selected-application-multi-product.md` — [多商品优选申请 v1](domains/supply-market/selected-application-multi-product.md)
 - `domains/supply-market/selected-application-overview.md` — [优选申请总览只读汇总 v1](domains/supply-market/selected-application-overview.md)
-- `supply-unbound-completion-drafts.md` — [Supply 未绑定店铺待补全草稿](supply-unbound-completion-drafts.md)
+- `domains/listing/supply-unbound-completion-drafts.md` — [Supply 未绑定店铺待补全草稿](domains/listing/supply-unbound-completion-drafts.md)
 
 <a id="store"></a>
 

@@ -7,7 +7,7 @@
 | 操作 | 现行合同与操作说明 | 原事实 Owner |
 | --- | --- | --- |
 | 从我的数据选商品、配置店铺、确认刊登 | [四步供应链及原任务继续](../../supply-four-step-continuation.md)、[商品刊登操作](../../../operations/my-supply-chain-shein.md) | `internal/product/collection` 选择商品，`internal/listing/preparation` 准备与继续 |
-| 保存不绑定店铺的待补全候选 | [未绑定草稿产品决定](../../../product/supply-unbound-completion-drafts.md)、[CompletionDraft 结构化合同](completion-draft-structured.md) | `internal/listing/completiondraft` |
+| 保存不绑定店铺的待补全候选 | [未绑定草稿产品决定](../../../product/flows/supply-unbound-completion-drafts.md)、[保存与权限基线](supply-unbound-completion-drafts.md)、[操作与安装边界](../../../operations/user-guides/supply-unbound-completion-drafts.md)、[CompletionDraft 结构化合同](completion-draft-structured.md) | `internal/listing/completiondraft` |
 | 将已保存候选带入 SHEIN 本地平台草稿 | [产品决定](../../../product/flows/completion-shein-import.md)、[预览与确认合同](completion-shein-import.md)、[安装边界](../../../operations/runbooks/shein-import-installation.md) | `internal/listing/completiondraft` 与 `internal/listing/record/target`；不代签平台发布 |
 | 核对平台资料、类目、素材与校验规则 | [平台资料智能体 v1](platform-listing-materials-agent.md)、[SHEIN 原生 Validator](../marketplace/shein-native-validator-contract.md)、[提交前 readiness 策略](../marketplace/shein-submit-readiness-action-policy.md) | `internal/listing/materials` / `readiness` 及当前 Marketplace 规则 |
 | 选择 SHEIN 候选类目并只读查询规则 | [候选类目规则查询与解释（C3-2）](listing-candidate-category-rules.md) | `internal/listing/materials` 使用 Marketplace 提供的真实规则；不保存、不采用、不发布 |
