@@ -5,7 +5,7 @@ the frozen [Data Services architecture](../../../docs/architecture/data-services
 and [feature handoff](../../../docs/engineering/integration/data-services-runtime-handoff.md).
 The user selected the current formal IAM boundary without a local enterprise
 business-suspension feature. The independently admitted
-[native authorization supplement](../../../docs/architecture/data-services-native-authorization.md)
+[native authorization supplement](../../../docs/architecture/domains/data-services/data-services-native-authorization.md)
 consumes the formal Workbench resolver's optional deny-only port unchanged.
 Exact original member grants, active users, current permissions and deadlines
 remain required; explicitly supplied status checks still deny failures/suspension.

@@ -3,7 +3,7 @@
 - Product Decision: `PD-DATA-SERVICES-NATIVE-IAM-2026-10-10`.
 - Design Basis: **Independent Architecture**, limited to the discovered native
   authorization composition blocker. Other boundaries reuse the frozen
-  [Data Services v1 design](data-services.md).
+  [Data Services v1 design](../../data-services.md).
 - Admission: **IMPLEMENTATION_READY**. Independent R1 reviewed design SHA
   `0956ad2ff54ef07caae086876bc75ea8741771c8` before production auth changes.
 - Design baseline: `7e0a5e31a65490dd36784d9a1990f447f9b536a7`.
@@ -12,7 +12,7 @@
 
 The user explicitly selected on 2026-10-10: “沿用当前正式授权，本轮不新增本地企业业务停用功能（推荐）”. This decision supersedes the feature design's assumption that a mandatory local business-suspension owner is available. The normal Workbench composition supplies no such owner. Its existing `workbenchcontext.Resolver` contract explicitly treats nil as no additional local suspension policy.
 
-The result is normal-login Data Market/API Management and the original actor-private DataKey/worker paths using current formal authorization. No new UI, names or interaction design is introduced; current [final UI/IA authority](../product/final-ui-ia-authority.md), referenced Data Services Figma frames and existing pages remain applicable.
+The result is normal-login Data Market/API Management and the original actor-private DataKey/worker paths using current formal authorization. No new UI, names or interaction design is introduced; current [final UI/IA authority](../../../product/final-ui-ia-authority.md), referenced Data Services Figma frames and existing pages remain applicable.
 
 Must: exact original subject/project/org/member authorization and active grant; active ZITADEL user; current native RoleModules/Casbin permissions; original actor-private key/job/results and frozen Resource funding; dependency failure denies. Out of Scope: a local organization business-suspension feature, status owner/table/API, new identity or authorization system, and provider/data operations outside the approved isolated trial. No new Accepted Risk or reduced requirement is inferred beyond the user's explicit phase decision.
 
