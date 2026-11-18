@@ -188,6 +188,9 @@ func execute() error {
 				if features.AutomaticFX != nil {
 					pricing.AutomaticFX = features.AutomaticFX
 				}
+				if features.PlatformChannels != nil {
+					pricing.PlatformChannels = &httpapi.PlatformModelChannels{Service: features.PlatformChannels, MaintainerOrganization: features.PlatformChannels.MaintainerOrganization, ProjectID: features.PlatformChannels.ProjectID}
+				}
 				options = append(options, httpapi.WithModelRoutePricing(pricing))
 			}
 			if features.AgentCustomizationDB != nil {

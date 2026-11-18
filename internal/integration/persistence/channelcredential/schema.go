@@ -35,6 +35,13 @@ func VerifyManagementWriter(ctx context.Context, db *gorm.DB) error {
  AND NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND c.relkind IN ('r','p','v','m','f')
  AND c.oid NOT IN ('public.ai_channel_connections'::regclass,'public.ai_channel_connection_receipts'::regclass)
+ AND (c.oid IS DISTINCT FROM to_regclass('public.ai_channel_registrations') OR NOT (
+  c.relkind='r' AND c.relpersistence='p' AND pg_get_userbyid(c.relowner)='product_agent_owner'
+  AND has_table_privilege(current_user,c.oid,'SELECT') AND has_table_privilege(current_user,c.oid,'INSERT')
+  AND NOT has_table_privilege(current_user,c.oid,'UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES,SELECT WITH GRANT OPTION,INSERT WITH GRANT OPTION')
+  AND NOT EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+  AND (has_column_privilege(current_user,c.oid,a.attname,'UPDATE')<>(a.attname IN ('name','revision'))
+  OR has_column_privilege(current_user,c.oid,a.attname,'UPDATE WITH GRANT OPTION')))))
  AND has_any_column_privilege(current_user,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
  FROM pg_roles r WHERE rolname=current_user`).Scan(&allowed).Error
 	if e != nil || !allowed {

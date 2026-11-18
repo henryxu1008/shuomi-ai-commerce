@@ -16,6 +16,8 @@ import {modelServicesPath,type ModelServiceCategory,type ModelServicesNavigation
 import styles from "./model-route-pricing.module.css";
 import {ChannelCredentialsManager} from "./channel-credentials";
 import { MaintenanceEntryCard } from "./maintenance-entry-card";
+import {platformChannelList} from "@/lib/contracts/platform-model-channels";
+import {EnterpriseTextChoice,PlatformChannelConfiguration} from "./model-channel-configuration";
 import { ModelServicesOverview } from "./model-services-overview";
 
 const defaults:RouteInput["selection"]={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"openai-mini",version:"approved-default-v1"},image:{id:"openai-flare",version:"approved-default-v1"},multimodal:{id:"openai-mini",version:"approved-default-v1"}};
@@ -25,6 +27,8 @@ function sameReference(first:ModelOption["reference"], second:ModelOption["refer
  return first.id===second.id&&first.version===second.version;
 }
 const reasonLabels: Record<string, string> = {
+ CHANNEL_DISABLED: "所选渠道已停用，请更换",
+ MODEL_BINDING_DISABLED: "此模型已取消关联，请更换",
  POINT_BUDGET_EXCEEDED: "费用估算超出本次分析的点数预算",
  POINT_BUDGET_MISSING: "尚未配置本次分析的点数预算",
  METERING_MAPPING_NOT_ADMITTED: "暂时无法按该模型的用量计算点数",
@@ -47,17 +51,18 @@ const pendingSchema=z.strictObject({key:z.uuid(),input:z.union([routeInput,price
 function message(error:unknown){const code=error instanceof ModelRouteError?error.code:"UNAVAILABLE";return ({INVALID:"请检查填写内容，参考价与汇率最多保留六位小数。",CONFLICT:"当前版本已有更新，请重新读取后校验。",NEEDS_CONFIGURATION:"三类模型尚未全部满足准入，请查看具体缺口。",FORBIDDEN:"无此操作权限，或企业访问已撤销。",PERMISSION_DENIED:"无此操作权限，请确认权限后重试。",AUTHENTICATION_REQUIRED:"登录已失效，请重新登录。",ORGANIZATION_ACCESS_DENIED:"无当前企业访问权限。",ORGANIZATION_ACCESS_REVOKED:"当前企业访问已撤销。",ORGANIZATION_SUSPENDED:"当前企业暂不可用。",ORGANIZATION_SELECTION_REQUIRED:"请先选择当前企业。",OUTCOME_UNKNOWN:"发布结果待核实，请使用原请求键查询回执。",ORGANIZATION_CONTEXT_CHANGED:"当前企业已变化，请重新打开页面。",IDENTITY_CONTEXT_CHANGED:"登录身份已变化，请重新打开页面。"} as Record<string,string>)[code]??"配置服务暂不可用，编辑和原回执保留。"}
 export function ModelRoutePricingEntry({scope}:{scope:ModelRouteScope}){
  const context=useWorkbenchContext();
- const {configure,credentials,platform}=settingsPermissions(context.permissions);
+ const {configure,credentials,channels,platform}=settingsPermissions(context.permissions);
  if (context.isLoading || context.isSwitching || context.error || context.blockingError || context.selectionRequired ||
      context.user?.id!==scope.userId || context.effectiveOrganization?.id!==scope.organizationId ||
-     !(configure||credentials||platform)) return null;
- return <MaintenanceEntryCard title="AI 配置" description={configure?"查看企业的 Chat 规划状态及商品图片模型配置。":credentials?"录入、更新或停用本企业共用的渠道 Key。":"查看平台共用的模型参考价格与汇率。"} href={modelServicesPath} action="模型与服务" />;
+     !(configure||credentials||channels||platform)) return null;
+ return <MaintenanceEntryCard title="AI 配置" description={configure?"查看企业的 Chat 规划状态及商品图片模型配置。":channels?"查看和管理企业渠道。":credentials?"录入、更新或停用本企业共用的渠道 Key。":"查看平台共用的模型参考价格与汇率。"} href={modelServicesPath} action="模型与服务" />;
 }
 
 function settingsPermissions(permissions: string[]) {
  return {
   configure: permissions.includes("workbench.agent.configure"),
   credentials: permissions.includes("workbench.ai.credentials.manage"),
+  channels: permissions.includes("workbench.ai.channels.manage"),
   platform: permissions.includes("listingkit.platform_admin"),
  };
 }
@@ -66,7 +71,7 @@ export function ModelRoutePricingPage({expectedUserId,navigation}:{expectedUserI
  const context=useWorkbenchContext();
  const org=context.effectiveOrganization;
  const permissions=settingsPermissions(context.permissions);
- const allowed=permissions.configure||permissions.credentials||permissions.platform;
+ const allowed=permissions.configure||permissions.credentials||permissions.channels||permissions.platform;
  const transientError=context.error&&(context.error.status===0||context.error.status>=500);
  const validScope=allowed&&org&&context.user?.id===expectedUserId&&!context.blockingError&&!context.selectionRequired&&(!context.error||transientError);
  const destination=navigation?.organizationId===org?.id?navigation:undefined;
@@ -83,11 +88,11 @@ function usePublishedModels(scope:ModelRouteScope,enabled=true) {
  return useQuery({queryKey:[...settingsKey(scope),"current"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise",routeCurrent,{signal}),enabled,retry:false,gcTime:0,refetchOnWindowFocus:false});
 }
 
-function ModelSettings({ scope, name, configure, platform, credentials, canMaintain, navigation }: { scope: ModelRouteScope; name: string; configure: boolean; platform: boolean; credentials: boolean; canMaintain: boolean; navigation?:ModelServicesNavigation }) {
+function ModelSettings({ scope, name, configure, platform, credentials, channels, canMaintain, navigation }: { scope: ModelRouteScope; name: string; configure: boolean; platform: boolean; credentials: boolean; channels:boolean; canMaintain: boolean; navigation?:ModelServicesNavigation }) {
  const context=useWorkbenchContext();
  const client=useQueryClient();
  const [destination,setDestination]=useState<ModelDestination>(()=>({
-  area:configure?"enterprise":credentials?"credentials":"platform-prices",
+  area:configure?"enterprise":credentials||channels?"credentials":"platform-prices",
   category:configure?navigation?.category:undefined,
  }));
  const [draft,setDraft]=useState<RouteInput|null>(null);
@@ -103,6 +108,8 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
  const overviewCategory=useRef<ModelServiceCategory>(null);
  const published=usePublishedModels(scope,configure && !context.error);
  const {area,model}=destination;
+ const [focusReference,setFocusReference]=useState<string>();
+ const textChoiceEnabled=published.data?.textChoiceEnabled===true;
  const checking=refreshState==="checking";
  const blocked=!!context.error||checking;
 
@@ -140,7 +147,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
 
  const areas = [
    { id: "enterprise", label: "企业模型", available: configure },
-   { id: "credentials", label: "提供方与 Key", available: credentials },
+   { id: "credentials", label: textChoiceEnabled&&channels?"管理自有渠道":"提供方与 Key", available: credentials||channels },
    { id: "platform-prices", label: "参考价格与汇率", available: platform },
  ] as const;
  const availableAreas = areas.filter(item => item.available);
@@ -156,7 +163,7 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
        current={!context.error&&!published.isError&&!published.isFetching?published.data:undefined}
        checking={checking||published.isFetching}
        chat={checking?"checking":context.error?"unknown":!context.aiWorkbenchAvailable?"closed":context.aiWorkbenchPlanningReadiness}
-       credentials={credentials} platform={platform} disabled={blocked}
+       credentials={credentials||channels} platform={platform} disabled={blocked}
        onSelectModel={selected=>openSettings({area:"enterprise",category:selected},selected)}
        onCredentials={selected=>openSettings({area:"credentials",model:selected},selected.category)}
        onPrices={selected=>openSettings({area:"platform-prices"},selected)}
@@ -171,9 +178,22 @@ function ModelSettings({ scope, name, configure, platform, credentials, canMaint
      {configure&&<Button variant="ghost" onClick={returnToOverview}>返回使用概览</Button>}
      {context.error&&!configure&&<Button variant="outline" disabled={checking} onClick={()=>void refresh()}>重新读取状态</Button>}
    </div>
-   {area === "enterprise" ? <EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />
-     : area === "credentials" ? <ChannelCredentialsManager scope={scope} testMemberId={context.permissions.includes("workbench.ai.connection.test")?context.effectiveMemberId??undefined:undefined} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />
-       : <OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} />}
+   {area === "enterprise" ? (textChoiceEnabled&&destination.category!=="multimodal"&&destination.category!=="image-generation"?<EnterpriseTextChoice scope={scope} member={context.effectiveMemberId??""} focusId={focusReference} onSaved={()=>refresh(true)}/>:<EnterpriseModelEditor scope={scope} draftState={[draft,setDraft]} focusTarget={destination} imageOnly={textChoiceEnabled} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} onCredentials={credentials||channels?selected=>openSettings({area:"credentials",model:selected},selected.category):undefined} />)
+     : area === "credentials" ? <ChannelCredentialsManager scope={scope} testMemberId={context.permissions.includes("workbench.ai.connection.test")?context.effectiveMemberId??undefined:undefined} focusModel={model} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)}
+       canManageKeys={credentials} manageChannelsMemberId={channels?context.effectiveMemberId??undefined:undefined}
+       onSelectModel={configure&&published.data&&!published.isError?(connection,reference)=>{
+        if(textChoiceEnabled){
+         setFocusReference(reference.id);
+         openSettings({area:"enterprise",category:"text"},"text");
+         return;
+        }
+        const current=published.data?.revision;
+        const revision=current?.id??"NONE";
+        const selection=draft?.expectedRevision===revision?draft.selection:(current?.payload.sharedModels?.schemaVersion===1?current.payload.sharedModels:defaults);
+        setDraft({expectedRevision:revision,selection:{...selection,text:reference,defaultChannel:connection.channel}});
+        openSettings({area:"enterprise",category:"text"},"text");
+       }:undefined} />
+       : <><PlatformChannelConfiguration scope={scope} member={context.effectiveMemberId??""} organizations={context.organizations} onSaved={()=>refresh(true)}/><OfficialPriceEditor scope={scope} canPublish={canMaintain&&!blocked} disabled={blocked} unconfirmed={!!context.error} onSaved={()=>refresh(true)} /></>}
    {area !== "credentials" && <details className={styles.help}>
      <summary>AI 点数如何结算</summary>
      <p>1 AI 点等于 ¥0.01，精确到百万分之一点。发起调用前预留点数，完成后按已记录用量和当时的参考价与汇率结算，释放多余点数。缺少可靠用量时保留待确认状态。估算与厂商最终账单可能有差异。</p>
@@ -200,13 +220,14 @@ type ModelEditorProps = {
  scope:ModelRouteScope;
  draftState?:[RouteInput|null,(draft:RouteInput|null)=>void];
  focusTarget?:ModelDestination;
+ imageOnly?:boolean;
  disabled?:boolean;
  unconfirmed?:boolean;
  onSaved?:()=>Promise<void>;
  onCredentials?:(model:ModelOption)=>void;
 };
 
-export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=false,unconfirmed=false,onSaved,onCredentials}:ModelEditorProps){
+export function EnterpriseModelEditor({scope,draftState,focusTarget,imageOnly=false,disabled=false,unconfirmed=false,onSaved,onCredentials}:ModelEditorProps){
  const published=usePublishedModels(scope,!unconfirmed);
  const options=useQuery({queryKey:[...settingsKey(scope),"options"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise/options",routeOptions,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
  const history=useQuery({queryKey:[...settingsKey(scope),"history","enterprise"],queryFn:({signal})=>modelRouteRequest(scope,"/enterprise/history",routeHistory,{signal}),enabled:!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
@@ -218,17 +239,22 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
   setPreview(null);
   await (onSaved ? onSaved() : Promise.all([published.refetch(),options.refetch(),history.refetch()]));
  });
- const current=published.data?.revision,id=current?.id??"NONE",choice=draft?.selection??current?.payload.sharedModels??defaults;
+ const current=published.data?.revision,id=current?.id??"NONE",publishedChoice=current?.payload.sharedModels;
+ const choice=draft?.selection??(imageOnly&&publishedChoice?{...publishedChoice,schemaVersion:2 as const}:publishedChoice??defaults);
+ const editableCategories=imageOnly?categories.filter(category=>category!=="text"):categories;
  const loading=published.isPending||options.isPending;
  const readFailed=published.isError||options.isError;
  const draftStale=!!draft&&draft.expectedRevision!==id;
  const editingBlocked=disabled||state.locked||draftStale||published.isFetching||options.isFetching;
  const optionsData=options.data;
- const unavailableCategories=categories.filter(category=>{
+ const unavailableCategories=editableCategories.filter(category=>{
   const selected=choice[keyFor[category]];
+  if(!selected)return !imageOnly;
+  const previous=publishedChoice?.[keyFor[category]];
+  if(imageOnly&&previous&&sameReference(previous,selected))return false;
   return !optionsData?.models.some(model=>model.category===category&&model.reference.id===selected.id&&model.reference.version===selected.version);
  });
- const validSelection=unavailableCategories.length===0&&!!optionsData?.channels.includes(choice.defaultChannel);
+ const validSelection=unavailableCategories.length===0&&(imageOnly?!!publishedChoice&&!!draft:!!choice.defaultChannel&&!!optionsData?.channels.includes(choice.defaultChannel));
  const currentPreview=preview&&preview.readAt===published.dataUpdatedAt&&preview.optionsAt===options.dataUpdatedAt&&preview.input.expectedRevision===id?preview:null;
  function choose(selection:RouteInput["selection"]|null) {
   setPreview(null);
@@ -266,8 +292,8 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
    <Card className={styles.panel}>
      <div className={styles.sectionHeader}>
        <div>
-         <h2 ref={sectionHeading} tabIndex={-1}>企业共用模型</h2>
-         <p>为企业成员选择文本、图片生成和图片理解模型。</p>
+         <h2 ref={sectionHeading} tabIndex={-1}>{imageOnly?"图片模型配置":"企业共用模型"}</h2>
+         <p>{imageOnly?"管理当前的图片生成和图片理解模型。":"为企业成员选择文本、图片生成和图片理解模型。"}</p>
        </div>
        <Button variant="outline" disabled={disabled||state.busy} onClick={reload}>重新读取当前配置</Button>
      </div>
@@ -276,33 +302,36 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
          : <>
            <p>当前版本：{current?.id ?? "暂无"} · {published.data.status === "READY" ? "已发布" : published.data.status === "UNCONFIGURED" ? "尚未发布" : "已发布，部分模型待处理"}</p>
            {draftStale&&<div role="alert"><p>企业模型已更新，请核对当前版本后重新选择。</p><Button variant="outline" disabled={disabled||state.locked} onClick={()=>choose(null)}>放弃草稿并载入当前版本</Button></div>}
-           <fieldset disabled={editingBlocked} className={styles.form}>
-             <label className={`${styles.field} ${styles.channelField}`}>
+           <fieldset disabled={editingBlocked||imageOnly&&!publishedChoice} className={styles.form}>
+             {!imageOnly&&<label className={`${styles.field} ${styles.channelField}`}>
                <strong>默认渠道</strong>
                <select value={choice.defaultChannel} onChange={event => choose({...choice, defaultChannel: event.target.value})}>
-                 {!optionsData.channels.includes(choice.defaultChannel)&&<option value={choice.defaultChannel}>{choice.defaultChannel}（当前不可用）</option>}
+                 {!!choice.defaultChannel&&!optionsData.channels.includes(choice.defaultChannel)&&<option value={choice.defaultChannel}>{choice.defaultChannel}（当前不可用）</option>}
                  {optionsData.channels.map(channel => <option key={channel}>{channel}</option>)}
                </select>
-             </label>
+             </label>}
              <div className={styles.modelGrid}>
-               {categories.map(category => {
+               {editableCategories.map(category => {
                  const candidates = optionsData.models.filter(model => model.category === category);
                  const key = keyFor[category];
-                 const ref = choice[key];
-                 const selected = candidates.find(model => sameReference(model.reference,ref));
+                 const ref = imageOnly&&!publishedChoice?undefined:choice[key];
+                 const selected = candidates.find(model => !!ref&&sameReference(model.reference,ref));
                  const publishedRef = current?.payload.sharedModels?.[key];
                  return <div className={styles.modelCard} key={category}>
                    <label className={styles.field}>
                      <strong>{modelLabels[category]}</strong>
-                     <select ref={element=>{fields.current[category]=element}} value={ref.id + "/" + ref.version} onChange={event => select(category, event.target.value)}>
-                       {!selected && <option value={ref.id + "/" + ref.version}>{ref.id}（原版本当前不可用）</option>}
+                     <select ref={element=>{fields.current[category]=element}} value={ref?ref.id+"/"+ref.version:""} onChange={event => select(category, event.target.value)}>
+                       {!selected && <option value={ref?ref.id+"/"+ref.version:""}>{ref?ref.id+"（原版本当前不可用）":"尚未选择"}</option>}
                        {candidates.map(model => {
                          const value = model.reference.id + "/" + model.reference.version;
                          const sameName = candidates.some(other => other !== model && other.model === model.model && other.channel === model.channel);
                          const currentLabel = publishedRef && sameReference(publishedRef, model.reference) ? "当前已发布 · " : "";
                          const readiness = model.ready ? "模型配置符合条件" : reasonLabels[model.reason??""] ?? "尚未就绪";
                          const suffix = sameName ? `（${currentLabel}${readiness}）` : model.ready ? "" : "（尚未就绪）";
-                         return <option key={value} value={value}>{model.model} · {model.channel}{suffix}</option>;
+                         const stopped=model.reason==="CHANNEL_DISABLED"||model.reason==="MODEL_BINDING_DISABLED";
+                         const retain=!!publishedRef&&sameReference(publishedRef,model.reference);
+                         const duplicateChannel=!!model.channelName&&candidates.some(other=>other!==model&&other.model===model.model&&other.channelName===model.channelName);
+                         return <option key={value} value={value} disabled={stopped&&!retain}>{model.channelName?model.channelName+" · "+model.model:model.model+" · "+model.channel}{duplicateChannel?`（编号末尾 ${model.reference.id.slice(-8)}）`:""}{suffix}</option>;
                        })}
                      </select>
                    </label>
@@ -314,7 +343,8 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
                  </div>;
                })}
              </div>
-             {!validSelection&&<p>请选择当前可用的默认渠道和三类候选型号，再检查并发布。</p>}
+             {!validSelection&&!imageOnly&&<p>请选择当前可用的默认渠道和三类候选型号，再检查并发布。</p>}
+             {imageOnly&&!publishedChoice&&<p>请先在企业文本模型中保存当前选择。</p>}
              <div className={styles.actions}><Button disabled={!validSelection} onClick={() => void validate()}>检查并预览</Button></div>
            </fieldset>
          </>}
@@ -322,15 +352,15 @@ export function EnterpriseModelEditor({scope,draftState,focusTarget,disabled=fal
    {currentPreview && <Card className={styles.panel}>
      <h2 ref={previewHeading} tabIndex={-1}>确认企业模型配置</h2>
      <div className={styles.modelGrid}>
-       {currentPreview.value.preview.models.map(model => <div className={styles.modelCard} key={model.category}><ModelReadiness model={model} /></div>)}
+       {currentPreview.value.preview.models.filter(model=>!imageOnly||model.category!=="text").map(model => <div className={styles.modelCard} key={model.category}><ModelReadiness model={model} /></div>)}
      </div>
-     <p>三类模型选择一并保存，使用时分别检查所选模型。发布配置不会发起模型调用或启用尚未就绪的功能。已有回执和待确认费用会保留。</p>
+     <p>{imageOnly?"确认保存本次图片模型配置。":"三类模型选择一并保存，使用时分别检查所选模型。"}发布配置不会发起模型调用或启用尚未就绪的功能。已有回执和待确认费用会保留。</p>
      {!currentPreview.value.preview.ready && <p>部分模型还需配置，请在对应业务页核对使用条件。</p>}
      <div className={styles.actions}>
-       <Button disabled={editingBlocked||readFailed||!validSelection} onClick={() => void state.publish(currentPreview.input)}>确认发布三类模型</Button>
+       <Button disabled={editingBlocked||readFailed||!validSelection} onClick={() => void state.publish(currentPreview.input)}>{imageOnly?"确认保存图片模型":"确认发布三类模型"}</Button>
      </div>
    </Card>}
-   <History rows={history.isError?[]:history.data?.revisions??[]} current={id} select={row=>{if(row.payload.sharedModels)choose(row.payload.sharedModels)}} disabled={editingBlocked||readFailed||loading} loading={history.isPending} failed={history.isError} retry={()=>void history.refetch()}/>
+   <History rows={history.isError?[]:history.data?.revisions??[]} current={id} select={row=>{if(!imageOnly&&row.payload.sharedModels?.schemaVersion===1)choose(row.payload.sharedModels)}} disabled={editingBlocked||readFailed||loading||imageOnly} loading={history.isPending} failed={history.isError} retry={()=>void history.refetch()}/>
  </>}
  <PublishStatus state={state} disabled={disabled}/>
  </>;
@@ -386,6 +416,7 @@ export function OfficialPriceEditor({scope,canPublish,disabled=false,unconfirmed
  }),current=query.data?.revision,id=current?.id??"NONE",snapshot=current?.payload.platformPrices;
  const input=draft??{expectedRevision:id,prices:(snapshot?.prices??[]).map(withoutPublicationVersion),fx:(snapshot?.fx??[]).map(withoutPublicationVersion)};
  const draftStale=draft!==null&&draft.expectedRevision!==id;
+ const registered=useQuery({queryKey:["model-services",scope,"platform-channels"],queryFn:({signal})=>modelRouteRequest(scope,"/platform-channels",platformChannelList,{signal}),enabled:canPublish&&!unconfirmed,retry:false,gcTime:0,refetchOnWindowFocus:false});
  const edit=(next:PriceInput)=>{setPreview(null);setDraft(next);setFieldError("")};
  async function validate(){if(state.locked||!canPublish||query.isError||!query.data||draftStale)return;const parsed=priceInput.safeParse(input);if(!parsed.success){setFieldError("请补齐官网来源、核验及生效时间、币种、准确型号与价格。");return}await state.run(async signal=>{const value=await modelRouteRequest(scope,"/platform-prices/validate",pricePreview,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(parsed.data),signal});if(state.active.current)setPreview({input:parsed.data,value})})}
  const interval={sourceUrl:"",verifiedAt:"",effectiveFrom:"",effectiveUntil:""},zeroRates={inputText:0,cachedInputText:0,inputImage:0,cachedInputImage:0,outputText:0,outputImage:0};
@@ -411,7 +442,14 @@ export function OfficialPriceEditor({scope,canPublish,disabled=false,unconfirmed
  <section className={styles.editorGroup} aria-label="模型参考价">
    <h3>模型参考价</h3>
    {input.prices.length === 0 && <p>暂无模型参考价。</p>}
-   {input.prices.map((price,index)=><section className={styles.editorRecord} key={index}><h4>{price.model || ("参考价目 " + (index + 1))}</h4><div className={styles.grid}>{(["id","region","serviceType","channel","model","currency","usageVersion","sourceUrl","verifiedAt","effectiveFrom","effectiveUntil"] as const).map(field=><label className={styles.field} key={field}><span>{{id:"价目标识",region:"适用地区",serviceType:"服务类型（standard-sync / image-sync）",channel:"准确渠道",model:"准确模型版本",currency:"官网币种",usageVersion:"已准入用量映射",sourceUrl:"参考价格来源",verifiedAt:"核验时间（含时区）",effectiveFrom:"生效时间（含时区）",effectiveUntil:"失效时间（含时区）"}[field]}</span><input value={price[field]} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,[field]:event.target.value}:p)})}/></label>)}<label className={styles.field}>模型厂商<select value={price.provider} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,provider:event.target.value as typeof p.provider}:p)})}>{publishedModelManufacturers.map(provider=><option key={provider}>{provider}</option>)}</select></label></div><label className={styles.checkbox}><span><input type="checkbox" checked={!!price.image} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,image:event.target.checked?{width:1024,height:1024,quality:"auto"}:undefined}:p)})}/>限定图片价格适用参数</span></label>{price.image?<div className={styles.grid}>{(["width","height","quality"] as const).map(field=><label className={styles.field} key={field}><span>{{width:"宽度（像素）",height:"高度（像素）",quality:"质量档"}[field]}</span><input value={price.image![field]} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,image:{...p.image!,[field]:field==="quality"?event.target.value:/^[1-9][0-9]{0,3}$/.test(event.target.value)?Number(event.target.value):0}}:p)})}/></label>)}</div>:null}{price.image&&price.usageVersion==="reference-images-totals-v1"?<ImageReferenceEstimate value={price.image.referenceEstimate} onChange={referenceEstimate=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,image:{...p.image!,referenceEstimate}}:p)})}/>:null}<div className={styles.two}>{Object.entries(rateLabels).map(([field,label])=><CurrencyField key={field} label={label+"（参考原币）"} value={price.rates[field as keyof typeof price.rates]??0} change={value=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,rates:{...p.rates,[field]:value}}:p)})}/>)}</div><Button variant="ghost" onClick={()=>edit({...input,prices:input.prices.filter((_,i)=>i!==index)})}>删除此价目</Button></section>)}
+   {input.prices.map((price,index)=><section className={styles.editorRecord} key={index}><h4>{price.model || ("参考价目 " + (index + 1))}</h4><div className={styles.grid}>{(["id","region","serviceType","channel","model","currency","usageVersion","sourceUrl","verifiedAt","effectiveFrom","effectiveUntil"] as const).map(field=><label className={styles.field} key={field}><span>{{id:"价目标识",region:"适用地区",serviceType:"服务类型（standard-sync / image-sync）",channel:"准确渠道",model:"准确模型版本",currency:"官网币种",usageVersion:"已准入用量映射",sourceUrl:"参考价格来源",verifiedAt:"核验时间（含时区）",effectiveFrom:"生效时间（含时区）",effectiveUntil:"失效时间（含时区）"}[field]}</span><input value={price[field]} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,[field]:event.target.value}:p)})}/></label>)}<label className={styles.field}>模型厂商<select value={price.provider} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,provider:event.target.value as typeof p.provider}:p)})}>{publishedModelManufacturers.map(provider=><option key={provider}>{provider}</option>)}</select></label>
+ {registered.data&&<label className={styles.field}>仅用于指定平台渠道
+   <select value={price.platformConnectionId??""} onChange={event=>{
+    const channel=registered.data?.channels.find(item=>item.connection.connectionId===event.target.value)?.connection;
+    edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,platformConnectionId:channel?.connectionId,...(channel?{channel:channel.channel,provider:"openai" as const,model:"gpt-5.4-mini-2026-03-17",region:"global",serviceType:"standard-sync",usageVersion:channel.channel==="openai-direct"?"openai-text-v1":"reference-text-totals-v1"}:{})}:p)});
+   }}><option value="">通用价目</option>{registered.data.channels.map(({connection})=><option value={connection.connectionId} key={connection.connectionId}>{connection.registration?.name}</option>)}</select>
+ </label>}
+ </div><label className={styles.checkbox}><span><input type="checkbox" checked={!!price.image} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,image:event.target.checked?{width:1024,height:1024,quality:"auto"}:undefined}:p)})}/>限定图片价格适用参数</span></label>{price.image?<div className={styles.grid}>{(["width","height","quality"] as const).map(field=><label className={styles.field} key={field}><span>{{width:"宽度（像素）",height:"高度（像素）",quality:"质量档"}[field]}</span><input value={price.image![field]} onChange={event=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,image:{...p.image!,[field]:field==="quality"?event.target.value:/^[1-9][0-9]{0,3}$/.test(event.target.value)?Number(event.target.value):0}}:p)})}/></label>)}</div>:null}{price.image&&price.usageVersion==="reference-images-totals-v1"?<ImageReferenceEstimate value={price.image.referenceEstimate} onChange={referenceEstimate=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,image:{...p.image!,referenceEstimate}}:p)})}/>:null}<div className={styles.two}>{Object.entries(rateLabels).map(([field,label])=><CurrencyField key={field} label={label+"（参考原币）"} value={price.rates[field as keyof typeof price.rates]??0} change={value=>edit({...input,prices:input.prices.map((p,i)=>i===index?{...p,rates:{...p.rates,[field]:value}}:p)})}/>)}</div><Button variant="ghost" onClick={()=>edit({...input,prices:input.prices.filter((_,i)=>i!==index)})}>删除此价目</Button></section>)}
  <Button variant="outline" disabled={input.prices.length>=32} onClick={()=>edit({...input,prices:[...input.prices,{id:"",region:"",serviceType:"standard-sync",provider:"openai",channel:"openai-direct",model:"",currency:"USD",usageVersion:"",rates:zeroRates,...interval}]})}>添加参考价目</Button>
  </section>
  <section className={styles.editorGroup} aria-label="人民币汇率">

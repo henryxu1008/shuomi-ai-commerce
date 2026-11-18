@@ -10,6 +10,7 @@ import (
 	d "task-processor/internal/aicapability/routeconfig"
 	governed "task-processor/internal/integration/aicapability/einomodel"
 	qualified "task-processor/internal/integration/aicapability/routeconfig"
+	channelstore "task-processor/internal/integration/persistence/channelcredential"
 	store "task-processor/internal/integration/persistence/routeconfig"
 
 	"gorm.io/gorm"
@@ -18,9 +19,10 @@ import (
 // Opt-in per database. Bindings are private, deployment-admitted descriptors;
 // they do not select a current route. No credentials or published rates live here.
 type ModelRoutePricingConfig struct {
-	Writer      *DatabaseConfig        `json:"writer,omitempty"`
-	Bindings    []qualified.Definition `json:"bindings,omitempty"`
-	AutomaticFX *AutomaticFXConfig     `json:"automaticFX,omitempty"`
+	PlatformMaintainerOrganization string                 `json:"platformMaintainerOrganization,omitempty"`
+	Writer                         *DatabaseConfig        `json:"writer,omitempty"`
+	Bindings                       []qualified.Definition `json:"bindings,omitempty"`
+	AutomaticFX                    *AutomaticFXConfig     `json:"automaticFX,omitempty"`
 }
 
 // Omission leaves all automatic execution disabled.
@@ -203,7 +205,14 @@ func prepareSharedModelServices(ctx context.Context, reader, writer *gorm.DB, ca
 		return nil, nil, nil, e
 	}
 	prices := &d.PlatformPricesService{Repository: write}
-	trusted := &qualified.SharedCatalog{Catalog: catalog, Credentials: write, Prices: &d.PlatformPricesService{Repository: read}}
+	trusted := &qualified.SharedCatalog{Catalog: catalog, Credentials: read, Prices: &d.PlatformPricesService{Repository: read}}
+	if store.VerifyManagedChannelAccess(ctx, reader, false) && store.VerifyManagedChannelAccess(ctx, writer, true) {
+		channels, err := channelstore.New(reader, nil)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		trusted.Managed = &qualified.ManagedDefinitions{Catalog: catalog, Bindings: read, Registrations: channels, Metadata: channels}
+	}
 
 	return &d.SharedModelService{Repository: read, Catalog: trusted}, &d.SharedModelService{Repository: write, Catalog: trusted}, prices, nil
 }

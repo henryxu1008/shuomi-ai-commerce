@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"time"
 )
 
@@ -23,21 +24,22 @@ type OfficialImagePriceScope struct {
 	Quality           string                              `json:"quality"`
 }
 type PublishedModelPrice struct {
-	Region         string                          `json:"region"`
-	ServiceType    string                          `json:"serviceType"`
-	Image          *OfficialImagePriceScope        `json:"image,omitempty"`
-	ID             string                          `json:"id"`
-	Version        string                          `json:"version,omitempty"`
-	Provider       string                          `json:"provider"`
-	Channel        string                          `json:"channel"`
-	Model          string                          `json:"model"`
-	Currency       string                          `json:"currency"`
-	UsageVersion   string                          `json:"usageVersion"`
-	Rates          aicapability.OfficialModelRates `json:"rates"`
-	SourceURL      string                          `json:"sourceUrl"`
-	VerifiedAt     time.Time                       `json:"verifiedAt"`
-	EffectiveFrom  time.Time                       `json:"effectiveFrom"`
-	EffectiveUntil time.Time                       `json:"effectiveUntil"`
+	PlatformConnectionID string                          `json:"platformConnectionId,omitempty"`
+	Region               string                          `json:"region"`
+	ServiceType          string                          `json:"serviceType"`
+	Image                *OfficialImagePriceScope        `json:"image,omitempty"`
+	ID                   string                          `json:"id"`
+	Version              string                          `json:"version,omitempty"`
+	Provider             string                          `json:"provider"`
+	Channel              string                          `json:"channel"`
+	Model                string                          `json:"model"`
+	Currency             string                          `json:"currency"`
+	UsageVersion         string                          `json:"usageVersion"`
+	Rates                aicapability.OfficialModelRates `json:"rates"`
+	SourceURL            string                          `json:"sourceUrl"`
+	VerifiedAt           time.Time                       `json:"verifiedAt"`
+	EffectiveFrom        time.Time                       `json:"effectiveFrom"`
+	EffectiveUntil       time.Time                       `json:"effectiveUntil"`
 }
 type PublishedFXRate struct {
 	Version                  string    `json:"version,omitempty"`
@@ -111,6 +113,10 @@ func FreezePlatformPrices(in PlatformPricesInput, revision string, previous *Pla
 		if p.Version != "" || !ValidFact(p.Region, 64) || !ValidFact(p.ServiceType, 64) || !ValidFact(p.ID, 64) || !ValidFact(p.Model, 128) || !ValidFact(p.Channel, 128) || !officialPriceHost(p.SourceURL, p.Provider) || !validPriceInterval(p.VerifiedAt, p.EffectiveFrom, p.EffectiveUntil, now) {
 			return out, ErrInvalid
 		}
+		if p.PlatformConnectionID != "" && (!credential.IsRegisteredConnection(p.PlatformConnectionID) || p.Provider != "openai" ||
+			p.ServiceType != "standard-sync" || p.Image != nil || (p.Channel != credential.OfficialOpenAIChannel && p.Channel != credential.CompatibleOpenAIChannel)) {
+			return out, ErrInvalid
+		}
 		imagePrice := p.UsageVersion == "qwen-image-count-v1" || strings.Contains(p.UsageVersion, "images")
 		if imagePrice != (p.Image != nil) {
 			return out, ErrInvalid
@@ -126,7 +132,7 @@ func FreezePlatformPrices(in PlatformPricesInput, revision string, previous *Pla
 		}
 		for j := 0; j < i; j++ {
 			q := out.Prices[j]
-			if (q.ID == p.ID || q.Model == p.Model && q.Channel == p.Channel) && p.EffectiveFrom.Before(q.EffectiveUntil) && q.EffectiveFrom.Before(p.EffectiveUntil) {
+			if (q.ID == p.ID || q.Model == p.Model && q.Channel == p.Channel && q.PlatformConnectionID == p.PlatformConnectionID) && p.EffectiveFrom.Before(q.EffectiveUntil) && q.EffectiveFrom.Before(p.EffectiveUntil) {
 				return out, ErrInvalid
 			}
 		}

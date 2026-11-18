@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 var (
@@ -46,6 +47,9 @@ func ValidFact(s string, max int) bool {
 func (s Scope) Valid() bool {
 	if !ValidFact(s.OrganizationID, 128) {
 		return false
+	}
+	if s.OrganizationID == credential.PlatformOwner {
+		return credential.IsRegisteredConnection(strings.TrimPrefix(s.Capability, "ai.models.platform-channel.")) && strings.HasPrefix(s.Capability, "ai.models.platform-channel.")
 	}
 	switch aicapability.Operation(s.Capability) {
 	case aicapability.OperationProductAgentDecision, aicapability.OperationProductContentDecision, aicapability.OperationListingMaterialsDecision, aicapability.OperationProductResearchDecision, aicapability.OperationProductSelectionDecision, aicapability.OperationShopDiagnosisDecision, aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationProductImageAnalysis, aicapability.OperationOwnProductIntake:
@@ -155,6 +159,7 @@ type Catalog interface {
 	Qualify(Scope, string, Credential) (Binding, error)
 }
 type Payload struct {
+	PlatformChannel   *PlatformChannel           `json:"platformChannel,omitempty"`
 	PlatformPrices    *PlatformPricesSnapshot    `json:"platformPrices,omitempty"`
 	SharedModels      *SharedModelSelection      `json:"sharedModels,omitempty"`
 	Optional          bool                       `json:"optional,omitempty"`

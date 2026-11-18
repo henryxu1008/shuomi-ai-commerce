@@ -25,6 +25,7 @@ const (
 // RoutePolicy is trusted deployment configuration for one organization and
 // one capability. The admitted version is bound after restricted provisioning.
 type RoutePolicy struct {
+	CredentialOwner                string `json:"-"`
 	Profile                        aicapability.ModelProfile
 	AdmittedCredentialVersion      string
 	AdmittedEndpointIdentityDigest string
@@ -72,7 +73,7 @@ func NewOrganizationRouteResolver(credentials credential.SecretReader, policies 
 	}
 	frozen := make(map[RouteKey]RoutePolicy, len(policies))
 	for key, policy := range policies {
-		if key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
+		if policy.CredentialOwner != "" || key.OrganizationID == "" || len(key.OrganizationID) > 128 ||
 			!aicapability.SupportsObservedUsageFailure(key.Operation) ||
 			policy.AdmittedEndpointIdentityDigest == "" {
 			return nil, ErrInvalid
@@ -119,7 +120,14 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 	policy.Profile = policy.ShapeProfile()
 	// Model identity comes only from the qualified definition. One exact current
 	// connection observation supplies revision and secret; no model lives there.
-	row, err := r.credentials.Resolve(ctx, input.OrganizationID, policy.Profile.ConnectionID, policy.Profile.CredentialVersion)
+	owner := input.OrganizationID
+	if policy.CredentialOwner != "" {
+		if r.current == nil || policy.CredentialOwner != credential.PlatformOwner {
+			return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
+		}
+		owner = policy.CredentialOwner
+	}
+	row, err := r.credentials.Resolve(ctx, owner, policy.Profile.ConnectionID, policy.Profile.CredentialVersion)
 	if err != nil {
 		if err == credential.ErrChanged || err == credential.ErrNotFound {
 			return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
@@ -127,7 +135,7 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}
 	m := row.Metadata
-	if !m.Enabled || !m.KeyPresent || m.OrganizationID != input.OrganizationID || m.ConnectionID != policy.Profile.ConnectionID || strings.TrimSpace(row.APIKey) == "" || m.Reference != policy.AdmittedCredentialVersion || endpointDigest(m.BaseURL) != policy.AdmittedEndpointIdentityDigest {
+	if !m.Enabled || !m.KeyPresent || m.OrganizationID != owner || m.ConnectionID != policy.Profile.ConnectionID || strings.TrimSpace(row.APIKey) == "" || m.Reference != policy.AdmittedCredentialVersion || endpointDigest(m.BaseURL) != policy.AdmittedEndpointIdentityDigest {
 		return QualifiedRoute{}, RouteNeedsConfiguration, ErrNotDispatched
 	}
 	switch AdapterKind(policy.Profile.AdapterKind) {
@@ -145,7 +153,7 @@ func (r *OrganizationRouteResolver) resolve(ctx context.Context, input aicapabil
 	default:
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}
-	route := QualifiedRoute{Profile: policy.Profile, Endpoint: m.BaseURL, APIKey: row.APIKey}
+	route := QualifiedRoute{CredentialOwner: policy.CredentialOwner, Profile: policy.Profile, Endpoint: m.BaseURL, APIKey: row.APIKey}
 	if !sameRoute(route, route) {
 		return QualifiedRoute{}, RouteUnavailable, ErrNotDispatched
 	}
@@ -168,10 +176,13 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 			p.MaximumPromptTokens == TitlePilotPromptTokens && p.MaximumCompletionTokens == TitlePilotCompletionTokens &&
 			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint)
 	}
-	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
+	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
+		identity := p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint) && p.UsageMappingVersion == "openai-text-v1"
+		if p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
+			identity = (p.ConnectionID == "" || credential.IsRegisteredConnection(p.ConnectionID)) && p.UsageMappingVersion == aicapability.ReferenceTextTotalsV1
+		}
 		return (operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationProductContentDecision) &&
-			p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint) && p.UsageMappingVersion == "openai-text-v1" &&
-			p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
+			identity && p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
 	}
 	if aicapability.VisionTextOperation(operation) {
 		return aicapability.SingleImageProfileShape(p)
@@ -193,6 +204,10 @@ var _ interface {
 
 func ValidRouteProfile(p aicapability.ModelProfile, operation aicapability.Operation) bool {
 	if p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy && (p.OfficialTariff.Channel != "openai-direct" || !p.CNYRatesCoverUSDTariff()) {
+		return false
+	}
+	if p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy && (!credential.IsRegisteredConnection(p.ConnectionID) ||
+		p.OfficialTariff.Channel != credential.CompatibleOpenAIChannel || !p.OfficialTariff.IsReferenceEstimate()) {
 		return false
 	}
 	return p.Validate() == nil && ValidRouteShape(p, operation) &&

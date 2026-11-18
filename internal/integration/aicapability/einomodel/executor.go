@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"task-processor/internal/aicapability"
+	credential "task-processor/internal/aicapability/channelcredential"
 	"task-processor/internal/integration/googleinteractions"
 )
 
@@ -19,9 +20,10 @@ import (
 // deployment policy owner. The API key must never be stored in a Workbench or
 // invocation receipt.
 type QualifiedRoute struct {
-	Profile  aicapability.ModelProfile
-	Endpoint string
-	APIKey   string
+	CredentialOwner string
+	Profile         aicapability.ModelProfile
+	Endpoint        string
+	APIKey          string
 }
 
 type InvocationLedger interface {
@@ -50,7 +52,7 @@ func endpointDigest(endpoint string) string {
 func sameRoute(a, b QualifiedRoute) bool {
 	ad, ae := a.Profile.Digest()
 	bd, be := b.Profile.Digest()
-	if ae != nil || be != nil || ad != bd || a.Endpoint != b.Endpoint ||
+	if a.CredentialOwner != b.CredentialOwner || ae != nil || be != nil || ad != bd || a.Endpoint != b.Endpoint ||
 		endpointDigest(a.Endpoint) != a.Profile.EndpointIdentityDigest ||
 		a.APIKey == "" || b.APIKey == "" {
 		return false
@@ -83,7 +85,7 @@ func (e *Executor) admitted(ctx context.Context, input aicapability.TextInputIde
 		return QualifiedRoute{}, ErrNotDispatched
 	}
 	route, err := e.Resolve(ctx, admissionMetadata(input))
-	if err != nil || !sameRoute(route, QualifiedRoute{Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
+	if err != nil || !sameRoute(route, QualifiedRoute{CredentialOwner: route.CredentialOwner, Profile: input.Profile, Endpoint: route.Endpoint, APIKey: route.APIKey}) {
 		return QualifiedRoute{}, ErrNotDispatched
 	}
 	return route, nil
@@ -211,7 +213,7 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 		ProviderID: p.ProviderID, AdapterPolicyVersion: p.AdapterPolicyVersion, BillingUsageVersion: p.OfficialTariff.UsageVersion,
 		MaximumOutputTokens: int(p.MaximumCompletionTokens), MaximumRequestBytes: int64(p.MaximumInputBytes),
 		MaximumResponseBytes: int64(p.MaximumOutputBytes), Timeout: p.DeadlineBound}
-	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy {
+	if p.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || p.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || p.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
 		// Keep the actual SDK wire and framing within the amount quoted and reserved.
 		guardCfg.MaximumRequestBytes = min(guardCfg.MaximumRequestBytes, quote.MaximumTokens-p.MaximumCompletionTokens-128)
 	}
@@ -220,7 +222,11 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 	} else if input.Operation == aicapability.OperationOwnProductIntake {
 		guardCfg.visionText = &boundVisionText{System: input.System, Prompt: input.Prompt}
 	}
-	guard, err := NewGuardedClient(guardCfg, e.BaseTransport, func(gateCtx context.Context) error {
+	baseTransport := e.BaseTransport
+	if baseTransport == nil && credential.IsRegisteredConnection(p.ConnectionID) {
+		baseTransport = NewRegisteredChannelTransport()
+	}
+	guard, err := NewGuardedClient(guardCfg, baseTransport, func(gateCtx context.Context) error {
 		// The SDK may construct its own request context. The frozen caller bound
 		// remains authoritative at the actual guarded network handoff.
 		if !dispatchContextActive(ctx) || !dispatchContextActive(gateCtx) {
@@ -235,6 +241,12 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 			cleanup, permitErr = beforeSend(ctx)
 			if permitErr != nil {
 				return permitErr
+			}
+			if route.CredentialOwner != "" {
+				current, err := e.admitted(ctx, input)
+				if err != nil || !sameRoute(route, current) {
+					return ErrNotDispatched
+				}
 			}
 		}
 		if !dispatchContextActive(ctx) || !dispatchContextActive(gateCtx) {
@@ -256,6 +268,9 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 	}
 	now := time.Now().UTC()
 	record := textRecord(input, quote, now)
+	if route.CredentialOwner != "" {
+		record.ConfigurationVersion = route.Profile.RoutingPolicyVersion
+	}
 	acquired, err := e.Ledger.ClaimInvocation(ctx, record)
 	if err != nil || !acquired {
 		category := "existing"

@@ -11,6 +11,12 @@ D1“缺输入细分时使用较高输入参考费率”已获用户认可、原
 
 当前依据：[企业统一模型配置](../architecture/enterprise-shared-model-configuration.md)、PR #1078。此前 #830 按用途、两个数据库分别发布及单计划 VIP 的方案已被本次产品决定替代；历史实现和执行证据仍按原 SHA/范围保留。
 
+## 平台模型渠道与企业按用途选用
+
+[首版设计及验收条件](../architecture/domains/ai/platform-model-channels.md)定义平台自持与企业自有渠道。已向企业开放且具备同一用途准入条件的渠道出现在「模型与服务 → 企业文本模型 → 切换」。平台维护者从参考价格与汇率区进入「平台模型渠道」。企业自有管理通过指定自定义角色开放。
+
+后续经授权装配时，由现有 Run DB owner 的准备命令使用 `--target managed-model-channels`。沿用隔离的 `modelRoutePricing.writer`、`channelCredentials.managementWriter` 和已配置的保护材料。在可信运行配置中设置 `modelRoutePricing.platformMaintainerOrganization` 为实际平台维护组织。平台写入同时校验项目原生平台角色和有效成员。发送使用原受限 secret reader；租户不取得平台 Key 或价目写权。无可信平台维护组织时，平台渠道管理能力保持关闭。
+
 ## 用户入口
 
 ### 企业渠道 Key 管理（PR #1096）

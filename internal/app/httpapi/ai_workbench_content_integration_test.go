@@ -74,14 +74,14 @@ func (r *revocableOwnProductReader) ReadItemForExecution(ctx context.Context, pr
 }
 
 func TestChatContentTasksUseOriginalOwnersForMultipleSources(t *testing.T) {
-	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access", "full runtime content flow chat", "full runtime own content chat", "full runtime content flow chat mini"} {
+	for _, mode := range []string{"content flow chat", "own content chat", "own content chat full_access", "full runtime content flow chat", "full runtime own content chat", "full runtime content flow chat mini", "full runtime content flow chat managed-mini", "content flow chat managed-compatible"} {
 		t.Run(mode, func(t *testing.T) { testProductAgentOwners(t, mode) })
 	}
 }
 
 // Uses the existing domain/HTTP fixture, task-owned PostgreSQL and local model;
 // no serving instance, real credentials or provider are involved.
-func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime, scheduled bool) {
+func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m productAgentModule, deps routeAuthDependencies, auth *authz.ListingKitAuthorizer, configuration *configstore.Store, operationID string, calls, sharedPlannerCalls *atomic.Int32, own, automatic, fullRuntime, scheduled, managedCompatible bool) {
 	ctx := context.Background()
 	a := m.application.content
 	miniRuntime := a.config.ContentTextPolicies["B"].Profile.AdapterPolicyVersion == governed.OpenAIMiniTextAdapterPolicy
@@ -150,7 +150,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	planningCalls := &atomic.Int32{}
-	if fullRuntime {
+	if fullRuntime || managedCompatible {
 		planningCalls = sharedPlannerCalls
 	}
 	const projectID = "project-fixture"
@@ -198,7 +198,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	policy.Profile.CredentialVersion = credential.reference
 	policy.AdmittedCredentialVersion = httpCredentialReference(*credential)
 	policy.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(credential.BaseURL)
-	if fullRuntime {
+	if fullRuntime || managedCompatible {
 		policy = a.config.ContentTextPolicies["B"]
 		policy.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
 		policy.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
@@ -217,7 +217,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	}
 	if os.Getenv("CODEX_PRODUCT_CONTEXT_FIXTURE") == "1" {
 		policy.Profile.PromptVersion = "ai-workbench-chat-plan-v4"
-		if !fullRuntime {
+		if !fullRuntime && !managedCompatible {
 			reader := a.config.CurrentTextPolicies.(syntheticCurrentTextPolicies)
 			reader.planning = map[string]governed.RoutePolicy{"B": policy}
 			a.config.CurrentTextPolicies = reader
@@ -244,7 +244,7 @@ func testChatContentThroughOwners(t *testing.T, f *acquisitionHTTPFixture, m pro
 	var storeRouteCalls atomic.Int32
 	routeStarted, routeRelease := make(chan struct{}), make(chan struct{})
 	var releaseRoute, startRoute sync.Once
-	runStoreRoute := os.Getenv("CODEX_STORE_QUERY_FIXTURE") == "1" && !fullRuntime && !own && !scheduled
+	runStoreRoute := os.Getenv("CODEX_STORE_QUERY_FIXTURE") == "1" && !fullRuntime && !managedCompatible && !own && !scheduled
 	if runStoreRoute {
 		routeProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			storeRouteCalls.Add(1)

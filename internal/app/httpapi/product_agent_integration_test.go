@@ -151,12 +151,26 @@ func TestContentHTTPWarningsRemainReadableWithoutAdoption(t *testing.T) {
 	}
 }
 
+func TestPlatformChannelChatUsesConsumerLedger(t *testing.T) {
+	testProductAgentOwners(t, "full runtime content flow chat platform-mini")
+}
+
 func testProductAgentOwners(t *testing.T, mode string, imageProvider ...string) {
 	testProductAgentOwnersWithTitleRehearsal(t, mode, nil, imageProvider...)
 }
 
 func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehearsal *titleRehearsal, imageProvider ...string) {
-	miniRuntime := mode == "full runtime content flow chat mini"
+	managedCompatible := mode == "content flow chat managed-compatible"
+	platformRuntime := mode == "full runtime content flow chat platform-mini"
+	managedRuntime := mode == "full runtime content flow chat managed-mini" || managedCompatible || platformRuntime
+	managedTemplate := ""
+	if managedRuntime {
+		managedTemplate = credential.OfficialMiniTemplate
+	}
+	if managedCompatible {
+		managedTemplate = credential.CompatibleMiniTemplate
+	}
+	miniRuntime := mode == "full runtime content flow chat mini" || managedRuntime
 	fullRuntime := strings.HasPrefix(mode, "full runtime ")
 	mode = strings.TrimPrefix(mode, "full runtime ")
 	if miniRuntime {
@@ -252,7 +266,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 			require.NotContains(t, string(raw), "execution.json")
 			r.Body = io.NopCloser(strings.NewReader(string(raw)))
 		}
-		if fullRuntime && chatTasks {
+		if (fullRuntime || managedCompatible) && chatTasks {
 			raw, e := io.ReadAll(r.Body)
 			require.NoError(t, e)
 			r.Body = io.NopCloser(strings.NewReader(string(raw)))
@@ -651,9 +665,16 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		settings.Limits.Tokens = 72000
 		settings.Limits.CostMicros = 300000
 		content := settings.ContentTextPolicies["B"]
+		fixtureHost := "api.openai.com"
+		if managedCompatible {
+			fixtureHost = "fixture.compatible.example.test"
+		}
 		settings.TextTransport = acquisitionHTTPTransport(func(req *http.Request) (*http.Response, error) {
-			if req.URL.Scheme != "https" || req.URL.Host != "api.openai.com" || req.URL.Path != "/v1/chat/completions" {
+			if req.URL.Scheme != "https" || req.URL.Host != fixtureHost || req.URL.Path != "/v1/chat/completions" {
 				return nil, errors.New("fixture refuses all non-synthetic destinations")
+			}
+			if managedRuntime {
+				require.Equal(t, "Bearer managed-fixture-key", req.Header.Get("Authorization"))
 			}
 			rec := httptest.NewRecorder()
 			provider.Config.Handler.ServeHTTP(rec, req)
@@ -678,14 +699,16 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		title.Profile.MaximumCompletionTokens = governed.TitlePilotCompletionTokens
 		title.Profile.PromptVersion = "product-title-agent-v1"
 		title.Profile.OutputSchemaVersion = "product-title-action-v1"
-		settings.TextPolicies["B"] = title
+		if fullRuntime {
+			settings.TextPolicies["B"] = title
+		}
 		planner := settings.ContentTextPolicies["B"]
 		planner.Profile.MaximumPromptTokens = 4096
 		planner.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
 		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 		planner.Profile.MaximumInputBytes = 64 << 10
 		planner.Profile.MaximumCompletionTokens = 512
-		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner, managedTemplate, platformRuntime)
 	}
 	if chatTasks && fullRuntime && !miniRuntime {
 		planner := settings.ContentTextPolicies["B"]
@@ -693,7 +716,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		planner.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
 		planner.Profile.MaximumInputBytes = 128 << 10
 		planner.Profile.MaximumCompletionTokens = 4096
-		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner)
+		settings.CurrentTextPolicies = configuredChatSharedReader(t, &settings, f.owner, planner, "", false)
 	}
 	if contentTitleOnly {
 		settings.ContentTitleOnly, settings.AssetDB, settings.TextPolicies = true, nil, nil
@@ -858,7 +881,7 @@ func testProductAgentOwnersWithTitleRehearsal(t *testing.T, mode string, rehears
 		return
 	}
 	if chatTasks {
-		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"))
+		testChatContentThroughOwners(t, f, module.(productAgentModule), deps, auth, configuration, op.OperationID, &calls, &plannerCalls, strings.HasPrefix(mode, "own content chat"), strings.Contains(mode, "full_access"), fullRuntime, strings.Contains(mode, "chat scheduled"), managedCompatible)
 		return
 	}
 	if strings.HasPrefix(mode, "own content ") {
