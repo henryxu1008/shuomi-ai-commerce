@@ -6,7 +6,7 @@
 
 ## 用户结果与范围
 
-已获准企业的成员在当前已保存商品的标题确认页生成有依据的建议，再由人通过既有 Product Review 接受和显式 Apply。首条 Google `gemini-3.8-flash` 路由通过官方 Interactions API 获取单次文本结果；企业仍可另行使用已经准入的 OpenAI Chat Completions 兼容路由，标题 Agent 的业务代码不绑定供应商。当前 Figma/IA、Product/Asset/Review 事实、权限和页面交互沿用 [Agent D 已批准合同](../../organization-agent-configuration.md) 与 [当前 UI/IA Authority](../../../product/final-ui-ia-authority.md)。
+已获准企业的成员在当前已保存商品的标题确认页生成有依据的建议，再由人通过既有 Product Review 接受和显式 Apply。首条 Google `gemini-3.8-flash` 路由通过官方 Interactions API 获取单次文本结果；企业仍可另行使用已经准入的 OpenAI Chat Completions 兼容路由，标题 Agent 的业务代码不绑定供应商。当前 Figma/IA、Product/Asset/Review 事实、权限和页面交互沿用 [Agent D 已批准合同](../workbench/organization-agent-configuration.md) 与 [当前 UI/IA Authority](../../../product/final-ui-ia-authority.md)。
 
 本增量只增加一个受控的原生传输协议和它的精确准入，不建设模型目录、供应商自动切换、BYOK UI、第二账本、后台任务、工具调用或供应商恢复平台。真实付费运行仍需独立的点数费率、货币估价、额度/预算和调用授权；设计或测试通过不自动开放。全新系统不做旧数据迁移。现有 [供应商可替换合同](product-agent-text-provider-neutral.md) 对组织策略、唯一 dispatch、UNKNOWN 和人工审核继续生效；其中“首条 Google 候选只走兼容协议”的结论若获用户同意由本增量替代。
 

@@ -233,7 +233,7 @@
 - `domains/workbench/task-center-summary.md` — [任务中心统一统计](domains/workbench/task-center-summary.md)
 - `domains/ai/issue132-title-evaluation-admission.md` — [标题对照评测准入与预算边界（#132）](domains/ai/issue132-title-evaluation-admission.md)
 - `domains/ai/issue132-title-pilot-local-entry.md` — [标题先导的本机操作入口（#132）](domains/ai/issue132-title-pilot-local-entry.md)
-- `organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](organization-agent-configuration.md)
+- `domains/workbench/organization-agent-configuration.md` — [Organization Agent Configuration V1 — Slice D](domains/workbench/organization-agent-configuration.md)
 - `domains/listing/platform-listing-materials-agent.md` — [平台上架资料智能体 v1](domains/listing/platform-listing-materials-agent.md)
 - `pod-design-agent.md` — [POD设计智能体 v1：从设计意图生成图案](pod-design-agent.md)
 - `domains/ai/private-agent-delivery.md` — [指定企业私有智能体交付 V1](domains/ai/private-agent-delivery.md)

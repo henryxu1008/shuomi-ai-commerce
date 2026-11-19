@@ -63,7 +63,7 @@ Figma 文件 tg48P46SSXl6TBy9lZwg63，当前非归档页面 31:463。
 
 ## 3. Owner、合同与依赖方向
 
-复用 [企业智能体配置](./organization-agent-configuration.md)、
+复用 [企业智能体配置](domains/workbench/organization-agent-configuration.md)、
 [Agent Runtime](./product-agent-runtime-contract.md)、
 [完整图片智能体](./product-image-agent.md)、
 [私有交付](domains/ai/private-agent-delivery.md)、
