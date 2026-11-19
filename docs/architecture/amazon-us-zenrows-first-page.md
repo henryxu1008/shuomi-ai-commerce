@@ -31,3 +31,31 @@ Product Data Acquisition 持有单次发送与数据批次事实，现有 DataRo
 获准成员从自己的调研项目确认准确关键词、任务范围和预算。沿同源工作台入口提交原批准 ID，提交请求为空。需同一正常登录会话及当前工作台身份/企业一致性标头。在作业不明时，先以 GET 查原批准。 `PREPARED` 表示已向原数据任务交接，可在「数据市场」按关键词查任务并等保存完成； `UNKNOWN` 只保留原单核对。 `credits: null` 表示逐笔用量待核实。任务完成后在「市场调研 → 添加已有商品资料」选择这一批、比较 2–5 件。页面事实不足时保留缺项，不成为发起下一请求的授权。
 
 适用测试复用 #1459 的隔离 PostgreSQL：独立验证同一并发批准最多一次、成功回执和预备证据原子、超时及权限撤销停止、不翻页或加发详情请求、重启后只接续原 job、异项目/旧版本拒绝及 2–5 件可比较。价格增量用同一组离线样本跑正式 Decoder、原保存任务和比较，核对 USD 展示报价及缺项。正式 35444 准备仅按原保留实例运行合同更新经验证的必要服务，保留已有配置及数据。无试用写入时可回退原镜像；一旦保存搜索原件，回退候选必须支持当时已保存的解析版本。停用试用通过移除运行配置完成。价格增量只作离线验证。
+
+## #1490 报价诊断证据（独立架构增量）
+
+Independent Architecture，IMPLEMENTATION_READY。独立 R1 已核对同卡证据、现有保存和读取边界。依据 [#1490](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1490) 的 35444 试跑和用户 2026-11-19 的决定。本轮交付离线验证。下一次另行授权的单次试跑能按 ASIN 核对源卡和保存结果，判断源卡是否有可辨认的报价，以及解析为何可能没有保留它。
+
+- Product Data Acquisition 持有新增的卡片诊断证据。在已验证的单次响应内，从与报价解析相同的已选自然搜索卡取证，且只为将提交的商品（最多 5 件）取证。证据保存卡片的原有元素结构、顺序与文本，以及与卡片身份、报价和显隐有关的属性。取证独立于已知价格选择器，覆盖新价格标记、参考价及附近的限定文字。保存的是清理后的 HTML 片段，未保留原页面、供应商应答或浏览器渲染。排除脚本、样式表、表单控件、嵌入内容、注释、嵌套搜索卡、链接和资源属性；仅保留有限的标记属性和显隐/划线相关的内联样式。继续拦截含供应商 Key 的证据，覆盖 HTML 实体解码后的文本。
+- 商品证据新增版本 `amazon-zenrows-search-v3`，保留 v2 的价格和币种规则。每件 v3 带 `quoteCard`。`captured` 带一段受 64 KiB 限制的清理后卡片文本，`too_large` 表示超限而省略整个片段，`unavailable` 表示无法生成片段。两种情况仍按同一规则保存商品。v1/v2 继续读回，旧记录没有卡片片段，不做回填。存储、备份和保留周期沿用原 Data Acquisition 证据。
+- 路径为固定 ZenRows Sender → Amazon US 同一已选卡的清理与 v2 报价提取 → Product Evidence 合同 → 原 Prepare 事务保存回执和 `data_acquisition_items.evidence_json` → Existing Worker 发布 Collection 商品事实。诊断与同一企业、操作者、任务、原件及 ASIN 绑定，随现有证据生成摘要，参与同一输入绑定。证据始终由 Product 持有。Collection、Research、工作台和开放 API 仍只消费原有投影字段，不返回卡片片段。已有试用环境数据库读取权限的维护者，使用已核对的企业、操作者、任务 ID 和 ASIN 只读查原证据，按纯文本查看片段。只在 Issue 留可共享的脱敏判定和必要摘录。
+- 从匹配的卡片人工核对可辨认且明确的报价与已保存的 price/currency。清理后的卡片没有可辨认报价时，记录这份源卡片段未见报价。片段可核实有报价而商品字段为空时，记录解析未保留及实际上下文。仅见其他价格或条件信息时记录报价不可核实。超限或片段无法判读时记录证据不足，不据此判定页面无价。片段不证明浏览器最终显示或片段外的内容。
+- 不增加表、列、服务、业务消息、权限、数据条结算或外部调用。原单次批准、发送占用、响应丢失、事务、失败与接续合同不变。既有任务重放只读原证据，不再提取或重抓。停用仍移除私有配置。保存 v3 后，运行及回退版本须能验证并回读 v3 证据。
+- 验证复用原单页离线样本和隔离 PostgreSQL 保存/比较用例。覆盖明确报价、卡片无报价、未知标记的报价、隐藏或限定价、证据超限、敏感字段与相邻卡隔离。逐件从原记录读回并核对价/币种和卡片，核对现有商品、比较和公开结果投影，无供应商出站请求。真实有价样本验证继续由 #1490 跟踪，下一次请求须另获授权。
+
+
+获准维护者在现有只读 PostgreSQL 会话中，将企业、操作者、任务和商品编号设为 psql 变量 `org_id`、`actor_id`、`job_id`、`asin` 后查看原件。`saved_price` 与 `saved_currency` 来自同一条商品证据，请同时核对商品状态。
+
+```sql
+WITH item AS (
+    SELECT asin, state, convert_from(evidence_json, 'UTF8')::jsonb AS evidence
+    FROM data_acquisition_items
+    WHERE organization_id = :'org_id' AND actor_id = :'actor_id'
+      AND job_id = :'job_id'::uuid AND asin = :'asin' AND source_kind = 'amazon_data'
+)
+SELECT asin, state, evidence->>'parserVersion' AS parser_version,
+       evidence->>'price' AS saved_price, evidence->>'currency' AS saved_currency,
+       evidence #>> '{quoteCard,status}' AS card_status,
+       evidence #>> '{quoteCard,markup}' AS card_markup
+FROM item;
+```

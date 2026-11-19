@@ -1,6 +1,11 @@
 package dataacquisition
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestZenRowsSearchEvidenceKeepsPriceAndCurrencyPaired(t *testing.T) {
 	e := Evidence{
@@ -15,12 +20,12 @@ func TestZenRowsSearchEvidenceKeepsPriceAndCurrencyPaired(t *testing.T) {
 	}{
 		{"saved v1", amazonZenRowsSearchV1, "", 0, []string{"price", "currency"}, true},
 		{"v1 cannot claim a price", amazonZenRowsSearchV1, "USD", 1, nil, false},
-		{"v2 missing", AmazonZenRowsSearchVersion, "", 0, []string{"price", "currency"}, true},
-		{"v2 verified pair", AmazonZenRowsSearchVersion, "USD", 1, nil, true},
-		{"price only", AmazonZenRowsSearchVersion, "", 1, []string{"currency"}, false},
-		{"currency only", AmazonZenRowsSearchVersion, "USD", 0, []string{"price"}, false},
-		{"other currency", AmazonZenRowsSearchVersion, "CAD", 1, nil, false},
-		{"conflicting price missing", AmazonZenRowsSearchVersion, "USD", 1, []string{"price"}, false},
+		{"v2 missing", amazonZenRowsSearchV2, "", 0, []string{"price", "currency"}, true},
+		{"v2 verified pair", amazonZenRowsSearchV2, "USD", 1, nil, true},
+		{"price only", amazonZenRowsSearchV2, "", 1, []string{"currency"}, false},
+		{"currency only", amazonZenRowsSearchV2, "USD", 0, []string{"price"}, false},
+		{"other currency", amazonZenRowsSearchV2, "CAD", 1, nil, false},
+		{"conflicting price missing", amazonZenRowsSearchV2, "USD", 1, []string{"price"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fact := e
@@ -113,5 +118,25 @@ func TestUnknownAvailabilityIsSavedAsMissingWithoutFabricatingSalePrice(t *testi
 	e.Availability = "available"
 	if e.Validate() == nil {
 		t.Fatal("explicitly available without real price must still fail")
+	}
+}
+
+func TestSavedAmazonSearchEvidenceRetainsOriginalEncoding(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw string
+		hasPrice  bool
+	}{
+		{"v1 absent quote", `{"site":"us","asin":"B000123456","title":"Lamp","mainImage":"https://m.media-amazon.com/images/lamp.jpg","availability":"unknown","capturedAt":"2026-11-18T12:49:30Z","parserVersion":"amazon-zenrows-search-v1","missing":["availability","price","currency"]}`, false},
+		{"v2 priced quote", `{"site":"us","asin":"B000123456","title":"Lamp","mainImage":"https://m.media-amazon.com/images/lamp.jpg","availability":"unknown","currency":"USD","price":1,"capturedAt":"2026-11-18T12:49:30Z","parserVersion":"amazon-zenrows-search-v2","missing":["availability"]}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var fact Evidence
+			require.NoError(t, json.Unmarshal([]byte(tc.raw), &fact))
+			require.NoError(t, fact.Validate())
+			require.Equal(t, tc.hasPrice, fact.HasDisplayedPrice())
+			raw, err := json.Marshal(fact)
+			require.NoError(t, err)
+			require.Equal(t, tc.raw, string(raw))
+		})
 	}
 }

@@ -152,3 +152,103 @@ func TestAmazonFirstPageSenderUsesFixedRequestAndNeverRedirects(t *testing.T) {
 	require.Equal(t, dataacquisition.AmazonFirstPageUnknown, send(context.Background(), approval).Receipt.State)
 	require.EqualValues(t, 2, calls.Load())
 }
+
+func TestAmazonSearchKeepsSourceCardForQuoteDiagnosis(t *testing.T) {
+	const html = `<article data-component-type="s-search-result" data-asin="B000000001">
+		<img class="s-image" src="https://m.media-amazon.com/images/I/first.jpg">
+		<output class="new-price" aria-label="Current price">$42.15</output>
+		<s style="text-decoration: line-through; background: url(secret-style)">$52.15</s>
+		<span style="display: none"><b>$62.15</b></span>
+		<a href="https://example.test/private-url" onclick="private-handler()">Seller</a>
+		<script>private-script</script><input value="private-input">
+		<div data-component-type="s-search-result" data-asin="B000000009"><span>$99.15</span></div>
+	</article><div data-component-type="s-search-result" data-asin="B000000002">
+		<img class="s-image" src="https://m.media-amazon.com/images/I/second.jpg"><span>See buying options</span>
+	</div>`
+	body, err := json.Marshal(map[string]any{
+		"html": html,
+		"parsed": map[string]any{"results": []map[string]any{
+			{"asin": "B000000001", "title": "First"},
+			{"asin": "B000000002", "title": "Second", "price": 12.15},
+		}},
+	})
+	require.NoError(t, err)
+	facts := DecodeAmazonFirstPage(body, time.Now().UTC())
+	require.Len(t, facts, 2)
+	for _, fact := range facts {
+		require.Zero(t, fact.Price)
+		require.Empty(t, fact.Currency)
+	}
+	type savedEvidence struct {
+		QuoteCard struct {
+			Status string
+			Markup string
+		}
+	}
+	raw, err := json.Marshal(facts)
+	require.NoError(t, err)
+	var stored []savedEvidence
+	require.NoError(t, json.Unmarshal(raw, &stored))
+	first := stored[0].QuoteCard
+	require.Equal(t, "captured", first.Status)
+	require.Contains(t, first.Markup, `data-asin="B000000001"`)
+	require.Contains(t, first.Markup, `<output class="new-price" aria-label="Current price">$42.15</output>`)
+	require.Contains(t, first.Markup, `text-decoration: line-through`)
+	require.Contains(t, first.Markup, `display: none`)
+	for _, secret := range []string{"private-url", "private-handler", "private-script", "private-input", "secret-style", "first.jpg", "$99.15", "B000000009", "B000000002"} {
+		require.NotContains(t, first.Markup, secret)
+	}
+	second := stored[1].QuoteCard
+	require.Equal(t, "captured", second.Status)
+	require.Contains(t, second.Markup, "See buying options")
+	require.NotContains(t, second.Markup, "$")
+}
+
+func TestAmazonFirstPageSenderRejectsKeyDecodedFromQuoteCard(t *testing.T) {
+	const key = "loopback-secret&'only"
+	const encodedKey = "loopback&#45;secret&amp;&#39;only"
+	for _, tc := range []struct {
+		name, markup string
+	}{
+		{"card text", "<span>" + encodedKey + "</span>"},
+		{"card attribute", " <span aria-label='" + encodedKey + "'>See current price</span>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			approval := dataacquisition.AmazonFirstPageApproval{
+				ID: uuid.NewString(), ProjectID: uuid.NewString(), Keyword: "lamp",
+				Scope:      collection.Scope{OrganizationID: "org", ActorID: "actor", MemberID: "member"},
+				AccountRef: uuid.NewString(), BudgetRef: uuid.NewString(), KeyDigest: fmt.Sprintf("%x", sha256.Sum256([]byte(key))),
+				BudgetExpiresAt: time.Now().Add(time.Minute), ExpiresAt: time.Now().Add(time.Minute),
+				AvailableCredits: 25, MaximumCredits: 25, NoOverageCharges: true, Funding: orgresource.FundingEnterprise,
+				Price: dataacquisition.PriceConfirmation{Version: "test"},
+			}
+			const image = `<img class="s-image" src="https://m.media-amazon.com/images/I/lamp.jpg">`
+			html := `<div data-component-type="s-search-result" data-asin="B000000001">` + image + tc.markup + `</div>` +
+				`<div data-component-type="s-search-result" data-asin="B000000002">` + image + `</div>`
+			body, err := json.Marshal(map[string]any{
+				"html": html,
+				"parsed": map[string]any{"results": []map[string]any{
+					{"asin": "B000000001", "title": "First"}, {"asin": "B000000002", "title": "Second"},
+				}},
+			})
+			require.NoError(t, err)
+			require.NotContains(t, string(body), key)
+			require.Len(t, DecodeAmazonFirstPage(body, time.Now().UTC()), 2)
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				w.Header().Set("X-Request-Id", "vendor-receipt")
+				w.Header().Set("X-Request-Credits", "25")
+				w.Header().Set("Zr-Final-Url", approval.TargetURL())
+				_, _ = w.Write(body)
+			}))
+			t.Cleanup(server.Close)
+			send := amazonFirstPageFetch(server.Client(), server.URL, func(context.Context) (string, error) { return key, nil })
+			got := send(context.Background(), approval)
+			require.Equal(t, dataacquisition.AmazonFirstPageUnknown, got.Receipt.State)
+			require.Equal(t, "vendor-receipt", got.Receipt.RequestID)
+			require.Empty(t, got.Evidence)
+			require.EqualValues(t, 1, requests.Load())
+		})
+	}
+}

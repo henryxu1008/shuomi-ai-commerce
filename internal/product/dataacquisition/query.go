@@ -128,6 +128,34 @@ type Evidence struct {
 	CapturedAt    string            `json:"capturedAt"`
 	ParserVersion string            `json:"parserVersion"`
 	Missing       []string          `json:"missing,omitempty"`
+	QuoteCard     *AmazonQuoteCard  `json:"quoteCard,omitempty"`
+}
+
+const (
+	MaxAmazonQuoteCardBytes    = 64 << 10
+	AmazonQuoteCardCaptured    = "captured"
+	AmazonQuoteCardTooLarge    = "too_large"
+	AmazonQuoteCardUnavailable = "unavailable"
+)
+
+// AmazonQuoteCard is diagnostic source evidence, consumed only as text.
+type AmazonQuoteCard struct {
+	Status string `json:"status"`
+	Markup string `json:"markup,omitempty"`
+}
+
+func (c *AmazonQuoteCard) valid() bool {
+	if c == nil {
+		return false
+	}
+	switch c.Status {
+	case AmazonQuoteCardCaptured:
+		return len(c.Markup) <= MaxAmazonQuoteCardBytes && utf8.ValidString(c.Markup) && strings.TrimSpace(c.Markup) != ""
+	case AmazonQuoteCardTooLarge, AmazonQuoteCardUnavailable:
+		return c.Markup == ""
+	default:
+		return false
+	}
 }
 
 func (e Evidence) Validate() error {
@@ -139,9 +167,13 @@ func (e Evidence) Validate() error {
 	if err != nil || a != e.ASIN || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || !utf8.ValidString(e.Title) || len(e.Description) > 1<<20 || len(e.Images) > 40 || len(e.Attributes) > 256 {
 		return ErrInvalid
 	}
+	if (e.ParserVersion == AmazonZenRowsSearchVersion && !e.QuoteCard.valid()) ||
+		(e.ParserVersion != AmazonZenRowsSearchVersion && e.QuoteCard != nil) {
+		return ErrInvalid
+	}
 	switch e.ParserVersion {
 	case "amazon-v1":
-	case amazonZenRowsSearchV1, AmazonZenRowsSearchVersion:
+	case amazonZenRowsSearchV1, amazonZenRowsSearchV2, AmazonZenRowsSearchVersion:
 		if e.Site != "us" || e.Availability != "unknown" ||
 			e.Description != "" || e.Brand != "" || len(e.Attributes) != 0 || len(e.Images) != 0 {
 			return ErrInvalid
@@ -152,7 +184,7 @@ func (e Evidence) Validate() error {
 			if !missingPrice || !missingCurrency {
 				return ErrInvalid
 			}
-		case e.ParserVersion == AmazonZenRowsSearchVersion && e.Price > 0 && e.Currency == "USD":
+		case e.HasDisplayedPrice():
 			if missingPrice || missingCurrency {
 				return ErrInvalid
 			}
@@ -201,7 +233,8 @@ func (e Evidence) Validate() error {
 // HasDisplayedPrice reports whether validated evidence carries a displayed
 // listing offer. Search-card evidence establishes the quote independently of stock.
 func (e Evidence) HasDisplayedPrice() bool {
-	return e.Price > 0 && (e.Availability == "available" || (e.ParserVersion == AmazonZenRowsSearchVersion && e.Currency == "USD"))
+	return e.Price > 0 && (e.Availability == "available" || (e.Currency == "USD" &&
+		(e.ParserVersion == amazonZenRowsSearchV2 || e.ParserVersion == AmazonZenRowsSearchVersion)))
 }
 
 func (e Evidence) Envelope(operation string) (sourcing.SourceEnvelope, error) {
