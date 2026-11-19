@@ -1,5 +1,7 @@
 # 个人与企业主体认证：腾讯企业认证与阿里云个人认证
 
+> 归类说明（2026-11-19）：本文保留分阶段候选与后续冻结合同；个人以 §14 阿里云合同为准，企业以 §13 腾讯合同为准，不恢复早期腾讯个人候选或旧 AUTH-1 重构。Figma 仅作业务流程参考。[#510](https://github.com/henryxu1008/shuomi-ai-commerce/issues/510) 已记录 #516/#520 实现合并，个人 KYC 事实也已由 #519/#522 消费于提现准入；本文早期“尚未实现/个人未开放/提现不在本轮”等文字只描述原阶段和各自范围，不否认后续实现，也不等于认证自动授予权限或自动付款。真实供应商验收由仍开放的 [#527](https://github.com/henryxu1008/shuomi-ai-commerce/issues/527) 独立负责：首次个人申请三要素返回 410，本地保持 UNKNOWN；后续独立申请仅有历史本人页面 VERIFIED 及同时间/同次数读回，实际手机刷脸未独立观测，新页面从 PENDING 扫码路径和腾讯企业认证仍 NOT_RUN，不能据此签发完整验收。当前 subjectverification 拥有申请/绑定/结论，原 persistence、供应商 adapter、HTTP/BFF 装配及 IAM 边界保持；本批仅迁文档，不读取凭据/身份材料、不调用供应商、不收费、不部署或访问实例，旧记录不授权新的真实认证。
+
 
 ## 1. 用户结果与范围纠正
 
@@ -7,9 +9,9 @@
 
 这不是登录 Authentication、手机/邮箱控制权验证，也不是统一 Auth API 的重构。#510 原先的 `AUTH-1` / `auth-backend-api-v1.md` 方向被本次主体认证决定替代；不将抽取 `account_identity.go`、新增 `accountidentity` 或注册/Onboarding 作为本轮前置。
 
-产品入口由 [Figma Authority](../product/final-ui-ia-authority.md) 决定。此前直接核对的 Figma `tg48P46SSXl6TBy9lZwg63` / `1514:815` 包含个人认证、企业认证入口、证件录入及提交后核验语义。本轮用户已接受证件和人脸由腾讯托管采集：硕米保留入口和状态投影，不再同时建设本站证件上传。企业具体节点、终端和状态映射仍待核对；本决定不修改 Figma 原稿。
+产品入口由 [Figma Authority](../../../product/final-ui-ia-authority.md) 决定。此前直接核对的 Figma `tg48P46SSXl6TBy9lZwg63` / `1514:815` 包含个人认证、企业认证入口、证件录入及提交后核验语义。本轮用户已接受证件和人脸由腾讯托管采集：硕米保留入口和状态投影，不再同时建设本站证件上传。企业具体节点、终端和状态映射仍待核对；本决定不修改 Figma 原稿。
 
-当前 [Account VerificationPanel](../../web/listingkit-ui/src/components/workbench/account/account-views.tsx) 已把主体认证标为暂不可用，并与联系方式验证分开。没有可靠认证结论时继续 unavailable；不把 ZITADEL 邮箱/手机号 verified 或组织 grant 当成实名/企业认证。
+当前 [Account VerificationPanel](../../../../web/listingkit-ui/src/components/workbench/account/account-views.tsx) 已把主体认证标为暂不可用，并与联系方式验证分开。没有可靠认证结论时继续 unavailable；不把 ZITADEL 邮箱/手机号 verified 或组织 grant 当成实名/企业认证。
 
 ## 2. 本轮决定与非目标
 

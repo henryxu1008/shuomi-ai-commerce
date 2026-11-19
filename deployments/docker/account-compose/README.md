@@ -386,7 +386,7 @@ raw provider responses. Pending URLs are encrypted and removed on a terminal
 result. The UI clears name/ID after submission. Account authentication and other
 business permissions are unchanged; withdrawal integration belongs to #519.
 Real paid testing and user acceptance require separate authorization and remain
-NOT_RUN. See [design §14](../../../docs/architecture/subject-verification-tencent-esign-design.md#14-阿里云个人首次认证与次数限制).
+NOT_RUN. See [design §14](../../../docs/architecture/platform/identity/subject-verification-tencent-esign-design.md#14-阿里云个人首次认证与次数限制).
 
 ## Enterprise verification (optional, #510)
 
@@ -448,7 +448,7 @@ Real Tencent authorization, callback reachability, supplier sample validation
 and user acceptance are **NOT_RUN**; these are trial/opening conditions, not
 claims established by local tests. Keep the optional configuration unset until
 the authorized trial is ready. Design and frozen boundary:
-[subject-verification design §13](../../../docs/architecture/subject-verification-tencent-esign-design.md#13-本轮企业首次引导认证合同).
+[subject-verification design §13](../../../docs/architecture/platform/identity/subject-verification-tencent-esign-design.md#13-本轮企业首次引导认证合同).
 
 ## PostgreSQL layout (new local projects)
 

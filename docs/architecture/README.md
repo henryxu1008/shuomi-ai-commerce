@@ -99,7 +99,7 @@
 - `referral-settlement-and-conduct.md` — [Referral settlement period and promotion conduct](referral-settlement-and-conduct.md)
 - `referral-withdrawal-personal-kyc-contract.md` — [Referral Withdrawal Personal KYC Contract](referral-withdrawal-personal-kyc-contract.md)
 - `settlement-reversal-locking.md` — [Immutable settlement reversal locking](settlement-reversal-locking.md)
-- `subject-verification-tencent-esign-design.md` — [个人与企业主体认证：腾讯企业认证与阿里云个人认证](subject-verification-tencent-esign-design.md)
+- `platform/identity/subject-verification-tencent-esign-design.md` — [个人与企业主体认证：腾讯企业认证与阿里云个人认证](platform/identity/subject-verification-tencent-esign-design.md)
 - `unified-base-prepaid-resources.md` — [统一基础方案与预付资源 V1](unified-base-prepaid-resources.md)
 - `usage-event-business-object.md` — [用量明细的关联业务对象](usage-event-business-object.md)
 
