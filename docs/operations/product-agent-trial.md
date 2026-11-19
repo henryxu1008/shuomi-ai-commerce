@@ -62,7 +62,7 @@ DASHSCOPE 的 `deepseek-v4.1-flash` 使用同一个受控 Eino OpenAI-compatible
 供应商对思考默认值及计费的说明见 [官方 DeepSeek API](https://help.aliyun.com/zh/model-studio/deepseek-api)。
 这些字段只说明源码配置合同；真实 endpoint/地域/密钥权限、价格、准入、预算及付费调用仍需原运行清单和单独授权。
 
-Google 标题路由按 [#588 组合增量 §6.7](../architecture/ai-workbench-chat-business-task.md#67-google-interactions-composition-increment) 配置同一 `RoutePolicy`：
+Google 标题路由按 [#588 组合增量 §6.7](../architecture/domains/workbench/ai-workbench-chat-business-task.md#67-google-interactions-composition-increment) 配置同一 `RoutePolicy`：
 `Profile.ProviderID=google`、`AdapterKind=google-interactions`、`ModelID=gemini-3.8-flash`、
 `AdapterPolicyVersion=google-interactions-v1`、`UsageMappingVersion=google-interactions-usage-v1`。
 凭据输入的 `apiStyle` 为 `google-interactions`，`baseURL` 必须精确为

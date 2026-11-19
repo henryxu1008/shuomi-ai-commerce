@@ -282,7 +282,7 @@
 - `domains/workbench/chat-selected-store-context.md` — [硕米 Chat 选择店铺背景](domains/workbench/chat-selected-store-context.md) · 已连接店铺选择及权限校验。
 - `chat-project-actions.md` — [硕米 Chat 选择 Agent 技能与项目操作](chat-project-actions.md) · #1396，覆盖个人标题技能的创作、计费及恢复，后续标题技能版本交接和项目操作。
 - `chat-general-text-skills.md` — [硕米 Chat 创建并使用个人文字技能](chat-general-text-skills.md) · #1429，通用文字创作与 Chat 选用已独立复核并达到 IMPLEMENTATION_READY。
-- `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
+- `domains/workbench/ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](domains/workbench/ai-workbench-chat-business-task.md)
 - `domains/workbench/ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](domains/workbench/ai-workbench-conversation-runtime.md)
 - `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
 - `domains/workbench/ai-workbench-reports.md` — [AI工作台个人报告 v1](domains/workbench/ai-workbench-reports.md)
