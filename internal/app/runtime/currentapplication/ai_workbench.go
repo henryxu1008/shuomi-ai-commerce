@@ -43,6 +43,9 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		if err := w.ChatImageStorage.validateCapacityIdentity(); err != nil {
 			return errors.New("Chat image storage identity is invalid")
 		}
+		if err := w.ChatImageStorage.validatePrivateEndpoint("Chat image storage"); err != nil {
+			return err
+		}
 	}
 	if w.ChatTurnsEnabled && (!w.Enabled || w.ConversationOnly || cfg.ModelRoutePricing == nil) {
 		return errors.New("Chat turns require an enabled priced-model workbench")
