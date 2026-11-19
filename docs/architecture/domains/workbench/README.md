@@ -6,7 +6,7 @@
 
 | 业务入口 | 当前合同/说明 | 事实 Owner |
 | --- | --- | --- |
-| 硕米 Chat 保存会话、规划和确认单次业务任务 | [Chat + BusinessTask](../../ai-workbench-chat-business-task.md)、[会话单独运行](../../ai-workbench-conversation-runtime.md) | `internal/aiworkbench`；执行结果归原 Agent/Tool owner |
+| 硕米 Chat 保存会话、规划和确认单次业务任务 | [Chat + BusinessTask](../../ai-workbench-chat-business-task.md)、[会话单独运行](ai-workbench-conversation-runtime.md)、[完整商品智能体与内容 Chat 共存](chat-content-full-runtime-coexistence-candidate.md) | `internal/aiworkbench`；执行结果归原 Agent/Tool owner |
 | 项目中心组织现有任务和资料 | [Project Center](ai-workbench-project-center.md)、[固定工作范围](../../ai-workbench-work-scope.md) | `internal/aiworkbench/projectcenter`，私有项目链接不扩权 |
 | 在 Chat 创建个人标题技能、选择已启用的标题技能或执行项目操作 | [硕米 Chat 选择 Agent 技能与项目操作](../../chat-project-actions.md) | Skill 持有技能版本，AI Workbench 持有创作命令、会话与任务，标题运行与计量归原服务，Project Center 持有项目与关系 |
 | 在 Chat 创建并选用个人文字技能 | [硕米 Chat 创建并使用个人文字技能](../../chat-general-text-skills.md)，#1429 设计已进入实施准入 | Skill 持有私有技能和准确版本，AI Workbench 持有创作与消息命令 |
@@ -14,6 +14,10 @@
 | 新建店铺经营日报定时任务，控制已有计划 | [定时计划合同](../../ai-workbench-scheduled-tasks.md)、[店铺日报](../../scheduled-store-daily-report.md)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)、[用户操作](../../../operations/user-guides/ai-workbench-scheduled-tasks.md) | `internal/aiworkbench` 的计划/occurrence，Temporal 原触发，`internal/reportcenter` 保存日报 |
 | 保存、收藏和下载个人报告 | [个人报告合同](../../ai-workbench-reports.md)、[报告交接](../../../engineering/integration/report-center-runtime-handoff.md) | `internal/reportcenter` 的不可变报告/收藏，不是来源事实或审核 |
 | Agent 能否调用 Tool、选择模型与预算 | [Commerce Tool Foundation](../../commerce-tool-foundation.md)、[AI Capability](../../ai-capability-platform.md)、[模型价格路由](../../model-route-pricing-management.md) | `internal/commercetool`、`internal/aicapability`、原 Model/Resource/Review owners |
+
+- 内容 Chat 的空结构安装与文本用途准备见[定向准备合同](chat-local-open-preparation.md)；冻结空 scope 成功不代表完整 serving schema 或真实模型就绪。
+
+- 原 35444 保留数据接线见[正式入口设计](chat-35444-retained-wiring-design.md)，局部后续准入见[开发试用最小准入](chat-retained-minimal-admission-proposal.md)；仅替代无关 owner 重复全量备份要求，不放宽目标、冻结、原调用与预留检查。
 
 ## 当前优先适用的范围
 

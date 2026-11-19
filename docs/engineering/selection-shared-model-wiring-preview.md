@@ -3,7 +3,7 @@
 状态：**OFFLINE_IMPLEMENTED / READONLY_AUDIT_COMPLETE / RUNTIME_SCHEMA_MISMATCH_CONFIRMED / NOT_BUILT / NOT_PUBLISHED / NOT_DEPLOYMENT_READY**。
 应用固定f337521d0；既有原身份运行配置/数据库元数据只读核查见[新通道实际差异与最小方案](integration/channel-contract-f337-readonly-review.md)，本轮在其范围上整理design-only候选，不重做现场操作。原离线实现与CI记录仍绑定各自准确SourceRef，见PR #1075。
 后续已取得原公共owner的ACK1075-INSTALL；另名新空Run的安装入口仍需最小补丁，见[design-only候选](new-run-ledger-installer-design.md)。角色合同已确认，实际安装操作者/权限未确认；不将候选设计写成可执行入口。
-已按[数据服务执行生命周期](../architecture/data-services-execution-lifecycle.md)独立检查并在编码前达到IMPLEMENTATION_READY。
+已按[数据服务执行生命周期](../architecture/domains/data-services/data-services-execution-lifecycle.md)独立检查并在编码前达到IMPLEMENTATION_READY。
 本页为去密审查差异，不含配置正文或发布授权。原a66继续运行；不自行提权、不改凭据、不发布配置、
 不构建镜像或更新实例、不执行真实采集/AI/付费、不合并关单。
 

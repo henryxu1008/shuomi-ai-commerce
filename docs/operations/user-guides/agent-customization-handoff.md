@@ -85,7 +85,7 @@ RUN-1 仍是原有身份/路由隔离环境，不因本功能自动增加 schema
 
 ### 无官方凭据的隔离离线试用
 
-仅用于已获准的独立本机项目，依据 [离线试用准入](../../architecture/private-draft-offline-trial.md)。在私有 manifest 明确配置 `privateDraftTrial`，字段为 `acknowledgment: ISOLATED_OFFLINE_DRAFT_TRIAL_ONLY`、`organizationId`、`actorId`、当前实际 `memberId`、`storeId`。保留正常本机 HTTPS 身份、当前 Product/Store/Collection/customization owner 和 live permissions；禁止同时配置完整 SupplyChain、official applications 或 Agent/provider 执行。缺省关闭，配置冲突拒绝启动。
+仅用于已获准的独立本机项目，依据 [离线试用准入](../../architecture/domains/ai/private-draft-offline-trial.md)。在私有 manifest 明确配置 `privateDraftTrial`，字段为 `acknowledgment: ISOLATED_OFFLINE_DRAFT_TRIAL_ONLY`、`organizationId`、`actorId`、当前实际 `memberId`、`storeId`。保留正常本机 HTTPS 身份、当前 Product/Store/Collection/customization owner 和 live permissions；禁止同时配置完整 SupplyChain、official applications 或 Agent/provider 执行。缺省关闭，配置冲突拒绝启动。
 
 显式通过现有 native owner 准备测试店铺和一个 TargetRecord；店铺名称以“离线测试”开头，保持 pending activation/disconnected。准备步骤不进入启动、HTTP 或 worker，不直接写草稿/issues/报告。试用 Product role 使用现有 collections+SupplyChain grants；只挂七个 GET，不开放草稿保存、上传、操作或规则调用，Asset/Temporal 不参与试用读取。
 

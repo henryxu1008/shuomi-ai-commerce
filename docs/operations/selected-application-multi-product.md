@@ -1,7 +1,7 @@
 # 自有商品优选申请
 
-本文说明[多商品产品决定](../product/selected-application-multi-product.md)及已达
-`IMPLEMENTATION_READY` 的[冻结设计](../architecture/selected-application-multi-product.md)
+本文说明[多商品产品决定](../product/flows/selected-application-multi-product.md)及已达
+`IMPLEMENTATION_READY` 的[冻结设计](../architecture/domains/supply-market/selected-application-multi-product.md)
 对应的流程。源码候选不表示保留实例已经安装此版本；本轮不进行真实上传、申请或发布。
 原路径保留供既有文档引用，旧单件交互范围已由 2026-10-17 用户决定替代。
 
