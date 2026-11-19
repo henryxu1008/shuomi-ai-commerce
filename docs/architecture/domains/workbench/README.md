@@ -17,7 +17,7 @@
 
 - 内容 Chat 的空结构安装与文本用途准备见[定向准备合同](chat-local-open-preparation.md)；冻结空 scope 成功不代表完整 serving schema 或真实模型就绪。
 
-- 原 35444 保留数据接线的局部后续准入见[开发试用最小准入](chat-retained-minimal-admission-proposal.md)；仅替代无关 owner 重复全量备份要求，不放宽目标、冻结、原调用与预留检查。
+- 原 35444 保留数据接线见[正式入口设计](chat-35444-retained-wiring-design.md)，局部后续准入见[开发试用最小准入](chat-retained-minimal-admission-proposal.md)；仅替代无关 owner 重复全量备份要求，不放宽目标、冻结、原调用与预留检查。
 
 ## 当前优先适用的范围
 
