@@ -4,7 +4,7 @@
 
 ## 用户结果与适用范围
 
-用户明确要求两个货源渠道共用商品类目。平台管理目录，自营发布前选择，优选审核时确认，卖家在两个市场列表按类目找货。本方案以[供应市场发布合同](supply-market.md)、[已有市场筛选](supply-market-filters.md)、[精确发布与已加入状态](supply-market-card-selection.md)及[当前领域边界](project-boundaries.md)为依据。批准与发布沿用两个独立动作。
+用户明确要求两个货源渠道共用商品类目。平台管理目录，自营发布前选择，优选审核时确认，卖家在两个市场列表按类目找货。本方案以[供应市场发布合同](domains/supply-market/supply-market.md)、[已有市场筛选](domains/supply-market/supply-market-filters.md)、[精确发布与已加入状态](domains/supply-market/supply-market-card-selection.md)及[当前领域边界](project-boundaries.md)为依据。批准与发布沿用两个独立动作。
 
 首版采用两级目录。一级用于归组，二级用于给商品归类。每次发布只归入一个已启用的二级类目，例如「家居日用 / 收纳用品」。两个渠道使用同一目录与规则，商品仍在各自货源渠道展示。目录初始内容由运营按实际货盘创建。示例名称不作为预置目录。
 

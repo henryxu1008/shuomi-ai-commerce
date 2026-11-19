@@ -10,7 +10,7 @@ Status: IMPLEMENTATION_READY（Reuse Existing Architecture，非新独立架构�
 
 Product/Figma Authority：沿 [最终 UI/IA](../../../product/final-ui-ia-authority.md)，Figma `tg48P46SSXl6TBy9lZwg63` 的任务中心 [427:3005](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-3005)，本轮已重新读取设计 context 与截图。复用 #800 的概览、筛选、列表/详情、响应式和静态资源。Figma 示例任务与数字不成为运行数据。
 
-复用 [Chat/BusinessTask](../../ai-workbench-chat-business-task.md)、[Agent Runtime](../../product-agent-runtime-contract.md)、[商品内容](../../product-content-localization.md)、[四种权限模式](../../enterprise-agent-permission-modes.md)、[内容与 Chat 共存](../../content-agent-chat-coexistence.md)。本批不撤销共存设计中 storage-only Chat 与 title-only 试用的执行限制，也不重新启用独立标题 Agent。
+复用 [Chat/BusinessTask](../../ai-workbench-chat-business-task.md)、[Agent Runtime](../../product-agent-runtime-contract.md)、[商品内容](../catalog/product-content-localization.md)、[四种权限模式](../../enterprise-agent-permission-modes.md)、[内容与 Chat 共存](../../content-agent-chat-coexistence.md)。本批不撤销共存设计中 storage-only Chat 与 title-only 试用的执行限制，也不重新启用独立标题 Agent。
 
 ## 有界交付与明确非目标
 

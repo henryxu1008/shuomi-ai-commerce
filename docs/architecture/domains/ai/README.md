@@ -93,3 +93,8 @@
 ## Eino 多厂商模型按需准入
 
 - [Eino 多厂商模型按需接入](eino-model-admission.md)：冻结合同只定义受控协议、三类用途及唯一模型/渠道/预算账本；原来源、历史评审、真实授权和运行验收边界保持不变。
+
+## 指定企业私有交付与离线草稿质检
+
+- [私有智能体交付合同](private-agent-delivery.md)：Listing 保有原生草稿和发布准入，customization 保存精确版本报告。
+- [隔离离线草稿质检](private-draft-offline-trial.md)：只读装配、测试来源和原授权边界，不等同于本地草稿编辑或真实平台接入。
