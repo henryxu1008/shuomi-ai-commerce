@@ -73,7 +73,7 @@
 
 Execution: #628; shared composition owner: #619 / chat
 01a11f74-2565-78e0-9118-4fe1ff53e726. Design:
-`docs/architecture/ai-workbench-reports.md` (IMPLEMENTATION_READY).
+`docs/architecture/domains/workbench/ai-workbench-reports.md` (IMPLEMENTATION_READY).
 
 ## 当前可消费接口
 

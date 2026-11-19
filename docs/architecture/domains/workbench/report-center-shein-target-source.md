@@ -21,7 +21,7 @@ Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)�
 
 依据：用户于 2026-10-10 确认的个人/当前企业/手动保存/只读版本决定，本轮“先设计当前 SHEIN 来源、交用户确认、暂不实现”的明确授权，以及以下现行合同：
 
-- [个人报告冻结基线](../../ai-workbench-reports.md)：Report owner、原键、独立 Report DB、收藏和下载。
+- [个人报告冻结基线](ai-workbench-reports.md)：Report owner、原键、独立 Report DB、收藏和下载。
 - [SHEIN 供应链](../../my-supply-chain-shein.md)、[审核/上架增量](../listing/shein-publication-flow.md)：当前 TargetRecord 与官方回执不是旧 offline Record。
 - [当前 UI / IA 权威](../../../product/final-ui-ia-authority.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 - 原报告 Figma：`tg48P46SSXl6TBy9lZwg63` / `31:463`，总览 `427:5695` / `427:5900`、最近 `662:481` / `662:641`、收藏 `579:4677` / `579:4900`、全部 `579:5123` / `579:5346`。这是原已查阅权威，本轮未重新读取 Figma，不宣称新的视觉验收。

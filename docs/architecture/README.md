@@ -285,7 +285,7 @@
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
 - `domains/workbench/ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](domains/workbench/ai-workbench-conversation-runtime.md)
 - `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
-- `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
+- `domains/workbench/ai-workbench-reports.md` — [AI工作台个人报告 v1](domains/workbench/ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
 - `domains/workbench/chat-selected-product-context.md` — [Chat 规划读取已选商品资料](domains/workbench/chat-selected-product-context.md)
 - `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。
