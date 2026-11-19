@@ -13,6 +13,7 @@ import (
 	"task-processor/internal/aicapability"
 	credential "task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
+	"task-processor/internal/aicapability/websearch"
 	fx "task-processor/internal/app/runtime/automaticfx"
 	"task-processor/internal/authidentity"
 	"task-processor/internal/authz"
@@ -27,12 +28,14 @@ const modelRouteBase = "/api/v1/model-route-pricing"
 var errModelRouteForbidden = errors.New("FORBIDDEN")
 
 type ModelRoutePricingDependencies struct {
-	PlatformChannels *PlatformModelChannels
-	Shared           *d.SharedModelService
-	Prices           *d.PlatformPricesService
-	Credentials      *credential.Management
-	ModelQuery       channelModelQuery
-	AutomaticFX      AutomaticFXControl
+	Search              *websearch.Service
+	SearchOrganizations []string
+	PlatformChannels    *PlatformModelChannels
+	Shared              *d.SharedModelService
+	Prices              *d.PlatformPricesService
+	Credentials         *credential.Management
+	ModelQuery          channelModelQuery
+	AutomaticFX         AutomaticFXControl
 }
 
 type AutomaticFXControl interface {
@@ -80,7 +83,8 @@ func (m modelRoutePricingModule) routes() []httproute.Descriptor {
 		}
 		out = append(out, httproute.Descriptor{Method: spec.method, Path: modelRouteBase + spec.path, Module: m.Name(), AuthPolicy: httproute.AuthPolicyCurrentIdentity, OrganizationAccessPolicy: httproute.OrganizationAccessPolicyLiveWrite, Permission: permission, RequestTimeout: 30 * time.Second, RejectUnreadRequestBody: spec.method == "GET" || strings.HasPrefix(spec.op, "fx-"), Handler: func(c *gin.Context) { m.serve(c, spec.op, platform) }})
 	}
-	return append(append(append(append(out, m.credentialRoutes()...), m.modelQueryRoute()), m.managedChannelRoutes()...), m.selectionRoutes()...)
+	out = append(append(append(append(out, m.credentialRoutes()...), m.modelQueryRoute()), m.managedChannelRoutes()...), m.selectionRoutes()...)
+	return append(out, m.searchSettingsRoutes()...)
 }
 func validateModelRouteDescriptor(descriptor httproute.Descriptor) error {
 	for _, r := range (modelRoutePricingModule{}).routes() {

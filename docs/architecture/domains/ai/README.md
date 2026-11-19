@@ -12,6 +12,7 @@
 ## Provider 与应用执行生命周期合同
 
 - [硕米「模型与服务」设计](model-and-services.md)：首版范围已确认，设计已评审。嵌入、多模态、搜索与后台任务分场景接入。
+- [搜索服务首版](search-services-v1.md)，Brave 查公开网页、企业选用、次数上限和原请求回读。
 - [模型与服务连通性设计](model-connectivity-test.md) · #1420 只读模型资料查询。
 - [Provider-neutral AI 请求/响应与适配接口](ai-provider-contracts.md)：迁移历史设计；模型路由、租户、治理、预算及供应商请求行为不改变。
 - [关闭新 AI 执行并保留配置和历史读取](ai-disabled-application-lifecycle.md)：原 #1073/#1075 离线实施合同，原权限、原键与 UNKNOWN 不变；不授权真实调用或部署。

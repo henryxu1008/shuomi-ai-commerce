@@ -16,6 +16,7 @@ import (
 type AIWorkbenchConfig struct {
 	ChatImageTextPolicies      map[string]governed.RoutePolicy `json:"chatImageTextPolicies,omitempty"`
 	ChatImageStorage           *KnowledgeStorageConfig         `json:"chatImageStorage,omitempty"`
+	PublicWebSearch            bool                            `json:"publicWebSearch,omitempty"`
 	Schedules                  *AIWorkbenchSchedulesConfig     `json:"schedules,omitempty"`
 	ChatTurnsEnabled           bool                            `json:"chatTurnsEnabled,omitempty"`
 	Enabled                    bool                            `json:"enabled"`
@@ -32,6 +33,9 @@ type AIWorkbenchConfig struct {
 func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w == nil {
 		return nil
+	}
+	if w.PublicWebSearch && (!w.Enabled || cfg.ModelRoutePricing == nil || cfg.ModelRoutePricing.PlatformMaintainerOrganization == "" || !cfg.channelManagementEnabled()) {
+		return errors.New("public web search requires platform channels and channel credential management")
 	}
 	if len(w.ChatImageTextPolicies) > 64 || len(w.ChatImageTextPolicies) > 0 && w.ChatImageStorage == nil {
 		return errors.New("Chat image policies require private storage")

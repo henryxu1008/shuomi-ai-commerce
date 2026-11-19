@@ -216,7 +216,7 @@ func openChannelCredentials(ctx context.Context, c *Config, open func(context.Co
 }
 
 func (c *Config) needsChannelSecrets() bool {
-	return c != nil && ((c.ProductAgent != nil && c.ProductAgent.Enabled) || (c.ImageAgent != nil && c.ImageAgent.Generation.Enabled))
+	return c != nil && ((c.ProductAgent != nil && c.ProductAgent.Enabled) || (c.ImageAgent != nil && c.ImageAgent.Generation.Enabled) || c.webSearchEnabled())
 }
 
 func (c *Config) channelModelQueryEnabled() bool {
