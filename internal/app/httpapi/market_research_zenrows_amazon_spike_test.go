@@ -180,6 +180,12 @@ func startOfflineZenRows(t *testing.T) (*httptest.Server, *atomic.Int32) {
 		case 1, 2:
 			amount := map[int]string{1: "$19.95", 2: "$24.50"}[n]
 			fmt.Fprintf(&raw, `<div data-cy="price-recipe"><span class="a-price" data-a-size="xl" data-a-color="base"><span class="a-offscreen">%s</span></span></div>`, amount)
+		case 3:
+			raw.WriteString(`<span>See buying options</span>`)
+		case 4:
+			raw.WriteString(`<output class="new-price" aria-label="Current price">$37.15</output>`)
+		case 5:
+			raw.WriteString(`<span>$45.00</span>` + strings.Repeat("x", dataacquisition.MaxAmazonQuoteCardBytes))
 		}
 		if card.Sponsored {
 			raw.WriteString(`<span class="puis-sponsored-label-text">Sponsored</span>`)
@@ -349,6 +355,31 @@ func TestZenRowsAmazonUSFirstPageOriginalSaveAndComparison(t *testing.T) {
 	selections := make([]research.Selection, 0, len(items.Items))
 	for _, item := range items.Items {
 		require.Equal(t, "amazon_data", item.Source.Kind)
+		original, err := module.Provenance(ctx, principal, item.Source)
+		require.NoError(t, err)
+		require.Equal(t, job.ID, original.JobID)
+		evidence := original.Evidence
+		require.NotNil(t, evidence.QuoteCard)
+		switch evidence.ASIN {
+		case "B000000001":
+			require.Equal(t, 19.95, evidence.Price)
+			require.Equal(t, "USD", evidence.Currency)
+			require.Contains(t, evidence.QuoteCard.Markup, "$19.95")
+		case "B000000002":
+			require.Contains(t, evidence.QuoteCard.Markup, "$24.50")
+		case "B000000003":
+			require.Zero(t, evidence.Price)
+			require.Empty(t, evidence.Currency)
+			require.Contains(t, evidence.QuoteCard.Markup, "See buying options")
+			require.NotContains(t, evidence.QuoteCard.Markup, "$")
+		case "B000000004":
+			require.Zero(t, evidence.Price)
+			require.Empty(t, evidence.Currency)
+			require.Contains(t, evidence.QuoteCard.Markup, `<output class="new-price" aria-label="Current price">$37.15</output>`)
+		case "B000000005":
+			require.Equal(t, dataacquisition.AmazonQuoteCardTooLarge, evidence.QuoteCard.Status)
+			require.Empty(t, evidence.QuoteCard.Markup)
+		}
 		selections = append(selections, research.Selection{ItemID: item.ID, Revision: item.Revision, PublicationID: item.Source.PublicationID, Version: item.Source.Version})
 	}
 	_, err = researchService.Execute(ctx, scope, project, uuid.NewString(), research.Command{Action: "link", Selections: selections})
@@ -356,6 +387,10 @@ func TestZenRowsAmazonUSFirstPageOriginalSaveAndComparison(t *testing.T) {
 	page, err := researchService.List(ctx, scope, project, "")
 	require.NoError(t, err)
 	require.Len(t, page.Items, 5)
+	rendered, err := json.Marshal(page)
+	require.NoError(t, err)
+	require.NotContains(t, string(rendered), "quoteCard")
+	require.NotContains(t, string(rendered), "new-price")
 	byASIN := make(map[string]research.AnalysisChoice, len(page.Items))
 	wantPrice := map[string]float64{"B000000001": 19.95, "B000000002": 24.50}
 	var asins []string

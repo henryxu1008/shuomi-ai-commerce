@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -80,7 +81,8 @@ func amazonFirstPageFetch(client *http.Client, endpoint string, readKey func(con
 		}
 		out.Evidence = DecodeAmazonFirstPage(body, time.Now().UTC())
 		for _, fact := range out.Evidence {
-			if strings.Contains(fact.Title, key) || strings.Contains(fact.MainImage, key) {
+			if strings.Contains(fact.Title, key) || strings.Contains(fact.MainImage, key) ||
+				strings.Contains(html.UnescapeString(fact.QuoteCard.Markup), key) {
 				out.Evidence = nil
 				return out
 			}
@@ -140,7 +142,8 @@ func DecodeAmazonFirstPage(body []byte, captured time.Time) []dataacquisition.Ev
 		fact := dataacquisition.Evidence{
 			Site: "us", ASIN: card.ASIN, Title: titles[card.ASIN], MainImage: card.MainImage, Availability: "unknown",
 			ParserVersion: dataacquisition.AmazonZenRowsSearchVersion, CapturedAt: captured.Format(time.RFC3339Nano),
-			Missing: []string{"availability", "description", "brand", "attributes", "variants", "rating", "reviewCount"},
+			QuoteCard: card.CaptureQuoteCard(),
+			Missing:   []string{"availability", "description", "brand", "attributes", "variants", "rating", "reviewCount"},
 		}
 		if card.PriceUSD > 0 {
 			fact.Price, fact.Currency = card.PriceUSD, "USD"
