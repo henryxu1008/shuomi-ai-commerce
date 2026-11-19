@@ -21,7 +21,7 @@
 ### 2026-10-05 当前 #588 组合依据
 
 用户已批准在 #588 保留本 Google 标题能力；当前接线以已独立复核为 **IMPLEMENTATION_READY** 的
-[#576/#578 合同 §6.7](../../ai-workbench-chat-business-task.md#67-google-interactions-composition-increment) 为准。
+[#576/#578 合同 §6.7](../workbench/ai-workbench-chat-business-task.md#67-google-interactions-composition-increment) 为准。
 下文 #586 的 `titletext`/`Manager.CompleteText` 消费者接线保留为历史实施依据，已由共享
 `integration/aicapability/einomodel.Executor` 与受控 Eino `BaseChatModel` 取代。
 官方 SDK 和无状态 wire/usage 映射 EXTRACT 到 `integration/googleinteractions`；旧标题模型 RETIRE，

@@ -1,5 +1,9 @@
 # AI Workbench Chat + BusinessTask V1 — Slice E
 
+> 归类说明（2026-11-19）：下文保留 Slice E 设计与当时准入/现状，不作为今日仅支持标题、尚无实现或 Figma 视觉权威的结论。Figma 仅作业务流程参考。[#576](https://github.com/henryxu1008/shuomi-ai-commerce/issues/576) 已因 #578 合并及实施交接关闭；[#588](https://github.com/henryxu1008/shuomi-ai-commerce/issues/588) 已按工程范围关闭，#590/#607 及后续修复不等于当前现场或产品验收。现行内容与完整运行组合见[共存合同](chat-content-full-runtime-coexistence-candidate.md)，固定会话范围与任务筛选见[工作范围合同](ai-workbench-work-scope.md)。[#298](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298) 的后续隔离合成 Chat→任务→审核→采用及重新登录读回已记录 PASS 和用户反馈；不抹除该历史结果，也不替代现场 UNKNOWN、报告浏览器/真实环境及完整产品验收 NOT_RUN，父单仍 OPEN。
+
+> 本次仅归类原 aiworkbench 会话/命令/提案/任务合同；Agent/Review/Knowledge/AI 计量事实 owner、当前授权、精确冻结身份与单次发送、UNKNOWN/原键恢复均不变。原设计中的部署/调用未授权描述保留其时点，后续专项授权以对应执行记录为准；不由搬迁授权升级实例、改库、调用模型或执行业务操作。
+
 > Status: **APPROVED / IMPLEMENTATION_READY**
 >
 > Design Basis: **Independent Architecture**.
@@ -47,13 +51,13 @@ Applicable product authorities:
 - Task Center `427:3005`;
 - #298 product relationship:
   `BusinessTask -> AgentRun -> AgentStep -> ToolCall / ModelCall -> Temporal/Queue/Internal Task`;
-- `organization-agent-configuration.md`: enterprise enablement, exact templates,
+- `../../organization-agent-configuration.md`: enterprise enablement, exact templates,
   configuration snapshots and guarded Product Agent admission;
-- `domains/workbench/agent-knowledge-context.md`: optional exact Knowledge context/citation/permit;
-- `product-agent-runtime-contract.md`: AgentRun/checkpoint/budget/UNKNOWN ownership;
-- `domains/ai/product-agent-text-provider-neutral.md` / #580: current organization-only credentials,
+- `agent-knowledge-context.md`: optional exact Knowledge context/citation/permit;
+- `../../product-agent-runtime-contract.md`: AgentRun/checkpoint/budget/UNKNOWN ownership;
+- `../ai/product-agent-text-provider-neutral.md` / #580: current organization-only credentials,
   operator provisioning, per-organization title policies and compatible-protocol transport;
-- `project-boundaries.md`, greenfield baseline and Issue-driven delivery rules.
+- `../../project-boundaries.md`, greenfield baseline and Issue-driven delivery rules.
 
 Figma governs UI/IA and interaction semantics. It does not create a capability, permission,
 business fact or production-readiness claim.
@@ -109,7 +113,7 @@ For the Slice E implementation, §6 supersedes the earlier proposal to create
 `internal/integration/aiworkbench/grsaitext.Planner` and to require the same GRSAI/model route
 as the Product Agent. The original `grsaitext` baseline has since been replaced on main by
 `internal/integration/agent/titletext` in PR #580. Its approved
-`domains/ai/product-agent-text-provider-neutral.md` already removes single-vendor restrictions within
+`../ai/product-agent-text-provider-neutral.md` already removes single-vendor restrictions within
 OpenAI-compatible text and owns organization-only credentials, restricted operator provisioning,
 per-organization policy selection and capability readiness. Reuse those changes; do not implement
 or review the old hardcoded-vendor removal a second time.
