@@ -3,6 +3,7 @@ import {act,cleanup,render,screen,waitFor,within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
 import {EnterpriseModelEditor,ModelRoutePricingPage,OfficialPriceEditor,ModelRoutePricingEntry} from "./model-route-pricing";
+import {SearchServiceSettings} from "./search-service-settings";
 const state=vi.hoisted(()=>({context:{permissions:["workbench.agent.configure"],roles:[],user:{id:"maintainer"},effectiveOrganization:{id:"org-a",name:"企业甲"},registerOrganizationSwitchGuard:()=>()=>{},isLoading:false,isSwitching:false,error:null as {status:number}|null,blockingError:null,selectionRequired:false,aiWorkbenchAvailable:true,aiWorkbenchPlanningReadiness:"NEEDS_CONFIGURATION",retry:vi.fn<()=>Promise<object|null>>(async()=>({}))}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 const scope={userId:"maintainer",organizationId:"org-a"};
@@ -344,6 +345,41 @@ it("opens platform search for a maintainer whose enterprise is outside the Chat 
  mount(true);
  await userEvent.click(await screen.findByRole("button",{name:"搜索服务"}));
  expect(await screen.findByRole("heading",{name:"配置平台开放"})).toBeVisible();
+});
+it.each([true,false])("reports the platform save from its own readback when enterprise search is unavailable (%s)",async readbackAvailable=>{
+ const user=userEvent.setup(),fetch=fixture(),original=fetch.getMockImplementation()!;
+ const owner={organizationId:"org-a",actorId:"maintainer",memberId:"member",requestKey:""};
+ const platformURL="/api/model-route-pricing/search/platform";
+ const publication={revision:1,name:"原平台搜索",country:"US",language:"en",maxUsdMicros:5000,totalLimit:1,tenantLimit:1,organizations:["org-b"],published:true};
+ let saved=false,readbacks=0;
+ fetch.mockImplementation(async(url,init={})=>{
+  if(url==="/api/model-route-pricing/search/enterprise"){
+   return Response.json({code:"UNAVAILABLE"},{status:503});
+  }
+  if(url!==platformURL)return original(url,init);
+  if(init.method==="POST"){
+   saved=true;
+   return Response.json({...owner,requestKey:new Headers(init.headers).get("Idempotency-Key"),result:{...publication,revision:2,name:"已保存平台搜索"}});
+  }
+  if(saved)readbacks++;
+  if(saved&&!readbackAvailable)return Response.json({code:"UNAVAILABLE"},{status:503});
+  return Response.json({...owner,canWrite:true,organizations:["org-b"],result:saved?{...publication,revision:2,name:"已保存平台搜索"}:publication});
+ });
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ clients.push(client);
+ render(<QueryClientProvider client={client}><SearchServiceSettings scope={scope} member="member" configure owned={false} platform canWrite/></QueryClientProvider>);
+ expect(await screen.findByText("暂时无法读取搜索服务。",{exact:true})).toBeVisible();
+ const field=await screen.findByRole("textbox",{name:"显示名称"});
+ await user.clear(field);
+ await user.type(field,"已保存平台搜索");
+ await user.click(screen.getByRole("button",{name:"保存并开放"}));
+ const success="已保存，当前配置已重新读取。";
+ const confirmed="操作已确认，当前配置暂时无法读取。";
+ expect(await screen.findByText(readbackAvailable?success:confirmed,{exact:true})).toBeVisible();
+ expect(screen.queryByText(readbackAvailable?confirmed:success,{exact:true})).not.toBeInTheDocument();
+ if(readbackAvailable)expect(screen.getByRole("textbox",{name:"显示名称"})).toHaveValue("已保存平台搜索");
+ expect(readbacks).toBe(1);
+ expect(fetch.mock.calls.filter(([url,init])=>url===platformURL&&init?.method==="POST")).toHaveLength(1);
 });
 it("opens platform prices without conferring enterprise configuration permission",async()=>{state.context.permissions=["listingkit.platform_admin","listingkit.admin.write"];const fetch=fixture();mount(true);expect(await screen.findByRole("heading",{name:"模型参考价与人民币汇率"})).toBeVisible();await waitFor(()=>expect(screen.getByRole("button",{name:"添加参考价目"})).toBeEnabled());expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument();expect(fetch.mock.calls.every(([url])=>!url.includes("/enterprise"))).toBe(true)});
 it("keeps a platform reader without write authority read-only",async()=>{state.context.permissions=["listingkit.platform_admin"];fixture();mount(true);expect(await screen.findByRole("heading",{name:"模型参考价与人民币汇率"})).toBeVisible();expect(screen.getByRole("button",{name:"添加参考价目"})).toBeDisabled();expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument()});
