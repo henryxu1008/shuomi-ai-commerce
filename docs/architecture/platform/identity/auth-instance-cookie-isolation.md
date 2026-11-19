@@ -1,5 +1,7 @@
 # Auth.js instance cookie isolation — #706
 
+> 归类说明（2026-11-19）：下文保留 #706 设计与原复现时点；[#706](https://github.com/henryxu1008/shuomi-ai-commerce/issues/706) 已记录 #707 合并、原批准范围独立终验 PASS 及授权关闭。后续原 UI 有界更新、正常登录/草稿读回及有限 32 KiB 修复证据不被原设计“未部署”边界抹除，但不证明今天实例状态或整体产品/生产验收。历史外来 cookie 唯一来源仍 UNKNOWN，可选截图/逐跳 trace 仍 NOT_RUN，不读取真实 cookie 或补做攻击复现。当前七类 cookie 名称仍由 `web/listingkit-ui/src/auth.config.ts` 统一配置，原 Auth.js/ZITADEL/Go 权责不变；命名隔离不是对恶意同宿主应用的安全隔离。Figma 仅作业务流程参考。独立[运维 runbook](../../../operations/runbooks/auth-instance-cookie-isolation.md) 保留，不因同名合并或删除。本次不登录、清 cookie、改凭据/权限、部署或主动安全测试。
+
 Status: IMPLEMENTATION_READY. The original independent reviewer approved design
 `d0ea048c6fe8ed4d7ab5551976897fd4ab474089` before production modification, with no
 Architecture BLOCKER. Native regression tests below close IMPLEMENTATION_TEST
@@ -13,7 +15,7 @@ The user explicitly requested a root-cause fix after the first sign-in failed,
 with retained data and one existing source Writer / instance owner.
 
 Authority: #706 and #137; the current Identity / Organization contract linked by
-[auth-and-tenancy](platform/identity/auth-and-tenancy.md); [current Product/Figma Authority](../product/final-ui-ia-authority.md),
+[auth-and-tenancy](auth-and-tenancy.md); [current Product/Figma Authority](../../../product/final-ui-ia-authority.md),
 page 31:463. This changes no screen, navigation, naming, or visible login action.
 
 In scope: Auth.js's seven native cookie names and their common configuration

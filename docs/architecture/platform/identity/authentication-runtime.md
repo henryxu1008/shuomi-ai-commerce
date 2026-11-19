@@ -1,5 +1,7 @@
 # Zitadel Authentication Runtime Extraction Design
 
+> 归类说明（2026-11-19）：本文完整保留早期抽取提案，不是恢复兼容层的现行实施要求。当前验证 owner 为 `internal/authruntime/zitadel.Verifier`，经 `internal/app/httpapi/server_auth.go` 注入，路由授权沿 `internal/authz/httpapi`；旧 `internal/listingkit/httpapi` 已不存在，`phase2b_worker_boundary_test.go` 明确禁止旧配置/中间件 facade 回到当前装配。下文 Proposed、兼容入口和阶段验收仅代表原时点，不能重新建立已退休路径或第二身份源。现行边界见[身份与租户](auth-and-tenancy.md)，本次仅归类，不改认证行为、配置、部署或权限。
+
 ## Status
 
 Proposed for review.
