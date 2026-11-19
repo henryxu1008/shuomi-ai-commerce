@@ -1,5 +1,7 @@
 # 定时任务：编辑计划与复制新建
 
+> 归类说明（2026-11-19）：保留原设计正文和当时实施授权；文中“本轮不部署/不合并”或“实现后更新”是阶段边界，不是当前交付状态。[#1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)记录后续已合并及原实例更新，Issue 仍开放待用户反馈/验收；本次未重新核查现场。新建仅店铺经营日报，已有内容计划仍可编辑和控制；删除不销毁历史、不取消在途，编辑不改原任务预算/预留，复制不自动保存。本次仅文档归类，不执行计划、权限安装、部署、模型或预留操作。
+
 Issue #1297。Design Basis: Independent Architecture。状态：IMPLEMENTATION_READY。独立第二轮增量评审已核对设计提交`38eeca5ea63fd4f0d40bcba2fdde56e08f53a778`，关闭最小权限/回退的设计阻塞；下列IMPLEMENTATION_TEST在本批实现和必要验证中收敛，不重开全局设计。
 
 ## 当前产品开放范围（2026-11-15最新决定）
@@ -10,7 +12,7 @@ Issue #1297。Design Basis: Independent Architecture。状态：IMPLEMENTATION_R
 
 用户2026-11-15明确要求：未结束计划可编辑后续任务设置；已结束计划可复制新建；保留已开始任务和执行历史，保存前重新核对时间与预算。实现后更新原35444，复用现有环境与验证；不调用真实模型、不发布商品、不释放原预留。
 
-复用[定时任务合同](ai-workbench-scheduled-tasks.md)、[单店日报](scheduled-store-daily-report.md)及[删除合同](scheduled-plan-deletion.md)。本决定仅替代原“只能改时间、来源/次数/单次预算不可修改”这一局部产品限制：新值只约束修订后的未来任务；原任务原报价/预留/资源回执不变。Figma不作为界面权威。
+复用[定时任务合同](../../ai-workbench-scheduled-tasks.md)、[单店日报](../../scheduled-store-daily-report.md)及[删除合同](scheduled-plan-deletion.md)。本决定仅替代原“只能改时间、来源/次数/单次预算不可修改”这一局部产品限制：新值只约束修订后的未来任务；原任务原报价/预留/资源回执不变。Figma不作为界面权威。
 
 - 同一计划内类型不互换：商品内容可换商品、目标、语言/处理字段；日报可换店铺；两者均可改时间、次数。
 - 原有项目/店铺会话背景、模板与身份仍由原owner读取并授权，不让客户端提交ExecutionSpec、成员、模型或金额。

@@ -2,7 +2,7 @@
 
 ## 当前产品开放口径（2026-11-17 文档校准）
 
-本文保留 2026-11-11 最初的**商品内容定时计划**设计与工程准入证据；不再以 §1 的“创建新商品内容计划”和 Chat 设为定时任务作为现行用户开放要求。按 2026-11-15 用户后续决定，**新建仅开放店铺经营日报、日报复制可用**；**已有商品内容计划**保留查看、编辑、控制、执行历史和原键核实。准确增量见 [编辑与复制合同](scheduled-plan-edit-copy.md)、[单店经营日报](scheduled-store-daily-report.md)、[操作说明](../operations/user-guides/ai-workbench-scheduled-tasks.md)和 [Issue #1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)。本段只标注产品范围，不改变冻结时的调度、权限、预算、幂等、UNKNOWN 或原业务记录；部署和用户验收按原 Issue/PR 另行核对。
+本文保留 2026-11-11 最初的**商品内容定时计划**设计与工程准入证据；不再以 §1 的“创建新商品内容计划”和 Chat 设为定时任务作为现行用户开放要求。按 2026-11-15 用户后续决定，**新建仅开放店铺经营日报、日报复制可用**；**已有商品内容计划**保留查看、编辑、控制、执行历史和原键核实。准确增量见 [编辑与复制合同](domains/workbench/scheduled-plan-edit-copy.md)、[单店经营日报](scheduled-store-daily-report.md)、[操作说明](../operations/user-guides/ai-workbench-scheduled-tasks.md)和 [Issue #1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)。本段只标注产品范围，不改变冻结时的调度、权限、预算、幂等、UNKNOWN 或原业务记录；部署和用户验收按原 Issue/PR 另行核对。
 
 
 > **状态：IMPLEMENTATION_READY（架构准入）/ IMPLEMENTATION_IN_PROGRESS（实现待完成）**。Design Basis：Independent Architecture。跟踪 Issue [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244)。用户已明确裁定：准确 HEAD 的 Codex 独立评审完成、无新 findings 且 PR 获 Codex 👍 即视为通过。本文件在 HEAD `b1ff3377bbfae782fcafcebb665fbe250afe3294` 的第二轮评审无新发现，[PR #1245](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1245) 收到 bot 👍，准确 CI [42994325637](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/42994325637) SUCCESS；依用户本次明确决定，架构 **IMPLEMENTATION_READY**。这仅允许在原边界内开始实现，**不代表生产代码已实现、已部署或真实业务验收通过**。旧四条 BLOCKER 原始评论继续可追溯，设计修正在 §3.2，运行验证仍是实施义务。
@@ -180,6 +180,6 @@ Threat Model 仅覆盖本批新增的后台执行权、跨租户访问、持久�
 - 未提交命令的确定拒绝仍归原 `scheduled_plan_commands` owner：成功 create 与 `COMPLETED` 回执同事务、同 scope/key 锁保存；`REJECTED` 回执与成功提交竞争同一锁，阻止旧在途请求稍后提交。成功回执保留非空 plan/scoped FK/正 revision，拒绝回执只能空 plan/零 revision，不能伪造业务计划。只在拒绝决定已提交或已持久读回后返回 `commandAccepted:false`，提交回执未知不发证明；权限和依赖读取失败不写确定拒绝。前端只凭准确否定证明退休已有 unknown。拒绝及成功领取共用同锁的漏槽推进，256 槽尚未补齐时不提前写较晚 BLOCKED。
 - 真 PostgreSQL 的原子失败回滚、来源约束、CAS、未决公平扫描、提交后最终读回 503、两种来源和 Chat 项目范围、撤权/停用及 UNKNOWN 测试已执行；真 Temporal dev server 已验证登记、暂停/恢复、准确 nominal slot 和旧 revision 不覆盖。模型 transport 为合成隔离 fixture，无真实 provider 调用。准确 HEAD、最终 CI 和独立增量复核记录在 PR。
 
-2026-11-15用户批准完整编辑和复制新建，原“只改时间/冻结来源及次数”的局部限制由[编辑与复制增量合同](scheduled-plan-edit-copy.md)替代。新设置只影响后续执行；旧任务、历史、原预算/预留及其恢复责任不变。增量已独立评审IMPLEMENTATION_READY，运行和用户试用仍须分别记录。
+2026-11-15用户批准完整编辑和复制新建，原“只改时间/冻结来源及次数”的局部限制由[编辑与复制增量合同](domains/workbench/scheduled-plan-edit-copy.md)替代。新设置只影响后续执行；旧任务、历史、原预算/预留及其恢复责任不变。增量已独立评审IMPLEMENTATION_READY，运行和用户试用仍须分别记录。
 
 操作、显式 opt-in 配置及未开放能力见[定时任务运行说明](../operations/user-guides/ai-workbench-scheduled-tasks.md)。本节不签发用户验收或实例部署结论。
