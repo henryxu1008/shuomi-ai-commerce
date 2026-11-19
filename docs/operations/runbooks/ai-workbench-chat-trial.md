@@ -1,8 +1,11 @@
 # Chat → BusinessTask 标题建议试用交接
 
+> 归类说明（2026-11-19）：本页保留标题建议首批试用、2026-10-11 无模型会话模式及后续标题技能交接的阶段记录。下文“当前只开放个人标题技能/只支持标题建议”不概括现行全部 Chat 范围；后续个人文字技能见[通用文字合同](../../architecture/chat-general-text-skills.md)，统一入口见[Chat 创作与项目操作](../../architecture/chat-project-actions.md)。这不证明目标实例已安装、配置或完成真实模型/用户验收。
+> `conversationOnly` 是显式受限模式，不是现有完整内容任务实例的覆盖配置；已有数据接线须遵守[保留数据正式设计](../../architecture/domains/workbench/chat-35444-retained-wiring-design.md)及其有界后续准入，不能直接重跑空库安装器。旧 `consumer` 同行凭据及每模型版本回填仅作历史记录，当前按[企业渠道连接](../../architecture/domains/ai/shared-channel-credentials.md#11-新版本的受限维护入口)维护，不复制旧 Key 到 Run/Image 库；用途、模型准入、预算、计费与人工 Review/Apply 仍分别核验。本次仅归类和链接调整，不读取凭据、不运行下文命令、不修改实例或执行模型。
+
 ## Chat 内创建个人标题技能
 
-当前创建技能流程依据 [Chat 自动调用与主动选择设计](../architecture/chat-project-actions.md#24-在同一-chat-中自动调用或主动选择创建技能)。直接在 Chat 输入「帮我创建一个保留品牌和型号的标题技能」，发送后由模型判断是否调用官方创建技能。也可以在「选择店铺」旁打开「选择技能」右侧抽屉，主动选择准确版本后在同一个输入框发送需求；手选不调用意图识别模型。当前只开放个人标题技能，可以包含一个离线 Python 标题处理脚本。
+当前创建技能流程依据 [Chat 自动调用与主动选择设计](../../architecture/chat-project-actions.md#24-在同一-chat-中自动调用或主动选择创建技能)。直接在 Chat 输入「帮我创建一个保留品牌和型号的标题技能」，发送后由模型判断是否调用官方创建技能。也可以在「选择店铺」旁打开「选择技能」右侧抽屉，主动选择准确版本后在同一个输入框发送需求；手选不调用意图识别模型。当前只开放个人标题技能，可以包含一个离线 Python 标题处理脚本。
 
 生成结果显示在会话消息中。用户可人工编辑正文与脚本，点击「让 Chat 修改」后在原聊天输入框补充需求，发送时携带当前编辑稿。编辑不调用模型，也不自动保存。点击「保存到我的技能」才按原保存合同写入个人私有草稿；发布、启用和标题处理沿技能库原流程进行。首次与后续生成均不展示点数金额，实际用量到「用量明细」查看。
 
@@ -22,7 +25,7 @@ Remove-Item Env:AI_WORKBENCH_SCHEMA_DSN
 
 准备好 schema、模型准入和新后端后更新前端，再按批准范围开启 `chatTurnsEnabled`。一旦有新格式请求，故障时保留新 reader 与原请求恢复、暂停新发送并前向修复；不能切回不认识新消息的旧 reader，不能删除关联或用户草稿。关闭新发送不禁止原请求核实。验收分别记录受控浏览器、真实模型与账本结果；开发自检和独立代码复核不代表用户验收。
 
-> 新版本凭据维护已切换到[企业渠道连接](../architecture/domains/ai/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
+> 新版本凭据维护已切换到[企业渠道连接](../../architecture/domains/ai/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
 
 Refs #576、#588。入口为当前 Console 的 `/workbench/ai/chat` 和 `/workbench/ai/tasks`。获准企业的成员从已保存的 1688 商品采集操作开始，在 Chat 中描述标题目标；模型只返回澄清或待确认方案。成员确认后创建 BusinessTask，调用现有 Product Agent 生成建议，最后仍须在现有 Review 中由授权人员接受、编辑和应用。当前不发布到平台，也不自动应用标题。
 
@@ -31,7 +34,7 @@ Refs #576、#588。入口为当前 Console 的 `/workbench/ai/chat` 和 `/workbe
 ### 本轮无模型的会话管理
 
 2026-10-11 用户确认暂无模型配置，并选择先开放真实会话管理。按
-[`ai-workbench-conversation-runtime.md`](../architecture/domains/workbench/ai-workbench-conversation-runtime.md)
+[`ai-workbench-conversation-runtime.md`](../../architecture/domains/workbench/ai-workbench-conversation-runtime.md)
 使用显式 `aiWorkbench.conversationOnly: true` 和 `allowedOrganizationIds`，保留
 `productAgent.enabled: false`，不配置 planning policy。仍使用原 `product_agent`
 逻辑库中的 `ai_workbench` schema 和独立 `ai_workbench_runtime` 连接池。
@@ -51,7 +54,7 @@ Serving 不挂载 owner/admin secret。新增 chat-install-state、chat-runtime 
 正常 stop/start 后会话仍在；这轮模型状态显示待配置，不能发送消息。
 以下完整规划/执行步骤仍适用于明确取得模型配置及执行授权后的 full mode。
 
-复用 [`product-agent-trial.md`](product-agent-trial.md) 中的 Product Acquisition、Product Agent、Review、Asset、AI invocation、Commercial、正常登录和私有 manifest。`productAgent.enabled` 及对应企业 allowlist 必须已配置。`aiWorkbench.enabled: true` 额外要求：
+复用 [`product-agent-trial.md`](../product-agent-trial.md) 中的 Product Acquisition、Product Agent、Review、Asset、AI invocation、Commercial、正常登录和私有 manifest。`productAgent.enabled` 及对应企业 allowlist 必须已配置。`aiWorkbench.enabled: true` 额外要求：
 
 - `aiWorkbench.database` 指向与 `productAgent.database` 相同的 PostgreSQL host、port 和 database，用户固定为 `ai_workbench_runtime`，密码只放私有 manifest，连接池不超过 8。
 - `planningTextPolicies[organizationId]` 为获准企业单独设置 `RoutePolicy`，其 `Profile` 使用 `PromptVersion=ai-workbench-chat-plan-v1`、`OutputSchemaVersion=ai-workbench-plan-decision-v1`。规划和标题执行分别有自己的组织凭据、准入版本、输入/输出上限、点数费率与价格；不能借用对方的 route。
