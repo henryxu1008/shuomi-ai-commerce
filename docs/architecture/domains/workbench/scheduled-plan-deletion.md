@@ -6,7 +6,7 @@
 
 2026-11-15 用户决定：定时任务支持删除，停止未来执行并从默认列表移除，保留已有报告与执行记录，不取消在途任务、不更改费用或预留。结束与删除均用现有统一确认弹窗。不调用模型、不发布商品、不操作原预留。本轮实现和既有夹具验证，不部署原 35444、不合并或关闭 Issue。
 
-UI/IA 依据当前用户决定，Figma 仅作业务流程参考。已有合同：[定时任务](../../ai-workbench-scheduled-tasks.md)、[店铺日报](scheduled-store-daily-report.md)、[领域 owner](../../project-boundaries.md)。
+UI/IA 依据当前用户决定，Figma 仅作业务流程参考。已有合同：[定时任务](ai-workbench-scheduled-tasks.md)、[店铺日报](scheduled-store-daily-report.md)、[领域 owner](../../project-boundaries.md)。
 
 ## Owner / Contract / Wiring
 
