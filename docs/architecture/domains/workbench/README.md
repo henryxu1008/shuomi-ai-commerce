@@ -20,6 +20,8 @@
 
 - 原 35444 保留数据接线见[正式入口设计](chat-35444-retained-wiring-design.md)，局部后续准入见[开发试用最小准入](chat-retained-minimal-admission-proposal.md)；仅替代无关 owner 重复全量备份要求，不放宽目标、冻结、原调用与预留检查。
 
+- 保留试用数据的[隔离原型与分阶段验证](chat-retained-1260-trial.md)保留历史证据；后续原实例接线与授权以各自正式合同为准，不将临时原型升级为部署入口。
+
 ## 当前优先适用的范围
 
 2026-11-15 起，**新建定时计划只允许店铺经营日报**，日报可以复制新建。商品内容计划**新建、复制和 Chat「设为定时任务」已撤下**；已有商品内容计划仍可查看、编辑、控制并读取原任务、执行历史、审计及未决预留。早期 [定时主合同](../../ai-workbench-scheduled-tasks.md)中的商品内容新建场景是旧阶段产品范围，当前启用以 [#1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)及实际实例配置为准。
