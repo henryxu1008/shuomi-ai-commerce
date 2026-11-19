@@ -12,7 +12,7 @@ Issue #1297。Design Basis: Independent Architecture。状态：IMPLEMENTATION_R
 
 用户2026-11-15明确要求：未结束计划可编辑后续任务设置；已结束计划可复制新建；保留已开始任务和执行历史，保存前重新核对时间与预算。实现后更新原35444，复用现有环境与验证；不调用真实模型、不发布商品、不释放原预留。
 
-复用[定时任务合同](../../ai-workbench-scheduled-tasks.md)、[单店日报](../../scheduled-store-daily-report.md)及[删除合同](scheduled-plan-deletion.md)。本决定仅替代原“只能改时间、来源/次数/单次预算不可修改”这一局部产品限制：新值只约束修订后的未来任务；原任务原报价/预留/资源回执不变。Figma不作为界面权威。
+复用[定时任务合同](../../ai-workbench-scheduled-tasks.md)、[单店日报](scheduled-store-daily-report.md)及[删除合同](scheduled-plan-deletion.md)。本决定仅替代原“只能改时间、来源/次数/单次预算不可修改”这一局部产品限制：新值只约束修订后的未来任务；原任务原报价/预留/资源回执不变。Figma不作为界面权威。
 
 - 同一计划内类型不互换：商品内容可换商品、目标、语言/处理字段；日报可换店铺；两者均可改时间、次数。
 - 原有项目/店铺会话背景、模板与身份仍由原owner读取并授权，不让客户端提交ExecutionSpec、成员、模型或金额。

@@ -1,5 +1,8 @@
 # 定时生成单店经营日报：无模型执行与幂等保存
 
+> 归类说明（2026-11-19）：下文 DESIGN_ONLY、未实现及原实例 NOT_RUN 是设计/早期实施阶段记录，不是当前交付状态。本文 §12 已记录后续实施；[#1279](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1279)记录 #1280/#1287 已合并、原 35444 经单独授权更新及单次真实 Temporal 日报保存/刷新/下载实测。实测缺完整财务/订单来源，不能据此声称平台实时完整数据接通或用户验收完成；Issue 保持开放。本次未重新核查现场，原状态和预留金额不当作今天事实。
+> 无模型、仅已有数据、exact member/单店权限、独立两库原键回执和 UNKNOWN 占用边界保持；后续新建仅日报、已有内容计划保留，详见[编辑与复制合同](scheduled-plan-edit-copy.md)。本次仅文档归类，不执行安装、计划、平台采集、模型或预留操作。
+
 状态：**IMPLEMENTATION_READY（独立架构准入）/ DESIGN_ONLY（未实现）**。Design Basis：Independent Architecture。执行 Issue [#1279](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1279)。本轮只交付设计与独立评审，不写生产代码、不执行 schema、不更改原 35444、不调用模型、不发布商品、不处理或释放原预留。准入通过不扩大用户本轮授权，正式实施仍待后续任务。
 
 ## 1. 产品决定、范围与验收结果
@@ -12,7 +15,7 @@ Must：单店、上一自然日日报；精确时区/名义执行槽；只读已
 
 Threat Model：不信任浏览器传入的 org/member/role、计划成功或后台证明；不信任 Temporal payload 中的身份/业务输入；防跨租户、重建成员身份复用、撤权后新生成、重试覆盖/重复日报及不完整数据伪装完整。平台实时取数、数据商业真实性/人工录入质量不由本期证明；不同 owner 的读取不是全局 ACID 快照，报告必须展示各来源自己的时间/范围/缺项。没有新增安全风险豁免。
 
-依据：[当前领域边界](project-boundaries.md)、[定时内容任务](ai-workbench-scheduled-tasks.md)、[个人报告](domains/workbench/ai-workbench-reports.md)、[店铺经营诊断](shop-operations-diagnosis-agent.md)、[当前产品基线](../product/greenfield-no-legacy-migration.md)。个人报告合同只在本文件明确的新类型、后台保存及历史访问处扩展；原类型行为不变。旧合同中的 Figma UI 权威引用由当前用户决定取代。
+依据：[当前领域边界](../../project-boundaries.md)、[定时内容任务](../../ai-workbench-scheduled-tasks.md)、[个人报告](ai-workbench-reports.md)、[店铺经营诊断](../../shop-operations-diagnosis-agent.md)、[当前产品基线](../../../product/greenfield-no-legacy-migration.md)。个人报告合同只在本文件明确的新类型、后台保存及历史访问处扩展；原类型行为不变。旧合同中的 Figma UI 权威引用由当前用户决定取代。
 
 ## 2. 当前能力和真正缺口
 

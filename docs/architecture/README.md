@@ -18,7 +18,7 @@
 
 - `domains/workbench/scheduled-plan-deletion.md` — [定时计划删除](domains/workbench/scheduled-plan-deletion.md)；#1288，保留结果与在途任务的列表移除；独立检查 IMPLEMENTATION_READY，沿用计划控制与恢复。
 
-- `scheduled-store-daily-report.md` — [定时生成单店经营日报](scheduled-store-daily-report.md)；#1279 独立架构及恢复增量复核 IMPLEMENTATION_READY；仅设计、未实现，不开放模型或平台发布。
+- `domains/workbench/scheduled-store-daily-report.md` — [定时生成单店经营日报](domains/workbench/scheduled-store-daily-report.md)；#1279 独立架构及恢复增量复核 IMPLEMENTATION_READY；设计与后续实施记录；#1279 记录原实例单次实测，不代表实时完整数据或用户签收，不开放模型或平台发布。
 
 - `research-supplier-review-v1.md` · [单候选人工核对已保存 1688 货源](research-supplier-review-v1.md) · #1074 独立设计候选，Admission NOT_READY。
 - `research-manual-cost-preview-v1.md` · [单候选人工费用参考试算](research-manual-cost-preview-v1.md) · #1074 独立设计候选。
