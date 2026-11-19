@@ -286,7 +286,7 @@
 - `domains/workbench/ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](domains/workbench/ai-workbench-conversation-runtime.md)
 - `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
 - `domains/workbench/ai-workbench-reports.md` — [AI工作台个人报告 v1](domains/workbench/ai-workbench-reports.md)
-- `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
+- `domains/workbench/ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](domains/workbench/ai-workbench-work-scope.md)
 - `domains/workbench/chat-selected-product-context.md` — [Chat 规划读取已选商品资料](domains/workbench/chat-selected-product-context.md)
 - `domains/workbench/ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](domains/workbench/ai-workbench-scheduled-tasks.md) · #1244 已记录后续合并、授权部署和单次真实调用；原设计与隔离证据保留，新建仅日报，用户验收不由历史测试代签。
 - `domains/workbench/scheduled-plan-edit-copy.md` — [定时计划编辑与复制](domains/workbench/scheduled-plan-edit-copy.md) · #1297 IMPLEMENTATION_READY；复用原计划 owner，保留在途任务与历史，保存前重新核对时间和预算。
