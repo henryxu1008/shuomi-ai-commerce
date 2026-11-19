@@ -39,8 +39,13 @@ func (resultDependencies) Verify(context.Context, collection.Scope, collection.S
 func TestExternalReadUsesOneGuardAndDiscardsFailedTransactionResults(t *testing.T) {
 	scope := collection.Scope{OrganizationID: "org", ActorID: "creator", MemberID: "original"}
 	p := Principal{Scope: scope, CredentialID: uuid.NewString(), CredentialRevision: 1}
-	evidence := &Evidence{Site: "us", ASIN: "B000123456", Title: "saved", MainImage: "https://m.media-amazon.com/images/I/fixture.jpg", Availability: "available", Price: 10, Currency: "USD", CapturedAt: "2026-10-10T00:00:00Z", ParserVersion: "amazon-v1"}
-	repo := &resultRepository{job: Job{ID: uuid.NewString(), Scope: scope, CredentialID: p.CredentialID, State: "SUCCEEDED", Query: Query{Fields: []string{"title"}}}, item: Item{ID: uuid.NewString(), State: "SAVED", Source: &collection.Source{}, Evidence: evidence}}
+	evidence := &Evidence{
+		Site: "us", ASIN: "B000123456", Title: "saved", MainImage: "https://m.media-amazon.com/images/I/fixture.jpg",
+		Availability: "unknown", Price: 10, Currency: "USD", CapturedAt: "2026-10-10T00:00:00Z", ParserVersion: AmazonZenRowsSearchVersion,
+		Missing: []string{"availability"}, QuoteCard: &AmazonQuoteCard{Status: AmazonQuoteCardCaptured, Markup: "<div>$10.00</div>"},
+	}
+	require.NoError(t, evidence.Validate())
+	repo := &resultRepository{job: Job{ID: uuid.NewString(), Scope: scope, CredentialID: p.CredentialID, State: "SUCCEEDED", Query: Query{Fields: Fields()}}, item: Item{ID: uuid.NewString(), State: "SAVED", Source: &collection.Source{}, Evidence: evidence}}
 	svc := &Service{repo: repo, live: &revokedAccess{}, starter: resultDependencies{}}
 	job, err := svc.Read(context.Background(), p, repo.job.ID)
 	require.NoError(t, err)
@@ -49,6 +54,8 @@ func TestExternalReadUsesOneGuardAndDiscardsFailedTransactionResults(t *testing.
 	page, err := svc.Results(context.Background(), p, repo.job.ID, "", 100, resultDependencies{})
 	require.NoError(t, err)
 	require.Equal(t, "saved", page.Items[0].Data["title"])
+	require.Equal(t, 10.0, page.Items[0].Data["price"])
+	require.NotContains(t, page.Items[0].Data, "quoteCard")
 	require.Equal(t, 2, repo.guardCalls, "Results must not nest the public Read guard")
 	repo.guardCommitError = ErrUnavailable
 	job, err = svc.Read(context.Background(), p, repo.job.ID)
