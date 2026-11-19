@@ -46,7 +46,7 @@ credential SELECT、invocation SELECT/INSERT/UPDATE；Review 连接需要既有 
 `AdmittedEndpointIdentityDigest` 由独立凭据写入命令返回的当前组织行绑定；任何空值或
 失配都不可发送。完整字段以 `internal/integration/aicapability/einomodel/route.go` 与
 `internal/aicapability/governed_text.go` 为准，Chat/Task 配置见
-[Chat 试用说明](ai-workbench-chat-trial.md)。只有精确 route 的计量、定价、付费授权均有
+[Chat 试用说明](runbooks/ai-workbench-chat-trial.md)。只有精确 route 的计量、定价、付费授权均有
 证据时才启用；不能从兼容协议或别家模型窗口推断。
 
 DASHSCOPE 的 `deepseek-v4.1-flash` 使用同一个受控 Eino OpenAI-compatible 组件。

@@ -291,7 +291,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 
 ### 隔离试用入口
 
-全新隔离环境沿[工作台试用交接](../operations/ai-workbench-chat-trial.md#准备当前应用)初始化工作台库和受限运行角色，并通过技能库现有「安装官方技能」登记「创建技能」v2。在当前企业启用完整 Workbench，配置 `aiWorkbench.skillAuthoringTextPolicies` 及 `modelRoutePricing.bindings` 中对应的 `ai_workbench_skill_authoring` 文本用途，沿现有企业渠道绑定已准入的模型和价格。脚本草稿使用 `ai-workbench-skill-authoring-v2` 提示版本与 `personal-title-skill-draft-v2` 输出格式。文字首批继续识别 v1 的准确版本及原回执。服务启动只校验配置与可用性。
+全新隔离环境沿[工作台试用交接](../operations/runbooks/ai-workbench-chat-trial.md#准备当前应用)初始化工作台库和受限运行角色，并通过技能库现有「安装官方技能」登记「创建技能」v2。在当前企业启用完整 Workbench，配置 `aiWorkbench.skillAuthoringTextPolicies` 及 `modelRoutePricing.bindings` 中对应的 `ai_workbench_skill_authoring` 文本用途，沿现有企业渠道绑定已准入的模型和价格。脚本草稿使用 `ai-workbench-skill-authoring-v2` 提示版本与 `personal-title-skill-draft-v2` 输出格式。文字首批继续识别 v1 的准确版本及原回执。服务启动只校验配置与可用性。
 
 已有首批创作表时，数据库 owner 可通过 `ai-workbench-schema-init --skill-authoring-only --runtime-role ai_workbench_runtime` 增加有界列和授权。命令还要求填写 `--expected-database`、`--expected-server-address` 和 `--expected-server-port`，并沿原私有 `AI_WORKBENCH_SCHEMA_DSN` 连接。旧请求和待保存原文按原格式读回。应用不会自行改表。
 

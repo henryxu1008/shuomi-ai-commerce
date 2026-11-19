@@ -34,7 +34,7 @@
 
 ## 配置与启动
 
-沿用 [Chat / 内容任务运行说明](../ai-workbench-chat-trial.md) 的正常登录、企业 allowlist、当前 IAM 服务授权、内容 Agent、Collection/Source、Review、模型准入及原积分服务。定时任务不保存浏览器 JWT，不制造 HTTP 身份，逐次按冻结的企业、操作者、成员向原 IAM 和业务 owner 复核。
+沿用 [Chat / 内容任务运行说明](../runbooks/ai-workbench-chat-trial.md) 的正常登录、企业 allowlist、当前 IAM 服务授权、内容 Agent、Collection/Source、Review、模型准入及原积分服务。定时任务不保存浏览器 JWT，不制造 HTTP 身份，逐次按冻结的企业、操作者、成员向原 IAM 和业务 owner 复核。
 
 在**获准的新安装**的私有 current-application manifest 中，已有的 `aiWorkbench` 配置另外加入：
 

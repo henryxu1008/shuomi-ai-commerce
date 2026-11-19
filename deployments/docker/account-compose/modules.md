@@ -147,7 +147,7 @@ after the Ecoservices layer and set the private `CHAT_ALLOWED_ORGANIZATION_IDS`
 JSON list. Keep this layer on stop/start too. It installs only the existing
 Conversation schema and bounded role, admits real create/rename/favorite/archive
 operations, and keeps model/task execution closed. See
-[`ai-workbench-chat-trial.md`](../../../docs/operations/ai-workbench-chat-trial.md).
+[`ai-workbench-chat-trial.md`](../../../docs/operations/runbooks/ai-workbench-chat-trial.md).
 Preserve the two Chat state/runtime volumes alongside every original volume.
 
 For the new capacity-enabled installation described above, use the same fixed
