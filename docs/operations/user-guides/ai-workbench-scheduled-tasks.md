@@ -1,6 +1,6 @@
 # 定时任务与已有商品内容计划
 
-跟踪 [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244) / [PR #1245](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1245)，设计依据为[已批准架构](../../architecture/ai-workbench-scheduled-tasks.md)的 §3.2。源码交付、隔离验证与具体实例开放分别记录；本说明不授权部署、真实模型调用或数据操作。
+跟踪 [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244) / [PR #1245](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1245)，设计依据为[已批准架构](../../architecture/domains/workbench/ai-workbench-scheduled-tasks.md)的 §3.2。源码交付、隔离验证与具体实例开放分别记录；本说明不授权部署、真实模型调用或数据操作。
 
 ## 用户操作
 
