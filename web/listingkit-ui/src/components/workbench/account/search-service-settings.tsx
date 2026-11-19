@@ -22,13 +22,15 @@ function readSetting<T>(scope: ModelRouteScope, action: Action, schema: z.ZodTyp
 }
 
 export function useSearchSettingsAvailable(scope: ModelRouteScope, configure: boolean, owned: boolean, platform: boolean) {
-  const action = configure ? "enterprise" : owned ? "owned-key" : "platform";
   return useQuery({
-    queryKey: ["search-services-available", scope, action],
+    queryKey: ["search-services-available", scope, configure, owned, platform],
     queryFn: async ({ signal }) => {
-      if (configure) return Boolean(await readSetting(scope, "enterprise", searchSettingsResponse, signal));
-      if (owned) return Boolean(await readSetting(scope, "owned-key", searchKeyResponse, signal));
-      return Boolean(await readSetting(scope, "platform", searchPlatformResponse, signal));
+      const reads: Promise<unknown>[] = [];
+      if (configure) reads.push(readSetting(scope, "enterprise", searchSettingsResponse, signal));
+      if (owned) reads.push(readSetting(scope, "owned-key", searchKeyResponse, signal));
+      if (platform) reads.push(readSetting(scope, "platform", searchPlatformResponse, signal));
+      await Promise.any(reads);
+      return true;
     },
     enabled: configure || owned || platform, retry: false, gcTime: 0, refetchOnWindowFocus: false,
   });

@@ -326,6 +326,25 @@ it("does not clear an uncertain original command for a receipt with different mo
 it("permits a new initial command after a definite initial rejection",async()=>{const user=userEvent.setup(),fetch=fixture(true,async()=>Response.json({code:"PERMISSION_DENIED"},{status:403}));mount();await user.click(await screen.findByRole("button",{name:"检查并预览"}));const publish=await screen.findByRole("button",{name:"确认发布三类模型"});await user.click(publish);await screen.findByRole("alert");expect(screen.queryByRole("heading",{name:"发布结果待核实"})).not.toBeInTheDocument();expect(publish).toBeEnabled();await user.click(publish);const attempts=fetch.mock.calls.filter(([url])=>url.endsWith("/publish"));expect(attempts).toHaveLength(2);expect(new Headers(attempts[0][1]?.headers).get("Idempotency-Key")).not.toBe(new Headers(attempts[1][1]?.headers).get("Idempotency-Key"))});
 it("keeps the original uncertain command when its receipt lookup is later denied",async()=>{const user=userEvent.setup(),fetch=fixture(true,async()=>{throw new Error("ack lost")}),original=fetch.getMockImplementation()!;fetch.mockImplementation(async(url,init={})=>url.includes("/receipts/")?Response.json({code:"PERMISSION_DENIED"},{status:403}):original(url,init));mount();await user.click(await screen.findByRole("button",{name:"检查并预览"}));await user.click(await screen.findByRole("button",{name:"确认发布三类模型"}));await screen.findByRole("heading",{name:"发布结果待核实"});await user.click(screen.getByRole("button",{name:"查询本次发布结果"}));await screen.findByRole("alert");expect(screen.getByRole("heading",{name:"发布结果待核实"})).toBeVisible();expect(screen.getByRole("button",{name:"确认发布三类模型"})).toBeDisabled();expect(fetch.mock.calls.filter(([url])=>url.endsWith("/publish"))).toHaveLength(1)});
 it("blocks the page on organization switch or missing configure permission",()=>{state.context.permissions=[];fixture();mount(true);expect(screen.getByText("无模型配置权限或当前企业不可用")).toBeVisible();expect(screen.queryByRole("button",{name:"检查并预览"})).not.toBeInTheDocument()});
+it("opens platform search for a maintainer whose enterprise is outside the Chat allowlist",async()=>{
+ state.context.permissions=["workbench.agent.configure","listingkit.platform_admin","listingkit.admin.write"];
+ const fetch=fixture(),original=fetch.getMockImplementation()!;
+ const owner={organizationId:"org-a",actorId:"maintainer",memberId:"member",requestKey:""};
+ fetch.mockImplementation(async(url,init)=>{
+  if(url==="/api/model-route-pricing/search/platform"){
+   return Response.json({...owner,canWrite:true,organizations:["org-b"],result:{
+    revision:0,name:"",country:"",language:"",maxUsdMicros:0,totalLimit:0,tenantLimit:0,organizations:null,published:false,
+   }});
+  }
+  if(url==="/api/model-route-pricing/search/enterprise"){
+   return Response.json({code:"UNAVAILABLE"},{status:503});
+  }
+  return original(url,init);
+ });
+ mount(true);
+ await userEvent.click(await screen.findByRole("button",{name:"搜索服务"}));
+ expect(await screen.findByRole("heading",{name:"配置平台开放"})).toBeVisible();
+});
 it("opens platform prices without conferring enterprise configuration permission",async()=>{state.context.permissions=["listingkit.platform_admin","listingkit.admin.write"];const fetch=fixture();mount(true);expect(await screen.findByRole("heading",{name:"模型参考价与人民币汇率"})).toBeVisible();await waitFor(()=>expect(screen.getByRole("button",{name:"添加参考价目"})).toBeEnabled());expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument();expect(fetch.mock.calls.every(([url])=>!url.includes("/enterprise"))).toBe(true)});
 it("keeps a platform reader without write authority read-only",async()=>{state.context.permissions=["listingkit.platform_admin"];fixture();mount(true);expect(await screen.findByRole("heading",{name:"模型参考价与人民币汇率"})).toBeVisible();expect(screen.getByRole("button",{name:"添加参考价目"})).toBeDisabled();expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument()});
 it("shows the platform maintenance entry without probing any configuration API",async()=>{state.context.permissions=["listingkit.platform_admin"];const fetch=fixture(),client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);render(<QueryClientProvider client={client}><ModelRoutePricingEntry scope={scope}/></QueryClientProvider>);expect(await screen.findByRole("link",{name:"模型与服务"})).toBeVisible();expect(fetch).not.toHaveBeenCalled()});
