@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -41,10 +42,33 @@ func TestAmazonSearchPreservesOnlyUnambiguousSameCardUSPrices(t *testing.T) {
 	card := func(id, prices string) string {
 		return fmt.Sprintf(`<div data-component-type="s-search-result" data-asin="%s">%s<div data-cy="price-recipe">%s</div></div>`, id, image, prices)
 	}
+	const describedPrice = `<span class="a-price" data-a-size="xl" data-a-color="base"><span class="a-offscreen">$19.95</span><span aria-hidden="true"><span class="a-price-symbol">$</span><span class="a-price-whole">19<span class="a-price-decimal">.</span></span><span class="a-price-fraction">95</span></span></span>`
+	const countPrice = ` <span class="a-size-base a-color-base">(<span class="a-price a-text-price" data-a-size="b" data-a-color="base"><span class="a-offscreen">$9.98</span><span aria-hidden="true">$9.98</span></span>/count)</span>`
+	const listPrice = ` <span class="a-offscreen">List: $29.95</span><div aria-hidden="List: $29.95" class="a-section aok-inline-block"><span class="a-size-base a-color-secondary">List: </span><span class="a-price a-text-price" data-a-size="b" data-a-strike="true" data-a-color="secondary"><span class="a-offscreen">$29.95</span><span aria-hidden="true">$29.95</span></span></div>`
+	const promotion = `<div class="a-row a-size-base a-color-secondary"><span class="a-size-base s-highlighted-text-padding s-promotion-highlight-color aok-inline-block">Save 5%</span><span class="a-color-base"> on 2 select item(s)</span></div>`
+	describedOffer := func(linkContent, after string) string {
+		return `<div class="a-row a-size-base a-color-base"><div class="a-row"><span id="price-link" class="aok-offscreen">Price, product page</span><a aria-describedby="price-link">` +
+			linkContent + `</a></div><div class="a-row"></div></div>` + after
+	}
 	for _, tc := range []struct {
 		name, markup string
 		price        float64
 	}{
+		{"described primary price", describedOffer(describedPrice, ""), 19.95},
+		{"described primary with separate count and list", describedOffer(describedPrice+countPrice+listPrice, ""), 19.95},
+		{"described primary with separate promotion", describedOffer(describedPrice, promotion), 19.95},
+		{"conditional price description", strings.Replace(describedOffer(describedPrice, ""), "Price, product page", "Price, product page with a membership", 1), 0},
+		{"duplicate description target", describedOffer(describedPrice, "") + `<span id="price-link" class="aok-offscreen">Price, product page</span>`, 0},
+		{"missing description target", strings.Replace(describedOffer(describedPrice, ""), `id="price-link"`, `id="other-link"`, 1), 0},
+		{"hidden described link", strings.Replace(describedOffer(describedPrice, ""), `<a aria-describedby`, `<a hidden aria-describedby`, 1), 0},
+		{"additional accessible qualification", strings.Replace(describedOffer(describedPrice, ""), `<a aria-describedby`, `<a aria-label="From $19.95" aria-describedby`, 1), 0},
+		{"described primary without display evidence", describedOffer(offer("$19.95"), ""), 0},
+		{"described primary with conflicting display", describedOffer(strings.Replace(describedPrice, "fraction\">95", "fraction\">94", 1), ""), 0},
+		{"unknown condition in described link", describedOffer(describedPrice+`<span>with a membership</span>`, ""), 0},
+		{"unrecognized neighboring condition", describedOffer(describedPrice, `<span>with a membership</span>`), 0},
+		{"mislabeled reference amount", describedOffer(describedPrice+strings.Replace(listPrice, `data-a-strike="true"`, "", 1), ""), 0},
+		{"count and list only", describedOffer(countPrice+listPrice, ""), 0},
+		{"promotion only", describedOffer("", promotion), 0},
 		{"current exact price", offer("$19.95") + `<span class="a-price a-text-price"><span class="a-offscreen">$29.95</span></span>`, 19.95},
 		{"grouped amount", offer("US$1,299.00"), 1299},
 		{"currency code", offer("USD 19.95"), 19.95},
