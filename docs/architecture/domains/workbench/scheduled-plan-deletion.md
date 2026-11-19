@@ -1,10 +1,12 @@
 # 定时计划删除：保留结果的列表移除
 
+> 归类说明（2026-11-19）：保留原设计正文和当时实施授权；文中“本轮不部署/不合并”或“实现后更新”是阶段边界，不是当前交付状态。[#1288](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1288)记录后续已合并及原实例更新，Issue 仍开放待用户反馈/验收；本次未重新核查现场。新建仅店铺经营日报，已有内容计划仍可编辑和控制；删除不销毁历史、不取消在途，编辑不改原任务预算/预留，复制不自动保存。本次仅文档归类，不执行计划、权限安装、部署、模型或预留操作。
+
 ## Product outcome / Scope
 
 2026-11-15 用户决定：定时任务支持删除，停止未来执行并从默认列表移除，保留已有报告与执行记录，不取消在途任务、不更改费用或预留。结束与删除均用现有统一确认弹窗。不调用模型、不发布商品、不操作原预留。本轮实现和既有夹具验证，不部署原 35444、不合并或关闭 Issue。
 
-UI/IA 依据当前用户决定，Figma 仅作业务流程参考。已有合同：[定时任务](ai-workbench-scheduled-tasks.md)、[店铺日报](scheduled-store-daily-report.md)、[领域 owner](project-boundaries.md)。
+UI/IA 依据当前用户决定，Figma 仅作业务流程参考。已有合同：[定时任务](../../ai-workbench-scheduled-tasks.md)、[店铺日报](../../scheduled-store-daily-report.md)、[领域 owner](../../project-boundaries.md)。
 
 ## Owner / Contract / Wiring
 

@@ -12,7 +12,7 @@
 | 在 Chat 创建并选用个人文字技能 | [硕米 Chat 创建并使用个人文字技能](../../chat-general-text-skills.md)，#1429 设计已进入实施准入 | Skill 持有私有技能和准确版本，AI Workbench 持有创作与消息命令 |
 | 在 Chat 一次发送多张图片并查看文字回答 | [硕米 Chat 多图提问](chat-image-questions.md)，#1485 | AI Workbench 持有消息和附件关系，原对象存储和模型/商业 owner 持有文件、容量及用量 |
 | 任务中心查看已有 BusinessTask / AgentRun、提案和审核 | [原生运行投影](task-center-native-run-projection.md)、[任务中心接线](../../../engineering/unified-task-center.md) | Workbench 只作授权投影；原运行、Review/Apply 与 Temporal 保持各自 Owner |
-| 新建店铺经营日报定时任务，控制已有计划 | [定时计划合同](../../ai-workbench-scheduled-tasks.md)、[店铺日报](../../scheduled-store-daily-report.md)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)、[用户操作](../../../operations/user-guides/ai-workbench-scheduled-tasks.md) | `internal/aiworkbench` 的计划/occurrence，Temporal 原触发，`internal/reportcenter` 保存日报 |
+| 新建店铺经营日报定时任务，控制已有计划 | [定时计划合同](../../ai-workbench-scheduled-tasks.md)、[店铺日报](../../scheduled-store-daily-report.md)、[编辑/复制增量](scheduled-plan-edit-copy.md)、[用户操作](../../../operations/user-guides/ai-workbench-scheduled-tasks.md) | `internal/aiworkbench` 的计划/occurrence，Temporal 原触发，`internal/reportcenter` 保存日报 |
 | 保存、收藏和下载个人报告 | [个人报告合同](../../ai-workbench-reports.md)、[报告交接](../../../engineering/integration/report-center-runtime-handoff.md) | `internal/reportcenter` 的不可变报告/收藏，不是来源事实或审核 |
 | Agent 能否调用 Tool、选择模型与预算 | [Commerce Tool Foundation](../../commerce-tool-foundation.md)、[AI Capability](../../ai-capability-platform.md)、[模型价格路由](../../model-route-pricing-management.md) | `internal/commercetool`、`internal/aicapability`、原 Model/Resource/Review owners |
 
@@ -28,7 +28,7 @@
 
 ## 当前优先适用的范围
 
-2026-11-15 起，**新建定时计划只允许店铺经营日报**，日报可以复制新建。商品内容计划**新建、复制和 Chat「设为定时任务」已撤下**；已有商品内容计划仍可查看、编辑、控制并读取原任务、执行历史、审计及未决预留。早期 [定时主合同](../../ai-workbench-scheduled-tasks.md)中的商品内容新建场景是旧阶段产品范围，当前启用以 [#1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)及实际实例配置为准。
+2026-11-15 起，**新建定时计划只允许店铺经营日报**，日报可以复制新建。商品内容计划**新建、复制和 Chat「设为定时任务」已撤下**；已有商品内容计划仍可查看、编辑、控制并读取原任务、执行历史、审计及未决预留。早期 [定时主合同](../../ai-workbench-scheduled-tasks.md)中的商品内容新建场景是旧阶段产品范围，当前启用以 [#1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)、[编辑/复制增量](scheduled-plan-edit-copy.md)及实际实例配置为准。
 
 - **BusinessTask 不是 AgentRun 或 Temporal Workflow。** 用户任务只关联准确的原运行，不能按名称或时间凭空合并；原执行 owner 负责状态、取消与 UNKNOWN。
 - **Chat 不代表已有模型/工具的执行权限。** 保存会话、计划建议、执行批准、人工 Review/Apply、扣费、平台发布属于不同门禁，不能从 UI 可见性推断已经开放。
