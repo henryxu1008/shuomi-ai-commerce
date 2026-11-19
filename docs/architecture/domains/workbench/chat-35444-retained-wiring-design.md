@@ -1,8 +1,14 @@
 # 35444 保留库接入店铺查询：正式入口设计
 
+> 2026-11-19 文档归类说明：本文归入 Workbench，完整保留 #1261 / [PR #1262](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1262) 的正式入口设计及隔离验证阶段。下文“未授权原实例更新”和无关 owner 每次全量备份/独立恢复的阶段要求，已由[开发试用最小准入](chat-retained-minimal-admission-proposal.md)及 #1261 后续用户决定在指定原 35444 范围内替代，不恢复为今日统一前置；目标身份、原事实/ACL、同连接事务、维护窗口冻结、原调用和预留、ACK 不明及回退限制不变。
+>
+> #1262 的 network-none 副本、合成 owner/构建启动证明与 [#1263](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1263) 按当次授权完成原实例事务接线并启动是不同阶段；后者不能反向证明 #1262 已完成真实各 owner 备份恢复，前者也不能将后续原实例操作改写为 NOT_RUN。#1263 记录的浏览器登录/操作验证当时仍在进行，启动和合并不等于产品验收；本次未重新查验现场。
+>
+> 当前 `cmd/ai-workbench-retained-prepare` 显式消费 `internal/integration/persistence/aiworkbench` 的原目标同连接入口；原调用/预留经原 recovery owner 只读 inspect，必须准确绑定且 dispatched/reserved 未结算，不提供跨库原子保证。capture-baseline/inspect 虽为只读 SQL，仍向目标容器写临时 helper/capability，不能在仅准许零写入时运行。本次只整理文档，不执行这些入口或解冻/恢复，不调用模型、不释放预留，也不新增部署或通用迁移授权。
+
 **2026-11-13 后续授权：**用户已授权在执行 Issue 准入完成后实现本入口并在隔离副本验证；以下原设计中的“本轮不授权实施”记录的是评审时的范围，已由此后续决定替代。仍不授权更新原 35444、调用真实模型或释放预留。原实例接线所需的其他 owner 备份与恢复证据仍须另行验证。
 
-状态：`IMPLEMENTATION_READY`（独立架构评审及增量复核通过，仅表示设计达到实施准入）。本文件是对 [隔离原型方案](chat-retained-1260-trial.md) 的正式入口增量设计。用户已授权实施及隔离验证；实际更新原实例仍需单独授权。本次特殊数据处理仅适用于用户明确指定的原 35444 试用实例，不建立通用旧数据迁移能力。
+状态：`IMPLEMENTATION_READY`（独立架构评审及增量复核通过，仅表示设计达到实施准入）。本文件是对 [隔离原型方案](../../chat-retained-1260-trial.md) 的正式入口增量设计。用户已授权实施及隔离验证；实际更新原实例仍需单独授权。本次特殊数据处理仅适用于用户明确指定的原 35444 试用实例，不建立通用旧数据迁移能力。
 
 执行层准入：执行 Issue #1261 已登记用户结果、范围、`Design Basis: Independent Architecture`、本设计与独立评审引用；设计文档的状态不能替代 Issue 准入。
 
