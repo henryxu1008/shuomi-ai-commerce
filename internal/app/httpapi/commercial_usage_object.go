@@ -230,6 +230,8 @@ func usageInvocationPurpose(fact aicapability.InvocationRecord) string {
 		return "chat_intent"
 	case aicapability.OperationAIWorkbenchChatPlan:
 		return "chat_planning"
+	case aicapability.OperationAIWorkbenchChatImages:
+		return "chat_images"
 	case aicapability.OperationAIWorkbenchSkillAuthoring:
 		return "skill_authoring"
 	case aicapability.OperationOwnProductIntake:

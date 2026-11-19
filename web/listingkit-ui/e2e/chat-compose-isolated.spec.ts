@@ -416,3 +416,174 @@ test("keeps project operations out of Chat and resumes its rebound conversation"
   expect(modelCalls).toBe(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
+
+for(const outcome of ["complete","model failure","rejection","capacity rejection"] as const)test(`sends two ordered images and ${outcome==="complete"?"recovers the original request after reload":`keeps an editable draft after ${outcome}`}`, async ({page,context,baseURL})=>{
+  test.setTimeout(60_000);
+  const failedReply=outcome!=="complete";
+  const origin=baseURL!;
+  const namespace=createHash("sha256").update(JSON.stringify([origin,"https://chat-compose.invalid","chat-compose-fixture"])).digest("hex").slice(0,32);
+  const name=`shuomi.${namespace}.session-token`;
+  const token=await encode({secret,salt:name,maxAge:600,token:{accessToken:"synthetic-chat-images",expiresAt:Math.floor(Date.now()/1000)+600,identityVersion:3,identity:{tenantId:"org",userId:"user",userType:"zitadel",roles:[]}}});
+  await context.addCookies([{name,value:token,url:origin,httpOnly:true,sameSite:"Lax"}]);
+  const id="11111111-1111-4111-8111-111111111111", questionId="22222222-2222-4222-8222-222222222222", answerId="33333333-3333-4333-8333-333333333333";
+  const base="/api/workbench/chat/conversations", detail=`${base}/${id}`;
+  const question="按顺序说出两张商品图的颜色";
+  const pictures=[
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYPgPAAEDAQAIicLsAAAAAElFTkSuQmCC",
+  ];
+  const date="2026-11-18T00:00:00Z",businessScope={version:"workbench-scope-v1",kind:"general"};
+  const conversation={ID:id,Scope:{OrganizationID:"org",ActorID:"user"},Title:"",Favorite:false,Archived:false,MetadataRevision:1,NextSequence:1,CreatedAt:date,UpdatedAt:date,businessScope};
+  let firstKey="", firstBody="", requests=0, creates=0, complete=false;
+  await page.route("**/*",async route=>{
+    const req=route.request(),url=new URL(req.url()),path=url.pathname;
+    if(url.origin!==origin)return route.abort();
+    if(!path.startsWith("/api/"))return route.continue();
+    const json=(body:unknown,status=200)=>route.fulfill({status,contentType:"application/json",body:JSON.stringify(body)});
+    if(path==="/api/workbench/context")return json({user:{id:"user"},homeOrganizationId:"org",effectiveOrganizationId:"org",effectiveMemberId:"member",selectionRequired:false,aiWorkbenchAvailable:true,projectCenterAvailable:!failedReply,aiWorkbenchChatTurnsReady:true,aiWorkbenchChatIntentReadiness:"AVAILABLE",aiWorkbenchExecutionKind:"product.content.localize",aiWorkbenchExecutionReadiness:"AVAILABLE",aiWorkbenchPlanningReadiness:"AVAILABLE",organizations:[{id:"org",name:"合成企业",roles:["listingkit_admin"],permissions:["workbench.chat.use","workbench.chat.read"],capabilities:{"workbench.source_account.manage":false,"workbench.chat.use":true}}]});
+    if(path===base+"/scopes")return json({options:[{scope:businessScope,confirmation:"a".repeat(64)}],next:"",incomplete:false});
+    if(path===base+"/image-questions")return json({available:true});
+    if(path===base&&req.method()==="POST"){creates++;return json({conversation,replay:false});}
+    if(path===detail)return json({conversation,messages:complete?[
+      {ID:questionId,ConversationID:id,Sequence:1,Author:"USER",Content:question,CreatedAt:date,imageCount:2},
+      {ID:answerId,ConversationID:id,Sequence:2,Author:"ASSISTANT",Content:"图 1 是红色，图 2 是蓝色。",CreatedAt:date},
+    ]:[],proposals:[],before:""});
+    if(path===detail+"/image-questions"){
+      requests++;
+      const key=req.headers()["idempotency-key"],body=req.postData()!;
+      expect(req.postDataJSON()).toEqual({content:question,images:pictures});
+      if(requests===1){firstKey=key;firstBody=body;return json({code:"OUTCOME_UNKNOWN"},503);}
+      if(requests===2){
+        expect(key).toBe(firstKey);
+        expect(body).toBe(firstBody);
+        if(outcome==="rejection")return json({code:"INVALID_REQUEST",messageAccepted:false},400);
+        if(outcome==="capacity rejection")return json({code:"STORAGE_LIMIT_EXCEEDED",messageAccepted:false},409);
+        if(failedReply)return json({state:"FAILED_BEFORE_DISPATCH",userMessageId:questionId,sourceSequence:1,assistantMessageId:""});
+      }else{
+        expect(key).not.toBe(firstKey);
+      }
+      complete=true;
+      return json({state:"COMPLETE",userMessageId:questionId,sourceSequence:1,assistantMessageId:answerId});
+    }
+    const attachmentBase=detail+`/messages/${questionId}/images/`;
+    if(path.startsWith(attachmentBase)){
+      const picture=pictures[Number(path.slice(attachmentBase.length))];
+      return picture?route.fulfill({status:200,contentType:"image/png",body:Buffer.from(picture,"base64")}):json({code:"NOT_FOUND"},404);
+    }
+    if(req.method()==="POST")throw new Error(`unexpected Chat mutation ${path}`);
+    return json({code:"NOT_FOUND"},404);
+  });
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(failedReply?"/workbench/ai/chat/"+id:"/workbench/ai/chat/new");
+  await expect(page.getByRole("button",{name:"选择图片"})).toBeEnabled();
+  const images=page.locator('input[type="file"][multiple]');
+  if(outcome==="rejection"){
+    await page.evaluate(()=>{
+      const put=IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put=function(...args:Parameters<typeof put>){
+        if(this.name==="drafts"){
+          IDBObjectStore.prototype.put=put;
+          throw new DOMException("fixture write failure","QuotaExceededError");
+        }
+        return put.apply(this,args);
+      };
+    });
+  }
+  if(outcome==="complete"){
+    await images.setInputFiles(pictures.map((picture,index)=>({name:`photo-${index}.png`,mimeType:"image/png",buffer:Buffer.from(picture,"base64")})));
+  }else{
+    const transfer=await page.evaluateHandle(payload=>{
+      const data=new DataTransfer();
+      payload.forEach((picture,index)=>data.items.add(new File([Uint8Array.from(atob(picture),letter=>letter.charCodeAt(0))],`photo-${index}.png`,{type:"image/png"})));
+      return data;
+    },outcome==="model failure"?[...pictures,pictures[0]]:pictures);
+    const input=page.getByRole("textbox",{name:"需求",exact:true});
+    if(outcome==="model failure"){
+      await input.dispatchEvent("drop",{dataTransfer:transfer});
+      await page.getByRole("button",{name:"移除图 3",exact:true}).click();
+      await expect(page.getByRole("img",{name:"图 3",exact:true})).toHaveCount(0);
+    }else{
+      await input.evaluate((element,clipboardData)=>element.dispatchEvent(new ClipboardEvent("paste",{clipboardData,bubbles:true,cancelable:true})),transfer);
+    }
+  }
+  await expect(page.getByRole("img",{name:"图 2"})).toBeVisible();
+  await page.getByRole("textbox",{name:"需求",exact:true}).fill(question);
+  if(outcome==="rejection"){
+    await expect(page.getByRole("button",{name:"发送消息",exact:true})).toBeDisabled();
+    await page.getByRole("button",{name:"重试保存图片",exact:true}).click();
+    await expect(page.getByRole("button",{name:"发送消息",exact:true})).toBeEnabled();
+  }
+  if(!failedReply){
+    await page.getByRole("button",{name:"开始对话",exact:true}).click();
+    await expect(page).toHaveURL(new RegExp("/chat/"+id),{timeout:20_000});
+  }
+  await expect(page.getByRole("img",{name:"图 2"})).toBeVisible();
+  expect(requests).toBe(0);
+  const questionInput=page.getByRole("textbox",{name:"需求",exact:true});
+  const send=page.getByRole("button",{name:"发送消息",exact:true});
+  if(outcome==="model failure"){
+    await questionInput.fill("字".repeat(2731));
+    await expect(send).toBeDisabled();
+    await expect(page.getByText("图片提问不能超过 8192 字节。")).toBeVisible();
+    await expect(questionInput).toBeEditable();
+    await expect(page.getByRole("button",{name:"移除图 2",exact:true})).toBeEnabled();
+    expect(requests).toBe(0);
+    await questionInput.fill(question);
+  }
+  await send.click();
+  await expect(page.getByRole("button",{name:"核实原图片提问",exact:true})).toBeEnabled();
+  if(outcome==="complete"){
+    await page.addInitScript(()=>{
+      const open=IDBFactory.prototype.open;
+      IDBFactory.prototype.open=function(name,version){
+        const request=open.call(this,name,version);
+        if(name!=="shuomi-chat-images")return request;
+        IDBFactory.prototype.open=open;
+        Object.defineProperty(request,"onsuccess",{set(handler:(event:Event)=>void){
+          request.addEventListener("success",event=>{
+            window.addEventListener("release-image-draft",result=>{
+              if(result instanceof CustomEvent&&result.detail==="read failure"){
+                request.result.close();
+                request.onerror?.call(request,new Event("error"));
+              }else{
+                handler.call(request,event);
+              }
+            },{once:true});
+          },{once:true});
+        }});
+        return request;
+      };
+    });
+  }
+  await page.reload();
+  await expect(questionInput).toHaveValue(question);
+  if(outcome==="complete"){
+    await expect(send).toBeDisabled();
+    expect(requests).toBe(1);
+    await page.evaluate(()=>window.dispatchEvent(new CustomEvent("release-image-draft",{detail:"read failure"})));
+    await expect(page.getByText("无法读取保留的图片，请检查浏览器存储。")).toBeVisible();
+    await expect(send).toBeDisabled();
+    expect(requests).toBe(1);
+    await page.getByRole("button",{name:"重新读取图片",exact:true}).click();
+  }
+  await expect(page.getByRole("textbox",{name:"需求",exact:true})).toBeDisabled();
+  await page.getByRole("button",{name:"核实原图片提问",exact:true}).click();
+  if(failedReply){
+    const input=page.getByRole("textbox",{name:"需求",exact:true});
+    await expect(input).toBeEnabled();
+    if(outcome==="capacity rejection"){
+      await expect(page.getByText(/企业存储空间不足/)).toBeVisible();
+      await expect(page.getByRole("button",{name:"移除图 2",exact:true})).toBeEnabled();
+    }
+    await page.reload();
+    await expect(input).toHaveValue(question);
+    await expect(input).toBeEnabled();
+    await expect(page.getByRole("img",{name:"图 2"})).toBeVisible();
+    await page.getByRole("button",{name:"发送消息",exact:true}).click();
+  }
+  await expect(page.getByText("图 1 是红色，图 2 是蓝色。")).toBeVisible();
+  await expect(page.getByRole("img",{name:"图 1"})).toBeVisible();
+  await expect(page.getByRole("img",{name:"图 2"})).toBeVisible();
+  expect(creates).toBe(failedReply?0:1);
+  expect(requests).toBe(failedReply?3:2);
+});

@@ -898,7 +898,9 @@ func (s *Store) CompletePlan(ctx context.Context, scope aiworkbench.Scope, key s
 		if receipt.State != string(aiworkbench.PlanningReadyToDispatch) {
 			return aiworkbench.ErrIdempotencyConflict
 		}
-		if command(receipt).WorkScope.TextSkill != nil && terminal.Mode != aiworkbench.PlanClarify {
+		selection := command(receipt).WorkScope
+		if len(selection.ChatImages) != 0 && (terminal.Mode != aiworkbench.PlanClarify || terminal.Proposal != nil) ||
+			selection.TextSkill != nil && terminal.Mode != aiworkbench.PlanClarify {
 			return aiworkbench.ErrInvalid
 		}
 		row, err := s.lookupConversation(tx, scope, receipt.ConversationID, true)
