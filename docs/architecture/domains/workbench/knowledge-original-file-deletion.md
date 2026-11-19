@@ -1,10 +1,12 @@
 # 知识库原文件删除与容量释放 V1
 
+> 归类说明（2026-11-19）：下文末尾实现/隔离/试用 NOT_RUN 是架构评审时点记录。[#1103](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1103) 已记录 #1105 合并、可销毁 PostgreSQL/MinIO 验证及独立非生产环境真实登录验收，用户已按该首版范围确认并授权关闭；现有保留试用与生产验收仍为 NOT_RUN。可读但无管理权限独立角色未纳入首版，其旧实测仍 NOT_RUN；当前操作仍要求有效企业的知识库管理权限。Figma 仅作流程参考。上传代际/旧 writer 隔离、单次 PUT 证明、精确对象缺失、原操作续行和容量只释放一次的全部边界保持；本次不重验现场、不执行删除、启用、凭据轮换或容量操作。
+
 产品决定为用户在 #1103 会话确认的[首版最小范围](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1103)。源码基线为 `e4d440def298e36cb70c261de0c2bad9074a9503`。分类为 **Independent Architecture**。本文定义后续实现合同。架构评审和 UI 准入分别记录于 #1103。
 
 ## 产品结果与适用范围
 
-企业管理员可以永久删除本企业一份无需保留、已经计量的知识库原文件，并在原「资源与额度」看到实际用量更新。操作从「AI 工作台 → 知识库 → 我的知识库」的已停用资料进入。确认内容应足以识别资料版本及字节，明确永久删除和完成状态。企业知识库与容量页沿[现行 UI/IA 权威](../product/final-ui-ia-authority.md)、[企业知识库 4703:572](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=4703-572)和[企业存储容量 5872:440](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=5872-440)。本稿提出删除确认和续行的行为合同，具体 UI 增量需在现有 Figma Product Authority 核对确认后实施。
+企业管理员可以永久删除本企业一份无需保留、已经计量的知识库原文件，并在原「资源与额度」看到实际用量更新。操作从「AI 工作台 → 知识库 → 我的知识库」的已停用资料进入。确认内容应足以识别资料版本及字节，明确永久删除和完成状态。企业知识库与容量页沿[现行 UI/IA 权威](../../../product/final-ui-ia-authority.md)、[企业知识库 4703:572](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=4703-572)和[企业存储容量 5872:440](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=5872-440)。本稿提出删除确认和续行的行为合同，具体 UI 增量需在现有 Figma Product Authority 核对确认后实施。
 
 - 首版一次一个 Knowledge Revision，仅覆盖已完成停用、只有一个版本、处理已完成、已确认计量且无依赖的资料。源版本元数据、既有审计事实和停用规则保留。原文件删除不触发解析副本、备份和引用的级联删除。
 - 资料仍在使用、有多个版本、被任何冻结上下文条目或历史引用使用、有在途许可或处理、受保留约束、或上传终态不可证时不满足资格。仅知识库停用、版本替换或资料不可读仍沿原计量合同。
@@ -19,7 +21,7 @@
 | 企业容量 | 原对象的计量身份、字节及分类，已用余额和不可变释放回执 |
 | 工作台 | 原权限内显示能否删除、版本、确认与处理状态，沿原容量摘要显示用量 |
 
-调用路径为现有工作台知识库 → 原 BFF 和实时鉴权 → Knowledge 删除命令及 repository → 窄权限 S3 删除/核验端口 → 容量内部 `ReleaseStored` 合同 → 原容量摘要。应用只装配端口。Knowledge 以内部调用持有删除资格和证据，容量端口仅接受可信 Knowledge 调用及已持久化证明。接口和客户端都不提交或决定企业、对象地址、账本字节或存储证明。参见[领域边界](project-boundaries.md)、[知识库生命周期](agent-knowledge-context.md)和[容量合同](enterprise-storage-capacity.md)。
+调用路径为现有工作台知识库 → 原 BFF 和实时鉴权 → Knowledge 删除命令及 repository → 窄权限 S3 删除/核验端口 → 容量内部 `ReleaseStored` 合同 → 原容量摘要。应用只装配端口。Knowledge 以内部调用持有删除资格和证据，容量端口仅接受可信 Knowledge 调用及已持久化证明。接口和客户端都不提交或决定企业、对象地址、账本字节或存储证明。参见[领域边界](../../project-boundaries.md)、[知识库生命周期](agent-knowledge-context.md)和[容量合同](../../enterprise-storage-capacity.md)。
 
 ## 企业权限和命令身份
 
@@ -31,7 +33,7 @@
 
 ## 防止迟到上传
 
-已有处理成功、停用和租约到期都不证明旧 PUT 已终结。当前上传在丢失响应后会读回并恢复原版本，底层 `If-None-Match: *` 只能约束对象存在时的覆盖。物理删除后旧 PUT 可能重新创建该 key。[现有 Upload](../../internal/knowledge/service.go) · [ClaimUpload](../../internal/integration/persistence/knowledge/processing.go) · [不可变 S3 写入](../../internal/integration/s3/uploader.go)
+已有处理成功、停用和租约到期都不证明旧 PUT 已终结。当前上传在丢失响应后会读回并恢复原版本，底层 `If-None-Match: *` 只能约束对象存在时的覆盖。物理删除后旧 PUT 可能重新创建该 key。[现有 Upload](../../../../internal/knowledge/service.go) · [ClaimUpload](../../../../internal/integration/persistence/knowledge/processing.go) · [不可变 S3 写入](../../../../internal/integration/s3/uploader.go)
 
 Knowledge 在原 Revision 旁保留最小的上传结束事实。只覆盖启用该合同后首次准入的版本。老版本、无证据版本以及曾有未知或多次发送的版本继续按原上传合同服务，首版不可删。
 
@@ -59,7 +61,7 @@ Knowledge 保存一条有界操作，固定企业、资料与 Revision、原物�
 3. **`OBJECT_ABSENCE_PROVEN`**。在同一固定端点上复核原 namespace 和桶状态。取得已授权的精确 key `HeadObject` 缺失以及同 key 的 `ListObjectVersions` 完整、未截断且无实体版本和删除标记的结果。持久化带格式版本的证明摘要，绑定原删除操作、原先存在证据、发送事实、原物理身份、原文件摘要/字节和读回结果。可信的读回可处理 Delete 响应丢失。权限错误、桶缺失、网络异常、版本/标记仍在、分页不确定、对象不匹配或身份漂移均保留待核实。
 4. **`RELEASED`**。持久化证明后调用容量内部端口。回读或收到原释放回执后，在 Knowledge 保存回执并显示完成。原资料保持停用，保留原文件操作和审计记录。
 
-物理删除的计量含义为原计量 namespace 的文件对象已不存在。首版只接入能验证部署 ID、桶和精确 key 的受控非版本化 MinIO。版本化或挂起版本化、保留策略、对象锁或外部 lifecycle/复制等可影响该前缀的写删路径均不准入。部署 owner 保证桶在启用代际和未结操作期间不被重建、调换或恢复到原命名空间，配置或身份变化即停止发送和释放并重新核验。该不变量与禁止其他写删路径同属受控存储的准入。复用现有私有直连与 [MinIO 部署身份校验](minio-capacity-admission.md)。删除执行身份与原普通读写身份分开，只具对应私有前缀的 Delete 和核实所需读权限，无广域删除、版本删除或保留绕过权限。[MinIO 固定版本删除处理](https://github.com/minio/minio/blob/RELEASE.2025-04-22T22-12-26Z/cmd/object-handlers.go#L2331) · [MinIO 版本与删除](https://docs.min.io/aistor/administration/objects-and-versioning/object-delete/)
+物理删除的计量含义为原计量 namespace 的文件对象已不存在。首版只接入能验证部署 ID、桶和精确 key 的受控非版本化 MinIO。版本化或挂起版本化、保留策略、对象锁或外部 lifecycle/复制等可影响该前缀的写删路径均不准入。部署 owner 保证桶在启用代际和未结操作期间不被重建、调换或恢复到原命名空间，配置或身份变化即停止发送和释放并重新核验。该不变量与禁止其他写删路径同属受控存储的准入。复用现有私有直连与 [MinIO 部署身份校验](../../minio-capacity-admission.md)。删除执行身份与原普通读写身份分开，只具对应私有前缀的 Delete 和核实所需读权限，无广域删除、版本删除或保留绕过权限。[MinIO 固定版本删除处理](https://github.com/minio/minio/blob/RELEASE.2025-04-22T22-12-26Z/cmd/object-handlers.go#L2331) · [MinIO 版本与删除](https://docs.min.io/aistor/administration/objects-and-versioning/object-delete/)
 
 ## 容量只释放一次
 
@@ -67,7 +69,7 @@ Knowledge 保存一条有界操作，固定企业、资料与 Revision、原物�
 
 - 账本用原对象行保存释放操作 ID、证明摘要及完成时间，作为唯一回执。一个事务将该行从已入账变为已释放并减少账户已用字节，原摘要按已入账行聚合分类。可用量按现有 `max(quota − occupied − reserved, 0)` 计算。
 - 同一对象同操作同证明返回既有回执。不同操作或不同证明拒绝。保留已释放对象行，`BindObjects`、原写入查找、发送准入和 `ConfirmStored` 在任何成功重放前拒绝恢复该身份。预占、扩容包、钱包和其他分类沿原 owner 与事务。
-- 没有成功释放事务时，旧占用继续有效。释放事务已提交而 Knowledge 尚未记录回执时，容量页可能已显示下降，操作页显示待确认。续行查询原释放事实，不再次扣减。回退能力按上传凭证代际判断，早于第一笔删除。释放之后的程序同样必须保留原对象封锁与回执识别。[原账本事务与摘要](../../internal/integration/persistence/storagecapacity/repository.go)
+- 没有成功释放事务时，旧占用继续有效。释放事务已提交而 Knowledge 尚未记录回执时，容量页可能已显示下降，操作页显示待确认。续行查询原释放事实，不再次扣减。回退能力按上传凭证代际判断，早于第一笔删除。释放之后的程序同样必须保留原对象封锁与回执识别。[原账本事务与摘要](../../../../internal/integration/persistence/storagecapacity/repository.go)
 
 ## 失败、重试与验证
 

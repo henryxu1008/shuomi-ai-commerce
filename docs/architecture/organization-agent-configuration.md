@@ -35,7 +35,7 @@ Applicable authorities:
 
 - [Final UI / IA](../product/final-ui-ia-authority.md): Figma file
   `tg48P46SSXl6TBy9lZwg63`, page `31:463`, current non-archived product authority.
-- [Agent + Knowledge V1](./agent-knowledge-context.md), #555/#556 §2:
+- [Agent + Knowledge V1](domains/workbench/agent-knowledge-context.md), #555/#556 §2:
   enterprise scope, opt-in Knowledge, configuration != permission, exact run references.
 - [Product Agent runtime](./product-agent-runtime-contract.md): run/checkpoint/UNKNOWN owner.
 - [Project boundaries](./project-boundaries.md),

@@ -1,5 +1,7 @@
 # Agent + Knowledge Context V1
 
+> 归类说明（2026-11-19）：本文保留 2026-09-28 V1 设计与准入。下文“尚无实现”、页面不可用及 Figma 权威是当时基线，不是当前状态；Figma 现仅作业务流程参考。[#557](https://github.com/henryxu1008/shuomi-ai-commerce/issues/557)、[#558](https://github.com/henryxu1008/shuomi-ai-commerce/issues/558)、[#559](https://github.com/henryxu1008/shuomi-ai-commerce/issues/559) 已分别记录内容生命周期、冻结上下文技术恢复和受控标题消费者交付及有界关闭；各自源码、接口、隔离与浏览器证据不拼成今天的整体验收。真实模型品质/付费计量、机密资料及整体生产验收仍须独立授权与证据。后续受限原文件删除仅按[删除增量合同](knowledge-original-file-deletion.md)，不由早期“不提供删除”恢复旧限制，也不扩为通用清理。Knowledge 仍持资料/版本/bundle/permit，Agent、Product/Review、AI/容量各保持原事实与权限；当前调用还须遵守各消费者已批准的增量合同。本次仅归类，不操作实例、资料、模型或凭据。
+
 > Status: **APPROVED / IMPLEMENTATION_READY**
 >
 > Product Design Issue: #555

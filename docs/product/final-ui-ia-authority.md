@@ -199,7 +199,7 @@ Design Basis: Independent Architecture，详见 [SHEIN publication closure V1](.
 - `427:3005`：二级页面 / AI工作台 / 任务中心
 - `427:3543`：AI工作台 / 知识库总览及「官方知识库 / 我的知识库」三级菜单
 - `682:359`：AI工作台 / 知识库 / 官方知识库；设计入口不代表官方内容已实现
-- `4703:572`：已批准知识库 v1 企业语义修订，「我的知识库」归当前企业所有，依据 `agent-knowledge-context.md`，不表示个人私有资料空间
+- `4703:572`：已批准知识库 v1 企业语义修订，「我的知识库」归当前企业所有，依据 `docs/architecture/domains/workbench/agent-knowledge-context.md`，不表示个人私有资料空间
 - `428:323`：二级页面 / 智能市场 / 智能体市场
 - `1560:359`：店铺中心 / 我的店铺 / 优化版
 - `429:5323`：店铺中心 / 店铺商品
