@@ -23,6 +23,8 @@
 
 - 原实例更新前的[历史检查草案](../../../operations/runbooks/chat-35444-preflight-draft.md)仅保留阶段证据，仍不可执行；后续有界准入优先按正式合同核验。
 
+- 保留库的[隔离接线验证记录](../../../operations/runbooks/chat-retained-wiring-isolated.md)面向维护者，仅适用于登记隔离副本；历史原实例入口状态不替代当前正式准入。
+
 ## 当前优先适用的范围
 
 2026-11-15 起，**新建定时计划只允许店铺经营日报**，日报可以复制新建。商品内容计划**新建、复制和 Chat「设为定时任务」已撤下**；已有商品内容计划仍可查看、编辑、控制并读取原任务、执行历史、审计及未决预留。早期 [定时主合同](../../ai-workbench-scheduled-tasks.md)中的商品内容新建场景是旧阶段产品范围，当前启用以 [#1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)、[编辑/复制增量](../../scheduled-plan-edit-copy.md)及实际实例配置为准。
