@@ -1,5 +1,7 @@
 # AI 工作台：固定会话工作范围与任务筛选
 
+> 归类说明（2026-11-19）：本文保留 #1098 的固定范围设计和原阶段验证边界。[#298](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298) 已记录 #1098 合并、C1/C2 工程覆盖及 G298-E1 隔离浏览器主链与用户试用反馈；下文末尾浏览器等 NOT_RUN 是设计当时记录，不抹除后续隔离 PASS，也不把它当今天现场或整体产品验收。父单仍 OPEN，现场准入 UNKNOWN，报告浏览器、真实环境及完整产品验收沿原记录保持未完成。Figma 仅作业务流程参考。早期不接保留库的限制属于该实施批次，后续保留实例仅沿[正式接线](chat-35444-retained-wiring-design.md)及[有界准入](chat-retained-minimal-admission-proposal.md)的专项授权，不能由本次归类推导升级或跨版本续跑许可。固定身份、当前授权、原冻结输入与同键 UNKNOWN、范围披露及报告排除边界均保持；本次不执行模型、实例或业务操作。
+
 状态：**IMPLEMENTATION_READY**。独立准入针对准确设计提交 `6d0a58a187579ea674dc2c96d7465a1c2ee82d66`，见 [Codex 结论](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1098#issuecomment-6651117364)。执行范围：[Issue #298](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298) 的 G298-C1/C2。Design Basis：**Independent Architecture**，因为新增了执行上下文的持久化、跨域权限读取和冻结请求的恢复约束。用户于 2026-11-05 回复“认可设计及上述边界（推荐）”，确认本候选、D4 及首期报告边界。实施验证按下文 IT1–IT5。
 
 基线：main `05e5b14f7f0d3aa80cdccd8dc222d01916c019db`，tree `33095375daeffc73c02457c8521cf72fe5c0df8e`。原工作区的 `0d5fc5db7f4597651b9a9f7f7282700cd602a204` 与 main 同树。复用当前负责人，一个 Delivery Batch，后续最多一个主要 PR。实施、验证及评审记录见 [PR #1098](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1098)。
@@ -10,9 +12,9 @@
 
 - **D1，已确认：** 一条会话固定一个范围，换范围新建会话。项目已绑定的店铺必须明示。模型只读取获准的项目目标和必要店铺信息，不自动读取关联材料、订单或经营数据。选择店铺只说明工作目标，不改变商品归属，不代表已上架或已获平台写权限。
 - **D2，已确认：** 首期筛选覆盖有准确范围的 BusinessTask 及其明确关联的运行和提案。独立记录继续可读并标为“未记录工作范围”；不按名称、时间或当前项目关系猜历史归属。全部独立来源的范围支持留后续，不能计为已交付。
-- **D3，已确认（#36）：** 商品内容逐字段查看和编辑，整份接受或拒绝，完整选中集合一次采用。沿[现有内容审核合同](domains/catalog/product-content-localization.md)，不增加部分批准或字段级状态。人工决定、政策采用和外部动作权限各按原合同。
+- **D3，已确认（#36）：** 商品内容逐字段查看和编辑，整份接受或拒绝，完整选中集合一次采用。沿[现有内容审核合同](../catalog/product-content-localization.md)，不增加部分批准或字段级状态。人工决定、政策采用和外部动作权限各按原合同。
 
-产品依据：[D1/D2 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298#issuecomment-6649958948)、[D3 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36#issuecomment-6649971251)、[最终 UI / IA](../product/final-ui-ia-authority.md)。沿现可见 Figma 的 [Chat 427:2467](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-2467)、[任务中心 427:3005](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-3005) 及原项目入口。本轮引用原已批准依据，没有重新读取或修改 Figma；新增选择、范围说明和筛选控件是待确认的局部候选，不冒称原稿已有。
+产品依据：[D1/D2 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/298#issuecomment-6649958948)、[D3 决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36#issuecomment-6649971251)、[最终 UI / IA](../../../product/final-ui-ia-authority.md)。沿现可见 Figma 的 [Chat 427:2467](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-2467)、[任务中心 427:3005](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=427-3005) 及原项目入口。本轮引用原已批准依据，没有重新读取或修改 Figma；新增选择、范围说明和筛选控件是待确认的局部候选，不冒称原稿已有。
 
 **Must：** 真实范围、确定的同键身份和输入、实时授权、原有界预算、唯一 Task/Run、原恢复、分页正确，以及未记录范围如实表达。**Should：** 复用原页面和控件，按一次有用的内容任务路径交付。原独立标题 Workbench 的已注册输入仍沿原合同。本批有范围的执行入口是内容 Workbench。
 
@@ -22,11 +24,11 @@
 
 | 已核实的现状 | 本批最小改变 |
 | --- | --- |
-| [Conversation / WorkScope](../../internal/aiworkbench/contracts.go) 只有会话元数据及商品选择、模板、知识引用；现 `commands.work_scope` 上限 1 KiB，项目目标本身可达 4 KiB | 将固定业务范围作为 Conversation 的元数据；原商品选择仍在 WorkScope。冻结的有界工作上下文只存于原规划命令，Proposal 和执行请求引用它，不把正文塞进 1 KiB WorkScope、512 字节 GoalSummary 或 Knowledge 引用 |
-| [项目详情读取](../../internal/aiworkbench/projectcenter/service.go) 会解析手工关联，Project 的 Store 字段与 Task 链接并非 Chat 执行范围 | 在原 Project owner 增加只读的元数据窄投影，复用本人/企业/当前权限及既有仓储；不调用会展开关联的详情查询，不自动写 Project 的关联关系 |
-| [Store member reader](../../internal/storecenter/member_access.go) 已按当前企业和成员授权读 Store，原事实另含连接等敏感字段 | 复用 member-scoped reader，立刻投影本用途白名单，不把完整 StoreSnapshot、连接信息或已授权账户内容交给 Workbench/模型 |
-| [ListTasks](../../internal/integration/persistence/aiworkbench/list.go) 按创建时间和 ID 取页，当前游标只有 Task ID；[TaskBrowser](../../web/listingkit-ui/src/components/workbench/ai-workbench/task-browser.tsx) 无真实范围筛选 | 在原 Workbench 查询内先按准确范围过滤、再沿既有排序取页；游标绑定同一筛选。原 Run/Review 详情沿确切 Task 关联读取，不新建全局聚合源 |
-| 原 Eino Planner、内容模型已有 exact input/profile、Quote、最后发送门禁和原账本；Planner 的模型摘要不是可信范围 | 在现有 [Planner](../../internal/integration/aiworkbench/einoplanner/planner.go) 和 [内容模型](../../internal/integration/agent/einomodel/model.go) 输入分别显式消费同一冻结上下文，沿原 quote/input hash、Claim、send gate 和 Invocation 结算 |
+| [Conversation / WorkScope](../../../../internal/aiworkbench/contracts.go) 只有会话元数据及商品选择、模板、知识引用；现 `commands.work_scope` 上限 1 KiB，项目目标本身可达 4 KiB | 将固定业务范围作为 Conversation 的元数据；原商品选择仍在 WorkScope。冻结的有界工作上下文只存于原规划命令，Proposal 和执行请求引用它，不把正文塞进 1 KiB WorkScope、512 字节 GoalSummary 或 Knowledge 引用 |
+| [项目详情读取](../../../../internal/aiworkbench/projectcenter/service.go) 会解析手工关联，Project 的 Store 字段与 Task 链接并非 Chat 执行范围 | 在原 Project owner 增加只读的元数据窄投影，复用本人/企业/当前权限及既有仓储；不调用会展开关联的详情查询，不自动写 Project 的关联关系 |
+| [Store member reader](../../../../internal/storecenter/member_access.go) 已按当前企业和成员授权读 Store，原事实另含连接等敏感字段 | 复用 member-scoped reader，立刻投影本用途白名单，不把完整 StoreSnapshot、连接信息或已授权账户内容交给 Workbench/模型 |
+| [ListTasks](../../../../internal/integration/persistence/aiworkbench/list.go) 按创建时间和 ID 取页，当前游标只有 Task ID；[TaskBrowser](../../../../web/listingkit-ui/src/components/workbench/ai-workbench/task-browser.tsx) 无真实范围筛选 | 在原 Workbench 查询内先按准确范围过滤、再沿既有排序取页；游标绑定同一筛选。原 Run/Review 详情沿确切 Task 关联读取，不新建全局聚合源 |
+| 原 Eino Planner、内容模型已有 exact input/profile、Quote、最后发送门禁和原账本；Planner 的模型摘要不是可信范围 | 在现有 [Planner](../../../../internal/integration/aiworkbench/einoplanner/planner.go) 和 [内容模型](../../../../internal/integration/agent/einomodel/model.go) 输入分别显式消费同一冻结上下文，沿原 quote/input hash、Claim、send gate 和 Invocation 结算 |
 
 ## 3. Contract → implementation → injection → consumer
 
@@ -35,7 +37,7 @@
 | 固定范围、命令快照、Proposal 和 Task：`internal/aiworkbench` | 原 domain 类型、原 ai_workbench 逻辑库/schema/store、原 Workbench HTTP/BFF | 新会话选择、会话/方案/任务详情、Task 列表 |
 | Project 目标、创建者、生命周期与绑定店铺：`projectcenter`；Store 身份、版本与成员权限：`storecenter` | 当前 application 注入两个有界只读端口；Project 读窄元数据，Store 消费原 member-scoped reader；不可用时相应范围 fail closed | 选择候选、冻结前、形成方案/确认前、范围数据展示及新效果门禁 |
 | 内容请求、Run、配置、预算、模型调用：原 Agent/AgentConfig/Eino/AI Capability/Resource owners | Workbench 只传经服务器铸造的上下文引用；原内容配置/Run/request fingerprint 和模型准备端口注入该引用的授权读取；现 Knowledge/Skill 端口和权限保持独立 | 同一个内容 Runtime 和模型适配器，沿原调用/计量，不增加 Agent 产品或调用次数 |
-| 任务状态、Review、Catalog：原各 owner | [AuthorizedTaskProjectionReader](../../internal/aiworkbench/task_reader.go)、原 TaskDetail/ProposalSession、原独立人工 Apply 或合法政策采用 | 按实际 Task→Run→Review 关系查看，采用仍归 Review/Catalog；Target、Asset、Submission 不改 |
+| 任务状态、Review、Catalog：原各 owner | [AuthorizedTaskProjectionReader](../../../../internal/aiworkbench/task_reader.go)、原 TaskDetail/ProposalSession、原独立人工 Apply 或合法政策采用 | 按实际 Task→Run→Review 关系查看，采用仍归 Review/Catalog；Target、Asset、Submission 不改 |
 
 端口仅供当前业务组合，不经由本机 HTTP 自调用。Project 与 Store 不向 Workbench 转移写权限，Workbench 也不拿它们的库连接。唯一新增的冻结事实是 Workbench 自己的**用户执行输入**，不是对源事实的第二份可编辑副本。Legacy：不承接旧 owner，不新增兼容路径；现有合格入口和原合同复用。
 
@@ -84,7 +86,7 @@ Project 目标原上限 4096 UTF-8 字节，标题及 Store 各字段沿原 owne
 
 对 Project 比较当前有效性、固定 Store 关系及**实际消费字段摘要**，不以无关手工关联修改强制作废方案；对 Store 比较身份及实际消费字段。observed revision/version 始终保留追溯，不能只比较名称。Project/Store 缺失/不可达和撤权用现错误体系，私有/跨企业对象不泄露存在性；缺依赖不是成功空。保留 #36 的权限与完整集合原子采用，不增加 Task/Review 业务状态。
 
-**Report 边界：** [原 TITLE_REVIEW 来源](../../internal/app/reportcenter/sources.go)会持久化审核快照，且[现 Report 合同](domains/workbench/ai-workbench-reports.md)的已保存报告不以来源在线为前置。不能把有范围的候选伪装成这个已有来源，否则即使 Task/Review 撤权检查正确，另存的派生内容仍可能在后续读回。首期有范围的提案在原任务/审核入口查看；原报告选择器不开放这类新来源，原服务端 capture 明确拒绝带本新范围用途的候选。既有三类报告、原回执、独立历史读取及下载均保持；不新增 Report 来源、另一个快照或跨库授权协议。若未来需要导出这类候选，先明确持久化披露权限及撤权语义。
+**Report 边界：** [原 TITLE_REVIEW 来源](../../../../internal/app/reportcenter/sources.go)会持久化审核快照，且[现 Report 合同](ai-workbench-reports.md)的已保存报告不以来源在线为前置。不能把有范围的候选伪装成这个已有来源，否则即使 Task/Review 撤权检查正确，另存的派生内容仍可能在后续读回。首期有范围的提案在原任务/审核入口查看；原报告选择器不开放这类新来源，原服务端 capture 明确拒绝带本新范围用途的候选。既有三类报告、原回执、独立历史读取及下载均保持；不新增 Report 来源、另一个快照或跨库授权协议。若未来需要导出这类候选，先明确持久化披露权限及撤权语义。
 
 本批 Threat Model 限于伪造/串用范围、越权读取私有数据、提示注入、快照错配、同键换输入、撤权后新发送/采用、重复计费及筛选/游标泄露。不把日志用作输入副本，只保留原安全事件、版本、摘要和关联 ID，不记录冻结目标正文、原模型载荷或真实 Key。
 
