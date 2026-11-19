@@ -1701,3 +1701,13 @@ describe("strict Store Center response boundary", () => {
     expect((rejected as Response).status).toBe(404);
   });
 });
+it("forwards a proven storage rejection only for the image question submit route",async()=>{
+  for(const contract of ["ai-image-question-submit","ai-message","ai-chat-turn-submit"] as const){
+    for(const proof of [false,undefined]){
+      const upstream=Response.json({code:"STORAGE_LIMIT_EXCEEDED",messageAccepted:proof},{status:409});
+      const response=await buildWorkbenchBrowserResponse(upstream,contract);
+      expect(response.status).toBe(409);
+      expect((await response.json()).messageAccepted).toBe(contract==="ai-image-question-submit"?proof:undefined);
+    }
+  }
+});

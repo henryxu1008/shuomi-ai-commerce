@@ -27,7 +27,7 @@ type SingleImageInput struct {
 }
 
 func VisionTextOperation(operation Operation) bool {
-	return operation == OperationProductImageAnalysis || operation == OperationOwnProductIntake
+	return operation == OperationProductImageAnalysis || operation == OperationOwnProductIntake || operation == OperationAIWorkbenchChatImages
 }
 
 func singleImageDigest(value string) bool {

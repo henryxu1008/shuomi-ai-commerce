@@ -140,13 +140,26 @@ func TestPlannerPricedInvocationUsesSameScopedOwnerWithoutFakeAgentRun(t *testin
 	add("foreign-member", func(row *aicapability.InvocationRecord) { row.MemberID = "other" })
 	add("foreign-org", func(row *aicapability.InvocationRecord) { row.TenantID = "other" })
 	add("route-call", func(row *aicapability.InvocationRecord) { row.Operation = aicapability.OperationAIWorkbenchStoreRoute })
+	imageQuestion := func(row *aicapability.InvocationRecord) {
+		row.Operation = aicapability.OperationAIWorkbenchChatImages
+		row.ModelID = aicapability.SingleImageMiniModel
+		row.OfficialTariff.Model = row.ModelID
+		row.OfficialTariff.Channel = "openai-direct"
+	}
+	add("image-question", imageQuestion)
+	add("foreign-image-question", func(row *aicapability.InvocationRecord) {
+		imageQuestion(row)
+		row.MemberID = "other"
+	})
+	images, err := r.ReadModelInvocation(ctx, "org", "image-question")
+	require.NoError(t, err)
 	add("bad-call", func(*aicapability.InvocationRecord) {})
 	require.NoError(t, db.Model(&invocationRow{}).Where("invocation_id = ?", "bad-call").Update("maximum_prompt_tokens", 0).Error)
 	facts, err := r.ReadModelPurposeInvocations(ctx, "org", "actor", "member", []string{
-		fact.InvocationID, "foreign-user", "foreign-member", "foreign-org", "route-call", "bad-call", "missing-call",
+		fact.InvocationID, "image-question", "foreign-image-question", "foreign-user", "foreign-member", "foreign-org", "route-call", "bad-call", "missing-call",
 	})
 	require.NoError(t, err)
-	require.Equal(t, []aicapability.InvocationRecord{got}, facts)
+	require.ElementsMatch(t, []aicapability.InvocationRecord{got, images}, facts)
 	_, err = r.ReadModelPurposeInvocations(ctx, "org", "actor", "member", make([]string, 51))
 	require.Error(t, err)
 	foreign := fact

@@ -319,6 +319,11 @@ func (c *SharedCatalog) qualifyDefinitions(ctx context.Context, org string, cate
 				q.Reason = "COST_BOUND_MISSING"
 				return q, nil
 			}
+			if def.Scope.Capability == string(aicapability.OperationAIWorkbenchChatImages) &&
+				(!p.CNYRatesCoverUSDTariff() || def.MaximumMicropoints <= 0) {
+				q.Reason = "COST_BOUND_MISSING"
+				return q, nil
+			}
 			if def.Scope.Capability == string(aicapability.OperationOwnProductIntake) &&
 				def.Channel == "openai-direct" && p.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
 				costLimit = min(costLimit, 300_000)
@@ -389,6 +394,10 @@ func miniIntakeRatesCoverTariff(p aicapability.ModelProfile) bool {
 }
 
 func validVisionConsumer(capability string, p aicapability.ModelProfile) bool {
+	if capability == string(aicapability.OperationAIWorkbenchChatImages) {
+		return aicapability.ChatImageProfile(p) && p.PromptVersion == aicapability.ChatImagePromptVersion &&
+			p.OutputSchemaVersion == aicapability.ChatImageAnswerVersion
+	}
 	if capability == string(aicapability.OperationOwnProductIntake) {
 		return agentconfig.OwnIntakeProfile(p)
 	}

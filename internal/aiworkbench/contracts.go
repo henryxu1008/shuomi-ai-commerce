@@ -72,10 +72,12 @@ type Message struct {
 	StoreQueryStatus string `json:"storeQueryStatus,omitempty"`
 	TurnKey          string `json:"turnKey,omitempty"`
 	TextSkillVersion uint64 `json:"textSkillVersion,omitempty"`
+	ImageCount       int    `json:"imageCount,omitempty"`
 	CreatedAt        time.Time
 }
 
 type MessageInput struct {
+	ChatImages       []ChatImage         `json:",omitempty"`
 	TextSkill        *TextSkillSelection `json:",omitempty"`
 	TaskSelection    *TaskSelection      `json:",omitempty"`
 	StoreChoice      *StoreChoiceInput   `json:",omitempty"`
@@ -90,6 +92,7 @@ type MessageInput struct {
 // WorkScope is the exact server-authorized selection frozen with a planning
 // command. It contains no mutable provider or model-selected execution facts.
 type WorkScope struct {
+	ChatImages       []ChatImage         `json:"chat_images,omitempty"`
 	TextSkill        *TextSkillSelection `json:"text_skill,omitempty"`
 	OperationID      string              `json:"operation_id,omitempty"`
 	TargetPlatform   string              `json:"target_platform,omitempty"`
@@ -124,7 +127,7 @@ func (c *StoreChoiceInput) Valid() bool {
 }
 
 func (m MessageInput) WorkScope() WorkScope {
-	return WorkScope{TextSkill: m.TextSkill, OperationID: m.OperationID, TargetPlatform: m.TargetPlatform,
+	return WorkScope{TextSkill: m.TextSkill, ChatImages: m.ChatImages, OperationID: m.OperationID, TargetPlatform: m.TargetPlatform,
 		TaskSelection: m.TaskSelection,
 		TemplateID:    m.TemplateID, TemplateRevision: m.TemplateRevision, KnowledgeBaseID: m.KnowledgeBaseID, StoreChoice: m.StoreChoice}
 }

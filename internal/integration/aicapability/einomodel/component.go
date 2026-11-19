@@ -107,7 +107,7 @@ func NewComponent(ctx context.Context, cfg ComponentConfig, guard *GuardedClient
 			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
 				MaxTokens: &maxTokens, HTTPClient: guard.Client, ExtraFields: map[string]any{"n": 1, "store": false}})
 		}
-		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy || cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
+		if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy || cfg.AdapterPolicyVersion == aicapability.ChatImageAdapterPolicy || cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy || cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy {
 			return openaimodel.NewChatModel(ctx, &openaimodel.ChatModelConfig{
 				APIKey: cfg.APIKey, BaseURL: cfg.Endpoint, Model: cfg.ModelID,
 				MaxCompletionTokens: &maxTokens, ReasoningEffort: openaimodel.ReasoningEffortLevel("none"),
@@ -139,6 +139,7 @@ type GuardConfig struct {
 	// manufacturer/wire binding; a response cannot introduce a new alias.
 	ResponseModelID            string
 	SingleImage                *SingleImageRequest `json:"-"`
+	chatImages                 *chatImageRequest   `json:"-"`
 	visionText                 *boundVisionText    `json:"-"`
 	skillAuthoringDirectOpenAI bool
 	Logger                     *logrus.Entry `json:"-"`
@@ -224,11 +225,15 @@ func ValidAdapterEndpoint(adapter AdapterKind, raw string) bool {
 // follows a redirect, or Generate is called twice, only one underlying model
 // RoundTrip can occur. finalGate runs at the actual HTTP handoff.
 func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(context.Context) error) (*GuardedClient, error) {
+	limit := int64(1 << 20)
+	if cfg.AdapterPolicyVersion == aicapability.ChatImageAdapterPolicy {
+		limit = aicapability.MaximumChatImageWire
+	}
 	if (cfg.Adapter != AdapterOpenAICompatible && cfg.Adapter != AdapterClaudeNative && cfg.Adapter != AdapterGoogleInteractions &&
 		cfg.Adapter != AdapterGoogleGenerateContent && cfg.Adapter != AdapterQwenCompatible) ||
 		!ValidAdapterEndpoint(cfg.Adapter, cfg.Endpoint) || cfg.ModelID == "" || cfg.MaximumOutputTokens < 1 ||
 		cfg.MaximumOutputTokens > 65536 || cfg.MaximumRequestBytes < 1 ||
-		cfg.MaximumRequestBytes > 1<<20 || cfg.MaximumResponseBytes < 1 ||
+		cfg.MaximumRequestBytes > limit || cfg.MaximumResponseBytes < 1 ||
 		cfg.MaximumResponseBytes > 1<<20 || cfg.Timeout <= 0 || cfg.Timeout > 2*time.Minute ||
 		finalGate == nil {
 		return nil, ErrInvalid
@@ -254,7 +259,18 @@ func NewGuardedClient(cfg GuardConfig, base http.RoundTripper, finalGate func(co
 	} else if cfg.ThinkingMode != "" {
 		return nil, ErrInvalid
 	}
-	if cfg.visionText != nil {
+	if cfg.AdapterPolicyVersion == aicapability.ChatImageAdapterPolicy {
+		if cfg.chatImages == nil || cfg.SingleImage != nil || cfg.visionText != nil || cfg.Endpoint != TitlePilotOpenAIEndpoint ||
+			cfg.UsageOnly || cfg.BillingUsageVersion != "openai-text-v1" || cfg.chatImages.System == "" || cfg.chatImages.Prompt == "" ||
+			!aicapability.ValidChatImages(cfg.chatImages.Images) {
+			return nil, ErrInvalid
+		}
+		frozen := *cfg.chatImages
+		frozen.Images = append([]aicapability.SingleImageInput(nil), frozen.Images...)
+		cfg.chatImages = &frozen
+	} else if cfg.chatImages != nil {
+		return nil, ErrInvalid
+	} else if cfg.visionText != nil {
 		if !aicapability.SingleImagePurpose(cfg.AdapterPolicyVersion) || cfg.SingleImage != nil || cfg.visionText.System == "" || cfg.visionText.Prompt == "" {
 			return nil, ErrInvalid
 		}
@@ -328,7 +344,7 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		!strings.HasPrefix(req.URL.EscapedPath(), strings.TrimSuffix(g.endpoint.EscapedPath(), "/")+"/") ||
 		req.URL.RawQuery != "" || req.URL.Fragment != "" || req.Body == nil ||
 		(g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || g.cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy) && req.URL.EscapedPath() != "/v1/chat/completions" ||
-		g.cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy && req.URL.EscapedPath() != "/v1/chat/completions" ||
+		(g.cfg.AdapterPolicyVersion == RegisteredCompatibleMiniPolicy || g.cfg.chatImages != nil) && req.URL.EscapedPath() != "/v1/chat/completions" ||
 		g.cfg.Adapter == AdapterGoogleInteractions && req.URL.EscapedPath() != "/v1beta/interactions" ||
 		g.cfg.Adapter == AdapterGoogleGenerateContent && req.URL.EscapedPath() != "/v1beta/models/"+g.cfg.ModelID+":generateContent" ||
 		g.cfg.SingleImage != nil && g.cfg.Adapter != AdapterGoogleGenerateContent &&
@@ -419,7 +435,7 @@ func (g *GuardedClient) RoundTrip(req *http.Request) (*http.Response, error) {
 		if g.cfg.AdapterPolicyVersion == DashScopeDeepSeekV41FlashNonThinkingPolicy {
 			usage = observeDeepSeekUsage(raw)
 		}
-		if (g.cfg.SingleImage != nil || g.cfg.visionText != nil || g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || g.cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy) &&
+		if (g.cfg.SingleImage != nil || g.cfg.chatImages != nil || g.cfg.visionText != nil || g.cfg.AdapterPolicyVersion == TitlePilotOpenAIAdapterPolicy || g.cfg.AdapterPolicyVersion == OpenAIMiniTextAdapterPolicy) &&
 			(usage.BillableUsage == nil || g.cfg.BillingUsageVersion != aicapability.ReferenceTextTotalsV1 && !validStrictOpenAIResponseUsage(raw, g.cfg.ModelID)) {
 			usage = ObservedUsage{}
 		}
@@ -452,8 +468,8 @@ func validWire(raw []byte, cfg GuardConfig) bool {
 	if cfg.Adapter == AdapterQwenCompatible || cfg.AdapterPolicyVersion == aicapability.EinoOpenAIImagePolicy {
 		return validPurposeChatWire(raw, cfg)
 	}
-	if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy {
-		return validSingleImageWire(raw, cfg)
+	if cfg.AdapterPolicyVersion == aicapability.SingleImageMiniAdapterPolicy || cfg.AdapterPolicyVersion == aicapability.ChatImageAdapterPolicy {
+		return validOpenAIImageWire(raw, cfg)
 	}
 	var envelope map[string]json.RawMessage
 	if json.Unmarshal(raw, &envelope) != nil || envelope == nil {

@@ -82,8 +82,16 @@ func singleFramePNG(raw []byte) bool {
 // vision model, with no image part, tools, or caller-defined provider options.
 type boundVisionText struct{ System, Prompt string }
 
-func validSingleImageWire(raw []byte, cfg GuardConfig) bool {
-	if cfg.visionText == nil && (cfg.SingleImage == nil || !cfg.SingleImage.Image.Valid()) {
+type chatImageRequest struct {
+	Images         []aicapability.SingleImageInput
+	System, Prompt string
+}
+
+func validOpenAIImageWire(raw []byte, cfg GuardConfig) bool {
+	limit := 1 << 20
+	if cfg.chatImages != nil {
+		limit = aicapability.MaximumChatImageWire
+	} else if cfg.visionText == nil && (cfg.SingleImage == nil || !cfg.SingleImage.Image.Valid()) {
 		return false
 	}
 	var envelope struct {
@@ -99,7 +107,7 @@ func validSingleImageWire(raw []byte, cfg GuardConfig) bool {
 			Content json.RawMessage `json:"content"`
 		} `json:"messages"`
 	}
-	if !decodeClosedSingleImageJSON(raw, &envelope) ||
+	if !decodeClosedImageJSON(raw, &envelope, limit) ||
 		envelope.Model != cfg.ModelID || envelope.Max != cfg.MaximumOutputTokens || envelope.N != 1 ||
 		envelope.Store == nil || *envelope.Store || envelope.Stream != nil && *envelope.Stream ||
 		envelope.ReasoningEffort != "none" || envelope.ServiceTier != "default" || len(envelope.Messages) != 2 ||
@@ -120,24 +128,41 @@ func validSingleImageWire(raw []byte, cfg GuardConfig) bool {
 			Detail string `json:"detail"`
 		} `json:"image_url"`
 	}
-	if json.Unmarshal(envelope.Messages[0].Content, &system) != nil || system != cfg.SingleImage.System ||
-		!decodeClosedSingleImageJSON(envelope.Messages[1].Content, &parts) || len(parts) != 2 ||
-		parts[0].Type != "text" || parts[0].Text != cfg.SingleImage.Prompt || parts[0].ImageURL != nil ||
-		parts[1].Type != "image_url" || parts[1].Text != "" || parts[1].ImageURL == nil || parts[1].ImageURL.Detail != "high" {
+	var expected chatImageRequest
+	if cfg.chatImages != nil {
+		expected = *cfg.chatImages
+	} else {
+		expected = chatImageRequest{Images: []aicapability.SingleImageInput{cfg.SingleImage.Image}, System: cfg.SingleImage.System, Prompt: cfg.SingleImage.Prompt}
+	}
+	if json.Unmarshal(envelope.Messages[0].Content, &system) != nil || system != expected.System ||
+		!decodeClosedImageJSON(envelope.Messages[1].Content, &parts, limit) || len(parts) != len(expected.Images)+1 ||
+		parts[0].Type != "text" || parts[0].Text != expected.Prompt || parts[0].ImageURL != nil {
 		return false
 	}
-	i := cfg.SingleImage.Image
-	prefix := "data:" + i.MediaType + ";base64,"
-	url := parts[1].ImageURL.URL
-	if len(url) != len(prefix)+base64.StdEncoding.EncodedLen(i.ByteLength) || len(url) < len(prefix) || url[:len(prefix)] != prefix {
-		return false
+	for index, image := range expected.Images {
+		part := parts[index+1]
+		if part.Type != "image_url" || part.Text != "" || part.ImageURL == nil || part.ImageURL.Detail != "high" {
+			return false
+		}
+		prefix := "data:" + image.MediaType + ";base64,"
+		url := part.ImageURL.URL
+		if len(url) != len(prefix)+base64.StdEncoding.EncodedLen(image.ByteLength) || url[:len(prefix)] != prefix {
+			return false
+		}
+		content, err := base64.StdEncoding.Strict().DecodeString(url[len(prefix):])
+		if err != nil || !validSingleImageContent(image, content) {
+			return false
+		}
 	}
-	content, err := base64.StdEncoding.Strict().DecodeString(url[len(prefix):])
-	return err == nil && validSingleImageContent(i, content)
+	return true
 }
 
 func decodeClosedSingleImageJSON(raw []byte, target any) bool {
-	if len(raw) == 0 || len(raw) > 1<<20 {
+	return decodeClosedImageJSON(raw, target, 1<<20)
+}
+
+func decodeClosedImageJSON(raw []byte, target any, limit int) bool {
+	if len(raw) == 0 || len(raw) > limit {
 		return false
 	}
 	violations, err := strict.UnmarshalStrict(raw, target, strict.DisallowDuplicateFields, strict.DisallowUnknownFields)
@@ -157,6 +182,20 @@ func generateSingleImage(ctx context.Context, component model.BaseChatModel, inp
 		{Type: schema.ChatMessagePartTypeText, Text: input.Prompt},
 		{Type: schema.ChatMessagePartTypeImageURL, Image: part},
 	}}
+	return generateMessages(ctx, component, []*schema.Message{schema.SystemMessage(input.System), user}, guard)
+}
+
+func generateChatImages(ctx context.Context, component model.BaseChatModel, input aicapability.TextInputIdentity, guard *GuardedClient) (TextOutput, error) {
+	parts := []schema.MessageInputPart{{Type: schema.ChatMessagePartTypeText, Text: input.Prompt}}
+	for index, image := range input.Images {
+		encoded := base64.StdEncoding.EncodeToString(input.ImageContents[index])
+		part := &schema.MessageInputImage{
+			MessagePartCommon: schema.MessagePartCommon{Base64Data: &encoded, MIMEType: image.MediaType},
+			Detail:            schema.ImageURLDetailHigh,
+		}
+		parts = append(parts, schema.MessageInputPart{Type: schema.ChatMessagePartTypeImageURL, Image: part})
+	}
+	user := &schema.Message{Role: schema.User, UserInputMultiContent: parts}
 	return generateMessages(ctx, component, []*schema.Message{schema.SystemMessage(input.System), user}, guard)
 }
 

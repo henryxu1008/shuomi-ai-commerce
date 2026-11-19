@@ -14,6 +14,8 @@ import (
 // AIWorkbenchConfig uses the Product Agent's logical database with its own
 // least-privilege role. Planning policies never borrow title admission.
 type AIWorkbenchConfig struct {
+	ChatImageTextPolicies      map[string]governed.RoutePolicy `json:"chatImageTextPolicies,omitempty"`
+	ChatImageStorage           *KnowledgeStorageConfig         `json:"chatImageStorage,omitempty"`
 	Schedules                  *AIWorkbenchSchedulesConfig     `json:"schedules,omitempty"`
 	ChatTurnsEnabled           bool                            `json:"chatTurnsEnabled,omitempty"`
 	Enabled                    bool                            `json:"enabled"`
@@ -30,6 +32,20 @@ type AIWorkbenchConfig struct {
 func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 	if w == nil {
 		return nil
+	}
+	if len(w.ChatImageTextPolicies) > 64 || len(w.ChatImageTextPolicies) > 0 && w.ChatImageStorage == nil {
+		return errors.New("Chat image policies require private storage")
+	}
+	if w.ChatImageStorage != nil {
+		if !w.Enabled || w.ConversationOnly || !w.ContentTasks || !cfg.StorageCapacity || cfg.ModelRoutePricing == nil {
+			return errors.New("Chat image storage requires a metered, priced content workbench")
+		}
+		if err := w.ChatImageStorage.validateCapacityIdentity(); err != nil {
+			return errors.New("Chat image storage identity is invalid")
+		}
+		if err := w.ChatImageStorage.validatePrivateEndpoint("Chat image storage"); err != nil {
+			return err
+		}
 	}
 	if w.ChatTurnsEnabled && (!w.Enabled || w.ConversationOnly || cfg.ModelRoutePricing == nil) {
 		return errors.New("Chat turns require an enabled priced-model workbench")
@@ -120,6 +136,26 @@ func (w *AIWorkbenchConfig) validate(cfg *Config) error {
 		}
 		if _, err := profile.CostFor(profile.MaximumPromptTokens, profile.MaximumCompletionTokens); err != nil {
 			return errors.New("AI Workbench store route price invalid")
+		}
+	}
+	for org, policy := range w.ChatImageTextPolicies {
+		profile := policy.ShapeProfile()
+		if !allowed[org] || !governed.ValidRouteShape(profile, aicapability.OperationAIWorkbenchChatImages) ||
+			profile.PromptVersion != aicapability.ChatImagePromptVersion || profile.OutputSchemaVersion != aicapability.ChatImageAnswerVersion ||
+			profile.Currency != cfg.ProductAgent.Currency || profile.MaximumPromptTokens+profile.MaximumCompletionTokens > cfg.ProductAgent.Tokens ||
+			profile.MaximumCompletionTokens > 4096 || profile.MaximumOutputBytes > 16<<10 {
+			return errors.New("Chat image policy invalid")
+		}
+		bound := false
+		for _, binding := range cfg.ModelRoutePricing.Bindings {
+			if binding.Scope.OrganizationID == org && binding.Scope.Capability == string(aicapability.OperationAIWorkbenchChatImages) &&
+				binding.Text != nil && binding.ReferenceVersion != "" && binding.ConnectionID != "" && binding.PriceID != "" && binding.MaximumMicropoints > 0 {
+				bound = true
+				break
+			}
+		}
+		if !bound {
+			return errors.New("Chat images require their current priced model binding")
 		}
 	}
 	for org, policy := range w.ChatIntentTextPolicies {

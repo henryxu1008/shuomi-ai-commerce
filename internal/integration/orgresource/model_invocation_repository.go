@@ -83,7 +83,7 @@ func modelPointBusinessScope(fact aicapability.InvocationRecord) string {
 		if fact.AgentRunID != "" {
 			return fact.AgentRunID
 		}
-	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring:
+	case aicapability.OperationAIWorkbenchChatPlan, aicapability.OperationAIWorkbenchStoreRoute, aicapability.OperationAIWorkbenchChatIntent, aicapability.OperationAIWorkbenchSkillAuthoring, aicapability.OperationAIWorkbenchChatImages:
 		if fact.AgentRunID == "" && fact.BusinessTaskID == "" &&
 			fact.Capability == aicapability.CapabilityAIWorkbenchChatPlanning && fact.InvocationID != "" {
 			return "chat-plan:" + fact.InvocationID

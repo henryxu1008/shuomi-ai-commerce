@@ -1,6 +1,7 @@
 package currentapplication
 
 import (
+	"encoding/json"
 	"slices"
 	"task-processor/internal/agentconfig"
 	"task-processor/internal/aicapability"
@@ -203,4 +204,51 @@ func TestModelRoutePricingRequiresSameOwnerAndBoundedWriter(t *testing.T) {
 	c.ModelRoutePricing.Bindings = []qualified.Definition{{Scope: d.Scope{OrganizationID: "unadmitted", Capability: def.Scope.Capability}, Text: def.Text}}
 	_, e = c.modelRouteDefinitions()
 	require.Error(t, e)
+}
+
+func TestModelRoutePricingAdmitsBoundChatImagesThroughApplicationConfig(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	writer := cfg.ProductAgent.Database
+	writer.User, writer.MaxConnections = "model_route_config_writer", 2
+	policy := cfg.ProductAgent.TextPolicies["org"]
+	policy.AdmittedEndpointIdentityDigest = governed.EndpointIdentityDigest(governed.TitlePilotOpenAIEndpoint)
+	policy.Profile.ProviderID = "openai"
+	policy.Profile.AdapterKind = "openai-compatible"
+	policy.Profile.ModelID = aicapability.SingleImageMiniModel
+	policy.Profile.AdapterPolicyVersion = aicapability.ChatImageAdapterPolicy
+	policy.Profile.PromptVersion = aicapability.ChatImagePromptVersion
+	policy.Profile.OutputSchemaVersion = aicapability.ChatImageAnswerVersion
+	policy.Profile.UsageMappingVersion = "openai-text-v1"
+	policy.Profile.MaximumInputBytes = aicapability.MaximumChatImageWire
+	policy.Profile.MaximumPromptTokens = 18_000
+	require.True(t, governed.ValidRouteShape(policy.ShapeProfile(), aicapability.OperationAIWorkbenchChatImages))
+	config, err := json.Marshal(map[string]any{
+		"enabled": true, "contentTasks": true, "chatImageStorage": struct{}{},
+		"chatImageTextPolicies": map[string]governed.RoutePolicy{"org": policy},
+	})
+	require.NoError(t, err)
+	cfg.AIWorkbench = &AIWorkbenchConfig{}
+	require.NoError(t, json.Unmarshal(config, cfg.AIWorkbench))
+	cfg.StorageCapacity = true
+	scope := d.Scope{OrganizationID: "org", Capability: string(aicapability.OperationAIWorkbenchChatImages)}
+	cfg.ModelRoutePricing = &ModelRoutePricingConfig{Writer: &writer, Bindings: []qualified.Definition{{
+		Scope: scope, Text: &policy, ReferenceVersion: "vision-test", MaximumMicropoints: 30_000_000,
+	}}}
+	defs, err := cfg.modelRouteDefinitions()
+	require.NoError(t, err)
+	catalog, err := qualified.NewCatalog(defs)
+	require.NoError(t, err)
+	require.Contains(t, catalog.Scopes("org"), scope)
+	require.Equal(t, []string{policy.Profile.ClientName}, catalog.Candidates(scope))
+
+	wider := policy
+	wider.Profile.MaximumPromptTokens++
+	cfg.ModelRoutePricing.Bindings[0].Text = &wider
+	_, err = cfg.modelRouteDefinitions()
+	require.Error(t, err, "a priced candidate cannot enlarge its consumer budget")
+
+	cfg.ModelRoutePricing.Bindings[0].Text = &policy
+	cfg.AIWorkbench.ChatImageStorage = nil
+	_, err = cfg.modelRouteDefinitions()
+	require.Error(t, err, "the binding cannot enable a consumer when private storage is absent")
 }

@@ -185,6 +185,12 @@ func ValidRouteShape(p aicapability.ModelProfile, operation aicapability.Operati
 			operation == aicapability.OperationAIWorkbenchSkillAuthoring || operation == aicapability.OperationProductContentDecision) &&
 			identity && p.ImagePromptTokenEstimate == 0 && p.MaximumCompletionTokens <= 4096
 	}
+	if operation == aicapability.OperationAIWorkbenchChatImages {
+		return aicapability.ChatImageProfileShape(p) && p.EndpointIdentityDigest == EndpointIdentityDigest(TitlePilotOpenAIEndpoint)
+	}
+	if p.AdapterPolicyVersion == aicapability.ChatImageAdapterPolicy {
+		return false
+	}
 	if aicapability.VisionTextOperation(operation) {
 		return aicapability.SingleImageProfileShape(p)
 	}
