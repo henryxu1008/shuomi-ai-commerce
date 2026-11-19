@@ -91,8 +91,13 @@ func crossedOutSearchPrice(node *html.Node) bool {
 }
 
 func clearSearchPriceContext(card, area, quote *html.Node, price float64) bool {
+	label := searchPriceLinkLabel(card, area, quote.Parent)
+	var describedLink *html.Node
+	if label != nil {
+		describedLink = quote.Parent.Parent
+	}
 	for node := quote; node != card.Parent; node = node.Parent {
-		if qualifiedSearchPrice(node) || crossedOutSearchPrice(node) || attr(node, "aria-hidden") == "true" {
+		if qualifiedSearchPrice(node, describedLink) || crossedOutSearchPrice(node) || attr(node, "aria-hidden") == "true" {
 			return false
 		}
 	}
@@ -101,7 +106,7 @@ func clearSearchPriceContext(card, area, quote *html.Node, price float64) bool {
 		if child != quote && attr(child, "aria-hidden") == "true" {
 			amount := strings.Join(strings.Fields(textOf(child)), "")
 			if visual != nil || exactSearchPrice(amount) != price || walk(child, func(node *html.Node) bool {
-				return qualifiedSearchPrice(node) || crossedOutSearchPrice(node) ||
+				return qualifiedSearchPrice(node, nil) || crossedOutSearchPrice(node) ||
 					(node != child && attr(node, "aria-hidden") == "true")
 			}) != nil {
 				return false
@@ -109,15 +114,25 @@ func clearSearchPriceContext(card, area, quote *html.Node, price float64) bool {
 			visual = child
 		}
 	}
-	return onlySearchPriceText(area, quote, visual)
+	ignored := map[*html.Node]bool{visual: true}
+	if label != nil {
+		if visual == nil || !searchOfferAddenda(area, quote.Parent, ignored) {
+			return false
+		}
+		ignored[label] = true
+	}
+	return onlySearchPriceText(area, quote, describedLink, ignored)
 }
 
-func qualifiedSearchPrice(node *html.Node) bool {
+func qualifiedSearchPrice(node, describedLink *html.Node) bool {
 	for _, attribute := range node.Attr {
 		switch attribute.Key {
 		case "hidden":
 			return true
 		case "aria-label", "aria-labelledby", "aria-describedby", "title":
+			if attribute.Key == "aria-describedby" && node == describedLink && attribute.Val == searchPriceLinkID {
+				continue
+			}
 			if strings.TrimSpace(attribute.Val) != "" {
 				return true
 			}
@@ -131,11 +146,11 @@ func qualifiedSearchPrice(node *html.Node) bool {
 
 // Unknown adjoining text might qualify the amount or make it a range.
 // Accept only the exact quote, its matching visual rendering and struck-out references.
-func onlySearchPriceText(node, quote, visual *html.Node) bool {
-	if node == visual || crossedOutSearchPrice(node) {
+func onlySearchPriceText(node, quote, describedLink *html.Node, ignored map[*html.Node]bool) bool {
+	if ignored[node] || crossedOutSearchPrice(node) {
 		return true
 	}
-	if qualifiedSearchPrice(node) || attr(node, "aria-hidden") == "true" {
+	if qualifiedSearchPrice(node, describedLink) || attr(node, "aria-hidden") == "true" {
 		return false
 	}
 	if node == quote {
@@ -145,7 +160,7 @@ func onlySearchPriceText(node, quote, visual *html.Node) bool {
 		return strings.TrimSpace(node.Data) == ""
 	}
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		if !onlySearchPriceText(child, quote, visual) {
+		if !onlySearchPriceText(child, quote, describedLink, ignored) {
 			return false
 		}
 	}

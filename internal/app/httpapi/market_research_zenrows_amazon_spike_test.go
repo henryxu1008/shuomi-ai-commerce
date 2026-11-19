@@ -177,9 +177,14 @@ func startOfflineZenRows(t *testing.T) (*httptest.Server, *atomic.Int32) {
 		page.Parsed.Results = append(page.Parsed.Results, card)
 		fmt.Fprintf(&raw, `<div data-component-type="s-search-result" data-asin="%s"><img class="s-image" src="https://m.media-amazon.com/images/I/sample-%d.jpg">`, asin, n)
 		switch n {
-		case 1, 2:
-			amount := map[int]string{1: "$19.95", 2: "$24.50"}[n]
-			fmt.Fprintf(&raw, `<div data-cy="price-recipe"><span class="a-price" data-a-size="xl" data-a-color="base"><span class="a-offscreen">%s</span></span></div>`, amount)
+		case 1:
+			raw.WriteString(`<div data-cy="price-recipe"><div class="a-row"><div class="a-row">
+				<span id="price-link" class="aok-offscreen">Price, product page</span>
+				<a aria-describedby="price-link"><span class="a-price" data-a-size="xl" data-a-color="base">
+				<span class="a-offscreen">$19.95</span><span aria-hidden="true">$19.95</span></span></a>
+				</div></div></div>`)
+		case 2:
+			raw.WriteString(`<div data-cy="price-recipe"><span class="a-price" data-a-size="xl" data-a-color="base"><span class="a-offscreen">$24.50</span></span></div>`)
 		case 3:
 			raw.WriteString(`<span>See buying options</span>`)
 		case 4:
