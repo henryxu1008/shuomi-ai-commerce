@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {publicSearchEndpoint} from "../contracts/web-search";
 import {selectionEndpoint} from "../contracts/platform-model-channels";
 import {automaticFXStatus} from "../contracts/model-route-pricing";
 import {credentialConnections,credentialInput,credentialReceipt,matchesCredentialReceipt,modelQueryInput,modelQueryResult,matchesModelQuery} from "../contracts/channel-credentials";
@@ -17,10 +18,12 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  const url=new URL(request.url),path=url.pathname.slice("/api/model-route-pricing".length),parts=path.slice(1).split("/"),family=parts[0],op=parts[1]??"current",credentials=family==="connections",write=request.method==="POST",publish=write&&(credentials?parts[2]==="commands":op==="publish"),platform=family==="platform-prices";
  const managed=family==="managed-channels"?managedChannelRoute(path,request.method):null;
  const flow=selectionEndpoint(parts,request.method);
- const fxControl=platform&&write&&parts.length===3&&op==="automatic-fx"&&["start","prepare"].includes(parts[2]),uncertain=publish||fxControl||!!flow?.input||!!managed?.input;
+ const publicSearch=publicSearchEndpoint(parts,request.method);
+ const fxControl=platform&&write&&parts.length===3&&op==="automatic-fx"&&["start","prepare"].includes(parts[2]),uncertain=publish||fxControl||!!flow?.input||!!managed?.input||!!publicSearch?.input;
  const modelQuery=credentials&&write&&parts.length===3&&parts[2]==="model-query"&&routeFact.safeParse(parts[1]).success;
  let output:z.ZodType;
- if(flow)output=flow.output;
+ if(publicSearch)output=publicSearch.output;
+ else if(flow)output=flow.output;
  else if(!path&&request.method==="GET")output=routeCapabilities;
  else if(managed)output=managed.output;
  else if(credentials){
@@ -40,10 +43,10 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
   else if(parts.length===2&&write&&["validate","publish"].includes(op))output=publish?routeReceipt:platform?pricePreview:routePreview;
   else return routeFailure(400,"INVALID");
  }else return routeFailure(400,"INVALID");
- if(url.search.length>512||(credentials||managed||flow)&&url.search!==""||request.url.endsWith("?")||request.headers.has("content-encoding"))return routeFailure(400,"INVALID");
+ if(url.search.length>512||(credentials||managed||flow||publicSearch)&&url.search!==""||request.url.endsWith("?")||request.headers.has("content-encoding"))return routeFailure(400,"INVALID");
  for(const [k,v] of url.searchParams){if(op!=="history"||url.searchParams.getAll(k).length!==1||(k==="cursor"?!routeFact.safeParse(v).success:k==="limit"?!/^[1-9][0-9]?$/.test(v)||Number(v)>50:true))return routeFailure(400,"INVALID")}
  if(write&&!hasTrustedSameOriginWrite(request))return routeFailure(403,"FORBIDDEN");
- if(modelQuery&&/\bprefetch\b/i.test([request.headers.get("purpose"),request.headers.get("sec-purpose")].join(" ")))return routeFailure(403,"FORBIDDEN");
+ if((modelQuery||write&&publicSearch)&&/\bprefetch\b/i.test([request.headers.get("purpose"),request.headers.get("sec-purpose")].join(" ")))return routeFailure(403,"FORBIDDEN");
  const cookies=(request.headers.get("cookie")??"").split(";").map(v=>v.trim()).filter(v=>v.startsWith(WORKBENCH_COOKIE_NAME+"="));let org="";
  try{if(cookies.length===1)org=decodeURIComponent(cookies[0].slice(WORKBENCH_COOKIE_NAME.length+1))}catch{}
  if(!routeFact.safeParse(org).success||org!==request.headers.get("X-Expected-Organization-ID"))return routeFailure(409,"ORGANIZATION_CONTEXT_CHANGED");
@@ -51,12 +54,12 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
  try{
   const headers=new Headers({Accept:"application/json",Authorization:"Bearer "+token,"X-Requested-Organization-ID":org});let body:string|undefined;
   if(write){
-   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(flow?.input??managed?.input??(modelQuery?modelQueryInput:fxControl?z.strictObject({}):credentials?credentialInput:platform?priceInput:routeInput)).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
-   if(publish||managed?.input||flow?.input){const key=request.headers.get("Idempotency-Key");if(!routeFact.safeParse(key).success)return routeFailure(400,"INVALID");headers.set("Idempotency-Key",key!)}
+   const payload=await readBoundedStrictJSON(request as unknown as Response,16*1024,controller.signal),parsed=(publicSearch?.input??flow?.input??managed?.input??(modelQuery?modelQueryInput:fxControl?z.strictObject({}):credentials?credentialInput:platform?priceInput:routeInput)).safeParse(payload);if(!parsed.success)return routeFailure(400,"INVALID");
+   if(publish||managed?.input||flow?.input||publicSearch?.input){const key=request.headers.get("Idempotency-Key");if(!routeFact.safeParse(key).success)return routeFailure(400,"INVALID");headers.set("Idempotency-Key",key!)}
    body=JSON.stringify(parsed.data);headers.set("Content-Type","application/json");
   }else if(!(await hasEmptyBody(request,controller.signal)))return routeFailure(400,"INVALID");
   const origin=configuredAgentConfigurationOrigin();if(!origin)return routeFailure(503,"UNAVAILABLE");controller.signal.throwIfAborted();dispatched=true;
-  const response=await fetch(origin+"/api/v1/model-route-pricing"+path+url.search,{method:request.method,headers,body,signal:controller.signal,cache:"no-store",redirect:"manual"});
+  const response=await fetch(origin+(publicSearch?.path??"/api/v1/model-route-pricing"+path)+url.search,{method:request.method,headers,body,signal:controller.signal,cache:"no-store",redirect:"manual"});
   const payload=await readBoundedStrictJSON(response,modelQuery?16*1024:512*1024,controller.signal);controller.signal.throwIfAborted();
   if(response.status!==200){
    // The shared Workbench middleware uses four fields, unlike this module's
@@ -64,11 +67,23 @@ export async function proxyModelRoutePricing(request:Request,token:string,userId
    // never expose its diagnostic metadata or guess that an arbitrary 4xx is final.
    const middleware=parseCommercialReadFailure(payload,response.status);
    const parsed=z.strictObject({code:z.string().regex(/^[A-Z_]{1,80}$/)}).safeParse(payload);
-   const statuses:Record<string,number>={FORBIDDEN:403,INVALID:400,NOT_FOUND:404,CONFLICT:409,NEEDS_CONFIGURATION:409,CHANNEL_LIMIT:409,UNAVAILABLE:503,OUTCOME_UNKNOWN:503};
+   const statuses:Record<string,number>={FORBIDDEN:403,INVALID:400,NOT_FOUND:404,CONFLICT:409,NEEDS_CONFIGURATION:409,CHANNEL_LIMIT:409,SEARCH_LIMIT:429,UNAVAILABLE:503,OUTCOME_UNKNOWN:503};
    const code=middleware?.code??(parsed.success&&statuses[parsed.data.code]===response.status?parsed.data.code:null);
    return routeFailure(response.status>=400&&response.status<600?response.status:502,uncertain&&(response.status>=500||!code)?"OUTCOME_UNKNOWN":code??"UNAVAILABLE")
   }
   const parsed=output.parse(payload) as Record<string,unknown>;
+  if(publicSearch){
+   if(parsed.organizationId!==org||parsed.actorId!==userId)throw new Error();
+   if(body&&parsed.memberId!==JSON.parse(body).expectedMemberId)throw new Error();
+   const expectedKey=write?headers.get("Idempotency-Key"):publicSearch.receiptKey;
+   if(publicSearch.conversationId){
+    if(parsed.conversationId!==publicSearch.conversationId)throw new Error();
+    const result=parsed.result as {key?:string;receipt?:{key:string;query:string}};
+    if(expectedKey&&(result.receipt?.key??result.key)!==expectedKey)throw new Error();
+    if(body&&result.receipt?.query!==JSON.parse(body).query)throw new Error();
+   }else if(expectedKey&&parsed.requestKey!==expectedKey)throw new Error();
+   return Response.json(parsed,{headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+  }
   if(flow){
    if(parsed.organizationId!==org)throw new Error();
    const expectedKey=flow.input?headers.get("Idempotency-Key"):flow.receiptKey;

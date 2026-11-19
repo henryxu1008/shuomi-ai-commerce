@@ -142,6 +142,17 @@ func (s *Store) Resolve(ctx context.Context, org, id, reference string) (credent
 }
 
 func (s *Store) Publish(ctx context.Context, c credential.Command) (credential.Metadata, error) {
+	return s.publish(ctx, c, false)
+}
+
+func (s *Store) PublishSearchCredential(ctx context.Context, c credential.Command) (credential.Metadata, error) {
+	if c.Provider != "brave" || c.ConnectionID != credential.BraveWebSearchConnection || c.Channel != c.ConnectionID {
+		return credential.Metadata{}, credential.ErrInvalid
+	}
+	return s.publish(ctx, c, true)
+}
+
+func (s *Store) publish(ctx context.Context, c credential.Command, recordSearchVersion bool) (credential.Metadata, error) {
 	if c.Validate() != nil {
 		return credential.Metadata{}, credential.ErrInvalid
 	}
@@ -156,6 +167,11 @@ func (s *Store) Publish(ctx context.Context, c credential.Command) (credential.M
 	err := s.commandTransaction(ctx, c, fingerprint, "channel-command-v1:", func(tx *gorm.DB) (any, error) {
 		var err error
 		result, err = s.writeConnection(tx, c)
+		if err == nil && recordSearchVersion {
+			if tx.Exec("INSERT INTO public.ai_search_credential_versions (organization_id, revision) VALUES (?, ?)", c.OrganizationID, result.Revision).Error != nil {
+				return nil, credential.ErrUnavailable
+			}
+		}
 		return result, err
 	}, func(row ReceiptRow) error {
 		if json.Unmarshal(row.Payload, &result) != nil || result.OrganizationID != c.OrganizationID || result.ConnectionID != c.ConnectionID || result.Revision < 1 || result.Reference == "" {
@@ -167,6 +183,19 @@ func (s *Store) Publish(ctx context.Context, c credential.Command) (credential.M
 		return credential.Metadata{}, err
 	}
 	return result, nil
+}
+
+// SearchCredentialVersionTime reads the immutable save time recorded with the
+// credential revision. A later rotation cannot change the old receipt's time.
+func (s *Store) SearchCredentialVersionTime(ctx context.Context, org string, revision int64) (time.Time, error) {
+	if s == nil || ctx == nil || !credential.ValidID(org) || revision < 1 {
+		return time.Time{}, credential.ErrUnavailable
+	}
+	var at time.Time
+	if err := s.db.WithContext(ctx).Raw("SELECT updated_at FROM public.ai_search_credential_versions WHERE organization_id=? AND revision=?", org, revision).Row().Scan(&at); err != nil {
+		return time.Time{}, credential.ErrUnavailable
+	}
+	return at.UTC(), nil
 }
 
 func (s *Store) commandTransaction(ctx context.Context, c credential.Command, fingerprint, version string, write func(*gorm.DB) (any, error), replay func(ReceiptRow) error) error {

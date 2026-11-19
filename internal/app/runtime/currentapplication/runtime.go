@@ -29,6 +29,7 @@ import (
 	"task-processor/internal/aicapability/channelcredential"
 	d "task-processor/internal/aicapability/routeconfig"
 	aistore "task-processor/internal/aicapability/store"
+	"task-processor/internal/aicapability/websearch"
 	appruntime "task-processor/internal/app/runtime"
 	storeapp "task-processor/internal/app/storecenter"
 	coreconfig "task-processor/internal/core/config"
@@ -91,6 +92,7 @@ type Dependencies struct {
 // ApplicationFeatures keeps separately owned, opt-in current modules together
 // only at the serving composition boundary.
 type ApplicationFeatures struct {
+	Search                                               *websearch.Service
 	AIWorkbenchScheduleClient                            client.Client
 	AIWorkbenchScheduleStop                              *func()
 	ResearchManualOriginal                               *ResearchManualOriginalConfig
@@ -978,6 +980,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 	var imageReader d.SharedCategoryReader
 	var textReader governed.RoutePolicyReader
 	var platformChannels *qualified.PlatformChannels
+	var webSearch *websearch.Service
 	if cfg.ModelRoutePricing != nil {
 		if dependencies.OpenModelRouteWriter == nil || dependencies.NewApplicationWithFeatures == nil {
 			return errors.New("shared model configuration lifecycle unavailable")
@@ -1068,6 +1071,15 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 			sharedCatalog.Platform = platformChannels
 			manage.PurposeSelectionOnly = true
 		}
+		if cfg.webSearchEnabled() {
+			if platformChannels == nil {
+				return errors.New("public web search requires the platform maintainer")
+			}
+			webSearch, e = cfg.prepareWebSearch(startupContext, writer, agentDB, credentialWriter, channelSecrets)
+			if e != nil {
+				return e
+			}
+		}
 
 	}
 	var operator *http.Server
@@ -1141,7 +1153,7 @@ func run(ctx context.Context, cfg *Config, logger *logrus.Logger, dependencies r
 				stopCommercialBillingRecovery()
 			}
 		}()
-		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelModelQuery: modelQuery, ChannelCredentials: executionChannelSecrets, SHEINUSTrial: sheinTrial, AmazonFirstPage: amazonFirstPage, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, PlatformChannels: platformChannels, OfficialModelPrices: priceManager, AutomaticFX: fxControl, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, CommercialBillingRecoveryStop: &stopCommercialBillingRecovery, ResourceConsumerRecoveryStop: &stopResourceConsumerRecovery, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, ChatImageStorage: chatImageStorage, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, ReferralMaturityStop: &stopReferralMaturity, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
+		server, err = dependencies.NewApplicationWithFeatures(startupContext, sourceAccountDB, ApplicationFeatures{TitlePilot: cfg.TitlePilot, RegisterTitlePilotOperator: registerOperator, VerifyTitlePilotIsolation: verifyOperator, ChannelCredentialManagement: credentialManager, ChannelModelQuery: modelQuery, ChannelCredentials: executionChannelSecrets, SHEINUSTrial: sheinTrial, AmazonFirstPage: amazonFirstPage, SheinOfflineRecords: cfg.SheinOfflineRecords != nil, BrowserKernelDB: browserKernelDB, BrowserKernel: cfg.BrowserKernel, SharedModels: sharedManager, PlatformChannels: platformChannels, Search: webSearch, OfficialModelPrices: priceManager, AutomaticFX: fxControl, CurrentTextPolicies: textReader, CurrentImagePolicies: imageReader, DataServicesDB: dataDB, DataServices: cfg.DataServices, DataServicesProvider: dataProvider, DataServicesWorkflow: dataWorkflow, DataServicesWorker: dataWorkerSlot, ReportCenterDB: reportDB, SheinTargetReportSources: cfg.ReportCenter != nil && cfg.ReportCenter.SheinTargetSourcesEnabled, MarketStorage: marketStorage, POD: cfg.POD, PODCredentials: podCredentials, PODAssetDB: podAssetDB, PODWorkflow: podWorkflow, PODWorker: &podWorker, AgentCustomizationDB: customizationDB, ProjectCenterDB: projectDB, MarketResearchDB: researchDB, ResearchFixture: cfg.ResearchFixture, ResearchManualOriginal: cfg.ResearchManualOriginal, MarketResearchSupplierReview: cfg.MarketResearch != nil && cfg.MarketResearch.SupplierReview, OperationsCockpit: cfg.StoreCenter != nil && cfg.StoreCenter.Enabled && cfg.StoreCenter.OperationsCockpit, ToolMarketDB: toolMarketDB, ToolMarket: cfg.ToolMarket, Ecoservices: ecoservicesRuntime, NotificationCenterDB: notificationDB, Knowledge: knowledgeService, OfficialStoreApplications: officialApplications, StoreCenterDB: storeDB, LocalTrialDB: trialDB, MoneyOwnerDB: moneyOwnerDB, CommercialBillingRecoveryStop: &stopCommercialBillingRecovery, ResourceConsumerRecoveryStop: &stopResourceConsumerRecovery, ProductAgentDB: agentDB, ProductReviewDB: agentReviewDB, ProductAgentAssetDB: agentAssetDB, ProductAgent: cfg.ProductAgent, AIWorkbenchDB: workbenchDB, AIWorkbench: cfg.AIWorkbench, ChatImageStorage: chatImageStorage, AIWorkbenchScheduleClient: workbenchScheduleClient, AIWorkbenchScheduleStop: &workbenchScheduleStop, CommercialOwnerDB: commercialOwnerDB, ProductAcquisitionDB: productDB, ProductCollections: cfg.ProductCollections, AcquisitionPlans: cfg.AcquisitionPlans, SupplyCompletionDrafts: cfg.SupplyCompletionDrafts, SourceMaterials: cfg.SourceMaterials != nil, PrivateDraftTrial: cfg.PrivateDraftTrial, ControlledLocalDraft: cfg.ControlledLocalDraft, SourceMediaStorage: sourceMediaStorage, ApprovedAssetDB: approvedAssetDB, Fulfillment: fulfillmentConfiguration, FulfillmentWorkflow: fulfillmentWorkflow, FulfillmentLifecycle: &fulfillmentLifecycle, StoreObservationsWorkflow: observationWorkflow, StoreObservationsLifecycle: &observationLifecycle, StoreObservationsPreparationOnly: cfg.StoreCenter != nil && cfg.StoreCenter.Observations != nil && cfg.StoreCenter.Observations.PreparationOnly, ListingWorkflow: listingWorkflow, ListingWorker: &listingWorker, FullImageSet: cfg.ImageAgent != nil && cfg.ImageAgent.WorkerConfigFile != "", ImageAgentDB: imageDB, ImageSetAssetDB: imageAssetDB, ImageSetWorkerDB: imageWorkerDB, ImageSetWorkerConfig: imageWorkerConfig, ImageSetTemporal: imageTemporal, ImageSetWorker: &imageWorker, AccountAuditImageDB: auditImageDB, AccountAuditProductDB: auditProductDB, ImageAgentWorkflow: imageWorkflow, ReferralDB: referralDB, ReferralMaturityStop: &stopReferralMaturity, MembershipDB: membershipDB, Membership: cfg.Membership, RuntimeContext: ctx}, core, logger)
 	} else if membershipDB != nil {
 		server, err = dependencies.NewApplicationWithMembership(startupContext, sourceAccountDB, membershipDB, core, cfg.Membership, logger)
 	} else if referralDB != nil {

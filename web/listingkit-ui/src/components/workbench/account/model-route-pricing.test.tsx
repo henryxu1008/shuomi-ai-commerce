@@ -6,6 +6,7 @@ import {EnterpriseModelEditor,ModelRoutePricingPage,OfficialPriceEditor,ModelRou
 const state=vi.hoisted(()=>({context:{permissions:["workbench.agent.configure"],roles:[],user:{id:"maintainer"},effectiveOrganization:{id:"org-a",name:"企业甲"},registerOrganizationSwitchGuard:()=>()=>{},isLoading:false,isSwitching:false,error:null as {status:number}|null,blockingError:null,selectionRequired:false,aiWorkbenchAvailable:true,aiWorkbenchPlanningReadiness:"NEEDS_CONFIGURATION",retry:vi.fn<()=>Promise<object|null>>(async()=>({}))}}));
 vi.mock("@/components/providers/workbench-context-provider",()=>({useWorkbenchContext:()=>state.context}));
 const scope={userId:"maintainer",organizationId:"org-a"};
+const enterpriseModelsURL="/api/model-route-pricing/enterprise";
 const selection={schemaVersion:1,unitVersion:"ai-micropoint-v1",defaultChannel:"openai-direct",text:{id:"openai-mini",version:"approved-default-v1"},image:{id:"openai-flare",version:"approved-default-v1"},multimodal:{id:"openai-mini",version:"approved-default-v1"}};
 const models=(ready=false)=>["text","image-generation","multimodal"].map(category=>({category,reference:category==="image-generation"?selection.image:selection.text,channel:"openai-direct",model:category==="image-generation"?"gpt-image-2.5-flare-2026-09-08":"gpt-5.4-mini-2026-03-17",ready,...ready?{}:{reason:category==="image-generation"?"PROTOCOL_AND_COST_BOUND_MISSING":"BINDING_NOT_ADMITTED"}}));
 const clients:QueryClient[]=[];
@@ -43,7 +44,7 @@ it("uses the published qualification per image model and the workbench projectio
  state.context.aiWorkbenchPlanningReadiness="UNAVAILABLE";
  const fetch=fixture(),original=fetch.getMockImplementation()!;
  const published=models(true).map(model=>model.category==="image-generation"?{...model,ready:false,reason:"OFFICIAL_PRICE_MISSING"}:model);
- fetch.mockImplementation((url,init)=>url.endsWith("/enterprise")
+ fetch.mockImplementation((url,init)=>url===enterpriseModelsURL
   ? Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:revision("current"),preview:{ready:false,models:published}}))
   : original(url,init));
  mount(true);
@@ -67,7 +68,7 @@ it.each([true,false])("distinguishes same-name candidates by publication and mod
  const other={...textOption,reference:{id:"another-text",version:"configured-v1"},channel:"other"};
  fetch.mockImplementation((url,init)=>{
   if(url.endsWith("/options"))return Promise.resolve(Response.json({organizationId:"org-a",channels:["openai-direct","other"],models:[...models().filter(model=>model.category!=="text"),unready,ready,other]}));
-  if(url.endsWith("/enterprise"))return Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:current,preview:{ready:false,models:models().map(model=>model.category==="text"?(readyIsPublished?ready:unready):model)}}));
+  if(url===enterpriseModelsURL)return Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:current,preview:{ready:false,models:models().map(model=>model.category==="text"?(readyIsPublished?ready:unready):model)}}));
   return original(url,init);
  });
  mount();
@@ -103,7 +104,7 @@ it("limits a model's unavailability to its own option",async()=>{
 
 it("shows the image generation reason and returns focus to that status after inspection",async()=>{
  const fetch=fixture(),original=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>url.endsWith("/enterprise")
+ fetch.mockImplementation((url,init)=>url===enterpriseModelsURL
   ? Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:revision("current"),preview:{ready:false,models:models()}}))
   : original(url,init));
  mount(true);
@@ -124,7 +125,7 @@ it("shows the image generation reason and returns focus to that status after ins
 
 it("does not use ready candidates when the current selection cannot be read",async()=>{
  const fetch=fixture(true),original=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>url.endsWith("/enterprise")
+ fetch.mockImplementation((url,init)=>url===enterpriseModelsURL
   ? Promise.resolve(Response.json({code:"NEEDS_CONFIGURATION"},{status:409}))
   : original(url,init));
  mount(true);
@@ -143,7 +144,7 @@ it.each([true,false])("locates a connection only for a unique exact model match 
   organizationId:"org-a",connectionId,provider,channel:"openai-direct",region:"global",account:"",revision:"0",enabled:false,keyPresent:false,models:[model],
  });
  fetch.mockImplementation((url,init)=>{
-  if(url.endsWith("/enterprise")) return Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:revision("current"),preview:{ready:false,models:published}}));
+  if(url===enterpriseModelsURL) return Promise.resolve(Response.json({status:"NEEDS_CONFIGURATION",revision:revision("current"),preview:{ready:false,models:published}}));
   if(url.endsWith("/connections")) return Promise.resolve(Response.json({organizationId:"org-a",canManage:true,connections:[
    connection("first","correct",exactModel), connection("second","other",unique?{...exactModel,category:"text"}:exactModel),
   ]}));
@@ -165,7 +166,7 @@ it.each([true,false])("preserves the receipt and checks current configuration im
   return Response.json({receipt:revision("saved",new Headers(init.headers).get("Idempotency-Key")!)});
  });
  const original=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>saved&&url.endsWith("/enterprise")
+ fetch.mockImplementation((url,init)=>saved&&url===enterpriseModelsURL
   ? Promise.resolve(refreshed?Response.json({status:"READY",revision:revision("saved"),preview:{ready:true,models:models(true)}}):Response.json({code:"UNAVAILABLE"},{status:503}))
   : original(url,init));
  mount(true);
@@ -174,7 +175,7 @@ it.each([true,false])("preserves the receipt and checks current configuration im
  expect(await screen.findByRole("heading",{name:"发布回执"})).toBeVisible();
  expect(await screen.findByText(refreshed?"当前版本：saved · 已发布":"本次已保存，当前状态暂时无法确认。")).toBeVisible();
  expect(state.context.retry).toHaveBeenCalledTimes(1);
- expect(fetch.mock.calls.filter(([url])=>url.endsWith("/enterprise"))).toHaveLength(2);
+ expect(fetch.mock.calls.filter(([url])=>url===enterpriseModelsURL)).toHaveLength(2);
 });
 
 it("keeps a save receipt and hides stale configuration when the workbench refresh fails",async()=>{
@@ -207,7 +208,7 @@ it("reads again after a publish receipt arrives during an earlier manual refresh
   expect(new Headers(init.headers).get("Idempotency-Key")).toBeTruthy();
  }));
  const original=fetch.getMockImplementation()!;
- fetch.mockImplementation((url,init)=>saved&&url.endsWith("/enterprise")
+ fetch.mockImplementation((url,init)=>saved&&url===enterpriseModelsURL
   ? Promise.resolve(Response.json({status:"READY",revision:revision("saved"),preview:{ready:true,models:models(true)}}))
   : original(url,init));
  mount(true);
@@ -217,7 +218,7 @@ it("reads again after a publish receipt arrives during an earlier manual refresh
  const write=fetch.mock.calls.find(([url])=>url.endsWith("/publish"));
  expect(write).toBeDefined();
  await user.click(screen.getByRole("button",{name:"重新读取状态"}));
- await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>url.endsWith("/enterprise"))).toHaveLength(2));
+ await waitFor(()=>expect(fetch.mock.calls.filter(([url])=>url===enterpriseModelsURL)).toHaveLength(2));
  await act(async()=>finishPublish(Response.json({receipt:revision("saved",new Headers(write?.[1]?.headers).get("Idempotency-Key")!)})));
  expect(await screen.findByRole("heading",{name:"发布回执"})).toBeVisible();
  await act(async()=>finishFirstRead({}));
@@ -278,7 +279,21 @@ it("opens only credential management for its independent grant and drops the sec
  expect(screen.getByText("无模型配置权限或当前企业不可用")).toBeVisible();
 });
 function mount(page=false){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);return render(<QueryClientProvider client={client}>{page?<ModelRoutePricingPage expectedUserId="maintainer"/>:<EnterpriseModelEditor scope={scope}/>}</QueryClientProvider>)}
-function fixture(ready=false,publish?:(init:RequestInit)=>Promise<Response>){const fetch=vi.fn(async(url:string,init:RequestInit={})=>{if(url.endsWith("/options"))return Response.json({organizationId:"org-a",channels:["openai-direct"],models:models(ready)});if(url.endsWith("/history"))return Response.json({revisions:[],nextCursor:""});if(url.endsWith("/validate")){const input=JSON.parse(String(init.body));return Response.json({...input,preview:{ready,models:models(ready)}})}if(url.endsWith("/publish"))return publish?publish(init):Response.json({code:"NEEDS_CONFIGURATION"},{status:409});return Response.json({status:"UNCONFIGURED",revision:null,preview:null})});vi.stubGlobal("fetch",fetch);return fetch}
+function fixture(ready=false,publish?:(init:RequestInit)=>Promise<Response>){
+ const fetch=vi.fn(async(url:string,init:RequestInit={})=>{
+  if(url.startsWith("/api/model-route-pricing/search/"))return Response.json({code:"UNAVAILABLE"},{status:503});
+  if(url.endsWith("/options"))return Response.json({organizationId:"org-a",channels:["openai-direct"],models:models(ready)});
+  if(url.endsWith("/history"))return Response.json({revisions:[],nextCursor:""});
+  if(url.endsWith("/validate")){
+   const input=JSON.parse(String(init.body));
+   return Response.json({...input,preview:{ready,models:models(ready)}});
+  }
+  if(url.endsWith("/publish"))return publish?publish(init):Response.json({code:"NEEDS_CONFIGURATION"},{status:409});
+  return Response.json({status:"UNCONFIGURED",revision:null,preview:null});
+ });
+ vi.stubGlobal("fetch",fetch);
+ return fetch;
+}
 afterEach(()=>{cleanup();for(const client of clients)client.clear();clients.length=0;sessionStorage.clear();vi.unstubAllGlobals();state.context.permissions=["workbench.agent.configure"];state.context.effectiveOrganization={id:"org-a",name:"企业甲"};state.context.aiWorkbenchAvailable=true;state.context.aiWorkbenchPlanningReadiness="NEEDS_CONFIGURATION";state.context.error=null;state.context.retry.mockReset();state.context.retry.mockResolvedValue({})});
 it("shows the active settings area and keeps enterprise editing apart from platform prices", async () => {
  state.context.permissions = ["workbench.agent.configure", "listingkit.platform_admin", "listingkit.admin.write"];
@@ -311,6 +326,25 @@ it("does not clear an uncertain original command for a receipt with different mo
 it("permits a new initial command after a definite initial rejection",async()=>{const user=userEvent.setup(),fetch=fixture(true,async()=>Response.json({code:"PERMISSION_DENIED"},{status:403}));mount();await user.click(await screen.findByRole("button",{name:"检查并预览"}));const publish=await screen.findByRole("button",{name:"确认发布三类模型"});await user.click(publish);await screen.findByRole("alert");expect(screen.queryByRole("heading",{name:"发布结果待核实"})).not.toBeInTheDocument();expect(publish).toBeEnabled();await user.click(publish);const attempts=fetch.mock.calls.filter(([url])=>url.endsWith("/publish"));expect(attempts).toHaveLength(2);expect(new Headers(attempts[0][1]?.headers).get("Idempotency-Key")).not.toBe(new Headers(attempts[1][1]?.headers).get("Idempotency-Key"))});
 it("keeps the original uncertain command when its receipt lookup is later denied",async()=>{const user=userEvent.setup(),fetch=fixture(true,async()=>{throw new Error("ack lost")}),original=fetch.getMockImplementation()!;fetch.mockImplementation(async(url,init={})=>url.includes("/receipts/")?Response.json({code:"PERMISSION_DENIED"},{status:403}):original(url,init));mount();await user.click(await screen.findByRole("button",{name:"检查并预览"}));await user.click(await screen.findByRole("button",{name:"确认发布三类模型"}));await screen.findByRole("heading",{name:"发布结果待核实"});await user.click(screen.getByRole("button",{name:"查询本次发布结果"}));await screen.findByRole("alert");expect(screen.getByRole("heading",{name:"发布结果待核实"})).toBeVisible();expect(screen.getByRole("button",{name:"确认发布三类模型"})).toBeDisabled();expect(fetch.mock.calls.filter(([url])=>url.endsWith("/publish"))).toHaveLength(1)});
 it("blocks the page on organization switch or missing configure permission",()=>{state.context.permissions=[];fixture();mount(true);expect(screen.getByText("无模型配置权限或当前企业不可用")).toBeVisible();expect(screen.queryByRole("button",{name:"检查并预览"})).not.toBeInTheDocument()});
+it("opens platform search for a maintainer whose enterprise is outside the Chat allowlist",async()=>{
+ state.context.permissions=["workbench.agent.configure","listingkit.platform_admin","listingkit.admin.write"];
+ const fetch=fixture(),original=fetch.getMockImplementation()!;
+ const owner={organizationId:"org-a",actorId:"maintainer",memberId:"member",requestKey:""};
+ fetch.mockImplementation(async(url,init)=>{
+  if(url==="/api/model-route-pricing/search/platform"){
+   return Response.json({...owner,canWrite:true,organizations:["org-b"],result:{
+    revision:0,name:"",country:"",language:"",maxUsdMicros:0,totalLimit:0,tenantLimit:0,organizations:null,published:false,
+   }});
+  }
+  if(url==="/api/model-route-pricing/search/enterprise"){
+   return Response.json({code:"UNAVAILABLE"},{status:503});
+  }
+  return original(url,init);
+ });
+ mount(true);
+ await userEvent.click(await screen.findByRole("button",{name:"搜索服务"}));
+ expect(await screen.findByRole("heading",{name:"配置平台开放"})).toBeVisible();
+});
 it("opens platform prices without conferring enterprise configuration permission",async()=>{state.context.permissions=["listingkit.platform_admin","listingkit.admin.write"];const fetch=fixture();mount(true);expect(await screen.findByRole("heading",{name:"模型参考价与人民币汇率"})).toBeVisible();await waitFor(()=>expect(screen.getByRole("button",{name:"添加参考价目"})).toBeEnabled());expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument();expect(fetch.mock.calls.every(([url])=>!url.includes("/enterprise"))).toBe(true)});
 it("keeps a platform reader without write authority read-only",async()=>{state.context.permissions=["listingkit.platform_admin"];fixture();mount(true);expect(await screen.findByRole("heading",{name:"模型参考价与人民币汇率"})).toBeVisible();expect(screen.getByRole("button",{name:"添加参考价目"})).toBeDisabled();expect(screen.queryByLabelText("文本模型")).not.toBeInTheDocument()});
 it("shows the platform maintenance entry without probing any configuration API",async()=>{state.context.permissions=["listingkit.platform_admin"];const fetch=fixture(),client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);render(<QueryClientProvider client={client}><ModelRoutePricingEntry scope={scope}/></QueryClientProvider>);expect(await screen.findByRole("link",{name:"模型与服务"})).toBeVisible();expect(fetch).not.toHaveBeenCalled()});
