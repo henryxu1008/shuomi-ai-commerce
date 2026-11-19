@@ -1,10 +1,12 @@
 # B1：受保护成员单业务角色的原生条件写入
 
+> 归类说明（2026-11-19）：本文完整保留已撤销的 B1 条件角色写入设计及各阶段证据，不是当前实现准入。全文中的本地实现、NOT_RUN、未推送和未获部署授权均属于各自原时点；[#954](https://github.com/henryxu1008/shuomi-ai-commerce/issues/954) 首屏记录后续隔离 GUI/实际读回、配套源码交付，以及 #1006 合并后的官方版本现场切换和普通账号单店有界核对，用户已确认结束该维护窗口。这些历史结果不证明今天的实例状态，不恢复定制 provider 或受保护成员追加/撤销入口。当前官方 ZITADEL 拥有原生身份/授权事实，Membership 原 RoleStore 与 ReceiptStore 保持各自 owner；旧 kind 和字段仅供原范围历史回执只读，UNKNOWN 不重发或释放，不能据旧设计恢复执行器、完整列表 fallback、补偿或第二授权事实源。Figma 仅作业务流程参考。本批只迁文档和引用，不读取凭据、不执行安全复现/实例操作，也不重新授权原维护窗口。
+
 日期：2026-10-29。**历史设计，已由 2026-10-30 官方版本产品决定替代。**
 
 本文和原 fork/PR/验证证据保留用于追溯，不是当前实现或交付前置。
 当前范围、Reuse Existing Architecture Design Basis、已取消能力及未来切换边界见
-[官方 ZITADEL 适配](../engineering/zitadel-official-provider-boundary.md)和 Issue #954 首屏。
+[官方 ZITADEL 适配](../../../engineering/zitadel-official-provider-boundary.md)和 Issue #954 首屏。
 原文中的 IMPLEMENTATION_READY、保留 provider 补丁、开放受保护单角色写入均只属于原阶段，
 不恢复已撤销的产品要求，也不构成上游已确认漏洞声明。
 

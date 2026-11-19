@@ -69,7 +69,7 @@
 - `platform/identity/enterprise-custom-roles.md` — [Enterprise custom roles v1 — Issue #598](platform/identity/enterprise-custom-roles.md)
 - `local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](local-tls-revocation-maintenance.md)
 - `platform/identity/member-directory-query.md` — [Member directory query v1](platform/identity/member-directory-query.md)
-- `protected-member-role-native-cas.md` — [B1：受保护成员单业务角色的原生条件写入](protected-member-role-native-cas.md)
+- `platform/identity/protected-member-role-native-cas.md` — [B1：受保护成员单业务角色的原生条件写入](platform/identity/protected-member-role-native-cas.md)
 - `platform/identity/public-trial-identity-origin.md` — [Fixed HTTPS identity origin for the cloud trial](platform/identity/public-trial-identity-origin.md)
 - `retained-lan-access.md` — [Retained trial LAN access and scoped identity admission](retained-lan-access.md)
 - `source-account-registry.md` — [Source Account SA1 contract](source-account-registry.md)
