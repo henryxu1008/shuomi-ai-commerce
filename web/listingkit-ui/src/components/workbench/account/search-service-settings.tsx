@@ -59,6 +59,10 @@ export function SearchServiceSettings({ scope, member, configure, owned, platfor
   const locked = busy || !pending.ready || Boolean(pending.command) || !member;
 
   async function refreshConfiguration(action: Action) {
+    if (action === "platform") {
+      if (configure) void select.refetch();
+      return (await publication.refetch()).isSuccess;
+    }
     const reads: Promise<unknown>[] = [];
     if (configure) reads.push(select.refetch({ throwOnError: true }));
     if (platform) reads.push(publication.refetch({ throwOnError: true }));
