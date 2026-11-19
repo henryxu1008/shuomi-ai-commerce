@@ -1,6 +1,9 @@
 # 35444 店铺查询与语音界面：接线及更新前检查草案
 
-状态：准备中，**不可执行、不可用于更新原实例**。范围仅限用户明确授权的本地试用实例及其保留数据；不授权其他环境、模型调用或原预留释放。依据 [隔离保留方案](../architecture/domains/workbench/chat-retained-1260-trial.md) 和 [店铺查询合同](../architecture/domains/workbench/chat-visible-store-query.md)。本文件不改变现有领域 owner、计费或授权合同。
+> 归类说明（2026-11-19）：本页仍为**不可执行的历史检查草案**，移入 runbooks 仅为检索归类，不升级为操作手册。下文“尚无正式入口”、四列缺失、命令/计划及预留状态是 2026-11-13 当时观察，不是当前实例状态；后续[正式入口设计](../../architecture/domains/workbench/chat-35444-retained-wiring-design.md)及[开发试用最小准入](../../architecture/domains/workbench/chat-retained-minimal-admission-proposal.md)记录了新的有界合同。
+> [#1263](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1263)记录原 35444 按当次授权完成事务接线及启动，不等于本草案可重放或完整产品验收通过。最小准入局部替代无关 owner 每次全量备份恢复的固定条件，不取消目标身份、同连接事务、冻结、原调用/预留与 UNKNOWN 检查；历史清单不能重新引入已替代条件或泛化为其他环境许可。旧快照不得覆盖后写事实。本次不核查或改变实例，不运行接线、真实模型或预留操作。
+
+状态：准备中，**不可执行、不可用于更新原实例**。范围仅限用户明确授权的本地试用实例及其保留数据；不授权其他环境、模型调用或原预留释放。依据 [隔离保留方案](../../architecture/domains/workbench/chat-retained-1260-trial.md) 和 [店铺查询合同](../../architecture/domains/workbench/chat-visible-store-query.md)。本文件不改变现有领域 owner、计费或授权合同。
 
 ## 目标与运行边界
 
@@ -8,7 +11,7 @@
 
 ## 当前可复用证据与缺口
 
-- 目标主线包含 #1260；#1258 候选 `b2e20c47b61fecd34b0f0c99c76a4a553ede4228` 独立代码复核和必需 PR CI 通过后，以 `a72b31ebec2dbc2d1b1b37321ae55b0ebd17a348` 合并。该提交的主线 push CI 和必需门禁通过；Architecture Contract Guards 和 Isolated Runtime Windows Contracts 按工作流跳过。最终镜像须在实际操作前重新绑定准确 SHA 并核对主线 CI，使用[现有选定 Git 版本镜像构建入口](application-image-build.md)，记录 receipt；构建不等于授权更新。现运行后端、前端镜像与私有配置必须各自保留并复核，不能以浏览器预览版本代替 Git 版本。
+- 目标主线包含 #1260；#1258 候选 `b2e20c47b61fecd34b0f0c99c76a4a553ede4228` 独立代码复核和必需 PR CI 通过后，以 `a72b31ebec2dbc2d1b1b37321ae55b0ebd17a348` 合并。该提交的主线 push CI 和必需门禁通过；Architecture Contract Guards 和 Isolated Runtime Windows Contracts 按工作流跳过。最终镜像须在实际操作前重新绑定准确 SHA 并核对主线 CI，使用[现有选定 Git 版本镜像构建入口](../application-image-build.md)，记录 receipt；构建不等于授权更新。现运行后端、前端镜像与私有配置必须各自保留并复核，不能以浏览器预览版本代替 Git 版本。
 - 原 product_agent 副本中，受控原型已验证旧行保留、结构差异和受限列级授权；它固定绑定隔离容器且不可用于原库。**尚无满足本次有界保留方案的正式可执行接线入口**；不能直接重跑全新安装器，不能删除旧表或放宽权限。
 - 新空项目内容任务组合、正常身份登录、显式查询/撤权及新版恢复已做隔离验证；身份服务、对象存储和 Temporal 未独立恢复，约束与 RLS 未全量比对，不能据此推断原实例完整回退。
 - 之前私有 1244 演练的备份还原流程使用 PostgreSQL `pg_dump`、`pg_restore`、角色元数据及独立库比对，但该次仅证明 Product Agent 库范围；其旧操作脚本绑定旧窗口，不可直接重放。最近 14 库备份恢复证据来自合成新项目，不是原 35444 的完整备份。身份、对象存储、Temporal 的原实例备份入口与一致性责任仍待准确核定。
