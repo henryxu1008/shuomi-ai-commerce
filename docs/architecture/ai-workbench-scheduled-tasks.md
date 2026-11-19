@@ -2,7 +2,7 @@
 
 ## 当前产品开放口径（2026-11-17 文档校准）
 
-本文保留 2026-11-11 最初的**商品内容定时计划**设计与工程准入证据；不再以 §1 的“创建新商品内容计划”和 Chat 设为定时任务作为现行用户开放要求。按 2026-11-15 用户后续决定，**新建仅开放店铺经营日报、日报复制可用**；**已有商品内容计划**保留查看、编辑、控制、执行历史和原键核实。准确增量见 [编辑与复制合同](domains/workbench/scheduled-plan-edit-copy.md)、[单店经营日报](scheduled-store-daily-report.md)、[操作说明](../operations/user-guides/ai-workbench-scheduled-tasks.md)和 [Issue #1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)。本段只标注产品范围，不改变冻结时的调度、权限、预算、幂等、UNKNOWN 或原业务记录；部署和用户验收按原 Issue/PR 另行核对。
+本文保留 2026-11-11 最初的**商品内容定时计划**设计与工程准入证据；不再以 §1 的“创建新商品内容计划”和 Chat 设为定时任务作为现行用户开放要求。按 2026-11-15 用户后续决定，**新建仅开放店铺经营日报、日报复制可用**；**已有商品内容计划**保留查看、编辑、控制、执行历史和原键核实。准确增量见 [编辑与复制合同](domains/workbench/scheduled-plan-edit-copy.md)、[单店经营日报](domains/workbench/scheduled-store-daily-report.md)、[操作说明](../operations/user-guides/ai-workbench-scheduled-tasks.md)和 [Issue #1297](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1297)。本段只标注产品范围，不改变冻结时的调度、权限、预算、幂等、UNKNOWN 或原业务记录；部署和用户验收按原 Issue/PR 另行核对。
 
 
 > **状态：IMPLEMENTATION_READY（架构准入）/ IMPLEMENTATION_IN_PROGRESS（实现待完成）**。Design Basis：Independent Architecture。跟踪 Issue [#1244](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1244)。用户已明确裁定：准确 HEAD 的 Codex 独立评审完成、无新 findings 且 PR 获 Codex 👍 即视为通过。本文件在 HEAD `b1ff3377bbfae782fcafcebb665fbe250afe3294` 的第二轮评审无新发现，[PR #1245](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1245) 收到 bot 👍，准确 CI [42994325637](https://github.com/henryxu1008/shuomi-ai-commerce/actions/runs/42994325637) SUCCESS；依用户本次明确决定，架构 **IMPLEMENTATION_READY**。这仅允许在原边界内开始实现，**不代表生产代码已实现、已部署或真实业务验收通过**。旧四条 BLOCKER 原始评论继续可追溯，设计修正在 §3.2，运行验证仍是实施义务。
