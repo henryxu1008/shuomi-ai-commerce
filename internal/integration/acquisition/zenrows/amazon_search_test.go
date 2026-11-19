@@ -57,6 +57,8 @@ func TestAmazonSearchPreservesOnlyUnambiguousSameCardUSPrices(t *testing.T) {
 		{"described primary price", describedOffer(describedPrice, ""), 19.95},
 		{"described primary with separate count and list", describedOffer(describedPrice+countPrice+listPrice, ""), 19.95},
 		{"described primary with separate promotion", describedOffer(describedPrice, promotion), 19.95},
+		{"membership condition in a promotion row", describedOffer(describedPrice, strings.ReplaceAll(strings.ReplaceAll(promotion, "Save 5%", "Prime exclusive"), "on 2 select item(s)", "Price shown requires Prime membership")), 0},
+		{"discount with additional qualification", describedOffer(describedPrice, strings.Replace(promotion, "on 2 select item(s)", "on 2 select item(s) with Prime", 1)), 0},
 		{"conditional price description", strings.Replace(describedOffer(describedPrice, ""), "Price, product page", "Price, product page with a membership", 1), 0},
 		{"duplicate description target", describedOffer(describedPrice, "") + `<span id="price-link" class="aok-offscreen">Price, product page</span>`, 0},
 		{"missing description target", strings.Replace(describedOffer(describedPrice, ""), `id="price-link"`, `id="other-link"`, 1), 0},

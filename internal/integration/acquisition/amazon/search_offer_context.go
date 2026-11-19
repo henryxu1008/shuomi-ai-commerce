@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -113,10 +114,29 @@ func isSearchPromotionRow(node *html.Node) bool {
 		return false
 	}
 	children := searchContent(node)
-	return len(children) == 2 && children[0].Data == "span" && children[1].Data == "span" &&
-		hasClass(children[0], "s-promotion-highlight-color") && hasClass(children[1], "a-color-base") &&
-		plainSearchText(children[0]) != "" && plainSearchText(children[1]) != "" &&
-		!qualifiedSearchPrice(children[0], nil) && !qualifiedSearchPrice(children[1], nil)
+	if len(children) != 2 || children[0].Data != "span" || children[1].Data != "span" ||
+		!hasClass(children[0], "s-promotion-highlight-color") || !hasClass(children[1], "a-color-base") ||
+		qualifiedSearchPrice(children[0], nil) || qualifiedSearchPrice(children[1], nil) {
+		return false
+	}
+	// The styling alone is also used for conditions on an offer. Only the
+	// observed percentage-and-quantity template describes a separate discount.
+	percent := searchDisplayNumber(plainSearchText(children[0]), "Save ", "%")
+	quantity := searchDisplayNumber(plainSearchText(children[1]), "on ", " select item(s)")
+	return percent > 0 && percent <= 100 && quantity >= 2
+}
+
+func searchDisplayNumber(text, prefix, suffix string) uint64 {
+	value, starts := strings.CutPrefix(text, prefix)
+	value, ends := strings.CutSuffix(value, suffix)
+	if !starts || !ends {
+		return 0
+	}
+	number, err := strconv.ParseUint(value, 10, 31)
+	if err != nil || strconv.FormatUint(number, 10) != value {
+		return 0
+	}
+	return number
 }
 
 func searchContent(parent *html.Node) []*html.Node {
