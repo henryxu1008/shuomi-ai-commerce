@@ -169,9 +169,9 @@ docs/architecture/product-workbench-trial-runtime.md,architecture,catalog,13608,
 docs/architecture/project-boundaries.md,architecture,platform,7218,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/workbench/project-center-overview-read.md,architecture,workbench,7614,KEEP_PATH,,,MOVED_VERIFIED,Project Center and overview contracts grouped under workbench; private scope and original reference permissions preserved
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
-docs/architecture/protected-member-role-native-cas.md,architecture,identity,18584,REVIEW_MOVE,docs/architecture/platform/identity/protected-member-role-native-cas.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,42380,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,42416,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/referral-settlement-and-conduct.md,architecture,commercial,7609,REVIEW_MOVE,docs/architecture/domains/commercial/referral-settlement-and-conduct.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,17906,REVIEW_MOVE,docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
