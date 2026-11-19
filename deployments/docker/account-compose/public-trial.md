@@ -30,7 +30,7 @@ local installation to public, changing either public origin, or dropping the
 public layer is rejected. Keep every original overlay, volume and private file.
 The backend also validates the private manifest's public issuer/API as the same
 canonical HTTPS DNS origin; its admitted boundary is described in
-[`public-trial-identity-origin.md`](../../../docs/architecture/public-trial-identity-origin.md).
+[`public-trial-identity-origin.md`](../../../docs/architecture/platform/identity/public-trial-identity-origin.md).
 
 Build the backend and UI from the selected Git commit with
 [`scripts/build-listingkit-images.ps1`](../../../scripts/build-listingkit-images.ps1)

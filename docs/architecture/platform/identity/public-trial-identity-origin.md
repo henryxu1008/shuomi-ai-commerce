@@ -1,5 +1,7 @@
 # Fixed HTTPS identity origin for the cloud trial
 
+> 归类说明（2026-11-19）：本文保留 #1085 首次公网试用设计及其当时现场边界；[#1085](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1085) 后续已记录公网运行/用户正常登录、#1086 合并，以及分别受限的本地存储和项目等试用证据，不把初始失败当作今天状态，也不把这些记录扩大为全部模块或生产验收。文中的 CNY100、24 小时和 2026-11-04 停机时间只属于原授权/计划，不能据此推断实际停机成功、当前资源状态或续开权限。当前 `authruntime/zitadel.IsCanonicalPublicIdentityOrigin` 仍由 currentapplication 与 Membership 共用；固定 operator 信任源、同源校验、TLS 和各事实 owner 不变，浏览器输入不能选择 issuer。Figma 仅作业务流程参考。本次只归类全文与引用，不读取私密配置/凭据、不探测公网服务、不登录或操作云资源/保留实例。
+
 Issue: [#1085](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1085).
 Design Basis: **Independent Architecture**. Admission: **IMPLEMENTATION_READY**.
 
@@ -12,12 +14,12 @@ TLS preflight tests. Production implementation follows this committed design.
 Henry explicitly authorized a new empty Alibaba ECS colleague trial with
 `trial.shuomiai.com`, `auth-trial.shuomiai.com`, HTTPS, as many current modules as
 possible, a CNY100 budget and a data-preserving stop 24 hours after creation.
-The existing [official Login decision](../product/decisions/official-zitadel-login.md),
-[identity and Organization contract](platform/identity/auth-and-tenancy.md),
-[official provider boundary](../engineering/zitadel-official-provider-boundary.md)
-and [greenfield baseline](../product/greenfield-no-legacy-migration.md) apply.
+The existing [official Login decision](../../../product/decisions/official-zitadel-login.md),
+[identity and Organization contract](auth-and-tenancy.md),
+[official provider boundary](../../../engineering/zitadel-official-provider-boundary.md)
+and [greenfield baseline](../../../product/greenfield-no-legacy-migration.md) apply.
 No UI, page naming or interaction changes are proposed; existing product/Figma
-authority remains [the current authority](../product/final-ui-ia-authority.md).
+authority remains [the current authority](../../../product/final-ui-ia-authority.md).
 
 The actual new backend stopped before serving with
 `identity.issuerURL must be a bounded absolute loopback HTTP(S) URL`.
