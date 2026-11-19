@@ -49,7 +49,7 @@ Applicable product authorities:
   `BusinessTask -> AgentRun -> AgentStep -> ToolCall / ModelCall -> Temporal/Queue/Internal Task`;
 - `organization-agent-configuration.md`: enterprise enablement, exact templates,
   configuration snapshots and guarded Product Agent admission;
-- `agent-knowledge-context.md`: optional exact Knowledge context/citation/permit;
+- `domains/workbench/agent-knowledge-context.md`: optional exact Knowledge context/citation/permit;
 - `product-agent-runtime-contract.md`: AgentRun/checkpoint/budget/UNKNOWN ownership;
 - `domains/ai/product-agent-text-provider-neutral.md` / #580: current organization-only credentials,
   operator provisioning, per-organization title policies and compatible-protocol transport;

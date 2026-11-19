@@ -1,6 +1,6 @@
 # 当前企业知识库（#557 Slice A）
 
-依据 [冻结架构](../../../docs/architecture/agent-knowledge-context.md) 和 [#557](https://github.com/qq550723504/task-processor/issues/557)。
+依据 [冻结架构](../../../docs/architecture/domains/workbench/agent-knowledge-context.md) 和 [#557](https://github.com/qq550723504/task-processor/issues/557)。
 
 本切片交付企业知识库与资料管理：创建、改名、停用、上传、版本替换、处理状态和正文预览。
 每个知识库最多 4 份 ACTIVE 资料；TXT、Markdown 直接规范化，文本 PDF/DOCX 使用固定 Tika 4.0.0 提取。
@@ -77,7 +77,7 @@ docker compose -f deployments/docker/account-compose/docker-compose.yml -f deplo
 ## 原文件删除 V1 的启用条件
 
 默认关闭。仅在使用当前空安装 schema、已启用企业容量计量、已固定部署 ID 的专用非版本化 MinIO 实例中启用。
-当前 [#1103 架构](../../../docs/architecture/knowledge-original-file-deletion.md)定义资格、存储证明和续行合同。
+当前 [#1103 架构](../../../docs/architecture/domains/workbench/knowledge-original-file-deletion.md)定义资格、存储证明和续行合同。
 
 1. 由环境负责人核对桶及私有前缀无版本化、对象锁、保留、生命周期或复制路径。启用和未结操作期间固定原桶与部署身份，并限制同一前缀的写删身份。
 2. 停止旧 writer，撤销其写凭据，并用旧凭据确认 PUT 被拒绝。为支持当前协议的 writer 使用独立新凭据。为删除端创建单独身份并仅绑定 [V1 删除策略](knowledge-original-delete-policy.json)。

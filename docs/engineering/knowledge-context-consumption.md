@@ -1,6 +1,6 @@
 # Knowledge execution context and Product Agent consumer (#558 / #559)
 
-Design Basis: Reuse Existing Architecture, [approved contract](../architecture/agent-knowledge-context.md) / [#558](https://github.com/qq550723504/task-processor/issues/558).
+Design Basis: Reuse Existing Architecture, [approved contract](../architecture/domains/workbench/agent-knowledge-context.md) / [#558](https://github.com/qq550723504/task-processor/issues/558).
 
 The Knowledge owner supplies immutable execution context, exact revision citations
 and a local dispatch fence. #559 connects these existing ports to Product Agent,
