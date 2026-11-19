@@ -18,7 +18,7 @@
 
 - `domains/workbench/scheduled-plan-deletion.md` — [定时计划删除](domains/workbench/scheduled-plan-deletion.md)；#1288，保留结果与在途任务的列表移除；独立检查 IMPLEMENTATION_READY，沿用计划控制与恢复。
 
-- `scheduled-store-daily-report.md` — [定时生成单店经营日报](scheduled-store-daily-report.md)；#1279 独立架构及恢复增量复核 IMPLEMENTATION_READY；仅设计、未实现，不开放模型或平台发布。
+- `domains/workbench/scheduled-store-daily-report.md` — [定时生成单店经营日报](domains/workbench/scheduled-store-daily-report.md)；#1279 独立架构及恢复增量复核 IMPLEMENTATION_READY；设计与后续实施记录；#1279 记录原实例单次实测，不代表实时完整数据或用户签收，不开放模型或平台发布。
 
 - `research-supplier-review-v1.md` · [单候选人工核对已保存 1688 货源](research-supplier-review-v1.md) · #1074 独立设计候选，Admission NOT_READY。
 - `research-manual-cost-preview-v1.md` · [单候选人工费用参考试算](research-manual-cost-preview-v1.md) · #1074 独立设计候选。
@@ -285,7 +285,7 @@
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
 - `domains/workbench/ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](domains/workbench/ai-workbench-conversation-runtime.md)
 - `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
-- `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
+- `domains/workbench/ai-workbench-reports.md` — [AI工作台个人报告 v1](domains/workbench/ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
 - `domains/workbench/chat-selected-product-context.md` — [Chat 规划读取已选商品资料](domains/workbench/chat-selected-product-context.md)
 - `ai-workbench-scheduled-tasks.md` — [AI 工作台预约与周期任务 V1：架构合同](ai-workbench-scheduled-tasks.md) · #1244 IMPLEMENTATION_READY；实现候选、原 owner 接线和隔离验证见 §9 / PR #1245，真实 provider、部署与用户验收 NOT_RUN。

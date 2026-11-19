@@ -17,7 +17,7 @@ Execution: [#628](https://github.com/henryxu1008/shuomi-ai-commerce/issues/628)�
 
 依据：
 
-- 用户本轮原范围决定与 design-only 授权；[原个人报告冻结基线](../../ai-workbench-reports.md)的个人/当前企业、手动保存、只读历史、原键和收藏合同。
+- 用户本轮原范围决定与 design-only 授权；[原个人报告冻结基线](ai-workbench-reports.md)的个人/当前企业、手动保存、只读历史、原键和收藏合同。
 - [我的供应链 SHEIN](../../my-supply-chain-shein.md) §3：DRAFT-S1 业务能力可复用，隔离单库 constructor 不能照搬正常独立库组合。
 - [全新系统基线](../../../product/greenfield-no-legacy-migration.md)、[当前系统边界](../../../product/greenfield-no-legacy-migration.md)、[当前 UI / IA 权威](../../../product/final-ui-ia-authority.md)。
 - 原报告 Figma 权威：`tg48P46SSXl6TBy9lZwg63` / `31:463`，总览 `427:5695`/`427:5900`、最近 `662:481`/`662:641`、收藏 `579:4677`/`579:4900`、全部 `579:5123`/`579:5346`。沿用原已查阅依据；本轮未重读 Figma，不宣称新视觉验收。
