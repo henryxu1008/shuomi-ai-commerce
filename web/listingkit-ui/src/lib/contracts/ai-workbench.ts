@@ -33,6 +33,7 @@ const storeOverview = z.strictObject({total:z.number().int().nonnegative().safe(
 const message = z.object({
   ID: id, ConversationID: id, Sequence: z.number().int().positive(),
   textSkillVersion: z.number().int().positive().optional(),
+  imageCount: z.number().int().min(1).max(4).optional(),
   Author: z.enum(["USER", "ASSISTANT"]), Content: z.string(), CreatedAt: timestamp,
   kind:z.enum(["TEXT","STORE_OVERVIEW_REF","AGENT_SKILL_REF"]).optional(),turnKey:id.optional(),storeQueryStatus:z.enum(["ALL_NON_DELETED","ACTIVE"]).optional(),currentStoreOverview:storeOverview.optional(),storeOverviewUnavailable:z.boolean().optional(),
 }).superRefine((m,ctx)=>{if((m.kind==="AGENT_SKILL_REF")!==(!!m.turnKey)||m.kind==="AGENT_SKILL_REF"&&(m.Author!=="ASSISTANT"||m.Content!=="技能草稿"))ctx.addIssue({code:"custom",message:"Invalid skill reference"});if(m.kind==="STORE_OVERVIEW_REF"){if(m.Author!=="ASSISTANT"||m.Content!=="店铺概况"||!m.storeQueryStatus||Boolean(m.currentStoreOverview)===Boolean(m.storeOverviewUnavailable))ctx.addIssue({code:"custom",message:"Invalid store reference"});}else if(m.storeQueryStatus||m.currentStoreOverview||m.storeOverviewUnavailable)ctx.addIssue({code:"custom",message:"Unexpected store projection"});});
@@ -125,6 +126,15 @@ export const aiTitleSkillDraft = z.strictObject({
 const aiChatSkillReference=z.strictObject({version:z.union([z.literal(1),z.literal(2)]),digest:z.string().regex(/^[a-f0-9]{64}$/)});
 const aiChatSkillRevisionSnapshot=z.strictObject({root:id,baseRevision:id,snapshot:aiTitleSkillDraft});
 export const aiChatSkillRevision=z.strictObject({skill:aiChatSkillReference.extend({version:z.literal(2)}),revision:aiChatSkillRevisionSnapshot});
+export const maximumChatImages = 4;
+export const maximumChatImageBytes = 768 * 1024;
+export const maximumChatImagesTotal = 2 * 1024 * 1024;
+export const maximumChatImageWire = 3 * 1024 * 1024;
+const base64Bytes=(value:string)=>value.length*3/4-(value.endsWith("==")?2:value.endsWith("=")?1:0);
+const encodedChatImage=z.string().min(4).max(4*Math.ceil(maximumChatImageBytes/3))
+  .refine(value=>value.length%4===0&&/^[a-zA-Z0-9+/]+={0,2}$/.test(value)&&base64Bytes(value)<=maximumChatImageBytes);
+export const aiChatImageBody=z.strictObject({content:aiTitleMessageBody.shape.content,images:z.array(encodedChatImage).min(1).max(maximumChatImages)})
+  .refine(value=>value.images.reduce((sum,image)=>sum+base64Bytes(image),0)<=maximumChatImagesTotal);
 export const aiChatTurnBody=z.strictObject({content:aiTitleMessageBody.shape.content,creatorOnly:z.literal(true).optional(),skill:aiChatSkillReference.optional(),revision:aiChatSkillRevisionSnapshot.optional()}).refine(value=>value.creatorOnly ? !value.skill&&!value.revision : !value.revision||value.skill?.version===2);
 export const aiAuthoringValidation = aiTitleSkillDraft.extend({skillVersion: z.literal(3).optional()});
 const authoringPreviewFields = {
@@ -168,6 +178,7 @@ const authoringCatalog = z.strictObject({
 
 const chatTurnResult=z.strictObject({state:z.enum(["PROCESSING","COMPLETE","FAILED","UNKNOWN","NOT_STARTED"]),kind:z.enum(["CREATE_TITLE_SKILL","STORE_OVERVIEW","PRODUCT_TASK","CLARIFY"]).optional(),skill:aiChatSkillReference.optional(),authoring:authoringJob.optional()}).refine(value=>value.state!=="COMPLETE" || value.kind!=="CREATE_TITLE_SKILL" || !!value.authoring?.draft);
 export type AIWorkbenchRoute = "conversation-list" | "conversation-create" | "conversation-read" | "conversation-metadata" |
+  "image-question-readiness" | "image-question-submit" | "image-question-attachment" |
   "chat-turn-submit" | "chat-turn-read" | "chat-turn-recover" | "scope-options" | "task-scope-options" | "subject-read" | "message" | "store-route" | "store-overview" | "confirm" | "task-list" | "task-cockpit-metrics" | "task-read" | "task-start" | "task-resume" | "task-review" |
   "schedule-availability"|"schedule-list"|"schedule-read"|"schedule-history"|"schedule-quote"|"schedule-create"|"schedule-edit"|"schedule-pause"|"schedule-resume"|"schedule-close"|"schedule-delete" |
   "skill-authoring-catalog" | "skill-authoring-list" | "skill-authoring-quote" | "skill-authoring-preview" | "skill-authoring-confirm" |
@@ -189,7 +200,11 @@ export function aiWorkbenchPath(method: string, path: string[]): AIWorkbenchRout
     if (path.length === 2) return method === "GET" ? "conversation-list" : method === "POST" ? "conversation-create" : null;
     if (path.length === 3 && path[2] === "scopes" && method === "GET") return "scope-options";
     if (path.length === 3 && path[2] === "skill-authoring" && method === "GET") return "skill-authoring-catalog";
+    if (path.length === 3 && path[2] === "image-questions" && method === "GET") return "image-question-readiness";
     if (!isAcquisitionUUID(path[2] ?? "")) return null;
+    if (path.length===4 && path[3]==="image-questions" && method==="POST") return "image-question-submit";
+    if (path.length===7 && path[3]==="messages" && isAcquisitionUUID(path[4]??"") && path[5]==="images" &&
+        /^[0-3]$/.test(path[6]??"") && method==="GET") return "image-question-attachment";
     if(path[3]==="turns"){
       if(path.length===4&&method==="POST")return "chat-turn-submit";
       if(!isAcquisitionUUID(path[4]??""))return null;
@@ -262,6 +277,10 @@ export const aiResponseSchemas = {
     "conversation-create": z.object({ conversation, replay: z.boolean() }),
     "conversation-read": z.object({ conversation, messages: z.array(message), proposals: z.array(proposal), before: z.string(),scopeUnavailable:z.boolean().optional() }),
     "conversation-metadata": z.object({ conversation }),
+    "image-question-readiness": z.strictObject({available:z.boolean()}),
+    "image-question-submit": z.strictObject({state:z.enum(["READY_TO_DISPATCH","COMPLETE","FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT","PLANNER_UNKNOWN"]),
+      userMessageId:id, sourceSequence:z.number().int().positive(), assistantMessageId:z.string()}),
+    "image-question-attachment": z.never(),
     message: z.object({ state: z.enum(["READY_TO_DISPATCH", "COMPLETE", "FAILED_BEFORE_DISPATCH", "PLANNER_INVALID_OUTPUT", "PLANNER_UNKNOWN"]),
       userMessageId: id.optional(), sourceSequence: z.number().int().positive().optional(), assistantMessageId: z.string().optional(), proposalId: z.string().optional(), proposal: proposal.optional(),scopeUnavailable:z.boolean().optional() }),
     "store-route":z.object({state:z.enum(["COMPLETE","ROUTING_RESULT_LOST","FAILED_BEFORE_DISPATCH","PLANNER_INVALID_OUTPUT"])}),

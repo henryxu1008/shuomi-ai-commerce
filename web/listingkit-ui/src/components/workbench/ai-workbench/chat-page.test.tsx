@@ -205,7 +205,7 @@ it("inserts final speech at the current caret without losing edits or sending a 
     const beforeLate = input.value;
     act(() => instance?.onresult?.({resultIndex:3,results:[result,large,result,result]}));
     expect(input.value).toBe(beforeLate);
-    expect(fixture.request.mock.calls.every(([value]) => value.route === "scope-options")).toBe(true);
+    expect(fixture.request.mock.calls.every(([value]) => ["scope-options","image-question-readiness"].includes(value.route))).toBe(true);
   } finally { cleanup(); vi.unstubAllGlobals(); }
 });
 
@@ -223,7 +223,7 @@ it("fills an example into the local draft without submitting and keeps existing 
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await waitFor(() => expect(screen.getByLabelText("需求")).toHaveValue("保留我补充的需求"));
   expect(screen.queryByRole("button", { name: /整理商品内容/ })).toBeNull();
-  expect(fixture.request.mock.calls.every(([request]) => request.route === "scope-options")).toBe(true);
+  expect(fixture.request.mock.calls.every(([request]) => ["scope-options","image-question-readiness"].includes(request.route))).toBe(true);
 });
 
 it("accepts a local draft before creating a general conversation without sending a message", async () => {
@@ -234,10 +234,10 @@ it("accepts a local draft before creating a general conversation without sending
   fireEvent.change(screen.getByLabelText("需求"), { target: { value: "请整理商品描述" } });
   await waitFor(() => expect(screen.getByRole("button", { name: "开始对话" })).toBeEnabled());
   expect(screen.queryByLabelText("范围类型")).toBeNull();
-  expect(fixture.request.mock.calls.every(([input]) => input.route === "scope-options")).toBe(true);
+  expect(fixture.request.mock.calls.every(([input]) => ["scope-options","image-question-readiness"].includes(input.route))).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "开始对话" }));
   await waitFor(() => expect(fixture.push).toHaveBeenCalled());
-  expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
+  expect(fixture.request.mock.calls.map(([input]) => input.route).filter(route=>route!=="image-question-readiness")).toEqual(["scope-options", "conversation-create"]);
 });
 
 it("carries a selected store into the same new conversation without sending or querying business data",async()=>{
@@ -255,10 +255,10 @@ it("carries a selected store into the same new conversation without sending or q
   fireEvent.change(screen.getByLabelText("需求"),{target:{value:"请处理这家店"}});
   fireEvent.click(screen.getByRole("button",{name:"选择店铺"}));fireEvent.click(await screen.findByRole("button",{name:"测试店铺"}));
   expect(screen.getByLabelText("需求")).toHaveValue("请处理这家店");
-  expect(fixture.request.mock.calls.every(([v])=>v.route==="scope-options")).toBe(true);
+  expect(fixture.request.mock.calls.every(([v])=>["scope-options","image-question-readiness"].includes(v.route))).toBe(true);
   fireEvent.click(screen.getByRole("button",{name:"开始对话"}));await waitFor(()=>expect(fixture.push).toHaveBeenCalled());
   expect(JSON.parse(sessionStorage.getItem(`ai-workbench:store-choice:${JSON.stringify(["user-a","org-a",`conversation:${conversationId}`])}`)!)).toEqual({kind:"store",storeId,scopeConfirmation:confirmation,connectionVersion:2});
-  expect(fixture.request.mock.calls.every(([v])=>v.route==="scope-options"||v.route==="conversation-create")).toBe(true);
+  expect(fixture.request.mock.calls.every(([v])=>["scope-options","image-question-readiness"].includes(v.route)||v.route==="conversation-create")).toBe(true);
 });
 
 it("restores the unsent input after an unknown create and hands it to the same conversation", async () => {
@@ -577,16 +577,16 @@ it("keeps new conversation creation separate from the history list", async () =>
   expect(screen.queryByText(/开始商品任务会话/)).not.toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "会话列表" })).toBeNull();
   await selectGeneralScope();
-  expect(fixture.request.mock.calls.every(([input])=>input.route === "scope-options")).toBe(true);
+  expect(fixture.request.mock.calls.every(([input])=>["scope-options","image-question-readiness"].includes(input.route))).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "新建会话" }));
   await waitFor(() => expect(fixture.push).toHaveBeenCalled());
-  expect(fixture.request.mock.calls.map(([input]) => input.route)).toEqual(["scope-options", "conversation-create"]);
+  expect(fixture.request.mock.calls.map(([input]) => input.route).filter(route=>route!=="image-question-readiness")).toEqual(["scope-options", "conversation-create"]);
   expect(fixture.request.mock.calls.at(-1)?.[0].body).toEqual({scopeSelection:{kind:"general"},scopeConfirmation});
 });
 
 it("unlocks selection after proof that an unavailable scope never created a conversation", async () => {
   const post = vi.fn().mockRejectedValueOnce(new AIWorkbenchError("NOT_FOUND", undefined, false)).mockResolvedValue({conversation});
-  fixture.request.mockImplementation(async input => input.route === "scope-options" ? scopeOptions : post(input));
+  fixture.request.mockImplementation(async input => ["scope-options","image-question-readiness"].includes(input.route) ? scopeOptions : post(input));
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await selectGeneralScope();
   fireEvent.click(screen.getByRole("button",{name:"新建会话"}));
@@ -600,7 +600,7 @@ it("unlocks selection after proof that an unavailable scope never created a conv
 
 it("keeps the exact create payload when the outcome is unknown", async () => {
   const post = vi.fn().mockRejectedValueOnce(new AIWorkbenchError("OUTCOME_UNKNOWN")).mockResolvedValue({conversation});
-  fixture.request.mockImplementation(async input => input.route === "scope-options" ? scopeOptions : post(input));
+  fixture.request.mockImplementation(async input => ["scope-options","image-question-readiness"].includes(input.route) ? scopeOptions : post(input));
   render(<QueryClientProvider client={client}><ChatPage mode="new" /></QueryClientProvider>);
   await selectGeneralScope();
   fireEvent.click(screen.getByRole("button",{name:"新建会话"}));

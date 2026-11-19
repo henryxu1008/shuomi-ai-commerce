@@ -27,6 +27,7 @@ import (
 )
 
 type AIWorkbenchDependencies struct {
+	ChatImages             *ChatImageStorage
 	Search                 *websearch.Service
 	ChatTurnsEnabled       bool
 	StoreDailyReports      bool
@@ -45,6 +46,7 @@ type AIWorkbenchDependencies struct {
 }
 
 type aiWorkbenchApplication struct {
+	chatImages             *ChatImageStorage
 	search                 *websearch.Service
 	chatTurnsEnabled       bool
 	authoring              *workbenchSkillAuthoring
@@ -256,6 +258,7 @@ func buildAIWorkbenchApplication(ctx context.Context, cfg AIWorkbenchDependencie
 		executor: executor, selectTitleProfile: a.selectTitleProfile,
 	}}}
 	app := &aiWorkbenchApplication{search: cfg.Search, chatTurnsEnabled: cfg.ChatTurnsEnabled, store: store, agent: a, plan: planner, allowedOrganizationIDs: append([]string(nil), cfg.AllowedOrganizationIDs...)}
+	app.chatImages = cfg.ChatImages
 	app.dailyReportsEnabled = cfg.StoreDailyReports
 	app.resolver, app.authorizer = cfg.resolver, cfg.authorizer
 	storeRouteAllowed := make(map[string]bool, len(cfg.StoreRouteTextPolicies))
@@ -288,6 +291,9 @@ func (p *workbenchPlanner) Admission(ctx context.Context, scope aiworkbench.Scop
 	}
 	if input.TextSkill != nil {
 		return p.admitTextSkill(ctx, scope, c, input)
+	}
+	if len(input.ChatImages) != 0 {
+		return p.admitChatImages(ctx, scope, c, input)
 	}
 	if c.BusinessScope == nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) {
 		return nil, aiworkbench.ErrProposalStale
@@ -402,6 +408,9 @@ func (p *workbenchPlanner) Decide(ctx context.Context, command aiworkbench.Plann
 	}
 	if command.WorkScope.TextSkill != nil {
 		return p.replyWithTextSkill(ctx, command, history, profile)
+	}
+	if len(command.WorkScope.ChatImages) != 0 {
+		return p.replyWithChatImages(ctx, command, history, profile)
 	}
 	if p.agent == nil || p.agent.selectTitleProfile == nil || p.workbench != nil && p.agent.workbenchKind(aiworkbench.ContentTaskKind) && command.FrozenScope == nil {
 		return aiworkbench.PlanTerminal{}, governed.ErrNotDispatched
@@ -567,6 +576,10 @@ func (p *workbenchPlanner) buildProposal(ctx context.Context, c aiworkbench.Plan
 
 func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.PlanningCommand, callErr error) aiworkbench.PlanningState {
 	fact, err := p.agent.config.Ledger.ReadModelInvocation(ctx, c.Scope.OrganizationID, c.PlannerInvocationID)
+	operation := aicapability.OperationAIWorkbenchChatPlan
+	if len(c.WorkScope.ChatImages) != 0 {
+		operation = aicapability.OperationAIWorkbenchChatImages
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if errors.Is(callErr, governed.ErrNotDispatched) && !errors.Is(callErr, governed.ErrOutcomeUnknown) {
 			return aiworkbench.PlanningFailedBeforeDispatch
@@ -582,7 +595,7 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 	if err == nil && fact.BillingMode == aicapability.ModelUsageOnly &&
 		fact.InvocationID == c.PlannerInvocationID && fact.TenantID == c.Scope.OrganizationID &&
 		fact.UserID == c.Scope.ActorID && fact.MemberID == c.MemberID && fact.InputHash == c.InputHash &&
-		fact.Operation == aicapability.OperationAIWorkbenchChatPlan {
+		fact.Operation == operation {
 		if fact.NotSent() {
 			return aiworkbench.PlanningFailedBeforeDispatch
 		}
@@ -595,7 +608,7 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 	if errors.Is(callErr, governed.ErrNoDispatchReleased) && err == nil &&
 		fact.InvocationID == c.PlannerInvocationID && fact.TenantID == c.Scope.OrganizationID &&
 		fact.UserID == c.Scope.ActorID && fact.MemberID == c.MemberID && fact.InputHash == c.InputHash &&
-		fact.Operation == aicapability.OperationAIWorkbenchChatPlan && fact.Outcome == aicapability.InvocationFailed &&
+		fact.Operation == operation && fact.Outcome == aicapability.InvocationFailed &&
 		fact.UsageKnown && fact.EstimatedCostKnown && fact.PromptTokens == 0 && fact.CompletionTokens == 0 && fact.TotalTokens == 0 &&
 		(fact.ErrorCode == "reservation_failed_before_dispatch" || fact.ErrorCode == "rejected_before_dispatch") {
 		return aiworkbench.PlanningFailedBeforeDispatch
@@ -603,13 +616,13 @@ func (p *workbenchPlanner) FailureState(ctx context.Context, c aiworkbench.Plann
 	if errors.Is(callErr, governed.ErrObservedInvalidSettled) && err == nil &&
 		fact.InvocationID == c.PlannerInvocationID && fact.TenantID == c.Scope.OrganizationID &&
 		fact.UserID == c.Scope.ActorID && fact.MemberID == c.MemberID && fact.InputHash == c.InputHash &&
-		fact.Operation == aicapability.OperationAIWorkbenchChatPlan &&
+		fact.Operation == operation &&
 		fact.Outcome == aicapability.InvocationUsageObservedFailed &&
 		fact.ErrorCategory == aicapability.ErrorStructuredOutputInvalid &&
 		fact.UsageKnown && fact.EstimatedCostKnown && fact.TotalTokens > 0 {
 		return aiworkbench.PlanningInvalidOutput
 	}
-	if err == nil && fact.Operation == aicapability.OperationAIWorkbenchChatPlan &&
+	if err == nil && fact.Operation == operation &&
 		time.Now().Before(c.Deadline.Add(30*time.Second)) {
 		return aiworkbench.PlanningReadyToDispatch
 	}

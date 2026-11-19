@@ -99,7 +99,7 @@ func capabilityFor(operation aicapability.Operation) aicapability.Capability {
 	if operation == aicapability.OperationProductImageAnalysis {
 		return aicapability.CapabilityProductImageAnalysis
 	}
-	if operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationAIWorkbenchChatIntent || operation == aicapability.OperationAIWorkbenchSkillAuthoring {
+	if operation == aicapability.OperationAIWorkbenchChatPlan || operation == aicapability.OperationAIWorkbenchStoreRoute || operation == aicapability.OperationAIWorkbenchChatIntent || operation == aicapability.OperationAIWorkbenchSkillAuthoring || operation == aicapability.OperationAIWorkbenchChatImages {
 		return aicapability.CapabilityAIWorkbenchChatPlanning
 	}
 	return aicapability.CapabilityProductEnrichText
@@ -109,6 +109,8 @@ func capabilityFor(operation aicapability.Operation) aicapability.Capability {
 // a mutable alias to the quote's content description.
 func admissionMetadata(input aicapability.TextInputIdentity) aicapability.TextInputIdentity {
 	input.ImageContent = nil
+	input.ImageContents = nil
+	input.Images = append([]aicapability.SingleImageInput(nil), input.Images...)
 	if input.Image != nil {
 		image := *input.Image
 		input.Image = &image
@@ -181,6 +183,23 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 	} else if len(input.ImageContent) != 0 {
 		return TextOutput{}, ErrNotDispatched
 	}
+	if len(input.Images) != 0 {
+		if !aicapability.ValidChatImages(input.Images) || len(input.Images) != len(input.ImageContents) {
+			return TextOutput{}, ErrNotDispatched
+		}
+		input.Images = append([]aicapability.SingleImageInput(nil), input.Images...)
+		contents := make([][]byte, len(input.Images))
+		for index, image := range input.Images {
+			if len(input.ImageContents[index]) != image.ByteLength {
+				return TextOutput{}, ErrNotDispatched
+			}
+			contents[index] = append([]byte(nil), input.ImageContents[index]...)
+			if !validSingleImageContent(image, contents[index]) {
+				return TextOutput{}, ErrNotDispatched
+			}
+		}
+		input.ImageContents = contents
+	}
 	quote, err := aicapability.QuoteText(input)
 	if err != nil || quote != expected || input.InvocationID == "" || ctx == nil {
 		return TextOutput{}, ErrNotDispatched
@@ -243,6 +262,8 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 	}
 	if input.Image != nil {
 		guardCfg.SingleImage = &SingleImageRequest{Image: *input.Image, System: input.System, Prompt: input.Prompt}
+	} else if input.Operation == aicapability.OperationAIWorkbenchChatImages {
+		guardCfg.chatImages = &chatImageRequest{Images: input.Images, System: input.System, Prompt: input.Prompt}
 	} else if input.Operation == aicapability.OperationOwnProductIntake {
 		guardCfg.visionText = &boundVisionText{System: input.System, Prompt: input.Prompt}
 	}
@@ -344,6 +365,8 @@ func (e *Executor) GenerateWithGates(ctx context.Context, input aicapability.Tex
 			defer release()
 			if input.Image != nil {
 				output, generationErr = generateSingleImage(ctx, component, input, guard)
+			} else if len(input.Images) != 0 {
+				output, generationErr = generateChatImages(ctx, component, input, guard)
 			} else {
 				output, generationErr = GenerateText(ctx, component, input.System, input.Prompt, guard)
 			}

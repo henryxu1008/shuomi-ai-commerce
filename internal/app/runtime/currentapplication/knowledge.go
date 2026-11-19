@@ -64,15 +64,8 @@ func (c *Config) validateKnowledge() error {
 	if err := k.Storage.validateCapacityIdentity(); err != nil {
 		return err
 	}
-	if k.Storage.Endpoint != "" {
-		endpoint, err := url.Parse(k.Storage.Endpoint)
-		if err != nil || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Scheme != "https" && endpoint.Scheme != "http" {
-			return errors.New("knowledge requires a valid private object endpoint")
-		}
-		ip := net.ParseIP(endpoint.Hostname())
-		if endpoint.Scheme == "http" && !strings.EqualFold(endpoint.Hostname(), "knowledge-objects") && !strings.EqualFold(endpoint.Hostname(), "localhost") && (ip == nil || !ip.IsLoopback() && !ip.IsPrivate()) {
-			return errors.New("knowledge external object endpoint requires HTTPS")
-		}
+	if err := k.Storage.validatePrivateEndpoint("knowledge"); err != nil {
+		return err
 	}
 	u, err := url.Parse(k.ParserEndpoint)
 	if err != nil || u.Scheme != "http" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" && u.Path != "/" {
@@ -81,6 +74,22 @@ func (c *Config) validateKnowledge() error {
 	ip := net.ParseIP(u.Hostname())
 	if u.Hostname() != "knowledge-parser" && (ip == nil || !ip.IsLoopback() && !ip.IsPrivate()) {
 		return errors.New("knowledge parser must use loopback or private network")
+	}
+	return nil
+}
+
+func (s KnowledgeStorageConfig) validatePrivateEndpoint(consumer string) error {
+	if s.Endpoint == "" {
+		return nil
+	}
+	endpoint, err := url.Parse(s.Endpoint)
+	if err != nil || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Scheme != "https" && endpoint.Scheme != "http" {
+		return errors.New(consumer + " requires a valid private object endpoint")
+	}
+	host := endpoint.Hostname()
+	ip := net.ParseIP(host)
+	if endpoint.Scheme == "http" && !strings.EqualFold(host, "knowledge-objects") && !strings.EqualFold(host, "localhost") && (ip == nil || !ip.IsLoopback() && !ip.IsPrivate()) {
+		return errors.New(consumer + " external object endpoint requires HTTPS")
 	}
 	return nil
 }

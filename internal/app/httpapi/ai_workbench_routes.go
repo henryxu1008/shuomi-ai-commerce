@@ -384,6 +384,9 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 		timeout                          time.Duration
 	}
 	specs := []routeSpec{
+		{"GET", workbenchChatBase + "/image-questions", authz.PermissionWorkbenchChatUse, "image-question-readiness", 15 * time.Second},
+		{"POST", workbenchChatBase + "/:conversation_id/image-questions", authz.PermissionWorkbenchChatUse, "image-question-submit", 2 * time.Minute},
+		{"GET", workbenchChatBase + "/:conversation_id/messages/:message_id/images/:index", authz.PermissionWorkbenchChatRead, "image-question-attachment", 15 * time.Second},
 		{"GET", workbenchChatBase + "/:conversation_id/public-search", authz.PermissionWorkbenchChatRead, "public-search", 15 * time.Second},
 		{"GET", workbenchChatBase + "/:conversation_id/public-search/:key", authz.PermissionWorkbenchChatRead, "public-search", 15 * time.Second},
 		{"POST", workbenchChatBase + "/:conversation_id/public-search", authz.PermissionWorkbenchChatUse, "public-search", 25 * time.Second},
@@ -444,6 +447,12 @@ func aiWorkbenchRoutes(a *aiWorkbenchApplication) []httproute.Descriptor {
 					return
 				}
 				switch spec.action {
+				case "image-question-readiness":
+					a.chatImageReadiness(c, ctx, scope)
+				case "image-question-submit":
+					a.postChatImages(c, ctx, scope)
+				case "image-question-attachment":
+					a.readChatImage(c, ctx, scope)
 				case "public-search":
 					a.publicSearch(c, ctx, scope)
 				case "chat-turn-submit", "chat-turn-read", "chat-turn-recover":

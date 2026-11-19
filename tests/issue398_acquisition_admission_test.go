@@ -70,6 +70,7 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 			"internal/app/productsourcing/source_media.go": {"InspectGeneratedArtifact", "ValidatePublicHTTPSURL"},
 		}},
 		{"internal/app/runtime/currentapplication", issue605SourceStorage, map[string][]string{
+			"internal/app/runtime/currentapplication/chat_image_storage.go":   {"Uploader", "ResolveCapacityNamespace", "VerifyEmptyCapacityPrefix", "NewKnowledgeClient", "NewUploaderWithOptions", "UploaderOptions", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
 			"internal/app/runtime/currentapplication/source_media_storage.go": {"NewClient", "ClientConfig", "NewUploaderWithOptions", "UploaderOptions", "ArtifactStorageCapabilities", "ArtifactStorageMode"},
 			// #659 admits namespace verification. #1103 admits only construction of the
 			// Knowledge deletion adapter in this composition file.
@@ -247,6 +248,8 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"official exact validator", "internal/integration/shein/official_goods.go", issue398HTTP, "ValidatePublicHTTPSURL", true},
 		{"official sibling", "internal/integration/shein/other.go", issue398HTTP, "ValidatePublicHTTPSURL", false},
 		{"storage current constructor", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "NewUploaderWithOptions", true},
+		{"chat private constructor", "internal/app/runtime/currentapplication/chat_image_storage.go", issue605SourceStorage, "NewUploaderWithOptions", true},
+		{"chat uses no public URL", "internal/app/runtime/currentapplication/chat_image_storage.go", issue605SourceStorage, "PublicURL", false},
 		{"storage sibling", "internal/app/runtime/currentapplication/other.go", issue605SourceStorage, "NewUploaderWithOptions", false},
 		{"storage unadmitted API", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "Upload", false},
 		{"capacity exact namespace identity", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "ResolveCapacityNamespace", true},

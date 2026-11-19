@@ -36,6 +36,11 @@ func (m MessageInput) ValidSelection() bool {
 	if !m.StoreChoice.Valid() {
 		return false
 	}
+	if m.ChatImages != nil {
+		return ValidChatImageSelection(m.ChatImages) && m.TextSkill == nil && m.TaskSelection == nil &&
+			m.StoreChoice == nil && m.OperationID == "" && m.TargetPlatform == "" &&
+			m.TemplateID == "" && m.TemplateRevision == "" && m.KnowledgeBaseID == ""
+	}
 	if m.TextSkill != nil {
 		return agent.ValidID(m.TextSkill.ID) && m.TextSkill.Version > 0 && m.TextSkill.Version < 1<<63 && len(m.TextSkill.Digest) == 64 &&
 			m.TaskSelection == nil && m.OperationID == "" && m.TargetPlatform == "" && m.TemplateID == "" && m.TemplateRevision == "" &&

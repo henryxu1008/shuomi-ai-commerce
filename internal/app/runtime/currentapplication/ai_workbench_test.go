@@ -96,6 +96,49 @@ func TestAIWorkbenchRejectsSharedProductAgentRuntimeRole(t *testing.T) {
 	}
 }
 
+func TestChatImageStorageRequiresHTTPSOutsidePrivateNetwork(t *testing.T) {
+	cfg := agentRuntimeConfig()
+	cfg.ProductCollections = true
+	cfg.StorageCapacity = true
+	cfg.ModelRoutePricing = &ModelRoutePricingConfig{}
+	planning := cfg.ProductAgent.TextPolicies["org"]
+	planning.Profile.PromptVersion = "ai-workbench-chat-plan-v3"
+	planning.Profile.OutputSchemaVersion = "ai-workbench-plan-decision-v1"
+	planning.Profile.MaximumCompletionTokens = 4096
+	planning.Profile.MaximumInputBytes = 128 << 10
+	planning.Profile.MaximumOutputBytes = 16 << 10
+	cfg.ProductAgent.ContentTextPolicies = cfg.ProductAgent.TextPolicies
+	w := &AIWorkbenchConfig{
+		Enabled:                true,
+		ContentTasks:           true,
+		Database:               cfg.ProductAgent.Database,
+		AllowedOrganizationIDs: []string{"org"},
+		PlanningTextPolicies:   map[string]governed.RoutePolicy{"org": planning},
+		ChatImageStorage: &KnowledgeStorageConfig{
+			Region: "local", Bucket: "chat-images", Mode: "aws",
+			AccessKeyID: "isolated-access", SecretAccessKey: "isolated-secret",
+		},
+	}
+	w.Database.User = "ai_workbench_runtime"
+	for _, tc := range []struct {
+		endpoint string
+		allowed  bool
+	}{
+		{"http://objects.example.com:9000", false},
+		{"https://objects.example.com", true},
+		{"http://127.0.0.1:9000", true},
+		{"http://knowledge-objects:9000", true},
+		{"", true},
+	} {
+		t.Run(tc.endpoint, func(t *testing.T) {
+			w.ChatImageStorage.Endpoint = tc.endpoint
+			if err := w.validate(cfg); (err == nil) != tc.allowed {
+				t.Fatalf("endpoint allowed = %t, want %t (error: %v)", err == nil, tc.allowed, err)
+			}
+		})
+	}
+}
+
 func TestScheduledWorkbenchRequiresExplicitExecutionAndTemporal(t *testing.T) {
 	cfg := agentRuntimeConfig()
 	cfg.Identity.TenantDirectoryToken = "fixture-service-token"

@@ -146,6 +146,11 @@ func (a *aiWorkbenchApplication) getConversation(c *gin.Context, ctx context.Con
 	identity, _ := authidentity.AuthenticatedIdentityFromContext(ctx)
 	for index := range messages {
 		message := &messages[index]
+		if a.chatImages.available() && message.Author == aiworkbench.AuthorUser {
+			if command, err := a.store.ChatImageCommand(ctx, scope, id, message.ID, identity.EffectiveMemberID); err == nil {
+				message.ImageCount = len(command.WorkScope.ChatImages)
+			}
+		}
 		if message.Author != aiworkbench.AuthorAssistant || message.Kind == "STORE_OVERVIEW_REF" || message.Kind == "AGENT_SKILL_REF" {
 			continue
 		}
