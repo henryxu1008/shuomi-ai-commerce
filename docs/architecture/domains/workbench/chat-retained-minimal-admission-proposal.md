@@ -1,5 +1,11 @@
 # 原 35444 Chat 接线：开发试用的最小准入（待独立评审）
 
+> 2026-11-18 文档归类说明：保留 proposal 文件名、原标题和完整正文；标题“待独立评审”是历史阶段标签，正文的 IMPLEMENTATION_READY 及 [#1261 最新决定](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1261)记录了独立准入/增量复核。本文是[原正式入口设计](../../chat-35444-retained-wiring-design.md)的局部后续决定，不恢复已替代的无关 owner 每次全量备份恢复要求，也不推广为生产升级或一般旧数据迁移许可。
+>
+> [PR #1263](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1263)记录原 35444 已按当次授权完成事务接线并启动合并版，原调用及 15.445282 点预留保持，未调用真实模型、未释放预留；其记录中的浏览器登录/操作验证仍进行中，不将代码合并或启动当作产品验收。本次未重新核查现场，不把原金额/状态快照当成今天事实。
+>
+> 当前显式入口位于 `cmd/ai-workbench-retained-prepare`，原 `internal/integration/persistence/aiworkbench` 承担同连接事务及目标检查。入口仅通过原 recovery owner 的 inspect 只读核对准确调用/预留，必须仍为 dispatched 且 reserved、未结算；终态与预留不一致仍拒绝，不提供跨库原子保证。维护窗口冻结持续到启动后的首次扫描和只读复核。本文迁移不执行维护、解冻、恢复/核销或真实调用，不改变任何授权。
+
 状态：`IMPLEMENTATION_READY`。独立架构复核发现的原调用终态与预留不一致阻塞项已通过增量复核；不得绕过入口，本状态不证明原实例已更新。
 
 ## 用户结果与范围
