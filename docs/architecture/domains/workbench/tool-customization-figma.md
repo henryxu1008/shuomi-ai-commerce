@@ -1,5 +1,7 @@
 # 工具定制完整 Figma 表单与私有参考资料
 
+> 归类说明（2026-11-19）：文件名与下文 Figma 对齐要求保留 2026-10-16 的设计来源；Figma 现仅作业务流程参考，不是当前视觉/布局权威。[#730](https://github.com/henryxu1008/shuomi-ai-commerce/issues/730) 已记录 #732 合并、完整表单/私有附件等工程范围验收及授权关闭，并记录后续单独授权原 35444 更新的历史回执；原设计“不部署”不抹除该后续有界授权。当前实例及未重读材料仍不能由旧回执证明，真实业务提交、联系/付款/provider 与用户产品验收保持原未执行边界。本次按工作台用户入口归类，事实 owner 仍是 toolmarket，不转给 aiworkbench；联系同意、企业/平台权限、同事务附件和原 scope/key UNKNOWN 恢复均不变。不执行提交、联系、下载真实附件、部署或数据操作。
+
 Status: IMPLEMENTATION_READY. Design Basis: Independent Architecture. Execution: #730.
 
 2026-10-16 独立只读 Architecture Review 确认设计 commit 0de8660e8 / blob f27ef4128e21baaf052b3d6feccd1beb5c762ba2 无架构 BLOCKER，私有下载和原scope/key大载荷恢复边界可实施；具体实现与故障验证在原批次收敛，不新增全局机制。
@@ -8,7 +10,7 @@ Status: IMPLEMENTATION_READY. Design Basis: Independent Architecture. Execution:
 
 2026-10-16 用户先要求工具市场所有页面对齐 Figma，随后明确撤回“三字段流程，其余列为差异”的选择，要求直接完整对齐。当前决定替代 #730 原轻量展示范围：用户可填写名称、使用场景、类型、执行规则、可选参考资料、联系人、手机或微信，并明确同意专员联系；提交后刷新可见全部原始需求及下载资料。原企业启用、实际采集及人工进度继续使用现有 owner。
 
-Figma Product Authority：[final-ui-ia-authority](../product/final-ui-ia-authority.md)，文件 tg48P46SSXl6TBy9lZwg63 / page31:463；首页404:1639/411:1898、官方430:3479/3678、我的430:5511/5710、介绍430:4495/4694、提交6395:437/694、进度6395:951/1159，本会话已实时读取高保真上下文和截图。使用场景原型未规定选项，沿现有智能体定制使用必填自由文本，不发明业务枚举。提交表单和需求列表/详情的四种类型显示数据采集、系统连接、自动化流程、其他；原 OUTPUT 在这些需求视图中显示为“其他”，不新增执行能力。定制介绍页的能力说明卡按430:4495/4694保留“输出与权限”，与6395:437/694提交表单的“其他”分别遵循各自Figma节点。
+Figma Product Authority：[final-ui-ia-authority](../../../product/final-ui-ia-authority.md)，文件 tg48P46SSXl6TBy9lZwg63 / page31:463；首页404:1639/411:1898、官方430:3479/3678、我的430:5511/5710、介绍430:4495/4694、提交6395:437/694、进度6395:951/1159，本会话已实时读取高保真上下文和截图。使用场景原型未规定选项，沿现有智能体定制使用必填自由文本，不发明业务枚举。提交表单和需求列表/详情的四种类型显示数据采集、系统连接、自动化流程、其他；原 OUTPUT 在这些需求视图中显示为“其他”，不新增执行能力。定制介绍页的能力说明卡按430:4495/4694保留“输出与权限”，与6395:437/694提交表单的“其他”分别遵循各自Figma节点。
 
 Must：完整表单真实保存、原样回读；显式联系同意默认不勾选；可选资料持久化并受同一企业/平台权限下载；提交/附件/初始事件/回执原子写入；未知结果保留原键和原载荷，不能生成第二需求；阶段与记录沿已有工具合同，不因示例伪造付款/验收/安装。
 
@@ -16,7 +18,7 @@ Out of scope：自动联系、邮件/SMS发送、在线支付/报价owner、自�
 
 ## Existing capabilities, owner and implementation path
 
-复用 [tool-market-v1](tool-market.md) 的 toolmarket owner、GORM/PostgreSQL单事务、命令原键/强revision和CachedRead/LiveWrite授权；复用 [agent-customization-v1](domains/ai/agent-customization.md) 已有同意、2MiB参考资料/bytea单事务下载及大载荷pending的有界实现模式。文件类型用 Go net/http.DetectContentType 标准库；严格JSON沿 sigs.k8s.io/json、浏览器Zod。无需新Agent工具、通用工单/上传平台或第二事实owner。
+复用 [tool-market-v1](../../tool-market.md) 的 toolmarket owner、GORM/PostgreSQL单事务、命令原键/强revision和CachedRead/LiveWrite授权；复用 [agent-customization-v1](../ai/agent-customization.md) 已有同意、2MiB参考资料/bytea单事务下载及大载荷pending的有界实现模式。文件类型用 Go net/http.DetectContentType 标准库；严格JSON沿 sigs.k8s.io/json、浏览器Zod。无需新Agent工具、通用工单/上传平台或第二事实owner。
 
 contract → implementation → injection → consumer：
 toolmarket Demand/Attachment/Repository.Download → integration/persistence/toolmarket 同库PG → 已有 Handler/BuildRoutes/current application注入 → 已有 /api/tool-market BFF → 工具提交、企业详情、专员详情。

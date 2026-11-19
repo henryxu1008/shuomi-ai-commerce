@@ -12,7 +12,7 @@ or replace retained instances. The serving role is `tool_market_runtime`, with
 CONNECT, schema USAGE, SELECT/INSERT/UPDATE on activations, requests and commands,
 and SELECT/INSERT on events and attachments. It has no schema CREATE or owner membership.
 The complete Figma form uses the current fresh schema with scenario/contact/consent
-columns and the private attachments table; see [#730 Design Basis](../../architecture/tool-customization-figma.md).
+columns and the private attachments table; see [#730 Design Basis](../../architecture/domains/workbench/tool-customization-figma.md).
 Grant only SELECT/INSERT on attachments, with no UPDATE/DELETE/TRUNCATE. VerifySchema
 rejects an installation missing these columns or this table. Do not upgrade or reset
 a retained database by running the initializer; this delivery validates a new isolated database.
