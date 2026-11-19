@@ -21,7 +21,7 @@
 
 **非范围**：任意 Agent/Prompt/Tool 的自动授权；市场、店铺新取数和连接器；外部上架、采购、付款或自动 Apply；新模型／新报告 owner；邮件／短信等通用通知；第二调度器或通用规则平台；历史数据迁移或 legacy 兼容。Chat 的自然语言日期语义解析仅能生成**候选**，不承担执行授权，属于可延期增强。
 
-批准依据：用户对 #1244 的需求与本次开始实现的明确意图；现有 `ai-workbench-chat-business-task.md`、`ai-workbench-work-scope.md`、`product-content-localization.md`、`product-agent-runtime-contract.md`、`platform/runtime/temporal-boundaries.md`、`project-boundaries.md`、`organization-agent-configuration.md`；仓库现行 `AGENTS.md` 覆盖旧 Figma UI/IA 权威描述。Figma 仅供理解业务流程。
+批准依据：用户对 #1244 的需求与本次开始实现的明确意图；现有 `ai-workbench-chat-business-task.md`、`ai-workbench-work-scope.md`、`domains/catalog/product-content-localization.md`、`product-agent-runtime-contract.md`、`platform/runtime/temporal-boundaries.md`、`project-boundaries.md`、`organization-agent-configuration.md`；仓库现行 `AGENTS.md` 覆盖旧 Figma UI/IA 权威描述。Figma 仅供理解业务流程。
 
 ## 2. 现状与缺口
 

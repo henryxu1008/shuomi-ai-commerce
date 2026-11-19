@@ -39,8 +39,8 @@
 
 - `installation-and-module-management.md` — [首次安装向导与现有实例模块管理](installation-and-module-management.md) · #1240 统一设计；独立评审、实施与运行证据见PR #1241。
 - `installation-failure-recovery.md` — [安装失败说明、归档与安全重试](installation-failure-recovery.md) · #1240 最小恢复增量；独立R1通过、IMPLEMENTATION_READY，实施及真实恢复另行授权。
-- `chat-35444-retained-wiring-design.md` — [35444 保留库店铺查询接线设计](chat-35444-retained-wiring-design.md) · 独立架构评审 IMPLEMENTATION_READY；实施仅限获准的保留实例及其隔离副本，原实例更新仍需单独放行。
-- `chat-retained-minimal-admission-proposal.md` — [原 35444 Chat 接线的开发试用最小准入](chat-retained-minimal-admission-proposal.md) · 新用户决定及独立架构复核；复用已有证据，保留目标、数据、权限和原预留保护。
+- `domains/workbench/chat-35444-retained-wiring-design.md` — [35444 保留库店铺查询接线设计](domains/workbench/chat-35444-retained-wiring-design.md) · 独立架构评审 IMPLEMENTATION_READY；实施仅限获准的保留实例及其隔离副本，原实例更新仍需单独放行。
+- `domains/workbench/chat-retained-minimal-admission-proposal.md` — [原 35444 Chat 接线的开发试用最小准入](domains/workbench/chat-retained-minimal-admission-proposal.md) · 新用户决定及独立架构复核；复用已有证据，保留目标、数据、权限和原预留保护。
 - `chat-retained-1260-trial.md` — [保留试用实例隔离接线方案](chat-retained-1260-trial.md) · 隔离演练依据；不构成原实例更新授权。
 
 - `retained-startup-prerequisites.md` — [保留实例启动前置：OwnIntake v3 与采集价格快照](retained-startup-prerequisites.md) · #1233 最小方案独立R1通过，IMPLEMENTATION_READY / FROZEN；实施义务未执行，不授权原35444操作。
@@ -87,7 +87,7 @@
 - `member-resource-allocation.md` — [Member resources and official store connection v1](member-resource-allocation.md)
 - `minio-capacity-admission.md` — [本地 MinIO 企业容量身份准入 V1](minio-capacity-admission.md)
 - `model-route-pricing-management.md` — [模型与费率管理 V1](model-route-pricing-management.md)
-- `own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](own-intake-provider-unbilled-recovery.md)
+- `domains/catalog/own-intake-provider-unbilled-recovery.md` — [#1165 供应商明确拒绝且未计费的原调用恢复](domains/catalog/own-intake-provider-unbilled-recovery.md)
 - `enterprise-shared-model-configuration.md` — [企业统一模型与参考价估算（已撤下精确厂商价格/完整硬上界前置；原单一账本及预算保持）](enterprise-shared-model-configuration.md)
 - `automatic-usd-fx.md` — [平台美元参考汇率自动更新](automatic-usd-fx.md)；#1249，用户决定改为周更，周更增量 IMPLEMENTATION_READY，现场启用须单独授权。
 - `domains/ai/bailian-deepseek-shared-text-admission.md` — [百炼DeepSeek共享文字准入（参考价估算，原预算保持）](domains/ai/bailian-deepseek-shared-text-admission.md)
@@ -131,7 +131,7 @@
 - [Listing 领域导航：候选草稿、四阶段刊登、人工审核和原提交回执](domains/listing/README.md) — 只定位原合同，不新建 Listing/Review/Product 事实 Owner
 
 
-- `own-product-sku-packaging.md` — [自有商品逐 SKU 含包装事实录入](own-product-sku-packaging.md)
+- `domains/catalog/own-product-sku-packaging.md` — [自有商品逐 SKU 含包装事实录入](domains/catalog/own-product-sku-packaging.md)
 - `domains/listing/completion-draft-history.md` — [待补全草稿保存历史与比较 v1](domains/listing/completion-draft-history.md)
 - `domains/listing/completion-draft-restore.md` — [待补全草稿：恢复历史内容为新版本](domains/listing/completion-draft-restore.md)
 - `domains/listing/completion-draft-structured.md` — [CompletionDraft 结构化候选 v1](domains/listing/completion-draft-structured.md)
@@ -141,24 +141,24 @@
 - `amazon-opportunity-handoff-v1.md` — [Amazon 美国站调研机会与选品交接 V1](amazon-opportunity-handoff-v1.md)
 - `amazon-us-zenrows-first-page.md` — [Amazon 美国站 ZenRows 单页试用](amazon-us-zenrows-first-page.md)
 - `issue1070-local-acceptance-fixture.md` — [#1070 本地验收项目合成资料导入](issue1070-local-acceptance-fixture.md)
-- `own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
-- `own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](own-product-intake-openai-mini.md)
-- `own-product-intake-price-review.md` — [自有商品录入价格建议、逐行确认与不确定库存隔离](own-product-intake-price-review.md)
-- `own-product-intake-stock-review.md` — [自有商品录入库存建议与逐行确认](own-product-intake-stock-review.md)
-- `own-product-draft-entry.md` — [自有商品单件转入与独立待补全入口 v1](own-product-draft-entry.md)
-- `own-product-edit.md` — [自有商品版本更新与独立编辑页 v1](own-product-edit.md)
-- `own-product-entry.md` — [自有商品独立录入页与多变体 v1](own-product-entry.md)
-- `own-product-existing-drafts.md` — [自有商品已有草稿与继续编辑 v1](own-product-existing-drafts.md)
-- `own-product-history.md` — [自有商品历史读取、旧版详情和对比 v1](own-product-history.md)
-- `own-product-optimization.md` — [自有商品无店铺依赖的内容优化与 Apply](own-product-optimization.md)
-- `own-product-rich-description.md` — [自有商品描述富文本 v1](own-product-rich-description.md)
-- `own-product-source-media-trial.md` — [自有商品来源图片的本地隔离试用](own-product-source-media-trial.md)
-- `product-content-localization.md` — [商品内容完善与本地化智能体 v1](product-content-localization.md)
+- `domains/catalog/own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](domains/catalog/own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
+- `domains/catalog/own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](domains/catalog/own-product-intake-openai-mini.md)
+- `domains/catalog/own-product-intake-price-review.md` — [自有商品录入价格建议与人工确认](domains/catalog/own-product-intake-price-review.md)
+- `domains/catalog/own-product-intake-stock-review.md` — [自有商品录入库存建议与逐行确认](domains/catalog/own-product-intake-stock-review.md)
+- `domains/listing/own-product-draft-entry.md` — [自有商品单件转入与独立待补全入口 v1](domains/listing/own-product-draft-entry.md)
+- `domains/catalog/own-product-edit.md` — [自有商品版本更新与独立编辑页 v1](domains/catalog/own-product-edit.md)
+- `domains/catalog/own-product-entry.md` — [自有商品独立录入页与多变体 v1](domains/catalog/own-product-entry.md)
+- `domains/listing/own-product-existing-drafts.md` — [自有商品已有草稿与继续编辑 v1](domains/listing/own-product-existing-drafts.md)
+- `domains/catalog/own-product-history.md` — [自有商品历史读取、旧版详情和对比 v1](domains/catalog/own-product-history.md)
+- `domains/catalog/own-product-optimization.md` — [自有商品无店铺依赖的内容优化与 Apply](domains/catalog/own-product-optimization.md)
+- `domains/catalog/own-product-rich-description.md` — [自有商品描述富文本 v1](domains/catalog/own-product-rich-description.md)
+- `domains/catalog/own-product-source-media-trial.md` — [自有商品来源图片的本地隔离试用](domains/catalog/own-product-source-media-trial.md)
+- `domains/catalog/product-content-localization.md` — [商品内容完善与本地化智能体 v1](domains/catalog/product-content-localization.md)
 - `product-domain-contracts.md` — [Product Domain Contracts](product-domain-contracts.md)
-- `rich-description-simple-editor-images.md` — [官方 Simple Editor 与描述图片独立上传](rich-description-simple-editor-images.md)
-- `selected-application-multi-product.md` — [多商品优选申请 v1](selected-application-multi-product.md)
-- `selected-application-overview.md` — [优选申请总览只读汇总 v1](selected-application-overview.md)
-- `supply-unbound-completion-drafts.md` — [Supply 未绑定店铺待补全草稿](supply-unbound-completion-drafts.md)
+- `domains/catalog/rich-description-simple-editor-images.md` — [官方 Simple Editor 与描述图片独立上传](domains/catalog/rich-description-simple-editor-images.md)
+- `domains/supply-market/selected-application-multi-product.md` — [多商品优选申请 v1](domains/supply-market/selected-application-multi-product.md)
+- `domains/supply-market/selected-application-overview.md` — [优选申请总览只读汇总 v1](domains/supply-market/selected-application-overview.md)
+- `domains/listing/supply-unbound-completion-drafts.md` — [Supply 未绑定店铺待补全草稿](domains/listing/supply-unbound-completion-drafts.md)
 
 <a id="store"></a>
 
@@ -168,7 +168,7 @@
 
 
 - `amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](amazon-condition-quotes-draft.md)
-- `completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](completion-shein-import.md)
+- `domains/listing/completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](domains/listing/completion-shein-import.md)
 - `erpnext-shein-fulfillment-fit.md` — [ERPNext 与 SHEIN 双履约适配验证](erpnext-shein-fulfillment-fit.md)
 - `my-supply-chain-shein.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein.md)
 - `supply-four-step-continuation.md` — [四步供应链与补全/审核后继续上传](supply-four-step-continuation.md)
@@ -177,11 +177,11 @@
 - `domains/workbench/report-center-shein-offline-package-source.md` — [Report Center：原 SHEIN 离线包诊断正常接线候选](domains/workbench/report-center-shein-offline-package-source.md)
 - `domains/workbench/report-center-shein-target-source.md` — [Report Center：当前 SHEIN 已保存资料来源候选](domains/workbench/report-center-shein-target-source.md)
 - `domains/listing/shein-sales-attribute-mapping.md` — [SHEIN 单商品多颜色、多 SKU 销售属性映射](domains/listing/shein-sales-attribute-mapping.md)；#1158 当前冻结设计 IMPLEMENTATION_READY，独立 R1 无 BLOCKER，四项实现验证待后续授权；保留同一草稿三行，稀疏集合发布资格仍待确认。
-- `controlled-local-platform-draft.md` — [原35444受控本地平台草稿接线](controlled-local-platform-draft.md)；#1158 固定试点合同，测试记录永久不可发布；实例级互斥的最新决定见共存设计，实施/运行证据在 Issue。
-- `local-and-official-draft-coexistence.md` — [同一实例内测试草稿与正式刊登共存](local-and-official-draft-coexistence.md)；#1158 最小方案与独立架构评审，独立本地接口用途、原 owner/保存协议及正式发布准入保持；仅设计，不授权实现或原实例操作。
+- `domains/listing/controlled-local-platform-draft.md` — [原35444受控本地平台草稿接线](domains/listing/controlled-local-platform-draft.md)；#1158 固定试点合同，测试记录永久不可发布；实例级互斥的最新决定见共存设计，实施/运行证据在 Issue。
+- `domains/listing/local-and-official-draft-coexistence.md` — [同一实例内测试草稿与正式刊登共存](domains/listing/local-and-official-draft-coexistence.md)；#1158 最小方案与独立架构评审，独立本地接口用途、原 owner/保存协议及正式发布准入保持；设计与后续实现/运行阶段分列见原 Issue/PR，不据文档迁移授予操作权限。
 - `shein-color-split-drafts.md` — [SHEIN 按颜色拆分本地平台草稿](shein-color-split-drafts.md)；历史独立能力，已撤回作为本例必经流程的推荐，参见单商品映射设计。
 - `domains/marketplace/shein-native-validator-contract.md` — [SHEIN 原生资料公共诊断与材料 Tool v2](domains/marketplace/shein-native-validator-contract.md)
-- `shein-offline-stock-packaging.md` — [SHEIN 离线诊断的库存和 SKU 包装缺项](shein-offline-stock-packaging.md)
+- `domains/marketplace/shein-offline-stock-packaging.md` — [SHEIN 离线诊断的库存和 SKU 包装缺项](domains/marketplace/shein-offline-stock-packaging.md)
 - `shein-offline-validation-input-binding.md` — [SHEIN 离线诊断输入、freshness 与组织范围读取设计](shein-offline-validation-input-binding.md)
 - `domains/listing/shein-publication-flow.md` — [SHEIN 美国站：审核、首次上架与状态回读最小闭环](domains/listing/shein-publication-flow.md)
 - `domains/marketplace/shein-submit-readiness-action-policy.md` — [SHEIN Submit Readiness Action Policy](domains/marketplace/shein-submit-readiness-action-policy.md)
@@ -192,12 +192,12 @@
 - `store-observations-installation.md` — [在当前 Store 安装既有订单观察模块](store-observations-installation.md)
 - `store-empty-observations-contract-alignment.md` — [四张空 Store 观测表的最小合同对齐](store-empty-observations-contract-alignment.md) · #1231 架构 IMPLEMENTATION_READY；实现/副本/原实例操作另行授权。
 - `store-observations-preparation-runtime.md` — [Store observations internal preparation runtime](store-observations-preparation-runtime.md)
-- `supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](supply-market-choice-eligibility.md)
-- `supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
-- `supply-region-catalog.md` — [账户资料与供应市场共用中国省市目录](supply-region-catalog.md)
+- `domains/supply-market/supply-market-choice-eligibility.md` — [优选申请资格读取：正常不可申请结果](domains/supply-market/supply-market-choice-eligibility.md)
+- `domains/supply-market/supply-market-card-selection.md` — [供应市场列表价格、选入状态与公开商家名称](domains/supply-market/supply-market-card-selection.md)；#1292，独立设计及认证名称修订IMPLEMENTATION_READY。
+- `platform/geography/supply-region-catalog.md` — [账户资料与供应市场共用中国省市目录](platform/geography/supply-region-catalog.md)
 - `supply-market-categories.md` — [硕米自营与硕米优选共用商品类目](supply-market-categories.md) · #1377，独立架构已确认，IMPLEMENTATION_READY。
-- `supply-market-filters.md` — [自营与优选商品筛选](supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
-- `supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](supply-market.md)
+- `domains/supply-market/supply-market-filters.md` — [自营与优选商品筛选](domains/supply-market/supply-market-filters.md)；#1292，只读市场查询增量，独立设计复核IMPLEMENTATION_READY。
+- `domains/supply-market/supply-market.md` — [供应市场 v1 — 明确发布、优选申请与 SDS 定制成品](domains/supply-market/supply-market.md)
 - `domains/marketplace/temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](domains/marketplace/temu-official-contract-evidence.md)
 - `domains/marketplace/temu-platform.md` — [TEMU 三种模式与全部官方站点接入设计](domains/marketplace/temu-platform.md)
 - `domains/listing/tiktok-pre-dispatch-no-send.md` — [TikTok 发送前未执行的终止与显式重试：冻结设计](domains/listing/tiktok-pre-dispatch-no-send.md)
@@ -283,7 +283,7 @@
 - `chat-project-actions.md` — [硕米 Chat 选择 Agent 技能与项目操作](chat-project-actions.md) · #1396，覆盖个人标题技能的创作、计费及恢复，后续标题技能版本交接和项目操作。
 - `chat-general-text-skills.md` — [硕米 Chat 创建并使用个人文字技能](chat-general-text-skills.md) · #1429，通用文字创作与 Chat 选用已独立复核并达到 IMPLEMENTATION_READY。
 - `ai-workbench-chat-business-task.md` — [AI Workbench Chat + BusinessTask V1 — Slice E](ai-workbench-chat-business-task.md)
-- `ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](ai-workbench-conversation-runtime.md)
+- `domains/workbench/ai-workbench-conversation-runtime.md` — [硕米 Chat 会话管理独立运行接线](domains/workbench/ai-workbench-conversation-runtime.md)
 - `domains/workbench/ai-workbench-project-center.md` — [AI Workbench Project Center V1](domains/workbench/ai-workbench-project-center.md)
 - `ai-workbench-reports.md` — [AI工作台个人报告 v1](ai-workbench-reports.md)
 - `ai-workbench-work-scope.md` — [AI 工作台：固定会话工作范围与任务筛选](ai-workbench-work-scope.md)
@@ -293,8 +293,8 @@
 - `domains/workbench/chat-compose-before-create.md` — [内容型 Chat 创建前输入与背景](domains/workbench/chat-compose-before-create.md) · #1257 内容型会话设计；标题型范围接线不在本轮。
 - `domains/workbench/chat-voice-input.md` — [Chat 语音输入与会话入口](domains/workbench/chat-voice-input.md) · #1257 独立架构复核通过，真实语音识别待用户试用。
 - `domains/workbench/chat-task-object-goal-design-brief.md` — [Chat 通用任务创建与首批内容执行](domains/workbench/chat-task-object-goal-design-brief.md)
-- `chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](chat-content-full-runtime-coexistence-candidate.md)
-- `chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](chat-local-open-preparation.md)
+- `domains/workbench/chat-content-full-runtime-coexistence-candidate.md` — [内容 Chat 与完整商品智能体共存](domains/workbench/chat-content-full-runtime-coexistence-candidate.md)
+- `domains/workbench/chat-local-open-preparation.md` — [Chat 定向结构与 OpenAI 文本用途准备](domains/workbench/chat-local-open-preparation.md)
 - `content-agent-chat-coexistence.md` — [商品内容标题试用与现有 Chat 共存的最小运行接线](content-agent-chat-coexistence.md)
 - `completed-work-store-scope.md` — [#36 已完成本地资料的店铺归属投影](completed-work-store-scope.md)
 - `product-workbench-trial-runtime.md` — [#36 可保留的本机隔离试用运行边界](product-workbench-trial-runtime.md)
@@ -314,7 +314,7 @@
 - `domains/workbench/cockpit-tiktok-order-amount.md` — [TikTok Shop US 消费者订单保存与单店商品金额](domains/workbench/cockpit-tiktok-order-amount.md)
 - `domains/workbench/cockpit-tiktok-order-sync.md` — [TikTok Shop US 跨境店消费者订单手动同步](domains/workbench/cockpit-tiktok-order-sync.md)
 - `domains/workbench/cockpit-temu-order-amount.md` — [Temu US 本土/半托管消费者订单保存与单店商品金额](domains/workbench/cockpit-temu-order-amount.md)
-- `private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](private-draft-offline-trial.md)
+- `domains/ai/private-draft-offline-trial.md` — [指定企业平台草稿质检：隔离离线试用装配](domains/ai/private-draft-offline-trial.md)
 - `domains/workbench/project-center-overview-read.md` — [Project Center overview read V1](domains/workbench/project-center-overview-read.md)
 - `domains/workbench/task-center-native-run-projection.md` — [任务中心：多来源、多能力的原生运行投影](domains/workbench/task-center-native-run-projection.md)
 

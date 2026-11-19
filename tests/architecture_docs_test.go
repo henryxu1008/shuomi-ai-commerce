@@ -19,7 +19,7 @@ func TestPluginCaptureSessionReturnDocumentKeepsNavigationOnlyOwner(t *testing.T
 }
 
 func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollout(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-unbound-completion-drafts.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "supply-unbound-completion-drafts.md"), []string{
 		"IMPLEMENTATION_READY", "PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12", "2667:1948",
 		"internal/listing/completiondraft", "supplyCompletionDrafts", "RuntimeCapabilities union",
 		"listing_completion_draft_records", "listing_completion_draft_heads", "listing_completion_draft_commands",
@@ -29,18 +29,18 @@ func TestSupplyCompletionDraftDocumentPreservesOriginalAuthorityAndExplicitRollo
 }
 
 func TestSheinImportDocumentBindsExistingOwnersAndExplicitConfirmation(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "completion-shein-import.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "completion-shein-import.md"), []string{"Independent Architecture", "IMPLEMENTATION_READY", "SourceItem", "baseRecordId", "rulesHash", "merchantHash", "selection", "supply.manage", "expectedRevision=Rm", "FindTargetCommand", "409", "UNKNOWN", "不发布", "不在 SQL 事务内重复官方网络请求"})
 }
 
 func TestOwnProductDraftEntryReusesFixedSourceAndExplicitSaveContracts(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-draft-entry.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "own-product-draft-entry.md"), []string{
 		"Reuse Existing Architecture", "BatchSelectionInput.ItemIDs", "expectedRevision", "先于确认资料",
 		"不自动执行Save", "UNKNOWN", "retained-source", "原owner安装合同", "不引入新的能力开关",
 	})
 }
 
 func TestOwnProductExistingDraftsDocumentKeepsBoundedReadAndNavigationAuthority(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "own-product-existing-drafts.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "listing", "own-product-existing-drafts.md"), []string{
 		"Independent Architecture", "ListForCollectionItem", "org/actor/member", "2MiB", "keyset",
 		"不建反向映射或第二事实源", "不新增每行IAM", "导航按钮不能授权", "不是“自动过期/不可用”",
 		"原sourceID", "不接受完整return URL", "只列已明确保存", "UNKNOWN", "不代签用户/生产验收",
@@ -351,7 +351,7 @@ func TestArchitectureReadmeCoversEveryArchitectureDocument(t *testing.T) {
 }
 
 func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-overview.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "selected-application-overview.md"), []string{
 		"IMPLEMENTATION_READY / FROZEN", "Service.Choice", "submit_selected",
 		"MemberID 属于当前", "不跨 owner 直接读", "2000", "并发最多4", "总请求10s",
 		"不返回局部计数或假0", "scope 必须完全一致", "无 mutation intent",
@@ -359,7 +359,7 @@ func TestSelectedApplicationOverviewDocumentPreservesReadOnlyOwnerBoundaries(t *
 }
 
 func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOriginalIntentRecovery(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "selected-application-multi-product.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "selected-application-multi-product.md"), []string{
 		"Independent Architecture", "IMPLEMENTATION_READY / FROZEN", "SupplyMarket", "submit_selected",
 		"useResourcePending", "navigator.locks", "1 MiB", "journal 在整批处理期间不可变",
 		"每件仍提交一个 submit_selected", "每件 Repository.Execute 仍在自己的同库事务",
@@ -369,7 +369,7 @@ func TestSelectedApplicationMultiProductDocumentPreservesIndependentOwnersAndOri
 }
 
 func TestSupplyMarketChoiceEligibilityDocumentPreservesQualificationBoundaries(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market-choice-eligibility.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "supply-market-choice-eligibility.md"), []string{
 		"IMPLEMENTATION_READY", "not_optimized", "incomplete_product", "sealed selection",
 		"ReadEffective", "PublicProjection", "create_official_draft", "submit_selected",
 		"不提交申请", "正向流程仍为 NOT_RUN",
@@ -492,7 +492,7 @@ func TestStoreCenterFigmaDesignPreservesCurrentOwnersAndUserThresholds(t *testin
 }
 
 func TestSupplyMarketDesignPreservesDisclosureAndOriginalExecutionOwners(t *testing.T) {
-	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "supply-market.md"), []string{
+	requireDocumentPhrases(t, filepath.Join("..", "docs", "architecture", "domains", "supply-market", "supply-market.md"), []string{
 		"IMPLEMENTATION_READY", "Independent Architecture", "硕米平台账号",
 		"同 Product UoW", "verified global platform authorizer",
 		"SendPermit", "UNKNOWN", "productsourcing.NewMarketReceiver",

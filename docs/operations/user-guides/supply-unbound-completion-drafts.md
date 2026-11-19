@@ -1,6 +1,6 @@
 # 未绑定店铺的待补全草稿
 
-适用设计：[已冻结 Independent Architecture](../../architecture/supply-unbound-completion-drafts.md)，产品决定 [PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12](../../product/supply-unbound-completion-drafts.md)。
+适用设计：[已冻结 Independent Architecture](../../architecture/domains/listing/supply-unbound-completion-drafts.md)，产品决定 [PD-SUPPLY-UNBOUND-COMPLETION-2026-10-12](../../product/flows/supply-unbound-completion-drafts.md)。
 
 当前阶段交付“已保存商品 → 原转入批次 → 独立候选标题/描述 → 保存版本 → 刷新后继续编辑”。普通 Application 仍复用既有身份、SourceAccount、Commercial/resource 和 Product 装配；该草稿消费者不需要 Store、SHEIN、Asset、采集器、模型或 Temporal。当前店铺同步 preparation worker 与其他已安装能力应保留。
 

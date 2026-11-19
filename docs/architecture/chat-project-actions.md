@@ -20,7 +20,7 @@
 - 创建项目取决于项目中心是否可用及当前成员能否管理项目，保存项目无需模型就绪。执行项目任务取决于项目读取、Chat 使用及现有商品内容规划和执行能力，具体商品及店铺还须分别授权。「创建技能」按当前企业的 Chat 使用、模型路线与个人技能创建条件开放。后续标题候选使用原商品标题能力和权限。能力暂不可用时显示原因和可采取的操作。
 - 草稿按当前账号、企业、会话或新建入口保存。在提交前可修改或关闭卡片，关闭卡片不提交，普通消息草稿可继续编辑。切换账号或企业时清除旧范围的可见选择及迟到响应。键盘可以打开和关闭选择器、修改表单并到达主按钮，窄屏时允许换行，完整显示当前选择与错误提示。
 
-依据：[现有 Chat 页面](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [店铺选择器](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-store-picker.tsx) · [会话独立运行](ai-workbench-conversation-runtime.md)
+依据：[现有 Chat 页面](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [店铺选择器](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-store-picker.tsx) · [会话独立运行](domains/workbench/ai-workbench-conversation-runtime.md)
 
 ### 2.1 用「创建技能」起草并保存个人标题技能
 
@@ -232,7 +232,7 @@ AI Workbench 持有本次消息、冻结的 `creatorOnly` 选择和原请求。S
 
 依据：[会话固定范围与项目改绑](ai-workbench-work-scope.md#41-新建会话) · [Chat 草稿交接与恢复](domains/workbench/chat-compose-before-create.md#输入草稿与恢复) · [现有范围校验](../../internal/aiworkbench/business_scope.go)
 
-依据：[项目详情进入 Chat](../../web/listingkit-ui/src/components/workbench/project-center/project-page.tsx) · [现有商品选择](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-task-selection.tsx) · [Chat 方案和确认](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [确认及启动服务](../../internal/aiworkbench/service.go) · [内容模型、审核与采用](product-content-localization.md)
+依据：[项目详情进入 Chat](../../web/listingkit-ui/src/components/workbench/project-center/project-page.tsx) · [现有商品选择](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-task-selection.tsx) · [Chat 方案和确认](../../web/listingkit-ui/src/components/workbench/ai-workbench/chat-page.tsx) · [确认及启动服务](../../internal/aiworkbench/service.go) · [内容模型、审核与采用](domains/catalog/product-content-localization.md)
 
 ## 5. 任务范围和项目关联
 

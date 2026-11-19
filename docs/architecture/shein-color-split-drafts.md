@@ -27,7 +27,7 @@ Must：两份都创建或都不创建；每个选定源 SKU 恰好归属一份�
 
 ## 2. 产品依据、平台证据与现有能力
 
-最新用户决定及当前领域合同优先。Figma 只作业务流程辅助，不作布局、导航、组件或截图验收权威。按 [AGENTS](../../AGENTS.md)、[当前 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[既有候选带入合同](completion-shein-import.md) 与[结构化候选合同](domains/listing/completion-draft-structured.md)设计；旧文档中冲突的 Figma 权威引用不恢复。
+最新用户决定及当前领域合同优先。Figma 只作业务流程辅助，不作布局、导航、组件或截图验收权威。按 [AGENTS](../../AGENTS.md)、[当前 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[既有候选带入合同](domains/listing/completion-shein-import.md) 与[结构化候选合同](domains/listing/completion-draft-structured.md)设计；旧文档中冲突的 Figma 权威引用不恢复。
 
 2026-11-09 只读查阅 [SHEIN 商品发布/编辑](https://open.sheincorp.com/zh/documents/apidoc/detail/3001352-1000001)：不同 SKC 下 SKU 销售属性及属性值数量须一致；新增时库存必填，0 有效；多 SKC 色块图要求与店铺图片规范分别存在。本地 `goods/attributes.go:194` 实现完整组合集合一致校验。本轮 2 对 1 确有官方依据，不删除校验。拆分后每稿一个 SKC，按各自当前规则重新 BuildOfficial；缺库存/图片仍可以保存本地草稿但保持非 Ready。
 
