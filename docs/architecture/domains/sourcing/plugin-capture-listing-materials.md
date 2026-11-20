@@ -1,5 +1,7 @@
 # 插件上架资料补齐：高清相册、参数、正文/详情图与重量 V1
 
+> 归类与时点说明（2026-11-20）：本文保留 [#916](https://github.com/henryxu1008/shuomi-ai-commerce/issues/916) 的来源资料补齐冻结范围与历次验证要求。后续 [#949](https://github.com/henryxu1008/shuomi-ai-commerce/pull/949) 和 [#952](https://github.com/henryxu1008/shuomi-ai-commerce/pull/952) 已合并；#916 已关闭。2026-10-25 两件指定商品的本机采集与保存只按原样本证据，不能扩成全面验收或当前插件状态。另见 [#989](https://github.com/henryxu1008/shuomi-ai-commerce/issues/989) 的同族草稿历史：部分家族交接进入确认页不等于保存发送或新增发布，该次原键恢复和保存读回未执行，不与本批两件样本互相代替。插件只提取已观察的来源事实，SRC/Catalog/Collection 持有原保存事实；来源报价和可订数量不成为本店销售价或库存。下文阶段性的 OPEN、NOT_RUN 和授权限制保留原时点，本次不执行采集、保存、更新或部署。
+
 Refs #916；基线 plugin-capture-ingestion-v1、plugin-capture-source-quotes-v1。
 
 Status: IMPLEMENTATION_READY。Design Basis: Reuse Existing Architecture。独立 Reviewer initial_revision_final_review 已核对设计提交 339dee012fd4cdc5068a62ec20c8e8ff47533191、Issue #916 当前范围、两平台解析/validator 和 Go v2→Envelope→Catalog 映射，确认现有合同可承载本轮资料，无设计 finding；准入记录先于生产代码修改。此结论不代表用户验收或运行更新授权。
