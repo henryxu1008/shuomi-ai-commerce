@@ -1,6 +1,6 @@
 # 企业智能体四种执行权限：接入与保留数据更新
 
-依据 #656 和 [已批准设计](../architecture/enterprise-agent-permission-modes.md)。本说明交接当前候选，代码检查、CI、独立复核、安装核对和用户验收分别记录；不得将任一项替代其它项。
+依据 #656 和 [已批准设计](../architecture/domains/ai/enterprise-agent-permission-modes.md)。本说明交接当前候选，代码检查、CI、独立复核、安装核对和用户验收分别记录；不得将任一项替代其它项。
 
 ## 入口与行为
 
