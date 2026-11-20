@@ -249,7 +249,7 @@ composition never invokes either initializer. No directory-wide exemption.
 Status: IMPLEMENTATION_READY / FROZEN AMENDMENT。2026-10-11 原独立只读 Reviewer 复核721d80a7及设计blob be862941846e07cb5432106fdddc03667b1b1f04，确认无新BLOCKER。下列事务未知/旧fence/原预留/HTTP与Browser/UI测试归IMPLEMENTATION_TEST，合并/试用前必须收敛。准入先于生产修改；不等于实现或用户验收PASS。
 Finding r4241497075 已由现有独立 Reviewer 分类 BLOCKER：核心原计划继续路径无法完成，阻塞实施准入及合并/试用。实际 provider capacity 在 Resource Reserve/Bind 后发生；原 failFetch 将 child Failed 并释放，计划下次无法恢复。跳过 Finish 同样留下 bound UNKNOWN，现有 §5 的 unbound 恢复不足。
 
-产品范围仍为 §1/§5 的原计划继续、原 child key、仅成功 publication 消耗一条。依据为本文件引用的当前产品/Figma、1688-acquisition-channel-pricing.md reserve-before-provider，及实际 browser Client.Acquire 在 slots/throttle 拒绝后未启动 Chromium；collector RPC 仅将 ErrCapacity/ErrThrottled 投影 CodeCapacity。其它来源失败、拒绝、超时、transport/响应不明不能据此声明未执行。
+产品范围仍为 §1/§5 的原计划继续、原 child key、仅成功 publication 消耗一条。依据为本文件引用的当前产品/Figma、[渠道计价合同](domains/sourcing/1688-acquisition-channel-pricing.md) reserve-before-provider，及实际 browser Client.Acquire 在 slots/throttle 拒绝后未启动 Chromium；collector RPC 仅将 ErrCapacity/ErrThrottled 投影 CodeCapacity。其它来源失败、拒绝、超时、transport/响应不明不能据此声明未执行。
 
 唯一新增合同为原 Product Sourcing 的窄 AcquisitionCapacityRejectionStore.RecordCapacityRejection(ctx, originalOperation)。只由当前 provider 调用实际返回的 ErrAcquisitionCapacity 触发；HTTP/server browser sibling 共享 core helper。客户端的 pause flag/error/任意 API body 都不是这个证据。无新表、owner、状态枚举、Resource API、后台 worker、预算或价格；复用原 operation.failure_code 记录 COLLECTOR_CAPACITY_REJECTED，状态仍 acquiring，command 必须为空。
 

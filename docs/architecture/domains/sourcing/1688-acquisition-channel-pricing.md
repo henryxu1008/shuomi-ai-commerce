@@ -1,6 +1,8 @@
 # 1688 acquisition channel pricing — design basis for #592
 
-> DATA_ROW 当前合同增量：参见[平台调价与零价订单](domains/commercial/data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
+> 归类与时点说明（2026-11-20）：本文保留 [#593](https://github.com/henryxu1008/shuomi-ai-commerce/pull/593) 的原渠道计价与结算设计；[#592](https://github.com/henryxu1008/shuomi-ai-commerce/issues/592) 已按工程范围关闭，真实运行与产品验收仍分列。现行 DATA_ROW 卖价由 Commercial 持有，固定初装价不替代当前价；Product Sourcing/SRC/Catalog 持有渠道、原操作和发布事实，Resource 持有条数消费。历史静态 HTTP 路径已由 [#1193](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1193) 退休；无已配置 collector 时不得回退。保留免费插件/本地与服务端计量、精确回执及原键恢复的区别；不授权采集、付款或变更环境。
+
+> DATA_ROW 当前合同增量：参见[平台调价与零价订单](../commercial/data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
 
 Status: **IMPLEMENTATION_READY** (independent architecture review, 2026-10-03; reviewed design blob `0871c1ed77ae4dcc0bdee2461725f3754b987f34`, no design-level `BLOCKER`). The reviewer classified offer initialization and the prior price-delay wording as `IMPLEMENTATION_TEST`; both must be resolved in this batch.
 
@@ -8,7 +10,7 @@ Status: **IMPLEMENTATION_READY** (independent architecture review, 2026-10-03; r
 
 Product decision (2026-10-03): server-side acquisition uses the proposed **¥0.05 per completed acquisition** price; plugin/local acquisition is free. The user's operation is to submit a 1688 link through the server and inspect the saved product, or to submit an already captured page from the browser extension/local executor and inspect that saved product. A failed or unpublished server operation must not consume a data row; a completed operation consumes one. A replay of the same operation does not consume another. Browser Capture/local executor must not require a data-row balance or consume one. The price is the purchase price of one `DATA_ROW` resource unit (5 CNY minor units), not an instruction to charge the wallet directly for each acquisition.
 
-Existing authorities: [public browser product decision](../product/decisions/1688-server-public-browser.md), [server public acquisition design](1688-server-public-browser-acquisition.md), [unified prepaid resources](unified-base-prepaid-resources.md), and [local executor design](domains/sourcing/1688-batch-import.md). The current Product owner is `productsourcing`/Product acquisition and SRC/Catalog publication; Commercial owns offers/quotes/orders, Resource owns `DATA_ROW` reservations and consumption. No Figma layout or IA change is requested. The current Account Center offer view must read the existing Commercial owner, not a hard-coded frontend price.
+Existing authorities: [public browser product decision](../../../product/decisions/1688-server-public-browser.md), [server public acquisition design](../../1688-server-public-browser-acquisition.md), [unified prepaid resources](../../unified-base-prepaid-resources.md), and [local executor design](1688-batch-import.md). The current Product owner is `productsourcing`/Product acquisition and SRC/Catalog publication; Commercial owns offers/quotes/orders, Resource owns `DATA_ROW` reservations and consumption. No Figma layout or IA change is requested. The current Account Center offer view must read the existing Commercial owner, not a hard-coded frontend price.
 
 Out of scope: real recharge/payment, opening a paid provider, production rollout, historical migration or refund, a new price engine, a separate local executor billing system, and acceptance claims based only on code or synthetic fixtures. A configured offer and a green CI are not proof that a public 1688 page can be acquired on a user's network.
 
