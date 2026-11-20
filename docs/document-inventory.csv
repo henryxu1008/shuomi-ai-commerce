@@ -96,7 +96,7 @@ docs/architecture/domains/ai/image-agent-effect-policy.md,architecture,ai,18779,
 docs/architecture/domains/ai/image-agent-effect-recovery.md,architecture,ai,4871,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
 docs/architecture/domains/ai/image-agent-effect-terminalization.md,architecture,ai,3875,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
 docs/architecture/domains/ai/image-agent-recovery.md,architecture,ai,28978,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
-docs/architecture/domains/ai/image-agent-workflow.md,architecture,ai,2841,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
+docs/architecture/domains/ai/image-agent-workflow.md,architecture,ai,2787,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
 docs/architecture/domains/ai/image-api-event-read-permissions.md,architecture,ai,7549,KEEP_PATH,,,MOVED_VERIFIED,Verified documentation move #1394
 docs/architecture/image-download-safety.md,architecture,cross-cutting,3015,KEEP_PATH,docs/architecture/image-download-safety.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/image-plan-optional-route.md,architecture,ai,17958,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only move; original model route conditions retained
@@ -161,7 +161,7 @@ docs/architecture/product-agent-runtime-contract.md,architecture,ai,41367,REVIEW
 docs/architecture/domains/ai/product-agent-text-provider-neutral.md,architecture,ai,19993,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; historical and later admission retained
 docs/architecture/domains/catalog/product-content-localization.md,architecture,catalog,20574,KEEP_PATH,,,MOVED_VERIFIED,reviewed contentagent Review Catalog owners and historical execution boundaries; moved with consumers verified
 docs/architecture/domains/catalog/product-domain-contracts.md,architecture,catalog,4362,KEEP_PATH,,,MOVED_VERIFIED,cross-domain authority preserved; Catalog version navigation only
-docs/architecture/product-image-agent.md,architecture,catalog,47727,REVIEW_CROSS_LAYER,docs/architecture/domains/catalog/product-image-agent.md,docs/operations/product-image-agent.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
+docs/architecture/product-image-agent.md,architecture,catalog,47738,REVIEW_CROSS_LAYER,docs/architecture/domains/catalog/product-image-agent.md,docs/operations/product-image-agent.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/architecture/domains/catalog/product-image-facts-advice.md,architecture,catalog,21727,KEEP_PATH,,,MOVED_VERIFIED,Asset fact and nonexecuting advice owner grouped; historical engineering versus runtime acceptance preserved
 docs/architecture/domains/catalog/product-image-visual-analysis.md,architecture,catalog,39181,KEEP_PATH,,,MOVED_VERIFIED,single-image analysis grouped with image-source authority; engineering and actual-use evidence remain distinct
 docs/architecture/domains/research/product-selection-comparison-agent.md,architecture,research,19535,KEEP_PATH,,,MOVED_VERIFIED,bounded private product comparison within Research navigation; frozen evidence and original owners retained
@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,44063,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,44085,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8360,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,18647,KEEP_PATH,,,MOVED_VERIFIED,frozen withdrawal admission design; authority and staged rollout evidence preserved
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
@@ -210,7 +210,7 @@ docs/architecture/skill-script-sandbox.md,architecture,ai,141110,REVIEW_CROSS_LA
 docs/architecture/source-account-bff.md,architecture,sourcing,18398,REVIEW_MOVE,docs/architecture/domains/sourcing/source-account-bff.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/source-account-registry.md,architecture,sourcing,18732,REVIEW_MOVE,docs/architecture/domains/sourcing/source-account-registry.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/sourcing/source-business-flow.md,architecture,sourcing,27155,KEEP_PATH,,,MOVED_VERIFIED,frozen sourcing flow; engineering closure distinguished from open integration acceptance
-docs/architecture/source-white-background.md,architecture,sourcing,17526,REVIEW_MOVE,docs/architecture/domains/sourcing/source-white-background.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/source-white-background.md,architecture,ai,18265,KEEP_PATH,,,MOVED_VERIFIED,fixed ImageAgent and Resource owner contract; historical single-image boundary retained
 docs/architecture/store-browser-workbench-implementation.md,architecture,sourcing,5872,REVIEW_MOVE,docs/architecture/domains/sourcing/store-browser-workbench-implementation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/store-center-application.md,architecture,cross-cutting,28985,KEEP_PATH,docs/architecture/store-center-application.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/store-center-figma.md,architecture,cross-cutting,18394,REVIEW_LIFECYCLE,docs/architecture/store-center-figma.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
