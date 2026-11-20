@@ -1,6 +1,6 @@
 # Product Sourcing Handoff
 
-Source work follows the [Product Domain contract](../architecture/product-domain-contracts.md), [current owners](../architecture/project-boundaries.md) and **PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**: fresh installation and empty business data.
+Source work follows the [Product Domain contract](../architecture/domains/catalog/product-domain-contracts.md), [current owners](../architecture/project-boundaries.md) and **PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08**: fresh installation and empty business data.
 
 ## 相关领域入口
 
