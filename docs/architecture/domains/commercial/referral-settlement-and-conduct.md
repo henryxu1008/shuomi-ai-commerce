@@ -24,7 +24,7 @@ UI authority: Figma `tg48P46SSXl6TBy9lZwg63`, page `31:463`, node `1821:827`:
 retain the current-rule notice and six cards, with a single column on narrow
 screens. Product text may not turn Figma example sanctions into runtime facts.
 Related authority: [final UI](../../../product/final-ui-ia-authority.md),
-[KYC rollout §8](../../referral-withdrawal-personal-kyc-contract.md#8-referral-rules-contract-and-staged-rollout),
+[KYC rollout §8](referral-withdrawal-personal-kyc-contract.md#8-referral-rules-contract-and-staged-rollout),
 and [greenfield baseline](../../../product/greenfield-no-legacy-migration.md).
 
 Must: backend availability and the displayed current period are 30 days; replay

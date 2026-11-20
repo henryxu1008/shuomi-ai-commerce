@@ -1,5 +1,7 @@
 # Referral Withdrawal Personal KYC Contract
 
+> Classification and chronology (2026-11-20): This is the frozen #519 design for the eligibility boundary of new referral withdrawals, not an operating guide. [#522](https://github.com/henryxu1008/shuomi-ai-commerce/pull/522) merged Stage B with the existing strict rules-v1 response. Current source still keeps that response; the later Stage C projection is deployment-gated and is not claimed active here. Personal verification owns its stored result, Referral owns withdrawal admission and the existing committed result, and Money owns payout-method facts. No mirror of verification data is introduced. Engineering evidence does not establish live KYC, withdrawals, payout or product acceptance; this relocation authorizes none of them.
+
 Status: **IMPLEMENTATION_READY — architecture review round 2 completed; rollout amendment approved 2026-09-27**  
 Issue: #519  
 Dependencies: #510, merged PR #520, #469 / PR #517  
