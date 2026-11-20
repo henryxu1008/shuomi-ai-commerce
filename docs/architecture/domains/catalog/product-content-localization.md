@@ -4,7 +4,7 @@
 >
 > 历史交付与真实操作分开：[PR #662](https://github.com/henryxu1008/shuomi-ai-commerce/pull/662) 和 [#808](https://github.com/henryxu1008/shuomi-ai-commerce/issues/808) 的工程完成不能代替产品验收；#808 保留 2026-10-18 的真实生成、审核且仅接受未 Apply 结果，不改写为 NOT_RUN 或已经采用。2026-10-30 工程关单时未新增真实调用，历史失败、UNKNOWN 与预留仍按原对象/阶段保留。本次仅整理文档，不重新执行或授权部署、配置、模型调用、采用或发布。
 >
-> 后续增量分别按[Skill 合同](../../skill-capability.md)、[脚本扩展](../../skill-script-sandbox.md)和[内容 Chat 与完整商品智能体共存](../workbench/chat-content-full-runtime-coexistence-candidate.md)的准确范围读取；用户方法文本的已批准扩展不等于开放任意 AgentDefinition、工具或系统提示词，内容操作及 Chat 的准入不能借另一操作的权限/就绪。原多字段原子采用、模式/配置冻结、预算与 UNKNOWN 边界不变。本文历史 Figma 仅辅助理解业务，现行 UI 依据仓库 `AGENTS.md` 与用户当前任务。
+> 后续增量分别按[Skill 合同](../ai/skill-capability.md)、[脚本扩展](../../skill-script-sandbox.md)和[内容 Chat 与完整商品智能体共存](../workbench/chat-content-full-runtime-coexistence-candidate.md)的准确范围读取；用户方法文本的已批准扩展不等于开放任意 AgentDefinition、工具或系统提示词，内容操作及 Chat 的准入不能借另一操作的权限/就绪。原多字段原子采用、模式/配置冻结、预算与 UNKNOWN 边界不变。本文历史 Figma 仅辅助理解业务，现行 UI 依据仓库 `AGENTS.md` 与用户当前任务。
 
 Status: APPROVED / IMPLEMENTATION_READY。执行 Issue [#661](https://github.com/qq550723504/task-processor/issues/661)，父 Roadmap #137；主要PR #662。2026-10-12第2轮独立增量检查绑定d46e7860af26353c925b0976e2b721a44e5c0abf及设计SHA256 C3BED0D716545B71D844037763FCB728568BFFA84AE6A8834B051C32CE094461，确认两项BLOCKER关闭、无新增BLOCKER。本文冻结；只有实际新BLOCKER重开设计。
 

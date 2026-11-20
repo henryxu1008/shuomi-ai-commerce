@@ -117,7 +117,7 @@ Figma先于生产代码核对及更新：原位复用[官方模板深色6676:325
 
 以下为历史位置决定；入口归属及账户重复入口保留要求已由上节2026-10-22决定替代。
 
-执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，复用 [Skill V1](../architecture/skill-capability.md) 合同。用户明确批准在「智能市场」下增加「技能库」，包含「官方模板」「我的技能」「团队技能」。三个分类路径分别为 `/workbench/agents/skills/official`、`/mine`、`/team`；侧栏、页内导航和面包屑保持一致。
+执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，复用 [Skill V1](../architecture/domains/ai/skill-capability.md) 合同。用户明确批准在「智能市场」下增加「技能库」，包含「官方模板」「我的技能」「团队技能」。三个分类路径分别为 `/workbench/agents/skills/official`、`/mine`、`/team`；侧栏、页内导航和面包屑保持一致。
 
 最初由用户批准局部 Product Authority，替代 #688 原「仅账户 Dialog、不新增二级菜单」的阶段入口约束；后续已补齐 Figma 节点。个人技能及官方模板按验证身份访问，团队技能按有效当前企业及既有权限管理；原账户/智能体配置的管理快捷入口及业务执行选择保留。官方目录没有模板或服务未就绪时如实展示，不新增公开/付费交易市场。
 

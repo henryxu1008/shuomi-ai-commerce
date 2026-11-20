@@ -2,7 +2,7 @@
 
 > 新版本凭据维护已切换到[企业渠道连接](../../architecture/domains/ai/shared-channel-credentials.md#11-新版本的受限维护入口)：一条企业连接可被多个显式准入模型引用。本文旧 `consumer/action/clientName/model` 同行 Key 配置及“回填每模型凭据版本”段落只作历史记录，不是当前执行指引；不向 Run/Image 两库分别保存 Key，不导入保留库。原独立模型准入、调用预算与单一计费不变。
 
-Design Basis：[已批准设计](../../architecture/skill-capability.md)。本文件交接正常安装和使用方式；不签发共享安装、真实模型或用户验收。
+Design Basis：[已批准设计](../../architecture/domains/ai/skill-capability.md)。本文件交接正常安装和使用方式；不签发共享安装、真实模型或用户验收。
 
 截至 2026-11-15，[Linux Docker + OpenSandbox + gVisor 脚本扩展 §21](../../architecture/skill-script-sandbox.md#21-已批准三组产品范围与正式-ready-准入2026-11-15)的三组产品范围已获批准，正式执行 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，IMPLEMENTATION_READY / Ready（未启动）。真实WSL2 POC及独立复核证据复用，D-IT1剩余部署检查仍为对应profile试用开放前Must，不写PASS。正式业务未实现，本轮不改生产代码；以下操作仍不支持脚本。独立测试环境保持停止与保留，Ready不授权启动、部署、修改现有业务实例或真实数据。
 
