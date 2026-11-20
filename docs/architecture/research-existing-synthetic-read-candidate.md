@@ -15,7 +15,7 @@
 
 产品决定 PD-1205-EXISTING-SYNTHETIC-MANUAL-READ-2026-11-09：用户已明确认可本局部隔离边界，仅开放既有B000123457的手工评估，禁止进入AI、转入和发布，其他功能/账号/数据/会话保留。该决定允许本设计进入准确HEAD的架构复核，不授权实施或运行操作。
 
-- 依据：现有 `research-commercial-assessment-persistence-v1.md`（评估、人工决定、原键）；`research_fixture.go`（合成原件/权限）；`research_fixture.go:validateResearchFixture` 与 `current_application.go` 的closed-composition准入。
+- 依据：现有 [评估持久化设计](domains/research/research-commercial-assessment-persistence-v1.md)（评估、人工决定、原键）；`research_fixture.go`（合成原件/权限）；`research_fixture.go:validateResearchFixture` 与 `current_application.go` 的closed-composition准入。
 - 当前运行源码：固定候选 `7dec3b955286a288a4778e26e519d855bf3a30f3`。相关owner/fixture/analysis文件已只读核对与调查工作区相同；本设计不改变运行候选。
 - Design Basis：若选择在统一实例开放，属于 **Independent Architecture** 的有界来源/执行隔离变更，不能按普通读取bugfix或现有架构完全复用开工。
 - 当前产品边界已确认；独立架构复核尚未完成，仍不是IMPLEMENTATION_READY。CI或文档提交不替代架构准入，更不授权实施。

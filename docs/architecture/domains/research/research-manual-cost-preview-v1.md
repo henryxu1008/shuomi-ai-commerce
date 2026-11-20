@@ -1,8 +1,8 @@
 # #1074 单候选人工费用参考试算 · 独立设计
 
-> 归类与时点说明（2026-11-20）：本文是 Research 人工参考试算首段的历史冻结设计，公式、缺项与人工决定分离的边界完整保留。后续 [#1097](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1097) 已合并，原合成工程结果见 [#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074)，不等于真实经营或自动报价。当前保存合同见[经营评估持久化](../../research-commercial-assessment-persistence-v1.md)，沿 Research 当前计算与评估 owner，原浏览器权威和仅临时试算限于首段。[#1205](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1205) 已按工程范围关闭，仅指定合成案例保存、整页刷新、人工决定准确引用 PASS；重新登录找回、修改条件另存并回看旧版、完整现场/产品验收仍 NOT_RUN。保留真实取数/采购未执行与报价未知，不把历史条件用作新的运行、付款或产品授权。
+> 归类与时点说明（2026-11-20）：本文是 Research 人工参考试算首段的历史冻结设计，公式、缺项与人工决定分离的边界完整保留。后续 [#1097](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1097) 已合并，原合成工程结果见 [#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074)，不等于真实经营或自动报价。当前保存合同见[经营评估持久化](research-commercial-assessment-persistence-v1.md)，沿 Research 当前计算与评估 owner，原浏览器权威和仅临时试算限于首段。[#1205](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1205) 已按工程范围关闭，仅指定合成案例保存、整页刷新、人工决定准确引用 PASS；重新登录找回、修改条件另存并回看旧版、完整现场/产品验收仍 NOT_RUN。保留真实取数/采购未执行与报价未知，不把历史条件用作新的运行、付款或产品授权。
 
-后续范围：[#1205 保存经营评估与人工决定引用](../../research-commercial-assessment-persistence-v1.md) 已获独立架构准入和实施授权，替代本文首段的“浏览器权威计算、仅临时试算、不保存”限制；原计算口径及其有效业务/权限规则继续复用。本文其余未开放业务不因此获准，历史首段证据不改写。
+后续范围：[#1205 保存经营评估与人工决定引用](research-commercial-assessment-persistence-v1.md) 已获独立架构准入和实施授权，替代本文首段的“浏览器权威计算、仅临时试算、不保存”限制；原计算口径及其有效业务/权限规则继续复用。本文其余未开放业务不因此获准，历史首段证据不改写。
 
 Design Basis 为 `Independent Architecture`。独立 Reviewer 在 `e9b8709cca6ed3d689f9983238e7f20f736bc5e2` 上确认本段为 `IMPLEMENTATION_READY`，记录在 #1074。本文冻结该首段合同，整体商业闭环、供应商自动报价、SHEIN 写动作和真实执行分别保持原准入。
 
