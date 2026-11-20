@@ -1,8 +1,10 @@
 # SHEIN 美国站一页响应到原版发布的离线接线
 
+> 归类与时点说明（2026-11-20）：本文按实际 Product Data Acquisition/Data Services 的准备、原页用量和原版发布职责归类；Sourcing/Catalog/Collection 仍持原发布事实，Research 仅获权回读。这里的“发布”指内部原版记录，不是商品对外刊登。[#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074) 所记同一批准单、21 张样例按原序仅检查前 20、17 张合格卡及一次页费，是隔离合成工程证据，不是实际供应商账单、市场覆盖或真实试取许可。原一次提交、原账核实不重发、UNKNOWN 与固定证据边界保留；真实账号/来源、平台试取/费用/用户验收不因文档归类开放。
+
 ## 范围
 
-[#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074) 由原 #1097 Writer 续做。设计基于 [商品卡片首试 §5.3](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[单次发送](shein-us-one-page-trial-send.md)、[ZenRows 原单适配器](zenrows-shein-us-trial-adapter.md) 和 [现有 Product owner](project-boundaries.md)。起点 `ec5f6fb3b13efcc0f85da492e17f5c23d87977f9`。私有研究项目成员的目标是把一个合格的美国站卡片从同一批准单保存进现有 Collection，并由 Research 原版回读。保持类目 1727 第一页、按源顺序只处理前 20、一次提交、25 credits、零增量现金。只实现内部离线组合。当前 Figma 页面及 #1075 原版读取路径无 UI 改动。真实账号、供应商、实例、AI、付费比较、购买与合并均在范围外。
+[#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074) 由原 #1097 Writer 续做。设计基于 [商品卡片首试 §5.3](../../research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[单次发送](../../shein-us-one-page-trial-send.md)、[ZenRows 原单适配器](../../zenrows-shein-us-trial-adapter.md) 和 [现有 Product owner](../../project-boundaries.md)。起点 `ec5f6fb3b13efcc0f85da492e17f5c23d87977f9`。私有研究项目成员的目标是把一个合格的美国站卡片从同一批准单保存进现有 Collection，并由 Research 原版回读。保持类目 1727 第一页、按源顺序只处理前 20、一次提交、25 credits、零增量现金。只实现内部离线组合。当前 Figma 页面及 #1075 原版读取路径无 UI 改动。真实账号、供应商、实例、AI、付费比较、购买与合并均在范围外。
 
 ## 合同与事实 owner
 
