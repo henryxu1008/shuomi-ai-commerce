@@ -1,6 +1,8 @@
 # Product capture: source-page primary entry
 
-> 2026-10-24: [#927 session return](plugin-capture-session-return.md) adds only
+> 归类与时点说明（2026-11-20）：本文保留 [#924](https://github.com/henryxu1008/shuomi-ai-commerce/issues/924) / [#925](https://github.com/henryxu1008/shuomi-ai-commerce/pull/925) 的来源商品页入口冻结设计。#925 已合并、#924 仅工程范围关闭；末段旧分发准入缺口后由 [#1004](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1004) 在主线源码修复，不等于新包发布、下载或安装。后续同会话返回仅投影导航；页面与扩展只处理明确意图和交接，应用及 SRC/Catalog/Collection 仍持有确认、原键、保存及回执。真实浏览器、采集保存与产品验收不由合并证明。
+
+> 2026-10-24: [#927 session return](../../plugin-capture-session-return.md) adds only
 > trusted session navigation storage and a narrow returnState projection across
 > all three entries. It supersedes no-storage/no-worker-return below; payload,
 > application authority, source-document checks and no automatic replay remain.
@@ -16,11 +18,11 @@ tests and one main PR. No merge, installation/runtime update, real capture/save,
 deployment or server collection. Preserve retained data, requests, reservations,
 audit, configuration, loading directory and extension identity.
 
-Authorities: [ingestion](plugin-capture-ingestion.md),
-[existing entry](domains/sourcing/plugin-capture-entry-flow.md),
-[source quote read](domains/sourcing/plugin-capture-source-quotes.md),
-[listing fields](../product/decisions/plugin-capture-listing-fields.md),
-[final UI/IA](../product/final-ui-ia-authority.md), Figma
+Authorities: [ingestion](../../plugin-capture-ingestion.md),
+[existing entry](plugin-capture-entry-flow.md),
+[source quote read](plugin-capture-source-quotes.md),
+[listing fields](../../../product/decisions/plugin-capture-listing-fields.md),
+[final UI/IA](../../../product/final-ui-ia-authority.md), Figma
 `tg48P46SSXl6TBy9lZwg63 / 31:463`, and this explicit user entry decision.
 Application navigation, receiver, account/enterprise confirmation and save pages
 are reused in full. The prior design's no-source-button/exact-popup-only internal
