@@ -151,7 +151,7 @@ C2-2 消费者在 `4b6c03ca` 完成限定工程复核（证据见 PR），运行
 
 最初只读调查基线：main `c6f53e1a928862e556bbf0a1883c2af03dbedfb7`。下表已按本批实际实现校准，
 原调查不是当前源码状态。已实现基础的准确 HEAD/CI/独立工程回执以 PR 的有限安全基础记录为准；
-C2-2 的限定准入及实现以 [单图分析设计](product-image-visual-analysis.md) 和 PR 中 `4b6c03ca` 工程证据单独记录；不外推到 Flare。
+C2-2 的限定准入及实现以 [单图分析设计](domains/catalog/product-image-visual-analysis.md) 和 PR 中 `4b6c03ca` 工程证据单独记录；不外推到 Flare。
 
 | 当前能力 | 复用 | 本批状态及剩余接缝 |
 | --- | --- | --- |
@@ -553,7 +553,7 @@ org/actor 来自 verified identity；跨企业选择、凭据引用和旧页面�
 | 默认身份与支持目标 | U1/U3/U6 保持；共享选择/去密资格已实现。未映射协议不准入，不取消三家支持目标。 | 不合格型号执行；真实账户准备 UNKNOWN。 |
 | 汇率与微点 | 冻结 FX、完整收费分项、精确微点、原账本和全链单位已通过有限基础工程检查。 | 无真实价目/FX发布；旧/混量纲库拒绝，不迁移。 |
 | 配置权限及页面 | 企业 configure 与平台 admin.write 分工、只读投影及原键恢复已通过工程检查。 | 浏览器/Figma/产品及真实配置验收 NOT_RUN。 |
-| C2-2 | [单图设计](product-image-visual-analysis.md)的实际图片输入、Mini 上界/协议和只读消费在 `4b6c03ca` 完成限定工程检查；未变代码复用原证据。 | 不再列为待实现阻碍；现场配置 UNKNOWN，运行/效果/产品验收 NOT_RUN。 |
+| C2-2 | [单图设计](domains/catalog/product-image-visual-analysis.md)的实际图片输入、Mini 上界/协议和只读消费在 `4b6c03ca` 完成限定工程检查；未变代码复用原证据。 | 不再列为待实现阻碍；现场配置 UNKNOWN，运行/效果/产品验收 NOT_RUN。 |
 | Flare | 厂商完整费用硬上界已DEFERRED，咨询路线CANCELLED；原直连 consumer/参考估算本轮已补离线实现，待准确实现 HEAD 的 CI 与原 Reviewer 最终工程复核。 | 只由实际接线/本系统配置与预算要求判断，不再以厂商上界证明阻塞；未完成实现不冒称可用。 |
 | 运行与产品 | 工程/合成 transport 证据不证明真实模型质量或现场可用。 | 运行、真实保存/恢复、浏览器、效果及产品验收 NOT_RUN。 |
 
