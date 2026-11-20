@@ -1,8 +1,10 @@
 # SHEIN 美国站单页取数入口
 
+> 归类与时点说明（2026-11-20）：本文归入 Research 项目入口的历史离线合同；项目身份及三动作资格仍由原接线校验，Product Data Acquisition 继续持有原单、页费用和内部原版状态。[后续运行接线](../../shein-us-trial-runtime-wiring.md)与[工作台入口](../../shein-us-trial-workbench-entry.md)由已合并的 [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 衔接；下文最初“无开启入口”“无 UI 改动”只对应本离线切片。后续受控实现不等于当前启用或真实许可；[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 保持 OPEN，真实试取、费用、来源及用户验收按原未执行证据保留，不把合成门禁或 CI 当作生产验收。仅整理文档，不触真实账号、供应商、实例或费用。
+
 ## 设计依据和范围
 
-[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，基线 `7e3c5dbe48d72135aae0a5c5a96e64133f17c2fb`。Design Basis 为 Independent Architecture。本轮用户确认离线完成入口，保持默认关闭，书面许可与真实试取独立推进。复用[已批准的一页业务范围](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[单次发送](shein-us-one-page-trial-send.md)、[原单核账](zenrows-shein-us-trial-adapter.md)和[原版发布](domains/data-services/shein-us-page-publication.md)。已有研究详情继续通过原 Collection 选择器关联、查看原版证据。仅增加后端内部试取 HTTP 合同，无新增页面、菜单、按钮或 Figma 改动。
+[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，基线 `7e3c5dbe48d72135aae0a5c5a96e64133f17c2fb`。Design Basis 为 Independent Architecture。本轮用户确认离线完成入口，保持默认关闭，书面许可与真实试取独立推进。复用[已批准的一页业务范围](../../research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[单次发送](../../shein-us-one-page-trial-send.md)、[原单核账](../../zenrows-shein-us-trial-adapter.md)和[原版发布](../data-services/shein-us-page-publication.md)。已有研究详情继续通过原 Collection 选择器关联、查看原版证据。仅增加后端内部试取 HTTP 合同，无新增页面、菜单、按钮或 Figma 改动。
 
 用户结果是在受控装配中，有权的研究项目成员用事先获准的一份单子提交 SHEIN 美国站类目 `1727` 第一页，成功后可从原研究项目关联已发布资料；超时可以查看原单而不补发。按源序最多处理前 20 张，批准单最多发送一次，包内上限 25 credits，新增现金 USD 0。两项 AI 操作各 ¥0.30 / 20 点且执行关闭。真实批准/许可、ZenRows 专用 key 和实际 Lookup 接入、出口实测、生产装配、实例更新与 AI 调用不在本切片。1688 独立。全新系统，沿原 Product 库，不迁移、回填或兼容旧记录。
 

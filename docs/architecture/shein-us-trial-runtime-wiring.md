@@ -1,6 +1,6 @@
 # SHEIN 美国站单页试取运行接线
 
-[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。基线 `645eaa6cb24d4fde529e3547a2f0d6a6dbc1a3ea`。Design Basis 为 Independent Architecture，`98016c4a0b0416a40c3654b1272cce7efd481a51` 经两轮独立评审达到 `IMPLEMENTATION_READY`，首轮在 `77bb86e31` 发现的发送门禁和文件发布者信任两项阻碍均已关闭。范围承接[首试产品决定](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[取数入口](shein-us-trial-entry.md)、[单次发送](shein-us-one-page-trial-send.md)、[运行依赖](shein-us-trial-installation.md)和[原单凭证合同](zenrows-shein-us-trial-adapter.md)。
+[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。基线 `645eaa6cb24d4fde529e3547a2f0d6a6dbc1a3ea`。Design Basis 为 Independent Architecture，`98016c4a0b0416a40c3654b1272cce7efd481a51` 经两轮独立评审达到 `IMPLEMENTATION_READY`，首轮在 `77bb86e31` 发现的发送门禁和文件发布者信任两项阻碍均已关闭。范围承接[首试产品决定](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[取数入口](domains/research/shein-us-trial-entry.md)、[单次发送](shein-us-one-page-trial-send.md)、[运行依赖](shein-us-trial-installation.md)和[原单凭证合同](zenrows-shein-us-trial-adapter.md)。
 
 一名获权成员使用一份批准单，把 SHEIN 美国站类目 `1727` 第一页的可核实商品卡关联到自己的私有研究项目。最多一次提交、并发一、按原顺序检查前 20 张、上限 25 credits 和新增现金 USD 0。继续复用现有 Collection 和 Research 的关联与回读界面。范围限设计及合成验证。两项 AI 操作各 ¥0.30 / 20 点，执行关闭。
 
