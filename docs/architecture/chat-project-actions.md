@@ -46,7 +46,7 @@ Chat 页面经现有 BFF 访问按会话授权的创作报价、生成、保存�
 
 生成请求与保存请求各用独立的键。Workbench 按原账号、企业、会话保存本次有界输入和生成结果，官方技能材料由原不可变引用读取，浏览器仅保留恢复指针。保存确认到达并冻结后可以跨刷新恢复最终编辑内容。服务端尚未接收时，刷新后显示已生成的原稿，并提示尚未保存。Workbench 保留已确认保存的有界请求输入至核实完成。保存成功后，该创作草稿固定关联 Skill 原回执和已确认内容摘要，旧提交继续返回同一结果；用户后续修订通过「我的技能」保存新版本。Skill owner 持有技能版本和原回执。两个事务之间使用原键核实和收敛，当前余额与用量从原计量读取。用户说明沿现有 Chat 的 8192 UTF-8 字节上限，单一 `SKILL.md` 沿包校验的 16 KiB 上限，且受所选路线的更严格输入与输出限制。超时及结果未明的终结沿现有受控文本和 Chat 命令的时限与宽限。
 
-依据：[此前技能创作范围](../product/final-ui-ia-authority.md#官方标题与图片方法2026-10-18-用户批准) · [技能包校验和个人版本](skill-capability.md) · [Chat 持久命令与计量](domains/workbench/ai-workbench-chat-business-task.md) · [原技能编辑与核实](../../web/listingkit-ui/src/components/workbench/skills/skill-manager.tsx) · [Skill 原保存事务](../../internal/integration/persistence/skill/store.go)
+依据：[此前技能创作范围](../product/final-ui-ia-authority.md#官方标题与图片方法2026-10-18-用户批准) · [技能包校验和个人版本](domains/ai/skill-capability.md) · [Chat 持久命令与计量](domains/workbench/ai-workbench-chat-business-task.md) · [原技能编辑与核实](../../web/listingkit-ui/src/components/workbench/skills/skill-manager.tsx) · [Skill 原保存事务](../../internal/integration/persistence/skill/store.go)
 
 ### 2.2 从 Chat 选择已启用的标题技能
 
@@ -63,7 +63,7 @@ Chat 页面经现有 BFF 访问按会话授权的创作报价、生成、保存�
 
 标题页核实待决提交时使用原请求和冻结版本。新选择的候选校验只用于新确认，原回执读取依据当前原请求披露权限。结果仍不明时保留原核实入口；若涉及新的执行效果，仍通过原标题运行的当前权限与技能状态校验。Chat 原会话的创建、规划和确认分别沿第 4.1 节和第 6 节恢复。
 
-依据：[官方技能选择已有商品](domains/ai/official-skill-product-entry.md) · [技能候选和权限合同](skill-capability.md) · [原标题候选控件](../../web/listingkit-ui/src/components/workbench/skills/skill-picker.tsx) · [导航与版本核对](../../web/listingkit-ui/src/components/workbench/skills/skill-launch.tsx) · [原标题确认](../../web/listingkit-ui/src/components/workbench/acquisition/title-agent-confirmation.tsx)
+依据：[官方技能选择已有商品](domains/ai/official-skill-product-entry.md) · [技能候选和权限合同](domains/ai/skill-capability.md) · [原标题候选控件](../../web/listingkit-ui/src/components/workbench/skills/skill-picker.tsx) · [导航与版本核对](../../web/listingkit-ui/src/components/workbench/skills/skill-launch.tsx) · [原标题确认](../../web/listingkit-ui/src/components/workbench/acquisition/title-agent-confirmation.tsx)
 
 ### 2.3 「创建技能」生成带脚本的个人标题技能
 
@@ -187,7 +187,7 @@ TDD 覆盖闭合意图与可用集合、主动选择优先、原始文本/快照
 
 ### 2.5 主动选择已有 Agent 技能（2026-11-18 当前增量）
 
-Design Basis: Reuse Existing Architecture · Ready。用户明确要求技能库已有 Agent 技能也可主动选择。复用本稿第2.2/8.1节、[原商品入口](domains/ai/official-skill-product-entry.md)、[技能准入](skill-capability.md)和原图片执行合同。Skill唯一持有准确版本及准入；Collection、标题和图片各自保留原事实、确认、幂等、恢复和结算。不增加表、业务状态机、权限、收费或模型执行语义。
+Design Basis: Reuse Existing Architecture · Ready。用户明确要求技能库已有 Agent 技能也可主动选择。复用本稿第2.2/8.1节、[原商品入口](domains/ai/official-skill-product-entry.md)、[技能准入](domains/ai/skill-capability.md)和原图片执行合同。Skill唯一持有准确版本及准入；Collection、标题和图片各自保留原事实、确认、幂等、恢复和结算。不增加表、业务状态机、权限、收费或模型执行语义。
 
 右侧抽屉沿用技能库的「官方模板 / 我的技能 / 团队技能」分类，默认全部；分类只筛选原候选并保留名称搜索，不建立新分类事实。右侧抽屉同时读取原创作候选、标题candidates和image-candidates，按标题、图片、技能创作展示名称、来源、用途和版本，支持查找、独立重试和空状态。标题含原候选允许的官方/本人/团队版本，图片含原候选允许的官方/团队版本；未启用或未准入技能不伪装为可执行。某类读取失败不隐藏其他类。账号、企业或权限变化使旧选择和迟到读取失效。
 

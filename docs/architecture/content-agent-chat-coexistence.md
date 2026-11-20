@@ -16,7 +16,7 @@ Status: IMPLEMENTATION_READY。独立高风险准入已对设计35c2326dff2476a4
 
 依据：用户 2026-10-15 在原负责会话明确批准“CI 和评审通过后按授权合并 #713，再补齐与现有 Chat 共存的接线；改库前最终清单确认；保留数据、密钥和 worker；不开新线程、不启用付费调用”。#713 的批准只覆盖该 PR；后继 PR 合并、真实改库/GRANT、生成私密角色凭据、配置变更、backend/worker 共同停启与付费调用仍分别待相应批准。
 
-复用 [商品内容](domains/catalog/product-content-localization.md)、[Skill](skill-capability.md)、[四权限](enterprise-agent-permission-modes.md)、[Chat 会话运行](domains/workbench/ai-workbench-conversation-runtime.md)、[原 Agent Runtime](product-agent-runtime-contract.md)、[Provider-neutral 文本](domains/ai/product-agent-text-provider-neutral.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。本文只替代 Chat 设计中“conversationOnly 必须没有 enabled ProductAgent”的组合限制，在显式有界配置下允许内容标题执行独立共存；Chat 自身仍无 planner/executor。
+复用 [商品内容](domains/catalog/product-content-localization.md)、[Skill](domains/ai/skill-capability.md)、[四权限](enterprise-agent-permission-modes.md)、[Chat 会话运行](domains/workbench/ai-workbench-conversation-runtime.md)、[原 Agent Runtime](product-agent-runtime-contract.md)、[Provider-neutral 文本](domains/ai/product-agent-text-provider-neutral.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。本文只替代 Chat 设计中“conversationOnly 必须没有 enabled ProductAgent”的组合限制，在显式有界配置下允许内容标题执行独立共存；Chat 自身仍无 planner/executor。
 
 产品/Figma Authority 沿 [最终 UI/IA](../product/final-ui-ia-authority.md) 和已批准 Skill 局部位置：文件 tg48P46SSXl6TBy9lZwg63、非归档 31:463，Chat 427:2467、我的智能体 4703:429、能力配置 4703:892、执行确认 4722:429、账户资料 432:534。沿原页面和操作，不新增页面/菜单或假启用状态；本文不声称今天重新验收 Figma 或运行 UI。
 

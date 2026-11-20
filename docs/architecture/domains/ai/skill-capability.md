@@ -1,12 +1,14 @@
 # Skill V1：三层归属与现有商品内容 Agent 接入
 
-> 2026-11-15：用户已批准[脚本扩展 §21](skill-script-sandbox.md#21-已批准三组产品范围与正式-ready-准入2026-11-15)，正式执行 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，**IMPLEMENTATION_READY / Ready（未启动）**。首版为有效企业内标题候选的单Python/标准库/JSON/离线后处理、default人工采用/read_only查看，沿原权限与企业准入。复用Linux Docker/gVisor、OpenSandbox及Traefik入口，Kubernetes非前置；独立复核无新架构BLOCKER。D-IT1余项仍为试用开放Must，256事件等约束在正式adapter组合落实；本轮不改生产代码，能力尚未开放。本文文本合同保持，本决定仅在准确新脚本策略/消费者内局部扩展，不授予任意脚本执行权。
+> Classification and chronology (2026-11-20): This is the Skill owner contract for identity, exact version and materials, and admission; the separate [operations handoff](../../../operations/user-guides/skill-capability.md) remains in place. [Issue #688](https://github.com/henryxu1008/shuomi-ai-commerce/issues/688) closed for engineering scope. [Issue #756](https://github.com/henryxu1008/shuomi-ai-commerce/issues/756) records the later AI Workbench library location, not the superseded Smart Market location. The READY/not started note below is historical: [Issue #1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293) and [PR #1298](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1298) record the later bounded Python title post-processing delivery and isolated trial, not arbitrary script access, actual model quality, business deployment or new operating authority. Text skill and original execution and accounting ownership remain unchanged.
+
+> 2026-11-15：用户已批准[脚本扩展 §21](../../skill-script-sandbox.md#21-已批准三组产品范围与正式-ready-准入2026-11-15)，正式执行 [#1293](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1293)，**IMPLEMENTATION_READY / Ready（未启动）**。首版为有效企业内标题候选的单Python/标准库/JSON/离线后处理、default人工采用/read_only查看，沿原权限与企业准入。复用Linux Docker/gVisor、OpenSandbox及Traefik入口，Kubernetes非前置；独立复核无新架构BLOCKER。D-IT1余项仍为试用开放Must，256事件等约束在正式adapter组合落实；本轮不改生产代码，能力尚未开放。本文文本合同保持，本决定仅在准确新脚本策略/消费者内局部扩展，不授予任意脚本执行权。
 
 > Design Basis：Independent Architecture；执行 Issue：[#688](https://github.com/qq550723504/task-processor/issues/688)，产品父项 #137。
 > 状态：APPROVED / IMPLEMENTATION_READY。2026-10-14 第 1 轮独立技术边界检查无未处理 BLOCKER；用户同日批准第 2 节局部产品位置。实现与用户验收另行记录。
 > 2026-10-17 局部入口调整：用户批准「智能市场 → 技能库」，含官方模板、我的技能和团队技能；执行 [#756](https://github.com/qq550723504/task-processor/issues/756)，Design Basis 为 Reuse Existing Architecture。此决定仅替代原入口限制，下面的归属、授权、版本、持久化与执行合同保持有效。
-> 同日后续批准：[Figma 浅色 `6734:1666` / 深色 `6734:1427`](../product/final-ui-ia-authority.md#技能库着陆页2026-10-17-后续批准) 的静态着陆页替代根路径默认跳转官方模板；三个管理分类、现有数据和执行合同不变。
-> 2026-10-22 当前入口决定：技能库统一归入「AI工作台」，与知识库并列；移除智能市场及账户资料重复入口，保留三分类选项卡及原地址。见[当前产品依据](../product/final-ui-ia-authority.md#2026-10-22-当前用户决定技能库归入-ai工作台)。原技能归属、权限、准确版本、持久化与执行合同不变。
+> 同日后续批准：[Figma 浅色 `6734:1666` / 深色 `6734:1427`](../../../product/final-ui-ia-authority.md#技能库着陆页2026-10-17-后续批准) 的静态着陆页替代根路径默认跳转官方模板；三个管理分类、现有数据和执行合同不变。
+> 2026-10-22 当前入口决定：技能库统一归入「AI工作台」，与知识库并列；移除智能市场及账户资料重复入口，保留三分类选项卡及原地址。见[当前产品依据](../../../product/final-ui-ia-authority.md#2026-10-22-当前用户决定技能库归入-ai工作台)。原技能归属、权限、准确版本、持久化与执行合同不变。
 > 调查基线：main `8fc90f237c5794904771a62c7f3b85d2ecbd6b76`，2026-10-14。滚动实现/评审状态写 Issue/主要 PR。
 
 ## 1. 用户结果、依据和阶段边界
@@ -17,7 +19,7 @@
 
 产品授权来源：#688 当前正文及用户 2026-10-14 指派“开始处理#688”。任务允许设计、准入后实现、必要隔离验证与主要 PR；不接管 #137 活跃交付，不取得合并、安装、共享实例变更、真实模型费用、平台写入或关闭权限。
 
-适用依据：[最终 UI/IA](../product/final-ui-ia-authority.md)、[项目边界](./project-boundaries.md)、[身份与组织](platform/identity/auth-and-tenancy.md)、[企业 Agent 配置](domains/workbench/organization-agent-configuration.md)、[商品内容](domains/catalog/product-content-localization.md)、[原运行](./product-agent-runtime-contract.md)、[原知识](domains/workbench/agent-knowledge-context.md)、[四模式](./enterprise-agent-permission-modes.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[派工规则](../engineering/issue-driven-development.md)。#688 仅替代现配置/内容设计中“用户方法文本不可编辑”的对应非目标；不开放 AgentDefinition、工具、模型路由或任意系统提示词编辑。
+适用依据：[最终 UI/IA](../../../product/final-ui-ia-authority.md)、[项目边界](../../project-boundaries.md)、[身份与组织](../../platform/identity/auth-and-tenancy.md)、[企业 Agent 配置](../workbench/organization-agent-configuration.md)、[商品内容](../catalog/product-content-localization.md)、[原运行](../../product-agent-runtime-contract.md)、[原知识](../workbench/agent-knowledge-context.md)、[四模式](../../enterprise-agent-permission-modes.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)、[派工规则](../../../engineering/issue-driven-development.md)。#688 仅替代现配置/内容设计中“用户方法文本不可编辑”的对应非目标；不开放 AgentDefinition、工具、模型路由或任意系统提示词编辑。
 
 Must：三层归属、动作分离、不可变准确版本、个人明确同意的组织复制、当前企业准入、原预算/指纹/UNKNOWN、原 Review/Catalog 保存读回、无越权材料或假成功。Should：在已有合格能力可直接复用时 AI 整理草稿；不是首版前置。Out of Scope：公开/付费市场、跨企业可撤销分发、多 Skill 调度、脚本/任意网络、第二 IAM/账本/任务系统、迁移/双读双写、验收平台。没有新增 Accepted Risk；原 full_access 未经逐项人工审核的既有产品边界继续适用。
 
@@ -39,7 +41,7 @@ Must：三层归属、动作分离、不可变准确版本、个人明确同意�
 
 沿现 ConsolePage、Card/Dialog/表单、CSS Modules 和设计 tokens；一级导航不变，在AI工作台下提供二级「技能库」，与知识库并列，保留上述三个分类。技能库使用页内管理视图，业务配置中的快捷入口继续使用 Dialog，两种展示复用同一管理逻辑；智能市场和账户资料不再重复提供管理入口。不是公开/付费技能交易市场，不增加个人 Workspace、搜索推荐平台或第二技能服务。
 
-2026-10-17 分类页面展示增量沿 [当前 Figma 分类页依据](../product/final-ui-ia-authority.md#技能库分类页2026-10-17-后续批准)：复用介绍页配色和字体，区分页面标题、三分类导航、权限工具栏、版本列表、团队准入及使用说明。仅 `presentation=page` 调整管理组件排版；Dialog、scope/key、读写处理器和服务权限合同不变。Figma 示例不生成目录或配置；空目录与服务失败继续分别如实显示，准确版本入口仍调用原 readVersion。
+2026-10-17 分类页面展示增量沿 [当前 Figma 分类页依据](../../../product/final-ui-ia-authority.md#技能库分类页2026-10-17-后续批准)：复用介绍页配色和字体，区分页面标题、三分类导航、权限工具栏、版本列表、团队准入及使用说明。仅 `presentation=page` 调整管理组件排版；Dialog、scope/key、读写处理器和服务权限合同不变。Figma 示例不生成目录或配置；空目录与服务失败继续分别如实显示，准确版本入口仍调用原 readVersion。
 
 新页面复用 `requireAuthenticatedUserId` 的 server identity gate，并将准确 expected user 交给客户端；官方/个人读取不依赖有效企业，团队必须当前 live organization。Console 已有 identity-only 页面白名单精确增加技能库根路径、`/official`、`/mine`；`/team` 及未知子路由不放宽原企业访问要求，不把整个 `/agents` 前缀作为个人入口。登录失效或身份变化立即清除原管理子树；企业切换/撤权/上下文失败时不保留旧团队内容和请求，个人/官方仍按 identity-only 原合同读取。页面与导航不产生任何后端授权，正文/复制/审批/准入仍由原 service/BFF 复核。管理组件按用户、企业、分类及权限变化重建，不混用旧版本、待确认命令或审批预览。
 
