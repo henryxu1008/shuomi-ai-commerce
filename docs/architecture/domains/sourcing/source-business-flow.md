@@ -1,5 +1,7 @@
 # #30 / #307 完整来源业务闭环设计
 
+> 归类与时点说明（2026-11-20）：本文保留 [#859](https://github.com/henryxu1008/shuomi-ai-commerce/pull/859) 的冻结设计和历史准入措辞；§4.3.1 后已获用户确认，#859 也已合并。[#30](https://github.com/henryxu1008/shuomi-ai-commerce/issues/30) 仅按来源闭环工程范围关闭；[#307](https://github.com/henryxu1008/shuomi-ai-commerce/issues/307) 仍开放，完整新环境、真实资源隔离与业务运行验收未执行，当前保留环境物理状态未知。#859 使用任务自有数据库与合成身份、来源及基础模块等替身；[#301](https://github.com/henryxu1008/shuomi-ai-commerce/issues/301) 后续关闭仅覆盖源码退休与其限定 RUN-1，不能替代 #307。下文 #849 未合并、#301 保留状态均为当时记录；[#849](https://github.com/henryxu1008/shuomi-ai-commerce/pull/849) 后已合并但不是来源现场验收，旧独立 SHEIN 登录 worker 后由 [#985](https://github.com/henryxu1008/shuomi-ai-commerce/pull/985) 退休，不恢复其实现。Sourcing/SRC 管来源证据与发布回执，Catalog 管固定版本，Collection 管引用，Preparation 管明确转入，Asset 管人工批准；只读 Product inputs 不代表平台已就绪，也不是发布或当前运行授权。
+
 Refs [#30](https://github.com/qq550723504/task-processor/issues/30)、[#307](https://github.com/qq550723504/task-processor/issues/307)；[#301](https://github.com/qq550723504/task-processor/issues/301) 保持 OPEN。
 
 Status: **IMPLEMENTATION_READY / FROZEN**（2026-10-21）。用户已确认 §1–§7（含 §4.3.1 产品/Figma 增量），授权在 #859 同一批次实施，并允许任务自有临时 PostgreSQL 和合成 fixture。独立设计复核 `ba833335ea3aad80aaa8d5ecfc6cf9c825642d3d` 已完成；随后 `7f4baf9e4` 仅移动索引，设计正文不变。唯一产品入口 BLOCKER 由本次用户明确批准解除，见 [准入记录](https://github.com/qq550723504/task-processor/pull/859#discussion_r4331840231)。设计调查基线 main `9983fc6931046872004e546c6fe5b55a6c58ba02`；实施开工同步 main `773389eefe2ded6027a72c9351e9b2aa50bac96b`。下文原提案/待确认措辞保留设计历史，以本段准入决定为当前状态；业务边界冻结。实现、隔离 fixture 验证已授权，合并、部署、真实来源请求/既有实例数据凭据操作及父 Issue 关闭未授权；生产与真实验收仍 NOT_READY / NOT_RUN。
@@ -14,10 +16,10 @@ Status: **IMPLEMENTATION_READY / FROZEN**（2026-10-21）。用户已确认 §1�
 
 Authority：
 
-- 用户本轮明确的 #30/#307 设计授权；[Greenfield](../product/greenfield-no-legacy-migration.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)、[项目边界](project-boundaries.md)、[Issue 规则](../engineering/issue-driven-development.md)。
+- 用户本轮明确的 #30/#307 设计授权；[Greenfield](../../../product/greenfield-no-legacy-migration.md)、[当前系统边界](../../../product/greenfield-no-legacy-migration.md)、[项目边界](../../project-boundaries.md)、[Issue 规则](../../../engineering/issue-driven-development.md)。
 - #30 的 [2026-09-11 决定](https://github.com/qq550723504/task-processor/issues/30#issuecomment-5637305932)：匿名公开获取不依赖账号；#307 正文中“正常授权源账号/店铺”仅适用于实际消费该能力的路径，不能恢复为匿名采集前置。
-- [1688 产品决定](../product/decisions/1688-acquisition-scope.md)、[已冻结采集/规则/转入合同](1688-acquisition-figma.md)、[公开浏览器采集](1688-server-public-browser-acquisition.md)、[既有计费](domains/sourcing/1688-acquisition-channel-pricing.md)。
-- [当前 Figma Authority](../product/final-ui-ia-authority.md)、[我的供应链及人工来源图批准 §7.3](my-supply-chain-shein.md)。复用文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463` 已批准节点：采集 `1905:359`、`3792:1353`、`3792:1390`；我的数据批次 `430:2067`、详情 `3395:389`；转入 `3342:359`；待适配 `3507:1965` / `3507:3143`。本轮实际读取详情/待适配的字体、结构及 tokens，新增 §4.3.1 的独立待确认提案，不修改这些原稿或宣称产品视觉验收。
+- [1688 产品决定](../../../product/decisions/1688-acquisition-scope.md)、[已冻结采集/规则/转入合同](../../1688-acquisition-figma.md)、[公开浏览器采集](../../1688-server-public-browser-acquisition.md)、[既有计费](1688-acquisition-channel-pricing.md)。
+- [当前 Figma Authority](../../../product/final-ui-ia-authority.md)、[我的供应链及人工来源图批准 §7.3](../../my-supply-chain-shein.md)。复用文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463` 已批准节点：采集 `1905:359`、`3792:1353`、`3792:1390`；我的数据批次 `430:2067`、详情 `3395:389`；转入 `3342:359`；待适配 `3507:1965` / `3507:3143`。本轮实际读取详情/待适配的字体、结构及 tokens，新增 §4.3.1 的独立待确认提案，不修改这些原稿或宣称产品视觉验收。
 
 Must：准确持久化及 lineage、当前 verified Effective Organization/actor/member、原幂等/UNKNOWN、真实警告、来源图默认未批准、明确人工批准与精确 Asset inventory、刷新后仍可读取及诊断。readiness 仅表示 `product.inputs`，不代表平台规则通过、图片远端字节已验证、可上传或已发布。
 

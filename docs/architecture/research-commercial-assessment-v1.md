@@ -8,7 +8,7 @@
 
 当前授权只覆盖文档、只读调查、独立设计检查、提交/推送及关联 Draft PR。没有生产代码、DDL、运行配置、注册/购买、真实数据/模型请求、部署、合并或关单权限。
 
-适用依据：[父 #1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1074 原范围](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074)、[当前领域 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[Product/Figma Authority](../product/final-ui-ia-authority.md)、[项目中心](domains/workbench/ai-workbench-project-center.md)、[来源流程](source-business-flow.md)和[当前商品对比](domains/research/product-selection-comparison-agent.md)。
+适用依据：[父 #1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1074 原范围](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074)、[当前领域 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[Product/Figma Authority](../product/final-ui-ia-authority.md)、[项目中心](domains/workbench/ai-workbench-project-center.md)、[来源流程](domains/sourcing/source-business-flow.md)和[当前商品对比](domains/research/product-selection-comparison-agent.md)。
 
 Product/Figma Authority：既有 `31:463` 页面及产品提案 §3 的准确节点已只读核实存在、可见、非归档。§5.4 复用研究详情，后续新增 UI 仍为文字候选，未更新 Figma。#1075 中用户已确认的智能市场/我的智能体入口见其[固定版本 Authority](https://github.com/henryxu1008/shuomi-ai-commerce/blob/8d3b19df15eaf94c1030729006557496e0663f2a/docs/product/final-ui-ia-authority.md)。本设计不从 main 缺失的文档推导已有能力。
 

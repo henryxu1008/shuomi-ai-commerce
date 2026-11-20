@@ -122,7 +122,7 @@
 - `domains/sourcing/plugin-capture-page-entry.md` — [Product capture: source-page primary entry](domains/sourcing/plugin-capture-page-entry.md)
 - `plugin-capture-session-return.md` — [Product capture: original-tab return across worker recreation](plugin-capture-session-return.md)
 - `domains/sourcing/plugin-capture-source-quotes.md` — [插件资料补齐与来源报价只读展示 V1](domains/sourcing/plugin-capture-source-quotes.md)
-- `source-business-flow.md` — [#30 / #307 完整来源业务闭环设计](source-business-flow.md)
+- `domains/sourcing/source-business-flow.md` — [#30 / #307 完整来源业务闭环设计](domains/sourcing/source-business-flow.md)
 
 <a id="product"></a>
 
