@@ -73,7 +73,7 @@
 - `platform/identity/public-trial-identity-origin.md` — [Fixed HTTPS identity origin for the cloud trial](platform/identity/public-trial-identity-origin.md)
 - `platform/runtime/retained-lan-access.md` — [Retained trial LAN access and scoped identity admission](platform/runtime/retained-lan-access.md)
 - `domains/sourcing/source-account-registry.md` — [Source Account SA1 contract](domains/sourcing/source-account-registry.md)
-- `source-account-bff.md` — [Source Account SA-2 BFF contract](source-account-bff.md)
+- `domains/sourcing/source-account-bff.md` — [Source Account SA-2 BFF contract](domains/sourcing/source-account-bff.md)
 
 <a id="commercial"></a>
 

@@ -1,5 +1,7 @@
 # Source Account SA-2 BFF contract
 
+> Classification and chronology (2026-11-20): This is the historical SA-2 same-origin client boundary for the internal Sourcing registry. [Issue #370](https://github.com/henryxu1008/shuomi-ai-commerce/issues/370) is closed and [PR #373](https://github.com/henryxu1008/shuomi-ai-commerce/pull/373) subsequently merged after [SA-1 PR #369](https://github.com/henryxu1008/shuomi-ai-commerce/pull/369), with isolated browser-to-PostgreSQL evidence. The candidate and blocked-upstream statements below describe the original stage. Identity, authorization and durable receipts remain with their original owners. The original receipt-growth BACKLOG and isolated evidence do not establish current deployment, external account ownership, connection, collection readiness, or permission to operate an account.
+
 Issue: #370
 Product decision: #365 / `PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08`
 Candidate dependency: PR #369 @ `0a86bfc7b13353be2ab05c384ec94b94b16aae7f`
