@@ -1,5 +1,7 @@
 # #1205 保存经营评估与人工决定引用：局部设计候选
 
+> 归类与时点说明（2026-11-20）：归入 Research 的服务端计算、评估及原人工决定引用合同。完整保留 D1–D3、准确来源、明示选择、原键与历史不可覆盖边界；旧阶段的待最终复核/运行 NOT_RUN 不替代 [#1205 当前工程关闭记录](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1205)。#1209、#1217、#1219、#1224 后续合入；仅指定合成案例的保存、整页刷新和原人工决定准确引用 PASS，重登找回、修改条件另存并现场回看旧版、完整现场及产品验收仍 NOT_RUN。定向安装记载限原历史授权；不触发现在的安装、保留环境变更或真实市场/AI/采购、转入及发布。原独立运行指南留原位。
+
 Status: **PRODUCT_CONFIRMED（D1–D3）/ IMPLEMENTATION_READY / IMPLEMENTED_PENDING_FINAL_REVIEW**。Design Basis: **Independent Architecture（局部增量）**。
 
 调查基线：main `cc2262a2e6e9326b76fdf9c89d54e9e9f9103dd6`，2026-11-08。设计提交时为 pending；随后用户明确现有 Codex 对准确 HEAD `df6ee8c7decf18fe2c33da465cd183e61eda74a1` 完成评审并点赞即本轮架构评审通过，并授权当前唯一 Writer 在原工作区/PR #1209 按冻结设计先补 IT1–IT5 回归再实现、自检、推送及自动复核。该准入及授权覆盖本局部增量；不包含额外派工、合并、部署、关单或真实操作。最终实现 HEAD、CI 与评审证据维护于 PR，不以工程证据替代运行或产品验收。
