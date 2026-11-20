@@ -119,7 +119,7 @@
 - `domains/sourcing/plugin-capture-entry-flow.md` — [Product capture entry and original-tab return](domains/sourcing/plugin-capture-entry-flow.md)
 - `plugin-capture-ingestion.md` — [插件采集增量架构：规格图片与 Amazon 接收保存 V1](plugin-capture-ingestion.md)
 - `plugin-capture-listing-materials.md` — [插件上架资料补齐：高清相册、参数、正文/详情图与重量 V1](plugin-capture-listing-materials.md)
-- `plugin-capture-page-entry.md` — [Product capture: source-page primary entry](plugin-capture-page-entry.md)
+- `domains/sourcing/plugin-capture-page-entry.md` — [Product capture: source-page primary entry](domains/sourcing/plugin-capture-page-entry.md)
 - `plugin-capture-session-return.md` — [Product capture: original-tab return across worker recreation](plugin-capture-session-return.md)
 - `domains/sourcing/plugin-capture-source-quotes.md` — [插件资料补齐与来源报价只读展示 V1](domains/sourcing/plugin-capture-source-quotes.md)
 - `source-business-flow.md` — [#30 / #307 完整来源业务闭环设计](source-business-flow.md)

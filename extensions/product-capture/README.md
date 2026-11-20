@@ -59,7 +59,7 @@ an unresolved check remains paused. The extension does not handle verification, 
 raise collection limits, or change the existing one-time handoff/save. Keep the progress page open.
 
 [Execution #924](https://github.com/qq550723504/shuomi-ai-commerce/issues/924) adds
-the reviewed [source-page primary entry](../../docs/architecture/plugin-capture-page-entry.md).
+the reviewed [source-page primary entry](../../docs/architecture/domains/sourcing/plugin-capture-page-entry.md).
 Supported Amazon/1688 detail pages show **硕米 · 商品采集** with **采集并在应用确认**.
 Loading the page only mounts this control and reads limited status; extraction
 starts on a real user click. The isolated content script uses the existing exact

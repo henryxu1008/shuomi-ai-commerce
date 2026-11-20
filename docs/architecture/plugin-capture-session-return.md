@@ -24,7 +24,7 @@ data, original requests, reservations/audit, configuration, unpacked directory
 and extension identity remain untouched.
 
 Authorities: [current entry](domains/sourcing/plugin-capture-entry-flow.md),
-[source-page entry](plugin-capture-page-entry.md),
+[source-page entry](domains/sourcing/plugin-capture-page-entry.md),
 [ingestion](plugin-capture-ingestion.md),
 [source quote read](domains/sourcing/plugin-capture-source-quotes.md),
 [final UI/IA](../product/final-ui-ia-authority.md), Figma

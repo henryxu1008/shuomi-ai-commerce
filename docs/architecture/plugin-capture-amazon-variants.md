@@ -22,7 +22,7 @@ Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**
 ProductAgent、Chat、服务端采集继续关闭，其他会话/工作区不接管。
 
 依据：[现有接收与原子保存](plugin-capture-ingestion.md)、
-[页内入口](plugin-capture-page-entry.md)、[统一入口](domains/sourcing/plugin-capture-entry-flow.md)、
+[页内入口](domains/sourcing/plugin-capture-page-entry.md)、[统一入口](domains/sourcing/plugin-capture-entry-flow.md)、
 [session原标签恢复](plugin-capture-session-return.md)、
 [来源报价只读](domains/sourcing/plugin-capture-source-quotes.md)、
 [上架字段](../product/decisions/plugin-capture-listing-fields.md)、
