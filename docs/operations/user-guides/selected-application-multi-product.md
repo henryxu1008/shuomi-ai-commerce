@@ -1,7 +1,9 @@
 # 自有商品优选申请
 
-本文说明[多商品产品决定](../product/flows/selected-application-multi-product.md)及已达
-`IMPLEMENTATION_READY` 的[冻结设计](../architecture/domains/supply-market/selected-application-multi-product.md)
+> 归类与时点说明（2026-11-20）：这是 [#710](https://github.com/henryxu1008/shuomi-ai-commerce/issues/710) 多商品优选申请的操作指南，和原产品决定、冻结架构分别保留；下文“原路径保留”和布局说明仅为旧阶段文字，当前路径以本目录索引为准，现行界面不恢复旧 Figma 布局权威。[#759](https://github.com/henryxu1008/shuomi-ai-commerce/pull/759) 源码已合并，#710 仅按工程范围关闭。SupplyMarket 拥有逐件申请、审核和回执，Catalog/Collection/Apply 与私密文件继续保留原事实；公开/自动发布不随申请产生。原有限界面观察不替代真实两件汇总、提交、部分失败恢复或产品验收，当前运行仍无验证。本次只整理文档，不上传、提交、审核、刊登或操作账户、配置和实例。
+
+本文说明[多商品产品决定](../../product/flows/selected-application-multi-product.md)及已达
+`IMPLEMENTATION_READY` 的[冻结设计](../../architecture/domains/supply-market/selected-application-multi-product.md)
 对应的流程。源码候选不表示保留实例已经安装此版本；本轮不进行真实上传、申请或发布。
 原路径保留供既有文档引用，旧单件交互范围已由 2026-10-17 用户决定替代。
 
