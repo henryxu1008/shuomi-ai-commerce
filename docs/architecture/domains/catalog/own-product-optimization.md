@@ -50,7 +50,7 @@ Out of Scope：批量优化/申请、新 Agent/Registry/队列/调度器/账本�
   EffectiveProductReader 读取真实 Apply，不新增“优化完成”字段或事实 owner。
 
 引用冻结合同：[内容智能体](product-content-localization.md)、
-[权限模式](../../enterprise-agent-permission-modes.md)、
+[权限模式](../ai/enterprise-agent-permission-modes.md)、
 [供应商可替换](../ai/product-agent-text-provider-neutral.md)、
 [Review](../../../../internal/product/review/README.md)、
 [优选资格](../supply-market/supply-market-choice-eligibility.md)。

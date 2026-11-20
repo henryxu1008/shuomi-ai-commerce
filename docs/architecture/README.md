@@ -225,7 +225,7 @@
 - `domains/catalog/product-image-facts-advice.md` — [图片事实检查与非执行性建议：C2-1 / C3-1（R1 冻结，实现见 #1076）](domains/catalog/product-image-facts-advice.md)
 - `domains/catalog/product-image-visual-analysis.md` — [商品图片单图视觉分析：C2-2（限定工程检查已完成；运行与产品验收 NOT_RUN）](domains/catalog/product-image-visual-analysis.md)
 - `domains/listing/listing-candidate-category-rules.md` — [SHEIN 候选类目规则查询与只读解释：C3-2（R1 冻结，IMPLEMENTATION_READY）](domains/listing/listing-candidate-category-rules.md)
-- `enterprise-agent-permission-modes.md` — [企业智能体权限与审批模式 V1](enterprise-agent-permission-modes.md)
+- `domains/ai/enterprise-agent-permission-modes.md` — [企业智能体权限与审批模式 V1](domains/ai/enterprise-agent-permission-modes.md)
 - `domains/workbench/official-knowledge-provenance.md` — [官方知识库 V2：产品内依据，不使用 GitHub 地址](domains/workbench/official-knowledge-provenance.md)
 - `domains/workbench/official-knowledge.md` — [Official Knowledge V1 — Product Gate and design proposal](domains/workbench/official-knowledge.md)
 - `domains/ai/official-skill-product-entry.md` — [官方技能直接处理已有商品](domains/ai/official-skill-product-entry.md)

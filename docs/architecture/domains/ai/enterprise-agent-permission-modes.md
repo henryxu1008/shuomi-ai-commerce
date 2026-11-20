@@ -1,5 +1,7 @@
 # 企业智能体权限与审批模式 V1
 
+> Classification and chronology (2026-11-20): This is the frozen AI execution and approval policy, not an IAM or deployment grant. The separate [operations handoff](../../../operations/enterprise-agent-permission-modes.md) remains in place. [Issue #656](https://github.com/henryxu1008/shuomi-ai-commerce/issues/656) closed for engineering scope after [PR #657](https://github.com/henryxu1008/shuomi-ai-commerce/pull/657) merged; the original default-queue observation was corrected to 0 → 0 and does not describe Store preparation. Runtime and product acceptance remain unverified. These records do not widen tool or resource access, authorize external protected actions, or turn policy adoption into human approval.
+
 > Status: APPROVED / IMPLEMENTATION_READY (architecture only)
 >
 > 必要独立 Architecture Review 已完成两轮：私有质检模式记录缺口已修订；第2轮对应增量复核明确无新增 BLOCKER。审查内容 SHA256：635F55BFD2A70B8D834A9037DA206B0AE0E0C7F441748BE70CE9CF47723861D4。本状态标记只记录准入，不改变审查合同；撤销/准确策略采用的相关测试仍属 IMPLEMENTATION_TEST，合并相关生产实现前须通过。
@@ -29,7 +31,7 @@ Threat Model：防止模型/浏览器自报权限、跨企业/私有交付泄漏
 
 ### 1.1 UI / IA Authority
 
-沿用 [最终 UI / IA](../product/final-ui-ia-authority.md)：
+沿用 [最终 UI / IA](../../../product/final-ui-ia-authority.md)：
 Figma 文件 tg48P46SSXl6TBy9lZwg63，当前非归档页面 31:463。
 现有已准入配置流程引用“我的智能体”4703:429、能力配置4703:892、执行确认4722:429、Review4711:429。新增四种模式来自本次用户决定，只补现有配置和确认流程中的模式选择/说明，不新增顶层菜单或独立权限中心。
 
@@ -63,12 +65,12 @@ Figma 文件 tg48P46SSXl6TBy9lZwg63，当前非归档页面 31:463。
 
 ## 3. Owner、合同与依赖方向
 
-复用 [企业智能体配置](domains/workbench/organization-agent-configuration.md)、
-[Agent Runtime](./product-agent-runtime-contract.md)、
-[完整图片智能体](domains/ai/product-image-agent.md)、
-[私有交付](domains/ai/private-agent-delivery.md)、
-[Project Boundaries](./project-boundaries.md) 与
-[Greenfield](../product/greenfield-no-legacy-migration.md)。
+复用 [企业智能体配置](../workbench/organization-agent-configuration.md)、
+[Agent Runtime](../../product-agent-runtime-contract.md)、
+[完整图片智能体](product-image-agent.md)、
+[私有交付](private-agent-delivery.md)、
+[Project Boundaries](../../project-boundaries.md) 与
+[Greenfield](../../../product/greenfield-no-legacy-migration.md)。
 
 | contract → implementation → injection → consumer | 职责 |
 | --- | --- |
