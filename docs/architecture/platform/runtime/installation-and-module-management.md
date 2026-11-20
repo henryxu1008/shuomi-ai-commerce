@@ -1,5 +1,7 @@
 # 首次安装向导与实例模块管理
 
+> 归类与时点说明（2026-11-20）：本文保留首次安装与现有实例模块管理的冻结依据、R1 和原验证要求。[#1241](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1241) 已合并；[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240) 仍开放，后续入口及候选检查以该 Issue 的实际版本与范围为准。平台安装控制、实际配置和各原 schema/业务 owner 的职责不变；首次空安装不等于保留库维护。下文未执行、秘密交接与旧差距按当时证据解释，不由工程合并推断某个现场实例已更新、已获准重启或真实业务已验收。
+
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**，依据§9独立R1；实施与运行进度见#1240和PR#1241，本设计状态不代替运行交付或用户验收。
 
 执行[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)，调查基线main `cea8e313b17f90f7b9208d15b239c8ee437ed59e`。用户2026-11-11确认首次安装和现有实例管理都需要；本文件不代表已实现界面或已获准更新原35444。
