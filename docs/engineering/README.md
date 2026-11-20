@@ -36,6 +36,7 @@
 - [任务中心：本地资料准备工作记录](integration/shein-records-ui.md)
 - [SRC-2B1 public 1688 acquisition](1688-public-acquisition.md)
 - [Store Center 商品与订单只读首版接线](integration/store-observations-integration-handoff.md)
+- [店铺浏览器接口实施交接](integration/store-browser-workbench-implementation.md)
 - [供应市场 v1 正常程序接线](integration/supply-market-runtime-handoff.md)
 
 <a id="workspace"></a>

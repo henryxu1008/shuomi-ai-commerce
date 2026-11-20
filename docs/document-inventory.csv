@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,44285,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,44156,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8360,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,18647,KEEP_PATH,,,MOVED_VERIFIED,frozen withdrawal admission design; authority and staged rollout evidence preserved
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
@@ -211,7 +211,7 @@ docs/architecture/domains/sourcing/source-account-bff.md,architecture,sourcing,1
 docs/architecture/domains/sourcing/source-account-registry.md,architecture,sourcing,19692,KEEP_PATH,,,MOVED_VERIFIED,historical SA1 registry owner and current composition evidence retained
 docs/architecture/domains/sourcing/source-business-flow.md,architecture,sourcing,27155,KEEP_PATH,,,MOVED_VERIFIED,frozen sourcing flow; engineering closure distinguished from open integration acceptance
 docs/architecture/domains/ai/source-white-background.md,architecture,ai,18265,KEEP_PATH,,,MOVED_VERIFIED,fixed ImageAgent and Resource owner contract; historical single-image boundary retained
-docs/architecture/store-browser-workbench-implementation.md,architecture,sourcing,5872,REVIEW_MOVE,docs/architecture/domains/sourcing/store-browser-workbench-implementation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/engineering/integration/store-browser-workbench-implementation.md,engineering,cross-cutting,6462,KEEP_PATH,,,MOVED_VERIFIED,Store Center integration handoff relocated; original scope and historical verification bounds preserved
 docs/architecture/store-center-application.md,architecture,cross-cutting,28985,KEEP_PATH,docs/architecture/store-center-application.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/store-center-figma.md,architecture,cross-cutting,18394,REVIEW_LIFECYCLE,docs/architecture/store-center-figma.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
 docs/architecture/store-center-platform-observations.md,architecture,cross-cutting,26059,KEEP_PATH,docs/architecture/store-center-platform-observations.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
@@ -272,7 +272,7 @@ docs/engineering/market-research-unified-update-plan.md,engineering,research,126
 docs/engineering/new-run-ledger-installer-design.md,engineering,platform,14105,KEEP_PATH,docs/engineering/new-run-ledger-installer-design.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/integration/official-knowledge-handoff.md,engineering,workbench,4432,KEEP_PATH,,,MOVED_VERIFIED,workbench integration handoff relocated; semantics and historical acceptance limits preserved
 docs/engineering/integration/operations-cockpit-runtime-handoff.md,engineering,workbench,6024,KEEP_PATH,,,MOVED_VERIFIED,workbench integration handoff relocated; semantics and historical acceptance limits preserved
-docs/engineering/README.md,engineering,cross-cutting,2851,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/engineering/README.md,engineering,cross-cutting,3160,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/engineering/referral-registration.md,engineering,commercial,14513,KEEP_PATH,docs/engineering/referral-registration.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/integration/referrals-runtime.md,engineering,cross-cutting,9352,KEEP_PATH,,,MOVED_VERIFIED,integration relocation verified; historical scope and acceptance limits unchanged
 docs/engineering/integration/report-center-runtime-handoff.md,engineering,workbench,16281,KEEP_PATH,,,MOVED_VERIFIED,workbench integration handoff relocated; semantics and historical acceptance limits preserved
@@ -281,7 +281,7 @@ docs/engineering/integration/shein-diagnostic-bff-fixture.md,engineering,marketp
 docs/engineering/integration/shein-diagnostic-ui.md,engineering,marketplace,7374,KEEP_PATH,,,MOVED_VERIFIED,SHEIN integration notes relocated; fixture and historical lifecycle limits preserved
 docs/engineering/integration/shein-records-ui.md,engineering,marketplace,9363,KEEP_PATH,,,MOVED_VERIFIED,SHEIN integration notes relocated; fixture and historical lifecycle limits preserved
 docs/engineering/integration/shop-operations-diagnosis-handoff.md,engineering,workbench,3644,KEEP_PATH,,docs/architecture/domains/workbench/shop-operations-diagnosis-agent.md,MOVED_VERIFIED,workbench integration handoff relocated; semantics and historical acceptance limits preserved
-docs/engineering/store-browser-permission-combination.md,engineering,sourcing,6840,KEEP_PATH,docs/engineering/store-browser-permission-combination.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/engineering/store-browser-permission-combination.md,engineering,sourcing,6850,KEEP_PATH,docs/engineering/store-browser-permission-combination.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/integration/store-observations-integration-handoff.md,engineering,cross-cutting,10107,KEEP_PATH,,,MOVED_VERIFIED,commerce integration handoff relocated; scope and historical limits unchanged
 docs/engineering/integration/supply-market-runtime-handoff.md,engineering,catalog,13048,KEEP_PATH,,,MOVED_VERIFIED,supply integration handoff relocated; semantics and historical boundaries preserved
 docs/engineering/integration/tool-market-runtime-handoff.md,engineering,workbench,9305,KEEP_PATH,,,MOVED_VERIFIED,service integration handoff relocated; semantics and historical limits unchanged

@@ -14,7 +14,7 @@ Design Basis 继续为 Reuse Existing Architecture / Ready，复用下述已经�
 
 ## Design Basis / 开工准入
 
-**Reuse Existing Architecture / Ready。** 本记录先于本轮生产文件整合。复用原 #954 已 IMPLEMENTATION_READY 的 [Store 工作台设计](https://github.com/qq550723504/openbrowser-platform/tree/a42729e3a802cd7e2e972f67d937c654fe89c422/design/store-workbench)、C1/C3/C4 与其两轮独立架构评审；具体实施交接为 PR #956 的 `docs/architecture/store-browser-workbench-implementation.md`。固定角色显示复用已合并 #992 及 [说明](administrator-module-projection.md)。不重新定义状态机、持久化、权限语义或外部副作用。
+**Reuse Existing Architecture / Ready。** 本记录先于本轮生产文件整合。复用原 #954 已 IMPLEMENTATION_READY 的 [Store 工作台设计](https://github.com/qq550723504/openbrowser-platform/tree/a42729e3a802cd7e2e972f67d937c654fe89c422/design/store-workbench)、C1/C3/C4 与其两轮独立架构评审；具体实施交接见 [PR #956 后端接线记录](integration/store-browser-workbench-implementation.md)。固定角色显示复用已合并 #992 及 [说明](administrator-module-projection.md)。不重新定义状态机、持久化、权限语义或外部副作用。
 
 使用者是等待浏览器试用的企业成员。当前操作阻碍是 main 缺少配套 Store browser 接口，而旧试用组合不是本轮最小源码版本。本轮可见交付是固定 Git SHA、可审查的最小组合差异、实际离线测试结果与下一运行阶段条件，不能把它描述为已安装或已经可用。
 

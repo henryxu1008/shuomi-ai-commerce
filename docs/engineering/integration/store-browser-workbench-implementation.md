@@ -1,5 +1,7 @@
 # 店铺浏览器接口实施交接
 
+> **历史范围：** 本文记录 #954 / [PR #956](https://github.com/henryxu1008/shuomi-ai-commerce/pull/956) 时点的 Store Center 消费者接线，不是来源采集设计、当前安装引导或运行授权。#956 的合并和 CI 不证明当时部署；后续 [#954](https://github.com/henryxu1008/shuomi-ai-commerce/issues/954) / PR #1006 的官方身份切换与获准单店验证是独立记录，不外推至其他账号、店铺、版本或当前环境。原文的未运行边界按该批次时点理解；本次归档没有执行安装、授权、登录或浏览器动作。
+
 执行 [Issue #954](https://github.com/qq550723504/shuomi-ai-commerce/issues/954)，与浏览器 [Issue #14](https://github.com/qq550723504/openbrowser-platform/issues/14) 同一交付批次。Design Basis 为已合并浏览器设计 [a42729e / store-workbench](https://github.com/qq550723504/openbrowser-platform/tree/a42729e3a802cd7e2e972f67d937c654fe89c422/design/store-workbench)，Independent Architecture 已 IMPLEMENTATION_READY。固定 HEAD、CI 和最终独立审阅证据在 PR 维护。
 
 ## 当前消费者与入口
