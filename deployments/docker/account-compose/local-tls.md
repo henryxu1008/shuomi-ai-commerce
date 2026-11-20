@@ -1,6 +1,6 @@
 # 本机 TLS 维护（操作者入口）
 
-Refs [#965](https://github.com/qq550723504/shuomi-ai-commerce/issues/965)；[冻结边界](../../../docs/architecture/local-tls-revocation-maintenance.md)。浏览器用户按下载安装流程使用；这些命令只供部署操作者在明确批准的维护窗口使用。
+Refs [#965](https://github.com/qq550723504/shuomi-ai-commerce/issues/965)；[冻结边界](../../../docs/architecture/platform/runtime/local-tls-revocation-maintenance.md)。浏览器用户按下载安装流程使用；这些命令只供部署操作者在明确批准的维护窗口使用。
 
 ## 当前交付边界
 
