@@ -240,7 +240,7 @@
 - `domains/ai/product-agent-google-interactions.md` — [Product Agent Google Interactions 标题路由增量合同](domains/ai/product-agent-google-interactions.md)
 - `product-agent-runtime-contract.md` — [Product Agent 最小运行合同与接入依赖](product-agent-runtime-contract.md)
 - `domains/ai/product-agent-text-provider-neutral.md` — [Product Agent 标题文本供应商可替换合同（候选）](domains/ai/product-agent-text-provider-neutral.md)
-- `product-selection-comparison-agent.md` — [Product selection comparison Agent v1](product-selection-comparison-agent.md)
+- `domains/research/product-selection-comparison-agent.md` — [Product selection comparison Agent v1](domains/research/product-selection-comparison-agent.md)
 - `domains/workbench/shop-operations-diagnosis-agent.md` — [Shop operations diagnosis Agent v1](domains/workbench/shop-operations-diagnosis-agent.md)
 - `skill-capability.md` — [Skill V1：三层归属与现有商品内容 Agent 接入](skill-capability.md)
 - `skill-script-sandbox.md` — [技能脚本执行：Linux Docker + OpenSandbox + gVisor 接入设计](skill-script-sandbox.md) · IMPLEMENTATION_READY，正式执行 #1293/PR #1298；§23 补齐独立WSL执行profile的D-IT1/init-proc真实验证并修复metadata label限制。结论仅限该profile，业务部署仍核对实际挂载/公网路由；未开放用户试用、未授权合并/业务部署，Kubernetes非前置。
