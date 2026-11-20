@@ -31,7 +31,7 @@
 
 ### 商品刊登独立一级入口（2026-11-06 用户决定）
 
-「商品刊登」替代原「我的供应链」导航，排在「店铺中心」前，页面地址为 `/workbench/listing`（[#1127](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1127)）。默认打开待上传，待上传、待补全、待审核、已上传为页内页签。我的数据选择商品后可转入待上传。采购从「订单管理 → 采购与收货」进入。四阶段的现行业务合同沿 [原任务继续设计](../architecture/supply-four-step-continuation.md)，本次导航调整见 [#1125](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1125)。
+「商品刊登」替代原「我的供应链」导航，排在「店铺中心」前，页面地址为 `/workbench/listing`（[#1127](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1127)）。默认打开待上传，待上传、待补全、待审核、已上传为页内页签。我的数据选择商品后可转入待上传。采购从「订单管理 → 采购与收货」进入。四阶段的现行业务合同沿 [原任务继续设计](../architecture/domains/listing/supply-four-step-continuation.md)，本次导航调整见 [#1125](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1125)。
 
 ### 市场调研与智能选品以智能体交付（2026-11-03 用户决定）
 
@@ -57,7 +57,7 @@
 
 本决定替代旧五阶段顶层投影、已上传二次发布入口和继续前重新配置流程。已上传只读原记录及平台状态；SHEIN 首次上架转由现有店铺商品消费者沿原回执/授权完成。未绑定本地草稿仍有效；平台草稿、提交和平台原生定时上架按真实能力显示，系统定时发送未开放。不改变原事实owner、权限、批准、预算和Submission UNKNOWN。
 
-执行 [#1079](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1079)，独立[设计依据](../architecture/supply-four-step-continuation.md)。Figma同文件/页面原位更新介绍 `926:569` / `926:359`，待上传主状态 `3507:3143` / `3507:3338`，补全 `2667:1948` / `2667:2252`，审核 `2738:359` / `2738:951`，上传记录 `2738:655` / `2738:1247`。设计原型不是运行或用户验收证明，准入以本次独立评审为准。
+执行 [#1079](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1079)，独立[设计依据](../architecture/domains/listing/supply-four-step-continuation.md)。Figma同文件/页面原位更新介绍 `926:569` / `926:359`，待上传主状态 `3507:3143` / `3507:3338`，补全 `2667:1948` / `2667:2252`，审核 `2738:359` / `2738:951`，上传记录 `2738:655` / `2738:1247`。设计原型不是运行或用户验收证明，准入以本次独立评审为准。
 
 **2026-11-05 起：**Figma `31:463` 的当前可见页面只帮助理解业务流程，不能决定最终 UI/IA、菜单层级、页面命名、布局或交互形式。
 
