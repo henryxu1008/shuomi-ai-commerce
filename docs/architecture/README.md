@@ -114,7 +114,7 @@
 - `1688-acquisition-rate-and-egress-proxy.md` — [设计增补：匿名采集速率治理与出口代理（#514）](1688-acquisition-rate-and-egress-proxy.md)
 - `domains/sourcing/1688-acquisition-channel-pricing.md` — [1688 acquisition channel pricing — design basis for #592](domains/sourcing/1688-acquisition-channel-pricing.md)
 - `plugin-capture-amazon-variants.md` — [Amazon 插件：可选采集同族其他变体](plugin-capture-amazon-variants.md)
-- `plugin-capture-durable-drafts.md` — [商品采集插件：可恢复本地草稿规划与设计 v1](plugin-capture-durable-drafts.md)
+- `domains/sourcing/plugin-capture-durable-drafts.md` — [商品采集插件：可恢复本地草稿规划与设计 v1](domains/sourcing/plugin-capture-durable-drafts.md)
 - `domains/sourcing/plugin-capture-handoff-worker-restart.md` — [商品采集交接在扩展后台重建后恢复](domains/sourcing/plugin-capture-handoff-worker-restart.md)
 - `domains/sourcing/plugin-capture-entry-flow.md` — [Product capture entry and original-tab return](domains/sourcing/plugin-capture-entry-flow.md)
 - `plugin-capture-ingestion.md` — [插件采集增量架构：规格图片与 Amazon 接收保存 V1](plugin-capture-ingestion.md)

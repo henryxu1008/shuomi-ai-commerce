@@ -1,5 +1,7 @@
 # 商品采集插件：可恢复本地草稿规划与设计 v1
 
+> 归类与时点说明（2026-11-20）：本文保留 [#989](https://github.com/henryxu1008/shuomi-ai-commerce/issues/989) 的持久草稿冻结设计和旧 171 项现场不确定性。[#990](https://github.com/henryxu1008/shuomi-ai-commerce/pull/990) 已按工程范围合并；#989 仍开放，另一历史回合的 172/172 仅以部分家族到达确认页，页面报告保存未发送／OUTCOME_UNKNOWN，原键无新增发布，草稿恢复及保存读回未执行，也不替代 #916 两件样本。DraftStore 管未发布本地资料；原应用/后端管身份、保存与回执。普通原标签返回只作导航，持久草稿恢复仍须用户明确选择，不自动采集、提交或删除。工程与历史现场不授权本次运行、浏览器或插件更新。
+
 日期：2026-10-28。状态：IMPLEMENTATION_READY；执行 Issue [#989](https://github.com/qq550723504/shuomi-ai-commerce/issues/989)。用户已明确授权按已审方案开发、测试并提交一个主要 PR；不合并、不更新实例或插件、不重采、不部署。
 Design Basis：Independent Architecture（新增插件本地持久化事实和恢复协议）。
 

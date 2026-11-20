@@ -6,7 +6,7 @@ and local unpublished drafts plus ephemeral transport; it cannot publish a Produ
 
 ## Durable drafts (execution #989)
 
-Current recovery authority: [durable draft design](../../docs/architecture/plugin-capture-durable-drafts.md).
+Current recovery authority: [durable draft design](../../docs/architecture/domains/sourcing/plugin-capture-durable-drafts.md).
 The service worker uses `idb` / IndexedDB as the single durable owner. A single
 capture is committed before handoff; every Amazon family observation is committed
 before the progress count advances. The popup lists retained local drafts and
