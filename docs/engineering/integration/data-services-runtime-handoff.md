@@ -77,7 +77,7 @@ Amazon 复用现有 Playwright Go SDK，先安装匹配 SDK 的 driver 与 Chrom
 
 复用当前 namespace/client/worker 生命周期：task queue `data-services-v1`，由 `dataservicesruntime.RegisterWorker(worker, module.Runner())` 注册，再由 #619 原 runtime 启停。workflow `DataAcquisitionV1` 固定原 org/actor/job identity/hash/deadline，执行最长 30 分钟，原 memo 核对；创建重试/读取会修复原已提交未启动任务，worker 重启继续原任务，不建设新 scheduler。
 
-Resource owner map 在创建服务时增加 `orgresource.ConsumerAmazonData` (`amazon_data_v1`) → module factory 传入的 owner，同时保留原消费者。复用 `NewGormConsumerChargeRepository(resourceDB, currentTransactionConfig)` 及现有 `RecoverDue` 循环；不能另外创建 wallet 扣费路径。每成功保存商品 1 DATA_ROW，预算按任务冻结的 Commercial 单价计量（见[版本化价目](../../architecture/data-row-platform-pricing-zero-orders.md)）；变体不额外扣条数。先 Lookup 原 reservation 再 reserve，未知响应保留原 operation；失败/撤权先 fence，再凭原 proof 释放；已保存待确认仅结算原 reservation，不再 fetch。
+Resource owner map 在创建服务时增加 `orgresource.ConsumerAmazonData` (`amazon_data_v1`) → module factory 传入的 owner，同时保留原消费者。复用 `NewGormConsumerChargeRepository(resourceDB, currentTransactionConfig)` 及现有 `RecoverDue` 循环；不能另外创建 wallet 扣费路径。每成功保存商品 1 DATA_ROW，预算按任务冻结的 Commercial 单价计量（见[版本化价目](../../architecture/domains/commercial/data-row-platform-pricing-zero-orders.md)）；变体不额外扣条数。先 Lookup 原 reservation 再 reserve，未知响应保留原 operation；失败/撤权先 fence，再凭原 proof 释放；已保存待确认仅结算原 reservation，不再 fetch。
 
 ## 外部 API 最小接入
 

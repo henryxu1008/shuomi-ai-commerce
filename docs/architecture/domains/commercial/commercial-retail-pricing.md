@@ -2,7 +2,7 @@
 
 > 归类与时点说明（2026-11-20）：本文保留 [#601](https://github.com/henryxu1008/shuomi-ai-commerce/pull/601) 的正式零售目录冻结设计与首次安装输入。[#600](https://github.com/henryxu1008/shuomi-ai-commerce/issues/600) 已按授权通过工程验收并关闭；公共与私有价格仍以 Commercial 当前版本化 offer 为准，DATA_ROW 调价/零价按后续合同，AI 预付资源购买价不等于模型消费或厂商费率。工程与固定历史示例不是对当前现场价格、真实购买/支付、连接或产品验收的证明，也不授权调价或实际交易。
 
-> DATA_ROW 当前合同增量：参见[平台调价与零价订单](../../data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
+> DATA_ROW 当前合同增量：参见[平台调价与零价订单](data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
 
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY — 2026-10-08 独立 reviewer 复核设计 blob 5700e1cb85ccf443053800991abef62e336c2f3a、Issue #600 和引用合同，无设计级 BLOCKER；三个 IMPLEMENTATION_TEST 在本批收敛。
