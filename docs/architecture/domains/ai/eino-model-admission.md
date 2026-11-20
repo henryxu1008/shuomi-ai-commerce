@@ -37,7 +37,7 @@ Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / [#12
 
 - [企业统一配置与参考价](../../enterprise-shared-model-configuration.md)：三类选择、原 current/CAS/回执、按消费类别准入与一套计费。
 - [渠道凭据分离](shared-channel-credentials.md)：Run DB 唯一 owner、企业隔离、轮换、最后门禁与当前合同内的幂等/恢复。
-- [Agent 运行合同](../../product-agent-runtime-contract.md)、[provider-neutral 文本合同](product-agent-text-provider-neutral.md)、[单图分析](../catalog/product-image-visual-analysis.md)、[图片 Agent](../../product-image-agent.md)。
+- [Agent 运行合同](../../product-agent-runtime-contract.md)、[provider-neutral 文本合同](product-agent-text-provider-neutral.md)、[单图分析](../catalog/product-image-visual-analysis.md)、[图片 Agent](product-image-agent.md)。
 - [模型与费率原入口](model-route-pricing-management.md)、[当前 UI/IA Authority](../../../product/final-ui-ia-authority.md)、[领域边界](../../project-boundaries.md)与[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 
 UI 沿 Figma tg48P46SSXl6TBy9lZwg63 / 账户中心 31:463 / 模型配置区域

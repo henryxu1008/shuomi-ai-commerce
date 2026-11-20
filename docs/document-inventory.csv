@@ -13,7 +13,7 @@ docs/architecture/platform/identity/account-region-catalog.md,architecture,ident
 docs/architecture/domains/ai/agent-customization.md,architecture,ai,12041,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move; original admission retained
 docs/architecture/domains/workbench/agent-knowledge-context.md,architecture,workbench,84120,KEEP_PATH,,,MOVED_VERIFIED,Verified Knowledge contract relocation; historical acceptance and authorization boundaries preserved
 docs/architecture/domains/ai/ai-capability-platform.md,architecture,ai,27341,KEEP_PATH,,,MOVED_VERIFIED,historical AI governance design; current Product Agent evidence and owner boundaries retained
-docs/architecture/domains/ai/ai-disabled-application-lifecycle.md,architecture,ai,9899,KEEP_PATH,,,MOVED_VERIFIED,Verified path and references; #1386
+docs/architecture/domains/ai/ai-disabled-application-lifecycle.md,architecture,ai,9893,KEEP_PATH,,,MOVED_VERIFIED,Verified path and references; #1386
 docs/architecture/domains/ai/ai-provider-contracts.md,architecture,ai,3285,KEEP_PATH,,,MOVED_VERIFIED,Verified path and references; #1386
 docs/architecture/domains/workbench/ai-workbench-chat-business-task.md,architecture,workbench,97036,KEEP_PATH,,,MOVED_VERIFIED,full contract preserved; historical admission and current execution boundaries distinguished; references verified
 docs/architecture/domains/workbench/ai-workbench-conversation-runtime.md,architecture,workbench,11051,KEEP_PATH,,,MOVED_VERIFIED,conversation owner and consumers verified; historical trial and later bounded coexistence scoped; original body preserved
@@ -31,7 +31,7 @@ docs/architecture/platform/identity/auth-instance-cookie-isolation.md,architectu
 docs/architecture/platform/identity/authentication-runtime.md,architecture,identity,10284,KEEP_PATH,,,MOVED_VERIFIED,full source preserved; historical stage and current owner verified; no runtime operation
 docs/architecture/domains/ai/automatic-usd-fx.md,architecture,ai,23282,KEEP_PATH,,,MOVED_VERIFIED,AI platform price authority; historical daily and weekly/initialization boundaries retained
 docs/architecture/domains/ai/bailian-deepseek-shared-text-admission.md,architecture,ai,7558,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; source admission unchanged
-docs/architecture/domains/ai/bailian-product-image-wiring.md,architecture,ai,18539,KEEP_PATH,,,MOVED_VERIFIED,Verified path relocation only; historical admission retained
+docs/architecture/domains/ai/bailian-product-image-wiring.md,architecture,ai,18527,KEEP_PATH,,,MOVED_VERIFIED,Verified path relocation only; historical admission retained
 docs/architecture/platform/runtime/browser-kernel-release-catalog.md,architecture,platform,13816,KEEP_PATH,,,MOVED_VERIFIED,platform browserkernel catalog owner and original release acceptance boundary preserved
 docs/architecture/domains/ai/channel-credentials-ui.md,architecture,ai,19361,KEEP_PATH,,,MOVED_VERIFIED,Verified aicapability channelcredential owner; shared and UI contracts grouped under AI; secret CAS and UNKNOWN boundaries preserved
 docs/architecture/domains/workbench/chat-35444-retained-wiring-design.md,architecture,workbench,16428,KEEP_PATH,,,MOVED_VERIFIED,retained original owner and all consumers verified; original design preserved with later minimal admission and actual update scope
@@ -77,16 +77,16 @@ docs/architecture/domains/data-services/data-services-native-authorization.md,ar
 docs/architecture/data-services.md,architecture,cross-cutting,38918,KEEP_PATH,docs/architecture/data-services.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/ecoservices-qualification-runtime.md,architecture,data-services,8445,REVIEW_MOVE,docs/architecture/domains/data-services/ecoservices-qualification-runtime.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/ecosystem-services.md,architecture,data-services,93384,REVIEW_CROSS_LAYER,docs/architecture/domains/data-services/ecosystem-services.md,docs/operations/user-guides/ecosystem-services.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
-docs/architecture/domains/ai/eino-model-admission.md,architecture,ai,30711,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; historical admission and model safeguards retained
-docs/architecture/enterprise-agent-permission-modes.md,architecture,ai,27654,REVIEW_CROSS_LAYER,docs/architecture/domains/ai/enterprise-agent-permission-modes.md,docs/operations/enterprise-agent-permission-modes.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
+docs/architecture/domains/ai/eino-model-admission.md,architecture,ai,30705,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; historical admission and model safeguards retained
+docs/architecture/enterprise-agent-permission-modes.md,architecture,ai,27663,REVIEW_CROSS_LAYER,docs/architecture/domains/ai/enterprise-agent-permission-modes.md,docs/operations/enterprise-agent-permission-modes.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/architecture/platform/identity/enterprise-custom-roles.md,architecture,identity,17111,KEEP_PATH,,,MOVED_VERIFIED,Enterprise role contract grouped under identity; native assignment and scoped policy boundaries preserved; links verified
-docs/architecture/enterprise-shared-model-configuration.md,architecture,cross-cutting,62600,KEEP_PATH,docs/architecture/enterprise-shared-model-configuration.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/enterprise-storage-capacity.md,architecture,commercial,50223,REVIEW_MOVE,docs/architecture/domains/commercial/enterprise-storage-capacity.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/enterprise-shared-model-configuration.md,architecture,cross-cutting,62611,KEEP_PATH,docs/architecture/enterprise-shared-model-configuration.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/enterprise-storage-capacity.md,architecture,commercial,50234,REVIEW_MOVE,docs/architecture/domains/commercial/enterprise-storage-capacity.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/marketplace/erpnext-shein-fulfillment-fit.md,architecture,marketplace,9287,KEEP_PATH,,,MOVED_VERIFIED,full historical spike retained; later formal owner and withdrawn environment scoped; evidence unchanged
 docs/architecture/evidence/erpnext-fulfillment-fit.json,architecture,marketplace,8744,KEEP_ASSET,,,PROPOSED_ONLY,non-Markdown asset
 docs/architecture/evidence/shein-us-data-v1-p1-p2.json,architecture,research,6940,KEEP_ASSET,,,PROPOSED_ONLY,non-Markdown asset
-docs/architecture/platform/runtime/fallback-contract-consolidation.md,architecture,platform,5814,KEEP_PATH,,,MOVED_VERIFIED,full scoped fallback consolidation retained; original owners and historical runtime limits verified
-docs/architecture/domains/ai/generic-image-template-entry.md,architecture,ai,3533,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
+docs/architecture/platform/runtime/fallback-contract-consolidation.md,architecture,platform,5825,KEEP_PATH,,,MOVED_VERIFIED,full scoped fallback consolidation retained; original owners and historical runtime limits verified
+docs/architecture/domains/ai/generic-image-template-entry.md,architecture,ai,3521,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
 docs/architecture/domains/ai/grsai-vip-image-binding.md,architecture,ai,8788,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; source admission unchanged
 docs/architecture/platform/runtime/httpapi-assembly-boundaries.md,architecture,platform,1895,KEEP_PATH,,,MOVED_VERIFIED,moved to platform runtime; document test consumers updated without weakening assertions
 docs/architecture/domains/ai/image-agent-budget-authorization.md,architecture,ai,11925,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; original release and budget authority retained
@@ -96,8 +96,8 @@ docs/architecture/domains/ai/image-agent-effect-policy.md,architecture,ai,18779,
 docs/architecture/domains/ai/image-agent-effect-recovery.md,architecture,ai,4871,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
 docs/architecture/domains/ai/image-agent-effect-terminalization.md,architecture,ai,3875,KEEP_PATH,,,MOVED_VERIFIED,Path-only relocation; no protocol convergence
 docs/architecture/domains/ai/image-agent-recovery.md,architecture,ai,28978,KEEP_PATH,,,MOVED_VERIFIED,Verified path migration only; historical protocol retained
-docs/architecture/domains/ai/image-agent-workflow.md,architecture,ai,2787,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
-docs/architecture/domains/ai/image-api-event-read-permissions.md,architecture,ai,7549,KEEP_PATH,,,MOVED_VERIFIED,Verified documentation move #1394
+docs/architecture/domains/ai/image-agent-workflow.md,architecture,ai,2781,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
+docs/architecture/domains/ai/image-api-event-read-permissions.md,architecture,ai,7537,KEEP_PATH,,,MOVED_VERIFIED,Verified documentation move #1394
 docs/architecture/image-download-safety.md,architecture,cross-cutting,3015,KEEP_PATH,docs/architecture/image-download-safety.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/image-plan-optional-route.md,architecture,ai,17958,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only move; original model route conditions retained
 docs/architecture/domains/ai/image-text-language-confirmation.md,architecture,ai,15211,KEEP_PATH,,,MOVED_VERIFIED,Verified documentation move #1394
@@ -116,13 +116,13 @@ docs/architecture/domains/research/market-research-selection.md,architecture,res
 docs/architecture/platform/identity/member-directory-query.md,architecture,identity,10915,KEEP_PATH,,,MOVED_VERIFIED,Account facts and membership contracts grouped under identity; original authorization and owner boundaries preserved; links verified
 docs/architecture/member-resource-allocation.md,architecture,commercial,28776,REVIEW_MOVE,docs/architecture/domains/commercial/member-resource-allocation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/minio-capacity-admission.md,architecture,commercial,14899,REVIEW_MOVE,docs/architecture/domains/commercial/minio-capacity-admission.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/domains/ai/model-route-pricing-management.md,architecture,ai,26599,KEEP_PATH,,,MOVED_VERIFIED,historical AI route and model rate owner; superseded V1 design retained
+docs/architecture/domains/ai/model-route-pricing-management.md,architecture,ai,26593,KEEP_PATH,,,MOVED_VERIFIED,historical AI route and model rate owner; superseded V1 design retained
 docs/architecture/my-supply-chain-shein.md,architecture,marketplace,56198,REVIEW_CROSS_LAYER,docs/architecture/domains/marketplace/my-supply-chain-shein.md,docs/operations/my-supply-chain-shein.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/architecture/domains/workbench/notification-center.md,architecture,workbench,45285,KEEP_PATH,,,MOVED_VERIFIED,notification projection and reading receipt contract grouped under workbench; semantics preserved
 docs/architecture/domains/workbench/official-knowledge-provenance.md,architecture,workbench,5986,KEEP_PATH,,,MOVED_VERIFIED,Official Knowledge read contracts grouped under workbench; V2 source-title decision and retained V1 boundaries preserved
 docs/architecture/domains/workbench/official-knowledge.md,architecture,workbench,16869,KEEP_PATH,,,MOVED_VERIFIED,Official Knowledge read contracts grouped under workbench; V2 source-title decision and retained V1 boundaries preserved
 docs/architecture/domains/ai/official-skill-automatic-preparation.md,architecture,ai,2460,KEEP_PATH,,,MOVED_VERIFIED,Verified move; #1390
-docs/architecture/domains/ai/official-skill-product-entry.md,architecture,ai,3773,KEEP_PATH,,,MOVED_VERIFIED,Verified move; #1390
+docs/architecture/domains/ai/official-skill-product-entry.md,architecture,ai,3802,KEEP_PATH,,,MOVED_VERIFIED,Verified move; #1390
 docs/architecture/openai-flare-image-generation.md,architecture,ai,41452,REVIEW_MOVE,docs/architecture/domains/ai/openai-flare-image-generation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/workbench/operations-cockpit-figma-read.md,architecture,workbench,9293,KEEP_PATH,,,MOVED_VERIFIED,full read projection contract retained; historical Figma and runtime evidence scoped; current owner and consumers verified
 docs/architecture/operations-cockpit.md,architecture,cross-cutting,23186,KEEP_PATH,docs/architecture/operations-cockpit.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
@@ -153,7 +153,7 @@ docs/architecture/domains/sourcing/plugin-capture-listing-materials.md,architect
 docs/architecture/domains/sourcing/plugin-capture-page-entry.md,architecture,sourcing,11853,KEEP_PATH,,,MOVED_VERIFIED,source page entry and defensive owner boundaries retained; distribution engineering and live acceptance kept distinct
 docs/architecture/plugin-capture-session-return.md,architecture,sourcing,12829,REVIEW_MOVE,docs/architecture/domains/sourcing/plugin-capture-session-return.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/sourcing/plugin-capture-source-quotes.md,architecture,sourcing,12555,KEEP_PATH,,,MOVED_VERIFIED,original quote facts and read-only projection ownership verified; historical acceptance scoped
-docs/architecture/pod-design-agent.md,architecture,cross-cutting,26199,KEEP_PATH,docs/architecture/pod-design-agent.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/pod-design-agent.md,architecture,cross-cutting,26242,KEEP_PATH,docs/architecture/pod-design-agent.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/private-agent-delivery.md,architecture,ai,17261,KEEP_PATH,,,MOVED_VERIFIED,private delivery owned by agentcustomization grouped beside agent customization; historical boundaries preserved
 docs/architecture/domains/ai/private-draft-offline-trial.md,architecture,ai,9140,KEEP_PATH,,,MOVED_VERIFIED,moved after source and consumer review; semantics preserved; historical runtime scope clarified
 docs/architecture/domains/ai/product-agent-google-interactions.md,architecture,ai,13111,KEEP_PATH,,,MOVED_VERIFIED,Verified path relocation only; historical admission retained
@@ -161,7 +161,7 @@ docs/architecture/product-agent-runtime-contract.md,architecture,ai,41367,REVIEW
 docs/architecture/domains/ai/product-agent-text-provider-neutral.md,architecture,ai,19987,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; historical and later admission retained
 docs/architecture/domains/catalog/product-content-localization.md,architecture,catalog,20574,KEEP_PATH,,,MOVED_VERIFIED,reviewed contentagent Review Catalog owners and historical execution boundaries; moved with consumers verified
 docs/architecture/domains/catalog/product-domain-contracts.md,architecture,catalog,4362,KEEP_PATH,,,MOVED_VERIFIED,cross-domain authority preserved; Catalog version navigation only
-docs/architecture/product-image-agent.md,architecture,catalog,47738,REVIEW_CROSS_LAYER,docs/architecture/domains/catalog/product-image-agent.md,docs/operations/product-image-agent.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
+docs/architecture/domains/ai/product-image-agent.md,architecture,ai,48499,KEEP_PATH,,docs/operations/product-image-agent.md,MOVED_VERIFIED,frozen ImageAgent set architecture; independent operations handoff kept
 docs/architecture/domains/catalog/product-image-facts-advice.md,architecture,catalog,21727,KEEP_PATH,,,MOVED_VERIFIED,Asset fact and nonexecuting advice owner grouped; historical engineering versus runtime acceptance preserved
 docs/architecture/domains/catalog/product-image-visual-analysis.md,architecture,catalog,39181,KEEP_PATH,,,MOVED_VERIFIED,single-image analysis grouped with image-source authority; engineering and actual-use evidence remain distinct
 docs/architecture/domains/research/product-selection-comparison-agent.md,architecture,research,19535,KEEP_PATH,,,MOVED_VERIFIED,bounded private product comparison within Research navigation; frozen evidence and original owners retained
@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,44129,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,44151,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8360,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,18647,KEEP_PATH,,,MOVED_VERIFIED,frozen withdrawal admission design; authority and staged rollout evidence preserved
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
@@ -318,7 +318,7 @@ docs/operations/user-guides/own-product-history.md,operations,catalog,2144,KEEP_
 docs/operations/runbooks/own-product-rich-description.md,operations,catalog,4966,KEEP_PATH,,docs/architecture/domains/catalog/own-product-rich-description.md,MOVED_VERIFIED,Verified docs-only move; security and runtime authorization boundaries retained
 docs/operations/runbooks/own-product-source-media-trial.md,operations,catalog,4111,KEEP_PATH,,docs/architecture/domains/catalog/own-product-source-media-trial.md,MOVED_VERIFIED,source media trial contract and runbook kept separate; links and historical authority preserved
 docs/operations/product-agent-trial.md,operations,ai,13038,REVIEW_LIFECYCLE,docs/operations/runbooks/product-agent-trial.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
-docs/operations/product-image-agent.md,operations,catalog,14873,REVIEW_CROSS_LAYER,docs/operations/user-guides/product-image-agent.md,docs/architecture/product-image-agent.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
+docs/operations/product-image-agent.md,operations,catalog,14916,REVIEW_CROSS_LAYER,docs/operations/user-guides/product-image-agent.md,docs/architecture/domains/ai/product-image-agent.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/operations/user-guides/project-center.md,operations,platform,4288,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; permission and installation boundaries retained
 docs/operations/README.md,operations,cross-cutting,5308,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/operations/runbooks/research-assessment-install.md,operations,research,3814,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; installation authorization retained
@@ -338,7 +338,7 @@ docs/product/ai-commerce-agent-platform-strategy.md,product,ai,7666,KEEP_PATH,,,
 docs/product/decisions/business-agent-responsibilities.md,product,cross-cutting,9400,KEEP_PATH,,,MOVED_VERIFIED,business agent decision relocated; historical projections and owner boundaries unchanged
 docs/product/flows/completion-draft-structured.md,product,listing,3255,KEEP_PATH,,docs/architecture/domains/listing/completion-draft-structured.md | docs/operations/user-guides/completion-draft-structured.md,MOVED_VERIFIED,separate Listing product decision; architecture and operations references retained
 docs/product/flows/completion-shein-import.md,product,listing,5256,KEEP_PATH,,docs/architecture/domains/listing/completion-shein-import.md,MOVED_VERIFIED,source and all consumers read; actual Listing owners retained; history scoped; test path updated
-docs/product/final-ui-ia-authority.md,product,cross-cutting,50270,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/product/final-ui-ia-authority.md,product,cross-cutting,50281,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/product/greenfield-no-legacy-migration.md,product,cross-cutting,4252,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/product/local-ai-trial.md,product,commercial,3396,REVIEW_CROSS_LAYER,docs/product/decisions/local-ai-trial.md,docs/architecture/local-ai-trial.md | docs/operations/local-ai-trial.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/product/market-research-multi-source-plan.md,product,research,28827,REVIEW_LIFECYCLE,docs/product/flows/market-research-multi-source-plan.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action

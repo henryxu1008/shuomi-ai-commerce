@@ -147,7 +147,7 @@ Design Basis: N/A，仅调整既有分类导航的展示；路由、领域合同
 
 图片方法选择与计划确认的可编辑面板：深色 [6861:1826](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=6861-1826) / 浅色 `6861:1864`；失效版本为 `6861:1845` / `6861:1883`。用户明确选择一个可用官方/团队版本或不使用；方法不增加已选任务或改写规则/报价，确认摘要显示准确方法来源/版本。个人图片定制先经原团队审核形成团队副本，不借用标题个人准入。设计示例不是运行数据，未开放的创作助手没有可用入口。
 
-图片为新的 Skill 执行消费者，Design Basis: Independent Architecture，具体owner、指纹/撤销栅栏、安装和准入见 [官方标题与图片技能 V1](../architecture/product-image-agent.md)。设计检查达到IMPLEMENTATION_READY之前不修改正式生产路径；不操作当前实例、原数据或配置。
+图片为新的 Skill 执行消费者，Design Basis: Independent Architecture，具体owner、指纹/撤销栅栏、安装和准入见 [官方标题与图片技能 V1](../architecture/domains/ai/product-image-agent.md)。设计检查达到IMPLEMENTATION_READY之前不修改正式生产路径；不操作当前实例、原数据或配置。
 
 当前设计中，历史「商品中心」已归档；不建立独立顶层 `Product Center` / `Listing Center` 作为最终 IA 前提。
 

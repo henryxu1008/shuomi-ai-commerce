@@ -267,7 +267,7 @@
 - `image-download-safety.md` — [Image Download Safety Boundary Design](image-download-safety.md)
 - `domains/ai/image-plan-optional-route.md` — [Single-product image plan optional route V1](domains/ai/image-plan-optional-route.md)
 - `domains/ai/image-text-language-confirmation.md` — [Image target language, localization and confirmed copy](domains/ai/image-text-language-confirmation.md)
-- `product-image-agent.md` — [商品图片智能体 V1 — 完整图片能力设计](product-image-agent.md)
+- `domains/ai/product-image-agent.md` — [商品图片智能体 V1 — 完整图片能力设计](domains/ai/product-image-agent.md)
 - `domains/ai/source-white-background.md` — [来源商品白底图与资源结算合同](domains/ai/source-white-background.md)
 - `domains/ai/vip-original-output-recovery.md` — [VIP original output recovery and paid-result presentation](domains/ai/vip-original-output-recovery.md)
 

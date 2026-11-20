@@ -29,7 +29,7 @@
 
 - [文本供应商中立合同](product-agent-text-provider-neutral.md)、[Product Agent runtime](../../product-agent-runtime-contract.md)：原 quote、claim、一次发送、完整 usage、UNKNOWN、预算、Review/Apply。
 - [企业 Agent Configuration](../workbench/organization-agent-configuration.md)：企业启用、模板、start snapshots 和 command owner。它不拥有当前模型/价格，不借用这些表保存当前路由。
-- [Product Image Agent](../../product-image-agent.md)：原图片计划、GenerationIntent、reservation、dispatch、proof/recovery、Asset/selection owner。
+- [Product Image Agent](product-image-agent.md)：原图片计划、GenerationIntent、reservation、dispatch、proof/recovery、Asset/selection owner。
 - [Commercial retail pricing](../commercial/commercial-retail-pricing.md)：AI 点数充值售价仍归 Commercial catalog，与供应商估算成本和模型消费点数分开。
 - [Greenfield 产品基线](../../../product/greenfield-no-legacy-migration.md)、[当前系统边界](../../../product/greenfield-no-legacy-migration.md)、[AGENTS](../../../../AGENTS.md)。
 

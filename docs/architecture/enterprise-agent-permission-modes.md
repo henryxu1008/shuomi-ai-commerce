@@ -65,7 +65,7 @@ Figma 文件 tg48P46SSXl6TBy9lZwg63，当前非归档页面 31:463。
 
 复用 [企业智能体配置](domains/workbench/organization-agent-configuration.md)、
 [Agent Runtime](./product-agent-runtime-contract.md)、
-[完整图片智能体](./product-image-agent.md)、
+[完整图片智能体](domains/ai/product-image-agent.md)、
 [私有交付](domains/ai/private-agent-delivery.md)、
 [Project Boundaries](./project-boundaries.md) 与
 [Greenfield](../product/greenfield-no-legacy-migration.md)。

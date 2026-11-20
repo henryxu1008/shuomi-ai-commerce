@@ -8,7 +8,7 @@
 
 用户可继续查看原生成结果及结算证据。套图和 POD 的恢复命令只接受当前计划中有明确 `RecoverableEffects` 归属且与阻塞槽位、尝试序号及原因匹配的项。列表无效时拒绝推导。已有普通图片计划仍可使用其空列表加匹配 `Run.Block` 的合同。列表非空但没有目标项时，以列表为准。
 
-`Service.RecoverEffect` 和 Temporal client 复用同一归属判定。恢复活动继续核对并处理原 effect，持久化和信号沿现有 fence 及 idempotency key。恢复协议仍使用原 `tenant + run + plan revision + slot + attempt`，原 action 重试沿原命令。UNKNOWN 继续保留，恢复不得重新生成、再次扣费或合成 effect。授权、跨企业边界、事务、状态转换、worker wire、资源上限和 deadline 沿 [Product Image Agent](../../product-image-agent.md) 和 [原产出恢复](../../domains/ai/vip-original-output-recovery.md)。
+`Service.RecoverEffect` 和 Temporal client 复用同一归属判定。恢复活动继续核对并处理原 effect，持久化和信号沿现有 fence 及 idempotency key。恢复协议仍使用原 `tenant + run + plan revision + slot + attempt`，原 action 重试沿原命令。UNKNOWN 继续保留，恢复不得重新生成、再次扣费或合成 effect。授权、跨企业边界、事务、状态转换、worker wire、资源上限和 deadline 沿 [Product Image Agent](../../domains/ai/product-image-agent.md) 和 [原产出恢复](../../domains/ai/vip-original-output-recovery.md)。
 
 只读结算摘要仍可为合法空列表且原 `Run.Block` 与阻塞槽位严格匹配的历史投影查原始 `GenerationFact`，沿既有 intent、成员、报价和结算证明校验。它只说明已结算或已释放。套图页面从 API 的 `recoverableEffects` 呈现恢复动作，已结算且没有命令归属的原结果显示只读状态。最近任务摘要仅展示已证明的结算状态。页面沿 [#840 已准入的原产出恢复界面](../../domains/ai/vip-original-output-recovery.md) 复用现有区块与控件。
 

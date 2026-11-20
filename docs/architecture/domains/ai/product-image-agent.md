@@ -1,5 +1,7 @@
 # 商品图片智能体 V1 — 完整图片能力设计
 
+> Classification and chronology (2026-11-20): This is the frozen full product image-set architecture, grouped with ImageAgent execution. It does not transfer Catalog source identity, Resource settlement, Product Asset approval, or Marketplace release authority. The separate [operations handoff](../../../operations/product-image-agent.md) remains at its original path. [Issue #612](https://github.com/henryxu1008/shuomi-ai-commerce/issues/612) closed for engineering scope and [PR #616](https://github.com/henryxu1008/shuomi-ai-commerce/pull/616) merged; design-stage and isolated results below retain their own time and scope. They establish neither current provider use or charges, current deployment, real platform use, nor product acceptance or authorization.
+
 > Status: **IMPLEMENTATION_READY**。2026-10-09 独立 Architecture Review R2 已解除唯一设计 BLOCKER；用户随后确认本线程统一完成本批必要共享接口与启动接线，正式开工依赖已满足。
 > Execution: [#612](https://github.com/qq550723504/task-processor/issues/612)；Parent: #137。
 > 当前调查基线：main `d95807f13475d27c0b8691f044cca6320a540d06`，2026-10-09。
@@ -21,7 +23,7 @@
 
 ## 2. Product / Figma Authority
 
-- [当前 UI / IA Authority](../product/final-ui-ia-authority.md)，Figma `tg48P46SSXl6TBy9lZwg63` / page `31:463`。
+- [当前 UI / IA Authority](../../../product/final-ui-ia-authority.md)，Figma `tg48P46SSXl6TBy9lZwg63` / page `31:463`。
 - 2026-10-09 本 Writer 只读实查当前可见设计：`1998:539`、`1998:545` 完整 AI 重构图片设置；`2061:362` 背景；`2144:361` 语言；`4262:1294` 图片维护；`4908:429` 审核单图处理；`5198:429` 预览；`3395:389` 商品详情。
 - `1998:545` 已取得当前截图，明确官方 8+8、自定义指令、共用视觉素材/分别生成、主图/详情图、背景和语言。当前可见状态只展开八个官方主图任务；详情八项以本会话用户明确决定为依据，不冒称已观察到对应 Figma 状态。
 - “官方方案”是当前产品内容方案的标签，不能暗示其八项内容已由目标电商平台认证。共用视觉素材旁“减少重复生成”与当前用户决定冲突：仅共用原始素材，两组独立调用与计费；正式 UI 必须据此修正文案。
@@ -57,7 +59,7 @@
 | `internal/imageagent/model.go` 的 Run/Plan/Slot | 已有商品运行、计划、多图片 slot 和有界并发；无须创建第二图片运行时。 |
 | `internal/imageagent/generation_execution.go` | 当前正式经济准入只接受 Main、单来源、product/zz/default/general 与 render_source_white_background；不能仅复制十六次请求来实现完整能力。 |
 | `internal/app/worker/imageagent/generation_provider.go` | 当前 GRSAI 同步 adapter、exact bytes、单次 dispatch、typed 成功观察与价格/凭据版本绑定可复用；能力工厂目前只构造白底行为。 |
-| [固定 Image owner 资源回执](domains/ai/source-white-background.md) | 固定 image owner 的跨库 immutable intent/terminal proof、资源 operation fence、成员 UTC 月限与 UNKNOWN 处理已独立准入；完整图片扩展需要覆盖实际新增边界。 |
+| [固定 Image owner 资源回执](source-white-background.md) | 固定 image owner 的跨库 immutable intent/terminal proof、资源 operation fence、成员 UTC 月限与 UNKNOWN 处理已独立准入；完整图片扩展需要覆盖实际新增边界。 |
 | `internal/imageagent/validation.go` / tools executor | 内部 SlotRole 与面向用户的主图/详情图分组不是同一概念；不能把所有轮播图都标为 Main 后全局放松原不变量。 |
 | `internal/agentconfig` 与其准入文档 | 企业启用、精确模板/配置版本存在，但正式模板仅支持 title-config-v1；图片参数不能冒名写入标题模板。 |
 | `web/.../acquisition/acquisition-page.tsx` | exact 商品详情与 ProductAgentPanel 已有；主图 hook 尚无视觉消费者。 |

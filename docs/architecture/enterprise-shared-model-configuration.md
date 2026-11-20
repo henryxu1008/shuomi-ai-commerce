@@ -141,7 +141,7 @@ C2-2 消费者在 `4b6c03ca` 完成限定工程复核（证据见 PR），运行
 
 依据：[模型与费率管理 V1](domains/ai/model-route-pricing-management.md)、
 [文本路由](domains/ai/product-agent-text-provider-neutral.md)、[Google 原生路由](domains/ai/product-agent-google-interactions.md)、
-[图片 Agent](product-image-agent.md)、[运行合同](product-agent-runtime-contract.md)、
+[图片 Agent](domains/ai/product-image-agent.md)、[运行合同](product-agent-runtime-contract.md)、
 [点数购买](domains/commercial/commercial-retail-pricing.md)、[成员资源](member-resource-allocation.md)、
 [领域 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
 页面沿[当前 UI/IA Authority](../product/final-ui-ia-authority.md)和原“模型与费率”入口复用；
