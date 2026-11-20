@@ -25,7 +25,7 @@ Admission Status: IMPLEMENTATION_READY / FROZEN
 - 用户本轮已确认的 D1–D4 是产品依据；下述历史文档的固定 5 分和“调价仅安装/运维”的冲突部分按本增量明确替代，旧文保留历史来源。本设计已按上述准确 HEAD 完成架构准入；实施授权和真实操作授权分别处理。
 - [统一基础与预付资源](unified-base-prepaid-resources.md)：Commercial 报价/订单、Money 钱包、Resource 授予/消费的分工。
 - [采集渠道计价](1688-acquisition-channel-pricing.md)：服务端成功采集消费 DATA_ROW，插件/本地渠道免费；消费不直接扣钱包。
-- [正式零售价](commercial-retail-pricing.md)：同一 Commercial offer、报价冻结、原订单恢复；原初始 DATA_ROW 为 5 分；后续当前价目按本设计发布。
+- [正式零售价](domains/commercial/commercial-retail-pricing.md)：同一 Commercial offer、报价冻结、原订单恢复；原初始 DATA_ROW 为 5 分；后续当前价目按本设计发布。
 - [模型配置发布](model-route-pricing-management.md)：仅复用平台资格、校验/预览/发布及原回执交互模式，不复用其模型价格 owner 或表。
 - [全新系统基线](../product/greenfield-no-legacy-migration.md)；本工作区 AGENTS.md 的当前 Figma 边界：Figma 仅供流程参考，非页面布局权威。
 
