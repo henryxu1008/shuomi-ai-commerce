@@ -1,6 +1,6 @@
 # 商品刊登 / SHEIN 美国站操作与启动
 
-当前四步与继续合同见[供应链四步依据](../architecture/supply-four-step-continuation.md)及[PR #1080](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1080)。从一级导航「商品刊登」进入，默认打开「待上传」。页内四个页签为待上传（waiting，合并ready投影）、待补全（missing）、待审核（review）、已上传（uploaded）。正式运行仍采用 cmd/current-application 与当前 Console，使用原 Target / Operation / Temporal / Review / Submission。此交付为源码与设计候选，不更新保留实例，不代表部署或用户验收。
+当前四步与继续合同见[供应链四步依据](../architecture/domains/listing/supply-four-step-continuation.md)及[PR #1080](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1080)。从一级导航「商品刊登」进入，默认打开「待上传」。页内四个页签为待上传（waiting，合并ready投影）、待补全（missing）、待审核（review）、已上传（uploaded）。正式运行仍采用 cmd/current-application 与当前 Console，使用原 Target / Operation / Temporal / Review / Submission。此交付为源码与设计候选，不更新保留实例，不代表部署或用户验收。
 
 ## 用户操作
 

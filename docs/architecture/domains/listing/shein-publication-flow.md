@@ -1,6 +1,6 @@
 # SHEIN 美国站：审核、首次上架与状态回读最小闭环
 
-> 2026-11-03 产品增量：[四步供应链](../../supply-four-step-continuation.md)将已上传收敛为只读记录，首次人工上架消费者转入现有店铺商品路径；原receipt/record/SKC/version、模式/授权/冷却与UNKNOWN合同不变。本文件原五阶段与上架入口描述仅由该新产品投影替代，业务规则不取消。
+> 2026-11-03 产品增量：[四步供应链](supply-four-step-continuation.md)将已上传收敛为只读记录，首次人工上架消费者转入现有店铺商品路径；原receipt/record/SKC/version、模式/授权/冷却与UNKNOWN合同不变。本文件原五阶段与上架入口描述仅由该新产品投影替代，业务规则不取消。
 
 Refs [#605](https://github.com/qq550723504/task-processor/issues/605)。
 
