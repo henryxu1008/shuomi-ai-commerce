@@ -78,7 +78,7 @@ refresh; the original application remains the save/result authority. Shortcut an
 popup are secondary entries into the same Controller/Handoff.
 
 [Execution #920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920) follows
-the reviewed [entry design](../../docs/architecture/plugin-capture-entry-flow.md).
+the reviewed [entry design](../../docs/architecture/domains/sourcing/plugin-capture-entry-flow.md).
 On the current supported product page, the named browser shortcut (suggested
 `Alt+Shift+P`) captures and immediately opens the fixed application confirmation
 page. The popup's **采集并在应用确认** button runs that same operation. Saving still

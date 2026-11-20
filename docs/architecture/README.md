@@ -116,7 +116,7 @@
 - `plugin-capture-amazon-variants.md` — [Amazon 插件：可选采集同族其他变体](plugin-capture-amazon-variants.md)
 - `plugin-capture-durable-drafts.md` — [商品采集插件：可恢复本地草稿规划与设计 v1](plugin-capture-durable-drafts.md)
 - `domains/sourcing/plugin-capture-handoff-worker-restart.md` — [商品采集交接在扩展后台重建后恢复](domains/sourcing/plugin-capture-handoff-worker-restart.md)
-- `plugin-capture-entry-flow.md` — [Product capture entry and original-tab return](plugin-capture-entry-flow.md)
+- `domains/sourcing/plugin-capture-entry-flow.md` — [Product capture entry and original-tab return](domains/sourcing/plugin-capture-entry-flow.md)
 - `plugin-capture-ingestion.md` — [插件采集增量架构：规格图片与 Amazon 接收保存 V1](plugin-capture-ingestion.md)
 - `plugin-capture-listing-materials.md` — [插件上架资料补齐：高清相册、参数、正文/详情图与重量 V1](plugin-capture-listing-materials.md)
 - `plugin-capture-page-entry.md` — [Product capture: source-page primary entry](plugin-capture-page-entry.md)
