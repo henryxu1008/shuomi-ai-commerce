@@ -10,7 +10,7 @@ Design Basis 为 `Independent Architecture`。独立 Reviewer 在 `e9b8709cca6ed
 
 有原研究项目写权限的成员在「智能选品 → 同一研究项目 → 评估与选品决定」打开一个已关联的 Amazon 美国站候选。看当前选中的原版商品资料，填写一组有出处、单位、币种、日期的经营假设。页面显示已有输入、缺项，条件齐备时给出每次销售尝试的期望贡献利润和参考保本售价。用户单独在同一候选记录原人工决定和理由。已批准且仍可读的商品按现有准确子集进入「我的数据 → 核对转入我的供应链」。输入不足仍可人工研究，既有批准测试、放弃及重新评估各沿当前权限和 CAS 语义。正利润不会替用户批准或给出合规结论。
 
-依据为 [#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074)、[原产品规划](../../../product/research-commercial-assessment-v1.md#5-本批范围与后续)、[原技术提案 §4/§6/§10](../../research-commercial-assessment-v1.md#6-确定性单位经济模型)、协调方 2026-11-06 对现有已准入候选及人工输入的明确范围，以及 [#1075 固定产品路径](https://github.com/henryxu1008/shuomi-ai-commerce/blob/4045310770891e1fc4569b5156f1bcc896c7e806/docs/product/market-research-selection-centers-v1.md)。Figma 仅参考原候选评估和人工决定的业务顺序。复用现有工作页、候选和转入入口，试算表单折叠在该候选内；取消回原候选，保留原选择和列表位置。同一时刻只编辑一个候选。填写时清楚区分「商品资料」「经营假设」「参考试算」「人工决定」。
+依据为 [#1074](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1074)、[原产品规划](../../../product/flows/research-commercial-assessment-v1.md#5-本批范围与后续)、[原技术提案 §4/§6/§10](../../research-commercial-assessment-v1.md#6-确定性单位经济模型)、协调方 2026-11-06 对现有已准入候选及人工输入的明确范围，以及 [#1075 固定产品路径](https://github.com/henryxu1008/shuomi-ai-commerce/blob/4045310770891e1fc4569b5156f1bcc896c7e806/docs/product/market-research-selection-centers-v1.md)。Figma 仅参考原候选评估和人工决定的业务顺序。复用现有工作页、候选和转入入口，试算表单折叠在该候选内；取消回原候选，保留原选择和列表位置。同一时刻只编辑一个候选。填写时清楚区分「商品资料」「经营假设」「参考试算」「人工决定」。
 
 本段限定一个销售市场、一个规格、每单一件、一个显式履约方式和一组假设。支持用户手填 USD 单件固定金额、按 USD 售价比例费用，以及可选 CNY 单件采购价与人工汇率。其余币种、多件套装、组合订单、分段和最低收费等无法按当前口径表达时标记 `UNSUPPORTED_COST_RULE`，不输出保本价或完整利润。无通用费用编辑器、批量试算、报价撮合、持久化条件/结果、跨设备历史或建议自动生成。当前页面关闭或离开上下文后，草稿和结果消失；历史人工理由沿原 Research 合同，系统不把临时试算当成已保存评估。需要持久化输入、历史结果或绑定决策回执时另做 Research 准入。
 

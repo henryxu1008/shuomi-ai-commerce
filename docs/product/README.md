@@ -12,7 +12,7 @@ Agent / Tool 消费领域 owner 的权限和能力，不直接访问数据库建
 
 ## 当前专项决定
 
-- [市场调研与商业选品 V1：分阶段产品规划及已实现增量的历史依据](research-commercial-assessment-v1.md)
+- [市场调研与商业选品 V1：分阶段产品规划及已实现增量的历史依据](flows/research-commercial-assessment-v1.md)
 - [业务智能体职责（2026-10-13 用户决定）](decisions/business-agent-responsibilities.md)
 - [待补全草稿的结构化候选资料](completion-draft-structured.md)
 - [候选资料带入 SHEIN 平台草稿](flows/completion-shein-import.md)
