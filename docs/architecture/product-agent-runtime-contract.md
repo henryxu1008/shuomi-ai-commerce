@@ -45,7 +45,7 @@ C2-2 后续已开始[单图视觉分析候选](product-image-visual-analysis.md)
 不能从文本 Quote、C1 路径决定或既有 Ready 推定。分析用途与当前生图许可/标题采用分开，
 尚不改变任何现运行的版本、恢复或执行资格；DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY。
 
-[图片事实/建议设计](product-image-facts-advice.md) 是新增公共 Tool/结果合同的独立冻结基线，
+[图片事实/建议设计](domains/catalog/product-image-facts-advice.md) 是新增公共 Tool/结果合同的独立冻结基线，
 已由准确设计 HEAD 的 R1 达到 IMPLEMENTATION_READY，后续实现授权及准确交付证据见 #1076。通用与原生消费者保持合法 Binding，
 不自动把图片 Tool 加给 contentagent 或所有 Agent；不改 Action/Gateway 自由参数、模型预算、
 原状态/CAS/UNKNOWN 恢复机制和正式采用副作用。D2 涉及版本执行资格及旧版 resume/adopt，
@@ -281,7 +281,7 @@ audit_unavailable、dependency_unavailable、model_outcome_unknown、checkpoint_
 | --- | --- | --- |
 | 文本模型治理、可观测预算与未知结果防重复 | #130 / AI Capability：当前文本调用有真实 adapter、前置边界、调用结果/用量与不重放证据 | 真实模型接线；不阻塞 #131 fake 合同实现 |
 | C1 文本候选及 proposed patch 校验 | #134 / 现 governed Model Decision → contentagent / Review/proposal：typed Candidate、相同纯规则与准确已观察证据绑定；不额外注册独立 propose Tool | 原补全/repair 与 Review 交接验收；不推定其它最小工具集合完成 |
-| C2-1 图片事实检查/非执行性建议、C3-1 当前资料规则 | #134 / [冻结设计](product-image-facts-advice.md)：Asset/Marketplace 原 owner、薄 read/compute Tool 与既有结果页，保留原权限/证据/预算；D2 已产品认可、R1 IMPLEMENTATION_READY | #1076 实现、自检、E2 离线组合与最终工程复核；C2-2 延期、C3-2 后续独立设计不作该阶段 Must；运行/产品 NOT_RUN |
+| C2-1 图片事实检查/非执行性建议、C3-1 当前资料规则 | #134 / [冻结设计](domains/catalog/product-image-facts-advice.md)：Asset/Marketplace 原 owner、薄 read/compute Tool 与既有结果页，保留原权限/证据/预算；D2 已产品认可、R1 IMPLEMENTATION_READY | #1076 实现、自检、E2 离线组合与最终工程复核；C2-2 延期、C3-2 后续独立设计不作该阶段 Must；运行/产品 NOT_RUN |
 | C3-2 候选类目查询与解释 | #134 / [独立冻结设计](domains/listing/listing-candidate-category-rules.md)：server 选择绑定、原规则 owner、新准确 Tool/领域结果与只读消费者；D2/D3 已产品认可、R1 IMPLEMENTATION_READY | #1077 维护实现、IT1/IT2、CI 与独立最终复核；不把普通 inspect 或 #1076 证据外推为新用途完成 |
 | Agent 结果进入既有审核 | #132 消费 #36 / review：幂等接收可信内部结果、fresh 授权、校验、原 UoW；未修改部分复用现有测试 | 人工审核闭环；不阻塞只读工具 |
 | 当前调用上下文与运行状态持久化 | #131/#132：真实 operation 绑定、run 唯一性、checkpoint revision、restart/unknown 证据 | HTTP/worker 开放；禁止假 task ID 或伪持久化 |

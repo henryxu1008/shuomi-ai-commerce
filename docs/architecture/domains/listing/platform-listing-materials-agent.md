@@ -6,7 +6,7 @@ Admission: **IMPLEMENTATION_READY / FROZEN (2026-10-13)**。本文先于正式�
 ## 后续合同的适用范围
 
 本文保留原 v1 冻结设计。当前 C2-1 / C3-1 的准确 v3 定义、图片事实建议和版本 D2 依据见
-[对应冻结设计](../../product-image-facts-advice.md)及 #1076，不从本文旧准入推导后续版本授权。
+[对应冻结设计](../catalog/product-image-facts-advice.md)及 #1076，不从本文旧准入推导后续版本授权。
 
 后续 [C3-2 候选类目规则查询](listing-candidate-category-rules.md) 为单独冻结设计：
 用户先选一个候选类目，现 Agent 查询并只读解释，当前保存资料不变；候选结果不能进入普通材料采用/保存。
