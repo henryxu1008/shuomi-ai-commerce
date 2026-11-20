@@ -171,7 +171,7 @@ Legacy decision：**EXTRACT 当前合格能力，不引入 legacy owner/兼容/�
 
 ## 11. 历史拆色方向与评审记录
 
-本设计取代 `shein-color-split-drafts.md` 中“本例必须拆色以满足平台”的推进依据；#1220 历史代码/CI/隔离记录不删除，不擅自整体回滚、删表或删除已有隔离草稿，也不把其 localOnly 子稿转换为普通稿。当前路径不调用 split、不依赖 family/partition，不继续原 35444 的拆色开通。
+本设计取代 [历史拆色设计](shein-color-split-drafts.md) 中“本例必须拆色以满足平台”的推进依据；#1220 历史代码/CI/隔离记录不删除，不擅自整体回滚、删表或删除已有隔离草稿，也不把其 localOnly 子稿转换为普通稿。当前路径不调用 split、不依赖 family/partition，不继续原 35444 的拆色开通。
 
 独立 Architecture Review R1 已完成，准确候选 `912557a43316ecfe3bb562cfbc73ea03a4b6d4c9`，结论 **IMPLEMENTATION_READY，0 BLOCKER**。Reviewer 实际核对当前源码/合同、三文件文档 diff，并独立只读读取官方正文，确认 doc3002086/version159 及未完整示例；未执行实现测试或真实业务操作。报告位于 `C:/Users/Henry/.codex/private/issue1158-sales-attribute-mapping-20261109/architecture-review-r1.md`。
 

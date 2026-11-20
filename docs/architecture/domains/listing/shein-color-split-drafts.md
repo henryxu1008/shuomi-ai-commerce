@@ -1,6 +1,8 @@
 # SHEIN 按颜色拆分本地平台草稿：最小合同
 
-> **2026-11-09 后续用户决定：当前链路不再按颜色拆成两份草稿。** 单商品黑 M、黑 L、白 M 应在同一普通 Target 中保留；当前依据见[单商品销售属性映射设计](domains/listing/shein-sales-attribute-mapping.md)及 #1158 当前正文。下方 §2“2 对 1 确有官方依据，因此拆分”的必然性推导已撤回：最新发布文档还有规格数量限制，但不足以证明拆稿具有业务必要性；新设计保持稀疏集合发布阻断，不把该限制删除后伪造 Ready。本文及 #1220 代码/评审/CI保留为当时范围的历史证据，不作为当前原 35444 开通或必经流程依据；不授权整体回滚、删表或删除已有草稿。#1225 schema 修复独立保留。
+> 归类与时点说明（2026-11-20）：本文是 Listing Target 所有的历史本地拆色设计与冻结评审，不是当前商品带入或发布路径。[#1220](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1220) 后续已合并，其隔离验证不证明原实例启用拆色、真实平台接受、发布、模型/账本操作或产品验收。原文各处 NOT_RUN 按原阶段保留。[#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158) 后续独立获准的 #1236 更新属于普通草稿共存，不恢复本例拆色；原 Store 官方资格未补齐，登录后浏览器实测仍 NOT_RUN。当前本例沿[单商品销售属性映射](shein-sales-attribute-mapping.md)使用一份普通 Target，仍有稀疏 SKU 发布阻断；历史 localOnly 子稿不转换、不放开发布、不删除，不恢复旧实现或扩大权限。
+
+> **2026-11-09 后续用户决定：当前链路不再按颜色拆成两份草稿。** 单商品黑 M、黑 L、白 M 应在同一普通 Target 中保留；当前依据见[单商品销售属性映射设计](shein-sales-attribute-mapping.md)及 #1158 当前正文。下方 §2“2 对 1 确有官方依据，因此拆分”的必然性推导已撤回：最新发布文档还有规格数量限制，但不足以证明拆稿具有业务必要性；新设计保持稀疏集合发布阻断，不把该限制删除后伪造 Ready。本文及 #1220 代码/评审/CI保留为当时范围的历史证据，不作为当前原 35444 开通或必经流程依据；不授权整体回滚、删表或删除已有草稿。#1225 schema 修复独立保留。
 
 Design Basis: Independent Architecture
 
@@ -27,7 +29,7 @@ Must：两份都创建或都不创建；每个选定源 SKU 恰好归属一份�
 
 ## 2. 产品依据、平台证据与现有能力
 
-最新用户决定及当前领域合同优先。Figma 只作业务流程辅助，不作布局、导航、组件或截图验收权威。按 [AGENTS](../../AGENTS.md)、[当前 owner](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[既有候选带入合同](domains/listing/completion-shein-import.md) 与[结构化候选合同](domains/listing/completion-draft-structured.md)设计；旧文档中冲突的 Figma 权威引用不恢复。
+最新用户决定及当前领域合同优先。Figma 只作业务流程辅助，不作布局、导航、组件或截图验收权威。按 [AGENTS](../../../../AGENTS.md)、[当前 owner](../../project-boundaries.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)、[既有候选带入合同](completion-shein-import.md) 与[结构化候选合同](completion-draft-structured.md)设计；旧文档中冲突的 Figma 权威引用不恢复。
 
 2026-11-09 只读查阅 [SHEIN 商品发布/编辑](https://open.sheincorp.com/zh/documents/apidoc/detail/3001352-1000001)：不同 SKC 下 SKU 销售属性及属性值数量须一致；新增时库存必填，0 有效；多 SKC 色块图要求与店铺图片规范分别存在。本地 `goods/attributes.go:194` 实现完整组合集合一致校验。本轮 2 对 1 确有官方依据，不删除校验。拆分后每稿一个 SKC，按各自当前规则重新 BuildOfficial；缺库存/图片仍可以保存本地草稿但保持非 Ready。
 
