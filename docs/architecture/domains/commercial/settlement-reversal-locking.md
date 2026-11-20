@@ -19,7 +19,7 @@ authorized this repair after the isolated #413 run failed with PostgreSQL
 
 Authority: [greenfield product baseline](../../../product/greenfield-no-legacy-migration.md),
 [commercial money contract](../../unified-base-prepaid-resources.md),
-[current referral rules](../../referral-settlement-and-conduct.md), and the runtime
+[current referral rules](referral-settlement-and-conduct.md), and the runtime
 immutable-table contract in `money.VerifyProviderTopUpRuntime`. No UI change;
 the current [UI authority](../../../product/final-ui-ia-authority.md) remains applicable.
 
