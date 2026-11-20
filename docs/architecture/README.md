@@ -121,7 +121,7 @@
 - `plugin-capture-listing-materials.md` — [插件上架资料补齐：高清相册、参数、正文/详情图与重量 V1](plugin-capture-listing-materials.md)
 - `plugin-capture-page-entry.md` — [Product capture: source-page primary entry](plugin-capture-page-entry.md)
 - `plugin-capture-session-return.md` — [Product capture: original-tab return across worker recreation](plugin-capture-session-return.md)
-- `plugin-capture-source-quotes.md` — [插件资料补齐与来源报价只读展示 V1](plugin-capture-source-quotes.md)
+- `domains/sourcing/plugin-capture-source-quotes.md` — [插件资料补齐与来源报价只读展示 V1](domains/sourcing/plugin-capture-source-quotes.md)
 - `source-business-flow.md` — [#30 / #307 完整来源业务闭环设计](source-business-flow.md)
 
 <a id="product"></a>

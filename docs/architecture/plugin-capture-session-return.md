@@ -26,7 +26,7 @@ and extension identity remain untouched.
 Authorities: [current entry](plugin-capture-entry-flow.md),
 [source-page entry](plugin-capture-page-entry.md),
 [ingestion](plugin-capture-ingestion.md),
-[source quote read](plugin-capture-source-quotes.md),
+[source quote read](domains/sourcing/plugin-capture-source-quotes.md),
 [final UI/IA](../product/final-ui-ia-authority.md), Figma
 `tg48P46SSXl6TBy9lZwg63 / 31:463`, and this explicit user decision. Existing
 capture buttons, receiver routes, account/enterprise confirmation and original
