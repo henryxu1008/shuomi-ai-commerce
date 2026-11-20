@@ -12,7 +12,7 @@
 | 核对平台资料、类目、素材与校验规则 | [平台资料智能体 v1](platform-listing-materials-agent.md)、[SHEIN 原生 Validator](../marketplace/shein-native-validator-contract.md)、[提交前 readiness 策略](../marketplace/shein-submit-readiness-action-policy.md) | `internal/listing/materials` / `readiness` 及当前 Marketplace 规则 |
 | 选择 SHEIN 候选类目并只读查询规则 | [候选类目规则查询与解释（C3-2）](listing-candidate-category-rules.md) | `internal/listing/materials` 使用 Marketplace 提供的真实规则；不保存、不采用、不发布 |
 | 将单商品多颜色、多 SKU 映射到同一 SHEIN 草稿 | [销售属性映射冻结合同](shein-sales-attribute-mapping.md) | `internal/listing/record/target` 持有单一草稿；Marketplace 提供规则与校验，稀疏规格的发布资格仍未确认 |
-| 人工审核与素材批准 | [Product Domain Contracts](../../product-domain-contracts.md)、[Human Review #36](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36) | `internal/product/review`、`internal/product/asset` |
+| 人工审核与素材批准 | [Product Domain Contracts](../catalog/product-domain-contracts.md)、[Human Review #36](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36) | `internal/product/review`、`internal/product/asset` |
 | 执行一次明确批准的提交并核对结果 | [SHEIN 发布闭环](shein-publication-flow.md)、[原任务继续](supply-four-step-continuation.md) | `internal/listing/submission` 持有提交意图/回执，平台 adapter 持有协议 |
 
 ## 提交与恢复的当前合同

@@ -1,10 +1,12 @@
 # Product Domain Contracts
 
-Product owns source publications, canonical catalog versions, current collections and approved product assets. Read [Project Boundaries](project-boundaries.md) for dependencies and [source handoff](../product/product-sourcing-handoff.md) for the admitted import path.
+> 归类说明（2026-11-20）：Catalog 目录是不可变商品版本这一交接结果的导航入口，不改变本文件作为 Product 跨域总合同的效力。Sourcing、Catalog、Collection、Asset、Review、ImageAgent 与下游 Listing/Marketplace 各自保留原文所列权责。此前 [#1343](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1343) / [#1344](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1344) 批次只建阅读导航、未迁移根合同；本批仅在核对消费者后调整这一个合同的位置，不复制、重启或改变任何能力。
+
+Product owns source publications, canonical catalog versions, current collections and approved product assets. Read [Project Boundaries](../../project-boundaries.md) for dependencies and [source handoff](../../../product/product-sourcing-handoff.md) for the admitted import path.
 
 ## 领域导航
 
-本文件仍是 Sourcing/Catalog/Collection/Asset 的现行权威总合同。按任务查阅可先进入 [Sourcing](domains/sourcing/README.md)、[Catalog](domains/catalog/README.md)、[Research](domains/research/README.md) 三份导航；它们只链接原合同和源码，不新增任何第二事实 owner。对应实际代码应以 [Project Boundaries](project-boundaries.md) 和当前源代码为准。
+本文件仍是 Sourcing/Catalog/Collection/Asset 的现行权威总合同。按任务查阅可先进入 [Sourcing](../sourcing/README.md)、[Catalog](README.md)、[Research](../research/README.md) 三份导航；它们只链接原合同和源码，不新增任何第二事实 owner。对应实际代码应以 [Project Boundaries](../../project-boundaries.md) 和当前源代码为准。
 
 ## Current owners
 
@@ -40,4 +42,4 @@ Marketplace adaptation and deterministic readiness consume the current Product/A
 - Use the existing same-owner transaction boundary for publication and collection effects. Preserve original idempotency, immutable version and cancellation behavior.
 - Readiness, approval, resource admission and real-platform authorization remain independent gates. A saved source product or successful generation does not authorize publishing.
 
-The [greenfield baseline](../product/greenfield-no-legacy-migration.md) applies: no old execution/task/ID/profile migration, compatibility pipeline or second source of truth.
+The [greenfield baseline](../../../product/greenfield-no-legacy-migration.md) applies: no old execution/task/ID/profile migration, compatibility pipeline or second source of truth.

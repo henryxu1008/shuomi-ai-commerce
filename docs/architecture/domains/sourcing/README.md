@@ -1,16 +1,16 @@
 # Sourcing：来源证据与受控发布
 
-> **阅读导航，不是第二份领域合同。** 实际事实 owner 与依赖方向以 [项目边界](../../project-boundaries.md) 和 [Product Domain Contracts](../../product-domain-contracts.md) 为准；本页只帮助从当前业务场景找到准确合同、代码与运行说明。Refs [#1343](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1343)。
+> **阅读导航，不是第二份领域合同。** 实际事实 owner 与依赖方向以 [项目边界](../../project-boundaries.md) 和 [Product Domain Contracts](../catalog/product-domain-contracts.md) 为准；本页只帮助从当前业务场景找到准确合同、代码与运行说明。Refs [#1343](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1343)。
 
 ## 从哪里开始
 
 | 使用场景/要回答的问题 | 先读哪份权威文件 | 代码与实现入口 |
 | --- | --- | --- |
-| 商品来源如何变成固定版本的 ProductSnapshot | [Product Sourcing Handoff](../../../product/product-sourcing-handoff.md)、[Product Domain Contracts](../../product-domain-contracts.md) | `internal/product/sourcing/`、`internal/app/productsourcing/`、`internal/product/catalog/` |
+| 商品来源如何变成固定版本的 ProductSnapshot | [Product Sourcing Handoff](../../../product/product-sourcing-handoff.md)、[Product Domain Contracts](../catalog/product-domain-contracts.md) | `internal/product/sourcing/`、`internal/app/productsourcing/`、`internal/product/catalog/` |
 | 来源证据、发布身份、同键重放与结果待核实 | [来源业务闭环合同](source-business-flow.md)、[Sourcing 包说明](../../../../internal/product/sourcing/README.md) | `internal/product/sourcing/`、`internal/integration/persistence/product/sourcing/` |
 | 1688 公开商品页如何采集 | [1688 受控浏览器采集合同](../../1688-server-public-browser-acquisition.md)、[产品决定](../../../product/decisions/1688-server-public-browser.md) | `internal/integration/acquisition/a1688/browser/`、`internal/integration/acquisition/browsercollector/` |
 | Amazon / 1688 插件的规格图片、来源接收与原键保存设计 | [历史增量设计](plugin-capture-ingestion.md)、[采集字段产品对照](../../../product/decisions/plugin-capture-listing-fields.md) | `internal/app/productsourcing/`、`internal/product/sourcing/`、`extensions/product-capture/` |
-| 已保存来源怎样进入 Collection/后续商品准备 | [Product Sourcing Handoff](../../../product/product-sourcing-handoff.md)、[商品主领域合同](../../product-domain-contracts.md) | `internal/product/collection/`、`internal/product/asset/` |
+| 已保存来源怎样进入 Collection/后续商品准备 | [Product Sourcing Handoff](../../../product/product-sourcing-handoff.md)、[商品主领域合同](../catalog/product-domain-contracts.md) | `internal/product/collection/`、`internal/product/asset/` |
 
 ## 本领域不变量
 

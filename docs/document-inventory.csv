@@ -160,7 +160,7 @@ docs/architecture/domains/ai/product-agent-google-interactions.md,architecture,a
 docs/architecture/product-agent-runtime-contract.md,architecture,ai,41367,REVIEW_MOVE,docs/architecture/domains/ai/product-agent-runtime-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/product-agent-text-provider-neutral.md,architecture,ai,19993,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; historical and later admission retained
 docs/architecture/domains/catalog/product-content-localization.md,architecture,catalog,20574,KEEP_PATH,,,MOVED_VERIFIED,reviewed contentagent Review Catalog owners and historical execution boundaries; moved with consumers verified
-docs/architecture/product-domain-contracts.md,architecture,catalog,3342,REVIEW_MOVE,docs/architecture/domains/catalog/product-domain-contracts.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/catalog/product-domain-contracts.md,architecture,catalog,4362,KEEP_PATH,,,MOVED_VERIFIED,cross-domain authority preserved; Catalog version navigation only
 docs/architecture/product-image-agent.md,architecture,catalog,47727,REVIEW_CROSS_LAYER,docs/architecture/domains/catalog/product-image-agent.md,docs/operations/product-image-agent.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/architecture/domains/catalog/product-image-facts-advice.md,architecture,catalog,21727,KEEP_PATH,,,MOVED_VERIFIED,Asset fact and nonexecuting advice owner grouped; historical engineering versus runtime acceptance preserved
 docs/architecture/domains/catalog/product-image-visual-analysis.md,architecture,catalog,39181,KEEP_PATH,,,MOVED_VERIFIED,single-image analysis grouped with image-source authority; engineering and actual-use evidence remain distinct
@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,43971,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,44003,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8366,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,17906,REVIEW_MOVE,docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
@@ -345,7 +345,7 @@ docs/product/market-research-multi-source-plan.md,product,research,28827,REVIEW_
 docs/product/flows/market-research-selection-centers-v1.md,product,research,36256,KEEP_PATH,,,MOVED_VERIFIED,Research product flow grouped with related journey; body and historical boundaries preserved; local links verified
 docs/product/decisions/official-zitadel-login.md,product,cross-cutting,6929,KEEP_PATH,,,MOVED_VERIFIED,product decision relocated; approved scope and historical qualifiers unchanged
 docs/product/decisions/plugin-capture-listing-fields.md,product,sourcing,20362,KEEP_PATH,,,MOVED_VERIFIED,plugin field design relocated; historical draft and admission boundaries unchanged
-docs/product/product-sourcing-handoff.md,product,sourcing,2589,REVIEW_MOVE,docs/product/flows/product-sourcing-handoff.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/product/product-sourcing-handoff.md,product,sourcing,3158,REVIEW_MOVE,docs/product/flows/product-sourcing-handoff.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/product/README.md,product,cross-cutting,2532,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/product/flows/research-commercial-assessment-v1.md,product,research,10729,KEEP_PATH,,docs/architecture/research-commercial-assessment-v1.md,MOVED_VERIFIED,historical product flow relocated; independent architecture retained at original path
 docs/product/flows/selected-application-multi-product.md,product,supply-market,3910,KEEP_PATH,,docs/architecture/domains/supply-market/selected-application-multi-product.md | docs/operations/user-guides/selected-application-multi-product.md,MOVED_VERIFIED,selected application contracts grouped by layer; historical scope preserved
