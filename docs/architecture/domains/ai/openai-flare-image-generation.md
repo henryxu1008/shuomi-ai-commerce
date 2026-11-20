@@ -1,8 +1,10 @@
 # Flare 官方直连生图：图片参考估算最小设计
 
+> Classification and chronology (2026-11-20): This is the AI image reference-estimation design and engineering record. [PR #1078](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078) merged the bounded D1 reference policy on the original route, image effect and resource ledger; the original budget, exact identity, single dispatch, and UNKNOWN safeguards remain. The older full hard-bound research was deferred, and its draft questions were not sent. Dated reference rates and isolated engineering evidence below do not constitute current prices, actual provider charges, deployment, product acceptance or authority to call a model.
+
 ## 当前阶段：停止精确上界研究，沿参考配置估算（2026-11-04）
 
-依用户最新纠偏与[公共合同当前阶段决定](enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)，
+依用户最新纠偏与[公共合同当前阶段决定](../../enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)，
 不再等待厂商完整输入/输出 token 硬界、精确分项或单请求金额保证来开放本阶段业务。
 本文件下方的 U/V 上界路线 **DEFERRED**，继续检索/咨询路线 **CANCELLED**；
 既有 UNKNOWN 和 ChatGPT 检索结果保留历史，不改为已证明或 PASS，也不继续派 Reviewer 研究这些问题。
@@ -32,8 +34,8 @@
 企业仍在原统一模型页选择 image 默认模型，成员在原白底、来源图编辑和 artwork 流程确认预留、检查结果并人工批准素材。
 保持 `openai-direct` / `gpt-image-2.5-flare-2026-09-08`、原参数域（含 `auto`）、每 effect 至多一次同步调用及原预算。
 不切型、降质量、改参数域、增调用或提高额度；不新增上传、任意 URL、页面或自动批准。
-产品依据为[企业统一配置当前决定](enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)、
-[当前 Figma Authority](../product/final-ui-ia-authority.md)及[全新系统基线](../product/greenfield-no-legacy-migration.md)。
+产品依据为[企业统一配置当前决定](../../enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)、
+[当前 Figma Authority](../../../product/final-ui-ia-authority.md)及[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 本次只实现已冻结的图片参考估算和原路径接线，不恢复精确价格、供应商时钟或完整硬上界研究。
 
 ### 2. 唯一 owner 与接线
@@ -182,9 +184,9 @@ Refs #134 / #128 / Draft PR #1078。2026-11-03，沿当前唯一 Writer 和原�
 企业管理者在现有统一模型设置选择三类默认模型，成员在原商品生图流程生成、检查并人工批准素材。
 默认渠道仍为 OpenAI 官方直连，生图准确型号仍为 `gpt-image-2.5-flare-2026-09-08`。
 按厂商官网适用价和冻结汇率折算微点，沿原资源账本预留、结算；不新增每张固定点价或独立账本。
-产品依据为[企业统一模型与官方价合同](enterprise-shared-model-configuration.md) U1–U6、
+产品依据为[企业统一模型与官方价合同](../../enterprise-shared-model-configuration.md) U1–U6、
 用户本次“补齐最小设计及完整费用上界依据，保持型号、原预算和一套计费；暂不实现、不新增评审派工”的明确授权。
-UI/IA 继续遵循[当前 Figma Authority](../product/final-ui-ia-authority.md)，复用既有模型设置和生图入口，不新建页面。
+UI/IA 继续遵循[当前 Figma Authority](../../../product/final-ui-ia-authority.md)，复用既有模型设置和生图入口，不新建页面。
 
 范围是原 ImageAgent 的白底、来源图编辑和既有 artwork 生图路径：每个已授权 effect 最多一次同步 Images 请求，`n=1`，非流式、无 partial images。
 一条计划可能有多个原 slot/effect；这不把整条计划的调用数改成 1，也不授予额外的 repair、解释或重试调用。
@@ -367,8 +369,8 @@ edit 方法的实际表单写入也不能仅由 request struct 声明推定，�
 | usage 完整但输出不合格 | 不能因为图片不合格而把已发生用量清零；费用事实和输出校验各由原 owner 处理，不附送 repair。 |
 | 已观察结果后的 staging/publication/结算 ACK 丢失 | 原键查原事实、原回执和原恢复材料；沿现有 effect recovery/finalization，不重新生图或按当前价重算。 |
 
-自动恢复触发、允许动作和唯一责任沿[原 effect 恢复](domains/ai/image-agent-effect-recovery.md)、
-[终结](domains/ai/image-agent-effect-terminalization.md)、[finalization](domains/ai/image-agent-effect-finalization.md)与当前 slot phase 合同。
+自动恢复触发、允许动作和唯一责任沿[原 effect 恢复](image-agent-effect-recovery.md)、
+[终结](image-agent-effect-terminalization.md)、[finalization](image-agent-effect-finalization.md)与当前 slot phase 合同。
 本文不新增状态机或将未知 provider 结果变成可安全重复。旧调用保持原冻结事实和原版本资格，不跨版本继续或改归属。
 
 ## 6. 后续验证与当前停止点

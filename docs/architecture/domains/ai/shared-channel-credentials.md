@@ -20,7 +20,7 @@ Refs [#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) / #128
 例如同一 OpenAI 企业连接同时服务 Mini 文本、Mini 看图和 Flare 生图，不为三个消费者分别保存 Key。
 
 依据：用户本轮明确要求多模型复用、企业隔离、凭据轮换、历史调用恢复和一套计费；
-[企业统一模型配置](../../enterprise-shared-model-configuration.md)、[Flare 图片参考估算](../../openai-flare-image-generation.md)、
+[企业统一模型配置](../../enterprise-shared-model-configuration.md)、[Flare 图片参考估算](openai-flare-image-generation.md)、
 [运行合同](../../product-agent-runtime-contract.md)、[领域边界](../../project-boundaries.md)及
 [全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 官网公开价只作为已批准的版本化参考价格；不恢复精确账单/厂商完整硬上界研究，不修改舍入、点数或调用预算。
