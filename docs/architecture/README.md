@@ -46,7 +46,7 @@
 - `retained-startup-prerequisites.md` — [保留实例启动前置：OwnIntake v3 与采集价格快照](retained-startup-prerequisites.md) · #1233 最小方案独立R1通过，IMPLEMENTATION_READY / FROZEN；实施义务未执行，不授权原35444操作。
 - `platform/runtime/app-assembly-boundaries.md` — [App Assembly Boundaries](platform/runtime/app-assembly-boundaries.md)
 - `architecture-review-checklist.md` — [Architecture Review Checklist](architecture-review-checklist.md)
-- `fallback-contract-consolidation.md` — [Fallback 合同收敛](fallback-contract-consolidation.md)
+- `platform/runtime/fallback-contract-consolidation.md` — [Fallback 合同收敛](platform/runtime/fallback-contract-consolidation.md)
 - `platform/runtime/httpapi-assembly-boundaries.md` — [HTTP API Assembly Boundaries](platform/runtime/httpapi-assembly-boundaries.md)
 - `project-boundaries.md` — [Project Boundary Rules](project-boundaries.md)
 - `project-target-architecture.md` — [Project Target Architecture](project-target-architecture.md)
