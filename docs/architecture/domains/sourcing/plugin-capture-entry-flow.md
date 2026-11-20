@@ -1,16 +1,18 @@
 # Product capture entry and original-tab return
 
-> 2026-10-25 increment: [Amazon optional family capture](plugin-capture-amazon-variants.md)
+> 归类与时点说明（2026-11-20）：本文保留 [#920](https://github.com/henryxu1008/shuomi-ai-commerce/issues/920) / [#922](https://github.com/henryxu1008/shuomi-ai-commerce/pull/922) 首次快捷键与原应用页返回设计。#922 已合并，#920 仅按工程范围关闭；下文原“两入口/无会话储存”按当时基线阅读，后续页面入口、worker 重建后同会话仅导航返回及 Amazon 家族显式选用分别见已有增量。Extension Controller/Handoff 只交接和返回，应用负责明确确认、原键及结果，SRC/Catalog/Collection 持有保存事实。工程证据不等于真实快捷键、实时采集/保存或产品验收，也不授权操作浏览器或插件。
+
+> 2026-10-25 increment: [Amazon optional family capture](../../plugin-capture-amazon-variants.md)
 > (#955, IMPLEMENTATION_READY) adds an explicit source-button scope and a bounded extension progress page.
 > The user authorized implementation in #957 after independent design admission; this supersedes only
 > the selected-only/no-other-source-tab baseline for that opt-in. Unchecked capture, original save and return remain unchanged.
 
-> 2026-10-24: [#927 session return](plugin-capture-session-return.md) supersedes
+> 2026-10-24: [#927 session return](../../plugin-capture-session-return.md) supersedes
 > this baseline's no-storage/worker-loss return restriction only. A trusted
 > browser-session navigation projection now supports original-tab return after
 > worker recreation; payload, save and external transport contracts stay intact.
 
-> 2026-10-24: the user's later [#924 page-entry decision](plugin-capture-page-entry.md) adds a source-page primary button and a separate strictly validated content-script message adapter. It supersedes this document's no-source-button/exact-popup-only entry restriction for that increment; the original Controller/Handoff, external sender and application save/recovery boundaries remain in force.
+> 2026-10-24: the user's later [#924 page-entry decision](../../plugin-capture-page-entry.md) adds a source-page primary button and a separate strictly validated content-script message adapter. It supersedes this document's no-source-button/exact-popup-only entry restriction for that increment; the original Controller/Handoff, external sender and application save/recovery boundaries remain in force.
 
 Execution: [#920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920). Design Basis: **Reuse Existing Architecture**. Status: **READY** after independent review of design `56875bed8105dfbdd111d4f78dc4aa1ede4122ef` by the existing `amazon_fix_review`. No BLOCKER; complete-entry/reset concurrency and own-tab/window failure behavior are IMPLEMENTATION_TEST within this design. Review evidence is maintained in the Issue/PR.
 
@@ -18,7 +20,7 @@ Execution: [#920](https://github.com/qq550723504/shuomi-ai-commerce/issues/920).
 
 The user approved on 2026-10-24: a direct keyboard entry, combined capture/handoff, and return to the original application tab; design review first, then one implementation PR. Merge, installation/runtime update, real capture/save, deployment and server collection are not authorized. Existing data, configuration, extension ID/loading directory, original requests, reservations and audit remain untouched.
 
-Authorities: [current ingestion](plugin-capture-ingestion.md), [source quote read](domains/sourcing/plugin-capture-source-quotes.md), [listing fields](../product/decisions/plugin-capture-listing-fields.md), [final UI/IA](../product/final-ui-ia-authority.md), Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`, and the user's current entry decision. Application routes and navigation stay unchanged. The existing Amazon/1688 receiver and confirmation/save/recovery pages are reused in full.
+Authorities: [current ingestion](../../plugin-capture-ingestion.md), [source quote read](plugin-capture-source-quotes.md), [listing fields](../../../product/decisions/plugin-capture-listing-fields.md), [final UI/IA](../../../product/final-ui-ia-authority.md), Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`, and the user's current entry decision. Application routes and navigation stay unchanged. The existing Amazon/1688 receiver and confirmation/save/recovery pages are reused in full.
 
 User path: supported product page → named browser shortcut (or one popup primary button) → capture and immediately hand off → existing application account/enterprise confirmation → existing save → original receipt. The popup remains a secondary way to use the same path. Starting another capture retains the existing explicit new-capture confirmation.
 

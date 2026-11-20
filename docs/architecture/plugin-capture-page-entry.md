@@ -17,7 +17,7 @@ deployment or server collection. Preserve retained data, requests, reservations,
 audit, configuration, loading directory and extension identity.
 
 Authorities: [ingestion](plugin-capture-ingestion.md),
-[existing entry](plugin-capture-entry-flow.md),
+[existing entry](domains/sourcing/plugin-capture-entry-flow.md),
 [source quote read](domains/sourcing/plugin-capture-source-quotes.md),
 [listing fields](../product/decisions/plugin-capture-listing-fields.md),
 [final UI/IA](../product/final-ui-ia-authority.md), Figma

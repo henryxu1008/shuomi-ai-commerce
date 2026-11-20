@@ -23,7 +23,7 @@ capture/save, deployment or server collection is authorized. Existing business
 data, original requests, reservations/audit, configuration, unpacked directory
 and extension identity remain untouched.
 
-Authorities: [current entry](plugin-capture-entry-flow.md),
+Authorities: [current entry](domains/sourcing/plugin-capture-entry-flow.md),
 [source-page entry](plugin-capture-page-entry.md),
 [ingestion](plugin-capture-ingestion.md),
 [source quote read](domains/sourcing/plugin-capture-source-quotes.md),
