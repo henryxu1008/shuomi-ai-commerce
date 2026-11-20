@@ -1,6 +1,8 @@
 # Amazon 插件：可选采集同族其他变体
 
-> #989 当前恢复增量：[持久草稿与可靠交接](domains/sourcing/plugin-capture-durable-drafts.md) 替代本文中“进度页内存是唯一事实 owner、重载/重启不可恢复”的历史限制。当前候选逐项提交 IndexedDB，重建后暂停，由用户明确继续；来源发现、严格父族/规格归属、人工校验和原资源限制不变。旧页的未保全资料不作迁移，本设计更新不授权真实重采或更新运行实例。
+> **历史范围：** [#955](https://github.com/henryxu1008/shuomi-ai-commerce/issues/955) 已仅按工程范围关闭。正文保留当时设计和验证证据，不能解释为当前安装、实际采集、保存或产品验收。先前内存唯一事实限制以 [#989/#990 持久草稿合同](plugin-capture-durable-drafts.md) 的明确替代为准；[#989](https://github.com/henryxu1008/shuomi-ai-commerce/issues/989) 仍开放，原 172 项只到确认页，保存未发送、原键无新发布，原草稿恢复及保存读回 NOT_RUN。默认单商品、显式同族选择、出现真人校验或登录时暂停、原权限与原键边界保持。本次未运行插件或对真实资料执行操作。
+
+> #989 当前恢复增量：[持久草稿与可靠交接](plugin-capture-durable-drafts.md) 替代本文中“进度页内存是唯一事实 owner、重载/重启不可恢复”的历史限制。当前候选逐项提交 IndexedDB，重建后暂停，由用户明确继续；来源发现、严格父族/规格归属、人工校验和原资源限制不变。旧页的未保全资料不作迁移，本设计更新不授权真实重采或更新运行实例。
 
 Execution: [#955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955)。
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**。
@@ -21,12 +23,12 @@ Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY**
 已有 Amazon v9、1688 v5及全部版本、数据、配置、加载目录、插件身份保持；
 ProductAgent、Chat、服务端采集继续关闭，其他会话/工作区不接管。
 
-依据：[现有接收与原子保存](domains/sourcing/plugin-capture-ingestion.md)、
-[页内入口](domains/sourcing/plugin-capture-page-entry.md)、[统一入口](domains/sourcing/plugin-capture-entry-flow.md)、
-[session原标签恢复](plugin-capture-session-return.md)、
-[来源报价只读](domains/sourcing/plugin-capture-source-quotes.md)、
-[上架字段](../product/decisions/plugin-capture-listing-fields.md)、
-[当前产品/Figma Authority](../product/final-ui-ia-authority.md)。
+依据：[现有接收与原子保存](plugin-capture-ingestion.md)、
+[页内入口](plugin-capture-page-entry.md)、[统一入口](plugin-capture-entry-flow.md)、
+[session原标签恢复](../../plugin-capture-session-return.md)、
+[来源报价只读](plugin-capture-source-quotes.md)、
+[上架字段](../../../product/decisions/plugin-capture-listing-fields.md)、
+[当前产品/Figma Authority](../../../product/final-ui-ia-authority.md)。
 Figma文件 `tg48P46SSXl6TBy9lZwg63 / 31:463` 约束当前Console信息架构；
 本次扩展局部控件以用户新决定补充，既有应用路由、导航和确认保存页面不改。
 

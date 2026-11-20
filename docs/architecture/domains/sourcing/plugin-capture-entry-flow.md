@@ -2,7 +2,7 @@
 
 > 归类与时点说明（2026-11-20）：本文保留 [#920](https://github.com/henryxu1008/shuomi-ai-commerce/issues/920) / [#922](https://github.com/henryxu1008/shuomi-ai-commerce/pull/922) 首次快捷键与原应用页返回设计。#922 已合并，#920 仅按工程范围关闭；下文原“两入口/无会话储存”按当时基线阅读，后续页面入口、worker 重建后同会话仅导航返回及 Amazon 家族显式选用分别见已有增量。Extension Controller/Handoff 只交接和返回，应用负责明确确认、原键及结果，SRC/Catalog/Collection 持有保存事实。工程证据不等于真实快捷键、实时采集/保存或产品验收，也不授权操作浏览器或插件。
 
-> 2026-10-25 increment: [Amazon optional family capture](../../plugin-capture-amazon-variants.md)
+> 2026-10-25 increment: [Amazon optional family capture](plugin-capture-amazon-variants.md)
 > (#955, IMPLEMENTATION_READY) adds an explicit source-button scope and a bounded extension progress page.
 > The user authorized implementation in #957 after independent design admission; this supersedes only
 > the selected-only/no-other-source-tab baseline for that opt-in. Unchecked capture, original save and return remain unchanged.

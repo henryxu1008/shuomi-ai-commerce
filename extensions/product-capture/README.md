@@ -37,7 +37,7 @@ are superseded by #989's design and current recovery implementation.
 ## Direct entry and return to the original application
 
 [Execution #955](https://github.com/qq550723504/shuomi-ai-commerce/issues/955) adds
-the reviewed [optional Amazon family scope](../../docs/architecture/plugin-capture-amazon-variants.md).
+the reviewed [optional Amazon family scope](../../docs/architecture/domains/sourcing/plugin-capture-amazon-variants.md).
 On an Amazon detail page, **同时采集其他颜色／尺寸（本次按钮）** is off by default.
 Choose it before the source-page capture button, or inside the existing new-operation
 confirmation. It applies only to that action; idle shortcut/popup capture remains selected-only.
