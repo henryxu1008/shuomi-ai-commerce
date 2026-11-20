@@ -16,7 +16,7 @@
 研究Provenance仍核原SAVED item、SRC/Catalog准确版本、组织/actor/member与前后live权限，不复制或刷新证据。
 
 本轮实际main一次组合d80d7b1e0，直接复用#1089的[共享通道凭据合同](../architecture/domains/ai/shared-channel-credentials.md)，
-不重复公共模型、价格、费用、凭据或恢复能力。沿[研究/选品](../architecture/market-research-selection.md)、
+不重复公共模型、价格、费用、凭据或恢复能力。沿[研究/选品](../architecture/domains/research/market-research-selection.md)、
 [AI关闭态完整图片](../architecture/domains/ai/ai-disabled-application-lifecycle.md)及[全新系统基线](../product/greenfield-no-legacy-migration.md)。
 没有新增UI/IA，沿已有Figma/Product Authority；开发自检不替代现场业务或用户验收。
 

@@ -140,7 +140,7 @@
 
 正式多平台开发按 **Independent Architecture** 准入：所选来源会改变研究公共合同、候选持久化身份及多个消费者；原 Amazon 冻结设计不能直接证明新来源已准入。只设计本次选中的来源，不重开未变化的全局授权/计费架构。
 
-继续复用 [当前领域 owner](../architecture/project-boundaries.md)、[Product 采集交接](product-sourcing-handoff.md)、[现有研究合同](../architecture/market-research-selection.md)、[研究证据分析合同](../architecture/domains/research/market-research-evidence-analysis-v1.md)和[当前全新系统基线](greenfield-no-legacy-migration.md)。Product Sourcing/Catalog 管原始商品事实，Collection 管原保存与选择，Research 管私有研究关系与人工决定，Agent 管分析运行/计量，Preparation 管商品准备。保持原授权、版本绑定、幂等及未知结果查询责任，不新增副本或执行 owner。
+继续复用 [当前领域 owner](../architecture/project-boundaries.md)、[Product 采集交接](product-sourcing-handoff.md)、[现有研究合同](../architecture/domains/research/market-research-selection.md)、[研究证据分析合同](../architecture/domains/research/market-research-evidence-analysis-v1.md)和[当前全新系统基线](greenfield-no-legacy-migration.md)。Product Sourcing/Catalog 管原始商品事实，Collection 管原保存与选择，Research 管私有研究关系与人工决定，Agent 管分析运行/计量，Preparation 管商品准备。保持原授权、版本绑定、幂等及未知结果查询责任，不新增副本或执行 owner。
 
 UI 继续以 [当前 Product Authority](final-ui-ia-authority.md) 和[两个入口 V1](flows/market-research-selection-centers-v1.md)为基础；本提案没有修改 Figma 或批准新的多来源交互。[1688 当前阶段决定](decisions/1688-acquisition-scope.md#当前新增交付阶段2026-10-23)中的“新增服务端采集暂缓”继续有效。
 

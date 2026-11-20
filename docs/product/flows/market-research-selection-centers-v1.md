@@ -2,7 +2,7 @@
 
 ## 当前权威与实现边界导航（2026-11-17）
 
-本页维护已确认的市场调研、智能选品业务职责和交互决定；对应 [Research 领域导航](../../architecture/domains/research/README.md)、[Research 最小领域合同](../../architecture/market-research-selection.md) 和 [商品来源/事实归属](../../architecture/project-boundaries.md) 分别说明实现边界。实际交付与缺口请查 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。下文早期“已确认 Figma 设计”、独立中心或 Draft PR 的描述保留历史版本，不能覆盖最新用户决定、当前准确仓库代码或真实试用结果。当前研究目标 SHEIN 美国与资料来源 Amazon、1688 分开解释。
+本页维护已确认的市场调研、智能选品业务职责和交互决定；对应 [Research 领域导航](../../architecture/domains/research/README.md)、[Research 最小领域合同](../../architecture/domains/research/market-research-selection.md) 和 [商品来源/事实归属](../../architecture/project-boundaries.md) 分别说明实现边界。实际交付与缺口请查 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。下文早期“已确认 Figma 设计”、独立中心或 Draft PR 的描述保留历史版本，不能覆盖最新用户决定、当前准确仓库代码或真实试用结果。当前研究目标 SHEIN 美国与资料来源 Amazon、1688 分开解释。
 
 ## 当前菜单决定（2026-11-11）
 
@@ -104,7 +104,7 @@ Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点�
 
 状态：**PRODUCT_APPROVED / 新增 AI 合同 FROZEN / IMPLEMENTATION_READY / 源码与指定实例更新完成，待用户试用**。执行范围：[#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073)。
 
-用户于 2026-11-02 同意先形成两个中心 V1 的范围、入口、页面和交接设计，供实际评审，再决定正式实施。此决定不等于批准本文候选页面、生产代码、真实采集或模型调用。首批冻结的[研究合同](../../architecture/market-research-selection.md)及已部署实现继续有效；本文不重新打开或替代该合同。
+用户于 2026-11-02 同意先形成两个中心 V1 的范围、入口、页面和交接设计，供实际评审，再决定正式实施。此决定不等于批准本文候选页面、生产代码、真实采集或模型调用。首批冻结的[研究合同](../../architecture/domains/research/market-research-selection.md)及已部署实现继续有效；本文不重新打开或替代该合同。
 
 随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。[新增研究证据 AI 合同](../../architecture/domains/research/market-research-evidence-analysis-v1.md)已完成适用独立R1及对应增量确认，达到 FROZEN / IMPLEMENTATION_READY；后续用户回复“可以”，授权正式代码、必要开发自检、提交/推送和同一 PR 维护；真实平台/模型/付费、合并及新部署仍不授权。
 
