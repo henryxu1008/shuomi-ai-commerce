@@ -1,12 +1,14 @@
 # Amazon 新品和二手来源报价：设计草案
 
+> 归类与时点说明（2026-11-20）：按 Product Sourcing 的版本化来源报价合同归类，Catalog/Collection 的固定版本与引用保持。原 [#984](https://github.com/henryxu1008/shuomi-ai-commerce/pull/984) 已合并；[#955](https://github.com/henryxu1008/shuomi-ai-commerce/issues/955) 仅工程范围关闭。旧阶段开发、合并、镜像切换和验证说明均按原时点阅读；其他版本的历史样本不能证明本报价增量在当前实例生效。实际采集、保存、恢复、报价质量与产品验收仍分别取证，未执行保持 NOT_RUN。旧版原件不重算，不回填未知成色，二手来源价不作为商品当前售价；本次不操作插件、真实网页、原数据、凭据或部署。
+
 Status: **IMPLEMENTATION_READY**。关联 #955。用户要求先评审，再开发、测试并提交一个主要 PR；不合并、重采、更新实例或插件、部署。保留数据、配置、加载目录和插件身份。
 
 ## 用户结果和范围
 
 在原 Amazon 单商品和同族采集的确认页、已保存规格资料中，分别查看该规格的新品和二手来源报价；网页明确给出二手成色时显示成色。每个状态只收集页面明确归属、无歧义的当前报价，不遍历其他卖家。参考报价不是本店售价或库存。原 1688 路径和服务端采集不扩展。
 
-依据：用户 2026-10-28 的决定；[已有接收与原键合同](plugin-capture-ingestion.md)、[来源报价展示](plugin-capture-source-quotes.md)、[同族采集](plugin-capture-amazon-variants.md)、[产品与 Figma 权威](../product/final-ui-ia-authority.md)。当前 #955 有真实页面和 v10 收发证据。Product/Figma 沿现有确认和原始资料入口，不新增导航。
+依据：用户 2026-10-28 的决定；[已有接收与原键合同](../../plugin-capture-ingestion.md)、[来源报价展示](../../plugin-capture-source-quotes.md)、[同族采集](../../plugin-capture-amazon-variants.md)、[产品与 Figma 权威](../../../product/final-ui-ia-authority.md)。当前 #955 有真实页面和 v10 收发证据。Product/Figma 沿现有确认和原始资料入口，不新增导航。
 
 ## 事实、归属及未决合同
 

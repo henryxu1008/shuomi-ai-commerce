@@ -167,7 +167,7 @@
 - [Marketplace 领域导航：SHEIN、TEMU、TikTok Shop、Walmart 的现行协议和发布门禁](domains/marketplace/README.md) — Store 授权、Listing 提交与平台 adapter 权责分离
 
 
-- `amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](amazon-condition-quotes-draft.md)
+- `domains/sourcing/amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](domains/sourcing/amazon-condition-quotes-draft.md)
 - `domains/listing/completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](domains/listing/completion-shein-import.md)
 - `domains/marketplace/erpnext-shein-fulfillment-fit.md` — [ERPNext 与 SHEIN 双履约适配验证](domains/marketplace/erpnext-shein-fulfillment-fit.md)
 - `my-supply-chain-shein.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein.md)
