@@ -73,12 +73,10 @@ docs/
 
 原 353 条清单以 `b67c8d7ee5c6bf543d4723c3e768219fa314fd35` 为**盘点基线**，不是以后新增导航文件的完整动态文件目录。除已复核的迁移文件外，`PROPOSED_ONLY` 的候选领域、路径和大小仍为当时的快照，不得当作实时源码状态或直接派工的授权。
 
-已完成且确认源链接的路径迁移：
+以下是已完成且确认源链接的迁移示例，非完整清单：
 - [#1358](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1358)：`issue132-title-evaluation-admission.md` 与 `issue132-title-pilot-local-entry.md` 从架构根目录迁入 `architecture/domains/ai/`；仍是未准入的设计候选。
 - [#1359](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1359)：`completion-draft-internal-note.md` 迁入 `architecture/domains/listing/`，保留 Listing CompletionDraft 已冻结合同。
 - [#1361](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1361)：两份 Listing CompletionDraft 历史/恢复架构合同成组迁入 `architecture/domains/listing/`，原 Operations 使用说明继续独立维护。
-
-对应 CSV 四十二行更新为新的真实 `path`、`KEEP_PATH`、`MOVED_VERIFIED`，`size_bytes` 为迁移后 UTF-8 正文字节数。其余行保留原盘点视角、`PROPOSED_ONLY` 与原候选路径；迁移后**不得仅据旧 CSV 行推断某文件还在原位置**，应重新检查当前 main。
 
 - [#1363](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1363)：`CompletionDraft` 结构化候选冻结合同由架构根层迁至 `architecture/domains/listing/`；相邻 Product 与 Operations 同名文档各自保留业务/使用说明职责，不进行内容合并。
 - [#1366](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1366)：C3-2 SHEIN 候选类目规则查询与只读解释合同归入 `architecture/domains/listing/`；Marketplace RuleReader/Provider 仍提供原规则，不变更 C3-2 R1 准入与不可采用边界。
@@ -119,8 +117,13 @@ docs/
 
 - `path`：已核实迁移的行写入当前真实路径；其余行保留原基线快照，使用前必须再次核对 main。`layer`、`domain`：原为候选领域，已迁移行按核实的领域校准。
 - `action`：`KEEP_PATH`（保留关键路径/当前路径）、`KEEP_ASSET`（非 Markdown 资产）、`REVIEW_MOVE`（待阅读后判断是否搬迁）、`REVIEW_CROSS_LAYER`（跨层同名关联，先核实不同职责）、`REVIEW_LIFECYCLE`（试用、候选、特定实例或历史时期名称，先核实适用性）。
-- `candidate_path`：**提议路径，不是已批准的迁移操作**；`related_paths`：跨分类同名关联；`size_bytes`：GitHub 当前文件大小。
-- `review_status=PROPOSED_ONLY` 适用于仍未逐篇核实的 333 个原基线行；20 行 `MOVED_VERIFIED` 表示仅**准确路径与相对引用迁移已核实**，不代表设计本身已准入、产品已验收或允许关闭 Issue。不得按表直接删除、搬移或关闭任务。
+- `candidate_path`：**提议路径，不是已批准的迁移操作**；`related_paths`：跨分类同名关联；`size_bytes`：已迁移行记录更新时 Git blob 的 UTF-8 字节数；其余行按原盘点快照理解。
+- `review_status`：`MOVED_VERIFIED` 仅表示**实际发生的路径迁移与相对引用已核实**，不代表设计已准入、产品已验收或允许关闭 Issue。`PROPOSED_ONLY` 表示清单仍只记录原盘点或候选处置，不能据此直接删除、搬移或关闭任务。
+
+进度以当前 `main` 的 [CSV 清单](document-inventory.csv) 为准，不用本页的迁移示例计数。按以下口径报告：
+
+- 以 `review_status=MOVED_VERIFIED` 统计已迁移数；原盘点 353 条为分母。PR 的候选数单列，未合并不计入主线。
+- 将 `PROPOSED_ONLY` 按 `action` 分列：`KEEP_PATH`（保留路径）、`KEEP_ASSET`（保留资产）、`REVIEW_MOVE` / `REVIEW_CROSS_LAYER` / `REVIEW_LIFECYCLE`（待判断处置）。保留项不是已迁移，也不应为增加迁移数而搬动；待审项可再区分候选路径与原路径相同或不同，但这不代表已核实。
 
 任何新一轮文件检查应重新取当时主线与相关文档版本；旧行可能因正常开发变动而过期。若准确 owner/内容与候选目录不一致，应修改清单后再实施。
 
@@ -146,7 +149,7 @@ docs/
 | `my-supply-chain-shein.md`（Architecture / Operations） | 旧五阶段技术设计已在文首声明被四阶段增量替代；操作说明已转向「商品刊登」四阶段 | **UPDATE_REVIEW**：优先固定现行四阶段权威链接，审查原合同仍被消费的部分后再决定是否精简 |
 | `ecosystem-services.md`（Architecture / Operations） | 冻结合同含完整支付/结算，而现行有界资格接线与运行说明强调“非支付阶段” | **KEEP_SEPARATE**，进一步标清两阶段适用条件；不可因为代码或目录存在就宣布真实支付开放 |
 
-上表的 `KEEP_SEPARATE` / `UPDATE_REVIEW` 是**人工抽查建议**；除前述已核实迁移行外，CSV 原基线仍保持 `PROPOSED_ONLY`，这些抽查不授权修改上述领域合同。后一批需核实当前产品决定、准确发布/试用范围和反向引用后再具体实施。
+上表的 `KEEP_SEPARATE` / `UPDATE_REVIEW` 是**人工抽查建议**，不是 CSV 状态，也不授权修改上述领域合同。后一批需核实当前产品决定、准确发布/试用范围和反向引用后再具体实施。
 
 ## 7. 推荐推进与验收
 
