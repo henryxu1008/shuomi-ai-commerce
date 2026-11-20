@@ -1,12 +1,14 @@
 # #36 可保留的本机隔离试用运行边界
 
+> 归类与时点说明（2026-11-20）：本文保留 [#591](https://github.com/henryxu1008/shuomi-ai-commerce/pull/591) 已合并的本机隔离试用装配设计与当时验证要求；其作用域是独立本机身份和合成数据，不是当前共享/生产环境的运行或重启授权。后续 [#36](https://github.com/henryxu1008/shuomi-ai-commerce/issues/36) 工程范围已通过且保持开放，现场准入 UNKNOWN、现场运行与产品验收 NOT_RUN；历史隔离证据各按原时点与版本解释。本文归平台运行装配，不转移 Product Review/Catalog、Asset、Store Center 或 Listing Record 的事实职责。
+
 > 状态：**IMPLEMENTATION_READY，仅限本机隔离试用装配与下述任务中心入口修正**。2026-10-03 独立 Architecture Review 对设计候选 `fe1fb146` 未发现 BLOCKER；2026-10-06 针对 `e3476c83b` 的任务中心入口增量独立复核也未发现新 BLOCKER。Review-only 路由、共同数据库权限、入口实际显示与持久样本列为 `IMPLEMENTATION_TEST`，必须在试用交付前收敛。本准入不代表运行验收、合并或生产开放。
 
 ## 用户结果、权威与范围
 
 试用者在一套全新、仅监听本机的实例，用该实例自己的 ZITADEL / Auth.js 正常登录，从任务中心进入 Product 标题审核，读取一条合成提案，作人工接受、编辑或拒绝，再单独确认 Apply 并读回 Catalog 新版本和 receipt；从任务中心进入历史已完成记录，读取一条合成 SHEIN 本地资料准备记录的历史 Store ID、本地动作和原离线诊断。stop/restart 后，这些事实和登录所依赖的身份数据库仍在。交接给试用者的是可访问地址、私密凭据位置、操作步骤和限制，不是结束即销毁的测试 fixture。
 
-产品决定为 [#36 的 2026-10-03 新阶段](https://github.com/qq550723504/task-processor/issues/36)。当前页面与任务中心的 Figma Authority 沿用 file `tg48P46SSXl6TBy9lZwg63` 的 `31:463`、`427:3005`；Figma 的示例名称、数量与进度不成为事实。现有 [标题审核 UI 合同](../operations/product-agent-trial.md)、[#36 Store 投影合同](completed-work-store-scope.md)、[Store Center 当前 owner](store-center-application.md)、[当前模型/无旧数据迁移决定](../product/greenfield-no-legacy-migration.md) 和 [当前系统边界](../product/greenfield-no-legacy-migration.md) 继续适用。
+产品决定为 [#36 的 2026-10-03 新阶段](https://github.com/qq550723504/task-processor/issues/36)。当前页面与任务中心的 Figma Authority 沿用 file `tg48P46SSXl6TBy9lZwg63` 的 `31:463`、`427:3005`；Figma 的示例名称、数量与进度不成为事实。现有 [标题审核 UI 合同](../../../operations/product-agent-trial.md)、[#36 Store 投影合同](../../completed-work-store-scope.md)、[Store Center 当前 owner](../../store-center-application.md)、[当前模型/无旧数据迁移决定](../../../product/greenfield-no-legacy-migration.md) 和 [当前系统边界](../../../product/greenfield-no-legacy-migration.md) 继续适用。
 
 本片是**本机、全新、空业务数据**的内部试用装配，范围内仅有当前 Product Review/Catalog、ApprovedAsset、Store Center、Listing Record、现有 Console/BFF 和正常本地身份。不得据此默认开放生产/共享实例。真实 provider、付费模型、1688/SHEIN 远端调用或发布、真实用户/业务数据、旧数据迁移、Agent/BusinessTask 新流程、通用试用或验收平台、Store 名称由 Listing 旁读，均不在本片。合成提案只用于审核/Apply；合成 Listing record 只用于已完成/诊断，两条业务链相互独立。
 
@@ -14,7 +16,7 @@
 
 ## 现状与必须作出的装配决定
 
-PR #579 只完成严格 v2 投影并已合并；它不提供试用运行源。现有 `account-compose` 的 current-application manifest 没有当前 Product DB，UI 没有 `PRODUCT_REVIEW_API_ORIGIN`。Product Review 当前由 `buildProductReviewCore` → `review.NewCandidateService` → 四个审核 HTTP 路由组合（#953 退休原闲置 `NewProductReviewApplication` 与生成 root POST）；`NewSheinRecordApplication` 仍是独立的当前 owner 组合；[模块映射](project-boundaries.md)把两者的默认装配标为未交付。特别是 DRAFT-S1 构造器明确不允许靠一个默认布尔开关推断 Product/Asset/Store/Listing 的共同事实边界。现有 #344 fixture 的合成 Auth.js 身份与 29 分钟生命周期只证明受控代码路径，不交付正常登录/可保留实例。
+PR #579 只完成严格 v2 投影并已合并；它不提供试用运行源。现有 `account-compose` 的 current-application manifest 没有当前 Product DB，UI 没有 `PRODUCT_REVIEW_API_ORIGIN`。Product Review 当前由 `buildProductReviewCore` → `review.NewCandidateService` → 四个审核 HTTP 路由组合（#953 退休原闲置 `NewProductReviewApplication` 与生成 root POST）；`NewSheinRecordApplication` 仍是独立的当前 owner 组合；[模块映射](../../project-boundaries.md)把两者的默认装配标为未交付。特别是 DRAFT-S1 构造器明确不允许靠一个默认布尔开关推断 Product/Asset/Store/Listing 的共同事实边界。现有 #344 fixture 的合成 Auth.js 身份与 29 分钟生命周期只证明受控代码路径，不交付正常登录/可保留实例。
 
 本片决定：**显式 opt-in 的本机试用组合**复用 `cmd/current-application`、现有 ZITADEL/Login V2、Auth.js/BFF、Product Review/Catalog 与 Listing Record 路由/服务；不得包裹旧 Task-first Service 或新建第二套事实源。试用配置缺失时，Review/Listing 路由一律不装配。试用配置只允许全新项目、loopback HTTPS、独立 Compose project/volumes；运行时不得执行 DDL、隐式授权或用超级用户连接。实现时从现有独立构造器抽取可复用的当前模块装配，保持原中间件、授权、deadline 和服务逻辑。当前应用中的 Review 准入须与 `productAgent.enabled` 解耦，用已有 `review.NewCandidateService` 装配无 generator 服务，只批准 GET list/detail 与 POST decision/apply；`productReviewRoutes` 中的 POST create 必须从本片路由集合中排除。不因打开审核而启用 Agent、模型、预算或提案生成入口。
 
