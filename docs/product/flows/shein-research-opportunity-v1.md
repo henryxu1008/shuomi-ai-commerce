@@ -8,7 +8,7 @@
 
 用户随后明确同意将市场调研/智能选品以智能体方式在智能市场启用使用；[已确认的智能市场交付方式](market-research-selection-centers-v1.md#智能市场交付方式2026-11-03用户已确认)统一发现/企业配置入口、保留实际业务工作页，替代路径接通后收起原独立一级菜单。当前Agent准确操作映射和执行合同仍须准入，下文沿业务阶段描述步骤；SHEIN资料、来源合同与真实调用条件不变。产品IA依据以本次更新后的Product Authority为准，不能继续把入口方案写为待用户确认。
 
-依据：[原多来源方案与公开来源调查](../market-research-multi-source-plan.md)、[已批准两个入口V1](market-research-selection-centers-v1.md)、[当前Product Authority](../final-ui-ia-authority.md)、[现有研究合同](../../architecture/market-research-selection.md)、[证据分析合同](../../architecture/market-research-evidence-analysis-v1.md)。这份草案不宣称Figma已更新，也不替代现有冻结合同。执行仍沿 #1070/#1072/#1073 和主要 Draft PR #1075，一个Writer。
+依据：[原多来源方案与公开来源调查](../market-research-multi-source-plan.md)、[已批准两个入口V1](market-research-selection-centers-v1.md)、[当前Product Authority](../final-ui-ia-authority.md)、[现有研究合同](../../architecture/market-research-selection.md)、[证据分析合同](../../architecture/domains/research/market-research-evidence-analysis-v1.md)。这份草案不宣称Figma已更新，也不替代现有冻结合同。执行仍沿 #1070/#1072/#1073 和主要 Draft PR #1075，一个Writer。
 
 ## 1. 要交付给业务人员的结果
 

@@ -363,7 +363,7 @@ Product、Asset、Listing、Marketplace、Store、Resource 等是支撑该产品
 
 用户随后明确回复“确认沿用这版设计”，确认上述两个入口、共用项目、页面分工及所选2–5项样本范围。12个明暗/关键390px视图、确认与空/异常状态及准确 Figma 链接见[两个中心 V1 产品设计](flows/market-research-selection-centers-v1.md)，产品方向记为 PRODUCT_APPROVED；节点候选名称保留追溯，不等于功能已实施。
 
-新增市场证据 AI 的[设计增量](../architecture/market-research-evidence-analysis-v1.md)已完成原独立Reviewer的R1及对应增量确认，冻结为 IMPLEMENTATION_READY；后续用户明确回复“可以”，授权正式业务代码、必要开发自检、提交/推送和同一 PR 维护。新增两个入口的目标替代首批仅项目详情/原导航不变的范围限制；原owner、安全和恢复合同继续有效。当时部署仍需另行授权，后续决定如下。
+新增市场证据 AI 的[设计增量](../architecture/domains/research/market-research-evidence-analysis-v1.md)已完成原独立Reviewer的R1及对应增量确认，冻结为 IMPLEMENTATION_READY；后续用户明确回复“可以”，授权正式业务代码、必要开发自检、提交/推送和同一 PR 维护。新增两个入口的目标替代首批仅项目详情/原导航不变的范围限制；原owner、安全和恢复合同继续有效。当时部署仍需另行授权，后续决定如下。
 
 ### 2026-11-03 用户允许：两个中心更新到指定统一实例
 
