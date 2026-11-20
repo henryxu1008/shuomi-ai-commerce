@@ -117,7 +117,7 @@
 - `domains/sourcing/plugin-capture-durable-drafts.md` — [商品采集插件：可恢复本地草稿规划与设计 v1](domains/sourcing/plugin-capture-durable-drafts.md)
 - `domains/sourcing/plugin-capture-handoff-worker-restart.md` — [商品采集交接在扩展后台重建后恢复](domains/sourcing/plugin-capture-handoff-worker-restart.md)
 - `domains/sourcing/plugin-capture-entry-flow.md` — [Product capture entry and original-tab return](domains/sourcing/plugin-capture-entry-flow.md)
-- `plugin-capture-ingestion.md` — [插件采集增量架构：规格图片与 Amazon 接收保存 V1](plugin-capture-ingestion.md)
+- `domains/sourcing/plugin-capture-ingestion.md` — [插件采集增量架构：规格图片与 Amazon 接收保存 V1](domains/sourcing/plugin-capture-ingestion.md)
 - `domains/sourcing/plugin-capture-listing-materials.md` — [插件上架资料补齐：高清相册、参数、正文/详情图与重量 V1](domains/sourcing/plugin-capture-listing-materials.md)
 - `domains/sourcing/plugin-capture-page-entry.md` — [Product capture: source-page primary entry](domains/sourcing/plugin-capture-page-entry.md)
 - `plugin-capture-session-return.md` — [Product capture: original-tab return across worker recreation](plugin-capture-session-return.md)

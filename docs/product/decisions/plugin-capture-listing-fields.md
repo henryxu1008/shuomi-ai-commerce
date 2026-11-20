@@ -121,4 +121,4 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 
 后续的最小产品核对可沿已有测试及保存读取路径：相同已获准商品/明确页面范围中比较标题、图像角色、规格身份和价格来源；再确认保存后同一版本读回一致。先使用隔离的现有样例/纯解析测试，再在明确授权下看真实页面。不得上传整页账户数据、用fixtures证明真实来源完整，或为了达到“齐全”补造数据。
 
-规格图片关联与Amazon插件接收保存的独立设计见[插件采集增量架构](../../architecture/plugin-capture-ingestion.md)，评审状态以该文档为准。富文本及本轮未纳入的公共合同仍需后续有界设计。完成适用review、IMPLEMENTATION_READY及用户开发授权前不修改生产路径。**本字段文档不是完整架构准入，也不授权合并/部署/真实数据操作。**
+规格图片关联与Amazon插件接收保存的独立设计见[插件采集增量架构](../../architecture/domains/sourcing/plugin-capture-ingestion.md)，评审状态以该文档为准。富文本及本轮未纳入的公共合同仍需后续有界设计。完成适用review、IMPLEMENTATION_READY及用户开发授权前不修改生产路径。**本字段文档不是完整架构准入，也不授权合并/部署/真实数据操作。**
