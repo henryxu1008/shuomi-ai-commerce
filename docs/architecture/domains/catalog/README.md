@@ -7,11 +7,11 @@
 | 用户或开发问题 | 首选合同/业务说明 | 源码入口 |
 | --- | --- | --- |
 | 外部采集证据如何变成不可变商品版本 | [Product Domain Contracts](../../product-domain-contracts.md)、[来源交接](../../../product/product-sourcing-handoff.md) | `internal/product/catalog/`、`internal/product/sourcing/` |
-| 用户如何把商品放进“我的数据”、选择和引用版本 | [Product Domain Contracts](../../product-domain-contracts.md)、[来源业务流程](../../source-business-flow.md) | `internal/product/collection/` |
+| 用户如何把商品放进“我的数据”、选择和引用版本 | [Product Domain Contracts](../../product-domain-contracts.md)、[来源业务流程](../sourcing/source-business-flow.md) | `internal/product/collection/` |
 | 自有商品录入、规格及保存历史 | [自有商品录入](own-product-entry.md)、[编辑](own-product-edit.md)、[SKU 包装](own-product-sku-packaging.md) | `internal/product/collection/`、`internal/product/catalog/` |
 | 商品描述如何安全编辑、插图并保留版本 | [富文本内容合同](own-product-rich-description.md)、[编辑器与描述图片增量](rich-description-simple-editor-images.md) | `internal/product/description/`、`internal/product/collection/`、`internal/listing/completiondraft/` |
 | 本机来源图片试用的存储与容量边界在哪里 | [来源图片试用合同](own-product-source-media-trial.md)、[操作说明](../../../operations/runbooks/own-product-source-media-trial.md) | `internal/app/productsourcing/`、`internal/ledger/storagecapacity/` |
-| 来源图片、生成图和用户上传图什么时候可用于刊登 | [Product Domain Contracts](../../product-domain-contracts.md)、[素材来源与批准](../../source-business-flow.md) | `internal/product/asset/`、`internal/imageagent/` |
+| 来源图片、生成图和用户上传图什么时候可用于刊登 | [Product Domain Contracts](../../product-domain-contracts.md)、[素材来源与批准](../sourcing/source-business-flow.md) | `internal/product/asset/`、`internal/imageagent/` |
 | 查看已批准图片的事实检查与非执行性建议 | [图片事实与建议](product-image-facts-advice.md) | `internal/product/asset/`（已批准素材与纯检查），Listing/Marketplace（当前 Target 和规则） |
 | 分析一张有权读取的商品图片，查看只读视觉建议 | [单图视觉分析合同](product-image-visual-analysis.md) | Catalog/Source/Asset（准确图源和权限），Agent/受治理执行（分析与计量） |
 | 从商品资料带入目标平台的草稿 | [待补全草稿产品决定](../../../product/flows/supply-unbound-completion-drafts.md)、[对应架构合同](../listing/supply-unbound-completion-drafts.md) | `internal/listing/`、`internal/marketplace/` |
@@ -29,4 +29,4 @@
 
 当前产品入口可以变化（如导航从“我的供应链”调整为“商品刊登”），而商品事实、不可变版本和授权边界不因 UI 路径变化而重新归属。历史 Figma 页面仅可辅助理解业务操作，不能作为新产品界面权威。
 
-本批**不搬动** `product-domain-contracts.md`、`source-business-flow.md` 或其他被大量引用的合同。后续若确需迁移，先审核消费者与 Markdown 锚点，再在独立 PR 更新。
+原领域导航批次未移动这些合同。`product-domain-contracts.md` 保持原位；[来源业务闭环设计](../sourcing/source-business-flow.md) 后续已归类至 Sourcing。其它架构合同若需迁移，先审核消费者与 Markdown 锚点，再在独立 PR 更新。
