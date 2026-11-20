@@ -196,7 +196,7 @@ Operational Design Basis: Reuse Existing Architecture。仅覆盖镜像和来源
 
 内部 UI 原实际端口3001的未登录检查：两个页面307，项目BFF401。第一次内部检查误指共享网络的3000端口得到404，不作为UI鉴权证据；纠正端口后通过。Windows公共HTTPS curl因证书吊销检查离线失败，没有降低TLS验证；正常浏览器HTTPS读取成功，不能把该curl失败写成通过。未执行真实采集、模型、付费或研究业务。后续其他版本/服务更新仍需具体授权，不合并、不关闭Issue；用户试用不由实现者代签。
 
-本批范围见 [冻结设计](../../architecture/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
+本批范围见 [冻结设计](../../architecture/domains/research/market-research-selection.md)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 和 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)。实例启用范围和检查结果以下方当前交接为准；健康检查不代替真实业务验收。合并、真实平台/模型/付费调用和数据删除仍未授权，实际用户试用不由实现者代签。
 
 **当前代码批次**为[已确认的两个中心 V1](../../product/flows/market-research-selection-centers-v1.md)，新增 AI 沿[冻结证据分析合同](../../architecture/domains/research/market-research-evidence-analysis-v1.md)实现。2026-11-03 用户明确允许从已审源码 `ad3ed151d6dfc4d9c4862944391476dfe91a0dd2` 构建镜像并仅更新 `task-processor-unified-20261010` 前后端；又明确允许启动已停止的 Docker Desktop 并继续更新。现已完成两服务更新，两个新入口可见。此决定替代本新增批次原先“不部署”的阶段限制，不授权后续自动更新、其他服务升级或真实调用。
 
@@ -214,7 +214,7 @@ Operational Design Basis: Reuse Existing Architecture。仅覆盖镜像和来源
 
 ## 显式新空安装与受限 serving pool
 
-只在另行获准的新空 Product 安装使用现有 SRC/Catalog/Collection/Data Services/Preparation installer；通用 installer 不作为已有业务库升级入口，不迁移旧数据、不让 serving 自动 DDL。指定统一实例的有界维护只适用[本次明确决定](../../architecture/market-research-selection.md#11-指定实例启用决定2026-11-02)，先备份并精确核对当前约束，再在同一事务扩展；不重跑历史 initializer。Amazon Preparation 安装合同现在包含 `amazon_data`，拒绝 `sds_template`、`custom_dataset` 等其他来源。
+只在另行获准的新空 Product 安装使用现有 SRC/Catalog/Collection/Data Services/Preparation installer；通用 installer 不作为已有业务库升级入口，不迁移旧数据、不让 serving 自动 DDL。指定统一实例的有界维护只适用[本次明确决定](../../architecture/domains/research/market-research-selection.md#11-指定实例启用决定2026-11-02)，先备份并精确核对当前约束，再在同一事务扩展；不重跑历史 initializer。Amazon Preparation 安装合同现在包含 `amazon_data`，拒绝 `sds_template`、`custom_dataset` 等其他来源。
 
 研究新增三表 `research_opportunities` / `research_evidence_links` / `research_commands`，位于同一物理 Product 数据库。预先建立 `product_research_runtime` 普通角色，不能为 superuser、角色/数据库创建者、复制角色或有角色成员关系，不能拥有 public CREATE 权限。沿既有私密配置途径提供安装 DSN，不把密码写进 shell 历史或仓库：
 

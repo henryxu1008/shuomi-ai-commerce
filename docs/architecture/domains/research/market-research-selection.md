@@ -1,6 +1,8 @@
 # 市场研究与选品：最小领域合同
 
-> **当前适用性（2026-11-17）：** 本文是 2026-11-02 已冻结的 Amazon 研究项目与 2–5 件候选对比/人工决定的**有界领域合同**，不是“已具备从任意目标市场主动发现真实机会的完整智能体”的声明。相关 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 已合入 main，原文“尚未合并、尚未部署”的叙述只对应当时执行阶段，现实业务开放状态仍按 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 和准确实例证据核对。现行优先研究目标为 **SHEIN 美国市场**，Amazon/1688 分别可作为市场/供货来源；不据此宣称 SHEIN 数据覆盖、真实销售量、供货价或 AI/扣费已经验证。原“我的供应链 → 待适配”、独立中心/Figma 节点仅是当时消费者/导航依据，现行产品入口与四阶段商品刊登遵循 [最新业务流程决定](../product/final-ui-ia-authority.md)。本段不变更冻结事实 owner、权限、版本、事务、UNKNOWN 和计量合同。
+> 归类与时点说明（2026-11-20）：按 Research 的候选关系、证据引用与人工决定 owner 归类，完整保留冻结正文和后续边界；Collection/SRC/Catalog、Project、Agent/Resource、Preparation 各持原事实。原 #1075 已合并，合成技术链路不代替 [#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 市场机会发现和 [#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 选品交接的真实验收，两者及 #1070 仍 OPEN。SHEIN 美国是当前目标市场，Amazon/1688 是可用来源维度；真实销量、覆盖率、价格缺证时保持 UNKNOWN。现行产品流程不以历史 Figma 或固定样本取代。历史指定实例操作不延展为今天许可，本次只归类，不触平台、实例、采集、模型、费用或真实转入。
+
+> **当前适用性（2026-11-17）：** 本文是 2026-11-02 已冻结的 Amazon 研究项目与 2–5 件候选对比/人工决定的**有界领域合同**，不是“已具备从任意目标市场主动发现真实机会的完整智能体”的声明。相关 [PR #1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 已合入 main，原文“尚未合并、尚未部署”的叙述只对应当时执行阶段，现实业务开放状态仍按 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)、[#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072)、[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 和准确实例证据核对。现行优先研究目标为 **SHEIN 美国市场**，Amazon/1688 分别可作为市场/供货来源；不据此宣称 SHEIN 数据覆盖、真实销售量、供货价或 AI/扣费已经验证。原“我的供应链 → 待适配”、独立中心/Figma 节点仅是当时消费者/导航依据，现行产品入口与四阶段商品刊登遵循 [最新业务流程决定](../../../product/final-ui-ia-authority.md)。本段不变更冻结事实 owner、权限、版本、事务、UNKNOWN 和计量合同。
 
 Design Basis: **Independent Architecture**。状态：**FROZEN / IMPLEMENTATION_READY**。
 依据 [#1071](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1071)，实施 [#1072](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1072) 与 [#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 的本合同最小切片，父目标 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070)。用户于2026-11-02明确批准本版设计、服务端 Amazon 先贯通、浏览器桥后接，并授权隔离实施；不合并、不部署，真实平台和付费调用仍未授权。独立 R1 及对应增量复核无剩余 Architecture BLOCKER，产品确认已满足，允许按冻结合同实施。实际完成、CI、真实运行与用户验收分别记录于同一主要 PR #1075，本文不代签。
@@ -27,7 +29,7 @@ Out of Scope：#1074 的 1688 自动匹配与利润模型、定期监测、销�
 
 Accepted Risks：本轮未新增风险接受决定。公开页面可能无数据或受挑战是诚实失败结果，不能作为绕过限制、编造指标或降低当前 Must 的理由。
 
-产品依据：当前执行 Issue、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[UI Authority](../product/final-ui-ia-authority.md)、[当前领域边界](project-boundaries.md)。不从旧计划或历史测试恢复已撤销需求。
+产品依据：当前执行 Issue、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)、[UI Authority](../../../product/final-ui-ia-authority.md)、[当前领域边界](../../project-boundaries.md)。不从旧计划或历史测试恢复已撤销需求。
 
 ## 2. 当前能力矩阵与真实通道前置
 
@@ -46,7 +48,7 @@ Accepted Risks：本轮未新增风险接受决定。公开页面可能无数据
 | 研究证据关系与机会决定 | 当前源码未发现对应领域实现 | 本设计新增的最小事实；不能以 README 的“市场调研”示例当交付。 |
 | 本地浏览器研究桥 | Browser #31；相关商家环境工作在 commerce #1019/#1020、Browser #14 | 当前为独立待设计范围；既有启动/CDP/插件能力不等于 SaaS 最小授权与研究任务回执。商家 Store 流程不自动成为匿名研究的前置。 |
 
-真实服务端通道需要：获准的新空安装或明确授权的实例、受限 Product/Resource pool 和 schema、准确 IAM 与原生模块权限、显式 driver/browser、配置站点、现有 Temporal namespace/worker，以及可用 DATA_ROW 资金来源。沿[运行交接](../engineering/integration/data-services-runtime-handoff.md)和[原生装配](../../deployments/docker/account-compose/data-services.md)核实；不读取凭据或变更保留实例来完成本轮设计。
+真实服务端通道需要：获准的新空安装或明确授权的实例、受限 Product/Resource pool 和 schema、准确 IAM 与原生模块权限、显式 driver/browser、配置站点、现有 Temporal namespace/worker，以及可用 DATA_ROW 资金来源。沿[运行交接](../../../engineering/integration/data-services-runtime-handoff.md)和[原生装配](../../../../deployments/docker/account-compose/data-services.md)核实；不读取凭据或变更保留实例来完成本轮设计。
 
 本轮真实 Amazon/1688、模型、Native 浏览器、付费数据和用户验收均 **NOT_RUN**。无实际通道证据时，只能交付代码/设计准备，不能声称研究业务可用。
 
@@ -152,7 +154,7 @@ Project/source 的授权和身份读取在关系事务前完成；事务内只�
 
 批准增量仅在 PRODUCT_RESEARCH 项目详情增加「研究选品」业务区域；项目中心/数据服务/我的智能体的原导航归属不变。数据市场负责取得资料，研究区域负责关联、证据、候选与决定，原我的数据负责转入。
 
-后续阶段说明：用户随后明确确认[两个中心 V1 产品设计](../product/flows/market-research-selection-centers-v1.md)，新增研究/选品入口的目标替代本段首批导航范围限制；新增 AI 合同见[独立设计增量](domains/research/market-research-evidence-analysis-v1.md)。本冻结合同的事实owner、权限、状态与恢复不变量不变。当前实例仍运行首批实现，新阶段正式代码和实例更新另行授权。
+后续阶段说明：用户随后明确确认[两个中心 V1 产品设计](../../../product/flows/market-research-selection-centers-v1.md)，新增研究/选品入口的目标替代本段首批导航范围限制；新增 AI 合同见[独立设计增量](market-research-evidence-analysis-v1.md)。本冻结合同的事实owner、权限、状态与恢复不变量不变。当前实例仍运行首批实现，新阶段正式代码和实例更新另行授权。
 
 内容顺序：项目目标 → 选择研究资料（打开原数据市场 / 关联已保存资料）→ 证据与缺项 → 选中 2–5 项事实对比及显式 AI 操作 → 人工决定 → 前往原批次转入。动作各自确认，不以查看页面隐式执行采集/模型/转入；空状态也能继续正常原流程。价格、数量、时间等示例只用于设计排版并显著标记，不能成为产品默认数据。
 

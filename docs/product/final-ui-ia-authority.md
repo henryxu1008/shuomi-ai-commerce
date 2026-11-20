@@ -349,7 +349,7 @@ Product、Asset、Listing、Marketplace、Store、Resource 等是支撑该产品
 
 ### 2026-11-02 用户批准：产品研究与准确子集转入
 
-执行 #1071/#1072/#1073 的首批用户路径，沿 [市场研究与选品合同](../architecture/market-research-selection.md)。用户明确确认本版设计进入实施，先贯通现有服务端 Amazon，浏览器桥后接；不合并、不部署，真实平台和付费调用仍未授权。
+执行 #1071/#1072/#1073 的首批用户路径，沿 [市场研究与选品合同](../architecture/domains/research/market-research-selection.md)。用户明确确认本版设计进入实施，先贯通现有服务端 Amazon，浏览器桥后接；不合并、不部署，真实平台和付费调用仍未授权。
 
 在现有项目中心的 PRODUCT_RESEARCH 项目详情加入研究选品区域：目标 → 打开原数据市场/关联已保存资料 → 证据与缺项 → 2–5 个候选事实对比及原显式 AI 流程 → 人工决定 → 原我的数据转入。保留项目身份、原导航和各领域 owner；不把既有商品事实对比宣称为已完成市场统计分析。
 

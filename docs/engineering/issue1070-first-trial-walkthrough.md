@@ -65,10 +65,10 @@
 
 | 环节 | 可直接沿用的能力 | 首试需要补齐或确认 |
 | --- | --- | --- |
-| 关键词/类目与证据 | [查询及发现合同](../architecture/market-research-selection.md)已有 `keyword` / `category` 发现和详情，原 Data Services 保存证据，Research 按授权引用回读。同站点同 ASIN 的重复观察沿现有归组。 | 把当前查询及实际结果范围带入机会判断，明确切换查询只切换本次证据范围。当前解析器明确缺评分、评价数和完整变体，也没有真实销量或趋势；本试点用可验证的页面规格和展示价形成机会假设。 |
+| 关键词/类目与证据 | [查询及发现合同](../architecture/domains/research/market-research-selection.md)已有 `keyword` / `category` 发现和详情，原 Data Services 保存证据，Research 按授权引用回读。同站点同 ASIN 的重复观察沿现有归组。 | 把当前查询及实际结果范围带入机会判断，明确切换查询只切换本次证据范围。当前解析器明确缺评分、评价数和完整变体，也没有真实销量或趋势；本试点用可验证的页面规格和展示价形成机会假设。 |
 | 机会与人工交接 | [现有产品分工](../product/flows/market-research-selection-centers-v1.md)有项目、候选、样本读取及同项目交接；`product.research.agent` 处理已选资料。 | 缺从查询样本形成「机会、要求、证据、未知项」以及让人确认后带到选品的完整业务路径。先定同项目里的最小输入输出和确认方式；如新增持久化事实、状态或智能体执行，需独立设计并达到 `IMPLEMENTATION_READY`。 |
 | 1688 匹配和核对 | [货源核对合同](../architecture/domains/research/research-supplier-review-v1.md)已有对获准、已收藏 1688 原版的选择，保存准确 SKU、正整数件数、差异和理由。运行须启用对应能力、预置 schema 和原件读权限。 | 首试用有限已收藏货源验证按要求人工匹配。按关键词自动找货仍缺获准来源及搜索接线；万邦的固定版本、指定 SKU/数量报价、MOQ 与混批补证继续独立推进。 |
-| 试算和准备 | [参考试算](../architecture/domains/research/research-manual-cost-preview-v1.md)已有人工输入、缺项提示及每单一件计算；[原转入合同](../architecture/market-research-selection.md#5-用户路径与跨-owner-一致性)已有人工决定、准确商品子集与原回执。 | 首试确认同一候选的货源核对、试算输入、批准和原件回执能串起来。若要求商品准备以 1688 SKU 为主原件，或随转入保存报价及试算快照，需另定 Preparation 交接范围及设计准入。 |
+| 试算和准备 | [参考试算](../architecture/domains/research/research-manual-cost-preview-v1.md)已有人工输入、缺项提示及每单一件计算；[原转入合同](../architecture/domains/research/market-research-selection.md#5-用户路径与跨-owner-一致性)已有人工决定、准确商品子集与原回执。 | 首试确认同一候选的货源核对、试算输入、批准和原件回执能串起来。若要求商品准备以 1688 SKU 为主原件，或随转入保存报价及试算快照，需另定 Preparation 交接范围及设计准入。 |
 
 实际取数前，需对目标环境与操作者核实站点适用许可（自动访问及后续保留、分析和展示）、原件和项目权限、站点配置与执行窗口、查询范围和计费上限。优先复用该关键词/类目已有的可读原件与查询记录。先前指定 ASIN 的单次范围与预算不直接套用到新查询。1688 自动报价或其他来源按自己的准入证据判断。
 

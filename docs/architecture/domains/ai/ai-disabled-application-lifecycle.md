@@ -15,7 +15,7 @@ Status: **IMPLEMENTATION_READY（仅离线实施）**。执行 Issue #1073，主
 本增量采用 **Independent Architecture**：从当前图片 Service 抽出只读端口并改变关闭态装配，
 在正式代码前进行一次有界检查。它不重开研究、模型、账本或 Flare 的全局设计。
 产品依据为本次用户决定、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)、
-[统一模型配置](../../enterprise-shared-model-configuration.md)、[研究/选品](../../market-research-selection.md)、
+[统一模型配置](../../enterprise-shared-model-configuration.md)、[研究/选品](../research/market-research-selection.md)、
 [图片业务](../../product-image-agent.md)和[原效果恢复](image-agent-effect-recovery.md)。
 沿原图片文档中的 Figma 1998:545/Console 交互权威；不新增页面、菜单、业务流程或视觉设计。
 现有能力字段如实投影“执行关闭”，不改变原历史状态或把未就绪显示为可执行。
