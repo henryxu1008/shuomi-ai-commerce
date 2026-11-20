@@ -35,7 +35,7 @@ Figma tg48P46SSXl6TBy9lZwg63 / 31:463 当前可见原型：
 采集能力由当前已批准的插件/receiver合同决定，不以本市场目录或下载成功证明实际可用；
 原2026-10-09仅1688基线已由#905/#906及后续插件批次扩展为双平台源码交付，
 真实来源/安装/采集和产品验收仍单独记录，按关键词/页采集不在本批范围。
-当前价格和渠道规则复用 [采集计价合同](1688-acquisition-channel-pricing.md)：
+当前价格和渠道规则复用 [采集计价合同](domains/sourcing/1688-acquisition-channel-pricing.md)：
 插件/本地免费；服务端成功采集消耗1 DATA_ROW；额度资源购买价格由Commercial读取，
 不在市场清单新建收费事实。原已批准的计价/UNKNOWN/recovery不变。
 

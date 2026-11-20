@@ -16,7 +16,7 @@ Authority：
 
 - 用户本轮明确的 #30/#307 设计授权；[Greenfield](../product/greenfield-no-legacy-migration.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)、[项目边界](project-boundaries.md)、[Issue 规则](../engineering/issue-driven-development.md)。
 - #30 的 [2026-09-11 决定](https://github.com/qq550723504/task-processor/issues/30#issuecomment-5637305932)：匿名公开获取不依赖账号；#307 正文中“正常授权源账号/店铺”仅适用于实际消费该能力的路径，不能恢复为匿名采集前置。
-- [1688 产品决定](../product/decisions/1688-acquisition-scope.md)、[已冻结采集/规则/转入合同](1688-acquisition-figma.md)、[公开浏览器采集](1688-server-public-browser-acquisition.md)、[既有计费](1688-acquisition-channel-pricing.md)。
+- [1688 产品决定](../product/decisions/1688-acquisition-scope.md)、[已冻结采集/规则/转入合同](1688-acquisition-figma.md)、[公开浏览器采集](1688-server-public-browser-acquisition.md)、[既有计费](domains/sourcing/1688-acquisition-channel-pricing.md)。
 - [当前 Figma Authority](../product/final-ui-ia-authority.md)、[我的供应链及人工来源图批准 §7.3](my-supply-chain-shein.md)。复用文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463` 已批准节点：采集 `1905:359`、`3792:1353`、`3792:1390`；我的数据批次 `430:2067`、详情 `3395:389`；转入 `3342:359`；待适配 `3507:1965` / `3507:3143`。本轮实际读取详情/待适配的字体、结构及 tokens，新增 §4.3.1 的独立待确认提案，不修改这些原稿或宣称产品视觉验收。
 
 Must：准确持久化及 lineage、当前 verified Effective Organization/actor/member、原幂等/UNKNOWN、真实警告、来源图默认未批准、明确人工批准与精确 Asset inventory、刷新后仍可读取及诊断。readiness 仅表示 `product.inputs`，不代表平台规则通过、图片远端字节已验证、可上传或已发布。

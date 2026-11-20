@@ -112,7 +112,7 @@
 - `domains/sourcing/1688-context-locator.md` — [1688 window.context 定位合同](domains/sourcing/1688-context-locator.md)
 - `1688-server-public-browser-acquisition.md` — [服务端匿名浏览器采集（1688 public browser acquisition）架构设计](1688-server-public-browser-acquisition.md)
 - `1688-acquisition-rate-and-egress-proxy.md` — [设计增补：匿名采集速率治理与出口代理（#514）](1688-acquisition-rate-and-egress-proxy.md)
-- `1688-acquisition-channel-pricing.md` — [1688 acquisition channel pricing — design basis for #592](1688-acquisition-channel-pricing.md)
+- `domains/sourcing/1688-acquisition-channel-pricing.md` — [1688 acquisition channel pricing — design basis for #592](domains/sourcing/1688-acquisition-channel-pricing.md)
 - `plugin-capture-amazon-variants.md` — [Amazon 插件：可选采集同族其他变体](plugin-capture-amazon-variants.md)
 - `plugin-capture-durable-drafts.md` — [商品采集插件：可恢复本地草稿规划与设计 v1](plugin-capture-durable-drafts.md)
 - `domains/sourcing/plugin-capture-handoff-worker-restart.md` — [商品采集交接在扩展后台重建后恢复](domains/sourcing/plugin-capture-handoff-worker-restart.md)
