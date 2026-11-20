@@ -1,5 +1,7 @@
 # 安装失败说明、归档与安全重试
 
+> 归类与时点说明（2026-11-20）：本文保留 [#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240) 的失败诊断、归档及有界重试冻结设计。[#1241](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1241) 已合并，隔离合成环境的归档、重试及资源保护工程证据见该 PR；其证据不等于历史真实卷内容已读取、原记录已归档或原安装已重试，#1240 仍开放。安装控制记录与运行检查继续由原 setupcontrol/setup 持有，Compose、存储和各业务 owner 的实际状态不因归类改变。下文设计阶段 NOT_RUN 按原时点解释，不构成现在操作实例、卷或数据的许可。
+
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**，依据§9独立R1；设计准入不代表已获准实施或真实恢复。
 
 执行 [#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)，在同一 PR #1241 内补充当前安装管理的恢复合同。源码调查基线 `c9816108f0d7be2f7ec6b5205838a42792d80049`。本文件是设计，生产实现、真实归档、卷内容检查及重新安装均未执行。
@@ -10,7 +12,7 @@ Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY /
 
 用户结果：看懂哪次安装停在哪一步；保留现场，检查原结果；仅当安全条件得到证明时，明确确认后再次尝试。同一操作保留每次尝试的历史，不要求用户删除JSON、猜测网络或换名称绕过阻断。
 
-本设计只修 [安装与模块管理](installation-and-module-management.md) §6 的具体缺口，当前领域 owner、[系统边界](project-boundaries.md) 与 [全新系统基线](../product/greenfield-no-legacy-migration.md) 保持。Figma仅流程参考；界面用“安装记录、安装名称、失败步骤、检查结果、重新尝试”等用户用语，不展示内部状态名。
+本设计只修 [安装与模块管理](../../installation-and-module-management.md) §6 的具体缺口，当前领域 owner、[系统边界](../../project-boundaries.md) 与 [全新系统基线](../../../product/greenfield-no-legacy-migration.md) 保持。Figma仅流程参考；界面用“安装记录、安装名称、失败步骤、检查结果、重新尝试”等用户用语，不展示内部状态名。
 
 Must：
 
