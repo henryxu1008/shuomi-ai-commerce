@@ -28,7 +28,7 @@ Admission Status: IMPLEMENTATION_READY / FROZEN
 - [统一基础与预付资源](../../unified-base-prepaid-resources.md)：Commercial 报价/订单、Money 钱包、Resource 授予/消费的分工。
 - [采集渠道计价](../sourcing/1688-acquisition-channel-pricing.md)：服务端成功采集消费 DATA_ROW，插件/本地渠道免费；消费不直接扣钱包。
 - [正式零售价](commercial-retail-pricing.md)：同一 Commercial offer、报价冻结、原订单恢复；原初始 DATA_ROW 为 5 分；后续当前价目按本设计发布。
-- [模型配置发布](../../model-route-pricing-management.md)：仅复用平台资格、校验/预览/发布及原回执交互模式，不复用其模型价格 owner 或表。
+- [模型配置发布](../ai/model-route-pricing-management.md)：仅复用平台资格、校验/预览/发布及原回执交互模式，不复用其模型价格 owner 或表。
 - [全新系统基线](../../../product/greenfield-no-legacy-migration.md)；本工作区 AGENTS.md 的当前 Figma 边界：Figma 仅供流程参考，非页面布局权威。
 
 已读代码证明的缺口：

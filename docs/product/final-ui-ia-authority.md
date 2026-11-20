@@ -180,7 +180,7 @@ Design Basis: Independent Architecture / IMPLEMENTATION_READY，仅批准上述�
 
 图片独立预览/回执深色 `7666:2226` / `7666:2245`，浅色 `7666:2259` / `7666:2278`，使用每张图片点数而非文本费率。
 
-模型、企业、费率、版本和时间都是明示的排版示例，不能作为真实已配置/可用状态。所有管理动作零模型调用、零任务启动；图片供应商成本未接入则如实展示。旧未发送任务遇配置漂移阻断并重新准备；已通过最终发送门禁/UNKNOWN、费用、已有输出与 Review 保留。Design Basis: Independent Architecture，合同与准入见 [模型与费率管理 V1](../architecture/model-route-pricing-management.md)。本轮只设计和评审，不修改代码、切换当前配置、安装或调用真实模型。
+模型、企业、费率、版本和时间都是明示的排版示例，不能作为真实已配置/可用状态。所有管理动作零模型调用、零任务启动；图片供应商成本未接入则如实展示。旧未发送任务遇配置漂移阻断并重新准备；已通过最终发送门禁/UNKNOWN、费用、已有输出与 Review 保留。Design Basis: Independent Architecture，合同与准入见 [模型与费率管理 V1](../architecture/domains/ai/model-route-pricing-management.md)。本轮只设计和评审，不修改代码、切换当前配置、安装或调用真实模型。
 
 ### SHEIN 已上传商品的平台状态（2026-10-19 用户批准设计增量）
 
