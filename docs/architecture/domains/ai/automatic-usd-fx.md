@@ -1,5 +1,7 @@
 # 平台美元参考汇率自动更新候选
 
+> Classification and chronology (2026-11-20): This contract belongs with AI platform pricing because PlatformPricesService owns the reference quote and its revisions; it is not a Commercial settlement or exchange service. [Issue #1249](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1249) remains open. [PR #1250](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1250) is the historical daily baseline; [PR #1251](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1251) implemented the superseding weekly rule and [PR #1252](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1252) implemented guarded initialization. Its isolated start test did not include the price ledger. The dated observation below is not a current quote; these design and engineering records do not establish provider rights, actual deployment, price publication, or authorization to run anything.
+
 ## 2026-11-12 初始化状态判断增量（IMPLEMENTATION_READY，待实现验证）
 
 用户要求补齐管理员启用入口并部署。当前状态 API 将首次安装与初始化中断均返回 UNKNOWN，不能用浏览器记录区分；原实例已存在独立导航候选，部署须保留。隔离 Temporal 1.31.2 实测同一个 conflict token 的两次 UpdateSchedule 均可能返回成功；改为唯一认领 ID 回查及固定 coordinator 新建两道门槛，独立复核确认可进入实现。下文与本节冲突的旧初始化路径以本节为准。
@@ -32,7 +34,7 @@
 
 ## 用户结果与范围
 
-平台维护的美元模型参考价需要有效的人民币汇率，否则 Chat 等使用方无法报价。用户于 2026-11-12 同意平台统一自动更新：正常中间价变化无需逐次询问，仍须保持旧请求冻结、有效期保护和账本原语义。此决定在本任务范围取代[企业统一模型配置](enterprise-shared-model-configuration.md)中禁止自动抓取汇率的条款，不改变其他适用合同。
+平台维护的美元模型参考价需要有效的人民币汇率，否则 Chat 等使用方无法报价。用户于 2026-11-12 同意平台统一自动更新：正常中间价变化无需逐次询问，仍须保持旧请求冻结、有效期保护和账本原语义。此决定在本任务范围取代[企业统一模型配置](../../enterprise-shared-model-configuration.md)中禁止自动抓取汇率的条款，不改变其他适用合同。
 
 首期只处理 CFETS USD/CNY；不抓模型价、不新增货币配置平台、不访问模型或账单、不为每个企业维护汇率。实际接线、实例变更和真实模型调用另按用户授权执行。人工平台维护入口仍可使用；已确认的非美元记录、模型价和历史事实必须保留。
 

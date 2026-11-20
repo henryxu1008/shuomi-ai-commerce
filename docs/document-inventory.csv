@@ -29,7 +29,7 @@ docs/architecture/architecture-review-checklist.md,architecture,platform,2157,KE
 docs/architecture/platform/identity/auth-and-tenancy.md,architecture,identity,3795,KEEP_PATH,,,MOVED_VERIFIED,Current identity and organization contract grouped under identity; scoped authorization and owner invariants preserved; links verified
 docs/architecture/platform/identity/auth-instance-cookie-isolation.md,architecture,identity,10229,KEEP_PATH,,docs/operations/runbooks/auth-instance-cookie-isolation.md,MOVED_VERIFIED,full source preserved; historical stage and current owner verified; no runtime operation
 docs/architecture/platform/identity/authentication-runtime.md,architecture,identity,10284,KEEP_PATH,,,MOVED_VERIFIED,full source preserved; historical stage and current owner verified; no runtime operation
-docs/architecture/automatic-usd-fx.md,architecture,commercial,22379,REVIEW_MOVE,docs/architecture/domains/commercial/automatic-usd-fx.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/ai/automatic-usd-fx.md,architecture,ai,23282,KEEP_PATH,,,MOVED_VERIFIED,AI platform price authority; historical daily and weekly/initialization boundaries retained
 docs/architecture/domains/ai/bailian-deepseek-shared-text-admission.md,architecture,ai,7558,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; source admission unchanged
 docs/architecture/domains/ai/bailian-product-image-wiring.md,architecture,ai,18539,KEEP_PATH,,,MOVED_VERIFIED,Verified path relocation only; historical admission retained
 docs/architecture/platform/runtime/browser-kernel-release-catalog.md,architecture,platform,13816,KEEP_PATH,,,MOVED_VERIFIED,platform browserkernel catalog owner and original release acceptance boundary preserved
@@ -80,7 +80,7 @@ docs/architecture/ecosystem-services.md,architecture,data-services,93384,REVIEW_
 docs/architecture/domains/ai/eino-model-admission.md,architecture,ai,30717,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; historical admission and model safeguards retained
 docs/architecture/enterprise-agent-permission-modes.md,architecture,ai,27654,REVIEW_CROSS_LAYER,docs/architecture/domains/ai/enterprise-agent-permission-modes.md,docs/operations/enterprise-agent-permission-modes.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/architecture/platform/identity/enterprise-custom-roles.md,architecture,identity,17111,KEEP_PATH,,,MOVED_VERIFIED,Enterprise role contract grouped under identity; native assignment and scoped policy boundaries preserved; links verified
-docs/architecture/enterprise-shared-model-configuration.md,architecture,cross-cutting,62567,KEEP_PATH,docs/architecture/enterprise-shared-model-configuration.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/enterprise-shared-model-configuration.md,architecture,cross-cutting,62589,KEEP_PATH,docs/architecture/enterprise-shared-model-configuration.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/enterprise-storage-capacity.md,architecture,commercial,50223,REVIEW_MOVE,docs/architecture/domains/commercial/enterprise-storage-capacity.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/marketplace/erpnext-shein-fulfillment-fit.md,architecture,marketplace,9287,KEEP_PATH,,,MOVED_VERIFIED,full historical spike retained; later formal owner and withdrawn environment scoped; evidence unchanged
 docs/architecture/evidence/erpnext-fulfillment-fit.json,architecture,marketplace,8744,KEEP_ASSET,,,PROPOSED_ONLY,non-Markdown asset
@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,44085,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,44107,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8360,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,18647,KEEP_PATH,,,MOVED_VERIFIED,frozen withdrawal admission design; authority and staged rollout evidence preserved
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
