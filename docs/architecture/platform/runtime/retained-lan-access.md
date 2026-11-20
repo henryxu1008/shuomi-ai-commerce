@@ -8,7 +8,7 @@ Issue [#1300](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1300). De
 
 Henry requested direct browser access to the existing retained 35444 installation from another computer on the same LAN, preserving its existing accounts, permissions, enabled functions and data. Phones are deferred. The user performs any operations rejected by the automation environment. This is an internal LAN trial, not Internet publication, product acceptance or a production release.
 
-Current authorities: [identity and tenancy](../identity/auth-and-tenancy.md), [fixed canonical HTTPS issuer](../identity/public-trial-identity-origin.md), [manual-only synthetic source](../../research-existing-synthetic-read-candidate.md), [controlled local draft](../../domains/listing/controlled-local-platform-draft.md), [TLS maintenance](../../local-tls-revocation-maintenance.md), and the current user decision above. Figma N/A. No legacy migration or second identity/data owner.
+Current authorities: [identity and tenancy](../identity/auth-and-tenancy.md), [fixed canonical HTTPS issuer](../identity/public-trial-identity-origin.md), [manual-only synthetic source](../../research-existing-synthetic-read-candidate.md), [controlled local draft](../../domains/listing/controlled-local-platform-draft.md), [TLS maintenance](local-tls-revocation-maintenance.md), and the current user decision above. Figma N/A. No legacy migration or second identity/data owner.
 
 ## Observed blocker and bounded scope
 

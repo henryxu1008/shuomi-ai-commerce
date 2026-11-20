@@ -1,5 +1,7 @@
 # 本机 TLS 撤销维护边界（#965）
 
+> 归类与时点说明（2026-11-20）：本文完整保留本机防御性 TLS 维护的冻结合同，归入 platform/runtime；独立操作者说明与脚本留在原部署目录，不改变任何操作流程或权限。[#965](https://github.com/henryxu1008/shuomi-ai-commerce/issues/965) 已按原范围关闭，历史隔离实测、2026-10-27 本机 TLS/CRL/匿名阻断和 2026-10-29 证据复用各自绑定其版本与时点；历史原件未重新取得的缺口仍为 UNKNOWN，不因关闭、文档迁移或 CI 改写为当前运行通过。证书/CRL 历史有效期不推导今天现场状态，也不证明登录、Store 或产品验收。原失败即停、未完成锁保留及现场动作另行授权边界不变。本批仅移动文本与引用，不执行维护脚本、不读取任何私钥/凭据、不请求实际 TLS/CRL 服务、不改信任、网络、权限或实例。
+
 Status: IMPLEMENTATION_READY. Independent architecture review round 1 completed before production implementation; 0 BLOCKER, two IMPLEMENTATION_TEST findings below.
 
 2026-10-29 状态说明：以下第 1–7 节保留最初设计准入时点的范围和证据。

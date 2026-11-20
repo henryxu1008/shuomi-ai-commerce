@@ -67,7 +67,7 @@
 - `browser-kernel-release-catalog.md` — [平台浏览器内核发行目录 V1](browser-kernel-release-catalog.md)
 - `platform/runtime/compose-tofu-preflight.md` — [Compose OpenTofu preflight boundary](platform/runtime/compose-tofu-preflight.md)
 - `platform/identity/enterprise-custom-roles.md` — [Enterprise custom roles v1 — Issue #598](platform/identity/enterprise-custom-roles.md)
-- `local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](local-tls-revocation-maintenance.md)
+- `platform/runtime/local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](platform/runtime/local-tls-revocation-maintenance.md)
 - `platform/identity/member-directory-query.md` — [Member directory query v1](platform/identity/member-directory-query.md)
 - `platform/identity/protected-member-role-native-cas.md` — [B1：受保护成员单业务角色的原生条件写入](platform/identity/protected-member-role-native-cas.md)
 - `platform/identity/public-trial-identity-origin.md` — [Fixed HTTPS identity origin for the cloud trial](platform/identity/public-trial-identity-origin.md)
