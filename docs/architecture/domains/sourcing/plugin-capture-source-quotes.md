@@ -2,7 +2,7 @@
 
 > 归类与时点说明（2026-11-20）：按 Sourcing 原版报价和 Collection 授权详情只读投影的实际分工归类，原 SRC/Catalog/Collection 事实、版本/权限、不可读取与没有记录的区别完整保留。[#916](https://github.com/henryxu1008/shuomi-ai-commerce/issues/916) 当前已关闭；历史 #949/#952 合并及两件指定样本的保全/回执只对当时版本和范围成立，不等于当前实例、全量规格、最新报价或整体产品验收。保留未证实币种/数量等 UNKNOWN，原 Figma 历史仅作流程参考。仅迁文档和引用，不执行采集、保存、插件或实例更新。
 
-Refs #916；基线 [插件接收架构](../../plugin-capture-ingestion.md)、[上架字段设计](../../../product/decisions/plugin-capture-listing-fields.md)。
+Refs #916；基线 [插件接收架构](plugin-capture-ingestion.md)、[上架字段设计](../../../product/decisions/plugin-capture-listing-fields.md)。
 Status: **IMPLEMENTATION_READY**。2026-10-24 用户已授权先评审、后开发/测试并提交一个主要PR；不含合并、运行更新、真实重采/保存或部署。
 
 2026-10-24 后续资料批次：高清相册的静态元数据读取、商品参数、正文/详情图和重量以 [listing-materials 增量](plugin-capture-listing-materials.md) 为当前范围；第5节的“仅已呈现相册URL”由该有界升级规则补充，禁止猜测URL/完整规格族的边界保留。来源报价读取合同和下文历史评审不变。

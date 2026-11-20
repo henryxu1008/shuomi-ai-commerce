@@ -1,10 +1,12 @@
 # 插件采集增量架构：规格图片与 Amazon 接收保存 V1
 
-> #989 当前恢复增量：[持久草稿与可靠交接](domains/sourcing/plugin-capture-durable-drafts.md) 已达到 IMPLEMENTATION_READY 并获准离线实现。本文中“内存是未保存资料唯一 owner”、旧交接协议及 UNKNOWN 不可重试的限制由该增量替代；原后端身份授权、固定 key/body、事务保存和原键核实继续复用。不迁移旧内存现场，不改变已有保存版本，也不授权更新实例或插件。
+> 归类与时点说明（2026-11-20）：下文为 [#902](https://github.com/henryxu1008/shuomi-ai-commerce/issues/902) 的冻结设计；当时的“暂不开发”、拟定端点与验证计划不代表当前源码未交付。该设计随 [#903](https://github.com/henryxu1008/shuomi-ai-commerce/pull/903) 合并并仅按设计交付关闭；后续 [#905](https://github.com/henryxu1008/shuomi-ai-commerce/issues/905) / [#908](https://github.com/henryxu1008/shuomi-ai-commerce/pull/908)（Amazon）及 [#906](https://github.com/henryxu1008/shuomi-ai-commerce/issues/906) / [#907](https://github.com/henryxu1008/shuomi-ai-commerce/pull/907)（1688）已按工程范围收口。Sourcing 应用拥有接收与来源证据，固定 Product 事务沿用 SRC 发布、Catalog 版本、Collection 引用原职责；读取和回执保留各自原合同。Amazon 原键核实只读，与 1688 原合同允许按原键恢复同一既有操作不同。旧内存交接已由 [#990](https://github.com/henryxu1008/shuomi-ai-commerce/pull/990) / [#997](https://github.com/henryxu1008/shuomi-ai-commerce/pull/997) 后续工程接线替代。保留当时的验证条件及缺证据事实，不把工程合并、隔离验证或 #916 历史样本视为当前安装、真实采集/保存/恢复、扣量或上线验收，本次不执行，也不授权上述操作。
+
+> #989 当前恢复增量：[持久草稿与可靠交接](plugin-capture-durable-drafts.md) 已达到 IMPLEMENTATION_READY 并获准离线实现。本文中“内存是未保存资料唯一 owner”、旧交接协议及 UNKNOWN 不可重试的限制由该增量替代；原后端身份授权、固定 key/body、事务保存和原键核实继续复用。不迁移旧内存现场，不改变已有保存版本，也不授权更新实例或插件。
 
 > 2026-10-23 命名更新：当前源码/操作入口为 `extensions/product-capture`，私有 npm 包为 `@shuomi/product-capture`。下文原设计中的旧目录名保留为冻结依据的历史路径；本次不改变平台路由、合同或运行实例。
 
-Refs [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)，主要文档 PR #903。字段依据：[插件上架字段设计](../product/decisions/plugin-capture-listing-fields.md)。
+Refs [#902](https://github.com/qq550723504/shuomi-ai-commerce/issues/902)，主要文档 PR #903。字段依据：[插件上架字段设计](../../../product/decisions/plugin-capture-listing-fields.md)。
 
 Status: **IMPLEMENTATION_READY（本增量架构设计层） / DEVELOPMENT_NOT_AUTHORIZED**。
 Design Basis: **Independent Architecture**（新增来源接收合同、producer准入、原键/保存恢复与现有规格图片映射）。用户2026-10-23批准继续设计及独立评审，**暂不开发**。评审通过也不自动产生开发、合并、部署、插件安装或真实采集授权。

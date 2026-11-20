@@ -18,7 +18,7 @@ tests and one main PR. No merge, installation/runtime update, real capture/save,
 deployment or server collection. Preserve retained data, requests, reservations,
 audit, configuration, loading directory and extension identity.
 
-Authorities: [ingestion](../../plugin-capture-ingestion.md),
+Authorities: [ingestion](plugin-capture-ingestion.md),
 [existing entry](plugin-capture-entry-flow.md),
 [source quote read](plugin-capture-source-quotes.md),
 [listing fields](../../../product/decisions/plugin-capture-listing-fields.md),
