@@ -72,7 +72,7 @@
 - `platform/identity/protected-member-role-native-cas.md` — [B1：受保护成员单业务角色的原生条件写入](platform/identity/protected-member-role-native-cas.md)
 - `platform/identity/public-trial-identity-origin.md` — [Fixed HTTPS identity origin for the cloud trial](platform/identity/public-trial-identity-origin.md)
 - `platform/runtime/retained-lan-access.md` — [Retained trial LAN access and scoped identity admission](platform/runtime/retained-lan-access.md)
-- `source-account-registry.md` — [Source Account SA1 contract](source-account-registry.md)
+- `domains/sourcing/source-account-registry.md` — [Source Account SA1 contract](domains/sourcing/source-account-registry.md)
 - `source-account-bff.md` — [Source Account SA-2 BFF contract](source-account-bff.md)
 
 <a id="commercial"></a>

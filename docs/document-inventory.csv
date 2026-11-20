@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,44217,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,44251,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8360,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,18647,KEEP_PATH,,,MOVED_VERIFIED,frozen withdrawal admission design; authority and staged rollout evidence preserved
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
@@ -208,7 +208,7 @@ docs/architecture/domains/workbench/shop-operations-diagnosis-agent.md,architect
 docs/architecture/domains/ai/skill-capability.md,architecture,ai,30622,KEEP_PATH,,docs/operations/user-guides/skill-capability.md,MOVED_VERIFIED,Skill owner version and materials architecture; independent operations handoff kept
 docs/architecture/skill-script-sandbox.md,architecture,ai,141143,REVIEW_CROSS_LAYER,docs/architecture/domains/ai/skill-script-sandbox.md,docs/operations/skill-script-sandbox.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/architecture/source-account-bff.md,architecture,sourcing,18398,REVIEW_MOVE,docs/architecture/domains/sourcing/source-account-bff.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/architecture/source-account-registry.md,architecture,sourcing,18732,REVIEW_MOVE,docs/architecture/domains/sourcing/source-account-registry.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/domains/sourcing/source-account-registry.md,architecture,sourcing,19692,KEEP_PATH,,,MOVED_VERIFIED,historical SA1 registry owner and current composition evidence retained
 docs/architecture/domains/sourcing/source-business-flow.md,architecture,sourcing,27155,KEEP_PATH,,,MOVED_VERIFIED,frozen sourcing flow; engineering closure distinguished from open integration acceptance
 docs/architecture/domains/ai/source-white-background.md,architecture,ai,18265,KEEP_PATH,,,MOVED_VERIFIED,fixed ImageAgent and Resource owner contract; historical single-image boundary retained
 docs/architecture/store-browser-workbench-implementation.md,architecture,sourcing,5872,REVIEW_MOVE,docs/architecture/domains/sourcing/store-browser-workbench-implementation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving

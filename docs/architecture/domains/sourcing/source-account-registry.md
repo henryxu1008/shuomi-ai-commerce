@@ -1,5 +1,7 @@
 # Source Account SA1 contract
 
+> Classification and chronology (2026-11-20): This is the historical SA1 internal Source Account registry contract. [Issue #368](https://github.com/henryxu1008/shuomi-ai-commerce/issues/368) closed and [PR #369](https://github.com/henryxu1008/shuomi-ai-commerce/pull/369) delivered the isolated greenfield registry; [PR #391](https://github.com/henryxu1008/shuomi-ai-commerce/pull/391) later integrated the same owner into the current application source. The isolated-only statements below describe the SA1 slice, not all later composition. [Issue #411](https://github.com/henryxu1008/shuomi-ai-commerce/issues/411) keeps internal management distinct from provider connection and separate from anonymous acquisition. An enabled registry entry proves neither external ownership, login, connectivity, nor acquisition readiness. Neither history nor this move establishes deployment or authorizes any schema, account, identity, provider or acquisition operation.
+
 Issue: #368
 Product decision: #365 / `PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08`
 Status: IMPLEMENTATION_READY — independent R1/R2 admission completed 2026-09-09
