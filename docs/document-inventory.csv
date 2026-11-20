@@ -85,7 +85,7 @@ docs/architecture/enterprise-storage-capacity.md,architecture,commercial,50204,R
 docs/architecture/erpnext-shein-fulfillment-fit.md,architecture,marketplace,8298,REVIEW_MOVE,docs/architecture/domains/marketplace/erpnext-shein-fulfillment-fit.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/evidence/erpnext-fulfillment-fit.json,architecture,marketplace,8744,KEEP_ASSET,,,PROPOSED_ONLY,non-Markdown asset
 docs/architecture/evidence/shein-us-data-v1-p1-p2.json,architecture,research,6940,KEEP_ASSET,,,PROPOSED_ONLY,non-Markdown asset
-docs/architecture/fallback-contract-consolidation.md,architecture,platform,4809,REVIEW_MOVE,docs/architecture/platform/runtime/fallback-contract-consolidation.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/platform/runtime/fallback-contract-consolidation.md,architecture,platform,5814,KEEP_PATH,,,MOVED_VERIFIED,full scoped fallback consolidation retained; original owners and historical runtime limits verified
 docs/architecture/domains/ai/generic-image-template-entry.md,architecture,ai,3533,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path migration; #1392
 docs/architecture/domains/ai/grsai-vip-image-binding.md,architecture,ai,8788,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; source admission unchanged
 docs/architecture/platform/runtime/httpapi-assembly-boundaries.md,architecture,platform,1895,KEEP_PATH,,,MOVED_VERIFIED,moved to platform runtime; document test consumers updated without weakening assertions
@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,42560,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,42594,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/referral-settlement-and-conduct.md,architecture,commercial,7609,REVIEW_MOVE,docs/architecture/domains/commercial/referral-settlement-and-conduct.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,17906,REVIEW_MOVE,docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
