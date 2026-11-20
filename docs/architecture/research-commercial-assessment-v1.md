@@ -1,6 +1,6 @@
 # 市场调研与商业选品 V1：独立架构提案
 
-日期：2026-11-05。Design Basis：**Independent Architecture（设计阶段）**。Admission：**NOT_READY（完整商业评估）**。§5.4 商品卡片离线切片单列准入。产品与交互见[规划提案](../product/research-commercial-assessment-v1.md)。
+日期：2026-11-05。Design Basis：**Independent Architecture（设计阶段）**。Admission：**NOT_READY（完整商业评估）**。§5.4 商品卡片离线切片单列准入。产品与交互见[规划提案](../product/flows/research-commercial-assessment-v1.md)。
 
 ## 1. Product Outcome、Authority 与范围
 
