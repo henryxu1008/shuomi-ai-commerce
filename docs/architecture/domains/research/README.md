@@ -12,6 +12,7 @@
 | 在准确候选内人工核对供应货源、SKU 与数量 | [人工货源核对合同](research-supplier-review-v1.md) | `internal/product/research/supplier_review.go` |
 | 录入费用假设，计算并保存经营评估 | [人工参考试算历史合同](research-manual-cost-preview-v1.md)、[评估持久化现行增量](research-commercial-assessment-persistence-v1.md) | `internal/product/research/cost.go`、`assessment.go` |
 | 比较 2–5 件自己已保存的商品，按需生成有据建议 | [独立商品对比合同](product-selection-comparison-agent.md)、[智能体业务职责](../../../product/decisions/business-agent-responsibilities.md) | Collection/Catalog（私有候选和固定版本）、`internal/product/selection/`（比较）、Agent/agentconfig（运行与配置） |
+| 从已保存的 Amazon 样本确认商品方向，再进入同项目选品 | [Amazon 历史离线交接设计](amazon-opportunity-handoff-v1.md) | Research/Project Center（项目与人工交接）、Data Services/Collection（原件）、Preparation（原转入回执） |
 | 用户作出人工决定，并显式转入商品准备 | [市场研究与选品合同](market-research-selection.md)、[商业评估产品边界](../../../product/flows/research-commercial-assessment-v1.md) | Research 决定及原 Collection/Listing 交接，各自持有事实 |
 
 ## 事实与验证的分界

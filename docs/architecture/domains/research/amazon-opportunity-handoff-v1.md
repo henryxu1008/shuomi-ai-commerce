@@ -1,5 +1,7 @@
 # #1070 Amazon 美国站调研机会与选品交接 V1
 
+> 归类与时点说明（2026-11-20）：保留 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070) 最小离线设计与原准入证据。后续 [#1131](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1131) 合并并完成合成技术验证；本 Epic 仍开放，真实取数、真实模型、计费和完整业务验收不由该工程切片证明。此文归入 Research：项目内的证据比较、人工方向确认与交接由既有 Research/Project Center 管辖；Data Services/Collection 持有原件，Preparation 持有原转入回执。Amazon 是历史样本来源，不是现阶段优先研究目标或新的事实 owner。
+
 **Independent Architecture · IMPLEMENTATION_READY（最小离线实施）**
 
 - 2026-11-06 18:10:59（新加坡时间），独立 Reviewer `review_commercial_design` 确认源码基线 `7e2c00961bb05f28d19bf5a0fb1fbb28187c2a12` 上的 #1070 最小离线实施达到准入，最终转入前的原件、项目和人工批准复验设计阻塞已关闭。批准稿 SHA-256 为 `0F9F55BF5A00C17858816544DB51043D650436A939CE6D74C1C7C367FECE0C97`。后续 `93ac94064` 澄清 W1–W4 和完整业务验收的授权范围。 [原复核会话](codex://threads/01a1a9a0-fe9d-76d2-82eb-e0aeadb8073f) · [固定批准稿](https://github.com/henryxu1008/shuomi-ai-commerce/blob/4c73ab38fef5a1adc035bfde4bd7419287c821f8/docs/architecture/amazon-opportunity-handoff-v1.md)

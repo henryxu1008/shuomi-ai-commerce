@@ -18,7 +18,7 @@
 
 - Data Services 的线上 Amazon 关键词查询从 `data_acquisition_jobs` 读取。`data_acquisition_items` 的已保存约束要求真实 reservation，`Claim` 和 `Publish` 均复验。把测试回执写进去会制造账本无法解释的来源。免费 Amazon 插件虽产出收藏，但没有关键词查询批次。1688 免费插件 producer 与现有 Research 的服务端采集准入不同。通用手工/定制导入不能冒充上述来源。
 - 合成发布仍由 Product Sourcing/Catalog 持有不可变原件与版本，Collection 持有同批引用，ProjectCenter 持有项目与有效访问，Research 持有候选、证据关系、核对及人工批准，Preparation 持有单件转入。合成输入是固定测试载荷，持久化原件的读取只信 owner 已发布的精确记录。预算与计费没有新增 owner。
-- 现行设计见 [Amazon 机会交接](amazon-opportunity-handoff-v1.md)、[市场调研与选品](domains/research/market-research-selection.md)、[货源核对](domains/research/research-supplier-review-v1.md)、[样本](../engineering/issue1070-first-trial-walkthrough.md)。旧隔离浏览器夹具的模拟权限与额度回执不移植到验收环境。
+- 现行设计见 [Amazon 机会交接](domains/research/amazon-opportunity-handoff-v1.md)、[市场调研与选品](domains/research/market-research-selection.md)、[货源核对](domains/research/research-supplier-review-v1.md)、[样本](../engineering/issue1070-first-trial-walkthrough.md)。旧隔离浏览器夹具的模拟权限与额度回执不移植到验收环境。
 
 ## 最小方案
 
