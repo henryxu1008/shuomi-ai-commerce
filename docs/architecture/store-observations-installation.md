@@ -10,7 +10,7 @@ Status: IMPLEMENTATION_READY — Independent Architecture。独立评审绑定�
 
 适用产品决定：[全新系统产品基线](../product/greenfield-no-legacy-migration.md)允许当前系统自身正常 schema 演进，不授权历史系统兼容/迁移；本次只在用户授权的新独立试用 `ordertrial-20261101-01` 安装现有模块。`task-processor-unified-20261010`、`orderfit-20261031` 及其他保留资源不在运行授权内。
 
-复用 [Store observations v1](store-center-platform-observations.md)、[准备运行接线](store-observations-preparation-runtime.md)、[仓库履约](order-procurement-fulfillment.md)和[当前 UI Authority](../product/final-ui-ia-authority.md)。不新增页面、菜单、交互或权限。此前 preparation-runtime 的“禁止非空 Store 安装”仍约束原 fresh/preparation 入口；本用户决定仅为下述**另行显式选择的当前 Store 安装入口**提供新依据，不能据此弱化旧入口。
+复用 [Store observations v1](store-center-platform-observations.md)、[准备运行接线](store-observations-preparation-runtime.md)、[仓库履约](domains/marketplace/order-procurement-fulfillment.md)和[当前 UI Authority](../product/final-ui-ia-authority.md)。不新增页面、菜单、交互或权限。此前 preparation-runtime 的“禁止非空 Store 安装”仍约束原 fresh/preparation 入口；本用户决定仅为下述**另行显式选择的当前 Store 安装入口**提供新依据，不能据此弱化旧入口。
 
 Scope：已有当前 Store、尚无任何观察 schema 时，精确确认数据库，原 owner 一次性安装既有四张观察表及原最小 grants，验证成功后人工部署本试用的 full-mode 配置。解除消费者订单的正常同步/详情/物流查询阻塞，并续办原单交接。
 

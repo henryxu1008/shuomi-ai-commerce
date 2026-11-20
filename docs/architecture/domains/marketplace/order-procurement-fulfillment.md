@@ -1,6 +1,8 @@
 # 订单、采购、发货与物流首版设计草案
 
-日期：2026-10-31。执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。Design Basis：Independent Architecture。状态：FROZEN / IMPLEMENTATION_READY。独立第1轮核对 ae76bef05，第2轮仅复核 B1 增量，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确准入；此结论先于生产代码修改。用户已授权适配验证、独立评审及准入后的开发；合并、生产部署、保留实例和真实业务操作不在本次授权内。2026-11-01 用户追加授权全新独立合成试用环境，沿用本冻结架构及现有权限合同；入口与当前范围见[试用说明](../operations/runbooks/order-fulfillment-synthetic-trial.md)，本决定只替代此前不允许新隔离试用部署的阶段限制。
+> 归类与时点说明（2026-11-20）：本文完整保留 #1037 冻结设计、实施澄清及历史验证，按订单履约归入 marketplace。下文“待准入 / In Progress”及旧导航是原阶段记录，分别以 [#1037 当前工程验收](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)、[#1038 合并记录](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1038)和[当前 UI Authority](../../../product/final-ui-ia-authority.md)为准，Figma 只作业务流程参考。正式代码与两条合成履约链的工程验收不等于真实 SHEIN、供应商、承运商或用户验收；相关 NOT_RUN、供应商直发延期和 Issue OPEN 不变。原合成试用已撤销，本机清理缺完成凭证。ERP 原生采购/库存与操作回执、Store 原观察/授权、平台真实效果仍由各原 owner 持有，保留 UNKNOWN 与原键恢复边界。独立操作指南、历史试用说明及合成证据均不重新执行或授予目前现场操作权限。
+
+日期：2026-10-31。执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。Design Basis：Independent Architecture。状态：FROZEN / IMPLEMENTATION_READY。独立第1轮核对 ae76bef05，第2轮仅复核 B1 增量，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确准入；此结论先于生产代码修改。用户已授权适配验证、独立评审及准入后的开发；合并、生产部署、保留实例和真实业务操作不在本次授权内。2026-11-01 用户追加授权全新独立合成试用环境，沿用本冻结架构及现有权限合同；入口与当前范围见[试用说明](../../../operations/runbooks/order-fulfillment-synthetic-trial.md)，本决定只替代此前不允许新隔离试用部署的阶段限制。
 
 ## 1. 已确认范围与交付目标
 
@@ -16,16 +18,16 @@
 
 2026-11-01 当前阶段决定：用户明确批准首版先交付“采购收货／已有库存 → 自发货或托管交仓”两条仓库履约核心流程；供应商直接交付延期，保持未开放，后续单独适配。这一决定替代本文历史流程图、§5/§6/§9/§11/§12中供应商直发作为首版实施或验收前置的要求，历史描述仅保留为未来方向，不能恢复为本批 Must。当前没有已证明支持美国站自发货的真实店铺/订单；用户批准先完成开发，真实自发货保持待联调。
 
-本轮已有 [ERPNext 隔离适配验证](domains/marketplace/erpnext-shein-fulfillment-fit.md)；独立评审和 Issue Ready 完成前只允许设计及明确的非正式 Spike，不修改正式生产业务路径。现有实例和数据始终保持原状。
+本轮已有 [ERPNext 隔离适配验证](erpnext-shein-fulfillment-fit.md)；独立评审和 Issue Ready 完成前只允许设计及明确的非正式 Spike，不修改正式生产业务路径。现有实例和数据始终保持原状。
 
 ## 2. 现有能力与必须补齐的边界
 
 当前基础：
 
-- [Store 订单与物流只读合同](store-center-platform-observations.md)：当前企业、成员及店铺授权、SHEIN 客单读取和物流查询、同步范围与观察时间；原阶段明确由平台处理发货和售后。
-- [订单观察模型](../../internal/storecenter/observations/model.go)：`OrderItem` 保存平台商品身份等观察，未形成执行所需的数量分配模型；原 allowlist 刻意不保存收货地址和联系方式。
-- [Supply Market](domains/supply-market/supply-market.md)、[我的供应链](my-supply-chain-shein.md)：当前来源、商品与供应商上下文，以及商品上架资料；它们不拥有采购订单、库存或出库事实。
-- [当前 POD](pod-design-agent.md)：图案、设计资产和设计执行，不代表已经实现生产采购、下单或订单履约。
+- [Store 订单与物流只读合同](../../store-center-platform-observations.md)：当前企业、成员及店铺授权、SHEIN 客单读取和物流查询、同步范围与观察时间；原阶段明确由平台处理发货和售后。
+- [订单观察模型](../../../../internal/storecenter/observations/model.go)：`OrderItem` 保存平台商品身份等观察，未形成执行所需的数量分配模型；原 allowlist 刻意不保存收货地址和联系方式。
+- [Supply Market](../supply-market/supply-market.md)、[我的供应链](../../my-supply-chain-shein.md)：当前来源、商品与供应商上下文，以及商品上架资料；它们不拥有采购订单、库存或出库事实。
+- [当前 POD](../../pod-design-agent.md)：图案、设计资产和设计执行，不代表已经实现生产采购、下单或订单履约。
 - 继续复用当前 Store 官方连接、IAM/Casbin、Temporal、资产存储、审计与 Console/BFF；不借 Commercial/Ecoservices 服务订单承载消费者商品订单。
 
 根本边界是“读取平台状态”与“执行履约”职责不同。不能把只读订单 DTO 增加几个按钮就当成采购、库存和发货系统，也不能让商品上架状态承担商品实物履约状态。
@@ -83,7 +85,7 @@ Walmart 的 `purchaseOrderId` 在 Marketplace 客单履约接口中是原平台�
 
 采购、分批收货、库存预留、拣货、出库和供应商代发优先评估 ERPNext，消费其标准 Purchase Order、Purchase Receipt、Stock Reservation、Pick List、Delivery Note/发运能力，通过 Frappe API 集成；不复制同一套可写采购和库存事实。
 
-固定 ERPNext v15.124.3 / Frappe v15.125.0 的隔离 Spike 已验证采购、分批收货/交付、库存预留、并发不超量、仓间调拨、跨 site 拒绝及原子回执。普通 REST 重复 POST 会建两张单，不能作为正式重试合同。采用原生业务 owner 加本批最小命令适配，准确证据和限制见 [适配记录](domains/marketplace/erpnext-shein-fulfillment-fit.md)，不把 Spike 作为可部署插件。
+固定 ERPNext v15.124.3 / Frappe v15.125.0 的隔离 Spike 已验证采购、分批收货/交付、库存预留、并发不超量、仓间调拨、跨 site 拒绝及原子回执。普通 REST 重复 POST 会建两张单，不能作为正式重试合同。采用原生业务 owner 加本批最小命令适配，准确证据和限制见 [适配记录](erpnext-shein-fulfillment-fit.md)，不把 Spike 作为可部署插件。
 
 ERP 内部需求只表达采购与实物履约安排，不接管平台客单付款、取消或平台采购状态。需求数量、采购行、收货、库存预留及出库分配优先在同一 ERP owner 的事务内校验；硕米不再维护另一份可写的需求数量账。
 
@@ -264,7 +266,7 @@ ERP/平台调用固定于安装配置和当前 Store registry；禁止浏览器�
 
 第1轮候选 ae76bef05e5afda1f2647ad43f16a14af7c5814e 的唯一 BLOCKER 为 B1：原 SO/SRE 预留后使用 Stock Entry 调拨，不能同时消费预留及推进原需求，命中核心 happy path 无法完成，阻塞实施准入。独立 Reviewer 已核对准确上游源码和真实 Spike，未要求重审其余未变边界。
 
-分类：BLOCKER。Action：仅冻结§13.2的原生内部 DN 路径，并在同一已预留商品验证。增量 Spike f1eaa573 已重现旧 Stock Entry 拒绝；原生内部 DN 部分移交2后，源仓5→3、在途0→2、原需求已交0→2、剩余预留5→3，总拥有数量5且无GL；DN/SRE/库存更新后、回执提交前故障时，四项原事实和回执一起回滚。准确结果见 [适配验证](domains/marketplace/erpnext-shein-fulfillment-fit.md) 与固定JSON。
+分类：BLOCKER。Action：仅冻结§13.2的原生内部 DN 路径，并在同一已预留商品验证。增量 Spike f1eaa573 已重现旧 Stock Entry 拒绝；原生内部 DN 部分移交2后，源仓5→3、在途0→2、原需求已交0→2、剩余预留5→3，总拥有数量5且无GL；DN/SRE/库存更新后、回执提交前故障时，四项原事实和回执一起回滚。准确结果见 [适配验证](erpnext-shein-fulfillment-fit.md) 与固定JSON。
 
 Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过同一实物/平台效果的 UNKNOWN 占用；实时权限/地址用途/版本漂移；原生容差、单位换算和部分收货/出库的准确约束。它们必须在正式实现和必要验证中收敛，当前不据此增建通用机制或扩大架构评审范围。原独立 Reviewer 已只读核对 B1 的真实三文件增量、脚本哈希、原始 f1eaa573 结果和准确上游约束，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确 IMPLEMENTATION_READY；B1关闭，不重复全局评审。Reviewer未重新执行有写入的probe，该结论不是真实平台或用户验收。
 
@@ -291,7 +293,7 @@ Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过�
 - 托管创建必须通过原 deliveryCode 回读，核对原 orderNo/SKU/数量、仓库、方式及一个包裹后才保存成功；回读不足为 UNKNOWN。物流查询只接受本企业/当前店铺原成功操作的 deliveryCode，输出非敏感投影；累计平台入库仍不关闭原效果的 UNKNOWN。
 - 当前 route0 直送路径按官方查询发货单 FAQ 不强制打印发货单；合作物流购买、私有面单下载和其它运输方式未开放，不制造假面单。地址仍为显式用途和加密 TTL，不进入日志、普通投影或工作流。
 
-- 用户追加 UI 决定：允许按多个流程拆分，并把订单独立为菜单。当前投影为独立“订单管理”，内部五个子流程；采购管理仍在供应市场。适用局部 Product Authority 见 [当前 UI Authority 增量](../product/final-ui-ia-authority.md#2026-11-01-用户明确批准的订单导航增量)，替代本文历史“店铺中心→订单”的导航引用，事实、状态、权限与副作用边界不变。
+- 用户追加 UI 决定：允许按多个流程拆分，并把订单独立为菜单。当前投影为独立“订单管理”，内部五个子流程；采购管理仍在供应市场。适用局部 Product Authority 见 [当前 UI Authority 增量](../../../product/final-ui-ia-authority.md#2026-11-01-用户明确批准的订单导航增量)，替代本文历史“店铺中心→订单”的导航引用，事实、状态、权限与副作用边界不变。
 
 
 ### 最终检查增量 F1/F2 与依赖归位
