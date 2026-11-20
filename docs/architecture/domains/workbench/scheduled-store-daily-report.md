@@ -15,7 +15,7 @@ Must：单店、上一自然日日报；精确时区/名义执行槽；只读已
 
 Threat Model：不信任浏览器传入的 org/member/role、计划成功或后台证明；不信任 Temporal payload 中的身份/业务输入；防跨租户、重建成员身份复用、撤权后新生成、重试覆盖/重复日报及不完整数据伪装完整。平台实时取数、数据商业真实性/人工录入质量不由本期证明；不同 owner 的读取不是全局 ACID 快照，报告必须展示各来源自己的时间/范围/缺项。没有新增安全风险豁免。
 
-依据：[当前领域边界](../../project-boundaries.md)、[定时内容任务](ai-workbench-scheduled-tasks.md)、[个人报告](ai-workbench-reports.md)、[店铺经营诊断](../../shop-operations-diagnosis-agent.md)、[当前产品基线](../../../product/greenfield-no-legacy-migration.md)。个人报告合同只在本文件明确的新类型、后台保存及历史访问处扩展；原类型行为不变。旧合同中的 Figma UI 权威引用由当前用户决定取代。
+依据：[当前领域边界](../../project-boundaries.md)、[定时内容任务](ai-workbench-scheduled-tasks.md)、[个人报告](ai-workbench-reports.md)、[店铺经营诊断](shop-operations-diagnosis-agent.md)、[当前产品基线](../../../product/greenfield-no-legacy-migration.md)。个人报告合同只在本文件明确的新类型、后台保存及历史访问处扩展；原类型行为不变。旧合同中的 Figma UI 权威引用由当前用户决定取代。
 
 ## 2. 当前能力和真正缺口
 

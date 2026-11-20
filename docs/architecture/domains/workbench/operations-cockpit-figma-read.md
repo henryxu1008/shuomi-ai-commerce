@@ -1,6 +1,6 @@
 # 运营驾驶舱四页 Figma 与只读投影补充
 
-> 归类与时点说明（2026-11-20）：本文完整保留 2026-10-11 四页只读投影增量及原准入/运行范围，归入工作台；人工经营事实、目标与计算仍由 `internal/operationscockpit` 负责，Store 授权及平台观察保留原 owner。原主合同与独立运行交接不合并、不退休。[#627](https://github.com/henryxu1008/shuomi-ai-commerce/issues/627) 已按工程范围关闭，包含 #629 与 #636；[#619](https://github.com/henryxu1008/shuomi-ai-commerce/issues/619) 的历史四页空态读取与截图只证明当时版本和环境，不证明真实非空经营、保存、当前实例状态或用户产品验收。原 NOT_RUN/UNKNOWN 及实例更新边界保留，不构成本轮部署或数据操作授权。根据[当前产品决定](../../../product/final-ui-ia-authority.md)，下文 Figma 节点、视觉和布局约束属于历史证据，现仅作为业务流程参考。原阶段不增加模型调用不覆盖后来单独批准的[店铺经营诊断](../../shop-operations-diagnosis-agent.md)消费者范围，也不授权自动财务、平台变更或自动任务；消费者仍遵守自己的配置、权限、预算和人工确认合同。本次只迁文档与引用，不读取私密配置、不访问实例、不执行任何调用。
+> 归类与时点说明（2026-11-20）：本文完整保留 2026-10-11 四页只读投影增量及原准入/运行范围，归入工作台；人工经营事实、目标与计算仍由 `internal/operationscockpit` 负责，Store 授权及平台观察保留原 owner。原主合同与独立运行交接不合并、不退休。[#627](https://github.com/henryxu1008/shuomi-ai-commerce/issues/627) 已按工程范围关闭，包含 #629 与 #636；[#619](https://github.com/henryxu1008/shuomi-ai-commerce/issues/619) 的历史四页空态读取与截图只证明当时版本和环境，不证明真实非空经营、保存、当前实例状态或用户产品验收。原 NOT_RUN/UNKNOWN 及实例更新边界保留，不构成本轮部署或数据操作授权。根据[当前产品决定](../../../product/final-ui-ia-authority.md)，下文 Figma 节点、视觉和布局约束属于历史证据，现仅作为业务流程参考。原阶段不增加模型调用不覆盖后来单独批准的[店铺经营诊断](shop-operations-diagnosis-agent.md)消费者范围，也不授权自动财务、平台变更或自动任务；消费者仍遵守自己的配置、权限、预算和人工确认合同。本次只迁文档与引用，不读取私密配置、不访问实例、不执行任何调用。
 
 Execution: [#619](https://github.com/qq550723504/task-processor/issues/619)，原 owner [#627](https://github.com/qq550723504/task-processor/issues/627) / merged #629。
 Design Basis: Independent Architecture（仅新只读查询和响应合同）。
