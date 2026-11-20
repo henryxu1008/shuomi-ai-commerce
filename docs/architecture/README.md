@@ -216,7 +216,7 @@
 - `domains/ai/agent-customization.md` — [智能体定制需求与人工进度 V1](domains/ai/agent-customization.md)
 - `domains/workbench/agent-knowledge-context.md` — [Agent + Knowledge Context V1](domains/workbench/agent-knowledge-context.md)
 - `domains/workbench/knowledge-original-file-deletion.md` — [知识库原文件删除与容量释放 V1](domains/workbench/knowledge-original-file-deletion.md)
-- `ai-capability-platform.md` — [AI Capability & Agent Platform 设计](ai-capability-platform.md)
+- `domains/ai/ai-capability-platform.md` — [AI Capability & Agent Platform 设计](domains/ai/ai-capability-platform.md)
 - `domains/ai/model-and-services.md` — [硕米「模型与服务」设计](domains/ai/model-and-services.md) · 首版范围已确认，设计已评审。
 - `domains/ai/model-connectivity-test.md` — [模型与服务连通性设计](domains/ai/model-connectivity-test.md) · #1420 只读模型资料查询。
 - `domains/ai/ai-provider-contracts.md` — [Provider-Neutral AI Contracts Design](domains/ai/ai-provider-contracts.md)
