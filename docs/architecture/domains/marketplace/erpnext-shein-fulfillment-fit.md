@@ -1,5 +1,7 @@
 # ERPNext 与 SHEIN 双履约适配验证
 
+> 归类与时点说明（2026-11-20）：本文完整保留 2026-10-31 非生产 ERPNext/Frappe 适配记录，按订单履约归入 marketplace；固定 JSON 证据留在原 evidence 路径，内容不变。下文“尚未成为正式插件”是 Spike 阶段结论；[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037) 后续记录 #1038 源码已合并及两条合成履约链的工程范围通过，现行原生扩展见 `extensions/erpnext-fulfillment`、适配器见 `internal/integration/erpnext`，不把实验脚本当正式消费者。该 Issue 仍 OPEN，真实 SHEIN、承运商、供应商联调和产品验收仍 NOT_RUN。原 orderfit/ordertrial 运行环境已按历史授权撤销；本机目录清理缺少完成凭证，不推定已删除，也不读取原目录或恢复实验。历史 PASS、GAP、失败及合成汇率只适用于原版本与原运行；本次不执行脚本、访问实例/凭据、重跑实验、部署或进行清理。
+
 执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。日期：2026-10-31。验证性质：明确标记的非正式、隔离 Spike，不是生产实现或用户验收。
 
 ## 结论
@@ -45,7 +47,7 @@ ERPNext 适合复用为本批采购、收货、库存预留和实物出库的单
 | B1 原子回滚 | PASS，原生内部 DN 已更新库存、SRE及原需求后、回执提交前故障，源仓5/在途0/已交0/剩余预留5全部恢复，DN及回执均0 |
 | B1 原生内部 DN | PASS，准确同一已预留商品部分移交2后，源仓3/在途2/原需求已交2/剩余预留3，总拥有5且GL为0 |
 
-最后成功记录的原生运行标识：1f9a08fd、94915aba、atomic-38bfb673、f1eaa573。数据全部为临时合成业务，不是实际 SHEIN、供应商或买家数据。完整非敏感结果和脚本摘要见 [固定证据](evidence/erpnext-fulfillment-fit.json)。
+最后成功记录的原生运行标识：1f9a08fd、94915aba、atomic-38bfb673、f1eaa573。数据全部为临时合成业务，不是实际 SHEIN、供应商或买家数据。完整非敏感结果和脚本摘要见 [固定证据](../../evidence/erpnext-fulfillment-fit.json)。
 
 原生唯一字段冲突在此准确版本返回 HTTP 417 / UniqueValidationError，不能假定一定返回 409，更不能把任意 417 都解释为重复或无效果。正式插件应返回稳定的窄合同和安全错误，不向 Console 透传 Frappe 堆栈。
 

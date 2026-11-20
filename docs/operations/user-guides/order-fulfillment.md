@@ -108,6 +108,6 @@ ERP 原生 SO/PO/PR/SRE/DN 为唯一数量和库存事实 owner。ERP 扩展的 
 
 ## 验证状态与实际限制
 
-适配原始记录见[适配报告](../../architecture/erpnext-shein-fulfillment-fit.md)，formal app、Go/BFF/UI 的当前检查与独立最终 Review 以 PR 准确候选记录为准。合成测试不是实际 SHEIN 试用，也不是用户验收。
+适配原始记录见[适配报告](../../architecture/domains/marketplace/erpnext-shein-fulfillment-fit.md)，formal app、Go/BFF/UI 的当前检查与独立最终 Review 以 PR 准确候选记录为准。合成测试不是实际 SHEIN 试用，也不是用户验收。
 
 本批不合并、不进行生产或保留实例部署、不关闭 Issue、不修改现有实例和真实数据；只执行用户新授权的独立合成试用部署。SHEIN 权限、真实原单、真实仓库/运输资料、实际预约/上传/交仓均需后续单独联调与验收；没有证据保持 NOT_RUN。合成地址与模拟回执不是实际平台证明。当前 API 没有可证明原效果的查询时，UNKNOWN 交平台核实，不提供本地强改成功入口。
