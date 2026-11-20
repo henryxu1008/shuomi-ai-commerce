@@ -4,7 +4,7 @@ Independent Architecture，IMPLEMENTATION_READY。独立 R1 核对及增量复�
 
 ## 用户结果和试用范围
 
-一位指定的企业成员为一份活跃的私有「产品研究」项目执行一笔获准的 Amazon 美国站关键词搜索。系统只向 ZenRows 提交第一页一次，最多保存 5 个有效且不同的商品。成员从同账号「我的数据」的 Amazon 批次向项目添加原件，选择 2–5 件做现有事实比较。只开放一个显式试用入口，普通 Amazon 路径使用原 Playwright。翻页、详情请求、自动重发、AI 和供货决策在范围外。已有研究比较消费者及 [交接合同](amazon-opportunity-handoff-v1.md) 继续适用。
+一位指定的企业成员为一份活跃的私有「产品研究」项目执行一笔获准的 Amazon 美国站关键词搜索。系统只向 ZenRows 提交第一页一次，最多保存 5 个有效且不同的商品。成员从同账号「我的数据」的 Amazon 批次向项目添加原件，选择 2–5 件做现有事实比较。只开放一个显式试用入口，普通 Amazon 路径使用原 Playwright。翻页、详情请求、自动重发、AI 和供货决策在范围外。已有研究比较消费者及 [交接合同](domains/research/amazon-opportunity-handoff-v1.md) 继续适用。
 
 ## 调用和权限
 
