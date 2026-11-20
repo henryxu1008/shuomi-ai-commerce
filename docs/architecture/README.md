@@ -37,6 +37,7 @@
 
 ## 系统边界与应用装配
 
+- `platform/runtime/browser-kernel-release-catalog.md` — [平台浏览器内核发行目录 V1](platform/runtime/browser-kernel-release-catalog.md)
 - `platform/runtime/installation-and-module-management.md` — [首次安装向导与现有实例模块管理](platform/runtime/installation-and-module-management.md) · #1240 统一设计；独立评审、实施与运行证据见PR #1241。
 - `platform/runtime/installation-failure-recovery.md` — [安装失败说明、归档与安全重试](platform/runtime/installation-failure-recovery.md) · #1240 最小恢复增量；独立R1通过、IMPLEMENTATION_READY，实施及真实恢复另行授权。
 - `domains/workbench/chat-35444-retained-wiring-design.md` — [35444 保留库店铺查询接线设计](domains/workbench/chat-35444-retained-wiring-design.md) · 独立架构评审 IMPLEMENTATION_READY；实施仅限获准的保留实例及其隔离副本，原实例更新仍需单独放行。
@@ -64,7 +65,6 @@
 - `platform/identity/auth-and-tenancy.md` — [Authentication and Organization Scope](platform/identity/auth-and-tenancy.md)
 - `platform/identity/auth-instance-cookie-isolation.md` — [Auth.js instance cookie isolation — #706](platform/identity/auth-instance-cookie-isolation.md)
 - `platform/identity/authentication-runtime.md` — [Zitadel Authentication Runtime Extraction Design](platform/identity/authentication-runtime.md)
-- `browser-kernel-release-catalog.md` — [平台浏览器内核发行目录 V1](browser-kernel-release-catalog.md)
 - `platform/runtime/compose-tofu-preflight.md` — [Compose OpenTofu preflight boundary](platform/runtime/compose-tofu-preflight.md)
 - `platform/identity/enterprise-custom-roles.md` — [Enterprise custom roles v1 — Issue #598](platform/identity/enterprise-custom-roles.md)
 - `platform/runtime/local-tls-revocation-maintenance.md` — [本机 TLS 撤销维护边界（#965）](platform/runtime/local-tls-revocation-maintenance.md)

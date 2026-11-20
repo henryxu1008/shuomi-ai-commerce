@@ -32,7 +32,7 @@ docs/architecture/platform/identity/authentication-runtime.md,architecture,ident
 docs/architecture/automatic-usd-fx.md,architecture,commercial,22379,REVIEW_MOVE,docs/architecture/domains/commercial/automatic-usd-fx.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/ai/bailian-deepseek-shared-text-admission.md,architecture,ai,7558,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only relocation; source admission unchanged
 docs/architecture/domains/ai/bailian-product-image-wiring.md,architecture,ai,18539,KEEP_PATH,,,MOVED_VERIFIED,Verified path relocation only; historical admission retained
-docs/architecture/browser-kernel-release-catalog.md,architecture,sourcing,12849,REVIEW_MOVE,docs/architecture/domains/sourcing/browser-kernel-release-catalog.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/architecture/platform/runtime/browser-kernel-release-catalog.md,architecture,platform,13816,KEEP_PATH,,,MOVED_VERIFIED,platform browserkernel catalog owner and original release acceptance boundary preserved
 docs/architecture/domains/ai/channel-credentials-ui.md,architecture,ai,19361,KEEP_PATH,,,MOVED_VERIFIED,Verified aicapability channelcredential owner; shared and UI contracts grouped under AI; secret CAS and UNKNOWN boundaries preserved
 docs/architecture/domains/workbench/chat-35444-retained-wiring-design.md,architecture,workbench,16428,KEEP_PATH,,,MOVED_VERIFIED,retained original owner and all consumers verified; original design preserved with later minimal admission and actual update scope
 docs/architecture/domains/workbench/chat-compose-before-create.md,architecture,workbench,3623,KEEP_PATH,,,MOVED_VERIFIED,moved to workbench after owner and consumer review; original contract preserved
@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,43937,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,43971,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8366,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,17906,REVIEW_MOVE,docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
@@ -293,7 +293,7 @@ docs/operations/runbooks/ai-workbench-chat-trial.md,operations,workbench,13321,K
 docs/operations/user-guides/ai-workbench-scheduled-tasks.md,operations,workbench,11549,KEEP_PATH,,docs/architecture/domains/workbench/ai-workbench-scheduled-tasks.md,MOVED_VERIFIED,Verified guide relocation; daily-report scope and existing content-plan safeguards unchanged
 docs/operations/application-image-build.md,operations,platform,6215,REVIEW_MOVE,docs/operations/runbooks/application-image-build.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/operations/runbooks/auth-instance-cookie-isolation.md,operations,identity,2881,KEEP_PATH,,docs/architecture/platform/identity/auth-instance-cookie-isolation.md,MOVED_VERIFIED,Verified docs-only move; security and runtime authorization boundaries retained
-docs/operations/browser-kernel-catalog.md,operations,sourcing,14505,REVIEW_MOVE,docs/operations/user-guides/browser-kernel-catalog.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
+docs/operations/browser-kernel-catalog.md,operations,sourcing,14522,REVIEW_MOVE,docs/operations/user-guides/browser-kernel-catalog.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/operations/runbooks/chat-35444-preflight-draft.md,operations,workbench,6454,KEEP_PATH,,,MOVED_VERIFIED,moved with non-executable historical scope preserved; owner and consumers verified
 docs/operations/runbooks/chat-retained-wiring-isolated.md,operations,workbench,3674,KEEP_PATH,,,MOVED_VERIFIED,maintenance runbook; isolated and formal entry boundaries verified
 docs/operations/user-guides/completion-draft-history.md,operations,catalog,3376,KEEP_PATH,,docs/architecture/domains/listing/completion-draft-history.md,MOVED_VERIFIED,Verified docs-only move; separate architecture and operation roles retained
