@@ -1,6 +1,6 @@
 # SHEIN 仓库履约首版运行与交接
 
-执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。主要 PR：[#1038](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1038)。设计准入及事实 owner 见[冻结设计](../../architecture/order-procurement-fulfillment.md)。本说明不授权操作保留实例、真实订单或生产部署。用户于 2026-11-01 追加授权全新独立环境的合成试用，当前登录入口、两条流程的操作步骤与验证边界见[独立合成试用说明](../runbooks/order-fulfillment-synthetic-trial.md)。
+执行 Issue：[#1037](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1037)。主要 PR：[#1038](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1038)。设计准入及事实 owner 见[冻结设计](../../architecture/domains/marketplace/order-procurement-fulfillment.md)。本说明不授权操作保留实例、真实订单或生产部署。用户于 2026-11-01 追加授权全新独立环境的合成试用，当前登录入口、两条流程的操作步骤与验证边界见[独立合成试用说明](../runbooks/order-fulfillment-synthetic-trial.md)。
 
 ## 当前范围
 
