@@ -139,7 +139,7 @@ C2-2 消费者在 `4b6c03ca` 完成限定工程复核（证据见 PR），运行
 企业模型选择不改变业务权限、Agent 提示词/输出合同、调用次数或费用硬上限。
 同一型号可具有多个能力标签，但看图输入支持不等于生图/改图支持。
 
-依据：[模型与费率管理 V1](model-route-pricing-management.md)、
+依据：[模型与费率管理 V1](domains/ai/model-route-pricing-management.md)、
 [文本路由](domains/ai/product-agent-text-provider-neutral.md)、[Google 原生路由](domains/ai/product-agent-google-interactions.md)、
 [图片 Agent](product-image-agent.md)、[运行合同](product-agent-runtime-contract.md)、
 [点数购买](domains/commercial/commercial-retail-pricing.md)、[成员资源](member-resource-allocation.md)、

@@ -45,7 +45,7 @@ Flare 完整费用上界/官方直连执行仍 NOT_READY；三类全部合格才
 - [D1–D3 产品认可与 Draft PR 授权](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6592979123)。
 - [C2-1 冻结设计](product-image-facts-advice.md)、[Commerce Tool](../../commerce-tool-foundation.md)、
   [Agent 运行合同](../../product-agent-runtime-contract.md)、[文本模型治理](../ai/product-agent-text-provider-neutral.md)、
-  [模型与费率管理](../../model-route-pricing-management.md)、[业务职责](../../../product/decisions/business-agent-responsibilities.md)。
+  [模型与费率管理](../ai/model-route-pricing-management.md)、[业务职责](../../../product/decisions/business-agent-responsibilities.md)。
 - [当前领域边界](../../project-boundaries.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
 - [UI / IA Authority](../../../product/final-ui-ia-authority.md)：Figma `tg48P46SSXl6TBy9lZwg63` 非归档 `31:463`。
   复用商品图片职责入口和既有结果组件，不新增顶层智能体/工作台。

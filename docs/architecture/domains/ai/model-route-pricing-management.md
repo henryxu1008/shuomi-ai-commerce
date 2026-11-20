@@ -1,13 +1,15 @@
 # 模型与费率管理 V1
 
-> 当前范围已由用户批准的 [企业统一模型配置](enterprise-shared-model-configuration.md) 和 PR #1078 替代：一处企业三类模型选择、平台官网价/FX、原资源微点账本；本文件的 per-purpose/two-current 和固定图片点价不再授权新实现或执行。原历史证据保留，不能恢复已撤回要求。
+> Classification and chronology (2026-11-20): This is the historical V1 AI route and model-price management contract, not Commercial retail pricing. [PR #832](https://github.com/henryxu1008/shuomi-ai-commerce/pull/832) froze its design and [Issue #830](https://github.com/henryxu1008/shuomi-ai-commerce/issues/830) records narrowly scoped later acceptance for two text uses, not image management, live rate changes or credential rotation. The design-stage NOT_RUN and later acceptance apply to different stages. The enterprise-shared policy identified below, including [PR #1078](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078), supersedes this V1 selection and pricing shape. This move neither restores it nor establishes current rollout, prices or operational authority.
+
+> 当前范围已由用户批准的 [企业统一模型配置](../../enterprise-shared-model-configuration.md) 和 PR #1078 替代：一处企业三类模型选择、平台官网价/FX、原资源微点账本；本文件的 per-purpose/two-current 和固定图片点价不再授权新实现或执行。原历史证据保留，不能恢复已撤回要求。
 
 > Status: **IMPLEMENTATION_READY**（2026-10-19 独立架构评审收敛）；Design Basis: **Independent Architecture**。
 > Execution: [#830](https://github.com/qq550723504/task-processor/issues/830)。
 > Product decision: **PD-MODEL-ROUTE-PRICING-MANAGEMENT-2026-10-19**，用户批准本会话最小方案并要求设计、Figma、独立架构评审先行。
 > Source baseline: `main@48e15a7f9f9c3e32e76a742fe1581ea547461e9a`。本文是设计合同，不宣称已实现或运行可用。
 
-2026-11-03 后续产品决定要求[企业统一模型配置与官方价点数折算](enterprise-shared-model-configuration.md)：
+2026-11-03 后续产品决定要求[企业统一模型配置与官方价点数折算](../../enterprise-shared-model-configuration.md)：
 默认渠道、企业共享文本/图片生成/多模态三类选择，各消费者读取同一配置，按模型官方价折算点数。
 该候选明确替代未来范围中的“按业务用途分别选路/独立填写消费点数费率”目标；
 本文原实现与证据保留，当前源码不会因产品决定自动切换。新 owner 接线、选择权限、
@@ -17,7 +19,7 @@
 
 平台维护者在已验证的当前企业内，选择一个已接入业务用途，查看当前模型和费率，选择已有合格凭据绑定，维护费率，经本地校验、差异预览后发布一个版本。版本历史可追溯；恢复历史设置也产生新版本。普通企业管理员或成员不因此获得平台定价权限。
 
-复用 [当前 UI/IA Authority](../product/final-ui-ia-authority.md) 的 Figma 文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463`。入口在「我的账户 → 企业空间」的平台维护区，进入「模型与费率」；只对后端确认具有平台维护资格且有当前企业权限的身份显示。不是新的业务一级模块，不在套餐购买/充值页面编辑执行费率。
+复用 [当前 UI/IA Authority](../../../product/final-ui-ia-authority.md) 的 Figma 文件 `tg48P46SSXl6TBy9lZwg63` / 页面 `31:463`。入口在「我的账户 → 企业空间」的平台维护区，进入「模型与费率」；只对后端确认具有平台维护资格且有当前企业权限的身份显示。不是新的业务一级模块，不在套餐购买/充值页面编辑执行费率。
 
 可编辑设计区域 [7658:2087](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=7658-2087)：文本深/浅 `7660:2088` / `7660:2221`，图片 `7660:2143` / `7660:2276`，预览 `7660:2167` / `7660:2300`，回执与历史 `7660:2186` / `7660:2319`，不可用/待核实 `7660:2196` / `7660:2329`。企业空间 `432:4483` 的管理入口 `7663:2225` 仅为平台维护者投影，不改变企业角色权限。复用现有 Console token、Noto Sans SC、Action/说明卡，缺失字段组件为 `7658:2118`；没有完整 UI 栅格图片。
 
@@ -25,11 +27,11 @@
 
 继承而非重做：
 
-- [文本供应商中立合同](domains/ai/product-agent-text-provider-neutral.md)、[Product Agent runtime](product-agent-runtime-contract.md)：原 quote、claim、一次发送、完整 usage、UNKNOWN、预算、Review/Apply。
-- [企业 Agent Configuration](domains/workbench/organization-agent-configuration.md)：企业启用、模板、start snapshots 和 command owner。它不拥有当前模型/价格，不借用这些表保存当前路由。
-- [Product Image Agent](product-image-agent.md)：原图片计划、GenerationIntent、reservation、dispatch、proof/recovery、Asset/selection owner。
-- [Commercial retail pricing](domains/commercial/commercial-retail-pricing.md)：AI 点数充值售价仍归 Commercial catalog，与供应商估算成本和模型消费点数分开。
-- [Greenfield 产品基线](../product/greenfield-no-legacy-migration.md)、[当前系统边界](../product/greenfield-no-legacy-migration.md)、[AGENTS](../../AGENTS.md)。
+- [文本供应商中立合同](product-agent-text-provider-neutral.md)、[Product Agent runtime](../../product-agent-runtime-contract.md)：原 quote、claim、一次发送、完整 usage、UNKNOWN、预算、Review/Apply。
+- [企业 Agent Configuration](../workbench/organization-agent-configuration.md)：企业启用、模板、start snapshots 和 command owner。它不拥有当前模型/价格，不借用这些表保存当前路由。
+- [Product Image Agent](../../product-image-agent.md)：原图片计划、GenerationIntent、reservation、dispatch、proof/recovery、Asset/selection owner。
+- [Commercial retail pricing](../commercial/commercial-retail-pricing.md)：AI 点数充值售价仍归 Commercial catalog，与供应商估算成本和模型消费点数分开。
+- [Greenfield 产品基线](../../../product/greenfield-no-legacy-migration.md)、[当前系统边界](../../../product/greenfield-no-legacy-migration.md)、[AGENTS](../../../../AGENTS.md)。
 
 此决定只替代上述文本合同中「部署不可变 map 是当前选路/费率来源、无供应商选择 UI」这一有界限制，以及图片 factory 固定 client name/启动费率的选取点。每组织每用途一个当前 route、所有 adapter/usage/硬上界准入继续有效。不是批准任意模型目录、企业 BYOK、新 provider 或新协议。
 
@@ -183,4 +185,4 @@ Cutover/deletion condition: 对本管理范围，原启动 map/固定 client/费
 
 ## 实现定位
 
-冻结合同保持不变；#830 的实现入口为 `internal/aicapability/routeconfig`（确定性发布合同）、`internal/integration/persistence/routeconfig`（同 owner PG 事务）、`internal/integration/aicapability/routeconfig`（准入交集及 fresh text reader）、`currentapplication/model_route_pricing.go`（显式部署接线）和原 HTTP/图片 factory。Console 复用账户中心入口、BFF、上下文与未完成命令存储模式。安装、私密候选准备、管理入口及任务影响见[运行说明](../operations/runbooks/model-route-pricing.md)。当前实现 HEAD、四组验证、独立复核与环境授权仍只维护在 #830/实现 PR，不以本文的设计阶段 NOT_RUN 记录替代新的实施证据。
+冻结合同保持不变；#830 的实现入口为 `internal/aicapability/routeconfig`（确定性发布合同）、`internal/integration/persistence/routeconfig`（同 owner PG 事务）、`internal/integration/aicapability/routeconfig`（准入交集及 fresh text reader）、`currentapplication/model_route_pricing.go`（显式部署接线）和原 HTTP/图片 factory。Console 复用账户中心入口、BFF、上下文与未完成命令存储模式。安装、私密候选准备、管理入口及任务影响见[运行说明](../../../operations/runbooks/model-route-pricing.md)。当前实现 HEAD、四组验证、独立复核与环境授权仍只维护在 #830/实现 PR，不以本文的设计阶段 NOT_RUN 记录替代新的实施证据。
