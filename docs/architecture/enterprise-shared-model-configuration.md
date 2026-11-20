@@ -85,7 +85,7 @@ Flare 直连、图片估算策略及三类完整可用仍未实现于本次公�
 
 ### Flare 图片参考估算冻结设计与本轮实现
 
-用户已认可 D1，原唯一 Reviewer 对 `f35f30d41cbc5840174e6aea16b571607a158ef8` 完成架构复核并给出 IMPLEMENTATION_READY；随后授权原唯一 Writer 在原 PR/工作区实现并复用原 Reviewer。适用 [Flare 最小冻结设计](openai-flare-image-generation.md#本次设计候选2026-11-04)。
+用户已认可 D1，原唯一 Reviewer 对 `f35f30d41cbc5840174e6aea16b571607a158ef8` 完成架构复核并给出 IMPLEMENTATION_READY；随后授权原唯一 Writer 在原 PR/工作区实现并复用原 Reviewer。适用 [Flare 最小冻结设计](domains/ai/openai-flare-image-generation.md#本次设计候选2026-11-04)。
 本轮已补 `reference-images-totals-v1` 与原价目 JSON 的参考估算参数、原 quote/intent 冻结、准确 Flare 单次同步 generate/edit、base64 恢复包及原资源账本接线；准确实现 HEAD 的 CI 和独立最终工程复核在 PR 记录，当前尚不宣称完成最终复核。
 R 按冻结参考参数及费率估算；A 按显式基础总量计价，完整输入细分用对应费率，否则按较高输入参考费率估算并标明 D1。原预算/调用上限不变，不造细分、硬界或第二费用账本。
 缺基础事实、矛盾、超 R 和发送不明继续 UNKNOWN/保留 R/不重发；超 R 的有限证据留在原 fact，同企业同冻结绑定的新发送被原事务门禁拦住。原键/终态与恢复包仍由原 owner 处理。
@@ -449,7 +449,7 @@ F 为放大 10⁶ 的 CNY/1原币汇率，则 `S=Σ(uᵢ×rᵢ)`，精确原币�
 费用和预算估算如实标明估算，不承诺厂商逐次账单精确匹配，也不扩大原预算/点数/调用上限。
 
 Flare 的 U/V、精确计费分项及单请求最坏费用研究 **DEFERRED**，继续检索/技术咨询路线 **CANCELLED**。
-旧调查与两问保留在 [Flare 历史设计](openai-flare-image-generation.md)，UNKNOWN 不改为已证明，
+旧调查与两问保留在 [Flare 历史设计](domains/ai/openai-flare-image-generation.md)，UNKNOWN 不改为已证明，
 ChatGPT 检索答复不记为厂商保证；上述事项不再阻止本阶段业务。
 
 实际仍缺的是原 direct wire/worker/source 消费及参考估算在原 reader/quote/usage 内的最小映射。
