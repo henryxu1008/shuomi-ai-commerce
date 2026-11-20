@@ -10,7 +10,7 @@
 | 在研究项目中引用已保存的来源观察和候选 | [市场研究与选品最小领域合同](../../market-research-selection.md)、[研究证据分析增量](../../market-research-evidence-analysis-v1.md) | `internal/product/research/`（准确引用与决定），Collection/Data Services（来源读回） |
 | 在批准的一笔试用中取得 Amazon 美国站关键词第一页的样本 | [ZenRows 单页试用](../../amazon-us-zenrows-first-page.md) | Product Data Acquisition（取数与保存），Research（比较） |
 | 在准确候选内人工核对供应货源、SKU 与数量 | [人工货源核对合同](research-supplier-review-v1.md) | `internal/product/research/supplier_review.go` |
-| 录入费用假设，计算并保存经营评估 | [人工参考试算历史合同](../../research-manual-cost-preview-v1.md)、[评估持久化现行增量](../../research-commercial-assessment-persistence-v1.md) | `internal/product/research/cost.go`、`assessment.go` |
+| 录入费用假设，计算并保存经营评估 | [人工参考试算历史合同](research-manual-cost-preview-v1.md)、[评估持久化现行增量](../../research-commercial-assessment-persistence-v1.md) | `internal/product/research/cost.go`、`assessment.go` |
 | 用户作出人工决定，并显式转入商品准备 | [市场研究与选品合同](../../market-research-selection.md)、[商业评估产品边界](../../../product/research-commercial-assessment-v1.md) | Research 决定及原 Collection/Listing 交接，各自持有事实 |
 
 ## 事实与验证的分界
