@@ -1,5 +1,7 @@
 # #1070 本地验收项目导入三条合成原件
 
+> 归类与时点说明（2026-11-20）：本文是 [#1070](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1070) 固定合成来源夹具的原设计和当时的运行边界，不是当前部署、开关或导入授权。[#1131](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1131) 合并后的本地合成技术证据与 [#1166](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1166) 的隔离分页读优化分别保留；后者不等于新版本现场复验。Data Services 只负责有界合成发布装配，Sourcing/Catalog、Collection、Research/Project Center、Preparation 分别持有原事实。真实采集、模型、计费及完整业务验收不由这些证据证明。
+
 **Independent Architecture · 第二轮独立评审 · IMPLEMENTATION_READY（离线实施）**
 
 - 2026-11-06 22:49:01（新加坡时间），独立 Reviewer `fixture_architecture_review` 确认第二轮设计达到离线实施准入。首轮指出的项目绑定、合成出处、外部链接和执行隔离已在设计中明确。批准稿 SHA-256 为 `AC0A10B02119D70F5390629C65D9867C901CE33957CB342C70B39ECFDF498A20`，范围为固定三条合成原件的发布、原版回读及离线验证。 [原复核会话](codex://threads/01a19b90-d2b7-7513-9374-380ffa3e2ea3) · [固定批准稿](https://github.com/henryxu1008/shuomi-ai-commerce/blob/de296a87ef82bf40bd3a74b4ae8caf173c310f7a/docs/architecture/issue1070-local-acceptance-fixture.md)
@@ -18,7 +20,7 @@
 
 - Data Services 的线上 Amazon 关键词查询从 `data_acquisition_jobs` 读取。`data_acquisition_items` 的已保存约束要求真实 reservation，`Claim` 和 `Publish` 均复验。把测试回执写进去会制造账本无法解释的来源。免费 Amazon 插件虽产出收藏，但没有关键词查询批次。1688 免费插件 producer 与现有 Research 的服务端采集准入不同。通用手工/定制导入不能冒充上述来源。
 - 合成发布仍由 Product Sourcing/Catalog 持有不可变原件与版本，Collection 持有同批引用，ProjectCenter 持有项目与有效访问，Research 持有候选、证据关系、核对及人工批准，Preparation 持有单件转入。合成输入是固定测试载荷，持久化原件的读取只信 owner 已发布的精确记录。预算与计费没有新增 owner。
-- 现行设计见 [Amazon 机会交接](domains/research/amazon-opportunity-handoff-v1.md)、[市场调研与选品](domains/research/market-research-selection.md)、[货源核对](domains/research/research-supplier-review-v1.md)、[样本](../engineering/issue1070-first-trial-walkthrough.md)。旧隔离浏览器夹具的模拟权限与额度回执不移植到验收环境。
+- 现行设计见 [Amazon 机会交接](../research/amazon-opportunity-handoff-v1.md)、[市场调研与选品](../research/market-research-selection.md)、[货源核对](../research/research-supplier-review-v1.md)、[样本](../../../engineering/issue1070-first-trial-walkthrough.md)。旧隔离浏览器夹具的模拟权限与额度回执不移植到验收环境。
 
 ## 最小方案
 

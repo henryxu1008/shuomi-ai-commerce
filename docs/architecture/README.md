@@ -140,7 +140,7 @@
 - `domains/research/market-research-evidence-analysis-v1.md` — [两个中心 V1：研究证据分析合同增量](domains/research/market-research-evidence-analysis-v1.md)
 - `domains/research/amazon-opportunity-handoff-v1.md` — [Amazon 美国站调研机会与选品交接 V1](domains/research/amazon-opportunity-handoff-v1.md)
 - `amazon-us-zenrows-first-page.md` — [Amazon 美国站 ZenRows 单页试用](amazon-us-zenrows-first-page.md)
-- `issue1070-local-acceptance-fixture.md` — [#1070 本地验收项目合成资料导入](issue1070-local-acceptance-fixture.md)
+- `domains/sourcing/issue1070-local-acceptance-fixture.md` — [#1070 本地验收项目合成资料导入](domains/sourcing/issue1070-local-acceptance-fixture.md)
 - `domains/catalog/own-product-ai-intake.md` — [自有商品 AI 录入 V1（含多 SKU）](domains/catalog/own-product-ai-intake.md) · #1158 设计候选，实施准入以正文为准。
 - `domains/catalog/own-product-intake-openai-mini.md` — [自有商品 AI 整理 OpenAI Mini 单图接入（#1159）](domains/catalog/own-product-intake-openai-mini.md)
 - `domains/catalog/own-product-intake-price-review.md` — [自有商品录入价格建议与人工确认](domains/catalog/own-product-intake-price-review.md)
