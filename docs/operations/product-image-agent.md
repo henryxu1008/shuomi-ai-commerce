@@ -1,6 +1,6 @@
 # 完整商品图片智能体 v1 运行与使用
 
-对应 #612 / PR #616，Design Basis 为 [完整图片架构](../architecture/product-image-agent.md)。这是实现交接；真实 provider、平台发布和用户验收分别保留 NOT_RUN，不能由 CI 或合成响应代替。
+对应 #612 / PR #616，Design Basis 为 [完整图片架构](../architecture/domains/ai/product-image-agent.md)。这是实现交接；真实 provider、平台发布和用户验收分别保留 NOT_RUN，不能由 CI 或合成响应代替。
 
 ## 使用入口
 
