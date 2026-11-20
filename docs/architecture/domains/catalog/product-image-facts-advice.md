@@ -1,5 +1,7 @@
 # 图片事实检查与非执行性建议：C2-1 / C3-1
 
+> 归类与时点说明（2026-11-20）：本文保留 C2-1/C3-1 冻结设计的原范围、版本约束与 R1 证据。实现 [#1076](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1076) 已合并，[#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) 后续按原授权通过工程范围验收并关闭；下文 IMPLEMENTING、待验证与其他切片延期等措辞属于当时阶段，后续 C2-2/C3-2 各按自身证据，不从本设计继承准入。Catalog/Asset 负责准确商品、已批准素材与纯事实建议，Listing/Marketplace 继续负责平台规则和保存 Target；建议不授权执行。现场准入、真实运行/保存恢复、模型效果及产品验收不由工程合并或关单证明。
+
 状态：IMPLEMENTATION_READY / IMPLEMENTING。Design Basis：Independent Architecture。
 本文是 #134 / #128 的冻结设计基线，不是运行或产品验收。
 产品范围及 D2 已获产品认可；准确设计 HEAD e498c0c1e87203341c25df79ed58c5cefd228999 的
@@ -19,10 +21,10 @@
 - [设计候选及现状证据](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6576072576)。
 - [候选/D2 认可及 design-only Draft PR 授权](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6576601045)；
   该认可不包含独立架构复核、实现、合并、部署或操作保留运行。
-- [Commerce Tool](commerce-tool-foundation.md)、[Agent 运行合同](product-agent-runtime-contract.md)、
-  [平台资料 Agent](domains/listing/platform-listing-materials-agent.md)、[图片 Agent](product-image-agent.md)。
-- [当前系统边界](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
-- [UI/IA Authority](../product/final-ui-ia-authority.md)：Figma tg48P46SSXl6TBy9lZwg63，非归档页面 31:463。
+- [Commerce Tool](../../commerce-tool-foundation.md)、[Agent 运行合同](../../product-agent-runtime-contract.md)、
+  [平台资料 Agent](../listing/platform-listing-materials-agent.md)、[图片 Agent](../../product-image-agent.md)。
+- [当前系统边界](../../project-boundaries.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
+- [UI/IA Authority](../../../product/final-ui-ia-authority.md)：Figma tg48P46SSXl6TBy9lZwg63，非归档页面 31:463。
   复用已有商品智能体、资料结果页和图片入口，不新增页面/导航、独立工作台或审核流程。
   本文复用既有 Authority 记录，没有重新读取 Figma 或宣称视觉验收；布局/交互若实质改变须再核适用节点。
 
@@ -40,13 +42,13 @@ Should：复用原 reader、纯校验、错误分类和 UI/BFF 组件，只补�
 Out of Scope：C2-2 额外视觉模型；C3-2 独立候选类目查询；图片下载/采集、生成/修图、
 Prepare/Run/Confirm/Approve、自动 Apply/publish、额外 planner/reviewer、模型/价格变更、
 通用规则/诊断/编排引擎、新事实源/审批/报告/运行 owner、历史迁移/兼容、部署和真实操作。
-C2-2 继续 DEFERRED / NOT_IMPLEMENTED；C3-2 的[单独冻结设计](domains/listing/listing-candidate-category-rules.md)
+C2-2 继续 DEFERRED / NOT_IMPLEMENTED；C3-2 的[单独冻结设计](../listing/listing-candidate-category-rules.md)
 已完成自身 R1 并获后续实现授权，在 #1077 维护证据；仍在本文与 #1076 冻结范围之外。
 两者不作 #1076 本阶段 Must，不记该 PR 的实现 PASS、风险接受或永久取消。
 C3-2 的规则覆盖与版本执行资格依据自身后续批准，不继承本文 R1 / D2。
 没有新增 Accepted Risk；权限隔离、证据、资金和副作用安全底线不变。
 
-后续 C2-2 的[单图视觉分析候选](product-image-visual-analysis.md)单独整理带图模型/费用/只读结果合同。
+后续 C2-2 的[单图视觉分析候选](../../product-image-visual-analysis.md)单独整理带图模型/费用/只读结果合同。
 其 D1–D3 已单独产品认可，具体模型/计量/费率和独立准入仍缺失，未实现；
 本文现 `product.image.analyze@v1` 及 `image-advice-v1` 的纯事实语义不变，
 不从本设计的 R1、#1076 或 #1077 外推新视觉调用权限、已完成或产品验收。

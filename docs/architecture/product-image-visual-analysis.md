@@ -41,7 +41,7 @@ Flare 完整费用上界/官方直连执行仍 NOT_READY；三类全部合格才
   C2-2 延期/未实现；重新启动需要明确范围、模型/费用、证据、授权及 UNKNOWN 合同。
 - [本轮设计整理接续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6592753393)。
 - [D1–D3 产品认可与 Draft PR 授权](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6592979123)。
-- [C2-1 冻结设计](product-image-facts-advice.md)、[Commerce Tool](commerce-tool-foundation.md)、
+- [C2-1 冻结设计](domains/catalog/product-image-facts-advice.md)、[Commerce Tool](commerce-tool-foundation.md)、
   [Agent 运行合同](product-agent-runtime-contract.md)、[文本模型治理](domains/ai/product-agent-text-provider-neutral.md)、
   [模型与费率管理](model-route-pricing-management.md)、[业务职责](../product/decisions/business-agent-responsibilities.md)。
 - [当前领域边界](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。

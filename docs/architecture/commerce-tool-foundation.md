@@ -38,7 +38,7 @@ C2-2 的额外视觉模型分析继续 DEFERRED / NOT_IMPLEMENTED；C3-2 已由�
 未知事实不伪造为冲突/通过，
 原权限、准确绑定/观察、预算、确定性重验和保存/发布门禁保持。
 
-[图片事实/建议独立设计](product-image-facts-advice.md) 已经 R1 达到 IMPLEMENTATION_READY，按用户后续授权在 #1076 实现：
+[图片事实/建议独立设计](domains/catalog/product-image-facts-advice.md) 已经 R1 达到 IMPLEMENTATION_READY，按用户后续授权在 #1076 实现：
 复用原 owner/Registry，补纯计算建议、薄适配及既有结果消费者；C2-1 确需代码，C3-1 优先合同/证据对齐。
 该设计的新 Tool/结果/版本及 D2 已获产品认可并冻结；准确实现/CI/最终复核证据维护在 #1076；
 不在旧定义原位加字段/权限，也不提高调用或费用上限。
