@@ -1,5 +1,7 @@
 # Immutable settlement reversal locking
 
+> Classification and chronology (2026-11-20): The original design below records a bounded repair owned by Commercial/Money for ordinary purchase refunds and chargebacks. [PR #538](https://github.com/henryxu1008/shuomi-ai-commerce/pull/538) merged the repair, and [Issue #413](https://github.com/henryxu1008/shuomi-ai-commerce/issues/413) is now closed despite older open-status wording. The historical controlled isolated refund and its exact replay/restart validated only that case, not real payments, KYC, payout, the 30-day maturity positive case, broader acceptance, or current runtime. The original #475 UNKNOWN was not replayed. Money still owns immutable payment/reversal facts and Referral owns commission adjustment and its projection; wallet top-ups and provider actions stay outside this contract. This relocation does not authorize any transaction, recovery, access change or runtime operation.
+
 Status: IMPLEMENTATION_READY. Execution: #413. Design Basis: Independent Architecture
 (bounded repair of the money owner's payment-level concurrency mechanism).
 
@@ -15,11 +17,11 @@ commission is reversed through the existing money and referral owners. The user
 authorized this repair after the isolated #413 run failed with PostgreSQL
 `permission denied for table ledger_payment_settlements` at `SELECT FOR UPDATE`.
 
-Authority: [greenfield product baseline](../product/greenfield-no-legacy-migration.md),
-[commercial money contract](unified-base-prepaid-resources.md),
-[current referral rules](referral-settlement-and-conduct.md), and the runtime
+Authority: [greenfield product baseline](../../../product/greenfield-no-legacy-migration.md),
+[commercial money contract](../../unified-base-prepaid-resources.md),
+[current referral rules](../../referral-settlement-and-conduct.md), and the runtime
 immutable-table contract in `money.VerifyProviderTopUpRuntime`. No UI change;
-the current [UI authority](../product/final-ui-ia-authority.md) remains applicable.
+the current [UI authority](../../../product/final-ui-ia-authority.md) remains applicable.
 
 Must: preserve immutable canonical settlements, exact replay/conflict semantics,
 and combined refund + chargeback amounts no greater than commissionable cash.
