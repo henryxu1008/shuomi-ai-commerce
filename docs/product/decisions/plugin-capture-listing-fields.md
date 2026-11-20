@@ -25,7 +25,7 @@ Status: **FIELD_DESIGN_DRAFT / NOT_IMPLEMENTATION_READY**。本次只交付字�
 - UI / IA：当前 [final-ui-ia-authority](../final-ui-ia-authority.md)；Figma `tg48P46SSXl6TBy9lZwg63 / 31:463`。入口 `430:5710`，来源选择 `1905:410`，Amazon链接 `1897:418` / ASIN `1921:484`，1688 `1905:374`；这些是原在线采集交互依据，不冒称已有插件字段预览终稿。本轮不修改Figma。
 - 1688原始证据与保存：[src2b-public-acquisition](../../engineering/1688-public-acquisition.md)、`internal/product/sourcing/acquisition.go`、`browser_capture.go`，既有Browser Capture合同。
 - Amazon原生能力：[data-services-v1](../../architecture/data-services.md)、`internal/product/dataacquisition/query.go`、`internal/integration/acquisition/amazon`、`internal/app/dataservices/publication.go`。
-- 后续补全：[结构化候选](../completion-draft-structured.md)、[SHEIN带入](../flows/completion-shein-import.md)。
+- 后续补全：[结构化候选](../flows/completion-draft-structured.md)、[SHEIN带入](../flows/completion-shein-import.md)。
 - 当前上架准入：`internal/listing/readiness/product_inputs.go`、`internal/marketplace/shein/validator`、`internal/publishing/shein/sale_attribute_readiness.go`。Product来源、批准资产和目标平台规则分别检查，不能因采集了图片就称资产已批准。
 
 **四种结论分开：**成功读取页面商品事实、保存取得权威回执、按本设计资料完整、目标平台可上架。前一步不自动代表后一步。来源完整度只解释本次能看到/能读取的范围，不证明来源绝对真实、商业可用或拥有全部商品变体。

@@ -7,7 +7,7 @@ Admission Status: IMPLEMENTATION_READY / FROZEN — 2026-10-15 R1独立检查通
 
 ## 1. Outcome / authority / boundaries
 
-Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../../../product/completion-draft-structured.md) 与用户只恢复文字的明确选择。Figma/UI authority、独立页与非目标见产品决定；本设计先于生产实现。
+Issue #718，依据 [PD-COMPLETION-STRUCTURED-2026-10-15](../../../product/flows/completion-draft-structured.md) 与用户只恢复文字的明确选择。Figma/UI authority、独立页与非目标见产品决定；本设计先于生产实现。
 
 结果：草稿→独立结构化编辑→原 Save 追加完整 Rn→刷新继续编辑→历史详情与差异比较；返回草稿、商品和批次上下文贯穿。价格/库存只是候选，不触达平台、资金或实际库存。
 
