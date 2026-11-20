@@ -22,7 +22,7 @@
 
 ## 当前专项合同
 
-- [固定 Image 资源回执与成员限额](../../source-white-background.md)
+- [固定 Image 资源回执与成员限额](source-white-background.md)
 - [预算与授权](image-agent-budget-authorization.md)
 - [效果策略](image-agent-effect-policy.md)、[终态](image-agent-effect-terminalization.md)、[结算](image-agent-effect-finalization.md)
 - [效果恢复](image-agent-effect-recovery.md)、[工作流恢复](image-agent-recovery.md)

@@ -1,6 +1,8 @@
 # 来源商品白底图与资源结算合同
 
-现行 Product/Image 入口对已授权来源商品生成单张白底图候选，经人工预览和明确批准后进入当前 Asset owner。完整图片集合的操作入口见[商品图片智能体](../operations/product-image-agent.md)。
+> Classification and chronology (2026-11-20): This preserves the original single-image contract for the fixed ImageAgent generation owner and the organization resource ledger, not a Sourcing capture contract. [PR #503](https://github.com/henryxu1008/shuomi-ai-commerce/pull/503) records the original engineering slice; [Issue #612](https://github.com/henryxu1008/shuomi-ai-commerce/issues/612) records the separate full image-set delivery and engineering-only closure. The source, deployment, provider and pricing descriptions below retain their original time and scope. Neither these references nor migration prove current configuration, real model quality or charges, asset approval, or authorization to run anything.
+
+现行 Product/Image 入口对已授权来源商品生成单张白底图候选，经人工预览和明确批准后进入当前 Asset owner。完整图片集合的操作入口见[商品图片智能体](../../../operations/product-image-agent.md)。
 
 当前调用使用 Product/Image、ImageAgent、Resource 和选定 provider 的既有 owner。以下是固定 Image owner 的跨库不可变回执、派发顺序、UNKNOWN 恢复和成员限额合同；不开放通用事务代理，不以文档存在证明特定实例已经启用或通过真实平台验收。
 
@@ -24,7 +26,7 @@
 
 `FinalizeImageGeneration` 在尚无 reservation 时同样必须封闭该 operation：只接受 owner 的不可逆 no_generation proof，写现 operation 的 terminal rejected/closed immutable receipt（不改变余额、不伪造零quantity事件）。随后晚到的 Reserve 必须返回相同closed结果而不能预留。若Reserve先提交，则Finalize释放其原reservation。这不是新恢复owner，而是关闭“cancel读到不存在后并发reserve晚提交”的孤立扣占窗口。窄reader理解本owner的closed receipt；普通 reservation replay 语义不变。
 
-当前[持久化与副作用边界](project-boundaries.md#persistence-and-external-effects)保留默认同事务规则；仅此固定 Image owner 以不可变intent/terminal proof + 双方各自CAS + 资源operation fence替代；禁止其他owner自动采用。现 `SettlementService` 的caller不能选择outcome原则保留；no_generation映射release，provider_succeeded映射commit，未知不能结算。此固定owner合同例外已通过本次独立IMPLEMENTATION_READY，随实现同步§3.10，不适用于其他owner。
+当前[持久化与副作用边界](../../project-boundaries.md#persistence-and-external-effects)保留默认同事务规则；仅此固定 Image owner 以不可变intent/terminal proof + 双方各自CAS + 资源operation fence替代；禁止其他owner自动采用。现 `SettlementService` 的caller不能选择outcome原则保留；no_generation映射release，provider_succeeded映射commit，未知不能结算。此固定owner合同例外已通过本次独立IMPLEMENTATION_READY，随实现同步§3.10，不适用于其他owner。
 
 ### C. 唯一派发顺序
 
@@ -78,6 +80,6 @@ Finalize复用operation fence → reservation → 原月counter → bucket → d
 - `internal/ledger/orgresource` 与 `internal/integration/orgresource`：仅固定image owner receipt合同、现operation fence/closed receipt、复用原reserve/settle账务事务；其他 owner 继续遵守各自既有合同。
 - `internal/integration/grsai/client.go`、现ProductImage adapter/port：正式json字段、exact bytes、no-poll单次路径、后处理前typed outcome observer；observer错误仍UNKNOWN，不重POST。
 - `internal/app/worker/imageagent/dependencies.go`、现current配置：显式price/授权/owner reader装配及fail-closed；runtime grant按实际SQL最小修改，普通启动只Verify，不操作当前保留实例。
-- [当前系统边界](project-boundaries.md#persistence-and-external-effects)：固定 Image owner 的资源回执例外，不扩展到其他 owner。
+- [当前系统边界](../../project-boundaries.md#persistence-and-external-effects)：固定 Image owner 的资源回执例外，不扩展到其他 owner。
 
 **配置命令与下限。** Account owner 的 AI 点数配置使用 `ReadMemberAIPointLimits` / `SetMemberAIPointMonthlyLimit`，复用现管理员权限、live active canonical成员、ExpectedVersion+IdempotencyKey；服务端决定current UTC月，管理操作identity绑定首次月份，原key跨月返回原immutable结果而不再次修改。Target允许0，但不得低于current month consumed+reserved；旧月UNKNOWN的reserved不释放、不抹计数，旧月不因新配置迁移。配置持续用于后续月份，新月计数从无记录开始0（不是赠送余额）；当前月提高/降低受下限约束。成员撤权立即阻新派发，不删除配置/原月counter/reservation；恢复结算原消费仍有效。存储错误/串org/member fail closed。
