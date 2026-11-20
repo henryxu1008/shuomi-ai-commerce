@@ -18,7 +18,7 @@
 
 本增量只处理标题文本模型的供应商锁定及其调用前门禁。2026-10-03 用户选择以 Google 官方接口作为首条真实候选路由；此前的 GRSAI 候选仍保留为历史研究，不作为默认。每条实际启用的路由需要自己的凭据、配置版本、模型用量与上界依据、价格和产品点数费率。缺任一项时显示执行不可用，不形成成功状态或付费调用。
 
-产品依据为本次用户决定、[#555](https://github.com/qq550723504/task-processor/issues/555)、[#570](https://github.com/qq550723504/task-processor/issues/570) 与 [Agent D 已批准合同](../../organization-agent-configuration.md)。涉及入口与交互继续以 [当前 Figma/IA Authority](../../../product/final-ui-ia-authority.md) 为准；本增量不改页面命名、供应商选择 UI 或确认流程。继承 [Product Agent 运行合同](../../product-agent-runtime-contract.md) 的 Product/Knowledge/AI/Review owner、唯一 dispatch、UNKNOWN 和人工 Apply 规则。本次用户决定替代其中 §8.3 的“文本也使用 GRSAI”和 GRSAI 专属 endpoint 归属、§8.4 “首片限定 GRSAI `gemini-2.5-flash`”及 §8.5 “仅 GRSAI route”这几处供应商约束；§8.3 单次 SDK 调用、显式非流式、全字段 usage、大小/时间限制及安全错误规则继续适用于每条已准入兼容 route。其余安全和运行约束不因接口兼容而降低。
+产品依据为本次用户决定、[#555](https://github.com/qq550723504/task-processor/issues/555)、[#570](https://github.com/qq550723504/task-processor/issues/570) 与 [Agent D 已批准合同](../workbench/organization-agent-configuration.md)。涉及入口与交互继续以 [当前 Figma/IA Authority](../../../product/final-ui-ia-authority.md) 为准；本增量不改页面命名、供应商选择 UI 或确认流程。继承 [Product Agent 运行合同](../../product-agent-runtime-contract.md) 的 Product/Knowledge/AI/Review owner、唯一 dispatch、UNKNOWN 和人工 Apply 规则。本次用户决定替代其中 §8.3 的“文本也使用 GRSAI”和 GRSAI 专属 endpoint 归属、§8.4 “首片限定 GRSAI `gemini-2.5-flash`”及 §8.5 “仅 GRSAI route”这几处供应商约束；§8.3 单次 SDK 调用、显式非流式、全字段 usage、大小/时间限制及安全错误规则继续适用于每条已准入兼容 route。其余安全和运行约束不因接口兼容而降低。
 
 本次不建设模型目录、自动故障切换、企业自助 BYOK/任意 endpoint、第二模型账本、供应商恢复平台或新的 Agent Runtime。不为旧数据做迁移、双读/双写或兼容适配。`Legacy decision: RETIRE` 硬编码的单供应商准入判断；`EXTRACT` 现有单次传输、账本及失败行为到当前 owner。
 

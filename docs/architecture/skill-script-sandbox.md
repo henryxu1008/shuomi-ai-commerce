@@ -26,7 +26,7 @@
 - **Out of Scope**：任意 Shell/模型现场生成代码、动态安装依赖、多脚本工作流、网络授权、浏览器/桌面、用户自选镜像、长驻会话、跨运行复用可写目录、图片二进制产物、付费模型/API 调用、平台写入、自动调度/恢复平台、独立执行账本、迁移与双读双写。
 - **Accepted Risks**：本轮没有新批准的安全风险豁免，D-IT1 剩余项仍是试用开放 Must。脚本业务语义是否合理仍需用户判断；格式检查、沙箱运行成功和结构校验均不表示语义正确或产品验收通过。
 
-依据：[项目边界](project-boundaries.md)、[目标架构](project-target-architecture.md)、[Skill V1](skill-capability.md)、[商品内容](domains/catalog/product-content-localization.md)、[Agent Runtime](product-agent-runtime-contract.md)、[Commerce Tool](commerce-tool-foundation.md)、[企业配置](organization-agent-configuration.md)、[四模式](enterprise-agent-permission-modes.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[派工规则](../engineering/issue-driven-development.md)。UI 以用户当前决定和真实路径为准，Figma 只辅助理解业务流程。
+依据：[项目边界](project-boundaries.md)、[目标架构](project-target-architecture.md)、[Skill V1](skill-capability.md)、[商品内容](domains/catalog/product-content-localization.md)、[Agent Runtime](product-agent-runtime-contract.md)、[Commerce Tool](commerce-tool-foundation.md)、[企业配置](domains/workbench/organization-agent-configuration.md)、[四模式](enterprise-agent-permission-modes.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[派工规则](../engineering/issue-driven-development.md)。UI 以用户当前决定和真实路径为准，Figma 只辅助理解业务流程。
 
 ## 2. 当前代码证据及必须承认的缺口
 

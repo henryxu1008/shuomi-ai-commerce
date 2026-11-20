@@ -1,5 +1,7 @@
 # Organization Agent Configuration V1 — Slice D
 
+> 归类说明（2026-11-19）：本文完整保留 Slice D 架构准入及其原时点范围；[#570](https://github.com/henryxu1008/shuomi-ai-commerce/issues/570) 已记录 #571 架构合并，后续 [#573](https://github.com/henryxu1008/shuomi-ai-commerce/issues/573) 已按工程范围关闭，原文“等待合并/新 owner 尚待实现/仅标题 v1”等不代表今天仍未实现。当前 `internal/agentconfig` 拥有企业启停、版本模板、配置回执与精确执行配置，属于工作台配置而非 IAM；同 RunDB Guard 继续组合原 Claim，不能替代运行、Knowledge、AI 用量/UNKNOWN 或 Review/Apply owner。当前标题注册为 v2.0.0，旧 v1 仅按原版本/请求合同保留证据，不能因文档迁移恢复旧执行入口；后续图片/内容/Skill/模式和模型路由分别按已批准合同，不由本文早期非目标否认，也不借此扩大权限。#573 的工程关闭不覆盖真实 route/质量/产品验收；历史 Google 503、unknown_reserved 与原预留失败事实保留，不释放、不结算、不重发，旧合成链路不能证明当前实例或真实效果。Figma 仅作业务流程参考。独立操作指南保留原路径；本批仅迁文档，不访问实例/凭据、不启停智能体或模板、不调用模型、不部署。
+
 > Status: **APPROVED / IMPLEMENTATION_READY**
 >
 > Design Basis: **Independent Architecture**, a bounded increment over #556.
@@ -15,7 +17,7 @@
 
 ## 1. Product outcome and authority
 
-2026-10-19 bounded addition: [Model route and pricing management V1](model-route-pricing-management.md), #830, owns current execution route/rate revisions within the existing AI capability/ProductAgent/ImageAgent persistence boundaries. It does not store current routing in OrganizationAgent, templates, command history or immutable start snapshots. The new management authorization does not grant enterprise template administrators model/pricing permissions. The original owner and execution snapshot contracts below remain in force.
+2026-10-19 bounded addition: [Model route and pricing management V1](../../model-route-pricing-management.md), #830, owns current execution route/rate revisions within the existing AI capability/ProductAgent/ImageAgent persistence boundaries. It does not store current routing in OrganizationAgent, templates, command history or immutable start snapshots. The new management authorization does not grant enterprise template administrators model/pricing permissions. The original owner and execution snapshot contracts below remain in force.
 
 An administrator enables the existing Product title Agent for the current enterprise,
 maintains a versioned default template, and members explicitly confirm the effective
@@ -33,15 +35,15 @@ configuration before using the existing title → Knowledge → Human Review →
 
 Applicable authorities:
 
-- [Final UI / IA](../product/final-ui-ia-authority.md): Figma file
+- [Final UI / IA](../../../product/final-ui-ia-authority.md): Figma file
   `tg48P46SSXl6TBy9lZwg63`, page `31:463`, current non-archived product authority.
-- [Agent + Knowledge V1](domains/workbench/agent-knowledge-context.md), #555/#556 §2:
+- [Agent + Knowledge V1](agent-knowledge-context.md), #555/#556 §2:
   enterprise scope, opt-in Knowledge, configuration != permission, exact run references.
-- [Product Agent runtime](./product-agent-runtime-contract.md): run/checkpoint/UNKNOWN owner.
-- [Project boundaries](./project-boundaries.md),
-  [HTTP assembly boundaries](platform/runtime/httpapi-assembly-boundaries.md),
-  [greenfield baseline](../product/greenfield-no-legacy-migration.md),
-  [dispatch rules](../engineering/issue-driven-development.md), and [AGENTS.md](../../AGENTS.md).
+- [Product Agent runtime](../../product-agent-runtime-contract.md): run/checkpoint/UNKNOWN owner.
+- [Project boundaries](../../project-boundaries.md),
+  [HTTP assembly boundaries](../../platform/runtime/httpapi-assembly-boundaries.md),
+  [greenfield baseline](../../../product/greenfield-no-legacy-migration.md),
+  [dispatch rules](../../../engineering/issue-driven-development.md), and [AGENTS.md](../../../../AGENTS.md).
 
 Figma mapping inherited from the admitted #555/#556 evidence: market `428:323`,
 我的智能体 `4703:429`, capability configuration `4703:892`, template `4714:429`,

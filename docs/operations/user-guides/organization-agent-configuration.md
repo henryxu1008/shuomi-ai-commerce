@@ -1,6 +1,6 @@
 # 企业智能体配置 v1 交接
 
-Design Basis：[已批准的 Agent D 合同](../../architecture/organization-agent-configuration.md)；执行 Issue #573。以下是安装和开发交接，未签发产品验收或部署批准。
+Design Basis：[已批准的 Agent D 合同](../../architecture/domains/workbench/organization-agent-configuration.md)；执行 Issue #573。以下是安装和开发交接，未签发产品验收或部署批准。
 
 ## 用户入口
 

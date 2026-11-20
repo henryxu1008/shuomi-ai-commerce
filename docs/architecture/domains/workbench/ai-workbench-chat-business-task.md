@@ -51,7 +51,7 @@ Applicable product authorities:
 - Task Center `427:3005`;
 - #298 product relationship:
   `BusinessTask -> AgentRun -> AgentStep -> ToolCall / ModelCall -> Temporal/Queue/Internal Task`;
-- `../../organization-agent-configuration.md`: enterprise enablement, exact templates,
+- `organization-agent-configuration.md`: enterprise enablement, exact templates,
   configuration snapshots and guarded Product Agent admission;
 - `agent-knowledge-context.md`: optional exact Knowledge context/citation/permit;
 - `../../product-agent-runtime-contract.md`: AgentRun/checkpoint/budget/UNKNOWN ownership;

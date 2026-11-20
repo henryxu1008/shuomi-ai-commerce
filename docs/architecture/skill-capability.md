@@ -17,7 +17,7 @@
 
 产品授权来源：#688 当前正文及用户 2026-10-14 指派“开始处理#688”。任务允许设计、准入后实现、必要隔离验证与主要 PR；不接管 #137 活跃交付，不取得合并、安装、共享实例变更、真实模型费用、平台写入或关闭权限。
 
-适用依据：[最终 UI/IA](../product/final-ui-ia-authority.md)、[项目边界](./project-boundaries.md)、[身份与组织](platform/identity/auth-and-tenancy.md)、[企业 Agent 配置](./organization-agent-configuration.md)、[商品内容](domains/catalog/product-content-localization.md)、[原运行](./product-agent-runtime-contract.md)、[原知识](domains/workbench/agent-knowledge-context.md)、[四模式](./enterprise-agent-permission-modes.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[派工规则](../engineering/issue-driven-development.md)。#688 仅替代现配置/内容设计中“用户方法文本不可编辑”的对应非目标；不开放 AgentDefinition、工具、模型路由或任意系统提示词编辑。
+适用依据：[最终 UI/IA](../product/final-ui-ia-authority.md)、[项目边界](./project-boundaries.md)、[身份与组织](platform/identity/auth-and-tenancy.md)、[企业 Agent 配置](domains/workbench/organization-agent-configuration.md)、[商品内容](domains/catalog/product-content-localization.md)、[原运行](./product-agent-runtime-contract.md)、[原知识](domains/workbench/agent-knowledge-context.md)、[四模式](./enterprise-agent-permission-modes.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)、[派工规则](../engineering/issue-driven-development.md)。#688 仅替代现配置/内容设计中“用户方法文本不可编辑”的对应非目标；不开放 AgentDefinition、工具、模型路由或任意系统提示词编辑。
 
 Must：三层归属、动作分离、不可变准确版本、个人明确同意的组织复制、当前企业准入、原预算/指纹/UNKNOWN、原 Review/Catalog 保存读回、无越权材料或假成功。Should：在已有合格能力可直接复用时 AI 整理草稿；不是首版前置。Out of Scope：公开/付费市场、跨企业可撤销分发、多 Skill 调度、脚本/任意网络、第二 IAM/账本/任务系统、迁移/双读双写、验收平台。没有新增 Accepted Risk；原 full_access 未经逐项人工审核的既有产品边界继续适用。
 
