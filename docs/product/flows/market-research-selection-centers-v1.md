@@ -106,7 +106,7 @@ Local Account Center 的百炼 deepseek-v4.1-flash 候选与每项 ¥0.30/20点�
 
 用户于 2026-11-02 同意先形成两个中心 V1 的范围、入口、页面和交接设计，供实际评审，再决定正式实施。此决定不等于批准本文候选页面、生产代码、真实采集或模型调用。首批冻结的[研究合同](../../architecture/market-research-selection.md)及已部署实现继续有效；本文不重新打开或替代该合同。
 
-随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。[新增研究证据 AI 合同](../../architecture/market-research-evidence-analysis-v1.md)已完成适用独立R1及对应增量确认，达到 FROZEN / IMPLEMENTATION_READY；后续用户回复“可以”，授权正式代码、必要开发自检、提交/推送和同一 PR 维护；真实平台/模型/付费、合并及新部署仍不授权。
+随后用户明确回复“确认沿用这版设计”，批准两个入口、共用项目、页面分工及所选2–5项样本范围。此记录替代上段设计待确认的阶段；原Figma节点名称保留“候选”作为追溯。[新增研究证据 AI 合同](../../architecture/domains/research/market-research-evidence-analysis-v1.md)已完成适用独立R1及对应增量确认，达到 FROZEN / IMPLEMENTATION_READY；后续用户回复“可以”，授权正式代码、必要开发自检、提交/推送和同一 PR 维护；真实平台/模型/付费、合并及新部署仍不授权。
 
 ## 1. 使用者与本次结果
 
