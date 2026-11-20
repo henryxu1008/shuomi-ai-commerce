@@ -1,6 +1,6 @@
 # 本机安装与模块管理
 
-执行范围见[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)及[已批准架构](../../architecture/installation-and-module-management.md)。这是宿主显式启动的本机工具，业务后端、BFF和企业用户均不获得Docker或数据库owner权限。此入口不代表原35444已更新。
+执行范围见[#1240](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1240)及[已批准架构](../../architecture/platform/runtime/installation-and-module-management.md)。这是宿主显式启动的本机工具，业务后端、BFF和企业用户均不获得Docker或数据库owner权限。此入口不代表原35444已更新。
 
 ## 准备与启动
 

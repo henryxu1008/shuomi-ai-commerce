@@ -12,7 +12,7 @@ Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY /
 
 用户结果：看懂哪次安装停在哪一步；保留现场，检查原结果；仅当安全条件得到证明时，明确确认后再次尝试。同一操作保留每次尝试的历史，不要求用户删除JSON、猜测网络或换名称绕过阻断。
 
-本设计只修 [安装与模块管理](../../installation-and-module-management.md) §6 的具体缺口，当前领域 owner、[系统边界](../../project-boundaries.md) 与 [全新系统基线](../../../product/greenfield-no-legacy-migration.md) 保持。Figma仅流程参考；界面用“安装记录、安装名称、失败步骤、检查结果、重新尝试”等用户用语，不展示内部状态名。
+本设计只修 [安装与模块管理](installation-and-module-management.md) §6 的具体缺口，当前领域 owner、[系统边界](../../project-boundaries.md) 与 [全新系统基线](../../../product/greenfield-no-legacy-migration.md) 保持。Figma仅流程参考；界面用“安装记录、安装名称、失败步骤、检查结果、重新尝试”等用户用语，不展示内部状态名。
 
 Must：
 
