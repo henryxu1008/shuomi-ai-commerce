@@ -16,7 +16,7 @@
 
 2026-11-01 当前阶段决定：用户明确批准首版先交付“采购收货／已有库存 → 自发货或托管交仓”两条仓库履约核心流程；供应商直接交付延期，保持未开放，后续单独适配。这一决定替代本文历史流程图、§5/§6/§9/§11/§12中供应商直发作为首版实施或验收前置的要求，历史描述仅保留为未来方向，不能恢复为本批 Must。当前没有已证明支持美国站自发货的真实店铺/订单；用户批准先完成开发，真实自发货保持待联调。
 
-本轮已有 [ERPNext 隔离适配验证](erpnext-shein-fulfillment-fit.md)；独立评审和 Issue Ready 完成前只允许设计及明确的非正式 Spike，不修改正式生产业务路径。现有实例和数据始终保持原状。
+本轮已有 [ERPNext 隔离适配验证](domains/marketplace/erpnext-shein-fulfillment-fit.md)；独立评审和 Issue Ready 完成前只允许设计及明确的非正式 Spike，不修改正式生产业务路径。现有实例和数据始终保持原状。
 
 ## 2. 现有能力与必须补齐的边界
 
@@ -83,7 +83,7 @@ Walmart 的 `purchaseOrderId` 在 Marketplace 客单履约接口中是原平台�
 
 采购、分批收货、库存预留、拣货、出库和供应商代发优先评估 ERPNext，消费其标准 Purchase Order、Purchase Receipt、Stock Reservation、Pick List、Delivery Note/发运能力，通过 Frappe API 集成；不复制同一套可写采购和库存事实。
 
-固定 ERPNext v15.124.3 / Frappe v15.125.0 的隔离 Spike 已验证采购、分批收货/交付、库存预留、并发不超量、仓间调拨、跨 site 拒绝及原子回执。普通 REST 重复 POST 会建两张单，不能作为正式重试合同。采用原生业务 owner 加本批最小命令适配，准确证据和限制见 [适配记录](erpnext-shein-fulfillment-fit.md)，不把 Spike 作为可部署插件。
+固定 ERPNext v15.124.3 / Frappe v15.125.0 的隔离 Spike 已验证采购、分批收货/交付、库存预留、并发不超量、仓间调拨、跨 site 拒绝及原子回执。普通 REST 重复 POST 会建两张单，不能作为正式重试合同。采用原生业务 owner 加本批最小命令适配，准确证据和限制见 [适配记录](domains/marketplace/erpnext-shein-fulfillment-fit.md)，不把 Spike 作为可部署插件。
 
 ERP 内部需求只表达采购与实物履约安排，不接管平台客单付款、取消或平台采购状态。需求数量、采购行、收货、库存预留及出库分配优先在同一 ERP owner 的事务内校验；硕米不再维护另一份可写的需求数量账。
 
@@ -264,7 +264,7 @@ ERP/平台调用固定于安装配置和当前 Store registry；禁止浏览器�
 
 第1轮候选 ae76bef05e5afda1f2647ad43f16a14af7c5814e 的唯一 BLOCKER 为 B1：原 SO/SRE 预留后使用 Stock Entry 调拨，不能同时消费预留及推进原需求，命中核心 happy path 无法完成，阻塞实施准入。独立 Reviewer 已核对准确上游源码和真实 Spike，未要求重审其余未变边界。
 
-分类：BLOCKER。Action：仅冻结§13.2的原生内部 DN 路径，并在同一已预留商品验证。增量 Spike f1eaa573 已重现旧 Stock Entry 拒绝；原生内部 DN 部分移交2后，源仓5→3、在途0→2、原需求已交0→2、剩余预留5→3，总拥有数量5且无GL；DN/SRE/库存更新后、回执提交前故障时，四项原事实和回执一起回滚。准确结果见 [适配验证](erpnext-shein-fulfillment-fit.md) 与固定JSON。
+分类：BLOCKER。Action：仅冻结§13.2的原生内部 DN 路径，并在同一已预留商品验证。增量 Spike f1eaa573 已重现旧 Stock Entry 拒绝；原生内部 DN 部分移交2后，源仓5→3、在途0→2、原需求已交0→2、剩余预留5→3，总拥有数量5且无GL；DN/SRE/库存更新后、回执提交前故障时，四项原事实和回执一起回滚。准确结果见 [适配验证](domains/marketplace/erpnext-shein-fulfillment-fit.md) 与固定JSON。
 
 Reviewer 其余建议归 IMPLEMENTATION_TEST：不同 operation ID 不能绕过同一实物/平台效果的 UNKNOWN 占用；实时权限/地址用途/版本漂移；原生容差、单位换算和部分收货/出库的准确约束。它们必须在正式实现和必要验证中收敛，当前不据此增建通用机制或扩大架构评审范围。原独立 Reviewer 已只读核对 B1 的真实三文件增量、脚本哈希、原始 f1eaa573 结果和准确上游约束，绑定 bd70e74108c7633b34329123c8f845b636a22d1e 明确 IMPLEMENTATION_READY；B1关闭，不重复全局评审。Reviewer未重新执行有写入的probe，该结论不是真实平台或用户验收。
 
