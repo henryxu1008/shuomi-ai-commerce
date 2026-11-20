@@ -1,6 +1,6 @@
 # AI 领域文档：#132 标题评测候选
 
-本页是架构合同的**定位入口**，不对设计进行准入、也不授权真实模型调用。参见 [AI Capability](../../ai-capability-platform.md)、[Product Agent 运行合同](../../product-agent-runtime-contract.md)、[项目事实边界](../../project-boundaries.md)及 [Issue #132](https://github.com/henryxu1008/shuomi-ai-commerce/issues/132)。
+本页是架构合同的**定位入口**，不对设计进行准入、也不授权真实模型调用。参见 [AI Capability](ai-capability-platform.md)、[Product Agent 运行合同](../../product-agent-runtime-contract.md)、[项目事实边界](../../project-boundaries.md)及 [Issue #132](https://github.com/henryxu1008/shuomi-ai-commerce/issues/132)。
 
 ## 当前迁入的两份候选
 

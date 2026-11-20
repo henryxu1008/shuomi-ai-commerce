@@ -78,7 +78,7 @@ Phase 2A 的权威要求记录在以下位置：
 - `docs/product/ai-commerce-agent-platform-strategy.md`；
 - [current-refactoring-status.md（历史）](https://github.com/henryxu1008/shuomi-ai-commerce/blob/f936702227f871e122d478276868e63a6efcc4fc/docs/archive/refactoring/current-refactoring-status.md)；
 - GitHub Issues #128、#133、#134；
-- `docs/architecture/ai-capability-platform.md`；
+- `docs/architecture/domains/ai/ai-capability-platform.md`；
 
 这些文档要求建立唯一的 Tool 合同，至少包含：
 

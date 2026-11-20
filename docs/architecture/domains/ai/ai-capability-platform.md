@@ -1,9 +1,11 @@
 # AI Capability & Agent Platform 设计
 
+> 归类与时点说明（2026-11-20）：本文保留 2026-08-06 AI 能力治理与 Agent 分工的总体规划，旧包名、Phase 状态与 PoC 目标不作当前运行证明。具体实现范围仍见 [Product Agent 运行合同](../../product-agent-runtime-contract.md) 及开放的 [#132](https://github.com/henryxu1008/shuomi-ai-commerce/issues/132)；[#1110](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1110) 仅覆盖隔离入口等工程证据，不能替代现场准入、正式真实试点或评测。AI 能力治理、Agent 推理、商品事实和下游发布各归原 owner；本批只移动文档，不恢复旧兼容路径，不授权凭据、模型调用、费用或上线。
+
 ## 1. 状态与决策
 
 当前 #131/#132 的具体运行合同和接入缺口见
-[Product Agent 最小运行合同](product-agent-runtime-contract.md)。
+[Product Agent 最小运行合同](../../product-agent-runtime-contract.md)。
 历史实现描述不是当前能力完成证据；新消费者遵循全新系统/Legacy Hard-Cut 基线。
 合同准备不代表 Agent 已实现或允许真实模型调用。
 
