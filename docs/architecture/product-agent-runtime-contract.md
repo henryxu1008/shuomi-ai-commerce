@@ -39,7 +39,7 @@ UNKNOWN 和采用门禁不变，不增加调用或放开 metered Tool。旧 C1 �
 C2-2 额外视觉模型继续 DEFERRED / NOT_IMPLEMENTED；C3-2 独立查询已完成自身 R1 并获后续实现授权，证据见 #1077。
 两者都不是 #1076 本阶段 Must 或 E2 前置，也不是已实现或风险接受；其他未被替代的 Must 保持。
 
-C2-2 后续已开始[单图视觉分析候选](product-image-visual-analysis.md)，D1–D3 已单独产品认可，
+C2-2 后续已开始[单图视觉分析候选](domains/catalog/product-image-visual-analysis.md)，D1–D3 已单独产品认可，
 具体模型/图像计量/费率仍缺失，尚未实施或独立准入。
 候选复用现 Run/config/Model/ledger，保持事实 Tool 无模型调用；新的图片输入、计量与结果合同
 不能从文本 Quote、C1 路径决定或既有 Ready 推定。分析用途与当前生图许可/标题采用分开，

@@ -1,9 +1,11 @@
 # 商品图片单图视觉分析：C2-2 最小设计候选
 
-> 2026-11-04 [Eino多厂商按需准入候选](domains/ai/eino-model-admission.md)明确共同单图身份与各模型协议参数分离；用户已认可并完成设计自动文档复核，现获实施授权，当前交付证据见PR #1093。
+> 归类与时点说明（2026-11-20）：本文保留 C2-2 的冻结单图只读范围、确认、证据和历史计价阶段说明。随后 [#1078](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1078)、[#1093](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1093) 已合并，按各自证据区分限定单图工程、多厂商适配和生图实现；[#134](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134) 已按工程范围验收关闭。商品原件/版本与素材权限仍归 Catalog/Source/Asset，分析结果和调用账务由既有 Agent Run/受治理执行及账本持有。工程合并不证明当前型号或实例可用、真实消费、视觉效果或产品验收，也不恢复旧费率前置。
+
+> 2026-11-04 [Eino多厂商按需准入候选](../ai/eino-model-admission.md)明确共同单图身份与各模型协议参数分离；用户已认可并完成设计自动文档复核，现获实施授权，当前交付证据见PR #1093。
 > 本文Mini准确profile及原已批准单图只读/确认/预算边界继续有效；用户已明确没有历史数据，候选直接定义当前共同输入，不增旧格式reader或过渡合同；共同输入和型号专属参数以冻结设计§7为准，不将此处Mini工程证据外推至其他视觉型号。
 
-2026-11-04 当前价格语义以[共享合同的阶段纠偏](enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)为准：
+2026-11-04 当前价格语义以[共享合同的阶段纠偏](../../enterprise-shared-model-configuration.md#当前阶段决定参考价与估算2026-11-04)为准：
 平台维护参考价/估算配置并冻结版本，精确厂商逐次价格/细分分项/完整硬上界不再作为业务前置。
 本文旧精确计价描述保留为原实施依据，不恢复已撤回要求；C2-2 单图只读范围、原权限/调用/点数上限、
 原键/UNKNOWN 与同一账本不变。该决定不自动改实际扣点算法、不运行真实分析或重写历史结果。
@@ -18,7 +20,7 @@ Refs #134 / #128；当前唯一负责人、原独立工作区继续，无新增 
 本文件为冻结实施基线，尚不表示视觉实现完成或产品验收通过；依既有授权先回归再最小实现。
 不新增人员或 PR，不包含合并、部署、关单或真实调用权限。
 
-2026-11-03 用户进一步确定[企业统一模型配置与官方价折算](enterprise-shared-model-configuration.md)：
+2026-11-03 用户进一步确定[企业统一模型配置与官方价折算](../../enterprise-shared-model-configuration.md)：
 先有默认渠道，企业在一处统一配置文本/图片生成/多模态默认模型，所有成员共用，
 各业务读取已配置模型。GPT/Gemini/Qwen 均保留支持目标，按实际模型官方价折算 AI 点数。
 这替代“先仅支持一家”及“成员每次分析另选模型”的建议；本用途读取企业多模态默认配置。
@@ -41,11 +43,11 @@ Flare 完整费用上界/官方直连执行仍 NOT_READY；三类全部合格才
   C2-2 延期/未实现；重新启动需要明确范围、模型/费用、证据、授权及 UNKNOWN 合同。
 - [本轮设计整理接续](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6592753393)。
 - [D1–D3 产品认可与 Draft PR 授权](https://github.com/henryxu1008/shuomi-ai-commerce/issues/134#issuecomment-6592979123)。
-- [C2-1 冻结设计](domains/catalog/product-image-facts-advice.md)、[Commerce Tool](commerce-tool-foundation.md)、
-  [Agent 运行合同](product-agent-runtime-contract.md)、[文本模型治理](domains/ai/product-agent-text-provider-neutral.md)、
-  [模型与费率管理](model-route-pricing-management.md)、[业务职责](../product/decisions/business-agent-responsibilities.md)。
-- [当前领域边界](project-boundaries.md)、[全新系统基线](../product/greenfield-no-legacy-migration.md)。
-- [UI / IA Authority](../product/final-ui-ia-authority.md)：Figma `tg48P46SSXl6TBy9lZwg63` 非归档 `31:463`。
+- [C2-1 冻结设计](product-image-facts-advice.md)、[Commerce Tool](../../commerce-tool-foundation.md)、
+  [Agent 运行合同](../../product-agent-runtime-contract.md)、[文本模型治理](../ai/product-agent-text-provider-neutral.md)、
+  [模型与费率管理](../../model-route-pricing-management.md)、[业务职责](../../../product/decisions/business-agent-responsibilities.md)。
+- [当前领域边界](../../project-boundaries.md)、[全新系统基线](../../../product/greenfield-no-legacy-migration.md)。
+- [UI / IA Authority](../../../product/final-ui-ia-authority.md)：Figma `tg48P46SSXl6TBy9lZwg63` 非归档 `31:463`。
   复用商品图片职责入口和既有结果组件，不新增顶层智能体/工作台。
   本轮没有重新读取 Figma；实际入口位置、控件与布局尚未冻结，不能从历史截图宣称视觉准入/验收。
 
@@ -192,7 +194,7 @@ Prepare 冻结所选图片的原身份、实际内容 SHA256、媒体类型/字�
 
 ## 6. 视觉模型与费用：准入必须补齐
 
-当前模型/价格配置按[企业共享合同](enterprise-shared-model-configuration.md)读取多模态类别，
+当前模型/价格配置按[企业共享合同](../../enterprise-shared-model-configuration.md)读取多模态类别，
 不能直接按原标题 operation 或生图 points/image 推定。模型/渠道变化须在原新准备及最后发送核验；
 旧请求不静默换模，已提交结果仍按原事实读取。该依赖同时覆盖官方价、汇率及细点数单位，
 不在本用途创建独立可编辑点数费率或第二配置源。

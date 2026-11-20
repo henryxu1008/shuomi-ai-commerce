@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | [会话和消息](ai-workbench-chat-business-task.md) | Workbench 的 MessageInput / WorkScope 增加可空的有序图片引用，复用原命令 work_scope、用户消息与返回回执，持有会话范围、消息顺序、附件关系和答复。 | 同源 BFF → Workbench 会话 API → 正常 Chat 消息列表。 |
 | [不可变存储及企业容量](../../enterprise-storage-capacity.md) | 配置根注入已验证物理身份的私有对象存储及独立 chat-image/ 前缀，复用原 S3 SDK 的 PutImmutable、ReadObject 和原容量 owner 的多对象预留、绑定、确认及关闭。以 business_attachment 归属实际保留对象的企业。 | 发图写入及原对象读回，图片查看和模型只读取原命令绑定的对象。 |
-| [图片检查与治理](../../product-image-visual-analysis.md) | AI Capability 注册专用 aiworkbench_chat_image_question，复用原单张内容校验、冻结 Profile、QuoteText、最终发送门禁和用量/预留 owner，独立准入整组线协议。 | Planner 以本条问题及有序图片为输入，回写安全 Markdown，只产生原 CLARIFY 无提案终态。 |
+| [图片检查与治理](../catalog/product-image-visual-analysis.md) | AI Capability 注册专用 aiworkbench_chat_image_question，复用原单张内容校验、冻结 Profile、QuoteText、最终发送门禁和用量/预留 owner，独立准入整组线协议。 | Planner 以本条问题及有序图片为输入，回写安全 Markdown，只产生原 CLARIFY 无提案终态。 |
 
 私有客户端构造集中在 `internal/app/runtime/currentapplication/chat_image_storage.go`，通过现有 ApplicationFeatures 向运行消费者注入已构造的对象读写和容量能力。对象存储构造器清单及精确依赖准入记录该装配文件。
 

@@ -45,7 +45,7 @@ C2-2 的额外视觉模型分析继续 DEFERRED / NOT_IMPLEMENTED；C3-2 已由�
 C2 的非执行性建议不调用 PrepareImageSet，不将付费生成或模型提案伪装为 unmetered compute。
 本节不签发工程最终验收、运行/产品通过或 #134/#128 完成。
 
-[C2-2 单图视觉分析候选](product-image-visual-analysis.md)进入单独设计整理，仍为
+[C2-2 单图视觉分析候选](domains/catalog/product-image-visual-analysis.md)进入单独设计整理，仍为
 DESIGN_CANDIDATE / NOT_IMPLEMENTATION_READY / NOT_IMPLEMENTED。
 候选沿受治理 Model 补单张图片输入和只读结果，保留原纯事实 Tool；不自动沿用 C1 路径 A 批准，
 不将真实付费视觉调用藏进 unmetered Tool，也不将通用 metered gateway 作为本阶段前置。
