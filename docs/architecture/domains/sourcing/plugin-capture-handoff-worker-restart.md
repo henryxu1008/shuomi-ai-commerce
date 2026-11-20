@@ -1,6 +1,8 @@
 # 商品采集交接在扩展后台重建后恢复（#1161）
 
-状态：IMPLEMENTATION_READY。独立复核通过 01e9812f7093099a3b335c5e429e6e29c39b6f72；旧交接撤销竞态已在第 2 轮关闭。新页面首条消息和慢切换的竞争由实现回归覆盖。依据 [持久草稿与可靠交接 §7](plugin-capture-durable-drafts.md#7-交接刷新与跨重启恢复) 和 #1161 用户决定。
+> 归类与时点说明（2026-11-20）：归入 Sourcing 的插件交接恢复合同；Handoff/Controller 与 DraftStore 各持原责任，原时限、用户手动确认、原键与 UNKNOWN 不变。[#1161](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1161) 已关闭，[#1162](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1162) 已合并。原隔离 Edge 后台重建、隔离 1688 共享路径与后来单独授权的一件原 Amazon 草稿保存是各自证据；不外推当前实例或插件状态、其他样本或完整产品验收。本次仅迁文档，未读取客户草稿/凭据、操作插件、重采或保存。
+
+状态：IMPLEMENTATION_READY。独立复核通过 01e9812f7093099a3b335c5e429e6e29c39b6f72；旧交接撤销竞态已在第 2 轮关闭。新页面首条消息和慢切换的竞争由实现回归覆盖。依据 [持久草稿与可靠交接 §7](../../plugin-capture-durable-drafts.md#7-交接刷新与跨重启恢复) 和 #1161 用户决定。
 
 ## 用户结果和边界
 

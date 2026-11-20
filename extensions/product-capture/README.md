@@ -295,7 +295,7 @@ extension worker restart. If the document or session is gone, the user can
 explicitly restore the same IndexedDB draft and original key with a fresh
 handoff. An interrupted send still requires checking the original key through
 the existing backend recovery path. A missing receipt does not authorize an
-automatic POST. See the [worker restart design](../../docs/architecture/plugin-capture-handoff-worker-restart.md).
+automatic POST. See the [worker restart design](../../docs/architecture/domains/sourcing/plugin-capture-handoff-worker-restart.md).
 
 ## Release packaging limitation
 
