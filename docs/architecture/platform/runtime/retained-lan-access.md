@@ -1,12 +1,14 @@
 # Retained trial LAN access: scoped identity admission
 
+> 归类与时点说明（2026-11-20）：本文完整保留 #1300 局域网试用的受限身份准入、失败诊断与原操作边界，归入 platform/runtime。当前配置校验和 HTTP consumer 仍复用 canonical HTTPS 身份准入，原 fixed binding、owner、权限和禁执行条件不变。[#1300](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1300) 后续 2026-11-15 18:02 记录用户执行切换后服务器检查通过；下文恢复原配置、DNS 阻塞及待切换是此前阶段，不能当作今天实例状态。该服务器证据不等于实际账号登录、另一台电脑访问或用户验收，相关 NOT_RUN 保留。手机仍在原暂缓范围；当前运行/配置未读取。原 #1301 当前为 closed 且未标记 merged，不据关闭状态宣称合并或实例已更新。本文不是重复官方身份 setup、改网络/信任/文件权限、重启服务或恢复数据库的操作授权；本次只迁文档与链接，不接触实例、凭据或私密配置。
+
 Issue [#1300](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1300). Design Basis: Independent Architecture. Status: IMPLEMENTATION_READY. Independent boundary review `/root/lan_boundary_review` approved the pre-implementation design (SHA256 E16A067A3802C77626667D98C8FE1954BE4C4E0B2648C3BD5C5D8080D4CE17AD) on 2026-11-15, with no unresolved design BLOCKER.
 
 ## Product outcome and authority
 
 Henry requested direct browser access to the existing retained 35444 installation from another computer on the same LAN, preserving its existing accounts, permissions, enabled functions and data. Phones are deferred. The user performs any operations rejected by the automation environment. This is an internal LAN trial, not Internet publication, product acceptance or a production release.
 
-Current authorities: [identity and tenancy](platform/identity/auth-and-tenancy.md), [fixed canonical HTTPS issuer](platform/identity/public-trial-identity-origin.md), [manual-only synthetic source](research-existing-synthetic-read-candidate.md), [controlled local draft](domains/listing/controlled-local-platform-draft.md), [TLS maintenance](local-tls-revocation-maintenance.md), and the current user decision above. Figma N/A. No legacy migration or second identity/data owner.
+Current authorities: [identity and tenancy](../identity/auth-and-tenancy.md), [fixed canonical HTTPS issuer](../identity/public-trial-identity-origin.md), [manual-only synthetic source](../../research-existing-synthetic-read-candidate.md), [controlled local draft](../../domains/listing/controlled-local-platform-draft.md), [TLS maintenance](../../local-tls-revocation-maintenance.md), and the current user decision above. Figma N/A. No legacy migration or second identity/data owner.
 
 ## Observed blocker and bounded scope
 
