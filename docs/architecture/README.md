@@ -185,7 +185,6 @@
 - `shein-offline-validation-input-binding.md` — [SHEIN 离线诊断输入、freshness 与组织范围读取设计](shein-offline-validation-input-binding.md)
 - `domains/listing/shein-publication-flow.md` — [SHEIN 美国站：审核、首次上架与状态回读最小闭环](domains/listing/shein-publication-flow.md)
 - `domains/marketplace/shein-submit-readiness-action-policy.md` — [SHEIN Submit Readiness Action Policy](domains/marketplace/shein-submit-readiness-action-policy.md)
-- `store-browser-workbench-implementation.md` — [店铺浏览器接口实施交接](store-browser-workbench-implementation.md)
 - `store-center-application.md` — [Store Center 接入 current application v1](store-center-application.md)
 - `store-center-figma.md` — [Store Center：我的店铺完整 Figma 路径 v1](store-center-figma.md)
 - `store-center-platform-observations.md` — [店铺中心：平台商品与订单物流只读首版](store-center-platform-observations.md)
