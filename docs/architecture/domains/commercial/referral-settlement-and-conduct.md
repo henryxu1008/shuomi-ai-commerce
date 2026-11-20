@@ -1,5 +1,7 @@
 # Referral settlement period and promotion conduct
 
+> Classification and chronology (2026-11-20): This is the frozen referral design implemented by [PR #536](https://github.com/henryxu1008/shuomi-ai-commerce/pull/536). [Issue #469](https://github.com/henryxu1008/shuomi-ai-commerce/issues/469) is closed for engineering scope only. Money owns canonical payments and reversals; Referral owns claim maturity and its projection. The strict v1 rules response reports the period; conduct text does not create sanctions. Historical synthetic deadline/startup-scan checks were limited to their recorded revision and did not observe a real 30-day passage, a full ticker interval, actual KYC, payout, or real payments. They establish neither current runtime nor product acceptance or authorization.
+
 Status: IMPLEMENTATION_READY. Execution: #469. Product decision: 2026-09-27.
 Design Basis: Independent Architecture (changes the timing of money availability).
 
@@ -21,9 +23,9 @@ minimum remains CNY 100, and manual review and personal KYC admission are unchan
 UI authority: Figma `tg48P46SSXl6TBy9lZwg63`, page `31:463`, node `1821:827`:
 retain the current-rule notice and six cards, with a single column on narrow
 screens. Product text may not turn Figma example sanctions into runtime facts.
-Related authority: [final UI](../product/final-ui-ia-authority.md),
-[KYC rollout §8](referral-withdrawal-personal-kyc-contract.md#8-referral-rules-contract-and-staged-rollout),
-and [greenfield baseline](../product/greenfield-no-legacy-migration.md).
+Related authority: [final UI](../../../product/final-ui-ia-authority.md),
+[KYC rollout §8](../../referral-withdrawal-personal-kyc-contract.md#8-referral-rules-contract-and-staged-rollout),
+and [greenfield baseline](../../../product/greenfield-no-legacy-migration.md).
 
 Must: backend availability and the displayed current period are 30 days; replay
 does not duplicate or reschedule an existing claim; conduct copy is explicit and
