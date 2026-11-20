@@ -1,6 +1,6 @@
 # 企业智能体权限与审批模式 V1
 
-> Classification and chronology (2026-11-20): This is the frozen AI execution and approval policy, not an IAM or deployment grant. The separate [operations handoff](../../../operations/enterprise-agent-permission-modes.md) remains in place. [Issue #656](https://github.com/henryxu1008/shuomi-ai-commerce/issues/656) closed for engineering scope after [PR #657](https://github.com/henryxu1008/shuomi-ai-commerce/pull/657) merged; the original default-queue observation was corrected to 0 → 0 and does not describe Store preparation. Runtime and product acceptance remain unverified. These records do not widen tool or resource access, authorize external protected actions, or turn policy adoption into human approval.
+> Classification and chronology (2026-11-20): This is the frozen AI execution and approval policy, not an IAM or deployment grant. The separate [operations handoff](../../../operations/runbooks/enterprise-agent-permission-modes.md) remains separate. [Issue #656](https://github.com/henryxu1008/shuomi-ai-commerce/issues/656) closed for engineering scope after [PR #657](https://github.com/henryxu1008/shuomi-ai-commerce/pull/657) merged; the original default-queue observation was corrected to 0 → 0 and does not describe Store preparation. Runtime and product acceptance remain unverified. These records do not widen tool or resource access, authorize external protected actions, or turn policy adoption into human approval.
 
 > Status: APPROVED / IMPLEMENTATION_READY (architecture only)
 >

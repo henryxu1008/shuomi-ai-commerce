@@ -1,6 +1,8 @@
 # 企业智能体四种执行权限：接入与保留数据更新
 
-依据 #656 和 [已批准设计](../architecture/domains/ai/enterprise-agent-permission-modes.md)。本说明交接当前候选，代码检查、CI、独立复核、安装核对和用户验收分别记录；不得将任一项替代其它项。
+> 归类与时点说明（2026-11-20）：这是四种执行模式的历史维护交接，不是权限申请或执行授权。[#656](https://github.com/henryxu1008/shuomi-ai-commerce/issues/656) 仅按工程范围关闭，[#657](https://github.com/henryxu1008/shuomi-ai-commerce/pull/657) 已合并；历史 default 队列观察已更正为 0 → 0，不涉及 Store 准备队列，不代表当前实例。下文保留原说明，任何安装、密钥、角色、运行、费用或业务操作仍须另行核对并授权；本次仅整理文档。
+
+依据 #656 和 [已批准设计](../../architecture/domains/ai/enterprise-agent-permission-modes.md)。本说明交接当前候选，代码检查、CI、独立复核、安装核对和用户验收分别记录；不得将任一项替代其它项。
 
 ## 入口与行为
 
