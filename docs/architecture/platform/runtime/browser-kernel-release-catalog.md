@@ -1,5 +1,7 @@
 # 平台浏览器内核发行目录 V1
 
+> 归类与时点说明（2026-11-20）：本文为 [#1013](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1013) 冻结后端设计。目录是平台全局发行事实，不属于 Sourcing、企业或 Store；其 owner 为 browserkernel，原生端负责准备和本机绑定，管理页仅消费原接口。后端 [#1014](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1014) 与原生 [#20](https://github.com/henryxu1008/openbrowser-platform/pull/20) 源码已合并；史料中的 Draft/无管理页为首版边界，后续 [#1056](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1056) 仅按管理页与读回确认工程范围关闭，不改写其历史评审或现场证据。#1013 仍开放，原隔离执行受阻，实际选版、安装、店铺完整链及真实发行/部署不能由源码、构建或管理页推断。本次只归类文档，不执行或授权发行、下载、安装、登录、权限变更或实例操作。
+
 2026-10-30。Issue #1013。Status: **IMPLEMENTATION_READY**。首轮独立检查绑定 c73b22421ac51c3601a19567c64a5be3f27446f1；同一 Reviewer 对跨端增量 3c9e47d328038cc917f8009af156662651341108 和桌面依据 eee5f60e30a30abf15aa03a282c3e98e4b82ea80 确认保持准入，无架构 BLOCKER。正式实现晚于这两次检查；分页/版本校验在实施层验证。
 
 ## 产品依据、范围与 owner
