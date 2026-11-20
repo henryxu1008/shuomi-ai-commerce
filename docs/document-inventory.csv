@@ -1,6 +1,6 @@
 path,layer,domain,size_bytes,action,candidate_path,related_paths,review_status,note
 docs/architecture/domains/sourcing/1688-acquisition-channel-pricing.md,architecture,sourcing,10218,KEEP_PATH,,,MOVED_VERIFIED,Sourcing channel and resource boundaries preserved; retired HTTP and versioned Commercial price distinguished
-docs/architecture/1688-acquisition-figma.md,architecture,sourcing,23492,REVIEW_LIFECYCLE,docs/architecture/domains/sourcing/1688-acquisition-figma.md,,PROPOSED_ONLY,stage-specific name; validate active contract and consumers before action
+docs/architecture/domains/sourcing/1688-acquisition-figma.md,architecture,sourcing,23487,KEEP_PATH,,,MOVED_VERIFIED,frozen Sourcing acquisition plan contract relocated; current UI authority and retired provider boundaries retained
 docs/architecture/1688-acquisition-rate-and-egress-proxy.md,architecture,sourcing,11171,REVIEW_MOVE,docs/architecture/domains/sourcing/1688-acquisition-rate-and-egress-proxy.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/architecture/domains/sourcing/1688-batch-import.md,architecture,sourcing,3512,KEEP_PATH,,,MOVED_VERIFIED,moved to sourcing; current contract and immutable historical evidence references separated
 docs/architecture/domains/sourcing/1688-context-locator.md,architecture,sourcing,7651,KEEP_PATH,,,MOVED_VERIFIED,moved to sourcing; historical challenge measurement pinned separately from current locator
@@ -171,7 +171,7 @@ docs/architecture/domains/workbench/project-center-overview-read.md,architecture
 docs/architecture/project-target-architecture.md,architecture,platform,3746,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/platform/identity/protected-member-role-native-cas.md,architecture,identity,19647,KEEP_PATH,,,MOVED_VERIFIED,full historical contract retained; official provider retirement and closed maintenance window clarified; references verified
 docs/architecture/platform/identity/public-trial-identity-origin.md,architecture,identity,7827,KEEP_PATH,,,MOVED_VERIFIED,full source retained; bounded public origin and historical trial authorization verified
-docs/architecture/README.md,architecture,cross-cutting,44156,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
+docs/architecture/README.md,architecture,cross-cutting,44190,KEEP_PATH,,,PROPOSED_ONLY,stable referenced entrypoint
 docs/architecture/domains/commercial/referral-settlement-and-conduct.md,architecture,commercial,8360,KEEP_PATH,,,MOVED_VERIFIED,original referral maturity and conduct retained with bounded historical evidence
 docs/architecture/domains/commercial/referral-withdrawal-personal-kyc-contract.md,architecture,commercial,18647,KEEP_PATH,,,MOVED_VERIFIED,frozen withdrawal admission design; authority and staged rollout evidence preserved
 docs/architecture/domains/workbench/report-center-shein-offline-package-source.md,architecture,workbench,20497,KEEP_PATH,,,MOVED_VERIFIED,report source contracts grouped under workbench; offline and target facts remain distinct
@@ -209,7 +209,7 @@ docs/architecture/domains/ai/skill-capability.md,architecture,ai,30622,KEEP_PATH
 docs/architecture/skill-script-sandbox.md,architecture,ai,141143,REVIEW_CROSS_LAYER,docs/architecture/domains/ai/skill-script-sandbox.md,docs/operations/skill-script-sandbox.md,PROPOSED_ONLY,same basename across layers; not evidence of duplicate content
 docs/architecture/domains/sourcing/source-account-bff.md,architecture,sourcing,19199,KEEP_PATH,,,MOVED_VERIFIED,SA-2 historical same-origin transport and registry ownership retained
 docs/architecture/domains/sourcing/source-account-registry.md,architecture,sourcing,19692,KEEP_PATH,,,MOVED_VERIFIED,historical SA1 registry owner and current composition evidence retained
-docs/architecture/domains/sourcing/source-business-flow.md,architecture,sourcing,27155,KEEP_PATH,,,MOVED_VERIFIED,frozen sourcing flow; engineering closure distinguished from open integration acceptance
+docs/architecture/domains/sourcing/source-business-flow.md,architecture,sourcing,27149,KEEP_PATH,,,MOVED_VERIFIED,frozen sourcing flow; engineering closure distinguished from open integration acceptance
 docs/architecture/domains/ai/source-white-background.md,architecture,ai,18265,KEEP_PATH,,,MOVED_VERIFIED,fixed ImageAgent and Resource owner contract; historical single-image boundary retained
 docs/engineering/integration/store-browser-workbench-implementation.md,engineering,cross-cutting,6462,KEEP_PATH,,,MOVED_VERIFIED,Store Center integration handoff relocated; original scope and historical verification bounds preserved
 docs/architecture/store-center-application.md,architecture,cross-cutting,28985,KEEP_PATH,docs/architecture/store-center-application.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
@@ -287,7 +287,7 @@ docs/engineering/integration/supply-market-runtime-handoff.md,engineering,catalo
 docs/engineering/integration/tool-market-runtime-handoff.md,engineering,workbench,9305,KEEP_PATH,,,MOVED_VERIFIED,service integration handoff relocated; semantics and historical limits unchanged
 docs/engineering/unified-task-center.md,engineering,cross-cutting,8307,KEEP_PATH,docs/engineering/unified-task-center.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
 docs/engineering/zitadel-official-provider-boundary.md,engineering,identity,7097,KEEP_PATH,docs/engineering/zitadel-official-provider-boundary.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
-docs/operations/user-guides/acquisition-plans-local.md,operations,sourcing,2785,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; runtime authorization retained
+docs/operations/user-guides/acquisition-plans-local.md,operations,sourcing,3624,KEEP_PATH,,,MOVED_VERIFIED,Verified docs-only path move and references; runtime authorization retained
 docs/operations/user-guides/agent-customization-handoff.md,operations,workbench,11717,KEEP_PATH,,,MOVED_VERIFIED,moved after source and consumer review; relative links updated; semantics preserved
 docs/operations/runbooks/ai-workbench-chat-trial.md,operations,workbench,13321,KEEP_PATH,,,MOVED_VERIFIED,moved with historical modes and channel credential boundaries preserved
 docs/operations/user-guides/ai-workbench-scheduled-tasks.md,operations,workbench,11549,KEEP_PATH,,docs/architecture/domains/workbench/ai-workbench-scheduled-tasks.md,MOVED_VERIFIED,Verified guide relocation; daily-report scope and existing content-plan safeguards unchanged

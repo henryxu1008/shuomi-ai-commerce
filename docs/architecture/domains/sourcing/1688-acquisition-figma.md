@@ -1,6 +1,6 @@
 # 1688 在线采集、规则与待适配接入
 
-> **现行消费边界（2026-11-17）：** 本文是 2026-10-11 冻结的采集计划、规则与待适配转入**技术合同**；当时的“完整对齐 Figma”“当前 Figma”属于原版产品视觉依据，不再是最终 UI/IA 权威。当前在线采集统一为「供应市场 → 在线采集」二级入口（1688/Amazon 页内切换），见[最新产品流程](../product/final-ui-ia-authority.md)；真实业务启用/权限/预算与准确实现版本按原 owner 和 Issue/PR 核对。
+> **现行消费边界（2026-11-17）：** 本文是 2026-10-11 冻结的采集计划、规则与待适配转入**技术合同**；当时的“完整对齐 Figma”“当前 Figma”属于原版产品视觉依据，不再是最终 UI/IA 权威。当前在线采集统一为「供应市场 → 在线采集」二级入口（1688/Amazon 页内切换），见[最新产品流程](../../../product/final-ui-ia-authority.md)；真实业务启用/权限/预算与准确实现版本按原 owner 和 Issue/PR 核对。
 >
 > 本合同仍约束获准的计划、规则、来源保存、收费、人工转入和原键恢复，但**不能据旧设计恢复 1688 静态 HTTP provider**（[PR #1193](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1193) 已退役）。新的 1688 服务端采集要求明确配置的 browser collector；缺配置时新请求不可用，已有历史 publication / 回执仍依原权限读回。本段仅校准文档使用范围，不变更冻结权限、计费、合同或实施授权。
 
@@ -18,7 +18,7 @@ Status: **IMPLEMENTATION_READY / FROZEN BASELINE INCLUDING PER-BATCH TRANSFER CO
 Design Basis: **Independent Architecture**。新增采集计划/规则持久化合同、公开列表发现
 RPC 与有界恢复状态；本轮已完成高风险独立复核并达到 IMPLEMENTATION_READY。
 Baseline: main `c023edad14ad9255dee3e04a67b539bdaf2c83b8`。
-Product Authority: [2026-10-11 用户决定](../product/decisions/1688-acquisition-scope.md)。
+Product Authority: [2026-10-11 用户决定](../../../product/decisions/1688-acquisition-scope.md)。
 
 ## 1. 产品结果、Must 与边界
 
@@ -249,7 +249,7 @@ composition never invokes either initializer. No directory-wide exemption.
 Status: IMPLEMENTATION_READY / FROZEN AMENDMENT。2026-10-11 原独立只读 Reviewer 复核721d80a7及设计blob be862941846e07cb5432106fdddc03667b1b1f04，确认无新BLOCKER。下列事务未知/旧fence/原预留/HTTP与Browser/UI测试归IMPLEMENTATION_TEST，合并/试用前必须收敛。准入先于生产修改；不等于实现或用户验收PASS。
 Finding r4241497075 已由现有独立 Reviewer 分类 BLOCKER：核心原计划继续路径无法完成，阻塞实施准入及合并/试用。实际 provider capacity 在 Resource Reserve/Bind 后发生；原 failFetch 将 child Failed 并释放，计划下次无法恢复。跳过 Finish 同样留下 bound UNKNOWN，现有 §5 的 unbound 恢复不足。
 
-产品范围仍为 §1/§5 的原计划继续、原 child key、仅成功 publication 消耗一条。依据为本文件引用的当前产品/Figma、[渠道计价合同](domains/sourcing/1688-acquisition-channel-pricing.md) reserve-before-provider，及实际 browser Client.Acquire 在 slots/throttle 拒绝后未启动 Chromium；collector RPC 仅将 ErrCapacity/ErrThrottled 投影 CodeCapacity。其它来源失败、拒绝、超时、transport/响应不明不能据此声明未执行。
+产品范围仍为 §1/§5 的原计划继续、原 child key、仅成功 publication 消耗一条。依据为本文件引用的当前产品/Figma、[渠道计价合同](1688-acquisition-channel-pricing.md) reserve-before-provider，及实际 browser Client.Acquire 在 slots/throttle 拒绝后未启动 Chromium；collector RPC 仅将 ErrCapacity/ErrThrottled 投影 CodeCapacity。其它来源失败、拒绝、超时、transport/响应不明不能据此声明未执行。
 
 唯一新增合同为原 Product Sourcing 的窄 AcquisitionCapacityRejectionStore.RecordCapacityRejection(ctx, originalOperation)。只由当前 provider 调用实际返回的 ErrAcquisitionCapacity 触发；HTTP/server browser sibling 共享 core helper。客户端的 pause flag/error/任意 API body 都不是这个证据。无新表、owner、状态枚举、Resource API、后台 worker、预算或价格；复用原 operation.failure_code 记录 COLLECTOR_CAPACITY_REJECTED，状态仍 acquiring，command 必须为空。
 
