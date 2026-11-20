@@ -1,6 +1,8 @@
 # SHEIN 美国站首试：工作台操作入口
 
-**Design Basis: Independent Architecture，IMPLEMENTATION_READY（仅离线）。** 独立高风险检查已核对三动作、同源会话、原单及 UNKNOWN，没有开工阻碍。 [#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，原 worktree、分支和唯一 Writer。用户确认在现有登录和项目权限下接通查看原单、提交一次、核对原账，并先用合成数据验证。当前固定后端 `49dd3f6c0` 有内部接口，统一实例前端 `645eaa6cb` 没有相应的代理路径。离线范围沿 [首试产品决定](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[内部路由](domains/research/shein-us-trial-entry.md)、[运行及信任边界](shein-us-trial-runtime-wiring.md) 和 [项目 UI Authority](../product/flows/market-research-selection-centers-v1.md)。
+> 归类与时点说明（2026-11-20）：本文是 Research 项目工作台离线入口设计，原同源会话、权限、固定原单及未知恢复不变；Data Acquisition 仍持占用、费用、原件和回执。原前端缺代理及“未合并”只指当时候选；[#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 后续已合并，工作台/合成回归不证明现有实例启用了真实试取。[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 仍 OPEN；真实来源书面许可、实际账号/费用、试取和用户验收仍独立，历史 Figma 仅作业务流程参考。仅迁文档，不改任何运行设置或对外操作。
+
+**Design Basis: Independent Architecture，IMPLEMENTATION_READY（仅离线）。** 独立高风险检查已核对三动作、同源会话、原单及 UNKNOWN，没有开工阻碍。 [#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，原 worktree、分支和唯一 Writer。用户确认在现有登录和项目权限下接通查看原单、提交一次、核对原账，并先用合成数据验证。当前固定后端 `49dd3f6c0` 有内部接口，统一实例前端 `645eaa6cb` 没有相应的代理路径。离线范围沿 [首试产品决定](../../research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[内部路由](shein-us-trial-entry.md)、[运行及信任边界](../../shein-us-trial-runtime-wiring.md) 和 [项目 UI Authority](../../../product/flows/market-research-selection-centers-v1.md)。
 
 ## 用户操作
 

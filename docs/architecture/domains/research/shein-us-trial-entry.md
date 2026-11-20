@@ -1,6 +1,6 @@
 # SHEIN 美国站单页取数入口
 
-> 归类与时点说明（2026-11-20）：本文归入 Research 项目入口的历史离线合同；项目身份及三动作资格仍由原接线校验，Product Data Acquisition 继续持有原单、页费用和内部原版状态。[后续运行接线](../../shein-us-trial-runtime-wiring.md)与[工作台入口](../../shein-us-trial-workbench-entry.md)由已合并的 [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 衔接；下文最初“无开启入口”“无 UI 改动”只对应本离线切片。后续受控实现不等于当前启用或真实许可；[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 保持 OPEN，真实试取、费用、来源及用户验收按原未执行证据保留，不把合成门禁或 CI 当作生产验收。仅整理文档，不触真实账号、供应商、实例或费用。
+> 归类与时点说明（2026-11-20）：本文归入 Research 项目入口的历史离线合同；项目身份及三动作资格仍由原接线校验，Product Data Acquisition 继续持有原单、页费用和内部原版状态。[后续运行接线](../../shein-us-trial-runtime-wiring.md)与[工作台入口](shein-us-trial-workbench-entry.md)由已合并的 [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075) 衔接；下文最初“无开启入口”“无 UI 改动”只对应本离线切片。后续受控实现不等于当前启用或真实许可；[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) 保持 OPEN，真实试取、费用、来源及用户验收按原未执行证据保留，不把合成门禁或 CI 当作生产验收。仅整理文档，不触真实账号、供应商、实例或费用。
 
 ## 设计依据和范围
 
