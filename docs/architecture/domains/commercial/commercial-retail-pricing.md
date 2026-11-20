@@ -1,11 +1,13 @@
 # 店铺与 AI 预付资源正式价格 V1
 
-> DATA_ROW 当前合同增量：参见[平台调价与零价订单](data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
+> 归类与时点说明（2026-11-20）：本文保留 [#601](https://github.com/henryxu1008/shuomi-ai-commerce/pull/601) 的正式零售目录冻结设计与首次安装输入。[#600](https://github.com/henryxu1008/shuomi-ai-commerce/issues/600) 已按授权通过工程验收并关闭；公共与私有价格仍以 Commercial 当前版本化 offer 为准，DATA_ROW 调价/零价按后续合同，AI 预付资源购买价不等于模型消费或厂商费率。工程与固定历史示例不是对当前现场价格、真实购买/支付、连接或产品验收的证明，也不授权调价或实际交易。
+
+> DATA_ROW 当前合同增量：参见[平台调价与零价订单](../../data-row-platform-pricing-zero-orders.md)。下文固定 5 分和仅安装/运维调价的描述保留为原设计证据，当前售价以 Commercial 版本化 offer 为准；不授权保留环境改价。
 
 Design Basis: Independent Architecture
 Admission Status: IMPLEMENTATION_READY — 2026-10-08 独立 reviewer 复核设计 blob 5700e1cb85ccf443053800991abef62e336c2f3a、Issue #600 和引用合同，无设计级 BLOCKER；三个 IMPLEMENTATION_TEST 在本批收敛。
 
-2026-11-03 后续[统一模型/官方价消费点数候选](enterprise-shared-model-configuration.md)保留本文
+2026-11-03 后续[统一模型/官方价消费点数候选](../../enterprise-shared-model-configuration.md)保留本文
 `¥1 = 100 AI 点` 的购买关系，按用户明确的模型厂商官网公开价、不额外加价，
 拟由实际可计费用量、适用官网价目和冻结汇率推导模型消费点数。
 现整数点消费无法精确表达小额调用；百万微点及预留向上/实际最终向下取整已获后续产品设计认可，
@@ -29,7 +31,7 @@ Out of Scope：试用资格/赠送/优惠的新状态与持久化、模型/图�
 ## 产品与架构权威
 
 - 当前 Figma [套餐方案 431:3455](https://www.figma.com/design/tg48P46SSXl6TBy9lZwg63?node-id=431-3455)（2026-10-08 已读取设计上下文与截图）：收费构成、店铺 ¥168/店/期、1 期 30 天、AI 与数据分开购买、权益/钱包/账单入口。Figma 绑定后计时、多店优惠、赠送示例由当前领域合同及本批范围约束，不直接转为事实。
-- [Final UI / IA Authority](../product/final-ui-ia-authority.md)、[统一基础与预付资源](unified-base-prepaid-resources.md)、[Commercial Wallet/Billing](unified-base-prepaid-resources.md)、[成员资源分配](member-resource-allocation.md)、[支付合同](alipay-wallet-topup-design.md)、[Greenfield](../product/greenfield-no-legacy-migration.md)。
+- [Final UI / IA Authority](../../../product/final-ui-ia-authority.md)、[统一基础与预付资源](../../unified-base-prepaid-resources.md)、[Commercial Wallet/Billing](../../unified-base-prepaid-resources.md)、[成员资源分配](../../member-resource-allocation.md)、[支付合同](../../alipay-wallet-topup-design.md)、[Greenfield](../../../product/greenfield-no-legacy-migration.md)。
 - 首页沿已交付 MarketingHomepage 布局、资产和咨询入口；本批仅替换价格数据和未开放试用状态。用户的最新价格决定取代首页 ¥99 文案及旧文档的“店铺/AI 购买价格待决定”，不改变其他 owner 合同。
 
 ## Owner、实现和注入
