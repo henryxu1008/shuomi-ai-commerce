@@ -2,7 +2,7 @@
 
 > 适用时点：下文完整保留 #1158 的原设计及准入过程。[#1235](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1235)后来已完成受控原实例 T1→T3 保存/刷新；[#1236](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1236)已完成隔离共存验证、合并及另行授权的原实例镜像更新。旧“仅设计 / NOT_RUN / 未授权”描述仅对应原阶段，不否定这些执行事实；#1236 原实例更新后正式 SupplyChain 仍未启用，登录后浏览器验收仍 NOT_RUN，隔离替身不代表真实平台资格。准确版本、失败与回退限制以这两份 PR 及 [#1158](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1158) 分阶段证据为准，不以目录整理声明今天环境可用或续授部署/保存/发布/预留释放权限。
 
-> 后续合同关系：本地/正式共存沿[共存设计](local-and-official-draft-coexistence.md)，持续 localTrial、固定试点、原 owner/CAS/原键与测试稿永久不可发布不变；原 literal-loopback 身份限制的有界后续增量见[保留实例局域网准入](../../retained-lan-access.md)，不放宽固定来源/权限或其他隔离模式。必要验证与数据保全按当前 AGENTS.md、实际变更风险及准确证据执行，不恢复历史机械全量重建/演练要求。
+> 后续合同关系：本地/正式共存沿[共存设计](local-and-official-draft-coexistence.md)，持续 localTrial、固定试点、原 owner/CAS/原键与测试稿永久不可发布不变；原 literal-loopback 身份限制的有界后续增量见[保留实例局域网准入](../../platform/runtime/retained-lan-access.md)，不放宽固定来源/权限或其他隔离模式。必要验证与数据保全按当前 AGENTS.md、实际变更风险及准确证据执行，不恢复历史机械全量重建/演练要求。
 
 Design Basis: **Independent Architecture**。Admission: **IMPLEMENTATION_READY / FROZEN**。
 本轮仅设计与独立 Architecture Review；不得修改正式生产路径、原 35444 配置或数据，不调用模型、不保存/发布、不释放原预留。实现、合并、实例开通及真实平台操作分别等待后续明确授权。
