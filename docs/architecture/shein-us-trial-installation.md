@@ -2,7 +2,7 @@
 
 ## 产品范围与依据
 
-[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，入口基线 `4d5bb30c94150dfffcdadd35b8107a23c3d8d159`。Design Basis 为 Independent Architecture。当前交付是让部署人员能核对原库的安装与权限，并用合成批准、密钥引用和原单证据验证入口。复用[业务首试范围](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[默认关闭的入口](shein-us-trial-entry.md)、[单次发送](shein-us-one-page-trial-send.md)和[原单适配器](zenrows-shein-us-trial-adapter.md)。原工作区和唯一 Writer 续做。无 UI、Figma、旧库兼容或数据迁移。本轮不读真实凭据、不建库或安装到统一实例、不更新或启用实例、不请求供应商。SHEIN 书面回复并行。仍只取 1727 第一页、最多前 20 张、一次发送、25 credits、USD 0；两项 AI 各 ¥0.30 / 20 点且关闭。
+[#1073](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1073) / [#1075](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1075)，入口基线 `4d5bb30c94150dfffcdadd35b8107a23c3d8d159`。Design Basis 为 Independent Architecture。当前交付是让部署人员能核对原库的安装与权限，并用合成批准、密钥引用和原单证据验证入口。复用[业务首试范围](research-commercial-assessment-v1.md#53-shein-美国站商品卡片首试实施方案)、[默认关闭的入口](domains/research/shein-us-trial-entry.md)、[单次发送](shein-us-one-page-trial-send.md)和[原单适配器](zenrows-shein-us-trial-adapter.md)。原工作区和唯一 Writer 续做。无 UI、Figma、旧库兼容或数据迁移。本轮不读真实凭据、不建库或安装到统一实例、不更新或启用实例、不请求供应商。SHEIN 书面回复并行。仍只取 1727 第一页、最多前 20 张、一次发送、25 credits、USD 0；两项 AI 各 ¥0.30 / 20 点且关闭。
 
 ## 现有 Product 安装步骤与权限
 
