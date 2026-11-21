@@ -307,7 +307,9 @@ it("keeps only three account sections and selects the parent when opening a deta
   for (const [path, parent] of [
     ["profile/settings", "账户资料"],
     ["organization/members", "企业空间"],
+    ["organization/resources", "企业空间"],
     ["organization/resources/source-accounts", "企业空间"],
+    ["organization/audit", "企业空间"],
     ["referrals/withdrawals", "推广与收益"],
   ]) {
     view.rerender(<ConsoleNavigation pathname={`/workbench/account/${path}`} ariaLabel="主导航" />);
@@ -319,6 +321,35 @@ it("keeps only three account sections and selects the parent when opening a deta
     expect(within(account).getByRole("link", { name: parent })).toHaveAttribute("aria-current", "page");
   }
 });
+
+it.each(["model-route-pricing", "kernel-releases", "kernel-releases/new", "data-row-pricing"])(
+  "keeps Enterprise Space selected when opening %s directly or from the account section",
+  (detail) => {
+    const organization = "/workbench/account/organization";
+    const detailPath = `${organization}/${detail}`;
+    const sidebar = (pathname: string) => <ConsoleNavigation pathname={pathname} ariaLabel="主导航" />;
+    const view = render(sidebar(detailPath));
+
+    function expectEnterpriseSectionSelected() {
+      const account = screen.getByRole("link", { name: "我的账户" }).closest("li")!;
+      const menu = within(account);
+      expect(menu.getByRole("button", { name: /我的账户/ })).toHaveAttribute("aria-expanded", "true");
+      expect(menu.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual([
+        "/workbench/account",
+        "/workbench/account/profile",
+        organization,
+        "/workbench/account/referrals",
+      ]);
+      expect(menu.getByRole("link", { name: "企业空间" })).toHaveAttribute("aria-current", "page");
+    }
+
+    expectEnterpriseSectionSelected();
+    view.rerender(sidebar(organization));
+    expectEnterpriseSectionSelected();
+    view.rerender(sidebar(detailPath));
+    expectEnterpriseSectionSelected();
+  },
+);
 
 it("keeps the plans module as a connected five-page tree", () => {
   const pages = [
