@@ -8,7 +8,7 @@ Source work follows the [Product Domain contract](../architecture/domains/catalo
 - [Catalog：版本、我的数据和素材批准](../architecture/domains/catalog/README.md)
 - [Research：市场证据与人工选品](../architecture/domains/research/README.md)
 
-本页是业务交接概览，不重新定义上述 owner 的授权、事务、发布与来源可用性。1688 新采集通道以已批准浏览器 collector 为准，历史静态 HTTP 来源证据不能被当作新的默认采集能力。
+本页是业务交接概览，不重新定义上述 owner 的授权、事务、发布与来源可用性。1688 新采集通道以已批准浏览器 collector 为准，[历史静态 HTTP 来源证据](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1193)不能被当作新的默认采集能力。
 
 ## Current path
 
