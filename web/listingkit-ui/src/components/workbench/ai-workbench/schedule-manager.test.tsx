@@ -31,6 +31,55 @@ beforeEach(()=>{cleanup();sessionStorage.clear();window.history.replaceState(nul
  if(input.route==="schedule-history")return {occurrences:[],next:""} as never;
  throw new Error("unexpected mutation");
 });});
+it("waits for the plan timezone before displaying execution history times",async()=>{
+ const report={...latest,scheduledAt:"2026-11-15T07:00:00Z"};
+ const olderReport={...report,id:"77777777-7777-4777-8777-777777777777",scheduledAt:"2026-11-14T07:00:00Z",reportId:"88888888-8888-4888-8888-888888888888"};
+ let resolvePlan!:(value:{plan:typeof dailyPlan})=>void;
+ const pendingPlan=new Promise<{plan:typeof dailyPlan}>(resolve=>{resolvePlan=resolve;});
+ const current=request.getMockImplementation()!;
+ request.mockImplementation(async input=>{
+  if(input.route==="schedule-read")return await pendingPlan as never;
+  if(input.route==="schedule-history"){
+   return (input.path.endsWith("&after=older")?{occurrences:[olderReport],next:""}:{occurrences:[report],next:"older"}) as never;
+  }
+  return current(input);
+ });
+ window.history.replaceState(null,"",`/?view=schedules&schedule_id=${id}`);
+ mount();
+ const history=within(await screen.findByRole("region",{name:"执行历史"}));
+ const reportLink=await history.findByRole("link",{name:"查看经营日报"});
+ expect(reportLink).toHaveAttribute("href",`/workbench/ai/reports?reportId=${report.reportId}`);
+ expect(history.queryByText(/07:00/)).not.toBeInTheDocument();
+ expect(history.getByText("正在读取执行时间…")).toBeVisible();
+
+ resolvePlan({plan:dailyPlan});
+ expect(await history.findByText(/15:00/)).toHaveAttribute("datetime",report.scheduledAt);
+ expect(history.queryByText("正在读取执行时间…")).not.toBeInTheDocument();
+ await userEvent.click(history.getByRole("button",{name:"加载更早记录"}));
+ await waitFor(()=>expect(history.getAllByRole("link",{name:"查看经营日报"})).toHaveLength(2));
+ const reportLinks=history.getAllByRole("link",{name:"查看经营日报"});
+ expect(reportLinks[0]).toBe(reportLink);
+ expect(reportLinks[1]).toHaveAttribute("href",`/workbench/ai/reports?reportId=${olderReport.reportId}`);
+ expect(history.getAllByText(/15:00/).map(time=>time.getAttribute("datetime"))).toEqual([report.scheduledAt,olderReport.scheduledAt]);
+ expect(history.queryByRole("button",{name:"加载更早记录"})).not.toBeInTheDocument();
+});
+it("keeps execution results readable when the plan timezone is unavailable",async()=>{
+ const current=request.getMockImplementation()!;
+ const task={...latest,scheduledAt:"2026-11-15T07:00:00Z",reason:"RUN_QUIESCENT",reportId:undefined,businessTaskId:"99999999-9999-4999-8999-999999999999"};
+ request.mockImplementation(async input=>{
+  if(input.route==="schedule-read")throw new AIWorkbenchError("NOT_FOUND");
+  if(input.route==="schedule-history")return {occurrences:[task],next:""} as never;
+  return current(input);
+ });
+ window.history.replaceState(null,"",`/?view=schedules&schedule_id=${id}`);
+ mount();
+ await screen.findByRole("heading",{name:"计划读取失败"});
+ const history=within(screen.getByRole("region",{name:"执行历史"}));
+ expect(await history.findByRole("link",{name:"查看原任务与人工审核"})).toHaveAttribute("href",`/workbench/ai/tasks/${task.businessTaskId}`);
+ expect(history.getByText("已完成")).toBeVisible();
+ expect(history.queryByText(/07:00|15:00/)).not.toBeInTheDocument();
+ expect(history.getByText("执行时间暂不可用")).toBeVisible();
+});
 it.each(["结束计划","删除计划"])("confirms %s in the shared dialog, supports cancel and Esc, and restores focus",async label=>{
  mount();await userEvent.click(await screen.findByRole("button",{name:/完善商品描述/}));
  const trigger=await screen.findByRole("button",{name:label});await userEvent.click(trigger);

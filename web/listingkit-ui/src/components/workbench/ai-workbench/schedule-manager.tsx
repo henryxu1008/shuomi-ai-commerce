@@ -42,7 +42,9 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
  const history=useInfiniteQuery({queryKey:[...prefix,selected,"history"],enabled:!!selected,initialPageParam:"",queryFn:({signal,pageParam})=>requestAIWorkbench({route:"schedule-history",method:"GET",path:`schedules/${selected}/occurrences?limit=20${pageParam?`&after=${pageParam}`:""}`,scope,signal}),getNextPageParam:(last,_pages,lastParam)=>last.next&&last.next!==lastParam?last.next:undefined,retry:false,refetchOnWindowFocus:false});
  const locked=!restored||busy||!!pending;
  const creationReady=availability.data?.storeDailyReportEnabled===true&&availability.data.ready;
+ const readingPlan=detail.isPending||detail.isFetching;
  const plan=detail.isSuccess&&(!detail.isFetching||form==="edit"||form==="copy")?detail.data.plan:undefined;
+ const historyTimeZone=plan?.rule.timeZone;
  const planTitle=plan?`${plan.storeName?`${plan.storeName} · `:""}${plan.goalSummary??"当前无权查看任务内容"}`:"";
  function open(id?:string){setForm(undefined);setSelected(id);setError("");const url=new URL(window.location.href);url.searchParams.delete("schedule_proposal");if(id)url.searchParams.set("schedule_id",id);else url.searchParams.delete("schedule_id");window.history.replaceState(null,"",url);}
  async function execute(command:Command){
@@ -77,7 +79,7 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
    {availability.data&&!creationReady?<p className={styles.warning}>店铺经营日报暂不可新建，已有计划仍可查看和管理</p>:null}
    {retiredProposal?<ConsoleState kind="unavailable" title="该定时入口已停止新建"><p>商品内容不再提供新建定时计划，已有计划和执行记录仍可查看</p><Button variant="outline" disabled={locked} onClick={()=>open()}>返回定时任务</Button></ConsoleState>:form?(form!=="create"&&!plan?<ConsoleState kind={detail.isError?"error":"loading"} title="当前计划暂不可编辑"><Button variant="outline" onClick={()=>open(selected)}>返回计划</Button></ConsoleState>:<ScheduleForm key={`${form}:${selected??"new"}`} scope={scope} authorizationKey={authorizationKey} plan={form==="edit"?plan:undefined} copyFrom={form==="copy"?plan:undefined} dailyReportEnabled={availability.data?.storeDailyReportEnabled} disabled={locked||detail.isFetching||!canUse||!availability.data?.ready||(form!=="edit"&&!creationReady)} onSave={save} onStale={()=>void client.invalidateQueries({queryKey:[...prefix,selected],exact:true})} onCancel={()=>open(selected)}/>):selected?<>
     <div className={styles.backRow}><Button variant="ghost" disabled={locked} onClick={()=>open()}>返回定时列表</Button></div>
-    {detail.isPending||detail.isFetching?<ConsoleState kind="loading" title="正在读取计划"/>:detail.isError?<ConsoleState kind="error" title="计划读取失败">{errorText(detail.error)}<Button variant="outline" onClick={()=>void detail.refetch()}>重试</Button></ConsoleState>:plan?<section className={styles.detail} aria-label="计划信息">
+    {readingPlan?<ConsoleState kind="loading" title="正在读取计划"/>:detail.isError?<ConsoleState kind="error" title="计划读取失败">{errorText(detail.error)}<Button variant="outline" onClick={()=>void detail.refetch()}>重试</Button></ConsoleState>:plan?<section className={styles.detail} aria-label="计划信息">
      <header className={styles.detailHeading}><div className={styles.planIdentity}><p className={styles.eyebrow}>{plan.kind==="store.operating-daily-report"?"店铺经营日报":"商品内容计划"}</p><h2 className={planTitle.length>100?styles.longTitle:undefined}>{planTitle}</h2></div><span className={styles.state} data-state={plan.deleted?"CLOSED":plan.state}><span aria-hidden="true"/>{plan.deleted?"已删除":states[plan.state]}</span></header>
      {planTitle.length>100?<details className={styles.request}><summary>查看完整计划内容</summary><p>{planTitle}</p></details>:null}
      <dl className={styles.facts}>
@@ -96,7 +98,14 @@ export function ScheduleManager({scope,authorizationKey,canUse,onBack}:{scope:AI
     <section className={styles.history} aria-label="执行历史"><div className={styles.sectionHeading}><h2>执行历史</h2><p>查看每次计划的处理状态与结果</p></div>
      {history.isPending?<p className={styles.hint} role="status">正在读取执行历史…</p>:null}
      {history.isError?<ConsoleState kind="error" title={history.data?"暂时无法刷新执行历史":"历史读取失败"}>{history.data?<p>以下为上次读取的记录</p>:null}<Button variant="outline" onClick={()=>void history.refetch()}>重试</Button></ConsoleState>:null}
-     <ol className={styles.timeline}>{history.data?.pages.flatMap(p=>p.occurrences).map(item=><li key={item.id}><time className={styles.historyTime} dateTime={item.scheduledAt}>{scheduleTime(item.scheduledAt,plan?.rule.timeZone??"UTC")}</time><div className={styles.historyResult}><strong className={styles.state} data-state={item.state}><span aria-hidden="true"/>{occurrenceStates[item.state]}</strong>{item.reason?<p>{reasons[item.reason]??"执行结果仍在确认"}</p>:null}<div className={styles.resultLinks}>{item.reportId?<Link href={`/workbench/ai/reports?reportId=${item.reportId}`} prefetch={false}>查看经营日报</Link>:null}{item.businessTaskId?<Link href={`/workbench/ai/tasks/${item.businessTaskId}`} prefetch={false}>查看原任务与人工审核</Link>:null}</div></div></li>)}</ol>
+     <ol className={styles.timeline}>
+      {history.data?.pages.flatMap(p=>p.occurrences).map(item=><li key={item.id}>
+       {historyTimeZone
+        ?<time className={styles.historyTime} dateTime={item.scheduledAt}>{scheduleTime(item.scheduledAt,historyTimeZone)}</time>
+        :<span className={styles.historyTime}>{readingPlan?"正在读取执行时间…":"执行时间暂不可用"}</span>}
+       <div className={styles.historyResult}><strong className={styles.state} data-state={item.state}><span aria-hidden="true"/>{occurrenceStates[item.state]}</strong>{item.reason?<p>{reasons[item.reason]??"执行结果仍在确认"}</p>:null}<div className={styles.resultLinks}>{item.reportId?<Link href={`/workbench/ai/reports?reportId=${item.reportId}`} prefetch={false}>查看经营日报</Link>:null}{item.businessTaskId?<Link href={`/workbench/ai/tasks/${item.businessTaskId}`} prefetch={false}>查看原任务与人工审核</Link>:null}</div></div>
+      </li>)}
+     </ol>
      {history.isSuccess&&!history.data.pages[0].occurrences.length?<div className={styles.emptyHistory}><p>尚无触发记录</p><p className={styles.hint}>计划开始处理后，记录会显示在这里</p></div>:null}
      {history.hasNextPage?<Button className={styles.loadMore} variant="outline" disabled={history.isFetching} onClick={()=>void history.fetchNextPage()}>加载更早记录</Button>:null}
     </section>
