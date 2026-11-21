@@ -170,7 +170,7 @@
 - `domains/sourcing/amazon-condition-quotes-draft.md` — [Amazon 新品和二手来源报价：设计草案](domains/sourcing/amazon-condition-quotes-draft.md)
 - `domains/listing/completion-shein-import.md` — [CompletionDraft → SHEIN Target 带入预览与确认](domains/listing/completion-shein-import.md)
 - `domains/marketplace/erpnext-shein-fulfillment-fit.md` — [ERPNext 与 SHEIN 双履约适配验证](domains/marketplace/erpnext-shein-fulfillment-fit.md)
-- `my-supply-chain-shein.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein.md)
+- `my-supply-chain-shein.md` — [我的供应链：SHEIN 美国站完整交付设计](my-supply-chain-shein.md)（五阶段导航已由下列四步供应链替代）
 - `domains/listing/supply-four-step-continuation.md` — [四步供应链与补全/审核后继续上传](domains/listing/supply-four-step-continuation.md)
 - `domains/marketplace/order-procurement-fulfillment.md` — [订单、采购、发货与物流首版设计草案](domains/marketplace/order-procurement-fulfillment.md)
 - `store-core-schema-alignment.md` — [own675 Store 核心合同对齐方案](store-core-schema-alignment.md)
