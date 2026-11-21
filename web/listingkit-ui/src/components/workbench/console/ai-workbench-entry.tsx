@@ -24,7 +24,6 @@ export function AIWorkbenchEntry(props: Omit<AIWorkbenchEntryCapabilities, "aiWo
     { title: "我的报告", subtitle: "已保存成果的查阅与复用", description: "查看当前已开放来源的历史报告，收藏重要结果并下载。", audience: "适用：保存结果和回顾原始资料。", example: "打开已保存的商品资料，查看保存时的内容。", href: "/workbench/ai/reports", available: props.reportCenterAvailable, tone: "pink" },
   ];
   return <section className={styles.page} aria-labelledby="ai-workbench-home">
-    <p className={styles.eyebrow}>AI工作台</p>
     <header className={styles.header}><h1 id="ai-workbench-home">AI工作台</h1><p>在这里发起对话、跟进任务、管理项目，查阅知识、复用技能并保存工作成果。</p></header>
     <Card className={styles.flow}>提出需求 → 自动执行 → 长期协同 → 沉淀报告<span>各模块可独立使用，执行能力以当前配置与准入状态为准。</span></Card>
     <div className={styles.cards}>{entries.map(entry => {

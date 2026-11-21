@@ -42,6 +42,8 @@ it('keeps the AI introduction without optional services', () => {
   render(<Page />);
   expect(fixture.redirect).not.toHaveBeenCalled();
   expect(screen.getByRole('heading', { name: 'AI工作台', level: 1 })).toBeVisible();
+  expect(screen.getAllByText('AI工作台')).toHaveLength(1);
+  expect(screen.getByText('在这里发起对话、跟进任务、管理项目，查阅知识、复用技能并保存工作成果。')).toBeVisible();
   expect(screen.getByRole('heading', { name: '硕米Chat' })).toBeVisible();
   expect(screen.getByRole('heading', { name: '任务中心' })).toBeVisible();
   expect(screen.getByRole('heading', { name: '项目中心' })).toBeVisible();
