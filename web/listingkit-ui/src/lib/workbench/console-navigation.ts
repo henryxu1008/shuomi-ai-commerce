@@ -173,6 +173,14 @@ export function findConsoleRoute(pathname: string): ConsoleRoute | undefined {
     const node: ConsoleNavNode = { label: "源账号", href: pathname, availability: parent.node.availability };
     return { node, trail: [...parent.trail, node] };
   }
+  if (
+    pathname === "/workbench/account/organization/model-route-pricing" ||
+    pathname === "/workbench/account/organization/kernel-releases" ||
+    pathname === "/workbench/account/organization/kernel-releases/new" ||
+    pathname === "/workbench/account/organization/data-row-pricing"
+  ) {
+    return findConsoleRoute("/workbench/account/organization");
+  }
   if (pathname === "/workbench/agents/mine/product.title.agent") {
     const parent=findConsoleRoute("/workbench/agents/mine")!;
     const node:ConsoleNavNode={label:"智能体配置",href:pathname,availability:"connected"};
