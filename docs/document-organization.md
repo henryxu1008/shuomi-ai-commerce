@@ -6,7 +6,7 @@
 
 - 从 [文档首页](README.md) 查找产品、业务流程、领域 owner、实现入口、运行说明与任务证据，而不是从 200 多份扁平架构文件中猜测。
 - 减少在多个文档复制同一业务规则；架构所有权参考 [当前领域边界](architecture/project-boundaries.md)，源码与命令参考 [当前源码地图](development/repository-structure.md)。
-- **清单基线：** `main` 提交 `b67c8d7ee5c6bf543d4723c3e768219fa314fd35`；`docs/` 共 **350 份 Markdown**、**3 份其他资产**，其中 `architecture/` 根层 242 份 Markdown。详细逐文件候选动作在 [document-inventory.csv](document-inventory.csv)。
+- **清单基线：** `main` 提交 `b67c8d7ee5c6bf543d4723c3e768219fa314fd35`；`docs/` 共 **354 个文件**（**351 份 Markdown**、**3 份其他资产**），其中 `architecture/` 根层 242 份 Markdown。详细逐文件候选动作在 [document-inventory.csv](document-inventory.csv)。
 - 已识别 **26 组跨分类同名（不含 README）**。名称相同不等于内容重复，产品决定、领域合同和运行手册可以合法同名。
 
 ## 2. 各层唯一职责
@@ -71,7 +71,7 @@ docs/
 
 ## 已核实迁移与 CSV 使用说明（2026-11-17）
 
-原 353 条清单以 `b67c8d7ee5c6bf543d4723c3e768219fa314fd35` 为**盘点基线**，不是以后新增导航文件的完整动态文件目录。除已复核的迁移文件外，`PROPOSED_ONLY` 的候选领域、路径和大小仍为当时的快照，不得当作实时源码状态或直接派工的授权。
+首版清单录入了 353 条，漏记了基线中已有的文档首页 `docs/README.md`。补列为 `KEEP_PATH` 后，基线总数为 354 条。清单反映该提交的盘点范围，后续新增文档另行维护。除已复核的迁移文件外，`PROPOSED_ONLY` 的候选领域、路径和大小仍为当时的快照，不得当作实时源码状态或直接派工的授权。
 
 以下是已完成且确认源链接的迁移示例，非完整清单：
 - [#1358](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1358)：`issue132-title-evaluation-admission.md` 与 `issue132-title-pilot-local-entry.md` 从架构根目录迁入 `architecture/domains/ai/`；仍是未准入的设计候选。
@@ -122,7 +122,7 @@ docs/
 
 进度以当前 `main` 的 [CSV 清单](document-inventory.csv) 为准，不用本页的迁移示例计数。按以下口径报告：
 
-- 以 `review_status=MOVED_VERIFIED` 统计已迁移数；原盘点 353 条为分母。PR 的候选数单列，未合并不计入主线。
+- 以 `review_status=MOVED_VERIFIED` 统计已迁移数，以更正后的 354 条基线记录为分母。补列首页只修正分母，已迁移数保持不变。PR 的候选数单列，未合并不计入主线。
 - 将 `PROPOSED_ONLY` 按 `action` 分列：`KEEP_PATH`（保留路径）、`KEEP_ASSET`（保留资产）、`REVIEW_MOVE` / `REVIEW_CROSS_LAYER` / `REVIEW_LIFECYCLE`（待判断处置）。保留项不是已迁移，也不应为增加迁移数而搬动；待审项可再区分候选路径与原路径相同或不同，但这不代表已核实。
 
 任何新一轮文件检查应重新取当时主线与相关文档版本；旧行可能因正常开发变动而过期。若准确 owner/内容与候选目录不一致，应修改清单后再实施。
@@ -172,7 +172,7 @@ docs/
 
 | 批次 | 改动 | 验收 |
 | --- | --- | --- |
-| **1：本 PR** | 清单、导航、职责定义；不移动任何业务合同 | 353 行清单对应准确文件，当前导航链接可达，业务/运行行为零变化 |
+| **1：本 PR** | 清单、导航、职责定义；不移动任何业务合同 | 更正后的 354 条基线记录覆盖盘点文件，当前导航链接可达，业务/运行行为零变化 |
 | **2：领域架构** | 按 Sourcing → Catalog → Research → Listing/Marketplace → AI/Workbench 等真实 owner 分批，逐批处理 | 每份迁移前有原文/引用检查，当前 owner 只保留一个规则定义，受影响路径全部更新 |
 | **3：跨层材料** | 核对 26 组同名、环境试用和候选文档 | 不误删独立 Product/Architecture/Operations 内容，失效文档有具体证据 |
 | **4：轻量检查** | 先评估现有仓库 CI 的链接/索引检查，再最小增量复用 | 不产生新的通用治理平台、重型门禁或与开发无关的检查 |
