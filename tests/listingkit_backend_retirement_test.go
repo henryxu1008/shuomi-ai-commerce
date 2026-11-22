@@ -1334,6 +1334,11 @@ func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
 		"internal/integration/crawler/a1688":                 strings.Fields("ProductEnrichmentRequest cloneEnrichmentSource cloneEnrichmentStringMap"),
 	}
 	retiredTypes := strings.Fields("TextCompletionRequest TextCompletionResult TextRouteDetails boundedTextHTTPClient TextInvocationRequest TextInvoker ProductEnrichmentAdapter productEnrichmentPromptBudget productEnrichmentPromptBudgetError productEnrichmentPromptBudgetKind productEnrichmentPromptBudgetReference productEnrichmentPromptBudgetWalker contextualChatClient")
+	allowedProposalImports := []string{
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing",
+		"golang.org/x/text/language",
+	}
 	retained := map[string]bool{}
 	for owner, names := range map[string]string{
 		"internal/integration/openai":                        "ClientConfig",
@@ -1375,7 +1380,8 @@ func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
 				t.Errorf("%s keeps the retired owner as an import alias", path)
 			}
 			if owner == "internal/product/review/proposal" && !strings.HasSuffix(path, "_test.go") {
-				if strings.Contains(strings.Split(imported, "/")[0], ".") && imported != "golang.org/x/text/language" || strings.HasPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/") && imported != "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog" && imported != "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing" {
+				importRoot, _, _ := strings.Cut(imported, "/")
+				if strings.Contains(importRoot, ".") && !slices.Contains(allowedProposalImports, imported) {
 					t.Errorf("pure review proposal imports runtime or another owner: %s", imported)
 				}
 			}
