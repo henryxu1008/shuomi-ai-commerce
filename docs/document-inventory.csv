@@ -1,4 +1,5 @@
 path,layer,domain,size_bytes,action,candidate_path,related_paths,review_status,note
+docs/README.md,navigation,cross-cutting,1816,KEEP_PATH,docs/README.md,,PROPOSED_ONLY,stable cross-layer documentation entrypoint
 docs/architecture/domains/sourcing/1688-acquisition-channel-pricing.md,architecture,sourcing,10218,KEEP_PATH,,,MOVED_VERIFIED,Sourcing channel and resource boundaries preserved; retired HTTP and versioned Commercial price distinguished
 docs/architecture/domains/sourcing/1688-acquisition-figma.md,architecture,sourcing,23487,KEEP_PATH,,,MOVED_VERIFIED,frozen Sourcing acquisition plan contract relocated; current UI authority and retired provider boundaries retained
 docs/architecture/1688-acquisition-rate-and-egress-proxy.md,architecture,sourcing,11171,REVIEW_MOVE,docs/architecture/domains/sourcing/1688-acquisition-rate-and-egress-proxy.md,,PROPOSED_ONLY,proposed placement only; read source and references before moving
