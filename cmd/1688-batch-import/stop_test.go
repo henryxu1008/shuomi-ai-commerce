@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/batchcapture"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/batchcapture"
 )
 
 // Every stop-for-a-person failure must reach exit 3 with the same instruction.

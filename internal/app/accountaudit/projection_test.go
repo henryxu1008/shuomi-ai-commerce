@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/ledger/orgresource"
-	registry "task-processor/internal/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	registry "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 type historyStub struct {

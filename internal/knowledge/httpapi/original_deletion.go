@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 // ConfigureOriginalDeletionAuthority uses the application's live grant resolver

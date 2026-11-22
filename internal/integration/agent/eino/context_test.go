@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 )
 
 const contextTestID = "11111111-1111-4111-8111-111111111111"

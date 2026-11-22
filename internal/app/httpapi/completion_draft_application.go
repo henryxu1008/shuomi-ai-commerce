@@ -2,16 +2,16 @@ package httpapi
 
 import (
 	"context"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/completiondraft"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	listingapp "task-processor/internal/app/listing"
-	listinghttp "task-processor/internal/app/listing/httpapi"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	store "task-processor/internal/integration/persistence/listing/completiondraft"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/listing/completiondraft"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/gorm"
-	m "task-processor/internal/ledger/money"
 )
 
 func (r *Repository) ObserveServiceUnsplit(ctx context.Context, in m.ServiceUnsplitObservation) (m.ServiceFundsView, error) {

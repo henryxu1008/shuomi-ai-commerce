@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	sheinvalidator "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/validator"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
-	model "task-processor/internal/marketplace/shein/model"
-	sheinvalidator "task-processor/internal/marketplace/shein/validator"
-	contract "task-processor/internal/marketplace/validator"
-	"task-processor/internal/product/asset"
 )
 
 func officialRequest(t *testing.T) contract.BoundRequest[sheinvalidator.OfficialIdentity] {

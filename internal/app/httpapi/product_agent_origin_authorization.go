@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/integration/dataserviceauth"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/dataserviceauth"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 )
 
 // Cross-administrator Review consumes the same exact service IAM read used by

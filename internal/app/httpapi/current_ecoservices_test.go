@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	ehttp "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"github.com/stretchr/testify/require"
-	ehttp "task-processor/internal/ecoservices/httpapi"
-	"task-processor/internal/httproute"
 	"testing"
 )
 

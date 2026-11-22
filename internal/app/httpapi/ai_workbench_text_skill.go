@@ -6,12 +6,12 @@ import (
 	"errors"
 	"time"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/aiworkbench/einoplanner"
-	"task-processor/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aiworkbench/einoplanner"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
 
 type textSkillContract struct {

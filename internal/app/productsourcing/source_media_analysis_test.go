@@ -5,12 +5,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	s3 "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
-	"task-processor/internal/authidentity"
-	s3 "task-processor/internal/integration/s3"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

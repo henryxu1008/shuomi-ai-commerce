@@ -10,18 +10,18 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/app/accountaudit"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/accountaudit"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	memberhttp "task-processor/internal/organization/membership/httpapi"
-	flow "task-processor/internal/organization/membership/inviteflow"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	memberhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/httpapi"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
 )
 
 func TestCurrentApplicationAuditMembershipRouteCombinations(t *testing.T) {

@@ -2,10 +2,10 @@ package httpapi
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
+	economics "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 	"strconv"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/referral"
-	economics "task-processor/internal/referraleconomics"
 	"time"
 )
 

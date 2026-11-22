@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	runtimeSetup "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/setup"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
-	runtimeSetup "task-processor/internal/app/runtime/setup"
-	"task-processor/internal/app/setupcontrol"
-	"task-processor/internal/platform/privatefile"
 	"time"
 )
 

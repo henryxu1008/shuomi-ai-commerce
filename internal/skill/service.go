@@ -2,7 +2,7 @@ package skill
 
 import (
 	"context"
-	"task-processor/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 )
 
 type Service struct {

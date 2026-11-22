@@ -2,12 +2,12 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/supplymarket"
 	"testing"
 
 	"github.com/gin-gonic/gin"

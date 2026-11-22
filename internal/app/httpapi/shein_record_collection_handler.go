@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"time"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

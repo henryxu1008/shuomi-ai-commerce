@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/batchcapture"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/batchcapture"
 )
 
 func validConfig(t *testing.T) config {

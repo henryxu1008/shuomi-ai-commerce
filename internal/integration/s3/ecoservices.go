@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"strings"
-	e "task-processor/internal/ecoservices"
 )
 
 // EcoservicesStore reuses immutable S3 leaves without Knowledge lifecycle or

@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/ai"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	"task-processor/internal/imageagent/tools"
-	"task-processor/internal/integration/grsai"
-	openai "task-processor/internal/integration/openai"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/tools"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"
+	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 
 	"github.com/stretchr/testify/require"
 )

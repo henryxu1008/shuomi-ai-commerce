@@ -2,8 +2,8 @@ package temporal
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"strings"
-	"task-processor/internal/imageagent"
 	"testing"
 
 	"github.com/stretchr/testify/require"

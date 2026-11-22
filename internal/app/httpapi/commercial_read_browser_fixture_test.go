@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

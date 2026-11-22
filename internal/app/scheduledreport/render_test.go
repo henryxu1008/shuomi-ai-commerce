@@ -3,10 +3,10 @@ package scheduledreport
 import (
 	"encoding/json"
 	"github.com/google/uuid"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
-	c "task-processor/internal/operationscockpit"
-	rc "task-processor/internal/reportcenter"
-	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

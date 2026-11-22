@@ -3,7 +3,7 @@ package imagepolicy
 import (
 	"strings"
 
-	productimage "task-processor/internal/product/image"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 type Resolver struct {

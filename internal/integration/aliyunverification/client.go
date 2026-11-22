@@ -12,7 +12,7 @@ import (
 	sdk "github.com/alibabacloud-go/cloudauth-20190307/v4/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/utils"
 	"github.com/alibabacloud-go/tea/dara"
-	domain "task-processor/internal/subjectverification"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 )
 
 type Client struct {

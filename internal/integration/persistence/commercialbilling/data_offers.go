@@ -2,7 +2,7 @@ package commercialbilling
 
 import (
 	"context"
-	billing "task-processor/internal/commercial/billing"
+	billing "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 )
 
 func (r *Repository) ListResourceOffers(ctx context.Context) ([]billing.Offer, error) {

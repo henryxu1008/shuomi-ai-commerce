@@ -2,10 +2,10 @@ package assetpublication
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/imageagent"
-	productasset "task-processor/internal/product/asset"
 	"testing"
 )
 

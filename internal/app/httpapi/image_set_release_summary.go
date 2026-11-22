@@ -5,7 +5,7 @@ import (
 	"errors"
 	"math"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // This is a read DTO, not a replacement workflow or accounting state. The

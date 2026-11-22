@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func validateProviderReservation(reservation imageagent.SlotEffectV3Reservation) error {

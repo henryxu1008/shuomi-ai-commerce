@@ -1,10 +1,10 @@
 package httpapi
 
 import (
-	"task-processor/internal/core/config"
-	kernelmodule "task-processor/internal/kernel/module"
-	officialhttp "task-processor/internal/knowledge/httpapi/official"
-	"task-processor/internal/knowledge/official"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	officialhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge/httpapi/official"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge/official"
 )
 
 func buildOfficialKnowledgeModule() (kernelmodule.Module, error) {

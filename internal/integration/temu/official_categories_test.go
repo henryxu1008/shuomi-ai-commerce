@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/storecenter"
 )
 
 func TestSupplierCategoryReadsUseCNScopeAndRouteWithExactToken(t *testing.T) {

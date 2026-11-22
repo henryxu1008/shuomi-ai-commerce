@@ -3,10 +3,10 @@ package httpapi
 import (
 	"bytes"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"mime/multipart"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/knowledge"
 	"testing"
 )
 

@@ -34,7 +34,7 @@ func TestPhase2TargetDirectionDepguardRulesCoverApprovedBoundaries(t *testing.T)
 			}
 		}
 
-		packagePath := "task-processor/internal/" + domain
+		packagePath := "github.com/henryxu1008/shuomi-ai-commerce/internal/" + domain
 		for _, suffix := range []string{"$", "/"} {
 			pattern := packagePath + suffix
 			if _, ok := platformDeny[pattern]; !ok {
@@ -53,10 +53,10 @@ func TestPhase2TargetDirectionDepguardRulesCoverApprovedBoundaries(t *testing.T)
 	}
 
 	for _, packagePath := range []string{
-		"task-processor/internal/platform",
-		"task-processor/internal/integration",
-		"task-processor/internal/infra",
-		"task-processor/internal/app",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
 		"gorm.io",
 		"go.temporal.io",
 		"go.opentelemetry.io",
@@ -93,9 +93,9 @@ func TestPhase3ProductDomainBoundaryDepguardRuleCoversOnlyTargetSubpackages(t *t
 	}
 
 	for _, packagePath := range []string{
-		"task-processor/internal/app",
-		"task-processor/internal/platform",
-		"task-processor/internal/integration",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
 		"gorm.io/gorm",
 		"go.temporal.io",
 		"github.com/aws/aws-sdk-go-v2",
@@ -119,12 +119,12 @@ func TestPhase3FinalProductHardCutDepguardRules(t *testing.T) {
 	}
 	retiredDenied := depguardDenyPackageSet(retired)
 	for _, packagePath := range []string{
-		"task-processor/internal/catalog",
-		"task-processor/internal/asset",
-		"task-processor/internal/imageasset",
-		"task-processor/internal/productenrich",
-		"task-processor/internal/productimage",
-		"task-processor/internal/product/asset/assettest",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/catalog",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/imageasset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest",
 	} {
 		for _, suffix := range []string{"$", "/"} {
 			if _, ok := retiredDenied[packagePath+suffix]; !ok {
@@ -147,9 +147,9 @@ func TestPhase3FinalProductHardCutDepguardRules(t *testing.T) {
 	}
 	consumerDenied := depguardDenyPackageSet(consumers)
 	for _, packagePath := range []string{
-		"task-processor/internal/product/image",
-		"task-processor/internal/imageagent/store",
-		"task-processor/internal/imageagent/temporal",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal",
 	} {
 		for _, suffix := range []string{"$", "/"} {
 			if _, ok := consumerDenied[packagePath+suffix]; !ok {
@@ -169,8 +169,8 @@ linters-settings:
           # - "**/internal/commented/*.go"
           - '**/internal/single-quoted/*.go'
         deny:
-          # - pkg: "task-processor/internal/commented$"
-          - pkg: task-processor/internal/unquoted$
+          # - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/commented$"
+          - pkg: github.com/henryxu1008/shuomi-ai-commerce/internal/unquoted$
 `))
 	rule := requireDepguardRule(t, rules, "semantic_rule")
 	files := stringSet(rule.Files)
@@ -179,13 +179,13 @@ linters-settings:
 	if _, ok := files["**/internal/commented/*.go"]; ok {
 		t.Fatal("commented file glob must not be a semantic depguard entry")
 	}
-	if _, ok := denied["task-processor/internal/commented$"]; ok {
+	if _, ok := denied["github.com/henryxu1008/shuomi-ai-commerce/internal/commented$"]; ok {
 		t.Fatal("commented deny package must not be a semantic depguard entry")
 	}
 	if _, ok := files["**/internal/single-quoted/*.go"]; !ok {
 		t.Fatal("single-quoted file glob must retain its YAML value")
 	}
-	if _, ok := denied["task-processor/internal/unquoted$"]; !ok {
+	if _, ok := denied["github.com/henryxu1008/shuomi-ai-commerce/internal/unquoted$"]; !ok {
 		t.Fatal("unquoted deny package must retain its YAML value")
 	}
 }
@@ -224,13 +224,13 @@ func TestCommerceToolDepguardUsesExactStrictAllowlist(t *testing.T) {
 
 	allowed := stringSet(rule.Allow)
 	for category, packagePaths := range map[string][]string{
-		"internal packages":   {"task-processor/internal", "task-processor/internal/commercetool"},
+		"internal packages":   {"github.com/henryxu1008/shuomi-ai-commerce/internal", "github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"},
 		"agent frameworks":    {"github.com/cloudwego/eino"},
 		"transport":           {"github.com/gin-gonic/gin", "github.com/rabbitmq/amqp091-go"},
 		"workflow":            {"go.temporal.io/sdk"},
 		"persistence":         {"gorm.io/gorm"},
 		"provider SDKs":       {"github.com/aws/aws-sdk-go-v2", "go.opentelemetry.io/otel"},
-		"marketplace clients": {"task-processor/internal/marketplace"},
+		"marketplace clients": {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace"},
 	} {
 		for _, packagePath := range packagePaths {
 			if _, ok := allowed[packagePath]; ok {
@@ -252,25 +252,25 @@ func TestPhase2RetiredRuntimePathsHavePermanentDepguardRules(t *testing.T) {
 		}
 	}
 	for _, path := range []string{
-		"task-processor/internal/core/lifecycle",
-		"task-processor/internal/infra/database",
-		"task-processor/internal/infra/redisclient",
-		"task-processor/internal/infra/lock",
-		"task-processor/internal/infra/rabbitmq",
-		"task-processor/internal/infra/worker",
-		"task-processor/internal/infra/clients/openai",
-		"task-processor/internal/infra/clients/geminiimage",
-		"task-processor/internal/infra/clients/grsai",
-		"task-processor/internal/infra/storage",
-		"task-processor/internal/infra/resilience",
-		"task-processor/internal/infra/metrics",
-		"task-processor/internal/infra/monitoring",
-		"task-processor/internal/pkg/safeimagehttp",
-		"task-processor/internal/pkg/hashx",
-		"task-processor/internal/pkg/mathx",
-		"task-processor/internal/pkg/ptr",
-		"task-processor/internal/pkg/strx",
-		"task-processor/internal/pkg/timex",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/core/lifecycle",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/database",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/redisclient",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/lock",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/rabbitmq",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/worker",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/openai",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/geminiimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/grsai",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/storage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/resilience",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/metrics",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/monitoring",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/safeimagehttp",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/hashx",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/mathx",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/ptr",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/strx",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/timex",
 	} {
 		for _, suffix := range []string{"$", "/"} {
 			if _, ok := denied[path+suffix]; !ok {
@@ -380,14 +380,14 @@ func TestPlatformRegistrationDepguardPatternsRespectPackageBoundaries(t *testing
 	config = config[start : start+1+end]
 
 	for _, packagePath := range []string{
-		"task-processor/internal/app/httpapi",
-		"task-processor/internal/asset",
-		"task-processor/internal/product/catalog",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/productimage",
-		"task-processor/internal/publishing",
-		"task-processor/internal/workspace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace",
 	} {
 		for _, suffix := range []string{"$", "/"} {
 			pattern := fmt.Sprintf(`- pkg: "%s%s"`, packagePath, suffix)
@@ -423,7 +423,7 @@ func TestAICapabilityDepguardUsesStrictAllowlist(t *testing.T) {
 	for _, packagePath := range []string{
 		"$gostd",
 		"gorm.io/gorm",
-		"task-processor/internal/aicapability",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability",
 	} {
 		pattern := fmt.Sprintf(`- "%s"`, packagePath)
 		if !strings.Contains(config, pattern) {
@@ -450,7 +450,7 @@ func TestImageAgentEffectPolicyDepguardUsesStrictAllowlist(t *testing.T) {
 		`- "**/internal/imageagent/effectpolicy/*.go"`,
 		`- "**/internal/imageagent/effectpolicy/**/*.go"`,
 		`- "$gostd"`,
-		`- "task-processor/internal/imageagent"`,
+		`- "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"`,
 	} {
 		if !strings.Contains(config, required) {
 			t.Errorf("%s imageagent effect policy boundary must contain %s", configPath, required)
@@ -482,10 +482,10 @@ func TestAlibaba1688CrawlerDepguardPatternKeepsHTTPAPIAdapterException(t *testin
 	}
 	config = config[start : start+1+end]
 
-	if !strings.Contains(config, `- pkg: "task-processor/internal/listingkit$"`) {
+	if !strings.Contains(config, `- pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"`) {
 		t.Errorf("%s must deny the exact ListingKit root facade", configPath)
 	}
-	if strings.Contains(config, `- pkg: "task-processor/internal/listingkit/"`) {
+	if strings.Contains(config, `- pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"`) {
 		t.Errorf("%s must keep ListingKit subpackage adapters outside the root-facade guard", configPath)
 	}
 }
@@ -509,7 +509,7 @@ func TestZitadelAuthRuntimeDepguardPatternCoversListingKitPackageTree(t *testing
 	config = config[start : start+1+end]
 
 	for _, suffix := range []string{"$", "/"} {
-		pattern := fmt.Sprintf(`- pkg: "task-processor/internal/listingkit%s"`, suffix)
+		pattern := fmt.Sprintf(`- pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit%s"`, suffix)
 		if !strings.Contains(config, pattern) {
 			t.Errorf("%s must contain depguard package-tree pattern %s", configPath, pattern)
 		}
@@ -535,19 +535,19 @@ func TestCmdProductionDepguardPatternCoversDomainAndInfraTrees(t *testing.T) {
 	config = config[start : start+1+end]
 
 	for _, packagePath := range []string{
-		"task-processor/internal/amazon",
-		"task-processor/internal/amazonlisting",
-		"task-processor/internal/asset",
-		"task-processor/internal/product/catalog",
-		"task-processor/internal/infra",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/productenrich",
-		"task-processor/internal/productimage",
-		"task-processor/internal/publishing",
-		"task-processor/internal/shein",
-		"task-processor/internal/temu",
-		"task-processor/internal/workspace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazon",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/shein",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/temu",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace",
 	} {
 		for _, suffix := range []string{"$", "/"} {
 			pattern := fmt.Sprintf(`- pkg: "%s%s"`, packagePath, suffix)
@@ -577,8 +577,8 @@ func TestTemporalRuntimeDepguardPatternCoversHTTPAPIPackageTrees(t *testing.T) {
 	config = config[start : start+1+end]
 
 	for _, packagePath := range []string{
-		"task-processor/internal/app/httpapi",
-		"task-processor/internal/listingkit/httpapi",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi",
 	} {
 		for _, suffix := range []string{"$", "/"} {
 			pattern := fmt.Sprintf(`- pkg: "%s%s"`, packagePath, suffix)
@@ -635,7 +635,7 @@ func TestDomainAppHTTPAPIDepguardPatternCoversBusinessTrees(t *testing.T) {
 	}
 
 	for _, suffix := range []string{"$", "/"} {
-		pattern := fmt.Sprintf(`- pkg: "task-processor/internal/app/httpapi%s"`, suffix)
+		pattern := fmt.Sprintf(`- pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi%s"`, suffix)
 		if !strings.Contains(config, pattern) {
 			t.Errorf("%s must deny app/httpapi package-tree pattern %s", configPath, pattern)
 		}
@@ -699,7 +699,7 @@ func TestInfrastructureBusinessDepguardPatternCoversInfrastructureTrees(t *testi
 		"workspace",
 	} {
 		for _, suffix := range []string{"$", "/"} {
-			pattern := fmt.Sprintf(`- pkg: "task-processor/internal/%s%s"`, packagePath, suffix)
+			pattern := fmt.Sprintf(`- pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/%s%s"`, packagePath, suffix)
 			if !strings.Contains(config, pattern) {
 				t.Errorf("%s must deny business package-tree pattern %s", configPath, pattern)
 			}
@@ -717,17 +717,17 @@ func TestInfrastructureBusinessDepguardPatternCoversInfrastructureTrees(t *testi
 	}
 	adapterDeny := depguardDenyPackageSet(adapterRule)
 	for _, packagePath := range []string{
-		"task-processor/internal/amazonlisting$",
-		"task-processor/internal/listingkit$",
-		"task-processor/internal/marketplace$",
-		"task-processor/internal/productenrich$",
-		"task-processor/internal/productimage$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage$",
 	} {
 		if _, ok := adapterDeny[packagePath]; !ok {
 			t.Errorf("product_catalog_persistence_boundary must keep adapter free of %s", packagePath)
 		}
 	}
-	if _, denied := adapterDeny["task-processor/internal/product/catalog$"]; denied {
+	if _, denied := adapterDeny["github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog$"]; denied {
 		t.Error("product_catalog_persistence_boundary must allow the adapter to implement Catalog-owned ports")
 	}
 
@@ -743,17 +743,17 @@ func TestInfrastructureBusinessDepguardPatternCoversInfrastructureTrees(t *testi
 	}
 	submissionDeny := depguardDenyPackageSet(submissionRule)
 	for _, packagePath := range []string{
-		"task-processor/internal/amazonlisting$",
-		"task-processor/internal/listingkit$",
-		"task-processor/internal/marketplace$",
-		"task-processor/internal/product$",
-		"task-processor/internal/publishing$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product$",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing$",
 	} {
 		if _, ok := submissionDeny[packagePath]; !ok {
 			t.Errorf("listing_submission_persistence_boundary must keep adapter free of %s", packagePath)
 		}
 	}
-	if _, denied := submissionDeny["task-processor/internal/listing/submission$"]; denied {
+	if _, denied := submissionDeny["github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission$"]; denied {
 		t.Error("listing_submission_persistence_boundary must allow the adapter to implement Submission-owned ports")
 	}
 }
@@ -764,11 +764,11 @@ func TestProductCatalogPersistenceDepguardDeniesEverySiblingProductDomain(t *tes
 	adapterDeny := depguardDenyPackageSet(adapterRule)
 
 	for _, packagePath := range []string{
-		"task-processor/internal/product/asset",
-		"task-processor/internal/product/sourcing",
-		"task-processor/internal/product/enrichment",
-		"task-processor/internal/product/review/proposal",
-		"task-processor/internal/product/image",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image",
 	} {
 		for _, suffix := range []string{"$", "/"} {
 			pattern := packagePath + suffix
@@ -778,7 +778,7 @@ func TestProductCatalogPersistenceDepguardDeniesEverySiblingProductDomain(t *tes
 		}
 	}
 	for _, suffix := range []string{"$", "/"} {
-		if _, denied := adapterDeny["task-processor/internal/product/catalog"+suffix]; denied {
+		if _, denied := adapterDeny["github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"+suffix]; denied {
 			t.Errorf("product_catalog_persistence_boundary must allow its Catalog-owned port pattern ending in %q", suffix)
 		}
 	}
@@ -829,7 +829,7 @@ func TestProjectBoundaryListingKitDepguardPatternCoversDomainTrees(t *testing.T)
 	}
 
 	for _, suffix := range []string{"$", "/"} {
-		pattern := fmt.Sprintf(`- pkg: "task-processor/internal/listingkit%s"`, suffix)
+		pattern := fmt.Sprintf(`- pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit%s"`, suffix)
 		if !strings.Contains(config, pattern) {
 			t.Errorf("%s must deny ListingKit package-tree pattern %s", configPath, pattern)
 		}
@@ -845,14 +845,14 @@ func TestWalmartDepguardRegistersOnlyFrozenAdapterPorts(t *testing.T) {
 		{"walmart_official_transport", []string{
 			"**/internal/integration/walmart/client.go",
 			"**/internal/integration/walmart/products.go",
-		}, []string{"$gostd", "github.com/google/uuid$", "task-processor/internal/marketplace/walmart$", "task-processor/internal/storecenter/walmart$"}},
+		}, []string{"$gostd", "github.com/google/uuid$", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart$", "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart$"}},
 		{"walmart_effects_persistence", []string{
 			"**/internal/integration/persistence/listing/submission/walmart_effects_policy.go",
 			"**/internal/integration/persistence/listing/official/walmart_results.go",
 		}, []string{"$gostd", "github.com/google/uuid$", "gorm.io/gorm$", "gorm.io/gorm/clause$",
-			"task-processor/internal/integration/persistence/listing/record$",
-			"task-processor/internal/integration/persistence/listing/submission$",
-			"task-processor/internal/listing/submission$", "task-processor/internal/marketplace/walmart$", "task-processor/internal/product/collection$"}},
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record$",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission$",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission$", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart$", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"}},
 	}
 	for _, tc := range cases {
 		rule := requireDepguardRule(t, rules, tc.name)

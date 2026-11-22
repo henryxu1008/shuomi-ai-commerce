@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
 )
 
 func TestFrozenPriceRequiresExplicitCanonicalAmount(t *testing.T) {

@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/selection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/research"
-	"task-processor/internal/product/selection"
 )
 
 type researchReader struct {

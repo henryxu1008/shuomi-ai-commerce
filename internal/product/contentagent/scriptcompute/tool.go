@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 func Definition() commercetool.Definition {

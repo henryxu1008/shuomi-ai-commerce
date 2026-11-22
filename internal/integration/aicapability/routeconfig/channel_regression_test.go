@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"github.com/stretchr/testify/require"
-	d "task-processor/internal/aicapability/routeconfig"
 )
 
 // A shared credential is not a model definition. In particular, an otherwise

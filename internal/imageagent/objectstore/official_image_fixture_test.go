@@ -1,8 +1,8 @@
 package objectstore
 
 import (
-	"task-processor/internal/aicapability"
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // Explicit synthetic price/usage for the existing offline owner regressions.

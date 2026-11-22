@@ -11,8 +11,8 @@ import (
 	sdkclient "go.temporal.io/sdk/client"
 	sdkworker "go.temporal.io/sdk/worker"
 
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
-	platformtemporal "task-processor/internal/platform/temporal"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	platformtemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/temporal"
 )
 
 // Driver owns one real Temporal client and, while started, one Organization

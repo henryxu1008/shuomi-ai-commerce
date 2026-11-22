@@ -6,14 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	jobstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/dataacquisition"
+	sourcestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
-	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	"task-processor/internal/product/sourcing"
 )
 
 type publicationAuthority struct {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"math"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // This read DTO describes proved original outcomes; it never grants dispatch or

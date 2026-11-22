@@ -183,11 +183,11 @@ func TestProductImageDependencyGuardRejectsRuntimeAndConcreteImageProviders(t *t
 	fixture := filepath.Join(t.TempDir(), "runtime_imports.go")
 	source := `package fixture
 import (
-	_ "task-processor/internal/app"
-	_ "task-processor/internal/integration/openai"
-	_ "task-processor/internal/marketplace/imagepolicy"
-	_ "task-processor/internal/platform"
-	_ "task-processor/internal/productimage"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/app"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/platform"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage"
 	_ "github.com/aws/aws-sdk-go-v2/service/s3"
 	_ "github.com/sashabaranov/go-openai"
 	_ "go.temporal.io/sdk/workflow"

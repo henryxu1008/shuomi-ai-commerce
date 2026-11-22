@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	tmhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket/httpapi"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/httproute"
-	tmhttp "task-processor/internal/toolmarket/httpapi"
 	"testing"
 )
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type Principal struct {

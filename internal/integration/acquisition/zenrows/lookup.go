@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"task-processor/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 )
 
 // UsageRecord represents a per-request entry from trusted account evidence.

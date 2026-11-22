@@ -10,10 +10,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/productagentruntime"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/app/schema/productagentruntime"
 )
 
 func main() {

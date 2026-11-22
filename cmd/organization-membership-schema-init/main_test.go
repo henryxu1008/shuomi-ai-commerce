@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"os"
 	"path/filepath"
 	"strings"
-	"task-processor/internal/authz"
 	"testing"
 )
 

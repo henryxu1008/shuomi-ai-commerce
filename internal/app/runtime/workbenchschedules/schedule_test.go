@@ -3,13 +3,13 @@ package workbenchschedules
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
-	"task-processor/internal/aiworkbench"
 	"testing"
 	"time"
 )

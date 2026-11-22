@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/assetpublication"
+	assetstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/assetpublication"
-	assetstore "task-processor/internal/integration/persistence/product/asset"
-	productasset "task-processor/internal/product/asset"
 )
 
 func TestExistingImageSetAdmissionAndCommittedReceiptKeepOriginalDigest(t *testing.T) {

@@ -3,11 +3,11 @@ package httpapi
 import (
 	"context"
 	"errors"
+	n "github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
 	"net/http"
 	"strconv"
-	n "task-processor/internal/notificationcenter"
-	"task-processor/internal/organization/membership"
-	flow "task-processor/internal/organization/membership/inviteflow"
 	"time"
 )
 

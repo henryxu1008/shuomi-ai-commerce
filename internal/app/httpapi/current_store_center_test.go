@@ -10,14 +10,14 @@ import (
 
 	"gorm.io/driver/sqlite"
 
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/storecenter"
-	storehttp "task-processor/internal/storecenter/httpapi"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	storehttp "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/httpapi"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"

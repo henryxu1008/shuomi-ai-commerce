@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 func sameObject(row objectRow, object storagecapacity.Object) bool {

@@ -2,8 +2,8 @@ package imageagentapp
 
 import (
 	"context"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type ImageSetManualMedia struct{ Media collection.SourceMedia }

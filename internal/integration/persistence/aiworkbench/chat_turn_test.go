@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aiworkbench"
 )
 
 func TestChatTurnSnapshotRetainsOriginalFingerprintAfterJSONB(t *testing.T) {

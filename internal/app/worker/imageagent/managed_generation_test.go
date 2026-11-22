@@ -3,10 +3,10 @@ package imageagentworker
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/integration/openai"
 	"testing"
 	"time"
 )

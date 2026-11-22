@@ -2,7 +2,7 @@ package workspace
 
 import (
 	"errors"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
+	sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
 	"testing"
 )
 

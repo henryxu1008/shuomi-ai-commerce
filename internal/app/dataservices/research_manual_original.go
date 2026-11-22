@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	"task-processor/internal/product/collection"
 )
 
 // ResearchManualOriginalBinding is an operator-frozen identity, not a request

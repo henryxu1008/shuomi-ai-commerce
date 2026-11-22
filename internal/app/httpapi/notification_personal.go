@@ -2,10 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	n "github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
+	economics "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 	"strconv"
-	"task-processor/internal/authz"
-	n "task-processor/internal/notificationcenter"
-	economics "task-processor/internal/referraleconomics"
 )
 
 func referralNotificationSources(reader economics.NoticeReader, auth *authz.ListingKitAuthorizer) []n.Source {

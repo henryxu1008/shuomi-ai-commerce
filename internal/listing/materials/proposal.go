@@ -3,10 +3,10 @@ package materials
 import (
 	"encoding/json"
 	"errors"
-	"task-processor/internal/agent"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 
 	sigjson "sigs.k8s.io/json"
 )

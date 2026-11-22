@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	customhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"github.com/stretchr/testify/require"
-	customhttp "task-processor/internal/agentcustomization/httpapi"
-	"task-processor/internal/httproute"
 	"testing"
 )
 

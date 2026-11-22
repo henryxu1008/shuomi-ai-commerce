@@ -5,18 +5,18 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/walmart"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
 	"net/url"
 	"sync"
-	storeapp "task-processor/internal/app/storecenter"
-	integration "task-processor/internal/integration/walmart"
-	marketplace "task-processor/internal/marketplace/walmart"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/storecenter"
-	auth "task-processor/internal/storecenter/walmart"
 )
 
 func TestWalmartDurableCallbackClaimAndRefreshFence(t *testing.T) {

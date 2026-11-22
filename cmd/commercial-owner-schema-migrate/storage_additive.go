@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	"gorm.io/gorm"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	platformdatabase "task-processor/internal/platform/database"
 )
 
 func runStorageDisabledAdditive(manifestPath string) error {

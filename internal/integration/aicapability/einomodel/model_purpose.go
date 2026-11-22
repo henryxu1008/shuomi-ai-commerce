@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 // ComponentExecutionBinding is compiled from installed components, never

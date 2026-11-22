@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/accountprofile"
+	platformmigration "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database/migration"
 	"github.com/pressly/goose/v3"
 	"gorm.io/gorm"
-	store "task-processor/internal/integration/persistence/accountprofile"
-	platformmigration "task-processor/internal/platform/database/migration"
 )
 
 const versionTableRelation = "public.goose_account_profile_version"

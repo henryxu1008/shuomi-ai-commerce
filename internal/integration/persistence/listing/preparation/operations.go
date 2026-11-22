@@ -7,11 +7,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
 )
 
 type OperationRepository struct{ db *gorm.DB }

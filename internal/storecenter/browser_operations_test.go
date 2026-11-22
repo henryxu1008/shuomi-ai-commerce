@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"gorm.io/gorm"
-	"task-processor/internal/storecenter"
 )
 
 type browserAccessFixture struct {

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	collectionhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection/httpapi"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	collectionhttp "task-processor/internal/product/collection/httpapi"
 )
 
 func TestOwnContentAgentRoutesKeepExplicitFreshBoundaries(t *testing.T) {

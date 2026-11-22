@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type OfficialConnections struct {
@@ -153,7 +153,9 @@ func (a *OfficialConnections) Complete(ctx context.Context, c storecenter.Comple
 			return a.walmart.Complete(ctx, storecenter.CompleteWalmartConnection{OrganizationID: c.OrganizationID, StoreID: c.StoreID, AttemptID: c.AttemptID, AppID: c.AppID, State: c.State, Code: c.AuthCode, SellerID: c.SellerID, CallbackType: c.CallbackType, MerchantConfirmation: c.MerchantConfirmation})
 		}
 	}
-	if c.SellerID!=""||c.CallbackType!=""||c.MerchantConfirmation!=""{return storecenter.OfficialConnectionView{},storecenter.ErrNotFound}
+	if c.SellerID != "" || c.CallbackType != "" || c.MerchantConfirmation != "" {
+		return storecenter.OfficialConnectionView{}, storecenter.ErrNotFound
+	}
 	if a.tiktok != nil {
 		owns, err := a.tiktok.Owns(ctx, c.OrganizationID, c.StoreID)
 		if err != nil {

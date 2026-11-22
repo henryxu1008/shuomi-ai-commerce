@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"testing"
 
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	coreconfig "task-processor/internal/core/config"
 )
 
 func TestSourceMaterialsManifestUsesExistingOwnersWithoutStoreOrAgent(t *testing.T) {

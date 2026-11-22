@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/ledger/money"
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 func TestResourceTypeForProductUsesCanonicalOrgResourceTypes(t *testing.T) {

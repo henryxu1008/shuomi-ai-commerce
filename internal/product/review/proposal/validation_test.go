@@ -2,9 +2,9 @@ package proposal
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"math"
 	"reflect"
-	"task-processor/internal/product/sourcing"
 	"testing"
 	"time"
 )

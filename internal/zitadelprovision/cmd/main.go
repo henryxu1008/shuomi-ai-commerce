@@ -5,16 +5,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	privatefiles "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	privatefiles "task-processor/internal/platform/privatefile"
 
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/zitadelprovision"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprovision"
 )
 
 const (

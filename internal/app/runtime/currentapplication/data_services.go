@@ -2,11 +2,11 @@ package currentapplication
 
 import (
 	"errors"
+	datahttp "github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/amazon"
 	"net"
 	"path/filepath"
 	"strconv"
-	datahttp "task-processor/internal/dataservice/httpapi"
-	"task-processor/internal/integration/acquisition/amazon"
 )
 
 type DataServicesConfig struct {

@@ -2,10 +2,10 @@ package openai
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/aicapability"
-	productimage "task-processor/internal/product/image"
 	"testing"
 )
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	common "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/activity"
@@ -21,7 +22,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"task-processor/internal/aiworkbench"
 )
 
 const (

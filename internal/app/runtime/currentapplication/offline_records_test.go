@@ -3,11 +3,11 @@ package currentapplication
 import (
 	"context"
 	"errors"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"net/http"
-	coreconfig "task-processor/internal/core/config"
 	"testing"
 )
 

@@ -2,8 +2,8 @@ package httpapi
 
 import (
 	"context"
-	d "task-processor/internal/aicapability/routeconfig"
-	governed "task-processor/internal/integration/aicapability/einomodel"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 )
 
 func newProductTextRouteResolver(cfg ProductAgentDependencies, policies map[governed.RouteKey]governed.RoutePolicy) (*governed.OrganizationRouteResolver, error) {

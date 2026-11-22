@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 func (v Validator) validateCandidateRules(ctx context.Context, request agent.Request, candidate agent.DomainProposal, history []agent.Observation) (agent.Validation, error) {

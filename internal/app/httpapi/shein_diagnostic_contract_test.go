@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/listing/record"
-	sheinvalidator "task-processor/internal/marketplace/shein/validator"
-	contract "task-processor/internal/marketplace/validator"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	sheinvalidator "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/validator"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 
 	"github.com/stretchr/testify/require"
 )

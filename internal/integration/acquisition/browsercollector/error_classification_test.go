@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/integration/acquisition/a1688/browser"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/a1688/browser"
 )
 
 // A challenge whose automatic attempt exhausts the budget arrives as a joined error

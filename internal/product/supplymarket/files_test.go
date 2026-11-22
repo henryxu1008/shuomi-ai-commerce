@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"image"
 	"image/png"
-	"task-processor/internal/product/collection"
 	"testing"
 
 	"github.com/google/uuid"

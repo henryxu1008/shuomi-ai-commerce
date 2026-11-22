@@ -28,12 +28,12 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/agent"
-	knowledgedb "task-processor/internal/integration/persistence/knowledge"
-	ledgerdb "task-processor/internal/integration/persistence/storagecapacity"
-	objects3 "task-processor/internal/integration/s3"
-	k "task-processor/internal/knowledge"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	knowledgedb "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/knowledge"
+	ledgerdb "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	objects3 "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 const fixtureBucket = "knowledge"

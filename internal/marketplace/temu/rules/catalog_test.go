@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/rules"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/temu/rules"
 )
 
 func TestCatalogPreservesOfficialSetsAndMissingLocalSpecifications(t *testing.T) {

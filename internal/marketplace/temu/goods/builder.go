@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"task-processor/internal/marketplace/temu/rules"
-	"task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/rules"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 // Build preserves incomplete editable facts. A source snapshot, a selectable

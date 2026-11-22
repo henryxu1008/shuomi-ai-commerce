@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/imageagent"
 )
 
 func paidImageOutputFixture(t *testing.T) (imageagent.RunProjection, imageagent.GenerationFact) {

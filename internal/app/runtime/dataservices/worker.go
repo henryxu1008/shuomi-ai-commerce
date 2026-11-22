@@ -1,9 +1,9 @@
 package dataservicesruntime
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
-	"task-processor/internal/product/dataacquisition"
 	"time"
 )
 

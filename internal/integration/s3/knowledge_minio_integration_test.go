@@ -22,8 +22,8 @@ import (
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/knowledge"
 )
 
 // Reuse the shipped storage bootstrap and IAM policy, with synthetic test-only

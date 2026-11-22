@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/tiktokshop"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 	"github.com/stretchr/testify/require"
-	integration "task-processor/internal/integration/tiktokshop"
-	marketplace "task-processor/internal/marketplace/tiktokshop"
-	"task-processor/internal/storecenter"
-	tiktok "task-processor/internal/storecenter/tiktokshop"
 )
 
 type tiktokProductProvider struct {

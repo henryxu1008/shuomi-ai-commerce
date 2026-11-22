@@ -5,6 +5,8 @@ package productsourcing
 import (
 	"context"
 	"encoding/json"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	researchstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/research"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -13,8 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	researchstore "task-processor/internal/integration/persistence/product/research"
 	"testing"
 	"time"
 )

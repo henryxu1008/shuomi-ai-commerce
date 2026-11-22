@@ -3,7 +3,7 @@ package effectpolicy
 import (
 	"testing"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func TestEffectDecisionDoesNotAliasAttemptSlices(t *testing.T) {

@@ -18,7 +18,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 func TestPostgresWelcomeGrantConcurrentSourceReplayMintsOnce(t *testing.T) {

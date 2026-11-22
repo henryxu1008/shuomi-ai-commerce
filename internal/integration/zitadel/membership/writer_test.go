@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	domain "task-processor/internal/organization/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 func TestWriterUsesFixedIdentityAndExactAuthorizationEndpoints(t *testing.T) {

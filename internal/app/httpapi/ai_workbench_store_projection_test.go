@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/storecenter"
 )
 
 func TestStoreHistoryProjectionRechecksEveryReadAndFailsClosed(t *testing.T) {

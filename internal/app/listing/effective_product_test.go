@@ -3,11 +3,11 @@ package listingapp
 import (
 	"context"
 	"github.com/google/uuid"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"github.com/stretchr/testify/require"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/review"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 )

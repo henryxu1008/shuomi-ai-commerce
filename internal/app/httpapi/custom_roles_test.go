@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"context"
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 )
 
 type currentRolePolicyFixture struct{}

@@ -3,10 +3,10 @@ package accountprofile
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"strings"
-	"task-processor/internal/authidentity"
 	"time"
 	"unicode"
 	"unicode/utf8"

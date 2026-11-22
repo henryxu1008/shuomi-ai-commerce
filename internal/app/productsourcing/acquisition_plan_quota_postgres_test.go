@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	planstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisitionplan"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	planstore "task-processor/internal/integration/persistence/product/acquisitionplan"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/sourcing"
 )
 
 type quotaPlanProvider struct{ calls int }

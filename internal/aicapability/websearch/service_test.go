@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"github.com/stretchr/testify/require"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 type clockSkewRepo struct {

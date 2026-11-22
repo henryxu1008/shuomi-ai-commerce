@@ -11,8 +11,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 // MaxCatalogSnapshotBytes is the consumer-side bound applied by the injected

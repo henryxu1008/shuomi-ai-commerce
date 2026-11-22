@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func publicBrowserStagingOperation(t *testing.T, channel string) (sourcing.AcquisitionOperation, sourcing.PublicationCommand) {

@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/geography"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/accountprofile"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/geography"
-	store "task-processor/internal/integration/persistence/accountprofile"
 	"testing"
 )
 

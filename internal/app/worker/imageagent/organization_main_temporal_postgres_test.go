@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	aistore "task-processor/internal/aicapability/store"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	imagestore "task-processor/internal/imageagent/store"
-	imagetemporal "task-processor/internal/imageagent/temporal"
-	platformtemporal "task-processor/internal/platform/temporal"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagestore "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	imagetemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	platformtemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/temporal"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"

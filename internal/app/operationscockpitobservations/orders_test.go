@@ -2,9 +2,9 @@ package operationscockpitobservations
 
 import (
 	"context"
-	"task-processor/internal/authidentity"
-	c "task-processor/internal/operationscockpit"
-	o "task-processor/internal/storecenter/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"testing"
 	"time"
 )

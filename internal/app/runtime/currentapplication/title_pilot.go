@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
 )
 
 // TitlePilotConfig is an opt-in in the existing private application manifest.

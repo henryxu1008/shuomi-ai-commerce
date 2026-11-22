@@ -197,7 +197,7 @@ jobs:
           fi
 
           # The PR architecture job already runs this entire subtree.
-          packages=$(go list ./... | grep -vE '^task-processor/tests(/|$)')
+          packages=$(go list ./... | grep -vE '^github\.com/henryxu1008/shuomi-ai-commerce/tests(/|$)')
           mapfile -t backend_packages <<< "$packages"
           go test -count=1 "${backend_packages[@]}"
 

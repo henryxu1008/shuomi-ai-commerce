@@ -10,9 +10,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/review"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

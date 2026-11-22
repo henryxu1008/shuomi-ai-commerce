@@ -3,12 +3,12 @@ package podapp
 import (
 	"context"
 	"errors"
+	podpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/pod"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/sds"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"reflect"
-	podpersistence "task-processor/internal/integration/persistence/product/pod"
-	"task-processor/internal/integration/sds"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
 	"time"
 )
 

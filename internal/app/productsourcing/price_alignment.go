@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	privateconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	jobstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/dataacquisition"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	"gorm.io/gorm"
-	privateconfig "task-processor/internal/core/config"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
-	platformdatabase "task-processor/internal/platform/database"
 )
 
 // AlignAcquisitionPriceSnapshot is explicit native owner maintenance, never a

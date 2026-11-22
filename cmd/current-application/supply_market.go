@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/integration/s3"
-	"task-processor/internal/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 )
 
 func prepareSupplyMarket(ctx context.Context, cfg *currentapplication.SupplyMarketConfig) (supplymarket.PrivateFileStorage, error) {

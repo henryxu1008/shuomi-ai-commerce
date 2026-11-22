@@ -2,8 +2,8 @@ package agentpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
 )
 
 // EnsureRuntimeSchema is only the create hook for the fixed native preparation

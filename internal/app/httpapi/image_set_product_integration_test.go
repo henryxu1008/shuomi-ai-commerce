@@ -12,16 +12,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/review"
-	"task-processor/internal/workbenchcontext"
 )
 
 func TestFullImageAcquisitionOptionsDoNotRequireCollections(t *testing.T) {

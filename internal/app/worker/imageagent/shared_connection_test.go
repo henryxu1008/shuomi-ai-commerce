@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/aiidentity"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/core/config"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/shared/aiidentity"
 )
 
 type sharedConnectionFixture struct {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 )
 
 func (a *productAgentApplication) authorizeWorkbenchReview(ctx context.Context, execution review.ExecutionProvenance) error {

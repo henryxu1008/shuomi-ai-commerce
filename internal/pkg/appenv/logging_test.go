@@ -3,7 +3,7 @@ package appenv
 import (
 	"testing"
 
-	logging "task-processor/internal/platform/logging"
+	logging "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging"
 )
 
 func TestCompositionFactoryResolvesCurrentManagerOnEveryCall(t *testing.T) {

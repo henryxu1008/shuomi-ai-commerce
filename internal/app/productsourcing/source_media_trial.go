@@ -1,10 +1,10 @@
 package productsourcing
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"net/url"
 	"regexp"
 	"strconv"
-	"task-processor/internal/product/collection"
 )
 
 // IsolatedTrialSourceMediaURLPolicy only validates server-created source object

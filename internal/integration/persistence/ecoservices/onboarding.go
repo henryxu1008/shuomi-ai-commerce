@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	e "task-processor/internal/ecoservices"
 	"time"
 )
 

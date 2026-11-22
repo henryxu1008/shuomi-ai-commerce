@@ -5,8 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/google/uuid"
-	"task-processor/internal/agent"
-	d "task-processor/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
 
 type directoryCursor struct {

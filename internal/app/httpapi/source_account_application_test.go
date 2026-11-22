@@ -12,12 +12,12 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/sourceaccountregistry"
-	sourceaccounthttpapi "task-processor/internal/sourceaccountregistry/httpapi"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
+	sourceaccounthttpapi "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 func TestMountedSourceAccountReportsIdentityExpiringAfterResolutionAsAuthenticationRequired(t *testing.T) {

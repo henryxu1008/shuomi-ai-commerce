@@ -3,9 +3,9 @@ package assetpersistence
 import (
 	"context"
 	"errors"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	productasset "task-processor/internal/product/asset"
 )
 
 // The successful action receipt is resolved before this function. Its head CAS

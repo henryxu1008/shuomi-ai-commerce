@@ -5,11 +5,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"golang.org/x/sync/errgroup"
 	"image"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/asset"
-	productimage "task-processor/internal/product/image"
 	"time"
 )
 

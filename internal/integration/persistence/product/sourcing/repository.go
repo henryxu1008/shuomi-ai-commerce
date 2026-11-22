@@ -16,8 +16,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type CatalogBinding struct {

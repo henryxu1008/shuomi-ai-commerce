@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	"task-processor/internal/integration/zitadelsms"
-	kernelmodule "task-processor/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/zitadelsms"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 )
 
 const zitadelSMSPath = "/api/v1/identity/notifications/sms"

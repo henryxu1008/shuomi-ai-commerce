@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	m "task-processor/internal/ledger/money"
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 func providerTopUpInput() m.ProviderTopUpInput {

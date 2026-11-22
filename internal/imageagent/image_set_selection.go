@@ -3,9 +3,9 @@ package imageagent
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"reflect"
-	"task-processor/internal/agentconfig"
-	productasset "task-processor/internal/product/asset"
 )
 
 const ImageSetApprovalPublicationStarted = "approval.publish_started"

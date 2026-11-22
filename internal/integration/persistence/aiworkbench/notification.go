@@ -2,7 +2,7 @@ package aiworkbenchpersistence
 
 import (
 	"context"
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 // PlanningNoticeReader is implemented on the original Workbench owner pool.

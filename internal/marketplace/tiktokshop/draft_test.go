@@ -2,8 +2,8 @@ package tiktokshop
 
 import (
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"strings"
-	"task-processor/internal/product/asset"
 	"testing"
 )
 

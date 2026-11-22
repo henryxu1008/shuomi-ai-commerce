@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -11,8 +13,6 @@ import (
 	"gorm.io/gorm/logger"
 	"net/url"
 	"sync"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/research"
 	"testing"
 	"time"
 )

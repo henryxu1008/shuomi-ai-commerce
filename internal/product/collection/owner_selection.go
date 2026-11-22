@@ -2,7 +2,7 @@ package collection
 
 import (
 	"context"
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"time"
 )
 

@@ -11,8 +11,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/agent"
 )
 
 const BusinessScopeVersion = "workbench-scope-v1"

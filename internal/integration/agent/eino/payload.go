@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"task-processor/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 )
 
 // Leave room before dispatch for bounded call references, usage, stop metadata

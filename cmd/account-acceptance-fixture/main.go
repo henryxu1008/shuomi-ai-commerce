@@ -7,18 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	memberstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/organization/membership"
+	membership "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"os"
 	"path/filepath"
 	"strings"
-	"task-processor/internal/authz"
-	memberstore "task-processor/internal/integration/persistence/organization/membership"
-	membership "task-processor/internal/organization/membership"
 	"time"
 
-	"task-processor/internal/zitadelprovision"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprovision"
 )
 
 const (

@@ -3,8 +3,8 @@ package listingapp
 import (
 	"context"
 	"github.com/google/uuid"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/stretchr/testify/require"
-	record "task-processor/internal/listing/record/target"
 	"testing"
 )
 

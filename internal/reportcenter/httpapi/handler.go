@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"io"
 	"mime"
 	"net/url"
 	strict "sigs.k8s.io/json"
 	"strconv"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/httproute"
-	rc "task-processor/internal/reportcenter"
 	"time"
 )
 

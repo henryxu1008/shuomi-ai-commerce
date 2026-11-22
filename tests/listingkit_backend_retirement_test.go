@@ -145,7 +145,7 @@ func TestLegacyTaskOpenAIConvenienceClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode task/AI closure import in %s: %v", path, err)
 			}
-			for _, root := range []string{"task-processor/internal/listing/task", "task-processor/internal/shared/ptr"} {
+			for _, root := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/task", "github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr"} {
 				if importMatchesPrefix(imported, root) {
 					t.Errorf("%s imports retired root %s", path, imported)
 				}
@@ -230,7 +230,7 @@ func TestLegacyTaskOpenAIConvenienceClosureIsRetired(t *testing.T) {
 		t.Fatal("retired task/ptr lint fence must cover all Go files without a legacy allowlist")
 	}
 	denied := depguardDenyPackageSet(rule)
-	wantDenied := []string{"task-processor/internal/listing/task$", "task-processor/internal/listing/task/", "task-processor/internal/shared/ptr$", "task-processor/internal/shared/ptr/"}
+	wantDenied := []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/task$", "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/task/", "github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr$", "github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr/"}
 	if len(denied) != len(wantDenied) {
 		t.Errorf("retired task/ptr fence must deny exactly %v, got %v", wantDenied, denied)
 	}
@@ -417,7 +417,7 @@ func TestLegacyHTTPAuthSupportClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if imported == "task-processor/internal/pkg/goroutine" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/goroutine" {
 				t.Errorf("%s imports the retired goroutine package", relative)
 			}
 		}
@@ -548,7 +548,7 @@ func TestLegacySheinLoginIdentitySyncClosureIsRetired(t *testing.T) {
 				t.Fatalf("decode import in %s: %v", path, err)
 			}
 			for _, root := range retiredRoots {
-				if importMatchesPrefix(imported, "task-processor/"+root) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+root) {
 					t.Errorf("%s imports retired SHEIN login owner %s", path, imported)
 				}
 			}
@@ -686,8 +686,8 @@ func TestLegacyLocalAgentSourcePolicyClosureIsRetired(t *testing.T) {
 		}
 	}
 	banned := []string{
-		"task-processor/internal/localagent", "task-processor/internal/integration/crawler",
-		"task-processor/internal/sds/adapter/product_source", "task-processor/internal/product/asset/policy",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/localagent", "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/crawler",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/sds/adapter/product_source", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/policy",
 	}
 	retained := map[string][]string{
 		"cmd/1688-public-browser-collector/main.go:main":                        nil,
@@ -970,7 +970,7 @@ func TestLegacySourceResultContractClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if importMatchesPrefix(imported, "task-processor/internal/model") || importMatchesPrefix(imported, "task-processor/internal/crawler/amazon/capturedata") {
+			if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/model") || importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/crawler/amazon/capturedata") {
 				t.Errorf("%s imports retired result owner %s", relative, imported)
 			}
 		}
@@ -1036,18 +1036,18 @@ func TestLegacyPublishingSupportPolicyClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode %s: %v", path, err)
 			}
-			for _, old := range []string{"task-processor/internal/publishing", "task-processor/internal/pkg/jsonx"} {
+			for _, old := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing", "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/jsonx"} {
 				if imported == old || strings.HasPrefix(imported, old+"/") {
 					t.Errorf("retired import in %s: %s", path, imported)
 				}
 			}
-			if path == dataRoot+"/source_values.go" && !slices.Contains([]string{"task-processor/internal/marketplace/shein/publishing", "task-processor/internal/product/catalog/canonical"}, imported) {
+			if path == dataRoot+"/source_values.go" && !slices.Contains([]string{"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"}, imported) {
 				t.Errorf("value owner must stay pure: %s", imported)
 			}
 			if path == policyRoot+"/price.go" {
 				t.Errorf("Price must not depend on another owner: %s", imported)
 			}
-			if production && strings.HasPrefix(filepath.Base(path), "local_source_") && owner == draftRoot && !slices.Contains(strings.Fields("fmt regexp strings strconv sort maps task-processor/internal/product/asset task-processor/internal/product/catalog/canonical task-processor/internal/marketplace/shein/offlinepackage task-processor/internal/marketplace/shein/publishing"), imported) {
+			if production && strings.HasPrefix(filepath.Base(path), "local_source_") && owner == draftRoot && !slices.Contains(strings.Fields("fmt regexp strings strconv sort maps github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"), imported) {
 				t.Errorf("source assembly must stay pure: %s: %s", path, imported)
 			}
 		}
@@ -1111,7 +1111,7 @@ func TestLegacySheinDraftAssemblyClosureIsRetired(t *testing.T) {
 		required[dataRoot][name] = false
 	}
 	retired := strings.Fields("Assembler AssemblerConfig assembler BuildRequest CategoryResolver AttributeResolver SaleAttributeResolver SizeAttributeHeaderResolver SizeAttributeHeaderResolution SizeAttributeHeaderResolutionInput TextGenerator PricingPolicy SubmitPayloadSettings SetDraftPayload SetPreviewPayload loggerDependency")
-	pureImports := strings.Fields("bytes encoding/json errors fmt io math sort strconv strings time unicode/utf8 sigs.k8s.io/json task-processor/internal/marketplace/shein/publishing task-processor/internal/product/catalog/canonical task-processor/internal/marketplace/shein/offlinepackage/previewdata")
+	pureImports := strings.Fields("bytes encoding/json errors fmt io math sort strconv strings time unicode/utf8 sigs.k8s.io/json github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata")
 	for _, path := range trackedFiles(t, ".") {
 		if !strings.HasSuffix(path, ".go") {
 			continue
@@ -1127,7 +1127,7 @@ func TestLegacySheinDraftAssemblyClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", path, err)
 			}
-			if imported == "task-processor/"+oldRoot || strings.HasPrefix(imported, "task-processor/"+oldRoot+"/") {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/"+oldRoot || strings.HasPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+oldRoot+"/") {
 				t.Errorf("retired SHEIN assembly import in %s: %s", path, imported)
 			}
 			if production && owner == dataRoot && !slices.Contains(pureImports, imported) {
@@ -1249,7 +1249,7 @@ func TestLegacyIdleProviderBootstrapClosureIsRetired(t *testing.T) {
 				t.Fatalf("decode import in %s: %v", path, err)
 			}
 			for _, root := range retiredRoots {
-				if importMatchesPrefix(imported, "task-processor/"+root) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+root) {
 					t.Errorf("%s imports retired provider/bootstrap owner %s", path, imported)
 				}
 			}
@@ -1362,20 +1362,20 @@ func TestLegacyOpenAIAdapterClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", path, err)
 			}
-			if importMatchesPrefix(imported, "task-processor/internal/product/enrichment") {
+			if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment") {
 				t.Errorf("%s retains retired generation import %s", path, imported)
 			}
-			if imported == "task-processor/internal/integration/openai" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai" {
 				openaiAlias = "openai"
 				if spec.Name != nil {
 					openaiAlias = spec.Name.Name
 				}
 			}
-			if imported == "task-processor/internal/product/review/proposal" && spec.Name != nil && spec.Name.Name == "enrichment" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal" && spec.Name != nil && spec.Name.Name == "enrichment" {
 				t.Errorf("%s keeps the retired owner as an import alias", path)
 			}
 			if owner == "internal/product/review/proposal" && !strings.HasSuffix(path, "_test.go") {
-				if strings.Contains(strings.Split(imported, "/")[0], ".") && imported != "golang.org/x/text/language" || strings.HasPrefix(imported, "task-processor/") && imported != "task-processor/internal/product/catalog" && imported != "task-processor/internal/product/sourcing" {
+				if strings.Contains(strings.Split(imported, "/")[0], ".") && imported != "golang.org/x/text/language" || strings.HasPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/") && imported != "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog" && imported != "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing" {
 					t.Errorf("pure review proposal imports runtime or another owner: %s", imported)
 				}
 			}
@@ -1514,7 +1514,7 @@ func TestLegacyBrowserManagementTailClosureIsRetired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, fragment := range []string{`"task-processor/internal/integration/acquisition/amazon"`, "amazon.New(amazon.Options{"} {
+	for _, fragment := range []string{`"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/amazon"`, "amazon.New(amazon.Options{"} {
 		if !strings.Contains(string(source), fragment) {
 			t.Errorf("current acquisition must retain %q", fragment)
 		}
@@ -1532,7 +1532,7 @@ func TestLegacyAmazonSourceAdapterClosureIsRetired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, fragment := range []string{`"task-processor/internal/integration/acquisition/amazon"`, "amazon.New(amazon.Options{"} {
+	for _, fragment := range []string{`"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/amazon"`, "amazon.New(amazon.Options{"} {
 		if !strings.Contains(string(source), fragment) {
 			t.Errorf("current acquisition must retain %q", fragment)
 		}
@@ -1586,7 +1586,7 @@ func TestLegacyWorkerpoolSensitiveWordRecoveryClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
-			for _, retired := range []string{"task-processor/internal/platform/workerpool", "task-processor/internal/pkg/recovery"} {
+			for _, retired := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/workerpool", "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/recovery"} {
 				if importMatchesPrefix(imported, retired) {
 					t.Errorf("%s imports retired package %s", relative, imported)
 				}
@@ -1757,7 +1757,7 @@ func TestLegacyRuntimeSkeletonAndIdleConfigClosureIsRetired(t *testing.T) {
 				if err != nil {
 					t.Fatalf("decode import in %s: %v", relative, err)
 				}
-				if importMatchesPrefix(imported, "task-processor/internal/platform/workerpool") {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/workerpool") {
 					t.Errorf("%s retains the retired kernel workerpool import %s", relative, imported)
 				}
 			}
@@ -1886,8 +1886,8 @@ func assertLegacyLoggerFacadeRetired(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if importMatchesPrefix(imported, "task-processor/internal/core/logger") ||
-				(business && (importMatchesPrefix(imported, "task-processor/internal/platform/logging") || imported == "task-processor/internal/pkg/appenv")) {
+			if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/core/logger") ||
+				(business && (importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging") || imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/appenv")) {
 				t.Errorf("%s imports retired/global logging owner %s; inject a consumer-local dependency", relative, imported)
 			}
 		}
@@ -1923,7 +1923,7 @@ func TestLegacyLoggerFacadeClosureIsRetired(t *testing.T) {
 			t.Fatalf("go list %s: %v\n%s", command, err, output)
 		}
 		for _, dependency := range strings.Fields(string(output)) {
-			if importMatchesPrefix(dependency, "task-processor/internal/core/logger") {
+			if importMatchesPrefix(dependency, "github.com/henryxu1008/shuomi-ai-commerce/internal/core/logger") {
 				t.Errorf("%s retains retired logger dependency %s", command, dependency)
 			}
 		}
@@ -1954,7 +1954,7 @@ func assertLegacyListingPreviewDownloadSourcesRetired(t *testing.T) {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
 			for _, retired := range retiredListingPreviewDownloadPackages {
-				if importMatchesPrefix(imported, "task-processor/"+retired) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 					t.Errorf("%s imports retired listing preview/download owner %s", relative, imported)
 				}
 			}
@@ -1970,7 +1970,7 @@ func TestLegacyListingPreviewDownloadClosureIsRetired(t *testing.T) {
 	}
 	var wantDenied []string
 	for _, retired := range retiredListingPreviewDownloadPackages {
-		wantDenied = append(wantDenied, "task-processor/"+retired+"$", "task-processor/"+retired+"/")
+		wantDenied = append(wantDenied, "github.com/henryxu1008/shuomi-ai-commerce/"+retired+"$", "github.com/henryxu1008/shuomi-ai-commerce/"+retired+"/")
 	}
 	denied := depguardDenyPackageSet(rule)
 	if len(denied) != len(wantDenied) {
@@ -1991,7 +1991,7 @@ func TestLegacyListingPreviewDownloadClosureIsRetired(t *testing.T) {
 			}
 			for _, dependency := range strings.Fields(string(output)) {
 				for _, retired := range retiredListingPreviewDownloadPackages {
-					if importMatchesPrefix(dependency, "task-processor/"+retired) {
+					if importMatchesPrefix(dependency, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 						t.Errorf("%s still compiles retired listing preview/download dependency %s", command, dependency)
 					}
 				}
@@ -2123,7 +2123,7 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
-			if isRetired(strings.TrimPrefix(imported, "task-processor/")) {
+			if isRetired(strings.TrimPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/")) {
 				t.Errorf("%s imports retired SDS package %s", relative, imported)
 			}
 		}
@@ -2192,7 +2192,7 @@ func TestLegacySDSRuntimeClosureIsRetired(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				if isRetired(strings.TrimPrefix(dependency, "task-processor/")) {
+				if isRetired(strings.TrimPrefix(dependency, "github.com/henryxu1008/shuomi-ai-commerce/")) {
 					t.Errorf("%s still compiles retired SDS dependency %s", command, dependency)
 				}
 			}
@@ -2246,7 +2246,7 @@ func TestLegacyRedisProxyAndSharedClosureIsRetired(t *testing.T) {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
 			for _, retired := range retiredPackages {
-				if importMatchesPrefix(imported, "task-processor/"+retired) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 					t.Errorf("%s imports retired Redis/shared package %s", relative, imported)
 				}
 			}
@@ -2290,7 +2290,7 @@ func TestLegacyRedisProxyAndSharedClosureIsRetired(t *testing.T) {
 			}
 			for _, dependency := range strings.Fields(string(output)) {
 				for _, retired := range retiredPackages {
-					if importMatchesPrefix(dependency, "task-processor/"+retired) {
+					if importMatchesPrefix(dependency, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 						t.Errorf("%s still compiles retired Redis/shared dependency %s", command, dependency)
 					}
 				}
@@ -2332,7 +2332,7 @@ func TestLegacyHostConfigFeatureFlagTracingClosureIsRetired(t *testing.T) {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
 			for _, retired := range retiredPackages {
-				if importMatchesPrefix(imported, "task-processor/"+retired) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 					t.Errorf("%s imports retired host config/flag/tracing package %s", relative, imported)
 				}
 			}
@@ -2377,7 +2377,7 @@ func TestLegacyHostConfigFeatureFlagTracingClosureIsRetired(t *testing.T) {
 			}
 			for _, dependency := range strings.Fields(string(output)) {
 				for _, retired := range retiredPackages {
-					if importMatchesPrefix(dependency, "task-processor/"+retired) {
+					if importMatchesPrefix(dependency, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 						t.Errorf("%s still compiles retired host config/flag/tracing dependency %s", command, dependency)
 					}
 				}
@@ -2387,7 +2387,7 @@ func TestLegacyHostConfigFeatureFlagTracingClosureIsRetired(t *testing.T) {
 }
 
 func TestLegacyWatermarkClosureIsRetired(t *testing.T) {
-	const retired = "task-processor/internal/pkg/watermark"
+	const retired = "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/watermark"
 	if _, err := os.Stat(filepath.Join("..", "internal", "pkg", "watermark")); !os.IsNotExist(err) {
 		t.Errorf("retired watermark package and examples must be absent: %v", err)
 	}
@@ -2459,7 +2459,7 @@ func TestLegacyQueueProxyAndConfigTailClosureIsRetired(t *testing.T) {
 					t.Fatalf("decode import in %s: %v", path, err)
 				}
 				for _, relative := range retiredPackages {
-					if importMatchesPrefix(imported, "task-processor/"+relative) {
+					if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+relative) {
 						t.Errorf("%s imports retired queue/proxy/config package %s", path, imported)
 					}
 				}
@@ -2486,7 +2486,7 @@ func TestOldHostRuntimeClosureStaysRetired(t *testing.T) {
 					t.Fatalf("decode import in %s: %v", path, err)
 				}
 				for _, relative := range retiredHostRuntimePackages {
-					if importMatchesPrefix(imported, "task-processor/"+relative) {
+					if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+relative) {
 						t.Errorf("%s imports retired host runtime %s", path, imported)
 					}
 				}
@@ -2561,7 +2561,7 @@ func TestNumericAcquisitionAndPlatformTailClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
-			if importMatchesPrefix(imported, "task-processor/internal/listingruntime") {
+			if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/listingruntime") {
 				t.Errorf("%s imports retired numeric mapping owner %s", relative, imported)
 			}
 		}
@@ -3554,12 +3554,12 @@ func TestNumericListingSupportClosureSourcesAreRetired(t *testing.T) {
 		return strings.HasSuffix(path, ".go")
 	})
 	violations, err := phase3BannedImportDeclarationViolations(sources, []string{
-		"task-processor/internal/taskrpcapi",
-		"task-processor/internal/workspace/shein",
-		"task-processor/internal/core/metrics",
-		"task-processor/internal/publishing/sheinmanaged",
-		"task-processor/internal/shein/category",
-		"task-processor/internal/shein/aicache",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/taskrpcapi",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/core/metrics",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/sheinmanaged",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/category",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/aicache",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -3585,7 +3585,7 @@ func TestNumericListingSupportClosureSourcesAreRetired(t *testing.T) {
 				t.Fatal(err)
 			}
 			// Only the old root hook is retired; imageagent remains current.
-			if imported == "task-processor/internal/app/worker" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/app/worker" {
 				t.Errorf("%s imports retired root Task worker hook", source.path)
 			}
 		}
@@ -3669,7 +3669,7 @@ func TestAmazonListingClosureSourcesAreRetired(t *testing.T) {
 	}
 	var banned []string
 	for _, relative := range retiredAmazonListingPackages {
-		banned = append(banned, "task-processor/"+relative)
+		banned = append(banned, "github.com/henryxu1008/shuomi-ai-commerce/"+relative)
 	}
 	sources := trackedProductionTextSources(t, []string{"."}, func(path string) bool {
 		return strings.HasSuffix(path, ".go")
@@ -3781,16 +3781,16 @@ func TestListingKitTaskBackendSourcesAreRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
-			if importMatchesPrefix(imported, "task-processor/"+retiredPolicyRoot) {
+			if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+retiredPolicyRoot) {
 				t.Errorf("%s imports retired product policy %s", relative, imported)
 			}
 			for _, retired := range retiredSheinPolicyContractPackages {
-				if importMatchesPrefix(imported, "task-processor/"+retired) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 					t.Errorf("%s imports retired SHEIN policy/contract %s", relative, imported)
 				}
 			}
 			// Only the root package retires; API/client/content subpackages remain.
-			if imported == "task-processor/internal/shein" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/shein" {
 				t.Errorf("%s imports retired root SHEIN contract %s", relative, imported)
 			}
 		}
@@ -4630,31 +4630,31 @@ func TestCurrentCommandsDoNotCompileLegacyBusinessBackends(t *testing.T) {
 				t.Fatalf("go list current command: %v\n%s", err, output)
 			}
 			for _, dependency := range strings.Fields(string(output)) {
-				if dependency == "task-processor/internal/shein/api" {
+				if dependency == "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/api" {
 					t.Errorf("%s compiles retired root SHEIN API", command)
 				}
 				for _, root := range []string{"internal/amazon/api", "internal/temu/api", "internal/shein/api/category", "internal/shein/api/image", "internal/shein/api/marketing", "internal/shein/api/pricing", "internal/shein/api/translate", "internal/shein/pricing"} {
-					if importMatchesPrefix(dependency, "task-processor/"+root) {
+					if importMatchesPrefix(dependency, "github.com/henryxu1008/shuomi-ai-commerce/"+root) {
 						t.Errorf("%s compiles retired platform API %s", command, dependency)
 					}
 				}
 
-				if dependency == "task-processor/internal/shein" {
+				if dependency == "github.com/henryxu1008/shuomi-ai-commerce/internal/shein" {
 					t.Errorf("%s still compiles retired root SHEIN contract %s", command, dependency)
 				}
 				for _, relative := range retiredSheinPolicyContractPackages {
-					if importMatchesPrefix(dependency, "task-processor/"+relative) {
+					if importMatchesPrefix(dependency, "github.com/henryxu1008/shuomi-ai-commerce/"+relative) {
 						t.Errorf("%s still compiles retired SHEIN policy/contract %s", command, dependency)
 					}
 				}
 				for _, relative := range append(append(append([]string{}, retiredTEMUListingPackages...), retiredAmazonListingPackages...), retiredHostRuntimePackages...) {
-					retired := "task-processor/" + relative
+					retired := "github.com/henryxu1008/shuomi-ai-commerce/" + relative
 					if dependency == retired || strings.HasPrefix(dependency, retired+"/") {
 						t.Errorf("%s still compiles retired listing dependency %s", command, dependency)
 					}
 				}
-				for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/shein", "task-processor/internal/prompt", "task-processor/internal/promptmgmt", "task-processor/internal/shared/tenantctx", "task-processor/internal/platformbase", "task-processor/internal/crawler/fetcher", "task-processor/internal/marketplace/sourceproduct", "task-processor/internal/domain/task", "task-processor/internal/crawler/shared", "task-processor/internal/shein/product", "task-processor/internal/shein/productdata", "task-processor/internal/shein/publish", "task-processor/internal/shein/mapping", "task-processor/internal/shein/validation", "task-processor/internal/shein/translate", "task-processor/internal/shein/addresscopy", "task-processor/internal/shein/managedclient", "task-processor/internal/shein/store", "task-processor/internal/shein/context", "task-processor/internal/shein/languageconfig", "task-processor/internal/shein/siteconfig", "task-processor/internal/sheinbridge/saleattribute", "task-processor/internal/shein/inventory", "task-processor/internal/temu/sync", "task-processor/internal/temu/bulkrelist", "task-processor/internal/temu/store", "task-processor/internal/app/bootstrap", "task-processor/internal/app/consumer", "task-processor/internal/app/runner", "task-processor/internal/app/scheduler", "task-processor/internal/app/runtime/listingcontrol", "task-processor/internal/app/runtime/sheinplatformrecovery", "task-processor/internal/listingcontrol", "task-processor/internal/app/task", "task-processor/internal/app/taskstatus", "task-processor/internal/processor", "task-processor/internal/app/crawler/distributed", "task-processor/internal/listingruntime", "task-processor/internal/listingruntime/local", "task-processor/internal/platforms", "task-processor/internal/listingkit", "task-processor/internal/tenantbridge", "task-processor/internal/compatibility", "task-processor/internal/sourceaccount", "task-processor/internal/integration/persistence/sourceaccount/ownershipmigration", "task-processor/internal/taskrpcapi", "task-processor/internal/workspace/shein", "task-processor/internal/core/metrics", "task-processor/internal/publishing/sheinmanaged", "task-processor/internal/shein/category", "task-processor/internal/shein/aicache"} {
-					if dependency == retired || (retired != "task-processor/internal/crawler/shared" && strings.HasPrefix(dependency, retired+"/")) {
+				for _, retired := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/sheinlogin", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinloginworker", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein", "github.com/henryxu1008/shuomi-ai-commerce/internal/prompt", "github.com/henryxu1008/shuomi-ai-commerce/internal/promptmgmt", "github.com/henryxu1008/shuomi-ai-commerce/internal/shared/tenantctx", "github.com/henryxu1008/shuomi-ai-commerce/internal/platformbase", "github.com/henryxu1008/shuomi-ai-commerce/internal/crawler/fetcher", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/sourceproduct", "github.com/henryxu1008/shuomi-ai-commerce/internal/domain/task", "github.com/henryxu1008/shuomi-ai-commerce/internal/crawler/shared", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/product", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/productdata", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/publish", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/mapping", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/validation", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/translate", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/addresscopy", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/managedclient", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/store", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/context", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/languageconfig", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/siteconfig", "github.com/henryxu1008/shuomi-ai-commerce/internal/sheinbridge/saleattribute", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/inventory", "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/sync", "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/bulkrelist", "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/store", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/bootstrap", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/consumer", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runner", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/scheduler", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/listingcontrol", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinplatformrecovery", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingcontrol", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/task", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/taskstatus", "github.com/henryxu1008/shuomi-ai-commerce/internal/processor", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/crawler/distributed", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingruntime", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingruntime/local", "github.com/henryxu1008/shuomi-ai-commerce/internal/platforms", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge", "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility", "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccount", "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccount/ownershipmigration", "github.com/henryxu1008/shuomi-ai-commerce/internal/taskrpcapi", "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein", "github.com/henryxu1008/shuomi-ai-commerce/internal/core/metrics", "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/sheinmanaged", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/category", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/aicache"} {
+					if dependency == retired || (retired != "github.com/henryxu1008/shuomi-ai-commerce/internal/crawler/shared" && strings.HasPrefix(dependency, retired+"/")) {
 						t.Errorf("%s still compiles retired business dependency %s", command, dependency)
 					}
 				}
@@ -4677,7 +4677,7 @@ func TestStandaloneSheinWorkerDoesNotCompileCurrentHTTPApplication(t *testing.T)
 			t.Fatalf("go list retained command %s: %v\n%s", command, err, output)
 		}
 		for _, dependency := range strings.Fields(string(output)) {
-			for _, retired := range []string{"task-processor/internal/sourceaccount", "task-processor/internal/tenantbridge", "task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/shein"} {
+			for _, retired := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccount", "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge", "github.com/henryxu1008/shuomi-ai-commerce/internal/sheinlogin", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinloginworker", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein"} {
 				if importMatchesPrefix(dependency, retired) {
 					t.Errorf("%s compiles retired SHEIN/identity owner %s", command, dependency)
 				}
@@ -4915,7 +4915,7 @@ func TestTemuImageAPIAndVisionResourcesAreRetired(t *testing.T) {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
 			for _, retired := range []string{"internal/prompt", "internal/promptmgmt", "internal/shared/tenantctx"} {
-				if importMatchesPrefix(imported, "task-processor/"+retired) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+retired) {
 					t.Errorf("%s imports retired tenant Prompt owner %s", relative, imported)
 				}
 			}
@@ -5052,8 +5052,8 @@ func TestSKURetirementGuardPreservesSharedNames(t *testing.T) {
 		name, source string
 		wantRetired  bool
 	}{
-		{name: "retained selector", source: `package sku; import handlerbase "task-processor/internal/temu/handlerbase"; var _ handlerbase.SkuBuilder`},
-		{name: "retained alias with current name", source: `package sku; import handlerbase "task-processor/internal/temu/handlerbase"; type CurrentBuilder = handlerbase.SkuBuilder`},
+		{name: "retained selector", source: `package sku; import handlerbase "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/handlerbase"; var _ handlerbase.SkuBuilder`},
+		{name: "retained alias with current name", source: `package sku; import handlerbase "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/handlerbase"; type CurrentBuilder = handlerbase.SkuBuilder`},
 		{name: "local names and fields", source: `package sku; type Metadata struct { SpecValue string }; func retained(SkuBuilder int) { SpecValue := SkuBuilder; _ = SpecValue; type SKUProcessInput struct{}; _ = SKUProcessInput{}; type SkuVariantProcessor struct { itemBuilder int }; _ = SkuVariantProcessor{} }`},
 		{name: "concrete type", source: `package sku; type SkuBuilder struct{}`, wantRetired: true},
 		{name: "retired alias", source: `package sku; type SkuBuilder = CurrentBuilder`, wantRetired: true},
@@ -5456,11 +5456,11 @@ func assertLegacyPlatformAPICallClosureRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
-			if imported == "task-processor/internal/shein/api" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/api" {
 				t.Errorf("%s imports retired root SHEIN API", relative)
 			}
 			for _, root := range retiredRoots {
-				if importMatchesPrefix(imported, "task-processor/"+root) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+root) {
 					t.Errorf("%s imports retired platform API %s", relative, imported)
 				}
 			}
@@ -5615,11 +5615,11 @@ func TestLegacySheinDraftSupportClosureIsRetired(t *testing.T) {
 				t.Fatalf("decode import in %s: %v", relative, err)
 			}
 			for _, root := range retiredRoots {
-				if importMatchesPrefix(imported, "task-processor/"+root) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+root) {
 					t.Errorf("%s imports retired SHEIN draft support %s", relative, imported)
 				}
 			}
-			if imported == "task-processor/"+leaf {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/"+leaf {
 				if spec.Name != nil {
 					t.Errorf("preview data consumer must use its current owner name: %s", relative)
 				}
@@ -5783,7 +5783,7 @@ func TestLegacyImageAgentHTTPRuntimeClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if importMatchesPrefix(name, "task-processor/internal/imageagent/httpapi") {
+			if importMatchesPrefix(name, "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/httpapi") {
 				t.Errorf("%s imports retired ImageAgent HTTP owner %q", path, name)
 			}
 		}
@@ -5875,7 +5875,7 @@ func TestLegacyAIRoutingImagePolicyClosureIsRetired(t *testing.T) {
 	}
 	imports := map[string][]string{
 		"internal/aicapability/ledger_contract.go":              []string{},
-		"internal/integration/httpimage/artifact_inspection.go": []string{"bytes", "golang.org/x/image/webp", "image", "image/jpeg", "image/png", "task-processor/internal/product/image"},
+		"internal/integration/httpimage/artifact_inspection.go": []string{"bytes", "golang.org/x/image/webp", "image", "image/jpeg", "image/png", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"},
 		"internal/product/image/policy_scene_defaults.go":       []string{"strings"},
 		"internal/product/image/generation_metadata.go":         []string{"sort", "strings"},
 	}
@@ -6209,7 +6209,7 @@ func TestLegacyAssetSourceOpenAITailClosureIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode asset/source/AI import in %s: %v", path, err)
 			}
-			if imported == "task-processor/internal/product/asset/recipe" || strings.HasPrefix(imported, "task-processor/internal/product/asset/recipe/") {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/recipe" || strings.HasPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/recipe/") {
 				t.Errorf("retired asset recipe import in %s: %s", path, imported)
 			}
 		}
@@ -6297,7 +6297,7 @@ func assertRestoredDebugPathsAbsent(t *testing.T, paths ...string) {
 func TestLegacyRestoredDebugClosureIsRetired(t *testing.T) {
 	assertRestoredDebugPathsAbsent(t, "internal/crawler", "hack", "internal/listingkit", "tools/db-query", "tools/json-simplifier", "scripts/db-query.ps1", "config/config-dev.yaml", "config/config-prod.yaml", "config/config-test.yaml", "data/sensitive_words.json")
 	for _, root := range []string{"internal", "cmd", "scripts", "tools"} {
-		assertNoBannedImportPrefixes(t, filepath.Join("..", root), []string{"task-processor/internal/crawler", "task-processor/internal/listingkit/phoneonboardingpreflight"}, nil)
+		assertNoBannedImportPrefixes(t, filepath.Join("..", root), []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/crawler", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/phoneonboardingpreflight"}, nil)
 	}
 	for _, path := range []string{"internal/core/config/type_browser_collector.go", "tools/go.mod", "tools/go.sum", "tools/tools.go"} {
 		if _, err := os.Stat(filepath.Join("..", filepath.FromSlash(path))); err != nil {
@@ -6314,9 +6314,9 @@ func TestLegacyBrowserInstallClosureIsRetired(t *testing.T) {
 	)
 	for _, root := range []string{"internal", "cmd", "scripts", "tools"} {
 		assertNoBannedImportPrefixes(t, filepath.Join("..", root), []string{
-			"task-processor/internal/integration/browserinstall",
-			"task-processor/internal/pkg/httpclient",
-			"task-processor/internal/pkg/timeout",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/browserinstall",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/httpclient",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/timeout",
 		}, nil)
 	}
 	for _, path := range []string{
@@ -6358,10 +6358,10 @@ func TestLegacySchemaCLIClosureIsRetired(t *testing.T) {
 	)
 	for _, root := range []string{"internal", "cmd", "scripts", "tools"} {
 		assertNoBannedImportPrefixes(t, filepath.Join("..", root), []string{
-			"task-processor/internal/app/runtime/listingkitschemamigrate",
-			"task-processor/internal/app/runtime/productlistingschemamigrate",
-			"task-processor/internal/app/schema/productlisting",
-			"task-processor/internal/workbench/schema",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/listingkitschemamigrate",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/productlistingschemamigrate",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/productlisting",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/workbench/schema",
 		}, nil)
 	}
 	for _, path := range []string{"cmd/image-agent-schema-init/main.go", "internal/app/runtime/imageagentschemainit/runtime.go", "internal/app/runtime/imageagentschemainit/organization.go"} {

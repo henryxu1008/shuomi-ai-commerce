@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authidentity"
-	k "task-processor/internal/browserkernel"
 	"testing"
 	"time"
 )

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"unicode"
 
-	shein "task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
-	"task-processor/internal/marketplace/shein/publishing"
+	shein "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
 )
 
 const maxShownSKUs = 4

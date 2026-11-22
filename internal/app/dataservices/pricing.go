@@ -2,8 +2,8 @@ package dataservicesapp
 
 import (
 	"context"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 )
 
 // CommercialDataPrice only maps the canonical Commercial offer into a Product

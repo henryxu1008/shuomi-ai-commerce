@@ -3,8 +3,8 @@ package dataacquisitionpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"gorm.io/gorm"
-	"task-processor/internal/product/dataacquisition"
 )
 
 var Tables = []string{"data_acquisition_jobs", "data_acquisition_items"}

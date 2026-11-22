@@ -10,11 +10,11 @@ import (
 	"net/url"
 	"time"
 
-	"task-processor/internal/integration/httpimage"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 type ImageProbe interface {

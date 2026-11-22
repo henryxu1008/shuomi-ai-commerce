@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/storecenter"
 )
 
 func TestSheinApplicationModePinsProductionAPIOrigin(t *testing.T) {

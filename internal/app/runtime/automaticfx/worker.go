@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	fx "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/automaticfx"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	d "task-processor/internal/aicapability/routeconfig"
-	fx "task-processor/internal/integration/aicapability/automaticfx"
 )
 
 const TaskQueue = "platform-fx-usd-v1"

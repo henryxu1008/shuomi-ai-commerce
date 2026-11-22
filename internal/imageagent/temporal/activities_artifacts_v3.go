@@ -11,10 +11,10 @@ import (
 	sdkactivity "go.temporal.io/sdk/activity"
 	sdktemporal "go.temporal.io/sdk/temporal"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	"task-processor/internal/pkg/imagex"
-	"task-processor/internal/shared/resilience"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/imagex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/resilience"
 )
 
 func (a *Activities) preserveSlotRecoveryBundle(ctx context.Context, identity imageagent.SlotExternalEffectIdentity, prepared objectstore.PreparedSlotArtifacts) error {

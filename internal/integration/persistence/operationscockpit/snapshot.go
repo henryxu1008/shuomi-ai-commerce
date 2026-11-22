@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
 	"gorm.io/gorm"
-	c "task-processor/internal/operationscockpit"
 )
 
 // Snapshot reads the goal head and all current fact revisions in one local

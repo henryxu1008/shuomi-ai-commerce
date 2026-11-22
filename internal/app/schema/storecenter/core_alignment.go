@@ -6,8 +6,8 @@ import (
 	"errors"
 	"slices"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"gorm.io/gorm"
-	"task-processor/internal/storecenter"
 )
 
 const CoreAlignmentVersion int64 = 2026101601

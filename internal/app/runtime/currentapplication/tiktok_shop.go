@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/integration/tiktokshop"
-	authorization "task-processor/internal/storecenter/tiktokshop"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/tiktokshop"
+	authorization "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 type TikTokShopConfig struct {

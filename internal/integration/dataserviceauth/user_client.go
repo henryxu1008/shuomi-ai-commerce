@@ -3,13 +3,13 @@ package dataserviceauth
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/dataservice"
 	"time"
 )
 

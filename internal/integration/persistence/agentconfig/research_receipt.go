@@ -3,9 +3,9 @@ package agentconfigpersistence
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
 )
 
 // LoadResearchPreparationByKey retrieves the original owner receipt without

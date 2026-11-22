@@ -2,9 +2,9 @@ package aiworkbenchpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/pkg/pgschema"
 )
 
 const scheduledDeletionConstraint = `CHECK (((NOT deleted) OR (state = 'CLOSED'::text)))`

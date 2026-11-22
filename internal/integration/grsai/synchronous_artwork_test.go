@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ai"
 )
 
 func TestSynchronousArtworkGeneratesWithoutOriginalAndNeverReposts(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 const (

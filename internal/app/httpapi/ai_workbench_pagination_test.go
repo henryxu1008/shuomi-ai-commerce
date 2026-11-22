@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/aiworkbench"
-	workstore "task-processor/internal/integration/persistence/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	workstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
 )
 
 func TestConversationHistoryPagesStayReadableWithinWireLimit(t *testing.T) {

@@ -3,16 +3,16 @@ package httpapi
 import (
 	"context"
 	"errors"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	reportapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/reportcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
+	reporthttp "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter/httpapi"
 	"gorm.io/gorm"
-	listingapp "task-processor/internal/app/listing"
-	reportapp "task-processor/internal/app/reportcenter"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/listing/record"
-	"task-processor/internal/reportcenter"
-	reporthttp "task-processor/internal/reportcenter/httpapi"
 )
 
 func WithReportCenter(db *gorm.DB) CurrentApplicationOption {

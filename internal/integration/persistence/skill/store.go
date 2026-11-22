@@ -7,11 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"math"
-	"task-processor/internal/agent"
-	d "task-processor/internal/skill"
 	"time"
 )
 

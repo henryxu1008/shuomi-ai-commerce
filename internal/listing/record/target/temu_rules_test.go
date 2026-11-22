@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/listing/preparation"
-	temumodel "task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	temumodel "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

@@ -6,9 +6,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"task-processor/internal/marketplace/shein/offlinepackage"
-	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	"task-processor/internal/product/catalog/canonical"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	sheinmarketpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
 )
 
 func buildLocalPackage(product *canonical.Product, country, language string, logs func(string) *logrus.Entry) *offlinepackage.Package {

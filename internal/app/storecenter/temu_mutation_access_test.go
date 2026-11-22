@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/storecenter"
 )
 
 func (p *temuRulesProvider) CreateLocalGoods(ctx context.Context, _ storecenter.OfficialMerchantCredential, _ model.LocalGoodsV2) (temugoods.CreatedGoods, error) {

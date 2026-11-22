@@ -7,13 +7,13 @@ import (
 	"errors"
 	"time"
 
-	storeapp "task-processor/internal/app/storecenter"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/listing/submission"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type TemuExecutionMerchant interface {

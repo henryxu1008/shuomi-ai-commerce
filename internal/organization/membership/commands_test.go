@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 )
 
 type memoryReceipts struct {

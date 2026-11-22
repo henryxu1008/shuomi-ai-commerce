@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"slices"
 	"strings"
-	"task-processor/internal/authidentity"
 )
 
 const EnterpriseRoleCapacity = 64

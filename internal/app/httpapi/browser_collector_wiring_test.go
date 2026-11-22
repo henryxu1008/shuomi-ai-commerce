@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browserclient"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/core/config"
-	"task-processor/internal/integration/acquisition/browserclient"
 )
 
 // The collector path is opt-in and all-or-nothing: a partial configuration must

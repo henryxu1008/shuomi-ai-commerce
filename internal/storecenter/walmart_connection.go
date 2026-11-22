@@ -2,7 +2,7 @@ package storecenter
 
 import (
 	"context"
-	auth "task-processor/internal/storecenter/walmart"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"time"
 )
 

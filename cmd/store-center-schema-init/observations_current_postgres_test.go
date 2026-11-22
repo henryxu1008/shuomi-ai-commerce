@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	storeschema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/storecenter"
+	observations "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/gorm"
-	storeschema "task-processor/internal/app/schema/storecenter"
-	observations "task-processor/internal/integration/persistence/storeobservations"
-	"task-processor/internal/storecenter"
 )
 
 func TestCurrentStoreObservationsInstall(t *testing.T) {

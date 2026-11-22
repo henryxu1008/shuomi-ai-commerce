@@ -2,7 +2,7 @@ package goods
 
 import (
 	"fmt"
-	model "task-processor/internal/marketplace/shein/model"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 )
 
 // LinkedRuleGroups preserves each actual attribute combination. Official

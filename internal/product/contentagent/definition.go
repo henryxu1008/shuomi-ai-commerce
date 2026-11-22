@@ -3,11 +3,11 @@
 package contentagent
 
 import (
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/contentagent/scriptcompute"
-	"task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent/scriptcompute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing/tools/sourceevidenceinspect"
 )
 
 func Registration() (commercetool.AgentDefinition, []commercetool.Definition) {

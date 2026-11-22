@@ -6,7 +6,7 @@ import (
 
 	sdkactivity "go.temporal.io/sdk/activity"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // PublishAcquisitionMain publishes through the current organization-scoped owner.

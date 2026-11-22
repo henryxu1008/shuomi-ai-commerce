@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/app/runtime/currentapplication"
 )
 
 // This opt-in fixture changes only test assembly configuration. It uses the

@@ -6,14 +6,14 @@ import (
 	"slices"
 	"testing"
 
-	"task-processor/internal/listing/record"
-	"task-processor/internal/marketplace/shein/draft"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
-	sheinvalidator "task-processor/internal/marketplace/shein/validator"
-	contract "task-processor/internal/marketplace/validator"
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/draft"
+	sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	sheinvalidator "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/validator"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 
 	"github.com/stretchr/testify/require"
 )

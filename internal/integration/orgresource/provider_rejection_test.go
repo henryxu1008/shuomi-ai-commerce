@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/aicapability"
-	aistore "task-processor/internal/aicapability/store"
-	"task-processor/internal/ledger/orgresource"
 )
 
 func rejectedInvocationFixture(t *testing.T, resource, native *gorm.DB) (*aistore.GormInvocationRecorder, *GormModelInvocationRepository, aicapability.InvocationRecord) {

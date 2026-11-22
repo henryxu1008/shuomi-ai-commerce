@@ -3,11 +3,11 @@ package httpapi
 import (
 	"context"
 	"github.com/google/uuid"
+	knowledgestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"strings"
-	knowledgestore "task-processor/internal/integration/persistence/knowledge"
-	"task-processor/internal/knowledge"
 	"testing"
 )
 

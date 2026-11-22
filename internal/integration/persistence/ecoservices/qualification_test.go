@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
-	e "task-processor/internal/ecoservices"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"testing"
 )
 

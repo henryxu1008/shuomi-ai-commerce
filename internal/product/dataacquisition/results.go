@@ -3,7 +3,7 @@ package dataacquisition
 import (
 	"context"
 	"encoding/json"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type Usage struct {

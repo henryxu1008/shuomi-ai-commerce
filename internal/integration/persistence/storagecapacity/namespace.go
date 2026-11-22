@@ -3,9 +3,9 @@ package storagecapacitystore
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 type namespaceRow struct {

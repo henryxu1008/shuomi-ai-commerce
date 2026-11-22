@@ -13,9 +13,9 @@ import (
 	"runtime"
 	"strings"
 
-	coreconfig "task-processor/internal/core/config"
-	persistence "task-processor/internal/integration/persistence/knowledge"
-	platformdatabase "task-processor/internal/platform/database"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	persistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/knowledge"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	"time"
 )
 

@@ -3,6 +3,7 @@ package toolmarketpersistence
 import (
 	"context"
 	"github.com/google/uuid"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -11,7 +12,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	tm "task-processor/internal/toolmarket"
 	"testing"
 )
 

@@ -3,7 +3,7 @@ package aiworkbenchpersistence
 import (
 	"context"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 // ChatImageCommand resolves an attachment against the exact source message and

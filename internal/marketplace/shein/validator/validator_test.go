@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
-	workspace "task-processor/internal/marketplace/shein/workspace"
-	contract "task-processor/internal/marketplace/validator"
+	sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
+	workspace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/workspace"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 )
 
 func request(pkg *sheinpub.Package) contract.Request[*sheinpub.Package] {

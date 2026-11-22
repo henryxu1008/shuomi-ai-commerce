@@ -1,9 +1,9 @@
 package agentconfigpersistence
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"gorm.io/gorm"
 	"regexp"
-	"task-processor/internal/agentconfig"
 )
 
 // InstallExecutionModes is an explicit additive update for the current owner.

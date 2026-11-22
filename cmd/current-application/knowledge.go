@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/documentparser/tika"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"gorm.io/gorm"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/integration/documentparser/tika"
-	store "task-processor/internal/integration/persistence/knowledge"
-	"task-processor/internal/integration/s3"
-	"task-processor/internal/knowledge"
 )
 
 func prepareKnowledge(ctx context.Context, db *gorm.DB, cfg *currentapplication.KnowledgeConfig) (*knowledge.Service, *knowledge.Processor, error) {

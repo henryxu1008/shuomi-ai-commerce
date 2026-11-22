@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercetool"
 )
 
 func TestRegistryRejectsAuthorityLegacyAndUnboundedInputs(t *testing.T) {

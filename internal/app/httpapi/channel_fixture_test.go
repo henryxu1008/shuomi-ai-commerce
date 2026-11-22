@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 	"gorm.io/gorm"
-	credential "task-processor/internal/aicapability/channelcredential"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 // Synthetic HTTP fixtures keep model/protocol in their separate RoutePolicy.

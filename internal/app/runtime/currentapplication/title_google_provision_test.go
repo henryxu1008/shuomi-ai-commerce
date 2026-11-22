@@ -1,9 +1,9 @@
 package currentapplication
 
 import (
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/googleinteractions"
 	"github.com/stretchr/testify/require"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/googleinteractions"
 	"testing"
 )
 

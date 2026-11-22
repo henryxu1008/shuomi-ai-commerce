@@ -18,10 +18,10 @@ import (
 	"gorm.io/gorm/clause"
 	sigjson "sigs.k8s.io/json"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aiworkbench"
-	reviewproposal "task-processor/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 )
 
 //go:embed schema.sql

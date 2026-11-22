@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent/scriptcompute"
 	"go.opentelemetry.io/otel/trace/noop"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/contentagent"
-	"task-processor/internal/product/contentagent/scriptcompute"
 )
 
 type commerceReceiptAuthority struct{ records []commercetool.AuditRecord }

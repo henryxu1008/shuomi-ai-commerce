@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"task-processor/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 func TestKnowledgeStoreRequiresPrivateImmutableStorage(t *testing.T) {

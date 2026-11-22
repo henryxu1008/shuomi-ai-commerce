@@ -11,7 +11,7 @@ import (
 
 	sdktemporal "go.temporal.io/sdk/temporal"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func (a *Activities) RecoverEffectV3(ctx context.Context, input EffectRecoveryWorkflowInput) (EffectRecoveryResult, error) {

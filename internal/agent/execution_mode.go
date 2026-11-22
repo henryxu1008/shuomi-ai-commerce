@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 
 	"github.com/google/uuid"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 type ExecutionMode string

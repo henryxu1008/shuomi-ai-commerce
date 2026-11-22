@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	domain "task-processor/internal/subjectverification"
 )
 
 func TestPostgresReservationAndAtomicObservation(t *testing.T) {

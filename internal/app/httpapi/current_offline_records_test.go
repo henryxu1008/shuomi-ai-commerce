@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	reporthttp "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter/httpapi"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/httproute"
-	reporthttp "task-processor/internal/reportcenter/httpapi"
 	"testing"
 )
 

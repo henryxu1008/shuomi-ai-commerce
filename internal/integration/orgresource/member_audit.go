@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 // ListMemberAudit reads the original transaction's immutable facts. It does

@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 )
 
 func TestRepositoryPostgresMutationLockTime(t *testing.T) {

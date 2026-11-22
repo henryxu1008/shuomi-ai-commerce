@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	imageapp "task-processor/internal/app/imageagent"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/imageagent"
-	imagetemporal "task-processor/internal/imageagent/temporal"
+	imageapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagent"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagetemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
 
 	"github.com/stretchr/testify/require"
 )

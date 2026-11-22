@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	reviewstore "task-processor/internal/integration/persistence/product/review"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/review"
-	reviewproposal "task-processor/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	reviewstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 )
 
 func agentReviewFixture(t *testing.T) (*titleFixture, *review.Service, context.Context, review.CandidateInput) {

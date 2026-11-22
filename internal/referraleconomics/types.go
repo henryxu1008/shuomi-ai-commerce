@@ -3,8 +3,8 @@ package referraleconomics
 import (
 	"context"
 	"errors"
+	money "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"math/big"
-	money "task-processor/internal/ledger/money"
 	"time"
 )
 

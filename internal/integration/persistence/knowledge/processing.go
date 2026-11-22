@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"gorm.io/gorm"
-	k "task-processor/internal/knowledge"
 )
 
 func (r *Repository) ClaimUpload(ctx context.Context, org, id, owner string) (revision k.Revision, claimed bool, err error) {

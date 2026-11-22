@@ -7,17 +7,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"io"
 	"os"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
 	"time"
 
+	memberstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/organization/membership"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	memberstore "task-processor/internal/integration/persistence/organization/membership"
 )
 
 type slotInventory struct {

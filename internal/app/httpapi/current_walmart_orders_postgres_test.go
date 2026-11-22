@@ -17,6 +17,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	obshttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations/httpapi"
+	obspg "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/walmart"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/require"
@@ -25,14 +33,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	storeapp "task-processor/internal/app/storecenter"
-	obshttp "task-processor/internal/app/storeobservations/httpapi"
-	obspg "task-processor/internal/integration/persistence/storeobservations"
-	walmart "task-processor/internal/integration/walmart"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
-	auth "task-processor/internal/storecenter/walmart"
 )
 
 type walmartOrderReceipt struct {

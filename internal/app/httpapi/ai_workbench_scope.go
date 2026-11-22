@@ -9,14 +9,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/aiworkbench"
-	pc "task-processor/internal/aiworkbench/projectcenter"
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	ps "task-processor/internal/integration/persistence/aiworkbench/projectcenter"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	ps "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench/projectcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type workbenchScopeSources struct {

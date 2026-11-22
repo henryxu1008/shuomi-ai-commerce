@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/zitadelsms"
 	"github.com/sirupsen/logrus"
-	"task-processor/internal/integration/zitadelsms"
 )
 
 type zitadelSMSHandler struct {

@@ -1,8 +1,8 @@
 package goods
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	"strconv"
-	"task-processor/internal/marketplace/temu/model"
 )
 
 func checkSupplierSize(input model.SupplierGoods, snapshot RuleSnapshot) []Issue {

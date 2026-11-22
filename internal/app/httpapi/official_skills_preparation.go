@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/sirupsen/logrus"
-	"task-processor/internal/skill"
 )
 
 type officialSkillsPreparer interface{ PrepareOfficial(context.Context) error }

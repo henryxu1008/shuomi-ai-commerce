@@ -3,11 +3,11 @@ package goods
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"net/url"
 	"sort"
 	"strconv"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/product/asset"
 )
 
 func ValidImageObservation(v ImageObservation) bool {

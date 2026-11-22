@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	sdk "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"strings"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 // ResolveCapacityNamespace binds the physical bucket owner, not the caller's

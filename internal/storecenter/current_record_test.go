@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/storecenter"
 )
 
 func TestCurrentStoreRecordDisableEnablePreservesPaidService(t *testing.T) {

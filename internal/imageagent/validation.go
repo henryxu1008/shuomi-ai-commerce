@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
 )
 
 // MaxActionIDLength leaves bounded headroom for the longest projection commit

@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	tm "task-processor/internal/toolmarket"
 	"testing"
 )
 

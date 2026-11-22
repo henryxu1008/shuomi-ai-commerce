@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/aiworkbench"
 )
 
 type scheduledControlRow struct {

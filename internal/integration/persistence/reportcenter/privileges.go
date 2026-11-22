@@ -1,9 +1,9 @@
 package reportcenterpersistence
 
 import (
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"gorm.io/gorm"
 	"regexp"
-	rc "task-processor/internal/reportcenter"
 )
 
 var roleName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)

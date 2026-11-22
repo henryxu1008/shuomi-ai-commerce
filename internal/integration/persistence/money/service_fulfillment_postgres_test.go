@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/gorm"
-	m "task-processor/internal/ledger/money"
 )
 
 func TestServiceFulfillmentPostgresUsesOriginalPaymentLockAndImmutableRole(t *testing.T) {

@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	keystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/dataservice"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"gorm.io/gorm"
-	"task-processor/internal/dataservice"
-	keystore "task-processor/internal/integration/persistence/dataservice"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
 )
 
 // Publisher participates in the caller's Product transaction. Its implementation

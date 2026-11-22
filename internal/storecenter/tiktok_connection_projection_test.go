@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	tiktok "task-processor/internal/storecenter/tiktokshop"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 func TestTikTokConnectionProjectsPendingRefreshWithoutChangingAttempt(t *testing.T) {

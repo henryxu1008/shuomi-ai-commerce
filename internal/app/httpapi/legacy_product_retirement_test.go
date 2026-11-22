@@ -7,14 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"task-processor/internal/core/config"
-	kernelmodule "task-processor/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 )
 
 func currentRetirementTestApplication(t *testing.T) (*http.Server, []httproute.Descriptor) {

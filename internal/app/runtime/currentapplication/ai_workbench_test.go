@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/aiworkbench/einorouter"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aiworkbench/einorouter"
 )
 
 func TestAIWorkbenchConversationOnlyNeedsNoModel(t *testing.T) {
@@ -34,7 +34,7 @@ func TestAIWorkbenchConversationOnlyNeedsNoModel(t *testing.T) {
 		{"unbounded-pool", func(v *AIWorkbenchConfig) { v.Database.MaxConnections = 9 }},
 		{"model-policy", func(v *AIWorkbenchConfig) { v.PlanningTextPolicies = map[string]governed.RoutePolicy{"org": {}} }},
 		{"chat-intent-policy", func(v *AIWorkbenchConfig) { v.ChatIntentTextPolicies = map[string]governed.RoutePolicy{"org": {}} }},
-		{"chat-turns-without-execution",func(v *AIWorkbenchConfig){v.ChatTurnsEnabled=true}},
+		{"chat-turns-without-execution", func(v *AIWorkbenchConfig) { v.ChatTurnsEnabled = true }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			copy := w

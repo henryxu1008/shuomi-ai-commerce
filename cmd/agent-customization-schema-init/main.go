@@ -7,10 +7,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentcustomization"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"os"
 	"regexp"
-	store "task-processor/internal/integration/persistence/agentcustomization"
 	"time"
 )
 

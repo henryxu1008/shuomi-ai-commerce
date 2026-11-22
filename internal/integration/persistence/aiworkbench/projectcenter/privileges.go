@@ -2,9 +2,9 @@ package projectcenterpersistence
 
 import (
 	"context"
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
 	"gorm.io/gorm"
 	"strings"
-	pc "task-processor/internal/aiworkbench/projectcenter"
 )
 
 const RuntimeRole = "ai_projects_runtime"

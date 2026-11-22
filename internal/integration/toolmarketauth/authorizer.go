@@ -4,15 +4,15 @@ package toolmarketauth
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/commercetoolauth"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"slices"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/httproute"
-	"task-processor/internal/integration/commercetoolauth"
-	tm "task-processor/internal/toolmarket"
-	"task-processor/internal/workbenchcontext"
 	"time"
 )
 

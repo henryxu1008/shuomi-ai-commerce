@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"net/url"
 	"strconv"
 	"strings"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 // ResolveSourceMediaCapacityNamespace is the explicit source-only trial edge.

@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	schema "task-processor/internal/app/schema/sourceaccountregistry"
-	store "task-processor/internal/integration/persistence/sourceaccountregistry"
-	registry "task-processor/internal/sourceaccountregistry"
+	schema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccountregistry"
+	registry "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 func TestAccountAuditCommittedHistoryPostgres(t *testing.T) {

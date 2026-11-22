@@ -10,17 +10,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/authidentity"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
 )
 
 type uploadPlanInputsFixture struct{ preparation.UploadPlanInputs }

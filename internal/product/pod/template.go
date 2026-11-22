@@ -2,10 +2,10 @@ package pod
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"net/url"
 	"strconv"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 	"time"
 )
 

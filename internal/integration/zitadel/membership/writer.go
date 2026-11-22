@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"task-processor/internal/authidentity"
-	domain "task-processor/internal/organization/membership"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 type Writer struct{ read, write *Client }

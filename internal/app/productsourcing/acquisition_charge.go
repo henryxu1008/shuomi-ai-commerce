@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type AcquisitionCharges interface {

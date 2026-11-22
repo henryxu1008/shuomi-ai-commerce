@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"task-processor/internal/pkg/pgschema"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
 var walmartSchemaStatements = []string{

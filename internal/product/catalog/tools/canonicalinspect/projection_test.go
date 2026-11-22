@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 func TestProjectionDeepCopiesAndRemovesSourceMetadata(t *testing.T) {

@@ -1,7 +1,7 @@
 package publishing
 
 import (
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // NormalizeSubmitCollections ensures SHEIN submit payload collection fields serialize as empty arrays instead of null.

@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/product/collection"
 )
 
 func TestPostgresDataPublicationBatchAtomicityReplayAndActorIsolation(t *testing.T) {

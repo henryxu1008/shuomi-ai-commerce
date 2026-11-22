@@ -15,9 +15,9 @@ import (
 
 func TestCommerceToolCanonicalInspectionUsesOnlyNarrowDomainPorts(t *testing.T) {
 	assertCanonicalInspectionImports(t, filepath.Join("..", "internal", "product", "catalog", "tools", "canonicalinspect"), map[string]struct{}{
-		"task-processor/internal/authz":           {},
-		"task-processor/internal/commercetool":    {},
-		"task-processor/internal/product/catalog": {},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/authz":           {},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool":    {},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog": {},
 	})
 	_, err := os.Lstat(filepath.Join("..", "internal", "listing", "task"))
 	require.True(t, os.IsNotExist(err), "retired task root must be absent: %v", err)
@@ -100,7 +100,7 @@ func assertCanonicalInspectionImports(t *testing.T, root string, internalAllowed
 		require.NoError(t, err)
 		for _, spec := range parsed.Imports {
 			imported := strings.Trim(spec.Path.Value, `"`)
-			if !strings.HasPrefix(imported, "task-processor/internal/") {
+			if !strings.HasPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/") {
 				continue
 			}
 			if _, ok := internalAllowed[imported]; !ok {

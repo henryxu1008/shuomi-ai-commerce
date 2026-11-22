@@ -3,7 +3,7 @@ package subjectverification
 import (
 	"context"
 	"errors"
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 // VerifiedCompanyName is a narrow internal consumer of the verification owner.

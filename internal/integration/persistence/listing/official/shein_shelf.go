@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 func (r *OfficialRepository) PrepareShelfIntent(ctx context.Context, proof submission.ShelfIntentCommit) (submission.OfficialIntent, error) {

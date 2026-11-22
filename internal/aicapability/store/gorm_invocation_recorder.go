@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/aicapability"
 )
 
 // GormInvocationRecorder persists non-sensitive invocation metadata.

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 const SharedModelCapability = "ai.models.enterprise"

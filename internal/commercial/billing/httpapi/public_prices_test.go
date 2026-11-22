@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/httproute"
-	"task-processor/internal/ledger/orgresource"
 )
 
 type publicTestCatalog struct {

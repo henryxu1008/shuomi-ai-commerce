@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/product/collection"
 )
 
 func TestBoundWalmartResultsPreservesAllReceiptIdentitiesAndCanonicalFacts(t *testing.T) {

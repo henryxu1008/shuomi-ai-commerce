@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
+	sourceaccountstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccountregistry"
 )
 
 // Reuse the task-owned PG17 fixture and actual Run/NewCurrentApplication chain.

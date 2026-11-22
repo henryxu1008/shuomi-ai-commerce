@@ -3,10 +3,10 @@ package agentconfigpersistence
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	runstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agent"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	runstore "task-processor/internal/integration/persistence/agent"
 )
 
 type Guard struct {

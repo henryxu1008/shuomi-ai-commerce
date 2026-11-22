@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 )
 
 // ArtworkSchema is an explicit source-free input, never a product image fallback.

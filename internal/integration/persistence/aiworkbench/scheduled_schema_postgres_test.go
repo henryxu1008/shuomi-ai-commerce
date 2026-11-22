@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
-	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestScheduledDeletionConcurrencyAndListPagination(t *testing.T) {

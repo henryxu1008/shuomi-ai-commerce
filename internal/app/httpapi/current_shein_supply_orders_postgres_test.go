@@ -16,6 +16,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	obspg "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/require"
@@ -24,9 +27,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	obspg "task-processor/internal/integration/persistence/storeobservations"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 )
 
 // This receipt setup is also used by the bounded, offline local trial.

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	productasset "task-processor/internal/product/asset"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 func TestIndexedIdentityColumnSizesMatchDomainLimit(t *testing.T) {

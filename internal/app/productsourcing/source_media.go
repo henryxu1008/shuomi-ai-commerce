@@ -12,10 +12,10 @@ import (
 	"regexp"
 	"time"
 
-	"task-processor/internal/integration/httpimage"
-	s3integration "task-processor/internal/integration/s3"
-	"task-processor/internal/ledger/storagecapacity"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	s3integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type SourceMediaStorage interface {

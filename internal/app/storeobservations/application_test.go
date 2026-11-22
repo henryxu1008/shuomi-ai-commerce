@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
-	o "task-processor/internal/storecenter/observations"
 )
 
 // Unimplemented embedded ports panic if preparation accidentally consumes facts

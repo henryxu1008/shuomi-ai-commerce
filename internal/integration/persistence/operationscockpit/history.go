@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
 	"gorm.io/gorm"
-	c "task-processor/internal/operationscockpit"
 )
 
 var _ c.Repository = (*Store)(nil)

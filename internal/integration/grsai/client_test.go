@@ -2,10 +2,10 @@ package grsai
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
-	"task-processor/internal/ai"
 	"testing"
 	"time"
 )

@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 func TestRunUsesDatabaseOnlyConfigAndClosesOwnedHandle(t *testing.T) {

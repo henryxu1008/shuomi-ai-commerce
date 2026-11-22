@@ -3,9 +3,9 @@ package podapp
 import (
 	"context"
 	"errors"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"testing"
 	"time"
 

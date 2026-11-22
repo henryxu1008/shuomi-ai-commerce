@@ -3,12 +3,12 @@ package temu
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"net/url"
 	"strconv"
-	"task-processor/internal/marketplace/temu/model"
-	tm "task-processor/internal/marketplace/temu/observations"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 

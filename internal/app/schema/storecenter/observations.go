@@ -3,9 +3,9 @@ package storecenter
 import (
 	"context"
 	"errors"
+	observationschema "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	currentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"gorm.io/gorm"
-	observationschema "task-processor/internal/integration/persistence/storeobservations"
-	currentstore "task-processor/internal/storecenter"
 )
 
 // InstallObservations is explicit fresh-instance setup, never runtime startup.

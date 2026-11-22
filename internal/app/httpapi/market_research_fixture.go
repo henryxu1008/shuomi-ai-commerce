@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
 	"gorm.io/gorm"
-	pc "task-processor/internal/aiworkbench/projectcenter"
-	dataservicesapp "task-processor/internal/app/dataservices"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/research"
 )
 
 type ResearchFixtureBinding struct {

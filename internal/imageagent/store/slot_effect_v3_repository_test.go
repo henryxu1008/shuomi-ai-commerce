@@ -18,8 +18,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/effectpolicy"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy"
 )
 
 func TestSlotEffectV3RepositoryContract(t *testing.T) {

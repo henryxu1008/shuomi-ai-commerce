@@ -13,6 +13,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	runtime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/automaticfx"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/routeconfig"
 	"github.com/stretchr/testify/require"
 	enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
@@ -20,11 +25,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/aicapability"
-	d "task-processor/internal/aicapability/routeconfig"
-	runtime "task-processor/internal/app/runtime/automaticfx"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
-	store "task-processor/internal/integration/persistence/routeconfig"
 )
 
 func fixture(t *testing.T) (*gorm.DB, *store.Store) {

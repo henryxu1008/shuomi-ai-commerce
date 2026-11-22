@@ -9,13 +9,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"task-processor/internal/app/setupcontrol"
-	"task-processor/internal/platform/privatefile"
 )
 
 type Runner interface {

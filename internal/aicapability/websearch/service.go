@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode"
 
-	credential "task-processor/internal/aicapability/channelcredential"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 )
 
 const OwnedDailyLimit = 30

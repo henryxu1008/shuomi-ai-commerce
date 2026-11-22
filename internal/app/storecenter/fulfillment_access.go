@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/storecenter/fulfillment"
-	"task-processor/internal/storecenter"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	sf "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/fulfillment"
 	"time"
 )
 

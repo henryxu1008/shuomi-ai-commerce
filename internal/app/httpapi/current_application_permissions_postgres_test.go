@@ -26,12 +26,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"task-processor/internal/app/runtime/currentapplication"
-	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/core/config"
-	platformdatabase "task-processor/internal/platform/database"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	registrySchema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 var run1AllowedPrivileges = map[string]map[string][]string{

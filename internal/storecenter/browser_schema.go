@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"slices"
 	"strings"
-	"task-processor/internal/pkg/pgschema"
 )
 
 // InstallBrowserSchemaTx is invoked only by the existing Store schema owner.

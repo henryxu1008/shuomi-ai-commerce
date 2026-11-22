@@ -1,9 +1,9 @@
 package goods
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/marketplace/temu/model"
 	"testing"
 )
 

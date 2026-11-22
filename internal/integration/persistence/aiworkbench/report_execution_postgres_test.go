@@ -5,6 +5,10 @@ package aiworkbenchpersistence
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	reportstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/reportcenter"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -12,10 +16,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"task-processor/internal/aiworkbench"
-	reportstore "task-processor/internal/integration/persistence/reportcenter"
-	reviewproposal "task-processor/internal/product/review/proposal"
-	rc "task-processor/internal/reportcenter"
 	"testing"
 	"time"
 )

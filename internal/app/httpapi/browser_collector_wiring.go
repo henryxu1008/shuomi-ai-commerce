@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/integration/acquisition/browserclient"
-	"task-processor/internal/integration/acquisition/browsercollector"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browserclient"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browsercollector"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // Browser collector wiring (architecture design D13, decisions A1/A2/A6).

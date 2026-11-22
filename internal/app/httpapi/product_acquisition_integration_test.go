@@ -15,18 +15,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/product/sourcing"
-	"task-processor/internal/workbenchcontext"
 )
 
 // These fixtures consume current enterprise role policies, not retired operator

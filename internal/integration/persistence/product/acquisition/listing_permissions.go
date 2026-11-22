@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	"task-processor/internal/product/sourcing"
 )
 
 const listingRecordRuntimeGrant = "GRANT SELECT,INSERT ON public.listing_target_records,public.listing_target_record_commands,public.listing_target_split_commands,public.listing_submission_official_intents,public.listing_submission_official_receipts,public.listing_walmart_feed_observations TO source_acquisition_runtime"

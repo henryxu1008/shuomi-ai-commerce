@@ -3,8 +3,8 @@ package dataacquisition
 import (
 	"context"
 	"encoding/json"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // Provenance is an internal, live-authorized read of the original saved evidence.

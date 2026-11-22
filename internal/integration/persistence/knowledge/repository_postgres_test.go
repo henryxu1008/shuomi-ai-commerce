@@ -15,8 +15,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	store "task-processor/internal/integration/persistence/knowledge"
-	"task-processor/internal/knowledge"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 func TestKnowledgePostgresAdmissionPromotionAndRecovery(t *testing.T) {

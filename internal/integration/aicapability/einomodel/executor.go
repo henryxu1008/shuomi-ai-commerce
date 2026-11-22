@@ -11,9 +11,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/integration/googleinteractions"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/googleinteractions"
 )
 
 // QualifiedRoute is returned only by the current organization credential and

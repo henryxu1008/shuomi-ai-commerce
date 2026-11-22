@@ -3,8 +3,8 @@ package referralregistration
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"sync"
-	"task-processor/internal/referral"
 	"time"
 )
 

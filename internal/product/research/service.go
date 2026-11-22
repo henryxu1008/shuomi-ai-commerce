@@ -2,10 +2,10 @@ package research
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"regexp"
 	"sort"
 	"strings"
-	"task-processor/internal/product/collection"
 	"time"
 	"unicode/utf8"
 )

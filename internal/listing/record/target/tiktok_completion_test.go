@@ -1,9 +1,9 @@
 package target
 
 import (
-	"task-processor/internal/listing/completiondraft"
-	"task-processor/internal/listing/preparation"
-	tiktok "task-processor/internal/marketplace/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
 	"testing"
 )
 

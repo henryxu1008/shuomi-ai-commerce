@@ -2,17 +2,17 @@ package httpapi
 
 import (
 	"context"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	officialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/official"
+	prepstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/preparation"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"gorm.io/gorm"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/authz"
-	officialstore "task-processor/internal/integration/persistence/listing/official"
-	prepstore "task-processor/internal/integration/persistence/listing/preparation"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
-	"task-processor/internal/workbenchcontext"
 	"time"
 )
 

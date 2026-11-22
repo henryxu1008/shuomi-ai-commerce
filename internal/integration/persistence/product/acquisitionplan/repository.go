@@ -12,10 +12,10 @@ import (
 	"slices"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 )
 
 type Repository struct{ db *gorm.DB }

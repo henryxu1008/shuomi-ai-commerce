@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"testing"
 
+	core "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	core "task-processor/internal/core/config"
 )
 
 func TestDataServicesDisabledStartupKeepsReadPoolWithoutExecutionDependencies(t *testing.T) {

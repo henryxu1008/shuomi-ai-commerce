@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercetool"
-	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestContentSelectionKeepsFrozenRequestWireAcrossOwnerExtraction(t *testing.T) {

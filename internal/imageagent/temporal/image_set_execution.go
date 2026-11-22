@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func recoverySlotExecutionInput(input EffectRecoveryWorkflowInput) imageagent.SlotExecutionInput {

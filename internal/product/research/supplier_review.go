@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 const RecordSupplierReview = "record_supplier_review"

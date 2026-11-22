@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
 	"gorm.io/gorm"
-	"task-processor/internal/notificationcenter"
 )
 
 //go:embed schema.sql

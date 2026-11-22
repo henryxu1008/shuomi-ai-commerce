@@ -15,22 +15,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const issue398Database = "task-processor/internal/platform/database"
-const issue398HTTP = "task-processor/internal/integration/httpimage"
-const issue605SourceStorage = "task-processor/internal/integration/s3"
+const issue398Database = "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
+const issue398HTTP = "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+const issue605SourceStorage = "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
 
 func issue398CurrentLeafImporter(importer, target string) bool {
-	if importer == "task-processor/internal/app/productsourcing" && target == issue398Database {
+	if importer == "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing" && target == issue398Database {
 		return true
 	}
-	if importer == "task-processor/internal/app/runtime/currentapplication" && target == issue605SourceStorage {
+	if importer == "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication" && target == issue605SourceStorage {
 		return true
 	}
 	if target != issue398HTTP {
 		return false
 	}
 	switch importer {
-	case "task-processor/internal/app/productsourcing", "task-processor/internal/app/listing", "task-processor/internal/integration/shein", "task-processor/internal/app/runtime/currentapplication", "task-processor/internal/app/pod", "task-processor/internal/integration/sds":
+	case "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing", "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shein", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/pod", "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/sds":
 		return true
 	}
 	return false
@@ -56,15 +56,15 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		}},
 		// The retired HTTP provider has no admitted APIs, including siblings.
 		{"internal/integration/acquisition/a1688", issue398HTTP, nil},
-		{"cmd/product-acquisition-init", "task-processor/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableListing", "EnableSHEINUSTrialLedger", "EnableResearchAssessments", "AlignAcquisitionPriceSnapshot"}}},
+		{"cmd/product-acquisition-init", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"cmd/product-acquisition-init/main.go": {"InitializeAcquisitionDatabase", "EnableAcquisitionPlans", "EnableCompletionDrafts", "EnableListing", "EnableSHEINUSTrialLedger", "EnableResearchAssessments", "AlignAcquisitionPriceSnapshot"}}},
 		// #637: precise composition and additive explicit initializer; no sibling admission.
-		{"internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
+		{"internal/app/httpapi/acquisition_plan_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/acquisition_plan_application.go": {"PlanAuthority", "NewAcquisitionPlanService", "AcquisitionPlanService", "CreatePlanInput"}}},
 		// #902/#903 frozen plugin design: only the free capture composition and
 		// its receipt/authorizer constructors, without charge or initializer APIs.
-		{"internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/amazon_browser_capture_application.go": {"NewAmazonBrowserCapture", "NewAmazonCaptureContextAuthorizer", "AmazonCaptureResult"}}},
+		{"internal/app/httpapi/amazon_browser_capture_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/amazon_browser_capture_application.go": {"NewAmazonBrowserCapture", "NewAmazonCaptureContextAuthorizer", "AmazonCaptureResult"}}},
 		// #399/#561 constructor edges; #605 adds only current Collection publication.
 		// #612 frozen full-image design adds only its explicitly authorized read-only receipt constructor.
-		{"internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_acquisition_application.go": {"NewPublicAcquisition", "NewBrowserAcquisition", "NewBrowserPublicAcquisition", "PublishedAcquisition", "NewPublishedAcquisitionReader", "NewScopedPublishedAcquisitionReader", "NewAcquisitionChargeOwner", "AcquisitionPublicationOption", "WithCollectionPublication"}}},
+		{"internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_acquisition_application.go": {"NewPublicAcquisition", "NewBrowserAcquisition", "NewBrowserPublicAcquisition", "PublishedAcquisition", "NewPublishedAcquisitionReader", "NewScopedPublishedAcquisitionReader", "NewAcquisitionChargeOwner", "AcquisitionPublicationOption", "WithCollectionPublication"}}},
 		// #605 frozen CURRENT helpers: exact files/APIs, all source text, ceiling=8.
 		{"internal/app/productsourcing", issue398HTTP, map[string][]string{
 			"internal/app/productsourcing/source_media.go": {"InspectGeneratedArtifact", "ValidatePublicHTTPSURL"},
@@ -95,12 +95,12 @@ func issue398AcquisitionAPIViolations(sources []listingKitImageBoundarySource) (
 		}},
 		{"internal/integration/sds", issue398HTTP, map[string][]string{"internal/integration/sds/mutations.go": {"InspectGeneratedArtifact"}}},
 		// #675 frozen source-only local URL policy; no sibling or download admission.
-		{"internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/collection_source_media.go": {"SourceMedia", "SourceMediaStorage", "IsolatedTrialSourceMediaURLPolicy", "NewIsolatedTrialSourceMediaURLPolicy"}}},
+		{"internal/app/httpapi/collection_source_media.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/collection_source_media.go": {"SourceMedia", "SourceMediaStorage", "IsolatedTrialSourceMediaURLPolicy", "NewIsolatedTrialSourceMediaURLPolicy"}}},
 		// #916 reviewed fixed-publication quote read: exact constructor at the
 		// existing Collection composition only; no provider/charge/write admission.
-		{"internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader", "NewOwnHistoryReader", "NewCollectionSourceQuoteReader"}}},
-		{"internal/app/httpapi/listing_agents.go", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/listing_agents.go": {"NewExecutionPublicationGateway", "NewTransactionReader"}}},
-		{"internal/app/runtime/currentapplication", "task-processor/internal/app/productsourcing", map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"SourceMediaStorage", "NewIsolatedTrialSourceMediaURLPolicy"}, "internal/app/runtime/currentapplication/runtime.go": {"SourceMediaStorage"}}},
+		{"internal/app/httpapi/product_collection_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/product_collection_application.go": {"NewOwnProductWriter", "NewPublishedAcquisitionReader", "NewOwnHistoryReader", "NewCollectionSourceQuoteReader"}}},
+		{"internal/app/httpapi/listing_agents.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"internal/app/httpapi/listing_agents.go": {"NewExecutionPublicationGateway", "NewTransactionReader"}}},
+		{"internal/app/runtime/currentapplication", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", map[string][]string{"internal/app/runtime/currentapplication/source_media_storage.go": {"SourceMediaStorage", "NewIsolatedTrialSourceMediaURLPolicy"}, "internal/app/runtime/currentapplication/runtime.go": {"SourceMediaStorage"}}},
 	}
 	var violations []string
 	for _, source := range sources {
@@ -166,13 +166,13 @@ func TestIssue398ProducerImportAdmissionRejectsOtherFiles(t *testing.T) {
 	for _, name := range []string{"product_acquisition_application.go", "main.go"} {
 		path := filepath.Join(root, name)
 		allowed[path] = struct{}{}
-		require.NoError(t, os.WriteFile(path, []byte(`package fixture; import p "task-processor/internal/app/productsourcing"; var use = p.NewPublicAcquisition`), 0600))
+		require.NoError(t, os.WriteFile(path, []byte(`package fixture; import p "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"; var use = p.NewPublicAcquisition`), 0600))
 	}
 	for _, name := range []string{"other_http.go", "other_command.go", "main.go.fake.go", "consumer_resource_charges.go"} {
-		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(`package fixture; import alias "task-processor/internal/app/productsourcing"; var use = alias.NewPublicAcquisition`), 0600))
+		require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte(`package fixture; import alias "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"; var use = alias.NewPublicAcquisition`), 0600))
 	}
-	require.NoError(t, os.WriteFile(filepath.Join(root, "browser_capture_application.go"), []byte(`package fixture; import alias "task-processor/internal/app/productsourcing"; var use = alias.NewBrowserAcquisition`), 0600))
-	violations, err := findBannedImportViolations(root, []string{`"task-processor/internal/app/productsourcing"`}, allowed, true)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "browser_capture_application.go"), []byte(`package fixture; import alias "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"; var use = alias.NewBrowserAcquisition`), 0600))
+	violations, err := findBannedImportViolations(root, []string{`"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"`}, allowed, true)
 	require.NoError(t, err)
 	require.Len(t, violations, 5)
 }
@@ -182,19 +182,19 @@ func TestIssue398CurrentLeafEdgesAreExact(t *testing.T) {
 		importer, target string
 		want             bool
 	}{
-		{"task-processor/internal/app/productsourcing", issue398Database, true},
-		{"task-processor/internal/integration/acquisition/a1688", issue398HTTP, false},
-		{"task-processor/internal/app/productsourcing/child", issue398Database, false},
-		{"task-processor/internal/app/productsourcingfake", issue398Database, false},
-		{"task-processor/internal/app/productsourcing", issue398Database + "/child", false},
-		{"task-processor/internal/app/productsourcing", issue398HTTP, true},
-		{"task-processor/internal/integration/acquisition/a1688/child", issue398HTTP, false},
-		{"task-processor/internal/integration/acquisition/a1688", issue398Database, false},
-		{"task-processor/internal/worker", issue398HTTP, false},
-		{"task-processor/internal/app/pod", issue398HTTP, true},
-		{"task-processor/internal/app/pod/child", issue398HTTP, false},
-		{"task-processor/internal/integration/sds", issue398HTTP, true},
-		{"task-processor/internal/integration/sdslegacy", issue398HTTP, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", issue398Database, true},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/a1688", issue398HTTP, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing/child", issue398Database, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcingfake", issue398Database, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", issue398Database + "/child", false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", issue398HTTP, true},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/a1688/child", issue398HTTP, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/a1688", issue398Database, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/worker", issue398HTTP, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/pod", issue398HTTP, true},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/pod/child", issue398HTTP, false},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/sds", issue398HTTP, true},
+		{"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/sdslegacy", issue398HTTP, false},
 	} {
 		require.Equal(t, tc.want, issue398CurrentLeafImporter(tc.importer, tc.target), "%s -> %s", tc.importer, tc.target)
 	}
@@ -261,60 +261,60 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		{"capacity old accountless identity denied", "internal/app/runtime/currentapplication/storage_capacity.go", issue605SourceStorage, "CapacityNamespace", false},
 		{"capacity sibling denied", "internal/app/runtime/currentapplication/other.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
 		{"source media cannot consume capacity admission", "internal/app/runtime/currentapplication/source_media_storage.go", issue605SourceStorage, "VerifyEmptyCapacityPrefix", false},
-		{"runtime storage port", "internal/app/runtime/currentapplication/source_media_storage.go", "task-processor/internal/app/productsourcing", "SourceMediaStorage", true},
-		{"runtime producer forbidden", "internal/app/runtime/currentapplication/config.go", "task-processor/internal/app/productsourcing", "NewPublicAcquisition", false},
+		{"runtime storage port", "internal/app/runtime/currentapplication/source_media_storage.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "SourceMediaStorage", true},
+		{"runtime producer forbidden", "internal/app/runtime/currentapplication/config.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewPublicAcquisition", false},
 		{"retired HTTP leaf", "internal/integration/acquisition/a1688/public.go", issue398HTTP, "NewPublicImageHTTPClient", false},
 		{"HTTP wrong API", "internal/integration/acquisition/a1688/public.go", issue398HTTP, "Fetch", false},
 		{"HTTP sibling", "internal/integration/acquisition/a1688/other.go", issue398HTTP, "NewPublicImageHTTPClient", false},
 		{"HTTP nested", "internal/integration/acquisition/a1688/child/public.go", issue398HTTP, "NewPublicImageHTTPClient", false},
 		{"HTTP target subpackage", "internal/integration/acquisition/a1688/public.go", issue398HTTP + "/child", "NewPublicImageHTTPClient", false},
-		{"initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", true},
-		{"initializer publish", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "Publish", false},
-		{"initializer build", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "NewPublicAcquisition", false},
-		{"initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
-		{"plan feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableAcquisitionPlans", true},
-		{"plan initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableAcquisitionPlans", false},
-		{"completion feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableCompletionDrafts", true},
-		{"completion initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableCompletionDrafts", false},
-		{"supply feature initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableListing", true},
-		{"supply initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableListing", false},
-		{"serving cannot initialize supply", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableListing", false},
-		{"SHEIN trial ledger initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", true},
-		{"SHEIN trial ledger initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},
-		{"serving cannot initialize SHEIN trial ledger", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},
-		{"assessment initializer", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "EnableResearchAssessments", true},
-		{"assessment initializer sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "EnableResearchAssessments", false},
-		{"serving cannot initialize assessments", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "EnableResearchAssessments", false},
-		{"price alignment CLI", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", true},
-		{"price alignment CLI sibling", "cmd/product-acquisition-init/other.go", "task-processor/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", false},
-		{"serving cannot align prices", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", false},
-		{"plan exact constructor", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionPlanService", true},
-		{"plan cannot open database", "internal/app/httpapi/acquisition_plan_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
-		{"initializer target subpackage", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing/httpapi", "InitializeAcquisitionDatabase", false},
-		{"module build", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewPublicAcquisition", true},
-		{"Amazon capture constructor", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAmazonBrowserCapture", true},
-		{"Amazon capture authorizer", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAmazonCaptureContextAuthorizer", true},
-		{"Amazon capture receipt", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "AmazonCaptureResult", true},
-		{"Amazon capture cannot charge", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionChargeOwner", false},
-		{"Amazon capture cannot initialize", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
-		{"Amazon capture target subpackage", "internal/app/httpapi/amazon_browser_capture_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewAmazonBrowserCapture", false},
-		{"Browser module build", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewBrowserAcquisition", true},
-		{"module cannot publish", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "Publish", false},
-		{"Browser module target subpackage", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewBrowserAcquisition", false},
-		{"initializer cannot build Browser", "cmd/product-acquisition-init/main.go", "task-processor/internal/app/productsourcing", "NewBrowserAcquisition", false},
-		{"module exact receipt read", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "PublishedAcquisition", true},
-		{"module exact published reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewPublishedAcquisitionReader", true},
-		{"image module exact scoped receipt reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", true},
-		{"Collection cannot consume image scoped constructor", "internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", false},
-		{"Collection exact quote reader", "internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing", "NewCollectionSourceQuoteReader", true},
-		{"acquisition cannot consume Collection quote reader", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewCollectionSourceQuoteReader", false},
-		{"runtime cannot consume Collection quote reader", "internal/app/runtime/currentapplication/runtime.go", "task-processor/internal/app/productsourcing", "NewCollectionSourceQuoteReader", false},
-		{"quote reader target subpackage denied", "internal/app/httpapi/product_collection_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewCollectionSourceQuoteReader", false},
-		{"source module exact trial URL policy", "internal/app/httpapi/collection_source_media.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", true},
-		{"trial policy cannot reach acquisition module", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},
-		{"trial policy cannot reach runtime sibling", "internal/app/runtime/currentapplication/runtime.go", "task-processor/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},
-		{"module exact charge proof owner", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing", "NewAcquisitionChargeOwner", true},
-		{"module target subpackage", "internal/app/httpapi/product_acquisition_application.go", "task-processor/internal/app/productsourcing/httpapi", "NewPublicAcquisition", false},
+		{"initializer", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "InitializeAcquisitionDatabase", true},
+		{"initializer publish", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "Publish", false},
+		{"initializer build", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewPublicAcquisition", false},
+		{"initializer sibling", "cmd/product-acquisition-init/other.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
+		{"plan feature initializer", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableAcquisitionPlans", true},
+		{"plan initializer sibling", "cmd/product-acquisition-init/other.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableAcquisitionPlans", false},
+		{"completion feature initializer", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableCompletionDrafts", true},
+		{"completion initializer sibling", "cmd/product-acquisition-init/other.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableCompletionDrafts", false},
+		{"supply feature initializer", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableListing", true},
+		{"supply initializer sibling", "cmd/product-acquisition-init/other.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableListing", false},
+		{"serving cannot initialize supply", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableListing", false},
+		{"SHEIN trial ledger initializer", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableSHEINUSTrialLedger", true},
+		{"SHEIN trial ledger initializer sibling", "cmd/product-acquisition-init/other.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},
+		{"serving cannot initialize SHEIN trial ledger", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableSHEINUSTrialLedger", false},
+		{"assessment initializer", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableResearchAssessments", true},
+		{"assessment initializer sibling", "cmd/product-acquisition-init/other.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableResearchAssessments", false},
+		{"serving cannot initialize assessments", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "EnableResearchAssessments", false},
+		{"price alignment CLI", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", true},
+		{"price alignment CLI sibling", "cmd/product-acquisition-init/other.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", false},
+		{"serving cannot align prices", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "AlignAcquisitionPriceSnapshot", false},
+		{"plan exact constructor", "internal/app/httpapi/acquisition_plan_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewAcquisitionPlanService", true},
+		{"plan cannot open database", "internal/app/httpapi/acquisition_plan_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
+		{"initializer target subpackage", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing/httpapi", "InitializeAcquisitionDatabase", false},
+		{"module build", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewPublicAcquisition", true},
+		{"Amazon capture constructor", "internal/app/httpapi/amazon_browser_capture_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewAmazonBrowserCapture", true},
+		{"Amazon capture authorizer", "internal/app/httpapi/amazon_browser_capture_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewAmazonCaptureContextAuthorizer", true},
+		{"Amazon capture receipt", "internal/app/httpapi/amazon_browser_capture_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "AmazonCaptureResult", true},
+		{"Amazon capture cannot charge", "internal/app/httpapi/amazon_browser_capture_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewAcquisitionChargeOwner", false},
+		{"Amazon capture cannot initialize", "internal/app/httpapi/amazon_browser_capture_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "InitializeAcquisitionDatabase", false},
+		{"Amazon capture target subpackage", "internal/app/httpapi/amazon_browser_capture_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing/httpapi", "NewAmazonBrowserCapture", false},
+		{"Browser module build", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewBrowserAcquisition", true},
+		{"module cannot publish", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "Publish", false},
+		{"Browser module target subpackage", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing/httpapi", "NewBrowserAcquisition", false},
+		{"initializer cannot build Browser", "cmd/product-acquisition-init/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewBrowserAcquisition", false},
+		{"module exact receipt read", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "PublishedAcquisition", true},
+		{"module exact published reader", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewPublishedAcquisitionReader", true},
+		{"image module exact scoped receipt reader", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", true},
+		{"Collection cannot consume image scoped constructor", "internal/app/httpapi/product_collection_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewScopedPublishedAcquisitionReader", false},
+		{"Collection exact quote reader", "internal/app/httpapi/product_collection_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewCollectionSourceQuoteReader", true},
+		{"acquisition cannot consume Collection quote reader", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewCollectionSourceQuoteReader", false},
+		{"runtime cannot consume Collection quote reader", "internal/app/runtime/currentapplication/runtime.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewCollectionSourceQuoteReader", false},
+		{"quote reader target subpackage denied", "internal/app/httpapi/product_collection_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing/httpapi", "NewCollectionSourceQuoteReader", false},
+		{"source module exact trial URL policy", "internal/app/httpapi/collection_source_media.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", true},
+		{"trial policy cannot reach acquisition module", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},
+		{"trial policy cannot reach runtime sibling", "internal/app/runtime/currentapplication/runtime.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewIsolatedTrialSourceMediaURLPolicy", false},
+		{"module exact charge proof owner", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing", "NewAcquisitionChargeOwner", true},
+		{"module target subpackage", "internal/app/httpapi/product_acquisition_application.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing/httpapi", "NewPublicAcquisition", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Alias/function-value form also covers tagged and non-host sources.
@@ -329,7 +329,7 @@ func TestIssue398CurrentLeafAndInitializerAPIGuard(t *testing.T) {
 		violations, err := issue398AcquisitionAPIViolations([]listingKitImageBoundarySource{{path: "internal/app/productsourcing/acquisition_initialization.go", text: body}})
 		require.NoError(t, err)
 		require.NotEmpty(t, violations, "dot/blank imports cannot bypass symbol admission")
-		body = fmt.Sprintf("package fixture; import %s %q; var use = NewBrowserAcquisition", alias, "task-processor/internal/app/productsourcing")
+		body = fmt.Sprintf("package fixture; import %s %q; var use = NewBrowserAcquisition", alias, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing")
 		violations, err = issue398AcquisitionAPIViolations([]listingKitImageBoundarySource{{path: "internal/app/httpapi/product_acquisition_application.go", text: body}})
 		require.NoError(t, err)
 		require.NotEmpty(t, violations, "dot/blank imports cannot obscure the Browser constructor")

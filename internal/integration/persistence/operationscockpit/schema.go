@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"time"
 
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
 	"gorm.io/gorm"
-	c "task-processor/internal/operationscockpit"
 )
 
 //go:embed schema.sql

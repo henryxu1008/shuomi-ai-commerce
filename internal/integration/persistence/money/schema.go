@@ -2,8 +2,8 @@ package money
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/gorm"
-	"task-processor/internal/ledger/money"
 )
 
 // Install is the explicit greenfield schema entry point for the canonical

@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"strings"
-	"task-processor/internal/imageagent"
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
-	productimage "task-processor/internal/product/image"
 )
 
 type ProfileResolver interface {

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	c "task-processor/internal/operationscockpit"
 )
 
 // Boundary is mandatory current IAM/module/Store authorization. LockStores

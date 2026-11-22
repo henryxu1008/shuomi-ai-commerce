@@ -2,9 +2,9 @@ package submission
 
 import (
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 	"testing"
 	"time"
 )

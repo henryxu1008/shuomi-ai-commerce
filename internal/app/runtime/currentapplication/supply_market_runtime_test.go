@@ -3,6 +3,9 @@ package currentapplication
 import (
 	"context"
 	"errors"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/sds"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
@@ -10,9 +13,6 @@ import (
 	"gorm.io/gorm"
 	"net"
 	"net/http"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/integration/sds"
-	"task-processor/internal/product/supplymarket"
 	"testing"
 )
 

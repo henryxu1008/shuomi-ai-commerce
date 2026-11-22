@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	"task-processor/internal/batchcapture"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/batchcapture"
 )
 
 // Exit codes are part of the interface, because the whole point of the local queue

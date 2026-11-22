@@ -2,7 +2,7 @@ package membership
 
 import (
 	"context"
-	domain "task-processor/internal/organization/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 func (c *Client) Counts(ctx context.Context, org string) (domain.Counts, error) {

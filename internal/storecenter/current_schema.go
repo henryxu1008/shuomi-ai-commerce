@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"slices"
 	"strings"
-	"task-processor/internal/pkg/pgschema"
 
 	"gorm.io/gorm"
 )

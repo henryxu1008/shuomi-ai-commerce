@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"image"
 	"image/color"
 	"image/png"
-	"task-processor/internal/ai"
-	productimage "task-processor/internal/product/image"
 	"testing"
 
 	"github.com/stretchr/testify/require"

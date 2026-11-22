@@ -2,8 +2,8 @@ package store
 
 import (
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"strings"
-	"task-processor/internal/imageagent"
 )
 
 func validateSlotEffectIdentity(identity imageagent.SlotExternalEffectIdentity) error {

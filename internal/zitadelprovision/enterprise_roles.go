@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprotojson"
 	"net/http"
 	"net/url"
-	"task-processor/internal/authz"
-	"task-processor/internal/zitadelprotojson"
 )
 
 // Used only by the explicit disposable, greenfield initializer. Serving never

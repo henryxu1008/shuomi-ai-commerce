@@ -3,8 +3,8 @@ package imageagentworker
 import (
 	"context"
 
-	"task-processor/internal/imageagent/objectstore"
-	s3integration "task-processor/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	s3integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
 )
 
 type s3ImmutableUploader interface {

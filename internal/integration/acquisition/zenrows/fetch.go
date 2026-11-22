@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 )
 
 const (

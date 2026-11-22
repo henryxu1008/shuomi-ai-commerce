@@ -2,10 +2,10 @@ package acquisition
 
 import (
 	"context"
+	completionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/completiondraft"
+	preparationstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
-	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
-	"task-processor/internal/product/sourcing"
 )
 
 const completionPrivileges = `,('listing_completion_draft_records','SELECT'),('listing_completion_draft_records','INSERT'),('listing_completion_draft_heads','SELECT'),('listing_completion_draft_heads','INSERT'),('listing_completion_draft_heads','UPDATE'),('listing_completion_draft_commands','SELECT'),('listing_completion_draft_commands','INSERT')`

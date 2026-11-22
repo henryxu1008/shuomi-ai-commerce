@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	k "task-processor/internal/knowledge"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 type Repository struct {

@@ -1,11 +1,11 @@
 package httpapi
 
 import (
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	collectionhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	listinghttp "task-processor/internal/app/listing/httpapi"
-	"task-processor/internal/httproute"
-	collectionhttp "task-processor/internal/product/collection/httpapi"
-	"task-processor/internal/product/sourcing"
 	"testing"
 )
 

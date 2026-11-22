@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	obshttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"github.com/stretchr/testify/require"
-	obshttp "task-processor/internal/app/storeobservations/httpapi"
-	"task-processor/internal/httproute"
 	"testing"
 )
 

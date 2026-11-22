@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/authz"
-	domain "task-processor/internal/organization/membership"
 )
 
 func testRolePolicyReader(t *testing.T, ctx context.Context, owner *gorm.DB, dsn string, writer *Repository) {

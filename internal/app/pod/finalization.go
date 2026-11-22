@@ -2,11 +2,11 @@ package podapp
 
 import (
 	"context"
-	submissionstore "task-processor/internal/integration/persistence/listing/submission"
-	podstore "task-processor/internal/integration/persistence/product/pod"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
+	podstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/pod"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"time"
 
 	"gorm.io/gorm"

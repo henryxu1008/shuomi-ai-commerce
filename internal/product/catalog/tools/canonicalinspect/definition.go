@@ -3,8 +3,8 @@ package canonicalinspect
 import (
 	"time"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 func Definition() commercetool.Definition {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 type Parser struct {

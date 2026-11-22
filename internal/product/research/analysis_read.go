@@ -2,8 +2,8 @@ package research
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"sort"
-	"task-processor/internal/product/collection"
 )
 
 type AnalysisChoice struct {

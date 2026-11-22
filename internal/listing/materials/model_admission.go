@@ -3,8 +3,8 @@ package materials
 import (
 	"encoding/json"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 
 	sigjson "sigs.k8s.io/json"
 )

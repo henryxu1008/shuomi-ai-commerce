@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/aicapability"
-	d "task-processor/internal/aicapability/routeconfig"
 )
 
 type sharedCatalog struct{ unready bool }

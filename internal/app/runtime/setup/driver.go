@@ -3,6 +3,8 @@ package setup
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
 	"net"
 	"net/url"
 	"path/filepath"
@@ -10,8 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/app/setupcontrol"
 	"time"
 )
 

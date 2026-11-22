@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 )
 
 // GenerationObservation is a provider effect fact, not an image-validity or

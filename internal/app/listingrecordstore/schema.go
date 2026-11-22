@@ -3,8 +3,8 @@ package recordpersistence
 import (
 	"context"
 	_ "embed"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
 	"gorm.io/gorm"
-	"task-processor/internal/listing/record"
 )
 
 //go:embed schema.sql

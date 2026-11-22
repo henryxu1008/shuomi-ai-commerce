@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
-	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
+	sheinmarketpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
 )
 
 // SecondarySaleAttributeRequired reports whether SKU-level sale attributes are required for submit.

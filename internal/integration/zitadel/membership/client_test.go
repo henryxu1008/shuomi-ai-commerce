@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	domain "task-processor/internal/organization/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 const validResponse = `{"pagination":{"totalResult":"1","appliedLimit":"20"},"authorizations":[{"id":"grant-b","creationDate":"2026-09-12T00:00:00Z","changeDate":"2026-09-12T00:00:00Z","project":{"id":"project"},"organization":{"id":"effective-b"},"user":{"id":"user-a","organizationId":"home-a","displayName":"Member A","preferredLoginName":"a@example.invalid"},"state":"STATE_ACTIVE","roles":[{"key":"listingkit_viewer"}]}]}`

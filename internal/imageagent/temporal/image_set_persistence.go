@@ -5,7 +5,7 @@ import (
 	"errors"
 	"reflect"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // The additive set activity returns the same slot fact committed by the

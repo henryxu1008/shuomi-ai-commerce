@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	domain "task-processor/internal/organization/membership"
 )
 
 func TestPostgresReservationDispatchAndRestart(t *testing.T) {

@@ -2,7 +2,7 @@ package imageagentworker
 
 import (
 	"context"
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"testing"
 
 	"github.com/stretchr/testify/require"

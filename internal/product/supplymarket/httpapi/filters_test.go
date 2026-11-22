@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"task-processor/internal/product/supplymarket"
 	"testing"
 )
 

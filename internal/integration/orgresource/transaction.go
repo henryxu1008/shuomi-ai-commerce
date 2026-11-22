@@ -11,7 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 type TransactionConfig struct {

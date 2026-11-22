@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	n "github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	n "task-processor/internal/notificationcenter"
 )
 
 func TestPostgresReceiptsAndRuntimeRole(t *testing.T) {

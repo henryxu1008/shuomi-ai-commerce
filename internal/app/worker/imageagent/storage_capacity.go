@@ -3,15 +3,15 @@ package imageagentworker
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
 	"gorm.io/gorm"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	"task-processor/internal/imageagent/temporal"
-	"task-processor/internal/integration/httpimage"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	store "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/integration/s3"
 	"time"
 )
 

@@ -3,8 +3,8 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
-	b "task-processor/internal/commercial/billing"
-	e "task-processor/internal/ecoservices"
+	b "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"time"
 )
 

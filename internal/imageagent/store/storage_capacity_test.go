@@ -2,12 +2,12 @@ package store
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/imageagent"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 

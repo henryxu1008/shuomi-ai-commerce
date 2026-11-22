@@ -3,13 +3,13 @@ package shein
 import (
 	"context"
 	"encoding/json"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	sf "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/fulfillment"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	f "task-processor/internal/fulfillment"
-	"task-processor/internal/storecenter"
-	sf "task-processor/internal/storecenter/fulfillment"
 	"time"
 )
 

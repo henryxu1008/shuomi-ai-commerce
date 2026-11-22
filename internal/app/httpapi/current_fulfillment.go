@@ -2,8 +2,8 @@ package httpapi
 
 import (
 	"errors"
-	module "task-processor/internal/app/httpapi/fulfillment"
-	"task-processor/internal/httproute"
+	module "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 )
 
 func WithFulfillment(d module.Dependencies) CurrentApplicationOption {

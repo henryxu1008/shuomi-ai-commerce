@@ -2,8 +2,8 @@ package sourceaccountregistry
 
 import (
 	"context"
+	registry "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 	"strings"
-	registry "task-processor/internal/sourceaccountregistry"
 	"time"
 	"unicode/utf8"
 )

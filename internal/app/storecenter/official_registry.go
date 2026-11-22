@@ -1,13 +1,13 @@
 package storecenterapp
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
+	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"sort"
 	"strconv"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/storecenter"
-	tiktok "task-processor/internal/storecenter/tiktokshop"
-	walmart "task-processor/internal/storecenter/walmart"
 )
 
 type OfficialApplicationRegistration struct {

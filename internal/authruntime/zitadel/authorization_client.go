@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/zitadelprotojson"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprotojson"
 )
 
 const (

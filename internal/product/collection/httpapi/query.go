@@ -1,8 +1,8 @@
 package httpapi
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"net/url"
-	"task-processor/internal/product/collection"
 )
 
 func urlQuery(raw string) (map[string]string, error) {

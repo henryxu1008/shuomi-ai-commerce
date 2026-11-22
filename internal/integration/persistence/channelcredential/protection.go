@@ -6,8 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/integration/credentialprotection"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/credentialprotection"
 )
 
 type Protection struct {

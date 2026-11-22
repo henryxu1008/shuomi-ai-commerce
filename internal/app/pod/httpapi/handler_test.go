@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	podapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/pod"
 	"net/http/httptest"
 	"strings"
-	podapp "task-processor/internal/app/pod"
 	"testing"
 
 	"github.com/google/uuid"

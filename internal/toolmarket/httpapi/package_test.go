@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authz"
-	tm "task-processor/internal/toolmarket"
 )
 
 type pluginDownloadRepo struct {

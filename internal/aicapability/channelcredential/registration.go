@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 const BraveWebSearchConnection = "brave-web-search-v1"

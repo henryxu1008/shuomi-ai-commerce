@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/listing/record"
-	"task-processor/internal/workbenchcontext"
-	contextapi "task-processor/internal/workbenchcontext/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
+	contextapi "github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext/httpapi"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"

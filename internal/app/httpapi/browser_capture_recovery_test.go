@@ -15,9 +15,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/sourcing"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 // Only synthetic markers enter this task-owned buffer. Never print the dump on failure.

@@ -2,7 +2,7 @@ package submissionpersistence
 
 import (
 	"context"
-	"task-processor/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 )
 
 func (r *Repository) ReadShelfAttempt(ctx context.Context, scope submission.ExecutionScope, target submission.ExecutionTarget) (submission.ExecutionAttempt, error) {

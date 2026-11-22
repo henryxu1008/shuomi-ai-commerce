@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"task-processor/internal/app/modelinvocationrecovery"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/modelinvocationrecovery"
 )
 
 func main() {

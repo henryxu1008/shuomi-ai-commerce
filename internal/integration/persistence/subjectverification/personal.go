@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	_ "embed"
 	"errors"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	"gorm.io/gorm"
-	domain "task-processor/internal/subjectverification"
 	"time"
 )
 

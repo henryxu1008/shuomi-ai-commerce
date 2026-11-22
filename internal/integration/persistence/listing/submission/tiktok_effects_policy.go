@@ -6,10 +6,10 @@ import (
 
 	"gorm.io/gorm"
 
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // TikTok stages use the original Product transaction and stable target fence.

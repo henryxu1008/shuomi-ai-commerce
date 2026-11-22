@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	b "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	ecohttp "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	b "task-processor/internal/commercial/billing"
-	e "task-processor/internal/ecoservices"
-	ecohttp "task-processor/internal/ecoservices/httpapi"
-	"task-processor/internal/httproute"
 )
 
 // Real route descriptors and authentication/authorization middleware run before

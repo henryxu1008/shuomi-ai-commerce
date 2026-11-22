@@ -1,8 +1,8 @@
 package publishing
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
 	"strings"
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // DefaultSiteListByRegion returns a fresh SHEIN site list for the configured region.

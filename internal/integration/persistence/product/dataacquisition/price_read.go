@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"gorm.io/gorm"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/dataacquisition"
 )
 
 func (r *Repository) readSnapshot(ctx context.Context, read func(*gorm.DB) error) error {

@@ -10,11 +10,11 @@ import (
 	"image"
 	"time"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/s3"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 const chatImageCapacityOwner = "workbench_chat_image"

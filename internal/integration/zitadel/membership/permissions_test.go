@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	domain "task-processor/internal/organization/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 func authorizedServer(handler http.Handler) *httptest.Server {

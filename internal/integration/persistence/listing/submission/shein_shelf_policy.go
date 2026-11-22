@@ -3,11 +3,11 @@ package submissionpersistence
 import (
 	"context"
 	"encoding/json"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"strings"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
 )
 
 func isShelfTarget(a submission.ExecutionAttempt) bool {

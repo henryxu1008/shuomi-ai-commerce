@@ -2,11 +2,11 @@ package imageagentworker
 
 import (
 	"context"
-	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/shared/aiidentity"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/aiidentity"
 )
 
 type imageGenerationQuoteReader struct{ factory generationProviderFactory }

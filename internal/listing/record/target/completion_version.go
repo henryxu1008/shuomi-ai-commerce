@@ -2,11 +2,11 @@ package target
 
 import (
 	"context"
-	"task-processor/internal/product/description"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 
-	"task-processor/internal/listing/completiondraft"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type CompletionDraftSelection struct {

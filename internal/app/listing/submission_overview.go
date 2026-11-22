@@ -3,10 +3,10 @@ package listingapp
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/workbenchmetrics"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"reflect"
-	"task-processor/internal/app/workbenchmetrics"
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
 	"time"
 )
 

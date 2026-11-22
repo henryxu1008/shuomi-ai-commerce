@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/sirupsen/logrus"
 	logtest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	governed "task-processor/internal/integration/aicapability/einomodel"
 )
 
 func TestModelActionStrictRejectionDistinguishesProtocolFailures(t *testing.T) {

@@ -3,9 +3,9 @@ package imageagent
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"strings"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authidentity"
 )
 
 // RunReader exposes the original scoped history without execution dependencies.

@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	confighttp "github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	confighttp "task-processor/internal/agentconfig/httpapi"
-	"task-processor/internal/agentcustomization"
-	"task-processor/internal/authidentity"
 )
 
 type modeRegisteredProbe struct{ agentconfig.Repository }

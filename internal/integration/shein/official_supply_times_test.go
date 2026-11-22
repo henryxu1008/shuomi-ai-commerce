@@ -3,10 +3,10 @@ package shein
 import (
 	"context"
 	"encoding/json"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"strings"
-	o "task-processor/internal/storecenter/observations"
 	"testing"
 )
 

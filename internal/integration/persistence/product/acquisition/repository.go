@@ -7,15 +7,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"math"
 	"strings"
-	"task-processor/internal/pkg/pgschema"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/sourcing"
 )
 
 type Repository struct{ db *gorm.DB }

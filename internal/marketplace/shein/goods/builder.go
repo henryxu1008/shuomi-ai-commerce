@@ -3,13 +3,13 @@ package goods
 import (
 	"encoding/json"
 	"fmt"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"math"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/asset"
 	"unicode"
 	"unicode/utf8"
 )

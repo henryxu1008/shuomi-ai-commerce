@@ -15,15 +15,15 @@ func TestProductSourcingDoesNotDependOnListingKitMarketplaceOrRuntime(t *testing
 	t.Parallel()
 
 	forbiddenPrefixes := []string{
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/publishing/shein",
-		"task-processor/internal/workspace/shein",
-		"task-processor/internal/app",
-		"task-processor/internal/httpbootstrap",
-		"task-processor/internal/httproute",
-		"task-processor/internal/infra",
-		"task-processor/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/shein",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/httpbootstrap",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
 	}
 	assertProductSourcingDoesNotImportPrefixes(t, productSourcingPackageDir(t), forbiddenPrefixes)
 }
@@ -32,16 +32,16 @@ func TestProductSourcingDependsOnlyOnNeutralProductFacts(t *testing.T) {
 	t.Parallel()
 
 	forbiddenPrefixes := []string{
-		"task-processor/internal/asset",
-		"task-processor/internal/crawler",
-		"task-processor/internal/integration",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/model",
-		"task-processor/internal/product/asset",
-		"task-processor/internal/product/enrichment",
-		"task-processor/internal/product/review/proposal",
-		"task-processor/internal/product/image",
-		"task-processor/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/crawler",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/model",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
 	}
 	assertProductSourcingDoesNotImportPrefixes(t, productSourcingPackageDir(t), forbiddenPrefixes)
 }

@@ -3,7 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"time"
 )
 

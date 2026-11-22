@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"reflect"
-	"task-processor/internal/pkg/pgschema"
 )
 
 // Catalog contracts are read-only snapshots of the existing capability owners'

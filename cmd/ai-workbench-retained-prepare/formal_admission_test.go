@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/aicapability"
-	recovery "task-processor/internal/app/modelinvocationrecovery"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	store "task-processor/internal/integration/persistence/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	recovery "github.com/henryxu1008/shuomi-ai-commerce/internal/app/modelinvocationrecovery"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
 )
 
 func TestMinimalAdmissionReusesExistingBusinessRestore(t *testing.T) {

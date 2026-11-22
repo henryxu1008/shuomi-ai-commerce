@@ -2,13 +2,13 @@ package httpapi
 
 import (
 	"encoding/json"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/listing/materials"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/asset/tools/assetinspect"
-	proposal "task-processor/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/tools/assetinspect"
+	proposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 )
 
 // Projection reads only an immutable, successfully audited observation.

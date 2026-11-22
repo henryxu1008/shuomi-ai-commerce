@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	money "task-processor/internal/ledger/money"
-	economics "task-processor/internal/referraleconomics"
+	money "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	economics "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

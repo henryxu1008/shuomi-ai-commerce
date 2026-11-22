@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 func TestProvisionLocalApplicationsCreatesAPIAndOIDCApps(t *testing.T) {

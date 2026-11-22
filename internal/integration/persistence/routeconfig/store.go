@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	credential "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

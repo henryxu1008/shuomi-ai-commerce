@@ -2,7 +2,7 @@ package servicepayments
 
 import (
 	wechat "github.com/go-pay/gopay/wechat/v3"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"testing"
 	"time"
 )

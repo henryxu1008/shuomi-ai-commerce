@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	contract "task-processor/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 )
 
 // DiagnosticEvaluator is the existing v2 computation seam, not a new rule owner.

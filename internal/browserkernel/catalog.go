@@ -15,8 +15,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"golang.org/x/mod/semver"
-	"task-processor/internal/authidentity"
 )
 
 var (

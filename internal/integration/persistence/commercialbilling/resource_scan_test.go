@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/ledger/money"
 )
 
 func TestResourceRecoveryScanAdvancesPastUnknownOrders(t *testing.T) {

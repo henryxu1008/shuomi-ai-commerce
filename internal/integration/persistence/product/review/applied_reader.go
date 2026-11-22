@@ -2,8 +2,8 @@ package reviewpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"gorm.io/gorm"
-	"task-processor/internal/product/review"
 )
 
 // NewAppliedPublicationReader exposes existing exact owner-scoped Apply facts,

@@ -4,13 +4,13 @@ package draft
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	shein "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"github.com/sirupsen/logrus"
-	"task-processor/internal/listing/record"
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/catalog/canonical"
-	"task-processor/internal/product/description"
-	shein "task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 type Builder struct{ LogFor func(string) *logrus.Entry }

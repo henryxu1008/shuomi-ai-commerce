@@ -3,8 +3,8 @@ package dataservicepersistence
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
 	"gorm.io/gorm"
-	"task-processor/internal/dataservice"
 )
 
 var Tables = []string{"data_service_credentials", "data_service_commands", "data_service_quota"}

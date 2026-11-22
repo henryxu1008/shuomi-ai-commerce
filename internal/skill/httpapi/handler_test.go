@@ -4,13 +4,13 @@ import (
 	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/httproute"
-	d "task-processor/internal/skill"
 	"testing"
 )
 

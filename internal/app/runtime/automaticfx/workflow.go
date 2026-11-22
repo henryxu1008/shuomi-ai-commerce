@@ -2,11 +2,11 @@
 package automaticfxruntime
 
 import (
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	fx "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/automaticfx"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"reflect"
-	d "task-processor/internal/aicapability/routeconfig"
-	fx "task-processor/internal/integration/aicapability/automaticfx"
 	"time"
 )
 

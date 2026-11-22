@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type researchEvidenceStore interface {

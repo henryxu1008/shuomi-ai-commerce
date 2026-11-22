@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	storeapp "task-processor/internal/app/storecenter"
-	record "task-processor/internal/listing/record/target"
-	marketplace "task-processor/internal/marketplace/tiktokshop"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type TikTokRulesMerchant interface {

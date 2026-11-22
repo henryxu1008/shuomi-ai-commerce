@@ -3,14 +3,14 @@ package httpapi
 import (
 	"context"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/integration/commercetoolauth"
-	"task-processor/internal/product/contentagent/scriptcompute"
-	reviewproposal "task-processor/internal/product/review/proposal"
-	"task-processor/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/commercetoolauth"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent/scriptcompute"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
 
 func (a *productAgentApplication) checkScriptTrialIdentity(identity agent.ExecutionIdentity) error {

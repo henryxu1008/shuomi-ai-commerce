@@ -2,12 +2,12 @@ package listingapp
 
 import (
 	"context"
-	imageapp "task-processor/internal/app/imageagent"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
+	imageapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type ImageSetSources struct {

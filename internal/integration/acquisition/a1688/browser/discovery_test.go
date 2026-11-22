@@ -3,10 +3,10 @@ package browser
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
 	"os"
 	"strings"
-	"task-processor/internal/product/sourcing"
 	"testing"
 	"time"
 )

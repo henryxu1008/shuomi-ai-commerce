@@ -2,7 +2,7 @@ package currentapplication
 
 import (
 	"errors"
-	dataservicesapp "task-processor/internal/app/dataservices"
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
 )
 
 type ResearchManualOriginalConfig struct {

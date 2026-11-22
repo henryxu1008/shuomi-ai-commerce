@@ -5,11 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/ecoservices"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"os"
-	store "task-processor/internal/integration/persistence/ecoservices"
 	"time"
 )
 

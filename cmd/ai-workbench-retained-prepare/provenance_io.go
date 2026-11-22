@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	coreconfig "task-processor/internal/core/config"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 type sourceRecord struct {

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"

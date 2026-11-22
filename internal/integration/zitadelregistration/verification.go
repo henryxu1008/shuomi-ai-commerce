@@ -3,10 +3,10 @@ package zitadelregistration
 import (
 	"context"
 	"encoding/base64"
+	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/referralregistration"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"net/http"
 	"net/url"
-	app "task-processor/internal/app/referralregistration"
-	"task-processor/internal/referral"
 )
 
 func (c *Client) Read(ctx context.Context, subject string) (app.User, error) {

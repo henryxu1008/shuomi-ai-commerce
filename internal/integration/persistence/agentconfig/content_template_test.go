@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestContentParameterHashStaysStableAcrossOwnerExtraction(t *testing.T) {

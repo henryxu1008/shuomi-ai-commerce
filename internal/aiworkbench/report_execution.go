@@ -1,6 +1,6 @@
 package aiworkbench
 
-import rc "task-processor/internal/reportcenter"
+import rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 
 type ReportExecution struct {
 	Origin         rc.ScheduledOrigin

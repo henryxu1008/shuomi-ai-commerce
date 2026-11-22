@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	invitationmail "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/mail"
+	memberstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/organization/membership"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	invitationmail "task-processor/internal/integration/mail"
-	memberstore "task-processor/internal/integration/persistence/organization/membership"
-	"task-processor/internal/organization/membership"
-	flow "task-processor/internal/organization/membership/inviteflow"
 )
 
 type invitationRoleStore struct {

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"task-processor/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 )
 
 func NormalizeAssetCatalog(catalog AssetCatalog) (AssetCatalog, error) {

@@ -2,9 +2,9 @@ package einomodel
 
 import (
 	"context"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 // The frozen configuration owns this budget. Keep the final decision available

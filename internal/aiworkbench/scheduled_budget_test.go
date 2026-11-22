@@ -1,10 +1,10 @@
 package aiworkbench
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/stretchr/testify/require"
 	"math"
-	"task-processor/internal/agent"
-	"task-processor/internal/aicapability"
 	"testing"
 	"time"
 )

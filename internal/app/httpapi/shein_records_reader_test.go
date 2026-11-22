@@ -3,8 +3,8 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
 	"strings"
-	"task-processor/internal/listing/record"
 	"testing"
 
 	"github.com/stretchr/testify/require"

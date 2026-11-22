@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"github.com/stretchr/testify/require"
 	"net/http"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
 	"testing"
 	"time"
 )

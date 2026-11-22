@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/app/runtime/currentapplication"
-	sourceSchema "task-processor/internal/app/schema/sourceaccountregistry"
-	"task-processor/internal/core/config"
-	referralStore "task-processor/internal/integration/persistence/referral"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	sourceSchema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	referralStore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/referral"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"

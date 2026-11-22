@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"task-processor/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 )
 
 func TestSynchronousEditKeepsEveryExactSourceInOrder(t *testing.T) {

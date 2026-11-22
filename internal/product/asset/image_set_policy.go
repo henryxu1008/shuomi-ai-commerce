@@ -2,8 +2,8 @@ package asset
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"strconv"
-	"task-processor/internal/agent"
 )
 
 const ImageSetPolicyAdoptionVersion = "product.image.policy-adopt-v1"

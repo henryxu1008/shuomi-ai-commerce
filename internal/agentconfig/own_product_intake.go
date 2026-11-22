@@ -1,9 +1,9 @@
 package agentconfig
 
 import (
-	"task-processor/internal/agent"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 const (

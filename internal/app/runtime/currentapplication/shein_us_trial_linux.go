@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"golang.org/x/sys/unix"
-	"task-processor/internal/product/dataacquisition"
 )
 
 type trialInputDir struct{ *os.File }

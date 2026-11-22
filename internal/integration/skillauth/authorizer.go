@@ -4,13 +4,13 @@ package skillauth
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"strings"
-	"task-processor/internal/agent"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	d "task-processor/internal/skill"
-	"task-processor/internal/workbenchcontext"
 	"time"
 )
 

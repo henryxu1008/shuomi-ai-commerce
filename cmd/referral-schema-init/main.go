@@ -4,10 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/referralregistration"
 	"io"
 	"os"
 	"strings"
-	app "task-processor/internal/app/referralregistration"
 	"time"
 )
 

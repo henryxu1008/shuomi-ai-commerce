@@ -21,9 +21,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/agent"
-	agentstore "task-processor/internal/integration/persistence/agent"
-	"task-processor/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	agentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 // Runs the ordinary compiled entrypoint twice, with identical private config

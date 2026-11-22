@@ -11,15 +11,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	assetpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/imageagent"
-	assetpersistence "task-processor/internal/integration/persistence/product/asset"
 )
 
 func imageRuntimePermissionTestDSN(t *testing.T) string {

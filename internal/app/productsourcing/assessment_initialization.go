@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	researchstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/research"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	"gorm.io/gorm"
-	researchstore "task-processor/internal/integration/persistence/product/research"
-	platformdatabase "task-processor/internal/platform/database"
 )
 
 // EnableResearchAssessments adds the approved table to a confirmed current

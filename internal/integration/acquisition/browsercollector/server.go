@@ -6,8 +6,8 @@ import (
 	"errors"
 	"net/http"
 
-	browser "task-processor/internal/integration/acquisition/a1688/browser"
-	"task-processor/internal/product/sourcing"
+	browser "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/a1688/browser"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // AdmitFunc decides whether an inbound RPC call may drive the browser. It is

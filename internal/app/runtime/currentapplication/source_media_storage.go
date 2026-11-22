@@ -1,13 +1,13 @@
 package currentapplication
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	s3integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"net/url"
 	"strings"
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/core/config"
-	"task-processor/internal/integration/httpimage"
-	s3integration "task-processor/internal/integration/s3"
-	"task-processor/internal/product/collection"
 )
 
 func ValidateSourceMediaStorage(c config.ImageAgentArtifactStoreConfig, isolatedTrial bool) error {

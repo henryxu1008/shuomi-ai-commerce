@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	coreconfig "task-processor/internal/core/config"
 
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	governed "task-processor/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 )
 
 func TestContentTextPolicyIsOptionalAndCannotBorrowTheTitleRoute(t *testing.T) {

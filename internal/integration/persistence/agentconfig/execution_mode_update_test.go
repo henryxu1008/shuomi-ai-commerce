@@ -3,8 +3,8 @@ package agentconfigpersistence
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
 	"testing"
 )
 

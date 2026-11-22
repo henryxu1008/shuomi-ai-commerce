@@ -2,8 +2,8 @@ package httpapi
 
 import (
 	"context"
-	"task-processor/internal/agentconfig"
-	texteino "task-processor/internal/integration/agent/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	texteino "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/agent/einomodel"
 	"time"
 )
 

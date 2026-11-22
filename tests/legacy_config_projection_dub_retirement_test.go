@@ -15,7 +15,7 @@ func TestLegacyConfigProjectionDubClosureIsRetired(t *testing.T) {
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Errorf("retired Dub package must be absent: %v", err)
 	}
-	violations, err := findBannedImportViolations(filepath.Join("..", "internal"), []string{`"task-processor/internal/integration/dub"`}, nil, false)
+	violations, err := findBannedImportViolations(filepath.Join("..", "internal"), []string{`"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/dub"`}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

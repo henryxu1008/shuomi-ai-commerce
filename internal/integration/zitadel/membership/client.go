@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/authidentity"
-	domain "task-processor/internal/organization/membership"
-	"task-processor/internal/zitadelprotojson"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprotojson"
 )
 
 const maxResponseBytes = 1 << 20

@@ -2,9 +2,9 @@ package membership
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
 	"time"
 )
 

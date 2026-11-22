@@ -1,9 +1,9 @@
 package aiworkbench
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 )

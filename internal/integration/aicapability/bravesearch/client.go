@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/aicapability/websearch"
-	"task-processor/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/websearch"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 )
 
 const maxBody = 256 << 10

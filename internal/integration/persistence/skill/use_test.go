@@ -3,11 +3,11 @@ package skillpersistence
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	d "task-processor/internal/skill"
 	"testing"
 	"time"
 )

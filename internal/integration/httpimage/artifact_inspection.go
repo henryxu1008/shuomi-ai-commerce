@@ -2,11 +2,11 @@ package httpimage
 
 import (
 	"bytes"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	_ "golang.org/x/image/webp"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	productimage "task-processor/internal/product/image"
 )
 
 func InspectGeneratedArtifact(content []byte) (string, int, int, error) {

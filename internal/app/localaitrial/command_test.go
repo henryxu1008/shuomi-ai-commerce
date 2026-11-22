@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ledger/orgresource"
 )
 
 const testConfigJSON = `{"organizationId":"local-org","operatorId":"trusted-operator","approvalEvidenceId":"human-decision","grantEnabled":false,"database":{"host":"127.0.0.1","port":5432,"user":"commercial_owner_runtime","password":"synthetic-db-secret","database":"resources"}}`

@@ -3,10 +3,10 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authidentity"
-	e "task-processor/internal/ecoservices"
 	"testing"
 )
 

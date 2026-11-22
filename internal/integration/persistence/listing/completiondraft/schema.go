@@ -2,8 +2,8 @@ package completiondraftpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"gorm.io/gorm"
-	"task-processor/internal/listing/preparation"
 )
 
 var Tables = []string{"listing_completion_draft_records", "listing_completion_draft_heads", "listing_completion_draft_commands"}

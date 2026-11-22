@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"context"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/sourcing"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type scheduledSourceAuthorization struct{ agent *productAgentApplication }

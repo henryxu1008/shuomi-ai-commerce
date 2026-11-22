@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // ClaimPublication decides whether a staged artifact can acquire or replay a

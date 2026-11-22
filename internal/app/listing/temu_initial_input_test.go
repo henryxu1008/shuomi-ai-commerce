@@ -2,9 +2,9 @@ package listingapp
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/storecenter"
 	"testing"
 )
 

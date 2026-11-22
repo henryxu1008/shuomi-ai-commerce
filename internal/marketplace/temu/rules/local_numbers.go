@@ -3,7 +3,7 @@ package rules
 import (
 	"strconv"
 
-	"task-processor/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 )
 
 // Units are explicit draft facts. They are deliberately outside the E17 wire

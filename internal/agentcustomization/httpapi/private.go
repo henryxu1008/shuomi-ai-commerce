@@ -3,13 +3,13 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"io"
 	"mime"
 	"net/http"
 	"net/url"
 	"strings"
-	d "task-processor/internal/agentcustomization"
-	"task-processor/internal/httproute"
 )
 
 type privatePort interface {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	money "task-processor/internal/ledger/money"
+	money "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 
 	"gorm.io/gorm"
 )

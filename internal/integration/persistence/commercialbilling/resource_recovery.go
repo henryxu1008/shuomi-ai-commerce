@@ -2,7 +2,7 @@ package commercialbilling
 
 import (
 	"context"
-	"task-processor/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 )
 
 func (r *Repository) ListRecoverableResourceOrders(ctx context.Context, after *billing.ResourceRecoveryPosition, limit int) (billing.ResourceRecoveryPage, error) {

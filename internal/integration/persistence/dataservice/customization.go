@@ -3,12 +3,12 @@ package dataservicepersistence
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"strconv"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/dataservice"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

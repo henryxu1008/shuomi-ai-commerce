@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	policyassembly "task-processor/internal/app/imageagentpolicy"
-	"task-processor/internal/imageagent"
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
+	policyassembly "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagentpolicy"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
 )
 
 type imageAgentPolicyAvailability struct {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"gorm.io/gorm"
-	d "task-processor/internal/aicapability/routeconfig"
 )
 
 const writerRole = "model_route_config_writer"

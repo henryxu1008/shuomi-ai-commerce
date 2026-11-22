@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"reflect"
 	"sort"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

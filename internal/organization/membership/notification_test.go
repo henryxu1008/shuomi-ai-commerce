@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 )
 
 type noticeOperationStore struct{ *memoryReceipts }

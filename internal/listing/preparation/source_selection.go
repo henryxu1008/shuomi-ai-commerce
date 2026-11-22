@@ -2,9 +2,9 @@ package preparation
 
 import (
 	"context"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type CollectionOwnerAuthority interface {

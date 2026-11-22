@@ -3,10 +3,10 @@ package tencentesign
 
 import (
 	"context"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	ess "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ess/v20201111"
-	domain "task-processor/internal/subjectverification"
 	"time"
 )
 

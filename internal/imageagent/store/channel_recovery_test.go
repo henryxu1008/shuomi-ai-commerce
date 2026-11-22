@@ -6,10 +6,10 @@ import (
 
 	"testing"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
 	"github.com/stretchr/testify/require"
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/imageagent"
-	resourceadapter "task-processor/internal/integration/orgresource"
 )
 
 func TestChannelRebindingCannotReplaceOriginalUnknownOrRecovery(t *testing.T) {

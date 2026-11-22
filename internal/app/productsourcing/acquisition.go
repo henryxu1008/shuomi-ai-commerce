@@ -8,9 +8,9 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type AcquisitionService struct {

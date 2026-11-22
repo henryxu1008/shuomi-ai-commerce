@@ -2,9 +2,9 @@ package imageagent
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 

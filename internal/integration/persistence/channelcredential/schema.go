@@ -2,9 +2,9 @@ package channelcredentialstore
 
 import (
 	"context"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"gorm.io/gorm"
 	"strings"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 const MetadataView = `CREATE VIEW public.ai_channel_credential_bindings AS SELECT organization_id,connection_id,provider,channel,account,region,base_url,revision,enabled,length(secret_ciphertext::text)>0 AS key_present FROM public.ai_channel_connections`

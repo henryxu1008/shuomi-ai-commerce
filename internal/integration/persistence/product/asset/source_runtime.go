@@ -2,9 +2,9 @@ package assetpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"gorm.io/gorm"
 	"strings"
-	"task-processor/internal/product/asset"
 )
 
 const SourceRuntimeRole = "supply_asset_runtime"

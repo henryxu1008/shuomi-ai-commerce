@@ -2,11 +2,11 @@ package orgresourceadapter
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/ledger/orgresource"
 	"testing"
 )
 

@@ -9,11 +9,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/app/configadapter"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/core/config"
-	imagestore "task-processor/internal/imageagent/store"
-	platformdatabase "task-processor/internal/platform/database"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/configadapter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	imagestore "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 // GrantImageAgentRuntime requires both an explicit owner credential and the

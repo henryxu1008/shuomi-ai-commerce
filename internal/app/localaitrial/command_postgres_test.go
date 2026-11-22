@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
+	orgresourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	orgresourceadapter "task-processor/internal/integration/orgresource"
-	"task-processor/internal/ledger/orgresource"
 )
 
 func TestPostgresTrialAIGrantNativeReadOnlyAndConcurrentFirstSource(t *testing.T) {

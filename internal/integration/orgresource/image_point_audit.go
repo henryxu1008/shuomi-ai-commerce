@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 // ListImagePointDebits reads only committed image-generation resource events.

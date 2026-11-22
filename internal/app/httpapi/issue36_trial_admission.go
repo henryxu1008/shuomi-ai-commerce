@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"gorm.io/gorm"
-	"task-processor/internal/httproute"
-	"task-processor/internal/listing/record"
-	"task-processor/internal/product/review"
 )
 
 // WithIssue36Trial admits only the Review and Listing routes of the isolated

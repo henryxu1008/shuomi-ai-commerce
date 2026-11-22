@@ -8,7 +8,7 @@ import (
 	"testing"
 	"unsafe"
 
-	productimage "task-processor/internal/product/image"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 
 	"github.com/stretchr/testify/require"
 )

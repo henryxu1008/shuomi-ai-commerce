@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 
 	"github.com/google/uuid"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"

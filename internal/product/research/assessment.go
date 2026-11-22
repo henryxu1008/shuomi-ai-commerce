@@ -3,8 +3,8 @@ package research
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"strconv"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

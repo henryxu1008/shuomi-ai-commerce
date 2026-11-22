@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func (s *Service) WithSourceQuotes(reader SourceQuoteReader) *Service { s.quotes = reader; return s }

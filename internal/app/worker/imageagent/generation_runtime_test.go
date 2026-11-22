@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 
 	"github.com/stretchr/testify/require"
 )

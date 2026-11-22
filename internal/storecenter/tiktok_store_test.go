@@ -3,7 +3,7 @@ package storecenter_test
 import (
 	"testing"
 
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func TestTikTokStoreUsesExplicitUSSellerCenterCode(t *testing.T) {

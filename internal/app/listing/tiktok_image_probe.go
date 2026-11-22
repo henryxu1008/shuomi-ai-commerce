@@ -8,10 +8,10 @@ import (
 	"image"
 	"time"
 
-	"task-processor/internal/integration/httpimage"
-	record "task-processor/internal/listing/record/target"
-	marketplace "task-processor/internal/marketplace/tiktokshop"
-	"task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 func (p *PublicImageProbe) ProbeTikTok(ctx context.Context, approved asset.ApprovedAsset, useCase string) (marketplace.ImageObservation, error) {

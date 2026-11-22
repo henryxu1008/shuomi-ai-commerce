@@ -3,13 +3,13 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/review"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 

@@ -3,8 +3,8 @@ package aiworkbench
 import (
 	"context"
 	"encoding/json"
-	"task-processor/internal/agent"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"time"
 )
 

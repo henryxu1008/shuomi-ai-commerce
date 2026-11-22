@@ -3,9 +3,9 @@ package temporal
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
 	"reflect"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
 )
 
 // Called only after live identity and immutable catalog checks. Financial

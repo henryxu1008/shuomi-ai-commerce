@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	domain "task-processor/internal/organization/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 func TestRetiredKindsNeverFallBackToOfficialWrites(t *testing.T) {

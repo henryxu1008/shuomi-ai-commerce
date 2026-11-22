@@ -9,10 +9,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/sirupsen/logrus"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/agent"
-	governed "task-processor/internal/integration/aicapability/einomodel"
 )
 
 // Only fixed protocol metadata may leave the decoder. JSON error messages and

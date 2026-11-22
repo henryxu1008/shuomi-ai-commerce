@@ -13,12 +13,12 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	s3integration "task-processor/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	s3integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
 )
 
 func TestResolveOrganizationWorkerComposesGovernedSingleMainSlotAndLiveAuthorizer(t *testing.T) {

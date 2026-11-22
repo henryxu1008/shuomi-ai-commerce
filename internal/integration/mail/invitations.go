@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
 	gomail "github.com/wneessen/go-mail"
 	"net"
 	stdmail "net/mail"
 	"net/url"
 	"strings"
-	flow "task-processor/internal/organization/membership/inviteflow"
 	"time"
 )
 

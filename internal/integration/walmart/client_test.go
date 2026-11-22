@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	auth "task-processor/internal/storecenter/walmart"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 )
 
 type transportFunc func(*http.Request) (*http.Response, error)

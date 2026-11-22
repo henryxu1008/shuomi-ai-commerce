@@ -3,15 +3,15 @@ package objectstore
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"strconv"
 	"strings"
-	"task-processor/internal/imageagent"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 	"time"
 )

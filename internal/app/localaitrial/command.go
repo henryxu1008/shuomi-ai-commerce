@@ -12,11 +12,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	orgresourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	sigjson "sigs.k8s.io/json"
-	coreconfig "task-processor/internal/core/config"
-	orgresourceadapter "task-processor/internal/integration/orgresource"
-	"task-processor/internal/ledger/orgresource"
-	platformdatabase "task-processor/internal/platform/database"
 )
 
 var ErrOutcomeUnconfirmed = errors.New("trial grant result is unconfirmed; inspect the same operation ID before retrying")

@@ -11,13 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/authidentity"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/workbenchcontext"
-	workbenchcontexthttpapi "task-processor/internal/workbenchcontext/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
+	workbenchcontexthttpapi "github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext/httpapi"
 )
 
 type workbenchAuthorizationClientStub struct{}

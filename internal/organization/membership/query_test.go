@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 )
 
 type queryDirectory struct {

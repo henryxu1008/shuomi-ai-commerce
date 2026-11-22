@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"github.com/stretchr/testify/require"
-	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 func TestContentPromptNeverSilentlyOmitsSelectedWholeValues(t *testing.T) {

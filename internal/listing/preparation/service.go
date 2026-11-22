@@ -3,9 +3,9 @@ package preparation
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"sort"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

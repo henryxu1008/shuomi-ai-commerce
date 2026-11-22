@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	schemainit "task-processor/internal/app/runtime/sourceaccountregistryschemainit"
+	schemainit "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sourceaccountregistryschemainit"
 )
 
 func runCommand(args []string, execute func(string) error) error {

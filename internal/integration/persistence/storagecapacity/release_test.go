@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 func TestStoredKnowledgeReleaseIsBoundAndCannotBeReactivated(t *testing.T) {

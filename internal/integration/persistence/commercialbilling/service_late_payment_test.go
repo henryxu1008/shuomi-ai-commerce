@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 func TestServiceLatePaymentAfterClosedCancellationContinuesOriginalRefund(t *testing.T) {

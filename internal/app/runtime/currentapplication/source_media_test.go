@@ -1,8 +1,8 @@
 package currentapplication
 
 import (
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/stretchr/testify/require"
-	coreconfig "task-processor/internal/core/config"
 	"testing"
 )
 

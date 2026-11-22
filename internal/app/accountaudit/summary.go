@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"task-processor/internal/authidentity"
-	registry "task-processor/internal/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	registry "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 var ErrSummaryNotConfigured = errors.New("account audit summary sources not configured")

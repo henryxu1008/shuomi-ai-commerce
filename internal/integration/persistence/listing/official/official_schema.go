@@ -2,11 +2,11 @@ package officialpersistence
 
 import (
 	"context"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"gorm.io/gorm"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	submissionstore "task-processor/internal/integration/persistence/listing/submission"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/pkg/pgschema"
 )
 
 var OfficialTables = []string{"listing_submission_official_intents", "listing_submission_official_receipts", WalmartSKUStateTable, WalmartObservationTable}

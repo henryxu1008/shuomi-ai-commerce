@@ -3,11 +3,11 @@ package einomodel
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"io"
 	"net/http"
 	"strings"
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
 	"testing"
 
 	"github.com/stretchr/testify/require"

@@ -2,8 +2,8 @@ package httpimage_test
 
 import (
 	"encoding/base64"
-	"task-processor/internal/integration/httpimage"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"testing"
 )
 

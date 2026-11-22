@@ -4,9 +4,9 @@ package skillimage
 
 import (
 	"context"
-	"task-processor/internal/agent"
-	"task-processor/internal/imageagent"
-	d "task-processor/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
 
 type UseStore interface {

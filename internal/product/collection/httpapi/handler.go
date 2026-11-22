@@ -13,9 +13,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/collection"
 )
 
 const BasePath = "/api/v1/workbench/collections"

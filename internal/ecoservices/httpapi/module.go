@@ -2,10 +2,10 @@ package httpapi
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"net/http"
-	"task-processor/internal/authz"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/httproute"
 	"time"
 )
 

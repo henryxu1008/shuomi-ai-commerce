@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
 	"github.com/stretchr/testify/require"
-	listingapp "task-processor/internal/app/listing"
-	listinghttp "task-processor/internal/app/listing/httpapi"
 )
 
 func TestContentTitleOnlyDoesNotConnectAnEmptySupplyTitleOptimizer(t *testing.T) {

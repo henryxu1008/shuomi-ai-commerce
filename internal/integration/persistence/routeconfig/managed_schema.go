@@ -3,9 +3,9 @@ package routeconfigstore
 import (
 	"context"
 
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 	"gorm.io/gorm"
-	d "task-processor/internal/aicapability/routeconfig"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 // VerifyManagedChannelPrerequisites checks existing selection metadata and the

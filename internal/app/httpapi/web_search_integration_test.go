@@ -19,16 +19,16 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/aicapability/websearch"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/integration/aicapability/bravesearch"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	workstore "task-processor/internal/integration/persistence/aiworkbench"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
-	websearchstore "task-processor/internal/integration/persistence/websearch"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/websearch"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/bravesearch"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	workstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
+	websearchstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/websearch"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 type searchFixtureGrants struct{ revoked, revokeChat atomic.Bool }

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	ledgermoney "task-processor/internal/ledger/money"
+	ledgermoney "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

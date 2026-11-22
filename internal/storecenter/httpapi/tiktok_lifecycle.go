@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"task-processor/internal/httproute"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 const TikTokLifecyclePath = "/api/v1/platform/tiktokshop/lifecycle"

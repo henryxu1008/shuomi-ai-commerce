@@ -3,21 +3,21 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"os"
 	"strings"
 	"sync"
-	"task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	sdkclient "go.temporal.io/sdk/client"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
-	platformtemporal "task-processor/internal/platform/temporal"
-	productasset "task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	platformtemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/temporal"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 
 	"gorm.io/gorm"
 )

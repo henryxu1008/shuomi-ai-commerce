@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/temu"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/integration/temu"
-	"task-processor/internal/storecenter"
 )
 
 type temuProvider struct {

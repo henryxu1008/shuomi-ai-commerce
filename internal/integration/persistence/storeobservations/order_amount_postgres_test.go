@@ -5,8 +5,8 @@ package storeobservations
 import (
 	"encoding/json"
 	"github.com/google/uuid"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
-	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

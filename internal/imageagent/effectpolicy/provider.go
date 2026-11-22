@@ -3,7 +3,7 @@ package effectpolicy
 import (
 	"time"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func ReserveProvider(current *imageagent.SlotEffectV3Attempt, reservation imageagent.SlotEffectV3Reservation, accounting AccountingSnapshot) (ProviderReservationDecision, error) {

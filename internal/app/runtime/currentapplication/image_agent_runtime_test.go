@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/mocks"
 	"gorm.io/gorm"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
 )
 
 func TestFullImageGenericManifestNeedsCurrentOwnersWithoutOfficialPlatform(t *testing.T) {

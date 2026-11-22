@@ -2,9 +2,9 @@ package sds
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"net/http"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/product/pod"
 	"time"
 )
 

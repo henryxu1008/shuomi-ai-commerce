@@ -12,15 +12,15 @@ import (
 	"reflect"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	k "task-processor/internal/knowledge"
-	reviewproposal "task-processor/internal/product/review/proposal"
-	skill "task-processor/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
+	skill "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
 
 type SnapshotReader interface {

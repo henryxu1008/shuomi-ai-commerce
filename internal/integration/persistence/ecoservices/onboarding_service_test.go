@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/servicepayments"
 	"strings"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/integration/servicepayments"
 	"testing"
 )
 

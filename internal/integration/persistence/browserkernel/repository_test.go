@@ -2,9 +2,9 @@ package kernelpersistence
 
 import (
 	"context"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	k "task-processor/internal/browserkernel"
 	"testing"
 )
 

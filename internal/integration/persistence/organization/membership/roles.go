@@ -8,10 +8,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 	"golang.org/x/text/cases"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	domain "task-processor/internal/organization/membership"
 	"time"
 )
 

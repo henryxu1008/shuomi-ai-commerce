@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/product/sourcing"
 )
 
 func TestAcquisitionChargeBindingGuardsOriginalMemberAndLatePublisher(t *testing.T) {

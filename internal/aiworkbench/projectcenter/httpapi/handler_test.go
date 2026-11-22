@@ -3,10 +3,10 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"strings"
-	pc "task-processor/internal/aiworkbench/projectcenter"
 	"testing"
 	"time"
 )

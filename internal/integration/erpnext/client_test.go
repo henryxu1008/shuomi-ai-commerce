@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
 	"net/http"
 	"net/http/httptest"
-	f "task-processor/internal/fulfillment"
 	"testing"
 )
 

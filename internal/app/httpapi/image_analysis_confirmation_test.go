@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
 	"testing"
 )
 

@@ -2,7 +2,7 @@ package podpersistence
 
 import (
 	"context"
-	"task-processor/internal/product/pod"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 
 	"gorm.io/gorm"
 )

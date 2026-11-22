@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	enumspb "go.temporal.io/api/enums/v1"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
 )
 
 func TestRegisterWorkerIncludesEffectRecoveryWorkflowAndActivity(t *testing.T) {

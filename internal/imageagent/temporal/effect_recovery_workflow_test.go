@@ -20,8 +20,8 @@ import (
 	"go.temporal.io/sdk/worker"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
 )
 
 func TestEffectRecoveryWorkflowRejectsRetiredParentSignalVersionAfterReconciliation(t *testing.T) {

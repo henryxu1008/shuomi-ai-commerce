@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/googleinteractions"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/integration/googleinteractions"
 )
 
 type googleTitleFixtureTransport func(*http.Request) (*http.Response, error)

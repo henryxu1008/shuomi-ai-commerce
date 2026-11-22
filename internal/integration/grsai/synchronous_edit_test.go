@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"task-processor/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 )
 
 func TestSynchronousProductEditUsesExactGRSAIWireBeforeDownloads(t *testing.T) {

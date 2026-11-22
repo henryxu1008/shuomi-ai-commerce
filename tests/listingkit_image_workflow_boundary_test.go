@@ -69,7 +69,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 		},
 		{
 			name:     "listingkit imageagent import",
-			source:   listingKitImageBoundarySource{path: "internal/listingkit/httpapi/bridge.go", text: `import "task-processor/internal/imageagent"`},
+			source:   listingKitImageBoundarySource{path: "internal/listingkit/httpapi/bridge.go", text: `import "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"`},
 			wantRule: "ListingKit to ImageAgent bridge",
 		},
 		{
@@ -106,7 +106,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "arbitrarily named listingkit provider adapter",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/httpapi/whatever.go",
-				text: "package httpapi\n\nimport secretprovider \"task-processor/internal/integration/openai\"\n\nvar _ = secretprovider.NewClient\n",
+				text: "package httpapi\n\nimport secretprovider \"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai\"\n\nvar _ = secretprovider.NewClient\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -114,7 +114,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "listingkit http image runtime adapter",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/httpapi/fetch.go",
-				text: "package httpapi\n\nimport runtimeadapter \"task-processor/internal/integration/httpimage\"\n\nvar _ = runtimeadapter.Fetch\n",
+				text: "package httpapi\n\nimport runtimeadapter \"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage\"\n\nvar _ = runtimeadapter.Fetch\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -122,7 +122,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "listingkit product image capability owner",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/httpapi/generate.go",
-				text: "package httpapi\n\nimport imagecapability \"task-processor/internal/product/image\"\n\nvar _ imagecapability.Generator\n",
+				text: "package httpapi\n\nimport imagecapability \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image\"\n\nvar _ imagecapability.Generator\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -130,7 +130,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "future integration provider name is denied by default",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/httpapi/future.go",
-				text: "package httpapi\n\nimport runtimeadapter \"task-processor/internal/integration/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
+				text: "package httpapi\n\nimport runtimeadapter \"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -138,7 +138,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "approved asset persistence child is denied",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/httpapi/persistence_child.go",
-				text: "package httpapi\n\nimport runtimeadapter \"task-processor/internal/integration/persistence/product/asset/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
+				text: "package httpapi\n\nimport runtimeadapter \"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -146,7 +146,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "s3 child is denied",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/httpapi/s3_child.go",
-				text: "package httpapi\n\nimport runtimeadapter \"task-processor/internal/integration/s3/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
+				text: "package httpapi\n\nimport runtimeadapter \"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -154,7 +154,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "product asset child is denied",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/product_asset_child.go",
-				text: "package listingkit\n\nimport runtimeadapter \"task-processor/internal/product/asset/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
+				text: "package listingkit\n\nimport runtimeadapter \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -162,7 +162,7 @@ func TestPhase3ListingKitImageWorkflowBoundaryRejectsRetiredMutations(t *testing
 			name: "product catalog child is denied",
 			source: listingKitImageBoundarySource{
 				path: "internal/listingkit/product_catalog_child.go",
-				text: "package listingkit\n\nimport runtimeadapter \"task-processor/internal/product/catalog/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
+				text: "package listingkit\n\nimport runtimeadapter \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/fluxrender\"\n\nvar _ = runtimeadapter.New\n",
 			},
 			wantRule: "ListingKit provider implementation ownership",
 		},
@@ -317,11 +317,11 @@ func TestPhase3ListingKitImageWorkflowBoundaryAllowsImageAgentStudioScene(t *tes
 
 func TestListingKitImageDependencyOwnershipAllowsNeutralPortsAndApprovedAdapters(t *testing.T) {
 	sources := []listingKitImageBoundarySource{
-		{path: "internal/listingkit/httpapi/chat.go", text: "package httpapi\nimport _ \"task-processor/internal/ai\""},
-		{path: "internal/listingkit/approved_assets.go", text: "package listingkit\nimport _ \"task-processor/internal/product/asset\""},
-		{path: "internal/listingkit/product_snapshot.go", text: "package listingkit\nimport _ \"task-processor/internal/product/catalog/canonical\""},
-		{path: "internal/listingkit/httpapi/repositories.go", text: "package httpapi\nimport _ \"task-processor/internal/integration/persistence/product/asset\""},
-		{path: "internal/listingkit/httpapi/object_store.go", text: "package httpapi\nimport _ \"task-processor/internal/integration/s3\""},
+		{path: "internal/listingkit/httpapi/chat.go", text: "package httpapi\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/ai\""},
+		{path: "internal/listingkit/approved_assets.go", text: "package listingkit\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset\""},
+		{path: "internal/listingkit/product_snapshot.go", text: "package listingkit\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical\""},
+		{path: "internal/listingkit/httpapi/repositories.go", text: "package httpapi\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset\""},
+		{path: "internal/listingkit/httpapi/object_store.go", text: "package httpapi\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3\""},
 	}
 	if violations := findListingKitImageBoundaryViolations(sources); len(violations) != 0 {
 		t.Fatalf("neutral ListingKit dependencies were rejected: %v", violations)
@@ -437,18 +437,18 @@ var listingKitDependencyOwnershipBoundaries = []struct {
 	allowed   map[string]struct{}
 }{
 	{
-		namespace: "task-processor/internal/integration",
+		namespace: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
 		allowed: map[string]struct{}{
-			"task-processor/internal/integration/persistence/product/asset": {},
-			"task-processor/internal/integration/s3":                        {},
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset": {},
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3":                        {},
 		},
 	},
 	{
-		namespace: "task-processor/internal/product",
+		namespace: "github.com/henryxu1008/shuomi-ai-commerce/internal/product",
 		allowed: map[string]struct{}{
-			"task-processor/internal/product/asset":             {},
-			"task-processor/internal/product/catalog":           {},
-			"task-processor/internal/product/catalog/canonical": {},
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset":             {},
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog":           {},
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical": {},
 		},
 	},
 }
@@ -504,7 +504,7 @@ func listingKitImageBoundaryRules() []listingKitImageBoundaryRule {
 		{name: "retired ListingKit image runtime", paths: notRetiredConfigRegistry, match: regexp.MustCompile(`\b(?:AIImageGenerator|AIAsyncImage[A-Za-z0-9_]*|StudioBackgroundRemover|CapabilityListingKitStudioImage|studioImageRoutingMode)\b`)},
 		{name: "retired subscription module", paths: all, match: regexp.MustCompile(`(?i)\b(?:ModuleStudio|studio_design_jobs_succeeded)\b|\b[A-Z0-9_]*module(?:_code|Code)?\b[^\r\n]{0,40}[:=]\s*["']?studio\b`)},
 		{name: "retired subscription module", paths: subscriptionWiring, match: regexp.MustCompile(`["']studio["']`)},
-		{name: "ListingKit to ImageAgent bridge", paths: listingKit, match: regexp.MustCompile(`["']task-processor/internal/imageagent(?:/[^"']*)?["']|\b(?:ImageAgentWorkspace|NewImageAgentAuthorizedAssetCatalog|imageAgentCatalogFromTask)[A-Za-z0-9_]*\b|/(?:api/v1/)?image-agent/runs\b|/image-agent-runs\b`)},
+		{name: "ListingKit to ImageAgent bridge", paths: listingKit, match: regexp.MustCompile(`["']github\.com/henryxu1008/shuomi-ai-commerce/internal/imageagent(?:/[^"']*)?["']|\b(?:ImageAgentWorkspace|NewImageAgentAuthorizedAssetCatalog|imageAgentCatalogFromTask)[A-Za-z0-9_]*\b|/(?:api/v1/)?image-agent/runs\b|/image-agent-runs\b`)},
 		{name: "ListingKit to ImageAgent bridge", paths: frontend, match: regexp.MustCompile(`\b(?:ImageAgentLaunchPanel|createImageAgentWorkspaceRun|getImageAgentWorkspaceAssets)\b|/image-agent-(?:runs|assets)\b`)},
 		{name: "retired frontend image owner", paths: frontend, match: regexp.MustCompile(`(?i)(?:shein-studio|style-gallery|sds-workbench|image_nanobanana|image_background_removal)`)},
 		{name: "retired product task API", paths: phase3ProductRuntime, match: regexp.MustCompile(`(?i)/api/v1/(?:products/(?:generate|tasks)|images/(?:process|tasks))(?:[/\s?:"']|$)`)},

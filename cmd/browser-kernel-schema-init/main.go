@@ -6,11 +6,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/browserkernel"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"os"
-	store "task-processor/internal/integration/persistence/browserkernel"
 	"time"
 )
 

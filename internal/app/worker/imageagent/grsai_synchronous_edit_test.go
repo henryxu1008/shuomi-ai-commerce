@@ -14,13 +14,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"task-processor/internal/ai"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/tools"
-	"task-processor/internal/integration/grsai"
-	openai "task-processor/internal/integration/openai"
-	"task-processor/internal/marketplace/imagepolicy"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/tools"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"
+	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 
 	"github.com/stretchr/testify/require"
 )

@@ -12,13 +12,13 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/selection"
 	"golang.org/x/text/currency"
 	strict "sigs.k8s.io/json"
-	"task-processor/internal/agent"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/research"
-	"task-processor/internal/product/selection"
 )
 
 const MaxInspectionBytes = selection.MaxInspectionBytes

@@ -1,6 +1,6 @@
 package workspace
 
-import sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
+import sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
 
 // BuildManualNotesReadinessCheck builds the warning check for unresolved manual review notes.
 func BuildManualNotesReadinessCheck(pkg *sheinpub.Package) ReadinessCheckSpec {

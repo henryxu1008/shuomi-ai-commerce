@@ -8,13 +8,13 @@ import (
 	"io"
 	"os"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 	"gorm.io/gorm"
-	"task-processor/internal/commercial/billing"
 
-	orgresourceadapter "task-processor/internal/integration/orgresource"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	moneystore "task-processor/internal/integration/persistence/money"
-	platformdatabase "task-processor/internal/platform/database"
+	orgresourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	moneystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 func main() {

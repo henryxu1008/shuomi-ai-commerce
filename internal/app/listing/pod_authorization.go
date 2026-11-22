@@ -2,9 +2,9 @@ package listingapp
 
 import (
 	"context"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 )
 
 // POD reuses this current original-membership owner. It grants only the three

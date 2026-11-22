@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ai"
 )
 
 func TestVIPSingleDispatchUsesMediumAndRejectsWrongQuality(t *testing.T) {

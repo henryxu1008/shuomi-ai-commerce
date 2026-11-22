@@ -11,8 +11,8 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
 	"golang.org/x/sys/windows"
-	"task-processor/internal/app/setupcontrol"
 )
 
 // Recovery supports the observed native Docker Desktop client chain, not an

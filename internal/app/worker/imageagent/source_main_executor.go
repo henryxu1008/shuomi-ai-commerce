@@ -3,9 +3,9 @@ package imageagentworker
 import (
 	"context"
 
-	"task-processor/internal/imageagent"
-	imagetools "task-processor/internal/imageagent/tools"
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagetools "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/tools"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
 )
 
 // SourceMainExecutor is the current #487 generation admission seam.

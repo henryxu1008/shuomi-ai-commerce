@@ -13,7 +13,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 var fingerprintPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)

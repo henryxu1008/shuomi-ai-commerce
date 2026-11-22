@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
 	"github.com/invopop/jsonschema"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/listing/materials"
 )
 
 func RulesDefinition() commercetool.Definition {

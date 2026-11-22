@@ -2,9 +2,9 @@ package storecenterapp
 
 import (
 	"context"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
-	auth "task-processor/internal/storecenter/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 // ReadSavedTikTokOrderBinding is an identity projection for local saved-order

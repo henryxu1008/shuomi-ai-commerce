@@ -3,6 +3,11 @@ package currentapplication
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -10,11 +15,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
-	"task-processor/internal/commercial/billing"
-	coreconfig "task-processor/internal/core/config"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	store "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 

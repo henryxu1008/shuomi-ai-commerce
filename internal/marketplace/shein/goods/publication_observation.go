@@ -1,8 +1,8 @@
 package goods
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 	"math"
-	"task-processor/internal/marketplace/shein/model"
 	"time"
 )
 

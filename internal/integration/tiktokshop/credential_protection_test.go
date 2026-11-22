@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	authorization "task-processor/internal/storecenter/tiktokshop"
+	authorization "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 func TestCredentialCiphertextBindsOrgAppPurposeAndGeneration(t *testing.T) {

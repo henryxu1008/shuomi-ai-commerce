@@ -3,11 +3,11 @@ package httpapi
 import (
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/review"
-	"task-processor/internal/workbenchcontext"
 )
 
 // buildLocalTrialReviewRoutes binds the current Review owner to an explicitly

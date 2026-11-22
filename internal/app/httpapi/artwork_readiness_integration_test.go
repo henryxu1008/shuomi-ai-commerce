@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"context"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
 	"github.com/stretchr/testify/require"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"testing"
 )
 

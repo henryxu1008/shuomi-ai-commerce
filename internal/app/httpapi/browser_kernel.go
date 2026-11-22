@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 	"errors"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel"
+	kh "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	kp "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/browserkernel"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 	"gorm.io/gorm"
-	k "task-processor/internal/browserkernel"
-	kh "task-processor/internal/browserkernel/httpapi"
-	"task-processor/internal/core/config"
-	kp "task-processor/internal/integration/persistence/browserkernel"
-	kernelmodule "task-processor/internal/kernel/module"
 )
 
 // WithBrowserKernelCatalog opts in to a pre-installed, independently owned

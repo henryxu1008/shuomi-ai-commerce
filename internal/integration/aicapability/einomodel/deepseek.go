@@ -1,8 +1,8 @@
 package einomodel
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"strings"
-	"task-processor/internal/aicapability"
 )
 
 // DashScopeDeepSeekV41FlashNonThinkingPolicy fixes the request semantics of

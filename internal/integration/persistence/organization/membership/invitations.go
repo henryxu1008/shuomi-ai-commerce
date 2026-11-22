@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
 	"github.com/jackc/pgx/v5/pgconn"
-	"task-processor/internal/authidentity"
-	flow "task-processor/internal/organization/membership/inviteflow"
 	"time"
 )
 

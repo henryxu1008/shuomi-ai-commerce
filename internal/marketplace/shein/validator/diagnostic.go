@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
-	policy "task-processor/internal/marketplace/shein/publishing"
-	contract "task-processor/internal/marketplace/validator"
+	sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	policy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 )
 
 const DiagnosticRuleVersion = "shein.offline_package.v2.3"

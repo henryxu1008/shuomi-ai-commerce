@@ -2,7 +2,7 @@ package imageagent
 
 import (
 	"context"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 type StorageGenerationFactReader interface {

@@ -2,11 +2,11 @@ package imageagentworker
 
 import (
 	"context"
-	"task-processor/internal/aicapability"
-	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/authidentity"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/bailian"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/bailian"
 	"time"
 )
 

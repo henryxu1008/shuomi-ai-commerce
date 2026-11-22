@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
 	"io"
 	"mime"
 	"net/http"
@@ -12,9 +15,6 @@ import (
 	strict "sigs.k8s.io/json"
 	"strconv"
 	"strings"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/research"
 	"time"
 )
 

@@ -3,9 +3,9 @@ package tiktokshop
 import (
 	"context"
 	"encoding/json"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"net/http"
 	"net/url"
-	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 

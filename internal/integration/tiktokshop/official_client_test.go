@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	authorization "task-processor/internal/storecenter/tiktokshop"
+	authorization "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

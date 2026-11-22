@@ -3,12 +3,12 @@ package setup
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"task-processor/internal/app/setupcontrol"
-	"task-processor/internal/platform/privatefile"
 )
 
 func (d *Driver) freshFingerprint(ctx context.Context, r setupcontrol.Request) (string, error) {

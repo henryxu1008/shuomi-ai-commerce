@@ -2,9 +2,9 @@ package observations
 
 import (
 	"context"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	tm "task-processor/internal/marketplace/temu/observations"
-	"task-processor/internal/storecenter"
 	"testing"
 )
 

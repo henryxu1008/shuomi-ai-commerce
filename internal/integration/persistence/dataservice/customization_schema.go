@@ -2,8 +2,8 @@ package dataservicepersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
 	"gorm.io/gorm"
-	"task-processor/internal/dataservice"
 )
 
 var CustomTables = []string{"data_service_custom_requests", "data_service_custom_events", "data_service_custom_commands"}

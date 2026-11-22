@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 var roleName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)

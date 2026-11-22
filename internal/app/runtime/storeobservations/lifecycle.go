@@ -1,8 +1,8 @@
 package storeobservationsruntime
 
 import (
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"sync/atomic"
-	o "task-processor/internal/storecenter/observations"
 )
 
 type Worker interface {

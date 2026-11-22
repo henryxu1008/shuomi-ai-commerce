@@ -3,9 +3,9 @@ package orgresourceadapter
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"gorm.io/gorm"
 	"strconv"
-	"task-processor/internal/ledger/orgresource"
 )
 
 func resourceQuantityUnit(kind string) string {

@@ -1,6 +1,6 @@
 package skillpersistence
 
-import configstore "task-processor/internal/integration/persistence/agentconfig"
+import configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
 
 // RuntimeTableGrants is consumed by this owner's initializer and read-only
 // qualification. Keep the Skill bounds with the Skill owner.

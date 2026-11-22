@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 	"github.com/stretchr/testify/require"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 func TestPrepareRejectsIdentityRunColumnWithoutRepair(t *testing.T) {

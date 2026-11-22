@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sort"
 
-	"task-processor/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 )
 
 // This is a model-input view for the title consumer, not a new Tool output or

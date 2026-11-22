@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/ledger/money"
-	"task-processor/internal/ledger/orgresource"
 )
 
 type zeroOrderWallet struct {

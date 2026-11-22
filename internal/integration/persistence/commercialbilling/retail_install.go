@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 	"gorm.io/gorm"
-	"task-processor/internal/commercial/billing"
 )
 
 // InstallInitialRetailOffers only initializes a fresh or incomplete approved

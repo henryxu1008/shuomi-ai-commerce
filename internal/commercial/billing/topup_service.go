@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 
 	"github.com/google/uuid"
 )

@@ -92,7 +92,7 @@ Use this checklist for architecture-sensitive changes, especially changes touchi
 - [ ] The change keeps assembly logic and domain logic separate.
 - [ ] `internal/app/*` remains composition / assembly focused and does not absorb new business rules.
 - [ ] No new code imports retired paths or recreates retired package roots.
-- [ ] No domain `httpapi` package imports `task-processor/internal/app/httpapi`.
+- [ ] No domain `httpapi` package imports `github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi`.
 - [ ] No new centralized `build*Module` wiring was added where an existing composition contract should be reused.
 - [ ] Product facts remain owned by current `internal/product/*` boundaries.
 - [ ] Marketplace-specific rules land in the marketplace owner rather than root ListingKit.

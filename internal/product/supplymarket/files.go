@@ -6,11 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"strings"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

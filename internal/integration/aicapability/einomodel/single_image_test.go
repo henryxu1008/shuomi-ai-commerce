@@ -17,8 +17,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
 )
 
 type imageFixtureTransport func(*http.Request) (*http.Response, error)

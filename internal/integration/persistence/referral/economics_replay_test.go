@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	economics "task-processor/internal/referraleconomics"
+	economics "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 )
 
 func TestCommittedWithdrawalReplayRequiresExactSubjectAndFingerprint(t *testing.T) {

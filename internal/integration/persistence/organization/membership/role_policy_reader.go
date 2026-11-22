@@ -3,8 +3,8 @@ package membership
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
 )
 
 const RolePolicyReaderRole = "organization_role_policy_reader"

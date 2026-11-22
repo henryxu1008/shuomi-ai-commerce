@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	c "task-processor/internal/operationscockpit"
 	"testing"
 )
 

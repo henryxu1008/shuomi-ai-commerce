@@ -2,15 +2,15 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	moneystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"path/filepath"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	moneystore "task-processor/internal/integration/persistence/money"
 	"testing"
 )
 

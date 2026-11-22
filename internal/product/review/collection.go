@@ -2,7 +2,7 @@ package review
 
 import (
 	"context"
-	reviewproposal "task-processor/internal/product/review/proposal"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 )
 
 const MaxPageSize = 100

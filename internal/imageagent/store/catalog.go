@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func (r *gormRepository) SaveAssetCatalog(ctx context.Context, scope imageagent.RunScope, catalog imageagent.AssetCatalog) error {

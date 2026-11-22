@@ -2,7 +2,7 @@ package currentapplication
 
 import (
 	"errors"
-	k "task-processor/internal/browserkernel"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel"
 )
 
 type BrowserKernelConfig struct {

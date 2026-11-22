@@ -2,8 +2,8 @@ package pod
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"math"
-	"task-processor/internal/product/collection"
 	"testing"
 
 	"github.com/google/uuid"

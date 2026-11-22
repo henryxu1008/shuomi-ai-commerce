@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket"
+	api "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket/httpapi"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"strconv"
 	"strings"
-	"task-processor/internal/authz"
-	tm "task-processor/internal/toolmarket"
-	api "task-processor/internal/toolmarket/httpapi"
 	"testing"
 )
 

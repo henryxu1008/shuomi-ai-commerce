@@ -1,6 +1,6 @@
 package billing
 
-import "task-processor/internal/ledger/orgresource"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 
 // InitialRetailOffers contains approved first-install inputs, never a runtime
 // price fallback. All quotes and price displays read the catalog owner.

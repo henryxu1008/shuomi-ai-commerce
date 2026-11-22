@@ -7,11 +7,11 @@ import (
 	"errors"
 	"time"
 
+	agentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agent"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
+	routestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/routeconfig"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	agentstore "task-processor/internal/integration/persistence/agent"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
-	routestore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 type Result struct {

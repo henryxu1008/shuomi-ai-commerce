@@ -5,10 +5,10 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gorm.io/gorm"
 	"regexp"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	d "task-processor/internal/skill"
 )
 
 //go:embed schema.sql

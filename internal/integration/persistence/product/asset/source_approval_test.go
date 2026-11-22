@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
-	productasset "task-processor/internal/product/asset"
 )
 
 func sourceCommit(action string, version uint64, images ...string) productasset.ApprovalCommit {

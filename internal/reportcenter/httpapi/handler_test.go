@@ -3,13 +3,13 @@ package reporthttp
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/httproute"
-	rc "task-processor/internal/reportcenter"
 	"testing"
 	"time"
 )

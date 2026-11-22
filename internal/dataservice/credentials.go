@@ -16,8 +16,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 const (

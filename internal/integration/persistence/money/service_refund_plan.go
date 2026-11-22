@@ -2,8 +2,8 @@ package money
 
 import (
 	"encoding/json"
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/gorm"
-	m "task-processor/internal/ledger/money"
 )
 
 func validateServiceRefundPlan(tx *gorm.DB, row servicePaymentRow, op m.ServiceOperation, f m.ServiceFundsView) error {

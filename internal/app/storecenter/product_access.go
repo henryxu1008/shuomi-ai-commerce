@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"sync/atomic"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/storecenter"
 	"time"
 )
 
@@ -67,7 +67,11 @@ func (a *OfficialProductAccess) ReadTargetMerchantBinding(ctx context.Context, s
 	}
 	switch material.Platform {
 	case storecenter.PlatformWalmart:
-	 h,e:=a.AuthorizeWalmartRules(ctx,subject,storeID,nil);if e!=nil{return MerchantBinding{},e};return h.Binding(),nil
+		h, e := a.AuthorizeWalmartRules(ctx, subject, storeID, nil)
+		if e != nil {
+			return MerchantBinding{}, e
+		}
+		return h.Binding(), nil
 	case storecenter.PlatformTikTokShop:
 		h, err := a.AuthorizeTikTokRules(ctx, subject, storeID, nil)
 		if err != nil {

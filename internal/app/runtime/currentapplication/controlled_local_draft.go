@@ -2,9 +2,9 @@ package currentapplication
 
 import (
 	"errors"
-	listingapp "task-processor/internal/app/listing"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type ControlledLocalDraftConfig struct {

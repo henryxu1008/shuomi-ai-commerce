@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authz"
-	domain "task-processor/internal/organization/membership"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 var directoryQueryRole = authz.EnterpriseRoleKey("effective-b", 1)

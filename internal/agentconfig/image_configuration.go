@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"task-processor/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 )
 
 const ImageSnapshotContext = "product-image-set-v1"

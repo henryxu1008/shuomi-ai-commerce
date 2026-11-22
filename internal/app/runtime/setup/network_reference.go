@@ -3,10 +3,10 @@ package setup
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"os"
 	"path/filepath"
 	"strings"
-	"task-processor/internal/platform/privatefile"
 )
 
 // Compose hashes service network references after resolving their exact running

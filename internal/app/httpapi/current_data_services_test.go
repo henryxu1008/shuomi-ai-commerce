@@ -2,13 +2,13 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	datahttp "github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	datahttp "task-processor/internal/dataservice/httpapi"
-	"task-processor/internal/httproute"
-	"task-processor/internal/storecenter"
 	"testing"
 	"time"
 )

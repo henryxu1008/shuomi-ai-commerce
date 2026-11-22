@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"task-processor/internal/ledger/money"
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 // OrderStore owns only commercial order meaning. It does not implement money

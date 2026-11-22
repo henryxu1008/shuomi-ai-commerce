@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	capstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	e "task-processor/internal/ecoservices"
-	capstore "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 

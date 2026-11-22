@@ -2,8 +2,8 @@ package publishing
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
 	"strings"
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
 )
 

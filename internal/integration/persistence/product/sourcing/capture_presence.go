@@ -2,9 +2,9 @@ package sourcingpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/sourcing"
 )
 
 // LockPublication joins exactly the SRC lock namespace used by Publish. Callers

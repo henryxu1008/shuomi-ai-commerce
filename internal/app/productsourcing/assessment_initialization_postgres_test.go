@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	researchstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/research"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/gorm"
-	researchstore "task-processor/internal/integration/persistence/product/research"
 )
 
 // Only the task-owned temporary PostgreSQL below receives writes.

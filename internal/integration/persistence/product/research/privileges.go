@@ -2,9 +2,9 @@ package researchpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
 	"gorm.io/gorm"
 	"strings"
-	"task-processor/internal/product/research"
 )
 
 const RuntimeRole = "product_research_runtime"

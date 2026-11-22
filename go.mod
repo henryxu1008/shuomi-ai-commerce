@@ -1,4 +1,4 @@
-module task-processor
+module github.com/henryxu1008/shuomi-ai-commerce
 
 go 1.26.0
 

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 func TestCommitApprovalCanceledBeforeLockAcquisitionDoesNotWrite(t *testing.T) {

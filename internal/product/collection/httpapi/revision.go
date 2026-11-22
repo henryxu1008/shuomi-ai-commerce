@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"math"
 	"strconv"
-	"task-processor/internal/product/collection"
 )
 
 func revisionVersionDeclared(raw []byte, input collection.Mutation) bool {

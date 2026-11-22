@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/commercial/billing"
-	moneystore "task-processor/internal/integration/persistence/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	moneystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
 )
 
 type topUpTestAuthorizer struct {

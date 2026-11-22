@@ -3,8 +3,8 @@ package store
 import (
 	"context"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/effectpolicy"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy"
 )
 
 func (r *memoryRepository) ReserveSlotProviderV3(_ context.Context, reservation imageagent.SlotEffectV3Reservation) (imageagent.SlotEffectV3Attempt, bool, error) {

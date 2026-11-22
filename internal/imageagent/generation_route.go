@@ -1,6 +1,6 @@
 package imageagent
 
-import "task-processor/internal/aicapability"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 
 // Only complete, explicitly admitted routes may enter an immutable quote or intent.
 func validGenerationRoute(provider, model, protocol string) bool {

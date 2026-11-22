@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"strings"
-	"task-processor/internal/referral"
 	"testing"
 	"time"
 )

@@ -2,7 +2,7 @@ package productsourcing
 
 import (
 	"context"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func (s *AcquisitionService) NotificationFacts(ctx context.Context, after string, limit int) ([]sourcing.AcquisitionNoticeFact, string, error) {

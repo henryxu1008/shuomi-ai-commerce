@@ -2,8 +2,8 @@ package billing
 
 import (
 	"context"
-	"task-processor/internal/ledger/money"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 type StoragePurchaseStore interface {

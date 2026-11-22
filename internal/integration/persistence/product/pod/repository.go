@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	submissionstore "task-processor/internal/integration/persistence/listing/submission"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"time"
 
 	"gorm.io/gorm"

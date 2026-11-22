@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
 	"github.com/stretchr/testify/require"
-	pc "task-processor/internal/aiworkbench/projectcenter"
 )
 
 func TestProjectCenterRolesReuseConfiguredPlatformAuthority(t *testing.T) {

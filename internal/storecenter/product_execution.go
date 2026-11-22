@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"task-processor/internal/authidentity"
-	tiktok "task-processor/internal/storecenter/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 type ProductExecutionSubject struct {

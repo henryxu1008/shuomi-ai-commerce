@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/listing/submission"
 )
 
 func TestTransactionFinalizerParticipatesInOuterCommitAndCannotIssueSendPermit(t *testing.T) {

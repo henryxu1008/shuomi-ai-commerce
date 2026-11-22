@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/go-pay/gopay"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/paymentsecurity"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/integration/paymentsecurity"
 )
 
 func (p *WeChat) MerchantProfile() e.MerchantProfile {

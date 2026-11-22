@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"task-processor/internal/aicapability"
 )
 
 func TestObservedUsageReadsNativeFactsWithStableScope(t *testing.T) {

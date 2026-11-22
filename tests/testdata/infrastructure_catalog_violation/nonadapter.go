@@ -1,5 +1,5 @@
 package infrastructurecatalogviolation
 
-import "task-processor/internal/product/catalog"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 
 var Snapshot catalog.ProductSnapshot

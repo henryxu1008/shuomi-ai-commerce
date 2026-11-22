@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/amazon"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	strict "sigs.k8s.io/json"
-	"task-processor/internal/integration/acquisition/amazon"
-	"task-processor/internal/product/dataacquisition"
 )
 
 // NewAmazonFirstPageFetch fixes the vendor endpoint and request shape. The key

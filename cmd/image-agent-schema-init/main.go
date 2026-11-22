@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	imageagentschemainit "task-processor/internal/app/runtime/imageagentschemainit"
+	imageagentschemainit "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/imageagentschemainit"
 )
 
 type commandOptions struct {

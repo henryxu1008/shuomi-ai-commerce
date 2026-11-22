@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/integration/aiworkbench/einoplanner"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aiworkbench/einoplanner"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 func (p *workbenchPlanner) authorizeProductHistory(ctx context.Context, scope aiworkbench.Scope, conversation string, through uint64) error {

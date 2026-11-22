@@ -3,8 +3,8 @@ package commercialbilling
 import (
 	"context"
 	"errors"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"testing"
 	"time"
 )

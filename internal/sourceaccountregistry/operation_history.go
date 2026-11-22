@@ -5,7 +5,7 @@ import (
 	"time"
 	"unicode"
 
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 )
 
 // CommittedOperation is the immutable receipt written by the current registry

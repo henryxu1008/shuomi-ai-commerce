@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	b "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	core "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"net"
 	"net/http"
 	"reflect"
 	"strings"
-	b "task-processor/internal/commercial/billing"
-	core "task-processor/internal/core/config"
-	"task-processor/internal/knowledge"
 	"testing"
 )
 

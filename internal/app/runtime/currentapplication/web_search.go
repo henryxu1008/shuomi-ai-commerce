@@ -9,11 +9,11 @@ import (
 
 	"gorm.io/gorm"
 
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/aicapability/websearch"
-	"task-processor/internal/integration/aicapability/bravesearch"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
-	websearchstore "task-processor/internal/integration/persistence/websearch"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/websearch"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/bravesearch"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
+	websearchstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/websearch"
 )
 
 func (c *Config) webSearchEnabled() bool {

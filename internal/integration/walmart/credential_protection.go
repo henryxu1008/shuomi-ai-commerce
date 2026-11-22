@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"task-processor/internal/integration/credentialprotection"
-	auth "task-processor/internal/storecenter/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/credentialprotection"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 )
 
 type CredentialProtection struct {

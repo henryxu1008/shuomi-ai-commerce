@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/marketplace/shein/offlinepackage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
 
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 var (

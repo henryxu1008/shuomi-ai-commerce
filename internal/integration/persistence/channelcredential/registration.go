@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"gorm.io/gorm"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 const createRegistrationVersion = "create-channel-v1"

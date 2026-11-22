@@ -4,9 +4,9 @@ package money
 
 import (
 	"errors"
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"github.com/jackc/pgx/v5/pgconn"
 	"sync"
-	m "task-processor/internal/ledger/money"
 	"testing"
 	"time"
 )

@@ -3,7 +3,7 @@ package referral
 
 import (
 	"context"
-	domain "task-processor/internal/referral"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 
 	"gorm.io/gorm"
 )

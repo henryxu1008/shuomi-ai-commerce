@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 type sourcingSnapshotWriter struct {

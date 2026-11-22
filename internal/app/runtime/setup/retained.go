@@ -3,13 +3,13 @@ package setup
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"path/filepath"
 	"sort"
 	"strings"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/app/setupcontrol"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/platform/privatefile"
 )
 
 func (d *Driver) matches(ctx context.Context, p string, files []string, s string, c container) bool {

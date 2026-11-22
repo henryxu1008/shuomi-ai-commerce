@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	marketplace "task-processor/internal/marketplace/tiktokshop"
-	"task-processor/internal/storecenter"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func TestTikTokTargetIsAnExplicitVariantBoundToItsCurrentRuleSnapshot(t *testing.T) {

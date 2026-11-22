@@ -12,8 +12,8 @@ func TestIssue30PreparedSlicesHaveNoLegacyOwnershipDependencies(t *testing.T) {
 	for _, root := range []string{"internal/product/sourcing", "internal/app/productsourcing", "internal/listing/readiness", "internal/integration/acquisition/a1688", "internal/integration/persistence/product/acquisition"} {
 		t.Run(root, func(t *testing.T) {
 			assertNoBannedImportPrefixes(t, filepath.Join("..", filepath.FromSlash(root)), []string{
-				"task-processor/internal/compatibility", "task-processor/internal/listingkit",
-				"task-processor/internal/tenantbridge", "task-processor/internal/sourceaccount",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge", "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccount",
 			}, nil)
 		})
 	}
@@ -44,23 +44,23 @@ func TestIssue30InternalProducerIsOnlyWiredByAdmittedProductReview(t *testing.T)
 		// composition; the leaf guard below limits its constructor/receipt APIs.
 		filepath.Join("..", "internal", "app", "httpapi", "amazon_browser_capture_application.go"): {},
 	}
-	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal"), []string{"task-processor/internal/app/productsourcing"}, allowed)
+	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal"), []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"}, allowed)
 	commands := map[string]struct{}{filepath.Join("..", "cmd", "product-acquisition-init", "main.go"): {}}
-	assertNoBannedImportPrefixes(t, filepath.Join("..", "cmd"), []string{"task-processor/internal/app/productsourcing"}, commands)
+	assertNoBannedImportPrefixes(t, filepath.Join("..", "cmd"), []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"}, commands)
 }
 
 func TestIssue30LegacyImportGuardDetectsAliasesAndSubpackages(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "bad.go"), []byte(`package fixture
 import (
- bridge "task-processor/internal/tenantbridge"
- legacy "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688"
- task "task-processor/internal/listingkit"
+ bridge "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge"
+ legacy "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/listingkit/sourcehandoff/a1688"
+ task "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"
 )
 `), 0600))
-	violations, err := findBannedImportViolations(root, []string{`"task-processor/internal/tenantbridge"`, `"task-processor/internal/compatibility/listingkit/sourcehandoff/a1688"`, `"task-processor/internal/listingkit"`}, nil, true)
+	violations, err := findBannedImportViolations(root, []string{`"github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge"`, `"github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/listingkit/sourcehandoff/a1688"`, `"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"`}, nil, true)
 	require.NoError(t, err)
 	require.Len(t, violations, 3)
-	require.True(t, importMatchesPrefix("task-processor/internal/compatibility/listingkit/sourcehandoff/a1688", "task-processor/internal/compatibility"))
-	require.False(t, importMatchesPrefix("task-processor/internal/listingkitfake", "task-processor/internal/listingkit"))
+	require.True(t, importMatchesPrefix("github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/listingkit/sourcehandoff/a1688", "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility"))
+	require.False(t, importMatchesPrefix("github.com/henryxu1008/shuomi-ai-commerce/internal/listingkitfake", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"))
 }

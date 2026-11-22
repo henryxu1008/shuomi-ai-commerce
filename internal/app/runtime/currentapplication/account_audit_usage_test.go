@@ -13,7 +13,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	coreconfig "task-processor/internal/core/config"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 func auditUsageTestConfig() *Config {

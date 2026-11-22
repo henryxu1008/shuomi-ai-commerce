@@ -2,13 +2,13 @@ package currentapplication
 
 import (
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"net"
 	"strconv"
-	"task-processor/internal/agent"
-	"task-processor/internal/aicapability"
 
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/aiworkbench/einorouter"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aiworkbench/einorouter"
 )
 
 // AIWorkbenchConfig uses the Product Agent's logical database with its own

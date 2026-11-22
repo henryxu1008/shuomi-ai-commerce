@@ -3,7 +3,7 @@ package money
 import (
 	"context"
 	"encoding/json"
-	m "task-processor/internal/ledger/money"
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"testing"
 )
 

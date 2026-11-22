@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"github.com/stretchr/testify/require"
-	marketplace "task-processor/internal/marketplace/walmart"
-	auth "task-processor/internal/storecenter/walmart"
 	"testing"
 )
 

@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/product/amazonidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/amazonidentity"
 )
 
 const AmazonBrowserProducerKind = "amazon_browser_capture"

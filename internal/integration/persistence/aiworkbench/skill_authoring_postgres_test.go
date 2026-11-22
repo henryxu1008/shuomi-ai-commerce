@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	skillstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	skillstore "task-processor/internal/integration/persistence/skill"
-	"task-processor/internal/skill"
 )
 
 func TestSkillAuthoringConcurrentSaveAndLostResponseReuseOneSkill(t *testing.T) {

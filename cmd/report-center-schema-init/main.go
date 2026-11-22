@@ -6,6 +6,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	reportstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/reportcenter"
 	"github.com/jackc/pgx/v5"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -14,8 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	coreconfig "task-processor/internal/core/config"
-	reportstore "task-processor/internal/integration/persistence/reportcenter"
 	"time"
 )
 

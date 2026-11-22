@@ -1,7 +1,7 @@
 package shein
 
 import (
-	f "task-processor/internal/fulfillment"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
 	"testing"
 )
 

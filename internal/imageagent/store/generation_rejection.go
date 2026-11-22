@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"gorm.io/gorm"
-	"task-processor/internal/imageagent"
 )
 
 type generationRejectionEvent struct {

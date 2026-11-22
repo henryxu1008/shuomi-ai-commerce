@@ -3,7 +3,7 @@ package acquisition
 import (
 	"context"
 	"github.com/google/uuid"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func (r *Repository) ListNoticeOperations(ctx context.Context, scope sourcing.PublicationScope, after string, limit int) ([]sourcing.AcquisitionOperation, string, error) {

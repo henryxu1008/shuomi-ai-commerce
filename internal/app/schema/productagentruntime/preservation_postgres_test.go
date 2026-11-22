@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	workstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
+	skillstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/skill"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/aicapability"
-	aistore "task-processor/internal/aicapability/store"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	workstore "task-processor/internal/integration/persistence/aiworkbench"
-	skillstore "task-processor/internal/integration/persistence/skill"
 )
 
 // Snapshot original facts and physical definitions/ACL, rather than accepting a

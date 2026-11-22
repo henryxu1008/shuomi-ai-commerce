@@ -8,9 +8,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	appruntime "task-processor/internal/app/runtime"
-	"task-processor/internal/imageagent"
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
+	appruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
 )
 
 func TestRunFailsClosedWhenProductDependenciesAreUnavailable(t *testing.T) {

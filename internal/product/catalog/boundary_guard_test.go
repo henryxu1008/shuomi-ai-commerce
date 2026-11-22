@@ -15,18 +15,18 @@ func TestCatalogDoesNotDependOnSourceListingMarketplaceOrRuntime(t *testing.T) {
 	t.Parallel()
 
 	forbiddenPrefixes := []string{
-		"task-processor/internal/product/sourcing",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/publishing",
-		"task-processor/internal/workspace",
-		"task-processor/internal/integration/crawler",
-		"task-processor/internal/crawler",
-		"task-processor/internal/app",
-		"task-processor/internal/httpbootstrap",
-		"task-processor/internal/httproute",
-		"task-processor/internal/infra",
-		"task-processor/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/crawler",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/crawler",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/httpbootstrap",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
 	}
 	assertCatalogDoesNotImportPrefixes(t, catalogPackageDir(t), forbiddenPrefixes)
 }

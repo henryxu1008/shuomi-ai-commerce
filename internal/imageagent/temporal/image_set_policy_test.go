@@ -3,14 +3,14 @@ package temporal
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	sdkactivity "go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/workflow"
 	"strings"
-	"task-processor/internal/agent"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/asset"
 	"testing"
 )
 

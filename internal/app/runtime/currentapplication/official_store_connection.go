@@ -10,12 +10,12 @@ import (
 	"runtime"
 	"strings"
 
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authidentity"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/integration/shein"
-	"task-processor/internal/integration/temu"
-	"task-processor/internal/storecenter"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shein"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/temu"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type OfficialStoreConnectionConfig struct {

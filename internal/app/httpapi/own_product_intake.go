@@ -11,15 +11,15 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/authz"
-	einoruntime "task-processor/internal/integration/agent/eino"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/collection/intake"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	einoruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/agent/eino"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection/intake"
 )
 
 type ownIntakeMediaReader func(context.Context, string, int64) ([]byte, bool, error)

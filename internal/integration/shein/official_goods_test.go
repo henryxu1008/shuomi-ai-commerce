@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	sheinmodel "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"strings"
-	"task-processor/internal/marketplace/shein/goods"
-	sheinmodel "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/storecenter"
 	"testing"
 )
 

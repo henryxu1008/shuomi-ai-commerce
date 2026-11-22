@@ -6,20 +6,20 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/appenv"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"task-processor/internal/pkg/appenv"
 	"time"
 
-	"task-processor/internal/app/httpapi"
-	"task-processor/internal/app/localtrial"
-	"task-processor/internal/authidentity"
-	coreconfig "task-processor/internal/core/config"
-	assetstore "task-processor/internal/integration/persistence/product/asset"
-	platformdatabase "task-processor/internal/platform/database"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/localtrial"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	assetstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 type ownerConfig struct {

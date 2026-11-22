@@ -3,12 +3,12 @@ package listinghttp
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/listing/preparation"
 	"testing"
 )
 

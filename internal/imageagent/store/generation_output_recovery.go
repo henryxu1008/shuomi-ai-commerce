@@ -3,15 +3,15 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"reflect"
 	"strings"
-	"task-processor/internal/aicapability"
 	"time"
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/effectpolicy"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy"
 )
 
 // RecoverGenerationStaging is restricted to the fixed generation owner. It

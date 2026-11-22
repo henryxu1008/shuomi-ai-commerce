@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	"task-processor/internal/product/collection"
 )
 
 func TestResearchFixturePublishesThreeWithoutAcquisitionOrChargeRows(t *testing.T) {

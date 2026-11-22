@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browsercollector"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"io"
 	"net/http"
 	sigjson "sigs.k8s.io/json"
 	"strings"
-	"task-processor/internal/integration/acquisition/browsercollector"
-	"task-processor/internal/product/sourcing"
 )
 
 func (c *Client) Discover(ctx context.Context, input sourcing.DiscoveryInput) (sourcing.DiscoveryEvidence, error) {

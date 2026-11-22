@@ -1,7 +1,7 @@
 package module
 
 import (
-	"task-processor/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 )
 
 type Registry struct {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 const productContextPromptVersion = "ai-workbench-chat-plan-v4"

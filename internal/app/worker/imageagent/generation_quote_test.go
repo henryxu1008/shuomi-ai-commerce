@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	openai "task-processor/internal/integration/openai"
 )
 
 func TestImageSetQuoteUsesOriginalProviderResolutionWithoutCallingProvider(t *testing.T) {

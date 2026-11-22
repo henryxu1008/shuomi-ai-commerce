@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/product/collection"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type WalmartReadPage struct {

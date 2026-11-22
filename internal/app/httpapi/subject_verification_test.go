@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	verificationhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"net/http/httptest"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	verificationhttp "task-processor/internal/subjectverification/httpapi"
-	"task-processor/internal/workbenchcontext"
 	"testing"
 	"time"
 )

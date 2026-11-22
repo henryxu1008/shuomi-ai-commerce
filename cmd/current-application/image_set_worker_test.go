@@ -1,11 +1,11 @@
 package main
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"os"
 	"path/filepath"
 	"reflect"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/core/config"
 	"testing"
 
 	"github.com/stretchr/testify/require"

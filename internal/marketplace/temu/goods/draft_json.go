@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	"io"
-	"task-processor/internal/marketplace/temu/model"
 )
 
 // JSONB may reorder nested object keys. Restore the fixed official typed body

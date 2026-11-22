@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync/atomic"
 
-	marketplace "task-processor/internal/marketplace/tiktokshop"
-	"task-processor/internal/storecenter"
-	authorization "task-processor/internal/storecenter/tiktokshop"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	authorization "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 type TikTokMutationProvider interface {

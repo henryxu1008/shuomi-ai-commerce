@@ -3,8 +3,8 @@ package review
 
 import (
 	"errors"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"strings"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 	"unicode"
 	"unicode/utf8"

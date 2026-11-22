@@ -16,9 +16,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/ledger/money"
-	economics "task-processor/internal/referraleconomics"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	economics "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 )
 
 type withdrawalBody struct {

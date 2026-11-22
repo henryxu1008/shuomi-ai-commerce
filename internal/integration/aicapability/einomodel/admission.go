@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"golang.org/x/time/rate"
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 // BoundedAdmission preserves the current text client's per-credential limits

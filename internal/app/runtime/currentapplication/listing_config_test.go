@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
@@ -15,8 +17,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/storecenter"
 	"testing"
 )
 

@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	domain "task-processor/internal/subjectverification"
 )
 
 //go:embed schema.sql

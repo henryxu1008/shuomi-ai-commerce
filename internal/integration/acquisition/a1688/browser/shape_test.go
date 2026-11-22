@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/sourcing"
 )
 
 func mustSourceForShape(t *testing.T) sourcing.AcquisitionSource {

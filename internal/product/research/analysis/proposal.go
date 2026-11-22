@@ -2,9 +2,9 @@ package analysis
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	strict "sigs.k8s.io/json"
 	"strings"
-	"task-processor/internal/agent"
 )
 
 type Assessment struct {

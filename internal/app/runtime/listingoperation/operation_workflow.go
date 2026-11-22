@@ -3,6 +3,10 @@ package listingoperation
 import (
 	"context"
 	"errors"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
@@ -11,10 +15,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	aistore "task-processor/internal/aicapability/store"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

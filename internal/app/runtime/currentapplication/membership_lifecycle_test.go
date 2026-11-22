@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	coreconfig "task-processor/internal/core/config"
 )
 
 func TestMembershipPoolFailureAndShutdownOwnership(t *testing.T) {

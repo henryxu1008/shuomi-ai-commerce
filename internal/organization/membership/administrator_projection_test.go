@@ -3,8 +3,8 @@ package membership
 import (
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authz"
 )
 
 func TestAdministratorProjectionIsConsistentAcrossViewersAndMemberQueries(t *testing.T) {

@@ -3,10 +3,10 @@ package assetpublication
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"slices"
 	"strings"
-	"task-processor/internal/imageagent"
-	productasset "task-processor/internal/product/asset"
 )
 
 type AcquisitionMainPublisher struct {

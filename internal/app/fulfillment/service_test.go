@@ -3,9 +3,9 @@ package fulfillmentapp
 import (
 	"context"
 	"encoding/json"
-	f "task-processor/internal/fulfillment"
-	"task-processor/internal/storecenter"
-	sf "task-processor/internal/storecenter/fulfillment"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	sf "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/fulfillment"
 	"testing"
 	"time"
 )

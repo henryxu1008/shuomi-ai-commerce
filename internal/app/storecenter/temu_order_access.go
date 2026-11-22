@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 )
 
 type TemuOrdersProvider interface {

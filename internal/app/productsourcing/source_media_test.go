@@ -6,11 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	s3integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
-	s3integration "task-processor/internal/integration/s3"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

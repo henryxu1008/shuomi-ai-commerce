@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	k "task-processor/internal/knowledge"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 type rejectedKnowledgeObjects struct {

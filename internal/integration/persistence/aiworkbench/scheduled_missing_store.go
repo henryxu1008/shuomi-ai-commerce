@@ -2,8 +2,8 @@ package aiworkbenchpersistence
 
 import (
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
 	"time"
 )
 

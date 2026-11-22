@@ -3,8 +3,8 @@ package httpapi
 import (
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/httproute"
 )
 
 // Retains the original #717 probe whose full and title-only inventories both

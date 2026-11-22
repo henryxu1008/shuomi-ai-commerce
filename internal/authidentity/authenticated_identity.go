@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/shared/aiidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/aiidentity"
 )
 
 type authenticatedIdentityContextKey struct{}

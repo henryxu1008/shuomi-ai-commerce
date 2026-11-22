@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/storecenter"
 )
 
 func TestCurrentStoreConcurrentReceiptsAndOrganizationIsolation(t *testing.T) {

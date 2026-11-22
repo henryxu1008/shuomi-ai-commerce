@@ -1,9 +1,9 @@
 package listinghttp
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"strconv"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/asset"
 )
 
 // Catalog versions remain integers inside the owners and decimal strings on

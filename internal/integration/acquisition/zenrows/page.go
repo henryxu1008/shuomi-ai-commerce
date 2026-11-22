@@ -3,7 +3,7 @@ package zenrows
 import (
 	"encoding/json"
 
-	"task-processor/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 )
 
 func pageCards(body []byte, limit int) []dataacquisition.SHEINUSTrialCard {

@@ -1,6 +1,6 @@
 package preparation
 
-import "task-processor/internal/product/collection"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 
 type manualOriginalExclusion struct {
 	scope                 Scope

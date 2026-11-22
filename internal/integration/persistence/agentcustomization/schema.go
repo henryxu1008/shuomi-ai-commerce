@@ -3,8 +3,8 @@ package agentcustomizationpersistence
 import (
 	"context"
 	"database/sql"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
 	"regexp"
-	d "task-processor/internal/agentcustomization"
 )
 
 // InstallSchema is an explicit installer operation; serving paths never call it.

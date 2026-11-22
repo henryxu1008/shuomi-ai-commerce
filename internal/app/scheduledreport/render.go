@@ -3,9 +3,9 @@ package scheduledreport
 import (
 	"encoding/json"
 	"fmt"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"math/big"
-	c "task-processor/internal/operationscockpit"
-	rc "task-processor/internal/reportcenter"
 )
 
 func money(v int64) string {

@@ -9,16 +9,16 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/commercetoolauth"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
+	skill "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/integration/commercetoolauth"
-	"task-processor/internal/knowledge"
-	"task-processor/internal/product/review"
-	reviewproposal "task-processor/internal/product/review/proposal"
-	skill "task-processor/internal/skill"
 )
 
 type productAgentRequestBody struct {

@@ -3,9 +3,9 @@ package reportcenterpersistence
 import (
 	"context"
 	_ "embed"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"gorm.io/gorm"
-	"task-processor/internal/pkg/pgschema"
-	rc "task-processor/internal/reportcenter"
 )
 
 //go:embed daily_schema.sql

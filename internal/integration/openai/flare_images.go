@@ -15,8 +15,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/ai"
-	"task-processor/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 
 	strict "sigs.k8s.io/json"
 )

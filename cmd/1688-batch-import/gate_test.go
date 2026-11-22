@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/batchcapture"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/batchcapture"
 )
 
 // TestReadYesIsRefusalByDefault pins design section 4 D1.4's fail-closed rule: the

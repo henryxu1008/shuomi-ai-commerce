@@ -35,7 +35,7 @@ func TestAlibaba1688CrawlerDoesNotConfigureLegacyTenantThroughListingKitHTTPAPI(
 		listingKitHTTPAPINames := make(map[string]struct{})
 		dotImportedListingKitHTTPAPI := false
 		for _, imported := range file.Imports {
-			if strings.Trim(imported.Path.Value, `"`) != "task-processor/internal/listingkit/httpapi" {
+			if strings.Trim(imported.Path.Value, `"`) != "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi" {
 				continue
 			}
 			if imported.Name == nil {
@@ -94,7 +94,7 @@ func TestAlibaba1688CrawlerDoesNotImportListingKitHTTPAPIForSourceAccountBuilder
 		listingKitHTTPAPINames := make(map[string]struct{})
 		dotImportedListingKitHTTPAPI := false
 		for _, imported := range file.Imports {
-			if strings.Trim(imported.Path.Value, `"`) != "task-processor/internal/listingkit/httpapi" {
+			if strings.Trim(imported.Path.Value, `"`) != "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi" {
 				continue
 			}
 			if imported.Name == nil {
@@ -150,7 +150,7 @@ func TestSheinLoginReadsIdentityFromNeutralContext(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+			for _, retired := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/sheinlogin", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinloginworker", "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management"} {
 				if importMatchesPrefix(imported, retired) {
 					t.Errorf("%s imports retired login/management owner %s", path, imported)
 				}
@@ -175,7 +175,7 @@ func TestListingKitIdentityReadersUseNeutralContext(t *testing.T) {
 		}
 		importsAuthIdentity := false
 		for _, imp := range file.Imports {
-			if imp.Path.Value == `"task-processor/internal/authidentity"` {
+			if imp.Path.Value == `"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"` {
 				importsAuthIdentity = true
 				break
 			}
@@ -215,7 +215,7 @@ func TestZitadelAuthMiddlewareWritesNeutralIdentityContext(t *testing.T) {
 	}
 	importsAuthIdentity := false
 	for _, imp := range file.Imports {
-		if imp.Path.Value == `"task-processor/internal/authidentity"` {
+		if imp.Path.Value == `"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"` {
 			importsAuthIdentity = true
 			break
 		}
@@ -246,7 +246,7 @@ func TestZitadelAuthMiddlewareWritesNeutralIdentityContext(t *testing.T) {
 
 func TestZitadelAuthRuntimeDoesNotImportListingKit(t *testing.T) {
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "authruntime", "zitadel"), []string{
-		"task-processor/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
 	}, nil)
 }
 
@@ -348,7 +348,7 @@ func TestAuthenticatedIdentityRootImportsStayRestricted(t *testing.T) {
 func TestAuthenticatedIdentityRootImportScannerResolvesAliases(t *testing.T) {
 	violations, err := findListingKitAuthenticatedIdentityImports("synthetic.go", []byte(`package synthetic
 
-import legacylistingkit "task-processor/internal/listingkit"
+import legacylistingkit "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"
 
 func readIdentity(ctx any) {
 		legacylistingkit.AuthenticatedIdentityFromContext(ctx)
@@ -389,7 +389,7 @@ func findListingKitAuthenticatedIdentityImports(path string, source []byte) ([]s
 	var violations []string
 	for _, imp := range file.Imports {
 		importPath := strings.Trim(imp.Path.Value, `"`)
-		if importPath != "task-processor/internal/listingkit" {
+		if importPath != "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit" {
 			continue
 		}
 		if imp.Name != nil {
@@ -440,7 +440,7 @@ func TestSourceHandoffLegacyHTTPImportsStayRetiredAcrossBuildTargets(t *testing.
 		if strings.HasSuffix(filepath.Base(path), "_test.go") {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/productenrich/httpapi/sourcea1688"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich/httpapi/sourcea1688"`]; ok {
 			t.Errorf("%s imports retired source-handoff HTTP owner; use the canonical product source-handoff package", path)
 		}
 	}
@@ -452,7 +452,7 @@ func TestPortsManagementAPIPackageIsRetired(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/ports/managementapi"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/ports/managementapi"`]; ok {
 			t.Fatalf("%s imports retired managementapi compatibility package; use listingadmin/local runtime types instead", path)
 		}
 	}
@@ -480,8 +480,8 @@ func TestGlobalPortsFacadePackageStaysRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", path, err)
 			}
-			if importMatchesPrefix(imported, "task-processor/internal/ports") ||
-				importMatchesPrefix(imported, "task-processor/internal/app/ports") {
+			if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/ports") ||
+				importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/ports") {
 				t.Fatalf("%s imports retired ports facade %s; use current owner contracts; neither retired root may be revived", path, imported)
 			}
 		}
@@ -557,14 +557,14 @@ func TestAppTaskStatusDTOAdapterIsRetired(t *testing.T) {
 func TestListingKitNonAPISheinImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "listingkit")
 	allowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/shein/store"`: {
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/store"`: {
 			filepath.Clean(filepath.Join(root, "shein_submit_payload.go")):              {},
 			filepath.Clean(filepath.Join(root, "shein_submit_payload_site_support.go")): {},
 		},
-		`"task-processor/internal/shein/submitprep"`: {
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/submitprep"`: {
 			filepath.Clean(filepath.Join(root, "shein_submit_test_helpers_test.go")): {},
 		},
-		`"task-processor/internal/shein/category"`: {
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/category"`: {
 			filepath.Clean(filepath.Join(root, "httpapi", "shein_category_selector_adapter.go")): {},
 		},
 	}
@@ -608,11 +608,11 @@ func TestListingKitAmazonListingImportsStayAllowlisted(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/amazonlisting"`]; !ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting"`]; !ok {
 			continue
 		}
 		if _, ok := allowedFiles[path]; !ok {
-			t.Errorf("%s imports task-processor/internal/amazonlisting; keep amazonlisting dependencies isolated to current facade/result bridge files", path)
+			t.Errorf("%s imports github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting; keep amazonlisting dependencies isolated to current facade/result bridge files", path)
 		}
 	}
 }
@@ -624,13 +624,13 @@ func TestListingPreviewImportsStayPlatformNeutralAcrossBuildTargets(t *testing.T
 func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 	root := filepath.Join("..", "internal", "marketplace", "shein")
 	allowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/shein/content"`:    {},
-		`"task-processor/internal/shein/context"`:    {},
-		`"task-processor/internal/shein/product"`:    {},
-		`"task-processor/internal/shein/store"`:      {},
-		`"task-processor/internal/shein/category"`:   {},
-		`"task-processor/internal/shein/submitprep"`: {},
-		`"task-processor/internal/shein/publish"`:    {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/content"`:    {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/context"`:    {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/product"`:    {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/store"`:      {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/category"`:   {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/submitprep"`: {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/publish"`:    {},
 	}
 
 	index, err := loadGoFileIndex(root, "")
@@ -650,8 +650,8 @@ func TestPublishingSheinNonAPISheinImportsStayAllowlisted(t *testing.T) {
 
 	managedRoot := filepath.Join("..", "internal", "publishing", "sheinmanaged")
 	managedAllowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/shein/category"`:      {},
-		`"task-processor/internal/shein/managedclient"`: {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/category"`:      {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/shein/managedclient"`: {},
 	}
 	managedIndex, err := loadGoFileIndex(filepath.Join("..", "internal"), "")
 	if err != nil {
@@ -689,7 +689,7 @@ func TestPublishingSheinManagedAPIImportsStayAllowlisted(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/shein/api") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/api") {
 				t.Errorf("%s imports %s; keep publishing/sheinmanaged concrete SHEIN API clients isolated to current builder and API factory files", path, importPath)
 			}
 		}
@@ -714,7 +714,7 @@ func TestPublishingSheinManagedRetiredManagementImportsStayBlocked(t *testing.T)
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") {
 				t.Errorf("%s imports %s; keep publishing/sheinmanaged management dependencies limited to current retirement seams and prefer in-repository database/repository access for new business data", path, importPath)
 			}
 		}
@@ -751,7 +751,7 @@ func TestPublishingSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 		if pathAllowed(path, allowedFiles) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/integration/openai"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"`]; ok {
 			t.Errorf("%s imports OpenAI adapter directly; keep publishing/shein concrete OpenAI dependencies limited to current inference and runtime resolver seams", path)
 		}
 	}
@@ -777,9 +777,9 @@ func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
 			t.Fatal("cleanup imports must use their actual owner names")
 		}
 		switch imported {
-		case "task-processor/internal/marketplace/shein/publishing":
+		case "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing":
 			ownerFound = true
-		case "strings", "unicode", "task-processor/internal/marketplace/shein/offlinepackage":
+		case "strings", "unicode", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage":
 		default:
 			t.Errorf("cleanup must not inject legacy/runtime/logger dependencies: %s", imported)
 		}
@@ -820,7 +820,7 @@ func TestPublishingSheinSubmitPrepUsesOnlySensitiveWordAdapter(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if imported == "task-processor/internal/marketplace/shein/publishing" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing" {
 				owner = "publishing"
 				if imp.Name != nil {
 					owner = imp.Name.Name
@@ -905,8 +905,8 @@ func TestProductEnrichCanonicalImportsStayRetiredAcrossBuildTargets(t *testing.T
 				if strings.HasSuffix(filepath.Base(path), "_test.go") {
 					continue
 				}
-				if _, ok := facts.imports[`"task-processor/internal/productenrich"`]; ok {
-					t.Errorf("%s imports task-processor/internal/productenrich; use canonical catalog/product contracts", path)
+				if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich"`]; ok {
+					t.Errorf("%s imports github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich; use canonical catalog/product contracts", path)
 				}
 			}
 		})
@@ -937,14 +937,14 @@ func TestListingKitImportDirectionStaysRetiredAcrossBuildTargets(t *testing.T) {
 		parts := strings.Split(filepath.ToSlash(rel), "/")
 		if len(parts) > 1 {
 			if _, ok := subdomains[parts[0]]; ok {
-				if _, ok := facts.imports[`"task-processor/internal/listingkit"`]; ok {
-					t.Errorf("%s imports task-processor/internal/listingkit; ListingKit subdomains must stay independent of the root facade", path)
+				if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"`]; ok {
+					t.Errorf("%s imports github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit; ListingKit subdomains must stay independent of the root facade", path)
 				}
 			}
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/workspace/shein"`]; ok {
-			t.Errorf("%s imports task-processor/internal/workspace/shein; root ListingKit files must use the compatibility bridge", path)
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein"`]; ok {
+			t.Errorf("%s imports github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein; root ListingKit files must use the compatibility bridge", path)
 		}
 	}
 }
@@ -1258,7 +1258,7 @@ func TestListingKitRootSheinWorkspaceBridgesDoNotImportWorkspaceDomainDirectly(t
 		"task_state_support.go":                {},
 	}
 	allowedImports := map[string]map[string]struct{}{
-		`"task-processor/internal/workspace/shein"`: {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein"`: {},
 	}
 
 	index, err := loadGoFileSubtreeIndex(filepath.Join("..", "internal"), root)
@@ -1290,7 +1290,7 @@ func TestListingKitSheinWorkspaceBridgeDoesNotImportLegacyWorkspaceDomain(t *tes
 		t.Fatal(err)
 	}
 	assertNoBannedImports(t, root, []string{
-		`"task-processor/internal/workspace/shein"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein"`,
 	}, nil)
 }
 
@@ -1438,7 +1438,7 @@ func TestTaskStatusCompatibilityPackageStaysRetired(t *testing.T) {
 	}
 	for path, facts := range index.files {
 		for quotedImport := range facts.imports {
-			if strings.Trim(quotedImport, `"`) == "task-processor/internal/taskstatus" {
+			if strings.Trim(quotedImport, `"`) == "github.com/henryxu1008/shuomi-ai-commerce/internal/taskstatus" {
 				t.Fatalf("%s imports retired internal/taskstatus compatibility package; do not revive the numeric task status owner", path)
 			}
 		}
@@ -1458,7 +1458,7 @@ func TestListingAdminUsesManagementAPIPortAliases(t *testing.T) {
 		if pathAllowed(path, allowedFiles) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types for compatibility DTOs", path)
 		}
 	}
@@ -1470,7 +1470,7 @@ func TestStateAndTaskRPCUseManagementAPIPortAliases(t *testing.T) {
 	if _, err := os.Stat(retired); !os.IsNotExist(err) {
 		t.Fatalf("retired Task RPC assembly must stay absent: %v", err)
 	}
-	assertNoBannedImportPrefixesBelow(t, root, retired, []string{"task-processor/internal/infra/clients/management/api"}, nil)
+	assertNoBannedImportPrefixesBelow(t, root, retired, []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"}, nil)
 }
 
 func TestAmazonServicesUseStoreAPIPort(t *testing.T) {
@@ -1491,7 +1491,7 @@ func TestAmazonUsesManagementAPIPortAliases(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1522,7 +1522,7 @@ func TestTemuContextUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1538,7 +1538,7 @@ func TestTemuFilterUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1554,7 +1554,7 @@ func TestTemuRulesUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1570,7 +1570,7 @@ func TestTemuHandlerBaseUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1586,7 +1586,7 @@ func TestTemuStoreUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1602,7 +1602,7 @@ func TestTemuSkuUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1618,7 +1618,7 @@ func TestTemuProductUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1634,7 +1634,7 @@ func TestTemuPricingUsesManagementAPIPortAliases(t *testing.T) {
 		if !strings.HasPrefix(path, root+string(os.PathSeparator)) {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1647,7 +1647,7 @@ func TestTemuAPIClientUsesManagementAPIPortAliases(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, facts := range index.files {
-		if _, ok := facts.imports[`"task-processor/internal/infra/clients/management/api"`]; ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api"`]; ok {
 			t.Fatalf("%s imports concrete management API DTOs; use listingadmin/local runtime types", path)
 		}
 	}
@@ -1734,7 +1734,7 @@ func TestListingKitRootOpenAIImportsStayAllowlisted(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/integration/openai") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai") {
 				t.Errorf("%s imports %s; keep ListingKit root contracts provider-neutral", path, importPath)
 			}
 		}
@@ -1798,7 +1798,7 @@ func TestInternalPackagesDoNotImportAppCompatibilityLayersAcrossBuildTargets(t *
 	for path, facts := range index.files {
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/app/processor") || importMatchesPrefix(importPath, "task-processor/internal/app/state") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/processor") || importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/state") {
 				t.Errorf("%s imports %s; keep retired app compatibility packages out of internal production code", path, importPath)
 			}
 		}
@@ -1832,7 +1832,7 @@ func TestCmdPackagesDoNotImportAppCompatibilityLayers(t *testing.T) {
 	for path, facts := range index.files {
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/app/processor") || importMatchesPrefix(importPath, "task-processor/internal/app/state") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/processor") || importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/state") {
 				t.Errorf("%s imports banned boundary package %q", path, importPath)
 			}
 		}
@@ -1847,7 +1847,7 @@ func TestDomainHTTPPackagesDoNotImportAppHTTPAPI(t *testing.T) {
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
 			assertNoBannedImportsBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
-				`"task-processor/internal/app/httpapi"`,
+				`"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi"`,
 			}, nil)
 		})
 	}
@@ -1871,7 +1871,7 @@ func TestBusinessDomainsDoNotImportAppHTTPAPI(t *testing.T) {
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
 			assertNoBannedImportsBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
-				`"task-processor/internal/app/httpapi"`,
+				`"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi"`,
 			}, nil)
 		})
 	}
@@ -1887,11 +1887,11 @@ func TestBusinessDomainsDoNotImportAppHTTPAPI(t *testing.T) {
 		filepath.Join("..", "cmd", "source-account-registry-schema-init"),
 	}
 	banned := []string{
-		"task-processor/internal/sourceaccount",
-		"task-processor/internal/integration/persistence/sourceaccount",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/compatibility",
-		"task-processor/internal/tenantbridge",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccount",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccount",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge",
 	}
 	for _, target := range targets {
 		t.Run(filepath.ToSlash(target), func(t *testing.T) {
@@ -1922,12 +1922,12 @@ func TestProjectBoundaryDomainsDoNotImportListingKitFacade(t *testing.T) {
 			if domainRoot == filepath.Join("..", "internal", "workspace") || domainRoot == filepath.Join("..", "internal", "infra") ||
 				domainRoot == filepath.Join("..", "internal", "amazon") || domainRoot == filepath.Join("..", "internal", "temu") || domainRoot == filepath.Join("..", "internal", "publishing") {
 				assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
-					"task-processor/internal/listingkit",
+					"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
 				}, nil)
 				return
 			}
 			assertNoBannedImportPrefixes(t, domainRoot, []string{
-				"task-processor/internal/listingkit",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
 			}, nil)
 		})
 	}
@@ -1937,10 +1937,10 @@ func TestProductDomainDoesNotDependOnOuterAdapters(t *testing.T) {
 	t.Parallel()
 
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "product"), []string{
-		"task-processor/internal/listingkit",
-		"task-processor/internal/compatibility",
-		"task-processor/internal/crawler",
-		"task-processor/internal/integration",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/crawler",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
 	}, nil)
 }
 
@@ -1965,23 +1965,23 @@ func TestInfrastructurePackagesDoNotImportBusinessDomains(t *testing.T) {
 				}
 			}
 			assertPrefixes(t, infraRoot, []string{
-				"task-processor/internal/amazon",
-				"task-processor/internal/amazonlisting",
-				"task-processor/internal/asset",
-				"task-processor/internal/listing",
-				"task-processor/internal/listingkit",
-				"task-processor/internal/marketplace",
-				"task-processor/internal/pricing",
-				"task-processor/internal/productenrich",
-				"task-processor/internal/productimage",
-				"task-processor/internal/publishing",
-				"task-processor/internal/sds",
-				"task-processor/internal/shein",
-				"task-processor/internal/temu",
-				"task-processor/internal/workspace",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/amazon",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/listing",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/pricing",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/sds",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/shein",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/temu",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace",
 			}, submissionAdapterOnly)
 			assertPrefixes(t, infraRoot, []string{
-				"task-processor/internal/product/catalog",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog",
 			}, catalogAdapterOnly)
 		})
 	}
@@ -1996,20 +1996,20 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 	walmartPolicy := filepath.Join(adapterRoot, "walmart_effects_policy.go")
 	sheinPolicy := filepath.Join(adapterRoot, "shein_shelf_policy.go")
 	assertNoBannedImportPrefixes(t, adapterRoot, []string{
-		"task-processor/internal/amazon",
-		"task-processor/internal/amazonlisting",
-		"task-processor/internal/asset",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/pricing",
-		"task-processor/internal/product",
-		"task-processor/internal/productenrich",
-		"task-processor/internal/productimage",
-		"task-processor/internal/publishing",
-		"task-processor/internal/sds",
-		"task-processor/internal/shein",
-		"task-processor/internal/temu",
-		"task-processor/internal/workspace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazon",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pricing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/sds",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/shein",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/temu",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace",
 	}, map[string]struct{}{policy: {}, tiktokPolicy: {}, walmartPolicy: {}, sheinPolicy: {}})
 
 	index, err := loadGoFileIndex(adapterRoot, "")
@@ -2023,10 +2023,10 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if !importMatchesPrefix(importPath, "task-processor/internal/listing") {
+			if !importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/listing") {
 				continue
 			}
-			if importPath != "task-processor/internal/listing/submission" && !((path == policy || path == tiktokPolicy || path == walmartPolicy || path == sheinPolicy) && importPath == "task-processor/internal/listing/record/target") {
+			if importPath != "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission" && !((path == policy || path == tiktokPolicy || path == walmartPolicy || path == sheinPolicy) && importPath == "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target") {
 				t.Errorf("%s imports Listing sibling %s; the adapter may implement only Listing Submission-owned ports", path, importPath)
 			}
 			foundSubmissionPort = true
@@ -2040,12 +2040,12 @@ func TestListingSubmissionPersistenceAdapterImplementsOnlySubmissionPort(t *test
 func TestInfrastructureCatalogGuardRejectsNonAdapterFixture(t *testing.T) {
 	fixtureRoot := filepath.Join("testdata", "infrastructure_catalog_violation")
 	violations, err := findBannedImportViolations(fixtureRoot, []string{
-		`"task-processor/internal/product/catalog"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"`,
 	}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(violations) != 1 || violations[0].importPath != "task-processor/internal/product/catalog" {
+	if len(violations) != 1 || violations[0].importPath != "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog" {
 		t.Fatalf("Catalog guard violations = %+v, want the non-adapter fixture rejected", violations)
 	}
 }
@@ -2053,20 +2053,20 @@ func TestInfrastructureCatalogGuardRejectsNonAdapterFixture(t *testing.T) {
 func TestProductCatalogPersistenceAdapterImplementsOnlyApprovedBusinessPort(t *testing.T) {
 	adapterRoot := filepath.Join("..", "internal", "integration", "persistence", "product", "catalog")
 	assertNoBannedImportPrefixes(t, adapterRoot, []string{
-		"task-processor/internal/amazon",
-		"task-processor/internal/amazonlisting",
-		"task-processor/internal/asset",
-		"task-processor/internal/listing",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/pricing",
-		"task-processor/internal/productenrich",
-		"task-processor/internal/productimage",
-		"task-processor/internal/publishing",
-		"task-processor/internal/sds",
-		"task-processor/internal/shein",
-		"task-processor/internal/temu",
-		"task-processor/internal/workspace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazon",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/pricing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/sds",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/shein",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/temu",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace",
 	}, nil)
 	assertCatalogIsOnlyProductDomainImport(t, adapterRoot)
 
@@ -2074,7 +2074,7 @@ func TestProductCatalogPersistenceAdapterImplementsOnlyApprovedBusinessPort(t *t
 	if err != nil {
 		t.Fatalf("read Catalog persistence adapter: %v", err)
 	}
-	if !strings.Contains(string(repositorySource), `"task-processor/internal/product/catalog"`) {
+	if !strings.Contains(string(repositorySource), `"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"`) {
 		t.Fatal("Catalog persistence adapter must implement the Catalog-owned repository port")
 	}
 }
@@ -2083,14 +2083,14 @@ func TestProductCatalogPersistenceGuardRejectsEverySiblingProductDomainFixture(t
 	fixtureRoot := filepath.Join("testdata", "catalog_adapter_product_domain_violations")
 	violations := findNonCatalogProductDomainImports(t, fixtureRoot)
 	want := []string{
-		"task-processor/internal/product/asset",
-		"task-processor/internal/product/asset/future",
-		"task-processor/internal/product/image",
-		"task-processor/internal/product/image/presets",
-		"task-processor/internal/product/review/proposal",
-		"task-processor/internal/product/review/proposal/future",
-		"task-processor/internal/product/sourcing",
-		"task-processor/internal/product/sourcing/future",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/future",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image/presets",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal/future",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing/future",
 	}
 	if len(violations) != len(want) {
 		t.Fatalf("sibling Product domain violations = %+v, want %v", violations, want)
@@ -2122,8 +2122,8 @@ func findNonCatalogProductDomainImports(t *testing.T, root string) []bannedImpor
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/product") &&
-				!importMatchesPrefix(importPath, "task-processor/internal/product/catalog") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/product") &&
+				!importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog") {
 				violations = append(violations, bannedImportViolation{path: path, importPath: importPath})
 			}
 		}
@@ -2156,10 +2156,10 @@ func TestBusinessDomainsDoNotImportAppRuntimeAssembly(t *testing.T) {
 	} {
 		t.Run(filepath.Base(domainRoot), func(t *testing.T) {
 			assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), domainRoot, []string{
-				"task-processor/internal/app/bootstrap",
-				"task-processor/internal/app/consumer",
-				"task-processor/internal/app/runner",
-				"task-processor/internal/app/runtime",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/app/bootstrap",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/app/consumer",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runner",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime",
 			}, allowedFiles)
 		})
 	}
@@ -2444,8 +2444,8 @@ func TestAmazonExternalClientImportsStayAllowlisted(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") ||
-				importMatchesPrefix(importPath, "task-processor/internal/integration/openai") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") ||
+				importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai") {
 				t.Errorf("%s imports %s; keep Amazon concrete external client dependencies limited to current management DTO and OpenAI LLM seams", path, importPath)
 			}
 		}
@@ -2473,8 +2473,8 @@ func TestSheinBridgeExternalClientImportsStayAllowlisted(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") ||
-				importMatchesPrefix(importPath, "task-processor/internal/integration/openai") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") ||
+				importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai") {
 				t.Errorf("%s imports %s; keep sheinbridge concrete external client dependencies limited to current sale-attribute runtime bridge seams", path, importPath)
 			}
 		}
@@ -2487,7 +2487,7 @@ func TestSheinRetiredManagementImportsStayBlocked(t *testing.T) {
 		t.Errorf("retired SHEIN root remains: %v", err)
 	}
 	assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), root,
-		[]string{"task-processor/internal/infra/clients/management"}, nil)
+		[]string{"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management"}, nil)
 }
 
 func TestSheinOpenAIImportsStayAllowlisted(t *testing.T) {
@@ -2496,7 +2496,7 @@ func TestSheinOpenAIImportsStayAllowlisted(t *testing.T) {
 		t.Errorf("retired SHEIN root remains: %v", err)
 	}
 	assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), root,
-		[]string{"task-processor/internal/integration/openai"}, nil)
+		[]string{"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"}, nil)
 }
 
 func TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted(t *testing.T) {
@@ -2516,8 +2516,8 @@ func TestAppHTTPAPIProductImageExternalClientImportsStayAllowlisted(t *testing.T
 			continue
 		}
 		for _, bannedImport := range []string{
-			`"task-processor/internal/integration/grsai"`,
-			`"task-processor/internal/integration/openai"`,
+			`"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"`,
+			`"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"`,
 		} {
 			if _, ok := facts.imports[bannedImport]; ok {
 				t.Errorf("%s imports %s; keep app/httpapi free of ProductImage concrete external clients; ProductImage provider assembly belongs in internal/productimage/httpapi", path, bannedImport)
@@ -2545,7 +2545,7 @@ func TestAppHTTPAPIRetiredManagementImportsStayBlocked(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") {
 				t.Errorf("%s imports %s; keep app/httpapi management dependencies limited to current HTTP runtime dependency retirement seams and prefer in-repository database/repository access for new HTTP assembly data", path, importPath)
 			}
 		}
@@ -2567,7 +2567,7 @@ func TestStateRetiredManagementImportsStayBlocked(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") {
 				t.Errorf("%s imports %s; keep state management dependencies limited to current state-runtime retirement seams and prefer in-repository database/repository access for new state data", path, importPath)
 			}
 		}
@@ -2583,8 +2583,8 @@ func TestPlatformBaseRetiredManagementImportsStayBlocked(t *testing.T) {
 
 func TestTaskRPCAPIRetiredManagementImportsStayBlocked(t *testing.T) {
 	root := filepath.Join("..", "internal")
-	assertNoBannedImportPrefixesBelow(t, root, filepath.Join(root, "taskrpcapi"), []string{"task-processor/internal/infra/clients/management"}, nil)
-	assertNoBannedImportPrefixes(t, root, []string{"task-processor/internal/taskrpcapi"}, nil)
+	assertNoBannedImportPrefixesBelow(t, root, filepath.Join(root, "taskrpcapi"), []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management"}, nil)
+	assertNoBannedImportPrefixes(t, root, []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/taskrpcapi"}, nil)
 }
 
 func TestTaskRPCAPIRetiredActionRoutesStayRetired(t *testing.T) {
@@ -2643,7 +2643,7 @@ func TestSDSClientRetiredManagementImportsStayBlocked(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/sds/client") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/sds/client") {
 				t.Errorf("%s imports %s; the complete old SDS client is retired, including its former management seam", path, importPath)
 			}
 		}
@@ -2666,7 +2666,7 @@ func TestSheinLoginBootstrapRetiredManagementImportsStayBlocked(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+			for _, retired := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/sheinlogin", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinloginworker", "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management"} {
 				if importMatchesPrefix(imported, retired) {
 					t.Errorf("%s imports retired login/management owner %s", path, imported)
 				}
@@ -2703,7 +2703,7 @@ func TestSheinLoginUsesManagementAPIPortAliases(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+			for _, retired := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/sheinlogin", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinloginworker", "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management"} {
 				if importMatchesPrefix(imported, retired) {
 					t.Errorf("%s imports retired login/management owner %s", path, imported)
 				}
@@ -2728,7 +2728,7 @@ func TestSheinLoginServiceRetiredManagementImportsStayBlocked(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, retired := range []string{"task-processor/internal/sheinlogin", "task-processor/internal/app/runtime/sheinloginworker", "task-processor/internal/infra/clients/management"} {
+			for _, retired := range []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/sheinlogin", "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinloginworker", "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management"} {
 				if importMatchesPrefix(imported, retired) {
 					t.Errorf("%s imports retired login/management owner %s", path, imported)
 				}
@@ -2765,7 +2765,7 @@ func TestTEMUSyncAndPricingRetiredManagementImportsStayBlocked(t *testing.T) {
 				}
 				for quotedImport := range facts.imports {
 					importPath := strings.Trim(quotedImport, `"`)
-					if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
+					if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") {
 						t.Errorf("%s imports %s; keep TEMU retired management service dependencies limited to remaining pricing seams; sync is retired", path, importPath)
 					}
 				}
@@ -2797,7 +2797,7 @@ func TestTEMUProductStoreAndSchedulerRetiredManagementImportsStayBlocked(t *test
 				}
 				for quotedImport := range facts.imports {
 					importPath := strings.Trim(quotedImport, `"`)
-					if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
+					if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") {
 						t.Errorf("%s imports %s; keep TEMU retired management service dependencies limited to current product, store, and scheduler seams", path, importPath)
 					}
 				}
@@ -2834,7 +2834,7 @@ func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 				}
 				for quotedImport := range facts.imports {
 					importPath := strings.Trim(quotedImport, `"`)
-					if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
+					if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") {
 						t.Errorf("%s imports %s; keep TEMU runtime and bridge management dependencies limited to current runtime-assembly retirement seams and prefer in-repository database/repository access for new TEMU runtime data", path, importPath)
 					}
 				}
@@ -2855,7 +2855,7 @@ func TestTEMURuntimeAndBridgeRetiredManagementImportsStayBlocked(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/clients/management") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management") {
 				t.Errorf("%s imports %s; keep TEMU runtime and bridge management dependencies limited to current runtime-assembly retirement seams and prefer in-repository database/repository access for new TEMU runtime data", path, importPath)
 			}
 		}
@@ -2879,7 +2879,7 @@ func TestTEMUOpenAIImportsStayAllowlisted(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/integration/openai") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai") {
 				t.Errorf("%s imports %s; keep TEMU concrete OpenAI client dependencies limited to current AI, SKU, product, and pipeline seams", path, importPath)
 			}
 		}
@@ -2902,10 +2902,10 @@ func TestAICapabilityModuleUsesOnlyApprovedDependencies(t *testing.T) {
 		}
 		for quotedImport := range facts.imports {
 			importPath := strings.Trim(quotedImport, `"`)
-			if importMatchesPrefix(importPath, "task-processor/internal/aicapability") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability") {
 				continue
 			}
-			if strings.HasPrefix(importPath, "task-processor/") {
+			if strings.HasPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/") {
 				t.Errorf("%s imports %s; AI capability contracts may depend only on their own internal package tree", path, importPath)
 				continue
 			}
@@ -2954,19 +2954,19 @@ func TestInternalCmdEntrypointsDoNotImportDomainOrInfraPackages(t *testing.T) {
 
 func commandEntrypointBannedPrefixes() []string {
 	return []string{
-		"task-processor/internal/amazon",
-		"task-processor/internal/amazonlisting",
-		"task-processor/internal/asset",
-		"task-processor/internal/product/catalog",
-		"task-processor/internal/infra",
-		"task-processor/internal/listingkit",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/productenrich",
-		"task-processor/internal/productimage",
-		"task-processor/internal/publishing",
-		"task-processor/internal/shein",
-		"task-processor/internal/temu",
-		"task-processor/internal/workspace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazon",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/shein",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/temu",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/workspace",
 	}
 }
 
@@ -3012,8 +3012,8 @@ func TestTemporalRuntimePackagesDoNotImportHTTPAPI(t *testing.T) {
 	} {
 		t.Run(filepath.ToSlash(root), func(t *testing.T) {
 			assertNoBannedImportPrefixes(t, root, []string{
-				"task-processor/internal/app/httpapi",
-				"task-processor/internal/listingkit/httpapi",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi",
 			}, nil)
 		})
 	}
@@ -3349,22 +3349,22 @@ func TestAppHTTPAPIListingKitSupportImportsStayAllowlisted(t *testing.T) {
 	}
 
 	allowed := map[string]struct{}{
-		`"fmt"`:                                 {},
-		`"path/filepath"`:                       {},
-		`"strings"`:                             {},
-		`"github.com/sirupsen/logrus"`:          {},
-		`"gorm.io/gorm"`:                        {},
-		`"task-processor/internal/app/runtime"`: {},
-		`"task-processor/internal/asset/repository"`:       {},
-		`"task-processor/internal/core/config"`:            {},
-		`"task-processor/internal/integration/openai"`:     {},
-		`"task-processor/internal/listingadmin"`:           {},
-		`"task-processor/internal/listingkit"`:             {},
-		`"task-processor/internal/listingkit/httpapi"`:     {},
-		`"task-processor/internal/listingkit/reviewstore"`: {},
-		`"task-processor/internal/listingkit/store"`:       {},
-		`"task-processor/internal/publishing/shein"`:       {},
-		`"task-processor/internal/tenantbridge"`:           {},
+		`"fmt"`:                        {},
+		`"path/filepath"`:              {},
+		`"strings"`:                    {},
+		`"github.com/sirupsen/logrus"`: {},
+		`"gorm.io/gorm"`:               {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime"`:            {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/asset/repository"`:       {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"`:            {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"`:     {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingadmin"`:           {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"`:             {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi"`:     {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/reviewstore"`: {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/store"`:       {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/shein"`:       {},
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge"`:           {},
 	}
 
 	for _, imp := range file.Imports {
@@ -3392,11 +3392,11 @@ func TestAppHTTPAPIListingKitRootImportsStayAllowlisted(t *testing.T) {
 		if strings.HasSuffix(filepath.Base(path), "_test.go") {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/listingkit"`]; !ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"`]; !ok {
 			continue
 		}
 		if _, ok := allowedFiles[path]; !ok {
-			t.Errorf("%s imports task-processor/internal/listingkit; keep app/httpapi ListingKit root dependencies limited to runtime support types and move new feature logic into internal/listingkit/httpapi", path)
+			t.Errorf("%s imports github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit; keep app/httpapi ListingKit root dependencies limited to runtime support types and move new feature logic into internal/listingkit/httpapi", path)
 		}
 	}
 }
@@ -3424,11 +3424,11 @@ func TestAppHTTPAPIListingKitHTTPAPIImportsStayAllowlisted(t *testing.T) {
 		if strings.HasSuffix(filepath.Base(path), "_test.go") {
 			continue
 		}
-		if _, ok := facts.imports[`"task-processor/internal/listingkit/httpapi"`]; !ok {
+		if _, ok := facts.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi"`]; !ok {
 			continue
 		}
 		if _, ok := allowedFiles[path]; !ok {
-			t.Errorf("%s imports task-processor/internal/listingkit/httpapi; keep app/httpapi feature-owned ListingKit HTTPAPI dependencies limited to current module, runtime, route, and server assembly files", path)
+			t.Errorf("%s imports github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi; keep app/httpapi feature-owned ListingKit HTTPAPI dependencies limited to current module, runtime, route, and server assembly files", path)
 		}
 	}
 }
@@ -3457,12 +3457,12 @@ func TestImageAgentEffectPolicyInboundImportGuardDistinguishesAllowedAndExactImp
 		}
 	}
 
-	writeGoSource("blocked_single.go", "package imageagent\n\nimport _ \"task-processor/internal/imageagent/effectpolicy\"\n")
-	writeGoSource("blocked_grouped.go", "package imageagent\n\nimport (\n\t\"fmt\"\n\t_ \"task-processor/internal/imageagent/effectpolicy\"\n)\n\nvar _ = fmt.Sprintf\n")
-	writeGoSource("ignored_test.go", "package imageagent\n\nimport _ \"task-processor/internal/imageagent/effectpolicy\"\n")
-	writeGoSource("unrelated.go", "package imageagent\n\nimport _ \"task-processor/internal/imageagent/effectpolicymirror\"\n")
-	writeGoSource(filepath.Join("store", "allowed.go"), "package store\n\nimport _ \"task-processor/internal/imageagent/effectpolicy\"\n")
-	writeGoSource(filepath.Join("effectpolicy", "allowed.go"), "package effectpolicy\n\nimport _ \"task-processor/internal/imageagent/effectpolicy\"\n")
+	writeGoSource("blocked_single.go", "package imageagent\n\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy\"\n")
+	writeGoSource("blocked_grouped.go", "package imageagent\n\nimport (\n\t\"fmt\"\n\t_ \"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy\"\n)\n\nvar _ = fmt.Sprintf\n")
+	writeGoSource("ignored_test.go", "package imageagent\n\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy\"\n")
+	writeGoSource("unrelated.go", "package imageagent\n\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicymirror\"\n")
+	writeGoSource(filepath.Join("store", "allowed.go"), "package store\n\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy\"\n")
+	writeGoSource(filepath.Join("effectpolicy", "allowed.go"), "package effectpolicy\n\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy\"\n")
 
 	violations, err := imageAgentEffectPolicyInboundImportViolations(root)
 	if err != nil {
@@ -3487,7 +3487,7 @@ func imageAgentEffectPolicyInboundImportViolations(root string) ([]string, error
 		filepath.Join(root, "store") + string(os.PathSeparator):        {},
 		filepath.Join(root, "effectpolicy") + string(os.PathSeparator): {},
 	}
-	const effectPolicyImport = `"task-processor/internal/imageagent/effectpolicy"`
+	const effectPolicyImport = `"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/effectpolicy"`
 
 	var violations []string
 	for path, facts := range index.files {
@@ -3645,7 +3645,7 @@ func TestLegacyConsumersStayWithinDrainBaseline(t *testing.T) {
 	for _, edge := range violations {
 		t.Errorf("new legacy consumer: %s; EXTRACT behavior to its current owner or RETIRE the dependency", edge)
 	}
-	edges, err := phase3BannedImportDeclarationViolations(sources, []string{"task-processor/internal/compatibility", "task-processor/internal/tenantbridge"})
+	edges, err := phase3BannedImportDeclarationViolations(sources, []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility", "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3694,7 +3694,7 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 			if err != nil {
 				return nil, err
 			}
-			if imported == "task-processor/internal/listingkit" {
+			if imported == "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit" {
 				violations = append(violations, filepath.ToSlash(source.path)+" -> "+imported)
 			}
 		}
@@ -3708,32 +3708,32 @@ func currentOwnerLegacyListingKitRootViolations(sources []listingKitImageBoundar
 func supplyAdapterBusinessPorts() map[string][]string {
 	base := filepath.Join("..", "internal", "integration")
 	return map[string][]string{
-		filepath.Join(base, "shein", "official_publication.go"):                                     {"task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "persistence", "listing", "submission", "shein_shelf_policy.go"):        {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
-		filepath.Join(base, "walmart", "client.go"):                                                 {"task-processor/internal/marketplace/walmart"},
-		filepath.Join(base, "walmart", "products.go"):                                               {"task-processor/internal/marketplace/walmart"},
-		filepath.Join(base, "persistence", "listing", "official", "walmart_results.go"):             {"task-processor/internal/marketplace/walmart"},
-		filepath.Join(base, "persistence", "listing", "submission", "walmart_effects_policy.go"):    {"task-processor/internal/listing/submission", "task-processor/internal/listing/record/target", "task-processor/internal/product/collection", "task-processor/internal/marketplace/walmart"},
-		filepath.Join(base, "persistence", "listing", "preparation") + string(os.PathSeparator):     {"task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
-		filepath.Join(base, "persistence", "listing", "completiondraft") + string(os.PathSeparator): {"task-processor/internal/listing/completiondraft", "task-processor/internal/listing/preparation", "task-processor/internal/product/collection"},
-		filepath.Join(base, "persistence", "listing", "record") + string(os.PathSeparator):          {"task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
-		filepath.Join(base, "persistence", "listing", "official") + string(os.PathSeparator):        {"task-processor/internal/listing/submission", "task-processor/internal/product/collection"},
-		filepath.Join(base, "persistence", "listing", "official", "official_repository.go"):         {"task-processor/internal/listing/record/target"},
-		filepath.Join(base, "persistence", "listing", "submission", "temu_effects_policy.go"):       {"task-processor/internal/listing/submission", "task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
-		filepath.Join(base, "persistence", "listing", "submission", "tiktok_effects_policy.go"):     {"task-processor/internal/listing/submission", "task-processor/internal/listing/record/target", "task-processor/internal/product/collection"},
-		filepath.Join(base, "shein", "official_goods.go"):                                           {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "shein", "official_goods_rules.go"):                                     {"task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "temu", "official_categories.go"):                                       {"task-processor/internal/marketplace/temu/model"},
-		filepath.Join(base, "temu", "official_category_rules.go"):                                   {"task-processor/internal/marketplace/temu/model"},
-		filepath.Join(base, "temu", "official_supplier_size.go"):                                    {"task-processor/internal/marketplace/temu/model"},
-		filepath.Join(base, "temu", "official_goods.go"):                                            {"task-processor/internal/marketplace/temu/model", "task-processor/internal/marketplace/temu/goods"},
-		filepath.Join(base, "tiktokshop", "goods_read.go"):                                          {"task-processor/internal/marketplace/tiktokshop"},
-		filepath.Join(base, "tiktokshop", "goods_write.go"):                                         {"task-processor/internal/marketplace/tiktokshop"},
-		filepath.Join(base, "temu", "official_observations.go"):                                     {"task-processor/internal/marketplace/temu/model", "task-processor/internal/marketplace/temu/observations", "task-processor/internal/storecenter/observations"},
-		filepath.Join(base, "shein", "official_readback.go"):                                        {"task-processor/internal/marketplace/shein/goods", "task-processor/internal/marketplace/shein/model"},
-		filepath.Join(base, "shein", "official_observations.go"):                                    {"task-processor/internal/storecenter/observations"},
-		filepath.Join(base, "persistence", "storeobservations", "repository.go"):                    {"task-processor/internal/storecenter/observations", "task-processor/internal/marketplace/temu/observations", "task-processor/internal/marketplace/walmart"},
-		filepath.Join(base, "persistence", "storeobservations", "schema.go"):                        {"task-processor/internal/storecenter/observations"},
+		filepath.Join(base, "shein", "official_publication.go"):                                     {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"},
+		filepath.Join(base, "persistence", "listing", "submission", "shein_shelf_policy.go"):        {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"},
+		filepath.Join(base, "walmart", "client.go"):                                                 {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"},
+		filepath.Join(base, "walmart", "products.go"):                                               {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"},
+		filepath.Join(base, "persistence", "listing", "official", "walmart_results.go"):             {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"},
+		filepath.Join(base, "persistence", "listing", "submission", "walmart_effects_policy.go"):    {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission", "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"},
+		filepath.Join(base, "persistence", "listing", "preparation") + string(os.PathSeparator):     {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "completiondraft") + string(os.PathSeparator): {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft", "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "record") + string(os.PathSeparator):          {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "official") + string(os.PathSeparator):        {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "official", "official_repository.go"):         {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"},
+		filepath.Join(base, "persistence", "listing", "submission", "temu_effects_policy.go"):       {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission", "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"},
+		filepath.Join(base, "persistence", "listing", "submission", "tiktok_effects_policy.go"):     {"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission", "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"},
+		filepath.Join(base, "shein", "official_goods.go"):                                           {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"},
+		filepath.Join(base, "shein", "official_goods_rules.go"):                                     {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"},
+		filepath.Join(base, "temu", "official_categories.go"):                                       {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_category_rules.go"):                                   {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_supplier_size.go"):                                    {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"},
+		filepath.Join(base, "temu", "official_goods.go"):                                            {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"},
+		filepath.Join(base, "tiktokshop", "goods_read.go"):                                          {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"},
+		filepath.Join(base, "tiktokshop", "goods_write.go"):                                         {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"},
+		filepath.Join(base, "temu", "official_observations.go"):                                     {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations", "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"},
+		filepath.Join(base, "shein", "official_readback.go"):                                        {"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"},
+		filepath.Join(base, "shein", "official_observations.go"):                                    {"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"},
+		filepath.Join(base, "persistence", "storeobservations", "repository.go"):                    {"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"},
+		filepath.Join(base, "persistence", "storeobservations", "schema.go"):                        {"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"},
 	}
 }
 func supplyAdapterPortAllowed(path, imported string) bool {
@@ -3768,19 +3768,19 @@ func TestSupplyPersistenceAndOfficialTransportOnlyImportAdmittedPorts(t *testing
 		}
 		for quoted := range facts.imports {
 			imp := strings.Trim(quoted, `"`)
-			if (importMatchesPrefix(imp, "task-processor/internal/listing") || importMatchesPrefix(imp, "task-processor/internal/marketplace") || importMatchesPrefix(imp, "task-processor/internal/product")) && !supplyAdapterPortAllowed(path, imp) {
+			if (importMatchesPrefix(imp, "github.com/henryxu1008/shuomi-ai-commerce/internal/listing") || importMatchesPrefix(imp, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace") || importMatchesPrefix(imp, "github.com/henryxu1008/shuomi-ai-commerce/internal/product")) && !supplyAdapterPortAllowed(path, imp) {
 				t.Errorf("%s has unadmitted business port %s", path, imp)
 			}
 		}
 	}
 	good := filepath.Join(root, "shein", "official_goods.go")
 	bad := filepath.Join(root, "shein", "other.go")
-	if !supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(bad, "task-processor/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(good, "task-processor/internal/marketplace/shein/goods/child") {
+	if !supplyAdapterPortAllowed(good, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(bad, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods") || supplyAdapterPortAllowed(good, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods/child") {
 		t.Fatal("official DTO admission must be exact")
 	}
 	for _, file := range []string{"official_categories.go", "official_category_rules.go", "official_supplier_size.go"} {
 		admitted := filepath.Join(root, "temu", file)
-		if !supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/rules") || supplyAdapterPortAllowed(admitted, "task-processor/internal/marketplace/temu/model/child") || supplyAdapterPortAllowed(filepath.Join(root, "temu", "other.go"), "task-processor/internal/marketplace/temu/model") {
+		if !supplyAdapterPortAllowed(admitted, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model") || supplyAdapterPortAllowed(admitted, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/rules") || supplyAdapterPortAllowed(admitted, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model/child") || supplyAdapterPortAllowed(filepath.Join(root, "temu", "other.go"), "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model") {
 			t.Fatal("TEMU official metadata admission must be the exact DTO leaf and files")
 		}
 	}
@@ -3800,7 +3800,7 @@ func TestSupplyAndCollectionHTTPRegistrationKeepsBusinessSiblingsFrameworkFree(t
 
 func TestWalmartAdapterBusinessPortsStayExact(t *testing.T) {
 	base := filepath.Join("..", "internal", "integration")
-	port := "task-processor/internal/marketplace/walmart"
+	port := "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
 	for _, path := range []string{
 		filepath.Join(base, "walmart", "client.go"),
 		filepath.Join(base, "walmart", "products.go"),
@@ -3811,7 +3811,7 @@ func TestWalmartAdapterBusinessPortsStayExact(t *testing.T) {
 		if !supplyAdapterPortAllowed(path, port) {
 			t.Errorf("approved Walmart adapter %s must consume its current leaf", path)
 		}
-		for _, bad := range []string{port + "/child", "task-processor/internal/marketplace/temu/model", "task-processor/internal/product/catalog"} {
+		for _, bad := range []string{port + "/child", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"} {
 			if supplyAdapterPortAllowed(path, bad) {
 				t.Errorf("%s must not admit %s", path, bad)
 			}

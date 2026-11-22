@@ -3,7 +3,7 @@ package referral
 import (
 	"context"
 	"github.com/google/uuid"
-	e "task-processor/internal/referraleconomics"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 )
 
 func (r *Repository) ListNoticeAdjustments(ctx context.Context, subject, after string, limit int) ([]e.EarningsLedgerEntry, string, error) {

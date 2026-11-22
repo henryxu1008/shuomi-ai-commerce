@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 type modelPointFinalResult struct {

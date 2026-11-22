@@ -9,10 +9,10 @@ import (
 
 	sigjson "sigs.k8s.io/json"
 
-	"task-processor/internal/aicapability"
-	recovery "task-processor/internal/app/modelinvocationrecovery"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	recovery "github.com/henryxu1008/shuomi-ai-commerce/internal/app/modelinvocationrecovery"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 func decodeFormalRecoveryInput(raw []byte, anchor formalAnchor) (recovery.Config, error) {

@@ -2,12 +2,12 @@ package fulfillmentapp
 
 import (
 	"context"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	f "task-processor/internal/fulfillment"
-	"task-processor/internal/storecenter"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"testing"
 	"time"
 )

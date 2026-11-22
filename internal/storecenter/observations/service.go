@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	temuo "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"golang.org/x/sync/errgroup"
 	"sort"
 	"strconv"
-	"task-processor/internal/authidentity"
-	temuo "task-processor/internal/marketplace/temu/observations"
-	"task-processor/internal/storecenter"
 	"time"
 )
 

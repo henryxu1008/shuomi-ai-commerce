@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"

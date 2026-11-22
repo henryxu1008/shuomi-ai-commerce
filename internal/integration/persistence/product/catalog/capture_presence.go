@@ -2,8 +2,8 @@ package catalogpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"gorm.io/gorm"
-	"task-processor/internal/product/catalog"
 )
 
 // PublicationPresence checks every product stream for an orphan publication.

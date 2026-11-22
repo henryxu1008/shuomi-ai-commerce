@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	e "task-processor/internal/ecoservices"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 )
 
 func assertLatePaymentReopensOnlyOriginalCancellation(t *testing.T, ctx context.Context, r *Repository, s *e.Service, closedBeforePayment bool) {

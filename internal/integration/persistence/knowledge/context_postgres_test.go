@@ -17,14 +17,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/integration/commercetoolauth"
-	"task-processor/internal/integration/knowledgeauth"
-	store "task-processor/internal/integration/persistence/knowledge"
-	k "task-processor/internal/knowledge"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/commercetoolauth"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/knowledgeauth"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/knowledge"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 type contextFixture struct {

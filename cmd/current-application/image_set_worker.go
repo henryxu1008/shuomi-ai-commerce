@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	"gorm.io/gorm"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/core/config"
-	"task-processor/internal/platform/database"
 )
 
 // The existing private worker YAML supplies storage credentials and the

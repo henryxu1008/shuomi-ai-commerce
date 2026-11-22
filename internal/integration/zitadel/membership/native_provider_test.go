@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 	"github.com/stretchr/testify/require"
-	domain "task-processor/internal/organization/membership"
 )
 
 // This probe consumes only the fresh issue357 harness run explicitly prepared

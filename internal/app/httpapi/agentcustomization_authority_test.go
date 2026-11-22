@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
+	customhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"github.com/stretchr/testify/require"
-	d "task-processor/internal/agentcustomization"
-	customhttp "task-processor/internal/agentcustomization/httpapi"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/workbenchcontext"
 )
 
 type customizationOwnerProbe struct {

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	marketplace "task-processor/internal/marketplace/walmart"
-	auth "task-processor/internal/storecenter/walmart"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 )
 
 func (c *OfficialClient) Products(ctx context.Context, t auth.TokenSet, page int) (marketplace.ProductPage, error) {

@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	workstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	workstore "task-processor/internal/integration/persistence/aiworkbench"
-	"task-processor/internal/skill"
 )
 
 func TestAuthoringQuoteDeadlineIsUniqueToItsServerIssuedKey(t *testing.T) {

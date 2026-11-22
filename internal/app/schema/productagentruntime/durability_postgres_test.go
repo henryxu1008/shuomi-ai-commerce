@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	aistore "task-processor/internal/aicapability/store"
 )
 
 func TestPrepareRejectsUnloggedFactsWithoutRepair(t *testing.T) {

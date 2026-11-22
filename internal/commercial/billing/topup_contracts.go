@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 // Only returned when the adapter proves it issued no checkout request or action.

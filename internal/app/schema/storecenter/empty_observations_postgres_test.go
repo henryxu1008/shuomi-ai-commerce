@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	observations "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	current "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	observations "task-processor/internal/integration/persistence/storeobservations"
-	current "task-processor/internal/storecenter"
 )
 
 //go:embed testdata/empty-observations-baseline.sql

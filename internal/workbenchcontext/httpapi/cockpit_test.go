@@ -2,10 +2,10 @@ package httpapi
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/stretchr/testify/require"
 	"net/http"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
 	"testing"
 )
 

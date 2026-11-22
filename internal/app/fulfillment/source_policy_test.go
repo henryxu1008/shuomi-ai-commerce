@@ -1,7 +1,7 @@
 package fulfillmentapp
 
 import (
-	sf "task-processor/internal/storecenter/fulfillment"
+	sf "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/fulfillment"
 	"testing"
 	"time"
 )

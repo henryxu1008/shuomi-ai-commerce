@@ -3,12 +3,12 @@ package httpapi
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"net/url"
 	"regexp"
 	"strconv"
-	"task-processor/internal/agent"
-	"task-processor/internal/product/review"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 
 	"github.com/google/uuid"

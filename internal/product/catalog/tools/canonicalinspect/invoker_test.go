@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 	"go.opentelemetry.io/otel"
-	"task-processor/internal/commercetool"
 )
 
 func TestNewInvokerAcceptsCompleteMultiToolAgentAllowlist(t *testing.T) {

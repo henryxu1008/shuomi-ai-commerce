@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"task-processor/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 )
 
 type LocalVariationIssue struct {

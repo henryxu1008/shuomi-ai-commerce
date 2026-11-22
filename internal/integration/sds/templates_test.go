@@ -2,10 +2,10 @@ package sds
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"io"
 	"net/http"
 	"strings"
-	"task-processor/internal/product/pod"
 	"testing"
 
 	"github.com/stretchr/testify/require"

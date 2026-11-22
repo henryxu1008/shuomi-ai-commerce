@@ -1,6 +1,6 @@
 package billing
 
-import "task-processor/internal/ledger/money"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 
 func channelRefundPlan(o ServicePurchaseOrder, c ServicePurchaseCommand, f money.ServiceFundsView) (money.ServiceRefundPlan, error) {
 	if p, ok := o.RefundPlans[c.ID]; ok {

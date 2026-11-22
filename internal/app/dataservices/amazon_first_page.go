@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"task-processor/internal/product/collection"
-	acq "task-processor/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	acq "github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 )
 
 type AmazonFirstPageTrial struct {

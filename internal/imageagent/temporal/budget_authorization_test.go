@@ -17,9 +17,9 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/store"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 func TestExecuteSlotV3PreservesStorageLimitReasonBeforeProviderDispatch(t *testing.T) {

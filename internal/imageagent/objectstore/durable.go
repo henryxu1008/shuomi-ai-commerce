@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/ledger/storagecapacity"
-	"task-processor/internal/pkg/imagex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/imagex"
 )
 
 const (

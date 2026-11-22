@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/marketplace/shein/offlinepackage"
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog/canonical"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
 )
 
 func buildSourceImages(product *canonical.Product) *offlinepackage.ImageSet {

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/authidentity"
-	domain "task-processor/internal/subjectverification"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 )
 
 type callbackStub struct{}

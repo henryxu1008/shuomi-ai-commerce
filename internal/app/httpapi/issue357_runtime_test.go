@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/storecenter"
-	"task-processor/internal/zitadelprovision"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprovision"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"

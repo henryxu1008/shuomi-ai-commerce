@@ -14,11 +14,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	n "github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	n "task-processor/internal/notificationcenter"
 )
 
 const Module = "notification-center"
