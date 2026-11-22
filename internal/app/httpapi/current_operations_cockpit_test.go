@@ -1,9 +1,9 @@
 package httpapi
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	cockpit "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit/httpapi"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/httproute"
-	cockpit "task-processor/internal/operationscockpit/httpapi"
 	"testing"
 )
 

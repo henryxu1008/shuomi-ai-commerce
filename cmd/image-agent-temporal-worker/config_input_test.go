@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	appruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
 	"github.com/sirupsen/logrus"
 	"strings"
-	appruntime "task-processor/internal/app/runtime"
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
 	"testing"
 )
 

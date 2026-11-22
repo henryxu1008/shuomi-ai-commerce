@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/imageagent"
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/asset/assettest"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest"
 )
 
 func TestPublisherCommitsApprovedAssetsExactlyOnce(t *testing.T) {

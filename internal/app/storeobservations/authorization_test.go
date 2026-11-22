@@ -3,11 +3,11 @@ package storeobservationsapp
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

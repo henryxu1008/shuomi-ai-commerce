@@ -2,16 +2,16 @@ package httpapi
 
 import (
 	"context"
+	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/referralregistration"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	app "task-processor/internal/app/referralregistration"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/core/config"
-	"task-processor/internal/referral"
 	"testing"
 	"time"
 )

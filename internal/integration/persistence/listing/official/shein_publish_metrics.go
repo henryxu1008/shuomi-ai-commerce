@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	submissionstore "task-processor/internal/integration/persistence/listing/submission"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 func (r *OfficialRepository) ListSheinPublishAttemptIDs(ctx context.Context, scope collection.Scope, cohort submission.SheinPublishReadScope, start, end time.Time, limit int) ([]string, error) {

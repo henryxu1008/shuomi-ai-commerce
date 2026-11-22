@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/tools"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	"image"
-	"task-processor/internal/ai"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/tools"
-	"task-processor/internal/integration/httpimage"
 )
 
 // This adapter reuses the fixed single-dispatch SDK transport and the same

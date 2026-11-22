@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 func TestRegistrationCommitAndOriginalReceipt(t *testing.T) {

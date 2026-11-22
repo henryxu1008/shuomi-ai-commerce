@@ -9,14 +9,14 @@ import (
 
 	"gorm.io/gorm"
 
-	aicapabilitystore "task-processor/internal/aicapability/store"
-	"task-processor/internal/app/configadapter"
-	"task-processor/internal/app/runtime/currentapplication"
-	nativeschema "task-processor/internal/app/schema/productagentruntime"
-	"task-processor/internal/core/config"
-	imagestore "task-processor/internal/imageagent/store"
-	assetpersistence "task-processor/internal/integration/persistence/product/asset"
-	platformdatabase "task-processor/internal/platform/database"
+	aicapabilitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/configadapter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	nativeschema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/productagentruntime"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	imagestore "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	assetpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 // InitializeOrganizationImageAgent is explicit one-shot maintenance for a new,

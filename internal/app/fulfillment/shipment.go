@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
-	f "task-processor/internal/fulfillment"
-	sf "task-processor/internal/storecenter/fulfillment"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
+	sf "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/fulfillment"
 )
 
 func (s *Service) shipment(ctx context.Context, scope f.Scope, in Input, base f.Command, merchant Merchant) (json.RawMessage, error) {

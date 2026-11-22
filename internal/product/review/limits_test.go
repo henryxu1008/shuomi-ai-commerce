@@ -3,11 +3,11 @@ package review
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/catalog"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 

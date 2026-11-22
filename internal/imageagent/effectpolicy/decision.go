@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 type EffectDecision struct {

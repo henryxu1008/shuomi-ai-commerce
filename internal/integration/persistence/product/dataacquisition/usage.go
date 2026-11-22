@@ -2,8 +2,8 @@ package dataacquisitionpersistence
 
 import (
 	"context"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 )
 
 func (r *Repository) Usage(ctx context.Context, s collection.Scope) (dataacquisition.Usage, error) {

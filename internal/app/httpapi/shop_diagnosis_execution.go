@@ -2,13 +2,13 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shopdiagnosis"
 	"strconv"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
-	c "task-processor/internal/operationscockpit"
-	"task-processor/internal/shopdiagnosis"
 	"time"
 )
 

@@ -2,7 +2,7 @@
 package appenv
 
 import (
-	loggerPkg "task-processor/internal/platform/logging"
+	loggerPkg "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging"
 
 	"github.com/sirupsen/logrus"
 )

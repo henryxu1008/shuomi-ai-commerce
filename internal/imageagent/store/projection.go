@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func (r *memoryRepository) InitializeRun(_ context.Context, input imageagent.ProjectionInitialization) (imageagent.RunProjection, error) {

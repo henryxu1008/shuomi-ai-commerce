@@ -1,9 +1,9 @@
 package currentapplication
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agentconfig"
-	governed "task-processor/internal/integration/aicapability/einomodel"
 	"testing"
 )
 

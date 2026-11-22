@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"github.com/google/uuid"
-	d "task-processor/internal/organization/membership"
-	flow "task-processor/internal/organization/membership/inviteflow"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
 )
 
 func (r *InvitationRepository) ListNoticeInvitations(ctx context.Context, q flow.NoticeQuery) ([]flow.Invitation, string, error) {

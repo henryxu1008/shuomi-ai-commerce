@@ -12,21 +12,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/draft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/workspace"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	collectionhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/listing/record"
-	"task-processor/internal/marketplace/shein/draft"
-	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/marketplace/shein/workspace"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	collectionhttp "task-processor/internal/product/collection/httpapi"
-	"task-processor/internal/product/sourcing"
 )
 
 // Reuse the existing disposable PostgreSQL fixture and its runtime grants. Only
@@ -39,7 +39,9 @@ func testOwnSKUPackagingHTTPChain(t *testing.T, db *gorm.DB) {
 	require.NoError(t, err)
 	revoked := false
 	live := liveRolesFunc(func(context.Context, string, string) ([]string, error) {
-		if revoked { return nil, nil }
+		if revoked {
+			return nil, nil
+		}
 		return []string{"listingkit_admin"}, nil
 	})
 	authority, err := collection.NewContextAuthorizer(live, permissions)
@@ -63,22 +65,35 @@ func testOwnSKUPackagingHTTPChain(t *testing.T, db *gorm.DB) {
 		selected := actor
 		switch token {
 		case "Bearer actor":
-		case "Bearer foreign": selected = foreign
-		case "Bearer other-org": selected = otherOrg
-		default: return nil, collection.ErrForbidden
+		case "Bearer foreign":
+			selected = foreign
+		case "Bearer other-org":
+			selected = otherOrg
+		default:
+			return nil, collection.ErrForbidden
 		}
 		identity, ok := authidentity.AuthenticatedIdentityFromContext(selected)
-		if !ok { return nil, collection.ErrForbidden }
+		if !ok {
+			return nil, collection.ErrForbidden
+		}
 		return authidentity.WithAuthenticatedIdentity(ctx, identity), nil
-	}) { router.Handle(route.Method, route.Path, route.Handler) }
+	}) {
+		router.Handle(route.Method, route.Path, route.Handler)
+	}
 	token := "Bearer actor"
 	request := func(method, path, key string, value any, status int) []byte {
 		t.Helper()
 		var raw []byte
-		if value != nil { raw, err = json.Marshal(value); require.NoError(t, err) }
+		if value != nil {
+			raw, err = json.Marshal(value)
+			require.NoError(t, err)
+		}
 		req := httptest.NewRequest(method, collectionhttp.BasePath+path, bytes.NewReader(raw))
 		req.Header.Set("Authorization", token)
-		if method == http.MethodPost { req.Header.Set("Content-Type", "application/json"); req.Header.Set("Idempotency-Key", key) }
+		if method == http.MethodPost {
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Idempotency-Key", key)
+		}
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, req)
 		require.Equal(t, status, response.Code, "%s %s: %s", method, path, response.Body.String())
@@ -129,7 +144,7 @@ func testOwnSKUPackagingHTTPChain(t *testing.T, db *gorm.DB) {
 	input := collection.Mutation{Action: "create_product", Product: &product}
 	var created collection.Receipt
 	require.NoError(t, json.Unmarshal(request("POST", "/commands", key, input, 200), &created))
-	itemPath := "/items/"+created.ItemID
+	itemPath := "/items/" + created.ItemID
 	var original collection.ItemDetail
 	require.NoError(t, json.Unmarshal(request("GET", itemPath, "", nil, 200), &original))
 	require.Len(t, original.Product.Variants, 2)
@@ -142,7 +157,10 @@ func testOwnSKUPackagingHTTPChain(t *testing.T, db *gorm.DB) {
 	require.NoError(t, err)
 	require.Equal(t, original.Product, published.Snapshot)
 	require.Equal(t, product.Variants[0].Packaging, published.Envelope.ProductCandidate.Variants[0].Packaging)
-	var evidence struct { EnvelopeJSON, SnapshotJSON []byte; EnvelopeHash, SnapshotHash string }
+	var evidence struct {
+		EnvelopeJSON, SnapshotJSON []byte
+		EnvelopeHash, SnapshotHash string
+	}
 	require.NoError(t, db.Table("product_source_publications").Where("organization_id=? AND publication_id=?", "packaging-org", original.Item.Source.PublicationID).Take(&evidence).Error)
 	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(evidence.EnvelopeJSON)), evidence.EnvelopeHash)
 	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(evidence.SnapshotJSON)), evidence.SnapshotHash)
@@ -225,7 +243,9 @@ func testOwnSKUPackagingHTTPChain(t *testing.T, db *gorm.DB) {
 	require.False(t, checks[0].OK)
 	checkJSON, err := json.Marshal(checks)
 	require.NoError(t, err)
-	for _, text := range []string{"BLUE", "重量待补", "宽待补", "高待补", "库存 0"} { require.Contains(t, string(checkJSON), text) }
+	for _, text := range []string{"BLUE", "重量待补", "宽待补", "高待补", "库存 0"} {
+		require.Contains(t, string(checkJSON), text)
+	}
 	for _, foreignToken := range []string{"Bearer foreign", "Bearer other-org"} {
 		token = foreignToken
 		request("GET", itemPath, "", nil, 404)

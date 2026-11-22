@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	moneystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"task-processor/internal/commercial/billing"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	moneystore "task-processor/internal/integration/persistence/money"
-	"task-processor/internal/ledger/money"
-	"task-processor/internal/ledger/orgresource"
 )
 
 // These are separate owner databases, including the failure window between

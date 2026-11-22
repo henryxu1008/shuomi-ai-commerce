@@ -13,9 +13,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func TestInternalProducerCreatesProductFromBusinessCallOnEmptyPostgres(t *testing.T) {

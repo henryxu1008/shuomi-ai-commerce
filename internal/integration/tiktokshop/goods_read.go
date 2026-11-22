@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	marketplace "task-processor/internal/marketplace/tiktokshop"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
 )
 
 // Only the named official endpoints below use this private transport helper.

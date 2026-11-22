@@ -3,11 +3,11 @@ package orgresourceadapter
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"math"
 	"strings"
 	"sync"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/ledger/orgresource"
 	"testing"
 	"time"
 

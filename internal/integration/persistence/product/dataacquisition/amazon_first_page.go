@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	acq "github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"gorm.io/gorm"
-	"task-processor/internal/product/collection"
-	acq "task-processor/internal/product/dataacquisition"
 )
 
 const amazonClaimAction = "zenrows_amazon_claim"

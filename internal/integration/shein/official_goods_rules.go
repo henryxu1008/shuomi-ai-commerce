@@ -3,11 +3,11 @@ package shein
 import (
 	"context"
 	"encoding/json"
+	sheinmodel "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"net/http"
 	"net/url"
 	"strconv"
-	sheinmodel "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/storecenter"
 )
 
 func (c *OfficialClient) QueryProductWarehouses(ctx context.Context, credential storecenter.OfficialMerchantCredential) ([]sheinmodel.Warehouse, error) {

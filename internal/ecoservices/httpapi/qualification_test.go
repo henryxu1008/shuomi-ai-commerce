@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/authidentity"
 	"testing"
 )
 

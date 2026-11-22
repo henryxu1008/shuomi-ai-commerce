@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 )
 
 type organizationStatus struct{ suspended atomic.Bool }

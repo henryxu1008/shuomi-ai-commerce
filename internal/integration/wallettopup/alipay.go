@@ -16,8 +16,8 @@ import (
 	"github.com/go-pay/gopay/alipay"
 	"github.com/go-pay/gopay/pkg/xhttp"
 
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/integration/paymentsecurity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/paymentsecurity"
 )
 
 type AlipayConfig struct {

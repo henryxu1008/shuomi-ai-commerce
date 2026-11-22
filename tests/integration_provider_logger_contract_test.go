@@ -50,11 +50,11 @@ func scanProviderConstructors(t *testing.T, roots ...string) map[string]provider
 				}
 				provider := ""
 				switch importPath {
-				case "task-processor/internal/integration/openai":
+				case "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai":
 					provider = "openai"
-				case "task-processor/internal/integration/grsai":
+				case "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai":
 					provider = "grsai"
-				case "task-processor/internal/integration/geminiimage":
+				case "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/geminiimage":
 					provider = "gemini"
 				}
 				if provider == "" {
@@ -163,7 +163,7 @@ func TestProductionLLMManagerAdapterCallersPassLogger(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if importPath != "task-processor/internal/productenrich" {
+				if importPath != "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich" {
 					continue
 				}
 				alias := "productenrich"
@@ -237,9 +237,9 @@ func TestIntegrationProviderLoggingUsesOnlyLocalExplicitPorts(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if importMatchesPrefix(importPath, "task-processor/internal/core/logger") ||
-					importMatchesPrefix(importPath, "task-processor/internal/platform") ||
-					importMatchesPrefix(importPath, "task-processor/internal/infra") {
+				if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/core/logger") ||
+					importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/platform") ||
+					importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra") {
 					t.Errorf("%s imports forbidden logging/runtime package %s", filepath.ToSlash(path), importPath)
 				}
 				if importPath == "github.com/sirupsen/logrus" {

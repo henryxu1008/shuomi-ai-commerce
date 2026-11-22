@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/marketplace/shein/publishing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
 )
 
 func TestSanitizeSheinListingCopyPreservesAuthorizedBrandFromExplicitValues(t *testing.T) {

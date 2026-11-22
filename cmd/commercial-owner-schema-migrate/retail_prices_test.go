@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercial/billing"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	"task-processor/internal/ledger/orgresource"
 )
 
 func TestFreshOwnerInstallsRetailPricesAndPreservesOriginalQuote(t *testing.T) {

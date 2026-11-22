@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/agent"
 )
 
 // FinalizeExpiredRunning closes only an expired durable RUNNING row. It never

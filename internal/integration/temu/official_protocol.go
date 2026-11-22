@@ -5,10 +5,10 @@ import (
 	"crypto/md5" // TEMU's specified request signature, not a password hash.
 	"encoding/hex"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"sort"
 	"strconv"
 	"strings"
-	"task-processor/internal/storecenter"
 )
 
 func (c *OfficialClient) encodeRequest(api, token string, fields map[string]json.RawMessage) ([]byte, error) {

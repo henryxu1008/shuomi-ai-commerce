@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/sourcing"
 	"testing"
 )
 

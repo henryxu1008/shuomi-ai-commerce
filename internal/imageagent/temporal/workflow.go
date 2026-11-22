@@ -14,8 +14,8 @@ import (
 	sdktemporal "go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
-	"task-processor/internal/imageagent"
-	productasset "task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 const (

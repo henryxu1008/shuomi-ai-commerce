@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/imageagent"
 )
 
 type imageReleaseFactReader func(context.Context, imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error)

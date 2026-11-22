@@ -5,12 +5,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"image"
 	"net/url"
-	"task-processor/internal/integration/httpimage"
-	record "task-processor/internal/listing/record/target"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/product/asset"
 	"time"
 )
 

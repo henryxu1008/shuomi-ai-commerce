@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
 )
 
 func storeFixture(t *testing.T) (*gorm.DB, *Store) {

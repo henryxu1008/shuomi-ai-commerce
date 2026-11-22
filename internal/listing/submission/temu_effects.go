@@ -1,10 +1,10 @@
 package submission
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"strconv"
-	"task-processor/internal/authidentity"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/storecenter"
 )
 
 const TemuPublishAction = "temu_create_product"

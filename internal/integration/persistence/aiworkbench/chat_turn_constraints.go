@@ -1,8 +1,8 @@
 package aiworkbenchpersistence
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"gorm.io/gorm"
-	"task-processor/internal/pkg/pgschema"
 )
 
 // These are the installed PostgreSQL definitions of the current bounded Chat

@@ -3,11 +3,11 @@ package imageagentworker
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/imagex"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"net/http"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/integration/httpimage"
-	"task-processor/internal/pkg/imagex"
-	productimage "task-processor/internal/product/image"
 
 	"github.com/sirupsen/logrus"
 )

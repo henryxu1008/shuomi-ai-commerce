@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/listing/completiondraft"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

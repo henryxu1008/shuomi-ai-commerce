@@ -11,7 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func decodeSlotEffectV3Record(row slotExternalEffectV3Record) (imageagent.SlotEffectV3Attempt, error) {

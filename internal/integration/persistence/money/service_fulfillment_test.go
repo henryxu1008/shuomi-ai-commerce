@@ -3,9 +3,9 @@ package money
 import (
 	"context"
 	"errors"
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/gorm"
 	"strings"
-	m "task-processor/internal/ledger/money"
 	"testing"
 	"time"
 )

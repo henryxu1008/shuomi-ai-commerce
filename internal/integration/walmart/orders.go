@@ -2,9 +2,9 @@ package walmart
 
 import (
 	"encoding/json"
+	observations "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"strconv"
 	"strings"
-	observations "task-processor/internal/storecenter/observations"
 	"time"
 )
 

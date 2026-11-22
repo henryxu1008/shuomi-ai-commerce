@@ -14,14 +14,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/assetpublication"
-	assetdb "task-processor/internal/integration/persistence/product/asset"
-	catalogdb "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/listing/readiness"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/assetpublication"
+	assetdb "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	catalogdb "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/readiness"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // These are controlled domain contracts, not an HTTP import or production

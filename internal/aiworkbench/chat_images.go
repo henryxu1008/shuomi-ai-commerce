@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 // ChatImage is the frozen, bounded content identity in a Workbench command.

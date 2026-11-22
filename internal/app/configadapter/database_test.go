@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	coreconfig "task-processor/internal/core/config"
-	platformdatabase "task-processor/internal/platform/database"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 func TestDatabaseConfigPreservesRuntimeFields(t *testing.T) {

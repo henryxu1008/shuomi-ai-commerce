@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 // ScheduledOccurrence is a durable Workbench dispatch-intent receipt, not a
@@ -158,6 +158,13 @@ func newScheduledOccurrence(plan scheduledPlanRow, policy aiworkbench.ScheduledP
 	if state == "SKIPPED" {
 		row.Reason = "MISSED_TRIGGER"
 	}
-	if policy.Report!=nil{row.PayloadDigest=digest(struct{PlanID string;Slot time.Time;Revision int64;Spec *aiworkbench.DailyReportSpec}{plan.ID,slot.UTC(),plan.Revision,policy.Report})}
+	if policy.Report != nil {
+		row.PayloadDigest = digest(struct {
+			PlanID   string
+			Slot     time.Time
+			Revision int64
+			Spec     *aiworkbench.DailyReportSpec
+		}{plan.ID, slot.UTC(), plan.Revision, policy.Report})
+	}
 	return row
 }

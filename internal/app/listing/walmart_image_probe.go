@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"net/url"
 	"strings"
-	"task-processor/internal/integration/httpimage"
-	record "task-processor/internal/listing/record/target"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/product/asset"
 	"time"
 )
 

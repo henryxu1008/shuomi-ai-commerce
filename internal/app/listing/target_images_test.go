@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/shein/goods"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
 )
 
 func (r *uploadRecords) FindTargetCommand(context.Context, collection.Scope, string, string) (record.TargetReceipt, error) {

@@ -2,10 +2,10 @@ package aiworkbench
 
 import (
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"strconv"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 const TitleTaskKind = "product.title.optimize"

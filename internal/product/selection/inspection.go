@@ -7,16 +7,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
-	"task-processor/internal/product/description"
 	"unicode/utf8"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 const MaxInspectionBytes = 32 << 10

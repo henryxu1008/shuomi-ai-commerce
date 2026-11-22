@@ -1,6 +1,6 @@
 package agentconfig
 
-import "task-processor/internal/commercetool"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 
 // Fixed code-owned registration contract shared by configuration and the
 // governed text adapter. Platform facts/DTO validation remain in Listing.

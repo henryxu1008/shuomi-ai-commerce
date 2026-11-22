@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 const (

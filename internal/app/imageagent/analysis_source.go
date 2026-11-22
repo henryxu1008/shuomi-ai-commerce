@@ -12,17 +12,17 @@ import (
 	"strconv"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/asset/tools/assetinspect"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/tools/assetinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // AnalysisImageReader reads only identities returned by the original owners.

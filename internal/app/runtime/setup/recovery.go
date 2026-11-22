@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"task-processor/internal/app/setupcontrol"
-	"task-processor/internal/platform/privatefile"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 )
 
 type recoveryVolume struct {

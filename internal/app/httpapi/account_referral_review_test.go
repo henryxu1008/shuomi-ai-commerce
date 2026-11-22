@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	economics "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 	"github.com/sirupsen/logrus"
-	"task-processor/internal/ledger/money"
-	economics "task-processor/internal/referraleconomics"
 )
 
 func TestPayoutDestinationEncryptionBindsReviewerInstructions(t *testing.T) {

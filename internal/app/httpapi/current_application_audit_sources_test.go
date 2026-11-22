@@ -5,13 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/storecenter"
 )
 
 func TestCurrentApplicationAdmitsProductExecutionWithImageAuditReader(t *testing.T) {

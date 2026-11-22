@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"reflect"
 	"strings"
-	"task-processor/internal/pkg/pgschema"
 
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	sourcestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
 	"gorm.io/gorm"
-	aistore "task-processor/internal/aicapability/store"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
 )
 
 // VerifyInvocationRelation reuses the current invocation owner's native

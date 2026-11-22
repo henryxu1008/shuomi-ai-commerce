@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 type noticeStore struct{ *testStore }

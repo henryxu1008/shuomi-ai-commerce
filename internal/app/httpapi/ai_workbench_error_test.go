@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 func TestWorkbenchRevisionConflictDiffersFromStaleProposal(t *testing.T) {

@@ -6,18 +6,18 @@ import (
 	"testing"
 	"time"
 
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/listing/record"
-	"task-processor/internal/product/review"
-	"task-processor/internal/storecenter"
 )
 
 func trialRouteDescriptors() []httproute.Descriptor {

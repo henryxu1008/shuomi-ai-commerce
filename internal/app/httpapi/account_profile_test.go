@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	profileStore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/accountprofile"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/httproute"
-	profileStore "task-processor/internal/integration/persistence/accountprofile"
-	kernelmodule "task-processor/internal/kernel/module"
 )
 
 func TestAccountBusinessProfilePersistsAcrossReadsWithoutOrganizationLeakage(t *testing.T) {

@@ -1,8 +1,8 @@
 package workspace
 
 import (
-	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
+	sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	sheinmarketpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
 )
 
 // BuildSubmitPayloadReadinessChecks builds SHEIN payload readiness checks from package state.

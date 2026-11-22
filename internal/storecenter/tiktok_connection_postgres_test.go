@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/storecenter"
-	tiktok "task-processor/internal/storecenter/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 func TestTikTokCallbackClaimIsSingleDispatchAndRetainsOriginalMember(t *testing.T) {

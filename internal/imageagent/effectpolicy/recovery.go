@@ -3,7 +3,7 @@ package effectpolicy
 import (
 	"strings"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // PreflightReservation preserves command-validation precedence for adapters

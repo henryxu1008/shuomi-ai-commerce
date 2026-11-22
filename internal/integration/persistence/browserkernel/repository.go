@@ -5,9 +5,9 @@ import (
 	_ "embed"
 	"errors"
 
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	k "task-processor/internal/browserkernel"
 )
 
 //go:embed schema.sql

@@ -2,7 +2,7 @@ package selectioninspect
 
 import (
 	"encoding/json"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
 )
 
 // Fact values use current Catalog's closed DTO schemas. No arbitrary object

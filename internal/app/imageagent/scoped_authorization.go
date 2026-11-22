@@ -2,10 +2,10 @@ package imageagentapp
 
 import (
 	"context"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type ImageScopeAuthorizer interface {

@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
+	observations "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"gorm.io/gorm"
-	observations "task-processor/internal/integration/persistence/storeobservations"
-	"task-processor/internal/storecenter"
 )
 
 // AlignEmptyObservationsContract is explicit owner maintenance. Serving never

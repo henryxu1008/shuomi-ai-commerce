@@ -13,9 +13,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"task-processor/internal/listing/readiness"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/readiness"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 const MaxSnapshotBytes = 2 << 20

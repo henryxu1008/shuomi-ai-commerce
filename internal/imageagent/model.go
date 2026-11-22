@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"task-processor/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 )
 
 type RunMode string

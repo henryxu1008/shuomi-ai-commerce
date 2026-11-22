@@ -3,8 +3,8 @@ package assetinspect
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/asset"
 	"testing"
 )
 

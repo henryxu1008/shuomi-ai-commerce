@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"strings"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"testing"
 )
 

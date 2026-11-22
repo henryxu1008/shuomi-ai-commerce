@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

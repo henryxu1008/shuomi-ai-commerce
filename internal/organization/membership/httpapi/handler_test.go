@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/organization/membership"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 type directory struct {

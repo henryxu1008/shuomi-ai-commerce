@@ -8,8 +8,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	"strings"
-	domain "task-processor/internal/subjectverification"
 	"time"
 )
 

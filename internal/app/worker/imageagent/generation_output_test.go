@@ -23,9 +23,9 @@ import (
 	logtest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 )
 
 type outputBodyLimitTransport struct{ declared int64 }

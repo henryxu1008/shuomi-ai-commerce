@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 var _ orgresource.BalanceReader = (*GormRepository)(nil)

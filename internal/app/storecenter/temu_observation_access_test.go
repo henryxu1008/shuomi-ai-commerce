@@ -3,9 +3,9 @@ package storecenterapp
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

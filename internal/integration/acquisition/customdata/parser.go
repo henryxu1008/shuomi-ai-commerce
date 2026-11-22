@@ -7,12 +7,12 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"io"
 	"strconv"
 	"strings"
-	"task-processor/internal/dataservice"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/collection"
 )
 
 func ParseDelivery(ctx context.Context, format string, raw []byte) ([]collection.OwnProduct, error) {

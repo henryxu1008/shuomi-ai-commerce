@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	submissionstore "task-processor/internal/integration/persistence/listing/submission"
-	"task-processor/internal/listing/submission"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/knowledge"
 )
 
 const minioCapacityTestID = "d7b806bb-6f4f-47be-999c-99f027252244"

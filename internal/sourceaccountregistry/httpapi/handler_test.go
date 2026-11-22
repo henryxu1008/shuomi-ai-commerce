@@ -14,8 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 func TestCreateProjectsStrictCurrentResource(t *testing.T) {

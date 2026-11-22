@@ -3,11 +3,11 @@ package goods
 import (
 	"encoding/hex"
 	"fmt"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"net/url"
 	"sort"
 	"strings"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/asset"
 )
 
 const MaxOfficialImageBytes int64 = 3 << 20

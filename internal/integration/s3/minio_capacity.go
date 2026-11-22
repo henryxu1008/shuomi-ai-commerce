@@ -14,9 +14,9 @@ import (
 
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	madmin "github.com/minio/madmin-go/v3"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 const MinIOCapacityIdentityProvider = "minio-deployment"

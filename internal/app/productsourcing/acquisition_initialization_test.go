@@ -3,9 +3,9 @@ package productsourcing
 import (
 	"context"
 	"encoding/json"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
 	"os"
 	"path/filepath"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
 	"testing"
 
 	"github.com/jackc/pgx/v5"

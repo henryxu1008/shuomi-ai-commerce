@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"github.com/gin-gonic/gin"
-	e "task-processor/internal/ecoservices"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 )
 
 func (h *Handler) merchantResume(c *gin.Context) {

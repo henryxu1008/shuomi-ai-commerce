@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/sourcing"
 )
 
 // browserProviderStub is a deterministic PublicAcquirer: it never touches the

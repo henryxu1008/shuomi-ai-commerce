@@ -7,11 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"reflect"
 	"strings"
-	"task-processor/internal/ai"
-	"task-processor/internal/integration/httpimage"
-	productimage "task-processor/internal/product/image"
 )
 
 const maxProductImagePromptBytes = 64 << 10

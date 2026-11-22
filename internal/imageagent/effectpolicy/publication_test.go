@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func TestClaimPublicationDecisionMatrix(t *testing.T) {

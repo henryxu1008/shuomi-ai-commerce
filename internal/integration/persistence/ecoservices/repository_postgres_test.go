@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -14,7 +15,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	e "task-processor/internal/ecoservices"
 	"testing"
 	"time"
 )

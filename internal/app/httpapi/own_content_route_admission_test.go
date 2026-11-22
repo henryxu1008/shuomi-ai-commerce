@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	collectionhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection/httpapi"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/httproute"
-	collectionhttp "task-processor/internal/product/collection/httpapi"
 )
 
 func TestOwnContentAgentGlobalAdmissionPreservesTrustedProfiles(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"net/netip"
 	"time"
 
-	"task-processor/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 )
 
 var publicIPv6Space = netip.MustParsePrefix("2000::/3")

@@ -7,9 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/google/uuid"
-	f "task-processor/internal/fulfillment"
-	"task-processor/internal/storecenter"
-	sf "task-processor/internal/storecenter/fulfillment"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	sf "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/fulfillment"
 	"time"
 )
 

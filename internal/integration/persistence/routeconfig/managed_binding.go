@@ -8,10 +8,10 @@ import (
 	"errors"
 	"time"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 	"gorm.io/gorm"
-	credential "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 const managedBindingsTable = "public.ai_enterprise_model_bindings"

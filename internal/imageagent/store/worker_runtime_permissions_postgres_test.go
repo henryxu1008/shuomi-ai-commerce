@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	aicapabilitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	assetpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	aicapabilitystore "task-processor/internal/aicapability/store"
-	assetpersistence "task-processor/internal/integration/persistence/product/asset"
 )
 
 func TestOrganizationImageWorkerRuntimeRoleHasOnlyCurrentWorkerGrants(t *testing.T) {

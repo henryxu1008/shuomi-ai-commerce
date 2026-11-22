@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 // SourceEnvelope is the neutral handoff shape from source adapters into product,
@@ -127,8 +127,8 @@ type ProductVariantCandidate struct {
 	Currency         string
 	Price            float64
 	Stock            int
-	Images           []AssetCandidate `json:",omitempty"`
-	OwnStockDeclared bool             `json:",omitempty"`
+	Images           []AssetCandidate      `json:",omitempty"`
+	OwnStockDeclared bool                  `json:",omitempty"`
 	Packaging        *catalog.SKUPackaging `json:",omitempty"`
 }
 

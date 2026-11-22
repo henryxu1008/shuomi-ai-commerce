@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	tiktok "task-processor/internal/storecenter/tiktokshop"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 type tiktokRefreshRow struct {

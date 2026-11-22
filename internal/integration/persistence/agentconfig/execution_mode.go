@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
 )
 
 const modeOperation = "set-execution-mode"

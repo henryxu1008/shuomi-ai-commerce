@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"golang.org/x/net/html"
-	"task-processor/internal/product/dataacquisition"
 )
 
 var ErrChallenge = dataacquisition.ErrSourceChallenge

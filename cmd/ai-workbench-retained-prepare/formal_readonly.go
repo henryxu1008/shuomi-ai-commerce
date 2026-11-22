@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	store "task-processor/internal/integration/persistence/aiworkbench"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
 )
 
 // Database inspection remains available after a maintenance window expires.

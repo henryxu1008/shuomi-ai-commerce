@@ -3,12 +3,12 @@ package listingapp
 import (
 	"bytes"
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
 	"io"
 	"net/http"
-	"task-processor/internal/product/asset"
 	"testing"
 )
 

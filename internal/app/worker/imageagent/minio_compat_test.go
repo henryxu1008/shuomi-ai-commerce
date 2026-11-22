@@ -16,10 +16,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	s3integration "task-processor/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	s3integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
 )
 
 func TestIsolatedTrialMinIOPreservesRecoversAndPublishesImmutableAsset(t *testing.T) {

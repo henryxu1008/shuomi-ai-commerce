@@ -2,13 +2,13 @@ package einoplanner
 
 import (
 	"context"
-	reviewproposal "task-processor/internal/product/review/proposal"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
 )
 
 func testProfile() aicapability.ModelProfile {

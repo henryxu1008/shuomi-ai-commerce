@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
+	storeschema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/storecenter"
 	"github.com/stretchr/testify/require"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	storeschema "task-processor/internal/app/schema/storecenter"
 )
 
 func TestObservationsOnlyPreservesBaseMigrationsFactsAndGrants(t *testing.T) {

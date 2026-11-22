@@ -2,13 +2,13 @@ package productsourcing
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	sourcingstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
 	"strings"
-	"task-processor/internal/authidentity"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	sourcingstore "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 	"time"
 )
 

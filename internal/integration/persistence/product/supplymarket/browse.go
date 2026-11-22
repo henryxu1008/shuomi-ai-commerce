@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 	"gorm.io/gorm"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/supplymarket"
 )
 
 type selectionReference struct {

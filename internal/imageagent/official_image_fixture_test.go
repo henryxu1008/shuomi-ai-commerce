@@ -1,7 +1,7 @@
 package imageagent
 
 import (
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 // Explicit synthetic price/usage for the existing offline owner regressions.

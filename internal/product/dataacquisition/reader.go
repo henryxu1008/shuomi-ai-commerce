@@ -2,7 +2,7 @@ package dataacquisition
 
 import (
 	"context"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // ReadRepository preserves the existing credential-guarded, single-transaction

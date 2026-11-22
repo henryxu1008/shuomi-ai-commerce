@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

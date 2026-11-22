@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"gorm.io/gorm"
-	"task-processor/internal/ledger/orgresource"
 )
 
 // This bounded native read includes departed members' positions; reads never

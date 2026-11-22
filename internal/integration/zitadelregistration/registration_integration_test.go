@@ -16,11 +16,11 @@ import (
 	"testing"
 	"time"
 
-	app "task-processor/internal/app/referralregistration"
-	"task-processor/internal/authidentity"
-	persistence "task-processor/internal/integration/persistence/referral"
-	adapter "task-processor/internal/integration/zitadelregistration"
-	domain "task-processor/internal/referral"
+	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/referralregistration"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	persistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/referral"
+	adapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/zitadelregistration"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 
 	"github.com/google/uuid"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"

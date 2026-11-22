@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/temu"
+	temumodel "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/integration/temu"
-	temumodel "task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/storecenter"
 )
 
 type temuRulesProvider struct {

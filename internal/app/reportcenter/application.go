@@ -2,12 +2,12 @@ package reportcenterapp
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/reportcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
+	reporthttp "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter/httpapi"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	store "task-processor/internal/integration/persistence/reportcenter"
-	"task-processor/internal/listing/record"
-	rc "task-processor/internal/reportcenter"
-	reporthttp "task-processor/internal/reportcenter/httpapi"
 )
 
 type Dependencies struct {

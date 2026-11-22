@@ -2,34 +2,34 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	confighttp "github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	texteino "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/agent/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/knowledgeauth"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials/tools/materialsinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/readiness/tools/readinessinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/tools/assetinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research/analysis/tools/researchinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/selection/tools/selectioninspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing/tools/sourceevidenceinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shopdiagnosis/tools/diagnosisinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"gorm.io/gorm"
 	"sort"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	confighttp "task-processor/internal/agentconfig/httpapi"
-	"task-processor/internal/agentcustomization"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/httproute"
-	"task-processor/internal/imageagent"
-	texteino "task-processor/internal/integration/agent/einomodel"
-	"task-processor/internal/integration/knowledgeauth"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/knowledge"
-	"task-processor/internal/listing/materials/tools/materialsinspect"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/listing/readiness/tools/readinessinspect"
-	"task-processor/internal/product/asset/tools/assetinspect"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/contentagent"
-	"task-processor/internal/product/research/analysis/tools/researchinspect"
-	"task-processor/internal/product/selection/tools/selectioninspect"
-	"task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
-	"task-processor/internal/shopdiagnosis/tools/diagnosisinspect"
-	"task-processor/internal/workbenchcontext"
 	"time"
 )
 
@@ -143,7 +143,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 						return []agentconfig.Capability{capability}
 					}
 					route, err := runtime.ownIntake.resolve(ctx, aicapability.TextInputIdentity{OrganizationID: id.EffectiveOrganizationID, Operation: aicapability.OperationOwnProductIntake})
-					if err == nil && agentconfig.OwnIntakeProfile(route.Profile) { capability.Readiness, capability.Reason = "AVAILABLE", "" }
+					if err == nil && agentconfig.OwnIntakeProfile(route.Profile) {
+						capability.Readiness, capability.Reason = "AVAILABLE", ""
+					}
 				}
 			}
 			return []agentconfig.Capability{capability}
@@ -188,7 +190,9 @@ func buildAgentConfigurationModule(ctx context.Context, db *gorm.DB, resolver or
 		return productAgentCapabilities(ctx, resolver, h.Authorize, k, runtime)
 	}
 	h.RunsAvailable = func(_ context.Context, entry agentconfig.CatalogEntry) bool {
-		if entry.Definition.ID == agentconfig.OwnIntakeAgentID { return false }
+		if entry.Definition.ID == agentconfig.OwnIntakeAgentID {
+			return false
+		}
 		if entry.Definition.ID == agentconfig.ResearchAgentID {
 			return research != nil && research.store != nil && research.configuration != nil
 		}

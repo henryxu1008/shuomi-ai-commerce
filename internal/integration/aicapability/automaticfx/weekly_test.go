@@ -1,8 +1,8 @@
 package automaticfx
 
 import (
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"github.com/stretchr/testify/require"
-	d "task-processor/internal/aicapability/routeconfig"
 	"testing"
 	"time"
 )

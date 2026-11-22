@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	coreconfig "task-processor/internal/core/config"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 func issue36RuntimeConfig() *Config {

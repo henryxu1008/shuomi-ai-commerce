@@ -3,10 +3,10 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 // Read-only selection preview delegates identity and current effective version

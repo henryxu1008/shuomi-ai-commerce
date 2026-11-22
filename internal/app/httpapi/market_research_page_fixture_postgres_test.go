@@ -13,14 +13,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	dataservicesapp "task-processor/internal/app/dataservices"
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/authidentity"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/research"
-	"task-processor/internal/product/sourcing"
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type fixturePageStore struct {

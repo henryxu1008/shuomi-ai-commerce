@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 type accountRow struct {

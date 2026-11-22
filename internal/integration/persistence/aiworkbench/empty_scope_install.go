@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"gorm.io/gorm"
 	"strings"
-	"task-processor/internal/aiworkbench"
 )
 
 // EmptyScopeTarget binds an explicit operator-approved database to a TCP server.

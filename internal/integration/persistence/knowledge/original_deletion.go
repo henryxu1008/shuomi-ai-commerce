@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
-	k "task-processor/internal/knowledge"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 var _ k.OriginalRepository = (*Repository)(nil)

@@ -29,9 +29,9 @@ import (
 	"syscall"
 	"time"
 
+	browser "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/a1688/browser"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browsercollector"
 	"github.com/sirupsen/logrus"
-	browser "task-processor/internal/integration/acquisition/a1688/browser"
-	"task-processor/internal/integration/acquisition/browsercollector"
 )
 
 const credentialEnvKey = "A1688_BROWSER_COLLECTOR_CREDENTIAL"

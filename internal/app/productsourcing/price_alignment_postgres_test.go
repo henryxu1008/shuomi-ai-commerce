@@ -16,16 +16,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	jobstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
 )
 
 func privateAlignmentFile(t *testing.T, path string) {

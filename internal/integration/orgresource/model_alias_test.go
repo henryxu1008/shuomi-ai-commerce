@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/ledger/orgresource"
 )
 
 func TestAliasedModelUsesOriginalResourceReservationAndTerminalPaths(t *testing.T) {

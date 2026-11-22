@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"task-processor/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
 )
 
 func main() {

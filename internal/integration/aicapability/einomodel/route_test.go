@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 type channelReaderFixture struct {

@@ -5,11 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 const ModuleName = "source-account-registry"

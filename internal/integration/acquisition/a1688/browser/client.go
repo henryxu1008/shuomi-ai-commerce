@@ -24,10 +24,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/mxschmitt/playwright-go"
 	sigjson "sigs.k8s.io/json"
 	"sync"
-	"task-processor/internal/product/sourcing"
 )
 
 var (

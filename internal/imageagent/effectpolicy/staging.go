@@ -1,6 +1,6 @@
 package effectpolicy
 
-import "task-processor/internal/imageagent"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 
 // PrepareStaging decides whether a provider-claimed attempt can record a
 // normalized staging manifest. It never mutates caller-owned state.

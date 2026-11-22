@@ -3,12 +3,12 @@ package listingapp
 import (
 	"context"
 	"errors"
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/marketplace/shein/goods"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"time"
 )
 

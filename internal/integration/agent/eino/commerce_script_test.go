@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent/scriptcompute"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"go.opentelemetry.io/otel/trace/noop"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/contentagent/scriptcompute"
-	reviewproposal "task-processor/internal/product/review/proposal"
 )
 
 // Only the remote calculation is controlled here. Invocation, schema/principal

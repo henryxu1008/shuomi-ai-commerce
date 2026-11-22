@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	store "task-processor/internal/aicapability/store"
 )
 
 func TestLedgerEmptyDatabasePostgres(t *testing.T) {

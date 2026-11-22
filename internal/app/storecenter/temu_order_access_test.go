@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/temu"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/integration/temu"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 )
 
 func (p *temuRulesProvider) QueryObservedTemuOrders(ctx context.Context, _ storecenter.OfficialMerchantCredential, _ o.TemuOrderQuery) (o.TemuOrderPage, error) {

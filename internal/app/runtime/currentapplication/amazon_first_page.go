@@ -6,7 +6,7 @@ import (
 	"io/fs"
 	"path"
 
-	acq "task-processor/internal/product/dataacquisition"
+	acq "github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 )
 
 // AmazonFirstPageFiles opens a single administrator-frozen approval. The key

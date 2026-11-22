@@ -10,8 +10,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	ess "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/ess/v20201111"
-	domain "task-processor/internal/subjectverification"
 	"testing"
 	"time"
 )

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 type organizationRequestKey struct{}

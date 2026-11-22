@@ -5,11 +5,11 @@ import (
 	"crypto/tls"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/dataservice"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

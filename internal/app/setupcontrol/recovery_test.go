@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/platform/privatefile"
 )
 
 func TestFailureRecordsStageCategoryWithoutSavingRawSecretAndCheckDoesNotEraseIt(t *testing.T) {

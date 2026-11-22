@@ -1,6 +1,6 @@
 package agentconfig
 
-import reviewproposal "task-processor/internal/product/review/proposal"
+import reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 
 const (
 	ContentAgentID             = "product.content.agent"

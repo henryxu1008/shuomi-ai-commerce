@@ -10,10 +10,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	appruntime "task-processor/internal/app/runtime"
-	imageagentworker "task-processor/internal/app/worker/imageagent"
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
-	"task-processor/internal/pkg/appenv"
+	appruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime"
+	imageagentworker "github.com/henryxu1008/shuomi-ai-commerce/internal/app/worker/imageagent"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/appenv"
 )
 
 type resolvedDependencies struct {

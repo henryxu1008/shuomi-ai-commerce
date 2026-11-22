@@ -20,13 +20,13 @@ func TestModuleRootProductionImportScanFindsEntrypointsAndSkipsExternalTrees(t *
 
 	moduleRoot := t.TempDir()
 	writeBoundaryFixture(t, filepath.Join(moduleRoot, "go.mod"), "module example.test/fixture\n\ngo 1.26\n")
-	writeBoundaryFixture(t, filepath.Join(moduleRoot, "cmd", "server", "main.go"), "package main\nimport _ \"task-processor/internal/product/asset/assettest\"\n")
+	writeBoundaryFixture(t, filepath.Join(moduleRoot, "cmd", "server", "main.go"), "package main\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest\"\n")
 	writeBoundaryFixture(t, filepath.Join(moduleRoot, "internal", "safe.go"), "package internal\nimport \"context\"\nvar _ = context.Background\n")
 	for _, directory := range []string{".git", ".worktrees", ".cache", "_deps", "vendor", "node_modules", "testdata", "third_party"} {
-		writeBoundaryFixture(t, filepath.Join(moduleRoot, directory, "ignored.go"), "package ignored\nimport _ \"task-processor/internal/product/asset/assettest\"\n")
+		writeBoundaryFixture(t, filepath.Join(moduleRoot, directory, "ignored.go"), "package ignored\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest\"\n")
 	}
 	writeBoundaryFixture(t, filepath.Join(moduleRoot, "external-tool", "go.mod"), "module example.test/external\n\ngo 1.26\n")
-	writeBoundaryFixture(t, filepath.Join(moduleRoot, "external-tool", "ignored.go"), "package external\nimport _ \"task-processor/internal/product/asset/assettest\"\n")
+	writeBoundaryFixture(t, filepath.Join(moduleRoot, "external-tool", "ignored.go"), "package external\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest\"\n")
 
 	foundRoot, err := moduleRootFrom(filepath.Join(moduleRoot, "cmd", "server"))
 	if err != nil {
@@ -121,7 +121,7 @@ func assetTestProductionImports(moduleRoot string) ([]string, error) {
 			if err != nil {
 				return err
 			}
-			if value != "task-processor/internal/product/asset/assettest" {
+			if value != "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest" {
 				continue
 			}
 			relative, err := filepath.Rel(moduleRoot, path)
@@ -153,8 +153,8 @@ func TestProductAssetDoesNotDependOnImageOrPersistence(t *testing.T) {
 
 	assetDir := currentPackageDir(t)
 	banned := []string{
-		"task-processor/internal/product/" + "image",
-		"task-processor/internal/" + "product" + "image",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/" + "image",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/" + "product" + "image",
 		"gorm" + ".io/",
 	}
 	err := filepath.WalkDir(assetDir, func(path string, entry fs.DirEntry, walkErr error) error {

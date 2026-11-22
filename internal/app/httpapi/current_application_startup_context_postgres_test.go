@@ -23,12 +23,12 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/app/runtime/currentapplication"
-	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
-	kernelmodule "task-processor/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	registrySchema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	sourceaccountstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccountregistry"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 )
 
 type startupPermissionTraceKey struct{}

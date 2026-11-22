@@ -8,15 +8,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/storecenter"
 )
 
 type serviceContextAccess struct{}

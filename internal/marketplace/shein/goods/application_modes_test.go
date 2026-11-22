@@ -2,8 +2,8 @@ package goods
 
 import (
 	"encoding/json"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 	"github.com/stretchr/testify/require"
-	model "task-processor/internal/marketplace/shein/model"
 	"testing"
 )
 

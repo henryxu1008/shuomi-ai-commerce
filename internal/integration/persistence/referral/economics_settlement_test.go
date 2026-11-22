@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm/logger"
 	_ "modernc.org/sqlite"
 
-	money "task-processor/internal/ledger/money"
-	economics "task-processor/internal/referraleconomics"
+	money "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	economics "github.com/henryxu1008/shuomi-ai-commerce/internal/referraleconomics"
 )
 
 // This fixture exercises repository transactions and calculations, not PostgreSQL

@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/store"
-	"task-processor/internal/shared/aiidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/aiidentity"
 )
 
 func TestServiceApprovalRequiresExactCurrentProjectionDigestAndState(t *testing.T) {

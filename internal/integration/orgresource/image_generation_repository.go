@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"math"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/ledger/orgresource"
 	"time"
 
 	"github.com/google/uuid"

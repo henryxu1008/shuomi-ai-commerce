@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"context"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"time"
 )
 

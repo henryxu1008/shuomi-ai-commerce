@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authz"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/aiworkbench/einorouter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aiworkbench/einorouter"
 )
 
 // workbenchStoreRouter is the trusted bridge between Chat and the existing

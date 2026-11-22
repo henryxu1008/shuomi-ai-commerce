@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/product/catalog/canonical"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
 )
 
 func TestBuildSheinListingCopyKeepsStructuredEnglishTitle(t *testing.T) {

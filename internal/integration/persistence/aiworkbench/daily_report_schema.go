@@ -3,9 +3,9 @@ package aiworkbenchpersistence
 import (
 	"context"
 	_ "embed"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/pkg/pgschema"
 )
 
 //go:embed daily_report_schema.sql

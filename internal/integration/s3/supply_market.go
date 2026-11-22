@@ -2,7 +2,7 @@ package s3
 
 import (
 	"context"
-	"task-processor/internal/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 )
 
 // SupplyMarketFiles reuses immutable S3 primitives in a private bucket. It

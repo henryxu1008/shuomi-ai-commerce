@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
-	sheinpolicy "task-processor/internal/marketplace/shein/publishing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
+	sheinpolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
 )
 
 func TestSecondarySaleAttributeRequiredRequiresMultiSKUSecondarySourceAndTemplate(t *testing.T) {

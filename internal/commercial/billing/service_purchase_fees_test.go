@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"testing"
 )
 

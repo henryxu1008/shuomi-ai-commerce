@@ -2,8 +2,8 @@ package currentapplication
 
 import (
 	"encoding/json"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/stretchr/testify/require"
-	governed "task-processor/internal/integration/aicapability/einomodel"
 	"testing"
 )
 

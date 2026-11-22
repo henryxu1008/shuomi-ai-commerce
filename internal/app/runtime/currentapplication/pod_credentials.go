@@ -3,15 +3,15 @@ package currentapplication
 import (
 	"context"
 	"encoding/json"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/sds"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	sigjson "sigs.k8s.io/json"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/integration/sds"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
 )
 
 type podCredentialFile struct{ path string }

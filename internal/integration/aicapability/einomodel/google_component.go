@@ -5,7 +5,7 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
-	"task-processor/internal/integration/googleinteractions"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/googleinteractions"
 )
 
 // The official SDK owns Interactions serialization. This component is only

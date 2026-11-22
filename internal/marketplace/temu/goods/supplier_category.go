@@ -1,6 +1,6 @@
 package goods
 
-import "task-processor/internal/marketplace/temu/model"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 
 func checkSupplierCategory(input model.SupplierGoods, snapshot RuleSnapshot) []Issue {
 	fields := []*int64{input.Cat1ID, input.Cat2ID, input.Cat3ID, input.Cat4ID, input.Cat5ID, input.Cat6ID, input.Cat7ID, input.Cat8ID, input.Cat9ID, input.Cat10ID}

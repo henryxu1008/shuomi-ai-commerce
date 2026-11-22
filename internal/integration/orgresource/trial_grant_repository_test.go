@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 type trialRepositoryAuthorizer struct {

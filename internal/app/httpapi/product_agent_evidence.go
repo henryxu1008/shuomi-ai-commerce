@@ -3,11 +3,11 @@ package httpapi
 import (
 	"encoding/json"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	texteino "task-processor/internal/integration/agent/einomodel"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	reviewproposal "task-processor/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	texteino "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/agent/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 )
 
 // Only canonical inspection discloses raw captured evidence fields for the

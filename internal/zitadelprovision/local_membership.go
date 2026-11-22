@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"task-processor/internal/zitadelprotojson"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprotojson"
 )
 
 // ProvisionLocalAcceptanceMembershipWriter configures the dedicated local writer

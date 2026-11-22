@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"reflect"
 	"slices"
 	"strings"
-	"task-processor/internal/imageagent"
 )
 
 // PersistSlotResultV3 persists the current durable result contract.

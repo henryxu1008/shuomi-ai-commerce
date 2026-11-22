@@ -3,12 +3,12 @@ package httpapi
 import (
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	agentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agent"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	agentstore "task-processor/internal/integration/persistence/agent"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
 )
 
 func TestImageAnalysisAssemblyWithHistoryOnly(t *testing.T) {

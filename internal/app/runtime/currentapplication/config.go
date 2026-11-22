@@ -19,10 +19,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"task-processor/internal/authruntime/zitadel"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	topupconfig "task-processor/internal/integration/wallettopup/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	topupconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/wallettopup/config"
 )
 
 const (

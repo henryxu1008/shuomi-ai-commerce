@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/ledger/money"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 const CurrencyCNY = money.WalletCurrencyCNY

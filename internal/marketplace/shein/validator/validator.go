@@ -3,10 +3,10 @@
 package validator
 
 import (
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
-	policy "task-processor/internal/marketplace/shein/publishing"
-	workspace "task-processor/internal/marketplace/shein/workspace"
-	contract "task-processor/internal/marketplace/validator"
+	sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	policy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
+	workspace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/workspace"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 )
 
 // RuleVersion pins this composition and the transitive existing rules it calls.

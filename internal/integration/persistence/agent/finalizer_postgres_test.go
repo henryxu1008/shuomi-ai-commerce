@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/agent"
 )
 
 func TestExpiredRunningFinalizerFencesLateRuntimeCommit(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 )
 
 type SupplierPriceIssue struct {

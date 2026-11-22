@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/product/pod"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 )
 
 func TestReadbackQualifiesCurrentSavedDesignProtocol(t *testing.T) {

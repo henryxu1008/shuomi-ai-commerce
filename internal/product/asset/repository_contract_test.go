@@ -3,8 +3,8 @@ package asset_test
 import (
 	"testing"
 
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/asset/assettest"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest"
 )
 
 func TestMemoryRepositoryContract(t *testing.T) {

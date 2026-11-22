@@ -13,9 +13,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 const (
@@ -116,14 +116,14 @@ type OwnProduct struct {
 	Images            []string          `json:"images"`
 }
 type OwnVariant struct {
-	SourceID   string            `json:"sourceId"`
-	Title      string            `json:"title"`
-	SKU        string            `json:"sku"`
-	Attributes map[string]string `json:"attributes"`
-	Currency   string            `json:"currency"`
-	Price      float64           `json:"price"`
-	Stock      *int              `json:"stock,omitempty"`
-	Images     []string          `json:"images,omitempty"`
+	SourceID   string                `json:"sourceId"`
+	Title      string                `json:"title"`
+	SKU        string                `json:"sku"`
+	Attributes map[string]string     `json:"attributes"`
+	Currency   string                `json:"currency"`
+	Price      float64               `json:"price"`
+	Stock      *int                  `json:"stock,omitempty"`
+	Images     []string              `json:"images,omitempty"`
 	Packaging  *catalog.SKUPackaging `json:"packaging,omitempty"`
 }
 type Mutation struct {

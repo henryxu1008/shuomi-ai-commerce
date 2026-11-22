@@ -9,7 +9,7 @@ import (
 	sdk "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 
-	"task-processor/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 type KnowledgeOriginalDeleter struct {

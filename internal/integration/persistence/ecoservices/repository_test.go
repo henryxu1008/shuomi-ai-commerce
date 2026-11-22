@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"strings"
-	e "task-processor/internal/ecoservices"
 	"testing"
 	"time"
 )

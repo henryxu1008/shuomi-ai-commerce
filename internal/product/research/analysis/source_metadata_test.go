@@ -3,12 +3,12 @@ package analysis
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/selection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	"task-processor/internal/product/selection"
-	"task-processor/internal/product/sourcing"
 	"testing"
 )
 

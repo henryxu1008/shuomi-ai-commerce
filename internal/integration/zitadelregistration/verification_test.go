@@ -3,10 +3,10 @@ package zitadelregistration
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/referral"
 	"testing"
 )
 

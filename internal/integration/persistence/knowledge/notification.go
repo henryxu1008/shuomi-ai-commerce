@@ -3,7 +3,7 @@ package knowledge
 import (
 	"context"
 	"github.com/google/uuid"
-	k "task-processor/internal/knowledge"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 func (r *Repository) ListNoticeSources(ctx context.Context, org, after string, limit int) ([]k.Source, string, error) {

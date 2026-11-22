@@ -10,11 +10,11 @@ import (
 	"os"
 	"testing"
 
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/asset"
 )
 
 type imageTransport func(*http.Request) (*http.Response, error)

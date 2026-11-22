@@ -1,8 +1,8 @@
 package goods
 
 import (
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 	"strings"
-	model "task-processor/internal/marketplace/shein/model"
 	"unicode"
 	"unicode/utf8"
 )

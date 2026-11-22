@@ -3,9 +3,9 @@ package shein
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"strings"
-	"task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/storecenter"
 )
 
 func (c *OfficialClient) QueryDocumentState(ctx context.Context, k storecenter.OfficialMerchantCredential, spu, version string) (model.DocumentAudit, error) {

@@ -2,12 +2,12 @@ package acquisition
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	keystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/dataservice"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	jobstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/dataacquisition"
 	"gorm.io/gorm"
 	"strings"
-	"task-processor/internal/dataservice"
-	keystore "task-processor/internal/integration/persistence/dataservice"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
 )
 
 const DataServicesRuntimeRole = "data_services_runtime"

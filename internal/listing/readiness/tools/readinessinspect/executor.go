@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"strconv"
 
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 type Executor struct {

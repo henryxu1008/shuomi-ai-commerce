@@ -3,8 +3,8 @@ package amazon
 import (
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"golang.org/x/net/html"
-	"task-processor/internal/product/dataacquisition"
 )
 
 // CaptureQuoteCard preserves quote context as private text, including unfamiliar offer markup.

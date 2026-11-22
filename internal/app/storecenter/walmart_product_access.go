@@ -3,11 +3,11 @@ package storecenterapp
 import (
 	"context"
 	"encoding/json"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"sort"
 	"sync/atomic"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/storecenter"
-	auth "task-processor/internal/storecenter/walmart"
 	"time"
 )
 

@@ -1,11 +1,11 @@
 package collection
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"math"
 	"net/url"
 	"strings"
-	"task-processor/internal/product/description"
-	"task-processor/internal/product/sourcing"
 	"unicode/utf8"
 )
 

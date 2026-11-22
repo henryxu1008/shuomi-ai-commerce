@@ -18,8 +18,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	persistence "task-processor/internal/integration/persistence/referral"
-	"task-processor/internal/referral"
+	persistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/referral"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"

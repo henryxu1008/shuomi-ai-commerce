@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"gorm.io/gorm"
-	"task-processor/internal/ledger/orgresource"
 )
 
 func (r *GormRepository) ReadEventSource(ctx context.Context, org, eventID string) (orgresource.EventSource, bool, error) {

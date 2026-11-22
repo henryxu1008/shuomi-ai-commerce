@@ -12,15 +12,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
 )
 
 const visualOpinionFixture = `{"observations":[{"area":"framing","status":"possible_issue","reason":"The visible subject may be cropped."}],"suggestions":[{"area":"framing","action":"check","reason":"Review the original image."}],"unknowns":["Actual material is not established by this image."]}`

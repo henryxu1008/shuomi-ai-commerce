@@ -19,7 +19,7 @@ import (
 
 	sigjson "sigs.k8s.io/json"
 
-	authorization "task-processor/internal/storecenter/tiktokshop"
+	authorization "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 const (

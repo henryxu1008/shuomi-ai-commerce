@@ -2,9 +2,9 @@ package researchinspect
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research/analysis"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/selection/tools/selectioninspect"
 	"github.com/invopop/jsonschema"
-	"task-processor/internal/product/research/analysis"
-	"task-processor/internal/product/selection/tools/selectioninspect"
 )
 
 // Use the existing closed Catalog fact-value schema, including its definitions.

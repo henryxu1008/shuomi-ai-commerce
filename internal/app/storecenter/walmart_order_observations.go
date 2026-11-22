@@ -2,8 +2,8 @@ package storecenterapp
 
 import (
 	"context"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 )
 
 // ReadSavedWalmartOrderBinding checks current local order/Store authority only.

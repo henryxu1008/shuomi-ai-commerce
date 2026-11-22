@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 )
 
 // The existing content/review owners perform their live access checks. This

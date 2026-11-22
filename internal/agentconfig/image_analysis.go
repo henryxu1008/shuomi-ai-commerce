@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 const (

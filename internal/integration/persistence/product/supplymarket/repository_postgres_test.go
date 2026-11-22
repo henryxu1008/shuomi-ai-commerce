@@ -3,9 +3,9 @@ package supplymarketpersistence
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 	"sync"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/supplymarket"
 	"testing"
 	"time"
 

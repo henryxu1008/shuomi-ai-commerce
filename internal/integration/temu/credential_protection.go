@@ -2,8 +2,8 @@ package temu
 
 import (
 	"encoding/json"
-	"task-processor/internal/integration/credentialprotection"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/credentialprotection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type CredentialProtection struct{ cipher *credentialprotection.AESGCM }

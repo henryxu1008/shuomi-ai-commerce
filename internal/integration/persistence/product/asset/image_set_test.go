@@ -3,9 +3,9 @@ package assetpersistence
 import (
 	"context"
 	"encoding/json"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 	"strings"
-	productasset "task-processor/internal/product/asset"
 	"testing"
 )
 

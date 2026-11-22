@@ -3,8 +3,8 @@ package aiworkbenchpersistence
 import (
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
 )
 
 var scheduledEditColumns = []string{"task_selection", "goal_summary", "execution_spec", "max_occurrences", "per_run_upper_bound_micros", "total_upper_bound_micros"}

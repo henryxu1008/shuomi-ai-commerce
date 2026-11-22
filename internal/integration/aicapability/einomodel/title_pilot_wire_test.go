@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
 )
 
 func TestTitlePilotWireRejectsUnpricedOrDifferentProtocol(t *testing.T) {

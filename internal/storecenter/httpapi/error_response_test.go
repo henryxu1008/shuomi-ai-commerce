@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func TestMapStoreErrorUsesStableRedactedProtocolContract(t *testing.T) {

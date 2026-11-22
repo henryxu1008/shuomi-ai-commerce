@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/listing/completiondraft"
-	"task-processor/internal/listing/preparation"
 )
 
 func (a *completionHTTP) ListHistory(_ context.Context, id string, q completiondraft.HistoryQuery) (completiondraft.HistoryPage, error) {

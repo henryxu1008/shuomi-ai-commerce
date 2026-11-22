@@ -2,16 +2,16 @@ package dataservicesapp
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	datahttp "github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	keystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/dataservice"
+	jobstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/dataacquisition"
+	sourcestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"gorm.io/gorm"
-	"task-processor/internal/dataservice"
-	datahttp "task-processor/internal/dataservice/httpapi"
-	"task-processor/internal/httproute"
-	keystore "task-processor/internal/integration/persistence/dataservice"
-	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
-	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
 )
 
 // Runtime owns installation, canonical IAM, charge owner registration and worker start.

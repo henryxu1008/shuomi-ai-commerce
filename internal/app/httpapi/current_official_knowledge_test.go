@@ -3,13 +3,13 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	officialhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge/httpapi/official"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge/official"
 	"net/http"
 	"net/http/httptest"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	officialhttp "task-processor/internal/knowledge/httpapi/official"
-	"task-processor/internal/knowledge/official"
 	"testing"
 
 	"github.com/sirupsen/logrus"

@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authidentity"
-	integration "task-processor/internal/integration/walmart"
-	auth "task-processor/internal/storecenter/walmart"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/walmart"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 )
 
 type WalmartUSConfig struct {

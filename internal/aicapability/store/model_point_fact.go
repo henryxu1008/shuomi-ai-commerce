@@ -9,7 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 // HasInvocationID is an authoritative, unfiltered existence check on the

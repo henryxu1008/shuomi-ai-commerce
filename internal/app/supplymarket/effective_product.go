@@ -2,11 +2,11 @@ package supplymarketapp
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 	"reflect"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/review"
-	"task-processor/internal/product/supplymarket"
 )
 
 type EffectiveProductReader struct {

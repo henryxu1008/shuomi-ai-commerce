@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	governed "task-processor/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 )
 
 type workbenchInvocationReadFixture struct {

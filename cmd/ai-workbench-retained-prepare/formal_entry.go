@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	coreconfig "task-processor/internal/core/config"
-	store "task-processor/internal/integration/persistence/aiworkbench"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
 )
 
 type formalInspector func(context.Context, string) (formalContainer, error)

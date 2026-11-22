@@ -2,13 +2,13 @@ package listingapp
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
 	"testing"
 	"time"
 )

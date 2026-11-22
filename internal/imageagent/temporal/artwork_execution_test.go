@@ -2,8 +2,8 @@ package temporal
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/imageagent"
 	"testing"
 )
 

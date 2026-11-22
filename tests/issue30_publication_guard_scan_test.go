@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const issue30SourcingPackage = "task-processor/internal/product/sourcing"
+const issue30SourcingPackage = "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 
 func issue30ProductionGoSource(path string) bool {
 	path = filepath.ToSlash(path)

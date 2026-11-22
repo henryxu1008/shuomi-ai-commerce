@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"testing"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 func TestModuleRegistersExactSourceAccountRoutes(t *testing.T) {

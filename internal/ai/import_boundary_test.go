@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/ai"
-	"task-processor/internal/integration/bailian"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/bailian"
 )
 
 var (
@@ -29,7 +29,7 @@ func TestProviderAdaptersDoNotImportOpenAIForSharedContracts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		if strings.Contains(string(content), "task-processor/internal/integration/openai") {
+		if strings.Contains(string(content), "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai") {
 			t.Fatalf("provider adapter %s imports the OpenAI implementation package", path)
 		}
 	}

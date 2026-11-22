@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
 )
 
 func TestChatTurnSchemaUpgradeKeepsExistingRequestsAndHasBoundedGrants(t *testing.T) {

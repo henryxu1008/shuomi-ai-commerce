@@ -2,17 +2,17 @@ package httpapi
 
 import (
 	"context"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"gorm.io/gorm"
 	"strings"
-	listingapp "task-processor/internal/app/listing"
-	listinghttp "task-processor/internal/app/listing/httpapi"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 	"time"
 )
 

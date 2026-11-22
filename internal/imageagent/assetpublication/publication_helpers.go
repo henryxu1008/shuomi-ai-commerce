@@ -2,10 +2,10 @@ package assetpublication
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"reflect"
 	"strings"
-	"task-processor/internal/imageagent"
-	productasset "task-processor/internal/product/asset"
 )
 
 type ProjectionSource interface {

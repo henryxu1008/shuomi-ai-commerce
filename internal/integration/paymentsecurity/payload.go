@@ -4,7 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"task-processor/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 )
 
 // PayloadProtection extracts the existing AES-GCM behavior. A consumer's fixed

@@ -3,8 +3,8 @@ package reviewpersistence
 import (
 	"context"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"gorm.io/gorm"
-	"task-processor/internal/product/review"
 )
 
 // VerifySchema checks this owner's installed read/operation schema without

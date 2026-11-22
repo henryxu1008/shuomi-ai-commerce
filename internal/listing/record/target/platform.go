@@ -2,15 +2,15 @@ package target
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
+	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"reflect"
-	"task-processor/internal/marketplace/shein/goods"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	tiktok "task-processor/internal/marketplace/tiktokshop"
-	walmart "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 	"time"
 )
 

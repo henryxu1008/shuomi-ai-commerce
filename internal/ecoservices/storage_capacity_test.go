@@ -3,12 +3,12 @@ package ecoservices
 import (
 	"context"
 	"github.com/google/uuid"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	store "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 

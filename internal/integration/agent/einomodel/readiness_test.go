@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/authidentity"
-	governed "task-processor/internal/integration/aicapability/einomodel"
 )
 
 type readinessCredentialReader struct {

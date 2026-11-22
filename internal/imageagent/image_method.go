@@ -2,9 +2,9 @@ package imageagent
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"strings"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
 )
 
 const ImageMethodPolicyVersion = "image-method-visual-brief-v4"

@@ -3,8 +3,8 @@ package storeobservations
 import (
 	"context"
 	"encoding/json"
-	"task-processor/internal/authidentity"
-	o "task-processor/internal/storecenter/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 )
 
 func (r *Repository) VisitSupplyOrders(ctx context.Context, org, store, sync string, visit func(o.SupplyOrder) error) error {

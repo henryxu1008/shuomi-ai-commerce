@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
 	"gorm.io/gorm"
-	"task-processor/internal/commercial/billing"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 )
 
 // AddDisabledStorageSchema materializes only current owner fields. The caller

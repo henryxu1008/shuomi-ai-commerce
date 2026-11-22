@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func (a *aiWorkbenchApplication) listConversations(c *gin.Context, ctx context.Context, scope aiworkbench.Scope) {

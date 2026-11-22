@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/httproute"
-	"task-processor/internal/listing/preparation"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 )
 
 func IsSourceMaterialRoute(method, path string) bool {

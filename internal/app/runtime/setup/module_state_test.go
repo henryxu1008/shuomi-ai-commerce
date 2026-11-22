@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/app/setupcontrol"
-	"task-processor/internal/platform/privatefile"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 )
 
 func TestProjectCenterDisableUsesRuntimeFieldName(t *testing.T) {

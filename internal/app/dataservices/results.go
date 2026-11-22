@@ -6,10 +6,10 @@ import (
 
 	"gorm.io/gorm"
 
-	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	"task-processor/internal/product/sourcing"
+	sourcestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type capturedResultReader struct{ store sourcing.PublicationReadStore }

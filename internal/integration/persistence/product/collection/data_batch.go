@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	"task-processor/internal/product/collection"
 )
 
 // AppendDataPublication can only join the Product producer's transaction. The

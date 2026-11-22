@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"task-processor/internal/platform/privatefile"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 )
 
 // Report must persist the step intent before the driver dispatches its command.

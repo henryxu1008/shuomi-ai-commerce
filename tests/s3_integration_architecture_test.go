@@ -13,17 +13,17 @@ import (
 
 func TestS3IntegrationAndImageAgentBoundaries(t *testing.T) {
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "integration", "s3"), []string{
-		"task-processor/internal/core/logger",
-		"task-processor/internal/platform",
-		"task-processor/internal/infra",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/core/logger",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra",
 	}, nil)
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "imageagent"), []string{
-		"task-processor/internal/infra/" + "storage",
-		"task-processor/internal/integration/s3",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/" + "storage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3",
 		"github.com/aws/aws-sdk-go",
 	}, nil)
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal"), []string{
-		"task-processor/internal/infra/" + "storage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/" + "storage",
 	}, nil)
 }
 
@@ -87,7 +87,7 @@ func scanProductionS3Uses(t *testing.T, constructorsOnly bool) map[string]int {
 				if err != nil {
 					return err
 				}
-				if importPath != "task-processor/internal/integration/s3" {
+				if importPath != "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3" {
 					continue
 				}
 				alias := "s3"

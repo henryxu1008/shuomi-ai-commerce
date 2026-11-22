@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/workspace"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/listing/record"
-	"task-processor/internal/marketplace/shein/offlinepackage"
-	"task-processor/internal/marketplace/shein/workspace"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
 )
 
 func TestOwnSKUPackagingBuildsExactOfflineFactsAndKeepsPartialGaps(t *testing.T) {

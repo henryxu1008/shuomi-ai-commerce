@@ -2,9 +2,9 @@ package servicepayments
 
 import (
 	wechat "github.com/go-pay/gopay/wechat/v3"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/integration/paymentsecurity"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/paymentsecurity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 // Required zero-valued channel fields must be present in the signed body.

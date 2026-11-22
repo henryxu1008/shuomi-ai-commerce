@@ -16,11 +16,11 @@ import (
 	"strings"
 	"time"
 
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	coreconfig "task-processor/internal/core/config"
-	store "task-processor/internal/integration/persistence/aiworkbench"
 )
 
 type evidence struct{ Owner, Path, SHA256 string }

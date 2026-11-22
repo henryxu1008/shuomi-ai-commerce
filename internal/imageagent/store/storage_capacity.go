@@ -2,7 +2,7 @@ package store
 
 import (
 	"context"
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // This internal bounded lookup resolves the original owner from its immutable

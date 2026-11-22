@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/storecenter"
-	"task-processor/internal/workbenchcontext"
 )
 
 type changingOverviewResolver struct {

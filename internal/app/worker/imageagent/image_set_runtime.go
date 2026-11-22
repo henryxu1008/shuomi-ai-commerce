@@ -2,14 +2,14 @@ package imageagentworker
 
 import (
 	"context"
-	credential "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
-	appruntime "task-processor/internal/app/runtime"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	imagestore "task-processor/internal/imageagent/store"
-	imagetools "task-processor/internal/imageagent/tools"
-	productasset "task-processor/internal/product/asset"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	appruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagestore "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	imagetools "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/tools"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"

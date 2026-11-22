@@ -5,10 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/workbenchcontext"
 )
 
 func TestIssue36ReviewOnlyRoutesKeepDecisionAndApplyWithoutGeneration(t *testing.T) {

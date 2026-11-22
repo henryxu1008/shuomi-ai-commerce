@@ -3,9 +3,9 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"net/http"
 	"strconv"
-	"task-processor/internal/storecenter"
 )
 
 func (h *Handler) ReadOfficialConnection(c *gin.Context) {

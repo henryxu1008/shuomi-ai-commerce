@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
 )
 
 const googleTestOrigin = "https://generativelanguage.googleapis.com"

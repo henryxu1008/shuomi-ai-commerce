@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/core/config"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/review"
 )
 
 type contentReviewIAM struct {

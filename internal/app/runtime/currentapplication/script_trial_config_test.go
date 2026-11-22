@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	qualified "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/skillsandbox"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	d "task-processor/internal/aicapability/routeconfig"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	qualified "task-processor/internal/integration/aicapability/routeconfig"
-	"task-processor/internal/integration/skillsandbox"
 )
 
 func TestScriptTrialConfigurationKeepsExistingSandboxAndRequiresExplicitPrivatePriceScope(t *testing.T) {

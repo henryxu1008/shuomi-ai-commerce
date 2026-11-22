@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	productimage "task-processor/internal/product/image"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 
 	"gopkg.in/yaml.v3"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 // ListNewStoreTasks uses the source's fixed scope as a candidate index.

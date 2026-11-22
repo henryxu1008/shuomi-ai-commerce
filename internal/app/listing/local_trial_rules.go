@@ -1,8 +1,8 @@
 package listingapp
 
 import (
-	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 )
 
 // ControlledLocalRules is the bounded, compiled fixture used by the admitted

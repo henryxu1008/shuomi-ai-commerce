@@ -3,9 +3,9 @@ package membership
 import (
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
 )
 
 func TestBrowserAdministratorProjectionSeparatesFixedRoleFromExplicitGrants(t *testing.T) {

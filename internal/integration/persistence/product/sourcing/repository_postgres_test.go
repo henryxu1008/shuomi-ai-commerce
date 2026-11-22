@@ -19,9 +19,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	catalogpersistence "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
+	catalogpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func postgresFixture(t *testing.T) *gorm.DB {

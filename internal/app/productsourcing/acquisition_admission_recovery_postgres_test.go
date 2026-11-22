@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/sourcing"
 )
 
 type interruptedAcquisitionReserve struct {

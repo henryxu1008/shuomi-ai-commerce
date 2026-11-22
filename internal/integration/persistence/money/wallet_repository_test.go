@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	ledgermoney "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	ledgermoney "task-processor/internal/ledger/money"
 )
 
 func walletRepository(t *testing.T) (*Repository, *gorm.DB) {

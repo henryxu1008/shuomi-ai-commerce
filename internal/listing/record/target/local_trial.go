@@ -3,13 +3,13 @@ package target
 import (
 	"context"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"reflect"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 )
 
 // LocalTrial is durable provenance, independent of one-shot import metadata.

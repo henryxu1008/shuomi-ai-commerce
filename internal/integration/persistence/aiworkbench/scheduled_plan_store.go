@@ -9,7 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 // scheduledPlanRow is the Workbench-owned scheduled intent. It is never an

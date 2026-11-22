@@ -7,14 +7,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"task-processor/internal/integration/httpimage"
-	"task-processor/internal/product/pod"
 	"time"
 )
 

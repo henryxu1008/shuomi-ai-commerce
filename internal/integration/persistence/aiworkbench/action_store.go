@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 type taskActionRow struct {

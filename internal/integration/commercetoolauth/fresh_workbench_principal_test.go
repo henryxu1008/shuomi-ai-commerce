@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"go.opentelemetry.io/otel"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/httproute"
-	"task-processor/internal/workbenchcontext"
 )
 
 type freshAuthorizationFixture struct {

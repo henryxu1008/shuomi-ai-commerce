@@ -2,8 +2,8 @@ package httpapi
 
 import (
 	"context"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"net/http"
-	e "task-processor/internal/ecoservices"
 )
 
 type ServicePort interface {

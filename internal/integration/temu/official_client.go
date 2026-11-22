@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 const (

@@ -3,14 +3,14 @@ package currentapplication
 import (
 	"encoding/base64"
 	"errors"
+	b "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/servicepayments"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
 	"net"
 	"net/url"
 	"strings"
-	b "task-processor/internal/commercial/billing"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/integration/servicepayments"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 type EcoservicesPaymentsConfig struct {

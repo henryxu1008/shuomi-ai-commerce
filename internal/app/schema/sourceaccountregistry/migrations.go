@@ -8,10 +8,10 @@ import (
 	"github.com/pressly/goose/v3"
 	"gorm.io/gorm"
 
-	accountprofileschema "task-processor/internal/app/schema/accountprofile"
-	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
-	verificationstore "task-processor/internal/integration/persistence/subjectverification"
-	platformmigration "task-processor/internal/platform/database/migration"
+	accountprofileschema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/accountprofile"
+	sourceaccountstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccountregistry"
+	verificationstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/subjectverification"
+	platformmigration "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database/migration"
 )
 
 const (

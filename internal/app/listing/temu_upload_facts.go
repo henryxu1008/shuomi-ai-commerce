@@ -2,10 +2,10 @@ package listingapp
 
 import (
 	"context"
-	record "task-processor/internal/listing/record/target"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // The current AssetDB owner is read before claim and again before each send.

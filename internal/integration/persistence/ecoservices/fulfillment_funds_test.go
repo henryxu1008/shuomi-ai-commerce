@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/ecoservicesbilling"
+	bstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	mstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"task-processor/internal/commercial/billing"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/integration/ecoservicesbilling"
-	bstore "task-processor/internal/integration/persistence/commercialbilling"
-	mstore "task-processor/internal/integration/persistence/money"
-	"task-processor/internal/ledger/money"
 )
 
 // Only payment query is expected: a fulfillment check cannot dispatch money.

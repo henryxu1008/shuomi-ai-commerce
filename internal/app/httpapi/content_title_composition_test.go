@@ -5,13 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	kernelmodule "task-processor/internal/kernel/module"
 )
 
 func TestContentTitleOnlyGlobalCompositionRejectsFullChatPlannerAndSharedPool(t *testing.T) {

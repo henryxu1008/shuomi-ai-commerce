@@ -3,7 +3,7 @@ package imageagent
 import (
 	"reflect"
 
-	"task-processor/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 )
 
 // ImageSetResultDigest is a separate contract from ResultDigestV3. It binds

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	k "task-processor/internal/knowledge"
 )
 
 var _ k.ContextRepository = (*Repository)(nil)

@@ -71,12 +71,12 @@ func phase3LegacyProductRootViolations(files, legacyRoots []string) []string {
 
 func TestPhase3LegacyProductImportDeclarationsAreAbsent(t *testing.T) {
 	banned := []string{
-		"task-processor/internal/catalog",
-		"task-processor/internal/asset",
-		"task-processor/internal/imageasset",
-		"task-processor/internal/productenrich",
-		"task-processor/internal/productimage",
-		"task-processor/internal/product/asset/assettest",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/catalog",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/imageasset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest",
 	}
 	violations, err := phase3BannedImportDeclarationViolations(trackedPhase3ProductHardCutSources(t), banned)
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestPhase3LegacyProductImportDeclarationsAreAbsent(t *testing.T) {
 }
 
 func TestPhase3LegacyProductImportGuardCoversArbitraryTrackedProductionGoEntrypoints(t *testing.T) {
-	banned := []string{"task-processor/internal/productimage"}
+	banned := []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage"}
 	for _, path := range []string{
 		"internal/app/reintroduced.go",
 		"cmd/worker/main.go",
@@ -93,12 +93,12 @@ func TestPhase3LegacyProductImportGuardCoversArbitraryTrackedProductionGoEntrypo
 	} {
 		source := listingKitImageBoundarySource{
 			path: path,
-			text: "package main\nimport _ \"task-processor/internal/productimage/runtime\"\n",
+			text: "package main\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/runtime\"\n",
 		}
 		selected := selectPhase3ProductHardCutSources([]listingKitImageBoundarySource{source})
 		violations, err := phase3BannedImportDeclarationViolations(selected, banned)
 		require.NoError(t, err)
-		require.Equal(t, []string{path + " -> task-processor/internal/productimage/runtime"}, violations)
+		require.Equal(t, []string{path + " -> github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/runtime"}, violations)
 	}
 }
 
@@ -133,9 +133,9 @@ func phase3BannedImportDeclarationViolations(sources []listingKitImageBoundarySo
 func TestPhase3ConsumersCannotOrchestrateProductImage(t *testing.T) {
 	for _, root := range []string{"listingkit", "sds", "amazonlisting"} {
 		assertNoBannedImportPrefixesBelow(t, filepath.Join("..", "internal"), filepath.Join("..", "internal", root), []string{
-			"task-processor/internal/product/image",
-			"task-processor/internal/imageagent/store",
-			"task-processor/internal/imageagent/temporal",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal",
 		}, nil)
 	}
 }
@@ -159,9 +159,9 @@ func TestPhase3ProductTargetDependencies(t *testing.T) {
 		}
 
 		assertNoBannedImportPrefixes(t, root, []string{
-			"task-processor/internal/app",
-			"task-processor/internal/platform",
-			"task-processor/internal/integration",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
 			"gorm.io/gorm",
 			"go.temporal.io",
 			"github.com/redis",
@@ -174,14 +174,14 @@ func TestPhase3ProductTargetDependencies(t *testing.T) {
 	}
 
 	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "product", "sourcing"), []string{
-		"task-processor/internal/asset",
-		"task-processor/internal/crawler",
-		"task-processor/internal/model",
-		"task-processor/internal/product/asset",
-		"task-processor/internal/product/enrichment",
-		"task-processor/internal/product/review/proposal",
-		"task-processor/internal/product/image",
-		"task-processor/internal/productenrich",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/crawler",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/model",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich",
 	}, nil)
 }
 

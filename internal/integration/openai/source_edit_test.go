@@ -3,8 +3,8 @@ package openai
 import (
 	"context"
 	"encoding/base64"
-	"task-processor/internal/ai"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"testing"
 
 	"github.com/stretchr/testify/require"

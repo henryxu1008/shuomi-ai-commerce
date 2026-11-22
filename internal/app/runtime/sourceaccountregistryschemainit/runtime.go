@@ -7,10 +7,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/app/configadapter"
-	registryschema "task-processor/internal/app/schema/sourceaccountregistry"
-	"task-processor/internal/core/config"
-	platformdatabase "task-processor/internal/platform/database"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/configadapter"
+	registryschema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 type Dependencies struct {

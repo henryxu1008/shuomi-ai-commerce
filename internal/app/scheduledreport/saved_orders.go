@@ -3,11 +3,11 @@ package scheduledreport
 import (
 	"context"
 	"fmt"
-	storeapp "task-processor/internal/app/storecenter"
-	observationapp "task-processor/internal/app/storeobservations"
-	rc "task-processor/internal/reportcenter"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	observationapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"time"
 )
 

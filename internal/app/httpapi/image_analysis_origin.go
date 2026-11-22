@@ -2,15 +2,15 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"gorm.io/gorm"
 	"strconv"
-	"task-processor/internal/agent"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/core/config"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
 )
 
 // Reuse the current POD-origin and immutable material owner, independently of

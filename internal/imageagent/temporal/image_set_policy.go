@@ -2,8 +2,8 @@ package temporal
 
 import (
 	"context"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 func (a *Activities) PrepareImageSetPolicyAdoption(ctx context.Context, identity imageagent.ExecutionIdentity) (*asset.ImageSetCommand, error) {

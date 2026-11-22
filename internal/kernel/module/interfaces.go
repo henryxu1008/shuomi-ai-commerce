@@ -1,7 +1,7 @@
 package module
 
 import (
-	"task-processor/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 type Module interface {

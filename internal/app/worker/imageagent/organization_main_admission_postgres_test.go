@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	aistore "task-processor/internal/aicapability/store"
-	"task-processor/internal/imageagent"
-	resourceadapter "task-processor/internal/integration/orgresource"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

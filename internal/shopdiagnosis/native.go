@@ -5,9 +5,9 @@ package shopdiagnosis
 import (
 	"context"
 	"errors"
-	"task-processor/internal/agent"
-	c "task-processor/internal/operationscockpit"
-	o "task-processor/internal/storecenter/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 )
 
 type Boundary interface {

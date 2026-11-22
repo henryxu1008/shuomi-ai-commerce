@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	billinghttp "task-processor/internal/commercial/billing/httpapi"
-	"task-processor/internal/httproute"
+	billinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 
 	"github.com/stretchr/testify/require"
 )

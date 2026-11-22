@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 func TestWorkbenchPrincipalResolverResolvesEveryInvocation(t *testing.T) {

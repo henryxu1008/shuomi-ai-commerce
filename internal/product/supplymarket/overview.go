@@ -2,8 +2,8 @@ package supplymarket
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"golang.org/x/sync/errgroup"
-	"task-processor/internal/product/collection"
 )
 
 type ApplicationCounts struct {

@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 )
 
 func TestPlanQuotaPauseKeepsOriginalChildAndDoesNotProcessLaterProducts(t *testing.T) {

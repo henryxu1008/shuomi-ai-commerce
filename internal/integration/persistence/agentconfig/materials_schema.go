@@ -2,8 +2,8 @@ package agentconfigpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"gorm.io/gorm"
-	"task-processor/internal/agentconfig"
 )
 
 const materialsSchemaVersionCheck = `CHECK (((schema_version)::text = ANY ((ARRAY['title-config-v1'::character varying, 'image-config-v1'::character varying, 'content-config-v1'::character varying, 'listing-materials-config-v1'::character varying])::text[])))`

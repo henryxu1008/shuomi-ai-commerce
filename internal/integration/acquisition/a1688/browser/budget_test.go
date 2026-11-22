@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/sourcing"
 )
 
 // The provider budget must stay inside the current-application acquisition route

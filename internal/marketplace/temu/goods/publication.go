@@ -1,7 +1,7 @@
 package goods
 
 import (
-	"task-processor/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 )
 
 // CreatedGoods is only the correlated creation response. Review/on-sale facts

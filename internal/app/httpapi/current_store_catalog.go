@@ -3,16 +3,16 @@ package httpapi
 import (
 	"context"
 
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	memberprovider "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/zitadel/membership"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	memberprovider "task-processor/internal/integration/zitadel/membership"
-	"task-processor/internal/organization/membership"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 )
 
 type storeResponsibleReader struct{ directory membership.Directory }

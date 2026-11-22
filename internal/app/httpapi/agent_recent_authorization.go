@@ -2,12 +2,12 @@ package httpapi
 
 import (
 	"errors"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/knowledge"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/operationscockpit"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 )
 
 // Only an explicit resource denial can hide a recent run. Dependency failures

@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/skillsandbox"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/integration/skillsandbox"
 )
 
 // Real HTTP/PG/Registry/Graph/official SDK composition; only the external

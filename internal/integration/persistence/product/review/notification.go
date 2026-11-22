@@ -2,7 +2,7 @@ package reviewpersistence
 
 import (
 	"context"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 )
 
 func (r *Repository) ListNotificationRecords(ctx context.Context, scope review.Scope, after string, limit int) ([]review.Record, string, error) {

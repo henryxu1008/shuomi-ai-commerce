@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	storeapp "task-processor/internal/app/storecenter"
-	integration "task-processor/internal/integration/tiktokshop"
-	"task-processor/internal/storecenter"
-	tiktok "task-processor/internal/storecenter/tiktokshop"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 type tiktokApplicationProvider struct {

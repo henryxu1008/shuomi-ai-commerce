@@ -2,7 +2,7 @@ package imageagent
 
 import (
 	"context"
-	productasset "task-processor/internal/product/asset"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 // ExecutionIdentity is the tenant/user identity verified at the command edge

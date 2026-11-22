@@ -3,9 +3,9 @@ package draft
 import (
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/workspace"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/shein/workspace"
-	"task-processor/internal/product/catalog/canonical"
 )
 
 func TestAssemblerBuildKeepsMissingVariantsVisibleInDraftAndReadiness(t *testing.T) {

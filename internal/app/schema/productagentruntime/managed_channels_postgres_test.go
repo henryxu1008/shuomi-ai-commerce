@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	routestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/routeconfig"
 	"github.com/stretchr/testify/require"
-	routestore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 func TestPrepareManagedChannelsPreservesRouteOwnerBoundary(t *testing.T) {

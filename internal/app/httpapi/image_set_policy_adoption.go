@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"task-processor/internal/agent"
-	"task-processor/internal/imageagent"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	"task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 type imageSetPolicyAdopter struct {

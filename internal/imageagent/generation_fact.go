@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"net/url"
 	"strings"
-	"task-processor/internal/aicapability"
 	"time"
 )
 

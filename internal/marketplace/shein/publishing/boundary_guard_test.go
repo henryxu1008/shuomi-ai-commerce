@@ -15,13 +15,13 @@ func TestSheinMarketplacePublishingDoesNotDependOnListingKitOrRootRuntime(t *tes
 	t.Parallel()
 
 	forbiddenPrefixes := []string{
-		"task-processor/internal/listingkit",
-		"task-processor/internal/app",
-		"task-processor/internal/httpbootstrap",
-		"task-processor/internal/httproute",
-		"task-processor/internal/infra",
-		"task-processor/internal/integration",
-		"task-processor/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/httpbootstrap",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/infra",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
 	}
 	assertPackageDoesNotImportRuntimePrefixes(t, sheinMarketplacePublishingPackageDir(t), forbiddenPrefixes)
 }

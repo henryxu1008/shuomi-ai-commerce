@@ -20,6 +20,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	obsapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations"
+	obshttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	obspg "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shein"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/require"
@@ -28,14 +36,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	storeapp "task-processor/internal/app/storecenter"
-	obsapp "task-processor/internal/app/storeobservations"
-	obshttp "task-processor/internal/app/storeobservations/httpapi"
-	"task-processor/internal/authidentity"
-	obspg "task-processor/internal/integration/persistence/storeobservations"
-	"task-processor/internal/integration/shein"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 )
 
 // Only IAM/Store material and the platform transport are synthetic. The real

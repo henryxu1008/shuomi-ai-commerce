@@ -2,15 +2,15 @@ package completiondraft
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"math"
 	"reflect"
 	"slices"
 	"strings"
-	"task-processor/internal/product/description"
 	"unicode/utf8"
 
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 const MaxStructuredItems = 256

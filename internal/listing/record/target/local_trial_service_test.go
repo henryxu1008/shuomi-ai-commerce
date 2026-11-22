@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 	"testing"
 	"time"
 )

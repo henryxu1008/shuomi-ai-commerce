@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"sync"
 	"sync/atomic"
-	"task-processor/internal/authidentity"
 	"testing"
 	"time"
 )

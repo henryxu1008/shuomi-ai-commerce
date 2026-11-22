@@ -2,8 +2,8 @@ package aiworkbenchpersistence
 
 import (
 	"context"
-	"task-processor/internal/agent"
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 // StoreDependencies ties every consumed assistant turn to its original command.

@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"unicode/utf8"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 )
 
 const PromptVersion = "ai-workbench-store-route-v1"

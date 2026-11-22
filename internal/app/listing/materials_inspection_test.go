@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials/tools/materialsinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/listing/materials"
-	"task-processor/internal/listing/materials/tools/materialsinspect"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
 )
 
 func materialsReadContext() context.Context {

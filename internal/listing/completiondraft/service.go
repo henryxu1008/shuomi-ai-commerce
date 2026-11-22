@@ -5,16 +5,16 @@ package completiondraft
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"math"
 	"strings"
-	"task-processor/internal/product/description"
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 const StatusPending = "pending_completion"

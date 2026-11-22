@@ -3,8 +3,8 @@ package notificationhttp
 import (
 	"testing"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 )
 
 func TestAnnouncementAdminReadsRequireVerifiedPlatformAuthority(t *testing.T) {

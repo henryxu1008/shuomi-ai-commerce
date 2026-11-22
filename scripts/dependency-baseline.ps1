@@ -71,18 +71,18 @@ function Get-RepoRelativePath($File) {
 
 function Get-BoundaryViolations($GoFiles) {
     $forbiddenRules = @(
-        @{ From = '^internal/catalog(/|$)';       Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'catalog must not depend on listingkit' },
-        @{ From = '^internal/asset(/|$)';         Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'asset must not depend on listingkit' },
-        @{ From = '^internal/productimage(/|$)';  Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'productimage must not depend on listingkit' },
-        @{ From = '^internal/publishing/';        Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'publishing packages must not depend on listingkit facade' },
-        @{ From = '^internal/workspace/';         Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'workspace packages must not depend on listingkit facade' },
-        @{ From = '^internal/amazon(/|$)';        Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
-        @{ From = '^internal/shein(/|$)';         Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
-        @{ From = '^internal/temu(/|$)';          Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
-        @{ From = '^internal/walmart(/|$)';       Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
-        @{ From = '^internal/infra/';             Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'infra must not depend on listingkit' },
-        @{ From = '^internal/platform/';          Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'platform must not depend on listingkit' },
-        @{ From = '^internal/integration/';       Import = '^task-processor/internal/listingkit(/|$)'; Reason = 'integration must not depend on listingkit' },
+        @{ From = '^internal/catalog(/|$)';       Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'catalog must not depend on listingkit' },
+        @{ From = '^internal/asset(/|$)';         Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'asset must not depend on listingkit' },
+        @{ From = '^internal/productimage(/|$)';  Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'productimage must not depend on listingkit' },
+        @{ From = '^internal/publishing/';        Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'publishing packages must not depend on listingkit facade' },
+        @{ From = '^internal/workspace/';         Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'workspace packages must not depend on listingkit facade' },
+        @{ From = '^internal/amazon(/|$)';        Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
+        @{ From = '^internal/shein(/|$)';         Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
+        @{ From = '^internal/temu(/|$)';          Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
+        @{ From = '^internal/walmart(/|$)';       Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'marketplace packages must not depend on listingkit facade' },
+        @{ From = '^internal/infra/';             Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'infra must not depend on listingkit' },
+        @{ From = '^internal/platform/';          Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'platform must not depend on listingkit' },
+        @{ From = '^internal/integration/';       Import = '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)'; Reason = 'integration must not depend on listingkit' },
         @{ From = '^internal/(catalog|asset|productimage|publishing|workspace|amazon|shein|temu|walmart)(/|$)'; Import = '^github.com/gin-gonic/gin$'; Reason = 'domain/product/marketplace packages must not depend on Gin'; Exclude = '(^|/)(api|httpapi)(/|$)' }
     )
 
@@ -155,7 +155,7 @@ foreach ($file in $goFiles) {
     $fromPkg = Get-PackageName $file
     $imports = Get-ImportsFromFile $file
     foreach ($import in $imports) {
-        if ($import -match '^task-processor/internal/listingkit(/|$)' -and $fromPkg -ne 'internal/listingkit') {
+        if ($import -match '^github\.com/henryxu1008/shuomi-ai-commerce/internal/listingkit(/|$)' -and $fromPkg -ne 'internal/listingkit') {
             [void]$listingkitImporters.Add($fromPkg)
         }
     }

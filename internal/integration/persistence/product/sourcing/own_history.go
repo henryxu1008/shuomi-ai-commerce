@@ -2,10 +2,10 @@ package sourcingpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
 	"math"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/sourcing"
 )
 
 type ownHistoryReader struct{ repository *repository }

@@ -1,7 +1,7 @@
 package httpapi
 
 import (
-	contract "task-processor/internal/marketplace/validator"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 	"time"
 )
 

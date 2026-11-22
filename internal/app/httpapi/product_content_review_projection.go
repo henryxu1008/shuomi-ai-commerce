@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"context"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 )
 
 const productReviewModeProjectorKey = "product-review-frozen-mode-projector"

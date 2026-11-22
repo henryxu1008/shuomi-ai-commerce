@@ -16,8 +16,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 )
 
 var (

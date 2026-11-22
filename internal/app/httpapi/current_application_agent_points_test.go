@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
+	confighttp "github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	skillhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/skill/httpapi"
 	"github.com/stretchr/testify/require"
-	confighttp "task-processor/internal/agentconfig/httpapi"
-	"task-processor/internal/httproute"
-	skillhttp "task-processor/internal/skill/httpapi"
 )
 
 func agentAndPointRoutes(agent, points bool) []httproute.Descriptor {

@@ -2,18 +2,18 @@ package acquisition
 
 import (
 	"context"
+	officialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/official"
 	"strings"
-	officialstore "task-processor/internal/integration/persistence/listing/official"
 
+	completionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/completiondraft"
+	preparationstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/preparation"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	planstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisitionplan"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	podstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/pod"
+	marketstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	completionstore "task-processor/internal/integration/persistence/listing/completiondraft"
-	preparationstore "task-processor/internal/integration/persistence/listing/preparation"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	planstore "task-processor/internal/integration/persistence/product/acquisitionplan"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	podstore "task-processor/internal/integration/persistence/product/pod"
-	marketstore "task-processor/internal/integration/persistence/product/supplymarket"
-	"task-processor/internal/product/sourcing"
 )
 
 const RuntimeRole = "source_acquisition_runtime"

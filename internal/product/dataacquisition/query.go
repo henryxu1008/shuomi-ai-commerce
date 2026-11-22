@@ -4,15 +4,15 @@ package dataacquisition
 import (
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/amazonidentity"
 	"math"
 	"net/url"
 	"regexp"
 	"strings"
-	"task-processor/internal/product/amazonidentity"
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 var (

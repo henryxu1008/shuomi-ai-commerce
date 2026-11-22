@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 func TestAutoMigrateCreatesOwnerScopedV2TablesWithoutTouchingLegacySchema(t *testing.T) {

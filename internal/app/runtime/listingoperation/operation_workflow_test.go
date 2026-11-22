@@ -3,6 +3,8 @@ package listingoperation
 import (
 	"context"
 	"github.com/google/uuid"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"github.com/stretchr/testify/require"
 	common "go.temporal.io/api/common/v1"
 	enums "go.temporal.io/api/enums/v1"
@@ -12,8 +14,6 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/testsuite"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/listing/preparation"
 	"testing"
 )
 

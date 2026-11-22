@@ -2,9 +2,9 @@ package collection
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"math"
 	"strconv"
-	"task-processor/internal/product/sourcing"
 )
 
 // A new immutable user declaration records its exact original-source basis.

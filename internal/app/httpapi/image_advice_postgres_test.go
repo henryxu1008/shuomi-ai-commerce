@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/product/collection"
 )
 
 func TestImageAdviceExistingOwnersToReview(t *testing.T) {

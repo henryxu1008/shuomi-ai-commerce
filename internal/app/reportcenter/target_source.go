@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"time"
 
-	"task-processor/internal/authidentity"
-	target "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
-	rc "task-processor/internal/reportcenter"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	target "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func (s *Sources) readTarget(ctx context.Context, scope rc.Scope, id string) (rc.Snapshot, error) {

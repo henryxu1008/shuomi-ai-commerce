@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"net/http"
 	"net/url"
 	"strconv"
-	"task-processor/internal/product/collection"
 )
 
 func parseHistoryQuery(request *http.Request) (uint64, int, error) {

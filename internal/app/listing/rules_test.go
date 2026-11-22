@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 )
 
 type rulesFixture struct {

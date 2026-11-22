@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 	"gorm.io/gorm"
-	k "task-processor/internal/knowledge"
 )
 
 // livePermit is called with the lifecycle Base lock held. The bounded lease,

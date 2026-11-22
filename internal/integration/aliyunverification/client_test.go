@@ -2,11 +2,11 @@ package aliyunverification
 
 import (
 	"context"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	domain "task-processor/internal/subjectverification"
 	"testing"
 	"time"
 )

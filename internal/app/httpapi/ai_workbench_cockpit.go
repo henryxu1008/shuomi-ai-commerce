@@ -7,11 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/app/workbenchmetrics"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/workbenchmetrics"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 )
 
 func (a *aiWorkbenchApplication) taskCockpitMetrics(c *gin.Context, ctx context.Context, owner aiworkbench.Scope) {

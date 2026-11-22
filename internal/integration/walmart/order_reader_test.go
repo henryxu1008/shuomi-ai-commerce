@@ -2,12 +2,12 @@ package walmart
 
 import (
 	"context"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"strings"
-	o "task-processor/internal/storecenter/observations"
-	auth "task-processor/internal/storecenter/walmart"
 	"testing"
 	"time"
 )

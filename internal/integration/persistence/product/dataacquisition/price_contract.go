@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"gorm.io/gorm"
-	"task-processor/internal/pkg/pgschema"
-	"task-processor/internal/product/dataacquisition"
 )
 
 // Fixed native physical contract, independently checked against the fresh owner

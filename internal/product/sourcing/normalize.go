@@ -2,8 +2,8 @@ package sourcing
 
 import (
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"strings"
-	"task-processor/internal/product/description"
 )
 
 // ErrSourceIdentityRequired means an envelope lacks a strict source identity.

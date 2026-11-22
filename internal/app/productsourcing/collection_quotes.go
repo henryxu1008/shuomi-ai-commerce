@@ -6,9 +6,9 @@ import (
 
 	"gorm.io/gorm"
 
-	sourcingpersistence "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
+	sourcingpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type collectionSourceQuotes struct{ db *gorm.DB }

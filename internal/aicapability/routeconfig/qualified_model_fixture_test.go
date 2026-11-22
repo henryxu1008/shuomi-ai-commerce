@@ -1,7 +1,7 @@
 package routeconfig
 
 import (
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"time"
 )
 

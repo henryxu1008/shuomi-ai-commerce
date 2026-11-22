@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	registry "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	registry "task-processor/internal/sourceaccountregistry"
 )
 
 type memberAuditHistory struct{ items []AdditionalAuditEvent }

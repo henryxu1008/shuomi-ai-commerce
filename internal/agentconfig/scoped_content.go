@@ -1,8 +1,8 @@
 package agentconfig
 
 import (
-	"task-processor/internal/agent"
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 func ValidContentPrompt(prompt string, ref agent.WorkbenchContextRef) bool {

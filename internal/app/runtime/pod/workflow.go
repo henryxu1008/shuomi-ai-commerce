@@ -3,6 +3,9 @@ package podruntime
 import (
 	"context"
 	"errors"
+	podapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/pod"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
@@ -11,9 +14,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	podapp "task-processor/internal/app/pod"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
 	"time"
 )
 

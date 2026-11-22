@@ -2,10 +2,10 @@ package productsourcing
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"net/url"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/collection"
 )
 
 // ReadOwnIntake reads an upload owned by the current authorized actor before

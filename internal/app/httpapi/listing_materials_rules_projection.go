@@ -1,11 +1,11 @@
 package httpapi
 
 import (
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/listing/materials"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // History consumes recorded facts only. It must not query today's rules or

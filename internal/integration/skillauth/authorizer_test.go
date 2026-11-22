@@ -2,11 +2,11 @@ package skillauth
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/workbenchcontext"
 	"testing"
 	"time"
 )

@@ -6,18 +6,18 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/storecenter"
 )
 
 func testFullChatApplicationComposition(t *testing.T, f *acquisitionHTTPFixture, agent ProductAgentDependencies, deps routeAuthDependencies, chatDB *gorm.DB, policy governed.RoutePolicy, operationID string) {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"strings"
-	"task-processor/internal/agent"
 	"testing"
 )
 

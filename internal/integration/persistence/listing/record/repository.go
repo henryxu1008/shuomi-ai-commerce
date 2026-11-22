@@ -7,9 +7,9 @@ import (
 	"errors"
 	"time"
 
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
 )
 
 type Repository struct{ db *gorm.DB }

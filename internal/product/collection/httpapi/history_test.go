@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 	"testing"
 )
 

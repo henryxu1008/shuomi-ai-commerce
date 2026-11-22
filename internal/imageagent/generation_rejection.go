@@ -2,8 +2,8 @@ package imageagent
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"regexp"
-	"task-processor/internal/aicapability"
 )
 
 // GenerationRejection is bounded evidence from an admitted adapter, never an

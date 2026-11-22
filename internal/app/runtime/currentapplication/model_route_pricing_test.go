@@ -2,12 +2,12 @@ package currentapplication
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	qualified "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/routeconfig"
 	"slices"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	d "task-processor/internal/aicapability/routeconfig"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	qualified "task-processor/internal/integration/aicapability/routeconfig"
 	"testing"
 
 	"github.com/stretchr/testify/require"

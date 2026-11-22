@@ -3,9 +3,9 @@ package preparationpersistence
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
 )
 
 func (r *Repository) ListStageFacts(ctx context.Context, scope preparation.Scope, preparationID, storeID, supplierHash, after string) ([]preparation.SourceStageFacts, error) {

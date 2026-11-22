@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"runtime"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 	"gorm.io/gorm"
-	credential "task-processor/internal/aicapability/channelcredential"
-	coreconfig "task-processor/internal/core/config"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 // ChannelCredentialsConfig is private deployment input. The metadata/config

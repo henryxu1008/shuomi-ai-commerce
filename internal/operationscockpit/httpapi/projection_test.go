@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	c "task-processor/internal/operationscockpit"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
 )
 
 type projectionFixture struct {

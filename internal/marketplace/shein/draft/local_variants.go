@@ -1,8 +1,8 @@
 package draft
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
 	"strings"
-	"task-processor/internal/marketplace/shein/offlinepackage"
 )
 
 type variantGroup struct {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"gorm.io/gorm"
-	"task-processor/internal/app/productsourcing"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	"task-processor/internal/ledger/orgresource"
 )
 
 // Existing route tests explicitly substitute only the Resource boundary; the

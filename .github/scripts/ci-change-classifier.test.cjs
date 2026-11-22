@@ -429,11 +429,13 @@ test("the actual backend step runs all packages on push and leaves only the arch
   const backend = workflow.match(/- name: Run backend tests\n        shell: bash\n        run: \|\n([\s\S]*?)\n      - name:/);
   assert.ok(backend, "backend step must expose the event-specific shell command");
   const script = backend[1].split("\n").map((line) => line.slice(10)).join("\n");
+  const modulePath = "github.com/henryxu1008/shuomi-ai-commerce";
+  const dottedHostLookalike = "githubXcom/henryxu1008/shuomi-ai-commerce/tests";
   const mockGo = [
     "go() {",
     '  if [[ "$1" == list ]]; then',
     '    if [[ "${LIST_FAIL:-}" == true ]]; then return 12; fi',
-    "    printf '%s\\n' task-processor/tests task-processor/tests/child task-processor/testsibling task-processor/internal/app",
+    `    printf '%s\\n' ${modulePath}/tests ${modulePath}/tests/child ${modulePath}/testsibling ${modulePath}/internal/app ${dottedHostLookalike}`,
     "  else",
     '    printf "%s\\n" "$@"',
     "  fi",
@@ -445,6 +447,12 @@ test("the actual backend step runs all packages on push and leaves only the arch
   assert.deepEqual(push.stdout.trim().split(/\r?\n/), ["test", "./...", "-count=1"]);
   const pr = run("pull_request");
   assert.equal(pr.status, 0, pr.stderr);
-  assert.deepEqual(pr.stdout.trim().split(/\r?\n/), ["test", "-count=1", "task-processor/testsibling", "task-processor/internal/app"]);
+  assert.deepEqual(pr.stdout.trim().split(/\r?\n/), [
+    "test",
+    "-count=1",
+    `${modulePath}/testsibling`,
+    `${modulePath}/internal/app`,
+    dottedHostLookalike,
+  ]);
   assert.notEqual(run("pull_request", { LIST_FAIL: "true" }).status, 0);
 });

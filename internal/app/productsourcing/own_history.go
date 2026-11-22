@@ -1,9 +1,9 @@
 package productsourcing
 
 import (
+	sourcingstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	sourcingstore "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/product/sourcing"
 )
 
 func NewOwnHistoryReader(db *gorm.DB) (sourcing.OwnHistoryReadStore, error) {

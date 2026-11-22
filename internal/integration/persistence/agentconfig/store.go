@@ -10,13 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"math"
 	"strconv"
 	"strings"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
 	"time"
 )
 

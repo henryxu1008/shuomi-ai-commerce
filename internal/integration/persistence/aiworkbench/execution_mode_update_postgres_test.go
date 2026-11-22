@@ -4,10 +4,10 @@ package aiworkbenchpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"task-processor/internal/aiworkbench"
 	"testing"
 )
 

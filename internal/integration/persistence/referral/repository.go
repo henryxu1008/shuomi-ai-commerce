@@ -3,7 +3,7 @@ package referral
 import (
 	"context"
 	"errors"
-	d "task-processor/internal/referral"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"time"
 
 	"gorm.io/gorm"

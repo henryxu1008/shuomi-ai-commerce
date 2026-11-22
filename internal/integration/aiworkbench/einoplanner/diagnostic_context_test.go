@@ -2,9 +2,9 @@ package einoplanner
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	rp "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"strings"
-	"task-processor/internal/aiworkbench"
-	rp "task-processor/internal/product/review/proposal"
 	"testing"
 	"time"
 )

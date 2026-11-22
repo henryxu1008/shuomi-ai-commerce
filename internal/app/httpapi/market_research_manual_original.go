@@ -6,12 +6,12 @@ import (
 	"net"
 	"net/url"
 
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	zitadel "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
 	"gorm.io/gorm"
-	dataservicesapp "task-processor/internal/app/dataservices"
-	listingapp "task-processor/internal/app/listing"
-	zitadel "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/research"
 )
 
 const researchManualOriginalKeyword = "under sink organizer"

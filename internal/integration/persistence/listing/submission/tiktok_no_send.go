@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/subtle"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	"gorm.io/gorm"
-	"task-processor/internal/listing/submission"
 )
 
 func (r *Repository) StopTikTokBeforeSend(ctx context.Context, proof submission.TikTokNoSendProof) (submission.ExecutionAttempt, error) {

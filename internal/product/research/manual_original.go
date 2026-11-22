@@ -2,7 +2,7 @@ package research
 
 import (
 	"context"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // manualOriginalSource is supplied by server composition, never by an HTTP

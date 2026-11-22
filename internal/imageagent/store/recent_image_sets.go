@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"gorm.io/gorm"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/imageagent"
 )
 
 func (r *gormRepository) ListImageSets(ctx context.Context, identity imageagent.ExecutionIdentity, contextID, cursor string, size int) ([]imageagent.ImageSetRunSummary, string, int, error) {

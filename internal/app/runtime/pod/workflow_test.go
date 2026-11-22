@@ -3,6 +3,9 @@ package podruntime
 import (
 	"context"
 	"github.com/google/uuid"
+	podapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/pod"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	common "go.temporal.io/api/common/v1"
@@ -13,9 +16,6 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/testsuite"
-	podapp "task-processor/internal/app/pod"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/pod"
 	"testing"
 	"time"
 )

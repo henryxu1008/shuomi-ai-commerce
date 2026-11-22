@@ -10,15 +10,15 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagestore "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	imagestore "task-processor/internal/imageagent/store"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
 )
 
 type replayImageMethod struct{}

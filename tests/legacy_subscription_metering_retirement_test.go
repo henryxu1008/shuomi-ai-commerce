@@ -33,7 +33,7 @@ func TestLegacySubscriptionMeteringClosureIsRetired(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, root := range roots {
-				if importMatchesPrefix(imported, "task-processor/"+root) {
+				if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/"+root) {
 					t.Errorf("%s imports retired owner %s", path, imported)
 				}
 			}

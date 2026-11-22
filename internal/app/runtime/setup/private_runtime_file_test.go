@@ -2,10 +2,10 @@ package setup
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
 	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
-	"task-processor/internal/app/setupcontrol"
 	"testing"
 )
 

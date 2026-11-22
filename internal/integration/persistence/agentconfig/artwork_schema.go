@@ -2,9 +2,9 @@ package agentconfigpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"gorm.io/gorm"
 	"strings"
-	"task-processor/internal/agentconfig"
 )
 
 const priorArtworkTargetCheck = `CHECK (((target_platform)::text = ANY ((ARRAY['product'::character varying, 'shein'::character varying, 'temu'::character varying, 'amazon'::character varying])::text[])))`

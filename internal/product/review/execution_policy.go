@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"reflect"
 	"strconv"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/catalog"
-	reviewproposal "task-processor/internal/product/review/proposal"
 	"time"
 )
 

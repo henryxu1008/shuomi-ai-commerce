@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	confighttp "task-processor/internal/agentconfig/httpapi"
-	"task-processor/internal/agentcustomization"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	confighttp "github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 type privateModeDeliveryReader interface {

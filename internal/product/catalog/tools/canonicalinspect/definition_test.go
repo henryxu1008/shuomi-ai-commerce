@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 func TestDefinitionMetadata(t *testing.T) {

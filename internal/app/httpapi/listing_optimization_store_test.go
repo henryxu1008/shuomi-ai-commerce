@@ -2,11 +2,11 @@ package httpapi
 
 import (
 	"context"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	listingapp "task-processor/internal/app/listing"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 	"testing"
 )
 

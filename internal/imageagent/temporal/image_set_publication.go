@@ -3,9 +3,9 @@ package temporal
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"go.temporal.io/sdk/workflow"
-	"task-processor/internal/imageagent"
-	productasset "task-processor/internal/product/asset"
 )
 
 func (o *workflowEffectOwner) publishImageSet(ctx workflow.Context, input PublishImageSetActivityInput) error {

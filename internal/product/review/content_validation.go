@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"task-processor/internal/product/catalog"
-	reviewproposal "task-processor/internal/product/review/proposal"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // This read/compute-only port cannot save, approve or apply a proposal. Intake

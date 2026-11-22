@@ -3,8 +3,8 @@ package officialpersistence
 import (
 	"encoding/json"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	"gorm.io/gorm"
-	"task-processor/internal/listing/submission"
 )
 
 func readWalmartWindow(tx *gorm.DB, receipt submission.OfficialReceipt, id string) (walmartObservationRow, submission.WalmartReadDocument, error) {

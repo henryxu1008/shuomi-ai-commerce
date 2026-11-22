@@ -24,13 +24,13 @@ import (
 	sdkconverter "go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	imageagentstore "task-processor/internal/imageagent/store"
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
-	imageagenttools "task-processor/internal/imageagent/tools"
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	imageagentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	imageagenttools "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/tools"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 type podLossRecoveryAcceptanceResult struct {

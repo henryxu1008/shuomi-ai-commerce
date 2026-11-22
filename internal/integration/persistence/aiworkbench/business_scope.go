@@ -4,8 +4,8 @@ import (
 	"context"
 	"gorm.io/gorm"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 func verifyBusinessScopeSchema(ctx context.Context, db *gorm.DB) error {

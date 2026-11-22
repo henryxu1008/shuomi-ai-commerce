@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	f "task-processor/internal/fulfillment"
 	"time"
 )
 

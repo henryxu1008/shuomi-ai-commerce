@@ -1,6 +1,6 @@
 package imageagent
 
-import "task-processor/internal/aicapability"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 
 // Image quotes consume the one official-price algorithm and original resource
 // owner, with their own admitted image-usage bound and immutable source facts.

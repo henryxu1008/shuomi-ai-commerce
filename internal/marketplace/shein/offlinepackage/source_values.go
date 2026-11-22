@@ -1,8 +1,8 @@
 package offlinepackage
 
 import (
-	"task-processor/internal/marketplace/shein/publishing"
-	"task-processor/internal/product/catalog/canonical"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
 )
 
 type Variant struct {

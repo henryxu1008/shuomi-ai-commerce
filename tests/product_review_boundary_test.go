@@ -10,9 +10,9 @@ import (
 )
 
 func TestProductReviewCurrentOwnerBoundaries(t *testing.T) {
-	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "product", "review"), []string{"gorm.io", "task-processor/internal/integration", "task-processor/internal/app", "task-processor/internal/platform", "task-processor/internal/listingkit", "task-processor/internal/compatibility", "task-processor/internal/tenantbridge", "task-processor/internal/product/image", "task-processor/internal/product/asset"}, nil)
+	assertNoBannedImportPrefixes(t, filepath.Join("..", "internal", "product", "review"), []string{"gorm.io", "github.com/henryxu1008/shuomi-ai-commerce/internal/integration", "github.com/henryxu1008/shuomi-ai-commerce/internal/app", "github.com/henryxu1008/shuomi-ai-commerce/internal/platform", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility", "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"}, nil)
 	adapter := filepath.Join("..", "internal", "integration", "persistence", "product", "review")
-	assertNoBannedImportPrefixes(t, adapter, []string{"task-processor/internal/product/sourcing", "task-processor/internal/product/enrichment", "task-processor/internal/product/review/proposal", "task-processor/internal/product/image", "task-processor/internal/product/asset", "task-processor/internal/marketplace", "task-processor/internal/listing"}, nil)
+	assertNoBannedImportPrefixes(t, adapter, []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset", "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace", "github.com/henryxu1008/shuomi-ai-commerce/internal/listing"}, nil)
 	raw, e := os.ReadFile(filepath.Join(adapter, "repository.go"))
 	require.NoError(t, e)
 	for _, table := range []string{"product_snapshot_versions", "product_snapshot_heads"} {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	e "task-processor/internal/ecoservices"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 )
 
 func checkoutAdmissionFixture(t *testing.T, r *Repository) (e.Request, e.FinancialCommand) {

@@ -11,9 +11,9 @@ import (
 	"math"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/agent"
 )
 
 //go:embed schema.sql

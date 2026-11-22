@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 func TestExecutionModePolicyBoundaries(t *testing.T) {

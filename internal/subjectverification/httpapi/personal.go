@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/httproute"
-	domain "task-processor/internal/subjectverification"
 	"time"
 )
 

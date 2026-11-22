@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	domain "task-processor/internal/organization/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 func (r *Repository) ListPending(ctx context.Context, scope domain.OperationScope, page domain.PendingPageRequest) (domain.PendingPage, error) {

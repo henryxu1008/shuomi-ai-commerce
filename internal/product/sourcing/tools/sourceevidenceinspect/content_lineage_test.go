@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/catalog"
 )
 
 type effectiveContentFixture struct {

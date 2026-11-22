@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 const ImageAdviceSchema = "image-advice-v1"

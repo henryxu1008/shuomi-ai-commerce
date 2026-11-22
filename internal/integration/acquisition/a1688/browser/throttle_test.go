@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/sourcing"
 )
 
 // The rate floor must actually pace acquisitions, and it must queue concurrent

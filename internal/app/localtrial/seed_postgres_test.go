@@ -13,14 +13,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	assetstore "task-processor/internal/integration/persistence/product/asset"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	reviewstore "task-processor/internal/integration/persistence/product/review"
-	"task-processor/internal/product/review"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	assetstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	reviewstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func TestPrepareSampleReplaysWithoutDuplicatingFacts(t *testing.T) {

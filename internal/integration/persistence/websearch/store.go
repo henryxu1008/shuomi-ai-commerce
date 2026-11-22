@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/websearch"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/aicapability/websearch"
 )
 
 //go:embed schema.sql

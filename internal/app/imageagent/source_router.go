@@ -2,7 +2,7 @@ package imageagentapp
 
 import (
 	"context"
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // Routing is selected by the server route or the immutable plan. A missing or

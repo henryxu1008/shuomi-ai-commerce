@@ -2,10 +2,10 @@ package listingapp
 
 import (
 	"context"
-	storeapp "task-processor/internal/app/storecenter"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type TargetMerchantReader interface {

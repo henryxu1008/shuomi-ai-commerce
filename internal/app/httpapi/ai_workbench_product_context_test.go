@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/catalog"
 )
 
 func TestWorkbenchProductProjectionIsBoundedAndTextOnly(t *testing.T) {

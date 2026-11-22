@@ -9,9 +9,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
 )
 
 const MaxOutputBytes = 1 << 20

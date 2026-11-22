@@ -5,8 +5,8 @@ import (
 	"github.com/google/uuid"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/collection"
 )
 
 const analysisProjectID = "11111111-1111-4111-8111-111111111111"

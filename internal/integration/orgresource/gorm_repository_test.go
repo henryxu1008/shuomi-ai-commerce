@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm/logger"
 	_ "modernc.org/sqlite"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 func TestWelcomeGrantIsExactlyOnceAcrossOperationAndSourceReplay(t *testing.T) {

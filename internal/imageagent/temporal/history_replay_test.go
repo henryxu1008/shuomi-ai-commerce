@@ -1,6 +1,7 @@
 package temporal
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/stretchr/testify/require"
 	historypb "go.temporal.io/api/history/v1"
 	sdkconverter "go.temporal.io/sdk/converter"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"task-processor/internal/imageagent"
 	"testing"
 )
 

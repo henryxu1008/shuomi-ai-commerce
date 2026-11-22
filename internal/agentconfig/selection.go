@@ -1,6 +1,6 @@
 package agentconfig
 
-import "task-processor/internal/commercetool"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 
 const (
 	SelectionAgentID         = "product.selection.agent"

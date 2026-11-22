@@ -10,12 +10,12 @@ import (
 	"testing/fstest"
 	"time"
 
+	core "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/zenrows"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	core "task-processor/internal/core/config"
-	"task-processor/internal/integration/acquisition/zenrows"
-	"task-processor/internal/product/dataacquisition"
 )
 
 const trialTestID = "aaaaaaaa-0000-4000-8000-000000000001"

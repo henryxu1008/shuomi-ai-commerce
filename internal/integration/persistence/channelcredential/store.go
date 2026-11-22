@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 type ConnectionRow struct {

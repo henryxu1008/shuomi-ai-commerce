@@ -3,9 +3,9 @@ package operationscockpitobservations
 import (
 	"context"
 	"errors"
-	"task-processor/internal/authidentity"
-	o "task-processor/internal/storecenter/observations"
-	c "task-processor/internal/operationscockpit"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 )
 
 type Orders struct{ Service *o.Service }

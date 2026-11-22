@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	profileStore "task-processor/internal/integration/persistence/accountprofile"
-	kernelmodule "task-processor/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	profileStore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/accountprofile"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 )
 
 const accountBusinessProfilePath = "/api/v1/account/business-profile"

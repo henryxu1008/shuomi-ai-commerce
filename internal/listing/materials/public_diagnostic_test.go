@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	contract "task-processor/internal/marketplace/validator"
-	"task-processor/internal/product/collection"
 )
 
 func TestMaterialsDisclosureProvidesScopedPublicNativeDiagnostic(t *testing.T) {

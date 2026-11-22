@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	orgresourceadapter "task-processor/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	orgresourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
 )
 
 func routingInvocationOperation(command aiworkbench.StoreRouteCommand) aicapability.Operation {

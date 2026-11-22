@@ -2,11 +2,11 @@ package httpapi
 
 import (
 	"context"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	billing "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 	"net/http"
 	"strings"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	billing "task-processor/internal/commercial/billing"
 	"time"
 
 	"github.com/sirupsen/logrus"

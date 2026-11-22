@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"time"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/listing/record"
-	contract "task-processor/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

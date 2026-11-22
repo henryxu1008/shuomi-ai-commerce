@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/zitadelprovision"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/zitadelprovision"
 )
 
 func TestProvisionPhaseWritesRuntimeFileWithoutPrintingSecrets(t *testing.T) {

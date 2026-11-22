@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"github.com/go-pay/gopay"
 	"github.com/google/uuid"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 	"strings"
-	e "task-processor/internal/ecoservices"
 	"testing"
 )
 

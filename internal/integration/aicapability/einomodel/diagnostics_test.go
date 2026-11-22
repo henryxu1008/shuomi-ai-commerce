@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
 )
 
 type diagnosticTransport func(*http.Request) (*http.Response, error)

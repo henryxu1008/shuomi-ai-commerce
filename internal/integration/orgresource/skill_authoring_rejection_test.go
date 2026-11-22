@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 func TestSkillAuthoringParameterRejectionSettlesOriginalReservationAtZero(t *testing.T) {

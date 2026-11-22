@@ -1,9 +1,9 @@
 package productsourcing
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 	"testing"
 )
 

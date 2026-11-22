@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ai"
 )
 
 func TestFreeTierRefusalIsKnownOnlyForCompleteUnambiguous403(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -14,7 +15,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	rc "task-processor/internal/reportcenter"
 	"testing"
 	"time"
 )

@@ -1,9 +1,9 @@
 package setupcontrol
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 	"os"
 	"path/filepath"
-	"task-processor/internal/platform/privatefile"
 )
 
 type instanceLock struct{ file *os.File }

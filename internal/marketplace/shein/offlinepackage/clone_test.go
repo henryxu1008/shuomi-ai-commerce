@@ -1,9 +1,9 @@
 package offlinepackage
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
 	"reflect"
 	"sort"
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
 	"testing"
 )
 

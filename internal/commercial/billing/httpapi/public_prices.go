@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 )
 
 const PublicResourceOfferPath = "/api/v1/commercial/resource-offers"

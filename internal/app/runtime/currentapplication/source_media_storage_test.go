@@ -5,6 +5,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
@@ -13,9 +16,6 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"sync"
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/core/config"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

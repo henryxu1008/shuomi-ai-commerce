@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	credential "task-processor/internal/aicapability/channelcredential"
 )
 
 func channelFixture(t *testing.T) (*gorm.DB, *Store) {

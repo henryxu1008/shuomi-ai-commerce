@@ -1,6 +1,6 @@
 package dataservicesapp
 
-import "task-processor/internal/authz"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 
 // ModulePermissions supplies only this capability's menu permissions. Existing
 // Collection read/manage dependencies remain explicit native module grants.

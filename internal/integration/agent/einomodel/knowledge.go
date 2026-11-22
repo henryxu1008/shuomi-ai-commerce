@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"task-processor/internal/agent"
-	k "task-processor/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 // KnowledgeContext borrows the existing content owner and durable dispatch

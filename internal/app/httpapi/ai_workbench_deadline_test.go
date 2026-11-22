@@ -7,11 +7,11 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aiworkbench/einoplanner"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/aiworkbench/einoplanner"
 )
 
 type delayedWorkbenchGenerator struct {

@@ -6,10 +6,10 @@ import (
 	"errors"
 	"reflect"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/listing/materials"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
 
 	sigjson "sigs.k8s.io/json"
 )

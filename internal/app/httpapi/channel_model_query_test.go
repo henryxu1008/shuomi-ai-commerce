@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	qualified "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"github.com/stretchr/testify/require"
-	credential "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	qualified "task-processor/internal/integration/aicapability/routeconfig"
-	"task-processor/internal/workbenchcontext"
 )
 
 type modelQueryRoleFixture []string

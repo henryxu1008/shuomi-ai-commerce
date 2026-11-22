@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
@@ -13,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	coreconfig "task-processor/internal/core/config"
 	"testing"
 	"time"
 )

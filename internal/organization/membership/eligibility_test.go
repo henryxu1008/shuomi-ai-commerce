@@ -1,8 +1,8 @@
 package membership
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"slices"
-	"task-processor/internal/authz"
 	"testing"
 )
 

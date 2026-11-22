@@ -3,9 +3,9 @@ package servicepayments
 import (
 	"context"
 	wechat "github.com/go-pay/gopay/wechat/v3"
-	b "task-processor/internal/commercial/billing"
-	"task-processor/internal/integration/paymentsecurity"
-	"task-processor/internal/ledger/money"
+	b "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/paymentsecurity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 func (p *WeChat) QueryServiceUnsplit(ctx context.Context, o b.ServicePurchaseOrder) (b.ServiceUnsplitObservation, error) {

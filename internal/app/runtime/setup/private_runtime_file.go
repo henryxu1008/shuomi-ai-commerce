@@ -2,7 +2,7 @@ package setup
 
 import (
 	"context"
-	"task-processor/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
 )
 
 // Windows ACLs protect the host file; Docker Desktop additionally exposes a

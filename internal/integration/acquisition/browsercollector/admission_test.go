@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browsercollector"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/integration/acquisition/browsercollector"
 )
 
 const testSecret = "svc-secret-2f7c1d9a4b8e"

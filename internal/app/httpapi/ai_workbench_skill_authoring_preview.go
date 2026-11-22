@@ -12,10 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	wbstore "task-processor/internal/integration/persistence/aiworkbench"
-	"task-processor/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	wbstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
 
 func authoringProfileFormat(profile aicapability.ModelProfile) int {

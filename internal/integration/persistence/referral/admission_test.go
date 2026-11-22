@@ -5,9 +5,9 @@ package referral
 import (
 	"context"
 	"errors"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"sync"
 	"sync/atomic"
-	domain "task-processor/internal/referral"
 	"testing"
 	"time"
 )

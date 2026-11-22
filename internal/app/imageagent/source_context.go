@@ -5,13 +5,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"image"
 	"reflect"
 	"sort"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	productimage "task-processor/internal/product/image"
 	"time"
 )
 

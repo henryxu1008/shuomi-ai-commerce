@@ -1,6 +1,6 @@
 package main
 
-import "task-processor/internal/platform/privatefile"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/privatefile"
 
 func writePrivateFile(path string, data []byte) error { return privatefile.Write(path, data) }
 func writePrivateFileWithReplace(path string, data []byte, replace func(string, string) error) error {

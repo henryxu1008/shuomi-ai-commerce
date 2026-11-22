@@ -4,9 +4,9 @@ import (
 	"context"
 	_ "embed"
 	"errors"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"gorm.io/gorm"
 	"regexp"
-	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 

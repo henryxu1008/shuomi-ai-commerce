@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 // These endpoints are a controlled canonical-settlement ingress for the

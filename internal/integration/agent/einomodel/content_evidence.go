@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"task-processor/internal/agent"
-	reviewproposal "task-processor/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 )
 
 // ContentEvidenceForPrompt reuses the existing bounded, whole-field model view.

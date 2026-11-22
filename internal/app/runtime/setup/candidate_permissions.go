@@ -1,6 +1,6 @@
 package setup
 
-import "task-processor/internal/app/runtime/currentapplication"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
 
 func productOwnerModule(id string) bool {
 	switch id {

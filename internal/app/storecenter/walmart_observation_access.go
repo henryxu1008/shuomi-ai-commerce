@@ -2,10 +2,10 @@ package storecenterapp
 
 import (
 	"context"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
-	auth "task-processor/internal/storecenter/walmart"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"time"
 )
 

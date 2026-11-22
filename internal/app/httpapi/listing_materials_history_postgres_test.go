@@ -8,14 +8,14 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/listing/materials"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
 )
 
 // Seed finite historical envelopes only in the existing task-owned fixture DB.

@@ -3,8 +3,8 @@ package temu
 import (
 	"encoding/json"
 	"fmt"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"strconv"
-	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 

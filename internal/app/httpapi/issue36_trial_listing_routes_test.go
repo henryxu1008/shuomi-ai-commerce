@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	assetstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authz"
-	assetstore "task-processor/internal/integration/persistence/product/asset"
-	"task-processor/internal/storecenter"
 )
 
 func TestIssue36ListingRoutesUseExistingSharedStoreBoundary(t *testing.T) {

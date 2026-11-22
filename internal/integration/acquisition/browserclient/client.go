@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/integration/acquisition/browsercollector"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browsercollector"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // Client calls the anonymous public browser collector over the internal RPC.

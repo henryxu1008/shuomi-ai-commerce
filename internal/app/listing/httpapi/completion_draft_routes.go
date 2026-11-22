@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"net/http"
-	"task-processor/internal/httproute"
-	"task-processor/internal/listing/completiondraft"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

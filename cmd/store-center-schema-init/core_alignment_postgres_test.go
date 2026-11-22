@@ -23,11 +23,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	storeschema "task-processor/internal/app/schema/storecenter"
-	cockpit "task-processor/internal/integration/persistence/operationscockpit"
-	observations "task-processor/internal/integration/persistence/storeobservations"
-	platformmigration "task-processor/internal/platform/database/migration"
-	"task-processor/internal/storecenter"
+	storeschema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/storecenter"
+	cockpit "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/operationscockpit"
+	observations "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	platformmigration "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database/migration"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type coreAlignmentFixture struct {

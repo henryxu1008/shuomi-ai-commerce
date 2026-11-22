@@ -2,10 +2,10 @@ package storecenterapp
 
 import (
 	"context"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"sync/atomic"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/storecenter"
 )
 
 type TemuMutationProvider interface {

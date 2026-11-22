@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"task-processor/internal/pkg/pgschema"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
 // These statements create only the admitted Store-owned facts during a fresh

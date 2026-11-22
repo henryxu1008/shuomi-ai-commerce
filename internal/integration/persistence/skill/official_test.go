@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/stretchr/testify/require"
-	d "task-processor/internal/skill"
 )
 
 func seedOfficialV1(t *testing.T) (*Store, []versionRow) {

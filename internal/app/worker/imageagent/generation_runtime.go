@@ -3,20 +3,20 @@ package imageagentworker
 import (
 	"context"
 	"errors"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 	"reflect"
-	credential "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	imageagenttemporal "task-processor/internal/imageagent/temporal"
-	"task-processor/internal/integration/httpimage"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	"task-processor/internal/pkg/imagex"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imageagenttemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/imagex"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 type generationResourceAuthorizer struct {

@@ -3,7 +3,7 @@ package offlinepackage
 import (
 	"encoding/json"
 	"fmt"
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // ClonePackageForPersistence copies a SHEIN package using its persisted JSON

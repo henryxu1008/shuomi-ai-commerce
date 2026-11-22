@@ -3,11 +3,11 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	n "github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"strconv"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authz"
-	n "task-processor/internal/notificationcenter"
-	"task-processor/internal/product/review"
 )
 
 func sourceError(e error) error {

@@ -73,7 +73,7 @@ func TestOnlyCurrentAdapterOwnsListingRecordTable(t *testing.T) {
 		}
 		for _, item := range file.Imports {
 			pkg, _ := strconv.Unquote(item.Path.Value)
-			if pkg == "task-processor/internal/listingkit" || strings.HasPrefix(pkg, "task-processor/internal/compatibility/") || strings.HasPrefix(pkg, "task-processor/internal/tenantbridge") {
+			if pkg == "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit" || strings.HasPrefix(pkg, "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/") || strings.HasPrefix(pkg, "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge") {
 				t.Errorf("legacy dependency in %s: %s", path, pkg)
 			}
 		}

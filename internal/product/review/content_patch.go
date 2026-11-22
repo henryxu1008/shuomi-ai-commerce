@@ -7,8 +7,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"task-processor/internal/product/catalog"
-	reviewproposal "task-processor/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 )
 
 // applyContentPatch computes one complete patch on an isolated Catalog clone.

@@ -15,9 +15,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/knowledge"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 type Handler struct {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // organizationImageCatalog derives every image input from the published

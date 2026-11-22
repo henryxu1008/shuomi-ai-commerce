@@ -2,16 +2,16 @@ package imageagentworker
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"net/http"
 	"net/http/httptest"
-	"task-processor/internal/core/config"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/integration/s3"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 

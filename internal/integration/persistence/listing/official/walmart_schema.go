@@ -2,10 +2,10 @@ package officialpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"gorm.io/gorm"
 	"strings"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/pkg/pgschema"
 )
 
 const WalmartSKUStateTable = "listing_walmart_sku_bindings"

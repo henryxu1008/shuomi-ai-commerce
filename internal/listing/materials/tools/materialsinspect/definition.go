@@ -10,12 +10,12 @@ import (
 
 	"github.com/invopop/jsonschema"
 
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/listing/materials"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
 )
 
 func AgentDefinition() commercetool.AgentDefinition {

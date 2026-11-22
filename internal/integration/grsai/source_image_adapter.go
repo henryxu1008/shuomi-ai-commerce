@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"task-processor/internal/ai"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 // SourceImageProvider is the complete provider-neutral capability surface a

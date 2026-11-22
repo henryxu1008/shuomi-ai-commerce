@@ -1,6 +1,6 @@
 package imageagent
 
-import "task-processor/internal/agentconfig"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 
 func (c ImageSlotClosure) Valid(attempt int) bool {
 	if c.Kind == "not_dispatched" {

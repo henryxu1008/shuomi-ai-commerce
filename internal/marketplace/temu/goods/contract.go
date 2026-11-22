@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/marketplace/temu/rules"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/rules"
 )
 
 // RuleSnapshot contains observed public platform facts. Authorization belongs

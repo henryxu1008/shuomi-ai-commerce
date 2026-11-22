@@ -2,9 +2,9 @@ package listingapp
 
 import (
 	"context"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	"sort"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/temu/model"
 )
 
 func readTemuSupplierSizePages(ctx context.Context, merchant TemuSupplierSizeMerchant, selection model.RuleSelection, observe func(string, string, any, any)) (model.SupplierSizePage, []model.SupplierSizePage, error) {

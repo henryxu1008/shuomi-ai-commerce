@@ -3,9 +3,9 @@ package collection
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/catalog"
 	"testing"
 	"time"
 )

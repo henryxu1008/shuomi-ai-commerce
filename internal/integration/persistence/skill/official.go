@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	d "task-processor/internal/skill"
 )
 
 // InstallOfficial is a bounded release command. Its identity is global, not

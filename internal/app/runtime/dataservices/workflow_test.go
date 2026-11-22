@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
@@ -18,8 +20,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"sync/atomic"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
 	"testing"
 	"time"
 )

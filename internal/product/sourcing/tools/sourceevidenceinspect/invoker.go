@@ -3,8 +3,8 @@ package sourceevidenceinspect
 import (
 	"context"
 	"encoding/json"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 // Invoker is the tool-specific assembly point. Callers supply the admitted

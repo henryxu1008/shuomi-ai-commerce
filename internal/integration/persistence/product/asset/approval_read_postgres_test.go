@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	productasset "task-processor/internal/product/asset"
 )
 
 func TestBoundedExactApprovalReadIgnoresCurrentHeadAndRejectsCorruption(t *testing.T) {

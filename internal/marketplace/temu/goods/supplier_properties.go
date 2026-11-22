@@ -1,9 +1,9 @@
 package goods
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	"math/big"
 	"strconv"
-	"task-processor/internal/marketplace/temu/model"
 )
 
 // E35's current IDs and parent conditions are authoritative. Saving a value

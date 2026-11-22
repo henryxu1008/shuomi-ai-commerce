@@ -3,8 +3,8 @@ package shein
 import (
 	"context"
 	"encoding/json"
-	"task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func (c *OfficialClient) QueryProductSPU(ctx context.Context, credential storecenter.OfficialMerchantCredential, spu string) (model.ProductReadback, error) {

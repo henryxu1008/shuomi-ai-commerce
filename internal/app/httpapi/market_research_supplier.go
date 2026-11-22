@@ -7,11 +7,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	"task-processor/internal/product/research"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func supplierEvidenceExpiry(ctx context.Context) time.Time {

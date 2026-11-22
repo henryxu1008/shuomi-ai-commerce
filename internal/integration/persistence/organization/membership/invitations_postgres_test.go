@@ -5,9 +5,9 @@ package membership
 import (
 	"context"
 	"github.com/google/uuid"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
 	"strings"
 	"sync"
-	flow "task-processor/internal/organization/membership/inviteflow"
 	"testing"
 	"time"
 )

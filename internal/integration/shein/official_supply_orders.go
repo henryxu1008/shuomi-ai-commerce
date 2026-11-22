@@ -3,12 +3,12 @@ package shein
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 )
 
 // Supply reads use the existing signed GET transport and never a fulfillment mutation.

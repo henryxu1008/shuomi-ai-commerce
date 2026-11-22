@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/integration/zitadelsms"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/zitadelsms"
 )
 
 const zitadelSMSWebhookPath = "/api/v1/listing-kits/integrations/zitadel/sms"

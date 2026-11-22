@@ -15,9 +15,9 @@ import (
 
 	osb "github.com/alibaba/OpenSandbox/sdks/sandbox/go"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	strict "sigs.k8s.io/json"
-	"task-processor/internal/agent"
-	"task-processor/internal/skill"
 )
 
 // Linux O_NOFOLLOW/O_NONBLOCK + fstat bind the read to one ordinary file.

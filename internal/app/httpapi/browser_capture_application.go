@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 
 	"github.com/gin-gonic/gin"
 )

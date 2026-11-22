@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 
-	marketplace "task-processor/internal/marketplace/walmart"
-	auth "task-processor/internal/storecenter/walmart"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 )
 
 func WalmartMerchantIdentity(environment, seller string) string {

@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	k "task-processor/internal/browserkernel"
-	"task-processor/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 )
 
 const Module = "browser-kernel-catalog"

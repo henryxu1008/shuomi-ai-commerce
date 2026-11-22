@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
+	imageapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	s3 "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	imageapp "task-processor/internal/app/imageagent"
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/core/config"
-	s3 "task-processor/internal/integration/s3"
-	"task-processor/internal/ledger/storagecapacity"
-	"task-processor/internal/product/collection"
 )
 
 type trialMediaPort struct{}

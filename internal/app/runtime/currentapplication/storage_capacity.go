@@ -3,13 +3,13 @@ package currentapplication
 import (
 	"context"
 	"errors"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
-	coreconfig "task-processor/internal/core/config"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	store "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/integration/s3"
-	"task-processor/internal/knowledge"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 func (s KnowledgeStorageConfig) capacityClientConfig() s3.ClientConfig {

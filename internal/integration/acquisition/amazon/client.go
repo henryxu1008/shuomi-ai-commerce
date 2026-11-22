@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"github.com/mxschmitt/playwright-go"
-	"task-processor/internal/product/dataacquisition"
 )
 
 var ErrRejected = errors.New("Amazon request rejected by public egress policy")

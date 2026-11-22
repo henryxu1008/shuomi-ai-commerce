@@ -2,8 +2,8 @@ package tiktokshop
 
 import (
 	"encoding/json"
+	obs "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"strconv"
-	obs "task-processor/internal/storecenter/observations"
 	"time"
 )
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"task-processor/internal/app/localaitrial"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/localaitrial"
 )
 
 func main() {

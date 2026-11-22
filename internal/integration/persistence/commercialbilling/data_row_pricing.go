@@ -10,9 +10,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/commercial/billing"
 )
 
 type dataRowPricePublicationRow struct {

@@ -3,13 +3,13 @@ package automaticfxruntime
 import (
 	"context"
 	"errors"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	fx "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/automaticfx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
-	d "task-processor/internal/aicapability/routeconfig"
-	fx "task-processor/internal/integration/aicapability/automaticfx"
 	"testing"
 	"time"
 )

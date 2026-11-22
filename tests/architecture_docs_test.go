@@ -84,24 +84,24 @@ func TestProductAgentRuntimeDocumentPreservesOwnerAndExecutionLimits(t *testing.
 
 func TestConcreteImportsStayWithinCurrentOwnerAllowlist(t *testing.T) {
 	targets := []string{
-		"task-processor/internal/core/logger",
-		"task-processor/internal/platform/logging",
-		"task-processor/internal/platform/database",
-		"task-processor/internal/platform/redis",
-		"task-processor/internal/platform/queue/rabbitmq",
-		"task-processor/internal/platform/workerpool",
-		"task-processor/internal/integration/openai",
-		"task-processor/internal/integration/geminiimage",
-		"task-processor/internal/integration/grsai",
-		"task-processor/internal/integration/s3",
-		"task-processor/internal/integration/httpimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/core/logger",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/redis",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/queue/rabbitmq",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/workerpool",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/geminiimage",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage",
 	}
 	importersByTarget := directInternalImporterMap(t, targets)
 	// These are the same current owner exceptions previously recorded in the
 	// runtime consumer document. New dependencies still require explicit review.
 	allowed := map[string]map[string]bool{
-		"task-processor/internal/platform/logging":      {"task-processor/internal/core/config": true, "task-processor/internal/pkg/appenv": true},
-		"task-processor/internal/integration/httpimage": {"task-processor/internal/imageagent": true},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging":      {"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config": true, "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/appenv": true},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage": {"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent": true},
 	}
 	for _, target := range targets {
 		expected := map[string]bool{}
@@ -125,9 +125,9 @@ func TestConcreteImportsStayWithinCurrentOwnerAllowlist(t *testing.T) {
 
 func isPhase2IntentionalConcreteWiring(importer string) bool {
 	for _, prefix := range []string{
-		"task-processor/internal/app",
-		"task-processor/internal/platform",
-		"task-processor/internal/integration",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
 	} {
 		if importMatchesPrefix(importer, prefix) {
 			return true

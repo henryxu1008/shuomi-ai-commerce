@@ -5,14 +5,14 @@ package dataserviceauth
 import (
 	"context"
 	"errors"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/dataservice"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"time"
 )
 

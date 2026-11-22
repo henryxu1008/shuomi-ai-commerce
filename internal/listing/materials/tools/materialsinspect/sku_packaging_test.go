@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/listing/materials"
-	"task-processor/internal/product/collection"
 )
 
 func TestMaterialsInspectionRegistryPreservesSKUPackaging(t *testing.T) {

@@ -15,8 +15,8 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	strict "sigs.k8s.io/json"
-	"task-processor/internal/aicapability"
 )
 
 // SingleImageRequest binds the final serialized request to the original quote.

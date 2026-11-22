@@ -2,10 +2,10 @@ package assetinspect
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/invopop/jsonschema"
-	"task-processor/internal/product/asset"
 
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
 )
 
 func InputSchema() json.RawMessage {

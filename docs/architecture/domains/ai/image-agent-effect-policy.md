@@ -90,7 +90,7 @@ Retains existing domain types, sentinel errors, blocked codes, normalization fun
 
 ### 6.2 `internal/imageagent/effectpolicy`
 
-Owns pure v3 transition decisions. It may import only the Go standard library and `task-processor/internal/imageagent`.
+Owns pure v3 transition decisions. It may import only the Go standard library and `github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent`.
 
 It must not import:
 

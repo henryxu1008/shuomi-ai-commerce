@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"time"
 
-	"task-processor/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 )
 
 const (

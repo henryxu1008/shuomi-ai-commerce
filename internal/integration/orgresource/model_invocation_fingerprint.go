@@ -1,6 +1,6 @@
 package orgresourceadapter
 
-import "task-processor/internal/aicapability"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 
 // modelPointFactEncoding preserves the current ledger's exact JSON identity.
 // These fixed zero slots are private to the ledger; they are not writable

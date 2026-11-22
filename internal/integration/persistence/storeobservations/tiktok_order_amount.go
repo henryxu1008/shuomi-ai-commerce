@@ -3,8 +3,8 @@ package storeobservations
 import (
 	"context"
 	"encoding/json"
-	"task-processor/internal/authidentity"
-	o "task-processor/internal/storecenter/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 )
 
 func (r *Repository) TikTokOrderAmountRecords(ctx context.Context, org, sync string, q o.OrderAmountQuery, limit int) ([]o.TikTokOrderAmountRecord, error) {

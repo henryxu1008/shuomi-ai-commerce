@@ -3,14 +3,14 @@ package currentapplication
 import (
 	"context"
 	"errors"
+	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	f "github.com/henryxu1008/shuomi-ai-commerce/internal/fulfillment"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/erpnext"
 	"net"
 	"path/filepath"
 	"strconv"
 	"strings"
-	app "task-processor/internal/app/fulfillment"
-	"task-processor/internal/authidentity"
-	f "task-processor/internal/fulfillment"
-	"task-processor/internal/integration/erpnext"
 )
 
 type FulfillmentSiteConfig struct {

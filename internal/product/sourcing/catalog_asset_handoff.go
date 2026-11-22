@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 // ToSnapshot converts a valid source envelope into canonical product facts.

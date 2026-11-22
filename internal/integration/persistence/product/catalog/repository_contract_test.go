@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	productcatalog "task-processor/internal/product/catalog"
+	productcatalog "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 func TestBoundedSnapshotReaderLimitsOnlyItsOwnMaterializationPath(t *testing.T) {

@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
 )
 
 func TestStructuredContentRoundTripKeepsZeroNullAndExplicitEmptyArrays(t *testing.T) {

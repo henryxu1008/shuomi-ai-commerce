@@ -10,13 +10,13 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/authz"
-	acquisitionpersistence "task-processor/internal/integration/persistence/product/acquisition"
-	catalogpersistence "task-processor/internal/integration/persistence/product/catalog"
-	sourcingpersistence "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	acquisitionpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	catalogpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	sourcingpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // NewInternalProducer composes the real internal producer against one existing

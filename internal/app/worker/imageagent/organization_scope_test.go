@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 
 	"github.com/stretchr/testify/require"
 )

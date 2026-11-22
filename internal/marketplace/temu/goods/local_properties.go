@@ -1,10 +1,10 @@
 package goods
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	"math/big"
 	"strconv"
 	"strings"
-	"task-processor/internal/marketplace/temu/model"
 	"time"
 	"unicode/utf8"
 )

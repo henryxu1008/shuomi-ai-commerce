@@ -15,18 +15,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	imagestore "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	imagetemporal "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal/temporaltest"
+	assetpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/temporal"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	imagestore "task-processor/internal/imageagent/store"
-	imagetemporal "task-processor/internal/imageagent/temporal"
-	"task-processor/internal/imageagent/temporal/temporaltest"
-	assetpersistence "task-processor/internal/integration/persistence/product/asset"
-	"task-processor/internal/platform/temporal"
-	productasset "task-processor/internal/product/asset"
 )
 
 // This isolates the completed replay seam. The separate worker integration

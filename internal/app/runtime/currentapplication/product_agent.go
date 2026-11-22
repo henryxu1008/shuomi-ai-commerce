@@ -4,11 +4,11 @@ import (
 	"errors"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/aicapability"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	"task-processor/internal/integration/skillsandbox"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/skillsandbox"
 )
 
 // ProductAgentConfig is an explicit local trial option. Credential values stay

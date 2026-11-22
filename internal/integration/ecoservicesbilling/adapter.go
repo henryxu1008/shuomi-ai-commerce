@@ -4,9 +4,9 @@ package ecoservicesbilling
 import (
 	"context"
 	"errors"
-	"task-processor/internal/commercial/billing"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 type CheckoutAuthorizer interface {

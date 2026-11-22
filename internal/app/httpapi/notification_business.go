@@ -3,13 +3,13 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"task-processor/internal/authz"
-	billing "task-processor/internal/commercial/billing"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	"task-processor/internal/knowledge"
-	n "task-processor/internal/notificationcenter"
-	"task-processor/internal/storecenter"
-	verification "task-processor/internal/subjectverification"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	billing "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	n "github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	verification "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 	"time"
 )
 

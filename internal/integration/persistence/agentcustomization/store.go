@@ -8,9 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
 	"math"
 	"strconv"
-	d "task-processor/internal/agentcustomization"
 	"time"
 )
 

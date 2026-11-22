@@ -2,11 +2,11 @@ package imageagentapp
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"strings"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/description"
 )
 
 // Source IDs are supplied by each existing source owner. Acquisition keeps

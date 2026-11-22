@@ -7,7 +7,7 @@ import (
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
-	"task-processor/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
 )
 
 // KnowledgeStore borrows the existing immutable S3 implementation. It never

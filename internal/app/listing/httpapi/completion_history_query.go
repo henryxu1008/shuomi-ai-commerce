@@ -1,11 +1,11 @@
 package listinghttp
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"net/http"
 	"net/url"
 	"strconv"
-	"task-processor/internal/listing/completiondraft"
-	"task-processor/internal/listing/preparation"
 )
 
 func completionHistoryQuery(request *http.Request) (completiondraft.HistoryQuery, error) {

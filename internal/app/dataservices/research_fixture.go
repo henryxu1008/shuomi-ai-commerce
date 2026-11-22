@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	sourcestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 )
 
 const researchFixtureKeyword = "under sink organizer"

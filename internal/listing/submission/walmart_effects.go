@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
-	model "task-processor/internal/marketplace/shein/model"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 const WalmartSubmitAction = "walmart_submit_feed"

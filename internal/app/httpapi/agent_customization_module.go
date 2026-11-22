@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 	"errors"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
+	customhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentcustomization"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 	"gorm.io/gorm"
-	d "task-processor/internal/agentcustomization"
-	customhttp "task-processor/internal/agentcustomization/httpapi"
-	"task-processor/internal/core/config"
-	store "task-processor/internal/integration/persistence/agentcustomization"
-	kernelmodule "task-processor/internal/kernel/module"
 )
 
 func WithAgentCustomization(db *gorm.DB) CurrentApplicationOption {

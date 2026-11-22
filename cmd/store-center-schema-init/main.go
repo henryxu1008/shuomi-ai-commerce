@@ -16,11 +16,11 @@ import (
 
 	"gorm.io/gorm"
 
-	storeschema "task-processor/internal/app/schema/storecenter"
-	coreconfig "task-processor/internal/core/config"
-	observationschema "task-processor/internal/integration/persistence/storeobservations"
-	platformdatabase "task-processor/internal/platform/database"
-	"task-processor/internal/storecenter"
+	storeschema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/storecenter"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	observationschema "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func main() {

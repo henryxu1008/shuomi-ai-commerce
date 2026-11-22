@@ -2,13 +2,13 @@ package listingapp
 
 import (
 	"context"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
-	record "task-processor/internal/listing/record/target"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 	"testing"
 )
 

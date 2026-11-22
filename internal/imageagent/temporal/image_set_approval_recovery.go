@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"slices"
 
-	"task-processor/internal/imageagent"
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // This is internal recovery of a durable action, not authority for a new

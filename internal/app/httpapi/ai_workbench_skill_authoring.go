@@ -12,17 +12,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	wbstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
+	skillstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/skillauth"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gopkg.in/yaml.v3"
 	strict "sigs.k8s.io/json"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	wbstore "task-processor/internal/integration/persistence/aiworkbench"
-	skillstore "task-processor/internal/integration/persistence/skill"
-	"task-processor/internal/integration/skillauth"
-	"task-processor/internal/skill"
 )
 
 const authoringOperation = aicapability.OperationAIWorkbenchSkillAuthoring

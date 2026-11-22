@@ -7,11 +7,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/httproute"
-	"task-processor/internal/product/review"
-	"task-processor/internal/product/sourcing"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 type productReviewResolverStub struct {

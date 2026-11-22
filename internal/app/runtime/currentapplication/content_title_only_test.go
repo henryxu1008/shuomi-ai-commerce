@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/agentconfig"
-	coreconfig "task-processor/internal/core/config"
-	governed "task-processor/internal/integration/aicapability/einomodel"
 )
 
 func contentTitleRuntimeConfig(t *testing.T) *Config {

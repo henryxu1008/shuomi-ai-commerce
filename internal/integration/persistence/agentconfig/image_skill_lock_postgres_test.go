@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/agentconfig"
 )
 
 // Skill AcquireUseForTarget keeps this availability fence until its consumer

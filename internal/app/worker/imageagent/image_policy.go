@@ -1,9 +1,9 @@
 package imageagentworker
 
 import (
-	policyassembly "task-processor/internal/app/imageagentpolicy"
-	policycatalog "task-processor/internal/integration/policy/productimage"
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
+	policyassembly "github.com/henryxu1008/shuomi-ai-commerce/internal/app/imageagentpolicy"
+	policycatalog "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/policy/productimage"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
 )
 
 func loadEmbeddedImagePolicyResolver() (*imagepolicy.Resolver, error) {

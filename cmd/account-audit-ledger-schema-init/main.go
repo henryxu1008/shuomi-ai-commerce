@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/productagentruntime"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	store "task-processor/internal/aicapability/store"
-	"task-processor/internal/app/schema/productagentruntime"
 )
 
 func main() {

@@ -2,9 +2,9 @@ package einomodel
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"reflect"
-	"task-processor/internal/agent"
-	d "task-processor/internal/skill"
 )
 
 type SkillContext interface {

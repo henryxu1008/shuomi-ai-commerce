@@ -3,12 +3,12 @@ package dataservice
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"math"
 	"strconv"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
 	"time"
 	"unicode/utf8"
 )

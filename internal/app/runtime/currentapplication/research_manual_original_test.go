@@ -1,9 +1,9 @@
 package currentapplication
 
 import (
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	dataservicesapp "task-processor/internal/app/dataservices"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

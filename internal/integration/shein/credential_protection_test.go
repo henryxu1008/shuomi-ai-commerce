@@ -2,8 +2,8 @@ package shein
 
 import (
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"strings"
-	"task-processor/internal/storecenter"
 	"testing"
 )
 

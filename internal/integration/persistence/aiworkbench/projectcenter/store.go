@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"strings"
-	pc "task-processor/internal/aiworkbench/projectcenter"
 	"time"
 )
 

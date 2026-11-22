@@ -13,8 +13,8 @@ import (
 
 	"golang.org/x/text/currency"
 
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 const SHEINUSObservationEncodingVersion = "shein-us-observation-json-v1"

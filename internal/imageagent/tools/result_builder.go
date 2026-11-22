@@ -2,7 +2,7 @@ package tools
 
 import (
 	"context"
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 type ImageResultBuilder struct{ profiles ProfileResolver }

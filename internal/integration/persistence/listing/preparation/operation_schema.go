@@ -2,8 +2,8 @@ package preparationpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	"gorm.io/gorm"
-	"task-processor/internal/listing/preparation"
 )
 
 var OperationTables = []string{"listing_preparation_operations", "listing_preparation_operation_items"}

@@ -1,9 +1,9 @@
 package goods
 
 import (
-	sheinvalidator "task-processor/internal/marketplace/shein/validator"
-	contract "task-processor/internal/marketplace/validator"
-	"task-processor/internal/product/asset"
+	sheinvalidator "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/validator"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 // OfficialAssessment contains one native build and its actual input identity.

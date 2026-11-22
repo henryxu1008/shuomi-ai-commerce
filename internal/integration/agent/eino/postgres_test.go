@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	agentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/agent"
-	agentstore "task-processor/internal/integration/persistence/agent"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
 )
 
 func postgresRuntimeStore(t *testing.T) func() agent.Store {

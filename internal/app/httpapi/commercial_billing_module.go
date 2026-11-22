@@ -7,19 +7,19 @@ import (
 	"strings"
 	"time"
 
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
 	"gorm.io/gorm"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	billing "task-processor/internal/commercial/billing"
-	billinghttp "task-processor/internal/commercial/billing/httpapi"
-	"task-processor/internal/core/config"
-	orgresourceadapter "task-processor/internal/integration/orgresource"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	moneystore "task-processor/internal/integration/persistence/money"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	billing "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	billinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	orgresourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	moneystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 func buildCommercialBillingModule(ctx context.Context, commercialDB, moneyDB *gorm.DB, authorizer *authz.ListingKitAuthorizer, cfg *config.Config) (kernelmodule.Module, error) {

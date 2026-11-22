@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"strconv"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/storecenter"
 	"time"
 )
 

@@ -6,12 +6,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/referralregistration"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	app "task-processor/internal/app/referralregistration"
-	"task-processor/internal/referral"
 	"time"
 )
 

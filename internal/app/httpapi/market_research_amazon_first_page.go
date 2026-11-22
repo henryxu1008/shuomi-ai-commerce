@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	dataservicesapp "task-processor/internal/app/dataservices"
-	"task-processor/internal/dataservice"
-	"task-processor/internal/httproute"
-	"task-processor/internal/integration/acquisition/zenrows"
-	"task-processor/internal/product/collection"
-	acq "task-processor/internal/product/dataacquisition"
-	rh "task-processor/internal/product/research/httpapi"
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/zenrows"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	acq "github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	rh "github.com/henryxu1008/shuomi-ai-commerce/internal/product/research/httpapi"
 )
 
 const amazonFirstPageModule = "market-research-amazon-first-page"

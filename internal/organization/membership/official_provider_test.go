@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/authz"
 )
 
 type retiredDirectory struct {

@@ -16,8 +16,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/asset/assettest"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest"
 )
 
 func TestRepositoryContract(t *testing.T) {

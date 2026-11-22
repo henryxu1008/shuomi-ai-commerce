@@ -3,8 +3,8 @@ package acquisition
 import (
 	"context"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
 	"gorm.io/gorm"
-	"task-processor/internal/dataservice"
 )
 
 const sheinTrialAdmittedPrivileges = `,('data_acquisition_shein_us_trials','SELECT'),('data_acquisition_shein_us_trials','INSERT'),('data_acquisition_shein_us_trials','UPDATE'))`

@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
-	kernelmodule "task-processor/internal/kernel/module"
 	"testing"
 	"time"
 
@@ -22,10 +22,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/workbenchcontext"
+	registrySchema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 func TestSourceAccountApplicationPostgresAcceptance(t *testing.T) {

@@ -2,12 +2,12 @@ package imageagentworker
 
 import (
 	"context"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	"task-processor/internal/integration/httpimage"
-	"task-processor/internal/integration/openai"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 // Preserve the already returned bytes through the original immutable bundle.

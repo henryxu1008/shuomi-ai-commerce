@@ -3,11 +3,11 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/knowledge"
-	"task-processor/internal/product/review"
 	"testing"
 )
 

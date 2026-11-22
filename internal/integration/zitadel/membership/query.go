@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	domain "task-processor/internal/organization/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 )
 
 func (c *Client) List(ctx context.Context, organization string, request domain.PageRequest) (domain.Page, error) {

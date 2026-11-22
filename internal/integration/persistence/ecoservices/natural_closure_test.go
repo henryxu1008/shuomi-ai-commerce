@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/commercial/billing"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/integration/ecoservicesbilling"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/ecoservicesbilling"
 )
 
 type closedPollingProvider struct {

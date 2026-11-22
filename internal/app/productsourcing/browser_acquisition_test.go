@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/sourcing"
 )
 
 // ---- test doubles -------------------------------------------------------

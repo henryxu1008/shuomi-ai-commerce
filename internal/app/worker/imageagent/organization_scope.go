@@ -2,13 +2,13 @@ package imageagentworker
 
 import (
 	"context"
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/authidentity"
-	zitadel "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/shared/aiidentity"
-	"task-processor/internal/workbenchcontext"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadel "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/aiidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 // OrganizationExecutionAuthorizer is explicitly assembled; no default worker

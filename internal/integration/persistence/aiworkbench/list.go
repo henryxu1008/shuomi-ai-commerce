@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 // A conversation cursor freezes its (updated_at, id) boundary. The ID must

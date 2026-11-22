@@ -3,15 +3,15 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	tmstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/toolmarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/toolmarketauth"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket"
+	tmhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/toolmarket/httpapi"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	tmstore "task-processor/internal/integration/persistence/toolmarket"
-	"task-processor/internal/integration/toolmarketauth"
-	kernelmodule "task-processor/internal/kernel/module"
-	tm "task-processor/internal/toolmarket"
-	tmhttp "task-processor/internal/toolmarket/httpapi"
 )
 
 type ToolMarketDependencies struct {

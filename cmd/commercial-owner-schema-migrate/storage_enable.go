@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	"gorm.io/gorm"
-	"task-processor/internal/commercial/billing"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	platformdatabase "task-processor/internal/platform/database"
 )
 
 var storageEnableTables = []string{"storage_capacity_accounts", "storage_capacity_reservations", "storage_capacity_objects", "storage_capacity_bindings", "storage_capacity_lots", "storage_capacity_namespaces"}

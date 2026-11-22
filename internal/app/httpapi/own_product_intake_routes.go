@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	module "task-processor/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	module "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
 )
 
 const ownIntakeBase = "/api/v1/workbench/own-product-intake"

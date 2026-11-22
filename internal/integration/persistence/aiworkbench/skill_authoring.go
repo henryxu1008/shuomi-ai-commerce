@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/skill"
 )
 
 // AuthoringDraft is the workbench receipt and pending save intent.

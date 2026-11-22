@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
 
 	"github.com/stretchr/testify/require"
 )

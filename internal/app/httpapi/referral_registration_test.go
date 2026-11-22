@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	app "task-processor/internal/app/referralregistration"
+	app "github.com/henryxu1008/shuomi-ai-commerce/internal/app/referralregistration"
 )
 
 type panicReferralCommands struct {

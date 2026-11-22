@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
 
 	"github.com/go-pay/gopay"
 )

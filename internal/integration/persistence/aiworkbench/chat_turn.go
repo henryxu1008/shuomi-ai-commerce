@@ -6,10 +6,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
 )
 
 func decodeTurn(raw []byte) (aiworkbench.ChatTurnEnvelope, error) {

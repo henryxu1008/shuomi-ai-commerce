@@ -2,19 +2,19 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadel "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	invitationmail "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/mail"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/organization/membership"
+	provider "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/zitadel/membership"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
+	memberhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/httpapi"
+	flow "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/inviteflow"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	"net/http"
 	"strings"
-	"task-processor/internal/authidentity"
-	zitadel "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	invitationmail "task-processor/internal/integration/mail"
-	store "task-processor/internal/integration/persistence/organization/membership"
-	provider "task-processor/internal/integration/zitadel/membership"
-	domain "task-processor/internal/organization/membership"
-	memberhttp "task-processor/internal/organization/membership/httpapi"
-	flow "task-processor/internal/organization/membership/inviteflow"
-	"task-processor/internal/workbenchcontext"
 )
 
 func buildInvitationFactory(deps MembershipDependencies, project string, auth routeAuthDependencies, service *domain.Service, receipts *store.Repository, writer *provider.Writer, authorizer *authz.ListingKitAuthorizer) (memberhttp.InvitationFactory, error) {

@@ -3,6 +3,8 @@ package storeobservationsruntime
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	enums "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
@@ -11,8 +13,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"task-processor/internal/authidentity"
-	o "task-processor/internal/storecenter/observations"
 	"time"
 )
 

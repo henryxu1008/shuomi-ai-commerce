@@ -13,7 +13,7 @@ func TestLoadGoFileIndexCollectsImportsAndSelectors(t *testing.T) {
 	source := `package sample
 
 import (
-	productenrich "task-processor/internal/productenrich"
+	productenrich "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich"
 	"fmt"
 )
 
@@ -37,7 +37,7 @@ func example() {
 	if _, ok := file.imports[`"fmt"`]; !ok {
 		t.Fatalf("expected fmt import to be indexed")
 	}
-	if _, ok := file.imports[`"task-processor/internal/productenrich"`]; !ok {
+	if _, ok := file.imports[`"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich"`]; !ok {
 		t.Fatalf("expected productenrich import to be indexed")
 	}
 	if !strings.Contains(string(file.source), "productenrich.CanonicalProduct") {
@@ -109,10 +109,10 @@ func TestImportMatchesPrefixOnlyAtPackageBoundary(t *testing.T) {
 		prefix     string
 		want       bool
 	}{
-		{name: "exact", importPath: "task-processor/internal/listingkit", prefix: "task-processor/internal/listingkit", want: true},
-		{name: "subpackage", importPath: "task-processor/internal/listingkit/core", prefix: "task-processor/internal/listingkit", want: true},
-		{name: "sibling", importPath: "task-processor/internal/listingkitten", prefix: "task-processor/internal/listingkit", want: false},
-		{name: "different", importPath: "task-processor/internal/product/catalog", prefix: "task-processor/internal/listingkit", want: false},
+		{name: "exact", importPath: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", prefix: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", want: true},
+		{name: "subpackage", importPath: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/core", prefix: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", want: true},
+		{name: "sibling", importPath: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkitten", prefix: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", want: false},
+		{name: "different", importPath: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog", prefix: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", want: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := importMatchesPrefix(tc.importPath, tc.prefix); got != tc.want {

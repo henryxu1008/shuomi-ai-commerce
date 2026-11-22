@@ -2,8 +2,8 @@ package openai
 
 import (
 	"context"
-	"task-processor/internal/ai"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 func (a *SourceImageAdapter) EditSources(ctx context.Context, request productimage.SourceEditRequest) (productimage.Candidate, error) {

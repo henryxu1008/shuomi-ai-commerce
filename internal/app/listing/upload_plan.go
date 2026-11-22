@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/listing/submission"
-	tiktok "task-processor/internal/marketplace/tiktokshop"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/review"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 // Projection/authorization adapter; sequencing and durable commands remain in

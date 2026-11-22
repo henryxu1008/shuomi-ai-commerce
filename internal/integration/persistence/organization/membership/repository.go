@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
-	domain "task-processor/internal/organization/membership"
 )
 
 const table = "public.organization_member_operations"

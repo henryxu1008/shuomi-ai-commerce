@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gorm.io/gorm"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/product/contentagent"
-	"task-processor/internal/product/review"
-	d "task-processor/internal/skill"
 )
 
 type productSkillContext struct{ application *productAgentApplication }

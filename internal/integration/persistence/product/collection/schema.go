@@ -2,8 +2,8 @@ package collectionpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	"task-processor/internal/product/collection"
 )
 
 var Tables = []string{"product_collection_batches", "product_collection_items", "product_collection_operations"}

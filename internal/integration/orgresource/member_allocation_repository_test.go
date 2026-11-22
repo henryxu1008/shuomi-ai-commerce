@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 func TestMemberAllocationConservesResourceAndReplaysOriginalReceipt(t *testing.T) {

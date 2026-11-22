@@ -3,11 +3,11 @@ package shopdiagnosis
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/agent"
-	c "task-processor/internal/operationscockpit"
-	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/listing/readiness/tools/readinessinspect"
-	"task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/readiness/tools/readinessinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 // ProductInputs is an ordinary read. The server selects the original saved

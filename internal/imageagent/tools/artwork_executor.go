@@ -2,10 +2,10 @@ package tools
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"reflect"
-	"task-processor/internal/aicapability"
 
-	"task-processor/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 )
 
 // ArtworkCreator receives only the prompt from a verified immutable plan.

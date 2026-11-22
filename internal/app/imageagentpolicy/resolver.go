@@ -1,8 +1,8 @@
 package imageagentpolicy
 
 import (
-	policycatalog "task-processor/internal/integration/policy/productimage"
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
+	policycatalog "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/policy/productimage"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
 )
 
 // LoadEmbeddedResolver builds the exact resolver shared by command admission

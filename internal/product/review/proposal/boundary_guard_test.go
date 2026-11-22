@@ -97,8 +97,8 @@ func TestReviewProposalHasOnlyPureDomainDependencies(t *testing.T) {
 	t.Parallel()
 
 	allowedModuleImports := map[string]struct{}{
-		"task-processor/internal/product/catalog":  {},
-		"task-processor/internal/product/sourcing": {},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog":  {},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing": {},
 	}
 	violations, err := proposalDependencyViolations(proposalProductionFiles(t), allowedModuleImports)
 	if err != nil {
@@ -133,7 +133,7 @@ func proposalDependencyViolations(files []string, allowedModuleImports map[strin
 			if err != nil {
 				return nil, fmt.Errorf("unquote import %s: %w", imported.Path.Value, err)
 			}
-			if !strings.HasPrefix(path, "task-processor/") {
+			if !strings.HasPrefix(path, "github.com/henryxu1008/shuomi-ai-commerce/") {
 				if isBannedExternalImport(path) {
 					violations = append(violations, fmt.Sprintf("review proposal file %s imports banned runtime/provider dependency %q", file, path))
 				}

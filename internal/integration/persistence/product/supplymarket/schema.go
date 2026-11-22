@@ -3,7 +3,7 @@ package supplymarketpersistence
 import (
 	"context"
 	_ "embed"
-	"task-processor/internal/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 
 	"gorm.io/gorm"
 )

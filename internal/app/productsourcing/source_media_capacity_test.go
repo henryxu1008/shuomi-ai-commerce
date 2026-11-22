@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	s3 "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
-	s3 "task-processor/internal/integration/s3"
-	"task-processor/internal/ledger/storagecapacity"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

@@ -2,8 +2,8 @@ package recordpersistence
 
 import (
 	"context"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"gorm.io/gorm"
-	record "task-processor/internal/listing/record/target"
 )
 
 var Tables = []string{"listing_target_records", "listing_preparation_targets", "listing_target_record_commands", "listing_target_split_commands"}

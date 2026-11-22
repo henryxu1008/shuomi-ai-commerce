@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	referralstore "task-processor/internal/integration/persistence/referral"
-	m "task-processor/internal/ledger/money"
+	referralstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/referral"
+	m "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 
 	"github.com/google/uuid"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"

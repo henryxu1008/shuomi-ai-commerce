@@ -3,11 +3,11 @@ package routeconfiguration
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	channel "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	channel "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
-	governed "task-processor/internal/integration/aicapability/einomodel"
 	"testing"
 	"time"
 )

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	e "task-processor/internal/ecoservices"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
 )
 
 func correctedApplicationCommand(t *testing.T, r *Repository, s *e.Service) (e.Application, e.Command, string) {

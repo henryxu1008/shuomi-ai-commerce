@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // UploadPlanInput fixes configuration, not provider facts or authority.

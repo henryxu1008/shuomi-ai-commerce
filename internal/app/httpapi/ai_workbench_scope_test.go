@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 )
 
 func workbenchCreateFixtureBody(t *testing.T, server *httptest.Server, actor, org string, selection aiworkbench.ScopeSelection, favorite bool) string {

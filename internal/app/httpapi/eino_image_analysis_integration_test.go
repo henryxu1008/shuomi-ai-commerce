@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"task-processor/internal/aicapability"
-	governed "task-processor/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 )
 
 // Extend the original HTTP/PG owner fixture, not a parallel model runner.

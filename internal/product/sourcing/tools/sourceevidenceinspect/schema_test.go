@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 func TestRegistryOutputSchemaRejectsRawAndUnboundedFields(t *testing.T) {

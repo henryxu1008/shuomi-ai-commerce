@@ -21,6 +21,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	obshttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storeobservations/httpapi"
+	obspg "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storeobservations"
+	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/tiktokshop"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/require"
@@ -29,14 +33,10 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	storeapp "task-processor/internal/app/storecenter"
-	obshttp "task-processor/internal/app/storeobservations/httpapi"
-	obspg "task-processor/internal/integration/persistence/storeobservations"
-	tiktok "task-processor/internal/integration/tiktokshop"
 
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
-	auth "task-processor/internal/storecenter/tiktokshop"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/tiktokshop"
 )
 
 type tiktokOrderReceipt struct {

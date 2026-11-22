@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/integration/ecoservicesbilling"
-	"task-processor/internal/ledger/money"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/ecoservicesbilling"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 type refundApprovalRaceTrading struct {

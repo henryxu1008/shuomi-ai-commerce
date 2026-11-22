@@ -1,10 +1,10 @@
 package agentconfig_test
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/contentagent"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/product/contentagent"
 	"testing"
 )
 

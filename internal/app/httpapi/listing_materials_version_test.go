@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/listing/materials"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
 )
 
 func materialV1HistoricalState() agent.State {

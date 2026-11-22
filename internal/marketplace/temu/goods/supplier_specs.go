@@ -1,10 +1,10 @@
 package goods
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	"sort"
 	"strconv"
 	"strings"
-	"task-processor/internal/marketplace/temu/model"
 )
 
 // E27 requires complete combinations. Counts alone cannot detect a repeated

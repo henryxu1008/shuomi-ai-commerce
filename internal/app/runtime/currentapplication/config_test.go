@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authz"
-	coreconfig "task-processor/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"

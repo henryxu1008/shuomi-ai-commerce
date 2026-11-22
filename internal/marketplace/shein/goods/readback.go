@@ -1,6 +1,6 @@
 package goods
 
-import model "task-processor/internal/marketplace/shein/model"
+import model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 
 // Query results are positive observations, never proof that a write had no effect.
 func CorrelatesProductReadback(input model.PublishProduct, spu string, result model.ProductReadback) bool {

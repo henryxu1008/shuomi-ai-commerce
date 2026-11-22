@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	recordstore "task-processor/internal/app/listingrecordstore"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listingrecordstore"
 )
 
 var trialWritableTables = append([]string{

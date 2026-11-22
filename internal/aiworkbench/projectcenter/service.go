@@ -3,8 +3,8 @@ package projectcenter
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"strings"
-	"task-processor/internal/authidentity"
 	"time"
 	"unicode"
 	"unicode/utf8"

@@ -2,8 +2,8 @@ package currentapplication
 
 import (
 	"errors"
-	"task-processor/internal/authidentity"
-	invitationmail "task-processor/internal/integration/mail"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	invitationmail "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/mail"
 )
 
 // MembershipConfig is opt-in current application configuration. Credentials

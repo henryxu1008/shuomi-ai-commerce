@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	k "github.com/henryxu1008/shuomi-ai-commerce/internal/browserkernel"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -13,7 +14,6 @@ import (
 	"gorm.io/gorm/logger"
 	"strings"
 	"sync"
-	k "task-processor/internal/browserkernel"
 	"testing"
 	"time"
 )

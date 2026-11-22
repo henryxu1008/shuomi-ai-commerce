@@ -3,12 +3,12 @@ package agentconfigpersistence
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"regexp"
-	"task-processor/internal/pkg/pgschema"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"gorm.io/gorm"
-	"task-processor/internal/agentconfig"
 )
 
 const oldContentSchemaVersionCheck = `CHECK (((schema_version)::text = ANY ((ARRAY['title-config-v1'::character varying, 'image-config-v1'::character varying])::text[])))`

@@ -2,11 +2,11 @@ package walmart
 
 import (
 	"context"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"net/http"
 	"net/url"
 	"strings"
-	o "task-processor/internal/storecenter/observations"
-	auth "task-processor/internal/storecenter/walmart"
 	"time"
 	"unicode"
 )

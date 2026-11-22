@@ -1,6 +1,6 @@
 package catalog
 
-import "task-processor/internal/product/catalog/canonical"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
 
 // ProjectCanonical projects an independent view for existing platform builders.
 // It does not publish facts, approve images, or load external inputs.

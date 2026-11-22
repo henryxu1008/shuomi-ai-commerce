@@ -20,11 +20,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/app/schema/sourceaccountregistry"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	registrystore "task-processor/internal/integration/persistence/sourceaccountregistry"
-	registry "task-processor/internal/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	registrystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccountregistry"
+	registry "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
 )
 
 func TestSourceAccountRegistryPostgresBusinessChain(t *testing.T) {

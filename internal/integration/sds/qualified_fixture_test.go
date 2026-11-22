@@ -3,11 +3,11 @@ package sds
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"io"
 	"net/http"
 	"os"
 	"strings"
-	"task-processor/internal/product/pod"
 	"testing"
 
 	"github.com/stretchr/testify/require"

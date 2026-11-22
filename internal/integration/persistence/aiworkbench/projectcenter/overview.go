@@ -3,8 +3,8 @@ package projectcenterpersistence
 import (
 	"context"
 	"database/sql"
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
 	"gorm.io/gorm"
-	pc "task-processor/internal/aiworkbench/projectcenter"
 	"time"
 )
 

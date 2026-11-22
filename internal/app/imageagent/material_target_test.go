@@ -5,14 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 	"image"
 	"image/png"
 	"os"
 	"strings"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	"task-processor/internal/product/asset"
 	"testing"
 )
 

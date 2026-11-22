@@ -2,16 +2,16 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/storagecapacity"
 	"testing"
 )
 

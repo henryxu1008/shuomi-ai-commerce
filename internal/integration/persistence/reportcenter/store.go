@@ -9,11 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	rc "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"strings"
-	"task-processor/internal/pkg/pgschema"
-	rc "task-processor/internal/reportcenter"
 	"time"
 )
 

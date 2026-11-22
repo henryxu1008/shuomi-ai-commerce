@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/automaticfx"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	"task-processor/internal/aicapability"
-	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/integration/aicapability/automaticfx"
 )
 
 func syntheticFXClock() (time.Time, string, string) {

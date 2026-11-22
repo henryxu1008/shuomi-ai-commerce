@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"strings"
-	"task-processor/internal/product/description"
 )
 
 // Publisher owns validation and defensive copying at the Catalog write

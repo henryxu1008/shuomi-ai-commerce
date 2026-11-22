@@ -2,13 +2,13 @@ package dataservicesapp
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	customstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/dataservice"
+	sourcestore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
 	"strconv"
-	"task-processor/internal/dataservice"
-	customstore "task-processor/internal/integration/persistence/dataservice"
-	sourcestore "task-processor/internal/integration/persistence/product/sourcing"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
 )
 
 // This authorizer consumes the private synchronous delivery proof, after the

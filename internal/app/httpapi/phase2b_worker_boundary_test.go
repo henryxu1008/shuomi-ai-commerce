@@ -24,7 +24,7 @@ func TestHTTPAPIServerDoesNotOwnListingKitAuthMiddlewareSelection(t *testing.T) 
 	serverContent := string(serverSrc)
 
 	for _, marker := range []string{
-		`"task-processor/internal/authz/httpapi"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/authz/httpapi"`,
 		"NewZitadelAuthMiddlewareFromEnv(",
 		"RouteRequiresZitadelAuth(",
 		"NewRouteRoleMiddleware(",
@@ -36,7 +36,7 @@ func TestHTTPAPIServerDoesNotOwnListingKitAuthMiddlewareSelection(t *testing.T) 
 	require.NoError(t, err)
 	authContent := string(authSrc)
 	for _, marker := range []string{
-		`"task-processor/internal/authz/httpapi"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/authz/httpapi"`,
 		"workbenchAuthenticationMiddleware(dependencies.workbenchVerifier)",
 		"RouteRequiresZitadelAuth(",
 		"NewRouteRoleMiddlewareWithAuthorizer(",

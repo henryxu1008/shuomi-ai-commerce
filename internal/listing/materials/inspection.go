@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/commercetool"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/shein/goods"
-	sheinvalidator "task-processor/internal/marketplace/shein/validator"
-	contract "task-processor/internal/marketplace/validator"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	sheinvalidator "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/validator"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 const MaxInspectionBytes = 512 << 10

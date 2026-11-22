@@ -3,7 +3,7 @@ package imagepolicy
 import (
 	"errors"
 
-	productimage "task-processor/internal/product/image"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 var (

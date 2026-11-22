@@ -11,17 +11,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi"
+	agentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agent"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/aicapability"
-	credential "task-processor/internal/aicapability/channelcredential"
-	aistore "task-processor/internal/aicapability/store"
-	"task-processor/internal/app/httpapi"
-	agentstore "task-processor/internal/integration/persistence/agent"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
 )
 
 type prepareFixture struct {

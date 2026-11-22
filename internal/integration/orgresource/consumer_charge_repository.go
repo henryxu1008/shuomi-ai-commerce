@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/ledger/orgresource"
 )
 
 const consumerChargeProtocol = "consumer_charge_v1"

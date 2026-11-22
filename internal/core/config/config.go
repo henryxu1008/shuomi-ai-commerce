@@ -3,12 +3,12 @@ package config
 import (
 	"bufio"
 	"fmt"
+	topupconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/wallettopup/config"
+	logger "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	topupconfig "task-processor/internal/integration/wallettopup/config"
-	logger "task-processor/internal/platform/logging"
 
 	"github.com/spf13/viper"
 )

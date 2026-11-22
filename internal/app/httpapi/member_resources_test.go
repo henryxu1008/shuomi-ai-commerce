@@ -11,18 +11,18 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	billing "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	billing "task-processor/internal/commercial/billing"
-	"task-processor/internal/httproute"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/organization/membership"
 )
 
 func TestMemberResourcesHTTPUsesNativePositionsAndAllowsDepartedFreeReclaim(t *testing.T) {

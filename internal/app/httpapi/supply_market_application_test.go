@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	podhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/pod/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	markethttp "github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket/httpapi"
 	"github.com/stretchr/testify/require"
-	podhttp "task-processor/internal/app/pod/httpapi"
-	"task-processor/internal/httproute"
-	markethttp "task-processor/internal/product/supplymarket/httpapi"
 	"testing"
 )
 

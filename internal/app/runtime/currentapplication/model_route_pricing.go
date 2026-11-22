@@ -3,15 +3,15 @@ package currentapplication
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	qualified "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/routeconfig"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/routeconfig"
 	"net"
 	"slices"
 	"strconv"
-	"task-processor/internal/aicapability"
-	d "task-processor/internal/aicapability/routeconfig"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	qualified "task-processor/internal/integration/aicapability/routeconfig"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
-	store "task-processor/internal/integration/persistence/routeconfig"
 
 	"gorm.io/gorm"
 )

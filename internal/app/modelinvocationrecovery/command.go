@@ -10,14 +10,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/productagentruntime"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/aicapability"
-	aistore "task-processor/internal/aicapability/store"
-	"task-processor/internal/app/schema/productagentruntime"
-	coreconfig "task-processor/internal/core/config"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/platform/database"
 )
 
 var ErrRecoveryUnavailable = errors.New("original invocation recovery unavailable; inspect the same configured identity")

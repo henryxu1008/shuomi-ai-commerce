@@ -1,6 +1,6 @@
 package einomodel
 
-import "task-processor/internal/aicapability"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 
 func matchesResponseModel(actual string, cfg GuardConfig) bool {
 	return actual != "" && (actual == cfg.ModelID || cfg.ResponseModelID != "" && actual == cfg.ResponseModelID)

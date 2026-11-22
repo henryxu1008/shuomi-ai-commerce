@@ -3,11 +3,11 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	n "github.com/henryxu1008/shuomi-ai-commerce/internal/notificationcenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"strconv"
-	"task-processor/internal/authz"
-	"task-processor/internal/ledger/orgresource"
-	n "task-processor/internal/notificationcenter"
-	"task-processor/internal/product/sourcing"
 	"time"
 )
 

@@ -8,14 +8,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"task-processor/internal/agentconfig"
-	dataservicesapp "task-processor/internal/app/dataservices"
-	"task-processor/internal/dataservice"
-	"task-processor/internal/httproute"
-	"task-processor/internal/integration/acquisition/zenrows"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	rh "task-processor/internal/product/research/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/dataservice"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/zenrows"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	rh "github.com/henryxu1008/shuomi-ai-commerce/internal/product/research/httpapi"
 )
 
 const (

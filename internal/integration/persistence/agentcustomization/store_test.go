@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"github.com/google/uuid"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
-	d "task-processor/internal/agentcustomization"
 	"testing"
 )
 

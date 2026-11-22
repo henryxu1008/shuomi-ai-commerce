@@ -26,10 +26,10 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/store"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 var sevenSlotResultDigest = func() string {

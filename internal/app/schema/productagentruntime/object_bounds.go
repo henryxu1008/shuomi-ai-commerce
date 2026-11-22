@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
+	routeconfigstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/routeconfig"
+	skillstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/skill"
 	"gorm.io/gorm"
-	configstore "task-processor/internal/integration/persistence/agentconfig"
-	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
-	skillstore "task-processor/internal/integration/persistence/skill"
 )
 
 // Only the three fixed identities in the current target database are examined.

@@ -7,11 +7,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
-	"task-processor/internal/httproute"
 	"time"
 )
 

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	recovery "task-processor/internal/app/modelinvocationrecovery"
-	coreconfig "task-processor/internal/core/config"
-	store "task-processor/internal/integration/persistence/aiworkbench"
+	recovery "github.com/henryxu1008/shuomi-ai-commerce/internal/app/modelinvocationrecovery"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/aiworkbench"
 )
 
 type formalPaths struct{ Source, Anchor, Admission, RecoveryConfig, Helper string }

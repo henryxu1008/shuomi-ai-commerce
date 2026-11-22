@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/ecoservicesbilling"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/gorm"
-	e "task-processor/internal/ecoservices"
-	"task-processor/internal/integration/ecoservicesbilling"
-	"task-processor/internal/ledger/money"
 	"testing"
 	"time"
 )

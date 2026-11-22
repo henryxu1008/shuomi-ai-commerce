@@ -14,16 +14,16 @@ import (
 // Keep this separate from the documentation tests owned by Issue #311.
 func TestValidatorContractImportBoundary(t *testing.T) {
 	roots := map[string]map[string]bool{
-		"internal/marketplace/shein/offlinepackage": {"bytes": true, "encoding/json": true, "errors": true, "fmt": true, "io": true, "math": true, "sort": true, "strconv": true, "strings": true, "time": true, "unicode/utf8": true, "sigs.k8s.io/json": true, "task-processor/internal/marketplace/shein/publishing": true, "task-processor/internal/product/catalog/canonical": true, "task-processor/internal/marketplace/shein/offlinepackage/previewdata": true},
+		"internal/marketplace/shein/offlinepackage": {"bytes": true, "encoding/json": true, "errors": true, "fmt": true, "io": true, "math": true, "sort": true, "strconv": true, "strings": true, "time": true, "unicode/utf8": true, "sigs.k8s.io/json": true, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing": true, "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical": true, "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata": true},
 		"internal/marketplace/validator":            {"cmp": true, "encoding/json": true, "slices": true, "strings": true, "time": true, "unicode/utf8": true},
 		"internal/marketplace/shein/validator": {
 			"crypto/sha256": true,
 			"encoding/hex":  true,
 			"encoding/json": true,
-			"task-processor/internal/marketplace/validator":            true,
-			"task-processor/internal/marketplace/shein/publishing":     true,
-			"task-processor/internal/marketplace/shein/workspace":      true,
-			"task-processor/internal/marketplace/shein/offlinepackage": true,
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator":            true,
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing":     true,
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/workspace":      true,
+			"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage": true,
 		},
 	}
 	for root, allowed := range roots {
@@ -52,7 +52,7 @@ func TestValidatorContractImportBoundary(t *testing.T) {
 }
 
 func TestValidatorContractGuardRejectsRuntimeAndProviderDependencies(t *testing.T) {
-	for _, dependency := range []string{"net/http", "os", "task-processor/internal/agent/runtime", "task-processor/internal/listingkit", "task-processor/internal/compatibility/listingkit", "github.com/openai/openai-go", "task-processor/internal/shein/api/product"} {
+	for _, dependency := range []string{"net/http", "os", "github.com/henryxu1008/shuomi-ai-commerce/internal/agent/runtime", "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit", "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/listingkit", "github.com/openai/openai-go", "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/api/product"} {
 		if len(validatorBoundaryViolations("package fixture\nimport "+strconv.Quote(dependency), nil)) == 0 {
 			t.Fatalf("accepted %s", dependency)
 		}

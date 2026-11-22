@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
 	"golang.org/x/sync/semaphore"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
-	"task-processor/internal/ai"
 	"time"
 )
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/shared/aiidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/aiidentity"
 )
 
 func TestAuthenticatedIdentityRoundTripsThroughContext(t *testing.T) {

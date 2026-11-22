@@ -2,11 +2,11 @@ package amazon
 
 import (
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"io"
 	"net/http"
 	"net/netip"
 	"strings"
-	"task-processor/internal/product/dataacquisition"
 	"testing"
 )
 

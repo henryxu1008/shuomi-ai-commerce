@@ -1,13 +1,13 @@
 package listingapp
 
 import (
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"strconv"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/description"
-	"task-processor/internal/storecenter"
 )
 
 func initialTemuInput(source catalog.PublishedSnapshot, merchant storecenter.ProductMerchantBinding) *temugoods.DraftInput {

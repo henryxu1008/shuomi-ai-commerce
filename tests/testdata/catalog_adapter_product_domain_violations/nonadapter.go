@@ -1,12 +1,12 @@
 package catalogadapterproductdomainviolations
 
 import (
-	_ "task-processor/internal/product/asset"
-	_ "task-processor/internal/product/asset/future"
-	_ "task-processor/internal/product/image"
-	_ "task-processor/internal/product/image/presets"
-	_ "task-processor/internal/product/review/proposal"
-	_ "task-processor/internal/product/review/proposal/future"
-	_ "task-processor/internal/product/sourcing"
-	_ "task-processor/internal/product/sourcing/future"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/future"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image/presets"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal/future"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing/future"
 )

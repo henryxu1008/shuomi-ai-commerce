@@ -11,8 +11,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/integration/httpimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 )
 
 // Local metadata only: never attach the raw error, URL, prompt or credentials.

@@ -4,7 +4,7 @@ package setup
 
 import (
 	"context"
-	"task-processor/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
 )
 
 func (d *Driver) desktopClientsIdle(context.Context) (bool, error) {

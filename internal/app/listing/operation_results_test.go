@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/listing/submission"
 )
 
 func TestUnknownOperationReadProjectsOriginalConfirmedReceiptWithoutRewritingHistory(t *testing.T) {

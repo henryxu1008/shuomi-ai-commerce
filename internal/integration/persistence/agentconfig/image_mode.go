@@ -2,8 +2,8 @@ package agentconfigpersistence
 
 import (
 	"context"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 )
 
 func (s *Store) CheckImageExecutionMode(ctx context.Context, identity agent.ExecutionIdentity, config agent.ConfigurationSnapshotRef, ref agent.ModeSnapshotRef) (agentconfig.ModeSnapshot, error) {

@@ -5,11 +5,11 @@ package httpapi
 import (
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	estore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/ecoservices"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	estore "task-processor/internal/integration/persistence/ecoservices"
 )
 
 func TestEcoservicesQualificationInspectionChecksRetainedTradeFacts(t *testing.T) {

@@ -2,11 +2,11 @@ package skillimage
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/agent"
-	"task-processor/internal/imageagent"
-	d "task-processor/internal/skill"
 	"testing"
 )
 

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercial/billing"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
 )
 
 func TestStorageEnableEmptyCLIOnlyInstallsCapacityGrantAndOriginalOffer(t *testing.T) {

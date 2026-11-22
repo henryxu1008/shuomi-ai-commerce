@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // Revisions are JSON numbers under the existing browser safe-integer contract.

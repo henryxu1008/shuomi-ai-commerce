@@ -20,14 +20,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/ai"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	"task-processor/internal/imageagent/store"
-	"task-processor/internal/integration/grsai"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	"task-processor/internal/ledger/orgresource"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 type generationOutputResourceAuth struct{}

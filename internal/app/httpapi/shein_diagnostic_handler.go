@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/listing/record"
-	contract "task-processor/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func TestTikTokStoreSchemaCanonicalGrantAndBindingConstraints(t *testing.T) {

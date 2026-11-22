@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 )
 
 func TestExecutionSourceProofIsSeparateBoundedAndPublicationQualified(t *testing.T) {

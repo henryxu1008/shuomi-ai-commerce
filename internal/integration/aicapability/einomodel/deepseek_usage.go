@@ -1,6 +1,6 @@
 package einomodel
 
-import "task-processor/internal/aicapability"
+import "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 
 // This strategy uses only its declared basic counters. Optional supplier cache
 // or pricing metadata is neither required nor represented as observed zero.

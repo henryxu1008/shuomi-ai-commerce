@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/storecenter"
-	walmart "task-processor/internal/storecenter/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 )
 
 type walmartBindingMetadataOnly struct {

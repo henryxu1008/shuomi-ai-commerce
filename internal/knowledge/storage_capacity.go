@@ -2,7 +2,7 @@ package knowledge
 
 import (
 	"context"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 func (s *Service) ConfigureStorageCapacity(m *storagecapacity.Meter)   { s.capacity = m }

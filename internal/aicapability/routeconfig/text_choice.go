@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sort"
 
-	"task-processor/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 )
 
 type TextChoiceInput struct {

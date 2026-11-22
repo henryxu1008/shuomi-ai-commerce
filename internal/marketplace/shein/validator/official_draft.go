@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	contract "task-processor/internal/marketplace/validator"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 )
 
 const OfficialDraftScope = "shein.official_draft"

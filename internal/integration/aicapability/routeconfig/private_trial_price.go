@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"task-processor/internal/aicapability"
-	governed "task-processor/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 )
 
 // PrivateTrialPrice is deployment input for one short-lived, local fixture.

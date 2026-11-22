@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/servicepayments"
 	"gorm.io/gorm"
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/integration/s3"
-	"task-processor/internal/integration/servicepayments"
 )
 
 func prepareEcoservices(ctx context.Context, db *gorm.DB, cfg *currentapplication.EcoservicesConfig) (*currentapplication.EcoservicesRuntime, error) {

@@ -2,9 +2,9 @@ package asset_test
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/asset/assettest"
 	"testing"
 )
 

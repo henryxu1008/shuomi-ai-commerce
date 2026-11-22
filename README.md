@@ -57,7 +57,7 @@ cd shuomi-ai-commerce
 go mod download
 ```
 
-仓库与产品已更名，Go 模块仍是 `task-processor`，前端目录仍是 `web/listingkit-ui`。这些是当前真实工程标识，详见[当前源码地图](docs/development/repository-structure.md)。
+根 Go 模块是 `github.com/henryxu1008/shuomi-ai-commerce`，前端目录仍是 `web/listingkit-ui`。这些是当前真实工程标识，详见[当前源码地图](docs/development/repository-structure.md)。
 
 ### 启动后端
 

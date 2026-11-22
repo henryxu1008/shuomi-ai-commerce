@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	kernel "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
+	rh "github.com/henryxu1008/shuomi-ai-commerce/internal/product/research/httpapi"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/httproute"
-	kernel "task-processor/internal/kernel/module"
-	"task-processor/internal/product/dataacquisition"
-	"task-processor/internal/product/research"
-	rh "task-processor/internal/product/research/httpapi"
 )
 
 // Only capability checks run in this assembly test. No store/source methods,

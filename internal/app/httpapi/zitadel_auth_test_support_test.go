@@ -2,15 +2,15 @@ package httpapi
 
 import (
 	"encoding/json"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
 	"testing"
 	"time"
 
-	"task-processor/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 const appHTTPTestBearerToken = "app-http-test-token"

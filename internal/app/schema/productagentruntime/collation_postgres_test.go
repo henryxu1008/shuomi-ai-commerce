@@ -2,8 +2,8 @@ package productagentruntime
 
 import (
 	"context"
-	credential "task-processor/internal/aicapability/channelcredential"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
 	"testing"
 
 	"github.com/stretchr/testify/require"

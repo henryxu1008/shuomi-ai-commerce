@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/listing/materials"
-	record "task-processor/internal/listing/record/target"
 )
 
 func testCandidateRulesNativeOwners(t *testing.T, value string, a *listingMaterialsApplication, parent *productAgentApplication, supply *listingapp.Application, base record.TargetReceipt, actor context.Context, deps routeAuthDependencies, calls *atomic.Int32, input materialsPrepareInput, path string, call func(string, string, string, any, int) []byte) {

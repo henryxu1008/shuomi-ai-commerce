@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	submissionstore "task-processor/internal/integration/persistence/listing/submission"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 func (r *OfficialRepository) ResolveOfficial(ctx context.Context, proof submission.OfficialResolution) (submission.OfficialReceipt, error) {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	persistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/knowledge"
+	migration "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database/migration"
 	"github.com/pressly/goose/v3"
 	"gorm.io/gorm"
-	persistence "task-processor/internal/integration/persistence/knowledge"
-	migration "task-processor/internal/platform/database/migration"
 )
 
 func migrateKnowledge(ctx context.Context, db *gorm.DB) error {

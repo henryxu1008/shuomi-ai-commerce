@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	"task-processor/internal/product/asset"
-	productimage "task-processor/internal/product/image"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 )
 
 type GeneratedMaterialByteReader func(context.Context, asset.SourceSelection, asset.ApprovedAsset, int64) ([]byte, error)

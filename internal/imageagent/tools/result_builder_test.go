@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"strings"
-	"task-processor/internal/agent"
-	"task-processor/internal/imageagent"
-	productimage "task-processor/internal/product/image"
 	"testing"
 
 	"github.com/stretchr/testify/require"

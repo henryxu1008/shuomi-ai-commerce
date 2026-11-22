@@ -1,9 +1,9 @@
 package config
 
 import (
+	topupconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/wallettopup/config"
 	"os"
 	"strings"
-	topupconfig "task-processor/internal/integration/wallettopup/config"
 	"time"
 
 	"github.com/spf13/viper"

@@ -2,8 +2,8 @@ package collectionpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	"task-processor/internal/product/collection"
 )
 
 func (r *Repository) reviseOwn(ctx context.Context, tx *gorm.DB, command collection.Command) (collection.Receipt, error) {

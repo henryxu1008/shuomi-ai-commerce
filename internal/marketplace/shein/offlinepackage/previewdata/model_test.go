@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
 )
 
 // These field shapes are frozen from the original wire contract before cutover.

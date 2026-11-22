@@ -5,6 +5,7 @@ package projectcenterpersistence
 import (
 	"context"
 	"github.com/google/uuid"
+	pc "github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench/projectcenter"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -13,7 +14,6 @@ import (
 	"gorm.io/gorm/logger"
 	"net/url"
 	"sync"
-	pc "task-processor/internal/aiworkbench/projectcenter"
 	"testing"
 	"time"
 )

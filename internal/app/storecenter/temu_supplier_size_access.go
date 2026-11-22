@@ -2,8 +2,8 @@ package storecenterapp
 
 import (
 	"context"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type TemuSupplierSizeProvider interface {

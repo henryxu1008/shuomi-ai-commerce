@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	researchstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/research"
+	reviewstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	researchstore "task-processor/internal/integration/persistence/product/research"
-	reviewstore "task-processor/internal/integration/persistence/product/review"
-	"task-processor/internal/product/review"
 )
 
 type listingFeatureFixture struct {

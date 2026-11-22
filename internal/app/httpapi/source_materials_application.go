@@ -4,17 +4,17 @@ import (
 	"context"
 	"time"
 
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	assetstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
-	listingapp "task-processor/internal/app/listing"
-	listinghttp "task-processor/internal/app/listing/httpapi"
-	"task-processor/internal/authz"
-	"task-processor/internal/core/config"
-	"task-processor/internal/httproute"
-	assetstore "task-processor/internal/integration/persistence/product/asset"
-	kernelmodule "task-processor/internal/kernel/module"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
 )
 
 func WithSourceMaterials(db *gorm.DB) CurrentApplicationOption {

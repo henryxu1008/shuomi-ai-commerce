@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	c "github.com/henryxu1008/shuomi-ai-commerce/internal/operationscockpit"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	c "task-processor/internal/operationscockpit"
 )
 
 type fixtureBoundary struct {

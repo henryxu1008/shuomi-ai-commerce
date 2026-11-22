@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
-	d "task-processor/internal/agentcustomization"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
 	"time"
 )
 

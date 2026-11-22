@@ -18,8 +18,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/product/sourcing"
 )
 
 // AcquirePath is the single RPC method. It is versioned so a stale caller is

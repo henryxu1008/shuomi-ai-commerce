@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/imageagent"
 )
 
 func TestImageMethodBindingRejectsRetiredPolicies(t *testing.T) {

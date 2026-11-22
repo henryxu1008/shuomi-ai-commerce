@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercial/billing"
-	billinghttp "task-processor/internal/commercial/billing/httpapi"
-	coreconfig "task-processor/internal/core/config"
-	"task-processor/internal/integration/wallettopup"
-	topupconfig "task-processor/internal/integration/wallettopup/config"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	billinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing/httpapi"
+	coreconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/wallettopup"
+	topupconfig "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/wallettopup/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 type topUpRuntimeAuthorizer struct {

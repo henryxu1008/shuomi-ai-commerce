@@ -2,11 +2,11 @@ package skillpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 	"gorm.io/gorm"
 	"sync"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	d "task-processor/internal/skill"
 )
 
 func (s *Store) UsesPool(db *gorm.DB) bool {

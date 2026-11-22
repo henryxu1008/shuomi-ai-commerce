@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 var ErrGrantConflict = errors.New("TikTok Shop grant revision or operation conflict")

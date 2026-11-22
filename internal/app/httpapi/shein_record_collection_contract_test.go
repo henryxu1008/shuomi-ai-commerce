@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/listing/record"
-	contract "task-processor/internal/marketplace/validator"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
 
 	"github.com/stretchr/testify/require"
 )

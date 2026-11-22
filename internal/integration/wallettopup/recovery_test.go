@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/commercial/billing"
-	commercialstore "task-processor/internal/integration/persistence/commercialbilling"
-	moneystore "task-processor/internal/integration/persistence/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	commercialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/commercialbilling"
+	moneystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

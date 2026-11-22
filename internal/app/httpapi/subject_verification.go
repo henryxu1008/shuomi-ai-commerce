@@ -10,16 +10,16 @@ import (
 	"os"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadel "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	store "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/subjectverification"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/tencentesign"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
+	domain "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
+	verificationhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification/httpapi"
 	"gorm.io/gorm"
-	"task-processor/internal/authidentity"
-	zitadel "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/core/config"
-	store "task-processor/internal/integration/persistence/subjectverification"
-	"task-processor/internal/integration/tencentesign"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/product/supplymarket"
-	domain "task-processor/internal/subjectverification"
-	verificationhttp "task-processor/internal/subjectverification/httpapi"
 )
 
 var _ personalKYCReader = (*domain.PersonalService)(nil)

@@ -3,9 +3,9 @@ package httpapi
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
 	"net/http"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authruntime/zitadel"
 	"time"
 )
 

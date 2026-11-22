@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	acquisitionpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	catalogpersistence "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"gorm.io/gorm"
-	"task-processor/internal/authz"
-	acquisitionpersistence "task-processor/internal/integration/persistence/product/acquisition"
-	catalogpersistence "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
 )
 
 // BrowserCaptureService uses the same operation store and publication protocol.

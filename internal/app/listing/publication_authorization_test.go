@@ -2,12 +2,12 @@ package listingapp
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
-	"task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/storecenter"
 	"testing"
 	"time"
 )

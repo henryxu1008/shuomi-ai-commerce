@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"golang.org/x/sync/errgroup"
-	storeapp "task-processor/internal/app/storecenter"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/marketplace/shein/goods"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 )
 
 type RulesMerchant interface {

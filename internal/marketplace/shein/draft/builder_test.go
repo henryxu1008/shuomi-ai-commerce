@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"testing"
 
-	"task-processor/internal/listing/record"
-	sheinpub "task-processor/internal/marketplace/shein/offlinepackage"
-	contract "task-processor/internal/marketplace/validator"
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/catalog/canonical"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record"
+	sheinpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/canonical"
 
 	"github.com/stretchr/testify/require"
 )

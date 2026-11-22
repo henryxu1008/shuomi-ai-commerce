@@ -2,8 +2,8 @@ package currentapplication
 
 import (
 	"errors"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 type PrivateDraftTrialConfig struct {

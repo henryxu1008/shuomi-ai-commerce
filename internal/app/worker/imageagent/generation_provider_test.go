@@ -19,14 +19,14 @@ import (
 	logtest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/agent"
-	credential "task-processor/internal/aicapability/channelcredential"
-	"task-processor/internal/core/config"
-	"task-processor/internal/imageagent"
-	governed "task-processor/internal/integration/aicapability/einomodel"
-	openai "task-processor/internal/integration/openai"
-	"task-processor/internal/integration/skillimage"
-	"task-processor/internal/skill"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	governed "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
+	openai "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/skillimage"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/skill"
 )
 
 type officialImageUseStore struct{ material skill.Package }

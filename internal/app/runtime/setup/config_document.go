@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"task-processor/internal/app/setupcontrol"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
 )
 
 // A module toggle must preserve unrelated int64 revisions and exact decimal

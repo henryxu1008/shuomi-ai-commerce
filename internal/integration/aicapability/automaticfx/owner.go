@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	d "task-processor/internal/aicapability/routeconfig"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 )
 
 const automaticActor = "system:fx:frankfurter-cfets-v1"

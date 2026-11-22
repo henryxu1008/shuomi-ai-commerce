@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	money "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	money "task-processor/internal/ledger/money"
 )
 
 func newMoneyRepository(t *testing.T) *Repository {

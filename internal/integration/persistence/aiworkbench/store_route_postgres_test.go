@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aiworkbench/einorouter"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	aistore "task-processor/internal/aicapability/store"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/integration/aiworkbench/einorouter"
 )
 
 func TestStoreRouteSameKeyConcurrentAndTypedHistory(t *testing.T) {

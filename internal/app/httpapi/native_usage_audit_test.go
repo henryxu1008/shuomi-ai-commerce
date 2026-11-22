@@ -3,12 +3,12 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"path/filepath"
-	"task-processor/internal/aicapability"
-	aistore "task-processor/internal/aicapability/store"
 	"testing"
 	"time"
 )

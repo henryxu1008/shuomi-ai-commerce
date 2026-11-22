@@ -2,8 +2,8 @@ package researchpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
 	"gorm.io/gorm"
-	"task-processor/internal/product/research"
 )
 
 // InstallAssessmentSchema is called by Product's locked empty-database

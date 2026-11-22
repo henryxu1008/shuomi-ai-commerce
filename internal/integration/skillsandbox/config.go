@@ -13,8 +13,8 @@ import (
 	"time"
 
 	osb "github.com/alibaba/OpenSandbox/sdks/sandbox/go"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	strict "sigs.k8s.io/json"
-	"task-processor/internal/agent"
 )
 
 // Config comes only from private installation configuration. TrialEvidence is

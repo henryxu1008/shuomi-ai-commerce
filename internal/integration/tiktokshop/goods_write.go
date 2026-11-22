@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	marketplace "task-processor/internal/marketplace/tiktokshop"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
 )
 
 // All mutations use a fresh HTTP/1 connection, one transport invocation and

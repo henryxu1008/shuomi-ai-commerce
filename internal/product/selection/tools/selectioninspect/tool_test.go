@@ -3,12 +3,12 @@ package selectioninspect
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/selection"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/selection"
 	"testing"
 	"time"
 )

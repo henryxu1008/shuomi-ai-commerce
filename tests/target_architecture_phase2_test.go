@@ -464,19 +464,19 @@ type importerCeiling struct {
 
 func phase2ConcreteImporterCeilings() []importerCeiling {
 	return []importerCeiling{
-		{path: "task-processor/internal/core", max: 136},
-		{path: "task-processor/internal/infra", max: 4},
-		{path: "task-processor/internal/core/logger", max: 82},
-		{path: "task-processor/internal/platform/logging", max: 9},
-		{path: "task-processor/internal/platform/database", max: 23},
-		{path: "task-processor/internal/platform/redis", max: 8},
-		{path: "task-processor/internal/platform/queue/rabbitmq", max: 18},
-		{path: "task-processor/internal/platform/workerpool", max: 23},
-		{path: "task-processor/internal/integration/openai", max: 28},
-		{path: "task-processor/internal/integration/geminiimage", max: 1},
-		{path: "task-processor/internal/integration/grsai", max: 2},
-		{path: "task-processor/internal/integration/s3", max: 4},
-		{path: "task-processor/internal/integration/httpimage", max: 8},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/core", max: 136},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra", max: 4},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/core/logger", max: 82},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging", max: 9},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database", max: 23},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/redis", max: 8},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/queue/rabbitmq", max: 18},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/workerpool", max: 23},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai", max: 28},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/geminiimage", max: 1},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai", max: 2},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3", max: 4},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage", max: 8},
 	}
 }
 
@@ -519,19 +519,19 @@ func TestPhase2ClosureCeilingsRecordFreshInventory(t *testing.T) {
 		t.Fatalf("legacy root ceilings = %#v", got)
 	}
 	if got := phase2ConcreteImporterCeilings(); !reflect.DeepEqual(got, []importerCeiling{
-		{path: "task-processor/internal/core", max: 136},
-		{path: "task-processor/internal/infra", max: 4},
-		{path: "task-processor/internal/core/logger", max: 82},
-		{path: "task-processor/internal/platform/logging", max: 9},
-		{path: "task-processor/internal/platform/database", max: 23},
-		{path: "task-processor/internal/platform/redis", max: 8},
-		{path: "task-processor/internal/platform/queue/rabbitmq", max: 18},
-		{path: "task-processor/internal/platform/workerpool", max: 23},
-		{path: "task-processor/internal/integration/openai", max: 28},
-		{path: "task-processor/internal/integration/geminiimage", max: 1},
-		{path: "task-processor/internal/integration/grsai", max: 2},
-		{path: "task-processor/internal/integration/s3", max: 4},
-		{path: "task-processor/internal/integration/httpimage", max: 8},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/core", max: 136},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra", max: 4},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/core/logger", max: 82},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/logging", max: 9},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database", max: 23},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/redis", max: 8},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/queue/rabbitmq", max: 18},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/workerpool", max: 23},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/openai", max: 28},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/geminiimage", max: 1},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/grsai", max: 2},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3", max: 4},
+		{path: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage", max: 8},
 	}) {
 		t.Fatalf("concrete importer ceilings = %#v", got)
 	}
@@ -560,10 +560,10 @@ func TestTargetDomainsDoNotImportConcreteInfrastructure(t *testing.T) {
 		}
 		for imp := range facts.imports {
 			clean := strings.Trim(imp, `"`)
-			if importMatchesPrefix(clean, "task-processor/internal/platform") ||
-				importMatchesPrefix(clean, "task-processor/internal/integration") ||
-				importMatchesPrefix(clean, "task-processor/internal/infra") ||
-				importMatchesPrefix(clean, "task-processor/internal/app") {
+			if importMatchesPrefix(clean, "github.com/henryxu1008/shuomi-ai-commerce/internal/platform") ||
+				importMatchesPrefix(clean, "github.com/henryxu1008/shuomi-ai-commerce/internal/integration") ||
+				importMatchesPrefix(clean, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra") ||
+				importMatchesPrefix(clean, "github.com/henryxu1008/shuomi-ai-commerce/internal/app") {
 				t.Errorf("%s imports concrete infrastructure %s", filepath.ToSlash(rel), imp)
 			}
 		}
@@ -585,7 +585,7 @@ func TestPlatformQueueRabbitMQDoesNotImportApplicationOrLegacyInfrastructure(t *
 			if err != nil {
 				t.Fatalf("%s has invalid import %s: %v", filepath.ToSlash(path), imp, err)
 			}
-			if importMatchesPrefix(clean, "task-processor/internal/platform/queue/rabbitmq") {
+			if importMatchesPrefix(clean, "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/queue/rabbitmq") {
 				t.Errorf("%s imports retired RabbitMQ package %s", filepath.ToSlash(path), clean)
 			}
 		}
@@ -595,9 +595,9 @@ func TestPlatformQueueRabbitMQDoesNotImportApplicationOrLegacyInfrastructure(t *
 func TestSharedImportPathDecodesGoStringLiterals(t *testing.T) {
 	root := t.TempDir()
 	source := "package fixture\nimport (\n" +
-		"\t\"task-processor/internal/app\"\n" +
-		"\t`task-processor/internal/app`\n" +
-		"\t\"task-processor/internal/\\x61pp\"\n" +
+		"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/app\"\n" +
+		"\t`github.com/henryxu1008/shuomi-ai-commerce/internal/app`\n" +
+		"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/\\x61pp\"\n" +
 		")\n"
 	if err := os.WriteFile(filepath.Join(root, "fixture.go"), []byte(source), 0o600); err != nil {
 		t.Fatal(err)
@@ -611,11 +611,11 @@ func TestSharedImportPathDecodesGoStringLiterals(t *testing.T) {
 		t.Fatalf("parsed Go files = %d, want 1", len(index.files))
 	}
 
-	want := "task-processor/internal/app"
+	want := "github.com/henryxu1008/shuomi-ai-commerce/internal/app"
 	for _, importLiteral := range []string{
-		`"task-processor/internal/app"`,
-		"`task-processor/internal/app`",
-		`"task-processor/internal/\x61pp"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/app"`,
+		"`github.com/henryxu1008/shuomi-ai-commerce/internal/app`",
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/\x61pp"`,
 	} {
 		for _, facts := range index.files {
 			if _, ok := facts.imports[importLiteral]; !ok {
@@ -646,19 +646,19 @@ func TestSharedPackagesDoNotImportAppDomainPlatformOrIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	forbidden := []string{
-		"task-processor/internal/app",
-		"task-processor/internal/listing",
-		"task-processor/internal/marketplace/sourceproduct",
-		"task-processor/internal/marketplace/productpolicy",
-		"task-processor/internal/marketplace",
-		"task-processor/internal/agent",
-		"task-processor/internal/knowledge",
-		"task-processor/internal/resourcecatalog",
-		"task-processor/internal/commercial",
-		"task-processor/internal/ledger",
-		"task-processor/internal/organization",
-		"task-processor/internal/platform",
-		"task-processor/internal/integration",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/app",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/listing",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/sourceproduct",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/productpolicy",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/agent",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/resourcecatalog",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/organization",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/platform",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/integration",
 	}
 	for path, facts := range index.files {
 		rel, err := filepath.Rel(filepath.Join("..", "internal", "shared"), path)
@@ -692,7 +692,7 @@ func TestSharedResilienceDoesNotImportInternalPackages(t *testing.T) {
 				t.Errorf("%s has invalid Go import literal %q: %v", filepath.ToSlash(path), imp, err)
 				continue
 			}
-			if importMatchesPrefix(clean, "task-processor/internal") {
+			if importMatchesPrefix(clean, "github.com/henryxu1008/shuomi-ai-commerce/internal") {
 				t.Errorf("%s imports forbidden internal package %s", filepath.ToSlash(path), clean)
 			}
 		}
@@ -738,7 +738,7 @@ func integrationProviderAdapterImportViolations(root string) ([]string, error) {
 				if err != nil {
 					return nil, fmt.Errorf("decode import in %s: %w", path, err)
 				}
-				if !importMatchesPrefix(importPath, "task-processor/internal") {
+				if !importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal") {
 					continue
 				}
 				if !isAllowedIntegrationProviderAdapterImport(name, providerRoots[name], importPath) {
@@ -751,19 +751,19 @@ func integrationProviderAdapterImportViolations(root string) ([]string, error) {
 }
 
 func isAllowedIntegrationProviderAdapterImport(providerRoot string, hasLegacyProviderDependencies bool, importPath string) bool {
-	if importMatchesPrefix(importPath, "task-processor/internal/shared/ptr") {
+	if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr") {
 		return false
 	}
-	if hasLegacyProviderDependencies && (importPath == "task-processor/internal/ai" ||
-		importMatchesPrefix(importPath, "task-processor/internal/shared") ||
-		importPath == "task-processor/internal/integration/httpimage") {
+	if hasLegacyProviderDependencies && (importPath == "github.com/henryxu1008/shuomi-ai-commerce/internal/ai" ||
+		importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/shared") ||
+		importPath == "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage") {
 		return true
 	}
 	switch providerRoot {
 	case "openai":
-		return importPath == "task-processor/internal/product/image"
+		return importPath == "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	case "grsai", "httpimage":
-		return importPath == "task-processor/internal/product/image"
+		return importPath == "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	}
 	return false
 }
@@ -787,40 +787,40 @@ func TestIntegrationProviderAdaptersEnforceRootSpecificContractMatrix(t *testing
 		{
 			name: "openai",
 			allowed: []string{
-				"task-processor/internal/ai",
-				"task-processor/internal/integration/httpimage",
-				"task-processor/internal/product/image",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/ai",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image",
 			},
 			forbidden: []string{
-				"task-processor/internal/shared/ptr",
-				"task-processor/internal/product/enrichment",
-				"task-processor/internal/product/review/proposal",
-				"task-processor/internal/integration/httpimage/child",
-				"task-processor/internal/product/image/runtime",
-				"task-processor/internal/product/catalog",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage/child",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image/runtime",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog",
 			},
 		},
 		{
 			name:    "grsai",
-			allowed: []string{"task-processor/internal/ai", "task-processor/internal/integration/httpimage", "task-processor/internal/product/image"},
+			allowed: []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/ai", "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage", "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"},
 			forbidden: []string{
-				"task-processor/internal/shared/ptr",
-				"task-processor/internal/integration/httpimage/child",
-				"task-processor/internal/product/enrichment",
-				"task-processor/internal/product/review/proposal",
-				"task-processor/internal/product/image/runtime",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage/child",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image/runtime",
 			},
 		},
 		{
 			name:    "httpimage",
-			allowed: []string{"task-processor/internal/product/image"},
+			allowed: []string{"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"},
 			forbidden: []string{
-				"task-processor/internal/ai",
-				"task-processor/internal/shared/ptr",
-				"task-processor/internal/integration/httpimage",
-				"task-processor/internal/integration/httpimage/child",
-				"task-processor/internal/product/enrichment",
-				"task-processor/internal/product/review/proposal",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/ai",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage/child",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment",
+				"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal",
 			},
 		},
 	} {
@@ -880,16 +880,16 @@ func TestIntegrationProviderAdaptersRejectNonContractProductAndRuntimeDependenci
 			t.Fatal(err)
 		}
 		source := "package " + name + "\nimport (\n" +
-			"\t\"task-processor/internal/product\"\n" +
-			"\t\"task-processor/internal/productenrich\"\n" +
-			"\t\"task-processor/internal/productimage\"\n" +
-			"\t\"task-processor/internal/product/image/runtime\"\n" +
-			"\t\"task-processor/internal/product/catalog\"\n" +
-			"\t\"task-processor/internal/product/asset\"\n" +
-			"\t\"task-processor/internal/product/sourcing\"\n" +
-			"\t\"task-processor/internal/app\"\n" +
-			"\t\"task-processor/internal/platform\"\n" +
-			"\t\"task-processor/internal/marketplace\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/product\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image/runtime\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/app\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/platform\"\n" +
+			"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace\"\n" +
 			")\n"
 		if err := os.WriteFile(filepath.Join(root, name, "fixture.go"), []byte(source), 0o600); err != nil {
 			t.Fatal(err)
@@ -914,10 +914,10 @@ func TestIntegrationProviderBoundaryDecodesAllowedAndForbiddenGoImportLiterals(t
 		}
 	}
 	source := "package openai\nimport (\n" +
-		"\t`task-processor/internal/app`\n" +
-		"\t\"task-processor/internal/\\x63ore\"\n" +
-		"\t`task-processor/internal/product/image`\n" +
-		"\t\"task-processor/internal/product/\\x65nrichment\"\n" +
+		"\t`github.com/henryxu1008/shuomi-ai-commerce/internal/app`\n" +
+		"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/\\x63ore\"\n" +
+		"\t`github.com/henryxu1008/shuomi-ai-commerce/internal/product/image`\n" +
+		"\t\"github.com/henryxu1008/shuomi-ai-commerce/internal/product/\\x65nrichment\"\n" +
 		")\n"
 	if err := os.WriteFile(filepath.Join(root, "openai", "fixture.go"), []byte(source), 0o600); err != nil {
 		t.Fatal(err)
@@ -951,8 +951,8 @@ func TestLegacyMonitoringPathIsRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", filepath.ToSlash(path), err)
 			}
-			if importMatchesPrefix(importPath, "task-processor/internal/infra/monitoring") ||
-				importMatchesPrefix(importPath, "task-processor/internal/app/monitoring") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/monitoring") ||
+				importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/monitoring") {
 				t.Errorf("%s imports retired monitoring path %s", filepath.ToSlash(path), importPath)
 			}
 		}
@@ -973,7 +973,7 @@ func TestPlatformObservabilityStaysRetired(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode import in %s: %v", filepath.ToSlash(path), err)
 			}
-			if importMatchesPrefix(importPath, "task-processor/internal/platform/observability") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/observability") {
 				t.Errorf("%s imports retired observability package %s", filepath.ToSlash(path), importPath)
 			}
 		}

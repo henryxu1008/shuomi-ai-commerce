@@ -9,8 +9,8 @@ import (
 	"github.com/pressly/goose/v3"
 	"gorm.io/gorm"
 
-	platformmigration "task-processor/internal/platform/database/migration"
-	"task-processor/internal/storecenter"
+	platformmigration "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database/migration"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 func Migrate(ctx context.Context, db *gorm.DB) error {

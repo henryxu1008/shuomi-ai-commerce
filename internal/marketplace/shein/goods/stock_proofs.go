@@ -2,10 +2,10 @@ package goods
 
 import (
 	"fmt"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 	"net/url"
 	"regexp"
 	"strings"
-	model "task-processor/internal/marketplace/shein/model"
 )
 
 type OfficialStockProofObservation struct {

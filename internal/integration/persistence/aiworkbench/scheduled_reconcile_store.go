@@ -2,9 +2,9 @@ package aiworkbenchpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/aiworkbench"
 	"time"
 )
 

@@ -2,9 +2,9 @@ package target
 
 import (
 	"context"
+	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"strconv"
-	temugoods "task-processor/internal/marketplace/temu/goods"
-	"task-processor/internal/product/asset"
 )
 
 // Only selected current approved assets are downloaded. Failed observations

@@ -23,17 +23,17 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/app/productsourcing"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/httproute"
-	"task-processor/internal/integration/commercetoolauth"
-	catalogstore "task-processor/internal/integration/persistence/product/catalog"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
-	tool "task-processor/internal/product/sourcing/tools/sourceevidenceinspect"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/productsourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/commercetoolauth"
+	catalogstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	tool "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing/tools/sourceevidenceinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 // The external IAM source alone is a fixture. The actual GrantResolver,

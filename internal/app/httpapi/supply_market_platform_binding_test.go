@@ -11,10 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/product/supplymarket"
-	markethttp "task-processor/internal/product/supplymarket/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
+	markethttp "github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket/httpapi"
 )
 
 type platformMarketBindingProbe struct {

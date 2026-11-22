@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"context"
-	"task-processor/internal/authidentity"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"testing"
 	"time"
 )

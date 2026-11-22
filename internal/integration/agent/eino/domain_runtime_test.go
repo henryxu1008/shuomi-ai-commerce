@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
 )
 
 // The common envelope must not allow a Product candidate to silently discard

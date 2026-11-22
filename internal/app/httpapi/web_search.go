@@ -9,13 +9,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	credential "task-processor/internal/aicapability/channelcredential"
-	d "task-processor/internal/aicapability/routeconfig"
-	"task-processor/internal/aicapability/websearch"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/websearch"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 )
 
 func (m modelRoutePricingModule) searchSettingsRoutes() []httproute.Descriptor {

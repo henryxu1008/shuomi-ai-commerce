@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
 )
 
 // Read is actor- and acquisition-scoped. Authorization belongs to the caller;

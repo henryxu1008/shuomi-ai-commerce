@@ -11,13 +11,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	channelstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/channelcredential"
+	routeconfigstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/routeconfig"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"task-processor/internal/aicapability"
-	channelstore "task-processor/internal/integration/persistence/channelcredential"
-	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 func prepareRecoveryCommandRoles(t *testing.T, resource, native *gorm.DB) (map[string]any, map[string]any) {

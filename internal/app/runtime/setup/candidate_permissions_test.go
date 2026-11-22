@@ -1,8 +1,8 @@
 package setup
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/app/runtime/currentapplication"
 	"testing"
 )
 

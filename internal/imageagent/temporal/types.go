@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
-	productasset "task-processor/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 )
 
 const (

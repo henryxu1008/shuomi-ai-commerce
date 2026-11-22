@@ -6,18 +6,18 @@ import (
 	"strings"
 	"testing"
 
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	b "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	e "github.com/henryxu1008/shuomi-ai-commerce/internal/ecoservices"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	listingapp "task-processor/internal/app/listing"
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/authz"
-	b "task-processor/internal/commercial/billing"
-	"task-processor/internal/core/config"
-	e "task-processor/internal/ecoservices"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/storecenter"
 )
 
 type combinationObjects struct{ e.PrivateObjectStore }

@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 var ErrInvalid = errors.New("invalid workbench metrics filter")

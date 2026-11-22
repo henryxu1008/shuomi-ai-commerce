@@ -2,12 +2,12 @@ package httpapi
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"strings"
-	"task-processor/internal/agentconfig"
-	"task-processor/internal/authz"
-	"task-processor/internal/imageagent"
 	"testing"
 )
 

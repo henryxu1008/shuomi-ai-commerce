@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/rules"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/temu/model"
-	"task-processor/internal/marketplace/temu/rules"
 )
 
 func supplierPriceFixture(semi bool) model.SupplierGoods {

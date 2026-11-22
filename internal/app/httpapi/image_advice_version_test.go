@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/tools/canonicalinspect"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	proposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/catalog/tools/canonicalinspect"
-	"task-processor/internal/product/collection"
-	proposal "task-processor/internal/product/review/proposal"
 )
 
 func TestPreviousMaterialsVersionIsHistoricalButNotAdoptable(t *testing.T) {

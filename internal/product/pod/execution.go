@@ -2,8 +2,8 @@ package pod
 
 import (
 	"encoding/json"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"time"
 )
 

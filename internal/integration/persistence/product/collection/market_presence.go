@@ -3,9 +3,9 @@ package collectionpersistence
 import (
 	"context"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"sort"
-	"task-processor/internal/product/collection"
 )
 
 // VisibleMarketItems consumes caller-authorized, recipient-private receipts.

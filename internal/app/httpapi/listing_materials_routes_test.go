@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
-	listinghttp "task-processor/internal/app/listing/httpapi"
-	"task-processor/internal/httproute"
-	record "task-processor/internal/listing/record/target"
 )
 
 const materialsTestRecord = "bc6f7af0-dfa7-46a9-b49f-069608294d53"

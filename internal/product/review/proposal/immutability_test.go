@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 func TestValidateCandidateIsolatesInputsAndCandidateOutput(t *testing.T) {

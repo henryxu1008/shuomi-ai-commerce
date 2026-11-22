@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"reflect"
-	"task-processor/internal/pkg/pgschema"
-	"task-processor/internal/storecenter"
 )
 
 var alignmentChecks = []struct{ table, name string }{

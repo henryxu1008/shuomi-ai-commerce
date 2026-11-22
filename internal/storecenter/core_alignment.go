@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"maps"
 	"strings"
-	"task-processor/internal/pkg/pgschema"
 )
 
 const coreRuntimeSubject = "(SELECT current_user::text AS runtime_role) subject"

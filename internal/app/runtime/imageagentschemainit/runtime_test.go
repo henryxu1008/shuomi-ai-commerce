@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"task-processor/internal/app/runtime/currentapplication"
-	"task-processor/internal/core/config"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
 )
 
 func TestImageAgentGrantRequiresExplicitMatchingOwnerDatabase(t *testing.T) {

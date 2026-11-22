@@ -2,7 +2,7 @@ package orgresourceadapter
 
 import (
 	"context"
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"testing"
 	"time"
 

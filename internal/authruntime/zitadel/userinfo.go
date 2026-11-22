@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 // UserInfoClient reads the standard self endpoint using only the user's token.

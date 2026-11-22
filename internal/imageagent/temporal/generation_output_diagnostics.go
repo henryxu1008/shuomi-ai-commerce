@@ -8,8 +8,8 @@ import (
 
 	sdkactivity "go.temporal.io/sdk/activity"
 
-	"task-processor/internal/imageagent"
-	"task-processor/internal/imageagent/objectstore"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/objectstore"
 )
 
 // The SDK supplies activity correlation. Custom fields are fixed categories

@@ -44,9 +44,9 @@ func TestHTTPAPILegacyBuildHandlersFacadeStaysRetired(t *testing.T) {
 
 	for _, marker := range []string{
 		"func BuildHandlers(",
-		`"task-processor/internal/infra/` + `worker"`,
-		`"task-processor/internal/productenrich"`,
-		`"task-processor/internal/productimage/httpapi"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/infra/` + `worker"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich"`,
+		`"github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/httpapi"`,
 		"productenrich.ProductHandler",
 		"productimagehttpapi.RouteHandler",
 		"[]worker.WorkerPool",

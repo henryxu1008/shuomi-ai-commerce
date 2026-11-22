@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/geography"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/geography"
 )
 
 const accountRegionCatalogPath = "/api/v1/account/region-catalog"

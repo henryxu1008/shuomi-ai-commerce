@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 // Invoker is the callable application boundary for the exact Catalog reader.

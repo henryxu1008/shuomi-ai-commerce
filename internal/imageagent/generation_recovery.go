@@ -3,7 +3,7 @@ package imageagent
 import (
 	"context"
 	"errors"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 // GenerationRecovery is an internal effect-owner seam, not an HTTP command.

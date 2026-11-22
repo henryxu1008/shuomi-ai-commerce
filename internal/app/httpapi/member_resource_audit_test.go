@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/app/accountaudit"
-	"task-processor/internal/authz"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/accountaudit"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"

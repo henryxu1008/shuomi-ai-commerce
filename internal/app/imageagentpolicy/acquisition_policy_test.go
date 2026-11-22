@@ -3,8 +3,8 @@ package imageagentpolicy
 import (
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/imagepolicy"
 )
 
 func TestAcquisitionMainImageUsesApprovedProviderNeutralWhiteBackgroundPolicy(t *testing.T) {

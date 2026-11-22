@@ -3,14 +3,14 @@ package httpapi
 import (
 	"context"
 	"errors"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/agentcustomization"
+	listingapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"strconv"
-	d "task-processor/internal/agentcustomization"
-	listingapp "task-processor/internal/app/listing"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/storecenter"
 )
 
 type listingDraftInspector struct{ app *listingapp.Application }

@@ -2,9 +2,9 @@ package dataservicesapp
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/commercial/billing"
-	"task-processor/internal/product/dataacquisition"
 	"testing"
 )
 

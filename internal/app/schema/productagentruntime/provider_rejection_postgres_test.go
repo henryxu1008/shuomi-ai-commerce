@@ -5,10 +5,10 @@ import (
 	"reflect"
 	"testing"
 
+	aistore "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/store"
+	routeconfigstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/routeconfig"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-	aistore "task-processor/internal/aicapability/store"
-	routeconfigstore "task-processor/internal/integration/persistence/routeconfig"
 )
 
 func installOriginalRouteReader(t *testing.T, f prepareFixture) {

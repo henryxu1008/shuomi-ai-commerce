@@ -15,12 +15,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"task-processor/internal/authidentity"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/workbenchcontext"
-	workbenchcontexthttpapi "task-processor/internal/workbenchcontext/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
+	workbenchcontexthttpapi "github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext/httpapi"
 )
 
 type mountedOrganizationResolverStub struct {

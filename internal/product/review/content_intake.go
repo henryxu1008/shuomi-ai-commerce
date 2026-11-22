@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"reflect"
 	"strconv"
 	"strings"
-	"task-processor/internal/product/description"
 
-	"task-processor/internal/product/catalog"
-	reviewproposal "task-processor/internal/product/review/proposal"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	reviewproposal "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func candidatePolicy(in CandidateInput) (reviewproposal.PolicySnapshot, error) {

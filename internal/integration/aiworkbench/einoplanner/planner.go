@@ -11,9 +11,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"task-processor/internal/aicapability"
-	"task-processor/internal/aiworkbench"
-	"task-processor/internal/integration/aicapability/einomodel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/aicapability/einomodel"
 
 	sigjson "sigs.k8s.io/json"
 )

@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/hmac"
 	"errors"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/referral"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/referral"
 	"time"
 )
 

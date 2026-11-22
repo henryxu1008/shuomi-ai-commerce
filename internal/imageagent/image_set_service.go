@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"task-processor/internal/agent"
-	"task-processor/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 )
 
 // The transport supplies identities only. URLs, dimensions, prompt, quote and

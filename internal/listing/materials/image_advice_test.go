@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/marketplace/shein/goods"
-	"task-processor/internal/product/collection"
 )
 
 func TestImageAdviceDistinguishesUnknownDimensionsFromRealMismatch(t *testing.T) {

@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"strings"
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/listing/preparation"
-	"task-processor/internal/product/collection"
 	"time"
 )
 

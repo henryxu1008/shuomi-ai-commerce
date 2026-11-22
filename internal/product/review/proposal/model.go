@@ -3,8 +3,8 @@ package proposal
 import (
 	"time"
 
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type Request struct {

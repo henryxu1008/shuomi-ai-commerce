@@ -32,7 +32,7 @@ func TestSheinWorkerNumericPersistenceClosureStaysRetired(t *testing.T) {
 		}
 		for quoted := range facts.imports {
 			imported := strings.Trim(quoted, `"`)
-			if importMatchesPrefix(imported, "task-processor/internal/listingadmin") || importMatchesPrefix(imported, "task-processor/internal/sheinloginmanaged") || importMatchesPrefix(imported, "task-processor/internal/sheinlogin") || importMatchesPrefix(imported, "task-processor/internal/app/runtime/sheinloginworker") {
+			if importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/listingadmin") || importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/sheinloginmanaged") || importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/sheinlogin") || importMatchesPrefix(imported, "github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/sheinloginworker") {
 				t.Errorf("%s imports retired owner %s", path, imported)
 			}
 		}
@@ -86,15 +86,15 @@ func TestLegacyPreviewAdapterStaysRetired(t *testing.T) {
 func TestLegacyPreviewAdapterGuardRejectsRenamedRevival(t *testing.T) {
 	sources := []listingKitImageBoundarySource{
 		{path: "internal/compatibility/listingkit/legacy_preview.go", text: "package listingkit\nfunc AdaptLegacyPreviewShell() {}\n"},
-		{path: "internal/compatibility/listingkit/revived_bridge.go", text: "package listingkit\nimport _ \"task-processor/internal/listing/preview\"\n"},
-		{path: "internal/compatibility/listingkit/sourcehandoff/allowed.go", text: "package sourcehandoff\nimport _ \"task-processor/internal/product/sourcing\"\n"},
-		{path: "internal/compatibility/listingkit/similar.go", text: "package listingkit\nimport _ \"task-processor/internal/listing/previewcache\"\n"},
+		{path: "internal/compatibility/listingkit/revived_bridge.go", text: "package listingkit\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preview\"\n"},
+		{path: "internal/compatibility/listingkit/sourcehandoff/allowed.go", text: "package sourcehandoff\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing\"\n"},
+		{path: "internal/compatibility/listingkit/similar.go", text: "package listingkit\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/previewcache\"\n"},
 	}
 	violations, err := legacyPreviewAdapterViolations(sources)
 	require.NoError(t, err)
 	require.Equal(t, []string{
 		"internal/compatibility/listingkit/legacy_preview.go -> AdaptLegacyPreviewShell",
-		"internal/compatibility/listingkit/revived_bridge.go -> task-processor/internal/listing/preview",
+		"internal/compatibility/listingkit/revived_bridge.go -> github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preview",
 	}, violations)
 }
 
@@ -116,7 +116,7 @@ func legacyPreviewAdapterViolations(sources []listingKitImageBoundarySource) ([]
 			if err != nil {
 				return nil, err
 			}
-			if importMatchesPrefix(importPath, "task-processor/internal/listing/preview") {
+			if importMatchesPrefix(importPath, "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preview") {
 				violations = append(violations, filepath.ToSlash(source.path)+" -> "+importPath)
 			}
 		}
@@ -127,7 +127,7 @@ func legacyPreviewAdapterViolations(sources []listingKitImageBoundarySource) ([]
 
 func TestLegacyConsumerFreezeRejectsNewEdges(t *testing.T) {
 	const old = "internal/app/httpapi/composition_builder.go"
-	const legacy = "task-processor/internal/compatibility/listingkit/sourcehandoff/a1688"
+	const legacy = "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/listingkit/sourcehandoff/a1688"
 	baseline := map[string]struct{}{}
 	for _, tc := range []struct {
 		name, path, imported string
@@ -136,12 +136,12 @@ func TestLegacyConsumerFreezeRejectsNewEdges(t *testing.T) {
 		{"retired source root is blocked", old, legacy, true},
 		{"new file same package", "internal/app/httpapi/new.go", legacy, true},
 		{"retired source HTTP is blocked", old, legacy + "/httpapi", true},
-		{"new compatibility root", old, "task-processor/internal/compatibility/new", true},
-		{"new tenant caller", "cmd/new/main.go", "task-processor/internal/tenantbridge", true},
-		{"new tenant child", "tools/new/main.go", "task-processor/internal/tenantbridge/bootstrap", true},
+		{"new compatibility root", old, "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/new", true},
+		{"new tenant caller", "cmd/new/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge", true},
+		{"new tenant child", "tools/new/main.go", "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge/bootstrap", true},
 		{"test consumer", "internal/product/new_test.go", legacy, true},
-		{"current owner", old, "task-processor/internal/product/catalog", false},
-		{"similar name", old, "task-processor/internal/tenantbridgex", false},
+		{"current owner", old, "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog", false},
+		{"similar name", old, "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridgex", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, literal := range []string{`"` + tc.imported + `"`, "`" + tc.imported + "`", `"` + strings.Replace(tc.imported, "internal", `\x69nternal`, 1) + `"`} {
@@ -162,7 +162,7 @@ func TestLegacyDrainDepguardRules(t *testing.T) {
 		seen := map[string]bool{}
 		for edge := range legacyConsumerBaseline {
 			parts := strings.Split(edge, " -> ")
-			if importMatchesPrefix(parts[1], "task-processor/internal/"+root) && !seen[parts[0]] {
+			if importMatchesPrefix(parts[1], "github.com/henryxu1008/shuomi-ai-commerce/internal/"+root) && !seen[parts[0]] {
 				wantFiles = append(wantFiles, "!**/"+parts[0])
 				seen[parts[0]] = true
 			}
@@ -170,7 +170,7 @@ func TestLegacyDrainDepguardRules(t *testing.T) {
 		assertExactStringSet(t, root+" files", rule.Files, wantFiles)
 		denied := depguardDenyPackageSet(rule)
 		for _, suffix := range []string{"$", "/"} {
-			_, ok := denied["task-processor/internal/"+root+suffix]
+			_, ok := denied["github.com/henryxu1008/shuomi-ai-commerce/internal/"+root+suffix]
 			require.True(t, ok)
 		}
 	}
@@ -182,7 +182,7 @@ var legacyConsumerBaseline = map[string]struct{}{}
 
 func legacyConsumerViolations(sources []listingKitImageBoundarySource, baseline map[string]struct{}) ([]string, error) {
 	edges, err := phase3BannedImportDeclarationViolations(sources, []string{
-		"task-processor/internal/compatibility", "task-processor/internal/tenantbridge",
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility", "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge",
 	})
 	if err != nil {
 		return nil, err
@@ -204,17 +204,17 @@ func TestCurrentOwnerLegacyRootDepguardCoverage(t *testing.T) {
 		files = append(files, "**/internal/"+owner+"/*.go", "**/internal/"+owner+"/**/*.go")
 	}
 	assertExactStringSet(t, "current owner coverage", rule.Files, files)
-	_, denied := depguardDenyPackageSet(rule)["task-processor/internal/listingkit$"]
+	_, denied := depguardDenyPackageSet(rule)["github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"]
 	require.True(t, denied, "mixed root service owner must be denied")
 }
 
 func TestCurrentOwnerLegacyRootGuardRejectsStoreCenterFixture(t *testing.T) {
 	violations, err := currentOwnerLegacyListingKitRootViolations([]listingKitImageBoundarySource{
-		{path: "internal/storecenter/revived.go", text: "package storecenter\nimport _ \"task-processor/internal/listingkit\"\n"},
-		{path: "internal/storecenter/current_leaf.go", text: "package storecenter\nimport _ \"task-processor/internal/listingkit/core\"\n"},
+		{path: "internal/storecenter/revived.go", text: "package storecenter\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit\"\n"},
+		{path: "internal/storecenter/current_leaf.go", text: "package storecenter\nimport _ \"github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/core\"\n"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, []string{"internal/storecenter/revived.go -> task-processor/internal/listingkit"}, violations)
+	require.Equal(t, []string{"internal/storecenter/revived.go -> github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"}, violations)
 }
 
 func TestLegacyImportParserRejectsMalformedSources(t *testing.T) {

@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	contract "task-processor/internal/marketplace/validator"
-	productasset "task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	contract "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/validator"
+	productasset "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 
 	"github.com/google/uuid"
 )

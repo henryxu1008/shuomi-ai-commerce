@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/collection"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // ListNewTargetIDs reads the first saved revision, independent of later edits.

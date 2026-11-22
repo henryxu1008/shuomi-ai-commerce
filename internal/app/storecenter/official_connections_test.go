@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	storeapp "task-processor/internal/app/storecenter"
-	"task-processor/internal/integration/shein"
-	"task-processor/internal/storecenter"
+	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/shein"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type officialProvider struct {

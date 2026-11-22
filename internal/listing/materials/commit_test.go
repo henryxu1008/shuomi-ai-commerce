@@ -3,10 +3,10 @@ package materials
 import (
 	"testing"
 
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	record "task-processor/internal/listing/record/target"
-	model "task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/product/collection"
 )
 
 func TestMaterialCommitKeepsExactProposalSourceRulesAssetsAndCAS(t *testing.T) {

@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"net/http"
 	"sort"
 	"strings"
 	"sync/atomic"
-	"task-processor/internal/product/review"
 	"testing"
 	"time"
 

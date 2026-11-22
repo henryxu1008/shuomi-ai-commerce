@@ -2,8 +2,8 @@ package supplymarketpersistence
 
 import (
 	"context"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
 )
 
 func (r *Repository) CountApplications(ctx context.Context, scope collection.Scope) (supplymarket.ApplicationCounts, error) {

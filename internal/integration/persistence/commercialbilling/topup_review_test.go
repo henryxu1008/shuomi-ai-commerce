@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/commercial/billing"
-	billinghttp "task-processor/internal/commercial/billing/httpapi"
-	moneystore "task-processor/internal/integration/persistence/money"
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	billinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing/httpapi"
+	moneystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 
 	"github.com/gin-gonic/gin"
 )

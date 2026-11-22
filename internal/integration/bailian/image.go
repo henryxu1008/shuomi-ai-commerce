@@ -21,10 +21,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage"
 	strictjson "sigs.k8s.io/json"
-	"task-processor/internal/ai"
-	"task-processor/internal/aicapability"
-	"task-processor/internal/integration/httpimage"
 )
 
 const Model = "qwen-image-3.0"

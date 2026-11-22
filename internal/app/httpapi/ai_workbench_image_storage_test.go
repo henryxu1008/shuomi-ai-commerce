@@ -15,10 +15,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"task-processor/internal/aiworkbench"
-	storagecapacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/integration/s3"
-	"task-processor/internal/ledger/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aiworkbench"
+	storagecapacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 )
 
 type interruptedChatImageObjects struct {

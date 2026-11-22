@@ -1,8 +1,8 @@
 package dataservice
 
 import (
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/dataacquisition"
 	"testing"
 )
 

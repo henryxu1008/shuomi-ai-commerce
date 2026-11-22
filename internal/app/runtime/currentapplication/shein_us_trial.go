@@ -9,11 +9,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/zenrows"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
 	strictjson "sigs.k8s.io/json"
-	"task-processor/internal/integration/acquisition/zenrows"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
 )
 
 const (

@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browserclient"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/browsercollector"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/integration/acquisition/browserclient"
-	"task-processor/internal/integration/acquisition/browsercollector"
-	"task-processor/internal/product/sourcing"
 )
 
 func fixedTime() time.Time { return time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC) }

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	"task-processor/internal/listing/submission"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/product/collection"
 )
 
 // WalmartSKUState belongs to the original Submission transaction. Occupancy

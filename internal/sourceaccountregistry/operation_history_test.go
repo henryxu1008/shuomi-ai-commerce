@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 )
 
 type historyReaderStub struct {

@@ -2,8 +2,8 @@ package preparation
 
 import (
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/product/collection"
 	"testing"
 )
 

@@ -3,11 +3,11 @@ package grsai
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ai"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
-	"task-processor/internal/ai"
-	productimage "task-processor/internal/product/image"
 	"testing"
 )
 

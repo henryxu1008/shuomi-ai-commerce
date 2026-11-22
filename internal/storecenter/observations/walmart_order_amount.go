@@ -2,9 +2,9 @@ package observations
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"reflect"
 	"regexp"
-	"task-processor/internal/storecenter"
 )
 
 type WalmartOrderAmountRecord struct {

@@ -35,7 +35,7 @@ The product baseline is [PD-GREENFIELD-NO-LEGACY-MIGRATION-2026-09-08](../produc
 
 `cmd/* -> internal/app/* -> domain ports / owning module -> integration adapters`
 
-- Domain HTTP packages do not import `task-processor/internal/app/httpapi`.
+- Domain HTTP packages do not import `github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi`.
 - `internal/app/*` is the composition root, not a landing zone for new business policy or a second domain facade.
 - internal/product must not import internal/listingkit, internal/compatibility, internal/crawler, or internal/integration.
 - internal/integration/acquisition/a1688/browser and internal/integration/acquisition/browsercollector produce current internal/product/sourcing SourceEnvelope values.

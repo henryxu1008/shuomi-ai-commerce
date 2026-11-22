@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/setupcontrol"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/app/setupcontrol"
 )
 
 // Opt-in uses only newly-created synthetic volumes, never the retained instance.

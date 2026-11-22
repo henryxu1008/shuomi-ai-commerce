@@ -2,7 +2,7 @@ package submission
 
 import (
 	"context"
-	"task-processor/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 )
 
 // ReadIntent supports checking the original durable operation after an

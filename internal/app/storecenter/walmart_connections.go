@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	marketplace "task-processor/internal/marketplace/walmart"
-	"task-processor/internal/storecenter"
-	auth "task-processor/internal/storecenter/walmart"
+	marketplace "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 )
 
 type WalmartConnections struct {

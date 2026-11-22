@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 func schemaModels() []any {

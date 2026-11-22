@@ -3,9 +3,9 @@ package imageagentworker
 import (
 	"testing"
 
-	policycatalog "task-processor/internal/integration/policy/productimage"
-	imagepolicy "task-processor/internal/marketplace/imagepolicy"
-	productimage "task-processor/internal/product/image"
+	policycatalog "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/policy/productimage"
+	imagepolicy "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/imagepolicy"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 
 	"github.com/stretchr/testify/require"
 )

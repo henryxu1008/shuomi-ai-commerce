@@ -3,13 +3,13 @@ package submissionpersistence
 import (
 	"context"
 	"encoding/json"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"sort"
-	recordstore "task-processor/internal/integration/persistence/listing/record"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/listing/submission"
-	"task-processor/internal/product/collection"
 )
 
 func readTemuPolicyIntent(ctx context.Context, tx *gorm.DB, org, key string) (submission.OfficialIntent, error) {

@@ -2,10 +2,10 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	memberhttp "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/membership/httpapi"
 	"strings"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	memberhttp "task-processor/internal/organization/membership/httpapi"
 	"time"
 )
 

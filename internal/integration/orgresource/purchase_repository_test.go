@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"task-processor/internal/ledger/orgresource"
 )
 
 func TestPurchasedResourceGrantIsSourceBoundAndReplayable(t *testing.T) {

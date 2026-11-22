@@ -3,13 +3,13 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"task-processor/internal/authidentity"
-	zitadelruntime "task-processor/internal/authruntime/zitadel"
-	"task-processor/internal/authz"
-	"task-processor/internal/httproute"
-	"task-processor/internal/knowledge"
-	knowledgehttp "task-processor/internal/knowledge/httpapi"
-	"task-processor/internal/workbenchcontext"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge"
+	knowledgehttp "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 )
 
 // WithKnowledge borrows a service prepared from the explicit Knowledge owner

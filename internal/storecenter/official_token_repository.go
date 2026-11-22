@@ -8,10 +8,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
-	"task-processor/internal/authidentity"
 )
 
 func (r *MemberScopedStoreRepository) ReadOfficialInstallAttempt(ctx context.Context, org, storeID, attemptID string) (result OfficialConnectionAttempt, err error) {

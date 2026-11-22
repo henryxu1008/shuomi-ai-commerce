@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"strings"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/shared/aiidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/shared/aiidentity"
 )
 
 type Service struct {

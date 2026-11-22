@@ -2,8 +2,8 @@ package goods
 
 import (
 	"fmt"
+	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
 	"strconv"
-	model "task-processor/internal/marketplace/shein/model"
 	"time"
 )
 

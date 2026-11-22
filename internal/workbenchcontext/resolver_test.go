@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/authidentity"
-	"task-processor/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
 )
 
 type grantLoaderCall struct {

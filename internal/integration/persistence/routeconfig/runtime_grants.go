@@ -1,6 +1,6 @@
 package routeconfigstore
 
-import configstore "task-processor/internal/integration/persistence/agentconfig"
+import configstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/agentconfig"
 
 // RuntimeReadTableGrants is the original route reader's authority, shared by
 // explicit installation and read-only qualification. It grants no new rights.

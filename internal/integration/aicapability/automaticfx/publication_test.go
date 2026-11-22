@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	d "task-processor/internal/aicapability/routeconfig"
+	d "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/routeconfig"
 )
 
 func TestPrepareRetainsOtherFactsAndCutsOverUSD(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
 )
 
 func TestOriginalPurchaseReadProjectsChargebackAndKeepsInFlightRecovery(t *testing.T) {

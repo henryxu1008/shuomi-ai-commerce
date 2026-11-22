@@ -5,7 +5,7 @@ import (
 	"time"
 
 	osb "github.com/alibaba/OpenSandbox/sdks/sandbox/go"
-	"task-processor/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 )
 
 // CheckControl uses the same authenticated, bounded SDK/TLS transport as

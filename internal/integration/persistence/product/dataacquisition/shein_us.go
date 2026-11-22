@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	collectionstore "task-processor/internal/integration/persistence/product/collection"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	"task-processor/internal/product/sourcing"
+	collectionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 // SHEINUSPublisher joins the Product transaction. Verify is used on replay,

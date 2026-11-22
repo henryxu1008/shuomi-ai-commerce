@@ -2,9 +2,9 @@ package researchpersistence
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/research"
 	"gorm.io/gorm"
-	"task-processor/internal/pkg/pgschema"
-	"task-processor/internal/product/research"
 )
 
 var Tables = []string{"research_opportunities", "research_evidence_links", "research_commands"}

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/listing/materials"
-	"task-processor/internal/listing/preparation"
-	record "task-processor/internal/listing/record/target"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/materials"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
+	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
 // InspectMaterialsRecord only reads existing owner facts. Preparing Agent

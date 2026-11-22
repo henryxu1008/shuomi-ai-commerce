@@ -5,11 +5,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"task-processor/internal/authz"
-	sourceaccountstore "task-processor/internal/integration/persistence/sourceaccountregistry"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/sourceaccountregistry"
-	sourceaccounthttpapi "task-processor/internal/sourceaccountregistry/httpapi"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	sourceaccountstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccountregistry"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry"
+	sourceaccounthttpapi "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccountregistry/httpapi"
 )
 
 func buildSourceAccountModule(ctx context.Context, db *gorm.DB, authorizer *authz.ListingKitAuthorizer) (kernelmodule.Module, error) {

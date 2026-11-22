@@ -46,16 +46,16 @@ linters-settings:
         files:
           - "**/*.go"
         deny:
-          - pkg: "task-processor/internal/compatibility$"
-          - pkg: "task-processor/internal/compatibility/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/"
 
       legacy_tenantbridge_consumer_freeze:
         # Exact drain caller exclusions; import-boundary tests freeze each edge.
         files:
           - "**/*.go"
         deny:
-          - pkg: "task-processor/internal/tenantbridge$"
-          - pkg: "task-processor/internal/tenantbridge/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge/"
 
       current_owners_legacy_listingkit_root:
         files:
@@ -78,7 +78,7 @@ linters-settings:
           - "**/internal/storecenter/*.go"
           - "**/internal/storecenter/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "EXTRACT behavior to current owners; never wrap the legacy root service"
 
       target_domain_concrete_infrastructure:
@@ -104,21 +104,21 @@ linters-settings:
           - "**/internal/sourceaccountregistry/*.go"
           - "**/internal/sourceaccountregistry/**/*.go"
         deny:
-          - pkg: "task-processor/internal/platform$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform$"
             desc: "domains depend on local ports, never platform implementations"
-          - pkg: "task-processor/internal/platform/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/"
             desc: "domains depend on local ports, never platform implementations"
-          - pkg: "task-processor/internal/integration$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration$"
             desc: "app owns adapter wiring"
-          - pkg: "task-processor/internal/integration/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/"
             desc: "app owns adapter wiring"
-          - pkg: "task-processor/internal/infra$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra$"
             desc: "retired infrastructure roots are not domain contracts"
-          - pkg: "task-processor/internal/infra/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/"
             desc: "retired infrastructure roots are not domain contracts"
-          - pkg: "task-processor/internal/app$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app$"
             desc: "app is the composition root, never a domain dependency"
-          - pkg: "task-processor/internal/app/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/"
             desc: "app is the composition root, never a domain dependency"
           - pkg: "gorm.io$"
             desc: "persistence SDKs belong to integration adapters"
@@ -159,9 +159,9 @@ linters-settings:
           - "**/internal/product/review/*.go"
           - "**/internal/product/review/**/*.go"
         deny:
-          - pkg: task-processor/internal/app
-          - pkg: task-processor/internal/platform
-          - pkg: task-processor/internal/integration
+          - pkg: github.com/henryxu1008/shuomi-ai-commerce/internal/app
+          - pkg: github.com/henryxu1008/shuomi-ai-commerce/internal/platform
+          - pkg: github.com/henryxu1008/shuomi-ai-commerce/internal/integration
           - pkg: gorm.io/gorm
           - pkg: go.temporal.io
           - pkg: github.com/aws/aws-sdk-go-v2
@@ -175,18 +175,18 @@ linters-settings:
         files:
           - "**/*.go"
         deny:
-          - pkg: "task-processor/internal/catalog$"
-          - pkg: "task-processor/internal/catalog/"
-          - pkg: "task-processor/internal/asset$"
-          - pkg: "task-processor/internal/asset/"
-          - pkg: "task-processor/internal/imageasset$"
-          - pkg: "task-processor/internal/imageasset/"
-          - pkg: "task-processor/internal/productenrich$"
-          - pkg: "task-processor/internal/productenrich/"
-          - pkg: "task-processor/internal/productimage$"
-          - pkg: "task-processor/internal/productimage/"
-          - pkg: "task-processor/internal/product/asset/assettest$"
-          - pkg: "task-processor/internal/product/asset/assettest/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/catalog$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/catalog/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/imageasset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/imageasset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/assettest/"
 
       phase3_product_consumers_read_only:
         # ListingKit, SDS and AmazonListing consume only product snapshots and
@@ -199,53 +199,53 @@ linters-settings:
           - "**/internal/amazonlisting/*.go"
           - "**/internal/amazonlisting/**/*.go"
         deny:
-          - pkg: "task-processor/internal/product/image$"
-          - pkg: "task-processor/internal/product/image/"
-          - pkg: "task-processor/internal/imageagent/store$"
-          - pkg: "task-processor/internal/imageagent/store/"
-          - pkg: "task-processor/internal/imageagent/temporal$"
-          - pkg: "task-processor/internal/imageagent/temporal/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/temporal/"
 
       platform_domain_dependencies:
         files:
           - "**/internal/platform/*.go"
           - "**/internal/platform/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/listing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/product$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/product/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/marketplace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/marketplace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/agent$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/agent$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/agent/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/agent/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/knowledge$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/knowledge/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/knowledge/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/resourcecatalog$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/resourcecatalog$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/resourcecatalog/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/resourcecatalog/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/commercial$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/commercial/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/ledger$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/ledger/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/organization$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/organization$"
             desc: "platform is domain neutral"
-          - pkg: "task-processor/internal/organization/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/organization/"
             desc: "platform is domain neutral"
 
       phase2_retired_runtime_paths:
@@ -256,44 +256,44 @@ linters-settings:
           - "**/internal/*.go"
           - "**/internal/**/*.go"
         deny:
-          - pkg: "task-processor/internal/core/lifecycle$"
-          - pkg: "task-processor/internal/core/lifecycle/"
-          - pkg: "task-processor/internal/infra/database$"
-          - pkg: "task-processor/internal/infra/database/"
-          - pkg: "task-processor/internal/infra/redisclient$"
-          - pkg: "task-processor/internal/infra/redisclient/"
-          - pkg: "task-processor/internal/infra/lock$"
-          - pkg: "task-processor/internal/infra/lock/"
-          - pkg: "task-processor/internal/infra/rabbitmq$"
-          - pkg: "task-processor/internal/infra/rabbitmq/"
-          - pkg: "task-processor/internal/infra/worker$"
-          - pkg: "task-processor/internal/infra/worker/"
-          - pkg: "task-processor/internal/infra/clients/openai$"
-          - pkg: "task-processor/internal/infra/clients/openai/"
-          - pkg: "task-processor/internal/infra/clients/geminiimage$"
-          - pkg: "task-processor/internal/infra/clients/geminiimage/"
-          - pkg: "task-processor/internal/infra/clients/grsai$"
-          - pkg: "task-processor/internal/infra/clients/grsai/"
-          - pkg: "task-processor/internal/infra/storage$"
-          - pkg: "task-processor/internal/infra/storage/"
-          - pkg: "task-processor/internal/infra/resilience$"
-          - pkg: "task-processor/internal/infra/resilience/"
-          - pkg: "task-processor/internal/infra/metrics$"
-          - pkg: "task-processor/internal/infra/metrics/"
-          - pkg: "task-processor/internal/infra/monitoring$"
-          - pkg: "task-processor/internal/infra/monitoring/"
-          - pkg: "task-processor/internal/pkg/safeimagehttp$"
-          - pkg: "task-processor/internal/pkg/safeimagehttp/"
-          - pkg: "task-processor/internal/pkg/hashx$"
-          - pkg: "task-processor/internal/pkg/hashx/"
-          - pkg: "task-processor/internal/pkg/mathx$"
-          - pkg: "task-processor/internal/pkg/mathx/"
-          - pkg: "task-processor/internal/pkg/ptr$"
-          - pkg: "task-processor/internal/pkg/ptr/"
-          - pkg: "task-processor/internal/pkg/strx$"
-          - pkg: "task-processor/internal/pkg/strx/"
-          - pkg: "task-processor/internal/pkg/timex$"
-          - pkg: "task-processor/internal/pkg/timex/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/core/lifecycle$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/core/lifecycle/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/database$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/database/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/redisclient$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/redisclient/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/lock$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/lock/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/rabbitmq$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/rabbitmq/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/worker$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/worker/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/openai$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/openai/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/geminiimage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/geminiimage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/grsai$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/grsai/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/storage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/storage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/resilience$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/resilience/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/metrics$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/metrics/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/monitoring$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/monitoring/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/safeimagehttp$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/safeimagehttp/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/hashx$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/hashx/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/mathx$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/mathx/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/ptr$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/ptr/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/strx$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/strx/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/timex$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/timex/"
 
       shein_marketplace_publishing:
         # Keep this first rule narrow: migration-specific exceptions remain in
@@ -302,19 +302,19 @@ linters-settings:
         files:
           - "**/internal/marketplace/shein/publishing/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"
             desc: "SHEIN publishing policies must not depend on ListingKit"
-          - pkg: "task-processor/internal/app"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app"
             desc: "SHEIN publishing policies must not depend on root runtime wiring"
-          - pkg: "task-processor/internal/httpbootstrap"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/httpbootstrap"
             desc: "SHEIN publishing policies must not depend on root runtime wiring"
-          - pkg: "task-processor/internal/httproute"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
             desc: "SHEIN publishing policies must not depend on root runtime wiring"
-          - pkg: "task-processor/internal/infra"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra"
             desc: "SHEIN publishing policies must not depend on root runtime wiring"
-          - pkg: "task-processor/internal/integration"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration"
             desc: "SHEIN publishing policies must not depend on root runtime wiring"
-          - pkg: "task-processor/internal/platform"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/platform"
             desc: "SHEIN publishing policies must not depend on root runtime wiring"
 
       temu_marketplace_publishing:
@@ -323,13 +323,13 @@ linters-settings:
           - "**/internal/marketplace/temu/publishing/*.go"
           - "**/internal/marketplace/temu/publishing/**/*.go"
         deny:
-          - pkg: "task-processor/internal/temu"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu"
             desc: "TEMU publishing policies must not depend on historical TEMU runtime"
-          - pkg: "task-processor/internal/listingkit"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"
             desc: "TEMU publishing policies must not depend on ListingKit"
-          - pkg: "task-processor/internal/app"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app"
             desc: "TEMU publishing policies must not depend on root runtime wiring"
-          - pkg: "task-processor/internal/infra"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra"
             desc: "TEMU publishing policies must not depend on root runtime wiring"
 
       temu_historical_facades:
@@ -338,7 +338,7 @@ linters-settings:
         files:
           - "**/internal/temu/**/*.go"
         deny:
-          - pkg: "task-processor/internal/temu/format"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/format"
             desc: "TEMU numeric formatting belongs to marketplace publishing"
 
       listingkit_marketplace_publishing:
@@ -347,7 +347,7 @@ linters-settings:
           - "**/internal/listingkit/*.go"
           - "**/internal/listingkit/**/*.go"
         deny:
-          - pkg: "task-processor/internal/marketplace/shein/publishing"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
             desc: "ListingKit production code must not depend on SHEIN publishing policies"
 
       listingkit_legacy_shein_runtime:
@@ -357,11 +357,11 @@ linters-settings:
           - "**/internal/listingkit/*.go"
           - "**/internal/listingkit/**/*.go"
         deny:
-          - pkg: "task-processor/internal/shein/pipeline"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/pipeline"
             desc: "ListingKit production code must not depend on the legacy SHEIN pipeline"
-          - pkg: "task-processor/internal/shein/publish"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/publish"
             desc: "ListingKit production code must not depend on the legacy SHEIN publish package"
-          - pkg: "task-processor/internal/shein/product/build"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/product/build"
             desc: "ListingKit production code must not depend on the legacy SHEIN product builder"
 
       listingkit_shein_api_root:
@@ -371,7 +371,7 @@ linters-settings:
           - "**/internal/listingkit/*.go"
           - "**/internal/listingkit/**/*.go"
         deny:
-          - pkg: "task-processor/internal/shein/api$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/api$"
             desc: "ListingKit production code must not depend on the SHEIN API root package"
 
       listingkit_root_management_api:
@@ -380,7 +380,7 @@ linters-settings:
         files:
           - "**/internal/listingkit/*.go"
         deny:
-          - pkg: "task-processor/internal/infra/clients/management/api$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management/api$"
             desc: "ListingKit root production code must not depend on management API DTO contracts"
 
       listing_preview_platform_neutral:
@@ -389,17 +389,17 @@ linters-settings:
         files:
           - "**/*.go"
         deny:
-          - pkg: "task-processor/internal/listing/preview$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preview$"
             desc: "Old Task preview and listing image-download owners are retired"
-          - pkg: "task-processor/internal/listing/preview/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preview/"
             desc: "Old Task preview and listing image-download owners are retired"
-          - pkg: "task-processor/internal/listing/platform$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/platform$"
             desc: "Old Task preview and listing image-download owners are retired"
-          - pkg: "task-processor/internal/listing/platform/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/platform/"
             desc: "Old Task preview and listing image-download owners are retired"
-          - pkg: "task-processor/internal/pkg/downloader$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/downloader$"
             desc: "Old Task preview and listing image-download owners are retired"
-          - pkg: "task-processor/internal/pkg/downloader/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/downloader/"
             desc: "Old Task preview and listing image-download owners are retired"
 
       listingkit_subdomains_root_facade:
@@ -415,7 +415,7 @@ linters-settings:
           - "**/internal/listingkit/workspace/*.go"
           - "**/internal/listingkit/workspace/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "ListingKit subdomains must not depend on the root facade package"
 
       listingkit_root_workspace_shein:
@@ -424,7 +424,7 @@ linters-settings:
         files:
           - "**/internal/listingkit/*.go"
         deny:
-          - pkg: "task-processor/internal/workspace/shein$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/shein$"
             desc: "ListingKit root production code must not depend on the legacy workspace SHEIN domain"
 
       project_boundary_listingkit:
@@ -460,9 +460,9 @@ linters-settings:
           - "**/internal/workspace/*.go"
           - "**/internal/workspace/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "Project boundary packages must not depend on the ListingKit root facade"
-          - pkg: "task-processor/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
             desc: "Project boundary packages must not depend on ListingKit subpackages"
 
       infrastructure_business_boundaries:
@@ -508,48 +508,48 @@ linters-settings:
           - "**/internal/platformtask/*.go"
           - "**/internal/platformtask/**/*.go"
         deny:
-          - pkg: "task-processor/internal/amazon$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon$"
             desc: "Infrastructure packages must not depend on Amazon business rules"
-          - pkg: "task-processor/internal/amazon/"
-          - pkg: "task-processor/internal/amazonlisting$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting$"
             desc: "Infrastructure packages must not depend on Amazon Listing business rules"
-          - pkg: "task-processor/internal/amazonlisting/"
-          - pkg: "task-processor/internal/asset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset$"
             desc: "Infrastructure packages must not depend on asset business rules"
-          - pkg: "task-processor/internal/asset/"
-          - pkg: "task-processor/internal/listing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing$"
             desc: "Infrastructure packages must not depend on listing business rules"
-          - pkg: "task-processor/internal/listing/"
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "Infrastructure packages must not depend on ListingKit business rules"
-          - pkg: "task-processor/internal/listingkit/"
-          - pkg: "task-processor/internal/marketplace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$"
             desc: "Infrastructure packages must not depend on marketplace business rules"
-          - pkg: "task-processor/internal/marketplace/"
-          - pkg: "task-processor/internal/pricing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pricing$"
             desc: "Infrastructure packages must not depend on pricing business rules"
-          - pkg: "task-processor/internal/pricing/"
-          - pkg: "task-processor/internal/productenrich$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pricing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$"
             desc: "Infrastructure packages must not depend on product-enrichment business rules"
-          - pkg: "task-processor/internal/productenrich/"
-          - pkg: "task-processor/internal/productimage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage$"
             desc: "Infrastructure packages must not depend on product-image business rules"
-          - pkg: "task-processor/internal/productimage/"
-          - pkg: "task-processor/internal/publishing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing$"
             desc: "Infrastructure packages must not depend on publishing business rules"
-          - pkg: "task-processor/internal/publishing/"
-          - pkg: "task-processor/internal/sds$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sds$"
             desc: "Infrastructure packages must not depend on SDS business rules"
-          - pkg: "task-processor/internal/sds/"
-          - pkg: "task-processor/internal/shein$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sds/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein$"
             desc: "Infrastructure packages must not depend on SHEIN business rules"
-          - pkg: "task-processor/internal/shein/"
-          - pkg: "task-processor/internal/temu$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu$"
             desc: "Infrastructure packages must not depend on TEMU business rules"
-          - pkg: "task-processor/internal/temu/"
-          - pkg: "task-processor/internal/workspace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace$"
             desc: "Infrastructure packages must not depend on workspace business rules"
-          - pkg: "task-processor/internal/workspace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/"
 
       infrastructure_catalog_boundary:
         files:
@@ -567,58 +567,58 @@ linters-settings:
           - "!**/internal/integration/persistence/product/catalog/**/*.go"
           - "!**/internal/integration/persistence/product/review/repository.go"
         deny:
-          - pkg: "task-processor/internal/product/catalog$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog$"
             desc: "Only Catalog persistence and the admitted review UoW may consume Catalog ports"
-          - pkg: "task-processor/internal/product/catalog/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/"
       product_catalog_persistence_boundary:
         # This exact adapter implements the Catalog-owned repository ports. It may depend on Catalog, but no other business domain.
         files:
           - "**/internal/integration/persistence/product/catalog/*.go"
           - "**/internal/integration/persistence/product/catalog/**/*.go"
         deny:
-          - pkg: "task-processor/internal/amazon$"
-          - pkg: "task-processor/internal/amazon/"
-          - pkg: "task-processor/internal/amazonlisting$"
-          - pkg: "task-processor/internal/amazonlisting/"
-          - pkg: "task-processor/internal/asset$"
-          - pkg: "task-processor/internal/asset/"
-          - pkg: "task-processor/internal/product/asset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset$"
             desc: "Catalog persistence must not depend on Product Asset business rules"
-          - pkg: "task-processor/internal/product/asset/"
-          - pkg: "task-processor/internal/product/sourcing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing$"
             desc: "Catalog persistence must not depend on Product Sourcing business rules"
-          - pkg: "task-processor/internal/product/sourcing/"
-          - pkg: "task-processor/internal/product/enrichment$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment$"
             desc: "Catalog persistence must not depend on Product Enrichment business rules"
-          - pkg: "task-processor/internal/product/enrichment/"
-          - pkg: "task-processor/internal/product/review/proposal$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/enrichment/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal$"
             desc: "Catalog persistence must not depend on Review Proposal business rules"
-          - pkg: "task-processor/internal/product/review/proposal/"
-          - pkg: "task-processor/internal/product/image$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/review/proposal/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image$"
             desc: "Catalog persistence must not depend on Product Image business rules"
-          - pkg: "task-processor/internal/product/image/"
-          - pkg: "task-processor/internal/listing$"
-          - pkg: "task-processor/internal/listing/"
-          - pkg: "task-processor/internal/listingkit$"
-          - pkg: "task-processor/internal/listingkit/"
-          - pkg: "task-processor/internal/marketplace$"
-          - pkg: "task-processor/internal/marketplace/"
-          - pkg: "task-processor/internal/pricing$"
-          - pkg: "task-processor/internal/pricing/"
-          - pkg: "task-processor/internal/productenrich$"
-          - pkg: "task-processor/internal/productenrich/"
-          - pkg: "task-processor/internal/productimage$"
-          - pkg: "task-processor/internal/productimage/"
-          - pkg: "task-processor/internal/publishing$"
-          - pkg: "task-processor/internal/publishing/"
-          - pkg: "task-processor/internal/sds$"
-          - pkg: "task-processor/internal/sds/"
-          - pkg: "task-processor/internal/shein$"
-          - pkg: "task-processor/internal/shein/"
-          - pkg: "task-processor/internal/temu$"
-          - pkg: "task-processor/internal/temu/"
-          - pkg: "task-processor/internal/workspace$"
-          - pkg: "task-processor/internal/workspace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pricing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pricing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sds$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sds/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/"
 
       listing_submission_persistence_boundary:
         # This exact PostgreSQL adapter implements only the Listing Submission
@@ -631,35 +631,35 @@ linters-settings:
           - "!**/internal/integration/persistence/listing/submission/walmart_effects_policy.go"
           - "!**/internal/integration/persistence/listing/submission/shein_shelf_policy.go"
         deny:
-          - pkg: "task-processor/internal/amazon$"
-          - pkg: "task-processor/internal/amazon/"
-          - pkg: "task-processor/internal/amazonlisting$"
-          - pkg: "task-processor/internal/amazonlisting/"
-          - pkg: "task-processor/internal/asset$"
-          - pkg: "task-processor/internal/asset/"
-          - pkg: "task-processor/internal/listing$"
-          - pkg: "task-processor/internal/listingkit$"
-          - pkg: "task-processor/internal/listingkit/"
-          - pkg: "task-processor/internal/marketplace$"
-          - pkg: "task-processor/internal/marketplace/"
-          - pkg: "task-processor/internal/pricing$"
-          - pkg: "task-processor/internal/pricing/"
-          - pkg: "task-processor/internal/product$"
-          - pkg: "task-processor/internal/product/"
-          - pkg: "task-processor/internal/productenrich$"
-          - pkg: "task-processor/internal/productenrich/"
-          - pkg: "task-processor/internal/productimage$"
-          - pkg: "task-processor/internal/productimage/"
-          - pkg: "task-processor/internal/publishing$"
-          - pkg: "task-processor/internal/publishing/"
-          - pkg: "task-processor/internal/sds$"
-          - pkg: "task-processor/internal/sds/"
-          - pkg: "task-processor/internal/shein$"
-          - pkg: "task-processor/internal/shein/"
-          - pkg: "task-processor/internal/temu$"
-          - pkg: "task-processor/internal/temu/"
-          - pkg: "task-processor/internal/workspace$"
-          - pkg: "task-processor/internal/workspace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pricing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/pricing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sds$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sds/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/"
 
       domain_app_httpapi_boundaries:
         # Domain and business packages must not depend on HTTP assembly; transport adapters belong above the domain boundary.
@@ -698,9 +698,9 @@ linters-settings:
           - "**/internal/temu/*.go"
           - "**/internal/temu/**/*.go"
         deny:
-          - pkg: "task-processor/internal/app/httpapi$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi$"
             desc: "Domain and business packages must not depend on the app HTTP API root"
-          - pkg: "task-processor/internal/app/httpapi/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi/"
             desc: "Domain and business packages must not depend on app HTTP API subpackages"
 
       source_account_registry_clean_room:
@@ -718,21 +718,21 @@ linters-settings:
           - "**/internal/app/httpapi/source_account_application.go"
           - "**/cmd/source-account-registry-schema-init/*.go"
         deny:
-          - pkg: "task-processor/internal/sourceaccount$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccount$"
             desc: "SA1 must not depend on the old Source Account owner"
-          - pkg: "task-processor/internal/sourceaccount/"
-          - pkg: "task-processor/internal/integration/persistence/sourceaccount$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/sourceaccount/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccount$"
             desc: "SA1 must not depend on old Source Account persistence or ownership migration"
-          - pkg: "task-processor/internal/integration/persistence/sourceaccount/"
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/sourceaccount/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "SA1 must not depend on ListingKit"
-          - pkg: "task-processor/internal/listingkit/"
-          - pkg: "task-processor/internal/compatibility$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility$"
             desc: "SA1 has no compatibility path"
-          - pkg: "task-processor/internal/compatibility/"
-          - pkg: "task-processor/internal/tenantbridge$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/compatibility/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge$"
             desc: "SA1 uses current organization admission, not the legacy tenant bridge"
-          - pkg: "task-processor/internal/tenantbridge/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/tenantbridge/"
 
       platform_registration_boundaries:
         # Keep platform registration modules independent from marketplace business and HTTP assembly packages.
@@ -741,29 +741,29 @@ linters-settings:
           - "**/internal/platforms/*.go"
           - "**/internal/platforms/**/*.go"
         deny:
-          - pkg: "task-processor/internal/app/httpapi$"
-          - pkg: "task-processor/internal/app/httpapi/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi/"
             desc: "Platform registration must not depend on HTTP assembly"
-          - pkg: "task-processor/internal/asset$"
-          - pkg: "task-processor/internal/asset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset/"
             desc: "Platform registration must not own asset business rules"
-          - pkg: "task-processor/internal/product/catalog$"
-          - pkg: "task-processor/internal/product/catalog/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/"
             desc: "Platform registration must not own catalog business rules"
-          - pkg: "task-processor/internal/listingkit$"
-          - pkg: "task-processor/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
             desc: "Platform registration must not depend on ListingKit business rules"
-          - pkg: "task-processor/internal/marketplace$"
-          - pkg: "task-processor/internal/marketplace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/"
             desc: "Platform registration must not own marketplace business rules"
-          - pkg: "task-processor/internal/productimage$"
-          - pkg: "task-processor/internal/productimage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/"
             desc: "Platform registration must not own product-image business rules"
-          - pkg: "task-processor/internal/publishing$"
-          - pkg: "task-processor/internal/publishing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/"
             desc: "Platform registration must not own publishing business rules"
-          - pkg: "task-processor/internal/workspace$"
-          - pkg: "task-processor/internal/workspace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/"
             desc: "Platform registration must not own workspace business rules"
 
       aicapability_boundaries:
@@ -778,7 +778,7 @@ linters-settings:
         allow:
           - "$gostd"
           - "gorm.io/gorm"
-          - "task-processor/internal/aicapability"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 
       commercetool_boundaries:
         # Commerce Tool contracts and registry policy remain independent from
@@ -803,13 +803,13 @@ linters-settings:
         files:
           - "**/*.go"
         deny:
-          - pkg: "task-processor/internal/listing/task$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/task$"
             desc: "Use current record identity contracts; the old task owner is retired."
-          - pkg: "task-processor/internal/listing/task/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/task/"
             desc: "Do not recreate the retired task owner below a child package."
-          - pkg: "task-processor/internal/shared/ptr$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr$"
             desc: "The legacy convenience-only pointer helpers are retired."
-          - pkg: "task-processor/internal/shared/ptr/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shared/ptr/"
             desc: "Do not recreate retired pointer helpers below a child package."
 
       canonical_inspection_tool_boundaries:
@@ -821,9 +821,9 @@ linters-settings:
           - "**/internal/product/catalog/tools/canonicalinspect/**/*.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/authz$"
-          - "task-processor/internal/commercetool$"
-          - "task-processor/internal/product/catalog$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/authz$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog$"
 
       commercetoolauth_boundaries:
         # Trusted identity and Casbin remain adapters; policy stays with the
@@ -834,9 +834,9 @@ linters-settings:
           - "**/internal/integration/commercetoolauth/**/*.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/authidentity$"
-          - "task-processor/internal/authz$"
-          - "task-processor/internal/commercetool$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/authz$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool$"
 
       imageagent_effectpolicy_boundaries:
         list-mode: strict
@@ -845,7 +845,7 @@ linters-settings:
           - "**/internal/imageagent/effectpolicy/**/*.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/imageagent"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 
       source_handoff_legacy_http:
         # The retired ProductEnrich HTTP owner must not regain production consumers.
@@ -853,7 +853,7 @@ linters-settings:
         files:
           - "**/internal/**/*.go"
         deny:
-          - pkg: "task-processor/internal/productenrich/httpapi/sourcea1688"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich/httpapi/sourcea1688"
             desc: "Production code must use the canonical product source-handoff owner"
 
       publishing_shein_legacy_runtime:
@@ -862,17 +862,17 @@ linters-settings:
           - "**/internal/publishing/shein/*.go"
           - "**/internal/publishing/shein/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"
             desc: "SHEIN publishing owner must not depend on ListingKit"
-          - pkg: "task-processor/internal/listingkit/tenantctx"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/tenantctx"
             desc: "SHEIN publishing owner must not depend on ListingKit tenant context"
-          - pkg: "task-processor/internal/productenrich"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich"
             desc: "SHEIN publishing owner must not depend on ProductEnrich compatibility runtime"
-          - pkg: "task-processor/internal/shein/pipeline"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/pipeline"
             desc: "SHEIN publishing owner must not depend on the legacy SHEIN pipeline"
-          - pkg: "task-processor/internal/shein/publish"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/publish"
             desc: "SHEIN publishing owner must not depend on the legacy SHEIN publish package"
-          - pkg: "task-processor/internal/shein/product/build"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/product/build"
             desc: "SHEIN publishing owner must not depend on the legacy SHEIN product builder"
 
       shein_submitprep_legacy_tenantctx:
@@ -882,7 +882,7 @@ linters-settings:
           - "**/internal/shein/submitprep/*.go"
           - "**/internal/shein/submitprep/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit/tenantctx"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/tenantctx"
             desc: "SHEIN submit preparation must not depend on ListingKit tenant context"
 
       shein_pipeline_legacy_listingkit:
@@ -892,9 +892,9 @@ linters-settings:
           - "**/internal/shein/pipeline/*.go"
           - "**/internal/shein/pipeline/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit"
             desc: "Legacy SHEIN pipeline must not depend on ListingKit"
-          - pkg: "task-processor/internal/listingkit/tenantctx"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/tenantctx"
             desc: "Legacy SHEIN pipeline must not depend on ListingKit tenant context"
 
       publishing_common_platforms:
@@ -904,11 +904,11 @@ linters-settings:
           - "**/internal/publishing/common/*.go"
           - "**/internal/publishing/common/**/*.go"
         deny:
-          - pkg: "task-processor/internal/shein"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein"
             desc: "Publishing common code must not depend on SHEIN implementation packages"
-          - pkg: "task-processor/internal/temu"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu"
             desc: "Publishing common code must not depend on TEMU implementation packages"
-          - pkg: "task-processor/internal/amazon"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon"
             desc: "Publishing common code must not depend on Amazon implementation packages"
 
       publishing_common_legacy_productenrich:
@@ -918,7 +918,7 @@ linters-settings:
           - "**/internal/publishing/common/*.go"
           - "**/internal/publishing/common/**/*.go"
         deny:
-          - pkg: "task-processor/internal/productenrich$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$"
             desc: "Publishing common code must not depend on ProductEnrich compatibility aliases"
 
       catalog_legacy_productenrich:
@@ -928,7 +928,7 @@ linters-settings:
           - "**/internal/product/catalog/*.go"
           - "**/internal/product/catalog/**/*.go"
         deny:
-          - pkg: "task-processor/internal/productenrich$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$"
             desc: "Catalog code must not depend on ProductEnrich compatibility aliases"
 
       listingruntime_local_legacy_management:
@@ -938,7 +938,7 @@ linters-settings:
           - "**/internal/listingruntime/local/*.go"
           - "**/internal/listingruntime/local/**/*.go"
         deny:
-          - pkg: "task-processor/internal/infra/clients/management$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/clients/management$"
             desc: "Local runtime must not depend on the retired management client package"
 
       internal_legacy_app_compatibility:
@@ -947,13 +947,13 @@ linters-settings:
         files:
           - "**/internal/**/*.go"
         deny:
-          - pkg: "task-processor/internal/app/processor$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/processor$"
             desc: "Internal production code must not depend on the retired app processor compatibility package"
-          - pkg: "task-processor/internal/app/processor/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/processor/"
             desc: "Internal production code must not depend on retired app processor subpackages"
-          - pkg: "task-processor/internal/app/state$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/state$"
             desc: "Internal production code must not depend on the retired app state compatibility package"
-          - pkg: "task-processor/internal/app/state/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/state/"
             desc: "Internal production code must not depend on retired app state subpackages"
 
       cmd_domain_dependencies:
@@ -964,57 +964,57 @@ linters-settings:
           - "**/cmd/*.go"
           - "**/cmd/**/*.go"
         deny:
-          - pkg: "task-processor/internal/amazon$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon$"
             desc: "Command entrypoints must not depend on the Amazon domain package"
-          - pkg: "task-processor/internal/amazon/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazon/"
             desc: "Command entrypoints must not depend on Amazon subpackages"
-          - pkg: "task-processor/internal/amazonlisting$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting$"
             desc: "Command entrypoints must not depend on the Amazon listing domain package"
-          - pkg: "task-processor/internal/amazonlisting/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/amazonlisting/"
             desc: "Command entrypoints must not depend on Amazon listing subpackages"
-          - pkg: "task-processor/internal/asset$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset$"
             desc: "Command entrypoints must not depend on the asset domain package"
-          - pkg: "task-processor/internal/asset/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/asset/"
             desc: "Command entrypoints must not depend on asset subpackages"
-          - pkg: "task-processor/internal/product/catalog$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog$"
             desc: "Command entrypoints must not depend on the catalog domain package"
-          - pkg: "task-processor/internal/product/catalog/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog/"
             desc: "Command entrypoints must not depend on catalog subpackages"
-          - pkg: "task-processor/internal/infra$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra$"
             desc: "Command entrypoints must not depend on the infrastructure package"
-          - pkg: "task-processor/internal/infra/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/infra/"
             desc: "Command entrypoints must not depend on infrastructure subpackages"
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "Command entrypoints must not depend on the ListingKit domain package"
-          - pkg: "task-processor/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
             desc: "Command entrypoints must not depend on ListingKit subpackages"
-          - pkg: "task-processor/internal/marketplace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace$"
             desc: "Command entrypoints must not depend on the marketplace domain package"
-          - pkg: "task-processor/internal/marketplace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/"
             desc: "Command entrypoints must not depend on marketplace subpackages"
-          - pkg: "task-processor/internal/productenrich$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich$"
             desc: "Command entrypoints must not depend on product-enrichment packages"
-          - pkg: "task-processor/internal/productenrich/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productenrich/"
             desc: "Command entrypoints must not depend on product-enrichment subpackages"
-          - pkg: "task-processor/internal/productimage$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage$"
             desc: "Command entrypoints must not depend on product-image packages"
-          - pkg: "task-processor/internal/productimage/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage/"
             desc: "Command entrypoints must not depend on product-image subpackages"
-          - pkg: "task-processor/internal/publishing$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing$"
             desc: "Command entrypoints must not depend on publishing packages"
-          - pkg: "task-processor/internal/publishing/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/publishing/"
             desc: "Command entrypoints must not depend on publishing subpackages"
-          - pkg: "task-processor/internal/shein$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein$"
             desc: "Command entrypoints must not depend on the SHEIN domain package"
-          - pkg: "task-processor/internal/shein/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/shein/"
             desc: "Command entrypoints must not depend on SHEIN subpackages"
-          - pkg: "task-processor/internal/temu$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu$"
             desc: "Command entrypoints must not depend on the Temu domain package"
-          - pkg: "task-processor/internal/temu/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/temu/"
             desc: "Command entrypoints must not depend on Temu subpackages"
-          - pkg: "task-processor/internal/workspace$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace$"
             desc: "Command entrypoints must not depend on workspace packages"
-          - pkg: "task-processor/internal/workspace/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/workspace/"
             desc: "Command entrypoints must not depend on workspace subpackages"
 
       cmd_legacy_app_compatibility:
@@ -1024,13 +1024,13 @@ linters-settings:
           - "**/cmd/*.go"
           - "**/cmd/**/*.go"
         deny:
-          - pkg: "task-processor/internal/app/processor$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/processor$"
             desc: "Command entrypoints must not depend on the retired app processor compatibility package"
-          - pkg: "task-processor/internal/app/processor/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/processor/"
             desc: "Command entrypoints must not depend on retired app processor subpackages"
-          - pkg: "task-processor/internal/app/state$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/state$"
             desc: "Command entrypoints must not depend on the retired app state compatibility package"
-          - pkg: "task-processor/internal/app/state/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/state/"
             desc: "Command entrypoints must not depend on retired app state subpackages"
 
       temporal_runtime_httpapi:
@@ -1044,13 +1044,13 @@ linters-settings:
           - "**/internal/listingkit/workflow/*.go"
           - "**/internal/listingkit/workflow/**/*.go"
         deny:
-          - pkg: "task-processor/internal/app/httpapi$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi$"
             desc: "Temporal runtime packages must not depend on app HTTP API assembly"
-          - pkg: "task-processor/internal/app/httpapi/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/app/httpapi/"
             desc: "Temporal runtime packages must not depend on app HTTP API subpackages"
-          - pkg: "task-processor/internal/listingkit/httpapi$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi$"
             desc: "Temporal runtime packages must not depend on ListingKit HTTP API assembly"
-          - pkg: "task-processor/internal/listingkit/httpapi/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/httpapi/"
             desc: "Temporal runtime packages must not depend on ListingKit HTTP API subpackages"
 
       authruntime_zitadel_listingkit:
@@ -1060,9 +1060,9 @@ linters-settings:
           - "**/internal/authruntime/zitadel/*.go"
           - "**/internal/authruntime/zitadel/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "Zitadel auth runtime must not depend on the ListingKit root package"
-          - pkg: "task-processor/internal/listingkit/"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit/"
             desc: "Zitadel auth runtime must not depend on ListingKit subpackages"
 
       alibaba1688_listingkit_root:
@@ -1072,7 +1072,7 @@ linters-settings:
           - "**/internal/crawler/alibaba1688/*.go"
           - "**/internal/crawler/alibaba1688/**/*.go"
         deny:
-          - pkg: "task-processor/internal/listingkit$"
+          - pkg: "github.com/henryxu1008/shuomi-ai-commerce/internal/listingkit$"
             desc: "1688 crawler production code must not depend on ListingKit root facade"
 
       supply_preparation_persistence:
@@ -1086,10 +1086,10 @@ linters-settings:
           - "$gostd"
           - "gorm.io/gorm$"
           - "gorm.io/gorm/clause$"
-          - "task-processor/internal/authidentity$"
-          - "task-processor/internal/integration/persistence/product/collection$"
-          - "task-processor/internal/listing/preparation$"
-          - "task-processor/internal/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"
 
       supply_completion_draft_persistence:
         # #605 frozen unbound draft: exact current ports; no broader domain admission.
@@ -1101,9 +1101,9 @@ linters-settings:
         allow:
           - "$gostd"
           - "gorm.io/gorm$"
-          - "task-processor/internal/listing/completiondraft$"
-          - "task-processor/internal/listing/preparation$"
-          - "task-processor/internal/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/completiondraft$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"
 
       supply_target_persistence:
         # #605 IMPLEMENTATION_READY: only these current ports/DTOs; no legacy admission.
@@ -1115,8 +1115,8 @@ linters-settings:
         allow:
           - "$gostd"
           - "gorm.io/gorm$"
-          - "task-processor/internal/listing/record/target$"
-          - "task-processor/internal/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"
 
       supply_official_uow_persistence:
         # #605 IMPLEMENTATION_READY: only these current ports/DTOs; no legacy admission.
@@ -1130,13 +1130,13 @@ linters-settings:
           - "$gostd"
           - "gorm.io/gorm$"
           - "gorm.io/gorm/clause$"
-          - "task-processor/internal/integration/persistence/listing/record$"
-          - "task-processor/internal/integration/persistence/listing/submission$"
-          - "task-processor/internal/listing/record/target$"
-          - "task-processor/internal/listing/submission$"
-          - "task-processor/internal/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"
           # Pure PostgreSQL definition comparison; schema/grant authority stays here.
-          - "task-processor/internal/pkg/pgschema$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema$"
 
       supply_official_goods_transport:
         # #605 IMPLEMENTATION_READY: only these current ports/DTOs; no legacy admission.
@@ -1150,10 +1150,10 @@ linters-settings:
         allow:
           - "$gostd"
           - "sigs.k8s.io/json$"
-          - "task-processor/internal/integration/httpimage$"
-          - "task-processor/internal/marketplace/shein/goods$"
-          - "task-processor/internal/marketplace/shein/model$"
-          - "task-processor/internal/storecenter$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/httpimage$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter$"
 
       temu_official_metadata_transport:
         # #31 IMPLEMENTATION_READY: exact named metadata DTO transport, no rule implementations.
@@ -1164,8 +1164,8 @@ linters-settings:
           - "**/internal/integration/temu/official_supplier_size.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/marketplace/temu/model$"
-          - "task-processor/internal/storecenter$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter$"
 
       shein_original_shelf_policy:
         # #605 frozen: original receipt/record checks in the existing claim UoW.
@@ -1175,9 +1175,9 @@ linters-settings:
         allow:
           - "$gostd"
           - "gorm.io/gorm$"
-          - "task-processor/internal/integration/persistence/listing/record$"
-          - "task-processor/internal/listing/submission$"
-          - "task-processor/internal/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"
 
       temu_original_effect_policy:
         # #31 G4 frozen: atomic current target/image receipt checks in the original ProductDB claim transaction.
@@ -1188,10 +1188,10 @@ linters-settings:
           - "$gostd"
           - "gorm.io/gorm$"
           - "gorm.io/gorm/clause$"
-          - "task-processor/internal/integration/persistence/listing/record$"
-          - "task-processor/internal/listing/record/target$"
-          - "task-processor/internal/listing/submission$"
-          - "task-processor/internal/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"
 
       temu_official_goods_transport:
         # #31 frozen: exact typed native mutation adapter under the original Store/Submission owner.
@@ -1200,9 +1200,9 @@ linters-settings:
           - "**/internal/integration/temu/official_goods.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/marketplace/temu/goods$"
-          - "task-processor/internal/marketplace/temu/model$"
-          - "task-processor/internal/storecenter$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter$"
 
       temu_observation_official_transport:
         # #31 frozen: fixed native reads and the current shared Store observation port.
@@ -1211,10 +1211,10 @@ linters-settings:
           - "**/internal/integration/temu/official_observations.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/marketplace/temu/model$"
-          - "task-processor/internal/marketplace/temu/observations$"
-          - "task-processor/internal/storecenter$"
-          - "task-processor/internal/storecenter/observations$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations$"
 
       store_observation_persistence:
         # #614 IMPLEMENTATION_READY: exact adapters consume only the frozen observation port.
@@ -1226,11 +1226,11 @@ linters-settings:
           - "$gostd"
           - "github.com/google/uuid$"
           - "gorm.io/gorm$"
-          - "task-processor/internal/authidentity$"
-          - "task-processor/internal/marketplace/temu/observations$"
-          - "task-processor/internal/marketplace/walmart$"
-          - "task-processor/internal/storecenter$"
-          - "task-processor/internal/storecenter/observations$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations$"
 
       store_observation_official_transport:
         # #614 IMPLEMENTATION_READY: exact signed read adapter, no application or legacy imports.
@@ -1239,8 +1239,8 @@ linters-settings:
           - "**/internal/integration/shein/official_observations.go"
         allow:
           - "$gostd"
-          - "task-processor/internal/storecenter/observations$"
-          - "task-processor/internal/storecenter$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter$"
 
       walmart_official_transport:
         # #733 frozen design: exact transport files consume only current Walmart ports.
@@ -1251,8 +1251,8 @@ linters-settings:
         allow:
           - "$gostd"
           - "github.com/google/uuid$"
-          - "task-processor/internal/marketplace/walmart$"
-          - "task-processor/internal/storecenter/walmart$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart$"
 
       walmart_effects_persistence:
         # #733 frozen design: original Submission UoW and append-only readback adapters.
@@ -1265,11 +1265,11 @@ linters-settings:
           - "github.com/google/uuid$"
           - "gorm.io/gorm$"
           - "gorm.io/gorm/clause$"
-          - "task-processor/internal/integration/persistence/listing/record$"
-          - "task-processor/internal/integration/persistence/listing/submission$"
-          - "task-processor/internal/listing/submission$"
-          - "task-processor/internal/marketplace/walmart$"
-          - "task-processor/internal/product/collection$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart$"
+          - "github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection$"
 
   govet:
     disable:

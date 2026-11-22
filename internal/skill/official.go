@@ -3,9 +3,9 @@ package skill
 import (
 	"context"
 	"embed"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"io/fs"
 	"strings"
-	"task-processor/internal/agent"
 
 	"github.com/google/uuid"
 )

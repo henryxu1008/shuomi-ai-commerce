@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 )
 
 type ModeSubjectKind string

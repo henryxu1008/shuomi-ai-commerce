@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/invopop/jsonschema"
-	"task-processor/internal/commercetool"
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
-	"task-processor/internal/product/collection"
 )
 
 // ImageAdviceDefinition adds one bounded compute projection, reusing the

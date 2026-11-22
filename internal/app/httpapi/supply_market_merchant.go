@@ -2,8 +2,8 @@ package httpapi
 
 import (
 	"context"
-	"task-processor/internal/product/supplymarket"
-	"task-processor/internal/subjectverification"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/supplymarket"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/subjectverification"
 )
 
 type verifiedMarketMerchant struct{ service *subjectverification.Service }

@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 type SHEINUSTrialSubmission struct {

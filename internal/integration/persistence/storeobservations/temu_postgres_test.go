@@ -4,10 +4,10 @@ package storeobservations
 
 import (
 	"github.com/google/uuid"
+	tm "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	o "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/observations"
 	"github.com/stretchr/testify/require"
-	tm "task-processor/internal/marketplace/temu/observations"
-	"task-processor/internal/storecenter"
-	o "task-processor/internal/storecenter/observations"
 	"testing"
 	"time"
 )

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"task-processor/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 )
 
 func projectionFixture() sourcing.PersistedPublication {

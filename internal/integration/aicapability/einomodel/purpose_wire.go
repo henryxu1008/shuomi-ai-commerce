@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/cloudwego/eino/schema"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"google.golang.org/genai"
-	"task-processor/internal/aicapability"
 )
 
 func geminiThinkingConfig(mode string) *genai.ThinkingConfig {

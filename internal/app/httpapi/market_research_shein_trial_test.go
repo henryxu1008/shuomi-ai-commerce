@@ -13,14 +13,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	dataservicesapp "task-processor/internal/app/dataservices"
-	"task-processor/internal/httproute"
-	"task-processor/internal/integration/acquisition/zenrows"
-	kernel "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/product/collection"
-	"task-processor/internal/product/dataacquisition"
-	rh "task-processor/internal/product/research/httpapi"
+	dataservicesapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/dataservices"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/integration/acquisition/zenrows"
+	kernel "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/dataacquisition"
+	rh "github.com/henryxu1008/shuomi-ai-commerce/internal/product/research/httpapi"
 )
 
 func TestSHEINTrialRoutesRequireExplicitAdmission(t *testing.T) {

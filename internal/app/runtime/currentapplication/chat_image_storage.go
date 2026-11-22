@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
+	capstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	s3integration "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/s3"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/storagecapacity"
 	"gorm.io/gorm"
-	capstore "task-processor/internal/integration/persistence/storagecapacity"
-	s3integration "task-processor/internal/integration/s3"
-	"task-processor/internal/ledger/storagecapacity"
 )
 
 // ChatImageStorageRuntime carries the private object and capacity ports to the application composer.

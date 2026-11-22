@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"task-processor/internal/product/asset"
-	"task-processor/internal/product/catalog"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/catalog"
 )
 
 // These tests exercise already-approved domain binding/projection behavior;

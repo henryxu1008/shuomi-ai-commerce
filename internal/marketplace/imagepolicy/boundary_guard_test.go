@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	productimage "task-processor/internal/product/image"
+	productimage "github.com/henryxu1008/shuomi-ai-commerce/internal/product/image"
 
 	"github.com/stretchr/testify/require"
 )
@@ -55,10 +55,10 @@ func TestImagePolicyHasOnlyPureResolverDependencies(t *testing.T) {
 	t.Parallel()
 
 	allowed := map[string]struct{}{
-		"errors":                                {},
-		"math":                                  {},
-		"strings":                               {},
-		"task-processor/internal/product/image": {},
+		"errors":  {},
+		"math":    {},
+		"strings": {},
+		"github.com/henryxu1008/shuomi-ai-commerce/internal/product/image": {},
 	}
 	violations, err := imagePolicyDependencyViolations(imagePolicyProductionFiles(t), allowed)
 	require.NoError(t, err)
@@ -136,8 +136,8 @@ func TestImagePolicyBoundaryGuardRejectsConfigIOAndBuiltinCatalog(t *testing.T) 
 import (
 	_ "os"
 	str "strings"
-	_ "task-processor/internal/core/config"
-	_ "task-processor/internal/productimage"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
+	_ "github.com/henryxu1008/shuomi-ai-commerce/internal/productimage"
 )
 type PolicySet struct{}
 type Policy struct{}

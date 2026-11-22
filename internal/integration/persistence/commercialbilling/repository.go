@@ -15,10 +15,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"task-processor/internal/commercial/billing"
-	capacitystore "task-processor/internal/integration/persistence/storagecapacity"
-	"task-processor/internal/ledger/money"
-	"task-processor/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercial/billing"
+	capacitystore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/storagecapacity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/money"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 )
 
 type offerRow struct {

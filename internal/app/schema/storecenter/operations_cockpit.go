@@ -3,8 +3,8 @@ package storecenter
 import (
 	"context"
 	"errors"
+	cockpit "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/operationscockpit"
 	"gorm.io/gorm"
-	cockpit "task-processor/internal/integration/persistence/operationscockpit"
 )
 
 // InstallOperationsCockpit provisions a fresh empty Store instance explicitly.

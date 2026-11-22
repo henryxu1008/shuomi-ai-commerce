@@ -2,8 +2,8 @@ package storecenterapp
 
 import (
 	"context"
-	"task-processor/internal/marketplace/shein/model"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
 
 type publicationProvider interface {

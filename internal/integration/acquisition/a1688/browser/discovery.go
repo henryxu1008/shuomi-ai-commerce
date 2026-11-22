@@ -3,8 +3,8 @@ package browser
 import (
 	"context"
 	"encoding/json"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
 	sigjson "sigs.k8s.io/json"
-	"task-processor/internal/product/sourcing"
 )
 
 var _ sourcing.PublicProductDiscoverer = (*Client)(nil)

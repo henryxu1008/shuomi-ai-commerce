@@ -6,12 +6,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	credential "github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability/channelcredential"
 	"os"
-	credential "task-processor/internal/aicapability/channelcredential"
 	"time"
 
-	"task-processor/internal/app/runtime/currentapplication"
-	platformdatabase "task-processor/internal/platform/database"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 func main() {

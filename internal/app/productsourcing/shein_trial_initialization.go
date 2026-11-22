@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
+	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
+	jobstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/dataacquisition"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 	"gorm.io/gorm"
-	acquisitionstore "task-processor/internal/integration/persistence/product/acquisition"
-	jobstore "task-processor/internal/integration/persistence/product/dataacquisition"
-	platformdatabase "task-processor/internal/platform/database"
 )
 
 // EnableSHEINUSTrialLedger is explicit owner maintenance for the existing

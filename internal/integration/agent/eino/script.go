@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/commercetool"
 	strict "sigs.k8s.io/json"
-	"task-processor/internal/agent"
-	"task-processor/internal/commercetool"
 )
 
 func (e *execution) script(ctx context.Context, s *flowState) {

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	resource "github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
 	"github.com/stretchr/testify/require"
-	"task-processor/internal/aicapability"
-	resource "task-processor/internal/ledger/orgresource"
 )
 
 func TestModelPointFingerprintKeepsOriginalClaimWhenUsagePartitionsArrive(t *testing.T) {

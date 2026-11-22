@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"task-processor/internal/marketplace/shein/offlinepackage/previewdata"
-	sheinmarketpub "task-processor/internal/marketplace/shein/publishing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/offlinepackage/previewdata"
+	sheinmarketpub "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/publishing"
 )
 
 // PrepareProductForValidation applies the same offline defaults as new submit

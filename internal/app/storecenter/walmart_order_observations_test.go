@@ -3,10 +3,10 @@ package storecenterapp
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	auth "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/walmart"
 	"github.com/stretchr/testify/require"
 	"strings"
-	"task-processor/internal/storecenter"
-	auth "task-processor/internal/storecenter/walmart"
 	"testing"
 	"time"
 )

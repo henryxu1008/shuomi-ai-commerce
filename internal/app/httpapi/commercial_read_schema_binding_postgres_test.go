@@ -18,16 +18,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"task-processor/internal/app/runtime/currentapplication"
-	registrySchema "task-processor/internal/app/schema/sourceaccountregistry"
-	"task-processor/internal/authidentity"
-	"task-processor/internal/authz"
-	resourceadapter "task-processor/internal/integration/orgresource"
-	kernelmodule "task-processor/internal/kernel/module"
-	"task-processor/internal/ledger/orgresource"
-	"task-processor/internal/storecenter"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/app/runtime/currentapplication"
+	registrySchema "github.com/henryxu1008/shuomi-ai-commerce/internal/app/schema/sourceaccountregistry"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	resourceadapter "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/orgresource"
+	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/ledger/orgresource"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 
-	platformdatabase "task-processor/internal/platform/database"
+	platformdatabase "github.com/henryxu1008/shuomi-ai-commerce/internal/platform/database"
 )
 
 func TestCommercialReadVerifiedPublicSchemaPostgres(t *testing.T) {

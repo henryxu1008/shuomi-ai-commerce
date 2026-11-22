@@ -2,11 +2,11 @@ package sds
 
 import (
 	"context"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/pod"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"task-processor/internal/product/pod"
 	"time"
 )
 

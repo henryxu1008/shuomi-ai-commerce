@@ -5,12 +5,12 @@ package storecenter
 import (
 	"context"
 	"github.com/google/uuid"
+	currentstore "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	pg "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	currentstore "task-processor/internal/storecenter"
 	"testing"
 	"time"
 )
