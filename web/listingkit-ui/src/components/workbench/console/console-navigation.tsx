@@ -59,6 +59,11 @@ type ConsoleNavigationProps = SidebarAccess & {
   onNavigate?: () => void;
 };
 
+type SidebarNode = ConsoleNavNode & {
+  children?: readonly SidebarNode[];
+  destination?: string;
+};
+
 // These rules mirror the existing page/read gates. The static tree still
 // describes routes and breadcrumbs for bookmarks and direct navigation.
 function sidebarPages(access: SidebarAccess): Set<string> {
@@ -139,15 +144,19 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, ...access }
   }
   const listingQuery=selection.size?`?${selection}`:"";
   const pages = sidebarPages(access);
-  // The combined page defaults to 1688 when both platforms are deployed.
-  const acquisitionHref = access.productAcquisitionAvailable && !access.permissions.includes("product_sourcing.write")
-    ? amazonRealtimeAcquisitionHref
-    : onlineAcquisitionHref;
+  const applicationsHref = "/workbench/supply/applications";
+  // Keep each entry's route identity while choosing a page the member can use.
+  const destinations: Record<string, string | undefined> = {
+    [onlineAcquisitionHref]: access.productAcquisitionAvailable && !access.permissions.includes("product_sourcing.write")
+      ? amazonRealtimeAcquisitionHref : undefined,
+    [applicationsHref]: ["workbench.supply-market.apply", "workbench.collection.read", "workbench.collection.manage"]
+      .every(permission => access.permissions.includes(permission)) ? undefined : `${applicationsHref}/progress`,
+  };
   return <nav aria-label={ariaLabel} className="console-nav"><ul>{consoleNavigation.map(entry => {
     const children = entry.children?.filter(child => pages.has(child.href))
       .map(child => ({
         ...child,
-        href: child.href === onlineAcquisitionHref ? acquisitionHref : child.href,
+        destination: destinations[child.href],
         children: undefined,
         availability: "connected" as const,
       }));
@@ -155,7 +164,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, ...access }
     const hasHome = entry.href === "/workbench/account"
       ? access.hasOrganization
       : pages.has(entry.href) || children?.some(child => child.href !== "/workbench/agents/skills");
-    const node: ConsoleNavNode = {
+    const node: SidebarNode = {
       ...entry,
       availability: "connected",
       children: children?.length ? children : undefined,
@@ -174,7 +183,7 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, ...access }
     return <NavBranch key={`${activePath}:${entry.href}`} node={node} pathname={activePath} research={research} trail={trail} depth={1} onNavigate={onNavigate} listingQuery={listingQuery} orderQuery={isOrders ? orderSelection.toString() : ""} />;
   })}</ul></nav>;
 }
-function MarketBranch({node,pathname,trail,onNavigate,userId}:{node:ConsoleNavNode;pathname:string;trail:readonly string[];onNavigate?:()=>void;userId:string}){
+function MarketBranch({node,pathname,trail,onNavigate,userId}:{node:SidebarNode;pathname:string;trail:readonly string[];onNavigate?:()=>void;userId:string}){
  const authorized=useQuery({queryKey:["supply-market",userId,"","records",true,"selected",false,undefined],queryFn:({signal})=>listMarketRecords({userId,organizationId:""},{kind:"selected",ended:false},true,signal),retry:false});
  const branch=authorized.isSuccess&&!authorized.isError ? {...node,children:[...(node.children??[]),{label:"发布管理",href:"/workbench/supply/operator",availability:"connected" as const}]}:node;
  if (branch.disclosureOnly && !branch.children) return null;
@@ -182,7 +191,7 @@ function MarketBranch({node,pathname,trail,onNavigate,userId}:{node:ConsoleNavNo
  return <NavBranch node={branch} pathname={pathname} trail={currentTrail} depth={1} onNavigate={onNavigate}/>;
 }
 
-function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; onNavigate?: () => void; userId: string }) {
+function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node: SidebarNode; pathname: string; trail: readonly string[]; onNavigate?: () => void; userId: string }) {
   // Reuse the page's global platform read and cache. Enterprise roles/grants
   // cannot advertise review; the backend's configured platform gate decides.
   const review = useQuery({
@@ -197,21 +206,20 @@ function EcoservicesBranch({ node, pathname, trail, onNavigate, userId }: { node
   return <NavBranch node={branch} pathname={pathname} trail={currentTrail} depth={1} onNavigate={onNavigate} />;
 }
 
-function NavBranch({ node, pathname, trail, depth, onNavigate, listingQuery = "", orderQuery = "", research }: { node: ConsoleNavNode; pathname: string; trail: readonly string[]; depth: number; onNavigate?: () => void; listingQuery?:string; orderQuery?:string; research?:ResearchLocation }) {
+function NavBranch({ node, pathname, trail, depth, onNavigate, listingQuery = "", orderQuery = "", research }: { node: SidebarNode; pathname: string; trail: readonly string[]; depth: number; onNavigate?: () => void; listingQuery?:string; orderQuery?:string; research?:ResearchLocation }) {
   const orderParameters=new URLSearchParams(node.href.split("?")[1]);
   if(node.href.startsWith("/workbench/store-orders/fulfill?"))for(const [key,value] of new URLSearchParams(orderQuery))orderParameters.set(key,value);
-  const originalHref = node.href === "/workbench/ai/chat" ? "/workbench/ai/chat/new"
+  const originalHref = node.destination ?? (node.href === "/workbench/ai/chat" ? "/workbench/ai/chat/new"
     : node.href === "/workbench/agents/skills" ? "/workbench/agents/skills/official"
     : node.href.startsWith("/workbench/store-orders/fulfill?")
     ? `/workbench/store-orders/fulfill?${orderParameters}`
-    : node.href===listingHome&&listingQuery ? node.href+listingQuery : node.href;
+    : node.href===listingHome&&listingQuery ? node.href+listingQuery : node.href);
   const href = researchNavigationHref(originalHref, research);
-  const menuHref = node.href === amazonRealtimeAcquisitionHref ? onlineAcquisitionHref : node.href;
-  const active = trail.includes(menuHref) || pathname === node.href;
+  const active = trail.includes(node.href) || pathname === node.href;
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
   const [expanded, setExpanded] = useState(active);
   const id = useId();
-  const Icon = navigationIcons[menuHref] ?? Circle;
+  const Icon = navigationIcons[node.href] ?? Circle;
   return <li className={`console-nav-level-${depth}`}>
     <div className="console-nav-row" data-active={active || undefined}>
       {node.disclosureOnly ? <button className="console-nav-group" type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}><Icon className="console-nav-icon" size={16} aria-hidden="true" /><span className="console-nav-label">{node.label}</span><ChevronDown className="console-nav-chevron" size={16} aria-hidden="true" /></button> : <Link href={href} prefetch={false} aria-current={pathname === node.href || (!node.children && active) ? "page" : undefined} onClick={onNavigate} title={node.availability === "unavailable" ? `${node.label}：业务暂未启用` : node.label}>

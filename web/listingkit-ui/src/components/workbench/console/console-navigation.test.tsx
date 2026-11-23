@@ -128,6 +128,20 @@ it("keeps the Supply landing when it links to available listing preparation", ()
   expect(screen.queryByRole("button", { name: /展开供应市场|收起供应市场/ })).not.toBeInTheDocument();
 });
 
+it("uses selected application progress for readers and the overview when all its permissions are granted", () => {
+  const pathname = "/workbench/supply/applications/progress";
+  const permissions = ["workbench.supply-market.read", "workbench.supply-market.apply", "workbench.collection.read"];
+  const view = render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" supplyMarketAvailable
+    permissions={["workbench.supply-market.read"]} />);
+  expect(screen.getByRole("link", { name: "优选申请" })).toHaveAttribute("href", pathname);
+  expect(screen.getByRole("link", { name: "优选申请" })).toHaveAttribute("aria-current", "page");
+  view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" supplyMarketAvailable permissions={permissions} />);
+  expect(screen.getByRole("link", { name: "优选申请" })).toHaveAttribute("href", pathname);
+  view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" supplyMarketAvailable
+    permissions={[...permissions, "workbench.collection.manage"]} />);
+  expect(screen.getByRole("link", { name: "优选申请" })).toHaveAttribute("href", "/workbench/supply/applications");
+});
+
 it("shows only the available data pages with their own grants", () => {
   const pathname = "/workbench/data/api";
   const permissions = ["workbench.data-api.manage", "workbench.collection.read"];
