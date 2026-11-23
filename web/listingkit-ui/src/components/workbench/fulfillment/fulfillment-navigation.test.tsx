@@ -14,12 +14,13 @@ it.each([[true, false], [false, true], [false, false], [true, true]])(
     vi.stubGlobal("fetch", fetch);
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <FulfillmentNavigation enabled scope={{ organizationId: "org", userId: "user" }} permissions={["workbench.fulfillment.read"]}>
-        <ConsoleNavigation pathname="/workbench/store-orders" ariaLabel="主导航" storeOrdersAvailable={observation} />
+        <ConsoleNavigation pathname="/workbench/store-orders" ariaLabel="主导航" storeObservationsAvailable={observation} permissions={["workbench.fulfillment.read", "workbench.store.read", "workbench.store.orders.read"]} />
       </FulfillmentNavigation>
     </QueryClientProvider>);
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByRole("link", { name: "订单处理" })).toHaveAttribute("title", fulfillment ? "订单处理" : "订单处理：业务暂未启用"));
-    expect(screen.getByRole("link", { name: "平台订单记录" })).toHaveAttribute("title", observation ? "平台订单记录" : "平台订单记录：业务暂未启用");
-    expect(screen.getByRole("link", { name: "订单管理" })).toHaveAttribute("title", observation || fulfillment ? "订单管理" : "订单管理：业务暂未启用");
+    if (fulfillment) expect(await screen.findByRole("link", { name: "订单处理" })).toBeVisible();
+    else expect(screen.queryByRole("link", { name: "订单处理" })).not.toBeInTheDocument();
+    expect(!!screen.queryByRole("link", { name: "平台订单记录" })).toBe(observation);
+    expect(!!screen.queryByRole("link", { name: "订单管理" })).toBe(observation || fulfillment);
   },
 );

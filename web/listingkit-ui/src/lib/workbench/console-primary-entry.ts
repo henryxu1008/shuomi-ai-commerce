@@ -3,7 +3,6 @@ import type { AIWorkbenchEntryCapabilities } from "./ai-workbench-entry";
 
 export type ConsolePrimaryCapabilities = AIWorkbenchEntryCapabilities & {
   operationsCockpitAvailable?: boolean;
-  cockpitPermissions?: readonly string[];
   productAcquisitionAvailable?: boolean;
   supplyMarketAvailable?: boolean;
   supplyChainAvailable?: boolean;

@@ -147,9 +147,10 @@ for (const width of [1440, 390]) {
     let effectiveOrganizationId = "org";
     const enterpriseContext = () => ({
       user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId, effectiveMemberId: "member", selectionRequired: false,
+      projectCenterAvailable: true, operationsCockpitAvailable: true,
       organizations: [
-        { id: "org", name: "测试企业", roles: [], permissions: [] },
-        { id: "other-org", name: "另一家测试企业", roles: [], permissions: [] },
+        { id: "org", name: "测试企业", roles: ["custom-project-knowledge"], permissions: ["workbench.project.read", "workbench.knowledge.read"] },
+        { id: "other-org", name: "另一家测试企业", roles: ["listingkit_admin"], permissions: ["workbench.store.read", "workbench.cockpit.goals.read", "workbench.commercial.read"] },
       ],
     });
     await page.route("**/api/workbench/context", route => route.fulfill({ json: enterpriseContext() }));
@@ -160,7 +161,7 @@ for (const width of [1440, 390]) {
       return route.fulfill({ json: enterpriseContext() });
     });
     await page.setViewportSize({ width, height: 844 });
-    await page.goto("/workbench");
+    await page.goto("/workbench/ai");
 
     const trigger = page.getByRole("button", { name: "我的账户", exact: true });
     const panel = page.getByRole("dialog", { name: "账户快捷操作" });
@@ -170,6 +171,12 @@ for (const width of [1440, 390]) {
     const profile = page.getByRole("link", { name: "账户资料", exact: true });
     const mobileNav = page.getByRole("navigation", { name: "移动工作台导航" });
     if (width === 390) await page.getByRole("button", { name: "打开工作台导航" }).click();
+    const sidebar = width === 390 ? mobileNav : page.getByRole("navigation", { name: "工作台导航", exact: true });
+    await expect(sidebar.getByRole("link", { name: "项目中心" })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "知识库" })).toBeVisible();
+    for (const name of ["运营驾驶舱", "店铺中心", "我的报告", "套餐与权益"]) {
+      await expect(sidebar.getByRole("link", { name })).toHaveCount(0);
+    }
 
     await expect(page.getByRole("banner").getByText(/测试企业/)).toHaveCount(0);
     await trigger.press("Enter");
@@ -235,6 +242,14 @@ for (const width of [1440, 390]) {
     await dialog.getByRole("button", { name: "确认切换" }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole("status", { name: "企业代管状态" })).toContainText("正在代管另一家测试企业");
+    if (width === 390) await page.getByRole("button", { name: "打开工作台导航" }).click();
+    await expect(sidebar.getByRole("link", { name: "店铺中心" })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "套餐与权益" })).toBeVisible();
+    await sidebar.getByRole("button", { name: "展开运营驾驶舱" }).click();
+    await expect(sidebar.getByRole("link", { name: "目标管理" })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "店铺矩阵" })).toHaveCount(0);
+    await expect(sidebar.getByRole("link", { name: "项目中心" })).toHaveCount(0);
+    await expect(sidebar.getByRole("link", { name: "知识库" })).toHaveCount(0);
     await trigger.press("Enter");
     await expect(panel.getByText("另一家测试企业", { exact: true })).toBeVisible();
     await profile.click();
@@ -242,6 +257,24 @@ for (const width of [1440, 390]) {
     await expect(panel).toBeHidden();
   });
 }
+
+test("direct store and report URLs do not expose data to a restricted account", async ({ page }) => {
+  test.skip(process.env.LISTINGKIT_REPORT_CENTER_ENABLED !== "true", "Requires the isolated report UI feature.");
+  await page.route("**/api/workbench/context", route => route.fulfill({ json: {
+    user: { id: userId }, homeOrganizationId: "org", effectiveOrganizationId: "org", effectiveMemberId: "member", selectionRequired: false,
+    organizations: [{ id: "org", name: "测试企业", roles: ["custom-project-knowledge"], permissions: ["workbench.project.read", "workbench.knowledge.read"] }],
+  } }));
+  await page.route("**/api/workbench/store-center/catalog?*", route => route.fulfill({
+    status: 403, json: { code: "PERMISSION_DENIED" },
+  }));
+
+  await page.goto("/workbench/stores");
+  await expect(page.getByText("没有查看当前企业店铺的权限")).toBeVisible();
+  await expect(page.getByRole("list", { name: "我的店铺列表" })).toHaveCount(0);
+  await page.goto("/workbench/ai/reports");
+  await expect(page.getByText("报告尚不可用", { exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "报告标题或商品关键词" })).toHaveCount(0);
+});
 
 test("applies a saved system theme before hydration", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });

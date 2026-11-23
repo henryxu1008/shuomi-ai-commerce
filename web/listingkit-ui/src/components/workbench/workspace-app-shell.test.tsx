@@ -45,7 +45,17 @@ const ACTIVE_CONTEXT = {
   ],
 };
 
-function renderShell(child = <p>organization child</p>) {
+const STORE_CONTEXT = {
+  ...ACTIVE_CONTEXT,
+  operationsCockpitAvailable: true,
+  projectCenterAvailable: true,
+  organizations: [
+    { ...ACTIVE_CONTEXT.organizations[0], permissions: ["workbench.store.read", "workbench.cockpit.goals.read", "workbench.project.read"] },
+    ACTIVE_CONTEXT.organizations[1],
+  ],
+};
+
+function renderShell(child = <p>organization child</p>, reportCenterAvailable = false) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -55,7 +65,7 @@ function renderShell(child = <p>organization child</p>) {
   return render(
     <QueryClientProvider client={queryClient}>
       <WorkbenchContextProvider>
-        <WorkspaceAppShell>{child}</WorkspaceAppShell>
+        <WorkspaceAppShell reportCenterAvailable={reportCenterAvailable}>{child}</WorkspaceAppShell>
       </WorkbenchContextProvider>
     </QueryClientProvider>,
   );
@@ -73,6 +83,67 @@ async function openSwitchDialog(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe("WorkspaceAppShell", () => {
+  it("projects desktop and mobile navigation from the selected enterprise and clears old grants while switching", async () => {
+    navigation.pathname = "/workbench/ai/projects";
+    const user = userEvent.setup();
+    const payload = {
+      ...ACTIVE_CONTEXT,
+      projectCenterAvailable: true,
+      aiWorkbenchAvailable: true,
+      operationsCockpitAvailable: true,
+      organizations: [
+        { ...ACTIVE_CONTEXT.organizations[0], roles: ["custom-project-knowledge"], permissions: ["workbench.project.read", "workbench.knowledge.read"] },
+        { ...ACTIVE_CONTEXT.organizations[1], roles: ["listingkit_admin"], permissions: ["workbench.store.read", "workbench.report.read", "workbench.cockpit.goals.read"] },
+      ],
+    };
+    let finishSwitch!: (response: Response) => void;
+    const switching = new Promise<Response>(resolve => { finishSwitch = resolve; });
+    let effectiveOrganizationId = "org-a";
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (path, init) => {
+      if (path === "/api/account/profile") return new Response(null, { status: 404 });
+      if (init?.method === "PUT") return switching;
+      return Response.json({ ...payload, effectiveOrganizationId });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderShell(<p>organization child</p>, true);
+
+    const desktop = within(await screen.findByRole("navigation", { name: "工作台导航" }));
+    await user.click(screen.getByRole("button", { name: "打开工作台导航" }));
+    const mobile = within(screen.getByRole("navigation", { name: "移动工作台导航" }));
+    for (const nav of [desktop, mobile]) {
+      expect(nav.getByRole("link", { name: "项目中心" })).toBeVisible();
+      expect(nav.getByRole("link", { name: "知识库" })).toBeVisible();
+      for (const name of ["运营驾驶舱", "店铺中心", "我的报告", "任务中心", "硕米Chat"]) {
+        expect(nav.queryByRole("link", { name })).not.toBeInTheDocument();
+      }
+    }
+    const dialog = await openSwitchDialog(user);
+    await user.selectOptions(dialog.getByRole("combobox", { name: "选择企业" }), "org-b");
+    await user.click(dialog.getByRole("button", { name: "确认切换" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/workbench/context/effective-organization", expect.objectContaining({ method: "PUT" }),
+    ));
+    for (const name of ["工作台导航", "移动工作台导航"]) {
+      const nav = within(screen.getByRole("navigation", { name }));
+      expect(nav.queryByRole("link", { name: "项目中心" })).not.toBeInTheDocument();
+      expect(nav.queryByRole("link", { name: "知识库" })).not.toBeInTheDocument();
+      expect(nav.queryByRole("link", { name: "店铺中心" })).not.toBeInTheDocument();
+    }
+
+    effectiveOrganizationId = "org-b";
+    finishSwitch(Response.json({ ...payload, effectiveOrganizationId }));
+    await waitFor(() => {
+      for (const name of ["工作台导航", "移动工作台导航"]) {
+        const nav = within(screen.getByRole("navigation", { name }));
+        expect(nav.getByRole("link", { name: "店铺中心" })).toBeVisible();
+        expect(nav.getByRole("link", { name: "运营驾驶舱" })).toBeVisible();
+        expect(nav.getByRole("link", { name: "我的报告" })).toBeVisible();
+        expect(nav.queryByRole("link", { name: "项目中心" })).not.toBeInTheDocument();
+        expect(nav.queryByRole("link", { name: "知识库" })).not.toBeInTheDocument();
+      }
+    });
+  });
+
   it.each([
     ["/workbench/account/organization/model-route-pricing", 503, true],
     ["/workbench/account/organization/model-route-pricing", 403, false],
@@ -308,10 +379,10 @@ describe("WorkspaceAppShell", () => {
     expect(screen.queryByText("organization child")).not.toBeInTheDocument();
   });
 
-  it("renders current Figma navigation and expands the real Store entry", async () => {
+  it("renders granted business navigation and expands the Store entry", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(Response.json(ACTIVE_CONTEXT)),
+      vi.fn<typeof fetch>().mockResolvedValue(Response.json(STORE_CONTEXT)),
     );
 
     renderShell();
@@ -337,7 +408,7 @@ describe("WorkspaceAppShell", () => {
   it("reveals a reachable mobile navigation without using the desktop sidebar trigger", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(Response.json(ACTIVE_CONTEXT)),
+      vi.fn<typeof fetch>().mockResolvedValue(Response.json(STORE_CONTEXT)),
     );
     const user = userEvent.setup();
 
@@ -385,7 +456,7 @@ describe("WorkspaceAppShell", () => {
     navigation.pathname = "/workbench/stores/11111111-1111-4111-8111-111111111111";
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(Response.json(ACTIVE_CONTEXT)),
+      vi.fn<typeof fetch>().mockResolvedValue(Response.json(STORE_CONTEXT)),
     );
     const user = userEvent.setup();
     renderShell();
@@ -464,6 +535,9 @@ describe("WorkspaceAppShell", () => {
     expect(await screen.findByRole("heading", { name: "请选择企业以继续" })).toBeVisible();
     expect(screen.getByText(/我的账户.*切换企业/)).toBeVisible();
     expect(screen.queryByText("organization child")).not.toBeInTheDocument();
+    const sidebar = within(screen.getByRole("navigation", { name: "工作台导航" }));
+    expect(sidebar.getByRole("button", { name: "展开我的账户" })).toBeVisible();
+    expect(sidebar.queryByRole("link", { name: "我的账户" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("combobox")).toEqual([screen.getByRole("combobox", { name: "显示主题" })]);
 
     const dialog = await openSwitchDialog(user);
@@ -474,6 +548,8 @@ describe("WorkspaceAppShell", () => {
     await user.click(dialog.getByRole("button", { name: "确认切换" }));
 
     expect(await screen.findByText("organization child")).toBeVisible();
+    expect(within(screen.getByRole("navigation", { name: "工作台导航" })).getByRole("link", { name: "我的账户" }))
+      .toHaveAttribute("href", "/workbench/account");
     await user.click(screen.getByRole("button", { name: "我的账户" }));
     expect(within(screen.getByRole("dialog", { name: "账户快捷操作" })).getByText("星海贸易")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith("/api/workbench/context/effective-organization", expect.objectContaining({

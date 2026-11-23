@@ -118,7 +118,7 @@ function mount(navigation = false) {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      {navigation ? <ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable /> : null}
+      {navigation ? <ConsoleNavigation pathname="/workbench/store-orders/fulfill" ariaLabel="主导航" fulfillmentAvailable permissions={["workbench.fulfillment.read"]} /> : null}
       <FulfillmentPage />
     </QueryClientProvider>,
   );
