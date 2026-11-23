@@ -10,6 +10,7 @@
 | TEMU（模式和站点须分别准入） | [TEMU 设计](temu-platform.md)、[官方合同证据](temu-official-contract-evidence.md) | `internal/marketplace/temu` |
 | TikTok Shop 美国跨境 | [TikTok Shop US](tiktok-shop-us.md)、[官方合同证据](tiktok-shop-us-contract-evidence.md)、[发送前恢复](../listing/tiktok-pre-dispatch-no-send.md) | `internal/marketplace/tiktokshop` |
 | Walmart 美国站 | [Walmart US](walmart-us.md)、[官方合同证据](walmart-us-contract-evidence.md)、[Feed 恢复](../listing/walmart-feed-recovery.md) | `internal/marketplace/walmart` |
+| Amazon 美国站 | [店铺授权与商品上传合同](amazon-us-product-publication.md)（隔离实现已准入） | Store Center、Listing Submission、Amazon SP-API |
 
 当前代码中的平台目录不证明该平台全部站点、经营模式、官方应用、API 凭据或客户验收已经可用。Amazon 研究与来源采集是独立来源/研究能力，不自动等同于当前已开通的 Amazon Listing 平台适配器。
 
