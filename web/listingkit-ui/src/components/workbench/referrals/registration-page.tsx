@@ -127,7 +127,7 @@ function RegistrationError({ code }: { code: string }) {
 }
 
 function RegistrationFrame({ children }: { children: React.ReactNode }) {
-  return <main className={styles.registration}><div className={styles.registrationCard}><p className={styles.eyebrow}>ListingKit 推荐计划</p><h1>接受好友邀请</h1><p className={styles.lead}>创建新的官方账户，完成邮箱验证与登录后建立推广关系。</p>{children}</div></main>;
+  return <main className={styles.registration}><div className={styles.registrationCard}><p className={styles.eyebrow}>硕米智能引擎 · 推广与收益</p><h1>接受好友邀请</h1><p className={styles.lead}>创建新的官方账户，完成邮箱验证与登录后建立推广关系。</p>{children}</div></main>;
 }
 
 function isBounded(value: string, min: number, max: number) {
