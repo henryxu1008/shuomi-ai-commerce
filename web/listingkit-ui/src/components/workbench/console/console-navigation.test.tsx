@@ -209,6 +209,17 @@ it("discovers platform review through the original global backend gate without e
   expect(screen.queryByRole("link", { name: "平台审核" })).not.toBeInTheDocument();
 });
 
+it("keeps the existing provider-listing page reachable for a provider operator without admission permission", () => {
+  const pathname = "/workbench/services/join";
+  const view = render(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" ecoservicesAvailable
+    permissions={["workbench.ecoservices.read", "workbench.ecoservices.manage"]} />);
+  const entry = screen.getByRole("link", { name: "申请加入" });
+  expect(entry).toHaveAttribute("href", pathname);
+  expect(entry).toHaveAttribute("aria-current", "page");
+  view.rerender(<ConsoleNavigation pathname={pathname} ariaLabel="主导航" ecoservicesAvailable permissions={["workbench.ecoservices.read"]} />);
+  expect(screen.queryByRole("link", { name: "申请加入" })).not.toBeInTheDocument();
+});
+
 
 it("only advertises Chat and BusinessTask when the current application mounts AI Workbench", () => {
   const view = render(<ConsoleNavigation pathname="/workbench/ai/chat" ariaLabel="主导航" aiWorkbenchAvailable={false} permissions={["workbench.chat.read", "workbench.task.read"]} />);

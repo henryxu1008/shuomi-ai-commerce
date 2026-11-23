@@ -98,7 +98,7 @@ function sidebarPages(access: SidebarAccess): Set<string> {
   include(canReadAgents, "agents/mine", "agents/custom");
   include(access.toolMarketAvailable && has("workbench.tools.read"), "tools/official", "tools/mine", "tools/custom");
   include(access.ecoservicesAvailable && has("workbench.ecoservices.read"), "services/market", "services/mine");
-  include(access.ecoservicesAvailable && has("workbench.ecoservices.join"), "services/join");
+  include(access.ecoservicesAvailable && (has("workbench.ecoservices.join") || has("workbench.ecoservices.manage")), "services/join");
 
   include(dataMarket, "data/market");
   include(access.dataServicesAvailable && has("workbench.data-api.manage"), "data/api");
