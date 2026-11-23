@@ -299,6 +299,14 @@ it("keeps the unified entry selected on acquisition results and direct Amazon li
   expect(screen.getByRole("link", { name: "在线采集" })).toHaveAttribute("aria-current", "page");
 });
 
+it("opens Amazon directly when both acquisition platforms are configured and only Amazon is granted", () => {
+  render(<ConsoleNavigation pathname="/workbench/supply/acquisition/amazon" ariaLabel="主导航"
+    productAcquisitionAvailable dataServicesAvailable permissions={["workbench.data-market.use"]} />);
+  const entry = screen.getByRole("link", { name: "在线采集" });
+  expect(entry).toHaveAttribute("href", "/workbench/supply/acquisition/amazon");
+  expect(entry).toHaveAttribute("aria-current", "page");
+});
+
 it("keeps only three account sections and selects the parent when opening a detail", () => {
   const view = render(<ConsoleNavigation pathname="/workbench/stores" ariaLabel="主导航" />);
   for (const [path, parent] of [
@@ -317,6 +325,15 @@ it("keeps only three account sections and selects the parent when opening a deta
     expect(within(account).getAllByRole("button")).toHaveLength(1);
     expect(within(account).getByRole("link", { name: parent })).toHaveAttribute("aria-current", "page");
   }
+});
+
+it("keeps personal account links reachable without offering the enterprise-bound account overview", () => {
+  render(<ConsoleNavigation pathname="/workbench/no-organization" ariaLabel="主导航" userId="signed-in-user" />);
+  expect(screen.queryByRole("link", { name: "我的账户" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "展开我的账户" }));
+  expect(screen.getByRole("link", { name: "账户资料" })).toHaveAttribute("href", "/workbench/account/profile");
+  expect(screen.getByRole("link", { name: "推广与收益" })).toHaveAttribute("href", "/workbench/account/referrals");
+  expect(screen.queryByRole("link", { name: "企业空间" })).not.toBeInTheDocument();
 });
 
 it.each(["model-route-pricing", "kernel-releases", "kernel-releases/new", "data-row-pricing"])(

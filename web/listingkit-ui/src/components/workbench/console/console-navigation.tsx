@@ -40,7 +40,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/
 import { useQuery } from "@tanstack/react-query";
 import { ecoPageSchema, ecoRequest } from "@/lib/api/ecoservices";
 import { listMarketRecords } from "@/lib/api/supply-market";
-import { consoleNavigation, findConsoleRoute, onlineAcquisitionHref, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
+import { amazonRealtimeAcquisitionHref, consoleNavigation, findConsoleRoute, onlineAcquisitionHref, type ConsoleNavNode } from "@/lib/workbench/console-navigation";
 import { firstConnectedConsoleEntry, type ConsolePrimaryCapabilities } from "@/lib/workbench/console-primary-entry";
 import { researchLocation, researchNavigationHref, type ResearchLocation } from "@/lib/workbench/research-navigation";
 
@@ -139,10 +139,22 @@ export function ConsoleNavigation({ pathname, ariaLabel, onNavigate, ...access }
   }
   const listingQuery=selection.size?`?${selection}`:"";
   const pages = sidebarPages(access);
+  // The combined page defaults to 1688 when both platforms are deployed.
+  const acquisitionHref = access.productAcquisitionAvailable && !access.permissions.includes("product_sourcing.write")
+    ? amazonRealtimeAcquisitionHref
+    : onlineAcquisitionHref;
   return <nav aria-label={ariaLabel} className="console-nav"><ul>{consoleNavigation.map(entry => {
     const children = entry.children?.filter(child => pages.has(child.href))
-      .map(child => ({ ...child, children: undefined, availability: "connected" as const }));
-    const hasHome = pages.has(entry.href) || children?.some(child => child.href !== "/workbench/agents/skills");
+      .map(child => ({
+        ...child,
+        href: child.href === onlineAcquisitionHref ? acquisitionHref : child.href,
+        children: undefined,
+        availability: "connected" as const,
+      }));
+    // Personal account links remain usable when the enterprise overview cannot open.
+    const hasHome = entry.href === "/workbench/account"
+      ? access.hasOrganization
+      : pages.has(entry.href) || children?.some(child => child.href !== "/workbench/agents/skills");
     const node: ConsoleNavNode = {
       ...entry,
       availability: "connected",
@@ -194,11 +206,12 @@ function NavBranch({ node, pathname, trail, depth, onNavigate, listingQuery = ""
     ? `/workbench/store-orders/fulfill?${orderParameters}`
     : node.href===listingHome&&listingQuery ? node.href+listingQuery : node.href;
   const href = researchNavigationHref(originalHref, research);
-  const active = trail.includes(node.href) || pathname === node.href;
+  const menuHref = node.href === amazonRealtimeAcquisitionHref ? onlineAcquisitionHref : node.href;
+  const active = trail.includes(menuHref) || pathname === node.href;
   // The route-keyed subtree resets disclosure even when navigating back to an earlier route.
   const [expanded, setExpanded] = useState(active);
   const id = useId();
-  const Icon = navigationIcons[node.href] ?? Circle;
+  const Icon = navigationIcons[menuHref] ?? Circle;
   return <li className={`console-nav-level-${depth}`}>
     <div className="console-nav-row" data-active={active || undefined}>
       {node.disclosureOnly ? <button className="console-nav-group" type="button" aria-label={`${expanded ? "收起" : "展开"}${node.label}`} aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}><Icon className="console-nav-icon" size={16} aria-hidden="true" /><span className="console-nav-label">{node.label}</span><ChevronDown className="console-nav-chevron" size={16} aria-hidden="true" /></button> : <Link href={href} prefetch={false} aria-current={pathname === node.href || (!node.children && active) ? "page" : undefined} onClick={onNavigate} title={node.availability === "unavailable" ? `${node.label}：业务暂未启用` : node.label}>

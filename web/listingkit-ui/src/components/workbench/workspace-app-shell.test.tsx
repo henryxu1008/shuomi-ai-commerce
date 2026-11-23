@@ -535,6 +535,9 @@ describe("WorkspaceAppShell", () => {
     expect(await screen.findByRole("heading", { name: "请选择企业以继续" })).toBeVisible();
     expect(screen.getByText(/我的账户.*切换企业/)).toBeVisible();
     expect(screen.queryByText("organization child")).not.toBeInTheDocument();
+    const sidebar = within(screen.getByRole("navigation", { name: "工作台导航" }));
+    expect(sidebar.getByRole("button", { name: "展开我的账户" })).toBeVisible();
+    expect(sidebar.queryByRole("link", { name: "我的账户" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("combobox")).toEqual([screen.getByRole("combobox", { name: "显示主题" })]);
 
     const dialog = await openSwitchDialog(user);
@@ -545,6 +548,8 @@ describe("WorkspaceAppShell", () => {
     await user.click(dialog.getByRole("button", { name: "确认切换" }));
 
     expect(await screen.findByText("organization child")).toBeVisible();
+    expect(within(screen.getByRole("navigation", { name: "工作台导航" })).getByRole("link", { name: "我的账户" }))
+      .toHaveAttribute("href", "/workbench/account");
     await user.click(screen.getByRole("button", { name: "我的账户" }));
     expect(within(screen.getByRole("dialog", { name: "账户快捷操作" })).getByText("星海贸易")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith("/api/workbench/context/effective-organization", expect.objectContaining({
