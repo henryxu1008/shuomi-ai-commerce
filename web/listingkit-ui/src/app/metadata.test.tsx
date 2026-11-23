@@ -16,7 +16,10 @@ describe("application metadata", () => {
     expect(metadata.title).toBe("硕米智能引擎 | AI 电商智能操作系统");
     expect(metadata.openGraph).toMatchObject({
       title: "硕米智能引擎 | AI 电商智能操作系统",
-      images: ["https://listingkit.example/og-v2.png"],
+      images: ["https://listingkit.example/sumi/fd824975-1e65-4585-9ebf-212d68cb1507.png"],
+    });
+    expect(metadata.twitter).toMatchObject({
+      images: ["https://listingkit.example/sumi/fd824975-1e65-4585-9ebf-212d68cb1507.png"],
     });
   });
 

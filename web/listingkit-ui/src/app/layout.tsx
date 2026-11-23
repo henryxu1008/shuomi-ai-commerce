@@ -11,6 +11,7 @@ import {isEcoservicesAvailable} from "@/lib/server/ecoservices-availability";
 import { isNotificationCenterAvailable } from "@/lib/server/notification-availability";
 import { isReportCenterAvailable } from "@/lib/server/report-center-availability";
 import { isChatwootSupportAvailable } from "@/lib/server/chatwoot-support";
+import { socialPreviewImagePath } from "@/lib/site-metadata";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
   const metadataBase = new URL(`${protocol}://${host}`);
-  const image = new URL("/og-v2.png", metadataBase).toString();
+  const image = new URL(socialPreviewImagePath, metadataBase).toString();
 
   return {
     metadataBase,
