@@ -19,6 +19,7 @@ import (
 	zitadelruntime "github.com/henryxu1008/shuomi-ai-commerce/internal/authruntime/zitadel"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	reporthttp "github.com/henryxu1008/shuomi-ai-commerce/internal/reportcenter/httpapi"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext"
 	workbenchcontexthttpapi "github.com/henryxu1008/shuomi-ai-commerce/internal/workbenchcontext/httpapi"
 )
@@ -646,6 +647,44 @@ func TestWorkbenchScopedRoleDoesNotCarryAdminFromOrganizationAToViewerOrganizati
 	router.ServeHTTP(response, request)
 	require.Equal(t, http.StatusNoContent, response.Code, response.Body.String())
 	require.Equal(t, 1, handlerCalls)
+}
+
+func TestWorkbenchProjectAndKnowledgeMemberCannotReadStoreCatalogOrReports(t *testing.T) {
+	const org = "org-a"
+	role := authz.EnterpriseRoleKey(org, 1)
+	identity := authidentity.AuthenticatedIdentity{
+		UserID: "user-1", TenantID: org, EffectiveOrganizationID: org, HomeOrganizationID: org,
+		EffectiveMemberID: "member-a", Roles: []string{role}, TokenExpiresAt: time.Now().Add(time.Minute),
+	}
+	authorizer, err := authz.NewListingKitAuthorizer(nil, nil)
+	require.NoError(t, err)
+	authorizer.SetRolePolicyReader(modelQueryRoleFixture{"projects", "knowledge"})
+	permissions, err := authz.PermissionsInOrganization(context.Background(), authorizer, identity.UserID, org, identity.Roles)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"workbench.project.read", "workbench.project.manage", "workbench.knowledge.read", "workbench.knowledge.manage"}, permissions)
+
+	router := gin.New()
+	routes := append(currentStoreTestRoutes(t), reporthttp.Routes(nil)...)
+	mountRoutesWithAuthDependencies(router, routes, routeAuthDependencies{
+		authorizer:           authorizer,
+		workbenchVerifier:    mountedVerifierStub{identity: identity},
+		organizationResolver: &productReviewResolverStub{value: identity},
+	})
+	for _, path := range []string{"/api/v1/workbench/store-catalog", reporthttp.Base} {
+		t.Run(path, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("Authorization", "Bearer fixture-token")
+			request.Header.Set("X-Requested-Organization-ID", org)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+			require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+			var body map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+			require.JSONEq(t, `"PERMISSION_DENIED"`, string(body["code"]))
+			require.NotContains(t, body, "data")
+			require.NotContains(t, body, "items")
+		})
+	}
 }
 
 func TestWorkbenchOrganizationContextReadClearsLegacyBusinessScopeWhenSelectionIsRequired(t *testing.T) {

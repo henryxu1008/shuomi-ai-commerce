@@ -125,7 +125,7 @@ it("filters only loaded rows without dispatching an execution", async () => {
   expect(calls.decide).not.toHaveBeenCalled(); expect(calls.tasks).not.toHaveBeenCalled();
 });
 it("puts direct proposal navigation under Task Center pending instead of a parallel module", () => {
-  render(<ConsoleNavigation pathname="/workbench/ai/tasks/pending/other" ariaLabel="主导航" productReviewAvailable />);
+  render(<ConsoleNavigation pathname="/workbench/ai/tasks/pending/other" ariaLabel="主导航" productReviewAvailable permissions={["local_agent.write"]} />);
   expect(screen.queryByRole("link",{name:"标题审核"})).not.toBeInTheDocument();
   expect(screen.getByRole("link",{name:"任务中心"})).toHaveAttribute("aria-current","page");
   expect(screen.queryByRole("link",{name:"待确认"})).not.toBeInTheDocument();
