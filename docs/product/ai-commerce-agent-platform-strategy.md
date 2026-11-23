@@ -118,11 +118,11 @@ Agent 不允许无限自循环。
 ## 用户交互
 
 
-长期交互不应只存在 Chat 页面；下列三种交互方式必须投影到 Figma 已批准的页面，不另建平行菜单或恢复旧工作台。
+长期交互不应只存在 Chat 页面；下列三种交互方式按[用户最新决定](final-ui-ia-authority.md)和现行产品及领域合同，落实到用户实际开展工作的页面，不另建平行菜单或恢复旧工作台。
 
 ### 6.1 Goal-based Agent Workspace
 
-在 Figma「AI工作台」及其业务任务页面中，用户直接表达目标：
+在实际使用的「AI工作台」及其业务任务页面中，用户直接表达目标：
 
 ```text
 “分析这款 1688 商品，生成 SHEIN 美国站资料，
@@ -141,7 +141,7 @@ Agent 返回：
 
 ### 6.2 Embedded Copilot
 
-Agent 能力嵌入 Figma 对应的供应、店铺商品或其他已批准业务页面，复用当前 Console 与领域 owner；不以已有 ListingKit 页面为产品模板，不保留旧 Listing Workspace。
+Agent 能力按现行产品及领域合同嵌入实际使用的供应、店铺商品或其他已批准业务页面，复用当前 Console 与领域 owner；不以已有 ListingKit 页面为产品模板，不保留旧 Listing Workspace。
 
 例如在属性区：
 
