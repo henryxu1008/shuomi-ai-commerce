@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { MarketingHomepage } from "@/components/marketing/marketing-homepage";
 import { readRetailPrices } from "@/lib/server/retail-prices";
+import { socialPreviewImagePath } from "@/lib/site-metadata";
 
 // The backend origin may only be available at runtime; never prerender a
 // missing catalog at build time and then retain it as the homepage price.
@@ -13,13 +14,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: "硕米智能引擎 | 新一代 AI 电商智能操作系统",
     description: "让每个人，都拥有一支智能电商团队。",
-    images: ["/sumi/fd824975-1e65-4585-9ebf-212d68cb1507.png"],
+    images: [socialPreviewImagePath],
   },
   twitter: {
     card: "summary_large_image",
     title: "硕米智能引擎 | 新一代 AI 电商智能操作系统",
     description: "让每个人，都拥有一支智能电商团队。",
-    images: ["/sumi/fd824975-1e65-4585-9ebf-212d68cb1507.png"],
+    images: [socialPreviewImagePath],
   },
 };
 
