@@ -11,6 +11,8 @@
 | TikTok Shop 美国跨境 | [TikTok Shop US](tiktok-shop-us.md)、[官方合同证据](tiktok-shop-us-contract-evidence.md)、[发送前恢复](../listing/tiktok-pre-dispatch-no-send.md) | `internal/marketplace/tiktokshop` |
 | Walmart 美国站 | [Walmart US](walmart-us.md)、[官方合同证据](walmart-us-contract-evidence.md)、[Feed 恢复](../listing/walmart-feed-recovery.md) | `internal/marketplace/walmart` |
 
+待评审候选：[Shopify 店铺自助授权与商品草稿上传](shopify-product-draft.md)（#1613，NOT_READY）。
+
 当前代码中的平台目录不证明该平台全部站点、经营模式、官方应用、API 凭据或客户验收已经可用。Amazon 研究与来源采集是独立来源/研究能力，不自动等同于当前已开通的 Amazon Listing 平台适配器。
 
 ## 三个不同的事实责任

@@ -200,6 +200,7 @@
 - `domains/marketplace/temu-official-contract-evidence.md` — [TEMU 官方接口与站点证据](domains/marketplace/temu-official-contract-evidence.md)
 - `domains/marketplace/temu-platform.md` — [TEMU 三种模式与全部官方站点接入设计](domains/marketplace/temu-platform.md)
 - `domains/listing/tiktok-pre-dispatch-no-send.md` — [TikTok 发送前未执行的终止与显式重试：冻结设计](domains/listing/tiktok-pre-dispatch-no-send.md)
+- `domains/marketplace/shopify-product-draft.md` — [Shopify 店铺自助授权与商品草稿上传](domains/marketplace/shopify-product-draft.md)（待评审）
 - `domains/marketplace/tiktok-shop-us-contract-evidence.md` — [TikTok Shop 美国跨境：官方合同证据](domains/marketplace/tiktok-shop-us-contract-evidence.md)
 - `domains/marketplace/tiktok-shop-us.md` — [TikTok Shop 美国跨境：店铺授权、商品草稿与受控刊登](domains/marketplace/tiktok-shop-us.md)
 - `domains/listing/walmart-feed-recovery.md` — [Walmart Feed：明确拒绝的修复重试与有界续读](domains/listing/walmart-feed-recovery.md)
