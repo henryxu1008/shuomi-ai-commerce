@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -216,6 +217,66 @@ func TestSubmitRejectsRedirectAndKeepsRecognizedInvalidReceipt(t *testing.T) {
 			}
 		} else if err != nil || receipt.SubmissionID != "fixture-invalid" || len(receipt.Issues) != 1 {
 			t.Fatalf("rejection lost its receipt: receipt=%+v, error=%v", receipt, err)
+		}
+	}
+}
+
+func TestContinueAuthorizationUsesTheRegisteredAmazonApp(t *testing.T) {
+	const appID = "amzn1.sellerapps.app.2eca283f-9f5a-4d13-b16c-474000000057"
+	const target = "https://amazon.com/apps/authorize/confirm/" + appID
+	const redirect = "https://app.example.org/oauth/amazon/redirect"
+	tests := []struct {
+		name, callback string
+		allowed        bool
+	}{
+		{"official root", target, true},
+		{"official Seller Central", strings.Replace(target, "amazon.com", "sellercentral.amazon.com", 1), true},
+		{"external site", strings.Replace(target, "amazon.com", "other.example.org", 1), false},
+		{"wrong app", target + "-other", false},
+		{"url credentials", strings.Replace(target, "amazon.com", "user@amazon.com", 1), false},
+		{"query override", target + "?state=other", false},
+		{"encoded path", strings.Replace(target, "/confirm/", "/%63onfirm/", 1), false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ContinueAuthorization(appID, redirect, tc.callback, "amazon-state", "workbench-state", false)
+			if !tc.allowed {
+				if !errors.Is(err, ErrInvalid) || got != "" {
+					t.Fatalf("unexpected redirect: %q, %v", got, err)
+				}
+				return
+			}
+			parsed, parseErr := url.Parse(got)
+			if err != nil || parseErr != nil || parsed.Scheme != "https" || parsed.Path != "/apps/authorize/confirm/"+appID ||
+				parsed.Query().Get("state") != "workbench-state" || parsed.Query().Get("amazon_state") != "amazon-state" ||
+				parsed.Query().Get("redirect_uri") != redirect || parsed.Query().Has("version") {
+				t.Fatalf("redirect=%q, error=%v", got, err)
+			}
+		})
+	}
+}
+
+func TestConsentAndConfirmationUseBetaOnlyWhenConfigured(t *testing.T) {
+	const appID = "amzn1.sellerapps.app.2eca283f-9f5a-4d13-b16c-474000000057"
+	for _, beta := range []bool{false, true} {
+		consent, err := ConsentURL(appID, "initial-state", beta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		start, err := url.Parse(consent)
+		if err != nil || start.Host != "sellercentral.amazon.com" || start.Path != "/apps/authorize/consent" ||
+			start.Query().Get("application_id") != appID || start.Query().Get("state") != "initial-state" ||
+			start.Query().Has("version") != beta {
+			t.Fatalf("invalid consent URL: %q", consent)
+		}
+		confirmation, err := ContinueAuthorization(appID, "https://app.example.org/oauth/amazon/redirect",
+			"https://amazon.com/apps/authorize/confirm/"+appID, "amazon-state", "workbench-state", beta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := url.Parse(confirmation)
+		if err != nil || got.Query().Has("version") != beta || (beta && got.Query().Get("version") != "beta") {
+			t.Fatalf("incorrect confirmation mode: %q", confirmation)
 		}
 	}
 }

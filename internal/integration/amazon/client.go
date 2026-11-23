@@ -43,9 +43,7 @@ type Client struct {
 }
 
 func NewClient(options Options) (*Client, error) {
-	callback, err := url.Parse(options.RedirectURI)
-	if err != nil || callback.Scheme != "https" || callback.Hostname() == "" || callback.User != nil ||
-		callback.Path == "" || callback.RawQuery != "" || callback.ForceQuery || callback.Fragment != "" ||
+	if !validRedirectURI(options.RedirectURI) ||
 		!visibleASCII(options.ClientID, 256) || !visibleASCII(options.ClientSecret, 2048) ||
 		!validUserAgent(options.UserAgent) {
 		return nil, ErrInvalid
