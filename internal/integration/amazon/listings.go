@@ -106,6 +106,45 @@ func (c *Client) put(ctx context.Context, accessToken, sellerID, sku string, inp
 	return result, nil
 }
 
+// CheckSKUUnused requires a successful exact SKU search. A missing response
+// or a GET-by-SKU 404 is never sufficient evidence for a create operation.
+func (c *Client) CheckSKUUnused(ctx context.Context, accessToken, sellerID, sku string) (bool, error) {
+	if !validIdentifier(sellerID, 64) || !validIdentifier(sku, 40) {
+		return false, ErrInvalid
+	}
+	query := url.Values{
+		"marketplaceIds": {USMarketplace}, "identifiersType": {"SKU"}, "identifiers": {sku},
+		"pageSize": {"1"}, "includedData": {"summaries"},
+	}
+	raw, metadata, err := c.api(ctx, http.MethodGet, listingsPath+sellerID, query, accessToken, nil)
+	if err != nil {
+		return false, err
+	}
+	if err := responseStatus(metadata.status); err != nil {
+		return false, err
+	}
+	var result struct {
+		NumberOfResults *int
+		Pagination      struct{ NextToken, PreviousToken string }
+		Items           []struct{ SKU string }
+	}
+	if json.Unmarshal(raw, &result) != nil || result.NumberOfResults == nil || result.Items == nil ||
+		*result.NumberOfResults != len(result.Items) || len(result.Items) > 1 ||
+		result.Pagination.NextToken != "" || result.Pagination.PreviousToken != "" {
+		return false, ErrUnavailable
+	}
+	if len(result.Items) == 0 {
+		return true, nil
+	}
+	if result.Items[0].SKU != sku {
+		return false, ErrUnavailable
+	}
+	return false, nil
+}
+
+// GetListing reads current platform observations. ErrNotFound from this
+// method can be displayed as a missing observation, never as a create permit.
+
 func (c *Client) GetListing(ctx context.Context, accessToken, sellerID, sku string) (ListingObservation, error) {
 	if !validIdentifier(sellerID, 64) || !validIdentifier(sku, 40) {
 		return ListingObservation{}, ErrInvalid

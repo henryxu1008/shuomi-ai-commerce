@@ -280,3 +280,35 @@ func TestConsentAndConfirmationUseBetaOnlyWhenConfigured(t *testing.T) {
 		}
 	}
 }
+
+func TestNewSKURequiresExactSearchWithZeroResults(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		status     int
+		unused     bool
+		want       error
+	}{
+		{"empty search", `{"numberOfResults":0,"items":[]}`, 200, true, nil},
+		{"SKU exists", `{"numberOfResults":1,"items":[{"sku":"SHUOMI-123"}]}`, 200, false, nil},
+		{"inconsistent response", `{"numberOfResults":1,"items":[]}`, 200, false, ErrUnavailable},
+		{"wrong SKU", `{"numberOfResults":1,"items":[{"sku":"OTHER"}]}`, 200, false, ErrUnavailable},
+		{"unknown page", `{"numberOfResults":0,"items":[],"pagination":{"nextToken":"unread"}}`, 200, false, ErrUnavailable},
+		{"not found response", `{"errors":[{"code":"NOT_FOUND"}]}`, 404, false, ErrUnavailable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := clientWithTransport(t, func(request *http.Request) (*http.Response, error) {
+				query := request.URL.Query()
+				if request.Method != http.MethodGet || request.URL.Path != "/listings/2021-08-01/items/FIXTURESELLER1" ||
+					query.Get("identifiersType") != "SKU" || query.Get("identifiers") != "SHUOMI-123" ||
+					query.Get("marketplaceIds") != USMarketplace {
+					t.Fatal("create preflight needs the exact seller, site and SKU")
+				}
+				return response(tc.status, tc.body), nil
+			})
+			unused, err := client.CheckSKUUnused(context.Background(), "fixture-access", "FIXTURESELLER1", "SHUOMI-123")
+			if unused != tc.unused || !errors.Is(err, tc.want) {
+				t.Fatalf("unused=%t, error=%v, want %t/%v", unused, err, tc.unused, tc.want)
+			}
+		})
+	}
+}

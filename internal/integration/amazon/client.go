@@ -24,7 +24,8 @@ const (
 )
 
 var (
-	ErrInvalid           = errors.New("invalid Amazon request")
+	ErrInvalid = errors.New("invalid Amazon request")
+	// ErrUnauthorized means access is unavailable. It does not prove seller revocation.
 	ErrUnauthorized      = errors.New("Amazon authorization unavailable")
 	ErrUnavailable       = errors.New("Amazon operation unavailable")
 	ErrSellerIneligible  = errors.New("Amazon US seller participation unavailable")
