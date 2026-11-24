@@ -102,7 +102,12 @@ async function beginAmazonAuthorization(
   }
   const id = request.headers.get("x-store-id") ?? "";
   const version = request.headers.get("if-match") ?? "";
-  if (url.search || request.body !== null || !isAcquisitionUUID(id) || !/^"[1-9][0-9]{0,18}"$/.test(version)) {
+  if (url.search || !isAcquisitionUUID(id) || !/^"[1-9][0-9]{0,18}"$/.test(version)) {
+    return amazonFailure("begin", 400, "INVALID_REQUEST");
+  }
+  try {
+    await readBodyWithinLimit(request.body, 0, 3_000, request.signal);
+  } catch {
     return amazonFailure("begin", 400, "INVALID_REQUEST");
   }
   headers.set("If-Match", version);

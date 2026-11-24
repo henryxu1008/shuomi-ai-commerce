@@ -8,10 +8,6 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
-const shopifyStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'shopify'::text])))`
-
-const amazonShopifyStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'amazon'::text, 'shopify'::text])))`
-
 var shopifySchemaStatements = []string{
 	`CREATE TABLE public.workbench_store_shopify_shops (
  organization_id VARCHAR(200) NOT NULL, shop_key CHAR(36) NOT NULL, store_id CHAR(36) NOT NULL,
@@ -74,9 +70,13 @@ func InstallShopifySchemaTx(ctx context.Context, tx *sql.Tx) error {
 		WHERE conrelid='public.workbench_stores'::regclass AND contype='c' AND conname='store_platform' AND convalidated`).Scan(&definition); err != nil {
 		return err
 	}
+	googleInstalled, err := googleMerchantSchemaPresent(ctx, tx)
+	if err != nil {
+		return err
+	}
 	capabilities := RuntimeCapabilities{TikTokShop: true, WalmartUS: true, Shopify: true}
-	capabilities.AmazonAuthorization = pgschema.SchemaConstraintEqual(definition, amazonStorePlatformDefinition) ||
-		pgschema.SchemaConstraintEqual(definition, amazonShopifyStorePlatformDefinition)
+	capabilities.AmazonAuthorization = pgschema.SchemaConstraintEqual(definition, storePlatformDefinition(true, googleInstalled, false)) ||
+		pgschema.SchemaConstraintEqual(definition, storePlatformDefinition(true, googleInstalled, true))
 	if installed {
 		return verifyCurrentSchema(ctx, tx, capabilities)
 	}
@@ -88,10 +88,7 @@ func InstallShopifySchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if err := verifyCurrentSchema(ctx, tx, before); err != nil {
 		return err
 	}
-	platformConstraint := shopifyStorePlatformDefinition
-	if capabilities.AmazonAuthorization {
-		platformConstraint = amazonShopifyStorePlatformDefinition
-	}
+	platformConstraint := storePlatformDefinition(capabilities.AmazonAuthorization, googleInstalled, true)
 	if _, err := tx.ExecContext(ctx, `ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform `+platformConstraint); err != nil {
 		return err
 	}

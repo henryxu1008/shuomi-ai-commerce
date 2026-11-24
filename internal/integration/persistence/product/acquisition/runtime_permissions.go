@@ -34,6 +34,7 @@ type RuntimeCapabilities struct {
 	SupplyMarket     bool
 	POD              bool
 	ImageSets        bool
+	GoogleMerchant   bool
 }
 
 // GrantAcquisitionPlanPermissions is explicit owner maintenance. Existing
@@ -108,7 +109,14 @@ func runtimePermissionsFor(capability RuntimeCapabilities) string {
 		admitted += `,('listing_shein_records','SELECT'),('listing_shein_records','INSERT'),('listing_shein_record_operations','SELECT'),('listing_shein_record_operations','INSERT')`
 	}
 	admitted += ")"
-	return strings.Replace(runtimePermissionQuery, admittedPrivileges, admitted, 1)
+	query := strings.Replace(runtimePermissionQuery, admittedPrivileges, admitted, 1)
+	if capability.SupplyChain {
+		// Installed Google plans share the existing Product serving role. Each
+		// Google route separately requires both privileges and its configured app.
+		query = strings.Replace(query, "AND NOT EXISTS(SELECT 1 FROM admitted a WHERE",
+			"AND NOT (n.nspname='public' AND c.relname='workbench_listing_google_upload_plans' AND p.privilege_type IN ('SELECT','INSERT')) AND NOT EXISTS(SELECT 1 FROM admitted a WHERE", 1)
+	}
+	return query
 }
 
 const marketPrivileges = `,('supply_market_records','SELECT'),('supply_market_records','INSERT'),('supply_market_records','UPDATE'),
@@ -327,6 +335,12 @@ func GrantRuntimePermissions(ctx context.Context, db *gorm.DB, capabilities ...R
 		}
 		if images && !supply && !market {
 			statements = append(statements, "GRANT SELECT ON public.product_title_proposals TO source_acquisition_runtime")
+		}
+		if len(capabilities) == 1 && capabilities[0].GoogleMerchant {
+			if !supply {
+				return sourcing.ErrAcquisitionUnavailable
+			}
+			statements = append(statements, googlePlanRuntimeGrant)
 		}
 		if len(capabilities) == 1 && capabilities[0].OfflineRecords {
 			statements = append(statements, "GRANT SELECT,INSERT ON public.listing_shein_records,public.listing_shein_record_operations TO source_acquisition_runtime")

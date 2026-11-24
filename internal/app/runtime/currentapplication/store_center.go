@@ -8,6 +8,7 @@ import (
 
 // StoreCenterConfig uses the independently owned native record database.
 type StoreCenterConfig struct {
+	GoogleMerchant       *GoogleMerchantConfig           `json:"googleMerchant,omitempty"`
 	OperationsCockpit    bool                            `json:"operationsCockpit,omitempty"`
 	Observations         *StoreObservationsConfig        `json:"observations,omitempty"`
 	Enabled              bool                            `json:"enabled"`
@@ -26,6 +27,9 @@ func (c *Config) validateStoreCenter() error {
 		return nil
 	}
 	s := c.StoreCenter
+	if err := s.GoogleMerchant.validate(); err != nil {
+		return err
+	}
 	if err := s.WalmartUS.validate(); err != nil {
 		return err
 	}

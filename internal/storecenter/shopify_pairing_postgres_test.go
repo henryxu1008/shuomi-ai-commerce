@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestShopifyAndAmazonStoreSchemasComposeOnEmptyStore(t *testing.T) {
+func TestShopifyAmazonAndGoogleStoreSchemasComposeOnEmptyStore(t *testing.T) {
 	for _, order := range []string{"Amazon first", "Shopify first"} {
 		t.Run(order, func(t *testing.T) {
 			ctx := context.Background()
@@ -23,14 +23,16 @@ func TestShopifyAndAmazonStoreSchemasComposeOnEmptyStore(t *testing.T) {
 			defer tx.Rollback()
 			if order == "Amazon first" {
 				require.NoError(t, storecenter.InstallAmazonAuthorizationSchemaTx(ctx, tx))
+				require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx))
 				require.NoError(t, storecenter.InstallShopifySchemaTx(ctx, tx))
 			} else {
 				require.NoError(t, storecenter.InstallShopifySchemaTx(ctx, tx))
 				require.NoError(t, storecenter.InstallAmazonAuthorizationSchemaTx(ctx, tx))
+				require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx))
 			}
 			require.NoError(t, tx.Commit())
 			require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db,
-				storecenter.RuntimeCapabilities{TikTokShop: true, WalmartUS: true, AmazonAuthorization: true, Shopify: true}))
+				storecenter.RuntimeCapabilities{TikTokShop: true, WalmartUS: true, AmazonAuthorization: true, Shopify: true, GoogleMerchant: true}))
 		})
 	}
 }

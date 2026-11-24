@@ -116,6 +116,15 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 			return nil, err
 		}
 	}
+	google, err := applications.GoogleConnections(repo)
+	if err != nil {
+		return nil, err
+	}
+	if google != nil {
+		if err := handler.SetGoogleConnections(google); err != nil {
+			return nil, err
+		}
+	}
 	module := storehttp.NewModule(handler)
 	catalog, metadata, err := buildStoreCatalog(records, authorizer, applications, nil, nil, nil)
 	if err != nil {
@@ -214,6 +223,11 @@ func validateCurrentStoreDescriptor(d httproute.Descriptor) error {
 			return nil
 		}
 		return errors.New("Shopify Store pairing route loses live write authority or request bounds")
+	}
+	if storehttp.IsGoogleStoreDescriptor(d.Method, d.Path, d.Permission) && d.Module == storehttp.ModuleName &&
+		d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
+		d.OrganizationTargetResolver == nil && d.Handler != nil {
+		return nil
 	}
 	if storehttp.IsAmazonAuthorizationPath(d.Path) {
 		method, permission, timeout := http.MethodPost, authz.PermissionWorkbenchStoreUpdate, 35*time.Second

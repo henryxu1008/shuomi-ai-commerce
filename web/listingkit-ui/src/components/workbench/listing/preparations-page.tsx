@@ -106,6 +106,12 @@ function ScopedPreparations({ scope, initialPreparation,completionAvailable,sour
             <Button variant="outline" onClick={() => {setDetail(undefined);setDetailID(source.id);}}>查看资料</Button>
             {!synthetic && sourceMaterialsAvailable && context.permissions?.includes("workbench.supply.manage") &&
               <Button variant="outline" onClick={()=>setMaterialsID(source.id)}>来源素材</Button>}
+            {source.source.kind==="own" && !synthetic && process.env.NEXT_PUBLIC_GOOGLE_MERCHANT_ENABLED==="true" && <Button asChild variant="outline">
+              <Link href={"/workbench/listing/google/"+source.id+"?preparation="+source.preparationId}>上传到 Google Shopping</Link>
+            </Button>}
+            {source.source.kind==="own" && !synthetic && process.env.NEXT_PUBLIC_META_CATALOG_SIMULATION==="true" && <Button asChild variant="outline">
+              <Link href={"/workbench/listing/meta-catalog/"+source.id+"?preparation="+source.preparationId}>上传到 Meta 商品目录</Link>
+            </Button>}
             {!synthetic && completionAvailable && <Button asChild variant="outline">
               <Link href={`/workbench/listing/missing?preparation=${source.preparationId}&source=${source.id}`}>创建 / 编辑待补全草稿</Link>
             </Button>}

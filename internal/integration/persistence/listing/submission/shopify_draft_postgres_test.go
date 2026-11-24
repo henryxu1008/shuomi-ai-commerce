@@ -44,6 +44,7 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 		require.NoError(t, install(db))
 	}
 	require.NoError(t, recordstore.VerifyShopifySchema(ctx, db))
+	require.NoError(t, effectsstore.InstallGooglePlanSchema(ctx, db))
 	require.NoError(t, effectsstore.VerifyShopifySchema(ctx, db))
 	saved, inventory := temuEffectRecordFixture(t, ctx, db, db)
 	prior := saved.Merchant

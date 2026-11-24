@@ -47,10 +47,12 @@ require (
 	go.temporal.io/sdk v1.43.0
 	golang.org/x/image v0.44.0
 	golang.org/x/mod v0.41.0
+	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.24.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.15.0
+	google.golang.org/api v0.264.0
 	google.golang.org/genai v1.72.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
@@ -140,8 +142,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/exp v0.0.0-20260718201538-764159d718ef // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
-	google.golang.org/api v0.264.0 // indirect
 )
 
 require (

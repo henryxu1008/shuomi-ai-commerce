@@ -12,6 +12,7 @@ import {getMembers} from "@/lib/api/members";
 import {getWorkbenchStore,type WorkbenchStore} from "@/lib/api/workbench-stores";
 import {groupsSchema,metadataCommandSchema,metadataResultSchema,storeCenterID,storeCenterRequest,StoreCenterError,type CatalogItem,type Group,type MetadataCommand,type StoreCenterScope} from "@/lib/api/store-center";
 import {StoreForm} from "./store-form";
+import {GoogleConnection} from "./google-connection";
 import {StoreOfficialConnection} from "./store-official-connection";
 import {StoreSyncDialog} from "./store-sync-dialog";
 import styles from "./store-catalog.module.css";
@@ -95,6 +96,6 @@ function BindDialog({scope,onClose,onChanged}:Props){
  const refresh=async()=>{if(!store)return;const latest=await getWorkbenchStore(store.id,scope.organizationId);setStore(latest);await onChanged()};
  return <ResourceDialog title="绑定店铺" locked={busy} onClose={onClose} className={styles.dialog}>
   <p>选择店铺平台并创建记录，再连接该平台的官方应用。</p>
-  {!store?<StoreForm mode="create" onPendingChange={setBusy} onCreated={saved=>{setBusy(false);setStore(saved);void onChanged()}}/>:<><p className={styles.hint}>店铺记录：{store.name}。继续完成官方 API 授权。</p><StoreOfficialConnection store={store} scope={{expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId}} canWrite={context.permissions.includes("workbench.store.update")} administrator={context.effectiveOrganization?.capabilities?.storeServiceEnterpriseFunding===true} onChanged={refresh}/><footer><Button onClick={onClose}>返回店铺列表</Button></footer></>}
+  {!store?<StoreForm mode="create" onPendingChange={setBusy} onCreated={saved=>{setBusy(false);setStore(saved);void onChanged()}}/>:<><p className={styles.hint}>店铺记录：{store.name}。继续完成官方 API 授权。</p>{store.platform==="googlemerchant"?<GoogleConnection storeId={store.id} version={store.version} scope={scope} canWrite={context.permissions.includes("workbench.store.update")} onChanged={refresh}/>:<StoreOfficialConnection store={store} scope={{expectedUserId:scope.userId,expectedOrganizationId:scope.organizationId}} canWrite={context.permissions.includes("workbench.store.update")} administrator={context.effectiveOrganization?.capabilities?.storeServiceEnterpriseFunding===true} onChanged={refresh}/>}<footer><Button onClick={onClose}>返回店铺列表</Button></footer></>}
  </ResourceDialog>;
 }

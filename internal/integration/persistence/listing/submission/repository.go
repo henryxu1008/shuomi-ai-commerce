@@ -153,6 +153,22 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 		if found && (fence.CurrentStatus == string(submission.ExecutionClaimed) || fence.CurrentStatus == string(submission.ExecutionOutcomeUnknown)) {
 			return mutation{}, submission.ErrExecutionTargetClaimed
 		}
+		if attempt.Target.Platform == "metacatalog" {
+			if !r.immutableOfficialEffects || attempt.Action != submission.MetaCatalogCreateAction {
+				return mutation{}, submission.ErrExecutionEvidenceRequired
+			}
+			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+				return mutation{}, submission.ErrExecutionTargetSucceeded
+			}
+		}
+		if attempt.Target.Platform == "googlemerchant" {
+			if !r.immutableOfficialEffects || attempt.Action != submission.GoogleInsertAction {
+				return mutation{}, submission.ErrExecutionEvidenceRequired
+			}
+			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+				return mutation{}, submission.ErrExecutionTargetSucceeded
+			}
+		}
 		if found && isShelfTarget(attempt) {
 			if fence.CurrentStatus == string(submission.ExecutionSucceeded) {
 				return mutation{}, submission.ErrExecutionTargetSucceeded

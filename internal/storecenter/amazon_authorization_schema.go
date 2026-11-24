@@ -10,8 +10,6 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
-const amazonStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'amazon'::text])))`
-
 var amazonAuthorizationColumnNames = map[string][]string{
 	"workbench_store_amazon_attempts": strings.Fields("session_digest organization_id store_id attempt_id actor_id member_id store_version app_id app_revision redirect_uri beta flow_digest state_digest code_digest seller_id generation phase started_at expires_at"),
 	"workbench_store_amazon_grants":   strings.Fields("organization_id store_id attempt_id app_id app_revision beta seller_id generation key_id ciphertext bound_at"),
@@ -23,6 +21,8 @@ func InstallAmazonAuthorizationSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("Amazon Store schema requires an installation transaction")
 	}
+	// Use the same relation lock as the Google owner installer so the
+	// platform precondition and constraint replacement see one schema.
 	if _, err := tx.ExecContext(ctx, "LOCK TABLE public.workbench_stores IN ACCESS EXCLUSIVE MODE"); err != nil {
 		return err
 	}
@@ -32,8 +32,8 @@ func InstallAmazonAuthorizationSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if err != nil {
 		return err
 	}
-	platformConstraint := amazonStorePlatformDefinition
-	if pgschema.SchemaConstraintEqual(definition, shopifyStorePlatformDefinition) {
+	platformConstraint := storePlatformDefinition(true, false, false)
+	if pgschema.SchemaConstraintEqual(definition, storePlatformDefinition(false, false, true)) {
 		var hasStores bool
 		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM public.workbench_stores)`).Scan(&hasStores); err != nil || hasStores {
 			return errors.New("Amazon and Shopify schema composition requires an empty Store database")
@@ -41,7 +41,7 @@ func InstallAmazonAuthorizationSchemaTx(ctx context.Context, tx *sql.Tx) error {
 		if err := verifyShopifySchema(ctx, tx); err != nil {
 			return err
 		}
-		platformConstraint = amazonShopifyStorePlatformDefinition
+		platformConstraint = storePlatformDefinition(true, false, true)
 	} else if !pgschema.SchemaConstraintEqual(definition, currentConstraintDefinitions["store_platform"]) {
 		return errors.New("Amazon authorization requires the current base Store platform constraint")
 	}

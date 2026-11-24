@@ -49,6 +49,7 @@ type ServiceLifecycleService interface {
 }
 
 type Handler struct {
+	google              GoogleConnectionService
 	browser             BrowserOperationService
 	catalog             *storecenter.Catalog
 	metadata            *storecenter.MetadataRepository
@@ -188,7 +189,8 @@ func (h *Handler) Create(c *gin.Context) {
 		writeInvalid(c, "name", "invalid")
 		return
 	}
-	if !isPublicStorePlatform(values["platform"]) || values["platform"] == string(storecenter.PlatformShopify) && h.shopifyConnections == nil {
+	if !isPublicStorePlatform(values["platform"]) || values["platform"] == string(storecenter.PlatformShopify) && h.shopifyConnections == nil ||
+		values["platform"] == string(storecenter.PlatformGoogleMerchant) && h.google == nil {
 		writeInvalid(c, "platform", "invalid")
 		return
 	}
@@ -512,7 +514,7 @@ func parseListRequest(rawQuery string) (storecenter.ListStoresRequest, string, e
 }
 
 func isPublicStorePlatform(value string) bool {
-	return value == string(storecenter.PlatformShein) || value == string(storecenter.PlatformTemu) || value == string(storecenter.PlatformWalmart) || value == string(storecenter.PlatformShopify)
+	return value == string(storecenter.PlatformShein) || value == string(storecenter.PlatformTemu) || value == string(storecenter.PlatformWalmart) || value == string(storecenter.PlatformGoogleMerchant) || value == string(storecenter.PlatformShopify)
 }
 
 func parseStringObject(body io.Reader, fields map[string]bool) (map[string]string, string, error) {
