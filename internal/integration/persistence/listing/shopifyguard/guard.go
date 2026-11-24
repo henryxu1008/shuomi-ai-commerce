@@ -131,6 +131,9 @@ func checkGeneration(db *gorm.DB, org, shop string, generation int64) error {
 }
 
 func lockGeneration(tx *gorm.DB, org, shop string, generation int64) error {
+	if !canonicalUUID(shop) || generation < 1 {
+		return ErrUnavailable
+	}
 	return lock(tx, "generation", org, shop, strconv.FormatInt(generation, 10))
 }
 
@@ -178,11 +181,13 @@ func ReplayIsolated(ctx context.Context, db *gorm.DB, command Command) error {
 	return err
 }
 
+func canonicalUUID(value string) bool {
+	parsed, err := uuid.Parse(value)
+	return err == nil && parsed.String() == value
+}
+
 func apply(ctx context.Context, db *gorm.DB, command Command, replay bool) (Command, error) {
-	if _, err := uuid.Parse(command.ID); err != nil {
-		return Command{}, ErrConflict
-	}
-	if _, err := uuid.Parse(command.ShopKey); err != nil || !authidentity.IsBoundedIdentifier(command.Organization) || command.Generation < 1 {
+	if !canonicalUUID(command.ID) || !canonicalUUID(command.ShopKey) || !authidentity.IsBoundedIdentifier(command.Organization) || command.Generation < 1 {
 		return Command{}, ErrConflict
 	}
 	err := RequireIsolated(db).WithContext(ctx).Transaction(func(tx *gorm.DB) error {

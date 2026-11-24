@@ -6,6 +6,7 @@ import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {readSupplyPublicationStatus, shopifySupplyRules, supplyInventory, type SupplyScope} from "@/lib/api/supply-chain";
 import {inventorySchema, shopifyTargetInputSchema, type ShopifySupplyTarget, type SupplyPublication, type SupplySourceDetail} from "@/lib/contracts/supply-chain";
+import {SupplyAPIError} from "@/lib/api/supply-error";
 import type {z} from "zod";
 import type {ListingCommandState} from "./use-listing-command";
 
@@ -105,11 +106,12 @@ export function ShopifyDraftResult({scope, sourceId, storeId, publication}: {
  scope: SupplyScope; sourceId: string; storeId: string; publication?: SupplyPublication;
 }) {
  const [latest, setLatest] = useState<SupplyPublication>();
+ const [resultHidden, setResultHidden] = useState(false);
  const [message, setMessage] = useState("");
  const [checking, setChecking] = useState(false);
  const activeCheck = useRef<AbortController>(null);
  useEffect(() => () => activeCheck.current?.abort(), []);
- const result = latest ? latest.shopify : publication?.shopify;
+ const result = resultHidden ? undefined : latest ? latest.shopify : publication?.shopify;
  const current = latest?.shopifyStatus;
  const media = current?.media ?? result?.media ?? [];
  async function check() {
@@ -121,13 +123,20 @@ export function ShopifyDraftResult({scope, sourceId, storeId, publication}: {
   try {
    const observed = await readSupplyPublicationStatus(scope, sourceId, storeId, controller.signal);
    if (controller.signal.aborted) return;
+   setResultHidden(false);
    setLatest(observed);
    if (observed.shopifyAttemptStatus === "not_started") setMessage("此商品还没有发往 Shopify 的记录。");
    if (observed.shopifyAttemptStatus === "outcome_unknown") setMessage("Shopify 结果仍待核实。系统会保留原操作。");
    if (observed.shopifyAttemptStatus === "claimed") setMessage("上传正在处理，请稍后查看。");
    if (observed.shopifyAttemptStatus === "not_sent") setMessage("原操作尚未发送。请核对店铺授权和资料，再确认上传。");
-  } catch {
+  } catch (error) {
    if (controller.signal.aborted) return;
+   if (error instanceof SupplyAPIError && (error.code === "NOT_FOUND" || error.code === "PERMISSION_DENIED")) {
+    setResultHidden(true);
+    setLatest(undefined);
+    setMessage("暂时没有可查看的 Shopify 结果。");
+    return;
+   }
    setLatest(prior => prior ? {...prior, shopifyStatus: undefined, shopifyAdminUrl: undefined} : undefined);
    setMessage("暂时无法核对 Shopify 结果。请检查店铺授权，或稍后再查。");
   } finally {
