@@ -1,8 +1,8 @@
 # Shopify 与 Amazon 美国站订单同步与查看首版
 
-当前候选为 Design Basis（Independent Architecture）。用户批准的顺序是先做 Shopify 同步与查看，Amazon 先核对 API、权限并准备隔离样本。两边商品阶段已有合入的工程结果，订单有独立交付范围。正式订单功能在执行 Issue 通过独立架构评审并标为 `IMPLEMENTATION_READY` 后实施。 [排期 #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137) · [Shopify 商品 PR #1615](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1615) · [Amazon 商品 PR #1621](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1621)
+本文记录 Shopify 和 Amazon 美国站订单同步与查看的首版设计。两边商品阶段形成工程结果后，按用户批准的顺序先推进 Shopify 隔离同步与查看，Amazon 先核对 API、权限及合成样本，随后完成独立准入和隔离实现。正式订单功能仍按各自的执行范围完成独立架构准入。 [排期 #137](https://github.com/henryxu1008/shuomi-ai-commerce/issues/137) · [Shopify 商品 PR #1615](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1615) · [Amazon 商品 PR #1621](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1621)
 
-执行任务分别见 [Shopify #1622](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1622) 与 [Amazon #1623](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1623)。独立评审确认 Shopify 的隔离合成端到端实现可开工。真实 Shopify 开发店授权仍待验证，Amazon 当前只核对接口、角色和隔离合成样本。
+两条隔离实现均已合入 `main`，并在 Chromium 中用合成企业、店铺和订单完成选店、最近 30 天同步、列表和详情验证。Shopify 开发店订单授权和平台读取仍待验证，Amazon 真实卖家授权和平台读取仍未开放。 [Shopify #1622](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1622) · [Shopify 实现 PR #1626](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1626) · [Amazon #1623](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1623) · [Amazon 实现 PR #1627](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1627)
 
 ## 用户结果
 
@@ -41,7 +41,7 @@ Shopify 将订单资源视为 Level 1 受保护客户数据。开发店可在对
 固定本次范围和原命令键。页结果、同一同步的去重键和检查点沿现有同事务提交，worker 重启从已保存检查点只读续页。Shopify 行详情只有完整才保存为本次完整订单；同一订单重复出现时以可比较的平台更新时间保留较新投影，出现无法解释的同版本差异或范围/标识异常时中止完整发布。Amazon 游标最多 24 小时。限流和短暂传输故障按现有有界只读重试策略，超时、无进展游标、分页超过现有预算、响应不完整或凭据不可用时按现有失败/部分规则结束。已终止命令只返回原结果；用户明确重启同步使用新命令键。部分结果与最近一次完整结果各自标明，覆盖不完整的同步绝不提升完整结果。单次平台访问沿现有 worker 活动截止与响应大小边界，平台游标只留服务器检查点。
 
 - Shopify 优先验证已绑定店铺的合成订单从同步按钮到列表与详情的完整路径，含双层分页、取消或发货状态、空 SKU、重复运行没有重复订单、缺权/撤权、GraphQL 200 错误和两企业隔离。验证撤权后旧代次的晚到响应不能提升最近完整结果，再授权后旧记录不可见。
-- Amazon 当前只核对接口、角色和合成 API 样本，覆盖响应结构、US 站、截止时间、过期或重复游标及状态缺失。完整同步与工作台路径留给 #1623 后续排期和同项独立准入。
+- Amazon 设计核对覆盖响应结构、美国站、截止时间、过期或重复游标及状态缺失。隔离实现的授权、同步、恢复和工作台验证见已合入的 [Amazon 隔离设计与验证](amazon-us-isolated-order-sync.md) 及 [PR #1627](https://github.com/henryxu1008/shuomi-ai-commerce/pull/1627)。
 - 两边覆盖一轮部分同步不会覆盖以前完整结果。核对订单详情可在正常入口查看，商品与既有平台行为未改变。隔离工程验证、Shopify 开发店合成订单实测、公开应用审批与真实商家试用分别记证据。
 
-当前设计核对已用 Amazon 官方模型本地验证合成首屏、末屏、明确空结果，以及缺失或空值的 `orders`。模型允许非美国站结果和空分页对象，应用须根据当前卖家站点及有效游标另作校验。该核对只验证结构和设计依据，不是工作台同步或真实 API 的运行证据。
+设计阶段使用 Amazon 官方模型核对了合成首屏、末屏、明确空结果，以及缺失或空值的 `orders`。模型允许非美国站结果和空分页对象，应用须根据当前卖家站点及有效游标另作校验。工作台与隔离队列的运行证据见上方实现记录。
