@@ -41,6 +41,7 @@ const (
 	PlatformTikTokShop     Platform = "tiktokshop"
 	PlatformWalmart        Platform = "walmart"
 	PlatformGoogleMerchant Platform = "googlemerchant"
+	PlatformMetaCatalog    Platform = "metacatalog"
 	PlatformAmazon         Platform = "amazon"
 )
 
@@ -525,7 +526,7 @@ func normalizePlatform(value string) (Platform, error) {
 		return "", errors.New("platform is invalid")
 	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart && Platform(normalized) != PlatformGoogleMerchant {
+	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart && Platform(normalized) != PlatformGoogleMerchant && Platform(normalized) != PlatformMetaCatalog {
 		return "", errors.New("platform is unsupported")
 	}
 	return Platform(normalized), nil
