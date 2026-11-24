@@ -40,6 +40,10 @@ func (s OfficialShopifyExecutionStore) ShopifyTargetBinding(ctx context.Context,
 	return s.Binding(ctx, scope, storeID, storecenter.ProductPurposeRules)
 }
 
+func (s OfficialShopifyExecutionStore) ShopifyPlanDomain(ctx context.Context, scope collection.Scope, expected storecenter.ProductMerchantBinding) (string, error) {
+	return s.Access.ShopifyPlanDomain(ctx, shopifyProductSubject(scope, storecenter.ProductPurposeRules), expected)
+}
+
 func (s OfficialShopifyExecutionStore) VerifyDraftWrite(ctx context.Context, scope collection.Scope, expected storecenter.ProductMerchantBinding) (ShopifyDraftWriter, error) {
 	writer, err := s.Access.VerifyShopifyDraftWrite(ctx, shopifyProductSubject(scope, storecenter.ProductPurposePublish), expected)
 	if err != nil {

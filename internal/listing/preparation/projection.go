@@ -19,6 +19,6 @@ type SourceStageFacts struct {
 	Optimization            OperationItem
 }
 type StageFactsReader interface {
-	ListStageFacts(context.Context, Scope, string, string, string, string) ([]SourceStageFacts, error)
+	ListStageFacts(ctx context.Context, scope Scope, preparationID, storeID, shopifyShopKey, supplierHash, after string) ([]SourceStageFacts, error)
 	LatestOptimization(context.Context, Scope, string, string) (OperationItem, error)
 }

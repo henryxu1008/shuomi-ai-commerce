@@ -33,7 +33,13 @@ type StoreConnectionProps = {
   onChanged: () => Promise<unknown>;
 };
 export function StoreOfficialConnection(props: StoreConnectionProps) {
-  return props.store.platform === "shopify" ? <ShopifyConnection {...props}/> : <StandardStoreOfficialConnection {...props}/>;
+  if (props.store.platform !== "shopify") {
+    return <StandardStoreOfficialConnection {...props}/>;
+  }
+  return <section className="grid gap-4">
+    <ShopifyConnection {...props}/>
+    <StoreServiceActions {...props} connected={props.store.connectionStatus === "connected"}/>
+  </section>;
 }
 
 function StandardStoreOfficialConnection({store, scope, canWrite, administrator, onChanged}: StoreConnectionProps) {

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
@@ -94,7 +95,8 @@ func TestShopifyUploadRetainsDraftAndDoesNotResendUnknown(t *testing.T) {
 			if lost {
 				store.send = errors.New("response lost")
 			}
-			result, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
+			intentKey := uuid.NewString()
+			result, err := uploader.Upload(ctx, scope, intentKey, saved.ID)
 			require.NoError(t, err)
 			if lost {
 				require.Equal(t, submission.ExecutionOutcomeUnknown, result.Status)
@@ -107,6 +109,34 @@ func TestShopifyUploadRetainsDraftAndDoesNotResendUnknown(t *testing.T) {
 			again, err := uploader.Upload(ctx, scope, uuid.NewString(), saved.ID)
 			require.NoError(t, err)
 			require.Equal(t, result.Status, again.Status)
+			if lost {
+				operation := preparation.Operation{Owner: scope, Input: preparation.OperationInput{
+					Action: preparation.OperationUpload, StoreID: saved.Merchant.StoreID,
+				}}
+				item := preparation.OperationItem{SourceID: saved.Source.ID, RecordID: saved.ID,
+					RecordRevision: saved.Revision, Status: preparation.ItemUnknown, ResultReference: result.AttemptID}
+				merchants := &rulesFixture{binding: saved.Merchant}
+				app := Application{Records: records, PublicationReceipts: receipts, TargetMerchants: merchants}
+				before, err := app.operationItemView(ctx, operation, item)
+				require.NoError(t, err)
+				require.Equal(t, item, before.OperationItem)
+				observation := shopify.ProductObservation{ID: "gid://shopify/Product/57", Status: "DRAFT", Media: []string{"PROCESSING"}}
+				proof, err := submission.NewShopifyDraftResolution(receipts.intents[intentKey], *saved, ledger.attempts[intentKey], observation)
+				require.NoError(t, err)
+				_, err = receipts.ResolveOfficial(ctx, proof)
+				require.NoError(t, err)
+				for range 2 {
+					view, err := app.operationItemView(ctx, operation, item)
+					require.NoError(t, err)
+					require.Equal(t, item, view.OperationItem)
+					require.Nil(t, view.ConfirmedProduct)
+					require.Equal(t, &observation, view.ConfirmedShopify)
+				}
+				merchants.binding.Shopify.ShopKey = uuid.NewString()
+				view, err := app.operationItemView(ctx, operation, item)
+				require.ErrorIs(t, err, record.ErrForbidden)
+				require.Nil(t, view.ConfirmedShopify)
+			}
 			require.Equal(t, 1, store.writes)
 			require.Zero(t, legacy.publishes)
 		})

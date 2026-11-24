@@ -260,7 +260,7 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 	if err != nil {
 		return empty, err
 	}
-	app.UploadPlans, err = preparation.NewUploadPlanService(auth, plansRepo, listingapp.UploadPlanInputs{Application: app, Operations: plansRepo, WalmartAttempts: effects})
+	app.UploadPlans, err = preparation.NewUploadPlanService(auth, plansRepo, listingapp.UploadPlanInputs{Application: app, Operations: plansRepo, ShopifyStore: listingapp.OfficialShopifyExecutionStore{Access: access}, WalmartAttempts: effects})
 	if err != nil {
 		return empty, err
 	}

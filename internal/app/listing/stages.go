@@ -137,7 +137,7 @@ func (a *Application) Stages(ctx context.Context, id, storeID, stage string, q c
 	cursorFound := q.After == ""
 	last := ""
 	for {
-		facts, e := a.StageProjection.Facts.ListStageFacts(ctx, scope, id, storeID, binding.SupplierIdentityHash, after)
+		facts, e := a.StageProjection.Facts.ListStageFacts(ctx, scope, id, storeID, binding.Shopify.ShopKey, binding.SupplierIdentityHash, after)
 		if e != nil {
 			return out, e
 		}

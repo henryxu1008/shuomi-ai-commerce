@@ -14,8 +14,31 @@ import (
 	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 )
+
+func TestShopifyPlanRequiresOneExplicitProductAndDraftMode(t *testing.T) {
+	_, scope, records, _, _, _, _ := uploadFixture(t)
+	binding := records.saved.Merchant
+	binding.Platform, binding.Site, binding.ApplicationType = storecenter.PlatformShopify, "shopify", ""
+	binding.ApplicationID, binding.ApplicationRevision = "gid://shopify/App/32", "shopify-admin-2026-10"
+	binding.Shopify = storecenter.ShopifyMerchantBinding{ShopKey: uuid.NewString(), Currency: "USD"}
+	r := UploadPlanInputs{Application: &Application{TargetMerchants: &rulesFixture{binding: binding}}}
+	input := preparation.UploadPlanInput{StoreID: binding.StoreID, PublicationMode: "platform_draft"}
+	_, err := r.ReadUploadPlanBinding(context.Background(), scope, input)
+	require.ErrorIs(t, err, preparation.ErrInvalid)
+	input.SourceIDs = []string{uuid.NewString(), uuid.NewString()}
+	_, err = r.ReadUploadPlanBinding(context.Background(), scope, input)
+	require.ErrorIs(t, err, preparation.ErrInvalid)
+	input.SourceIDs = input.SourceIDs[:1]
+	input.PublicationMode = "platform"
+	_, err = r.ReadUploadPlanBinding(context.Background(), scope, input)
+	require.ErrorIs(t, err, preparation.ErrInvalid)
+	input.PublicationMode = "platform_draft"
+	_, err = r.ReadUploadPlanBinding(context.Background(), scope, input)
+	require.NoError(t, err)
+}
 
 func TestUploadPlanReusesOriginalOptimizationAdmission(t *testing.T) {
 	calls := 0

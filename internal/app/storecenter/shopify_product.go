@@ -36,6 +36,18 @@ func (a *OfficialProductAccess) shopifyProductMaterial(ctx context.Context, subj
 	return value, binding, nil
 }
 
+// ShopifyPlanDomain returns the approved installation's shop domain without contacting Shopify.
+func (a *OfficialProductAccess) ShopifyPlanDomain(ctx context.Context, subject storecenter.ProductExecutionSubject, expected MerchantBinding) (string, error) {
+	if subject.Purpose != storecenter.ProductPurposeRules {
+		return "", ErrProductAccessChanged
+	}
+	value, current, err := a.shopifyProductMaterial(ctx, subject, expected.StoreID)
+	if err != nil || current != expected {
+		return "", ErrProductAccessChanged
+	}
+	return value.Domain, nil
+}
+
 type ShopifyDraftWrite struct {
 	transport *wire.DraftWrite
 }

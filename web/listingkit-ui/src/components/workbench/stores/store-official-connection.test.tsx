@@ -21,7 +21,10 @@ vi.mock("@/lib/api/store-connection", async (original) => ({
 	installStoreToken:state.install,
 	refreshStoreConnection:state.refresh,
 }));
-vi.mock("./store-service-actions", () => ({ StoreServiceActions: () => null }));
+vi.mock("./store-service-actions", () => ({
+  StoreServiceActions: ({ connected, canWrite }: { connected: boolean; canWrite: boolean }) =>
+    connected && canWrite ? <button>开通服务</button> : null,
+}));
 const store = {
   id: "11111111-1111-4111-8111-11111111111a",
   version: 2,
@@ -30,11 +33,11 @@ const store = {
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false } },
 });
-function tree(org = "org-1",platform:WorkbenchStore["platform"]="shein",canWrite=true) {
+function tree(org = "org-1",platform:WorkbenchStore["platform"]="shein",canWrite=true,connectionStatus?:WorkbenchStore["connectionStatus"]) {
   return (
     <QueryClientProvider client={client}>
       <StoreOfficialConnection
-        store={{...store,platform}}
+        store={{...store,platform,connectionStatus:connectionStatus??"disconnected"}}
         scope={{ expectedUserId: "actor", expectedOrganizationId: org }}
         canWrite={canWrite}
         administrator
@@ -54,6 +57,14 @@ beforeEach(() => {
     connectionStatus: "disconnected",
     attemptId: null,
   });
+});
+it("offers the existing service action after Shopify is connected and respects write access", () => {
+  const view = render(tree("org-1", "shopify", true, "disconnected"));
+  expect(screen.queryByRole("button", {name:"开通服务"})).toBeNull();
+  view.rerender(tree("org-1", "shopify", true, "connected"));
+  expect(screen.getByRole("button", {name:"开通服务"})).toBeInTheDocument();
+  view.rerender(tree("org-1", "shopify", false, "connected"));
+  expect(screen.queryByRole("button", {name:"开通服务"})).toBeNull();
 });
 it.each(["tiktokshop","walmart"] as const)("explicitly refreshes the current %s generation",async(platform)=>{
  const details=platform==="tiktokshop"?{tiktok:{grantGeneration:7}}:{walmart:{generation:7}};

@@ -7,6 +7,7 @@ import (
 	record "github.com/henryxu1008/shuomi-ai-commerce/internal/listing/record/target"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
@@ -19,6 +20,7 @@ type OperationItemView struct {
 	ConfirmedTemuProduct *temugoods.CreatedGoods         `json:"confirmedTemuProduct,omitempty"`
 	ConfirmedTikTok      *submission.TikTokEffectReceipt `json:"confirmedTikTok,omitempty"`
 	ConfirmedWalmart     *submission.WalmartFeedReceipt  `json:"confirmedWalmart,omitempty"`
+	ConfirmedShopify     *shopify.ProductObservation     `json:"confirmedShopify,omitempty"`
 }
 
 func (a *Application) operationItemView(ctx context.Context, operation preparation.Operation, item preparation.OperationItem) (OperationItemView, error) {
@@ -36,7 +38,11 @@ func (a *Application) operationItemView(ctx context.Context, operation preparati
 	if err != nil {
 		return view, err
 	}
-	if submission.ValidateOfficialReceipt(receipt) != nil || receipt.Owner != operation.Owner || receipt.ID != item.ResultReference || receipt.Kind != "publish" && receipt.Target.Platform != "tiktokshop" || receipt.RecordID != item.RecordID || receipt.Target.StoreID != operation.Input.StoreID {
+	storeID := receipt.Target.StoreID
+	if receipt.Target.Platform == "shopify" {
+		storeID = receipt.Binding.StoreID
+	}
+	if submission.ValidateOfficialReceipt(receipt) != nil || receipt.Owner != operation.Owner || receipt.ID != item.ResultReference || receipt.Kind != "publish" && receipt.Target.Platform != "tiktokshop" || receipt.RecordID != item.RecordID || storeID != operation.Input.StoreID {
 		return view, record.ErrConflict
 	}
 	saved, err := a.Records.ReadTargetRecord(ctx, operation.Owner, item.RecordID)
@@ -46,7 +52,17 @@ func (a *Application) operationItemView(ctx context.Context, operation preparati
 	if saved.ID != item.RecordID || saved.Revision != item.RecordRevision || saved.Source.ID != item.SourceID || saved.Source.Source.ProductKey != receipt.ProductKey || saved.Merchant != receipt.Binding {
 		return view, record.ErrConflict
 	}
-	if receipt.Walmart != nil {
+	if receipt.Shopify != nil {
+		if a.TargetMerchants == nil {
+			return view, record.ErrUnavailable
+		}
+		current, err := a.TargetMerchants.ReadTargetMerchant(ctx, operation.Owner, operation.Input.StoreID)
+		if err != nil || !validTargetMerchant(operation.Owner, operation.Input.StoreID, current) ||
+			!current.ValidShopifyApplication() || current.Shopify.ShopKey != receipt.Binding.Shopify.ShopKey {
+			return view, record.ErrForbidden
+		}
+		view.ConfirmedShopify = receipt.Shopify
+	} else if receipt.Walmart != nil {
 		view.ConfirmedWalmart = receipt.Walmart
 	} else if receipt.TikTok != nil {
 		view.ConfirmedTikTok = receipt.TikTok
