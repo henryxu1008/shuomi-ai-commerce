@@ -40,6 +40,7 @@ const (
 	PlatformTemu       Platform = "temu"
 	PlatformTikTokShop Platform = "tiktokshop"
 	PlatformWalmart    Platform = "walmart"
+	PlatformShopify    Platform = "shopify"
 )
 
 // Store is the Organization-scoped Store Center aggregate. Its state is kept
@@ -320,6 +321,9 @@ func newStoreFromSnapshot(snapshot StoreSnapshot) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	if platform == PlatformShopify && externalStoreID != "" {
+		return nil, errors.New("Shopify shop identity must come from the owner authorization")
+	}
 	if platform == PlatformWalmart && region != "US" {
 		return nil, errors.New("Walmart region must be US")
 	}
@@ -510,7 +514,7 @@ func normalizePlatform(value string) (Platform, error) {
 		return "", errors.New("platform is invalid")
 	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart {
+	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart && Platform(normalized) != PlatformShopify {
 		return "", errors.New("platform is unsupported")
 	}
 	return Platform(normalized), nil

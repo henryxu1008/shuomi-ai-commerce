@@ -78,7 +78,7 @@ export const readSupplyPublication=async(scope:SupplyScope,source:string,store:s
  const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyPublicationStatus=async(scope:SupplyScope,source:string,store:string,signal?:AbortSignal,receiptId?:string)=>{
- const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status${receiptId?`/${collectionID.parse(receiptId)}`:""}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus&&!value.walmart&&!value.sheinStatus)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
+ const value=await send(`${base}/sources/${collectionID.parse(source)}/publications/${collectionID.parse(store)}/status${receiptId?`/${collectionID.parse(receiptId)}`:""}`,scope,c.publicationSchema,signal);if(value.sourceId!==source||value.storeId!==store||!value.tiktokStatus&&!value.walmart&&!value.sheinStatus&&!value.shopify&&!value.shopifyAttemptStatus)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return value;
 };
 export const readSupplyRecord=async(scope:SupplyScope,id:string,signal?:AbortSignal)=>{
 	const value=await send(`${draftBase(scope)}/records/${collectionID.parse(id)}`,scope,c.sheinTargetRecordSchema,signal);if(value.id!==id)throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);if(!!value.localTrial!==(scope.draftKind==="local"))throw new SupplyAPIError("PERMISSION_DENIED",403);return value;
@@ -92,6 +92,8 @@ export async function previewSheinImport(scope:SupplyScope,request:c.SheinImport
  const input=c.sheinImportRequestSchema.parse(request),result=await send(`${draftBase(scope)}/shein-completion-preview`,scope,c.sheinImportPreviewSchema,signal,{method:"POST",command:input});
  if(!c.matchesSheinImportPreview(result,input))throw new SupplyAPIError("DEPENDENCY_UNAVAILABLE",502);return result;
 }
+export const shopifySupplyRules = (scope: SupplyScope, input: z.infer<typeof c.shopifyRulesQuerySchema>, signal?: AbortSignal) =>
+ send(`${base}/target-rules`, scope, c.shopifyRulesResponseSchema, signal, {method:"POST", command:c.shopifyRulesQuerySchema.parse(input)});
 export const temuSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.temuRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.temuRulesSchema,signal,{method:"POST",command:c.temuRulesQuerySchema.parse(input)});
 export const walmartSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.walmartRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.walmartRulesResponseSchema,signal,{method:"POST",command:c.walmartRulesQuerySchema.parse(input)});
 export const tiktokSupplyRules=(scope:SupplyScope,input:z.infer<typeof c.tiktokRulesQuerySchema>,signal?:AbortSignal)=>send(`${base}/target-rules`,scope,c.tiktokRulesSchema,signal,{method:"POST",command:c.tiktokRulesQuerySchema.parse(input)});

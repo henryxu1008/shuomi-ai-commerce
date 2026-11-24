@@ -101,7 +101,8 @@ var schemaStatements = []string{
     ),
     CONSTRAINT listing_submission_execution_attempts_no_send_check CHECK ((
         evidence_kind IS DISTINCT FROM 'local_no_send' OR
-        (platform = 'tiktokshop' AND action IN ('tiktok_upload_image', 'tiktok_create_global', 'tiktok_publish_us') AND
+        (((platform = 'tiktokshop' AND action IN ('tiktok_upload_image', 'tiktok_create_global', 'tiktok_publish_us')) OR
+          (platform = 'shopify' AND action = 'create_shopify_draft')) AND
          evidence_reference = attempt_id::text AND evidence_reason IN ('preflight_unavailable', 'facts_changed', 'access_recheck_failed', 'image_content_changed', 'payload_invalid') AND finished_at < lease_expires_at)
     ) IS TRUE),
     CONSTRAINT listing_submission_execution_attempts_evidence_value_check CHECK (
@@ -186,6 +187,8 @@ var expectedColumns = map[string][]columnContract{
 	},
 }
 
+const priorNoSendConstraint = `CHECK (((((evidence_kind)::text IS DISTINCT FROM 'local_no_send'::text) OR (((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[])) AND ((evidence_reference)::text = (attempt_id)::text) AND ((evidence_reason)::text = ANY ((ARRAY['preflight_unavailable'::character varying, 'facts_changed'::character varying, 'access_recheck_failed'::character varying, 'image_content_changed'::character varying, 'payload_invalid'::character varying])::text[])) AND (finished_at < lease_expires_at))) IS TRUE))`
+
 type constraintContract struct {
 	kind            string
 	exactDefinition string
@@ -236,7 +239,7 @@ var expectedConstraints = map[string]map[string]constraintContract{
 			kind: "c", exactDefinition: `CHECK (((evidence_kind IS NULL) OR (((evidence_kind)::text = 'provider_response'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'provider_readback'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'manual_resolution'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying])::text[])) AND (evidence_authorized_by IS NOT NULL) AND ((evidence_authorized_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND (evidence_reason IS NOT NULL)) OR (((evidence_kind)::text = 'local_no_send'::text) AND ((evidence_outcome)::text = 'not_sent'::text) AND (evidence_authorized_by IS NULL))))`,
 		},
 		"listing_submission_execution_attempts_no_send_check": {
-			kind: "c", exactDefinition: `CHECK (((((evidence_kind)::text IS DISTINCT FROM 'local_no_send'::text) OR (((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[])) AND ((evidence_reference)::text = (attempt_id)::text) AND ((evidence_reason)::text = ANY ((ARRAY['preflight_unavailable'::character varying, 'facts_changed'::character varying, 'access_recheck_failed'::character varying, 'image_content_changed'::character varying, 'payload_invalid'::character varying])::text[])) AND (finished_at < lease_expires_at))) IS TRUE))`,
+			kind: "c", exactDefinition: `CHECK (((((evidence_kind)::text IS DISTINCT FROM 'local_no_send'::text) OR (((((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[]))) OR (((platform)::text = 'shopify'::text) AND ((action)::text = 'create_shopify_draft'::text))) AND ((evidence_reference)::text = (attempt_id)::text) AND ((evidence_reason)::text = ANY ((ARRAY['preflight_unavailable'::character varying, 'facts_changed'::character varying, 'access_recheck_failed'::character varying, 'image_content_changed'::character varying, 'payload_invalid'::character varying])::text[])) AND (finished_at < lease_expires_at))) IS TRUE))`,
 		},
 		"listing_submission_execution_attempts_evidence_value_check": {
 			kind: "c", exactDefinition: `CHECK ((((evidence_kind IS NULL) OR (((evidence_reference)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND (evidence_observed_at >= created_at) AND (evidence_observed_at <= finished_at))) IS TRUE))`,
@@ -277,20 +280,30 @@ func InstallSchema(db *gorm.DB) error {
 				return fmt.Errorf("install submission execution schema: %w", err)
 			}
 		}
-		return verifySchema(tx.Statement.Context, tx)
+		return verifySchema(tx.Statement.Context, tx, true)
 	})
 }
 
 func VerifySchema(ctx context.Context, db *gorm.DB) error {
+	return verifyInstalledSchema(ctx, db, false)
+}
+
+// VerifyShopifySchema requires the guarded Shopify no-send transition before
+// the configured application may create product drafts.
+func VerifyShopifySchema(ctx context.Context, db *gorm.DB) error {
+	return verifyInstalledSchema(ctx, db, true)
+}
+
+func verifyInstalledSchema(ctx context.Context, db *gorm.DB, requireShopify bool) error {
 	if db == nil || db.Dialector.Name() != "postgres" {
 		return fmt.Errorf("verify submission execution schema: PostgreSQL database is required")
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return verifySchema(ctx, tx)
+		return verifySchema(ctx, tx, requireShopify)
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 }
 
-func verifySchema(ctx context.Context, db *gorm.DB) (resultErr error) {
+func verifySchema(ctx context.Context, db *gorm.DB, requireShopify ...bool) (resultErr error) {
 	var encoding string
 	if err := db.WithContext(ctx).Raw("SHOW server_encoding").Row().Scan(&encoding); err != nil {
 		return fmt.Errorf("inspect submission execution database encoding: %w", err)
@@ -317,7 +330,7 @@ func verifySchema(ctx context.Context, db *gorm.DB) (resultErr error) {
 		if err := verifyColumns(ctx, db, table, expectedColumns[table]); err != nil {
 			return err
 		}
-		if err := verifyConstraints(ctx, db, table, expectedConstraints[table]); err != nil {
+		if err := verifyConstraints(ctx, db, table, expectedConstraints[table], requireShopify...); err != nil {
 			return err
 		}
 		if err := verifyNoUserTriggers(ctx, db, table); err != nil {
@@ -486,7 +499,7 @@ ORDER BY attribute.attnum`, table).Rows()
 	return nil
 }
 
-func verifyConstraints(ctx context.Context, db *gorm.DB, table string, expected map[string]constraintContract) error {
+func verifyConstraints(ctx context.Context, db *gorm.DB, table string, expected map[string]constraintContract, requireShopify ...bool) error {
 	rows, err := db.WithContext(ctx).Raw(`
 SELECT constraint_row.conname, constraint_row.contype::text, pg_catalog.pg_get_constraintdef(constraint_row.oid, false),
        constraint_row.convalidated, constraint_row.condeferrable, constraint_row.condeferred
@@ -530,7 +543,11 @@ ORDER BY constraint_row.conname`, table).Rows()
 		if !observed.validated || observed.deferrable || observed.deferred {
 			return fmt.Errorf("submission execution constraint public.%s.%s must be validated and immediate", table, name)
 		}
-		if !pgschema.SchemaConstraintEqual(observed.definition, contract.exactDefinition) {
+		matches := pgschema.SchemaConstraintEqual(observed.definition, contract.exactDefinition)
+		if !matches && (len(requireShopify) == 0 || !requireShopify[0]) && table == AttemptTable && name == "listing_submission_execution_attempts_no_send_check" {
+			matches = pgschema.SchemaConstraintEqual(observed.definition, priorNoSendConstraint)
+		}
+		if !matches {
 			return fmt.Errorf("submission execution constraint public.%s.%s definition mismatch: got %s", table, name, observed.definition)
 		}
 	}

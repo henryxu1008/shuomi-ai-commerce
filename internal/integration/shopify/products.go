@@ -19,6 +19,13 @@ const (
     userErrors { code field }
   }
 }`
+	sourceDefinitionQuery = `query ReadShopifySourceDefinition($identifier: MetafieldDefinitionIdentifierInput!) {
+  metafieldDefinition(identifier: $identifier) {
+    type { name }
+    capabilities { uniqueValues { enabled } }
+    access { storefront }
+  }
+}`
 	findProductQuery = `query ReadShopifyDraft($identifier: ProductIdentifierInput!) {
   productByIdentifier(identifier: $identifier) { ` + productFields + ` }
 }`
@@ -53,10 +60,32 @@ func (c *AdminClient) VerifyDraftWrite(ctx context.Context, expected Installatio
 	if err != nil {
 		return nil, err
 	}
-	if current.Currency != expected.Currency {
+	if current.Currency != expected.Currency || !c.shopifySourceDefinitionReady(ctx, expected.Domain, token) {
 		return nil, ErrInstallationUnavailable
 	}
 	return &DraftWrite{client: c, installation: expected, token: token, expiresAt: time.Now().Add(adminTimeout), used: new(atomic.Bool)}, nil
+}
+
+func (c *AdminClient) shopifySourceDefinitionReady(ctx context.Context, domain, token string) bool {
+	var data struct {
+		Definition *struct {
+			Type struct {
+				Name string `json:"name"`
+			} `json:"type"`
+			Capabilities struct {
+				UniqueValues struct {
+					Enabled bool `json:"enabled"`
+				} `json:"uniqueValues"`
+			} `json:"capabilities"`
+			Access struct {
+				Storefront string `json:"storefront"`
+			} `json:"access"`
+		} `json:"metafieldDefinition"`
+	}
+	identifier := map[string]string{"ownerType": "PRODUCT", "key": sourceMetafield}
+	return c.query(ctx, domain, token, sourceDefinitionQuery, map[string]any{"identifier": identifier}, &data) == nil &&
+		data.Definition != nil && data.Definition.Type.Name == "single_line_text_field" &&
+		data.Definition.Capabilities.UniqueValues.Enabled && data.Definition.Access.Storefront == "NONE"
 }
 
 func (c *AdminClient) matchInstallation(ctx context.Context, expected Installation, token string) (Installation, error) {

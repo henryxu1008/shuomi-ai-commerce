@@ -79,6 +79,7 @@ export const workbenchStoreSchema = z
 
 const workbenchStoreListSchema = z
   .object({
+    shopifyAvailable: z.boolean().optional(),
     items: z.array(workbenchStoreSchema).max(100),
     pagination: z
       .object({

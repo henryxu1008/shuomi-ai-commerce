@@ -215,6 +215,7 @@ const storeResponseSchema = z
   .strict().refine(hasValidStoreServiceFacts, "Inconsistent record/service facts");
 const listStoresResponseSchema = z
   .object({
+    shopifyAvailable: z.boolean().optional(),
     items: z.array(storeResponseSchema).max(100),
     pagination: z
       .object({

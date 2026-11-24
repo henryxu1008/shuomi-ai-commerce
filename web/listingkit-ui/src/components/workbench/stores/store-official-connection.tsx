@@ -17,6 +17,7 @@ import {
 import type { MemberResourceScope } from "@/lib/api/member-resources";
 import type { WorkbenchStore } from "@/lib/api/workbench-stores";
 import { StoreServiceActions } from "./store-service-actions";
+import { ShopifyConnection } from "./shopify-connection";
 const labels = {
   connected: "已连接",
   disconnected: "未连接",
@@ -24,19 +25,18 @@ const labels = {
   unavailable: "连接服务未配置或暂不可用",
 };
 const applicationLabels={self_operated:"自运营",semi_managed:"半托管",fully_managed:"全托管"} as const;
-export function StoreOfficialConnection({
-  store,
-  scope,
-  canWrite,
-  administrator,
-  onChanged,
-}: {
+type StoreConnectionProps = {
   store: WorkbenchStore;
   scope: MemberResourceScope;
   canWrite: boolean;
   administrator: boolean;
   onChanged: () => Promise<unknown>;
-}) {
+};
+export function StoreOfficialConnection(props: StoreConnectionProps) {
+  return props.store.platform === "shopify" ? <ShopifyConnection {...props}/> : <StandardStoreOfficialConnection {...props}/>;
+}
+
+function StandardStoreOfficialConnection({store, scope, canWrite, administrator, onChanged}: StoreConnectionProps) {
 	const platformLabel=store.platform==="walmart"?"Walmart 美国站":store.platform==="tiktokshop"?"TikTok Shop":store.platform==="temu"?"TEMU":"SHEIN";
 	const scopeKey=JSON.stringify([scope.expectedUserId,scope.expectedOrganizationId,store.id,canWrite,administrator]);
   const view = useQuery({

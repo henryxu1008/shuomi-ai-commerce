@@ -69,7 +69,19 @@ export const walmartTargetInputSchema=targetBase.extend({walmart:walmartDraftInp
 export const walmartRulesQuerySchema=targetBase.extend({walmartRules:walmartSelectionSchema.extend({version:z.string().max(128),productType:z.string().max(200)})}).strict();
 export const walmartCatalogSchema=z.object({feedType:z.enum(["MP_ITEM","MP_ITEM_MATCH"]),version:z.string().min(1).max(128),productTypes:z.array(z.string().min(1).max(200)).max(10000)}).strict();
 export const walmartRulesResponseSchema=z.union([z.object({merchant:walmartMerchantSchema,walmart:walmartRulesSchema}),z.object({merchant:walmartMerchantSchema,walmartCatalog:walmartCatalogSchema})]);
-export const targetInputSchema=z.union([walmartRulesQuerySchema,walmartTargetInputSchema,sheinTargetInputSchema,temuTargetInputSchema,temuRulesQuerySchema,tiktokTargetInputSchema,tiktokRulesQuerySchema]);
+const shopifyCurrency = z.string().regex(/^[A-Z]{3}$/);
+const shopifyPrice = z.string().regex(/^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,4})?$/);
+export const shopifyTargetInputSchema = targetBase.extend({
+ shopify: z.strictObject({
+  currency: shopifyCurrency,
+  prices: z.array(shopifyPrice).min(1).max(30),
+  imageIds: z.array(text(128).min(1)).max(10).optional(),
+ }),
+}).strict();
+export const shopifyRulesQuerySchema = targetBase.extend({
+ shopify: z.strictObject({currency: z.literal(""), prices: z.tuple([])}),
+}).strict();
+export const targetInputSchema=z.union([shopifyTargetInputSchema,shopifyRulesQuerySchema,walmartRulesQuerySchema,walmartTargetInputSchema,sheinTargetInputSchema,temuTargetInputSchema,temuRulesQuerySchema,tiktokTargetInputSchema,tiktokRulesQuerySchema]);
 const officialMerchantSchema=z.object({organization_id:text(128),store_id:collectionID,site:z.literal("shein-us"),store_version:revision,connection_revision:revision,application_revision:text(128),application_id:text(128),application_type:applicationModeSchema,supplier_identity_hash:z.string().regex(/^[0-9a-f]{64}$/),service_expires_at:time});
 const localMerchantSchema=officialMerchantSchema.extend({platform:z.literal("shein"),connection_revision:z.literal(0),application_id:z.literal(""),application_revision:z.literal(""),application_type:z.literal("self_operated"),service_expires_at:z.literal("0001-01-01T00:00:00Z")}).strict();
 const merchantSchema=z.union([officialMerchantSchema,localMerchantSchema]);
@@ -99,7 +111,30 @@ const temuMerchantSchema=officialMerchantSchema.omit({site:true,application_type
 const temuTargetRecordSchema=sheinTargetRecordBase.omit({merchant:true,input:true,result:true}).extend({merchant:temuMerchantSchema,input:temuTargetInputSchema,temu:temuDraftSchema,temuRuleSnapshot:temuRuleSnapshotSchema}).refine(v=>v.input.temu.mode===v.merchant.merchant_mode&&v.temu.mode===v.merchant.merchant_mode&&v.temuRuleSnapshot.mode===v.merchant.merchant_mode);
 const tiktokTargetRecordSchema=sheinTargetRecordBase.omit({merchant:true,input:true,result:true}).extend({merchant:tiktokMerchantSchema,input:tiktokTargetInputSchema,tiktok:tiktokDraftSchema,tiktokRuleSnapshot:tiktokRuleSnapshotSchema}).refine(v=>v.input.tiktok.selection.method===v.tiktokRuleSnapshot.selection.method&&v.input.tiktok.selection.categoryId===v.tiktokRuleSnapshot.category.id);
 const walmartTargetRecordSchema=sheinTargetRecordBase.omit({merchant:true,input:true,result:true}).extend({merchant:walmartMerchantSchema,input:walmartTargetInputSchema,walmart:walmartDraftSchema,walmartRuleSnapshot:walmartRulesSchema}).refine(v=>v.input.walmart.selection.feedType===v.walmartRuleSnapshot.selection.feedType && v.input.walmart.selection.version===v.walmartRuleSnapshot.selection.version && v.walmart.rulesHash===v.rulesHash);
-export const targetRecordSchema=z.union([walmartTargetRecordSchema,sheinTargetRecordSchema,temuTargetRecordSchema,tiktokTargetRecordSchema]);
+const shopifyMerchantSchema = officialMerchantSchema.extend({
+ platform: z.literal("shopify"),
+ site: z.literal("shopify"),
+ application_type: z.literal(""),
+ shopify: z.strictObject({shopKey: collectionID, currency: shopifyCurrency}),
+});
+export const shopifyRulesResponseSchema = z.object({
+ merchant: shopifyMerchantSchema,
+ shopify: z.strictObject({currency: shopifyCurrency}),
+}).refine(v => v.merchant.shopify.currency === v.shopify.currency);
+const shopifyDraft = z.strictObject({
+ title: text(1024).min(1),
+ descriptionHtml: text(65536).optional(),
+ currency: shopifyCurrency,
+ options: z.array(z.strictObject({name: text(1024), values: z.array(text(1024)).max(30)})).max(3).optional(),
+ variants: z.array(z.strictObject({sku: text(1024).optional(), price: shopifyPrice, values: z.array(text(1024)).max(3).optional()})).min(1).max(30),
+ images: z.array(z.strictObject({url: text(2048).min(1), alt: text(1024).optional()})).max(10).optional(),
+});
+const shopifyTargetRecordSchema = sheinTargetRecordBase.omit({merchant:true,input:true,result:true}).extend({
+ merchant: shopifyMerchantSchema, input: shopifyTargetInputSchema, shopify: shopifyDraft,
+}).refine(v => v.input.shopify.currency === v.shopify.currency && v.merchant.shopify.currency === v.shopify.currency &&
+ v.source.id === v.input.sourceId && v.input.storeId === v.merchant.store_id);
+export type ShopifySupplyTarget = z.infer<typeof shopifyTargetRecordSchema>;
+export const targetRecordSchema=z.union([shopifyTargetRecordSchema,walmartTargetRecordSchema,sheinTargetRecordSchema,temuTargetRecordSchema,tiktokTargetRecordSchema]);
 export const tiktokRulesSchema=z.union([z.object({merchant:tiktokMerchantSchema,tiktok:tiktokRuleSnapshotSchema}),z.object({merchant:tiktokMerchantSchema,tiktokCatalog:tiktokCatalogSchema})]);
 export const temuRulesSchema=z.object({merchant:temuMerchantSchema,temu:temuRuleSnapshotSchema}).refine(v=>v.merchant.merchant_mode===v.temu.mode);
 export const targetReceiptSchema=z.object({record:targetRecordSchema,replayed:z.boolean()});
@@ -142,7 +177,13 @@ export const operationItemPageSchema=page(operationItemSchema);
 export const stageSchema=z.enum(["all","waiting","missing","ready","review","uploaded"]);
 export const stagePageSchema=z.object({items:z.array(z.object({sourceId:collectionID,stage:stageSchema.exclude(["all"]),operationId:collectionID.optional(),review:operationItemSchema.optional()})).max(100),total:integer,batchTotal:integer,counts:z.object({all:integer,waiting:integer,missing:integer,ready:integer,review:integer,uploaded:integer}),nextCursor:collectionID.optional()}).refine(v=>v.counts.all===v.batchTotal&&v.counts.waiting+v.counts.missing+v.counts.ready+v.counts.review+v.counts.uploaded===v.batchTotal&&v.total<=v.batchTotal&&v.items.every(i=>!i.review||i.review.sourceId===i.sourceId));
 export const operationPageSchema=page(operationSchema);
-export const publicationSchema=z.object({sheinStatus:sheinPublicationStatusSchema.optional(),walmart:walmartReceiptSchema.optional(),walmartResults:z.array(walmartResultSchema).max(1000).optional(),sourceId:collectionID,storeId:collectionID,recordId:collectionID.optional(),receiptId:text(128).optional(),observedAt:time.optional(),product:z.object({version:text(128).optional(),traceId:text(128).optional(),spu_name:text(128).min(1),skc_list:list(z.object({skc_name:text(128).min(1),sku_list:list(z.object({sku_code:text(128).min(1),supplier_sku:text(200).min(1)}),400)}),40)}).optional(),temuProduct:temuCreatedGoodsSchema.optional(),tiktok:tiktokEffectSchema.optional(),tiktokStatus:z.object({productId:text(128).min(1),status:z.enum(["DRAFT","PENDING","FAILED","ACTIVATE","SELLER_DEACTIVATED","PLATFORM_DEACTIVATED","FREEZE","DELETED","SCHEDULED"]),auditStatus:z.enum(["NONE","AUDITING","FAILED","PRE_APPROVED","APPROVED"]),reasons:z.array(z.enum(["KYC_PENDING","RESTRICTED_CATEGORY_PENDING","PAYMENT_ACCOUNT_NOT_LINKED","SHOP_INACTIVE","W8_NOT_CONFIGURED"])).max(5),observedAt:time}).strict().optional()}).refine(v=>!v.sheinStatus||!!v.product&&v.sheinStatus.spu===v.product.spu_name&&v.sheinStatus.receiptId===v.receiptId&&v.sheinStatus.sourceId===v.sourceId&&v.sheinStatus.storeId===v.storeId).refine(v=>!v.tiktokStatus||!!v.tiktok&&(v.tiktokStatus.productId===(v.tiktok.local?.id??v.tiktok.publication?.productId))).refine(v=>[v.product,v.temuProduct,v.tiktok,v.walmart].filter(Boolean).length<=1).refine(v=>(v.product||v.temuProduct||v.tiktok||v.walmart)?!!v.receiptId&&!!v.observedAt:!v.receiptId&&!v.observedAt&&!v.recordId);
+export const shopifyProductObservation = z.strictObject({
+ id: z.string().regex(/^gid:\/\/shopify\/Product\/[1-9][0-9]{0,23}$/),
+ status: z.enum(["DRAFT","ACTIVE","ARCHIVED","UNLISTED"]),
+ media: z.array(z.enum(["UPLOADED","PROCESSING","READY","FAILED","UNKNOWN"])).max(10).optional(),
+});
+export const publicationSchema=z.object({shopify: shopifyProductObservation.optional(), shopifyStatus: shopifyProductObservation.optional(),
+ shopifyAttemptId: collectionID.optional(), shopifyAttemptStatus: z.enum(["not_started","claimed","outcome_unknown","succeeded","failed_definitive","cancelled","not_sent"]).optional(), sheinStatus:sheinPublicationStatusSchema.optional(),walmart:walmartReceiptSchema.optional(),walmartResults:z.array(walmartResultSchema).max(1000).optional(),sourceId:collectionID,storeId:collectionID,recordId:collectionID.optional(),receiptId:text(128).optional(),observedAt:time.optional(),product:z.object({version:text(128).optional(),traceId:text(128).optional(),spu_name:text(128).min(1),skc_list:list(z.object({skc_name:text(128).min(1),sku_list:list(z.object({sku_code:text(128).min(1),supplier_sku:text(200).min(1)}),400)}),40)}).optional(),temuProduct:temuCreatedGoodsSchema.optional(),tiktok:tiktokEffectSchema.optional(),tiktokStatus:z.object({productId:text(128).min(1),status:z.enum(["DRAFT","PENDING","FAILED","ACTIVATE","SELLER_DEACTIVATED","PLATFORM_DEACTIVATED","FREEZE","DELETED","SCHEDULED"]),auditStatus:z.enum(["NONE","AUDITING","FAILED","PRE_APPROVED","APPROVED"]),reasons:z.array(z.enum(["KYC_PENDING","RESTRICTED_CATEGORY_PENDING","PAYMENT_ACCOUNT_NOT_LINKED","SHOP_INACTIVE","W8_NOT_CONFIGURED"])).max(5),observedAt:time}).strict().optional()}).refine(v=>!v.sheinStatus||!!v.product&&v.sheinStatus.spu===v.product.spu_name&&v.sheinStatus.receiptId===v.receiptId&&v.sheinStatus.sourceId===v.sourceId&&v.sheinStatus.storeId===v.storeId).refine(v=>!v.tiktokStatus||!!v.tiktok&&(v.tiktokStatus.productId===(v.tiktok.local?.id??v.tiktok.publication?.productId))).refine(v=>[v.product,v.temuProduct,v.tiktok,v.walmart,v.shopify].filter(Boolean).length<=1).refine(v=>(v.product||v.temuProduct||v.tiktok||v.walmart||v.shopify)?!!v.receiptId&&!!v.observedAt:!v.receiptId&&!v.observedAt&&!v.recordId).refine(v => !v.shopifyStatus || v.shopify?.id === v.shopifyStatus.id);
 export const uploadAttemptSchema=z.object({recordId:collectionID,attemptId:collectionID,effectKind:z.enum(["publish","image","global_create"]),platform:z.enum(["temu","tiktokshop","walmart"]).optional(),status:z.enum(["claimed","outcome_unknown","succeeded","failed_definitive","cancelled","not_sent"]),message:text(8192),correlationId:z.uuid().optional(),wireHash:z.string().regex(/^[a-f0-9]{64}$/).optional(),approvedAt:z.iso.datetime({offset:true}).optional()}).strict().refine(v=>v.status!=="not_sent"||v.platform==="tiktokshop");
 export const resolveUploadSchema=z.object({recordId:collectionID,attemptId:collectionID,spu:text(128).min(1)}).strict();
 export const uploadResolutionSchema=z.object({recordId:collectionID,publishedRecordId:collectionID.optional(),attemptId:collectionID,status:z.enum(["succeeded","outcome_unknown"]),currentRecordUploaded:z.boolean().optional(),message:text(8192).optional(),product:z.object({spu_name:text(128),skc_list:z.array(z.object({skc_name:text(128).min(1),sku_list:z.array(z.object({sku_code:text(128).min(1),supplier_sku:text(800).min(1)})).min(1).max(400)})).max(40).nullable()}).optional()}).refine(v=>v.status!=="succeeded"||!!v.product?.spu_name&&!!v.product.skc_list?.length&&v.publishedRecordId===v.recordId&&v.currentRecordUploaded===true);
@@ -221,7 +262,7 @@ export function supplyResponseSchema(route:SupplyRoute):z.ZodType {
  if(route==="completion-history")return completionHistorySchema;
  if(route==="completion-history-detail")return completionRecordSchema;
  if(route.startsWith("materials-"))return route==="materials-prepare"?materialsPreparedSchema:route==="materials-adopt"||route==="materials-adoption"?materialsAdoptionSchema:materialsRunSchema;
- if(route==="rules")return z.union([rulesSchema,temuRulesSchema,tiktokRulesSchema,walmartRulesResponseSchema]);
+ if(route==="rules")return z.union([rulesSchema,temuRulesSchema,tiktokRulesSchema,walmartRulesResponseSchema,shopifyRulesResponseSchema]);
  if(route==="completion-draft")return completionRecordSchema;
  if(route==="completion-command"||route==="save-completion-draft")return completionReceiptSchema;
  if(route==="completion-drafts")return completionPageSchema;

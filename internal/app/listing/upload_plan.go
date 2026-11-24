@@ -36,7 +36,7 @@ func (r UploadPlanInputs) ReadUploadPlanBinding(ctx context.Context, scope colle
 	if !validTargetMerchant(scope, in.StoreID, b) {
 		return "", record.ErrForbidden
 	}
-	if in.PublicationMode == "platform_draft" && b.Platform != storecenter.PlatformTikTokShop {
+	if in.PublicationMode == "platform_draft" && b.Platform != storecenter.PlatformTikTokShop && b.Platform != storecenter.PlatformShopify {
 		return "", record.ErrNotReady
 	}
 	return collection.Digest(b), nil
@@ -91,7 +91,7 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		facts.Ready = record.PublicationReady(saved)
 		facts.Target = preparation.TargetApproval{SourceID: source.ID, RecordID: saved.ID, Revision: saved.Revision}
 		facts.PublicationMode = "platform"
-		if saved.Input.TikTok != nil && saved.Input.TikTok.SaveMode == "AS_DRAFT" {
+		if saved.Shopify != nil || saved.Input.TikTok != nil && saved.Input.TikTok.SaveMode == "AS_DRAFT" {
 			facts.PublicationMode = "platform_draft"
 		}
 		if saved.Walmart != nil {
@@ -109,7 +109,7 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		if !validTargetMerchant(scope, plan.Input.StoreID, binding) {
 			return facts, record.ErrForbidden
 		}
-		facts.ManualTargetRequired = binding.Platform == storecenter.PlatformTikTokShop || binding.Platform == storecenter.PlatformWalmart
+		facts.ManualTargetRequired = binding.Platform == storecenter.PlatformTikTokShop || binding.Platform == storecenter.PlatformWalmart || binding.Platform == storecenter.PlatformShopify
 	}
 	publication, e := a.Publication(ctx, source.ID, plan.Input.StoreID)
 	if e != nil {
@@ -277,6 +277,9 @@ func uploadPlanReviewState(scope collection.Scope, id string, original, saved re
 var _ preparation.UploadPlanInputs = UploadPlanInputs{}
 
 func uploadPlanPublicationSummary(saved record.TargetRecord) []string {
+	if saved.Shopify != nil {
+		return []string{saved.Shopify.Title, fmt.Sprintf("Shopify 草稿 · %s · %d 个规格 · %d 张图片", saved.Shopify.Currency, len(saved.Shopify.Variants), len(saved.Shopify.Images))}
+	}
 	if saved.Input.TikTok != nil {
 		return []string{fmt.Sprintf("TikTok %s · %s", saved.Input.TikTok.Selection.Method, saved.Input.TikTok.SaveMode)}
 	}

@@ -137,6 +137,9 @@ func InstallCoreSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if err := installTikTokSchemaTx(ctx, tx); err != nil {
 		return err
 	}
+	if err := installShopifySchemaTx(ctx, tx); err != nil {
+		return err
+	}
 	return installWalmartSchemaTx(ctx, tx)
 }
 
@@ -184,7 +187,7 @@ func VerifyCurrentSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("store schema transaction unavailable")
 	}
-	return verifyCurrentSchema(ctx, tx, RuntimeCapabilities{TikTokShop: true, WalmartUS: true})
+	return verifyCurrentSchema(ctx, tx, RuntimeCapabilities{TikTokShop: true, WalmartUS: true, Shopify: true})
 }
 
 func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities RuntimeCapabilities) error {
@@ -196,6 +199,11 @@ func verifyCurrentSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilit
 	}
 	if capabilities.TikTokShop {
 		if err := verifyTikTokSchema(ctx, sqlDB); err != nil {
+			return err
+		}
+	}
+	if capabilities.Shopify {
+		if err := verifyShopifySchema(ctx, sqlDB); err != nil {
 			return err
 		}
 	}
@@ -260,7 +268,11 @@ func verifyCoreSchema(ctx context.Context, sqlDB coreSchemaQueryer, capabilities
 		if err := sqlDB.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint WHERE conrelid='public.workbench_stores'::regclass AND contype='c' AND conname=$1 AND convalidated`, name).Scan(&definition); err != nil {
 			return errors.New("store schema state constraints unavailable")
 		}
-		if !pgschema.SchemaConstraintEqual(definition, want) {
+		matches := pgschema.SchemaConstraintEqual(definition, want)
+		if !matches && !capabilities.Shopify && name == "store_platform" && want == currentConstraintDefinitions["store_platform"] {
+			matches = pgschema.SchemaConstraintEqual(definition, `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text])))`)
+		}
+		if !matches {
 			return fmt.Errorf("store schema state constraint mismatch: %s", name)
 		}
 	}
@@ -367,11 +379,11 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  OR (n.nspname='public' AND r.relname IN ('workbench_store_browser_operations','workbench_store_browser_reports') AND p.privilege_type IN ('SELECT','INSERT'))
  OR ($1 AND n.nspname='store_observations' AND ((r.relname='commands' AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('syncs','records','heads') AND p.privilege_type IN ('SELECT','INSERT','UPDATE'))))
  OR ($2 AND n.nspname='operations_cockpit' AND ((r.relname IN ('facts','fact_versions','goal_heads','goal_versions','commands') AND p.privilege_type IN ('SELECT','INSERT')) OR (r.relname IN ('facts','goal_heads') AND p.privilege_type='UPDATE')))
- OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
+ OR ($3 AND n.nspname='public' AND ((r.relname IN ('workbench_store_tiktok_oauth_grants','workbench_store_tiktok_oauth_attempts','workbench_store_tiktok_shop_bindings','workbench_store_tiktok_oauth_refresh_operations') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR (r.relname='workbench_store_tiktok_authorization_events' AND p.privilege_type IN ('SELECT','INSERT')))) OR ($4 AND n.nspname='public' AND r.relname IN ('workbench_store_walmart_oauth_grants','workbench_store_walmart_oauth_attempts') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')) OR ($5 AND n.nspname='public' AND r.relname IN ('workbench_store_shopify_shops','workbench_store_shopify_authorizations','workbench_store_shopify_pairings') AND p.privilege_type IN ('SELECT','INSERT','UPDATE')))) FROM (SELECT current_user::text AS runtime_role) subject`
 
 // RuntimeCapabilities admits only explicitly enabled feature tables.
 // The default Store boundary continues to reject every additional privilege.
-type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS bool }
+type RuntimeCapabilities struct{ Observations, OperationsCockpit, TikTokShop, WalmartUS, Shopify bool }
 
 func VerifyRuntimePermissions(ctx context.Context, db *gorm.DB) error {
 	return VerifyRuntimePermissionsForCapabilities(ctx, db, RuntimeCapabilities{})
@@ -387,7 +399,7 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	}
 	var role string
 	var required, forbidden bool
-	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop, capabilities.WalmartUS).Scan(&role, &required, &forbidden); err != nil {
+	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop, capabilities.WalmartUS, capabilities.Shopify).Scan(&role, &required, &forbidden); err != nil {
 		return err
 	}
 	if role != "store_center_runtime" || !required || forbidden {
@@ -415,6 +427,14 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(SELECT 1 FROM (VALUES ('workbench_store_walmart_oauth_grants'),('workbench_store_walmart_oauth_attempts')) t(name) WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE'),false))`).Scan(&complete)
 		if err != nil || !complete {
 			return errors.New("Walmart US required Store grants unavailable")
+		}
+	}
+	if capabilities.Shopify {
+		var complete bool
+		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS (SELECT 1 FROM (VALUES ('workbench_store_shopify_shops'),('workbench_store_shopify_authorizations'),('workbench_store_shopify_pairings')) t(name)
+ WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE'),false))`).Scan(&complete)
+		if err != nil || !complete {
+			return errors.New("Store Shopify authorization grants unavailable")
 		}
 	}
 	if capabilities.OperationsCockpit {
@@ -504,7 +524,7 @@ func currentColumnType(table, name string) schemaColumnType {
 var currentConstraintDefinitions = map[string]string{
 	"store_delete_shape":    `CHECK (((((record_status)::text = ANY ((ARRAY['deleting'::character varying, 'deleted'::character varying])::text[])) AND ((delete_operation_key)::text <> ''::text)) OR (((record_status)::text <> ALL ((ARRAY['deleting'::character varying, 'deleted'::character varying])::text[])) AND ((delete_operation_key)::text = ''::text))))`,
 	"store_deleted_shape":   `CHECK ((((record_status)::text = 'deleted'::text) = (deleted_at IS NOT NULL)))`,
-	"store_platform":        `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text])))`,
+	"store_platform":        `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'shopify'::text])))`,
 	"store_walmart_market":  `CHECK (((platform <> 'walmart'::text) OR (region = 'US'::text)))`,
 	"store_tiktok_identity": `CHECK (((platform <> 'tiktokshop'::text) OR ((region = 'US'::text) AND (external_store_id <> ''::text))))`,
 	"store_record_status":   `CHECK (((record_status)::text = ANY ((ARRAY['active'::character varying, 'disabled'::character varying, 'deleting'::character varying, 'deleted'::character varying])::text[])))`,

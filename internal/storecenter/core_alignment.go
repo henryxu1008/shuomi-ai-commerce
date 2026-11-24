@@ -137,7 +137,7 @@ func AlignCoreSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	return VerifyAlignedCoreSchemaTx(ctx, tx)
 }
 
-const storePlatformCheckSQL = `CHECK (platform IN ('shein','temu','tiktokshop','walmart'))`
+const storePlatformCheckSQL = `CHECK (platform IN ('shein','temu','tiktokshop','walmart','shopify'))`
 const storeTikTokCheckSQL = `CHECK (platform<>'tiktokshop' OR (region='US' AND external_store_id<>''))`
 const storeWalmartCheckSQL = `CHECK (platform<>'walmart' OR region='US')`
 const storeMerchantCheckSQL = `CHECK (octet_length(identity_hash)=64 AND app_id<>'' AND ((platform='shein' AND open_key_id<>'') OR (platform IN ('temu','walmart') AND open_key_id='')))`

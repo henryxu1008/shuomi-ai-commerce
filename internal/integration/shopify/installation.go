@@ -9,7 +9,7 @@ import (
 var ErrInstallationUnavailable = errors.New("Shopify installation could not be verified")
 
 const installationQuery = `query ConfirmInstallation {
-  shop { id myshopifyDomain currencyCode }
+  shop { id myshopifyDomain currencyCode plan { partnerDevelopment } }
   currentAppInstallation { id app { id } accessScopes { handle } }
 }`
 
@@ -33,6 +33,9 @@ func (c *AdminClient) Installation(ctx context.Context, shop, token, appID strin
 			ID              string `json:"id"`
 			MyshopifyDomain string `json:"myshopifyDomain"`
 			CurrencyCode    string `json:"currencyCode"`
+			Plan            struct {
+				PartnerDevelopment bool `json:"partnerDevelopment"`
+			} `json:"plan"`
 		} `json:"shop"`
 		Current struct {
 			ID  string `json:"id"`
@@ -51,7 +54,7 @@ func (c *AdminClient) Installation(ctx context.Context, shop, token, appID strin
 		return Installation{}, ErrInstallationUnavailable
 	}
 	if !validGID(data.Shop.ID, "Shop") || data.Shop.MyshopifyDomain != shop ||
-		!currencyPattern.MatchString(data.Shop.CurrencyCode) || !validGID(data.Current.ID, "AppInstallation") ||
+		c.developmentStoresOnly && !data.Shop.Plan.PartnerDevelopment || !currencyPattern.MatchString(data.Shop.CurrencyCode) || !validGID(data.Current.ID, "AppInstallation") ||
 		data.Current.App.ID != appID || !slices.ContainsFunc(data.Current.Scopes, func(scope struct {
 		Handle string `json:"handle"`
 	}) bool {

@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+const sourceDefinitionFixture = `{"data":{"metafieldDefinition":{"type":{"name":"single_line_text_field"},"capabilities":{"uniqueValues":{"enabled":true}},"access":{"storefront":"NONE"}}}}`
+
 const fixtureSourceKey = "942d8383cde574aacd35cc667d0da6248521414e9f256a6c4502e72d8f037dc0"
 
 func TestDraftWriteCreatesAndCorrelatesOnlyDraft(t *testing.T) {
@@ -26,7 +28,10 @@ func TestDraftWriteCreatesAndCorrelatesOnlyDraft(t *testing.T) {
 		if requests == 1 {
 			return fixtureResponse(http.StatusOK, installationFixture), nil
 		}
-		if requests != 2 || strings.Contains(document.Query, "identifier:") || !strings.Contains(document.Query, "synchronous: true") {
+		if requests == 2 && strings.Contains(document.Query, "metafieldDefinition") {
+			return fixtureResponse(http.StatusOK, sourceDefinitionFixture), nil
+		}
+		if requests != 3 || strings.Contains(document.Query, "identifier:") || !strings.Contains(document.Query, "synchronous: true") {
 			t.Fatalf("expected one create-only mutation, got %s", document.Query)
 		}
 		var input struct {
@@ -91,7 +96,7 @@ func TestDraftWriteTreatsAmbiguousRemoteResultsAsUnknown(t *testing.T) {
 				t.Fatal(err)
 			}
 			got, err := writer.Create(ctx, productDraft())
-			if got.ID != "" || !errors.Is(err, ErrDraftOutcomeUnknown) || calls != 2 {
+			if got.ID != "" || !errors.Is(err, ErrDraftOutcomeUnknown) || calls != 3 {
 				t.Fatalf("got %+v, %v; calls = %d", got, err, calls)
 			}
 		})
@@ -137,8 +142,12 @@ func makeProductClient(t *testing.T, calls *int, body string, status int) *Admin
 		if *calls == 1 {
 			return fixtureResponse(http.StatusOK, installationFixture), nil
 		}
-		if *calls > 2 {
-			t.Fatal("unexpected Shopify retry")
+		var query struct{ Query string }
+		if json.NewDecoder(req.Body).Decode(&query) != nil || *calls > 3 {
+			t.Fatal("unexpected Shopify request")
+		}
+		if *calls == 2 && strings.Contains(query.Query, "metafieldDefinition") {
+			return fixtureResponse(http.StatusOK, sourceDefinitionFixture), nil
 		}
 		return fixtureResponse(status, body), nil
 	})})
@@ -160,4 +169,25 @@ func productDraft() Draft {
 func productFixture(status, key string) string {
 	return `{"id":"gid://shopify/Product/55","status":"` + status +
 		`","metafield":{"value":"` + key + `"},"media":{"nodes":[{"status":"PROCESSING"}]}}`
+}
+
+func TestDraftWriteRefusesMissingUniquePrivateSourceDefinition(t *testing.T) {
+	for _, body := range []string{
+		`{"data":{"metafieldDefinition":null}}`,
+		`{"data":{"metafieldDefinition":{"type":{"name":"single_line_text_field"},"capabilities":{"uniqueValues":{"enabled":false}},"access":{"storefront":"NONE"}}}}`,
+		`{"data":{"metafieldDefinition":{"type":{"name":"single_line_text_field"},"capabilities":{"uniqueValues":{"enabled":true}},"access":{"storefront":"PUBLIC_READ"}}}}`,
+	} {
+		var calls int
+		client := NewAdminClient(&http.Client{Transport: transportFunc(func(req *http.Request) (*http.Response, error) {
+			calls++
+			if calls == 1 {
+				return fixtureResponse(http.StatusOK, installationFixture), nil
+			}
+			return fixtureResponse(http.StatusOK, body), nil
+		})})
+		writer, err := client.VerifyDraftWrite(context.Background(), productInstallation(), "fixture-token")
+		if writer != nil || !errors.Is(err, ErrInstallationUnavailable) || calls != 2 {
+			t.Fatalf("ineligible source definition returned a write handle: %v, requests %d", err, calls)
+		}
+	}
 }

@@ -55,6 +55,7 @@ type Handler struct {
 	service             StoreService
 	serviceLifecycle    ServiceLifecycleService
 	officialConnections OfficialConnectionService
+	shopifyConnections  ShopifyConnectionService
 }
 
 type OfficialConnectionService interface {
@@ -115,8 +116,9 @@ type PaginationResponse struct {
 }
 
 type ListStoresResponse struct {
-	Items      []StoreResponse    `json:"items"`
-	Pagination PaginationResponse `json:"pagination"`
+	ShopifyAvailable bool               `json:"shopifyAvailable,omitempty"`
+	Items            []StoreResponse    `json:"items"`
+	Pagination       PaginationResponse `json:"pagination"`
 }
 
 type DeleteStoreResponse struct {
@@ -157,6 +159,7 @@ func (h *Handler) List(c *gin.Context) {
 		writeStoreError(c, err)
 		return
 	}
+	response.ShopifyAvailable = h.shopifyConnections != nil
 	c.JSON(http.StatusOK, response)
 }
 
@@ -184,7 +187,7 @@ func (h *Handler) Create(c *gin.Context) {
 		writeInvalid(c, "name", "invalid")
 		return
 	}
-	if !isPublicStorePlatform(values["platform"]) {
+	if !isPublicStorePlatform(values["platform"]) || values["platform"] == string(storecenter.PlatformShopify) && h.shopifyConnections == nil {
 		writeInvalid(c, "platform", "invalid")
 		return
 	}
@@ -194,7 +197,7 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	externalID, err := normalizePublicValue(values["externalStoreId"], storecenter.MaxExternalStoreIDCodePoints, false)
-	if err != nil {
+	if err != nil || values["platform"] == string(storecenter.PlatformShopify) && externalID != "" {
 		writeInvalid(c, "externalStoreId", "invalid")
 		return
 	}
@@ -508,7 +511,7 @@ func parseListRequest(rawQuery string) (storecenter.ListStoresRequest, string, e
 }
 
 func isPublicStorePlatform(value string) bool {
-	return value == string(storecenter.PlatformShein) || value == string(storecenter.PlatformTemu) || value == string(storecenter.PlatformWalmart)
+	return value == string(storecenter.PlatformShein) || value == string(storecenter.PlatformTemu) || value == string(storecenter.PlatformWalmart) || value == string(storecenter.PlatformShopify)
 }
 
 func parseStringObject(body io.Reader, fields map[string]bool) (map[string]string, string, error) {

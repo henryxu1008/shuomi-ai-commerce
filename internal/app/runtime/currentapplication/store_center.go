@@ -15,6 +15,7 @@ type StoreCenterConfig struct {
 	OfficialApplications []OfficialStoreConnectionConfig `json:"officialApplications,omitempty"`
 	TikTokShop           *TikTokShopConfig               `json:"tiktokShop,omitempty"`
 	WalmartUS            *WalmartUSConfig                `json:"walmartUS,omitempty"`
+	Shopify              *ShopifyConfig                  `json:"shopify,omitempty"`
 }
 
 func (c *Config) validateStoreCenter() error {
@@ -29,6 +30,9 @@ func (c *Config) validateStoreCenter() error {
 		return err
 	}
 	if err := s.TikTokShop.validate(); err != nil {
+		return err
+	}
+	if err := s.Shopify.validate(); err != nil {
 		return err
 	}
 	if s.WalmartUS != nil {

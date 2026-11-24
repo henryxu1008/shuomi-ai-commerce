@@ -16,6 +16,12 @@ func (a *Application) PublicationStatus(ctx context.Context, sourceID, storeID s
 	if e != nil {
 		return view, e
 	}
+	if view.binding.ValidShopifyApplication() {
+		if a.ShopifyStatus == nil || len(receiptIDs) > 1 || len(receiptIDs) == 1 && receiptIDs[0] != "" && receiptIDs[0] != view.ReceiptID {
+			return view, record.ErrNotReady
+		}
+		return a.ShopifyStatus.read(ctx, view)
+	}
 	if view.Product != nil {
 		if a.SheinPublication == nil {
 			return view, record.ErrNotReady

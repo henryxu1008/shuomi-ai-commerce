@@ -131,6 +131,9 @@ func ValidateOfficialIntent(value OfficialIntent) error {
 	if value.Shelf != nil || value.Kind == "shelf_on" {
 		return validateShelfIntent(value)
 	}
+	if value.Target.Platform == "shopify" {
+		return validateShopifyIntent(value)
+	}
 	if value.Target.Platform == "walmart" {
 		return validateWalmartIntent(value)
 	}

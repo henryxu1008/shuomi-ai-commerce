@@ -188,6 +188,20 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 			(attempt.Action == submission.OfficialPublishAction && strings.HasPrefix(attempt.Target.SubjectID, "product-us-") || attempt.Action == submission.OfficialImageAction && strings.HasPrefix(attempt.Target.SubjectID, "image-us-")) {
 			return mutation{}, submission.ErrExecutionTargetSucceeded
 		}
+		if attempt.Target.Platform == "shopify" {
+			if !r.immutableOfficialEffects {
+				return mutation{}, submission.ErrExecutionEvidenceRequired
+			}
+			if found && fence.CurrentStatus != string(submission.ExecutionNotSent) {
+				if fence.CurrentStatus == string(submission.ExecutionSucceeded) {
+					return mutation{}, submission.ErrExecutionTargetSucceeded
+				}
+				return mutation{}, submission.ErrExecutionTargetClaimed
+			}
+			if err := r.requireShopifyEffect(ctx, tx, attempt); err != nil {
+				return mutation{}, err
+			}
+		}
 		if r.immutableOfficialEffects && attempt.Target.Platform == "tiktokshop" {
 			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
 				return mutation{}, submission.ErrExecutionTargetSucceeded

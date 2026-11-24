@@ -83,6 +83,15 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	if err := handler.SetOfficialConnections(connections); err != nil {
 		return nil, err
 	}
+	shopify, err := applications.ShopifyConnections(repo)
+	if err != nil {
+		return nil, err
+	}
+	if shopify != nil {
+		if err := handler.SetShopifyConnections(shopify); err != nil {
+			return nil, err
+		}
+	}
 	module := storehttp.NewModule(handler)
 	catalog, metadata, err := buildStoreCatalog(records, authorizer, applications, nil, nil, nil)
 	if err != nil {

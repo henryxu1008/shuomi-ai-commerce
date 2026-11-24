@@ -197,11 +197,11 @@ func publicTarget(value record.TargetRecord) listingTargetResponse {
 func listingPublicResponse(value any) any {
 	switch v := value.(type) {
 	case record.TargetRecord:
-		if v.Input.Temu != nil || v.Input.TikTok != nil || v.Input.Walmart != nil {
+		if v.Input.Shopify != nil || v.Input.Temu != nil || v.Input.TikTok != nil || v.Input.Walmart != nil {
 			return publicTarget(v)
 		}
 	case record.TargetReceipt:
-		if v.Record.Input.Temu != nil || v.Record.Input.TikTok != nil || v.Record.Input.Walmart != nil {
+		if v.Record.Input.Shopify != nil || v.Record.Input.Temu != nil || v.Record.Input.TikTok != nil || v.Record.Input.Walmart != nil {
 			return struct {
 				Record   listingTargetResponse `json:"record"`
 				Replayed bool                  `json:"replayed"`

@@ -14,6 +14,7 @@ import (
 	completionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/completiondraft"
 	officialstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/official"
 	prepstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/preparation"
+	recordstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/record"
 	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
 	assetstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/asset"
 	kernelmodule "github.com/henryxu1008/shuomi-ai-commerce/internal/kernel/module"
@@ -131,13 +132,21 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		}
 		completionVersions = versions
 	}
-	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, CompletionVersions: completionVersions, Records: records, Images: imageProbe, Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
+	targets, err := record.NewTargetService(record.TargetDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, ShopifyStores: listingapp.OfficialShopifyExecutionStore{Access: access}, CompletionVersions: completionVersions, Records: records, Images: imageProbe, Authorizer: auth, ExecutionSources: sources, ExecutionAuthorization: executionAuth})
 	if err != nil {
 		return empty, err
 	}
 	official, err := officialstore.NewOfficialRepository(ctx, productDB)
 	if err != nil {
 		return empty, err
+	}
+	if apps.ShopifyConfigured() {
+		if err := recordstore.VerifyShopifySchema(ctx, productDB); err != nil {
+			return empty, err
+		}
+		if err := submissionstore.VerifyShopifySchema(ctx, productDB); err != nil {
+			return empty, err
+		}
 	}
 	effects, err := submissionstore.NewOfficialEffectsRepository(productDB)
 	if err != nil {
@@ -148,11 +157,12 @@ func buildListingModule(ctx context.Context, productDB, storeDB *gorm.DB, d List
 		return empty, err
 	}
 	stageProjection := core.app.StageProjection
-	uploader, err := listingapp.NewUploadService(listingapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, TikTokStores: listingapp.OfficialTikTokExecutionStore{Access: access}, WalmartStores: listingapp.OfficialWalmartExecutionStore{Access: access}, WalmartReadStores: walmartStores, Records: records, Authorization: executionAuth, Stores: listingapp.OfficialExecutionStore{Access: access}, TemuStores: listingapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
+	uploader, err := listingapp.NewUploadService(listingapp.UploadDependencies{Sources: sources, Products: effective, Assets: assets, Rules: rules, TemuRules: temuRules, TemuImages: imageProbe, TikTokRules: tiktokRules, TikTokImages: imageProbe, WalmartRules: walmartRules, WalmartImages: imageProbe, ShopifyStores: listingapp.OfficialShopifyExecutionStore{Access: access}, TikTokStores: listingapp.OfficialTikTokExecutionStore{Access: access}, WalmartStores: listingapp.OfficialWalmartExecutionStore{Access: access}, WalmartReadStores: walmartStores, Records: records, Authorization: executionAuth, Stores: listingapp.OfficialExecutionStore{Access: access}, TemuStores: listingapp.OfficialTemuExecutionStore{Access: access}, Images: imageProbe, Kernel: kernel, Intents: official, Receipts: official, ReviewGate: stageProjection.RequireUploadReady})
 	if err != nil {
 		return empty, err
 	}
 	app := &listingapp.Application{Preparations: preparations, Sources: sources, Operations: operations, Execution: listingapp.OperationApplication{Service: operations, Repository: operationsRepo, Starter: d.Starter}, Targets: targets, Records: records, Products: effective, Rules: rules, TemuRules: temuRules, TikTokRules: tiktokRules, TikTokCatalog: tiktokRules, TikTokStatusStores: listingapp.OfficialTikTokRuleStore{Access: access}, WalmartRules: walmartRules, WalmartCatalog: walmartRules, WalmartStatusStores: walmartStores, WalmartResults: official, Assets: assets, Approvals: approvals, Authorization: auth, PublicationReceipts: official, PublicationStores: listingapp.OfficialRuleStore{Access: access}, TargetMerchants: listingapp.OfficialTargetMerchantStore{Access: access}}
+	app.ShopifyStatus = &listingapp.ShopifyStatusService{Store: access, Attempts: effects, Kernel: kernel, Intents: official, Resolutions: official, Records: records}
 	app.ValidateDraftRead = formalDraftRead
 	app.WalmartFeedSource = official
 	app.WalmartFeedMerchant = func(ctx context.Context, scope collection.Scope, id string) (storecenter.ProductMerchantBinding, error) {

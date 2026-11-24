@@ -20,6 +20,7 @@ type OfficialConnections struct {
 	applications *OfficialApplicationRegistry
 	tiktok       *TikTokConnections
 	walmart      *WalmartConnections
+	shopify      *ShopifyConnections
 }
 
 // Refresh dispatches by the persisted Store platform. The existing platform
@@ -84,7 +85,18 @@ func NewOfficialConnections(store storecenter.OfficialConnectionStore, applicati
 	if err != nil {
 		return nil, err
 	}
-	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok, walmart: newWalmartConnections(store, applications)}, nil
+	var shopify *ShopifyConnections
+	if applications.ShopifyConfigured() {
+		repo, ok := store.(*storecenter.MemberScopedStoreRepository)
+		if !ok {
+			return nil, storecenter.ErrOfficialConnectionUnavailable
+		}
+		shopify, err = applications.ShopifyConnections(repo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok, walmart: newWalmartConnections(store, applications), shopify: shopify}, nil
 }
 
 // Missing developer setup affects this capability, while Store CRUD and local
@@ -341,6 +353,17 @@ func (a *OfficialConnections) Read(ctx context.Context, org, store string) (stor
 	if err != nil {
 		return view, err
 	}
+	if view.Platform == storecenter.PlatformShopify {
+		view.Status, view.State = storecenter.ConnectionStatusUnavailable, "disconnected"
+		if a.shopify == nil {
+			return view, nil
+		}
+		view.Status, err = a.shopify.Status(ctx, org, store)
+		if view.Status == storecenter.ConnectionStatusConnected {
+			view.State = "bound"
+		}
+		return view, err
+	}
 	if a.applications == nil {
 		view.Status = storecenter.ConnectionStatusUnavailable
 	} else if view.AppID != "" {
@@ -382,6 +405,12 @@ func (a *OfficialConnections) Applications(ctx context.Context, org, store strin
 	return choices, nil
 }
 func (a *OfficialConnections) Status(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ConnectionStatus, error) {
+	if input.Platform == storecenter.PlatformShopify {
+		if a.shopify == nil {
+			return storecenter.ConnectionStatusUnavailable, nil
+		}
+		return a.shopify.Status(ctx, input.OrganizationID, input.StoreID)
+	}
 	if input.Platform == storecenter.PlatformWalmart && a.walmart != nil {
 		return a.walmart.Status(ctx, input)
 	}

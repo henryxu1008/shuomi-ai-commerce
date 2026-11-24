@@ -92,3 +92,25 @@ func fixtureResponse(status int, body string) *http.Response {
 }
 
 const installationFixture = `{"data":{"shop":{"id":"gid://shopify/Shop/10","myshopifyDomain":"demo-shop.myshopify.com","currencyCode":"USD"},"currentAppInstallation":{"id":"gid://shopify/AppInstallation/21","app":{"id":"gid://shopify/App/32"},"accessScopes":[{"handle":"read_products"},{"handle":"write_products"}]}},"extensions":{"cost":{"requestedQueryCost":4}}}`
+
+func TestDevelopmentAdminClientRejectsStoresWithoutDevPlan(t *testing.T) {
+	for _, fixture := range []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"plan not observed", installationFixture, false},
+		{"paid shop", strings.Replace(installationFixture, `"currencyCode":"USD"`, `"currencyCode":"USD","plan":{"partnerDevelopment":false}`, 1), false},
+		{"development shop", strings.Replace(installationFixture, `"currencyCode":"USD"`, `"currencyCode":"USD","plan":{"partnerDevelopment":true}`, 1), true},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			client := NewDevelopmentAdminClient(&http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+				return fixtureResponse(http.StatusOK, fixture.body), nil
+			})})
+			_, err := client.Installation(context.Background(), "demo-shop.myshopify.com", "fixture-token", "gid://shopify/App/32")
+			if (err == nil) != fixture.want {
+				t.Fatalf("development shop verification: %v", err)
+			}
+		})
+	}
+}

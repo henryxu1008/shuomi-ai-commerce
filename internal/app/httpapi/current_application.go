@@ -464,7 +464,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.operationsCockpits > 0 && (supplied.storeCenters != 1 || supplied.storeCenterDB == nil) {
 		return nil, errors.New("operations cockpit requires current Store owner")
 	}
-	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured()}
+	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured(), Shopify: supplied.officialStoreApplications.ShopifyConfigured()}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
 	}
@@ -1596,6 +1596,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		ZitadelSMS:           true,
 		StoreCenter:          supplied.storeCenters > 0,
 		TikTokShop:           supplied.officialStoreApplications.TikTokConfigured(),
+		Shopify:              supplied.officialStoreApplications.ShopifyConfigured(),
 		StoreObservations:    supplied.storeObservations > 0,
 		Fulfillment:          supplied.fulfillments == 1,
 		LocalTrial:           supplied.localTrials > 0,
@@ -1745,6 +1746,7 @@ type currentApplicationOptionalRoutes struct {
 	OfficialKnowledge    bool
 	StoreCenter          bool
 	TikTokShop           bool
+	Shopify              bool
 	StoreObservations    bool
 	LocalTrial           bool
 	Resources            bool
@@ -1974,6 +1976,12 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("TikTok Shop lifecycle loses signature authority boundary")
 			}
 		}
+	}
+	if optional.Shopify {
+		if !optional.StoreCenter {
+			return errors.New("Shopify requires current Store owner")
+		}
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyPairingPath})
 	}
 	if optional.StoreObservations {
 		if !optional.StoreCenter {

@@ -3,6 +3,7 @@ package target
 import (
 	"context"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	shopify "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
 	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
@@ -17,6 +18,9 @@ import (
 // ValidPlatformRecord rejects ambiguous payloads at persistence boundaries.
 // The current qualified SHEIN path and the TEMU variant stay explicit.
 func ValidPlatformRecord(value TargetRecord) bool {
+	if value.Input.Shopify != nil || value.Shopify != nil || value.Merchant.Platform == storecenter.PlatformShopify {
+		return validShopifyRecord(value)
+	}
 	if value.LocalTrial != nil || value.Input.LocalTrial != nil {
 		return validLocalRecord(value)
 	}
@@ -56,6 +60,9 @@ func PublicationReady(value TargetRecord) bool {
 	if value.Input.ColorPartition != nil || !ValidPlatformRecord(value) {
 		return false
 	}
+	if value.Merchant.Platform == storecenter.PlatformShopify {
+		return true
+	}
 	if value.Merchant.Platform == storecenter.PlatformWalmart {
 		return value.Walmart.ValidateWire() == nil
 	}
@@ -69,6 +76,7 @@ func PublicationReady(value TargetRecord) bool {
 }
 
 type preparedPlatform struct {
+	shopify       *shopify.Draft
 	walmart       *walmart.Draft
 	walmartRules  *walmart.RuleSnapshot
 	walmartImages []walmart.ImageObservation
@@ -87,6 +95,20 @@ type preparedPlatform struct {
 }
 
 func (s *TargetService) preparePlatform(ctx context.Context, scope collection.Scope, input TargetInput, inventory asset.ApprovedAssetInventory, product catalog.PublishedSnapshot) (preparedPlatform, error) {
+	if input.Shopify != nil {
+		if s.dependencies.ShopifyStores == nil {
+			return preparedPlatform{}, ErrUnavailable
+		}
+		merchant, err := s.dependencies.ShopifyStores.ShopifyTargetBinding(ctx, scope, input.StoreID)
+		if err != nil || merchant.OrganizationID != scope.OrganizationID || merchant.StoreID != input.StoreID || !merchant.ValidShopifyApplication() {
+			return preparedPlatform{}, ErrNotReady
+		}
+		draft, err := shopify.BuildDraft(*input.Shopify, product.Snapshot, inventory, merchant.Shopify.Currency)
+		if err != nil {
+			return preparedPlatform{}, ErrNotReady
+		}
+		return preparedPlatform{shopify: &draft, merchant: merchant, rulesHash: collection.Digest(merchant.Shopify)}, nil
+	}
 	if input.Walmart != nil {
 		if s.dependencies.WalmartRules == nil {
 			return preparedPlatform{}, ErrUnavailable

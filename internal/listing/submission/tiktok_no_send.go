@@ -50,6 +50,17 @@ func (k *ExecutionKernel) PrepareTikTokExecution(ctx context.Context, command Ac
 	if k == nil || command.Target.Platform != "tiktokshop" || !tikTokNoSendAction(command.Action) {
 		return TikTokPreparedAcquisition{}, ErrExecutionInvalid
 	}
+	return k.prepareGuardedExecution(ctx, command)
+}
+
+func (k *ExecutionKernel) PrepareShopifyExecution(ctx context.Context, command AcquireExecutionCommand) (TikTokPreparedAcquisition, error) {
+	if k == nil || command.Target.Platform != "shopify" || command.Action != ShopifyDraftAction {
+		return TikTokPreparedAcquisition{}, ErrExecutionInvalid
+	}
+	return k.prepareGuardedExecution(ctx, command)
+}
+
+func (k *ExecutionKernel) prepareGuardedExecution(ctx context.Context, command AcquireExecutionCommand) (TikTokPreparedAcquisition, error) {
 	if _, ok := k.repository.(TikTokNoSendRepository); !ok {
 		return TikTokPreparedAcquisition{}, ErrExecutionUnavailable
 	}
@@ -65,13 +76,21 @@ func (k *ExecutionKernel) PrepareTikTokExecution(ctx context.Context, command Ac
 }
 
 func (k *ExecutionKernel) BeginTikTokSend(ctx context.Context, preparation *TikTokPreparation) (*SendPermit, error) {
+	return k.beginGuardedSend(ctx, preparation, "tiktokshop")
+}
+
+func (k *ExecutionKernel) BeginShopifySend(ctx context.Context, preparation *TikTokPreparation) (*SendPermit, error) {
+	return k.beginGuardedSend(ctx, preparation, "shopify")
+}
+
+func (k *ExecutionKernel) beginGuardedSend(ctx context.Context, preparation *TikTokPreparation, platform string) (*SendPermit, error) {
 	if k == nil || ctx == nil || preparation == nil || preparation.gate == nil {
 		return nil, ErrExecutionInvalid
 	}
 	g := preparation.gate
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.kernel != k {
+	if g.kernel != k || g.attempt.Target.Platform != platform {
 		return nil, ErrExecutionInvalid
 	}
 	if err := ctx.Err(); err != nil {
@@ -86,12 +105,20 @@ func (k *ExecutionKernel) BeginTikTokSend(ctx context.Context, preparation *TikT
 }
 
 func (k *ExecutionKernel) StopTikTokBeforeSend(ctx context.Context, preparation *TikTokPreparation, reason string) (ExecutionAttempt, error) {
+	return k.stopGuardedSend(ctx, preparation, reason, "tiktokshop")
+}
+
+func (k *ExecutionKernel) StopShopifyBeforeSend(ctx context.Context, preparation *TikTokPreparation, reason string) (ExecutionAttempt, error) {
+	return k.stopGuardedSend(ctx, preparation, reason, "shopify")
+}
+
+func (k *ExecutionKernel) stopGuardedSend(ctx context.Context, preparation *TikTokPreparation, reason, platform string) (ExecutionAttempt, error) {
 	if k == nil || preparation == nil || preparation.gate == nil || !validNoSendReason(reason) {
 		return ExecutionAttempt{}, ErrExecutionInvalid
 	}
 	g := preparation.gate
 	g.mu.Lock()
-	if g.kernel != k || g.started {
+	if g.kernel != k || g.attempt.Target.Platform != platform || g.started {
 		g.mu.Unlock()
 		return ExecutionAttempt{}, ErrExecutionClaimRejected
 	}
@@ -177,5 +204,6 @@ func noSendFingerprint(a ExecutionAttempt, reason string) string {
 	return digestExecutionParts("task-processor/submission/local-no-send/v1", a.OrganizationID, a.AttemptID, a.IntentKey, a.Target.Platform, a.Target.StoreID, a.Target.SubjectID, a.Action, a.PayloadFingerprint, a.ProviderExecutionKey, strconv.FormatInt(a.FenceEpoch, 10), a.ClaimOwnerID, reason)
 }
 func validNoSendAttempt(a ExecutionAttempt) bool {
-	return a.Target.Platform == "tiktokshop" && tikTokNoSendAction(a.Action) && a.Evidence != nil && a.Evidence.Kind == EvidenceLocalNoSend && a.Evidence.Reference == a.AttemptID && validNoSendReason(a.Evidence.Reason) && a.Evidence.Fingerprint == noSendFingerprint(a, a.Evidence.Reason) && a.FinishedAt != nil && a.FinishedAt.Before(a.LeaseExpiresAt)
+	supported := a.Target.Platform == "tiktokshop" && tikTokNoSendAction(a.Action) || a.Target.Platform == "shopify" && a.Action == ShopifyDraftAction
+	return supported && a.Evidence != nil && a.Evidence.Kind == EvidenceLocalNoSend && a.Evidence.Reference == a.AttemptID && validNoSendReason(a.Evidence.Reason) && a.Evidence.Fingerprint == noSendFingerprint(a, a.Evidence.Reason) && a.FinishedAt != nil && a.FinishedAt.Before(a.LeaseExpiresAt)
 }

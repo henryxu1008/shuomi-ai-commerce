@@ -32,11 +32,17 @@ var (
 )
 
 type AdminClient struct {
-	http *http.Client
+	http                  *http.Client
+	developmentStoresOnly bool
 }
 
 func NewAdminClient(transport *http.Client) *AdminClient {
 	return &AdminClient{http: boundedClient(transport)}
+}
+
+// NewDevelopmentAdminClient qualifies the current rollout for Shopify dev stores.
+func NewDevelopmentAdminClient(transport *http.Client) *AdminClient {
+	return &AdminClient{http: boundedClient(transport), developmentStoresOnly: true}
 }
 
 func boundedClient(transport *http.Client) *http.Client {

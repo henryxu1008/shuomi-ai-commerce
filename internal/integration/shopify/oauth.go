@@ -75,29 +75,49 @@ func (OwnerCallback) String() string   { return "Shopify authorization callback 
 func (OwnerCallback) GoString() string { return "Shopify authorization callback [redacted]" }
 
 func (c *OAuthClient) VerifyCallback(rawQuery, expectedState string, now time.Time) (OwnerCallback, error) {
-	if c == nil || c.http == nil || len(rawQuery) > 8192 || !oauthParameterPattern.MatchString(expectedState) || now.IsZero() {
+	query, err := c.verifySignedQuery(rawQuery, now)
+	if err != nil || !oauthParameterPattern.MatchString(expectedState) {
 		return OwnerCallback{}, ErrInvalidCallback
+	}
+	shop, state, code := query.Get("shop"), query.Get("state"), query.Get("code")
+	if !hmac.Equal([]byte(state), []byte(expectedState)) || !oauthParameterPattern.MatchString(code) {
+		return OwnerCallback{}, ErrInvalidCallback
+	}
+	return OwnerCallback{client: c, shop: shop, code: code, used: new(atomic.Bool)}, nil
+}
+
+// VerifyLaunch accepts Shopify's signed app launch. The browser must
+// separately present its Workbench pairing context before OAuth can start.
+func (c *OAuthClient) VerifyLaunch(rawQuery string, now time.Time) (string, error) {
+	query, err := c.verifySignedQuery(rawQuery, now)
+	if err != nil || query.Has("code") || query.Has("state") {
+		return "", ErrInvalidCallback
+	}
+	return query.Get("shop"), nil
+}
+
+func (c *OAuthClient) verifySignedQuery(rawQuery string, now time.Time) (url.Values, error) {
+	if c == nil || c.http == nil || len(rawQuery) > 8192 || now.IsZero() {
+		return nil, ErrInvalidCallback
 	}
 	query, err := url.ParseQuery(rawQuery)
 	if err != nil || len(query) > 16 {
-		return OwnerCallback{}, ErrInvalidCallback
+		return nil, ErrInvalidCallback
 	}
 	keys := make([]string, 0, len(query))
 	for key, values := range query {
 		if !oauthParameterPattern.MatchString(key) || len(values) != 1 || strings.ContainsAny(values[0], "&\x00\r\n") {
-			return OwnerCallback{}, ErrInvalidCallback
+			return nil, ErrInvalidCallback
 		}
 		if key != "hmac" {
 			keys = append(keys, key)
 		}
 	}
 	signature, err := hex.DecodeString(query.Get("hmac"))
-	shop, state, code := query.Get("shop"), query.Get("state"), query.Get("code")
 	timestamp, timestampErr := strconv.ParseInt(query.Get("timestamp"), 10, 64)
-	if err != nil || len(signature) != sha256.Size || !shopDomainPattern.MatchString(shop) ||
-		!hmac.Equal([]byte(state), []byte(expectedState)) || !oauthParameterPattern.MatchString(code) || timestampErr != nil ||
+	if err != nil || len(signature) != sha256.Size || !shopDomainPattern.MatchString(query.Get("shop")) || timestampErr != nil ||
 		timestamp < now.Unix()-fiveMinutesInSeconds || timestamp > now.Unix()+fiveMinutesInSeconds {
-		return OwnerCallback{}, ErrInvalidCallback
+		return nil, ErrInvalidCallback
 	}
 	slices.Sort(keys)
 	canonical := make([]string, 0, len(keys))
@@ -107,9 +127,9 @@ func (c *OAuthClient) VerifyCallback(rawQuery, expectedState string, now time.Ti
 	digest := hmac.New(sha256.New, []byte(c.clientSecret))
 	_, _ = digest.Write([]byte(strings.Join(canonical, "&")))
 	if !hmac.Equal(signature, digest.Sum(nil)) {
-		return OwnerCallback{}, ErrInvalidCallback
+		return nil, ErrInvalidCallback
 	}
-	return OwnerCallback{client: c, shop: shop, code: code, used: new(atomic.Bool)}, nil
+	return query, nil
 }
 
 type AccessToken struct {

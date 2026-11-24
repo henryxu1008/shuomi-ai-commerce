@@ -11,5 +11,5 @@ type WalmartMerchantBinding struct {
 }
 
 func (b ProductMerchantBinding) ValidWalmartApplication() bool {
-	return b.Platform == PlatformWalmart && b.Site == "walmart-us" && b.TikTok == (TikTokMerchantBinding{}) && b.ApplicationType == "" && b.IdentityPartition == "" && b.MerchantMode == "" && b.RegionID == 0 && b.ApplicationID != "" && b.ApplicationRevision != "" && b.Walmart.Market == "US" && (b.Walmart.Environment == "production" || b.Walmart.Environment == "sandbox") && uuid.Validate(b.Walmart.GrantID) == nil && b.Walmart.Generation > 0 && b.Walmart.GrantVersion >= b.Walmart.Generation && len(b.ScopesHash) == 64 && len(b.SupplierIdentityHash) == 64 && !b.CredentialExpiresAt.IsZero()
+	return b.Platform == PlatformWalmart && b.Shopify == (ShopifyMerchantBinding{}) && b.Site == "walmart-us" && b.TikTok == (TikTokMerchantBinding{}) && b.ApplicationType == "" && b.IdentityPartition == "" && b.MerchantMode == "" && b.RegionID == 0 && b.ApplicationID != "" && b.ApplicationRevision != "" && b.Walmart.Market == "US" && (b.Walmart.Environment == "production" || b.Walmart.Environment == "sandbox") && uuid.Validate(b.Walmart.GrantID) == nil && b.Walmart.Generation > 0 && b.Walmart.GrantVersion >= b.Walmart.Generation && len(b.ScopesHash) == 64 && len(b.SupplierIdentityHash) == 64 && !b.CredentialExpiresAt.IsZero()
 }

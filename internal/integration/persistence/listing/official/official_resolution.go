@@ -27,7 +27,7 @@ func (r *OfficialRepository) ResolveOfficial(ctx context.Context, proof submissi
 		return submission.OfficialReceipt{}, submission.ErrExecutionEvidenceRequired
 	}
 	if prior, e := readOfficialReceipt(tx, body.Owner.OrganizationID, body.ID); e == nil {
-		if !receiptMatchesIntent(prior, intent) || prior.Product.SPUName != body.Product.SPUName {
+		if !receiptMatchesIntent(prior, intent) || prior.Product.SPUName != body.Product.SPUName || body.Shopify != nil && (prior.Shopify == nil || prior.Shopify.ID != body.Shopify.ID) {
 			return submission.OfficialReceipt{}, submission.ErrExecutionIntentConflict
 		}
 		return prior, nil

@@ -1,7 +1,7 @@
 import { z } from "zod";
 export const officialConnectionViewSchema = z
 	.object({
-		platform:z.enum(["shein","temu","tiktokshop","walmart"]),
+		platform:z.enum(["shein","temu","tiktokshop","walmart","shopify"]),
 		walmart:z.object({environment:z.enum(["production","sandbox"]).optional(),market:z.literal("US"),partnerId:z.string().min(1).max(200).optional(),merchantName:z.string().max(500).optional(),grantId:z.uuid().optional(),generation:z.number().int().positive().optional(),grantVersion:z.number().int().positive().optional()}).strict().optional(),
 		identityPartition:z.enum(["CN","US","EU","GLOBAL"]).optional(),
 		authorizationMethod:z.enum(["callback","manual_token","oauth_callback"]).optional(),
@@ -32,6 +32,8 @@ export const officialConnectionViewSchema = z
     observedAt: z.string().datetime({ precision: null }).nullable(),
   })
   .strict().refine(view=>{
+    if(view.platform==="shopify")return !view.walmart && !view.tiktok && !view.identityPartition && !view.mode && !view.regionId &&
+      !view.merchantIdentityHash && (view.connectionStatus==="connected" ? view.state==="bound" : view.state==="disconnected");
     if(view.platform==="walmart")return !!view.walmart && !view.tiktok && !view.identityPartition && !view.mode && !view.regionId && (!view.authorizationMethod||view.authorizationMethod==="oauth_callback") && (view.connectionStatus!=="connected" || view.state==="bound" && !!view.walmart.environment && !!view.walmart.partnerId && !!view.walmart.grantId && !!view.walmart.generation && !!view.walmart.grantVersion && !!view.merchantIdentityHash && !!view.credentialExpiresAt && !!view.appId && !!view.appRevision);
     if(view.walmart)return false;
     if(view.platform==="tiktokshop")return !!view.tiktok && !view.identityPartition && !view.mode && !view.regionId && !view.merchantIdentityHash && (!view.authorizationMethod || view.authorizationMethod==="oauth_callback") && (view.connectionStatus!=="connected" || view.state==="bound" && !!view.appId && !!view.appRevision && !!view.credentialExpiresAt && !!view.tiktok.shopId && !!view.tiktok.grantGeneration && !!view.tiktok.grantRevision && !!view.tiktok.bindingRevision);
