@@ -12,6 +12,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPostgresIsolatedAmazonNoSendPreservesGoogleConstraint(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	db, _ := openExecutionPostgres(t, ctx)
+	require.NoError(t, InstallSchema(db))
+	require.NoError(t, InstallGooglePlanSchema(ctx, db))
+	require.NoError(t, VerifySchema(ctx, db))
+	pool, err := db.DB()
+	require.NoError(t, err)
+	tx, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+	_, err = tx.ExecContext(ctx, `CREATE TABLE public.listing_amazon_sku_occupancy (fixture int)`)
+	require.NoError(t, err)
+	require.NoError(t, InstallIsolatedAmazonNoSendSchemaTx(ctx, tx))
+	require.NoError(t, tx.Commit())
+	require.NoError(t, VerifySchema(ctx, db))
+	var definition string
+	require.NoError(t, db.Raw(`SELECT pg_get_constraintdef(oid) FROM pg_constraint
+		WHERE conrelid='public.listing_submission_execution_attempts'::regclass AND conname=?`,
+		noSendConstraintName).Row().Scan(&definition))
+	require.Contains(t, definition, "google_product_insert")
+	require.Contains(t, definition, "amazon_create_listing")
+	require.NoError(t, db.Exec(`DROP TABLE public.listing_amazon_sku_occupancy`).Error)
+	require.ErrorContains(t, VerifySchema(ctx, db), noSendConstraintName)
+}
+
 func TestPostgresTikTokNoSendAtomicallyTerminatesAndPreservesOriginalKey(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

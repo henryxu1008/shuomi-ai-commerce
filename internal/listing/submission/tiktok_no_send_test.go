@@ -12,8 +12,9 @@ import (
 
 type noSendMemoryRepository struct {
 	ExecutionRepository
-	mu       sync.Mutex
-	attempts map[string]ExecutionAttempt
+	mu          sync.Mutex
+	attempts    map[string]ExecutionAttempt
+	loseStopAck bool
 }
 
 func (r *noSendMemoryRepository) Acquire(_ context.Context, reservation ExecutionReservation) (ExecutionAttempt, bool, error) {
@@ -49,6 +50,9 @@ func (r *noSendMemoryRepository) StopTikTokBeforeSend(_ context.Context, proof T
 			next, e := proof.Terminate(a, a.CreatedAt.Add(time.Millisecond))
 			if e == nil {
 				r.attempts[key] = next
+				if r.loseStopAck {
+					return ExecutionAttempt{}, ErrExecutionUnavailable
+				}
 			}
 			return next, e
 		}

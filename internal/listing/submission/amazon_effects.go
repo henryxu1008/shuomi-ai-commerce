@@ -32,19 +32,31 @@ type AmazonSendAuthorization struct {
 // AmazonWritePermit can only be issued after a committed kernel acquisition.
 // The outbound call consumes it once for the exact current Store and wire.
 type AmazonWritePermit struct {
+	kernel    *ExecutionKernel
 	intent    OfficialIntent
 	expiresAt time.Time
-	sent      *atomic.Bool
+	closed    *atomic.Bool
+	noSend    TikTokNoSendProof
 }
 
 func (p *AmazonWritePermit) Consume(scope collection.Scope, binding storecenter.ProductMerchantBinding, draft amazonmarket.Draft, now time.Time) error {
-	if p == nil || p.sent == nil || p.intent.Amazon == nil || p.intent.Owner != scope || p.intent.Binding != binding ||
+	if p == nil || p.closed == nil || p.intent.Amazon == nil || p.intent.Owner != scope || p.intent.Binding != binding ||
 		p.intent.Amazon.SKU != draft.SKU || p.intent.Amazon.WireHash != draft.WireHash || draft.Validate() != nil ||
 		p.intent.PayloadFingerprint != digestExecutionParts("amazon", binding.StoreID, draft.SKU, AmazonSubmitAction, string(draft.Attributes)) ||
-		now.IsZero() || !now.Before(p.expiresAt) || !p.sent.CompareAndSwap(false, true) {
+		now.IsZero() || !now.Before(p.expiresAt) || !p.closed.CompareAndSwap(false, true) {
 		return ErrExecutionClaimRejected
 	}
 	return nil
+}
+
+// StopAmazonBeforeSend closes the same live gate used by Consume. A provider
+// error, including a permission error, can never create this proof after send.
+func (k *ExecutionKernel) StopAmazonBeforeSend(ctx context.Context, permit *AmazonWritePermit) (ExecutionAttempt, error) {
+	if k == nil || permit == nil || permit.kernel != k || permit.closed == nil ||
+		!permit.closed.CompareAndSwap(false, true) {
+		return ExecutionAttempt{}, ErrExecutionClaimRejected
+	}
+	return k.persistNoSendProof(ctx, permit.noSend)
 }
 
 func PrepareAmazonSend(ctx context.Context, source preparation.AuthorizedSource, saved record.TargetRecord, key, partition string) (*AmazonSendAuthorization, error) {

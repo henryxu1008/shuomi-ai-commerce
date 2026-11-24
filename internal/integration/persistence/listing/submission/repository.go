@@ -139,7 +139,7 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 		if err != nil {
 			return mutation{}, err
 		}
-		var walmartPrevious submission.ExecutionAttempt
+		var previous submission.ExecutionAttempt
 		if found {
 			current, currentFound, currentErr := r.findByID(ctx, tx, attempt.OrganizationID, fence.CurrentAttemptID, false)
 			if currentErr != nil {
@@ -148,7 +148,7 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 			if !currentFound || current.Target != attempt.Target || current.FenceEpoch != fence.Epoch || string(current.Status) != fence.CurrentStatus {
 				return mutation{}, submission.ErrExecutionUnavailable
 			}
-			walmartPrevious = current
+			previous = current
 		}
 		if found && (fence.CurrentStatus == string(submission.ExecutionClaimed) || fence.CurrentStatus == string(submission.ExecutionOutcomeUnknown)) {
 			return mutation{}, submission.ErrExecutionTargetClaimed
@@ -174,7 +174,7 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 			if !r.immutableOfficialEffects {
 				return mutation{}, submission.ErrExecutionEvidenceRequired
 			}
-			if err := r.requireWalmartEffect(ctx, tx, attempt, walmartPrevious); err != nil {
+			if err := r.requireWalmartEffect(ctx, tx, attempt, previous); err != nil {
 				return mutation{}, err
 			}
 		}
@@ -185,7 +185,7 @@ func (r *Repository) Acquire(ctx context.Context, reservation submission.Executi
 			if found && fence.CurrentStatus == string(submission.ExecutionSucceeded) {
 				return mutation{}, submission.ErrExecutionTargetSucceeded
 			}
-			if err := requireAmazonEffect(ctx, tx, reservation); err != nil {
+			if err := requireAmazonEffect(ctx, tx, reservation, previous); err != nil {
 				return mutation{}, err
 			}
 		}

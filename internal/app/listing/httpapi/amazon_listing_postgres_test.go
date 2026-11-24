@@ -227,10 +227,13 @@ func TestAmazonListingWorkbenchReviewConfirmAndCheck(t *testing.T) {
 	invoke("confirm", uuid.NewString(), confirmed, &result)
 	require.Equal(t, "unknown", result.Submission)
 	require.Nil(t, result.Receipt)
+	unknownAttempt := result.AttemptID
 	invoke("confirm", uuid.NewString(), confirmed, &result)
+	require.Equal(t, unknownAttempt, result.AttemptID)
 	require.Equal(t, int32(2), provider.writes.Load(), "lost response must never trigger a second PUT")
 	invoke("check", "", map[string]string{"sourceId": sourceID, "storeId": otherStoreID}, &result)
 	require.Equal(t, "unknown", result.Submission)
+	require.Equal(t, unknownAttempt, result.AttemptID)
 	require.NotNil(t, result.Observation)
 	require.Nil(t, result.Receipt, "a GET observation cannot make the original PUT look accepted")
 
@@ -243,11 +246,69 @@ func TestAmazonListingWorkbenchReviewConfirmAndCheck(t *testing.T) {
 		return e == nil && !claimed
 	}
 	result = listingapp.AmazonListingResult{}
-	invoke("confirm", uuid.NewString(), map[string]string{"recordId": review.RecordID, "wireHash": review.WireHash}, &result)
+	blockedKey := uuid.NewString()
+	blockedReview := map[string]string{"recordId": review.RecordID, "wireHash": review.WireHash}
+	invoke("confirm", blockedKey, blockedReview, &result)
 	require.Equal(t, int32(2), provider.writes.Load(), "authorization revoked after acquisition must prevent the provider PUT")
+	require.Equal(t, "not_sent", result.Submission)
 	require.Nil(t, result.Receipt)
+	blockedAttempt := result.AttemptID
+	execution, err := kernel.Get(ctx, submission.ExecutionScope{OrganizationID: scope.OrganizationID}, blockedAttempt)
+	require.NoError(t, err)
+	require.Equal(t, submission.ExecutionNotSent, execution.Status)
+	require.NotNil(t, execution.Evidence)
+	require.Equal(t, submission.NoSendAccessRecheckFailed, execution.Evidence.Reason)
 
 	authority.submitGate = nil
+	invoke("confirm", blockedKey, blockedReview, &result)
+	require.Equal(t, blockedAttempt, result.AttemptID, "same confirmation key must replay the original outcome")
+	invoke("confirm", uuid.NewString(), blockedReview, &result)
+	require.Equal(t, blockedAttempt, result.AttemptID, "changing only the key must not resubmit the blocked review")
+	require.Equal(t, "not_sent", result.Submission)
+	invoke("check", "", map[string]string{"sourceId": sourceID, "storeId": revokedStoreID}, &result)
+	require.Equal(t, blockedAttempt, result.AttemptID)
+	require.Equal(t, "not_sent", result.Submission)
+	require.Nil(t, result.Observation, "a blocked request has no Amazon result to query")
+	require.Equal(t, int32(2), provider.writes.Load())
+
+	// Simulate a confirmation that reached the reservation before its earlier
+	// service-side no-send check could observe the closed attempt.
+	blockedRecord, err := records.ReadTargetRecord(ctx, scope, blockedReview["recordId"])
+	require.NoError(t, err)
+	proof, err := sources.SelectForExecution(ctx, scope, sourceID)
+	require.NoError(t, err)
+	session, err := access.Open(ctx, storecenter.ProductExecutionSubject{
+		OrganizationID: scope.OrganizationID, ActorID: scope.ActorID, MemberID: scope.MemberID,
+	}, revokedStoreID, &blockedRecord.Merchant)
+	require.NoError(t, err)
+	staleKey := uuid.NewString()
+	send, err := submission.PrepareAmazonSend(ctx, proof, blockedRecord, staleKey, session.OccupancyPartition())
+	require.NoError(t, err)
+	_, err = kernel.Acquire(ctx, submission.AcquireExecutionCommand{
+		Scope: submission.ExecutionScope{OrganizationID: scope.OrganizationID}, IntentKey: staleKey,
+		Target: submission.AmazonTarget(revokedStoreID, blockedRecord.Source.Source.ProductKey),
+		Action: submission.AmazonSubmitAction, Payload: blockedRecord.Amazon.Draft.Attributes,
+		ClaimOwnerID: "amazon-listing", Lease: submission.ExecutionTimeout, Amazon: send,
+	})
+	require.ErrorIs(t, err, submission.ErrExecutionTargetClaimed, "the locked fence must reject the old review independently of the application")
+
+	retryReview := in
+	retryReview.ExpectedRevision = review.Revision
+	invoke("review", uuid.NewString(), retryReview, &review)
+	require.NotEqual(t, blockedReview["recordId"], review.RecordID)
+	result = listingapp.AmazonListingResult{}
+	retryKey := uuid.NewString()
+	retryConfirmation := map[string]string{"recordId": review.RecordID, "wireHash": review.WireHash}
+	invoke("confirm", retryKey, retryConfirmation, &result)
+	require.Equal(t, "accepted", result.Submission)
+	require.NotEqual(t, blockedAttempt, result.AttemptID)
+	require.Equal(t, review.SKU, result.SKU)
+	invoke("confirm", retryKey, retryConfirmation, &result)
+	require.Equal(t, int32(3), provider.writes.Load(), "a new review after permission recovery may send exactly once")
+	invoke("confirm", blockedKey, blockedReview, &result)
+	require.Equal(t, "not_sent", result.Submission)
+	require.Equal(t, blockedAttempt, result.AttemptID)
+
 	provider.reject.Store(true)
 	in.StoreID = rejectStoreID
 	invoke("review", uuid.NewString(), in, &review)
@@ -256,7 +317,7 @@ func TestAmazonListingWorkbenchReviewConfirmAndCheck(t *testing.T) {
 	require.Equal(t, "rejected", result.Submission)
 	require.False(t, result.Receipt.Accepted)
 	require.Equal(t, "90220", result.Receipt.Issues[0].Code)
-	require.Equal(t, int32(3), provider.writes.Load())
+	require.Equal(t, int32(4), provider.writes.Load())
 }
 
 type amazonFixtureAuthority struct {

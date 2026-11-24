@@ -532,8 +532,19 @@ ORDER BY constraint_row.conname`, table).Rows()
 			return fmt.Errorf("submission execution constraint public.%s.%s must be validated and immediate", table, name)
 		}
 		expected := contract.exactDefinition
-		if name == "listing_submission_execution_attempts_no_send_check" && pgschema.SchemaConstraintEqual(observed.definition, googleNoSendConstraint(expected)) {
-			continue
+		if name == noSendConstraintName {
+			var isolatedAmazon bool
+			if err := db.WithContext(ctx).Raw(`SELECT to_regclass('public.listing_amazon_sku_occupancy') IS NOT NULL`).Row().Scan(&isolatedAmazon); err != nil {
+				return err
+			}
+			withGoogle := extendNoSendConstraint(expected, googleNoSendAction)
+			if isolatedAmazon {
+				withGoogle = extendNoSendConstraint(expected, googleNoSendAction, amazonNoSendAction)
+				expected = extendNoSendConstraint(expected, amazonNoSendAction)
+			}
+			if pgschema.SchemaConstraintEqual(observed.definition, withGoogle) {
+				continue
+			}
 		}
 		if !pgschema.SchemaConstraintEqual(observed.definition, expected) {
 			return fmt.Errorf("submission execution constraint public.%s.%s definition mismatch: got %s", table, name, observed.definition)
@@ -542,8 +553,43 @@ ORDER BY constraint_row.conname`, table).Rows()
 	return nil
 }
 
-func googleNoSendConstraint(existing string) string {
+const (
+	noSendConstraintName = "listing_submission_execution_attempts_no_send_check"
+	googleNoSendAction   = "((platform)::text = 'googlemerchant'::text) AND ((action)::text = 'google_product_insert'::text)"
+	amazonNoSendAction   = "((platform)::text = 'amazon'::text) AND ((action)::text = 'amazon_create_listing'::text) AND ((evidence_reason)::text = 'access_recheck_failed'::text)"
+)
+
+func extendNoSendConstraint(existing string, actions ...string) string {
 	const tiktok = "((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[]))"
-	const google = "((platform)::text = 'googlemerchant'::text) AND ((action)::text = 'google_product_insert'::text)"
-	return strings.Replace(existing, tiktok, "(("+tiktok+") OR ("+google+"))", 1)
+	return strings.Replace(existing, tiktok, "(("+tiktok+") OR ("+strings.Join(actions, ") OR (")+"))", 1)
+}
+
+// InstallIsolatedAmazonNoSendSchemaTx extends only an explicitly installed
+// synthetic Amazon Product schema. An existing Google branch stays admitted.
+func InstallIsolatedAmazonNoSendSchemaTx(ctx context.Context, tx *sql.Tx) error {
+	if tx == nil {
+		return errors.New("install isolated Amazon no-send constraint: transaction required")
+	}
+	if _, err := tx.ExecContext(ctx, `LOCK TABLE public.listing_submission_execution_attempts IN ACCESS EXCLUSIVE MODE`); err != nil {
+		return err
+	}
+	var actual string
+	if err := tx.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint
+		WHERE conrelid='public.listing_submission_execution_attempts'::regclass AND conname=$1
+		AND convalidated AND NOT condeferrable AND NOT condeferred`, noSendConstraintName).Scan(&actual); err != nil {
+		return err
+	}
+	base := expectedConstraints[AttemptTable][noSendConstraintName].exactDefinition
+	var next string
+	switch {
+	case pgschema.SchemaConstraintEqual(actual, base):
+		next = extendNoSendConstraint(base, amazonNoSendAction)
+	case pgschema.SchemaConstraintEqual(actual, extendNoSendConstraint(base, googleNoSendAction)):
+		next = extendNoSendConstraint(base, googleNoSendAction, amazonNoSendAction)
+	default:
+		return errors.New("install isolated Amazon no-send constraint: unexpected existing definition")
+	}
+	_, err := tx.ExecContext(ctx, `ALTER TABLE public.listing_submission_execution_attempts DROP CONSTRAINT `+
+		noSendConstraintName+`, ADD CONSTRAINT `+noSendConstraintName+" "+next)
+	return err
 }

@@ -141,7 +141,13 @@ func (k *ExecutionKernel) Acquire(ctx context.Context, command AcquireExecutionC
 		ClaimOwnerID: attempt.ClaimOwnerID, ProviderExecutionKey: attempt.ProviderExecutionKey, LeaseExpiresAt: attempt.LeaseExpiresAt,
 	}
 	if command.Amazon != nil {
-		result.AmazonPermit = &AmazonWritePermit{intent: command.Amazon.intent, expiresAt: attempt.LeaseExpiresAt, sent: new(atomic.Bool)}
+		result.AmazonPermit = &AmazonWritePermit{
+			kernel: k, intent: command.Amazon.intent, expiresAt: attempt.LeaseExpiresAt, closed: new(atomic.Bool),
+			noSend: TikTokNoSendProof{seal: &tikTokNoSendSeal{
+				attempt: attempt, reason: NoSendAccessRecheckFailed,
+				claim: ExecutionClaim{Scope: ExecutionScope{OrganizationID: attempt.OrganizationID}, AttemptID: attempt.AttemptID, FenceEpoch: attempt.FenceEpoch, OwnerID: attempt.ClaimOwnerID, Token: claimToken},
+			}},
+		}
 	}
 	return result, nil
 }
