@@ -51,7 +51,9 @@ func (c *Config) validateListing() error {
 	if s == nil {
 		return nil
 	}
-	if !c.ProductCollections || c.ProductAcquisitionDatabase == nil || c.StoreCenter == nil || !c.StoreCenter.Enabled || len(c.StoreCenter.OfficialApplications) == 0 || c.Identity.TenantDirectoryToken == "" {
+	store := c.StoreCenter
+	if !c.ProductCollections || c.ProductAcquisitionDatabase == nil || store == nil || !store.Enabled ||
+		(len(store.OfficialApplications) == 0 && store.Shopify == nil) || c.Identity.TenantDirectoryToken == "" {
 		return errors.New("supply chain requires collections, official Store applications and current membership authorization")
 	}
 	if err := s.AssetDatabase.validate("supplyChain.assetDatabase"); err != nil {

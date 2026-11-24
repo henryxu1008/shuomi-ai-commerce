@@ -37,6 +37,21 @@ func TestSupplyManifestRejectsIncompleteOwnerAssembly(t *testing.T) {
 	}
 }
 
+func TestSupplyManifestAdmitsShopifyWithoutUnrelatedStoreApps(t *testing.T) {
+	c := supplyRuntimeConfig(t)
+	c.StoreCenter.OfficialApplications = nil
+	require.ErrorContains(t, c.validateListing(), "official Store applications")
+	root := t.TempDir()
+	c.StoreCenter.Shopify = &ShopifyConfig{
+		ApplicationGID: "gid://shopify/App/123", ClientID: "fixture-app",
+		InstallURL: "https://apps.shopify.com/fixture-app", CallbackURL: "https://localhost/api/shopify/callback",
+		ClientSecret: filepath.Join(root, "client"), PairingKey: filepath.Join(root, "pairing"),
+		SigningKey: filepath.Join(root, "signing"), PairingKeyID: "pairing-1", SigningKeyID: "signing-1",
+	}
+	require.NoError(t, c.validateListing())
+	require.NoError(t, c.validateStoreCenter())
+}
+
 func TestSupplyRuntimePassesCanonicalPoolsAndClosesWorkflowOnConstructionFailure(t *testing.T) {
 	c := supplyRuntimeConfig(t)
 	c.Identity.IssuerURL = "https://localhost:18080"

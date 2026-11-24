@@ -25,6 +25,7 @@ func TestResearchFixtureRequiresClosedLocalComposition(t *testing.T) {
 		"Amazon":          func(c *Config) { c.DataServices.ExecutionEnabled = true },
 		"AI":              func(c *Config) { c.AIWorkbench = &AIWorkbenchConfig{Enabled: true} },
 		"listing":         func(c *Config) { c.SupplyChain = &SupplyChainConfig{} },
+		"Shopify":         func(c *Config) { c.StoreCenter = &StoreCenterConfig{Enabled: true, Shopify: &ShopifyConfig{}} },
 		"nonlocal issuer": func(c *Config) { c.Identity.IssuerURL = "https://identity.example.com:35444" },
 	} {
 		t.Run(name, func(t *testing.T) {
