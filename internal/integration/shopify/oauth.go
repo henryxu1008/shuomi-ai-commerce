@@ -120,15 +120,17 @@ type AccessToken struct {
 func (AccessToken) String() string   { return "Shopify access token [redacted]" }
 func (AccessToken) GoString() string { return "Shopify access token [redacted]" }
 
-func (c *OAuthClient) ExchangeOwnerCode(ctx context.Context, proof OwnerCallback) (AccessToken, error) {
+type OwnerAccessToken struct{ AccessToken }
+
+func (c *OAuthClient) ExchangeOwnerCode(ctx context.Context, proof OwnerCallback) (OwnerAccessToken, error) {
 	if c == nil || proof.client != c || proof.used == nil || ctx == nil || ctx.Err() != nil || !proof.used.CompareAndSwap(false, true) {
-		return AccessToken{}, ErrInvalidCallback
+		return OwnerAccessToken{}, ErrInvalidCallback
 	}
 	body := url.Values{"client_id": {c.clientID}, "client_secret": {c.clientSecret}, "code": {proof.code}}
 	now := time.Now()
 	raw, err := postShopify(ctx, c.http, proof.shop, accessTokenPath, "", "application/x-www-form-urlencoded", []byte(body.Encode()), maxTokenResponseBytes)
 	if err != nil {
-		return AccessToken{}, ErrTokenUnavailable
+		return OwnerAccessToken{}, ErrTokenUnavailable
 	}
 	var response struct {
 		Token      string `json:"access_token"`
@@ -140,12 +142,12 @@ func (c *OAuthClient) ExchangeOwnerCode(ctx context.Context, proof OwnerCallback
 		} `json:"associated_user"`
 	}
 	if !decodeAdminJSON(raw, &response) || !validToken(response.Token) || response.ExpiresIn <= 0 || response.ExpiresIn > 24*60*60 {
-		return AccessToken{}, ErrTokenUnavailable
+		return OwnerAccessToken{}, ErrTokenUnavailable
 	}
 	if response.Associated == nil || !response.Associated.AccountOwner || !writeScope(response.Scope) || !writeScope(response.UserScope) {
-		return AccessToken{}, ErrShopOwnerRequired
+		return OwnerAccessToken{}, ErrShopOwnerRequired
 	}
-	return AccessToken{Value: response.Token, ExpiresAt: now.Add(time.Duration(response.ExpiresIn) * time.Second)}, nil
+	return OwnerAccessToken{AccessToken{Value: response.Token, ExpiresAt: now.Add(time.Duration(response.ExpiresIn) * time.Second)}}, nil
 }
 
 func writeScope(scope string) bool {
