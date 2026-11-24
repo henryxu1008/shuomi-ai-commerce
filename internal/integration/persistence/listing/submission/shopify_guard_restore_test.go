@@ -113,9 +113,6 @@ func prepareShopifyGuardRestore(t *testing.T, ctx context.Context, instance *tcp
 		require.True(t, verified(restoreProduct, expected, raw))
 		require.False(t, verified(restoreProduct, "", raw))
 		require.False(t, verified(restoreProduct, expected, nil))
-		alias := replay
-		alias.ShopKey = "A1234567-1234-4123-8123-123456789012"
-		require.ErrorIs(t, shopifyguard.ReplayIsolated(ctx, restoreProduct, alias), shopifyguard.ErrConflict)
 		changed := replay
 		changed.Sources = []string{"conflicting-source"}
 		require.ErrorIs(t, shopifyguard.ReplayIsolated(ctx, restoreProduct, changed), shopifyguard.ErrConflict)

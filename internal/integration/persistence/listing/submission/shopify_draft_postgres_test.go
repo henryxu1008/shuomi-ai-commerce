@@ -3,6 +3,7 @@ package submissionpersistence_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,7 +54,7 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 	db = shopifyguard.RequireIsolated(db)
 	saved, inventory := temuEffectRecordFixture(t, ctx, db, db)
 	prior := saved.Merchant
-	shopKey := uuid.NewString()
+	const shopKey = "da580cea-df6b-4dae-8858-ae956cbdbddd"
 	saved.Merchant = storecenter.ProductMerchantBinding{
 		Platform: storecenter.PlatformShopify, OrganizationID: prior.OrganizationID, StoreID: prior.StoreID, Site: "shopify",
 		StoreVersion: 2, ConnectionRevision: 1, ApplicationID: "gid://shopify/App/32", ApplicationRevision: "shopify-admin-2026-10",
@@ -152,6 +153,9 @@ func TestPostgresShopifyDraftRetainsOriginalAttemptAndBlocksDuplicate(t *testing
 	}
 	require.Equal(t, saved.ID, readStage()[0].PublishedRecordID)
 	verifyOldOperation := prepareOldShopifyOperation(t, ctx, db, scope, saved)
+	_, err = shopifyguard.SealIsolated(ctx, db, shopifyguard.Command{ID: uuid.NewString(),
+		Organization: scope.OrganizationID, ShopKey: strings.ToUpper(shopKey), Generation: saved.Merchant.ConnectionRevision})
+	require.ErrorIs(t, err, shopifyguard.ErrConflict, "a differently spelled UUID must not freeze the same Store scope")
 	restore, err := shopifyguard.SealIsolated(ctx, db, shopifyguard.Command{ID: uuid.NewString(),
 		Organization: scope.OrganizationID, ShopKey: shopKey, Generation: saved.Merchant.ConnectionRevision})
 	require.NoError(t, err)
