@@ -32,6 +32,7 @@ func main() {
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
+	google := flag.Bool("google-merchant", false, "install Google Merchant authorization tables on an explicitly confirmed current Store database")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
 	retainedObservations := flag.Bool("retained-observations", false, "declare already installed observations for --align-core-contract; no installation or grants")
 	retainedCockpit := flag.Bool("retained-operations-cockpit", false, "declare already installed operations cockpit for --align-core-contract; no installation or grants")
@@ -56,6 +57,12 @@ func main() {
 		}
 		if retainedSet && !*align {
 			return errors.New("retained capability declarations require --align-core-contract")
+		}
+		if *google {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align || *alignEmpty || *currentObservations {
+				return errors.New("Google Merchant installation cannot be combined with another mode")
+			}
+			return installGoogleMerchant(*path, *confirmed)
 		}
 		if *alignEmpty {
 			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align || *currentObservations {
@@ -82,7 +89,7 @@ func main() {
 			return installBrowserWorkbench(*path, *confirmed)
 		}
 		if confirmationSet {
-			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench, --observations-current-store or --align-empty-observations-contract")
+			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench, --observations-current-store, --google-merchant or --align-empty-observations-contract")
 		}
 		return runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart)
 	}()
@@ -90,7 +97,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if *alignEmpty {
+	if *google {
+		fmt.Println("Google Merchant Store schema installed with narrow runtime permissions")
+	} else if *alignEmpty {
 		fmt.Println("Empty observation CHECK contract verified; original facts, permissions and history retained")
 	} else if *currentObservations {
 		fmt.Println("Current Store observations installed atomically; existing facts, base permissions and history retained; verify serving role before enabling")
@@ -328,4 +337,37 @@ func alignEmptyObservations(path, confirmed string) error {
 		return fmt.Errorf("empty observation alignment failed; re-enter original command to inspect if commit is unknown: %w", err)
 	}
 	return nil
+}
+
+func installGoogleMerchant(path, confirmed string) error {
+	cfg, err := loadOwnerConfig(path, "store_center_owner")
+	if err != nil || confirmed == "" || cfg.Database != confirmed {
+		return errors.New("Google Merchant installation requires a private Store owner configuration and exact database confirmation")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, err := platformdatabase.OpenExistingWritableContext(ctx, cfg)
+	if err != nil {
+		return errors.New("open private Store role database failed")
+	}
+	defer platformdatabase.Close(db)
+	pool, err := db.DB()
+	if err != nil {
+		return err
+	}
+	tx, err := pool.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtextextended(current_database()||':store-google-merchant',0))"); err != nil {
+		return err
+	}
+	if err := storecenter.InstallGoogleMerchantSchemaTx(ctx, tx); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "GRANT SELECT,INSERT,UPDATE ON public.workbench_store_google_oauth_attempts,public.workbench_store_google_oauth_grants TO store_center_runtime"); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

@@ -25,6 +25,7 @@ const ACQUISITION_TIMEOUT_MS = 22_000;
 // Preserve the backend's 30s image window plus bounded proxy transport time.
 const IMAGE_SET_TIMEOUT_MS = 32_000;
 const SHEIN_PUBLICATION_TIMEOUT_MS = 32_000;
+const GOOGLE_LISTING_TIMEOUT_MS = 62_000;
 
 type AuthenticatedWorkbenchRequest = NextRequest & { auth?: unknown };
 type WorkbenchDispatchState = {
@@ -149,7 +150,8 @@ async function handleWorkbenchRequest(
   const sheinPublicationRequest=["shein-status","shein-shelf-prepare","shein-shelf-confirm","shein-shelf-result"].includes(supplyPath(request.method,path)??"");
   const amazonListingRequest=(supplyPath(request.method,path)??"").startsWith("amazon-");
   const skillGeneration = ["skill-authoring-generate", "skill-authoring-confirm", "skill-authoring-recover-generation"].includes(aiWorkbenchPath(request.method, path) ?? "");
-  const timeout = setTimeout(abort, amazonListingRequest?105000:sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest || skillGeneration ?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
+  const googleListing = path[0] === "supply-preparations" && path[1] === "google";
+  const timeout = setTimeout(abort, googleListing ? GOOGLE_LISTING_TIMEOUT_MS : amazonListingRequest?105000:sheinPublicationRequest?SHEIN_PUBLICATION_TIMEOUT_MS:planPath(request.method,path)?52000:imageSetRequest ? IMAGE_SET_TIMEOUT_MS : agentRequest || skillGeneration ?125000:dispatchState.acquisitionRequest ? ACQUISITION_TIMEOUT_MS : UPSTREAM_TIMEOUT_MS);
   try {
     const scopedRequest = new NextRequest(request, { signal: controller.signal });
     const result = await Promise.race([

@@ -129,6 +129,21 @@ func EnableListing(ctx context.Context, manifest, confirmedDatabase string) erro
 		default:
 			return refused
 		}
+		if cfg.GoogleMerchant {
+			var installed bool
+			if err := tx.Raw("SELECT to_regclass('public.workbench_listing_google_upload_plans') IS NOT NULL").Scan(&installed).Error; err != nil {
+				return refused
+			}
+			if !installed {
+				if submissionstore.InstallGooglePlanSchema(ctx, tx) != nil || acquisitionstore.GrantGooglePlanPermissions(ctx, tx) != nil {
+					return refused
+				}
+			}
+			if verifyListingTableOwner(tx, []string{submissionstore.GooglePlanTable}) != nil ||
+				acquisitionstore.VerifyGooglePlanPermissions(ctx, tx) != nil {
+				return refused
+			}
+		}
 		// Check the complete unchanged allow/deny contract before commit. This
 		// also admits an existing Review SELECT without revoking/regranting it;
 		// any old or new schema/permission drift rolls back all installation.

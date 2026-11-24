@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	submissionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/listing/submission"
 	acquisitionstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/acquisition"
 	researchstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/research"
 	reviewstore "github.com/henryxu1008/shuomi-ai-commerce/internal/integration/persistence/product/review"
@@ -148,6 +149,26 @@ INSERT INTO supply_market_records VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 		before := listingFeatureSnapshot(t, f.owner, f.baseTables)
 		require.NoError(t, EnableListing(ctx, f.manifest, f.database))
 		require.Equal(t, before, listingFeatureSnapshot(t, f.owner, f.baseTables))
+	})
+
+	t.Run("Google plans use the current Product role with append-only access", func(t *testing.T) {
+		f := newFixture(t)
+		require.NoError(t, EnableListing(ctx, f.manifest, f.database))
+		config, err := readAcquisitionInitManifest(f.manifest, f.database, os.ErrInvalid)
+		require.NoError(t, err)
+		config.GoogleMerchant = true
+		writeSupplyFeatureManifest(t, f.manifest, config)
+		require.NoError(t, EnableListing(ctx, f.manifest, f.database))
+		require.NoError(t, EnableListing(ctx, f.manifest, f.database), "explicit owner replay retains the existing plans and grants")
+		require.NoError(t, acquisitionstore.VerifyRuntimePermissions(ctx, f.runtime, acquisitionstore.RuntimeCapabilities{
+			Collections: true, CompletionDrafts: true, SupplyChain: true,
+		}))
+		_, err = submissionstore.NewGooglePlanStore(ctx, f.runtime)
+		require.NoError(t, err)
+		var unsafe bool
+		require.NoError(t, f.runtime.Raw("SELECT has_table_privilege(current_user, ?, 'UPDATE') OR has_table_privilege(current_user, ?, 'DELETE')",
+			submissionstore.GooglePlanTable, submissionstore.GooglePlanTable).Scan(&unsafe).Error)
+		require.False(t, unsafe)
 	})
 
 	t.Run("declared capabilities never install or repair retained dependencies", func(t *testing.T) {

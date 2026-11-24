@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -530,9 +531,19 @@ ORDER BY constraint_row.conname`, table).Rows()
 		if !observed.validated || observed.deferrable || observed.deferred {
 			return fmt.Errorf("submission execution constraint public.%s.%s must be validated and immediate", table, name)
 		}
-		if !pgschema.SchemaConstraintEqual(observed.definition, contract.exactDefinition) {
+		expected := contract.exactDefinition
+		if name == "listing_submission_execution_attempts_no_send_check" && pgschema.SchemaConstraintEqual(observed.definition, googleNoSendConstraint(expected)) {
+			continue
+		}
+		if !pgschema.SchemaConstraintEqual(observed.definition, expected) {
 			return fmt.Errorf("submission execution constraint public.%s.%s definition mismatch: got %s", table, name, observed.definition)
 		}
 	}
 	return nil
+}
+
+func googleNoSendConstraint(existing string) string {
+	const tiktok = "((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[]))"
+	const google = "((platform)::text = 'googlemerchant'::text) AND ((action)::text = 'google_product_insert'::text)"
+	return strings.Replace(existing, tiktok, "(("+tiktok+") OR ("+google+"))", 1)
 }

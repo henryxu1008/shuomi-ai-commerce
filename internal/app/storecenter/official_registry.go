@@ -23,6 +23,7 @@ type officialApplicationEntry struct {
 }
 type OfficialApplicationChoice = storecenter.OfficialApplicationChoice
 type OfficialApplicationRegistry struct {
+	google            *GoogleApplicationRegistration
 	entries           map[officialApplicationKey]officialApplicationEntry
 	tiktokProvider    tiktok.SellerAuthorization
 	tiktokProtection  tiktok.CredentialProtection
@@ -42,6 +43,7 @@ func WithTikTokApplication(r *OfficialApplicationRegistry, provider tiktok.Selle
 	}
 	result := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, tiktokProvider: provider, tiktokProtection: protection}
 	if r != nil {
+		result.google = r.google
 		result.walmartProvider = r.walmartProvider
 		result.walmartProtection = r.walmartProtection
 		for key, entry := range r.entries {
@@ -61,6 +63,7 @@ func WithWalmartApplication(r *OfficialApplicationRegistry, p walmart.Authorizat
 	}
 	out := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, walmartProvider: p, walmartProtection: protection}
 	if r != nil {
+		out.google = r.google
 		out.tiktokProvider = r.tiktokProvider
 		out.tiktokProtection = r.tiktokProtection
 		for k, e := range r.entries {
@@ -199,4 +202,29 @@ func (r *OfficialApplicationRegistry) Applications() []OfficialApplicationChoice
 		return a.AppID < b.AppID
 	})
 	return choices
+}
+
+func WithGoogleMerchantApplication(r *OfficialApplicationRegistry, registration GoogleApplicationRegistration) (*OfficialApplicationRegistry, error) {
+	if registration.OAuth == nil || registration.Accounts == nil || registration.Protection == nil ||
+		!authidentity.IsBoundedIdentifier(registration.Application.ID) || !authidentity.IsBoundedIdentifier(registration.Application.Revision) ||
+		r != nil && r.google != nil {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	out := &OfficialApplicationRegistry{}
+	if r != nil {
+		*out = *r
+	}
+	out.google = &registration
+	return out, nil
+}
+
+func (r *OfficialApplicationRegistry) GoogleMerchantConfigured() bool {
+	return r != nil && r.google != nil
+}
+
+func (r *OfficialApplicationRegistry) GoogleConnections(repo GoogleConnectionStore) (*GoogleConnections, error) {
+	if !r.GoogleMerchantConfigured() {
+		return nil, nil
+	}
+	return NewGoogleConnections(repo, *r.google)
 }

@@ -23,14 +23,18 @@ type TikTokNoSendRepository interface {
 	StopTikTokBeforeSend(context.Context, TikTokNoSendProof) (ExecutionAttempt, error)
 }
 
-type TikTokPreparedAcquisition struct {
+type TikTokPreparedAcquisition = PreparedAcquisition
+
+type PreparedAcquisition struct {
 	Attempt     ExecutionAttempt
-	Preparation *TikTokPreparation
+	Preparation *PreparedSend
 	Replayed    bool
 }
 
 // Copies share the gate; serializing or replaying an attempt cannot restore it.
-type TikTokPreparation struct{ gate *tikTokPreparationGate }
+type TikTokPreparation = PreparedSend
+
+type PreparedSend struct{ gate *tikTokPreparationGate }
 type tikTokPreparationGate struct {
 	mu      sync.Mutex
 	kernel  *ExecutionKernel
@@ -47,7 +51,21 @@ type tikTokNoSendSeal struct {
 }
 
 func (k *ExecutionKernel) PrepareTikTokExecution(ctx context.Context, command AcquireExecutionCommand) (TikTokPreparedAcquisition, error) {
-	if k == nil || command.Target.Platform != "tiktokshop" || !tikTokNoSendAction(command.Action) {
+	if command.Target.Platform != "tiktokshop" {
+		return TikTokPreparedAcquisition{}, ErrExecutionInvalid
+	}
+	return k.prepareBeforeSend(ctx, command)
+}
+
+func (k *ExecutionKernel) PrepareGoogleExecution(ctx context.Context, command AcquireExecutionCommand) (PreparedAcquisition, error) {
+	if command.Target.Platform != "googlemerchant" {
+		return TikTokPreparedAcquisition{}, ErrExecutionInvalid
+	}
+	return k.prepareBeforeSend(ctx, command)
+}
+
+func (k *ExecutionKernel) prepareBeforeSend(ctx context.Context, command AcquireExecutionCommand) (TikTokPreparedAcquisition, error) {
+	if k == nil || !supportsLocalNoSend(command.Target.Platform, command.Action) {
 		return TikTokPreparedAcquisition{}, ErrExecutionInvalid
 	}
 	if _, ok := k.repository.(TikTokNoSendRepository); !ok {
@@ -65,13 +83,21 @@ func (k *ExecutionKernel) PrepareTikTokExecution(ctx context.Context, command Ac
 }
 
 func (k *ExecutionKernel) BeginTikTokSend(ctx context.Context, preparation *TikTokPreparation) (*SendPermit, error) {
+	return k.beginPreparedSend(ctx, preparation, "tiktokshop")
+}
+
+func (k *ExecutionKernel) BeginGoogleSend(ctx context.Context, preparation *PreparedSend) (*SendPermit, error) {
+	return k.beginPreparedSend(ctx, preparation, "googlemerchant")
+}
+
+func (k *ExecutionKernel) beginPreparedSend(ctx context.Context, preparation *TikTokPreparation, platform string) (*SendPermit, error) {
 	if k == nil || ctx == nil || preparation == nil || preparation.gate == nil {
 		return nil, ErrExecutionInvalid
 	}
 	g := preparation.gate
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.kernel != k {
+	if g.kernel != k || g.attempt.Target.Platform != platform {
 		return nil, ErrExecutionInvalid
 	}
 	if err := ctx.Err(); err != nil {
@@ -86,12 +112,20 @@ func (k *ExecutionKernel) BeginTikTokSend(ctx context.Context, preparation *TikT
 }
 
 func (k *ExecutionKernel) StopTikTokBeforeSend(ctx context.Context, preparation *TikTokPreparation, reason string) (ExecutionAttempt, error) {
+	return k.stopBeforeSend(ctx, preparation, reason, "tiktokshop")
+}
+
+func (k *ExecutionKernel) StopGoogleBeforeSend(ctx context.Context, preparation *PreparedSend, reason string) (ExecutionAttempt, error) {
+	return k.stopBeforeSend(ctx, preparation, reason, "googlemerchant")
+}
+
+func (k *ExecutionKernel) stopBeforeSend(ctx context.Context, preparation *TikTokPreparation, reason, platform string) (ExecutionAttempt, error) {
 	if k == nil || preparation == nil || preparation.gate == nil || !validNoSendReason(reason) {
 		return ExecutionAttempt{}, ErrExecutionInvalid
 	}
 	g := preparation.gate
 	g.mu.Lock()
-	if g.kernel != k || g.started {
+	if g.kernel != k || g.attempt.Target.Platform != platform || g.started {
 		g.mu.Unlock()
 		return ExecutionAttempt{}, ErrExecutionClaimRejected
 	}
@@ -166,6 +200,11 @@ func (p TikTokNoSendProof) Terminate(attempt ExecutionAttempt, now time.Time) (E
 func tikTokNoSendAction(action string) bool {
 	return action == TikTokImageAction || action == TikTokGlobalCreateAction || action == TikTokPublishAction
 }
+func supportsLocalNoSend(platform, action string) bool {
+	return platform == "tiktokshop" && tikTokNoSendAction(action) ||
+		platform == "googlemerchant" && action == GoogleInsertAction
+}
+
 func validNoSendReason(reason string) bool {
 	switch reason {
 	case NoSendPreflightUnavailable, NoSendFactsChanged, NoSendAccessRecheckFailed, NoSendImageContentChanged, NoSendPayloadInvalid:
@@ -177,5 +216,5 @@ func noSendFingerprint(a ExecutionAttempt, reason string) string {
 	return digestExecutionParts("task-processor/submission/local-no-send/v1", a.OrganizationID, a.AttemptID, a.IntentKey, a.Target.Platform, a.Target.StoreID, a.Target.SubjectID, a.Action, a.PayloadFingerprint, a.ProviderExecutionKey, strconv.FormatInt(a.FenceEpoch, 10), a.ClaimOwnerID, reason)
 }
 func validNoSendAttempt(a ExecutionAttempt) bool {
-	return a.Target.Platform == "tiktokshop" && tikTokNoSendAction(a.Action) && a.Evidence != nil && a.Evidence.Kind == EvidenceLocalNoSend && a.Evidence.Reference == a.AttemptID && validNoSendReason(a.Evidence.Reason) && a.Evidence.Fingerprint == noSendFingerprint(a, a.Evidence.Reason) && a.FinishedAt != nil && a.FinishedAt.Before(a.LeaseExpiresAt)
+	return supportsLocalNoSend(a.Target.Platform, a.Action) && a.Evidence != nil && a.Evidence.Kind == EvidenceLocalNoSend && a.Evidence.Reference == a.AttemptID && validNoSendReason(a.Evidence.Reason) && a.Evidence.Fingerprint == noSendFingerprint(a, a.Evidence.Reason) && a.FinishedAt != nil && a.FinishedAt.Before(a.LeaseExpiresAt)
 }
