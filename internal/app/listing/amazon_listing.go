@@ -91,6 +91,9 @@ func (s *AmazonListingService) Confirm(ctx context.Context, scope collection.Sco
 		if intent.Amazon == nil {
 			return AmazonListingResult{}, record.ErrNotFound
 		}
+		if prior.Status == submission.ExecutionNotSent && intent.RecordID == saved.ID {
+			return s.result(ctx, scope, intent, prior)
+		}
 		if prior.Status == submission.ExecutionFailedDefinitive && intent.Amazon.WireHash == wireHash {
 			if !submission.AmazonIntentMatchesRecord(intent, saved) {
 				return AmazonListingResult{}, submission.ErrExecutionIntentConflict
@@ -173,6 +176,14 @@ func (s *AmazonListingService) Confirm(ctx context.Context, scope collection.Sco
 	receipt := submission.AmazonReceipt{Accepted: response.Accepted, SubmissionID: response.SubmissionID, Issues: amazonIssues(response.Issues)}
 	finishCtx, finish := context.WithTimeout(context.WithoutCancel(ctx), submission.ExecutionTimeout)
 	defer finish()
+	if errors.Is(err, record.ErrForbidden) && sendCtx.Err() == nil {
+		if stopped, stopErr := s.Kernel.StopAmazonBeforeSend(finishCtx, acquired.AmazonPermit); stopErr == nil {
+			if !s.Preparer.Access.Current(finishCtx, storeSubject, saved.Merchant) {
+				return AmazonListingResult{}, record.ErrNotReady
+			}
+			return s.result(finishCtx, scope, intent, stopped)
+		}
+	}
 	if err != nil || !receipt.Valid() || !s.Preparer.Access.Current(finishCtx, storeSubject, saved.Merchant) ||
 		s.Authorization.AuthorizeExecution(finishCtx, scope, preparation.PermissionRead) != nil ||
 		s.Repository.CompleteAmazon(finishCtx, claim, intent, receipt) != nil {
@@ -224,7 +235,7 @@ func (s *AmazonListingService) Read(ctx context.Context, scope collection.Scope,
 		return AmazonListingResult{}, record.ErrNotReady
 	}
 	result, err := s.result(ctx, scope, intent, attempt)
-	if err != nil || !refresh || result.Submission == "rejected" {
+	if err != nil || !refresh || result.Submission == "rejected" || result.Submission == "not_sent" {
 		return result, err
 	}
 	conn, err := s.Preparer.Access.Open(ctx, storeSubject, storeID, &binding)
@@ -312,6 +323,7 @@ func (s *AmazonListingService) result(ctx context.Context, scope collection.Scop
 	switch attempt.Status {
 	case submission.ExecutionNotSent:
 		result.Submission = "not_sent"
+		return result, nil
 	case submission.ExecutionSucceeded, submission.ExecutionFailedDefinitive:
 		receipt, err := s.Repository.ReadAmazonReceipt(ctx, scope, attempt)
 		if err != nil {

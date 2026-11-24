@@ -74,6 +74,53 @@ it("uses result lookup after an uncertain send and keeps the form read-only whil
   await user.click(screen.getByRole("button", { name: "查询 Amazon 结果" }));
   expect(await screen.findByText("提交结果待确认")).toBeVisible();
   expect(screen.queryByRole("button", { name: "确认提交到 Amazon" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "核对商品资料" })).toBeNull();
   expect(calls.confirm).toHaveBeenCalledOnce();
   expect(calls.listing).toHaveBeenLastCalledWith(scope, id, storeId, true, expect.any(AbortSignal));
+});
+
+it("requires a new review after a locally blocked send, including when reopening the product", async () => {
+  const user = userEvent.setup();
+  const ready = review();
+  const blocked: AmazonListingResult = { ...accepted, submission: "not_sent", receipt: undefined };
+  const nextReview = { ...ready, recordId: "33333333-3333-4333-8333-333333333333", revision: 2 };
+  const panel = <AmazonListingPanel scope={scope} source={source} storeId={storeId} storeName="合成店铺" canManage canSubmit resultOnly={false} />;
+  calls.details.mockResolvedValue(ready);
+  calls.confirm.mockResolvedValueOnce(blocked).mockResolvedValueOnce({ ...accepted, recordId: nextReview.recordId });
+  calls.review.mockResolvedValue(nextReview);
+  const first = render(panel);
+  await user.click(await screen.findByRole("button", { name: "确认提交到 Amazon" }));
+  expect(await screen.findByText("尚未提交到 Amazon")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "确认提交到 Amazon" })).toBeNull();
+  first.unmount();
+
+  calls.listing.mockResolvedValue(blocked);
+  render(panel);
+  expect(await screen.findByText("权限恢复后，请重新核对商品资料，再确认提交。")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "确认提交到 Amazon" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "查询 Amazon 结果" })).toBeNull();
+  await user.click(await screen.findByRole("button", { name: "核对商品资料" }));
+  expect(calls.review).toHaveBeenCalledWith(scope, {
+    sourceId: id, storeId, effectiveVersion: "1", expectedRevision: 1, details,
+  }, expect.any(String), expect.any(AbortSignal));
+  await user.click(await screen.findByRole("button", { name: "确认提交到 Amazon" }));
+  expect(await screen.findByText("Amazon 已受理")).toBeVisible();
+  expect(calls.confirm).toHaveBeenLastCalledWith(scope, {
+    recordId: nextReview.recordId, wireHash: nextReview.wireHash,
+  }, expect.any(String), expect.any(AbortSignal));
+  expect(calls.confirm.mock.calls[0]?.[2]).not.toBe(calls.confirm.mock.calls[1]?.[2]);
+});
+
+it("requires a new review when checking a lost browser response proves the request was blocked", async () => {
+  const user = userEvent.setup();
+  calls.details.mockImplementation(async () => review());
+  calls.confirm.mockRejectedValue(new SupplyAPIError("OUTCOME_UNKNOWN", 503));
+  render(<AmazonListingPanel scope={scope} source={source} storeId={storeId} storeName="合成店铺" canManage canSubmit resultOnly={false} />);
+  await user.click(await screen.findByRole("button", { name: "确认提交到 Amazon" }));
+  await screen.findByText("这次提交的结果待确认。请查询原商品结果。");
+  calls.listing.mockResolvedValue({ ...accepted, submission: "not_sent", receipt: undefined });
+  await user.click(screen.getByRole("button", { name: "查询 Amazon 结果" }));
+  expect(await screen.findByText("尚未提交到 Amazon")).toBeVisible();
+  expect(screen.getByRole("button", { name: "核对商品资料" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "确认提交到 Amazon" })).toBeNull();
 });

@@ -1,6 +1,7 @@
 package submission
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,7 +29,7 @@ func TestAmazonWritePermitSharesConsumptionAcrossCopies(t *testing.T) {
 	base := AmazonWritePermit{
 		intent: OfficialIntent{Owner: scope, Binding: binding, Amazon: &AmazonIntent{SKU: draft.SKU, WireHash: draft.WireHash},
 			PayloadFingerprint: digestExecutionParts("amazon", binding.StoreID, draft.SKU, AmazonSubmitAction, string(draft.Attributes))},
-		expiresAt: now.Add(time.Minute), sent: new(atomic.Bool),
+		expiresAt: now.Add(time.Minute), closed: new(atomic.Bool),
 	}
 	require.ErrorIs(t, base.Consume(scope, binding, changed, now), ErrExecutionClaimRejected)
 	differentStore := storecenter.ProductMerchantBinding{StoreID: "22222222-2222-4222-8222-222222222222"}
@@ -46,4 +47,44 @@ func TestAmazonWritePermitSharesConsumptionAcrossCopies(t *testing.T) {
 	}
 	group.Wait()
 	require.Equal(t, int32(1), successes.Load())
+
+	t.Run("send and local stop cannot both win", func(t *testing.T) {
+		ctx := context.Background()
+		for range 20 {
+			k, command := noSendKernelFixture(t)
+			k.repository.(*noSendMemoryRepository).loseStopAck = true
+			command.Target = ExecutionTarget{Platform: "amazon", StoreID: binding.StoreID, SubjectID: draft.SKU}
+			command.Action, command.Payload = AmazonSubmitAction, draft.Attributes
+			intent := base.intent
+			intent.Key, intent.Target = command.IntentKey, command.Target
+			command.Amazon = &AmazonSendAuthorization{intent: intent}
+			acquired, err := k.Acquire(ctx, command)
+			require.NoError(t, err)
+			require.NotNil(t, acquired.AmazonPermit)
+			copied := *acquired.AmazonPermit
+			start := make(chan struct{})
+			sent, stopped := make(chan error, 1), make(chan error, 1)
+			go func() {
+				<-start
+				sent <- acquired.AmazonPermit.Consume(scope, binding, draft, k.now())
+			}()
+			go func() {
+				<-start
+				_, e := k.StopAmazonBeforeSend(ctx, &copied)
+				stopped <- e
+			}()
+			close(start)
+			sendErr, stopErr := <-sent, <-stopped
+			require.NotEqual(t, sendErr == nil, stopErr == nil)
+			persisted, err := k.Get(ctx, command.Scope, acquired.Attempt.AttemptID)
+			require.NoError(t, err)
+			if stopErr == nil {
+				require.Equal(t, ExecutionNotSent, persisted.Status, "original receipt must survive a lost commit acknowledgement")
+				require.Equal(t, NoSendAccessRecheckFailed, persisted.Evidence.Reason)
+			} else {
+				require.ErrorIs(t, stopErr, ErrExecutionClaimRejected)
+				require.Equal(t, ExecutionClaimed, persisted.Status)
+			}
+		}
+	})
 }
