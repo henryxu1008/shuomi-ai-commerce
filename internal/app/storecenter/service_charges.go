@@ -109,36 +109,50 @@ func (s *ServiceLifecycleExecutor) resume(ctx context.Context, intent storecente
 	if err != nil {
 		return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
 	}
-	if receipt.Intent != serviceResourceIntent(intent) || receipt.State != orgresource.ReservationReserved {
+	if receipt.Intent != serviceResourceIntent(intent) {
+		return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
+	}
+	if receipt.State != orgresource.ReservationReserved {
+		original, err := s.stores.ReadServiceChargeProof(ctx, e.OrganizationID, e.OperationID)
+		if err == nil && original.ReservationID == receipt.ReservationID && (original.State == "succeeded" || original.State == "failed_fenced") {
+			return s.settle(ctx, original)
+		}
 		return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
 	}
 	if err := s.stores.BindServiceCharge(ctx, intent, receipt.ReservationID); err != nil {
 		if errors.Is(err, storecenter.ErrNotFound) && ctx.Err() == nil {
-			if proof, fenceErr := s.stores.FenceServiceCharge(ctx, intent, receipt.ReservationID, "NOT_ALLOWED"); fenceErr == nil {
-				return s.settle(ctx, proof)
-			}
+			return s.rejectServiceCharge(ctx, intent, receipt.ReservationID, "NOT_ALLOWED")
 		}
 		return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
 	}
-	connection := storecenter.ConnectionStatus("")
-	if e.Command == storecenter.ServiceCommandActivate {
-		store, err := s.stores.Get(ctx, e.OrganizationID, e.StoreID)
-		if err != nil {
-			return storecenter.ServiceOperationResult{}, err
-		}
+	store, err := s.stores.Get(ctx, e.OrganizationID, e.StoreID)
+	if errors.Is(err, storecenter.ErrNotFound) && ctx.Err() == nil {
+		return s.rejectServiceCharge(ctx, intent, receipt.ReservationID, "NOT_ALLOWED")
+	}
+	if err != nil || store == nil {
+		return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
+	}
+	connection := storecenter.ServiceChargeConnection{}
+	if store.Platform() == storecenter.PlatformShopify {
 		if store.ConnectionRef() != e.ExpectedConnectionRef {
-			proof, err := s.stores.FenceServiceCharge(ctx, intent, receipt.ReservationID, "CONNECTION_CHANGED")
-			if err != nil {
-				return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
-			}
-			return s.settle(ctx, proof)
+			return s.rejectServiceCharge(ctx, intent, receipt.ReservationID, "CONNECTION_CHANGED")
+		}
+		binding, err := storecenter.VerifyShopifyServiceConnection(ctx, s.connections, store)
+		if err != nil {
+			return s.rejectServiceCharge(ctx, intent, receipt.ReservationID, "CONNECTION_CHANGED")
+		}
+		connection = storecenter.ServiceChargeConnection{Status: storecenter.ConnectionStatusConnected, Shopify: &binding}
+	} else if e.Command == storecenter.ServiceCommandActivate {
+		if store.ConnectionRef() != e.ExpectedConnectionRef {
+			return s.rejectServiceCharge(ctx, intent, receipt.ReservationID, "CONNECTION_CHANGED")
 		}
 		call, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
-		connection, err = s.connections.Status(call, storecenter.ConnectionStatusInput{OrganizationID: e.OrganizationID, StoreID: e.StoreID, Platform: store.Platform(), ConnectionRef: store.ConnectionRef()})
+		status, err := s.connections.Status(call, storecenter.ConnectionStatusInput{OrganizationID: e.OrganizationID, StoreID: e.StoreID, Platform: store.Platform(), ConnectionRef: store.ConnectionRef()})
 		cancel()
-		if err != nil || connection == storecenter.ConnectionStatusUnavailable || connection == "" {
+		if err != nil || status == storecenter.ConnectionStatusUnavailable || status == "" {
 			return storecenter.ServiceOperationResult{}, storecenter.ErrConnectionUnavailable
 		}
+		connection.Status = status
 	}
 	proof, err = s.stores.ApplyServiceCharge(ctx, intent, connection)
 	if err != nil {
@@ -146,9 +160,17 @@ func (s *ServiceLifecycleExecutor) resume(ctx context.Context, intent storecente
 	}
 	return s.settle(ctx, proof)
 }
+func (s *ServiceLifecycleExecutor) rejectServiceCharge(ctx context.Context, intent storecenter.ServiceChargeIntent, reservationID, code string) (storecenter.ServiceOperationResult, error) {
+	proof, err := s.stores.FenceServiceCharge(ctx, intent, reservationID, code)
+	if err != nil {
+		return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
+	}
+	return s.settle(ctx, proof)
+}
+
 func (s *ServiceLifecycleExecutor) settle(ctx context.Context, proof storecenter.ServiceChargeProof) (storecenter.ServiceOperationResult, error) {
 	if proof.State == "failed_fenced" && proof.ReservationID == "" {
-		return storecenter.ServiceOperationResult{}, serviceFailure(proof.FailureCode)
+		return storecenter.ServiceOperationResult{}, s.settledServiceFailure(ctx, proof)
 	}
 	receipt, err := s.charges.Reconcile(ctx, serviceChargeIdentity(proof.Intent))
 	if err != nil || receipt.Intent != serviceResourceIntent(proof.Intent) || receipt.ReservationID != proof.ReservationID {
@@ -158,7 +180,7 @@ func (s *ServiceLifecycleExecutor) settle(ctx context.Context, proof storecenter
 		if receipt.State != orgresource.ReservationReleased {
 			return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
 		}
-		return storecenter.ServiceOperationResult{}, serviceFailure(proof.FailureCode)
+		return storecenter.ServiceOperationResult{}, s.settledServiceFailure(ctx, proof)
 	}
 	if proof.State != "succeeded" || receipt.State != orgresource.ReservationCommitted {
 		return storecenter.ServiceOperationResult{}, storecenter.ErrServiceChargeUnknown
@@ -167,6 +189,17 @@ func (s *ServiceLifecycleExecutor) settle(ctx context.Context, proof storecenter
 	snapshot.BalanceAfter = strconv.FormatInt(receipt.BalanceAfter, 10)
 	return storecenter.ServiceOperationResult{Snapshot: snapshot}, nil
 }
+func (s *ServiceLifecycleExecutor) settledServiceFailure(ctx context.Context, proof storecenter.ServiceChargeProof) error {
+	if proof.ReservationID != "" && (proof.FailureCode == "CONNECTION_CHANGED" || proof.FailureCode == "STORE_CHANGED") {
+		e := proof.Intent.Execution
+		store, err := s.stores.Get(ctx, e.OrganizationID, e.StoreID)
+		if err == nil && store != nil && store.Platform() == storecenter.PlatformShopify {
+			return storecenter.ErrShopifyServiceChargeRejected
+		}
+	}
+	return serviceFailure(proof.FailureCode)
+}
+
 func serviceFailure(code string) error {
 	switch code {
 	case "NOT_ALLOWED":

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const workbenchStorePlatformSchema = z.enum(["shein", "temu", "tiktokshop", "walmart", "googlemerchant"]);
+export const workbenchStorePlatformSchema = z.enum(["shein", "temu", "tiktokshop", "walmart", "googlemerchant", "shopify"]);
 export const workbenchStoreResponsePlatformSchema = workbenchStorePlatformSchema.or(z.literal("amazon")).or(z.literal("metacatalog"));
 const workbenchStoreRecordStatusSchema = z.enum([
   "active",
@@ -30,7 +30,7 @@ export const workbenchStoreCreateSchema = z
   .refine(input=>input.platform!=="tiktokshop" || input.region==="US" && !!input.externalStoreId,{message:"TikTok Shop 美国跨境店铺需要 US 区域和 Seller Center 店铺编号"})
   .refine(input=>input.platform!=="walmart"||input.region==="US",{message:"Walmart 仅开放美国站，区域填写 US"})
   .transform(({ externalStoreId, ...input }) =>
-    externalStoreId ? { ...input, externalStoreId } : input,
+    externalStoreId && input.platform !== "shopify" ? { ...input, externalStoreId } : input,
   );
 
 export const workbenchStoreUpdateSchema = z

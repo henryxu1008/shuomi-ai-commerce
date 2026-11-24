@@ -8,6 +8,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/preparation"
 	amazonmarket "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/amazonus"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
+	shopify "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	temumodel "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/model"
 	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
@@ -25,6 +26,7 @@ var ErrTargetUnknown = errors.New("listing target command outcome is unknown; re
 // Target records use the current private source selection. They neither wrap
 // the older local draft service nor accept ProductKey as read authority.
 type TargetInput struct {
+	Shopify           *shopify.Input            `json:"shopify,omitempty"`
 	Amazon            *amazonmarket.DraftInput  `json:"amazon,omitempty"`
 	LocalTrial        *LocalTrial               `json:"localTrial,omitempty"`
 	TargetID          string                    `json:"targetId,omitempty"`
@@ -46,6 +48,7 @@ type TargetInput struct {
 	SheinImport       *SheinImport              `json:"sheinImport,omitempty"`
 }
 type TargetRecord struct {
+	Shopify                  *shopify.Draft                        `json:"shopify,omitempty"`
 	Amazon                   *AmazonTarget                         `json:"amazon,omitempty"`
 	LocalTrial               *LocalTrial                           `json:"localTrial,omitempty"`
 	ID                       string                                `json:"id"`
@@ -194,6 +197,7 @@ type TargetRepository interface {
 	SaveTarget(context.Context, TargetPrepared) (TargetReceipt, error)
 }
 type TargetDependencies struct {
+	ShopifyStores          ShopifyTargetStore
 	Amazon                 AmazonTargetPreparer
 	Sources                TargetSourceSelector
 	Products               EffectiveTargetProductReader
@@ -302,7 +306,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if !ValidColorPartition(scope, input) {
 		return TargetReceipt{}, ErrInvalid
 	}
-	if input.Amazon != nil && !validAmazonInput(input) {
+	if input.Shopify != nil && !validShopifyTargetInput(input) || input.Amazon != nil && !validAmazonInput(input) {
 		return TargetReceipt{}, ErrInvalid
 	}
 	if input.SheinSalesMapping != nil && (input.SheinImport != nil || input.CompletionDraft != nil || input.ColorPartition != nil || input.Temu != nil || input.TikTok != nil || input.Walmart != nil || input.TemuRules != nil || input.TikTokRules != nil || input.WalmartRules != nil) {
@@ -415,8 +419,8 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	if input.Walmart != nil {
 		platform = "walmart"
 	}
-	if input.Amazon != nil {
-		// Existing human-approved product images can be reused for this listing.
+	if input.Amazon != nil || input.Shopify != nil {
+		// Both platforms consume the existing approved product images.
 		platform = "product"
 	}
 	inventoryScope := asset.InventoryScope{TenantID: scope.OrganizationID, ProductKey: source.Source.ProductKey, TargetPlatform: platform, SourceSnapshotVersion: product.Version}
@@ -450,6 +454,7 @@ func (s *TargetService) create(ctx context.Context, scope collection.Scope, key 
 	value := TargetRecord{ID: collection.StableID(scope.OrganizationID, scope.ActorID, "supply-record", key), TargetID: RecordIdentity(scope, input), Revision: input.ExpectedRevision + 1, Source: source, EffectiveVersion: product.Version, ApplyReceiptID: input.ApplyReceiptID, ProductHash: collection.Digest(product.Snapshot), InventoryHash: collection.Digest(inventory), RulesHash: prepared.rulesHash, Merchant: prepared.merchant, Input: input, Result: prepared.shein, CreatedAt: time.Now().UTC()}
 	value.ImageObservations = prepared.images
 	value.LocalTrial = input.LocalTrial
+	value.Shopify = prepared.shopify
 	value.ProofObservations = prepared.proofs
 	value.Temu, value.TemuRuleSnapshot = prepared.temu, prepared.temuRules
 	value.TemuImageObservations = prepared.temuImages

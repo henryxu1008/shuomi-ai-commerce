@@ -23,7 +23,10 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-type uploadPlanInputsFixture struct{ preparation.UploadPlanInputs }
+type uploadPlanInputsFixture struct {
+	preparation.UploadPlanInputs
+	target preparation.TargetApproval
+}
 
 // Same real-commit/lost-ack pattern as the existing completiondraft tests.
 type uploadPlanLostCommitPool struct {
@@ -46,7 +49,10 @@ func (tx uploadPlanLostCommitTx) Commit() error {
 func (uploadPlanInputsFixture) ReadUploadPlanBinding(context.Context, collection.Scope, preparation.UploadPlanInput) (string, error) {
 	return collection.Digest("current-store-binding"), nil
 }
-func (uploadPlanInputsFixture) ReadUploadPlanFacts(_ context.Context, _ preparation.UploadPlan, _ preparation.UploadPlanItem) (preparation.UploadPlanFacts, error) {
+func (f uploadPlanInputsFixture) ReadUploadPlanFacts(_ context.Context, _ preparation.UploadPlan, _ preparation.UploadPlanItem) (preparation.UploadPlanFacts, error) {
+	if f.target.Valid() {
+		return preparation.UploadPlanFacts{HasTarget: true, Ready: true, Target: f.target, PublicationMode: "platform_draft"}, nil
+	}
 	return preparation.UploadPlanFacts{}, nil
 }
 func (uploadPlanInputsFixture) AuthorizeUploadPlanStep(context.Context, preparation.UploadPlan, preparation.OperationInput) error {
@@ -128,6 +134,27 @@ func TestPostgresUploadPlanWholeSelectionAtomicContinueAndReplay(t *testing.T) {
 	require.ErrorIs(t, err, preparation.ErrNotFound)
 
 	selected := preview.Items[0].Item.SourceID
+	t.Run("Shopify plan retains the approved target", func(t *testing.T) {
+		storeID, targetID, recordID := uuid.NewString(), uuid.NewString(), uuid.NewString()
+		require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,'shopify',3,?,?,?::jsonb,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, targetID, selected, storeID, collection.Digest("input"), collection.Digest("body"), "{}").Error)
+		require.NoError(t, db.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,current_record_id,revision) VALUES(?,?,?,?,?,?,'shopify',?,3)", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID, selected, storeID, recordID).Error)
+		fixture := uploadPlanInputsFixture{target: preparation.TargetApproval{SourceID: selected, RecordID: recordID, Revision: 3}}
+		shopifyPlans, err := preparation.NewUploadPlanService(fixedAuth{scope}, repo, fixture)
+		require.NoError(t, err)
+		shopifyConfig := preparation.UploadPlanInput{PreparationID: prepID, ExpectedRevision: 1, StoreID: storeID, Rule: "standard", PublicationMode: "platform_draft", SourceIDs: []string{selected}}
+		created, err := shopifyPlans.Create(actor, uuid.NewString(), shopifyConfig)
+		require.NoError(t, err)
+		preview, err := shopifyPlans.Preview(actor, created.Plan.ID, preparation.UploadPlanContinueInput{ExpectedRevision: 1})
+		require.NoError(t, err)
+		require.EqualValues(t, 1, preview.Counts[preparation.OperationUpload])
+		advanced, err := shopifyPlans.Continue(actor, created.Plan.ID, uuid.NewString(), preparation.UploadPlanContinueInput{ExpectedRevision: 1, PreviewHash: preview.Hash})
+		require.NoError(t, err)
+		require.Len(t, advanced.OperationIDs, 1)
+		_, item, err := repo.ReadUploadPlanOperation(ctx, scope, advanced.OperationIDs[0], selected)
+		require.NoError(t, err)
+		require.Equal(t, recordID, item.RecordID)
+		require.EqualValues(t, 3, item.RecordRevision)
+	})
 	t.Run("runtime role keeps immutable sources read only", func(t *testing.T) {
 		// Match the serving role's relevant grants, not the schema owner's
 		// superuser privileges used to seed this isolated database.

@@ -29,6 +29,7 @@ type OfficialApplicationRegistry struct {
 	tiktokProtection  tiktok.CredentialProtection
 	walmartProvider   walmart.Authorization
 	walmartProtection walmart.CredentialProtection
+	shopify           *ShopifyApplication
 }
 
 // TikTok uses a canonical seller grant and its own credential contract.
@@ -43,6 +44,7 @@ func WithTikTokApplication(r *OfficialApplicationRegistry, provider tiktok.Selle
 	}
 	result := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, tiktokProvider: provider, tiktokProtection: protection}
 	if r != nil {
+		result.shopify = r.shopify
 		result.google = r.google
 		result.walmartProvider = r.walmartProvider
 		result.walmartProtection = r.walmartProtection
@@ -63,6 +65,7 @@ func WithWalmartApplication(r *OfficialApplicationRegistry, p walmart.Authorizat
 	}
 	out := &OfficialApplicationRegistry{entries: map[officialApplicationKey]officialApplicationEntry{}, walmartProvider: p, walmartProtection: protection}
 	if r != nil {
+		out.shopify = r.shopify
 		out.google = r.google
 		out.tiktokProvider = r.tiktokProvider
 		out.tiktokProtection = r.tiktokProtection
@@ -78,6 +81,29 @@ func (r *OfficialApplicationRegistry) WalmartConfigured() bool {
 
 func (r *OfficialApplicationRegistry) TikTokConfigured() bool {
 	return r != nil && r.tiktokProvider != nil
+}
+
+func WithShopifyApplication(r *OfficialApplicationRegistry, app ShopifyApplication) (*OfficialApplicationRegistry, error) {
+	if !validShopifyApplication(app) || r.ShopifyConfigured() {
+		return nil, storecenter.ErrOfficialConnectionUnavailable
+	}
+	var result OfficialApplicationRegistry
+	if r != nil {
+		result = *r
+	}
+	result.shopify = &app
+	return &result, nil
+}
+
+func (r *OfficialApplicationRegistry) ShopifyConfigured() bool {
+	return r != nil && r.shopify != nil
+}
+
+func (r *OfficialApplicationRegistry) ShopifyConnections(repo *storecenter.MemberScopedStoreRepository) (*ShopifyConnections, error) {
+	if !r.ShopifyConfigured() {
+		return nil, nil
+	}
+	return NewShopifyConnections(repo, *r.shopify)
 }
 
 func newTikTokConnections(store storecenter.OfficialConnectionStore, registry *OfficialApplicationRegistry) (*TikTokConnections, error) {

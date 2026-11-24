@@ -21,6 +21,8 @@
 - [TikTok 发送前 no-send 与显式重试](tiktok-pre-dispatch-no-send.md) — 仅原 Submission 可证明未发送时终结原键，新确认另建命令。
 - [Walmart Feed 拒绝修复和有界续读](walmart-feed-recovery.md) — 原明确拒绝/准确 SKU 可人工重试；跨次不完整页不授予完整结果资格。
 
+已完成设计准入、待实现：[Shopify 商品草稿上传及回查](../marketplace/shopify-product-draft.md)（#1613）。
+
 ## 草稿与备注的当前合同
 
 - [保存历史与差异比较](completion-draft-history.md) — 精确版本的只读历史，旧记录不可改写。

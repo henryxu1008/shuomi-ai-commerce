@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
-	market "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
+	market "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 )
 
 type GoogleConnectionService interface {
@@ -53,10 +53,9 @@ func (h *Handler) SetGoogleConnections(service GoogleConnectionService) error {
 	return nil
 }
 
-func (h *Handler) googleRoutes() []httproute.Descriptor {
-	if h.google == nil {
-		return nil
-	}
+// GoogleStoreRoutes describes the bounded Google Merchant routes. Current
+// application admission uses the same definitions without a serving handler.
+func GoogleStoreRoutes(h *Handler) []httproute.Descriptor {
 	result := make([]httproute.Descriptor, 0, len(googleStoreMethods))
 	for suffix, method := range googleStoreMethods {
 		permission := authz.PermissionWorkbenchStoreUpdate

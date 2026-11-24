@@ -79,6 +79,7 @@ export const workbenchStoreSchema = z
 
 const workbenchStoreListSchema = z
   .object({
+    shopifyAvailable: z.boolean().optional(),
     items: z.array(workbenchStoreSchema).max(100),
     pagination: z
       .object({
@@ -163,6 +164,7 @@ export type WorkbenchStoreErrorCode =
   | "STORE_SERVICE_STATE_CORRUPT"
   | "STORE_CONNECTION_UNAVAILABLE"
   | "STORE_CONNECTION_NOT_CONNECTED"
+  | "SHOPIFY_SERVICE_CHARGE_REJECTED"
   | "RESOURCE_QUANTITY_INVALID"
   | "RESOURCE_INSUFFICIENT_BALANCE"
   | "IDEMPOTENCY_KEY_CONFLICT"

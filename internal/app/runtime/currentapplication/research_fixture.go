@@ -33,7 +33,7 @@ func (c *Config) validateResearchFixture() error {
 		c.SourceMaterials != nil || c.POD != nil || c.TitlePilot != nil ||
 		c.AIWorkbench != nil && c.AIWorkbench.Enabled || c.ProductAgent != nil && c.ProductAgent.Enabled ||
 		c.ImageAgent != nil && c.ImageAgent.Generation.Enabled ||
-		c.StoreCenter != nil && len(c.StoreCenter.OfficialApplications) != 0 {
+		c.StoreCenter != nil && (len(c.StoreCenter.OfficialApplications) != 0 || c.StoreCenter.Shopify != nil) {
 		return errors.New("research fixture requires the current data owners and disabled execution")
 	}
 	return nil

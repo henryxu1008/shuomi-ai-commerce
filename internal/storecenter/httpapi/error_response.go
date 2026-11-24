@@ -35,6 +35,8 @@ func mapStoreError(err error) protocolError {
 		response.Status, response.Code, response.Message = http.StatusUnprocessableEntity, "STORE_AUTHORIZATION_REJECTED", "Store authorization was rejected or expired"
 	case errors.Is(err, storecenter.ErrServiceChargeUnknown):
 		response.Code, response.Message = "STORE_SERVICE_OUTCOME_UNKNOWN", "Store service outcome is still being checked"
+	case errors.Is(err, storecenter.ErrShopifyServiceChargeRejected):
+		response.Status, response.Code, response.Message = http.StatusUnprocessableEntity, "SHOPIFY_SERVICE_CHARGE_REJECTED", "Shopify service operation was rejected and its reservation was released"
 	case errors.Is(err, storecenter.ErrMetadataInvalid):
 		response.Status, response.Code, response.Message = http.StatusBadRequest, "INVALID_REQUEST", "Invalid metadata command"
 	case errors.Is(err, storecenter.ErrMetadataKeyConflict):

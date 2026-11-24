@@ -10,6 +10,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	tiktok "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/tiktokshop"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/description"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/review"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 )
@@ -17,8 +18,11 @@ import (
 // Projection/authorization adapter; sequencing and durable commands remain in
 // preparation, while this adapter reads facts from the current owners.
 type UploadPlanInputs struct {
-	Application     *Application
-	Operations      preparation.UploadPlanOperationReader
+	Application  *Application
+	Operations   preparation.UploadPlanOperationReader
+	ShopifyStore interface {
+		ShopifyPlanDomain(context.Context, collection.Scope, storecenter.ProductMerchantBinding) (string, error)
+	}
 	WalmartAttempts interface {
 		ReadWalmartAttempt(context.Context, submission.ExecutionScope, submission.ExecutionTarget) (submission.ExecutionAttempt, error)
 	}
@@ -36,7 +40,10 @@ func (r UploadPlanInputs) ReadUploadPlanBinding(ctx context.Context, scope colle
 	if !validTargetMerchant(scope, in.StoreID, b) {
 		return "", record.ErrForbidden
 	}
-	if in.PublicationMode == "platform_draft" && b.Platform != storecenter.PlatformTikTokShop {
+	if b.Platform == storecenter.PlatformShopify && (in.PublicationMode != "platform_draft" || len(in.SourceIDs) != 1 || in.TitleTemplateID != "") {
+		return "", preparation.ErrInvalid
+	}
+	if in.PublicationMode == "platform_draft" && b.Platform != storecenter.PlatformTikTokShop && b.Platform != storecenter.PlatformShopify {
 		return "", record.ErrNotReady
 	}
 	return collection.Digest(b), nil
@@ -91,8 +98,24 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		facts.Ready = record.PublicationReady(saved)
 		facts.Target = preparation.TargetApproval{SourceID: source.ID, RecordID: saved.ID, Revision: saved.Revision}
 		facts.PublicationMode = "platform"
-		if saved.Input.TikTok != nil && saved.Input.TikTok.SaveMode == "AS_DRAFT" {
+		if saved.Shopify != nil || saved.Input.TikTok != nil && saved.Input.TikTok.SaveMode == "AS_DRAFT" {
 			facts.PublicationMode = "platform_draft"
+		}
+		if facts.Ready && saved.Shopify != nil {
+			if r.ShopifyStore == nil {
+				return facts, preparation.ErrUnavailable
+			}
+			domain, e := r.ShopifyStore.ShopifyPlanDomain(ctx, scope, saved.Merchant)
+			if e != nil || domain == "" {
+				facts.Ready = false
+				facts.ManualTargetRequired = true
+			} else {
+				draft := saved.Shopify
+				facts.ShopifyConfirmation = &preparation.ShopifyUploadConfirmation{
+					ShopDomain: domain, Title: draft.Title, Description: description.PlainText(draft.DescriptionHTML, description.HTML),
+					Currency: draft.Currency, Options: draft.Options, Variants: draft.Variants, Images: draft.Images,
+				}
+			}
 		}
 		if saved.Walmart != nil {
 			facts.WalmartApproval = &preparation.WalmartUploadApproval{SourceID: source.ID, RecordID: saved.ID, Revision: saved.Revision, WireHash: saved.Walmart.WireHash}
@@ -109,7 +132,7 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 		if !validTargetMerchant(scope, plan.Input.StoreID, binding) {
 			return facts, record.ErrForbidden
 		}
-		facts.ManualTargetRequired = binding.Platform == storecenter.PlatformTikTokShop || binding.Platform == storecenter.PlatformWalmart
+		facts.ManualTargetRequired = binding.Platform == storecenter.PlatformTikTokShop || binding.Platform == storecenter.PlatformWalmart || binding.Platform == storecenter.PlatformShopify
 	}
 	publication, e := a.Publication(ctx, source.ID, plan.Input.StoreID)
 	if e != nil {
@@ -163,7 +186,7 @@ func (r UploadPlanInputs) ReadUploadPlanFacts(ctx context.Context, plan preparat
 			if e != nil {
 				return facts, e
 			}
-			facts.UploadConfirmed = view.ConfirmedProduct != nil || view.ConfirmedTemuProduct != nil || view.ConfirmedWalmart != nil
+			facts.UploadConfirmed = view.ConfirmedProduct != nil || view.ConfirmedTemuProduct != nil || view.ConfirmedWalmart != nil || view.ConfirmedShopify != nil
 			if view.ConfirmedTikTok != nil {
 				facts.UploadResultOutcome = uploadPlanTikTokOutcome(view.ConfirmedTikTok)
 				facts.UploadConfirmed = facts.UploadResultOutcome == "accepted"
@@ -277,6 +300,9 @@ func uploadPlanReviewState(scope collection.Scope, id string, original, saved re
 var _ preparation.UploadPlanInputs = UploadPlanInputs{}
 
 func uploadPlanPublicationSummary(saved record.TargetRecord) []string {
+	if saved.Shopify != nil {
+		return []string{saved.Shopify.Title, fmt.Sprintf("Shopify 草稿 · %s · %d 个规格 · %d 张图片", saved.Shopify.Currency, len(saved.Shopify.Variants), len(saved.Shopify.Images))}
+	}
 	if saved.Input.TikTok != nil {
 		return []string{fmt.Sprintf("TikTok %s · %s", saved.Input.TikTok.Selection.Method, saved.Input.TikTok.SaveMode)}
 	}

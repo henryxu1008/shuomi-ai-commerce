@@ -23,6 +23,9 @@ type TemuImageReceipt struct {
 }
 
 func validOfficialBindingForTarget(b storecenter.ProductMerchantBinding, t ExecutionTarget) bool {
+	if t.Platform == "shopify" {
+		return b.ValidShopifyApplication() && b.Shopify.ShopKey == t.StoreID
+	}
 	if b.StoreID != t.StoreID {
 		return false
 	}

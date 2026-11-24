@@ -10,12 +10,14 @@ import {
 import { commercialResourcesFixture } from "@/test/fixtures/commercial-resources";
 const state = vi.hoisted(() => ({
   renew: vi.fn(),
+  activate: vi.fn(),
   balance: vi.fn(),
   members: vi.fn(),
 }));
 vi.mock("@/lib/api/workbench-stores", async (original) => ({
   ...(await original<typeof import("@/lib/api/workbench-stores")>()),
   renewWorkbenchStoreService: state.renew,
+  activateWorkbenchStoreService: state.activate,
 }));
 vi.mock("@/lib/api/commercial-billing", async (original) => ({
   ...(await original<typeof import("@/lib/api/commercial-billing")>()),
@@ -64,6 +66,7 @@ beforeEach(() => {
     },
   });
   state.renew.mockReset();
+  state.activate.mockReset();
   state.balance.mockReset().mockResolvedValue(commercialResourcesFixture("org-1"));
   state.members.mockReset().mockResolvedValue({
     organizationId: "org-1",
@@ -126,6 +129,50 @@ it("member renewals retry only the original key, version and captured user", asy
     "org-1",
     "actor",
   ]);
+});
+it("clears a recovered Shopify operation when authorization was rejected before a charge", async () => {
+  state.renew
+    .mockRejectedValueOnce(new WorkbenchAPIError(503, "STORE_SERVICE_OUTCOME_UNKNOWN", "safe", "", []))
+    .mockRejectedValueOnce(new WorkbenchAPIError(422, "STORE_CONNECTION_NOT_CONNECTED", "safe", "", []))
+    .mockRejectedValueOnce(new WorkbenchAPIError(422, "SHOPIFY_SERVICE_CHARGE_REJECTED", "safe", "", []))
+    .mockResolvedValueOnce({
+      quantity: "1",
+      resourceBalanceAfter: "1",
+      serviceExpiresAt: "2026-10-29T00:00:00Z",
+    });
+
+  render(tree(false, true, { ...store, platform: "shopify" }));
+  await userEvent.click(screen.getByRole("button", { name: "续费服务" }));
+  await screen.findByText("可用 2 期");
+  await userEvent.click(screen.getByRole("button", { name: "确认续费服务" }));
+  await userEvent.click(await screen.findByRole("button", { name: "核验原操作" }));
+  const retry = await screen.findByRole("button", { name: "核验原操作" });
+  expect(state.renew.mock.calls[1]).toEqual(state.renew.mock.calls[0]);
+  await userEvent.click(retry);
+  await screen.findByText("原操作未扣减期数。请核对 Shopify 店铺与连接后重新确认。");
+  expect(state.renew.mock.calls[2]).toEqual(state.renew.mock.calls[0]);
+  expect(screen.queryByRole("button", { name: "核验原操作" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "确认续费服务" }));
+  expect(state.renew.mock.calls[3][3]).not.toEqual(state.renew.mock.calls[0][3]);
+});
+it("lets a disconnected Shopify store check a saved activation without starting another", async () => {
+  const pending = { ...store, platform: "shopify", serviceStatus: "pending_activation" } as const;
+  state.activate
+    .mockRejectedValueOnce(new WorkbenchAPIError(503, "STORE_SERVICE_OUTCOME_UNKNOWN", "safe", "", []))
+    .mockRejectedValueOnce(new WorkbenchAPIError(422, "SHOPIFY_SERVICE_CHARGE_REJECTED", "safe", "", []));
+  const first = render(tree(false, true, pending));
+  await userEvent.click(screen.getByRole("button", { name: "开通服务" }));
+  await screen.findByText("可用 2 期");
+  await userEvent.click(screen.getByRole("button", { name: "确认开通服务" }));
+  await screen.findByText(/续费结果未确认/);
+  first.unmount();
+
+  render(tree(false, false, pending));
+  await userEvent.click(screen.getByRole("button", { name: "开通服务" }));
+  await userEvent.click(await screen.findByRole("button", { name: "核验原操作" }));
+  await screen.findByText("原操作未扣减期数。请核对 Shopify 店铺与连接后重新确认。");
+  expect(state.activate.mock.calls[1]).toEqual(state.activate.mock.calls[0]);
+  expect(screen.getByRole("button", { name: "确认开通服务" })).toBeDisabled();
 });
 it("admin renewal uses unallocated balance and closes first activation when disconnected", async () => {
   const resource = commercialResourcesFixture("org-1");

@@ -66,6 +66,8 @@ func (a *OfficialProductAccess) ReadTargetMerchantBinding(ctx context.Context, s
 		return MerchantBinding{}, ErrProductAccessChanged
 	}
 	switch material.Platform {
+	case storecenter.PlatformShopify:
+		return a.ShopifyProductBinding(ctx, subject, storeID)
 	case storecenter.PlatformWalmart:
 		h, e := a.AuthorizeWalmartRules(ctx, subject, storeID, nil)
 		if e != nil {

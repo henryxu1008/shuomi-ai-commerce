@@ -18,6 +18,7 @@ import (
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/sourcing"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	"github.com/stretchr/testify/require"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"gorm.io/driver/postgres"
@@ -32,6 +33,14 @@ import (
 type fixedAuth struct{ scope collection.Scope }
 
 func (a fixedAuth) Authorize(context.Context, string) (collection.Scope, error) { return a.scope, nil }
+
+type stageMerchantFixture struct {
+	binding storecenter.ProductMerchantBinding
+}
+
+func (f stageMerchantFixture) ReadTargetMerchant(context.Context, collection.Scope, string) (storecenter.ProductMerchantBinding, error) {
+	return f.binding, nil
+}
 
 type unusedSources struct {
 	sourcing.PublishedAcquisitionReader
@@ -165,7 +174,7 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 	projected := []preparation.SourceStageFacts{}
 	projectionAfter := ""
 	for {
-		facts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, uuid.NewString(), collection.Digest("supplier"), projectionAfter)
+		facts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, uuid.NewString(), "", collection.Digest("supplier"), projectionAfter)
 		require.NoError(t, err)
 		projected = append(projected, facts...)
 		if len(facts) < 100 {
@@ -195,12 +204,68 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 		body := string(encoded)
 		require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,?,1,?,?,?::jsonb,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, targetID, projected[0].SourceID, storeID, site, collection.Digest("input"), collection.Digest(body), body).Error)
 		require.NoError(t, db.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,current_record_id,revision) VALUES(?,?,?,?,?,?,?,?,1)", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID, projected[0].SourceID, storeID, site, recordID).Error)
-		facts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, storeID, collection.Digest("supplier"), "")
+		facts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, storeID, "", collection.Digest("supplier"), "")
 		require.NoError(t, err)
 		require.Equal(t, recordID, facts[0].RecordID)
 		require.True(t, facts[0].Ready)
 		require.Empty(t, facts[0].PublishedRecordID)
 	}
+	t.Run("Shopify stage shows the current shop's confirmed draft", func(t *testing.T) {
+		storeID, shopKey, targetID, recordID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+		source := projected[0]
+		supplierHash := collection.Digest(shopKey)
+		targetBody := `{"effectiveVersion":1,"merchant":{"platform":"shopify","supplier_identity_hash":"` + supplierHash + `","shopify":{"shopKey":"` + shopKey + `"}},"shopify":{"title":"Shopify draft"}}`
+		require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,'shopify',1,?,?,?::jsonb,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, targetID, source.SourceID, storeID, collection.Digest("shopify-stage-input"), collection.Digest(targetBody), targetBody).Error)
+		require.NoError(t, db.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,current_record_id,revision) VALUES(?,?,?,?,?,?,'shopify',?,1)", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID, source.SourceID, storeID, recordID).Error)
+		// Seed the rows read by this projection. The official repository separately
+		// tests creating a receipt from a validated Shopify observation.
+		intentKey, subjectID := uuid.NewString(), "shopify-stage-projection"
+		attemptID, err := uuid.NewV7()
+		require.NoError(t, err)
+		reservation, err := submission.NewExecutionReservation(submission.AcquireExecutionCommand{
+			Scope: submission.ExecutionScope{OrganizationID: scope.OrganizationID}, IntentKey: intentKey,
+			Target: submission.ExecutionTarget{Platform: "shopify", StoreID: shopKey, SubjectID: subjectID},
+			Action: submission.ShopifyDraftAction, Payload: []byte("{}"), ClaimOwnerID: scope.ActorID, Lease: time.Minute,
+		}, attemptID.String(), "fixture-claim", time.Now())
+		require.NoError(t, err)
+		attempt := reservation.Attempt
+		require.NoError(t, db.Exec(`INSERT INTO listing_submission_execution_attempts(organization_id,attempt_id,intent_key,platform,store_id,subject_id,action,payload_fingerprint,provider_execution_key,status,fence_epoch,claim_token_hash,claim_owner_id,lease_expires_at,created_at,updated_at)
+			VALUES(?,?,?,'shopify',?,?,?, ?,?,'claimed',1,?,?,?, ?,?)`, scope.OrganizationID, attempt.AttemptID, intentKey, shopKey, subjectID, attempt.Action, attempt.PayloadFingerprint, attempt.ProviderExecutionKey, reservation.ClaimTokenHash, scope.ActorID, attempt.LeaseExpiresAt, attempt.CreatedAt, attempt.UpdatedAt).Error)
+		digest := collection.Digest("projection-rows")
+		require.NoError(t, db.Exec("INSERT INTO listing_submission_official_intents(organization_id,actor_id,member_id,intent_key,record_id,kind,input_hash,body_hash,body_json) VALUES(?,?,?,?,?,'publish',?,?,'{}')", scope.OrganizationID, scope.ActorID, scope.MemberID, intentKey, recordID, digest, digest).Error)
+		receiptBody, err := json.Marshal(map[string]any{
+			"record_id": recordID, "product_key": source.ProductKey, "observed_at": time.Now(),
+			"binding": map[string]string{"platform": "shopify", "supplier_identity_hash": supplierHash},
+		})
+		require.NoError(t, err)
+		require.NoError(t, db.Exec("INSERT INTO listing_submission_official_receipts(organization_id,actor_id,member_id,attempt_id,intent_key,store_id,subject_id,kind,body_hash,body_json) VALUES(?,?,?,?,?,?,?,'publish',?,?::jsonb)", scope.OrganizationID, scope.ActorID, scope.MemberID, reservation.Attempt.AttemptID, intentKey, shopKey, subjectID, digest, string(receiptBody)).Error)
+		facts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, storeID, shopKey, supplierHash, "")
+		require.NoError(t, err)
+		require.Equal(t, recordID, facts[0].RecordID)
+		require.True(t, facts[0].Ready)
+		require.Equal(t, recordID, facts[0].PublishedRecordID)
+
+		replacement := uuid.NewString()
+		binding := storecenter.ProductMerchantBinding{
+			Platform: storecenter.PlatformShopify, OrganizationID: scope.OrganizationID, StoreID: replacement, Site: "shopify",
+			StoreVersion: 1, ConnectionRevision: 2, ApplicationID: "gid://shopify/App/32", ApplicationRevision: "shopify-admin-2026-10",
+			SupplierIdentityHash: supplierHash, Shopify: storecenter.ShopifyMerchantBinding{ShopKey: shopKey, Currency: "USD"},
+		}
+		app := listingapp.Application{
+			Preparations: service, Authorization: authority, StageProjection: listingapp.ReviewProjection{Facts: repository},
+			TargetMerchants: stageMerchantFixture{binding: binding},
+		}
+		page, err := app.Stages(actor, receipt.Preparation.ID, replacement, "uploaded", collection.Query{Limit: 20}, "")
+		require.NoError(t, err)
+		require.Equal(t, []listingapp.StageItem{{SourceID: source.SourceID, Stage: "uploaded"}}, page.Items)
+
+		// Rebinding this Workbench store cannot surface the former shop's draft.
+		otherShop := uuid.NewString()
+		rebound, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, storeID, otherShop, collection.Digest(otherShop), "")
+		require.NoError(t, err)
+		require.False(t, rebound[0].Ready)
+		require.Empty(t, rebound[0].PublishedRecordID)
+	})
 	// Local color heads must never multiply the ordinary source projection or
 	// become candidates for existing upload/optimization operations.
 	colorStore, colorFamily := uuid.NewString(), uuid.NewString()
@@ -209,7 +274,7 @@ func TestPostgresTransferCapturesAllPagesAndReplaysOriginalMembership(t *testing
 		require.NoError(t, db.Exec("INSERT INTO listing_target_records(organization_id,actor_id,member_id,id,target_id,source_id,store_id,site,purpose,partition_id,family_id,revision,input_hash,body_hash,body_json,created_at) VALUES(?,?,?,?,?,?,?,'shein-us','shein_color_local',?,?,1,?,?,?::jsonb,now())", scope.OrganizationID, scope.ActorID, scope.MemberID, recordID, targetID, projected[0].SourceID, colorStore, partitionID, colorFamily, collection.Digest("input"), collection.Digest("body"), "{}").Error)
 		require.NoError(t, db.Exec("INSERT INTO listing_preparation_targets(organization_id,actor_id,member_id,id,source_id,store_id,site,purpose,partition_id,family_id,current_record_id,revision) VALUES(?,?,?,?,?,?,'shein-us','shein_color_local',?,?,?,1)", scope.OrganizationID, scope.ActorID, scope.MemberID, targetID, projected[0].SourceID, colorStore, partitionID, colorFamily, recordID).Error)
 	}
-	colorFacts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, colorStore, collection.Digest("supplier"), "")
+	colorFacts, err := repository.ListStageFacts(ctx, scope, receipt.Preparation.ID, colorStore, "", collection.Digest("supplier"), "")
 	require.NoError(t, err)
 	require.Len(t, colorFacts, 100)
 	require.Empty(t, colorFacts[0].RecordID, "local-only children are discovered separately, never ordinary current Target")

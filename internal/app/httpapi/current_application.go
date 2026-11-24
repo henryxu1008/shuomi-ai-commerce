@@ -476,6 +476,7 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured(),
 		AmazonAuthorization: supplied.amazonStoreAuthorization != nil,
 		GoogleMerchant:      supplied.officialStoreApplications.GoogleMerchantConfigured(),
+		Shopify:             supplied.officialStoreApplications.ShopifyConfigured(),
 	}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
@@ -1619,6 +1620,8 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 		ZitadelSMS:           true,
 		StoreCenter:          supplied.storeCenters > 0,
 		TikTokShop:           supplied.officialStoreApplications.TikTokConfigured(),
+		Shopify:              supplied.officialStoreApplications.ShopifyConfigured(),
+		GoogleMerchant:       supplied.officialStoreApplications.GoogleMerchantConfigured(),
 		StoreObservations:    supplied.storeObservations > 0,
 		Fulfillment:          supplied.fulfillments == 1,
 		LocalTrial:           supplied.localTrials > 0,
@@ -1769,6 +1772,8 @@ type currentApplicationOptionalRoutes struct {
 	OfficialKnowledge    bool
 	StoreCenter          bool
 	TikTokShop           bool
+	Shopify              bool
+	GoogleMerchant       bool
 	StoreObservations    bool
 	LocalTrial           bool
 	Resources            bool
@@ -1882,6 +1887,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range listinghttp.ListingRoutes(nil, nil) {
 			admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
 		}
+		if optional.GoogleMerchant {
+			for _, r := range listinghttp.GoogleRoutes(nil, nil) {
+				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+			}
+		}
 	}
 	if optional.ControlledLocalDraft {
 		if optional.PrivateDraftTrial || optional.OfflineRecords || !optional.Collections || !optional.CompletionDrafts {
@@ -1988,6 +1998,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 		for _, r := range currentStoreBrowserRoutes {
 			admitted = append(admitted, currentApplicationRoute{Method: r.method, Path: r.path})
 		}
+		if optional.GoogleMerchant {
+			for _, r := range storehttp.GoogleStoreRoutes(nil) {
+				admitted = append(admitted, currentApplicationRoute{Method: r.Method, Path: r.Path})
+			}
+		}
 	}
 	if optional.AmazonStoreAuthorization {
 		if !optional.StoreCenter {
@@ -2011,6 +2026,12 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 				return errors.New("TikTok Shop lifecycle loses signature authority boundary")
 			}
 		}
+	}
+	if optional.Shopify {
+		if !optional.StoreCenter {
+			return errors.New("Shopify requires current Store owner")
+		}
+		admitted = append(admitted, currentApplicationRoute{Method: http.MethodPost, Path: storehttp.ShopifyPairingPath})
 	}
 	if optional.StoreObservations {
 		if !optional.StoreCenter {

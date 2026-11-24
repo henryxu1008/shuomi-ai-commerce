@@ -68,6 +68,17 @@ func (k *ExecutionKernel) prepareBeforeSend(ctx context.Context, command Acquire
 	if k == nil || !supportsLocalNoSend(command.Target.Platform, command.Action) {
 		return TikTokPreparedAcquisition{}, ErrExecutionInvalid
 	}
+	return k.prepareGuardedExecution(ctx, command)
+}
+
+func (k *ExecutionKernel) PrepareShopifyExecution(ctx context.Context, command AcquireExecutionCommand) (TikTokPreparedAcquisition, error) {
+	if k == nil || command.Target.Platform != "shopify" || command.Action != ShopifyDraftAction {
+		return TikTokPreparedAcquisition{}, ErrExecutionInvalid
+	}
+	return k.prepareGuardedExecution(ctx, command)
+}
+
+func (k *ExecutionKernel) prepareGuardedExecution(ctx context.Context, command AcquireExecutionCommand) (TikTokPreparedAcquisition, error) {
 	if _, ok := k.repository.(TikTokNoSendRepository); !ok {
 		return TikTokPreparedAcquisition{}, ErrExecutionUnavailable
 	}
@@ -88,6 +99,10 @@ func (k *ExecutionKernel) BeginTikTokSend(ctx context.Context, preparation *TikT
 
 func (k *ExecutionKernel) BeginGoogleSend(ctx context.Context, preparation *PreparedSend) (*SendPermit, error) {
 	return k.beginPreparedSend(ctx, preparation, "googlemerchant")
+}
+
+func (k *ExecutionKernel) BeginShopifySend(ctx context.Context, preparation *TikTokPreparation) (*SendPermit, error) {
+	return k.beginPreparedSend(ctx, preparation, "shopify")
 }
 
 func (k *ExecutionKernel) beginPreparedSend(ctx context.Context, preparation *TikTokPreparation, platform string) (*SendPermit, error) {
@@ -117,6 +132,10 @@ func (k *ExecutionKernel) StopTikTokBeforeSend(ctx context.Context, preparation 
 
 func (k *ExecutionKernel) StopGoogleBeforeSend(ctx context.Context, preparation *PreparedSend, reason string) (ExecutionAttempt, error) {
 	return k.stopBeforeSend(ctx, preparation, reason, "googlemerchant")
+}
+
+func (k *ExecutionKernel) StopShopifyBeforeSend(ctx context.Context, preparation *TikTokPreparation, reason string) (ExecutionAttempt, error) {
+	return k.stopBeforeSend(ctx, preparation, reason, "shopify")
 }
 
 func (k *ExecutionKernel) stopBeforeSend(ctx context.Context, preparation *TikTokPreparation, reason, platform string) (ExecutionAttempt, error) {
@@ -211,6 +230,7 @@ func tikTokNoSendAction(action string) bool {
 func supportsLocalNoSend(platform, action string) bool {
 	return platform == "tiktokshop" && tikTokNoSendAction(action) ||
 		platform == "googlemerchant" && action == GoogleInsertAction ||
+		platform == "shopify" && action == ShopifyDraftAction ||
 		platform == "amazon" && action == AmazonSubmitAction
 }
 

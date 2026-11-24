@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/driver/sqlite"
 
+	listinghttp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/listing/httpapi"
 	storeapp "github.com/henryxu1008/shuomi-ai-commerce/internal/app/storecenter"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/core/config"
@@ -24,6 +25,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestCurrentStoreLifecycleUsesApprovedQuantityLimits(t *testing.T) {
+	policy := currentStorePeriodPolicy{}
+	for _, tc := range []struct {
+		command storecenter.ServiceCommand
+		limit   int64
+	}{
+		{storecenter.ServiceCommandActivate, 1},
+		{storecenter.ServiceCommandRenew, storecenter.Phase1MaxStoreServicePeriods},
+		{storecenter.ServiceCommandReactivate, storecenter.Phase1MaxStoreServicePeriods},
+	} {
+		limit, err := policy.MaxQuantity(context.Background(), "organization-test", tc.command)
+		require.NoError(t, err)
+		require.Equal(t, tc.limit, limit, string(tc.command))
+	}
+}
 
 func TestTikTokLifecycleAdmissionRequiresExplicitSignedBoundary(t *testing.T) {
 	var base []httproute.Descriptor
@@ -46,6 +63,97 @@ func TestTikTokLifecycleAdmissionRequiresExplicitSignedBoundary(t *testing.T) {
 		mutate(&changed[len(changed)-1])
 		require.Error(t, validate(changed, true))
 	}
+}
+
+type inertAmazonStoreAuthorization struct {
+	storehttp.AmazonAuthorizationService
+}
+
+func TestShopifyPairingRouteUsesCurrentStoreAdmission(t *testing.T) {
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	require.NoError(t, h.SetShopifyConnections(&storeapp.ShopifyConnections{}))
+	require.NoError(t, h.SetAmazonAuthorizations(inertAmazonStoreAuthorization{}, currentAmazonSessionProof))
+	module := storehttp.NewModule(h)
+	module.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	require.NoError(t, module.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, module.Register(registry))
+	var all []httproute.Descriptor
+	for _, r := range currentWorkbenchApplicationRoutes {
+		all = append(all, httproute.Descriptor{Method: r.Method, Path: r.Path})
+	}
+	all = append(all, registry.Routes()...)
+	validate := func(routes []httproute.Descriptor, shopify bool) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false,
+			currentApplicationOptionalRoutes{StoreCenter: true, AmazonStoreAuthorization: true, Shopify: shopify})
+	}
+	require.NoError(t, validate(all, true))
+	require.Error(t, validate(all, false))
+	index := -1
+	for i, route := range all {
+		if route.Path == storehttp.ShopifyPairingPath {
+			index = i
+			break
+		}
+	}
+	require.GreaterOrEqual(t, index, 0)
+	for _, mutate := range []func(*httproute.Descriptor){
+		func(d *httproute.Descriptor) { d.Permission = authz.PermissionWorkbenchStoreRead },
+		func(d *httproute.Descriptor) { d.AuthPolicy = httproute.AuthPolicyPublic },
+		func(d *httproute.Descriptor) {
+			d.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyCachedRead
+		},
+		func(d *httproute.Descriptor) { d.RequestTimeout = 0 },
+		func(d *httproute.Descriptor) { d.RejectUnreadRequestBody = true },
+		func(d *httproute.Descriptor) { d.Handler = nil },
+	} {
+		changed := append([]httproute.Descriptor(nil), all...)
+		mutate(&changed[index])
+		require.Error(t, validate(changed, true))
+	}
+}
+
+type inertGoogleStoreConnection struct {
+	storehttp.GoogleConnectionService
+}
+
+func TestCurrentGoogleAndShopifyRouteAdmission(t *testing.T) {
+	h, err := storehttp.NewHandlerWithServiceLifecycle(inertStoreService{}, &storecenter.ServiceLifecycleApplication{})
+	require.NoError(t, err)
+	require.NoError(t, h.SetOfficialConnections(&storeapp.OfficialConnections{}))
+	require.NoError(t, h.SetShopifyConnections(&storeapp.ShopifyConnections{}))
+	require.NoError(t, h.SetGoogleConnections(inertGoogleStoreConnection{}))
+	module := storehttp.NewModule(h)
+	module.(interface {
+		ConfigureCatalog(*storecenter.Catalog, *storecenter.MetadataRepository)
+	}).ConfigureCatalog(&storecenter.Catalog{}, &storecenter.MetadataRepository{})
+	require.NoError(t, module.(interface {
+		ConfigureBrowser(*storecenter.BrowserOperations) error
+	}).ConfigureBrowser(&storecenter.BrowserOperations{}))
+	registry := kernelmodule.NewRegistry()
+	require.NoError(t, module.Register(registry))
+
+	var routes []httproute.Descriptor
+	for _, route := range currentWorkbenchApplicationRoutes {
+		routes = append(routes, httproute.Descriptor{Method: route.Method, Path: route.Path})
+	}
+	routes = append(routes, registry.Routes()...)
+	routes = append(routes, listinghttp.ListingRoutes(nil, nil)...)
+	withoutGoogleListing := len(routes)
+	routes = append(routes, listinghttp.GoogleRoutes(nil, nil)...)
+	validate := func(routes []httproute.Descriptor, google bool) error {
+		return validateCurrentApplicationRoutesInternal(routes, false, false, false, false, false, false, false,
+			currentApplicationOptionalRoutes{StoreCenter: true, SupplyChain: true, Shopify: true, GoogleMerchant: google})
+	}
+	require.Error(t, validate(routes, false))
+	require.Error(t, validate(routes[:withoutGoogleListing], true))
+	require.NoError(t, validate(routes, true))
 }
 
 func TestCurrentStoreAdmissionUsesRegisteredOfficialRefresh(t *testing.T) {

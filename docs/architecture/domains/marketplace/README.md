@@ -14,6 +14,8 @@
 | Walmart 美国站 | [Walmart US](walmart-us.md)、[官方合同证据](walmart-us-contract-evidence.md)、[Feed 恢复](../listing/walmart-feed-recovery.md) | `internal/marketplace/walmart` |
 | Amazon 美国站 | [店铺授权与商品上传合同](amazon-us-product-publication.md)（隔离实现已准入） | Store Center、Listing Submission、Amazon SP-API |
 
+已完成设计准入、待实现：[Shopify 店铺自助授权与商品草稿上传](shopify-product-draft.md)（#1613）。
+
 当前代码中的平台目录不证明该平台全部站点、经营模式、官方应用、API 凭据或客户验收已经可用。Amazon 研究与来源采集是独立来源/研究能力，不自动等同于当前已开通的 Amazon Listing 平台适配器。
 
 ## 三个不同的事实责任

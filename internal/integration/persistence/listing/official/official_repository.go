@@ -268,7 +268,7 @@ func (r *OfficialRepository) ReadOfficial(ctx context.Context, scope collection.
 // This canonical Store result read is internal only. App requires the exact
 // current source owner and merchant access before projecting provider facts.
 func (r *OfficialRepository) FindOfficialTarget(ctx context.Context, org string, target submission.ExecutionTarget) (submission.OfficialReceipt, error) {
-	if ctx == nil || target.Platform != "shein" && target.Platform != "temu" && target.Platform != "tiktokshop" && target.Platform != "walmart" || !collection.ValidID(target.StoreID) {
+	if ctx == nil || target.Platform != "shein" && target.Platform != "temu" && target.Platform != "tiktokshop" && target.Platform != "walmart" && target.Platform != "shopify" || !collection.ValidID(target.StoreID) {
 		return submission.OfficialReceipt{}, submission.ErrExecutionInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, submission.ExecutionTimeout)

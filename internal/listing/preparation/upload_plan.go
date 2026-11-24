@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 )
 
@@ -103,27 +104,39 @@ func (a TargetApproval) Valid() bool {
 	return collection.ValidID(a.SourceID) && collection.ValidID(a.RecordID) && a.Revision > 0
 }
 
+// ShopifyUploadConfirmation is the merchant-visible subset of the approved draft.
+type ShopifyUploadConfirmation struct {
+	ShopDomain  string                 `json:"shopDomain"`
+	Title       string                 `json:"title"`
+	Description string                 `json:"description"`
+	Currency    string                 `json:"currency"`
+	Options     []shopify.DraftOption  `json:"options,omitempty"`
+	Variants    []shopify.DraftVariant `json:"variants"`
+	Images      []shopify.DraftImage   `json:"images,omitempty"`
+}
+
 // UploadPlanFacts is supplied only by the current owner reader, never HTTP.
 // Original operations remain terminal; this projection does not reset them.
 type UploadPlanFacts struct {
-	PublicationOutcome          string                 `json:"publicationOutcome,omitempty"`
-	UploadResultOutcome         string                 `json:"uploadResultOutcome,omitempty"`
-	PublicationSummary          []string               `json:"publicationSummary,omitempty"`
-	ManualTargetRequired        bool                   `json:"manualTargetRequired"`
-	ExistingPublicationRecordID string                 `json:"existingPublicationRecordId,omitempty"`
-	WalmartApproval             *WalmartUploadApproval `json:"walmartApproval,omitempty"`
-	WalmartRepairObservationID  string                 `json:"walmartRepairObservationId,omitempty"`
-	WalmartRejectedAttemptID    string                 `json:"walmartRejectedAttemptId,omitempty"`
-	HasTarget                   bool                   `json:"hasTarget"`
-	Ready                       bool                   `json:"ready"`
-	Target                      TargetApproval         `json:"target"`
-	PublicationMode             string                 `json:"publicationMode"`
-	AdaptStatus                 string                 `json:"adaptStatus,omitempty"`
-	OptimizationStatus          string                 `json:"optimizationStatus,omitempty"`
-	ReviewRequired              bool                   `json:"reviewRequired"`
-	ReviewRejected              bool                   `json:"reviewRejected"`
-	UploadStatus                string                 `json:"uploadStatus,omitempty"`
-	UploadConfirmed             bool                   `json:"uploadConfirmed"`
+	PublicationOutcome          string                     `json:"publicationOutcome,omitempty"`
+	UploadResultOutcome         string                     `json:"uploadResultOutcome,omitempty"`
+	ShopifyConfirmation         *ShopifyUploadConfirmation `json:"shopifyConfirmation,omitempty"`
+	PublicationSummary          []string                   `json:"publicationSummary,omitempty"`
+	ManualTargetRequired        bool                       `json:"manualTargetRequired"`
+	ExistingPublicationRecordID string                     `json:"existingPublicationRecordId,omitempty"`
+	WalmartApproval             *WalmartUploadApproval     `json:"walmartApproval,omitempty"`
+	WalmartRepairObservationID  string                     `json:"walmartRepairObservationId,omitempty"`
+	WalmartRejectedAttemptID    string                     `json:"walmartRejectedAttemptId,omitempty"`
+	HasTarget                   bool                       `json:"hasTarget"`
+	Ready                       bool                       `json:"ready"`
+	Target                      TargetApproval             `json:"target"`
+	PublicationMode             string                     `json:"publicationMode"`
+	AdaptStatus                 string                     `json:"adaptStatus,omitempty"`
+	OptimizationStatus          string                     `json:"optimizationStatus,omitempty"`
+	ReviewRequired              bool                       `json:"reviewRequired"`
+	ReviewRejected              bool                       `json:"reviewRejected"`
+	UploadStatus                string                     `json:"uploadStatus,omitempty"`
+	UploadConfirmed             bool                       `json:"uploadConfirmed"`
 }
 
 func NextUploadPlanStep(in UploadPlanInput, item UploadPlanItem, facts UploadPlanFacts) string {

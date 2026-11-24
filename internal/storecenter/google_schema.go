@@ -6,9 +6,6 @@ import (
 	"errors"
 )
 
-const googleStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'googlemerchant'::text])))`
-const amazonGoogleStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'amazon'::text, 'googlemerchant'::text])))`
-
 var googleMerchantSchemaStatements = []string{
 	`CREATE TABLE public.workbench_store_google_oauth_attempts (
 		organization_id VARCHAR(200) NOT NULL,
@@ -67,13 +64,16 @@ func InstallGoogleMerchantSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, "LOCK TABLE public.workbench_stores IN ACCESS EXCLUSIVE MODE"); err != nil {
 		return err
 	}
-	var amazonInstalled bool
+	var amazonInstalled, shopifyInstalled bool
 	if err := tx.QueryRowContext(ctx, `SELECT to_regclass('public.workbench_store_amazon_attempts') IS NOT NULL
-		OR to_regclass('public.workbench_store_amazon_grants') IS NOT NULL`).Scan(&amazonInstalled); err != nil {
+		OR to_regclass('public.workbench_store_amazon_grants') IS NOT NULL,
+		to_regclass('public.workbench_store_shopify_shops') IS NOT NULL
+		OR to_regclass('public.workbench_store_shopify_authorizations') IS NOT NULL
+		OR to_regclass('public.workbench_store_shopify_pairings') IS NOT NULL`).Scan(&amazonInstalled, &shopifyInstalled); err != nil {
 		return err
 	}
 	if err := verifyCurrentSchema(ctx, tx, RuntimeCapabilities{
-		TikTokShop: true, WalmartUS: true, AmazonAuthorization: amazonInstalled,
+		TikTokShop: true, WalmartUS: true, AmazonAuthorization: amazonInstalled, Shopify: shopifyInstalled,
 	}); err != nil {
 		return err
 	}
@@ -81,10 +81,7 @@ func InstallGoogleMerchantSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if err != nil || installed {
 		return err
 	}
-	next := googleStorePlatformDefinition
-	if amazonInstalled {
-		next = amazonGoogleStorePlatformDefinition
-	}
+	next := storePlatformDefinition(amazonInstalled, true, shopifyInstalled)
 	if _, err := tx.ExecContext(ctx, "ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform "+next); err != nil {
 		return err
 	}

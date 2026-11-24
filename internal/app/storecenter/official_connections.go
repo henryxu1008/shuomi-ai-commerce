@@ -21,6 +21,7 @@ type OfficialConnections struct {
 	applications *OfficialApplicationRegistry
 	tiktok       *TikTokConnections
 	walmart      *WalmartConnections
+	shopify      *ShopifyConnections
 }
 
 // Refresh dispatches by the persisted Store platform. The existing platform
@@ -85,6 +86,17 @@ func NewOfficialConnections(store storecenter.OfficialConnectionStore, applicati
 	if err != nil {
 		return nil, err
 	}
+	var shopify *ShopifyConnections
+	if applications.ShopifyConfigured() {
+		repo, ok := store.(*storecenter.MemberScopedStoreRepository)
+		if !ok {
+			return nil, storecenter.ErrOfficialConnectionUnavailable
+		}
+		shopify, err = applications.ShopifyConnections(repo)
+		if err != nil {
+			return nil, err
+		}
+	}
 	var google *GoogleConnections
 	if applications.GoogleMerchantConfigured() {
 		repo, ok := store.(GoogleConnectionStore)
@@ -96,7 +108,7 @@ func NewOfficialConnections(store storecenter.OfficialConnectionStore, applicati
 			return nil, err
 		}
 	}
-	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok, walmart: newWalmartConnections(store, applications), google: google}, nil
+	return &OfficialConnections{store: store, applications: applications, tiktok: tiktok, walmart: newWalmartConnections(store, applications), google: google, shopify: shopify}, nil
 }
 
 // Missing developer setup affects this capability, while Store CRUD and local
@@ -353,6 +365,17 @@ func (a *OfficialConnections) Read(ctx context.Context, org, store string) (stor
 	if err != nil {
 		return view, err
 	}
+	if view.Platform == storecenter.PlatformShopify {
+		view.Status, view.State = storecenter.ConnectionStatusUnavailable, "disconnected"
+		if a.shopify == nil {
+			return view, nil
+		}
+		view.Status, err = a.shopify.Status(ctx, org, store)
+		if view.Status == storecenter.ConnectionStatusConnected {
+			view.State = "bound"
+		}
+		return view, err
+	}
 	if a.applications == nil {
 		view.Status = storecenter.ConnectionStatusUnavailable
 	} else if view.AppID != "" {
@@ -393,7 +416,22 @@ func (a *OfficialConnections) Applications(ctx context.Context, org, store strin
 	}
 	return choices, nil
 }
+
+// VerifyShopifyServiceConnection is only used by Store service charge commands.
+func (a *OfficialConnections) VerifyShopifyServiceConnection(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ShopifyBinding, error) {
+	if input.Platform != storecenter.PlatformShopify || a.shopify == nil {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionUnavailable
+	}
+	return a.shopify.verifyServiceConnection(ctx, input)
+}
+
 func (a *OfficialConnections) Status(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ConnectionStatus, error) {
+	if input.Platform == storecenter.PlatformShopify {
+		if a.shopify == nil {
+			return storecenter.ConnectionStatusUnavailable, nil
+		}
+		return a.shopify.Status(ctx, input.OrganizationID, input.StoreID)
+	}
 	if input.Platform == storecenter.PlatformGoogleMerchant {
 		if a.google == nil {
 			return storecenter.ConnectionStatusUnavailable, storecenter.ErrOfficialConnectionUnavailable

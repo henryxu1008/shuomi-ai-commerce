@@ -25,7 +25,15 @@ type WalmartSKUState struct {
 func (WalmartSKUState) TableName() string { return "listing_walmart_sku_bindings" }
 
 func (r *Repository) ReadWalmartAttempt(ctx context.Context, scope submission.ExecutionScope, target submission.ExecutionTarget) (submission.ExecutionAttempt, error) {
-	if r == nil || r.db == nil || ctx == nil || scope.OrganizationID == "" || target.Platform != "walmart" || !collection.ValidID(target.StoreID) {
+	return r.readOfficialTargetAttempt(ctx, scope, target, "walmart")
+}
+
+func (r *Repository) ReadShopifyAttempt(ctx context.Context, scope submission.ExecutionScope, target submission.ExecutionTarget) (submission.ExecutionAttempt, error) {
+	return r.readOfficialTargetAttempt(ctx, scope, target, "shopify")
+}
+
+func (r *Repository) readOfficialTargetAttempt(ctx context.Context, scope submission.ExecutionScope, target submission.ExecutionTarget, platform string) (submission.ExecutionAttempt, error) {
+	if r == nil || r.db == nil || ctx == nil || scope.OrganizationID == "" || target.Platform != platform || !collection.ValidID(target.StoreID) {
 		return submission.ExecutionAttempt{}, submission.ErrExecutionInvalid
 	}
 	fence, found, err := r.findTarget(ctx, r.db, scope.OrganizationID, target, false)

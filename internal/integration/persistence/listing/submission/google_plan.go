@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -24,16 +25,22 @@ func (googlePlanRow) TableName() string { return GooglePlanTable }
 
 func InstallGooglePlanSchema(ctx context.Context, db *gorm.DB) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(`ALTER TABLE public.listing_submission_execution_attempts
-			DROP CONSTRAINT listing_submission_execution_attempts_no_send_check,
-			ADD CONSTRAINT listing_submission_execution_attempts_no_send_check CHECK ((
-				evidence_kind IS DISTINCT FROM 'local_no_send' OR
-				(((platform = 'tiktokshop' AND action IN ('tiktok_upload_image','tiktok_create_global','tiktok_publish_us'))
-				OR (platform = 'googlemerchant' AND action = 'google_product_insert'))
-				AND evidence_reference = attempt_id::text
-				AND evidence_reason IN ('preflight_unavailable','facts_changed','access_recheck_failed','image_content_changed','payload_invalid')
-				AND finished_at < lease_expires_at)
-			) IS TRUE)`).Error; err != nil {
+		if err := tx.Exec("LOCK TABLE public." + AttemptTable + " IN ACCESS EXCLUSIVE MODE").Error; err != nil {
+			return err
+		}
+		var existing string
+		var isolatedAmazon bool
+		if err := tx.Raw(`SELECT pg_get_constraintdef(oid), `+isolatedAmazonNoSendSchemaPresent+` FROM pg_catalog.pg_constraint
+			WHERE conrelid='public.listing_submission_execution_attempts'::regclass
+			AND conname=? AND contype='c' AND convalidated AND NOT condeferrable AND NOT condeferred`, noSendConstraintName).Row().Scan(&existing, &isolatedAmazon); err != nil {
+			return err
+		}
+		hasShopify := pgschema.SchemaConstraintEqual(existing, noSendConstraintDefinition(true, false, isolatedAmazon))
+		if !hasShopify && !pgschema.SchemaConstraintEqual(existing, noSendConstraintDefinition(false, false, isolatedAmazon)) {
+			return errors.New("Google Merchant requires the current Listing submission no-send constraint")
+		}
+		if err := tx.Exec("ALTER TABLE public." + AttemptTable + " DROP CONSTRAINT " + noSendConstraintName +
+			", ADD CONSTRAINT " + noSendConstraintName + " " + noSendConstraintDefinition(hasShopify, true, isolatedAmazon)).Error; err != nil {
 			return err
 		}
 		if err := tx.Exec(`CREATE TABLE public.workbench_listing_google_upload_plans (

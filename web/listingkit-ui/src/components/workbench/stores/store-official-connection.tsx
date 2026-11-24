@@ -18,6 +18,7 @@ import type { MemberResourceScope } from "@/lib/api/member-resources";
 import type { WorkbenchStore } from "@/lib/api/workbench-stores";
 import { StoreAmazonConnection } from "./store-amazon-connection";
 import { StoreServiceActions } from "./store-service-actions";
+import { ShopifyConnection } from "./shopify-connection";
 const labels = {
   connected: "已连接",
   disconnected: "未连接",
@@ -35,6 +36,12 @@ type StoreOfficialConnectionProps = {
 
 export function StoreOfficialConnection(props: StoreOfficialConnectionProps) {
   const { store, scope, canWrite } = props;
+  if (store.platform === "shopify") {
+    return <section className="grid gap-4">
+      <ShopifyConnection {...props}/>
+      <StoreServiceActions {...props} connected={store.connectionStatus === "connected"}/>
+    </section>;
+  }
   return store.platform === "amazon" ? (
     <StoreAmazonConnection key={JSON.stringify([scope.expectedUserId, scope.expectedOrganizationId, store.id, store.version, canWrite])}
       storeId={store.id} storeVersion={store.version} scope={scope} canWrite={canWrite} />

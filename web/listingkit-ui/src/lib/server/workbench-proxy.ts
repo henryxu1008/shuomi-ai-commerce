@@ -219,6 +219,7 @@ const storeResponseSchema = z
   .strict().refine(hasValidStoreServiceFacts, "Inconsistent record/service facts");
 const listStoresResponseSchema = z
   .object({
+    shopifyAvailable: z.boolean().optional(),
     items: z.array(storeResponseSchema).max(100),
     pagination: z
       .object({
@@ -296,6 +297,7 @@ const documentedWorkbenchErrorStatuses: Readonly<Record<string, number>> = {
   STORE_OFFICIAL_SETUP_UNAVAILABLE: 503,
   STORE_AUTHORIZATION_REJECTED: 422,
   STORE_CONNECTION_NOT_CONNECTED: 422,
+  SHOPIFY_SERVICE_CHARGE_REJECTED: 422,
   RESOURCE_QUANTITY_INVALID: 422,
   RESOURCE_INSUFFICIENT_BALANCE: 409,
   IDEMPOTENCY_KEY_CONFLICT: 409,

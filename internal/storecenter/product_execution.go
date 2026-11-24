@@ -46,6 +46,7 @@ type ProductExecutionMaterial struct {
 	Attempt          OfficialConnectionAttempt       `json:"-"`
 	TikTok           *TikTokProductExecutionMaterial `json:"-"`
 	Walmart          *WalmartGrant                   `json:"-"`
+	Shopify          *ShopifyBinding                 `json:"-"`
 }
 
 type TikTokProductExecutionMaterial struct {
@@ -64,6 +65,7 @@ type TikTokMerchantBinding struct {
 // ProductMerchantBinding is a public reference to current Store authority. It
 // contains no credential and never grants durable execution on its own.
 type ProductMerchantBinding struct {
+	Shopify              ShopifyMerchantBinding    `json:"shopify,omitempty,omitzero"`
 	AmazonBeta           bool                      `json:"amazon_beta,omitempty"`
 	Walmart              WalmartMerchantBinding    `json:"walmart,omitempty,omitzero"`
 	TikTok               TikTokMerchantBinding     `json:"tiktok,omitempty,omitzero"`
@@ -86,11 +88,27 @@ type ProductMerchantBinding struct {
 	ServiceExpiresAt     time.Time                 `json:"service_expires_at"`
 }
 
+type ShopifyMerchantBinding struct {
+	ShopKey  string `json:"shopKey"`
+	Currency string `json:"currency"`
+}
+
+func (b ProductMerchantBinding) ValidShopifyApplication() bool {
+	return b.Platform == PlatformShopify && b.Site == "shopify" && shopifyAppID.MatchString(b.ApplicationID) &&
+		b.ApplicationRevision == "shopify-admin-2026-10" && uuid.Validate(b.Shopify.ShopKey) == nil && shopifyCurrencyCode.MatchString(b.Shopify.Currency) && !b.AmazonBeta &&
+		b.ConnectionRevision > 0 && b.StoreVersion > 0 && shopifyDigest.MatchString(b.SupplierIdentityHash) && b.TikTok == (TikTokMerchantBinding{}) &&
+		b.Walmart == (WalmartMerchantBinding{}) && b.IdentityPartition == "" && b.ApplicationType == "" && b.MerchantMode == "" && b.RegionID == 0 &&
+		b.CredentialExpiresAt.IsZero() && b.VerificationRevision == "" && b.ScopesHash == ""
+}
+
 func (b ProductMerchantBinding) ValidApplication() bool {
+	if b.Platform == PlatformShopify {
+		return b.ValidShopifyApplication()
+	}
 	if b.Platform == PlatformAmazon {
 		return b.ValidAmazonApplication()
 	}
-	if b.AmazonBeta {
+	if b.Shopify != (ShopifyMerchantBinding{}) || b.AmazonBeta {
 		return false
 	}
 	if b.Platform == PlatformWalmart {
@@ -114,7 +132,7 @@ func (b ProductMerchantBinding) ValidApplication() bool {
 // Amazon Target is keyed by the local Store and grant generation. Seller
 // identifiers and their derived hashes are excluded from the immutable record.
 func (b ProductMerchantBinding) ValidAmazonApplication() bool {
-	return b.Platform == PlatformAmazon && b.Site == "amazon-us" && uuid.Validate(b.StoreID) == nil &&
+	return b.Platform == PlatformAmazon && b.Site == "amazon-us" && b.Shopify == (ShopifyMerchantBinding{}) && uuid.Validate(b.StoreID) == nil &&
 		b.StoreVersion > 0 && b.ConnectionRevision > 0 && b.SupplierIdentityHash == "" && b.ApplicationType == "" &&
 		b.IdentityPartition == "" && b.MerchantMode == "" && b.RegionID == 0 && b.VerificationRevision == "" && b.ScopesHash == "" &&
 		b.TikTok == (TikTokMerchantBinding{}) && b.Walmart == (WalmartMerchantBinding{}) &&
@@ -123,14 +141,14 @@ func (b ProductMerchantBinding) ValidAmazonApplication() bool {
 }
 
 func (b ProductMerchantBinding) ValidTikTokApplication() bool {
-	if b.Walmart != (WalmartMerchantBinding{}) {
+	if b.Walmart != (WalmartMerchantBinding{}) || b.Shopify != (ShopifyMerchantBinding{}) {
 		return false
 	}
 	return b.Platform == PlatformTikTokShop && b.Site == "tiktokshop-us" && b.IdentityPartition == "" && b.ApplicationType == "" && b.MerchantMode == "" && b.RegionID == 0 && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && len(b.SupplierIdentityHash) == 64 && len(b.ScopesHash) == 64 && !b.CredentialExpiresAt.IsZero() && uuid.Validate(b.TikTok.GrantID) == nil && authidentity.IsBoundedIdentifier(b.TikTok.ShopID) && b.TikTok.GrantGeneration > 0 && b.TikTok.GrantRevision >= b.TikTok.GrantGeneration && b.TikTok.BindingRevision > 0
 }
 
 func (b ProductMerchantBinding) ValidTemuApplication() bool {
-	if b.Walmart != (WalmartMerchantBinding{}) {
+	if b.Walmart != (WalmartMerchantBinding{}) || b.Shopify != (ShopifyMerchantBinding{}) {
 		return false
 	}
 	if b.TikTok != (TikTokMerchantBinding{}) {
@@ -211,8 +229,20 @@ func (r *MemberScopedStoreRepository) readOfficialMaterial(ctx context.Context, 
 		if err := tx.Where("organization_id = ? AND id = ? AND deleted_at IS NULL", subject.OrganizationID, storeID).Take(&stored).Error; err != nil {
 			return err
 		}
-		if stored.Platform != "shein" && stored.Platform != "temu" && stored.Platform != "tiktokshop" && stored.Platform != "walmart" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
+		if stored.Platform != "shein" && stored.Platform != "temu" && stored.Platform != "tiktokshop" && stored.Platform != "walmart" && stored.Platform != "shopify" || stored.RecordStatus != "active" || stored.ServiceStatus == nil || *stored.ServiceStatus != "active" || stored.ServiceStartedAt == nil || stored.ServiceExpiresAt == nil || now.Before(*stored.ServiceStartedAt) || !now.Before(*stored.ServiceExpiresAt) || stored.ConnectionRef == "" {
 			return ErrNotFound
+		}
+		if stored.Platform == "shopify" {
+			var shop shopifyShopRow
+			if err := tx.Where("organization_id=? AND store_id=? AND shop_key=?", subject.OrganizationID, storeID, stored.ConnectionRef).Take(&shop).Error; err != nil {
+				return ErrNotFound
+			}
+			binding, err := currentShopifyBinding(tx, shop, ShopifyPairingKey{OrganizationID: subject.OrganizationID, StoreID: storeID})
+			if err != nil {
+				return err
+			}
+			material = ProductExecutionMaterial{StoreVersion: stored.Version, Platform: PlatformShopify, ServiceExpiresAt: stored.ServiceExpiresAt.UTC(), Shopify: &binding}
+			return ctx.Err()
 		}
 		var connection officialConnectionRow
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("organization_id = ? AND store_id = ? AND attempt_id = ?", subject.OrganizationID, storeID, stored.ConnectionRef).Take(&connection).Error; err != nil {
@@ -284,5 +314,5 @@ func productExecutionReadError(err error) error {
 
 // A regional consumer-order proof never grants product execution authority.
 func (b ProductMerchantBinding) ValidTemuOrderApplication() bool {
-	return b.Platform == PlatformTemu && (b.IdentityPartition == PartitionUS || b.IdentityPartition == PartitionGlobal) && (b.MerchantMode == MerchantLocal || b.MerchantMode == MerchantSemiManaged) && b.RegionID == 211 && b.Site == "temu-order-us" && b.ApplicationType == "" && b.Walmart == (WalmartMerchantBinding{}) && b.TikTok == (TikTokMerchantBinding{}) && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, ":temu:"+string(b.IdentityPartition)+":manual_token:3:r2") && b.VerificationRevision == "temu-regional-order-identity-v2" && len(b.ScopesHash) == 64 && len(b.SupplierIdentityHash) == 64 && !b.CredentialExpiresAt.IsZero()
+	return b.Platform == PlatformTemu && b.Shopify == (ShopifyMerchantBinding{}) && (b.IdentityPartition == PartitionUS || b.IdentityPartition == PartitionGlobal) && (b.MerchantMode == MerchantLocal || b.MerchantMode == MerchantSemiManaged) && b.RegionID == 211 && b.Site == "temu-order-us" && b.ApplicationType == "" && b.Walmart == (WalmartMerchantBinding{}) && b.TikTok == (TikTokMerchantBinding{}) && authidentity.IsBoundedIdentifier(b.ApplicationID) && authidentity.IsBoundedIdentifier(b.ApplicationRevision) && strings.HasSuffix(b.ApplicationRevision, ":temu:"+string(b.IdentityPartition)+":manual_token:3:r2") && b.VerificationRevision == "temu-regional-order-identity-v2" && len(b.ScopesHash) == 64 && len(b.SupplierIdentityHash) == 64 && !b.CredentialExpiresAt.IsZero()
 }

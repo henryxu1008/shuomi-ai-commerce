@@ -24,7 +24,7 @@ type AmazonTargetPreparer interface {
 }
 
 func validAmazonInput(input TargetInput) bool {
-	return input.Amazon != nil && input.LocalTrial == nil && input.ColorPartition == nil &&
+	return input.Amazon != nil && input.Shopify == nil && input.LocalTrial == nil && input.ColorPartition == nil &&
 		input.SheinImport == nil && input.SheinSalesMapping == nil && input.CompletionDraft == nil &&
 		input.ApplyReceiptID == "" && input.Temu == nil && input.TikTok == nil && input.Walmart == nil &&
 		input.TemuRules == nil && input.TikTokRules == nil && input.WalmartRules == nil &&
@@ -39,7 +39,7 @@ func validAmazonTarget(value TargetRecord) bool {
 		!target.ValidUntil.IsZero() && !value.CreatedAt.IsZero() && target.ValidUntil.After(value.CreatedAt) &&
 		target.ValidUntil.Sub(value.CreatedAt) <= AmazonReviewLifetime &&
 		!target.ValidUntil.After(value.Merchant.CredentialExpiresAt) && len(target.ImageHash) == 64 &&
-		value.LocalTrial == nil && value.Temu == nil && value.TemuRuleSnapshot == nil &&
+		value.LocalTrial == nil && value.Shopify == nil && value.Temu == nil && value.TemuRuleSnapshot == nil &&
 		value.TikTok == nil && value.TikTokRuleSnapshot == nil && value.Walmart == nil && value.WalmartRuleSnapshot == nil &&
 		len(value.TemuImageObservations)+len(value.TikTokImageObservations)+len(value.WalmartImageObservations)+len(value.ImageObservations)+len(value.ProofObservations) == 0 &&
 		reflect.DeepEqual(value.Result, goods.OfficialDraft{})

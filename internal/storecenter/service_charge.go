@@ -28,10 +28,15 @@ type ServiceChargeProof struct {
 	ReservationID, State, EvidenceID, FailureCode string
 	Snapshot                                      ServiceOperationSnapshot
 }
+type ServiceChargeConnection struct {
+	Status  ConnectionStatus
+	Shopify *ShopifyBinding
+}
+
 type ServiceChargeStore interface {
 	AdmitServiceCharge(context.Context, ServiceChargeIntent) (ServiceChargeIntent, error)
 	BindServiceCharge(context.Context, ServiceChargeIntent, string) error
-	ApplyServiceCharge(context.Context, ServiceChargeIntent, ConnectionStatus) (ServiceChargeProof, error)
+	ApplyServiceCharge(context.Context, ServiceChargeIntent, ServiceChargeConnection) (ServiceChargeProof, error)
 	FenceServiceCharge(context.Context, ServiceChargeIntent, string, string) (ServiceChargeProof, error)
 	ReadServiceChargeIntent(context.Context, string, string) (ServiceChargeIntent, error)
 	ReadServiceChargeProof(context.Context, string, string) (ServiceChargeProof, error)
@@ -183,7 +188,7 @@ func (r *MemberScopedStoreRepository) AdmitServiceCharge(ctx context.Context, in
 		if store.ConnectionRef != e.ExpectedConnectionRef {
 			return ErrConnectionSnapshotChanged
 		}
-		if _, err := serviceChargeTarget(store.State, e, e.ConnectionStatus, e.OccurredAt); err != nil {
+		if _, err := serviceChargeTarget(store, e, e.ConnectionStatus, e.OccurredAt); err != nil {
 			return err
 		}
 		encoded, _ := json.Marshal(intent)
@@ -239,7 +244,11 @@ func (r *MemberScopedStoreRepository) BindServiceCharge(ctx context.Context, int
 	}
 	return err
 }
-func serviceChargeTarget(state StoreServiceState, e ServiceExecution, connection ConnectionStatus, at time.Time) (StoreServiceState, error) {
+func serviceChargeTarget(store ServiceStoreSnapshot, e ServiceExecution, connection ConnectionStatus, at time.Time) (StoreServiceState, error) {
+	if store.Platform == PlatformShopify && connection != ConnectionStatusConnected {
+		return StoreServiceState{}, ErrConnectionNotFresh
+	}
+	state := store.State
 	switch e.Command {
 	case ServiceCommandActivate:
 		return ActivateStoreService(state, connection, at)
@@ -260,24 +269,19 @@ func completeServiceCharge(tx *gorm.DB, row storeServiceChargeRow, proof Service
 	proof.EvidenceID = "store-service:" + hashTuple(row.OrganizationID, row.OperationID, row.ReservationID, proof.State, proof.FailureCode, encoded)
 	return tx.Model(&row).Where("state IN ?", []string{"admitted", "bound"}).Updates(map[string]any{"reservation_id": row.ReservationID, "state": proof.State, "snapshot_json": encoded, "evidence_id": proof.EvidenceID, "failure_code": proof.FailureCode, "updated_at": time.Now().UTC()}).Error
 }
-func (r *MemberScopedStoreRepository) ApplyServiceCharge(ctx context.Context, intent ServiceChargeIntent, connection ConnectionStatus) (ServiceChargeProof, error) {
+func (r *MemberScopedStoreRepository) ApplyServiceCharge(ctx context.Context, intent ServiceChargeIntent, connection ServiceChargeConnection) (ServiceChargeProof, error) {
 	e := intent.Execution
 	access, accessErr := r.authorize(ctx, e.OrganizationID, true)
 	if accessErr != nil && !errors.Is(accessErr, ErrNotFound) {
 		return ServiceChargeProof{}, accessErr
 	}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Store first, then assignment, then operation: the same order as revoke.
-		storeErr := lockMemberStore(tx, e.OrganizationID, e.StoreID)
+		// All service mutations lock the Store first. A completed operation
+		// remains authoritative even if the live authorization has since changed.
+		base, _ := NewGormStoreRepository(tx)
+		store, storeErr := base.LockServiceState(ctx, tx, ServiceStoreIdentity{OrganizationID: e.OrganizationID, StoreID: e.StoreID})
 		if storeErr != nil && !errors.Is(storeErr, ErrNotFound) {
 			return storeErr
-		}
-		grantErr := accessErr
-		if grantErr == nil {
-			grantErr = requireMemberGrant(tx, access, e.StoreID)
-		}
-		if grantErr != nil && !errors.Is(grantErr, ErrNotFound) {
-			return grantErr
 		}
 		row, proof, err := readServiceCharge(tx, e.OrganizationID, e.OperationID, true)
 		if err != nil {
@@ -293,26 +297,35 @@ func (r *MemberScopedStoreRepository) ApplyServiceCharge(ctx context.Context, in
 			return ErrServiceChargeUnknown
 		}
 		failure := ""
-		if storeErr != nil || grantErr != nil || access.MemberID != intent.MemberID || access.ActorID != e.ActorSubject || intent.Funding == "enterprise_unallocated" && !access.Administrator {
+		if storeErr != nil || accessErr != nil || access.MemberID != intent.MemberID || access.ActorID != e.ActorSubject || intent.Funding == "enterprise_unallocated" && !access.Administrator {
 			failure = "NOT_ALLOWED"
 		}
-		base, _ := NewGormStoreRepository(tx)
-		var store ServiceStoreSnapshot
-		if failure == "" {
-			store, err = base.LockServiceState(ctx, tx, ServiceStoreIdentity{OrganizationID: e.OrganizationID, StoreID: e.StoreID})
-			if err != nil {
-				return err
+		shopifyAuthorized := false
+		if failure == "" && store.Platform == PlatformShopify && connection.Shopify != nil &&
+			store.Version == e.ExpectedStoreVersion && store.ConnectionRef == e.ExpectedConnectionRef {
+			// Shopify rebind locks the shop before the former Store's grant.
+			// Keep that order, while still validating the grant before reporting state changes.
+			current, lookupErr := readShopifyBinding(tx.Clauses(clause.Locking{Strength: "SHARE"}), e.OrganizationID, e.StoreID, store.ConnectionRef)
+			if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
+				return lookupErr
 			}
-			if store.Version != e.ExpectedStoreVersion {
+			shopifyAuthorized = lookupErr == nil && current == *connection.Shopify && connection.Status == ConnectionStatusConnected
+		}
+		if failure == "" {
+			if err := requireMemberGrant(tx, access, e.StoreID); errors.Is(err, ErrNotFound) {
+				failure = "NOT_ALLOWED"
+			} else if err != nil {
+				return err
+			} else if store.Version != e.ExpectedStoreVersion {
 				failure = "STORE_CHANGED"
-			} else if store.ConnectionRef != e.ExpectedConnectionRef {
+			} else if store.ConnectionRef != e.ExpectedConnectionRef || store.Platform == PlatformShopify && !shopifyAuthorized {
 				failure = "CONNECTION_CHANGED"
 			}
 		}
 		at := time.Now().UTC()
 		var target StoreServiceState
 		if failure == "" {
-			target, err = serviceChargeTarget(store.State, e, connection, at)
+			target, err = serviceChargeTarget(store, e, connection.Status, at)
 			if err != nil {
 				failure = "INVALID_STATE"
 			}

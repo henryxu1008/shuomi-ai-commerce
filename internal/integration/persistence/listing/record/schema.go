@@ -17,7 +17,7 @@ func InstallSchema(db *gorm.DB) error {
 	return db.Exec(`CREATE TABLE IF NOT EXISTS listing_target_records (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
  id uuid NOT NULL, target_id uuid NOT NULL, source_id uuid NOT NULL, store_id uuid NOT NULL,
- site varchar(32) NOT NULL CONSTRAINT listing_target_records_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us')), revision bigint NOT NULL CHECK(revision>0),
+ site varchar(32) NOT NULL CONSTRAINT listing_target_records_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us','shopify')), revision bigint NOT NULL CHECK(revision>0),
  purpose varchar(32) NOT NULL DEFAULT 'standard', partition_id varchar(36) NOT NULL DEFAULT '', family_id varchar(36) NOT NULL DEFAULT '',
  CONSTRAINT listing_target_records_purpose CHECK ((purpose='standard' AND partition_id='' AND family_id='') OR (purpose='shein_color_local' AND site='shein-us' AND length(partition_id)=36 AND length(family_id)=36)),
  input_hash varchar(64) NOT NULL CHECK(length(input_hash)=64), body_hash varchar(64) NOT NULL CHECK(length(body_hash)=64),
@@ -27,7 +27,7 @@ func InstallSchema(db *gorm.DB) error {
  FOREIGN KEY(organization_id,actor_id,source_id) REFERENCES listing_preparation_sources(organization_id,actor_id,id));
 CREATE TABLE IF NOT EXISTS listing_preparation_targets (
  organization_id varchar(128) NOT NULL, actor_id varchar(128) NOT NULL, member_id varchar(128) NOT NULL,
- id uuid NOT NULL, source_id uuid NOT NULL, store_id uuid NOT NULL, site varchar(32) NOT NULL CONSTRAINT listing_preparation_targets_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us')),
+ id uuid NOT NULL, source_id uuid NOT NULL, store_id uuid NOT NULL, site varchar(32) NOT NULL CONSTRAINT listing_preparation_targets_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us','shopify')),
  current_record_id uuid NOT NULL, revision bigint NOT NULL CHECK(revision>0),
  purpose varchar(32) NOT NULL DEFAULT 'standard', partition_id varchar(36) NOT NULL DEFAULT '', family_id varchar(36) NOT NULL DEFAULT '',
  CONSTRAINT listing_preparation_targets_purpose CHECK ((purpose='standard' AND partition_id='' AND family_id='') OR (purpose='shein_color_local' AND site='shein-us' AND length(partition_id)=36 AND length(family_id)=36)),
@@ -54,6 +54,14 @@ CREATE TABLE IF NOT EXISTS listing_target_split_commands (
 }
 
 func VerifySchema(ctx context.Context, db *gorm.DB) error {
+	return verifySchema(ctx, db, false)
+}
+
+func VerifyShopifySchema(ctx context.Context, db *gorm.DB) error {
+	return verifySchema(ctx, db, true)
+}
+
+func verifySchema(ctx context.Context, db *gorm.DB, requireShopify bool) error {
 	if ctx == nil || db == nil || db.Dialector.Name() != "postgres" {
 		return record.ErrUnavailable
 	}
@@ -101,7 +109,8 @@ func VerifySchema(ctx context.Context, db *gorm.DB) error {
  AND c.contype='c' AND c.convalidated AND NOT c.condeferrable
  AND position('shein-us' in pg_get_constraintdef(c.oid))>0
  AND position('temu-supplier' in pg_get_constraintdef(c.oid))>0
- AND position('temu-local' in pg_get_constraintdef(c.oid))>0 AND position('tiktokshop-us' in pg_get_constraintdef(c.oid))>0 AND position('walmart-us' in pg_get_constraintdef(c.oid))>0`).Scan(&sitesReady).Error
+ AND position('temu-local' in pg_get_constraintdef(c.oid))>0 AND position('tiktokshop-us' in pg_get_constraintdef(c.oid))>0 AND position('walmart-us' in pg_get_constraintdef(c.oid))>0
+ AND (NOT ? OR position('''shopify''' in pg_get_constraintdef(c.oid))>0)`, requireShopify).Scan(&sitesReady).Error
 	if err != nil || !sitesReady {
 		return record.ErrUnavailable
 	}

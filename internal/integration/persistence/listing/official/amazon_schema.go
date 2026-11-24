@@ -16,9 +16,9 @@ func InstallIsolatedAmazonSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	}
 	for _, statement := range []string{
 		`ALTER TABLE public.listing_target_records DROP CONSTRAINT listing_target_records_sites_v2,
-			ADD CONSTRAINT listing_target_records_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us','amazon-us'))`,
+			ADD CONSTRAINT listing_target_records_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us','shopify','amazon-us'))`,
 		`ALTER TABLE public.listing_preparation_targets DROP CONSTRAINT listing_preparation_targets_sites_v2,
-			ADD CONSTRAINT listing_preparation_targets_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us','amazon-us'))`,
+			ADD CONSTRAINT listing_preparation_targets_sites_v2 CHECK(site IN ('shein-us','temu-supplier','temu-local','tiktokshop-us','walmart-us','shopify','amazon-us'))`,
 		`CREATE TABLE public.listing_amazon_sku_occupancy (
 			environment text NOT NULL CHECK (environment IN ('production','beta')),
 			marketplace text NOT NULL CHECK (marketplace='ATVPDKIKX0DER'),

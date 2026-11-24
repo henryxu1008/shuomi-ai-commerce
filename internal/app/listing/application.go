@@ -33,6 +33,7 @@ type Application struct {
 	UploadPlans             *preparation.UploadPlanService
 	SourceMaterialsOnly     bool
 	SheinPublication        *SheinPublicationService
+	ShopifyStatus           *ShopifyStatusService
 	WalmartCatalog          WalmartRuleReader
 	Preparations            *preparation.Service
 	Sources                 *preparation.SourceSelector
@@ -93,7 +94,12 @@ func (a *Application) Source(ctx context.Context, id string) (SourceDetail, erro
 	return SourceDetail{Source: source, Product: product.Snapshot, Images: images}, nil
 }
 
+type ShopifyStoreDetails struct {
+	Currency string `json:"currency"`
+}
+
 type TargetRules struct {
+	Shopify        *ShopifyStoreDetails               `json:"shopify,omitempty"`
 	InitialInput   *record.TargetInput                `json:"initialInput,omitempty"`
 	WalmartCatalog *walmart.RuleCatalog               `json:"walmartCatalog,omitempty"`
 	Merchant       storecenter.ProductMerchantBinding `json:"merchant"`
@@ -138,6 +144,16 @@ func (a *Application) QueryRules(ctx context.Context, in record.TargetInput) (Ta
 	}
 	if _, err = a.Products.ReadEffectiveTargetProduct(ctx, selected, in.EffectiveVersion, in.ApplyReceiptID); err != nil {
 		return TargetRules{}, err
+	}
+	if in.Shopify != nil {
+		if !record.IsShopifyRulesQuery(in) || a.TargetMerchants == nil {
+			return TargetRules{}, record.ErrInvalid
+		}
+		binding, err := a.TargetMerchants.ReadTargetMerchant(ctx, scope, in.StoreID)
+		if err != nil || !binding.ValidShopifyApplication() || !validTargetMerchant(scope, in.StoreID, binding) {
+			return TargetRules{}, record.ErrForbidden
+		}
+		return TargetRules{Merchant: binding, Shopify: &ShopifyStoreDetails{Currency: binding.Shopify.Currency}}, nil
 	}
 	if in.WalmartRules != nil {
 		selection := *in.WalmartRules

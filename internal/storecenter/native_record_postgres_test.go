@@ -290,7 +290,7 @@ func TestNativeRecordPostgresConcurrencyRollbackAndDeleteReceipt(t *testing.T) {
 		go func() {
 			defer group.Done()
 			<-start
-			proof, applyErr = repo.ApplyServiceCharge(ctx, intent, storecenter.ConnectionStatusConnected)
+			proof, applyErr = repo.ApplyServiceCharge(ctx, intent, storecenter.ServiceChargeConnection{Status: storecenter.ConnectionStatusConnected})
 		}()
 		go func() {
 			defer group.Done()
@@ -316,7 +316,7 @@ func TestNativeRecordPostgresConcurrencyRollbackAndDeleteReceipt(t *testing.T) {
 		persisted, err := repo.ReadServiceChargeProof(ctx, "org-a", intent.Execution.OperationID)
 		require.NoError(t, err)
 		require.Equal(t, proof, persisted)
-		late, err := repo.ApplyServiceCharge(ctx, intent, storecenter.ConnectionStatusConnected)
+		late, err := repo.ApplyServiceCharge(ctx, intent, storecenter.ServiceChargeConnection{Status: storecenter.ConnectionStatusConnected})
 		require.NoError(t, err)
 		require.Equal(t, persisted, late)
 		_, err = repo.Get(ctx, "org-a", created.ID())

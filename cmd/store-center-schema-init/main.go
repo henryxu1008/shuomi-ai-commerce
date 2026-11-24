@@ -32,6 +32,7 @@ func main() {
 	cockpit := flag.Bool("operations-cockpit", false, "install manual financial facts and goals on an authorized fresh empty Store instance")
 	tiktok := flag.Bool("tiktok-shop", false, "grant admitted TikTok OAuth tables on an authorized fresh empty Store instance")
 	walmart := flag.Bool("walmart-us", false, "grant admitted Walmart US OAuth tables on an authorized fresh empty Store instance")
+	shopify := flag.Bool("shopify", false, "install and grant Shopify authorization tables on an authorized fresh empty Store instance")
 	google := flag.Bool("google-merchant", false, "install Google Merchant authorization tables on an explicitly confirmed current Store database")
 	align := flag.Bool("align-core-contract", false, "align only the four admitted core CHECKs on a retained Store database; no grants or platform installation")
 	retainedObservations := flag.Bool("retained-observations", false, "declare already installed observations for --align-core-contract; no installation or grants")
@@ -59,31 +60,31 @@ func main() {
 			return errors.New("retained capability declarations require --align-core-contract")
 		}
 		if *google {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align || *alignEmpty || *currentObservations {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shopify || *browserWorkbench || *align || *alignEmpty || *currentObservations {
 				return errors.New("Google Merchant installation cannot be combined with another mode")
 			}
 			return installGoogleMerchant(*path, *confirmed)
 		}
 		if *alignEmpty {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align || *currentObservations {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shopify || *browserWorkbench || *align || *currentObservations {
 				return errors.New("empty observation alignment cannot be combined with another mode")
 			}
 			return alignEmptyObservations(*path, *confirmed)
 		}
 		if *currentObservations {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench || *align {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shopify || *browserWorkbench || *align {
 				return errors.New("current Store observation installation cannot be combined with another mode")
 			}
 			return installCurrentObservations(*path, *confirmed)
 		}
 		if *align {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *browserWorkbench {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shopify || *browserWorkbench {
 				return errors.New("core alignment cannot be combined with any installation or observation mode")
 			}
 			return alignCoreContract(*path, *confirmed, storecenter.RuntimeCapabilities{Observations: *retainedObservations, OperationsCockpit: *retainedCockpit})
 		}
 		if *browserWorkbench {
-			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart {
+			if *observations || *cockpit || *observationsOnly || *grantsOnly || *verify || *tiktok || *walmart || *shopify {
 				return errors.New("browser installation cannot be combined with another mode")
 			}
 			return installBrowserWorkbench(*path, *confirmed)
@@ -91,7 +92,7 @@ func main() {
 		if confirmationSet {
 			return errors.New("--confirm-database requires --align-core-contract, --browser-workbench, --observations-current-store, --google-merchant or --align-empty-observations-contract")
 		}
-		return runWithTikTok(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart)
+		return runStoreSchema(*path, *observations, *cockpit, *observationsOnly, *grantsOnly, *verify, *tiktok, *walmart, *shopify)
 	}()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -180,13 +181,16 @@ func run(storePath string, observations, cockpit, observationsOnly, grantsOnly, 
 }
 func runWithTikTok(storePath string, observations, cockpit, observationsOnly, grantsOnly, verify, tiktok bool, walmartOption ...bool) error {
 	walmart := len(walmartOption) == 1 && walmartOption[0]
+	return runStoreSchema(storePath, observations, cockpit, observationsOnly, grantsOnly, verify, tiktok, walmart, false)
+}
+func runStoreSchema(storePath string, observations, cockpit, observationsOnly, grantsOnly, verify, tiktok, walmart, shopify bool) error {
 	narrowModes := 0
 	for _, enabled := range []bool{observationsOnly, grantsOnly, verify} {
 		if enabled {
 			narrowModes++
 		}
 	}
-	if narrowModes > 1 || narrowModes > 0 && (observations || cockpit || tiktok || walmart) {
+	if narrowModes > 1 || narrowModes > 0 && (observations || cockpit || tiktok || walmart || shopify) {
 		return errors.New("observation narrow modes cannot be combined with each other, base or Cockpit installation")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -226,6 +230,11 @@ func runWithTikTok(storePath string, observations, cockpit, observationsOnly, gr
 	if err := storeschema.Migrate(ctx, records); err != nil {
 		return fmt.Errorf("initialize current Store schema: %w", err)
 	}
+	if shopify {
+		if err := installShopifyStoreSchema(ctx, records); err != nil {
+			return err
+		}
+	}
 	if err := grantStoreRuntime(ctx, records); err != nil {
 		return err
 	}
@@ -253,6 +262,25 @@ func runWithTikTok(storePath string, observations, cockpit, observationsOnly, gr
 		}
 	}
 	return nil
+}
+
+func installShopifyStoreSchema(ctx context.Context, records *gorm.DB) error {
+	db, err := records.DB()
+	if err != nil {
+		return err
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := storecenter.InstallShopifySchemaTx(ctx, tx); err != nil {
+		return fmt.Errorf("initialize Store Shopify schema: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `GRANT SELECT,INSERT,UPDATE ON public.workbench_store_shopify_shops, public.workbench_store_shopify_authorizations, public.workbench_store_shopify_pairings TO store_center_runtime`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func grantStoreRuntime(ctx context.Context, db *gorm.DB) error {

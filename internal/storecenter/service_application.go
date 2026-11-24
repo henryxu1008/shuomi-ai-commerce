@@ -14,6 +14,7 @@ import (
 var (
 	ErrServiceLifecycleIdentityRequired = errors.New("verified Store lifecycle identity is required")
 	ErrServiceLifecyclePermissionDenied = errors.New("Store lifecycle permission is denied")
+	ErrShopifyServiceChargeRejected     = errors.New("Shopify service charge was rejected and the reservation was released")
 )
 
 // ServiceLifecycleApplicationRequest contains only caller-owned, stable
@@ -121,7 +122,12 @@ func (application *ServiceLifecycleApplication) execute(ctx context.Context, com
 	}
 
 	connectionStatus := ConnectionStatus("")
-	if command == ServiceCommandActivate {
+	if store.Platform() == PlatformShopify {
+		if _, err := VerifyShopifyServiceConnection(ctx, application.connections, store); err != nil {
+			return application.replayBeforeTransientFailure(ctx, replay, ErrConnectionNotFresh)
+		}
+		connectionStatus = ConnectionStatusConnected
+	} else if command == ServiceCommandActivate {
 		connectionStatus = resolveConnectionStatus(ctx, application.connections, ConnectionStatusInput{
 			OrganizationID: identity.EffectiveOrganizationID,
 			StoreID:        request.StoreID,

@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 	"strings"
+
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 
 	"gorm.io/gorm"
 )
@@ -102,7 +103,8 @@ var schemaStatements = []string{
     ),
     CONSTRAINT listing_submission_execution_attempts_no_send_check CHECK ((
         evidence_kind IS DISTINCT FROM 'local_no_send' OR
-        (platform = 'tiktokshop' AND action IN ('tiktok_upload_image', 'tiktok_create_global', 'tiktok_publish_us') AND
+        (((platform = 'tiktokshop' AND action IN ('tiktok_upload_image', 'tiktok_create_global', 'tiktok_publish_us')) OR
+          (platform = 'shopify' AND action = 'create_shopify_draft')) AND
          evidence_reference = attempt_id::text AND evidence_reason IN ('preflight_unavailable', 'facts_changed', 'access_recheck_failed', 'image_content_changed', 'payload_invalid') AND finished_at < lease_expires_at)
     ) IS TRUE),
     CONSTRAINT listing_submission_execution_attempts_evidence_value_check CHECK (
@@ -187,6 +189,10 @@ var expectedColumns = map[string][]columnContract{
 	},
 }
 
+const noSendConstraintName = "listing_submission_execution_attempts_no_send_check"
+
+const priorNoSendConstraint = `CHECK (((((evidence_kind)::text IS DISTINCT FROM 'local_no_send'::text) OR (((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[])) AND ((evidence_reference)::text = (attempt_id)::text) AND ((evidence_reason)::text = ANY ((ARRAY['preflight_unavailable'::character varying, 'facts_changed'::character varying, 'access_recheck_failed'::character varying, 'image_content_changed'::character varying, 'payload_invalid'::character varying])::text[])) AND (finished_at < lease_expires_at))) IS TRUE))`
+
 type constraintContract struct {
 	kind            string
 	exactDefinition string
@@ -236,8 +242,8 @@ var expectedConstraints = map[string]map[string]constraintContract{
 		"listing_submission_execution_attempts_evidence_check": {
 			kind: "c", exactDefinition: `CHECK (((evidence_kind IS NULL) OR (((evidence_kind)::text = 'provider_response'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'provider_readback'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying])::text[])) AND (evidence_authorized_by IS NULL)) OR (((evidence_kind)::text = 'manual_resolution'::text) AND ((evidence_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'failed_definitive'::character varying, 'cancelled'::character varying])::text[])) AND (evidence_authorized_by IS NOT NULL) AND ((evidence_authorized_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND (evidence_reason IS NOT NULL)) OR (((evidence_kind)::text = 'local_no_send'::text) AND ((evidence_outcome)::text = 'not_sent'::text) AND (evidence_authorized_by IS NULL))))`,
 		},
-		"listing_submission_execution_attempts_no_send_check": {
-			kind: "c", exactDefinition: `CHECK (((((evidence_kind)::text IS DISTINCT FROM 'local_no_send'::text) OR (((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[])) AND ((evidence_reference)::text = (attempt_id)::text) AND ((evidence_reason)::text = ANY ((ARRAY['preflight_unavailable'::character varying, 'facts_changed'::character varying, 'access_recheck_failed'::character varying, 'image_content_changed'::character varying, 'payload_invalid'::character varying])::text[])) AND (finished_at < lease_expires_at))) IS TRUE))`,
+		noSendConstraintName: {
+			kind: "c", exactDefinition: noSendConstraintDefinition(true, false, false),
 		},
 		"listing_submission_execution_attempts_evidence_value_check": {
 			kind: "c", exactDefinition: `CHECK ((((evidence_kind IS NULL) OR (((evidence_reference)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND (evidence_observed_at >= created_at) AND (evidence_observed_at <= finished_at))) IS TRUE))`,
@@ -278,20 +284,30 @@ func InstallSchema(db *gorm.DB) error {
 				return fmt.Errorf("install submission execution schema: %w", err)
 			}
 		}
-		return verifySchema(tx.Statement.Context, tx)
+		return verifySchema(tx.Statement.Context, tx, true)
 	})
 }
 
 func VerifySchema(ctx context.Context, db *gorm.DB) error {
+	return verifyInstalledSchema(ctx, db, false)
+}
+
+// VerifyShopifySchema requires the guarded Shopify no-send transition before
+// the configured application may create product drafts.
+func VerifyShopifySchema(ctx context.Context, db *gorm.DB) error {
+	return verifyInstalledSchema(ctx, db, true)
+}
+
+func verifyInstalledSchema(ctx context.Context, db *gorm.DB, requireShopify bool) error {
 	if db == nil || db.Dialector.Name() != "postgres" {
 		return fmt.Errorf("verify submission execution schema: PostgreSQL database is required")
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return verifySchema(ctx, tx)
+		return verifySchema(ctx, tx, requireShopify)
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
 }
 
-func verifySchema(ctx context.Context, db *gorm.DB) (resultErr error) {
+func verifySchema(ctx context.Context, db *gorm.DB, requireShopify ...bool) (resultErr error) {
 	var encoding string
 	if err := db.WithContext(ctx).Raw("SHOW server_encoding").Row().Scan(&encoding); err != nil {
 		return fmt.Errorf("inspect submission execution database encoding: %w", err)
@@ -318,7 +334,7 @@ func verifySchema(ctx context.Context, db *gorm.DB) (resultErr error) {
 		if err := verifyColumns(ctx, db, table, expectedColumns[table]); err != nil {
 			return err
 		}
-		if err := verifyConstraints(ctx, db, table, expectedConstraints[table]); err != nil {
+		if err := verifyConstraints(ctx, db, table, expectedConstraints[table], requireShopify...); err != nil {
 			return err
 		}
 		if err := verifyNoUserTriggers(ctx, db, table); err != nil {
@@ -487,7 +503,7 @@ ORDER BY attribute.attnum`, table).Rows()
 	return nil
 }
 
-func verifyConstraints(ctx context.Context, db *gorm.DB, table string, expected map[string]constraintContract) error {
+func verifyConstraints(ctx context.Context, db *gorm.DB, table string, expected map[string]constraintContract, requireShopify ...bool) error {
 	rows, err := db.WithContext(ctx).Raw(`
 SELECT constraint_row.conname, constraint_row.contype::text, pg_catalog.pg_get_constraintdef(constraint_row.oid, false),
        constraint_row.convalidated, constraint_row.condeferrable, constraint_row.condeferred
@@ -531,41 +547,51 @@ ORDER BY constraint_row.conname`, table).Rows()
 		if !observed.validated || observed.deferrable || observed.deferred {
 			return fmt.Errorf("submission execution constraint public.%s.%s must be validated and immediate", table, name)
 		}
-		expected := contract.exactDefinition
-		if name == noSendConstraintName {
+		matches := pgschema.SchemaConstraintEqual(observed.definition, contract.exactDefinition)
+		if table == AttemptTable && name == noSendConstraintName {
 			var isolatedAmazon bool
-			if err := db.WithContext(ctx).Raw(`SELECT to_regclass('public.listing_amazon_sku_occupancy') IS NOT NULL`).Row().Scan(&isolatedAmazon); err != nil {
+			if err := db.WithContext(ctx).Raw("SELECT " + isolatedAmazonNoSendSchemaPresent).Row().Scan(&isolatedAmazon); err != nil {
 				return err
 			}
-			withGoogle := extendNoSendConstraint(expected, googleNoSendAction)
-			if isolatedAmazon {
-				withGoogle = extendNoSendConstraint(expected, googleNoSendAction, amazonNoSendAction)
-				expected = extendNoSendConstraint(expected, amazonNoSendAction)
-			}
-			if pgschema.SchemaConstraintEqual(observed.definition, withGoogle) {
-				continue
+			matches = matchesNoSendConstraint(observed.definition, true, isolatedAmazon)
+			if !matches && (len(requireShopify) == 0 || !requireShopify[0]) {
+				matches = matchesNoSendConstraint(observed.definition, false, isolatedAmazon)
 			}
 		}
-		if !pgschema.SchemaConstraintEqual(observed.definition, expected) {
+		if !matches {
 			return fmt.Errorf("submission execution constraint public.%s.%s definition mismatch: got %s", table, name, observed.definition)
 		}
 	}
 	return nil
 }
 
-const (
-	noSendConstraintName = "listing_submission_execution_attempts_no_send_check"
-	googleNoSendAction   = "((platform)::text = 'googlemerchant'::text) AND ((action)::text = 'google_product_insert'::text)"
-	amazonNoSendAction   = "((platform)::text = 'amazon'::text) AND ((action)::text = 'amazon_create_listing'::text) AND ((evidence_reason)::text = 'access_recheck_failed'::text)"
-)
+const isolatedAmazonNoSendSchemaPresent = "to_regclass('public.listing_amazon_sku_occupancy') IS NOT NULL"
 
-func extendNoSendConstraint(existing string, actions ...string) string {
+func noSendConstraintDefinition(shopify, google, isolatedAmazon bool) string {
 	const tiktok = "((platform)::text = 'tiktokshop'::text) AND ((action)::text = ANY ((ARRAY['tiktok_upload_image'::character varying, 'tiktok_create_global'::character varying, 'tiktok_publish_us'::character varying])::text[]))"
-	return strings.Replace(existing, tiktok, "(("+tiktok+") OR ("+strings.Join(actions, ") OR (")+"))", 1)
+	actions := []string{tiktok}
+	if shopify {
+		actions = append(actions, "((platform)::text = 'shopify'::text) AND ((action)::text = 'create_shopify_draft'::text)")
+	}
+	if google {
+		actions = append(actions, "((platform)::text = 'googlemerchant'::text) AND ((action)::text = 'google_product_insert'::text)")
+	}
+	if isolatedAmazon {
+		actions = append(actions, "((platform)::text = 'amazon'::text) AND ((action)::text = 'amazon_create_listing'::text) AND ((evidence_reason)::text = 'access_recheck_failed'::text)")
+	}
+	if len(actions) == 1 {
+		return priorNoSendConstraint
+	}
+	return strings.Replace(priorNoSendConstraint, tiktok, "(("+strings.Join(actions, ") OR (")+"))", 1)
+}
+
+func matchesNoSendConstraint(actual string, shopify, isolatedAmazon bool) bool {
+	return pgschema.SchemaConstraintEqual(actual, noSendConstraintDefinition(shopify, false, isolatedAmazon)) ||
+		pgschema.SchemaConstraintEqual(actual, noSendConstraintDefinition(shopify, true, isolatedAmazon))
 }
 
 // InstallIsolatedAmazonNoSendSchemaTx extends only an explicitly installed
-// synthetic Amazon Product schema. An existing Google branch stays admitted.
+// synthetic Amazon Product schema. Existing Google and Shopify branches stay admitted.
 func InstallIsolatedAmazonNoSendSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("install isolated Amazon no-send constraint: transaction required")
@@ -579,16 +605,12 @@ func InstallIsolatedAmazonNoSendSchemaTx(ctx context.Context, tx *sql.Tx) error 
 		AND convalidated AND NOT condeferrable AND NOT condeferred`, noSendConstraintName).Scan(&actual); err != nil {
 		return err
 	}
-	base := expectedConstraints[AttemptTable][noSendConstraintName].exactDefinition
-	var next string
-	switch {
-	case pgschema.SchemaConstraintEqual(actual, base):
-		next = extendNoSendConstraint(base, amazonNoSendAction)
-	case pgschema.SchemaConstraintEqual(actual, extendNoSendConstraint(base, googleNoSendAction)):
-		next = extendNoSendConstraint(base, googleNoSendAction, amazonNoSendAction)
-	default:
+	hasShopify := matchesNoSendConstraint(actual, true, false)
+	if !hasShopify && !matchesNoSendConstraint(actual, false, false) {
 		return errors.New("install isolated Amazon no-send constraint: unexpected existing definition")
 	}
+	hasGoogle := pgschema.SchemaConstraintEqual(actual, noSendConstraintDefinition(hasShopify, true, false))
+	next := noSendConstraintDefinition(hasShopify, hasGoogle, true)
 	_, err := tx.ExecContext(ctx, `ALTER TABLE public.listing_submission_execution_attempts DROP CONSTRAINT `+
 		noSendConstraintName+`, ADD CONSTRAINT `+noSendConstraintName+" "+next)
 	return err

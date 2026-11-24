@@ -12,6 +12,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/listing/submission"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
 	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
@@ -55,6 +56,7 @@ type UploadDependencies struct {
 	Records           record.TargetRepository
 	Authorization     collection.ExecutionAuthorizer
 	Stores            ExecutionStore
+	ShopifyStores     ShopifyExecutionStore
 	TemuStores        TemuExecutionStore
 	TikTokStores      TikTokExecutionStore
 	TikTokRules       record.TargetTikTokRuleReader
@@ -77,6 +79,7 @@ type UploadResult struct {
 	Status                submission.ExecutionStatus      `json:"status"`
 	CurrentRecordUploaded bool                            `json:"currentRecordUploaded"`
 	Product               model.PublishResult             `json:"product,omitempty"`
+	Shopify               *shopify.ProductObservation     `json:"shopify,omitempty"`
 	TemuProduct           *temugoods.CreatedGoods         `json:"temuProduct,omitempty"`
 	TikTok                *submission.TikTokEffectReceipt `json:"tiktok,omitempty"`
 	Walmart               *submission.WalmartFeedReceipt  `json:"walmart,omitempty"`
@@ -200,6 +203,9 @@ func (s *UploadService) Upload(ctx context.Context, scope collection.Scope, key,
 	}
 	if _, err = s.source(ctx, scope, saved); err != nil {
 		return UploadResult{}, err
+	}
+	if saved.Merchant.Platform == storecenter.PlatformShopify {
+		return s.uploadShopify(ctx, scope, key, saved)
 	}
 	if saved.Merchant.Platform == storecenter.PlatformTemu {
 		return s.uploadTemu(ctx, scope, key, saved)

@@ -205,7 +205,12 @@ func prepareOperationTx(ctx context.Context, tx *gorm.DB, scope collection.Scope
 				}
 				query := tx.Table("listing_preparation_targets").Clauses(clause.Locking{Strength: "SHARE"}).Where("organization_id=? AND actor_id=? AND member_id=? AND source_id=? AND store_id=? AND purpose='standard'", scope.OrganizationID, scope.ActorID, scope.MemberID, source.ID, input.StoreID)
 				if input.Action == preparation.OperationUpload {
-					query = query.Where("site IN ?", []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us", "walmart-us"})
+					sites := []string{"shein-us", "temu-supplier", "temu-local", "tiktokshop-us", "walmart-us"}
+					// Shopify only accepts a single product approved through an upload plan.
+					if input.PlanID != "" && len(input.SourceIDs) == 1 && len(input.TargetApprovals) == 1 {
+						sites = append(sites, "shopify")
+					}
+					query = query.Where("site IN ?", sites)
 				} else {
 					// Optimization and BindOperationTarget remain SHEIN-only.
 					query = query.Where("site=?", "shein-us")

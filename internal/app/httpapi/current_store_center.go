@@ -107,6 +107,15 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	if err := handler.SetOfficialConnections(connections); err != nil {
 		return nil, err
 	}
+	shopify, err := applications.ShopifyConnections(repo)
+	if err != nil {
+		return nil, err
+	}
+	if shopify != nil {
+		if err := handler.SetShopifyConnections(shopify); err != nil {
+			return nil, err
+		}
+	}
 	google, err := applications.GoogleConnections(repo)
 	if err != nil {
 		return nil, err
@@ -127,11 +136,7 @@ func buildCurrentStoreCenterModule(ctx context.Context, records *gorm.DB, author
 	return module, nil
 }
 
-type currentStorePeriodPolicy struct{}
-
-func (currentStorePeriodPolicy) MaxQuantity(context.Context, string, storecenter.ServiceCommand) (int64, error) {
-	return 12, nil
-}
+type currentStorePeriodPolicy = storecenter.Phase1ServiceQuantityPolicy
 
 // Current Store descriptors resolve live Organization access before invoking
 // this capability. No member ID or administrator flag comes from the request.
@@ -210,6 +215,15 @@ func (a currentStoreMemberAuthorizer) ReceiptSubject(ctx context.Context) (strin
 }
 
 func validateCurrentStoreDescriptor(d httproute.Descriptor) error {
+	if d.Path == storehttp.ShopifyPairingPath {
+		if d.Module == storehttp.ModuleName && d.Method == http.MethodPost &&
+			d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
+			d.Permission == authz.PermissionWorkbenchStoreUpdate && d.OrganizationTargetResolver == nil &&
+			d.RequestTimeout == storehttp.ShopifyPairingTimeout && !d.RejectUnreadRequestBody && d.Handler != nil {
+			return nil
+		}
+		return errors.New("Shopify Store pairing route loses live write authority or request bounds")
+	}
 	if storehttp.IsGoogleStoreDescriptor(d.Method, d.Path, d.Permission) && d.Module == storehttp.ModuleName &&
 		d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
 		d.OrganizationTargetResolver == nil && d.Handler != nil {

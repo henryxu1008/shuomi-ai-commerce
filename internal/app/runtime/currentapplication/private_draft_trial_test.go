@@ -18,6 +18,9 @@ func TestPrivateDraftTrialAdmission(t *testing.T) {
 		return c
 	}
 	require.NoError(t, makeConfig().validate())
+	shopify := makeConfig()
+	shopify.StoreCenter.Shopify = &ShopifyConfig{}
+	require.ErrorContains(t, shopify.validatePrivateDraftTrial(), "excludes official execution")
 	for _, pod := range []bool{false, true} {
 		c := makeConfig()
 		c.SupplyMarket = &SupplyMarketConfig{Storage: KnowledgeStorageConfig{Region: "local", Bucket: "private", AccessKeyID: "fixture", SecretAccessKey: "fixture", Mode: "aws"}}

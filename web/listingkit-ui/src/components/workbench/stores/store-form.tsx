@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import type { WorkbenchAPIError, WorkbenchStore } from "@/lib/api/workbench-stores";
+import { listWorkbenchStores, type WorkbenchAPIError, type WorkbenchStore } from "@/lib/api/workbench-stores";
 import { useCreateWorkbenchStore, useUpdateWorkbenchStore } from "@/lib/query/use-workbench-stores";
 import {
   workbenchStoreCreateSchema,
@@ -69,6 +69,16 @@ export function StoreForm(props: StoreFormProps) {
   const isPending = submissionPending || create.isPending || update.isPending;
   const isSwitching = context.isSwitching;
   const createRetryAvailable = props.mode === "create" && create.canRetryLast;
+  const [shopifyOrganization, setShopifyOrganization] = useState("");
+  const organizationID = organization?.id;
+  useEffect(() => {
+    if (props.mode !== "create" || !organizationID || organizationChanged || isSwitching) return;
+    const request = new AbortController();
+    void listWorkbenchStores({page: 1, pageSize: 1}, organizationID, request.signal).then(result => {
+      if (!request.signal.aborted && result.shopifyAvailable) setShopifyOrganization(organizationID);
+    }).catch(() => {});
+    return () => request.abort();
+  }, [props.mode, organizationID, organizationChanged, isSwitching]);
 
   useEffect(()=>{if(props.mode==="create")props.onPendingChange?.(isPending)},[props,isPending]);
 
@@ -226,8 +236,8 @@ export function StoreForm(props: StoreFormProps) {
       <form className="mt-6 space-y-5 rounded-xl border bg-card p-5" noValidate onSubmit={(event) => { void form.handleSubmit(submit)(event); }}>
         <TextField control={form} name="name" label="店铺名称" disabled={isPending || isSwitching || createRetryAvailable} />
         <TextField control={form} name="region" label="区域" disabled={isPending || isSwitching || createRetryAvailable} />
-        {props.mode === "create" ? <PlatformField control={form} disabled={isPending || isSwitching || createRetryAvailable}/> : <ReadOnlyField label="平台" value={props.store.platform.toUpperCase()} />}
-        {props.mode === "create" ? <TextField control={form} name="externalStoreId" label="外部店铺 ID（可选）" disabled={isPending || isSwitching || createRetryAvailable} /> : <ReadOnlyField label="外部店铺 ID" value={props.store.externalStoreId || "未设置"} />}
+        {props.mode === "create" ? <PlatformField control={form} shopifyAvailable={!!organizationID && shopifyOrganization === organizationID} disabled={isPending || isSwitching || createRetryAvailable}/> : <ReadOnlyField label="平台" value={props.store.platform === "shopify" ? "Shopify" : props.store.platform.toUpperCase()} />}
+        {props.mode === "create" ? (form.watch("platform") === "shopify" ? null : <TextField control={form} name="externalStoreId" label="外部店铺 ID（可选）" disabled={isPending || isSwitching || createRetryAvailable} />) : <ReadOnlyField label="外部店铺 ID" value={props.store.externalStoreId || "未设置"} />}
         {props.mode === "edit" ? <ReadOnlyField label="连接状态" value={connectionLabel(props.store.connectionStatus)} /> : null}
         {props.mode==="create"&&create.storageError?<p role="alert">无法安全读取或保存原创建键，请刷新页面并检查浏览器存储。</p>:null}
         <Button disabled={isPending || isSwitching || (props.mode === "create" && (create.canRetryLast || create.storageError)) || (props.mode === "edit" && (Boolean(props.conflict) || props.recoveryState === "loading" || props.recoveryState === "failed"))} type="submit">
@@ -251,9 +261,9 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Input disabled id={id} value={value} /></div>;
 }
 
-function PlatformField({control,disabled}:{control:ReturnType<typeof useForm<WorkbenchStoreCreateInput | WorkbenchStoreUpdateInput>>;disabled:boolean}) {
+function PlatformField({control,disabled,shopifyAvailable}:{control:ReturnType<typeof useForm<WorkbenchStoreCreateInput | WorkbenchStoreUpdateInput>>;disabled:boolean;shopifyAvailable:boolean}) {
   const id=useId();
-  return <div className="grid gap-2"><Label htmlFor={id}>平台</Label><Select id={id} disabled={disabled} {...control.register("platform")}><option value="shein">SHEIN</option><option value="temu">TEMU</option><option value="walmart">Walmart（美国站）</option>{process.env.NEXT_PUBLIC_GOOGLE_MERCHANT_ENABLED==="true"&&<option value="googlemerchant">Google Shopping</option>}<option value="tiktokshop">TikTok Shop（美国跨境）</option></Select>{control.watch("platform")==="walmart"?<p className="text-sm">区域填写 US；真实商家编号在官方授权后核实，无需手填。</p>:null}{control.watch("platform")==="tiktokshop"?<p className="text-sm">区域填写 US，外部店铺 ID 填写 Seller Center 的店铺编号（code）。</p>:null}</div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>平台</Label><Select id={id} disabled={disabled} {...control.register("platform")}><option value="shein">SHEIN</option><option value="temu">TEMU</option><option value="walmart">Walmart（美国站）</option>{process.env.NEXT_PUBLIC_GOOGLE_MERCHANT_ENABLED==="true"&&<option value="googlemerchant">Google Shopping</option>}<option value="tiktokshop">TikTok Shop（美国跨境）</option>{shopifyAvailable ? <option value="shopify">Shopify</option> : null}</Select>{control.watch("platform")==="walmart"?<p className="text-sm">区域填写 US；真实商家编号在官方授权后核实，无需手填。</p>:null}{control.watch("platform")==="tiktokshop"?<p className="text-sm">区域填写 US，外部店铺 ID 填写 Seller Center 的店铺编号（code）。</p>:null}</div>;
 }
 
 function ConflictNotice({ conflict, onRetry, pending }: { conflict: Conflict; onRetry: () => void; pending: boolean }) {

@@ -8,6 +8,7 @@ import (
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/goods"
 	model "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shein/model"
+	shopify "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temugoods "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/goods"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/collection"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
@@ -51,6 +52,7 @@ type OfficialReceipt struct {
 	TemuImage          *TemuImageReceipt                  `json:"temuImage,omitempty"`
 	TikTok             *TikTokEffectReceipt               `json:"tiktok,omitempty"`
 	Walmart            *WalmartFeedReceipt                `json:"walmart,omitempty"`
+	Shopify            *shopify.ProductObservation        `json:"shopify,omitempty"`
 	ObservedAt         time.Time                          `json:"observed_at"`
 }
 type OfficialCompletion struct {
@@ -140,6 +142,12 @@ func ValidateOfficialReceipt(value OfficialReceipt) error {
 	}
 	if value.Shelf != nil || value.Kind == "shelf_on" {
 		return validateShelfReceipt(value)
+	}
+	if value.Target.Platform == "shopify" {
+		return validateShopifyReceipt(value)
+	}
+	if value.Shopify != nil {
+		return ErrExecutionEvidenceRequired
 	}
 	if value.Target.Platform == "walmart" {
 		return validateWalmartReceipt(value)

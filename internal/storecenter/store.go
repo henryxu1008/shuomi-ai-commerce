@@ -42,6 +42,7 @@ const (
 	PlatformWalmart        Platform = "walmart"
 	PlatformGoogleMerchant Platform = "googlemerchant"
 	PlatformMetaCatalog    Platform = "metacatalog"
+	PlatformShopify        Platform = "shopify"
 	PlatformAmazon         Platform = "amazon"
 )
 
@@ -328,6 +329,9 @@ func newStoreFromSnapshot(snapshot StoreSnapshot) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	if platform == PlatformShopify && externalStoreID != "" {
+		return nil, errors.New("Shopify shop identity must come from the owner authorization")
+	}
 	if platform == PlatformAmazon && region != "US" {
 		return nil, errors.New("Amazon region must be US")
 	}
@@ -526,7 +530,7 @@ func normalizePlatform(value string) (Platform, error) {
 		return "", errors.New("platform is invalid")
 	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart && Platform(normalized) != PlatformGoogleMerchant && Platform(normalized) != PlatformMetaCatalog {
+	if Platform(normalized) != PlatformShein && Platform(normalized) != PlatformTemu && Platform(normalized) != PlatformTikTokShop && Platform(normalized) != PlatformWalmart && Platform(normalized) != PlatformGoogleMerchant && Platform(normalized) != PlatformMetaCatalog && Platform(normalized) != PlatformShopify {
 		return "", errors.New("platform is unsupported")
 	}
 	return Platform(normalized), nil

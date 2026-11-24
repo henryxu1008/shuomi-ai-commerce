@@ -69,6 +69,50 @@ it("disables selected Walmart automatic adaptation and preserves manual editing"
  expect(screen.getByRole("button",{name:"预览所选 1 件"})).toBeEnabled();
  expect(screen.getByRole("button",{name:"查看 / 补全"})).toBeEnabled();expect(state.write).not.toHaveBeenCalled();
 });
+it("checks one Shopify draft and its exact shop, variations, price and images before sending", async () => {
+ const second = "44444444-4444-4444-8444-444444444444";
+ const record = "55555555-5555-4555-8555-555555555555";
+ const planId = "66666666-6666-4666-8666-666666666666";
+ const hash = "a".repeat(64);
+ const createdAt = "2026-10-08T00:00:00Z";
+ const input = {preparationId:prep,expectedRevision:1,storeId:store,sourceIds:[second],rule:"standard",publicationMode:"platform_draft"};
+ const plan = {id:planId,input,storeBindingHash:hash,count:1,revision:1,createdAt};
+ const shopifyConfirmation = {
+  shopDomain:"trial-shop.myshopify.com",title:"正式核对的商品",description:"测试商品描述",currency:"USD",
+  options:[{name:"颜色",values:["蓝色"]}],variants:[{sku:"BLUE-01",price:"12.50",values:["蓝色"]}],
+  images:[{url:"https://example.com/approved.jpg",alt:"蓝色商品正面"}],
+ };
+ state.stores.mockResolvedValue({items:[{id:store,name:"Shopify 测试店",platform:"shopify",recordStatus:"active",connectionStatus:"connected",serviceStatus:"active"}],pagination:{page:1,pageSize:100,total:1}});
+ state.stages.mockResolvedValue({items:[{sourceId:source,stage:"waiting"},{sourceId:second,stage:"waiting"}],total:2,batchTotal:2,counts:{all:2,waiting:2,missing:0,ready:0,review:0,uploaded:0}});
+ state.detail.mockImplementation(async (_auth,id)=>({source:{id,source:{kind:"own",productKey:id,version:1}},product:{title:id===source?"第一件商品":"第二件商品"},images:[]}));
+ state.target.mockResolvedValue(undefined);
+ state.publication.mockResolvedValue({storeId:store});
+ state.write.mockResolvedValueOnce({plan,replayed:false}).mockResolvedValueOnce({planId,operationIds:[record],replayed:false});
+ state.plan.mockResolvedValue(plan);
+ state.preview.mockResolvedValue({plan,items:[{item:{sourceId:second,sourceVersion:"1",revision:1},step:"upload",facts:{hasTarget:true,ready:true,target:{sourceId:second,recordId:record,revision:3},publicationMode:"platform_draft",shopifyConfirmation}}],count:1,actionable:1,counts:{upload:1},hash});
+ state.operation.mockResolvedValue({id:record,input:{action:"upload",preparationId:prep,storeId:store},status:"pending",completed:0,count:1});
+ state.items.mockResolvedValue({items:[]});
+ render(<ListingPage initialPreparation={prep} initialStore={store} initialStage="waiting"/>);
+
+ const first = await screen.findByRole("checkbox",{name:"选择 第一件商品"});
+ const other = screen.getByRole("checkbox",{name:"选择 第二件商品"});
+ await userEvent.click(first);
+ await userEvent.click(other);
+ expect(first).not.toBeChecked();
+ expect(other).toBeChecked();
+ expect(screen.queryByRole("button",{name:"预览整批上传"})).not.toBeInTheDocument();
+ await userEvent.click(screen.getByRole("button",{name:"核对 Shopify 上传资料"}));
+ const confirm = await screen.findByRole("button",{name:"确认上传为草稿"});
+ expect(screen.getByText(/Shopify 测试店（trial-shop.myshopify.com）/)).toBeInTheDocument();
+ expect(screen.getByRole("heading",{name:"正式核对的商品"})).toBeInTheDocument();
+ expect(screen.getByText(/颜色：蓝色 · SKU BLUE-01 · 12.50/)).toBeInTheDocument();
+ expect(screen.getByRole("link",{name:"查看图片 1"})).toHaveAttribute("href","https://example.com/approved.jpg");
+ expect(state.write).toHaveBeenCalledTimes(1);
+ expect(state.write.mock.calls[0][0]).toMatchObject({route:"create-upload-plan",command:input});
+ await userEvent.click(confirm);
+ await waitFor(()=>expect(state.write).toHaveBeenCalledTimes(2));
+ expect(state.write.mock.lastCall?.[0]).toMatchObject({route:"continue-upload-plan",command:{planId,expectedRevision:1,previewHash:hash}});
+});
 it("reaches Walmart repair from the listing menu and dispatches only after explicit plan approval", async () => {
  vi.stubEnv("LISTINGKIT_SUPPLY_COMPLETION_DRAFTS_ENABLED","false");
  const receipt = "44444444-4444-4444-8444-444444444444";

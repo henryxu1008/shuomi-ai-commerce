@@ -48,7 +48,8 @@ func verifyStoreMaintenancePrivilegeCatalog(ctx context.Context, q coreSchemaQue
 	query := strings.Replace(storeRuntimePermissionQuery, coreRuntimeSubject, "(SELECT 'store_center_runtime'::text AS runtime_role) subject", 1)
 	var role string
 	var required, forbidden bool
-	if err := q.QueryRowContext(ctx, query, capabilities.Observations, capabilities.OperationsCockpit, false, false, false).Scan(&role, &required, &forbidden); err != nil {
+	retained := RuntimeCapabilities{Observations: capabilities.Observations, OperationsCockpit: capabilities.OperationsCockpit}
+	if err := q.QueryRowContext(ctx, query, retained.permissionQueryArgs()...).Scan(&role, &required, &forbidden); err != nil {
 		return errors.New("retained Store runtime privileges unavailable")
 	}
 	if role != "store_center_owner" || !required || forbidden {
