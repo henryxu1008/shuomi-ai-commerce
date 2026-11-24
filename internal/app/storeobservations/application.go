@@ -57,6 +57,7 @@ func (a Access) Open(ctx context.Context, s o.Scope, store string, k o.Kind, syn
 type Directory struct {
 	Stores        storecenter.Repository
 	ShopifyOrders bool
+	AmazonOrders  bool
 }
 
 func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selectedPlatform string) ([]string, error) {
@@ -64,9 +65,11 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 		return nil, o.ErrUnavailable
 	}
 	platform := storecenter.Platform(selectedPlatform)
-	shopifyOrders := d.ShopifyOrders && kind == o.Orders
+	supportsIsolatedOrders := func(p storecenter.Platform) bool {
+		return kind == o.Orders && (d.ShopifyOrders && p == storecenter.PlatformShopify || d.AmazonOrders && p == storecenter.PlatformAmazon)
+	}
 	if selectedPlatform != "" && platform != storecenter.PlatformShein && platform != storecenter.PlatformTemu && platform != storecenter.PlatformWalmart && !(kind == o.Orders && platform == storecenter.PlatformTikTokShop) &&
-		!(shopifyOrders && platform == storecenter.PlatformShopify) {
+		!supportsIsolatedOrders(platform) {
 		return nil, o.ErrInvalid
 	}
 	if kind == o.SupplyOrders {
@@ -84,7 +87,7 @@ func (d Directory) ListStores(ctx context.Context, s o.Scope, kind o.Kind, selec
 		}
 		for _, store := range result.Stores {
 			if kind == o.Orders && store.Platform() != storecenter.PlatformShein && store.Platform() != storecenter.PlatformWalmart && store.Platform() != storecenter.PlatformTikTokShop && store.Platform() != storecenter.PlatformTemu &&
-				!(shopifyOrders && store.Platform() == storecenter.PlatformShopify) {
+				!supportsIsolatedOrders(store.Platform()) {
 				continue
 			}
 			if kind == o.Products && store.Platform() == storecenter.PlatformTikTokShop {
@@ -109,6 +112,7 @@ type Application struct {
 	PreparationOnly bool
 }
 type Capabilities struct {
+	AmazonOrders       bool   `json:"amazonOrders,omitempty"`
 	ShopifyOrders      bool   `json:"shopifyOrders,omitempty"`
 	Available          bool   `json:"available"`
 	CanSync            bool   `json:"canSync"`
@@ -153,6 +157,7 @@ func (a *Application) Capabilities(ctx context.Context, s o.Scope, k o.Kind) (Ca
 	c.ProviderConfigured = !a.PreparationOnly
 	c.Available = c.RuntimeReady && c.ProviderConfigured
 	c.ShopifyOrders = c.Available && k == o.Orders && a.Service.ShopifyOrders != nil
+	c.AmazonOrders = c.Available && k == o.Orders && a.Service.AmazonOrders != nil
 	e := a.Service.Access.Authorize(ctx, s, k, true)
 	if errors.Is(e, o.ErrForbidden) {
 		return c, nil
