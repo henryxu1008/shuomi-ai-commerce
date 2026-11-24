@@ -8,6 +8,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	shopify "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/shopify"
 	temuo "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/temu/observations"
 	walmart "github.com/henryxu1008/shuomi-ai-commerce/internal/marketplace/walmart"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
@@ -189,6 +190,7 @@ func (w Window) Key() string {
 }
 
 type Checkpoint struct {
+	ShopifyOrders   *ShopifyOrderProgress `json:"shopifyOrders,omitempty"`
 	SupplyOrders    *SupplyProgress       `json:"supplyOrders,omitempty"`
 	TemuOrders      *TemuOrderProgress    `json:"temuOrders,omitempty"`
 	TikTokOrders    *TikTokOrderProgress  `json:"tiktokOrders,omitempty"`
@@ -236,6 +238,12 @@ type Sync struct {
 
 func (s Sync) MarshalJSON() ([]byte, error) {
 	type publicSync Sync
+	if s.Progress.ShopifyOrders != nil {
+		p := *s.Progress.ShopifyOrders
+		p.Cursor = ""
+		p.CursorHashes = nil
+		s.Progress.ShopifyOrders = &p
+	}
 	if s.Progress.TikTokOrders != nil {
 		p := *s.Progress.TikTokOrders
 		p.Token = ""
@@ -280,20 +288,21 @@ func ChildKey(parent, store string, kind Kind) string {
 }
 
 type Record struct {
-	SupplyOrder    *SupplyOrder     `json:"supplyOrder,omitempty"`
-	TemuOrder      *TemuOrder       `json:"temuOrder,omitempty"`
-	TikTokOrder    *TikTokOrder     `json:"tiktokOrder,omitempty"`
-	WalmartOrder   *WalmartOrder    `json:"walmartOrder,omitempty"`
-	WalmartProduct *walmart.Product `json:"walmartProduct,omitempty"`
-	StoreID        string           `json:"storeId"`
-	SyncID         string           `json:"syncId"`
-	ID             string           `json:"id"`
-	ObservedAt     time.Time        `json:"observedAt"`
-	Stale          bool             `json:"stale,omitempty"`
-	Product        *Product         `json:"product,omitempty"`
-	TemuProduct    *temuo.Product   `json:"temuProduct,omitempty"`
-	Order          *Order           `json:"order,omitempty"`
-	WindowKey      string           `json:"-"`
+	ShopifyOrder   *shopify.ObservedOrder `json:"shopifyOrder,omitempty"`
+	SupplyOrder    *SupplyOrder           `json:"supplyOrder,omitempty"`
+	TemuOrder      *TemuOrder             `json:"temuOrder,omitempty"`
+	TikTokOrder    *TikTokOrder           `json:"tiktokOrder,omitempty"`
+	WalmartOrder   *WalmartOrder          `json:"walmartOrder,omitempty"`
+	WalmartProduct *walmart.Product       `json:"walmartProduct,omitempty"`
+	StoreID        string                 `json:"storeId"`
+	SyncID         string                 `json:"syncId"`
+	ID             string                 `json:"id"`
+	ObservedAt     time.Time              `json:"observedAt"`
+	Stale          bool                   `json:"stale,omitempty"`
+	Product        *Product               `json:"product,omitempty"`
+	TemuProduct    *temuo.Product         `json:"temuProduct,omitempty"`
+	Order          *Order                 `json:"order,omitempty"`
+	WindowKey      string                 `json:"-"`
 }
 type Query struct {
 	Kind       Kind

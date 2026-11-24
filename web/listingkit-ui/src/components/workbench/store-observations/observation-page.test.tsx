@@ -24,6 +24,7 @@ vi.mock("@/lib/api/workbench-stores", async original => ({
     .mockResolvedValue({ items: [], pagination: { total: 0 } }),
 }));
 import { ObservationPage } from "./observation-page";
+import { listWorkbenchStores } from "@/lib/api/workbench-stores";
 const id = "d6f6ca0a-27e2-4c4a-b1aa-4505110ae635";
 const record = {
   storeId: id,
@@ -483,3 +484,58 @@ it.each([
     }
   },
 );
+
+it("selects a Shopify store, requests a scoped sync and shows saved order lines", async () => {
+  context.permissions = ["workbench.store.orders.read", "workbench.store.orders.sync"];
+  vi.mocked(listWorkbenchStores)
+    .mockResolvedValueOnce({items: [], pagination: {page: 1, pageSize: 100, total: 0}})
+    .mockResolvedValueOnce({
+      items: [{
+        id, name: "合成 Shopify 店铺", platform: "shopify", region: "US", externalStoreId: "",
+        recordStatus: "active", serviceStatus: "active", connectionStatus: "connected", version: 2,
+        serviceStartedAt: "2026-10-01T01:00:00Z", serviceExpiresAt: "2026-11-01T01:00:00Z",
+        createdAt: "2026-10-01T01:00:00Z", updatedAt: "2026-10-01T01:00:00Z",
+      }],
+      pagination: {page: 1, pageSize: 100, total: 1},
+    });
+  const shopRecord = { storeId: id, syncId: id, id: "17", observedAt: "2026-10-31T01:00:00Z",
+    shopifyOrder: { id: "17", number: "#1001", createdAt: "2026-10-20T01:00:00Z", updatedAt: "2026-10-22T01:00:00Z",
+      status: "PARTIALLY_FULFILLED", cancelled: false,
+      items: [{id: "gid://shopify/LineItem/51", title: "Fixture Shopify item", sku: "", quantity: 2}] } };
+  const saved = { id, commandId: id, storeId: id, kind: "orders", status: "completed",
+    progress: {shopifyOrders:{ complete:true },page: 1, windows: [], expectedTotal: null, seen: 1, pages: 1, incomplete: false, notes: []},
+    range:{start:"2026-10-01T01:00:00Z",end:"2026-10-31T01:00:00Z"},
+    createdAt:"2026-10-31T01:00:00Z",observedAt:"2026-10-31T01:00:00Z",errorCode:""};
+  const summary = {total: 1, active: 0, offShelf: 0, today: 0, todayUnknown: 0, pending: 0, transit: 0, exceptional: 0, unknown: 0};
+  let submitted = false;
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    let data: unknown;
+    if (path.endsWith("/capabilities")) data = {kind: "orders", available: true, canSync: true, runtimeReady: true, providerConfigured:true, shopifyOrders: true, site: "shein-us", platformUrl: "https://sellerhub.shein.com/"};
+    else if (path.endsWith("/syncs")) {
+      expect(JSON.parse(init?.body as string)).toEqual({ kind: "orders", stores: [id] });
+      submitted = true;
+      data = { id, input: {kind:"orders",stores:[id]}, syncs:[saved], createdAt:saved.createdAt };
+    } else if (path.includes("/commands/")) data = { id, input: {kind:"orders",stores:[id]}, syncs:[saved], createdAt:saved.createdAt };
+    else if (path.endsWith("/records/17")) data = shopRecord;
+    else if (path.includes("platform=shopify")) {
+      expect(path).toContain("storeId="+id);
+      data = { items: submitted ? [shopRecord] : [], next: "", summary, syncs: submitted ? [saved] : [], latest: [], complete: submitted };
+    } else data = {items:[],next:"",summary,syncs:[],latest:[],complete:false};
+    return Response.json({organizationId:"org-a",userId:"actor-a",data});
+  });
+  vi.stubGlobal("fetch", fetcher);
+  renderPage("orders");
+  await userEvent.selectOptions(screen.getByRole("combobox", {name: "平台"}), await screen.findByRole("option", {name: "Shopify"}));
+  expect(screen.getByRole("button", {name:"同步订单"})).toBeDisabled();
+  await userEvent.selectOptions(screen.getByRole("combobox", {name: "店铺"}), await screen.findByRole("option", {name:"合成 Shopify 店铺"}));
+  await userEvent.click(screen.getByRole("button", {name:"同步订单"}));
+  expect(await screen.findByText("#1001")).toBeVisible();
+  expect(screen.getByRole("cell", { name: "部分发货" })).toBeVisible();
+  expect(screen.queryByText("订单金额")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", {name:"查看详情"}));
+  expect(await screen.findByText("Fixture Shopify item")).toBeVisible();
+  expect(screen.getByText("平台未提供")).toBeVisible();
+  expect(screen.getByRole("cell", {name:"2"})).toBeVisible();
+  expect(fetcher.mock.calls.some(([path]) => String(path).includes("/packages/"))).toBe(false);
+});
