@@ -58,7 +58,16 @@ func (c AmazonAuthorizationClaim) CredentialAAD() []byte {
 	return key
 }
 
+type AmazonAuthorizationStatus string
+
+const (
+	AmazonAuthorizationStatusNotConnected AmazonAuthorizationStatus = "not_connected"
+	AmazonAuthorizationStatusSaved        AmazonAuthorizationStatus = "authorization_saved"
+	AmazonAuthorizationStatusReconnect    AmazonAuthorizationStatus = "reconnect_required"
+)
+
 type AmazonAuthorizationStore interface {
+	ReadAmazonAuthorizationStatus(context.Context, string, string, AmazonAuthorizationApplication, time.Time) (AmazonAuthorizationStatus, error)
 	// Each transition verifies the current member's Store write grant. Start
 	// replaces the pending flow for the same browser session. Advance claims
 	// the first callback and Claim consumes the second state in transactions.

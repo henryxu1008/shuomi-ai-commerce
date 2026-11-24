@@ -29,7 +29,11 @@ func TestAmazonAuthorizationHTTPRequiresVerifiedScopeAndProtectsFlowCookie(t *te
 	for _, route := range handler.amazonAuthorizationRoutes() {
 		require.Equal(t, httproute.AuthPolicyCurrentIdentity, route.AuthPolicy)
 		require.Equal(t, httproute.OrganizationAccessPolicyLiveWrite, route.OrganizationAccessPolicy)
-		require.Equal(t, authz.PermissionWorkbenchStoreUpdate, route.Permission)
+		if route.Method == http.MethodGet {
+			require.Equal(t, authz.PermissionWorkbenchStoreRead, route.Permission)
+		} else {
+			require.Equal(t, authz.PermissionWorkbenchStoreUpdate, route.Permission)
+		}
 		engine.Handle(route.Method, route.Path, route.Handler)
 	}
 	startPath := "/api/v1/workbench/stores/" + amazonHTTPStoreID + "/amazon-authorization/begin"
@@ -59,6 +63,12 @@ func TestAmazonAuthorizationHTTPRequiresVerifiedScopeAndProtectsFlowCookie(t *te
 	require.True(t, cookies[0].HttpOnly)
 	require.Equal(t, http.SameSiteLaxMode, cookies[0].SameSite)
 	require.Positive(t, cookies[0].MaxAge)
+	read := httptest.NewRecorder()
+	statusPath := strings.Replace(AmazonAuthorizationStatusPath, ":store_id", amazonHTTPStoreID, 1)
+	engine.ServeHTTP(read, withAmazonHTTPIdentity(httptest.NewRequest(http.MethodGet, statusPath, nil)))
+	require.Equal(t, http.StatusOK, read.Code)
+	require.JSONEq(t, `{"status":"authorization_saved"}`, read.Body.String())
+	require.Empty(t, read.Result().Cookies())
 }
 
 func TestAmazonAuthorizationHTTPDoesNotAcceptBrowserScopeOrCodeInQuery(t *testing.T) {
@@ -110,6 +120,10 @@ type amazonHTTPServiceFixture struct {
 	begins, completes int
 	scope             storecenter.AmazonBrowserScope
 	callback          storecenter.AmazonRedirectCallback
+}
+
+func (*amazonHTTPServiceFixture) ReadStatus(context.Context, string, string) (storecenter.AmazonAuthorizationStatus, error) {
+	return storecenter.AmazonAuthorizationStatusSaved, nil
 }
 
 func (f *amazonHTTPServiceFixture) Begin(_ context.Context, scope storecenter.AmazonBrowserScope, _ string, _ int64) (storecenter.AmazonConnectionStart, error) {

@@ -44,6 +44,10 @@ func NewAmazonAuthorizations(owner storecenter.AmazonAuthorizationStore, provide
 	return &AmazonAuthorizations{owner: owner, provider: provider, protection: protection, application: app, now: now}, nil
 }
 
+func (a *AmazonAuthorizations) ReadStatus(ctx context.Context, organizationID, storeID string) (storecenter.AmazonAuthorizationStatus, error) {
+	return a.owner.ReadAmazonAuthorizationStatus(ctx, organizationID, storeID, a.application, a.now().UTC())
+}
+
 func (a *AmazonAuthorizations) Begin(ctx context.Context, scope storecenter.AmazonBrowserScope, storeID string, version int64) (storecenter.AmazonConnectionStart, error) {
 	if !validAmazonScope(scope) || uuid.Validate(storeID) != nil || version <= 0 {
 		return storecenter.AmazonConnectionStart{}, storecenter.ErrNotFound

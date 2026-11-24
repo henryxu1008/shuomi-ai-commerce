@@ -34,6 +34,9 @@ func TestAmazonAuthorizationStoreRoutesRequireLiveWrite(t *testing.T) {
 			RequestTimeout:           35 * time.Second, RejectUnreadRequestBody: true,
 			Handler: func(*gin.Context) {},
 		}
+		if path == storehttp.AmazonAuthorizationStatusPath {
+			route.Method, route.Permission, route.RequestTimeout = http.MethodGet, authz.PermissionWorkbenchStoreRead, 5*time.Second
+		}
 		require.NoError(t, validateCurrentStoreDescriptor(route))
 		route.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyContextRead
 		require.Error(t, validateCurrentStoreDescriptor(route))

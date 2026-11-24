@@ -14,14 +14,16 @@ import (
 )
 
 const (
-	amazonFlowCookieName = "__Secure-shuomi-amazon-flow"
-	amazonFlowCookiePath = "/workbench/stores/amazon"
-	amazonBeginPath      = "/api/v1/workbench/stores/:store_id/amazon-authorization/begin"
-	amazonLoginPath      = "/api/v1/workbench/store-amazon-authorization/login"
-	amazonRedirectPath   = "/api/v1/workbench/store-amazon-authorization/redirect"
+	amazonFlowCookieName          = "__Secure-shuomi-amazon-flow"
+	amazonFlowCookiePath          = "/workbench/stores/amazon"
+	AmazonAuthorizationStatusPath = "/api/v1/workbench/stores/:store_id/amazon-authorization/status"
+	amazonBeginPath               = "/api/v1/workbench/stores/:store_id/amazon-authorization/begin"
+	amazonLoginPath               = "/api/v1/workbench/store-amazon-authorization/login"
+	amazonRedirectPath            = "/api/v1/workbench/store-amazon-authorization/redirect"
 )
 
 type AmazonAuthorizationService interface {
+	ReadStatus(context.Context, string, string) (storecenter.AmazonAuthorizationStatus, error)
 	Begin(context.Context, storecenter.AmazonBrowserScope, string, int64) (storecenter.AmazonConnectionStart, error)
 	Continue(context.Context, storecenter.AmazonBrowserScope, storecenter.AmazonLoginCallback) (string, error)
 	Complete(context.Context, storecenter.AmazonBrowserScope, storecenter.AmazonRedirectCallback) (storecenter.AmazonConnectionResult, error)
@@ -45,6 +47,7 @@ func (h *Handler) amazonAuthorizationRoutes() []httproute.Descriptor {
 		return nil
 	}
 	return []httproute.Descriptor{
+		amazonAuthorizationRoute(AmazonAuthorizationStatusPath, h.readAmazonAuthorizationStatus),
 		amazonAuthorizationRoute(amazonBeginPath, h.beginAmazonAuthorization),
 		amazonAuthorizationRoute(amazonLoginPath, h.continueAmazonAuthorization),
 		amazonAuthorizationRoute(amazonRedirectPath, h.completeAmazonAuthorization),
@@ -52,21 +55,42 @@ func (h *Handler) amazonAuthorizationRoutes() []httproute.Descriptor {
 }
 
 func amazonAuthorizationRoute(path string, handle func(*gin.Context)) httproute.Descriptor {
-	descriptor := route(http.MethodPost, path, authz.PermissionWorkbenchStoreUpdate, httproute.OrganizationAccessPolicyLiveWrite, handle)
-	// Code exchange and seller validation use multiple bounded provider reads.
-	descriptor.RequestTimeout = 35 * time.Second
+	method, permission, deadline := http.MethodPost, authz.PermissionWorkbenchStoreUpdate, 35*time.Second
+	if path == AmazonAuthorizationStatusPath {
+		method, permission, deadline = http.MethodGet, authz.PermissionWorkbenchStoreRead, 5*time.Second
+	}
+	descriptor := route(method, path, permission, httproute.OrganizationAccessPolicyLiveWrite, handle)
+	descriptor.RequestTimeout = deadline
 	descriptor.RejectUnreadRequestBody = true
 	return descriptor
 }
 
-func AmazonAuthorizationPaths() [3]string {
-	return [3]string{amazonBeginPath, amazonLoginPath, amazonRedirectPath}
+func AmazonAuthorizationPaths() [4]string {
+	return [4]string{AmazonAuthorizationStatusPath, amazonBeginPath, amazonLoginPath, amazonRedirectPath}
 }
 
 // IsAmazonAuthorizationPath lets the current application validate explicitly
 // configured descriptors without making Amazon routes mandatory by default.
 func IsAmazonAuthorizationPath(path string) bool {
-	return path == amazonBeginPath || path == amazonLoginPath || path == amazonRedirectPath
+	return path == AmazonAuthorizationStatusPath || path == amazonBeginPath || path == amazonLoginPath || path == amazonRedirectPath
+}
+
+func (h *Handler) readAmazonAuthorizationStatus(c *gin.Context) {
+	amazonAuthorizationHeaders(c)
+	identity, storeID, ok := h.itemIdentity(c)
+	if !ok {
+		return
+	}
+	if err := requireNoBody(c.Request.Body); err != nil {
+		writeInvalid(c, "body", "not_allowed")
+		return
+	}
+	status, err := h.amazonAuthorization.service.ReadStatus(c.Request.Context(), identity.EffectiveOrganizationID, storeID)
+	if err != nil {
+		writeStoreError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": status})
 }
 
 func (h *Handler) beginAmazonAuthorization(c *gin.Context) {

@@ -278,7 +278,7 @@ func amazonAuthorizationStore(tx *gorm.DB, access StoreMemberAccess, id string) 
 	if err != nil {
 		return store, err
 	}
-	if store.Platform != "amazon" || store.Region != "US" {
+	if store.Platform != string(PlatformAmazon) || store.Region != "US" {
 		return workbenchStoreRecord{}, ErrNotFound
 	}
 	return store, nil

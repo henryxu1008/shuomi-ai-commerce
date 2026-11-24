@@ -30,14 +30,27 @@ func TestAmazonAuthorizationStorePersistsSingleClaimAndSellerOwnership(t *testin
 	require.NoError(t, storecenter.InstallAmazonAuthorizationSchemaTx(ctx, tx))
 	require.NoError(t, tx.Commit())
 
-	// Production store admission is not wired yet. Only this disposable
-	// database accepts the Amazon platform for the repository tests.
-	require.NoError(t, db.Exec("ALTER TABLE workbench_stores DROP CONSTRAINT store_platform, ADD CONSTRAINT store_platform CHECK (platform IN ('shein', 'temu', 'tiktokshop', 'walmart', 'amazon'))").Error)
+	require.Error(t, storecenter.VerifyCurrentSchema(ctx, db), "ordinary startup must reject the isolated Amazon Store schema")
+	require.NoError(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{
+		TikTokShop: true, WalmartUS: true, AmazonAuthorization: true,
+	}))
 	member := &storeMemberAuthorizer{member: "first-membership"}
 	repo, err := storecenter.NewMemberScopedStoreRepository(db, member)
 	require.NoError(t, err)
 	storeA := amazonRepositoryStore(t, db, repo, "org-a")
 	storeB := amazonRepositoryStore(t, db, repo, "org-b")
+	catalog, err := storecenter.NewCatalog(db, member, nil)
+	require.NoError(t, err)
+	stores, err := catalog.List(ctx, storecenter.CatalogRequest{OrganizationID: "org-a", Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	require.Len(t, stores.Items, 1)
+	require.Equal(t, storeA.ID(), stores.Items[0].Store.ID())
+	require.Equal(t, storecenter.PlatformAmazon, stores.Items[0].Store.Platform())
+	overview, err := catalog.VisibleOverview(ctx, storecenter.OverviewIdentity{
+		OrganizationID: "org-a", ActorID: "subject-create", MemberID: "first-membership",
+	}, storecenter.OverviewAll, member)
+	require.NoError(t, err)
+	require.Equal(t, map[string]int64{"amazon": 1}, overview.Platforms)
 	now := time.Now().UTC().Truncate(time.Microsecond)
 
 	begin, step, command := amazonRepositoryFlow("org-a", storeA, "session-A", "app", "FIRSTSELLER", now)
@@ -111,6 +124,24 @@ func TestAmazonAuthorizationStorePersistsSingleClaimAndSellerOwnership(t *testin
 	require.NoError(t, err)
 	require.Equal(t, winningClaim.Generation+1, renewalClaim.Generation)
 	require.NoError(t, reopened.BindAmazonAuthorization(ctx, renewalClaim, "key-id", "sealed-renewal", now))
+	status, err := reopened.ReadAmazonAuthorizationStatus(ctx, "org-a", storeA.ID(), renewal.Application, now)
+	require.NoError(t, err)
+	require.Equal(t, storecenter.AmazonAuthorizationStatusSaved, status)
+	status, err = reopened.ReadAmazonAuthorizationStatus(ctx, "org-a", storeA.ID(), renewal.Application, now.Add(365*24*time.Hour))
+	require.NoError(t, err)
+	require.Equal(t, storecenter.AmazonAuthorizationStatusReconnect, status)
+	status, err = reopened.ReadAmazonAuthorizationStatus(ctx, "org-a", storeA.ID(), command.Application, now)
+	require.NoError(t, err)
+	require.Equal(t, storecenter.AmazonAuthorizationStatusReconnect, status)
+	status, err = reopened.ReadAmazonAuthorizationStatus(ctx, "org-b", storeB.ID(), otherEnterprise.Application, now)
+	require.NoError(t, err)
+	require.Equal(t, storecenter.AmazonAuthorizationStatusNotConnected, status)
+	_, err = reopened.ReadAmazonAuthorizationStatus(ctx, "org-b", storeA.ID(), renewal.Application, now)
+	require.ErrorIs(t, err, storecenter.ErrNotFound)
+	member.member = "without-access"
+	_, err = reopened.ReadAmazonAuthorizationStatus(ctx, "org-a", storeA.ID(), renewal.Application, now)
+	require.ErrorIs(t, err, storecenter.ErrNotFound)
+	member.member = "first-membership"
 	_, err = reopened.ClaimAmazonAuthorization(ctx, command)
 	require.ErrorIs(t, err, storecenter.ErrNotFound)
 	t.Run("application and durable Store together", func(t *testing.T) {
@@ -119,6 +150,48 @@ func TestAmazonAuthorizationStorePersistsSingleClaimAndSellerOwnership(t *testin
 	t.Run("concurrent retargeting discards stale claims", func(t *testing.T) {
 		checkAmazonAuthorizationConcurrentRetargeting(t, db, reopened, now)
 	})
+	t.Run("explicit runtime privileges", func(t *testing.T) {
+		checkAmazonAuthorizationRuntimePermissions(t, db)
+	})
+	require.NoError(t, db.Exec(`ALTER TABLE public.workbench_store_amazon_grants RENAME COLUMN ciphertext TO wrong_column`).Error)
+	require.ErrorContains(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{
+		AmazonAuthorization: true,
+	}), "workbench_store_amazon_grants")
+	require.NoError(t, db.Exec(`ALTER TABLE public.workbench_store_amazon_grants RENAME COLUMN wrong_column TO ciphertext`).Error)
+	require.NoError(t, db.Exec(`ALTER TABLE public.workbench_store_amazon_grants
+		DROP CONSTRAINT workbench_store_amazon_grants_beta_seller_id_key`).Error)
+	require.ErrorContains(t, storecenter.VerifyCurrentSchemaForCapabilities(ctx, db, storecenter.RuntimeCapabilities{
+		AmazonAuthorization: true,
+	}), "workbench_store_amazon_grants_beta_seller_id_key")
+}
+
+func checkAmazonAuthorizationRuntimePermissions(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	pool, err := db.DB()
+	require.NoError(t, err)
+	pool.SetMaxOpenConns(1)
+	for _, statement := range []string{
+		`CREATE ROLE store_center_runtime`, `REVOKE CREATE ON SCHEMA public FROM PUBLIC`, `REVOKE ALL ON DATABASE tiktok_schema FROM PUBLIC`, `GRANT CONNECT ON DATABASE tiktok_schema TO store_center_runtime`, `GRANT USAGE ON SCHEMA public TO store_center_runtime`,
+		`GRANT SELECT,INSERT,UPDATE ON workbench_stores,workbench_store_member_grants,workbench_store_service_operations,workbench_store_connections,workbench_store_connection_attempts,workbench_store_groups,workbench_store_profiles TO store_center_runtime`,
+		`GRANT SELECT,INSERT ON workbench_store_audit_logs,workbench_store_member_grant_operations,workbench_store_merchant_bindings,workbench_store_metadata_operations TO store_center_runtime`,
+	} {
+		require.NoError(t, db.Exec(statement).Error)
+	}
+	ctx := context.Background()
+	capabilities := storecenter.RuntimeCapabilities{AmazonAuthorization: true}
+	require.NoError(t, db.Exec(`SET ROLE store_center_runtime`).Error)
+	t.Cleanup(func() { require.NoError(t, db.Exec(`RESET ROLE`).Error) })
+	require.NoError(t, storecenter.VerifyRuntimePermissions(ctx, db))
+	require.ErrorContains(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, capabilities), "Amazon authorization required Store grants unavailable")
+	require.NoError(t, db.Exec(`RESET ROLE`).Error)
+	require.NoError(t, db.Exec(`GRANT SELECT,INSERT,UPDATE ON workbench_store_amazon_attempts,workbench_store_amazon_grants TO store_center_runtime`).Error)
+	require.NoError(t, db.Exec(`SET ROLE store_center_runtime`).Error)
+	require.Error(t, storecenter.VerifyRuntimePermissions(ctx, db))
+	require.NoError(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, capabilities))
+	require.NoError(t, db.Exec(`RESET ROLE`).Error)
+	require.NoError(t, db.Exec(`GRANT DELETE ON workbench_store_amazon_grants TO store_center_runtime`).Error)
+	require.NoError(t, db.Exec(`SET ROLE store_center_runtime`).Error)
+	require.ErrorContains(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, capabilities), "do not match the admitted boundary")
 }
 
 func amazonRepositoryStore(t *testing.T, db *gorm.DB, repo *storecenter.MemberScopedStoreRepository, org string) *storecenter.Store {
@@ -132,6 +205,9 @@ func amazonRepositoryStore(t *testing.T, db *gorm.DB, repo *storecenter.MemberSc
 	persisted, _, err := repo.CreateOrReplay(context.Background(), org, candidate)
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("UPDATE workbench_stores SET platform = 'amazon' WHERE organization_id = ? AND id = ?", org, persisted.ID()).Error)
+	rehydrated, err := repo.Get(context.Background(), org, persisted.ID())
+	require.NoError(t, err)
+	require.Equal(t, "amazon", string(rehydrated.Platform()))
 	return persisted
 }
 

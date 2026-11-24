@@ -4,14 +4,34 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/pkg/pgschema"
 )
 
-// InstallAmazonAuthorizationSchemaTx installs the Store-owned tables in an
-// explicitly selected database. The retained/runtime installation does not
-// invoke it until Amazon's enablement and schema preflight are wired.
+const amazonStorePlatformDefinition = `CHECK ((platform = ANY (ARRAY['shein'::text, 'temu'::text, 'tiktokshop'::text, 'walmart'::text, 'amazon'::text])))`
+
+var amazonAuthorizationColumnNames = map[string][]string{
+	"workbench_store_amazon_attempts": strings.Fields("session_digest organization_id store_id attempt_id actor_id member_id store_version app_id app_revision redirect_uri beta flow_digest state_digest code_digest seller_id generation phase started_at expires_at"),
+	"workbench_store_amazon_grants":   strings.Fields("organization_id store_id attempt_id app_id app_revision beta seller_id generation key_id ciphertext bound_at"),
+}
+
+// InstallAmazonAuthorizationSchemaTx augments a fresh Store schema in an
+// isolated test database. The normal Store installation never invokes it.
 func InstallAmazonAuthorizationSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	if tx == nil {
 		return errors.New("Amazon Store schema requires an installation transaction")
+	}
+	var definition string
+	err := tx.QueryRowContext(ctx, `SELECT pg_get_constraintdef(oid) FROM pg_catalog.pg_constraint
+		WHERE conrelid='public.workbench_stores'::regclass AND contype='c' AND conname='store_platform' AND convalidated`).Scan(&definition)
+	if err != nil || !pgschema.SchemaConstraintEqual(definition, currentConstraintDefinitions["store_platform"]) {
+		return errors.New("Amazon authorization requires the current base Store platform constraint")
+	}
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE public.workbench_stores DROP CONSTRAINT store_platform,
+		ADD CONSTRAINT store_platform `+amazonStorePlatformDefinition); err != nil {
+		return err
 	}
 	for _, statement := range amazonAuthorizationSchema {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
@@ -20,6 +40,42 @@ func InstallAmazonAuthorizationSchemaTx(ctx context.Context, tx *sql.Tx) error {
 	}
 	return nil
 }
+
+func verifyAmazonAuthorizationSchema(ctx context.Context, db coreSchemaQueryer) error {
+	const storeForeignKey = `FOREIGN KEY (organization_id, store_id) REFERENCES workbench_stores(organization_id, id)`
+	for _, constraint := range []struct{ table, name, definition string }{
+		{"workbench_store_amazon_attempts", "workbench_store_amazon_attempts_pkey", "PRIMARY KEY (session_digest)"},
+		{"workbench_store_amazon_attempts", "workbench_store_amazon_attempts_attempt_id_key", "UNIQUE (attempt_id)"},
+		{"workbench_store_amazon_attempts", "workbench_store_amazon_attempts_flow_digest_key", "UNIQUE (flow_digest)"},
+		{"workbench_store_amazon_attempts", "workbench_store_amazon_attempts_organization_id_store_id_fkey", storeForeignKey},
+		{"workbench_store_amazon_attempts", "workbench_store_amazon_attempts_check", `CHECK (((octet_length((session_digest)::text) = 64) AND (octet_length((flow_digest)::text) = 64) AND (store_version > 0)))`},
+		{"workbench_store_amazon_attempts", "workbench_store_amazon_attempts_check1", `CHECK (((expires_at > started_at) AND (expires_at <= (started_at + '00:09:00'::interval))))`},
+		{"workbench_store_amazon_attempts", "workbench_store_amazon_attempts_check2", `CHECK (((((phase)::text = ANY ((ARRAY['awaiting_login'::character varying, 'abandoned'::character varying])::text[])) AND ((state_digest)::text = ''::text) AND ((code_digest)::text = ''::text) AND ((seller_id)::text = ''::text) AND (generation = 0)) OR (((phase)::text = 'awaiting_redirect'::text) AND (octet_length((state_digest)::text) = 64) AND ((seller_id)::text <> ''::text) AND ((code_digest)::text = ''::text) AND (generation = 0)) OR (((phase)::text = ANY ((ARRAY['exchange_claimed'::character varying, 'bound'::character varying])::text[])) AND (octet_length((state_digest)::text) = 64) AND (octet_length((code_digest)::text) = 64) AND ((seller_id)::text <> ''::text) AND (generation > 0))))`},
+		{"workbench_store_amazon_grants", "workbench_store_amazon_grants_pkey", "PRIMARY KEY (organization_id, store_id)"},
+		{"workbench_store_amazon_grants", "workbench_store_amazon_grants_beta_seller_id_key", "UNIQUE (beta, seller_id)"},
+		{"workbench_store_amazon_grants", "workbench_store_amazon_grants_organization_id_store_id_fkey", storeForeignKey},
+		{"workbench_store_amazon_grants", "workbench_store_amazon_grants_check", `CHECK ((((seller_id)::text <> ''::text) AND (generation > 0) AND ((key_id)::text <> ''::text) AND ((octet_length(ciphertext) >= 1) AND (octet_length(ciphertext) <= 16384))))`},
+	} {
+		var definition string
+		err := db.QueryRowContext(ctx, `SELECT pg_get_constraintdef(c.oid) FROM pg_catalog.pg_constraint c
+			LEFT JOIN pg_catalog.pg_index i ON i.indexrelid=c.conindid
+			WHERE c.conrelid=to_regclass('public.'||$1) AND c.conname=$2 AND c.convalidated AND NOT c.condeferrable
+			  AND (c.contype NOT IN ('p','u') OR (i.indisvalid AND i.indisready))`,
+			constraint.table, constraint.name).Scan(&definition)
+		if err != nil || !pgschema.SchemaConstraintEqual(definition, constraint.definition) {
+			return fmt.Errorf("Amazon authorization constraint unavailable: %s", constraint.name)
+		}
+	}
+	var definition string
+	err := db.QueryRowContext(ctx, `SELECT pg_get_indexdef(indexrelid) FROM pg_catalog.pg_index
+		WHERE indexrelid=to_regclass('public.workbench_store_amazon_active_attempt') AND indisvalid AND indisready`).Scan(&definition)
+	if err != nil || !pgschema.SchemaIndexEqual(definition, amazonActiveAttemptIndexDefinition) {
+		return errors.New("Amazon authorization active-attempt index unavailable")
+	}
+	return nil
+}
+
+const amazonActiveAttemptIndexDefinition = `CREATE UNIQUE INDEX workbench_store_amazon_active_attempt ON public.workbench_store_amazon_attempts USING btree (organization_id, store_id) WHERE ((phase)::text = ANY ((ARRAY['awaiting_login'::character varying, 'awaiting_redirect'::character varying, 'exchange_claimed'::character varying])::text[]))`
 
 var amazonAuthorizationSchema = []string{
 	`CREATE TABLE public.workbench_store_amazon_attempts (

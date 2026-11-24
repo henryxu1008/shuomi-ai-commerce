@@ -471,7 +471,11 @@ func buildCurrentApplication(ctx context.Context, sourceAccountDB *gorm.DB, cfg 
 	if supplied.operationsCockpits > 0 && (supplied.storeCenters != 1 || supplied.storeCenterDB == nil) {
 		return nil, errors.New("operations cockpit requires current Store owner")
 	}
-	storeCapabilities := storecenter.RuntimeCapabilities{Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1, TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured()}
+	storeCapabilities := storecenter.RuntimeCapabilities{
+		Observations: supplied.storeObservations == 1, OperationsCockpit: supplied.operationsCockpits == 1,
+		TikTokShop: supplied.officialStoreApplications.TikTokConfigured(), WalmartUS: supplied.officialStoreApplications.WalmartConfigured(),
+		AmazonAuthorization: supplied.amazonStoreAuthorization != nil,
+	}
 	if err := validateDataServicesDependencies(supplied, sourceAccountDB, cfg); err != nil {
 		return nil, err
 	}
@@ -1989,7 +1993,11 @@ func validateCurrentApplicationRoutesInternal(routes []httproute.Descriptor, inc
 			return errors.New("Amazon authorization requires current Store owner")
 		}
 		for _, path := range storehttp.AmazonAuthorizationPaths() {
-			admitted = append(admitted, currentApplicationRoute{Method: http.MethodPost, Path: path})
+			method := http.MethodPost
+			if path == storehttp.AmazonAuthorizationStatusPath {
+				method = http.MethodGet
+			}
+			admitted = append(admitted, currentApplicationRoute{Method: method, Path: path})
 		}
 	}
 	if optional.TikTokShop {

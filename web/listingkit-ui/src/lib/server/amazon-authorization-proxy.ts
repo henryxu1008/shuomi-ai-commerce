@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { AMAZON_AUTHORIZATION_PATH, AMAZON_AUTHORIZATION_PRIVACY_HEADERS as privacyHeaders } from "@/lib/contracts/amazon-store-authorization";
+import { AMAZON_AUTHORIZATION_PATH, AMAZON_AUTHORIZATION_PRIVACY_HEADERS as privacyHeaders, readAmazonConsentURL } from "@/lib/contracts/amazon-store-authorization";
 import { isAcquisitionUUID } from "@/lib/contracts/product-acquisition";
 import { resolvePublicAppOrigin } from "@/lib/server/public-app-origin";
 import {
@@ -26,7 +26,7 @@ export async function proxyAmazonAuthorization(
   credentials: WorkbenchCredentials,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
-  if (phase !== "begin" && phase !== "login" && phase !== "redirect") {
+  if (phase !== "begin" && phase !== "login" && phase !== "redirect" && phase !== "status") {
     return amazonFailure(phase, 404, "INVALID_REQUEST");
   }
   const url = new URL(request.url);
@@ -49,22 +49,46 @@ export async function proxyAmazonAuthorization(
   if (phase === "begin") {
     return beginAmazonAuthorization(request, url, credentials.actor, organization, headers, fetchImpl);
   }
+  if (phase === "status") {
+    return amazonAuthorizationStatus(request, url, credentials.actor, organization, headers, fetchImpl);
+  }
   const cookie = readFlowCookie(request.headers);
   const values = readCallbackParameters(url, phase);
   if (!cookie || !values) return amazonFailure(phase, 400, "INVALID_REQUEST");
   headers.set("Cookie", `${flowCookie}=${cookie}`);
   headers.set("Content-Type", "application/json");
-  const response = await amazonUpstream(`store-amazon-authorization/${phase}`, headers, fetchImpl, request.signal, JSON.stringify(values));
+  const response = await amazonUpstream(`store-amazon-authorization/${phase}`, headers, fetchImpl, request.signal, { body: JSON.stringify(values) });
   if (!response?.ok) return amazonFailure(phase, 503, "STORE_AUTHORIZATION_UNAVAILABLE");
   const result = await readAmazonResponse(response, request.signal);
   if (!result) return amazonFailure(phase, 502, "STORE_AUTHORIZATION_UNAVAILABLE");
   if (phase === "login") {
-    const provider = readAmazonRedirect(result.authorizationUrl, phase);
+    const provider = readAmazonConfirmationURL(result.authorizationUrl);
     return provider ? redirectFromCallback(provider) : amazonFailure(phase, 502, "STORE_AUTHORIZATION_UNAVAILABLE");
   }
   const storeId = typeof result.storeId === "string" ? result.storeId : "";
-  return isAcquisitionUUID(storeId) ? redirectFromCallback(`/workbench/stores/${storeId}`) :
+  return isAcquisitionUUID(storeId) ? redirectFromCallback(`/workbench/stores/${storeId}#authorization`) :
     amazonFailure(phase, 502, "STORE_AUTHORIZATION_UNAVAILABLE");
+}
+
+async function amazonAuthorizationStatus(
+  request: Request, url: URL, actor: string, organization: string, headers: Headers, fetchImpl: typeof fetch,
+) {
+  if (request.headers.get("x-expected-user-id") !== actor ||
+      request.headers.get("x-expected-organization-id") !== organization) {
+    return amazonFailure("status", 409, "ORGANIZATION_CONTEXT_CHANGED");
+  }
+  const id = request.headers.get("x-store-id") ?? "";
+  if (url.search || !isAcquisitionUUID(id)) return amazonFailure("status", 400, "INVALID_REQUEST");
+  const upstream = await amazonUpstream(`stores/${id}/amazon-authorization/status`, headers, fetchImpl, request.signal, { method: "GET" });
+  if (!upstream?.ok) {
+    return amazonFailure("status", upstream?.status === 404 ? 404 : 503, "STORE_AUTHORIZATION_UNAVAILABLE");
+  }
+  const result = await readAmazonResponse(upstream, request.signal);
+  const status = result?.status;
+  if (status !== "not_connected" && status !== "authorization_saved" && status !== "reconnect_required") {
+    return amazonFailure("status", 502, "STORE_AUTHORIZATION_UNAVAILABLE");
+  }
+  return NextResponse.json({ status }, { headers: privacyHeaders });
 }
 
 async function beginAmazonAuthorization(
@@ -88,7 +112,7 @@ async function beginAmazonAuthorization(
     return amazonFailure("begin", status, "STORE_AUTHORIZATION_UNAVAILABLE");
   }
   const result = await readAmazonResponse(response, request.signal);
-  const target = readAmazonRedirect(result?.authorizationUrl, "begin");
+  const target = readAmazonConsentURL(result?.authorizationUrl);
   const cookie = readUpstreamFlowCookie(response.headers);
   if (!target || !cookie) return amazonFailure("begin", 502, "STORE_AUTHORIZATION_UNAVAILABLE");
   const outgoing = NextResponse.json({ authorizationUrl: target }, { headers: privacyHeaders });
@@ -129,15 +153,12 @@ function readUpstreamFlowCookie(headers: Headers) {
   return flowValue.test(value) && maxAge > 0 && maxAge <= 540 ? { value, maxAge } : null;
 }
 
-function readAmazonRedirect(value: unknown, phase: "begin" | "login") {
+function readAmazonConfirmationURL(value: unknown) {
   if (typeof value !== "string" || value.length > 11_000) return "";
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.port || url.username || url.password || url.hash) return "";
-    if (phase === "begin") {
-      return url.hostname === "sellercentral.amazon.com" && url.pathname === "/apps/authorize/consent" &&
-        appId.test(url.searchParams.get("application_id") ?? "") ? url.href : "";
-    }
+
     const prefix = "/apps/authorize/confirm/";
     return (url.hostname === "amazon.com" || url.hostname === "sellercentral.amazon.com") &&
       url.pathname.startsWith(prefix) && appId.test(url.pathname.slice(prefix.length)) ? url.href : "";
@@ -146,10 +167,10 @@ function readAmazonRedirect(value: unknown, phase: "begin" | "login") {
   }
 }
 
-async function amazonUpstream(path: string, headers: Headers, fetchImpl: typeof fetch, signal: AbortSignal, body?: string) {
+async function amazonUpstream(path: string, headers: Headers, fetchImpl: typeof fetch, signal: AbortSignal, options: { method?: "GET"; body?: string } = {}) {
   try {
     return await fetchImpl(new URL(`${getWorkbenchServiceRoot()}/workbench/${path}`), {
-      method: "POST", headers, body, cache: "no-store", redirect: "manual",
+      method: options.method ?? "POST", headers, body: options.body, cache: "no-store", redirect: "manual",
       signal: AbortSignal.any([signal, AbortSignal.timeout(36_000)]),
     });
   } catch {

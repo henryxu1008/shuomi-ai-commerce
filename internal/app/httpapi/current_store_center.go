@@ -202,10 +202,14 @@ func (a currentStoreMemberAuthorizer) ReceiptSubject(ctx context.Context) (strin
 
 func validateCurrentStoreDescriptor(d httproute.Descriptor) error {
 	if storehttp.IsAmazonAuthorizationPath(d.Path) {
-		if d.Module == storehttp.ModuleName && d.Method == http.MethodPost &&
+		method, permission, timeout := http.MethodPost, authz.PermissionWorkbenchStoreUpdate, 35*time.Second
+		if d.Path == storehttp.AmazonAuthorizationStatusPath {
+			method, permission, timeout = http.MethodGet, authz.PermissionWorkbenchStoreRead, 5*time.Second
+		}
+		if d.Module == storehttp.ModuleName && d.Method == method &&
 			d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
-			d.Permission == authz.PermissionWorkbenchStoreUpdate && d.OrganizationTargetResolver == nil &&
-			d.RequestTimeout == 35*time.Second && d.RejectUnreadRequestBody && d.Handler != nil {
+			d.Permission == permission && d.OrganizationTargetResolver == nil &&
+			d.RequestTimeout == timeout && d.RejectUnreadRequestBody && d.Handler != nil {
 			return nil
 		}
 		return errors.New("Amazon Store route loses callback session or live write authority")

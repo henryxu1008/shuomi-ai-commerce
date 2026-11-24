@@ -113,6 +113,10 @@ type amazonAuthorizationFixtureRepo struct {
 	aad          []byte
 }
 
+func (*amazonAuthorizationFixtureRepo) ReadAmazonAuthorizationStatus(context.Context, string, string, storecenter.AmazonAuthorizationApplication, time.Time) (storecenter.AmazonAuthorizationStatus, error) {
+	return storecenter.AmazonAuthorizationStatusNotConnected, nil
+}
+
 func (r *amazonAuthorizationFixtureRepo) StartAmazonAuthorization(_ context.Context, begin storecenter.AmazonAuthorizationBegin) error {
 	r.begin = begin
 	return nil

@@ -38,6 +38,24 @@ describe("Amazon workbench authorization proxy", () => {
     }
   });
 
+  it("reads a saved authorization only for the selected Store scope", async () => {
+    const native = vi.fn(async (url: URL, init: RequestInit) => {
+      expect(url.pathname).toContain(`/stores/${storeId}/amazon-authorization/status`);
+      expect(init.method).toBe("GET");
+      expect(new Headers(init.headers).get("x-requested-organization-id")).toBe("org-a");
+      expect(new Headers(init.headers).has("cookie")).toBe(false);
+      return Response.json({ status: "authorization_saved", sellerId: "private" });
+    });
+    const status = (org: string) => new Request(route + "status", { headers: {
+      cookie: `${WORKBENCH_COOKIE_NAME}=org-a`, "X-Expected-User-ID": "member-a",
+      "X-Expected-Organization-ID": org, "X-Store-ID": storeId,
+    } });
+    expect((await proxyAmazonAuthorization(status("other-org"), "status", credentials, native as typeof fetch)).status).toBe(409);
+    expect(native).not.toHaveBeenCalled();
+    const result = await proxyAmazonAuthorization(status("org-a"), "status", credentials, native as typeof fetch);
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual({ status: "authorization_saved" });
+  });
   it("removes callback parameters before redirecting and rejects duplicate state", async () => {
     const native = vi.fn(async (upstream: URL, init: RequestInit) => {
       expect(upstream.search).toBe("");
@@ -55,7 +73,7 @@ describe("Amazon workbench authorization proxy", () => {
     expect(native).not.toHaveBeenCalled();
     const returned = await proxyAmazonAuthorization(callback("redirect?state=state-a&selling_partner_id=SELLERA&spapi_oauth_code=secret-code"), "redirect", credentials, native as typeof fetch);
     expect(returned.status).toBe(303);
-    expect(returned.headers.get("location")).toBe(`/workbench/stores/${storeId}`);
+    expect(returned.headers.get("location")).toBe(`/workbench/stores/${storeId}#authorization`);
     expect(returned.headers.get("referrer-policy")).toBe("no-referrer");
     expect(returned.headers.get("cache-control")).toBe("no-store");
     expect(await returned.text()).not.toContain("secret-code");

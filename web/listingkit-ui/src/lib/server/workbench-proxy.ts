@@ -2,7 +2,7 @@ import { isCockpitMetricsQuery } from "@/lib/contracts/cockpit-metrics";
 import { catalogVersionSchema, COMPLETION_MAX_BYTES, SUPPLY_MAX_BYTES, supplyRouteMethods, supplyPath, supplyRequestSchema, supplyUsesKey, supplyMutates, parseSupplyResponse, type SupplyRoute } from "@/lib/contracts/supply-chain";
 import {completionRevision} from "@/lib/contracts/completion-draft-navigation";
 import {materialsErrorStatuses} from "@/lib/contracts/listing-materials";
-import { hasValidStoreServiceFacts, workbenchStorePlatformSchema } from "@/lib/validation/workbench-store";
+import { hasValidStoreServiceFacts, workbenchStorePlatformSchema, workbenchStoreResponsePlatformSchema } from "@/lib/validation/workbench-store";
 import { planPath, planMethods, planRequestSchema, planResponseSchema, type PlanRoute } from "@/lib/contracts/acquisition-plan";
 import {officialConnectionViewSchema,officialConnectionBeginSchema,officialConnectionCompleteSchema,officialConnectionQuerySchema,officialConnectionRefreshSchema,officialApplicationListSchema,officialConnectionStartSchema,officialConnectionInstallSchema} from "@/lib/contracts/store-connection";
 import { BROWSER_CAPTURE_MAX_BYTES, browserCaptureSchema } from "@/lib/contracts/browser-capture";
@@ -191,7 +191,7 @@ const storeResponseSchema = z
   .object({
     id: canonicalUUIDSchema,
     name: normalizedPublicString(1, 120),
-    platform: workbenchStorePlatformSchema,
+    platform: workbenchStoreResponsePlatformSchema,
     region: normalizedPublicString(1, 64),
     externalStoreId: normalizedPublicString(0, 128),
     recordStatus: z.enum([
