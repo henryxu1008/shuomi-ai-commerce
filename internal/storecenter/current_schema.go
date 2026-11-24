@@ -366,11 +366,6 @@ const storeRuntimePermissionQuery = `SELECT current_user,
  AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.syncs'),'UPDATE'),false)
  AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.records'),'UPDATE'),false)
  AND coalesce(has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'SELECT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'INSERT') AND has_table_privilege(subject.runtime_role,to_regclass('store_observations.heads'),'UPDATE'),false)
- ELSE true END
- AND CASE WHEN $5 THEN NOT EXISTS(SELECT 1
-   FROM (VALUES('workbench_store_google_oauth_attempts'),('workbench_store_google_oauth_grants')) table_names(name)
-   CROSS JOIN (VALUES('SELECT'),('INSERT'),('UPDATE')) privileges(privilege)
-   WHERE NOT coalesce(has_table_privilege(subject.runtime_role,to_regclass('public.'||name),privilege),false))
  ELSE true END,
  has_database_privilege(subject.runtime_role,current_database(),'CREATE') OR has_database_privilege(subject.runtime_role,current_database(),'TEMP') OR has_schema_privilege(subject.runtime_role,'public','CREATE')
  OR EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_' AND has_schema_privilege(subject.runtime_role,n.oid,'CREATE'))
@@ -405,7 +400,7 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 	}
 	var role string
 	var required, forbidden bool
-	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop, capabilities.WalmartUS, capabilities.GoogleMerchant).Scan(&role, &required, &forbidden); err != nil {
+	if err := sqlDB.QueryRowContext(ctx, storeRuntimePermissionQuery, capabilities.Observations, capabilities.OperationsCockpit, capabilities.TikTokShop, capabilities.WalmartUS).Scan(&role, &required, &forbidden); err != nil {
 		return err
 	}
 	if role != "store_center_runtime" || !required || forbidden {
@@ -433,6 +428,16 @@ func VerifyRuntimePermissionsForCapabilities(ctx context.Context, db *gorm.DB, c
 		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(SELECT 1 FROM (VALUES ('workbench_store_walmart_oauth_grants'),('workbench_store_walmart_oauth_attempts')) t(name) WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||name),'SELECT') AND has_table_privilege(current_user,to_regclass('public.'||name),'INSERT') AND has_table_privilege(current_user,to_regclass('public.'||name),'UPDATE'),false))`).Scan(&complete)
 		if err != nil || !complete {
 			return errors.New("Walmart US required Store grants unavailable")
+		}
+	}
+	if capabilities.GoogleMerchant {
+		var complete bool
+		err := sqlDB.QueryRowContext(ctx, `SELECT NOT EXISTS(
+   SELECT 1 FROM (VALUES ('workbench_store_google_oauth_attempts'),('workbench_store_google_oauth_grants')) t(name)
+   CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE')) p(privilege)
+   WHERE NOT coalesce(has_table_privilege(current_user,to_regclass('public.'||t.name),p.privilege),false))`).Scan(&complete)
+		if err != nil || !complete {
+			return errors.New("Google Merchant required Store grants unavailable")
 		}
 	}
 	if capabilities.OperationsCockpit {

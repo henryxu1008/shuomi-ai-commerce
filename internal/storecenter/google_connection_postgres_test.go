@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	market "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter"
 	google "github.com/henryxu1008/shuomi-ai-commerce/internal/storecenter/googlemerchant"
 	"github.com/stretchr/testify/require"
@@ -61,7 +60,7 @@ func TestGoogleMerchantConnectionClaimsCallbackAndPreservesExclusiveAccount(t *t
 		return storecenter.GoogleGrant{
 			OrganizationID: attempt.OrganizationID, StoreID: attempt.StoreID, ID: attempt.GrantID,
 			AppID: attempt.AppID, AppRevision: attempt.AppRevision, Generation: attempt.Generation,
-			Target: market.Target{AccountID: "123", DataSourceID: "456", ContentLanguage: "en", FeedLabel: "US", OfferPrefix: prefix},
+			Target: google.Target{AccountID: "123", DataSourceID: "456", ContentLanguage: "en", FeedLabel: "US", OfferPrefix: prefix},
 			KeyID:  "key", Ciphertext: "sealed", AccessExpiresAt: now.Add(time.Hour),
 		}
 	}
@@ -75,4 +74,45 @@ func TestGoogleMerchantConnectionClaimsCallbackAndPreservesExclusiveAccount(t *t
 	secondAttempt := start(newStore("org-two"))
 	_, err = repo.BindGoogleConnection(ctx, secondAttempt, grant(secondAttempt, "sm-0123456789abcdef0124-"), now)
 	require.ErrorIs(t, err, storecenter.ErrAlreadyExists)
+}
+
+func TestGoogleStoreRuntimeRequiresNarrowGrants(t *testing.T) {
+	ctx := context.Background()
+	db := newTikTokStoreDatabase(t)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	pool.SetMaxOpenConns(1)
+	tx, err := pool.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	defer tx.Rollback()
+	require.NoError(t, storecenter.InstallGoogleMerchantSchemaTx(ctx, tx))
+	require.NoError(t, tx.Commit())
+
+	for _, statement := range []string{
+		`CREATE ROLE store_center_runtime`,
+		`REVOKE ALL ON DATABASE tiktok_schema FROM PUBLIC`,
+		`REVOKE CREATE ON SCHEMA public FROM PUBLIC`,
+		`GRANT CONNECT ON DATABASE tiktok_schema TO store_center_runtime`,
+		`GRANT USAGE ON SCHEMA public TO store_center_runtime`,
+		`GRANT SELECT,INSERT,UPDATE ON workbench_stores,workbench_store_member_grants,workbench_store_service_operations,workbench_store_connections,workbench_store_connection_attempts,workbench_store_groups,workbench_store_profiles TO store_center_runtime`,
+		`GRANT SELECT,INSERT ON workbench_store_audit_logs,workbench_store_member_grant_operations,workbench_store_merchant_bindings,workbench_store_metadata_operations TO store_center_runtime`,
+	} {
+		require.NoError(t, db.Exec(statement).Error)
+	}
+
+	googleEnabled := storecenter.RuntimeCapabilities{GoogleMerchant: true}
+	require.NoError(t, db.Exec("SET ROLE store_center_runtime").Error)
+	require.NoError(t, storecenter.VerifyRuntimePermissions(ctx, db))
+	require.ErrorContains(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, googleEnabled), "Google Merchant required Store grants unavailable")
+
+	require.NoError(t, db.Exec("RESET ROLE").Error)
+	require.NoError(t, db.Exec("GRANT SELECT, INSERT, UPDATE ON workbench_store_google_oauth_attempts, workbench_store_google_oauth_grants TO store_center_runtime").Error)
+	require.NoError(t, db.Exec("SET ROLE store_center_runtime").Error)
+	require.NoError(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, googleEnabled))
+	require.NoError(t, storecenter.VerifyRuntimePermissions(ctx, db))
+
+	require.NoError(t, db.Exec("RESET ROLE").Error)
+	require.NoError(t, db.Exec("GRANT DELETE ON workbench_store_google_oauth_grants TO store_center_runtime").Error)
+	require.NoError(t, db.Exec("SET ROLE store_center_runtime").Error)
+	require.ErrorContains(t, storecenter.VerifyRuntimePermissionsForCapabilities(ctx, db, googleEnabled), "store runtime permissions do not match the admitted boundary")
 }
