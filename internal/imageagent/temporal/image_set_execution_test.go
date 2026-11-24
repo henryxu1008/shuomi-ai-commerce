@@ -6,8 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/stretchr/testify/require"
+	sdkactivity "go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
 )
 
 func TestV3ImageSetInputPreservesFrozenSetAndItsFingerprint(t *testing.T) {
@@ -116,4 +120,106 @@ func TestSetRecoveryCompletionCannotDiscardSettlementEvidence(t *testing.T) {
 	require.True(t, state.applyEffectRecoveryCompleted(signal))
 	require.Equal(t, signal.Result.Closure, projection.Slots[0].Closure)
 	require.Equal(t, signal.Result.GenerationProof, projection.Slots[0].Candidates[0].GenerationProof)
+}
+
+func TestOwnedSetLateUnknownCannotReopenOriginalTerminalFailure(t *testing.T) {
+	input := WorkflowInput{RunID: "run", Plan: imageagent.Plan{Revision: 1,
+		Set:   &imageagent.ImageSetPlan{Source: imageagent.ImageSourceBinding{OwnProduct: true}},
+		Slots: []imageagent.Slot{{ID: "main"}, {ID: "detail"}}}}
+	results := make([]SlotWorkflowResult, 2)
+	for index, slot := range input.Plan.Slots {
+		results[index] = SlotWorkflowResult{Execution: imageagent.SlotExecutionResult{SlotID: slot.ID, Attempt: 1},
+			Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.SlotProviderOutcomeUnknownCode, EffectPhase: imageagent.SlotEffectV3ProviderUnknown}
+	}
+	projection := WorkflowResult{Status: imageagent.RunStatusBlocked, Slots: slotProjections(input.Plan, results), RecoverableEffects: imageSetRecoverableEffects(results)}
+	state := workflowUpdateState{input: &input, results: &results, projection: &projection}
+	closure := &imageagent.ImageSlotClosure{UnitVersion: agentconfig.ProviderImageUsageUnit, Kind: "provider_failed",
+		IntentID: v3SHA256, Fingerprint: v3SHA256, ProviderUsageProofDigest: v3SHA256}
+	signal := EffectRecoveryCompletedSignal{RunID: input.RunID, PlanRevision: 1, SlotID: "main", Attempt: 1,
+		Result: EffectRecoveryResult{Outcome: EffectRecoveryOutcomeProviderUnknown, EffectPhase: imageagent.SlotEffectV3ProviderUnknown,
+			BlockedCode: imageagent.ImageProviderFailedCode, Closure: closure}}
+	require.True(t, state.applyEffectRecoveryCompleted(signal))
+
+	signal.Result.Closure = nil
+	signal.Result.BlockedCode = imageagent.SlotProviderOutcomeUnknownCode
+	require.False(t, state.applyEffectRecoveryCompleted(signal))
+	require.Equal(t, closure, projection.Slots[0].Closure)
+	require.Equal(t, imageagent.ImageProviderFailedCode, projection.Slots[0].ErrorCode)
+	require.Equal(t, []imageagent.RecoverableEffect{{SlotID: "detail", Attempt: 1, Code: imageagent.SlotProviderOutcomeUnknownCode}}, projection.RecoverableEffects)
+}
+
+func TestOwnedSetCancellationKeepsTheOriginalUnresolvedAttempt(t *testing.T) {
+	plan := imageagent.Plan{Revision: 1, Set: &imageagent.ImageSetPlan{Source: imageagent.ImageSourceBinding{OwnProduct: true}},
+		Slots: []imageagent.Slot{{ID: "main"}, {ID: "detail"}, {ID: "unstarted"}}}
+	proof := imageagent.ImageSlotClosure{UnitVersion: agentconfig.ProviderImageUsageUnit,
+		Kind: "provider_usage", IntentID: v3SHA256, Fingerprint: v3SHA256, ProviderUsageProofDigest: v3SHA256}
+	results := []SlotWorkflowResult{
+		{Execution: imageagent.SlotExecutionResult{SlotID: "main", Attempt: 1,
+			Candidates: []imageagent.AssetCandidate{{AssetID: "candidate", GenerationProof: proof.CandidateProof()}}},
+			Status: imageagent.SlotStatusAccepted, EffectPhase: imageagent.SlotEffectV3PublicationComplete, Closure: &proof},
+		{Execution: imageagent.SlotExecutionResult{SlotID: "detail", Attempt: 1}, Status: imageagent.SlotStatusBlocked,
+			ErrorCode: imageagent.SlotProviderOutcomeUnknownCode, EffectPhase: imageagent.SlotEffectV3ProviderUnknown},
+		{},
+	}
+	input := WorkflowInput{RunID: "run", Plan: plan, projectionExecutionID: "execution"}
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	var persisted []WorkflowResult
+	var started []EffectRecoveryWorkflowInput
+	env.RegisterActivityWithOptions(func(_ context.Context, in PersistRunStateActivityInput) error {
+		persisted = append(persisted, in.Projection)
+		return nil
+	}, sdkactivity.RegisterOptions{Name: activityPersistRunState})
+	env.RegisterActivityWithOptions(func(_ context.Context, in PersistSlotResultV3ActivityInput) (imageagent.SlotProjection, error) {
+		if in.Result.Published.SlotID != "unstarted" || in.Result.EffectPhase != imageagent.SlotEffectV3ProviderNotDispatched {
+			return imageagent.SlotProjection{}, imageagent.ErrRevisionConflict
+		}
+		slot := plan.Slots[2]
+		slot.Status = imageagent.SlotStatusBlocked
+		return imageagent.SlotProjection{Slot: slot, ErrorCode: in.Result.ErrorCode,
+			Closure: &imageagent.ImageSlotClosure{UnitVersion: "ai-micropoint-v1", Kind: "not_dispatched"}}, nil
+	}, sdkactivity.RegisterOptions{Name: activityPersistImageSetSlotResult})
+	env.RegisterActivityWithOptions(func(_ context.Context, in EffectRecoveryWorkflowInput) error {
+		started = append(started, in)
+		return nil
+	}, sdkactivity.RegisterOptions{Name: activityStartEffectRecoveryV3})
+	env.ExecuteWorkflow(func(ctx workflow.Context) error {
+		ctx = imageAgentActivityContext(ctx)
+		projection := executingProjection(plan, results)
+		state := newWorkflowUpdateState(ctx, &input, &projection, &results, newWorkflowEffectOwner(ctx))
+		state.cancelActionFingerprint, state.lastBlockedCancelFingerprint = "cancel-request", "cancel-request"
+		state.cancelPending = true
+		state.commitPendingCancellation(ctx, results)
+		if state.cancelCommitErr != nil {
+			return state.cancelCommitErr
+		}
+		if !state.cancelBlocked {
+			return imageagent.ErrRevisionConflict
+		}
+		failed := proof
+		failed.Kind = "provider_failed"
+		if !state.applyEffectRecoveryCompleted(EffectRecoveryCompletedSignal{RunID: input.RunID, PlanRevision: 1, SlotID: "detail", Attempt: 1,
+			Result: EffectRecoveryResult{Outcome: EffectRecoveryOutcomeProviderUnknown, EffectPhase: imageagent.SlotEffectV3ProviderUnknown,
+				BlockedCode: imageagent.ImageProviderFailedCode, Closure: &failed}}) || !state.cancelPending {
+			return imageagent.ErrRevisionConflict
+		}
+		state.commitPendingCancellation(ctx, results)
+		return state.cancelCommitErr
+	})
+	require.NoError(t, env.GetWorkflowError())
+	require.Len(t, persisted, 2)
+	handoff := persisted[0]
+	require.Equal(t, imageagent.RunStatusBlocked, handoff.Status)
+	require.Equal(t, []string{"main"}, handoff.CompletedSlotIDs)
+	require.Equal(t, []imageagent.RecoverableEffect{{SlotID: "detail", Attempt: 1, Code: recoveryRequestedBlockCode}}, handoff.RecoverableEffects)
+	require.Equal(t, "detail", handoff.Block.SlotID)
+	require.True(t, handoff.Slots[2].Closure.Valid(0))
+	require.Len(t, started, 1)
+	require.Equal(t, "detail", started[0].Slot.ID)
+	require.Equal(t, 1, started[0].Attempt)
+	cancelled := persisted[1]
+	require.Equal(t, imageagent.RunStatusCancelled, cancelled.Status)
+	require.Empty(t, cancelled.RecoverableEffects)
+	require.Equal(t, "provider_failed", cancelled.Slots[1].Closure.Kind)
+	require.Equal(t, handoff.Slots[0], cancelled.Slots[0])
 }

@@ -282,7 +282,8 @@ func (s *Service) PrepareImageSet(ctx context.Context, input PrepareImageSetInpu
 		return PreparedImageSet{}, err
 	}
 	if quote.UsesProviderUsage() {
-		if !resolved.OwnProduct || input.ContextKind != ImageSourceListing || input.Target.Platform != "product" || len(selected) != 1 {
+		if !resolved.OwnProduct || input.ContextKind != ImageSourceListing || input.Target.Platform != "product" ||
+			len(input.SharedOriginalIDs) > 1 || len(input.CarouselOriginalIDs) > 1 || len(input.DetailOriginalIDs) > 1 {
 			return PreparedImageSet{}, ErrValidation
 		}
 		resolved.Source.OwnProduct = true

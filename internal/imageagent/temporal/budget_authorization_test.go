@@ -38,7 +38,7 @@ func TestExecuteSlotV3PreservesStorageLimitReasonBeforeProviderDispatch(t *testi
 	require.NoError(t, getErr)
 	require.Equal(t, imageagent.SlotEffectV3ProviderNotDispatched, effect.Phase)
 	require.Equal(t, imageagent.SlotBudgetReleased, effect.BudgetStatus)
-	require.True(t, cancellationResultTerminalized(SlotWorkflowResult{Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.StorageLimitExceededCode, EffectPhase: effect.Phase}))
+	require.True(t, cancellationResultTerminalized(SlotWorkflowResult{Status: imageagent.SlotStatusBlocked, ErrorCode: imageagent.StorageLimitExceededCode, EffectPhase: effect.Phase}, false))
 	policyForCode, ok := imageagent.SlotEffectV3BlockedPolicyForCode(imageagent.StorageLimitExceededCode)
 	require.True(t, ok)
 	originalPolicy, ok := imageagent.SlotEffectV3BlockedPolicyForCode(imageagent.SlotProviderNotDispatchedCode)

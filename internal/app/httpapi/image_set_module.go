@@ -701,24 +701,13 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		}
 		if slot.Closure != nil {
 			settled += slot.Closure.Points
-			if slot.Closure.Kind == "provider_usage" {
-				providerImageCount = 1
-			}
 		}
-		if p.Plan.Set.Source.OwnProduct && slot.Closure == nil && slot.Attempt > 0 && a.generationFacts != nil {
-			id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(p.Run), PlanRevision: p.Plan.Revision, SlotID: definition.ID, Attempt: slot.Attempt}
-			fact, readErr := a.generationFacts.ReadGenerationFact(ctx, id)
-			if readErr != nil && !errors.Is(readErr, imageagent.ErrRunNotFound) {
-				return nil, readErr
+		if p.Plan.Set.Source.OwnProduct {
+			count, err := a.providerUsageSlotCount(ctx, p, definition, slot)
+			if err != nil {
+				return nil, err
 			}
-			if readErr == nil {
-				if fact.Validate() != nil || fact.Intent.Identity != id || fact.Intent.MemberID != p.Run.MemberID ||
-					fact.Intent.CatalogHash != p.AssetCatalog.Manifest.Hash || !definition.Recipe.Quote.MatchesGenerationIntent(fact.Intent) ||
-					fact.Intent.SourceDigest != imageagent.ImageSourceBundleDigest(definition.Recipe.References) {
-					return nil, imageagent.ErrRevisionConflict
-				}
-				providerImageCount = fact.Success.ProviderImageCount
-			}
+			providerImageCount += count
 		}
 		referencePriceVersion := ""
 		if definition.Recipe != nil {
@@ -810,6 +799,32 @@ func (a *fullImageApplication) response(ctx context.Context, p imageagent.RunPro
 		response["settledPoints"] = strconv.FormatInt(settled+paid.SettledPoints, 10)
 	}
 	return response, nil
+}
+
+func (a *fullImageApplication) providerUsageSlotCount(ctx context.Context, p imageagent.RunProjection, definition imageagent.Slot, slot imageagent.SlotProjection) (int64, error) {
+	if slot.Closure != nil {
+		if slot.Closure.Kind == "provider_usage" {
+			return 1, nil
+		}
+		return 0, nil
+	}
+	if slot.Attempt < 1 || a.generationFacts == nil {
+		return 0, nil
+	}
+	id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(p.Run), PlanRevision: p.Plan.Revision, SlotID: definition.ID, Attempt: slot.Attempt}
+	fact, err := a.generationFacts.ReadGenerationFact(ctx, id)
+	if errors.Is(err, imageagent.ErrRunNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	if fact.Validate() != nil || fact.Intent.Identity != id || fact.Intent.MemberID != p.Run.MemberID ||
+		fact.Intent.CatalogHash != p.AssetCatalog.Manifest.Hash || !definition.Recipe.Quote.MatchesGenerationIntent(fact.Intent) ||
+		fact.Intent.SourceDigest != imageagent.ImageSourceBundleDigest(definition.Recipe.References) {
+		return 0, imageagent.ErrRevisionConflict
+	}
+	return fact.Success.ProviderImageCount, nil
 }
 
 func imageSetTemplateReference(p imageagent.RunProjection, snapshot agentconfig.ImageConfigurationSnapshot) (agentconfig.TemplateRef, error) {

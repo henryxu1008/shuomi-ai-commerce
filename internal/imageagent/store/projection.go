@@ -666,8 +666,12 @@ func validateSlotProjectionMutationIdentity(input imageagent.ProjectionCommit, c
 	}
 	if mutation.Result.Status == imageagent.SlotStatusBlocked {
 		knownSetClosure := (input.Snapshot.Plan.Set != nil || input.Snapshot.Plan.Artwork != nil) && mutation.Result.Closure != nil && mutation.Result.Closure.Valid(mutation.Result.Attempt) && (mutation.Result.ErrorCode == imageagent.InvalidGeneratedOutputCode || mutation.Result.ErrorCode == imageagent.SlotProviderNotDispatchedCode || mutation.Result.ErrorCode == imageagent.StorageLimitExceededCode)
+		closure, recipe := mutation.Result.Closure, currentSlot.Slot.Recipe
+		knownProviderFailure := input.Snapshot.Plan.Set != nil && recipe != nil && recipe.Quote.UsesProviderUsage() &&
+			mutation.Result.ErrorCode == imageagent.ImageProviderFailedCode && closure != nil && closure.Kind == "provider_failed" &&
+			closure.Valid(mutation.Result.Attempt) && closure.MatchesQuote(recipe.Quote)
 		if !reflect.DeepEqual(mutation.Projection.Slot, currentSlot.Slot) || !reflect.DeepEqual(mutation.Projection.Candidates, currentSlot.Candidates) ||
-			(!imageagent.IsRecoverableEffectBlockCode(mutation.Result.ErrorCode) && !knownSetClosure) || mutation.Projection.ErrorCode != mutation.Result.ErrorCode ||
+			(!imageagent.IsRecoverableEffectBlockCode(mutation.Result.ErrorCode) && !knownSetClosure && !knownProviderFailure) || mutation.Projection.ErrorCode != mutation.Result.ErrorCode ||
 			mutation.Attempt.Outcome != "blocked" || mutation.Attempt.ErrorCategory != mutation.Result.ErrorCode {
 			return fmt.Errorf("%w: recovery slot mutation may only refresh the existing blocked attempt code", imageagent.ErrRevisionConflict)
 		}

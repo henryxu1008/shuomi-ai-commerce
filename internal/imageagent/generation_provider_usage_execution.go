@@ -35,8 +35,6 @@ func quoteProviderUsageImage(p PreparedGenerationProvider, input SlotExecutionIn
 		!input.ImageSet.Source.OwnProduct || input.ImageSet.Source.ContextKind != ImageSourceListing ||
 		input.TargetPlatform != "product" || input.ImageSet.Target.Platform != "product" || input.ImageSet.Route == nil ||
 		input.ImageSet.MaxPoints != 0 || slot.Recipe == nil || slot.Recipe.Quote != q ||
-		slot.Role != SlotRoleMain || slot.Recipe.Purpose != "product_identity" ||
-		slot.Recipe.Placement != (ImagePlacement{Group: "carousel", Order: 1}) ||
 		len(slot.SourceAssetIDs) != 1 || len(slot.Recipe.References) != 1 {
 		return SlotUsageQuote{}, SlotUsageQuote{}, ErrBudgetQuoteUnavailable
 	}

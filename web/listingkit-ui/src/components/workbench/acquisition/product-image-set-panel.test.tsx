@@ -113,6 +113,39 @@ it("verifies a lost GRSai recovery response and unlocks human adoption",async()=
  expect(fetch.mock.calls.some(([,init])=>init?.method==="POST")).toBe(false);
 });
 
+it("prepares both image groups through GRSai and confirms the full call count",async()=>{
+ const route={BindingID:sha,RevisionID:digest},listingSource={...source,ContextKind:"supply"};
+ const primary={id:"original",displayUrl:"https://images.test/original.png",width:1024,height:1024};
+ const pending=projection(),submitted=projection("awaiting_final_approval",templateId);
+ const owned=<T extends ReturnType<typeof projection>>(run:T)=>({...run,unitVersion:providerImageUsageUnit,
+  points:"0",settledPoints:"0",plan:{...run.plan,Route:route,Source:listingSource},
+  slots:run.slots.map(slot=>({...slot,recipe:{...slot.recipe,Quote:{Points:"0",BillingMode:"usage_only"}},
+   closure:slot.closure&&{UnitVersion:providerImageUsageUnit,Kind:"provider_usage",Points:"0"}}))});
+ let confirmed=false;
+ const real=fetch.getMockImplementation()!;
+ fetch.mockImplementation((input,init)=>{
+  const url=String(input);
+  if(url.endsWith("/model-options"))return Promise.resolve(Response.json({contextKind:"supply",contextId:operation,
+   options:[{unitVersion:providerImageUsageUnit,model:"gpt-image-2.6",quality:"auto",resolution:"1024x1024",points:"0",route,channelName:"企业 GRSai"}]}));
+  if(new URL(url,"http://localhost").pathname.endsWith("/images/sources"))return Promise.resolve(Response.json({
+   contextKind:"supply",contextId:operation,source:listingSource,manualReplacementAvailable:false,originals:[primary],evidence:{}}));
+  if(url.endsWith("/prepare"))return Promise.resolve(Response.json(owned(pending),{status:201}));
+  if(url.endsWith("/confirm")){confirmed=true;return Promise.resolve(Response.json({runId,status:"accepted"},{status:202}));}
+  if(url.endsWith(`/runs/${runId}`))return Promise.resolve(Response.json(confirmed?{...owned(submitted),providerImageCount:2}:owned(pending)));
+  return real(input,init);
+ });
+ render(<ProductImageSetPanel kind="supply" contextId={operation}/>);
+ const model=await screen.findByRole("combobox",{name:"企业图片模型"});
+ fireEvent.change(model,{target:{value:`${sha}/${digest}`}});
+ await prepare();
+ await screen.findByText(/最多向 GRSai 提交 2 次/);
+ const request=fetch.mock.calls.find(([url])=>String(url).endsWith("/prepare"))!;
+ expect(JSON.parse(String(request[1]?.body))).toMatchObject({route,selectedTaskIds:["main","detail"],sharedOriginalIds:["original"]});
+ fireEvent.click(screen.getByRole("button",{name:"确认生成 2 张图片"}));
+ expect(await screen.findByText(/GRSai 已确认生成 2 张/)).toBeVisible();
+ expect(screen.getAllByRole("button",{name:"选择采用"})).toHaveLength(2);
+});
+
 it("archives a definite image-review rejection and unlocks correction without generating",async()=>{
  const real=fetch.getMockImplementation()!;
  fetch.mockImplementation((url,init)=>String(url).endsWith("/prepare")?Promise.resolve(Response.json({code:"IMAGE_TEXT_REVIEW_CHANGED"},{status:409})):real(url,init));

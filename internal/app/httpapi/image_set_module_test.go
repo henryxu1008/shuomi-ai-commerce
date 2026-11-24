@@ -3,13 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
-	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,8 +10,74 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/authz"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/httproute"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/product/asset"
 	"github.com/stretchr/testify/require"
 )
+
+func TestProviderUsageCountsEachCurrentImageOnceEvenWhenAnOutputIsUnavailable(t *testing.T) {
+	ctx := context.Background()
+	digest := strings.Repeat("a", 64)
+	run := imageagent.Run{ID: "run", TenantID: "org", UserID: "actor", MemberID: "member"}
+	p := imageagent.RunProjection{Run: run, Plan: imageagent.Plan{Revision: 1}}
+	p.AssetCatalog.Manifest.Hash = "catalog-v2:" + digest
+	metadata := imageagent.GenerationProviderMetadata{Provider: "grsai", Model: aicapability.GRSaiProductImageModel,
+		Protocol: aicapability.GRSaiProductImageProtocol, RouteReference: "route", CredentialReference: "credential",
+		ConfigurationVersion: "config", PromptVersion: imageagent.ImageSetSchema, BillingMode: aicapability.ModelUsageOnly,
+		ConnectionID: "connection"}
+	quote := metadata.ImageQuote()
+	refs := []imageagent.ImageSourceObservation{{AssetID: "source", SHA256: digest}}
+	recipe := &imageagent.ImageSlotRecipe{Quote: quote, References: refs}
+	main := imageagent.Slot{ID: "main", Recipe: recipe}
+	detail := imageagent.Slot{ID: "detail", Recipe: recipe}
+	mainProjection := imageagent.SlotProjection{Slot: main, Attempt: 1, Closure: &imageagent.ImageSlotClosure{Kind: "provider_usage"}}
+	detailProjection := imageagent.SlotProjection{Slot: detail, Attempt: 2}
+	id := imageagent.SlotExternalEffectIdentity{RunScope: imageagent.ScopeForRun(run), PlanRevision: 1, SlotID: detail.ID, Attempt: detailProjection.Attempt}
+	fact, err := imageagent.NewGenerationFact(imageagent.GenerationIntent{
+		Identity: id, MemberID: run.MemberID, CatalogHash: p.AssetCatalog.Manifest.Hash, SourceDigest: imageagent.ImageSourceBundleDigest(refs),
+		PromptVersion: metadata.PromptVersion, RouteReference: quote.RouteReference, CredentialReference: quote.CredentialReference,
+		ConfigurationVersion: quote.ConfigurationVersion, Provider: quote.Provider, Model: quote.Model, Protocol: quote.Protocol,
+		Resolution: quote.Resolution, Quality: quote.Quality, InputProtocol: imageagent.ImageSetSchema, InputDigest: digest,
+		BillingMode: quote.BillingMode, ConnectionID: quote.ConnectionID,
+	})
+	require.NoError(t, err)
+	fact, won, err := fact.BeginDispatch()
+	require.NoError(t, err)
+	require.True(t, won)
+	const task = "14-detail"
+	fact, err = fact.RecordProviderTask(task, time.Date(2026, 11, 24, 14, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	fact, err = fact.MarkUnknown()
+	require.NoError(t, err)
+	a := &fullImageApplication{generationFacts: imageReleaseFactReader(func(_ context.Context, actual imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
+		require.Equal(t, id, actual, "only read the unclosed slot's current attempt")
+		return fact, nil
+	})}
+	mainCount, err := a.providerUsageSlotCount(ctx, p, main, mainProjection)
+	require.NoError(t, err)
+	detailCount, err := a.providerUsageSlotCount(ctx, p, detail, detailProjection)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, mainCount+detailCount)
+
+	fact, err = fact.RecordSuccess(imageagent.GenerationSuccess{ResponseID: task, ResultDigest: digest, ProviderImageCount: 1,
+		ResultUnavailable: "invalid_result"})
+	require.NoError(t, err)
+	detailCount, err = a.providerUsageSlotCount(ctx, p, detail, detailProjection)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, mainCount+detailCount)
+	detailProjection.Attempt = 1
+	a.generationFacts = imageReleaseFactReader(func(context.Context, imageagent.SlotExternalEffectIdentity) (imageagent.GenerationFact, error) {
+		return fact, nil
+	})
+	_, err = a.providerUsageSlotCount(ctx, p, detail, detailProjection)
+	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
+}
 
 type imageSetRequestCapabilitySource struct{ calls int }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/agentconfig"
+	"github.com/henryxu1008/shuomi-ai-commerce/internal/aicapability"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/authidentity"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent"
 	"github.com/henryxu1008/shuomi-ai-commerce/internal/imageagent/store"
@@ -113,6 +114,72 @@ func TestPrepareImageSetRejectsAnotherSourceOwner(t *testing.T) {
 	contexts.preparation.Source.ContextKind = imageagent.ImageSourceListing
 	_, err := s.PrepareImageSet(ctx, input)
 	require.ErrorIs(t, err, imageagent.ErrRevisionConflict)
+}
+
+func TestOwnedGRSaiImageSetConfirmsCompletePlanWithZeroPlatformPoints(t *testing.T) {
+	for _, name := range []string{"shared_original", "separate_group_originals", "two_originals_in_same_group"} {
+		t.Run(name, func(t *testing.T) {
+			s, _, workflows, config, contexts, quotes, ctx, input := imageSetServiceFixture(t)
+			input.ContextKind = imageagent.ImageSourceListing
+			input.Route = &imageagent.ImageRouteSelection{BindingID: strings.Repeat("b", 64), RevisionID: strings.Repeat("c", 64)}
+			config.template.Carousel = append(config.template.Carousel, agentconfig.ContentTask{ID: "scene", Purpose: "usage_scene"})
+			contexts.preparation.Source.ContextKind = input.ContextKind
+			contexts.preparation.OwnProduct = true
+			quotes.quote = imageagent.GenerationProviderMetadata{Provider: "grsai", Model: aicapability.GRSaiProductImageModel,
+				Protocol: aicapability.GRSaiProductImageProtocol, BillingMode: aicapability.ModelUsageOnly,
+				ConfigurationVersion: input.Route.RevisionID, RouteReference: input.Route.BindingID,
+				CredentialReference: "grsai-key", ConnectionID: "grsai-connection"}.ImageQuote()
+
+			if name != "shared_original" {
+				config.template.ShareOriginals = false
+				preparation := &contexts.preparation
+				extra := preparation.Catalog.Assets[0]
+				extra.ID, extra.URL = "source-2", "https://images.example.org/detail.png"
+				catalog, err := imageagent.NormalizeAssetCatalog(imageagent.AssetCatalog{
+					ProductContext: preparation.Catalog.ProductContext, Assets: append(preparation.Catalog.Assets, extra),
+				})
+				require.NoError(t, err)
+				preparation.Catalog, preparation.Source.CatalogHash = catalog, catalog.Manifest.Hash
+				extraObservation := preparation.Observations[0]
+				extraObservation.AssetID = extra.ID
+				preparation.Observations = append(preparation.Observations, extraObservation)
+				input.SharedOriginalIDs = nil
+				input.CarouselOriginalIDs, input.DetailOriginalIDs = []string{"source-1"}, []string{"source-2"}
+				if name == "two_originals_in_same_group" {
+					input.CarouselOriginalIDs = append(input.CarouselOriginalIDs, extra.ID)
+				}
+			}
+
+			prepared, err := s.PrepareImageSet(ctx, input)
+			if name == "two_originals_in_same_group" {
+				require.ErrorIs(t, err, imageagent.ErrValidation)
+				require.Empty(t, workflows.starts)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, 3, prepared.Images)
+			require.Zero(t, prepared.Points)
+			require.Empty(t, workflows.starts)
+			confirmed, err := s.ConfirmImagePlan(ctx, confirmSetInput(prepared))
+			require.NoError(t, err)
+			require.NoError(t, imageagent.ValidateImageSetAdmission(confirmed.Run, confirmed.Plan))
+			require.Len(t, workflows.starts, 1)
+			require.Equal(t, agentconfig.ImageRunLimits{UnitVersion: agentconfig.ProviderImageUsageUnit, Images: 3, ElapsedSeconds: 3600},
+				confirmed.Run.ImageAdmission.Command.Limits)
+			require.Equal(t, 3, confirmed.Run.Budget.MaxModelCalls)
+			require.Equal(t, imageagent.SlotRoleMain, confirmed.Plan.Slots[0].Role)
+			require.Equal(t, "carousel", confirmed.Plan.Slots[1].Recipe.Placement.Group)
+			require.Equal(t, "detail", confirmed.Plan.Slots[2].Recipe.Placement.Group)
+			for _, slot := range confirmed.Plan.Slots[:2] {
+				require.Equal(t, []string{"source-1"}, slot.SourceAssetIDs)
+			}
+			detailOriginal := "source-1"
+			if name == "separate_group_originals" {
+				detailOriginal = "source-2"
+			}
+			require.Equal(t, []string{detailOriginal}, confirmed.Plan.Slots[2].SourceAssetIDs)
+		})
+	}
 }
 
 func TestPrepareImageSetRejectsMissingOrDifferentCatalogVersion(t *testing.T) {

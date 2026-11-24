@@ -197,6 +197,9 @@ func ValidateImageSetPlan(plan Plan) error {
 			if q != first || q.ConfigurationVersion != r.RevisionID {
 				return ErrValidation
 			}
+			if q.UsesProviderUsage() && q.RouteReference != r.BindingID {
+				return ErrValidation
+			}
 			if !q.UsesProviderUsage() && (q.Provider != "grsai" || q.Model != "gpt-image-2-vip" || q.Quality != "medium" || q.PriceVersion != r.RevisionID) {
 				return ErrValidation
 			}
@@ -235,6 +238,7 @@ func ValidateImageSetPlan(plan Plan) error {
 		return fmt.Errorf("%w: generic material cannot claim platform requirements", ErrValidation)
 	}
 	positions := map[string]bool{}
+	usageOriginals := map[string]ImageSourceObservation{}
 	for _, slot := range plan.Slots {
 		r := slot.Recipe
 		if r == nil || !r.Quote.Valid() || r.PromptVersion != ImageSetSchema || strings.TrimSpace(r.Prompt) == "" || !agentconfig.ValidSetText(r.Prompt, 16<<10) || !agentconfig.ValidSetText(r.Background, agentconfig.MaxSetBackgroundBytes) || strings.TrimSpace(r.Background) == "" || !agentconfig.ValidSetText(slot.Brief, agentconfig.MaxSetBriefBytes) || len(slot.StyleReferenceIDs) > 0 || len(r.References) < 1 || len(r.References) > agentconfig.MaxSetSourceReferences || len(r.References) != len(slot.SourceAssetIDs) {
@@ -244,8 +248,7 @@ func ValidateImageSetPlan(plan Plan) error {
 			return ErrValidation
 		}
 		if r.Quote.UsesProviderUsage() && (s.Route == nil || s.Source.ContextKind != ImageSourceListing || s.Target.Platform != "product" ||
-			len(plan.Slots) != 1 || len(plan.SourceAssetIDs) != 1 || len(r.References) != 1 || slot.Role != SlotRoleMain ||
-			r.Purpose != "product_identity" || r.Placement != (ImagePlacement{Group: "carousel", Order: 1}) || r.OfficialPlacement != nil) {
+			len(r.References) != 1 || r.Placement.VariantID != "" || r.OfficialPlacement != nil) {
 			return ErrValidation
 		}
 		if len(r.VisibleText) > 2 {
@@ -261,6 +264,13 @@ func ValidateImageSetPlan(plan Plan) error {
 		}
 		if r.Placement.Group != "carousel" && r.Placement.Group != "detail" || r.Placement.Order < 1 || r.Placement.Order > MaxPlanSlots || r.Placement.VariantID != "" && !canonicalImageValue(r.Placement.VariantID) {
 			return fmt.Errorf("%w: invalid image presentation position", ErrValidation)
+		}
+		if r.Quote.UsesProviderUsage() {
+			original := r.References[0]
+			if prior, exists := usageOriginals[r.Placement.Group]; exists && prior != original {
+				return ErrValidation
+			}
+			usageOriginals[r.Placement.Group] = original
 		}
 		key := fmt.Sprintf("%s/%s/%d", r.Placement.Group, r.Placement.VariantID, r.Placement.Order)
 		if positions[key] {
@@ -314,15 +324,15 @@ func ValidateImageSetPlan(plan Plan) error {
 }
 
 func ImageSetPoints(plan Plan) (int64, error) {
+	if len(plan.Slots) == 0 {
+		return 0, ErrValidation
+	}
 	var total int64
 	for _, slot := range plan.Slots {
 		if slot.Recipe == nil || !slot.Recipe.Quote.Valid() || total > math.MaxInt64-slot.Recipe.Quote.Points {
 			return 0, ErrValidation
 		}
 		total += slot.Recipe.Quote.Points
-	}
-	if total == 0 && (len(plan.Slots) != 1 || !plan.Slots[0].Recipe.Quote.UsesProviderUsage()) {
-		return 0, ErrValidation
 	}
 	return total, nil
 }

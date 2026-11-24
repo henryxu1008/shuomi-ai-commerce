@@ -19,7 +19,7 @@ type ImageRunLimits struct {
 }
 
 func (l ImageRunLimits) Valid() bool {
-	validUsage := l.UnitVersion == ProviderImageUsageUnit && l.Images == 1 && l.Points == 0
+	validUsage := l.UnitVersion == ProviderImageUsageUnit && l.Images > 0 && l.Images <= MaxSetTasks && l.Points == 0
 	validPoints := l.UnitVersion == "ai-micropoint-v1" && l.Images > 0 && l.Images <= MaxSetTasks && l.Points > 0
 	return (validUsage || validPoints) && l.ElapsedSeconds > 0 && l.ElapsedSeconds <= 3600
 }

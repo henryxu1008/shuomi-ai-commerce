@@ -29,7 +29,7 @@ export function ImagePlanRoutePicker({scope,value,disabled,onChange,onValidity,o
    {options.map(option=><option key={optionKey(option.route)} value={optionKey(option.route)}>{option.channelName?`${option.channelName} · ${option.model}`:`企业默认 · ${option.model}`}</option>)}
   </select>:<input readOnly value={defaultModel?.model??"尚未取得可用的企业模型"}/>}</label>
   {selected&&<p className="text-xs text-muted-foreground">{selected.model} · {selected.quality} · 原始输出 1024×1024 · {owned?"企业向 GRSai 付费，硕米不扣点。":selected.referencePriceVersion?`参考估算预留 ${formatMicropoints(selected.points)} 点，按本次用量及冻结参考价结算。`:`每张预留上界 ${formatMicropoints(selected.points)} 点，最终按完整实际用量结算。`}{selected.referencePriceVersion?<><br/>参考版本 {selected.referencePriceVersion}。缺输入细分时按较高输入参考费率估算。缺基础用量或超出预留保持待核实。</>:null}</p>}
-  <p className="text-xs text-muted-foreground">{owned?"可使用一张原图生成一张商品主图。确认后会将所选原图发送给 GRSai。":"确认后，本次使用的模型、报价和技能版本将固定。"}</p>
+  <p className="text-xs text-muted-foreground">{owned?"可生成主图、轮播图和详情图。确认后会将各项选用的原图发送给 GRSai。":"确认后，本次使用的模型、报价和技能版本将固定。"}</p>
   {value&&!selected&&<><p role="status">原计划绑定 {value.BindingID} / {value.RevisionID} 只读保留。请核实原请求，再为新计划选择模型。</p>{!hasOwned&&<Button variant="outline" size="sm" disabled={disabled||!defaultModel} onClick={()=>onChange(null)}>新计划使用企业模型</Button>}</>}
   {failure&&<p role="status">企业图片模型读取失败。请重新读取，已有请求和结果仍可查看。</p>}
   {!selected&&(data||failure)&&modelSettings}<Button variant="outline" size="sm" disabled={disabled} onClick={()=>{setData(undefined);setNonce(v=>v+1)}}>重新读取图片模型</Button>
