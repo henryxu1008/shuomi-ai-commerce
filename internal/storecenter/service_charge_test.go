@@ -29,12 +29,12 @@ func TestStoreServiceProofAndDatesCommitOnceAndRevocationFencesPendingCommand(t 
 	if err := repo.BindServiceCharge(context.Background(), intent, reservation); err != nil {
 		t.Fatal(err)
 	}
-	proof, err := repo.ApplyServiceCharge(context.Background(), intent, storecenter.ConnectionStatusConnected)
+	proof, err := repo.ApplyServiceCharge(context.Background(), intent, storecenter.ServiceChargeConnection{Status: storecenter.ConnectionStatusConnected})
 	if err != nil || proof.State != "succeeded" || proof.Snapshot.StoreVersion != 2 {
 		t.Fatalf("service effect/proof: %+v %v", proof, err)
 	}
 	firstExpiry := *proof.Snapshot.ServiceState.ExpiresAt
-	replay, err := repo.ApplyServiceCharge(context.Background(), intent, storecenter.ConnectionStatusConnected)
+	replay, err := repo.ApplyServiceCharge(context.Background(), intent, storecenter.ServiceChargeConnection{Status: storecenter.ConnectionStatusConnected})
 	if err != nil || replay.EvidenceID != proof.EvidenceID || !replay.Snapshot.ServiceState.ExpiresAt.Equal(firstExpiry) {
 		t.Fatalf("same command extended dates twice: %+v %v", replay, err)
 	}
@@ -55,7 +55,7 @@ func TestStoreServiceProofAndDatesCommitOnceAndRevocationFencesPendingCommand(t 
 		t.Fatal(err)
 	}
 	access.admin = false
-	failed, err := repo.ApplyServiceCharge(context.Background(), intent, "")
+	failed, err := repo.ApplyServiceCharge(context.Background(), intent, storecenter.ServiceChargeConnection{})
 	if err != nil || failed.State != "failed_fenced" || failed.ReservationID == "" {
 		t.Fatalf("revocation has no definitive original-reservation proof: %+v %v", failed, err)
 	}
@@ -64,7 +64,7 @@ func TestStoreServiceProofAndDatesCommitOnceAndRevocationFencesPendingCommand(t 
 		t.Fatal(err)
 	}
 	access.admin = false
-	late, err := repo.ApplyServiceCharge(context.Background(), intent, "")
+	late, err := repo.ApplyServiceCharge(context.Background(), intent, storecenter.ServiceChargeConnection{})
 	if err != nil || late.State != "failed_fenced" || late.EvidenceID != failed.EvidenceID {
 		t.Fatalf("late command revived a failed reservation: %+v %v", late, err)
 	}

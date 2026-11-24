@@ -127,6 +127,27 @@ it("member renewals retry only the original key, version and captured user", asy
     "actor",
   ]);
 });
+it("clears a recovered Shopify operation when authorization was rejected before a charge", async () => {
+  state.renew
+    .mockRejectedValueOnce(new WorkbenchAPIError(503, "STORE_SERVICE_OUTCOME_UNKNOWN", "safe", "", []))
+    .mockRejectedValueOnce(new WorkbenchAPIError(422, "STORE_CONNECTION_NOT_CONNECTED", "safe", "", []))
+    .mockResolvedValueOnce({
+      quantity: "1",
+      resourceBalanceAfter: "1",
+      serviceExpiresAt: "2026-10-29T00:00:00Z",
+    });
+
+  render(tree(false, true, { ...store, platform: "shopify" }));
+  await userEvent.click(screen.getByRole("button", { name: "续费服务" }));
+  await screen.findByText("可用 2 期");
+  await userEvent.click(screen.getByRole("button", { name: "确认续费服务" }));
+  await userEvent.click(await screen.findByRole("button", { name: "核验原操作" }));
+  await screen.findByText("无法核实 Shopify 授权。请检查店铺连接后重新确认服务操作。");
+  expect(state.renew.mock.calls[1]).toEqual(state.renew.mock.calls[0]);
+  expect(screen.queryByRole("button", { name: "核验原操作" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "确认续费服务" }));
+  expect(state.renew.mock.calls[2][3]).not.toEqual(state.renew.mock.calls[0][3]);
+});
 it("admin renewal uses unallocated balance and closes first activation when disconnected", async () => {
   const resource = commercialResourcesFixture("org-1");
   resource.resources[0].available = "0";

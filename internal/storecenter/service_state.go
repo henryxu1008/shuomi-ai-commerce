@@ -49,6 +49,7 @@ type ServiceStoreIdentity struct {
 
 type ServiceStoreSnapshot struct {
 	Identity      ServiceStoreIdentity
+	Platform      Platform
 	ConnectionRef string
 	Version       int64
 	UpdatedAt     time.Time

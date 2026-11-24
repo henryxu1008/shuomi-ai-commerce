@@ -121,7 +121,12 @@ func (application *ServiceLifecycleApplication) execute(ctx context.Context, com
 	}
 
 	connectionStatus := ConnectionStatus("")
-	if command == ServiceCommandActivate {
+	if store.Platform() == PlatformShopify {
+		if _, err := VerifyShopifyServiceConnection(ctx, application.connections, store); err != nil {
+			return application.replayBeforeTransientFailure(ctx, replay, ErrConnectionNotFresh)
+		}
+		connectionStatus = ConnectionStatusConnected
+	} else if command == ServiceCommandActivate {
 		connectionStatus = resolveConnectionStatus(ctx, application.connections, ConnectionStatusInput{
 			OrganizationID: identity.EffectiveOrganizationID,
 			StoreID:        request.StoreID,

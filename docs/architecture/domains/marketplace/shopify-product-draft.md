@@ -41,6 +41,17 @@
 - 只请求 `write_products`，其包括商品读取。产品写入和回查在现有 Store Purpose 授权通过后用 Shopify client assertion 换取 application-only token。令牌限当前有界服务端调用，不能持久化。发放写入句柄前，用这枚令牌核实 Shopify 的 AppInstallation GID、Shop GID、有效范围和当前 store currency，Store 按当前本地连接代次复核；同一令牌执行唯一 mutation，授权错误、卸载或代次变化时不重新签券再发送。回查需当前同一 canonical shop 的有效连接。应用密钥、签名私钥沿当前秘密管理，声明签名使用已有 JWT 库，Dev 和正式应用配置独立。Dev Store 证实重装、旧令牌失效及 installation identity 行为，若不能区分新旧安装，待设计澄清和复核后才开该能力。[权限管理](https://shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes) · [Application-only token](https://shopify.dev/docs/apps/build/authentication-authorization/application-only-access-tokens)
 - 每个本地授权代次固定一个已验证的 Shopify 安装和一次店主确认。卸载、scope 改变和合规事件走独立的 topic 路径，以原始有界正文验证 HMAC，结合应用路由、严格正文类型及店铺身份去重。事件头及供应商时间仅作校验和排查，不能独立用于开通、复活授权或决定不可逆清除。已知撤销在 Store 事务内停止该代次的新句柄并作废相关未消费证明；身份或前后顺序不明时暂停使用并只读向 Shopify 核实。实时核对和同一令牌发送保证迟到事件不能放行新安装。重装要求新的 Shopify 店主授权及硕米确认，旧已知结果只可按原企业和 canonical shop 回查。[Webhook 验证](https://shopify.dev/docs/apps/build/webhooks/verify-deliveries) · [Webhook 传递](https://shopify.dev/docs/apps/build/webhooks/delivery-structure)
 
+### 店铺服务扣减前核实 Shopify 授权
+
+独立增量设计复核为 `IMPLEMENTATION_READY`，绑定基线 `e5bcc655c81eb346b2ac3d251bee97a335426313` 和受审设计对象 `3af56454435d27de4755e34545ad9323e5e92d7d`。同店换绑与未撤销代次的事务核对关闭了复核发现的阻塞。
+
+Design Basis 增量依据为本任务已准入的 Shopify 授权合同、[店铺服务资源合同](../../unified-base-prepaid-resources.md)和用户对 #1613 的要求。修复阻止商家在 Shopify 应用已卸载、商品权限已撤销或平台无法核实时仍消耗店铺服务期数。覆盖 Shopify 首次开通、续费和重新开通。公共撤销通知、连接列表的展示状态、Shopify 审核、价格、额度计算及资源 Owner 沿原范围。
+
+- Store Center 继续拥有当前授权绑定和店铺服务效果。现有 Shopify 集成使用应用令牌和只读 Admin 查询核对 Shopify 店铺、应用、安装身份及 `write_products`，保持开发店限制。读取请求一律使用当前成员可访问店铺的已验证域名。网络调用前后核对本地绑定代次，确认无变化才视为通过。本地列表状态不能作为 Shopify 扣减授权。
+- 正常服务命令沿现有成员鉴权、原命令查询、用量政策之后核实 Shopify 授权，通过才签入 Store 原意图。挂起的原意图沿原操作标识获取或恢复额度预留。提交 Store 服务变更前再核实授权，并把结果绑定当前企业、本地 Store、ShopKey、授权代次和安装身份。Store 事务先锁店铺并保留原终态优先，再在同一事务锁住当前 Shopify 关系及授权行，确认该 ShopKey 仍属于当前 Store 且同一代次未撤销，随后检查成员权限和服务变更。Shopify 关系锁先于原店成员授权锁，避免与跨本地店铺换绑的锁序相反。店铺版本和连接引用的既有校验继续有效。读 Shopify 设有独立五秒总上限，网络调用在 Store 事务外执行。
+- 首次核实失败不会创建新意图或预留。第二次核实失败则由原 Store 操作记录可证明的本地未执行结果，沿现有资源结算释放同一预留。Shopify 无响应也阻止 Store 执行，失败证明只说明工作台未提交服务变更。若另一个同键执行已写入终态，原终态优先并按原证据结算。成功回执的重放不依赖当前 Shopify 授权。应用的授权判定点为服务变更前最后一次 Shopify 验证，Shopify 与 Store 事务之间没有跨系统原子锁。
+- 保留现有 Store/Resource 事务、幂等身份、预留恢复与成员额度归属，无 schema 或旧数据迁移。隔离测试覆盖失效及核实失败、预留中撤销及释放、原回执重放、同店换绑期间旧本地记录的阻断、成员与企业用量，以及有效连接仍可开通。Shopify 真店行为使用批准测试店另行验证。
+
 ## 合规清除与恢复
 
 - `customers/data_request`、`customers/redact`、`shop/redact` 为公开应用必接事件，无效签名返回 401。确认前持久化事件受理结果或清除命令。首版无买家或订单数据，买家事件只存不可关联个人的处置回执。Store Center 持有店铺清除命令及完成状态，Listing 仅处理自己拥有的回执和证据。 [隐私履约](https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance)

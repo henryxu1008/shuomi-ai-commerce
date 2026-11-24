@@ -265,6 +265,7 @@ func (r *GormStoreRepository) LockServiceState(ctx context.Context, tx *gorm.DB,
 	}
 	return ServiceStoreSnapshot{
 		Identity:      ServiceStoreIdentity{OrganizationID: record.OrganizationID, StoreID: record.ID},
+		Platform:      Platform(record.Platform),
 		ConnectionRef: record.ConnectionRef,
 		Version:       record.Version,
 		UpdatedAt:     record.UpdatedAt,

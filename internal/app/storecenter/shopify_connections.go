@@ -150,6 +150,32 @@ func (a *ShopifyConnections) Status(ctx context.Context, org, storeID string) (s
 	return storecenter.ConnectionStatusConnected, nil
 }
 
+func (a *ShopifyConnections) verifyServiceConnection(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ShopifyBinding, error) {
+	binding, err := a.store.ReadShopifyBinding(ctx, input.OrganizationID, input.StoreID)
+	if errors.Is(err, storecenter.ErrNotFound) {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionNotFresh
+	}
+	if err != nil || binding.ShopKey != input.ConnectionRef || binding.AppID != a.app.AppID {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionUnavailable
+	}
+	token, err := a.app.Issuer.Issue(ctx, binding.Domain)
+	if err != nil {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionUnavailable
+	}
+	installation, err := a.app.Admin.Installation(ctx, binding.Domain, token.Value, binding.AppID)
+	if err != nil {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionUnavailable
+	}
+	if shopifyIdentity(installation) != binding.ShopifyInstallation {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionNotFresh
+	}
+	current, err := a.store.ReadShopifyBinding(ctx, input.OrganizationID, input.StoreID)
+	if err != nil || current != binding {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionSnapshotChanged
+	}
+	return binding, nil
+}
+
 func pairingAAD(row storecenter.ShopifyPairing, identity wire.Installation, generation int64) wire.PairingBinding {
 	return wire.PairingBinding{OrganizationID: row.OrganizationID, ActorID: row.ActorID, MemberID: row.MemberID, StoreID: row.StoreID,
 		AttemptID: row.AttemptID, SessionDigest: row.SessionDigest, Installation: identity, Generation: generation, ExpiresAt: row.ExpiresAt}

@@ -27,6 +27,33 @@ type ConnectionStatusProvider interface {
 	Status(context.Context, ConnectionStatusInput) (ConnectionStatus, error)
 }
 
+// ShopifyServiceConnectionVerifier checks a current installation for a paid
+// service command. A provider's display status does not grant this authority.
+type ShopifyServiceConnectionVerifier interface {
+	VerifyShopifyServiceConnection(context.Context, ConnectionStatusInput) (ShopifyBinding, error)
+}
+
+func VerifyShopifyServiceConnection(ctx context.Context, provider ConnectionStatusProvider, store *Store) (ShopifyBinding, error) {
+	verifier, ok := provider.(ShopifyServiceConnectionVerifier)
+	if !ok || store.Platform() != PlatformShopify {
+		return ShopifyBinding{}, ErrConnectionUnavailable
+	}
+	input := ConnectionStatusInput{
+		OrganizationID: store.OrganizationID(), StoreID: store.ID(), Platform: store.Platform(), ConnectionRef: store.ConnectionRef(),
+	}
+	call, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	binding, err := verifier.VerifyShopifyServiceConnection(call, input)
+	if err != nil {
+		return ShopifyBinding{}, err
+	}
+	if call.Err() != nil || binding.OrganizationID != input.OrganizationID || binding.StoreID != input.StoreID ||
+		binding.ShopKey == "" || binding.ShopKey != input.ConnectionRef || binding.Generation < 1 || !binding.ShopifyInstallation.valid() {
+		return ShopifyBinding{}, ErrConnectionUnavailable
+	}
+	return binding, nil
+}
+
 func resolveConnectionStatus(ctx context.Context, provider ConnectionStatusProvider, input ConnectionStatusInput, timeout time.Duration) ConnectionStatus {
 	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

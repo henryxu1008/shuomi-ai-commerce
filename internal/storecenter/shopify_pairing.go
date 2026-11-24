@@ -342,8 +342,12 @@ func currentShopifyBinding(tx *gorm.DB, shop shopifyShopRow, key ShopifyPairingK
 		return ShopifyBinding{}, ErrNotFound
 	}
 	var auth shopifyAuthorizationRow
-	if err := tx.Where("organization_id=? AND shop_key=? AND generation=? AND revoked_at IS NULL", shop.OrganizationID, shop.ShopKey, shop.Generation).Take(&auth).Error; err != nil {
+	err := tx.Where("organization_id=? AND shop_key=? AND generation=? AND revoked_at IS NULL", shop.OrganizationID, shop.ShopKey, shop.Generation).Take(&auth).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ShopifyBinding{}, ErrNotFound
+	}
+	if err != nil {
+		return ShopifyBinding{}, ErrOfficialConnectionUnavailable
 	}
 	return shopifyBindingValue(shop, auth), nil
 }
@@ -351,13 +355,23 @@ func currentShopifyBinding(tx *gorm.DB, shop shopifyShopRow, key ShopifyPairingK
 func (r *MemberScopedStoreRepository) ReadShopifyBinding(ctx context.Context, org, storeID string) (ShopifyBinding, error) {
 	var result ShopifyBinding
 	err := r.shopifyTx(ctx, org, storeID, false, func(tx *gorm.DB, _ StoreMemberAccess, store workbenchStoreRecord) error {
-		var shop shopifyShopRow
-		if err := tx.Where("organization_id=? AND store_id=? AND shop_key=?", org, storeID, store.ConnectionRef).Take(&shop).Error; err != nil {
-			return ErrNotFound
-		}
 		var err error
-		result, err = currentShopifyBinding(tx, shop, ShopifyPairingKey{OrganizationID: org, StoreID: storeID})
+		result, err = readShopifyBinding(tx, org, storeID, store.ConnectionRef)
 		return err
 	})
 	return result, err
+}
+
+// Both lookups inherit the caller's row lock when used for a service effect.
+func readShopifyBinding(tx *gorm.DB, org, storeID, shopKey string) (ShopifyBinding, error) {
+	tx = tx.Session(&gorm.Session{})
+	var shop shopifyShopRow
+	err := tx.Where("organization_id=? AND store_id=? AND shop_key=?", org, storeID, shopKey).Take(&shop).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ShopifyBinding{}, ErrNotFound
+	}
+	if err != nil {
+		return ShopifyBinding{}, ErrOfficialConnectionUnavailable
+	}
+	return currentShopifyBinding(tx, shop, ShopifyPairingKey{OrganizationID: org, StoreID: storeID})
 }

@@ -404,6 +404,15 @@ func (a *OfficialConnections) Applications(ctx context.Context, org, store strin
 	}
 	return choices, nil
 }
+
+// VerifyShopifyServiceConnection is only used by Store service charge commands.
+func (a *OfficialConnections) VerifyShopifyServiceConnection(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ShopifyBinding, error) {
+	if input.Platform != storecenter.PlatformShopify || a.shopify == nil {
+		return storecenter.ShopifyBinding{}, storecenter.ErrConnectionUnavailable
+	}
+	return a.shopify.verifyServiceConnection(ctx, input)
+}
+
 func (a *OfficialConnections) Status(ctx context.Context, input storecenter.ConnectionStatusInput) (storecenter.ConnectionStatus, error) {
 	if input.Platform == storecenter.PlatformShopify {
 		if a.shopify == nil {
