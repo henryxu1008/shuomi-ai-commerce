@@ -1,6 +1,6 @@
 # Shopify 店铺自助授权与商品草稿上传
 
-执行任务 [#1613](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1613) · Independent Architecture · **NOT_READY** · 待独立架构评审。
+执行任务 [#1613](https://github.com/henryxu1008/shuomi-ai-commerce/issues/1613) · Independent Architecture · **NOT_READY** · 第 1 轮已评审，本修订待复核。
 
 调查基线 `7a9df541e51d1a030d32c26f6f18daf21d30f536`。下文是待评审设计。平台接口依据为公开文档，Dev Store 实证待执行。
 
@@ -8,7 +8,7 @@
 
 2026-11-23，用户明确要求各企业客户自行授权店铺，Amazon 和 Shopify 先做商品，再做订单，并明确商品首版「要能上传产品」。Shopify 首版终点是 Shopify 后台真实可见的商品草稿。用户能在硕米工作台看到提交结果、商品编号和「在 Shopify 查看」。最终销售渠道发布由商家在 Shopify 后台操作。
 
-1. 「店铺中心 → 我的店铺」的店铺详情允许有管理权限的当前企业成员「连接 Shopify」。进入 Shopify 自己的安装页面，商家选择店铺并授权。安装后，在硕米工作台确认显示的 Shopify 店铺与本地目标对应。
+1. 「店铺中心 → 我的店铺」的店铺详情允许有管理权限的当前企业成员「连接 Shopify」。进入 Shopify 自己的安装页面，由 Shopify 店主选择店铺并授权。安装后，在硕米工作台确认 Shopify 店铺与本地目标对应。首版由店主完成绑定，之后由企业按现有的店铺和商品刊登权限分工。
 2. 「商品刊登 → 待上传」复用现有商品和目标店铺的选择、核对和确认。核对页展示将发送的商品、规格、SKU、金额和 Shopify 店铺货币、可用图片及目标店铺。最终动作「上传为 Shopify 草稿」。取消返回原选择。选择的企业、店铺、商品版本或核对字段变化后，原确认失效。
 3. 在相同业务流程回看「上传中」「已在 Shopify 建立草稿」「需修改后再上传」或「上传结果待核实」。如果图片仍在 Shopify 处理，结果单独显示图片状态。已有结果放在现有「已上传」视图，可重新核实。店铺断开时提示先重新连接。
 
@@ -21,7 +21,7 @@
 | 事实或能力 | 当前 owner、实现位置与交接 |
 | --- | --- |
 | 当前企业、成员与权限 | 现有 Current Identity、Effective Organization、店铺成员授权和商品刊登授权。沿当前权限键与检查路径，由应用组合层传给领域。 |
-| Shopify 外部身份及连接 | Store Center 持有本地 Store、稳定 Shopify Shop GID、规范域名、应用身份、当前授权代次和撤销状态。接入现有官方连接和 Store DB owner，以 TikTok/Walmart 的 purpose-qualified 接线、连接状态和审计作为复用参考。 |
+| Shopify 外部身份及连接 | Store Center 持有本地 Store、稳定 Shopify Shop GID、规范域名、应用与安装身份、Shopify 店铺的本地不透明标识、当前授权代次和撤销状态。接入现有官方连接和 Store DB owner，以 TikTok/Walmart 的 purpose-qualified 接线、连接状态和审计作为复用参考。 |
 | 商品、素材和核对版本 | Product/Catalog、Asset、Listing Target 继续提供已保存版本、允许发送的素材和核对版本。Shopify 规则仅验证载荷，来源数据和媒体许可由原 owner 决定。 |
 | 明确意图、一次性发送、回执及未确认结果 | [Listing Submission](../../../../internal/listing/submission/README.md) 的 `ExecutionKernel` 及当前持久化 owner。候选以原执行事务和窄平台结果扩展保存 Shopify 证据。沿现有目标写入、审计和回读 seam。 |
 | Shopify 协议和远端商品 | Shopify 持有远端商品。Repo 内 Shopify adapter 提供 OAuth / GraphQL 和 webhook 协议边界、字段转换、结果分类和定向回查。它不另建提交状态机。 |
@@ -35,12 +35,18 @@
 ## Shopify 分发、授权与撤销
 
 - 用公开分发服务相互独立的商家。建议首轮采用有限可见的 App Store 页面，其审核规则与完全公开可见相同。店铺中心跳转到固定的 Shopify 安装入口，随后由 Shopify 发起安装。安装和配置流程不向客户索取 Shopify 域名、API Key 或令牌。应用商店发起的安装也先走 Shopify OAuth，完成后再配对当前硕米企业。公开分发方式由获授权应用管理者选择。[分发](https://shopify.dev/docs/apps/launch/distribution) · [可见性](https://shopify.dev/docs/apps/launch/distribution/visibility) · [审核要求 §2.3](https://shopify.dev/docs/apps/launch/shopify-app-store/app-store-requirements#provide-seamless-and-secure-installation)
-- 候选使用 standalone OAuth authorization code grant。安装时用在线凭据核实这次商家授权和 `shop { id myshopifyDomain currencyCode }`，不保存 associated user 的个人资料和原始响应。产品写入和后续回查在已绑定且有当前业务权限时请求短时 application-only token，使用 Shopify 支持的 client assertion。短时 token 仅在服务端请求或短缓存内使用，缓存键包含应用、店铺和授权代次。此路径避免为同一家店的不同配对请求轮转已连接安装的离线凭据。Dev Store 要先证实正式拟用的授权方式以及 application-only token 可调用的范围和权限。若路径不可用，调整设计和适用评审后才启用相应能力。[独立应用 OAuth](https://shopify.dev/docs/apps/build/authentication-authorization/authenticate-standalone-apps) · [Application-only token](https://shopify.dev/docs/apps/build/authentication-authorization/application-only-access-tokens)
-- 硕米端发起时，安装意图有有限 TTL，绑定原企业、成员、会话、StoreID 及目的。Shopify 端发起且未选店铺时先建立等效的短期浏览器配对证明，OAuth 后仅允许当前登录用户在有权限的已有 Shopify 店铺记录中显式确认。外部回调只能产生短期证明。Store owner 在最终事务中再次核对原登录和当前权限，并一次性消费该证明。企业上下文改变、撤权、取消或超过期限均要求重新开始。
-- 回调严查规范 Shopify HMAC、时间窗、一次性 state 与浏览器关联，拒绝重复敏感查询参数。外联主机仅来自已验证的 Shopify `myshopify.com` 店铺标识及配置的固定 Shopify 端点，显式禁止自动跳转。真实店铺身份由平台返回的 canonical Shop GID 决定，域名是当前路由属性。Store 内对应用和 Shopify Shop GID 实施跨企业排他绑定及版本约束。另一企业尝试连接时只收到通用错误，不能换绑、撤销原连接、获知原企业或读取旧记录。现有店铺额度沿 Store 记录创建路径消费。
-- 只请求 `write_products`，其包括商品读取。安装完成及 API 调用按实际有效 scope 和本地当前权限判定；禁止因 scope 足够而绕过本地商品和店铺角色。短时令牌禁止进入数据库、浏览器、任务载荷和日志。应用客户端密钥与签名私钥沿当前服务端秘密管理，声明签名使用已有 JWT 库。配置中分开开发应用和正式应用，缺配置时关闭 capability。禁止在生产继续使用开发应用或测试店凭据。[权限管理](https://shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes)
-- 接收签名的 `app/uninstalled`、`app/scopes_update` 和三项合规事件。当前连接撤销、scope 被移除或失效时，停止新发送及远端回查，清理短时缓存，旧响应不能复活连接。注册事件以原始正文验证 HMAC，校验 topic、应用入口和正文中的店铺身份，使用供应商事件身份去重；Shopify 事件时间用于保守判断代次，身份或前后顺序不明时先暂停凭据使用，重新向官方验证。回调返回前持久化必要事件或已处理结果，供原 owner 幂等重试。重装须重新配对，不能从旧授权自动取得新发送许可。一个已核实的旧提交可在同一企业、同一 Store、同一 Shopify Shop GID 重新授权后只读核实。[Webhook 传递](https://shopify.dev/docs/apps/build/webhooks/delivery-structure) · [隐私履约](https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance)
-- 合规端点为 `customers/data_request`、`customers/redact`、`shop/redact`。首版没有读取买家或订单数据，买家事件仅记录履约必要回执。店铺清除由 Store owner 建立撤销与删除意图，Listing owner 删除其可识别的 Shopify 回执和关联。执行内核的长期记录仅存本地不透明标识、载荷指纹及受控结果类别，Shopify 域名、GID、远端消息正文不得写入通用长期日志和内核证据字符串。跨库清除复用当前持久任务机制，两个 owner 同键确认后才标记已履约。核实备份恢复后的删除重放与 Shopify 的 30 天时限。保留用户原有自有商品及独立商业数据。若现有 schema 无法按合同履约，先在设计复核确认窄清除接线及备份责任。
+- 使用 standalone OAuth authorization code grant 的 online 模式。连接或重新连接须见到 `associated_user.account_owner=true`，且 `associated_user_scope` 与应用当前获准范围均含 `write_products`。用原在线令牌查询 `shop { id myshopifyDomain currencyCode }` 和 `currentAppInstallation { id app { id } accessScopes { handle } }`，核对显式配置的应用身份。只记录店主验证结论及所需范围，不保存员工个人资料或原始响应。Shopify 已安装时的员工访问权限、同店签出的 application-only token 和旧安装的证据均不能用于绑定店铺。[独立应用 OAuth](https://shopify.dev/docs/apps/build/authentication-authorization/authenticate-standalone-apps) · [在线令牌和撤销](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens#online-access-tokens) · [当前安装](https://shopify.dev/docs/api/admin-graphql/2026-10/queries/currentAppInstallation)
+- 安装意图绑定原企业、成员、浏览器会话、StoreID 及目的，最长 10 分钟。Shopify 端先发起且未选店铺时，OAuth 后只允许当前登录用户在有权限的已有 Shopify 店铺记录中显式确认，确认前固定企业、成员和 StoreID。回调仅产生一次性短期证明。Store owner 沿现有密封凭据机制保存配对期间原 online token 的密文，密封关联绑定这次证明、浏览器会话、应用、Shop GID 和 Installation GID。确认时仍用原 online token 向 Shopify 核实同一安装、店铺、scope 和有效性。事务重读当前企业及成员权限，按本地授权代次比较、记录绑定并一次性销毁证明和令牌；失败、撤销、过期及取消均销毁或到期清除。令牌不得出现在浏览器、任务载荷或日志，历史备份恢复亦须先清除过期和已消费的证明。
+- 回调验证 Shopify HMAC、时间窗、一次性 state 与浏览器关联，拒绝重复敏感查询参数。外联主机仅来自已验证的 Shopify `myshopify.com` 标识及配置的固定 Shopify 端点，禁止自动跳转。身份由 Shopify Shop GID 决定，域名用于路由。Store owner 对 `应用 + Shopify Shop GID` 建立全局唯一排他绑定和一个随机本地店铺标识。同企业更换本地记录或重装时仍沿原店铺标识，修改关联须有当前 Shopify 店主及硕米原企业权限并显式确认，不复制旧授权。另一企业争用只返回通用错误，不换绑、不泄露原企业、不撤销原连接。现有店铺额度沿 Store 记录创建路径消费。
+- 只请求 `write_products`，其包括商品读取。产品写入和回查在现有 Store Purpose 授权通过后用 Shopify client assertion 换取 application-only token。令牌限当前有界服务端调用，不能持久化。发放写入句柄前，用这枚令牌核实 Shopify 的 AppInstallation GID、Shop GID、有效范围和当前 store currency，Store 按当前本地连接代次复核；同一令牌执行唯一 mutation，授权错误、卸载或代次变化时不重新签券再发送。回查需当前同一 canonical shop 的有效连接。应用密钥、签名私钥沿当前秘密管理，声明签名使用已有 JWT 库，Dev 和正式应用配置独立。Dev Store 证实重装、旧令牌失效及 installation identity 行为，若不能区分新旧安装，待设计澄清和复核后才开该能力。[权限管理](https://shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes) · [Application-only token](https://shopify.dev/docs/apps/build/authentication-authorization/application-only-access-tokens)
+- 每个本地授权代次固定一个已验证的 Shopify 安装和一次店主确认。卸载、scope 改变和合规事件走独立的 topic 路径，以原始有界正文验证 HMAC，结合应用路由、严格正文类型及店铺身份去重。事件头及供应商时间仅作校验和排查，不能独立用于开通、复活授权或决定不可逆清除。已知撤销在 Store 事务内停止该代次的新句柄并作废相关未消费证明；身份或前后顺序不明时暂停使用并只读向 Shopify 核实。实时核对和同一令牌发送保证迟到事件不能放行新安装。重装要求新的 Shopify 店主授权及硕米确认，旧已知结果只可按原企业和 canonical shop 回查。[Webhook 验证](https://shopify.dev/docs/apps/build/webhooks/verify-deliveries) · [Webhook 传递](https://shopify.dev/docs/apps/build/webhooks/delivery-structure)
+
+## 合规清除与恢复
+
+- `customers/data_request`、`customers/redact`、`shop/redact` 为公开应用必接事件，无效签名返回 401。确认前持久化事件受理结果或清除命令。首版无买家或订单数据，买家事件只存不可关联个人的处置回执。Store Center 持有店铺清除命令及完成状态，Listing 仅处理自己拥有的回执和证据。 [隐私履约](https://shopify.dev/docs/apps/build/compliance/privacy-law-compliance)
+- `shop/redact` 正文只有店铺身份。Store Center 从当前权威授权历史和 Shopify 安装核实固定已撤销的代次，清除命令保存不可变的原应用、内部 shop 标识、原组织、原授权代次集合及受理身份。必须已能证明目标为旧代次，Shopify 仍有效或新建立的当前代次排除在外。代次无法判定时持久保留待核实，由 Store Center 核实原卸载证据或向 Shopify 确认，绝不按当前绑定推断清除范围。Shopify 的 30 天履约时限随受理命令保留及告警。
+- Store 受理事务同时禁止该旧代次新授权、回执展示和发送，原执行结果只接受满足代次 fence 的写入。清除执行以原命令身份重试。Listing 对受影响代次和创建目标加锁，先设拒绝晚到写入的屏障、记录源商品防重复限制，再删除旧目标关联、复制的 Shopify 事实、回执和读取证据，同一事务保存无店铺身份的完成回执。Store 清除命令范围的旧证明和授权材料。共享的域名、Shop GID 和本地店铺标识在新代次仍引用时保留；没有引用时，只在 Listing 完成并核对后才解除排他绑定并清除店铺标识。这个顺序保证并发重装使用已有创建目标或已生效的源商品限制。跨库复用现有 Temporal 运行底座及 Store durable command。提交命令后可按原键补启动，重复执行各 owner 的同键操作。Store 收齐两边确认才记录履约完成。执行权限定到 Shopify 私有列和记录，保留自有商品与独立商业事实。
+- 所有可识别的 Shopify 字段须可按被撤销代次清除，通用长期日志、内核证据字符串和 Temporal 参数只使用本地不透明任务标识符以及受控结果类别。备份责任归相应数据库 owner，恢复时先封闭 Shopify 读取和写入，重放备份时间点之后的清除命令，核对 Store 与 Listing 的完成回执，再恢复访问。清除完成后仅保留重放所需的本地旧代次标识、命令身份和状态，保存到相关备份过期，访问限恢复。不能安全重放的备份不能直接接回运行实例。
 
 ## Shopify 写入、回查及结果
 
@@ -48,7 +54,9 @@
 
 - 允许发送标题、经净化的描述、明确的商品选项与规格、SKU、该店铺货币下用户核对的十进制定价，以及已批准且可由 Shopify 读取的图片。价格币种从真实店铺读取，原价币种不同则要求在核对时输入目标店价，禁止静默换算和用零填补。缺必需标题、价格或规格组合冲突在发送前可修正。图片仅用现有资产 owner 许可给 Shopify 读取的稳定、受控 HTTPS 来源。核对页明确本次随商品发送的图片。先验证 `productSet.files` 直接引用批准素材在 `write_products` 下的实际权限与媒体结果；需要独立文件写入权限时回报证据，相关能力保留未开放。本路径不调用独立的 `fileCreate` 或库存、商品发布接口。 [productSet 字段](https://shopify.dev/docs/api/admin-graphql/2026-10/input-objects/ProductSetInput)
 - request body 沿现有 Listing 契约限制，Shopify 单次限制暂定最多 3 个选项维度、30 个规格、10 张图，数值在 Shopify 候选验证时按有界单商品路径确认。外部请求沿已有有界 transport、上下文和 deadline，由 provider 响应给出成本和限流信息。日志仅保留受控错误类别与询问所需编号，不含凭据、授权码、完整载荷或 Shopify 原始错误。商家看到可行动的字段提示。
-- 上游建立一次稳定提交身份，绑定原企业、原店铺、Shop GID、应用身份、稳定来源 ID、准确商品/目标版本及规范化载荷指纹。持久意图/目标 fence 提交后才能发放 SendPermit。调用前再次检查当前成员、权限、连接代次及目标版本。已批准数据在此次发送期间冻结。跨进程并发或重试通过原 Listing intent 和 fence 收敛，店铺 OAuth 与 Listing 不跨库做假原子事务。
+- 原提交身份绑定企业、店铺、应用、Shop GID、目标版本、币种和规范化载荷指纹。Listing 在发放 SendPermit 的现有事务内同时锁定 Shopify 创建目标，用 `企业 + Store owner 分配的稳定本地 shop 标识 + 不随编辑/重新建 Target 变化的源商品 ID` 做唯一键。该窄索引只指向当前原意图和已有回执，没有第二套提交状态。通用内核仍使用原账户和 Target 关系；Shopify 准入必须先通过此索引，不能因为新的本地 StoreID、Target、商品版本、操作键或重装而绕过。成功、有进行中尝试和结果待核实的目标都不能发新许可。只有原 owner 已持久化确定未创建或未发送证据，且用户重新核对并确认，才可在同槽创建新尝试。
+- 确认时显示真实店铺货币。发送前按同一安装重新核对当前成员、权限、连接代次、版本及币种。若在发放许可之后、实际发送之前发现变化，以持久可验证的未发送证据关闭原尝试，用户更正后重新确认。没有肯定未发送证据时原操作保持待核实。没有跨 Store/Listing DB 的假原子事务，已送到 Shopify 的请求按原提交记录结果。
+- Shopify 不保证重装后的 app-owned metafield 仍在。保有合法旧回执时按原 Product GID 在同店查当前事实；结果待核实只采纳可靠匹配的原标识。店铺数据清除前，Listing 将旧授权代次的尝试归档为不可对外读取，并针对仍归本企业的受影响源商品保留无店铺/应用标识且不可关联回执的本地“历史上传需核实”限制，范围限已有成功、待核实或可能在途的原尝试。清除精确店铺关联后，如果无法以可靠证据判断新目标与旧目标不同，显示需核实并拒绝再次创建。空读、更换店铺记录、重装和清除都不会解除限制。正常未受影响商品及已有可确定的不同目标按现有路径处理。[自定义标识卸载行为](https://shopify.dev/docs/apps/build/metafields/definitions#app-uninstall-and-reinstall)
 
 | 证据 | 持久结果及下一步 |
 | --- | --- |
@@ -62,10 +70,20 @@
 ## 隔离验证、受控试用和准入
 
 - TDD 覆盖当前 Issue 的高风险路径，优先复用既有真实隔离 PostgreSQL 和 provider fixture transport。验证双企业、两个 Store、同一 Shopify 店铺争用、回调重放/取消/过期、授权重试、撤销与晚到结果、有权的原提交回查。许可、shop binding、应用、商品版本和 scope 每一项不匹配均要拒绝。
-- 通过现有 Listing 持久执行测试覆盖双击、跨进程并发、响应丢失、幂等冲突、没有正面回查证据时保持待核实、已存在商品被商家改动时不覆盖。覆盖上传草稿和媒体待处理的反馈。沿既有 Store/BFF/刊登测试检查窄屏、键盘确认、错误反馈、切企业和刷新后的同一结果。
+- 通过现有 Listing 持久执行测试覆盖双击、跨进程并发、响应丢失、跨本地 StoreID 与商品版本的目标冲突、清除与同店重装的并发、没有正面回查证据时保持待核实、已存在商品被商家改动时不覆盖。覆盖上传草稿和媒体待处理的反馈。沿既有 Store/BFF/刊登测试检查窄屏、键盘确认、错误反馈、切企业和刷新后的同一结果。
 - 先用获准 Shopify Dev Store 的生成测试数据及两个测试企业验证授权。同一 Dev Store 可以作为跨企业绑定冲突的测试目标，另一 Dev Store 验证两个企业各用自己的店。核对 Shopify 后台的商品 GID、DRAFT、商品内容、规格/价格/图片、权限及重装。在专用开发店演练未知回查和应用合规事件；真实商家试用另需发布后取得权限。 [Shopify 开发店](https://shopify.dev/docs/apps/build/stores) · [生成测试数据](https://shopify.dev/docs/apps/build/stores/generated-test-data)
 - 公开应用审核另外需要获授权的 Dev Dashboard、提交资格、TLS 回调、隐私政策和演示/测试说明，适用时提供专用测试登录。核对 Dashboard 实际身份验证和应用审核状态，当前 Shopify 对同一组织的新提交有数量与已有应用付费店安装门槛。若 Shopify 判定当前硕米收费涵盖此公开应用，先由产品与应用 owner 确认 Shopify Billing 条款及商业安排。本批没有批准增设收费或更改现有套餐。 [审核提交](https://shopify.dev/docs/apps/launch/app-store-review/submit-app-for-review) · [当前 App Store 要求](https://shopify.dev/docs/apps/launch/shopify-app-store/app-store-requirements)
 
 Legacy decision 为 **EXTRACT**。复用现行 Store 角色、授权和绑定 seam、Listing 确认与执行内核、当前资产白名单及标准 UI，不接入旧租户或旧店铺链。
 
-架构独立评审聚焦租户绑定、短时授权签发与撤销、外部创建/回查、合规清除、对外开放前置。当前未获 `IMPLEMENTATION_READY`。设计之外的生产修改、Dev Store 请求、审核提交、真实客户验收、合并与部署均为 **NOT_RUN**。
+## 独立架构评审
+
+第 1 轮独立检查绑定 `189fbbc6178a23044476d42c78b94fef987eba66`，结论 `NOT_READY`。三个实施级 BLOCKER 已纳入本次文档修订，处置结论待原评审者复核。
+
+| Finding | 受影响的 Must / 阻塞后果 | 本次设计修订 |
+| --- | --- | --- |
+| B1 授权发起人及安装代次 | 企业授权与身份所有权。只读员工或旧授权可能取得本地写入资格。 | 店主及实际范围验证、原 online 证明消费、安装与本地代次 fence、活跃安装二次核对。 |
+| B2 稳定创建目标 | 重复且不可安全恢复的外部商品创建。换记录、重装或清除后可能再次创建。 | 原提交事务中的 Shopify 唯一创建目标、既有结果优先与清除后保守限制。 |
+| B3 迟到的清除 | 不可逆数据丢失及不安全恢复。旧清除可能处理新绑定的结果。 | 不可变撤销代次和 owner 范围、执行和恢复的持久防护、未确认时停止清除。 |
+
+R1 的平台实证、上传结果分支和合规履约用例归为 `IMPLEMENTATION_TEST`。设计范围以外的生产修改、Dev Store 请求、审核提交、真实客户验收、合并与部署均为 **NOT_RUN**。
