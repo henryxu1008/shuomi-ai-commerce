@@ -61,12 +61,16 @@ export function amazonListingResponse(route: string) {
 
 export function matchesAmazonListingResponse(route: string, value: unknown, raw: string) {
   try {
-    const input = amazonListingRequest(route).parse(JSON.parse(raw));
+    const request: unknown = JSON.parse(raw);
+    if (route === "amazon-review") {
+      const input = amazonReviewInputSchema.parse(request);
+      const output = amazonReviewSchema.parse(value);
+      return output.sourceId === input.sourceId && output.storeId === input.storeId &&
+        output.revision === input.expectedRevision + 1 && JSON.stringify(output.details) === JSON.stringify(input.details);
+    }
+    const input = amazonListingRequest(route).parse(request);
     const output = amazonListingResponse(route).parse(value);
     if ("recordId" in input) return output.recordId === input.recordId;
-    if ("expectedRevision" in input &&
-        (!("details" in output) || output.revision !== input.expectedRevision + 1 ||
-          JSON.stringify(output.details) !== JSON.stringify(input.details))) return false;
     return output.sourceId === input.sourceId && output.storeId === input.storeId;
   } catch {
     return false;
