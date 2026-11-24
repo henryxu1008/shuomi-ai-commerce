@@ -93,7 +93,7 @@ func TestShopifyPairingRouteUsesCurrentStoreAdmission(t *testing.T) {
 			d.OrganizationAccessPolicy = httproute.OrganizationAccessPolicyCachedRead
 		},
 		func(d *httproute.Descriptor) { d.RequestTimeout = 0 },
-		func(d *httproute.Descriptor) { d.RejectUnreadRequestBody = false },
+		func(d *httproute.Descriptor) { d.RejectUnreadRequestBody = true },
 		func(d *httproute.Descriptor) { d.Handler = nil },
 	} {
 		changed := append([]httproute.Descriptor(nil), all...)

@@ -214,7 +214,7 @@ func validateCurrentStoreDescriptor(d httproute.Descriptor) error {
 		if d.Module == storehttp.ModuleName && d.Method == http.MethodPost &&
 			d.AuthPolicy == httproute.AuthPolicyCurrentIdentity && d.OrganizationAccessPolicy == httproute.OrganizationAccessPolicyLiveWrite &&
 			d.Permission == authz.PermissionWorkbenchStoreUpdate && d.OrganizationTargetResolver == nil &&
-			d.RequestTimeout == storehttp.ShopifyPairingTimeout && d.RejectUnreadRequestBody && d.Handler != nil {
+			d.RequestTimeout == storehttp.ShopifyPairingTimeout && !d.RejectUnreadRequestBody && d.Handler != nil {
 			return nil
 		}
 		return errors.New("Shopify Store pairing route loses live write authority or request bounds")
