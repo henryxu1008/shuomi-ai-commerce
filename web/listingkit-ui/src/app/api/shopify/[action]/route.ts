@@ -17,7 +17,7 @@ const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,199}$/);
 const nonce = z.string().regex(/^[a-zA-Z0-9_-]{43}$/);
 const pairing = z.strictObject({
   store: z.uuid(), attempt: z.uuid(), organization: identifier, actor: identifier,
-  browser: nonce, state: nonce, domain: domain.optional(),
+  browser: nonce, state: nonce, domain: domain.optional(), launched: z.boolean().optional(),
 });
 type Pairing = z.infer<typeof pairing>;
 const installProof = z.strictObject({
@@ -128,6 +128,11 @@ async function shopifyStarted(request: NextRequest, action: "launch" | "callback
       { attempt: proof.attempt, browser: proof.browser });
   }
   const error = z.object({ code: z.string() }).safeParse(result);
+  if (action === "callback" && response.status === 409 && error.success && error.data.code === "SHOPIFY_INSTALL_CHECKING") {
+    return new NextResponse("正在核对 Shopify 授权。请稍后刷新此页。", {
+      status: 409, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" },
+    });
+  }
   const reason = error.success && error.data.code === "SHOPIFY_OWNER_REQUIRED" ? "owner" : "restart";
   return saveInstallProof(redirect("/workbench/stores?shopify=" + reason), null);
 }
@@ -137,10 +142,13 @@ const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown 
   const actor = identifier.safeParse(readZitadelIdentityFromSession(request.auth as never)?.userId);
   const organizations = request.cookies.getAll(WORKBENCH_COOKIE_NAME);
   const organization = organizations.length === 1 ? organizations[0]?.value : undefined;
+  const action = request.nextUrl.pathname.split("/").pop();
   if (!token || !actor.success || !organization || !identifier.safeParse(organization).success) {
+    if (action === "launch" || action === "callback") {
+      return savePairing(redirect("/workbench/stores?shopify=restart"), null);
+    }
     return json({ code: "AUTHENTICATION_REQUIRED" }, 401);
   }
-  const action = request.nextUrl.pathname.split("/").pop();
   const mutation = action === "begin" || action === "confirm" || action === "confirm-install";
   if (request.method !== (mutation ? "POST" : "GET")) return json({ code: "INVALID_REQUEST" }, 405);
   if (mutation && (!hasTrustedSameOriginWrite(request) || request.headers.get("X-Expected-Organization-ID") !== organization ||
@@ -159,7 +167,7 @@ const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown 
     return savePairing(json({ authorizationUrl: url }), flow);
   }
   const startedInstall = readInstallProof(request);
-  if (startedInstall && !startedInstall.state && action === "pending") {
+  if (startedInstall && !startedInstall.state && action === "pending" && request.nextUrl.searchParams.get("flow") !== "selected") {
     const store = z.uuid().safeParse(request.nextUrl.searchParams.get("store"));
     if (!store.success) return json({});
     const reply = await dispatch(token, { organization, store: store.data, attempt: startedInstall.attempt },
@@ -184,7 +192,7 @@ const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown 
   const flow = readPairing(request);
   if (!flow || flow.actor !== actor.data || flow.organization !== organization) {
     return action === "launch" || action === "callback"
-      ? redirect("/workbench/stores?shopify=restart") : json({ code: "SHOPIFY_RESTART_REQUIRED" }, 409);
+      ? savePairing(redirect("/workbench/stores?shopify=restart"), null) : json({ code: "SHOPIFY_RESTART_REQUIRED" }, 409);
   }
   const returning = `/workbench/stores/${flow.store}`;
   if (action === "pending") {
@@ -199,6 +207,8 @@ const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown 
     return savePairing(json(result.data), null);
   }
   if (action !== "launch" && action !== "callback") return json({ code: "INVALID_REQUEST" }, 404);
+  const selectedStore = returning + "?shopify=selected#authorization";
+  if (action === "callback" && flow.domain) return redirect(selectedStore);
   const query = request.nextUrl.search.slice(1);
   if (!query || query.length > 8192) return redirect(`${returning}?shopify=restart#authorization`);
   const output = await dispatch(token, flow, {
@@ -207,10 +217,10 @@ const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown 
   if (action === "launch") {
     const result = nextReply.safeParse(output?.body);
     const url = result.success ? shopifyURL(result.data.authorizationUrl, "authorize") : null;
-    return output?.response.ok && url ? redirect(url) : redirect(`${returning}?shopify=restart#authorization`);
+    return output?.response.ok && url ? savePairing(redirect(url), { ...flow, launched: true }) : savePairing(redirect(`${returning}?shopify=restart#authorization`), null);
   }
   const staged = shopReply.safeParse(output?.body);
-  if (output?.response.ok && staged.success) return savePairing(redirect(`${returning}#authorization`), { ...flow, domain: staged.data.domain });
+  if (output?.response.ok && staged.success) return savePairing(redirect(selectedStore), { ...flow, domain: staged.data.domain });
   const error = z.object({ code: z.string() }).safeParse(output?.body);
   const status = error.success && error.data.code === "SHOPIFY_OWNER_REQUIRED" ? "owner" : "restart";
   return savePairing(redirect(`${returning}?shopify=${status}#authorization`), null);
@@ -219,8 +229,24 @@ const authenticated = serverAuth(async (request: NextRequest & { auth?: unknown 
 async function handle(request: NextRequest) {
   try {
     const action = request.nextUrl.pathname.split("/").pop();
-    if (request.method === "GET" && (action === "launch" || action === "callback") && !request.cookies.has(cookie)) {
-      return await shopifyStarted(request, action);
+    if (request.method === "GET" && action === "launch") {
+      const selected = readPairing(request);
+      if (selected?.launched || selected?.domain || !request.cookies.has(cookie)) {
+        return await shopifyStarted(request, action);
+      }
+    }
+    if (request.method === "GET" && action === "callback") {
+      // The query only selects a browser flow. Each backend still verifies the
+      // original Shopify HMAC and atomically claims its own stored state.
+      const states = request.nextUrl.searchParams.getAll("state");
+      const state = states.length === 1 ? states[0] : null;
+      if (!state) return redirect("/workbench/stores?shopify=restart");
+      const selected = readPairing(request);
+      const fromShopify = readInstallProof(request);
+      const selectedMatch = state === selected?.state;
+      const shopifyMatch = state === fromShopify?.state;
+      if (selectedMatch === shopifyMatch) return redirect("/workbench/stores?shopify=restart");
+      if (shopifyMatch) return await shopifyStarted(request, action);
     }
     return (await authenticated(request, { params: Promise.resolve({}) })) ?? json({ code: "AUTHENTICATION_REQUIRED" }, 401);
   } catch {

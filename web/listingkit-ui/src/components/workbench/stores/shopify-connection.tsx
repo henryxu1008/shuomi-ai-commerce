@@ -21,11 +21,14 @@ export function ShopifyConnection({store, scope, canWrite, onChanged}: {
 }) {
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  const issue = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("shopify");
   const pending = useQuery({
     enabled: canWrite,
-    queryKey: ["shopify-pairing", scope.expectedUserId, scope.expectedOrganizationId, store.id],
+    queryKey: ["shopify-pairing", scope.expectedUserId, scope.expectedOrganizationId, store.id, issue === "selected"],
     queryFn: async ({signal}) => {
-      const response = await fetch(`/api/shopify/pending?store=${store.id}`, {signal, cache: "no-store"});
+      const query = new URLSearchParams({ store: store.id });
+      if (issue === "selected") query.set("flow", "selected");
+      const response = await fetch("/api/shopify/pending?" + query, {signal, cache: "no-store"});
       if (!response.ok) return null;
       const result = pendingInstall.safeParse(await response.json());
       return result.success ? result.data : null;
@@ -33,7 +36,6 @@ export function ShopifyConnection({store, scope, canWrite, onChanged}: {
     retry: false,
     gcTime: 0,
   });
-  const issue = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("shopify");
   async function run() {
     if (working) return;
     const selection = pending.data;

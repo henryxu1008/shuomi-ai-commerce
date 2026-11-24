@@ -41,6 +41,7 @@ it("starts Shopify OAuth before local sign-in and confirms through the existing 
   vi.stubEnv("LISTINGKIT_PUBLIC_BASE_URL", workbench);
   const fetcher = vi.fn<typeof fetch>()
     .mockResolvedValueOnce(Response.json({ authorizationUrl: "https://" + shop + "/admin/oauth/authorize?state=fixture" }))
+    .mockResolvedValueOnce(Response.json({ code: "SHOPIFY_INSTALL_CHECKING" }, { status: 409 }))
     .mockResolvedValueOnce(Response.json({ domain: shop }))
     .mockResolvedValueOnce(Response.json({ domain: shop, storeVersion: 4, confirmed: false }))
     .mockResolvedValueOnce(Response.json({ domain: shop }));
@@ -56,8 +57,19 @@ it("starts Shopify OAuth before local sign-in and confirms through the existing 
   const initial = JSON.parse(Buffer.from(launchCookie.value, "base64url").toString("utf8"));
   expect(initial).toEqual({ attempt: expect.any(String), browser: expect.any(String), state: expect.any(String) });
 
-  const callback = await GET(request("callback?shop=" + shop + "&code=fixture-code&hmac=callback",
-    { headers: { cookie: cookieName + "=" + launchCookie.value } }));
+  const selectedCookie = "__Host-shuomi-shopify-pairing=" + Buffer.from(JSON.stringify({
+    store, attempt: store, actor: "actor-a", organization: "org-a", browser: "x".repeat(43), state: "y".repeat(43),
+  })).toString("base64url");
+  const bothCookies = cookieName + "=" + launchCookie.value + "; " + selectedCookie;
+  const unrelated = await GET(request("callback?shop=" + shop + "&state=other&code=fixture-code", { headers: { cookie: bothCookies } }));
+  expect(unrelated.headers.get("set-cookie")).toBeNull();
+  expect(fetcher).toHaveBeenCalledOnce();
+  const callbackQuery = "callback?shop=" + shop + "&code=fixture-code&hmac=callback&state=" + initial.state;
+  const checking = await GET(request(callbackQuery, { headers: { cookie: bothCookies } }));
+  expect(checking.status).toBe(409);
+  expect(checking.headers.get("set-cookie")).toBeNull();
+  expect(await checking.text()).toContain("请稍后刷新此页");
+  const callback = await GET(request(callbackQuery, { headers: { cookie: bothCookies } }));
   expect(callback.status).toBe(303);
   expect(callback.headers.get("location")).toBe("/workbench/stores?platform=shopify&shopify=pair");
   expect(auth.run).not.toHaveBeenCalled();
@@ -66,6 +78,7 @@ it("starts Shopify OAuth before local sign-in and confirms through the existing 
   }
   if (!(callback instanceof NextResponse)) throw new Error("Expected secure callback cookie");
   const cookie = callback.cookies.get(cookieName)!.value;
+  expect(callback.cookies.get("__Host-shuomi-shopify-pairing")).toBeUndefined();
   expect(JSON.parse(Buffer.from(cookie, "base64url").toString("utf8")))
     .toEqual({ attempt: initial.attempt, browser: initial.browser });
 
@@ -78,14 +91,14 @@ it("starts Shopify OAuth before local sign-in and confirms through the existing 
   const stale = await POST(request("confirm-install", { method: "POST", headers,
     body: JSON.stringify({ store, version: 4, attempt: store }) }));
   expect(stale.status).toBe(409);
-  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(fetcher).toHaveBeenCalledTimes(4);
 
   const confirmed = await POST(request("confirm-install", { method: "POST", headers,
     body: JSON.stringify({ store, version: 4, attempt: initial.attempt }) }));
   expect(confirmed.status).toBe(200);
   if (!(confirmed instanceof NextResponse)) throw new Error("Expected cleared install cookie");
   expect(confirmed.cookies.get(cookieName)?.maxAge).toBe(0);
-  const [url, init] = fetcher.mock.calls[3]!;
+  const [url, init] = fetcher.mock.calls[4]!;
   expect(String(url)).toBe("http://current-application:8080/api/v1/workbench/stores/" + store + "/shopify-pairing");
   expect(new Headers(init?.headers).get("if-match")).toBe('"4"');
   expect(new Headers(init?.headers).get("x-requested-organization-id")).toBe("org-a");
@@ -98,7 +111,9 @@ it("does not convert a failed preselected pairing into a Shopify-first authoriza
   vi.stubGlobal("fetch", fetcher);
   const withLegacyCookie = await GET(request("launch?shop=" + shop + "&hmac=launch",
     { headers: { cookie: "__Host-shuomi-shopify-pairing=invalid" } }));
-  expect(withLegacyCookie.status).toBe(401);
+  expect(withLegacyCookie.status).toBe(303);
+  expect(withLegacyCookie.headers.get("location")).toBe("/workbench/stores?shopify=restart");
+  expect(withLegacyCookie.headers.get("set-cookie")).toContain("__Host-shuomi-shopify-pairing=;");
   expect(auth.run).toHaveBeenCalledOnce();
   expect(fetcher).not.toHaveBeenCalled();
 });

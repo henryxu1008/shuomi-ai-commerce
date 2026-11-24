@@ -73,6 +73,10 @@ func (h *Handler) shopifyStartedInstallationRoute() *httproute.Descriptor {
 }
 
 func writeShopifyInstallationError(c *gin.Context, err error) {
+	if errors.Is(err, storecenter.ErrShopifyInstallChecking) {
+		c.JSON(http.StatusConflict, gin.H{"code": "SHOPIFY_INSTALL_CHECKING"})
+		return
+	}
 	if errors.Is(err, storecenter.ErrShopifyOwnerRequired) {
 		c.JSON(http.StatusForbidden, gin.H{"code": "SHOPIFY_OWNER_REQUIRED"})
 		return

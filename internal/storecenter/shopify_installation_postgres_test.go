@@ -50,7 +50,7 @@ func TestShopifyStartedInstallationConsumesOnlyTheConfirmedStore(t *testing.T) {
 		proof, err := repo.ClaimShopifyInstall(ctx, attempt, identity.AppID, identity.Domain, session, state, codeDigest, now)
 		require.NoError(t, err)
 		_, err = repo.ClaimShopifyInstall(ctx, attempt, identity.AppID, identity.Domain, session, state, codeDigest, now)
-		require.ErrorIs(t, err, storecenter.ErrVersionConflict)
+		require.ErrorIs(t, err, storecenter.ErrShopifyInstallChecking)
 		generation, err := repo.ShopifyInstallGeneration(ctx, identity)
 		require.NoError(t, err)
 		proof, err = repo.StageShopifyInstall(ctx, proof, identity, generation, "fixture-key", "fixture-ciphertext", now)

@@ -30,9 +30,9 @@ function ScopedStoreList({scope}:{scope:StoreCenterScope}){
  for(const key of ["page","pageSize","q","platform","region","applicationType","groupId","attention","status"]){const value=params?.getAll(key).length===1?params.get(key):null;if(params && params.getAll(key).length>1)raw.invalid=true;if(value!==null)raw[key]=key==="page" || key==="pageSize"?Number(value):value}
  const deleted=params?.getAll("notice").length===1&&params.get("notice")==="store-deleted";
  const shopify=params?.getAll("shopify").length===1 ? params.get("shopify") : null;
- const shopifyNotice=shopify==="pair" ? "Shopify 店主已授权。请打开要关联的 Shopify 店铺记录，然后在授权信息中确认连接。"
+ const shopifyNotice=shopify==="pair" ? "请选择要关联的 Shopify 店铺记录，在授权信息中核对 Shopify 店铺并确认连接。"
   : shopify==="owner" ? "请让具备商品管理权限的 Shopify 店主重新授权。"
-  : shopify==="restart" ? "这次 Shopify 授权未完成，请从店铺授权入口重新开始。" : null;
+  : shopify==="restart" ? "这次 Shopify 授权未完成，请回到 Shopify 重新打开应用，或在店铺授权信息中重新连接。" : null;
  if(params)for(const key of params.keys()){if(!(key==="notice"&&deleted)&&!(key==="shopify"&&shopifyNotice)&&!["page","pageSize","q","platform","region","applicationType","groupId","attention","status"].includes(key))raw.invalid=true;}
  const parsed=catalogFiltersSchema.safeParse(raw),filters:CatalogFilters=parsed.success?parsed.data:{page:1,pageSize:20};
  const query=useStoreCatalog(filters,parsed.success),data=parsed.success&&!query.isError&&!query.isPending?query.data:undefined,filterIdentity=catalogSearch(filters);

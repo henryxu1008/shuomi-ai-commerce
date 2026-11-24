@@ -11,6 +11,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+var ErrShopifyInstallChecking = errors.New("Shopify installation proof is still being checked")
+
 // ShopifyInstallProof belongs to Store Center. Until a person selects a Store,
 // it is a browser-bound owner proof without authority in any organization.
 type ShopifyInstallProof struct {
@@ -118,6 +120,9 @@ func (r *MemberScopedStoreRepository) ClaimShopifyInstall(ctx context.Context, a
 			// Replaying a completed callback only recovers its display domain.
 			found = ShopifyInstallProof{State: proof.State, ShopifyInstallation: ShopifyInstallation{Domain: proof.Domain}}
 			return nil
+		}
+		if proof.State == "exchanging" && subtle.ConstantTimeCompare([]byte(proof.CodeDigest), []byte(codeDigest)) == 1 {
+			return ErrShopifyInstallChecking
 		}
 		if proof.State != "created" {
 			return ErrVersionConflict
